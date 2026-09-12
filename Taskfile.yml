@@ -1,0 +1,31 @@
+version: '3'
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+vars:
+  APP_NAME: dokking
+  BIN_DIR: bin
+
+tasks:
+  build:
+    cmds:
+      - task: '{{OS}}:build'
+  package:
+    cmds:
+      - task: '{{OS}}:package'
+  run:
+    cmds:
+      - task: '{{OS}}:run'
+  test:
+    # The main package needs the platform WebView toolchain; the app's own logic
+    # lives under internal/ and is tested without it.
+    cmds:
+      - go test ./internal/...
+      - node --test tests/*.test.js
+  frontend:
+    cmds:
+      - node frontend/build.mjs

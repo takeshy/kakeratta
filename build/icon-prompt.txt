@@ -1,0 +1,7 @@
+The icon is generated, not drawn: run `python3 build/make-icons.py` from the
+repository root to rebuild build/appicon.png, build/windows/icon.ico and the
+MSIX logos from the same shape.
+
+Mark: an open book - two cream pages with a darker spine and three ruled lines -
+centred on a rounded square tile in the app's warm brown. No text, no shadow.
+Readable down to 16 pixels, which is why there is one shape and nothing else.

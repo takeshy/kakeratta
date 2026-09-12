@@ -1,0 +1,7 @@
+/bin/
+/frontend/dist/*
+!/frontend/dist/.gitkeep
+node_modules/
+*.syso
+.task/
+/build/windows/msix/store.json
