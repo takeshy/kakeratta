@@ -1,6 +1,6 @@
 {
-  "name": "キャプチャタイムライン",
-  "short_name": "キャプチャ",
+  "name": "kakeratta",
+  "short_name": "kakeratta",
   "description": "気になった瞬間を撮って流すと、担当分野ごとに記憶を育てたAIが必要なときだけ反応する",
   "start_url": "/",
   "scope": "/",

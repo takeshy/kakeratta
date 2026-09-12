@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 var errNoQuery = errors.New("検索語がありません")
 
 // The public OpenStreetMap services ask that a client identify itself.
-const userAgent = "dokking/capture-timeline (https://github.com/takeshy/dokking)"
+const userAgent = "kakeratta/capture-timeline (https://github.com/takeshy/kakeratta)"
 
 var httpClient = &http.Client{Timeout: 25 * time.Second}
 

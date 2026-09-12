@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/takeshy/dokking/internal/llm"
-	"github.com/takeshy/dokking/internal/persona"
-	"github.com/takeshy/dokking/internal/speech"
-	"github.com/takeshy/dokking/internal/store"
-	"github.com/takeshy/dokking/internal/tools"
+	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/speech"
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/tools"
 )
 
 // Options is everything the server is handed.

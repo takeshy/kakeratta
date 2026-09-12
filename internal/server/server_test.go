@@ -9,9 +9,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/takeshy/dokking/internal/persona"
-	"github.com/takeshy/dokking/internal/store"
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 func app(t *testing.T, token string) (*Server, *store.Store) {

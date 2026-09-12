@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/takeshy/dokking/internal/store"
+	"github.com/takeshy/kakeratta/internal/store"
 )
 
 const liveSpeechEvent = "speech:live"

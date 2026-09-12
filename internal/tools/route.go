@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 var routeTo = Tool{

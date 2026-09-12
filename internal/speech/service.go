@@ -12,7 +12,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/takeshy/dokking/internal/store"
+	"github.com/takeshy/kakeratta/internal/store"
 )
 
 // The endpoint and provider identifiers shared with the frontend.

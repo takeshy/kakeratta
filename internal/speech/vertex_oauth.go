@@ -120,7 +120,7 @@ func (v *Service) ConnectVertexOAuth(clientID, clientSecret, projectID string) (
 		}
 		callback <- callbackResult{code: request.URL.Query().Get("code"), err: request.URL.Query().Get("error")}
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = io.WriteString(response, "<!doctype html><meta charset=utf-8><title>dokking</title><p>Google authorization completed. You can close this window and return to dokking.</p>")
+		_, _ = io.WriteString(response, "<!doctype html><meta charset=utf-8><title>kakeratta</title><p>Google authorization completed. You can close this window and return to kakeratta.</p>")
 	})
 	go func() { _ = server.Serve(listener) }()
 	if err := v.openURL(googleOAuthAuthorizationURL + "?" + values.Encode()); err != nil {

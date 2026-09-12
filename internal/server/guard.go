@@ -13,7 +13,7 @@ type multipartHeader = multipart.FileHeader
 // cookieName is how the page keeps the token after presenting it once, so the
 // share target - which posts without a chance to set a header - is already
 // authorised when it arrives.
-const cookieName = "dokking"
+const cookieName = "kakeratta"
 
 // guard checks the token.
 //

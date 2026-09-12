@@ -1,4 +1,4 @@
-// Command dokking is the relay.
+// Command kakeratta is the relay.
 //
 // The client is a page in a browser, and a browser cannot hold the keys: the
 // inference credentials, the search credentials and the reaction loop all live
@@ -22,9 +22,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/takeshy/dokking/internal/persona"
-	"github.com/takeshy/dokking/internal/server"
-	"github.com/takeshy/dokking/internal/store"
+	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/server"
+	"github.com/takeshy/kakeratta/internal/store"
 )
 
 //go:embed all:frontend/dist
@@ -34,7 +34,7 @@ var assets embed.FS
 var version = "dev"
 
 func main() {
-	root := os.Getenv("DOKKING_HOME")
+	root := os.Getenv("KAKERATTA_HOME")
 	if root == "" {
 		root = store.DefaultRoot()
 	}
@@ -57,10 +57,10 @@ func main() {
 		// A token is how the iOS shortcut and anything else outside the browser
 		// identifies itself. Left empty, the app is open - which is right on a
 		// laptop and wrong the moment it is deployed, so the log says so.
-		Token: strings.TrimSpace(os.Getenv("DOKKING_TOKEN")),
+		Token: strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
 	})
 
-	address := os.Getenv("DOKKING_ADDR")
+	address := os.Getenv("KAKERATTA_ADDR")
 	if address == "" {
 		address = ":8787"
 	}
@@ -73,9 +73,9 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		log.Printf("dokking %s — %s  （保存先 %s）", version, address, root)
-		if os.Getenv("DOKKING_TOKEN") == "" {
-			log.Print("DOKKING_TOKEN が未設定です。手元だけで動かしてください。")
+		log.Printf("kakeratta %s — %s  （保存先 %s）", version, address, root)
+		if os.Getenv("KAKERATTA_TOKEN") == "" {
+			log.Print("KAKERATTA_TOKEN が未設定です。手元だけで動かしてください。")
 		}
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)

@@ -1,4 +1,6 @@
-# キャプチャタイムライン
+# kakeratta
+
+**か・け・らった。** 気になった画面を撮って放り込む動作の名前です。
 
 **気になった瞬間を撮って流すと、担当分野ごとに別々の記憶を育てたAIが、必要なときだけ反応する。**
 
@@ -15,16 +17,16 @@ Go の単一バイナリに画面を埋め込んであります。ネイティ�
 ## 動かす
 
 ```sh
-task build      # ビルド（bin/dokking）
+task build      # ビルド（bin/kakeratta）
 task run        # 起動（http://127.0.0.1:8787）
 task test       # go test ./internal/... と node --test tests/
 ```
 
 | 環境変数 | 既定 | |
 | --- | --- | --- |
-| `DOKKING_ADDR` | `:8787` | 待ち受け |
-| `DOKKING_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
-| `DOKKING_TOKEN` | 空 | 空だと誰でも入れます。**外から届く場所に置くときは必ず設定してください**（推論の鍵を持っているのはこのプロセスです） |
+| `KAKERATTA_ADDR` | `:8787` | 待ち受け |
+| `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
+| `KAKERATTA_TOKEN` | 空 | 空だと誰でも入れます。**外から届く場所に置くときは必ず設定してください**（推論の鍵を持っているのはこのプロセスです） |
 
 ## 入り口
 
@@ -54,7 +56,7 @@ Web Share Target が使えないため、ショートカットで代替します
 2. 「URLの内容を取得」— メソッド `POST`、本文は `フォーム`
    - `image` … ショートカットの入力
    - `text` … （任意）その場で書くなら「入力を要求」の結果
-   - ヘッダ `Authorization: Bearer <DOKKING_TOKEN>`
+   - ヘッダ `Authorization: Bearer <KAKERATTA_TOKEN>`
 
 読書中は無言で投げて、あとからまとめて一言を足す使い方もできます。
 

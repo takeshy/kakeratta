@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/takeshy/dokking/internal/capture"
-	"github.com/takeshy/dokking/internal/persona"
-	"github.com/takeshy/dokking/internal/speech"
-	"github.com/takeshy/dokking/internal/store"
-	"github.com/takeshy/dokking/internal/timeline"
-	"github.com/takeshy/dokking/internal/tools"
-	"github.com/takeshy/dokking/internal/websearch"
+	"github.com/takeshy/kakeratta/internal/capture"
+	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/speech"
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/tools"
+	"github.com/takeshy/kakeratta/internal/websearch"
 )
 
 var errHTTPOnly = errors.New("この形態では使えません")

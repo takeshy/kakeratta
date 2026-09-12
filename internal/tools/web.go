@@ -3,8 +3,8 @@ package tools
 import (
 	"context"
 
-	"github.com/takeshy/dokking/internal/timeline"
-	"github.com/takeshy/dokking/internal/websearch"
+	"github.com/takeshy/kakeratta/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/websearch"
 )
 
 var webSearch = Tool{

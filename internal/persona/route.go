@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/takeshy/dokking/internal/llm"
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // Routing is what the app decides, and the only thing it decides about a post.

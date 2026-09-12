@@ -4,7 +4,7 @@ version: '3'
 # running it on a laptop and deploying it to a server are the same thing.
 
 vars:
-  APP_NAME: dokking
+  APP_NAME: kakeratta
   BIN_DIR: bin
 
 tasks:
@@ -14,7 +14,7 @@ tasks:
       - node frontend/build.mjs
 
   build:
-    desc: ビルド（bin/dokking）
+    desc: ビルド（bin/kakeratta）
     deps: [frontend]
     cmds:
       - go build -ldflags "-X main.version={{.VERSION | default "dev"}}" -o {{.BIN_DIR}}/{{.APP_NAME}} .

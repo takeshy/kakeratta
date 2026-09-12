@@ -1,4 +1,4 @@
-module github.com/takeshy/dokking
+module github.com/takeshy/kakeratta
 
 go 1.25.0
 

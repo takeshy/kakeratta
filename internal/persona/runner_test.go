@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/takeshy/dokking/internal/llm"
-	"github.com/takeshy/dokking/internal/store"
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // fake stands in for the inference endpoint. It records every prompt, which is

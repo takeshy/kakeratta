@@ -7,7 +7,7 @@
 //
 // It deliberately does not cache the app. The timeline is the point, and a
 // stale one is worse than waiting a moment for the real one.
-const VERSION = "dokking-1";
+const VERSION = "kakeratta-1";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());

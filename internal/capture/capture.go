@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/takeshy/dokking/internal/llm"
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 const readPrompt = `画面のキャプチャや写真を読み取ります。次のJSONだけを返してください。

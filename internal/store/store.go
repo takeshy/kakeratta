@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // Store is the on-disk workspace.
@@ -49,14 +49,14 @@ func Open(root string) (*Store, error) {
 
 // DefaultRoot is where the workspace lives when none is given.
 func DefaultRoot() string {
-	if dir := os.Getenv("DOKKING_HOME"); dir != "" {
+	if dir := os.Getenv("KAKERATTA_HOME"); dir != "" {
 		return dir
 	}
 	if dir, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(dir, "dokking")
+		return filepath.Join(dir, "kakeratta")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".dokking")
+	return filepath.Join(home, ".kakeratta")
 }
 
 func (s *Store) Root() string { return s.root }

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 func open(t *testing.T) *Store {

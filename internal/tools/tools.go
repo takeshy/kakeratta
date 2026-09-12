@@ -14,8 +14,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/takeshy/dokking/internal/store"
-	"github.com/takeshy/dokking/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // Result is what a tool hands back: text for the prompt, and the links behind

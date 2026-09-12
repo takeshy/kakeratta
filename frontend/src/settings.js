@@ -243,11 +243,11 @@ export function createSettings({ speaker, onSettings }) {
     if (!about) return;
     view.append(
       el("h3", { text: "この端末" }),
-      el("p", { class: "hint", text: `dokking ${about.version}` }),
+      el("p", { class: "hint", text: `kakeratta ${about.version}` }),
       el("p", { class: "hint", text: `保存先 ${about.workspace}` }),
       about.needsToken ? null : el("p", {
         class: "hint warn",
-        text: "トークンが未設定です。外から届く場所に置くときは DOKKING_TOKEN を設定してください。",
+        text: "トークンが未設定です。外から届く場所に置くときは KAKERATTA_TOKEN を設定してください。",
       }),
     );
   }

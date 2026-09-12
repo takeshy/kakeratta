@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/takeshy/dokking/internal/capture"
-	"github.com/takeshy/dokking/internal/llm"
-	"github.com/takeshy/dokking/internal/store"
-	"github.com/takeshy/dokking/internal/timeline"
-	"github.com/takeshy/dokking/internal/tools"
+	"github.com/takeshy/kakeratta/internal/capture"
+	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/tools"
 )
 
 // okfSkill is how a persona is told to write its notes: as an Open Knowledge

@@ -134,7 +134,7 @@ api.on((name, data) => {
 
 clear(root).append(
   el("header", { class: "topbar" },
-    el("span", { class: "brand", text: "キャプチャタイムライン" }),
+    el("span", { class: "brand", text: "kakeratta" }),
     el("span", { class: "spacer" })),
   compose.element,
   bar,

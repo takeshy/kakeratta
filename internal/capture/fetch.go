@@ -40,7 +40,7 @@ func Fetch(ctx context.Context, target string) (Fetched, error) {
 	if err != nil {
 		return Fetched{}, err
 	}
-	request.Header.Set("User-Agent", "dokking/capture-timeline")
+	request.Header.Set("User-Agent", "kakeratta/capture-timeline")
 	request.Header.Set("Accept", "text/html,application/xhtml+xml")
 	client := &http.Client{
 		Timeout: 20 * time.Second,
