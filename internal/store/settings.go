@@ -164,7 +164,9 @@ func EndpointFor(provider Provider, framework LocalFramework) string {
 	}
 }
 
-func (s *Store) Settings() Settings {
+// ConfiguredSettings preserves empty model fields so editing another setting
+// does not turn a model fallback into a permanent model selection.
+func (s *Store) ConfiguredSettings() Settings {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	settings := defaultSettings()
@@ -178,6 +180,11 @@ func (s *Store) Settings() Settings {
 	if strings.TrimSpace(settings.BaseURL) == "" {
 		settings.BaseURL = EndpointFor(settings.Provider, settings.LocalFramework)
 	}
+	return settings
+}
+
+func (s *Store) Settings() Settings {
+	settings := s.ConfiguredSettings()
 	if strings.TrimSpace(settings.MiddleModel) == "" {
 		settings.MiddleModel = settings.LowModel
 	}

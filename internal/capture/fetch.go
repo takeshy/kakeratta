@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
 	"unicode"
 )
@@ -43,7 +44,8 @@ func Fetch(ctx context.Context, target string) (Fetched, error) {
 	request.Header.Set("User-Agent", "kakeratta")
 	request.Header.Set("Accept", "text/html,application/xhtml+xml")
 	client := &http.Client{
-		Timeout: 20 * time.Second,
+		Timeout:   20 * time.Second,
+		Transport: publicTransport(),
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
 				return errors.New("リダイレクトが多すぎます")
@@ -54,6 +56,7 @@ func Fetch(ctx context.Context, target string) (Fetched, error) {
 			return nil
 		},
 	}
+	defer client.CloseIdleConnections()
 	response, err := client.Do(request)
 	if err != nil {
 		return Fetched{}, err
@@ -67,7 +70,27 @@ func Fetch(ctx context.Context, target string) (Fetched, error) {
 		return Fetched{}, err
 	}
 	html := string(raw)
-	return Fetched{Title: title(html), Text: text(html), URL: parsed.String()}, nil
+	return Fetched{Title: title(html), Text: text(html), URL: response.Request.URL.String()}, nil
+}
+
+// Check the actual destination after DNS resolution, including redirects.
+// A hostname check alone can be bypassed if its DNS answer changes.
+func publicTransport() *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	dialer := &net.Dialer{Timeout: 20 * time.Second, Control: func(_, address string, _ syscall.RawConn) error {
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return err
+		}
+		ip := net.ParseIP(host)
+		if ip == nil || !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+			return errors.New("そのURLは取得できません")
+		}
+		return nil
+	}}
+	transport.DialContext = dialer.DialContext
+	return transport
 }
 
 func private(host string) bool {
@@ -116,6 +139,14 @@ func text(html string) string {
 	var out strings.Builder
 	skip := ""
 	for i := 0; i < len(html); {
+		if skip != "" {
+			end := strings.Index(strings.ToLower(html[i:]), "</"+skip)
+			if end < 0 {
+				break
+			}
+			i += end
+			skip = ""
+		}
 		if html[i] != '<' {
 			out.WriteByte(html[i])
 			i++

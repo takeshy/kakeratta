@@ -162,7 +162,7 @@ export function createPersonas({ onChange }) {
           icon: "🍷",
           domain: "ワイン。銘柄、産地、ラベルの写真、飲んだ記録。食事全般や技術の話には反応しない。",
           tone: "控えめ。おすすめを押しつけない。",
-          instructions: "概念は type: Wine（銘柄）と type: Preference（好み）。同じ好みが3回出たら Preference に統合し、根拠の銘柄は消す。",
+          instructions: "概念は type: Wine（銘柄）と type: Preference（好み）。同じ好みが3回出たら Preference に統合する。引用と本人の意見を分け、推測は明記し、統合後も代表例と反例を残す。",
           model: "high",
           tools: toolNames.slice(0, 2),
         },

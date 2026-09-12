@@ -62,7 +62,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	var parsed struct {
 		Deliver []string `json:"deliver"`
 	}
-	if err := json.Unmarshal([]byte(firstJSON(reply)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(firstJSON(reply)), &parsed); err != nil || parsed.Deliver == nil {
 		return all
 	}
 	known := map[string]bool{}
@@ -73,6 +73,9 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	seen := map[string]bool{}
 	for _, id := range parsed.Deliver {
 		id = strings.TrimSpace(id)
+		if !known[id] {
+			return all
+		}
 		if known[id] && !seen[id] {
 			seen[id] = true
 			out = append(out, id)

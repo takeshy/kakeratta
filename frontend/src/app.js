@@ -149,6 +149,9 @@ navigator.serviceWorker?.addEventListener("message", (event) => {
 });
 
 async function boot() {
+  if (new URLSearchParams(location.search).get("shared") === "0") {
+    toast("共有した内容を保存できませんでした。接続と認証を確認し、もう一度共有してください。", "error");
+  }
   drawBar();
   await reload();
   try {

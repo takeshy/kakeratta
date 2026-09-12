@@ -23,6 +23,16 @@ const cookieName = "kakeratta"
 // browser gets the cookie the first time it presents one.
 func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
+			// ParseMultipartForm's argument only limits memory, not body size.
+			// Apply the limit before authentication can parse a form token.
+			r.Body = http.MaxBytesReader(w, r.Body, maxCapture+(1<<20))
+			defer func() {
+				if r.MultipartForm != nil {
+					_ = r.MultipartForm.RemoveAll()
+				}
+			}()
+		}
 		if s.token == "" {
 			next(w, r)
 			return
@@ -37,7 +47,10 @@ func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if presented == "" && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
 			// The share target and the shortcut can put it in the form.
-			_ = r.ParseMultipartForm(maxCapture)
+			if err := r.ParseMultipartForm(maxCapture); err != nil {
+				fail(w, http.StatusBadRequest, "受け取れませんでした")
+				return
+			}
 			presented = r.FormValue("token")
 		}
 		if !same(presented, s.token) {

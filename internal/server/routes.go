@@ -67,6 +67,18 @@ func (s *Server) routes() {
 // page serves the app. Every path that is not a file is the app itself, so a
 // share target landing on /?shared=1 or a deep link still opens it.
 func (s *Server) page(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Has("token") {
+		s.guard(func(w http.ResponseWriter, r *http.Request) {
+			query := r.URL.Query()
+			query.Del("token")
+			target := *r.URL
+			target.RawQuery = query.Encode()
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			http.Redirect(w, r, target.RequestURI(), http.StatusSeeOther)
+		})(w, r)
+		return
+	}
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	if path == "" || !strings.Contains(path, ".") {
 		r = r.Clone(r.Context())
@@ -110,7 +122,7 @@ type postBody struct {
 // transcript.
 func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 	var body postBody
-	if err := readJSON(r, &body); err != nil {
+	if err := readJSONLimit(r, &body, int64(base64.StdEncoding.EncodedLen(maxCapture))+(1<<20)); err != nil {
 		fail(w, http.StatusBadRequest, "投稿を読めませんでした")
 		return
 	}
@@ -135,27 +147,12 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		}
 		entry.Media = &timeline.Media{BlobID: id, MIME: mime}
 	}
-	// A link is fetched now rather than by a persona: the page is what the post
-	// is, and everyone should be looking at the same text.
-	if entry.Link != "" && entry.Media == nil {
-		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
-		defer cancel()
-		if fetched, err := capture.Fetch(ctx, entry.Link); err == nil {
-			now := time.Now()
-			entry.Media = &timeline.Media{
-				Describe: fetched.Title, Text: fetched.Text,
-				Origin: fetched.URL, ReadAt: &now,
-			}
-		} else {
-			now := time.Now()
-			entry.Media = &timeline.Media{Error: err.Error(), ReadAt: &now}
-		}
-	}
+	readLink(r.Context(), &entry)
 	if entry.Text == "" && entry.Media == nil && entry.Link == "" {
 		fail(w, http.StatusBadRequest, "空の投稿です")
 		return
 	}
-	s.land(w, entry)
+	s.land(w, entry, body.Place)
 }
 
 // postCapture is the share sheet's way in: multipart, from outside the page.
@@ -173,25 +170,33 @@ func (s *Server) postCapture(w http.ResponseWriter, r *http.Request) {
 	// shortcut sends whatever it was told to. Both are accepted.
 	entry.Text = trimmed(first(r, "text", "note", "title"))
 	entry.Link = trimmed(first(r, "url", "link"))
-	if lat, lon := r.FormValue("lat"), r.FormValue("lon"); lat != "" && lon != "" && s.store.Settings().KeepPlace {
+	var reactionPlace *timeline.Place
+	if lat, lon := r.FormValue("lat"), r.FormValue("lon"); lat != "" && lon != "" {
 		latitude, latErr := strconv.ParseFloat(lat, 64)
 		longitude, lonErr := strconv.ParseFloat(lon, 64)
 		if latErr == nil && lonErr == nil {
-			entry.Place = &timeline.Place{Lat: latitude, Lon: longitude, Label: r.FormValue("place")}
+			reactionPlace = &timeline.Place{Lat: latitude, Lon: longitude, Label: r.FormValue("place")}
+			if s.store.Settings().KeepPlace {
+				entry.Place = reactionPlace
+			}
 		}
 	}
 
 	file, header, err := firstFile(r, "image", "file", "files", "photo")
 	if err == nil {
 		defer file.Close()
-		data, err := io.ReadAll(io.LimitReader(file, maxCapture))
+		data, err := io.ReadAll(io.LimitReader(file, maxCapture+1))
 		if err != nil {
 			fail(w, http.StatusBadRequest, "画像を読めませんでした")
 			return
 		}
+		if len(data) > maxCapture {
+			fail(w, http.StatusRequestEntityTooLarge, "画像が大きすぎます")
+			return
+		}
 		mime := header.Header.Get("Content-Type")
-		if mime == "" {
-			mime = "image/jpeg"
+		if mime == "" || mime == "application/octet-stream" {
+			mime = http.DetectContentType(data)
 		}
 		id, err := s.store.PutBlob(data, mime)
 		if err != nil {
@@ -204,7 +209,27 @@ func (s *Server) postCapture(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "画像も文章もありません")
 		return
 	}
-	s.land(w, entry)
+	readLink(r.Context(), &entry)
+	s.land(w, entry, reactionPlace)
+}
+
+// Both the composer and share sheet hand every persona the same page text.
+func readLink(ctx context.Context, entry *timeline.Entry) {
+	if entry.Link == "" || entry.Media != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	fetched, err := capture.Fetch(ctx, entry.Link)
+	now := time.Now()
+	entry.Media = &timeline.Media{ReadAt: &now}
+	if err != nil {
+		entry.Media.Error = err.Error()
+		return
+	}
+	entry.Media.Describe = fetched.Title
+	entry.Media.Text = fetched.Text
+	entry.Media.Origin = fetched.URL
 }
 
 // land stores a post and hands it to the runner.
@@ -212,13 +237,13 @@ func (s *Server) postCapture(w http.ResponseWriter, r *http.Request) {
 // The response goes back before anyone has reacted. That is the whole shape of
 // the app: the capture is in, and whatever anyone has to say about it turns up
 // later.
-func (s *Server) land(w http.ResponseWriter, entry timeline.Entry) {
+func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace *timeline.Place) {
 	if err := s.store.Append(entry); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	s.events.send("entry", entry)
-	s.runner.React(entry.ID)
+	s.runner.React(entry.ID, reactionPlace)
 	writeJSON(w, http.StatusOK, entry)
 }
 
@@ -234,7 +259,11 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parent, ok := s.store.Entry(body.ReplyTo)
-	if !ok {
+	if !ok || parent.Deleted {
+		fail(w, http.StatusNotFound, "返事の宛先が見つかりません")
+		return
+	}
+	if root, exists := s.store.Entry(timeline.RootOf(parent)); !exists || root.Deleted {
 		fail(w, http.StatusNotFound, "返事の宛先が見つかりません")
 		return
 	}
@@ -248,7 +277,7 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.events.send("entry", reply)
-	s.runner.React(reply.ID)
+	s.runner.React(reply.ID, nil)
 	writeJSON(w, http.StatusOK, reply)
 }
 
@@ -327,7 +356,7 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "読めませんでした")
 		return
 	}
-	settings := s.store.Settings()
+	settings := s.store.ConfiguredSettings()
 	var kept []string
 	for _, id := range body.Active {
 		if _, ok := s.catalogue.Find(id); ok {
@@ -382,7 +411,7 @@ func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {
 // ---- settings --------------------------------------------------------------
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
-	settings := s.store.Settings()
+	settings := s.store.ConfiguredSettings()
 	// Keys go out to the page only as "set or not". The page never needs them,
 	// and a page that does not have them cannot leak them.
 	settings.APIKey = masked(settings.APIKey)
@@ -392,7 +421,7 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
-	current := s.store.Settings()
+	current := s.store.ConfiguredSettings()
 	next := current
 	if err := readJSON(r, &next); err != nil {
 		fail(w, http.StatusBadRequest, "設定を読めませんでした")
@@ -461,7 +490,7 @@ func unmask(next, current string) string {
 
 func (s *Server) speechRequest(w http.ResponseWriter, r *http.Request) {
 	var request speech.ExternalHTTPRequest
-	if err := readJSON(r, &request); err != nil {
+	if err := readJSONLimit(r, &request, 24<<20); err != nil {
 		fail(w, http.StatusBadRequest, "読めませんでした")
 		return
 	}

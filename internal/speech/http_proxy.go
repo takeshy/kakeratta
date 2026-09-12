@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 	"unicode/utf8"
+
+	"github.com/takeshy/kakeratta/internal/store"
 )
 
 // The HTTP transport used to reach speech-to-text services from the WebView,
@@ -40,7 +42,54 @@ type ExternalHTTPResponse struct {
 // a primary target; link-local addresses stay blocked so a hostname cannot be
 // pointed at a cloud metadata endpoint.
 func (v *Service) SpeechHTTPRequest(request ExternalHTTPRequest) (*ExternalHTTPResponse, error) {
+	request, err := prepareSpeechRequest(v.settings(), request)
+	if err != nil {
+		return nil, err
+	}
 	return v.doExternalHTTPRequest(request, true)
+}
+
+// The browser only has a masked key. Attach the stored credential after
+// checking the complete destination, never to an arbitrary proxy request.
+func prepareSpeechRequest(settings store.SpeechSettings, request ExternalHTTPRequest) (ExternalHTTPRequest, error) {
+	base, err := url.Parse(strings.TrimSpace(settings.BaseURL))
+	header := "Authorization"
+	key := strings.TrimSpace(settings.APIKey)
+	value := "Bearer " + key
+	if settings.EndpointType == EndpointGemini {
+		base, err = url.Parse("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-transcribe:generateContent")
+		header, value = "x-goog-api-key", key
+	} else if err == nil && base != nil {
+		if base.User != nil || base.RawQuery != "" || base.Fragment != "" {
+			return request, fmt.Errorf("invalid speech endpoint")
+		}
+		suffix := "/audio/transcriptions"
+		switch settings.EndpointType {
+		case EndpointWhisper:
+			suffix = "/inference"
+		case "azure-mai-transcribe":
+			suffix = "/speechtotext/transcriptions:transcribe"
+			base.RawQuery = "api-version=2025-10-15"
+			header, value = "Ocp-Apim-Subscription-Key", key
+		}
+		base.Path = strings.TrimRight(base.Path, "/") + suffix
+		base.RawPath = ""
+	}
+	if err != nil || base == nil || (base.Scheme != "http" && base.Scheme != "https") ||
+		base.Host == "" || request.URL != base.String() || request.Method != http.MethodPost {
+		return request, fmt.Errorf("request does not match configured speech endpoint")
+	}
+	headers := map[string]string{}
+	for name, content := range request.Headers {
+		if strings.EqualFold(name, "Content-Type") {
+			headers["Content-Type"] = content
+		}
+	}
+	if key != "" {
+		headers[header] = value
+	}
+	request.Headers = headers
+	return request, nil
 }
 
 func (v *Service) doExternalHTTPRequest(request ExternalHTTPRequest, allowHTTP bool) (*ExternalHTTPResponse, error) {

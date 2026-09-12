@@ -128,6 +128,9 @@ func Mentions(text string) []string {
 func Thread(entries []Entry, root string) []Entry {
 	var out []Entry
 	for _, entry := range entries {
+		if entry.ID == root && entry.Deleted {
+			return nil
+		}
 		if entry.Deleted {
 			continue
 		}

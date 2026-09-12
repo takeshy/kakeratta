@@ -67,6 +67,16 @@ func TestDeletedEntriesAreGone(t *testing.T) {
 	}
 }
 
+func TestDeletedPostHidesItsReplies(t *testing.T) {
+	entries := []Entry{
+		{ID: "post", Kind: KindPost, Deleted: true},
+		{ID: "reply", Kind: KindReply, Root: "post"},
+	}
+	if thread := Thread(entries, "post"); len(thread) != 0 {
+		t.Fatalf("deleted thread = %+v", thread)
+	}
+}
+
 // What the app read out of a capture is what every persona gets. It has to be
 // in the rendering, and it has to be marked as not ready until it is.
 func TestRenderCarriesWhatWasReadOutOfTheCapture(t *testing.T) {

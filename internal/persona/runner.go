@@ -46,30 +46,36 @@ const rounds = 8
 // immediately, and whatever anyone has to say about it arrives afterwards. The
 // queue is what makes that true, and it is also what keeps the light tier
 // ahead of the heavy one.
+type reaction struct {
+	entryID string
+	place   *timeline.Place
+}
+
 type Runner struct {
 	store     *store.Store
 	catalogue *Catalogue
 	clientOf  func() (*llm.Client, store.Settings)
 	emit      func(name string, data any)
 
-	queue   chan string
+	queue   []reaction
+	wake    *sync.Cond
 	done    chan struct{}
 	once    sync.Once
 	started bool
 
-	// stopped guards the queue: a reaction sent after the queue is closed
-	// would panic, and a post arriving during shutdown is not worth that.
+	// stopMu guards the unbounded in-memory queue and coordinates its worker.
 	stopMu  sync.Mutex
 	stopped bool
 }
 
 func New(s *store.Store, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
-	return &Runner{
+	r := &Runner{
 		store: s, catalogue: catalogue, clientOf: clientOf,
-		emit:  func(string, any) {},
-		queue: make(chan string, 64),
-		done:  make(chan struct{}),
+		emit: func(string, any) {},
+		done: make(chan struct{}),
 	}
+	r.wake = sync.NewCond(&r.stopMu)
+	return r
 }
 
 // OnEvent is how the screen hears that something landed.
@@ -87,8 +93,19 @@ func (r *Runner) Start() {
 		r.started = true
 		go func() {
 			defer close(r.done)
-			for entryID := range r.queue {
-				r.react(entryID)
+			for {
+				r.stopMu.Lock()
+				for len(r.queue) == 0 && !r.stopped {
+					r.wake.Wait()
+				}
+				if len(r.queue) == 0 && r.stopped {
+					r.stopMu.Unlock()
+					return
+				}
+				item := r.queue[0]
+				r.queue = r.queue[1:]
+				r.stopMu.Unlock()
+				r.reactAt(item.entryID, item.place)
 			}
 		}()
 	})
@@ -97,8 +114,8 @@ func (r *Runner) Start() {
 // Stop lets the reactions in hand finish and then returns.
 //
 // A reaction writes as it goes - a remark, a persona's notes - so killing one
-// half way through leaves the workspace mid-thought. Waiting is short: there is
-// at most one in flight, and the queue behind it is a handful of posts.
+// half way through leaves the workspace mid-thought. There is at most one in
+// flight, and shutdown drains everything already accepted.
 func (r *Runner) Stop() {
 	r.stopMu.Lock()
 	if r.stopped || !r.started {
@@ -107,29 +124,29 @@ func (r *Runner) Stop() {
 		return
 	}
 	r.stopped = true
-	close(r.queue)
+	r.wake.Broadcast()
 	r.stopMu.Unlock()
 	<-r.done
 }
 
 // React queues an entry. It never blocks the request that made the post: the
 // user has already seen their capture land.
-func (r *Runner) React(entryID string) {
+func (r *Runner) React(entryID string, place *timeline.Place) {
 	r.Start()
 	r.stopMu.Lock()
 	defer r.stopMu.Unlock()
 	if r.stopped {
 		return
 	}
-	select {
-	case r.queue <- entryID:
-	default:
-		// The queue is full, which means the app is far behind. Dropping the
-		// reaction is better than making the post wait.
-	}
+	r.queue = append(r.queue, reaction{entryID: entryID, place: place})
+	r.wake.Signal()
 }
 
 func (r *Runner) react(entryID string) {
+	r.reactAt(entryID, nil)
+}
+
+func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	defer func() {
 		// A persona is a model doing as it pleases with a prompt. One of them
 		// panicking must not take the queue with it.
@@ -158,6 +175,9 @@ func (r *Runner) react(entryID string) {
 	// same text out of it.
 	if entry.Kind == timeline.KindPost && entry.Media != nil && !entry.Media.Ready() {
 		entry = r.readCapture(entry, client, settings)
+		if entry.Deleted {
+			return
+		}
 		entries, _ = r.store.Timeline()
 	}
 
@@ -167,7 +187,12 @@ func (r *Runner) react(entryID string) {
 	}
 	thread := timeline.Thread(entries, root)
 	if len(thread) == 0 {
-		thread = []timeline.Entry{entry}
+		return
+	}
+	// A place may be used for this wake without becoming part of the saved
+	// timeline. The post copy is shared by prompts and tools below only.
+	if transientPlace != nil && len(thread) > 0 {
+		thread[0].Place = transientPlace
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -257,7 +282,12 @@ func (r *Runner) readCapture(entry timeline.Entry, client *llm.Client, settings 
 		read.Width, read.Height = entry.Media.Width, entry.Media.Height
 		entry.Media = &read
 	}
-	_ = r.store.Append(entry)
+	updated, err := r.store.UpdateMedia(entry.ID, entry.Media)
+	if err != nil {
+		r.emit("error", map[string]any{"where": "capture", "message": err.Error()})
+		return entry
+	}
+	entry = updated
 	r.emit("entry", entry)
 	return entry
 }
@@ -279,6 +309,8 @@ const systemTemplate = `あなたは「%s」。%s
 - **メモはあなたが自分で読み書きします。** 下の道具を使ってください。何を概念にするか、
   何を残して何を捨てるか、いつまとめるかは、すべてあなたが決めます。
   本体は中身を読みませんし、数や長さの上限も持ちません。
+- メモでは引用内容、本人の意見、他の担当の推測を区別し、推測は推測と明記してください。
+  複数の記録を統合しても、後から訂正できるよう代表的な根拠と例外を少し残してください。
 - 発言するときは短く。前に自分が覚えていたことと結びつくなら、それを言ってください。
 - 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。%s
 
@@ -363,6 +395,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		files = nil
 		if err != nil {
 			r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
+			if named && !listening {
+				return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, "")
+			}
 			return nil
 		}
 		var parsed struct {
@@ -422,13 +457,19 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			continue
 		case "speak":
 			text := strings.TrimSpace(parsed.Text)
+			if text == "" && named && !listening {
+				messages = append(messages,
+					llm.Message{Role: "assistant", Content: reply},
+					llm.Message{Role: "user", Content: "あなたは名指しで呼ばれています。空の返答にはできません。短く答えてください。"})
+				continue
+			}
 			if text == "" || listening {
 				// It had its turn. Whatever it wrote down is kept either way.
 				return r.hush(skill, memory)
 			}
 			return r.speak(skill, root, text, sources, memory, "")
 		default:
-			if named && !listening && round == 0 {
+			if named && !listening {
 				// Being asked by name is the one thing that is not the persona's
 				// to decline. Everything else about the answer still is.
 				messages = append(messages,
@@ -438,6 +479,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			}
 			return r.hush(skill, memory)
 		}
+	}
+	if named && !listening {
+		r.emit("error", map[string]any{"persona": skill.ID, "message": "名指しへの返答を生成できませんでした"})
+		return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, "")
 	}
 	return r.hush(skill, memory)
 }

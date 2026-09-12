@@ -324,6 +324,32 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 	}
 }
 
+func TestBeingNamedStillForcesAnAnswerAfterUsingATool(t *testing.T) {
+	step := 0
+	runner, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":[]}`
+		}
+		step++
+		switch step {
+		case 1:
+			return `{"action":"tool","tool":"notes_read","args":{"paths":["index.md"]}}`
+		case 2:
+			return `{"action":"silent"}`
+		default:
+			return `{"action":"speak","text":"確認して答えます"}`
+		}
+	}, "book")
+
+	entry := post(t, s, "@しおり この本について教えて")
+	runner.react(entry.ID)
+
+	said := remarks(t, s)
+	if len(said) != 1 || said[0].Text != "確認して答えます" {
+		t.Fatalf("remarks = %+v, want an answer after the tool", said)
+	}
+}
+
 // A post only reaches the personas it was routed to. That is what lets the
 // number of personas grow with the number of domains.
 func TestRoutingKeepsThePostFromEveryoneElse(t *testing.T) {

@@ -53,7 +53,7 @@ Go の単一バイナリに画面を埋め込んであります。ネイティ�
 ```sh
 task build      # ビルド（bin/kakeratta）
 task run        # 起動（http://127.0.0.1:8787）
-task test       # go test ./internal/... と node --test tests/
+task test       # go test ./internal/... と node --test tests/*.test.js
 ```
 
 | 環境変数 | 既定 | |
@@ -61,6 +61,11 @@ task test       # go test ./internal/... と node --test tests/
 | `KAKERATTA_ADDR` | `:8787` | 待ち受け |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
 | `KAKERATTA_TOKEN` | 空 | 空だと誰でも入れます。**外から届く場所に置くときは必ず設定してください**（推論の鍵を持っているのはこのプロセスです） |
+
+トークンを設定した場合は、各ブラウザで一度 `/?token=<URLエンコードしたトークン>` を開いてください。
+サーバーが HttpOnly のセッションCookieを設定し、トークンを除いたURLへ移動します。
+以後のAPI呼び出しとAndroidの共有は、このCookieで認証されます。
+画像は貼り付け・multipart共有とも1投稿あたり20 MiBまでです。上限を超える共有は、途中で切って保存せず拒否します。
 
 ## 入り口
 
@@ -387,4 +392,4 @@ frontend/src        バンドラなしの ES モジュール
 
 音声入力は speech-popup（gemihub-desktop の音声機能）の移植をそのまま持ち込んでいます。
 方式は3つ（ブラウザ音声認識 / 録音して送る音声認識API / ライブ文字起こし）。移植元のテストも
-`tests/` にそのまま置いています（`node --test`、75件）。
+`tests/` に置き、アプリの回帰テストも追加しています（`node --test tests/*.test.js`）。

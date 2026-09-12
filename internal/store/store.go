@@ -75,15 +75,39 @@ const logName = "timeline.jsonl"
 func (s *Store) Append(entry timeline.Entry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.appendLocked(entry)
+}
+
+func (s *Store) appendLocked(entry timeline.Entry) error {
 	raw, err := json.Marshal(entry)
 	if err != nil {
 		return err
 	}
-	file, err := os.OpenFile(s.path(logName), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if len(raw) >= 8<<20 {
+		return errors.New("投稿が大きすぎます")
+	}
+	file, err := os.OpenFile(s.path(logName), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+	// Separate an interrupted last record from the next append. Never rewrite
+	// the log, and never let a partial record swallow the next accepted post.
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() > 0 {
+		var last [1]byte
+		if _, err := file.ReadAt(last[:], info.Size()-1); err != nil {
+			return err
+		}
+		if last[0] != '\n' {
+			if _, err := file.Write([]byte{'\n'}); err != nil {
+				return err
+			}
+		}
+	}
 	if _, err := file.Write(append(raw, '\n')); err != nil {
 		return err
 	}
@@ -95,6 +119,10 @@ func (s *Store) Append(entry timeline.Entry) error {
 func (s *Store) Timeline() ([]timeline.Entry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return s.timelineLocked()
+}
+
+func (s *Store) timelineLocked() ([]timeline.Entry, error) {
 	file, err := os.Open(s.path(logName))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -133,6 +161,26 @@ func (s *Store) Timeline() ([]timeline.Entry, error) {
 	}
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].At.Before(entries[j].At) })
 	return entries, nil
+}
+
+// UpdateMedia preserves any deletion made while an image was being analysed.
+func (s *Store) UpdateMedia(id string, media *timeline.Media) (timeline.Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entries, err := s.timelineLocked()
+	if err != nil {
+		return timeline.Entry{}, err
+	}
+	for _, entry := range entries {
+		if entry.ID == id {
+			if entry.Deleted {
+				return entry, nil
+			}
+			entry.Media = media
+			return entry, s.appendLocked(entry)
+		}
+	}
+	return timeline.Entry{}, errors.New("投稿が見つかりません")
 }
 
 // Entry returns one entry by id.

@@ -11,6 +11,9 @@ export function createFeed({ getPersona, onReply }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let openReply = null;
+  const drafts = new Map();
+  let composing = false;
+  let drawPending = false;
 
   function set(next) {
     entries = next;
@@ -42,6 +45,18 @@ export function createFeed({ getPersona, onReply }) {
   }
 
   function draw() {
+    // Replacing a textarea while an IME owns it cancels the conversion. Keep
+    // the current DOM until compositionend; the draft itself survives every
+    // other redraw below.
+    if (composing) {
+      drawPending = true;
+      return;
+    }
+    drawPending = false;
+    const active = document.activeElement;
+    const selection = active?.classList?.contains("reply-input")
+      ? { start: active.selectionStart, end: active.selectionEnd }
+      : null;
     clear(view);
     const threads = groups();
     if (!threads.length) {
@@ -54,6 +69,12 @@ export function createFeed({ getPersona, onReply }) {
       return;
     }
     for (const thread of threads) view.append(drawThread(thread));
+    if (selection && openReply) {
+      const input = [...view.querySelectorAll(".reply-input")]
+        .find((candidate) => candidate.dataset.replyTo === openReply);
+      input?.focus();
+      input?.setSelectionRange(selection.start, selection.end);
+    }
   }
 
   function drawThread(thread) {
@@ -169,12 +190,24 @@ export function createFeed({ getPersona, onReply }) {
   // A reply is not a command: it goes back into the timeline and the personas
   // see it next time, the same as anything else.
   function drawReplyBox(replyTo) {
-    const input = el("textarea", { class: "reply-input", rows: "2", placeholder: "返事や、@名前 で指名" });
+    const input = el("textarea", {
+      class: "reply-input", rows: "2", placeholder: "返事や、@名前 で指名",
+      "data-reply-to": replyTo,
+    });
+    input.value = drafts.get(replyTo) || "";
+    input.addEventListener("input", () => drafts.set(replyTo, input.value));
+    input.addEventListener("compositionstart", () => { composing = true; });
+    input.addEventListener("compositionend", () => {
+      composing = false;
+      drafts.set(replyTo, input.value);
+      if (drawPending) draw();
+    });
     const send = async () => {
       const text = input.value.trim();
       if (!text) return;
       try {
         await api.reply(replyTo, text);
+        drafts.delete(replyTo);
         openReply = null;
         onReply?.();
       } catch (error) {
@@ -199,6 +232,7 @@ export function createFeed({ getPersona, onReply }) {
           class: "chip ghost",
           text: "やめる",
           onclick: () => {
+            drafts.delete(replyTo);
             openReply = null;
             draw();
           },

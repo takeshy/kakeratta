@@ -65,7 +65,7 @@ technical article.
 ```sh
 task build      # build (bin/kakeratta)
 task run        # start (http://127.0.0.1:8787)
-task test       # go test ./internal/... and node --test tests/
+task test       # go test ./internal/... and node --test tests/*.test.js
 ```
 
 | Variable | Default | |
@@ -73,6 +73,12 @@ task test       # go test ./internal/... and node --test tests/
 | `KAKERATTA_ADDR` | `:8787` | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Where posts, notes and images are kept |
 | `KAKERATTA_TOKEN` | empty | Empty means anyone can walk in. **Set it whenever the app is reachable from outside** — this process is the one holding the inference keys |
+
+With a token set, open `/?token=<URL-encoded token>` once in each browser.
+The server sets an HttpOnly session cookie and redirects to a URL without the
+token. Subsequent API requests and Android shares use that cookie.
+Images are limited to 20 MiB per post, including paste and multipart shares;
+oversized shares are rejected rather than saved as truncated images.
 
 ## Ways in
 
@@ -451,4 +457,4 @@ frontend/src        ES modules, no bundler
 Dictation is the port from speech-popup (gemihub-desktop's speech feature),
 carried over as it was. Three engines: the browser's own recogniser, a recording
 sent to a speech API, and live transcription. The original tests are here too
-(`node --test`, 75 of them).
+(`node --test tests/*.test.js`), alongside regression tests for the app.

@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"mime/multipart"
 	"net/http"
@@ -96,15 +97,18 @@ func TestTheShareSheetsFieldNamesAreAllAccepted(t *testing.T) {
 	server, _ := app(t, "")
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, shared(t, map[string]string{
-		"title": "記事のタイトル", "url": "https://example.com/a",
+		"title": "記事のタイトル", "url": "http://127.0.0.1/a",
 	}, nil))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
 	}
 	var entry timeline.Entry
 	_ = json.Unmarshal(recorder.Body.Bytes(), &entry)
-	if entry.Text != "記事のタイトル" || entry.Link != "https://example.com/a" {
+	if entry.Text != "記事のタイトル" || entry.Link != "http://127.0.0.1/a" {
 		t.Fatalf("entry = %+v", entry)
+	}
+	if entry.Media == nil || entry.Media.Error == "" || entry.Media.ReadAt == nil {
+		t.Fatal("shared links must also go through the public-page fetcher")
 	}
 }
 
@@ -114,6 +118,86 @@ func TestAnEmptyShareIsRefused(t *testing.T) {
 	server.ServeHTTP(recorder, shared(t, nil, nil))
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d", recorder.Code)
+	}
+}
+
+func TestOversizedShareIsRejectedWithoutStoringPartialImage(t *testing.T) {
+	for _, token := range []string{"", "sesame"} {
+		t.Run(token, func(t *testing.T) {
+			server, s := app(t, token)
+			recorder := httptest.NewRecorder()
+			server.ServeHTTP(recorder, shared(t, map[string]string{"token": token}, make([]byte, maxCapture+1)))
+			if recorder.Code != http.StatusRequestEntityTooLarge {
+				t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
+			}
+			if entries, err := s.Timeline(); err != nil || len(entries) != 0 {
+				t.Fatalf("entries = %v, err = %v", entries, err)
+			}
+		})
+	}
+}
+
+func TestBrowserTokenEstablishesSessionAndLeavesURL(t *testing.T) {
+	server, _ := app(t, "sesame")
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, httptest.NewRequest("GET", "/?token=sesame&shared=1", nil))
+	if recorder.Code != http.StatusSeeOther || recorder.Header().Get("Location") != "/?shared=1" {
+		t.Fatalf("status = %d, headers = %v", recorder.Code, recorder.Header())
+	}
+	cookies := recorder.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("no session cookie")
+	}
+	request := httptest.NewRequest("GET", "/api/timeline", nil)
+	request.AddCookie(cookies[0])
+	recorder = httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("session status = %d", recorder.Code)
+	}
+}
+
+func TestSettingsRoundTripPreservesModelFallback(t *testing.T) {
+	server, s := app(t, "")
+	get := httptest.NewRecorder()
+	server.ServeHTTP(get, httptest.NewRequest("GET", "/api/settings", nil))
+	var settings store.Settings
+	if err := json.Unmarshal(get.Body.Bytes(), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.HighModel != "" {
+		t.Fatalf("fallback was resolved in editable settings: %q", settings.HighModel)
+	}
+	settings.MiddleModel = "new-middle"
+	body, _ := json.Marshal(settings)
+	put := httptest.NewRecorder()
+	server.ServeHTTP(put, httptest.NewRequest("PUT", "/api/settings", bytes.NewReader(body)))
+	if put.Code != http.StatusOK || s.Settings().HighModel != "new-middle" {
+		t.Fatalf("status = %d, high = %q", put.Code, s.Settings().HighModel)
+	}
+}
+
+func TestPastedImageCanExceedOldJSONLimit(t *testing.T) {
+	server, s := app(t, "")
+	settings := s.ConfiguredSettings()
+	settings.LowModel, settings.VisionModel = "", ""
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	image := bytes.Repeat([]byte{1}, 7<<20)
+	body, _ := json.Marshal(postBody{Image: "data:image/png;base64," + base64.StdEncoding.EncodeToString(image)})
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, httptest.NewRequest("POST", "/api/post", bytes.NewReader(body)))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var entry timeline.Entry
+	if err := json.Unmarshal(recorder.Body.Bytes(), &entry); err != nil {
+		t.Fatal(err)
+	}
+	stored, _, err := s.Blob(entry.Media.BlobID)
+	if err != nil || !bytes.Equal(stored, image) {
+		t.Fatal("pasted image did not survive intact")
 	}
 }
 

@@ -108,8 +108,12 @@ func fail(w http.ResponseWriter, status int, message string) {
 }
 
 func readJSON(r *http.Request, target any) error {
+	return readJSONLimit(r, target, 8<<20)
+}
+
+func readJSONLimit(r *http.Request, target any, limit int64) error {
 	defer r.Body.Close()
-	return json.NewDecoder(http.MaxBytesReader(nil, r.Body, 8<<20)).Decode(target)
+	return json.NewDecoder(http.MaxBytesReader(nil, r.Body, limit)).Decode(target)
 }
 
 // hub fans one event out to every open page.

@@ -5,6 +5,10 @@ export function el(tag, props = {}, ...children) {
     if (key === "class") node.className = value;
     else if (key === "text") node.textContent = value;
     else if (key === "html") node.innerHTML = value;
+    else if (key === "href") {
+      const href = safeLink(value);
+      if (href) node.setAttribute(key, href);
+    }
     else if (key.startsWith("on")) node.addEventListener(key.slice(2).toLowerCase(), value);
     else if (value !== undefined && value !== null && value !== false) node.setAttribute(key, value === true ? "" : value);
   }
@@ -13,6 +17,17 @@ export function el(tag, props = {}, ...children) {
     node.append(child instanceof Node ? child : document.createTextNode(String(child)));
   }
   return node;
+}
+
+// Links can come from a shared post or a search result. They are navigations,
+// never executable URLs supplied by those sources.
+export function safeLink(value) {
+  try {
+    const url = new URL(value, "https://kakeratta.invalid/");
+    return ["http:", "https:"].includes(url.protocol) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 export const $ = (selector, scope = document) => scope.querySelector(selector);

@@ -58,6 +58,45 @@ func TestEntriesComeBackOldestFirst(t *testing.T) {
 	}
 }
 
+func TestAppendAfterInterruptedRecord(t *testing.T) {
+	s := open(t)
+	if err := s.Append(timeline.Entry{ID: "before", Kind: timeline.KindPost}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(s.path(logName), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.WriteString(`{"id":"interrupted`)
+	f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Append(timeline.Entry{ID: "after", Kind: timeline.KindPost}); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := s.Timeline()
+	if err != nil || len(entries) != 2 || entries[1].ID != "after" {
+		t.Fatalf("entries = %+v, err = %v", entries, err)
+	}
+}
+
+func TestMediaUpdateCannotResurrectDeletedPost(t *testing.T) {
+	s := open(t)
+	entry := timeline.Entry{ID: "post", Kind: timeline.KindPost, Deleted: true}
+	if err := s.Append(entry); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := s.UpdateMedia(entry.ID, &timeline.Media{Text: "OCR finished"})
+	if err != nil || !updated.Deleted || updated.Media != nil {
+		t.Fatalf("updated = %+v, err = %v", updated, err)
+	}
+	stored, _ := s.Entry(entry.ID)
+	if !stored.Deleted {
+		t.Fatal("deleted post was resurrected")
+	}
+}
+
 func TestBlobsRoundTripAndRefuseAWayOut(t *testing.T) {
 	s := open(t)
 	id, err := s.PutBlob([]byte{0x89, 'P', 'N', 'G'}, "image/png")

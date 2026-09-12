@@ -34,9 +34,9 @@ self.addEventListener("fetch", (event) => {
         // Whether it worked or not, the user is sent to the timeline: that is
         // where they will see it landed, or see that it did not.
         const ok = response.ok;
-        return Response.redirect(ok ? "/?shared=1" : "/?shared=0", 303);
+        return Response.redirect(new URL(ok ? "/?shared=1" : "/?shared=0", url.origin).href, 303);
       } catch {
-        return Response.redirect("/?shared=0", 303);
+        return Response.redirect(new URL("/?shared=0", url.origin).href, 303);
       }
     })(),
   );
