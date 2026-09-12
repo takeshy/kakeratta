@@ -10,6 +10,9 @@ import { createFeed } from "./feed.js";
 import { createPersonas } from "./personas.js";
 import { createSettings } from "./settings.js";
 import { createSpeaker } from "./speak.js";
+import { getLanguage, t } from "./i18n.js";
+
+document.documentElement.lang = getLanguage();
 
 const root = $("#app");
 let settings = null;
@@ -47,11 +50,11 @@ const settingsPanel = createSettings({
 const bar = el("div", { class: "who-bar" });
 const listenButton = el("button", {
   class: "chip",
-  text: "🔈 読み上げ",
+  label: "🔈 読み上げ",
   onclick: () => speaker.toggle(feed.spoken()),
 });
 speaker.onState((on) => {
-  listenButton.textContent = on ? "■ 停止" : "🔈 読み上げ";
+  listenButton.textContent = t(on ? "■ 停止" : "🔈 読み上げ");
   listenButton.classList.toggle("active", on);
 });
 speaker.onLine((line) => {
@@ -64,7 +67,7 @@ function drawBar() {
   clear(bar);
   const active = personaRows.filter((row) => row.active);
   if (!active.length) {
-    bar.append(el("span", { class: "hint", text: "担当がいません。" }));
+    bar.append(el("span", { class: "hint", label: "担当がいません。" }));
   }
   for (const row of active) {
     bar.append(
@@ -79,8 +82,8 @@ function drawBar() {
   bar.append(
     el("span", { class: "spacer" }),
     listenButton,
-    el("button", { class: "chip ghost", text: "担当", onclick: () => open("personas") }),
-    el("button", { class: "chip ghost", text: "設定", onclick: () => open("settings") }),
+    el("button", { class: "chip ghost", label: "担当", onclick: () => open("personas") }),
+    el("button", { class: "chip ghost", label: "設定", onclick: () => open("settings") }),
   );
 }
 
@@ -97,9 +100,9 @@ function open(which) {
     el(
       "div",
       { class: "sheet-head" },
-      el("strong", { text: which === "personas" ? "担当" : "設定" }),
+      el("strong", { text: t(which === "personas" ? "担当" : "設定") }),
       el("span", { class: "spacer" }),
-      el("button", { class: "chip ghost", text: "閉じる", onclick: close }),
+      el("button", { class: "chip ghost", label: "閉じる", onclick: close }),
     ),
     body,
   );
@@ -134,7 +137,7 @@ api.on((name, data) => {
 
 clear(root).append(
   el("header", { class: "topbar" },
-    el("span", { class: "brand", text: "kakeratta" }),
+    el("span", { class: "brand", label: "kakeratta" }),
     el("span", { class: "spacer" })),
   compose.element,
   bar,

@@ -6,6 +6,7 @@
 // call per post.
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
+import { t } from "./i18n.js";
 
 const tierLabels = {
   low: "low（先に動く）",
@@ -47,7 +48,7 @@ export function createPersonas({ onChange }) {
     view.append(
       el("p", {
         class: "hint",
-        text: "担当領域ごとに記憶が分かれています。投稿がどれに渡るかは本体が振り分け、" +
+        label: "担当領域ごとに記憶が分かれています。投稿がどれに渡るかは本体が振り分け、" +
           "そのうえで喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
       }),
     );
@@ -71,27 +72,27 @@ export function createPersonas({ onChange }) {
             checked: row.active,
             onchange: (event) => void setActive(row.id, event.target.checked),
           }),
-          el("span", { text: row.active ? "いる" : "いない" })),
+          el("span", { text: t(row.active ? "有効" : "停止中") })),
       ),
       el("p", { class: "domain", text: row.domain }),
     );
     if (row.tools?.length) {
-      box.append(el("p", { class: "tools", text: `道具: ${row.tools.join(" / ")}` }));
+      box.append(el("p", { class: "tools", text: `${t("道具")}: ${row.tools.join(" / ")}` }));
     }
     box.append(
       el(
         "div",
         { class: "compose-row" },
-        el("span", { class: "hint", text: `起きた回数 ${row.wakes || 0}` }),
+        el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
         el("span", { class: "spacer" }),
-        el("button", { class: "chip ghost", text: "メモを見る", onclick: () => void showMemory(row) }),
+        el("button", { class: "chip ghost", label: "メモを見る", onclick: () => void showMemory(row) }),
         row.builtin
           ? null
           : el("button", {
             class: "chip ghost",
-            text: "削除",
+            label: "削除",
             onclick: async () => {
-              if (!confirm(`${row.name} を削除しますか（メモは残ります）`)) return;
+              if (!confirm(t("{0} を削除しますか（メモは残ります）", row.name))) return;
               await api.uninstallPersona(row.id).catch((error) => toast(String(error.message || error), "error"));
               await load();
             },
@@ -119,32 +120,32 @@ export function createPersonas({ onChange }) {
       el(
         "div",
         { class: "dialog" },
-        el("h3", { text: `${row.name} のメモ` }),
+        el("h3", { text: t("{0} のメモ", row.name) }),
         el("p", {
           class: "hint",
-          text: `${(memory.notes || []).length}件。何を残し何を捨てるかは本人の判断で、本体は中身を読みません。`,
+          text: t("{0}件。何を残し何を捨てるかは本人の判断で、本体は中身を読みません。", (memory.notes || []).length),
         }),
         (memory.notes || []).length
           ? el("div", { class: "notes" }, (memory.notes || []).map((note) =>
             el("details", { class: "note" },
               el("summary", { text: note.path }),
               el("pre", { class: "memo", text: note.text }))))
-          : el("p", { class: "hint", text: "（まだ何もありません）" }),
+          : el("p", { class: "hint", label: "（まだ何もありません）" }),
         el(
           "div",
           { class: "compose-row" },
           el("button", {
             class: "chip ghost",
-            text: "忘れさせる",
+            label: "忘れさせる",
             onclick: async () => {
-              if (!confirm(`${row.name} の記憶を消しますか。元に戻せません。`)) return;
+              if (!confirm(t("{0} の記憶を消しますか。元に戻せません。", row.name))) return;
               await api.forget(row.id).catch((error) => toast(String(error.message || error), "error"));
               close();
               await load();
             },
           }),
           el("span", { class: "spacer" }),
-          el("button", { class: "button primary", text: "閉じる", onclick: close }),
+          el("button", { class: "button primary", label: "閉じる", onclick: close }),
         ),
       ),
     );
@@ -173,12 +174,11 @@ export function createPersonas({ onChange }) {
     return el(
       "details",
       { class: "install" },
-      el("summary", { text: "担当を追加する（skill.json）" }),
+      el("summary", { label: "担当を追加する（skill.json）" }),
       el("p", {
         class: "hint",
-        text: "担当領域は本体が読んで振り分けに使います。指示は本人だけが読みます。" +
-          "メモの形式（OKF）は全員に渡るので、指示には「どんな type を使い、いつ統合するか」を書いてください。" +
-          `使える道具: ${toolNames.join(" / ") || "（なし）"}`,
+        text: `${t("担当領域は本体が読んで振り分けに使います。指示は本人だけが読みます。メモの形式（OKF）は全員に渡るので、指示には「どんな type を使い、いつ統合するか」を書いてください。")} ` +
+          `${t("使える道具")}: ${toolNames.join(" / ") || t("（なし）")}`,
       }),
       area,
       el(
@@ -186,11 +186,11 @@ export function createPersonas({ onChange }) {
         { class: "compose-row" },
         el("button", {
           class: "button primary",
-          text: "追加",
+          label: "追加",
           onclick: async () => {
             try {
               const skill = await api.installPersona(area.value);
-              toast(`${skill.name} を追加しました`);
+              toast(t("{0} を追加しました", skill.name));
               area.value = "";
               await load();
             } catch (error) {

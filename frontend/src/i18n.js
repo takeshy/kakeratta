@@ -1,19 +1,106 @@
-// The dictation modules were written for speech-popup, where strings are
-// authored in Japanese and translated on the way out. This app is Japanese
-// only, so the source string is the string - this keeps the ported modules
-// unchanged rather than editing their messages one by one.
-export function t(source, ...args) {
-  return String(source).replace(/\{(\d+)\}/g, (token, index) =>
-    index < args.length ? String(args[index]) : token
-  );
+const STORAGE_KEY = "kakeratta.language";
+
+const EN = {
+  "思いついたこと／気になったこと。画像は貼る（Ctrl+V）、URL、マイクでも": "Drop a thought or something that caught your attention. Paste an image (Ctrl+V), enter a URL, or use the mic.",
+  "キャプチャ": "Capture", "取り消す": "Remove",
+  "何か書くか、画像を貼ってください": "Write something or attach an image.",
+  "送っています…": "Sending…", "ページを読んでいます…": "Reading the page…",
+  "🎙 話す": "🎙 Speak", "聞いています…": "Listening…",
+  "この環境では音声入力が使えません": "Voice input is unavailable in this environment.",
+  "📷 画像": "📷 Image", "流す": "Post",
+  "まだ何もありません。気になった画面を撮って貼ってください。反応は遅れて届きます。": "Nothing here yet. Capture and paste something that caught your attention. Responses may arrive later.",
+  "消す": "Delete", "この投稿を消しますか": "Delete this post?",
+  "読み取り中…": "Reading…", "文字は読み取れませんでした。": "No text could be read.",
+  "あなた": "You", "返す": "Reply", "一言足す": "Add a comment",
+  "返事や、@名前 で指名": "Reply, or mention @name", "送る": "Send", "やめる": "Cancel", "投稿": "Post",
+  "担当がいません。": "No active personas.", "🔈 読み上げ": "🔈 Read aloud", "■ 停止": "■ Stop",
+  "担当": "Personas", "設定": "Settings", "閉じる": "Close",
+  "共有した内容を保存できませんでした。接続と認証を確認し、もう一度共有してください。": "The shared item could not be saved. Check the connection and authentication, then try again.",
+  "担当領域ごとに記憶が分かれています。投稿がどれに渡るかは本体が振り分け、そのうえで喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。": "Each persona keeps separate memories for its own domain. The app routes each post, and each persona decides whether to respond. Mention @name to always get a reply.",
+  "有効": "Active", "停止中": "Paused", "道具": "Tools", "メモを見る": "View memory", "削除": "Delete",
+  "low（先に動く）": "low (first)", "high（最後に動く）": "high (last)",
+  "起きた回数 {0}": "Woken {0} times", "{0} を削除しますか（メモは残ります）": "Delete {0}? Its memory will be kept.",
+  "{0} のメモ": "{0}'s memory", "{0}件。何を残し何を捨てるかは本人の判断で、本体は中身を読みません。": "{0} notes. The persona decides what to keep or discard; the app does not read their contents.",
+  "{0} の記憶を消しますか。元に戻せません。": "Erase {0}'s memory? This cannot be undone.",
+  "{0} を追加しました": "Added {0}.",
+  "（まだ何もありません）": "(Nothing yet)", "忘れさせる": "Forget",
+  "担当を追加する（skill.json）": "Add a persona (skill.json)", "追加": "Add",
+  "モデル一覧を取得": "Fetch models", "取得できませんでした": "Could not fetch models", "モデル": "Models",
+  "実行場所": "Provider", "サーバー": "Server", "エンドポイント": "Endpoint", "APIキー": "API key",
+  "low（先に動く。浅く速い）": "low (first; fast and lightweight)",
+  "high（最後に動く。下の発言を見て突っ込める）": "high (last; can build on earlier responses)",
+  "画像を読むモデル（vision）": "Image model (vision)", "振り分けに使うモデル": "Routing model",
+  "Web検索": "Web search", "使わない": "Disabled",
+  "店舗検索・経路検索の接続先": "Place and route service endpoints",
+  "地名検索 (Nominatim)": "Place search (Nominatim)", "周辺検索 (Overpass)": "Nearby search (Overpass)", "経路 (OSRM)": "Routes (OSRM)",
+  "位置": "Location", "投稿に位置を残す": "Save location with posts",
+  "音声入力": "Voice input", "方式": "Mode", "ブラウザ音声認識": "Browser speech recognition",
+  "音声認識API（録音して送る）": "Speech recognition API (record and send)", "ライブ文字起こし": "Live transcription",
+  "サービス": "Service", "言語": "Language", "無音で自動停止": "Stop after silence", "しない": "Never",
+  "送信の合図": "Send phrase", "読み上げ": "Read aloud", "既定の声": "Default voice", "速さ": "Speed", "声": "Voice",
+  "表示言語": "Display language", "この端末": "This device", "保存先": "Storage",
+  "保存先 {0}": "Storage: {0}",
+  "OpenAI 互換": "OpenAI-compatible", "ローカルLLM": "Local LLM",
+  "担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。どのモデルをどの段に置くかが、そのまま体験の差になります。": "Choose low, middle, or high for each persona. Low runs first, and higher tiers can build on earlier responses. How you assign models to tiers directly shapes the experience.",
+  "サーバー側にだけ保存され、指定した接続先以外へは送りません": "Stored only on the server and sent only to the configured endpoint.",
+  "空にすると1つ下の段に落ちます。全部同じにしてもいいですが、対比は無くなります": "Leave blank to fall back one tier. You may use the same model for every tier, but there will be no contrast.",
+  "投稿ごとに一度だけ通し、結果は全員で共有します": "Runs once per post and shares the result with every persona.",
+  "宣言した担当だけが呼べます。鍵はここにあり、スキルは持ちません。": "Only personas that declare a tool can call it. Credentials stay here and are never included in skills.",
+  "既定は鍵の要らない公開サービスです。自前のインスタンスに向けられます。": "The defaults are public services that need no credentials. You can point these at your own instances.",
+  "道路の所要時間です。公共交通は含みません": "Road travel times only; public transit is not included.",
+  "反応のために今いる場所が要ることと、過去の投稿に位置を残すことは別です。切ると、反応には使われますが記録には残りません。": "Using your current location for a response is separate from saving it with past posts. Turn this off to use location for responses without keeping it in history.",
+  "Vertex AI の OAuth はデスクトップ前提のため、この形態では選べません": "Vertex AI OAuth requires a desktop flow and is unavailable here.",
+  "話し終わりの合図。これで投稿されます。空欄で無効": "A phrase that posts when you finish speaking. Leave blank to disable.",
+  "トークンが未設定です。外から届く場所に置くときは KAKERATTA_TOKEN を設定してください。": "No token is configured. Set KAKERATTA_TOKEN before exposing this app externally.",
+  "担当領域は本体が読んで振り分けに使います。指示は本人だけが読みます。メモの形式（OKF）は全員に渡るので、指示には「どんな type を使い、いつ統合するか」を書いてください。": "The app reads the domain to route posts; only the persona reads its instructions. Every persona receives the OKF memory format, so describe which types to use and when to consolidate them.",
+  "使える道具": "Available tools", "（なし）": "(none)",
+  "読み取れませんでした: {0}": "Could not read: {0}", "出典の手がかり: {0}": "Source hint: {0}", "{0}文字": "{0} characters", "読み取り結果": "Reading result",
+  "{0}件見つかりました": "Found {0}", "{0}秒": "{0}s",
+  "WebView の言語を使用": "Use WebView language", "自動検出": "Auto-detect", "その他（言語コード指定）": "Other (language code)",
+  "この環境では読み上げが使えません": "Read-aloud is unavailable in this environment.",
+  "読み上げるものがありません": "There is nothing to read aloud.",
+  "このウィンドウはブラウザ音声認識に対応していません。設定で別のサービスを選んでください。": "This window does not support browser speech recognition. Choose another service in Settings.",
+  "ネットワークエラーが発生しました。": "A network error occurred.", "マイクの使用が許可されていません。": "Microphone access was denied.",
+  "マイクを取得できませんでした。": "Could not access the microphone.", "マイクが見つかりません。": "No microphone was found.",
+  "音声が検出されませんでした。": "No speech was detected.", "音声を認識できませんでした。もう一度お試しください。": "Speech could not be recognized. Please try again.",
+  "このウィンドウでは録音を利用できません。": "Recording is unavailable in this window.",
+  "このウィンドウではライブ音声入力を利用できません。": "Live voice input is unavailable in this window.",
+  "中断されました。": "Cancelled.", "無音の検出は利用できません": "Silence detection is unavailable.",
+  "録音中にエラーが発生しました。": "An error occurred while recording.", "録音が空です。": "The recording is empty.",
+  "録音は5分以内にしてください。": "Recordings must be no longer than five minutes.",
+  "保持分を含めた録音は5分以内にしてください。": "The recording, including retained audio, must be no longer than five minutes.",
+  "録音サイズの上限 (20MB) を超えました。": "The recording exceeds the 20 MB limit.",
+  "言語は auto か BCP-47 (ja / en-US など) で指定してください。": "Use auto or a BCP-47 language code such as ja or en-US.",
+};
+
+let language;
+
+function storedLanguage() {
+  try {
+    const value = globalThis.localStorage?.getItem(STORAGE_KEY);
+    return value === "ja" || value === "en" ? value : null;
+  } catch { return null; }
 }
 
-export const getLanguage = () => "ja";
-
-// The ported modules and their tests switch language; this app is Japanese
-// only, so the call is accepted and changes nothing.
-export function setLanguage() {}
-
 export function resolveLanguage() {
-  return "ja";
+  const stored = storedLanguage();
+  if (stored) return stored;
+  const locale = globalThis.navigator?.languages?.[0] || globalThis.navigator?.language || "";
+  return String(locale).toLowerCase().split("-")[0] === "ja" ? "ja" : "en";
+}
+
+export function getLanguage() { return language || (language = resolveLanguage()); }
+
+export function setLanguage(next, { persist = false } = {}) {
+  language = next === "ja" ? "ja" : "en";
+  if (persist) {
+    try { globalThis.localStorage?.setItem(STORAGE_KEY, language); } catch { /* storage may be unavailable */ }
+  }
+  return language;
+}
+
+export function t(source, ...args) {
+  const original = String(source);
+  const translated = getLanguage() === "ja" ? original : EN[original] || original;
+  return translated.replace(/\{(\d+)\}/g, (token, index) => index < args.length ? String(args[index]) : token);
 }

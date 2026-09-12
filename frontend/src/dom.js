@@ -1,14 +1,18 @@
 // Tiny helpers so the views stay readable without a framework.
+import { getLanguage, t } from "./i18n.js";
 export function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
     if (key === "class") node.className = value;
     else if (key === "text") node.textContent = value;
+    else if (key === "label") node.textContent = t(value);
     else if (key === "html") node.innerHTML = value;
     else if (key === "href") {
       const href = safeLink(value);
       if (href) node.setAttribute(key, href);
     }
+    else if (key === "i18nTitle") node.setAttribute("title", t(value));
+    else if (key === "i18nPlaceholder") node.setAttribute("placeholder", t(value));
     else if (key.startsWith("on")) node.addEventListener(key.slice(2).toLowerCase(), value);
     else if (value !== undefined && value !== null && value !== false) node.setAttribute(key, value === true ? "" : value);
   }
@@ -44,11 +48,12 @@ export function when(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const seconds = (Date.now() - date.getTime()) / 1000;
-  if (seconds < 60) return "たった今";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分前`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}時間前`;
+  const language = getLanguage();
+  if (seconds < 60) return language === "ja" ? "たった今" : "just now";
+  if (seconds < 3600) return language === "ja" ? `${Math.floor(seconds / 60)}分前` : `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return language === "ja" ? `${Math.floor(seconds / 3600)}時間前` : `${Math.floor(seconds / 3600)}h ago`;
   const sameYear = date.getFullYear() === new Date().getFullYear();
-  return date.toLocaleString("ja-JP", {
+  return date.toLocaleString(language === "ja" ? "ja-JP" : "en-US", {
     year: sameYear ? undefined : "numeric",
     month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
   });
@@ -56,7 +61,7 @@ export function when(value) {
 
 export function toast(message, kind = "info") {
   const host = $("#toasts");
-  const node = el("div", { class: `toast toast-${kind}`, text: message });
+  const node = el("div", { class: `toast toast-${kind}`, text: t(message) });
   host.append(node);
   setTimeout(() => node.remove(), 4200);
 }

@@ -6,6 +6,7 @@ import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { ENDPOINT_TYPES, endpointPreset, isGoogleEndpoint } from "./speech.js";
 import { speechLanguageOptions } from "./speech_languages.js";
+import { getLanguage, setLanguage, t } from "./i18n.js";
 
 const providerLabels = {
   nebius: "Nebius Token Factory",
@@ -53,31 +54,31 @@ export function createSettings({ speaker, onSettings }) {
     if (list) input.setAttribute("list", list);
     input.addEventListener("change", () => void onChange(input.value.trim()));
     return el("label", { class: "field" },
-      el("span", { text: label }), input, hint ? el("span", { class: "hint", text: hint }) : null);
+      el("span", { text: t(label) }), input, hint ? el("span", { class: "hint", text: t(hint) }) : null);
   }
 
   function select(label, value, options, onChange, hint = "") {
-    const node = el("select", {}, options.map(([id, text]) => el("option", { value: id, text, selected: id === value })));
+    const node = el("select", {}, options.map(([id, text]) => el("option", { value: id, text: t(text), selected: id === value })));
     node.addEventListener("change", () => void onChange(node.value));
     return el("label", { class: "field" },
-      el("span", { text: label }), node, hint ? el("span", { class: "hint", text: hint }) : null);
+      el("span", { text: t(label) }), node, hint ? el("span", { class: "hint", text: t(hint) }) : null);
   }
 
   function toggle(label, value, onChange, hint = "") {
     return el("label", { class: "field row-field" },
       el("input", { type: "checkbox", checked: value, onchange: (event) => void onChange(event.target.checked) }),
-      el("span", { text: label }), hint ? el("span", { class: "hint", text: hint }) : null);
+      el("span", { text: t(label) }), hint ? el("span", { class: "hint", text: t(hint) }) : null);
   }
 
   function drawModels() {
     const datalist = el("datalist", { id: "model-list" }, models.map((id) => el("option", { value: id })));
     const refresh = el("button", {
       class: "chip",
-      text: "モデル一覧を取得",
+      label: "モデル一覧を取得",
       onclick: async () => {
         try {
           models = (await api.models()).models || [];
-          toast(models.length ? `${models.length}件見つかりました` : "取得できませんでした");
+          toast(models.length ? t("{0}件見つかりました", models.length) : t("取得できませんでした"));
           draw();
         } catch (error) {
           toast(String(error.message || error), "error");
@@ -91,10 +92,10 @@ export function createSettings({ speaker, onSettings }) {
     const provider = settings.provider || "nebius";
     const frameworks = about?.frameworks ?? {};
     view.append(
-      el("h3", { text: "モデル" }),
+      el("h3", { label: "モデル" }),
       el("p", {
         class: "hint",
-        text: "担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。" +
+        label: "担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。" +
           "どのモデルをどの段に置くかが、そのまま体験の差になります。",
       }),
       select("実行場所", provider, Object.entries(providerLabels), async (next) => {
@@ -138,8 +139,8 @@ export function createSettings({ speaker, onSettings }) {
     const search = settings.search ?? {};
     const providers = about?.search ?? {};
     view.append(
-      el("h3", { text: "道具" }),
-      el("p", { class: "hint", text: "宣言した担当だけが呼べます。鍵はここにあり、スキルは持ちません。" }),
+      el("h3", { label: "道具" }),
+      el("p", { class: "hint", label: "宣言した担当だけが呼べます。鍵はここにあり、スキルは持ちません。" }),
       select("Web検索", search.provider || "",
         [["", "使わない"], ...Object.entries(providers).map(([id, entry]) => [id, entry.label])],
         async (next) => {
@@ -156,8 +157,8 @@ export function createSettings({ speaker, onSettings }) {
     const places = settings.places ?? {};
     view.append(
       el("details", { class: "install" },
-        el("summary", { text: "店舗検索・経路検索の接続先" }),
-        el("p", { class: "hint", text: "既定は鍵の要らない公開サービスです。自前のインスタンスに向けられます。" }),
+        el("summary", { label: "店舗検索・経路検索の接続先" }),
+        el("p", { class: "hint", label: "既定は鍵の要らない公開サービスです。自前のインスタンスに向けられます。" }),
         field("地名検索 (Nominatim)", places.nominatimUrl, (value) => patch({ places: { ...places, nominatimUrl: value } })),
         field("周辺検索 (Overpass)", places.overpassUrl, (value) => patch({ places: { ...places, overpassUrl: value } })),
         field("経路 (OSRM)", places.routeUrl, (value) => patch({ places: { ...places, routeUrl: value } }), {
@@ -168,7 +169,7 @@ export function createSettings({ speaker, onSettings }) {
 
   function drawPrivacy() {
     view.append(
-      el("h3", { text: "位置" }),
+      el("h3", { label: "位置" }),
       toggle("投稿に位置を残す", settings.keepPlace !== false, (value) => patch({ keepPlace: value }),
         "反応のために今いる場所が要ることと、過去の投稿に位置を残すことは別です。切ると、反応には使われますが記録には残りません。"),
     );
@@ -177,7 +178,7 @@ export function createSettings({ speaker, onSettings }) {
   function drawSpeech() {
     const speech = settings.speech ?? {};
     view.append(
-      el("h3", { text: "音声入力" }),
+      el("h3", { label: "音声入力" }),
       select("方式", speech.provider || "browser",
         [["browser", "ブラウザ音声認識"], ["openai-compatible", "音声認識API（録音して送る）"], ["live", "ライブ文字起こし"]],
         async (next) => {
@@ -211,7 +212,7 @@ export function createSettings({ speaker, onSettings }) {
       select("言語", speech.language || "auto", languages.map((item) => [item.value, item.label]),
         (next) => patchSpeech({ language: next })),
       select("無音で自動停止", String(speech.silenceSeconds ?? 3),
-        [["0", "しない"], ...Array.from({ length: 10 }, (_, i) => [String(i + 1), `${i + 1}秒`])],
+        [["0", "しない"], ...Array.from({ length: 10 }, (_, i) => [String(i + 1), t("{0}秒", i + 1)])],
         (next) => patchSpeech({ silenceSeconds: Number(next) })),
       field("送信の合図", speech.sendPhrase, (value) => patchSpeech({ sendPhrase: value }), {
         hint: "話し終わりの合図。これで投稿されます。空欄で無効",
@@ -220,7 +221,7 @@ export function createSettings({ speaker, onSettings }) {
   }
 
   function drawReadAloud() {
-    view.append(el("h3", { text: "読み上げ" }));
+    view.append(el("h3", { label: "読み上げ" }));
     const rate = el("input", {
       type: "range", min: "0.5", max: "2.5", step: "0.1", value: String(settings.readAloudRate || 1),
     });
@@ -232,27 +233,37 @@ export function createSettings({ speaker, onSettings }) {
     rate.addEventListener("change", () => void patch({ readAloudRate: Number(rate.value) }));
     const voices = speaker.voices();
     const voice = el("select", {},
-      el("option", { value: "", text: "既定の声" }),
+      el("option", { value: "", label: "既定の声" }),
       voices.map((name) => el("option", { value: name, text: name, selected: name === settings.readAloudVoice })));
     voice.addEventListener("change", () => {
       speaker.setVoice(voice.value);
       void patch({ readAloudVoice: voice.value });
     });
     view.append(
-      el("label", { class: "field" }, el("span", { text: "速さ" }), rate, rateValue),
-      el("label", { class: "field" }, el("span", { text: "声" }), voice),
+      el("label", { class: "field" }, el("span", { label: "速さ" }), rate, rateValue),
+      el("label", { class: "field" }, el("span", { label: "声" }), voice),
     );
   }
 
   function drawAbout() {
     if (!about) return;
     view.append(
-      el("h3", { text: "この端末" }),
+      el("h3", { label: "この端末" }),
       el("p", { class: "hint", text: `kakeratta ${about.version}` }),
-      el("p", { class: "hint", text: `保存先 ${about.workspace}` }),
+      el("p", { class: "hint", text: t("保存先 {0}", about.workspace) }),
       about.needsToken ? null : el("p", {
         class: "hint warn",
-        text: "トークンが未設定です。外から届く場所に置くときは KAKERATTA_TOKEN を設定してください。",
+        label: "トークンが未設定です。外から届く場所に置くときは KAKERATTA_TOKEN を設定してください。",
+      }),
+    );
+  }
+
+  function drawLanguage() {
+    view.append(
+      el("h3", { label: "表示言語" }),
+      select("言語", getLanguage(), [["en", "English"], ["ja", "日本語"]], (next) => {
+        setLanguage(next, { persist: true });
+        location.reload();
       }),
     );
   }
@@ -260,6 +271,7 @@ export function createSettings({ speaker, onSettings }) {
   function draw() {
     if (!settings) return;
     clear(view);
+    drawLanguage();
     drawAI();
     drawTools();
     drawPrivacy();

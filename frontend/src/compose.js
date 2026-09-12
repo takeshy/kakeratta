@@ -7,6 +7,7 @@
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { createDictation, dictationSupported } from "./dictation.js";
+import { t } from "./i18n.js";
 
 const LINK = /^https?:\/\/\S+$/i;
 
@@ -15,7 +16,7 @@ export function createCompose({ getSettings, onPosted }) {
   const text = el("textarea", {
     class: "compose-text",
     rows: "2",
-    placeholder: "思いついたこと／気になったこと。画像は貼る（Ctrl+V）、URL、マイクでも",
+    i18nPlaceholder: "思いついたこと／気になったこと。画像は貼る（Ctrl+V）、URL、マイクでも",
   });
   const preview = el("div", { class: "compose-preview", hidden: true });
   const status = el("span", { class: "compose-status" });
@@ -40,11 +41,11 @@ export function createCompose({ getSettings, onPosted }) {
   function showImage(dataURL, name) {
     image = dataURL;
     clear(preview).append(
-      el("img", { src: dataURL, alt: name || "キャプチャ" }),
+      el("img", { src: dataURL, alt: name || t("キャプチャ") }),
       el("button", {
         class: "chip",
         type: "button",
-        text: "取り消す",
+        label: "取り消す",
         onclick: () => {
           image = null;
           preview.hidden = true;
@@ -94,14 +95,14 @@ export function createCompose({ getSettings, onPosted }) {
       return;
     }
     sending = true;
-    status.textContent = "送っています…";
+    status.textContent = t("送っています…");
     try {
       const body = { text: written, image: image || "" };
       // A line that is only a URL is a link, not a comment on one.
       if (LINK.test(written) && !image) {
         body.link = written;
         body.text = "";
-        status.textContent = "ページを読んでいます…";
+        status.textContent = t("ページを読んでいます…");
       }
       body.place = place || (await locate());
       const entry = await api.post(body);
@@ -119,7 +120,7 @@ export function createCompose({ getSettings, onPosted }) {
     }
   }
 
-  const micButton = el("button", { class: "chip", type: "button", text: "🎙 話す" });
+  const micButton = el("button", { class: "chip", type: "button", label: "🎙 話す" });
   const dictation = createDictation({
     getSettings,
     getText: () => text.value,
@@ -128,7 +129,7 @@ export function createCompose({ getSettings, onPosted }) {
     },
     onState: (state) => {
       micButton.classList.toggle("active", state.status === "recording");
-      status.textContent = state.error || (state.status === "recording" ? "聞いています…" : "");
+      status.textContent = state.error || (state.status === "recording" ? t("聞いています…") : "");
     },
     // Saying the send phrase means "that is the post".
     onSend: () => void send(),
@@ -162,14 +163,14 @@ export function createCompose({ getSettings, onPosted }) {
       el("button", {
         class: "chip",
         type: "button",
-        text: "📷 画像",
+        label: "📷 画像",
         onclick: () => picker.click(),
       }),
       micButton,
       picker,
       status,
       el("span", { class: "spacer" }),
-      el("button", { class: "button primary", type: "submit", text: "流す" }),
+      el("button", { class: "button primary", type: "submit", label: "送る" }),
     ),
   );
 

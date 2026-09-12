@@ -6,6 +6,7 @@
 // without anyone saying anything.
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
+import { t } from "./i18n.js";
 
 export function createFeed({ getPersona, onReply }) {
   const view = el("div", { class: "feed" });
@@ -63,7 +64,7 @@ export function createFeed({ getPersona, onReply }) {
       view.append(
         el("p", {
           class: "empty",
-          text: "まだ何もありません。気になった画面を撮って貼ってください。反応は遅れて届きます。",
+          label: "まだ何もありません。気になった画面を撮って貼ってください。反応は遅れて届きます。",
         }),
       );
       return;
@@ -99,10 +100,10 @@ export function createFeed({ getPersona, onReply }) {
         el("span", { class: "spacer" }),
         el("button", {
           class: "chip ghost",
-          title: "消す",
-          text: "×",
+          i18nTitle: "消す",
+          label: "×",
           onclick: async () => {
-            if (!confirm("この投稿を消しますか")) return;
+            if (!confirm(t("この投稿を消しますか"))) return;
             try {
               await api.remove(entry.id);
             } catch (error) {
@@ -115,7 +116,7 @@ export function createFeed({ getPersona, onReply }) {
     if (media?.blobId) {
       node.append(
         el("a", { class: "shot", href: blobURL(media.blobId), target: "_blank" },
-          el("img", { src: blobURL(media.blobId), alt: media.describe || "キャプチャ", loading: "lazy" })),
+          el("img", { src: blobURL(media.blobId), alt: media.describe || t("キャプチャ"), loading: "lazy" })),
       );
     }
     if (entry.text) node.append(el("p", { class: "said", text: entry.text }));
@@ -129,13 +130,13 @@ export function createFeed({ getPersona, onReply }) {
   // What the app read out of the capture, folded away. It is what every persona
   // was given, so it is worth being able to check - but it is not the post.
   function drawRead(media) {
-    if (media.error) return el("p", { class: "read error", text: `読み取れませんでした: ${media.error}` });
-    if (!media.readAt) return el("p", { class: "read pending", text: "読み取り中…" });
-    const summary = media.describe || (media.text ? `${[...media.text].length}文字` : "読み取り結果");
+    if (media.error) return el("p", { class: "read error", text: t("読み取れませんでした: {0}", media.error) });
+    if (!media.readAt) return el("p", { class: "read pending", label: "読み取り中…" });
+    const summary = media.describe || (media.text ? t("{0}文字", [...media.text].length) : t("読み取り結果"));
     const body = el("div", { class: "read-body" });
-    if (media.origin) body.append(el("p", { class: "origin", text: `出典の手がかり: ${media.origin}` }));
+    if (media.origin) body.append(el("p", { class: "origin", text: t("出典の手がかり: {0}", media.origin) }));
     if (media.text) body.append(el("pre", { class: "ocr", text: media.text }));
-    if (!body.children.length) body.append(el("p", { class: "hint", text: "文字は読み取れませんでした。" }));
+    if (!body.children.length) body.append(el("p", { class: "hint", label: "文字は読み取れませんでした。" }));
     return el("details", { class: "read" }, el("summary", { text: summary }), body);
   }
 
@@ -148,7 +149,7 @@ export function createFeed({ getPersona, onReply }) {
         "div",
         { class: "said-head" },
         el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
-        el("span", { class: "who", text: mine ? "あなた" : persona?.name || entry.speaker }),
+        el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
       ),
       el("p", { class: "said", text: entry.text }),
@@ -162,7 +163,7 @@ export function createFeed({ getPersona, onReply }) {
       node.append(
         el("button", {
           class: "chip ghost",
-          text: "返す",
+          label: "返す",
           onclick: () => {
             openReply = entry.id;
             draw();
@@ -179,7 +180,7 @@ export function createFeed({ getPersona, onReply }) {
     if (openReply === post.id) return drawReplyBox(post.id);
     return el("button", {
       class: "chip ghost reply-open",
-      text: "一言足す",
+      label: "一言足す",
       onclick: () => {
         openReply = post.id;
         draw();
@@ -191,7 +192,7 @@ export function createFeed({ getPersona, onReply }) {
   // see it next time, the same as anything else.
   function drawReplyBox(replyTo) {
     const input = el("textarea", {
-      class: "reply-input", rows: "2", placeholder: "返事や、@名前 で指名",
+      class: "reply-input", rows: "2", i18nPlaceholder: "返事や、@名前 で指名",
       "data-reply-to": replyTo,
     });
     input.value = drafts.get(replyTo) || "";
@@ -227,10 +228,10 @@ export function createFeed({ getPersona, onReply }) {
       el(
         "div",
         { class: "compose-row" },
-        el("button", { class: "button primary", text: "送る", onclick: () => void send() }),
+        el("button", { class: "button primary", label: "送る", onclick: () => void send() }),
         el("button", {
           class: "chip ghost",
-          text: "やめる",
+          label: "やめる",
           onclick: () => {
             drafts.delete(replyTo);
             openReply = null;
