@@ -17,17 +17,37 @@ import (
 	"strings"
 )
 
-// Tier is which model answers. The difference is the experience, not a saving:
-// a quick shallow reaction and a considered one arriving later at the same post
-// is the point of having both.
+// Tier is which size of model answers for a persona.
+//
+// The difference is the experience, not a saving. A small model may stop at
+// "I'm losing the thread of this", and something larger arriving afterwards
+// picks that up - which only works if the sizes really differ, so which model
+// sits in which tier is the setting that carries the contrast.
 type Tier string
 
 const (
-	TierLight Tier = "light"
-	TierHeavy Tier = "heavy"
+	TierLow    Tier = "low"
+	TierMiddle Tier = "middle"
+	TierHigh   Tier = "high"
 )
 
-func (t Tier) Valid() bool { return t == TierLight || t == TierHeavy }
+// Tiers are the order they run in: low first, so what it says can be handed to
+// the ones above it.
+var Tiers = []Tier{TierLow, TierMiddle, TierHigh}
+
+func (t Tier) Valid() bool { return t == TierLow || t == TierMiddle || t == TierHigh }
+
+// after reports whether this tier runs later than the other one.
+func (t Tier) after(other Tier) bool { return t.rank() > other.rank() }
+
+func (t Tier) rank() int {
+	for i, tier := range Tiers {
+		if tier == t {
+			return i
+		}
+	}
+	return -1
+}
 
 // Skill is everything a persona declares.
 type Skill struct {
@@ -72,7 +92,7 @@ var Builtins = []Skill{
 			"根拠にした個別の記述は消す。行きたいと言っていた店は Shop に場所とともに残し、" +
 			"行ったあとは感想を足す。index.md には傾向を先に、店を後に並べる。" +
 			"発言するのは、前の好みと結びつくときか、近くに思い当たる店があるときだけ。",
-		Model: TierHeavy, Tools: []string{"place_search", "web_search"}, Builtin: true,
+		Model: TierHigh, Tools: []string{"place_search", "web_search"}, Builtin: true,
 	},
 	{
 		ID: "move", Name: "みち", Icon: "🚃",
@@ -82,7 +102,7 @@ var Builtins = []Skill{
 		Instructions: "概念は type: Place（よく行く場所）を主に使い、そこまでにかかった実績を本文に積む。" +
 			"一度きりの行き先は概念にしない。二度目に同じ場所が出たら作る。" +
 			"index.md は場所の一覧だけでよい。発言するのは時刻か行き先が文面にあるときだけ。",
-		Model: TierLight, Tools: []string{"route", "place_search"}, Builtin: true,
+		Model: TierLow, Tools: []string{"route", "place_search"}, Builtin: true,
 	},
 	{
 		ID: "tech", Name: "くだ", Icon: "💾",
@@ -93,7 +113,7 @@ var Builtins = []Skill{
 			"解決した Thread は description を結論に書き換え、本文の経緯を捨てる。未解決のものは捨てない。" +
 			"index.md では未解決を先に並べる。" +
 			"発言するのは、前に追いかけていたものと繋がるときか、明らかに落とし穴があるとき。",
-		Model: TierLight, Tools: []string{"web_search"}, Builtin: true,
+		Model: TierLow, Tools: []string{"web_search"}, Builtin: true,
 	},
 	{
 		ID: "book", Name: "しおり", Icon: "📖",
@@ -104,7 +124,7 @@ var Builtins = []Skill{
 			"本をまたいで同じ主題が3度出たら type: Theme を作り、各 Book からリンクする。" +
 			"読み終えた本は description を感想に書き換え、引用は残す（後から響き合うのは引用のほう）。" +
 			"発言するのは、前に引いた線と響き合うときだけ。毎回感想を言わない。",
-		Model: TierHeavy, Tools: []string{"web_search"}, Builtin: true,
+		Model: TierMiddle, Tools: []string{"web_search"}, Builtin: true,
 	},
 }
 
@@ -264,7 +284,7 @@ func validate(skill Skill) error {
 		return errors.New("アイコンは絵文字1つにしてください")
 	}
 	if !skill.Model.Valid() {
-		return errors.New("モデルは light か heavy です")
+		return errors.New("モデルは low / middle / high のいずれかです")
 	}
 	return nil
 }

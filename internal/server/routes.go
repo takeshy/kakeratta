@@ -436,7 +436,8 @@ func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
 		},
 		"frameworks": frameworks,
 		"search":     websearch.Providers,
-		"nemotron":   map[string]string{"light": store.NemotronNano, "heavy": store.NemotronSuper},
+		"nemotron":   map[string]string{"low": store.NemotronNano, "middle": store.NemotronSuper},
+		"tiers":      []string{string(persona.TierLow), string(persona.TierMiddle), string(persona.TierHigh)},
 		"tools":      tools.New(s.store.Settings()).Names(),
 		"needsToken": s.token != "",
 	})

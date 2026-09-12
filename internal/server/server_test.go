@@ -233,7 +233,7 @@ func TestKeysNeverReachThePage(t *testing.T) {
 		t.Fatal("the page cannot tell whether a key is set")
 	}
 
-	out.LightModel = "something/else"
+	out.LowModel = "something/else"
 	body, _ := json.Marshal(out)
 	saved := httptest.NewRecorder()
 	server.ServeHTTP(saved, httptest.NewRequest(http.MethodPut, "/api/settings", bytes.NewReader(body)))
@@ -244,7 +244,7 @@ func TestKeysNeverReachThePage(t *testing.T) {
 	if after.APIKey != "real-key" {
 		t.Fatalf("the key was overwritten with the mask: %q", after.APIKey)
 	}
-	if after.LightModel != "something/else" {
+	if after.LowModel != "something/else" {
 		t.Fatal("the change that was made did not save")
 	}
 }

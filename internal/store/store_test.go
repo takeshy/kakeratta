@@ -178,7 +178,13 @@ func TestKeysAreNotInTheDefaults(t *testing.T) {
 	if settings.APIKey != "" || settings.Search.APIKey != "" {
 		t.Fatal("a key appeared from nowhere")
 	}
-	if settings.LightModel == settings.HeavyModel {
-		t.Fatal("the two sizes are the experience; they must differ by default")
+	// The contrast between the tiers is the experience, so the ones that ship
+	// filled in must not be the same model.
+	if settings.LowModel == settings.MiddleModel {
+		t.Fatal("low and middle are the same model by default")
+	}
+	// An unset tier falls back rather than failing, so a single-model setup works.
+	if settings.HighModel != settings.MiddleModel {
+		t.Fatalf("an unset high tier should fall back to middle, got %q", settings.HighModel)
 	}
 }

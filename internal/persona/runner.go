@@ -189,10 +189,13 @@ func (r *Runner) react(entryID string) {
 	r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": keys(targets)})
 
 	// The tiers run one after the other, and that is what makes the exchange
-	// work: the considered reply reads the quick one. Running them together
-	// would leave the heavy model with nothing to pick up on.
+	// work: what the low one said is in front of the ones above it, so they have
+	// something to pick up on. Running them together would leave the larger
+	// models with nothing but the post.
 	registry := tools.New(settings)
-	for _, tier := range []Tier{TierLight, TierHeavy} {
+	var ran []Skill
+	spoke := map[Tier]bool{}
+	for _, tier := range Tiers {
 		var wave []Skill
 		for _, skill := range skills {
 			if targets[skill.ID] && skill.Model == tier {
@@ -210,15 +213,32 @@ func (r *Runner) react(entryID string) {
 			go func(i int, skill Skill) {
 				defer group.Done()
 				defer func() { _ = recover() }()
-				remarks[i] = r.run(ctx, skill, thread, root, contains(named, skill.ID), client, settings, registry)
+				remarks[i] = r.run(ctx, skill, thread, root, contains(named, skill.ID), false, client, settings, registry)
 			}(i, skill)
 		}
 		group.Wait()
+		ran = append(ran, wave...)
 		for _, remark := range remarks {
 			if remark != nil {
 				thread = append(thread, *remark)
+				spoke[tier] = true
 			}
 		}
+	}
+
+	// A persona that already had its turn still gets to hear what was said
+	// above it - not speaking and not remembering are different things - but it
+	// cannot answer. Otherwise the two of them would keep going without anyone
+	// asking, and the timeline would fill up with a conversation that is not
+	// yours.
+	for _, skill := range ran {
+		if !spokeAfter(spoke, skill.Model) {
+			continue
+		}
+		func() {
+			defer func() { _ = recover() }()
+			r.run(ctx, skill, thread, root, false, true, client, settings, registry)
+		}()
 	}
 }
 
@@ -293,13 +313,10 @@ const toolTemplate = `
 // run wakes one persona and hands it the post. Everything after that is the
 // persona's: what of its own notes to read, what to write, whether to say
 // anything. This function only carries the calls it makes.
-func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, root string, named bool,
+func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, root string, named, listening bool,
 	client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 
-	model := settings.LightModel
-	if skill.Model == TierHeavy {
-		model = settings.HeavyModel
-	}
+	model := modelFor(skill.Model, settings)
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
 	}
@@ -329,7 +346,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		"",
 		"渡された投稿とそれに付いた発言:",
 		timeline.Render(thread, names),
-		mentionLine(named),
+		turnLine(named, listening),
 	}, "\n")
 
 	messages := []llm.Message{
@@ -405,12 +422,13 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			continue
 		case "speak":
 			text := strings.TrimSpace(parsed.Text)
-			if text == "" {
+			if text == "" || listening {
+				// It had its turn. Whatever it wrote down is kept either way.
 				return r.hush(skill, memory)
 			}
 			return r.speak(skill, root, text, sources, memory, "")
 		default:
-			if named && round == 0 {
+			if named && !listening && round == 0 {
 				// Being asked by name is the one thing that is not the persona's
 				// to decline. Everything else about the answer still is.
 				messages = append(messages,
@@ -457,11 +475,48 @@ func placeLine(place *timeline.Place) string {
 	return "いまいる場所: " + place.Describe()
 }
 
-func mentionLine(named bool) string {
-	if !named {
-		return ""
+func turnLine(named, listening bool) string {
+	switch {
+	case listening:
+		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
+			"覚えておくことがあればメモに書いてください。返すのは silent です。"
+	case named:
+		return "\n※ あなたは名指しで呼ばれています。必ず発言してください。"
 	}
-	return "\n※ あなたは名指しで呼ばれています。必ず発言してください。"
+	return ""
+}
+
+// modelFor is which model answers for a tier. An unset tier falls back to the
+// one below it, so a single-model setup works - it just gives up the contrast.
+func modelFor(tier Tier, settings store.Settings) string {
+	switch tier {
+	case TierHigh:
+		return firstSet(settings.HighModel, settings.MiddleModel, settings.LowModel)
+	case TierMiddle:
+		return firstSet(settings.MiddleModel, settings.LowModel)
+	default:
+		return strings.TrimSpace(settings.LowModel)
+	}
+}
+
+func firstSet(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+// spokeAfter reports whether anything was said by a tier that runs later than
+// this one.
+func spokeAfter(spoke map[Tier]bool, tier Tier) bool {
+	for other, said := range spoke {
+		if said && other.after(tier) {
+			return true
+		}
+	}
+	return false
 }
 
 func dedupe(sources []timeline.Source) []timeline.Source {

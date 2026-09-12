@@ -38,9 +38,8 @@ var LocalFrameworks = map[LocalFramework]struct {
 const (
 	NebiusBaseURL = "https://api.tokenfactory.nebius.com/v1"
 
-	// The size difference is the point rather than a saving: a shallow reaction
-	// and a considered one reading the same timeline is what makes it worth
-	// having both in the room.
+	// Which model sits in which tier is what carries the contrast, so these are
+	// only where it starts. Any OpenAI-compatible name goes in any tier.
 	NemotronNano  = "nvidia/nemotron-3-nano-30b-a3b"
 	NemotronSuper = "nvidia/nemotron-3-super-120b-a12b"
 )
@@ -52,11 +51,17 @@ type Settings struct {
 	BaseURL        string         `json:"baseUrl"`
 	APIKey         string         `json:"apiKey"`
 
-	// LightModel answers the shallow reactions and reads the captures;
-	// HeavyModel is the one that comes along afterwards and picks things up.
-	LightModel string `json:"lightModel"`
-	HeavyModel string `json:"heavyModel"`
-	// VisionModel reads a capture once for everyone. Empty means LightModel.
+	// Three sizes, in the order they answer. A persona declares which tier it
+	// belongs to, and the contrast between the tiers is the experience: the low
+	// one reacts quickly and shallowly, and what it said is handed to the ones
+	// above it so they have something to pick up on.
+	//
+	// A tier left empty falls back to the one below it, so running everything on
+	// one model is a valid setup - it just gives up the contrast.
+	LowModel    string `json:"lowModel"`
+	MiddleModel string `json:"middleModel"`
+	HighModel   string `json:"highModel"`
+	// VisionModel reads a capture once for everyone. Empty means the low one.
 	VisionModel string `json:"visionModel"`
 	// RouteModel decides who a post goes to. It is a light judgement on
 	// purpose: it only drops what is plainly none of a persona's business.
@@ -119,8 +124,10 @@ func defaultSettings() Settings {
 	return Settings{
 		Provider:    ProviderNebius,
 		BaseURL:     NebiusBaseURL,
-		LightModel:  NemotronNano,
-		HeavyModel:  NemotronSuper,
+		LowModel:    NemotronNano,
+		MiddleModel: NemotronSuper,
+		// The high tier is left empty rather than guessed at: it falls back to
+		// the middle one until something bigger is actually pointed at.
 		VisionModel: NemotronNano,
 		RouteModel:  NemotronNano,
 		Places: PlaceSettings{
@@ -171,11 +178,17 @@ func (s *Store) Settings() Settings {
 	if strings.TrimSpace(settings.BaseURL) == "" {
 		settings.BaseURL = EndpointFor(settings.Provider, settings.LocalFramework)
 	}
+	if strings.TrimSpace(settings.MiddleModel) == "" {
+		settings.MiddleModel = settings.LowModel
+	}
+	if strings.TrimSpace(settings.HighModel) == "" {
+		settings.HighModel = settings.MiddleModel
+	}
 	if strings.TrimSpace(settings.VisionModel) == "" {
-		settings.VisionModel = settings.LightModel
+		settings.VisionModel = settings.LowModel
 	}
 	if strings.TrimSpace(settings.RouteModel) == "" {
-		settings.RouteModel = settings.LightModel
+		settings.RouteModel = settings.LowModel
 	}
 	return settings
 }

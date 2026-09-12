@@ -94,7 +94,8 @@ export function createSettings({ speaker, onSettings }) {
       el("h3", { text: "モデル" }),
       el("p", {
         class: "hint",
-        text: "サイズの使い分けはコストの話ではありません。浅い反応と深い反応が混ざることそのものが体験です。",
+        text: "担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。" +
+          "どのモデルをどの段に置くかが、そのまま体験の差になります。",
       }),
       select("実行場所", provider, Object.entries(providerLabels), async (next) => {
         const entry = (about?.providers ?? []).find((item) => item.id === next);
@@ -119,8 +120,12 @@ export function createSettings({ speaker, onSettings }) {
         hint: "サーバー側にだけ保存され、指定した接続先以外へは送りません",
       }),
       ...drawModels(),
-      field("軽いモデル（浅い反応・振り分け）", settings.lightModel, (value) => patch({ lightModel: value }), { list: "model-list" }),
-      field("重いモデル（深い反応）", settings.heavyModel, (value) => patch({ heavyModel: value }), { list: "model-list" }),
+      field("low（先に動く。浅く速い）", settings.lowModel, (value) => patch({ lowModel: value }), { list: "model-list" }),
+      field("middle", settings.middleModel, (value) => patch({ middleModel: value }), { list: "model-list" }),
+      field("high（最後に動く。下の発言を見て突っ込める）", settings.highModel, (value) => patch({ highModel: value }), {
+        list: "model-list",
+        hint: "空にすると1つ下の段に落ちます。全部同じにしてもいいですが、対比は無くなります",
+      }),
       field("画像を読むモデル（vision）", settings.visionModel, (value) => patch({ visionModel: value }), {
         list: "model-list",
         hint: "投稿ごとに一度だけ通し、結果は全員で共有します",

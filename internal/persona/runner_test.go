@@ -128,10 +128,10 @@ func remarks(t *testing.T, s *store.Store) []timeline.Entry {
 	return out
 }
 
-// The rule the exchange rests on: the light model goes first, and the heavy one
-// reads what it said. Run together, the considered reply would have nothing to
+// The rule the exchange rests on: the low tier goes first, and the ones above
+// it read what it said. Run together, the larger models would have nothing to
 // pick up on.
-func TestTheHeavyOneReadsWhatTheLightOneSaid(t *testing.T) {
+func TestTheHigherTiersReadWhatTheLowerOneSaid(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		switch {
 		case strings.Contains(system, "振り分け"):
@@ -153,16 +153,114 @@ func TestTheHeavyOneReadsWhatTheLightOneSaid(t *testing.T) {
 	if said[0].Speaker != "move" || said[1].Speaker != "gourmet" {
 		t.Fatalf("order = %s then %s, want the light one first", said[0].Speaker, said[1].Speaker)
 	}
-	heavy := stub.promptFor("たべ")
-	if heavy == "" {
-		t.Fatal("the heavy persona was never asked")
+	high := stub.promptFor("たべ")
+	if high == "" {
+		t.Fatal("the high persona was never asked")
 	}
-	if !strings.Contains(heavy, "渋谷まで20分") {
-		t.Fatalf("the heavy one could not see the light one's remark:\n%s", heavy)
+	if !strings.Contains(high, "渋谷まで20分") {
+		t.Fatalf("the high one could not see the low one's remark:\n%s", high)
 	}
-	// And the light one cannot have seen a remark that had not happened yet.
+	// And the low one cannot have seen a remark that had not happened yet.
 	if strings.Contains(stub.promptFor("みち"), "それなら店も見ておく") {
-		t.Fatal("the light one saw the future")
+		t.Fatal("the low one saw the future")
+	}
+}
+
+// Three tiers in order, and then the rule that stops them talking to each
+// other: a persona that already had its turn hears what came after it, keeps
+// what it wants of it, and cannot answer.
+func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
+	var listened []string
+	runner, s, stub := setup(t, func(system, user string) string {
+		switch {
+		case strings.Contains(system, "振り分け"):
+			return `{"deliver":["move","book","gourmet"]}`
+		case strings.Contains(user, "notes_write の結果"):
+			return `{"action":"silent"}`
+		}
+		// A turn where it may not speak is a turn for the notes only.
+		if strings.Contains(user, "このターンは発言できません") {
+			for _, name := range []string{"みち", "しおり", "たべ"} {
+				if strings.Contains(system, "あなたは「"+name+"」") {
+					listened = append(listened, name)
+				}
+			}
+			// Even asked to speak, nothing may come of it.
+			return `{"action":"speak","text":"割り込みたい"}`
+		}
+		switch {
+		case strings.Contains(system, "あなたは「みち」"):
+			return `{"action":"speak","text":"三田まで30分。"}`
+		case strings.Contains(system, "あなたは「しおり」"):
+			return `{"action":"speak","text":"前に引いた線と重なる。"}`
+		default:
+			return `{"action":"speak","text":"みちの30分なら間に合う。"}`
+		}
+	}, "move", "book", "gourmet")
+
+	entry := post(t, s, "ここ行きたい")
+	runner.react(entry.ID)
+
+	said := remarks(t, s)
+	if len(said) != 3 {
+		t.Fatalf("remarks = %d, want one per tier: %+v", len(said), said)
+	}
+	if said[0].Speaker != "move" || said[1].Speaker != "book" || said[2].Speaker != "gourmet" {
+		t.Fatalf("order = %s, %s, %s; want low, middle, high",
+			said[0].Speaker, said[1].Speaker, said[2].Speaker)
+	}
+	// Each tier saw what the ones below it said, and nothing above.
+	if !strings.Contains(stub.promptFor("しおり"), "三田まで30分") {
+		t.Fatal("middle did not see low")
+	}
+	if !strings.Contains(stub.promptFor("たべ"), "前に引いた線と重なる") {
+		t.Fatal("high did not see middle")
+	}
+
+	// The two that went earlier were handed the later remarks, and the one that
+	// went last has nothing after it to hear.
+	if len(listened) != 2 {
+		t.Fatalf("listened = %v, want the low and middle ones", listened)
+	}
+	for _, name := range listened {
+		if name == "たべ" {
+			t.Fatal("the last tier was given a listening turn it does not need")
+		}
+	}
+	// They asked to speak on that turn and were not allowed to, so the timeline
+	// did not grow. This is what keeps them from going back and forth on their
+	// own.
+	if len(remarks(t, s)) != 3 {
+		t.Fatal("a listening turn produced a remark")
+	}
+}
+
+// Nobody above said anything, so there is nothing to hear and no extra call to
+// pay for - which is the common case, since staying quiet is the default.
+func TestNoListeningTurnWhenTheHigherTiersStayedQuiet(t *testing.T) {
+	listening := 0
+	runner, s, _ := setup(t, func(system, user string) string {
+		switch {
+		case strings.Contains(system, "振り分け"):
+			return `{"deliver":["move","gourmet"]}`
+		case strings.Contains(user, "このターンは発言できません"):
+			listening++
+			return `{"action":"silent"}`
+		case strings.Contains(system, "あなたは「みち」"):
+			return `{"action":"speak","text":"30分。"}`
+		default:
+			return `{"action":"silent"}`
+		}
+	}, "move", "gourmet")
+
+	entry := post(t, s, "ここ行きたい")
+	runner.react(entry.ID)
+
+	if listening != 0 {
+		t.Fatalf("listening turns = %d, want none", listening)
+	}
+	if len(remarks(t, s)) != 1 {
+		t.Fatalf("remarks = %+v", remarks(t, s))
 	}
 }
 

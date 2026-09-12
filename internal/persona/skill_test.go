@@ -22,13 +22,17 @@ func TestTheBuiltInDomainsAreFarApart(t *testing.T) {
 			t.Fatalf("%s: %v", one.ID, err)
 		}
 	}
-	// The point of two sizes is the contrast, so both have to ship.
+	// The point of the sizes is the contrast, so the ones that ship have to be
+	// spread across the tiers rather than piled into one.
 	sizes := map[Tier]int{}
 	for _, skill := range Builtins {
 		sizes[skill.Model]++
 	}
-	if sizes[TierLight] == 0 || sizes[TierHeavy] == 0 {
-		t.Fatalf("sizes = %v, want both", sizes)
+	if sizes[TierLow] == 0 {
+		t.Fatal("nothing ships in the low tier, so nothing goes first")
+	}
+	if sizes[TierLow] == len(Builtins) {
+		t.Fatal("everything ships in one tier, so there is no contrast")
 	}
 }
 
@@ -54,11 +58,11 @@ func TestInstallRefusesWhatItCannotTrust(t *testing.T) {
 	catalogue := NewCatalogue(t.TempDir())
 	known := func(tool string) bool { return tool == "web_search" }
 	cases := map[string]string{
-		"パス区切りを含むID":  `{"id":"../evil","name":"x","domain":"y","model":"light"}`,
-		"担当領域が無い":     `{"id":"ok","name":"x","domain":"","model":"light"}`,
+		"パス区切りを含むID":  `{"id":"../evil","name":"x","domain":"y","model":"low"}`,
+		"担当領域が無い":     `{"id":"ok","name":"x","domain":"","model":"low"}`,
 		"知らないモデルの大きさ": `{"id":"ok","name":"x","domain":"y","model":"gigantic"}`,
-		"内蔵と同じID":     `{"id":"gourmet","name":"x","domain":"y","model":"light"}`,
-		"知らない道具":      `{"id":"ok","name":"x","domain":"y","model":"light","tools":["nuke"]}`,
+		"内蔵と同じID":     `{"id":"gourmet","name":"x","domain":"y","model":"low"}`,
+		"知らない道具":      `{"id":"ok","name":"x","domain":"y","model":"low","tools":["nuke"]}`,
 	}
 	for name, definition := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -73,7 +77,7 @@ func TestInstalledSkillsJoinTheCatalogue(t *testing.T) {
 	catalogue := NewCatalogue(t.TempDir())
 	known := func(tool string) bool { return tool == "web_search" }
 	skill, err := catalogue.Install([]byte(
-		`{"id":"wine","name":"ぶどう","icon":"🍷","domain":"ワイン","instructions":"銘柄を残す","model":"heavy","tools":["web_search"]}`), known)
+		`{"id":"wine","name":"ぶどう","icon":"🍷","domain":"ワイン","instructions":"銘柄を残す","model":"high","tools":["web_search"]}`), known)
 	if err != nil {
 		t.Fatal(err)
 	}

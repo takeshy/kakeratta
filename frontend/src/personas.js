@@ -7,7 +7,11 @@
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 
-const tierLabels = { light: "軽い（浅く速い）", heavy: "重い（後から拾いに来る）" };
+const tierLabels = {
+  low: "low（先に動く）",
+  middle: "middle",
+  high: "high（最後に動く）",
+};
 
 export function createPersonas({ onChange }) {
   const view = el("div", { class: "panel-body" });
@@ -159,7 +163,7 @@ export function createPersonas({ onChange }) {
           domain: "ワイン。銘柄、産地、ラベルの写真、飲んだ記録。食事全般や技術の話には反応しない。",
           tone: "控えめ。おすすめを押しつけない。",
           instructions: "概念は type: Wine（銘柄）と type: Preference（好み）。同じ好みが3回出たら Preference に統合し、根拠の銘柄は消す。",
-          model: "heavy",
+          model: "high",
           tools: toolNames.slice(0, 2),
         },
         null,
