@@ -50,6 +50,7 @@ KAKERATTA_ADDR=127.0.0.1:8787 task run  # ビルドして起動
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [設計とペルソナ](docs/architecture_ja.md) | 設計原則、振り分け、実行順序、OKFメモ、スキルとツール |
 | [開発と実装状況](docs/development_ja.md) | テスト、ソース構成、実装済みの機能と未確認項目 |
+| [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformによる永続ストレージ・HTTPS付きの構築手順 |
 
 投稿・共有の受け口、振り分け、メモ、返信、検索・経路ツール、読み上げは実装済みです。
 スマホ実機での共有、モデルのvision対応、OCR品質、反応頻度は引き続き確認が必要です。

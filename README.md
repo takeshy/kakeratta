@@ -54,6 +54,7 @@ requests with a session cookie.
 | [Usage and configuration](docs/usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
 | [Design and personas](docs/architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
 | [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
+| [Google Cloud deployment](infra/README.md) | Terraform deployment with persistent storage and HTTPS |
 
 Posting and share intake, routing, notes, replies, search and route tools, and
 read-aloud are implemented. Sharing on real phones, model vision support, OCR

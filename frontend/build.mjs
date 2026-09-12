@@ -7,11 +7,11 @@ import { fileURLToPath } from "node:url";
 const frontendDir = dirname(fileURLToPath(import.meta.url));
 const distDir = join(frontendDir, "dist");
 
+mkdirSync(distDir, { recursive: true });
 for (const entry of readdirSync(distDir)) {
   if (entry === ".gitkeep") continue;
   rmSync(join(distDir, entry), { recursive: true, force: true });
 }
-mkdirSync(distDir, { recursive: true });
 
 // The manifest, the worker and the icon sit at the root because that is where
 // the browser looks for them: a service worker only controls the scope it is

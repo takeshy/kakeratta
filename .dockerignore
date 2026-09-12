@@ -1,0 +1,10 @@
+.git
+.agents
+.codex
+bin
+build
+node_modules
+frontend/dist
+infra/.terraform
+infra/*.tfstate
+infra/*.tfstate.*

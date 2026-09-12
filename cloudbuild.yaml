@@ -1,0 +1,16 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - VERSION=${_VERSION}
+      - --tag
+      - ${_IMAGE}
+      - .
+
+images:
+  - ${_IMAGE}
+
+substitutions:
+  _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:latest
+  _VERSION: dev
