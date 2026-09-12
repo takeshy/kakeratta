@@ -23,6 +23,20 @@ with `KAKERATTA_PROJECT_ID`, `KAKERATTA_REGION`, `KAKERATTA_ZONE`, or ordinary
 Terraform variables.
 The script builds a versioned image, applies the infrastructure, restarts the
 VM, and waits for a valid HTTPS response.
+
+## Custom domain
+
+Terraform creates a Cloud DNS zone for `kakeratta.net` and an A record pointing
+at the fixed VM address. Configure the four values printed by the following
+command as the domain's name servers at the registrar:
+
+```sh
+cd infra
+terraform output name_servers
+```
+
+After delegation propagates, Caddy automatically obtains HTTPS certificates
+for `kakeratta.net` and `www.kakeratta.net`.
 After deployment, retrieve the private first-login URL with:
 
 ```sh

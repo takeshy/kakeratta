@@ -23,6 +23,18 @@ gcloud auth application-default login
 変更できます。スクリプトはバージョン付きイメージのビルド、Terraformの適用、VM再起動、
 HTTPS応答の確認まで行います。
 
+## 独自ドメイン
+
+Terraformは`kakeratta.net`のCloud DNSゾーンと、固定IPを指すAレコードを作成します。
+お名前.comのネームサーバー設定には、次で表示される4つの値を登録してください。
+
+```sh
+cd infra
+terraform output name_servers
+```
+
+委任が反映されると、Caddyが`kakeratta.net`と`www.kakeratta.net`のHTTPS証明書を自動取得します。
+
 初回ログイン用URLは次のコマンドで取得します。このURLは公開しないでください。
 
 ```sh

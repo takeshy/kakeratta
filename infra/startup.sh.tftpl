@@ -46,7 +46,7 @@ docker run -d --name kakeratta --restart unless-stopped --network host \
   "${image}"
 
 cat > "$DATA_MOUNT/Caddyfile" <<'CADDYFILE'
-${domain} {
+${domain}, www.${domain}, ${fallback_domain} {
   encode zstd gzip
   reverse_proxy 127.0.0.1:8787
 }

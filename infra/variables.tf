@@ -16,6 +16,12 @@ variable "zone" {
   default     = "asia-northeast1-b"
 }
 
+variable "domain" {
+  description = "Public domain served by kakeratta and managed in Cloud DNS."
+  type        = string
+  default     = "kakeratta.net"
+}
+
 variable "machine_type" {
   description = "Compute Engine machine type."
   type        = string

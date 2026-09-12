@@ -1,16 +1,43 @@
 locals {
-  name         = "kakeratta"
-  repository   = "kakeratta"
-  image        = "${var.region}-docker.pkg.dev/${var.project_id}/${local.repository}/${local.name}:${var.image_tag}"
-  domain       = "${replace(google_compute_address.app.address, ".", "-")}.sslip.io"
-  access_token = coalesce(var.access_token, random_password.access_token.result)
+  name            = "kakeratta"
+  repository      = "kakeratta"
+  image           = "${var.region}-docker.pkg.dev/${var.project_id}/${local.repository}/${local.name}:${var.image_tag}"
+  domain          = trimsuffix(var.domain, ".")
+  dns_name        = "${local.domain}."
+  fallback_domain = "${replace(google_compute_address.app.address, ".", "-")}.sslip.io"
+  access_token    = coalesce(var.access_token, random_password.access_token.result)
   services = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "compute.googleapis.com",
+    "dns.googleapis.com",
     "iam.googleapis.com",
     "secretmanager.googleapis.com",
   ])
+}
+
+resource "google_dns_managed_zone" "app" {
+  name        = local.name
+  dns_name    = local.dns_name
+  description = "Public DNS zone for kakeratta"
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_dns_record_set" "apex" {
+  name         = google_dns_managed_zone.app.dns_name
+  managed_zone = google_dns_managed_zone.app.name
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_address.app.address]
+}
+
+resource "google_dns_record_set" "www" {
+  name         = "www.${google_dns_managed_zone.app.dns_name}"
+  managed_zone = google_dns_managed_zone.app.name
+  type         = "CNAME"
+  ttl          = 300
+  rrdatas      = [google_dns_managed_zone.app.dns_name]
 }
 
 data "google_project" "current" {
@@ -151,10 +178,11 @@ resource "google_compute_instance" "app" {
   metadata = {
     deployment-version = var.image_tag
     startup-script = templatefile("${path.module}/startup.sh.tftpl", {
-      domain     = local.domain
-      image      = local.image
-      project_id = var.project_id
-      secret_id  = google_secret_manager_secret.access_token.secret_id
+      domain          = local.domain
+      fallback_domain = local.fallback_domain
+      image           = local.image
+      project_id      = var.project_id
+      secret_id       = google_secret_manager_secret.access_token.secret_id
     })
   }
 

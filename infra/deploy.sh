@@ -25,19 +25,22 @@ gcloud builds submit .. --project="$PROJECT_ID" --config=../cloudbuild.yaml \
 terraform apply -auto-approve "${TF_ARGS[@]}"
 
 URL=$(terraform output -raw url)
+READY_URL=$(terraform output -raw fallback_url)
 INSTANCE=$(terraform output -raw instance)
 gcloud compute instances reset "$INSTANCE" --project="$PROJECT_ID" --zone="$ZONE" --quiet
 
 for attempt in $(seq 1 30); do
-  if curl -fsS --max-time 5 "$URL/" >/dev/null; then
+  if curl -fsS --max-time 5 "$READY_URL/" >/dev/null; then
     break
   fi
   if [ "$attempt" -eq 30 ]; then
-    printf 'Deployment did not become ready: %s\n' "$URL" >&2
+    printf 'Deployment did not become ready: %s\n' "$READY_URL" >&2
     exit 1
   fi
   sleep 5
 done
 
 printf '\nkakeratta: %s\n' "$URL"
+printf 'name servers:\n'
+terraform output -json name_servers
 printf 'login URL: run `cd infra && terraform output -raw login_url`\n'
