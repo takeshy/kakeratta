@@ -20,8 +20,9 @@ import (
 // Format bundle, one concept per file.
 //
 // It is a format, not a policy. What to keep and when to compress stay in each
-// persona's own instructions, and nothing in this app parses what comes back -
-// a persona that ignores it still has its notes stored, and that is the bargain.
+// persona's own instructions, and nothing in this app parses what it writes -
+// a persona that ignores the format still has its notes kept, and that is the
+// bargain.
 // The format is offered because one blob of prose rewritten every time loses
 // things quietly, while named concepts each led by a description can be reread,
 // and changed one at a time.
@@ -51,8 +52,15 @@ type Runner struct {
 	clientOf  func() (*llm.Client, store.Settings)
 	emit      func(name string, data any)
 
-	queue chan string
-	once  sync.Once
+	queue   chan string
+	done    chan struct{}
+	once    sync.Once
+	started bool
+
+	// stopped guards the queue: a reaction sent after the queue is closed
+	// would panic, and a post arriving during shutdown is not worth that.
+	stopMu  sync.Mutex
+	stopped bool
 }
 
 func New(s *store.Store, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
@@ -60,6 +68,7 @@ func New(s *store.Store, catalogue *Catalogue, clientOf func() (*llm.Client, sto
 		store: s, catalogue: catalogue, clientOf: clientOf,
 		emit:  func(string, any) {},
 		queue: make(chan string, 64),
+		done:  make(chan struct{}),
 	}
 }
 
@@ -75,7 +84,9 @@ func (r *Runner) OnEvent(emit func(name string, data any)) {
 // ordering inside each one impossible to reason about.
 func (r *Runner) Start() {
 	r.once.Do(func() {
+		r.started = true
 		go func() {
+			defer close(r.done)
 			for entryID := range r.queue {
 				r.react(entryID)
 			}
@@ -83,10 +94,33 @@ func (r *Runner) Start() {
 	})
 }
 
+// Stop lets the reactions in hand finish and then returns.
+//
+// A reaction writes as it goes - a remark, a persona's notes - so killing one
+// half way through leaves the workspace mid-thought. Waiting is short: there is
+// at most one in flight, and the queue behind it is a handful of posts.
+func (r *Runner) Stop() {
+	r.stopMu.Lock()
+	if r.stopped || !r.started {
+		r.stopped = true
+		r.stopMu.Unlock()
+		return
+	}
+	r.stopped = true
+	close(r.queue)
+	r.stopMu.Unlock()
+	<-r.done
+}
+
 // React queues an entry. It never blocks the request that made the post: the
 // user has already seen their capture land.
 func (r *Runner) React(entryID string) {
 	r.Start()
+	r.stopMu.Lock()
+	defer r.stopMu.Unlock()
+	if r.stopped {
+		return
+	}
 	select {
 	case r.queue <- entryID:
 	default:
@@ -256,9 +290,9 @@ const toolTemplate = `
 外に出る道具（このスキルが宣言したものだけ）:
 %s`
 
-// run wakes one persona: it reads what it was given, decides, and writes its
-// notes back. Everything about that decision is the persona's; the app only
-// stores what comes out.
+// run wakes one persona and hands it the post. Everything after that is the
+// persona's: what of its own notes to read, what to write, whether to say
+// anything. This function only carries the calls it makes.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, root string, named bool,
 	client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 

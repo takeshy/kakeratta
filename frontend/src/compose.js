@@ -1,9 +1,9 @@
 // Putting something in.
 //
-// Four ways, one box: a pasted screenshot, a line of text, a URL, or something
-// said out loud. The capture is the main one - it does not care whether the
-// thing on screen was behind a login, a DRM reader or a paywall, which is why
-// it works for Kindle when nothing else does.
+// Four ways, one box: a line of text, a pasted image, a URL, or something said
+// out loud. Writing is the quickest for a thought; an image is the only one
+// that does not care whether what was on screen sat behind a login, a DRM
+// reader or a paywall, which is why it works for Kindle when nothing else does.
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { createDictation, dictationSupported } from "./dictation.js";
@@ -15,7 +15,7 @@ export function createCompose({ getSettings, onPosted }) {
   const text = el("textarea", {
     class: "compose-text",
     rows: "2",
-    placeholder: "スクリーンショットを貼る（Ctrl+V）／一言／URL／マイクで話す",
+    placeholder: "思いついたこと／気になったこと。画像は貼る（Ctrl+V）、URL、マイクでも",
   });
   const preview = el("div", { class: "compose-preview", hidden: true });
   const status = el("span", { class: "compose-status" });

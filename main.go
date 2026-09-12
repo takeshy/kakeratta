@@ -86,4 +86,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
+	// Stop taking posts first, then let the reactions already in hand finish.
+	app.Close()
 }

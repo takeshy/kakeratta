@@ -75,6 +75,10 @@ func New(options Options) *Server {
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
 
+// Close lets whatever is reacting finish. Reactions write as they go, so
+// exiting in the middle of one leaves a persona's notes half written.
+func (s *Server) Close() { s.runner.Stop() }
+
 func (s *Server) client() (*llm.Client, store.Settings) {
 	settings := s.store.Settings()
 	client := llm.New(settings.BaseURL, settings.APIKey)

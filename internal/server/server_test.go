@@ -20,13 +20,18 @@ func app(t *testing.T, token string) (*Server, *store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(Options{
+	server := New(Options{
 		Store:     s,
 		Catalogue: persona.NewCatalogue(s.SkillDir()),
 		Assets:    fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html></html>")}},
 		Version:   "test",
 		Token:     token,
-	}), s
+	})
+	// A post queues a reaction that writes as it goes. Letting it finish before
+	// the temporary workspace is removed is the same thing the binary does on
+	// shutdown, so the test exercises it too.
+	t.Cleanup(server.Close)
+	return server, s
 }
 
 // shared builds the request a share sheet makes: a screenshot as multipart,

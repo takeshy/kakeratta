@@ -19,7 +19,7 @@ import (
 var errNoQuery = errors.New("検索語がありません")
 
 // The public OpenStreetMap services ask that a client identify itself.
-const userAgent = "kakeratta/capture-timeline (https://github.com/takeshy/kakeratta)"
+const userAgent = "kakeratta (https://github.com/takeshy/kakeratta)"
 
 var httpClient = &http.Client{Timeout: 25 * time.Second}
 
