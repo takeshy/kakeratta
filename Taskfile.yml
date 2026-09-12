@@ -1,31 +1,38 @@
 version: '3'
 
-includes:
-  common: ./build/Taskfile.yml
-  windows: ./build/windows/Taskfile.yml
-  darwin: ./build/darwin/Taskfile.yml
-  linux: ./build/linux/Taskfile.yml
+# There is no packaging step. The app is one Go binary with the page embedded:
+# running it on a laptop and deploying it to a server are the same thing.
 
 vars:
   APP_NAME: dokking
   BIN_DIR: bin
 
 tasks:
+  frontend:
+    desc: frontend/dist を作り直す（バンドラなし、コピーのみ）
+    cmds:
+      - node frontend/build.mjs
+
   build:
+    desc: ビルド（bin/dokking）
+    deps: [frontend]
     cmds:
-      - task: '{{OS}}:build'
-  package:
-    cmds:
-      - task: '{{OS}}:package'
+      - go build -ldflags "-X main.version={{.VERSION | default "dev"}}" -o {{.BIN_DIR}}/{{.APP_NAME}} .
+
   run:
+    desc: 起動（http://127.0.0.1:8787）
+    deps: [build]
     cmds:
-      - task: '{{OS}}:run'
+      - "{{.BIN_DIR}}/{{.APP_NAME}}"
+
   test:
-    # The main package needs the platform WebView toolchain; the app's own logic
-    # lives under internal/ and is tested without it.
     cmds:
       - go test ./internal/...
       - node --test tests/*.test.js
-  frontend:
+
+  # Linux/amd64 の中身だけで動くので、どこに置いても同じものが動きます。
+  release:
+    desc: サーバに置く用のバイナリ
+    deps: [frontend]
     cmds:
-      - node frontend/build.mjs
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version={{.VERSION | default "dev"}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-linux-amd64 .

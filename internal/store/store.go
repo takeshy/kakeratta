@@ -1,14 +1,24 @@
-// Package store keeps everything on disk as plain JSON under one directory.
+// Package store keeps everything on disk as plain files under one directory.
 //
-// No database and no account: a book, where the reader is in it, their memos
-// and what the pipeline learned are files they can read, copy and back up. A
-// prepared public-domain book is therefore just a directory that can be shared.
+// The timeline is an append-only log: an entry is written once and never
+// rewritten in place, and a change to one - an image finishing its reading, a
+// deletion - is another line that wins over the earlier one. Appending is cheap
+// no matter how long the log gets, and a crash halfway through a write costs
+// the last line rather than the file.
+//
+// No database and no account. What the user captured is files they can read,
+// copy and back up.
 package store
 
 import (
+	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,229 +26,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/takeshy/dokking/internal/book"
-	"github.com/takeshy/dokking/internal/knowledge"
-	"github.com/takeshy/dokking/internal/position"
-	"github.com/takeshy/dokking/internal/rag"
+	"github.com/takeshy/dokking/internal/timeline"
 )
-
-// Provider is where the models run.
-//
-// All three speak the OpenAI chat-completions shape except OpenCode, which has
-// its own session API; internal/llm hides that difference so the rest of the
-// app only ever asks for a model by name.
-type Provider string
-
-const (
-	ProviderNebius Provider = "nebius"
-	ProviderOpenAI Provider = "openai-compatible"
-	ProviderLocal  Provider = "local"
-)
-
-// LocalFramework is which local server is listening, and only decides the
-// default address and whether the OpenCode session API is used.
-type LocalFramework string
-
-// LocalFrameworks are the local servers with their usual addresses.
-var LocalFrameworks = map[LocalFramework]struct {
-	Label    string `json:"label"`
-	Endpoint string `json:"endpoint"`
-}{
-	"ollama":      {"Ollama", "http://127.0.0.1:11434/v1"},
-	"lm-studio":   {"LM Studio", "http://127.0.0.1:1234/v1"},
-	"anythingllm": {"AnythingLLM", "http://127.0.0.1:3001/api/v1/openai"},
-	"vllm":        {"vLLM", "http://127.0.0.1:8000/v1"},
-	"opencode":    {"OpenCode (Local)", "http://127.0.0.1:4096"},
-}
-
-// Nebius Token Factory is the default: it is where this app's models run, and
-// its inference API is OpenAI-compatible, so nothing else in the app changes.
-const (
-	NebiusBaseURL   = "https://api.tokenfactory.nebius.com/v1"
-	NemotronSuper   = "nvidia/nemotron-3-super-120b-a12b"
-	DefaultLightTag = "nvidia/nemotron-3-super-120b-a12b"
-)
-
-// Settings are the endpoints and models. Credentials stay here and are never
-// sent anywhere but the endpoint they belong to.
-type Settings struct {
-	Provider       Provider       `json:"provider"`
-	LocalFramework LocalFramework `json:"localFramework"`
-	BaseURL        string         `json:"baseUrl"`
-	APIKey         string         `json:"apiKey"`
-	ChatModel      string         `json:"chatModel"`
-	LightModel     string         `json:"lightModel"`
-	HeavyModel     string         `json:"heavyModel"`
-	Speech         SpeechSettings `json:"speech"`
-	Search         SearchSettings `json:"search"`
-	// SendBookAsFile passes a technical book to the model as the file itself
-	// rather than as extracted text, so code listings, tables and figures
-	// survive. Not every provider takes a file; when one refuses, the app falls
-	// back to text on its own, so leaving this on costs at most one attempt.
-	SendBookAsFile bool    `json:"sendBookAsFile"`
-	ReadAloudRate  float64 `json:"readAloudRate"`
-	ReadAloudVoice string  `json:"readAloudVoice"`
-}
-
-// SearchSettings is the one way out to the open web.
-//
-// A persona never holds this: it declares that it needs search, and the app
-// makes the call on its behalf. Swapping the provider, and insisting on a
-// source link for every claim, are then things the app can guarantee rather
-// than things each plugin has to be trusted to do.
-type SearchSettings struct {
-	Provider string `json:"provider"`
-	BaseURL  string `json:"baseUrl"`
-	APIKey   string `json:"apiKey"`
-}
-
-// SpeechSettings are the dictation settings, ported whole from speech-popup so
-// the same engines, phrases and rules work here.
-type SpeechSettings struct {
-	Provider        string `json:"provider"`
-	EndpointType    string `json:"endpointType"`
-	BaseURL         string `json:"baseUrl"`
-	APIKey          string `json:"apiKey"`
-	Model           string `json:"model"`
-	Language        string `json:"language"`
-	SilenceSeconds  int    `json:"silenceSeconds"`
-	SendPhrase      string `json:"sendPhrase"`
-	Replacements    string `json:"replacements"`
-	SymbolCommands  string `json:"symbolCommands"`
-	VertexProjectID string `json:"vertexProjectId"`
-	TidyWithModel   bool   `json:"tidyWithModel"`
-}
-
-func defaultSettings() Settings {
-	return Settings{
-		Provider:   ProviderNebius,
-		BaseURL:    NebiusBaseURL,
-		ChatModel:  NemotronSuper,
-		LightModel: DefaultLightTag,
-		HeavyModel: NemotronSuper,
-		Speech: SpeechSettings{
-			Provider:       "browser",
-			EndpointType:   "openai",
-			BaseURL:        "https://api.openai.com/v1",
-			Model:          "whisper-1",
-			Language:       "auto",
-			SilenceSeconds: 3,
-			SendPhrase:     "over, オーバー",
-			TidyWithModel:  true,
-		},
-		ReadAloudRate:  1,
-		SendBookAsFile: true,
-	}
-}
-
-// EndpointFor is the address a provider listens on by default.
-func EndpointFor(provider Provider, framework LocalFramework) string {
-	switch provider {
-	case ProviderLocal:
-		if entry, ok := LocalFrameworks[framework]; ok {
-			return entry.Endpoint
-		}
-		return LocalFrameworks["ollama"].Endpoint
-	case ProviderOpenAI:
-		return "https://api.openai.com/v1"
-	default:
-		return NebiusBaseURL
-	}
-}
-
-// Memo is a note with the text it was taken from, so the reader can go back to
-// the passage rather than to a page number.
-type Memo struct {
-	ID        string            `json:"id"`
-	BookID    string            `json:"bookId"`
-	Text      string            `json:"text"`
-	Spoken    string            `json:"spoken,omitempty"`
-	Quote     string            `json:"quote"`
-	Range     position.Range    `json:"range"`
-	Position  position.Position `json:"position"`
-	CreatedAt time.Time         `json:"createdAt"`
-	UpdatedAt time.Time         `json:"updatedAt"`
-}
-
-// Event is one entry of the reading log. Memo edits and deletions are recorded
-// too: the log is the record of how this reader read this book.
-type Event struct {
-	ID     string    `json:"id"`
-	BookID string    `json:"bookId"`
-	Kind   string    `json:"kind"`
-	At     time.Time `json:"at"`
-	MemoID string    `json:"memoId,omitempty"`
-	// TurnID points at the message in the thread this entry came from, so the
-	// timeline needs no copy of the text's context: following it lands on the
-	// question with the answer right underneath.
-	TurnID   string            `json:"turnId,omitempty"`
-	Text     string            `json:"text,omitempty"`
-	Quote    string            `json:"quote,omitempty"`
-	Position position.Position `json:"position"`
-}
-
-// Turn is one message of the conversation about a book.
-//
-// The boundary it was answered at is kept with it: the same question asked a
-// hundred pages later is a different question, and an old answer should read as
-// something said earlier, not as something still true.
-type Turn struct {
-	ID   string `json:"id"`
-	Role string `json:"role"`
-	// Speaker is who said it: "user", or the id of the persona that did. One
-	// thread carries every voice in the book, which is what makes a persona
-	// speaking up unprompted land in the same place as an answer.
-	Speaker string       `json:"speaker"`
-	Mode    string       `json:"mode"`
-	Text    string       `json:"text"`
-	Sources []TurnSource `json:"sources,omitempty"`
-	// Anchor is the place in the book the message is about, so every message in
-	// the thread can take the reader back to the text.
-	Anchor   position.Position `json:"anchor"`
-	Boundary position.Position `json:"boundary"`
-	At       time.Time         `json:"at"`
-}
-
-// TurnSource is a place in the book an answer pointed at.
-type TurnSource struct {
-	Label    string            `json:"label"`
-	Snippet  string            `json:"snippet,omitempty"`
-	Position position.Position `json:"position"`
-}
-
-// Progress is what the shelf shows: a book and how far into it the reader is.
-type Progress struct {
-	Book     BookMeta         `json:"book"`
-	State    book.ReaderState `json:"state"`
-	Fraction float64          `json:"fraction"`
-	Finished bool             `json:"finished"`
-	Memos    int              `json:"memos"`
-	// Read is how much of the book has actually been read, which is not the
-	// same as how far in the reader has got when they skipped something.
-	Read int `json:"read"`
-}
-
-// BookMeta is the shelf-sized part of a book, kept separately so opening the
-// shelf does not load every book's text.
-type BookMeta struct {
-	ID         string            `json:"id"`
-	Title      string            `json:"title"`
-	Author     string            `json:"author"`
-	Category   book.Category     `json:"category"`
-	Format     book.Format       `json:"format"`
-	Source     string            `json:"source"`
-	AddedAt    time.Time         `json:"addedAt"`
-	End        position.Position `json:"end"`
-	ContentEnd position.Position `json:"contentEnd"`
-	Sections   int               `json:"sections"`
-}
-
-func metaOf(b *book.Book) BookMeta {
-	return BookMeta{
-		ID: b.ID, Title: b.Title, Author: b.Author, Category: b.Category, Format: b.Format, Source: b.Source,
-		AddedAt: b.AddedAt, End: b.End, ContentEnd: b.ContentEnd, Sections: len(b.Sections),
-	}
-}
 
 // Store is the on-disk workspace.
 type Store struct {
@@ -250,14 +39,19 @@ func Open(root string) (*Store, error) {
 	if root == "" {
 		return nil, errors.New("store root is empty")
 	}
-	if err := os.MkdirAll(filepath.Join(root, "books"), 0o755); err != nil {
-		return nil, err
+	for _, dir := range []string{"blobs", "skills", "memory"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			return nil, err
+		}
 	}
 	return &Store{root: root}, nil
 }
 
 // DefaultRoot is where the workspace lives when none is given.
 func DefaultRoot() string {
+	if dir := os.Getenv("DOKKING_HOME"); dir != "" {
+		return dir
+	}
 	if dir, err := os.UserConfigDir(); err == nil {
 		return filepath.Join(dir, "dokking")
 	}
@@ -267,231 +61,361 @@ func DefaultRoot() string {
 
 func (s *Store) Root() string { return s.root }
 
-func (s *Store) bookDir(id string) string { return filepath.Join(s.root, "books", sanitise(id)) }
-
-func (s *Store) Settings() Settings {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	settings := defaultSettings()
-	_ = readJSON(filepath.Join(s.root, "settings.json"), &settings)
-	if settings.ReadAloudRate <= 0 {
-		settings.ReadAloudRate = 1
-	}
-	if settings.Provider == "" {
-		settings.Provider = ProviderNebius
-	}
-	if strings.TrimSpace(settings.BaseURL) == "" {
-		settings.BaseURL = EndpointFor(settings.Provider, settings.LocalFramework)
-	}
-	return settings
+func (s *Store) path(parts ...string) string {
+	return filepath.Join(append([]string{s.root}, parts...)...)
 }
 
-func (s *Store) SaveSettings(settings Settings) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return writeJSON(filepath.Join(s.root, "settings.json"), settings)
-}
+// ---- timeline --------------------------------------------------------------
 
-func (s *Store) SaveBook(b *book.Book) error {
+const logName = "timeline.jsonl"
+
+// Append writes an entry to the end of the log. It is also how an entry is
+// changed: a later line with the same id replaces the earlier one, so history
+// is never rewritten underneath anything that already read it.
+func (s *Store) Append(entry timeline.Entry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	dir := s.bookDir(b.ID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	raw, err := json.Marshal(entry)
+	if err != nil {
 		return err
 	}
-	if err := writeJSON(filepath.Join(dir, "book.json"), b); err != nil {
+	file, err := os.OpenFile(s.path(logName), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
 		return err
 	}
-	return writeJSON(filepath.Join(dir, "meta.json"), metaOf(b))
+	defer file.Close()
+	if _, err := file.Write(append(raw, '\n')); err != nil {
+		return err
+	}
+	return file.Sync()
 }
 
-func (s *Store) LoadBook(id string) (*book.Book, error) {
+// Timeline reads the whole log, oldest first, with later versions of an entry
+// replacing earlier ones.
+func (s *Store) Timeline() ([]timeline.Entry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	var b book.Book
-	if err := readJSON(filepath.Join(s.bookDir(id), "book.json"), &b); err != nil {
-		return nil, err
-	}
-	return &b, nil
-}
-
-func (s *Store) DeleteBook(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return os.RemoveAll(s.bookDir(id))
-}
-
-// Shelf lists every book with where the reader is in it, most recently read
-// first: the shelf is a list of current positions, not of covers.
-func (s *Store) Shelf() ([]Progress, error) {
-	s.mu.RLock()
-	entries, err := os.ReadDir(filepath.Join(s.root, "books"))
-	s.mu.RUnlock()
+	file, err := os.Open(s.path(logName))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	var shelf []Progress
+	defer file.Close()
+
+	order := []string{}
+	latest := map[string]timeline.Entry{}
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var entry timeline.Entry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			// A half-written last line after a crash is the only way this
+			// happens. Skipping it loses that one entry, not the log.
+			continue
+		}
+		if _, seen := latest[entry.ID]; !seen {
+			order = append(order, entry.ID)
+		}
+		latest[entry.ID] = entry
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	entries := make([]timeline.Entry, 0, len(order))
+	for _, id := range order {
+		entries = append(entries, latest[id])
+	}
+	sort.SliceStable(entries, func(i, j int) bool { return entries[i].At.Before(entries[j].At) })
+	return entries, nil
+}
+
+// Entry returns one entry by id.
+func (s *Store) Entry(id string) (timeline.Entry, bool) {
+	entries, err := s.Timeline()
+	if err != nil {
+		return timeline.Entry{}, false
+	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
+		if entry.ID == id {
+			return entry, true
 		}
-		var meta BookMeta
-		if err := readJSON(filepath.Join(s.root, "books", entry.Name(), "meta.json"), &meta); err != nil {
-			continue
-		}
-		state := s.State(meta.ID)
-		memos, _ := s.Memos(meta.ID)
-		boundary := state.Boundary()
-		shelf = append(shelf, Progress{
-			Book:     meta,
-			State:    state,
-			Fraction: position.Progress(boundary, meta.End),
-			Finished: meta.Category != book.CategoryTechnical && meta.ContentEnd.Absolute > 0 && boundary.AtOrAfter(meta.ContentEnd),
-			Memos:    len(memos),
-			Read:     state.ReadChars(),
-		})
 	}
-	sort.Slice(shelf, func(i, j int) bool {
-		return shelf[i].State.UpdatedAt.After(shelf[j].State.UpdatedAt)
-	})
-	return shelf, nil
+	return timeline.Entry{}, false
 }
 
-func (s *Store) State(bookID string) book.ReaderState {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	state := book.ReaderState{BookID: bookID}
-	_ = readJSON(filepath.Join(s.bookDir(bookID), "state.json"), &state)
-	state.BookID = bookID
-	return state
-}
+// ---- blobs -----------------------------------------------------------------
+//
+// Captures live beside the log as ordinary files. The interface is narrow on
+// purpose: the deployment target keeps them in object storage instead, and this
+// is the whole of what has to be swapped to get there.
 
-func (s *Store) SaveState(state book.ReaderState) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	state.UpdatedAt = time.Now()
-	return writeJSON(filepath.Join(s.bookDir(state.BookID), "state.json"), state)
-}
-
-func (s *Store) Memos(bookID string) ([]Memo, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	var memos []Memo
-	if err := readJSON(filepath.Join(s.bookDir(bookID), "memos.json"), &memos); err != nil && !os.IsNotExist(err) {
-		return nil, err
+// PutBlob stores bytes and returns the id to reference them by.
+func (s *Store) PutBlob(data []byte, mime string) (string, error) {
+	if len(data) == 0 {
+		return "", errors.New("空のファイルです")
 	}
-	sort.Slice(memos, func(i, j int) bool {
-		return memos[i].Position.Absolute < memos[j].Position.Absolute
-	})
-	return memos, nil
-}
-
-func (s *Store) SaveMemos(bookID string, memos []Memo) error {
+	id := NewID("blob")
+	name := id + extensionFor(mime)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return writeJSON(filepath.Join(s.bookDir(bookID), "memos.json"), memos)
-}
-
-func (s *Store) Timeline(bookID string) ([]Event, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	var events []Event
-	if err := readJSON(filepath.Join(s.bookDir(bookID), "timeline.json"), &events); err != nil && !os.IsNotExist(err) {
-		return nil, err
+	if err := os.WriteFile(s.path("blobs", name), data, 0o644); err != nil {
+		return "", err
 	}
-	sort.Slice(events, func(i, j int) bool { return events[i].At.After(events[j].At) })
-	return events, nil
+	return name, nil
 }
 
-func (s *Store) AppendEvent(event Event) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	path := filepath.Join(s.bookDir(event.BookID), "timeline.json")
-	var events []Event
-	_ = readJSON(path, &events)
-	events = append(events, event)
-	return writeJSON(path, events)
-}
-
-func (s *Store) Conversation(bookID string) []Turn {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	var turns []Turn
-	_ = readJSON(filepath.Join(s.bookDir(bookID), "chat.json"), &turns)
-	return turns
-}
-
-func (s *Store) SaveConversation(bookID string, turns []Turn) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	// A conversation is a working memory, not an archive: the oldest turns are
-	// dropped so the file cannot grow without bound.
-	if len(turns) > 200 {
-		turns = turns[len(turns)-200:]
+// Blob reads one back.
+func (s *Store) Blob(id string) ([]byte, string, error) {
+	if !safeName(id) {
+		return nil, "", errors.New("不正なファイル名です")
 	}
-	return writeJSON(filepath.Join(s.bookDir(bookID), "chat.json"), turns)
-}
-
-func (s *Store) Knowledge(bookID string) knowledge.Knowledge {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	k := knowledge.Knowledge{BookID: bookID}
-	_ = readJSON(filepath.Join(s.bookDir(bookID), "knowledge.json"), &k)
-	return k
-}
-
-func (s *Store) SaveKnowledge(k knowledge.Knowledge) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return writeJSON(filepath.Join(s.bookDir(k.BookID), "knowledge.json"), k)
-}
-
-func (s *Store) SaveIndex(index *rag.Index) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return writeJSON(filepath.Join(s.bookDir(index.BookID), "index.json"), index)
-}
-
-func (s *Store) Index(bookID string) (*rag.Index, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	var index rag.Index
-	if err := readJSON(filepath.Join(s.bookDir(bookID), "index.json"), &index); err != nil {
-		return nil, err
+	data, err := os.ReadFile(s.path("blobs", id))
+	if err != nil {
+		return nil, "", err
 	}
-	return &index, nil
+	return data, mimeFor(id), nil
 }
 
-// PipelineStatus is how far the ingest pipeline got, kept on disk so a restart
-// shows "第3章まで完了" instead of starting again.
-type PipelineStatus struct {
-	BookID    string    `json:"bookId"`
-	Stage     string    `json:"stage"`
-	Done      int       `json:"done"`
-	Total     int       `json:"total"`
-	Message   string    `json:"message,omitempty"`
-	Error     string    `json:"error,omitempty"`
+func extensionFor(mime string) string {
+	switch {
+	case strings.Contains(mime, "png"):
+		return ".png"
+	case strings.Contains(mime, "webp"):
+		return ".webp"
+	case strings.Contains(mime, "gif"):
+		return ".gif"
+	default:
+		return ".jpg"
+	}
+}
+
+func mimeFor(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	default:
+		return "image/jpeg"
+	}
+}
+
+func safeName(name string) bool {
+	if name == "" || strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
+		return false
+	}
+	return true
+}
+
+// ---- persona memory --------------------------------------------------------
+
+// Memory is one persona's private notes: named pieces of text it wrote itself.
+//
+// The app knows they have names and nothing else. It does not read them, does
+// not know what is in one, and has no threshold about how many there should be
+// or how long they may get. What to write, what to keep, what to throw away and
+// when to compress are the persona's own business, written in its skill.
+//
+// Names exist for one reason: so a persona can change one piece without
+// rewriting all of them. Rewriting everything on every wake sends the whole
+// memory out and back each time, and anything not retyped disappears with no
+// trace. Nothing here depends on what the names mean.
+//
+// It is also the only past there is. A persona is never handed the timeline
+// again, and there is no path back to it: if something is not in here, this
+// persona decided it was not worth keeping.
+//
+// They are ordinary files on disk, so the notes can be read - or pointed at by
+// anything else that reads a directory of markdown - without this app.
+type Memory struct {
+	PersonaID string    `json:"personaId"`
+	Notes     []Note    `json:"notes"`
+	JoinedAt  time.Time `json:"joinedAt"`
+	Wakes     int       `json:"wakes"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-func (s *Store) PipelineStatus(bookID string) PipelineStatus {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	status := PipelineStatus{BookID: bookID, Stage: "pending"}
-	_ = readJSON(filepath.Join(s.bookDir(bookID), "pipeline.json"), &status)
-	status.BookID = bookID
-	return status
+// Note is one named piece.
+type Note struct {
+	Path    string    `json:"path"`
+	Text    string    `json:"text"`
+	Written time.Time `json:"written"`
 }
 
-func (s *Store) SavePipelineStatus(status PipelineStatus) error {
+// The only limits the app puts on a persona's notes. All three are about not
+// letting a model fill a disk, never about what is worth keeping.
+const (
+	maxNotes     = 2000
+	maxNoteBytes = 256 << 10
+	maxNoteDepth = 6
+)
+
+// Memory reads everything a persona kept, in name order.
+func (s *Store) Memory(personaID string) Memory {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	memory := Memory{PersonaID: personaID}
+	_ = readJSON(s.memoryMeta(personaID), &memory)
+	memory.PersonaID = personaID
+	memory.Notes = nil
+
+	root := s.memoryDir(personaID)
+	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return nil
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		written := time.Time{}
+		if info, err := entry.Info(); err == nil {
+			written = info.ModTime()
+		}
+		memory.Notes = append(memory.Notes, Note{
+			Path: filepath.ToSlash(relative), Text: string(raw), Written: written,
+		})
+		return nil
+	})
+	sort.Slice(memory.Notes, func(i, j int) bool { return memory.Notes[i].Path < memory.Notes[j].Path })
+	return memory
+}
+
+// Note returns one piece by name.
+func (s *Store) Note(personaID, path string) (Note, bool) {
+	clean, err := notePath(path)
+	if err != nil {
+		return Note{}, false
+	}
+	for _, note := range s.Memory(personaID).Notes {
+		if note.Path == clean {
+			return note, true
+		}
+	}
+	return Note{}, false
+}
+
+// WriteNote stores one piece under the name the persona chose, leaving every
+// other piece exactly as it was.
+//
+// The name comes from a model, so it is checked - not for what it means, but so
+// that a persona cannot write outside its own notes.
+func (s *Store) WriteNote(personaID, path, text string) error {
+	clean, err := notePath(path)
+	if err != nil {
+		return err
+	}
+	if len(text) > maxNoteBytes {
+		return fmt.Errorf("メモが大きすぎます: %s", clean)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	status.UpdatedAt = time.Now()
-	return writeJSON(filepath.Join(s.bookDir(status.BookID), "pipeline.json"), status)
+	target := filepath.Join(s.memoryDir(personaID), filepath.FromSlash(clean))
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(target, []byte(text), 0o644)
 }
+
+// DeleteNote throws one piece away, which is a decision a persona is allowed to
+// make about its own notes.
+func (s *Store) DeleteNote(personaID, path string) error {
+	clean, err := notePath(path)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	root := s.memoryDir(personaID)
+	target := filepath.Join(root, filepath.FromSlash(clean))
+	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	// An emptied directory is noise in the listing, not history.
+	for dir := filepath.Dir(target); dir != root && strings.HasPrefix(dir, root); dir = filepath.Dir(dir) {
+		if os.Remove(dir) != nil {
+			break
+		}
+	}
+	return nil
+}
+
+// SaveMemory records the counters. The notes themselves are written as they are
+// made, one at a time.
+func (s *Store) SaveMemory(memory Memory) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	memory.UpdatedAt = time.Now()
+	memory.Notes = nil
+	return writeJSON(s.memoryMeta(memory.PersonaID), memory)
+}
+
+// ForgetMemory drops everything a persona kept. Taking it out of the rotation
+// does not do this: only the user asking to does.
+func (s *Store) ForgetMemory(personaID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.RemoveAll(s.memoryDir(personaID)); err != nil {
+		return err
+	}
+	err := os.Remove(s.memoryMeta(personaID))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
+func (s *Store) memoryDir(personaID string) string {
+	return s.path("memory", sanitise(personaID))
+}
+
+func (s *Store) memoryMeta(personaID string) string {
+	return s.path("memory", sanitise(personaID)+".meta.json")
+}
+
+// notePath checks a name a model made up. Nothing here judges the name - it
+// only makes sure it stays inside this persona's own directory.
+func notePath(path string) (string, error) {
+	clean := strings.TrimSpace(strings.ReplaceAll(path, `\`, "/"))
+	clean = strings.TrimPrefix(clean, "/")
+	if clean == "" {
+		return "", errors.New("メモの名前が空です")
+	}
+	segments := strings.Split(clean, "/")
+	if len(segments) > maxNoteDepth {
+		return "", fmt.Errorf("メモの階層が深すぎます: %s", path)
+	}
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." || strings.HasPrefix(segment, ".") {
+			return "", fmt.Errorf("メモの名前が不正です: %s", path)
+		}
+	}
+	if filepath.Ext(clean) == "" {
+		clean += ".md"
+	}
+	return clean, nil
+}
+
+// ---- skills ----------------------------------------------------------------
+
+// SkillDir is where installed skills live, one directory each.
+func (s *Store) SkillDir() string { return s.path("skills") }
+
+// ---- helpers ---------------------------------------------------------------
 
 func readJSON(path string, target any) error {
 	raw, err := os.ReadFile(path)
@@ -502,7 +426,7 @@ func readJSON(path string, target any) error {
 }
 
 // writeJSON writes through a temporary file: a crash mid-write must not cost
-// the reader their position or their memos.
+// what was already there.
 func writeJSON(path string, value any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -533,7 +457,11 @@ func sanitise(id string) string {
 	return cleaned
 }
 
-// NewID returns an identifier for a memo or event.
+// NewID returns an identifier that sorts by creation time and cannot collide.
 func NewID(prefix string) string {
-	return fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
+	var noise [4]byte
+	if _, err := io.ReadFull(rand.Reader, noise[:]); err != nil {
+		return fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%s_%d%s", prefix, time.Now().UnixNano(), hex.EncodeToString(noise[:]))
 }

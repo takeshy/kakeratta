@@ -22,14 +22,21 @@ export function clear(node) {
   return node;
 }
 
-export function fraction(value) {
-  return `${Math.round((value || 0) * 100)}%`;
-}
-
-export function relativeDate(value) {
+// when reads as how long ago, because that is how a timeline is read. Older
+// than a day it becomes a date, because "17日前" is not something anyone
+// pictures.
+export function when(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
+  const seconds = (Date.now() - date.getTime()) / 1000;
+  if (seconds < 60) return "たった今";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}分前`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}時間前`;
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleString("ja-JP", {
+    year: sameYear ? undefined : "numeric",
+    month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
 }
 
 export function toast(message, kind = "info") {

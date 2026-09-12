@@ -1,38 +1,36 @@
 // Dictation for this app, driving the stack carried over from speech-popup.
 //
-// The reading app needs it in two places - a memo taken while listening, and a
-// question asked with the book in hand - so the recogniser is created per text
-// field, and every engine (browser, recorded, live streaming) behaves the same
-// from the caller's side.
-import { Call, Events } from "/wails/runtime.js";
+// It is one of the four ways a post gets in: say it, and the transcript is the
+// post. The recogniser is created per text field, and every engine (browser,
+// recorded, live streaming) behaves the same from the caller's side.
+import { api } from "./api.js";
 import { createRecorder, speechSupported } from "./recorder.js";
 import { browserSpeechSupported, createBrowserRecognizer } from "./browser_speech.js";
 import { createLiveRecognizer, liveSpeechSupported } from "./live_recognizer.js";
 import { createAudioMeter } from "./meter.js";
 import { speechCommandsFor } from "./speech_commands.js";
 
-const call = (method, ...args) => Call.ByName(`main.App.${method}`, ...args);
-
-// Every request goes through Go: the WebView never sees the key, and there is
-// no CORS to negotiate with a local whisper.cpp. Vertex has its own binding,
-// the only place the stored OAuth token is used.
+// Every request goes through the relay: the browser never sees the key, and
+// there is no CORS to negotiate with a local whisper.cpp. Vertex has its own
+// route, the only place the stored OAuth token is used.
 async function speechTransport(request) {
   if (new URL(request.url).hostname === "aiplatform.googleapis.com") {
-    return await call("VertexSpeechHTTPRequest", request);
+    return await api.speechVertex(request);
   }
-  return await call("SpeechHTTPRequest", request);
+  return await api.speechRequest(request);
 }
 
 const liveHandlers = new Set();
-Events.On("speech:live", (event) => {
-  for (const handler of liveHandlers) handler(event.data ?? event);
+api.on((name, data) => {
+  if (name !== "speech:live") return;
+  for (const handler of liveHandlers) handler(data);
 });
 
 const liveTransport = {
-  start: () => call("StartLiveSpeech"),
-  send: (sessionId, audio) => call("SendLiveSpeechAudio", sessionId, audio),
-  finish: (sessionId) => call("FinishLiveSpeech", sessionId),
-  stop: () => call("StopLiveSpeech"),
+  start: async () => (await api.liveStart()).sessionId,
+  send: (sessionId, audio) => api.liveAudio(sessionId, audio),
+  finish: (sessionId) => api.liveFinish(sessionId),
+  stop: () => api.liveStop(),
   onEvent: (handler) => {
     liveHandlers.add(handler);
     return () => liveHandlers.delete(handler);

@@ -1,42 +1,37 @@
+// Command dokking is the relay.
+//
+// The client is a page in a browser, and a browser cannot hold the keys: the
+// inference credentials, the search credentials and the reaction loop all live
+// here. It also has to be a server for a second reason - a share sheet posts
+// multipart to a URL, and static hosting cannot take that.
+//
+// It is one binary with the page embedded, so running it locally and deploying
+// it are the same thing.
 package main
 
 import (
+	"context"
 	"embed"
-	"encoding/json"
+	"errors"
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
+	"github.com/takeshy/dokking/internal/persona"
+	"github.com/takeshy/dokking/internal/server"
 	"github.com/takeshy/dokking/internal/store"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed wails.json
-var wailsJSON []byte
-
-//go:embed build/appicon.png
-var appIcon []byte
-
-// version can be set at link time; otherwise the embedded manifest is the
-// single source of truth, so a version bump is one commit.
-var version = ""
-
-func appVersion() string {
-	if version != "" {
-		return version
-	}
-	var manifest struct {
-		Info struct {
-			Version string `json:"version"`
-		} `json:"info"`
-	}
-	if err := json.Unmarshal(wailsJSON, &manifest); err == nil && manifest.Info.Version != "" {
-		return manifest.Info.Version
-	}
-	return "dev"
-}
+// version is set at link time.
+var version = "dev"
 
 func main() {
 	root := os.Getenv("DOKKING_HOME")
@@ -48,31 +43,47 @@ func main() {
 		log.Fatalf("ワークスペースを開けません: %v", err)
 	}
 
-	wailsApp := application.New(application.Options{
-		Name:        "dokking",
-		Description: "Reading app whose AI has read exactly as far as you have",
-		Icon:        appIcon,
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
-		},
-	})
-	wailsApp.RegisterService(application.NewService(NewApp(wailsApp, workspace)))
-
-	wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:   "main",
-		Title:  "dokking",
-		Width:  1100,
-		Height: 780,
-		URL:    "/",
-		// Memos can be dictated while listening, so the microphone is granted
-		// here rather than through a WebView prompt mid-sentence.
-		Permissions: map[application.PermissionType]application.Permission{
-			application.PermissionMicrophone: application.PermissionAllow,
-		},
-		Linux: application.LinuxWindow{Icon: appIcon},
-	})
-
-	if err := wailsApp.Run(); err != nil {
-		log.Fatal(err)
+	pages, err := fs.Sub(assets, "frontend/dist")
+	if err != nil {
+		log.Fatalf("画面を読み込めません: %v", err)
 	}
+
+	catalogue := persona.NewCatalogue(workspace.SkillDir())
+	app := server.New(server.Options{
+		Store:     workspace,
+		Catalogue: catalogue,
+		Assets:    pages,
+		Version:   version,
+		// A token is how the iOS shortcut and anything else outside the browser
+		// identifies itself. Left empty, the app is open - which is right on a
+		// laptop and wrong the moment it is deployed, so the log says so.
+		Token: strings.TrimSpace(os.Getenv("DOKKING_TOKEN")),
+	})
+
+	address := os.Getenv("DOKKING_ADDR")
+	if address == "" {
+		address = ":8787"
+	}
+	httpServer := &http.Server{
+		Addr:              address,
+		Handler:           app,
+		ReadHeaderTimeout: 15 * time.Second,
+	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		log.Printf("dokking %s — %s  （保存先 %s）", version, address, root)
+		if os.Getenv("DOKKING_TOKEN") == "" {
+			log.Print("DOKKING_TOKEN が未設定です。手元だけで動かしてください。")
+		}
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	<-stop
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = httpServer.Shutdown(ctx)
 }
