@@ -1,388 +1,454 @@
 # kakeratta
 
-**か・け・らった。** かけらを放り込む動作の名前です。
+English | [日本語](README_ja.md)
 
-**思いついたこと、気になったことを貯めていくと、担当分野ごとに別々の記憶を育てたAIが、
-必要なときだけ反応する。**
+**Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
 
-書いてもいいし、撮ってもいいし、貼っても、話してもいい。放り込む先はひとつのタイムラインで、
-反応は遅れて届きます。付かないこともあります。
+**Keep tossing in whatever you thought of or noticed, and AIs that each grew a
+separate memory for their own subject react — but only when it is theirs.**
 
-グルメ担当はグルメのことだけを覚えます。技術記事も旅行の写真も、そのコンテキストには入りません。
-入らないから薄まりません。半年分の食べたものだけが溜まった相手は「前に気に入ったあの店」をすぐ出せるし、
-好みの傾向も掴んでいます。
+Write it, shoot it, paste it, or say it. It all lands in one timeline, and
+reactions arrive late. Sometimes none arrive at all.
 
-一つの汎用AIに全部を投げると、履歴は増えますが濃度は下がります。分けることで濃くします。
+The food one remembers only food. Technical articles and holiday photos never
+enter its context, and because they never enter, they never dilute it. Something
+that has accumulated nothing but six months of your meals can produce "that
+place you liked before" at once, and it has a sense of what you tend to choose.
 
-好みを教える手間はありません。アンケートにも答えないし、履歴も連携しません。溜めていけば溜まります。
+Throw everything at one general-purpose AI and the history grows while the
+concentration drops. Splitting it is what keeps it concentrated.
 
-Go の単一バイナリに画面を埋め込んであります。ネイティブアプリは作りません。MITライセンス。
+There is no work to teach it your taste. No questionnaire, no history to
+connect. Keep putting things in and things accumulate.
 
-## 設計原則
+One Go binary with the page embedded. No native app. MIT licensed.
 
-**記憶は担当領域ごとに分かれる。** 分離の目的は隠すことではなく、**濃度を保つこと**です。
+## Design principles
 
-**本体は振り分けだけ。** 誰に渡すかは中央が決めます。渡された先で発言するか、何を覚えるか、いつ圧縮するかは
-各ペルソナが決めます。体数が増えても全員が毎回動かないようにするための分担であって、応答の中身に本体は
-関与しません。
+**Memory is divided by subject.** The point of the split is not to hide
+anything — it is to **keep the concentration**.
 
-**黙っていい。** 全部には反応しません。解説してもらうためのアプリではなく、ただ眺めていたいだけのときに
-毎回反応されるのは押し付けです。誰も反応しない投稿があってよい。
+**The app only routes.** Who gets a post is decided centrally. Whether to speak,
+what to remember and when to compress it are each persona's own. The split
+exists so that adding personas does not wake all of them every time; the app
+takes no part in what comes back.
 
-**喋らないことと覚えないことは別。** 発言しなかった投稿も、自分の領域のものならメモには入ります。
+**Silence is fine.** Not everything gets a reaction. This is not an app for
+having things explained to you, and being reacted to every time you just wanted
+to look at something is an imposition. A post nobody answers is a normal post.
 
-**@で呼べば必ず答える。** 領域が分かれているから、誰を呼ぶか迷えます。
+**Not speaking and not remembering are different things.** A post it said
+nothing about still goes into its notes, if it is its subject.
 
-**非同期が既定。** 反応は遅れて届きます。
+**Name it with @ and it always answers.** Because the subjects are separate,
+there is something to choose between.
 
-## 何ができるか
+**Asynchronous by default.** Reactions arrive late.
 
-**前に気に入ったものをすぐ出せる。** 半年前のキャプチャでも、その領域の話なら覚えています。
+## What it is for
 
-**好みの傾向を掴んでいる。** 言われなくても分かっています。
+**Bringing back something you liked.** A capture from six months ago is still
+there, if it is that persona's subject.
 
-**現在地と時刻が効く。** 「20時に渋谷に着きたい」と書けば移動担当が今いる場所からの経路を出します。
-「お腹すいた」と書けばグルメ担当が周辺で空いている店を、これまでの好みを踏まえて選びます。
+**Knowing what you tend to choose.** Without being told.
 
-**領域が違えば黙る。** グルメ担当は技術記事に何も言いません。
+**Where you are and what time it is.** Write "I want to be in Shibuya by 8" and
+the travel one works out the route from where you are now. Write "I'm hungry"
+and the food one picks somewhere open nearby, taking what you usually go for
+into account.
 
-## 動かす
+**A different subject means silence.** The food one says nothing about a
+technical article.
+
+## Running it
 
 ```sh
-task build      # ビルド（bin/kakeratta）
-task run        # 起動（http://127.0.0.1:8787）
-task test       # go test ./internal/... と node --test tests/
+task build      # build (bin/kakeratta)
+task run        # start (http://127.0.0.1:8787)
+task test       # go test ./internal/... and node --test tests/
 ```
 
-| 環境変数 | 既定 | |
+| Variable | Default | |
 | --- | --- | --- |
-| `KAKERATTA_ADDR` | `:8787` | 待ち受け |
-| `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
-| `KAKERATTA_TOKEN` | 空 | 空だと誰でも入れます。**外から届く場所に置くときは必ず設定してください**（推論の鍵を持っているのはこのプロセスです） |
+| `KAKERATTA_ADDR` | `:8787` | Listen address |
+| `KAKERATTA_HOME` | OS config directory | Where posts, notes and images are kept |
+| `KAKERATTA_TOKEN` | empty | Empty means anyone can walk in. **Set it whenever the app is reachable from outside** — this process is the one holding the inference keys |
 
-## 入り口
+## Ways in
 
-思いついたことは書くのが早いし、画面に出ているものは撮るのが早い。どれも同じ1つの欄から入ります。
+A thought is fastest written; something on screen is fastest shot. They all go
+through the same single box.
 
-| 入り口 | 中身 |
+| Way in | What it is |
 | --- | --- |
-| 書く | 一言。思いついたことはこれが一番速い |
-| 撮る・貼る | 画像（Ctrl+V で貼る、共有シートから渡す、ファイルを選ぶ） |
-| URL | 公開ページの本文を取りに行きます |
-| 話す | 書き起こした文章。送信の合図で確定します |
+| Write | A line. For a thought this is the quickest |
+| Shoot / paste | An image (paste with Ctrl+V, hand it over from the share sheet, pick a file) |
+| URL | The body of a public page is fetched |
+| Speak | A transcript. The send phrase commits it |
 
-画像が強いのは、**ログインの有無もアプリの種類も問わない**ところです。Kindle も有料記事も SNS も、
-画面に出ていれば撮れます。API も DRM も経由しません。読書中に気になった一節を撮って一言つける、
-というのはこれでしか成り立ちません。
+What makes an image strong is that it **does not care whether you were signed in
+or which app it was**. Kindle, a paywalled article, a social feed — if it is on
+screen it can be shot. No API and no DRM in the way. Shooting a passage that
+caught your eye mid-read and adding a line only works this way.
 
-スマホから撮って渡す導線だけ、器の用意が要ります。
+Only the shoot-and-hand-over route from a phone needs anything set up.
 
-| | 撮って渡す | 器 |
+| | Shoot and hand over | Needs |
 | --- | --- | --- |
-| PC | スクリーンショットがクリップボードに乗る → 貼る（Ctrl+V） | 不要（ブラウザ） |
-| Android | PWA + Web Share Target で共有シートに並ぶ | 不要（PWA） |
-| iOS | ショートカット（共有シートで画像を受け取り POST） | 不要 |
+| PC | The screenshot is already on the clipboard → paste it (Ctrl+V) | Nothing (a browser) |
+| Android | PWA + Web Share Target puts it in the share sheet | Nothing (PWA) |
+| iOS | A shortcut (takes an image from the share sheet and POSTs it) | Nothing |
 
 ### Android
 
-ホーム画面に追加すると、`manifest.webmanifest` の `share_target` によって OS が共有先として認識します。
-共有シートにネイティブアプリと同じように並び、そこから画像を渡すとタイムラインに入ります。
-`sw.js` が共有のPOSTを受け取り、そのまま `/api/capture` に流します。
+Add it to the home screen and the `share_target` in `manifest.webmanifest` makes
+the OS treat it as somewhere to share to. It appears in the share sheet like a
+native app, and an image handed over lands in the timeline. `sw.js` takes the
+shared POST and forwards it to `/api/capture`.
 
 ### iOS
 
-Web Share Target が使えないため、ショートカットで代替します。ネイティブコードは書きません。
+Web Share Target is unavailable, so a shortcut stands in for it. No native code.
 
-1. ショートカットを新規作成し、「共有シートで表示」を有効にして、受け取る種類を「イメージ」にする
-2. 「URLの内容を取得」— メソッド `POST`、本文は `フォーム`
-   - `image` … ショートカットの入力
-   - `text` … （任意）その場で書くなら「入力を要求」の結果
-   - ヘッダ `Authorization: Bearer <KAKERATTA_TOKEN>`
+1. Create a shortcut, turn on "Show in Share Sheet", and accept images
+2. "Get contents of URL" — method `POST`, body `Form`
+   - `image` … the shortcut's input
+   - `text` … optional; the result of "Ask for input" if you want to write there and then
+   - Header `Authorization: Bearer <KAKERATTA_TOKEN>`
 
-読書中は無言で投げて、あとからまとめて一言を足す使い方もできます。
+While reading you can throw things in silently and add the lines later, in one go.
 
-`/api/capture` は multipart を受けるのでサーバ側に置く必要があります。静的ホスティングでは受けられません。
+`/api/capture` takes multipart, so it has to be on a server. Static hosting
+cannot receive it.
 
-### ネイティブを作るとしたら
+### If a native app were built
 
-現時点では不要です。将来寄せる場合、iOS は Share Extension（別ターゲット、App Group または直接 POST）、
-Android は `ACTION_SEND` の intent-filter になります。器は Wails v3 で兼ねられますが、モバイル対応は
-公式に実験的とされており、デスクトップのベータ互換性の保証外です。いまは範囲に入れていません。
+Not needed for now. If it ever moves that way, iOS would be a Share Extension
+(a separate target, App Group or a direct POST) and Android an `ACTION_SEND`
+intent-filter. Wails v3 could host both, but its mobile support is officially
+experimental and outside the desktop beta's compatibility guarantee. It is not
+in scope.
 
-## 本体がやること
+## What the app does
 
-3つだけです。
+Three things.
 
-1. 投稿を受け取る
-2. **どのペルソナに渡すか振り分ける**
-3. 発言をタイムラインに出す
+1. Take the post
+2. **Route it to the personas it belongs to**
+3. Put remarks on the timeline
 
-要約するかどうかも、発言するかどうかも、本体は判断しません。
+Whether to summarise and whether to speak are not the app's decisions.
 
-メモは入っていません。読み書きはペルソナが道具で行うので、本体は経路を用意しているだけです
-（`notes_write` が呼ばれたときにバイト列を置く、という以上のことはしていません）。
+Notes are not on that list. Reading and writing them is done by the persona
+through its tools, so the app only provides the path — it puts bytes somewhere
+when `notes_write` is called, and nothing more than that.
 
-**振り分けは軽い判定に留めます**（`internal/persona/route.go`）。担当領域を読んで、明らかに関係ないものを
-外すだけです。渡した先が必ず発言するわけではなく、最終的に黙るかどうかはペルソナが決めます。
-判定に失敗したときは全員に渡します — 振り分けは体数を増やすための最適化であって、投稿を握り潰す仕組みでは
-ないからです。
+**Routing is a light judgement** (`internal/persona/route.go`). It reads the
+subjects and drops what is plainly none of a persona's business. Being handed a
+post is not a promise to speak; staying quiet is still the persona's call. When
+the judgement fails, everyone gets it — routing is an optimisation that lets the
+number of personas grow, not a way to swallow a post.
 
-**@指名は振り分けを飛ばします。** 指名されたペルソナには必ず渡り、必ず答えます。他のペルソナへの振り分けは
-通常どおり行います。
+**An @ mention skips the routing.** A named persona always gets the post and
+always answers. Routing runs as usual for everyone else.
 
-### 実行順序
+### Order
 
-担当ごとに **low / middle / high** を選びます。**並列に実行せず、low から順に上へ**回します。
+Each persona is set to **low / middle / high**. They are **not run in parallel:
+low goes first and the order runs upwards.**
 
-掛け合いは、先行する発言が後続の入力に入っていることで成立します。同時に走らせると上の段が下の段の発言を
-見られず、突っ込みに行けません。
+The exchange only works because what came earlier is in the later input. Run
+together, the larger models cannot see what the smaller one said, so they have
+nothing to pick up on.
 
 ```
-投稿
- ↓ 画像を一度だけ解析（OCR・写っているもの・出典の手がかり）
- ↓ 振り分け
-low     を実行 ──→ 発言があればコンテキストに足す
+post
+ ↓ the image is read once (OCR, what is in it, where it seems to come from)
+ ↓ routing
+low     runs ──→ anything it said is added to the context
  ↓
-middle  を実行（low の発言が入力に入っている）
+middle  runs (with low's remark in the input)
  ↓
-high    を実行（low と middle の発言が入力に入っている）
+high    runs (with low's and middle's remarks in the input)
  ↓
-先に動いた段に、後から出た発言を渡す（**発言はできない**。メモの更新だけ）
+the tiers that already ran are handed what came after them
+(**they cannot speak**; notes only)
 ```
 
-**後から出た発言は、先に動いた段も受け取ります。** 喋らないことと覚えないことは別なので、
-覚えるために一度渡します。ただし**そのターンは発言できません** — でなければAI同士が勝手に
-言い合い続けて、タイムラインが自分のものでない会話で埋まります。上の段が全員黙ったときは
-渡すものが無いので、この往復は起きません（黙るのが既定なので、これが普通の状態です）。
+**What came later is handed to the tiers that went earlier.** Not speaking and
+not remembering are different things, so it is passed once, to be remembered.
+But **they cannot speak on that turn** — otherwise they would keep answering
+each other unprompted and the timeline would fill with a conversation that is
+not yours. When the higher tiers all stayed quiet there is nothing to pass on,
+so that extra turn does not happen at all (staying quiet is the default, so
+this is the normal case).
 
-下の段が黙った場合は待ちません。同じ段に複数体いる場合は並列です。直列性が要るのは段のあいだだけです。
-上の段の応答はその分さらに遅れますが、非同期が既定なので許容します。
+Nothing waits on a lower tier that said nothing. Personas in the same tier run
+together; the order only matters between tiers. The higher tiers answer later
+still, which is acceptable because asynchronous is the default.
 
-### 画像の解析
+### Reading the image
 
-投稿を受けたら本体が一度だけ解析します（`internal/capture`）。各ペルソナに画像をそのまま配ると体数ぶん
-vision を通すことになるため、一度テキストにして共有します。細部が要るとペルソナが判断したときだけ、
-`{"action":"image"}` を返して原画像を受け取れます。
+When a post arrives the app reads the image once (`internal/capture`). Handing
+the picture to every persona would mean paying for vision once per persona for
+the same screenshot, so it is turned into text and shared. A persona that
+decides it needs the detail returns `{"action":"image"}` and gets the original.
 
-## ペルソナ
+## Personas
 
-### 渡されるもの
+### What each one is given
 
-- 振り分けられた投稿と、その解析結果
-- **その投稿に付いた発言**（他ペルソナのものとユーザーの応答を含む）
-- 自分のメモ
+- The post it was routed, and what the app read out of it
+- **The remarks under that post** (other personas' and your own replies)
+- Its own notes
 
-**タイムライン全体は渡しません。** 渡せば結局すべてのペルソナがすべてを見ることになり、領域ごとに分けた
-意味が消えます。振り分けを中央に置いたのはそれを避けるためです。
+**Not the whole timeline.** Hand that over and every persona sees everything
+again, which is exactly what dividing by subject was for. The routing sits in
+the middle to avoid it.
 
-**過去は自分のメモにしか残りません。** 遡って取り直す経路を持ちません。残っていなければ、そのペルソナが
-残さないと判断したということです。
+**The past exists only in its own notes.** There is no path back to fetch it. If
+something is not there, that persona decided it was not worth keeping.
 
-同じ投稿に付いた発言を渡すのは、掛け合いとユーザーの応答が成立するためです。
+The remarks under the same post are shared so that the exchange, and your
+replies, work at all.
 
-### 返すもの
+### What each one returns
 
-発言するか、黙るか。どちらの場合も、自分のメモを更新して返します。
+Speak, or stay quiet. Either way it updates its own notes.
 
-- **黙っていい。** 全部には反応しません。解説してもらうためのアプリではなく、ただ眺めていたいだけの
-  ときに毎回反応されるのは押し付けです。誰も反応しない投稿があってよい。
-- **喋らないことと覚えないことは別。** 発言しなかった投稿も、自分の領域のものならメモには入ります。
+- **Silence is fine.** Not everything gets a reaction. A post nobody answers is
+  a normal post.
+- **Not speaking and not remembering are different things.** A post it said
+  nothing about still goes into its notes, if it is its subject.
 
-### メモ
+### Notes
 
-**各ペルソナが自分のメモを育てます。** 何を書くか、何を残して何を捨てるか、いつ圧縮するかは、すべて
-スキルの記述に委ねます。グルメ担当は好みの傾向を重視するかもしれないし、別のペルソナは個々の出来事を
-重視するかもしれません。
+**Each persona grows its own.** What to write, what to keep and throw away, when
+to compress — all of it is left to what the skill says. The food one may care
+about tendencies; another may care about individual events.
 
-**本体は閾値を持ちません。** メモは毎回自分で見ているので、肥大したかどうかも自分で分かります。
-画面の「メモを見る」でそのまま読めます。
+**The app holds no threshold.** A persona sees its own notes every time, so it
+can tell for itself when they have grown unwieldy. "See notes" in the UI shows
+them as they are.
 
-### 書き方は OKF を渡す
+### The format is handed over: OKF
 
-[OKF (Open Knowledge Format)](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) の
-スキルをペルソナに渡し、メモをそのバンドルとして**自分で読み書きさせます**。
-1概念1ファイル、YAML frontmatter と markdown 本文。
+The [OKF (Open Knowledge Format)](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
+skill is handed to each persona, and **it reads and writes its own notes** as a
+bundle in that format: one concept per file, YAML frontmatter and a markdown
+body.
 
 ```
 === index.md ===
-# 傾向
-* [豚骨に寄る](/tastes/tonkotsu.md) - 選べるときは豚骨を選んでいる。
+# Tendencies
+* [Leans tonkotsu](/tastes/tonkotsu.md) - Picks tonkotsu when there is a choice.
 
 === tastes/tonkotsu.md ===
 ---
 type: Preference
-title: 豚骨に寄る
-description: 選べるときは豚骨を選んでいる。
+title: Leans tonkotsu
+description: Picks tonkotsu when there is a choice.
 ---
-# 根拠
-* 9/08 醤油と豚骨が並んだときに豚骨
+# Evidence
+* 09-08 chose tonkotsu over shoyu when both were there
 ```
 
-**読み書きはペルソナ自身が道具で行います。** 起こされたときに渡されるのは**一覧だけ**で、中身は渡しません。
+**The persona does the reading and writing itself, through tools.** When it is
+woken it is handed **the list only** — never the contents.
 
-| 道具 | |
+| Tool | |
 | --- | --- |
-| `notes_read` | 中身を読む（要るものだけ） |
-| `notes_write` | 1ファイルを書く。**そのファイルだけ**が置き換わり、他は触られない |
-| `notes_forget` | 1ファイルを捨てる |
-| `notes_list` | 一覧を取り直す |
+| `notes_read` | Read contents (only what it wants) |
+| `notes_write` | Write one file. **Only that file** is replaced; the rest are untouched |
+| `notes_forget` | Throw one file away |
+| `notes_list` | Fetch the list again |
 
-宣言は要りません。担当領域ごとに宣言するのは**外に出る**道具で、自分のメモは外ではないからです。
+They need no declaration. What a skill declares are the tools that reach
+**outside**, and its own notes are not outside.
 
-これで、育ったメモを毎回まるごと往復させずに済みます。1文字直すために全文を書き直させると、
-メモ全体が毎回出入りするうえ、書き写し忘れたものが痕跡なく消えます。
+This is what keeps a grown memory from travelling in full on every wake.
+Rewriting everything to change one line sends the whole memory out and back, and
+anything not copied across disappears without a trace.
 
-**本体はメモを読みません。** 名前の付いた場所にバイト列を置くだけです — frontmatter を読まず、
-index を組み立てず、形式に合っているかも見ません。本体から見て中身が OKF かどうかは区別が付きません。
-ペルソナが従わなければそれまでです。
+**The app does not read the notes.** It puts bytes at a name — it does not parse
+frontmatter, does not build the index, does not check that the format holds.
+From the app's side there is no telling whether the contents are OKF at all. If
+a persona does not follow it, so be it.
 
-ファイルはそのままディスクにあるので、`cat` で読めますし、**そのまま別の OKF knowledge source として
-指せます**。半年分の食べたものだけが溜まった相手が、持ち出せる資産になります。
+The files are plain files on disk, so you can `cat` them, and **they can be
+pointed at as an OKF knowledge source elsewhere**. Something that accumulated
+nothing but six months of your meals becomes an asset you can take with you.
 
-スキルは `internal/persona/skills/okf/SKILL.md` です。形式は OKF そのままですが、手順はこのアプリの
-道具に合わせて書いてあります。毎回すべてのペルソナのプロンプトに乗るので、短く保つ必要があります。
+The skill is `internal/persona/skills/okf/SKILL.md`. The format is OKF as it is,
+but the steps are written against this app's tools. It rides along in every
+persona's prompt, so it has to stay short.
 
-型（`type`）に何を使うか、いつ統合するかは担当領域ごとに違うので、各スキルの `instructions` に書きます。
-たべなら `Preference` と `Shop`、しおりなら `Book` と `Theme`。**形式は渡すもの、方針はスキルが持つもの。**
+Which `type` values to use and when to merge differ by subject, so they go in
+each skill's `instructions` — `Preference` and `Shop` for the food one, `Book`
+and `Theme` for the reading one. **The format is handed over; the policy belongs
+to the skill.**
 
-### スキル
+### Skills
 
-| 項目 | 内容 |
+| Field | |
 | --- | --- |
-| 名前・アイコン・口調 | 表示と応答の性格 |
-| 担当領域 | 何に反応し、何を覚えるか。**中央がこれを読んで振り分ける** |
-| 指示 | メモの書き方、圧縮の方針、発言の基準。**本人だけが使う** |
-| モデル | 軽い / 重い |
-| 使えるツール | 宣言したものだけが呼べる |
+| Name, icon, tone | How it shows up and how it talks |
+| Subject | What it reacts to and remembers. **The router reads this** |
+| Instructions | How to keep notes, when to compress, what is worth saying. **Only it reads these** |
+| Model | `low` / `middle` / `high` |
+| Tools | Only what is declared can be called |
 
-内蔵は4体（たべ / みち / くだ / しおり）。`skill.json` を画面から追加できます。
+Four ship with the app (たべ food / みち travel / くだ tech / しおり reading). A
+`skill.json` can be added from the UI.
 
 ```json
 {
   "id": "wine",
   "name": "ぶどう",
   "icon": "🍷",
-  "domain": "ワイン。銘柄、産地、ラベルの写真、飲んだ記録。食事全般や技術の話には反応しない。",
-  "tone": "控えめ。おすすめを押しつけない。",
-  "instructions": "概念は type: Wine（銘柄）と type: Preference（好み）。同じ好みが3回出たら Preference に統合し、根拠の銘柄は消す。",
-  "model": "heavy",
+  "domain": "Wine. Labels, regions, photos of bottles, what was drunk. Does not react to food in general or to technical talk.",
+  "tone": "Understated. Never pushes a recommendation.",
+  "instructions": "Concepts are type: Wine and type: Preference. When the same preference shows up three times, merge it into a Preference and delete the bottles behind it.",
+  "model": "high",
   "tools": ["web_search", "place_search"]
 }
 ```
 
-**体数に上限はありません。** 担当領域の数だけ増やせます。中央で振り分けるため、体数が増えても毎回動くのは
-関係する数体だけで、振り分けの判定は投稿ごとに一度です。
-ただし**同時に喋る数は別の問題**で、領域を跨ぐ投稿で全員が反応すると会話ではなく合唱になります。
-ここは実際に動かしてから調整します。
+**There is no ceiling on how many.** Add as many as you have subjects. Because
+the routing is central, only the few that matter wake for a given post, and the
+routing judgement happens once per post.
+**How many speak at once is a separate problem**, though: if a post straddles
+subjects and everyone answers, it is a chorus rather than a conversation. That
+part gets tuned once it is actually in use.
 
-**担当領域が分かれていないと @ に意味が出ません。** 誰を呼ぶか迷える状態でなければ指名は不要になります。
-モデルのサイズ差は掛け合いには効きますが、呼び分けの理由にはなりません。
+**Without separate subjects, @ means nothing.** If there is nothing to choose
+between, naming someone is pointless. A difference in model size makes the
+exchange work, but it is not a reason to pick one over another.
 
-### ツール
+### Tools
 
-宣言したものだけが呼べます（`internal/tools`）。呼ぶのは本体で、鍵はサーバ側にあります。
-プロバイダの差し替えも、出典リンクを必須にすることも、本体で担保できます。
+Only what is declared can be called (`internal/tools`). The app makes the call
+and the keys stay server-side, which is also how swapping providers and
+insisting on a source link stay the app's guarantees rather than each skill's.
 
-| 名前 | 中身 | 鍵 |
+| Name | What it is | Key |
 | --- | --- | --- |
-| `web_search` | Tavily / Brave / SearXNG | 要（SearXNG は不要） |
-| `place_search` | 周辺の店と**営業時間**（OpenStreetMap / Overpass） | 不要 |
-| `route` | 現在地からの所要時間（OSRM。道路のみ、公共交通は含みません） | 不要 |
+| `web_search` | Tavily / Brave / SearXNG | Yes (not for SearXNG) |
+| `place_search` | Places nearby, with **opening hours** (OpenStreetMap / Overpass) | No |
+| `route` | Travel time from where you are (OSRM; roads only, no public transport) | No |
 
-## 投稿に添えるもの
+## What travels with a post
 
-**「今どこで何時か」だけを渡します。** 目的地や目的時刻は発言の中にあります（「20時に渋谷に着きたい」）。
-それはペルソナが文面から読み取ります。
+**Only where you are and what time it is.** Where you are going and when you
+want to be there is in what you wrote ("I want to be in Shibuya by 8"), and the
+persona reads that off the text.
 
-**場所は任意です。** PCからの投稿には意味のある位置がありません。無くても成立します。
+**The place is optional.** A post from a desktop has no meaningful position. It
+has to work without one.
 
-**残す位置と使う位置は別です。** 反応のために現在地が要ることと、過去の投稿に位置を残すことは別の判断で、
-後者は設定で切れます（切っても反応には使われます）。
+**Keeping a position and using one are separate decisions.** Needing your
+current position to react is not the same as leaving it on the record
+afterwards, and the second can be switched off (reactions still use it).
 
 ## Timeline
 
-自分の投稿と一言、ペルソナの発言、それへの応答が時系列に並びます。反応が付いた投稿も付かなかった投稿も
-同じように並びます。未読の数も「AIが考えています」も出しません。
+Your posts and lines, the personas' remarks, and your replies to them, in the
+order they happened. A post that got a reaction looks exactly like one that did
+not. No unread count, and no "an AI is thinking".
 
-**読み上げモード**で、移動中に溜まった反応を聞けます（ブラウザ内蔵の Web Speech API）。
+**Read-aloud mode** reads the backlog while you are moving (the browser's own
+Web Speech API).
 
-## モデルと構成
+## Models and deployment
 
-| 用途 | 設定 | 既定 |
+| For | Setting | Default |
 | --- | --- | --- |
-| low の担当 | `lowModel` | Nemotron Nano |
-| middle の担当 | `middleModel` | Nemotron Super |
-| high の担当 | `highModel` | 未設定（middle に落ちるので、既定は実質2段） |
-| 画像解析・OCR | `visionModel` | Nemotron Nano（vision） |
-| 振り分け | `routeModel` | Nemotron Nano |
-| 音声認識 | 音声入力の設定 | whisper.cpp / OpenAI / Gemini など |
-| 読み上げ | — | ブラウザ内蔵 |
+| The low tier | `lowModel` | Nemotron Nano |
+| The middle tier | `middleModel` | Nemotron Super |
+| The high tier | `highModel` | unset (falls back to middle, so two tiers by default) |
+| Reading images / OCR | `visionModel` | Nemotron Nano (vision) |
+| Routing | `routeModel` | Nemotron Nano |
+| Speech recognition | dictation settings | whisper.cpp / OpenAI / Gemini … |
+| Read-aloud | — | The browser's own |
 
-**どのモデルをどの段に置くかが、そのまま体験の差になります。** コスト最適化ではありません。
-low は浅い感想でよく、「わからんくなってきた」で終わってもよい。そこに上の段が後から拾いに来ます。
-一方的に賢いことばかり言われてもつまらないので、**段が本当に違うこと**が効きます。
+**Which model sits in which tier is the difference in experience.** This is not
+cost optimisation. The low one is allowed a shallow reaction, allowed to stop at
+"I'm losing the thread of this", and the tiers above come along afterwards and
+pick it up. Being told clever things one-sidedly is dull, so what matters is
+that **the tiers really differ**.
 
-**段は3つありますが、モデルを3つ用意する必要はありません。** 空の段は1つ下に落ちるので、
-既定は実質2つ（low と middle）で動きます。high に何か置けば3段になり、全部同じにすれば1段です。
-段の数だけ対比が増え、1段にすると無くなります。
+**There are three tiers, but you do not need three models.** An empty tier falls
+back to the one below, so the default runs on two (low and middle). Put
+something in high and you have three; make them all the same and you have one.
+More tiers, more contrast; one tier, none.
 
-- 推論は Nebius Token Factory（OpenAI互換なので接続先は差し替えられます）
-- **クライアントから直接叩かず中継を置きます。** 反応の生成は非同期でサーバ側に走るため、鍵も処理も
-  そちらに寄せます。Nebius Serverless Endpoints を想定
-- 反応の生成は非同期（`internal/persona` のキュー）。Nebius Serverless Jobs での背景処理を想定
-- 投稿データは端末をまたぐためサーバ側。いまはプロセスのディスクに置いています（`Store` の blob まわりが
-  Nebius Object Storage に差し替える一点です）
-- Web検索は Tavily を想定
+- Inference runs on Nebius Token Factory (OpenAI-compatible, so the endpoint is
+  interchangeable)
+- **The client never calls it directly; a relay sits in between.** Reactions are
+  generated asynchronously and server-side, so both the keys and the work belong
+  there. Nebius Serverless Endpoints is the intended target
+- Reactions are asynchronous (the queue in `internal/persona`). Nebius
+  Serverless Jobs is the intended target for the background work
+- Posts live server-side because they cross devices. For now that is the
+  process's own disk — the blob half of `Store` is the one place to swap for
+  Nebius Object Storage
+- Web search is intended to be Tavily
 
-## データ
-
-```
-<workspace>/settings.json          接続先・モデル・道具の鍵・いる担当
-<workspace>/timeline.jsonl         投稿と発言（追記のみ）
-<workspace>/blobs/<id>.png         キャプチャ
-<workspace>/memory/<id>/           ペルソナごとのメモ（OKFバンドル。本体は中を読まない）
-<workspace>/memory/<id>.meta.json  起きた回数など
-<workspace>/skills/<id>/skill.json 追加した担当
-```
-
-タイムラインは**追記のみ**です。エントリを書き換えず、変更（画像の読み取りが終わった、消した）は
-同じidの行を後ろに足して上書きします。追記はログがどれだけ伸びても同じコストで、書き込み途中で落ちても
-失うのは最後の1行だけです。
-
-## いまの実装状況
-
-実装済み: 共有シートからの受け口（PWA share_target / iOSショートカット） / 投稿（キャプチャ・ペースト・
-URL・音声） / 画像の一度きりの解析 / タイムライン表示と返信 / 振り分け / ペルソナのメモと発言 /
-軽い段→重い段の掛け合い / 位置と時刻 / ツール（Web検索・店舗検索・経路） / 読み上げ。
-
-**入り口を最初に通しました。** ここだけが「通るか通らないか」しかないためです。ペルソナのメモ機構や
-反応の閾値は、詰まっても質が下がるだけで代替が効きますが、入り口が通らなければ設計ごと変わります。
-入り口が通ることは `internal/server/server_test.go` で、掛け合いの順序は
-`internal/persona/runner_test.go` で押さえています。
-
-未確認:
-
-- iOS ショートカットで画像を受け取って POST する導線が実機で回るか
-- Android の Web Share Target が Kindle からのスクリーンショット共有で実際に出るか
-- Token Factory の vision 対応と、Nemotron の各サイズで何が使えるか
-- OCR 品質。特に日本語と Kindle の縦書き
-- 反応の閾値。低すぎるとおせっかい、高すぎると死んでいるように見える
-
-## 構成
+## Data
 
 ```
-internal/timeline   投稿と発言の一列（スレッドの切り出しと、プロンプトへの書き出し）
-internal/capture    画像の一度きりの解析と、公開ページの取得
-internal/persona    スキル、振り分け、反応ループ（軽い段→重い段）、渡すメモ形式（skills/okf）
-internal/tools      宣言したものだけ呼べる道具
-internal/websearch  Web検索の接続先
-internal/llm        OpenAI互換クライアント（画像・ファイル入力を含む）
-internal/speech     音声入力のバックエンド（鍵をサーバ側に置くための中継）
-internal/store      追記ログ・画像・メモ・設定
-internal/server     HTTPの表側（ページ、API、SSE）
-frontend/src        バンドラなしの ES モジュール
+<workspace>/settings.json          endpoints, models, tool keys, who is in the room
+<workspace>/timeline.jsonl         posts and remarks (append only)
+<workspace>/blobs/<id>.png         captures
+<workspace>/memory/<id>/           each persona's notes (an OKF bundle; the app does not read inside)
+<workspace>/memory/<id>.meta.json  how many times it woke, and so on
+<workspace>/skills/<id>/skill.json added personas
 ```
 
-音声入力は speech-popup（gemihub-desktop の音声機能）の移植をそのまま持ち込んでいます。
-方式は3つ（ブラウザ音声認識 / 録音して送る音声認識API / ライブ文字起こし）。移植元のテストも
-`tests/` にそのまま置いています（`node --test`、75件）。
+The timeline is **append only**. An entry is never rewritten: a change (the
+image finished being read, it was deleted) is another line with the same id
+further down, and the later one wins. Appending costs the same however long the
+log gets, and a crash mid-write costs the last line rather than the file.
+
+## Where it stands
+
+Done: the share-sheet entry point (PWA share_target / iOS shortcut); posting
+(capture, paste, URL, speech); reading the image once; the timeline and replies;
+routing; personas' notes and remarks; the low→middle→high exchange; place and
+time; tools (web search, places, routes); read-aloud.
+
+**The entry point was built first**, because it is the only part that either
+works or does not. The notes machinery and the reaction threshold degrade
+gracefully if they disappoint; if the entry point does not work, the design
+changes. That it works is pinned by `internal/server/server_test.go`, and the
+order of the exchange by `internal/persona/runner_test.go`.
+
+Unverified:
+
+- Whether the iOS shortcut route — take an image, POST it — actually holds up on
+  a real device
+- Whether Android's Web Share Target really appears when sharing a screenshot
+  from the Kindle app
+- Whether Token Factory serves vision, and what each Nemotron size can do
+- OCR quality, particularly Japanese and Kindle's vertical text
+- The reaction threshold. Too low is meddling; too high looks dead
+
+## Layout
+
+```
+internal/timeline   one list of posts and remarks (cutting out a thread, writing it into a prompt)
+internal/capture    reading an image once, and fetching a public page
+internal/persona    skills, routing, the reaction loop (low→middle→high), the notes format handed over (skills/okf)
+internal/tools      the tools only a declaration can reach
+internal/websearch  search providers
+internal/llm        an OpenAI-compatible client (images and file input included)
+internal/speech     dictation backends (the relay that keeps the keys server-side)
+internal/store      the append log, images, notes, settings
+internal/server     the HTTP surface (the page, the API, SSE)
+frontend/src        ES modules, no bundler
+```
+
+Dictation is the port from speech-popup (gemihub-desktop's speech feature),
+carried over as it was. Three engines: the browser's own recogniser, a recording
+sent to a speech API, and live transcription. The original tests are here too
+(`node --test`, 75 of them).
