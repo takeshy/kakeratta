@@ -66,3 +66,26 @@ func TestIntermediateNanoDefaultIsMigrated(t *testing.T) {
 		t.Fatal("intermediate default was not migrated")
 	}
 }
+
+func TestHighTierDefaultsAndOverrides(t *testing.T) {
+	for _, tc := range []struct{ name, endpoint, high, want string }{
+		{"existing empty Nebius", NebiusBaseURL, "", NemotronUltra},
+		{"explicit selection", NebiusBaseURL, "chosen-model", "chosen-model"},
+		{"custom endpoint fallback", "https://custom.example/v1", "", "chosen-middle"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := open(t)
+			settings := s.ConfiguredSettings()
+			settings.BaseURL, settings.HighModel, settings.MiddleModel = tc.endpoint, tc.high, "chosen-middle"
+			if err := s.SaveSettings(settings); err != nil {
+				t.Fatal(err)
+			}
+			if got := s.Settings().HighModel; got != tc.want {
+				t.Fatalf("high = %q, want %q", got, tc.want)
+			}
+			if got := s.ConfiguredSettings().HighModel; got != tc.high {
+				t.Fatalf("editable high changed to %q", got)
+			}
+		})
+	}
+}

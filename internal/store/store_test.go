@@ -268,8 +268,8 @@ func TestKeysAreNotInTheDefaults(t *testing.T) {
 	if settings.LowModel == settings.MiddleModel {
 		t.Fatal("low and middle are the same model by default")
 	}
-	// An unset tier falls back rather than failing, so a single-model setup works.
-	if settings.HighModel != settings.MiddleModel {
-		t.Fatalf("an unset high tier should fall back to middle, got %q", settings.HighModel)
+	// The high tier starts with Ultra.
+	if settings.HighModel != NemotronUltra {
+		t.Fatalf("high tier should use Ultra, got %q", settings.HighModel)
 	}
 }

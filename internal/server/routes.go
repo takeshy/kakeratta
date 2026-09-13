@@ -13,14 +13,11 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/capture"
 	"github.com/takeshy/kakeratta/internal/persona"
-	"github.com/takeshy/kakeratta/internal/speech"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"github.com/takeshy/kakeratta/internal/tools"
 	"github.com/takeshy/kakeratta/internal/websearch"
 )
-
-var errHTTPOnly = errors.New("この形態では使えません")
 
 // maxCapture is the biggest image the app takes. A phone screenshot is well
 // under it; anything far over is not a capture.
@@ -69,12 +66,6 @@ func (s *Server) routes() {
 
 	// The dictation stack is reached through the relay so credentials stay out
 	// of the browser.
-	s.mux.HandleFunc("POST /api/speech/request", s.guard(s.speechRequest))
-	s.mux.HandleFunc("POST /api/speech/vertex", s.guard(s.speechVertex))
-	s.mux.HandleFunc("POST /api/speech/live/start", s.guard(s.liveStart))
-	s.mux.HandleFunc("POST /api/speech/live/audio", s.guard(s.liveAudio))
-	s.mux.HandleFunc("POST /api/speech/live/finish", s.guard(s.liveFinish))
-	s.mux.HandleFunc("POST /api/speech/live/stop", s.guard(s.liveStop))
 
 	s.mux.HandleFunc("/", notFound)
 }
@@ -103,10 +94,11 @@ func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 type postBody struct {
-	Text  string          `json:"text"`
-	Link  string          `json:"link"`
-	Image string          `json:"image"` // data: URL or bare base64
-	Place *timeline.Place `json:"place"`
+	SpeechAutoSend bool            `json:"speechAutoSend"`
+	Text           string          `json:"text"`
+	Link           string          `json:"link"`
+	Image          string          `json:"image"` // data: URL or bare base64
+	Place          *timeline.Place `json:"place"`
 }
 
 // postEntry is the way in from the page: a paste, a typed line, a URL, a
@@ -117,6 +109,12 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "投稿を読めませんでした")
 		return
 	}
+	text, err := s.formatDictation(r.Context(), body.Text, body.SpeechAutoSend)
+	if err != nil {
+		fail(w, http.StatusBadGateway, "文章を整えられませんでした。入力は残っています。再送信してください。")
+		return
+	}
+	body.Text = text
 	entry := timeline.Entry{
 		ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User,
 		Text: trimmed(body.Text), At: time.Now(), Link: trimmed(body.Link),
@@ -235,8 +233,9 @@ func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace
 }
 
 type replyBody struct {
-	ReplyTo string `json:"replyTo"`
-	Text    string `json:"text"`
+	SpeechAutoSend bool   `json:"speechAutoSend"`
+	ReplyTo        string `json:"replyTo"`
+	Text           string `json:"text"`
 }
 
 func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
@@ -254,6 +253,12 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "返事の宛先が見つかりません")
 		return
 	}
+	text, err := s.formatDictation(r.Context(), body.Text, body.SpeechAutoSend)
+	if err != nil {
+		fail(w, http.StatusBadGateway, "文章を整えられませんでした。入力は残っています。再送信してください。")
+		return
+	}
+	body.Text = text
 	reply := timeline.Entry{
 		ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User,
 		Text: trimmed(body.Text), At: time.Now(),
@@ -465,10 +470,9 @@ func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
 		"workspace": s.store.Root(),
 		"providers": []map[string]string{
 			{"id": string(store.ProviderNebius), "label": "Nebius Token Factory", "endpoint": store.NebiusBaseURL},
-			{"id": string(store.ProviderOpenAI), "label": "OpenAI 互換", "endpoint": "https://api.openai.com/v1"},
 		},
 		"search":     websearch.Providers,
-		"nemotron":   map[string]string{"low": store.NemotronNano, "middle": store.NemotronSuper},
+		"nemotron":   map[string]string{"low": store.NemotronNano, "middle": store.NemotronSuper, "high": store.NemotronUltra},
 		"tiers":      []string{string(persona.TierLow), string(persona.TierMiddle), string(persona.TierHigh)},
 		"tools":      tools.New(s.store.Settings()).Names(),
 		"needsToken": s.token != "",
@@ -490,79 +494,6 @@ func unmask(next, current string) string {
 }
 
 // ---- dictation -------------------------------------------------------------
-
-func (s *Server) speechRequest(w http.ResponseWriter, r *http.Request) {
-	var request speech.ExternalHTTPRequest
-	if err := readJSONLimit(r, &request, 24<<20); err != nil {
-		fail(w, http.StatusBadRequest, "読めませんでした")
-		return
-	}
-	response, err := s.speech.SpeechHTTPRequest(request)
-	if err != nil {
-		fail(w, http.StatusBadGateway, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
-}
-
-func (s *Server) speechVertex(w http.ResponseWriter, r *http.Request) {
-	var request speech.ExternalHTTPRequest
-	if err := readJSON(r, &request); err != nil {
-		fail(w, http.StatusBadRequest, "読めませんでした")
-		return
-	}
-	response, err := s.speech.VertexSpeechHTTPRequest(request)
-	if err != nil {
-		fail(w, http.StatusBadGateway, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, response)
-}
-
-func (s *Server) liveStart(w http.ResponseWriter, r *http.Request) {
-	id, err := s.speech.StartLiveSpeech()
-	if err != nil {
-		fail(w, http.StatusBadGateway, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"sessionId": id})
-}
-
-func (s *Server) liveAudio(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		SessionID string `json:"sessionId"`
-		Audio     string `json:"audio"`
-	}
-	if err := readJSON(r, &body); err != nil {
-		fail(w, http.StatusBadRequest, "読めませんでした")
-		return
-	}
-	if err := s.speech.SendLiveSpeechAudio(body.SessionID, body.Audio); err != nil {
-		fail(w, http.StatusBadGateway, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-func (s *Server) liveFinish(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		SessionID string `json:"sessionId"`
-	}
-	if err := readJSON(r, &body); err != nil {
-		fail(w, http.StatusBadRequest, "読めませんでした")
-		return
-	}
-	if err := s.speech.FinishLiveSpeech(body.SessionID); err != nil {
-		fail(w, http.StatusBadGateway, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-func (s *Server) liveStop(w http.ResponseWriter, r *http.Request) {
-	s.speech.StopLiveSpeech()
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
 
 // ---- helpers ---------------------------------------------------------------
 

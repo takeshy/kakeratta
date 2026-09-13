@@ -16,6 +16,15 @@ unrelated information from diluting it.
 find bottles I would enjoy,” and AI drafts a persona for you. Start using it,
 then refine its tone and what it remembers through conversation.
 
+Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
+
+- Nemotron Nano — lightweight routing and everyday persona decisions
+- Nemotron Super — richer domain reasoning
+- Nemotron Ultra — complex reasoning when a persona needs it
+- Nebius Token Factory — inference backend
+
+Image reading uses GLM-5.3-Flash on the same backend.
+
 A browser app in two pieces: a static page and a Go API. Vite serves the page
 while developing and Firebase Hosting serves it deployed; the Go binary is only
 the API, on Cloud Run or on your own machine. [MIT licensed](LICENSE).
@@ -79,7 +88,7 @@ screen leads with that until you call someone in:
 
 ![Nobody in the room yet: call in a built-in persona with one tap](docs/captures/en/nobody.png)
 
-Then configure the inference endpoint, API key, and models in Settings. The page proxies `/api` to the binary, the same split the
+Then enter your Nebius Token Factory API key in Settings. Nano, Super, and Ultra are configured for the three tiers by default. The page proxies `/api` to the binary, the same split the
 deployed setup has. `task run` starts only the API, `task build` builds only the
 binary (`bin/kakeratta`), `task stories` opens Storybook, and `task test` runs
 the tests.
@@ -117,5 +126,4 @@ timeline metadata, settings, and persona notes remain on the workspace disk.
 | [Google Cloud deployment](infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
 
 Conversational AI persona creation and editing, posting and share intake,
-routing, notes, replies, search and route tools, and read-aloud are implemented. Sharing on real phones, model vision support, OCR
-quality, and reaction frequency still need verification.
+routing, notes, replies, search and route tools, and read-aloud are implemented. Sharing on real phones, OCR quality across different images and reaction frequency still need verification.

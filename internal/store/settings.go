@@ -25,6 +25,7 @@ const (
 	// only where it starts. Any OpenAI-compatible name goes in any tier.
 	NemotronNano       = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
 	NemotronSuper      = "nvidia/nemotron-3-super-120b-a12b"
+	NemotronUltra      = "nvidia/Nemotron-3-Ultra-550b-a55b"
 	NebiusVision       = "zai-org/GLM-5.3-Flash"
 	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
 )
@@ -40,8 +41,8 @@ type Settings struct {
 	// one reacts quickly and shallowly, and what it said is handed to the ones
 	// above it so they have something to pick up on.
 	//
-	// A tier left empty falls back to the one below it, so running everything on
-	// one model is a valid setup - it just gives up the contrast.
+	// An empty high tier uses Nemotron Ultra on Token Factory. Other endpoints
+	// retain the fallback to the tier below.
 	LowModel    string `json:"lowModel"`
 	MiddleModel string `json:"middleModel"`
 	HighModel   string `json:"highModel"`
@@ -85,20 +86,21 @@ type PlaceSettings struct {
 	RouteURL     string `json:"routeUrl"`
 }
 
-// SpeechSettings are the dictation settings, ported whole from speech-popup so
-// the same engines, phrases and rules work here.
+// SpeechSettings configures browser dictation and optional automatic-send polishing.
+// Legacy API fields are retained for stored settings compatibility.
 type SpeechSettings struct {
-	Provider        string `json:"provider"`
-	EndpointType    string `json:"endpointType"`
-	BaseURL         string `json:"baseUrl"`
-	APIKey          string `json:"apiKey"`
-	Model           string `json:"model"`
-	Language        string `json:"language"`
-	SilenceSeconds  int    `json:"silenceSeconds"`
-	SendPhrase      string `json:"sendPhrase"`
-	Replacements    string `json:"replacements"`
-	SymbolCommands  string `json:"symbolCommands"`
-	VertexProjectID string `json:"vertexProjectId"`
+	FormatBeforeSend bool   `json:"formatBeforeSend"`
+	Provider         string `json:"provider"`
+	EndpointType     string `json:"endpointType"`
+	BaseURL          string `json:"baseUrl"`
+	APIKey           string `json:"apiKey"`
+	Model            string `json:"model"`
+	Language         string `json:"language"`
+	SilenceSeconds   int    `json:"silenceSeconds"`
+	SendPhrase       string `json:"sendPhrase"`
+	Replacements     string `json:"replacements"`
+	SymbolCommands   string `json:"symbolCommands"`
+	VertexProjectID  string `json:"vertexProjectId"`
 }
 
 func defaultSettings() Settings {
@@ -107,8 +109,7 @@ func defaultSettings() Settings {
 		BaseURL:     NebiusBaseURL,
 		LowModel:    NemotronNano,
 		MiddleModel: NemotronSuper,
-		// The high tier is left empty rather than guessed at: it falls back to
-		// the middle one until something bigger is actually pointed at.
+		HighModel:   NemotronUltra,
 		VisionModel: NebiusVision,
 		RouteModel:  NemotronNano,
 		Search: SearchSettings{
@@ -154,6 +155,7 @@ func (s *Store) ConfiguredSettings() Settings {
 }
 
 func normaliseConfiguredSettings(settings Settings) Settings {
+	settings.Speech.Provider = "browser"
 	if settings.ReadAloudRate <= 0 {
 		settings.ReadAloudRate = 1.2
 	}
@@ -192,6 +194,9 @@ func effectiveSettings(settings Settings) Settings {
 	}
 	if strings.TrimSpace(settings.HighModel) == "" {
 		settings.HighModel = settings.MiddleModel
+		if usesNebiusEndpoint(settings) {
+			settings.HighModel = NemotronUltra
+		}
 	}
 	if strings.TrimSpace(settings.VisionModel) == "" {
 		settings.VisionModel = settings.LowModel

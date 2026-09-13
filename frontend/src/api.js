@@ -63,7 +63,7 @@ export const api = {
     return call("GET", `/api/timeline?${query}`);
   },
   post: (body) => call("POST", "/api/post", body),
-  reply: (replyTo, text) => call("POST", "/api/reply", { replyTo, text }),
+  reply: (replyTo, text, speechAutoSend = false) => call("POST", "/api/reply", { replyTo, text, speechAutoSend }),
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),
 
@@ -86,15 +86,6 @@ export const api = {
   models: () => call("GET", "/api/models"),
   checkSearch: () => call("POST", "/api/search/check"),
   about: () => call("GET", "/api/about"),
-
-  // The dictation stack reaches its backends through here so credentials stay
-  // in the relay rather than in the browser.
-  speechRequest: (request) => call("POST", "/api/speech/request", request),
-  speechVertex: (request) => call("POST", "/api/speech/vertex", request),
-  liveStart: () => call("POST", "/api/speech/live/start"),
-  liveAudio: (sessionId, audio) => call("POST", "/api/speech/live/audio", { sessionId, audio }),
-  liveFinish: (sessionId) => call("POST", "/api/speech/live/finish", { sessionId }),
-  liveStop: () => call("POST", "/api/speech/live/stop"),
 
   on(listener) {
     listeners.add(listener);

@@ -169,6 +169,13 @@ func TestBrowserTokenEstablishesSession(t *testing.T) {
 
 func TestSettingsRoundTripPreservesModelFallback(t *testing.T) {
 	server, s := app(t, "")
+	configured := s.ConfiguredSettings()
+	configured.Provider = store.ProviderOpenAI
+	configured.BaseURL = "https://custom.example/v1"
+	configured.HighModel = ""
+	if err := s.SaveSettings(configured); err != nil {
+		t.Fatal(err)
+	}
 	get := httptest.NewRecorder()
 	server.ServeHTTP(get, httptest.NewRequest("GET", "/api/settings", nil))
 	var settings store.Settings

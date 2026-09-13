@@ -236,14 +236,14 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
       drafts.set(replyTo, input.value);
       if (drawPending) draw();
     });
-    const send = async () => {
+    const send = async (speechAutoSend = false) => {
       const text = input.value.trim();
       if (!text || sending || disposed) return;
       sending = true;
       try {
         await voice.discard();
         if (disposed) return;
-        await api.reply(replyTo, text);
+        await api.reply(replyTo, text, speechAutoSend);
         if (!disposed) {
           drafts.delete(replyTo);
           if (openReply === replyTo) openReply = null;
@@ -270,7 +270,7 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
         input.value = value;
         drafts.set(replyTo, value);
       },
-      onSend: () => void send(),
+      onSend: () => void send(true),
     });
     const box = el(
       "div",

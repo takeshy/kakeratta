@@ -13,6 +13,15 @@
 **自分のための担当を、AIと作れます。** 「飲んだワインを覚えて、好みに合う一本を一緒に探してほしい」
 と伝えるだけで、AIが担当の完成案を作ります。まず使い始めて、話し方や覚えてほしいことはあとから会話で改善できます。
 
+KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
+
+- Nemotron Nano — 軽量な振り分けと、日常的な担当の判断
+- Nemotron Super — 担当分野をより深く考える推論
+- Nemotron Ultra — 担当が必要とする複雑な推論
+- Nebius Token Factory — 推論基盤
+
+画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。
+
 ブラウザで使うアプリで、静的な画面と Go の API の2つに分かれています。画面は開発中は Vite、
 公開時は Firebase Hosting が配信し、Go のバイナリは API だけを持ちます（Cloud Run でも手元でも同じ）。
 [MITライセンス](LICENSE)。
@@ -71,7 +80,7 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 
 ![担当が誰もいない状態。内蔵の担当をワンタップで呼べる](docs/captures/ja/nobody.png)
 
-そのあと「設定」で推論の接続先・APIキー・モデルを設定します。
+そのあと「設定」でNebius Token FactoryのAPIキーを入力します。各段のモデルはNano・Super・Ultraが既定で設定されています。
 画面は `/api` をバイナリへ中継します。公開時と同じ分け方です。API だけなら `task run`、
 バイナリのビルドだけなら `task build`（出力は `bin/kakeratta`）、Storybook は `task stories`、
 テストは `task test` です。
@@ -108,4 +117,4 @@ Firebase認証を設定した場合は、共有の `KAKERATTA_TOKEN` より優�
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformでの構築。画面はFirebase Hosting、APIはCloud Run |
 
 AIとの対話による担当の作成・修正、投稿・共有の受け口、振り分け、メモ、返信、検索・経路ツール、読み上げは実装済みです。
-スマホ実機での共有、モデルのvision対応、OCR品質、反応頻度は引き続き確認が必要です。
+スマホ実機での共有、さまざまな画像でのOCR品質、反応頻度は引き続き確認が必要です。

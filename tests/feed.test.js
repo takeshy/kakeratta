@@ -89,7 +89,7 @@ test("reply dictation survives updates, sends to its target, and stops when clos
   });
   const feed = createFeed({
     getPersona: () => null,
-    getSettings: () => ({ speech: { provider: "browser", language: "ja", sendPhrase: "送信" } }),
+    getSettings: () => ({ speech: { provider: "live", language: "ja", sendPhrase: "送信" } }),
   });
   const post = { id: "post-1", kind: "post", text: "hello", at: new Date().toISOString() };
   const button = (label) => {
@@ -110,7 +110,7 @@ test("reply dictation survives updates, sends to its target, and stops when clos
   assert.equal(feed.element.querySelectorAll(".reply-input")[0], input);
   first.result("音声の返事です送信");
   await new Promise(setImmediate);
-  assert.deepEqual(api.reply.mock.calls[0].arguments, [post.id, "音声の返事です"]);
+  assert.deepEqual(api.reply.mock.calls[0].arguments, [post.id, "音声の返事です", true]);
   assert.equal(first.stopped, true);
   assert.equal(feed.element.querySelectorAll(".reply-input").length, 0);
 
@@ -132,6 +132,13 @@ test("reply dictation survives updates, sends to its target, and stops when clos
   const fourth = recognizers[3];
   feed.set([]);
   assert.equal(fourth.stopped, true, "removing the thread stops recognition");
+  feed.set([post]);
+  button("一言足す").fire("click");
+  const manual = feed.element.querySelectorAll(".reply-input")[0];
+  manual.value = "手動で送ります";
+  manual.fire("keydown", { ctrlKey: true, key: "Enter", preventDefault() {} });
+  await new Promise(setImmediate);
+  assert.deepEqual(api.reply.mock.calls[1].arguments, [post.id, "手動で送ります", false]);
 });
 
 test("delete updates the displayed thread from the API response without SSE", async (t) => {

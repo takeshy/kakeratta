@@ -19,11 +19,13 @@ low→middle→high の掛け合い / 位置と時刻 / ツール（Web検索・
 入り口が通ることは `internal/server/server_test.go` で、掛け合いの順序は
 `internal/persona/runner_test.go` で押さえています。
 
+GLM-5.3-Flashによる日本語スクリーンショットの読み取りとJSON応答は、Token Factoryの実APIで確認済みです。
+
 未確認:
 
 - iOS ショートカットで画像を受け取って POST する導線が実機で回るか
 - Android の Web Share Target が Kindle からのスクリーンショット共有で実際に出るか
-- Token Factory の vision 対応と、Nemotron の各サイズで何が使えるか
+- 各担当分野におけるNano・Super・Ultraの判断の質
 - OCR 品質。特に日本語と Kindle の縦書き
 - 反応の閾値。低すぎるとおせっかい、高すぎると死んでいるように見える
 
@@ -35,8 +37,8 @@ internal/capture    画像の一度きりの解析と、公開ページの取得
 internal/persona    スキル、振り分け、反応ループ（low→middle→high）、渡すメモ形式（skills/okf）
 internal/tools      宣言したものだけ呼べる道具
 internal/websearch  Web検索の接続先
-internal/llm        OpenAI互換クライアント（画像・ファイル入力を含む）
-internal/speech     音声入力のバックエンド（鍵をサーバ側に置くための中継）
+internal/llm        Nebius Token Factory推論クライアント（画像・ファイル入力を含む）
+internal/speech     旧音声入力コード（サーバからは公開しない）
 internal/store      追記ログ・画像・メモ・設定
 internal/server     HTTPの表側（ページ、API、SSE）
 frontend/src        ES モジュール。出荷物にバンドラは入らない
@@ -67,9 +69,7 @@ README のキャプチャ（`docs/captures/{en,ja}/`）は、このストーリ�
 （`task captures`）で撮ります。Storybook を立て、決めたストーリーを両言語で headless Chromium が
 撮影し、`docs/captures/` に置きます。見え方が変わったら撮り直してください。
 
-音声入力は speech-popup（gemihub-desktop の音声機能）の移植をそのまま持ち込んでいます。
-方式は3つ（ブラウザ音声認識 / 録音して送る音声認識API / ライブ文字起こし）。移植元のテストも
-`tests/` に置き、アプリの回帰テストも追加しています（`node --test tests/*.test.js`）。
+音声入力は speech-popup 由来のブラウザ認識に統一しています。録音APIとライブAPIは公開していません。終了フレーズによる自動送信では、任意でlowモデルによる整形を保存前に行います。手動送信では整形しません。回帰テストは `node --test tests/*.test.js` と `go test ./...` で実行します。
 
 ## ネイティブを作るとしたら
 

@@ -92,33 +92,38 @@ Web Share Target が使えないため、ショートカットで代替します
 
 ## モデルと構成
 
+KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
+
+- Nemotron Nano — 軽量な振り分けと、日常的な担当の判断
+- Nemotron Super — 担当分野をより深く考える推論
+- Nemotron Ultra — 担当が必要とする複雑な推論
+- Nebius Token Factory — 推論基盤
+
+画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。
+
 ![設定。段ごとのモデル、道具、位置、音声入力、読み上げ](captures/ja/settings.png)
 
 | 用途 | 設定 | 既定 |
 | --- | --- | --- |
 | low の担当 | `lowModel` | Nemotron Nano |
 | middle の担当 | `middleModel` | Nemotron Super |
-| high の担当 | `highModel` | 未設定（middle に落ちるので、既定は実質2段） |
-| 画像解析・OCR | `visionModel` | Nemotron Nano（vision） |
+| high の担当 | `highModel` | Nemotron Ultra |
+| 画像解析・OCR | `visionModel` | GLM-5.3-Flash |
 | 振り分け | `routeModel` | Nemotron Nano |
-| 音声認識 | 音声入力の設定 | OpenAI / Gemini / Azure など |
+| 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 
 **どのモデルをどの段に置くかが、そのまま体験の差になります。** コスト最適化ではありません。
 low は浅い感想でよく、「わからんくなってきた」で終わってもよい。そこに上の段が後から拾いに来ます。
 一方的に賢いことばかり言われてもつまらないので、**段が本当に違うこと**が効きます。
 
-**段は3つありますが、モデルを3つ用意する必要はありません。** 空の段は1つ下に落ちるので、
-既定は実質2つ（low と middle）で動きます。high に何か置けば3段になり、全部同じにすれば1段です。
-段の数だけ対比が増え、1段にすると無くなります。
+**既定はNano → Super → Ultraの3段です。** Token Factoryではhighが空欄の場合もUltraを使います。
+各担当に段を指定し、highの担当は先に動いた担当の発言も踏まえて、複雑な内容を考えます。
 
-- 推論は Nebius Token Factory（OpenAI互換なので接続先は差し替えられます）
-- **クライアントから直接叩かず中継を置きます。** 反応の生成は非同期でサーバ側に走るため、鍵も処理も
-  そちらに寄せます。Nebius Serverless Endpoints を想定
-- 反応の生成は非同期（`internal/persona` のキュー）。Nebius Serverless Jobs での背景処理を想定
-- 投稿データは端末をまたぐためサーバ側。いまはプロセスのディスクに置いています（`Store` の blob まわりが
-  Nebius Object Storage に差し替える一点です）
-- Web検索は Tavily を想定
+- 推論基盤はNebius Token Factoryです。Nemotronによる推論とGLMによる画像読み取りに使います。
+- ブラウザからGo APIへリクエストを送り、APIキーの保持と非同期の反応処理はサーバー側で行います。
+- 公開環境ではAPIをCloud Run、画面をFirebase Hostingで配信し、利用者のデータをFirestoreとCloud Storageに保存します。ローカル環境ではディスクに保存します。
+- Web検索はTavilyが既定です。
 
 ## データ
 
@@ -134,3 +139,5 @@ low は浅い感想でよく、「わからんくなってきた」で終わっ�
 タイムラインは**追記のみ**です。エントリを書き換えず、変更（画像の読み取りが終わった、消した）は
 同じidの行を後ろに足して上書きします。追記はログがどれだけ伸びても同じコストで、書き込み途中で落ちても
 失うのは最後の1行だけです。
+
+音声入力はブラウザ認識を使用します。設定の「自動送信前にAIで文章を整える」は初期状態でOFFです。ONにすると、終了フレーズによる自動送信時だけlowモデル（既定はNemotron Nano）が句読点や言いよどみを整えてから投稿します。返信にも適用します。手動送信と無音停止では整形しません。整形に失敗したときは投稿せず、入力を残します。

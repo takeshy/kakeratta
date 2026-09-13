@@ -21,13 +21,15 @@ gracefully if they disappoint; if the entry point does not work, the design
 changes. That it works is pinned by `internal/server/server_test.go`, and the
 order of the exchange by `internal/persona/runner_test.go`.
 
+GLM-5.3-Flash image reading and JSON output were verified through the Token Factory API with a Japanese screenshot.
+
 Unverified:
 
 - Whether the iOS shortcut route — take an image, POST it — actually holds up on
   a real device
 - Whether Android's Web Share Target really appears when sharing a screenshot
   from the Kindle app
-- Whether Token Factory serves vision, and what each Nemotron size can do
+- The quality of Nano, Super, and Ultra decisions across different persona domains
 - OCR quality, particularly Japanese and Kindle's vertical text
 - The reaction threshold. Too low is meddling; too high looks dead
 
@@ -39,8 +41,8 @@ internal/capture    reading an image once, and fetching a public page
 internal/persona    skills, routing, the reaction loop (low→middle→high), the notes format handed over (skills/okf)
 internal/tools      the tools only a declaration can reach
 internal/websearch  search providers
-internal/llm        an OpenAI-compatible client (images and file input included)
-internal/speech     dictation backends (the relay that keeps the keys server-side)
+internal/llm        Nebius Token Factory inference client (images and file input included)
+internal/speech     legacy dictation code (not exposed by the server)
 internal/store      the append log, images, notes, settings
 internal/server     the HTTP surface (the page, the API, SSE)
 frontend/src        ES modules, no bundler in what ships (builtins.js glosses the Japanese-named personas for the English interface)
@@ -76,10 +78,7 @@ stories by `npm run captures` (`task captures`): a Storybook is started, each
 listed story is screenshotted in both languages with headless Chromium, and the
 result is copied into `docs/captures/`. Retake them after a visible change.
 
-Dictation is the port from speech-popup (gemihub-desktop's speech feature),
-carried over as it was. Three engines: the browser's own recogniser, a recording
-sent to a speech API, and live transcription. The original tests are here too
-(`node --test tests/*.test.js`), alongside regression tests for the app.
+Dictation uses the browser recogniser adapted from speech-popup. Recorded and live API engines are no longer exposed. Automatic sends can optionally polish text with the low model before persistence; manual sends bypass polishing. Regression tests run with `node --test tests/*.test.js` and `go test ./...`.
 
 ## If a native app were built
 

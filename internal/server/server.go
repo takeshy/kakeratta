@@ -15,7 +15,6 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/persona"
-	"github.com/takeshy/kakeratta/internal/speech"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
 )
@@ -33,7 +32,6 @@ type Server struct {
 	store     store.Workspace
 	catalogue *persona.Catalogue
 	runner    *persona.Runner
-	speech    *speech.Service
 	version   string
 	token     string
 
@@ -53,19 +51,6 @@ func New(options Options) *Server {
 	s.runner = persona.New(s.store, s.catalogue, s.client)
 	s.runner.OnEvent(s.events.send)
 	s.runner.Start()
-	s.speech = speech.New(
-		nil,
-		s.store.Root(),
-		func() store.SpeechSettings { return s.store.Settings().Speech },
-		s.events.send,
-		// The dictation stack came from a desktop app, where picking a
-		// credentials file and opening a browser were things it could do. In a
-		// browser they are not, and the engines that need neither still work.
-		func(string, string) (string, error) {
-			return "", errHTTPOnly
-		},
-		func(string) error { return errHTTPOnly },
-	)
 	s.routes()
 	return s
 }

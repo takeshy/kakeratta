@@ -102,16 +102,25 @@ Web Speech API).
 
 ## Models and deployment
 
+Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
+
+- Nemotron Nano — lightweight routing and everyday persona decisions
+- Nemotron Super — richer domain reasoning
+- Nemotron Ultra — complex reasoning when a persona needs it
+- Nebius Token Factory — inference backend
+
+Image reading uses GLM-5.3-Flash on the same backend.
+
 ![Settings: models by tier, tools, location, dictation, read-aloud](captures/en/settings.png)
 
 | For | Setting | Default |
 | --- | --- | --- |
 | The low tier | `lowModel` | Nemotron Nano |
 | The middle tier | `middleModel` | Nemotron Super |
-| The high tier | `highModel` | unset (falls back to middle, so two tiers by default) |
-| Reading images / OCR | `visionModel` | Nemotron Nano (vision) |
+| The high tier | `highModel` | Nemotron Ultra |
+| Reading images / OCR | `visionModel` | GLM-5.3-Flash |
 | Routing | `routeModel` | Nemotron Nano |
-| Speech recognition | dictation settings | OpenAI / Gemini / Azure … |
+| Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
 
 **Which model sits in which tier is the difference in experience.** This is not
@@ -120,22 +129,14 @@ cost optimisation. The low one is allowed a shallow reaction, allowed to stop at
 pick it up. Being told clever things one-sidedly is dull, so what matters is
 that **the tiers really differ**.
 
-**There are three tiers, but you do not need three models.** An empty tier falls
-back to the one below, so the default runs on two (low and middle). Put
-something in high and you have three; make them all the same and you have one.
-More tiers, more contrast; one tier, none.
+**The default has three distinct tiers: Nano → Super → Ultra.** On Token Factory,
+an empty high setting also uses Ultra. Each persona chooses its tier; a high-tier
+persona receives earlier reactions as context for more complex reasoning.
 
-- Inference runs on Nebius Token Factory (OpenAI-compatible, so the endpoint is
-  interchangeable)
-- **The client never calls it directly; a relay sits in between.** Reactions are
-  generated asynchronously and server-side, so both the keys and the work belong
-  there. Nebius Serverless Endpoints is the intended target
-- Reactions are asynchronous (the queue in `internal/persona`). Nebius
-  Serverless Jobs is the intended target for the background work
-- Posts live server-side because they cross devices. For now that is the
-  process's own disk — the blob half of `Store` is the one place to swap for
-  Nebius Object Storage
-- Web search is intended to be Tavily
+- Nebius Token Factory provides inference for the Nemotron models and GLM image reading.
+- The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.
+- In production, Cloud Run hosts the API, Firebase Hosting serves the page, and Firestore and Cloud Storage persist user data. Local mode stores data on disk.
+- Tavily is the default web search provider.
 
 ## Data
 
@@ -152,3 +153,5 @@ The timeline is **append only**. An entry is never rewritten: a change (the
 image finished being read, it was deleted) is another line with the same id
 further down, and the later one wins. Appending costs the same however long the
 log gets, and a crash mid-write costs the last line rather than the file.
+
+Dictation uses browser speech recognition. “Polish text with AI before auto-send” is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron Nano by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.

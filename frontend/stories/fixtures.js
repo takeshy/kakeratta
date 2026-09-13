@@ -103,7 +103,6 @@ export const about = {
   workspace: "~/.config/kakeratta",
   providers: [
     { id: "nebius", label: "Nebius Token Factory", endpoint: "https://api.tokenfactory.nebius.com/v1" },
-    { id: "openai-compatible", label: "OpenAI 互換", endpoint: "https://api.openai.com/v1" },
   ],
   search: { tavily: { label: "Tavily", baseUrl: "https://api.tavily.com" } },
   tools,
@@ -114,11 +113,11 @@ export const settings = {
   provider: "nebius",
   baseUrl: "https://api.tokenfactory.nebius.com/v1",
   apiKey: "********",
-  lowModel: "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
-  middleModel: "nvidia/Llama-3_3-Nemotron-Super-49B-v1_5",
-  highModel: "",
-  visionModel: "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL",
-  routeModel: "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  lowModel: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+  middleModel: "nvidia/nemotron-3-super-120b-a12b",
+  highModel: "nvidia/Nemotron-3-Ultra-550b-a55b",
+  visionModel: "zai-org/GLM-5.3-Flash",
+  routeModel: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
   active: personas.map((row) => row.id),
   search: { provider: "tavily", baseUrl: "https://api.tavily.com/search", apiKey: "" },
   places: {
@@ -137,7 +136,7 @@ export const settings = {
 export const dictatingSettings = {
   ...settings,
   search: { provider: "tavily", baseUrl: "https://api.tavily.com/search", apiKey: "********" },
-  speech: { ...settings.speech, provider: "openai-compatible", endpointType: "openai", baseUrl: "https://api.openai.com/v1", apiKey: "********", model: "whisper-1", language: "ja" },
+  speech: { ...settings.speech, provider: "browser", formatBeforeSend: true, language: "ja" },
 };
 
 // What a persona kept, in the shape it chose. The app never reads these; the

@@ -4,22 +4,8 @@
 // come back as "set or not". A page that does not have a key cannot leak one.
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
-import { ENDPOINT_TYPES, endpointPreset, isGoogleEndpoint } from "./speech.js";
 import { speechLanguageOptions } from "./speech_languages.js";
 import { getLanguage, setLanguage, t } from "./i18n.js";
-
-const providerLabels = {
-  nebius: "Nebius Token Factory",
-  "openai-compatible": "OpenAI 互換",
-};
-
-const endpointLabels = {
-  openai: "OpenAI",
-  custom: "OpenAI 互換（自前）",
-  "gemini-transcribe": "Gemini API",
-  "vertex-transcribe": "Vertex AI",
-  "azure-mai-transcribe": "Azure",
-};
 
 export function aiConfigured(settings) {
   if (!settings) return false;
@@ -92,7 +78,6 @@ export function createSettings({ speaker, onSettings }) {
   }
 
   function drawAI() {
-    const provider = settings.provider || "nebius";
     const apiKey = field("APIキー", settings.apiKey, (value) => patch({ apiKey: value }), {
       type: "password",
       hint: "サーバー側にだけ保存され、指定した接続先以外へは送りません",
@@ -104,17 +89,12 @@ export function createSettings({ speaker, onSettings }) {
         label: "担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。" +
           "どのモデルをどの段に置くかが、そのまま体験の差になります。",
       }),
-      select("実行場所", provider, Object.entries(providerLabels), async (next) => {
-        const entry = (about?.providers ?? []).find((item) => item.id === next);
-        await patch({ provider: next, baseUrl: entry?.endpoint ?? settings.baseUrl });
-        draw();
-      }),
-      field("エンドポイント", settings.baseUrl, (value) => patch({ baseUrl: value })),
+      field("Token Factoryの接続先", settings.baseUrl, (value) => patch({ baseUrl: value })),
       field("low（先に動く。浅く速い）", settings.lowModel, (value) => patch({ lowModel: value }), { list: "model-list" }),
       field("middle", settings.middleModel, (value) => patch({ middleModel: value }), { list: "model-list" }),
       field("high（最後に動く。下の発言を見て突っ込める）", settings.highModel, (value) => patch({ highModel: value }), {
         list: "model-list",
-        hint: "空にすると1つ下の段に落ちます。全部同じにしてもいいですが、対比は無くなります",
+        hint: "Token Factoryでは空欄の場合もNemotron Ultraを使います。",
       }),
       field("画像を読むモデル（vision）", settings.visionModel, (value) => patch({ visionModel: value }), {
         list: "model-list",
@@ -123,15 +103,18 @@ export function createSettings({ speaker, onSettings }) {
       field("振り分けに使うモデル", settings.routeModel, (value) => patch({ routeModel: value }), { list: "model-list" }),
     );
     view.append(el("h3", { label: "モデル" }));
-    if (provider === "nebius") view.append(el("p", { class: "hint" },
-      t("AIにはNebius Token Factoryを使用します。"), " ",
-      el("a", {
-        href: "https://tokenfactory.nebius.com",
-        target: "_blank",
-        rel: "noopener noreferrer",
-        text: t("APIキーを取得"),
-      }),
-    ));
+    view.append(
+      el("p", { label: "KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。" }),
+      el("ul", { class: "model-roles" },
+        ...[
+          "Nemotron Nano — 軽量な振り分けと、日常的な担当の判断",
+          "Nemotron Super — 担当分野をより深く考える推論",
+          "Nemotron Ultra — 担当が必要とする複雑な推論",
+          "Nebius Token Factory — 推論基盤",
+        ].map((label) => el("li", { label }))),
+      el("p", { class: "hint", label: "画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。" }),
+      el("a", { href: "https://tokenfactory.nebius.com", target: "_blank", rel: "noopener noreferrer", text: t("APIキーを取得") }),
+    );
     if (!aiConfigured(settings)) view.append(el("p", {
       class: "hint warn",
       label: "最初にAI接続を設定してください。設定が完了するまでこの画面は閉じられません。",
@@ -213,41 +196,9 @@ export function createSettings({ speaker, onSettings }) {
 
   function drawSpeech() {
     const speech = settings.speech ?? {};
-    const mode = speech.provider || "browser";
-    const modeLabels = {
-      browser: "ブラウザ音声認識",
-      "openai-compatible": "音声認識API（録音して送る）",
-      live: "ライブ文字起こし",
-    };
     const advanced = el("details", { class: "install" },
-      el("summary", { label: "音声入力の上級者向け設定" }),
-      select("方式", speech.provider || "browser",
-        [["browser", "ブラウザ音声認識"], ["openai-compatible", "音声認識API（録音して送る）"], ["live", "ライブ文字起こし"]],
-        async (next) => {
-          await patchSpeech({ provider: next });
-          draw();
-        }),
-    );
-    if (speech.provider !== "browser") {
-      const endpoints = ENDPOINT_TYPES.filter(
-        (id) => (speech.provider !== "live" || isGoogleEndpoint(id) || id === "openai") && id !== "vertex-transcribe",
-      );
-      advanced.append(
-        select("サービス", speech.endpointType, endpoints.map((id) => [id, endpointLabels[id] ?? id]), async (next) => {
-          const preset = endpointPreset(next);
-          await patchSpeech({ endpointType: next, baseUrl: preset.baseUrl, model: preset.model, apiKey: "" });
-          draw();
-        }, "Vertex AI の OAuth はデスクトップ前提のため、この形態では選べません"),
-      );
-      if (!isGoogleEndpoint(speech.endpointType)) {
-        advanced.append(
-          field("Base URL", speech.baseUrl, (value) => patchSpeech({ baseUrl: value })),
-          field("モデル", speech.model, (value) => patchSpeech({ model: value })),
-        );
-      }
-      advanced.append(field("APIキー", speech.apiKey, (value) => patchSpeech({ apiKey: value }), { type: "password" }));
-    }
-    const languages = speechLanguageOptions(speech.provider, speech.endpointType, speech.model, speech.language || "auto");
+      el("summary", { label: "音声入力の上級者向け設定" }));
+    const languages = speechLanguageOptions("browser", "", "", speech.language || "auto");
     advanced.append(
       select("言語", speech.language || "auto", languages.map((item) => [item.value, item.label]),
         (next) => patchSpeech({ language: next })),
@@ -260,7 +211,11 @@ export function createSettings({ speaker, onSettings }) {
     );
     view.append(
       el("h3", { label: "音声入力" }),
-      el("p", { class: "hint", label: modeLabels[mode] ?? mode }),
+      el("p", { class: "hint", label: "ブラウザ音声認識" }),
+      select("自動送信前にAIで文章を整える", String(!!speech.formatBeforeSend),
+        [["false", "OFF"], ["true", "ON"]],
+        (next) => patchSpeech({ formatBeforeSend: next === "true" }),
+        "終了フレーズで送信するときだけ、lowモデルが意味を変えずに句読点や言いよどみを整えます"),
       advanced,
     );
   }

@@ -97,7 +97,7 @@ export function createCompose({ getSettings, onPosted }) {
     onchange: () => readFile(picker.files?.[0]),
   });
 
-  async function send() {
+  async function send(speechAutoSend = false) {
     if (sending) return;
     const written = text.value.trim();
     if (!written && !image) {
@@ -105,9 +105,9 @@ export function createCompose({ getSettings, onPosted }) {
       return;
     }
     sending = true;
-    status.textContent = t("送っています…");
+    status.textContent = t(speechAutoSend && getSettings()?.speech?.formatBeforeSend ? "文章を整えて送っています…" : "送っています…");
     try {
-      const body = { text: written, image: image || "" };
+      const body = { text: written, image: image || "", speechAutoSend };
       // A line that is only a URL is a link, not a comment on one.
       if (LINK.test(written) && !image) {
         body.link = written;
@@ -138,7 +138,7 @@ export function createCompose({ getSettings, onPosted }) {
       text.value = value;
       grow();
     },
-    onSend: () => void send(),
+    onSend: () => void send(true),
   });
 
   text.addEventListener("input", grow);

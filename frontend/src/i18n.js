@@ -1,6 +1,18 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "自動送信前にAIで文章を整える": "Polish text with AI before auto-send",
+  "終了フレーズで送信するときだけ、lowモデルが意味を変えずに句読点や言いよどみを整えます": "Only when a send phrase triggers posting, the low model tidies punctuation and hesitations while preserving meaning.",
+  "文章を整えて送っています…": "Polishing and sending…",
+  "KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。": "Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.",
+  "Nemotron Nano — 軽量な振り分けと、日常的な担当の判断": "Nemotron Nano — lightweight routing and everyday persona decisions",
+  "Nemotron Super — 担当分野をより深く考える推論": "Nemotron Super — richer domain reasoning",
+  "Nemotron Ultra — 担当が必要とする複雑な推論": "Nemotron Ultra — complex reasoning when a persona needs it",
+  "Nebius Token Factory — 推論基盤": "Nebius Token Factory — inference backend",
+  "画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。": "Image reading uses GLM-5.3-Flash on the same backend.",
+  "Token Factoryの接続先": "Token Factory endpoint",
+  "Token Factoryでは空欄の場合もNemotron Ultraを使います。": "On Token Factory, an empty high tier also uses Nemotron Ultra.",
+  "カスタム音声認識API": "Custom transcription API",
   "さらに20件読み込む": "Load 20 more posts", "もう一度読み込む": "Try loading again",
   "読み込んでいます…": "Loading…", "読み込めませんでした。もう一度お試しください。": "Could not load posts. Please try again.",
   "画像対応モデルを選んでください。Nebiusでは空欄にすると画像用の標準モデルを使います。": "Choose a model that accepts images. On Nebius, leave blank to use the default vision model.",
@@ -78,7 +90,6 @@ const EN = {
   "Googleでログイン": "Sign in with Google", "ログアウト": "Sign out",
   "ログインセッションを開始できませんでした。": "Could not start a login session.",
   "保存先 {0}": "Storage: {0}",
-  "OpenAI 互換": "OpenAI-compatible",
   "担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。どのモデルをどの段に置くかが、そのまま体験の差になります。": "Choose low, middle, or high for each persona. Low runs first, and higher tiers can build on earlier responses. How you assign models to tiers directly shapes the experience.",
   "サーバー側にだけ保存され、指定した接続先以外へは送りません": "Stored only on the server and sent only to the configured endpoint.",
   "空にすると1つ下の段に落ちます。全部同じにしてもいいですが、対比は無くなります": "Leave blank to fall back one tier. You may use the same model for every tier, but there will be no contrast.",
