@@ -101,9 +101,9 @@ The earlier single-VM setup (Compute Engine with Caddy terminating TLS on an
 `fallback_url` output is still derived from that address, so it no longer points
 at anything serving. Remove them once the Cloud Run path has been verified.
 
-## Timeline pagination index
+## Firestore indexes
 
-Before updating the API, deploy the index in `firestore.indexes.json` and wait for it to become ready. It lets Firestore fetch 20 parent posts without reading the whole timeline.
+Before updating the API, deploy the indexes in `firestore.indexes.json` and wait for them to become ready. They let Firestore fetch 20 parent posts without reading the whole timeline, and back semantic search with a vector index.
 
 ```sh
 npx firebase-tools deploy --only firestore:indexes --project kakeratta

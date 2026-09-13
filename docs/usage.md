@@ -97,8 +97,42 @@ Your posts and lines, the personas' remarks, and your replies to them, in the
 order they happened. A post that got a reaction looks exactly like one that did
 not. No unread count, and no "an AI is thinking".
 
+It starts with the latest 20 posts and loads 20 more as you scroll. Remarks and
+replies fold under **N replies**; **Add a comment** or **Reply** opens that
+thread. Reactions normally arrive over the live channel, but in case one is
+missed, the timeline is re-read every 10 seconds for five minutes after you post
+or reply (not while the tab is in the background).
+
 **Read-aloud mode** reads the backlog while you are moving (the browser's own
 Web Speech API).
+
+## Search
+
+**Search** in the header and the personas' `timeline_search` tool share one
+implementation. It covers text, URLs, image readings, place labels, and replies;
+deleted posts and their replies never appear.
+
+- **Keyword**: returns fragments containing every space-separated term, newest
+  first, ignoring case and full-/half-width differences. It reads all saved
+  fragments on each search, so reads grow with the timeline.
+- **Meaning (semantic)**: embeds text with `Qwen/Qwen3-Embedding-8B` (1024
+  dimensions) and ranks by closeness in meaning. It uses the configured AI
+  endpoint and API key, so the endpoint must serve embeddings for that model.
+
+Semantic search indexes every existing fragment on the first search and after
+the endpoint changes; after that, only added or changed fragments are indexed,
+on the next search. One indexing pass runs at a time. If you search while a
+persona's search is indexing, you get a "busy" message after a few seconds —
+wait a moment and search again. If indexing runs out of time, the progress is
+kept and the next search resumes it.
+
+Where vectors live:
+
+- `KAKERATTA_STORE=firestore`: in each user's `searchPassages` collection.
+  Firestore vector search (`FindNearest`, cosine distance) returns the nearest
+  100 passages, grouped by post. Requires the vector index in
+  `firestore.indexes.json` ([deployment](../infra/README.md#firestore-indexes)).
+- `KAKERATTA_STORE=file`: in `<workspace>/search-embeddings/`, with similarity computed in Go.
 
 ## Voice input
 
@@ -151,6 +185,7 @@ persona receives earlier reactions as context for more complex reasoning.
 <workspace>/memory/<id>/           each persona's notes (an OKF bundle; the app does not read inside)
 <workspace>/memory/<id>.meta.json  how many times it woke, and so on
 <workspace>/skills/<id>/skill.json added personas
+<workspace>/search-embeddings/     semantic search vectors (rebuilt on the next search if removed)
 ```
 
 The timeline is **append only**. An entry is never rewritten: a change (the
