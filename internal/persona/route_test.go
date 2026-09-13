@@ -23,7 +23,7 @@ func TestInvalidRoutingFallsBackButExplicitSilenceDoesNot(t *testing.T) {
 		t.Run(tc.reply, func(t *testing.T) {
 			f := &fake{reply: func(string, string) string { return tc.reply }}
 			server := f.start(t)
-			got := Route(context.Background(), llm.New(server.URL, ""), "route", []Skill{{ID: "food"}, {ID: "tech"}}, nil)
+			got := Route(context.Background(), llm.New(server.URL, ""), "route", []Skill{{ID: "food"}, {ID: "tech"}}, nil, Entryish{})
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("got %v, want %v", got, tc.want)
 			}

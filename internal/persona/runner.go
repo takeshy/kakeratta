@@ -204,7 +204,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	for _, id := range named {
 		targets[id] = true
 	}
-	for _, id := range Route(ctx, client, settings.RouteModel, skills, thread) {
+	for _, id := range Route(ctx, client, settings.RouteModel, skills, thread, entry) {
 		targets[id] = true
 	}
 	if len(targets) == 0 {
@@ -238,7 +238,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 			go func(i int, skill Skill) {
 				defer group.Done()
 				defer func() { _ = recover() }()
-				remarks[i] = r.run(ctx, skill, thread, root, contains(named, skill.ID), false, client, settings, registry)
+				remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, client, settings, registry)
 			}(i, skill)
 		}
 		group.Wait()
@@ -262,7 +262,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 		}
 		func() {
 			defer func() { _ = recover() }()
-			r.run(ctx, skill, thread, root, false, true, client, settings, registry)
+			r.run(ctx, skill, thread, entry, false, true, client, settings, registry)
 		}()
 	}
 }
@@ -306,6 +306,11 @@ const systemTemplate = `あなたは「%s」。%s
 - **喋らないことと覚えないことは別です。** 黙る場合でも、自分の領域のことならメモには書いてください。
 - 渡されるのはこの投稿と、それに付いた発言だけです。**それ以外の過去はあなたのメモにしか残っていません。**
   遡って取り直すことはできません。次に必要になりそうなことは、いまメモに書いてください。
+- **今回の対象発言に、スレッド全体の文脈を踏まえて対応してください。** ユーザーの追加発言は、元の投稿や担当の質問への補足・訂正・回答として読んでください。
+  例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足です。行き先を再度尋ねず、既知の条件と合わせて答えてください。
+  出発時刻か到着時刻かなど、文脈でも特定できない点だけを確認してください。相対時刻は対象発言の日時を基準に解釈してください。
+  ユーザーの訂正や追加条件を優先し、担当の推測をユーザーが決めた条件として扱わないでください。
+  過去の回答があっても、追加条件で答えが変わる場合は更新して回答してください。
 - **メモはあなたが自分で読み書きします。** 下の道具を使ってください。何を概念にするか、
   何を残して何を捨てるか、いつまとめるかは、すべてあなたが決めます。
   本体は中身を読みませんし、数や長さの上限も持ちません。
@@ -347,9 +352,10 @@ const toolTemplate = `
 // run wakes one persona and hands it the post. Everything after that is the
 // persona's: what of its own notes to read, what to write, whether to say
 // anything. This function only carries the calls it makes.
-func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, root string, named, listening bool,
+func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
 	client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 
+	root := timeline.RootOf(trigger)
 	model := modelFor(skill.Model, settings)
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
@@ -378,8 +384,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		"あなたのメモ（一覧。中身は notes_read で読む）:",
 		listNotes(memory),
 		"",
-		"渡された投稿とそれに付いた発言:",
+		"スレッド全体（古い順）:",
 		timeline.Render(thread, names),
+		"",
+		"今回の対象発言（この発言をスレッド全体の文脈で解釈）:",
+		trigger.Render(names),
 		turnLine(named, listening),
 	}, "\n")
 
@@ -398,7 +407,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		if err != nil {
 			r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
 			if named && !listening {
-				return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, "")
+				return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
 			}
 			return nil
 		}
@@ -412,7 +421,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			// A model that ignored the shape still said something. Treat it as a
 			// remark when it was named, and as silence otherwise.
 			if named && strings.TrimSpace(reply) != "" {
-				return r.speak(skill, root, strings.TrimSpace(reply), nil, memory, "")
+				return r.speak(skill, root, strings.TrimSpace(reply), nil, memory, trigger.ID)
 			}
 			return nil
 		}
@@ -469,7 +478,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				// It had its turn. Whatever it wrote down is kept either way.
 				return r.hush(skill, memory)
 			}
-			return r.speak(skill, root, text, sources, memory, "")
+			return r.speak(skill, root, text, sources, memory, trigger.ID)
 		default:
 			if named && !listening {
 				// Being asked by name is the one thing that is not the persona's
@@ -484,7 +493,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	if named && !listening {
 		r.emit("error", map[string]any{"persona": skill.ID, "message": "名指しへの返答を生成できませんでした"})
-		return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, "")
+		return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
 	}
 	return r.hush(skill, memory)
 }

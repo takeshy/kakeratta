@@ -26,6 +26,7 @@ let settingsRequired = false;
 
 const speaker = createSpeaker();
 const feed = createFeed({
+  getSettings: () => settings,
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onReply: reload,
 });

@@ -7,6 +7,7 @@
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
+import { createVoiceInput } from "./voice_input.js";
 
 // Silence is the design, but an empty screen cannot say so for itself. The note
 // is for the first couple of posts only: once the timeline has a few things in
@@ -14,10 +15,11 @@ import { t } from "./i18n.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, onReply }) {
+export function createFeed({ getPersona, getSettings = () => ({}), onReply }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let openReply = null;
+  let replyEditor = null;
   const drafts = new Map();
   let composing = false;
   let drawPending = false;
@@ -52,9 +54,8 @@ export function createFeed({ getPersona, onReply }) {
   }
 
   function draw() {
-    // Replacing a textarea while an IME owns it cancels the conversion. Keep
-    // the current DOM until compositionend; the draft itself survives every
-    // other redraw below.
+    // Detaching a textarea while an IME owns it cancels the conversion. Keep
+    // the current DOM until compositionend.
     if (composing) {
       drawPending = true;
       return;
@@ -64,8 +65,15 @@ export function createFeed({ getPersona, onReply }) {
     const selection = active?.classList?.contains("reply-input")
       ? { start: active.selectionStart, end: active.selectionEnd }
       : null;
-    clear(view);
     const threads = groups();
+    // Keep the same field and recognizer across live timeline updates.
+    if (replyEditor && (replyEditor.replyTo !== openReply ||
+        !threads.some((thread) => thread.some((entry) => entry.id === openReply)))) {
+      const previous = replyEditor;
+      replyEditor = null;
+      void previous.dispose();
+    }
+    clear(view);
     if (!threads.length) {
       view.append(
         el("div", { class: "empty" },
@@ -205,6 +213,9 @@ export function createFeed({ getPersona, onReply }) {
   // A reply is not a command: it goes back into the timeline and the personas
   // see it next time, the same as anything else.
   function drawReplyBox(replyTo) {
+    if (replyEditor?.replyTo === replyTo) return replyEditor.box;
+    let disposed = false;
+    let sending = false;
     const input = el("textarea", {
       class: "reply-input", rows: "2", i18nPlaceholder: "返事や、@名前 で指名",
       "data-reply-to": replyTo,
@@ -219,14 +230,22 @@ export function createFeed({ getPersona, onReply }) {
     });
     const send = async () => {
       const text = input.value.trim();
-      if (!text) return;
+      if (!text || sending || disposed) return;
+      sending = true;
       try {
+        await voice.discard();
+        if (disposed) return;
         await api.reply(replyTo, text);
-        drafts.delete(replyTo);
-        openReply = null;
+        if (!disposed) {
+          drafts.delete(replyTo);
+          if (openReply === replyTo) openReply = null;
+        }
+        draw();
         onReply?.();
       } catch (error) {
         toast(String(error.message || error), "error");
+      } finally {
+        sending = false;
       }
     };
     input.addEventListener("keydown", (event) => {
@@ -235,6 +254,16 @@ export function createFeed({ getPersona, onReply }) {
         void send();
       }
     });
+    const voice = createVoiceInput({
+      getSettings,
+      getText: () => input.value,
+      setText: (value) => {
+        if (disposed) return;
+        input.value = value;
+        drafts.set(replyTo, value);
+      },
+      onSend: () => void send(),
+    });
     const box = el(
       "div",
       { class: "reply" },
@@ -242,6 +271,7 @@ export function createFeed({ getPersona, onReply }) {
       el(
         "div",
         { class: "compose-row" },
+        voice.button,
         el("button", { class: "button send", label: "送る", onclick: () => void send() }),
         el("button", {
           class: "chip ghost",
@@ -254,7 +284,15 @@ export function createFeed({ getPersona, onReply }) {
         }),
       ),
     );
-    setTimeout(() => input.focus(), 0);
+    box.append(voice.activity);
+    replyEditor = {
+      replyTo, box,
+      dispose() {
+        disposed = true;
+        return voice.discard();
+      },
+    };
+    setTimeout(() => { if (!disposed) input.focus(); }, 0);
     return box;
   }
 

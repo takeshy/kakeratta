@@ -502,3 +502,93 @@ func TestThePersonaIsHandedTheMemoSkill(t *testing.T) {
 		t.Fatalf("notes = %+v", notes)
 	}
 }
+
+func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
+	for _, replyToQuestion := range []bool{false, true} {
+		name := "add a comment"
+		if replyToQuestion {
+			name = "reply to a persona"
+		}
+		t.Run(name, func(t *testing.T) {
+			runner, s, stub := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					return `{"deliver":["move","gourmet"]}`
+				}
+				if strings.Contains(user, "このターンは発言できません") {
+					return `{"action":"silent"}`
+				}
+				return `{"action":"speak","text":"追加条件を踏まえた回答"}`
+			}, "move", "gourmet")
+			at := time.Now().Add(-time.Hour).Truncate(time.Minute)
+			thread := []timeline.Entry{
+				{ID: "shibuya", Kind: timeline.KindPost, Speaker: timeline.User, Text: "渋谷にいきたい", At: at},
+				{ID: "question", Kind: timeline.KindRemark, Speaker: "move", Root: "shibuya", ReplyTo: "shibuya", Text: "いつ出発したいですか？", At: at.Add(time.Minute)},
+				{ID: "earlier-comment", Kind: timeline.KindReply, Speaker: timeline.User, Root: "shibuya", ReplyTo: "shibuya", Text: "出発地は新宿です。", At: at.Add(2 * time.Minute)},
+				{ID: "other-persona", Kind: timeline.KindRemark, Speaker: "gourmet", Root: "shibuya", ReplyTo: "earlier-comment", Text: "着いたら食事もできます。", At: at.Add(3 * time.Minute)},
+				{ID: "follow-up", Kind: timeline.KindReply, Speaker: timeline.User, Root: "shibuya", ReplyTo: "shibuya", Text: "1時間後。", At: at.Add(4 * time.Minute)},
+				// A queued reaction must keep its target even if another remark has arrived.
+				{ID: "later-remark", Kind: timeline.KindRemark, Speaker: "gourmet", Root: "shibuya", ReplyTo: "follow-up", Text: "食事の候補も調べます。", At: at.Add(5 * time.Minute)},
+			}
+			trigger := &thread[4]
+			if replyToQuestion {
+				trigger.ReplyTo = "question"
+			}
+			for _, entry := range thread {
+				if err := s.Append(entry); err != nil {
+					t.Fatal(err)
+				}
+			}
+			post(t, s, "別スレッドの秘密の予定")
+			if err := s.Append(timeline.Entry{ID: "deleted", Kind: timeline.KindReply, Root: "shibuya", Text: "削除済みの条件", Deleted: true, At: at}); err != nil {
+				t.Fatal(err)
+			}
+
+			runner.react(trigger.ID)
+
+			stub.mu.Lock()
+			prompts := append([]string(nil), stub.prompts...)
+			stub.mu.Unlock()
+			if len(prompts) != 4 {
+				t.Fatalf("got %d calls, want routing, two personas, and a listening turn", len(prompts))
+			}
+			for i, prompt := range prompts {
+				_, context, ok := strings.Cut(prompt, "スレッド全体（古い順）:\n")
+				if !ok {
+					t.Fatalf("call %d did not receive the thread", i)
+				}
+				history, target, ok := strings.Cut(context, "今回の対象発言（この発言をスレッド全体の文脈で解釈）:\n")
+				if !ok || !strings.HasPrefix(target, "[follow-up] ") || !strings.Contains(target, "1時間後。") || !strings.Contains(target, trigger.At.Local().Format("2006-01-02 15:04")) {
+					t.Fatalf("call %d lost the target or its timestamp: %s", i, target)
+				}
+				previous := -1
+				for _, entry := range thread {
+					index := strings.Index(history, entry.Text)
+					if index <= previous {
+						t.Fatalf("call %d lost or reordered %q: %s", i, entry.Text, history)
+					}
+					previous = index
+				}
+				if !strings.Contains(target, trigger.ReplyTo+" への返事") {
+					t.Fatalf("call %d lost which entry the user answered", i)
+				}
+				for _, excluded := range []string{"別スレッドの秘密の予定", "削除済みの条件"} {
+					if strings.Contains(prompt, excluded) {
+						t.Fatalf("call %d leaked %q", i, excluded)
+					}
+				}
+			}
+			var answers int
+			for _, entry := range remarks(t, s) {
+				if entry.Text == "追加条件を踏まえた回答" {
+					answers++
+					if entry.Root != "shibuya" || entry.ReplyTo != trigger.ID {
+						t.Fatalf("answer is not attached to the follow-up: %+v", entry)
+					}
+				}
+			}
+			if answers != 2 {
+				t.Fatalf("got %d answers, want one from each routed persona", answers)
+			}
+		})
+	}
+}

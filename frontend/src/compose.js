@@ -9,7 +9,7 @@
 // the screen is for; this is the way through to it.
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
-import { createAudioMeter, createDictation, dictationSupported } from "./dictation.js";
+import { createVoiceInput } from "./voice_input.js";
 import { t } from "./i18n.js";
 
 const LINK = /^https?:\/\/\S+$/i;
@@ -131,52 +131,14 @@ export function createCompose({ getSettings, onPosted }) {
     }
   }
 
-  const micButton = el("button", { class: "chip", type: "button", label: "🎙 話す" });
-  const micMeterNode = el("span", { class: "mic-meter", ariaHidden: "true" });
-  const micMeter = createAudioMeter(micMeterNode);
-  const micTitle = el("strong", { class: "mic-title" });
-  const micHint = el("span", { class: "mic-status" });
-  const micActivity = el("div", { class: "mic-activity", hidden: true }, micMeterNode,
-    el("span", { class: "mic-copy" }, micTitle, micHint));
-  let meterStream = null;
-  const dictation = createDictation({
+  const voice = createVoiceInput({
     getSettings,
     getText: () => text.value,
     setText: (value) => {
       text.value = value;
       grow();
     },
-    onState: (state) => {
-      micButton.classList.toggle("active", state.status === "recording");
-      if (state.meterStream !== meterStream) {
-        meterStream = state.meterStream;
-        if (meterStream) void micMeter.attach(meterStream);
-        else micMeter.detach();
-      }
-      const active = state.status !== "idle";
-      micActivity.hidden = !active && !state.error;
-      micActivity.classList.toggle("processing", active && state.status !== "recording");
-      if (state.error) micTitle.textContent = state.error;
-      else if (state.status === "recording" && state.backgroundTranscribing) micTitle.textContent = t("無音部分を解析中…（録音は継続）");
-      else if (state.status === "recording") micTitle.textContent = t("聞いています…");
-      else if (state.status === "starting") micTitle.textContent = t("マイクを準備しています…");
-      else if (state.status === "preparing") micTitle.textContent = t("音声を準備しています…");
-      else if (state.status === "transcribing") micTitle.textContent = t("音声を解析しています…");
-      else micTitle.textContent = "";
-      const phrase = getSettings()?.speech?.sendPhrase?.trim();
-      micHint.textContent = active
-        ? [state.silenceHint, phrase ? t("入力を終えるときは「{0}」と言ってください", phrase) : ""].filter(Boolean).join(" · ")
-        : "";
-    },
-    // Saying the send phrase means "that is the post".
     onSend: () => void send(),
-  });
-  micButton.addEventListener("click", () => {
-    if (!dictationSupported(getSettings())) {
-      toast("この環境では音声入力が使えません");
-      return;
-    }
-    void dictation.toggle();
   });
 
   text.addEventListener("input", grow);
@@ -204,13 +166,13 @@ export function createCompose({ getSettings, onPosted }) {
         label: "📷 画像",
         onclick: () => picker.click(),
       }),
-      micButton,
+      voice.button,
       picker,
       status,
       el("span", { class: "spacer" }),
       el("button", { class: "button send", type: "submit", label: "送る", i18nTitle: "Ctrl（⌘）+ Enter" }),
     ),
-    micActivity,
+    voice.activity,
   );
 
   return {

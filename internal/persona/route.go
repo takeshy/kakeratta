@@ -23,6 +23,10 @@ const routePrompt = `投稿を、担当分野ごとのAIのうち誰に渡すか
 - **明らかに関係ないものを外すだけ**です。関係あるかもしれないものは渡してください。
 - 渡した相手が必ず発言するわけではありません。最終的に黙るかどうかは相手が決めます。
   だから迷ったら渡す方に倒してください。外すのは「この担当には絶対に関係ない」ときだけです。
+- 渡されたスレッド全体（元の投稿、ユーザーの追加発言、担当の発言）を読んで、今回の対象発言の意味と担当を判断してください。
+- 追加発言は単独の投稿ではありません。省略された目的・場所・時間はスレッド内の文脈で補い、ユーザーの訂正や追加条件を優先してください。
+  例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足なので、移動の担当へ渡します。
+- 過去に担当が回答済みでも、新しい条件や質問があれば改めて関係する担当へ渡してください。
 - 誰にも渡さないという判断もあります。
 
 {"deliver":["id", ...]} の形式で、渡す相手のidだけを返してください。`
@@ -32,7 +36,7 @@ const routePrompt = `投稿を、担当分野ごとのAIのうち誰に渡すか
 // When it cannot decide - no model configured, the call failed, the reply made
 // no sense - everyone gets it. Routing is an optimisation, and an optimisation
 // that fails should cost calls rather than swallow a post.
-func Route(ctx context.Context, client *llm.Client, model string, skills []Skill, thread []Entryish) []string {
+func Route(ctx context.Context, client *llm.Client, model string, skills []Skill, thread []Entryish, trigger Entryish) []string {
 	if len(skills) == 0 {
 		return nil
 	}
@@ -52,7 +56,8 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		Messages: []llm.Message{
 			{Role: "system", Content: routePrompt},
 			{Role: "user", Content: strings.Join([]string{
-				"担当:", strings.Join(domains, "\n"), "", "投稿:", renderAll(thread),
+				"担当:", strings.Join(domains, "\n"), "", "スレッド全体（古い順）:", renderAll(thread),
+				"", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil),
 			}, "\n")},
 		},
 	})
