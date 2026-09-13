@@ -58,6 +58,7 @@ type Runner struct {
 	catalogue *Catalogue
 	clientOf  func() (*llm.Client, store.Settings)
 	search    *search.Service
+	tools     tools.Config
 	emit      func(name string, data any)
 
 	queue   []reaction
@@ -84,6 +85,10 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 
 // SetSearch shares the UI's indexing work with all personas. Set before Start.
 func (r *Runner) SetSearch(service *search.Service) { r.search = service }
+
+// SetTools is the operator's tool configuration: search key, map endpoints and
+// MCP servers. Set before Start.
+func (r *Runner) SetTools(config tools.Config) { r.tools = config }
 
 // OnEvent is how the screen hears that something landed.
 func (r *Runner) OnEvent(emit func(name string, data any)) {
@@ -228,7 +233,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	// work: what the low one said is in front of the ones above it, so they have
 	// something to pick up on. Running them together would leave the larger
 	// models with nothing but the post.
-	registry := tools.New(settings).WithSearch(r.search)
+	registry := tools.New(r.tools).WithSearch(r.search).WithTavilyKey(settings.Search.APIKey)
 	var ran []Skill
 	spoke := map[Tier]bool{}
 	for _, tier := range Tiers {
@@ -557,7 +562,13 @@ func placeLine(place *timeline.Place) string {
 	if place == nil {
 		return "いまいる場所: 不明（PCからの投稿など、位置が無いことがあります）"
 	}
-	return "いまいる場所: " + place.Describe()
+	// The coordinates travel with the label: a built-in tool is handed the
+	// position by the app, but an MCP tool gets only what the persona writes.
+	line := "いまいる場所: " + place.Describe()
+	if place.Label != "" {
+		line += fmt.Sprintf("（北緯%.4f 東経%.4f）", place.Lat, place.Lon)
+	}
+	return line
 }
 
 func turnLine(named, listening bool) string {

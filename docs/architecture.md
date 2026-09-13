@@ -216,9 +216,18 @@ exchange work, but it is not a reason to pick one over another.
 Only what is declared can be called (`internal/tools`). The app makes the call
 and the keys stay server-side, which is also how swapping providers and
 insisting on a source link stay the app's guarantees rather than each skill's.
+Where the tools go is the operator's configuration (`tools.Config`, from
+environment variables): one set of map endpoints and one list of MCP servers
+for the whole deployment. The Tavily key is the user's, from their settings.
 
 | Name | What it is | Key |
 | --- | --- | --- |
-| `web_search` | Tavily / Brave | Yes |
+| `web_search` | Tavily | Yes (the user's) |
 | `place_search` | Places nearby, with **opening hours** (OpenStreetMap / Overpass) | No |
 | `route` | Travel time from where you are (OSRM; roads only, no public transport) | No |
+| `server.tool` | Any tool of a configured MCP server (`internal/mcp`, Streamable HTTP) | Operator's |
+
+MCP tools are listed once per server and cached; a persona sees them in the
+same one-line form as the built-in tools, with an example call built from the
+input schema, and calls them with the same `{"action":"tool"}` message. The
+result's text goes into the prompt and its resource links become sources.

@@ -4,6 +4,8 @@
 // needs search, and the app hands it results. That keeps three things in the
 // app's hands rather than each plugin's: which provider is used, what the
 // credentials are, and the rule that every claim comes back with a link.
+//
+// The provider is Tavily. The key is the user's own, entered in Settings.
 package websearch
 
 import (
@@ -12,10 +14,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
+
+// Endpoint is where Tavily listens. It can be overridden for tests.
+const Endpoint = "https://api.tavily.com/search"
 
 // Result is one hit, and the link is not optional: a persona saying "this may
 // be out of date" is only useful if the reader can check.
@@ -25,53 +29,29 @@ type Result struct {
 	Snippet string `json:"snippet"`
 }
 
-// ErrNotConfigured is what every path gets when no provider is set. A technical
+// ErrNotConfigured is what every path gets when no key is set. A technical
 // persona that cannot search says so rather than answering from memory.
-var ErrNotConfigured = errors.New("Web検索の接続先が設定されていません")
-
-// Providers are the search APIs the app knows how to speak to, with the
-// endpoint each one usually listens on.
-var Providers = map[string]struct {
-	Label   string `json:"label"`
-	BaseURL string `json:"baseUrl"`
-	NeedKey bool   `json:"needKey"`
-}{
-	"brave":  {"Brave Search API", "https://api.search.brave.com/res/v1/web/search", true},
-	"tavily": {"Tavily", "https://api.tavily.com/search", true},
-}
+var ErrNotConfigured = errors.New("Web検索の APIキーが設定されていません（設定 → Web検索）")
 
 type Client struct {
-	Provider string
-	BaseURL  string
-	APIKey   string
-	HTTP     *http.Client
+	BaseURL string
+	APIKey  string
+	HTTP    *http.Client
 }
 
-func New(provider, baseURL, apiKey string) *Client {
-	provider = strings.TrimSpace(provider)
-	if baseURL = strings.TrimSpace(baseURL); baseURL == "" {
-		if entry, ok := Providers[provider]; ok {
-			baseURL = entry.BaseURL
-		}
-	}
+func New(apiKey string) *Client {
 	return &Client{
-		Provider: provider,
-		BaseURL:  baseURL,
-		APIKey:   strings.TrimSpace(apiKey),
-		HTTP:     &http.Client{Timeout: 20 * time.Second},
+		BaseURL: Endpoint,
+		APIKey:  strings.TrimSpace(apiKey),
+		HTTP:    &http.Client{Timeout: 20 * time.Second},
 	}
 }
 
 func (c *Client) Enabled() bool {
-	if c == nil || c.BaseURL == "" {
-		return false
-	}
-	entry, known := Providers[c.Provider]
-	return known && (!entry.NeedKey || c.APIKey != "")
+	return c != nil && c.BaseURL != "" && c.APIKey != ""
 }
 
-// Search returns at most limit hits. Every provider is reduced to the same
-// shape here, so nothing above this line knows which one answered.
+// Search returns at most limit hits.
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result, error) {
 	if !c.Enabled() {
 		return nil, ErrNotConfigured
@@ -82,10 +62,15 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result,
 	if limit <= 0 {
 		limit = 5
 	}
-	request, err := c.request(ctx, query, limit)
+	body, err := json.Marshal(map[string]any{"api_key": c.APIKey, "query": query, "max_results": limit})
 	if err != nil {
 		return nil, err
 	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL, strings.NewReader(string(body)))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/json")
 	response, err := c.HTTP.Do(request)
 	if err != nil {
 		return nil, err
@@ -94,54 +79,7 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result,
 	if response.StatusCode >= 300 {
 		return nil, fmt.Errorf("Web検索が失敗しました (%d)", response.StatusCode)
 	}
-	results, err := c.decode(response)
-	if err != nil {
-		return nil, err
-	}
-	if len(results) > limit {
-		results = results[:limit]
-	}
-	return results, nil
-}
-
-func (c *Client) request(ctx context.Context, query string, limit int) (*http.Request, error) {
-	switch c.Provider {
-	case "tavily":
-		body, err := json.Marshal(map[string]any{
-			"api_key": c.APIKey, "query": query, "max_results": limit,
-		})
-		if err != nil {
-			return nil, err
-		}
-		request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL, strings.NewReader(string(body)))
-		if err != nil {
-			return nil, err
-		}
-		request.Header.Set("Content-Type", "application/json")
-		return request, nil
-	case "brave":
-		target := fmt.Sprintf("%s?q=%s&count=%d", c.BaseURL, url.QueryEscape(query), limit)
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
-		if err != nil {
-			return nil, err
-		}
-		request.Header.Set("Accept", "application/json")
-		request.Header.Set("X-Subscription-Token", c.APIKey)
-		return request, nil
-	default:
-		return nil, ErrNotConfigured
-	}
-}
-
-func (c *Client) decode(response *http.Response) ([]Result, error) {
 	var payload struct {
-		Web struct {
-			Results []struct {
-				Title       string `json:"title"`
-				URL         string `json:"url"`
-				Description string `json:"description"`
-			} `json:"results"`
-		} `json:"web"`
 		Results []struct {
 			Title   string `json:"title"`
 			URL     string `json:"url"`
@@ -153,15 +91,15 @@ func (c *Client) decode(response *http.Response) ([]Result, error) {
 		return nil, err
 	}
 	var out []Result
-	for _, hit := range payload.Web.Results {
-		out = append(out, Result{Title: hit.Title, URL: hit.URL, Snippet: hit.Description})
-	}
 	for _, hit := range payload.Results {
 		snippet := hit.Content
 		if snippet == "" {
 			snippet = hit.Snippet
 		}
 		out = append(out, Result{Title: hit.Title, URL: hit.URL, Snippet: snippet})
+	}
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }

@@ -104,8 +104,8 @@ export const about = {
   providers: [
     { id: "nebius", label: "Nebius Token Factory", endpoint: "https://api.tokenfactory.nebius.com/v1" },
   ],
-  search: { tavily: { label: "Tavily", baseUrl: "https://api.tavily.com" } },
   tools,
+  mcpServers: [],
   needsToken: true,
 };
 
@@ -119,14 +119,7 @@ export const settings = {
   visionModel: "zai-org/GLM-5.3-Flash",
   routeModel: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
   active: personas.map((row) => row.id),
-  search: { provider: "tavily", baseUrl: "https://api.tavily.com/search", apiKey: "" },
-  places: {
-    nominatimUrl: "https://nominatim.openstreetmap.org",
-    overpassUrl: "https://overpass-api.de/api/interpreter",
-    routeUrl: "https://router.project-osrm.org",
-    walkingRouteUrl: "https://routing.openstreetmap.de/routed-foot",
-    cyclingRouteUrl: "https://routing.openstreetmap.de/routed-bike",
-  },
+  search: { apiKey: "" },
   speech: {
     provider: "browser", endpointType: "openai", baseUrl: "", apiKey: "", model: "",
     language: "auto", silenceSeconds: 3, sendPhrase: "以上",
@@ -137,7 +130,7 @@ export const settings = {
 
 export const dictatingSettings = {
   ...settings,
-  search: { provider: "tavily", baseUrl: "https://api.tavily.com/search", apiKey: "********" },
+  search: { apiKey: "********" },
   speech: { ...settings.speech, provider: "browser", formatBeforeSend: true, language: "ja" },
 };
 

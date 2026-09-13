@@ -21,6 +21,10 @@ task test       # go test ./internal/... と node --test tests/*.test.js
 | `KAKERATTA_FIREBASE_PROJECT_ID` | 空 | Googleログインとユーザー別ワークスペースを有効化 |
 | `KAKERATTA_FIREBASE_API_KEY` | 空 | Firebase Web APIキー |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | 空 | Firebase Authドメイン |
+| `KAKERATTA_MCP_SERVERS` | 空 | MCPサーバーの一覧（JSON）: `[{"name":"geo","url":"https://…/mcp","headers":{…}}]`。道具は `名前.道具名` で現れます |
+| `KAKERATTA_NOMINATIM_URL`・`KAKERATTA_OVERPASS_URL`・`KAKERATTA_OSRM_CAR_URL`・`KAKERATTA_OSRM_FOOT_URL`・`KAKERATTA_OSRM_BIKE_URL` | OpenStreetMapの公開サービス | `place_search` と `route` の接続先 |
+
+道具の接続先とMCPサーバーは運用者の設定で、全利用者で共通です。`web_search` のTavilyのキーは利用者自身が設定画面で入れます。
 
 トークンを設定した場合は、各ブラウザで一度 `/?token=<URLエンコードしたトークン>` を開いてください。
 サーバーが HttpOnly のセッションCookieを設定し、トークンを除いたURLへ移動します。
@@ -140,7 +144,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。
 
-![設定。段ごとのモデル、道具、位置、音声入力、読み上げ](captures/ja/settings.png)
+![設定。表示言語、モデル、Web検索、音声入力、読み上げ](captures/ja/settings.png)
 
 | 用途 | 設定 | 既定 |
 | --- | --- | --- |
@@ -152,6 +156,10 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 
+画面にモデルの選択欄はありません。利用者はAPIキーを入れるだけで、段ごとのモデルは上の既定のままです。
+ワークスペースのモデルを変えたいときは、その `settings.json` の上記キー（または `PUT /api/settings`）を
+運用側で書き換えます。画面は保存されている値のまま動きます。
+
 **どのモデルをどの段に置くかが、そのまま体験の差になります。** コスト最適化ではありません。
 low は浅い感想でよく、「わからんくなってきた」で終わってもよい。そこに上の段が後から拾いに来ます。
 一方的に賢いことばかり言われてもつまらないので、**段が本当に違うこと**が効きます。
@@ -162,12 +170,12 @@ low は浅い感想でよく、「わからんくなってきた」で終わっ�
 - 推論基盤はNebius Token Factoryです。Nemotronによる推論とGLMによる画像読み取りに使います。
 - ブラウザからGo APIへリクエストを送り、APIキーの保持と非同期の反応処理はサーバー側で行います。
 - 公開環境ではAPIをCloud Run、画面をFirebase Hostingで配信し、利用者のデータをFirestoreとCloud Storageに保存します。ローカル環境ではディスクに保存します。
-- Web検索はTavilyが既定です。
+- Web検索はTavilyです。キーは利用者ごとに入れます。
 
 ## データ
 
 ```
-<workspace>/settings.json          接続先・モデル・道具の鍵・いる担当
+<workspace>/settings.json          接続先・モデル・Web検索の鍵・いる担当
 <workspace>/timeline.jsonl         投稿と発言（追記のみ）
 <workspace>/blobs/<id>.png         キャプチャ
 <workspace>/memory/<id>/           ペルソナごとのメモ（OKFバンドル。本体は中を読まない）

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -31,7 +30,7 @@ func TestRouteUsesModeSpecificBackend(t *testing.T) {
 				fmt.Fprintf(w, `{"code":"Ok","routes":[{"duration":%d,"distance":4101}]}`, tc.seconds)
 			}))
 			defer backend.Close()
-			registry := New(store.Settings{Places: store.PlaceSettings{NominatimURL: backend.URL, RouteURL: backend.URL + "/car", WalkingRouteURL: backend.URL + "/foot", CyclingRouteURL: backend.URL + "/bike"}})
+			registry := New(Config{Places: PlaceEndpoints{Nominatim: backend.URL, Route: backend.URL + "/car", WalkingRoute: backend.URL + "/foot", CyclingRoute: backend.URL + "/bike"}})
 			result, err := registry.For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅", "mode": tc.mode}, &timeline.Place{Lat: 35.6896, Lon: 139.7006})
 			if err != nil {
 				t.Fatal(err)
@@ -50,13 +49,13 @@ func TestRouteRejectsUnsupportedOrMissingModeEndpoint(t *testing.T) {
 	for _, tc := range []struct{ mode, walkingURL string }{
 		{"walking", ""}, {"walking", "https://router.project-osrm.org"}, {"transit", ""},
 	} {
-		registry := New(store.Settings{Places: store.PlaceSettings{RouteURL: "https://router.project-osrm.org", WalkingRouteURL: tc.walkingURL}})
+		registry := New(Config{Places: PlaceEndpoints{Route: "https://router.project-osrm.org", WalkingRoute: tc.walkingURL}})
 		_, err := registry.For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅", "mode": tc.mode}, &timeline.Place{Lat: 35, Lon: 139})
 		if err == nil {
 			t.Fatalf("accepted %+v", tc)
 		}
 	}
-	_, err := New(store.Settings{}).For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅"}, nil)
+	_, err := New(Config{}).For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅"}, nil)
 	if err != ErrNoPlace {
 		t.Fatalf("no location: %v", err)
 	}
@@ -78,7 +77,7 @@ func TestNearbyRetriesOverloadAndSearchesRamenTag(t *testing.T) {
 		fmt.Fprint(w, `{"elements":[{"type":"node","id":1,"lat":35,"lon":139,"tags":{"name":"麺屋","cuisine":"ramen","opening_hours":"11:00-20:00"}}]}`)
 	}))
 	defer backend.Close()
-	registry := New(store.Settings{Places: store.PlaceSettings{OverpassURL: backend.URL}})
+	registry := New(Config{Places: PlaceEndpoints{Overpass: backend.URL}})
 	result, err := registry.For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "ラーメン"}, &timeline.Place{Lat: 35, Lon: 139})
 	if err != nil || calls != 2 || !strings.Contains(result.Text, "麺屋") {
 		t.Fatalf("%+v %v calls=%d", result, err, calls)
@@ -97,7 +96,7 @@ func TestNearbyDoesNotReportFailureAsNoPlaces(t *testing.T) {
 			calls := 0
 			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(tc.code); fmt.Fprint(w, tc.body) }))
 			defer backend.Close()
-			result, err := New(store.Settings{Places: store.PlaceSettings{OverpassURL: backend.URL}}).For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "coffee"}, &timeline.Place{Lat: 35, Lon: 139})
+			result, err := New(Config{Places: PlaceEndpoints{Overpass: backend.URL}}).For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "coffee"}, &timeline.Place{Lat: 35, Lon: 139})
 			if err == nil || result.Text != "" || calls != tc.calls {
 				t.Fatalf("%+v %v calls=%d", result, err, calls)
 			}
@@ -113,7 +112,7 @@ func TestPlaceWithoutLocationUsesNameLookup(t *testing.T) {
 		fmt.Fprint(w, `[{"display_name":"渋谷駅"}]`)
 	}))
 	defer backend.Close()
-	result, err := New(store.Settings{Places: store.PlaceSettings{NominatimURL: backend.URL}}).For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "渋谷駅"}, nil)
+	result, err := New(Config{Places: PlaceEndpoints{Nominatim: backend.URL}}).For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "渋谷駅"}, nil)
 	if err != nil || !strings.Contains(result.Text, "位置が分からない") {
 		t.Fatalf("%+v %v", result, err)
 	}

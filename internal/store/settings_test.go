@@ -90,17 +90,32 @@ func TestHighTierDefaultsAndOverrides(t *testing.T) {
 	}
 }
 
-func TestLegacyPlaceSettingsGainSeparateRouteDefaults(t *testing.T) {
+func TestToolSettingsInOldDocumentsAreIgnored(t *testing.T) {
 	s := open(t)
-	// Match a settings document written before walking/cycling endpoints existed.
-	if err := writeJSON(s.Root()+"/settings.json", map[string]any{"places": map[string]any{"routeUrl": "https://custom.example/car", "overpassUrl": "https://custom.example/nearby"}}); err != nil {
+	// A settings document written when users could point the tools elsewhere.
+	if err := writeJSON(s.Root()+"/settings.json", map[string]any{"lowModel": "x", "search": map[string]any{"provider": "brave", "apiKey": "k"}, "places": map[string]any{"routeUrl": "https://custom.example/car"}}); err != nil {
 		t.Fatal(err)
 	}
-	settings := s.Settings()
-	if settings.Places.RouteURL != "https://custom.example/car" || settings.Places.OverpassURL != "https://custom.example/nearby" {
-		t.Fatal("custom endpoints changed")
+	if settings := s.Settings(); settings.LowModel != "x" || settings.Search.APIKey != "" {
+		t.Fatalf("a Brave key survived as a Tavily key: %+v", settings)
 	}
-	if settings.Places.WalkingRouteURL != "https://routing.openstreetmap.de/routed-foot" || settings.Places.CyclingRouteURL != "https://routing.openstreetmap.de/routed-bike" {
-		t.Fatalf("missing defaults: %+v", settings.Places)
+	if err := writeJSON(s.Root()+"/settings.json", map[string]any{"search": map[string]any{"provider": "tavily", "baseUrl": "https://api.tavily.com/search", "apiKey": "tvly"}}); err != nil {
+		t.Fatal(err)
+	}
+	if settings := s.Settings(); settings.Search.APIKey != "tvly" || settings.Search.Provider != "" {
+		t.Fatalf("a Tavily key was not kept: %+v", settings)
+	}
+	if err := s.SaveSettings(s.ConfiguredSettings()); err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := readJSON(s.Root()+"/settings.json", &raw); err != nil {
+		t.Fatal(err)
+	}
+	if search, _ := raw["search"].(map[string]any); search["provider"] != nil || search["baseUrl"] != nil {
+		t.Fatalf("provider or endpoint written back: %v", search)
+	}
+	if _, ok := raw["places"]; ok {
+		t.Fatal("the old places key was written back")
 	}
 }

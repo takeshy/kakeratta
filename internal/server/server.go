@@ -26,6 +26,8 @@ type Options struct {
 	Catalogue *persona.Catalogue
 	Version   string
 	Token     string
+	// Tools is the operator's configuration, shared by every workspace.
+	Tools tools.Config
 }
 
 // Server is the app.
@@ -33,6 +35,7 @@ type Server struct {
 	store     store.Workspace
 	catalogue *persona.Catalogue
 	runner    *persona.Runner
+	tools     tools.Config
 	version   string
 	token     string
 	search    *search.Service
@@ -50,12 +53,14 @@ func New(options Options) *Server {
 		catalogue: options.Catalogue,
 		version:   options.Version,
 		token:     options.Token,
+		tools:     options.Tools,
 		mux:       http.NewServeMux(),
 		events:    newHub(),
 	}
 	s.runner = persona.New(s.store, s.catalogue, s.client)
 	s.search = search.New(s.store)
 	s.runner.SetSearch(s.search)
+	s.runner.SetTools(s.tools)
 	s.runner.OnEvent(s.events.send)
 	s.runner.Start()
 	s.routes()
@@ -93,7 +98,7 @@ func (s *Server) client() (*llm.Client, store.Settings) {
 }
 
 func (s *Server) knownTool(name string) bool {
-	for _, known := range tools.New(s.store.Settings()).Names() {
+	for _, known := range tools.New(s.tools).Names() {
 		if known == name {
 			return true
 		}

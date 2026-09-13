@@ -25,6 +25,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/server"
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/tools"
 	"google.golang.org/api/iterator"
 )
 
@@ -39,6 +40,22 @@ func main() {
 	var err error
 	var handler http.Handler
 	var closeApp func()
+	// Where the tools go is the operator's: one set of map endpoints and one
+	// list of MCP servers for every user of this deployment.
+	toolConfig, err := tools.ConfigFromEnv(version)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if servers := toolConfig.MCP.Servers(); len(servers) > 0 {
+		log.Printf("MCPサーバー: %s", strings.Join(servers, ", "))
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := toolConfig.MCP.Refresh(ctx); err != nil {
+				log.Printf("MCPの道具一覧を取得できませんでした（あとで再試行します）: %v", err)
+			}
+		}()
+	}
 	firebaseProjectID := strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_PROJECT_ID"))
 	var cloudBlobs *store.GCSBlobs
 	if bucket := strings.TrimSpace(os.Getenv("KAKERATTA_GCS_BUCKET")); bucket != "" {
@@ -69,6 +86,7 @@ func main() {
 			FirebaseProjectID:  firebaseProjectID,
 			FirebaseAPIKey:     strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_API_KEY")),
 			FirebaseAuthDomain: strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_AUTH_DOMAIN")),
+			Tools:              toolConfig,
 			BlobStore: func(userKey string) store.BlobStore {
 				if cloudBlobs == nil {
 					return nil
@@ -113,6 +131,7 @@ func main() {
 			Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
 			Version: version,
 			Token:   strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
+			Tools:   toolConfig,
 		})
 		handler, closeApp = app, app.Close
 	}

@@ -220,6 +220,12 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "KAKERATTA_GCS_BUCKET"
         value = google_storage_bucket.blobs.name
       }
+      # MCP servers are the operator's, shared by every user. Each user's web
+      # search key stays in their own settings.
+      env {
+        name  = "KAKERATTA_MCP_SERVERS"
+        value = jsonencode(var.mcp_servers)
+      }
 
       ports {
         container_port = 8080

@@ -184,9 +184,16 @@ tabe なら `Preference` と `Shop`、shiori なら `Book` と `Theme`。**形�
 
 宣言したものだけが呼べます（`internal/tools`）。呼ぶのは本体で、鍵はサーバ側にあります。
 プロバイダの差し替えも、出典リンクを必須にすることも、本体で担保できます。
+道具の接続先は運用者のもの（環境変数から作る `tools.Config`）で、地図の接続先とMCPサーバーの一覧が
+デプロイ全体で一組です。Tavilyの鍵は利用者の設定から取ります。
 
 | 名前 | 中身 | 鍵 |
 | --- | --- | --- |
-| `web_search` | Tavily / Brave | 要 |
+| `web_search` | Tavily | 要（利用者の鍵） |
 | `place_search` | 周辺の店と**営業時間**（OpenStreetMap / Overpass） | 不要 |
 | `route` | 現在地からの所要時間（OSRM。道路のみ、公共交通は含みません） | 不要 |
+| `サーバー名.道具名` | 設定したMCPサーバーの道具（`internal/mcp`、Streamable HTTP） | 運用者の設定 |
+
+MCPの道具はサーバーごとに一覧を取得してキャッシュします。担当には内蔵の道具と同じ一行の形で、
+入力スキーマから作った呼び出し例つきで見せ、同じ `{"action":"tool"}` で呼びます。
+結果のテキストはプロンプトに入り、resource link は出典になります。

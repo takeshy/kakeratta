@@ -21,6 +21,11 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 | `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enable Google sign-in and per-user workspaces |
 | `KAKERATTA_FIREBASE_API_KEY` | empty | Firebase Web API key |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
+| `KAKERATTA_MCP_SERVERS` | empty | JSON list of MCP servers: `[{"name":"geo","url":"https://…/mcp","headers":{…}}]`. Their tools appear as `name.tool` |
+| `KAKERATTA_NOMINATIM_URL`, `KAKERATTA_OVERPASS_URL`, `KAKERATTA_OSRM_CAR_URL`, `KAKERATTA_OSRM_FOOT_URL`, `KAKERATTA_OSRM_BIKE_URL` | public OpenStreetMap services | Where `place_search` and `route` go |
+
+Tool endpoints and MCP servers are the operator's configuration and the same
+for every user. The Tavily key for `web_search` is the user's own, in Settings.
 
 With a token set, open `/?token=<URL-encoded token>` once in each browser.
 The server sets an HttpOnly session cookie and redirects to a URL without the
@@ -164,7 +169,7 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 Image reading uses GLM-5.3-Flash on the same backend.
 
-![Settings: models by tier, tools, location, dictation, read-aloud](captures/en/settings.png)
+![Settings: display language, model, web search, voice input, read-aloud](captures/en/settings.png)
 
 | For | Setting | Default |
 | --- | --- | --- |
@@ -175,6 +180,11 @@ Image reading uses GLM-5.3-Flash on the same backend.
 | Routing | `routeModel` | Nemotron Nano |
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
+
+The page has no model picker: users enter an API key and the tiers keep these
+defaults. To change a model for a workspace, edit the keys above in its
+`settings.json` (or `PUT /api/settings`); the page keeps working with whatever
+is stored.
 
 **Which model sits in which tier is the difference in experience.** This is not
 cost optimisation. The low one is allowed a shallow reaction, allowed to stop at
@@ -189,12 +199,12 @@ persona receives earlier reactions as context for more complex reasoning.
 - Nebius Token Factory provides inference for the Nemotron models and GLM image reading.
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.
 - In production, Cloud Run hosts the API, Firebase Hosting serves the page, and Firestore and Cloud Storage persist user data. Local mode stores data on disk.
-- Tavily is the default web search provider.
+- Tavily is the web search provider; each user enters their own key.
 
 ## Data
 
 ```
-<workspace>/settings.json          endpoints, models, tool keys, who is in the room
+<workspace>/settings.json          endpoints, models, the web search key, who is in the room
 <workspace>/timeline.jsonl         posts and remarks (append only)
 <workspace>/blobs/<id>.png         captures
 <workspace>/memory/<id>/           each persona's notes (an OKF bundle; the app does not read inside)

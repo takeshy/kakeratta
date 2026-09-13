@@ -64,8 +64,8 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /api/settings", s.guard(s.getSettings))
 	s.mux.HandleFunc("PUT /api/settings", s.guard(s.putSettings))
-	s.mux.HandleFunc("GET /api/models", s.guard(s.getModels))
 	s.mux.HandleFunc("POST /api/search/check", s.guard(s.checkSearch))
+	s.mux.HandleFunc("GET /api/models", s.guard(s.getModels))
 	s.mux.HandleFunc("GET /api/about", s.guard(s.getAbout))
 
 	// The dictation stack is reached through the relay so credentials stay out
@@ -342,7 +342,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		memory := s.store.Memory(skill.ID)
 		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Active: active[skill.ID], Wakes: memory.Wakes})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(settings).Names()})
+	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names()})
 }
 
 func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
@@ -479,8 +479,7 @@ func (s *Server) getModels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) checkSearch(w http.ResponseWriter, r *http.Request) {
-	settings := s.store.Settings().Search
-	client := websearch.New(settings.Provider, settings.BaseURL, settings.APIKey)
+	client := websearch.New(s.store.Settings().Search.APIKey)
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	if _, err := client.Search(ctx, "kakeratta", 1); err != nil {
@@ -497,10 +496,11 @@ func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
 		"providers": []map[string]string{
 			{"id": string(store.ProviderNebius), "label": "Nebius Token Factory", "endpoint": store.NebiusBaseURL},
 		},
-		"search":     websearch.Providers,
-		"nemotron":   map[string]string{"low": store.NemotronNano, "middle": store.NemotronSuper, "high": store.NemotronUltra},
-		"tiers":      []string{string(persona.TierLow), string(persona.TierMiddle), string(persona.TierHigh)},
-		"tools":      tools.New(s.store.Settings()).Names(),
+		"nemotron": map[string]string{"low": store.NemotronNano, "middle": store.NemotronSuper, "high": store.NemotronUltra},
+		"tiers":    []string{string(persona.TierLow), string(persona.TierMiddle), string(persona.TierHigh)},
+		// What the operator wired up, so the page can say what personas can reach.
+		"tools":      tools.New(s.tools).Names(),
+		"mcpServers": s.tools.MCP.Servers(),
 		"needsToken": s.token != "",
 	})
 }

@@ -85,10 +85,10 @@ export const api = {
   forgetNote: (id, path) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`),
   forget: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory`),
 
+  checkSearch: () => call("POST", "/api/search/check"),
   settings: () => call("GET", "/api/settings"),
   saveSettings: (settings) => call("PUT", "/api/settings", settings),
   models: () => call("GET", "/api/models"),
-  checkSearch: () => call("POST", "/api/search/check"),
   about: () => call("GET", "/api/about"),
 
   on(listener) {

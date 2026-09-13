@@ -144,6 +144,8 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 | `KAKERATTA_GCS_BUCKET` | 空 | 画像を保存する非公開Cloud Storageバケット |
 | `KAKERATTA_STORE` | `file` | Cloud Runでは`firestore`を指定 |
 | `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebaseプロジェクト | Firestoreのプロジェクト |
+| `KAKERATTA_MCP_SERVERS` | 空 | 担当が使えるMCPサーバーの一覧（JSON） |
+| `KAKERATTA_NOMINATIM_URL` ほか | OpenStreetMapの公開サービス | 店舗・経路検索の接続先（後述） |
 
 **外からアクセスできる場所で動かす場合は `KAKERATTA_TOKEN` を設定してください。**
 各ブラウザで一度 `/?token=<URLエンコードしたトークン>` を開くと、画面が API 経由でトークンを
@@ -191,19 +193,37 @@ Firestoreではトランザクションで複数インスタンス間の重複�
 当日の実行済み状態は戻りません。停止期間の分をまとめて投稿せず、再開した当日分だけを
 実行します。実行日を保存した直後に停止した場合、その日の定期便はスキップされます。
 
-### 店舗検索・経路検索
+### 道具は運用者が用意する
 
 [道具の一覧・用途・設定・依頼例・制限](https://kakeratta.web.app/manual/?lang=ja#ja-tools)
 
+担当の道具がどこへ行くかは、サーバーを動かす人が環境変数で決め、全利用者で共有します。
+地図の接続先とMCPサーバーがそれです。利用者が自分で入れるのは `web_search` に使うTavilyのAPIキーだけで、
+設定画面で保存します。スキルは道具の名前を宣言するだけで、呼ぶのは本体、鍵を持つのも本体です。
+
+**MCPサーバー**で道具を増やせます。`KAKERATTA_MCP_SERVERS` はJSONの配列です。
+
+```json
+[{"name":"geo","url":"https://geo.example.com/mcp","headers":{"Authorization":"Bearer …"}}]
+```
+
+各サーバーの道具は `サーバー名.道具名`（例: `geo.compute_commute`）として内蔵の道具と並び、
+スキルはその名前で宣言します。対応するのはStreamable HTTPのリモートサーバーだけです。
+道具の一覧は数分キャッシュし、応答しなくなったサーバーは最後に取得した一覧を保ちます。
+呼び出しの失敗は握りつぶさず、担当にそのまま伝えます。
+
+### 店舗検索・経路検索
+
 `route` は投稿に付いた位置情報を必要とします。車・徒歩・自転車で接続先を分け、
-設定の `places` 内の `routeUrl`・`walkingRouteUrl`・`cyclingRouteUrl` に保存します。
+`KAKERATTA_OSRM_CAR_URL`・`KAKERATTA_OSRM_FOOT_URL`・`KAKERATTA_OSRM_BIKE_URL` で指定します。
 既定は順に `https://router.project-osrm.org`、
 `https://routing.openstreetmap.de/routed-foot`、
 `https://routing.openstreetmap.de/routed-bike` です。URLの移動手段名を書き換えるだけでは
 切り替わらず、自前のサーバーでも対応する経路データが必要です。公共交通の時刻表や
 リアルタイムの渋滞を含まない道路の目安です。非対応の移動手段はエラーを返します。
 
-`place_search` は位置情報があればOverpassで周辺検索、なければNominatimで名前を検索します。
+`place_search` は位置情報があればOverpass（`KAKERATTA_OVERPASS_URL`）で周辺検索、なければ
+Nominatim（`KAKERATTA_NOMINATIM_URL`）で名前を検索します。
 営業時間はOpenStreetMapに登録がある場合だけ返り、営業中である保証はありません。
 周辺検索の一時的な障害は一度再試行し、失敗したら「店がない」ではなく取得不能と伝えます。
 公開サービスの混雑や停止による失敗は引き続き起こり得ます。

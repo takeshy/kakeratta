@@ -18,6 +18,7 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/tools"
 )
 
 // Firebase Hosting drops every cookie but one named __session before a request
@@ -38,7 +39,9 @@ type AuthOptions struct {
 	FirebaseAuthDomain string
 	BlobStore          func(userKey string) store.BlobStore
 	ListWorkspaces     func(context.Context) ([]string, error)
-	OpenWorkspace      func(userKey string, blobs store.BlobStore) (store.Workspace, error)
+	// Tools is the operator's configuration, the same for every user.
+	Tools         tools.Config
+	OpenWorkspace func(userKey string, blobs store.BlobStore) (store.Workspace, error)
 }
 
 // Gateway authenticates a request and dispatches it to a completely separate
@@ -188,7 +191,7 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 	}
 	tenant := New(Options{
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
-		Version: g.options.Version,
+		Version: g.options.Version, Tools: g.options.Tools,
 	})
 	g.tenants[userKey] = tenant
 	return tenant, nil

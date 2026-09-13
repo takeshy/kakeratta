@@ -42,6 +42,25 @@ gcloud auth application-default login
 スクリプトは、バージョン付きイメージのビルド、Terraformの適用、`node frontend/build.mjs`、
 Firebase Hostingへのデプロイ、`https://PROJECT_ID.web.app` のHTTPS応答確認まで行います。
 
+### 道具：MCPサーバー
+
+MCPサーバーの設定は利用者ごとではなくデプロイごとです。`infra/terraform.tfvars`（コミットしない）に書くか、
+`deploy.sh` に環境変数 `KAKERATTA_MCP_SERVERS` で渡します。
+
+```hcl
+mcp_servers = [
+  { name = "geo", url = "https://geo.example.com/mcp", headers = { Authorization = "Bearer …" } },
+]
+```
+
+隣にある geo-home-mcp に繋ぐ場合は `./infra/link-geo-home.sh` を実行すると、geo-home-mcp のTerraform output
+（`mcp_url` と bearer トークンの `mcp_api_key`）からこのブロックを書き出すので、キーを手で写す必要はありません。
+チェックアウトが別の場所なら `GEO_HOME_DIR` で指定します。
+
+Cloud Runには `KAKERATTA_MCP_SERVERS` として渡ります。ヘッダーにトークンを含み得るため sensitive ですが、
+アクセストークンと同様にTerraform stateには残るので、stateは安全に保管してください。
+Web検索に使うTavilyの鍵はここにはなく、利用者が自分の設定画面で入れます。
+
 画面だけの変更にイメージは要りません。
 
 ```sh

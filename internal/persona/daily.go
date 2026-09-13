@@ -63,7 +63,7 @@ func (r *Runner) dailyAt(now time.Time) {
 		loc, _ := time.LoadLocation(schedule.TimeZone)
 		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, client, settings, tools.New(settings).WithSearch(r.search))
+		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, client, settings, tools.New(r.tools).WithSearch(r.search).WithTavilyKey(settings.Search.APIKey))
 		cancel()
 	}
 }

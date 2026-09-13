@@ -241,13 +241,19 @@
         <section id="ja-settings">
           <h2>8. 設定</h2>
           <figure>
-            <img src="/captures/ja/settings.png" alt="設定。表示言語、AI、道具、音声入力、読み上げ" loading="lazy" />
+            <img src="/captures/ja/settings.png" alt="設定。表示言語、モデル、Web検索、音声入力、読み上げ" loading="lazy" />
             <figcaption>設定パネル。上から表示言語、AI、道具、音声入力、読み上げ。</figcaption>
           </figure>
           <h3>表示言語</h3>
           <p>日本語と英語を切り替えられます。このマニュアルも同じ設定を引き継ぎます。</p>
           <h3>AI（Nebius Token Factory）</h3>
-          <p>API キーを入れれば動きます。「モデルの上級者向け設定」で段ごとのモデルを変えられます。</p>
+          <p>KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。Token FactoryのAPIキーを入れれば動きます。</p>
+          <ul>
+            <li>Nemotron Nano — 軽量な振り分けと、日常的な担当の判断</li>
+            <li>Nemotron Super — 担当分野をより深く考える推論</li>
+            <li>Nemotron Ultra — 担当が必要とする複雑な推論</li>
+            <li>GLM-5.3-Flash — 画像の読み取り（同じ基盤）</li>
+          </ul>
           <div class="table-scroll">
             <table>
               <thead><tr><th>用途</th><th>既定</th></tr></thead>
@@ -265,31 +271,33 @@
           <p><strong>どこで動く？</strong>道具を実行するのはkakerattaのサーバーです。公開版ではホスト先のサーバー、手元で起動した場合は手元のGoサーバーから呼び出します。ブラウザが外部の検索APIを直接呼ぶことはありません。位置情報を許可するとブラウザからサーバーへ座標が送られ、店舗・経路検索時は検索語や座標が外部サービスへ送られます。メモ操作はサーバーの保存先を使い、担当が読むメモや検索結果は設定したAIモデルへの入力にも含まれます。</p>
           <p>道具は、担当が返答や記憶の更新に必要だと判断したときに使います。チャットにツール名やJSONを入力する必要はありません。普段の言葉で頼んでください。<strong>@名前</strong> は返答を求める操作で、特定のツールの実行を保証するものではありません。</p>
           <p>Web・店舗・経路検索は、担当画面の <strong>道具</strong> に名前がある担当が使えます。追加したい場合は <strong>AIで修正</strong> で「Web検索も使って調べて」のように頼み、変更案を確認して保存します。過去のかけら検索と自分の記憶の操作は、すべての担当が使えます。</p>
+          <p><strong>道具の接続先を用意するのは運用者です。</strong>店舗・経路検索の接続先は、サーバーを動かす人が環境変数で設定し、利用者全員で共有します。利用者が自分で入れるのはWeb検索（Tavily）のAPIキーだけです。使える道具の名前は担当画面の <strong>道具</strong> に出ます。運用者はさらに <a href="https://modelcontextprotocol.io/" rel="noopener">MCP</a> サーバーを追加でき、その道具は <code>サーバー名.道具名</code>（例: <code>geo.compute_commute</code>）として担当に宣言できます。</p>
           <div class="table-scroll">
             <table>
               <thead><tr><th>道具</th><th>できること</th><th>必要な設定</th></tr></thead>
               <tbody>
-                <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web上の情報を検索</td><td>担当への追加、Tavily / Brave のAPIキー</td></tr>
-                <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>周辺の店舗や場所、名前からの場所検索</td><td>担当への追加。既定サービスは鍵不要</td></tr>
-                <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>車・徒歩・自転車の道路経路と所要時間</td><td>担当への追加、投稿の位置情報。既定サービスは鍵不要</td></tr>
+                <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web上の情報を検索</td><td>担当への追加、TavilyのAPIキー</td></tr>
+                <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>周辺の店舗や場所、名前からの場所検索</td><td>担当への追加。接続先は運用者の設定（既定は公開サービス）</td></tr>
+                <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>車・徒歩・自転車の道路経路と所要時間</td><td>担当への追加、投稿の位置情報。接続先は運用者の設定（既定は公開サービス）</td></tr>
                 <tr><td><a href="#ja-tool-timeline_search"><code>timeline_search</code></a></td><td>保存したかけらをキーワード・意味で検索</td><td>担当への追加や検索専用のAPIキーは不要</td></tr>
                 <tr><td><a href="#ja-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>担当自身の記憶を一覧・読み取り・保存・削除</td><td>追加設定不要</td></tr>
+                <tr><td><code>サーバー名.道具名</code></td><td>運用者が追加したMCPサーバーの道具</td><td>担当への追加。サーバーは運用者が設定</td></tr>
               </tbody>
             </table>
           </div>
           <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
           <p><strong>用途：</strong>ニュースや技術情報など、Web上の情報を検索し、検索結果のリンクを返答の出典に付けられます。</p>
-          <p><strong>設定：</strong><strong>設定 → Web検索</strong> でTavilyまたはBraveを選び、対応するAPIキーを保存します。AIモデルのAPIキーとは別です。</p>
+          <p><strong>設定：</strong><strong>設定 → Web検索</strong> にTavilyのAPIキーを保存します。AIモデルのAPIキーとは別です。Web検索を使用しない場合は空欄のままで構いません。</p>
           <p><strong>依頼例：</strong>「@kuda 最近のGoの変更点をWebで調べて」</p>
           <p><strong>制限：</strong>検索結果の説明を使う道具で、リンク先の全文を必ず読めるわけではありません。最新情報や網羅性は保証しません。定期チェックインでも利用できます。</p>
           <h3 id="ja-tool-place_search">店舗・場所検索 — place_search</h3>
           <p><strong>用途：</strong>投稿に位置情報があれば周辺を検索し、店舗名、距離、地図に登録された営業時間などを返します。位置情報がなければ場所の名前で検索します。</p>
-          <p><strong>設定：</strong><strong>設定 → 店舗検索・経路検索の接続先</strong> に地名検索（Nominatim）と周辺検索（Overpass）があります。既定の公開サービスはAPIキー不要です。周辺を探すには、投稿時にブラウザの位置情報利用を許可してください。</p>
+          <p><strong>設定：</strong>周辺を探すには、投稿時にブラウザの位置情報利用を許可してください。地名検索（Nominatim）と周辺検索（Overpass）の接続先は運用者が環境変数で決めます。既定はAPIキー不要の公開サービスです。</p>
           <p><strong>依頼例：</strong>位置情報付きで「@tabe この近くのラーメン屋を探して」。位置が分からないときは「@michi 渋谷駅という場所を探して」。</p>
           <p><strong>制限：</strong>地図に載っていない店舗は見つからず、営業時間の登録がない場合もあります。現在営業中か、空席があるかは分かりません。周辺検索は一時的な障害で再試行することがありますが、混雑で取得できない場合もあります。取得失敗は「店がない」という意味ではありません。定期起床では現在地を取得しないため、名前検索だけになります。</p>
           <h3 id="ja-tool-route">経路検索 — route</h3>
           <p><strong>用途：</strong>投稿の位置から目的地まで、車・徒歩・自転車の道路上の距離と所要時間の目安を調べます。</p>
-          <p><strong>設定：</strong>投稿時に位置情報を許可します。<strong>設定 → 店舗検索・経路検索の接続先</strong> で、車・徒歩・自転車ごとにOSRMの接続先を設定できます。既定は鍵不要です。自前の接続先は、その移動手段に対応する経路データを用意したサーバーを指定してください。</p>
+          <p><strong>設定：</strong>投稿時に位置情報を許可します。車・徒歩・自転車ごとのOSRMの接続先は運用者が環境変数で決めます。既定は鍵不要の公開サービスです。</p>
           <p><strong>依頼例：</strong>「@michi ここから渋谷駅まで徒歩で何分？」</p>
           <p><strong>制限：</strong>電車・バスなどの公共交通、時刻表、リアルタイムの渋滞は含みません。位置情報なしでは使えず、定期チェックインでも使えません。本文に出発地を書くだけでは、投稿に位置情報を付けたことにはなりません。</p>
           <h3 id="ja-tool-timeline_search">過去のかけら検索 — timeline_search</h3>
@@ -305,7 +313,7 @@
           <h3 id="ja-tool-terms">公開サービスの利用条件</h3>
           <p>APIキー不要でも、無制限に利用できるわけではありません。<a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMapのデータはODbL</a>で、著作権・ライセンスの表示が必要です。ソフトウェアのライセンスとは別に、各APIの利用条件が適用されます。</p>
           <p><a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">公開Nominatimの利用条件</a>は、アプリ全体で最大1リクエスト/秒、アプリの識別、帰属表示などを要求します。定期アクセスは強く非推奨で、定期処理にはキャッシュやさらに低い頻度の条件があります。現状の地名検索にはキャッシュがないため、定期便での利用や公開運用の拡大では、条件に合う自前・契約サービスへの切り替えを検討してください。開発者・運営者自身が条件を理解し、採用を判断する必要があります。</p>
-          <p><a href="https://routing.openstreetmap.de/about.html" rel="noopener">公開経路サービス</a>にも頻度・負荷・帰属表示の条件があります。現在の頻度制限はサーバープロセス単位で、複数プロセスを合算した制御はありません。現在の出典リンクだけで必要な帰属表示をすべて満たすかも、運用前の確認・対応が必要です。Web検索には選択したサービスの契約条件が適用されます。</p>
+          <p><a href="https://routing.openstreetmap.de/about.html" rel="noopener">公開経路サービス</a>にも頻度・負荷・帰属表示の条件があります。現在の頻度制限はサーバープロセス単位で、複数プロセスを合算した制御はありません。現在の出典リンクだけで必要な帰属表示をすべて満たすかも、運用前の確認・対応が必要です。Web検索にはTavilyの契約条件が適用されます。</p>
           <h3>この端末</h3>
           <p>音声入力の方式・言語・無音停止・送信の合図、読み上げの声と速さ。これらは端末ごとの設定です。</p>
         </section>
@@ -541,13 +549,19 @@
         <section id="en-settings">
           <h2>8. Settings</h2>
           <figure>
-            <img src="/captures/en/settings.png" alt="Settings: display language, AI, tools, voice input, read-aloud" loading="lazy" />
+            <img src="/captures/en/settings.png" alt="Settings: display language, model, web search, voice input, read-aloud" loading="lazy" />
             <figcaption>The Settings panel: display language, AI, tools, voice input, read-aloud.</figcaption>
           </figure>
           <h3>Display language</h3>
           <p>Switch between Japanese and English. This manual follows the same setting.</p>
           <h3>AI (Nebius Token Factory)</h3>
-          <p>Entering an API key is enough. “Advanced model settings” lets you change the model for each tier.</p>
+          <p>Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Entering your Token Factory API key is enough.</p>
+          <ul>
+            <li>Nemotron Nano — lightweight routing and everyday persona decisions</li>
+            <li>Nemotron Super — richer domain reasoning</li>
+            <li>Nemotron Ultra — complex reasoning when a persona needs it</li>
+            <li>GLM-5.3-Flash — image reading, on the same backend</li>
+          </ul>
           <div class="table-scroll">
             <table>
               <thead><tr><th>For</th><th>Default</th></tr></thead>
@@ -565,31 +579,33 @@
           <p><strong>Where do tools run?</strong>On the kakeratta server: the hosted server for an online deployment, or the Go server on your computer when you run it locally. The browser does not call external search APIs directly. If you allow location access, coordinates go from the browser to the server; place and route searches send search terms or coordinates to the external services. Memory tools use the server's storage, and notes and search results read by a persona also become input to the configured AI model.</p>
           <p>A persona uses tools when it decides they are needed for a reply or memory update. Ask in ordinary language; you do not need to type tool names or JSON. Mentioning <strong>@name</strong> asks for a reply but does not guarantee a particular tool will run.</p>
           <p>Web, place, and route search are available to personas that list them under <strong>Tools</strong>. To add one, use <strong>Edit with AI</strong>, ask for the capability, and review and save the proposed change. Every persona can search past fragments and manage its own memory.</p>
+          <p><strong>The operator provides the tool endpoints.</strong> The place and route endpoints are set by whoever runs the server, through environment variables, and shared by every user. The only key a user enters is their own Tavily API key for web search. Available tool names appear under <strong>Tools</strong> in the Personas panel. An operator can also add <a href="https://modelcontextprotocol.io/" rel="noopener">MCP</a> servers; their tools appear as <code>server.tool</code> (for example <code>geo.compute_commute</code>) and can be declared for a persona like any other tool.</p>
           <div class="table-scroll">
             <table>
               <thead><tr><th>Tool</th><th>Purpose</th><th>Setup</th></tr></thead>
               <tbody>
-                <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search information on the Web</td><td>Add to persona; Tavily / Brave API key</td></tr>
-                <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find nearby places or look up a place by name</td><td>Add to persona; defaults need no key</td></tr>
-                <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Driving, walking, and cycling routes and travel estimates</td><td>Add to persona; location on the post; defaults need no key</td></tr>
+                <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search information on the Web</td><td>Add to persona; Tavily API key</td></tr>
+                <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find nearby places or look up a place by name</td><td>Add to persona; endpoints are the operator's (public defaults)</td></tr>
+                <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Driving, walking, and cycling routes and travel estimates</td><td>Add to persona; location on the post; endpoints are the operator's (public defaults)</td></tr>
                 <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search saved fragments by keyword or meaning</td><td>Available to all personas; no separate search API key</td></tr>
                 <tr><td><a href="#en-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>List, read, save, and delete the persona's own memory</td><td>No additional setup</td></tr>
+                <tr><td><code>server.tool</code></td><td>Tools from MCP servers the operator added</td><td>Add to persona; servers are configured by the operator</td></tr>
               </tbody>
             </table>
           </div>
           <h3 id="en-tool-web_search">Web search — web_search</h3>
           <p><strong>Purpose:</strong> Search news, technical information, and other Web content. Links from the results can appear as sources in the reply.</p>
-          <p><strong>Setup:</strong> Under <strong>Settings → Web search</strong>, choose Tavily or Brave and save its API key. This is separate from your AI model API key.</p>
+          <p><strong>Setup:</strong> Under <strong>Settings → Web search</strong>, save your Tavily API key. This is separate from your AI model API key. Leave it blank if you do not use web search.</p>
           <p><strong>Try:</strong> “@kuda Search the Web for recent changes in Go.”</p>
           <p><strong>Limits:</strong> This tool returns search descriptions; it does not necessarily read the full linked pages. Results may not be current or comprehensive. Available during daily check-ins too.</p>
           <h3 id="en-tool-place_search">Place search — place_search</h3>
           <p><strong>Purpose:</strong> With a location on the post, search nearby places for names, distances, and opening hours recorded in the map. Without a location, look up places by name.</p>
-          <p><strong>Setup:</strong> <strong>Settings → Place and route endpoints</strong> contains Nominatim for name lookup and Overpass for nearby search. The public defaults need no API key. Allow the browser to use your location when posting to search nearby.</p>
+          <p><strong>Setup:</strong> Allow the browser to use your location when posting to search nearby. The Nominatim (name lookup) and Overpass (nearby search) endpoints are chosen by the operator through environment variables; the defaults are public services that need no API key.</p>
           <p><strong>Try:</strong> With location enabled, “@tabe Find ramen near me.” Without a location, “@michi Look up Shibuya Station.”</p>
           <p><strong>Limits:</strong> Places missing from the map cannot be found. Opening hours may be absent and do not confirm a shop is open now or has seats. Temporary failures may be retried, but the service can still be busy or unavailable. A failed search does not mean there are no places. Daily wakes do not acquire your location, so only name lookup is available then.</p>
           <h3 id="en-tool-route">Route search — route</h3>
           <p><strong>Purpose:</strong> Estimate road distance and travel time from the post's location to a destination by car, on foot, or by bicycle.</p>
-          <p><strong>Setup:</strong> Allow location access when posting. <strong>Settings → Place and route endpoints</strong> has separate OSRM endpoints for driving, walking, and cycling. Defaults need no key. A custom server must have routing data prepared for the corresponding mode.</p>
+          <p><strong>Setup:</strong> Allow location access when posting. The OSRM endpoints for driving, walking, and cycling are chosen by the operator through environment variables; the defaults are public services that need no key.</p>
           <p><strong>Try:</strong> “@michi How long would it take to walk from here to Shibuya Station?”</p>
           <p><strong>Limits:</strong> No trains, buses, timetables, or live traffic. A location on the post is required, so the tool is unavailable during daily check-ins. Typing a starting place in the text does not attach location coordinates to the post.</p>
           <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
@@ -605,7 +621,7 @@
           <h3 id="en-tool-terms">Public service usage conditions</h3>
           <p>No API key does not mean unlimited use. <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap data is licensed under ODbL</a> and requires attribution and license information. Each API's usage conditions apply separately from the software license.</p>
           <p>The <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">public Nominatim policy</a> requires an application-wide maximum of one request per second, application identification, and attribution. Periodic requests are strongly discouraged; recurring jobs have caching and stricter frequency requirements. Name lookup currently has no cache. For daily wakes or a growing public deployment, consider a self-hosted or contracted service whose conditions fit your use. Developers and operators must make an informed decision about using the service.</p>
-          <p>The <a href="https://routing.openstreetmap.de/about.html" rel="noopener">public routing service</a> also has frequency, load, and attribution requirements. Current rate limiting is per server process, not aggregated across multiple processes. Existing source links also need review and possibly changes to meet all attribution requirements before deployment. Web search is subject to the selected provider's contract.</p>
+          <p>The <a href="https://routing.openstreetmap.de/about.html" rel="noopener">public routing service</a> also has frequency, load, and attribution requirements. Current rate limiting is per server process, not aggregated across multiple processes. Existing source links also need review and possibly changes to meet all attribution requirements before deployment. Web search is subject to Tavily's contract.</p>
           <h3>This device</h3>
           <p>Voice input mode, language, silence stop, and send phrase, plus the read-aloud voice and speed. These are per-device settings.</p>
         </section>

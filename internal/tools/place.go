@@ -57,7 +57,7 @@ type overpassElement struct {
 }
 
 func around(ctx context.Context, r *Registry, query string, at timeline.Place, radius float64) (Result, error) {
-	endpoint := strings.TrimSpace(r.settings.Places.OverpassURL)
+	endpoint := strings.TrimSpace(r.config.Places.Overpass)
 	if endpoint == "" {
 		return Result{}, errors.New("周辺検索の接続先が設定されていません")
 	}
@@ -200,7 +200,7 @@ func geocode(ctx context.Context, r *Registry, query string) (Result, error) {
 }
 
 func lookup(ctx context.Context, r *Registry, query string) ([]geocoded, error) {
-	base := strings.TrimRight(strings.TrimSpace(r.settings.Places.NominatimURL), "/")
+	base := strings.TrimRight(strings.TrimSpace(r.config.Places.Nominatim), "/")
 	if base == "" {
 		return nil, errors.New("地名検索の接続先が設定されていません")
 	}

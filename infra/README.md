@@ -44,6 +44,28 @@ The script builds a versioned image, applies the Terraform configuration, runs
 `node frontend/build.mjs`, deploys Firebase Hosting, and waits for a valid HTTPS
 response at `https://PROJECT_ID.web.app`.
 
+### Tools: MCP servers
+
+MCP servers are configured per deployment, not per user. Put them in
+`infra/terraform.tfvars` (not committed) or pass them as `KAKERATTA_MCP_SERVERS`
+to `deploy.sh`:
+
+```hcl
+mcp_servers = [
+  { name = "geo", url = "https://geo.example.com/mcp", headers = { Authorization = "Bearer …" } },
+]
+```
+
+For the geo-home-mcp server next to this repository, `./infra/link-geo-home.sh`
+writes that block from geo-home-mcp's Terraform outputs (`mcp_url` and the
+`mcp_api_key` bearer token), so the key is never copied by hand. Set
+`GEO_HOME_DIR` if the checkout is elsewhere.
+
+This becomes `KAKERATTA_MCP_SERVERS` on the Cloud Run service. It is marked
+sensitive because headers may carry tokens, but like the access token it ends up
+in the Terraform state, so keep the state private. Each user's Tavily key for web
+search is not here: users enter it in their own Settings.
+
 A page-only change does not need the image:
 
 ```sh

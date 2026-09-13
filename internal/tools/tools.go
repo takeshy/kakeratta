@@ -5,6 +5,10 @@
 // the rule that a claim comes back with a link are the app's to hold, not each
 // skill's. A food persona gets shops and opening hours; a travel one gets
 // routes and times; neither can reach the other's.
+//
+// Tools come from two places. A few are built in. The rest are whatever MCP
+// servers the operator configured, listed under server.tool; a skill declares
+// those by the same name and a persona calls them the same way.
 package tools
 
 import (
@@ -15,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/takeshy/kakeratta/internal/search"
-	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -55,17 +58,27 @@ type Tool struct {
 }
 
 // Registry holds every tool the app knows how to run, already wired to the
-// settings. A persona is given a subset of it.
+// operator's configuration. A persona is given a subset of it.
 type Registry struct {
-	settings store.Settings
-	tools    map[string]Tool
-	search   *search.Service
+	config Config
+	tools  map[string]Tool
+	search *search.Service
+	// tavilyKey is the user's own; web_search is the one tool whose credential
+	// belongs to the workspace rather than the deployment.
+	tavilyKey string
 }
 
-func New(settings store.Settings) *Registry {
-	r := &Registry{settings: settings, tools: map[string]Tool{}}
+// New lists the built-in tools and whatever the configured MCP servers offer.
+// The MCP list comes from a shared cache, so this is cheap to call per post.
+func New(config Config) *Registry {
+	r := &Registry{config: config, tools: map[string]Tool{}}
 	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline} {
 		r.tools[tool.Name] = tool
+	}
+	for _, tool := range mcpTools(config.MCP) {
+		if _, taken := r.tools[tool.Name]; !taken {
+			r.tools[tool.Name] = tool
+		}
 	}
 	return r
 }
@@ -73,6 +86,13 @@ func New(settings store.Settings) *Registry {
 // Timeline search is a shared capability of every persona in this workspace.
 func (r *Registry) WithSearch(service *search.Service) *Registry {
 	r.search = service
+	return r
+}
+
+// WithTavilyKey hands web_search the workspace's key. Without one, the tool
+// stays listed and says it is not configured when asked.
+func (r *Registry) WithTavilyKey(key string) *Registry {
+	r.tavilyKey = key
 	return r
 }
 

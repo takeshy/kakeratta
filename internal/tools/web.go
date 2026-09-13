@@ -15,8 +15,7 @@ var webSearch = Tool{
 		if query == "" {
 			return Result{}, errNoQuery
 		}
-		client := websearch.New(
-			r.settings.Search.Provider, r.settings.Search.BaseURL, r.settings.Search.APIKey)
+		client := websearch.New(r.tavilyKey)
 		results, err := client.Search(ctx, query, int(args.num("limit", 5)))
 		if err != nil {
 			return Result{}, err

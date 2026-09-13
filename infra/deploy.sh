@@ -38,6 +38,11 @@ TF_ARGS=(
   -var="firebase_api_key=$FIREBASE_API_KEY"
   -var="firebase_auth_domain=$FIREBASE_AUTH_DOMAIN"
 )
+# Optional here: a terraform.tfvars in infra/ works as well, and is the better
+# place for the MCP server list.
+if [[ -n "${KAKERATTA_MCP_SERVERS:-}" ]]; then
+  TF_ARGS+=(-var="mcp_servers=$KAKERATTA_MCP_SERVERS")
+fi
 
 terraform init
 

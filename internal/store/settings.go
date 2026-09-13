@@ -30,7 +30,9 @@ const (
 	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
 )
 
-// Settings are the endpoints, the models and the tools' credentials.
+// Settings are the endpoints, the models and the user's own web search key.
+// Where the tools go is not here: the map endpoints and the MCP servers are the
+// operator's configuration (see tools.Config), the same for everyone.
 type Settings struct {
 	Provider Provider `json:"provider"`
 	BaseURL  string   `json:"baseUrl"`
@@ -63,30 +65,10 @@ type Settings struct {
 	DailyCheckIns map[string]DailyCheckIn `json:"dailyCheckIns,omitempty"`
 
 	Search SearchSettings `json:"search"`
-	Places PlaceSettings  `json:"places"`
 	Speech SpeechSettings `json:"speech"`
 
 	ReadAloudRate  float64 `json:"readAloudRate"`
 	ReadAloudVoice string  `json:"readAloudVoice"`
-}
-
-// SearchSettings is the web search a persona may declare it needs. The app
-// makes the call; a skill never holds a key.
-type SearchSettings struct {
-	Provider string `json:"provider"`
-	BaseURL  string `json:"baseUrl"`
-	APIKey   string `json:"apiKey"`
-}
-
-// PlaceSettings are the endpoints for looking things up around the user.
-// Both default to public services that need no key, so the tools work out of
-// the box and can be pointed at a private instance.
-type PlaceSettings struct {
-	NominatimURL    string `json:"nominatimUrl"`
-	OverpassURL     string `json:"overpassUrl"`
-	RouteURL        string `json:"routeUrl"`
-	WalkingRouteURL string `json:"walkingRouteUrl"`
-	CyclingRouteURL string `json:"cyclingRouteUrl"`
 }
 
 // SpeechSettings configures browser dictation and optional automatic-send polishing.
@@ -106,6 +88,14 @@ type SpeechSettings struct {
 	VertexProjectID  string `json:"vertexProjectId"`
 }
 
+// SearchSettings is the user's Tavily key. The app makes the call; a skill
+// never holds a key. The provider field only survives so a key that was issued
+// for Brave, which is no longer supported, can be recognised and dropped.
+type SearchSettings struct {
+	APIKey   string `json:"apiKey"`
+	Provider string `json:"provider,omitempty"`
+}
+
 func defaultSettings() Settings {
 	return Settings{
 		Provider:    ProviderNebius,
@@ -115,17 +105,6 @@ func defaultSettings() Settings {
 		HighModel:   NemotronUltra,
 		VisionModel: NebiusVision,
 		RouteModel:  NemotronNano,
-		Search: SearchSettings{
-			Provider: "tavily",
-			BaseURL:  "https://api.tavily.com/search",
-		},
-		Places: PlaceSettings{
-			NominatimURL:    "https://nominatim.openstreetmap.org",
-			OverpassURL:     "https://overpass-api.de/api/interpreter",
-			RouteURL:        "https://router.project-osrm.org",
-			WalkingRouteURL: "https://routing.openstreetmap.de/routed-foot",
-			CyclingRouteURL: "https://routing.openstreetmap.de/routed-bike",
-		},
 		Speech: SpeechSettings{
 			Provider:       "browser",
 			EndpointType:   "openai",
@@ -161,6 +140,10 @@ func (s *Store) ConfiguredSettings() Settings {
 
 func normaliseConfiguredSettings(settings Settings) Settings {
 	settings.Speech.Provider = "browser"
+	if settings.Search.Provider == "brave" {
+		settings.Search.APIKey = ""
+	}
+	settings.Search.Provider = ""
 	if settings.ReadAloudRate <= 0 {
 		settings.ReadAloudRate = 1.2
 	}

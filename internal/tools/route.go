@@ -28,12 +28,12 @@ var routeTo = Tool{
 			return Result{}, ErrNoPlace
 		}
 		mode := args.str("mode")
-		base := r.settings.Places.RouteURL
+		base := r.config.Places.Route
 		switch mode {
 		case "walking", "foot":
-			mode, base = "foot", r.settings.Places.WalkingRouteURL
+			mode, base = "foot", r.config.Places.WalkingRoute
 		case "cycling", "bike":
-			mode, base = "bike", r.settings.Places.CyclingRouteURL
+			mode, base = "bike", r.config.Places.CyclingRoute
 		case "", "driving", "car":
 			mode = "driving"
 		default:

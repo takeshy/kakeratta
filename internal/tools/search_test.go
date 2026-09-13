@@ -18,7 +18,7 @@ func TestEveryPersonaCanSearchItsUsersTimelineWithCitations(t *testing.T) {
 	if err := w.Append(timeline.Entry{ID: "old", Kind: timeline.KindPost, Speaker: timeline.User, Text: "赤ワイン"}); err != nil {
 		t.Fatal(err)
 	}
-	set := New(w.Settings()).WithSearch(search.New(w)).For(nil)
+	set := New(Config{}).WithSearch(search.New(w)).For(nil)
 	if !strings.Contains(set.Describe(), "timeline_search") {
 		t.Fatal("search not exposed to existing personas")
 	}

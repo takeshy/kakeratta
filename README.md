@@ -153,6 +153,8 @@ the tests.
 | `KAKERATTA_GCS_BUCKET` | empty | Private Cloud Storage bucket for images |
 | `KAKERATTA_STORE` | `file` | Set to `firestore` for Cloud Run |
 | `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebase project | Firestore project |
+| `KAKERATTA_MCP_SERVERS` | empty | JSON list of MCP servers whose tools personas may use |
+| `KAKERATTA_NOMINATIM_URL` etc. | public OpenStreetMap services | Place and route endpoints (see below) |
 
 **Set `KAKERATTA_TOKEN` whenever the app is reachable from outside.** Open the
 page as `/?token=<URL-encoded token>` once in each browser; it claims the token
@@ -203,21 +205,42 @@ time or forgetting memory does not reset the claim. After downtime, only today's
 due check-in runs; missed days are not replayed. A crash after claiming can skip
 that day's check-in rather than repeat it.
 
-### Place and route tools
+### Tools are the operator's
 
 [Tool guide: purposes, setup, examples, and limits](https://kakeratta.web.app/manual/?lang=en#en-tools)
 
+Where a persona's tools go is configured by whoever runs the server, through
+environment variables, and is the same for every user: the map endpoints and
+the MCP servers. The one thing a user sets is their own Tavily API key for
+`web_search`, in Settings. A skill declares tool names; the app makes every
+call and holds the keys.
+
+**MCP servers** extend the tool list. `KAKERATTA_MCP_SERVERS` is a JSON array:
+
+```json
+[{"name":"geo","url":"https://geo.example.com/mcp","headers":{"Authorization":"Bearer …"}}]
+```
+
+Each server's tools appear as `name.tool` (for example `geo.compute_commute`),
+next to the built-in ones, and a skill declares them by that name. Only remote
+servers over Streamable HTTP are supported. Tool lists are cached for a few
+minutes; a server that stops answering keeps its last known list, and a call
+that fails is reported to the persona rather than dropped.
+
+### Place and route tools
+
 `route` needs a location attached to the post. Driving, walking, and cycling use
-separate OSRM endpoints: `routeUrl`, `walkingRouteUrl`, and `cyclingRouteUrl` in
-`places`. The defaults are `https://router.project-osrm.org`,
+separate OSRM endpoints: `KAKERATTA_OSRM_CAR_URL`, `KAKERATTA_OSRM_FOOT_URL`, and
+`KAKERATTA_OSRM_BIKE_URL`. The defaults are `https://router.project-osrm.org`,
 `https://routing.openstreetmap.de/routed-foot`, and
 `https://routing.openstreetmap.de/routed-bike`, respectively. Changing a URL's
 profile token alone does not select a travel mode: custom servers must prepare
 the corresponding routing data. These are road estimates, without public
 transport schedules or live traffic. Unsupported modes return an error.
 
-`place_search` uses Overpass for nearby places when a post has a location, or
-Nominatim for a name lookup otherwise. Opening hours are returned only when
+`place_search` uses Overpass (`KAKERATTA_OVERPASS_URL`) for nearby places when a
+post has a location, or Nominatim (`KAKERATTA_NOMINATIM_URL`) for a name lookup
+otherwise. Opening hours are returned only when
 recorded in OpenStreetMap; they do not confirm that a shop is open now. Temporary
 Overpass failures are retried once, then reported as unavailable rather than
 “no places found”. Public services can still be busy or unavailable.

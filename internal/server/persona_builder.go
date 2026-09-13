@@ -65,7 +65,7 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		ids = append(ids, skill.ID)
 	}
 	client, settings := s.client()
-	context, _ := json.Marshal(map[string]any{"existing": original, "usedIDs": ids, "availableTools": tools.New(settings).Names(), "language": body.Language})
+	context, _ := json.Marshal(map[string]any{"existing": original, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
 	messages := []llm.Message{{Role: "system", Content: builderPrompt + "\n設定データ:\n" + string(context)}}
 	messages = append(messages, body.Messages...)
 	model := settings.HighModel

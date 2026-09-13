@@ -53,6 +53,17 @@ variable "access_token" {
   }
 }
 
+variable "mcp_servers" {
+  description = "MCP servers whose tools every persona may declare, as server.tool. Headers are sent on every request (for example an Authorization header)."
+  type = list(object({
+    name    = string
+    url     = string
+    headers = optional(map(string), {})
+  }))
+  default   = []
+  sensitive = true
+}
+
 variable "image_tag" {
   description = "Container image tag set by deploy.sh."
   type        = string
