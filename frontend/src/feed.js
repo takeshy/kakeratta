@@ -8,6 +8,12 @@ import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
 
+// Silence is the design, but an empty screen cannot say so for itself. The note
+// is for the first couple of posts only: once the timeline has a few things in
+// it, the user has seen what arriving looks like and the line is just noise.
+export const SILENCE_NOTE_UNTIL = 3;
+export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
+
 export function createFeed({ getPersona, onReply }) {
   const view = el("div", { class: "feed" });
   let entries = [];
@@ -62,12 +68,14 @@ export function createFeed({ getPersona, onReply }) {
     const threads = groups();
     if (!threads.length) {
       view.append(
-        el("p", {
-          class: "empty",
-          label: "まだ何もありません。気になった画面を撮って貼ってください。反応は遅れて届きます。",
-        }),
+        el("div", { class: "empty" },
+          el("p", { class: "empty-line", label: "ここにかけらが並びます。" }),
+          el("p", { class: "hint", label: "書く、貼る（Ctrl+V）、URL、話す。担当は黙っていることもあり、反応は遅れて届きます。" })),
       );
       return;
+    }
+    if (showsSilenceNote(threads.length)) {
+      view.append(el("p", { class: "note", label: "反応が付かないことがあります。付くときも、遅れて届きます。" }));
     }
     for (const thread of threads) view.append(drawThread(thread));
     if (selection && openReply) {
@@ -95,11 +103,15 @@ export function createFeed({ getPersona, onReply }) {
       el(
         "div",
         { class: "post-head" },
+        el("span", { class: "avatar", text: "🙂" }),
+        el("span", { class: "who", label: "あなた" }),
         el("span", { class: "at", text: when(entry.at) }),
         entry.place ? el("span", { class: "place", text: placeLabel(entry.place) }) : null,
         el("span", { class: "spacer" }),
+        // Append-only means a delete is recoverable in the log, but nobody
+        // wants to go and get it. It stays out of the way until reached for.
         el("button", {
-          class: "chip ghost",
+          class: "chip ghost remove",
           i18nTitle: "消す",
           label: "×",
           onclick: async () => {
@@ -178,8 +190,10 @@ export function createFeed({ getPersona, onReply }) {
 
   function drawReplyRow(post) {
     if (openReply === post.id) return drawReplyBox(post.id);
+    // Replying is one of the two things you do here - what you write goes back
+    // into the timeline and into what the personas read next.
     return el("button", {
-      class: "chip ghost reply-open",
+      class: "chip reply-open",
       label: "一言足す",
       onclick: () => {
         openReply = post.id;
@@ -228,7 +242,7 @@ export function createFeed({ getPersona, onReply }) {
       el(
         "div",
         { class: "compose-row" },
-        el("button", { class: "button primary", label: "送る", onclick: () => void send() }),
+        el("button", { class: "button send", label: "送る", onclick: () => void send() }),
         el("button", {
           class: "chip ghost",
           label: "やめる",

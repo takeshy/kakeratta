@@ -60,7 +60,7 @@ func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 		http.SetCookie(w, &http.Cookie{
 			Name: cookieName, Value: s.token, Path: "/",
 			HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 60 * 60 * 24 * 365,
-			Secure: r.TLS != nil,
+			Secure: requestIsHTTPS(r),
 		})
 		next(w, r)
 	}

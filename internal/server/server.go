@@ -1,5 +1,6 @@
-// Package server is the HTTP surface: the page, the API, and the live channel
-// the reactions come back on.
+// Package server is the HTTP surface: the API and the live channel the
+// reactions come back on. The page is served elsewhere and only ever reaches
+// this through /api.
 //
 // Nothing here decides anything about a post. It takes what came in, stores it,
 // hands it to the runner and gets out of the way.
@@ -7,7 +8,6 @@ package server
 
 import (
 	"encoding/json"
-	"io/fs"
 	"net/http"
 	"strings"
 	"sync"
@@ -24,7 +24,6 @@ import (
 type Options struct {
 	Store     store.Workspace
 	Catalogue *persona.Catalogue
-	Assets    fs.FS
 	Version   string
 	Token     string
 }
@@ -35,7 +34,6 @@ type Server struct {
 	catalogue *persona.Catalogue
 	runner    *persona.Runner
 	speech    *speech.Service
-	assets    http.Handler
 	version   string
 	token     string
 
@@ -47,7 +45,6 @@ func New(options Options) *Server {
 	s := &Server{
 		store:     options.Store,
 		catalogue: options.Catalogue,
-		assets:    http.FileServer(http.FS(options.Assets)),
 		version:   options.Version,
 		token:     options.Token,
 		mux:       http.NewServeMux(),

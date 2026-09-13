@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"testing/fstest"
 
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
@@ -24,7 +23,6 @@ func app(t *testing.T, token string) (*Server, *store.Store) {
 	server := New(Options{
 		Store:     s,
 		Catalogue: persona.NewCatalogue(s.SkillDir()),
-		Assets:    fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html></html>")}},
 		Version:   "test",
 		Token:     token,
 	})
@@ -137,12 +135,24 @@ func TestOversizedShareIsRejectedWithoutStoringPartialImage(t *testing.T) {
 	}
 }
 
-func TestBrowserTokenEstablishesSessionAndLeavesURL(t *testing.T) {
+// The page opens as /?token=... wherever it is served from, and claims the
+// token through the API. That is the only login there is in token mode.
+func TestBrowserTokenEstablishesSession(t *testing.T) {
 	server, _ := app(t, "sesame")
 	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, httptest.NewRequest("GET", "/?token=sesame&shared=1", nil))
-	if recorder.Code != http.StatusSeeOther || recorder.Header().Get("Location") != "/?shared=1" {
-		t.Fatalf("status = %d, headers = %v", recorder.Code, recorder.Header())
+	server.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/auth/token?token=sesame", nil))
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	wrong := httptest.NewRecorder()
+	server.ServeHTTP(wrong, httptest.NewRequest("GET", "/api/auth/token?token=nope", nil))
+	if wrong.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong token status = %d", wrong.Code)
+	}
+	page := httptest.NewRecorder()
+	server.ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
+	if page.Code != http.StatusNotFound {
+		t.Fatalf("the binary is not the page any more; / = %d", page.Code)
 	}
 	cookies := recorder.Result().Cookies()
 	if len(cookies) == 0 {

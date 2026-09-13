@@ -31,6 +31,13 @@ func (s *Server) routes() {
 		writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
 	})
 	s.mux.HandleFunc("POST /api/auth/logout", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	// The page opens as /?token=... and hands the token here; the guard turns
+	// it into the cookie every later request rides on. Nothing else about the
+	// login changes for the person holding the URL.
+	s.mux.HandleFunc("GET /api/auth/token", s.guard(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusNoContent)
+	}))
 	// The share target posts here, and so does the iOS shortcut. It is the one
 	// endpoint that has to work from outside the page, so it takes multipart
 	// and accepts its token in the form as well as the header.
@@ -66,40 +73,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/speech/live/finish", s.guard(s.liveFinish))
 	s.mux.HandleFunc("POST /api/speech/live/stop", s.guard(s.liveStop))
 
-	s.mux.HandleFunc("/", s.page)
+	s.mux.HandleFunc("/", notFound)
 }
 
-// page serves the app. Every path that is not a file is the app itself, so a
-// share target landing on /?shared=1 or a deep link still opens it.
-func (s *Server) page(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Has("token") {
-		s.guard(func(w http.ResponseWriter, r *http.Request) {
-			query := r.URL.Query()
-			query.Del("token")
-			target := *r.URL
-			target.RawQuery = query.Encode()
-			w.Header().Set("Cache-Control", "no-store")
-			w.Header().Set("Referrer-Policy", "no-referrer")
-			http.Redirect(w, r, target.RequestURI(), http.StatusSeeOther)
-		})(w, r)
-		return
-	}
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" || !strings.Contains(path, ".") {
-		r = r.Clone(r.Context())
-		r.URL.Path = "/"
-	}
-	switch {
-	case strings.HasSuffix(path, ".webmanifest"):
-		// Go does not know this one, and a browser will not read a share target
-		// out of a manifest served as plain text.
-		w.Header().Set("Content-Type", "application/manifest+json")
-	case path == "sw.js":
-		// A worker that gets cached is a worker that cannot be replaced.
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Service-Worker-Allowed", "/")
-	}
-	s.assets.ServeHTTP(w, r)
+// notFound is every path that is not the API. The page lives on its own origin
+// or dev server; a request for it landing here is a misconfiguration, and a
+// JSON error says so faster than a blank file listing would.
+func notFound(w http.ResponseWriter, r *http.Request) {
+	fail(w, http.StatusNotFound, "not found: "+r.URL.Path)
 }
 
 // ---- timeline --------------------------------------------------------------

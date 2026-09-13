@@ -58,6 +58,9 @@ body {
   z-index: 5;
 }
 .brand { font-weight: 700; letter-spacing: 0.02em; }
+/* Navigation, and only navigation. The read-aloud switch is a mode over the
+   timeline, so it sits down there with it instead of in this row. */
+.topbar .nav { font-size: 0.8rem; }
 
 /* Buttons */
 .button, .chip {
@@ -75,6 +78,23 @@ body {
 .button.primary:hover { color: #fff; filter: brightness(1.05); }
 .chip.ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* Nobody in the room. The one state where the app cannot do its job at all, so
+   it is the one time the screen leads with something other than the timeline. */
+.nobody {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 12px;
+  padding: 14px 16px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+}
+.nobody[hidden] { display: none; }
+.nobody-line { margin: 0; font-weight: 600; }
+.nobody .hint { color: inherit; opacity: 0.72; }
+.nobody-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chip.add { background: var(--card); }
 
 /* Putting something in */
 .compose {
@@ -101,6 +121,14 @@ body {
   padding: 8px;
   background: var(--bg);
 }
+/* One line, and taller only when there is more in it. The timeline is what the
+   screen is for; this is the way through to it. */
+.compose-text {
+  resize: none;
+  line-height: 1.7;
+  max-height: 40vh;
+  overflow-y: auto;
+}
 .compose-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .compose-status { color: var(--muted); font-size: 0.8rem; }
 .compose-preview { display: flex; align-items: flex-start; gap: 8px; }
@@ -112,11 +140,15 @@ body {
 }
 
 .who-bar { display: flex; align-items: center; gap: 6px; padding: 12px 2px; flex-wrap: wrap; }
+.chip.speak { background: var(--bg); }
 .persona-chip { background: var(--accent-soft); border-color: transparent; }
 
 /* The timeline */
 .feed { display: grid; gap: 14px; }
-.empty { color: var(--muted); padding: 28px 4px; }
+.empty { color: var(--muted); padding: 28px 4px; display: grid; gap: 6px; }
+.empty-line { margin: 0; color: var(--ink); }
+/* Said while a timeline is new, and not after. */
+.note { margin: 0; padding: 0 4px; color: var(--muted); font-size: 0.8rem; }
 .thread {
   background: var(--card);
   border: 1px solid var(--line);
@@ -126,7 +158,13 @@ body {
   gap: 10px;
 }
 .post { display: grid; gap: 8px; }
-.post-head { display: flex; align-items: center; gap: 8px; }
+.post-head { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
+.post-head .who { font-weight: 600; color: var(--ink); }
+/* Append-only makes a delete recoverable in the log, but nobody wants to go and
+   get it back. Reachable, not in the way - and always there without hover. */
+.remove { opacity: 0; transition: opacity 120ms ease; }
+.thread:hover .remove, .remove:focus-visible { opacity: 1; }
+@media (hover: none) { .remove { opacity: 1; } }
 .at, .place { color: var(--muted); font-size: 0.76rem; }
 .said { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .shot img {
@@ -163,6 +201,7 @@ body {
   border-left: 2px solid var(--accent-soft);
 }
 .said-row.mine { border-left-color: var(--line); }
+.said-row > .chip { justify-self: start; }
 .said-head { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); }
 .said-head .who { font-weight: 600; color: var(--ink); }
 .avatar { font-size: 1rem; }
@@ -173,7 +212,10 @@ body {
   overflow-wrap: anywhere;
 }
 .reply { display: grid; gap: 8px; }
-.reply-open { justify-self: start; }
+/* Replying is one of the two things you do here, so it is not the faintest text
+   in the thread. It looks like somewhere to type, not like a footnote. */
+.reply-open { justify-self: start; background: var(--bg); color: var(--muted); }
+.reply-open:hover { color: var(--accent); }
 
 /* Panels */
 #sheet:empty { display: none; }

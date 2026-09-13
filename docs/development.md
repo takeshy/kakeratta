@@ -43,8 +43,37 @@ internal/llm        an OpenAI-compatible client (images and file input included)
 internal/speech     dictation backends (the relay that keeps the keys server-side)
 internal/store      the append log, images, notes, settings
 internal/server     the HTTP surface (the page, the API, SSE)
-frontend/src        ES modules, no bundler
+frontend/src        ES modules, no bundler in what ships
+frontend/stories    Storybook stories, built from the same modules and fixtures shaped like the API
+frontend/dist       what Firebase Hosting deploys (a copy of the above)
 ```
+
+## The frontend
+
+The page is a static site of its own; the Go binary does not embed or serve it.
+`frontend/src` is plain ES modules and one stylesheet, and that is also what
+ships: `npm run build` (`node build.mjs`) copies them to `frontend/dist` for
+Firebase Hosting, with no bundler in between.
+
+Development uses Vite only as a server. `npm run dev` (or `task dev`, which also
+starts the API) serves the page on :5173 and proxies `/api` to the binary on
+:8787 - the same split Hosting makes with its `/api/**` rewrite, so nothing has
+to differ between the two. A page-only change ships without touching the image.
+
+`npm run storybook` (or `task stories`) opens Storybook. The stories in
+`frontend/stories` render the real modules - `createRoom`, `createCompose`,
+`createFeed`, `createPersonas`, `createSettings`, the screen assembled by
+`screenNodes` and the sheet by `sheetNodes` - against fixtures with the same
+shape the API returns. The panels load themselves from `/api`, so their stories
+hand them a `fetch` that answers from those fixtures (`stories/api.js`). What is
+reviewed there is the thing that ships. A toolbar switches the display language, since both
+come out of the same source strings. Vite and Storybook are dev dependencies
+only and never reach `dist/`.
+
+The captures in the README (`docs/captures/{en,ja}/`) are taken from those
+stories by `npm run captures` (`task captures`): a Storybook is started, each
+listed story is screenshotted in both languages with headless Chromium, and the
+result is copied into `docs/captures/`. Retake them after a visible change.
 
 Dictation is the port from speech-popup (gemihub-desktop's speech feature),
 carried over as it was. Three engines: the browser's own recogniser, a recording

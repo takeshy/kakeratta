@@ -5,8 +5,11 @@
 ## Running it
 
 ```sh
-task build      # build (bin/kakeratta)
-task run        # start (http://127.0.0.1:8787)
+task setup      # once: npm ci for the page's dev tools
+task dev        # API (http://127.0.0.1:8787) and page (http://127.0.0.1:5173) together
+task run        # API only
+task build      # API only (bin/kakeratta)
+task stories    # Storybook (http://127.0.0.1:6006)
 task test       # go test ./internal/... and node --test tests/*.test.js
 ```
 
@@ -100,6 +103,8 @@ not. No unread count, and no "an AI is thinking".
 Web Speech API).
 
 ## Models and deployment
+
+![Settings: models by tier, tools, location, dictation, read-aloud](captures/en/settings.png)
 
 | For | Setting | Default |
 | --- | --- | --- |

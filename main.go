@@ -5,15 +5,14 @@
 // here. It also has to be a server for a second reason - a share sheet posts
 // multipart to a URL, and static hosting cannot take that.
 //
-// It is one binary with the page embedded, so running it locally and deploying
-// it are the same thing.
+// The page is not in here. It is a static site of its own - Vite serves it in
+// development, Firebase Hosting in production - and this binary is only what
+// /api/** reaches. Either can be replaced without touching the other.
 package main
 
 import (
 	"context"
-	"embed"
 	"errors"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -28,9 +27,6 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
-//go:embed all:frontend/dist
-var assets embed.FS
-
 // version is set at link time.
 var version = "dev"
 
@@ -39,11 +35,7 @@ func main() {
 	if root == "" {
 		root = store.DefaultRoot()
 	}
-	pages, err := fs.Sub(assets, "frontend/dist")
-	if err != nil {
-		log.Fatalf("画面を読み込めません: %v", err)
-	}
-
+	var err error
 	var handler http.Handler
 	var closeApp func()
 	firebaseProjectID := strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_PROJECT_ID"))
@@ -72,7 +64,7 @@ func main() {
 	}
 	if firebaseProjectID != "" {
 		authOptions := server.AuthOptions{
-			Root: root, Assets: pages, Version: version,
+			Root: root, Version: version,
 			FirebaseProjectID:  firebaseProjectID,
 			FirebaseAPIKey:     strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_API_KEY")),
 			FirebaseAuthDomain: strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_AUTH_DOMAIN")),
@@ -103,8 +95,8 @@ func main() {
 		}
 		app := server.New(server.Options{
 			Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
-			Assets: pages, Version: version,
-			Token: strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
+			Version: version,
+			Token:   strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
 		})
 		handler, closeApp = app, app.Close
 	}

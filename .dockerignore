@@ -4,7 +4,7 @@
 bin
 build
 node_modules
-frontend/dist
+frontend
 infra/.terraform
 infra/*.tfstate
 infra/*.tfstate.*

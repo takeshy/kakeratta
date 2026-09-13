@@ -1,16 +1,19 @@
-// Wiring. One screen: a box to put something in, and the timeline under it.
+// Wiring. One screen: a passage to drop something through, and the timeline
+// under it.
 //
 // Everything else is a panel you can open and close. There is no inbox, no
 // unread badge and no place where the AI lives - the reactions turn up in the
 // timeline beside your own posts, or they do not turn up at all.
-import { $, el, clear, toast } from "./dom.js";
+import { $, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { createCompose } from "./compose.js";
 import { createFeed } from "./feed.js";
 import { createPersonas } from "./personas.js";
+import { createRoom } from "./room.js";
+import { screenNodes, sheetNodes } from "./screen.js";
 import { createSettings } from "./settings.js";
 import { createSpeaker } from "./speak.js";
-import { getLanguage, t } from "./i18n.js";
+import { getLanguage } from "./i18n.js";
 
 document.documentElement.lang = getLanguage();
 
@@ -35,8 +38,16 @@ const personas = createPersonas({
   onChange: (rows) => {
     personaRows = rows;
     feed.draw();
-    drawBar();
+    room.set(rows);
   },
+});
+// Naming one is how you get an answer for certain, so the row of names writes
+// the mention for you rather than opening a panel about itself.
+const room = createRoom({
+  onOpen: () => open("personas"),
+  onActivate: (id) => void personas.activate(id),
+  onMention: (row) => compose.mention(row.name),
+  onSpeak: () => speaker.toggle(feed.spoken()),
 });
 const settingsPanel = createSettings({
   speaker,
@@ -47,45 +58,10 @@ const settingsPanel = createSettings({
   },
 });
 
-const bar = el("div", { class: "who-bar" });
-const listenButton = el("button", {
-  class: "chip",
-  label: "🔈 読み上げ",
-  onclick: () => speaker.toggle(feed.spoken()),
-});
-speaker.onState((on) => {
-  listenButton.textContent = t(on ? "■ 停止" : "🔈 読み上げ");
-  listenButton.classList.toggle("active", on);
-});
+speaker.onState((on) => room.setSpeaking(on));
 speaker.onLine((line) => {
   document.querySelector(`[data-id="${line.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
 });
-
-// The row of who is in the room. It is also the answer to "who can I ask?",
-// which is the only reason the domains have to be far apart.
-function drawBar() {
-  clear(bar);
-  const active = personaRows.filter((row) => row.active);
-  if (!active.length) {
-    bar.append(el("span", { class: "hint", label: "担当がいません。" }));
-  }
-  for (const row of active) {
-    bar.append(
-      el("button", {
-        class: "chip persona-chip",
-        title: row.domain,
-        text: `${row.icon || "◎"} ${row.name}`,
-        onclick: () => open("personas"),
-      }),
-    );
-  }
-  bar.append(
-    el("span", { class: "spacer" }),
-    listenButton,
-    el("button", { class: "chip ghost", label: "担当", onclick: () => open("personas") }),
-    el("button", { class: "chip ghost", label: "設定", onclick: () => open("settings") }),
-  );
-}
 
 function open(which) {
   if (panel === which) {
@@ -94,19 +70,7 @@ function open(which) {
   }
   panel = which;
   const body = which === "personas" ? personas.element : settingsPanel.element;
-  const sheet = el(
-    "div",
-    { class: "sheet" },
-    el(
-      "div",
-      { class: "sheet-head" },
-      el("strong", { text: t(which === "personas" ? "担当" : "設定") }),
-      el("span", { class: "spacer" }),
-      el("button", { class: "chip ghost", label: "閉じる", onclick: close }),
-    ),
-    body,
-  );
-  $("#sheet").replaceChildren(sheet);
+  $("#sheet").replaceChildren(sheetNodes({ title: which === "personas" ? "担当" : "設定", body, onClose: close }));
   if (which === "personas") void personas.load();
   else void settingsPanel.load();
 }
@@ -136,12 +100,7 @@ api.on((name, data) => {
 });
 
 clear(root).append(
-  el("header", { class: "topbar" },
-    el("span", { class: "brand", label: "kakeratta" }),
-    el("span", { class: "spacer" })),
-  compose.element,
-  bar,
-  feed.element,
+  ...screenNodes({ compose: compose.element, room, feed: feed.element, onOpen: open }),
 );
 
 // The share target lands here with the image already in the request. The
@@ -155,7 +114,6 @@ async function boot() {
   if (new URLSearchParams(location.search).get("shared") === "0") {
     toast("共有した内容を保存できませんでした。接続と認証を確認し、もう一度共有してください。", "error");
   }
-  drawBar();
   await reload();
   try {
     settings = await api.settings();
@@ -164,13 +122,9 @@ async function boot() {
   } catch {
     /* the timeline still reads without settings */
   }
-  try {
-    personaRows = (await api.personas()).personas || [];
-    drawBar();
-    feed.draw();
-  } catch {
-    /* the panel will load them when it is opened */
-  }
+  // Who is in the room decides what the screen leads with, so it is loaded
+  // before the page settles rather than when the panel is first opened.
+  await personas.load();
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }

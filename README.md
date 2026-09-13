@@ -12,7 +12,9 @@ The food persona learns your tastes from meals; the reading persona remembers
 passages that caught your eye. Keeping memory separate by subject prevents
 unrelated information from diluting it.
 
-A browser app served by one Go binary with the page embedded. [MIT licensed](LICENSE).
+A browser app in two pieces: a static page and a Go API. Vite serves the page
+while developing and Firebase Hosting serves it deployed; the Go binary is only
+the API, on Cloud Run or on your own machine. [MIT licensed](LICENSE).
 
 ## How it works
 
@@ -20,9 +22,13 @@ A browser app served by one Go binary with the page embedded. [MIT licensed](LIC
 2. Relevant personas receive the post and decide what to remember and whether to reply.
 3. Reactions arrive later in the timeline. Mention a persona with `@` when you want an answer.
 
+![The timeline: your fragments, with what the personas said about them underneath](docs/captures/en/timeline.png)
+
 Some posts get no reaction. A persona can remember information in its subject
 without speaking. Four personas ship with the app: **たべ (food), みち (travel),
 くだ (tech), and しおり (reading)**. Add more by importing a `skill.json` from the UI.
+
+![The Personas panel: each one's subject, model tier, tools, and notes](docs/captures/en/personas.png)
 
 ## Get started
 
@@ -30,12 +36,19 @@ Requirements: Go 1.25 or later, Node.js, and Task (the `task` command).
 Run from the repository root:
 
 ```sh
-KAKERATTA_ADDR=127.0.0.1:8787 task run  # build and start
+task setup  # once: the page's dev dependencies (Vite, Storybook)
+task dev    # the API on :8787 and the page on :5173, together
 ```
 
-Open <http://127.0.0.1:8787> and configure the inference endpoint, API key, and
-models in Settings. Use `task build` to build only (output: `bin/kakeratta`),
-and `task test` to run the tests.
+Open <http://127.0.0.1:5173>. A new workspace has nobody in the room yet, and the
+screen leads with that until you call someone in:
+
+![Nobody in the room yet: call in a built-in persona with one tap](docs/captures/en/nobody.png)
+
+Then configure the inference endpoint, API key, and models in Settings. The page proxies `/api` to the binary, the same split the
+deployed setup has. `task run` starts only the API, `task build` builds only the
+binary (`bin/kakeratta`), `task stories` opens Storybook, and `task test` runs
+the tests.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -49,9 +62,9 @@ and `task test` to run the tests.
 | `KAKERATTA_STORE` | `file` | Set to `firestore` for Cloud Run |
 | `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebase project | Firestore project |
 
-**Set `KAKERATTA_TOKEN` whenever the app is reachable from outside.** Open
-`/?token=<URL-encoded token>` once in each browser to authenticate subsequent
-requests with a session cookie.
+**Set `KAKERATTA_TOKEN` whenever the app is reachable from outside.** Open the
+page as `/?token=<URL-encoded token>` once in each browser; it claims the token
+through the API and keeps a session cookie from then on.
 
 For a public multi-user deployment, set all three Firebase variables instead.
 Users sign in with Google and receive isolated stores under
@@ -67,7 +80,7 @@ timeline metadata, settings, and persona notes remain on the workspace disk.
 | [Usage and configuration](docs/usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
 | [Design and personas](docs/architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
 | [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
-| [Google Cloud deployment](infra/README.md) | Terraform deployment with persistent storage and HTTPS |
+| [Google Cloud deployment](infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
 
 Posting and share intake, routing, notes, replies, search and route tools, and
 read-aloud are implemented. Sharing on real phones, model vision support, OCR

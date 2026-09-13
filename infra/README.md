@@ -1,5 +1,14 @@
 # Google Cloud deployment
 
+[日本語](README_ja.md)
+
+The deployed app is two independent pieces. **Firebase Hosting** serves the
+page — `frontend/dist`, which nothing else serves — and rewrites
+`/api/**` to **Cloud Run**, which runs the Go binary with Firestore for the
+timeline, settings and notes, and a private Cloud Storage bucket for captures.
+Nothing is kept on an instance disk, so the page is a static site in front of a
+stateless service, and a change to the page ships without rebuilding the image.
+
 ## Multi-user authentication
 
 Create a Firebase Web app in the same Google Cloud project and enable Google
@@ -7,58 +16,84 @@ under **Firebase Authentication > Sign-in method**. The deploy script reads the
 active Web app configuration directly from the Firebase Management API; no
 local Firebase config file or API-key environment variable is needed.
 
-[日本語](README_ja.md)
-
-The production path runs kakeratta on Cloud Run, stores structured user data in
-Firestore and captures in a private Cloud Storage bucket, and serves the web UI
-through Firebase Hosting. The previous Compute Engine resources remain during
-the cutover and can be removed after the Cloud Run deployment is verified.
+Each signed-in user gets an isolated store keyed by their Firebase `uid`.
+Firebase authentication takes precedence over the shared `KAKERATTA_TOKEN`
+mode, which is what a local single-user run uses instead.
 
 ## Deploy
 
-Requirements: an authenticated `gcloud` CLI, Terraform 1.7 or later, and a GCP
-project with billing enabled. The current account needs permission to manage
-project services, Compute Engine, IAM, Artifact Registry, and Secret Manager.
+Requirements: an authenticated `gcloud` CLI, Terraform 1.7 or later, Node.js,
+`jq`, and a GCP project with billing enabled. The current account needs
+permission to manage project services, Cloud Run, Firestore, Cloud Storage,
+Firebase Hosting, Cloud DNS, IAM, Artifact Registry, and Secret Manager.
 
 ```sh
 gcloud auth application-default login
 ./infra/deploy.sh
 ```
 
-The defaults deploy project `kakeratta` to `asia-northeast1-b`. Override them
-with `KAKERATTA_PROJECT_ID`, `KAKERATTA_REGION`, `KAKERATTA_ZONE`, or ordinary
-Terraform variables.
-The script builds a versioned image, applies Firestore, Cloud Storage, and Cloud
-Run infrastructure, deploys Firebase Hosting, and waits for a valid HTTPS
+The defaults use project `kakeratta`, build in `asia-northeast1`, and run in
+`asia-east1` — Cloud Run has to sit in a region Firebase Hosting can rewrite to.
+Override with `KAKERATTA_PROJECT_ID`, `KAKERATTA_REGION`,
+`KAKERATTA_RUN_REGION`, or ordinary Terraform variables.
+
+The script builds a versioned image, applies the Terraform configuration, runs
+`node frontend/build.mjs`, deploys Firebase Hosting, and waits for a valid HTTPS
 response at `https://PROJECT_ID.web.app`.
+
+A page-only change does not need the image:
+
+```sh
+node frontend/build.mjs
+npx firebase-tools deploy --only hosting --project kakeratta
+```
 
 ## Custom domain
 
-Terraform creates a Cloud DNS zone for `kakeratta.net` and an A record pointing
-at the fixed VM address. Configure the four values printed by the following
-command as the domain's name servers at the registrar:
+Terraform creates the Cloud DNS zone for `kakeratta.net` and the three records
+Firebase Hosting needs: an apex `A` record at Hosting's address, the
+`hosting-site` `TXT` record that proves ownership, and `www` as a `CNAME` to
+`kakeratta.web.app`. Register the four values printed below as the domain's
+name servers at the registrar:
 
 ```sh
 cd infra
 terraform output name_servers
 ```
 
-After delegation propagates, Caddy automatically obtains HTTPS certificates
-for `kakeratta.net` and `www.kakeratta.net`.
-After deployment, retrieve the private first-login URL with:
+Once delegation propagates, add `kakeratta.net` under **Hosting > Custom
+domains** in the Firebase console. Hosting issues and renews the certificate;
+`https://kakeratta.web.app` works throughout and is the address to check while
+DNS is still moving.
+
+## After deploying
+
+Without Firebase authentication configured, the app falls back to the shared
+access token. The one-time login URL for that mode is:
 
 ```sh
 cd infra
 terraform output -raw login_url
 ```
 
-Terraform state contains the generated access token and must be kept private.
-The data disk has `prevent_destroy`; remove that lifecycle rule deliberately
-before destroying the disk and its data.
+Keep it private. Terraform state contains the generated token and must be kept
+private for the same reason.
 
-To inspect the VM startup process:
+Deletion is guarded where data lives: the captures bucket has
+`prevent_destroy`, Firestore has delete protection, and the Cloud Run service
+has `deletion_protection`. Remove those deliberately, not to get an apply
+through.
+
+To read the backend logs:
 
 ```sh
-gcloud compute ssh kakeratta --zone=asia-northeast1-b \
-  --command='sudo journalctl -u google-startup-scripts.service; sudo docker ps'
+gcloud run services logs read kakeratta --region=asia-east1 --project=kakeratta
 ```
+
+## Left over from the VM deployment
+
+The earlier single-VM setup (Compute Engine with Caddy terminating TLS on an
+`sslip.io` name) is gone. Two of its resources are still declared —
+`google_compute_address.app` and `google_compute_firewall.web` — and the
+`fallback_url` output is still derived from that address, so it no longer points
+at anything serving. Remove them once the Cloud Run path has been verified.

@@ -2,6 +2,7 @@
 /frontend/dist/*
 !/frontend/dist/.gitkeep
 node_modules/
+/frontend/storybook-static/
 *.syso
 .task/
 /build/windows/msix/store.json

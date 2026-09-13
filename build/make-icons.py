@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Draw the app icon: an open book on a rounded tile.
+"""Draw the app icon: a kakera - one slab, broken, on a warm tile.
 
 Deliberately simple and generated, so the mark can be regenerated at any size
-without a design tool in the loop. Run from the repository root:
+without a design tool in the loop. The polygons below are the single source of
+truth: the PNGs and the SVG favicon are both written from them. Run from the
+repository root:
 
     python3 build/make-icons.py
 """
@@ -14,9 +16,31 @@ SIZE = 1024
 SS = 3  # supersampling factor for smooth edges
 
 TILE = (138, 90, 43)
-PAGE = (253, 250, 243)
-LINE = (206, 190, 164)
-SPINE = (92, 58, 26)
+SHARD = (253, 250, 243)
+SHARD_SOFT = (237, 222, 200)
+
+# One slab, split by a single crack, in fractions of the tile. The silhouette is
+# one thing at a glance and two on a second look, which is the whole idea: a
+# kakera is a piece of something that was whole. The crack is wide on purpose -
+# a hairline vanishes at 16 pixels and the mark goes back to being a blob.
+SHARDS = [
+    ([(0.170, 0.240), (0.540, 0.195), (0.465, 0.455), (0.530, 0.620),
+      (0.415, 0.815), (0.190, 0.800)], SHARD),
+    ([(0.650, 0.190), (0.835, 0.220), (0.848, 0.800), (0.520, 0.828),
+      (0.615, 0.625), (0.550, 0.450)], SHARD_SOFT),
+]
+
+
+def inside(polygon, x, y):
+    """Ray casting, in tile fractions."""
+    hit = False
+    count = len(polygon)
+    for index in range(count):
+        ax, ay = polygon[index]
+        bx, by = polygon[(index + 1) % count]
+        if (ay > y) != (by > y) and x < (bx - ax) * (y - ay) / (by - ay) + ax:
+            hit = not hit
+    return hit
 
 
 def rounded_tile(x, y, size, radius):
@@ -25,40 +49,20 @@ def rounded_tile(x, y, size, radius):
     right, bottom = size - margin, size - margin
     if not (left <= x <= right and top <= y <= bottom):
         return False
-    for cx, cy in ((left + radius, top + radius), (right - radius, top + radius),
-                   (left + radius, bottom - radius), (right - radius, bottom - radius)):
-        if (x < left + radius or x > right - radius) and (y < top + radius or y > bottom - radius):
-            if (x - cx) ** 2 + (y - cy) ** 2 > radius ** 2:
-                continue
-            return True
     if (x < left + radius or x > right - radius) and (y < top + radius or y > bottom - radius):
-        return False
+        cx = left + radius if x < left + radius else right - radius
+        cy = top + radius if y < top + radius else bottom - radius
+        return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2
     return True
 
 
-def book_pixel(x, y, size):
-    """Return the colour of the open book at a point, or None."""
-    w, h = size * 0.54, size * 0.36
-    cx, cy = size / 2, size * 0.53
-    left, right = cx - w / 2, cx + w / 2
-    top, bottom = cy - h / 2, cy + h / 2
-    if not (left <= x <= right and top <= y <= bottom):
-        return None
-    # The pages lift towards the spine: the top edge curves up in the middle.
-    lift = size * 0.055 * (1 - abs(x - cx) / (w / 2)) ** 0.7
-    if y < top + size * 0.02 - lift:
-        return None
-    if y > bottom - size * 0.02 * (abs(x - cx) / (w / 2)):
-        return None
-    if abs(x - cx) < size * 0.012:
-        return SPINE
-    # Ruled lines, skipped near the spine and the outer edge.
-    rel = (y - top) / h
-    if 0.22 < rel < 0.9 and abs(x - cx) > size * 0.04 and abs(x - cx) < w / 2 - size * 0.045:
-        for line in (0.36, 0.56, 0.76):
-            if abs(rel - line) < 0.028:
-                return LINE
-    return PAGE
+def shard_pixel(x, y, size):
+    """Return the colour of the fragment at a point, or None."""
+    u, v = x / size, y / size
+    for polygon, colour in SHARDS:
+        if inside(polygon, u, v):
+            return colour
+    return None
 
 
 def render(size):
@@ -72,35 +76,35 @@ def render(size):
                 for sx in range(SS):
                     x = px + (sx + 0.5) / SS
                     y = py + (sy + 0.5) / SS
-                    colour = None
-                    if rounded_tile(x, y, size, radius):
-                        colour = book_pixel(x, y, size) or TILE
-                    if colour:
-                        r += colour[0]
-                        g += colour[1]
-                        b += colour[2]
-                        a += 255
+                    if not rounded_tile(x, y, size, radius):
+                        continue
+                    colour = shard_pixel(x, y, size) or TILE
+                    r += colour[0]
+                    g += colour[1]
+                    b += colour[2]
+                    a += 255
             samples = SS * SS
             if a:
-                row += bytes((r // samples * samples // max(a // 255, 1) % 256,
-                              g // samples * samples // max(a // 255, 1) % 256,
-                              b // samples * samples // max(a // 255, 1) % 256,
-                              a // samples))
+                row += bytes((min(255, round(r * 255 / a)), min(255, round(g * 255 / a)),
+                              min(255, round(b * 255 / a)), round(a / samples)))
             else:
                 row += bytes((0, 0, 0, 0))
         rows.append(bytes(row))
     return rows
 
 
+def chunk(tag, data):
+    payload = tag + data
+    return struct.pack(">I", len(data)) + payload + struct.pack(">I", zlib.crc32(payload))
+
+
 def write_png(path, rows, size):
     raw = b"".join(b"\x00" + row for row in rows)
-    def chunk(tag, data):
-        payload = tag + data
-        return struct.pack(">I", len(data)) + payload + struct.pack(">I", zlib.crc32(payload))
     png = (b"\x89PNG\r\n\x1a\n"
            + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
            + chunk(b"IDAT", zlib.compress(raw, 9))
            + chunk(b"IEND", b""))
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_bytes(png)
     return png
 
@@ -120,18 +124,13 @@ def scale(rows, size, target):
 def write_wide(path, rows, width=310, height=150):
     """The store's wide tile: the square mark centred on a transparent strip."""
     mark = scale(rows, SIZE, height)
-    left = (width - height) // 2
     out = []
+    left = (width - height) // 2
     for y in range(height):
         row = bytearray(bytes(4) * width)
         row[left * 4:(left + height) * 4] = mark[y]
         out.append(bytes(row))
     raw = b"".join(b"\x00" + row for row in out)
-
-    def chunk(tag, data):
-        payload = tag + data
-        return struct.pack(">I", len(data)) + payload + struct.pack(">I", zlib.crc32(payload))
-
     png = (b"\x89PNG\r\n\x1a\n"
            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
            + chunk(b"IDAT", zlib.compress(raw, 9))
@@ -139,10 +138,33 @@ def write_wide(path, rows, width=310, height=150):
     Path(path).write_bytes(png)
 
 
+def write_svg(path):
+    """The favicon. Same polygons, so the tab and the home screen agree."""
+    def points(polygon):
+        return " ".join(f"{x * 64:.2f},{y * 64:.2f}" for x, y in polygon)
+
+    def rgb(colour):
+        return "#%02x%02x%02x" % colour
+
+    shapes = "\n  ".join(
+        f'<polygon points="{points(polygon)}" fill="{rgb(colour)}" />' for polygon, colour in SHARDS
+    )
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="kakeratta">\n'
+        f'  <rect x="3.52" y="3.52" width="56.96" height="56.96" rx="14.08" fill="{rgb(TILE)}" />\n'
+        f'  {shapes}\n'
+        "</svg>\n"
+    )
+    Path(path).write_text(svg, encoding="utf-8")
+
+
 def main():
     root = Path(__file__).resolve().parent
     rows = render(SIZE)
     write_png(root / "appicon.png", rows, SIZE)
+    # The page and the manifest load this one.
+    write_png(root.parent / "frontend" / "icon.png", scale(rows, SIZE, 512), 512)
+    write_svg(root.parent / "frontend" / "icon.svg")
     for name, target in (("windows/msix/Assets/Square44x44Logo.png", 44),
                          ("windows/msix/Assets/Square150x150Logo.png", 150),
                          ("windows/msix/Assets/StoreLogo.png", 50)):
@@ -152,10 +174,11 @@ def main():
     wide = root / "windows/msix/Assets/Wide310x150Logo.png"
     if wide.parent.exists():
         write_wide(wide, rows)
-    ico_png = write_png(root / "windows" / "icon-256.png", scale(rows, SIZE, 256), 256)
-    header = struct.pack("<HHH", 0, 1, 1) + struct.pack("<BBBBHHII", 0, 0, 0, 0, 1, 32, len(ico_png), 22)
-    (root / "windows" / "icon.ico").write_bytes(header + ico_png)
-    (root / "windows" / "icon-256.png").unlink()
+    if (root / "windows").exists():
+        ico_png = write_png(root / "windows" / "icon-256.png", scale(rows, SIZE, 256), 256)
+        header = struct.pack("<HHH", 0, 1, 1) + struct.pack("<BBBBHHII", 0, 0, 0, 0, 1, 32, len(ico_png), 22)
+        (root / "windows" / "icon.ico").write_bytes(header + ico_png)
+        (root / "windows" / "icon-256.png").unlink()
     print("icons written")
 
 

@@ -252,11 +252,13 @@ export function createSettings({ speaker, onSettings }) {
       el("h3", { label: "この端末" }),
       el("p", { class: "hint", text: `kakeratta ${about.version}` }),
       el("p", { class: "hint", text: t("保存先 {0}", about.workspace) }),
-      about.needsToken ? null : el("p", {
+    );
+    if (!about.needsToken) {
+      view.append(el("p", {
         class: "hint warn",
         label: "トークンが未設定です。外から届く場所に置くときは KAKERATTA_TOKEN を設定してください。",
-      }),
-    );
+      }));
+    }
   }
 
   function drawLanguage() {
@@ -266,10 +268,11 @@ export function createSettings({ speaker, onSettings }) {
         setLanguage(next, { persist: true });
         location.reload();
       }),
-      authenticationEnabled()
-        ? el("button", { class: "chip ghost", label: "ログアウト", onclick: () => void logout() })
-        : null,
     );
+    // append() writes a null out as the word "null"; only el() filters them.
+    if (authenticationEnabled()) {
+      view.append(el("button", { class: "chip ghost", label: "ログアウト", onclick: () => void logout() }));
+    }
   }
 
   function draw() {

@@ -1,29 +1,58 @@
 version: '3'
 
-# There is no packaging step. The app is one Go binary with the page embedded:
-# running it on a laptop and deploying it to a server are the same thing.
+# Two pieces. The Go binary is the API; the page is a static site of its own,
+# served by Vite while developing and by Firebase Hosting when deployed. Neither
+# is built into the other, so `task dev` runs both and `task build` makes only
+# the binary.
 
 vars:
   APP_NAME: kakeratta
   BIN_DIR: bin
 
 tasks:
+  setup:
+    desc: 画面側の開発依存（Vite・Storybook）を入れる
+    dir: frontend
+    cmds:
+      - npm ci
+
   frontend:
-    desc: frontend/dist を作り直す（バンドラなし、コピーのみ）
+    desc: frontend/dist を作り直す（Firebase Hosting に置くもの。バンドラなし、コピーのみ）
     cmds:
       - node frontend/build.mjs
 
   build:
-    desc: ビルド（bin/kakeratta）
-    deps: [frontend]
+    desc: API のビルド（bin/kakeratta）
     cmds:
       - go build -ldflags "-X main.version={{.VERSION | default "dev"}}" -o {{.BIN_DIR}}/{{.APP_NAME}} .
 
   run:
-    desc: 起動（http://127.0.0.1:8787）
+    desc: API だけ起動（http://127.0.0.1:8787）
     deps: [build]
     cmds:
       - "{{.BIN_DIR}}/{{.APP_NAME}}"
+
+  web:
+    desc: 画面の開発サーバー（http://127.0.0.1:5173、/api は 8787 へ）
+    dir: frontend
+    cmds:
+      - npm run dev
+
+  dev:
+    desc: API と画面を同時に起動
+    deps: [run, web]
+
+  stories:
+    desc: Storybook（http://127.0.0.1:6006）
+    dir: frontend
+    cmds:
+      - npm run storybook
+
+  captures:
+    desc: README のキャプチャを Storybook から撮り直す（docs/captures/）
+    dir: frontend
+    cmds:
+      - npm run captures
 
   test:
     cmds:
@@ -33,6 +62,5 @@ tasks:
   # Linux/amd64 の中身だけで動くので、どこに置いても同じものが動きます。
   release:
     desc: サーバに置く用のバイナリ
-    deps: [frontend]
     cmds:
       - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version={{.VERSION | default "dev"}}" -o {{.BIN_DIR}}/{{.APP_NAME}}-linux-amd64 .

@@ -5,8 +5,11 @@
 ## 動かす
 
 ```sh
-task build      # ビルド（bin/kakeratta）
-task run        # 起動（http://127.0.0.1:8787）
+task setup      # 初回のみ。画面側の開発道具を npm ci
+task dev        # API（http://127.0.0.1:8787）と画面（http://127.0.0.1:5173）を同時に
+task run        # API だけ
+task build      # API だけビルド（bin/kakeratta）
+task stories    # Storybook（http://127.0.0.1:6006）
 task test       # go test ./internal/... と node --test tests/*.test.js
 ```
 
@@ -89,6 +92,8 @@ Web Share Target が使えないため、ショートカットで代替します
 **読み上げモード**で、移動中に溜まった反応を聞けます（ブラウザ内蔵の Web Speech API）。
 
 ## モデルと構成
+
+![設定。段ごとのモデル、道具、位置、音声入力、読み上げ](captures/ja/settings.png)
 
 | 用途 | 設定 | 既定 |
 | --- | --- | --- |

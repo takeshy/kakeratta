@@ -64,7 +64,7 @@ export function createPersonas({ onChange }) {
         { class: "persona-head" },
         el("span", { class: "avatar", text: row.icon || "◎" }),
         el("span", { class: "who", text: row.name }),
-        el("span", { class: "tag", text: tierLabels[row.model] || row.model }),
+        el("span", { class: "tag", label: tierLabels[row.model] || row.model }),
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
           el("input", {
@@ -202,5 +202,12 @@ export function createPersonas({ onChange }) {
     );
   }
 
-  return { element: view, load, rows: () => rows };
+  return {
+    element: view,
+    load,
+    rows: () => rows,
+    // The banner on the main screen can put someone in the room without
+    // opening this panel at all.
+    activate: (id) => setActive(id, true),
+  };
 }

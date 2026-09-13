@@ -16,7 +16,7 @@ for (const entry of readdirSync(distDir)) {
 // The manifest, the worker and the icon sit at the root because that is where
 // the browser looks for them: a service worker only controls the scope it is
 // served from, and the share target has to be in scope.
-for (const file of ["index.html", "manifest.webmanifest", "sw.js", "icon.png"]) {
+for (const file of ["index.html", "manifest.webmanifest", "sw.js", "icon.png", "icon.svg"]) {
   cpSync(join(frontendDir, file), join(distDir, file));
 }
 cpSync(join(frontendDir, "src"), join(distDir, "src"), { recursive: true });

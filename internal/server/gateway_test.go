@@ -2,12 +2,10 @@ package server
 
 import (
 	"context"
-	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"firebase.google.com/go/v4/auth"
@@ -25,9 +23,8 @@ func (fakeVerifier) VerifySessionCookie(_ context.Context, cookie string) (*auth
 
 func testGateway(t *testing.T) *Gateway {
 	t.Helper()
-	assets := fs.FS(fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("ok")}})
 	gateway := newGateway(AuthOptions{
-		Root: t.TempDir(), Assets: assets, Version: "test",
+		Root: t.TempDir(), Version: "test",
 		FirebaseProjectID: "project", FirebaseAPIKey: "key", FirebaseAuthDomain: "project.firebaseapp.com",
 	}, fakeVerifier{})
 	t.Cleanup(gateway.Close)

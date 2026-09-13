@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"io/fs"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -28,7 +27,6 @@ type tokenVerifier interface {
 
 type AuthOptions struct {
 	Root               string
-	Assets             fs.FS
 	Version            string
 	FirebaseProjectID  string
 	FirebaseAPIKey     string
@@ -43,7 +41,6 @@ type AuthOptions struct {
 type Gateway struct {
 	options  AuthOptions
 	verifier tokenVerifier
-	assets   http.Handler
 
 	mu      sync.Mutex
 	tenants map[string]*Server
@@ -66,7 +63,7 @@ func NewGateway(ctx context.Context, options AuthOptions) (*Gateway, error) {
 
 func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 	return &Gateway{
-		options: options, verifier: verifier, assets: http.FileServer(http.FS(options.Assets)),
+		options: options, verifier: verifier,
 		tenants: map[string]*Server{},
 	}
 }
@@ -88,7 +85,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.logout(w, r)
 		return
 	case !strings.HasPrefix(r.URL.Path, "/api/"):
-		g.page(w, r)
+		notFound(w, r)
 		return
 	}
 
@@ -176,25 +173,10 @@ func (g *Gateway) tenant(uid string) (*Server, error) {
 	}
 	tenant := New(Options{
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
-		Assets: g.options.Assets, Version: g.options.Version,
+		Version: g.options.Version,
 	})
 	g.tenants[uid] = tenant
 	return tenant, nil
-}
-
-func (g *Gateway) page(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" || !strings.Contains(path, ".") {
-		r = r.Clone(r.Context())
-		r.URL.Path = "/"
-	}
-	if strings.HasSuffix(path, ".webmanifest") {
-		w.Header().Set("Content-Type", "application/manifest+json")
-	} else if path == "sw.js" {
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Service-Worker-Allowed", "/")
-	}
-	g.assets.ServeHTTP(w, r)
 }
 
 func requestIsHTTPS(r *http.Request) bool {

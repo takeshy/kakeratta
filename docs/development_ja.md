@@ -39,8 +39,32 @@ internal/llm        OpenAI互換クライアント（画像・ファイル入力
 internal/speech     音声入力のバックエンド（鍵をサーバ側に置くための中継）
 internal/store      追記ログ・画像・メモ・設定
 internal/server     HTTPの表側（ページ、API、SSE）
-frontend/src        バンドラなしの ES モジュール
+frontend/src        ES モジュール。出荷物にバンドラは入らない
+frontend/stories    Storybook のストーリー。同じモジュールと、API と同じ形のフィクスチャで組む
+frontend/dist       Firebase Hosting が配信するもの（上のコピー）
 ```
+
+## フロントエンド
+
+画面は単独で成立する静的サイトで、Go のバイナリは埋め込みも配信もしません。`frontend/src` は
+素の ES モジュールとスタイルシート1枚で、出荷物もそのままです。`npm run build`（`node build.mjs`）
+が Firebase Hosting 用に `frontend/dist` へコピーするだけで、間にバンドラは入りません。
+
+開発では Vite をサーバーとしてだけ使います。`npm run dev`（API も一緒に立てるなら `task dev`）が
+画面を :5173 で配信し、`/api` を :8787 のバイナリへ中継します。Hosting が `/api/**` を rewrite するのと
+同じ分け方なので、開発と公開で違いを持たせる必要がありません。画面だけの変更はイメージに触れずに
+反映できます。
+
+`npm run storybook`（`task stories`）で Storybook が開きます。`frontend/stories` のストーリーは
+本物のモジュール（`createRoom`・`createCompose`・`createFeed`・`createPersonas`・`createSettings`、
+`screenNodes` が組む画面全体と `sheetNodes` のシート）を、API が返すのと同じ形のフィクスチャで描くので、
+そこで見ているものが出荷物そのものです。パネルは自分で `/api` を読むため、そのストーリーでは
+フィクスチャから答える `fetch` を渡します（`stories/api.js`）。文言は同じ元から両言語を出しているため、ツールバーで表示言語を切り替えられます。
+Vite と Storybook は開発依存だけで、`dist/` には入りません。
+
+README のキャプチャ（`docs/captures/{en,ja}/`）は、このストーリーから `npm run captures`
+（`task captures`）で撮ります。Storybook を立て、決めたストーリーを両言語で headless Chromium が
+撮影し、`docs/captures/` に置きます。見え方が変わったら撮り直してください。
 
 音声入力は speech-popup（gemihub-desktop の音声機能）の移植をそのまま持ち込んでいます。
 方式は3つ（ブラウザ音声認識 / 録音して送る音声認識API / ライブ文字起こし）。移植元のテストも
