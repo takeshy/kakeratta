@@ -1,3 +1,5 @@
+import { showPersonaBuilder } from "../src/persona-builder.js";
+import { getLanguage } from "../src/i18n.js";
 import { createPersonas } from "../src/personas.js";
 import { serve } from "./api.js";
 import { sheet } from "./frame.js";
@@ -44,5 +46,35 @@ export const Install = {
   name: "追加フォームを開いた",
   render: () => panelOf(personas, (element) => {
     element.querySelector("details.install").open = true;
+  }),
+};
+
+// Real creation UI with a sample AI response, for reproducible documentation.
+export const AICreateStart = {
+  name: "AIと担当を作る・入力",
+  render: () => panelOf(personas, () => showPersonaBuilder({})),
+};
+
+export const AICreateDraft = {
+  name: "AIと担当を作る・完成案",
+  render: () => panelOf(personas, () => {
+    const ja = getLanguage() === "ja";
+    const draft = {
+      id: "wine", name: ja ? "ぶどう" : "budou", icon: "🍷", model: "middle", tools: ["web_search"],
+      domain: ja ? "飲んだワインの記録と、好みに合うワイン探し。" : "Remember wines you try and help find bottles you would enjoy.",
+      tone: ja ? "気軽に話せる友達のように、短く親しみやすく。" : "Friendly and relaxed, with short replies.",
+      instructions: ja ? "ワインの名前と感想を覚え、好みが見えてきたらまとめます。前の好みにつながる発見があるときに一言。" : "Remember wine names and impressions, and summarize emerging preferences. Chime in when something connects to your tastes.",
+    };
+    serve({ personas, tools, memory, personaDraft: {
+      message: ja ? "ワイン担当「ぶどう」の案を作りました。使ってからAIで修正できます。" : "Here is budou, your wine persona. Try it first and refine it later with AI.",
+      placeholder: ja ? "例：ワインに合う料理も提案してほしい。" : "Example: Suggest food pairings too.",
+      draft,
+    }});
+    showPersonaBuilder({});
+    const dialog = document.querySelector(".persona-builder");
+    dialog.querySelector("textarea").value = ja
+      ? "飲んだワインを覚えて、好みに合うワインを一緒に探す担当を作りたい。"
+      : "A persona that remembers wines I have tried and helps me find wines I would enjoy.";
+    dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }),
 };

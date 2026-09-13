@@ -1,6 +1,8 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "さらに20件読み込む": "Load 20 more posts", "もう一度読み込む": "Try loading again",
+  "読み込んでいます…": "Loading…", "読み込めませんでした。もう一度お試しください。": "Could not load posts. Please try again.",
   "画像対応モデルを選んでください。Nebiusでは空欄にすると画像用の標準モデルを使います。": "Choose a model that accepts images. On Nebius, leave blank to use the default vision model.",
   "例：飲んだワインを覚えて、好みに合うワインを一緒に探す担当を作りたい。": "Example: A persona that remembers wines I have tried and helps me find wines I would enjoy.",
   "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。": "Example: Give shorter replies and focus on keeping records rather than recommendations.",

@@ -12,11 +12,17 @@ The food persona learns your tastes from meals; the reading persona remembers
 passages that caught your eye. Keeping memory separate by subject prevents
 unrelated information from diluting it.
 
+**Create your own personas with AI.** Say “Remember the wines I try and help me
+find bottles I would enjoy,” and AI drafts a persona for you. Start using it,
+then refine its tone and what it remembers through conversation.
+
 A browser app in two pieces: a static page and a Go API. Vite serves the page
 while developing and Firebase Hosting serves it deployed; the Go binary is only
 the API, on Cloud Run or on your own machine. [MIT licensed](LICENSE).
 
 ## How it works
+
+The timeline starts with the latest 20 posts and loads 20 more as you scroll. Replies stay with their parent posts.
 
 1. Write a thought, paste a screenshot, send a URL, or speak.
 2. Relevant personas receive the post and decide what to remember and whether to reply.
@@ -28,7 +34,33 @@ Some posts get no reaction. A persona can remember information in its subject
 without speaking. Four personas ship with the app: **tabe (food), michi
 (travel), kuda (tech), and shiori (reading)** — Japanese words in Latin letters,
 lowercase, so `@tabe` can be typed on any keyboard. A persona answers in the language the
-post was written in. Add more by importing a `skill.json` from the UI.
+post was written in.
+
+## Describe a persona. Start using it.
+
+Answer “What would you like your persona to help with?” in your own words.
+
+> A persona that remembers wines I have tried and helps me find wines I would enjoy.
+
+Once the subject is clear, AI fills in a name, tone, and memory rules and gives
+you a draft right away. Even “wine” or “reading” is enough to start; there is no
+long questionnaire. Review the draft in plain language: what it helps with,
+how it talks, what it remembers, and when it replies.
+
+![Create a persona with AI: describe what you want in your own words](docs/captures/en/persona-create.png)
+
+![Review and save a sample wine persona drafted by AI](docs/captures/en/persona-draft.png)
+
+1. Open Personas and choose **Create a persona with AI**. Describe what you want.
+2. Review the draft and select **Save this persona**.
+3. **Enable** it and start posting as usual.
+
+**Try it first, then make it yours.** Use **Edit with AI** to say “Give shorter
+replies” or “Remember why I liked a wine, as well as its name.” Built-in personas
+can be edited too. Their existing memories and enabled status carry over.
+
+Creation and editing use your configured AI connection. Advanced users can also
+import a `skill.json` from the UI.
 
 ![The Personas panel: each one's subject, model tier, tools, and notes](docs/captures/en/personas.png)
 
@@ -84,6 +116,6 @@ timeline metadata, settings, and persona notes remain on the workspace disk.
 | [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
 | [Google Cloud deployment](infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
 
-Posting and share intake, routing, notes, replies, search and route tools, and
-read-aloud are implemented. Sharing on real phones, model vision support, OCR
+Conversational AI persona creation and editing, posting and share intake,
+routing, notes, replies, search and route tools, and read-aloud are implemented. Sharing on real phones, model vision support, OCR
 quality, and reaction frequency still need verification.

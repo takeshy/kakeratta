@@ -8,3 +8,6 @@ frontend
 infra/.terraform
 infra/*.tfstate
 infra/*.tfstate.*
+
+# Local Token Factory credential
+token_factory.key

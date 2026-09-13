@@ -89,15 +89,17 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 // ---- timeline --------------------------------------------------------------
 
 func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
-	entries, err := s.store.Timeline()
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	page, err := s.store.TimelinePage(r.Context(), limit, r.URL.Query().Get("before"))
 	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrTimelineCursor) {
+			status = http.StatusBadRequest
+		}
+		fail(w, status, err.Error())
 		return
 	}
-	if limit, _ := strconv.Atoi(r.URL.Query().Get("limit")); limit > 0 && len(entries) > limit {
-		entries = entries[len(entries)-limit:]
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+	writeJSON(w, http.StatusOK, page)
 }
 
 type postBody struct {

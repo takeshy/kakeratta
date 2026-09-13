@@ -4,7 +4,7 @@
 // Everything else is a panel you can open and close. There is no inbox, no
 // unread badge and no place where the AI lives - the reactions turn up in the
 // timeline beside your own posts, or they do not turn up at all.
-import { $, clear, toast } from "./dom.js";
+import { $, el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { createCompose } from "./compose.js";
 import { createFeed } from "./feed.js";
@@ -13,7 +13,8 @@ import { createRoom } from "./room.js";
 import { screenNodes, sheetNodes } from "./screen.js";
 import { aiConfigured, createSettings } from "./settings.js";
 import { createSpeaker } from "./speak.js";
-import { getLanguage } from "./i18n.js";
+import { createTimelinePages } from "./timeline-pages.js";
+import { getLanguage, t } from "./i18n.js";
 import { authenticationEnabled, logout } from "./auth.js";
 
 document.documentElement.lang = getLanguage();
@@ -29,11 +30,12 @@ const feed = createFeed({
   getSettings: () => settings,
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onReply: reload,
+  onEntryChange: (entry) => pages.upsert(entry),
 });
 const compose = createCompose({
   getSettings: () => settings,
   onPosted: (entry) => {
-    feed.upsert(entry);
+    pages.upsert(entry);
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
 });
@@ -98,20 +100,36 @@ function close() {
   clear(host);
 }
 
-async function reload() {
-  try {
-    const payload = await api.timeline();
-    feed.set(payload.entries || []);
-  } catch (error) {
-    toast(String(error.message || error), "error");
-  }
-}
+const more = el("button", { class: "button", label: "さらに20件読み込む", hidden: true,
+  onclick: () => void (loadFailedInitially ? pages.refresh() : pages.more()),
+});
+const pagingStatus = el("p", { class: "hint", role: "status", "aria-live": "polite" });
+const pagingFooter = el("div", { class: "timeline-paging" }, pagingStatus, more);
+let loadFailedInitially = false;
+let autoLoad = false;
+let pagingObserver = null;
+const pages = createTimelinePages({
+  fetchPage: (query) => api.timeline(query),
+  onChange: (entries) => feed.set(entries),
+  onState: ({ loading, hasMore, error, initial }) => {
+    autoLoad = !loading && hasMore && !error;
+    loadFailedInitially = Boolean(error && initial);
+    pagingObserver?.disconnect();
+    if (autoLoad) pagingObserver?.observe(pagingFooter);
+    more.hidden = !hasMore && !error;
+    more.disabled = loading;
+    more.textContent = t(error ? "もう一度読み込む" : "さらに20件読み込む");
+    pagingStatus.textContent = loading ? t("読み込んでいます…") : error ? t("読み込めませんでした。もう一度お試しください。") : "";
+  },
+});
+
+function reload() { return pages.refresh(); }
 
 // A reaction arriving is the app working, not an event to celebrate: it lands
 // in place and nothing else moves.
 api.on((name, data) => {
   if (name === "entry") {
-    feed.upsert(data);
+    pages.upsert(data);
     return;
   }
   if (name === "open") void reload();
@@ -119,10 +137,18 @@ api.on((name, data) => {
 
 clear(root).append(
   ...screenNodes({
-    compose: compose.element, room, feed: feed.element, onOpen: open,
+    compose: compose.element, room, feed: el("div", {}, feed.element, pagingFooter), onOpen: open,
     onLogout: authenticationEnabled() ? () => void logout() : null,
   }),
 );
+
+// The button also provides a retry and works when IntersectionObserver is absent.
+if ("IntersectionObserver" in window) {
+  pagingObserver = new IntersectionObserver((observations) => {
+    if (autoLoad && observations.some((entry) => entry.isIntersecting)) void pages.more();
+  }, { rootMargin: "300px" });
+  if (autoLoad) pagingObserver.observe(pagingFooter);
+}
 
 // The share target lands here with the image already in the request. The
 // service worker hands it over, so the page opens with it in the box.

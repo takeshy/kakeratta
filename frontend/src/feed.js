@@ -15,7 +15,7 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, getSettings = () => ({}), onReply }) {
+export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEntryChange }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let openReply = null;
@@ -122,12 +122,20 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply }) {
           class: "chip ghost remove",
           i18nTitle: "消す",
           label: "×",
-          onclick: async () => {
+          onclick: async (event) => {
             if (!confirm(t("この投稿を消しますか"))) return;
+            const button = event.currentTarget;
+            button.disabled = true;
             try {
-              await api.remove(entry.id);
+              const removed = await api.remove(entry.id);
+              const deleted = { ...entry, ...removed, deleted: true };
+              // Apply the successful response even if SSE is delayed or disconnected.
+              if (onEntryChange) onEntryChange(deleted);
+              else upsert(deleted);
             } catch (error) {
               toast(String(error.message || error), "error");
+            } finally {
+              button.disabled = false;
             }
           },
         }),

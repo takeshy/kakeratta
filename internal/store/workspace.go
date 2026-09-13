@@ -1,6 +1,10 @@
 package store
 
-import "github.com/takeshy/kakeratta/internal/timeline"
+import (
+	"context"
+
+	"github.com/takeshy/kakeratta/internal/timeline"
+)
 
 // Workspace is one user's complete persistent state. File-backed and
 // Firestore-backed implementations share this contract so the HTTP and persona
@@ -10,6 +14,7 @@ type Workspace interface {
 	SkillDir() string
 	Append(timeline.Entry) error
 	Timeline() ([]timeline.Entry, error)
+	TimelinePage(context.Context, int, string) (TimelinePage, error)
 	UpdateMedia(string, *timeline.Media) (timeline.Entry, error)
 	Entry(string) (timeline.Entry, bool)
 	PutBlob([]byte, string) (string, error)

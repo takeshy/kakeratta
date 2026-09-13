@@ -4,7 +4,7 @@
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [] } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null } = {}) {
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
   globalThis.fetch = async (input, init = {}) => {
@@ -12,6 +12,7 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     const method = (init.method || "GET").toUpperCase();
     const path = url.pathname;
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
+    if (path === "/api/personas/build" && method === "POST" && personaDraft) return json(personaDraft);
     if (path === "/api/personas" && method === "GET") return json({ personas: rows, tools });
     if (path === "/api/personas" && method === "PUT") {
       rows = rows.map((row) => ({ ...row, active: body.active.includes(row.id) }));

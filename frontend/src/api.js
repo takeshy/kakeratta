@@ -57,7 +57,11 @@ function emit(name, data) {
 }
 
 export const api = {
-  timeline: (limit) => call("GET", `/api/timeline${limit ? `?limit=${limit}` : ""}`),
+  timeline: ({ limit = 20, before } = {}) => {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (before) query.set("before", before);
+    return call("GET", `/api/timeline?${query}`);
+  },
   post: (body) => call("POST", "/api/post", body),
   reply: (replyTo, text) => call("POST", "/api/reply", { replyTo, text }),
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),

@@ -370,3 +370,5 @@ input[type="text"], input[type="password"], select, input[type="range"] {
 .builder-message.user { margin-left: 24px; }
 .builder-message p, .builder-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
 .persona-builder form { display: grid; gap: 8px; }
+
+.timeline-paging { text-align: center; padding: 16px; min-height: 48px; }

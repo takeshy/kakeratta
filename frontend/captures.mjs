@@ -16,9 +16,11 @@ const port = Number(process.env.CAPTURE_PORT || 6018);
 const browser = process.env.CHROMIUM || "chromium";
 // A sandboxed (snap) Chromium can only write under the home directory, so the
 // shot lands there first and is copied into the repository.
-const scratch = join(homedir(), ".cache", "kakeratta-captures");
+const scratch = process.env.CAPTURE_SCRATCH || join(homedir(), ".cache", "kakeratta-captures");
 
 const shots = [
+  { name: "persona-create", id: "personas--ai-create-start", height: 900 },
+  { name: "persona-draft", id: "personas--ai-create-draft", height: 1440 },
   { name: "timeline", id: "screen--hero", height: 900 },
   { name: "nobody", id: "screen--nobody-in-the-room", height: 600 },
   { name: "personas", id: "personas--all-present", height: 1000 },
@@ -39,7 +41,7 @@ try {
   mkdirSync(scratch, { recursive: true });
   for (const lang of ["ja", "en"]) {
     mkdirSync(join(out, lang), { recursive: true });
-    for (const shot of shots) {
+    for (const shot of shots.filter((shot) => !process.env.CAPTURE_ONLY || process.env.CAPTURE_ONLY.split(",").includes(shot.name))) {
       const temp = join(scratch, `${lang}-${shot.name}.png`);
       execFileSync(browser, [
         "--headless", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",

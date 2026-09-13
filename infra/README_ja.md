@@ -94,3 +94,11 @@ gcloud run services logs read kakeratta --region=asia-east1 --project=kakeratta
 無くなりました。ただし `google_compute_address.app` と `google_compute_firewall.web`
 の2つは宣言が残っており、`fallback_url` 出力もそのアドレスから作られているため、
 現在はどこにも繋がりません。Cloud Run経路の確認が済んだら削除してください。
+
+## タイムラインのページ取得用インデックス
+
+APIの更新前に `firestore.indexes.json` のインデックスを公開し、作成が完了するまで待ってください。Firestoreから全件を読み出さずに親投稿を20件ずつ取得するために必要です。
+
+```sh
+npx firebase-tools deploy --only firestore:indexes --project kakeratta
+```

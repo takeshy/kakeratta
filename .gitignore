@@ -11,3 +11,6 @@ node_modules/
 *.tfstate
 *.tfstate.*
 *.tfplan
+
+# Local Token Factory credential
+token_factory.key

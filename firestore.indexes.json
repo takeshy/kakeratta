@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "timeline",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "Kind", "order": "ASCENDING" },
+        { "fieldPath": "At", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

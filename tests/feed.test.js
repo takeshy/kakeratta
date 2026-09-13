@@ -133,3 +133,40 @@ test("reply dictation survives updates, sends to its target, and stops when clos
   feed.set([]);
   assert.equal(fourth.stopped, true, "removing the thread stops recognition");
 });
+
+test("delete updates the displayed thread from the API response without SSE", async (t) => {
+  const post = { id: "delete-post", kind: "post", root: "delete-post", text: "remove me", at: new Date().toISOString() };
+  t.mock.method(api, "remove", async () => ({ ...post, deleted: true }));
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.confirm = () => true;
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
+  let update;
+  const feed = createFeed({ getPersona: () => null, onEntryChange: (entry) => { update = entry; feed.upsert(entry); } });
+  feed.set([post, { id: "reply", kind: "reply", root: post.id, at: post.at, text: "reply" }]);
+  const button = feed.element.querySelectorAll(".remove")[0];
+  button.fire("click", { currentTarget: button });
+  assert.equal(button.disabled, true);
+  await new Promise(setImmediate);
+  assert.equal(update.deleted, true);
+  assert.equal(feed.element.querySelectorAll(".thread").length, 0);
+  assert.equal(button.disabled, false);
+});
+
+test("a failed delete keeps the post and allows retry", async (t) => {
+  t.mock.method(api, "remove", async () => { throw Error("offline"); });
+  t.mock.method(globalThis, "setTimeout", () => 0);
+  globalThis.Node = TestNode;
+  const toasts = new TestNode();
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null, querySelector: () => toasts };
+  globalThis.confirm = () => true;
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
+  const feed = createFeed({ getPersona: () => null });
+  feed.set([{ id: "keep", kind: "post", root: "keep", text: "keep me", at: new Date().toISOString() }]);
+  const button = feed.element.querySelectorAll(".remove")[0];
+  button.fire("click", { currentTarget: button });
+  await new Promise(setImmediate);
+  assert.equal(feed.element.querySelectorAll(".thread").length, 1);
+  assert.equal(button.disabled, false);
+  assert.equal(toasts.children[0].textContent, "offline");
+});
