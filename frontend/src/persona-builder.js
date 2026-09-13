@@ -67,7 +67,7 @@ export function showPersonaBuilder({ persona, onSave }) {
         for (const [label, value] of [["担当すること", draft.domain], ["話し方", draft.tone], ["覚えること・返事をするタイミング", draft.instructions], ["考え方", t(modelLabels[draft.model])], ["できること", draft.tools?.map(tool => t(toolLabels[tool] || tool)).join(" / ") || t("会話と記憶")]]) {
           preview.append(el("strong", { label }), el("p", { class: "builder-detail", text: value }));
         }
-        preview.append(el("p", { class: "hint", label: "変更したいことがあれば続けて伝えてください。保存すると反映されます。" }));
+        preview.append(el("p", { class: "hint", label: "まずはこの内容で使ってみましょう。使ったあとでも「AIで修正」で変えられます。" }));
       }
     } catch (e) { error.textContent = e.message; }
     finally { setBusy(false); if (backdrop.isConnected) input.focus(); }

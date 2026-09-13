@@ -1,6 +1,7 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "画像対応モデルを選んでください。Nebiusでは空欄にすると画像用の標準モデルを使います。": "Choose a model that accepts images. On Nebius, leave blank to use the default vision model.",
   "例：飲んだワインを覚えて、好みに合うワインを一緒に探す担当を作りたい。": "Example: A persona that remembers wines I have tried and helps me find wines I would enjoy.",
   "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。": "Example: Give shorter replies and focus on keeping records rather than recommendations.",
   "例：もう少し親しみやすい話し方にしてほしい。": "Example: Make the tone a little friendlier.",
@@ -14,7 +15,7 @@ const EN = {
   "回答や変更したいこと": "Your answer or requested changes", "この内容で保存": "Save this persona",
   "考えています…": "Thinking…", "{0} を保存しました": "Saved {0}.", "{0} を修正": "Edit {0}",
   "担当領域": "Domain", "話し方": "Tone", "記憶と発言のルール": "Memory and response rules",
-  "変更したいことがあれば続けて伝えてください。保存すると反映されます。": "You can keep asking for changes. Save to apply this draft.",
+  "まずはこの内容で使ってみましょう。使ったあとでも「AIで修正」で変えられます。": "Try this version first. You can improve it later with “Edit with AI”.",
   "かけらを放り込む": "Toss in a fragment", "Ctrl（⌘）+ Enter": "Ctrl (⌘) + Enter",
   "キャプチャ": "Capture", "取り消す": "Remove",
   "何か書くか、画像を貼ってください": "Write something or attach an image.",

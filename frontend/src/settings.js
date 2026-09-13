@@ -118,7 +118,7 @@ export function createSettings({ speaker, onSettings }) {
       }),
       field("画像を読むモデル（vision）", settings.visionModel, (value) => patch({ visionModel: value }), {
         list: "model-list",
-        hint: "投稿ごとに一度だけ通し、結果は全員で共有します",
+        hint: "画像対応モデルを選んでください。Nebiusでは空欄にすると画像用の標準モデルを使います。",
       }),
       field("振り分けに使うモデル", settings.routeModel, (value) => patch({ routeModel: value }), { list: "model-list" }),
     );

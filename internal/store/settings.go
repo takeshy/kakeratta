@@ -23,8 +23,10 @@ const (
 
 	// Which model sits in which tier is what carries the contrast, so these are
 	// only where it starts. Any OpenAI-compatible name goes in any tier.
-	NemotronNano  = "nvidia/nemotron-3-nano-30b-a3b"
-	NemotronSuper = "nvidia/nemotron-3-super-120b-a12b"
+	NemotronNano       = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
+	NemotronSuper      = "nvidia/nemotron-3-super-120b-a12b"
+	NebiusVision       = "Qwen/Qwen2.5-VL-72B-Instruct"
+	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
 )
 
 // Settings are the endpoints, the models and the tools' credentials.
@@ -43,7 +45,8 @@ type Settings struct {
 	LowModel    string `json:"lowModel"`
 	MiddleModel string `json:"middleModel"`
 	HighModel   string `json:"highModel"`
-	// VisionModel reads a capture once for everyone. Empty means the low one.
+	// VisionModel reads a capture once for everyone. On Nebius, an empty
+	// selection uses the vision default, never a text-only conversation model.
 	VisionModel string `json:"visionModel"`
 	// RouteModel decides who a post goes to. It is a light judgement on
 	// purpose: it only drops what is plainly none of a persona's business.
@@ -106,7 +109,7 @@ func defaultSettings() Settings {
 		MiddleModel: NemotronSuper,
 		// The high tier is left empty rather than guessed at: it falls back to
 		// the middle one until something bigger is actually pointed at.
-		VisionModel: NemotronNano,
+		VisionModel: NebiusVision,
 		RouteModel:  NemotronNano,
 		Search: SearchSettings{
 			Provider: "tavily",
@@ -160,7 +163,23 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 	if strings.TrimSpace(settings.BaseURL) == "" {
 		settings.BaseURL = EndpointFor(settings.Provider)
 	}
+	// Repair only the defaults shipped for Nebius. Custom endpoints and model
+	// selections belong to the user, even when their names resemble ours.
+	if usesNebiusEndpoint(settings) {
+		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel, &settings.RouteModel} {
+			if strings.TrimSpace(*model) == legacyNemotronNano {
+				*model = NemotronNano
+			}
+		}
+		if model := strings.TrimSpace(settings.VisionModel); model == legacyNemotronNano || model == NemotronNano {
+			settings.VisionModel = NebiusVision
+		}
+	}
 	return settings
+}
+
+func usesNebiusEndpoint(settings Settings) bool {
+	return settings.Provider == ProviderNebius && strings.TrimRight(strings.TrimSpace(settings.BaseURL), "/") == NebiusBaseURL
 }
 
 func (s *Store) Settings() Settings {
@@ -176,6 +195,9 @@ func effectiveSettings(settings Settings) Settings {
 	}
 	if strings.TrimSpace(settings.VisionModel) == "" {
 		settings.VisionModel = settings.LowModel
+		if usesNebiusEndpoint(settings) {
+			settings.VisionModel = NebiusVision
+		}
 	}
 	if strings.TrimSpace(settings.RouteModel) == "" {
 		settings.RouteModel = settings.LowModel
