@@ -28,6 +28,7 @@ type Workspace interface {
 	ConfiguredSettings() Settings
 	Settings() Settings
 	SaveSettings(Settings) error
+	ClaimDailyCheckIn(string, string) (bool, error)
 	PersistSkill(string, []byte) error
 	DeleteSkill(string) error
 }

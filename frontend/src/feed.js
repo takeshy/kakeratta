@@ -141,13 +141,15 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
 
   function drawPost(entry) {
     const media = entry.media;
+    const mine = entry.speaker === "user";
+    const persona = getPersona(entry.speaker);
     const node = el("div", { class: "post" });
     node.append(
       el(
         "div",
         { class: "post-head" },
-        el("span", { class: "avatar", text: "🙂" }),
-        el("span", { class: "who", label: "あなた" }),
+        el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
+        el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
         entry.place ? el("span", { class: "place", text: placeLabel(entry.place) }) : null,
         el("span", { class: "spacer" }),
@@ -185,6 +187,9 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     if (entry.text) node.append(el("p", { class: "said", text: entry.text }));
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
+    }
+    for (const source of entry.sources || []) {
+      node.append(el("a", { class: "source", href: source.url, target: "_blank", rel: "noreferrer", text: source.label || source.url }));
     }
     if (media) node.append(drawRead(media));
     return node;

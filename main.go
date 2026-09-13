@@ -25,6 +25,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/server"
 	"github.com/takeshy/kakeratta/internal/store"
+	"google.golang.org/api/iterator"
 )
 
 // version is set at link time.
@@ -76,6 +77,21 @@ func main() {
 			},
 		}
 		if firestoreClient != nil {
+			authOptions.ListWorkspaces = func(ctx context.Context) ([]string, error) {
+				iter := firestoreClient.Collection("users").Documents(ctx)
+				defer iter.Stop()
+				var keys []string
+				for {
+					doc, err := iter.Next()
+					if errors.Is(err, iterator.Done) {
+						return keys, nil
+					}
+					if err != nil {
+						return nil, err
+					}
+					keys = append(keys, doc.Ref.ID)
+				}
+			}
 			authOptions.OpenWorkspace = func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
 				return store.NewFirestoreWorkspace(context.Background(), firestoreClient, userKey, blobs)
 			}

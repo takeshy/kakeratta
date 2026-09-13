@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -35,6 +37,7 @@ type AuthOptions struct {
 	FirebaseAPIKey     string
 	FirebaseAuthDomain string
 	BlobStore          func(userKey string) store.BlobStore
+	ListWorkspaces     func(context.Context) ([]string, error)
 	OpenWorkspace      func(userKey string, blobs store.BlobStore) (store.Workspace, error)
 }
 
@@ -45,8 +48,11 @@ type Gateway struct {
 	options  AuthOptions
 	verifier tokenVerifier
 
-	mu      sync.Mutex
-	tenants map[string]*Server
+	mu        sync.Mutex
+	tenants   map[string]*Server
+	stop      chan struct{}
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func NewGateway(ctx context.Context, options AuthOptions) (*Gateway, error) {
@@ -65,10 +71,13 @@ func NewGateway(ctx context.Context, options AuthOptions) (*Gateway, error) {
 }
 
 func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
-	return &Gateway{
+	g := &Gateway{
+		stop: make(chan struct{}), done: make(chan struct{}),
 		options: options, verifier: verifier,
 		tenants: map[string]*Server{},
 	}
+	go g.restoreWorkspaces()
+	return g
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -147,13 +156,16 @@ func (g *Gateway) user(r *http.Request) (string, bool) {
 }
 
 func (g *Gateway) tenant(uid string) (*Server, error) {
+	digest := sha256.Sum256([]byte(uid))
+	return g.workspace(hex.EncodeToString(digest[:]))
+}
+
+func (g *Gateway) workspace(userKey string) (*Server, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if existing := g.tenants[uid]; existing != nil {
+	if existing := g.tenants[userKey]; existing != nil {
 		return existing, nil
 	}
-	digest := sha256.Sum256([]byte(uid))
-	userKey := hex.EncodeToString(digest[:])
 	var blobs store.BlobStore
 	if g.options.BlobStore != nil {
 		blobs = g.options.BlobStore(userKey)
@@ -178,7 +190,7 @@ func (g *Gateway) tenant(uid string) (*Server, error) {
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
 		Version: g.options.Version,
 	})
-	g.tenants[uid] = tenant
+	g.tenants[userKey] = tenant
 	return tenant, nil
 }
 
@@ -187,9 +199,61 @@ func requestIsHTTPS(r *http.Request) bool {
 }
 
 func (g *Gateway) Close() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	for _, tenant := range g.tenants {
-		tenant.Close()
+	g.closeOnce.Do(func() {
+		close(g.stop)
+		<-g.done
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		for _, tenant := range g.tenants {
+			tenant.Close()
+		}
+	})
+}
+
+func (g *Gateway) restoreWorkspaces() {
+	defer close(g.done)
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		var keys []string
+		var err error
+		if g.options.ListWorkspaces != nil {
+			keys, err = g.options.ListWorkspaces(ctx)
+		} else if g.options.OpenWorkspace == nil {
+			var dirs []os.DirEntry
+			dirs, err = os.ReadDir(filepath.Join(g.options.Root, "users"))
+			if os.IsNotExist(err) {
+				err = nil
+			}
+			for _, dir := range dirs {
+				if dir.IsDir() {
+					keys = append(keys, dir.Name())
+				}
+			}
+		}
+		cancel()
+		if err != nil {
+			log.Printf("daily workspace discovery: %v", err)
+		}
+		for _, key := range keys {
+			select {
+			case <-g.stop:
+				return
+			default:
+			}
+			// Workspace keys are SHA-256 hashes, never paths supplied by users.
+			if raw, err := hex.DecodeString(key); err != nil || len(raw) != sha256.Size {
+				continue
+			}
+			if _, err := g.workspace(key); err != nil {
+				log.Printf("daily workspace restore: %v", err)
+			}
+		}
+		select {
+		case <-g.stop:
+			return
+		case <-ticker.C:
+		}
 	}
 }

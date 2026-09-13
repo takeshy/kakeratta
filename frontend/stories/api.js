@@ -37,6 +37,11 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       rows = rows.map((row) => ({ ...row, active: body.active.includes(row.id) }));
       return json({ personas: rows, tools });
     }
+    const daily = path.match(/^\/api\/personas\/([^/]+)\/daily$/);
+    if (daily && method === "PUT") {
+      rows = rows.map(row => row.id === decodeURIComponent(daily[1]) ? { ...row, dailyCheckIn: body } : row);
+      return json({ personas: rows, tools });
+    }
     const singleNote = path.match(/^\/api\/personas\/([^/]+)\/memory\/note$/);
     if (singleNote && method === "DELETE") {
       const id = decodeURIComponent(singleNote[1]);

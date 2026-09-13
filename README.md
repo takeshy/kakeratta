@@ -8,6 +8,10 @@ Put thoughts and things that catch your eye into one timeline as text, images,
 URLs, or speech. AIs with separate memories for their own subjects react when
 they have something to say.
 
+**A daily wake, with room for silence.** Enable a daily check-in for a persona
+and choose a time. Even without a new fragment, it can revisit its memory and
+look for relevant changes, speaking only when there is something worth sharing.
+
 The food persona learns your tastes from meals; the reading persona remembers
 passages that caught your eye. Keeping memory separate by subject prevents
 unrelated information from diluting it. Personas keep only what belongs to their
@@ -176,3 +180,48 @@ Conversational AI persona creation and editing, posting and share intake,
 routing, notes, replies, search and route tools, and read-aloud are implemented. Sharing on real phones, OCR quality across different images and reaction frequency still need verification.
 
 [MIT licensed](LICENSE).
+
+### Daily check-ins
+
+Each active persona can opt into **Daily check-in** in the Personas panel, with
+one preferred time per day (off by default). The browser's time zone is saved
+with that time, including daylight-saving rules; it stays saved when you travel
+and is not limited to JST. There is currently no time-zone picker. A persona can read its memory, search fragments, and use its
+usual tools; it starts a timeline thread only when it has something worth
+sharing. Silence leaves no system post or empty thread.
+
+The server checks once per minute and uses the existing execution queue, so a
+busy queue can delay a wake. The server must be running; the browser can be
+closed. Configured workspaces are restored after server restarts, including
+Firestore users. The provided Cloud Run configuration already keeps one
+instance running with CPU allocated outside requests.
+
+A persisted claim limits each persona to one attempt per local calendar day,
+including silent or failed attempts. Firestore claims are transactional across
+instances; local storage assumes one server process per workspace. Changing the
+time or forgetting memory does not reset the claim. After downtime, only today's
+due check-in runs; missed days are not replayed. A crash after claiming can skip
+that day's check-in rather than repeat it.
+
+### Place and route tools
+
+[Tool guide: purposes, setup, examples, and limits](https://kakeratta.web.app/manual/?lang=en#en-tools)
+
+`route` needs a location attached to the post. Driving, walking, and cycling use
+separate OSRM endpoints: `routeUrl`, `walkingRouteUrl`, and `cyclingRouteUrl` in
+`places`. The defaults are `https://router.project-osrm.org`,
+`https://routing.openstreetmap.de/routed-foot`, and
+`https://routing.openstreetmap.de/routed-bike`, respectively. Changing a URL's
+profile token alone does not select a travel mode: custom servers must prepare
+the corresponding routing data. These are road estimates, without public
+transport schedules or live traffic. Unsupported modes return an error.
+
+`place_search` uses Overpass for nearby places when a post has a location, or
+Nominatim for a name lookup otherwise. Opening hours are returned only when
+recorded in OpenStreetMap; they do not confirm that a shop is open now. Temporary
+Overpass failures are retried once, then reported as unavailable rather than
+“no places found”. Public services can still be busy or unavailable.
+
+Daily check-ins do not acquire a current location: `route` is unavailable and
+`place_search` can only do a name lookup during these wakes. Personas can still
+use their memory, timeline search, and declared web search.

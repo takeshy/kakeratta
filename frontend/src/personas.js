@@ -6,7 +6,7 @@
 // call per post.
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
-import { t } from "./i18n.js";
+import { t, getLanguage } from "./i18n.js";
 import { showPersonaBuilder } from "./persona-builder.js";
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
@@ -46,6 +46,14 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     }
   }
 
+  function toolLink(name, label = name) {
+    const known = ["web_search", "place_search", "route", "timeline_search", "notes"];
+    const lang = getLanguage();
+    const anchor = known.includes(name) ? `${lang}-tool-${name}` : `${lang}-tools`;
+    return el("a", { href: `/manual/?lang=${lang}#${anchor}`, target: "_blank", rel: "noopener noreferrer",
+      text: label, title: t("{0} の説明を開く（新しいタブ）", label) });
+  }
+
   function draw() {
     clear(view);
     view.append(
@@ -57,6 +65,10 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     );
     view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ getSettings, onSave: load }) }));
     view.append(el("p", { class: "hint", label: "どの担当も、必要なときに過去のかけらを検索し、元の投稿を参照できます。" }));
+    view.append(el("p", { class: "hint" },
+      el("span", { label: "すべての担当が使える道具: " }),
+      toolLink("timeline_search", t("過去のかけら検索")), " / ",
+      toolLink("notes", t("記憶の読み書き"))));
     for (const row of rows) view.append(drawRow(row));
     view.append(drawInstall());
   }
@@ -83,8 +95,32 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       ),
       el("p", { class: "domain", text: shown.domain }),
     );
+    const schedule = row.dailyCheckIn || {};
+    const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });
+    const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active || !schedule.enabled, "aria-label": t("希望時刻") });
+    const zone = schedule.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const saveDaily = async () => {
+      const next = { enabled: enabled.checked, time: time.value, timeZone: zone };
+      enabled.disabled = time.disabled = true;
+      try {
+        const payload = await api.setDailyCheckIn(row.id, next);
+        rows = payload.personas || rows;
+        onChange?.(rows);
+        draw();
+      } catch (error) {
+        toast(String(error.message || error), "error");
+        draw();
+      }
+    };
+    enabled.addEventListener("change", saveDaily);
+    time.addEventListener("change", saveDaily);
+    box.append(el("div", { class: "compose-row" },
+      el("label", { class: "switch" }, enabled, el("span", { label: "1日1回のチェックイン" })),
+      time, el("span", { class: "hint", text: zone })));
+    box.append(el("p", { class: "hint", label: "毎日一度だけ起き、伝えることがある日だけ話します。" }));
     if (row.tools?.length) {
-      box.append(el("p", { class: "tools", text: `${t("道具")}: ${row.tools.join(" / ")}` }));
+      box.append(el("p", { class: "tools" }, `${t("道具")}: `,
+        row.tools.flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));
     }
     box.append(
       el(

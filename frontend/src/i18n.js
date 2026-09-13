@@ -1,6 +1,17 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "{0} の説明を開く（新しいタブ）": "Read about {0} (opens in a new tab)",
+  "すべての担当が使える道具: ": "Tools available to every persona: ",
+  "過去のかけら検索": "Search past fragments",
+  "記憶の読み書き": "Read and write memory",
+  "車の経路 (OSRM)": "Driving routes (OSRM)",
+  "徒歩の経路 (OSRM)": "Walking routes (OSRM)",
+  "自転車の経路 (OSRM)": "Cycling routes (OSRM)",
+  "移動手段ごとに対応する接続先が必要です。周辺検索は混雑で取得できない場合があります。": "Each travel mode needs a matching endpoint. Nearby search may be unavailable when the service is busy.",
+  "希望時刻": "Preferred time",
+  "1日1回のチェックイン": "Daily check-in",
+  "毎日一度だけ起き、伝えることがある日だけ話します。": "Wakes once a day and speaks only when there is something worth sharing.",
   "このメモを忘れさせる": "Forget this note",
   "「{0}」を忘れさせますか。このメモだけを削除します。": "Forget “{0}”? Only this note will be deleted.",
   "すべてのメモを忘れさせる": "Forget all notes",

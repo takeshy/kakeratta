@@ -289,3 +289,15 @@ test("persona bar groups overflow and toggles without losing the selected person
   room.set([{ id: "one", name: "担当", active: true }]);
   assert.equal(room.bar.querySelectorAll(".persona-more").length, 0);
 });
+
+test("daily check-ins display their persona and sources as replyable parent posts", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => ({ name: "Tech", icon: "💻" }), showIntro: false });
+  feed.set([{ id: "daily", root: "daily", kind: "post", speaker: "tech", text: "A relevant change", at: "2026-09-14T00:00:00Z", sources: [{ label: "Source", url: "https://example.com/news" }] }]);
+  assert.equal(feed.element.querySelectorAll(".who")[0].textContent, "Tech");
+  assert.equal(feed.element.querySelectorAll(".avatar")[0].textContent, "💻");
+  assert.equal(feed.element.querySelectorAll(".source")[0].href, "https://example.com/news");
+  assert.equal(feed.element.querySelectorAll(".thread").length, 1);
+});

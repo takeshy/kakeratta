@@ -254,7 +254,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .doc .lede { color: var(--muted); font-size: 1.05rem; margin-bottom: 24px; }
 .doc section { padding: 24px 0; border-top: 1px solid var(--line); }
 .doc section:first-of-type { border-top: none; padding-top: 8px; }
-.doc h2 { scroll-margin-top: 72px; }
+.doc h2, .doc h3[id], .lp section[id] { scroll-margin-top: 72px; }
 .doc figure { margin: 16px 0; }
 .doc figure img { display: block; width: 100%; border-radius: 12px; border: 1px solid var(--line); }
 .doc figcaption { color: var(--muted); font-size: 0.84rem; margin-top: 6px; }

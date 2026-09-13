@@ -9,7 +9,9 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,7 +27,7 @@ var httpClient = &http.Client{Timeout: 25 * time.Second}
 
 var placeSearch = Tool{
 	Name: "place_search",
-	Usage: `place_search — いまいる場所の周りを探す。営業時間も返る。` +
+	Usage: `place_search — 投稿に付いた位置の周りを探す。位置がなければ名前だけで検索する（現在地周辺とは限らない）。営業時間は地図に登録がある場合だけ返り、営業中かは保証しない。混雑・取得失敗は検索結果なしと区別する。` +
 		`{"tool":"place_search","args":{"query":"ラーメン","radius":1200}}`,
 	run: func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error) {
 		query := args.str("query")
@@ -61,37 +63,45 @@ func around(ctx context.Context, r *Registry, query string, at timeline.Place, r
 	}
 	// Name, cuisine and amenity all get the same words: a query is whatever the
 	// persona thought to ask for, not a tag the user has to know.
-	escaped := strings.ReplaceAll(query, `"`, "")
+	escaped := strconv.Quote(regexp.QuoteMeta(query))
 	ql := fmt.Sprintf(`[out:json][timeout:20];
 (
-  nwr(around:%.0f,%f,%f)["name"~"%s",i];
-  nwr(around:%.0f,%f,%f)["cuisine"~"%s",i];
-  nwr(around:%.0f,%f,%f)["amenity"~"%s",i];
+  nwr(around:%.0f,%f,%f)["name"~%s,i];
+  nwr(around:%.0f,%f,%f)["cuisine"~%s,i];
+  nwr(around:%.0f,%f,%f)["amenity"~%s,i];
 );
 out center 30;`,
 		radius, at.Lat, at.Lon, escaped,
 		radius, at.Lat, at.Lon, escaped,
 		radius, at.Lat, at.Lon, escaped)
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader("data="+url.QueryEscape(ql)))
-	if err != nil {
-		return Result{}, err
+	// Japanese category words are not OSM tag values (for example ramen).
+	categories := map[string]string{"ラーメン": "ramen", "カフェ": "cafe", "喫茶店": "cafe", "レストラン": "restaurant", "コンビニ": "convenience"}
+	if category := categories[query]; category != "" {
+		tag := "amenity"
+		if category == "ramen" {
+			tag = "cuisine"
+		}
+		if category == "convenience" {
+			tag = "shop"
+		}
+		clause := fmt.Sprintf(`nwr(around:%.0f,%f,%f)["%s"~"(^|;)%s(;|$)",i];`, radius, at.Lat, at.Lon, tag, category)
+		ql = strings.Replace(ql, ");\nout", clause+"\n);\nout", 1)
 	}
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("User-Agent", userAgent)
-	response, err := httpClient.Do(request)
+	response, err := overpassRequest(ctx, endpoint, ql)
 	if err != nil {
 		return Result{}, err
 	}
 	defer response.Body.Close()
-	if response.StatusCode >= 300 {
-		return Result{}, fmt.Errorf("周辺検索が失敗しました (%d)", response.StatusCode)
-	}
 	var payload struct {
 		Elements []overpassElement `json:"elements"`
+		Remark   string            `json:"remark"`
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&payload); err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("周辺検索の結果を取得できませんでした（店舗がないという意味ではありません）: %w", err)
+	}
+	if payload.Remark != "" || payload.Elements == nil {
+		return Result{}, errors.New("周辺検索が完了しませんでした。時間をおいて再試行してください（店舗がないという意味ではありません）")
 	}
 
 	type hit struct {
@@ -200,7 +210,7 @@ func lookup(ctx context.Context, r *Registry, query string) ([]geocoded, error) 
 		return nil, err
 	}
 	request.Header.Set("User-Agent", userAgent)
-	response, err := httpClient.Do(request)
+	response, err := doMapRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -224,4 +234,44 @@ func metres(lat1, lon1, lat2, lon2 float64) float64 {
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
 		math.Cos(toRad(lat1))*math.Cos(toRad(lat2))*math.Sin(dLon/2)*math.Sin(dLon/2)
 	return earth * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+}
+
+// Retry temporary overload once. Never disguise an unavailable service as no hits.
+func overpassRequest(ctx context.Context, endpoint, ql string) (*http.Response, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			timer := time.NewTimer(time.Second)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
+		}
+		request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader("data="+url.QueryEscape(ql)))
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		request.Header.Set("User-Agent", userAgent)
+		response, err := httpClient.Do(request)
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			if attempt == 0 {
+				continue
+			}
+			return nil, fmt.Errorf("周辺検索に接続できませんでした（店舗がないという意味ではありません）: %w", err)
+		}
+		if response.StatusCode < 300 {
+			return response, nil
+		}
+		response.Body.Close()
+		if attempt == 0 && response.Header.Get("Retry-After") == "" && (response.StatusCode == 429 || response.StatusCode == 502 || response.StatusCode == 503 || response.StatusCode == 504) {
+			continue
+		}
+		return nil, fmt.Errorf("周辺検索を取得できませんでした (%d)。時間をおいて再試行してください。店舗がないという意味ではありません", response.StatusCode)
+	}
+	return nil, errors.New("周辺検索を取得できませんでした")
 }

@@ -59,7 +59,8 @@ type Settings struct {
 	// wakes the few personas it was routed to, not everyone on the list, so
 	// adding a domain costs one more line in the routing call rather than one
 	// more model call per post.
-	Active []string `json:"active"`
+	Active        []string                `json:"active"`
+	DailyCheckIns map[string]DailyCheckIn `json:"dailyCheckIns,omitempty"`
 
 	Search SearchSettings `json:"search"`
 	Places PlaceSettings  `json:"places"`
@@ -81,9 +82,11 @@ type SearchSettings struct {
 // Both default to public services that need no key, so the tools work out of
 // the box and can be pointed at a private instance.
 type PlaceSettings struct {
-	NominatimURL string `json:"nominatimUrl"`
-	OverpassURL  string `json:"overpassUrl"`
-	RouteURL     string `json:"routeUrl"`
+	NominatimURL    string `json:"nominatimUrl"`
+	OverpassURL     string `json:"overpassUrl"`
+	RouteURL        string `json:"routeUrl"`
+	WalkingRouteURL string `json:"walkingRouteUrl"`
+	CyclingRouteURL string `json:"cyclingRouteUrl"`
 }
 
 // SpeechSettings configures browser dictation and optional automatic-send polishing.
@@ -117,9 +120,11 @@ func defaultSettings() Settings {
 			BaseURL:  "https://api.tavily.com/search",
 		},
 		Places: PlaceSettings{
-			NominatimURL: "https://nominatim.openstreetmap.org",
-			OverpassURL:  "https://overpass-api.de/api/interpreter",
-			RouteURL:     "https://router.project-osrm.org",
+			NominatimURL:    "https://nominatim.openstreetmap.org",
+			OverpassURL:     "https://overpass-api.de/api/interpreter",
+			RouteURL:        "https://router.project-osrm.org",
+			WalkingRouteURL: "https://routing.openstreetmap.de/routed-foot",
+			CyclingRouteURL: "https://routing.openstreetmap.de/routed-bike",
 		},
 		Speech: SpeechSettings{
 			Provider:       "browser",

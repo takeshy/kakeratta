@@ -258,6 +258,10 @@ func (w *FirestoreWorkspace) ConfiguredSettings() Settings {
 func (w *FirestoreWorkspace) Settings() Settings { return effectiveSettings(w.ConfiguredSettings()) }
 
 func (w *FirestoreWorkspace) SaveSettings(settings Settings) error {
+	// Parent documents make configured workspaces discoverable after a restart.
+	if _, err := w.user.Set(context.Background(), map[string]any{"configured": true}, firestore.MergeAll); err != nil {
+		return err
+	}
 	_, err := w.user.Collection("config").Doc("settings").Set(context.Background(), settings)
 	return err
 }

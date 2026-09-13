@@ -16,8 +16,8 @@ import (
 type Kind string
 
 const (
-	// KindPost is the user putting something in: a capture, a paste, a link, a
-	// spoken note.
+	// KindPost starts a thread: a user fragment or a persona daily check-in.
+	// Speaker identifies its author.
 	KindPost Kind = "post"
 	// KindRemark is a persona saying something unprompted.
 	KindRemark Kind = "remark"

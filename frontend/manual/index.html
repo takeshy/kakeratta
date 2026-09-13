@@ -50,10 +50,12 @@
           <li><a href="#ja-toss">かけらを放り込む</a></li>
           <li><a href="#ja-timeline">タイムラインと反応</a></li>
           <li><a href="#ja-personas">担当</a></li>
+          <li><a href="#ja-daily">毎日のチェックイン</a></li>
           <li><a href="#ja-search">検索</a></li>
           <li><a href="#ja-phone">スマホから共有する</a></li>
           <li><a href="#ja-voice">音声入力と読み上げ</a></li>
           <li><a href="#ja-settings">設定</a></li>
+          <li><a href="#ja-tools">道具の一覧と使い方</a></li>
           <li><a href="#ja-faq">よくある質問</a></li>
           <li><a href="#ja-more">もっと詳しく</a></li>
         </ol>
@@ -135,6 +137,17 @@
             <img src="/captures/ja/personas.png" alt="担当の一覧。分野、モデルの段、道具、メモ" loading="lazy" />
             <figcaption>担当パネル。分野、モデルの段（low / middle / high）、使える道具、メモの数。</figcaption>
           </figure>
+          <h3 id="ja-daily">毎日のチェックイン</h3>
+          <p>新しいかけらを投げない日も、担当が一度だけ起き、伝えることがあれば話しかけます。何もなければ黙り、空の投稿は残りません。メモの更新だけをすることもあります。</p>
+          <ol>
+            <li><strong>担当</strong> を開き、対象の担当を <strong>有効にする</strong> にします。</li>
+            <li><strong>1日1回のチェックイン</strong> をONにします（初期状態はOFF）。</li>
+            <li><strong>希望時刻</strong> を選びます。変更は自動保存されます。</li>
+          </ol>
+          <p>時刻の横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。チェックインをOFFにするか、担当を無効にすると定期起床は止まります。</p>
+          <p>たとえば技術担当なら、最近追っているテーマに重要な変化があった日だけ知らせます。毎朝の投稿や決まった件数のニュースを約束する機能ではありません。</p>
+          <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、希望時刻や処理の混雑によって少し遅れることがあります。設定した時刻を過ぎてONにした場合は、その日の分を次の確認で実行します。再起動時も当日分だけを実行し、過去の日の分はまとめて送りません。</p>
+          <p>沈黙や失敗もその日の1回に数えます。時刻の変更や記憶の削除で当日分を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
           <h3>AI と担当を作る</h3>
           <ol>
             <li><strong>担当</strong> を開き、<strong>AIと担当を作る</strong> を選びます。</li>
@@ -248,8 +261,51 @@
             </table>
           </div>
           <p>担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。どのモデルをどの段に置くかが、そのまま体験の差になります。</p>
-          <h3>道具</h3>
-          <p><strong>Web 検索</strong>（Tavily または Brave の API キー）と、<strong>店舗検索・経路検索</strong> の接続先。宣言した担当だけが呼べます。店舗・経路の既定は鍵の要らない公開サービスです。</p>
+          <h3 id="ja-tools">道具：担当が調べたり覚えたりする方法</h3>
+          <p><strong>どこで動く？</strong>道具を実行するのはkakerattaのサーバーです。公開版ではホスト先のサーバー、手元で起動した場合は手元のGoサーバーから呼び出します。ブラウザが外部の検索APIを直接呼ぶことはありません。位置情報を許可するとブラウザからサーバーへ座標が送られ、店舗・経路検索時は検索語や座標が外部サービスへ送られます。メモ操作はサーバーの保存先を使い、担当が読むメモや検索結果は設定したAIモデルへの入力にも含まれます。</p>
+          <p>道具は、担当が返答や記憶の更新に必要だと判断したときに使います。チャットにツール名やJSONを入力する必要はありません。普段の言葉で頼んでください。<strong>@名前</strong> は返答を求める操作で、特定のツールの実行を保証するものではありません。</p>
+          <p>Web・店舗・経路検索は、担当画面の <strong>道具</strong> に名前がある担当が使えます。追加したい場合は <strong>AIで修正</strong> で「Web検索も使って調べて」のように頼み、変更案を確認して保存します。過去のかけら検索と自分の記憶の操作は、すべての担当が使えます。</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>道具</th><th>できること</th><th>必要な設定</th></tr></thead>
+              <tbody>
+                <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web上の情報を検索</td><td>担当への追加、Tavily / Brave のAPIキー</td></tr>
+                <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>周辺の店舗や場所、名前からの場所検索</td><td>担当への追加。既定サービスは鍵不要</td></tr>
+                <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>車・徒歩・自転車の道路経路と所要時間</td><td>担当への追加、投稿の位置情報。既定サービスは鍵不要</td></tr>
+                <tr><td><a href="#ja-tool-timeline_search"><code>timeline_search</code></a></td><td>保存したかけらをキーワード・意味で検索</td><td>担当への追加や検索専用のAPIキーは不要</td></tr>
+                <tr><td><a href="#ja-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>担当自身の記憶を一覧・読み取り・保存・削除</td><td>追加設定不要</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
+          <p><strong>用途：</strong>ニュースや技術情報など、Web上の情報を検索し、検索結果のリンクを返答の出典に付けられます。</p>
+          <p><strong>設定：</strong><strong>設定 → Web検索</strong> でTavilyまたはBraveを選び、対応するAPIキーを保存します。AIモデルのAPIキーとは別です。</p>
+          <p><strong>依頼例：</strong>「@kuda 最近のGoの変更点をWebで調べて」</p>
+          <p><strong>制限：</strong>検索結果の説明を使う道具で、リンク先の全文を必ず読めるわけではありません。最新情報や網羅性は保証しません。定期チェックインでも利用できます。</p>
+          <h3 id="ja-tool-place_search">店舗・場所検索 — place_search</h3>
+          <p><strong>用途：</strong>投稿に位置情報があれば周辺を検索し、店舗名、距離、地図に登録された営業時間などを返します。位置情報がなければ場所の名前で検索します。</p>
+          <p><strong>設定：</strong><strong>設定 → 店舗検索・経路検索の接続先</strong> に地名検索（Nominatim）と周辺検索（Overpass）があります。既定の公開サービスはAPIキー不要です。周辺を探すには、投稿時にブラウザの位置情報利用を許可してください。</p>
+          <p><strong>依頼例：</strong>位置情報付きで「@tabe この近くのラーメン屋を探して」。位置が分からないときは「@michi 渋谷駅という場所を探して」。</p>
+          <p><strong>制限：</strong>地図に載っていない店舗は見つからず、営業時間の登録がない場合もあります。現在営業中か、空席があるかは分かりません。周辺検索は一時的な障害で再試行することがありますが、混雑で取得できない場合もあります。取得失敗は「店がない」という意味ではありません。定期起床では現在地を取得しないため、名前検索だけになります。</p>
+          <h3 id="ja-tool-route">経路検索 — route</h3>
+          <p><strong>用途：</strong>投稿の位置から目的地まで、車・徒歩・自転車の道路上の距離と所要時間の目安を調べます。</p>
+          <p><strong>設定：</strong>投稿時に位置情報を許可します。<strong>設定 → 店舗検索・経路検索の接続先</strong> で、車・徒歩・自転車ごとにOSRMの接続先を設定できます。既定は鍵不要です。自前の接続先は、その移動手段に対応する経路データを用意したサーバーを指定してください。</p>
+          <p><strong>依頼例：</strong>「@michi ここから渋谷駅まで徒歩で何分？」</p>
+          <p><strong>制限：</strong>電車・バスなどの公共交通、時刻表、リアルタイムの渋滞は含みません。位置情報なしでは使えず、定期チェックインでも使えません。本文に出発地を書くだけでは、投稿に位置情報を付けたことにはなりません。</p>
+          <h3 id="ja-tool-timeline_search">過去のかけら検索 — timeline_search</h3>
+          <p><strong>用途：</strong>このユーザーが保存した投稿、画像から読み取った文字、返信をキーワードまたは意味の近さで検索します。担当のメモとは別に、過去の記録を振り返る道具です。</p>
+          <p><strong>設定：</strong>すべての担当で利用でき、Web検索サービスのAPIキーは不要です。自分で検索するときはヘッダーの <strong>検索</strong> を開きます。</p>
+          <p><strong>依頼例：</strong>「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
+          <p><strong>制限：</strong>保存していない出来事は検索できません。一度に返るのは最大10件の抜粋で、意味が近い結果が必ず正解とは限りません。初回の意味検索は準備に時間がかかることがあります。定期チェックインでも利用できます。</p>
+          <h3 id="ja-tool-notes">自分の記憶を扱う — notes系</h3>
+          <p><strong>用途：</strong><code>notes_list</code> で記憶の一覧を確認し、<code>notes_read</code> で必要なメモを読み、<code>notes_write</code> で1件を保存・更新し、<code>notes_forget</code> で1件を削除します。担当同士でメモは共有しません。</p>
+          <p><strong>設定：</strong>全担当が使え、追加設定は不要です。</p>
+          <p><strong>依頼例：</strong>「@tabe 辛いものは好きだけど、ごまが強い味は苦手。覚えておいて」</p>
+          <p><strong>制限：</strong>何を記憶するかは担当が判断します。黙って記憶だけ更新する場合もあります。保存内容の確認や確実な削除は、担当画面の <strong>覚えていること</strong> から行ってください。定期チェックインでも読み書きできます。</p>
+          <h3 id="ja-tool-terms">公開サービスの利用条件</h3>
+          <p>APIキー不要でも、無制限に利用できるわけではありません。<a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMapのデータはODbL</a>で、著作権・ライセンスの表示が必要です。ソフトウェアのライセンスとは別に、各APIの利用条件が適用されます。</p>
+          <p><a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">公開Nominatimの利用条件</a>は、アプリ全体で最大1リクエスト/秒、アプリの識別、帰属表示などを要求します。定期アクセスは強く非推奨で、定期処理にはキャッシュやさらに低い頻度の条件があります。現状の地名検索にはキャッシュがないため、定期便での利用や公開運用の拡大では、条件に合う自前・契約サービスへの切り替えを検討してください。開発者・運営者自身が条件を理解し、採用を判断する必要があります。</p>
+          <p><a href="https://routing.openstreetmap.de/about.html" rel="noopener">公開経路サービス</a>にも頻度・負荷・帰属表示の条件があります。現在の頻度制限はサーバープロセス単位で、複数プロセスを合算した制御はありません。現在の出典リンクだけで必要な帰属表示をすべて満たすかも、運用前の確認・対応が必要です。Web検索には選択したサービスの契約条件が適用されます。</p>
           <h3>この端末</h3>
           <p>音声入力の方式・言語・無音停止・送信の合図、読み上げの声と速さ。これらは端末ごとの設定です。</p>
         </section>
@@ -294,10 +350,12 @@
           <li><a href="#en-toss">Tossing in a fragment</a></li>
           <li><a href="#en-timeline">Timeline and reactions</a></li>
           <li><a href="#en-personas">Personas</a></li>
+          <li><a href="#en-daily">Daily check-ins</a></li>
           <li><a href="#en-search">Search</a></li>
           <li><a href="#en-phone">Sharing from a phone</a></li>
           <li><a href="#en-voice">Voice input and read-aloud</a></li>
           <li><a href="#en-settings">Settings</a></li>
+          <li><a href="#en-tools">Tool guide</a></li>
           <li><a href="#en-faq">FAQ</a></li>
           <li><a href="#en-more">Read more</a></li>
         </ol>
@@ -379,6 +437,17 @@
             <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" loading="lazy" />
             <figcaption>The Personas panel: subject, model tier (low / middle / high), available tools, and how many notes each has.</figcaption>
           </figure>
+          <h3 id="en-daily">Daily check-ins</h3>
+          <p>Even without a new fragment, a persona can wake once a day and speak when it has something worth sharing. Silence leaves no empty post. It may just update its memory.</p>
+          <ol>
+            <li>Open <strong>Personas</strong> and enable the persona.</li>
+            <li>Turn on <strong>Daily check-in</strong> (off by default).</li>
+            <li>Choose a <strong>Preferred time</strong>. Changes save automatically.</li>
+          </ol>
+          <p>The browser's time zone shown beside the time is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Turn off the check-in or disable the persona to stop daily wakes.</p>
+          <p>A tech persona might mention a significant change in a subject you have been following. This does not promise a daily post or a fixed number of news items.</p>
+          <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Enabling it after the preferred time runs today's check-in at the next check. After a restart, only today's due wake runs, without replaying missed days.</p>
+          <p>Silent and failed attempts count as the day's wake. Changing the time or forgetting memory does not trigger a second attempt that day. Daily wakes do not acquire your current location: routes are unavailable and place search is by name only.</p>
           <h3>Create a persona with AI</h3>
           <ol>
             <li>Open <strong>Personas</strong> and choose <strong>Create a persona with AI</strong>.</li>
@@ -492,8 +561,51 @@
             </table>
           </div>
           <p>Each persona chooses low, middle, or high. Low runs first, and higher tiers can build on earlier responses. Which model sits in which tier is the difference in experience.</p>
-          <h3>Tools</h3>
-          <p><strong>Web search</strong> (a Tavily or Brave API key) and the <strong>place and route</strong> service endpoints. Only personas that declare a tool can call it. The place and route defaults are public services that need no credentials.</p>
+          <h3 id="en-tools">Tools: how personas look things up and remember</h3>
+          <p><strong>Where do tools run?</strong>On the kakeratta server: the hosted server for an online deployment, or the Go server on your computer when you run it locally. The browser does not call external search APIs directly. If you allow location access, coordinates go from the browser to the server; place and route searches send search terms or coordinates to the external services. Memory tools use the server's storage, and notes and search results read by a persona also become input to the configured AI model.</p>
+          <p>A persona uses tools when it decides they are needed for a reply or memory update. Ask in ordinary language; you do not need to type tool names or JSON. Mentioning <strong>@name</strong> asks for a reply but does not guarantee a particular tool will run.</p>
+          <p>Web, place, and route search are available to personas that list them under <strong>Tools</strong>. To add one, use <strong>Edit with AI</strong>, ask for the capability, and review and save the proposed change. Every persona can search past fragments and manage its own memory.</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Tool</th><th>Purpose</th><th>Setup</th></tr></thead>
+              <tbody>
+                <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search information on the Web</td><td>Add to persona; Tavily / Brave API key</td></tr>
+                <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find nearby places or look up a place by name</td><td>Add to persona; defaults need no key</td></tr>
+                <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Driving, walking, and cycling routes and travel estimates</td><td>Add to persona; location on the post; defaults need no key</td></tr>
+                <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search saved fragments by keyword or meaning</td><td>Available to all personas; no separate search API key</td></tr>
+                <tr><td><a href="#en-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>List, read, save, and delete the persona's own memory</td><td>No additional setup</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3 id="en-tool-web_search">Web search — web_search</h3>
+          <p><strong>Purpose:</strong> Search news, technical information, and other Web content. Links from the results can appear as sources in the reply.</p>
+          <p><strong>Setup:</strong> Under <strong>Settings → Web search</strong>, choose Tavily or Brave and save its API key. This is separate from your AI model API key.</p>
+          <p><strong>Try:</strong> “@kuda Search the Web for recent changes in Go.”</p>
+          <p><strong>Limits:</strong> This tool returns search descriptions; it does not necessarily read the full linked pages. Results may not be current or comprehensive. Available during daily check-ins too.</p>
+          <h3 id="en-tool-place_search">Place search — place_search</h3>
+          <p><strong>Purpose:</strong> With a location on the post, search nearby places for names, distances, and opening hours recorded in the map. Without a location, look up places by name.</p>
+          <p><strong>Setup:</strong> <strong>Settings → Place and route endpoints</strong> contains Nominatim for name lookup and Overpass for nearby search. The public defaults need no API key. Allow the browser to use your location when posting to search nearby.</p>
+          <p><strong>Try:</strong> With location enabled, “@tabe Find ramen near me.” Without a location, “@michi Look up Shibuya Station.”</p>
+          <p><strong>Limits:</strong> Places missing from the map cannot be found. Opening hours may be absent and do not confirm a shop is open now or has seats. Temporary failures may be retried, but the service can still be busy or unavailable. A failed search does not mean there are no places. Daily wakes do not acquire your location, so only name lookup is available then.</p>
+          <h3 id="en-tool-route">Route search — route</h3>
+          <p><strong>Purpose:</strong> Estimate road distance and travel time from the post's location to a destination by car, on foot, or by bicycle.</p>
+          <p><strong>Setup:</strong> Allow location access when posting. <strong>Settings → Place and route endpoints</strong> has separate OSRM endpoints for driving, walking, and cycling. Defaults need no key. A custom server must have routing data prepared for the corresponding mode.</p>
+          <p><strong>Try:</strong> “@michi How long would it take to walk from here to Shibuya Station?”</p>
+          <p><strong>Limits:</strong> No trains, buses, timetables, or live traffic. A location on the post is required, so the tool is unavailable during daily check-ins. Typing a starting place in the text does not attach location coordinates to the post.</p>
+          <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
+          <p><strong>Purpose:</strong> Search this user's saved posts, text read from images, and replies by keyword or meaning. This looks back at records separately from the persona's memory.</p>
+          <p><strong>Setup:</strong> Available to every persona without a Web search API key. To search yourself, open <strong>Search</strong> in the header.</p>
+          <p><strong>Try:</strong> “@tabe Find that light red wine I enjoyed before.”</p>
+          <p><strong>Limits:</strong> Events that were never saved cannot be found. Each call returns at most 10 excerpts. A similar result is not necessarily the right one, and the first semantic search may take time to prepare. Available during daily check-ins too.</p>
+          <h3 id="en-tool-notes">Manage personal memory — notes tools</h3>
+          <p><strong>Purpose:</strong> <code>notes_list</code> lists memories, <code>notes_read</code> reads selected notes, <code>notes_write</code> saves or replaces one note, and <code>notes_forget</code> deletes one note. Personas do not share these notes with one another.</p>
+          <p><strong>Setup:</strong> Every persona has these tools without additional configuration.</p>
+          <p><strong>Try:</strong> “@tabe I like spicy food, but strong sesame flavours aren't for me. Remember that.”</p>
+          <p><strong>Limits:</strong> Each persona decides what to remember. It may update memory without speaking. To inspect saved notes or explicitly delete them, open <strong>What I remember</strong> in the Personas panel. Memory tools are available during daily check-ins too.</p>
+          <h3 id="en-tool-terms">Public service usage conditions</h3>
+          <p>No API key does not mean unlimited use. <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap data is licensed under ODbL</a> and requires attribution and license information. Each API's usage conditions apply separately from the software license.</p>
+          <p>The <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">public Nominatim policy</a> requires an application-wide maximum of one request per second, application identification, and attribution. Periodic requests are strongly discouraged; recurring jobs have caching and stricter frequency requirements. Name lookup currently has no cache. For daily wakes or a growing public deployment, consider a self-hosted or contracted service whose conditions fit your use. Developers and operators must make an informed decision about using the service.</p>
+          <p>The <a href="https://routing.openstreetmap.de/about.html" rel="noopener">public routing service</a> also has frequency, load, and attribution requirements. Current rate limiting is per server process, not aggregated across multiple processes. Existing source links also need review and possibly changes to meet all attribution requirements before deployment. Web search is subject to the selected provider's contract.</p>
           <h3>This device</h3>
           <p>Voice input mode, language, silence stop, and send phrase, plus the read-aloud voice and speed. These are per-device settings.</p>
         </section>

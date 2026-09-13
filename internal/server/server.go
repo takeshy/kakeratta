@@ -37,8 +37,11 @@ type Server struct {
 	token     string
 	search    *search.Service
 
-	mux    *http.ServeMux
-	events *hub
+	mux       *http.ServeMux
+	dailyStop chan struct{}
+	dailyDone chan struct{}
+	closeOnce sync.Once
+	events    *hub
 }
 
 func New(options Options) *Server {
@@ -56,6 +59,22 @@ func New(options Options) *Server {
 	s.runner.OnEvent(s.events.send)
 	s.runner.Start()
 	s.routes()
+	s.dailyStop = make(chan struct{})
+	s.dailyDone = make(chan struct{})
+	go func() {
+		defer close(s.dailyDone)
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		s.runner.CheckDaily()
+		for {
+			select {
+			case <-s.dailyStop:
+				return
+			case <-ticker.C:
+				s.runner.CheckDaily()
+			}
+		}
+	}()
 	return s
 }
 
@@ -63,7 +82,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.Serve
 
 // Close lets whatever is reacting finish. Reactions write as they go, so
 // exiting in the middle of one leaves a persona's notes half written.
-func (s *Server) Close() { s.runner.Stop() }
+func (s *Server) Close() {
+	s.closeOnce.Do(func() { close(s.dailyStop); <-s.dailyDone; s.runner.Stop() })
+}
 
 func (s *Server) client() (*llm.Client, store.Settings) {
 	settings := s.store.Settings()

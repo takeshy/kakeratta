@@ -188,9 +188,12 @@ export function createSettings({ speaker, onSettings }) {
         el("p", { class: "hint", label: "既定は鍵の要らない公開サービスです。自前のインスタンスに向けられます。" }),
         field("地名検索 (Nominatim)", places.nominatimUrl, (value) => patch({ places: { ...places, nominatimUrl: value } })),
         field("周辺検索 (Overpass)", places.overpassUrl, (value) => patch({ places: { ...places, overpassUrl: value } })),
-        field("経路 (OSRM)", places.routeUrl, (value) => patch({ places: { ...places, routeUrl: value } }), {
+        field("車の経路 (OSRM)", places.routeUrl, (value) => patch({ places: { ...places, routeUrl: value } }), {
           hint: "道路の所要時間です。公共交通は含みません",
-        })),
+        }),
+        field("徒歩の経路 (OSRM)", places.walkingRouteUrl, (value) => patch({ places: { ...places, walkingRouteUrl: value } })),
+        field("自転車の経路 (OSRM)", places.cyclingRouteUrl, (value) => patch({ places: { ...places, cyclingRouteUrl: value } })),
+        el("p", { class: "hint", label: "移動手段ごとに対応する接続先が必要です。周辺検索は混雑で取得できない場合があります。" })),
     );
   }
 

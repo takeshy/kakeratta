@@ -66,7 +66,9 @@ func TestGatewayRequiresLoginAndSeparatesUsers(t *testing.T) {
 	if len(gateway.tenants) != 2 {
 		t.Fatalf("tenants = %d", len(gateway.tenants))
 	}
-	if gateway.tenants["alice"].store.Root() == gateway.tenants["bob"].store.Root() {
+	alice, _ := gateway.tenant("alice")
+	bob, _ := gateway.tenant("bob")
+	if alice.store.Root() == bob.store.Root() {
 		t.Fatal("users share a workspace")
 	}
 }

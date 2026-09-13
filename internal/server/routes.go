@@ -51,6 +51,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/fetch", s.guard(s.postFetch))
 
 	s.mux.HandleFunc("GET /api/personas", s.guard(s.getPersonas))
+	s.mux.HandleFunc("PUT /api/personas/{id}/daily", s.guard(s.putDailyCheckIn))
 	s.mux.HandleFunc("PUT /api/personas", s.guard(s.putPersonas))
 	s.mux.HandleFunc("POST /api/personas/build", s.guard(s.buildPersona))
 	s.mux.HandleFunc("POST /api/personas/draft", s.guard(s.savePersonaDraft))
@@ -327,9 +328,10 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 	skills := s.catalogue.All()
 	type row struct {
 		persona.Skill
-		Active bool   `json:"active"`
-		Wakes  int    `json:"wakes"`
-		Notes  string `json:"notes,omitempty"`
+		DailyCheckIn store.DailyCheckIn `json:"dailyCheckIn"`
+		Active       bool               `json:"active"`
+		Wakes        int                `json:"wakes"`
+		Notes        string             `json:"notes,omitempty"`
 	}
 	active := map[string]bool{}
 	for _, id := range settings.Active {
@@ -338,7 +340,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 	out := make([]row, 0, len(skills))
 	for _, skill := range skills {
 		memory := s.store.Memory(skill.ID)
-		out = append(out, row{Skill: skill, Active: active[skill.ID], Wakes: memory.Wakes})
+		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Active: active[skill.ID], Wakes: memory.Wakes})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(settings).Names()})
 }
@@ -451,6 +453,8 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "設定を読めませんでした")
 		return
 	}
+	// Persona schedules have their own endpoint; a stale settings form must not undo them.
+	next.DailyCheckIns = current.DailyCheckIns
 	// A masked key coming back means "unchanged", not "set it to asterisks".
 	next.APIKey = unmask(next.APIKey, current.APIKey)
 	next.Search.APIKey = unmask(next.Search.APIKey, current.Search.APIKey)
@@ -564,4 +568,31 @@ func decodeImage(value string) ([]byte, string, error) {
 		return nil, "", errors.New("画像が大きすぎます")
 	}
 	return data, mime, nil
+}
+
+func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, ok := s.catalogue.Find(id); !ok {
+		fail(w, http.StatusNotFound, "担当が見つかりません")
+		return
+	}
+	var schedule store.DailyCheckIn
+	if err := readJSON(r, &schedule); err != nil {
+		fail(w, http.StatusBadRequest, "設定を読めませんでした")
+		return
+	}
+	if err := schedule.Validate(); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	settings := s.store.ConfiguredSettings()
+	if settings.DailyCheckIns == nil {
+		settings.DailyCheckIns = map[string]store.DailyCheckIn{}
+	}
+	settings.DailyCheckIns[id] = schedule
+	if err := s.store.SaveSettings(settings); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.getPersonas(w, r)
 }

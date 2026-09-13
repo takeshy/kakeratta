@@ -89,3 +89,18 @@ func TestHighTierDefaultsAndOverrides(t *testing.T) {
 		})
 	}
 }
+
+func TestLegacyPlaceSettingsGainSeparateRouteDefaults(t *testing.T) {
+	s := open(t)
+	// Match a settings document written before walking/cycling endpoints existed.
+	if err := writeJSON(s.Root()+"/settings.json", map[string]any{"places": map[string]any{"routeUrl": "https://custom.example/car", "overpassUrl": "https://custom.example/nearby"}}); err != nil {
+		t.Fatal(err)
+	}
+	settings := s.Settings()
+	if settings.Places.RouteURL != "https://custom.example/car" || settings.Places.OverpassURL != "https://custom.example/nearby" {
+		t.Fatal("custom endpoints changed")
+	}
+	if settings.Places.WalkingRouteURL != "https://routing.openstreetmap.de/routed-foot" || settings.Places.CyclingRouteURL != "https://routing.openstreetmap.de/routed-bike" {
+		t.Fatalf("missing defaults: %+v", settings.Places)
+	}
+}

@@ -50,6 +50,7 @@ const rounds = 8
 type reaction struct {
 	entryID string
 	place   *timeline.Place
+	daily   bool
 }
 
 type Runner struct {
@@ -111,7 +112,11 @@ func (r *Runner) Start() {
 				item := r.queue[0]
 				r.queue = r.queue[1:]
 				r.stopMu.Unlock()
-				r.reactAt(item.entryID, item.place)
+				if item.daily {
+					r.dailyAt(time.Now())
+				} else {
+					r.reactAt(item.entryID, item.place)
+				}
 			}
 		}()
 	})
@@ -310,8 +315,8 @@ const systemTemplate = `あなたは「%s」。%s
 - **黙ってよい。** 全部に反応する必要はありません。誰も反応しない投稿があって構いません。
   解説するためのアプリではなく、ただ眺めていたいだけのこともあります。押し付けないでください。
 - **喋らないことと覚えないことは別です。** 黙る場合でも、自分の領域のことならメモには書いてください。
-- 渡されるのはこの投稿と、それに付いた発言だけです。**それ以外の過去はあなたのメモにしか残っていません。**
-  遡って取り直すことはできません。次に必要になりそうなことは、いまメモに書いてください。
+- 渡されるのはこの投稿と、それに付いた発言だけです。**それ以外の過去は、メモや timeline_search / timeline_read で必要な分だけ調べてください。**
+  次に必要になりそうなことは、いまメモに書いてください。
 - **今回の対象発言に、スレッド全体の文脈を踏まえて対応してください。** ユーザーの追加発言は、元の投稿や担当の質問への補足・訂正・回答として読んでください。
   例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足です。行き先を再度尋ねず、既知の条件と合わせて答えてください。
   出発時刻か到着時刻かなど、文脈でも特定できない点だけを確認してください。相対時刻は対象発言の日時を基準に解釈してください。
@@ -362,6 +367,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 
 	root := timeline.RootOf(trigger)
+	daily := trigger.ID == ""
 	model := modelFor(skill.Model, settings)
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
@@ -377,6 +383,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		toolBlock = fmt.Sprintf(toolTemplate, set.Describe())
 	}
 	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, toolBlock, okfHost+okfSkill)
+	if daily {
+		system += dailyInstructions
+	}
 
 	names := map[string]string{}
 	for _, other := range r.catalogue.All() {
@@ -409,7 +418,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if len(label) > 140 {
 		label = append(label[:140], '…')
 	}
-	noteSources := []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.Format("2006-01-02 15:04 MST") + " — " + string(label)}}
+	var noteSources []store.NoteSource
+	if !daily {
+		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.Format("2006-01-02 15:04 MST") + " — " + string(label)}}
+	}
 
 	for round := 0; round < rounds; round++ {
 		reply, err := client.Chat(ctx, llm.Request{
@@ -528,6 +540,11 @@ func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source
 	remark := timeline.Entry{
 		ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: skill.ID,
 		Text: text, At: time.Now(), Root: root, ReplyTo: replyTo, Sources: dedupe(sources),
+	}
+	if root == "" {
+		remark.Kind = timeline.KindPost
+		remark.Root = remark.ID
+		remark.ReplyTo = ""
 	}
 	if err := r.store.Append(remark); err != nil {
 		return nil
