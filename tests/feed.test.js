@@ -132,8 +132,8 @@ test("reply dictation survives updates, sends to its target, and stops when clos
   const fourth = recognizers[3];
   feed.set([]);
   assert.equal(fourth.stopped, true, "removing the thread stops recognition");
+  document.activeElement = null;
   feed.set([post]);
-  button("一言足す").fire("click");
   const manual = feed.element.querySelectorAll(".reply-input")[0];
   manual.value = "手動で送ります";
   manual.fire("keydown", { ctrlKey: true, key: "Enter", preventDefault() {} });

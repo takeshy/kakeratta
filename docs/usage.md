@@ -31,7 +31,7 @@ oversized shares are rejected rather than saved as truncated images.
 When all Firebase variables are set, Google sign-in replaces shared-token
 authentication. The server exchanges a Firebase ID token for a signed,
 HttpOnly session cookie and gives every Firebase `uid` a separate store,
-reaction queue, event stream, and speech service.
+reaction queue and event stream.
 
 ## Ways in
 
@@ -100,6 +100,10 @@ not. No unread count, and no "an AI is thinking".
 **Read-aloud mode** reads the backlog while you are moving (the browser's own
 Web Speech API).
 
+## Voice input
+
+Dictation uses browser speech recognition. “Polish text with AI before auto-send” is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron Nano by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
+
 ## Models and deployment
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
@@ -153,5 +157,3 @@ The timeline is **append only**. An entry is never rewritten: a change (the
 image finished being read, it was deleted) is another line with the same id
 further down, and the later one wins. Appending costs the same however long the
 log gets, and a crash mid-write costs the last line rather than the file.
-
-Dictation uses browser speech recognition. “Polish text with AI before auto-send” is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron Nano by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.

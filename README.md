@@ -45,6 +45,8 @@ without speaking. Four personas ship with the app: **tabe (food), michi
 lowercase, so `@tabe` can be typed on any keyboard. A persona answers in the language the
 post was written in.
 
+Browser voice input can optionally polish your words with Nemotron Nano before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
+
 ## Describe a persona. Start using it.
 
 Answer “What would you like your persona to help with?” in your own words.
