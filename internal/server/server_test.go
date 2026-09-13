@@ -267,7 +267,7 @@ func TestAReplyHangsOffThePost(t *testing.T) {
 	var post timeline.Entry
 	_ = json.Unmarshal(recorder.Body.Bytes(), &post)
 
-	body, _ := json.Marshal(map[string]string{"replyTo": post.ID, "text": "@たべ どう思う"})
+	body, _ := json.Marshal(map[string]string{"replyTo": post.ID, "text": "@tabe どう思う"})
 	replyRecorder := httptest.NewRecorder()
 	server.ServeHTTP(replyRecorder, httptest.NewRequest(http.MethodPost, "/api/reply", bytes.NewReader(body)))
 	if replyRecorder.Code != http.StatusOK {

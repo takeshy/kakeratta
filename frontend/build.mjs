@@ -13,12 +13,12 @@ for (const entry of readdirSync(distDir)) {
   rmSync(join(distDir, entry), { recursive: true, force: true });
 }
 
-// The manifest, the worker and the icon sit at the root because that is where
-// the browser looks for them: a service worker only controls the scope it is
-// served from, and the share target has to be in scope.
-for (const file of ["index.html", "manifest.webmanifest", "sw.js", "icon.png", "icon.svg"]) {
-  cpSync(join(frontendDir, file), join(distDir, file));
-}
+// public/ holds what has to sit at the site root - the manifest, the worker,
+// the icons - because that is where the browser looks for them: a service
+// worker only controls the scope it is served from, and the share target has
+// to be in scope. Vite (and so Storybook) serve the same directory at /.
+cpSync(join(frontendDir, "index.html"), join(distDir, "index.html"));
+cpSync(join(frontendDir, "public"), distDir, { recursive: true });
 cpSync(join(frontendDir, "src"), join(distDir, "src"), { recursive: true });
 
 let totalBytes = 0;

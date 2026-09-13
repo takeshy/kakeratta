@@ -12,8 +12,9 @@ type multipartHeader = multipart.FileHeader
 
 // cookieName is how the page keeps the token after presenting it once, so the
 // share target - which posts without a chance to set a header - is already
-// authorised when it arrives.
-const cookieName = "kakeratta"
+// authorised when it arrives. It is __session because that is the one cookie
+// Firebase Hosting lets through to Cloud Run (see authCookieName).
+const cookieName = "__session"
 
 // guard checks the token.
 //

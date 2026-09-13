@@ -35,7 +35,12 @@ export const Hero = {
 
 export const Mentioning = {
   name: "担当を指名して書いている途中",
-  render: () => screen({ rows: personas, entries: answered, text: "@たべ 今日の昼、どこがいいと思う" }),
+  render: () => screen({ rows: personas, entries: answered, text: "@tabe 今日の昼、どこがいいと思う" }),
+};
+
+export const SignedIn = {
+  name: "Googleでログイン中（サインアウトあり）",
+  render: () => screen({ rows: personas, entries: answered, signedIn: true }),
 };
 
 export const ReadingAloud = {

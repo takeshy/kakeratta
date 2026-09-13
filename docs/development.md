@@ -43,7 +43,8 @@ internal/llm        an OpenAI-compatible client (images and file input included)
 internal/speech     dictation backends (the relay that keeps the keys server-side)
 internal/store      the append log, images, notes, settings
 internal/server     the HTTP surface (the page, the API, SSE)
-frontend/src        ES modules, no bundler in what ships
+frontend/src        ES modules, no bundler in what ships (builtins.js glosses the Japanese-named personas for the English interface)
+frontend/public     what sits at the site root: manifest, service worker, icons
 frontend/stories    Storybook stories, built from the same modules and fixtures shaped like the API
 frontend/dist       what Firebase Hosting deploys (a copy of the above)
 ```

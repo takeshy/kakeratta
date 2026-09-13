@@ -3,13 +3,13 @@
 const minutes = (n) => new Date(Date.now() - n * 60000).toISOString();
 
 export const personas = [
-  { id: "gourmet", name: "たべ", icon: "🍜", model: "high", builtin: true, active: true, wakes: 12,
+  { id: "gourmet", name: "tabe", icon: "🍜", model: "high", builtin: true, active: true, wakes: 12,
     domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"] },
-  { id: "move", name: "みち", icon: "🚃", model: "low", builtin: true, active: true, wakes: 3,
+  { id: "move", name: "michi", icon: "🚃", model: "low", builtin: true, active: true, wakes: 3,
     domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
-  { id: "tech", name: "くだ", icon: "💾", model: "low", builtin: true, active: true, wakes: 7,
+  { id: "tech", name: "kuda", icon: "💾", model: "low", builtin: true, active: true, wakes: 7,
     domain: "技術。コード、道具、仕組み。", tools: ["web_search"] },
-  { id: "book", name: "しおり", icon: "📖", model: "middle", builtin: true, active: true, wakes: 21,
+  { id: "book", name: "shiori", icon: "📖", model: "middle", builtin: true, active: true, wakes: 21,
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
 ];
 
@@ -28,7 +28,7 @@ export const answered = [
     "ごま強めは前も一度そう言っていました。辛さより先にごまが来る店が苦手なのかもしれません。"),
   said("s2", "p1", "user", minutes(120), "たしかに。辛いのは平気"),
   post("p2", minutes(52), {
-    text: "@みち 20時に渋谷に着きたい",
+    text: "@michi 20時に渋谷に着きたい",
     place: { lat: 35.681, lon: 139.767, label: "東京駅" },
   }),
   said("s3", "p2", "move", minutes(50),

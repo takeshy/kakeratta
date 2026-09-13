@@ -25,8 +25,10 @@ the API, on Cloud Run or on your own machine. [MIT licensed](LICENSE).
 ![The timeline: your fragments, with what the personas said about them underneath](docs/captures/en/timeline.png)
 
 Some posts get no reaction. A persona can remember information in its subject
-without speaking. Four personas ship with the app: **たべ (food), みち (travel),
-くだ (tech), and しおり (reading)**. Add more by importing a `skill.json` from the UI.
+without speaking. Four personas ship with the app: **tabe (food), michi
+(travel), kuda (tech), and shiori (reading)** — Japanese words in Latin letters,
+lowercase, so `@tabe` can be typed on any keyboard. A persona answers in the language the
+post was written in. Add more by importing a `skill.json` from the UI.
 
 ![The Personas panel: each one's subject, model tier, tools, and notes](docs/captures/en/personas.png)
 

@@ -18,7 +18,10 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
-const authCookieName = "kakeratta_session"
+// Firebase Hosting drops every cookie but one named __session before a request
+// reaches Cloud Run, so that is the only name a session can have. Token mode
+// uses the same name; the two never run in the same deployment.
+const authCookieName = "__session"
 
 type tokenVerifier interface {
 	SessionCookie(context.Context, string, time.Duration) (string, error)

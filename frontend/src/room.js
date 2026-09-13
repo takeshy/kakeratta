@@ -7,6 +7,7 @@
 // answer to "who can I ask?", and asking is a tap on a name.
 import { el, clear } from "./dom.js";
 import { t } from "./i18n.js";
+import { gloss, named } from "./builtins.js";
 
 export function createRoom({ onOpen, onActivate, onMention, onSpeak }) {
   const banner = el("section", { class: "nobody", hidden: true });
@@ -33,8 +34,8 @@ export function createRoom({ onOpen, onActivate, onMention, onSpeak }) {
       quick.append(
         el("button", {
           class: "chip add",
-          title: row.domain,
-          text: t("{0} を呼ぶ", `${row.icon || "◎"} ${row.name}`),
+          title: gloss(row).domain,
+          text: t("{0} を呼ぶ", `${row.icon || "◎"} ${named(row)}`),
           onclick: () => onActivate?.(row.id),
         }),
       );
@@ -52,7 +53,7 @@ export function createRoom({ onOpen, onActivate, onMention, onSpeak }) {
       bar.append(
         el("button", {
           class: "chip persona-chip",
-          title: `${row.domain}\n${t("押すと @{0} を書き入れます", row.name)}`,
+          title: `${gloss(row).domain}\n${t("押すと @{0} を書き入れます", row.name)}`,
           text: `${row.icon || "◎"} ${row.name}`,
           onclick: () => onMention?.(row),
         }),

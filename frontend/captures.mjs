@@ -20,7 +20,7 @@ const scratch = join(homedir(), ".cache", "kakeratta-captures");
 
 const shots = [
   { name: "timeline", id: "screen--hero", height: 900 },
-  { name: "nobody", id: "screen--nobody-in-the-room", height: 520 },
+  { name: "nobody", id: "screen--nobody-in-the-room", height: 600 },
   { name: "personas", id: "personas--all-present", height: 1000 },
   { name: "settings", id: "settings--default", height: 1000 },
 ];

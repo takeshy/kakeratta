@@ -9,7 +9,7 @@ const EN = {
   "この環境では音声入力が使えません": "Voice input is unavailable in this environment.",
   "📷 画像": "📷 Image", "流す": "Post",
   "ここにかけらが並びます。": "Your fragments line up here.",
-  "書く、貼る（Ctrl+V）、URL、話す。担当は黙っていることもあり、反応は遅れて届きます。": "Write, paste (Ctrl+V), send a URL, or speak. A persona may stay quiet, and reactions arrive late.",
+  "書く、貼る（Ctrl+V）、URL、話す。担当は黙っていることもあり、反応は遅れて届きます。": "Write, paste (Ctrl+V), send a URL, or speak. A persona may stay quiet, and reactions arrive late. The built-in personas are tabe (food), michi (travel), kuda (tech) and shiori (reading); mention one with @name.",
   "反応が付かないことがあります。付くときも、遅れて届きます。": "Some posts get no reaction. The ones that do arrive later.",
   "消す": "Delete", "この投稿を消しますか": "Delete this post?",
   "読み取り中…": "Reading…", "文字は読み取れませんでした。": "No text could be read.",

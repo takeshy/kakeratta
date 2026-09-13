@@ -7,13 +7,17 @@
 // screen is actually for.
 import { el } from "./dom.js";
 
-export function screenNodes({ compose, room, feed, onOpen }) {
+export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
   return [
     el("header", { class: "topbar" },
-      el("span", { class: "brand", label: "kakeratta" }),
+      el("span", { class: "brand" },
+        el("img", { class: "brand-mark", src: "/icon.svg", alt: "", width: "22", height: "22" }),
+        "kakeratta"),
       el("span", { class: "spacer" }),
       el("button", { class: "chip ghost nav", label: "担当", onclick: () => onOpen?.("personas") }),
-      el("button", { class: "chip ghost nav", label: "設定", onclick: () => onOpen?.("settings") })),
+      el("button", { class: "chip ghost nav", label: "設定", onclick: () => onOpen?.("settings") }),
+      // Only when there is an account to leave: token mode has no sign-out.
+      onLogout ? el("button", { class: "chip ghost nav", label: "ログアウト", onclick: () => onLogout() }) : null),
     room.banner,
     compose,
     room.bar,

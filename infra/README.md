@@ -16,7 +16,10 @@ under **Firebase Authentication > Sign-in method**. The deploy script reads the
 active Web app configuration directly from the Firebase Management API; no
 local Firebase config file or API-key environment variable is needed.
 
-Each signed-in user gets an isolated store keyed by their Firebase `uid`.
+The session cookie is named `__session` because Firebase Hosting strips every
+other cookie before a request reaches Cloud Run; any other name logs in and is
+then `login required` on the next call. Each signed-in user gets an isolated
+store keyed by their Firebase `uid`.
 Firebase authentication takes precedence over the shared `KAKERATTA_TOKEN`
 mode, which is what a local single-user run uses instead.
 

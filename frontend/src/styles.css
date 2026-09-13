@@ -57,7 +57,8 @@ body {
   background: linear-gradient(var(--bg) 70%, transparent);
   z-index: 5;
 }
-.brand { font-weight: 700; letter-spacing: 0.02em; }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: 0.02em; }
+.brand-mark { width: 22px; height: 22px; border-radius: 6px; }
 /* Navigation, and only navigation. The read-aloud switch is a mode over the
    timeline, so it sits down there with it instead of in this row. */
 .topbar .nav { font-size: 0.8rem; }
@@ -270,6 +271,7 @@ input[type="text"], input[type="password"], select, input[type="range"] {
 .persona-head { display: flex; align-items: center; gap: 8px; }
 .persona-head .who { font-weight: 600; }
 .tag { font-size: 0.72rem; color: var(--accent); }
+.note-tag { font-size: 0.76rem; color: var(--muted); }
 .domain { margin: 0; font-size: 0.82rem; color: var(--muted); }
 .tools { margin: 0; font-size: 0.76rem; color: var(--muted); }
 .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; }

@@ -75,15 +75,20 @@ var idPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$`)
 // Answers reports whether this persona was the one called out by name.
 func (s Skill) Answers(mention string) bool {
 	mention = strings.TrimSpace(mention)
-	return mention != "" && (strings.EqualFold(mention, s.ID) || mention == s.Name)
+	// Case does not matter: @tabe on a phone keyboard is the same call as @tabe.
+	return mention != "" && (strings.EqualFold(mention, s.ID) || strings.EqualFold(mention, s.Name))
 }
 
 // Builtins ship with the app so there is someone in the room before anything
 // has been installed. The domains are deliberately far apart: choosing who to
 // ask only means something when the answer is not obvious.
+//
+// The names are Japanese words in Latin letters - like kakeratta itself - so
+// that @tabe can be typed on any keyboard. The domains stay in Japanese: they
+// are read by the router and the persona, and the page glosses them.
 var Builtins = []Skill{
 	{
-		ID: "gourmet", Name: "たべ", Icon: "🍜",
+		ID: "gourmet", Name: "tabe", Icon: "🍜",
 		Domain: "食べもの全般。店、料理、飲みもの、食事の写真やメニュー、行きたい店のメモ、" +
 			"「お腹すいた」「何食べよう」といった相談。食に関係しない技術記事・仕事・旅程には反応しない。",
 		Tone: "食い意地の張った友人。うまそうかどうかで喋る。評論はしない。",
@@ -96,7 +101,7 @@ var Builtins = []Skill{
 		Model: TierHigh, Tools: []string{"place_search", "web_search"}, Builtin: true,
 	},
 	{
-		ID: "move", Name: "みち", Icon: "🚃",
+		ID: "move", Name: "michi", Icon: "🚃",
 		Domain: "移動と時間。行き先、経路、所要時間、集合時刻、旅程、乗り物の写真やチケット。" +
 			"「20時に渋谷に着きたい」のような時刻と場所を含む相談。食事の内容や技術の話には反応しない。",
 		Tone: "短く要点だけ言う。所要時間と出発時刻を先に出す。",
@@ -106,7 +111,7 @@ var Builtins = []Skill{
 		Model: TierLow, Tools: []string{"route", "place_search"}, Builtin: true,
 	},
 	{
-		ID: "tech", Name: "くだ", Icon: "💾",
+		ID: "tech", Name: "kuda", Icon: "💾",
 		Domain: "技術。コード、API、ライブラリ、設計の話、技術記事やドキュメントのキャプチャ、" +
 			"エラー画面。食事や移動の話には反応しない。",
 		Tone: "浅く速い。分からないときは「わからんくなってきた」で切り上げる。knowing風に語らない。",
@@ -117,7 +122,7 @@ var Builtins = []Skill{
 		Model: TierLow, Tools: []string{"web_search"}, Builtin: true,
 	},
 	{
-		ID: "book", Name: "しおり", Icon: "📖",
+		ID: "book", Name: "shiori", Icon: "📖",
 		Domain: "本と読書。Kindleなど電子書籍の画面キャプチャ、引用された一節、書名や著者、読書の感想。" +
 			"技術ドキュメントそのものや食事・移動の話には反応しない。",
 		Tone: "落ち着いている。引用に一言添える程度で、解説はしない。",

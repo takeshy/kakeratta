@@ -14,6 +14,7 @@ import { screenNodes, sheetNodes } from "./screen.js";
 import { createSettings } from "./settings.js";
 import { createSpeaker } from "./speak.js";
 import { getLanguage } from "./i18n.js";
+import { authenticationEnabled, logout } from "./auth.js";
 
 document.documentElement.lang = getLanguage();
 
@@ -100,7 +101,10 @@ api.on((name, data) => {
 });
 
 clear(root).append(
-  ...screenNodes({ compose: compose.element, room, feed: feed.element, onOpen: open }),
+  ...screenNodes({
+    compose: compose.element, room, feed: feed.element, onOpen: open,
+    onLogout: authenticationEnabled() ? () => void logout() : null,
+  }),
 );
 
 // The share target lands here with the image already in the request. The

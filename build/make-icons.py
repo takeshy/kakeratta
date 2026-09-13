@@ -163,8 +163,8 @@ def main():
     rows = render(SIZE)
     write_png(root / "appicon.png", rows, SIZE)
     # The page and the manifest load this one.
-    write_png(root.parent / "frontend" / "icon.png", scale(rows, SIZE, 512), 512)
-    write_svg(root.parent / "frontend" / "icon.svg")
+    write_png(root.parent / "frontend" / "public" / "icon.png", scale(rows, SIZE, 512), 512)
+    write_svg(root.parent / "frontend" / "public" / "icon.svg")
     for name, target in (("windows/msix/Assets/Square44x44Logo.png", 44),
                          ("windows/msix/Assets/Square150x150Logo.png", 150),
                          ("windows/msix/Assets/StoreLogo.png", 50)):

@@ -136,7 +136,7 @@ func TestTheHigherTiersReadWhatTheLowerOneSaid(t *testing.T) {
 		switch {
 		case strings.Contains(system, "振り分け"):
 			return `{"deliver":["move","gourmet"]}`
-		case strings.Contains(system, "あなたは「みち」"):
+		case strings.Contains(system, "あなたは「michi」"):
 			return `{"action":"speak","text":"渋谷まで20分","notes":"渋谷によく行く"}`
 		default:
 			return `{"action":"speak","text":"それなら店も見ておく","notes":"渋谷の店を探した"}`
@@ -153,7 +153,7 @@ func TestTheHigherTiersReadWhatTheLowerOneSaid(t *testing.T) {
 	if said[0].Speaker != "move" || said[1].Speaker != "gourmet" {
 		t.Fatalf("order = %s then %s, want the light one first", said[0].Speaker, said[1].Speaker)
 	}
-	high := stub.promptFor("たべ")
+	high := stub.promptFor("tabe")
 	if high == "" {
 		t.Fatal("the high persona was never asked")
 	}
@@ -161,7 +161,7 @@ func TestTheHigherTiersReadWhatTheLowerOneSaid(t *testing.T) {
 		t.Fatalf("the high one could not see the low one's remark:\n%s", high)
 	}
 	// And the low one cannot have seen a remark that had not happened yet.
-	if strings.Contains(stub.promptFor("みち"), "それなら店も見ておく") {
+	if strings.Contains(stub.promptFor("michi"), "それなら店も見ておく") {
 		t.Fatal("the low one saw the future")
 	}
 }
@@ -180,7 +180,7 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 		}
 		// A turn where it may not speak is a turn for the notes only.
 		if strings.Contains(user, "このターンは発言できません") {
-			for _, name := range []string{"みち", "しおり", "たべ"} {
+			for _, name := range []string{"michi", "shiori", "tabe"} {
 				if strings.Contains(system, "あなたは「"+name+"」") {
 					listened = append(listened, name)
 				}
@@ -189,9 +189,9 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 			return `{"action":"speak","text":"割り込みたい"}`
 		}
 		switch {
-		case strings.Contains(system, "あなたは「みち」"):
+		case strings.Contains(system, "あなたは「michi」"):
 			return `{"action":"speak","text":"三田まで30分。"}`
-		case strings.Contains(system, "あなたは「しおり」"):
+		case strings.Contains(system, "あなたは「shiori」"):
 			return `{"action":"speak","text":"前に引いた線と重なる。"}`
 		default:
 			return `{"action":"speak","text":"みちの30分なら間に合う。"}`
@@ -210,10 +210,10 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 			said[0].Speaker, said[1].Speaker, said[2].Speaker)
 	}
 	// Each tier saw what the ones below it said, and nothing above.
-	if !strings.Contains(stub.promptFor("しおり"), "三田まで30分") {
+	if !strings.Contains(stub.promptFor("shiori"), "三田まで30分") {
 		t.Fatal("middle did not see low")
 	}
-	if !strings.Contains(stub.promptFor("たべ"), "前に引いた線と重なる") {
+	if !strings.Contains(stub.promptFor("tabe"), "前に引いた線と重なる") {
 		t.Fatal("high did not see middle")
 	}
 
@@ -223,7 +223,7 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 		t.Fatalf("listened = %v, want the low and middle ones", listened)
 	}
 	for _, name := range listened {
-		if name == "たべ" {
+		if name == "tabe" {
 			t.Fatal("the last tier was given a listening turn it does not need")
 		}
 	}
@@ -246,7 +246,7 @@ func TestNoListeningTurnWhenTheHigherTiersStayedQuiet(t *testing.T) {
 		case strings.Contains(user, "このターンは発言できません"):
 			listening++
 			return `{"action":"silent"}`
-		case strings.Contains(system, "あなたは「みち」"):
+		case strings.Contains(system, "あなたは「michi」"):
 			return `{"action":"speak","text":"30分。"}`
 		default:
 			return `{"action":"silent"}`
@@ -308,7 +308,7 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 		return `{"action":"speak","text":"呼ばれたので答えます","notes":"呼ばれた"}`
 	}, "gourmet", "tech")
 
-	entry := post(t, s, "@たべ これどう思う")
+	entry := post(t, s, "@tabe これどう思う")
 	runner.react(entry.ID)
 
 	said := remarks(t, s)
@@ -316,10 +316,10 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 		t.Fatalf("remarks = %+v, want the named one to have answered", said)
 	}
 	// Routing said nobody, so the persona that was not named must not have run.
-	if stub.promptFor("くだ") != "" {
+	if stub.promptFor("kuda") != "" {
 		t.Fatal("a persona the routing excluded was woken anyway")
 	}
-	if !strings.Contains(stub.promptFor("たべ"), "名指し") {
+	if !strings.Contains(stub.promptFor("tabe"), "名指し") {
 		t.Fatal("the persona was not told it had been named")
 	}
 }
@@ -341,7 +341,7 @@ func TestBeingNamedStillForcesAnAnswerAfterUsingATool(t *testing.T) {
 		}
 	}, "book")
 
-	entry := post(t, s, "@しおり この本について教えて")
+	entry := post(t, s, "@shiori この本について教えて")
 	runner.react(entry.ID)
 
 	said := remarks(t, s)
@@ -363,10 +363,10 @@ func TestRoutingKeepsThePostFromEveryoneElse(t *testing.T) {
 	entry := post(t, s, "Go 1.25 のリリースノート")
 	runner.react(entry.ID)
 
-	if stub.promptFor("たべ") != "" || stub.promptFor("しおり") != "" {
+	if stub.promptFor("tabe") != "" || stub.promptFor("shiori") != "" {
 		t.Fatal("a post reached a persona it was not routed to")
 	}
-	if stub.promptFor("くだ") == "" {
+	if stub.promptFor("kuda") == "" {
 		t.Fatal("the persona it was routed to never saw it")
 	}
 	// Nothing was even written for the others: no wake, no notes.
@@ -388,7 +388,7 @@ func TestRoutingFailureDeliversToEveryone(t *testing.T) {
 	entry := post(t, s, "何か")
 	runner.react(entry.ID)
 
-	if stub.promptFor("くだ") == "" || stub.promptFor("たべ") == "" {
+	if stub.promptFor("kuda") == "" || stub.promptFor("tabe") == "" {
 		t.Fatal("a post was lost because the routing failed")
 	}
 }
@@ -422,7 +422,7 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 
 	// The first prompt has the names, not the contents: reading is the
 	// persona's own call, and a memory it does not need costs nothing.
-	prompt := stub.promptFor("くだ")
+	prompt := stub.promptFor("kuda")
 	if !strings.Contains(prompt, "threads/old.md") {
 		t.Fatalf("the persona was not told what it has:\n%s", prompt)
 	}
@@ -486,7 +486,7 @@ func TestThePersonaIsHandedTheMemoSkill(t *testing.T) {
 	entry := post(t, s, "ラーメン")
 	runner.react(entry.ID)
 
-	prompt := stub.promptFor("たべ")
+	prompt := stub.promptFor("tabe")
 	for _, want := range []string{
 		"Open Knowledge Format", // the skill itself, as it ships upstream
 		"type",                  // the one required field

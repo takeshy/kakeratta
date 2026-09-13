@@ -14,7 +14,7 @@ for (const outcome of ["ok", "rejected", "offline"]) {
         return new Response("", { status: outcome === "ok" ? 200 : 401 });
       },
     };
-    vm.runInNewContext(readFileSync(new URL("../frontend/sw.js", import.meta.url), "utf8"), context);
+    vm.runInNewContext(readFileSync(new URL("../frontend/public/sw.js", import.meta.url), "utf8"), context);
     let result;
     handlers.fetch({
       request: { method: "POST", url: "https://kakeratta.example/api/capture", formData: async () => new FormData() },

@@ -16,6 +16,8 @@ Sign-in method** でGoogleを有効にします。デプロイスクリプトが
 Firebase Management APIから直接読むため、ローカルの設定ファイルやAPIキーの環境変数は
 不要です。
 
+セッションCookieの名前は `__session` です。Firebase Hosting は Cloud Run へ渡す前にそれ以外の
+Cookieをすべて剥がすため、別名だとログイン直後から `login required` になります。
 ログインした利用者ごとに、Firebaseの `uid` で分離された保存先が割り当てられます。
 Firebase認証は共有の `KAKERATTA_TOKEN` より優先されます。トークン方式は、手元で
 1人で動かすときのための方式です。

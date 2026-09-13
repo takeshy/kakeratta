@@ -7,6 +7,7 @@
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
+import { gloss } from "./builtins.js";
 
 const tierLabels = {
   low: "low（先に動く）",
@@ -57,13 +58,15 @@ export function createPersonas({ onChange }) {
   }
 
   function drawRow(row) {
+    const shown = gloss(row);
     const box = el("section", { class: `persona ${row.active ? "on" : ""}` });
     box.append(
       el(
         "div",
         { class: "persona-head" },
         el("span", { class: "avatar", text: row.icon || "◎" }),
-        el("span", { class: "who", text: row.name }),
+        el("span", { class: "who", text: shown.name }),
+        shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
         el("span", { class: "tag", label: tierLabels[row.model] || row.model }),
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
@@ -74,7 +77,7 @@ export function createPersonas({ onChange }) {
           }),
           el("span", { text: t(row.active ? "有効" : "停止中") })),
       ),
-      el("p", { class: "domain", text: row.domain }),
+      el("p", { class: "domain", text: shown.domain }),
     );
     if (row.tools?.length) {
       box.append(el("p", { class: "tools", text: `${t("道具")}: ${row.tools.join(" / ")}` }));

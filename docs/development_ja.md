@@ -40,6 +40,7 @@ internal/speech     音声入力のバックエンド（鍵をサーバ側に置
 internal/store      追記ログ・画像・メモ・設定
 internal/server     HTTPの表側（ページ、API、SSE）
 frontend/src        ES モジュール。出荷物にバンドラは入らない
+frontend/public     サイトのルートに置くもの。manifest、service worker、アイコン
 frontend/stories    Storybook のストーリー。同じモジュールと、API と同じ形のフィクスチャで組む
 frontend/dist       Firebase Hosting が配信するもの（上のコピー）
 ```

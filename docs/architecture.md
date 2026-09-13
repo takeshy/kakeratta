@@ -184,7 +184,7 @@ to the skill.**
 | Model | `low` / `middle` / `high` |
 | Tools | Only what is declared can be called |
 
-Four ship with the app (たべ food / みち travel / くだ tech / しおり reading). A
+Four ship with the app (tabe food / michi travel / kuda tech / shiori reading). A
 `skill.json` can be added from the UI.
 
 ```json

@@ -63,7 +63,7 @@ export function compose({ text = "", settings = {} } = {}) {
 }
 
 // One story, one screen. Everything below `#app` is what app.js assembles.
-export function screen({ rows = [], entries = [], text = "", speaking = false } = {}) {
+export function screen({ rows = [], entries = [], text = "", speaking = false, signedIn = false } = {}) {
   const host = document.createElement("div");
   host.id = "app";
   host.append(...screenNodes({
@@ -71,6 +71,7 @@ export function screen({ rows = [], entries = [], text = "", speaking = false } 
     room: room(rows, { speaking }),
     feed: feed(entries, rows).element,
     onOpen: () => {},
+    onLogout: signedIn ? () => {} : null,
   }));
   return drawCaptures(host);
 }

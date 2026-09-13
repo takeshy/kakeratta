@@ -106,13 +106,13 @@ func TestInstalledSkillsJoinTheCatalogue(t *testing.T) {
 }
 
 func TestAnsweringToAName(t *testing.T) {
-	skill := Skill{ID: "gourmet", Name: "たべ"}
-	for _, mention := range []string{"gourmet", "たべ", "GOURMET"} {
+	skill := Skill{ID: "gourmet", Name: "tabe"}
+	for _, mention := range []string{"gourmet", "tabe", "Tabe", "GOURMET"} {
 		if !skill.Answers(mention) {
 			t.Errorf("%q should reach it", mention)
 		}
 	}
-	for _, mention := range []string{"", "みち", "tech"} {
+	for _, mention := range []string{"", "michi", "tech"} {
 		if skill.Answers(mention) {
 			t.Errorf("%q should not reach it", mention)
 		}

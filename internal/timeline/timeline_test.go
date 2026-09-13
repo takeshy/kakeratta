@@ -12,8 +12,8 @@ func at(minute int) time.Time {
 
 func TestMentionsFindTheOneBeingAsked(t *testing.T) {
 	cases := map[string][]string{
-		"@たべ これ美味しそう":        {"たべ"},
-		"＠みち 20時に渋谷に着きたい":    {"みち"},
+		"@tabe これ美味しそう":      {"tabe"},
+		"＠michi 20時に渋谷に着きたい": {"michi"},
 		"@tech @book どっちも":   {"tech", "book"},
 		"メールは a@example.com": nil,
 		"ただの一言":              nil,
