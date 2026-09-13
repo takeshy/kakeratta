@@ -32,7 +32,7 @@ const GLOSS = {
 // gloss(row) → { name, note, domain }: the name, one word for what it covers,
 // and the domain as the interface language reads it.
 export function gloss(row) {
-  const entry = row.builtin ? GLOSS[row.id] : null;
+  const entry = row.builtin && !row.customized ? GLOSS[row.id] : null;
   if (!entry) return { name: row.name, note: "", domain: row.domain };
   const ja = getLanguage() === "ja";
   return { name: row.name, note: ja ? entry.ja : entry.en, domain: ja ? row.domain : entry.domain };

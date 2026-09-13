@@ -363,3 +363,10 @@ input[type="text"], input[type="password"], select, input[type="range"] {
 .mic-activity .mic-status { max-width: none; }
 .mic-activity .mic-meter { height: 32px; flex: 0 0 auto; }
 @keyframes mic-spin { to { transform: rotate(360deg); } }
+
+.persona-builder { width: min(680px, 100%); max-height: 90dvh; overflow-y: auto; }
+.builder-conversation { max-height: 35vh; overflow-y: auto; }
+.builder-message { padding: 10px 12px; margin: 8px 0; border: 1px solid var(--line); border-radius: 10px; }
+.builder-message.user { margin-left: 24px; }
+.builder-message p, .builder-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
+.persona-builder form { display: grid; gap: 8px; }

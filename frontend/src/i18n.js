@@ -1,6 +1,20 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "例：飲んだワインを覚えて、好みに合うワインを一緒に探す担当を作りたい。": "Example: A persona that remembers wines I have tried and helps me find wines I would enjoy.",
+  "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。": "Example: Give shorter replies and focus on keeping records rather than recommendations.",
+  "例：もう少し親しみやすい話し方にしてほしい。": "Example: Make the tone a little friendlier.",
+  "上の質問に答えてください。迷うところは「おまかせ」でも大丈夫です。": "Answer the question above. If you are unsure, you can say “You decide.”",
+  "担当すること": "What this persona helps with", "覚えること・返事をするタイミング": "What to remember and when to reply",
+  "考え方": "Response style", "できること": "Capabilities", "会話と記憶": "Conversation and memory",
+  "すばやく短く答える": "Quick, short answers", "速さと丁寧さのバランス": "A balance of speed and detail", "じっくり考えて答える": "Thoughtful, detailed answers",
+  "Webで調べる": "Search the web", "お店や場所を探す": "Find places and restaurants", "行き方を調べる": "Look up directions",
+  "AIと担当を作る": "Create a persona with AI", "AIで修正": "Edit with AI",
+  "どんなことの担当を作りたい？": "What would you like your persona to help with?", "どんなところを変えたい？": "What would you like to change?",
+  "回答や変更したいこと": "Your answer or requested changes", "この内容で保存": "Save this persona",
+  "考えています…": "Thinking…", "{0} を保存しました": "Saved {0}.", "{0} を修正": "Edit {0}",
+  "担当領域": "Domain", "話し方": "Tone", "記憶と発言のルール": "Memory and response rules",
+  "変更したいことがあれば続けて伝えてください。保存すると反映されます。": "You can keep asking for changes. Save to apply this draft.",
   "かけらを放り込む": "Toss in a fragment", "Ctrl（⌘）+ Enter": "Ctrl (⌘) + Enter",
   "キャプチャ": "Capture", "取り消す": "Remove",
   "何か書くか、画像を貼ってください": "Write something or attach an image.",

@@ -118,3 +118,27 @@ func TestAnsweringToAName(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateBuiltinPreservesIdentityAcrossReload(t *testing.T) {
+	root := t.TempDir()
+	c := NewCatalogue(root)
+	skill := Builtins[0]
+	skill.Domain = "修正した担当領域"
+	raw, _ := json.Marshal(skill)
+	if _, err := c.Update(skill.ID, raw, nil); err != nil {
+		t.Fatal(err)
+	}
+	reloaded := NewCatalogue(root)
+	got, ok := reloaded.Find(skill.ID)
+	if !ok || got.Domain != skill.Domain || !got.Builtin || !got.Customized {
+		t.Fatalf("updated builtin: %+v", got)
+	}
+	if len(reloaded.All()) != len(Builtins) {
+		t.Fatal("duplicate builtin")
+	}
+	skill.ID = "changed"
+	raw, _ = json.Marshal(skill)
+	if _, err := c.Update(Builtins[0].ID, raw, nil); err == nil {
+		t.Fatal("changed identity")
+	}
+}

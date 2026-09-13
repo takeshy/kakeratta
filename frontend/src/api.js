@@ -63,6 +63,8 @@ export const api = {
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),
 
+  buildPersona: (body) => call("POST", "/api/personas/build", body),
+  savePersonaDraft: (skill, id) => call(id ? "PUT" : "POST", id ? `/api/personas/${encodeURIComponent(id)}` : "/api/personas/draft", skill),
   personas: () => call("GET", "/api/personas"),
   setActive: (active) => call("PUT", "/api/personas", { active }),
   installPersona: async (definition) => {

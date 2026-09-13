@@ -7,6 +7,7 @@
 import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
+import { showPersonaBuilder } from "./persona-builder.js";
 import { gloss } from "./builtins.js";
 
 const tierLabels = {
@@ -53,6 +54,7 @@ export function createPersonas({ onChange }) {
           "そのうえで喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
       }),
     );
+    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ onSave: load }) }));
     for (const row of rows) view.append(drawRow(row));
     view.append(drawInstall());
   }
@@ -88,6 +90,7 @@ export function createPersonas({ onChange }) {
         { class: "compose-row" },
         el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
         el("span", { class: "spacer" }),
+        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaBuilder({ persona: row, onSave: load }) }),
         el("button", { class: "chip ghost", label: "メモを見る", onclick: () => void showMemory(row) }),
         row.builtin
           ? null

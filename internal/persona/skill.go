@@ -66,8 +66,9 @@ type Skill struct {
 	Model        Tier   `json:"model"`
 	// Tools are the declared capabilities. Nothing outside this list can be
 	// called, and the app is what calls them.
-	Tools   []string `json:"tools"`
-	Builtin bool     `json:"builtin"`
+	Tools      []string `json:"tools"`
+	Builtin    bool     `json:"builtin"`
+	Customized bool     `json:"customized,omitempty"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$`)
@@ -154,7 +155,19 @@ func (c *Catalogue) All() []Skill {
 		if err != nil {
 			continue
 		}
-		out = append(out, skill)
+		replaced := false
+		for i := range out {
+			if out[i].ID == skill.ID {
+				skill.Builtin = out[i].Builtin
+				skill.Customized = true
+				out[i] = skill
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			out = append(out, skill)
+		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Builtin != out[j].Builtin {
@@ -215,6 +228,35 @@ func (c *Catalogue) read(id string) (Skill, error) {
 // A skill is a file someone was given, so it decides nothing about where it
 // lands and is checked before anything is written.
 func (c *Catalogue) Install(raw []byte, known func(tool string) bool) (Skill, error) {
+	return c.save(raw, known, false)
+}
+
+// Update preserves identity, memory and activation, including for built-ins.
+func (c *Catalogue) Update(id string, raw []byte, known func(string) bool) (Skill, error) {
+	var skill Skill
+	if json.Unmarshal(raw, &skill) != nil || skill.ID != id {
+		return Skill{}, errors.New("担当のIDは変更できません")
+	}
+	if _, ok := c.Find(id); !ok {
+		return Skill{}, errors.New("担当が見つかりません")
+	}
+	return c.save(raw, known, true)
+}
+
+// Validate checks a draft without writing it.
+func Validate(skill Skill, known func(string) bool) error {
+	if err := validate(skill); err != nil {
+		return err
+	}
+	for _, tool := range skill.Tools {
+		if known != nil && !known(tool) {
+			return errors.New("知らない道具が宣言されています: " + tool)
+		}
+	}
+	return nil
+}
+
+func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) (Skill, error) {
 	if len(raw) > 256*1024 {
 		return Skill{}, errors.New("スキルの定義が大きすぎます")
 	}
@@ -226,7 +268,7 @@ func (c *Catalogue) Install(raw []byte, known func(tool string) bool) (Skill, er
 		return Skill{}, err
 	}
 	for _, builtin := range Builtins {
-		if builtin.ID == skill.ID {
+		if builtin.ID == skill.ID && !update {
 			return Skill{}, errors.New("同じIDの内蔵スキルがあります")
 		}
 	}
@@ -240,6 +282,13 @@ func (c *Catalogue) Install(raw []byte, known func(tool string) bool) (Skill, er
 	}
 	skill.Tools = tools
 	skill.Builtin = false
+	skill.Customized = false
+	for _, builtin := range Builtins {
+		if builtin.ID == skill.ID {
+			skill.Builtin = true
+			skill.Customized = true
+		}
+	}
 
 	dir := filepath.Join(c.root, skill.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
