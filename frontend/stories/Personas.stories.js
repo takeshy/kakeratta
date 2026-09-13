@@ -61,20 +61,20 @@ export const AICreateDraft = {
     const ja = getLanguage() === "ja";
     const draft = {
       id: "wine", name: ja ? "ぶどう" : "budou", icon: "🍷", model: "middle", tools: ["web_search"],
-      domain: ja ? "飲んだワインの記録と、好みに合うワイン探し。" : "Remember wines you try and help find bottles you would enjoy.",
+      domain: ja ? "ラベルの写真から、ワインの銘柄・産地・ブドウ品種を解説し、お店で買ったり注文したりできるようにする。" : "Identify wines from label photos and explain the producer, region, and grapes so you can buy or order them.",
       tone: ja ? "気軽に話せる友達のように、短く親しみやすく。" : "Friendly and relaxed, with short replies.",
-      instructions: ja ? "ワインの名前と感想を覚え、好みが見えてきたらまとめます。前の好みにつながる発見があるときに一言。" : "Remember wine names and impressions, and summarize emerging preferences. Chime in when something connects to your tastes.",
+      instructions: ja ? "ラベルが届いたら、ワインショップやお店で伝わる名前と、ブドウ品種・味わいを短く解説します。飲んだワインと感想も覚えます。" : "When a label arrives, give the name a shop or restaurant would recognize, with its grapes and style. Remember the wines you try and what you thought.",
     };
     serve({ personas, tools, memory, personaDraft: {
       message: ja ? "ワイン担当「ぶどう」の案を作りました。使ってからAIで修正できます。" : "Here is budou, your wine persona. Try it first and refine it later with AI.",
-      placeholder: ja ? "例：ワインに合う料理も提案してほしい。" : "Example: Suggest food pairings too.",
+      placeholder: ja ? "例：似た味わいで手頃なワインも教えてほしい。" : "Example: Also suggest similar wines at a lower price.",
       draft,
     }});
     showPersonaBuilder({});
     const dialog = document.querySelector(".persona-builder");
     dialog.querySelector("textarea").value = ja
-      ? "飲んだワインを覚えて、好みに合うワインを一緒に探す担当を作りたい。"
-      : "A persona that remembers wines I have tried and helps me find wines I would enjoy.";
+      ? "美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。お店で注文したり買ったりできるように。"
+      : "When I send a photo of a wine label I liked, tell me the wine and its grape varieties so I can buy or order it.";
     dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }),
 };

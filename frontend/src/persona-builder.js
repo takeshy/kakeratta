@@ -11,7 +11,7 @@ export function showPersonaBuilder({ persona, onSave }) {
   const conversation = el("div", { class: "builder-conversation", role: "log", "aria-live": "polite" });
   const preview = el("div");
   const error = el("p", { class: "hint", role: "alert" });
-  const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : "例：飲んだワインを覚えて、好みに合うワインを一緒に探す担当を作りたい。" });
+  const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。" });
   const send = el("button", { class: "button primary", label: "送る", type: "submit" });
   const save = el("button", { class: "button primary", label: "この内容で保存", hidden: true, onclick: async () => {
     if (busy || !draft) return;

@@ -10,11 +10,16 @@ they have something to say.
 
 The food persona learns your tastes from meals; the reading persona remembers
 passages that caught your eye. Keeping memory separate by subject prevents
-unrelated information from diluting it.
+unrelated information from diluting it. Personas keep only what belongs to their
+subject, not every post, so feel free to toss in plain notes too.
 
-**Create your own personas with AI.** Say “Remember the wines I try and help me
-find bottles I would enjoy,” and AI drafts a persona for you. Start using it,
-then refine its tone and what it remembers through conversation.
+**Create your own personas with AI.** Liked a wine at a restaurant or a
+friend's place? Send a photo of the label to a wine persona, and it tells you
+the wine and its grape varieties, so you can find it at a wine shop or order it
+next time. If you watch out for gout, a gout persona can look at a photo of
+your meal and warn you when it is high in purines. Describe the persona you
+want and AI drafts it. Start using it, then refine its tone and what it
+remembers through conversation.
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
@@ -24,10 +29,6 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 - Nebius Token Factory — inference backend
 
 Image reading uses GLM-5.3-Flash on the same backend.
-
-A browser app in two pieces: a static page and a Go API. Vite serves the page
-while developing and Firebase Hosting serves it deployed; the Go binary is only
-the API, on Cloud Run or on your own machine. [MIT licensed](LICENSE).
 
 ## How it works
 
@@ -51,7 +52,7 @@ Browser voice input can optionally polish your words with Nemotron Nano before p
 
 Answer “What would you like your persona to help with?” in your own words.
 
-> A persona that remembers wines I have tried and helps me find wines I would enjoy.
+> When I send a photo of a wine label I liked, tell me the wine and its grape varieties so I can buy or order it.
 
 Once the subject is clear, AI fills in a name, tone, and memory rules and gives
 you a draft right away. Even “wine” or “reading” is enough to start; there is no
@@ -76,6 +77,10 @@ import a `skill.json` from the UI.
 ![The Personas panel: each one's subject, model tier, tools, and notes](docs/captures/en/personas.png)
 
 ## Get started
+
+Kakeratta is a browser app in two pieces: a static page and a Go API. Vite
+serves the page while developing and Firebase Hosting serves it deployed; the
+Go binary is only the API, on Cloud Run or on your own machine.
 
 Requirements: Go 1.25 or later, Node.js, and Task (the `task` command).
 Run from the repository root:
@@ -112,11 +117,12 @@ page as `/?token=<URL-encoded token>` once in each browser; it claims the token
 through the API and keeps a session cookie from then on.
 
 For a public multi-user deployment, set all three Firebase variables instead.
-Users sign in with Google and receive isolated stores under
-`KAKERATTA_HOME/users/<uid-hash>/`. Firebase authentication takes precedence
-over the shared `KAKERATTA_TOKEN` mode.
-When `KAKERATTA_GCS_BUCKET` is set, captures are stored as private objects;
-timeline metadata, settings, and persona notes remain on the workspace disk.
+Users sign in with Google and each gets isolated data. Firebase authentication
+takes precedence over the shared `KAKERATTA_TOKEN` mode. Where the data lives:
+
+- `KAKERATTA_STORE=firestore` (for Cloud Run): posts, settings, persona notes, and persona definitions go to Firestore under `users/<uid-hash>`.
+- `KAKERATTA_STORE=file` (default): the same data goes to disk under `KAKERATTA_HOME/users/<uid-hash>/`.
+- With `KAKERATTA_GCS_BUCKET` set, images go to the private bucket under `users/<uid-hash>/blobs`, with either store.
 
 ## Read more
 
@@ -129,3 +135,5 @@ timeline metadata, settings, and persona notes remain on the workspace disk.
 
 Conversational AI persona creation and editing, posting and share intake,
 routing, notes, replies, search and route tools, and read-aloud are implemented. Sharing on real phones, OCR quality across different images and reaction frequency still need verification.
+
+[MIT licensed](LICENSE).
