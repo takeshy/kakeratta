@@ -8,13 +8,14 @@
 // It starts one line tall and grows with what is in it. The timeline is what
 // the screen is for; this is the way through to it.
 import { el, clear, toast } from "./dom.js";
+import { createMentionPicker } from "./mention-picker.js";
 import { api } from "./api.js";
 import { createVoiceInput } from "./voice_input.js";
 import { t } from "./i18n.js";
 
 const LINK = /^https?:\/\/\S+$/i;
 
-export function createCompose({ getSettings, onPosted }) {
+export function createCompose({ getSettings, getPersonas, onPosted }) {
   const view = el("form", { class: "compose" });
   const text = el("textarea", {
     class: "compose-text",
@@ -117,6 +118,7 @@ export function createCompose({ getSettings, onPosted }) {
       body.place = place || (await locate());
       const entry = await api.post(body);
       text.value = "";
+      mentions.hide();
       grow();
       image = null;
       preview.hidden = true;
@@ -141,6 +143,7 @@ export function createCompose({ getSettings, onPosted }) {
     onSend: () => void send(true),
   });
 
+  const mentions = createMentionPicker({ input: text, getPersonas, onChange: grow });
   text.addEventListener("input", grow);
   text.addEventListener("keydown", (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -156,6 +159,7 @@ export function createCompose({ getSettings, onPosted }) {
 
   view.append(
     text,
+    mentions.element,
     preview,
     el(
       "div",

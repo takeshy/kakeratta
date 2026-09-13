@@ -7,6 +7,7 @@
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
+import { createMentionPicker } from "./mention-picker.js";
 import { createVoiceInput } from "./voice_input.js";
 
 // Silence is the design, but an empty screen cannot say so for itself. The note
@@ -15,9 +16,10 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEntryChange, showIntro = true }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, showIntro = true }) {
   const view = el("div", { class: "feed" });
   let entries = [];
+  let speakingThread = null;
   let openReply = null;
   let replyEditor = null;
   const expanded = new Set();
@@ -105,6 +107,13 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
     // should see what you are answering.
     const open = expanded.has(post.id) || thread.some((entry) => entry.id === openReply);
     box.append(el("div", { class: "thread-actions" },
+      onSpeak ? el("button", {
+        class: "chip ghost thread-speak", "data-thread": post.id,
+        text: t(speakingThread === post.id ? "■ 停止" : "🔈 読み上げ"),
+        "aria-pressed": String(speakingThread === post.id),
+        i18nTitle: "このスレッドを読み上げます",
+        onclick: () => onSpeak(post.id, spoken(post.id)),
+      }) : null,
       rest.length ? drawToggle(thread, post, rest.length, open) : null,
       openReply === post.id ? null : drawReplyOpen(post)));
     if (open) for (const entry of rest) box.append(drawSaid(entry, post));
@@ -298,10 +307,12 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
       },
       onSend: () => void send(true),
     });
+    const mentions = createMentionPicker({ input, getPersonas, onChange: () => drafts.set(replyTo, input.value) });
     const box = el(
       "div",
       { class: "reply" },
       input,
+      mentions.element,
       el(
         "div",
         { class: "compose-row" },
@@ -335,19 +346,18 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
     return `${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}`;
   }
 
-  // What the read-aloud mode says: the posts and what was said about them, in
-  // order, so a backlog can be listened to while moving.
-  function spoken() {
+  // Read just the selected post and its replies in conversation order.
+  function spoken(root) {
     const lines = [];
     for (const thread of groups().slice().reverse()) {
       const post = thread.find((entry) => entry.kind === "post");
-      const said = thread.filter((entry) => entry !== post && entry.speaker !== "user");
-      if (!said.length) continue;
+      if (post.id !== root) continue;
+      const said = thread.filter((entry) => entry !== post);
       const heading = post.text || post.media?.describe || "投稿";
       lines.push({ id: post.id, text: heading });
       for (const entry of said) {
         const persona = getPersona(entry.speaker);
-        lines.push({ id: entry.id, text: `${persona?.name || entry.speaker}。${entry.text}` });
+        lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona?.name || entry.speaker}。${entry.text}` });
       }
     }
     return lines;
@@ -362,5 +372,14 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
     draw();
   }
 
-  return { element: view, set, upsert, draw, spoken, reveal, entries: () => entries };
+  function setSpeaking(root) {
+    speakingThread = root;
+    for (const button of view.querySelectorAll(".thread-speak")) {
+      const on = button.dataset.thread === root;
+      button.textContent = t(on ? "■ 停止" : "🔈 読み上げ");
+      button.setAttribute("aria-pressed", String(on));
+    }
+  }
+
+  return { element: view, set, upsert, draw, spoken, reveal, setSpeaking, entries: () => entries };
 }

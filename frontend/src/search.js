@@ -3,7 +3,7 @@ import { t } from "./i18n.js";
 import { api } from "./api.js";
 import { createFeed } from "./feed.js";
 
-export function createSearch({ getSettings, getPersona, onEntryChange, onReply }) {
+export function createSearch({ getSettings, getPersona, getPersonas, onEntryChange, onReply, onSpeak }) {
   const query = el("input", { type: "search", maxlength: 500, required: true,
     i18nPlaceholder: "かけらを検索", "aria-label": t("かけらを検索") });
   const mode = el("select", { "aria-label": t("検索方法") },
@@ -23,7 +23,7 @@ export function createSearch({ getSettings, getPersona, onEntryChange, onReply }
   let total = 0;
   let searchQuery = "";
   let searchMode = "keyword";
-  const thread = createFeed({ getSettings, getPersona, showIntro: false,
+  const thread = createFeed({ getSettings, getPersona, getPersonas, onSpeak, showIntro: false,
     onReply: () => { onReply?.(); return refresh(); },
     onEntryChange: (entry) => { onEntryChange?.(entry); changed(entry); },
   });
@@ -139,7 +139,7 @@ export function createSearch({ getSettings, getPersona, onEntryChange, onReply }
   const element = el("div", { class: "timeline-search" }, form,
     el("p", { class: "hint", label: "キーワードは空白で区切ると全語一致。意味検索は言い換えや曖昧な記憶から近い順に探します。" }),
     status, results, more, detail);
-  return { element, showEntry, changed, refresh, focus: () => query.focus(),
+  return { element, setSpeaking: thread.setSpeaking, reveal: thread.reveal, showEntry, changed, refresh, focus: () => query.focus(),
     searchFor: (text) => { query.value = text; mode.value = "keyword"; return run(); },
   };
 }

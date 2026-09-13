@@ -27,8 +27,11 @@ let panel = null;
 let settingsRequired = false;
 
 const speaker = createSpeaker();
+let speakingThread = null;
 const feed = createFeed({
   getSettings: () => settings,
+  onSpeak: speakThread,
+  getPersonas: () => personaRows,
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onReply: () => {
     void reload();
@@ -38,6 +41,7 @@ const feed = createFeed({
 });
 const compose = createCompose({
   getSettings: () => settings,
+  getPersonas: () => personaRows,
   onPosted: (entry) => {
     pages.upsert(entry);
     pollAfterSending();
@@ -45,6 +49,7 @@ const compose = createCompose({
   },
 });
 const personas = createPersonas({
+  getSettings: () => settings,
   onSearch: (query) => { open("search"); void searchPanel.searchFor(query); },
   onChange: (rows) => {
     personaRows = rows;
@@ -58,7 +63,6 @@ const room = createRoom({
   onOpen: () => open("personas"),
   onActivate: (id) => void personas.activate(id),
   onMention: (row) => compose.mention(row.name),
-  onSpeak: () => speaker.toggle(feed.spoken()),
 });
 const settingsPanel = createSettings({
   speaker,
@@ -74,13 +78,29 @@ const settingsPanel = createSettings({
 
 const searchPanel = createSearch({
   getSettings: () => settings,
+  onSpeak: speakThread,
+  getPersonas: () => personaRows,
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onEntryChange: (entry) => pages.upsert(entry),
   onReply: () => { void reload(); pollAfterSending(); },
 });
 
-speaker.onState((on) => room.setSpeaking(on));
+function speakThread(root, lines) {
+  const stopping = speakingThread === root && speaker.speaking();
+  speaker.stop();
+  if (stopping) return;
+  speakingThread = root;
+  void speaker.start(lines);
+}
+
+speaker.onState((on) => {
+  if (!on) speakingThread = null;
+  feed.setSpeaking(speakingThread);
+  searchPanel.setSpeaking(speakingThread);
+});
 speaker.onLine((line) => {
+  if (panel === "search") searchPanel.reveal(line.id);
+  else feed.reveal(line.id);
   document.querySelector(`[data-id="${line.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
 });
 

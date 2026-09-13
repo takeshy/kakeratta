@@ -29,15 +29,13 @@ function drawCaptures(node) {
   return node;
 }
 
-export function room(rows, { speaking = false } = {}) {
+export function room(rows) {
   const view = createRoom({
     onOpen: () => {},
     onActivate: () => {},
     onMention: () => {},
-    onSpeak: () => {},
   });
   view.set(rows);
-  view.setSpeaking(speaking);
   return view;
 }
 
@@ -45,6 +43,7 @@ export function feed(entries, rows = []) {
   const view = createFeed({
     getPersona: (id) => rows.find((row) => row.id === id),
     onReply: () => {},
+    onSpeak: () => {},
   });
   view.set(entries);
   return view;

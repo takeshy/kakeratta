@@ -59,8 +59,7 @@ body {
 }
 .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: 0.02em; }
 .brand-mark { width: 22px; height: 22px; border-radius: 6px; }
-/* Navigation, and only navigation. The read-aloud switch is a mode over the
-   timeline, so it sits down there with it instead of in this row. */
+/* Navigation stays separate from each thread’s read-aloud control. */
 .topbar .nav { font-size: 0.8rem; white-space: nowrap; }
 /* Signed in, the row is five items wide. On a phone the mark stands for the
    name, so the navigation stays on one line. */
@@ -152,7 +151,6 @@ body {
 }
 
 .who-bar { display: flex; align-items: center; gap: 6px; padding: 12px 2px; flex-wrap: wrap; }
-.chip.speak { background: var(--bg); }
 .persona-chip { background: var(--accent-soft); border-color: transparent; }
 
 /* The timeline */
@@ -424,3 +422,15 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .memory-card:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .memory-forget { margin-top: 12px; }
+
+.mention-picker { max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.mention-option { display: block; width: 100%; text-align: left; padding: 10px 12px; background: transparent; color: inherit; border: 0; border-radius: 6px; cursor: pointer; }
+.mention-option[aria-selected="true"] { background: var(--line); }
+
+.persona-more { display: none; }
+@media (max-width: 600px) {
+  .who-bar:not(.expanded) .persona-overflow { display: none; }
+  .who-bar .persona-more { display: inline-flex; white-space: nowrap; }
+  .who-bar .persona-chip { max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who-bar.expanded .persona-chip { max-width: 100%; }
+}

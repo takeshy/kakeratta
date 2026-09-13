@@ -17,7 +17,7 @@ const tierLabels = {
   high: "high（最後に動く）",
 };
 
-export function createPersonas({ onChange, onSearch }) {
+export function createPersonas({ onChange, onSearch, getSettings }) {
   const view = el("div", { class: "panel-body" });
   let rows = [];
   let toolNames = [];
@@ -55,7 +55,7 @@ export function createPersonas({ onChange, onSearch }) {
           "そのうえで喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
       }),
     );
-    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ onSave: load }) }));
+    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ getSettings, onSave: load }) }));
     view.append(el("p", { class: "hint", label: "どの担当も、必要なときに過去のかけらを検索し、元の投稿を参照できます。" }));
     for (const row of rows) view.append(drawRow(row));
     view.append(drawInstall());
@@ -92,7 +92,7 @@ export function createPersonas({ onChange, onSearch }) {
         { class: "compose-row" },
         el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
         el("span", { class: "spacer" }),
-        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaBuilder({ persona: row, onSave: load }) }),
+        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaBuilder({ getSettings, persona: row, onSave: load }) }),
         el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
         row.builtin
           ? null

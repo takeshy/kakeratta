@@ -28,6 +28,7 @@ export function createSpeaker() {
 
   const listeners = new Set();
   let speaking = false;
+  let generation = 0;
   let queue = [];
   let rate = 1.2;
   let voiceName = "";
@@ -83,8 +84,8 @@ export function createSpeaker() {
       voice: utterance.voice?.name || "browser default",
       rate: utterance.rate,
     });
-    utterance.onend = () => step();
-    utterance.onerror = () => step();
+    const current = generation;
+    utterance.onend = utterance.onerror = () => { if (current === generation) step(); };
     synth.speak(utterance);
   }
 
@@ -97,6 +98,7 @@ export function createSpeaker() {
       toast("読み上げるものがありません");
       return;
     }
+    const current = ++generation;
     synth.cancel();
     queue = [...lines];
     emit(true);
@@ -107,11 +109,12 @@ export function createSpeaker() {
       synth.resume();
     }, KEEP_ALIVE_MS);
     await waitForVoices();
-    if (!speaking) return;
+    if (!speaking || current !== generation) return;
     step();
   }
 
   function stop() {
+    ++generation;
     clearInterval(keepAlive);
     keepAlive = null;
     queue = [];

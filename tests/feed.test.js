@@ -48,7 +48,8 @@ class TestNode {
   }
   get firstChild() { return this.children[0]; }
   setAttribute(name, value) {
-    if (name === "data-reply-to") this.dataset.replyTo = value;
+    if (name === "data-thread") this.dataset.thread = value;
+    else if (name === "data-reply-to") this.dataset.replyTo = value;
     else this[name] = value;
   }
   addEventListener(name, fn) { (this.listeners[name] ??= []).push(fn); }
@@ -197,4 +198,94 @@ test("a failed delete keeps the post and allows retry", async (t) => {
   assert.equal(feed.element.querySelectorAll(".thread").length, 1);
   assert.equal(button.disabled, false);
   assert.equal(toasts.children[0].textContent, "offline");
+});
+
+test("persona builder dictates with saved settings, sends, and stops on close", async (t) => {
+  const { showPersonaBuilder } = await import("../frontend/src/persona-builder.js");
+  t.mock.method(api, "buildPersona", async () => ({ message: "続けて教えてください", draft: null }));
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null };
+  globalThis.cancelAnimationFrame = () => {};
+  const recognizers = [];
+  globalThis.SpeechRecognition = class {
+    constructor() { recognizers.push(this); }
+    start() {}
+    stop() { this.stopped = true; }
+    abort() {}
+    result(text) {
+      const result = [{ transcript: text }];
+      result.isFinal = true;
+      this.onresult({ results: [result] });
+    }
+  };
+  t.after(() => {
+    delete globalThis.Node;
+    delete globalThis.document;
+    delete globalThis.cancelAnimationFrame;
+    delete globalThis.SpeechRecognition;
+  });
+  showPersonaBuilder({ getSettings: () => ({ speech: { language: "ja", sendPhrase: "送信" } }) });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const button = label => walk(document.body).find(node => node.textContent === translate(label));
+  const input = document.body.querySelectorAll(".skill-input")[0];
+  button("🎙 話す").fire("click");
+  assert.equal(recognizers[0].lang, "ja-JP");
+  recognizers[0].result("ワインの担当を作りたい");
+  assert.equal(input.value, "ワインの担当を作りたい");
+  recognizers[0].result("ワインの担当を作りたい送信");
+  await new Promise(setImmediate);
+  assert.equal(api.buildPersona.mock.calls[0].arguments[0].messages[0].content, "ワインの担当を作りたい");
+  assert.equal(recognizers[0].stopped, true);
+  button("🎙 話す").fire("click");
+  button("閉じる").fire("click");
+  assert.equal(recognizers[1].stopped, true);
+  assert.equal(document.body.children.length, 0);
+});
+
+
+test("read aloud selects only one thread, including user replies, and updates its stop button", t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  let request;
+  const feed = createFeed({ getPersona: () => ({ name: "ワイン係" }), onSpeak: (...args) => { request = args; } });
+  const at = "2026-09-13T00:00:00Z";
+  feed.set([
+    { id: "p", kind: "post", text: "ワイン", at },
+    { id: "r", root: "p", kind: "remark", speaker: "wine", text: "赤です", at },
+    { id: "u", root: "p", kind: "reply", speaker: "user", text: "ありがとう", at },
+    { id: "other", kind: "post", text: "別の話", at },
+  ]);
+  const button = feed.element.querySelectorAll(".thread-speak").find(node => node.dataset.thread === "p");
+  button.fire("click");
+  assert.equal(request[0], "p");
+  assert.deepEqual(request[1].map(line => line.id), ["p", "r", "u"]);
+  feed.setSpeaking("p");
+  assert.equal(button.textContent, translate("■ 停止"));
+  feed.draw();
+  assert.equal(feed.element.querySelectorAll(".thread-speak").find(node => node.dataset.thread === "p").textContent, translate("■ 停止"));
+  feed.setSpeaking(null);
+  assert.ok(feed.element.querySelectorAll(".thread-speak").every(node => node.textContent === translate("🔈 読み上げ")));
+  assert.deepEqual(feed.spoken("other").map(line => line.id), ["other"]);
+});
+
+test("persona bar groups overflow and toggles without losing the selected persona", async t => {
+  const { createRoom } = await import("../frontend/src/room.js");
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  let selected;
+  const room = createRoom({ onMention: row => { selected = row.id; } });
+  room.set(Array.from({ length: 6 }, (_, i) => ({ id: String(i), name: `担当${i}`, active: true })));
+  const more = room.bar.querySelectorAll(".persona-more")[0];
+  assert.equal(more.textContent, translate("その他{0}体", 4));
+  assert.equal(room.bar.querySelectorAll(".persona-overflow").length, 4);
+  more.fire("click");
+  assert.equal(room.bar.classList.contains("expanded"), true);
+  room.bar.querySelectorAll(".persona-overflow")[0].fire("click");
+  assert.equal(selected, "2");
+  more.fire("click");
+  assert.equal(room.bar.classList.contains("expanded"), false);
+  room.set([{ id: "one", name: "担当", active: true }]);
+  assert.equal(room.bar.querySelectorAll(".persona-more").length, 0);
 });

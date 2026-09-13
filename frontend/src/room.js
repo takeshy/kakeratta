@@ -9,15 +9,10 @@ import { el, clear } from "./dom.js";
 import { t } from "./i18n.js";
 import { gloss, named } from "./builtins.js";
 
-export function createRoom({ onOpen, onActivate, onMention, onSpeak }) {
+export function createRoom({ onOpen, onActivate, onMention }) {
   const banner = el("section", { class: "nobody", hidden: true });
   const bar = el("div", { class: "who-bar" });
-  const speakButton = el("button", {
-    class: "chip speak",
-    label: "🔈 読み上げ",
-    i18nTitle: "溜まった反応を順に読み上げます",
-    onclick: () => onSpeak?.(),
-  });
+  let expanded = false;
   let rows = [];
 
   function drawBanner() {
@@ -49,17 +44,32 @@ export function createRoom({ onOpen, onActivate, onMention, onSpeak }) {
 
   function drawBar() {
     clear(bar);
-    for (const row of rows.filter((row) => row.active)) {
+    const active = rows.filter(row => row.active);
+    for (const [index, row] of active.entries()) {
       bar.append(
         el("button", {
-          class: "chip persona-chip",
+          class: `chip persona-chip${index >= 2 ? " persona-overflow" : ""}`,
           title: `${gloss(row).domain}\n${t("押すと @{0} を書き入れます", row.name)}`,
           text: `${row.icon || "◎"} ${row.name}`,
           onclick: () => onMention?.(row),
         }),
       );
     }
-    bar.append(el("span", { class: "spacer" }), speakButton);
+    bar.classList.toggle("expanded", expanded);
+    if (active.length > 2) {
+      const more = el("button", {
+        class: "chip ghost persona-more", type: "button",
+        text: expanded ? t("折りたたむ") : t("その他{0}体", active.length - 2),
+        "aria-expanded": String(expanded),
+        onclick: () => {
+          expanded = !expanded;
+          bar.classList.toggle("expanded", expanded);
+          more.textContent = expanded ? t("折りたたむ") : t("その他{0}体", active.length - 2);
+          more.setAttribute("aria-expanded", String(expanded));
+        },
+      });
+      bar.append(more);
+    }
   }
 
   return {
@@ -69,10 +79,6 @@ export function createRoom({ onOpen, onActivate, onMention, onSpeak }) {
       rows = next || [];
       drawBanner();
       drawBar();
-    },
-    setSpeaking(on) {
-      speakButton.textContent = t(on ? "■ 停止" : "🔈 読み上げ");
-      speakButton.classList.toggle("active", on);
     },
   };
 }

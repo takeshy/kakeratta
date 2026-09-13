@@ -85,6 +85,8 @@ const EN = {
   "読み取り中…": "Reading…", "文字は読み取れませんでした。": "No text could be read.",
   "あなた": "You", "返す": "Reply", "一言足す": "Add a comment", "返信 {0}件": "{0} replies",
   "返事や、@名前 で指名": "Reply, or mention @name", "送る": "Send", "やめる": "Cancel", "投稿": "Post",
+  "その他{0}体": "{0} more", "折りたたむ": "Collapse",
+  "このスレッドを読み上げます": "Read this thread aloud",
   "担当が誰もいません。": "Nobody is in the room.",
   "いま放り込んだかけらは、どこにも渡りません。1人呼べば、そこから受け取ります。": "A fragment tossed in now reaches nobody. Call one in and it starts receiving them.",
   "{0} を呼ぶ": "Call in {0}", "担当をえらぶ": "Choose personas",

@@ -1,12 +1,14 @@
 import { el, clear, toast } from "./dom.js";
+import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 
-export function showPersonaBuilder({ persona, onSave }) {
+export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }) {
   const opener = document.activeElement;
   const messages = [];
   let draft = null;
   let busy = false;
+  let closed = false;
   const backdrop = el("div", { class: "dialog-backdrop" });
   const conversation = el("div", { class: "builder-conversation", role: "log", "aria-live": "polite" });
   const preview = el("div");
@@ -18,6 +20,8 @@ export function showPersonaBuilder({ persona, onSave }) {
     setBusy(true);
     error.textContent = "";
     try {
+      await voice.discard();
+      if (closed) return;
       const saved = await api.savePersonaDraft(draft, persona?.id);
       toast(t("{0} を保存しました", saved.name));
       close();
@@ -25,12 +29,24 @@ export function showPersonaBuilder({ persona, onSave }) {
     } catch (e) { error.textContent = e.message; }
     finally { setBusy(false); }
   }});
-  function close() { backdrop.remove(); opener?.focus(); }
+  const voice = createVoiceInput({
+    getSettings,
+    getText: () => input.value,
+    setText: (value) => { if (!closed && !busy) input.value = value; },
+    onSend: () => void submit(),
+  });
+  function close() {
+    closed = true;
+    void voice.discard();
+    backdrop.remove();
+    opener?.focus();
+  }
   function setBusy(value) {
     busy = value;
     input.disabled = value;
     send.disabled = value;
     save.disabled = value;
+    voice.button.disabled = value;
     send.textContent = t(value ? "考えています…" : "送る");
   }
   function bubble(role, text) {
@@ -39,13 +55,15 @@ export function showPersonaBuilder({ persona, onSave }) {
   }
   bubble("assistant", t(persona ? "どんなところを変えたい？" : "どんなことの担当を作りたい？"));
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault();
     const answer = input.value.trim();
-    if (!answer || busy) return;
+    if (!answer || busy || closed) return;
     setBusy(true);
     error.textContent = "";
     const next = [...messages, { role: "user", content: answer }];
     try {
+      await voice.discard();
+      if (closed) return;
       const result = await api.buildPersona({ id: persona?.id, language: getLanguage(), messages: next });
       if (!backdrop.isConnected) return;
       messages.push(next.at(-1), { role: "assistant", content: JSON.stringify(result) });
@@ -78,7 +96,7 @@ export function showPersonaBuilder({ persona, onSave }) {
   const dialog = el("div", { class: "dialog persona-builder", role: "dialog", "aria-modal": "true", "aria-label": t(persona ? "AIで修正" : "AIと担当を作る") },
     el("h3", { text: persona ? t("{0} を修正", persona.name) : t("AIと担当を作る") }),
     conversation, preview, error,
-    el("form", { onsubmit: submit }, input, el("div", { class: "compose-row" }, send)),
+    el("form", { onsubmit: submit }, input, el("div", { class: "compose-row" }, voice.button, send), voice.activity),
     el("div", { class: "compose-row" }, el("button", { class: "button ghost", label: "閉じる", onclick: close }), el("span", { class: "spacer" }), save));
   dialog.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }
