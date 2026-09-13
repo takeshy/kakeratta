@@ -338,3 +338,28 @@ input[type="text"], input[type="password"], select, input[type="range"] {
 .mic-meter.live { display: inline-flex; }
 .mic-meter span { width: 3px; background: var(--accent); border-radius: 2px; }
 .mic-status { max-width: 220px; color: var(--muted); font-size: 0.8rem; }
+.mic-activity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--card));
+}
+.mic-activity[hidden] { display: none; }
+.mic-activity.processing::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: mic-spin 0.8s linear infinite;
+}
+.mic-copy { display: grid; min-width: 0; gap: 2px; }
+.mic-title { font-size: 0.88rem; font-weight: 600; }
+.mic-activity .mic-status { max-width: none; }
+.mic-activity .mic-meter { height: 32px; flex: 0 0 auto; }
+@keyframes mic-spin { to { transform: rotate(360deg); } }

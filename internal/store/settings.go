@@ -124,7 +124,7 @@ func defaultSettings() Settings {
 			Model:          "whisper-1",
 			Language:       "auto",
 			SilenceSeconds: 3,
-			SendPhrase:     "over, オーバー",
+			SendPhrase:     "終わります",
 		},
 		ReadAloudRate: 1.2,
 	}

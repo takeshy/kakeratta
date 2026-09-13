@@ -84,9 +84,12 @@ test("a send phrase by itself still asks the recorder to close", async () => {
 
 test("browser preserves punctuation and converts question commands only on final results", async () => {
   let current, text = "";
+  let microphoneStopped = false;
   const create = load("browser_speech", {
     t: x => x, speechDraft, convertSpokenSymbol, applyReplacementRules,
-    navigator: { language: "ja", mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) } },
+    navigator: { language: "ja", mediaDevices: { getUserMedia: async () => ({
+      getTracks: () => [{ enabled: true, stop() { microphoneStopped = true; } }]
+    }) } },
     SpeechRecognition: class { constructor() { current = this; } start() {} abort() {} }
   }, "createBrowserRecognizer");
   const recognizer = create({ getSettings: () => ({ language: "ja", silenceSeconds: 0, sendPhrase: "" }),
@@ -101,6 +104,7 @@ test("browser preserves punctuation and converts question commands only on final
   current.onresult({ results: [result("こんにちは。", true), result("いいですかクエスチョン", true)] });
   assert.equal(text, "こんにちは。いいですか?");
   recognizer.stop();
+  assert.equal(microphoneStopped, true, "the level-meter microphone must be released when listening ends");
 });
 
 test("editing live dictation consumes displayed results so revisions cannot resurrect deleted text", async () => {

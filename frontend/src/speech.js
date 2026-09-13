@@ -76,7 +76,7 @@ export function transcriptionURL(baseUrl, endpointType = "openai", vertexProject
 
 // speechDraft appends the transcript to whatever is already in the box and
 // reports whether the user spoke a send phrase ("over"), which copies & closes.
-export function speechDraft(base, transcript, final, sendPhrase = "over, オーバー", _afterSilence = false, normalized = false, symbolCommands, replacements) {
+export function speechDraft(base, transcript, final, sendPhrase = "終わります", _afterSilence = false, normalized = false, symbolCommands, replacements) {
   const phrases = sendPhrase.split(/[,、\n]/).map((phrase) => phrase.trim())
     .filter(Boolean).sort((a, b) => b.length - a.length);
   const pattern = phrases.map((phrase) => {

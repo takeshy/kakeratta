@@ -16,6 +16,7 @@ export function browserSpeechSupported() {
 export function createBrowserRecognizer({ getSettings, getBase, getContext, getText, onInput, onSend, onState }) {
   let recognition = null;
   let meter = null;
+  let meterRequest = 0;
   const state = { status: "idle", error: "", silenceHint: "", retainedCount: 0, meterStream: null };
 
   function publish(changes) {
@@ -24,6 +25,7 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
   }
 
   function stop() {
+    meterRequest++;
     const current = recognition;
     recognition = null;
     if (current) {
@@ -31,9 +33,13 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       current.onerror = null;
       current.onend = null;
       current.onspeechstart = null;
-      current.abort();
+      try { current.stop(); } catch {}
+      try { current.abort(); } catch {}
     }
-    meter?.getTracks().forEach((track) => track.stop());
+    meter?.getTracks().forEach((track) => {
+      track.enabled = false;
+      track.stop();
+    });
     meter = null;
     publish({ status: "idle", meterStream: null });
   }
@@ -128,8 +134,9 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       publish({ status: "recording" });
       current.start();
       // Metering is optional: a failure here must not disable recognition.
+      const request = ++meterRequest;
       void navigator.mediaDevices?.getUserMedia({ audio: true }).then((stream) => {
-        if (recognition !== current) {
+        if (recognition !== current || meterRequest !== request) {
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
@@ -141,6 +148,8 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       publish({ error: t("音声認識を開始できません: {0}", caught instanceof Error ? caught.message : String(caught)) });
     }
   }
+
+  globalThis.addEventListener?.("pagehide", stop, { once: true });
 
   return {
     toggle,
