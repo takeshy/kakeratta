@@ -171,6 +171,10 @@ func (s *Store) ConfiguredSettings() Settings {
 	defer s.mu.RUnlock()
 	settings := defaultSettings()
 	_ = readJSON(filepath.Join(s.root, "settings.json"), &settings)
+	return normaliseConfiguredSettings(settings)
+}
+
+func normaliseConfiguredSettings(settings Settings) Settings {
 	if settings.ReadAloudRate <= 0 {
 		settings.ReadAloudRate = 1
 	}
@@ -184,7 +188,10 @@ func (s *Store) ConfiguredSettings() Settings {
 }
 
 func (s *Store) Settings() Settings {
-	settings := s.ConfiguredSettings()
+	return effectiveSettings(s.ConfiguredSettings())
+}
+
+func effectiveSettings(settings Settings) Settings {
 	if strings.TrimSpace(settings.MiddleModel) == "" {
 		settings.MiddleModel = settings.LowModel
 	}

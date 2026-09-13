@@ -31,8 +31,9 @@ import (
 
 // Store is the on-disk workspace.
 type Store struct {
-	root string
-	mu   sync.RWMutex
+	root  string
+	blobs BlobStore
+	mu    sync.RWMutex
 }
 
 func Open(root string) (*Store, error) {
@@ -44,7 +45,16 @@ func Open(root string) (*Store, error) {
 			return nil, err
 		}
 	}
-	return &Store{root: root}, nil
+	return &Store{root: root, blobs: fileBlobs{root: filepath.Join(root, "blobs")}}, nil
+}
+
+func (s *Store) SetBlobStore(blobs BlobStore) {
+	if blobs == nil {
+		return
+	}
+	s.mu.Lock()
+	s.blobs = blobs
+	s.mu.Unlock()
 }
 
 // DefaultRoot is where the workspace lives when none is given.
@@ -212,7 +222,7 @@ func (s *Store) PutBlob(data []byte, mime string) (string, error) {
 	name := id + extensionFor(mime)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := os.WriteFile(s.path("blobs", name), data, 0o644); err != nil {
+	if err := s.blobs.Put(name, data, mime); err != nil {
 		return "", err
 	}
 	return name, nil
@@ -225,11 +235,7 @@ func (s *Store) Blob(id string) ([]byte, string, error) {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	data, err := os.ReadFile(s.path("blobs", id))
-	if err != nil {
-		return nil, "", err
-	}
-	return data, mimeFor(id), nil
+	return s.blobs.Get(id)
 }
 
 func extensionFor(mime string) string {
@@ -462,6 +468,10 @@ func notePath(path string) (string, error) {
 
 // SkillDir is where installed skills live, one directory each.
 func (s *Store) SkillDir() string { return s.path("skills") }
+
+// File catalogues already write directly under SkillDir.
+func (s *Store) PersistSkill(_ string, _ []byte) error { return nil }
+func (s *Store) DeleteSkill(_ string) error            { return nil }
 
 // ---- helpers ---------------------------------------------------------------
 

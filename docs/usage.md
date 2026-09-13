@@ -15,12 +15,20 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 | `KAKERATTA_ADDR` | `:8787` | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Where posts, notes and images are kept |
 | `KAKERATTA_TOKEN` | empty | Empty means anyone can walk in. **Set it whenever the app is reachable from outside** — this process is the one holding the inference keys |
+| `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enable Google sign-in and per-user workspaces |
+| `KAKERATTA_FIREBASE_API_KEY` | empty | Firebase Web API key |
+| `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
 
 With a token set, open `/?token=<URL-encoded token>` once in each browser.
 The server sets an HttpOnly session cookie and redirects to a URL without the
 token. Subsequent API requests and Android shares use that cookie.
 Images are limited to 20 MiB per post, including paste and multipart shares;
 oversized shares are rejected rather than saved as truncated images.
+
+When all Firebase variables are set, Google sign-in replaces shared-token
+authentication. The server exchanges a Firebase ID token for a signed,
+HttpOnly session cookie and gives every Firebase `uid` a separate store,
+reaction queue, event stream, and speech service.
 
 ## Ways in
 

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -26,6 +27,10 @@ var errHTTPOnly = errors.New("この形態では使えません")
 const maxCapture = 20 << 20
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/auth/config", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
+	})
+	s.mux.HandleFunc("POST /api/auth/logout", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	// The share target posts here, and so does the iOS shortcut. It is the one
 	// endpoint that has to work from outside the page, so it takes multipart
 	// and accepts its token in the form as well as the header.
@@ -383,12 +388,22 @@ func (s *Server) installPersona(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	encoded, err := json.Marshal(skill)
+	if err != nil || s.store.PersistSkill(skill.ID, encoded) != nil {
+		_ = s.catalogue.Uninstall(skill.ID)
+		fail(w, http.StatusInternalServerError, "担当を保存できませんでした")
+		return
+	}
 	writeJSON(w, http.StatusOK, skill)
 }
 
 func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
 	if err := s.catalogue.Uninstall(r.PathValue("id")); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := s.store.DeleteSkill(r.PathValue("id")); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

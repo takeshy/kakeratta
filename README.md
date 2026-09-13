@@ -42,10 +42,23 @@ and `task test` to run the tests.
 | `KAKERATTA_ADDR` | `:8787` | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Storage for posts, notes, and images |
 | `KAKERATTA_TOKEN` | empty (no authentication) | Access token |
+| `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enables multi-user Firebase Authentication |
+| `KAKERATTA_FIREBASE_API_KEY` | empty | Public Firebase Web API key |
+| `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
+| `KAKERATTA_GCS_BUCKET` | empty | Private Cloud Storage bucket for images |
+| `KAKERATTA_STORE` | `file` | Set to `firestore` for Cloud Run |
+| `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebase project | Firestore project |
 
 **Set `KAKERATTA_TOKEN` whenever the app is reachable from outside.** Open
 `/?token=<URL-encoded token>` once in each browser to authenticate subsequent
 requests with a session cookie.
+
+For a public multi-user deployment, set all three Firebase variables instead.
+Users sign in with Google and receive isolated stores under
+`KAKERATTA_HOME/users/<uid-hash>/`. Firebase authentication takes precedence
+over the shared `KAKERATTA_TOKEN` mode.
+When `KAKERATTA_GCS_BUCKET` is set, captures are stored as private objects;
+timeline metadata, settings, and persona notes remain on the workspace disk.
 
 ## Read more
 

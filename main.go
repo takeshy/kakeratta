@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"cloud.google.com/go/firestore"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/server"
 	"github.com/takeshy/kakeratta/internal/store"
@@ -38,27 +39,75 @@ func main() {
 	if root == "" {
 		root = store.DefaultRoot()
 	}
-	workspace, err := store.Open(root)
-	if err != nil {
-		log.Fatalf("ワークスペースを開けません: %v", err)
-	}
-
 	pages, err := fs.Sub(assets, "frontend/dist")
 	if err != nil {
 		log.Fatalf("画面を読み込めません: %v", err)
 	}
 
-	catalogue := persona.NewCatalogue(workspace.SkillDir())
-	app := server.New(server.Options{
-		Store:     workspace,
-		Catalogue: catalogue,
-		Assets:    pages,
-		Version:   version,
-		// A token is how the iOS shortcut and anything else outside the browser
-		// identifies itself. Left empty, the app is open - which is right on a
-		// laptop and wrong the moment it is deployed, so the log says so.
-		Token: strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
-	})
+	var handler http.Handler
+	var closeApp func()
+	firebaseProjectID := strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_PROJECT_ID"))
+	var cloudBlobs *store.GCSBlobs
+	if bucket := strings.TrimSpace(os.Getenv("KAKERATTA_GCS_BUCKET")); bucket != "" {
+		cloudBlobs, err = store.NewGCSBlobs(context.Background(), bucket)
+		if err != nil {
+			log.Fatalf("Cloud Storageを初期化できません: %v", err)
+		}
+		defer cloudBlobs.Close()
+	}
+	var firestoreClient *firestore.Client
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("KAKERATTA_STORE")), "firestore") {
+		projectID := strings.TrimSpace(os.Getenv("KAKERATTA_FIRESTORE_PROJECT_ID"))
+		if projectID == "" {
+			projectID = firebaseProjectID
+		}
+		if projectID == "" {
+			log.Fatal("Firestoreにはproject IDが必要です")
+		}
+		firestoreClient, err = firestore.NewClient(context.Background(), projectID)
+		if err != nil {
+			log.Fatalf("Firestoreを初期化できません: %v", err)
+		}
+		defer firestoreClient.Close()
+	}
+	if firebaseProjectID != "" {
+		authOptions := server.AuthOptions{
+			Root: root, Assets: pages, Version: version,
+			FirebaseProjectID:  firebaseProjectID,
+			FirebaseAPIKey:     strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_API_KEY")),
+			FirebaseAuthDomain: strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_AUTH_DOMAIN")),
+			BlobStore: func(userKey string) store.BlobStore {
+				if cloudBlobs == nil {
+					return nil
+				}
+				return cloudBlobs.Scope("users/" + userKey + "/blobs")
+			},
+		}
+		if firestoreClient != nil {
+			authOptions.OpenWorkspace = func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
+				return store.NewFirestoreWorkspace(context.Background(), firestoreClient, userKey, blobs)
+			}
+		}
+		app, err := server.NewGateway(context.Background(), authOptions)
+		if err != nil {
+			log.Fatalf("Firebase認証を初期化できません: %v", err)
+		}
+		handler, closeApp = app, app.Close
+	} else {
+		workspace, err := store.Open(root)
+		if err != nil {
+			log.Fatalf("ワークスペースを開けません: %v", err)
+		}
+		if cloudBlobs != nil {
+			workspace.SetBlobStore(cloudBlobs.Scope("single/blobs"))
+		}
+		app := server.New(server.Options{
+			Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
+			Assets: pages, Version: version,
+			Token: strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
+		})
+		handler, closeApp = app, app.Close
+	}
 
 	address := os.Getenv("KAKERATTA_ADDR")
 	if address == "" {
@@ -66,7 +115,7 @@ func main() {
 	}
 	httpServer := &http.Server{
 		Addr:              address,
-		Handler:           app,
+		Handler:           handler,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
@@ -87,5 +136,5 @@ func main() {
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
 	// Stop taking posts first, then let the reactions already in hand finish.
-	app.Close()
+	closeApp()
 }

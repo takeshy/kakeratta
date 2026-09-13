@@ -6,8 +6,38 @@ cd "$(dirname "$0")"
 PROJECT_ID=${KAKERATTA_PROJECT_ID:-kakeratta}
 REGION=${KAKERATTA_REGION:-asia-northeast1}
 ZONE=${KAKERATTA_ZONE:-asia-northeast1-b}
+RUN_REGION=${KAKERATTA_RUN_REGION:-asia-east1}
 IMAGE_TAG=${KAKERATTA_IMAGE_TAG:-$(date -u +%Y%m%d%H%M%S)}
-TF_ARGS=(-var="project_id=$PROJECT_ID" -var="region=$REGION" -var="zone=$ZONE" -var="image_tag=$IMAGE_TAG")
+FIREBASE_PROJECT_ID=${KAKERATTA_FIREBASE_PROJECT_ID:-$PROJECT_ID}
+
+# Firebase's browser configuration is public metadata. Fetch the active Web
+# App configuration from Firebase instead of maintaining a local config file.
+FIREBASE_ACCESS_TOKEN=$(gcloud auth print-access-token)
+FIREBASE_APPS=$(curl -fsS \
+  -H "Authorization: Bearer $FIREBASE_ACCESS_TOKEN" \
+  -H "x-goog-user-project: $FIREBASE_PROJECT_ID" \
+  "https://firebase.googleapis.com/v1beta1/projects/$FIREBASE_PROJECT_ID/webApps")
+FIREBASE_APP_ID=$(jq -r '.apps[] | select(.state == "ACTIVE") | .appId' <<<"$FIREBASE_APPS" | head -n 1)
+if [[ -z "$FIREBASE_APP_ID" ]]; then
+  printf 'No active Firebase Web App exists in project %s.\n' "$FIREBASE_PROJECT_ID" >&2
+  exit 1
+fi
+FIREBASE_CONFIG=$(curl -fsS \
+  -H "Authorization: Bearer $FIREBASE_ACCESS_TOKEN" \
+  -H "x-goog-user-project: $FIREBASE_PROJECT_ID" \
+  "https://firebase.googleapis.com/v1beta1/projects/$FIREBASE_PROJECT_ID/webApps/$FIREBASE_APP_ID/config")
+FIREBASE_API_KEY=$(jq -er '.apiKey' <<<"$FIREBASE_CONFIG")
+FIREBASE_AUTH_DOMAIN=$(jq -er '.authDomain' <<<"$FIREBASE_CONFIG")
+TF_ARGS=(
+  -var="project_id=$PROJECT_ID"
+  -var="region=$REGION"
+  -var="zone=$ZONE"
+  -var="run_region=$RUN_REGION"
+  -var="image_tag=$IMAGE_TAG"
+  -var="firebase_project_id=$FIREBASE_PROJECT_ID"
+  -var="firebase_api_key=$FIREBASE_API_KEY"
+  -var="firebase_auth_domain=$FIREBASE_AUTH_DOMAIN"
+)
 
 terraform init
 
@@ -24,23 +54,23 @@ gcloud builds submit .. --project="$PROJECT_ID" --config=../cloudbuild.yaml \
 
 terraform apply -auto-approve "${TF_ARGS[@]}"
 
-URL=$(terraform output -raw url)
-READY_URL=$(terraform output -raw fallback_url)
-INSTANCE=$(terraform output -raw instance)
-gcloud compute instances reset "$INSTANCE" --project="$PROJECT_ID" --zone="$ZONE" --quiet
+cd ..
+node frontend/build.mjs
+npx --yes firebase-tools deploy --only hosting --project="$FIREBASE_PROJECT_ID"
+URL="https://$FIREBASE_PROJECT_ID.web.app"
 
 for attempt in $(seq 1 30); do
-  if curl -fsS --max-time 5 "$READY_URL/" >/dev/null; then
+  if curl -fsS --max-time 5 "$URL/" >/dev/null; then
     break
   fi
   if [ "$attempt" -eq 30 ]; then
-    printf 'Deployment did not become ready: %s\n' "$READY_URL" >&2
+    printf 'Deployment did not become ready: %s\n' "$URL" >&2
     exit 1
   fi
   sleep 5
 done
 
 printf '\nkakeratta: %s\n' "$URL"
-printf 'name servers:\n'
-terraform output -json name_servers
-printf 'login URL: run `cd infra && terraform output -raw login_url`\n'
+printf 'Cloud Run: '
+terraform -chdir=infra output -raw cloud_run_url
+printf '\n'

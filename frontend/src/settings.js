@@ -7,6 +7,7 @@ import { api } from "./api.js";
 import { ENDPOINT_TYPES, endpointPreset, isGoogleEndpoint } from "./speech.js";
 import { speechLanguageOptions } from "./speech_languages.js";
 import { getLanguage, setLanguage, t } from "./i18n.js";
+import { authenticationEnabled, logout } from "./auth.js";
 
 const providerLabels = {
   nebius: "Nebius Token Factory",
@@ -265,6 +266,9 @@ export function createSettings({ speaker, onSettings }) {
         setLanguage(next, { persist: true });
         location.reload();
       }),
+      authenticationEnabled()
+        ? el("button", { class: "chip ghost", label: "ログアウト", onclick: () => void logout() })
+        : null,
     );
   }
 

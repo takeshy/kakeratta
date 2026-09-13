@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +9,28 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+type memoryBlobs struct {
+	data map[string][]byte
+	mime map[string]string
+}
+
+func (b *memoryBlobs) Put(name string, data []byte, mime string) error {
+	if b.data == nil {
+		b.data, b.mime = map[string][]byte{}, map[string]string{}
+	}
+	b.data[name] = append([]byte(nil), data...)
+	b.mime[name] = mime
+	return nil
+}
+
+func (b *memoryBlobs) Get(name string) ([]byte, string, error) {
+	data, ok := b.data[name]
+	if !ok {
+		return nil, "", errors.New("not found")
+	}
+	return append([]byte(nil), data...), b.mime[name], nil
+}
 
 func open(t *testing.T) *Store {
 	t.Helper()
@@ -55,6 +78,26 @@ func TestEntriesComeBackOldestFirst(t *testing.T) {
 	entries, _ := s.Timeline()
 	if len(entries) != 2 || entries[0].ID != "a" {
 		t.Fatalf("entries = %+v", entries)
+	}
+}
+
+func TestBlobStoreCanBeReplacedByObjectStorage(t *testing.T) {
+	s := open(t)
+	objects := &memoryBlobs{}
+	s.SetBlobStore(objects)
+	id, err := s.PutBlob([]byte("image"), "image/webp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, mime, err := s.Blob(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "image" || mime != "image/webp" {
+		t.Fatalf("blob = %q, %q", data, mime)
+	}
+	if _, err := os.Stat(filepath.Join(s.Root(), "blobs", id)); !os.IsNotExist(err) {
+		t.Fatalf("blob was unexpectedly written locally: %v", err)
 	}
 }
 

@@ -6,6 +6,7 @@ node_modules/
 .task/
 /build/windows/msix/store.json
 .terraform/
+.firebase/
 *.tfstate
 *.tfstate.*
 *.tfplan

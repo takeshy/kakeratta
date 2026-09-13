@@ -22,7 +22,7 @@ import (
 
 // Options is everything the server is handed.
 type Options struct {
-	Store     *store.Store
+	Store     store.Workspace
 	Catalogue *persona.Catalogue
 	Assets    fs.FS
 	Version   string
@@ -31,7 +31,7 @@ type Options struct {
 
 // Server is the app.
 type Server struct {
-	store     *store.Store
+	store     store.Workspace
 	catalogue *persona.Catalogue
 	runner    *persona.Runner
 	speech    *speech.Service

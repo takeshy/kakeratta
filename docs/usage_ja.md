@@ -15,11 +15,18 @@ task test       # go test ./internal/... と node --test tests/*.test.js
 | `KAKERATTA_ADDR` | `:8787` | 待ち受け |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
 | `KAKERATTA_TOKEN` | 空 | 空だと誰でも入れます。**外から届く場所に置くときは必ず設定してください**（推論の鍵を持っているのはこのプロセスです） |
+| `KAKERATTA_FIREBASE_PROJECT_ID` | 空 | Googleログインとユーザー別ワークスペースを有効化 |
+| `KAKERATTA_FIREBASE_API_KEY` | 空 | Firebase Web APIキー |
+| `KAKERATTA_FIREBASE_AUTH_DOMAIN` | 空 | Firebase Authドメイン |
 
 トークンを設定した場合は、各ブラウザで一度 `/?token=<URLエンコードしたトークン>` を開いてください。
 サーバーが HttpOnly のセッションCookieを設定し、トークンを除いたURLへ移動します。
 以後のAPI呼び出しとAndroidの共有は、このCookieで認証されます。
 画像は貼り付け・multipart共有とも1投稿あたり20 MiBまでです。上限を超える共有は、途中で切って保存せず拒否します。
+
+Firebaseの3変数を設定すると、共有トークンの代わりにGoogleログインを使います。
+Firebase IDトークンを署名付きHttpOnlyセッションCookieへ交換し、Firebase `uid`ごとに
+保存先、反応キュー、イベント配信、音声サービスを分離します。
 
 ## 入り口
 

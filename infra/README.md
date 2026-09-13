@@ -1,11 +1,18 @@
 # Google Cloud deployment
 
+## Multi-user authentication
+
+Create a Firebase Web app in the same Google Cloud project and enable Google
+under **Firebase Authentication > Sign-in method**. The deploy script reads the
+active Web app configuration directly from the Firebase Management API; no
+local Firebase config file or API-key environment variable is needed.
+
 [日本語](README_ja.md)
 
-This Terraform configuration runs one kakeratta instance on Compute Engine. A
-separate persistent disk keeps the timeline, captures, settings, and persona
-memories. Artifact Registry stores the container image, Secret Manager stores
-the access token, and Caddy obtains HTTPS for the VM's fixed `sslip.io` name.
+The production path runs kakeratta on Cloud Run, stores structured user data in
+Firestore and captures in a private Cloud Storage bucket, and serves the web UI
+through Firebase Hosting. The previous Compute Engine resources remain during
+the cutover and can be removed after the Cloud Run deployment is verified.
 
 ## Deploy
 
@@ -21,8 +28,9 @@ gcloud auth application-default login
 The defaults deploy project `kakeratta` to `asia-northeast1-b`. Override them
 with `KAKERATTA_PROJECT_ID`, `KAKERATTA_REGION`, `KAKERATTA_ZONE`, or ordinary
 Terraform variables.
-The script builds a versioned image, applies the infrastructure, restarts the
-VM, and waits for a valid HTTPS response.
+The script builds a versioned image, applies Firestore, Cloud Storage, and Cloud
+Run infrastructure, deploys Firebase Hosting, and waits for a valid HTTPS
+response at `https://PROJECT_ID.web.app`.
 
 ## Custom domain
 

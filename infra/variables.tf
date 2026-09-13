@@ -10,6 +10,12 @@ variable "region" {
   default     = "asia-northeast1"
 }
 
+variable "run_region" {
+  description = "Cloud Run region supported by Firebase Hosting rewrites."
+  type        = string
+  default     = "asia-east1"
+}
+
 variable "zone" {
   description = "Google Cloud zone for the single VM."
   type        = string
@@ -51,4 +57,22 @@ variable "image_tag" {
   description = "Container image tag set by deploy.sh."
   type        = string
   default     = "latest"
+}
+
+variable "firebase_project_id" {
+  description = "Firebase project ID. Leave empty to keep shared-token authentication."
+  type        = string
+  default     = ""
+}
+
+variable "firebase_api_key" {
+  description = "Public Firebase Web API key."
+  type        = string
+  default     = ""
+}
+
+variable "firebase_auth_domain" {
+  description = "Firebase Auth domain, for example PROJECT.firebaseapp.com."
+  type        = string
+  default     = ""
 }

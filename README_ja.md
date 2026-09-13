@@ -39,9 +39,21 @@ KAKERATTA_ADDR=127.0.0.1:8787 task run  # ビルドして起動
 | `KAKERATTA_ADDR` | `:8787` | 待ち受けアドレス |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
 | `KAKERATTA_TOKEN` | 空（認証なし） | アクセス用トークン |
+| `KAKERATTA_FIREBASE_PROJECT_ID` | 空 | Firebaseによるマルチユーザー認証を有効化 |
+| `KAKERATTA_FIREBASE_API_KEY` | 空 | Firebase Web APIキー（公開値） |
+| `KAKERATTA_FIREBASE_AUTH_DOMAIN` | 空 | Firebase Authドメイン |
+| `KAKERATTA_GCS_BUCKET` | 空 | 画像を保存する非公開Cloud Storageバケット |
+| `KAKERATTA_STORE` | `file` | Cloud Runでは`firestore`を指定 |
+| `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebaseプロジェクト | Firestoreのプロジェクト |
 
 **外からアクセスできる場所で動かす場合は `KAKERATTA_TOKEN` を設定してください。**
 各ブラウザで一度 `/?token=<URLエンコードしたトークン>` を開くと、以後はセッションCookieで認証されます。
+
+公開するマルチユーザー環境では、代わりにFirebaseの3変数をすべて設定します。
+Googleでログインした利用者ごとに `KAKERATTA_HOME/users/<uidのハッシュ>/` 以下へデータが分離されます。
+Firebase認証を設定した場合は、共有の `KAKERATTA_TOKEN` より優先されます。
+`KAKERATTA_GCS_BUCKET`を設定すると画像は非公開オブジェクトとして保存し、
+投稿メタデータ・設定・担当メモはワークスペースのディスクに残します。
 
 ## 詳しく読む
 

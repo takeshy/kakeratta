@@ -18,14 +18,9 @@ output "image" {
   value       = local.image
 }
 
-output "instance" {
-  description = "Compute Engine instance name."
-  value       = google_compute_instance.app.name
-}
-
-output "zone" {
-  description = "Compute Engine zone."
-  value       = var.zone
+output "cloud_run_url" {
+  description = "Cloud Run backend URL."
+  value       = google_cloud_run_v2_service.app.uri
 }
 
 output "login_url" {

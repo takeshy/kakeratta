@@ -52,7 +52,7 @@ type reaction struct {
 }
 
 type Runner struct {
-	store     *store.Store
+	store     store.Workspace
 	catalogue *Catalogue
 	clientOf  func() (*llm.Client, store.Settings)
 	emit      func(name string, data any)
@@ -68,7 +68,7 @@ type Runner struct {
 	stopped bool
 }
 
-func New(s *store.Store, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
+func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
 	r := &Runner{
 		store: s, catalogue: catalogue, clientOf: clientOf,
 		emit: func(string, any) {},

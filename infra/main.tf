@@ -11,8 +11,14 @@ locals {
     "cloudbuild.googleapis.com",
     "compute.googleapis.com",
     "dns.googleapis.com",
+    "firestore.googleapis.com",
+    "firebase.googleapis.com",
+    "firebasehosting.googleapis.com",
     "iam.googleapis.com",
+    "identitytoolkit.googleapis.com",
     "secretmanager.googleapis.com",
+    "storage.googleapis.com",
+    "run.googleapis.com",
   ])
 }
 
@@ -29,7 +35,15 @@ resource "google_dns_record_set" "apex" {
   managed_zone = google_dns_managed_zone.app.name
   type         = "A"
   ttl          = 300
-  rrdatas      = [google_compute_address.app.address]
+  rrdatas      = ["199.36.158.100"]
+}
+
+resource "google_dns_record_set" "firebase_hosting_verification" {
+  name         = google_dns_managed_zone.app.dns_name
+  managed_zone = google_dns_managed_zone.app.name
+  type         = "TXT"
+  ttl          = 300
+  rrdatas      = ["\"hosting-site=kakeratta\""]
 }
 
 resource "google_dns_record_set" "www" {
@@ -37,7 +51,7 @@ resource "google_dns_record_set" "www" {
   managed_zone = google_dns_managed_zone.app.name
   type         = "CNAME"
   ttl          = 300
-  rrdatas      = [google_dns_managed_zone.app.dns_name]
+  rrdatas      = ["kakeratta.web.app."]
 }
 
 data "google_project" "current" {
@@ -68,15 +82,28 @@ resource "google_compute_address" "app" {
   depends_on = [google_project_service.required]
 }
 
-resource "google_compute_disk" "data" {
-  name = "${local.name}-data"
-  type = "pd-balanced"
-  zone = var.zone
-  size = var.data_disk_size_gb
+resource "google_storage_bucket" "blobs" {
+  name                        = "${var.project_id}-${local.name}-blobs"
+  location                    = var.run_region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = false
 
   lifecycle {
     prevent_destroy = true
   }
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_firestore_database" "app" {
+  project                     = var.project_id
+  name                        = "(default)"
+  location_id                 = var.run_region
+  type                        = "FIRESTORE_NATIVE"
+  delete_protection_state     = "DELETE_PROTECTION_ENABLED"
+  deletion_policy             = "ABANDON"
+  app_engine_integration_mode = "DISABLED"
 
   depends_on = [google_project_service.required]
 }
@@ -111,6 +138,8 @@ resource "google_service_account" "app" {
 resource "google_project_iam_member" "app_roles" {
   for_each = toset([
     "roles/artifactregistry.reader",
+    "roles/firebaseauth.admin",
+    "roles/datastore.user",
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/secretmanager.secretAccessor",
@@ -121,12 +150,96 @@ resource "google_project_iam_member" "app_roles" {
   member  = "serviceAccount:${google_service_account.app.email}"
 }
 
+resource "google_storage_bucket_iam_member" "app_blobs" {
+  bucket = google_storage_bucket.blobs.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.app.email}"
+}
+
 resource "google_project_iam_member" "cloud_build" {
   project = var.project_id
   role    = "roles/cloudbuild.builds.builder"
   member  = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 
   depends_on = [google_project_service.required]
+}
+
+resource "google_cloud_run_v2_service" "app" {
+  name                = local.name
+  location            = var.run_region
+  deletion_protection = true
+
+  template {
+    service_account = google_service_account.app.email
+
+    scaling {
+      min_instance_count = 1
+      max_instance_count = 1
+    }
+
+    containers {
+      image = local.image
+
+      resources {
+        cpu_idle = false
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+
+      env {
+        name  = "KAKERATTA_ADDR"
+        value = ":8080"
+      }
+      env {
+        name  = "KAKERATTA_HOME"
+        value = "/tmp/kakeratta"
+      }
+      env {
+        name  = "KAKERATTA_STORE"
+        value = "firestore"
+      }
+      env {
+        name  = "KAKERATTA_FIRESTORE_PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "KAKERATTA_FIREBASE_PROJECT_ID"
+        value = var.firebase_project_id
+      }
+      env {
+        name  = "KAKERATTA_FIREBASE_API_KEY"
+        value = var.firebase_api_key
+      }
+      env {
+        name  = "KAKERATTA_FIREBASE_AUTH_DOMAIN"
+        value = var.firebase_auth_domain
+      }
+      env {
+        name  = "KAKERATTA_GCS_BUCKET"
+        value = google_storage_bucket.blobs.name
+      }
+
+      ports {
+        container_port = 8080
+      }
+    }
+  }
+
+  depends_on = [
+    google_firestore_database.app,
+    google_project_iam_member.app_roles,
+    google_storage_bucket_iam_member.app_blobs,
+  ]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "public" {
+  project  = var.project_id
+  location = google_cloud_run_v2_service.app.location
+  name     = google_cloud_run_v2_service.app.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 resource "google_compute_firewall" "web" {
@@ -142,59 +255,4 @@ resource "google_compute_firewall" "web" {
   target_tags   = [local.name]
 
   depends_on = [google_project_service.required]
-}
-
-resource "google_compute_instance" "app" {
-  name         = local.name
-  machine_type = var.machine_type
-  zone         = var.zone
-  tags         = [local.name]
-
-  boot_disk {
-    initialize_params {
-      image = "projects/cos-cloud/global/images/family/cos-stable"
-      size  = 10
-      type  = "pd-balanced"
-    }
-  }
-
-  attached_disk {
-    source      = google_compute_disk.data.id
-    device_name = "${local.name}-data"
-  }
-
-  network_interface {
-    network = "default"
-    access_config {
-      nat_ip = google_compute_address.app.address
-    }
-  }
-
-  service_account {
-    email  = google_service_account.app.email
-    scopes = ["cloud-platform"]
-  }
-
-  metadata = {
-    deployment-version = var.image_tag
-    startup-script = templatefile("${path.module}/startup.sh.tftpl", {
-      domain          = local.domain
-      fallback_domain = local.fallback_domain
-      image           = local.image
-      project_id      = var.project_id
-      secret_id       = google_secret_manager_secret.access_token.secret_id
-    })
-  }
-
-  shielded_instance_config {
-    enable_secure_boot          = true
-    enable_vtpm                 = true
-    enable_integrity_monitoring = true
-  }
-
-  depends_on = [
-    google_artifact_registry_repository.app,
-    google_project_iam_member.app_roles,
-    google_secret_manager_secret_version.access_token,
-  ]
 }
