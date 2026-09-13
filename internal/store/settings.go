@@ -23,9 +23,9 @@ const (
 
 	// Which model sits in which tier is what carries the contrast, so these are
 	// only where it starts. Any OpenAI-compatible name goes in any tier.
-	NemotronNano       = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
+	NemotronNano       = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
 	NemotronSuper      = "nvidia/nemotron-3-super-120b-a12b"
-	NebiusVision       = "Qwen/Qwen2.5-VL-72B-Instruct"
+	NebiusVision       = "zai-org/GLM-5.3-Flash"
 	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
 )
 
@@ -167,11 +167,11 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 	// selections belong to the user, even when their names resemble ours.
 	if usesNebiusEndpoint(settings) {
 		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel, &settings.RouteModel} {
-			if strings.TrimSpace(*model) == legacyNemotronNano {
+			if name := strings.TrimSpace(*model); name == legacyNemotronNano || name == "nvidia/nvidia-nemotron-3-nano-30b-a3b" {
 				*model = NemotronNano
 			}
 		}
-		if model := strings.TrimSpace(settings.VisionModel); model == legacyNemotronNano || model == NemotronNano {
+		if model := strings.TrimSpace(settings.VisionModel); model == legacyNemotronNano || model == NemotronNano || model == "nvidia/nvidia-nemotron-3-nano-30b-a3b" || model == "Qwen/Qwen2.5-VL-72B-Instruct" {
 			settings.VisionModel = NebiusVision
 		}
 	}

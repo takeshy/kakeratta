@@ -3,7 +3,7 @@ package store
 import "testing"
 
 func TestNebiusDefaultModelMigration(t *testing.T) {
-	for _, vision := range []string{legacyNemotronNano, NemotronNano, ""} {
+	for _, vision := range []string{legacyNemotronNano, "nvidia/nvidia-nemotron-3-nano-30b-a3b", "Qwen/Qwen2.5-VL-72B-Instruct", NemotronNano, ""} {
 		t.Run(vision, func(t *testing.T) {
 			s := open(t)
 			settings := defaultSettings()
@@ -54,5 +54,15 @@ func TestNewWorkspaceUsesVisionModel(t *testing.T) {
 	got := open(t).Settings()
 	if got.VisionModel != NebiusVision || got.VisionModel == got.LowModel {
 		t.Fatalf("vision = %s", got.VisionModel)
+	}
+}
+
+func TestIntermediateNanoDefaultIsMigrated(t *testing.T) {
+	settings := defaultSettings()
+	settings.LowModel = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
+	settings.RouteModel = settings.LowModel
+	got := normaliseConfiguredSettings(settings)
+	if got.LowModel != NemotronNano || got.RouteModel != NemotronNano {
+		t.Fatal("intermediate default was not migrated")
 	}
 }
