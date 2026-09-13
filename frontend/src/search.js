@@ -139,5 +139,7 @@ export function createSearch({ getSettings, getPersona, onEntryChange, onReply }
   const element = el("div", { class: "timeline-search" }, form,
     el("p", { class: "hint", label: "キーワードは空白で区切ると全語一致。意味検索は言い換えや曖昧な記憶から近い順に探します。" }),
     status, results, more, detail);
-  return { element, showEntry, changed, refresh, focus: () => query.focus() };
+  return { element, showEntry, changed, refresh, focus: () => query.focus(),
+    searchFor: (text) => { query.value = text; mode.value = "keyword"; return run(); },
+  };
 }

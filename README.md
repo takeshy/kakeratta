@@ -69,6 +69,23 @@ Tap a result to open the original post and its conversation.
 
 Meaning search uses the AI connection you already configured. How it is prepared and stored is in [Usage and configuration](docs/usage.md#search).
 
+## See what a persona remembers
+
+Open **What I remember** in the Personas panel to read saved notes grouped into preferences, wines, shops, books, and other types.
+Descriptions, evidence, and exceptions stay as written. Links to related memories take you to those notes.
+
+![A wine persona's saved preferences, wines, and original post links (sample data)](docs/captures/en/memory.png)
+
+**Posts behind this memory** opens the original post and conversation. The app automatically attaches the triggering post when a note is saved,
+keeps those links through rewrites, and carries them forward when a persona reads notes and combines them into another note.
+These links show how a memory was recorded; they do not certify that its interpretation is correct.
+
+The view presents existing OKF notes without another AI summary. **View original note** reveals the saved text.
+For older notes without a saved post link, **Find original post** opens keyword search.
+
+Use **Forget this note** to delete an incorrect memory individually. Original posts and other notes remain.
+A persona may remember it again from past posts. To change how it remembers, use **Edit with AI** in the Personas panel—for example, “Do not infer a preference from trying a wine once.”
+
 ## Describe a persona. Start using it.
 
 Answer “What would you like your persona to help with?” in your own words.

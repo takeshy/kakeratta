@@ -287,6 +287,10 @@ func TestSilenceStillWritesNotes(t *testing.T) {
 	if len(memory.Notes) != 1 || !strings.Contains(memory.Notes[0].Text, "エラーハンドリング") {
 		t.Fatalf("notes = %+v", memory.Notes)
 	}
+	provenance := store.NoteSources(memory.Notes[0].Text)
+	if len(provenance) != 1 || provenance[0].EntryID != entry.ID {
+		t.Fatalf("silent note must link to its triggering post: %+v", provenance)
+	}
 	if memory.Wakes != 1 {
 		t.Fatalf("wakes = %d", memory.Wakes)
 	}
@@ -590,5 +594,23 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 				t.Fatalf("got %d answers, want one from each routed persona", answers)
 			}
 		})
+	}
+}
+
+func TestNoteConsolidationCarriesReadSources(t *testing.T) {
+	runner, s, _ := setup(t, func(system, user string) string { return `{"action":"silent"}` }, "tech")
+	if err := s.WriteNote("tech", "old.md", "Old knowledge.", store.NoteSource{EntryID: "old-post", Label: "Old post"}); err != nil {
+		t.Fatal(err)
+	}
+	sources := []store.NoteSource{{EntryID: "current-post", Label: "Current post"}}
+	runner.notesTool("tech", "notes_read", map[string]any{"path": "old.md"}, &sources)
+	result, _ := runner.notesTool("tech", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, &sources)
+	if !strings.Contains(result, "書きました") {
+		t.Fatal(result)
+	}
+	runner.notesTool("tech", "notes_forget", map[string]any{"path": "old.md"}, &sources)
+	note, ok := s.Note("tech", "combined.md")
+	if !ok || len(store.NoteSources(note.Text)) != 2 {
+		t.Fatalf("consolidation lost sources: %+v", note)
 	}
 }

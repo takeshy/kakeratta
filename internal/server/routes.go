@@ -59,6 +59,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/personas/{id}", s.guard(s.uninstallPersona))
 	s.mux.HandleFunc("GET /api/personas/{id}/memory", s.guard(s.getMemory))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/memory", s.guard(s.forgetMemory))
+	s.mux.HandleFunc("DELETE /api/personas/{id}/memory/note", s.guard(s.forgetNote))
 
 	s.mux.HandleFunc("GET /api/settings", s.guard(s.getSettings))
 	s.mux.HandleFunc("PUT /api/settings", s.guard(s.putSettings))
@@ -402,6 +403,25 @@ func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
 // seeing it is the only way to tell what it decided was worth keeping.
 func (s *Server) getMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.store.Memory(r.PathValue("id")))
+}
+
+// A separate route ensures a missing note path can never erase all memory.
+func (s *Server) forgetNote(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		fail(w, http.StatusBadRequest, "メモを指定してください")
+		return
+	}
+	note, ok := s.store.Note(r.PathValue("id"), path)
+	if !ok || note.Path != path {
+		fail(w, http.StatusNotFound, "メモが見つかりません")
+		return
+	}
+	if err := s.store.DeleteNote(r.PathValue("id"), path); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {

@@ -9,6 +9,7 @@ import { api } from "./api.js";
 import { t } from "./i18n.js";
 import { showPersonaBuilder } from "./persona-builder.js";
 import { gloss } from "./builtins.js";
+import { createMemoryView } from "./memory.js";
 
 const tierLabels = {
   low: "low（先に動く）",
@@ -16,7 +17,7 @@ const tierLabels = {
   high: "high（最後に動く）",
 };
 
-export function createPersonas({ onChange }) {
+export function createPersonas({ onChange, onSearch }) {
   const view = el("div", { class: "panel-body" });
   let rows = [];
   let toolNames = [];
@@ -92,7 +93,7 @@ export function createPersonas({ onChange }) {
         el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
         el("span", { class: "spacer" }),
         el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaBuilder({ persona: row, onSave: load }) }),
-        el("button", { class: "chip ghost", label: "メモを見る", onclick: () => void showMemory(row) }),
+        el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
         row.builtin
           ? null
           : el("button", {
@@ -109,10 +110,6 @@ export function createPersonas({ onChange }) {
     return box;
   }
 
-  // The notes are the persona's own text, written in whatever shape its skill
-  // told it to use. Reading them is the only way to see what it decided was
-  // worth keeping - and the only way to notice when it is keeping the wrong
-  // things.
   async function showMemory(row) {
     let memory = { notes: [] };
     try {
@@ -121,34 +118,51 @@ export function createPersonas({ onChange }) {
       toast(String(error.message || error), "error");
       return;
     }
+    const memoryHost = el("div");
+    const drawMemory = () => memoryHost.replaceChildren(createMemoryView(memory.notes, {
+      onSearch: onSearch ? (query) => { close(); onSearch(query); } : undefined,
+      onForget: async (path) => {
+        await api.forgetNote(row.id, path);
+        memory.notes = (memory.notes || []).filter(note => note.path !== path);
+        drawMemory();
+        memoryHost.focus();
+      },
+    }));
+    memoryHost.setAttribute("tabindex", "-1");
     const backdrop = el("div", { class: "dialog-backdrop" });
-    const close = () => backdrop.remove();
+    const previousFocus = document.activeElement;
+    const close = () => { backdrop.remove(); previousFocus?.focus(); };
+    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
+    backdrop.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { event.preventDefault(); close(); }
+      if (event.key !== "Tab") return;
+      const focusable = [...backdrop.querySelectorAll("button, a[href], summary")]
+        .filter(node => !node.disabled && node.getClientRects().length);
+      const first = focusable[0], last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    });
+    drawMemory();
     backdrop.append(
       el(
         "div",
-        { class: "dialog" },
-        el("h3", { text: t("{0} のメモ", row.name) }),
-        el("p", {
-          class: "hint",
-          text: t("{0}件。何を残し何を捨てるかは本人の判断で、本体は中身を読みません。", (memory.notes || []).length),
-        }),
-        (memory.notes || []).length
-          ? el("div", { class: "notes" }, (memory.notes || []).map((note) =>
-            el("details", { class: "note" },
-              el("summary", { text: note.path }),
-              el("pre", { class: "memo", text: note.text }))))
-          : el("p", { class: "hint", label: "（まだ何もありません）" }),
+        { class: "dialog memory-dialog", role: "dialog", "aria-modal": "true", "aria-label": t("{0} があなたについて覚えていること", gloss(row).name) },
+        el("h2", { text: t("{0} があなたについて覚えていること", gloss(row).name) }),
+        el("p", { class: "hint", label: "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。" }),
+        memoryHost,
         el(
           "div",
           { class: "compose-row" },
           el("button", {
             class: "chip ghost",
-            label: "忘れさせる",
+            label: "すべてのメモを忘れさせる",
             onclick: async () => {
               if (!confirm(t("{0} の記憶を消しますか。元に戻せません。", row.name))) return;
-              await api.forget(row.id).catch((error) => toast(String(error.message || error), "error"));
-              close();
-              await load();
+              try {
+                await api.forget(row.id);
+                close();
+                await load();
+              } catch (error) { toast(String(error.message || error), "error"); }
             },
           }),
           el("span", { class: "spacer" }),
@@ -157,6 +171,8 @@ export function createPersonas({ onChange }) {
       ),
     );
     document.body.append(backdrop);
+    backdrop.querySelector(".memory-dialog").setAttribute("tabindex", "-1");
+    backdrop.querySelector(".memory-dialog").focus();
   }
 
   function drawInstall() {

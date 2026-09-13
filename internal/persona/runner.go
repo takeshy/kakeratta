@@ -404,6 +404,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	var files []llm.Attachment
 	var sources []timeline.Source
+	// The triggering entry is known by the host; no model-supplied ID is needed.
+	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
+	if len(label) > 140 {
+		label = append(label[:140], '…')
+	}
+	noteSources := []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.Format("2006-01-02 15:04 MST") + " — " + string(label)}}
 
 	for round := 0; round < rounds; round++ {
 		reply, err := client.Chat(ctx, llm.Request{
@@ -435,7 +441,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		case "tool":
 			// Its own notes are not a declared capability: every persona has a
 			// memory, and reaching it is not reaching outside.
-			if text, handled := r.notesTool(skill.ID, parsed.Tool, parsed.Args); handled {
+			if text, handled := r.notesTool(skill.ID, parsed.Tool, parsed.Args, &noteSources); handled {
 				messages = append(messages,
 					llm.Message{Role: "assistant", Content: reply},
 					llm.Message{Role: "user", Content: parsed.Tool + " の結果:\n" + text})
@@ -617,8 +623,9 @@ func contains(list []string, value string) bool {
 // through to the capabilities the skill declared. The split is the point: a
 // declared tool goes outside, and these do not go anywhere.
 //
-// Nothing here reads what is written. The app moves bytes to and from a name.
-func (r *Runner) notesTool(personaID, name string, args map[string]any) (string, bool) {
+// The host carries text without interpreting it, and retains source links
+// when a persona reads and consolidates its notes.
+func (r *Runner) notesTool(personaID, name string, args map[string]any, sources *[]store.NoteSource) (string, bool) {
 	switch name {
 	case "notes_list":
 		return listNotes(r.store.Memory(personaID)), true
@@ -639,6 +646,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any) (string,
 				continue
 			}
 			parts = append(parts, "=== "+note.Path+" ===\n"+note.Text)
+			*sources = append(*sources, store.NoteSources(note.Text)...)
 		}
 		return strings.Join(parts, "\n\n"), true
 
@@ -647,7 +655,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any) (string,
 		if path == "" || strings.TrimSpace(text) == "" {
 			return "path と text が要ります。", true
 		}
-		if err := r.store.WriteNote(personaID, path, text); err != nil {
+		if err := r.store.WriteNote(personaID, path, text, (*sources)...); err != nil {
 			return "書けませんでした: " + err.Error(), true
 		}
 		return "書きました: " + path, true

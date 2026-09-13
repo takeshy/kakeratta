@@ -1,6 +1,23 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "このメモを忘れさせる": "Forget this note",
+  "「{0}」を忘れさせますか。このメモだけを削除します。": "Forget “{0}”? Only this note will be deleted.",
+  "すべてのメモを忘れさせる": "Forget all notes",
+  "メモを指定してください": "Choose a note.", "メモが見つかりません": "Note not found.",
+  "感想": "Impressions",
+  "このメモには元投稿のリンクが保存されていません。": "No original post link was saved with this note.",
+  "元の投稿を探す": "Find original post",
+  "記憶を更新した投稿": "Posts behind this memory",
+  "覚えていること": "What I remember",
+  "{0} があなたについて覚えていること": "What {0} remembers about you",
+  "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。": "Notes saved by this persona. Follow evidence links to the original posts or related memories.",
+  "好み": "Preferences", "ワイン": "Wines", "お店": "Shops", "本": "Books", "テーマ": "Themes", "会話": "Conversations", "場所": "Places",
+  "その他のメモ": "Other memories", "記憶の目次": "Memory overview", "記憶の更新履歴": "Memory history",
+  "元のメモを見る": "View original note", "関連リンク": "Related link",
+  "元の投稿を開く（新しいタブ）": "Open original post (new tab)",
+  "まだ覚えていることはありません。": "Nothing remembered yet.",
+
   "近い候補{0}件中{1}件を表示": "Showing {1} of {0} similar candidates",
   "投稿が更新されました。もう一度検索してください": "A post changed while indexing. Please search again.",
   "Firestoreの検索インデックスが必要です。firestore.indexes.jsonをデプロイし、作成完了後に再検索してください": "The Firestore search index is required. Deploy firestore.indexes.json and search again once the index is ready.",

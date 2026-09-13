@@ -7,6 +7,7 @@ const json = (body, status = 200) =>
 export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null } = {}) {
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
+  memory = structuredClone(memory);
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === "string" ? input : input.url, location.origin);
     const method = (init.method || "GET").toUpperCase();
@@ -36,9 +37,18 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       rows = rows.map((row) => ({ ...row, active: body.active.includes(row.id) }));
       return json({ personas: rows, tools });
     }
+    const singleNote = path.match(/^\/api\/personas\/([^/]+)\/memory\/note$/);
+    if (singleNote && method === "DELETE") {
+      const id = decodeURIComponent(singleNote[1]);
+      const selected = url.searchParams.get("path");
+      if (!selected) return json({ error: "Choose a note." }, 400);
+      if (!memory[id]?.notes?.some(note => note.path === selected)) return json({ error: "Note not found." }, 404);
+      memory[id].notes = memory[id].notes.filter(note => note.path !== selected);
+      return json({ ok: true });
+    }
     const note = path.match(/^\/api\/personas\/([^/]+)\/memory$/);
     if (note && method === "GET") return json(memory[decodeURIComponent(note[1])] || { notes: [] });
-    if (note && method === "DELETE") return json({ ok: true });
+    if (note && method === "DELETE") { memory[decodeURIComponent(note[1])] = { notes: [] }; return json({ ok: true }); }
     if (path === "/api/personas/install") return json({ error: "ストーリーの中では追加できません" }, 400);
     if (path === "/api/settings" && method === "GET") return json(current);
     if (path === "/api/settings" && method === "PUT") {

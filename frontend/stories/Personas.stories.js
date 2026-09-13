@@ -38,7 +38,7 @@ export const WithAdded = {
 export const Memory = {
   name: "メモを見る",
   render: () => panelOf(personas, (element) => {
-    [...element.querySelectorAll("button")].find((button) => /メモ|memory/i.test(button.textContent))?.click();
+    [...element.querySelectorAll("button")].find((button) => /覚えて|remember/i.test(button.textContent))?.click();
   }),
 };
 
@@ -77,4 +77,25 @@ export const AICreateDraft = {
       : "When I send a photo of a wine label I liked, tell me the wine and its grape varieties so I can buy or order it.";
     dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }),
+};
+
+export const WineMemory = {
+  name: "ワイン担当の記憶（サンプル）",
+  render: () => {
+    for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove();
+    const ja = getLanguage() === "ja";
+    const wine = { id: "wine", name: ja ? "ワイン担当" : "Wine", icon: "🍷", model: "middle", active: true,
+      domain: ja ? "飲んだワインと、好きだった理由を覚えます。" : "Remembers the wines you tried and why you liked them.", tools: [], wakes: 4 };
+    const sources = `<!-- kakeratta:note-sources -->\n# 記憶を更新した投稿\n\n* [${ja ? "9月12日 — レストランでピノ・ノワールを気に入った" : "Sep 12 — liked Pinot Noir at a restaurant"}](/?entry=sample-pinot)\n* [${ja ? "9月13日 — ガメイを「飲みやすい」と話した" : "Sep 13 — described Gamay as easy to drink"}](/?entry=sample-gamay)\n<!-- /kakeratta:note-sources -->`;
+    const notes = [
+      { path: "preferences/light-reds.md", text: `---\ntype: Preference\ntitle: ${ja ? "軽めの赤ワインが好み" : "Prefers lighter red wines"}\n---\n${ja ? "果実味があり、タンニンが穏やかな赤ワインを気に入っている。" : "Enjoys fruity reds with gentle tannins."}\n\n${sources}` },
+      { path: "wines/domaine-x.md", text: `---\ntype: Wine\ntitle: Domaine X Pinot Noir\ndescription: ${ja ? "レストランで飲んだ、軽やかな赤ワイン。" : "A light red tried at a restaurant."}\n---\n# ${ja ? "感想" : "Tasting notes"}\n- ${ja ? "「重くなくて、もう一杯飲みたくなる」" : '“Not heavy; makes me want another glass.”'}\n- [${ja ? "軽めの赤ワインが好み" : "Prefers lighter red wines"}](/preferences/light-reds.md)\n\n<!-- kakeratta:note-sources -->\n# 記憶を更新した投稿\n\n* [${ja ? "9月12日 — レストランでの記録" : "Sep 12 — restaurant note"}](/?entry=sample-pinot)\n<!-- /kakeratta:note-sources -->` },
+    ];
+    serve({ personas: [wine], tools, memory: { wine: { notes } } });
+    const panel = createPersonas({ onChange: () => {} });
+    void panel.load().then(() => {
+      [...panel.element.querySelectorAll("button")].find(button => /覚えて|remember/i.test(button.textContent))?.click();
+    });
+    return sheet("担当", panel.element);
+  },
 };

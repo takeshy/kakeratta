@@ -45,6 +45,7 @@ const compose = createCompose({
   },
 });
 const personas = createPersonas({
+  onSearch: (query) => { open("search"); void searchPanel.searchFor(query); },
   onChange: (rows) => {
     personaRows = rows;
     feed.draw();

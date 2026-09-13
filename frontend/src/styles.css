@@ -395,3 +395,32 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .search-hit:hover, .search-hit:focus-visible { border-color: var(--accent); }
 .search-snippet { white-space: pre-wrap; overflow-wrap: anywhere; }
 .timeline-search [hidden] { display: none; }
+
+/* Existing OKF notes, presented as readable concepts with their evidence. */
+.memory-dialog { width: min(720px, 100%); max-height: calc(100dvh - 32px); overflow: auto; }
+.memory-dialog:focus { outline: none; }
+.memory-dialog h2 { margin: 0; font-size: 1.2rem; line-height: 1.5; }
+.memory-inspector { display: grid; gap: 18px; overflow-wrap: anywhere; }
+.memory-group { display: grid; gap: 10px; }
+.memory-group > h3 { font-size: .85rem; color: var(--muted); }
+.memory-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+.memory-card h4 { margin: 0 0 8px; font-size: 1rem; }
+.memory-description { margin: 0 0 12px; line-height: 1.7; }
+.memory-body { font-size: .9rem; line-height: 1.7; }
+.memory-body h5 { font-size: .85rem; margin: 16px 0 6px; color: var(--muted); }
+.memory-body p { margin: 6px 0; white-space: pre-wrap; }
+.memory-body ul, .memory-body ol { padding-left: 22px; margin: 6px 0 12px; }
+.memory-body li { margin: 5px 0; }
+.memory-body blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--line); }
+.memory-body pre { white-space: pre-wrap; }
+.memory-table { overflow-x: auto; }
+.memory-table table { border-collapse: collapse; width: 100%; }
+.memory-table th, .memory-table td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; }
+.memory-note-link { display: inline; background: none; border: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.memory-card a { color: var(--accent); text-decoration: underline; }
+.memory-original { margin-top: 14px; }
+.memory-card summary { cursor: pointer; }
+.memory-original summary { font-size: .78rem; color: var(--muted); }
+.memory-card:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.memory-forget { margin-top: 12px; }

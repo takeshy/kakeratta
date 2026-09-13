@@ -21,7 +21,7 @@ type Workspace interface {
 	Blob(string) ([]byte, string, error)
 	Memory(string) Memory
 	Note(string, string) (Note, bool)
-	WriteNote(string, string, string) error
+	WriteNote(string, string, string, ...NoteSource) error
 	DeleteNote(string, string) error
 	SaveMemory(Memory) error
 	ForgetMemory(string) error

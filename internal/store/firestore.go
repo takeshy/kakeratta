@@ -12,6 +12,8 @@ import (
 	"cloud.google.com/go/firestore"
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // FirestoreWorkspace keeps one user's structured state in Firestore. Its root
@@ -170,7 +172,7 @@ func (w *FirestoreWorkspace) Note(personaID, name string) (Note, bool) {
 	return note, doc.DataTo(&note) == nil
 }
 
-func (w *FirestoreWorkspace) WriteNote(personaID, name, text string) error {
+func (w *FirestoreWorkspace) WriteNote(personaID, name, text string, sources ...NoteSource) error {
 	clean, err := notePath(name)
 	if err != nil {
 		return err
@@ -183,9 +185,24 @@ func (w *FirestoreWorkspace) WriteNote(personaID, name, text string) error {
 			return errors.New("メモが多すぎます")
 		}
 	}
-	note := Note{Path: clean, Text: text, Written: time.Now()}
-	_, err = w.persona(personaID).Collection("memory").Doc(noteID(clean)).Set(context.Background(), note)
-	return err
+	ref := w.persona(personaID).Collection("memory").Doc(noteID(clean))
+	return w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		previous := Note{}
+		doc, err := tx.Get(ref)
+		if err != nil && status.Code(err) != codes.NotFound {
+			return err
+		}
+		if err == nil {
+			if err := doc.DataTo(&previous); err != nil {
+				return err
+			}
+		}
+		merged := withNoteSources(previous.Text, text, sources)
+		if len(merged) > maxNoteBytes {
+			return errors.New("メモが大きすぎます")
+		}
+		return tx.Set(ref, Note{Path: clean, Text: merged, Written: time.Now()})
+	})
 }
 
 func (w *FirestoreWorkspace) DeleteNote(personaID, name string) error {

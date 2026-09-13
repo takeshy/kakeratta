@@ -152,8 +152,21 @@
           </figure>
           <h3>使いながら育てる</h3>
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「銘柄だけでなく、なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、これまでのメモと有効・停止の状態はそのまま残ります。</p>
-          <h3>メモ（記憶）</h3>
-          <p><strong>メモを見る</strong> でその担当が何を覚えているか読めます。何を残し何を捨てるかは担当自身の判断で、本体は中身を読みません。<strong>忘れさせる</strong> でメモを消せます（元に戻せません）。担当を <strong>削除</strong> してもメモは残ります。</p>
+          <h3 id="ja-memory">覚えていることを確かめる</h3>
+          <p>担当の <strong>覚えていること</strong> を開くと、好み・ワイン・お店・本などの種類ごとに、保存済みのメモを読めます。説明や根拠、例外も保存された内容のまま表示します。表示のために新しくAIで要約することはありません。</p>
+          <figure>
+            <img src="/captures/ja/memory.png" alt="ワイン担当の好みとワインの記憶。元投稿へのリンクと個別削除（サンプル）" loading="lazy" />
+            <figcaption>覚えた内容、元の投稿、このメモだけを忘れさせる操作を同じ画面で確認できます（サンプル）。</figcaption>
+          </figure>
+          <ul>
+            <li><strong>記憶を更新した投稿</strong> のリンクで、元の投稿と会話を新しいタブに開けます。リンクはメモ保存時に自動で付き、書き直しや、読み込んだメモの統合でも引き継がれます。</li>
+            <li>関連する記憶のリンクを押すと、そのメモへ移動します。<strong>元のメモを見る</strong> では保存された原文を確認できます。</li>
+            <li>以前のメモに投稿リンクが無い場合は、<strong>元の投稿を探す</strong> でキーワード検索できます。</li>
+          </ul>
+          <h3>間違った記憶を消す・覚え方を変える</h3>
+          <p><strong>このメモを忘れさせる</strong> を押し、メモの名前を確認すると、その1件だけを削除します。ほかのメモと元の投稿は残ります。<strong>すべてのメモを忘れさせる</strong> は、その担当のメモをまとめて消す操作です。どちらも元に戻せません。担当そのものの <strong>削除</strong> ではメモは残ります。</p>
+          <p>メモを消しても、担当が残っている投稿を検索して再び覚えることがあります。今後の覚え方や判断を変えるには、担当画面の <strong>AIで修正</strong> を使います。</p>
+          <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別削除し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。担当の修正は、すでに保存されたメモを自動で訂正する操作ではありません。</p></div>
           <p>上級者向けに、<code>skill.json</code> を書いて <strong>担当を追加する</strong> ことも、この画面からできます。</p>
         </section>
 
@@ -383,8 +396,21 @@
           </figure>
           <h3>Make it yours as you go</h3>
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, as well as its name.” Built-in personas can be edited too. Their existing memories and enabled status carry over.</p>
-          <h3>Memory</h3>
-          <p><strong>View memory</strong> shows what a persona remembers. The persona decides what to keep or discard; the app does not read the contents. <strong>Forget</strong> erases its memory (this cannot be undone). Deleting a persona keeps its memory.</p>
+          <h3 id="en-memory">See what a persona remembers</h3>
+          <p>Open <strong>What I remember</strong> on a persona to read its saved notes grouped into preferences, wines, shops, books, and other types. Descriptions, evidence, and exceptions stay as written. Viewing memory does not generate another AI summary.</p>
+          <figure>
+            <img src="/captures/en/memory.png" alt="A wine persona's preferences and wines, original post links, and individual deletion (sample data)" loading="lazy" />
+            <figcaption>Review what was remembered, open the original post, or forget a single note (sample data).</figcaption>
+          </figure>
+          <ul>
+            <li><strong>Posts behind this memory</strong> opens the original post and conversation in a new tab. The app attaches these links when saving notes and retains them through rewrites and consolidation of notes the persona has read.</li>
+            <li>Related-memory links take you to those notes. <strong>View original note</strong> shows the text as saved.</li>
+            <li>For older notes without saved post links, <strong>Find original post</strong> opens keyword search.</li>
+          </ul>
+          <h3>Remove a mistaken memory or change how a persona remembers</h3>
+          <p>Select <strong>Forget this note</strong> and confirm its name to delete only that note. Other notes and original posts remain. <strong>Forget all notes</strong> erases all notes for that persona. Neither action can be undone. Deleting the persona itself keeps its memory.</p>
+          <p>A persona may remember something again by searching the remaining posts. To change its future memory or judgment rules, use <strong>Edit with AI</strong> in the Personas panel.</p>
+          <div class="tip"><p>For example, delete an incorrect “Likes this wine” note individually, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not automatically correct its existing notes.</p></div>
           <p>Advanced users can also <strong>add a persona</strong> from a hand-written <code>skill.json</code> in the same panel.</p>
         </section>
 

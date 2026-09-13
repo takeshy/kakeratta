@@ -368,7 +368,7 @@ func (s *Store) Note(personaID, path string) (Note, bool) {
 //
 // The name comes from a model, so it is checked - not for what it means, but so
 // that a persona cannot write outside its own notes.
-func (s *Store) WriteNote(personaID, path, text string) error {
+func (s *Store) WriteNote(personaID, path, text string, sources ...NoteSource) error {
 	clean, err := notePath(path)
 	if err != nil {
 		return err
@@ -379,6 +379,14 @@ func (s *Store) WriteNote(personaID, path, text string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	target := filepath.Join(s.memoryDir(personaID), filepath.FromSlash(clean))
+	previous, err := os.ReadFile(target)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	text = withNoteSources(string(previous), text, sources)
+	if len(text) > maxNoteBytes {
+		return fmt.Errorf("メモが大きすぎます: %s", clean)
+	}
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
 	}
