@@ -216,6 +216,8 @@ body {
 /* Replying is one of the two things you do here, so it is not the faintest text
    in the thread. It looks like somewhere to type, not like a footnote. */
 .reply-open { justify-self: start; background: var(--bg); color: var(--muted); }
+.thread-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.thread-toggle { padding-left: 2px; }
 .reply-open:hover { color: var(--accent); }
 
 /* Panels */

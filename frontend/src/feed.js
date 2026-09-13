@@ -20,6 +20,7 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
   let entries = [];
   let openReply = null;
   let replyEditor = null;
+  const expanded = new Set();
   const drafts = new Map();
   let composing = false;
   let drawPending = false;
@@ -99,9 +100,34 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
     const rest = thread.filter((entry) => entry !== post);
     const box = el("article", { class: "thread", "data-id": post.id });
     box.append(drawPost(post));
-    for (const entry of rest) box.append(drawSaid(entry, post));
-    box.append(drawReplyRow(post));
+    // A conversation stays folded under its post until asked for, so the
+    // timeline reads as the things you dropped in. Replying opens it: you
+    // should see what you are answering.
+    const open = expanded.has(post.id) || thread.some((entry) => entry.id === openReply);
+    box.append(el("div", { class: "thread-actions" },
+      rest.length ? drawToggle(thread, post, rest.length, open) : null,
+      openReply === post.id ? null : drawReplyOpen(post)));
+    if (open) for (const entry of rest) box.append(drawSaid(entry, post));
+    if (openReply === post.id) box.append(drawReplyBox(post.id));
     return box;
+  }
+
+  function drawToggle(thread, post, count, open) {
+    return el("button", {
+      class: "chip ghost thread-toggle",
+      "aria-expanded": String(open),
+      text: `${open ? "▾" : "▸"} ${t("返信 {0}件", count)}`,
+      onclick: () => {
+        if (open) {
+          expanded.delete(post.id);
+          // The draft stays in drafts; only the open box folds away with it.
+          if (thread.some((entry) => entry.id === openReply)) openReply = null;
+        } else {
+          expanded.add(post.id);
+        }
+        draw();
+      },
+    });
   }
 
   function drawPost(entry) {
@@ -204,8 +230,7 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
     return node;
   }
 
-  function drawReplyRow(post) {
-    if (openReply === post.id) return drawReplyBox(post.id);
+  function drawReplyOpen(post) {
     // Replying is one of the two things you do here - what you write goes back
     // into the timeline and into what the personas read next.
     return el("button", {
@@ -213,6 +238,7 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
       label: "一言足す",
       onclick: () => {
         openReply = post.id;
+        expanded.add(post.id);
         draw();
       },
     });

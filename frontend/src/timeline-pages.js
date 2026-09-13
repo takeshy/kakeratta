@@ -14,13 +14,15 @@ export function createTimelinePages({ fetchPage, onChange, onState = () => {} })
     publish();
   }
 
-  async function run(refresh) {
+  // A quiet refresh is a background re-read: it says nothing while loading or
+  // on failure, and redraws only when something actually changed.
+  async function run(refresh, quiet = false) {
     if (pending) return pending;
     if (!refresh && !next) return;
     // Assign the promise before any callbacks can re-enter this loader.
     live = new Map();
     pending = Promise.resolve().then(async () => {
-      onState({ loading: true, hasMore: Boolean(next) });
+      if (!quiet) onState({ loading: true, hasMore: Boolean(next) });
       try {
         const incoming = refresh ? new Map() : new Map(entries);
         let cursor = refresh ? null : next;
@@ -33,13 +35,14 @@ export function createTimelinePages({ fetchPage, onChange, onState = () => {} })
           count++;
         } while (refresh && cursor && count < target);
         for (const [id, entry] of live) incoming.set(id, entry);
+        const changed = !quiet || !sameEntries(entries, incoming);
         entries = incoming;
         next = cursor;
         pages = count;
-        publish();
+        if (changed) publish();
         onState({ loading: false, hasMore: Boolean(next) });
       } catch (error) {
-        onState({ loading: false, hasMore: Boolean(next), error, initial: pages === 0 });
+        if (!quiet) onState({ loading: false, hasMore: Boolean(next), error, initial: pages === 0 });
       } finally {
         pending = null;
         live.clear();
@@ -48,5 +51,13 @@ export function createTimelinePages({ fetchPage, onChange, onState = () => {} })
     return pending;
   }
 
-  return { refresh: () => run(true), more: () => run(false), upsert };
+  return { refresh: () => run(true), poll: () => run(true, true), more: () => run(false), upsert };
+}
+
+function sameEntries(a, b) {
+  if (a.size !== b.size) return false;
+  for (const [id, entry] of b) {
+    if (!a.has(id) || JSON.stringify(a.get(id)) !== JSON.stringify(entry)) return false;
+  }
+  return true;
 }

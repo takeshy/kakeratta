@@ -45,7 +45,7 @@ const EN = {
   "反応が付かないことがあります。付くときも、遅れて届きます。": "Some posts get no reaction. The ones that do arrive later.",
   "消す": "Delete", "この投稿を消しますか": "Delete this post?",
   "読み取り中…": "Reading…", "文字は読み取れませんでした。": "No text could be read.",
-  "あなた": "You", "返す": "Reply", "一言足す": "Add a comment",
+  "あなた": "You", "返す": "Reply", "一言足す": "Add a comment", "返信 {0}件": "{0} replies",
   "返事や、@名前 で指名": "Reply, or mention @name", "送る": "Send", "やめる": "Cancel", "投稿": "Post",
   "担当が誰もいません。": "Nobody is in the room.",
   "いま放り込んだかけらは、どこにも渡りません。1人呼べば、そこから受け取ります。": "A fragment tossed in now reaches nobody. Call one in and it starts receiving them.",

@@ -29,13 +29,17 @@ const speaker = createSpeaker();
 const feed = createFeed({
   getSettings: () => settings,
   getPersona: (id) => personaRows.find((row) => row.id === id),
-  onReply: reload,
+  onReply: () => {
+    void reload();
+    pollAfterSending();
+  },
   onEntryChange: (entry) => pages.upsert(entry),
 });
 const compose = createCompose({
   getSettings: () => settings,
   onPosted: (entry) => {
     pages.upsert(entry);
+    pollAfterSending();
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
 });
@@ -124,6 +128,29 @@ const pages = createTimelinePages({
 });
 
 function reload() { return pages.refresh(); }
+
+// The live channel can drop a reaction without noticing (a proxy cutting the
+// stream, a reconnect in the wrong moment). Only you and the personas write to
+// the timeline, and they answer within a few minutes of being given something,
+// so the timeline is re-read in the background for a while after you send.
+const POLL_FOR = 5 * 60 * 1000;
+const POLL_EVERY = 10 * 1000;
+let pollUntil = 0;
+let pollTimer = null;
+
+function pollAfterSending() {
+  pollUntil = Date.now() + POLL_FOR;
+  if (pollTimer) return;
+  const tick = async () => {
+    if (Date.now() >= pollUntil) {
+      pollTimer = null;
+      return;
+    }
+    if (!document.hidden) await pages.poll();
+    pollTimer = setTimeout(tick, POLL_EVERY);
+  };
+  pollTimer = setTimeout(tick, POLL_EVERY);
+}
 
 // A reaction arriving is the app working, not an event to celebrate: it lands
 // in place and nothing else moves.
