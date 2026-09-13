@@ -47,6 +47,9 @@ internal/store      the append log, images, notes, settings
 internal/server     the HTTP surface (the page, the API, SSE)
 frontend/src        ES modules, no bundler in what ships (builtins.js glosses the Japanese-named personas for the English interface)
 frontend/public     what sits at the site root: manifest, service worker, icons
+frontend/lp         the landing page (/lp/), Japanese and English in one document
+frontend/manual     the manual (/manual/), which the app's header opens in a new tab
+frontend/site       what the two pages share: a stylesheet and the language switch
 frontend/stories    Storybook stories, built from the same modules and fixtures shaped like the API
 frontend/dist       what Firebase Hosting deploys (a copy of the above)
 ```

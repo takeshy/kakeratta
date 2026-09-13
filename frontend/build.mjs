@@ -21,6 +21,15 @@ cpSync(join(frontendDir, "index.html"), join(distDir, "index.html"));
 cpSync(join(frontendDir, "public"), distDir, { recursive: true });
 cpSync(join(frontendDir, "src"), join(distDir, "src"), { recursive: true });
 
+// The landing page and the manual are pages beside the app, not part of it:
+// plain HTML at /lp/ and /manual/, sharing one stylesheet and the language
+// switch under /site/. Their screenshots are the README's, so they are copied
+// from docs/ rather than kept twice.
+for (const dir of ["lp", "manual", "site"]) {
+  cpSync(join(frontendDir, dir), join(distDir, dir), { recursive: true });
+}
+cpSync(join(frontendDir, "..", "docs", "captures"), join(distDir, "captures"), { recursive: true });
+
 let totalBytes = 0;
 const walk = (dir) => {
   for (const entry of readdirSync(dir)) {

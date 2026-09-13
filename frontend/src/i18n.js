@@ -75,6 +75,7 @@ const EN = {
   "押すと @{0} を書き入れます": "Tap to write @{0}",
   "🔈 読み上げ": "🔈 Read aloud", "■ 停止": "■ Stop",
   "担当": "Personas", "設定": "Settings", "閉じる": "Close",
+  "ヘルプ": "Help", "使い方（別タブで開く）": "Manual (opens in a new tab)",
   "共有した内容を保存できませんでした。接続と認証を確認し、もう一度共有してください。": "The shared item could not be saved. Check the connection and authentication, then try again.",
   "担当領域ごとに記憶が分かれています。投稿がどれに渡るかは本体が振り分け、そのうえで喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。": "Each persona keeps separate memories for its own domain. The app routes each post, and each persona decides whether to respond. Mention @name to always get a reply.",
   "有効": "Active", "停止中": "Paused", "有効にする": "Enable", "道具": "Tools", "メモを見る": "View memory", "削除": "Delete",

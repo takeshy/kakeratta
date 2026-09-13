@@ -1,9 +1,45 @@
 // The page stands on its own: Vite serves it in development and Firebase
 // Hosting serves it in production. The Go binary is only what /api is, so that
 // is the only thing proxied - the same split the deployed setup has.
+import { createReadStream, existsSync, statSync } from "node:fs";
+import { join, normalize, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
+// /lp/ and /manual/ are directories in the project root, which Vite serves as
+// is. Two things Hosting does for them that Vite does not: send /lp to /lp/,
+// and serve the screenshots, which live in docs/captures and are copied to
+// dist/captures by build.mjs.
+const capturesDir = fileURLToPath(new URL("../docs/captures/", import.meta.url));
+function sitePages() {
+  return {
+    name: "kakeratta-site-pages",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = new URL(req.url, "http://localhost");
+        if (url.pathname === "/lp" || url.pathname === "/manual") {
+          res.statusCode = 301;
+          res.setHeader("Location", `${url.pathname}/${url.search}`);
+          res.end();
+          return;
+        }
+        if (url.pathname.startsWith("/captures/")) {
+          const relative = normalize(decodeURIComponent(url.pathname.slice("/captures/".length)));
+          const file = join(capturesDir, relative);
+          if (!relative.startsWith("..") && file.startsWith(capturesDir.slice(0, -1) + sep) && existsSync(file) && statSync(file).isFile()) {
+            res.setHeader("Content-Type", "image/png");
+            createReadStream(file).pipe(res);
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
+  plugins: [sitePages()],
   server: {
     port: 5173,
     // dist/ is the Hosting copy that build.mjs writes; rebuilding it is not a

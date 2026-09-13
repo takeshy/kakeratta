@@ -33,6 +33,21 @@ authentication. The server exchanges a Firebase ID token for a signed,
 HttpOnly session cookie and gives every Firebase `uid` a separate store,
 reaction queue and event stream.
 
+## Landing page and manual
+
+Two pages sit beside the app on the same host: `/lp/` introduces it and
+`/manual/` explains how to use it, with the README's screenshots. Both carry
+Japanese and English in one document and a switch in the header; the choice is
+kept under the same browser key as the app's display language, so the app, the
+landing page and the manual agree. A `?lang=ja` or `?lang=en` in the URL wins,
+so a link can carry a language. The **?** icon in the app header opens the
+manual in a new tab, in the app's current language.
+
+The pages are plain HTML in `frontend/lp/`, `frontend/manual/` and
+`frontend/site/` (shared stylesheet and language switch). `node build.mjs`
+copies them to `frontend/dist` along with `docs/captures` as `/captures/`;
+in development Vite serves the captures from `docs/` directly.
+
 ## Ways in
 
 A thought is fastest written; something on screen is fastest shot. They all go

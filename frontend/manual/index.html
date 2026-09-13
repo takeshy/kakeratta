@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="ja" data-title-ja="kakeratta 使い方" data-title-en="kakeratta Manual">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#faf8f4" />
+    <meta name="description" content="kakeratta の使い方。はじめ方、かけらの放り込み方、担当、検索、スマホからの共有、設定。How to use kakeratta: getting started, tossing in fragments, personas, search, sharing from a phone, and settings." />
+    <title>kakeratta 使い方</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon.png" sizes="512x512" />
+    <link rel="stylesheet" href="/site/site.css" />
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search).get("lang"), s = null;
+        try { s = localStorage.getItem("kakeratta.language"); } catch (e) {}
+        var b = String((navigator.languages || [])[0] || navigator.language || "").toLowerCase().split("-")[0] === "ja" ? "ja" : "en";
+        var lang = q === "ja" || q === "en" ? q : s === "ja" || s === "en" ? s : b;
+        document.documentElement.lang = lang;
+        document.documentElement.dataset.lang = lang;
+      })();
+    </script>
+    <script type="module" src="/site/lang.js"></script>
+  </head>
+  <body class="manual">
+    <header class="site-head">
+      <div class="site-head-row">
+        <a class="brand" href="/lp/" data-lang-link>
+          <img class="brand-mark" src="/icon.svg" alt="" width="24" height="24" />
+          kakeratta
+        </a>
+        <span class="spacer"></span>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/lp/" data-lang-link><span class="ja">紹介ページ</span><span class="en">Overview</span></a>
+          <a href="https://github.com/takeshy/kakeratta" rel="noopener">GitHub</a>
+        </nav>
+        <div class="lang-switch" role="group" aria-label="Language / 言語">
+          <button type="button" data-set-lang="ja" aria-pressed="false" lang="ja">日本語</button>
+          <button type="button" data-set-lang="en" aria-pressed="false" lang="en">EN</button>
+        </div>
+        <a class="button primary small" href="/"><span class="ja">アプリを開く</span><span class="en">Open the app</span></a>
+      </div>
+    </header>
+
+    <!-- ============================== 日本語 ============================== -->
+    <main class="ja" lang="ja">
+      <nav class="toc" aria-label="目次">
+        <p class="toc-title">目次</p>
+        <ol>
+          <li><a href="#ja-start">はじめる</a></li>
+          <li><a href="#ja-toss">かけらを放り込む</a></li>
+          <li><a href="#ja-timeline">タイムラインと反応</a></li>
+          <li><a href="#ja-personas">担当</a></li>
+          <li><a href="#ja-search">検索</a></li>
+          <li><a href="#ja-phone">スマホから共有する</a></li>
+          <li><a href="#ja-voice">音声入力と読み上げ</a></li>
+          <li><a href="#ja-settings">設定</a></li>
+          <li><a href="#ja-faq">よくある質問</a></li>
+          <li><a href="#ja-more">もっと詳しく</a></li>
+        </ol>
+      </nav>
+
+      <article class="doc">
+        <h1>kakeratta の使い方</h1>
+        <p class="lede">思いついたこと、目に留まったものを、テキスト・画像・URL・音声でひとつのタイムラインへ放り込む。担当分野ごとに別々の記憶を持つ AI（担当）が、言うことがあるときだけ反応します。このページはその使い方をひと通りまとめたものです。</p>
+
+        <section id="ja-start">
+          <h2>1. はじめる</h2>
+          <ol>
+            <li><a href="/">アプリを開きます</a>。Google ログインが有効な環境では、最初にログインします。あなたのデータはあなたのアカウントにだけ結びつきます。</li>
+            <li>右上の <strong>設定</strong> を開き、<strong>Nebius Token Factory の API キー</strong>を入力します。<strong>接続確認</strong> を押して「接続できました」と出れば準備完了です。モデルは既定のまま（Nano / Super / Ultra）で構いません。</li>
+            <li>画面の上に「担当が誰もいません」と出ていたら、<strong>「〇〇 を呼ぶ」</strong> で 1 人以上呼びます。誰もいないと、放り込んだかけらは誰にも渡りません。</li>
+            <li>欄に一言書いて <strong>流す</strong>。これが最初のかけらです。</li>
+          </ol>
+          <figure>
+            <img src="/captures/ja/nobody.png" alt="担当が誰もいない状態。ワンタップで組み込みの担当を呼べる" loading="lazy" />
+            <figcaption>担当が誰もいない状態。ここから 1 人呼ぶと、以後のかけらを受け取ります。</figcaption>
+          </figure>
+          <div class="tip">
+            <p>API キーはサーバー側にだけ保存され、設定した接続先以外へは送られません。キーは <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a> で発行します。</p>
+          </div>
+        </section>
+
+        <section id="ja-toss">
+          <h2>2. かけらを放り込む</h2>
+          <p>思いついたことは書くのが早く、画面に出ているものは撮るのが早い。どれも同じひとつの欄から入ります。</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>入り口</th><th>やり方</th></tr></thead>
+              <tbody>
+                <tr><td>書く</td><td>欄に書いて <strong>流す</strong>。<kbd>Ctrl</kbd>（<kbd>⌘</kbd>）+<kbd>Enter</kbd> でも送れます。</td></tr>
+                <tr><td>貼る・選ぶ</td><td>スクリーンショットを <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼る、または <strong>📷 画像</strong> でファイルを選びます。画像の文字は担当が読み取り、あとから検索できます。</td></tr>
+                <tr><td>URL</td><td>URL を書いて流すと、公開ページの本文を取りに行きます。</td></tr>
+                <tr><td>話す</td><td><strong>🎙 話す</strong> で音声入力。設定した「送信の合図」を言うと、そのまま投稿されます。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>一言とあわせて画像を付けることもできます。投稿には「今どこで何時か」だけが添えられます。目的地や時刻は文面に書けば、担当が読み取ります。位置情報は任意で、無くても成立します。</p>
+        </section>
+
+        <section id="ja-timeline">
+          <h2>3. タイムラインと反応</h2>
+          <figure>
+            <img src="/captures/ja/timeline.png" alt="タイムライン。自分のかけらの下に、担当の発言が折りたたまれて並ぶ" loading="lazy" />
+            <figcaption>自分のかけらと、その下の担当の発言。会話は「返信 N件」の下にたたまれます。</figcaption>
+          </figure>
+          <ul>
+            <li>最新 20 件から表示し、下へスクロールすると 20 件ずつ追加されます。</li>
+            <li>担当の発言や自分の返信は <strong>返信 N件</strong> の下に折りたたまれます。押すと開きます。</li>
+            <li><strong>一言足す</strong> でその投稿に続けて書けます。担当の発言には <strong>返す</strong> で返事ができます。</li>
+            <li>反応は遅れて届きます。<strong>反応が付かないこともあります。</strong> 担当は喋らずに覚えるだけのこともあるからです。</li>
+            <li>必ず答えがほしいときは <code>@tabe</code> のように <strong>@名前</strong> で指名します。担当の名前の並び（担当バー）を押すと、@名前 が書き込まれます。</li>
+            <li>投稿・返信のあと 5 分間は、取りこぼしに備えて自動でタイムラインを読み直します。</li>
+            <li><strong>🔈 読み上げ</strong> で、溜まった反応を順に読み上げます。移動中に便利です。</li>
+            <li>投稿の <strong>消す</strong> で削除できます。削除した投稿は検索にも出ません。</li>
+          </ul>
+        </section>
+
+        <section id="ja-personas">
+          <h2>4. 担当</h2>
+          <p>担当は分野ごとに分かれた記憶を持つ AI です。投稿がどの担当に渡るかは本体が振り分け、そのうえで覚えるか、喋るかは各担当が自分で決めます。</p>
+          <h3>最初からいる 4 人</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>名前</th><th>分野</th><th>受け取るもの</th></tr></thead>
+              <tbody>
+                <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
+                <tr><td><code>@michi</code></td><td>移動</td><td>行き先、経路、所要時間、待ち合わせ、旅程、チケット</td></tr>
+                <tr><td><code>@kuda</code></td><td>技術</td><td>コード、API、ライブラリ、設計の話、ドキュメントやエラー画面のキャプチャ</td></tr>
+                <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>担当は投稿された言語で答えます。ヘッダーの <strong>担当</strong> から一覧を開き、<strong>有効</strong> / <strong>停止中</strong> を切り替えられます。</p>
+          <figure>
+            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、モデルの段、道具、メモ" loading="lazy" />
+            <figcaption>担当パネル。分野、モデルの段（low / middle / high）、使える道具、メモの数。</figcaption>
+          </figure>
+          <h3>AI と担当を作る</h3>
+          <ol>
+            <li><strong>担当</strong> を開き、<strong>AIと担当を作る</strong> を選びます。</li>
+            <li>「どんなことの担当を作りたい？」に自分の言葉で答えます。<br />例：<em>美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</em></li>
+            <li>AI が名前、話し方、記憶のルールを下書きします。内容を確認して <strong>この内容で保存</strong>。</li>
+            <li><strong>有効にする</strong> と、以後のかけらを受け取り始めます。</li>
+          </ol>
+          <figure>
+            <img src="/captures/ja/persona-create.png" alt="AIと担当を作る。ほしいことを自分の言葉で書く" loading="lazy" />
+            <figcaption>「ワイン」や「読書」だけでも始められます。長い質問票はありません。</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" />
+            <figcaption>下書きは、担当すること、話し方、覚えること・返事をするタイミングの順に確認できます。</figcaption>
+          </figure>
+          <h3>使いながら育てる</h3>
+          <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「銘柄だけでなく、なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、これまでのメモと有効・停止の状態はそのまま残ります。</p>
+          <h3>メモ（記憶）</h3>
+          <p><strong>メモを見る</strong> でその担当が何を覚えているか読めます。何を残し何を捨てるかは担当自身の判断で、本体は中身を読みません。<strong>忘れさせる</strong> でメモを消せます（元に戻せません）。担当を <strong>削除</strong> してもメモは残ります。</p>
+          <p>上級者向けに、<code>skill.json</code> を書いて <strong>担当を追加する</strong> ことも、この画面からできます。</p>
+        </section>
+
+        <section id="ja-search">
+          <h2>5. 検索</h2>
+          <p>「あのとき飲んだワイン、何だった？」 ヘッダーの <strong>検索</strong> を開きます。</p>
+          <ul>
+            <li><strong>キーワード</strong>：「ピノ」のように覚えている言葉で探します。空白で区切ると、すべての語を含むかけらが新しい順に出ます。</li>
+            <li><strong>意味検索</strong>：「軽くて飲みやすかった赤ワイン」のように曖昧に書いても、言葉が違っていても意味が近いかけらから順に出ます。</li>
+          </ul>
+          <p>対象は、自分が書いた本文、画像から読み取った文字、担当との会話です。結果を押すと、元の投稿とその会話が開きます。</p>
+          <figure>
+            <img src="/captures/ja/search-keyword.png" alt="キーワード検索。ピノを含む投稿（サンプルデータ）" loading="lazy" />
+            <figcaption>キーワード検索（サンプルデータ）。</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/ja/search-thread.png" alt="検索結果から元の投稿と会話を開く（サンプルデータ）" loading="lazy" />
+            <figcaption>結果から元の投稿を開く。そこから返信も書けます。</figcaption>
+          </figure>
+          <div class="tip">
+            <p>意味検索の初回は、過去のかけらすべての準備（索引づくり）に時間がかかります。担当が検索を使っている最中だと「混んでいます」と出るので、少し待ってからもう一度検索してください。準備は途中で止まっても保存され、次の検索で続きから再開します。</p>
+          </div>
+          <p>担当も、必要なときに過去のかけらを検索します。新しいラベルが届いたとき、ワイン担当が「前に気に入ったピノに近いですね」と元の投稿へのリンク付きで答えることがあります。</p>
+        </section>
+
+        <section id="ja-phone">
+          <h2>6. スマホから共有する</h2>
+          <p>Kindle も有料記事も SNS も、画面に出ていればスクリーンショットで放り込めます。PC は貼るだけ（<kbd>Ctrl</kbd>+<kbd>V</kbd>）。スマホは次の準備で共有シートから渡せます。</p>
+          <h3>Android</h3>
+          <ol>
+            <li>ブラウザのメニューから <strong>ホーム画面に追加</strong>（アプリとしてインストール）します。</li>
+            <li>他のアプリでスクリーンショットを共有すると、共有先に kakeratta が並びます。選ぶだけでタイムラインに入ります。</li>
+          </ol>
+          <h3>iOS</h3>
+          <p>共有シートからの受け取りは「ショートカット」アプリで代替します。</p>
+          <ol>
+            <li>ショートカットを新規作成し、「共有シートで表示」を有効にして、受け取る種類を「イメージ」にします。</li>
+            <li>「URL の内容を取得」を追加。URL は <code>https://&lt;アプリのアドレス&gt;/api/capture</code>、メソッド <code>POST</code>、本文は <strong>フォーム</strong>。
+              <ul>
+                <li><code>image</code> … ショートカットの入力</li>
+                <li><code>text</code> … （任意）その場で書くなら「入力を要求」の結果</li>
+                <li>共有トークンで動かしている場合はヘッダ <code>Authorization: Bearer &lt;トークン&gt;</code></li>
+              </ul>
+            </li>
+          </ol>
+          <p>読書中は無言で投げておいて、あとからまとめて一言を足す使い方もできます。</p>
+        </section>
+
+        <section id="ja-voice">
+          <h2>7. 音声入力と読み上げ</h2>
+          <ul>
+            <li><strong>🎙 話す</strong> を押すと、ブラウザの音声認識で聞き取ります。既定では無音が続くと自動で止まります（設定の「無音で自動停止」）。</li>
+            <li><strong>送信の合図</strong>（例：「以上」）を設定しておくと、そう言った時点で投稿されます。手を使わずに放り込めます。</li>
+            <li><strong>自動送信前に AI で文章を整える</strong> を ON にすると、合図で送るときだけ、意味を変えずに句読点や言いよどみを整えます。既定は OFF で、手で送るときはそのまま投稿されます。</li>
+            <li><strong>🔈 読み上げ</strong> は、溜まった反応を順に読み上げます。声と速さは設定で変えられます。</li>
+          </ul>
+        </section>
+
+        <section id="ja-settings">
+          <h2>8. 設定</h2>
+          <figure>
+            <img src="/captures/ja/settings.png" alt="設定。表示言語、AI、道具、音声入力、読み上げ" loading="lazy" />
+            <figcaption>設定パネル。上から表示言語、AI、道具、音声入力、読み上げ。</figcaption>
+          </figure>
+          <h3>表示言語</h3>
+          <p>日本語と英語を切り替えられます。このマニュアルも同じ設定を引き継ぎます。</p>
+          <h3>AI（Nebius Token Factory）</h3>
+          <p>API キーを入れれば動きます。「モデルの上級者向け設定」で段ごとのモデルを変えられます。</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>用途</th><th>既定</th></tr></thead>
+              <tbody>
+                <tr><td>low（先に動く。浅く速い）</td><td>Nemotron Nano</td></tr>
+                <tr><td>middle</td><td>Nemotron Super</td></tr>
+                <tr><td>high（最後に動く。下の発言を見て突っ込める）</td><td>Nemotron Ultra</td></tr>
+                <tr><td>画像を読むモデル（vision）</td><td>GLM-5.3-Flash</td></tr>
+                <tr><td>振り分けに使うモデル</td><td>Nemotron Nano</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。どのモデルをどの段に置くかが、そのまま体験の差になります。</p>
+          <h3>道具</h3>
+          <p><strong>Web 検索</strong>（Tavily または Brave の API キー）と、<strong>店舗検索・経路検索</strong> の接続先。宣言した担当だけが呼べます。店舗・経路の既定は鍵の要らない公開サービスです。</p>
+          <h3>この端末</h3>
+          <p>音声入力の方式・言語・無音停止・送信の合図、読み上げの声と速さ。これらは端末ごとの設定です。</p>
+        </section>
+
+        <section id="ja-faq">
+          <h2>9. よくある質問</h2>
+          <dl class="faq">
+            <dt>反応が付きません。</dt>
+            <dd>担当が誰もいないか、その分野に該当しなかったか、担当が「覚えるだけ」を選んだのかもしれません。<strong>担当</strong> で有効な担当を確認し、必ず答えがほしいときは @名前 で指名してください。反応は遅れて届きます。</dd>
+            <dt>設定画面が閉じられません。</dt>
+            <dd>AI 接続が未設定のときは、設定が終わるまで閉じられません。API キーを入力して接続確認をしてください。</dd>
+            <dt>検索で「混んでいます」と出ます。</dt>
+            <dd>意味検索の準備が別の検索で走っています。少し待ってからもう一度検索してください。</dd>
+            <dt>画像の文字が読めていません。</dt>
+            <dd>読み取りには少し時間がかかります。しばらくして「読み取り結果」を開いてください。画像は 1 投稿あたり 20 MiB までです。</dd>
+            <dt>データはどこに保存されますか。</dt>
+            <dd>公開環境ではアカウントごとに分かれたサーバー側の保存先（Firestore / Cloud Storage）、手元で動かす場合はその機器のディスクです。API キーはサーバー側にだけ保存されます。</dd>
+            <dt>組み込みの担当を変えたくなりました。</dt>
+            <dd><strong>AIで修正</strong> から頼めます。これまでのメモと有効・停止の状態はそのまま残ります。</dd>
+          </dl>
+        </section>
+
+        <section id="ja-more">
+          <h2>10. もっと詳しく</h2>
+          <p>自分で動かす方法、環境変数、担当の仕組み（振り分け、実行順、メモの形式、skill.json）、デプロイ手順は GitHub のドキュメントにあります。</p>
+          <ul>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/README_ja.md" rel="noopener">README（日本語）</a></li>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/usage_ja.md" rel="noopener">使い方と設定</a> — 環境変数、共有、保存データ</li>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/architecture_ja.md" rel="noopener">設計と担当</a> — 振り分け、実行順、OKF メモ、スキル、道具</li>
+          </ul>
+          <p class="actions"><a class="button primary" href="/">アプリを開く</a> <a class="button" href="/lp/" data-lang-link>紹介ページへ</a></p>
+        </section>
+      </article>
+    </main>
+
+    <!-- ============================== English ============================== -->
+    <main class="en" lang="en">
+      <nav class="toc" aria-label="Contents">
+        <p class="toc-title">Contents</p>
+        <ol>
+          <li><a href="#en-start">Getting started</a></li>
+          <li><a href="#en-toss">Tossing in a fragment</a></li>
+          <li><a href="#en-timeline">Timeline and reactions</a></li>
+          <li><a href="#en-personas">Personas</a></li>
+          <li><a href="#en-search">Search</a></li>
+          <li><a href="#en-phone">Sharing from a phone</a></li>
+          <li><a href="#en-voice">Voice input and read-aloud</a></li>
+          <li><a href="#en-settings">Settings</a></li>
+          <li><a href="#en-faq">FAQ</a></li>
+          <li><a href="#en-more">Read more</a></li>
+        </ol>
+      </nav>
+
+      <article class="doc">
+        <h1>kakeratta Manual</h1>
+        <p class="lede">Put thoughts and things that catch your eye into one timeline as text, images, URLs, or speech. AIs with separate memories for their own subjects, called personas, react when they have something to say. This page walks through how to use it.</p>
+
+        <section id="en-start">
+          <h2>1. Getting started</h2>
+          <ol>
+            <li><a href="/">Open the app</a>. Where Google sign-in is enabled, sign in first. Your data is tied to your account only.</li>
+            <li>Open <strong>Settings</strong> in the header and enter your <strong>Nebius Token Factory API key</strong>. Press <strong>Check connection</strong>; “Connected” means you are ready. The default models (Nano / Super / Ultra) are fine.</li>
+            <li>If the screen says “Nobody is in the room”, call in at least one persona with <strong>Call in …</strong>. With nobody in the room, a fragment reaches no one.</li>
+            <li>Write a line in the box and press <strong>Post</strong>. That is your first fragment.</li>
+          </ol>
+          <figure>
+            <img src="/captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" loading="lazy" />
+            <figcaption>Nobody in the room yet. Call one in and it starts receiving your fragments.</figcaption>
+          </figure>
+          <div class="tip">
+            <p>The API key is stored only on the server and sent only to the configured endpoint. Keys are issued at <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a>.</p>
+          </div>
+        </section>
+
+        <section id="en-toss">
+          <h2>2. Tossing in a fragment</h2>
+          <p>A thought is fastest written; something on screen is fastest shot. Everything goes through the same single box.</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Way in</th><th>How</th></tr></thead>
+              <tbody>
+                <tr><td>Write</td><td>Type and press <strong>Post</strong>, or <kbd>Ctrl</kbd> (<kbd>⌘</kbd>) + <kbd>Enter</kbd>.</td></tr>
+                <tr><td>Paste or pick</td><td>Paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd>, or choose a file with <strong>📷 Image</strong>. Text in the image is read and becomes searchable later.</td></tr>
+                <tr><td>URL</td><td>Post a URL and the body of the public page is fetched.</td></tr>
+                <tr><td>Speak</td><td><strong>🎙 Speak</strong> starts voice input. Say your configured send phrase and the text is posted.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>An image can go with a line of text. Only where you are and what time it is travel with a post. Destinations and times belong in what you write; the persona reads them from the text. Location is optional.</p>
+        </section>
+
+        <section id="en-timeline">
+          <h2>3. Timeline and reactions</h2>
+          <figure>
+            <img src="/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said folded underneath" loading="lazy" />
+            <figcaption>Your fragments with what the personas said underneath. Conversations stay folded under “N replies”.</figcaption>
+          </figure>
+          <ul>
+            <li>The newest 20 posts show first; 20 more load as you scroll.</li>
+            <li>Persona remarks and your replies fold under <strong>N replies</strong>. Tap to open.</li>
+            <li><strong>Add a comment</strong> continues your own post. <strong>Reply</strong> answers a persona.</li>
+            <li>Reactions arrive later. <strong>Some posts get no reaction.</strong> A persona can remember something without speaking.</li>
+            <li>For a guaranteed answer, mention a persona with <strong>@name</strong>, such as <code>@tabe</code>. Tapping a name in the persona bar writes the mention for you.</li>
+            <li>For five minutes after you post or reply, the timeline is re-read automatically in case a reaction was missed.</li>
+            <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Handy while moving.</li>
+            <li><strong>Delete</strong> removes a post. Deleted posts never appear in search.</li>
+          </ul>
+        </section>
+
+        <section id="en-personas">
+          <h2>4. Personas</h2>
+          <p>A persona is an AI with its own memory for one subject. The app routes each post to the relevant personas; each one then decides what to remember and whether to speak.</p>
+          <h3>The four that ship with the app</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Name</th><th>Subject</th><th>What it receives</th></tr></thead>
+              <tbody>
+                <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
+                <tr><td><code>@michi</code></td><td>travel</td><td>Destinations, routes, travel time, meeting times, itineraries, tickets</td></tr>
+                <tr><td><code>@kuda</code></td><td>tech</td><td>Code, APIs, libraries, design talk, captures of docs and error screens</td></tr>
+                <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>A persona answers in the language the post was written in. Open <strong>Personas</strong> in the header to see them all and switch each between <strong>Active</strong> and <strong>Paused</strong>.</p>
+          <figure>
+            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" loading="lazy" />
+            <figcaption>The Personas panel: subject, model tier (low / middle / high), available tools, and how many notes each has.</figcaption>
+          </figure>
+          <h3>Create a persona with AI</h3>
+          <ol>
+            <li>Open <strong>Personas</strong> and choose <strong>Create a persona with AI</strong>.</li>
+            <li>Answer “What would you like your persona to help with?” in your own words.<br />Example: <em>When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</em></li>
+            <li>AI drafts a name, tone, and memory rules. Review it and select <strong>Save this persona</strong>.</li>
+            <li><strong>Enable</strong> it and it starts receiving fragments.</li>
+          </ol>
+          <figure>
+            <img src="/captures/en/persona-create.png" alt="Create a persona with AI: describe what you want in your own words" loading="lazy" />
+            <figcaption>Even “wine” or “reading” is enough to start. There is no long questionnaire.</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" />
+            <figcaption>The draft, in plain language: what it helps with, how it talks, what it remembers, and when it replies.</figcaption>
+          </figure>
+          <h3>Make it yours as you go</h3>
+          <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, as well as its name.” Built-in personas can be edited too. Their existing memories and enabled status carry over.</p>
+          <h3>Memory</h3>
+          <p><strong>View memory</strong> shows what a persona remembers. The persona decides what to keep or discard; the app does not read the contents. <strong>Forget</strong> erases its memory (this cannot be undone). Deleting a persona keeps its memory.</p>
+          <p>Advanced users can also <strong>add a persona</strong> from a hand-written <code>skill.json</code> in the same panel.</p>
+        </section>
+
+        <section id="en-search">
+          <h2>5. Search</h2>
+          <p>“What was that wine I liked?” Open <strong>Search</strong> in the header.</p>
+          <ul>
+            <li><strong>Keyword</strong>: search with words you remember, like “Pinot”. Space-separated words must all match; results come newest first.</li>
+            <li><strong>Semantic</strong>: describe it loosely, like “a light red wine that was easy to drink”, and find fragments close in meaning even when the words differ.</li>
+          </ul>
+          <p>Search covers what you wrote, text read from your photos, and your conversations with personas. Tap a result to open the original post and its conversation.</p>
+          <figure>
+            <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" />
+            <figcaption>Keyword search (sample data).</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/en/search-thread.png" alt="Open the original post and conversation from a search result (sample data)" loading="lazy" />
+            <figcaption>Opening the original post from a result. You can reply from there.</figcaption>
+          </figure>
+          <div class="tip">
+            <p>The first semantic search prepares every existing fragment, which takes a while. If a persona is searching at the same time you may see a “busy” message; wait a moment and search again. Preparation that runs out of time is saved and resumes on the next search.</p>
+          </div>
+          <p>Personas search too, when it helps. When a new label arrives, a wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>
+        </section>
+
+        <section id="en-phone">
+          <h2>6. Sharing from a phone</h2>
+          <p>Kindle, a paywalled article, a social feed: if it is on screen, a screenshot brings it in. On a PC, paste it (<kbd>Ctrl</kbd>+<kbd>V</kbd>). On a phone, set up the share sheet once.</p>
+          <h3>Android</h3>
+          <ol>
+            <li>From the browser menu, <strong>Add to Home screen</strong> (install as an app).</li>
+            <li>Share a screenshot from any app and kakeratta appears in the share sheet. Pick it and the image lands in the timeline.</li>
+          </ol>
+          <h3>iOS</h3>
+          <p>The share sheet is handled by a Shortcut instead.</p>
+          <ol>
+            <li>Create a shortcut, turn on “Show in Share Sheet”, and accept images.</li>
+            <li>Add “Get contents of URL”: URL <code>https://&lt;your app address&gt;/api/capture</code>, method <code>POST</code>, body <strong>Form</strong>.
+              <ul>
+                <li><code>image</code> … the shortcut’s input</li>
+                <li><code>text</code> … optional; the result of “Ask for input” if you want to write there and then</li>
+                <li>When the app runs with a shared token, add the header <code>Authorization: Bearer &lt;token&gt;</code></li>
+              </ul>
+            </li>
+          </ol>
+          <p>While reading you can throw things in silently and add the lines later, in one go.</p>
+        </section>
+
+        <section id="en-voice">
+          <h2>7. Voice input and read-aloud</h2>
+          <ul>
+            <li><strong>🎙 Speak</strong> listens with the browser’s speech recognition. By default it stops after a stretch of silence (“Stop after silence” in Settings).</li>
+            <li>Set a <strong>send phrase</strong> (for example “done”) and the text is posted the moment you say it. Hands free.</li>
+            <li>Turn on <strong>Polish text with AI before auto-send</strong> and, only when a send phrase triggers posting, punctuation and hesitations are tidied without changing the meaning. It is OFF by default; manual sends keep your text as entered.</li>
+            <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Voice and speed are in Settings.</li>
+          </ul>
+        </section>
+
+        <section id="en-settings">
+          <h2>8. Settings</h2>
+          <figure>
+            <img src="/captures/en/settings.png" alt="Settings: display language, AI, tools, voice input, read-aloud" loading="lazy" />
+            <figcaption>The Settings panel: display language, AI, tools, voice input, read-aloud.</figcaption>
+          </figure>
+          <h3>Display language</h3>
+          <p>Switch between Japanese and English. This manual follows the same setting.</p>
+          <h3>AI (Nebius Token Factory)</h3>
+          <p>Entering an API key is enough. “Advanced model settings” lets you change the model for each tier.</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>For</th><th>Default</th></tr></thead>
+              <tbody>
+                <tr><td>low (first; fast and lightweight)</td><td>Nemotron Nano</td></tr>
+                <tr><td>middle</td><td>Nemotron Super</td></tr>
+                <tr><td>high (last; can build on earlier responses)</td><td>Nemotron Ultra</td></tr>
+                <tr><td>Image model (vision)</td><td>GLM-5.3-Flash</td></tr>
+                <tr><td>Routing model</td><td>Nemotron Nano</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Each persona chooses low, middle, or high. Low runs first, and higher tiers can build on earlier responses. Which model sits in which tier is the difference in experience.</p>
+          <h3>Tools</h3>
+          <p><strong>Web search</strong> (a Tavily or Brave API key) and the <strong>place and route</strong> service endpoints. Only personas that declare a tool can call it. The place and route defaults are public services that need no credentials.</p>
+          <h3>This device</h3>
+          <p>Voice input mode, language, silence stop, and send phrase, plus the read-aloud voice and speed. These are per-device settings.</p>
+        </section>
+
+        <section id="en-faq">
+          <h2>9. FAQ</h2>
+          <dl class="faq">
+            <dt>Nothing reacts to my post.</dt>
+            <dd>Perhaps nobody is in the room, the post matched no persona’s subject, or the persona chose to remember without speaking. Check which personas are active under <strong>Personas</strong>, and mention @name when you need an answer. Reactions arrive late.</dd>
+            <dt>I cannot close Settings.</dt>
+            <dd>Until an AI connection is configured, Settings stays open. Enter an API key and check the connection.</dd>
+            <dt>Search says it is busy.</dt>
+            <dd>Semantic search is being prepared by another search. Wait a moment and search again.</dd>
+            <dt>The text in my image has not been read.</dt>
+            <dd>Reading takes a moment. Open “Reading result” under the post a little later. Images are limited to 20 MiB per post.</dd>
+            <dt>Where is my data stored?</dt>
+            <dd>In a public deployment, in server-side storage separated per account (Firestore and Cloud Storage). When run on your own machine, on that machine’s disk. API keys are stored only on the server.</dd>
+            <dt>I want to change a built-in persona.</dt>
+            <dd>Use <strong>Edit with AI</strong>. Existing memories and enabled status carry over.</dd>
+          </dl>
+        </section>
+
+        <section id="en-more">
+          <h2>10. Read more</h2>
+          <p>Running it yourself, environment variables, how personas work (routing, execution order, the memory format, skill.json), and deployment are documented on GitHub.</p>
+          <ul>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/README.md" rel="noopener">README</a></li>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/usage.md" rel="noopener">Usage and configuration</a> — environment variables, sharing, stored data</li>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/architecture.md" rel="noopener">Design and personas</a> — routing, execution order, OKF notes, skills, and tools</li>
+          </ul>
+          <p class="actions"><a class="button primary" href="/">Open the app</a> <a class="button" href="/lp/" data-lang-link>Overview</a></p>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-foot">
+      <div class="site-foot-row">
+        <span>kakeratta</span>
+        <a href="/lp/" data-lang-link><span class="ja">紹介ページ</span><span class="en">Overview</span></a>
+        <a href="https://github.com/takeshy/kakeratta" rel="noopener">GitHub</a>
+        <span class="spacer"></span>
+        <span><span class="ja">MIT ライセンス</span><span class="en">MIT licensed</span></span>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,298 @@
+/* The landing page and the manual. They share the app's palette so that
+   opening the app from either does not feel like changing rooms. */
+:root {
+  --bg: #faf8f4;
+  --card: #fffdfa;
+  --ink: #23201c;
+  --muted: #857c70;
+  --line: #e6e0d6;
+  --accent: #a4622f;
+  --accent-soft: #f4e7dc;
+  --warn: #b3502f;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161513;
+    --card: #1e1c19;
+    --ink: #ece7df;
+    --muted: #9b938a;
+    --line: #2e2b27;
+    --accent: #d79a68;
+    --accent-soft: #302722;
+    --warn: #e0866a;
+  }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-text-size-adjust: 100%;
+}
+img { max-width: 100%; }
+a { color: var(--accent); }
+h1, h2, h3 { line-height: 1.35; letter-spacing: 0.01em; }
+h2 { font-size: 1.5rem; margin: 0 0 12px; }
+h3 { font-size: 1.05rem; margin: 20px 0 6px; }
+p { margin: 0 0 12px; }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+pre {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.94rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+.table-scroll { overflow-x: auto; }
+
+/* One language at a time. Both are in the document, so the page also reads
+   without JavaScript - then it shows both. */
+[data-lang="ja"] .en, [data-lang="en"] .ja { display: none !important; }
+
+/* Header */
+.site-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.site-head-row {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: inherit; text-decoration: none; letter-spacing: 0.02em; }
+.brand-mark { width: 24px; height: 24px; border-radius: 6px; }
+.spacer { margin-left: auto; }
+.site-nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.site-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; padding: 4px 10px; border-radius: 999px; }
+.site-nav a:hover { color: var(--accent); background: var(--accent-soft); }
+
+/* Language switch */
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--card);
+}
+.lang-switch button {
+  font: inherit;
+  font-size: 0.82rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.lang-switch button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* Buttons */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 0.96rem;
+  text-decoration: none;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: inherit;
+  padding: 9px 18px;
+  cursor: pointer;
+}
+.button:hover { border-color: var(--accent); color: var(--accent); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.button.primary:hover { color: #fff; filter: brightness(1.05); }
+.button.small { font-size: 0.86rem; padding: 6px 13px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* Landing page */
+.lp main { max-width: 1040px; margin: 0 auto; padding: 0 16px 64px; }
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: center;
+  padding: 56px 0 40px;
+}
+.hero h1 { font-size: clamp(2rem, 4.6vw, 3rem); margin: 0 0 8px; }
+.hero .lede { font-size: 1.12rem; color: var(--muted); margin-bottom: 20px; }
+.kicker { color: var(--accent); font-size: 0.86rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 6px; }
+.shot {
+  display: block;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
+  background: var(--card);
+}
+.shot img { display: block; border-radius: 16px; width: 100%; }
+/* The captures are whole screens and tall. A landing page needs the part that
+   tells the story, so they are cropped to a window: the hero shows the top of
+   the timeline, and a feature shows the sheet that opened at the bottom. */
+.shot.crop-top img, .shot.crop-bottom img { max-height: 560px; object-fit: cover; }
+.shot.crop-top img { object-position: top; }
+.shot.crop-bottom img { object-position: bottom; }
+.section { padding: 40px 0; border-top: 1px solid var(--line); }
+.section-intro { color: var(--muted); max-width: 640px; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; counter-reset: step; }
+.step {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+}
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.step h3 { margin: 0 0 4px; }
+.step p { margin: 0; color: var(--muted); font-size: 0.94rem; }
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 32px;
+  align-items: center;
+  padding: 28px 0;
+}
+.feature.flip .feature-text { order: 2; }
+.feature h3 { font-size: 1.3rem; margin: 0 0 8px; }
+.feature p { color: var(--muted); }
+.feature blockquote {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--card);
+  border-radius: 0 10px 10px 0;
+  color: var(--ink);
+  font-size: 0.96rem;
+}
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+.card .who { font-weight: 700; }
+.card .tag { color: var(--accent); font-size: 0.8rem; margin-left: 6px; }
+.card p { margin: 6px 0 0; color: var(--muted); font-size: 0.92rem; }
+.models { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+.models li { padding-left: 16px; position: relative; color: var(--muted); }
+.models li::before { content: ""; position: absolute; left: 0; top: 0.75em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.cta {
+  margin-top: 40px;
+  padding: 36px 28px;
+  border-radius: 20px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  text-align: center;
+}
+.cta h2 { margin-bottom: 8px; }
+.cta p { color: var(--muted); }
+.cta .actions { justify-content: center; }
+.site-foot {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.site-foot-row { max-width: 1040px; margin: 0 auto; padding: 20px 16px; display: flex; gap: 16px; flex-wrap: wrap; }
+.site-foot a { color: inherit; }
+
+/* Manual */
+.manual main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+.toc {
+  position: sticky;
+  top: 64px;
+  font-size: 0.9rem;
+}
+.toc ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.toc a { color: var(--muted); text-decoration: none; display: block; padding: 4px 10px; border-left: 2px solid var(--line); }
+.toc a:hover { color: var(--accent); border-left-color: var(--accent); }
+.toc-title { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px 12px; }
+.doc { min-width: 0; }
+.doc h1 { font-size: 2rem; margin: 0 0 4px; }
+.doc .lede { color: var(--muted); font-size: 1.05rem; margin-bottom: 24px; }
+.doc section { padding: 24px 0; border-top: 1px solid var(--line); }
+.doc section:first-of-type { border-top: none; padding-top: 8px; }
+.doc h2 { scroll-margin-top: 72px; }
+.doc figure { margin: 16px 0; }
+.doc figure img { display: block; width: 100%; border-radius: 12px; border: 1px solid var(--line); }
+.doc figcaption { color: var(--muted); font-size: 0.84rem; margin-top: 6px; }
+.doc ul, .doc ol { padding-left: 1.3em; }
+.doc li { margin: 2px 0; }
+.tip {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 0.95rem;
+}
+.tip p:last-child { margin-bottom: 0; }
+.faq dt { font-weight: 600; margin-top: 14px; }
+.faq dd { margin: 4px 0 0; color: var(--muted); }
+kbd {
+  font-family: inherit;
+  font-size: 0.86em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 0 5px;
+  background: var(--card);
+}
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; padding-top: 32px; }
+  .steps { grid-template-columns: 1fr; }
+  .feature { grid-template-columns: 1fr; gap: 16px; padding: 20px 0; }
+  .feature.flip .feature-text { order: 0; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .manual main { grid-template-columns: 1fr; gap: 20px; }
+  .toc { position: static; }
+  .toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
+  .toc a { border-left: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+}
+@media (max-width: 480px) {
+  .cards { grid-template-columns: 1fr; }
+  .site-nav a { padding: 4px 7px; font-size: 0.86rem; }
+}

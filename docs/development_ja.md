@@ -43,6 +43,9 @@ internal/store      追記ログ・画像・メモ・設定
 internal/server     HTTPの表側（ページ、API、SSE）
 frontend/src        ES モジュール。出荷物にバンドラは入らない
 frontend/public     サイトのルートに置くもの。manifest、service worker、アイコン
+frontend/lp         紹介ページ（/lp/）。日本語と英語を1つの文書に持つ
+frontend/manual     マニュアル（/manual/）。アプリのヘッダーから別タブで開く
+frontend/site       2ページ共通のスタイルと言語切替
 frontend/stories    Storybook のストーリー。同じモジュールと、API と同じ形のフィクスチャで組む
 frontend/dist       Firebase Hosting が配信するもの（上のコピー）
 ```

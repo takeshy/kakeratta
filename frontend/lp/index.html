@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ja" data-title-ja="kakeratta — かけらを、放り込む" data-title-en="kakeratta — Toss in a fragment">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#faf8f4" />
+    <meta name="description" content="思いついたこと、気になったことを放り込むと、担当分野ごとに別々の記憶を持つAIが必要なときだけ反応する。Put thoughts and things that catch your eye into one timeline; AIs with separate memories for their own subjects react when they have something to say." />
+    <title>kakeratta — かけらを、放り込む</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon.png" sizes="512x512" />
+    <link rel="stylesheet" href="/site/site.css" />
+    <script>
+      // Settle the language before the first paint, so the page never shows both.
+      (function () {
+        var q = new URLSearchParams(location.search).get("lang"), s = null;
+        try { s = localStorage.getItem("kakeratta.language"); } catch (e) {}
+        var b = String((navigator.languages || [])[0] || navigator.language || "").toLowerCase().split("-")[0] === "ja" ? "ja" : "en";
+        var lang = q === "ja" || q === "en" ? q : s === "ja" || s === "en" ? s : b;
+        document.documentElement.lang = lang;
+        document.documentElement.dataset.lang = lang;
+      })();
+    </script>
+    <script type="module" src="/site/lang.js"></script>
+  </head>
+  <body class="lp">
+    <header class="site-head">
+      <div class="site-head-row">
+        <a class="brand" href="/lp/" data-lang-link>
+          <img class="brand-mark" src="/icon.svg" alt="" width="24" height="24" />
+          kakeratta
+        </a>
+        <span class="spacer"></span>
+        <nav class="site-nav" aria-label="Site">
+          <a href="#how"><span class="ja">仕組み</span><span class="en">How it works</span></a>
+          <a href="#features"><span class="ja">できること</span><span class="en">Features</span></a>
+          <a href="/manual/" data-lang-link><span class="ja">使い方</span><span class="en">Manual</span></a>
+        </nav>
+        <div class="lang-switch" role="group" aria-label="Language / 言語">
+          <button type="button" data-set-lang="ja" aria-pressed="false" lang="ja">日本語</button>
+          <button type="button" data-set-lang="en" aria-pressed="false" lang="en">EN</button>
+        </div>
+        <a class="button primary small" href="/"><span class="ja">アプリを開く</span><span class="en">Open the app</span></a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="kicker"><span class="ja">テキスト・画像・URL・音声</span><span class="en">Text, images, URLs, speech</span></p>
+          <h1><span class="ja">かけらを、放り込む。</span><span class="en">Toss in a fragment.</span></h1>
+          <p class="lede ja">思いついたこと、目に留まったものを、ひとつのタイムラインへ。担当分野ごとに別々の記憶を持つAIが、言うことがあるときだけ反応します。</p>
+          <p class="lede en">Put thoughts and things that catch your eye into one timeline. AIs with separate memories for their own subjects react only when they have something to say.</p>
+          <div class="actions">
+            <a class="button primary" href="/"><span class="ja">アプリを開く</span><span class="en">Open the app</span></a>
+            <a class="button" href="/manual/" data-lang-link><span class="ja">使い方を見る</span><span class="en">Read the manual</span></a>
+          </div>
+        </div>
+        <figure class="shot crop-top">
+          <img class="ja" src="/captures/ja/timeline.png" alt="タイムライン。自分のかけらの下に、担当の発言が並ぶ" width="760" height="900" />
+          <img class="en" src="/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said underneath" width="760" height="900" />
+        </figure>
+      </section>
+
+      <section class="section" id="how">
+        <h2><span class="ja">仕組み</span><span class="en">How it works</span></h2>
+        <p class="section-intro ja">入り口はひとつ。受け取り手は分野ごとの担当です。</p>
+        <p class="section-intro en">One way in. On the receiving side, a persona for each subject.</p>
+        <div class="steps">
+          <div class="step">
+            <h3><span class="ja">放り込む</span><span class="en">Toss it in</span></h3>
+            <p class="ja">書く、スクリーンショットを貼る、URLを送る、話す。どれも同じ欄から入ります。</p>
+            <p class="en">Write a thought, paste a screenshot, send a URL, or speak. Everything goes through the same box.</p>
+          </div>
+          <div class="step">
+            <h3><span class="ja">担当が受け取る</span><span class="en">Personas receive it</span></h3>
+            <p class="ja">関係する担当だけが投稿を受け取り、何を覚えるか、返事をするかを自分で決めます。</p>
+            <p class="en">Only the relevant personas receive the post. Each decides what to remember and whether to reply.</p>
+          </div>
+          <div class="step">
+            <h3><span class="ja">反応があとから届く</span><span class="en">Reactions arrive later</span></h3>
+            <p class="ja">反応はタイムラインの投稿の下に遅れて並びます。答えがほしいときは @名前 で指名します。</p>
+            <p class="en">Reactions land under your post a little later. Mention a persona with @name when you want an answer.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <h2><span class="ja">できること</span><span class="en">What it does</span></h2>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3><span class="ja">分野ごとに分かれた記憶</span><span class="en">Memory kept separate by subject</span></h3>
+            <p class="ja">食事の担当は好みを、読書の担当は気になった一節を覚えます。分野で記憶を分けるので、無関係な情報が薄めません。担当は自分の分野のものだけを残すので、ただのメモも気軽に放り込めます。</p>
+            <p class="en">The food persona learns your tastes; the reading persona remembers passages that caught your eye. Keeping memory separate by subject stops unrelated information from diluting it. Personas keep only what belongs to their subject, so plain notes are welcome too.</p>
+          </div>
+          <figure class="shot crop-bottom">
+            <img class="ja" src="/captures/ja/personas.png" alt="担当の一覧。それぞれの分野、モデルの段、道具、メモ" loading="lazy" width="760" height="1000" />
+            <img class="en" src="/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" loading="lazy" width="760" height="1000" />
+          </figure>
+        </div>
+
+        <div class="feature flip">
+          <div class="feature-text">
+            <h3><span class="ja">AIと担当を作る</span><span class="en">Create your own personas with AI</span></h3>
+            <p class="ja">ほしい担当を自分の言葉で書くだけ。AIが名前、話し方、記憶のルールを下書きします。</p>
+            <p class="en">Describe the persona you want in your own words. AI drafts its name, tone, and memory rules.</p>
+            <blockquote class="ja">美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</blockquote>
+            <blockquote class="en">When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</blockquote>
+            <p class="ja">使い始めたら「AIで修正」で、話し方や覚えることを会話で育てます。組み込みの担当も同じように変えられます。</p>
+            <p class="en">Start using it, then refine its tone and what it remembers through conversation with “Edit with AI”. Built-in personas can be edited the same way.</p>
+          </div>
+          <figure class="shot crop-bottom">
+            <img class="ja" src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="760" height="1440" />
+            <img class="en" src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="760" height="1440" />
+          </figure>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text">
+            <h3><span class="ja">前に放り込んだかけらを探す</span><span class="en">Find what you tossed in before</span></h3>
+            <p class="ja">「あのとき飲んだワイン、何だった？」 覚えている言葉で探すキーワード検索と、「軽くて飲みやすかった赤」のような曖昧な記憶から探す意味検索。本文、画像から読み取った文字、担当との会話が対象です。</p>
+            <p class="en">“What was that wine I liked?” Search by keyword, or describe it loosely, like “a light red that was easy to drink”, and find fragments close in meaning. Search covers what you wrote, text read from your photos, and your conversations with personas.</p>
+            <p class="ja">担当も必要なときに過去のかけらを振り返り、「前に気に入ったピノに近いですね」と元の投稿へのリンク付きで答えます。</p>
+            <p class="en">Personas look back too. A wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>
+          </div>
+          <figure class="shot crop-bottom">
+            <img class="ja" src="/captures/ja/search-semantic.png" alt="意味検索。軽くて飲みやすかった赤ワインを探す（サンプルデータ）" loading="lazy" width="760" height="1000" />
+            <img class="en" src="/captures/en/search-semantic.png" alt="Semantic search for a light red wine you enjoyed (sample data)" loading="lazy" width="760" height="1000" />
+          </figure>
+        </div>
+
+        <div class="feature flip">
+          <div class="feature-text">
+            <h3><span class="ja">画面に出ていれば、撮れる</span><span class="en">If it is on screen, you can shoot it</span></h3>
+            <p class="ja">Kindle も有料記事も SNS も、画面に出ていればスクリーンショットで放り込めます。PCでは貼るだけ（Ctrl+V）、Androidは共有シートから、iOSはショートカットで。読んだ文字は担当が読み取り、検索の対象にもなります。</p>
+            <p class="en">Kindle, a paywalled article, a social feed: if it is on screen, a screenshot brings it in. Paste on a PC (Ctrl+V), share from the sheet on Android, or use a shortcut on iOS. The text is read and becomes searchable.</p>
+            <p class="ja">声でも入ります。話し終わりの合図を決めておけば、手を使わずに投稿できます。</p>
+            <p class="en">Speech works too. Set a send phrase and post without touching the screen.</p>
+          </div>
+          <figure class="shot crop-bottom">
+            <img class="ja" src="/captures/ja/search-thread.png" alt="検索結果から元の投稿と会話を開く（サンプルデータ）" loading="lazy" width="760" height="1100" />
+            <img class="en" src="/captures/en/search-thread.png" alt="Open the original post and conversation from a search result (sample data)" loading="lazy" width="760" height="1100" />
+          </figure>
+        </div>
+      </section>
+
+      <section class="section" id="personas">
+        <h2><span class="ja">最初からいる担当</span><span class="en">Personas that ship with the app</span></h2>
+        <p class="section-intro ja">名前はどのキーボードでも打てるローマ字です。<code>@tabe</code> のように指名できます。投稿した言語で答えます。</p>
+        <p class="section-intro en">Their names are Japanese words in Latin letters, so <code>@tabe</code> can be typed on any keyboard. A persona answers in the language the post was written in.</p>
+        <div class="cards">
+          <div class="card"><span class="who">tabe</span><span class="tag"><span class="ja">食事</span><span class="en">food</span></span>
+            <p class="ja">店、料理、飲み物、食事やメニューの写真。「何食べよう」。</p>
+            <p class="en">Places, dishes, drinks, photos of meals and menus. “What should I eat?”</p></div>
+          <div class="card"><span class="who">michi</span><span class="tag"><span class="ja">移動</span><span class="en">travel</span></span>
+            <p class="ja">行き先、経路、所要時間、待ち合わせ、旅程、チケット。</p>
+            <p class="en">Destinations, routes, travel time, meeting times, itineraries, tickets.</p></div>
+          <div class="card"><span class="who">kuda</span><span class="tag"><span class="ja">技術</span><span class="en">tech</span></span>
+            <p class="ja">コード、API、ライブラリ、設計の話、ドキュメントやエラー画面のキャプチャ。</p>
+            <p class="en">Code, APIs, libraries, design talk, captures of docs and error screens.</p></div>
+          <div class="card"><span class="who">shiori</span><span class="tag"><span class="ja">読書</span><span class="en">reading</span></span>
+            <p class="ja">電子書籍のキャプチャ、引用、書名と著者、読んだ感想。</p>
+            <p class="en">E-book captures, quoted passages, titles and authors, thoughts on a read.</p></div>
+        </div>
+      </section>
+
+      <section class="section" id="models">
+        <h2><span class="ja">動かしているモデル</span><span class="en">The models behind it</span></h2>
+        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。担当ごとに段を選べるので、軽い担当は速く、深く考える担当はじっくり答えます。</p>
+        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Each persona picks a tier, so light personas answer fast and thoughtful ones take their time.</p>
+        <ul class="models">
+          <li><span class="ja">Nemotron Nano — 軽量な振り分けと、日常的な担当の判断</span><span class="en">Nemotron Nano — lightweight routing and everyday persona decisions</span></li>
+          <li><span class="ja">Nemotron Super — 担当分野をより深く考える推論</span><span class="en">Nemotron Super — richer domain reasoning</span></li>
+          <li><span class="ja">Nemotron Ultra — 担当が必要とする複雑な推論</span><span class="en">Nemotron Ultra — complex reasoning when a persona needs it</span></li>
+          <li><span class="ja">GLM-5.3-Flash — 画像の読み取り（同じ基盤）</span><span class="en">GLM-5.3-Flash — image reading, on the same backend</span></li>
+        </ul>
+      </section>
+
+      <section class="cta">
+        <h2><span class="ja">今日のかけらを、放り込んでみる</span><span class="en">Start with today’s fragment</span></h2>
+        <p class="ja">利用には Nebius Token Factory の API キーが必要です。設定の手順は使い方ページにあります。</p>
+        <p class="en">You need a Nebius Token Factory API key. The manual walks through the setup.</p>
+        <div class="actions">
+          <a class="button primary" href="/"><span class="ja">アプリを開く</span><span class="en">Open the app</span></a>
+          <a class="button" href="/manual/" data-lang-link><span class="ja">使い方（マニュアル）</span><span class="en">Manual</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-foot">
+      <div class="site-foot-row">
+        <span>kakeratta</span>
+        <a href="/manual/" data-lang-link><span class="ja">使い方</span><span class="en">Manual</span></a>
+        <a href="https://github.com/takeshy/kakeratta" rel="noopener">GitHub</a>
+        <span class="spacer"></span>
+        <span><span class="ja">MIT ライセンス</span><span class="en">MIT licensed</span></span>
+      </div>
+    </footer>
+  </body>
+</html>

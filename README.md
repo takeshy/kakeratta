@@ -149,6 +149,7 @@ takes precedence over the shared `KAKERATTA_TOKEN` mode. Where the data lives:
 
 | Document | Contents |
 | --- | --- |
+| Landing page and manual (`/lp/`, `/manual/`) | Bilingual pages served beside the app; the **?** icon in the app header opens the manual in a new tab |
 | [Usage and configuration](docs/usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
 | [Design and personas](docs/architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
 | [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
