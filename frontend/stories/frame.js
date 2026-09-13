@@ -4,7 +4,7 @@ import { createCompose } from "../src/compose.js";
 import { createFeed } from "../src/feed.js";
 import { createRoom } from "../src/room.js";
 import { screenNodes, sheetNodes } from "../src/screen.js";
-import { answered as entriesBehind, personas as personasBehind } from "./fixtures.js";
+import { personas as personasBehind, timeline } from "./fixtures.js";
 
 // The timeline renders captures as <img src="/api/blob/...">. There is no
 // server here, so the story draws its own rather than showing broken images.
@@ -87,7 +87,7 @@ export function panel(node) {
 // screen behind, the real sheet in front, and the panel inside it.
 export function sheet(title, body) {
   const host = document.createElement("div");
-  const behind = screen({ rows: personasBehind, entries: entriesBehind });
+  const behind = screen({ rows: personasBehind, entries: timeline().answered });
   const sheetHost = document.createElement("div");
   sheetHost.id = "sheet";
   sheetHost.append(sheetNodes({ title, body, onClose: () => {} }));

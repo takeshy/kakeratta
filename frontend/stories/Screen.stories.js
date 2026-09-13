@@ -1,5 +1,5 @@
 import { screen } from "./frame.js";
-import { answered, hero, many, nobody, personas, quiet } from "./fixtures.js";
+import { nobody, personas, timeline, words } from "./fixtures.js";
 
 export default { title: "Screen" };
 
@@ -19,31 +19,31 @@ export const FirstRun = {
 // timeline says otherwise, so it says so - and stops once there is a backlog.
 export const OnePostNoReaction = {
   name: "1件・反応なし（注記が出る）",
-  render: () => screen({ rows: personas, entries: quiet }),
+  render: () => screen({ rows: personas, entries: timeline().quiet }),
 };
 
 export const Settled = {
   name: "溜まってきた（注記は消える）",
-  render: () => screen({ rows: personas, entries: many }),
+  render: () => screen({ rows: personas, entries: timeline().many }),
 };
 
 // The capture the README opens with. Short enough to fit in one image.
 export const Hero = {
   name: "README 用",
-  render: () => screen({ rows: personas, entries: hero }),
+  render: () => screen({ rows: personas, entries: timeline().hero }),
 };
 
 export const Mentioning = {
   name: "担当を指名して書いている途中",
-  render: () => screen({ rows: personas, entries: answered, text: "@tabe 今日の昼、どこがいいと思う" }),
+  render: () => screen({ rows: personas, entries: timeline().answered, text: words().mentioning }),
 };
 
 export const SignedIn = {
   name: "Googleでログイン中（サインアウトあり）",
-  render: () => screen({ rows: personas, entries: answered, signedIn: true }),
+  render: () => screen({ rows: personas, entries: timeline().answered, signedIn: true }),
 };
 
 export const ReadingAloud = {
   name: "読み上げ中",
-  render: () => screen({ rows: personas, entries: answered, speaking: true }),
+  render: () => screen({ rows: personas, entries: timeline().answered, speaking: true }),
 };

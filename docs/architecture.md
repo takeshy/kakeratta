@@ -219,6 +219,6 @@ insisting on a source link stay the app's guarantees rather than each skill's.
 
 | Name | What it is | Key |
 | --- | --- | --- |
-| `web_search` | Tavily / Brave / SearXNG | Yes (not for SearXNG) |
+| `web_search` | Tavily / Brave | Yes |
 | `place_search` | Places nearby, with **opening hours** (OpenStreetMap / Overpass) | No |
 | `route` | Travel time from where you are (OSRM; roads only, no public transport) | No |

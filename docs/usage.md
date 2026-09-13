@@ -89,9 +89,7 @@ persona reads that off the text.
 **The place is optional.** A post from a desktop has no meaningful position. It
 has to work without one.
 
-**Keeping a position and using one are separate decisions.** Needing your
-current position to react is not the same as leaving it on the record
-afterwards, and the second can be switched off (reactions still use it).
+When a position is available, it is kept with the post and used for reactions.
 
 ## Timeline
 
@@ -113,7 +111,7 @@ Web Speech API).
 | The high tier | `highModel` | unset (falls back to middle, so two tiers by default) |
 | Reading images / OCR | `visionModel` | Nemotron Nano (vision) |
 | Routing | `routeModel` | Nemotron Nano |
-| Speech recognition | dictation settings | whisper.cpp / OpenAI / Gemini … |
+| Speech recognition | dictation settings | OpenAI / Gemini / Azure … |
 | Read-aloud | — | The browser's own |
 
 **Which model sits in which tier is the difference in experience.** This is not

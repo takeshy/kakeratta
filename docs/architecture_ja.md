@@ -187,6 +187,6 @@ tabe なら `Preference` と `Shop`、shiori なら `Book` と `Theme`。**形�
 
 | 名前 | 中身 | 鍵 |
 | --- | --- | --- |
-| `web_search` | Tavily / Brave / SearXNG | 要（SearXNG は不要） |
+| `web_search` | Tavily / Brave | 要 |
 | `place_search` | 周辺の店と**営業時間**（OpenStreetMap / Overpass） | 不要 |
 | `route` | 現在地からの所要時間（OSRM。道路のみ、公共交通は含みません） | 不要 |

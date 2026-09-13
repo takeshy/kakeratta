@@ -31,10 +31,6 @@ test("transcriptionURL appends the per-service path", () => {
     "https://api.openai.com/v1/audio/transcriptions"
   );
   assert.equal(
-    transcriptionURL("http://127.0.0.1:8080/", "whisper-cpp"),
-    "http://127.0.0.1:8080/inference"
-  );
-  assert.equal(
     transcriptionURL("", "gemini-transcribe"),
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-transcribe:generateContent"
   );
@@ -54,8 +50,6 @@ test("transcriptionURL rejects URLs that could leak the API key", () => {
 test("isGoogleEndpoint and endpointPreset stay in step", () => {
   assert.equal(isGoogleEndpoint("gemini-transcribe"), true);
   assert.equal(isGoogleEndpoint("vertex-transcribe"), true);
-  assert.equal(isGoogleEndpoint("whisper-cpp"), false);
-  assert.equal(endpointPreset("whisper-cpp").baseUrl, "http://127.0.0.1:8080");
   assert.equal(endpointPreset("openai").model, "whisper-1");
 });
 
@@ -85,13 +79,6 @@ test("speechDraft strips a trailing send phrase only when final", () => {
 test("validateSpeechSettings reports what is missing", () => {
   assert.doesNotThrow(() => validateSpeechSettings(baseSettings));
   assert.throws(() => validateSpeechSettings({ ...baseSettings, model: "" }), /Model/);
-  // whisper.cpp names no model.
-  assert.doesNotThrow(() => validateSpeechSettings({
-    ...baseSettings,
-    endpointType: "whisper-cpp",
-    baseUrl: "http://127.0.0.1:8080",
-    model: ""
-  }));
   assert.throws(() => validateSpeechSettings({
     ...baseSettings,
     endpointType: "gemini-transcribe",
@@ -164,29 +151,10 @@ test("transcribeSpeech posts multipart form data with the bearer key", async () 
   assert.match(body, /name="language"/);
 });
 
-test("transcribeSpeech omits the model and forces json for whisper.cpp", async () => {
-  let request;
-  await transcribeSpeech(
-    encodeSpeechWav(Float32Array.from([0.1])),
-    { ...baseSettings, endpointType: "whisper-cpp", baseUrl: "http://127.0.0.1:8080", apiKey: "", model: "" },
-    async (r) => {
-      request = r;
-      return { status: 200, headers: {}, body: JSON.stringify({ text: "hi" }), bodyBase64: "" };
-    },
-    fakeSignal()
-  );
-  assert.equal(request.url, "http://127.0.0.1:8080/inference");
-  assert.equal(request.headers.Authorization, undefined);
-  const body = Buffer.from(request.bodyBase64, "base64").toString("binary");
-  assert.doesNotMatch(body, /name="model"/);
-  assert.match(body, /name="response_format"[\s\S]*json/);
-  assert.match(body, /name="language"[\s\S]*auto/);
-});
-
 test("transcribeSpeech treats [BLANK_AUDIO] as no speech", async () => {
   const text = await transcribeSpeech(
     encodeSpeechWav(Float32Array.from([0.1])),
-    { ...baseSettings, endpointType: "whisper-cpp", baseUrl: "http://127.0.0.1:8080", model: "" },
+    baseSettings,
     async () => ({ status: 200, headers: {}, body: JSON.stringify({ text: "[BLANK_AUDIO]" }), bodyBase64: "" }),
     fakeSignal()
   );

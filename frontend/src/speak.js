@@ -4,10 +4,23 @@
 // to take them in without looking. It reads the post and then what was said
 // about it, in order, and stops when it runs out.
 import { toast } from "./dom.js";
+import { getLanguage } from "./i18n.js";
 
 // Chromium stops a long utterance after about fifteen seconds unless the
 // synthesiser is nudged, so a paused/resumed tick runs while speaking.
 const KEEP_ALIVE_MS = 10000;
+const VOICES_WAIT_MS = 1500;
+
+const languageOf = (voice) => voice.lang?.replace("_", "-").toLowerCase() || "";
+
+export function chooseVoice(voices, name, language) {
+  const prefix = `${language.toLowerCase()}-`;
+  const matching = voices.filter((voice) =>
+    languageOf(voice) === language.toLowerCase() || languageOf(voice).startsWith(prefix));
+  const selected = name ? matching.find((voice) => voice.name === name) : null;
+  if (selected) return selected;
+  return matching.find((voice) => voice.default) || matching[0] || null;
+}
 
 export function createSpeaker() {
   const synth = typeof window !== "undefined" ? window.speechSynthesis : null;
@@ -16,7 +29,7 @@ export function createSpeaker() {
   const listeners = new Set();
   let speaking = false;
   let queue = [];
-  let rate = 1;
+  let rate = 1.2;
   let voiceName = "";
   let keepAlive = null;
   let onLine = () => {};
@@ -27,9 +40,21 @@ export function createSpeaker() {
     for (const listener of listeners) listener(speaking);
   }
 
-  function voiceFor() {
-    if (!voiceName) return null;
-    return (synth.getVoices() || []).find((voice) => voice.name === voiceName) || null;
+  function voiceFor(language) {
+    return chooseVoice(synth.getVoices() || [], voiceName, language);
+  }
+
+  async function waitForVoices() {
+    if ((synth.getVoices() || []).length) return;
+    await new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        synth.removeEventListener?.("voiceschanged", done);
+        resolve();
+      };
+      const timer = setTimeout(done, VOICES_WAIT_MS);
+      synth.addEventListener?.("voiceschanged", done, { once: true });
+    });
   }
 
   function step() {
@@ -41,15 +66,29 @@ export function createSpeaker() {
     onLine(line);
     const utterance = new SpeechSynthesisUtterance(line.text);
     utterance.rate = rate;
-    utterance.lang = "ja-JP";
-    const voice = voiceFor();
-    if (voice) utterance.voice = voice;
+    const language = getLanguage() === "ja" ? "ja" : "en";
+    utterance.lang = language === "ja" ? "ja-JP" : "en-US";
+    const voice = voiceFor(language);
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else if ((synth.getVoices() || []).length) {
+      toast(language === "ja" ? "日本語の読み上げ音声が端末にありません" : "英語の読み上げ音声が端末にありません", "error");
+      stop();
+      return;
+    }
+    console.log("[kakeratta read aloud]", {
+      text: line.text,
+      language: utterance.lang,
+      voice: utterance.voice?.name || "browser default",
+      rate: utterance.rate,
+    });
     utterance.onend = () => step();
     utterance.onerror = () => step();
     synth.speak(utterance);
   }
 
-  function start(lines) {
+  async function start(lines) {
     if (!supported) {
       toast("この環境では読み上げが使えません");
       return;
@@ -67,6 +106,8 @@ export function createSpeaker() {
       synth.pause();
       synth.resume();
     }, KEEP_ALIVE_MS);
+    await waitForVoices();
+    if (!speaking) return;
     step();
   }
 
@@ -84,7 +125,7 @@ export function createSpeaker() {
     stop,
     toggle(lines) {
       if (speaking) stop();
-      else start(lines);
+      else void start(lines);
     },
     speaking: () => speaking,
     onState: (listener) => listeners.add(listener),
@@ -92,7 +133,7 @@ export function createSpeaker() {
       onLine = handler;
     },
     setRate: (value) => {
-      rate = value || 1;
+      rate = value || 1.2;
     },
     setVoice: (name) => {
       voiceName = name || "";

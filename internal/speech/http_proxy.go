@@ -37,10 +37,7 @@ type ExternalHTTPResponse struct {
 	BodyBase64 string            `json:"bodyBase64"`
 }
 
-// SpeechHTTPRequest posts a recording to the configured STT service. Plain
-// HTTP is permitted because whisper.cpp's server and other local engines are
-// a primary target; link-local addresses stay blocked so a hostname cannot be
-// pointed at a cloud metadata endpoint.
+// SpeechHTTPRequest posts a recording to the configured STT service.
 func (v *Service) SpeechHTTPRequest(request ExternalHTTPRequest) (*ExternalHTTPResponse, error) {
 	request, err := prepareSpeechRequest(v.settings(), request)
 	if err != nil {
@@ -65,8 +62,6 @@ func prepareSpeechRequest(settings store.SpeechSettings, request ExternalHTTPReq
 		}
 		suffix := "/audio/transcriptions"
 		switch settings.EndpointType {
-		case EndpointWhisper:
-			suffix = "/inference"
 		case "azure-mai-transcribe":
 			suffix = "/speechtotext/transcriptions:transcribe"
 			base.RawQuery = "api-version=2025-10-15"

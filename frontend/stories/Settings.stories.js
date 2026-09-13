@@ -1,7 +1,7 @@
 import { createSettings } from "../src/settings.js";
 import { serve, speaker } from "./api.js";
 import { sheet } from "./frame.js";
-import { about, dictatingSettings, localSettings, settings } from "./fixtures.js";
+import { about, dictatingSettings, settings } from "./fixtures.js";
 
 export default { title: "Settings", parameters: { layout: "fullscreen" } };
 
@@ -13,7 +13,6 @@ function panelOf(current, info = about) {
 }
 
 export const Default = { name: "既定（Nebius・ブラウザ音声認識）", render: () => panelOf(settings) };
-export const Local = { name: "ローカルLLM", render: () => panelOf(localSettings) };
 export const Dictating = { name: "Web検索あり・録音して送る音声認識", render: () => panelOf(dictatingSettings) };
 export const NoToken = {
   name: "トークン未設定の警告",

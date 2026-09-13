@@ -79,7 +79,6 @@ func (s *Server) Close() { s.runner.Stop() }
 func (s *Server) client() (*llm.Client, store.Settings) {
 	settings := s.store.Settings()
 	client := llm.New(settings.BaseURL, settings.APIKey)
-	client.Session = settings.Provider == store.ProviderLocal && settings.LocalFramework == "opencode"
 	return client, settings
 }
 

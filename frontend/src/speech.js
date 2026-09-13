@@ -7,7 +7,6 @@ import { t } from "./i18n.js";
 
 export const ENDPOINT_TYPES = [
   "openai",
-  "whisper-cpp",
   "custom",
   "azure-mai-transcribe",
   "gemini-transcribe",
@@ -39,8 +38,6 @@ export function endpointPreset(endpointType) {
         model: "gemini-3.5-transcribe-preview",
         language: "auto"
       };
-    case "whisper-cpp":
-      return { baseUrl: "http://127.0.0.1:8080", model: "", language: "auto" };
     case "azure-mai-transcribe":
       return { baseUrl: "", model: "MAI-Transcribe-2", language: "auto" };
     case "custom":
@@ -73,8 +70,7 @@ export function transcriptionURL(baseUrl, endpointType = "openai", vertexProject
     url.searchParams.set("api-version", "2025-10-15");
     return url.toString();
   }
-  url.pathname = url.pathname.replace(/\/+$/, "") +
-    (endpointType === "whisper-cpp" ? "/inference" : "/audio/transcriptions");
+  url.pathname = url.pathname.replace(/\/+$/, "") + "/audio/transcriptions";
   return url.toString();
 }
 
@@ -245,7 +241,7 @@ export function validateSpeechSettings(settings) {
     if (language && language.toLowerCase() !== "auto" && !/^[a-z]{2,3}(?:-[a-z0-9]+)*$/i.test(language)) {
       throw new Error(t("言語は auto か BCP-47 (ja / en-US など) で指定してください。"));
     }
-  } else if (settings.endpointType !== "whisper-cpp" && !settings.model.trim()) {
+  } else if (!settings.model.trim()) {
     throw new Error(t("STT の Model を設定してください。"));
   }
   return url;
@@ -300,7 +296,6 @@ export async function transcribeSpeech(audio, settings, transport, signal) {
   const url = validateSpeechSettings(settings);
   const google = isGoogleEndpoint(settings.endpointType);
   const azure = settings.endpointType === "azure-mai-transcribe";
-  const native = settings.endpointType === "whisper-cpp";
   if (!audio.size) throw new Error(t("録音が空です。"));
   let headers;
   let bodyBase64;
@@ -333,15 +328,12 @@ export async function transcribeSpeech(audio, settings, transport, signal) {
   } else {
     const form = new FormData();
     form.append(azure ? "audio" : "file", audio, "recording.wav");
-    if (!native && !azure) form.append("model", settings.model.trim());
-    if (native) form.append("response_format", "json");
+    if (!azure) form.append("model", settings.model.trim());
     const language = settings.language.trim();
     if (azure) {
       const definition = { enhancedMode: { enabled: true, model: settings.model.trim() } };
       if (language && language.toLowerCase() !== "auto") definition.locales = [language];
       form.append("definition", JSON.stringify(definition));
-    } else if (native) {
-      form.append("language", language && language.toLowerCase() !== "auto" ? language : "auto");
     } else if (language && language.toLowerCase() !== "auto") {
       form.append("language", language);
     }

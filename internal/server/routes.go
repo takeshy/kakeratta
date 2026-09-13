@@ -61,11 +61,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/settings", s.guard(s.getSettings))
 	s.mux.HandleFunc("PUT /api/settings", s.guard(s.putSettings))
 	s.mux.HandleFunc("GET /api/models", s.guard(s.getModels))
+	s.mux.HandleFunc("POST /api/search/check", s.guard(s.checkSearch))
 	s.mux.HandleFunc("GET /api/about", s.guard(s.getAbout))
 
-	// The dictation stack, carried over whole and reached over HTTP instead of
-	// through a desktop bridge. The keys stay here, which is also why the
-	// browser can talk to a local whisper.cpp without tripping over CORS.
+	// The dictation stack is reached through the relay so credentials stay out
+	// of the browser.
 	s.mux.HandleFunc("POST /api/speech/request", s.guard(s.speechRequest))
 	s.mux.HandleFunc("POST /api/speech/vertex", s.guard(s.speechVertex))
 	s.mux.HandleFunc("POST /api/speech/live/start", s.guard(s.liveStart))
@@ -117,9 +117,7 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		Text: trimmed(body.Text), At: time.Now(), Link: trimmed(body.Link),
 	}
 	entry.Root = entry.ID
-	if s.store.Settings().KeepPlace {
-		entry.Place = body.Place
-	}
+	entry.Place = body.Place
 	if body.Image != "" {
 		data, mime, err := decodeImage(body.Image)
 		if err != nil {
@@ -162,9 +160,7 @@ func (s *Server) postCapture(w http.ResponseWriter, r *http.Request) {
 		longitude, lonErr := strconv.ParseFloat(lon, 64)
 		if latErr == nil && lonErr == nil {
 			reactionPlace = &timeline.Place{Lat: latitude, Lon: longitude, Label: r.FormValue("place")}
-			if s.store.Settings().KeepPlace {
-				entry.Place = reactionPlace
-			}
+			entry.Place = reactionPlace
 		}
 	}
 
@@ -446,20 +442,26 @@ func (s *Server) getModels(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"models": models})
 }
 
-func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
-	frameworks := map[string]any{}
-	for id, entry := range store.LocalFrameworks {
-		frameworks[string(id)] = map[string]string{"label": entry.Label, "endpoint": entry.Endpoint}
+func (s *Server) checkSearch(w http.ResponseWriter, r *http.Request) {
+	settings := s.store.Settings().Search
+	client := websearch.New(settings.Provider, settings.BaseURL, settings.APIKey)
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	if _, err := client.Search(ctx, "kakeratta", 1); err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+		return
 	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version":   s.version,
 		"workspace": s.store.Root(),
 		"providers": []map[string]string{
 			{"id": string(store.ProviderNebius), "label": "Nebius Token Factory", "endpoint": store.NebiusBaseURL},
 			{"id": string(store.ProviderOpenAI), "label": "OpenAI 互換", "endpoint": "https://api.openai.com/v1"},
-			{"id": string(store.ProviderLocal), "label": "ローカルLLM", "endpoint": store.LocalFrameworks["ollama"].Endpoint},
 		},
-		"frameworks": frameworks,
 		"search":     websearch.Providers,
 		"nemotron":   map[string]string{"low": store.NemotronNano, "middle": store.NemotronSuper},
 		"tiers":      []string{string(persona.TierLow), string(persona.TierMiddle), string(persona.TierHigh)},

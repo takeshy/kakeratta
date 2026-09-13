@@ -36,9 +36,8 @@ var Providers = map[string]struct {
 	BaseURL string `json:"baseUrl"`
 	NeedKey bool   `json:"needKey"`
 }{
-	"brave":   {"Brave Search API", "https://api.search.brave.com/res/v1/web/search", true},
-	"tavily":  {"Tavily", "https://api.tavily.com/search", true},
-	"searxng": {"SearXNG（自前）", "http://127.0.0.1:8888/search", false},
+	"brave":  {"Brave Search API", "https://api.search.brave.com/res/v1/web/search", true},
+	"tavily": {"Tavily", "https://api.tavily.com/search", true},
 }
 
 type Client struct {
@@ -129,17 +128,8 @@ func (c *Client) request(ctx context.Context, query string, limit int) (*http.Re
 		request.Header.Set("Accept", "application/json")
 		request.Header.Set("X-Subscription-Token", c.APIKey)
 		return request, nil
-	default: // SearXNG, and anything else that speaks its JSON shape.
-		target := fmt.Sprintf("%s?q=%s&format=json", c.BaseURL, url.QueryEscape(query))
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
-		if err != nil {
-			return nil, err
-		}
-		request.Header.Set("Accept", "application/json")
-		if c.APIKey != "" {
-			request.Header.Set("Authorization", "Bearer "+c.APIKey)
-		}
-		return request, nil
+	default:
+		return nil, ErrNotConfigured
 	}
 }
 

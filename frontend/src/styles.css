@@ -232,6 +232,7 @@ body {
   z-index: 20;
   padding-bottom: env(safe-area-inset-bottom);
 }
+#sheet.required { inset: 0; max-height: none; border-radius: 0; }
 .sheet { max-width: 680px; margin: 0 auto; }
 .sheet-head {
   display: flex;

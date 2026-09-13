@@ -1,6 +1,4 @@
-// Package llm talks to OpenAI-compatible endpoints. A local server and a cloud
-// service are the same path here, which is what lets the heavy work run
-// wherever the reader wants it.
+// Package llm talks to OpenAI-compatible inference services.
 package llm
 
 import (
@@ -26,9 +24,6 @@ var ErrNotConfigured = errors.New("AIの接続先が設定されていません"
 type Client struct {
 	BaseURL string
 	APIKey  string
-	// Session is set for a server that does not speak chat completions; only
-	// OpenCode does, and only when running locally.
-	Session bool
 	HTTP    *http.Client
 }
 
@@ -89,9 +84,6 @@ func contentParts(text string, files []Attachment) []map[string]any {
 func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
 	if c == nil || c.BaseURL == "" || request.Model == "" {
 		return "", ErrNotConfigured
-	}
-	if c.Session {
-		return c.chatOpenCode(ctx, request)
 	}
 	messages := make([]any, 0, len(request.Messages))
 	for i, message := range request.Messages {
@@ -211,9 +203,6 @@ func (c *Client) Transcribe(ctx context.Context, model, filename string, audio [
 func (c *Client) Models(ctx context.Context) ([]string, error) {
 	if c == nil || c.BaseURL == "" {
 		return nil, ErrNotConfigured
-	}
-	if c.Session {
-		return nil, nil
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/models", nil)
 	if err != nil {

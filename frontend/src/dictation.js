@@ -11,7 +11,7 @@ import { createAudioMeter } from "./meter.js";
 import { speechCommandsFor } from "./speech_commands.js";
 
 // Every request goes through the relay: the browser never sees the key, and
-// there is no CORS to negotiate with a local whisper.cpp. Vertex has its own
+// there is no CORS to negotiate with speech services. Vertex has its own
 // route, the only place the stored OAuth token is used.
 async function speechTransport(request) {
   if (new URL(request.url).hostname === "aiplatform.googleapis.com") {

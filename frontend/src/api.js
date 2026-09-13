@@ -78,10 +78,11 @@ export const api = {
   settings: () => call("GET", "/api/settings"),
   saveSettings: (settings) => call("PUT", "/api/settings", settings),
   models: () => call("GET", "/api/models"),
+  checkSearch: () => call("POST", "/api/search/check"),
   about: () => call("GET", "/api/about"),
 
-  // The dictation stack reaches its backends through here, which is why a local
-  // whisper.cpp works from a browser at all.
+  // The dictation stack reaches its backends through here so credentials stay
+  // in the relay rather than in the browser.
   speechRequest: (request) => call("POST", "/api/speech/request", request),
   speechVertex: (request) => call("POST", "/api/speech/vertex", request),
   liveStart: () => call("POST", "/api/speech/live/start"),

@@ -5,7 +5,7 @@ import { defaultSendPhrase, initialSendPhrase, sendPhraseLanguage } from "../fro
 import { speechDraft } from "../frontend/src/speech.js";
 
 test("service catalogs use their own codes and start other languages with disabled commands", () => {
-  for (const endpoint of ["openai", "custom", "whisper-cpp", "azure-mai-transcribe", "gemini-transcribe", "vertex-transcribe"]) {
+  for (const endpoint of ["openai", "custom", "azure-mai-transcribe", "gemini-transcribe", "vertex-transcribe"]) {
     const codes = speechLanguageCodes("openai-compatible", endpoint);
     assert.ok(codes.length > 50);
     assert.equal(new Set(codes).size, codes.length);
@@ -15,7 +15,6 @@ test("service catalogs use their own codes and start other languages with disabl
       if (!["en", "ja"].includes(sendPhraseLanguage(code))) assert.equal(defaultSendPhrase(code), "", code);
     }
   }
-  assert.ok(speechLanguageCodes("openai-compatible", "whisper-cpp").includes("jw"));
   assert.ok(speechLanguageCodes("openai-compatible", "azure-mai-transcribe").includes("fil"));
   assert.ok(!speechLanguageCodes("openai-compatible", "azure-mai-transcribe", "MAI-Transcribe-1.5").includes("yue"));
   assert.match(speechLanguageLabel("fr", "en"), /français/);

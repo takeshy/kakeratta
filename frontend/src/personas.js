@@ -75,7 +75,7 @@ export function createPersonas({ onChange }) {
             checked: row.active,
             onchange: (event) => void setActive(row.id, event.target.checked),
           }),
-          el("span", { text: t(row.active ? "有効" : "停止中") })),
+          el("span", { text: t("有効にする") })),
       ),
       el("p", { class: "domain", text: shown.domain }),
     );

@@ -260,6 +260,9 @@ func TestKeysAreNotInTheDefaults(t *testing.T) {
 	if settings.APIKey != "" || settings.Search.APIKey != "" {
 		t.Fatal("a key appeared from nowhere")
 	}
+	if settings.Search.Provider != "tavily" || settings.Search.BaseURL != "https://api.tavily.com/search" {
+		t.Fatalf("Tavily is not the default search provider: %+v", settings.Search)
+	}
 	// The contrast between the tiers is the experience, so the ones that ship
 	// filled in must not be the same model.
 	if settings.LowModel == settings.MiddleModel {

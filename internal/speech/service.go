@@ -17,11 +17,10 @@ import (
 
 // The endpoint and provider identifiers shared with the frontend.
 const (
-	EndpointOpenAI  = "openai"
-	EndpointWhisper = "whisper-cpp"
-	EndpointCustom  = "custom"
-	EndpointGemini  = "gemini-transcribe"
-	EndpointVertex  = "vertex-transcribe"
+	EndpointOpenAI = "openai"
+	EndpointCustom = "custom"
+	EndpointGemini = "gemini-transcribe"
+	EndpointVertex = "vertex-transcribe"
 
 	ProviderBrowser = "browser"
 	ProviderAPI     = "openai-compatible"

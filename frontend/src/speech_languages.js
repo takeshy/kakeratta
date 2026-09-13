@@ -1,15 +1,15 @@
 import { t, getLanguage } from "./i18n.js";
 
 // Language-code catalogs checked 2026-09-08. Keep API codes verbatim (notably
-// Whisper's jw/tl/no, MAI's fil/nb, and Google's regional/script variants).
+// OpenAI's jw/tl/no, MAI's fil/nb, and Google's regional/script variants).
 // OpenAI's documented Whisper languages:
 // https://developers.openai.com/api/docs/guides/text-to-speech#supported-languages
 const OPENAI = `af ar hy az be bs bg ca zh hr cs da nl en et fi fr gl de el he hi hu
   is id it ja kn kk ko lv lt mk ms mr mi ne no fa pl pt ro ru sr sk sl es sw sv tl
   ta th tr uk ur vi cy`.split(/\s+/);
 
-// https://github.com/ggml-org/whisper.cpp/blob/master/src/whisper.cpp (g_lang)
-const WHISPER = `en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk
+// The broad language set accepted by compatible transcription services.
+const COMPATIBLE = `en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk
   el ms cs ro da hu ta no th ur hr bg lt la mi ml cy sk te fa lv bn sr az sl kn et
   mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc ka be tg sd gu am
   yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha ba jw su yue`.split(/\s+/);
@@ -38,7 +38,7 @@ export function speechLanguageCodes(provider, endpoint, model = "") {
   if (endpoint === "azure-mai-transcribe") {
     return MAI.filter(code => model.trim().toLowerCase() !== "mai-transcribe-1.5" || !MAI_15_EXCLUDED.has(code));
   }
-  return [...(endpoint === "openai" ? OPENAI : WHISPER)];
+  return [...(endpoint === "openai" ? OPENAI : COMPATIBLE)];
 }
 
 export function speechLanguageLabel(code, locale = getLanguage()) {

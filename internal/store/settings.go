@@ -14,24 +14,7 @@ type Provider string
 const (
 	ProviderNebius Provider = "nebius"
 	ProviderOpenAI Provider = "openai-compatible"
-	ProviderLocal  Provider = "local"
 )
-
-// LocalFramework is which local server is listening, and only decides the
-// default address.
-type LocalFramework string
-
-// LocalFrameworks are the local servers with their usual addresses.
-var LocalFrameworks = map[LocalFramework]struct {
-	Label    string `json:"label"`
-	Endpoint string `json:"endpoint"`
-}{
-	"ollama":      {"Ollama", "http://127.0.0.1:11434/v1"},
-	"lm-studio":   {"LM Studio", "http://127.0.0.1:1234/v1"},
-	"anythingllm": {"AnythingLLM", "http://127.0.0.1:3001/api/v1/openai"},
-	"vllm":        {"vLLM", "http://127.0.0.1:8000/v1"},
-	"opencode":    {"OpenCode (Local)", "http://127.0.0.1:4096"},
-}
 
 // Nebius Token Factory is the default. Its inference API is OpenAI-compatible,
 // so nothing else in the app changes when it is swapped out.
@@ -46,10 +29,9 @@ const (
 
 // Settings are the endpoints, the models and the tools' credentials.
 type Settings struct {
-	Provider       Provider       `json:"provider"`
-	LocalFramework LocalFramework `json:"localFramework"`
-	BaseURL        string         `json:"baseUrl"`
-	APIKey         string         `json:"apiKey"`
+	Provider Provider `json:"provider"`
+	BaseURL  string   `json:"baseUrl"`
+	APIKey   string   `json:"apiKey"`
 
 	// Three sizes, in the order they answer. A persona declares which tier it
 	// belongs to, and the contrast between the tiers is the experience: the low
@@ -81,10 +63,6 @@ type Settings struct {
 
 	ReadAloudRate  float64 `json:"readAloudRate"`
 	ReadAloudVoice string  `json:"readAloudVoice"`
-	// KeepPlace decides whether a post keeps the position it was made at.
-	// Needing the current position to react and keeping it on the record
-	// afterwards are separate decisions, and this is the second one.
-	KeepPlace bool `json:"keepPlace"`
 }
 
 // SearchSettings is the web search a persona may declare it needs. The app
@@ -130,6 +108,10 @@ func defaultSettings() Settings {
 		// the middle one until something bigger is actually pointed at.
 		VisionModel: NemotronNano,
 		RouteModel:  NemotronNano,
+		Search: SearchSettings{
+			Provider: "tavily",
+			BaseURL:  "https://api.tavily.com/search",
+		},
 		Places: PlaceSettings{
 			NominatimURL: "https://nominatim.openstreetmap.org",
 			OverpassURL:  "https://overpass-api.de/api/interpreter",
@@ -144,19 +126,13 @@ func defaultSettings() Settings {
 			SilenceSeconds: 3,
 			SendPhrase:     "over, オーバー",
 		},
-		ReadAloudRate: 1,
-		KeepPlace:     true,
+		ReadAloudRate: 1.2,
 	}
 }
 
 // EndpointFor is the address a provider listens on by default.
-func EndpointFor(provider Provider, framework LocalFramework) string {
+func EndpointFor(provider Provider) string {
 	switch provider {
-	case ProviderLocal:
-		if entry, ok := LocalFrameworks[framework]; ok {
-			return entry.Endpoint
-		}
-		return LocalFrameworks["ollama"].Endpoint
 	case ProviderOpenAI:
 		return "https://api.openai.com/v1"
 	default:
@@ -176,13 +152,13 @@ func (s *Store) ConfiguredSettings() Settings {
 
 func normaliseConfiguredSettings(settings Settings) Settings {
 	if settings.ReadAloudRate <= 0 {
-		settings.ReadAloudRate = 1
+		settings.ReadAloudRate = 1.2
 	}
 	if settings.Provider == "" {
 		settings.Provider = ProviderNebius
 	}
 	if strings.TrimSpace(settings.BaseURL) == "" {
-		settings.BaseURL = EndpointFor(settings.Provider, settings.LocalFramework)
+		settings.BaseURL = EndpointFor(settings.Provider)
 	}
 	return settings
 }

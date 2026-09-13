@@ -11,7 +11,7 @@ import { createFeed } from "./feed.js";
 import { createPersonas } from "./personas.js";
 import { createRoom } from "./room.js";
 import { screenNodes, sheetNodes } from "./screen.js";
-import { createSettings } from "./settings.js";
+import { aiConfigured, createSettings } from "./settings.js";
 import { createSpeaker } from "./speak.js";
 import { getLanguage } from "./i18n.js";
 import { authenticationEnabled, logout } from "./auth.js";
@@ -22,6 +22,7 @@ const root = $("#app");
 let settings = null;
 let personaRows = [];
 let panel = null;
+let settingsRequired = false;
 
 const speaker = createSpeaker();
 const feed = createFeed({
@@ -54,8 +55,11 @@ const settingsPanel = createSettings({
   speaker,
   onSettings: (next) => {
     settings = next;
-    speaker.setRate(next.readAloudRate || 1);
+    const wasRequired = settingsRequired;
+    settingsRequired = !aiConfigured(next);
+    speaker.setRate(next.readAloudRate || 1.2);
     speaker.setVoice(next.readAloudVoice || "");
+    if (panel === "settings" && wasRequired !== settingsRequired) showPanel();
   },
 });
 
@@ -64,21 +68,33 @@ speaker.onLine((line) => {
   document.querySelector(`[data-id="${line.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
 });
 
+function showPanel() {
+  const body = panel === "personas" ? personas.element : settingsPanel.element;
+  const host = $("#sheet");
+  host.classList.toggle("required", panel === "settings" && settingsRequired);
+  host.replaceChildren(sheetNodes({
+    title: panel === "personas" ? "担当" : "設定",
+    body,
+    onClose: panel === "settings" && settingsRequired ? null : close,
+  }));
+}
+
 function open(which) {
   if (panel === which) {
-    close();
+    if (!(which === "settings" && settingsRequired)) close();
     return;
   }
   panel = which;
-  const body = which === "personas" ? personas.element : settingsPanel.element;
-  $("#sheet").replaceChildren(sheetNodes({ title: which === "personas" ? "担当" : "設定", body, onClose: close }));
+  showPanel();
   if (which === "personas") void personas.load();
   else void settingsPanel.load();
 }
 
 function close() {
   panel = null;
-  clear($("#sheet"));
+  const host = $("#sheet");
+  host.classList.remove("required");
+  clear(host);
 }
 
 async function reload() {
@@ -121,8 +137,10 @@ async function boot() {
   await reload();
   try {
     settings = await api.settings();
-    speaker.setRate(settings.readAloudRate || 1);
+    settingsRequired = !aiConfigured(settings);
+    speaker.setRate(settings.readAloudRate || 1.2);
     speaker.setVoice(settings.readAloudVoice || "");
+    if (settingsRequired) open("settings");
   } catch {
     /* the timeline still reads without settings */
   }
