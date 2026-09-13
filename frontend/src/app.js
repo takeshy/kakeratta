@@ -14,6 +14,7 @@ import { screenNodes, sheetNodes } from "./screen.js";
 import { aiConfigured, createSettings } from "./settings.js";
 import { createSpeaker } from "./speak.js";
 import { createTimelinePages } from "./timeline-pages.js";
+import { createSearch } from "./search.js";
 import { getLanguage, t } from "./i18n.js";
 import { authenticationEnabled, logout } from "./auth.js";
 
@@ -70,17 +71,24 @@ const settingsPanel = createSettings({
   },
 });
 
+const searchPanel = createSearch({
+  getSettings: () => settings,
+  getPersona: (id) => personaRows.find((row) => row.id === id),
+  onEntryChange: (entry) => pages.upsert(entry),
+  onReply: () => { void reload(); pollAfterSending(); },
+});
+
 speaker.onState((on) => room.setSpeaking(on));
 speaker.onLine((line) => {
   document.querySelector(`[data-id="${line.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
 });
 
 function showPanel() {
-  const body = panel === "personas" ? personas.element : settingsPanel.element;
+  const body = panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : settingsPanel.element;
   const host = $("#sheet");
   host.classList.toggle("required", panel === "settings" && settingsRequired);
   host.replaceChildren(sheetNodes({
-    title: panel === "personas" ? "担当" : "設定",
+    title: panel === "personas" ? "担当" : panel === "search" ? "検索" : "設定",
     body,
     onClose: panel === "settings" && settingsRequired ? null : close,
   }));
@@ -94,6 +102,7 @@ function open(which) {
   panel = which;
   showPanel();
   if (which === "personas") void personas.load();
+  else if (which === "search") searchPanel.focus();
   else void settingsPanel.load();
 }
 
@@ -146,7 +155,10 @@ function pollAfterSending() {
       pollTimer = null;
       return;
     }
-    if (!document.hidden) await pages.poll();
+    if (!document.hidden) {
+      await pages.poll();
+      if (panel === "search") await searchPanel.refresh();
+    }
     pollTimer = setTimeout(tick, POLL_EVERY);
   };
   pollTimer = setTimeout(tick, POLL_EVERY);
@@ -157,6 +169,7 @@ function pollAfterSending() {
 api.on((name, data) => {
   if (name === "entry") {
     pages.upsert(data);
+    searchPanel.changed(data);
     return;
   }
   if (name === "open") void reload();
@@ -201,6 +214,11 @@ async function boot() {
   // Who is in the room decides what the screen leads with, so it is loaded
   // before the page settles rather than when the panel is first opened.
   await personas.load();
+  const requestedEntry = new URL(location.href).searchParams.get("entry");
+  if (requestedEntry && !settingsRequired) {
+    open("search");
+    await searchPanel.showEntry(requestedEntry);
+  }
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }

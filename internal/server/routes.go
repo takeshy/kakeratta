@@ -41,6 +41,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/capture", s.guard(s.postCapture))
 
 	s.mux.HandleFunc("GET /api/timeline", s.guard(s.getTimeline))
+	s.mux.HandleFunc("POST /api/timeline/search", s.guard(s.searchTimeline))
+	s.mux.HandleFunc("GET /api/thread/{id}", s.guard(s.getThread))
 	s.mux.HandleFunc("POST /api/post", s.guard(s.postEntry))
 	s.mux.HandleFunc("POST /api/reply", s.guard(s.postReply))
 	s.mux.HandleFunc("DELETE /api/entry/{id}", s.guard(s.deleteEntry))

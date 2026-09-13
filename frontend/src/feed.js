@@ -15,7 +15,7 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEntryChange }) {
+export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEntryChange, showIntro = true }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let openReply = null;
@@ -83,7 +83,7 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
       );
       return;
     }
-    if (showsSilenceNote(threads.length)) {
+    if (showIntro && showsSilenceNote(threads.length)) {
       view.append(el("p", { class: "note", label: "反応が付かないことがあります。付くときも、遅れて届きます。" }));
     }
     for (const thread of threads) view.append(drawThread(thread));
@@ -197,7 +197,7 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
   function drawSaid(entry, post) {
     const persona = getPersona(entry.speaker);
     const mine = entry.speaker === "user";
-    const node = el("div", { class: `said-row ${mine ? "mine" : ""}` });
+    const node = el("div", { class: `said-row ${mine ? "mine" : ""}`, "data-id": entry.id });
     node.append(
       el(
         "div",
@@ -353,5 +353,14 @@ export function createFeed({ getPersona, getSettings = () => ({}), onReply, onEn
     return lines;
   }
 
-  return { element: view, set, upsert, draw, spoken, entries: () => entries };
+  // Search links should reveal the matched reply even when the timeline folds
+  // conversations by default. Subsequent redraws retain the user's choice.
+  function reveal(id) {
+    const entry = entries.find((entry) => entry.id === id);
+    if (!entry) return;
+    expanded.add(entry.kind === "post" ? entry.id : entry.root);
+    draw();
+  }
+
+  return { element: view, set, upsert, draw, spoken, reveal, entries: () => entries };
 }

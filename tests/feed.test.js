@@ -63,6 +63,27 @@ class TestNode {
   }
 }
 
+test("search reveals a folded reply and polling preserves a later manual fold", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  const entries = [
+    { id: "p", kind: "post", text: "wine", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "reply", root: "p", text: "Pinot", at: "2026-09-13T00:01:00Z" },
+  ];
+  feed.set(entries);
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 0);
+  feed.reveal("r");
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 1);
+  assert.equal(feed.element.querySelectorAll(".note").length, 0);
+  feed.set([...entries]);
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 1);
+  feed.element.querySelectorAll(".thread-toggle")[0].fire("click");
+  feed.set([...entries]);
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 0);
+});
+
 test("reply dictation survives updates, sends to its target, and stops when closed", async (t) => {
   t.mock.method(globalThis, "setTimeout", () => 0);
   t.mock.method(api, "reply", async () => ({}));

@@ -63,6 +63,8 @@ export const api = {
     return call("GET", `/api/timeline?${query}`);
   },
   post: (body) => call("POST", "/api/post", body),
+  searchTimeline: (body) => call("POST", "/api/timeline/search", body),
+  thread: (id) => call("GET", `/api/thread/${encodeURIComponent(id)}`),
   reply: (replyTo, text, speechAutoSend = false) => call("POST", "/api/reply", { replyTo, text, speechAutoSend }),
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),

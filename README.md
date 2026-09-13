@@ -34,6 +34,16 @@ Image reading uses GLM-5.3-Flash on the same backend.
 
 The timeline starts with the latest 20 posts and loads 20 more as you scroll. Replies stay with their parent posts.
 
+Search saved fragments from **Search** in the header: keyword mode matches all space-separated terms with Unicode/case normalization; semantic mode ranks by meaning using Qwen3-Embedding-8B. Both include text, URLs, image readings, place labels, and replies, and open the original conversation. Every persona can use the same `timeline_search` tool with links to the saved posts.
+
+![Keyword search for saved posts mentioning Pinot (sample data)](docs/captures/en/search-keyword.png)
+
+![Semantic search for a light red wine you enjoyed (sample data)](docs/captures/en/search-semantic.png)
+
+![Open the original post and conversation from a search result (sample data)](docs/captures/en/search-thread.png)
+
+Semantic search shares the configured AI endpoint and API key and requires `Qwen/Qwen3-Embedding-8B` embeddings with 1024 dimensions. Firestore stores native vectors in each user's `searchPassages` collection and ranks the nearest 100 passages using `FindNearest` with cosine distance, grouping hits by post/reply. Deploy the vector index in `firestore.indexes.json` with `firebase deploy --only firestore:indexes`. The first search or an endpoint change indexes existing posts; subsequent searches index only added or updated entries. Deleted conversations are excluded and returned hits are checked against current source posts. Keyword search scans the user's text, so its read volume grows with the timeline. Local storage persists vectors in `search-embeddings/` and calculates similarity in Go.
+
 1. Write a thought, paste a screenshot, send a URL, or speak.
 2. Relevant personas receive the post and decide what to remember and whether to reply.
 3. Reactions arrive later in the timeline. Mention a persona with `@` when you want an answer.

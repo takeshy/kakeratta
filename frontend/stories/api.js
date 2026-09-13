@@ -4,7 +4,7 @@
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null } = {}) {
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
   globalThis.fetch = async (input, init = {}) => {
@@ -12,6 +12,24 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     const method = (init.method || "GET").toUpperCase();
     const path = url.pathname;
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
+    if (path === "/api/timeline/search" && method === "POST" && search) {
+      if (search.loading) return new Promise(() => {});
+      if (search.error) return json({ error: search.error }, 502);
+      let hits = search.hits || [];
+      if (body.mode === "keyword") {
+        const terms = body.query.normalize("NFKC").toLowerCase().trim().split(/\s+/);
+        hits = hits.filter((hit) => terms.every((term) => hit.snippet.normalize("NFKC").toLowerCase().includes(term)))
+          .sort((a, b) => new Date(b.entry.at) - new Date(a.entry.at));
+      }
+      return json({ hits: hits.slice(body.offset || 0, (body.offset || 0) + (body.limit || 20)), total: hits.length });
+    }
+    if (path.startsWith("/api/thread/") && search) {
+      const id = decodeURIComponent(path.slice("/api/thread/".length));
+      const entry = search.entries.find((entry) => entry.id === id);
+      if (!entry) return json({ error: "投稿が見つかりません" }, 404);
+      const root = entry.kind === "post" ? entry.id : entry.root;
+      return json({ entries: search.entries.filter((entry) => entry.id === root || entry.root === root) });
+    }
     if (path === "/api/personas/build" && method === "POST" && personaDraft) return json(personaDraft);
     if (path === "/api/personas" && method === "GET") return json({ personas: rows, tools });
     if (path === "/api/personas" && method === "PUT") {

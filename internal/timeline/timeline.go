@@ -95,6 +95,10 @@ type Entry struct {
 
 	// Deleted marks a tombstone in the log rather than removing history.
 	Deleted bool `json:"deleted,omitempty"`
+
+	// Firestore tracks pending embedding updates without exposing indexing
+	// metadata in the API or the local append-only JSON log.
+	SearchDirty bool `json:"-"`
 }
 
 // Mentions returns the persona ids and names called out in the text.

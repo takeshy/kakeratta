@@ -14,6 +14,7 @@ export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
         el("img", { class: "brand-mark", src: "/icon.svg", alt: "", width: "22", height: "22" }),
         "kakeratta"),
       el("span", { class: "spacer" }),
+      el("button", { class: "chip ghost nav", label: "検索", onclick: () => onOpen?.("search") }),
       el("button", { class: "chip ghost nav", label: "担当", onclick: () => onOpen?.("personas") }),
       el("button", { class: "chip ghost nav", label: "設定", onclick: () => onOpen?.("settings") }),
       // Only when there is an account to leave: token mode has no sign-out.

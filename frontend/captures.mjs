@@ -19,6 +19,9 @@ const browser = process.env.CHROMIUM || "chromium";
 const scratch = process.env.CAPTURE_SCRATCH || join(homedir(), ".cache", "kakeratta-captures");
 
 const shots = [
+  { name: "search-keyword", id: "search--keyword", height: 900 },
+  { name: "search-semantic", id: "search--semantic", height: 1000 },
+  { name: "search-thread", id: "search--thread", height: 1100 },
   { name: "persona-create", id: "personas--ai-create-start", height: 900 },
   { name: "persona-draft", id: "personas--ai-create-draft", height: 1440 },
   { name: "timeline", id: "screen--hero", height: 900 },

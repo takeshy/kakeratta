@@ -15,6 +15,7 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/search"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
 )
@@ -34,6 +35,7 @@ type Server struct {
 	runner    *persona.Runner
 	version   string
 	token     string
+	search    *search.Service
 
 	mux    *http.ServeMux
 	events *hub
@@ -49,6 +51,8 @@ func New(options Options) *Server {
 		events:    newHub(),
 	}
 	s.runner = persona.New(s.store, s.catalogue, s.client)
+	s.search = search.New(s.store)
+	s.runner.SetSearch(s.search)
 	s.runner.OnEvent(s.events.send)
 	s.runner.Start()
 	s.routes()

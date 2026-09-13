@@ -1,7 +1,7 @@
 // Package tools is what a persona can reach outside the conversation.
 //
-// A skill declares which of these it needs, and only the declared ones can be
-// called. The app makes every call itself: the credentials, the provider and
+// A skill declares external tools; timeline search is shared by all personas.
+// The app makes every call itself: the credentials, the provider and
 // the rule that a claim comes back with a link are the app's to hold, not each
 // skill's. A food persona gets shops and opening hours; a travel one gets
 // routes and times; neither can reach the other's.
@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/takeshy/kakeratta/internal/search"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -58,13 +59,20 @@ type Tool struct {
 type Registry struct {
 	settings store.Settings
 	tools    map[string]Tool
+	search   *search.Service
 }
 
 func New(settings store.Settings) *Registry {
 	r := &Registry{settings: settings, tools: map[string]Tool{}}
-	for _, tool := range []Tool{webSearch, placeSearch, routeTo} {
+	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline} {
 		r.tools[tool.Name] = tool
 	}
+	return r
+}
+
+// Timeline search is a shared capability of every persona in this workspace.
+func (r *Registry) WithSearch(service *search.Service) *Registry {
+	r.search = service
 	return r
 }
 
@@ -78,16 +86,18 @@ func (r *Registry) Names() []string {
 	return names
 }
 
-// Set is the tools one persona declared. Anything outside it does not exist as
-// far as that persona is concerned.
+// Set includes declared external tools and the shared timeline search.
 type Set struct {
 	registry *Registry
 	allowed  map[string]bool
 }
 
-// For builds the set a skill declared, dropping names the app does not have.
+// For adds shared timeline search and drops unknown declared tool names.
 func (r *Registry) For(declared []string) *Set {
 	allowed := map[string]bool{}
+	if r.search != nil {
+		allowed["timeline_search"] = true
+	}
 	for _, name := range declared {
 		name = strings.TrimSpace(name)
 		if _, known := r.tools[name]; known {

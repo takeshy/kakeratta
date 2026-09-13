@@ -250,7 +250,7 @@ body {
 .field { display: grid; gap: 4px; }
 .field > span:first-child { color: var(--muted); font-size: 0.78rem; }
 .field.row-field { grid-auto-flow: column; justify-content: start; align-items: center; gap: 8px; }
-input[type="text"], input[type="password"], select, input[type="range"] {
+input[type="text"], input[type="search"], input[type="password"], select, input[type="range"] {
   font: inherit;
   padding: 7px 9px;
   border: 1px solid var(--line);
@@ -374,3 +374,13 @@ input[type="text"], input[type="password"], select, input[type="range"] {
 .persona-builder form { display: grid; gap: 8px; }
 
 .timeline-paging { text-align: center; padding: 16px; min-height: 48px; }
+/* Search stays inside the same sheet as settings and personas. */
+.timeline-search { display: grid; gap: .75rem; padding: 1rem; }
+.timeline-search-form { display: flex; flex-wrap: wrap; gap: .5rem; }
+.timeline-search-form input { flex: 1 1 12rem; min-width: 0; }
+.timeline-search-form select { width: auto; }
+.search-results { display: grid; gap: .75rem; }
+.search-hit { display: grid; gap: .5rem; width: 100%; padding: 1rem; text-align: left; font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.search-hit:hover, .search-hit:focus-visible { border-color: var(--accent); }
+.search-snippet { white-space: pre-wrap; overflow-wrap: anywhere; }
+.timeline-search [hidden] { display: none; }

@@ -55,6 +55,7 @@ export function createPersonas({ onChange }) {
       }),
     );
     view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ onSave: load }) }));
+    view.append(el("p", { class: "hint", label: "どの担当も、必要なときに過去のかけらを検索し、元の投稿を参照できます。" }));
     for (const row of rows) view.append(drawRow(row));
     view.append(drawInstall());
   }

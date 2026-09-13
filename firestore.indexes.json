@@ -7,7 +7,17 @@
         { "fieldPath": "Kind", "order": "ASCENDING" },
         { "fieldPath": "At", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "searchPassages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "modelKey", "order": "ASCENDING" },
+        { "fieldPath": "embedding", "vectorConfig": { "dimension": 1024, "flat": {} } }
+      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    { "collectionGroup": "searchPassages", "fieldPath": "text", "indexes": [] }
+  ]
 }

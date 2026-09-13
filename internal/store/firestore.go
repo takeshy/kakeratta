@@ -52,6 +52,7 @@ func (w *FirestoreWorkspace) timeline() *firestore.CollectionRef {
 }
 
 func (w *FirestoreWorkspace) Append(entry timeline.Entry) error {
+	entry.SearchDirty = true
 	_, err := w.timeline().Doc(entry.ID).Set(context.Background(), entry)
 	return err
 }
@@ -103,6 +104,7 @@ func (w *FirestoreWorkspace) UpdateMedia(id string, media *timeline.Media) (time
 			return nil
 		}
 		result.Media = media
+		result.SearchDirty = true
 		return tx.Set(w.timeline().Doc(id), result)
 	})
 	return result, err

@@ -11,6 +11,7 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/capture"
 	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/search"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"github.com/takeshy/kakeratta/internal/tools"
@@ -55,6 +56,7 @@ type Runner struct {
 	store     store.Workspace
 	catalogue *Catalogue
 	clientOf  func() (*llm.Client, store.Settings)
+	search    *search.Service
 	emit      func(name string, data any)
 
 	queue   []reaction
@@ -71,12 +73,16 @@ type Runner struct {
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
 	r := &Runner{
 		store: s, catalogue: catalogue, clientOf: clientOf,
-		emit: func(string, any) {},
-		done: make(chan struct{}),
+		search: search.New(s),
+		emit:   func(string, any) {},
+		done:   make(chan struct{}),
 	}
 	r.wake = sync.NewCond(&r.stopMu)
 	return r
 }
+
+// SetSearch shares the UI's indexing work with all personas. Set before Start.
+func (r *Runner) SetSearch(service *search.Service) { r.search = service }
 
 // OnEvent is how the screen hears that something landed.
 func (r *Runner) OnEvent(emit func(name string, data any)) {
@@ -217,7 +223,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	// work: what the low one said is in front of the ones above it, so they have
 	// something to pick up on. Running them together would leave the larger
 	// models with nothing but the post.
-	registry := tools.New(settings)
+	registry := tools.New(settings).WithSearch(r.search)
 	var ran []Skill
 	spoke := map[Tier]bool{}
 	for _, tier := range Tiers {
