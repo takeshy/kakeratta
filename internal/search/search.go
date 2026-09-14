@@ -25,6 +25,7 @@ const Dimensions = 1024
 
 var ErrQuery = errors.New("検索語は1〜500文字で入力してください")
 var ErrMode = errors.New("検索方法を選んでください")
+var ErrScore = errors.New("min_scoreは0〜1で指定してください")
 
 // ErrBusy means another search (often a persona's) is still indexing. Waiting
 // behind it would outlast the UI request, so the caller is told to come back.
@@ -36,11 +37,15 @@ type Hit struct {
 	Entry   timeline.Entry `json:"entry"`
 	Snippet string         `json:"snippet"`
 	Score   float64        `json:"score"`
+	// Passage is the complete matching chunk for persona context. The UI keeps
+	// its short snippet; neither caller needs an unbounded original document.
+	Passage string `json:"-"`
 }
 
 type Result struct {
-	Hits  []Hit `json:"hits"`
-	Total int   `json:"total"`
+	Hits                []Hit `json:"hits"`
+	Total               int   `json:"total"`
+	SemanticUnavailable bool  `json:"semanticUnavailable,omitempty"`
 }
 
 type vectorStore interface {
@@ -93,6 +98,9 @@ func normalize(text string) string { return strings.ToLower(norm.NFKC.String(tex
 // Vectors are cached persistently. Interrupted indexing resumes on the next
 // request because each successful batch is saved before the next is started.
 func (s *Service) Search(ctx context.Context, query, mode string, limit, offset int) (Result, error) {
+	if mode == "" || mode == "hybrid" {
+		return s.Unified(ctx, query, limit, offset, 0.5)
+	}
 	query = strings.TrimSpace(query)
 	if len([]rune(query)) < 1 || len([]rune(query)) > 500 {
 		return Result{}, ErrQuery
@@ -100,7 +108,7 @@ func (s *Service) Search(ctx context.Context, query, mode string, limit, offset 
 	if mode != "keyword" && mode != "semantic" {
 		return Result{}, ErrMode
 	}
-	if limit < 1 || limit > 50 {
+	if limit < 1 || limit > 100 {
 		limit = 20
 	}
 	if offset < 0 {
@@ -295,7 +303,7 @@ func (s *Service) semantic(ctx context.Context, entries []timeline.Entry, query 
 	for _, p := range passages {
 		score := cosine(queryVectors[0], vectors[p.key])
 		if old, ok := best[p.entry]; !ok || score > old.Score {
-			best[p.entry] = Hit{Entry: entries[p.entry], Snippet: excerpt(p.text, ""), Score: score}
+			best[p.entry] = Hit{Entry: entries[p.entry], Snippet: excerpt(p.text, ""), Score: score, Passage: p.text}
 		}
 	}
 	hits := make([]Hit, 0, len(best))

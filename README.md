@@ -56,15 +56,14 @@ Browser voice input can optionally polish your words with Nemotron Nano before p
 
 “What was that wine I liked?” Open **Search** in the header.
 
-- **Keyword** — search with words you remember, like “Pinot”.
-- **Meaning** — describe it loosely, like “a light red wine that was easy to drink”, and find fragments that are close in meaning even when the words differ.
+Enter a name like “Pinot” or a description like “a light red wine that was easy to drink” in the same field. Search combines matching words and meaning automatically.
 
 Search covers what you wrote, text read from your photos, and your conversations with personas.
 Tap a result to open the original post and its conversation.
 
-![Keyword search for saved posts mentioning Pinot (sample data)](docs/captures/en/search-keyword.png)
+![Search by name for saved posts mentioning Pinot (sample data)](docs/captures/en/search-keyword.png)
 
-![Semantic search for a light red wine you enjoyed (sample data)](docs/captures/en/search-semantic.png)
+![Search from a description for a light red wine you enjoyed (sample data)](docs/captures/en/search-semantic.png)
 
 ![Open the original post and conversation from a search result (sample data)](docs/captures/en/search-thread.png)
 
@@ -85,7 +84,7 @@ keeps those links through rewrites, and carries them forward when a persona read
 These links show how a memory was recorded; they do not certify that its interpretation is correct.
 
 The view presents existing OKF notes without another AI summary. **View original note** reveals the saved text.
-For older notes without a saved post link, **Find original post** opens keyword search.
+For older notes without a saved post link, **Find original post** opens search.
 
 Use **Forget this note** to delete an incorrect memory individually. Original posts and other notes remain.
 A persona may remember it again from past posts. To change how it remembers, use **Edit with AI** in the Personas panel—for example, “Do not infer a preference from trying a wine once.”

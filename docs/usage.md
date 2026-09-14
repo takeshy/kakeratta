@@ -132,19 +132,32 @@ Web Speech API).
 implementation. It covers text, URLs, image readings, place labels, and replies;
 deleted posts and their replies never appear.
 
-- **Keyword**: returns fragments containing every space-separated term, newest
-  first, ignoring case and full-/half-width differences. It reads all saved
-  fragments on each search, so reads grow with the timeline.
-- **Meaning (semantic)**: embeds text with `Qwen/Qwen3-Embedding-8B` (1024
-  dimensions) and ranks by closeness in meaning. It uses the configured AI
-  endpoint and API key, so the endpoint must serve embeddings for that model.
+Enter a name such as “Pinot” or a description such as “a light red I enjoyed” in
+one search field. Matching words and meaning are combined by rank, with duplicate
+posts merged. No search mode selection is needed.
 
-Semantic search indexes every existing fragment on the first search and after
-the endpoint changes; after that, only added or changed fragments are indexed,
-on the next search. One indexing pass runs at a time. If you search while a
-persona's search is indexing, you get a "busy" message after a few seconds —
-wait a moment and search again. If indexing runs out of time, the progress is
-kept and the next search resumes it.
+- Word matching normalizes case and character width, splits Japanese script runs,
+  and uses Han substrings. More matches and rarer terms rank higher. This is a
+  lightweight tokenizer, not morphological analysis. It reads all posts on each
+  search, so reads grow with the timeline.
+- Meaning search uses `Qwen/Qwen3-Embedding-8B` (1024 dimensions) at the configured
+  AI endpoint. Candidates below cosine similarity 0.5 are excluded from this
+  branch; matching words can still retrieve those posts. Personas can adjust
+  this floor with `min_score` (0–1). The default is provisional and needs real-data
+  evaluation.
+- If meaning search is unconfigured, fails, is busy, or takes more than eight
+  seconds, word matches are returned with a notice. An empty fallback result
+  does not mean all records were successfully checked for semantic relevance.
+
+Personas receive complete matching chunks, authors, dates, and sources. Word
+matches use chunks of up to 2,000 characters; semantic chunks are up to 2,000
+locally or 8,000 in Firestore. Both are supplied if they contain different evidence.
+Ranking scores are not confidence. Personas must verify evidence in the text and
+refine the query when evidence is missing.
+
+The first search and endpoint changes prepare the semantic index; later searches
+process added or changed posts. One indexing pass runs at a time, and saved
+progress is reused on the next search.
 
 Where vectors live:
 

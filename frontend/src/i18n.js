@@ -1,6 +1,8 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "名前や覚えていることを入力すると、語句の一致と意味の近さから探します。": "Enter a name or what you remember to search by matching words and meaning.",
+  "意味検索を利用できなかったため、語句の一致で探しました。あとでもう一度検索できます。": "Meaning search was unavailable, so these results match your words. You can search again later.",
   "{0} の説明を開く（新しいタブ）": "Read about {0} (opens in a new tab)",
   "すべての担当が使える道具: ": "Tools available to every persona: ",
   "過去のかけら検索": "Search past fragments",

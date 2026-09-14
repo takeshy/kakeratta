@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/takeshy/kakeratta/internal/store"
@@ -59,7 +60,7 @@ func TestNativeSearchUsesDatabaseDistancesWithoutScanningAndChecksSources(t *tes
 	if err := local.SaveSettings(store.Settings{BaseURL: provider.URL, APIKey: "test"}); err != nil {
 		t.Fatal(err)
 	}
-	post := timeline.Entry{ID: "p", Kind: timeline.KindPost, Text: "ピノ・ノワール"}
+	post := timeline.Entry{ID: "p", Kind: timeline.KindPost, Text: strings.Repeat("食事の記録。", 100) + "ピノ・ノワール"}
 	deleted := timeline.Entry{ID: "deleted", Kind: timeline.KindPost, Text: "ワイン", Deleted: true}
 	child := timeline.Entry{ID: "child", Kind: timeline.KindReply, Root: "deleted", Text: "おいしい"}
 	w := &nativeWorkspace{Store: local, entries: map[string]timeline.Entry{"p": post, "deleted": deleted, "child": child}, passages: []store.SearchPassage{
@@ -74,6 +75,9 @@ func TestNativeSearchUsesDatabaseDistancesWithoutScanningAndChecksSources(t *tes
 	}
 	if w.nearestCalls != 2 || w.replacements != 0 {
 		t.Fatalf("unexpected indexing: %+v", w)
+	}
+	if !strings.HasSuffix(got.Hits[0].Passage, "ピノ・ノワール") || strings.Contains(got.Hits[0].Snippet, "ピノ") {
+		t.Fatal("matching passage lost evidence beyond the UI excerpt")
 	}
 	// Only an explicitly pending entry is embedded and replaced.
 	w.pending = []store.SearchIndexEntry{{Entry: post}}

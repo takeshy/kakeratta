@@ -17,11 +17,6 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       if (search.loading) return new Promise(() => {});
       if (search.error) return json({ error: search.error }, 502);
       let hits = search.hits || [];
-      if (body.mode === "keyword") {
-        const terms = body.query.normalize("NFKC").toLowerCase().trim().split(/\s+/);
-        hits = hits.filter((hit) => terms.every((term) => hit.snippet.normalize("NFKC").toLowerCase().includes(term)))
-          .sort((a, b) => new Date(b.entry.at) - new Date(a.entry.at));
-      }
       return json({ hits: hits.slice(body.offset || 0, (body.offset || 0) + (body.limit || 20)), total: hits.length });
     }
     if (path.startsWith("/api/thread/") && search) {

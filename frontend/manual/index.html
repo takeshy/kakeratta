@@ -174,7 +174,7 @@
           <ul>
             <li><strong>記憶を更新した投稿</strong> のリンクで、元の投稿と会話を新しいタブに開けます。リンクはメモ保存時に自動で付き、書き直しや、読み込んだメモの統合でも引き継がれます。</li>
             <li>関連する記憶のリンクを押すと、そのメモへ移動します。<strong>元のメモを見る</strong> では保存された原文を確認できます。</li>
-            <li>以前のメモに投稿リンクが無い場合は、<strong>元の投稿を探す</strong> でキーワード検索できます。</li>
+            <li>以前のメモに投稿リンクが無い場合は、<strong>元の投稿を探す</strong> で検索できます。</li>
           </ul>
           <h3>間違った記憶を消す・覚え方を変える</h3>
           <p><strong>このメモを忘れさせる</strong> を押し、メモの名前を確認すると、その1件だけを削除します。ほかのメモと元の投稿は残ります。<strong>すべてのメモを忘れさせる</strong> は、その担当のメモをまとめて消す操作です。どちらも元に戻せません。担当そのものの <strong>削除</strong> ではメモは残ります。</p>
@@ -187,20 +187,20 @@
           <h2>5. 検索</h2>
           <p>「あのとき飲んだワイン、何だった？」 ヘッダーの <strong>検索</strong> を開きます。</p>
           <ul>
-            <li><strong>キーワード</strong>：「ピノ」のように覚えている言葉で探します。空白で区切ると、すべての語を含むかけらが新しい順に出ます。</li>
-            <li><strong>意味検索</strong>：「軽くて飲みやすかった赤ワイン」のように曖昧に書いても、言葉が違っていても意味が近いかけらから順に出ます。</li>
+            <li>「ピノ」のような名前をそのまま入力できます。</li>
+            <li>「軽くて飲みやすかった赤ワイン」のような記憶も同じ欄に入力できます。語句の一致と意味の近さを自動で組み合わせます。</li>
           </ul>
           <p>対象は、自分が書いた本文、画像から読み取った文字、担当との会話です。結果を押すと、元の投稿とその会話が開きます。</p>
           <figure>
             <img src="/captures/ja/search-keyword.png" alt="キーワード検索。ピノを含む投稿（サンプルデータ）" loading="lazy" />
-            <figcaption>キーワード検索（サンプルデータ）。</figcaption>
+            <figcaption>名前から検索（サンプルデータ）。</figcaption>
           </figure>
           <figure>
             <img src="/captures/ja/search-thread.png" alt="検索結果から元の投稿と会話を開く（サンプルデータ）" loading="lazy" />
             <figcaption>結果から元の投稿を開く。そこから返信も書けます。</figcaption>
           </figure>
           <div class="tip">
-            <p>意味検索の初回は、過去のかけらすべての準備（索引づくり）に時間がかかります。担当が検索を使っている最中だと「混んでいます」と出るので、少し待ってからもう一度検索してください。準備は途中で止まっても保存され、次の検索で続きから再開します。</p>
+            <p>意味検索の準備に時間がかかる場合や接続できない場合は、語句の一致だけで探した結果と、その旨を表示します。あとでもう一度検索できます。途中まで保存された準備は再利用します。</p>
           </div>
           <p>担当も、必要なときに過去のかけらを検索します。新しいラベルが届いたとき、ワイン担当が「前に気に入ったピノに近いですね」と元の投稿へのリンク付きで答えることがあります。</p>
         </section>
@@ -301,7 +301,7 @@
           <p><strong>依頼例：</strong>「@michi ここから渋谷駅まで徒歩で何分？」</p>
           <p><strong>制限：</strong>電車・バスなどの公共交通、時刻表、リアルタイムの渋滞は含みません。位置情報なしでは使えず、定期チェックインでも使えません。本文に出発地を書くだけでは、投稿に位置情報を付けたことにはなりません。</p>
           <h3 id="ja-tool-timeline_search">過去のかけら検索 — timeline_search</h3>
-          <p><strong>用途：</strong>このユーザーが保存した投稿、画像から読み取った文字、返信をキーワードまたは意味の近さで検索します。担当のメモとは別に、過去の記録を振り返る道具です。</p>
+          <p><strong>用途：</strong>このユーザーが保存した投稿、画像から読み取った文字、返信を語句の一致と意味の近さを合わせて検索します。担当のメモとは別に、過去の記録を振り返る道具です。</p>
           <p><strong>設定：</strong>すべての担当で利用でき、Web検索サービスのAPIキーは不要です。自分で検索するときはヘッダーの <strong>検索</strong> を開きます。</p>
           <p><strong>依頼例：</strong>「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
           <p><strong>制限：</strong>保存していない出来事は検索できません。一度に返るのは最大10件の抜粋で、意味が近い結果が必ず正解とは限りません。初回の意味検索は準備に時間がかかることがあります。定期チェックインでも利用できます。</p>
@@ -325,8 +325,8 @@
             <dd>担当が誰もいないか、その分野に該当しなかったか、担当が「覚えるだけ」を選んだのかもしれません。<strong>担当</strong> で有効な担当を確認し、必ず答えがほしいときは @名前 で指名してください。反応は遅れて届きます。</dd>
             <dt>設定画面が閉じられません。</dt>
             <dd>AI 接続が未設定のときは、設定が終わるまで閉じられません。API キーを入力して接続確認をしてください。</dd>
-            <dt>検索で「混んでいます」と出ます。</dt>
-            <dd>意味検索の準備が別の検索で走っています。少し待ってからもう一度検索してください。</dd>
+            <dt>検索で「語句の一致で探しました」と出ます。</dt>
+            <dd>意味検索が準備中か、接続できない状態です。語句で見つかる結果は表示します。少し待ってからもう一度検索してください。</dd>
             <dt>画像の文字が読めていません。</dt>
             <dd>読み取りには少し時間がかかります。しばらくして「読み取り結果」を開いてください。画像は 1 投稿あたり 20 MiB までです。</dd>
             <dt>データはどこに保存されますか。</dt>
@@ -482,7 +482,7 @@
           <ul>
             <li><strong>Posts behind this memory</strong> opens the original post and conversation in a new tab. The app attaches these links when saving notes and retains them through rewrites and consolidation of notes the persona has read.</li>
             <li>Related-memory links take you to those notes. <strong>View original note</strong> shows the text as saved.</li>
-            <li>For older notes without saved post links, <strong>Find original post</strong> opens keyword search.</li>
+            <li>For older notes without saved post links, <strong>Find original post</strong> opens search.</li>
           </ul>
           <h3>Remove a mistaken memory or change how a persona remembers</h3>
           <p>Select <strong>Forget this note</strong> and confirm its name to delete only that note. Other notes and original posts remain. <strong>Forget all notes</strong> erases all notes for that persona. Neither action can be undone. Deleting the persona itself keeps its memory.</p>
@@ -495,20 +495,20 @@
           <h2>5. Search</h2>
           <p>“What was that wine I liked?” Open <strong>Search</strong> in the header.</p>
           <ul>
-            <li><strong>Keyword</strong>: search with words you remember, like “Pinot”. Space-separated words must all match; results come newest first.</li>
-            <li><strong>Semantic</strong>: describe it loosely, like “a light red wine that was easy to drink”, and find fragments close in meaning even when the words differ.</li>
+            <li>Enter a name you remember, like “Pinot”.</li>
+            <li>Or describe it in the same field, like “a light red wine that was easy to drink”. Matching words and meaning are combined automatically.</li>
           </ul>
           <p>Search covers what you wrote, text read from your photos, and your conversations with personas. Tap a result to open the original post and its conversation.</p>
           <figure>
             <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" />
-            <figcaption>Keyword search (sample data).</figcaption>
+            <figcaption>Search by name (sample data).</figcaption>
           </figure>
           <figure>
             <img src="/captures/en/search-thread.png" alt="Open the original post and conversation from a search result (sample data)" loading="lazy" />
             <figcaption>Opening the original post from a result. You can reply from there.</figcaption>
           </figure>
           <div class="tip">
-            <p>The first semantic search prepares every existing fragment, which takes a while. If a persona is searching at the same time you may see a “busy” message; wait a moment and search again. Preparation that runs out of time is saved and resumes on the next search.</p>
+            <p>If meaning search is still preparing or cannot connect, search returns word matches with a notice. You can search again later; saved indexing progress is reused.</p>
           </div>
           <p>Personas search too, when it helps. When a new label arrives, a wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>
         </section>
@@ -587,7 +587,7 @@
                 <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search information on the Web</td><td>Add to persona; Tavily API key</td></tr>
                 <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find nearby places or look up a place by name</td><td>Add to persona; endpoints are the operator's (public defaults)</td></tr>
                 <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Driving, walking, and cycling routes and travel estimates</td><td>Add to persona; location on the post; endpoints are the operator's (public defaults)</td></tr>
-                <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search saved fragments by keyword or meaning</td><td>Available to all personas; no separate search API key</td></tr>
+                <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search saved fragments by combining words and meaning</td><td>Available to all personas; no separate search API key</td></tr>
                 <tr><td><a href="#en-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>List, read, save, and delete the persona's own memory</td><td>No additional setup</td></tr>
                 <tr><td><code>server.tool</code></td><td>Tools from MCP servers the operator added</td><td>Add to persona; servers are configured by the operator</td></tr>
               </tbody>
@@ -609,7 +609,7 @@
           <p><strong>Try:</strong> “@michi How long would it take to walk from here to Shibuya Station?”</p>
           <p><strong>Limits:</strong> No trains, buses, timetables, or live traffic. A location on the post is required, so the tool is unavailable during daily check-ins. Typing a starting place in the text does not attach location coordinates to the post.</p>
           <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
-          <p><strong>Purpose:</strong> Search this user's saved posts, text read from images, and replies by keyword or meaning. This looks back at records separately from the persona's memory.</p>
+          <p><strong>Purpose:</strong> Search this user's saved posts, text read from images, and replies by combining words and meaning. This looks back at records separately from the persona's memory.</p>
           <p><strong>Setup:</strong> Available to every persona without a Web search API key. To search yourself, open <strong>Search</strong> in the header.</p>
           <p><strong>Try:</strong> “@tabe Find that light red wine I enjoyed before.”</p>
           <p><strong>Limits:</strong> Events that were never saved cannot be found. Each call returns at most 10 excerpts. A similar result is not necessarily the right one, and the first semantic search may take time to prepare. Available during daily check-ins too.</p>
@@ -633,8 +633,8 @@
             <dd>Perhaps nobody is in the room, the post matched no persona’s subject, or the persona chose to remember without speaking. Check which personas are active under <strong>Personas</strong>, and mention @name when you need an answer. Reactions arrive late.</dd>
             <dt>I cannot close Settings.</dt>
             <dd>Until an AI connection is configured, Settings stays open. Enter an API key and check the connection.</dd>
-            <dt>Search says it is busy.</dt>
-            <dd>Semantic search is being prepared by another search. Wait a moment and search again.</dd>
+            <dt>Search says it only matched words.</dt>
+            <dd>Meaning search is preparing or unavailable. Word matches are still shown. Wait a moment and search again.</dd>
             <dt>The text in my image has not been read.</dt>
             <dd>Reading takes a moment. Open “Reading result” under the post a little later. Images are limited to 20 MiB per post.</dd>
             <dt>Where is my data stored?</dt>

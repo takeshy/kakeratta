@@ -31,7 +31,6 @@ function panel(mode, { empty = false, loading = false, error = false, thread = f
   } });
   const view = createSearch({ getSettings: () => settings, getPersona: (id) => id === "wine" ? sample.wine : null });
   const form = view.element.querySelector("form");
-  form.querySelector("select").value = mode;
   form.querySelector("input").value = mode === "keyword"
     ? (getLanguage() === "ja" ? "ピノ" : "Pinot")
     : (getLanguage() === "ja" ? "軽くて飲みやすかった赤ワイン" : "A light red wine I enjoyed");
@@ -46,8 +45,8 @@ function panel(mode, { empty = false, loading = false, error = false, thread = f
   return sheet("検索", view.element);
 }
 
-export const Keyword = { name: "キーワードで探す", render: () => panel("keyword") };
-export const Semantic = { name: "意味で探す", render: () => panel("semantic") };
+export const Keyword = { name: "名前で探す", render: () => panel("keyword") };
+export const Semantic = { name: "覚えていることから探す", render: () => panel("semantic") };
 export const Thread = { name: "検索結果から元の会話を開く", render: () => panel("semantic", { thread: true }) };
 export const Loading = { name: "初回の索引作成中", render: () => panel("semantic", { loading: true }) };
 export const Empty = { name: "一致する投稿がない", render: () => panel("keyword", { empty: true }) };

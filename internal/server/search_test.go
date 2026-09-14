@@ -35,8 +35,8 @@ func TestSearchAndThreadAPIRequireAuthenticationAndHideDeletedRoots(t *testing.T
 			t.Fatalf("unprotected %s: %d", path, got.Code)
 		}
 	}
-	got := request("POST", "/api/timeline/search", `{"query":"赤ワイン","mode":"keyword"}`, "secret")
-	if got.Code != 200 || !strings.Contains(got.Body.String(), "赤ワイン") {
+	got := request("POST", "/api/timeline/search", `{"query":"赤ワイン"}`, "secret")
+	if got.Code != 200 || !strings.Contains(got.Body.String(), "赤ワイン") || !strings.Contains(got.Body.String(), `"semanticUnavailable":true`) {
 		t.Fatalf("%d %s", got.Code, got.Body.String())
 	}
 	got = request("GET", "/api/thread/reply", "", "secret")

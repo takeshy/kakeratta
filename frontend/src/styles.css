@@ -387,7 +387,6 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .timeline-search { display: grid; gap: .75rem; padding: 1rem; }
 .timeline-search-form { display: flex; flex-wrap: wrap; gap: .5rem; }
 .timeline-search-form input { flex: 1 1 12rem; min-width: 0; }
-.timeline-search-form select { width: auto; }
 .search-results { display: grid; gap: .75rem; }
 .search-hit { display: grid; gap: .5rem; width: 100%; padding: 1rem; text-align: left; font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
 .search-hit:hover, .search-hit:focus-visible { border-color: var(--accent); }

@@ -127,7 +127,7 @@ func (s *Service) nativeSearch(ctx context.Context, index nativeIndex, query str
 		if root.ID == "" || root.Kind != timeline.KindPost {
 			continue
 		}
-		hit := Hit{Entry: entry, Snippet: excerpt(p.Text, ""), Score: 1 - p.Distance}
+		hit := Hit{Entry: entry, Snippet: excerpt(p.Text, ""), Score: 1 - p.Distance, Passage: p.Text}
 		if previous, ok := best[entry.ID]; !ok || hit.Score > previous.Score {
 			best[entry.ID] = hit
 		}

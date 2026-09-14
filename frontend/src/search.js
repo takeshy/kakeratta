@@ -6,9 +6,6 @@ import { createFeed } from "./feed.js";
 export function createSearch({ getSettings, getPersona, getPersonas, onEntryChange, onReply, onSpeak }) {
   const query = el("input", { type: "search", maxlength: 500, required: true,
     i18nPlaceholder: "かけらを検索", "aria-label": t("かけらを検索") });
-  const mode = el("select", { "aria-label": t("検索方法") },
-    el("option", { value: "keyword", label: "キーワード" }),
-    el("option", { value: "semantic", label: "意味検索" }));
   const submit = el("button", { type: "submit", class: "button", label: "検索" });
   const status = el("p", { class: "hint", role: "status", "aria-live": "polite" });
   const results = el("div", { class: "search-results" });
@@ -22,7 +19,6 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
   let hits = [];
   let total = 0;
   let searchQuery = "";
-  let searchMode = "keyword";
   const thread = createFeed({ getSettings, getPersona, getPersonas, onSpeak, showIntro: false,
     onReply: () => { onReply?.(); return refresh(); },
     onEntryChange: (entry) => { onEntryChange?.(entry); changed(entry); },
@@ -48,7 +44,6 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     const current = ++generation;
     if (!append) {
       searchQuery = query.value.trim();
-      searchMode = mode.value;
       hits = [];
       total = 0;
       draw();
@@ -65,16 +60,15 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     results.hidden = false;
     more.hidden = true;
     submit.disabled = true;
-    status.textContent = t(searchMode === "semantic"
-      ? "意味をもとに検索中…初回は過去のかけらの準備に時間がかかります"
-      : "検索中…");
+    status.textContent = t("検索中…");
     try {
-      const found = await api.searchTimeline({ query: searchQuery, mode: searchMode, limit: 20, offset: hits.length });
+      const found = await api.searchTimeline({ query: searchQuery, limit: 20, offset: hits.length });
       if (current !== generation) return;
       hits = [...hits, ...found.hits];
       total = found.total;
       draw();
-      status.textContent = found.total ? t(searchMode === "semantic" ? "近い候補{0}件中{1}件を表示" : "{0}件中{1}件を表示", found.total, hits.length) : t("一致するかけらがありません");
+      status.textContent = found.total ? t("近い候補{0}件中{1}件を表示", found.total, hits.length) : t("一致するかけらがありません");
+      if (found.semanticUnavailable) status.textContent += " " + t("意味検索を利用できなかったため、語句の一致で探しました。あとでもう一度検索できます。");
       more.hidden = hits.length >= found.total;
     } catch (error) {
       if (current === generation) {
@@ -135,11 +129,11 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
 
   const form = el("form", { class: "timeline-search-form", role: "search", onsubmit: (event) => {
     event.preventDefault(); void run();
-  } }, query, mode, submit);
+  } }, query, submit);
   const element = el("div", { class: "timeline-search" }, form,
-    el("p", { class: "hint", label: "キーワードは空白で区切ると全語一致。意味検索は言い換えや曖昧な記憶から近い順に探します。" }),
+    el("p", { class: "hint", label: "名前や覚えていることを入力すると、語句の一致と意味の近さから探します。" }),
     status, results, more, detail);
   return { element, setSpeaking: thread.setSpeaking, reveal: thread.reveal, showEntry, changed, refresh, focus: () => query.focus(),
-    searchFor: (text) => { query.value = text; mode.value = "keyword"; return run(); },
+    searchFor: (text) => { query.value = text; return run(); },
   };
 }
