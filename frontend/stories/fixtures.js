@@ -113,11 +113,11 @@ export const settings = {
   provider: "nebius",
   baseUrl: "https://api.tokenfactory.nebius.com/v1",
   apiKey: "********",
-  lowModel: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+  lowModel: "nvidia/Nemotron-3_5-Lightning",
   middleModel: "nvidia/nemotron-3-super-120b-a12b",
   highModel: "nvidia/Nemotron-3-Ultra-550b-a55b",
   visionModel: "zai-org/GLM-5.3-Flash",
-  routeModel: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+  routeModel: "nvidia/Nemotron-3_5-Lightning",
   active: personas.map((row) => row.id),
   search: { apiKey: "" },
   speech: {

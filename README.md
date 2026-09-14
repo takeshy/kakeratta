@@ -27,7 +27,7 @@ remembers through conversation.
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron Nano — lightweight routing and everyday persona decisions
+- Nemotron 3.5 Lightning — lightweight routing and everyday persona decisions
 - Nemotron Super — richer domain reasoning
 - Nemotron Ultra — complex reasoning when a persona needs it
 - Nebius Token Factory — inference backend
@@ -50,7 +50,7 @@ without speaking. Four personas ship with the app: **tabe (food), michi
 lowercase, so `@tabe` can be typed on any keyboard. A persona answers in the language the
 post was written in.
 
-Browser voice input can optionally polish your words with Nemotron Nano before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
+Browser voice input can optionally polish your words with Nemotron 3.5 Lightning before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
 
 ## Fast startup and offline posts
 
@@ -155,7 +155,7 @@ screen leads with that until you call someone in:
 
 ![Nobody in the room yet: call in a built-in persona with one tap](docs/captures/en/nobody.png)
 
-Then enter your Nebius Token Factory API key in Settings. Nano, Super, and Ultra are configured for the three tiers by default. The page proxies `/api` to the binary, the same split the
+Then enter your Nebius Token Factory API key in Settings. Lightning, Super, and Ultra are configured for the three tiers by default. The page proxies `/api` to the binary, the same split the
 deployed setup has. `task run` starts only the API, `task build` builds only the
 binary (`bin/kakeratta`), `task stories` opens Storybook, and `task test` runs
 the tests.

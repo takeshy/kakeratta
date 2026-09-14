@@ -29,7 +29,7 @@ Unverified:
   a real device
 - Whether Android's Web Share Target really appears when sharing a screenshot
   from the Kindle app
-- The quality of Nano, Super, and Ultra decisions across different persona domains
+- The quality of Lightning, Super, and Ultra decisions across different persona domains
 - OCR quality, particularly Japanese and Kindle's vertical text
 - The reaction threshold. Too low is meddling; too high looks dead
 

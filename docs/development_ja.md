@@ -25,7 +25,7 @@ GLM-5.3-Flashによる日本語スクリーンショットの読み取りとJSON
 
 - iOS ショートカットで画像を受け取って POST する導線が実機で回るか
 - Android の Web Share Target が Kindle からのスクリーンショット共有で実際に出るか
-- 各担当分野におけるNano・Super・Ultraの判断の質
+- 各担当分野におけるLightning・Super・Ultraの判断の質
 - OCR 品質。特に日本語と Kindle の縦書き
 - 反応の閾値。低すぎるとおせっかい、高すぎると死んでいるように見える
 

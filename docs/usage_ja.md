@@ -153,13 +153,13 @@ Web Share Target が使えないため、ショートカットで代替します
 
 ## 音声入力
 
-音声入力はブラウザ認識を使用します。設定の「自動送信前にAIで文章を整える」は初期状態でOFFです。ONにすると、終了フレーズによる自動送信時だけlowモデル（既定はNemotron Nano）が句読点や言いよどみを整えてから投稿します。返信にも適用します。手動送信と無音停止では整形しません。整形に失敗したときは投稿せず、入力を残します。
+音声入力はブラウザ認識を使用します。設定の「自動送信前にAIで文章を整える」は初期状態でOFFです。ONにすると、終了フレーズによる自動送信時だけlowモデル（既定はNemotron 3.5 Lightning）が句読点や言いよどみを整えてから投稿します。返信にも適用します。手動送信と無音停止では整形しません。整形に失敗したときは投稿せず、入力を残します。
 
 ## モデルと構成
 
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
-- Nemotron Nano — 軽量な振り分けと、日常的な担当の判断
+- Nemotron 3.5 Lightning — 軽量な振り分けと、日常的な担当の判断
 - Nemotron Super — 担当分野をより深く考える推論
 - Nemotron Ultra — 担当が必要とする複雑な推論
 - Nebius Token Factory — 推論基盤
@@ -170,11 +170,11 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 | 用途 | 設定 | 既定 |
 | --- | --- | --- |
-| low の担当 | `lowModel` | Nemotron Nano |
+| low の担当 | `lowModel` | Nemotron 3.5 Lightning |
 | middle の担当 | `middleModel` | Nemotron Super |
 | high の担当 | `highModel` | Nemotron Ultra |
 | 画像解析・OCR | `visionModel` | GLM-5.3-Flash |
-| 振り分け | `routeModel` | Nemotron Nano |
+| 振り分け | `routeModel` | Nemotron 3.5 Lightning |
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 
@@ -186,7 +186,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 low は浅い感想でよく、「わからんくなってきた」で終わってもよい。そこに上の段が後から拾いに来ます。
 一方的に賢いことばかり言われてもつまらないので、**段が本当に違うこと**が効きます。
 
-**既定はNano → Super → Ultraの3段です。** Token Factoryではhighが空欄の場合もUltraを使います。
+**既定はLightning → Super → Ultraの3段です。** Token Factoryではhighが空欄の場合もUltraを使います。
 各担当に段を指定し、highの担当は先に動いた担当の発言も踏まえて、複雑な内容を考えます。
 
 - 推論基盤はNebius Token Factoryです。Nemotronによる推論とGLMによる画像読み取りに使います。

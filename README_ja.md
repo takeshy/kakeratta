@@ -23,7 +23,7 @@
 
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
-- Nemotron Nano — 軽量な振り分けと、日常的な担当の判断
+- Nemotron 3.5 Lightning — 軽量な振り分けと、日常的な担当の判断
 - Nemotron Super — 担当分野をより深く考える推論
 - Nemotron Ultra — 担当が必要とする複雑な推論
 - Nebius Token Factory — 推論基盤
@@ -44,7 +44,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 内蔵の担当は **tabe（食事）・michi（移動）・kuda（技術）・shiori（読書）** の4体です。
 名前は、どのキーボードでも `@tabe` と打てるようにローマ字にしてあります。
 
-音声入力はブラウザ認識を使います。設定の **「自動送信前にAIで文章を整える」** をONにすると、終了フレーズで話し終えたときにNemotron Nano（lowモデル）が文章を整えてから投稿します。初期状態はOFFで、手動送信では整形しません。
+音声入力はブラウザ認識を使います。設定の **「自動送信前にAIで文章を整える」** をONにすると、終了フレーズで話し終えたときにNemotron 3.5 Lightning（lowモデル）が文章を整えてから投稿します。初期状態はOFFで、手動送信では整形しません。
 
 ## 素早い表示とオフライン投稿
 
@@ -146,7 +146,7 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 
 ![担当が誰もいない状態。内蔵の担当をワンタップで呼べる](docs/captures/ja/nobody.png)
 
-そのあと「設定」でNebius Token FactoryのAPIキーを入力します。各段のモデルはNano・Super・Ultraが既定で設定されています。
+そのあと「設定」でNebius Token FactoryのAPIキーを入力します。各段のモデルはLightning・Super・Ultraが既定で設定されています。
 画面は `/api` をバイナリへ中継します。公開時と同じ分け方です。API だけなら `task run`、
 バイナリのビルドだけなら `task build`（出力は `bin/kakeratta`）、Storybook は `task stories`、
 テストは `task test` です。

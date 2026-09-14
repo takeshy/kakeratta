@@ -189,13 +189,13 @@ Where vectors live:
 
 ## Voice input
 
-Dictation uses browser speech recognition. “Polish text with AI before auto-send” is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron Nano by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
+Dictation uses browser speech recognition. “Polish text with AI before auto-send” is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron 3.5 Lightning by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
 
 ## Models and deployment
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron Nano — lightweight routing and everyday persona decisions
+- Nemotron 3.5 Lightning — lightweight routing and everyday persona decisions
 - Nemotron Super — richer domain reasoning
 - Nemotron Ultra — complex reasoning when a persona needs it
 - Nebius Token Factory — inference backend
@@ -206,11 +206,11 @@ Image reading uses GLM-5.3-Flash on the same backend.
 
 | For | Setting | Default |
 | --- | --- | --- |
-| The low tier | `lowModel` | Nemotron Nano |
+| The low tier | `lowModel` | Nemotron 3.5 Lightning |
 | The middle tier | `middleModel` | Nemotron Super |
 | The high tier | `highModel` | Nemotron Ultra |
 | Reading images / OCR | `visionModel` | GLM-5.3-Flash |
-| Routing | `routeModel` | Nemotron Nano |
+| Routing | `routeModel` | Nemotron 3.5 Lightning |
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
 
@@ -225,7 +225,7 @@ cost optimisation. The low one is allowed a shallow reaction, allowed to stop at
 pick it up. Being told clever things one-sidedly is dull, so what matters is
 that **the tiers really differ**.
 
-**The default has three distinct tiers: Nano → Super → Ultra.** On Token Factory,
+**The default has three distinct tiers: Lightning → Super → Ultra.** On Token Factory,
 an empty high setting also uses Ultra. Each persona chooses its tier; a high-tier
 persona receives earlier reactions as context for more complex reasoning.
 

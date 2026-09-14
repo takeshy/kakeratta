@@ -23,6 +23,7 @@ const (
 
 	// Which model sits in which tier is what carries the contrast, so these are
 	// only where it starts. Any OpenAI-compatible name goes in any tier.
+	NemotronLightning  = "nvidia/Nemotron-3_5-Lightning"
 	NemotronNano       = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
 	NemotronSuper      = "nvidia/nemotron-3-super-120b-a12b"
 	NemotronUltra      = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -100,11 +101,11 @@ func defaultSettings() Settings {
 	return Settings{
 		Provider:    ProviderNebius,
 		BaseURL:     NebiusBaseURL,
-		LowModel:    NemotronNano,
+		LowModel:    NemotronLightning,
 		MiddleModel: NemotronSuper,
 		HighModel:   NemotronUltra,
 		VisionModel: NebiusVision,
-		RouteModel:  NemotronNano,
+		RouteModel:  NemotronLightning,
 		Speech: SpeechSettings{
 			Provider:       "browser",
 			EndpointType:   "openai",
@@ -159,6 +160,13 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel, &settings.RouteModel} {
 			if name := strings.TrimSpace(*model); name == legacyNemotronNano || name == "nvidia/nvidia-nemotron-3-nano-30b-a3b" {
 				*model = NemotronNano
+			}
+		}
+		// Upgrade the shipped light and routing models while preserving explicit
+		// middle/high choices and models served by other providers.
+		for _, model := range []*string{&settings.LowModel, &settings.RouteModel} {
+			if strings.TrimSpace(*model) == NemotronNano {
+				*model = NemotronLightning
 			}
 		}
 		if model := strings.TrimSpace(settings.VisionModel); model == legacyNemotronNano || model == NemotronNano || model == "nvidia/nvidia-nemotron-3-nano-30b-a3b" || model == "Qwen/Qwen2.5-VL-72B-Instruct" {

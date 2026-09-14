@@ -13,7 +13,10 @@ func TestNebiusDefaultModelMigration(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := s.Settings()
-			for _, model := range []string{got.LowModel, got.MiddleModel, got.HighModel, got.RouteModel} {
+			if got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
+				t.Fatal("light models not upgraded")
+			}
+			for _, model := range []string{got.MiddleModel, got.HighModel} {
 				if model != NemotronNano {
 					t.Fatalf("old text model not migrated: %s", model)
 				}
@@ -62,7 +65,7 @@ func TestIntermediateNanoDefaultIsMigrated(t *testing.T) {
 	settings.LowModel = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
 	settings.RouteModel = settings.LowModel
 	got := normaliseConfiguredSettings(settings)
-	if got.LowModel != NemotronNano || got.RouteModel != NemotronNano {
+	if got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
 		t.Fatal("intermediate default was not migrated")
 	}
 }
@@ -117,5 +120,32 @@ func TestToolSettingsInOldDocumentsAreIgnored(t *testing.T) {
 	}
 	if _, ok := raw["places"]; ok {
 		t.Fatal("the old places key was written back")
+	}
+}
+
+func TestLightningDefaultsAndNanoMigration(t *testing.T) {
+	s := open(t)
+	if got := s.Settings(); got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
+		t.Fatal("wrong defaults")
+	}
+	for _, old := range []string{NemotronNano, legacyNemotronNano, "nvidia/nvidia-nemotron-3-nano-30b-a3b"} {
+		settings := defaultSettings()
+		settings.LowModel, settings.RouteModel = old, old
+		if err := writeJSON(s.Root()+"/settings.json", settings); err != nil {
+			t.Fatal(err)
+		}
+		got := s.ConfiguredSettings()
+		if got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
+			t.Fatal("stored Nano was not upgraded")
+		}
+		if got.MiddleModel != NemotronSuper || got.HighModel != NemotronUltra || got.VisionModel != NebiusVision {
+			t.Fatal("unrelated model changed")
+		}
+	}
+	settings := defaultSettings()
+	settings.LowModel, settings.RouteModel = "custom-low", "custom-router"
+	got := normaliseConfiguredSettings(settings)
+	if got.LowModel != "custom-low" || got.RouteModel != "custom-router" {
+		t.Fatal("custom models changed")
 	}
 }
