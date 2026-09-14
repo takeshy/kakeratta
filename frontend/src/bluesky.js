@@ -14,7 +14,7 @@ export function createBlueskyConnection({ returnRoot = "", onChange = () => {} }
       if (!connection.available) {
         view.append(el("p", { class: "hint", label: "Bluesky連携は準備中です。" }));
       } else if (connection.connected) {
-        view.append(el("p", { text: t("接続先: {0}", connection.handle || connection.did) }),
+        view.append(el("p", { class: "bluesky-account", text: t("接続先: {0}", connection.handle || connection.did) }),
           el("button", { class: "chip ghost", label: "接続を解除", onclick: async (event) => {
             event.currentTarget.disabled = true;
             try {
@@ -24,9 +24,9 @@ export function createBlueskyConnection({ returnRoot = "", onChange = () => {} }
             } catch (error) { toast(error.message, "error"); event.currentTarget.disabled = false; }
           } }));
       } else {
-        const handle = el("input", { i18nPlaceholder: "例: alice.bsky.social", "aria-label": t("Blueskyのハンドル"), autocomplete: "off" });
-        const status = el("p", { role: "status", class: "hint" });
-        const connect = el("button", { class: "button secondary", label: "Blueskyと接続", onclick: async () => {
+        const handle = el("input", { type: "text", autocapitalize: "none", spellcheck: "false", i18nPlaceholder: "例: alice.bsky.social", "aria-label": t("Blueskyのハンドル"), autocomplete: "off" });
+        const status = el("p", { role: "status", class: "hint bluesky-status", "aria-live": "polite" });
+        const connect = el("button", { type: "submit", class: "button secondary bluesky-connect-button", label: "Blueskyと接続", onclick: async () => {
           if (!handle.value.trim()) { handle.focus(); return; }
           connect.disabled = true;
           try {
@@ -39,7 +39,10 @@ export function createBlueskyConnection({ returnRoot = "", onChange = () => {} }
             location.assign(redirect.href);
           } catch (error) { status.textContent = t(error.message); connect.disabled = false; }
         } });
-        view.append(el("p", { class: "hint", label: "Blueskyの画面で接続を許可してください。パスワードはBlueskyにだけ入力します。" }), handle, connect, status);
+        view.append(el("form", { class: "bluesky-connect-form", onsubmit: (event) => event.preventDefault() },
+          el("label", { class: "field bluesky-handle" },
+            el("span", { label: "Blueskyのハンドル" }), handle), connect),
+          el("p", { class: "hint", label: "Blueskyの画面で接続を許可してください。パスワードはBlueskyにだけ入力します。" }), status);
       }
       onChange(connection);
     } catch (error) {

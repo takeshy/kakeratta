@@ -156,7 +156,7 @@
             <img src="/captures/ja/bluesky-preview.png" alt="tabeの返信と自分の追加返信を選択した3件の投稿プレビュー（サンプル）" loading="lazy" width="760" height="1500" />
             <figcaption>サンプルではgoutの返信を除外。自分の追加返信はtabeへの返信として公開されます。</figcaption>
           </figure>
-          <p>本文・リンク・出典URL・添付画像が公開対象です。位置情報や画像解析結果を本文に追加したり、担当の記憶を読み出したりしません。長文は文末・改行を優先し、署名込みで300文字相当（書記素）・3,000バイト以内に自動分割します。2つ目以降は「つづき:」と署名を付けてつなぎます。一文が長すぎる場合は読点・空白、それでも収まらなければ文字の境界で分割します。URL単体が長すぎる場合はエラーになります。画像は最初の分割投稿だけに添付し、1 MB以内です。返信は相手の最後の分割投稿につながります。1回に100発言まで選択でき、分割結果はプレビューで確認できます。</p>
+          <p>本文・リンク・出典URL・添付画像が公開対象です。位置情報や画像解析結果を本文に追加したり、担当の記憶を読み出したりしません。長文は文末・改行を優先し、署名込みで300文字相当（書記素）・3,000バイト以内に自動分割します。2つ目以降は「つづき:」と署名を付けてつなぎます。一文が長すぎる場合は読点・空白、それでも収まらなければ文字の境界で分割します。URL単体が長すぎる場合はエラーになります。画像は最初の分割投稿だけに添付します。2 MBを超える画像は送信用に縮小・JPEG圧縮し、保存済みの元画像は変更しません。透明部分は白背景、GIFは静止画になります。返信は相手の最後の分割投稿につながります。1回に100発言まで選択でき、分割結果はプレビューで確認できます。</p>
           <h3>再操作と接続解除</h3>
           <p>同じアカウントへ投稿済みの発言は再送せず、追加分を返信として続けます。通信が途切れて結果を確認できない場合は、重複防止のため再送を止めます。Bluesky上の結果を確認してください。</p>
           <p><strong>設定 → Bluesky連携 → 接続を解除</strong> で解除できます。接続や再接続だけでは公開されません。接続解除やkakeratta内での削除は、Blueskyの投稿を削除しません。</p>
@@ -512,7 +512,7 @@
             <img src="/captures/en/bluesky-preview.png" alt="Preview of three posts: the original, tabe's reply, and your follow-up (sample data)" loading="lazy" width="760" height="1500" />
             <figcaption>This sample leaves out gout's reply. Your follow-up stays attached to tabe's reply.</figcaption>
           </figure>
-          <p>Sharing includes the selected text, links, source URLs, and images. It does not add location or image analysis to the text or read persona notes. Long messages split at sentence endings or line breaks into posts of up to 300 graphemes and 3,000 UTF-8 bytes including attribution. Later parts begin with “つづき:” (continued) and repeat persona attribution. Oversized sentences split at commas or spaces, then at grapheme boundaries if necessary. Individually oversized URLs raise an error. Images appear only on the first part and must be at most 1 MB. Replies attach to the final part of their parent message. Select up to 100 messages and review the resulting parts in the preview.</p>
+          <p>Sharing includes the selected text, links, source URLs, and images. It does not add location or image analysis to the text or read persona notes. Long messages split at sentence endings or line breaks into posts of up to 300 graphemes and 3,000 UTF-8 bytes including attribution. Later parts begin with “つづき:” (continued) and repeat persona attribution. Oversized sentences split at commas or spaces, then at grapheme boundaries if necessary. Individually oversized URLs raise an error. Images appear only on the first part. Images over 2 MB are resized and compressed as JPEG for sharing; saved originals remain unchanged. Transparency becomes white and GIFs become still images. Replies attach to the final part of their parent message. Select up to 100 messages and review the resulting parts in the preview.</p>
           <h3>Retrying and disconnecting</h3>
           <p>Messages already published to the same account are reused as parents for new replies. If a connection breaks and the outcome is uncertain, publishing stops to avoid duplicates. Check the result on Bluesky.</p>
           <p>Use <strong>Settings → Bluesky connection → Disconnect</strong> to remove the connection. Connecting or reconnecting never publishes anything. Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.</p>

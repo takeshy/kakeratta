@@ -5,6 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
+	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -279,5 +283,74 @@ func TestSplitPublicationResumesPerPartAndKeepsRootReference(t *testing.T) {
 	}
 	if attempts != 4 {
 		t.Fatalf("duplicate part: %d attempts", attempts)
+	}
+}
+
+func TestSocialLargeImagePreviewAndPublish(t *testing.T) {
+	s, workspace := socialApp(t)
+	img := image.NewRGBA(image.Rect(0, 0, 1200, 900))
+	rng := rand.New(rand.NewPCG(1, 2))
+	for i := 0; i < len(img.Pix); i += 4 {
+		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = byte(rng.Uint32()), byte(rng.Uint32()), byte(rng.Uint32()), 255
+	}
+	var original bytes.Buffer
+	if err := png.Encode(&original, img); err != nil {
+		t.Fatal(err)
+	}
+	if original.Len() <= social.MaxImageBytes {
+		t.Fatal("fixture too small")
+	}
+	blobID, err := workspace.PutBlob(original.Bytes(), "image/png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := workspace.Append(timeline.Entry{ID: "p", Root: "p", Kind: timeline.KindPost, Speaker: "user", Text: "photo", At: time.Now(), Media: &timeline.Media{BlobID: blobID}}); err != nil {
+		t.Fatal(err)
+	}
+	uploads := 0
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "uploadBlob") {
+			uploads++
+			data, _ := io.ReadAll(r.Body)
+			if len(data) > social.MaxImageBytes || r.Header.Get("Content-Type") != "image/jpeg" {
+				t.Error("upload not compressed")
+			}
+			if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
+				t.Error(err)
+			}
+			fmt.Fprint(w, `{"blob":{"$type":"blob","ref":{"$link":"cid"},"mimeType":"image/jpeg","size":100}}`)
+			return
+		}
+		fmt.Fprint(w, `{"uri":"at://did:plc:one/app.bsky.feed.post/a","cid":"cid"}`)
+	}))
+	defer provider.Close()
+	s.socialClient = func(context.Context) (*social.Client, error) {
+		api := atclient.NewAPIClient(provider.URL)
+		_, persistence, _ := s.blueskyOAuth()
+		connection, _ := persistence.Connection(context.Background())
+		did := connection.DID
+		api.AccountDID = &did
+		return social.NewClient(api), nil
+	}
+	body := socialBody{Root: "p", Target: "bluesky", EntryIDs: []string{"p"}}
+	preview := socialRequest(s, "/api/social/preview", body)
+	if preview.Code != 200 {
+		t.Fatal(preview.Body.String())
+	}
+	if uploads != 0 {
+		t.Fatal("preview published")
+	}
+	var plan social.Plan
+	if err := json.Unmarshal(preview.Body.Bytes(), &plan); err != nil {
+		t.Fatal(err)
+	}
+	body.Digest = plan.Digest
+	result := socialRequest(s, "/api/social/publish", body)
+	if result.Code != 200 || !strings.Contains(result.Body.String(), `"error":""`) || uploads != 1 {
+		t.Fatalf("uploads=%d: %s", uploads, result.Body.String())
+	}
+	saved, mime, err := workspace.Blob(blobID)
+	if err != nil || mime != "image/png" || !bytes.Equal(saved, original.Bytes()) {
+		t.Fatal("original changed")
 	}
 }

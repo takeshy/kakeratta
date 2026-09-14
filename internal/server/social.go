@@ -57,28 +57,38 @@ func (s *Server) previewSocial(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, err.Error())
 		return
 	}
-	if err := s.validateSocialMedia(plan); err != nil {
+	if _, err := s.prepareSocialMedia(plan); err != nil {
 		fail(w, 400, err.Error())
 		return
 	}
 	writeJSON(w, 200, plan)
 }
-func (s *Server) validateSocialMedia(plan social.Plan) error {
+
+type socialImage struct {
+	data []byte
+	mime string
+}
+
+func (s *Server) prepareSocialMedia(plan social.Plan) (map[string]socialImage, error) {
+	images := make(map[string]socialImage)
 	for _, p := range plan.Posts {
-		if p.BlobID != "" {
-			data, mime, err := s.store.Blob(p.BlobID)
-			if err != nil {
-				return fmt.Errorf("画像を読み込めませんでした")
-			}
-			if !strings.HasPrefix(mime, "image/") {
-				return fmt.Errorf("画像形式が不正です")
-			}
-			if plan.Target == "bluesky" && len(data) > 1000000 {
-				return fmt.Errorf("Blueskyの画像は1 MB以内にしてください")
-			}
+		if p.BlobID == "" {
+			continue
 		}
+		if _, ok := images[p.BlobID]; ok {
+			continue
+		}
+		data, mime, err := s.store.Blob(p.BlobID)
+		if err != nil {
+			return nil, fmt.Errorf("画像を読み込めませんでした")
+		}
+		data, mime, err = social.PrepareImage(data, mime)
+		if err != nil {
+			return nil, err
+		}
+		images[p.BlobID] = socialImage{data, mime}
 	}
-	return nil
+	return images, nil
 }
 func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -110,7 +120,8 @@ func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 		fail(w, 409, "内容が変わりました。もう一度プレビューしてください")
 		return
 	}
-	if err = s.validateSocialMedia(plan); err != nil {
+	images, err := s.prepareSocialMedia(plan)
+	if err != nil {
 		fail(w, 400, err.Error())
 		return
 	}
@@ -162,21 +173,13 @@ func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 			respond("投稿処理中、または前回の結果が未確認です。SNS上の投稿を確認してください。重複防止のため再送していません。")
 			return
 		}
-		var data []byte
-		var mime string
-		if post.BlobID != "" {
-			data, mime, err = s.store.Blob(post.BlobID)
-			if err != nil {
-				respond("画像を読み込めませんでした")
-				return
-			}
-		}
+		attachment := images[post.BlobID]
 		claimed, err := s.store.ClaimPublication(key, store.Publication{State: "pending"})
 		if err != nil || !claimed {
 			respond("別の投稿処理が進行中です。しばらく待ってから再確認してください。")
 			return
 		}
-		ref, err := client.Publish(ctx, post, refs[plan.Root], refs[post.Parent], data, mime)
+		ref, err := client.Publish(ctx, post, refs[plan.Root], refs[post.Parent], attachment.data, attachment.mime)
 		if err != nil {
 			if ref.State == "retryable" {
 				if s.store.SavePublication(key, ref) == nil {
