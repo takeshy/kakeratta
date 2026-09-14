@@ -301,3 +301,50 @@ test("daily check-ins display their persona and sources as replyable parent post
   assert.equal(feed.element.querySelectorAll(".source")[0].href, "https://example.com/news");
   assert.equal(feed.element.querySelectorAll(".thread").length, 1);
 });
+
+test("compose stops dictation and resets its button on manual and spoken send", async (t) => {
+  const { createCompose } = await import("../frontend/src/compose.js");
+  t.mock.method(api, "post", async () => ({}));
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.cancelAnimationFrame = () => {};
+  const recognizers = [];
+  globalThis.SpeechRecognition = class {
+    constructor() { recognizers.push(this); }
+    start() {}
+    stop() { this.stopped = true; }
+    abort() {}
+    result(text) {
+      const result = [{ transcript: text }];
+      result.isFinal = true;
+      this.onresult({ results: [result] });
+    }
+  };
+  t.after(() => {
+    delete globalThis.Node;
+    delete globalThis.document;
+    delete globalThis.cancelAnimationFrame;
+    delete globalThis.SpeechRecognition;
+  });
+  const compose = createCompose({ getSettings: () => ({ speech: { language: "ja", sendPhrase: "送信" } }) });
+  compose.setPlace({ lat: 35, lon: 139 });
+  const mic = compose.element.querySelectorAll(".voice-button")[0];
+  const input = compose.element.querySelectorAll(".compose-text")[0];
+  for (const spoken of [false, true]) {
+    mic.fire("click");
+    assert.equal(mic.classList.contains("active"), true);
+    assert.equal(mic["aria-pressed"], "true");
+    const recognition = recognizers.at(-1);
+    recognition.result(spoken ? "かけら送信" : "かけら");
+    if (!spoken) compose.element.fire("submit", { preventDefault() {} });
+    assert.equal(recognition.stopped, true);
+    assert.equal(mic.classList.contains("active"), false);
+    assert.equal(mic["aria-pressed"], "false");
+    assert.equal(recognition.onresult, null);
+    await new Promise(setImmediate);
+    assert.equal(input.value, "");
+    assert.equal(api.post.mock.calls.at(-1).arguments[0].text, "かけら");
+    assert.equal(api.post.mock.calls.at(-1).arguments[0].speechAutoSend, spoken);
+  }
+  assert.equal(api.post.mock.calls.length, 2);
+});

@@ -4,7 +4,7 @@ import { createAudioMeter, createDictation, dictationSupported } from "./dictati
 import { t } from "./i18n.js";
 
 export function createVoiceInput({ getSettings, getText, setText, onSend }) {
-  const micButton = el("button", { class: "chip", type: "button", label: "🎙 話す" });
+  const micButton = el("button", { class: "chip voice-button", type: "button", label: "🎙 話す", "aria-pressed": "false" });
   const micMeterNode = el("span", { class: "mic-meter", ariaHidden: "true" });
   const micMeter = createAudioMeter(micMeterNode);
   const micTitle = el("strong", { class: "mic-title" });
@@ -18,6 +18,7 @@ export function createVoiceInput({ getSettings, getText, setText, onSend }) {
     setText,
     onState: (state) => {
       micButton.classList.toggle("active", state.status === "recording");
+      micButton.setAttribute("aria-pressed", String(state.status === "recording"));
       if (state.meterStream !== meterStream) {
         meterStream = state.meterStream;
         if (meterStream) void micMeter.attach(meterStream);

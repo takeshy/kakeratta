@@ -89,6 +89,7 @@ body {
 .button.primary:hover { color: #fff; filter: brightness(1.05); }
 .chip.ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.chip.voice-button:not(.active):hover { border-color: var(--line); color: inherit; }
 
 /* Nobody in the room. The one state where the app cannot do its job at all, so
    it is the one time the screen leads with something other than the timeline. */

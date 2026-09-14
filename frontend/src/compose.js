@@ -108,6 +108,7 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
     sending = true;
     status.textContent = t(speechAutoSend && getSettings()?.speech?.formatBeforeSend ? "文章を整えて送っています…" : "送っています…");
     try {
+      await voice.discard();
       const body = { text: written, image: image || "", speechAutoSend };
       // A line that is only a URL is a link, not a comment on one.
       if (LINK.test(written) && !image) {
