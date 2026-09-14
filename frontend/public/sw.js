@@ -39,11 +39,13 @@ async function saveShare(form) {
     for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
     image = `data:${file.type || "image/png"};base64,${btoa(binary)}`;
   }
-  const text = [form.get("title"), form.get("text"), form.get("url")].filter(value => typeof value === "string" && value).join("\n");
-  if (!text && !image) throw Error("Empty share");
+  const text = [form.get("title"), form.get("text")].filter(value => typeof value === "string" && value).join("\n");
+  // Keep the shared URL as the post's link so the server reads the page.
+  const link = typeof form.get("url") === "string" ? form.get("url").trim() : "";
+  if (!text && !link && !image) throw Error("Empty share");
   const id = `local-${crypto.randomUUID()}`, at = new Date().toISOString();
-  const item = { path: "/api/post", body: { text, image, clientId: id, clientAt: at },
-    entry: { id, at, root: id, speaker: "user", kind: "post", text, localImage: image, pending: true } };
+  const item = { path: "/api/post", body: { text, link, image, clientId: id, clientAt: at },
+    entry: { id, at, root: id, speaker: "user", kind: "post", text, link, localImage: image, pending: true } };
   await localStore((store) => {
     const q = store.get("device:identity");
     q.onsuccess = () => {

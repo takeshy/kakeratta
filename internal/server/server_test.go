@@ -112,6 +112,40 @@ func TestTheShareSheetsFieldNamesAreAllAccepted(t *testing.T) {
 	}
 }
 
+// Share sheets and people both put the URL inside the sentence.
+func TestAURLInsideTheTextIsReadAsTheLink(t *testing.T) {
+	server, _ := app(t, "")
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "この記事 http://127.0.0.1/a。よかった"}, nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var entry timeline.Entry
+	_ = json.Unmarshal(recorder.Body.Bytes(), &entry)
+	if entry.Link != "http://127.0.0.1/a" || entry.Text != "この記事 http://127.0.0.1/a。よかった" {
+		t.Fatalf("entry = %+v", entry)
+	}
+	if entry.Media == nil || entry.Media.Error == "" || entry.Media.ReadAt == nil {
+		t.Fatal("a URL in the text must go through the public-page fetcher")
+	}
+}
+
+func TestLinkInTrimsSentencePunctuation(t *testing.T) {
+	for text, want := range map[string]string{
+		"see https://example.com/a.":              "https://example.com/a",
+		"(https://example.com/a)":                 "https://example.com/a",
+		"https://en.wikipedia.org/wiki/Go_(game)": "https://en.wikipedia.org/wiki/Go_(game)",
+		"読んだ https://example.com/b?x=1&y=2 ←":     "https://example.com/b?x=1&y=2",
+		"https://example.com/記事":                  "https://example.com/",
+		"no link here":                            "",
+		"https://.":                               "",
+	} {
+		if got := linkIn(text); got != want {
+			t.Errorf("linkIn(%q) = %q, want %q", text, got, want)
+		}
+	}
+}
+
 func TestAnEmptyShareIsRefused(t *testing.T) {
 	server, _ := app(t, "")
 	recorder := httptest.NewRecorder()

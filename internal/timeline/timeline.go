@@ -207,6 +207,23 @@ func (m *Media) Render() string {
 	if m == nil {
 		return ""
 	}
+	if m.BlobID == "" {
+		// No picture: this is the page behind the post's link.
+		if m.Error != "" {
+			return "リンク先: 読み取れませんでした（" + m.Error + "）"
+		}
+		parts := []string{"リンク先:"}
+		if m.Describe != "" {
+			parts = append(parts, "  ページの題名: "+m.Describe)
+		}
+		if m.Origin != "" {
+			parts = append(parts, "  URL: "+m.Origin)
+		}
+		if m.Text != "" {
+			parts = append(parts, "  ページの文字:\n"+indent(m.Text))
+		}
+		return strings.Join(parts, "\n")
+	}
 	if m.Error != "" {
 		return "画像: 読み取れませんでした（" + m.Error + "）"
 	}

@@ -227,7 +227,13 @@ func (s *Server) postCapture(w http.ResponseWriter, r *http.Request) {
 
 // Both the composer and share sheet hand every persona the same page text.
 func readLink(ctx context.Context, entry *timeline.Entry) {
-	if entry.Link == "" || entry.Media != nil {
+	if entry.Media != nil {
+		return
+	}
+	if entry.Link == "" {
+		entry.Link = linkIn(entry.Text)
+	}
+	if entry.Link == "" {
 		return
 	}
 	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
