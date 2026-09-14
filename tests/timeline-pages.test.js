@@ -65,3 +65,14 @@ test("reconnect refreshes only the pages already loaded",async()=>{
   await pager.refresh();
   assert.deepEqual(queries,[null,"older",null,"older"]);
 });
+
+test("cached conversations render before a slow refresh and survive offline failure", async () => {
+  let rendered;
+  const request = deferred();
+  const pager = createTimelinePages({fetchPage: () => request.promise, onChange: e => { rendered=e; }});
+  pager.restore([{id:'cached',kind:'post'}]);
+  const loading=pager.refresh();
+  assert.equal(rendered[0].id,'cached');
+  request.reject(Error('offline'));await loading;
+  assert.equal(rendered[0].id,'cached');
+});

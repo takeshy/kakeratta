@@ -52,6 +52,12 @@ post was written in.
 
 Browser voice input can optionally polish your words with Nemotron Nano before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
 
+## Fast startup and offline posts
+
+The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.
+
+[Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-offline)
+
 ## Share the conversation you choose to Bluesky
 
 Each user connects their own Bluesky account and selects which original posts, persona replies, and follow-ups to publish.

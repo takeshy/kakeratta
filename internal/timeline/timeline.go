@@ -71,11 +71,12 @@ func (m *Media) Ready() bool {
 
 // Entry is one line of the timeline.
 type Entry struct {
-	ID      string    `json:"id"`
-	Kind    Kind      `json:"kind"`
-	Speaker string    `json:"speaker"`
-	Text    string    `json:"text"`
-	At      time.Time `json:"at"`
+	RequestHash string    `json:"requestHash,omitempty"`
+	ID          string    `json:"id"`
+	Kind        Kind      `json:"kind"`
+	Speaker     string    `json:"speaker"`
+	Text        string    `json:"text"`
+	At          time.Time `json:"at"`
 
 	// A post carries what came in with it.
 	Media *Media `json:"media,omitempty"`

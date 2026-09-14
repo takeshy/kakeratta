@@ -51,7 +51,12 @@ export function createTimelinePages({ fetchPage, onChange, onState = () => {} })
     return pending;
   }
 
-  return { refresh: () => run(true), poll: () => run(true, true), more: () => run(false), upsert };
+  function restore(snapshot) {
+    if (pages || entries.size) return;
+    entries = new Map(snapshot.map(entry => [entry.id, entry]));
+    publish();
+  }
+  return { restore, refresh: () => run(true), poll: () => run(true, true), more: () => run(false), upsert };
 }
 
 function sameEntries(a, b) {

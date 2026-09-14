@@ -1,6 +1,15 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "保存済みの会話を表示しています。接続後に更新します。": "Showing saved conversations. They will update when connected.",
+ "端末に保存済み・送信待ち": "Saved on this device · waiting to send",
+ "端末に保存済み・送信待ち {0}件": "Saved on this device · {0} waiting to send",
+ "オフライン・保存済みの会話を表示しています": "Offline · showing saved conversations",
+ "接続して再送": "Reconnect and retry",
+ "接続とログインを確認してください。": "Check your connection and sign-in.",
+ "一度オンラインでログインしてください。": "Sign in online once to use this device offline.",
+ "送信できませんでした: {0}": "Could not send: {0}",
+ "未送信の投稿もこの端末から削除してログアウトしますか？": "Sign out and delete unsent posts from this device?",
   "Blueskyに投稿": "Share to Bluesky",
   "Bluesky連携": "Bluesky connection",
   "Bluesky連携は準備中です。": "Bluesky sharing is not available yet.",

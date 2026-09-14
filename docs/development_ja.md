@@ -90,3 +90,15 @@ Go 1.26以降が必要です。`internal/social` がOAuth・投稿計画・公�
 CAPTURE_ONLY=bluesky-connect,bluesky-selection,bluesky-preview,settings,timeline,search-thread npm --prefix frontend run captures
 npm --prefix frontend run build
 ```
+
+## ブラウザ保存とオフライン検証
+
+`local-store.js` が利用者別のIndexedDB保存、`outbox.js` が送信待ちを扱います。保存する会話は直近20件の元投稿とその返信です。未送信は別枠で保持し、サーバーの `CreateEntry` が同じ投稿IDの作成を原子的に一度に制限します。Service Workerは公開された画面ファイルだけをキャッシュし、APIレスポンスは保存しません。
+
+次の実ブラウザ検証はローカルの模擬APIを使い、オフラインでの起動・投稿・再読み込み・復帰後の一回だけの送信を確認します。日英の `docs/captures/*/offline.png` も更新します。Node.js 22以降とChromiumが必要です（`CHROMIUM` で実行ファイルを指定可能）。
+
+```sh
+npm --prefix frontend run build
+npm --prefix frontend run test:offline
+npm --prefix frontend run build
+```

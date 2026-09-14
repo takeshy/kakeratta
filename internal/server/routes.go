@@ -2,11 +2,14 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +27,11 @@ import (
 const maxCapture = 20 << 20
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/auth/identity", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		key := fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00"+s.token)))
+		writeJSON(w, http.StatusOK, map[string]any{"key": key, "enabled": false})
+	}))
 	s.mux.HandleFunc("POST /api/social/preview", s.guard(s.previewSocial))
 	s.mux.HandleFunc("POST /api/social/publish", s.guard(s.publishSocial))
 	s.mux.HandleFunc("GET /api/social/bluesky/client-metadata.json", blueskyMetadata)
@@ -106,6 +114,8 @@ func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 type postBody struct {
+	ClientID       string          `json:"clientId"`
+	ClientAt       time.Time       `json:"clientAt"`
 	SpeechAutoSend bool            `json:"speechAutoSend"`
 	Text           string          `json:"text"`
 	Link           string          `json:"link"`
@@ -121,6 +131,10 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "投稿を読めませんでした")
 		return
 	}
+	id, hash, at, done := s.clientEntry(w, body.ClientID, body.ClientAt, body)
+	if done {
+		return
+	}
 	text, err := s.formatDictation(r.Context(), body.Text, body.SpeechAutoSend)
 	if err != nil {
 		fail(w, http.StatusBadGateway, "文章を整えられませんでした。入力は残っています。再送信してください。")
@@ -128,8 +142,8 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	body.Text = text
 	entry := timeline.Entry{
-		ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User,
-		Text: trimmed(body.Text), At: time.Now(), Link: trimmed(body.Link),
+		ID: id, RequestHash: hash, Kind: timeline.KindPost, Speaker: timeline.User,
+		Text: trimmed(body.Text), At: at, Link: trimmed(body.Link),
 	}
 	entry.Root = entry.ID
 	entry.Place = body.Place
@@ -245,15 +259,21 @@ func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace
 }
 
 type replyBody struct {
-	SpeechAutoSend bool   `json:"speechAutoSend"`
-	ReplyTo        string `json:"replyTo"`
-	Text           string `json:"text"`
+	ClientID       string    `json:"clientId"`
+	ClientAt       time.Time `json:"clientAt"`
+	SpeechAutoSend bool      `json:"speechAutoSend"`
+	ReplyTo        string    `json:"replyTo"`
+	Text           string    `json:"text"`
 }
 
 func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 	var body replyBody
 	if err := readJSON(r, &body); err != nil || trimmed(body.Text) == "" {
 		fail(w, http.StatusBadRequest, "返事が空です")
+		return
+	}
+	id, hash, at, done := s.clientEntry(w, body.ClientID, body.ClientAt, body)
+	if done {
 		return
 	}
 	parent, ok := s.store.Entry(body.ReplyTo)
@@ -272,17 +292,11 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 	}
 	body.Text = text
 	reply := timeline.Entry{
-		ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User,
-		Text: trimmed(body.Text), At: time.Now(),
+		ID: id, RequestHash: hash, Kind: timeline.KindReply, Speaker: timeline.User,
+		Text: trimmed(body.Text), At: at,
 		Root: timeline.RootOf(parent), ReplyTo: parent.ID,
 	}
-	if err := s.store.Append(reply); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	s.events.send("entry", reply)
-	s.runner.React(reply.ID, nil)
-	writeJSON(w, http.StatusOK, reply)
+	s.land(w, reply, nil)
 }
 
 func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
@@ -603,4 +617,27 @@ func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.getPersonas(w, r)
+}
+
+var clientIDPattern = regexp.MustCompile(`^local-[a-f0-9-]{36}$`)
+
+func (s *Server) clientEntry(w http.ResponseWriter, id string, at time.Time, body any) (string, string, time.Time, bool) {
+	if id == "" {
+		return store.NewID("e"), "", time.Now(), false
+	}
+	if !clientIDPattern.MatchString(id) || at.IsZero() || at.After(time.Now().Add(5*time.Minute)) || at.Year() < 2000 {
+		fail(w, http.StatusBadRequest, "投稿IDまたは日時が不正です")
+		return "", "", at, true
+	}
+	raw, _ := json.Marshal(body)
+	hash := fmt.Sprintf("%x", sha256.Sum256(raw))
+	if old, ok := s.store.Entry(id); ok {
+		if old.RequestHash != hash {
+			fail(w, http.StatusConflict, "投稿IDが別の内容に使われています")
+		} else {
+			writeJSON(w, http.StatusOK, old)
+		}
+		return id, hash, at, true
+	}
+	return id, hash, at, false
 }

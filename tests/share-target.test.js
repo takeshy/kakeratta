@@ -7,7 +7,7 @@ for (const outcome of ["ok", "rejected", "offline"]) {
   test(`share target redirects after ${outcome}`, async () => {
     const handlers = {};
     const context = {
-      self: { addEventListener: (name, handler) => { handlers[name] = handler; } },
+      self: { location: { origin: "https://kakeratta.example" }, addEventListener: (name, handler) => { handlers[name] = handler; } },
       URL, Response,
       fetch: async () => {
         if (outcome === "offline") throw new Error("offline");

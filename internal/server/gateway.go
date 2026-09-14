@@ -112,6 +112,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnauthorized, "login required")
 		return
 	}
+	if r.URL.Path == "/api/auth/identity" && r.Method == http.MethodGet {
+		digest := sha256.Sum256([]byte(uid))
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, http.StatusOK, map[string]any{"key": hex.EncodeToString(digest[:]), "enabled": true})
+		return
+	}
 	tenant, err := g.tenant(uid)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())

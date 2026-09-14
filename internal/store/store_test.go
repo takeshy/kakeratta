@@ -270,3 +270,30 @@ func TestKeysAreNotInTheDefaults(t *testing.T) {
 		t.Fatalf("high tier should use Ultra, got %q", settings.HighModel)
 	}
 }
+
+func TestCreateEntryConcurrentRetries(t *testing.T) {
+	s := open(t)
+	results := make(chan bool, 12)
+	for i := 0; i < 12; i++ {
+		go func() {
+			_, created, err := s.CreateEntry(timeline.Entry{ID: "same", Kind: timeline.KindPost, Speaker: timeline.User, Text: "once", At: time.Now()})
+			if err != nil {
+				t.Error(err)
+			}
+			results <- created
+		}()
+	}
+	count := 0
+	for i := 0; i < 12; i++ {
+		if <-results {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("created %d times", count)
+	}
+	entries, err := s.Timeline()
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("entries=%d err=%v", len(entries), err)
+	}
+}

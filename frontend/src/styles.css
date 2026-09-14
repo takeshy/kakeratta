@@ -446,3 +446,6 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .social-preview a { overflow-wrap: anywhere; }
 
 .social-dialog:not([open]) { display: none; }
+
+.sync-status { display: flex; gap: .75rem; align-items: center; margin-block: .5rem; }
+.local-shot { max-width: 100%; max-height: 28rem; object-fit: contain; }

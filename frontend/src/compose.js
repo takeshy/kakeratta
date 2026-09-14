@@ -115,7 +115,7 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
         body.text = "";
         status.textContent = t("ページを読んでいます…");
       }
-      body.place = place || (await locate());
+      body.place = place || (navigator.onLine === false ? null : await locate());
       const entry = await api.post(body);
       text.value = "";
       mentions.hide();

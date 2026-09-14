@@ -1,3 +1,4 @@
+import { localRecord, localIdentity, recentEntries } from "./local-store.js";
 // Wiring. One screen: a passage to drop something through, and the timeline
 // under it.
 //
@@ -5,7 +6,7 @@
 // unread badge and no place where the AI lives - the reactions turn up in the
 // timeline beside your own posts, or they do not turn up at all.
 import { $, el, clear, toast } from "./dom.js";
-import { api } from "./api.js";
+import { api, outbox, pendingEntries } from "./api.js";
 import { createCompose } from "./compose.js";
 import { finishBlueskyConnection } from "./bluesky.js";
 import { openSocial } from "./social.js";
@@ -18,7 +19,7 @@ import { createSpeaker } from "./speak.js";
 import { createTimelinePages } from "./timeline-pages.js";
 import { createSearch } from "./search.js";
 import { getLanguage, t } from "./i18n.js";
-import { authenticationEnabled, logout } from "./auth.js";
+import { authenticationEnabled, logout, reconnectAuthentication } from "./auth.js";
 
 document.documentElement.lang = getLanguage();
 
@@ -45,7 +46,8 @@ const compose = createCompose({
   getSettings: () => settings,
   getPersonas: () => personaRows,
   onPosted: (entry) => {
-    pages.upsert(entry);
+    if (!entry.pending) pages.upsert(entry);
+    void drawLocal();
     pollAfterSending();
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
@@ -55,6 +57,7 @@ const personas = createPersonas({
   onSearch: (query) => { open("search"); void searchPanel.searchFor(query); },
   onChange: (rows) => {
     personaRows = rows;
+    void localRecord("personas", rows).catch(() => {});
     feed.draw();
     room.set(rows);
   },
@@ -136,6 +139,38 @@ function close() {
   clear(host);
 }
 
+let serverEntries = [];
+let drawVersion = 0;
+let connectionFailed = false;
+const syncStatus = el("span", { class: "hint", role: "status" });
+const syncRetry = el("button", { class: "chip", label: "接続して再送", onclick: () => void reconnect(true) });
+const syncBar = el("div", { class: "sync-status" }, syncStatus, syncRetry);
+async function drawLocal() {
+  const version = ++drawVersion;
+  const pending = await pendingEntries().catch(() => []);
+  if (version !== drawVersion) return;
+  const merged = new Map(serverEntries.map(e => [e.id, e]));
+  for (const entry of pending) {
+    if (!merged.has(entry.id) || entry.pending) merged.set(entry.id, entry);
+    else void localRecord(`ack:${entry.id}`, null).catch(() => {});
+  }
+  feed.set([...merged.values()]);
+  const count = pending.filter(e => e.pending).length;
+  syncStatus.textContent = count ? t("端末に保存済み・送信待ち {0}件", count) : navigator.onLine === false ? t("オフライン・保存済みの会話を表示しています") : connectionFailed ? t("接続とログインを確認してください。") : "";
+  syncRetry.hidden = !count && navigator.onLine !== false && !connectionFailed;
+}
+async function reconnect(retry = false) {
+  try {
+    await reconnectAuthentication();
+    connectionFailed = false;
+    await (retry ? outbox.retry() : outbox.flush());
+    await reload();
+  } catch { connectionFailed = true; void drawLocal(); }
+}
+window.addEventListener("online", () => { void reconnect(); setTimeout(() => void reconnect(), 2000); });
+window.addEventListener("offline", () => void drawLocal());
+setInterval(() => { if (!document.hidden && navigator.onLine !== false) void outbox.flush(); }, 30000);
+
 const more = el("button", { class: "button", label: "さらに20件読み込む", hidden: true,
   onclick: () => void (loadFailedInitially ? pages.refresh() : pages.more()),
 });
@@ -146,7 +181,11 @@ let autoLoad = false;
 let pagingObserver = null;
 const pages = createTimelinePages({
   fetchPage: (query) => api.timeline(query),
-  onChange: (entries) => feed.set(entries),
+  onChange: (entries) => {
+    serverEntries = entries;
+    void drawLocal();
+    void localRecord("timeline", recentEntries(entries)).catch(() => {});
+  },
   onState: ({ loading, hasMore, error, initial }) => {
     autoLoad = !loading && hasMore && !error;
     loadFailedInitially = Boolean(error && initial);
@@ -155,11 +194,11 @@ const pages = createTimelinePages({
     more.hidden = !hasMore && !error;
     more.disabled = loading;
     more.textContent = t(error ? "もう一度読み込む" : "さらに20件読み込む");
-    pagingStatus.textContent = loading ? t("読み込んでいます…") : error ? t("読み込めませんでした。もう一度お試しください。") : "";
+    pagingStatus.textContent = loading ? (serverEntries.length ? "" : t("読み込んでいます…")) : error ? t(serverEntries.length ? "保存済みの会話を表示しています。接続後に更新します。" : "読み込めませんでした。もう一度お試しください。") : "";
   },
 });
 
-function reload() { return pages.refresh(); }
+function reload() { return navigator.onLine === false ? Promise.resolve() : pages.refresh(); }
 
 // The live channel can drop a reaction without noticing (a proxy cutting the
 // stream, a reconnect in the wrong moment). Only you and the personas write to
@@ -190,17 +229,18 @@ function pollAfterSending() {
 // A reaction arriving is the app working, not an event to celebrate: it lands
 // in place and nothing else moves.
 api.on((name, data) => {
+  if (name === "outbox") { if (data) pages.upsert(data); void drawLocal(); if (data) pollAfterSending(); return; }
   if (name === "entry") {
     pages.upsert(data);
     searchPanel.changed(data);
     return;
   }
-  if (name === "open") void reload();
+  if (name === "open") { void reload(); void outbox.flush(); }
 });
 
 clear(root).append(
   ...screenNodes({
-    compose: compose.element, room, feed: el("div", {}, feed.element, pagingFooter), onOpen: open,
+    compose: compose.element, room, feed: el("div", {}, syncBar, feed.element, pagingFooter), onOpen: open,
     onLogout: authenticationEnabled() ? () => void logout() : null,
   }),
 );
@@ -221,10 +261,19 @@ navigator.serviceWorker?.addEventListener("message", (event) => {
 });
 
 async function boot() {
+  navigator.serviceWorker?.register("/sw.js").catch(() => {});
   if (new URLSearchParams(location.search).get("shared") === "0") {
     toast("共有した内容を保存できませんでした。接続と認証を確認し、もう一度共有してください。", "error");
   }
-  await reload();
+  const cached = await localRecord("timeline").catch(() => null);
+  if (cached) pages.restore(cached);
+  await drawLocal();
+  const cachedPersonas = await localRecord("personas").catch(() => null);
+  if (cachedPersonas) { personaRows = cachedPersonas; room.set(personaRows); feed.draw(); }
+  if (navigator.onLine === false) { compose.focus(); return; }
+  const loading = reload();
+  const loadingPersonas = personas.load({ quiet: true });
+  void reconnect();
   try {
     settings = await api.settings();
     settingsRequired = !aiConfigured(settings);
@@ -236,14 +285,11 @@ async function boot() {
   }
   // Who is in the room decides what the screen leads with, so it is loaded
   // before the page settles rather than when the panel is first opened.
-  await personas.load();
+  await Promise.allSettled([loading, loadingPersonas]);
   const requestedEntry = new URL(location.href).searchParams.get("entry");
   if (requestedEntry && !settingsRequired) {
     open("search");
     await searchPanel.showEntry(requestedEntry);
-  }
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
   compose.focus();
   const bluesky = await finishBlueskyConnection();

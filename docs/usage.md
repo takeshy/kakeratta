@@ -128,6 +128,14 @@ or reply (not while the tab is in the background).
 **Read-aloud mode** reads the backlog while you are moving (the browser's own
 Web Speech API).
 
+## Fast startup and offline posts
+
+The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.
+
+“Saved on this device · waiting to send” means the server has not received the post yet. Use “Reconnect and retry” after an error. Retries reuse the same post ID to prevent duplicates after a lost response. Clearing browser data removes unsent posts. Signing out clears this device’s saved data and asks for confirmation if posts are still waiting to send.
+
+[Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-offline)
+
 ## Share a conversation to Bluesky
 
 In Settings, open Bluesky connection, enter your handle, and authorize on Bluesky. Each user connects their own account. Choose Share to Bluesky on a post, select the messages, preview, and publish. Persona replies start unchecked, and selected replies require their parents to be selected too. Published replies preserve their parents and include persona attribution.

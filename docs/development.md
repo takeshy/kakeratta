@@ -101,3 +101,15 @@ Go 1.26 or later is required. `internal/social` handles OAuth, publication plann
 CAPTURE_ONLY=bluesky-connect,bluesky-selection,bluesky-preview,settings,timeline,search-thread npm --prefix frontend run captures
 npm --prefix frontend run build
 ```
+
+## Browser storage and offline validation
+
+`local-store.js` provides per-user IndexedDB storage; `outbox.js` manages pending submissions. The cache holds the latest 20 original posts and their replies; unsent posts are separate. The server’s atomic `CreateEntry` allows each post ID to be created only once. The service worker caches public application assets, never API responses.
+
+The browser check below uses a local fixture API to verify offline startup, posting, reload, and one-time publication after reconnecting. It also updates `docs/captures/*/offline.png` in both languages. Requires Node.js 22 or later and Chromium (override its executable with `CHROMIUM`).
+
+```sh
+npm --prefix frontend run build
+npm --prefix frontend run test:offline
+npm --prefix frontend run build
+```

@@ -300,3 +300,18 @@ func (w *FirestoreWorkspace) materialiseSkills(ctx context.Context) error {
 		}
 	}
 }
+
+func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {
+	entry.SearchDirty = true
+	_, err := w.timeline().Doc(entry.ID).Create(context.Background(), entry)
+	if status.Code(err) != codes.AlreadyExists {
+		return entry, err == nil, err
+	}
+	doc, err := w.timeline().Doc(entry.ID).Get(context.Background())
+	if err != nil {
+		return timeline.Entry{}, false, err
+	}
+	var old timeline.Entry
+	err = doc.DataTo(&old)
+	return old, false, err
+}

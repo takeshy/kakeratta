@@ -1,3 +1,4 @@
+import { IDENTITY_KEY, localIdentity, clearLocalUser, localList, localRecord } from "./local-store.js";
 import { clear, el } from "./dom.js";
 import { t } from "./i18n.js";
 
@@ -53,7 +54,7 @@ async function claimToken() {
   history.replaceState(null, "", url.pathname + (url.search || "") + url.hash);
 }
 
-export async function ensureAuthentication() {
+async function authenticate() {
   await claimToken();
   let authConfig;
   try {
@@ -78,7 +79,7 @@ export async function ensureAuthentication() {
     firebaseAuth = authModule.getAuth(app);
     firebaseSignOut = authModule.signOut;
     const user = await waitForUser(firebaseAuth, authModule.onAuthStateChanged);
-    if (user) {
+    if (user && localStorage.getItem("kakeratta.signedOut") !== "1") {
       await establishSession(user);
       return true;
     }
@@ -86,6 +87,7 @@ export async function ensureAuthentication() {
       try {
         const result = await authModule.signInWithPopup(firebaseAuth, new authModule.GoogleAuthProvider());
         await establishSession(result.user);
+        localStorage.removeItem("kakeratta.signedOut");
         location.reload();
       } catch (error) {
         loginScreen(() => location.reload(), String(error.message || error));
@@ -99,9 +101,68 @@ export async function ensureAuthentication() {
 }
 
 export async function logout() {
+  if ((await localList("outbox:").catch(() => [])).length && !confirm(t("未送信の投稿もこの端末から削除してログアウトしますか？"))) return;
+  if (enabled && !firebaseAuth && navigator.onLine !== false) {
+    const authConfig = await config();
+    const [appModule, authModule] = await Promise.all([import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js"), import("https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js")]);
+    firebaseAuth = authModule.getAuth(appModule.getApps()[0] || appModule.initializeApp(authConfig));
+    firebaseSignOut = authModule.signOut;
+  }
+  await localRecord("identity", null, "device");
+  await clearLocalUser();
+  localStorage.setItem("kakeratta.signedOut", "1");
+  localStorage.removeItem(IDENTITY_KEY);
   await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   if (firebaseAuth && firebaseSignOut) await firebaseSignOut(firebaseAuth).catch(() => {});
   location.reload();
 }
 
 export function authenticationEnabled() { return enabled; }
+
+let verification = null;
+let verifiedAt = 0;
+export function verifyIdentity(force = false) {
+  if (!force && verifiedAt > Date.now() - 30000) return Promise.resolve(localIdentity());
+  if (verification) return verification;
+  verification = (async () => {
+    const response = await fetch("/api/auth/identity", { cache: "no-store", signal: AbortSignal.timeout(10000) });
+    if (!response.ok) { const error = Error(t("接続とログインを確認してください。")); error.status = response.status; throw error; }
+    const next = await response.json();
+    if (!next.key) throw Error("Invalid account identity");
+    const previous = localIdentity();
+    if (previous && previous.key !== next.key) {
+      await localRecord("identity", next, "device");
+      localStorage.setItem(IDENTITY_KEY, JSON.stringify(next));
+      location.reload();
+      throw Error("Account changed");
+    }
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify(next));
+    await localRecord("identity", next, "device").catch(() => {});
+    verifiedAt = Date.now();
+    enabled = next.enabled;
+    return next;
+  })().finally(() => { verification = null; });
+  return verification;
+}
+export async function ensureAuthentication() {
+  const cached = localIdentity();
+  if (cached && !new URL(location.href).searchParams.has("token")) {
+    enabled = cached.enabled;
+    return true;
+  }
+  if (!await authenticate()) return false;
+  try { await verifyIdentity(); } catch (error) {
+    loginScreen(() => location.reload(), t("一度オンラインでログインしてください。"));
+    return false;
+  }
+  return true;
+}
+export async function reconnectAuthentication() {
+  try { return await verifyIdentity(true); } catch (error) {
+    if (error.status === 401 && await authenticate()) return verifyIdentity();
+    throw error;
+  }
+}
+globalThis.addEventListener?.("storage", event => {
+  if (event.key === IDENTITY_KEY && event.oldValue !== event.newValue) location.reload();
+});

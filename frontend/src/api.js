@@ -1,3 +1,6 @@
+import { verifyIdentity } from "./auth.js";
+import { localIdentity, localRecord, localList } from "./local-store.js";
+import { createOutbox } from "./outbox.js";
 // The only place that knows how to reach the relay.
 //
 // Everything goes through the relay: the keys are there, the reactions are
@@ -7,7 +10,10 @@ let stream = null;
 let backoff = 1000;
 
 async function call(method, path, body) {
-  const options = { method, headers: {} };
+  const user = localIdentity()?.key;
+  if (user) await verifyIdentity();
+  const options = { method, headers: {}, signal: AbortSignal.timeout(45000) };
+  if (user) options.headers["X-Kakeratta-Workspace"] = user;
   if (body !== undefined) {
     options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(body);
@@ -21,16 +27,25 @@ async function call(method, path, body) {
     payload = null;
   }
   if (!response.ok) {
-    throw new Error(payload?.error || `${response.status} ${response.statusText}`);
+    const error = new Error(payload?.error || `${response.status} ${response.statusText}`);
+    error.status = response.status; throw error;
   }
+  if (user && localIdentity()?.key !== user) throw Error("Account changed");
   return payload;
 }
 
 // The live channel. Reactions arrive late by design, so the page is told rather
 // than asking: it reconnects on its own and reloads when it comes back.
-function connect() {
-  if (stream) return;
-  stream = new EventSource("/api/events");
+let connecting = false;
+async function connect() {
+  if (stream || connecting) return;
+  connecting = true;
+  try {
+    if (localIdentity()) await verifyIdentity();
+    const key = localIdentity()?.key;
+    stream = new EventSource(key ? `/api/events?workspace=${encodeURIComponent(key)}` : "/api/events");
+  } catch { setTimeout(connect, 10000); return; }
+  finally { connecting = false; }
   stream.onopen = () => {
     backoff = 1000;
     emit("open", null);
@@ -68,10 +83,17 @@ export const api = {
     if (before) query.set("before", before);
     return call("GET", `/api/timeline?${query}`);
   },
-  post: (body) => call("POST", "/api/post", body),
+  post: (body) => localIdentity() ? outbox.enqueue("/api/post", body) : call("POST", "/api/post", body),
   searchTimeline: (body) => call("POST", "/api/timeline/search", body),
   thread: (id) => call("GET", `/api/thread/${encodeURIComponent(id)}`),
-  reply: (replyTo, text, speechAutoSend = false) => call("POST", "/api/reply", { replyTo, text, speechAutoSend }),
+  reply: async (replyTo, text, speechAutoSend = false) => {
+    const body = { replyTo, text, speechAutoSend };
+    if (!localIdentity()) return call("POST", "/api/reply", body);
+    const local = [...(await localRecord("timeline").catch(() => [] ) || []), ...await localList("ack:"), ...(await outbox.entries()).map(item => item.entry)];
+    const parent = local.find(e => e.id === replyTo) || (await call("GET", `/api/thread/${encodeURIComponent(replyTo)}`)).entries?.find(e => e.id === replyTo);
+    if (!parent) throw Error("返事の宛先が見つかりません");
+    return outbox.enqueue("/api/reply", body, parent);
+  },
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),
 
@@ -105,3 +127,12 @@ export const api = {
 };
 
 export const blobURL = (id) => `/api/blob/${encodeURIComponent(id)}`;
+
+export const outbox = createOutbox({
+  verify: () => verifyIdentity(true),
+  send: (path, body) => call("POST", path, body),
+  changed: async (saved) => { emit("outbox", saved); },
+});
+export async function pendingEntries() {
+  return [...await localList("ack:"), ...(await outbox.entries()).map(item => item.entry)];
+}

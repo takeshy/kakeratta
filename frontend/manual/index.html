@@ -49,6 +49,7 @@
           <li><a href="#ja-start">はじめる</a></li>
           <li><a href="#ja-toss">かけらを放り込む</a></li>
           <li><a href="#ja-timeline">タイムラインと反応</a></li>
+          <li><a href="#ja-offline">オフライン投稿</a></li>
           <li><a href="#ja-bluesky">Blueskyに公開する</a></li>
           <li><a href="#ja-personas">担当</a></li>
           <li><a href="#ja-daily">毎日のチェックイン</a></li>
@@ -116,6 +117,16 @@
             <li><strong>🔈 読み上げ</strong> で、溜まった反応を順に読み上げます。移動中に便利です。</li>
             <li>投稿の <strong>消す</strong> で削除できます。削除した投稿は検索にも出ません。</li>
           </ul>
+        </section>
+
+        <section id="ja-offline">
+          <h2>素早い表示とオフライン投稿</h2>
+          <p>直近20件の元投稿とその返信を利用者ごとにブラウザへ保存し、次回は保存済みの会話を先に表示して裏で更新します。一度オンラインで開いた端末なら、オフラインでも文章・画像・URL・返信を「送信待ち」として保存できます。未送信の投稿は20件の上限とは別に保持します。アプリを開いている間に接続と認証が戻ると自動送信します。担当の反応やURL・画像の解析は、サーバーへ届いてから始まります。</p>
+          <figure class="shot">
+            <img src="/captures/ja/offline.png" alt="オフラインで保存した投稿と送信待ち件数（サンプル）" loading="lazy" width="760" height="1000" />
+            <figcaption>実際のブラウザをオフラインにして撮影したサンプル画面。公開サーバーへの投稿は行っていません。</figcaption>
+          </figure>
+          <p>「端末に保存済み・送信待ち」は、まだサーバーに届いていない状態です。失敗した場合は「接続して再送」でやり直せます。同じ投稿IDで再送するため、通信が途切れても二重投稿を防ぎます。送信待ちはブラウザのデータ削除で失われます。ログアウト時は送信待ちがあれば確認し、この端末の保存データを削除します。</p>
         </section>
 
         <section id="ja-bluesky">
@@ -392,6 +403,7 @@
           <li><a href="#en-start">Getting started</a></li>
           <li><a href="#en-toss">Tossing in a fragment</a></li>
           <li><a href="#en-timeline">Timeline and reactions</a></li>
+          <li><a href="#en-offline">Offline posts</a></li>
           <li><a href="#en-bluesky">Share to Bluesky</a></li>
           <li><a href="#en-personas">Personas</a></li>
           <li><a href="#en-daily">Daily check-ins</a></li>
@@ -459,6 +471,16 @@
             <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Handy while moving.</li>
             <li><strong>Delete</strong> removes a post. Deleted posts never appear in search.</li>
           </ul>
+        </section>
+
+        <section id="en-offline">
+          <h2>Fast startup and offline posts</h2>
+          <p>The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.</p>
+          <figure class="shot">
+            <img src="/captures/en/offline.png" alt="An offline post and the number waiting to send (sample data)" loading="lazy" width="760" height="1000" />
+            <figcaption>Captured in a browser with networking disabled, using sample data. No posts were sent to a public server.</figcaption>
+          </figure>
+          <p>“Saved on this device · waiting to send” means the server has not received the post yet. Use “Reconnect and retry” after an error. Retries reuse the same post ID to prevent duplicates after a lost response. Clearing browser data removes unsent posts. Signing out clears this device’s saved data and asks for confirmation if posts are still waiting to send.</p>
         </section>
 
         <section id="en-bluesky">

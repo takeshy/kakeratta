@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 // Copies the static frontend into dist/ for go:embed. No bundler: the sources
 // are plain ES modules and CSS, and the WebView loads them directly.
-import { cpSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, rmSync, statSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,3 +41,12 @@ const walk = (dir) => {
 };
 walk(distDir);
 console.log(`Copied frontend to ${distDir} (${totalBytes} bytes)`);
+
+// Precache one complete, content-versioned application shell for offline starts.
+const assets = ["/", "/manifest.webmanifest", "/icon.svg", "/icon.png", ...readdirSync(join(distDir, "src")).filter(name => /\.(js|css)$/.test(name)).map(name => `/src/${name}`)];
+const digest = createHash("sha256");
+for (const asset of assets) digest.update(readFileSync(join(distDir, asset === "/" ? "index.html" : asset.slice(1))));
+const workerPath = join(distDir, "sw.js");
+digest.update(readFileSync(workerPath));
+const version = `kakeratta-shell-${digest.digest("hex").slice(0,16)}`;
+writeFileSync(workerPath, readFileSync(workerPath, "utf8").replace('"kakeratta-shell-dev"', JSON.stringify(version)).replace(/const ASSETS = .*?;/, `const ASSETS = ${JSON.stringify(assets)};`));

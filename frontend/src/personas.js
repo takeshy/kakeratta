@@ -22,7 +22,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
   let rows = [];
   let toolNames = [];
 
-  async function load() {
+  async function load({ quiet = false } = {}) {
     try {
       const payload = await api.personas();
       rows = payload.personas || [];
@@ -30,7 +30,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       onChange?.(rows);
       draw();
     } catch (error) {
-      toast(String(error.message || error), "error");
+      if (!quiet) toast(String(error.message || error), "error");
     }
   }
 

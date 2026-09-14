@@ -116,9 +116,12 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         onclick: () => onSpeak(post.id, spoken(post.id)),
       }) : null,
       rest.length ? drawToggle(thread, post, rest.length, open) : null,
-      el("button", { class: "chip ghost", label: "Blueskyに投稿", onclick: () => void openSocial(post.id, getPersona) }),
+      el("button", { class: "chip ghost", label: "Blueskyに投稿", disabled: !!post.pending, onclick: () => void openSocial(post.id, getPersona) }),
       openReply === post.id ? null : drawReplyOpen(post)));
-    if (open) for (const entry of rest) box.append(drawSaid(entry, post));
+    if (open) for (const entry of rest) {
+      box.append(drawSaid(entry, post));
+      if (entry.pending) box.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", entry.syncError) : t("端末に保存済み・送信待ち") }));
+    }
     if (openReply === post.id) box.append(drawReplyBox(post.id));
     return box;
   }
@@ -160,6 +163,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("button", {
           class: "chip ghost remove",
           i18nTitle: "消す",
+          disabled: !!entry.pending,
           label: "×",
           onclick: async (event) => {
             if (!confirm(t("この投稿を消しますか"))) return;
@@ -180,6 +184,8 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         }),
       ),
     );
+    if (entry.pending) node.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", entry.syncError) : t("端末に保存済み・送信待ち") }));
+    if (entry.localImage) node.append(el("img", { class: "local-shot", src: entry.localImage, alt: t("キャプチャ") }));
     if (media?.blobId) {
       node.append(
         el("a", { class: "shot", href: blobURL(media.blobId), target: "_blank" },

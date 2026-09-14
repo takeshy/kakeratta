@@ -531,3 +531,20 @@ func NewID(prefix string) string {
 	}
 	return fmt.Sprintf("%s_%d%s", prefix, time.Now().UnixNano(), hex.EncodeToString(noise[:]))
 }
+
+// CreateEntry atomically preserves the first accepted entry, including tombstones.
+func (s *Store) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entries, err := s.timelineLocked()
+	if err != nil {
+		return timeline.Entry{}, false, err
+	}
+	for _, old := range entries {
+		if old.ID == entry.ID {
+			return old, false, nil
+		}
+	}
+	err = s.appendLocked(entry)
+	return entry, err == nil, err
+}

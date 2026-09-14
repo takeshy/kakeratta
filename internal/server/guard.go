@@ -1,7 +1,9 @@
 package server
 
 import (
+	"crypto/sha256"
 	"crypto/subtle"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -24,6 +26,18 @@ const cookieName = "__session"
 // browser gets the cookie the first time it presents one.
 func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		key := s.workspaceKey
+		if key == "" {
+			key = fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00"+s.token)))
+		}
+		wanted := r.Header.Get("X-Kakeratta-Workspace")
+		if r.URL.Path == "/api/events" {
+			wanted = r.URL.Query().Get("workspace")
+		}
+		if wanted != "" && wanted != key {
+			fail(w, http.StatusUnauthorized, "account changed")
+			return
+		}
 		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
 			// ParseMultipartForm's argument only limits memory, not body size.
 			// Apply the limit before authentication can parse a form token.
