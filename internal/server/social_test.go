@@ -218,3 +218,66 @@ func setSocialConnection(t *testing.T, s *Server, did string) {
 		t.Fatal(err)
 	}
 }
+
+func TestSplitPublicationResumesPerPartAndKeepsRootReference(t *testing.T) {
+	s, workspace := socialApp(t)
+	workspace.Append(timeline.Entry{ID: "p", Root: "p", Kind: timeline.KindPost, Speaker: "user", Text: strings.Repeat("文章。", 250), At: time.Now()})
+	attempts := 0
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 2 {
+			w.WriteHeader(429)
+			fmt.Fprint(w, `{"error":"RateLimitExceeded"}`)
+			return
+		}
+		var body struct {
+			Record struct {
+				Reply *struct {
+					Root struct {
+						URI string `json:"uri"`
+					} `json:"root"`
+					Parent struct {
+						URI string `json:"uri"`
+					} `json:"parent"`
+				} `json:"reply"`
+			} `json:"record"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if attempts > 2 {
+			wantParent := "at://did:plc:one/app.bsky.feed.post/1"
+			if attempts == 4 {
+				wantParent = "at://did:plc:one/app.bsky.feed.post/3"
+			}
+			if body.Record.Reply == nil || body.Record.Reply.Root.URI != "at://did:plc:one/app.bsky.feed.post/1" || body.Record.Reply.Parent.URI != wantParent {
+				t.Errorf("lost split parent/root: %+v", body)
+			}
+		}
+		fmt.Fprintf(w, `{"uri":"at://did:plc:one/app.bsky.feed.post/%d","cid":"cid"}`, attempts)
+	}))
+	defer provider.Close()
+	s.socialClient = func(context.Context) (*social.Client, error) {
+		api := atclient.NewAPIClient(provider.URL)
+		did := syntax.DID("did:plc:one")
+		api.AccountDID = &did
+		return social.NewClient(api), nil
+	}
+	body := socialBody{Root: "p", Target: "bluesky", EntryIDs: []string{"p"}}
+	preview := socialRequest(s, "/api/social/preview", body)
+	var plan social.Plan
+	json.Unmarshal(preview.Body.Bytes(), &plan)
+	if preview.Code != 200 || len(plan.Posts) != 3 {
+		t.Fatal(preview.Body.String())
+	}
+	body.Digest = plan.Digest
+	if first := socialRequest(s, "/api/social/publish", body); !strings.Contains(first.Body.String(), "HTTP 429") {
+		t.Fatal(first.Body.String())
+	}
+	for i := 0; i < 2; i++ {
+		if result := socialRequest(s, "/api/social/publish", body); !strings.Contains(result.Body.String(), `"error":""`) {
+			t.Fatal(result.Body.String())
+		}
+	}
+	if attempts != 4 {
+		t.Fatalf("duplicate part: %d attempts", attempts)
+	}
+}

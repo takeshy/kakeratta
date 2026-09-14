@@ -42,7 +42,7 @@ export async function openSocial(root, getPersona) {
     setBusy(true); invalidate();
     try {
       plan = await api.previewSocial(body());
-      const numbers = new Map(plan.posts.map((post, i) => [post.entryId, i + 1]));
+      const numbers = new Map(plan.posts.map((post, i) => [post.id || post.entryId, i + 1]));
       for (const [i, post] of plan.posts.entries()) {
         preview.append(el("article", { class: "social-preview-post" },
           el("strong", { text: post.parent ? t("{0} · {1}への返信", i + 1, numbers.get(post.parent)) : t("{0} · 元の投稿", i + 1) }),

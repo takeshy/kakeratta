@@ -147,14 +147,14 @@ func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 	results := []published{}
 	respond := func(message string) { writeJSON(w, 200, map[string]any{"posts": results, "error": message}) }
 	for _, post := range plan.Posts {
-		key := body.Target + ":" + account + ":" + post.EntryID
+		key := body.Target + ":" + account + ":" + post.Key()
 		existing, err := s.store.Publication(key)
 		if err != nil {
 			respond("投稿履歴を読み込めませんでした")
 			return
 		}
 		if existing.State == "posted" {
-			refs[post.EntryID] = existing
+			refs[post.Key()] = existing
 			results = append(results, published{post.EntryID, existing})
 			continue
 		}
@@ -191,7 +191,7 @@ func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 			respond("SNSへの投稿は成功しましたが履歴を保存できませんでした。SNS上で確認してください。")
 			return
 		}
-		refs[post.EntryID] = ref
+		refs[post.Key()] = ref
 		results = append(results, published{post.EntryID, ref})
 	}
 	respond("")

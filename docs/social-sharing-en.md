@@ -11,7 +11,8 @@ Select the persona replies and your follow-ups to publish. Review the text, imag
 - Select the parent of each selected reply too. Excluded parents are not automatically published, and replies are not reparented.
 - Independent persona replies remain separate replies to the original post.
 - Publication includes the selected messages' text, links, source URLs, and attached images. It does not add location metadata or image analysis to the text, or read persona memories.
-- Select up to 100 messages. Each published message, including attribution and links, must fit within 300 graphemes and 3,000 UTF-8 bytes. Each image must be at most 1 MB. Oversized content produces an error before publication and is not truncated.
+- Select up to 100 messages. Long messages split automatically at sentence endings or line breaks into posts of up to 300 graphemes and 3,000 UTF-8 bytes, including attribution. Later parts start with `つづき:` (continued) and repeat persona attribution. An oversized sentence splits at commas or spaces, falling back to grapheme boundaries only when necessary.
+- URLs and graphemes such as emoji stay intact; an individually oversized URL raises an error. Images appear only on the first part and must be at most 1 MB. Replies attach to the final part of their parent message. Review the resulting posts and count in the preview.
 - Changes to the account or content after preview require another preview.
 - Disconnect in Settings. Disconnecting or deleting a message in kakeratta does not delete posts on Bluesky.
 
@@ -48,7 +49,7 @@ Images upload directly to the authorized Bluesky API. No unauthenticated endpoin
 
 ## Publication history and partial failure
 
-The app stores a URI and CID for each destination, Bluesky DID, and entry ID. Reusing a conversation skips already published messages and uses them as parents for new replies. Histories are isolated between users and accounts.
+The app stores a URI and CID for each destination, Bluesky DID, entry ID, and part number. The first part retains the original history key; subsequent parts use suffixes such as `:part:2`. Reusing a conversation skips already published messages and uses them as parents for new replies. Histories are isolated between users and accounts.
 
 - Local: `publications/*.json`
 - Firestore: `users/{userKey}/publications/{keyHash}`

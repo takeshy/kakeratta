@@ -6,18 +6,26 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/rivo/uniseg"
 	"strings"
 
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 type Post struct {
+	ID      string `json:"id,omitempty"`
 	EntryID string `json:"entryId"`
 	Parent  string `json:"parent,omitempty"`
 	Text    string `json:"text"`
 	BlobID  string `json:"blobId,omitempty"`
 }
+
+func (p Post) Key() string {
+	if p.ID != "" {
+		return p.ID
+	}
+	return p.EntryID
+}
+
 type Plan struct {
 	Account string `json:"account"`
 	Handle  string `json:"handle"`
@@ -31,7 +39,6 @@ type Plan struct {
 // private parent or reattaches a reply to a different statement.
 func PlanSelection(target, root string, entries []timeline.Entry, selected []string, label func(string) string) (Plan, error) {
 	p := Plan{Target: target, Root: root}
-	limit := 300
 	if target != "bluesky" {
 		return p, fmt.Errorf("投稿先はBlueskyを選んでください")
 	}
@@ -57,6 +64,7 @@ func PlanSelection(target, root string, entries []timeline.Entry, selected []str
 	if !chosen[root] {
 		return p, fmt.Errorf("元の投稿を選択してください")
 	}
+	tails := map[string]string{}
 	visiting, done := map[string]bool{}, map[string]bool{}
 	var visit func(string) error
 	visit = func(id string) error {
@@ -82,8 +90,9 @@ func PlanSelection(target, root string, entries []timeline.Entry, selected []str
 			}
 		}
 		text := e.Text
+		prefix := ""
 		if e.Speaker != timeline.User {
-			text = label(e.Speaker) + "からの返信:\n" + text
+			prefix = label(e.Speaker) + "からの返信:\n"
 		}
 		if e.Link != "" {
 			text += "\n" + e.Link
@@ -93,18 +102,28 @@ func PlanSelection(target, root string, entries []timeline.Entry, selected []str
 				text += "\n" + source.URL
 			}
 		}
-		post := Post{EntryID: id, Parent: parent, Text: strings.TrimSpace(text)}
-		if e.Media != nil {
-			post.BlobID = e.Media.BlobID
+		parts, err := SplitText(strings.TrimSpace(text), prefix)
+		if err != nil {
+			return fmt.Errorf("%s: %w", id, err)
 		}
-		// Bluesky limits grapheme clusters as well as UTF-8 bytes.
-		if uniseg.GraphemeClusterCount(post.Text) > limit || len(post.Text) > 3000 {
-			return fmt.Errorf("%s: %d文字以内に収めてください（署名・リンクを含む）", id, limit)
+		if parent != "" {
+			parent = tails[parent]
 		}
-		if post.Text == "" && post.BlobID == "" {
-			return fmt.Errorf("空の発言は投稿できません")
+		for i, part := range parts {
+			post := Post{EntryID: id, Parent: parent, Text: part}
+			if i > 0 {
+				post.ID = fmt.Sprintf("%s:part:%d", id, i+1)
+			}
+			if i == 0 && e.Media != nil {
+				post.BlobID = e.Media.BlobID
+			}
+			if post.Text == "" && post.BlobID == "" {
+				return fmt.Errorf("空の発言は投稿できません")
+			}
+			p.Posts = append(p.Posts, post)
+			parent = post.Key()
 		}
-		p.Posts = append(p.Posts, post)
+		tails[id] = parent
 		done[id] = true
 		return nil
 	}

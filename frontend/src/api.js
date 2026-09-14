@@ -12,7 +12,7 @@ let backoff = 1000;
 async function call(method, path, body) {
   const user = localIdentity()?.key;
   if (user) await verifyIdentity();
-  const options = { method, headers: {}, signal: AbortSignal.timeout(45000) };
+  const options = { method, headers: {}, signal: AbortSignal.timeout(path === "/api/social/publish" ? 250000 : 45000) };
   if (user) options.headers["X-Kakeratta-Workspace"] = user;
   if (body !== undefined) {
     options.headers["Content-Type"] = "application/json";

@@ -51,8 +51,8 @@ func TestRejectsOmittedAncestorsDeletedAndForeignEntries(t *testing.T) {
 func TestLimitsIncludePersonaPrefixAndDigestChanges(t *testing.T) {
 	entries := conversation()
 	entries[1].Text = strings.Repeat("あ", 300)
-	if _, err := PlanSelection("bluesky", "p", entries, []string{"p", "a"}, func(s string) string { return s }); err == nil {
-		t.Fatal("prefix exceeded limit")
+	if plan, err := PlanSelection("bluesky", "p", entries, []string{"p", "a"}, func(s string) string { return s }); err != nil || len(plan.Posts) != 3 {
+		t.Fatalf("prefix must count towards splitting: %+v %v", plan, err)
 	}
 	a, _ := PlanSelection("bluesky", "p", entries, []string{"p"}, nil)
 	entries[0].Text = "changed"

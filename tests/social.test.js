@@ -39,7 +39,7 @@ test("only chosen replies reach preview and publish; changing selection invalida
   let chosen, posted;
   t.mock.method(api, "previewSocial", async (body) => {
     chosen = body;
-    return { digest: "digest", posts: body.entryIds.map((id) => ({ entryId: id, text: id, parent: id === "p" ? "" : "p" })) };
+    return { digest: "digest", posts: body.entryIds.flatMap((id) => id === "p" ? [{ entryId: id, text: id }, { entryId: id, id: "p:part:2", text: "つづき:\ncontinued", parent: "p" }] : [{ entryId: id, text: id, parent: "p:part:2" }]) };
   });
   t.mock.method(api, "publishSocial", async (body) => { posted = body; return { error: "", posts: [] }; });
   await openSocial("p", (id) => ({ name: id, icon: "🍚" }));
@@ -54,6 +54,7 @@ test("only chosen replies reach preview and publish; changing selection invalida
   await preview.fire("click");
   assert.deepEqual(chosen.entryIds, ["p", "a"]);
   assert.equal(publish.disabled, false);
+  assert.deepEqual(dialog.querySelector(".social-preview").querySelectorAll("strong").map(node => node.textContent), ["1 · 元の投稿", "2 · 1への返信", "3 · 2への返信"]);
   checkboxes[1].checked = false; await checkboxes[1].fire("change");
   assert.equal(publish.disabled, true);
   await preview.fire("click");
