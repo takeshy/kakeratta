@@ -48,7 +48,9 @@ class TestNode {
   }
   get firstChild() { return this.children[0]; }
   setAttribute(name, value) {
-    if (name === "data-thread") this.dataset.thread = value;
+    if (name === "disabled") this.disabled = true;
+    else if (name === "data-pending") this.dataset.pending = value;
+    else if (name === "data-thread") this.dataset.thread = value;
     else if (name === "data-reply-to") this.dataset.replyTo = value;
     else this[name] = value;
   }
@@ -347,4 +349,83 @@ test("compose stops dictation and resets its button on manual and spoken send", 
     assert.equal(api.post.mock.calls.at(-1).arguments[0].speechAutoSend, spoken);
   }
   assert.equal(api.post.mock.calls.length, 2);
+});
+
+test("post editing preserves drafts across updates, handles failure, and saves or cancels", async t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const post = { id: "edit", kind: "post", speaker: "user", text: "before", at: new Date().toISOString() };
+  const feed = createFeed({ getPersona: () => null });
+  feed.set([post]);
+  const find = name => feed.element.querySelectorAll(`.${name}`)[0];
+  find("edit-post").fire("click");
+  const input = find("edit-input");
+  input.value = "after";
+  input.setSelectionRange(2, 2);
+  feed.set([{ ...post }]);
+  assert.equal(find("edit-input"), input);
+  assert.equal(input.value, "after");
+  assert.equal(document.activeElement, input);
+  t.mock.method(api, "edit", async () => { throw Error("offline"); });
+  find("save-edit").fire("click");
+  await new Promise(setImmediate);
+  assert.equal(find("edit-input").value, "after");
+  assert.equal(find("error").textContent, "offline");
+  assert.equal(find("save-edit").disabled, false);
+  api.edit.mock.mockImplementation(async (id, text) => ({ ...post, id, text }));
+  find("save-edit").fire("click");
+  await new Promise(setImmediate);
+  assert.deepEqual(api.edit.mock.calls.at(-1).arguments, [post.id, "after"]);
+  assert.equal(find("edit-input"), undefined);
+  assert.equal(find("said").textContent, "after");
+  find("edit-post").fire("click");
+  find("edit-input").value = "discard";
+  find("cancel-edit").fire("click");
+  assert.equal(find("said").textContent, "after");
+  assert.equal(api.edit.mock.calls.length, 2);
+  feed.set([{ ...post, speaker: "tabe" }]);
+  assert.equal(find("edit-post"), undefined);
+});
+
+test("editing is disabled offline and an open draft can be saved after reconnecting", async t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const originalListener = Object.getOwnPropertyDescriptor(globalThis, "addEventListener");
+  const network = { onLine: false };
+  const events = {};
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: network });
+  Object.defineProperty(globalThis, "addEventListener", { configurable: true, value: (name, fn) => { events[name] = fn; } });
+  t.after(() => {
+    delete globalThis.Node; delete globalThis.document;
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator); else delete globalThis.navigator;
+    if (originalListener) Object.defineProperty(globalThis, "addEventListener", originalListener); else delete globalThis.addEventListener;
+  });
+  const post = { id: "offline-edit", speaker: "user", kind: "post", text: "before", at: new Date().toISOString() };
+  t.mock.method(api, "edit", async (id, text) => ({ ...post, id, text }));
+  const feed = createFeed({ getPersona: () => null });
+  feed.set([post]);
+  const find = name => feed.element.querySelectorAll(`.${name}`)[0];
+  assert.equal(find("edit-post").disabled, true);
+  find("edit-post").fire("click");
+  assert.equal(find("edit-input"), undefined);
+  network.onLine = true;
+  events.online();
+  assert.equal(find("edit-post").disabled, false);
+  find("edit-post").fire("click");
+  const input = find("edit-input");
+  input.value = "draft";
+  network.onLine = false;
+  events.offline();
+  assert.equal(find("save-edit").disabled, true);
+  input.fire("keydown", { ctrlKey: true, key: "Enter", preventDefault() {} });
+  assert.equal(api.edit.mock.calls.length, 0);
+  assert.equal(input.value, "draft");
+  network.onLine = true;
+  events.online();
+  assert.equal(find("save-edit").disabled, false);
+  find("save-edit").fire("click");
+  await new Promise(setImmediate);
+  assert.equal(find("said").textContent, "draft");
 });

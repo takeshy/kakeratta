@@ -7,7 +7,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
@@ -370,4 +372,55 @@ func mustTimeline(t *testing.T, s *store.Store) []timeline.Entry {
 		t.Fatal(err)
 	}
 	return entries
+}
+
+func TestEditPostPreservesThreadAndMedia(t *testing.T) {
+	server, workspace := app(t, "")
+	post := timeline.Entry{ID: "editable", Kind: timeline.KindPost, Speaker: timeline.User, Text: "before", At: time.Now().UTC(), Media: &timeline.Media{BlobID: "image"}, Link: "https://example.com"}
+	if err := workspace.Append(post); err != nil {
+		t.Fatal(err)
+	}
+	reply := timeline.Entry{ID: "reply", Kind: timeline.KindReply, Speaker: timeline.User, Root: post.ID, Text: "reply"}
+	if err := workspace.Append(reply); err != nil {
+		t.Fatal(err)
+	}
+	edit := func(id, body string, want int) {
+		t.Helper()
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, httptest.NewRequest(http.MethodPatch, "/api/entry/"+id, strings.NewReader(body)))
+		if response.Code != want {
+			t.Fatalf("status = %d, want %d: %s", response.Code, want, response.Body.String())
+		}
+	}
+	edit(post.ID, `{"text":" after "}`, http.StatusOK)
+	updated, _ := workspace.Entry(post.ID)
+	if updated.Text != "after" || !updated.At.Equal(post.At) || updated.Media.BlobID != "image" || updated.Link != post.Link {
+		t.Fatalf("updated = %+v", updated)
+	}
+	if len(mustTimeline(t, workspace)) != 2 {
+		t.Fatal("edit changed the thread size")
+	}
+	edit(post.ID, `{"text":""}`, http.StatusOK)
+	edit(post.ID, `{}`, http.StatusBadRequest)
+	edit(reply.ID, `{"text":"changed"}`, http.StatusNotFound)
+	edit("missing", `{"text":"changed"}`, http.StatusNotFound)
+	post.ID = "persona"
+	post.Speaker = "tabe"
+	if err := workspace.Append(post); err != nil {
+		t.Fatal(err)
+	}
+	edit(post.ID, `{"text":"changed"}`, http.StatusNotFound)
+	post.ID = "plain"
+	post.Speaker = timeline.User
+	post.Media = nil
+	post.Link = ""
+	if err := workspace.Append(post); err != nil {
+		t.Fatal(err)
+	}
+	edit(post.ID, `{"text":"  "}`, http.StatusBadRequest)
+	post.Deleted = true
+	if err := workspace.Append(post); err != nil {
+		t.Fatal(err)
+	}
+	edit(post.ID, `{"text":"changed"}`, http.StatusNotFound)
 }

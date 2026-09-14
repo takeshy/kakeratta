@@ -1,6 +1,10 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "編集": "Edit", "投稿を編集": "Edit post", "保存": "Save", "キャンセル": "Cancel",
+ "本文を入力してください": "Enter some text.",
+ "編集できる投稿が見つかりません": "No editable post was found.",
+ "編集はオンライン時に利用できます": "Editing is available when online.",
  "投稿済み": "Already posted",
  "処理中…": "Processing…",
  "選択した会話は投稿済みです。再投稿はできません。": "This conversation has already been posted and cannot be posted again.",

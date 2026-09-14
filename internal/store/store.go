@@ -193,6 +193,41 @@ func (s *Store) UpdateMedia(id string, media *timeline.Media) (timeline.Entry, e
 	return timeline.Entry{}, errors.New("投稿が見つかりません")
 }
 
+var ErrNotEditable = errors.New("編集できる投稿が見つかりません")
+var ErrEmptyText = errors.New("本文を入力してください")
+
+func editText(entry *timeline.Entry, text string) error {
+	if entry.Deleted || entry.Speaker != timeline.User || entry.Kind != timeline.KindPost {
+		return ErrNotEditable
+	}
+	text = strings.TrimSpace(text)
+	if text == "" && entry.Media == nil && entry.Link == "" {
+		return ErrEmptyText
+	}
+	entry.Text = text
+	entry.SearchDirty = true
+	return nil
+}
+
+// UpdateText changes only the author's text, preserving concurrent media updates.
+func (s *Store) UpdateText(id, text string) (timeline.Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entries, err := s.timelineLocked()
+	if err != nil {
+		return timeline.Entry{}, err
+	}
+	for _, entry := range entries {
+		if entry.ID == id {
+			if err := editText(&entry, text); err != nil {
+				return timeline.Entry{}, err
+			}
+			return entry, s.appendLocked(entry)
+		}
+	}
+	return timeline.Entry{}, ErrNotEditable
+}
+
 // Entry returns one entry by id.
 func (s *Store) Entry(id string) (timeline.Entry, bool) {
 	entries, err := s.Timeline()

@@ -112,6 +112,24 @@ func (w *FirestoreWorkspace) UpdateMedia(id string, media *timeline.Media) (time
 	return result, err
 }
 
+func (w *FirestoreWorkspace) UpdateText(id, text string) (timeline.Entry, error) {
+	var result timeline.Entry
+	err := w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(w.timeline().Doc(id))
+		if err != nil {
+			return err
+		}
+		if err := doc.DataTo(&result); err != nil {
+			return err
+		}
+		if err := editText(&result, text); err != nil {
+			return err
+		}
+		return tx.Set(w.timeline().Doc(id), result)
+	})
+	return result, err
+}
+
 func (w *FirestoreWorkspace) PutBlob(data []byte, mime string) (string, error) {
 	if len(data) == 0 {
 		return "", errors.New("空のファイルです")

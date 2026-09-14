@@ -62,6 +62,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/post", s.guard(s.postEntry))
 	s.mux.HandleFunc("POST /api/reply", s.guard(s.postReply))
 	s.mux.HandleFunc("DELETE /api/entry/{id}", s.guard(s.deleteEntry))
+	s.mux.HandleFunc("PATCH /api/entry/{id}", s.guard(s.editEntry))
 	s.mux.HandleFunc("GET /api/blob/{id}", s.guard(s.getBlob))
 	s.mux.HandleFunc("GET /api/events", s.guard(s.events2))
 	s.mux.HandleFunc("POST /api/fetch", s.guard(s.postFetch))
@@ -297,6 +298,34 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 		Root: timeline.RootOf(parent), ReplyTo: parent.ID,
 	}
 	s.land(w, reply, nil)
+}
+
+func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Text *string `json:"text"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil || body.Text == nil {
+		fail(w, http.StatusBadRequest, "本文を入力してください")
+		return
+	}
+	entry, ok := s.store.Entry(r.PathValue("id"))
+	if !ok || entry.Deleted || entry.Speaker != timeline.User || entry.Kind != timeline.KindPost {
+		fail(w, http.StatusNotFound, store.ErrNotEditable.Error())
+		return
+	}
+	entry, err := s.store.UpdateText(entry.ID, *body.Text)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrNotEditable) {
+			status = http.StatusNotFound
+		} else if errors.Is(err, store.ErrEmptyText) {
+			status = http.StatusBadRequest
+		}
+		fail(w, status, err.Error())
+		return
+	}
+	s.publishEvent("entry", entry)
+	writeJSON(w, http.StatusOK, entry)
 }
 
 func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {

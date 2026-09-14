@@ -95,6 +95,7 @@ export const api = {
     return outbox.enqueue("/api/reply", body, parent);
   },
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),
+  edit: (id, text) => call("PATCH", `/api/entry/${encodeURIComponent(id)}`, { text }),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),
 
   buildPersona: (body) => call("POST", "/api/personas/build", body),

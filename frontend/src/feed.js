@@ -23,10 +23,20 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   let speakingThread = null;
   let openReply = null;
   let replyEditor = null;
+  let postEditor = null;
   const expanded = new Set();
   const drafts = new Map();
   let composing = false;
   let drawPending = false;
+  const offline = () => globalThis.navigator?.onLine === false;
+  const updateEditAvailability = () => {
+    for (const button of view.querySelectorAll(".edit-post")) {
+      button.disabled = offline() || !!postEditor || button.dataset.pending === "true";
+    }
+    postEditor?.updateAvailability();
+  };
+  globalThis.addEventListener?.("online", updateEditAvailability);
+  globalThis.addEventListener?.("offline", updateEditAvailability);
 
   function set(next) {
     entries = next;
@@ -70,6 +80,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       ? { start: active.selectionStart, end: active.selectionEnd }
       : null;
     const threads = groups();
+    if (postEditor && !threads.some((thread) => thread.some((entry) => entry.id === postEditor.id))) postEditor = null;
     // Keep the same field and recognizer across live timeline updates.
     if (replyEditor && (replyEditor.replyTo !== openReply ||
         !threads.some((thread) => thread.some((entry) => entry.id === openReply)))) {
@@ -90,7 +101,11 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       view.append(el("p", { class: "note", label: "反応が付かないことがあります。付くときも、遅れて届きます。" }));
     }
     for (const thread of threads) view.append(drawThread(thread));
-    if (selection && openReply) {
+    if (selection && active === postEditor?.input) {
+      active.focus();
+      active.setSelectionRange(selection.start, selection.end);
+    }
+    if (selection && openReply && active !== postEditor?.input) {
       const input = [...view.querySelectorAll(".reply-input")]
         .find((candidate) => candidate.dataset.replyTo === openReply);
       input?.focus();
@@ -157,6 +172,14 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
         el("span", { class: "spacer" }),
+        mine ? el("button", {
+          class: "chip ghost edit-post", label: "編集", disabled: offline() || !!entry.pending || !!postEditor,
+          "data-pending": String(!!entry.pending), i18nTitle: "編集はオンライン時に利用できます",
+          onclick: () => {
+            if (offline() || entry.pending || postEditor) return;
+            postEditor = createPostEditor(entry); draw(); postEditor.input.focus();
+          },
+        }) : null,
         // Append-only means a delete is recoverable in the log, but nobody
         // wants to go and get it. It stays out of the way until reached for.
         el("button", {
@@ -191,7 +214,8 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
           el("img", { src: blobURL(media.blobId), alt: media.describe || t("キャプチャ"), loading: "lazy" })),
       );
     }
-    if (entry.text) node.append(el("p", { class: "said", text: entry.text }));
+    if (postEditor?.id === entry.id) node.append(postEditor.box);
+    else if (entry.text) node.append(el("p", { class: "said", text: entry.text }));
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
     }
@@ -200,6 +224,46 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     }
     if (media) node.append(drawRead(media));
     return node;
+  }
+
+  function createPostEditor(entry) {
+    const input = el("textarea", { class: "reply-input edit-input", rows: "3", "aria-label": t("投稿を編集") });
+    input.value = entry.text || "";
+    input.addEventListener("compositionstart", () => { composing = true; });
+    input.addEventListener("compositionend", () => { composing = false; if (drawPending) draw(); });
+    const error = el("p", { class: "hint error", role: "alert", hidden: true });
+    let saving = false;
+    const save = async () => {
+      if (saving || composing || offline()) return;
+      saving = true;
+      saveButton.disabled = cancelButton.disabled = input.disabled = true;
+      error.hidden = true;
+      try {
+        const updated = await api.edit(entry.id, input.value);
+        if (postEditor === editor) postEditor = null;
+        if (onEntryChange) onEntryChange(updated);
+        else upsert(updated);
+        draw();
+      } catch (caught) {
+        error.textContent = String(caught.message || caught);
+        error.hidden = false;
+      } finally {
+        saving = false;
+        saveButton.disabled = cancelButton.disabled = input.disabled = false;
+        editor.updateAvailability();
+      }
+    };
+    input.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !event.isComposing) {
+        event.preventDefault();
+        void save();
+      }
+    });
+    const saveButton = el("button", { class: "button save-edit", label: "保存", i18nTitle: "編集はオンライン時に利用できます", onclick: () => void save() });
+    const cancelButton = el("button", { class: "chip ghost cancel-edit", label: "キャンセル", onclick: () => { postEditor = null; draw(); } });
+    const editor = { id: entry.id, input, updateAvailability: () => { saveButton.disabled = saving || offline(); }, box: el("div", { class: "post-editor" }, input, error,
+      el("div", { class: "compose-row" }, saveButton, cancelButton)) };
+    return editor;
   }
 
   // What the app read out of the capture, folded away. It is what every persona
