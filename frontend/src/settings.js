@@ -3,6 +3,7 @@
 // None of the keys here ever reach the page: they are stored by the relay and
 // come back as "set or not". A page that does not have a key cannot leak one.
 import { el, clear, toast } from "./dom.js";
+import { createBlueskyConnection } from "./bluesky.js";
 import { api } from "./api.js";
 import { speechLanguageOptions } from "./speech_languages.js";
 import { getLanguage, setLanguage, t } from "./i18n.js";
@@ -16,6 +17,7 @@ export function createSettings({ speaker, onSettings }) {
   const view = el("div", { class: "panel-body" });
   let settings = null;
   let about = null;
+ let bluesky = null;
 
   async function load() {
     settings = await api.settings();
@@ -209,6 +211,9 @@ export function createSettings({ speaker, onSettings }) {
     drawLanguage();
     drawAI();
     drawTools();
+    bluesky?.dispose();
+    bluesky = createBlueskyConnection();
+    view.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
     drawSpeech();
     drawReadAloud();
     drawAbout();

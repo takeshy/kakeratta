@@ -46,6 +46,19 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 音声入力はブラウザ認識を使います。設定の **「自動送信前にAIで文章を整える」** をONにすると、終了フレーズで話し終えたときにNemotron Nano（lowモデル）が文章を整えてから投稿します。初期状態はOFFで、手動送信では整形しません。
 
+## 見せたい会話だけ、Blueskyへ
+
+各ユーザーが自分のBlueskyアカウントを接続し、元投稿・担当の返信・自分の追加返信から、公開する発言を選べます。
+ハンドルを入力してBluesky側で接続を許可するだけ。kakerattaにBlueskyのパスワードやAPIキーを入力する必要はありません。
+
+**担当の返信は初期状態では未選択です。** プレビューで本文・画像・返信先・投稿アカウントを確認してから公開します。
+担当の発言には `🍚 tabeからの返信:` のような署名が付き、枝分かれした返信のつながりも保ちます。
+
+![tabeの返信と自分の追加返信を選択したBluesky投稿プレビュー。goutの返信は除外（サンプル）](docs/captures/ja/bluesky-preview.png)
+
+投稿済みの発言は再送せず、追加分を返信として続けられます。
+[接続と公開の手順](https://kakeratta.net/manual/?lang=ja#ja-bluesky) · [運営側の初期設定・投稿履歴](docs/social-sharing.md)
+
 ## 前に放り込んだかけらを、あとから探す
 
 「あのとき美味しかったワイン、なんだっけ？」と思ったら、ヘッダーの **「検索」** を開きます。
@@ -114,7 +127,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 ブラウザで使うアプリで、静的な画面と Go の API の2つに分かれています。画面は開発中は Vite、
 公開時は Firebase Hosting が配信し、Go のバイナリは API だけを持ちます（Cloud Run でも手元でも同じ）。
 
-必要なもの: Go 1.25 以降、Node.js、Task（`task` コマンド）。
+必要なもの: Go 1.26 以降、Node.js、Task（`task` コマンド）。
 リポジトリのルートで実行します。
 
 ```sh
@@ -134,6 +147,8 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 
 | 環境変数 | 既定 | 用途 |
 | --- | --- | --- |
+| `KAKERATTA_PUBLIC_URL` | 空 | Bluesky OAuthに使う公開HTTPSオリジン |
+| `KAKERATTA_BLUESKY_KEY` | 空 | Bluesky接続の署名・暗号化用秘密鍵（64桁の16進文字列）。[運営設定](docs/social-sharing.md)を参照 |
 | `KAKERATTA_ADDR` | `:8787` | 待ち受けアドレス |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
 | `KAKERATTA_TOKEN` | 空（認証なし） | アクセス用トークン |

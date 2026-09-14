@@ -85,6 +85,9 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
+	case r.URL.Path == "/api/social/bluesky/client-metadata.json" && r.Method == http.MethodGet:
+		blueskyMetadata(w, r)
+		return
 	case r.URL.Path == "/api/auth/config" && r.Method == http.MethodGet:
 		writeJSON(w, http.StatusOK, map[string]any{
 			"enabled":    true,
@@ -193,6 +196,7 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
 		Version: g.options.Version, Tools: g.options.Tools,
 	})
+	tenant.workspaceKey = userKey
 	g.tenants[userKey] = tenant
 	return tenant, nil
 }

@@ -128,6 +128,24 @@ resource "google_secret_manager_secret_version" "access_token" {
   secret_data = local.access_token
 }
 
+# Shared across revisions: OAuth client signing and encrypted user sessions.
+resource "random_id" "bluesky_key" {
+  byte_length = 32
+}
+
+resource "google_secret_manager_secret" "bluesky_key" {
+  secret_id = "${local.name}-bluesky-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "bluesky_key" {
+  secret      = google_secret_manager_secret.bluesky_key.id
+  secret_data = random_id.bluesky_key.hex
+}
+
 resource "google_service_account" "app" {
   account_id   = local.name
   display_name = "kakeratta runtime"
@@ -191,6 +209,19 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "KAKERATTA_ADDR"
         value = ":8080"
+      }
+      env {
+        name  = "KAKERATTA_PUBLIC_URL"
+        value = var.bluesky_public_url != "" ? var.bluesky_public_url : "https://${local.domain}"
+      }
+      env {
+        name = "KAKERATTA_BLUESKY_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.bluesky_key.secret_id
+            version = google_secret_manager_secret_version.bluesky_key.version
+          }
+        }
       }
       env {
         name  = "KAKERATTA_HOME"

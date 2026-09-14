@@ -4,15 +4,32 @@
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, bluesky = { available: true, connected: false } } = {}) {
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
+  let connection = { ...bluesky };
   memory = structuredClone(memory);
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === "string" ? input : input.url, location.origin);
     const method = (init.method || "GET").toUpperCase();
     const path = url.pathname;
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
+    if (path === "/api/social/bluesky/connection" && method === "GET") return json(connection);
+    if (path === "/api/social/bluesky/connection" && method === "DELETE") {
+      connection = { available: true, connected: false };
+      return json({ disconnected: true, remoteRevoked: true });
+    }
+    // Stories never contact a real SNS or simulate a successful public post.
+    if (path === "/api/social/bluesky/connect" || path === "/api/social/publish") {
+      return json({ error: "This sample does not connect or publish to Bluesky." }, 400);
+    }
+    if (path === "/api/social/preview" && social) {
+      return json({ target: "bluesky", root: social.root, account: connection.did, handle: connection.handle,
+        digest: "sample-preview", posts: social.posts.filter((post) => body.entryIds.includes(post.entryId)) });
+    }
+    if (path.startsWith("/api/thread/") && social) {
+      return json({ entries: social.entries });
+    }
     if (path === "/api/timeline/search" && method === "POST" && search) {
       if (search.loading) return new Promise(() => {});
       if (search.error) return json({ error: search.error }, 502);

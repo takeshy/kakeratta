@@ -7,6 +7,8 @@
 import { $, el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { createCompose } from "./compose.js";
+import { finishBlueskyConnection } from "./bluesky.js";
+import { openSocial } from "./social.js";
 import { createFeed } from "./feed.js";
 import { createPersonas } from "./personas.js";
 import { createRoom } from "./room.js";
@@ -244,6 +246,10 @@ async function boot() {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
   compose.focus();
+  const bluesky = await finishBlueskyConnection();
+  if (bluesky?.returnRoot && !settingsRequired) {
+    await openSocial(bluesky.returnRoot, (id) => personaRows.find((row) => row.id === id));
+  } else if (bluesky) open("settings");
 }
 
 void boot();

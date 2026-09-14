@@ -90,3 +90,14 @@ Not needed for now. If it ever moves that way, iOS would be a Share Extension
 intent-filter. Wails v3 could host both, but its mobile support is officially
 experimental and outside the desktop beta's compatibility guarantee. It is not
 in scope.
+
+## Bluesky integration and captures
+
+Go 1.26 or later is required. `internal/social` handles OAuth, publication planning, and publishing; `frontend/src/bluesky.js` and `social.js` provide connection, selection, and preview screens. Tests use a simulated API. Authorization and publishing with a real account remain unverified.
+
+`frontend/stories/Bluesky.stories.js` renders the real connection, selection, and preview screens with sample data. It does not authorize or publish externally. To retake just the relevant images in both languages:
+
+```sh
+CAPTURE_ONLY=bluesky-connect,bluesky-selection,bluesky-preview,settings,timeline,search-thread npm --prefix frontend run captures
+npm --prefix frontend run build
+```

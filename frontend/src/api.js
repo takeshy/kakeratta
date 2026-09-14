@@ -57,6 +57,12 @@ function emit(name, data) {
 }
 
 export const api = {
+  blueskyConnection: () => call("GET", "/api/social/bluesky/connection"),
+  connectBluesky: (body) => call("POST", "/api/social/bluesky/connect", body),
+  finishBluesky: (body) => call("POST", "/api/social/bluesky/finish", body),
+  disconnectBluesky: () => call("DELETE", "/api/social/bluesky/connection"),
+  previewSocial: (body) => call("POST", "/api/social/preview", body),
+  publishSocial: (body) => call("POST", "/api/social/publish", body),
   timeline: ({ limit = 20, before } = {}) => {
     const query = new URLSearchParams({ limit: String(limit) });
     if (before) query.set("before", before);

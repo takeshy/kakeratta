@@ -7,15 +7,19 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/auth/oauth"
+
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/search"
+	"github.com/takeshy/kakeratta/internal/social"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
 )
@@ -32,13 +36,16 @@ type Options struct {
 
 // Server is the app.
 type Server struct {
-	store     store.Workspace
-	catalogue *persona.Catalogue
-	runner    *persona.Runner
-	tools     tools.Config
-	version   string
-	token     string
-	search    *search.Service
+	workspaceKey string
+	socialClient func(context.Context) (*social.Client, error)
+	oauthClient  func(*oauth.ClientApp)
+	store        store.Workspace
+	catalogue    *persona.Catalogue
+	runner       *persona.Runner
+	tools        tools.Config
+	version      string
+	token        string
+	search       *search.Service
 
 	mux       *http.ServeMux
 	dailyStop chan struct{}

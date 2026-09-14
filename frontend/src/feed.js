@@ -8,6 +8,7 @@ import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
 import { createMentionPicker } from "./mention-picker.js";
+import { openSocial } from "./social.js";
 import { createVoiceInput } from "./voice_input.js";
 
 // Silence is the design, but an empty screen cannot say so for itself. The note
@@ -115,6 +116,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         onclick: () => onSpeak(post.id, spoken(post.id)),
       }) : null,
       rest.length ? drawToggle(thread, post, rest.length, open) : null,
+      el("button", { class: "chip ghost", label: "Blueskyに投稿", onclick: () => void openSocial(post.id, getPersona) }),
       openReply === post.id ? null : drawReplyOpen(post)));
     if (open) for (const entry of rest) box.append(drawSaid(entry, post));
     if (openReply === post.id) box.append(drawReplyBox(post.id));

@@ -52,6 +52,19 @@ post was written in.
 
 Browser voice input can optionally polish your words with Nemotron Nano before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
 
+## Share the conversation you choose to Bluesky
+
+Each user connects their own Bluesky account and selects which original posts, persona replies, and follow-ups to publish.
+Enter your handle and authorize on Bluesky; kakeratta never asks for your Bluesky password or an API key.
+
+**Persona replies start unchecked.** Preview the text, images, reply structure, and account before publishing.
+Persona messages carry an attribution such as `🍚 tabeからの返信:` (reply from tabe), and branching replies keep their original parents.
+
+![Bluesky preview with tabe's reply and your follow-up selected, leaving out gout's reply (sample data)](docs/captures/en/bluesky-preview.png)
+
+Already published messages are reused as parents when you share additional replies.
+[Connect and publish](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication history](docs/social-sharing-en.md)
+
 ## Find what you tossed in before
 
 “What was that wine I liked?” Open **Search** in the header.
@@ -123,7 +136,7 @@ Kakeratta is a browser app in two pieces: a static page and a Go API. Vite
 serves the page while developing and Firebase Hosting serves it deployed; the
 Go binary is only the API, on Cloud Run or on your own machine.
 
-Requirements: Go 1.25 or later, Node.js, and Task (the `task` command).
+Requirements: Go 1.26 or later, Node.js, and Task (the `task` command).
 Run from the repository root:
 
 ```sh
@@ -143,6 +156,8 @@ the tests.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `KAKERATTA_PUBLIC_URL` | empty | Public HTTPS origin for Bluesky OAuth |
+| `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](docs/social-sharing-en.md) |
 | `KAKERATTA_ADDR` | `:8787` | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Storage for posts, notes, and images |
 | `KAKERATTA_TOKEN` | empty (no authentication) | Access token |

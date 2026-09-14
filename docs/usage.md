@@ -15,6 +15,8 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 
 | Variable | Default | |
 | --- | --- | --- |
+| `KAKERATTA_PUBLIC_URL` | empty | Public HTTPS origin for Bluesky OAuth |
+| `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](social-sharing-en.md) |
 | `KAKERATTA_ADDR` | `:8787` | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Where posts, notes and images are kept |
 | `KAKERATTA_TOKEN` | empty | Empty means anyone can walk in. **Set it whenever the app is reachable from outside** — this process is the one holding the inference keys |
@@ -126,6 +128,12 @@ or reply (not while the tab is in the background).
 **Read-aloud mode** reads the backlog while you are moving (the browser's own
 Web Speech API).
 
+## Share a conversation to Bluesky
+
+In Settings, open Bluesky connection, enter your handle, and authorize on Bluesky. Each user connects their own account. Choose Share to Bluesky on a post, select the messages, preview, and publish. Persona replies start unchecked, and selected replies require their parents to be selected too. Published replies preserve their parents and include persona attribution.
+
+[Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication recovery](social-sharing-en.md). Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.
+
 ## Search
 
 **Search** in the header and the personas' `timeline_search` tool share one
@@ -165,7 +173,9 @@ Where vectors live:
   Firestore vector search (`FindNearest`, cosine distance) returns the nearest
   100 passages, grouped by post. Requires the vector index in
   `firestore.indexes.json` ([deployment](../infra/README.md#firestore-indexes)).
-- `KAKERATTA_STORE=file`: in `<workspace>/search-embeddings/`, with similarity computed in Go.
+- `KAKERATTA_STORE=file`: in `<workspace>/social-state/          encrypted Bluesky connections and OAuth state
+<workspace>/publications/          external publication history per account and entry
+<workspace>/search-embeddings/`, with similarity computed in Go.
 
 ## Voice input
 
@@ -182,7 +192,7 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 Image reading uses GLM-5.3-Flash on the same backend.
 
-![Settings: display language, model, web search, voice input, read-aloud](captures/en/settings.png)
+![Settings: display language, model, web search, Bluesky connection, voice input, read-aloud](captures/en/settings.png)
 
 | For | Setting | Default |
 | --- | --- | --- |

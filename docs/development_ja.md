@@ -79,3 +79,14 @@ README のキャプチャ（`docs/captures/{en,ja}/`）は、このストーリ�
 現時点では不要です。将来寄せる場合、iOS は Share Extension（別ターゲット、App Group または直接 POST）、
 Android は `ACTION_SEND` の intent-filter になります。器は Wails v3 で兼ねられますが、モバイル対応は
 公式に実験的とされており、デスクトップのベータ互換性の保証外です。いまは範囲に入れていません。
+
+## Bluesky連携とキャプチャ
+
+Go 1.26以降が必要です。`internal/social` がOAuth・投稿計画・公開を担当し、`frontend/src/bluesky.js` と `social.js` が接続と発言選択・プレビューを表示します。APIを模擬したテストを用意しています。実アカウントでの認可と投稿は未確認です。
+
+`frontend/stories/Bluesky.stories.js` は接続・選択・プレビューの実画面をサンプルデータで表示します。外部への認可や投稿は行いません。日英の関連画像だけを撮り直す場合:
+
+```sh
+CAPTURE_ONLY=bluesky-connect,bluesky-selection,bluesky-preview,settings,timeline,search-thread npm --prefix frontend run captures
+npm --prefix frontend run build
+```

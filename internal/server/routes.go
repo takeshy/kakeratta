@@ -24,6 +24,14 @@ import (
 const maxCapture = 20 << 20
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("POST /api/social/preview", s.guard(s.previewSocial))
+	s.mux.HandleFunc("POST /api/social/publish", s.guard(s.publishSocial))
+	s.mux.HandleFunc("GET /api/social/bluesky/client-metadata.json", blueskyMetadata)
+	s.mux.HandleFunc("GET /api/social/bluesky/connection", s.guard(s.blueskyConnection))
+	s.mux.HandleFunc("POST /api/social/bluesky/connect", s.guard(s.connectBluesky))
+	s.mux.HandleFunc("GET /api/social/bluesky/callback", s.guard(s.blueskyCallback))
+	s.mux.HandleFunc("POST /api/social/bluesky/finish", s.guard(s.finishBluesky))
+	s.mux.HandleFunc("DELETE /api/social/bluesky/connection", s.guard(s.disconnectBluesky))
 	s.mux.HandleFunc("GET /api/auth/config", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
 	})

@@ -433,3 +433,16 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
   .who-bar .persona-chip { max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .who-bar.expanded .persona-chip { max-width: 100%; }
 }
+
+.social-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid var(--line); color: var(--ink); }
+.social-dialog::backdrop { background: #0008; }
+.social-dialog h2 { margin: 0; font-size: 1.2rem; }
+.social-selection, .bluesky-connection, .social-preview { display: grid; gap: 12px; }
+.social-choice { display: flex; align-items: start; gap: 10px; padding-block: 8px; }
+.social-choice input { flex: 0 0 auto; width: auto; margin-top: 4px; }
+.social-choice .said { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.social-preview-post { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.social-preview-post img { display: block; max-width: 100%; max-height: 280px; object-fit: contain; }
+.social-preview a { overflow-wrap: anywhere; }
+
+.social-dialog:not([open]) { display: none; }

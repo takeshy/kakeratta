@@ -10,6 +10,11 @@ import (
 // Firestore-backed implementations share this contract so the HTTP and persona
 // layers do not know where data lives.
 type Workspace interface {
+	SocialValue(context.Context, string) (SocialValue, error)
+	SwapSocialValue(context.Context, string, string, SocialValue) (bool, error)
+	Publication(string) (Publication, error)
+	ClaimPublication(string, Publication) (bool, error)
+	SavePublication(string, Publication) error
 	Root() string
 	SkillDir() string
 	Append(timeline.Entry) error

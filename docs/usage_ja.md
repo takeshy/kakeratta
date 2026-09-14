@@ -15,6 +15,8 @@ task test       # go test ./internal/... と node --test tests/*.test.js
 
 | 環境変数 | 既定 | |
 | --- | --- | --- |
+| `KAKERATTA_PUBLIC_URL` | 空 | Bluesky OAuthに使う公開HTTPSオリジン |
+| `KAKERATTA_BLUESKY_KEY` | 空 | Bluesky接続の署名・暗号化用秘密鍵（64桁の16進文字列）。[運営設定](social-sharing.md)を参照 |
 | `KAKERATTA_ADDR` | `:8787` | 待ち受け |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
 | `KAKERATTA_TOKEN` | 空 | 空だと誰でも入れます。**外から届く場所に置くときは必ず設定してください**（推論の鍵を持っているのはこのプロセスです） |
@@ -109,6 +111,12 @@ Web Share Target が使えないため、ショートカットで代替します
 
 **読み上げモード**で、移動中に溜まった反応を聞けます（ブラウザ内蔵の Web Speech API）。
 
+## 会話をBlueskyに公開する
+
+設定の「Bluesky連携」で自分のハンドルを入力し、Bluesky側で接続を許可します。各ユーザーが自分のアカウントを使えます。投稿の「Blueskyに投稿」から公開する発言を選び、プレビュー後に投稿します。担当の返信は最初は未選択で、選んだ返信の親も選択する必要があります。担当名の署名と返信の親子関係が付きます。
+
+[画面付きの手順](https://kakeratta.net/manual/?lang=ja#ja-bluesky) · [運営側の初期設定・投稿履歴の復旧](social-sharing.md)。接続解除やkakeratta内での削除は、Blueskyの投稿を削除しません。
+
 ## 検索
 
 ヘッダーの「検索」と、担当が使う `timeline_search` ツールは同じ仕組みを共有します。対象は本文・URL・画像の読み取り結果・場所名・返信で、
@@ -130,7 +138,9 @@ Web Share Target が使えないため、ショートカットで代替します
 
 - `KAKERATTA_STORE=firestore`: ユーザー配下の `searchPassages` にベクトルを保存し、Firestore のベクトル検索（`FindNearest`、コサイン距離）で近い100箇所を取り出して投稿ごとにまとめます。
   `firestore.indexes.json` のベクトルインデックスが必要です（[デプロイ手順](../infra/README_ja.md#firestoreのインデックス)）。
-- `KAKERATTA_STORE=file`: `<workspace>/search-embeddings/` にベクトルを保存し、類似度はGoで計算します。
+- `KAKERATTA_STORE=file`: `<workspace>/social-state/          暗号化したBluesky接続・OAuth状態
+<workspace>/publications/          アカウント・発言ごとの外部投稿履歴
+<workspace>/search-embeddings/` にベクトルを保存し、類似度はGoで計算します。
 
 ## 音声入力
 
@@ -147,7 +157,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。
 
-![設定。表示言語、モデル、Web検索、音声入力、読み上げ](captures/ja/settings.png)
+![設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ](captures/ja/settings.png)
 
 | 用途 | 設定 | 既定 |
 | --- | --- | --- |

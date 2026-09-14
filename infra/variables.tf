@@ -87,3 +87,13 @@ variable "firebase_auth_domain" {
   type        = string
   default     = ""
 }
+
+variable "bluesky_public_url" {
+  description = "Canonical public HTTPS origin for Bluesky OAuth. Empty uses https://domain."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.bluesky_public_url == "" || can(regex("^https://[^/?#@]+$", var.bluesky_public_url))
+    error_message = "Use an HTTPS origin without a path, query or fragment."
+  }
+}
