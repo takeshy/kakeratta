@@ -156,7 +156,6 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
         el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
-        entry.place ? el("span", { class: "place", text: placeLabel(entry.place) }) : null,
         el("span", { class: "spacer" }),
         // Append-only means a delete is recoverable in the log, but nobody
         // wants to go and get it. It stays out of the way until reached for.
@@ -352,11 +351,6 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     };
     setTimeout(() => { if (!disposed) input.focus(); }, 0);
     return box;
-  }
-
-  function placeLabel(place) {
-    if (place.label) return place.label;
-    return `${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}`;
   }
 
   // Read just the selected post and its replies in conversation order.
