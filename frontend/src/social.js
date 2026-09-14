@@ -3,26 +3,44 @@ import { createBlueskyConnection } from "./bluesky.js";
 import { t } from "./i18n.js";
 import { api, blobURL } from "./api.js";
 
+let socialOpen = false;
+
 // Selection is a snapshot: late persona responses never become public by default.
 export async function openSocial(root, getPersona) {
+  if (socialOpen) return;
+  socialOpen = true;
   let entries;
   try { entries = (await api.thread(root)).entries; }
-  catch (error) { toast(error.message, "error"); return; }
+  catch (error) { socialOpen = false; toast(error.message, "error"); return; }
   let plan = null;
   let busy = false;
+  let completedSelection = null;
+  const selectionKey = () => [...selected].sort().join("\n");
+  const isPosted = () => completedSelection === selectionKey();
+  const canPublish = () => plan && plan.posts.some(post => post.publication?.state !== "posted") && !plan.posts.some(post => post.publication?.state && !["posted", "retryable"].includes(post.publication.state));
   const selected = new Set([root]);
   const dialog = el("dialog", { class: "dialog social-dialog", "aria-labelledby": "social-title" });
   let connected = false;
   const connection = createBlueskyConnection({ returnRoot: root, onChange: (value) => {
     connected = value.connected;
+    completedSelection = null;
     invalidate();
-    previewButton.disabled = busy || !connected;
+    previewButton.disabled = busy || !connected || isPosted();
   } });
   const preview = el("div", { class: "social-preview", "aria-live": "polite" });
+  const publishedLink = el("div", { class: "social-published-link" });
+  function showPublishedLink(url) {
+    clear(publishedLink);
+    if (url) publishedLink.append(el("a", { href: url, target: "_blank", rel: "noreferrer", label: "公開した投稿を開く" }));
+  }
   const status = el("p", { role: "status", class: "note" });
   const publish = el("button", { class: "button", label: "選択した会話を投稿", disabled: true, onclick: send });
   const selection = el("div", { class: "social-selection" });
-  function invalidate() { plan = null; publish.disabled = true; clear(preview); status.textContent = ""; }
+  function invalidate() {
+    plan = null; publish.disabled = true; clear(preview); clear(publishedLink); status.textContent = "";
+    publish.textContent = t(isPosted() ? "投稿済み" : "選択した会話を投稿");
+    previewButton.disabled = busy || !connected || isPosted();
+  }
   for (const entry of entries) {
     if (entry.deleted) continue;
     const persona = getPersona(entry.speaker);
@@ -38,7 +56,7 @@ export async function openSocial(root, getPersona) {
   }
   const body = () => ({ root, target: "bluesky", entryIds: [...selected] });
   const previewButton = el("button", { class: "button secondary", label: "プレビュー", disabled: true, onclick: async () => {
-    if (busy) return;
+    if (busy || isPosted()) return;
     setBusy(true); invalidate();
     try {
       plan = await api.previewSocial(body());
@@ -46,10 +64,20 @@ export async function openSocial(root, getPersona) {
       for (const [i, post] of plan.posts.entries()) {
         preview.append(el("article", { class: "social-preview-post" },
           el("strong", { text: post.parent ? t("{0} · {1}への返信", i + 1, numbers.get(post.parent)) : t("{0} · 元の投稿", i + 1) }),
+          post.publication?.state === "posted" ? el("span", { class: "tag", label: "投稿済み" }) : null,
           el("p", { class: "said", text: post.text }),
           post.blobId ? el("img", { src: blobURL(post.blobId), alt: t("公開する画像") }) : null));
       }
-      status.textContent = t("{0}件をBlueskyの {1} から公開します。", plan.posts.length, plan.handle || plan.account);
+      showPublishedLink(plan.posts.find(post => !post.parent)?.publication?.url);
+      const remaining = plan.posts.filter(post => post.publication?.state !== "posted").length;
+      if (!remaining) {
+        completedSelection = selectionKey();
+        status.textContent = t("選択した会話は投稿済みです。再投稿はできません。");
+      } else if (!canPublish()) {
+        status.textContent = t("前回の投稿結果を確認できません。Bluesky上の投稿を確認してください。");
+      } else {
+        status.textContent = t("未投稿の{0}件をBlueskyの {1} から公開します。", remaining, plan.handle || plan.account);
+      }
     } catch (error) { status.textContent = t(error.message); }
     finally { setBusy(false); }
   } });
@@ -57,18 +85,19 @@ export async function openSocial(root, getPersona) {
     busy = value;
     for (const input of dialog.querySelectorAll("input, select, button")) input.disabled = value;
     selection.querySelector("input").disabled = true;
-    publish.disabled = value || !plan;
-    previewButton.disabled = value || !connected;
+    publish.disabled = value || isPosted() || !canPublish();
+    publish.textContent = t(value ? "処理中…" : isPosted() ? "投稿済み" : "選択した会話を投稿");
+    previewButton.disabled = value || !connected || isPosted();
   }
   async function send() {
-    if (busy || !plan) return;
-    setBusy(true); status.textContent = t("投稿しています…");
+    if (busy || isPosted() || !canPublish()) return;
+    setBusy(true); publish.textContent = t("投稿しています…"); status.textContent = t("投稿しています…");
     try {
       const result = await api.publishSocial({ ...body(), digest: plan.digest });
+      if (!result.error) completedSelection = selectionKey();
       status.textContent = t(result.error || "選択した会話を公開しました。");
-      for (const post of result.posts || []) {
-        if (post.publication.url) preview.append(el("a", { href: post.publication.url, target: "_blank", rel: "noreferrer", label: "公開した投稿を開く" }));
-      }
+      const parentPost = (result.posts || []).find(post => post.entryId === root);
+      if (parentPost?.publication?.url) showPublishedLink(parentPost.publication.url);
       // A new preview is needed before any retry or extension of the thread.
       plan = null;
     } catch (error) { status.textContent = t("{0}。再操作するときはプレビューから確認してください。", t(error.message)); plan = null; }
@@ -77,10 +106,10 @@ export async function openSocial(root, getPersona) {
   dialog.append(el("h2", { id: "social-title", label: "会話をBlueskyに公開" }),
     el("p", { class: "note", label: "公開したい発言だけ選択してください。Personaの返信には個人的な情報が含まれることがあります。返信を選ぶときは、その返信先も選んでください。" }),
     connection.element, selection,
-    previewButton, preview, status,
+    previewButton, preview, status, publishedLink,
     el("div", { class: "compose-row" }, publish,
       el("button", { class: "chip ghost", label: "閉じる", onclick: () => dialog.close() })));
   dialog.addEventListener("cancel", (event) => { if (busy) event.preventDefault(); });
-  dialog.addEventListener("close", () => { connection.dispose(); dialog.remove(); });
+  dialog.addEventListener("close", () => { socialOpen = false; connection.dispose(); dialog.remove(); });
   document.body.append(dialog); dialog.showModal();
 }

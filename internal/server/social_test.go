@@ -53,6 +53,12 @@ func TestSocialPreviewPublicationRetryAndAccountIsolation(t *testing.T) {
 			Record map[string]any `json:"record"`
 		}
 		json.NewDecoder(r.Body).Decode(&body)
+		if body.Record["text"] == "new reply" {
+			reply := body.Record["reply"].(map[string]any)
+			if reply["root"].(map[string]any)["uri"] != "at://did:plc:one/app.bsky.feed.post/1" || reply["parent"].(map[string]any)["uri"] != "at://did:plc:one/app.bsky.feed.post/2" {
+				t.Error("new reply was not attached to saved parents")
+			}
+		}
 		if strings.Contains(fmt.Sprint(body.Record), "private") {
 			t.Error("private reply sent")
 		}
@@ -84,6 +90,42 @@ func TestSocialPreviewPublicationRetryAndAccountIsolation(t *testing.T) {
 	if sent != 2 {
 		t.Fatalf("duplicate publication: %d", sent)
 	}
+	// A reopened preview exposes saved history, then adding a reply sends only it.
+	preview = socialRequest(s, "/api/social/preview", body)
+	var history struct {
+		Posts []struct {
+			Publication store.Publication `json:"publication"`
+		} `json:"posts"`
+	}
+	if err := json.Unmarshal(preview.Body.Bytes(), &history); err != nil {
+		t.Fatal(err)
+	}
+	if len(history.Posts) != 2 {
+		t.Fatal(preview.Body.String())
+	}
+	for _, post := range history.Posts {
+		if post.Publication.State != "posted" {
+			t.Fatal("missing posted state")
+		}
+	}
+	if err := workspace.Append(timeline.Entry{ID: "new", Root: "p", ReplyTo: "a", Kind: timeline.KindReply, Speaker: "user", Text: "new reply", At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	body.EntryIDs = []string{"p", "a", "new"}
+	preview = socialRequest(s, "/api/social/preview", body)
+	if err := json.Unmarshal(preview.Body.Bytes(), &plan); err != nil {
+		t.Fatal(err)
+	}
+	body.Digest = plan.Digest
+	added := socialRequest(s, "/api/social/publish", body)
+	if added.Code != 200 || !strings.Contains(added.Body.String(), `"error":""`) || sent != 3 {
+		t.Fatalf("new reply: sent=%d %s", sent, added.Body.String())
+	}
+	body.EntryIDs = []string{"p", "a"}
+	preview = socialRequest(s, "/api/social/preview", body)
+	json.Unmarshal(preview.Body.Bytes(), &plan)
+	body.Digest = plan.Digest
+
 	account = "did:plc:two"
 	setSocialConnection(t, s, account)
 	stale := socialRequest(s, "/api/social/publish", body)
@@ -94,14 +136,14 @@ func TestSocialPreviewPublicationRetryAndAccountIsolation(t *testing.T) {
 	json.Unmarshal(preview.Body.Bytes(), &plan)
 	body.Digest = plan.Digest
 	result := socialRequest(s, "/api/social/publish", body)
-	if result.Code != 200 || sent != 4 {
+	if result.Code != 200 || sent != 5 {
 		t.Fatalf("account: %d %s", sent, result.Body.String())
 	}
 	entry, _ := workspace.Entry("a")
 	entry.Text = "changed"
 	workspace.Append(entry)
 	result = socialRequest(s, "/api/social/publish", body)
-	if result.Code != 409 || sent != 4 {
+	if result.Code != 409 || sent != 5 {
 		t.Fatalf("stale preview: %d %s", sent, result.Body.String())
 	}
 }

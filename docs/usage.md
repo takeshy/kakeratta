@@ -142,6 +142,8 @@ In Settings, open Bluesky connection, enter your handle, and authorize on Bluesk
 
 [Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication recovery](social-sharing-en.md). Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.
 
+Already published messages are not sent again. Newly selected replies can be added to their existing parent posts. Publishing is disabled while sending or when all selected messages are already posted. The published conversation has a single link to its root post.
+
 ## Search
 
 **Search** in the header and the personas' `timeline_search` tool share one

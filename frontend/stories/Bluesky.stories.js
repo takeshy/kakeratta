@@ -40,9 +40,10 @@ export const Connect = {
   },
 };
 
-function conversation(preview) {
+function conversation(preview, posted = false) {
   document.querySelectorAll(".social-dialog").forEach((dialog) => dialog.close());
   const data = sample();
+  if (posted) data.posts = data.posts.map(post => ({ ...post, publication: { state: "posted", url: "https://bsky.app/profile/reader.example.com/post/sample" } }));
   serve({ social: data, bluesky: { available: true, connected: true, did: "did:plc:sample", handle: "reader.example.com" } });
   const host = screen({ rows: data.rows, entries: data.entries });
   // The production dialog is opened after Storybook mounts the background.
@@ -70,3 +71,5 @@ function conversation(preview) {
 
 export const Selection = { name: "元投稿だけを初期選択", render: () => conversation(false) };
 export const Preview = { name: "公開する会話と返信先を確認", render: () => conversation(true) };
+
+export const Posted = { name: "投稿済み・親投稿へのリンク", render: () => conversation(true, true) };

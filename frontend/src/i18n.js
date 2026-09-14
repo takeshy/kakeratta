@@ -1,6 +1,12 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "投稿済み": "Already posted",
+ "処理中…": "Processing…",
+ "選択した会話は投稿済みです。再投稿はできません。": "This conversation has already been posted and cannot be posted again.",
+ "前回の投稿結果を確認できません。Bluesky上の投稿を確認してください。": "The previous publication is unconfirmed. Please check your posts on Bluesky.",
+ "未投稿の{0}件をBlueskyの {1} から公開します。": "Publish {0} new posts from {1} on Bluesky.",
+
  "単語や短い語句はキーワード検索。「？」「教えて」「探して」などを含む質問や文章は意味検索します。": "Words and short phrases use keyword search. Questions and sentences, including '?' or requests such as 'tell me' and 'find', use meaning search.",
  "キーワード検索の後は「似たような単語でも探す」で範囲を広げられます。0件でも利用でき、自動判定が合わないときも結果から切り替えられます。": "After keyword search, use 'Search similar meanings too' to broaden the results, even with no matches. You can also switch if the automatic choice was not right.",
  "似たような単語でも探す": "Search similar meanings too",

@@ -36,12 +36,12 @@ test("only chosen replies reach preview and publish; changing selection invalida
     { id: "b", root: "p", replyTo: "p", speaker: "gout", text: "private health" },
   ] }));
   t.mock.method(api, "blueskyConnection", async () => ({ available: true, connected: true, did: "did:plc:alice", handle: "alice.bsky.social" }));
-  let chosen, posted;
+  let chosen, posted, finishPublish, publishCalls = 0;
   t.mock.method(api, "previewSocial", async (body) => {
     chosen = body;
     return { digest: "digest", posts: body.entryIds.flatMap((id) => id === "p" ? [{ entryId: id, text: id }, { entryId: id, id: "p:part:2", text: "つづき:\ncontinued", parent: "p" }] : [{ entryId: id, text: id, parent: "p:part:2" }]) };
   });
-  t.mock.method(api, "publishSocial", async (body) => { posted = body; return { error: "", posts: [] }; });
+  t.mock.method(api, "publishSocial", async (body) => { posted = body; publishCalls++; await new Promise(resolve => { finishPublish = resolve; }); return { error: "", posts: [{entryId:"p", publication:{url:"https://bsky.app/profile/example/post/root"}}, {entryId:"p", publication:{url:"https://bsky.app/profile/example/post/continued"}}, {entryId:"a", publication:{url:"https://bsky.app/profile/example/post/reply"}}] }; });
   await openSocial("p", (id) => ({ name: id, icon: "🍚" }));
   const dialog = document.body.children[0];
   const checkboxes = dialog.querySelector(".social-selection").querySelectorAll("input");
@@ -58,10 +58,37 @@ test("only chosen replies reach preview and publish; changing selection invalida
   checkboxes[1].checked = false; await checkboxes[1].fire("change");
   assert.equal(publish.disabled, true);
   await preview.fire("click");
+  const sending = publish.fire("click");
+  assert.equal(publish.disabled, true);
+  assert.equal(publish.textContent, "投稿しています…");
   await publish.fire("click");
+  assert.equal(publishCalls, 1);
+  finishPublish(); await sending;
+  assert.equal(publish.textContent, "投稿済み");
+  assert.equal(dialog.querySelectorAll("a").length, 1);
+  assert.equal(dialog.querySelector("a").href, "https://bsky.app/profile/example/post/root");
+  assert.equal(preview.disabled, true);
+  await publish.fire("click");
+  assert.equal(publishCalls, 1);
   assert.deepEqual(posted.entryIds, ["p"]);
   assert.equal(posted.digest, "digest");
   assert.equal("credentials" in posted, false);
   assert.equal(publish.disabled, true);
   assert.equal(dialog.querySelectorAll("input").some((input) => input.value === "private health"), false);
+  // A new reply can still be selected after publishing the root.
+  checkboxes[1].checked = true; await checkboxes[1].fire("change");
+  assert.equal(preview.disabled, false);
+  await openSocial("p", (id) => ({name:id}));
+  assert.equal(document.body.children.length, 1);
+  dialog.close();
+  t.mock.method(api, "previewSocial", async () => ({digest:"same", posts:[{entryId:"p", text:"posted", publication:{state:"posted", url:"https://bsky.app/profile/example/post/a"}}, {entryId:"a", parent:"p", text:"reply", publication:{state:"posted", url:"https://bsky.app/profile/example/post/b"}}]}));
+  await openSocial("p", (id) => ({name:id}));
+  const reopened = document.body.children[0];
+  await reopened.querySelectorAll("button").find(b => b.textContent === "プレビュー").fire("click");
+  const already = reopened.querySelectorAll("button").find(b => b.textContent === "投稿済み");
+  assert.equal(already.disabled, true);
+  assert.equal(reopened.querySelectorAll("a").length, 1);
+  await already.fire("click");
+  assert.equal(publishCalls, 1);
+  reopened.close();
 });

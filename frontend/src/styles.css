@@ -468,3 +468,6 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 @media (max-width: 480px) {
   .bluesky-connect-button { width: 100%; }
 }
+.social-preview-post > .tag { margin-inline-start: 8px; white-space: nowrap; }
+.social-published-link:empty { display: none; }
+.social-published-link a { color: var(--accent); text-underline-offset: 3px; }

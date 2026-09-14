@@ -57,11 +57,32 @@ func (s *Server) previewSocial(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, err.Error())
 		return
 	}
-	if _, err := s.prepareSocialMedia(plan); err != nil {
+	type previewPost struct {
+		social.Post
+		Publication store.Publication `json:"publication"`
+	}
+	posts := make([]previewPost, 0, len(plan.Posts))
+	remaining := plan
+	remaining.Posts = nil
+	for _, post := range plan.Posts {
+		publication, err := s.store.Publication(plan.Target + ":" + plan.Account + ":" + post.Key())
+		if err != nil {
+			fail(w, 503, "投稿履歴を読み込めませんでした")
+			return
+		}
+		posts = append(posts, previewPost{post, publication})
+		if publication.State != "posted" {
+			remaining.Posts = append(remaining.Posts, post)
+		}
+	}
+	if _, err := s.prepareSocialMedia(remaining); err != nil {
 		fail(w, 400, err.Error())
 		return
 	}
-	writeJSON(w, 200, plan)
+	writeJSON(w, 200, struct {
+		social.Plan
+		Posts []previewPost `json:"posts"`
+	}{plan, posts})
 }
 
 type socialImage struct {

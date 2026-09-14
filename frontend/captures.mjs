@@ -22,6 +22,7 @@ const shots = [
   { name: "bluesky-connect", id: "bluesky--connect", height: 850 },
   { name: "bluesky-selection", id: "bluesky--selection", height: 1100 },
   { name: "bluesky-preview", id: "bluesky--preview", height: 1500 },
+  { name: "bluesky-posted", id: "bluesky--posted", height: 1500 },
   { name: "memory", id: "personas--wine-memory", height: 1000 },
   { name: "search-keyword", id: "search--keyword", height: 900 },
   { name: "search-semantic", id: "search--semantic", height: 1000 },
