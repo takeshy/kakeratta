@@ -1,6 +1,14 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "単語や短い語句はキーワード検索。「？」「教えて」「探して」などを含む質問や文章は意味検索します。": "Words and short phrases use keyword search. Questions and sentences, including '?' or requests such as 'tell me' and 'find', use meaning search.",
+ "キーワード検索の後は「似たような単語でも探す」で範囲を広げられます。0件でも利用でき、自動判定が合わないときも結果から切り替えられます。": "After keyword search, use 'Search similar meanings too' to broaden the results, even with no matches. You can also switch if the automatic choice was not right.",
+ "似たような単語でも探す": "Search similar meanings too",
+ "キーワードだけで探す": "Search exact words only",
+ "キーワード検索": "Keyword search",
+ "キーワードで検索中…": "Searching by keyword…",
+ "意味をもとに検索中…": "Searching by meaning…",
+ "短い語句はキーワード検索、質問や文章は意味検索で探します。結果から切り替えられます。": "Short terms use keyword search; questions and sentences use meaning search. You can switch from the results.",
  "保存済みの会話を表示しています。接続後に更新します。": "Showing saved conversations. They will update when connected.",
  "端末に保存済み・送信待ち": "Saved on this device · waiting to send",
  "端末に保存済み・送信待ち {0}件": "Saved on this device · {0} waiting to send",

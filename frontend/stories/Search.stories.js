@@ -48,6 +48,6 @@ function panel(mode, { empty = false, loading = false, error = false, thread = f
 export const Keyword = { name: "名前で探す", render: () => panel("keyword") };
 export const Semantic = { name: "覚えていることから探す", render: () => panel("semantic") };
 export const Thread = { name: "検索結果から元の会話を開く", render: () => panel("semantic", { thread: true }) };
-export const Loading = { name: "初回の索引作成中", render: () => panel("semantic", { loading: true }) };
+export const Loading = { name: "意味検索中", render: () => panel("semantic", { loading: true }) };
 export const Empty = { name: "一致する投稿がない", render: () => panel("keyword", { empty: true }) };
 export const Error = { name: "失敗・再検索できる", render: () => panel("semantic", { error: true }) };

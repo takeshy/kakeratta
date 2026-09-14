@@ -113,3 +113,9 @@ npm --prefix frontend run build
 npm --prefix frontend run test:offline
 npm --prefix frontend run build
 ```
+
+## Indexing after writes
+
+`internal/server/index.go` coalesces post, persona remark, and image-analysis update events over 200 ms before calling `search.IndexPending`. Startup and AI settings changes also schedule backfill; failures retry after 30 seconds. Shutdown cancels indexing, with Firestore dirty flags and saved vectors reused after restart. Existing Cloud Run settings (`cpu_idle = false`, at least one instance) support background work. Searches share the same indexing implementation.
+
+Tests cover indexing saved posts and completed image analysis without a search request, persistent vector reuse after restart, and kana variants in OCR searches.

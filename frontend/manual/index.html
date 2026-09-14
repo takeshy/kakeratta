@@ -234,7 +234,8 @@
           <p>「あのとき飲んだワイン、何だった？」 ヘッダーの <strong>検索</strong> を開きます。</p>
           <ul>
             <li>「ピノ」のような名前をそのまま入力できます。</li>
-            <li>「軽くて飲みやすかった赤ワイン」のような記憶も同じ欄に入力できます。語句の一致と意味の近さを自動で組み合わせます。</li>
+            <li>「軽くて飲みやすかった赤ワイン」のような記憶も同じ欄に入力できます。単語や短い語句はキーワード検索、「？」「教えて」「探して」などを含む質問や文章は意味検索します。</li>
+            <li>キーワード検索後は、0件でも「似たような単語でも探す」で範囲を広げられます。自動判定が合わない場合も、結果から検索方法を切り替えられます。</li>
           </ul>
           <p>対象は、自分が書いた本文、画像から読み取った文字、担当との会話です。結果を押すと、元の投稿とその会話が開きます。</p>
           <figure>
@@ -246,6 +247,7 @@
             <figcaption>結果から元の投稿を開く。そこから返信も書けます。</figcaption>
           </figure>
           <div class="tip">
+            <p>投稿・返信を保存した後と画像解析が完了した後に、意味検索用の登録をバックグラウンドで行います。画像内の文字・説明・出典も対象です。「サザエ」「さざえ」のようなひらがな・カタカナの違いは、語句一致でも吸収します。</p>
             <p>意味検索の準備に時間がかかる場合や接続できない場合は、語句の一致だけで探した結果と、その旨を表示します。あとでもう一度検索できます。途中まで保存された準備は再利用します。</p>
           </div>
           <p>担当も、必要なときに過去のかけらを検索します。新しいラベルが届いたとき、ワイン担当が「前に気に入ったピノに近いですね」と元の投稿へのリンク付きで答えることがあります。</p>
@@ -588,7 +590,8 @@
           <p>“What was that wine I liked?” Open <strong>Search</strong> in the header.</p>
           <ul>
             <li>Enter a name you remember, like “Pinot”.</li>
-            <li>Or describe it in the same field, like “a light red wine that was easy to drink”. Matching words and meaning are combined automatically.</li>
+            <li>Or describe it in the same field, like “a light red wine that was easy to drink”. Short terms use keyword search; questions and sentences use meaning search.</li>
+            <li>After keyword search, “Search similar meanings too” broadens the search, even with zero results. You can switch methods from the results if the automatic choice does not fit.</li>
           </ul>
           <p>Search covers what you wrote, text read from your photos, and your conversations with personas. Tap a result to open the original post and its conversation.</p>
           <figure>
@@ -600,6 +603,7 @@
             <figcaption>Opening the original post from a result. You can reply from there.</figcaption>
           </figure>
           <div class="tip">
+            <p>Search embeddings are registered in the background after posts and replies are saved and after image analysis completes, including OCR text, descriptions, and source hints. Word matching also handles hiragana/katakana variants such as “サザエ” and “さざえ”.</p>
             <p>If meaning search is still preparing or cannot connect, search returns word matches with a notice. You can search again later; saved indexing progress is reused.</p>
           </div>
           <p>Personas search too, when it helps. When a new label arrives, a wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>

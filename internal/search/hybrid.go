@@ -101,6 +101,7 @@ func queryTerms(query string) []string {
 	seen := map[string]bool{}
 	var out []string
 	add := func(word string) {
+		word = normalize(word)
 		if word != "" && !stop[word] && !seen[word] {
 			seen[word] = true
 			out = append(out, word)
@@ -130,7 +131,7 @@ func queryTerms(query string) []string {
 		}
 		run = nil
 	}
-	for _, r := range normalize(query) {
+	for _, r := range normalizeWidth(query) {
 		next := class(r)
 		if next != kind || next == 0 {
 			flush()

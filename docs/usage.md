@@ -149,10 +149,14 @@ implementation. It covers text, URLs, image readings, place labels, and replies;
 deleted posts and their replies never appear.
 
 Enter a name such as “Pinot” or a description such as “a light red I enjoyed” in
-one search field. Matching words and meaning are combined by rank, with duplicate
-posts merged. No search mode selection is needed.
+one search field. Short terms use keyword search without waiting for AI. Questions
+and sentences (for example, a question mark or “find” / “tell me”) use meaning
+search. After keyword search, “Search similar meanings too” broadens the search,
+even with zero results. Use “Search exact words only” to switch back when the
+automatic choice does not fit.
 
-- Word matching normalizes case and character width, splits Japanese script runs,
+- Keyword search normalizes case, character width, and hiragana/katakana variants and requires all space-separated terms to occur in the post. It makes no embedding request.
+- Meaning search and the personas’ default search also combine lexical and semantic rankings, merging duplicate posts. Their lexical branch splits Japanese script runs,
   and uses Han substrings. More matches and rarer terms rank higher. This is a
   lightweight tokenizer, not morphological analysis. It reads all posts on each
   search, so reads grow with the timeline.
@@ -171,9 +175,7 @@ locally or 8,000 in Firestore. Both are supplied if they contain different evide
 Ranking scores are not confidence. Personas must verify evidence in the text and
 refine the query when evidence is missing.
 
-The first search and endpoint changes prepare the semantic index; later searches
-process added or changed posts. One indexing pass runs at a time, and saved
-progress is reused on the next search.
+Document embeddings are registered in the background after posts and replies are saved, and again when image analysis completes. OCR text, image descriptions, and source hints are included. Saving a post does not wait for embeddings. Startup and AI connection settings changes also schedule missing or updated documents; failures retry after 30 seconds. Search-time backfill remains a recovery path. One indexing pass runs at a time, reusing saved vectors. Word matching also treats “サザエ”, “さざえ”, and “ｻｻﾞｴ” alike.
 
 Where vectors live:
 

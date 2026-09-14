@@ -1,3 +1,4 @@
+import { initialSearchMode } from "./search-intent.js";
 import { el, when } from "./dom.js";
 import { t } from "./i18n.js";
 import { api } from "./api.js";
@@ -12,6 +13,12 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
   const detail = el("div", { hidden: true });
   const more = el("button", { class: "button", label: "さらに読み込む", hidden: true,
     onclick: () => void run(true) });
+  const switchMode = el("button", { class: "button secondary search-expand", hidden: true,
+    onclick: () => run(false, searchMode === "keyword" || semanticUnavailable ? "hybrid" : "keyword") });
+  let searchMode = "keyword";
+  let semanticUnavailable = false;
+  let busy = false;
+  let completed = false;
   let generation = 0;
   let threadGeneration = 0;
   let selected = null;
@@ -28,7 +35,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     ++threadGeneration;
     detail.hidden = true;
     results.hidden = false;
-    more.hidden = hits.length >= total;
+    controls();
   } });
   detail.append(back, thread.element);
 
@@ -40,43 +47,62 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     el("span", { class: "hint", label: "投稿を開く" }))));
   }
 
-  async function run(append = false) {
+  function controls() {
+    more.hidden = Boolean(selected) || busy || hits.length >= total;
+    switchMode.hidden = Boolean(selected) || !completed || query.value.trim() !== searchQuery;
+    switchMode.disabled = busy;
+    switchMode.textContent = t(searchMode === "keyword" || semanticUnavailable ? "似たような単語でも探す" : "キーワードだけで探す");
+  }
+
+  async function run(append = false, forcedMode = null) {
     const current = ++generation;
-    if (!append) {
+    const requestedMode = append ? searchMode : forcedMode || initialSearchMode(query.value);
+    if (!append && !forcedMode) {
       searchQuery = query.value.trim();
       hits = [];
       total = 0;
+      completed = false;
       draw();
     }
     if (!searchQuery) {
+      busy = false;
       submit.disabled = false;
-      more.hidden = true;
       status.textContent = "";
+      controls();
       return;
     }
     selected = null;
     ++threadGeneration;
     detail.hidden = true;
     results.hidden = false;
-    more.hidden = true;
+    busy = true;
     submit.disabled = true;
-    status.textContent = t("検索中…");
+    controls();
+    status.textContent = t(requestedMode === "keyword" ? "キーワードで検索中…" : "意味をもとに検索中…");
     try {
-      const found = await api.searchTimeline({ query: searchQuery, limit: 20, offset: hits.length });
+      const found = await api.searchTimeline({ query: searchQuery, mode: requestedMode, limit: 20, offset: append ? hits.length : 0 });
       if (current !== generation) return;
-      hits = [...hits, ...found.hits];
+      hits = append ? [...hits, ...found.hits] : found.hits;
       total = found.total;
+      searchMode = requestedMode;
+      semanticUnavailable = Boolean(found.semanticUnavailable);
+      completed = true;
       draw();
-      status.textContent = found.total ? t("近い候補{0}件中{1}件を表示", found.total, hits.length) : t("一致するかけらがありません");
-      if (found.semanticUnavailable) status.textContent += " " + t("意味検索を利用できなかったため、語句の一致で探しました。あとでもう一度検索できます。");
-      more.hidden = hits.length >= found.total;
-    } catch (error) {
-      if (current === generation) {
-        status.textContent = t(error.message);
-        more.hidden = !append;
+      status.textContent = t(searchMode === "keyword" ? "キーワード検索" : "意味検索") + " · " +
+        (found.total ? t(searchMode === "keyword" ? "{0}件中{1}件を表示" : "近い候補{0}件中{1}件を表示", found.total, hits.length) : t("一致するかけらがありません"));
+      if (found.semanticUnavailable) {
+        status.textContent += " " + t("意味検索を利用できなかったため、語句の一致で探しました。あとでもう一度検索できます。");
+
       }
+    } catch (error) {
+      if (current === generation) status.textContent = t(error.message);
     } finally {
-      if (current === generation) submit.disabled = false;
+      if (current === generation) {
+        busy = false;
+        submit.disabled = false;
+        controls();
+        if (append && hits.length < total && !selected) more.hidden = false;
+      }
     }
   }
 
@@ -86,7 +112,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     selectedRoot = null;
     detail.hidden = false;
     results.hidden = true;
-    more.hidden = true;
+    controls();
     thread.element.replaceChildren(el("p", { class: "hint", label: "読み込んでいます…" }));
     try {
       const found = await api.thread(id);
@@ -127,12 +153,14 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     }
   }
 
+  query.addEventListener("input", controls);
   const form = el("form", { class: "timeline-search-form", role: "search", onsubmit: (event) => {
     event.preventDefault(); void run();
   } }, query, submit);
   const element = el("div", { class: "timeline-search" }, form,
-    el("p", { class: "hint", label: "名前や覚えていることを入力すると、語句の一致と意味の近さから探します。" }),
-    status, results, more, detail);
+    el("p", { class: "hint", label: "単語や短い語句はキーワード検索。「？」「教えて」「探して」などを含む質問や文章は意味検索します。" }),
+    el("p", { class: "hint", label: "キーワード検索の後は「似たような単語でも探す」で範囲を広げられます。0件でも利用でき、自動判定が合わないときも結果から切り替えられます。" }),
+    status, results, more, switchMode, detail);
   return { element, setSpeaking: thread.setSpeaking, reveal: thread.reveal, showEntry, changed, refresh, focus: () => query.focus(),
     searchFor: (text) => { query.value = text; return run(); },
   };

@@ -47,11 +47,14 @@ type Server struct {
 	token        string
 	search       *search.Service
 
-	mux       *http.ServeMux
-	dailyStop chan struct{}
-	dailyDone chan struct{}
-	closeOnce sync.Once
-	events    *hub
+	mux         *http.ServeMux
+	indexWake   chan struct{}
+	indexDone   chan struct{}
+	indexCancel context.CancelFunc
+	dailyStop   chan struct{}
+	dailyDone   chan struct{}
+	closeOnce   sync.Once
+	events      *hub
 }
 
 func New(options Options) *Server {
@@ -68,7 +71,8 @@ func New(options Options) *Server {
 	s.search = search.New(s.store)
 	s.runner.SetSearch(s.search)
 	s.runner.SetTools(s.tools)
-	s.runner.OnEvent(s.events.send)
+	s.startIndexing()
+	s.runner.OnEvent(s.publishEvent)
 	s.runner.Start()
 	s.routes()
 	s.dailyStop = make(chan struct{})
@@ -95,7 +99,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.Serve
 // Close lets whatever is reacting finish. Reactions write as they go, so
 // exiting in the middle of one leaves a persona's notes half written.
 func (s *Server) Close() {
-	s.closeOnce.Do(func() { close(s.dailyStop); <-s.dailyDone; s.runner.Stop() })
+	s.closeOnce.Do(func() { close(s.dailyStop); <-s.dailyDone; s.indexCancel(); s.runner.Stop(); <-s.indexDone })
 }
 
 func (s *Server) client() (*llm.Client, store.Settings) {

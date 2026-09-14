@@ -92,7 +92,16 @@ func Text(entry timeline.Entry) string {
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
-func normalize(text string) string { return strings.ToLower(norm.NFKC.String(text)) }
+func normalizeWidth(text string) string { return strings.ToLower(norm.NFKC.String(text)) }
+
+func normalize(text string) string {
+	return strings.Map(func(r rune) rune {
+		if (r >= 'ァ' && r <= 'ヶ') || r == 'ヽ' || r == 'ヾ' {
+			return r - 0x60
+		}
+		return r
+	}, normalizeWidth(text))
+}
 
 // Search uses the current user's timeline, including older, unpaged posts.
 // Vectors are cached persistently. Interrupted indexing resumes on the next
@@ -240,60 +249,9 @@ func (s *Service) semantic(ctx context.Context, entries []timeline.Entry, query 
 	if settings.APIKey == "" {
 		return nil, errors.New("設定でAIのAPIキーを入力してください")
 	}
-	cache, ok := s.workspace.(vectorStore)
-	if !ok {
-		return nil, errors.New("この保存先は意味検索に対応していません")
-	}
-	type passage struct {
-		entry     int
-		text, key string
-	}
-	var passages []passage
-	vectors := map[string][]float64{}
-	var missing []passage
-	seen := map[string]bool{}
-	for i, entry := range entries {
-		for _, text := range chunks(Text(entry)) {
-			key := fmt.Sprintf("%x", sha256.Sum256([]byte(settings.BaseURL+"\x00"+Model+"\x001024\x00"+text)))
-			p := passage{i, text, key}
-			passages = append(passages, p)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			if vector, ok := s.vectors[key]; ok {
-				vectors[key] = vector
-				continue
-			}
-			cached, err := cache.SearchVector(ctx, key)
-			if err != nil {
-				return nil, err
-			}
-			if validVector(cached.Vector) {
-				vectors[key] = cached.Vector
-				s.remember(key, cached.Vector)
-			} else {
-				missing = append(missing, p)
-			}
-		}
-	}
-	for start := 0; start < len(missing); start += 16 {
-		batch := missing[start:min(start+16, len(missing))]
-		texts := make([]string, len(batch))
-		for i, p := range batch {
-			texts[i] = p.text
-		}
-		generated, err := embed(ctx, settings, texts)
-		if err != nil {
-			return nil, err
-		}
-		for i, p := range batch {
-			if err := cache.SaveSearchVector(ctx, p.key, store.SearchVector{Vector: generated[i]}); err != nil {
-				return nil, err
-			}
-			vectors[p.key] = generated[i]
-			s.remember(p.key, generated[i])
-		}
+	passages, vectors, err := s.prepareLocal(ctx, entries, settings)
+	if err != nil {
+		return nil, err
 	}
 	queryVectors, err := embed(ctx, settings, []string{"Instruct: Retrieve saved personal posts relevant to the search query.\nQuery: " + query})
 	if err != nil {
@@ -385,4 +343,64 @@ func embed(ctx context.Context, settings store.Settings, texts []string) ([][]fl
 		result[row.Index] = row.Embedding
 	}
 	return result, nil
+}
+
+type indexedPassage struct {
+	entry     int
+	text, key string
+}
+
+func (s *Service) prepareLocal(ctx context.Context, entries []timeline.Entry, settings store.Settings) ([]indexedPassage, map[string][]float64, error) {
+	cache, ok := s.workspace.(vectorStore)
+	if !ok {
+		return nil, nil, errors.New("この保存先は意味検索に対応していません")
+	}
+	var passages []indexedPassage
+	vectors := map[string][]float64{}
+	var missing []indexedPassage
+	seen := map[string]bool{}
+	for i, entry := range entries {
+		for _, text := range chunks(Text(entry)) {
+			key := fmt.Sprintf("%x", sha256.Sum256([]byte(settings.BaseURL+"\x00"+Model+"\x001024\x00"+text)))
+			p := indexedPassage{i, text, key}
+			passages = append(passages, p)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			if vector, ok := s.vectors[key]; ok {
+				vectors[key] = vector
+				continue
+			}
+			cached, err := cache.SearchVector(ctx, key)
+			if err != nil {
+				return nil, nil, err
+			}
+			if validVector(cached.Vector) {
+				vectors[key] = cached.Vector
+				s.remember(key, cached.Vector)
+			} else {
+				missing = append(missing, p)
+			}
+		}
+	}
+	for start := 0; start < len(missing); start += 16 {
+		batch := missing[start:min(start+16, len(missing))]
+		texts := make([]string, len(batch))
+		for i, p := range batch {
+			texts[i] = p.text
+		}
+		generated, err := embed(ctx, settings, texts)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i, p := range batch {
+			if err := cache.SaveSearchVector(ctx, p.key, store.SearchVector{Vector: generated[i]}); err != nil {
+				return nil, nil, err
+			}
+			vectors[p.key] = generated[i]
+			s.remember(p.key, generated[i])
+		}
+	}
+	return passages, vectors, nil
 }

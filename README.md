@@ -75,7 +75,7 @@ Already published messages are reused as parents when you share additional repli
 
 “What was that wine I liked?” Open **Search** in the header.
 
-Enter a name like “Pinot” or a description like “a light red wine that was easy to drink” in the same field. Search combines matching words and meaning automatically.
+Enter a name like “Pinot” or a description like “a light red wine that was easy to drink” in the same field. Short terms use keyword search; questions and sentences use meaning search. After keyword search, “Search similar meanings too” broadens the search, even with zero results. You can switch search methods from the results.
 
 Search covers what you wrote, text read from your photos, and your conversations with personas.
 Tap a result to open the original post and its conversation.

@@ -42,55 +42,8 @@ func (s *Service) nativeSearch(ctx context.Context, index nativeIndex, query str
 	if _, err := index.NearestSearchPassages(ctx, modelKey, queryVector[0], 1); err != nil {
 		return Result{}, err
 	}
-	pending, err := index.PendingSearchEntries(ctx, modelKey)
-	if err != nil {
+	if err := s.indexNative(ctx, index, settings, modelKey); err != nil {
 		return Result{}, err
-	}
-	for _, candidate := range pending {
-		entry := candidate.Entry
-		if entry.Deleted && entry.Kind == timeline.KindPost {
-			if err := index.PurgeSearchThread(ctx, entry.ID); err != nil {
-				return Result{}, err
-			}
-		}
-		rootExists := entry.Kind == timeline.KindPost
-		if !rootExists && timeline.RootOf(entry) != "" {
-			root, exists, err := index.CurrentSearchEntry(ctx, timeline.RootOf(entry))
-			if err != nil {
-				return Result{}, err
-			}
-			rootExists = exists && root.Kind == timeline.KindPost
-		}
-		var passages []store.SearchPassage
-		if !entry.Deleted && rootExists && Text(entry) != "" {
-			old, err := index.IndexedSearchPassages(ctx, entry.ID)
-			if err != nil {
-				return Result{}, err
-			}
-			cached := map[string]firestore.Vector64{}
-			for _, p := range old {
-				if p.ModelKey == modelKey && validVector(p.Embedding) {
-					cached[p.Text] = p.Embedding
-				}
-			}
-			// Larger chunks keep even a near-limit Firestore document within
-			// a single atomic replacement transaction.
-			parts := nativeChunks(Text(entry))
-			for _, part := range parts {
-				vector := cached[part]
-				if vector == nil {
-					generated, err := embed(ctx, settings, []string{part})
-					if err != nil {
-						return Result{}, err
-					}
-					vector = generated[0]
-				}
-				passages = append(passages, store.SearchPassage{EntryID: entry.ID, RootID: timeline.RootOf(entry), ModelKey: modelKey, Hash: contentHash(Text(entry)), Text: part, Embedding: vector})
-			}
-		}
-		if err := index.ReplaceSearchPassages(ctx, candidate, passages); err != nil {
-			return Result{}, err
-		}
 	}
 	nearest, err := index.NearestSearchPassages(ctx, modelKey, queryVector[0], 100)
 	if err != nil {
@@ -163,4 +116,59 @@ func nativeChunks(text string) []string {
 		}
 	}
 	return out
+}
+
+// indexNative prepares documents without embedding a query or reading neighbors.
+func (s *Service) indexNative(ctx context.Context, index nativeIndex, settings store.Settings, modelKey string) error {
+	pending, err := index.PendingSearchEntries(ctx, modelKey)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range pending {
+		entry := candidate.Entry
+		if entry.Deleted && entry.Kind == timeline.KindPost {
+			if err := index.PurgeSearchThread(ctx, entry.ID); err != nil {
+				return err
+			}
+		}
+		rootExists := entry.Kind == timeline.KindPost
+		if !rootExists && timeline.RootOf(entry) != "" {
+			root, exists, err := index.CurrentSearchEntry(ctx, timeline.RootOf(entry))
+			if err != nil {
+				return err
+			}
+			rootExists = exists && root.Kind == timeline.KindPost
+		}
+		var passages []store.SearchPassage
+		if !entry.Deleted && rootExists && Text(entry) != "" {
+			old, err := index.IndexedSearchPassages(ctx, entry.ID)
+			if err != nil {
+				return err
+			}
+			cached := map[string]firestore.Vector64{}
+			for _, p := range old {
+				if p.ModelKey == modelKey && validVector(p.Embedding) {
+					cached[p.Text] = p.Embedding
+				}
+			}
+			// Larger chunks keep even a near-limit Firestore document within
+			// a single atomic replacement transaction.
+			parts := nativeChunks(Text(entry))
+			for _, part := range parts {
+				vector := cached[part]
+				if vector == nil {
+					generated, err := embed(ctx, settings, []string{part})
+					if err != nil {
+						return err
+					}
+					vector = generated[0]
+				}
+				passages = append(passages, store.SearchPassage{EntryID: entry.ID, RootID: timeline.RootOf(entry), ModelKey: modelKey, Hash: contentHash(Text(entry)), Text: part, Embedding: vector})
+			}
+		}
+		if err := index.ReplaceSearchPassages(ctx, candidate, passages); err != nil {
+			return err
+		}
+	}
+	return nil
 }

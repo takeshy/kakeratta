@@ -102,3 +102,9 @@ npm --prefix frontend run build
 npm --prefix frontend run test:offline
 npm --prefix frontend run build
 ```
+
+## 保存時の検索索引登録
+
+`internal/server/index.go` が投稿・担当の発言・画像解析更新のイベントを受け、200 msの間に届いた変更をまとめて `search.IndexPending` を呼びます。起動時・AI設定保存後にも補完し、失敗は30秒後に再試行します。終了時は処理をキャンセルし、Firestoreの未処理フラグと保存済みベクトルを再起動後に再利用します。Cloud Runは既存の `cpu_idle = false`・最小1インスタンス設定でバックグラウンド実行できます。検索からも同じ索引処理を使います。
+
+検索しないままの投稿保存・画像解析完了後のベクトル化、再起動時の再利用、ひらがな・カタカナでのOCR検索をテストします。

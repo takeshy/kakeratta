@@ -253,7 +253,7 @@ func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.events.send("entry", entry)
+	s.publishEvent("entry", entry)
 	s.runner.React(entry.ID, reactionPlace)
 	writeJSON(w, http.StatusOK, entry)
 }
@@ -310,7 +310,7 @@ func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.events.send("entry", entry)
+	s.publishEvent("entry", entry)
 	writeJSON(w, http.StatusOK, entry)
 }
 
@@ -485,6 +485,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.scheduleIndex()
 	s.getSettings(w, r)
 }
 
