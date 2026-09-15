@@ -16,22 +16,26 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 			calls := 0
 			r, s, stub := setup(t, func(system, user string) string {
 				calls++
-				if !strings.Contains(system, "Daily check-in") {
-					t.Error("daily prompt missing")
+				if !strings.Contains(system, "Check-in（朝・昼・晩") {
+					t.Error("check-in prompt missing")
+				}
+				if calls == 1 && !strings.Contains(user, "Check-in: 朝 (morning)") {
+					t.Errorf("the part of the day was not given:\n%s", user)
 				}
 				return `{"action":"` + action + `","text":"Something worth sharing"}`
 			})
 			skill := r.catalogue.All()[0]
 			settings := s.Settings()
 			settings.Active = []string{skill.ID}
-			settings.DailyCheckIns = map[string]store.DailyCheckIn{skill.ID: {Enabled: true, Time: "08:00", TimeZone: "Asia/Tokyo"}}
+			settings.DailyCheckIns = map[string]store.DailyCheckIn{skill.ID: {Slots: []string{"morning", "noon", "evening"}, TimeZone: "Asia/Tokyo"}}
 			if err := s.SaveSettings(settings); err != nil {
 				t.Fatal(err)
 			}
-			now := time.Date(2026, 9, 14, 23, 0, 0, 0, time.UTC)
+			// 06:00 in Tokyo: the start of the morning.
+			now := time.Date(2026, 9, 14, 21, 0, 0, 0, time.UTC)
 			r.dailyAt(now.Add(-time.Minute))
 			if calls != 0 {
-				t.Fatal("ran before preferred time")
+				t.Fatal("ran during the night")
 			}
 			r.dailyAt(now)
 			r.dailyAt(now.Add(time.Hour))
@@ -54,10 +58,15 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 					t.Fatalf("daily post missing from page: %+v %v", page, err)
 				}
 			}
+			// 11:00 is noon, a separate wake on the same day.
+			r.dailyAt(now.Add(5 * time.Hour))
+			if calls != 2 {
+				t.Fatalf("noon did not wake: calls = %d", calls)
+			}
 			settings.Active = nil
 			_ = s.SaveSettings(settings)
 			r.dailyAt(now.AddDate(0, 0, 1))
-			if calls != 1 {
+			if calls != 2 {
 				t.Fatal("inactive persona woke")
 			}
 		})
@@ -76,11 +85,11 @@ func TestDailyCanRememberWithoutPosting(t *testing.T) {
 	skill := r.catalogue.All()[0]
 	settings := s.Settings()
 	settings.Active = []string{skill.ID}
-	settings.DailyCheckIns = map[string]store.DailyCheckIn{skill.ID: {Enabled: true, Time: "00:00", TimeZone: "UTC"}}
+	settings.DailyCheckIns = map[string]store.DailyCheckIn{skill.ID: {Slots: []string{"noon"}, TimeZone: "UTC"}}
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	r.dailyAt(time.Now())
+	r.dailyAt(time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC))
 	note, ok := s.Note(skill.ID, "daily.md")
 	if !ok || !strings.Contains(note.Text, "Remembered quietly") {
 		t.Fatal("silent wake did not retain memory")

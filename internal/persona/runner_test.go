@@ -269,13 +269,13 @@ func TestNoListeningTurnWhenTheHigherTiersStayedQuiet(t *testing.T) {
 func TestSilenceStillWritesNotes(t *testing.T) {
 	runner, s, _ := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["tech"]}`
+			return `{"deliver":["routine"]}`
 		}
 		if strings.Contains(user, "notes_write の結果") {
 			return `{"action":"silent"}`
 		}
 		return `{"action":"tool","tool":"notes_write","args":{"path":"threads/errors.md","text":"Goのエラーハンドリングを追いかけている"}}`
-	}, "tech")
+	}, "routine")
 
 	entry := post(t, s, "errors.Join の話")
 	runner.react(entry.ID)
@@ -283,7 +283,7 @@ func TestSilenceStillWritesNotes(t *testing.T) {
 	if said := remarks(t, s); len(said) != 0 {
 		t.Fatalf("something was said when it should have been quiet: %+v", said)
 	}
-	memory := s.Memory("tech")
+	memory := s.Memory("routine")
 	if len(memory.Notes) != 1 || !strings.Contains(memory.Notes[0].Text, "エラーハンドリング") {
 		t.Fatalf("notes = %+v", memory.Notes)
 	}
@@ -310,7 +310,7 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 			return `{"action":"silent","notes":"ひとまず黙る"}`
 		}
 		return `{"action":"speak","text":"呼ばれたので答えます","notes":"呼ばれた"}`
-	}, "gourmet", "tech")
+	}, "gourmet", "routine")
 
 	entry := post(t, s, "@tabe これどう思う")
 	runner.react(entry.ID)
@@ -320,7 +320,7 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 		t.Fatalf("remarks = %+v, want the named one to have answered", said)
 	}
 	// Routing said nobody, so the persona that was not named must not have run.
-	if stub.promptFor("kuda") != "" {
+	if stub.promptFor("plana") != "" {
 		t.Fatal("a persona the routing excluded was woken anyway")
 	}
 	if !strings.Contains(stub.promptFor("tabe"), "名指し") {
@@ -359,10 +359,10 @@ func TestBeingNamedStillForcesAnAnswerAfterUsingATool(t *testing.T) {
 func TestRoutingKeepsThePostFromEveryoneElse(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["tech"]}`
+			return `{"deliver":["routine"]}`
 		}
 		return `{"action":"speak","text":"ふむ","notes":"見た"}`
-	}, "tech", "gourmet", "book")
+	}, "routine", "gourmet", "book")
 
 	entry := post(t, s, "Go 1.25 のリリースノート")
 	runner.react(entry.ID)
@@ -370,7 +370,7 @@ func TestRoutingKeepsThePostFromEveryoneElse(t *testing.T) {
 	if stub.promptFor("tabe") != "" || stub.promptFor("shiori") != "" {
 		t.Fatal("a post reached a persona it was not routed to")
 	}
-	if stub.promptFor("kuda") == "" {
+	if stub.promptFor("plana") == "" {
 		t.Fatal("the persona it was routed to never saw it")
 	}
 	// Nothing was even written for the others: no wake, no notes.
@@ -387,12 +387,12 @@ func TestRoutingFailureDeliversToEveryone(t *testing.T) {
 			return "モデルが壊れた返事"
 		}
 		return `{"action":"silent","notes":"見た"}`
-	}, "tech", "gourmet")
+	}, "routine", "gourmet")
 
 	entry := post(t, s, "何か")
 	runner.react(entry.ID)
 
-	if stub.promptFor("kuda") == "" || stub.promptFor("tabe") == "" {
+	if stub.promptFor("plana") == "" || stub.promptFor("tabe") == "" {
 		t.Fatal("a post was lost because the routing failed")
 	}
 }
@@ -404,7 +404,7 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		switch {
 		case strings.Contains(system, "振り分け"):
-			return `{"deliver":["tech"]}`
+			return `{"deliver":["routine"]}`
 		case strings.Contains(user, "notes_write の結果"):
 			return `{"action":"silent"}`
 		case strings.Contains(user, "notes_read の結果"):
@@ -412,12 +412,12 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 		default:
 			return `{"action":"tool","tool":"notes_read","args":{"paths":["threads/old.md"]}}`
 		}
-	}, "tech")
+	}, "routine")
 
-	if err := s.WriteNote("tech", "threads/old.md", "前から追いかけていること"); err != nil {
+	if err := s.WriteNote("routine", "threads/old.md", "前から追いかけていること"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.WriteNote("tech", "index.md", "最初の目次"); err != nil {
+	if err := s.WriteNote("routine", "index.md", "最初の目次"); err != nil {
 		t.Fatal(err)
 	}
 	_ = post(t, s, "関係のない古い投稿")
@@ -426,7 +426,7 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 
 	// The first prompt has the names, not the contents: reading is the
 	// persona's own call, and a memory it does not need costs nothing.
-	prompt := stub.promptFor("kuda")
+	prompt := stub.promptFor("plana")
 	if !strings.Contains(prompt, "threads/old.md") {
 		t.Fatalf("the persona was not told what it has:\n%s", prompt)
 	}
@@ -441,7 +441,7 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 		t.Fatal("notes_read never handed the contents back")
 	}
 	notes := map[string]string{}
-	for _, note := range s.Memory("tech").Notes {
+	for _, note := range s.Memory("routine").Notes {
 		notes[note.Path] = note.Text
 	}
 	if !strings.Contains(notes["threads/old.md"], "続き") {
@@ -457,13 +457,13 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 func TestAToolThatWasNotDeclaredIsRefused(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["tech"]}`
+			return `{"deliver":["routine"]}`
 		}
 		if strings.Contains(user, "route の結果") {
 			return `{"action":"speak","text":"使えなかった","notes":"道具の確認"}`
 		}
 		return `{"action":"tool","tool":"route","args":{"to":"渋谷"},"notes":"道具を試す"}`
-	}, "tech")
+	}, "routine")
 
 	entry := post(t, s, "どこか")
 	runner.react(entry.ID)
@@ -598,18 +598,18 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 }
 
 func TestNoteConsolidationCarriesReadSources(t *testing.T) {
-	runner, s, _ := setup(t, func(system, user string) string { return `{"action":"silent"}` }, "tech")
-	if err := s.WriteNote("tech", "old.md", "Old knowledge.", store.NoteSource{EntryID: "old-post", Label: "Old post"}); err != nil {
+	runner, s, _ := setup(t, func(system, user string) string { return `{"action":"silent"}` }, "routine")
+	if err := s.WriteNote("routine", "old.md", "Old knowledge.", store.NoteSource{EntryID: "old-post", Label: "Old post"}); err != nil {
 		t.Fatal(err)
 	}
 	sources := []store.NoteSource{{EntryID: "current-post", Label: "Current post"}}
-	runner.notesTool("tech", "notes_read", map[string]any{"path": "old.md"}, &sources)
-	result, _ := runner.notesTool("tech", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, &sources)
+	runner.notesTool("routine", "notes_read", map[string]any{"path": "old.md"}, &sources)
+	result, _ := runner.notesTool("routine", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, &sources)
 	if !strings.Contains(result, "書きました") {
 		t.Fatal(result)
 	}
-	runner.notesTool("tech", "notes_forget", map[string]any{"path": "old.md"}, &sources)
-	note, ok := s.Note("tech", "combined.md")
+	runner.notesTool("routine", "notes_forget", map[string]any{"path": "old.md"}, &sources)
+	note, ok := s.Note("routine", "combined.md")
 	if !ok || len(store.NoteSources(note.Text)) != 2 {
 		t.Fatalf("consolidation lost sources: %+v", note)
 	}

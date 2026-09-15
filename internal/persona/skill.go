@@ -66,9 +66,13 @@ type Skill struct {
 	Model        Tier   `json:"model"`
 	// Tools are the declared capabilities. Nothing outside this list can be
 	// called, and the app is what calls them.
-	Tools      []string `json:"tools"`
-	Builtin    bool     `json:"builtin"`
-	Customized bool     `json:"customized,omitempty"`
+	Tools []string `json:"tools"`
+	// CheckInByDefault is for a persona that works by the clock rather than by
+	// posts. The page turns its morning, noon and evening check-in on when it
+	// is first enabled, because only the browser knows the time zone.
+	CheckInByDefault bool `json:"checkInByDefault,omitempty"`
+	Builtin          bool `json:"builtin"`
+	Customized       bool `json:"customized,omitempty"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$`)
@@ -112,17 +116,6 @@ var Builtins = []Skill{
 		Model: TierLow, Tools: []string{"route", "place_search"}, Builtin: true,
 	},
 	{
-		ID: "tech", Name: "kuda", Icon: "💾",
-		Domain: "技術。コード、API、ライブラリ、設計の話、技術記事やドキュメントのキャプチャ、" +
-			"エラー画面。食事や移動の話には反応しない。",
-		Tone: "浅く速い。分からないときは「わからんくなってきた」で切り上げる。knowing風に語らない。",
-		Instructions: "概念は type: Thread（追いかけていること）を主に使う。" +
-			"解決した Thread は description を結論に書き換え、本文の経緯を捨てる。未解決のものは捨てない。" +
-			"index.md では未解決を先に並べる。" +
-			"発言するのは、前に追いかけていたものと繋がるときか、明らかに落とし穴があるとき。",
-		Model: TierLow, Tools: []string{"web_search"}, Builtin: true,
-	},
-	{
 		ID: "book", Name: "shiori", Icon: "📖",
 		Domain: "本と読書。Kindleなど電子書籍の画面キャプチャ、引用された一節、書名や著者、読書の感想。" +
 			"技術ドキュメントそのものや食事・移動の話には反応しない。",
@@ -132,6 +125,24 @@ var Builtins = []Skill{
 			"読み終えた本は description を感想に書き換え、引用は残す（後から響き合うのは引用のほう）。" +
 			"発言するのは、前に引いた線と響き合うときだけ。毎回感想を言わない。",
 		Model: TierMiddle, Tools: []string{"web_search"}, Builtin: true,
+	},
+	// plana is split by what it does rather than by subject: it keeps the small
+	// repeated chores too light for a calendar, and wakes by the part of the day
+	// instead of waiting for a post. It calls nothing outside the app.
+	{
+		ID: "routine", Name: "plana", Icon: "🔁",
+		Domain: "繰り返しの小さな用事と、それをしたかどうか。薬を飲んだ、ペットや金魚に餌をあげた、洗濯、ゴミ出し、水やりのような、" +
+			"カレンダーに書くまでもないが忘れると困る習慣。食事の内容、移動、読書の話には反応しない。",
+		Tone: "控えめ。「そういえば」と一言添える程度で、急かさない。",
+		Instructions: "概念は type: Routine（繰り返しの項目）を1項目1ファイルで持つ。時刻は持たず、朝・昼・晩のどれに行うかだけを書く。" +
+			"分からなければ聞き返さず、分かるまで空けておく。" +
+			"本文には「2026-09-16 朝 済」のように日付と時間帯でしたことだけを積み、2週間より古い記録は回数の要約にまとめる。" +
+			"index.md は朝・昼・晩の見出しごとに項目を並べる。" +
+			"投稿で済んだと分かったら記録し、基本は黙る。" +
+			"定期起床では、今の時間帯に紐づく項目があり、その日のその時間帯の記録がまだないときだけ「そういえば朝の○○」程度に一言添える。" +
+			"記録があるものには触れず、同じ時間帯に二度言わない。" +
+			"薬は記録と軽い言及に留める。催促しない。飲み忘れと判断しない、指摘しない。量・効果・飲み合わせには触れない。",
+		Model: TierLow, Tools: []string{}, CheckInByDefault: true, Builtin: true,
 	},
 }
 

@@ -9,10 +9,10 @@ export const personas = [
     domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"] },
   { id: "move", name: "michi", icon: "🚃", model: "low", builtin: true, active: true, wakes: 3,
     domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
-  { id: "tech", name: "kuda", icon: "💾", model: "low", builtin: true, active: true, wakes: 7,
-    domain: "技術。コード、道具、仕組み。", tools: ["web_search"], dailyCheckIn: { enabled: true, time: "08:00", timeZone: "Asia/Tokyo" } },
   { id: "book", name: "shiori", icon: "📖", model: "middle", builtin: true, active: true, wakes: 21,
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
+  { id: "routine", name: "plana", icon: "🔁", model: "low", builtin: true, active: true, wakes: 7, checkInByDefault: true,
+    domain: "繰り返し。薬、餌やり、洗濯、ゴミ出し。", tools: [], dailyCheckIn: { slots: ["morning", "evening"], timeZone: "Asia/Tokyo" } },
 ];
 
 export const nobody = personas.map((row) => ({ ...row, active: false }));

@@ -157,7 +157,7 @@ tabe なら `Preference` と `Shop`、shiori なら `Book` と `Theme`。**形�
 | モデル | `low` / `middle` / `high` |
 | 使えるツール | 宣言したものだけが呼べる |
 
-内蔵は4体（tabe / michi / kuda / shiori）。`skill.json` を画面から追加できます。
+内蔵は4体（tabe 食事 / michi 移動 / shiori 読書 / plana 繰り返し）。`skill.json` を画面から追加できます。
 
 ```json
 {

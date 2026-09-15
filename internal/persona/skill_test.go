@@ -90,8 +90,8 @@ func TestInstalledSkillsJoinTheCatalogue(t *testing.T) {
 	}
 	// Order is the order the user put them in, and ids that no longer resolve
 	// are dropped rather than breaking the room.
-	active := catalogue.Active([]string{"wine", "gone", "tech"})
-	if len(active) != 2 || active[0].ID != "wine" || active[1].ID != "tech" {
+	active := catalogue.Active([]string{"wine", "gone", "routine"})
+	if len(active) != 2 || active[0].ID != "wine" || active[1].ID != "routine" {
 		t.Fatalf("active = %+v", active)
 	}
 	if err := catalogue.Uninstall("wine"); err != nil {
@@ -112,7 +112,7 @@ func TestAnsweringToAName(t *testing.T) {
 			t.Errorf("%q should reach it", mention)
 		}
 	}
-	for _, mention := range []string{"", "michi", "tech"} {
+	for _, mention := range []string{"", "michi", "routine"} {
 		if skill.Answers(mention) {
 			t.Errorf("%q should not reach it", mention)
 		}
@@ -140,5 +140,33 @@ func TestUpdateBuiltinPreservesIdentityAcrossReload(t *testing.T) {
 	raw, _ = json.Marshal(skill)
 	if _, err := c.Update(Builtins[0].ID, raw, nil); err == nil {
 		t.Fatal("changed identity")
+	}
+}
+
+// plana keeps small repeated chores by the part of the day. It works by the
+// clock, calls nothing outside the app, and treats medicine lightly.
+func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
+	var plana *Skill
+	for i := range Builtins {
+		if Builtins[i].ID == "tech" || Builtins[i].Name == "kuda" {
+			t.Fatal("kuda still ships")
+		}
+		if Builtins[i].ID == "routine" {
+			plana = &Builtins[i]
+		}
+	}
+	if plana == nil || plana.Name != "plana" {
+		t.Fatal("plana does not ship")
+	}
+	if len(plana.Tools) != 0 {
+		t.Fatalf("plana declares external tools: %v", plana.Tools)
+	}
+	if !plana.CheckInByDefault || plana.Model != TierLow {
+		t.Fatalf("plana = %+v", *plana)
+	}
+	for _, rule := range []string{"朝・昼・晩", "催促しない", "飲み忘れと判断しない"} {
+		if !strings.Contains(plana.Instructions, rule) {
+			t.Fatalf("plana's instructions lack %q", rule)
+		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -18,9 +19,10 @@ func TestDailySettingsEndpoint(t *testing.T) {
 		body string
 		code int
 	}{
-		{`{"enabled":true,"time":"08:00","timeZone":"Asia/Tokyo"}`, 200},
-		{`{"enabled":true,"time":"24:00","timeZone":"Asia/Tokyo"}`, 400},
-		{`{"enabled":true,"time":"08:00","timeZone":"invalid"}`, 400},
+		{`{"slots":["morning","evening"],"timeZone":"Asia/Tokyo"}`, 200},
+		{`{"slots":["morning"]}`, 400},
+		{`{"slots":["midnight"],"timeZone":"Asia/Tokyo"}`, 400},
+		{`{"slots":["morning"],"timeZone":"invalid"}`, 400},
 	} {
 		response := httptest.NewRecorder()
 		app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas/"+id+"/daily", strings.NewReader(tc.body)))
@@ -31,15 +33,15 @@ func TestDailySettingsEndpoint(t *testing.T) {
 	got := s.Settings().DailyCheckIns[id]
 	stale := httptest.NewRecorder()
 	app.ServeHTTP(stale, httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(`{"dailyCheckIns":{},"readAloudRate":1.5}`)))
-	if stale.Code != 200 || s.Settings().DailyCheckIns[id] != got {
+	if stale.Code != 200 || !reflect.DeepEqual(s.Settings().DailyCheckIns[id], got) {
 		t.Fatal("stale settings erased schedule")
 	}
-	if !got.Enabled || got.Time != "08:00" {
+	if !reflect.DeepEqual(got.Slots, []string{"morning", "evening"}) || got.TimeZone != "Asia/Tokyo" {
 		t.Fatalf("bad persistence: %+v", got)
 	}
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas", strings.NewReader(`{"active":[]}`)))
-	if s.Settings().DailyCheckIns[id] != got {
+	if !reflect.DeepEqual(s.Settings().DailyCheckIns[id], got) {
 		t.Fatal("activation erased schedule")
 	}
 	response = httptest.NewRecorder()
@@ -55,7 +57,7 @@ func TestDailySettingsEndpoint(t *testing.T) {
 	}
 	for _, row := range payload.Personas {
 		if row.ID == id {
-			if row.Daily != got {
+			if !reflect.DeepEqual(row.Daily, got) {
 				t.Fatal("schedule not returned")
 			}
 			return

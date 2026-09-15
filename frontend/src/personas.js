@@ -11,6 +11,10 @@ import { showPersonaBuilder } from "./persona-builder.js";
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
 
+const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+// The parts of the day a check-in can wake in, in the order the server knows them.
+const DAY_PARTS = [["morning", "朝"], ["noon", "昼"], ["evening", "晩"]];
+
 const tierLabels = {
   low: "low（先に動く）",
   middle: "middle",
@@ -54,7 +58,25 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       text: label, title: t("{0} の説明を開く（新しいタブ）", label) });
   }
 
+  // A persona that works by the clock (plana) starts with morning, noon, and
+  // evening chosen. Only the browser knows the time zone, so the default is
+  // saved from here, once: clearing every part stores the zone too, so the
+  // default is never applied again.
+  const defaulting = new Set();
+  function ensureCheckIns() {
+    for (const row of rows) {
+      if (!row.checkInByDefault || !row.active || row.dailyCheckIn?.timeZone || defaulting.has(row.id)) continue;
+      defaulting.add(row.id);
+      api.setDailyCheckIn(row.id, { slots: DAY_PARTS.map(([name]) => name), timeZone: localZone() }).then((payload) => {
+        rows = payload.personas || rows;
+        onChange?.(rows);
+        draw();
+      }).catch(() => defaulting.delete(row.id));
+    }
+  }
+
   function draw() {
+    ensureCheckIns();
     clear(view);
     view.append(
       el("p", {
@@ -96,28 +118,32 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       el("p", { class: "domain", text: shown.domain }),
     );
     const schedule = row.dailyCheckIn || {};
-    const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });
-    const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active || !schedule.enabled, "aria-label": t("希望時刻") });
-    const zone = schedule.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const saveDaily = async () => {
-      const next = { enabled: enabled.checked, time: time.value, timeZone: zone };
-      enabled.disabled = time.disabled = true;
-      try {
-        const payload = await api.setDailyCheckIn(row.id, next);
-        rows = payload.personas || rows;
-        onChange?.(rows);
-        draw();
-      } catch (error) {
-        toast(String(error.message || error), "error");
-        draw();
-      }
-    };
-    enabled.addEventListener("change", saveDaily);
-    time.addEventListener("change", saveDaily);
-    box.append(el("div", { class: "compose-row" },
-      el("label", { class: "switch" }, enabled, el("span", { label: "1日1回のチェックイン" })),
-      time, el("span", { class: "hint", text: zone })));
-    box.append(el("p", { class: "hint", label: "毎日一度だけ起き、伝えることがある日だけ話します。" }));
+    const chosen = schedule.slots || [];
+    const zone = schedule.timeZone || localZone();
+    // One tap per part of the day; each tap saves, like the active switch.
+    const parts = DAY_PARTS.map(([name, label]) => {
+      const on = chosen.includes(name);
+      return el("button", {
+        type: "button", class: `chip${on ? " active" : ""}`, label, "aria-pressed": String(on), disabled: !row.active,
+        onclick: async (event) => {
+          const slots = DAY_PARTS.map(([part]) => part).filter((part) => part === name ? !on : chosen.includes(part));
+          event.currentTarget.disabled = true;
+          try {
+            const payload = await api.setDailyCheckIn(row.id, { slots, timeZone: zone });
+            rows = payload.personas || rows;
+            onChange?.(rows);
+            draw();
+          } catch (error) {
+            toast(String(error.message || error), "error");
+            draw();
+          }
+        },
+      });
+    });
+    box.append(el("div", { class: "compose-row", role: "group", "aria-label": t("朝・昼・晩のチェックイン") },
+      el("span", { label: "朝・昼・晩のチェックイン" }), ...parts,
+      el("span", { class: "hint", text: zone })));
+    box.append(el("p", { class: "hint", label: "選んだ時間帯（朝 6〜11時・昼 11〜17時・晩 17〜23時）に起き、伝えることがあるときだけ話します。" }));
     if (row.tools?.length) {
       box.append(el("p", { class: "tools" }, `${t("道具")}: `,
         row.tools.flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));

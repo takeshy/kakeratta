@@ -8,9 +8,10 @@ Put thoughts and things that catch your eye into one timeline as text, images,
 URLs, or speech. AIs with separate memories for their own subjects react when
 they have something to say.
 
-**A daily wake, with room for silence.** Enable a daily check-in for a persona
-and choose a time. Even without a new fragment, it can revisit its memory and
-look for relevant changes, speaking only when there is something worth sharing.
+**Morning, noon, and evening, with room for silence.** Pick any of morning,
+noon, and evening for a persona and it wakes then — around when, not at a set
+time. Even without a new fragment, it can revisit its memory,
+speaking only when there is something for that part of the day.
 
 The food persona learns your tastes from meals; the reading persona remembers
 passages that caught your eye. Keeping memory separate by subject prevents
@@ -46,9 +47,17 @@ The timeline shows your newest posts, 20 at a time. Conversations stay folded un
 
 Some posts get no reaction. A persona can remember information in its subject
 without speaking. Four personas ship with the app: **tabe (food), michi
-(travel), kuda (tech), and shiori (reading)** — Japanese words in Latin letters,
+(travel), shiori (reading), and plana (routines)** — Japanese words in Latin letters,
 lowercase, so `@tabe` can be typed on any keyboard. A persona answers in the language the
-post was written in.
+post was written in. They are examples of how to split things up rather than a
+complete set; the rest is yours to create.
+
+plana keeps the small repeated things too light for a calendar — medicine taken,
+the goldfish fed, laundry, trash day — by morning, noon, and evening rather than
+by the clock. It wakes by the part of the day instead of waiting for a post, and
+calls no external service. For medicine it only records and mentions lightly
+(“the morning medicine, by the way”): it never nags, and never decides or points
+out that a dose was missed.
 
 Browser voice input can optionally polish your words with Nemotron 3.5 Lightning before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
 
@@ -203,14 +212,18 @@ routing, notes, replies, search and route tools, and read-aloud are implemented.
 
 [MIT licensed](LICENSE).
 
-### Daily check-ins
+### Check-ins: morning, noon, and evening
 
-Each active persona can opt into **Daily check-in** in the Personas panel, with
-one preferred time per day (off by default). The browser's time zone is saved
-with that time, including daylight-saving rules; it stays saved when you travel
-and is not limited to JST. There is currently no time-zone picker. A persona can read its memory, search fragments, and use its
-usual tools; it starts a timeline thread only when it has something worth
-sharing. Silence leaves no system post or empty thread.
+In the Personas panel, pick any of **Morning**, **Noon**, and **Evening** for
+each active persona. There is no time to choose: morning is 06:00–11:00, noon
+11:00–17:00, and evening 17:00–23:00, and a persona wakes once in each part you
+picked; it does not wake at night. None are picked by default, except for plana,
+which works by the clock and starts with all three when first enabled. The
+browser's time zone is saved, including daylight-saving rules; it stays saved
+when you travel and is not limited to JST. There is currently no time-zone
+picker. A persona can read its memory, search fragments, and use its usual
+tools; it starts a timeline thread only when it has something for that part of
+the day. Silence leaves no system post or empty thread.
 
 The server checks once per minute and uses the existing execution queue, so a
 busy queue can delay a wake. The server must be running; the browser can be
@@ -218,12 +231,13 @@ closed. Configured workspaces are restored after server restarts, including
 Firestore users. The provided Cloud Run configuration already keeps one
 instance running with CPU allocated outside requests.
 
-A persisted claim limits each persona to one attempt per local calendar day,
-including silent or failed attempts. Firestore claims are transactional across
-instances; local storage assumes one server process per workspace. Changing the
-time or forgetting memory does not reset the claim. After downtime, only today's
-due check-in runs; missed days are not replayed. A crash after claiming can skip
-that day's check-in rather than repeat it.
+A persisted claim limits each persona to one attempt per part of the local
+day, including silent or failed attempts. Firestore claims are transactional
+across instances; local storage assumes one server process per workspace.
+Forgetting memory does not reset the claim. After downtime, only the current
+part of the day runs; a missed morning is not replayed at noon, and missed days
+are not replayed. A crash after claiming can skip that wake rather than repeat
+it.
 
 ### Tools are the operator's
 
@@ -271,6 +285,6 @@ server with the post's position filled in. If the server cannot be reached, the
 built-in OpenStreetMap calls above answer instead; an error the server itself
 returns is passed on to the persona.
 
-Daily check-ins do not acquire a current location: `route` is unavailable and
+Check-ins do not acquire a current location: `route` is unavailable and
 `place_search` can only do a name lookup during these wakes. Personas can still
 use their memory, timeline search, and declared web search.

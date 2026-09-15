@@ -52,7 +52,7 @@
           <li><a href="#ja-offline">オフライン投稿</a></li>
           <li><a href="#ja-bluesky">Blueskyに公開する</a></li>
           <li><a href="#ja-personas">担当</a></li>
-          <li><a href="#ja-daily">毎日のチェックイン</a></li>
+          <li><a href="#ja-daily">朝・昼・晩のチェックイン</a></li>
           <li><a href="#ja-search">検索</a></li>
           <li><a href="#ja-phone">スマホから共有する</a></li>
           <li><a href="#ja-voice">音声入力と読み上げ</a></li>
@@ -173,8 +173,8 @@
               <tbody>
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
                 <tr><td><code>@michi</code></td><td>移動</td><td>行き先、経路、所要時間、待ち合わせ、旅程、チケット</td></tr>
-                <tr><td><code>@kuda</code></td><td>技術</td><td>コード、API、ライブラリ、設計の話、ドキュメントやエラー画面のキャプチャ</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
+                <tr><td><code>@plana</code></td><td>繰り返し</td><td>薬を飲んだ、金魚の餌、洗濯、ゴミ出しなど、カレンダーに書くまでもない繰り返しと、したかどうか</td></tr>
               </tbody>
             </table>
           </div>
@@ -183,17 +183,17 @@
             <img src="/captures/ja/personas.png" alt="担当の一覧。分野、モデルの段、道具、メモ" loading="lazy" />
             <figcaption>担当パネル。分野、モデルの段（low / middle / high）、使える道具、メモの数。</figcaption>
           </figure>
-          <h3 id="ja-daily">毎日のチェックイン</h3>
-          <p>新しいかけらを投げない日も、担当が一度だけ起き、伝えることがあれば話しかけます。何もなければ黙り、空の投稿は残りません。メモの更新だけをすることもあります。</p>
+          <h3 id="ja-daily">朝・昼・晩のチェックイン</h3>
+          <p>新しいかけらを投げないときも、担当が朝・昼・晩に一度ずつ起き、その時間帯に伝えることがあれば話しかけます。何もなければ黙り、空の投稿は残りません。メモの更新だけをすることもあります。</p>
           <ol>
             <li><strong>担当</strong> を開き、対象の担当を <strong>有効にする</strong> にします。</li>
-            <li><strong>1日1回のチェックイン</strong> をONにします（初期状態はOFF）。</li>
-            <li><strong>希望時刻</strong> を選びます。変更は自動保存されます。</li>
+            <li><strong>朝・昼・晩のチェックイン</strong> で、起きる時間帯（<strong>朝</strong>・<strong>昼</strong>・<strong>晩</strong>）を押して選びます。変更は自動保存されます（初期状態はどれも選ばれていません。plana だけは有効にしたとき3つとも選ばれます）。</li>
           </ol>
-          <p>時刻の横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。チェックインをOFFにするか、担当を無効にすると定期起床は止まります。</p>
-          <p>たとえば技術担当なら、最近追っているテーマに重要な変化があった日だけ知らせます。毎朝の投稿や決まった件数のニュースを約束する機能ではありません。</p>
-          <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、希望時刻や処理の混雑によって少し遅れることがあります。設定した時刻を過ぎてONにした場合は、その日の分を次の確認で実行します。再起動時も当日分だけを実行し、過去の日の分はまとめて送りません。</p>
-          <p>沈黙や失敗もその日の1回に数えます。時刻の変更や記憶の削除で当日分を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
+          <p>時刻は選びません。朝は6〜11時、昼は11〜17時、晩は17〜23時で、夜間は起きません。</p>
+          <p>横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。時間帯の選択をすべて外すか、担当を無効にすると定期起床は止まります。</p>
+          <p>たとえば plana なら、朝に紐づく「薬」の記録がまだないとき「そういえば朝の薬」と一言添える程度です。催促や飲み忘れの指摘はしません。時間帯ごとの投稿や決まった件数の通知を約束する機能ではありません。</p>
+          <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、処理の混雑によって少し遅れることがあります。時間帯の途中で選んだ場合は、その時間帯の分を次の確認で実行します。再起動時も今の時間帯の分だけを実行し、逃した時間帯や過去の日の分はまとめて送りません。</p>
+          <p>沈黙や失敗もその時間帯の1回に数えます。記憶の削除で同じ時間帯を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
           <h3>AI と担当を作る</h3>
           <ol>
             <li><strong>担当</strong> を開き、<strong>AIと担当を作る</strong> を選びます。</li>
@@ -336,7 +336,7 @@
           <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
           <p><strong>用途：</strong>ニュースや技術情報など、Web上の情報を検索し、検索結果のリンクを返答の出典に付けられます。</p>
           <p><strong>設定：</strong><strong>設定 → Web検索</strong> にTavilyのAPIキーを保存します。AIモデルのAPIキーとは別です。Web検索を使用しない場合は空欄のままで構いません。</p>
-          <p><strong>依頼例：</strong>「@kuda 最近のGoの変更点をWebで調べて」</p>
+          <p><strong>依頼例：</strong>「@shiori この本の著者についてWebで調べて」</p>
           <p><strong>制限：</strong>検索結果の説明を使う道具で、リンク先の全文を必ず読めるわけではありません。最新情報や網羅性は保証しません。定期チェックインでも利用できます。</p>
           <h3 id="ja-tool-place_search">店舗・場所検索 — place_search</h3>
           <p><strong>用途：</strong>投稿に位置情報があれば周辺を検索し、店舗名、距離、地図に登録された営業時間などを返します。位置情報がなければ場所の名前で検索します。</p>
@@ -408,7 +408,7 @@
           <li><a href="#en-offline">Offline posts</a></li>
           <li><a href="#en-bluesky">Share to Bluesky</a></li>
           <li><a href="#en-personas">Personas</a></li>
-          <li><a href="#en-daily">Daily check-ins</a></li>
+          <li><a href="#en-daily">Morning, noon, and evening check-ins</a></li>
           <li><a href="#en-search">Search</a></li>
           <li><a href="#en-phone">Sharing from a phone</a></li>
           <li><a href="#en-voice">Voice input and read-aloud</a></li>
@@ -529,8 +529,8 @@
               <tbody>
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
                 <tr><td><code>@michi</code></td><td>travel</td><td>Destinations, routes, travel time, meeting times, itineraries, tickets</td></tr>
-                <tr><td><code>@kuda</code></td><td>tech</td><td>Code, APIs, libraries, design talk, captures of docs and error screens</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
+                <tr><td><code>@plana</code></td><td>routines</td><td>Medicine taken, the goldfish fed, laundry, trash day: repeated chores too small for a calendar, and whether they were done</td></tr>
               </tbody>
             </table>
           </div>
@@ -539,17 +539,17 @@
             <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" loading="lazy" />
             <figcaption>The Personas panel: subject, model tier (low / middle / high), available tools, and how many notes each has.</figcaption>
           </figure>
-          <h3 id="en-daily">Daily check-ins</h3>
-          <p>Even without a new fragment, a persona can wake once a day and speak when it has something worth sharing. Silence leaves no empty post. It may just update its memory.</p>
+          <h3 id="en-daily">Morning, noon, and evening check-ins</h3>
+          <p>Even without a new fragment, a persona can wake once in the morning, at noon, and in the evening, and speak when it has something for that part of the day. Silence leaves no empty post. It may just update its memory.</p>
           <ol>
             <li>Open <strong>Personas</strong> and enable the persona.</li>
-            <li>Turn on <strong>Daily check-in</strong> (off by default).</li>
-            <li>Choose a <strong>Preferred time</strong>. Changes save automatically.</li>
+            <li>Under <strong>Morning, noon, and evening check-ins</strong>, tap <strong>Morning</strong>, <strong>Noon</strong>, or <strong>Evening</strong> to choose when it wakes. Changes save automatically (none are chosen by default; plana starts with all three when first enabled).</li>
           </ol>
-          <p>The browser's time zone shown beside the time is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Turn off the check-in or disable the persona to stop daily wakes.</p>
-          <p>A tech persona might mention a significant change in a subject you have been following. This does not promise a daily post or a fixed number of news items.</p>
-          <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Enabling it after the preferred time runs today's check-in at the next check. After a restart, only today's due wake runs, without replaying missed days.</p>
-          <p>Silent and failed attempts count as the day's wake. Changing the time or forgetting memory does not trigger a second attempt that day. Daily wakes do not acquire your current location: routes are unavailable and place search is by name only.</p>
+          <p>There is no time to choose. Morning is 06:00–11:00, noon 11:00–17:00, and evening 17:00–23:00; there is no wake at night.</p>
+          <p>The browser's time zone shown beside the choices is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Clear every part of the day or disable the persona to stop check-ins.</p>
+          <p>plana, for example, might add “the morning medicine, by the way” when nothing tied to the morning has been recorded yet. It does not nag or point out a missed dose. This does not promise a post in every part of the day.</p>
+          <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Choosing a part of the day while it is under way runs that part's check-in at the next check. After a restart, only the current part of the day runs, without replaying missed parts or days.</p>
+          <p>Silent and failed attempts count as that part of the day's wake. Forgetting memory does not trigger a second attempt. Check-ins do not acquire your current location: routes are unavailable and place search is by name only.</p>
           <h3>Create a persona with AI</h3>
           <ol>
             <li>Open <strong>Personas</strong> and choose <strong>Create a persona with AI</strong>.</li>
@@ -692,31 +692,31 @@
           <h3 id="en-tool-web_search">Web search — web_search</h3>
           <p><strong>Purpose:</strong> Search news, technical information, and other Web content. Links from the results can appear as sources in the reply.</p>
           <p><strong>Setup:</strong> Under <strong>Settings → Web search</strong>, save your Tavily API key. This is separate from your AI model API key. Leave it blank if you do not use web search.</p>
-          <p><strong>Try:</strong> “@kuda Search the Web for recent changes in Go.”</p>
-          <p><strong>Limits:</strong> This tool returns search descriptions; it does not necessarily read the full linked pages. Results may not be current or comprehensive. Available during daily check-ins too.</p>
+          <p><strong>Try:</strong> “@shiori Search the Web for this book's author.”</p>
+          <p><strong>Limits:</strong> This tool returns search descriptions; it does not necessarily read the full linked pages. Results may not be current or comprehensive. Available during check-ins too.</p>
           <h3 id="en-tool-place_search">Place search — place_search</h3>
           <p><strong>Purpose:</strong> With a location on the post, search nearby places for names, distances, and opening hours recorded in the map. Without a location, look up places by name.</p>
           <p><strong>Setup:</strong> Allow the browser to use your location when posting to search nearby. The Nominatim (name lookup) and Overpass (nearby search) endpoints are chosen by the operator through environment variables; the defaults are public services that need no API key.</p>
           <p><strong>Try:</strong> With location enabled, “@tabe Find ramen near me.” Without a location, “@michi Look up Shibuya Station.”</p>
-          <p><strong>Limits:</strong> Places missing from the map cannot be found. Opening hours may be absent and do not confirm a shop is open now or has seats. Temporary failures may be retried, but the service can still be busy or unavailable. A failed search does not mean there are no places. Daily wakes do not acquire your location, so only name lookup is available then.</p>
+          <p><strong>Limits:</strong> Places missing from the map cannot be found. Opening hours may be absent and do not confirm a shop is open now or has seats. Temporary failures may be retried, but the service can still be busy or unavailable. A failed search does not mean there are no places. Check-ins do not acquire your location, so only name lookup is available then.</p>
           <h3 id="en-tool-route">Route search — route</h3>
           <p><strong>Purpose:</strong> Estimate road distance and travel time from the post's location to a destination by car, on foot, or by bicycle.</p>
           <p><strong>Setup:</strong> Allow location access when posting. The OSRM endpoints for driving, walking, and cycling are chosen by the operator through environment variables; the defaults are public services that need no key.</p>
           <p><strong>Try:</strong> “@michi How long would it take to walk from here to Shibuya Station?”</p>
-          <p><strong>Limits:</strong> No trains, buses, timetables, or live traffic. A location on the post is required, so the tool is unavailable during daily check-ins. Typing a starting place in the text does not attach location coordinates to the post.</p>
+          <p><strong>Limits:</strong> No trains, buses, timetables, or live traffic. A location on the post is required, so the tool is unavailable during check-ins. Typing a starting place in the text does not attach location coordinates to the post.</p>
           <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
           <p><strong>Purpose:</strong> Search this user's saved posts, text read from images, and replies by combining words and meaning. This looks back at records separately from the persona's memory.</p>
           <p><strong>Setup:</strong> Available to every persona without a Web search API key. To search yourself, open <strong>Search</strong> in the header.</p>
           <p><strong>Try:</strong> “@tabe Find that light red wine I enjoyed before.”</p>
-          <p><strong>Limits:</strong> Events that were never saved cannot be found. Each call returns at most 10 excerpts. A similar result is not necessarily the right one, and the first semantic search may take time to prepare. Available during daily check-ins too.</p>
+          <p><strong>Limits:</strong> Events that were never saved cannot be found. Each call returns at most 10 excerpts. A similar result is not necessarily the right one, and the first semantic search may take time to prepare. Available during check-ins too.</p>
           <h3 id="en-tool-notes">Manage personal memory — notes tools</h3>
           <p><strong>Purpose:</strong> <code>notes_list</code> lists memories, <code>notes_read</code> reads selected notes, <code>notes_write</code> saves or replaces one note, and <code>notes_forget</code> deletes one note. Personas do not share these notes with one another.</p>
           <p><strong>Setup:</strong> Every persona has these tools without additional configuration.</p>
           <p><strong>Try:</strong> “@tabe I like spicy food, but strong sesame flavours aren't for me. Remember that.”</p>
-          <p><strong>Limits:</strong> Each persona decides what to remember. It may update memory without speaking. To inspect saved notes or explicitly delete them, open <strong>What I remember</strong> in the Personas panel. Memory tools are available during daily check-ins too.</p>
+          <p><strong>Limits:</strong> Each persona decides what to remember. It may update memory without speaking. To inspect saved notes or explicitly delete them, open <strong>What I remember</strong> in the Personas panel. Memory tools are available during check-ins too.</p>
           <h3 id="en-tool-terms">Public service usage conditions</h3>
           <p>No API key does not mean unlimited use. <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap data is licensed under ODbL</a> and requires attribution and license information. Each API's usage conditions apply separately from the software license.</p>
-          <p>The <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">public Nominatim policy</a> requires an application-wide maximum of one request per second, application identification, and attribution. Periodic requests are strongly discouraged; recurring jobs have caching and stricter frequency requirements. Name lookup currently has no cache. For daily wakes or a growing public deployment, consider a self-hosted or contracted service whose conditions fit your use. Developers and operators must make an informed decision about using the service.</p>
+          <p>The <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">public Nominatim policy</a> requires an application-wide maximum of one request per second, application identification, and attribution. Periodic requests are strongly discouraged; recurring jobs have caching and stricter frequency requirements. Name lookup currently has no cache. For check-ins or a growing public deployment, consider a self-hosted or contracted service whose conditions fit your use. Developers and operators must make an informed decision about using the service.</p>
           <p>The <a href="https://routing.openstreetmap.de/about.html" rel="noopener">public routing service</a> also has frequency, load, and attribution requirements. Current rate limiting is per server process, not aggregated across multiple processes. Existing source links also need review and possibly changes to meet all attribution requirements before deployment. Web search is subject to Tavily's contract.</p>
           <h3>This device</h3>
           <p>Voice input mode, language, silence stop, and send phrase, plus the read-aloud voice and speed. These are per-device settings.</p>

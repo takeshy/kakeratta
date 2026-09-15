@@ -31,7 +31,7 @@ const shots = [
   { name: "persona-draft", id: "personas--ai-create-draft", height: 1440 },
   { name: "timeline", id: "screen--hero", height: 900 },
   { name: "nobody", id: "screen--nobody-in-the-room", height: 600 },
-  { name: "personas", id: "personas--all-present", height: 1000 },
+  { name: "personas", id: "personas--all-present", height: 1500 },
   { name: "settings", id: "settings--default", height: 2200 },
 ];
 
