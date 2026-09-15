@@ -7,6 +7,7 @@ const { createSearch } = await import("../frontend/src/search.js");
 const { api } = await import("../frontend/src/api.js");
 class TestNode {
   children = []; listeners = {}; dataset = {}; style = {}; className = ""; value = ""; textContent = "";
+  classList = { add() {}, remove() {}, toggle() {} };
   constructor(tag) { this.tag = tag; }
   append(...nodes) { this.children.push(...nodes); }
   replaceChildren(...nodes) { this.children = nodes; }
@@ -51,6 +52,12 @@ test('meaning search fallback offers retry and a new query forgets the override'
  assert.ok(status.textContent.includes(translate('意味検索を利用できなかったため、語句の一致で探しました。あとでもう一度検索できます。')));
  assert.equal(toggle.textContent,translate('似たような単語でも探す'));
  await view.searchFor('ピノ');assert.equal(queries.at(-1).mode,'keyword');
+});
+test('the search form offers voice input next to the query',async t=>{
+ const {view}=setup(t);
+ const form=nodes(view.element).find(n=>n.className==='timeline-search-form');
+ assert.ok(form.children.some(n=>n.className.includes('voice-button')));
+ assert.equal(typeof view.stopVoice,'function');
 });
 test('late meaning results cannot replace a newer keyword query',async t=>{
  const {view,toggle}=setup(t);let finish;
