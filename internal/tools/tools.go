@@ -70,10 +70,12 @@ type Registry struct {
 
 // New lists the built-in tools and whatever the configured MCP servers offer.
 // The MCP list comes from a shared cache, so this is cheap to call per post.
+// A built-in place tool that a server also offers goes to the server first.
 func New(config Config) *Registry {
 	r := &Registry{config: config, tools: map[string]Tool{}}
+	listed := config.MCP.Tools()
 	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline} {
-		r.tools[tool.Name] = tool
+		r.tools[tool.Name] = preferMCP(tool, listed)
 	}
 	for _, tool := range mcpTools(config.MCP) {
 		if _, taken := r.tools[tool.Name]; !taken {

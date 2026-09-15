@@ -265,6 +265,12 @@ recorded in OpenStreetMap; they do not confirm that a shop is open now. Temporar
 Overpass failures are retried once, then reported as unavailable rather than
 “no places found”. Public services can still be busy or unavailable.
 
+When an MCP server offers a tool with the same name that takes the position
+(`lat` and `lng`), as geo-home-mcp does, `route` and `place_search` go to that
+server with the post's position filled in. If the server cannot be reached, the
+built-in OpenStreetMap calls above answer instead; an error the server itself
+returns is passed on to the persona.
+
 Daily check-ins do not acquire a current location: `route` is unavailable and
 `place_search` can only do a name lookup during these wakes. Personas can still
 use their memory, timeline search, and declared web search.

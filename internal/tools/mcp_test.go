@@ -14,6 +14,23 @@ import (
 )
 
 func fakeMCP(t *testing.T, onCall func(name string, args map[string]any) any) *httptest.Server {
+	return fakeMCPWith(t, []map[string]any{{
+		"name":        "compute_commute",
+		"description": "Compute travel time\n  from bundled profiles.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"origin":      map[string]any{"type": "object", "properties": map[string]any{"lat": map[string]any{"type": "number"}, "lng": map[string]any{"type": "number"}}},
+				"destination": map[string]any{"type": "object", "properties": map[string]any{"lat": map[string]any{"type": "number"}, "lng": map[string]any{"type": "number"}}},
+				"mode":        map[string]any{"type": "string", "enum": []string{"transit", "walk"}},
+				"arrivalTime": map[string]any{"type": "string", "description": "ISO 8601 desired arrival time"},
+			},
+			"required": []string{"origin", "destination"},
+		},
+	}, {"name": "list_layers", "description": "List layers."}}, onCall)
+}
+
+func fakeMCPWith(t *testing.T, tools []map[string]any, onCall func(name string, args map[string]any) any) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var message struct {
 			ID     json.RawMessage `json:"id"`
@@ -29,20 +46,7 @@ func fakeMCP(t *testing.T, onCall func(name string, args map[string]any) any) *h
 			w.WriteHeader(http.StatusAccepted)
 			return
 		case "tools/list":
-			result = map[string]any{"tools": []map[string]any{{
-				"name":        "compute_commute",
-				"description": "Compute travel time\n  from bundled profiles.",
-				"inputSchema": map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"origin":      map[string]any{"type": "object", "properties": map[string]any{"lat": map[string]any{"type": "number"}, "lng": map[string]any{"type": "number"}}},
-						"destination": map[string]any{"type": "object", "properties": map[string]any{"lat": map[string]any{"type": "number"}, "lng": map[string]any{"type": "number"}}},
-						"mode":        map[string]any{"type": "string", "enum": []string{"transit", "walk"}},
-						"arrivalTime": map[string]any{"type": "string", "description": "ISO 8601 desired arrival time"},
-					},
-					"required": []string{"origin", "destination"},
-				},
-			}, {"name": "list_layers", "description": "List layers."}}}
+			result = map[string]any{"tools": tools}
 		case "tools/call":
 			name, _ := message.Params["name"].(string)
 			args, _ := message.Params["arguments"].(map[string]any)
