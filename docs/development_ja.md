@@ -38,7 +38,6 @@ internal/persona    スキル、振り分け、反応ループ（low→middle→
 internal/tools      宣言したものだけ呼べる道具
 internal/websearch  Web検索の接続先
 internal/llm        Nebius Token Factory推論クライアント（画像・ファイル入力を含む）
-internal/speech     旧音声入力コード（サーバからは公開しない）
 internal/store      追記ログ・画像・メモ・設定
 internal/server     HTTPの表側（ページ、API、SSE）
 frontend/src        ES モジュール。出荷物にバンドラは入らない

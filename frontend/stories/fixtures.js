@@ -121,7 +121,7 @@ export const settings = {
   active: personas.map((row) => row.id),
   search: { apiKey: "" },
   speech: {
-    provider: "browser", endpointType: "openai", baseUrl: "", apiKey: "", model: "",
+    provider: "browser",
     language: "auto", silenceSeconds: 3, sendPhrase: "以上",
   },
   readAloudRate: 1.2,

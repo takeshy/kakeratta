@@ -4,22 +4,22 @@ import { speechLanguageCodes, speechLanguageLabel, speechLanguageOptions } from 
 import { defaultSendPhrase, initialSendPhrase, sendPhraseLanguage } from "../frontend/src/send_phrases.js";
 import { speechDraft } from "../frontend/src/speech.js";
 
-test("service catalogs use their own codes and start other languages with disabled commands", () => {
-  for (const endpoint of ["openai", "custom", "azure-mai-transcribe", "gemini-transcribe", "vertex-transcribe"]) {
-    const codes = speechLanguageCodes("openai-compatible", endpoint);
-    assert.ok(codes.length > 50);
-    assert.equal(new Set(codes).size, codes.length);
-    for (const code of codes) {
-      assert.match(code, /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i);
-      assert.ok(speechLanguageLabel(code).includes(code));
-      if (!["en", "ja"].includes(sendPhraseLanguage(code))) assert.equal(defaultSendPhrase(code), "", code);
-    }
+test("browser language codes are valid and start other languages with disabled commands", () => {
+  const codes = speechLanguageCodes();
+  assert.ok(codes.length > 50);
+  assert.equal(new Set(codes).size, codes.length);
+  for (const code of codes) {
+    assert.match(code, /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i);
+    assert.ok(speechLanguageLabel(code).includes(code));
+    if (!["en", "ja"].includes(sendPhraseLanguage(code))) assert.equal(defaultSendPhrase(code), "", code);
   }
-  assert.ok(speechLanguageCodes("openai-compatible", "azure-mai-transcribe").includes("fil"));
-  assert.ok(!speechLanguageCodes("openai-compatible", "azure-mai-transcribe", "MAI-Transcribe-1.5").includes("yue"));
+  assert.ok(codes.includes("ja-JP") && codes.includes("zh-TW"));
   assert.match(speechLanguageLabel("fr", "en"), /français/);
   assert.match(speechLanguageLabel("ja", "en"), /日本語/);
-  assert.ok(speechLanguageOptions("browser", "openai", "", "fr-CA").some(option => option.value === "fr-CA"));
+  const options = speechLanguageOptions("fr-CA");
+  assert.ok(options.some(option => option.value === "fr-CA"));
+  assert.equal(options[0].value, "auto");
+  assert.equal(options.at(-1).value, "custom");
 });
 
 test("phrase language aliases, automatic language, and legacy edits are retained", () => {

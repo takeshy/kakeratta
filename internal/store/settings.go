@@ -73,20 +73,15 @@ type Settings struct {
 }
 
 // SpeechSettings configures browser dictation and optional automatic-send polishing.
-// Legacy API fields are retained for stored settings compatibility.
+// Speech recognition runs only in the browser; there is no transcription API.
 type SpeechSettings struct {
 	FormatBeforeSend bool   `json:"formatBeforeSend"`
 	Provider         string `json:"provider"`
-	EndpointType     string `json:"endpointType"`
-	BaseURL          string `json:"baseUrl"`
-	APIKey           string `json:"apiKey"`
-	Model            string `json:"model"`
 	Language         string `json:"language"`
 	SilenceSeconds   int    `json:"silenceSeconds"`
 	SendPhrase       string `json:"sendPhrase"`
 	Replacements     string `json:"replacements"`
 	SymbolCommands   string `json:"symbolCommands"`
-	VertexProjectID  string `json:"vertexProjectId"`
 }
 
 // SearchSettings is the user's Tavily key. The app makes the call; a skill
@@ -108,9 +103,6 @@ func defaultSettings() Settings {
 		RouteModel:  NemotronLightning,
 		Speech: SpeechSettings{
 			Provider:       "browser",
-			EndpointType:   "openai",
-			BaseURL:        "https://api.openai.com/v1",
-			Model:          "whisper-1",
 			Language:       "auto",
 			SilenceSeconds: 3,
 			SendPhrase:     "終わります",

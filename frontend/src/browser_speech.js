@@ -4,8 +4,7 @@ import { t } from "./i18n.js";
 // gemihub-desktop's src/llm/useChatSpeech.ts.
 //
 // Availability depends entirely on the embedded browser engine: WebKitGTK and
-// WebView2 ship no recognizer, so this path reports "unsupported" there and the
-// user should pick one of the recorded providers instead.
+// WebView2 ship no recognizer, so this path reports "unsupported" there.
 
 import { speechDraft, convertSpokenSymbol } from "./speech.js";
 
@@ -52,7 +51,7 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
     publish({ error: "" });
     const Constructor = globalThis.SpeechRecognition ?? globalThis.webkitSpeechRecognition;
     if (!Constructor) {
-      publish({ error: t("このウィンドウはブラウザ音声認識に対応していません。設定で別のサービスを選んでください。") });
+      publish({ error: t("このブラウザは音声認識に対応していません。Chrome や Edge、Safari で開いてください。") });
       return;
     }
     const settings = { ...getSettings() };

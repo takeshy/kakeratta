@@ -42,7 +42,6 @@ internal/persona    skills, routing, the reaction loop (low→middle→high), th
 internal/tools      the tools only a declaration can reach
 internal/websearch  search providers
 internal/llm        Nebius Token Factory inference client (images and file input included)
-internal/speech     legacy dictation code (not exposed by the server)
 internal/store      the append log, images, notes, settings
 internal/server     the HTTP surface (the page, the API, SSE)
 frontend/src        ES modules, no bundler in what ships (builtins.js glosses the Japanese-named personas for the English interface)

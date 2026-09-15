@@ -136,7 +136,7 @@ export function createSettings({ speaker, onSettings }) {
 
   function drawSpeech() {
     const speech = settings.speech ?? {};
-    const languages = speechLanguageOptions("browser", "", "", speech.language || "auto");
+    const languages = speechLanguageOptions(speech.language || "auto");
     view.append(
       el("h3", { label: "音声入力" }),
       el("p", { class: "hint", label: "ブラウザ音声認識" }),

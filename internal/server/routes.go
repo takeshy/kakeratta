@@ -499,7 +499,6 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	// and a page that does not have them cannot leak them.
 	settings.APIKey = masked(settings.APIKey)
 	settings.Search.APIKey = masked(settings.Search.APIKey)
-	settings.Speech.APIKey = masked(settings.Speech.APIKey)
 	writeJSON(w, http.StatusOK, settings)
 }
 
@@ -515,7 +514,6 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	// A masked key coming back means "unchanged", not "set it to asterisks".
 	next.APIKey = unmask(next.APIKey, current.APIKey)
 	next.Search.APIKey = unmask(next.Search.APIKey, current.Search.APIKey)
-	next.Speech.APIKey = unmask(next.Speech.APIKey, current.Speech.APIKey)
 	if err := s.store.SaveSettings(next); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return

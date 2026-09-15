@@ -257,7 +257,7 @@ func TestNoteNamesCannotEscape(t *testing.T) {
 func TestKeysAreNotInTheDefaults(t *testing.T) {
 	s := open(t)
 	settings := s.Settings()
-	if settings.APIKey != "" || settings.Search.APIKey != "" || settings.Speech.APIKey != "" {
+	if settings.APIKey != "" || settings.Search.APIKey != "" {
 		t.Fatal("a key appeared from nowhere")
 	}
 	// The contrast between the tiers is the experience, so the ones that ship

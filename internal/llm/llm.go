@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"sort"
 	"strings"
@@ -148,54 +147,6 @@ func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
 		return "", errors.New("応答が空です")
 	}
 	return parsed.Choices[0].Message.Content, nil
-}
-
-// Transcribe turns a recorded memo into text. Only the words are wanted here;
-// the recording itself is never stored by the app.
-func (c *Client) Transcribe(ctx context.Context, model, filename string, audio []byte) (string, error) {
-	if c == nil || c.BaseURL == "" || model == "" {
-		return "", ErrNotConfigured
-	}
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("file", filename)
-	if err != nil {
-		return "", err
-	}
-	if _, err := part.Write(audio); err != nil {
-		return "", err
-	}
-	_ = writer.WriteField("model", model)
-	if err := writer.Close(); err != nil {
-		return "", err
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/audio/transcriptions", &body)
-	if err != nil {
-		return "", err
-	}
-	request.Header.Set("Content-Type", writer.FormDataContentType())
-	if c.APIKey != "" {
-		request.Header.Set("Authorization", "Bearer "+c.APIKey)
-	}
-	response, err := c.HTTP.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-	payload, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
-	if err != nil {
-		return "", err
-	}
-	if response.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", response.Status, firstLine(payload))
-	}
-	var parsed struct {
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(payload, &parsed); err != nil {
-		return "", fmt.Errorf("応答を解釈できません: %w", err)
-	}
-	return strings.TrimSpace(parsed.Text), nil
 }
 
 // Models lists what the endpoint will serve, so the settings can offer the

@@ -7,7 +7,6 @@ require (
 	cloud.google.com/go/storage v1.62.1
 	firebase.google.com/go/v4 v4.21.0
 	github.com/bluesky-social/indigo v0.0.0-20260903211445-41278964ec8e
-	github.com/coder/websocket v1.8.14
 	github.com/rivo/uniseg v0.1.0
 	golang.org/x/image v0.43.0
 	golang.org/x/text v0.41.0
