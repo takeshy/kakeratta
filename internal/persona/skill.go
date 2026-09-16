@@ -140,7 +140,7 @@ var Builtins = []Skill{
 			"**時刻は聞かない。** 繰り返しは記録の傾向から、一度きりは「仕事帰り」「夕方」などの言葉から見当をつけ、その少しあとに置く。分からなければ置かない。" +
 			"メモを書いたら同じ返答で schedule も置くか直す。済んだら action: cancel。同じ用について1日に二度言わない。" +
 			"薬は記録と軽い言及に留める。催促しない。飲み忘れと判断しない、指摘しない。量・効果・飲み合わせには触れない。",
-		Model: TierLow, Tools: []string{"schedule"}, Builtin: true,
+		Model: TierMiddle, Tools: []string{"schedule"}, Builtin: true,
 	},
 }
 

@@ -418,10 +418,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		listNotes(memory),
 		"",
 		"スレッド全体（古い順）:",
-		timeline.Render(thread, names),
+		timeline.Render(thread, names, here),
 		"",
 		"今回の対象発言（この発言をスレッド全体の文脈で解釈）:",
-		trigger.Render(names),
+		trigger.Render(names, here),
 		turnLine(named, listening),
 	}, "\n")
 
@@ -431,6 +431,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	var files []llm.Attachment
 	var sources []timeline.Source
+	// Whether this turn has already asked for a wake, so the reminder below is
+	// offered once rather than after every note.
+	scheduled := false
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -472,10 +475,18 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			// Its own notes are not a declared capability: every persona has a
 			// memory, and reaching it is not reaching outside.
 			if text, handled := r.notesTool(skill.ID, parsed.Tool, parsed.Args, &noteSources); handled {
+				if parsed.Tool == "notes_write" && set.Allows("schedule") && !scheduled {
+					text += "\n\nこのメモに対応する schedule は置きましたか。" +
+						"必要なら、いま {\"action\":\"tool\",\"tool\":\"schedule\",\"args\":{…}} で置いてください。" +
+						"要らないなら、そのまま speak か silent で終えてください。"
+				}
 				messages = append(messages,
 					llm.Message{Role: "assistant", Content: reply},
 					llm.Message{Role: "user", Content: parsed.Tool + " の結果:\n" + text})
 				continue
+			}
+			if parsed.Tool == "schedule" {
+				scheduled = true
 			}
 			result, err := set.Run(ctx, parsed.Tool, parsed.Args, post.Place)
 			text := result.Text
@@ -692,7 +703,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, sources 
 		return strings.Join(parts, "\n\n"), true
 
 	case "notes_write":
-		path, text := stringOf(args["path"]), repairNewlines(stringOf(args["text"]))
+		path, text := stringOf(args["path"]), repairFrontmatter(repairNewlines(stringOf(args["text"])))
 		if path == "" || strings.TrimSpace(text) == "" {
 			return "path と text が要ります。", true
 		}
@@ -726,6 +737,24 @@ func repairNewlines(text string) string {
 		return text
 	}
 	return strings.NewReplacer(`\n`, "\n", `\t`, "\t").Replace(body)
+}
+
+// repairFrontmatter drops the indentation a model sometimes puts in front of
+// the frontmatter block. Indented, it is not frontmatter at all: the note reads
+// as prose and its type is lost.
+func repairFrontmatter(text string) string {
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+		return text
+	}
+	lines[0] = "---"
+	for i := 1; i < len(lines); i++ {
+		lines[i] = strings.TrimLeft(lines[i], " \t")
+		if lines[i] == "---" {
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // listNotes is the one thing about the notes that is handed over unasked: their

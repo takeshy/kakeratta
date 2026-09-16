@@ -57,7 +57,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 			{Role: "system", Content: routePrompt},
 			{Role: "user", Content: strings.Join([]string{
 				"担当:", strings.Join(domains, "\n"), "", "スレッド全体（古い順）:", renderAll(thread),
-				"", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil),
+				"", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
 			}, "\n")},
 		},
 	})
@@ -94,7 +94,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 type Entryish = timeline.Entry
 
 func renderAll(entries []Entryish) string {
-	return timeline.Render(entries, nil)
+	return timeline.Render(entries, nil, nil)
 }
 
 // firstJSON pulls the object out of a reply that came wrapped in prose or a

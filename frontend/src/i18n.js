@@ -153,7 +153,7 @@ const EN = {
   "いま放り込んだかけらは、どこにも渡りません。1人呼べば、そこから受け取ります。": "A fragment tossed in now reaches nobody. Call one in and it starts receiving them.",
   "{0} を呼ぶ": "Call in {0}", "担当をえらぶ": "Choose personas",
   "溜まった反応を順に読み上げます": "Reads the collected reactions aloud, in order",
-  "押すと @{0} を書き入れます": "Tap to write @{0}",
+  "押すと担当の詳細を開きます": "Tap to open this persona",
   "🔈 読み上げ": "🔈 Read aloud", "■ 停止": "■ Stop",
   "担当": "Personas", "設定": "Settings", "閉じる": "Close",
   "ヘルプ": "Help", "使い方（別タブで開く）": "Manual (opens in a new tab)",

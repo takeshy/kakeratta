@@ -73,6 +73,19 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       text: label, title: t("{0} の説明を開く（新しいタブ）", label) });
   }
 
+  // A name tapped on the main screen opens this panel, which reloads as it
+  // opens: the card to scroll to is remembered until there is one to scroll to.
+  let pending = null;
+  function revealPending() {
+    if (!pending) return;
+    const card = view.querySelector(`[data-id="${pending}"]`);
+    if (!card) return;
+    pending = null;
+    card.scrollIntoView({ block: "center", behavior: "smooth" });
+    card.classList.add("revealed");
+    setTimeout(() => card.classList.remove("revealed"), 2000);
+  }
+
   function draw() {
     clear(view);
     view.append(
@@ -90,11 +103,12 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       toolLink("notes", t("記憶の読み書き"))));
     for (const row of rows) view.append(drawRow(row));
     view.append(drawInstall());
+    revealPending();
   }
 
   function drawRow(row) {
     const shown = gloss(row);
-    const box = el("section", { class: `persona ${row.active ? "on" : ""}` });
+    const box = el("section", { class: `persona ${row.active ? "on" : ""}`, "data-id": row.id });
     box.append(
       el(
         "div",
@@ -295,5 +309,6 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     // The banner on the main screen can put someone in the room without
     // opening this panel at all.
     activate: (id) => setActive(id, true),
+    reveal: (id) => { pending = id; revealPending(); },
   };
 }

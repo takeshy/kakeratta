@@ -153,6 +153,8 @@ body {
 
 .who-bar { display: flex; align-items: center; gap: 6px; padding: 12px 2px; flex-wrap: wrap; }
 .persona-chip { background: var(--accent-soft); border-color: transparent; }
+/* The card a tapped name scrolled to, so it is obvious which one opened. */
+.persona.revealed { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
 /* The timeline */
 .feed { display: grid; gap: 14px; }

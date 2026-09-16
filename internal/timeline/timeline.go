@@ -159,19 +159,22 @@ func RootOf(entry Entry) string {
 // Everything under the post goes in as it is: other personas' remarks and the
 // user's answers included. Nothing is filtered for relevance, because by this
 // point the routing has already decided this persona should see it.
-func Render(entries []Entry, names map[string]string) string {
+func Render(entries []Entry, names map[string]string, in *time.Location) string {
 	var lines []string
 	for _, entry := range entries {
 		if entry.Deleted {
 			continue
 		}
-		lines = append(lines, entry.Render(names))
+		lines = append(lines, entry.Render(names, in))
 	}
 	return strings.Join(lines, "\n\n")
 }
 
 // Render writes one entry for a prompt.
-func (e Entry) Render(names map[string]string) string {
+func (e Entry) Render(names map[string]string, in *time.Location) string {
+	if in == nil {
+		in = time.UTC
+	}
 	who := "あなた（ユーザー）"
 	if e.Speaker != User {
 		who = names[e.Speaker]
@@ -179,7 +182,7 @@ func (e Entry) Render(names map[string]string) string {
 			who = e.Speaker
 		}
 	}
-	head := fmt.Sprintf("[%s] %s %s", e.ID, e.At.Local().Format("2006-01-02 15:04"), who)
+	head := fmt.Sprintf("[%s] %s %s", e.ID, e.At.In(in).Format("2006-01-02 15:04 MST"), who)
 	if e.Place != nil {
 		head += fmt.Sprintf("（%s）", e.Place.Describe())
 	}

@@ -277,7 +277,7 @@ test("persona bar groups overflow and toggles without losing the selected person
   globalThis.document = { createElement: () => new TestNode(), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   let selected;
-  const room = createRoom({ onMention: row => { selected = row.id; } });
+  const room = createRoom({ onSelect: row => { selected = row.id; } });
   room.set(Array.from({ length: 6 }, (_, i) => ({ id: String(i), name: `担当${i}`, active: true })));
   const more = room.bar.querySelectorAll(".persona-more")[0];
   assert.equal(more.textContent, translate("その他{0}体", 4));

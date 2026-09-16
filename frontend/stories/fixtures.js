@@ -11,7 +11,7 @@ export const personas = [
     domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
   { id: "book", name: "shiori", icon: "📖", model: "middle", builtin: true, active: true, wakes: 21,
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
-  { id: "routine", name: "plana", icon: "🔁", model: "low", builtin: true, active: true, wakes: 7,
+  { id: "routine", name: "plana", icon: "🔁", model: "middle", builtin: true, active: true, wakes: 7,
     domain: "やること。繰り返しも、一度きりの用も。", tools: ["schedule"], dailyCheckIn: { enabled: true, time: "07:00", timeZone: "Asia/Tokyo" },
     // A getter, so the sample reads in whichever language the story is showing.
     get schedules() {

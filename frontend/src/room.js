@@ -9,7 +9,7 @@ import { el, clear } from "./dom.js";
 import { t } from "./i18n.js";
 import { gloss, named } from "./builtins.js";
 
-export function createRoom({ onOpen, onActivate, onMention }) {
+export function createRoom({ onOpen, onActivate, onSelect }) {
   const banner = el("section", { class: "nobody", hidden: true });
   const bar = el("div", { class: "who-bar" });
   let expanded = false;
@@ -49,9 +49,9 @@ export function createRoom({ onOpen, onActivate, onMention }) {
       bar.append(
         el("button", {
           class: `chip persona-chip${index >= 2 ? " persona-overflow" : ""}`,
-          title: `${gloss(row).domain}\n${t("押すと @{0} を書き入れます", row.name)}`,
+          title: `${gloss(row).domain}\n${t("押すと担当の詳細を開きます")}`,
           text: `${row.icon || "◎"} ${row.name}`,
-          onclick: () => onMention?.(row),
+          onclick: () => onSelect?.(row),
         }),
       );
     }

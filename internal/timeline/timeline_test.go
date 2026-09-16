@@ -62,7 +62,7 @@ func TestDeletedEntriesAreGone(t *testing.T) {
 	if len(Thread(entries, "p1")) != 1 {
 		t.Fatal("a deleted entry came back")
 	}
-	if strings.Contains(Render(entries, nil), "消える") {
+	if strings.Contains(Render(entries, nil, nil), "消える") {
 		t.Fatal("a deleted entry reached a prompt")
 	}
 }
@@ -85,7 +85,7 @@ func TestRenderCarriesWhatWasReadOutOfTheCapture(t *testing.T) {
 		ID: "p1", Kind: KindPost, Speaker: User, Text: "この一節", At: at(1),
 		Media: &Media{Text: "本文の引用", Describe: "電子書籍の画面", Origin: "Kindle", ReadAt: &read},
 	}
-	rendered := entry.Render(nil)
+	rendered := entry.Render(nil, nil)
 	for _, want := range []string{"この一節", "本文の引用", "電子書籍の画面", "Kindle"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("%q missing from:\n%s", want, rendered)
@@ -93,7 +93,7 @@ func TestRenderCarriesWhatWasReadOutOfTheCapture(t *testing.T) {
 	}
 
 	pending := Entry{ID: "p2", Kind: KindPost, Media: &Media{BlobID: "b"}}
-	if !strings.Contains(pending.Render(nil), "まだ読み取っていません") {
+	if !strings.Contains(pending.Render(nil, nil), "まだ読み取っていません") {
 		t.Fatal("an unread capture should say so rather than look empty")
 	}
 	if pending.Media.Ready() {
@@ -105,12 +105,12 @@ func TestRenderCarriesWhatWasReadOutOfTheCapture(t *testing.T) {
 // one made from a desktop.
 func TestAPostWithoutAPlaceStillRenders(t *testing.T) {
 	entry := Entry{ID: "p1", Kind: KindPost, Speaker: User, Text: "お腹すいた", At: at(1)}
-	if strings.Contains(entry.Render(nil), "北緯") {
+	if strings.Contains(entry.Render(nil, nil), "北緯") {
 		t.Fatal("a place appeared out of nowhere")
 	}
 	placed := entry
 	placed.Place = &Place{Lat: 35.658, Lon: 139.7016, Label: "渋谷"}
-	if !strings.Contains(placed.Render(nil), "渋谷") {
+	if !strings.Contains(placed.Render(nil, nil), "渋谷") {
 		t.Fatal("the label is what a model can use, and it is missing")
 	}
 }

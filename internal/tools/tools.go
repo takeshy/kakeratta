@@ -157,6 +157,9 @@ func (r *Registry) For(declared []string) *Set {
 	return &Set{registry: r, allowed: allowed}
 }
 
+// Allows reports whether this persona may call one tool by name.
+func (s *Set) Allows(name string) bool { return s.allowed[strings.TrimSpace(name)] }
+
 // Empty reports whether this persona declared no usable tools.
 func (s *Set) Empty() bool { return len(s.allowed) == 0 }
 

@@ -561,7 +561,7 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 					t.Fatalf("call %d did not receive the thread", i)
 				}
 				history, target, ok := strings.Cut(context, "今回の対象発言（この発言をスレッド全体の文脈で解釈）:\n")
-				if !ok || !strings.HasPrefix(target, "[follow-up] ") || !strings.Contains(target, "1時間後。") || !strings.Contains(target, trigger.At.Local().Format("2006-01-02 15:04")) {
+				if !ok || !strings.HasPrefix(target, "[follow-up] ") || !strings.Contains(target, "1時間後。") || !strings.Contains(target, trigger.At.UTC().Format("2006-01-02 15:04")) {
 					t.Fatalf("call %d lost the target or its timestamp: %s", i, target)
 				}
 				previous := -1
@@ -638,5 +638,32 @@ func TestEscapedLineBreaksInANoteAreRepaired(t *testing.T) {
 	trailing := escaped + "\n\n"
 	if got := repairNewlines(trailing); got != want {
 		t.Fatalf("a note followed by the app's blank line was left broken: %q", got)
+	}
+}
+
+// The clock a persona is told is the user's. The container runs in UTC, and a
+// remark or a note filed from that clock lands on the wrong day.
+func TestThePromptCarriesTheWorkspaceZone(t *testing.T) {
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["gourmet"]}`
+		}
+		return `{"action":"silent"}`
+	}, "gourmet")
+	settings := s.Settings()
+	settings.TimeZone = "Asia/Tokyo"
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+
+	entry := post(t, s, "後で夜ご飯の買い出しに行く")
+	runner.react(entry.ID)
+
+	prompt := stub.promptFor("tabe")
+	if !strings.Contains(prompt, "JST") {
+		t.Fatalf("the persona was not told the time in the user's zone:\n%s", prompt)
+	}
+	if strings.Contains(prompt, "UTC") {
+		t.Fatalf("the container's own clock reached the persona:\n%s", prompt)
 	}
 }

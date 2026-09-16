@@ -162,7 +162,9 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 	if len(plana.Tools) != 1 || plana.Tools[0] != "schedule" {
 		t.Fatalf("plana's tools = %v", plana.Tools)
 	}
-	if plana.Model != TierLow {
+	// Reading an intention out of a passing remark, working out when to look in,
+	// and calling a tool in the same turn is not the light tier's work.
+	if plana.Model != TierMiddle {
 		t.Fatalf("plana = %+v", *plana)
 	}
 	// The domain is what the routing reads, so both kinds have to be in it.
