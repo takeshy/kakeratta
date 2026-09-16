@@ -120,5 +120,8 @@ func (r *Runner) deletedAt(gone deletedPost) {
 		label, gone.entryID, cited)}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, deletedInstructions, client, settings, r.registry(settings))
+	// It cannot speak. This wake is bookkeeping after the user deleted a post,
+	// and it has no post to answer: a remark here would become a new top-level
+	// post of its own, which is the app talking to itself.
+	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, deletedInstructions, client, settings, r.registry(settings))
 }

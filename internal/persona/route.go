@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/takeshy/kakeratta/internal/llm"
@@ -68,6 +69,12 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	if client == nil || client.BaseURL == "" || model == "" {
 		return all
 	}
+	// Falling back is legitimate but it costs a call per persona, and it looked
+	// exactly like a model choosing everyone. Now it says which it was.
+	everyone := func(reason string) []string {
+		log.Printf("routing: delivering to all %d personas because %s", len(all), reason)
+		return all
+	}
 	var domains []string
 	for _, skill := range skills {
 		domains = append(domains, fmt.Sprintf("- %s（%s）: %s", skill.ID, skill.Name, skill.Domain))
@@ -83,7 +90,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		},
 	})
 	if err != nil {
-		return all
+		return everyone("the routing call failed: " + err.Error())
 	}
 	var parsed struct {
 		Deliver []string `json:"deliver"`
@@ -101,7 +108,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		chosen = firstJSON(reply.Content)
 	}
 	if err := json.Unmarshal([]byte(chosen), &parsed); err != nil || parsed.Deliver == nil {
-		return all
+		return everyone(fmt.Sprintf("the reply made no sense: %q", chosen))
 	}
 	known := map[string]bool{}
 	for _, id := range all {
@@ -112,7 +119,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	for _, id := range parsed.Deliver {
 		id = strings.TrimSpace(id)
 		if !known[id] {
-			return all
+			return everyone(fmt.Sprintf("it named a persona that does not exist: %q", id))
 		}
 		if known[id] && !seen[id] {
 			seen[id] = true

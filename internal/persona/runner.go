@@ -412,14 +412,19 @@ var (
 	imageTool  = llm.Tool{Name: "image", Description: "元の画像そのものを見る。読み取った文字だけでは足りないとき。", Parameters: noArgs}
 )
 
-// offer is everything this persona may call this turn.
-func offer(set *tools.Set, post timeline.Entry) []llm.Tool {
+// offer is everything this persona may call this turn. A turn that cannot
+// speak is not offered speak: the tool list is the rule, rather than a rule
+// written in the prompt and enforced afterwards.
+func offer(set *tools.Set, post timeline.Entry, listening bool) []llm.Tool {
 	offered := append([]llm.Tool{}, noteTools...)
 	for _, declared := range set.Declarations() {
 		offered = append(offered, llm.Tool{Name: declared.Name, Description: declared.Description, Parameters: declared.Parameters})
 	}
 	if post.Media != nil && post.Media.BlobID != "" {
 		offered = append(offered, imageTool)
+	}
+	if listening {
+		return append(offered, silentTool)
 	}
 	return append(offered, speakTool, silentTool)
 }
@@ -496,9 +501,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	var files []llm.Attachment
 	var sources []timeline.Source
-	// Whether this turn has already asked for a wake, so the reminder below is
-	// offered once rather than after every note.
+	// Whether this turn has already asked for a wake, and whether it has already
+	// been reminded to, so the reminder is offered once rather than after every
+	// note and once more on the way out.
 	scheduled := false
+	urged := false
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -509,7 +516,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)}}
 	}
 
-	offered := offer(set, post)
+	offered := offer(set, post, listening)
 	for round := 0; round < rounds; round++ {
 		reply, err := client.Complete(ctx, llm.Request{
 			Model: model, Messages: messages, Files: files,
@@ -536,6 +543,19 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			args := argsOf(call.Args)
 			switch call.Name {
 			case "speak":
+				// A persona that can ask for a wake and is about to promise one in
+				// words gets asked once whether it actually placed it. Saying
+				// "22:00ごろに聞くね" and registering nothing is the failure this
+				// catches, and it is cheap: one extra exchange, once per turn, and
+				// only for a persona that holds the tool.
+				if !daily && set.Allows("schedule") && !scheduled && !urged {
+					urged = true
+					messages = append(messages, answer(call, "発言する前に確認です。**schedule を置いていません。**"+
+						"その時刻に起きるのは schedule を置いたときだけで、発言やメモに書いた時刻では何も起きません。\n"+
+						"時刻のある用なら、いま schedule を呼んでから、もう一度 speak してください。"+
+						"時刻が無い話なら、そのまま speak をもう一度呼んでください。"))
+					continue
+				}
 				text := strings.TrimSpace(stringOf(args["text"]))
 				if text == "" && named && !listening {
 					messages = append(messages, answer(call, "あなたは名指しで呼ばれています。空の返答にはできません。短く答えてください。"))
@@ -575,7 +595,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				// Its own notes are not a declared capability: every persona has
 				// a memory, and reaching it is not reaching outside.
 				if text, handled := r.notesTool(skill.ID, call.Name, args, &noteSources); handled {
-					if call.Name == "notes_write" && set.Allows("schedule") && !scheduled {
+					if call.Name == "notes_write" && set.Allows("schedule") && !scheduled && !urged {
+						urged = true
 						text += "\n\n**次は schedule です。** このメモに時刻があるなら、いま登録してください。" +
 							"メモに書いた時刻は登録ではありません。登録しない限り、その時刻には何も起きません。\n" +
 							"時刻が無い用なら、登録は不要です。その場合だけ speak か silent に進んでください。"

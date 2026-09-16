@@ -129,3 +129,55 @@ func TestADeletionWakeCanCancelTheSchedule(t *testing.T) {
 		t.Fatalf("left = %+v (%v)", left, err)
 	}
 }
+
+// Tidying up after a deletion is not an occasion to speak. The wake has no post
+// to answer, so a remark would land as a new top-level post - the app starting a
+// conversation with itself about something the user just removed.
+func TestADeletionWakeCannotPost(t *testing.T) {
+	r, s, stub := setup(t, func(system, user string) string {
+		return `{"action":"speak","text":"ドラマ、見てる？"}`
+	}, "gourmet")
+
+	entry := post(t, s, "22:00からドラマを見る")
+	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
+		t.Fatal(err)
+	}
+	before := len(remarks(t, s))
+
+	r.EntryForgotten(entry.ID, entry.Text)
+	r.stopMu.Lock()
+	var gone []deletedPost
+	for _, item := range r.queue {
+		if item.deleted != nil {
+			gone = append(gone, *item.deleted)
+		}
+	}
+	r.stopMu.Unlock()
+	if len(gone) != 1 {
+		t.Fatalf("queued %+v", gone)
+	}
+	r.deletedAt(gone[0])
+
+	// It asked to speak and nothing came of it, in either shape it could take:
+	// a remark under something, or a post of its own.
+	if len(remarks(t, s)) != before {
+		t.Fatalf("a deletion wake said something: %+v", remarks(t, s))
+	}
+	entries, err := s.Timeline()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, one := range entries {
+		if one.Speaker == "gourmet" {
+			t.Fatalf("a deletion wake wrote to the timeline: kind=%s %q", one.Kind, one.Text)
+		}
+	}
+	// And it was never offered speak in the first place, which is where the rule
+	// belongs: the tool list, not a sentence in the prompt.
+	if stub.seen("speak — ") {
+		t.Fatal("a wake that cannot speak was offered speak anyway")
+	}
+	if !stub.seen("silent — ") {
+		t.Fatal("silent was not offered, so the turn had no way to end")
+	}
+}

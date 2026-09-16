@@ -161,5 +161,7 @@ func (r *Runner) forgottenAt(gone forgotten) {
 		strings.Join(gone.paths, ", "))}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, forgottenInstructions, client, settings, r.registry(settings))
+	// Silent for the same reason as a deleted post: the user removed a note, and
+	// tidying up is not an occasion to say anything.
+	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, forgottenInstructions, client, settings, r.registry(settings))
 }
