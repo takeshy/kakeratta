@@ -172,12 +172,12 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 			t.Fatalf("a deletion wake wrote to the timeline: kind=%s %q", one.Kind, one.Text)
 		}
 	}
-	// And it was never offered speak in the first place, which is where the rule
-	// belongs: the tool list, not a sentence in the prompt.
-	if stub.seen("speak — ") {
-		t.Fatal("a wake that cannot speak was offered speak anyway")
+	// It was told so up front, and the speak it planned anyway was sent back
+	// rather than run.
+	if !stub.seen("このターンは発言できません") {
+		t.Fatal("the wake was not told it cannot speak")
 	}
-	if !stub.seen("silent — ") {
-		t.Fatal("silent was not offered, so the turn had no way to end")
+	if !stub.seen("speak を外してください") {
+		t.Fatal("a workflow that speaks on a silent turn was not sent back")
 	}
 }

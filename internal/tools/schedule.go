@@ -74,7 +74,7 @@ func setSchedule(r *Registry, owner string, args Args) (Result, error) {
 	if zone == "" || zone == "Local" {
 		zone = r.zone
 	}
-	schedule := store.Schedule{Skill: owner, Note: args.str("note"), TimeZone: zone}
+	schedule := store.Schedule{Skill: owner, Note: args.str("note"), NotePath: args.str("note_path"), TimeZone: zone}
 	if daily, ok := args["daily"].(bool); ok {
 		schedule.Daily = daily
 	}

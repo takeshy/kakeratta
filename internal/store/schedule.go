@@ -27,6 +27,10 @@ type Schedule struct {
 	At       time.Time `json:"at"`
 	TimeZone string    `json:"timeZone"`
 	Note     string    `json:"note"`
+	// NotePath is the note the persona wrote alongside the schedule. The app
+	// keeps the path so the persona can be shown which note a wake rests on; it
+	// never opens the note.
+	NotePath string `json:"notePath,omitempty"`
 }
 
 // MaxSchedulesPerSkill caps what one persona can queue: every wake is a model

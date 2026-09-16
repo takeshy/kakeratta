@@ -21,6 +21,11 @@ type fake struct {
 	mu      sync.Mutex
 	prompts []string
 	reply   func(system, user string) string
+	// reviews are the app's own checks, kept apart from what the personas were
+	// asked so a test counting persona calls is not counting those. review
+	// scripts a verdict; unset, every workflow passes.
+	reviews []string
+	review  func(user string) string
 }
 
 func (f *fake) start(t *testing.T) *httptest.Server {
@@ -72,55 +77,148 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		for _, tool := range body.Tools {
 			offered += tool.Function.Name + " — " + tool.Function.Description + "\n"
 		}
+		w.Header().Set("Content-Type", "application/json")
+		if names := toolNames(body.Tools); names["submit_review"] {
+			f.mu.Lock()
+			f.reviews = append(f.reviews, user)
+			script := f.review
+			f.mu.Unlock()
+			verdict := `{"verdict":"pass","summary":"ok","issues":[]}`
+			if script != nil {
+				verdict = script(user)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"choices": []any{map[string]any{"message": asCall(verdict, names)}},
+			})
+			return
+		}
 		f.mu.Lock()
 		f.prompts = append(f.prompts, system+"\n----\n"+user+"\n----\n"+offered)
 		f.mu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"choices": []any{map[string]any{"message": asCall(f.reply(system, user))}},
+			"choices": []any{map[string]any{"message": asCall(f.reply(system, user), toolNames(body.Tools))}},
 		})
 	}))
 	t.Cleanup(server.Close)
 	return server
 }
 
-// asCall turns what a test wrote - the old {"action":...} shape, which is still
-// the clearest way to say what a persona does next - into the tool call the
-// runner now reads. Anything that is not that shape goes back as prose, which
-// is its own case in the runner.
-func asCall(content string) map[string]any {
+func toolNames[T any](tools []T) map[string]bool {
+	out := map[string]bool{}
+	raw, _ := json.Marshal(tools)
+	var listed []struct {
+		Function struct {
+			Name string `json:"name"`
+		} `json:"function"`
+	}
+	_ = json.Unmarshal(raw, &listed)
+	for _, tool := range listed {
+		out[tool.Function.Name] = true
+	}
+	return out
+}
+
+// asCall turns what a test wrote into what the runner reads, depending on what
+// the request was for.
+//
+// Tests still describe a persona's turn in the old {"action":...} shape, which
+// is the clearest way to say "it says this" or "it stays quiet"; for a request
+// that wants a workflow that becomes the one-step workflow doing it. A test that
+// needs more writes the workflow itself as {"steps":[...]}. A review nobody
+// scripted passes, and a compose step gets the text of a scripted speak.
+func asCall(content string, offered map[string]bool) map[string]any {
+	call := func(name string, args any) map[string]any {
+		raw, _ := json.Marshal(args)
+		return map[string]any{"content": "", "tool_calls": []any{map[string]any{
+			"id": "call_" + name, "type": "function",
+			"function": map[string]any{"name": name, "arguments": string(raw)},
+		}}}
+	}
 	var parsed struct {
 		Action  string         `json:"action"`
 		Text    string         `json:"text"`
 		Tool    string         `json:"tool"`
 		Args    map[string]any `json:"args"`
 		Deliver []string       `json:"deliver"`
+		Steps   []any          `json:"steps"`
+		Verdict string         `json:"verdict"`
 	}
-	if json.Unmarshal([]byte(content), &parsed) != nil || (parsed.Action == "" && parsed.Deliver == nil) {
-		return map[string]any{"content": content}
-	}
-	if parsed.Deliver != nil {
-		raw, _ := json.Marshal(map[string]any{"deliver": parsed.Deliver})
-		return map[string]any{"content": "", "tool_calls": []any{map[string]any{
-			"id": "call_deliver", "type": "function",
-			"function": map[string]any{"name": "deliver", "arguments": string(raw)},
-		}}}
-	}
-	name, args := parsed.Action, map[string]any{}
-	switch parsed.Action {
-	case "tool":
-		name = parsed.Tool
-		if parsed.Args != nil {
-			args = parsed.Args
+	scripted := json.Unmarshal([]byte(content), &parsed) == nil
+	switch {
+	case offered["deliver"]:
+		if scripted && parsed.Deliver != nil {
+			return call("deliver", map[string]any{"deliver": parsed.Deliver})
 		}
-	case "speak":
-		args["text"] = parsed.Text
+		return map[string]any{"content": content}
+
+	case offered["submit_review"]:
+		if scripted && parsed.Verdict != "" {
+			return call("submit_review", json.RawMessage(content))
+		}
+		return call("submit_review", map[string]any{"verdict": "pass", "summary": "ok", "issues": []any{}})
+
+	case offered["submit_workflow"]:
+		if !scripted {
+			return map[string]any{"content": content}
+		}
+		if parsed.Steps != nil {
+			return call("submit_workflow", json.RawMessage(content))
+		}
+		empty := map[string]any{"type": "", "path": "", "text": "", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""}
+		step := func(fields map[string]any) map[string]any {
+			out := map[string]any{}
+			for key, value := range empty {
+				out[key] = value
+			}
+			for key, value := range fields {
+				out[key] = value
+			}
+			return out
+		}
+		steps := []any{}
+		switch parsed.Action {
+		case "speak":
+			steps = append(steps, step(map[string]any{"type": "speak", "text": parsed.Text}))
+		case "tool":
+			args, _ := json.Marshal(parsed.Args)
+			switch parsed.Tool {
+			case "notes_write":
+				steps = append(steps, step(map[string]any{"type": "write_note", "path": parsed.Args["path"], "text": parsed.Args["text"]}))
+			case "notes_forget":
+				steps = append(steps, step(map[string]any{"type": "forget_note", "path": parsed.Args["path"]}))
+			case "schedule":
+				if parsed.Args["action"] == "cancel" {
+					steps = append(steps, step(map[string]any{"type": "cancel_schedule", "id": parsed.Args["id"]}))
+				} else {
+					steps = append(steps, step(map[string]any{"type": "tool", "tool": "schedule", "args": string(args)}))
+				}
+			default:
+				// Anything else is a look before deciding.
+				if !offered["read"] {
+					break
+				}
+				read := map[string]any{"type": "tool", "paths": []any{}, "tool": parsed.Tool, "args": string(args)}
+				switch parsed.Tool {
+				case "notes_read":
+					read = map[string]any{"type": "notes_read", "paths": parsed.Args["paths"], "tool": "", "args": "{}"}
+				case "notes_list":
+					read = map[string]any{"type": "notes_list", "paths": []any{}, "tool": "", "args": "{}"}
+				}
+				return call("read", map[string]any{"steps": []any{read}})
+			}
+		case "":
+			return map[string]any{"content": content}
+		}
+		return call("submit_workflow", map[string]any{"summary": "test", "steps": steps})
 	}
-	raw, _ := json.Marshal(args)
-	return map[string]any{"content": "", "tool_calls": []any{map[string]any{
-		"id": "call_" + name, "type": "function",
-		"function": map[string]any{"name": name, "arguments": string(raw)},
-	}}}
+	// A compose step: plain text back.
+	if scripted && parsed.Action == "speak" {
+		return map[string]any{"content": parsed.Text}
+	}
+	if scripted && parsed.Action != "" {
+		return map[string]any{"content": ""}
+	}
+	return map[string]any{"content": content}
 }
 
 func (f *fake) seen(needle string) bool {
@@ -286,8 +384,13 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 	}
 
 	// The two that went earlier were handed the later remarks, and the one that
-	// went last has nothing after it to hear.
-	if len(listened) != 2 {
+	// went last has nothing after it to hear. A listening persona that tries to
+	// speak is sent back once, so it may be asked twice.
+	once := map[string]bool{}
+	for _, name := range listened {
+		once[name] = true
+	}
+	if len(once) != 2 {
 		t.Fatalf("listened = %v, want the low and middle ones", listened)
 	}
 	for _, name := range listened {
@@ -396,6 +499,8 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 	}
 }
 
+// A named persona that plans to stay quiet is sent back: being asked is the one
+// thing that is not its to decline, and the workflow is where that shows.
 func TestBeingNamedStillForcesAnAnswerAfterUsingATool(t *testing.T) {
 	step := 0
 	runner, s, _ := setup(t, func(system, user string) string {
@@ -419,6 +524,9 @@ func TestBeingNamedStillForcesAnAnswerAfterUsingATool(t *testing.T) {
 	said := remarks(t, s)
 	if len(said) != 1 || said[0].Text != "確認して答えます" {
 		t.Fatalf("remarks = %+v, want an answer after the tool", said)
+	}
+	if step != 3 {
+		t.Fatalf("calls = %d, want a read, the rejected silence, and its fix", step)
 	}
 }
 
@@ -447,21 +555,27 @@ func TestRoutingKeepsThePostFromEveryoneElse(t *testing.T) {
 	}
 }
 
-// Routing is an optimisation. When it cannot be done, a post must not be
-// swallowed: everyone gets it and decides for themselves.
-func TestRoutingFailureDeliversToEveryone(t *testing.T) {
+// When routing fails, nobody is woken. A named persona is still reached,
+// because being asked does not go through routing at all.
+func TestRoutingFailureWakesNobodyButTheNamed(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
 			return "モデルが壊れた返事"
 		}
-		return `{"action":"silent","notes":"見た"}`
+		return `{"action":"speak","text":"はい"}`
 	}, "routine", "gourmet")
 
-	entry := post(t, s, "何か")
-	runner.react(entry.ID)
+	runner.react(post(t, s, "何か").ID)
+	if stub.promptFor("plana") != "" || stub.promptFor("tabe") != "" {
+		t.Fatal("a failed routing woke personas nobody named")
+	}
 
-	if stub.promptFor("plana") == "" || stub.promptFor("tabe") == "" {
-		t.Fatal("a post was lost because the routing failed")
+	runner.react(post(t, s, "@tabe 何か").ID)
+	if stub.promptFor("tabe") == "" {
+		t.Fatal("a named persona was lost because the routing failed")
+	}
+	if stub.promptFor("plana") != "" {
+		t.Fatal("a failed routing woke a persona nobody named")
 	}
 }
 
@@ -473,8 +587,6 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 		switch {
 		case strings.Contains(system, "振り分け"):
 			return `{"deliver":["routine"]}`
-		case strings.Contains(user, "notes_write の結果"):
-			return `{"action":"silent"}`
 		case strings.Contains(user, "notes_read の結果"):
 			return `{"action":"tool","tool":"notes_write","args":{"path":"threads/old.md","text":"前から追いかけていること\n* 続き"}}`
 		default:
@@ -520,24 +632,27 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	}
 }
 
-// Tools are the declared ones and nothing else. The declaration is the boundary
-// and it is checked where the call is made.
+// Tools are the declared ones and nothing else. A workflow reaching for another
+// is sent back before anything runs, and the call is refused again at run time
+// whatever the review said.
 func TestAToolThatWasNotDeclaredIsRefused(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
 			return `{"deliver":["routine"]}`
 		}
-		if strings.Contains(user, "route の結果") {
-			return `{"action":"speak","text":"使えなかった","notes":"道具の確認"}`
-		}
-		return `{"action":"tool","tool":"route","args":{"to":"渋谷"},"notes":"道具を試す"}`
+		return `{"summary":"経路を見る","steps":[
+			{"type":"tool","path":"","text":"","tool":"route","args":"{\"to\":\"渋谷\"}","at":"","daily":false,"note":"","id":""},
+			{"type":"speak","path":"","text":"着くよ","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 	}, "routine")
 
 	entry := post(t, s, "どこか")
 	runner.react(entry.ID)
 
-	if !stub.seen("宣言されていません") {
+	if !stub.seen("route はあなたが使える道具ではありません") {
 		t.Fatal("a tool outside the declaration was allowed through")
+	}
+	if said := remarks(t, s); len(said) != 0 {
+		t.Fatalf("a rejected workflow ran: %+v", said)
 	}
 }
 
@@ -736,67 +851,146 @@ func TestThePromptCarriesTheWorkspaceZone(t *testing.T) {
 	}
 }
 
-// Reacting to a post has to include the app's own wake bookkeeping. Without it
-// a persona is offered schedule and then told it is not configured, so the time
-// it was asked to place ends up as prose in a note and nothing ever fires.
+// A schedule and the note it rests on come as one step. The failure this is
+// shaped against is having one without the other - plana wrote "予定: 22:30"
+// into a note, and nothing was set to wake at 22:30.
 func TestAPostCanPlaceASchedule(t *testing.T) {
+	at := time.Now().Add(90 * time.Minute).Format(time.RFC3339)
 	runner, s, _ := setup(t, func(system, user string) string {
-		switch {
-		case strings.Contains(system, "振り分け"):
+		if strings.Contains(system, "振り分け") {
 			return `{"deliver":["routine"]}`
-		case strings.Contains(user, "schedule の結果"):
-			return `{"action":"silent"}`
-		default:
-			return `{"action":"tool","tool":"schedule","args":{"action":"set","in_minutes":90,"note":"ドラマを見たか"}}`
 		}
+		return `{"summary":"予定とメモ","steps":[
+			{"type":"write_schedule","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n22:30から見る予定","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ドラマを見たか","id":""}]}`
 	}, "routine")
 
-	entry := post(t, s, "今日の22時半からドラマを見る")
-	runner.react(entry.ID)
+	runner.react(post(t, s, "今日の22時半からドラマを見る").ID)
 
 	placed, err := s.Schedules("routine")
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || len(placed) != 1 {
+		t.Fatalf("placed = %+v (%v)", placed, err)
 	}
-	if len(placed) != 1 {
-		t.Fatalf("a post placed %d schedules", len(placed))
-	}
-	if placed[0].Note != "ドラマを見たか" || placed[0].Skill != "routine" {
+	if placed[0].Note != "ドラマを見たか" || placed[0].NotePath != "errands/drama.md" {
 		t.Fatalf("schedule = %+v", placed[0])
+	}
+	if _, ok := s.Note("routine", "errands/drama.md"); !ok {
+		t.Fatal("the schedule was placed without its note")
 	}
 }
 
-// Writing the note is not placing the wake. A persona that holds the tool is
-// asked once on its way out, and writing a note first must not consume that -
-// the note is exactly where the unplaced time tends to get written down.
-func TestSpeakingIsGatedOnTheScheduleEvenAfterANote(t *testing.T) {
-	asked := 0
+// A workflow stops at the step that fails. A wake that could not be placed
+// leaves no note behind, and the remark after it never goes out.
+func TestAWorkflowStopsAtTheStepThatFails(t *testing.T) {
+	past := time.Now().Add(-time.Hour).Format(time.RFC3339)
 	runner, s, _ := setup(t, func(system, user string) string {
-		switch {
-		case strings.Contains(system, "振り分け"):
+		if strings.Contains(system, "振り分け") {
 			return `{"deliver":["routine"]}`
-		case strings.Contains(user, "schedule を置いていません"):
-			asked++
-			return `{"action":"silent"}`
-		case strings.Contains(user, "notes_write の結果"):
-			return `{"action":"speak","text":"22:30ごろに聞くね"}`
-		default:
-			return `{"action":"tool","tool":"notes_write","args":{"path":"routine/drama.md","text":"---\ntype: Routine\n---\n\n22:30から"}}`
 		}
+		return `{"summary":"過去に置こうとする","steps":[
+			{"type":"write_schedule","path":"errands/late.md","text":"---\ntype: Errand\n---\n\n遅い","tool":"","args":"{}","at":"` + past + `","daily":false,"note":"遅い","id":""},
+			{"type":"speak","path":"","text":"あとで聞くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 	}, "routine")
+
+	runner.react(post(t, s, "さっきの用").ID)
+
+	if said := remarks(t, s); len(said) != 0 {
+		t.Fatalf("a remark went out after a failed step: %+v", said)
+	}
+	if _, ok := s.Note("routine", "errands/late.md"); ok {
+		t.Fatal("a note was written for a schedule that was never placed")
+	}
+}
+
+// When the note cannot be written, the schedule placed a moment before is
+// taken back: neither is left without the other.
+func TestAScheduleWhoseNoteFailsIsTakenBack(t *testing.T) {
+	at := time.Now().Add(time.Hour).Format(time.RFC3339)
+	runner, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["routine"]}`
+		}
+		return `{"summary":"書けないメモ","steps":[
+			{"type":"write_schedule","path":"../outside.md","text":"中身","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"外","id":""},
+			{"type":"speak","path":"","text":"置いたよ","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+	}, "routine")
+
+	runner.react(post(t, s, "何か").ID)
+
+	if placed, err := s.Schedules("routine"); err != nil || len(placed) != 0 {
+		t.Fatalf("the schedule survived its note: %+v (%v)", placed, err)
+	}
+	if said := remarks(t, s); len(said) != 0 {
+		t.Fatalf("a remark went out after a failed step: %+v", said)
+	}
+}
+
+// The review is what stands between a persona and a promise it did not arrange.
+// A workflow it rejects never runs - not the note, not the remark - and the
+// persona's second draft is the one that does.
+func TestAWorkflowTheReviewRejectsNeverRuns(t *testing.T) {
+	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
+	drafts := 0
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["routine"]}`
+		}
+		drafts++
+		if drafts == 1 {
+			return `{"summary":"覚えて約束する","steps":[
+				{"type":"write_note","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n2026-09-16 22:21 済","tool":"","args":"{}","at":"","daily":false,"note":"","id":""},
+				{"type":"speak","path":"","text":"22:30ごろに聞くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+		}
+		if !strings.Contains(user, "起きていないことを") {
+			t.Errorf("the reason for sending it back was not passed on:\n%s", user)
+		}
+		return `{"summary":"覚えて、その時刻に起きる","steps":[
+			{"type":"write_schedule","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n22:30からドラマを見る予定","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ドラマを見たか","id":""},
+			{"type":"speak","path":"","text":"見終わったころに聞くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+	}, "routine")
+	stub.review = func(user string) string {
+		// Only the invented line: plana's own instructions talk about 済んだ記録.
+		if strings.Contains(user, "22:21 済") {
+			return `{"verdict":"fail","summary":"起きていないことを書いている","issues":[{"severity":"high","description":"起きていないことを事実として書いている: 済"}]}`
+		}
+		return `{"verdict":"pass","summary":"ok","issues":[]}`
+	}
 
 	entry := post(t, s, "今日の22時半からドラマを見る")
 	runner.react(entry.ID)
 
-	if asked != 1 {
-		t.Fatalf("the persona was asked about the schedule %d times", asked)
+	if drafts != 2 || len(stub.reviews) != 2 {
+		t.Fatalf("drafts = %d, reviews = %d", drafts, len(stub.reviews))
 	}
-	if said := remarks(t, s); len(said) != 0 {
-		t.Fatalf("it promised a time it never placed: %+v", said)
+	note, ok := s.Note("routine", "errands/drama.md")
+	if !ok || strings.Contains(note.Text, "22:21 済") {
+		t.Fatalf("the rejected note was written: %q", note.Text)
 	}
-	// The note it wrote is still kept: not speaking and not remembering differ.
-	if _, ok := s.Note("routine", "routine/drama.md"); !ok {
-		t.Fatal("the note was lost")
+	said := remarks(t, s)
+	if len(said) != 1 || said[0].Text != "見終わったころに聞くね" {
+		t.Fatalf("remarks = %+v", said)
+	}
+	placed, err := s.Schedules("routine")
+	if err != nil || len(placed) != 1 {
+		t.Fatalf("placed = %+v (%v)", placed, err)
+	}
+	if placed[0].NotePath != "errands/drama.md" {
+		t.Fatalf("the schedule does not know its note: %+v", placed[0])
+	}
+}
+
+// Staying quiet has nothing to check, so it costs no review.
+func TestAnEmptyWorkflowIsNotReviewed(t *testing.T) {
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["routine"]}`
+		}
+		return `{"summary":"何もしない","steps":[]}`
+	}, "routine")
+
+	runner.react(post(t, s, "晴れ").ID)
+
+	if len(stub.reviews) != 0 {
+		t.Fatalf("an empty workflow was reviewed %d times", len(stub.reviews))
 	}
 }
 

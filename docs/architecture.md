@@ -7,10 +7,11 @@
 **Memory is divided by subject.** The point of the split is not to hide
 anything — it is to **keep the concentration**.
 
-**The app only routes.** Who gets a post is decided centrally. Whether to speak,
-what to remember and when to compress it are each persona's own. The split
-exists so that adding personas does not wake all of them every time; the app
-takes no part in what comes back.
+**The app routes, reviews and runs.** Who gets a post is decided centrally.
+Whether to speak, what to remember and when to compress it are each persona's
+own — but a persona says so as a workflow, and the app checks that workflow
+before running it. The app does not decide what a persona says; it stops a
+persona saying what did not happen, or promising what it did not arrange.
 
 **Silence is fine.** Not everything gets a reaction. This is not an app for
 having things explained to you, and being reacted to every time you just wanted
@@ -26,23 +27,56 @@ there is something to choose between.
 
 ## What the app does
 
-Three things.
+Four things, and the app's own judgement in them is made by **the best model
+configured** (the high tier; Nemotron Ultra on Nebius).
 
 1. Take the post
 2. **Route it to the personas it belongs to**
-3. Put remarks on the timeline
+3. **Review each persona's workflow, and run it**
+4. Put remarks on the timeline
 
 Whether to summarise and whether to speak are not the app's decisions.
 
-Notes are not on that list. Reading and writing them is done by the persona
-through its tools, so the app only provides the path — it puts bytes somewhere
-when `notes_write` is called, and nothing more than that.
+**Routing delivers only where a post belongs** (`internal/persona/route.go`).
+A place, a time or a food named in passing is not a reason: "明日9:10に神谷町に
+着きたい" goes to the travel persona and not to the wine one. Nobody is an
+ordinary answer, and so is a routing call that fails. Every decision is logged
+with a one-line reason per persona.
 
-**Routing is a light judgement** (`internal/persona/route.go`). It reads the
-subjects and drops what is plainly none of a persona's business. Being handed a
-post is not a promise to speak; staying quiet is still the persona's call. When
-the judgement fails, everyone gets it — routing is an optimisation that lets the
-number of personas grow, not a way to swallow a post.
+### A turn: read, then a workflow
+
+A persona does not call tools one at a time any more (`internal/persona/workflow.go`).
+
+1. **Read.** It may ask, up to three times, to look at things: its note list,
+   notes, a search, the original image. Reading writes nothing, so the app just
+   does it and hands the results back.
+2. **Workflow.** It hands in what it has decided, as steps in order, with every
+   text written out in full:
+
+   | Step | Does |
+   |---|---|
+   | `write_note` / `forget_note` | Write or discard one note |
+   | `write_schedule` | Place a wake **and** write the note it rests on, as one step. If the note cannot be written, the wake is taken back |
+   | `cancel_schedule` | Cancel a wake by an id from the list the persona was given |
+   | `tool` | Call a declared tool (not `schedule`) |
+   | `speak` | Say something. At most one, and only as the last step |
+
+3. **Checked by the app.** Mechanically first — known step types, declared
+   tools, no invented schedule ids, no remark on a turn that cannot speak, an
+   answer when named. Then the app's model reviews it against a narrow list:
+   something written as fact that did not happen, an invented id, a time
+   promised with no schedule, a remark in another language than the post, a
+   note rewritten without being read, a persona's own instructions plainly
+   broken. A rejected workflow goes back once with the reasons. An empty
+   workflow is not reviewed.
+4. **Run.** In order; **the first step that fails stops the rest**, so a remark
+   never goes out after what it rests on did not happen.
+
+Each turn is logged as one structured entry: what was read, every draft with
+its problems and review, each step as it ran, and what was said.
+
+The app never reads a note. It carries the text a persona wrote to where it is
+stored, and shows the reviewer only what the persona read this turn.
 
 **An @ mention skips the routing.** A named persona always gets the post and
 always answers. Routing runs as usual for everyone else.

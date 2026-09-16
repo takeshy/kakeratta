@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -237,7 +238,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	for _, id := range named {
 		targets[id] = true
 	}
-	for _, id := range Route(ctx, client, routeModelFor(settings, thread, entry), skills, thread, entry) {
+	for _, id := range Route(ctx, client, harnessModel(settings), skills, thread, entry) {
 		targets[id] = true
 	}
 	if len(targets) == 0 {
@@ -347,7 +348,7 @@ const systemTemplate = `あなたは「%s」。%s
   出発時刻か到着時刻かなど、文脈でも特定できない点だけを確認してください。相対時刻は対象発言の日時を基準に解釈してください。
   ユーザーの訂正や追加条件を優先し、担当の推測をユーザーが決めた条件として扱わないでください。
   過去の回答があっても、追加条件で答えが変わる場合は更新して回答してください。
-- **メモはあなたが自分で読み書きします。** 下の道具を使ってください。何を概念にするか、
+- **メモはあなたが自分で読み書きします。** 下の workflow のステップで行います。何を概念にするか、
   何を残して何を捨てるか、いつまとめるかは、すべてあなたが決めます。
   本体は中身を読みませんし、数や長さの上限も持ちません。
 - メモでは引用内容、本人の意見、他の担当の推測を区別し、推測は推測と明記してください。
@@ -357,100 +358,15 @@ const systemTemplate = `あなたは「%s」。%s
   名前や口調はそのままで構いません。
 - 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。
 
-道具はこの要求に添えてあります。**毎回かならずどれかを呼んでください。** 文章だけを返しても誰にも届きません。
-結果は渡すので、必要なだけ続けて構いません。
-
-発言するときは ` + "`speak`" + `、何も言わずに終えるときは ` + "`silent`" + `。
-**このどちらかを呼ぶまで、あなたのターンは終わりません。**
-
-## あなたのメモの道具
-
-一覧は毎回渡しますが、**中身は自分で読んでください。** 書き込みも自分で行います。
-これらは宣言不要で、届くのはあなた自身のメモだけです。
-
-- ` + "`notes_read`" + ` — 中身を読む
-- ` + "`notes_write`" + ` — 1ファイルを書く（そのファイルだけ丸ごと差し替え。他は無傷）
-- ` + "`notes_forget`" + ` — 1ファイルを捨てる
-- ` + "`notes_list`" + ` — 一覧を取り直す
+%s
 
 ---
 
 %s`
 
-// noteTools are the four every persona has. They are declared here rather than
-// in the tools package because they never leave the app: a persona reaching its
-// own memory is not reaching outside.
-var noteTools = []llm.Tool{
-	{Name: "notes_list", Description: "自分のメモの一覧を取り直す。", Parameters: noArgs},
-	{Name: "notes_read", Description: "自分のメモの中身を読む。一覧にある path を渡す。", Parameters: map[string]any{
-		"type": "object", "properties": map[string]any{
-			"paths": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "読みたいメモの path"},
-		}, "required": []any{"paths"},
-	}},
-	{Name: "notes_write", Description: "メモを1ファイル書く。そのファイルだけ丸ごと差し替わり、他のメモは無傷。", Parameters: map[string]any{
-		"type": "object", "properties": map[string]any{
-			"path": map[string]any{"type": "string", "description": "tastes/tonkotsu.md のような path"},
-			"text": map[string]any{"type": "string", "description": "そのファイルの全文"},
-		}, "required": []any{"path", "text"},
-	}},
-	{Name: "notes_forget", Description: "メモを1ファイル捨てる。", Parameters: map[string]any{
-		"type": "object", "properties": map[string]any{
-			"path": map[string]any{"type": "string", "description": "捨てるメモの path"},
-		}, "required": []any{"path"},
-	}},
-}
-
-// speak and silent are how a turn ends. Saying something is a tool like any
-// other: it is the one call that puts a line on the timeline, and a persona
-// that has nothing to add calls silent instead. Neither is optional - the turn
-// runs until one of them arrives.
-var (
-	noArgs    = map[string]any{"type": "object", "properties": map[string]any{}}
-	speakTool = llm.Tool{Name: "speak", Description: "発言する。投稿と同じ言語で、短く。", Parameters: map[string]any{
-		"type": "object", "properties": map[string]any{
-			"text": map[string]any{"type": "string", "description": "タイムラインに出る発言"},
-		}, "required": []any{"text"},
-	}}
-	silentTool = llm.Tool{Name: "silent", Description: "何も言わずに終える。メモに書いたことは残る。", Parameters: noArgs}
-	imageTool  = llm.Tool{Name: "image", Description: "元の画像そのものを見る。読み取った文字だけでは足りないとき。", Parameters: noArgs}
-)
-
-// offer is everything this persona may call this turn. A turn that cannot
-// speak is not offered speak: the tool list is the rule, rather than a rule
-// written in the prompt and enforced afterwards.
-func offer(set *tools.Set, post timeline.Entry, listening bool) []llm.Tool {
-	offered := append([]llm.Tool{}, noteTools...)
-	for _, declared := range set.Declarations() {
-		offered = append(offered, llm.Tool{Name: declared.Name, Description: declared.Description, Parameters: declared.Parameters})
-	}
-	if post.Media != nil && post.Media.BlobID != "" {
-		offered = append(offered, imageTool)
-	}
-	if listening {
-		return append(offered, silentTool)
-	}
-	return append(offered, speakTool, silentTool)
-}
-
-// argsOf parses what the model wrote for one call. Bad JSON is an empty call
-// rather than a dead turn: the tool says what it is missing, and the persona
-// gets to try again.
-func argsOf(raw string) map[string]any {
-	var args map[string]any
-	if json.Unmarshal([]byte(raw), &args) != nil || args == nil {
-		return map[string]any{}
-	}
-	return args
-}
-
-// answer is one tool result going back.
-func answer(call llm.ToolCall, text string) llm.Message {
-	return llm.Message{Role: "tool", CallID: call.ID, Content: text}
-}
-
-// run wakes one persona and hands it the post. Everything after that is the
-// persona's: what of its own notes to read, what to write, whether to say
-// anything. This function only carries the calls it makes.
+// run wakes one persona and hands it the post. What to read, what to write and
+// whether to say anything are still the persona's; it says so as a workflow,
+// the app has the workflow checked, and only then does anything happen.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
 	wakeInstructions string, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 
@@ -472,8 +388,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		memory.JoinedAt = time.Now()
 	}
 	set := registry.For(skill.Tools).As(skill.ID)
-
-	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, okfHost+okfSkill)
+	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, workflowGuide(set), okfHost+okfSkill)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -483,12 +398,16 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	post := thread[0]
 	// The clock a persona is told is the user's, not the container's.
 	here := settings.Location()
+	scheduleList, scheduleIDs := r.scheduleListFor(skill, set)
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		placeLine(post.Place),
 		"",
 		"あなたのメモ（一覧。中身は notes_read で読む）:",
 		listNotes(memory),
+		"",
+		"あなたが置いている schedule:",
+		scheduleList,
 		"",
 		"スレッド全体（古い順）:",
 		timeline.Render(thread, names, here),
@@ -502,13 +421,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	var files []llm.Attachment
-	var sources []timeline.Source
-	// Whether this turn has already asked for a wake, and whether it has already
-	// been reminded to, so the reminder is offered once rather than after every
-	// note and once more on the way out.
-	scheduled := false
-	remindedInNote, gated := false, false
+	rules := turnRules{named: named, listening: listening, set: set, schedules: scheduleIDs}
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -519,116 +432,172 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)}}
 	}
 
-	offered := offer(set, post, listening)
-	for round := 0; round < rounds; round++ {
+	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Model: model, Reviewer: harnessModel(settings)}
+	defer func() { logRun(record) }()
+	failed := func(err error) *timeline.Entry {
+		record.Error = err.Error()
+		r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
+		if named && !listening {
+			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
+		}
+		return r.hush(skill, memory)
+	}
+
+	// What the persona read goes to the reviewer too: whether a note says
+	// something that did not happen can only be judged against what was there.
+	var readSources []timeline.Source
+	var read []string
+	var files []llm.Attachment
+	var approved *Workflow
+	drafts := 0
+	for round := 0; round < rounds && approved == nil && drafts < maxDrafts; round++ {
+		offered := []llm.Tool{workflowTool}
+		if len(record.Reads) < maxReads {
+			offered = []llm.Tool{readTool, workflowTool}
+		}
 		reply, err := client.Complete(ctx, llm.Request{
-			Model: model, Messages: messages, Files: files,
-			Tools: offered, ToolChoice: "required",
+			Model: model, Messages: messages, Files: files, Tools: offered, ToolChoice: "required",
 		})
 		files = nil
 		if err != nil {
-			r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
-			if named && !listening {
-				return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
-			}
-			return nil
+			return failed(err)
 		}
 		if len(reply.Calls) == 0 {
-			// A model that answered in prose when it was asked to act. Treat it
-			// as a remark when it was named, and as silence otherwise.
-			if named && strings.TrimSpace(reply.Content) != "" {
-				return r.speak(skill, root, strings.TrimSpace(reply.Content), sources, memory, trigger.ID)
-			}
-			return nil
+			messages = append(messages,
+				llm.Message{Role: "assistant", Content: reply.Content},
+				llm.Message{Role: "user", Content: "read か submit_workflow を呼んでください。文章だけの返事は誰にも届きません。"})
+			continue
 		}
 		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
-		for _, call := range reply.Calls {
-			args := argsOf(call.Args)
-			switch call.Name {
-			case "speak":
-				// A persona that can ask for a wake and is about to promise one in
-				// words gets asked once whether it actually placed it. Saying
-				// "22:00ごろに聞くね" and registering nothing is the failure this
-				// catches, and it is cheap: one extra exchange, once per turn, and
-				// only for a persona that holds the tool.
-				if !daily && set.Allows("schedule") && !scheduled && !gated {
-					gated = true
-					messages = append(messages, answer(call, "発言する前に確認です。**schedule を置いていません。**"+
-						"その時刻に起きるのは schedule を置いたときだけで、発言やメモに書いた時刻では何も起きません。\n"+
-						"「22:30ごろに聞くね」と言うなら、その22:30は schedule を呼んで置いたものでなければ来ません。\n"+
-						"時刻のある用なら、いま schedule を呼んでから、もう一度 speak してください。"+
-						"時刻が無い話なら、そのまま speak をもう一度呼んでください。"))
-					continue
-				}
-				text := strings.TrimSpace(stringOf(args["text"]))
-				if text == "" && named && !listening {
-					messages = append(messages, answer(call, "あなたは名指しで呼ばれています。空の返答にはできません。短く答えてください。"))
-					continue
-				}
-				if text == "" || listening {
-					// It had its turn. Whatever it wrote down is kept either way.
-					return r.hush(skill, memory)
-				}
-				return r.speak(skill, root, text, sources, memory, trigger.ID)
-
-			case "silent":
-				if named && !listening {
-					// Being asked by name is the one thing that is not the
-					// persona's to decline. The rest of the answer still is.
-					messages = append(messages, answer(call, "あなたは名指しで呼ばれています。silent は選べません。短くて構わないので答えてください。"))
-					continue
-				}
-				return r.hush(skill, memory)
-
-			case "image":
-				if post.Media == nil || post.Media.BlobID == "" {
-					messages = append(messages, answer(call, "この投稿に画像はありません。"))
-					continue
-				}
-				data, mime, err := r.store.Blob(post.Media.BlobID)
-				if err != nil {
-					messages = append(messages, answer(call, "画像を読み出せませんでした。"))
-					continue
-				}
-				files = []llm.Attachment{{Name: "capture", MIME: mime, Data: data}}
-				// A file travels with the last user message, so the picture
-				// needs one of its own behind the result.
-				messages = append(messages, answer(call, "元の画像です。"), llm.Message{Role: "user", Content: "元の画像です。"})
-
-			default:
-				// Its own notes are not a declared capability: every persona has
-				// a memory, and reaching it is not reaching outside.
-				if text, handled := r.notesTool(skill.ID, call.Name, args, &noteSources); handled {
-					if call.Name == "notes_write" && set.Allows("schedule") && !scheduled && !remindedInNote {
-						remindedInNote = true
-						text += "\n\n**次は schedule です。** このメモに時刻があるなら、いま登録してください。" +
-							"メモに書いた時刻は登録ではありません。登録しない限り、その時刻には何も起きません。\n" +
-							"メモにidを書くのは schedule の結果で返ってきたidだけです。s_xxx のような仮のidを書かないでください。\n" +
-							"時刻が無い用なら、登録は不要です。その場合だけ speak か silent に進んでください。"
-					}
-					messages = append(messages, answer(call, text))
-					continue
-				}
-				if call.Name == "schedule" {
-					scheduled = true
-				}
-				result, err := set.Run(ctx, call.Name, args, post.Place)
-				text := result.Text
-				if err != nil {
-					// A failed tool is something to tell the persona about, not
-					// an error to abandon the whole reaction over.
-					text = "道具が使えませんでした: " + err.Error()
-				}
-				sources = append(sources, result.Sources...)
-				messages = append(messages, answer(call, text))
+		var submitted *llm.ToolCall
+		for i := range reply.Calls {
+			if reply.Calls[i].Name == workflowTool.Name && submitted == nil {
+				submitted = &reply.Calls[i]
 			}
 		}
+		answers := map[string]string{}
+		if submitted != nil {
+			drafts++
+			var workflow Workflow
+			entry := draftRecord{}
+			if err := json.Unmarshal([]byte(submitted.Args), &workflow); err != nil {
+				entry.Problems = []string{"workflow を読めませんでした: " + err.Error()}
+			} else {
+				entry.Workflow = &workflow
+				entry.Problems = checkWorkflow(workflow, rules)
+			}
+			switch {
+			case len(entry.Problems) > 0:
+			case len(workflow.Steps) == 0:
+				// Staying quiet has nothing in it to check.
+				approved = &workflow
+			default:
+				known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当のメモ一覧:\n" + listNotes(memory) +
+					"\n\nこの担当がこのターンに読んだもの:\n" + clip(strings.Join(read, "\n\n"), 12000)
+				if len(read) == 0 {
+					known = "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当のメモ一覧:\n" + listNotes(memory) +
+						"\n\nこの担当がこのターンに読んだもの:\n（何も読んでいません）"
+				}
+				verdict, err := r.review(ctx, client, settings, skill, thread, trigger, workflow, known, names, here)
+				switch {
+				case err != nil:
+					entry.Unseen = err.Error()
+					approved = &workflow
+				case verdict.passed():
+					entry.Review = verdict
+					approved = &workflow
+				default:
+					entry.Review = verdict
+					for _, issue := range verdict.Issues {
+						if issue.Severity == "high" {
+							entry.Problems = append(entry.Problems, issue.Description)
+						}
+					}
+					if len(entry.Problems) == 0 {
+						entry.Problems = []string{verdict.Summary}
+					}
+				}
+			}
+			record.Drafts = append(record.Drafts, entry)
+			if approved == nil {
+				answers[submitted.ID] = "この workflow は実行されませんでした。直して、もう一度 submit_workflow を呼んでください:\n- " + strings.Join(entry.Problems, "\n- ")
+			} else {
+				answers[submitted.ID] = "受け付けました。"
+			}
+		}
+		for _, call := range reply.Calls {
+			if _, done := answers[call.ID]; done {
+				continue
+			}
+			switch {
+			case submitted != nil:
+				answers[call.ID] = "workflow と一緒に出された呼び出しは行いませんでした。"
+			case call.Name != readTool.Name || len(record.Reads) >= maxReads:
+				answers[call.ID] = "これ以上は読めません。submit_workflow で workflow を出してください。"
+			default:
+				var request struct {
+					Steps []ReadStep `json:"steps"`
+				}
+				if err := json.Unmarshal([]byte(call.Args), &request); err != nil {
+					answers[call.ID] = "read を読めませんでした: " + err.Error()
+					break
+				}
+				text, sources, attached := r.readAll(ctx, skill, request.Steps, set, post, &noteSources)
+				readSources = append(readSources, sources...)
+				if attached != nil {
+					files = attached
+				}
+				read = append(read, text)
+				record.Reads = append(record.Reads, readRecord{Steps: request.Steps, Output: preview(text)})
+				answers[call.ID] = text
+			}
+		}
+		for _, call := range reply.Calls {
+			messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: answers[call.ID]})
+		}
+		if files != nil {
+			// A picture travels with a user message, so it gets one of its own.
+			messages = append(messages, llm.Message{Role: "user", Content: "元の画像です。"})
+		}
 	}
-	if named && !listening {
-		r.emit("error", map[string]any{"persona": skill.ID, "message": "名指しへの返答を生成できませんでした"})
-		return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
+	if approved == nil {
+		return failed(errors.New("承認された workflow がありません"))
 	}
-	return r.hush(skill, memory)
+
+	record.Ran = true
+	spoken, sources, steps := r.execute(ctx, skill, *approved, set, rules, post, &noteSources)
+	record.Steps = steps
+	record.Spoke = spoken
+	if len(steps) > 0 && steps[len(steps)-1].Error != "" {
+		record.Error = "stopped at " + steps[len(steps)-1].Type + ": " + steps[len(steps)-1].Error
+	}
+	if listening || spoken == "" {
+		if named && !listening {
+			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
+		}
+		// It had its turn. Whatever it wrote down is kept either way.
+		return r.hush(skill, memory)
+	}
+	return r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID)
+}
+
+// wakeKind names why a persona was woken, for the log.
+func wakeKind(trigger timeline.Entry, listening bool, instructions string) string {
+	switch {
+	case trigger.ID != "" && listening:
+		return "listening"
+	case trigger.ID != "":
+		return "post"
+	case instructions == dailyInstructions:
+		return "daily"
+	case instructions == scheduleInstructions:
+		return "schedule"
+	case instructions == forgottenInstructions:
+		return "note-deleted"
+	case instructions == deletedInstructions:
+		return "post-deleted"
+	}
+	return "wake"
 }
 
 // hush saves what the persona learned and says nothing. Not speaking is an
@@ -679,38 +648,11 @@ func turnLine(named, listening bool) string {
 	switch {
 	case listening:
 		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
-			"覚えておくことがあればメモに書いてください。最後に `silent` を呼んでください。"
+			"覚えておくことがあればメモに書いてください。workflow に speak は入れられません。"
 	case named:
-		return "\n※ あなたは名指しで呼ばれています。必ず発言してください。"
+		return "\n※ あなたは名指しで呼ばれています。workflow に when の付かない speak を必ず入れてください。"
 	}
 	return ""
-}
-
-// routeByHandLimit is where a post stops being something to read and starts
-// being something to skim: about a page of text.
-const routeByHandLimit = 1200
-
-// routeModelFor picks who decides the routing.
-//
-// A short post is where the choice is actually hard - one line, no context,
-// "17時に買い物に行く" belongs to the errands persona and not to the travel one -
-// so it goes to the middle tier. A long post is long because a picture was read
-// or a page was fetched, and that much text names its own subject plainly
-// enough for the light model. Routing runs once per post either way.
-func routeModelFor(settings store.Settings, thread []timeline.Entry, trigger timeline.Entry) string {
-	size := len([]rune(trigger.Text))
-	for _, entry := range thread {
-		size += len([]rune(entry.Text))
-		if entry.Media != nil {
-			size += len([]rune(entry.Media.Text)) + len([]rune(entry.Media.Describe))
-		}
-	}
-	if size <= routeByHandLimit {
-		if model := modelFor(TierMiddle, settings); model != "" {
-			return model
-		}
-	}
-	return modelFor(TierLow, settings)
 }
 
 // modelFor is which model answers for a tier. An unset tier falls back to the

@@ -8,20 +8,22 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
-	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-func TestInvalidRoutingFallsBackButExplicitSilenceDoesNot(t *testing.T) {
+// A routing answer that cannot be used delivers to nobody. Waking everyone was
+// the old fallback, and it is exactly the noise routing exists to prevent.
+func TestRoutingThatCannotBeUsedDeliversToNobody(t *testing.T) {
 	for _, tc := range []struct {
 		reply string
 		want  []string
 	}{
-		{`{}`, []string{"food", "tech"}},
-		{`null`, []string{"food", "tech"}},
-		{`{"deliver":null}`, []string{"food", "tech"}},
-		{`{"deliver":["unknown"]}`, []string{"food", "tech"}},
+		{`{}`, nil},
+		{`null`, nil},
+		{`{"deliver":null}`, nil},
+		{`{"deliver":["unknown"]}`, nil},
 		{`{"deliver":[]}`, nil},
 		{`{"deliver":["food","food"]}`, []string{"food"}},
+		{`{"deliver":["food","unknown"]}`, []string{"food"}},
 	} {
 		t.Run(tc.reply, func(t *testing.T) {
 			f := &fake{reply: func(string, string) string { return tc.reply }}
@@ -34,42 +36,34 @@ func TestInvalidRoutingFallsBackButExplicitSilenceDoesNot(t *testing.T) {
 	}
 }
 
-// Who decides the routing depends on how much there is to read: a one-line post
-// is the hard case, and a post that is long because a picture was read names
-// its own subject plainly enough for the light model.
-func TestRouteModelFollowsTheSizeOfThePost(t *testing.T) {
-	settings := store.Settings{LowModel: "light", MiddleModel: "super"}
-	short := timeline.Entry{Text: "17:00になったら夕飯の買い物に行く。"}
-	if got := routeModelFor(settings, []timeline.Entry{short}, short); got != "super" {
-		t.Fatalf("a short post was routed by %q", got)
+// Routing is the app's own judgement, like the review, so it is made by the
+// best model configured - with a single-model setup still working.
+func TestRoutingAndReviewUseTheHarnessModel(t *testing.T) {
+	if got := harnessModel(store.Settings{LowModel: "light", MiddleModel: "super", HighModel: "ultra"}); got != "ultra" {
+		t.Fatalf("harness = %q", got)
 	}
-	long := timeline.Entry{Text: strings.Repeat("あ", 2000)}
-	if got := routeModelFor(settings, []timeline.Entry{long}, long); got != "light" {
-		t.Fatalf("a long post was routed by %q", got)
-	}
-	// A capture's OCR is what makes such a post long, so it counts.
-	read := timeline.Entry{Text: "これ", Media: &timeline.Media{Text: strings.Repeat("字", 2000)}}
-	if got := routeModelFor(settings, []timeline.Entry{read}, read); got != "light" {
-		t.Fatalf("a capture was routed by %q", got)
-	}
-	// Without a middle tier configured, the light model still decides.
-	if got := routeModelFor(store.Settings{LowModel: "light"}, []timeline.Entry{short}, short); got != "light" {
-		t.Fatalf("fallback routed by %q", got)
+	if got := harnessModel(store.Settings{LowModel: "light"}); got != "light" {
+		t.Fatalf("single-model harness = %q", got)
 	}
 }
 
-// Routing exists to drop the plainly irrelevant, not to pick the best match. A
-// post saying "今日の20時30分からドラマを見る" reached nobody because watching a
-// drama was not among anyone's examples.
-func TestTheRoutingPromptLeansOnDelivering(t *testing.T) {
+// A post goes where it belongs and nowhere else. "明日9:10に神谷町に着きたい"
+// reached the wine persona under the old rule of delivering when in doubt.
+func TestTheRoutingPromptDeliversOnlyWhereAPostBelongs(t *testing.T) {
 	for _, rule := range []string{
-		"既定は「渡す」です",
-		"話題が担当の例に無いというだけで外さないでください",
-		"「誰にも渡さない」で構いません",
+		"本当に属するときだけ",
+		"言葉が出てきただけでは渡しません",
+		"神谷町",
 		"ドラマを見る",
+		"誰にも渡しません",
 	} {
 		if !strings.Contains(routePrompt, rule) {
 			t.Fatalf("the routing prompt lost %q", rule)
+		}
+	}
+	for _, gone := range []string{"既定は「渡す」", "迷ったら渡して"} {
+		if strings.Contains(routePrompt, gone) {
+			t.Fatalf("the routing prompt still leans on delivering: %q", gone)
 		}
 	}
 }
