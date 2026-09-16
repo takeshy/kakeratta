@@ -66,3 +66,35 @@ func TestLegacyNoteTextIsUnchangedWithoutProvenance(t *testing.T) {
 		t.Fatalf("legacy text changed: %q", got)
 	}
 }
+
+// The provenance block is the app's own: a link to a deleted post comes out of
+// it, and everything the persona wrote stays exactly as it was.
+func TestDroppingADeletedPostFromTheSources(t *testing.T) {
+	s := open(t)
+	body := "---\ntype: Routine\ntitle: 薬\n---\n\n毎朝8時に飲む。"
+	if err := s.WriteNote("routine", "routines/med.md", body,
+		NoteSource{EntryID: "e_gone", Label: "消える投稿"}, NoteSource{EntryID: "e_kept", Label: "残る投稿"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("routine", "routines/other.md", "無関係"); err != nil {
+		t.Fatal(err)
+	}
+	touched, err := s.DropNoteSource("routine", "e_gone")
+	if err != nil || len(touched) != 1 || touched[0] != "routines/med.md" {
+		t.Fatalf("touched = %v (%v)", touched, err)
+	}
+	note, ok := s.Note("routine", "routines/med.md")
+	if !ok {
+		t.Fatal("the note disappeared")
+	}
+	if strings.Contains(note.Text, "e_gone") {
+		t.Fatalf("the deleted post is still cited:\n%s", note.Text)
+	}
+	if !strings.Contains(note.Text, "e_kept") || !strings.Contains(note.Text, "毎朝8時に飲む。") {
+		t.Fatalf("the note lost something it should have kept:\n%s", note.Text)
+	}
+	// Asking again changes nothing, and an unrelated note is never rewritten.
+	if touched, err := s.DropNoteSource("routine", "e_gone"); err != nil || len(touched) != 0 {
+		t.Fatalf("second pass touched %v (%v)", touched, err)
+	}
+}

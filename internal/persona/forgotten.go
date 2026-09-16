@@ -14,11 +14,10 @@ const deletedInstructions = `
 ## 根拠にしていた投稿が消されました
 ユーザーが、あなたがメモの根拠にしていた投稿を削除しました。どの投稿かは対象発言に入っています。
 本体はあなたのメモを書き換えません。整理するのはあなたの仕事です。
-まず notes_list と notes_read で、その投稿を出典に挙げているメモがあるかを確かめてください。
-**無ければ、何もしないで silent。** あなたの記憶はその投稿に依っていません。
-あるなら、根拠が無くなった記述を直すか捨ててください。
-消えた投稿のリンクは外してください。ほかの根拠が残っている記述は、そのまま残して構いません。
-その投稿だけを根拠にしていた概念は、丸ごと捨てるほうが正しいこともあります。
+対象発言に、その投稿を引用していたメモの一覧が入っています。空なら、何もしないで silent。あなたの記憶はその投稿に依っていません。
+一覧があれば notes_read で読み、根拠が無くなった記述を直すか捨ててください。
+**その投稿だけが根拠だったメモは、notes_forget で捨ててください。** 残しても裏づけがありません。
+ほかの根拠が残っている記述は、そのまま残して構いません。出典のリンクは本体が外してあるので、触らなくてよいです。
 **予定も見直してください。** schedule を持っているなら action: list で確かめ、その投稿のために置いた予定は action: cancel で消します。
 用そのものが残っているなら、予定はそのままで構いません。
 これはユーザーの操作の結果です。消したことを責めたり、理由を尋ねたりしないでください。
@@ -30,6 +29,9 @@ type deletedPost struct {
 	entryID string
 	label   string
 	skill   string
+	// notes are the ones that had cited the post, so the persona knows where to
+	// look rather than reading everything it has.
+	notes []string
 }
 
 // EntryForgotten tells the personas woken for a deleted post to tidy up.
@@ -63,7 +65,13 @@ func (r *Runner) EntryForgotten(entryID, label string) {
 		if !active[skill] || r.queuedDeletion(entryID, skill) {
 			continue
 		}
-		r.queue = append(r.queue, reaction{deleted: &deletedPost{entryID: entryID, label: label, skill: skill}})
+		// The links are the app's own, so the app takes them out before anyone
+		// is woken to look at what is left.
+		notes, err := r.store.DropNoteSource(skill, entryID)
+		if err != nil {
+			r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
+		}
+		r.queue = append(r.queue, reaction{deleted: &deletedPost{entryID: entryID, label: label, skill: skill, notes: notes}})
 		r.wake.Signal()
 	}
 	r.stopMu.Unlock()
@@ -102,9 +110,13 @@ func (r *Runner) deletedAt(gone deletedPost) {
 	if runes := []rune(label); len(runes) > 140 {
 		label = string(runes[:140]) + "…"
 	}
+	cited := "（なし）"
+	if len(gone.notes) > 0 {
+		cited = strings.Join(gone.notes, ", ")
+	}
 	trigger := timeline.Entry{At: time.Now(), Speaker: "system", Text: fmt.Sprintf(
-		"The user deleted the post you cited: %s (/?entry=%s). Tidy the notes that rested on it; nothing was rewritten for you.",
-		label, gone.entryID)}
+		"The user deleted the post you cited: %s (/?entry=%s). Notes that cited it: %s. Tidy what rested on it; the body is untouched.",
+		label, gone.entryID, cited)}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, deletedInstructions, client, settings, r.registry(settings))

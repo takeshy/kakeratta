@@ -29,6 +29,12 @@ func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The note that cited the post, so the app has a link of its own to clear.
+	if err := s.WriteNote("gourmet", "tastes/sesame.md", "ごま強めは苦手",
+		store.NoteSource{EntryID: entry.ID, Label: "担々麺の投稿"}); err != nil {
+		t.Fatal(err)
+	}
+
 	r.EntryForgotten(entry.ID, entry.Text)
 	r.stopMu.Lock()
 	queued := len(r.queue)
@@ -43,9 +49,22 @@ func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 		t.Fatalf("queued %d wakes: %+v", queued, items)
 	}
 
+	// The app took its own link out before waking anyone, and says where to look.
+	if note, ok := s.Note("gourmet", "tastes/sesame.md"); !ok || strings.Contains(note.Text, entry.ID) {
+		t.Fatalf("the deleted post is still cited: %v", note.Text)
+	} else if !strings.Contains(note.Text, "ごま強めは苦手") {
+		t.Fatalf("the body was rewritten: %s", note.Text)
+	}
+	if len(items[0].notes) != 1 || items[0].notes[0] != "tastes/sesame.md" {
+		t.Fatalf("the cited notes were not passed on: %v", items[0].notes)
+	}
+
 	r.deletedAt(items[0])
 	if len(woken) != 1 {
 		t.Fatalf("the persona that cited the post was not told: %v", woken)
+	}
+	if !strings.Contains(woken[0], "tastes/sesame.md") {
+		t.Fatalf("the persona was not told which notes:\n%s", woken[0])
 	}
 	if !strings.Contains(woken[0], entry.ID) || !strings.Contains(woken[0], "ごま") {
 		t.Fatalf("the persona was not told which post:\n%s", woken[0])

@@ -45,6 +45,26 @@ func NoteSources(text string) []NoteSource {
 	return sources
 }
 
+// withoutNoteSource drops one entry from the block the app manages. The body is
+// returned exactly as the persona wrote it: this block is the app's own, and a
+// link to a post that no longer exists is the app's own stale data.
+func withoutNoteSource(text, entryID string) (string, bool) {
+	body, sources := splitNoteSources(text)
+	kept := make([]NoteSource, 0, len(sources))
+	found := false
+	for _, source := range sources {
+		if source.EntryID == entryID {
+			found = true
+			continue
+		}
+		kept = append(kept, source)
+	}
+	if !found {
+		return text, false
+	}
+	return withNoteSources("", body, kept), true
+}
+
 func withNoteSources(previous, next string, added []NoteSource) string {
 	_, old := splitNoteSources(previous)
 	body, _ := splitNoteSources(next)

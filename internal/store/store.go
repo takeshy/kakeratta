@@ -428,6 +428,55 @@ func (s *Store) WriteNote(personaID, path, text string, sources ...NoteSource) e
 	return os.WriteFile(target, []byte(text), 0o644)
 }
 
+// DropNoteSource removes a deleted post from the provenance blocks the app
+// wrote, and reports which notes had cited it.
+//
+// This is the one part of a note the app maintains: it put those links there,
+// and a link to a post that is gone points nowhere. What the note says about
+// the post is the persona's to keep, correct or throw away.
+func (s *Store) DropNoteSource(personaID, entryID string) ([]string, error) {
+	if personaID == "" || entryID == "" {
+		return nil, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	dir := s.memoryDir(personaID)
+	var touched []string
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		next, changed := withoutNoteSource(string(raw), entryID)
+		if !changed {
+			return nil
+		}
+		if err := os.WriteFile(path, []byte(next), 0o644); err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		touched = append(touched, filepath.ToSlash(relative))
+		return nil
+	})
+	if err != nil && !os.IsNotExist(err) {
+		return touched, err
+	}
+	sort.Strings(touched)
+	return touched, nil
+}
+
 // DeleteNote throws one piece away, which is a decision a persona is allowed to
 // make about its own notes.
 func (s *Store) DeleteNote(personaID, path string) error {

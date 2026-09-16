@@ -223,6 +223,30 @@ func (w *FirestoreWorkspace) WriteNote(personaID, name, text string, sources ...
 	})
 }
 
+func (w *FirestoreWorkspace) DropNoteSource(personaID, entryID string) ([]string, error) {
+	if personaID == "" || entryID == "" {
+		return nil, nil
+	}
+	var touched []string
+	for _, note := range w.Memory(personaID).Notes {
+		next, changed := withoutNoteSource(note.Text, entryID)
+		if !changed {
+			continue
+		}
+		clean, err := notePath(note.Path)
+		if err != nil {
+			continue
+		}
+		ref := w.persona(personaID).Collection("memory").Doc(noteID(clean))
+		if _, err := ref.Set(context.Background(), Note{Path: clean, Text: next, Written: time.Now()}); err != nil {
+			return touched, err
+		}
+		touched = append(touched, clean)
+	}
+	sort.Strings(touched)
+	return touched, nil
+}
+
 func (w *FirestoreWorkspace) DeleteNote(personaID, name string) error {
 	clean, err := notePath(name)
 	if err != nil {
