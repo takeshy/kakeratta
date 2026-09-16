@@ -57,3 +57,19 @@ func TestRouteModelFollowsTheSizeOfThePost(t *testing.T) {
 		t.Fatalf("fallback routed by %q", got)
 	}
 }
+
+// Routing exists to drop the plainly irrelevant, not to pick the best match. A
+// post saying "今日の20時30分からドラマを見る" reached nobody because watching a
+// drama was not among anyone's examples.
+func TestTheRoutingPromptLeansOnDelivering(t *testing.T) {
+	for _, rule := range []string{
+		"既定は「渡す」です",
+		"「誰にも渡さない」はほとんど起きません",
+		"話題が担当の例に無いというだけで外さないでください",
+		"ドラマを見る",
+	} {
+		if !strings.Contains(routePrompt, rule) {
+			t.Fatalf("the routing prompt lost %q", rule)
+		}
+	}
+}

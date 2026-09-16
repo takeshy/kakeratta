@@ -17,17 +17,24 @@ import (
 // more: it drops what is plainly none of a persona's business and passes
 // everything else on. Whether to actually say something is still the persona's
 // call, made with the post in front of it.
+//
+// The bias is deliberate. A post delivered to a persona that has nothing to say
+// costs one call and ends in silence; a post delivered to nobody is a post the
+// app quietly swallowed, which is the worse of the two.
 const routePrompt = `投稿を、担当分野ごとのAIのうち誰に渡すかを振り分けます。
 
+**既定は「渡す」です。** 外すのは、その担当の領域と明らかに無関係なときだけ。
+
 規則:
-- **明らかに関係ないものを外すだけ**です。関係あるかもしれないものは渡してください。
-- 渡した相手が必ず発言するわけではありません。最終的に黙るかどうかは相手が決めます。
-  だから迷ったら渡す方に倒してください。外すのは「この担当には絶対に関係ない」ときだけです。
+- 渡した相手が必ず発言するわけではありません。黙るかどうかは相手が自分で決めます。
+  あなたの仕事は関係者を選ぶことではなく、**明らかな無関係を落とすこと**だけです。迷ったら渡してください。
+- **「誰にも渡さない」はほとんど起きません。** これからやること、時刻、予定、出来事、感想、相談が書かれていれば、
+  少なくとも1体には渡してください。話題が担当の例に無いというだけで外さないでください。
+  例: 「今日の20時30分からドラマを見る」は、ドラマが例に無くても、時刻の付いた予定を扱う担当へ渡します。
 - 渡されたスレッド全体（元の投稿、ユーザーの追加発言、担当の発言）を読んで、今回の対象発言の意味と担当を判断してください。
 - 追加発言は単独の投稿ではありません。省略された目的・場所・時間はスレッド内の文脈で補い、ユーザーの訂正や追加条件を優先してください。
   例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足なので、移動の担当へ渡します。
 - 過去に担当が回答済みでも、新しい条件や質問があれば改めて関係する担当へ渡してください。
-- 誰にも渡さないという判断もあります。
 
 {"deliver":["id", ...]} の形式で、渡す相手のidだけを返してください。`
 
