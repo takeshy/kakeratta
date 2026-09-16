@@ -346,6 +346,9 @@ func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publishEvent("entry", entry)
+	// Whoever wrote this post down is told, and tidies its own notes. The app
+	// removes the post, never the memory someone built on it.
+	s.runner.EntryForgotten(entry.ID, entry.Text)
 	writeJSON(w, http.StatusOK, entry)
 }
 

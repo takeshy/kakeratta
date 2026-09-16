@@ -55,6 +55,8 @@ type reaction struct {
 	// forgotten is a note the user deleted: the persona is told, so it can put
 	// its own memory back in order. The app never edits a note itself.
 	forgotten *forgotten
+	// deleted is a post the user removed that a persona had cited.
+	deleted *deletedPost
 }
 
 type forgotten struct {
@@ -132,6 +134,8 @@ func (r *Runner) Start() {
 					r.schedulesAt(time.Now())
 				} else if item.forgotten != nil {
 					r.forgottenAt(*item.forgotten)
+				} else if item.deleted != nil {
+					r.deletedAt(*item.deleted)
 				} else {
 					r.reactAt(item.entryID, item.place)
 				}
