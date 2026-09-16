@@ -12,7 +12,7 @@ var webSearch = Tool{
 	Parameters: map[string]any{"type": "object", "properties": map[string]any{
 		"query": map[string]any{"type": "string", "description": "検索する語句"},
 	}, "required": []any{"query"}},
-	Usage: `web_search — Webを検索する。{"tool":"web_search","args":{"query":"検索語"}}`,
+	Usage: `web_search — Webを検索する。`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		query := args.str("query")
 		if query == "" {

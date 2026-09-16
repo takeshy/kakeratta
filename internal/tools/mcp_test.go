@@ -75,15 +75,25 @@ func TestMCPToolsAreListedDescribedAndRun(t *testing.T) {
 		t.Fatalf("names: %v", names)
 	}
 	set := registry.For([]string{"geo.compute_commute", "route"})
-	usage := set.Describe()
-	for _, want := range []string{
-		"geo.compute_commute — Compute travel time from bundled profiles.",
-		`"tool":"geo.compute_commute"`, `"destination":{"lat":0,"lng":0}`, `"origin":{"lat":0,"lng":0}`,
-		"（任意: arrivalTime, mode）",
-	} {
-		if !strings.Contains(usage, want) {
-			t.Fatalf("usage missing %q:\n%s", want, usage)
+	if usage := set.Describe(); !strings.Contains(usage, "geo.compute_commute — Compute travel time from bundled profiles.") {
+		t.Fatalf("usage: %s", usage)
+	}
+	// The argument names reach the model as the server's own schema now, rather
+	// than as an example built into the sentence.
+	var commute Declaration
+	for _, declaration := range set.Declarations() {
+		if declaration.Name == "geo.compute_commute" {
+			commute = declaration
 		}
+	}
+	properties, _ := commute.Parameters["properties"].(map[string]any)
+	for _, want := range []string{"origin", "destination", "mode", "arrivalTime"} {
+		if _, ok := properties[want]; !ok {
+			t.Fatalf("the server's schema did not reach the model: %v", commute.Parameters)
+		}
+	}
+	if required, _ := commute.Parameters["required"].([]any); len(required) != 2 {
+		t.Fatalf("required arguments lost: %v", commute.Parameters["required"])
 	}
 	if _, err := set.Run(context.Background(), "geo.list_layers", nil, nil); err == nil {
 		t.Fatal("undeclared MCP tool ran")
@@ -136,7 +146,7 @@ func TestBuiltinNamesWinOverMCPAndNoCatalogueIsFine(t *testing.T) {
 		t.Fatalf("names: %v", names)
 	}
 	usage := describeMCP("geo.list_layers", mcp.Tool{Name: "list_layers", Title: "Layers"})
-	if usage != `geo.list_layers — Layers {"tool":"geo.list_layers"}` {
+	if usage != "geo.list_layers — Layers" {
 		t.Fatalf("usage: %s", usage)
 	}
 }

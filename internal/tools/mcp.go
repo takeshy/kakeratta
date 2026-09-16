@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/takeshy/kakeratta/internal/mcp"
@@ -51,8 +50,8 @@ func parametersOf(raw json.RawMessage) map[string]any {
 }
 
 // describeMCP writes the one usage line a persona is shown, in the same shape
-// as the built-in tools: name, what it does, and an example call built from
-// the input schema so the model has the argument names in front of it.
+// as the built-in tools: the name and what it does. The argument names are not
+// spelled out here because the server's own schema travels with the tool.
 func describeMCP(name string, tool mcp.Tool) string {
 	description := strings.Join(strings.Fields(tool.Description), " ")
 	if description == "" {
@@ -61,17 +60,7 @@ func describeMCP(name string, tool mcp.Tool) string {
 	if len([]rune(description)) > 300 {
 		description = string([]rune(description)[:300]) + "…"
 	}
-	example, optional := exampleArgs(tool.InputSchema)
-	call := map[string]any{"tool": name}
-	if len(example) > 0 {
-		call["args"] = example
-	}
-	encoded, _ := json.Marshal(call)
-	line := name + " — " + description + " " + string(encoded)
-	if len(optional) > 0 {
-		line += " （任意: " + strings.Join(optional, ", ") + "）"
-	}
-	return line
+	return name + " — " + description
 }
 
 type schema struct {
@@ -98,76 +87,6 @@ func (s schema) typeName() string {
 		return "object"
 	}
 	return ""
-}
-
-// exampleArgs builds a sample argument object: every required property, then
-// the optional ones by name. Enums are shown as a|b like the built-in tools do.
-func exampleArgs(raw json.RawMessage) (map[string]any, []string) {
-	var root schema
-	if len(raw) == 0 || json.Unmarshal(raw, &root) != nil || len(root.Properties) == 0 {
-		return nil, nil
-	}
-	required := map[string]bool{}
-	for _, name := range root.Required {
-		required[name] = true
-	}
-	example := map[string]any{}
-	var optional []string
-	for name, property := range root.Properties {
-		if required[name] {
-			example[name] = placeholder(property, 0)
-		} else {
-			optional = append(optional, name)
-		}
-	}
-	sort.Strings(optional)
-	if len(example) == 0 && len(optional) > 0 {
-		// Nothing is required, so show the first few optional ones instead of
-		// an empty object that teaches the model nothing.
-		for _, name := range optional[:min(3, len(optional))] {
-			example[name] = placeholder(root.Properties[name], 0)
-		}
-		optional = optional[min(3, len(optional)):]
-	}
-	return example, optional
-}
-
-func placeholder(property schema, depth int) any {
-	if len(property.Enum) > 0 {
-		var names []string
-		for _, value := range property.Enum {
-			names = append(names, fmt.Sprint(value))
-		}
-		return strings.Join(names, "|")
-	}
-	switch property.typeName() {
-	case "number", "integer":
-		return 0
-	case "boolean":
-		return false
-	case "array":
-		if property.Items != nil && depth < 2 {
-			return []any{placeholder(*property.Items, depth+1)}
-		}
-		return []any{}
-	case "object":
-		nested := map[string]any{}
-		if depth < 2 {
-			for name, child := range property.Properties {
-				nested[name] = placeholder(child, depth+1)
-			}
-		}
-		return nested
-	default:
-		if property.Description != "" {
-			words := strings.Join(strings.Fields(property.Description), " ")
-			if len([]rune(words)) > 40 {
-				words = string([]rune(words)[:40]) + "…"
-			}
-			return words
-		}
-		return "…"
-	}
 }
 
 // checkArgs refuses a call the server would refuse anyway, but says why in the

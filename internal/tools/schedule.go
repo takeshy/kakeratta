@@ -42,7 +42,7 @@ var scheduleTool = Tool{
 		"time_zone":  map[string]any{"type": "string", "description": "IANAのタイムゾーン。毎日繰り返すときは必須"},
 		"id":         map[string]any{"type": "string", "description": "cancel するときの s_ から始まるid"},
 	}},
-	Usage: `schedule — 自分を起こす時刻を本体に預ける。カレンダーや目覚ましではなく、あなたの担当の用のためのものです。{"tool":"schedule","args":{"action":"set","at":"2026-09-17T20:00:00+09:00","note":"花を買う予定だった","daily":false,"time_zone":"Asia/Tokyo"}}。atの代わりに {"in_minutes":90} でも置けます。action は set / list / cancel（cancelは {"id":"s_..."}）。noteは起きたときに自分が読む「何のためか」です。メモを書いたら、同じ返答の中で schedule も置くか直してください（メモと本体の予定は別の場所にあります）。時刻はユーザーに尋ねず、書かれた言葉と過去の記録から決めます。済んだと分かったこと、やめたことは cancel してください。設定できるのは30日以内、担当ごとに20件まで。発火すると1回きりのものは消え、daily:true のものは翌日の同じ時刻に進みます。鳴っても言うことがなければ silent。`,
+	Usage: `schedule — 自分を起こす時刻を本体に預ける。カレンダーや目覚ましではなく、あなたの担当の用のためのものです。atの代わりにin_minutesでも置けます。noteは起きたときに自分が読む「何のためか」です。メモを書いたら、同じターンのうちに schedule も置くか直してください（メモと本体の予定は別の場所にあります）。時刻はユーザーに尋ねず、書かれた言葉と過去の記録から決めます。済んだと分かったこと、やめたことは cancel してください。設定できるのは30日以内、担当ごとに20件まで。発火すると1回きりのものは消え、daily:true のものは翌日の同じ時刻に進みます。鳴っても言うことがなければ silent。`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		if r.schedules == nil {
 			return Result{}, errors.New("schedule が設定されていません")
