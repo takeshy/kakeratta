@@ -3,6 +3,9 @@ package persona
 import (
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/takeshy/kakeratta/internal/store"
 )
 
 // Deleting a post is the user's; tidying the memory built on it is the
@@ -57,5 +60,53 @@ func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 	}
 	if woke, err := s.Woke(entry.ID); err != nil || len(woke) != 0 {
 		t.Fatalf("the record survived: %v (%v)", woke, err)
+	}
+}
+
+// A deletion wake is a turn like any other: the persona's declared tools are in
+// its hands, so plana can cancel the schedule it set because of that post.
+func TestADeletionWakeCanCancelTheSchedule(t *testing.T) {
+	var offered string
+	r, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "根拠にしていた投稿が消されました") {
+			offered = system
+		}
+		return `{"action":"tool","tool":"schedule","args":{"action":"cancel","id":"s_gone"}}`
+	}, "routine")
+
+	entry := post(t, s, "17:00になったら夕飯の買い物に行く。")
+	if err := s.RecordWake(entry.ID, "routine"); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.SaveSchedule(store.Schedule{
+		Skill: "routine", At: time.Now().Add(3 * time.Hour).UTC(), Note: "買い物に行ったか",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r.EntryForgotten(entry.ID, entry.Text)
+	r.stopMu.Lock()
+	var gone []deletedPost
+	for _, item := range r.queue {
+		if item.deleted != nil {
+			gone = append(gone, *item.deleted)
+		}
+	}
+	r.stopMu.Unlock()
+	if len(gone) != 1 {
+		t.Fatalf("queued %+v", gone)
+	}
+	r.deletedAt(gone[0])
+
+	if !strings.Contains(offered, "schedule") {
+		t.Fatalf("the persona was not offered its schedule tool:\n%s", offered)
+	}
+	if !strings.Contains(offered, "予定も見直してください") {
+		t.Fatal("the deletion wake did not mention the schedules")
+	}
+	// The cancel it asked for went through, which is what having the tool means.
+	if left, err := s.Schedules("routine"); err != nil || len(left) != 1 || left[0].ID != saved.ID {
+		t.Fatalf("left = %+v (%v)", left, err)
 	}
 }
