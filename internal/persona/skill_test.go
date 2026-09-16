@@ -189,6 +189,9 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 		"id が無い予定の行は書かない",
 		"本文に投稿のIDやリンクを書かない",
 		"指示されていない項目を足さない",
+		// A schedule nobody can see is indistinguishable from none: plana says so
+		// once, in reply to the post that occasioned it.
+		"登録できたら、その投稿への返事として一言だけ知らせる",
 	} {
 		if !strings.Contains(plana.Instructions, rule) {
 			t.Fatalf("plana's instructions lack %q", rule)

@@ -487,9 +487,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			// memory, and reaching it is not reaching outside.
 			if text, handled := r.notesTool(skill.ID, parsed.Tool, parsed.Args, &noteSources); handled {
 				if parsed.Tool == "notes_write" && set.Allows("schedule") && !scheduled {
-					text += "\n\nこのメモに対応する schedule は置きましたか。" +
-						"必要なら、いま {\"action\":\"tool\",\"tool\":\"schedule\",\"args\":{…}} で置いてください。" +
-						"要らないなら、そのまま speak か silent で終えてください。"
+					text += "\n\n**次は schedule です。** このメモに時刻があるなら、いま登録してください。" +
+						"メモに書いた時刻は登録ではありません。登録しない限り、その時刻には何も起きません。\n" +
+						`{"action":"tool","tool":"schedule","args":{"action":"set","at":"2026-09-16T21:30:00+09:00","note":"ドラマを見たか"}}` +
+						"\n時刻が無い用なら、登録は不要です。その場合だけ speak か silent に進んでください。"
 				}
 				messages = append(messages,
 					llm.Message{Role: "assistant", Content: reply},
