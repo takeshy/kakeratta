@@ -28,31 +28,91 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Messages []struct {
-				Role    string `json:"role"`
-				Content any    `json:"content"`
+				Role       string `json:"role"`
+				Content    any    `json:"content"`
+				ToolCallID string `json:"tool_call_id"`
+				ToolCalls  []struct {
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
 			} `json:"messages"`
+			Tools []struct {
+				Function struct {
+					Name        string `json:"name"`
+					Description string `json:"description"`
+				} `json:"function"`
+			} `json:"tools"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		system, user := "", ""
 		for _, message := range body.Messages {
 			text, _ := message.Content.(string)
-			if message.Role == "system" {
+			switch {
+			case message.Role == "system":
 				system += text
-			} else {
-				user += text + "\n"
+				continue
+			case message.ToolCallID != "":
+				// A result is bound to its call by id rather than by anything in
+				// the text, so the transcript is put back together from the id
+				// this fake minted below.
+				text = strings.TrimPrefix(message.ToolCallID, "call_") + " の結果:\n" + text
 			}
+			for _, call := range message.ToolCalls {
+				text += call.Function.Name + " " + call.Function.Arguments
+			}
+			user += text + "\n"
+		}
+		// What a persona may call travels in the request now rather than in the
+		// prompt, so it is recorded beside it - a test asking whether a persona
+		// was told about a tool is asking about this - but kept out of what the
+		// reply sees, where a tool name would match every round.
+		offered := ""
+		for _, tool := range body.Tools {
+			offered += tool.Function.Name + " — " + tool.Function.Description + "\n"
 		}
 		f.mu.Lock()
-		f.prompts = append(f.prompts, system+"\n----\n"+user)
+		f.prompts = append(f.prompts, system+"\n----\n"+user+"\n----\n"+offered)
 		f.mu.Unlock()
-		content := f.reply(system, user)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"choices": []any{map[string]any{"message": map[string]string{"content": content}}},
+			"choices": []any{map[string]any{"message": asCall(f.reply(system, user))}},
 		})
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// asCall turns what a test wrote - the old {"action":...} shape, which is still
+// the clearest way to say what a persona does next - into the tool call the
+// runner now reads. Anything that is not that shape goes back as prose, which
+// is its own case in the runner.
+func asCall(content string) map[string]any {
+	var parsed struct {
+		Action string         `json:"action"`
+		Text   string         `json:"text"`
+		Tool   string         `json:"tool"`
+		Args   map[string]any `json:"args"`
+	}
+	if json.Unmarshal([]byte(content), &parsed) != nil || parsed.Action == "" {
+		return map[string]any{"content": content}
+	}
+	name, args := parsed.Action, map[string]any{}
+	switch parsed.Action {
+	case "tool":
+		name = parsed.Tool
+		if parsed.Args != nil {
+			args = parsed.Args
+		}
+	case "speak":
+		args["text"] = parsed.Text
+	}
+	raw, _ := json.Marshal(args)
+	return map[string]any{"content": "", "tool_calls": []any{map[string]any{
+		"id": "call_" + name, "type": "function",
+		"function": map[string]any{"name": name, "arguments": string(raw)},
+	}}}
 }
 
 func (f *fake) seen(needle string) bool {

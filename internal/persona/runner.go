@@ -352,35 +352,93 @@ const systemTemplate = `あなたは「%s」。%s
 - 発言するときは短く。前に自分が覚えていたことと結びつくなら、それを言ってください。
 - **発言は投稿と同じ言語で。** 日本語で書かれた投稿には日本語で、英語なら英語で返してください。
   名前や口調はそのままで構いません。
-- 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。%s
+- 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。
 
-道具を使うときは {"action":"tool","tool":"名前","args":{…}} を返してください。結果を渡すので、続きを返してください。
-画像の細部が要るときは {"action":"image"} を返すと元の画像を渡します。
+道具はこの要求に添えてあります。**毎回かならずどれかを呼んでください。** 文章だけを返しても誰にも届きません。
+結果は渡すので、必要なだけ続けて構いません。
+
+発言するときは ` + "`speak`" + `、何も言わずに終えるときは ` + "`silent`" + `。
+**このどちらかを呼ぶまで、あなたのターンは終わりません。**
 
 ## あなたのメモの道具
 
 一覧は毎回渡しますが、**中身は自分で読んでください。** 書き込みも自分で行います。
 これらは宣言不要で、届くのはあなた自身のメモだけです。
 
-- ` + "`notes_read`" + ` — 中身を読む。{"action":"tool","tool":"notes_read","args":{"paths":["tastes/tonkotsu.md"]}}
-- ` + "`notes_write`" + ` — 1ファイルを書く（そのファイルだけ丸ごと差し替え。他は無傷）。
-  {"action":"tool","tool":"notes_write","args":{"path":"tastes/tonkotsu.md","text":"ファイルの全文"}}
-- ` + "`notes_forget`" + ` — 1ファイルを捨てる。{"action":"tool","tool":"notes_forget","args":{"path":"…"}}
-- ` + "`notes_list`" + ` — 一覧を取り直す。{"action":"tool","tool":"notes_list"}
-
-書いたあとに ` + "`speak`" + ` か ` + "`silent`" + ` を返して終わります。
-
-最後に返すのはJSONだけです:
-{"action":"speak"|"silent","text":"発言（speakのとき）"}
+- ` + "`notes_read`" + ` — 中身を読む
+- ` + "`notes_write`" + ` — 1ファイルを書く（そのファイルだけ丸ごと差し替え。他は無傷）
+- ` + "`notes_forget`" + ` — 1ファイルを捨てる
+- ` + "`notes_list`" + ` — 一覧を取り直す
 
 ---
 
 %s`
 
-const toolTemplate = `
+// noteTools are the four every persona has. They are declared here rather than
+// in the tools package because they never leave the app: a persona reaching its
+// own memory is not reaching outside.
+var noteTools = []llm.Tool{
+	{Name: "notes_list", Description: "自分のメモの一覧を取り直す。", Parameters: noArgs},
+	{Name: "notes_read", Description: "自分のメモの中身を読む。一覧にある path を渡す。", Parameters: map[string]any{
+		"type": "object", "properties": map[string]any{
+			"paths": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "読みたいメモの path"},
+		}, "required": []any{"paths"},
+	}},
+	{Name: "notes_write", Description: "メモを1ファイル書く。そのファイルだけ丸ごと差し替わり、他のメモは無傷。", Parameters: map[string]any{
+		"type": "object", "properties": map[string]any{
+			"path": map[string]any{"type": "string", "description": "tastes/tonkotsu.md のような path"},
+			"text": map[string]any{"type": "string", "description": "そのファイルの全文"},
+		}, "required": []any{"path", "text"},
+	}},
+	{Name: "notes_forget", Description: "メモを1ファイル捨てる。", Parameters: map[string]any{
+		"type": "object", "properties": map[string]any{
+			"path": map[string]any{"type": "string", "description": "捨てるメモの path"},
+		}, "required": []any{"path"},
+	}},
+}
 
-外に出る道具（このスキルが宣言したものだけ）:
-%s`
+// speak and silent are how a turn ends. Saying something is a tool like any
+// other: it is the one call that puts a line on the timeline, and a persona
+// that has nothing to add calls silent instead. Neither is optional - the turn
+// runs until one of them arrives.
+var (
+	noArgs    = map[string]any{"type": "object", "properties": map[string]any{}}
+	speakTool = llm.Tool{Name: "speak", Description: "発言する。投稿と同じ言語で、短く。", Parameters: map[string]any{
+		"type": "object", "properties": map[string]any{
+			"text": map[string]any{"type": "string", "description": "タイムラインに出る発言"},
+		}, "required": []any{"text"},
+	}}
+	silentTool = llm.Tool{Name: "silent", Description: "何も言わずに終える。メモに書いたことは残る。", Parameters: noArgs}
+	imageTool  = llm.Tool{Name: "image", Description: "元の画像そのものを見る。読み取った文字だけでは足りないとき。", Parameters: noArgs}
+)
+
+// offer is everything this persona may call this turn.
+func offer(set *tools.Set, post timeline.Entry) []llm.Tool {
+	offered := append([]llm.Tool{}, noteTools...)
+	for _, declared := range set.Declarations() {
+		offered = append(offered, llm.Tool{Name: declared.Name, Description: declared.Description, Parameters: declared.Parameters})
+	}
+	if post.Media != nil && post.Media.BlobID != "" {
+		offered = append(offered, imageTool)
+	}
+	return append(offered, speakTool, silentTool)
+}
+
+// argsOf parses what the model wrote for one call. Bad JSON is an empty call
+// rather than a dead turn: the tool says what it is missing, and the persona
+// gets to try again.
+func argsOf(raw string) map[string]any {
+	var args map[string]any
+	if json.Unmarshal([]byte(raw), &args) != nil || args == nil {
+		return map[string]any{}
+	}
+	return args
+}
+
+// answer is one tool result going back.
+func answer(call llm.ToolCall, text string) llm.Message {
+	return llm.Message{Role: "tool", CallID: call.ID, Content: text}
+}
 
 // run wakes one persona and hands it the post. Everything after that is the
 // persona's: what of its own notes to read, what to write, whether to say
@@ -407,11 +465,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	set := registry.For(skill.Tools).As(skill.ID)
 
-	toolBlock := ""
-	if !set.Empty() {
-		toolBlock = fmt.Sprintf(toolTemplate, set.Describe())
-	}
-	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, toolBlock, okfHost+okfSkill)
+	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, okfHost+okfSkill)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -455,9 +509,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)}}
 	}
 
+	offered := offer(set, post)
 	for round := 0; round < rounds; round++ {
-		reply, err := client.Chat(ctx, llm.Request{
-			Model: model, JSON: true, Messages: messages, Files: files,
+		reply, err := client.Complete(ctx, llm.Request{
+			Model: model, Messages: messages, Files: files,
+			Tools: offered, ToolChoice: "required",
 		})
 		files = nil
 		if err != nil {
@@ -467,93 +523,79 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			}
 			return nil
 		}
-		var parsed struct {
-			Action string         `json:"action"`
-			Text   string         `json:"text"`
-			Tool   string         `json:"tool"`
-			Args   map[string]any `json:"args"`
-		}
-		if err := json.Unmarshal([]byte(firstJSON(reply)), &parsed); err != nil {
-			// A model that ignored the shape still said something. Treat it as a
-			// remark when it was named, and as silence otherwise.
-			if named && strings.TrimSpace(reply) != "" {
-				return r.speak(skill, root, strings.TrimSpace(reply), nil, memory, trigger.ID)
+		if len(reply.Calls) == 0 {
+			// A model that answered in prose when it was asked to act. Treat it
+			// as a remark when it was named, and as silence otherwise.
+			if named && strings.TrimSpace(reply.Content) != "" {
+				return r.speak(skill, root, strings.TrimSpace(reply.Content), sources, memory, trigger.ID)
 			}
 			return nil
 		}
-		switch parsed.Action {
-		case "tool":
-			// Its own notes are not a declared capability: every persona has a
-			// memory, and reaching it is not reaching outside.
-			if text, handled := r.notesTool(skill.ID, parsed.Tool, parsed.Args, &noteSources); handled {
-				if parsed.Tool == "notes_write" && set.Allows("schedule") && !scheduled {
-					text += "\n\n**次は schedule です。** このメモに時刻があるなら、いま登録してください。" +
-						"メモに書いた時刻は登録ではありません。登録しない限り、その時刻には何も起きません。\n" +
-						`{"action":"tool","tool":"schedule","args":{"action":"set","at":"2026-09-16T21:30:00+09:00","note":"ドラマを見たか"}}` +
-						"\n時刻が無い用なら、登録は不要です。その場合だけ speak か silent に進んでください。"
+		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
+		for _, call := range reply.Calls {
+			args := argsOf(call.Args)
+			switch call.Name {
+			case "speak":
+				text := strings.TrimSpace(stringOf(args["text"]))
+				if text == "" && named && !listening {
+					messages = append(messages, answer(call, "あなたは名指しで呼ばれています。空の返答にはできません。短く答えてください。"))
+					continue
 				}
-				messages = append(messages,
-					llm.Message{Role: "assistant", Content: reply},
-					llm.Message{Role: "user", Content: parsed.Tool + " の結果:\n" + text})
-				continue
-			}
-			if parsed.Tool == "schedule" {
-				scheduled = true
-			}
-			result, err := set.Run(ctx, parsed.Tool, parsed.Args, post.Place)
-			text := result.Text
-			if err != nil {
-				// A failed tool is something to tell the persona about, not an
-				// error to abandon the whole reaction over.
-				text = "道具が使えませんでした: " + err.Error()
-			}
-			sources = append(sources, result.Sources...)
-			messages = append(messages,
-				llm.Message{Role: "assistant", Content: reply},
-				llm.Message{Role: "user", Content: parsed.Tool + " の結果:\n" + text})
-			continue
-		case "image":
-			if post.Media == nil || post.Media.BlobID == "" {
-				messages = append(messages,
-					llm.Message{Role: "assistant", Content: reply},
-					llm.Message{Role: "user", Content: "この投稿に画像はありません。"})
-				continue
-			}
-			data, mime, err := r.store.Blob(post.Media.BlobID)
-			if err != nil {
-				messages = append(messages,
-					llm.Message{Role: "assistant", Content: reply},
-					llm.Message{Role: "user", Content: "画像を読み出せませんでした。"})
-				continue
-			}
-			files = []llm.Attachment{{Name: "capture", MIME: mime, Data: data}}
-			messages = append(messages,
-				llm.Message{Role: "assistant", Content: reply},
-				llm.Message{Role: "user", Content: "元の画像です。"})
-			continue
-		case "speak":
-			text := strings.TrimSpace(parsed.Text)
-			if text == "" && named && !listening {
-				messages = append(messages,
-					llm.Message{Role: "assistant", Content: reply},
-					llm.Message{Role: "user", Content: "あなたは名指しで呼ばれています。空の返答にはできません。短く答えてください。"})
-				continue
-			}
-			if text == "" || listening {
-				// It had its turn. Whatever it wrote down is kept either way.
+				if text == "" || listening {
+					// It had its turn. Whatever it wrote down is kept either way.
+					return r.hush(skill, memory)
+				}
+				return r.speak(skill, root, text, sources, memory, trigger.ID)
+
+			case "silent":
+				if named && !listening {
+					// Being asked by name is the one thing that is not the
+					// persona's to decline. The rest of the answer still is.
+					messages = append(messages, answer(call, "あなたは名指しで呼ばれています。silent は選べません。短くて構わないので答えてください。"))
+					continue
+				}
 				return r.hush(skill, memory)
+
+			case "image":
+				if post.Media == nil || post.Media.BlobID == "" {
+					messages = append(messages, answer(call, "この投稿に画像はありません。"))
+					continue
+				}
+				data, mime, err := r.store.Blob(post.Media.BlobID)
+				if err != nil {
+					messages = append(messages, answer(call, "画像を読み出せませんでした。"))
+					continue
+				}
+				files = []llm.Attachment{{Name: "capture", MIME: mime, Data: data}}
+				// A file travels with the last user message, so the picture
+				// needs one of its own behind the result.
+				messages = append(messages, answer(call, "元の画像です。"), llm.Message{Role: "user", Content: "元の画像です。"})
+
+			default:
+				// Its own notes are not a declared capability: every persona has
+				// a memory, and reaching it is not reaching outside.
+				if text, handled := r.notesTool(skill.ID, call.Name, args, &noteSources); handled {
+					if call.Name == "notes_write" && set.Allows("schedule") && !scheduled {
+						text += "\n\n**次は schedule です。** このメモに時刻があるなら、いま登録してください。" +
+							"メモに書いた時刻は登録ではありません。登録しない限り、その時刻には何も起きません。\n" +
+							"時刻が無い用なら、登録は不要です。その場合だけ speak か silent に進んでください。"
+					}
+					messages = append(messages, answer(call, text))
+					continue
+				}
+				if call.Name == "schedule" {
+					scheduled = true
+				}
+				result, err := set.Run(ctx, call.Name, args, post.Place)
+				text := result.Text
+				if err != nil {
+					// A failed tool is something to tell the persona about, not
+					// an error to abandon the whole reaction over.
+					text = "道具が使えませんでした: " + err.Error()
+				}
+				sources = append(sources, result.Sources...)
+				messages = append(messages, answer(call, text))
 			}
-			return r.speak(skill, root, text, sources, memory, trigger.ID)
-		default:
-			if named && !listening {
-				// Being asked by name is the one thing that is not the persona's
-				// to decline. Everything else about the answer still is.
-				messages = append(messages,
-					llm.Message{Role: "assistant", Content: reply},
-					llm.Message{Role: "user", Content: "あなたは名指しで呼ばれています。silent は選べません。短くて構わないので答えてください。"})
-				continue
-			}
-			return r.hush(skill, memory)
 		}
 	}
 	if named && !listening {
@@ -611,7 +653,7 @@ func turnLine(named, listening bool) string {
 	switch {
 	case listening:
 		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
-			"覚えておくことがあればメモに書いてください。返すのは silent です。"
+			"覚えておくことがあればメモに書いてください。最後に `silent` を呼んでください。"
 	case named:
 		return "\n※ あなたは名指しで呼ばれています。必ず発言してください。"
 	}
