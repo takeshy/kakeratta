@@ -192,7 +192,6 @@ const EN = {
   "宣言した担当だけが呼べます。鍵はここにあり、スキルは持ちません。": "Only personas that declare a tool can call it. Credentials stay here and are never included in skills.",
   "既定は鍵の要らない公開サービスです。自前のインスタンスに向けられます。": "The defaults are public services that need no credentials. You can point these at your own instances.",
   "道路の所要時間です。公共交通は含みません": "Road travel times only; public transit is not included.",
-  "トークンが未設定です。外から届く場所に置くときは KAKERATTA_TOKEN を設定してください。": "No token is configured. Set KAKERATTA_TOKEN before exposing this app externally.",
   "話し終わりの合図。これで投稿されます。空欄で無効": "A phrase that posts when you finish speaking. Leave blank to disable.",
   "担当領域は本体が読んで振り分けに使います。指示は本人だけが読みます。メモの形式（OKF）は全員に渡るので、指示には「どんな type を使い、いつ統合するか」を書いてください。": "The app reads the domain to route posts; only the persona reads its instructions. Every persona receives the OKF memory format, so describe which types to use and when to consolidate them.",
   "使える道具": "Available tools", "（なし）": "(none)",

@@ -150,7 +150,7 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		log.Printf("kakeratta %s — %s  （保存先 %s）", version, address, root)
-		if os.Getenv("KAKERATTA_TOKEN") == "" {
+		if firebaseProjectID == "" && strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")) == "" {
 			log.Print("KAKERATTA_TOKEN が未設定です。手元だけで動かしてください。")
 		}
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

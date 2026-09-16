@@ -187,12 +187,6 @@ export function createSettings({ speaker, onSettings }) {
       el("p", { class: "hint", text: `kakeratta ${about.version}` }),
       el("p", { class: "hint", text: t("保存先 {0}", about.workspace) }),
     );
-    if (!about.needsToken) {
-      view.append(el("p", {
-        class: "hint warn",
-        label: "トークンが未設定です。外から届く場所に置くときは KAKERATTA_TOKEN を設定してください。",
-      }));
-    }
   }
 
   function drawLanguage() {
