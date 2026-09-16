@@ -64,8 +64,8 @@ func TestRouteModelFollowsTheSizeOfThePost(t *testing.T) {
 func TestTheRoutingPromptLeansOnDelivering(t *testing.T) {
 	for _, rule := range []string{
 		"既定は「渡す」です",
-		"「誰にも渡さない」はほとんど起きません",
 		"話題が担当の例に無いというだけで外さないでください",
+		"「誰にも渡さない」で構いません",
 		"ドラマを見る",
 	} {
 		if !strings.Contains(routePrompt, rule) {
