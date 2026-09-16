@@ -317,15 +317,24 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
   place-items: center;
   padding: 16px;
   z-index: 40;
+  /* The sheet holds still while a field is edited: a sideways drag inside it
+     must not pan the page behind, which reads as the dialog wobbling. */
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 .dialog {
   background: var(--card);
   border-radius: 16px;
   padding: 16px;
   width: min(560px, 100%);
+  max-width: 100%;
+  min-width: 0;
   display: grid;
   gap: 10px;
 }
+/* A grid child defaults to its content's minimum width, so one long line can
+   push the sheet wider than the screen. */
+.dialog > * { min-width: 0; }
 .dialog h3 { margin: 0; }
 #toasts {
   position: fixed;
@@ -377,8 +386,16 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .mic-activity .mic-status { max-width: none; }
 @keyframes mic-spin { to { transform: rotate(360deg); } }
 
-.persona-builder { width: min(680px, 100%); max-height: 90dvh; overflow-y: auto; }
-.builder-conversation { max-height: 35vh; overflow-y: auto; }
+.persona-builder {
+  width: min(680px, 100%);
+  max-width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.builder-conversation { max-height: 35vh; overflow-y: auto; overflow-x: hidden; }
 .builder-message { padding: 10px 12px; margin: 8px 0; border: 1px solid var(--line); border-radius: 10px; }
 .builder-message.user { margin-left: 24px; }
 .builder-message p, .builder-detail { white-space: pre-wrap; overflow-wrap: anywhere; }

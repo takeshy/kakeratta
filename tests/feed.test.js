@@ -454,11 +454,9 @@ test("persona editor edits directly, asks the AI underneath, and shows what chan
   const previous = document.body.querySelectorAll(".previous");
   assert.ok(previous.some(node => !node.hidden && walk(node).some(child => child.textContent === "michi")), "the original name is shown next to the edit");
 
-  // Asking the AI opens underneath, and sends the form as it stands.
+  // The AI box sits open underneath and sends the form as it stands.
   const request = document.body.querySelectorAll(".ai-request")[0];
-  assert.equal(request.parent.hidden, true);
-  button("AIで修正").fire("click");
-  assert.equal(request.parent.hidden, false);
+  assert.ok(!request.parent.hidden);
   request.value = "もっと短く";
   button("AIに頼む").fire("click");
   for (let i = 0; i < 5; i++) await new Promise(setImmediate);

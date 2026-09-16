@@ -11,19 +11,12 @@ import { el, clear, toast } from "./dom.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
+import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
 
 const modelLabels = {
   low: "low — メモと Web 検索と発言だけの軽い担当",
   middle: "middle — 道具を使える、速さと丁寧さのバランス",
   high: "high — 道具を使える、じっくり考える",
-};
-
-const toolLabels = {
-  web_search: "Webで調べる",
-  place_search: "お店や場所を探す",
-  route: "行き方を調べる",
-  schedule: "自分を起こす予定を置く",
-  timeline_search: "過去のかけらを探す",
 };
 
 // lowTools mirrors the server's rule: the low tier may hold web search and
@@ -76,13 +69,13 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
 
   const toolBoxes = {};
   const toolList = el("div", { class: "persona-tools" });
-  const available = [...new Set([...toolNames, ...original.tools])].filter((name) => name !== "timeline_search");
+  const available = uniqueTools([...new Set([...toolNames, ...original.tools])]).filter((name) => name !== "timeline_search");
   for (const name of available) {
     const box = el("input", { type: "checkbox" });
-    box.checked = original.tools.includes(name);
+    box.checked = original.tools.some((tool) => capability(tool) === capability(name));
     box.addEventListener("change", () => { markChanged("tools"); checkTier(); });
     toolBoxes[name] = box;
-    toolList.append(el("label", { class: "switch" }, box, el("span", { text: `${t(toolLabels[name] || name)} (${name})` })));
+    toolList.append(el("label", { class: "switch" }, box, el("span", { text: t(toolLabel(name)) })));
   }
   previous.tools = el("details", { class: "previous" });
   previous.tools.hidden = true;
@@ -99,7 +92,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
 
   function shown(key, value) {
     if (key === "model") return t(modelLabels[value] || value || "");
-    if (key === "tools") return (value || []).map((name) => t(toolLabels[name] || name)).join(" / ") || t("（なし）");
+    if (key === "tools") return uniqueTools(value || []).map((name) => t(toolLabel(name))).join(" / ") || t("（なし）");
     return value || "";
   }
 
@@ -134,7 +127,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     if (["low", "middle", "high"].includes(draft.model)) model.value = draft.model;
     markChanged("model");
     if (Array.isArray(draft.tools)) {
-      for (const name of available) toolBoxes[name].checked = draft.tools.includes(name);
+      for (const name of available) toolBoxes[name].checked = draft.tools.some((tool) => capability(tool) === capability(name));
     }
     markChanged("tools");
     checkTier();
@@ -175,12 +168,6 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   const aiPanel = el("div", { class: "ai-panel" },
     el("p", { class: "hint", label: "上の内容を見ながら、変えたいことを書いてください。AIの案はフォームに反映され、保存するまでは確定しません。" }),
     conversation, request, el("div", { class: "compose-row" }, voice.button, send), voice.activity);
-  aiPanel.hidden = true;
-  const openAI = el("button", { class: "button ghost", label: "AIで修正", onclick: () => {
-    aiPanel.hidden = false;
-    openAI.hidden = true;
-    request.focus();
-  } });
 
   function bubble(role, text) {
     conversation.append(el("div", { class: `builder-message ${role}` },
@@ -237,7 +224,6 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   const dialog = el("div", { class: "dialog persona-builder persona-editor", role: "dialog", "aria-modal": "true", "aria-label": t("{0} を修正", persona.name) },
     el("h3", { text: t("{0} を修正", persona.name) }),
     form,
-    el("div", { class: "compose-row" }, openAI),
     aiPanel,
     error,
     el("div", { class: "compose-row" },

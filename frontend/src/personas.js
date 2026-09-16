@@ -11,6 +11,7 @@ import { showPersonaBuilder } from "./persona-builder.js";
 import { showPersonaEditor } from "./persona-editor.js";
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
+import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
 
 const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
@@ -66,10 +67,11 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     }
   }
 
-  function toolLink(name, label = name) {
+  function toolLink(name, label = t(toolLabel(name))) {
     const known = ["web_search", "place_search", "route", "timeline_search", "notes", "schedule"];
     const lang = getLanguage();
-    const anchor = known.includes(name) ? `${lang}-tool-${name}` : `${lang}-tools`;
+    const base = capability(name);
+    const anchor = known.includes(base) ? `${lang}-tool-${base}` : `${lang}-tools`;
     return el("a", { href: `/manual/?lang=${lang}#${anchor}`, target: "_blank", rel: "noopener noreferrer",
       text: label, title: t("{0} の説明を開く（新しいタブ）", label) });
   }
@@ -162,7 +164,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     }
     if (row.tools?.length) {
       box.append(el("p", { class: "tools" }, `${t("道具")}: `,
-        row.tools.flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));
+        uniqueTools(row.tools).flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));
     }
     box.append(
       el(
@@ -266,7 +268,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
           tone: "控えめ。おすすめを押しつけない。",
           instructions: "概念は type: Wine（銘柄）と type: Preference（好み）。同じ好みが3回出たら Preference に統合する。引用と本人の意見を分け、推測は明記し、統合後も代表例と反例を残す。",
           model: "high",
-          tools: toolNames.slice(0, 2),
+          tools: uniqueTools(toolNames).slice(0, 2),
         },
         null,
         2,
@@ -279,7 +281,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       el("p", {
         class: "hint",
         text: `${t("担当領域は本体が読んで振り分けに使います。指示は本人だけが読みます。メモの形式（OKF）は全員に渡るので、指示には「どんな type を使い、いつ統合するか」を書いてください。")} ` +
-          `${t("使える道具")}: ${toolNames.join(" / ") || t("（なし）")}`,
+          `${t("使える道具")}: ${uniqueTools(toolNames).join(" / ") || t("（なし）")}`,
       }),
       area,
       el(
