@@ -178,4 +178,17 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 			t.Fatalf("plana's instructions lack %q", rule)
 		}
 	}
+	// A schedule written into a note as prose registers nothing: the app reads
+	// the store, never the note. These three came from watching plana write
+	// "予定: 17:00" and a raw entry id into its notes and call no tool at all.
+	for _, rule := range []string{
+		"schedule 道具で登録したものだけが有効",
+		"id が無い予定の行は書かない",
+		"本文に投稿のIDやリンクを書かない",
+		"指示されていない項目を足さない",
+	} {
+		if !strings.Contains(plana.Instructions, rule) {
+			t.Fatalf("plana's instructions lack %q", rule)
+		}
+	}
 }
