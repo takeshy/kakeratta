@@ -171,7 +171,7 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 	// A time on a sentence is what makes it plana's, whatever the sentence is
 	// about: "20時30分からドラマを見る" went to nobody while the domain read as a
 	// list of chores.
-	for _, kind := range []string{"繰り返し", "一度きり", "ドラマを見る", "内容が何であれ"} {
+	for _, kind := range []string{"繰り返し", "一度きり", "ドラマを見る", "内容は問わない", "スケジュールを登録できる"} {
 		if !strings.Contains(plana.Domain, kind) {
 			t.Fatalf("plana's domain lacks %q", kind)
 		}

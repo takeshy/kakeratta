@@ -25,7 +25,7 @@ const GLOSS = {
   routine: {
     ja: "やること",
     en: "follow-ups",
-    domain: "Small things you meant to do, and whether they happened: medicine, feeding the fish, laundry, the bins - and one-offs like buying flowers on the way home. Too small for a calendar.",
+    domain: "Things you said you would do, and whether they happened; it can set itself a schedule to look in at that time. \"A drama at 20:30 tonight\", \"flowers on the way home\", \"medicine every morning at eight\": if there is a when, the what does not matter. Too small for a calendar, too easy to forget.",
   },
 };
 
