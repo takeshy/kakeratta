@@ -199,3 +199,20 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 		}
 	}
 }
+
+// michi answers with the means that makes sense for the distance: walking when
+// it is close, the car when walking would be absurd, both only in between.
+func TestMichiPicksAPlausibleMeans(t *testing.T) {
+	for _, skill := range Builtins {
+		if skill.ID != "move" {
+			continue
+		}
+		for _, rule := range []string{"徒歩30分以内なら徒歩だけ", "徒歩1時間以上なら", "車だけ", "30分〜1時間のときだけ"} {
+			if !strings.Contains(skill.Instructions, rule) {
+				t.Fatalf("michi lost %q", rule)
+			}
+		}
+		return
+	}
+	t.Fatal("michi is not built in")
+}
