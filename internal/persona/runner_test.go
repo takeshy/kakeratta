@@ -1,9 +1,12 @@
 package persona
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -12,6 +15,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/tools"
 )
 
 // fake stands in for the inference endpoint. It records every prompt, which is
@@ -210,6 +214,29 @@ func asCall(content string, offered map[string]bool) map[string]any {
 			return map[string]any{"content": content}
 		}
 		return call("submit_workflow", map[string]any{"summary": "test", "steps": steps})
+
+	case offered["silent"]:
+		// The low tier's direct calls.
+		if !scripted {
+			return map[string]any{"content": content}
+		}
+		switch parsed.Action {
+		case "speak":
+			if offered["speak"] {
+				return call("speak", map[string]any{"text": parsed.Text})
+			}
+			return call("silent", map[string]any{})
+		case "tool":
+			switch parsed.Tool {
+			case "notes_write":
+				return call("write_note", parsed.Args)
+			case "notes_forget":
+				return call("forget_note", parsed.Args)
+			default:
+				return call(parsed.Tool, parsed.Args)
+			}
+		}
+		return call("silent", map[string]any{})
 	}
 	// A compose step: plain text back.
 	if scripted && parsed.Action == "speak" {
@@ -340,13 +367,13 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		switch {
 		case strings.Contains(system, "振り分け"):
-			return `{"deliver":["move","book","gourmet"]}`
+			return `{"deliver":["diary","book","gourmet"]}`
 		case strings.Contains(user, "notes_write の結果"):
 			return `{"action":"silent"}`
 		}
 		// A turn where it may not speak is a turn for the notes only.
 		if strings.Contains(user, "このターンは発言できません") {
-			for _, name := range []string{"michi", "shiori", "tabe"} {
+			for _, name := range []string{"nikki", "shiori", "tabe"} {
 				if strings.Contains(system, "あなたは「"+name+"」") {
 					listened = append(listened, name)
 				}
@@ -355,15 +382,20 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 			return `{"action":"speak","text":"割り込みたい"}`
 		}
 		switch {
-		case strings.Contains(system, "あなたは「michi」"):
+		case strings.Contains(system, "あなたは「nikki」"):
 			return `{"action":"speak","text":"三田まで30分。"}`
 		case strings.Contains(system, "あなたは「shiori」"):
 			return `{"action":"speak","text":"前に引いた線と重なる。"}`
 		default:
 			return `{"action":"speak","text":"みちの30分なら間に合う。"}`
 		}
-	}, "move", "book", "gourmet")
+	}, "diary", "book", "gourmet")
 
+	// Nothing built in is low any more - a persona with tools is middle or
+	// higher - so the low one here is the test's own, holding no tools.
+	if _, err := runner.catalogue.Install([]byte(`{"id":"diary","name":"nikki","domain":"日々のこと","instructions":"覚える","model":"low","tools":[]}`), nil); err != nil {
+		t.Fatal(err)
+	}
 	entry := post(t, s, "ここ行きたい")
 	runner.react(entry.ID)
 
@@ -371,7 +403,7 @@ func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
 	if len(said) != 3 {
 		t.Fatalf("remarks = %d, want one per tier: %+v", len(said), said)
 	}
-	if said[0].Speaker != "move" || said[1].Speaker != "book" || said[2].Speaker != "gourmet" {
+	if said[0].Speaker != "diary" || said[1].Speaker != "book" || said[2].Speaker != "gourmet" {
 		t.Fatalf("order = %s, %s, %s; want low, middle, high",
 			said[0].Speaker, said[1].Speaker, said[2].Speaker)
 	}
@@ -1016,5 +1048,307 @@ func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
 				t.Fatal("a usable answer still woke everyone")
 			}
 		})
+	}
+}
+
+// The spec a persona is given follows what it can do. A persona without
+// schedule is not taught write_schedule, and a persona with a search tool is
+// shown a call to that tool it can copy.
+func TestTheWorkflowSpecFollowsThePersonasTools(t *testing.T) {
+	registry := tools.New(tools.Config{}).WithSchedules(nil)
+	plana := workflowSpec(registry.For([]string{"schedule"}))
+	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}))
+
+	for _, want := range []string{"### write_schedule", "### cancel_schedule", "ドラマを見たか"} {
+		if !strings.Contains(plana, want) {
+			t.Errorf("a persona with schedule was not taught %q", want)
+		}
+	}
+	for _, unwanted := range []string{"### write_schedule", "### cancel_schedule"} {
+		if strings.Contains(tabe, unwanted) {
+			t.Errorf("a persona without schedule was taught %q", unwanted)
+		}
+	}
+	for _, want := range []string{"#### web_search", `\"query\"`, "#### place_search", "### 調べてから言う"} {
+		if !strings.Contains(tabe, want) {
+			t.Errorf("a persona with search tools was not shown %q", want)
+		}
+	}
+	if strings.Contains(plana, "#### web_search") {
+		t.Error("a persona was shown a tool it does not hold")
+	}
+	// Every step is taught with a sample, and the mistakes that were made.
+	for _, want := range []string{"### write_note", "### forget_note", "### speak", "❌", "```json"} {
+		if !strings.Contains(tabe, want) {
+			t.Errorf("the spec lost %q", want)
+		}
+	}
+}
+
+// The index is handed over whole at the start of every turn.
+func TestTheIndexIsHandedOverFirst(t *testing.T) {
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["gourmet"]}`
+		}
+		return `{"action":"silent"}`
+	}, "gourmet")
+	if err := s.WriteNote("gourmet", "index.md", "# 傾向\n\n* [豚骨に寄る](/tastes/tonkotsu.md)"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("gourmet", "tastes/tonkotsu.md", "豚骨の中身は渡さない"); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.react(post(t, s, "ラーメン").ID)
+
+	prompt := stub.promptFor("tabe")
+	if !strings.Contains(prompt, "[豚骨に寄る](/tastes/tonkotsu.md)") {
+		t.Fatalf("the index was not handed over:\n%s", prompt)
+	}
+	if strings.Contains(prompt, "豚骨の中身は渡さない") {
+		t.Fatal("a note other than the index was handed over unasked")
+	}
+}
+
+// A persona may look at up to ten things before deciding, searches included.
+func TestAPersonaMayReadTenTimes(t *testing.T) {
+	reads := 0
+	runner, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["gourmet"]}`
+		}
+		if strings.Contains(user, "これ以上は読めません") {
+			return `{"action":"silent"}`
+		}
+		reads++
+		return `{"action":"tool","tool":"notes_list","args":{}}`
+	}, "gourmet")
+
+	runner.react(post(t, s, "ラーメン").ID)
+
+	// The eleventh request is not offered read, so the fake answers it with an
+	// empty workflow and the turn ends.
+	if reads != maxReads+1 || maxReads != 10 {
+		t.Fatalf("reads = %d (maxReads %d)", reads, maxReads)
+	}
+}
+
+// A persona that writes the same note twice in one workflow is sent back: the
+// second write silently replaces the first, and in a live run it carried a typo.
+func TestTheSameNoteWrittenTwiceIsSentBack(t *testing.T) {
+	registry := tools.New(tools.Config{}).WithSchedules(nil)
+	problems := checkWorkflow(Workflow{Steps: []Step{
+		{Type: "write_note", Path: "errands/drama.md", Text: "a"},
+		{Type: "write_schedule", Path: "errands/drama.md", Text: "b", At: "2026-09-18T22:00:00+09:00", Note: "見たか"},
+	}}, turnRules{set: registry.For([]string{"schedule"}).As("routine")})
+	if len(problems) != 1 || !strings.Contains(problems[0], "すでに書いています") {
+		t.Fatalf("problems = %v", problems)
+	}
+}
+
+// A search that keeps failing the same way is called out on the second try,
+// and a note read written as a tool call is simply done.
+func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
+	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
+	if err := s.WriteNote("gourmet", "index.md", "目次"); err != nil {
+		t.Fatal(err)
+	}
+	set := tools.New(tools.Config{}).For([]string{"place_search"}).As("gourmet")
+	skill, _ := runner.catalogue.Find("gourmet")
+	failures := map[string]string{}
+
+	text, _, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, &[]store.NoteSource{}, failures)
+	if !strings.Contains(text, "目次") {
+		t.Fatalf("a note read in the wrong field was refused: %s", text)
+	}
+
+	broken := []ReadStep{{Type: "tool", Tool: "place_search", Args: `{"query":"神谷町"}`}}
+	first, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures)
+	if strings.Contains(first, "前にも同じ理由で失敗") {
+		t.Fatalf("a first failure was called a repeat: %s", first)
+	}
+	second, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures)
+	if !strings.Contains(second, "前にも同じ理由で失敗") {
+		t.Fatalf("a repeated failure was not called out: %s", second)
+	}
+}
+
+// A note read written as a tool call is the same request in the wrong field,
+// and it is read rather than refused.
+func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
+	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
+	if err := s.WriteNote("gourmet", "tastes/tonkotsu.md", "豚骨に寄る"); err != nil {
+		t.Fatal(err)
+	}
+	set := runner.registry(s.Settings()).For([]string{"web_search"}).As("gourmet")
+	skill, _ := runner.catalogue.Find("gourmet")
+	var sources []store.NoteSource
+	text, _, _ := runner.readAll(context.Background(), skill,
+		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
+		set, timeline.Entry{}, &sources, map[string]string{})
+	if !strings.Contains(text, "豚骨に寄る") {
+		t.Fatalf("the note was not read: %s", text)
+	}
+}
+
+// The same call failing the same way twice is said outright, so a turn is not
+// spent on one broken search while another tool sits unused.
+func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
+	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
+	set := runner.registry(s.Settings()).For([]string{"place_search"}).As("gourmet")
+	skill, _ := runner.catalogue.Find("gourmet")
+	failures := map[string]string{}
+	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
+	var sources []store.NoteSource
+
+	first, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures)
+	if !strings.Contains(first, "道具が使えませんでした") || strings.Contains(first, "前にも同じ理由で") {
+		t.Fatalf("first failure: %s", first)
+	}
+	second, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures)
+	if !strings.Contains(second, "前にも同じ理由で失敗しています") {
+		t.Fatalf("a repeated failure was not called out: %s", second)
+	}
+}
+
+// A remark written into the tool field is the same remark in the wrong shape,
+// and it is put back rather than sent back.
+func TestAStepWrittenAsAToolIsPutBack(t *testing.T) {
+	workflow := normaliseWorkflow(Workflow{Steps: []Step{
+		{Type: "tool", Tool: "speak", Args: `{"text":"また豚骨だ"}`},
+	}})
+	if step := workflow.Steps[0]; step.Type != "speak" || step.Text != "また豚骨だ" || step.Tool != "" {
+		t.Fatalf("step = %+v", step)
+	}
+	if problems := checkWorkflow(workflow, turnRules{set: tools.New(tools.Config{}).For(nil)}); len(problems) != 0 {
+		t.Fatalf("problems = %v", problems)
+	}
+}
+
+// Every read ends with how many are left and which other tools there are.
+func TestAReadSaysWhatIsLeftAndWhatElseThereIs(t *testing.T) {
+	set := tools.New(tools.Config{}).For([]string{"place_search", "web_search", "schedule"})
+	footer := readFooter(3, set)
+	for _, want := range []string{"残り 3 回", "place_search", "web_search"} {
+		if !strings.Contains(footer, want) {
+			t.Fatalf("footer lost %q: %s", want, footer)
+		}
+	}
+	if strings.Contains(footer, "schedule") {
+		t.Fatalf("schedule is not something to read with: %s", footer)
+	}
+	if !strings.Contains(readFooter(0, set), "submit_workflow") {
+		t.Fatal("the last read did not say to hand in the workflow")
+	}
+}
+
+// The low tier works without a workflow: its notes and a remark, called
+// directly, and nothing to review.
+func TestTheLowTierTalksToItsNotesDirectly(t *testing.T) {
+	runner, s, stub := setup(t, func(system, user string) string {
+		switch {
+		case strings.Contains(system, "振り分け"):
+			return `{"deliver":["diary"]}`
+		case strings.Contains(user, "write_note の結果"):
+			return `{"action":"speak","text":"覚えた"}`
+		default:
+			return `{"action":"tool","tool":"notes_write","args":{"path":"days/today.md","text":"---\\ntype: Day\\n---\\n\\n* 雨"}}`
+		}
+	}, "diary")
+	if _, err := runner.catalogue.Install([]byte(`{"id":"diary","name":"nikki","domain":"日々のこと","instructions":"覚える","model":"low","tools":["web_search"]}`), func(string) bool { return true }); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.react(post(t, s, "今日は雨").ID)
+
+	if said := remarks(t, s); len(said) != 1 || said[0].Text != "覚えた" {
+		t.Fatalf("remarks = %+v", said)
+	}
+	if _, ok := s.Note("diary", "days/today.md"); !ok {
+		t.Fatal("the note was not written")
+	}
+	if len(stub.reviews) != 0 {
+		t.Fatal("the low tier was reviewed")
+	}
+	prompt := stub.promptFor("nikki")
+	if strings.Contains(prompt, "\nsubmit_workflow — ") || strings.Contains(prompt, "\nread — ") {
+		t.Fatalf("the low tier was offered the workflow:\n%s", prompt)
+	}
+	for _, want := range []string{"write_note — ", "speak — ", "silent — ", "web_search — "} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("the low tier was not offered %q", want)
+		}
+	}
+}
+
+// Web search is reading. The low tier may hold it; anything that does more
+// than look needs a workflow, and so a tier above low.
+func TestTheLowTierHoldsOnlyReadingTools(t *testing.T) {
+	catalogue := NewCatalogue(t.TempDir())
+	known := func(string) bool { return true }
+	if _, err := catalogue.Install([]byte(`{"id":"walker","name":"w","domain":"移動","model":"low","tools":["route"]}`), known); err == nil {
+		t.Fatal("a low persona was saved holding route")
+	}
+	if _, err := catalogue.Install([]byte(`{"id":"reader","name":"r","domain":"調べもの","model":"low","tools":["web_search"]}`), known); err != nil {
+		t.Fatalf("a low persona with web search was refused: %v", err)
+	}
+	// One saved before the rule keeps its tools and runs a tier up.
+	dir := filepath.Join(catalogue.root, "old")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "skill.json"), []byte(`{"id":"old","name":"o","domain":"移動","model":"low","tools":["route"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if old, ok := catalogue.Find("old"); !ok || old.Model != TierMiddle || len(old.Tools) != 1 {
+		t.Fatalf("old = %+v", old)
+	}
+}
+
+// Web search is used before a workflow, like reading a note, and never in one.
+func TestWebSearchIsNotAWorkflowStep(t *testing.T) {
+	set := tools.New(tools.Config{}).For([]string{"web_search"})
+	problems := checkWorkflow(Workflow{Steps: []Step{{Type: "tool", Tool: "web_search", Args: `{"query":"x"}`}}}, turnRules{set: set})
+	if len(problems) != 1 || !strings.Contains(problems[0], "read で使ってください") {
+		t.Fatalf("problems = %v", problems)
+	}
+}
+
+// A workflow sent back for its shape does not use up the review's second look.
+// A live run spent its first draft on a misplaced web_search, and the review
+// then rejected the second with no chance left to act on what it found.
+func TestAMalformedDraftDoesNotUseUpTheReview(t *testing.T) {
+	drafts := 0
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["gourmet"]}`
+		}
+		drafts++
+		switch drafts {
+		case 1:
+			return `{"summary":"検索を workflow に入れる","steps":[{"type":"tool","path":"","text":"","tool":"web_search","args":"{\"query\":\"x\"}","at":"","daily":false,"note":"","id":""}]}`
+		case 2:
+			return `{"summary":"作り話","steps":[{"type":"speak","path":"","text":"1時間後に着くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+		default:
+			return `{"summary":"直した","steps":[{"type":"speak","path":"","text":"このへんなら蕎麦かな","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+		}
+	}, "gourmet")
+	stub.review = func(user string) string {
+		if strings.Contains(user, "1時間後") {
+			return `{"verdict":"fail","summary":"作り話","issues":[{"severity":"high","description":"投稿に無い到着時刻を書いている"}]}`
+		}
+		return `{"verdict":"pass","summary":"ok","issues":[]}`
+	}
+
+	runner.react(post(t, s, "このへんでランチするならどこがいいかな").ID)
+
+	if said := remarks(t, s); len(said) != 1 || said[0].Text != "このへんなら蕎麦かな" {
+		t.Fatalf("drafts = %d, remarks = %+v", drafts, said)
+	}
+	// All three were drafts: the first sent back for its shape, the second by
+	// the review. Nothing was lost to a reply that called nothing.
+	if drafts != 3 || len(stub.reviews) != 2 {
+		t.Fatalf("drafts = %d, reviews = %d", drafts, len(stub.reviews))
 	}
 }

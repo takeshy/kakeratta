@@ -36,11 +36,10 @@ var okfSkill string
 // says already fits this app, because the skill was written for it.
 const okfHost = "# メモの書き方\n\nメモを書くときは、次のスキルに従ってください。\n\n---\n\n"
 
-// rounds is how many times one persona may go round the tool loop before it has
-// to answer. It reads its own notes, may look something up or look at the
-// picture, writes what it learned, and then speaks or stays quiet - so there
-// has to be room for all of that without the loop becoming a place to live in.
-const rounds = 8
+// rounds is how many requests one turn may make: every read, both drafts, and
+// a little room for a reply that called nothing. It follows from the limits in
+// workflow.go rather than being a limit of its own.
+const rounds = maxReads + maxDrafts + maxMalformed + 2
 
 // Runner wakes personas. One runs per app.
 //
@@ -387,8 +386,16 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if memory.JoinedAt.IsZero() {
 		memory.JoinedAt = time.Now()
 	}
+	// The low tier works without a workflow: its notes, web search, and a
+	// remark, called directly. Everything above it plans, is reviewed, and runs.
+	light := skill.Model == TierLow
 	set := registry.For(skill.Tools).As(skill.ID)
-	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, workflowGuide(set), okfHost+okfSkill)
+	spec := workflowSpec(set)
+	if light {
+		set = registry.For(readingOnly(skill.Tools)).As(skill.ID)
+		spec = lightSpec(set)
+	}
+	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, spec, okfHost+okfSkill)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -399,12 +406,21 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// The clock a persona is told is the user's, not the container's.
 	here := settings.Location()
 	scheduleList, scheduleIDs := r.scheduleListFor(skill, set)
+	// The index is handed over every time, whole. It is the persona's own table
+	// of contents, and deciding what to read without it means reading blind.
+	indexNote := "（まだありません）"
+	if note, ok := r.store.Note(skill.ID, "index.md"); ok {
+		indexNote = note.Text
+	}
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		placeLine(post.Place),
 		"",
 		"あなたのメモ（一覧。中身は notes_read で読む）:",
 		listNotes(memory),
+		"",
+		"あなたの index.md（最初に必ず渡します）:",
+		indexNote,
 		"",
 		"あなたが置いている schedule:",
 		scheduleList,
@@ -432,7 +448,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)}}
 	}
 
-	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Model: model, Reviewer: harnessModel(settings)}
+	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: harnessModel(settings)}
 	defer func() { logRun(record) }()
 	failed := func(err error) *timeline.Entry {
 		record.Error = err.Error()
@@ -442,15 +458,21 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 		return r.hush(skill, memory)
 	}
+	if light {
+		return r.converse(ctx, skill, messages, named, listening, set, post, client, model, memory, root, trigger, &noteSources, &record, failed)
+	}
 
 	// What the persona read goes to the reviewer too: whether a note says
 	// something that did not happen can only be judged against what was there.
 	var readSources []timeline.Source
-	var read []string
+	// The index was handed over at the start, so it counts as read: the review
+	// should not call an index rewrite unread.
+	read := []string{"index.md（最初に渡したもの）:\n" + indexNote}
 	var files []llm.Attachment
+	failures := map[string]string{}
 	var approved *Workflow
-	drafts := 0
-	for round := 0; round < rounds && approved == nil && drafts < maxDrafts; round++ {
+	reviewed, malformed := 0, 0
+	for round := 0; round < rounds && approved == nil && reviewed < maxDrafts && malformed <= maxMalformed; round++ {
 		offered := []llm.Tool{workflowTool}
 		if len(record.Reads) < maxReads {
 			offered = []llm.Tool{readTool, workflowTool}
@@ -463,6 +485,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			return failed(err)
 		}
 		if len(reply.Calls) == 0 {
+			record.Stalls++
 			messages = append(messages,
 				llm.Message{Role: "assistant", Content: reply.Content},
 				llm.Message{Role: "user", Content: "read か submit_workflow を呼んでください。文章だけの返事は誰にも届きません。"})
@@ -477,27 +500,25 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 		answers := map[string]string{}
 		if submitted != nil {
-			drafts++
 			var workflow Workflow
 			entry := draftRecord{}
 			if err := json.Unmarshal([]byte(submitted.Args), &workflow); err != nil {
 				entry.Problems = []string{"workflow を読めませんでした: " + err.Error()}
 			} else {
+				workflow = normaliseWorkflow(workflow)
 				entry.Workflow = &workflow
 				entry.Problems = checkWorkflow(workflow, rules)
 			}
 			switch {
 			case len(entry.Problems) > 0:
+				malformed++
 			case len(workflow.Steps) == 0:
 				// Staying quiet has nothing in it to check.
 				approved = &workflow
 			default:
 				known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当のメモ一覧:\n" + listNotes(memory) +
-					"\n\nこの担当がこのターンに読んだもの:\n" + clip(strings.Join(read, "\n\n"), 12000)
-				if len(read) == 0 {
-					known = "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当のメモ一覧:\n" + listNotes(memory) +
-						"\n\nこの担当がこのターンに読んだもの:\n（何も読んでいません）"
-				}
+					"\n\nこの担当がこのターンに読んだもの:\n" + clip(strings.Join(read, "\n\n"), 20000)
+				reviewed++
 				verdict, err := r.review(ctx, client, settings, skill, thread, trigger, workflow, known, names, here)
 				switch {
 				case err != nil:
@@ -542,14 +563,14 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 					answers[call.ID] = "read を読めませんでした: " + err.Error()
 					break
 				}
-				text, sources, attached := r.readAll(ctx, skill, request.Steps, set, post, &noteSources)
+				text, sources, attached := r.readAll(ctx, skill, request.Steps, set, post, &noteSources, failures)
 				readSources = append(readSources, sources...)
 				if attached != nil {
 					files = attached
 				}
 				read = append(read, text)
 				record.Reads = append(record.Reads, readRecord{Steps: request.Steps, Output: preview(text)})
-				answers[call.ID] = text
+				answers[call.ID] = text + readFooter(maxReads-len(record.Reads), set)
 			}
 		}
 		for _, call := range reply.Calls {

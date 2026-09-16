@@ -47,7 +47,8 @@ with a one-line reason per persona.
 
 A persona does not call tools one at a time any more (`internal/persona/workflow.go`).
 
-1. **Read.** It may ask, up to three times, to look at things: its note list,
+1. **Read.** Its `index.md` is handed over whole at the start of every turn.
+   It may then ask, up to ten times, to look at things: its note list,
    notes, a search, the original image. Reading writes nothing, so the app just
    does it and hands the results back.
 2. **Workflow.** It hands in what it has decided, as steps in order, with every
@@ -72,6 +73,12 @@ A persona does not call tools one at a time any more (`internal/persona/workflow
 4. **Run.** In order; **the first step that fails stops the rest**, so a remark
    never goes out after what it rests on did not happen.
 
+What a persona is told about workflows is assembled for the tools it holds
+(`internal/persona/workflow_spec.go`): every step with its fields, a sample
+that is right, and a mistake a live run actually made. A persona without
+schedule is not taught write_schedule; one with web search is shown a search
+call it can copy.
+
 Each turn is logged as one structured entry: what was read, every draft with
 its problems and review, each step as it ran, and what was said.
 
@@ -85,6 +92,14 @@ always answers. Routing runs as usual for everyone else.
 
 Each persona is set to **low / middle / high**. They are **not run in parallel:
 low goes first and the order runs upwards.**
+
+**The tier also decides how a persona works.** A persona that uses any tool
+other than web search (routes, places, schedules) is middle or high, and works
+through a reviewed workflow. A low persona holds no such tools: it reads its
+notes, may search the web, writes its notes and speaks, calling these directly
+with no workflow and no review (`internal/persona/light.go`). Web search counts
+as reading on both paths — on the workflow path it is used before the workflow,
+never inside one.
 
 The exchange only works because what came earlier is in the later input. Run
 together, the larger models cannot see what the smaller one said, so they have

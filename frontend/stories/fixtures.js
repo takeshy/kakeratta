@@ -7,7 +7,7 @@ const minutes = (n) => new Date(Date.now() - n * 60000).toISOString();
 export const personas = [
   { id: "gourmet", name: "tabe", icon: "🍜", model: "high", builtin: true, active: true, wakes: 12,
     domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"] },
-  { id: "move", name: "michi", icon: "🚃", model: "low", builtin: true, active: true, wakes: 3,
+  { id: "move", name: "michi", icon: "🚃", model: "middle", builtin: true, active: true, wakes: 3,
     domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
   { id: "book", name: "shiori", icon: "📖", model: "middle", builtin: true, active: true, wakes: 21,
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },

@@ -298,24 +298,25 @@
           <h3>AI（Nebius Token Factory）</h3>
           <p>KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。Token FactoryのAPIキーを入れれば動きます。</p>
           <ul>
-            <li>Nemotron 3.5 Lightning — 軽量な振り分けと、日常的な担当の判断</li>
+            <li>Nemotron 3.5 Lightning — 道具を使わない軽い担当（メモと web 検索と発言だけ）</li>
             <li>Nemotron Super — 担当分野をより深く考える推論</li>
-            <li>Nemotron Ultra — 担当が必要とする複雑な推論</li>
+            <li>Nemotron Ultra — 振り分けと、担当が出した workflow の確認（本体の判断）</li>
             <li>GLM-5.3-Flash — 画像の読み取り（同じ基盤）</li>
           </ul>
           <div class="table-scroll">
             <table>
               <thead><tr><th>用途</th><th>既定</th></tr></thead>
               <tbody>
-                <tr><td>low（先に動く。浅く速い）</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>low（先に動く。メモと web 検索と発言だけ）</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>middle</td><td>Nemotron Super</td></tr>
                 <tr><td>high（最後に動く。下の発言を見て突っ込める）</td><td>Nemotron Ultra</td></tr>
                 <tr><td>画像を読むモデル（vision）</td><td>GLM-5.3-Flash</td></tr>
-                <tr><td>振り分けに使うモデル</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>振り分け・workflow の確認（本体）</td><td>high と同じ（Nemotron Ultra）</td></tr>
               </tbody>
             </table>
           </div>
           <p>担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。どのモデルをどの段に置くかが、そのまま体験の差になります。</p>
+          <p><strong>web 検索以外の道具（経路、店探し、予定など）を使う担当は middle か high です。</strong>middle 以上の担当は、まず読んだり調べたりしてから、やること（メモ・予定・発言）を workflow として出し、本体が確認してから実行します。low の担当は workflow を使わず、メモと web 検索と発言だけで軽く動きます。</p>
           <h3 id="ja-tools">道具：担当が調べたり覚えたりする方法</h3>
           <p><strong>どこで動く？</strong>道具を実行するのはkakerattaのサーバーです。公開版ではホスト先のサーバー、手元で起動した場合は手元のGoサーバーから呼び出します。ブラウザが外部の検索APIを直接呼ぶことはありません。位置情報を許可するとブラウザからサーバーへ座標が送られ、店舗・経路検索時は検索語や座標が外部サービスへ送られます。メモ操作はサーバーの保存先を使い、担当が読むメモや検索結果は設定したAIモデルへの入力にも含まれます。</p>
           <p>道具は、担当が返答や記憶の更新に必要だと判断したときに使います。チャットにツール名やJSONを入力する必要はありません。普段の言葉で頼んでください。<strong>@名前</strong> は返答を求める操作で、特定のツールの実行を保証するものではありません。</p>
@@ -661,24 +662,25 @@
           <h3>AI (Nebius Token Factory)</h3>
           <p>Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Entering your Token Factory API key is enough.</p>
           <ul>
-            <li>Nemotron 3.5 Lightning — lightweight routing and everyday persona decisions</li>
+            <li>Nemotron 3.5 Lightning — light personas without tools (notes, web search and a remark)</li>
             <li>Nemotron Super — richer domain reasoning</li>
-            <li>Nemotron Ultra — complex reasoning when a persona needs it</li>
+            <li>Nemotron Ultra — routing, and reviewing the workflows personas hand in (the app's own judgement)</li>
             <li>GLM-5.3-Flash — image reading, on the same backend</li>
           </ul>
           <div class="table-scroll">
             <table>
               <thead><tr><th>For</th><th>Default</th></tr></thead>
               <tbody>
-                <tr><td>low (first; fast and lightweight)</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>low (first; notes, web search and a remark only)</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>middle</td><td>Nemotron Super</td></tr>
                 <tr><td>high (last; can build on earlier responses)</td><td>Nemotron Ultra</td></tr>
                 <tr><td>Image model (vision)</td><td>GLM-5.3-Flash</td></tr>
-                <tr><td>Routing model</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>Routing and workflow review (the app)</td><td>Same as high (Nemotron Ultra)</td></tr>
               </tbody>
             </table>
           </div>
           <p>Each persona chooses low, middle, or high. Low runs first, and higher tiers can build on earlier responses. Which model sits in which tier is the difference in experience.</p>
+          <p><strong>A persona that uses any tool other than web search (routes, places, schedules) is middle or high.</strong> Those personas first read and look things up, then hand in what they will do (notes, schedules, a remark) as a workflow that the app reviews before running it. A low persona has no workflow: it works with its notes, web search and a remark only.</p>
           <h3 id="en-tools">Tools: how personas look things up and remember</h3>
           <p><strong>Where do tools run?</strong>On the kakeratta server: the hosted server for an online deployment, or the Go server on your computer when you run it locally. The browser does not call external search APIs directly. If you allow location access, coordinates go from the browser to the server; place and route searches send search terms or coordinates to the external services. Memory tools use the server's storage, and notes and search results read by a persona also become input to the configured AI model.</p>
           <p>A persona uses tools when it decides they are needed for a reply or memory update. Ask in ordinary language; you do not need to type tool names or JSON. Mentioning <strong>@name</strong> asks for a reply but does not guarantee a particular tool will run.</p>

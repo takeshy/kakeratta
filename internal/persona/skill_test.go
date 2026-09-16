@@ -22,16 +22,17 @@ func TestTheBuiltInDomainsAreFarApart(t *testing.T) {
 			t.Fatalf("%s: %v", one.ID, err)
 		}
 	}
-	// The point of the sizes is the contrast, so the ones that ship have to be
-	// spread across the tiers rather than piled into one.
+	// The point of the sizes is the contrast, so the ones that ship are spread
+	// across more than one tier. None of them is low: they all hold tools that
+	// do more than look, and those need a workflow.
 	sizes := map[Tier]int{}
 	for _, skill := range Builtins {
 		sizes[skill.Model]++
+		if skill.Model == TierLow && len(readingOnly(skill.Tools)) != len(skill.Tools) {
+			t.Fatalf("%s ships in the low tier with tools the low tier cannot hold", skill.ID)
+		}
 	}
-	if sizes[TierLow] == 0 {
-		t.Fatal("nothing ships in the low tier, so nothing goes first")
-	}
-	if sizes[TierLow] == len(Builtins) {
+	if len(sizes) < 2 {
 		t.Fatal("everything ships in one tier, so there is no contrast")
 	}
 }

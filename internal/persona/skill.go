@@ -113,7 +113,7 @@ var Builtins = []Skill{
 			"一度きりの行き先は概念にしない。二度目に同じ場所が出たら作る。index.md は場所の一覧だけでよい。" +
 			"**発言するのは、時刻と具体的な場所の両方が文面から分かるときだけ。** どちらかが欠けていたら、聞き返さずに黙る（speak を入れない）。" +
 			"場所が「買い物」「出かける」のように特定できないものは、行き先ではない。所要時間を勝手に見積もらない。",
-		Model: TierLow, Tools: []string{"route", "place_search"}, Builtin: true,
+		Model: TierMiddle, Tools: []string{"route", "place_search"}, Builtin: true,
 	},
 	{
 		ID: "book", Name: "shiori", Icon: "📖",
@@ -241,7 +241,7 @@ func (c *Catalogue) read(id string) (Skill, error) {
 		return Skill{}, errors.New("skill id does not match its directory")
 	}
 	skill.Builtin = false
-	return skill, nil
+	return liftForTools(skill), nil
 }
 
 // Install writes a skill into the workspace.
@@ -287,6 +287,9 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 	}
 	if err := validate(skill); err != nil {
 		return Skill{}, err
+	}
+	if skill.Model == TierLow && len(readingOnly(skill.Tools)) != len(skill.Tools) {
+		return Skill{}, errors.New("web_search 以外の道具を使う担当は middle か high にしてください（low はメモと web_search と発言だけの担当です）")
 	}
 	for _, builtin := range Builtins {
 		if builtin.ID == skill.ID && !update {
@@ -341,6 +344,16 @@ func (c *Catalogue) Uninstall(id string) error {
 		}
 	}
 	return os.RemoveAll(filepath.Join(c.root, id))
+}
+
+// liftForTools runs a skill saved in the low tier with tools the low tier
+// cannot hold one tier up. It keeps what it was built to do rather than
+// quietly losing it.
+func liftForTools(skill Skill) Skill {
+	if skill.Model == TierLow && len(readingOnly(skill.Tools)) != len(skill.Tools) {
+		skill.Model = TierMiddle
+	}
+	return skill
 }
 
 func validate(skill Skill) error {
