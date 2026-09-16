@@ -250,7 +250,10 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	// work: what the low one said is in front of the ones above it, so they have
 	// something to pick up on. Running them together would leave the larger
 	// models with nothing but the post.
-	registry := tools.New(r.tools).WithSearch(r.search).WithTavilyKey(settings.Search.APIKey)
+	// The same tool set the wake paths get. Without this a persona reacting to a
+	// post was offered schedule and then told it was not configured, which is
+	// why plana wrote its times into a note as prose instead of placing them.
+	registry := r.registry(settings)
 	var ran []Skill
 	spoke := map[Tier]bool{}
 	for _, tier := range Tiers {
@@ -505,7 +508,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// been reminded to, so the reminder is offered once rather than after every
 	// note and once more on the way out.
 	scheduled := false
-	urged := false
+	remindedInNote, gated := false, false
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -548,10 +551,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				// "22:00ごろに聞くね" and registering nothing is the failure this
 				// catches, and it is cheap: one extra exchange, once per turn, and
 				// only for a persona that holds the tool.
-				if !daily && set.Allows("schedule") && !scheduled && !urged {
-					urged = true
+				if !daily && set.Allows("schedule") && !scheduled && !gated {
+					gated = true
 					messages = append(messages, answer(call, "発言する前に確認です。**schedule を置いていません。**"+
 						"その時刻に起きるのは schedule を置いたときだけで、発言やメモに書いた時刻では何も起きません。\n"+
+						"「22:30ごろに聞くね」と言うなら、その22:30は schedule を呼んで置いたものでなければ来ません。\n"+
 						"時刻のある用なら、いま schedule を呼んでから、もう一度 speak してください。"+
 						"時刻が無い話なら、そのまま speak をもう一度呼んでください。"))
 					continue
@@ -595,10 +599,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				// Its own notes are not a declared capability: every persona has
 				// a memory, and reaching it is not reaching outside.
 				if text, handled := r.notesTool(skill.ID, call.Name, args, &noteSources); handled {
-					if call.Name == "notes_write" && set.Allows("schedule") && !scheduled && !urged {
-						urged = true
+					if call.Name == "notes_write" && set.Allows("schedule") && !scheduled && !remindedInNote {
+						remindedInNote = true
 						text += "\n\n**次は schedule です。** このメモに時刻があるなら、いま登録してください。" +
 							"メモに書いた時刻は登録ではありません。登録しない限り、その時刻には何も起きません。\n" +
+							"メモにidを書くのは schedule の結果で返ってきたidだけです。s_xxx のような仮のidを書かないでください。\n" +
 							"時刻が無い用なら、登録は不要です。その場合だけ speak か silent に進んでください。"
 					}
 					messages = append(messages, answer(call, text))

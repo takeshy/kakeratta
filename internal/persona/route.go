@@ -38,7 +38,8 @@ const routePrompt = `投稿を、担当分野ごとのAIのうち誰に渡すか
   例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足なので、移動の担当へ渡します。
 - 過去に担当が回答済みでも、新しい条件や質問があれば改めて関係する担当へ渡してください。
 
-deliver を呼んで、渡す相手のidを渡してください。誰にも渡さないときは空のまま呼びます。`
+deliver を呼んで、渡す相手のidを渡してください。**括弧の中の表示名ではなく、左側のidです。**
+誰にも渡さないときは空のまま呼びます。`
 
 // deliverTool is the one call routing makes. Routing decides exactly one thing,
 // so there is exactly one thing it can do.
@@ -110,20 +111,47 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	if err := json.Unmarshal([]byte(chosen), &parsed); err != nil || parsed.Deliver == nil {
 		return everyone(fmt.Sprintf("the reply made no sense: %q", chosen))
 	}
-	known := map[string]bool{}
-	for _, id := range all {
-		known[id] = true
+	// A router that answers "plana" when the id is "routine" has named the right
+	// persona by the name a person sees. Taking only the id would throw the
+	// answer away and wake everyone, which is how tabe kept turning up.
+	resolve := func(want string) string {
+		want = strings.TrimSpace(want)
+		if want == "" {
+			return ""
+		}
+		for _, skill := range skills {
+			if skill.ID == want {
+				return skill.ID
+			}
+		}
+		for _, skill := range skills {
+			if skill.Answers(want) {
+				return skill.ID
+			}
+		}
+		return ""
 	}
 	var out []string
+	var invented []string
 	seen := map[string]bool{}
-	for _, id := range parsed.Deliver {
-		id = strings.TrimSpace(id)
-		if !known[id] {
-			return everyone(fmt.Sprintf("it named a persona that does not exist: %q", id))
+	for _, named := range parsed.Deliver {
+		id := resolve(named)
+		if id == "" {
+			invented = append(invented, named)
+			continue
 		}
-		if known[id] && !seen[id] {
+		if !seen[id] {
 			seen[id] = true
 			out = append(out, id)
+		}
+	}
+	// One made-up name among real ones is not a reason to wake everyone; it is a
+	// reason to ignore that one. Only an answer that resolved to nobody at all,
+	// while asking for someone, means the reply could not be used.
+	if len(invented) > 0 {
+		log.Printf("routing: ignoring %d name(s) that match no persona: %v", len(invented), invented)
+		if len(out) == 0 {
+			return everyone(fmt.Sprintf("nothing it named exists: %v", invented))
 		}
 	}
 	return out

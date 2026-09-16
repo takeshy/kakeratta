@@ -735,3 +735,92 @@ func TestThePromptCarriesTheWorkspaceZone(t *testing.T) {
 		t.Fatalf("the container's own clock reached the persona:\n%s", prompt)
 	}
 }
+
+// Reacting to a post has to include the app's own wake bookkeeping. Without it
+// a persona is offered schedule and then told it is not configured, so the time
+// it was asked to place ends up as prose in a note and nothing ever fires.
+func TestAPostCanPlaceASchedule(t *testing.T) {
+	runner, s, _ := setup(t, func(system, user string) string {
+		switch {
+		case strings.Contains(system, "振り分け"):
+			return `{"deliver":["routine"]}`
+		case strings.Contains(user, "schedule の結果"):
+			return `{"action":"silent"}`
+		default:
+			return `{"action":"tool","tool":"schedule","args":{"action":"set","in_minutes":90,"note":"ドラマを見たか"}}`
+		}
+	}, "routine")
+
+	entry := post(t, s, "今日の22時半からドラマを見る")
+	runner.react(entry.ID)
+
+	placed, err := s.Schedules("routine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(placed) != 1 {
+		t.Fatalf("a post placed %d schedules", len(placed))
+	}
+	if placed[0].Note != "ドラマを見たか" || placed[0].Skill != "routine" {
+		t.Fatalf("schedule = %+v", placed[0])
+	}
+}
+
+// Writing the note is not placing the wake. A persona that holds the tool is
+// asked once on its way out, and writing a note first must not consume that -
+// the note is exactly where the unplaced time tends to get written down.
+func TestSpeakingIsGatedOnTheScheduleEvenAfterANote(t *testing.T) {
+	asked := 0
+	runner, s, _ := setup(t, func(system, user string) string {
+		switch {
+		case strings.Contains(system, "振り分け"):
+			return `{"deliver":["routine"]}`
+		case strings.Contains(user, "schedule を置いていません"):
+			asked++
+			return `{"action":"silent"}`
+		case strings.Contains(user, "notes_write の結果"):
+			return `{"action":"speak","text":"22:30ごろに聞くね"}`
+		default:
+			return `{"action":"tool","tool":"notes_write","args":{"path":"routine/drama.md","text":"---\ntype: Routine\n---\n\n22:30から"}}`
+		}
+	}, "routine")
+
+	entry := post(t, s, "今日の22時半からドラマを見る")
+	runner.react(entry.ID)
+
+	if asked != 1 {
+		t.Fatalf("the persona was asked about the schedule %d times", asked)
+	}
+	if said := remarks(t, s); len(said) != 0 {
+		t.Fatalf("it promised a time it never placed: %+v", said)
+	}
+	// The note it wrote is still kept: not speaking and not remembering differ.
+	if _, ok := s.Note("routine", "routine/drama.md"); !ok {
+		t.Fatal("the note was lost")
+	}
+}
+
+// The router names a persona the way a person would. Both spellings are the
+// same persona, and neither is a reason to fall back to everyone.
+func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
+	for _, deliver := range []string{`["plana"]`, `["plana","nobody-at-all"]`} {
+		t.Run(deliver, func(t *testing.T) {
+			runner, s, stub := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					return `{"deliver":` + deliver + `}`
+				}
+				return `{"action":"silent"}`
+			}, "routine", "gourmet")
+
+			entry := post(t, s, "今日の22時半からドラマを見る")
+			runner.react(entry.ID)
+
+			if stub.promptFor("plana") == "" {
+				t.Fatal("the persona it named never saw the post")
+			}
+			if stub.promptFor("tabe") != "" {
+				t.Fatal("a usable answer still woke everyone")
+			}
+		})
+	}
+}
