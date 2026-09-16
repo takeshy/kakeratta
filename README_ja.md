@@ -22,14 +22,19 @@
 痛風が気になる人なら、食事の写真を送ると「プリン体が多いので気をつけて」と教えてくれる痛風担当も作れます。
 ほしい担当を伝えるだけでAIが完成案を作るので、まず使い始めて、話し方や覚えてほしいことはあとから会話で改善できます。
 
-KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
+KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。モデルの動作はすべて、
+ネイティブな tool calling（`tool_choice: "required"`）で行います。
 
-- Nemotron 3.5 Lightning — 軽量な振り分けと、日常的な担当の判断
-- Nemotron Super — 担当分野をより深く考える推論
-- Nemotron Ultra — 担当が必要とする複雑な推論
-- Nebius Token Factory — 推論基盤
+| モデル（Token Factory） | 役割 |
+|---|---|
+| Nemotron 3 Ultra | **本体の判断:** 投稿を本当に属する担当にだけ振り分け（理由をログに残す）、担当が出した workflow を実行前に確認する。high の担当の既定でもある |
+| Nemotron 3 Super | middle の担当: メモや検索を読んでから、メモ・予定・発言の workflow を出す |
+| Nemotron 3.5 Lightning | low の担当: メモ・Web検索・発言を、workflow なしで直接呼ぶ。音声入力の文を整える（任意） |
+| GLM-5.3-Flash | スクリーンショットや写真を、投稿ごとに一度だけ読む |
+| Qwen3-Embedding-8B | 過去の投稿の意味検索 |
 
-画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。
+Web検索には Tavily を使います。これを信頼できる形にするまでに苦労したことと、その対処は
+[AIまわりで苦労したこと](docs/ai-lessons_ja.md) にまとめています。
 
 ## 使い方
 
@@ -193,6 +198,7 @@ Googleでログインした利用者ごとにデータが分離されます。Fi
 | 紹介ページとマニュアル（`/lp/`、`/manual/`） | アプリと並んで配信する日英のページ。アプリのヘッダーの **?** アイコンから別タブでマニュアルが開きます |
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [設計とペルソナ](docs/architecture_ja.md) | 設計原則、振り分け、実行順序、OKFメモ、スキルとツール |
+| [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
 | [開発と実装状況](docs/development_ja.md) | テスト、ソース構成、実装済みの機能と未確認項目 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformでの構築。画面はFirebase Hosting、APIはCloud Run |
 

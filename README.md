@@ -26,14 +26,19 @@ your meal and warn you when it is high in purines. Describe the persona you
 want and AI drafts it. Start using it, then refine its tone and what it
 remembers through conversation.
 
-Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
+Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory, with
+native tool calling (`tool_choice: "required"`) for everything a model does.
 
-- Nemotron 3.5 Lightning — lightweight routing and everyday persona decisions
-- Nemotron Super — richer domain reasoning
-- Nemotron Ultra — complex reasoning when a persona needs it
-- Nebius Token Factory — inference backend
+| Model (Token Factory) | Role |
+|---|---|
+| Nemotron 3 Ultra | **The app's own judgement:** routes each post only to the personas it belongs to (with a logged reason), and reviews every workflow a persona hands in before it runs. Also the default for high-tier personas |
+| Nemotron 3 Super | Middle-tier personas: read notes and search, then hand in a workflow of notes, wake-ups and a remark |
+| Nemotron 3.5 Lightning | Low-tier personas: notes, web search and a remark, called directly with no workflow; optional polishing of dictated text |
+| GLM-5.3-Flash | Reading screenshots and photos, once per post |
+| Qwen3-Embedding-8B | Meaning search over past posts |
 
-Image reading uses GLM-5.3-Flash on the same backend.
+Web search uses Tavily. What was hard about making this dependable — and what
+was done about it — is written up in [What was hard about the AI](docs/ai-lessons.md).
 
 ## How it works
 
@@ -205,6 +210,7 @@ takes precedence over the shared `KAKERATTA_TOKEN` mode. Where the data lives:
 | Landing page and manual (`/lp/`, `/manual/`) | Bilingual pages served beside the app; the **?** icon in the app header opens the manual in a new tab |
 | [Usage and configuration](docs/usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
 | [Design and personas](docs/architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
+| [What was hard about the AI](docs/ai-lessons.md) | What went wrong with Nemotron personas in live runs and production, and how each was fixed |
 | [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
 | [Google Cloud deployment](infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
 
