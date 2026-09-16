@@ -149,3 +149,18 @@ func TestLightningDefaultsAndNanoMigration(t *testing.T) {
 		t.Fatal("custom models changed")
 	}
 }
+
+// The server's clock is UTC and means nothing to the person reading the
+// timeline, so an unusable zone falls back to UTC rather than to the container.
+func TestSettingsLocation(t *testing.T) {
+	for zone, want := range map[string]string{
+		"":           "UTC",
+		"Local":      "UTC",
+		"bad/zone":   "UTC",
+		"Asia/Tokyo": "Asia/Tokyo",
+	} {
+		if got := (Settings{TimeZone: zone}).Location().String(); got != want {
+			t.Errorf("Settings{TimeZone: %q}.Location() = %q, want %q", zone, got, want)
+		}
+	}
+}

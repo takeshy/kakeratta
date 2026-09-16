@@ -3,6 +3,7 @@ package store
 import (
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Provider is where the models run.
@@ -68,6 +69,12 @@ type Settings struct {
 	Search SearchSettings `json:"search"`
 	Speech SpeechSettings `json:"speech"`
 
+	// TimeZone is the user's own, saved by the page. Everything the app writes
+	// for a persona to read - the current time, a note's source label, the wake
+	// it was given - is formatted in it, because the server's clock is UTC and
+	// means nothing to the person reading the timeline.
+	TimeZone string `json:"timeZone"`
+
 	ReadAloudRate  float64 `json:"readAloudRate"`
 	ReadAloudVoice string  `json:"readAloudVoice"`
 }
@@ -109,6 +116,21 @@ func defaultSettings() Settings {
 		},
 		ReadAloudRate: 1.2,
 	}
+}
+
+// Location is the zone the app formats times in for this workspace. An unset or
+// unusable zone falls back to UTC rather than the server's own local time,
+// which is whatever the container happens to be set to.
+func (s Settings) Location() *time.Location {
+	zone := strings.TrimSpace(s.TimeZone)
+	if zone == "" || zone == "Local" {
+		return time.UTC
+	}
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
 }
 
 // EndpointFor is the address a provider listens on by default.

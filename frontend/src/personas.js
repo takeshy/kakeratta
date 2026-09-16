@@ -73,25 +73,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       text: label, title: t("{0} の説明を開く（新しいタブ）", label) });
   }
 
-  // A persona that works by the clock (plana) needs one wake to get going: its
-  // first check-in is what lets it read its notes and set its own timers. Only
-  // the browser knows the time zone, so the default is saved from here, once -
-  // turning it off stores the zone too, so the default is never applied again.
-  const defaulting = new Set();
-  function ensureCheckIns() {
-    for (const row of rows) {
-      if (!row.checkInByDefault || !row.active || row.dailyCheckIn?.timeZone || defaulting.has(row.id)) continue;
-      defaulting.add(row.id);
-      api.setDailyCheckIn(row.id, { enabled: true, time: "07:00", timeZone: localZone() }).then((payload) => {
-        rows = payload.personas || rows;
-        onChange?.(rows);
-        draw();
-      }).catch(() => defaulting.delete(row.id));
-    }
-  }
-
   function draw() {
-    ensureCheckIns();
     clear(view);
     view.append(
       el("p", {
@@ -134,10 +116,10 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     );
     const schedule = row.dailyCheckIn || {};
     const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });
-    const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active || !schedule.enabled, "aria-label": t("希望時刻") });
+    const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active, "aria-label": t("希望時刻") });
     const zone = schedule.timeZone || localZone();
     const saveDaily = async () => {
-      const next = { enabled: enabled.checked, time: time.value, timeZone: zone };
+      const next = { enabled: enabled.checked, time: time.value || "08:00", timeZone: zone };
       enabled.disabled = time.disabled = true;
       try {
         const payload = await api.setDailyCheckIn(row.id, next);

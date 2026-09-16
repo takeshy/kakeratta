@@ -614,3 +614,23 @@ func TestNoteConsolidationCarriesReadSources(t *testing.T) {
 		t.Fatalf("consolidation lost sources: %+v", note)
 	}
 }
+
+// A model that escaped its own line breaks leaves a note that cannot be read as
+// OKF and renders as one long line. Repairing it is the only chance: the
+// persona cannot see the difference from where it sits.
+func TestEscapedLineBreaksInANoteAreRepaired(t *testing.T) {
+	escaped := `---\ntype: Errand\ntitle: 夜ご飯の買い出し\n---\n後で行く予定。`
+	want := "---\ntype: Errand\ntitle: 夜ご飯の買い出し\n---\n後で行く予定。"
+	if got := repairNewlines(escaped); got != want {
+		t.Fatalf("repairNewlines = %q", got)
+	}
+	// A note that already has real line breaks keeps every character it wrote,
+	// including a literal backslash-n inside a code fence.
+	kept := "# 手順\n\n```\nprintf \"a\\nb\"\n```\n"
+	if got := repairNewlines(kept); got != kept {
+		t.Fatalf("a readable note was rewritten: %q", got)
+	}
+	if got := repairNewlines("一行だけ"); got != "一行だけ" {
+		t.Fatalf("plain text changed: %q", got)
+	}
+}

@@ -13,7 +13,10 @@ function scalar(value) {
 }
 
 export function parseMemoryNote(note) {
-  const text = String(note.text || "").replace(/\r\n?/g, "\n");
+  let text = String(note.text || "").replace(/\r\n?/g, "\n");
+  // A model that escaped its own line breaks leaves one long line. The note is
+  // repaired when it is written now, but the ones already saved have to read.
+  if (!text.includes("\n") && text.includes("\\n")) text = text.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
   const metadata = Object.create(null);
   let body = text;
   const front = text.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
@@ -81,6 +84,14 @@ function inline(text, context) {
 
 // Deliberately render text nodes, never model-authored HTML. Support the OKF
 // conventions (headings, lists, tables, quotations, links), retaining raw text.
+// plain reports a line that is ordinary prose: not blank, not a heading, list,
+// quotation, table rule, code fence, or one of the app's own markers.
+function plain(line) {
+  return Boolean(line.trim()) && !/^```/.test(line) && !/^#{1,6}\s+/.test(line) &&
+    !/^\s*(?:[-*+] |\d+[.)] )/.test(line) && !line.startsWith("> ") && !line.includes("|") &&
+    !/^<!-- \/?kakeratta:note-sources -->$/.test(line);
+}
+
 function markdown(body, context) {
   const result = el("div", { class: "memory-body" });
   const lines = body.split("\n");
@@ -115,8 +126,16 @@ function markdown(body, context) {
       table.append(rows);
       result.append(el("div", { class: "memory-table" }, table));
       list = null;
+    } else if (line.startsWith("> ")) {
+      result.append(el("blockquote", {}, inline(line.slice(2), context)));
+      list = null;
     } else {
-      result.append(el(line.startsWith("> ") ? "blockquote" : "p", {}, inline(line.replace(/^> /, ""), context)));
+      // Consecutive prose lines are one paragraph, the way a blank line is what
+      // separates them in Markdown. One paragraph per wrapped line reads broken.
+      const prose = [line];
+      while (i + 1 < lines.length && plain(lines[i + 1])) prose.push(lines[++i]);
+      result.append(el("p", {}, prose.flatMap((part, index) =>
+        index ? [el("br"), ...inline(part, context)] : inline(part, context))));
       list = null;
     }
   }

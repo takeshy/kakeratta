@@ -216,8 +216,7 @@ routing, notes, replies, search and route tools, and read-aloud are implemented.
 ### Check-ins and timers
 
 Each active persona can opt into **Daily check-in** in the Personas panel, with
-one preferred time per day (off by default; on for plana, which works by the
-clock). The browser's time zone is saved with that time, including
+one preferred time per day (off by default). The browser's time zone is saved with that time, including
 daylight-saving rules; it stays saved when you travel and is not limited to JST.
 There is currently no time-zone picker. A persona can read its memory, search
 fragments, and use its usual tools; it starts a timeline thread only when it has

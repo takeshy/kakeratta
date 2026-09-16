@@ -112,3 +112,23 @@ func TestScheduleToolSaysWhenItIsNotConfigured(t *testing.T) {
 		t.Fatal("a schedule was accepted without a store")
 	}
 }
+
+// An offset in an RFC3339 string is not a zone: Go reads it back as "Local",
+// which on a server means UTC. The workspace's own zone is used instead.
+func TestScheduleToolFallsBackToTheWorkspaceZone(t *testing.T) {
+	schedules := &fakeSchedules{}
+	set := New(Config{}).WithSchedules(schedules).WithZone("Asia/Tokyo").For([]string{"schedule"}).As("routine")
+	at := time.Now().Add(3 * time.Hour).Format(time.RFC3339)
+	if _, err := set.Run(context.Background(), "schedule", Args{"at": at, "note": "ゾーンを書かなかった"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(schedules.stored) != 1 || schedules.stored[0].TimeZone != "Asia/Tokyo" {
+		t.Fatalf("stored = %+v", schedules.stored)
+	}
+	// A daily wake with no zone anywhere is refused rather than stored as UTC.
+	bare := New(Config{}).WithSchedules(schedules).For([]string{"schedule"}).As("routine")
+	if _, err := bare.Run(context.Background(), "schedule",
+		Args{"at": at, "note": "毎日", "daily": true}, nil); !errors.Is(err, store.ErrScheduleZone) {
+		t.Fatalf("a daily schedule without any zone was accepted: %v", err)
+	}
+}

@@ -162,7 +162,7 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 	if len(plana.Tools) != 1 || plana.Tools[0] != "schedule" {
 		t.Fatalf("plana's tools = %v", plana.Tools)
 	}
-	if !plana.CheckInByDefault || plana.Model != TierLow {
+	if plana.Model != TierLow {
 		t.Fatalf("plana = %+v", *plana)
 	}
 	// The domain is what the routing reads, so both kinds have to be in it.

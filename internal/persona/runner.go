@@ -408,8 +408,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		names[other.ID] = other.Name
 	}
 	post := thread[0]
+	// The clock a persona is told is the user's, not the container's.
+	here := settings.Location()
 	user := strings.Join([]string{
-		"いまの日時: " + time.Now().Format("2006-01-02 15:04"),
+		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		placeLine(post.Place),
 		"",
 		"あなたのメモ（一覧。中身は notes_read で読む）:",
@@ -436,7 +438,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	var noteSources []store.NoteSource
 	if !daily {
-		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.Format("2006-01-02 15:04 MST") + " — " + string(label)}}
+		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)}}
 	}
 
 	for round := 0; round < rounds; round++ {
@@ -690,7 +692,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, sources 
 		return strings.Join(parts, "\n\n"), true
 
 	case "notes_write":
-		path, text := stringOf(args["path"]), stringOf(args["text"])
+		path, text := stringOf(args["path"]), repairNewlines(stringOf(args["text"]))
 		if path == "" || strings.TrimSpace(text) == "" {
 			return "path と text が要ります。", true
 		}
@@ -710,6 +712,17 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, sources 
 		return "捨てました: " + path, true
 	}
 	return "", false
+}
+
+// repairNewlines undoes a model that escaped its own line breaks. A note whose
+// text has no real newline but plenty of "\n" is unreadable in the memory view
+// and unparseable as OKF, and the persona cannot see the difference from where
+// it sits.
+func repairNewlines(text string) string {
+	if strings.Contains(text, "\n") || !strings.Contains(text, `\n`) {
+		return text
+	}
+	return strings.NewReplacer(`\n`, "\n", `\t`, "\t").Replace(text)
 }
 
 // listNotes is the one thing about the notes that is handed over unasked: their

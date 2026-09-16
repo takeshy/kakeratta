@@ -62,6 +62,9 @@ var scheduleTool = Tool{
 func setSchedule(r *Registry, owner string, args Args) (Result, error) {
 	now := time.Now()
 	zone := args.str("time_zone")
+	if zone == "" || zone == "Local" {
+		zone = r.zone
+	}
 	schedule := store.Schedule{Skill: owner, Note: args.str("note"), TimeZone: zone}
 	if daily, ok := args["daily"].(bool); ok {
 		schedule.Daily = daily
@@ -73,9 +76,6 @@ func setSchedule(r *Registry, owner string, args Args) (Result, error) {
 			return Result{}, errors.New(`at は 2026-09-17T20:00:00+09:00 のような RFC3339 で指定してください`)
 		}
 		schedule.At = at.UTC()
-		if schedule.TimeZone == "" {
-			schedule.TimeZone = at.Location().String()
-		}
 	case args.num("in_minutes", 0) > 0:
 		schedule.At = now.Add(time.Duration(args.num("in_minutes", 0)) * time.Minute).UTC()
 	default:
@@ -83,7 +83,7 @@ func setSchedule(r *Registry, owner string, args Args) (Result, error) {
 	}
 	// A repeating wake has to keep its local clock time, so the zone has to be a
 	// real one rather than whatever the server happens to run in.
-	if schedule.Daily && zone == "" {
+	if schedule.Daily && (schedule.TimeZone == "" || schedule.TimeZone == "Local") {
 		return Result{}, store.ErrScheduleZone
 	}
 	if err := schedule.Validate(now); err != nil {

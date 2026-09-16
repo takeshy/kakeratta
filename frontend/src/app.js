@@ -279,6 +279,10 @@ async function boot() {
   void reconnect();
   try {
     settings = await api.settings();
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (zone && settings.timeZone !== zone) {
+      settings = await api.saveSettings({ ...settings, timeZone: zone }).catch(() => settings);
+    }
     settingsRequired = !aiConfigured(settings);
     speaker.setRate(settings.readAloudRate || 1.2);
     speaker.setVoice(settings.readAloudVoice || "");

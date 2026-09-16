@@ -37,7 +37,8 @@ index.md や他のメモからの参照も直してください。
 // registry is the tool set as it exists for this workspace: the user's search
 // key, the operator's endpoints, and the app's own wake bookkeeping.
 func (r *Runner) registry(settings store.Settings) *tools.Registry {
-	return tools.New(r.tools).WithSearch(r.search).WithTavilyKey(settings.Search.APIKey).WithSchedules(r.store)
+	return tools.New(r.tools).WithSearch(r.search).WithTavilyKey(settings.Search.APIKey).
+		WithSchedules(r.store).WithZone(settings.TimeZone)
 }
 
 // CheckSchedules enters the same serial queue as posts and the daily check-in.

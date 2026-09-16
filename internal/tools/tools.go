@@ -64,6 +64,8 @@ type Registry struct {
 	tools     map[string]Tool
 	search    *search.Service
 	schedules Schedules
+	// zone is the user's own, for a schedule that did not name one.
+	zone string
 	// tavilyKey is the user's own; web_search is the one tool whose credential
 	// belongs to the workspace rather than the deployment.
 	tavilyKey string
@@ -96,6 +98,15 @@ func (r *Registry) WithSearch(service *search.Service) *Registry {
 // stays listed and says it is not configured when asked.
 func (r *Registry) WithSchedules(schedules Schedules) *Registry {
 	r.schedules = schedules
+	return r
+}
+
+// WithZone is the workspace's time zone, used when a persona sets a schedule
+// without naming one. An offset in an RFC3339 string is not a zone: it cannot
+// survive daylight saving, and Go reads it back as "Local", which on a server
+// means UTC.
+func (r *Registry) WithZone(zone string) *Registry {
+	r.zone = zone
 	return r
 }
 
