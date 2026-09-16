@@ -113,6 +113,8 @@ var Builtins = []Skill{
 			"一度きりの行き先は概念にしない。二度目に同じ場所が出たら作る。index.md は場所の一覧だけでよい。" +
 			"**発言するのは、具体的な行き先が文面から分かるときだけ。** 行き先が分からなければ、聞き返さずに黙る（speak を入れない）。" +
 			"時刻が無ければ、いまから出る前提で所要時間を答える。着きたい時刻があれば、出発時刻も出す。" +
+			"**手段は投稿から決める。** 「歩いて」「徒歩で」なら foot、「車で」「タクシーで」なら car、「自転車で」なら bike。" +
+			"手段が書かれていなければ、foot と car の両方を route で調べて並べる（電車・バスは調べられないので、そう言う）。" +
 			"場所が「買い物」「出かける」のように特定できないものは、行き先ではない。所要時間は route の結果だけを使い、勝手に見積もらない。",
 		Model: TierMiddle, Tools: []string{"route", "place_search"}, Builtin: true,
 	},
@@ -275,6 +277,14 @@ func Validate(skill Skill, known func(string) bool) error {
 			return errors.New("知らない道具が宣言されています: " + tool)
 		}
 	}
+	return checkTier(skill)
+}
+
+// checkTier refuses a low persona holding tools the low tier cannot hold.
+func checkTier(skill Skill) error {
+	if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
+		return errors.New("web_search 以外の道具を使う担当は middle か high にしてください（low はメモと web_search と発言だけの担当です）")
+	}
 	return nil
 }
 
@@ -289,8 +299,8 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 	if err := validate(skill); err != nil {
 		return Skill{}, err
 	}
-	if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
-		return Skill{}, errors.New("web_search 以外の道具を使う担当は middle か high にしてください（low はメモと web_search と発言だけの担当です）")
+	if err := checkTier(skill); err != nil {
+		return Skill{}, err
 	}
 	for _, builtin := range Builtins {
 		if builtin.ID == skill.ID && !update {

@@ -25,6 +25,12 @@ test("browser preserves punctuation and converts question commands only on final
   recognizer.toggle();
   current.onstart?.();
   await tick();
+  // The meter's own microphone waits for the recognizer to be hearing sound.
+  // Opened any earlier, it took the device on a second press and the
+  // recognizer got silence while the bars moved.
+  assert.equal(microphoneStopped, false);
+  current.onaudiostart?.();
+  await tick();
   const result = (value, isFinal) => Object.assign([{ transcript: value }], { isFinal });
   current.onresult({ results: [result("こんにちは。", true), result("いいですかクエスチョン", false)] });
   assert.equal(text, "こんにちは。いいですかクエスチョン");
@@ -143,4 +149,32 @@ test("the indicator follows the recogniser, and a refused start is reported", as
   assert.equal(states.at(-1), "starting");
   current.onstart();
   assert.equal(states.at(-1), "recording");
+});
+
+test("the level meter does not open the microphone before the recognizer hears sound", async () => {
+  let current;
+  let opened = 0;
+  const create = load("browser_speech", {
+    t: x => x, speechDraft, convertSpokenSymbol, applyReplacementRules,
+    navigator: { language: "ja", mediaDevices: { getUserMedia: async () => {
+      opened++;
+      return { getTracks: () => [{ enabled: true, stop() {} }] };
+    } } },
+    SpeechRecognition: class { constructor() { current = this; } start() {} abort() {} }
+  }, "createBrowserRecognizer");
+  const recognizer = create({ getSettings: () => ({ language: "ja", sendPhrase: "" }),
+    getBase: () => "", onInput() {}, onSend() {}, onState() {} });
+  recognizer.toggle();
+  current.onstart?.();
+  await tick();
+  assert.equal(opened, 0, "the meter opened the microphone before the recognizer had it");
+  current.onaudiostart();
+  await tick();
+  assert.equal(opened, 1);
+  recognizer.stop();
+  // A second press starts the same way: nothing but the recognizer at first.
+  recognizer.toggle();
+  current.onstart?.();
+  await tick();
+  assert.equal(opened, 1, "the second press opened the meter early");
 });

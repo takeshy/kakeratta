@@ -32,6 +32,10 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		ID       string        `json:"id"`
 		Messages []llm.Message `json:"messages"`
 		Language string        `json:"language"`
+		// Current is the persona as it stands in the edit form, unsaved changes
+		// included. The request is written against what the user is looking at,
+		// so that is what the AI changes.
+		Current *persona.Skill `json:"current"`
 	}
 	if err := readJSONLimit(r, &body, 256<<10); err != nil || len(body.Messages) == 0 {
 		fail(w, 400, "会話を読めませんでした")
@@ -59,6 +63,11 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		original = &skill
+		if body.Current != nil {
+			current := *body.Current
+			current.ID = skill.ID
+			original = &current
+		}
 	}
 	ids := []string{}
 	for _, skill := range s.catalogue.All() {

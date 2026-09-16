@@ -429,3 +429,50 @@ test("editing is disabled offline and an open draft can be saved after reconnect
   await new Promise(setImmediate);
   assert.equal(find("said").textContent, "draft");
 });
+
+test("persona editor edits directly, asks the AI underneath, and shows what changed", async (t) => {
+  const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
+  const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動", tone: "短く", instructions: "場所を覚える", model: "middle", tools: ["route", "place_search"] };
+  t.mock.method(api, "buildPersona", async (body) => ({ message: "短くしました", draft: { ...body.current, tone: "一言だけ" } }));
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.cancelAnimationFrame = () => {};
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.cancelAnimationFrame; });
+
+  let saved = false;
+  showPersonaEditor({ persona, toolNames: ["web_search", "place_search", "route", "schedule"], onSave: () => { saved = true; } });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const button = label => walk(document.body).find(node => node.textContent === translate(label));
+  const inputs = document.body.querySelectorAll(".skill-input");
+  const name = inputs.find(node => node.value === "michi");
+  const tone = inputs.find(node => node.value === "短く");
+
+  // The original is in the form, editable directly.
+  name.value = "みち";
+  name.fire("input");
+  const previous = document.body.querySelectorAll(".previous");
+  assert.ok(previous.some(node => !node.hidden && walk(node).some(child => child.textContent === "michi")), "the original name is shown next to the edit");
+
+  // Asking the AI opens underneath, and sends the form as it stands.
+  const request = document.body.querySelectorAll(".ai-request")[0];
+  assert.equal(request.parent.hidden, true);
+  button("AIで修正").fire("click");
+  assert.equal(request.parent.hidden, false);
+  request.value = "もっと短く";
+  button("AIに頼む").fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  const body = api.buildPersona.mock.calls[0].arguments[0];
+  assert.equal(body.current.name, "みち", "the AI is handed the unsaved edit");
+  assert.equal(tone.value, "一言だけ", "the proposal fills the form");
+  assert.ok(previous.some(node => !node.hidden && walk(node).some(child => child.textContent === "短く")), "the replaced tone is shown");
+
+  button("保存").fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  const skill = api.savePersonaDraft.mock.calls[0].arguments[0];
+  assert.equal(skill.name, "みち");
+  assert.equal(skill.tone, "一言だけ");
+  assert.deepEqual(skill.tools, ["place_search", "route"]);
+  assert.equal(api.savePersonaDraft.mock.calls[0].arguments[1], "move");
+  assert.ok(saved);
+});

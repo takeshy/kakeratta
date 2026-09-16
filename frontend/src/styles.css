@@ -384,6 +384,15 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .builder-message.user { margin-left: 24px; }
 .builder-message p, .builder-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
 .persona-builder form { display: grid; gap: 8px; }
+.persona-form { display: grid; gap: 12px; margin: 12px 0; }
+.persona-field { display: grid; gap: 4px; }
+.persona-field select { width: 100%; }
+.persona-tools { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.persona-editor .previous { font-size: .85em; color: var(--muted, #666); border-left: 3px solid var(--accent-soft); padding-left: 8px; }
+.persona-editor .previous summary { cursor: pointer; }
+.persona-editor .warn:empty { display: none; }
+.persona-editor .warn { color: #b3261e; }
+.ai-panel { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
 
 .timeline-paging { text-align: center; padding: 16px; min-height: 48px; }
 /* Search stays inside the same sheet as settings and personas. */

@@ -8,6 +8,7 @@ import { el, clear, toast } from "./dom.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { showPersonaBuilder } from "./persona-builder.js";
+import { showPersonaEditor } from "./persona-editor.js";
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
 
@@ -169,7 +170,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         { class: "compose-row" },
         el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
         el("span", { class: "spacer" }),
-        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaBuilder({ getSettings, persona: row, onSave: load }) }),
+        el("button", { class: "chip ghost", label: "修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load }) }),
         el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
         row.builtin
           ? null

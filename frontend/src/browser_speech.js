@@ -33,6 +33,7 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       current.onend = null;
       current.onspeechstart = null;
       current.onstart = null;
+      current.onaudiostart = null;
       try { current.stop(); } catch {}
       try { current.abort(); } catch {}
     }
@@ -134,6 +135,22 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       current.onstart = () => {
         if (recognition === current) publish({ status: "recording" });
       };
+      // The level meter opens its own microphone stream, and it waits until the
+      // recognizer is already hearing sound. Opened straight after start(), it
+      // won the device on the second press - permission no longer delayed it -
+      // and the recognizer got silence while the bars still moved.
+      current.onaudiostart = () => {
+        if (recognition !== current) return;
+        const request = ++meterRequest;
+        void navigator.mediaDevices?.getUserMedia({ audio: true }).then((stream) => {
+          if (recognition !== current || meterRequest !== request) {
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+          meter = stream;
+          publish({ meterStream: stream });
+        }).catch(() => {});
+      };
       publish({ status: "starting" });
       try {
         current.start();
@@ -145,16 +162,8 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
         stop();
         return;
       }
-      // Metering is optional: a failure here must not disable recognition.
-      const request = ++meterRequest;
-      void navigator.mediaDevices?.getUserMedia({ audio: true }).then((stream) => {
-        if (recognition !== current || meterRequest !== request) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        meter = stream;
-        publish({ meterStream: stream });
-      }).catch(() => {});
+      // Metering is optional and starts in onaudiostart: a failure there must
+      // not disable recognition.
     } catch (caught) {
       stop();
       publish({ error: t("音声認識を開始できません: {0}", caught instanceof Error ? caught.message : String(caught)) });
