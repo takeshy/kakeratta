@@ -49,6 +49,7 @@ const rounds = maxReads + maxDrafts + maxMalformed + 2
 // ahead of the heavy one.
 type reaction struct {
 	entryID   string
+	edited    bool
 	place     *timeline.Place
 	daily     bool
 	schedules bool
@@ -137,7 +138,7 @@ func (r *Runner) Start() {
 				} else if item.deleted != nil {
 					r.deletedAt(*item.deleted)
 				} else {
-					r.reactAt(item.entryID, item.place)
+					r.reactEntry(item.entryID, item.place, item.edited)
 				}
 			}
 		}()
@@ -165,13 +166,22 @@ func (r *Runner) Stop() {
 // React queues an entry. It never blocks the request that made the post: the
 // user has already seen their capture land.
 func (r *Runner) React(entryID string, place *timeline.Place) {
+	r.enqueueEntry(entryID, place, false)
+}
+
+// EntryEdited notifies previous recipients and routes the current content anew.
+func (r *Runner) EntryEdited(entryID string) {
+	r.enqueueEntry(entryID, nil, true)
+}
+
+func (r *Runner) enqueueEntry(entryID string, place *timeline.Place, edited bool) {
 	r.Start()
 	r.stopMu.Lock()
 	defer r.stopMu.Unlock()
 	if r.stopped {
 		return
 	}
-	r.queue = append(r.queue, reaction{entryID: entryID, place: place})
+	r.queue = append(r.queue, reaction{entryID: entryID, place: place, edited: edited})
 	r.wake.Signal()
 }
 
@@ -180,6 +190,12 @@ func (r *Runner) react(entryID string) {
 }
 
 func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
+	r.reactEntry(entryID, transientPlace, false)
+}
+
+const editedInstructions = "\n\n以前あなたに渡した投稿が編集されました。今回の対象発言は編集後の内容です。以前の内容より優先し、必要に応じて回答・メモ・予定を更新してください。担当領域の内容が削除された場合も、その変更を反映してください。"
+
+func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edited bool) {
 	defer func() {
 		// A persona is a model doing as it pleases with a prompt. One of them
 		// panicking must not take the queue with it.
@@ -231,9 +247,27 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
+	// Read before running anyone: new recipients must get an ordinary first delivery.
+	previous := map[string]bool{}
+	if edited {
+		ids, err := r.store.Woke(root)
+		if err != nil {
+			r.emit("error", map[string]any{"where": "wakes", "message": err.Error()})
+			return
+		}
+		for _, id := range ids {
+			previous[id] = true
+		}
+	}
+
 	// Who gets it is the app's one decision about a post.
 	named := Named(skills, entry.Text)
 	targets := map[string]bool{}
+	for _, skill := range skills {
+		if previous[skill.ID] {
+			targets[skill.ID] = true
+		}
+	}
 	for _, id := range named {
 		targets[id] = true
 	}
@@ -274,7 +308,11 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 			go func(i int, skill Skill) {
 				defer group.Done()
 				defer func() { _ = recover() }()
-				remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, "", client, settings, registry)
+				instructions := ""
+				if previous[skill.ID] {
+					instructions = editedInstructions
+				}
+				remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, client, settings, registry)
 			}(i, skill)
 		}
 		group.Wait()
@@ -608,6 +646,8 @@ func wakeKind(trigger timeline.Entry, listening bool, instructions string) strin
 	switch {
 	case trigger.ID != "" && listening:
 		return "listening"
+	case trigger.ID != "" && instructions == editedInstructions:
+		return "post-edited"
 	case trigger.ID != "":
 		return "post"
 	case instructions == dailyInstructions:

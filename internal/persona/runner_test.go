@@ -1409,3 +1409,51 @@ func TestSpeakingTheSummaryIsSentBack(t *testing.T) {
 		t.Fatalf("problems = %v", problems)
 	}
 }
+
+func TestEditedPostNotifiesPreviousRecipientsAndRoutesNewOnes(t *testing.T) {
+	for _, routed := range []string{`{"deliver":["gourmet"]}`, `{"deliver":["move","gourmet"]}`, `{"deliver":[]}`} {
+		t.Run(routed, func(t *testing.T) {
+			runner, s, stub := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					return routed
+				}
+				return `{"action":"silent","notes":""}`
+			}, "move", "gourmet")
+			entry := post(t, s, "渋谷に行きたい")
+			// Silent recipients also remain in the persistent delivery history.
+			if err := s.RecordWake(entry.ID, "move"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.UpdateText(entry.ID, "今夜は自宅でワインを飲みたい"); err != nil {
+				t.Fatal(err)
+			}
+			runner.EntryEdited(entry.ID)
+			runner.Stop()
+			old := stub.promptFor("michi")
+			if !strings.Contains(old, editedInstructions) || !strings.Contains(old, "今夜は自宅でワインを飲みたい") {
+				t.Fatalf("previous recipient did not receive the edit: %s", old)
+			}
+			fresh := stub.promptFor("tabe")
+			if strings.Contains(routed, "gourmet") {
+				if fresh == "" || strings.Contains(fresh, editedInstructions) {
+					t.Fatalf("new recipient should receive an ordinary delivery: %s", fresh)
+				}
+				ids, err := s.Woke(entry.ID)
+				if err != nil || !contains(ids, "gourmet") {
+					t.Fatalf("new recipient not remembered: %v, %v", ids, err)
+				}
+			} else if fresh != "" {
+				t.Fatal("unrelated new recipient was called")
+			}
+			count := 0
+			for _, prompt := range stub.prompts {
+				if strings.Contains(prompt, "あなたは「michi」") {
+					count++
+				}
+			}
+			if count != 1 {
+				t.Fatalf("previous recipient called %d times, want once", count)
+			}
+		})
+	}
+}

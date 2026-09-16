@@ -331,6 +331,7 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publishEvent("entry", entry)
+	s.runner.EntryEdited(entry.ID)
 	writeJSON(w, http.StatusOK, entry)
 }
 
