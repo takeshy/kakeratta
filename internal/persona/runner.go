@@ -48,9 +48,18 @@ const rounds = 8
 // queue is what makes that true, and it is also what keeps the light tier
 // ahead of the heavy one.
 type reaction struct {
-	entryID string
-	place   *timeline.Place
-	daily   bool
+	entryID   string
+	place     *timeline.Place
+	daily     bool
+	schedules bool
+	// forgotten is a note the user deleted: the persona is told, so it can put
+	// its own memory back in order. The app never edits a note itself.
+	forgotten *forgotten
+}
+
+type forgotten struct {
+	skill string
+	paths []string
 }
 
 type Runner struct {
@@ -119,6 +128,10 @@ func (r *Runner) Start() {
 				r.stopMu.Unlock()
 				if item.daily {
 					r.dailyAt(time.Now())
+				} else if item.schedules {
+					r.schedulesAt(time.Now())
+				} else if item.forgotten != nil {
+					r.forgottenAt(*item.forgotten)
 				} else {
 					r.reactAt(item.entryID, item.place)
 				}
@@ -254,7 +267,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 			go func(i int, skill Skill) {
 				defer group.Done()
 				defer func() { _ = recover() }()
-				remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, client, settings, registry)
+				remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, "", client, settings, registry)
 			}(i, skill)
 		}
 		group.Wait()
@@ -278,7 +291,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 		}
 		func() {
 			defer func() { _ = recover() }()
-			r.run(ctx, skill, thread, entry, false, true, client, settings, registry)
+			r.run(ctx, skill, thread, entry, false, true, "", client, settings, registry)
 		}()
 	}
 }
@@ -369,7 +382,7 @@ const toolTemplate = `
 // persona's: what of its own notes to read, what to write, whether to say
 // anything. This function only carries the calls it makes.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
-	client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
+	wakeInstructions string, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 
 	root := timeline.RootOf(trigger)
 	daily := trigger.ID == ""
@@ -381,16 +394,14 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if memory.JoinedAt.IsZero() {
 		memory.JoinedAt = time.Now()
 	}
-	set := registry.For(skill.Tools)
+	set := registry.For(skill.Tools).As(skill.ID)
 
 	toolBlock := ""
 	if !set.Empty() {
 		toolBlock = fmt.Sprintf(toolTemplate, set.Describe())
 	}
 	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, toolBlock, okfHost+okfSkill)
-	if daily {
-		system += dailyInstructions
-	}
+	system += wakeInstructions
 
 	names := map[string]string{}
 	for _, other := range r.catalogue.All() {

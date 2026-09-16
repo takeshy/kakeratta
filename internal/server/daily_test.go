@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -19,10 +18,9 @@ func TestDailySettingsEndpoint(t *testing.T) {
 		body string
 		code int
 	}{
-		{`{"slots":["morning","evening"],"timeZone":"Asia/Tokyo"}`, 200},
-		{`{"slots":["morning"]}`, 400},
-		{`{"slots":["midnight"],"timeZone":"Asia/Tokyo"}`, 400},
-		{`{"slots":["morning"],"timeZone":"invalid"}`, 400},
+		{`{"enabled":true,"time":"08:00","timeZone":"Asia/Tokyo"}`, 200},
+		{`{"enabled":true,"time":"24:00","timeZone":"Asia/Tokyo"}`, 400},
+		{`{"enabled":true,"time":"08:00","timeZone":"invalid"}`, 400},
 	} {
 		response := httptest.NewRecorder()
 		app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas/"+id+"/daily", strings.NewReader(tc.body)))
@@ -33,15 +31,15 @@ func TestDailySettingsEndpoint(t *testing.T) {
 	got := s.Settings().DailyCheckIns[id]
 	stale := httptest.NewRecorder()
 	app.ServeHTTP(stale, httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(`{"dailyCheckIns":{},"readAloudRate":1.5}`)))
-	if stale.Code != 200 || !reflect.DeepEqual(s.Settings().DailyCheckIns[id], got) {
+	if stale.Code != 200 || s.Settings().DailyCheckIns[id] != got {
 		t.Fatal("stale settings erased schedule")
 	}
-	if !reflect.DeepEqual(got.Slots, []string{"morning", "evening"}) || got.TimeZone != "Asia/Tokyo" {
+	if !got.Enabled || got.Time != "08:00" {
 		t.Fatalf("bad persistence: %+v", got)
 	}
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas", strings.NewReader(`{"active":[]}`)))
-	if !reflect.DeepEqual(s.Settings().DailyCheckIns[id], got) {
+	if s.Settings().DailyCheckIns[id] != got {
 		t.Fatal("activation erased schedule")
 	}
 	response = httptest.NewRecorder()
@@ -57,7 +55,7 @@ func TestDailySettingsEndpoint(t *testing.T) {
 	}
 	for _, row := range payload.Personas {
 		if row.ID == id {
-			if !reflect.DeepEqual(row.Daily, got) {
+			if row.Daily != got {
 				t.Fatal("schedule not returned")
 			}
 			return
@@ -93,4 +91,22 @@ func TestGatewayRestoresWorkspacesWithoutLogin(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatal("workspace did not restore without a login")
+}
+
+// Forgetting a persona's whole memory takes the app's own bookkeeping with it:
+// there is nothing left for the persona to reconcile, so it is not woken.
+func TestForgettingMemoryDropsSchedules(t *testing.T) {
+	app, s := app(t, "")
+	id := app.catalogue.All()[0].ID
+	if _, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(time.Hour).UTC(), Note: "朝の薬"}); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/personas/"+id+"/memory", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	if left, err := s.Schedules(""); err != nil || len(left) != 0 {
+		t.Fatalf("left = %+v (%v)", left, err)
+	}
 }

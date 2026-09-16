@@ -225,6 +225,7 @@ for the whole deployment. The Tavily key is the user's, from their settings.
 | `web_search` | Tavily | Yes (the user's) |
 | `place_search` | Places nearby, with **opening hours** (OpenStreetMap / Overpass) | No |
 | `route` | Travel time from where you are (OSRM; roads only, no public transport) | No |
+| `schedule` | Wake times a persona asks the app for (nothing leaves the app; kept in `schedules.json` / Firestore) | No |
 | `server.tool` | Any tool of a configured MCP server (`internal/mcp`, Streamable HTTP) | Operator's |
 
 MCP tools are listed once per server and cached; a persona sees them in the

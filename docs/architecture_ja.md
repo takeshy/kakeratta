@@ -192,6 +192,7 @@ tabe なら `Preference` と `Shop`、shiori なら `Book` と `Theme`。**形�
 | `web_search` | Tavily | 要（利用者の鍵） |
 | `place_search` | 周辺の店と**営業時間**（OpenStreetMap / Overpass） | 不要 |
 | `route` | 現在地からの所要時間（OSRM。道路のみ、公共交通は含みません） | 不要 |
+| `schedule` | 担当が自分で起きる時刻を本体に預ける（外には出ず、`schedules.json` / Firestore に残る） | 不要 |
 | `サーバー名.道具名` | 設定したMCPサーバーの道具（`internal/mcp`、Streamable HTTP） | 運用者の設定 |
 
 MCPの道具はサーバーごとに一覧を取得してキャッシュします。担当には内蔵の道具と同じ一行の形で、

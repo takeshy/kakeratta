@@ -23,9 +23,9 @@ const GLOSS = {
     domain: "Books and reading: e-book captures, quoted passages, titles and authors, thoughts on a read.",
   },
   routine: {
-    ja: "繰り返し",
-    en: "routines",
-    domain: "Small repeated chores and whether they were done: medicine taken, pets fed, laundry, trash day. Too small for a calendar.",
+    ja: "やること",
+    en: "follow-ups",
+    domain: "Small things you meant to do, and whether they happened: medicine, feeding the fish, laundry, the bins - and one-offs like buying flowers on the way home. Too small for a calendar.",
   },
 };
 

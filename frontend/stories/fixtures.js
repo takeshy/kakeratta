@@ -12,10 +12,23 @@ export const personas = [
   { id: "book", name: "shiori", icon: "📖", model: "middle", builtin: true, active: true, wakes: 21,
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
   { id: "routine", name: "plana", icon: "🔁", model: "low", builtin: true, active: true, wakes: 7, checkInByDefault: true,
-    domain: "繰り返し。薬、餌やり、洗濯、ゴミ出し。", tools: [], dailyCheckIn: { slots: ["morning", "evening"], timeZone: "Asia/Tokyo" } },
+    domain: "やること。繰り返しも、一度きりの用も。", tools: ["schedule"], dailyCheckIn: { enabled: true, time: "07:00", timeZone: "Asia/Tokyo" },
+    // A getter, so the sample reads in whichever language the story is showing.
+    get schedules() {
+      const w = words();
+      return [
+        { id: "s_medicine", at: "2026-09-16T22:30:00Z", note: w.medicine, daily: true, timeZone: "Asia/Tokyo" },
+        { id: "s_flowers", at: "2026-09-17T11:00:00Z", note: w.flowers, daily: false, timeZone: "Asia/Tokyo" },
+      ];
+    } },
 ];
 
-export const nobody = personas.map((row) => ({ ...row, active: false }));
+// Spreading would run the schedules getter at load, before words() exists, and
+// would freeze the sample into one language. Copy the descriptors instead.
+export const nobody = personas.map((row) => Object.defineProperties({}, {
+  ...Object.getOwnPropertyDescriptors(row),
+  active: { value: false, enumerable: true },
+}));
 
 const post = (id, at, extra) => ({ id, kind: "post", speaker: "user", at, text: "", ...extra });
 const said = (id, root, speaker, at, text, extra) =>
@@ -40,6 +53,8 @@ const WORDS = {
     later: "あとで読む",
     noVision: "画像を読めるモデルが設定されていません",
     mentioning: "@tabe 今日の昼、どこがいいと思う",
+    medicine: "朝の薬",
+    flowers: "仕事帰りに花を買う",
   },
   en: {
     noodles: "That dan dan noodle place from the other day - too much sesame, I think",
@@ -56,6 +71,8 @@ const WORDS = {
     later: "Read later",
     noVision: "No vision model is configured",
     mentioning: "@tabe where should I have lunch today",
+    medicine: "morning medicine",
+    flowers: "flowers on the way home",
   },
 };
 

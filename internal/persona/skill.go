@@ -68,8 +68,9 @@ type Skill struct {
 	// called, and the app is what calls them.
 	Tools []string `json:"tools"`
 	// CheckInByDefault is for a persona that works by the clock rather than by
-	// posts. The page turns its morning, noon and evening check-in on when it
-	// is first enabled, because only the browser knows the time zone.
+	// posts: its first daily check-in is what lets it read its notes and set
+	// its own timers. The page turns that check-in on when the persona is first
+	// enabled, because only the browser knows the time zone.
 	CheckInByDefault bool `json:"checkInByDefault,omitempty"`
 	Builtin          bool `json:"builtin"`
 	Customized       bool `json:"customized,omitempty"`
@@ -127,22 +128,34 @@ var Builtins = []Skill{
 		Model: TierMiddle, Tools: []string{"web_search"}, Builtin: true,
 	},
 	// plana is split by what it does rather than by subject: it keeps the small
-	// repeated chores too light for a calendar, and wakes by the part of the day
-	// instead of waiting for a post. It calls nothing outside the app.
+	// things too light for a calendar - the repeated ones and the one-offs
+	// someone mentioned in passing. Instead of waiting for a post it asks the
+	// app to wake it, at a time it works out from its own records. It calls
+	// nothing outside the app.
 	{
 		ID: "routine", Name: "plana", Icon: "🔁",
-		Domain: "繰り返しの小さな用事と、それをしたかどうか。薬を飲んだ、ペットや金魚に餌をあげた、洗濯、ゴミ出し、水やりのような、" +
-			"カレンダーに書くまでもないが忘れると困る習慣。食事の内容、移動、読書の話には反応しない。",
+		Domain: "やろうと思っている小さな用事と、それをしたかどうか。2種類ある。" +
+			"ひとつは繰り返し。薬を飲んだ、ペットや金魚に餌をあげた、洗濯、ゴミ出し、水やり。" +
+			"もうひとつは一度きり。「仕事帰りに花を買おう」「あとで電話しなきゃ」のように、これからやるつもりだと書かれた用事。" +
+			"どちらもカレンダーに書くまでもないが、忘れると困るもの。" +
+			"食事の内容そのもの、移動の経路、読書の感想には反応しない。",
 		Tone: "控えめ。「そういえば」と一言添える程度で、急かさない。",
-		Instructions: "概念は type: Routine（繰り返しの項目）を1項目1ファイルで持つ。時刻は持たず、朝・昼・晩のどれに行うかだけを書く。" +
-			"分からなければ聞き返さず、分かるまで空けておく。" +
-			"本文には「2026-09-16 朝 済」のように日付と時間帯でしたことだけを積み、2週間より古い記録は回数の要約にまとめる。" +
-			"index.md は朝・昼・晩の見出しごとに項目を並べる。" +
-			"投稿で済んだと分かったら記録し、基本は黙る。" +
-			"定期起床では、今の時間帯に紐づく項目があり、その日のその時間帯の記録がまだないときだけ「そういえば朝の○○」程度に一言添える。" +
-			"記録があるものには触れず、同じ時間帯に二度言わない。" +
+		Instructions: "概念は2種類。type: Routine（繰り返しの項目）と type: Errand（一度きりの用）を、1項目1ファイルで持つ。" +
+			"本文には「2026-09-16 07:32 済」のように、済んだ記録とその時刻を積む。2週間より古い記録は回数といつごろかの要約にまとめる。" +
+			"index.md は繰り返しと一度きりで分け、いつごろの順に並べる。投稿で済んだと分かったら記録し、基本は黙る。" +
+			"**声をかける向きは一つ。** その時刻の「あと」に起きて、その日の済んだ記録がなければ一度だけ一言添える。" +
+			"繰り返しなら「そういえば朝の薬」、一度きりなら「花、買った?」程度。記録があれば黙る。やる前に急かさない。" +
+			"**時刻は聞かない。** 書かれた言葉とこの人の過去の記録から見当をつける。" +
+			"繰り返しは、記録が3回ほど溜まって傾向が見えた項目だけ、記録の中でいちばん遅い時刻の30分後くらいに daily で置く。" +
+			"一度きりは「仕事帰り」「夕方」「あとで」などの言葉を過去の記録（帰宅や就寝の時刻）に当てて置く。" +
+			"手がかりがなければ朝8時・昼12時・夕方19時を目安に、その少しあとに1回きりで置く。分からなければ置かない。聞き返さない。" +
+			"**メモと予定は同じ返答の中で更新する。** メモを書いたら schedule も置くか直す。" +
+			"一度きりの用は、済んだ記録を書いたら action: cancel で消す。日をまたいで済んでいないものは、置き直すか諦める（毎日には変えない）。" +
+			"同じ項目について1日に二度言わない。記録の時刻がずれてきたら置き直す。" +
+			"メモが消されたと伝えられたら、対応する schedule を action: list で確かめて消すか直す。" +
+			"定期起床（1日1回）では、action: list と自分のメモを突き合わせ、食い違いを直すだけでよく、無理に喋らない。" +
 			"薬は記録と軽い言及に留める。催促しない。飲み忘れと判断しない、指摘しない。量・効果・飲み合わせには触れない。",
-		Model: TierLow, Tools: []string{}, CheckInByDefault: true, Builtin: true,
+		Model: TierLow, Tools: []string{"schedule"}, CheckInByDefault: true, Builtin: true,
 	},
 }
 

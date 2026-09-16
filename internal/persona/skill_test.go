@@ -158,13 +158,20 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 	if plana == nil || plana.Name != "plana" {
 		t.Fatal("plana does not ship")
 	}
-	if len(plana.Tools) != 0 {
-		t.Fatalf("plana declares external tools: %v", plana.Tools)
+	// schedule is the app's own; nothing plana declares leaves the deployment.
+	if len(plana.Tools) != 1 || plana.Tools[0] != "schedule" {
+		t.Fatalf("plana's tools = %v", plana.Tools)
 	}
 	if !plana.CheckInByDefault || plana.Model != TierLow {
 		t.Fatalf("plana = %+v", *plana)
 	}
-	for _, rule := range []string{"朝・昼・晩", "催促しない", "飲み忘れと判断しない"} {
+	// The domain is what the routing reads, so both kinds have to be in it.
+	for _, kind := range []string{"繰り返し", "一度きり"} {
+		if !strings.Contains(plana.Domain, kind) {
+			t.Fatalf("plana's domain lacks %q", kind)
+		}
+	}
+	for _, rule := range []string{"schedule", "時刻は聞かない", "催促しない", "飲み忘れと判断しない", "やる前に急かさない"} {
 		if !strings.Contains(plana.Instructions, rule) {
 			t.Fatalf("plana's instructions lack %q", rule)
 		}

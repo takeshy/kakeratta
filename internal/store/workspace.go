@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -36,6 +37,11 @@ type Workspace interface {
 	Settings() Settings
 	SaveSettings(Settings) error
 	ClaimDailyCheckIn(string, string) (bool, error)
+	Schedules(string) ([]Schedule, error)
+	SaveSchedule(Schedule) (Schedule, error)
+	DeleteSchedule(string, string) error
+	DeleteSchedules(string) error
+	ClaimSchedule(string, time.Time, time.Time) (Schedule, bool, error)
 	PersistSkill(string, []byte) error
 	DeleteSkill(string) error
 }

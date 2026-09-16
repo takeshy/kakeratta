@@ -82,12 +82,14 @@ func New(options Options) *Server {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		s.runner.CheckDaily()
+		s.runner.CheckSchedules()
 		for {
 			select {
 			case <-s.dailyStop:
 				return
 			case <-ticker.C:
 				s.runner.CheckDaily()
+				s.runner.CheckSchedules()
 			}
 		}
 	}()

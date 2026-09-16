@@ -386,9 +386,12 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 	type row struct {
 		persona.Skill
 		DailyCheckIn store.DailyCheckIn `json:"dailyCheckIn"`
-		Active       bool               `json:"active"`
-		Wakes        int                `json:"wakes"`
-		Notes        string             `json:"notes,omitempty"`
+		// Schedules are the wakes this persona asked the app for, so the card can
+		// show what it is waiting for.
+		Schedules []store.Schedule `json:"schedules,omitempty"`
+		Active    bool             `json:"active"`
+		Wakes     int              `json:"wakes"`
+		Notes     string           `json:"notes,omitempty"`
 	}
 	active := map[string]bool{}
 	for _, id := range settings.Active {
@@ -397,7 +400,12 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 	out := make([]row, 0, len(skills))
 	for _, skill := range skills {
 		memory := s.store.Memory(skill.ID)
-		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Active: active[skill.ID], Wakes: memory.Wakes})
+		schedules, err := s.store.Schedules(skill.ID)
+		if err != nil {
+			// A listing failure must not hide the room; the card shows none.
+			schedules = nil
+		}
+		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names()})
 }
@@ -480,11 +488,20 @@ func (s *Server) forgetNote(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// The app does not edit notes or the schedules that went with them: the
+	// persona is woken and puts its own memory back in order.
+	s.runner.NoteForgotten(r.PathValue("id"), path)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ForgetMemory(r.PathValue("id")); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Nothing is left to reconcile, so the persona is not woken. The schedules
+	// are the app's own bookkeeping and go with the memory they served.
+	if err := s.store.DeleteSchedules(r.PathValue("id")); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}

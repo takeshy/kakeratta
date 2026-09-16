@@ -174,7 +174,7 @@
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
                 <tr><td><code>@michi</code></td><td>移動</td><td>行き先、経路、所要時間、待ち合わせ、旅程、チケット</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
-                <tr><td><code>@plana</code></td><td>繰り返し</td><td>薬を飲んだ、金魚の餌、洗濯、ゴミ出しなど、カレンダーに書くまでもない繰り返しと、したかどうか</td></tr>
+                <tr><td><code>@plana</code></td><td>やること</td><td>薬、金魚の餌、洗濯、ゴミ出しのような繰り返し。「仕事帰りに花を買おう」のような一度きりの用と、したかどうか</td></tr>
               </tbody>
             </table>
           </div>
@@ -183,17 +183,18 @@
             <img src="/captures/ja/personas.png" alt="担当の一覧。分野、モデルの段、道具、メモ" loading="lazy" />
             <figcaption>担当パネル。分野、モデルの段（low / middle / high）、使える道具、メモの数。</figcaption>
           </figure>
-          <h3 id="ja-daily">朝・昼・晩のチェックイン</h3>
-          <p>新しいかけらを投げないときも、担当が朝・昼・晩に一度ずつ起き、その時間帯に伝えることがあれば話しかけます。何もなければ黙り、空の投稿は残りません。メモの更新だけをすることもあります。</p>
+          <h3 id="ja-daily">毎日のチェックインと timer</h3>
+          <p>新しいかけらを投げない日も、担当が一度だけ起き、伝えることがあれば話しかけます。何もなければ黙り、空の投稿は残りません。メモの更新だけをすることもあります。</p>
           <ol>
             <li><strong>担当</strong> を開き、対象の担当を <strong>有効にする</strong> にします。</li>
-            <li><strong>朝・昼・晩のチェックイン</strong> で、起きる時間帯（<strong>朝</strong>・<strong>昼</strong>・<strong>晩</strong>）を押して選びます。変更は自動保存されます（初期状態はどれも選ばれていません。plana だけは有効にしたとき3つとも選ばれます）。</li>
+            <li><strong>1日1回のチェックイン</strong> をONにします（初期状態はOFF。時間で動く plana は有効にしたときにONになります）。</li>
+            <li><strong>希望時刻</strong> を選びます。変更は自動保存されます。</li>
           </ol>
-          <p>時刻は選びません。朝は6〜11時、昼は11〜17時、晩は17〜23時で、夜間は起きません。</p>
-          <p>横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。時間帯の選択をすべて外すか、担当を無効にすると定期起床は止まります。</p>
-          <p>たとえば plana なら、朝に紐づく「薬」の記録がまだないとき「そういえば朝の薬」と一言添える程度です。催促や飲み忘れの指摘はしません。時間帯ごとの投稿や決まった件数の通知を約束する機能ではありません。</p>
-          <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、処理の混雑によって少し遅れることがあります。時間帯の途中で選んだ場合は、その時間帯の分を次の確認で実行します。再起動時も今の時間帯の分だけを実行し、逃した時間帯や過去の日の分はまとめて送りません。</p>
-          <p>沈黙や失敗もその時間帯の1回に数えます。記憶の削除で同じ時間帯を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
+          <p>時刻の横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。チェックインをOFFにするか、担当を無効にすると定期起床は止まります。</p>
+          <p>これとは別に、<code>timer</code> を持つ担当は、自分で起きる時刻を置きます（<a href="#ja-tool-timer">timer</a>）。時刻を尋ねられることはありません。担当が自分の記録から見当をつけます。</p>
+          <p>たとえば plana なら、記録から「朝の薬は7時半ごろ」と分かった項目にだけ timer を置き、その少しあとに起きて、まだ記録がないときだけ「そういえば朝の薬」と一言添えます。催促や飲み忘れの指摘はしません。決まった件数の通知を約束する機能ではありません。</p>
+          <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、希望時刻や処理の混雑によって少し遅れることがあります。設定した時刻を過ぎてONにした場合は、その日の分を次の確認で実行します。再起動時も当日分だけを実行し、過去の日の分はまとめて送りません。</p>
+          <p>沈黙や失敗もその日の1回に数えます。時刻の変更や記憶の削除で当日分を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
           <h3>AI と担当を作る</h3>
           <ol>
             <li><strong>担当</strong> を開き、<strong>AIと担当を作る</strong> を選びます。</li>
@@ -329,6 +330,7 @@
                 <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>車・徒歩・自転車の道路経路と所要時間</td><td>担当への追加、投稿の位置情報。接続先は運用者の設定（既定は公開サービス）</td></tr>
                 <tr><td><a href="#ja-tool-timeline_search"><code>timeline_search</code></a></td><td>保存したかけらをキーワード・意味で検索</td><td>担当への追加や検索専用のAPIキーは不要</td></tr>
                 <tr><td><a href="#ja-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>担当自身の記憶を一覧・読み取り・保存・削除</td><td>追加設定不要</td></tr>
+                <tr><td><a href="#ja-tool-schedule"><code>schedule</code></a></td><td>担当が自分で起きる時刻を本体に預ける</td><td>担当への追加。外部サービスは不要</td></tr>
                 <tr><td><code>サーバー名.道具名</code></td><td>運用者が追加したMCPサーバーの道具</td><td>担当への追加。サーバーは運用者が設定</td></tr>
               </tbody>
             </table>
@@ -358,6 +360,11 @@
           <p><strong>設定：</strong>全担当が使え、追加設定は不要です。</p>
           <p><strong>依頼例：</strong>「@tabe 辛いものは好きだけど、ごまが強い味は苦手。覚えておいて」</p>
           <p><strong>制限：</strong>何を記憶するかは担当が判断します。黙って記憶だけ更新する場合もあります。保存内容の確認や確実な削除は、担当画面の <strong>覚えていること</strong> から行ってください。定期チェックインでも読み書きできます。</p>
+          <h3 id="ja-tool-schedule">自分で起きる時刻を預ける — schedule</h3>
+          <p><strong>用途：</strong>担当が自分を起こす時刻を本体に預けます。カレンダーや目覚まし時計ではなく、担当が自分の担当分野の用のために使うものです。plana は、繰り返しの記録や「仕事帰りに」のような言葉から、いつごろかを読み取って預けます。声をかけるのはその時刻のあとで、済んでいれば黙ります。</p>
+          <p><strong>設定：</strong>担当に <code>schedule</code> を追加します。外部サービスもAPIキーも要りません。担当ごとに20件まで、30日以内、1回きりか毎日です。</p>
+          <p><strong>依頼例：</strong>預けるのは担当自身です。あなたから時刻を指定する道具ではありません（「毎朝8時に知らせて」のような使い方は想定していません）。</p>
+          <p><strong>制限：</strong>発火前に実行権を保存するため、沈黙や失敗でも同じ回は繰り返しません。10分以上遅れたものは鳴らさずに捨てます。メモを消すと担当が起きて予定を見直します。記憶を全部消したとき、担当を停止・削除したときは予定も消えます（メモは残ります）。預けた予定は担当パネルのカードに一覧で出ますが、画面からは消せません（消すのは担当自身です）。</p>
           <h3 id="ja-tool-terms">公開サービスの利用条件</h3>
           <p>APIキー不要でも、無制限に利用できるわけではありません。<a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMapのデータはODbL</a>で、著作権・ライセンスの表示が必要です。ソフトウェアのライセンスとは別に、各APIの利用条件が適用されます。</p>
           <p><a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">公開Nominatimの利用条件</a>は、アプリ全体で最大1リクエスト/秒、アプリの識別、帰属表示などを要求します。定期アクセスは強く非推奨で、定期処理にはキャッシュやさらに低い頻度の条件があります。現状の地名検索にはキャッシュがないため、定期便での利用や公開運用の拡大では、条件に合う自前・契約サービスへの切り替えを検討してください。開発者・運営者自身が条件を理解し、採用を判断する必要があります。</p>
@@ -530,7 +537,7 @@
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
                 <tr><td><code>@michi</code></td><td>travel</td><td>Destinations, routes, travel time, meeting times, itineraries, tickets</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
-                <tr><td><code>@plana</code></td><td>routines</td><td>Medicine taken, the goldfish fed, laundry, trash day: repeated chores too small for a calendar, and whether they were done</td></tr>
+                <tr><td><code>@plana</code></td><td>follow-ups</td><td>Medicine, feeding the goldfish, laundry, the bins - and one-offs like buying flowers on the way home, and whether they happened</td></tr>
               </tbody>
             </table>
           </div>
@@ -539,17 +546,18 @@
             <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" loading="lazy" />
             <figcaption>The Personas panel: subject, model tier (low / middle / high), available tools, and how many notes each has.</figcaption>
           </figure>
-          <h3 id="en-daily">Morning, noon, and evening check-ins</h3>
-          <p>Even without a new fragment, a persona can wake once in the morning, at noon, and in the evening, and speak when it has something for that part of the day. Silence leaves no empty post. It may just update its memory.</p>
+          <h3 id="en-daily">Daily check-ins and timers</h3>
+          <p>Even without a new fragment, a persona can wake once a day and speak when it has something worth sharing. Silence leaves no empty post. It may just update its memory.</p>
           <ol>
             <li>Open <strong>Personas</strong> and enable the persona.</li>
-            <li>Under <strong>Morning, noon, and evening check-ins</strong>, tap <strong>Morning</strong>, <strong>Noon</strong>, or <strong>Evening</strong> to choose when it wakes. Changes save automatically (none are chosen by default; plana starts with all three when first enabled).</li>
+            <li>Turn on <strong>Daily check-in</strong> (off by default; plana, which works by the clock, turns it on when first enabled).</li>
+            <li>Choose a <strong>Preferred time</strong>. Changes save automatically.</li>
           </ol>
-          <p>There is no time to choose. Morning is 06:00–11:00, noon 11:00–17:00, and evening 17:00–23:00; there is no wake at night.</p>
-          <p>The browser's time zone shown beside the choices is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Clear every part of the day or disable the persona to stop check-ins.</p>
-          <p>plana, for example, might add “the morning medicine, by the way” when nothing tied to the morning has been recorded yet. It does not nag or point out a missed dose. This does not promise a post in every part of the day.</p>
-          <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Choosing a part of the day while it is under way runs that part's check-in at the next check. After a restart, only the current part of the day runs, without replaying missed parts or days.</p>
-          <p>Silent and failed attempts count as that part of the day's wake. Forgetting memory does not trigger a second attempt. Check-ins do not acquire your current location: routes are unavailable and place search is by name only.</p>
+          <p>The browser's time zone shown beside the time is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Turn off the check-in or disable the persona to stop the daily wake.</p>
+          <p>Separately, a persona that has <code>timer</code> sets its own wake times (<a href="#en-tool-timer">timer</a>). You are never asked for a time: the persona works it out from its own records.</p>
+          <p>plana, for example, sets a timer only for a routine its notes place at a usual time, wakes shortly after it, and adds “the morning medicine, by the way” only when nothing has been recorded yet. It does not nag or point out a missed dose. This does not promise a fixed number of notifications.</p>
+          <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Enabling it after the preferred time runs today's check-in at the next check. After a restart, only today's due wake runs, without replaying missed days.</p>
+          <p>Silent and failed attempts count as the day's wake. Changing the time or forgetting memory does not trigger a second attempt that day. Check-ins do not acquire your current location: routes are unavailable and place search is by name only.</p>
           <h3>Create a persona with AI</h3>
           <ol>
             <li>Open <strong>Personas</strong> and choose <strong>Create a persona with AI</strong>.</li>
@@ -685,6 +693,7 @@
                 <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Driving, walking, and cycling routes and travel estimates</td><td>Add to persona; location on the post; endpoints are the operator's (public defaults)</td></tr>
                 <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search saved fragments by combining words and meaning</td><td>Available to all personas; no separate search API key</td></tr>
                 <tr><td><a href="#en-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>List, read, save, and delete the persona's own memory</td><td>No additional setup</td></tr>
+                <tr><td><a href="#en-tool-schedule"><code>schedule</code></a></td><td>Let a persona ask the app to wake it</td><td>Add to persona; no external service</td></tr>
                 <tr><td><code>server.tool</code></td><td>Tools from MCP servers the operator added</td><td>Add to persona; servers are configured by the operator</td></tr>
               </tbody>
             </table>
@@ -714,6 +723,11 @@
           <p><strong>Setup:</strong> Every persona has these tools without additional configuration.</p>
           <p><strong>Try:</strong> “@tabe I like spicy food, but strong sesame flavours aren't for me. Remember that.”</p>
           <p><strong>Limits:</strong> Each persona decides what to remember. It may update memory without speaking. To inspect saved notes or explicitly delete them, open <strong>What I remember</strong> in the Personas panel. Memory tools are available during check-ins too.</p>
+          <h3 id="en-tool-schedule">Ask the app to wake it — schedule</h3>
+          <p><strong>Purpose:</strong> A persona asks the app for the minute it wakes. This is not a calendar or an alarm clock: it is for the persona's own subject. plana works the time out of its records, or out of words like “on the way home”, and always speaks after the moment - never as a nudge beforehand.</p>
+          <p><strong>Setup:</strong> Add <code>schedule</code> to the persona. No external service or API key is needed. Up to 20 pending schedules per persona, 30 days ahead, once or every day.</p>
+          <p><strong>Try:</strong> Nothing - the persona asks for these itself. It is not a way for you to schedule a message (“tell me every morning at 8” is not what this is for).</p>
+          <p><strong>Limits:</strong> A schedule is claimed before the model runs, so a silent or failed wake is not repeated. One more than 10 minutes late is dropped rather than replayed. Deleting a note wakes the persona to revisit the schedules that went with it; forgetting its whole memory, pausing it, or removing it drops them. Pending schedules are listed on the persona's card, but cannot be removed from there - only the persona cancels them.</p>
           <h3 id="en-tool-terms">Public service usage conditions</h3>
           <p>No API key does not mean unlimited use. <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap data is licensed under ODbL</a> and requires attribution and license information. Each API's usage conditions apply separately from the software license.</p>
           <p>The <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">public Nominatim policy</a> requires an application-wide maximum of one request per second, application identification, and attribution. Periodic requests are strongly discouraged; recurring jobs have caching and stricter frequency requirements. Name lookup currently has no cache. For check-ins or a growing public deployment, consider a self-hosted or contracted service whose conditions fit your use. Developers and operators must make an informed decision about using the service.</p>

@@ -8,10 +8,10 @@ Put thoughts and things that catch your eye into one timeline as text, images,
 URLs, or speech. AIs with separate memories for their own subjects react when
 they have something to say.
 
-**Morning, noon, and evening, with room for silence.** Pick any of morning,
-noon, and evening for a persona and it wakes then — around when, not at a set
-time. Even without a new fragment, it can revisit its memory,
-speaking only when there is something for that part of the day.
+**A daily wake, with room for silence.** Enable a daily check-in for a persona
+and choose a time. Even without a new fragment, it can revisit its memory and
+look for relevant changes, speaking only when there is something worth sharing.
+A persona can also ask the app to wake it at a given minute, from what it has recorded.
 
 The food persona learns your tastes from meals; the reading persona remembers
 passages that caught your eye. Keeping memory separate by subject prevents
@@ -52,12 +52,13 @@ lowercase, so `@tabe` can be typed on any keyboard. A persona answers in the lan
 post was written in. They are examples of how to split things up rather than a
 complete set; the rest is yours to create.
 
-plana keeps the small repeated things too light for a calendar — medicine taken,
-the goldfish fed, laundry, trash day — by morning, noon, and evening rather than
-by the clock. It wakes by the part of the day instead of waiting for a post, and
-calls no external service. For medicine it only records and mentions lightly
-(“the morning medicine, by the way”): it never nags, and never decides or points
-out that a dose was missed.
+plana keeps the small things too light for a calendar. Some repeat — medicine
+taken, the goldfish fed, laundry, the bins. Others are said once: write “I'll
+buy flowers on the way home” and it will ask, later that evening, whether you
+did. Instead of waiting for a post it asks the app to wake it, at a time it
+works out from its own records, and it calls no external service. For medicine
+it only records and mentions lightly (“the morning medicine, by the way”): it
+never nags, and never decides or points out that a dose was missed.
 
 Browser voice input can optionally polish your words with Nemotron 3.5 Lightning before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
 
@@ -212,18 +213,27 @@ routing, notes, replies, search and route tools, and read-aloud are implemented.
 
 [MIT licensed](LICENSE).
 
-### Check-ins: morning, noon, and evening
+### Check-ins and timers
 
-In the Personas panel, pick any of **Morning**, **Noon**, and **Evening** for
-each active persona. There is no time to choose: morning is 06:00–11:00, noon
-11:00–17:00, and evening 17:00–23:00, and a persona wakes once in each part you
-picked; it does not wake at night. None are picked by default, except for plana,
-which works by the clock and starts with all three when first enabled. The
-browser's time zone is saved, including daylight-saving rules; it stays saved
-when you travel and is not limited to JST. There is currently no time-zone
-picker. A persona can read its memory, search fragments, and use its usual
-tools; it starts a timeline thread only when it has something for that part of
-the day. Silence leaves no system post or empty thread.
+Each active persona can opt into **Daily check-in** in the Personas panel, with
+one preferred time per day (off by default; on for plana, which works by the
+clock). The browser's time zone is saved with that time, including
+daylight-saving rules; it stays saved when you travel and is not limited to JST.
+There is currently no time-zone picker. A persona can read its memory, search
+fragments, and use its usual tools; it starts a timeline thread only when it has
+something worth sharing. Silence leaves no system post or empty thread.
+
+A persona that declares the `schedule` tool asks the app to wake it at a given
+minute: up to 20 pending schedules per persona, 30 days ahead, once or every
+day. The app holds the schedule the way it holds the endpoint and the active
+personas; the persona decides its contents and asks for them as it writes the
+note they belong to. The time comes from what the persona recorded rather than
+from a question to you, and it is always shortly *after* the moment - plana asks
+"did you get the flowers?" rather than nudging beforehand. A schedule is claimed
+before the model runs, so a silent or failed wake is not repeated, and one more
+than 10 minutes late is dropped rather than replayed. Deleting a note wakes the
+persona so it can revisit the schedules that went with it; forgetting a
+persona's whole memory, pausing it, or removing it drops its schedules.
 
 The server checks once per minute and uses the existing execution queue, so a
 busy queue can delay a wake. The server must be running; the browser can be
@@ -231,13 +241,12 @@ closed. Configured workspaces are restored after server restarts, including
 Firestore users. The provided Cloud Run configuration already keeps one
 instance running with CPU allocated outside requests.
 
-A persisted claim limits each persona to one attempt per part of the local
-day, including silent or failed attempts. Firestore claims are transactional
-across instances; local storage assumes one server process per workspace.
-Forgetting memory does not reset the claim. After downtime, only the current
-part of the day runs; a missed morning is not replayed at noon, and missed days
-are not replayed. A crash after claiming can skip that wake rather than repeat
-it.
+A persisted claim limits each persona to one check-in attempt per local
+calendar day, including silent or failed attempts. Firestore claims are
+transactional across instances; local storage assumes one server process per
+workspace. Changing the time or forgetting memory does not reset the claim.
+After downtime, only today's due check-in runs; missed days are not replayed. A
+crash after claiming can skip that day's check-in rather than repeat it.
 
 ### Tools are the operator's
 

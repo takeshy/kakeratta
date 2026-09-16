@@ -6,16 +6,15 @@ import (
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/timeline"
-	"github.com/takeshy/kakeratta/internal/tools"
 )
 
 const dailyInstructions = `
 
-## Check-in（朝・昼・晩の定期起床）
-今回はユーザーの投稿ではなく、朝・昼・晩に一度ずつあるシステムの定期起床です。どの時間帯かは対象発言に書かれています。返答の義務はありません。
+## Daily check-in（1日1回の定期起床）
+今回はユーザーの投稿ではなく、システムによる定期起床です。返答の義務はありません。
 自分のメモを必要に応じて読み、timeline_search や宣言した外部ツールで確かめてください。
-今の時間帯に関係するメモや、この人が最近気にしていることに伝えるべきことがある場合だけ、短く話してください。
-時間帯ごとの件数合わせ、一般的なニュース一覧、同じ日のほかの時間帯に言ったことの繰り返し、挨拶だけの投稿は不要です。
+昨日から今日の記録や、この人が最近気にしていることに重要な変化があった場合だけ、短く話してください。
+毎日の件数合わせ、一般的なニュース一覧、同じ助言の繰り返し、挨拶だけの投稿は不要です。
 伝えることがない場合や根拠を得られない場合は silent。黙ったままメモを更新しても構いません。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
@@ -48,11 +47,11 @@ func (r *Runner) dailyAt(now time.Time) {
 	}
 	for _, skill := range r.catalogue.Active(settings.Active) {
 		schedule := settings.DailyCheckIns[skill.ID]
-		key, slot, due := schedule.Due(now)
+		day, due := schedule.Due(now)
 		if !due || modelFor(skill.Model, settings) == "" {
 			continue
 		}
-		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, key)
+		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
 		if err != nil {
 			r.emit("error", map[string]any{"where": "daily", "message": err.Error()})
 			continue
@@ -61,11 +60,9 @@ func (r *Runner) dailyAt(now time.Time) {
 			continue
 		}
 		loc, _ := time.LoadLocation(schedule.TimeZone)
-		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: fmt.Sprintf(
-			"Check-in: %s (%s), %s (%s). Decide whether there is anything worth sharing for this part of the day.",
-			slot.Label, slot.Name, now.In(loc).Format(time.RFC3339), schedule.TimeZone)}
+		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, client, settings, tools.New(r.tools).WithSearch(r.search).WithTavilyKey(settings.Search.APIKey))
+		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, dailyInstructions, client, settings, r.registry(settings))
 		cancel()
 	}
 }

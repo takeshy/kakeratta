@@ -60,9 +60,10 @@ type Tool struct {
 // Registry holds every tool the app knows how to run, already wired to the
 // operator's configuration. A persona is given a subset of it.
 type Registry struct {
-	config Config
-	tools  map[string]Tool
-	search *search.Service
+	config    Config
+	tools     map[string]Tool
+	search    *search.Service
+	schedules Schedules
 	// tavilyKey is the user's own; web_search is the one tool whose credential
 	// belongs to the workspace rather than the deployment.
 	tavilyKey string
@@ -74,7 +75,7 @@ type Registry struct {
 func New(config Config) *Registry {
 	r := &Registry{config: config, tools: map[string]Tool{}}
 	listed := config.MCP.Tools()
-	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline} {
+	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline, scheduleTool} {
 		r.tools[tool.Name] = preferMCP(tool, listed)
 	}
 	for _, tool := range mcpTools(config.MCP) {
@@ -88,6 +89,13 @@ func New(config Config) *Registry {
 // Timeline search is a shared capability of every persona in this workspace.
 func (r *Registry) WithSearch(service *search.Service) *Registry {
 	r.search = service
+	return r
+}
+
+// WithSchedules lets a persona ask the app to wake it. Without it the tool
+// stays listed and says it is not configured when asked.
+func (r *Registry) WithSchedules(schedules Schedules) *Registry {
+	r.schedules = schedules
 	return r
 }
 
@@ -112,6 +120,15 @@ func (r *Registry) Names() []string {
 type Set struct {
 	registry *Registry
 	allowed  map[string]bool
+	owner    string
+}
+
+// As names the persona whose set this is. A schedule belongs to the one that
+// asked for it, so the owner travels with the call rather than with the
+// arguments a model wrote.
+func (s *Set) As(owner string) *Set {
+	s.owner = owner
+	return s
 }
 
 // For adds shared timeline search and drops unknown declared tool names.
@@ -160,7 +177,7 @@ func (s *Set) Run(ctx context.Context, name string, args Args, at *timeline.Plac
 	if !ok {
 		return Result{}, errors.New("知らない道具です")
 	}
-	return tool.run(ctx, s.registry, args, at)
+	return tool.run(context.WithValue(ctx, ownerKey{}, s.owner), s.registry, args, at)
 }
 
 // ErrNoPlace is what the location-shaped tools return when the post had no
