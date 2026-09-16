@@ -134,7 +134,6 @@ export const settings = {
   middleModel: "nvidia/nemotron-3-super-120b-a12b",
   highModel: "nvidia/Nemotron-3-Ultra-550b-a55b",
   visionModel: "zai-org/GLM-5.3-Flash",
-  routeModel: "nvidia/Nemotron-3_5-Lightning",
   active: personas.map((row) => row.id),
   search: { apiKey: "" },
   speech: {

@@ -176,7 +176,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | middle の担当 | `middleModel` | Nemotron Super |
 | high の担当 | `highModel` | Nemotron Ultra |
 | 画像解析・OCR | `visionModel` | GLM-5.3-Flash |
-| 振り分け | `routeModel` | Nemotron 3.5 Lightning |
+| 振り分け | （設定なし。自動） | 短い投稿は middle、画像の読み取り結果やページ本文のような長い入力は low |
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 

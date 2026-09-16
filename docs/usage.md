@@ -212,7 +212,7 @@ Image reading uses GLM-5.3-Flash on the same backend.
 | The middle tier | `middleModel` | Nemotron Super |
 | The high tier | `highModel` | Nemotron Ultra |
 | Reading images / OCR | `visionModel` | GLM-5.3-Flash |
-| Routing | `routeModel` | Nemotron 3.5 Lightning |
+| Routing | (no setting; automatic) | The middle tier for a short post, the low one for long input such as OCR or a fetched page |
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
 

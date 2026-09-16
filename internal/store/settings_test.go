@@ -7,13 +7,13 @@ func TestNebiusDefaultModelMigration(t *testing.T) {
 		t.Run(vision, func(t *testing.T) {
 			s := open(t)
 			settings := defaultSettings()
-			settings.LowModel, settings.MiddleModel, settings.HighModel, settings.RouteModel = legacyNemotronNano, legacyNemotronNano, legacyNemotronNano, legacyNemotronNano
+			settings.LowModel, settings.MiddleModel, settings.HighModel = legacyNemotronNano, legacyNemotronNano, legacyNemotronNano
 			settings.VisionModel = vision
 			if err := s.SaveSettings(settings); err != nil {
 				t.Fatal(err)
 			}
 			got := s.Settings()
-			if got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
+			if got.LowModel != NemotronLightning {
 				t.Fatal("light models not upgraded")
 			}
 			for _, model := range []string{got.MiddleModel, got.HighModel} {
@@ -63,9 +63,8 @@ func TestNewWorkspaceUsesVisionModel(t *testing.T) {
 func TestIntermediateNanoDefaultIsMigrated(t *testing.T) {
 	settings := defaultSettings()
 	settings.LowModel = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
-	settings.RouteModel = settings.LowModel
 	got := normaliseConfiguredSettings(settings)
-	if got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
+	if got.LowModel != NemotronLightning {
 		t.Fatal("intermediate default was not migrated")
 	}
 }
@@ -125,17 +124,17 @@ func TestToolSettingsInOldDocumentsAreIgnored(t *testing.T) {
 
 func TestLightningDefaultsAndNanoMigration(t *testing.T) {
 	s := open(t)
-	if got := s.Settings(); got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
+	if got := s.Settings(); got.LowModel != NemotronLightning {
 		t.Fatal("wrong defaults")
 	}
 	for _, old := range []string{NemotronNano, legacyNemotronNano, "nvidia/nvidia-nemotron-3-nano-30b-a3b"} {
 		settings := defaultSettings()
-		settings.LowModel, settings.RouteModel = old, old
+		settings.LowModel = old
 		if err := writeJSON(s.Root()+"/settings.json", settings); err != nil {
 			t.Fatal(err)
 		}
 		got := s.ConfiguredSettings()
-		if got.LowModel != NemotronLightning || got.RouteModel != NemotronLightning {
+		if got.LowModel != NemotronLightning {
 			t.Fatal("stored Nano was not upgraded")
 		}
 		if got.MiddleModel != NemotronSuper || got.HighModel != NemotronUltra || got.VisionModel != NebiusVision {
@@ -143,9 +142,9 @@ func TestLightningDefaultsAndNanoMigration(t *testing.T) {
 		}
 	}
 	settings := defaultSettings()
-	settings.LowModel, settings.RouteModel = "custom-low", "custom-router"
+	settings.LowModel = "custom-low"
 	got := normaliseConfiguredSettings(settings)
-	if got.LowModel != "custom-low" || got.RouteModel != "custom-router" {
+	if got.LowModel != "custom-low" {
 		t.Fatal("custom models changed")
 	}
 }

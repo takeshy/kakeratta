@@ -233,7 +233,7 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	for _, id := range named {
 		targets[id] = true
 	}
-	for _, id := range Route(ctx, client, settings.RouteModel, skills, thread, entry) {
+	for _, id := range Route(ctx, client, routeModelFor(settings, thread, entry), skills, thread, entry) {
 		targets[id] = true
 	}
 	if len(targets) == 0 {
@@ -604,6 +604,33 @@ func turnLine(named, listening bool) string {
 		return "\n※ あなたは名指しで呼ばれています。必ず発言してください。"
 	}
 	return ""
+}
+
+// routeByHandLimit is where a post stops being something to read and starts
+// being something to skim: about a page of text.
+const routeByHandLimit = 1200
+
+// routeModelFor picks who decides the routing.
+//
+// A short post is where the choice is actually hard - one line, no context,
+// "17時に買い物に行く" belongs to the errands persona and not to the travel one -
+// so it goes to the middle tier. A long post is long because a picture was read
+// or a page was fetched, and that much text names its own subject plainly
+// enough for the light model. Routing runs once per post either way.
+func routeModelFor(settings store.Settings, thread []timeline.Entry, trigger timeline.Entry) string {
+	size := len([]rune(trigger.Text))
+	for _, entry := range thread {
+		size += len([]rune(entry.Text))
+		if entry.Media != nil {
+			size += len([]rune(entry.Media.Text)) + len([]rune(entry.Media.Describe))
+		}
+	}
+	if size <= routeByHandLimit {
+		if model := modelFor(TierMiddle, settings); model != "" {
+			return model
+		}
+	}
+	return modelFor(TierLow, settings)
 }
 
 // modelFor is which model answers for a tier. An unset tier falls back to the

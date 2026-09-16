@@ -53,9 +53,6 @@ type Settings struct {
 	// VisionModel reads a capture once for everyone. On Nebius, an empty
 	// selection uses the vision default, never a text-only conversation model.
 	VisionModel string `json:"visionModel"`
-	// RouteModel decides who a post goes to. It is a light judgement on
-	// purpose: it only drops what is plainly none of a persona's business.
-	RouteModel string `json:"routeModel"`
 
 	// Active is which personas are in the room, in order.
 	//
@@ -107,7 +104,6 @@ func defaultSettings() Settings {
 		MiddleModel: NemotronSuper,
 		HighModel:   NemotronUltra,
 		VisionModel: NebiusVision,
-		RouteModel:  NemotronLightning,
 		Speech: SpeechSettings{
 			Provider:       "browser",
 			Language:       "auto",
@@ -171,14 +167,14 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 	// Repair only the defaults shipped for Nebius. Custom endpoints and model
 	// selections belong to the user, even when their names resemble ours.
 	if usesNebiusEndpoint(settings) {
-		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel, &settings.RouteModel} {
+		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel} {
 			if name := strings.TrimSpace(*model); name == legacyNemotronNano || name == "nvidia/nvidia-nemotron-3-nano-30b-a3b" {
 				*model = NemotronNano
 			}
 		}
-		// Upgrade the shipped light and routing models while preserving explicit
-		// middle/high choices and models served by other providers.
-		for _, model := range []*string{&settings.LowModel, &settings.RouteModel} {
+		// Upgrade the shipped light model while preserving explicit middle/high
+		// choices and models served by other providers.
+		for _, model := range []*string{&settings.LowModel} {
 			if strings.TrimSpace(*model) == NemotronNano {
 				*model = NemotronLightning
 			}
@@ -213,9 +209,6 @@ func effectiveSettings(settings Settings) Settings {
 		if usesNebiusEndpoint(settings) {
 			settings.VisionModel = NebiusVision
 		}
-	}
-	if strings.TrimSpace(settings.RouteModel) == "" {
-		settings.RouteModel = settings.LowModel
 	}
 	return settings
 }
