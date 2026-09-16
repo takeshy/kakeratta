@@ -37,7 +37,20 @@ const routePrompt = `投稿を、担当分野ごとのAIのうち誰に渡すか
   例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足なので、移動の担当へ渡します。
 - 過去に担当が回答済みでも、新しい条件や質問があれば改めて関係する担当へ渡してください。
 
-{"deliver":["id", ...]} の形式で、渡す相手のidだけを返してください。`
+deliver を呼んで、渡す相手のidを渡してください。誰にも渡さないときは空のまま呼びます。`
+
+// deliverTool is the one call routing makes. Routing decides exactly one thing,
+// so there is exactly one thing it can do.
+var deliverTool = llm.Tool{
+	Name:        "deliver",
+	Description: "この投稿を渡す担当を決める。",
+	Parameters: map[string]any{"type": "object", "properties": map[string]any{
+		"deliver": map[string]any{
+			"type": "array", "items": map[string]any{"type": "string"},
+			"description": "渡す担当のid。誰にも渡さないなら空",
+		},
+	}, "required": []any{"deliver"}},
+}
 
 // Route picks who a post goes to.
 //
@@ -59,8 +72,8 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	for _, skill := range skills {
 		domains = append(domains, fmt.Sprintf("- %s（%s）: %s", skill.ID, skill.Name, skill.Domain))
 	}
-	reply, err := client.Chat(ctx, llm.Request{
-		Model: model, JSON: true,
+	reply, err := client.Complete(ctx, llm.Request{
+		Model: model, Tools: []llm.Tool{deliverTool}, ToolChoice: "required",
 		Messages: []llm.Message{
 			{Role: "system", Content: routePrompt},
 			{Role: "user", Content: strings.Join([]string{
@@ -75,7 +88,19 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	var parsed struct {
 		Deliver []string `json:"deliver"`
 	}
-	if err := json.Unmarshal([]byte(firstJSON(reply)), &parsed); err != nil || parsed.Deliver == nil {
+	// The call is what this asks for, but a model that answered in prose has
+	// still answered. Falling back to reading it costs nothing and is better
+	// than waking everyone.
+	chosen := ""
+	for _, call := range reply.Calls {
+		if call.Name == deliverTool.Name {
+			chosen = call.Args
+		}
+	}
+	if chosen == "" {
+		chosen = firstJSON(reply.Content)
+	}
+	if err := json.Unmarshal([]byte(chosen), &parsed); err != nil || parsed.Deliver == nil {
 		return all
 	}
 	known := map[string]bool{}

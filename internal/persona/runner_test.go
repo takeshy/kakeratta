@@ -90,13 +90,21 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 // is its own case in the runner.
 func asCall(content string) map[string]any {
 	var parsed struct {
-		Action string         `json:"action"`
-		Text   string         `json:"text"`
-		Tool   string         `json:"tool"`
-		Args   map[string]any `json:"args"`
+		Action  string         `json:"action"`
+		Text    string         `json:"text"`
+		Tool    string         `json:"tool"`
+		Args    map[string]any `json:"args"`
+		Deliver []string       `json:"deliver"`
 	}
-	if json.Unmarshal([]byte(content), &parsed) != nil || parsed.Action == "" {
+	if json.Unmarshal([]byte(content), &parsed) != nil || (parsed.Action == "" && parsed.Deliver == nil) {
 		return map[string]any{"content": content}
+	}
+	if parsed.Deliver != nil {
+		raw, _ := json.Marshal(map[string]any{"deliver": parsed.Deliver})
+		return map[string]any{"content": "", "tool_calls": []any{map[string]any{
+			"id": "call_deliver", "type": "function",
+			"function": map[string]any{"name": "deliver", "arguments": string(raw)},
+		}}}
 	}
 	name, args := parsed.Action, map[string]any{}
 	switch parsed.Action {

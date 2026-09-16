@@ -87,7 +87,7 @@ still, which is acceptable because asynchronous is the default.
 When a post arrives the app reads the image once (`internal/capture`). Handing
 the picture to every persona would mean paying for vision once per persona for
 the same screenshot, so it is turned into text and shared. A persona that
-decides it needs the detail returns `{"action":"image"}` and gets the original.
+decides it needs the detail calls `image` and gets the original.
 
 ## Personas
 
@@ -228,7 +228,7 @@ for the whole deployment. The Tavily key is the user's, from their settings.
 | `schedule` | Wake times a persona asks the app for (nothing leaves the app; kept in `schedules.json` / Firestore) | No |
 | `server.tool` | Any tool of a configured MCP server (`internal/mcp`, Streamable HTTP) | Operator's |
 
-MCP tools are listed once per server and cached; a persona sees them in the
-same one-line form as the built-in tools, with an example call built from the
-input schema, and calls them with the same `{"action":"tool"}` message. The
-result's text goes into the prompt and its resource links become sources.
+MCP tools are listed once per server and cached; a persona is offered them
+exactly like the built-in tools, each carrying the server's own input schema,
+and calls them the same way. The result's text goes back as the answer to that
+call and its resource links become sources.
