@@ -126,6 +126,7 @@ function open(which) {
     return;
   }
   if (panel === "search") void searchPanel.stopVoice();
+  if (panel === "settings") settingsPanel.stopMicCheck();
   panel = which;
   showPanel();
   if (which === "personas") void personas.load();
@@ -136,6 +137,7 @@ function open(which) {
 function close() {
   // Leaving search must not keep the microphone open behind the sheet.
   if (panel === "search") void searchPanel.stopVoice();
+  if (panel === "settings") settingsPanel.stopMicCheck();
   panel = null;
   const host = $("#sheet");
   host.classList.remove("required");

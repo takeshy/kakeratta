@@ -6,6 +6,7 @@ import { el, clear, toast } from "./dom.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { api } from "./api.js";
 import { speechLanguageOptions } from "./speech_languages.js";
+import { createAudioMeter } from "./meter.js";
 import { getLanguage, setLanguage, t } from "./i18n.js";
 
 export function aiConfigured(settings) {
@@ -18,6 +19,7 @@ export function createSettings({ speaker, onSettings }) {
   let settings = null;
   let about = null;
  let bluesky = null;
+  let stopMicCheck = () => {};
 
   async function load() {
     settings = await api.settings();
@@ -134,6 +136,46 @@ export function createSettings({ speaker, onSettings }) {
     );
   }
 
+  // The level meter opens a microphone of its own, so it runs only while the
+  // reader asks for it here and never beside dictation.
+  function micCheck() {
+    const meterNode = el("span", { class: "mic-meter", ariaHidden: "true" });
+    const meter = createAudioMeter(meterNode);
+    const button = el("button", { class: "chip", type: "button", label: "マイク確認" });
+    let stream = null;
+    let request = 0;
+    const stop = () => {
+      request++;
+      stream?.getTracks().forEach((track) => track.stop());
+      stream = null;
+      meter.detach();
+      button.textContent = t("マイク確認");
+    };
+    button.addEventListener("click", () => {
+      if (stream) {
+        stop();
+        return;
+      }
+      const current = ++request;
+      button.textContent = t("マイクを準備しています…");
+      Promise.resolve().then(() => navigator.mediaDevices.getUserMedia({ audio: true })).then((opened) => {
+        if (current !== request) {
+          opened.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        stream = opened;
+        button.textContent = t("確認を終える");
+        void meter.attach(opened);
+      }).catch(() => {
+        if (current !== request) return;
+        stop();
+        toast(t("マイクを取得できませんでした。"), "error");
+      });
+    });
+    stopMicCheck = stop;
+    return el("div", { class: "compose-row" }, button, meterNode);
+  }
+
   function drawSpeech() {
     const speech = settings.speech ?? {};
     const languages = speechLanguageOptions(speech.language || "auto");
@@ -152,6 +194,7 @@ export function createSettings({ speaker, onSettings }) {
       field("送信の合図", speech.sendPhrase, (value) => patchSpeech({ sendPhrase: value }), {
         hint: "話し終わりの合図。これで投稿されます。空欄で無効",
       }),
+      micCheck(),
     );
   }
 
@@ -201,6 +244,7 @@ export function createSettings({ speaker, onSettings }) {
 
   function draw() {
     if (!settings) return;
+    stopMicCheck();
     clear(view);
     drawLanguage();
     drawAI();
@@ -213,5 +257,5 @@ export function createSettings({ speaker, onSettings }) {
     drawAbout();
   }
 
-  return { element: view, load, draw, settings: () => settings };
+  return { element: view, load, draw, settings: () => settings, stopMicCheck: () => stopMicCheck() };
 }

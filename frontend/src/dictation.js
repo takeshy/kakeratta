@@ -3,7 +3,6 @@
 // It is one of the four ways a post gets in: say it, and the transcript is the
 // post. A browser recogniser is created per text field.
 import { browserSpeechSupported, createBrowserRecognizer } from "./browser_speech.js";
-import { createAudioMeter } from "./meter.js";
 import { speechCommandsFor } from "./speech_commands.js";
 
 export function dictationSupported() {
@@ -19,7 +18,7 @@ export function dictationSupported() {
  */
 export function createDictation({ getSettings, getText, setText, onState = () => {}, onSend = () => {} }) {
   let engine = null;
-  let state = { status: "idle", error: "", silenceHint: "", retainedCount: 0, meterStream: null };
+  let state = { status: "idle", error: "", silenceHint: "", retainedCount: 0 };
 
   // The ported recognisers expect the spoken-punctuation phrases resolved for
   // the current language, the way speech-popup hands them over.
@@ -73,5 +72,3 @@ export function createDictation({ getSettings, getText, setText, onState = () =>
     busy: () => !!engine?.busy?.(),
   };
 }
-
-export { createAudioMeter };

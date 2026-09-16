@@ -1,6 +1,6 @@
 // Live input-level bars, ported from gemihub-desktop's SpeechActivity AudioMeter.
-// The meter is decoration: if the AudioContext will not start, recording still
-// works and the caller just shows "レベル取得不可".
+// It backs the mic check in settings; dictation never opens it, because a
+// second microphone stream took the device from the recognizer.
 
 const BAR_COUNT = 9;
 const BINS_PER_BAR = 6;

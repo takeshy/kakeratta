@@ -12,24 +12,15 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 
 test("browser preserves punctuation and converts question commands only on final results", async () => {
   let current, text = "";
-  let microphoneStopped = false;
   const create = load("browser_speech", {
     t: x => x, speechDraft, convertSpokenSymbol, applyReplacementRules,
-    navigator: { language: "ja", mediaDevices: { getUserMedia: async () => ({
-      getTracks: () => [{ enabled: true, stop() { microphoneStopped = true; } }]
-    }) } },
+    navigator: { language: "ja" },
     SpeechRecognition: class { constructor() { current = this; } start() {} abort() {} }
   }, "createBrowserRecognizer");
   const recognizer = create({ getSettings: () => ({ language: "ja", silenceSeconds: 0, sendPhrase: "" }),
     getBase: () => text, onInput: value => { text = value; }, onSend() { assert.fail("unexpected send"); }, onState() {} });
   recognizer.toggle();
   current.onstart?.();
-  await tick();
-  // The meter's own microphone waits for the recognizer to be hearing sound.
-  // Opened any earlier, it took the device on a second press and the
-  // recognizer got silence while the bars moved.
-  assert.equal(microphoneStopped, false);
-  current.onaudiostart?.();
   await tick();
   const result = (value, isFinal) => Object.assign([{ transcript: value }], { isFinal });
   current.onresult({ results: [result("こんにちは。", true), result("いいですかクエスチョン", false)] });
@@ -39,7 +30,6 @@ test("browser preserves punctuation and converts question commands only on final
   current.onresult({ results: [result("こんにちは。", true), result("いいですかクエスチョン", true)] });
   assert.equal(text, "こんにちは。いいですか?");
   recognizer.stop();
-  assert.equal(microphoneStopped, true, "the level-meter microphone must be released when listening ends");
 });
 
 test("editing live dictation consumes displayed results so revisions cannot resurrect deleted text", async () => {
@@ -151,7 +141,9 @@ test("the indicator follows the recogniser, and a refused start is reported", as
   assert.equal(states.at(-1), "recording");
 });
 
-test("the level meter does not open the microphone before the recognizer hears sound", async () => {
+test("dictation never opens a microphone beside the recognizer", async () => {
+  // A second capture took the device from the recognizer, which then heard
+  // silence. The level meter only runs from the mic check in settings.
   let current;
   let opened = 0;
   const create = load("browser_speech", {
@@ -164,17 +156,13 @@ test("the level meter does not open the microphone before the recognizer hears s
   }, "createBrowserRecognizer");
   const recognizer = create({ getSettings: () => ({ language: "ja", sendPhrase: "" }),
     getBase: () => "", onInput() {}, onSend() {}, onState() {} });
-  recognizer.toggle();
-  current.onstart?.();
-  await tick();
-  assert.equal(opened, 0, "the meter opened the microphone before the recognizer had it");
-  current.onaudiostart();
-  await tick();
-  assert.equal(opened, 1);
-  recognizer.stop();
-  // A second press starts the same way: nothing but the recognizer at first.
-  recognizer.toggle();
-  current.onstart?.();
-  await tick();
-  assert.equal(opened, 1, "the second press opened the meter early");
+  for (let press = 0; press < 2; press++) {
+    recognizer.toggle();
+    current.onstart?.();
+    current.onaudiostart?.();
+    current.onspeechstart?.();
+    await tick();
+    recognizer.stop();
+  }
+  assert.equal(opened, 0);
 });

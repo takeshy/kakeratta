@@ -1,17 +1,14 @@
 // Shared speech controls for posts and replies.
 import { el, toast } from "./dom.js";
-import { createAudioMeter, createDictation, dictationSupported } from "./dictation.js";
+import { createDictation, dictationSupported } from "./dictation.js";
 import { t } from "./i18n.js";
 
 export function createVoiceInput({ getSettings, getText, setText, onSend }) {
   const micButton = el("button", { class: "chip voice-button", type: "button", label: "🎙 話す", "aria-pressed": "false" });
-  const micMeterNode = el("span", { class: "mic-meter", ariaHidden: "true" });
-  const micMeter = createAudioMeter(micMeterNode);
   const micTitle = el("strong", { class: "mic-title" });
   const micHint = el("span", { class: "mic-status" });
-  const micActivity = el("div", { class: "mic-activity", hidden: true }, micMeterNode,
+  const micActivity = el("div", { class: "mic-activity", hidden: true },
     el("span", { class: "mic-copy" }, micTitle, micHint));
-  let meterStream = null;
   const dictation = createDictation({
     getSettings,
     getText,
@@ -19,11 +16,6 @@ export function createVoiceInput({ getSettings, getText, setText, onSend }) {
     onState: (state) => {
       micButton.classList.toggle("active", state.status === "recording");
       micButton.setAttribute("aria-pressed", String(state.status === "recording"));
-      if (state.meterStream !== meterStream) {
-        meterStream = state.meterStream;
-        if (meterStream) void micMeter.attach(meterStream);
-        else micMeter.detach();
-      }
       const active = state.status !== "idle";
       micActivity.hidden = !active && !state.error;
       micActivity.classList.toggle("processing", active && state.status !== "recording");
@@ -54,7 +46,6 @@ export function createVoiceInput({ getSettings, getText, setText, onSend }) {
     activity: micActivity,
     async discard() {
       await dictation.discard();
-      micMeter.detach();
     },
   };
 }

@@ -14,9 +14,7 @@ export function browserSpeechSupported() {
 
 export function createBrowserRecognizer({ getSettings, getBase, getContext, getText, onInput, onSend, onState }) {
   let recognition = null;
-  let meter = null;
-  let meterRequest = 0;
-  const state = { status: "idle", error: "", silenceHint: "", retainedCount: 0, meterStream: null };
+  const state = { status: "idle", error: "", silenceHint: "", retainedCount: 0 };
 
   function publish(changes) {
     Object.assign(state, changes);
@@ -24,7 +22,6 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
   }
 
   function stop() {
-    meterRequest++;
     const current = recognition;
     recognition = null;
     if (current) {
@@ -33,16 +30,10 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       current.onend = null;
       current.onspeechstart = null;
       current.onstart = null;
-      current.onaudiostart = null;
       try { current.stop(); } catch {}
       try { current.abort(); } catch {}
     }
-    meter?.getTracks().forEach((track) => {
-      track.enabled = false;
-      track.stop();
-    });
-    meter = null;
-    publish({ status: "idle", meterStream: null });
+    publish({ status: "idle" });
   }
 
   function toggle() {
@@ -135,22 +126,9 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       current.onstart = () => {
         if (recognition === current) publish({ status: "recording" });
       };
-      // The level meter opens its own microphone stream, and it waits until the
-      // recognizer is already hearing sound. Opened straight after start(), it
-      // won the device on the second press - permission no longer delayed it -
-      // and the recognizer got silence while the bars still moved.
-      current.onaudiostart = () => {
-        if (recognition !== current) return;
-        const request = ++meterRequest;
-        void navigator.mediaDevices?.getUserMedia({ audio: true }).then((stream) => {
-          if (recognition !== current || meterRequest !== request) {
-            stream.getTracks().forEach((track) => track.stop());
-            return;
-          }
-          meter = stream;
-          publish({ meterStream: stream });
-        }).catch(() => {});
-      };
+      // Dictation opens no microphone of its own beside the recognizer: a
+      // second capture took the device from it and it heard silence. The
+      // level meter lives behind the mic check in settings instead.
       publish({ status: "starting" });
       try {
         current.start();
@@ -162,8 +140,6 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
         stop();
         return;
       }
-      // Metering is optional and starts in onaudiostart: a failure there must
-      // not disable recognition.
     } catch (caught) {
       stop();
       publish({ error: t("音声認識を開始できません: {0}", caught instanceof Error ? caught.message : String(caught)) });
