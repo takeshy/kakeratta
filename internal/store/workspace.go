@@ -37,6 +37,9 @@ type Workspace interface {
 	Settings() Settings
 	SaveSettings(Settings) error
 	ClaimDailyCheckIn(string, string) (bool, error)
+	RecordWake(string, string) error
+	Woke(string) ([]string, error)
+	ForgetWakes(string) error
 	Schedules(string) ([]Schedule, error)
 	SaveSchedule(Schedule) (Schedule, error)
 	DeleteSchedule(string, string) error

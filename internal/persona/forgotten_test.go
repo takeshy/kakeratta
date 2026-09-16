@@ -3,13 +3,12 @@ package persona
 import (
 	"strings"
 	"testing"
-
-	"github.com/takeshy/kakeratta/internal/store"
 )
 
-// Deleting a post is the user's, tidying the memory built on it is the
-// persona's, and only the personas that cited it have anything to tidy.
-func TestDeletingAPostWakesOnlyThePersonasThatCitedIt(t *testing.T) {
+// Deleting a post is the user's; tidying the memory built on it is the
+// persona's. The app tells the personas it woke for that post and nobody else,
+// and it works that out from its own record rather than from a note.
+func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 	var woken []string
 	r, s, _ := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
@@ -22,11 +21,8 @@ func TestDeletingAPostWakesOnlyThePersonasThatCitedIt(t *testing.T) {
 	}, "gourmet", "book")
 
 	entry := post(t, s, "この前の担々麺、ごまが強すぎた")
-	if err := s.WriteNote("gourmet", "tastes/sesame.md", "ごま強めは苦手",
-		store.NoteSource{EntryID: entry.ID, Label: "担々麺の投稿"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.WriteNote("book", "books/other.md", "関係のないメモ"); err != nil {
+	// Only the persona the app actually woke for this post is told about it.
+	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -51,13 +47,15 @@ func TestDeletingAPostWakesOnlyThePersonasThatCitedIt(t *testing.T) {
 	if !strings.Contains(woken[0], entry.ID) || !strings.Contains(woken[0], "ごま") {
 		t.Fatalf("the persona was not told which post:\n%s", woken[0])
 	}
-	// Asking again for the same post does not queue it twice.
-	r.EntryForgotten(entry.ID, entry.Text)
+	// The record is spent, so the same deletion cannot queue another wake.
 	r.EntryForgotten(entry.ID, entry.Text)
 	r.stopMu.Lock()
 	again := len(r.queue)
 	r.stopMu.Unlock()
 	if again != 1 {
 		t.Fatalf("the same deletion queued %d wakes", again)
+	}
+	if woke, err := s.Woke(entry.ID); err != nil || len(woke) != 0 {
+		t.Fatalf("the record survived: %v (%v)", woke, err)
 	}
 }

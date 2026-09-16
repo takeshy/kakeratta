@@ -234,10 +234,11 @@ than 10 minutes late is dropped rather than replayed. Deleting a note wakes the
 persona so it can revisit the schedules that went with it; forgetting a
 persona's whole memory, pausing it, or removing it drops its schedules.
 
-Deleting a post works the same way. The app removes the post and tells whoever
-had written it down - the personas whose notes cite it, and only those - so each
-can drop or correct what rested on it. The app never edits a note itself, and a
-persona that never cited the post is not woken.
+Deleting a post works the same way. The app removes the post and tells the
+personas it had woken for it, so each can drop or correct what rested on it. Who
+to tell comes from the app's own record of who it woke - it never reads a note
+to find out - and a persona that finds nothing of its memory resting on the post
+says nothing. The app never edits a note itself.
 
 The server checks once per minute and uses the existing execution queue, so a
 busy queue can delay a wake. The server must be running; the browser can be

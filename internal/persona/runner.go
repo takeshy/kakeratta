@@ -394,6 +394,13 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
 	}
+	if trigger.ID != "" {
+		// Who was woken for this post, so that deleting it can tell them - the
+		// app never looks inside a note to work that out.
+		if err := r.store.RecordWake(root, skill.ID); err != nil {
+			r.emit("error", map[string]any{"where": "wakes", "message": err.Error()})
+		}
+	}
 	memory := r.store.Memory(skill.ID)
 	if memory.JoinedAt.IsZero() {
 		memory.JoinedAt = time.Now()
