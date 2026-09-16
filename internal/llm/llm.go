@@ -37,6 +37,10 @@ func New(baseURL, apiKey string) *Client {
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+	// Calls belong to an assistant message being handed back, and CallID to the
+	// result of one. Both are empty in an ordinary exchange.
+	Calls  []ToolCall `json:"-"`
+	CallID string     `json:"-"`
 }
 
 type Request struct {
@@ -44,11 +48,37 @@ type Request struct {
 	Messages    []Message `json:"messages"`
 	Temperature float64   `json:"temperature"`
 	JSON        bool      `json:"-"`
+	// Tools are the functions the model may call. With ToolChoice "required" it
+	// must call one, which is the whole reason for using them here: a model that
+	// answers in prose when it was meant to act is the failure this removes.
+	Tools      []Tool `json:"-"`
+	ToolChoice string `json:"-"`
 	// Files travel with the last user message. A technical book is passed as
 	// the file itself so its code listings, tables and figures survive; whether
 	// the provider takes a PDF or needs page images is this package's problem,
 	// and the caller only ever says "put this book through".
 	Files []Attachment `json:"-"`
+}
+
+// Tool is one function the model may call, with its arguments as JSON Schema.
+type Tool struct {
+	Name        string
+	Description string
+	Parameters  map[string]any
+}
+
+// ToolCall is the model asking for one of them. Args is the raw JSON object the
+// model wrote, parsed by whoever runs the tool.
+type ToolCall struct {
+	ID   string
+	Name string
+	Args string
+}
+
+// Reply is what came back: prose, tool calls, or both.
+type Reply struct {
+	Content string
+	Calls   []ToolCall
 }
 
 // Attachment is a file handed to the model.
@@ -81,8 +111,35 @@ func contentParts(text string, files []Attachment) []map[string]any {
 
 // Chat sends one completion request and returns the assistant's text.
 func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
+	reply, err := c.Complete(ctx, request)
+	return reply.Content, err
+}
+
+// wire turns one message into the shape the API takes, including the two that
+// only appear in a tool exchange: an assistant handing its calls back, and the
+// result of one going the other way.
+func wire(message Message) map[string]any {
+	out := map[string]any{"role": message.Role, "content": message.Content}
+	if message.CallID != "" {
+		out["tool_call_id"] = message.CallID
+	}
+	if len(message.Calls) > 0 {
+		calls := make([]map[string]any, 0, len(message.Calls))
+		for _, call := range message.Calls {
+			calls = append(calls, map[string]any{
+				"id": call.ID, "type": "function",
+				"function": map[string]any{"name": call.Name, "arguments": call.Args},
+			})
+		}
+		out["tool_calls"] = calls
+	}
+	return out
+}
+
+// Complete sends one completion request and returns everything that came back.
+func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 	if c == nil || c.BaseURL == "" || request.Model == "" {
-		return "", ErrNotConfigured
+		return Reply{}, ErrNotConfigured
 	}
 	messages := make([]any, 0, len(request.Messages))
 	for i, message := range request.Messages {
@@ -93,7 +150,7 @@ func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
 			})
 			continue
 		}
-		messages = append(messages, message)
+		messages = append(messages, wire(message))
 	}
 	body := map[string]any{
 		"model":       request.Model,
@@ -103,13 +160,29 @@ func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
 	if request.JSON {
 		body["response_format"] = map[string]string{"type": "json_object"}
 	}
+	if len(request.Tools) > 0 {
+		listed := make([]map[string]any, 0, len(request.Tools))
+		for _, tool := range request.Tools {
+			parameters := tool.Parameters
+			if parameters == nil {
+				parameters = map[string]any{"type": "object", "properties": map[string]any{}}
+			}
+			listed = append(listed, map[string]any{"type": "function", "function": map[string]any{
+				"name": tool.Name, "description": tool.Description, "parameters": parameters,
+			}})
+		}
+		body["tools"] = listed
+		if request.ToolChoice != "" {
+			body["tool_choice"] = request.ToolChoice
+		}
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
-		return "", err
+		return Reply{}, err
 	}
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/chat/completions", bytes.NewReader(raw))
 	if err != nil {
-		return "", err
+		return Reply{}, err
 	}
 	httpRequest.Header.Set("Content-Type", "application/json")
 	if c.APIKey != "" {
@@ -117,20 +190,27 @@ func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
 	}
 	response, err := c.HTTP.Do(httpRequest)
 	if err != nil {
-		return "", err
+		return Reply{}, err
 	}
 	defer response.Body.Close()
 	payload, err := io.ReadAll(io.LimitReader(response.Body, 8<<20))
 	if err != nil {
-		return "", err
+		return Reply{}, err
 	}
 	if response.StatusCode >= 300 {
-		return "", fmt.Errorf("%s: %s", response.Status, firstLine(payload))
+		return Reply{}, fmt.Errorf("%s: %s", response.Status, firstLine(payload))
 	}
 	var parsed struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
 			} `json:"message"`
 		} `json:"choices"`
 		Error struct {
@@ -138,15 +218,22 @@ func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(payload, &parsed); err != nil {
-		return "", fmt.Errorf("応答を解釈できません: %w", err)
+		return Reply{}, fmt.Errorf("応答を解釈できません: %w", err)
 	}
 	if parsed.Error.Message != "" {
-		return "", errors.New(parsed.Error.Message)
+		return Reply{}, errors.New(parsed.Error.Message)
 	}
 	if len(parsed.Choices) == 0 {
-		return "", errors.New("応答が空です")
+		return Reply{}, errors.New("応答が空です")
 	}
-	return parsed.Choices[0].Message.Content, nil
+	message := parsed.Choices[0].Message
+	reply := Reply{Content: message.Content}
+	for _, call := range message.ToolCalls {
+		reply.Calls = append(reply.Calls, ToolCall{
+			ID: call.ID, Name: call.Function.Name, Args: call.Function.Arguments,
+		})
+	}
+	return reply, nil
 }
 
 // Models lists what the endpoint will serve, so the settings can offer the
