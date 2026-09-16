@@ -8,7 +8,10 @@ import (
 )
 
 var webSearch = Tool{
-	Name:  "web_search",
+	Name: "web_search",
+	Parameters: map[string]any{"type": "object", "properties": map[string]any{
+		"query": map[string]any{"type": "string", "description": "検索する語句"},
+	}, "required": []any{"query"}},
 	Usage: `web_search — Webを検索する。{"tool":"web_search","args":{"query":"検索語"}}`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		query := args.str("query")

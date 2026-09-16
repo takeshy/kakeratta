@@ -19,8 +19,9 @@ func mcpTools(catalogue *mcp.Catalogue) []Tool {
 		listed := listed
 		name := listed.QualifiedName()
 		out = append(out, Tool{
-			Name:  name,
-			Usage: describeMCP(name, listed.Tool),
+			Name:       name,
+			Usage:      describeMCP(name, listed.Tool),
+			Parameters: parametersOf(listed.InputSchema),
 			run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 				if err := checkArgs(listed.InputSchema, args); err != nil {
 					return Result{}, err
@@ -34,6 +35,19 @@ func mcpTools(catalogue *mcp.Catalogue) []Tool {
 		})
 	}
 	return out
+}
+
+// parametersOf hands a server's own schema straight through: it is already
+// JSON Schema, and rewriting it here could only lose something.
+func parametersOf(raw json.RawMessage) map[string]any {
+	var parameters map[string]any
+	if len(raw) == 0 || json.Unmarshal(raw, &parameters) != nil {
+		return nil
+	}
+	if _, ok := parameters["type"]; !ok {
+		parameters["type"] = "object"
+	}
+	return parameters
 }
 
 // describeMCP writes the one usage line a persona is shown, in the same shape

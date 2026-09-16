@@ -54,7 +54,18 @@ func (a Args) num(name string, fallback float64) float64 {
 type Tool struct {
 	Name  string
 	Usage string
-	run   func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error)
+	// Parameters is the JSON Schema for the arguments, so the model is given
+	// the shape rather than asked to copy an example out of prose.
+	Parameters map[string]any
+	run        func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error)
+}
+
+// Declaration is one tool as the model is offered it, in a shape this package
+// can hand over without knowing anything about a provider.
+type Declaration struct {
+	Name        string
+	Description string
+	Parameters  map[string]any
 }
 
 // Registry holds every tool the app knows how to run, already wired to the
@@ -159,6 +170,22 @@ func (r *Registry) For(declared []string) *Set {
 
 // Allows reports whether this persona may call one tool by name.
 func (s *Set) Allows(name string) bool { return s.allowed[strings.TrimSpace(name)] }
+
+// Declarations lists what this persona may call, for a request that carries
+// its tools rather than describing them.
+func (s *Set) Declarations() []Declaration {
+	var names []string
+	for name := range s.allowed {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]Declaration, 0, len(names))
+	for _, name := range names {
+		tool := s.registry.tools[name]
+		out = append(out, Declaration{Name: name, Description: tool.Usage, Parameters: tool.Parameters})
+	}
+	return out
+}
 
 // Empty reports whether this persona declared no usable tools.
 func (s *Set) Empty() bool { return len(s.allowed) == 0 }

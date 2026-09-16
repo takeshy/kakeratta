@@ -27,6 +27,9 @@ var httpClient = &http.Client{Timeout: 25 * time.Second}
 
 var placeSearch = Tool{
 	Name: "place_search",
+	Parameters: map[string]any{"type": "object", "properties": map[string]any{
+		"query": map[string]any{"type": "string", "description": "店や場所の名前、または種類。省略すると投稿の位置の周辺を探す"},
+	}},
 	Usage: `place_search — 投稿に付いた位置の周りを探す。位置がなければ名前だけで検索する（現在地周辺とは限らない）。営業時間は地図に登録がある場合だけ返り、営業中かは保証しない。混雑・取得失敗は検索結果なしと区別する。` +
 		`{"tool":"place_search","args":{"query":"ラーメン","radius":1200}}`,
 	run: func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error) {

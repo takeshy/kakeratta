@@ -17,6 +17,10 @@ import (
 
 var routeTo = Tool{
 	Name: "route",
+	Parameters: map[string]any{"type": "object", "properties": map[string]any{
+		"to":   map[string]any{"type": "string", "description": "行き先の名前や住所"},
+		"mode": map[string]any{"type": "string", "description": "car / foot / bike のいずれか", "enum": []any{"car", "foot", "bike"}},
+	}, "required": []any{"to"}},
 	Usage: `route — 投稿に付いた位置から目的地までの道路の所要時間。位置がなければ使えません。公共交通・リアルタイムの渋滞は非対応。` +
 		`{"tool":"route","args":{"to":"渋谷駅","mode":"driving|walking|cycling"}}`,
 	run: func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error) {
