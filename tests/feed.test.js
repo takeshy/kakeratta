@@ -96,7 +96,7 @@ test("reply dictation survives updates, sends to its target, and stops when clos
   const recognizers = [];
   globalThis.SpeechRecognition = class {
     constructor() { recognizers.push(this); }
-    start() {}
+    start() { this.onstart?.(); }
     stop() { this.stopped = true; }
     abort() {}
     result(text) {
@@ -211,7 +211,7 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
   const recognizers = [];
   globalThis.SpeechRecognition = class {
     constructor() { recognizers.push(this); }
-    start() {}
+    start() { this.onstart?.(); }
     stop() { this.stopped = true; }
     abort() {}
     result(text) {
@@ -313,7 +313,7 @@ test("compose stops dictation and resets its button on manual and spoken send", 
   const recognizers = [];
   globalThis.SpeechRecognition = class {
     constructor() { recognizers.push(this); }
-    start() {}
+    start() { this.onstart?.(); }
     stop() { this.stopped = true; }
     abort() {}
     result(text) {

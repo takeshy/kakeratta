@@ -32,6 +32,7 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
       current.onerror = null;
       current.onend = null;
       current.onspeechstart = null;
+      current.onstart = null;
       try { current.stop(); } catch {}
       try { current.abort(); } catch {}
     }
@@ -130,8 +131,20 @@ export function createBrowserRecognizer({ getSettings, getBase, getContext, getT
         stop();
       };
       current.onend = stop;
-      publish({ status: "recording" });
-      current.start();
+      current.onstart = () => {
+        if (recognition === current) publish({ status: "recording" });
+      };
+      publish({ status: "starting" });
+      try {
+        current.start();
+      } catch (problem) {
+        // Chrome refuses a start that lands too soon after the previous one.
+        // Saying so is better than an indicator that sits there listening to
+        // nothing.
+        publish({ error: t("音声認識を開始できませんでした。もう一度お試しください。") });
+        stop();
+        return;
+      }
       // Metering is optional: a failure here must not disable recognition.
       const request = ++meterRequest;
       void navigator.mediaDevices?.getUserMedia({ audio: true }).then((stream) => {

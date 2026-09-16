@@ -68,6 +68,7 @@ const EN = {
   "過去のかけら検索": "Search past fragments",
   "記憶の読み書き": "Read and write memory",
   "希望時刻": "Preferred time",
+  "音声認識を開始できませんでした。もう一度お試しください。": "Could not start speech recognition. Please try again.",
   "この担当が預けた予定": "Scheduled by this persona", "毎日": "Daily",
   "予定は担当が置きます。メモを消すと担当が見直します。": "The persona sets these. Delete a note and it will revisit them.",
   "1日1回のチェックイン": "Daily check-in",

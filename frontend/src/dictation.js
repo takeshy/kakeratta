@@ -49,8 +49,13 @@ export function createDictation({ getSettings, getText, setText, onState = () =>
 
   return {
     toggle() {
+      // A recogniser that has already ended cannot be started again, and after
+      // a send phrase it has. Anything not actually listening is rebuilt.
+      if (engine && !engine.recording() && !engine.busy()) {
+        void engine.discard?.();
+        engine = null;
+      }
       if (!engine) {
-        void engine?.discard?.();
         engine = build();
       }
       return engine.toggle();

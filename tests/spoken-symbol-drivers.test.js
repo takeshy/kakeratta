@@ -23,6 +23,7 @@ test("browser preserves punctuation and converts question commands only on final
   const recognizer = create({ getSettings: () => ({ language: "ja", silenceSeconds: 0, sendPhrase: "" }),
     getBase: () => text, onInput: value => { text = value; }, onSend() { assert.fail("unexpected send"); }, onState() {} });
   recognizer.toggle();
+  current.onstart?.();
   await tick();
   const result = (value, isFinal) => Object.assign([{ transcript: value }], { isFinal });
   current.onresult({ results: [result("こんにちは。", true), result("いいですかクエスチョン", false)] });
@@ -49,6 +50,7 @@ test("editing live dictation consumes displayed results so revisions cannot resu
   const recognizer = create({ getSettings: () => ({ language: "ja", silenceSeconds: 1, sendPhrase: "over" }),
     getBase: () => text, onInput: value => { text = value; writes++; }, onSend() { sends++; }, onState() {} });
   recognizer.toggle();
+  current.onstart?.();
   await tick();
   const result = (value, isFinal = true) => Object.assign([{ transcript: value }], { isFinal });
   text = "edited before the first result";
@@ -89,6 +91,7 @@ test("browser revisions preserve the suffix and cursor moves affect only new seg
     onSend: value => { sent = value; }, onState() {}
   });
   recognizer.toggle();
+  current.onstart?.();
   await tick();
   const result = (value, isFinal = false) => Object.assign([{ transcript: value }], { isFinal });
   current.onresult({ results: [result("hello")] });
@@ -103,3 +106,41 @@ test("browser revisions preserve the suffix and cursor moves affect only new seg
   recognizer.stop();
 });
 
+
+test("the indicator follows the recogniser, and a refused start is reported", async () => {
+  let current, refuse = false;
+  const states = [];
+  const create = load("browser_speech", {
+    t: x => x, speechDraft, convertSpokenSymbol, applyReplacementRules,
+    navigator: { language: "ja", mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) } },
+    SpeechRecognition: class {
+      constructor() { current = this; }
+      start() { if (refuse) throw new Error("InvalidStateError"); }
+      abort() {}
+      stop() {}
+    },
+  }, "createBrowserRecognizer");
+  const recognizer = create({ getSettings: () => ({ language: "ja", silenceSeconds: 0, sendPhrase: "" }),
+    getBase: () => "", onInput() {}, onSend() {}, onState: state => states.push(state.status + (state.error ? "!" : "")) });
+
+  recognizer.toggle();
+  assert.deepEqual(states.filter(s => s !== "idle"), ["starting"], "it must not claim to listen before the recogniser starts");
+  current.onstart();
+  assert.equal(states.at(-1), "recording");
+  recognizer.stop();
+  assert.equal(states.at(-1), "idle");
+
+  // A start Chrome refuses leaves the reason on screen and nothing listening.
+  refuse = true;
+  states.length = 0;
+  recognizer.toggle();
+  assert.ok(states.some(s => s.endsWith("!")), `a refused start was not reported: ${states}`);
+  assert.equal(states.at(-1), "idle!", "the indicator must go, the error must stay");
+  assert.equal(recognizer.recording(), false);
+  // Trying again clears the old error rather than carrying it into the attempt.
+  refuse = false;
+  recognizer.toggle();
+  assert.equal(states.at(-1), "starting");
+  current.onstart();
+  assert.equal(states.at(-1), "recording");
+});
