@@ -16,7 +16,14 @@ export function parseMemoryNote(note) {
   let text = String(note.text || "").replace(/\r\n?/g, "\n");
   // A model that escaped its own line breaks leaves one long line. The note is
   // repaired when it is written now, but the ones already saved have to read.
-  if (!text.includes("\n") && text.includes("\\n")) text = text.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+  // Only what the persona wrote is examined: the sources block the app appends
+  // always has real line breaks, and would otherwise hide the damage above it.
+  const marker = text.indexOf("<!-- kakeratta:note-sources -->");
+  const head = (marker < 0 ? text : text.slice(0, marker)).trim();
+  if (!head.includes("\n") && head.includes("\\n")) {
+    text = head.replace(/\\n/g, "\n").replace(/\\t/g, "\t") +
+      (marker < 0 ? "" : "\n\n" + text.slice(marker));
+  }
   const metadata = Object.create(null);
   let body = text;
   const front = text.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);

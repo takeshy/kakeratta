@@ -633,4 +633,10 @@ func TestEscapedLineBreaksInANoteAreRepaired(t *testing.T) {
 	if got := repairNewlines("一行だけ"); got != "一行だけ" {
 		t.Fatalf("plain text changed: %q", got)
 	}
+	// The blank line the app leaves before its own sources block is not a line
+	// break the persona wrote, and must not make the damage above it look fine.
+	trailing := escaped + "\n\n"
+	if got := repairNewlines(trailing); got != want {
+		t.Fatalf("a note followed by the app's blank line was left broken: %q", got)
+	}
 }

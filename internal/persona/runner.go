@@ -719,10 +719,13 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, sources 
 // and unparseable as OKF, and the persona cannot see the difference from where
 // it sits.
 func repairNewlines(text string) string {
-	if strings.Contains(text, "\n") || !strings.Contains(text, `\n`) {
+	// Trimmed, because a blank line around an otherwise unbroken note would
+	// otherwise pass for a line break and leave the damage in place.
+	body := strings.TrimSpace(text)
+	if strings.Contains(body, "\n") || !strings.Contains(body, `\n`) {
 		return text
 	}
-	return strings.NewReplacer(`\n`, "\n", `\t`, "\t").Replace(text)
+	return strings.NewReplacer(`\n`, "\n", `\t`, "\t").Replace(body)
 }
 
 // listNotes is the one thing about the notes that is handed over unasked: their
