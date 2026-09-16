@@ -84,6 +84,7 @@ const EN = {
   "{0} があなたについて覚えていること": "What {0} remembers about you",
   "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。": "Notes saved by this persona. Follow evidence links to the original posts or related memories.",
   "好み": "Preferences", "ワイン": "Wines", "お店": "Shops", "本": "Books", "テーマ": "Themes", "会話": "Conversations", "場所": "Places",
+  "繰り返し": "Routines", "一度きりの用": "One-offs",
   "その他のメモ": "Other memories", "記憶の目次": "Memory overview", "記憶の更新履歴": "Memory history",
   "元のメモを見る": "View original note", "関連リンク": "Related link",
   "元の投稿を開く（新しいタブ）": "Open original post (new tab)",

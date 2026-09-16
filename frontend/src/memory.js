@@ -149,7 +149,7 @@ function markdown(body, context) {
   return result;
 }
 
-const typeLabels = { feedback: "感想", preference: "好み", wine: "ワイン", shop: "お店", book: "本", theme: "テーマ", thread: "会話", place: "場所" };
+const typeLabels = { feedback: "感想", preference: "好み", wine: "ワイン", shop: "お店", book: "本", theme: "テーマ", thread: "会話", place: "場所", routine: "繰り返し", errand: "一度きりの用" };
 
 export function createMemoryView(notes, { onSearch, onForget } = {}) {
   const parsed = (notes || []).map(parseMemoryNote);
