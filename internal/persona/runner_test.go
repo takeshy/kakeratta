@@ -1352,3 +1352,60 @@ func TestAMalformedDraftDoesNotUseUpTheReview(t *testing.T) {
 		t.Fatalf("drafts = %d, reviews = %d", drafts, len(stub.reviews))
 	}
 }
+
+// submit_workflow is offered in the shape of what a persona holds. Lookups are
+// never a workflow step, so a persona whose tools only look things up has no
+// tool step at all; only a persona that can schedule sees write_schedule.
+func TestTheWorkflowSchemaFollowsThePersonasTools(t *testing.T) {
+	registry := tools.New(tools.Config{}).WithSchedules(nil)
+	shapeOfSchema := func(declared []string) ([]any, map[string]any) {
+		tool := workflowToolFor(registry.For(declared))
+		steps := tool.Parameters["properties"].(map[string]any)["steps"].(map[string]any)
+		items := steps["items"].(map[string]any)
+		properties := items["properties"].(map[string]any)
+		return properties["type"].(map[string]any)["enum"].([]any), properties
+	}
+	has := func(values []any, want string) bool {
+		for _, value := range values {
+			if value == want {
+				return true
+			}
+		}
+		return false
+	}
+
+	types, fields := shapeOfSchema([]string{"web_search", "place_search", "route"})
+	if has(types, "tool") || has(types, "write_schedule") || fields["at"] != nil || fields["tool"] != nil {
+		t.Fatalf("a persona that only looks things up was offered %v / %v", types, fields)
+	}
+	if !has(types, "write_note") || !has(types, "speak") {
+		t.Fatalf("types = %v", types)
+	}
+
+	types, fields = shapeOfSchema([]string{"schedule"})
+	if !has(types, "write_schedule") || !has(types, "cancel_schedule") || fields["at"] == nil || has(types, "tool") {
+		t.Fatalf("a scheduling persona was offered %v / %v", types, fields)
+	}
+
+	// The spec's samples carry exactly the fields the schema has.
+	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}))
+	if strings.Contains(tabe, `"at":`) || strings.Contains(tabe, "### tool\n") {
+		t.Fatalf("the spec showed a lookup-only persona fields or steps it cannot send")
+	}
+	plana := workflowSpec(registry.For([]string{"schedule"}))
+	if !strings.Contains(plana, `"at":"2026-09-18T22:00:00+09:00"`) {
+		t.Fatal("the scheduling sample lost its time")
+	}
+}
+
+// A remark that is the workflow's own summary is a plan said out loud, not
+// something said to the user.
+func TestSpeakingTheSummaryIsSentBack(t *testing.T) {
+	set := tools.New(tools.Config{}).For([]string{"web_search"})
+	problems := checkWorkflow(Workflow{Summary: "神谷町駅周辺のランチ情報をWeb検索で探す", Steps: []Step{
+		{Type: "speak", Text: "神谷町駅周辺のランチ情報をWeb検索で探す"},
+	}}, turnRules{set: set})
+	if len(problems) != 1 || !strings.Contains(problems[0], "ユーザーに向けた発言") {
+		t.Fatalf("problems = %v", problems)
+	}
+}

@@ -28,7 +28,7 @@ func TestTheBuiltInDomainsAreFarApart(t *testing.T) {
 	sizes := map[Tier]int{}
 	for _, skill := range Builtins {
 		sizes[skill.Model]++
-		if skill.Model == TierLow && len(readingOnly(skill.Tools)) != len(skill.Tools) {
+		if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
 			t.Fatalf("%s ships in the low tier with tools the low tier cannot hold", skill.ID)
 		}
 	}

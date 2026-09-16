@@ -96,7 +96,7 @@ func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Messa
 	record.Ran = true
 	offered := []llm.Tool{lightNotesRead}
 	for _, declared := range set.Declarations() {
-		if readingTools[declared.Name] {
+		if lowTools[declared.Name] {
 			offered = append(offered, llm.Tool{Name: declared.Name, Description: declared.Description, Parameters: declared.Parameters})
 		}
 	}
@@ -171,7 +171,7 @@ func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Messa
 				}
 				return r.hush(skill, memory)
 			default:
-				if !readingTools[call.Name] || !set.Allows(call.Name) {
+				if !lowTools[call.Name] || !set.Allows(call.Name) {
 					out = call.Name + " は使えません。"
 					step.Error = out
 					break

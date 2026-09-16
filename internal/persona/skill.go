@@ -288,7 +288,7 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 	if err := validate(skill); err != nil {
 		return Skill{}, err
 	}
-	if skill.Model == TierLow && len(readingOnly(skill.Tools)) != len(skill.Tools) {
+	if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
 		return Skill{}, errors.New("web_search 以外の道具を使う担当は middle か high にしてください（low はメモと web_search と発言だけの担当です）")
 	}
 	for _, builtin := range Builtins {
@@ -350,7 +350,7 @@ func (c *Catalogue) Uninstall(id string) error {
 // cannot hold one tier up. It keeps what it was built to do rather than
 // quietly losing it.
 func liftForTools(skill Skill) Skill {
-	if skill.Model == TierLow && len(readingOnly(skill.Tools)) != len(skill.Tools) {
+	if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
 		skill.Model = TierMiddle
 	}
 	return skill

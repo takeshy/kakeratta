@@ -392,7 +392,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	set := registry.For(skill.Tools).As(skill.ID)
 	spec := workflowSpec(set)
 	if light {
-		set = registry.For(readingOnly(skill.Tools)).As(skill.ID)
+		set = registry.For(lowToolsOnly(skill.Tools)).As(skill.ID)
 		spec = lightSpec(set)
 	}
 	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, spec, okfHost+okfSkill)
@@ -471,11 +471,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	var files []llm.Attachment
 	failures := map[string]string{}
 	var approved *Workflow
+	submit := workflowToolFor(set)
 	reviewed, malformed := 0, 0
 	for round := 0; round < rounds && approved == nil && reviewed < maxDrafts && malformed <= maxMalformed; round++ {
-		offered := []llm.Tool{workflowTool}
+		offered := []llm.Tool{submit}
 		if len(record.Reads) < maxReads {
-			offered = []llm.Tool{readTool, workflowTool}
+			offered = []llm.Tool{readTool, submit}
 		}
 		reply, err := client.Complete(ctx, llm.Request{
 			Model: model, Messages: messages, Files: files, Tools: offered, ToolChoice: "required",
@@ -494,7 +495,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
 		var submitted *llm.ToolCall
 		for i := range reply.Calls {
-			if reply.Calls[i].Name == workflowTool.Name && submitted == nil {
+			if reply.Calls[i].Name == submitWorkflow && submitted == nil {
 				submitted = &reply.Calls[i]
 			}
 		}

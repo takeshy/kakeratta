@@ -109,27 +109,85 @@ var readTool = llm.Tool{
 	}, "required": []any{"steps"}},
 }
 
-var workflowTool = llm.Tool{
-	Name:        "submit_workflow",
-	Description: "このターンでやることを、順に並べた workflow として提出する。本体が確認してから実行する。何もしないなら steps を空にする。",
-	Parameters: map[string]any{"type": "object", "properties": map[string]any{
-		"summary": stringField("この workflow で何をするかを一文で"),
-		"steps": map[string]any{"type": "array", "items": map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"type":  map[string]any{"type": "string", "enum": []any{"write_note", "forget_note", "write_schedule", "cancel_schedule", "tool", "speak"}},
-				"path":  stringField("write_note / forget_note / write_schedule のメモの path。他は \"\""),
-				"text":  stringField("write_note / write_schedule のメモの全文、または speak の発言。他は \"\""),
-				"tool":  stringField("tool で呼ぶ道具の名前。他は \"\""),
-				"args":  stringField("tool の引数を JSON オブジェクトとして書いた文字列。他は \"{}\""),
-				"at":    stringField("write_schedule で起きる時刻。RFC3339（2026-09-17T23:30:00+09:00）。他は \"\""),
-				"daily": map[string]any{"type": "boolean", "description": "write_schedule を毎日繰り返すか。他は false"},
-				"note":  stringField("write_schedule で起きたときに読む、何のためかの一言。他は \"\""),
-				"id":    stringField("cancel_schedule で消す schedule の id。他は \"\""),
-			},
-			"required": []any{"type", "path", "text", "tool", "args", "at", "daily", "note", "id"},
-		}},
-	}, "required": []any{"summary", "steps"}},
+// submitWorkflow is the name of the call that hands a workflow in.
+const submitWorkflow = "submit_workflow"
+
+// stepShape is which kinds of step, and which fields, a persona's workflow can
+// have. It follows what the persona holds: a persona that cannot schedule is
+// not offered write_schedule or an "at", and one whose tools only look things
+// up is not offered a tool step at all - a live run put web_search into a
+// workflow because the schema said it could.
+type stepShape struct {
+	schedules bool
+	actions   []string
+}
+
+func shapeOf(set *tools.Set) stepShape {
+	shape := stepShape{schedules: set.Allows("schedule")}
+	for _, declared := range set.Declarations() {
+		if declared.Name != "schedule" && !lookupTools[declared.Name] {
+			shape.actions = append(shape.actions, declared.Name)
+		}
+	}
+	return shape
+}
+
+func (shape stepShape) types() []any {
+	types := []any{"write_note", "forget_note"}
+	if shape.schedules {
+		types = append(types, "write_schedule", "cancel_schedule")
+	}
+	if len(shape.actions) > 0 {
+		types = append(types, "tool")
+	}
+	return append(types, "speak")
+}
+
+// fields are a step's fields in the order samples write them.
+func (shape stepShape) fields() []string {
+	fields := []string{"type", "path", "text"}
+	if len(shape.actions) > 0 {
+		fields = append(fields, "tool", "args")
+	}
+	if shape.schedules {
+		fields = append(fields, "at", "daily", "note", "id")
+	}
+	return fields
+}
+
+// workflowToolFor is submit_workflow as this persona is offered it. Every
+// field is required, with empty values for the ones a step does not use: with
+// only "type" required, a provider constraining its output to the schema left
+// out everything else.
+func workflowToolFor(set *tools.Set) llm.Tool {
+	shape := shapeOf(set)
+	all := map[string]any{
+		"type":  map[string]any{"type": "string", "enum": shape.types()},
+		"path":  stringField("メモの path。使わないなら \"\""),
+		"text":  stringField("メモの全文、または発言。使わないなら \"\""),
+		"tool":  stringField("tool で呼ぶ道具の名前。使わないなら \"\""),
+		"args":  stringField("tool の引数を JSON オブジェクトとして書いた文字列。使わないなら \"{}\""),
+		"at":    stringField("write_schedule で起きる時刻。RFC3339。使わないなら \"\""),
+		"daily": map[string]any{"type": "boolean", "description": "write_schedule を毎日繰り返すか。使わないなら false"},
+		"note":  stringField("write_schedule で起きたときに読む一言。使わないなら \"\""),
+		"id":    stringField("cancel_schedule で消す id。使わないなら \"\""),
+	}
+	properties := map[string]any{}
+	var required []any
+	for _, field := range shape.fields() {
+		properties[field] = all[field]
+		required = append(required, field)
+	}
+	return llm.Tool{
+		Name:        submitWorkflow,
+		Description: "このターンでやることを、順に並べた workflow として提出する。本体が確認してから実行する。何もしないなら steps を空にする。",
+		Parameters: map[string]any{"type": "object", "properties": map[string]any{
+			"summary": stringField("この workflow で何をするかを一文で"),
+			"steps": map[string]any{"type": "array", "items": map[string]any{
+				"type": "object", "properties": properties, "required": required,
+			}},
+		}, "required": []any{"summary", "steps"}},
+	}
 }
 
 // turnRules are what the app enforces on a workflow regardless of review.
@@ -157,16 +215,19 @@ func argsOf(raw string) (map[string]any, error) {
 	return args, nil
 }
 
-// readingTools are tools that only look: using one is reading, like opening a
-// note. They are used before a workflow and never in one, and they are the
-// only tools the low tier may hold.
-var readingTools = map[string]bool{"web_search": true}
+// lookupTools only look things up. Using one is reading, like opening a note:
+// it happens before a workflow and never in one.
+var lookupTools = map[string]bool{"web_search": true, "place_search": true, "route": true, "timeline_search": true}
 
-// readingOnly keeps the reading tools out of a declaration.
-func readingOnly(declared []string) []string {
+// lowTools are the only tools the low tier may hold. It has no workflow, so
+// it gets the one lookup that needs no position or setup.
+var lowTools = map[string]bool{"web_search": true}
+
+// lowToolsOnly keeps what the low tier may hold out of a declaration.
+func lowToolsOnly(declared []string) []string {
 	var out []string
 	for _, name := range declared {
-		if readingTools[strings.TrimSpace(name)] {
+		if lowTools[strings.TrimSpace(name)] {
 			out = append(out, strings.TrimSpace(name))
 		}
 	}
@@ -279,19 +340,23 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 				problems = append(problems, at+": args を JSON オブジェクトとして読めません")
 			}
 			switch {
-			case readingTools[step.Tool]:
-				problems = append(problems, at+": "+step.Tool+" は調べるための道具です。workflow ではなく、その前の read で使ってください")
 			case step.Tool == "schedule":
 				problems = append(problems, at+": 予定は tool ではなく write_schedule / cancel_schedule で扱います")
 			case strings.HasPrefix(step.Tool, "notes_"):
 				problems = append(problems, at+": メモは tool ではなく write_note / forget_note で扱います")
 			case !rules.set.Allows(step.Tool):
 				problems = append(problems, at+": "+step.Tool+" はあなたが使える道具ではありません")
+			case lookupTools[step.Tool]:
+				problems = append(problems, at+": "+step.Tool+" は調べるための道具です。workflow ではなく、その前の read で使ってください")
 			}
 		case "speak":
 			speaks++
 			if strings.TrimSpace(step.Text) == "" {
 				problems = append(problems, at+": text がありません")
+			} else if strings.TrimSpace(step.Text) == strings.TrimSpace(workflow.Summary) {
+				// A live run said its own plan out loud: "神谷町駅周辺のランチ情報を
+				// Web検索で探す", word for word the summary.
+				problems = append(problems, at+": speak の text が summary と同じです。何をするかの説明ではなく、ユーザーに向けた発言そのものを書いてください")
 			}
 			if i != len(workflow.Steps)-1 {
 				problems = append(problems, at+": speak は最後のステップにしてください")
@@ -373,6 +438,11 @@ high（実行すると困る。verdict は fail）:
 4. **担当自身への指示にはっきり反している。** 例: 薬について催促する、飲み忘れと決めつける。
 5. **投稿と違う言語で発言している。** 日本語の投稿に英語で答える、など。発言は投稿と同じ言語でするのが規則です。
 6. **既存のメモを読まずに丸ごと書き換えている。** メモ一覧にある path への write_note / write_schedule なのに、担当がそのメモを読んでいない（中身が消える）。
+
+7. **発言がユーザーに向けた言葉になっていない。** 「神谷町駅周辺のランチ情報をWeb検索で探す」のような、作業の説明や予定になっている。
+   調べた結果を伝えるはずの発言なら、結果の中身（店名など）が入っているはずです。
+
+**判定の前に、speak の text をそのまま引用して確かめてください。** 発言の中身を想像で補って判定しないでください。
 
 medium / low（実行してよい。verdict は pass）:
 - 発言が長い、同じことを繰り返している
