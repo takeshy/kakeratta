@@ -68,8 +68,9 @@ A persona does not call tools one at a time any more (`internal/persona/workflow
    something written as fact that did not happen, an invented id, a time
    promised with no schedule, a remark in another language than the post, a
    note rewritten without being read, a persona's own instructions plainly
-   broken. A rejected workflow goes back once with the reasons. An empty
-   workflow is not reviewed.
+   broken. A rejected workflow goes back once with the reasons. The review uses
+   Nemotron Super. A workflow that only writes notes and speaks,
+   or does nothing, is not reviewed; schedules, forgetting and tools are.
 4. **Run.** In order; **the first step that fails stops the rest**, so a remark
    never goes out after what it rests on did not happen.
 

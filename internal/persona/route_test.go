@@ -24,6 +24,7 @@ func TestRoutingThatCannotBeUsedDeliversToNobody(t *testing.T) {
 		{`{"deliver":[]}`, nil},
 		{`{"deliver":["food","food"]}`, []string{"food"}},
 		{`{"deliver":["food","unknown"]}`, []string{"food"}},
+		{`{"deliver":["food（tabe）","tech (gijutsu)"]}`, []string{"food", "tech"}},
 	} {
 		t.Run(tc.reply, func(t *testing.T) {
 			f := &fake{reply: func(string, string) string { return tc.reply }}
@@ -36,14 +37,14 @@ func TestRoutingThatCannotBeUsedDeliversToNobody(t *testing.T) {
 	}
 }
 
-// Routing is the app's own judgement, like the review, so it is made by the
-// best model configured - with a single-model setup still working.
-func TestRoutingAndReviewUseTheHarnessModel(t *testing.T) {
-	if got := harnessModel(store.Settings{LowModel: "light", MiddleModel: "super", HighModel: "ultra"}); got != "ultra" {
-		t.Fatalf("harness = %q", got)
+// Routing matches short conditions with Lightning; the review looks for the
+// obviously wrong with Super. There is no model setting to follow any more.
+func TestRoutingUsesLightningAndReviewUsesSuper(t *testing.T) {
+	if got := routingModel(); got != store.NemotronLightning {
+		t.Fatalf("routing model = %q", got)
 	}
-	if got := harnessModel(store.Settings{LowModel: "light"}); got != "light" {
-		t.Fatalf("single-model harness = %q", got)
+	if got := reviewModel(); got != store.NemotronSuper {
+		t.Fatalf("review model = %q", got)
 	}
 }
 
@@ -51,11 +52,11 @@ func TestRoutingAndReviewUseTheHarnessModel(t *testing.T) {
 // reached the wine persona under the old rule of delivering when in doubt.
 func TestTheRoutingPromptDeliversOnlyWhereAPostBelongs(t *testing.T) {
 	for _, rule := range []string{
-		"本当に属するときだけ",
-		"言葉が出てきただけでは渡しません",
-		"神谷町",
-		"ドラマを見る",
-		"誰にも渡しません",
+		"単語だけで判定せず",
+		"条件にない前提を足しません",
+		"本人と担当の発言を含むスレッド全体",
+		"補足・訂正",
+		"一致なしなら",
 	} {
 		if !strings.Contains(routePrompt, rule) {
 			t.Fatalf("the routing prompt lost %q", rule)

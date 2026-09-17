@@ -10,22 +10,22 @@ const GLOSS = {
   gourmet: {
     ja: "食事",
     en: "food",
-    domain: "Food: places, dishes, drinks, photos of meals and menus, places to try, \"what should I eat\".",
+    domain: "Food, drinks, restaurants and meal photos; menus, preferences and choosing what to eat.",
   },
   move: {
     ja: "移動",
     en: "travel",
-    domain: "Getting there: destinations, routes, travel time, meeting times, itineraries, tickets.",
+    domain: "Plans, wishes or travel to a destination, even just a type of place. The persona researches routes, transport and travel time.",
   },
   book: {
     ja: "読書",
     en: "reading",
-    domain: "Books and reading: e-book captures, quoted passages, titles and authors, thoughts on a read.",
+    domain: "Books and reading: book images, quotations, impressions and questions about the content, in any subject.",
   },
   routine: {
     ja: "やること",
     en: "follow-ups",
-    domain: "Things you said you would do, and whether they happened; it can set itself a schedule to look in at that time. \"A drama at 20:30 tonight\", \"flowers on the way home\", \"medicine every morning at eight\": if there is a when, the what does not matter. Too small for a calendar, too easy to forget.",
+    domain: "Plans for when to do something and records of whether it happened, once or repeatedly. Relative times such as now or the weekend also count.",
   },
 };
 

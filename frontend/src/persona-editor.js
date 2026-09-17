@@ -27,7 +27,7 @@ const lowTools = new Set(["web_search"]);
 const fields = [
   { key: "icon", label: "アイコン", kind: "input", maxlength: 4 },
   { key: "name", label: "名前", kind: "input", maxlength: 40 },
-  { key: "domain", label: "担当すること（振り分けに使います）", kind: "textarea", rows: 4, maxlength: 2000 },
+  { key: "domain", label: "担当条件（振り分けに使います）", kind: "textarea", rows: 4, maxlength: 2000 },
   { key: "tone", label: "話し方", kind: "textarea", rows: 2, maxlength: 2000 },
   { key: "instructions", label: "覚えること・返事をするタイミング", kind: "textarea", rows: 6, maxlength: 8000 },
 ];

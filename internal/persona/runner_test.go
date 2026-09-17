@@ -969,7 +969,7 @@ func TestAWorkflowTheReviewRejectsNeverRuns(t *testing.T) {
 		drafts++
 		if drafts == 1 {
 			return `{"summary":"覚えて約束する","steps":[
-				{"type":"write_note","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n2026-09-16 22:21 済","tool":"","args":"{}","at":"","daily":false,"note":"","id":""},
+				{"type":"write_schedule","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n2026-09-16 22:21 済","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ドラマを見たか","id":""},
 				{"type":"speak","path":"","text":"22:30ごろに聞くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 		}
 		if !strings.Contains(user, "起きていないことを") {
@@ -1007,6 +1007,31 @@ func TestAWorkflowTheReviewRejectsNeverRuns(t *testing.T) {
 	}
 	if placed[0].NotePath != "errands/drama.md" {
 		t.Fatalf("the schedule does not know its note: %+v", placed[0])
+	}
+}
+
+// Keeping a note and speaking stays in the persona's own corner, so it costs no
+// review; a schedule reaches further and is still checked.
+func TestOnlyWorkflowsThatReachFurtherThanNotesAndRemarksAreReviewed(t *testing.T) {
+	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
+	for _, tc := range []struct {
+		steps   string
+		reviews int
+	}{
+		{`{"type":"write_note","path":"errands/bath.md","text":"---\ntype: Errand\n---\n\nお風呂","tool":"","args":"{}","at":"","daily":false,"note":"","id":""},
+			{"type":"speak","path":"","text":"いってらっしゃい","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}`, 0},
+		{`{"type":"write_schedule","path":"errands/bath.md","text":"---\ntype: Errand\n---\n\nお風呂","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"入ったか","id":""}`, 1},
+	} {
+		runner, s, stub := setup(t, func(system, user string) string {
+			if strings.Contains(system, "振り分け") {
+				return `{"deliver":["routine"]}`
+			}
+			return `{"summary":"覚える","steps":[` + tc.steps + `]}`
+		}, "routine")
+		runner.react(post(t, s, "今からお風呂入ります").ID)
+		if len(stub.reviews) != tc.reviews {
+			t.Fatalf("reviews = %d, want %d for %s", len(stub.reviews), tc.reviews, tc.steps)
+		}
 	}
 }
 
@@ -1319,21 +1344,22 @@ func TestWebSearchIsNotAWorkflowStep(t *testing.T) {
 // A live run spent its first draft on a misplaced web_search, and the review
 // then rejected the second with no chance left to act on what it found.
 func TestAMalformedDraftDoesNotUseUpTheReview(t *testing.T) {
+	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
 	drafts := 0
 	runner, s, stub := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["gourmet"]}`
+			return `{"deliver":["routine"]}`
 		}
 		drafts++
 		switch drafts {
 		case 1:
-			return `{"summary":"検索を workflow に入れる","steps":[{"type":"tool","path":"","text":"","tool":"web_search","args":"{\"query\":\"x\"}","at":"","daily":false,"note":"","id":""}]}`
+			return `{"summary":"検索を workflow に入れる","steps":[{"type":"tool","path":"","text":"","tool":"schedule","args":"{\"query\":\"x\"}","at":"","daily":false,"note":"","id":""}]}`
 		case 2:
-			return `{"summary":"作り話","steps":[{"type":"speak","path":"","text":"1時間後に着くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+			return `{"summary":"作り話","steps":[{"type":"write_schedule","path":"errands/lunch.md","text":"---\\ntype: Errand\\n---\\n\\nランチ","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ランチしたか","id":""},{"type":"speak","path":"","text":"1時間後に着くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 		default:
-			return `{"summary":"直した","steps":[{"type":"speak","path":"","text":"このへんなら蕎麦かな","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+			return `{"summary":"直した","steps":[{"type":"write_schedule","path":"errands/lunch.md","text":"---\\ntype: Errand\\n---\\n\\nランチ","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ランチしたか","id":""},{"type":"speak","path":"","text":"このへんなら蕎麦かな","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 		}
-	}, "gourmet")
+	}, "routine")
 	stub.review = func(user string) string {
 		if strings.Contains(user, "1時間後") {
 			return `{"verdict":"fail","summary":"作り話","issues":[{"severity":"high","description":"投稿に無い到着時刻を書いている"}]}`

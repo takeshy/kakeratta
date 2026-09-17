@@ -18,12 +18,12 @@ to see it happen.
 
 ```
 post
- ↓ routing           Nemotron Ultra decides who the post belongs to, with a reason per persona
+ ↓ routing           Nemotron 3.5 Lightning matches the post against each persona's conditions, with a reason for each non-match
  ↓ each persona:
      low tier         notes, web search, remark — called directly, no review   (Nemotron 3.5 Lightning)
      middle / high    read   → notes, web search, places, routes, the image     (Nemotron Super / Ultra)
                       workflow → the writes and the remark, every text final
-                      checked by code, then reviewed by Nemotron Ultra
+                      checked by code, then reviewed by Nemotron Super unless it only writes notes and speaks
                       run in order, stopping at the first step that fails
  ↓ one structured log line per routing decision and per persona turn
 ```
@@ -170,7 +170,7 @@ The tiers now mean different ways of working:
 | low | Nemotron 3.5 Lightning | Notes, web search and a remark, called directly. No workflow, no review |
 | middle | Nemotron Super | Reads, hands in a workflow, reviewed, run |
 | high | Nemotron Ultra | Same as middle |
-| the app | Nemotron Ultra | Routing, and reviewing workflows |
+| the app | Nemotron 3.5 Lightning / Nemotron Super | Routing (Lightning) / reviewing workflows beyond notes and remarks (Super) |
 
 Any tool that does more than look things up needs a workflow, so a low persona
 holding one is refused on save; one saved earlier runs a tier up rather than

@@ -3,7 +3,6 @@ package persona
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -456,10 +455,7 @@ submit_review を呼んで答えてください。`
 func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.Settings, skill Skill, thread []timeline.Entry, trigger timeline.Entry,
 	workflow Workflow, known string, names map[string]string, here *time.Location) (*Review, error) {
 
-	model := harnessModel(settings)
-	if model == "" {
-		return nil, errors.New("本体のモデルが設定されていません")
-	}
+	model := reviewModel()
 	encoded, _ := json.MarshalIndent(workflow, "", "  ")
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
@@ -499,11 +495,30 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 	return &verdict, nil
 }
 
-// harnessModel is the app's own judgement - routing and review - and it is the
-// best model configured, because the app is the one place a wrong call reaches
-// everyone.
-func harnessModel(settings store.Settings) string {
-	return modelFor(TierHigh, settings)
+// reviewModel checks a workflow for the obviously wrong - facts nobody read,
+// promises nobody arranged - which Nemotron Super catches at a fraction of
+// Ultra's price.
+func reviewModel() string {
+	return store.NemotronSuper
+}
+
+// needsReview reports whether a workflow does more than keep notes and speak.
+// A note and a remark stay inside the persona's own corner and can be corrected
+// by the next post; schedules, forgetting and tools reach further.
+func needsReview(workflow Workflow) bool {
+	for _, step := range workflow.Steps {
+		if step.Type != "write_note" && step.Type != "speak" {
+			return true
+		}
+	}
+	return false
+}
+
+// routingModel matches a post against short persona conditions. Lightning did
+// that about 85% cheaper than Ultra on replayed production posts
+// (docs/routing-cost-experiment.md).
+func routingModel() string {
+	return store.NemotronLightning
 }
 
 // readAll does what a persona asked to look at. Nothing here writes, so there

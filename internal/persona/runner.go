@@ -271,7 +271,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	for _, id := range named {
 		targets[id] = true
 	}
-	for _, id := range Route(ctx, client, harnessModel(settings), skills, thread, entry) {
+	for _, id := range Route(ctx, client, routingModel(), skills, thread, entry) {
 		targets[id] = true
 	}
 	if len(targets) == 0 {
@@ -486,7 +486,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)}}
 	}
 
-	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: harnessModel(settings)}
+	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: reviewModel()}
 	defer func() { logRun(record) }()
 	failed := func(err error) *timeline.Entry {
 		record.Error = err.Error()
@@ -551,8 +551,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			switch {
 			case len(entry.Problems) > 0:
 				malformed++
-			case len(workflow.Steps) == 0:
-				// Staying quiet has nothing in it to check.
+			case !needsReview(workflow):
+				// Staying quiet, or only keeping a note and speaking, is not
+				// worth a review call.
 				approved = &workflow
 			default:
 				known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当のメモ一覧:\n" + listNotes(memory) +

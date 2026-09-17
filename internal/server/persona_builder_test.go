@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/store"
 )
 
 func TestPersonaBuilderConversationAndValidation(t *testing.T) {
@@ -92,5 +93,11 @@ func TestSavePersonaDraftKeepsMemoryAndActivation(t *testing.T) {
 	s.ServeHTTP(w, httptest.NewRequest("POST", "/api/personas/draft", strings.NewReader(string(raw))))
 	if w.Code != 409 {
 		t.Fatal("create overwrote existing persona")
+	}
+}
+
+func TestPersonaBuilderUsesUltra(t *testing.T) {
+	if got := personaBuilderModel(); got != store.NemotronUltra {
+		t.Fatalf("model=%q want=%q", got, store.NemotronUltra)
 	}
 }

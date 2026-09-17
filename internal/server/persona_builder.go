@@ -7,6 +7,7 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
@@ -20,8 +21,11 @@ messageは補った点を必要に応じて一言添える程度の短い説明�
 placeholderはユーザーが次に入力する回答の短い具体例です。必ずユーザーの言語で「例：」から始め、今回の質問と会話の担当分野に合わせて毎回作り直してください。質問文そのものや「回答してください」のような抽象的な案内にしないでください。
 例えばワイン担当の案への修正なら「例：飲んだワインの名前と、好きだった理由を覚えてほしい。」、担当分野の確認なら「例：読んだ本の感想を覚える担当。」のようにします。
 完成案を返すときのplaceholderは、その完成案に対する追加修正の具体例にしてください。例は選択肢の制約ではなく入力のヒントです。本文と同じく専門用語を避け、120文字程度までにしてください。
-skill: {"id":"英小文字・数字・ハイフンで40文字以内", "name":"40文字以内", "icon":"絵文字1つ", "domain":"担当すること、2000文字以内", "tone":"2000文字以内", "instructions":"8000文字以内", "model":"lowまたはmiddleまたはhigh", "tools":[]}。
-domainには「担当すること」だけを肯定形で書いてください。「担当しないこと」「対象外」「反応しないこと」の列挙や、その確認の質問は不要です。担当することの記述だけで投稿の振り分けに使えるよう具体的にしてください。既存案に対象外の列挙がある場合も、修正案では担当することの説明にまとめてください。
+skill: {"id":"英小文字・数字・ハイフンで40文字以内", "name":"40文字以内", "icon":"絵文字1つ", "domain":"短い担当条件、原則1〜2文・日本語40〜100文字程度、上限2000文字", "tone":"2000文字以内", "instructions":"8000文字以内", "model":"lowまたはmiddleまたはhigh", "tools":[]}。
+domainは振り分け用の「担当条件」です。どんな投稿が対象かを肯定形で1〜2文、日本語なら40〜100文字程度にまとめます。短さのためにユーザーが明示した条件を落としたり、担当範囲を変えたりしないでください。
+対象の話題・写真・記録を簡潔に書き、依頼や質問を前提にしません。例は必要なら1つまで。除外事項の列挙、スレッドの読み方など全担当共通の説明、返事・記憶・道具の手順は入れません。
+対象が複数ある場合は「または」で分け、同時に必要な条件は「かつ」で区別します。「判定する話」「一緒に考える相談」のような行動や依頼を条件にせず、投稿にある話題・写真そのものを書きます。
+例：「料理・食事の写真。または食材のプリン体に関する話。」返事・記憶・道具の使い方はinstructionsに分けます。既存案も修正する担当条件はこの形に整えます。
 domain、tone、instructionsはそのままユーザーに表示します。JSON、Markdown記法、type:やindex.mdなどの実装用語は本文に含めず、誰でもわかる短い自然な文章で書いてください。
 instructionsには何を覚えるか、いつ記憶をまとめるか、引用と本人の意見を分けること、推測と明記すること、代表例と反例を残すこと、どんなときに返事するかを具体的に書いてください。記憶の形式自体はアプリが別に渡します。
 modelは通常middle、道具は必要なものだけ利用可能なリストから選びます。web_search以外の道具を使うならmiddleかhighにしてください。lowはメモとweb_searchと発言だけの軽い担当です。新規IDは既存IDと重複させないでください。
@@ -73,17 +77,11 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	for _, skill := range s.catalogue.All() {
 		ids = append(ids, skill.ID)
 	}
-	client, settings := s.client()
+	client, _ := s.client()
 	context, _ := json.Marshal(map[string]any{"existing": original, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
 	messages := []llm.Message{{Role: "system", Content: builderPrompt + "\n設定データ:\n" + string(context)}}
 	messages = append(messages, body.Messages...)
-	model := settings.HighModel
-	if model == "" {
-		model = settings.MiddleModel
-	}
-	if model == "" {
-		model = settings.LowModel
-	}
+	model := personaBuilderModel()
 	reply, err := client.Chat(r.Context(), llm.Request{Model: model, JSON: true, Temperature: 0.4, Messages: messages})
 	if err != nil {
 		fail(w, 502, err.Error())
@@ -159,4 +157,10 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, saved)
+}
+
+// personaBuilderModel writes the conditions routing depends on, so it is Ultra
+// even though routing itself runs on Lightning.
+func personaBuilderModel() string {
+	return store.NemotronUltra
 }

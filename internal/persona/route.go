@@ -19,40 +19,26 @@ import (
 // in practice it meant "明日9:10に神谷町に着きたい" reached the wine persona,
 // which then had to be persuaded to stay quiet. A post now goes only where it
 // belongs, and nobody is an ordinary answer.
-const routePrompt = `投稿を、担当分野ごとのAIに振り分けます。誰に渡すかを決めてください。
+const routePrompt = `投稿内容と担当条件を照合して振り分けます。
+本人と担当の発言を含むスレッド全体で今回の発言を解釈し、補足・訂正を反映してください。画像の説明・文字・出典も投稿内容です。
+各条件に当てはまる担当をすべて選びます。質問や依頼の有無、回答済みかは問いません。単語だけで判定せず、条件にない前提を足しません。列挙された対象はいずれか1つに当てはまれば一致です（条件が同時成立を指定する場合を除く）。例示は限定列挙ではなく、担当が調べる情報が投稿に揃っている必要もありません。
+deliver に一致する担当id、excluded_reasons に不一致の担当idと短い理由を入れてツールを呼んでください。担当idは「担当条件」の各行の先頭にあるidで、発言のidではありません。表示名を付けず、全担当idをどちらか一方に含めます。一致なしなら deliver は空です。`
 
-**渡すのは、投稿の中身がその担当の領域に本当に属するときだけです。** 当てはまる担当がいなければ、誰にも渡しません。それは普通の答えです。
-
-規則:
-- **言葉が出てきただけでは渡しません。** 地名・時刻・食べものの名前が出てきても、投稿がその担当の扱う用件でなければ渡しません。
-  例: 「明日9:10に神谷町に着きたい」は移動の相談です。移動の担当にだけ渡し、ワインや食事の担当には渡しません。
-  例: 「今日の20時30分からドラマを見る」は、時刻の付いた、これからやると言ったことです。それを扱う担当にだけ渡します。
-- 1つの投稿が本当に複数の領域にまたがるときだけ、複数に渡します。「ついでに何か言えそう」は理由になりません。
-- 渡されたスレッド全体（元の投稿、ユーザーの追加発言、担当の発言）を読んで、今回の対象発言の意味を判断してください。
-- 追加発言は単独の投稿ではありません。省略された目的・場所・時間はスレッド内の文脈で補い、ユーザーの訂正や追加条件を優先してください。
-  例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足なので、移動の担当へ渡します。
-- 過去に担当が回答済みでも、新しい条件や質問があれば改めてその担当へ渡してください。
-
-deliver を呼んで答えてください。deliver には渡す担当のid（**括弧の中の表示名ではなく、左側のid**）を、
-reasons にはそれぞれの担当に渡す理由を一文で書きます。誰にも渡さないときは deliver を空にして、reason にその理由を書きます。`
-
-// deliverTool is the one call routing makes. The reasons are not used to
-// decide anything; they are there so the log can say why a post went where it
-// went, which is the question every wrong delivery raises.
+// deliverTool returns condition matches and non-match explanations. The latter
+// are logged for diagnosing omissions; only matched IDs control delivery.
 var deliverTool = llm.Tool{
 	Name:        "deliver",
-	Description: "この投稿を渡す担当を決める。",
+	Description: "投稿内容が一致する担当条件を分類する。",
 	Parameters: map[string]any{"type": "object", "properties": map[string]any{
 		"deliver": map[string]any{
 			"type": "array", "items": map[string]any{"type": "string"},
-			"description": "渡す担当のid。誰にも渡さないなら空",
+			"description": "条件に一致する担当のid一覧。一致なしなら空",
 		},
-		"reasons": map[string]any{
+		"excluded_reasons": map[string]any{
 			"type": "object", "additionalProperties": map[string]any{"type": "string"},
-			"description": "担当のidごとに、渡す理由を一文で",
+			"description": "条件に一致しない全担当のidごとの不一致の根拠",
 		},
-		"reason": map[string]any{"type": "string", "description": "誰にも渡さないとき、その理由"},
-	}, "required": []any{"deliver"}},
+	}, "required": []any{"deliver", "excluded_reasons"}},
 }
 
 // Route picks who a post goes to.
@@ -81,7 +67,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		Messages: []llm.Message{
 			{Role: "system", Content: routePrompt},
 			{Role: "user", Content: strings.Join([]string{
-				"担当:", strings.Join(domains, "\n"), "", "スレッド全体（古い順）:", renderAll(thread),
+				"担当条件:", strings.Join(domains, "\n"), "", "スレッド全体（古い順）:", renderAll(thread),
 				"", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
 			}, "\n")},
 		},
@@ -90,9 +76,10 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		return nobody("the routing call failed: " + err.Error())
 	}
 	var parsed struct {
-		Deliver []string          `json:"deliver"`
-		Reasons map[string]string `json:"reasons"`
-		Reason  string            `json:"reason"`
+		Deliver         []string          `json:"deliver"`
+		Reasons         map[string]string `json:"reasons"`
+		ExcludedReasons map[string]string `json:"excluded_reasons"`
+		Reason          string            `json:"reason"`
 	}
 	// The call is what this asks for, but a model that answered in prose has
 	// still answered.
@@ -109,10 +96,15 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		return nobody(fmt.Sprintf("the reply made no sense: %q", chosen))
 	}
 	decision.Reasons, decision.Reason = parsed.Reasons, parsed.Reason
+	decision.ExcludedReasons = parsed.ExcludedReasons
 	// A router that answers "plana" when the id is "routine" has named the right
-	// persona by the name a person sees.
+	// persona by the name a person sees. One that copies "book（shiori）" from the
+	// list has named it twice.
 	resolve := func(want string) string {
 		want = strings.TrimSpace(want)
+		if open := strings.IndexAny(want, "（("); open > 0 {
+			want = strings.TrimSpace(want[:open])
+		}
 		if want == "" {
 			return ""
 		}
@@ -146,15 +138,16 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 
 // routeRecord is one routing decision, logged as a structured entry.
 type routeRecord struct {
-	Severity string            `json:"severity"`
-	Message  string            `json:"message"`
-	Trigger  string            `json:"trigger,omitempty"`
-	Model    string            `json:"model"`
-	Deliver  []string          `json:"deliver"`
-	Reasons  map[string]string `json:"reasons,omitempty"`
-	Reason   string            `json:"reason,omitempty"`
-	Unknown  []string          `json:"unknown,omitempty"`
-	Error    string            `json:"error,omitempty"`
+	Severity        string            `json:"severity"`
+	Message         string            `json:"message"`
+	Trigger         string            `json:"trigger,omitempty"`
+	Model           string            `json:"model"`
+	Deliver         []string          `json:"deliver"`
+	Reasons         map[string]string `json:"reasons,omitempty"`
+	ExcludedReasons map[string]string `json:"excluded_reasons,omitempty"`
+	Reason          string            `json:"reason,omitempty"`
+	Unknown         []string          `json:"unknown,omitempty"`
+	Error           string            `json:"error,omitempty"`
 }
 
 func logRouting(decision routeRecord) {
