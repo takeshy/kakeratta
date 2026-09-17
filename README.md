@@ -26,14 +26,17 @@ your meal and warn you when it is high in purines. Describe the persona you
 want and AI drafts it. Start using it, then refine its tone and what it
 remembers through conversation.
 
-Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory, with
-native tool calling (`tool_choice: "required"`) for everything a model does.
+Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Persona
+execution, routing, and workflow review use native tool calling
+(`tool_choice: "required"`); image reading, persona drafting, dictation
+polishing, and embeddings use the provider's structured-output or embedding
+APIs instead.
 
 | Model (Token Factory) | Role |
 |---|---|
-| Nemotron 3 Ultra | **The app's own judgement:** routes each post only to the personas it belongs to (with a logged reason), and reviews every workflow a persona hands in before it runs. Also the default for high-tier personas |
-| Nemotron 3 Super | Middle-tier personas: read notes and search, then hand in a workflow of notes, wake-ups and a remark |
-| Nemotron 3.5 Lightning | Low-tier personas: notes, web search and a remark, called directly with no workflow; optional polishing of dictated text |
+| Nemotron 3 Ultra | High-tier personas and persona drafting |
+| Nemotron 3 Super | Middle-tier personas; reviews workflows that reach beyond notes and remarks |
+| Nemotron 3.5 Lightning | Routes posts; low-tier personas; optional polishing of dictated text |
 | GLM-5.3-Flash | Reading screenshots and photos, once per post |
 | Qwen3-Embedding-8B | Meaning search over past posts |
 

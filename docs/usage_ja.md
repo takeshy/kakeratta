@@ -161,12 +161,12 @@ Web Share Target が使えないため、ショートカットで代替します
 
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
-- Nemotron 3.5 Lightning — 軽量な振り分けと、日常的な担当の判断
-- Nemotron Super — 担当分野をより深く考える推論
-- Nemotron Ultra — 担当が必要とする複雑な推論
+- Nemotron 3.5 Lightning — 振り分け、low の担当、任意の音声入力整形
+- Nemotron Super — middle の担当と workflow の確認
+- Nemotron Ultra — high の担当と担当案の作成
 - Nebius Token Factory — 推論基盤
 
-画像の読み取りには、同じ基盤のGLM-5.3-Flashを使用します。
+画像の読み取りにはGLM-5.3-Flash、意味検索にはQwen3-Embedding-8Bを同じ基盤で使用します。
 
 ![設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ](captures/ja/settings.png)
 
@@ -176,7 +176,10 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | middle の担当 | `middleModel` | Nemotron Super |
 | high の担当 | `highModel` | Nemotron Ultra |
 | 画像解析・OCR | `visionModel` | GLM-5.3-Flash |
-| 振り分け | （設定なし。自動） | 短い投稿は middle、画像の読み取り結果やページ本文のような長い入力は low |
+| 振り分け | 固定 | Nemotron 3.5 Lightning |
+| workflow の確認 | 固定 | Nemotron Super |
+| 担当案の作成・修正 | high（空なら middle、さらに空なら low） | Nemotron Ultra |
+| 意味検索の embedding | 固定 | Qwen3-Embedding-8B |
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 
@@ -191,7 +194,7 @@ low は浅い感想でよく、「わからんくなってきた」で終わっ�
 **既定はLightning → Super → Ultraの3段です。** Token Factoryではhighが空欄の場合もUltraを使います。
 各担当に段を指定し、highの担当は先に動いた担当の発言も踏まえて、複雑な内容を考えます。
 
-- 推論基盤はNebius Token Factoryです。Nemotronによる推論とGLMによる画像読み取りに使います。
+- 推論基盤はNebius Token Factoryです。Nemotronによる推論、GLMによる画像読み取り、Qwenによるembedding生成に使います。
 - ブラウザからGo APIへリクエストを送り、APIキーの保持と非同期の反応処理はサーバー側で行います。
 - 公開環境ではAPIをCloud Run、画面をFirebase Hostingで配信し、利用者のデータをFirestoreとCloud Storageに保存します。ローカル環境ではディスクに保存します。
 - Web検索はTavilyです。キーは利用者ごとに入れます。

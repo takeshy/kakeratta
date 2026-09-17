@@ -423,16 +423,32 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	settings := s.store.ConfiguredSettings()
+	previouslyActive := make(map[string]bool, len(settings.Active))
+	for _, id := range settings.Active {
+		previouslyActive[id] = true
+	}
 	var kept []string
+	stillActive := make(map[string]bool, len(body.Active))
 	for _, id := range body.Active {
 		if _, ok := s.catalogue.Find(id); ok {
 			kept = append(kept, id)
+			stillActive[id] = true
 		}
 	}
 	settings.Active = kept
 	if err := s.store.SaveSettings(settings); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// Wakes belong to an active persona. Remove them at the moment it is
+	// paused, including future schedules that the minute loop has not reached.
+	for id := range previouslyActive {
+		if !stillActive[id] {
+			if err := s.store.DeleteSchedules(id); err != nil {
+				fail(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
 	}
 	s.getPersonas(w, r)
 }
@@ -464,6 +480,10 @@ func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.DeleteSkill(r.PathValue("id")); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := s.store.DeleteSchedules(r.PathValue("id")); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}

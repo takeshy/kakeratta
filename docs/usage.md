@@ -197,12 +197,13 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron 3.5 Lightning — lightweight routing and everyday persona decisions
-- Nemotron Super — richer domain reasoning
-- Nemotron Ultra — complex reasoning when a persona needs it
+- Nemotron 3.5 Lightning — routing, low-tier personas, and optional dictation polishing
+- Nemotron Super — middle-tier personas and workflow review
+- Nemotron Ultra — high-tier personas and persona drafting
 - Nebius Token Factory — inference backend
 
-Image reading uses GLM-5.3-Flash on the same backend.
+Image reading uses GLM-5.3-Flash and meaning search uses
+Qwen3-Embedding-8B on the same backend.
 
 ![Settings: display language, model, web search, Bluesky connection, voice input, read-aloud](captures/en/settings.png)
 
@@ -212,7 +213,10 @@ Image reading uses GLM-5.3-Flash on the same backend.
 | The middle tier | `middleModel` | Nemotron Super |
 | The high tier | `highModel` | Nemotron Ultra |
 | Reading images / OCR | `visionModel` | GLM-5.3-Flash |
-| Routing | (no setting; automatic) | The middle tier for a short post, the low one for long input such as OCR or a fetched page |
+| Routing | fixed | Nemotron 3.5 Lightning |
+| Workflow review | fixed | Nemotron Super |
+| Persona drafting and editing | high tier (falling back to middle, then low) | Nemotron Ultra |
+| Meaning-search embeddings | fixed | Qwen3-Embedding-8B |
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
 
@@ -231,7 +235,7 @@ that **the tiers really differ**.
 an empty high setting also uses Ultra. Each persona chooses its tier; a high-tier
 persona receives earlier reactions as context for more complex reasoning.
 
-- Nebius Token Factory provides inference for the Nemotron models and GLM image reading.
+- Nebius Token Factory provides Nemotron inference, GLM image reading, and Qwen embeddings.
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.
 - In production, Cloud Run hosts the API, Firebase Hosting serves the page, and Firestore and Cloud Storage persist user data. Local mode stores data on disk.
 - Tavily is the web search provider; each user enters their own key.

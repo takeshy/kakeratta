@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
@@ -108,5 +109,54 @@ func TestForgettingMemoryDropsSchedules(t *testing.T) {
 	}
 	if left, err := s.Schedules(""); err != nil || len(left) != 0 {
 		t.Fatalf("left = %+v (%v)", left, err)
+	}
+}
+
+func TestPausingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
+	app, s := app(t, "")
+	id := app.catalogue.All()[0].ID
+	settings := s.ConfiguredSettings()
+	settings.Active = []string{id}
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(24 * time.Hour).UTC(), Note: "明日の用事"}); err != nil {
+		t.Fatal(err)
+	}
+
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas", strings.NewReader(`{"active":[]}`)))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	if left, err := s.Schedules(id); err != nil || len(left) != 0 {
+		t.Fatalf("future schedules survived pause: %+v (%v)", left, err)
+	}
+}
+
+func TestRemovingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
+	app, s := app(t, "")
+	skill := persona.Skill{
+		ID: "removable", Name: "removable", Icon: "🧹", Domain: "test",
+		Model: persona.TierMiddle, Tools: []string{"schedule"},
+	}
+	raw, err := json.Marshal(skill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.catalogue.Install(raw, app.knownTool); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SaveSchedule(store.Schedule{Skill: skill.ID, At: time.Now().Add(24 * time.Hour).UTC(), Note: "明日の用事"}); err != nil {
+		t.Fatal(err)
+	}
+
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/personas/"+skill.ID, nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	if left, err := s.Schedules(skill.ID); err != nil || len(left) != 0 {
+		t.Fatalf("future schedules survived removal: %+v (%v)", left, err)
 	}
 }

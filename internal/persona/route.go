@@ -13,8 +13,8 @@ import (
 
 // Routing is what the app decides, and the only thing it decides about a post.
 //
-// It is made by the app's own model - the same one that reviews workflows -
-// and it errs the other way from how it used to. Delivering by default made
+// It is made by Lightning so every post can be classified quickly, and it
+// errs the other way from how it used to. Delivering by default made
 // sense when a cheap model made the call and a wrong "no" swallowed a post;
 // in practice it meant "明日9:10に神谷町に着きたい" reached the wine persona,
 // which then had to be persuaded to stay quiet. A post now goes only where it

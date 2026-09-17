@@ -22,14 +22,15 @@
 痛風が気になる人なら、食事の写真を送ると「プリン体が多いので気をつけて」と教えてくれる痛風担当も作れます。
 ほしい担当を伝えるだけでAIが完成案を作るので、まず使い始めて、話し方や覚えてほしいことはあとから会話で改善できます。
 
-KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。モデルの動作はすべて、
-ネイティブな tool calling（`tool_choice: "required"`）で行います。
+KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。担当の実行、振り分け、
+workflow の確認にはネイティブな tool calling（`tool_choice: "required"`）を使います。画像の読み取り、
+担当案の作成、音声入力の整形、embedding は、構造化出力や embedding 用のAPIを使います。
 
 | モデル（Token Factory） | 役割 |
 |---|---|
-| Nemotron 3 Ultra | **本体の判断:** 投稿を本当に属する担当にだけ振り分け（理由をログに残す）、担当が出した workflow を実行前に確認する。high の担当の既定でもある |
-| Nemotron 3 Super | middle の担当: メモや検索を読んでから、メモ・予定・発言の workflow を出す |
-| Nemotron 3.5 Lightning | low の担当: メモ・Web検索・発言を、workflow なしで直接呼ぶ。音声入力の文を整える（任意） |
+| Nemotron 3 Ultra | high の担当と、担当案の作成 |
+| Nemotron 3 Super | middle の担当と、メモ・発言以外へ及ぶ workflow の確認 |
+| Nemotron 3.5 Lightning | 投稿の振り分け、low の担当、音声入力の文を整える（任意） |
 | GLM-5.3-Flash | スクリーンショットや写真を、投稿ごとに一度だけ読む |
 | Qwen3-Embedding-8B | 過去の投稿の意味検索 |
 
