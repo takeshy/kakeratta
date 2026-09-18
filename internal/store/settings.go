@@ -20,7 +20,8 @@ const (
 // Nebius Token Factory is the default. Its inference API is OpenAI-compatible,
 // so nothing else in the app changes when it is swapped out.
 const (
-	NebiusBaseURL = "https://api.tokenfactory.nebius.com/v1"
+	NebiusBaseURL     = "https://api.tokenfactory.nebius.com/v1"
+	OpenRouterBaseURL = "https://openrouter.ai/api/v1"
 
 	// Which model sits in which tier is what carries the contrast, so these are
 	// only where it starts. Any OpenAI-compatible name goes in any tier.
@@ -29,6 +30,11 @@ const (
 	NemotronSuper      = "nvidia/nemotron-3-super-120b-a12b"
 	NemotronUltra      = "nvidia/Nemotron-3-Ultra-550b-a55b"
 	NebiusVision       = "zai-org/GLM-5.3-Flash"
+	OpenRouterRouter   = "nvidia/nemotron-3-super-120b-a12b"
+	OpenRouterHigh     = "nvidia/nemotron-3-ultra-550b-a55b"
+	OpenRouterMiddle   = "nvidia/nemotron-3-super-120b-a12b"
+	OpenRouterLow      = "nvidia/nemotron-3.5-lightning"
+	OpenRouterVision   = "z-ai/glm-5.3-flash"
 	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
 )
 
@@ -53,6 +59,17 @@ type Settings struct {
 	// VisionModel reads a capture once for everyone. On Nebius, an empty
 	// selection uses the vision default, never a text-only conversation model.
 	VisionModel string `json:"visionModel"`
+	RouterModel string `json:"routerModel"`
+
+	// Jev optionally replaces the default Super router. It uses OpenRouter's
+	// Decisions API; the key is kept separately from the persona model key.
+	JevEnabled            bool   `json:"jevEnabled"`
+	OpenRouterAPIKey      string `json:"openRouterApiKey"`
+	OpenRouterMode        bool   `json:"openRouterMode"`
+	OpenRouterRouterModel string `json:"openRouterRouterModel"`
+	OpenRouterHighModel   string `json:"openRouterHighModel"`
+	OpenRouterMiddleModel string `json:"openRouterMiddleModel"`
+	OpenRouterLowModel    string `json:"openRouterLowModel"`
 
 	// Active is which personas are in the room, in order.
 	//
@@ -98,12 +115,17 @@ type SearchSettings struct {
 
 func defaultSettings() Settings {
 	return Settings{
-		Provider:    ProviderNebius,
-		BaseURL:     NebiusBaseURL,
-		LowModel:    NemotronLightning,
-		MiddleModel: NemotronSuper,
-		HighModel:   NemotronUltra,
-		VisionModel: NebiusVision,
+		Provider:              ProviderNebius,
+		BaseURL:               NebiusBaseURL,
+		LowModel:              NemotronLightning,
+		MiddleModel:           NemotronSuper,
+		HighModel:             NemotronUltra,
+		VisionModel:           NebiusVision,
+		RouterModel:           NemotronSuper,
+		OpenRouterRouterModel: OpenRouterRouter,
+		OpenRouterHighModel:   OpenRouterHigh,
+		OpenRouterMiddleModel: OpenRouterMiddle,
+		OpenRouterLowModel:    OpenRouterLow,
 		Speech: SpeechSettings{
 			Provider:       "browser",
 			Language:       "auto",
@@ -150,6 +172,21 @@ func (s *Store) ConfiguredSettings() Settings {
 }
 
 func normaliseConfiguredSettings(settings Settings) Settings {
+	if strings.TrimSpace(settings.RouterModel) == "" {
+		settings.RouterModel = NemotronSuper
+	}
+	if strings.TrimSpace(settings.OpenRouterRouterModel) == "" {
+		settings.OpenRouterRouterModel = OpenRouterRouter
+	}
+	if strings.TrimSpace(settings.OpenRouterHighModel) == "" {
+		settings.OpenRouterHighModel = OpenRouterHigh
+	}
+	if strings.TrimSpace(settings.OpenRouterMiddleModel) == "" {
+		settings.OpenRouterMiddleModel = OpenRouterMiddle
+	}
+	if strings.TrimSpace(settings.OpenRouterLowModel) == "" {
+		settings.OpenRouterLowModel = OpenRouterLow
+	}
 	settings.Speech.Provider = "browser"
 	if settings.Search.Provider == "brave" {
 		settings.Search.APIKey = ""

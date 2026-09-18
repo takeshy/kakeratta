@@ -18,7 +18,7 @@ to see it happen.
 
 ```
 post
- ↓ routing           Nemotron 3.5 Lightning matches the post against each persona's conditions, with a reason for each non-match
+ ↓ routing           Nemotron Super (or optional Jev) matches the post against each persona's conditions
  ↓ each persona:
      low tier         notes, web search, remark — called directly, no review   (Nemotron 3.5 Lightning)
      middle / high    read   → notes, web search, places, routes, the image     (Nemotron Super / Ultra)
@@ -172,7 +172,7 @@ The tiers now mean different ways of working:
 | low | Nemotron 3.5 Lightning | Notes, web search and a remark, called directly. No workflow, no review |
 | middle | Nemotron Super | Reads, hands in a workflow, reviewed, run |
 | high | Nemotron Ultra | Same as middle |
-| the app | Nemotron 3.5 Lightning / Nemotron Super | Routing (Lightning) / reviewing workflows beyond notes and remarks (Super) |
+| the app | Nemotron Super / optional Jev | Routing (Super or Jev) / reviewing workflows beyond notes and remarks (Super) |
 
 Any tool that does more than look things up needs a workflow, so a low persona
 holding one is refused on save; one saved earlier runs a tier up rather than

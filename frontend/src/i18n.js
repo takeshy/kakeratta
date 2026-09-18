@@ -1,6 +1,17 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "上級オプション": "Advanced options",
+ "Jevを有効にする": "Enable Jev",
+ "OpenRouter APIキー": "OpenRouter API key",
+ "OpenRouter専用モード": "OpenRouter-only mode",
+ "Routerモデル": "Router model", "Highモデル": "High model", "Middleモデル": "Middle model", "Lowモデル": "Low model",
+ "JevまたはOpenRouter専用モードに使います。サーバー側だけに保存します": "Used for Jev or OpenRouter-only mode. Stored only on the server.",
+ "Jevは投稿の振り分けだけに使います。判定理由は表示されず、jev-latestの更新で挙動が変わることがあります。": "Jev is used only for post routing. It does not show decision reasons, and jev-latest updates may change behavior.",
+ "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。": "When on, High, Middle, and Low also use OpenRouter. Tool calls use Exacto.",
+ "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します": "Low is called with thinking disabled, up to 1,024 tokens, and temperature 0.1.",
+ "Jevの振り分けだけに使います。空欄またはOFFならNemotron Superを使います": "Used only for Jev routing. If empty or off, Nemotron Super is used.",
+ "有効にしてOpenRouter APIキーを設定すると、投稿の振り分けだけをJevで行います。担当の応答には引き続きNemotronを使います。": "When enabled with an OpenRouter API key, only post routing uses Jev. Persona responses continue to use Nemotron.",
  "編集": "Edit", "投稿を編集": "Edit post", "保存": "Save", "キャンセル": "Cancel",
  "本文を入力してください": "Enter some text.",
  "編集できる投稿が見つかりません": "No editable post was found.",

@@ -2,6 +2,9 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -63,14 +66,64 @@ func TestRoutingKeepsExclusionReasonsByID(t *testing.T) {
 	}
 }
 
-// Routing matches short conditions with Lightning; the review looks for the
-// obviously wrong with Super. There is no model setting to follow any more.
-func TestRoutingUsesLightningAndReviewUsesSuper(t *testing.T) {
-	if got := routingModel(); got != store.NemotronLightning {
+// Routing and workflow review both use Super unless Jev is enabled.
+func TestRoutingAndReviewUseSuper(t *testing.T) {
+	if got := routingModel(); got != store.NemotronSuper {
 		t.Fatalf("routing model = %q", got)
 	}
 	if got := reviewModel(); got != store.NemotronSuper {
 		t.Fatalf("review model = %q", got)
+	}
+}
+
+func TestJevRoutesEveryPersonaThroughOneDecisionsRequest(t *testing.T) {
+	var authorization string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorization = r.Header.Get("Authorization")
+		var body struct {
+			Model     string                    `json:"model"`
+			Questions map[string]map[string]any `json:"questions"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Model != jevModel || len(body.Questions) != 2 {
+			t.Fatalf("request = %+v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"model":"typesafe/jev-1.13","answers":{"food":{"type":"choice","choice":"deliver"},"book":{"type":"choice","choice":"exclude"}},"usage":{"input_tokens":10,"output_tokens":2}}`))
+	}))
+	defer server.Close()
+
+	got := RouteJev(context.Background(), server.URL, "openrouter-secret", []Skill{
+		{ID: "food", Domain: "食べ物の話"}, {ID: "book", Domain: "本の話"},
+	}, nil, Entryish{Text: "ラーメン"})
+	if !got.Answered || !reflect.DeepEqual(got.Deliver, []string{"food"}) {
+		t.Fatalf("routing = %+v", got)
+	}
+	if reason, ok := got.Excluded["book"]; !ok || reason != "" {
+		t.Fatalf("Jev should retain the exclusion without inventing a reason: %+v", got.Excluded)
+	}
+	if authorization != "Bearer openrouter-secret" {
+		t.Fatalf("authorization = %q", authorization)
+	}
+}
+
+func TestJevNeedsBothTheAdvancedOptionAndItsKey(t *testing.T) {
+	for _, tc := range []struct {
+		enabled bool
+		key     string
+		want    bool
+	}{
+		{false, "", false},
+		{true, "", false},
+		{false, "key", false},
+		{true, "key", true},
+	} {
+		got := jevConfigured(store.Settings{JevEnabled: tc.enabled, OpenRouterAPIKey: tc.key})
+		if got != tc.want {
+			t.Fatalf("enabled=%t key=%q: got %t", tc.enabled, tc.key, got)
+		}
 	}
 }
 

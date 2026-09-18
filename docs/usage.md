@@ -234,10 +234,15 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron 3.5 Lightning — routing, low-tier personas, and optional dictation polishing
-- Nemotron Super — middle-tier personas and workflow review
+- Nemotron 3.5 Lightning — low-tier personas and optional dictation polishing
+- Nemotron Super — routing, middle-tier personas, and workflow review
 - Nemotron Ultra — high-tier personas and persona drafting
 - Nebius Token Factory — inference backend
+
+Routing uses Nemotron Super by default. Under Advanced options, enabling Jev
+and entering an OpenRouter API key moves only routing to Jev; Jev does not show
+decision reasons. OpenRouter-only mode also moves high, middle, and low to the
+OpenRouter models entered in Advanced options.
 
 Image reading uses GLM-5.3-Flash and meaning search uses
 Qwen3-Embedding-8B on the same backend.
@@ -250,7 +255,7 @@ Qwen3-Embedding-8B on the same backend.
 | The middle tier | `middleModel` | Nemotron Super |
 | The high tier | `highModel` | Nemotron Ultra |
 | Reading images / OCR | `visionModel` | GLM-5.3-Flash |
-| Routing | fixed | Nemotron 3.5 Lightning |
+| Routing | advanced setting can select Jev | Nemotron Super |
 | Workflow review | fixed | Nemotron Super |
 | Persona drafting and editing | high tier (falling back to middle, then low) | Nemotron Ultra |
 | Meaning-search embeddings | fixed | Qwen3-Embedding-8B |

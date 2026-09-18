@@ -190,6 +190,13 @@ export const settings = {
   middleModel: "nvidia/nemotron-3-super-120b-a12b",
   highModel: "nvidia/Nemotron-3-Ultra-550b-a55b",
   visionModel: "zai-org/GLM-5.3-Flash",
+  jevEnabled: false,
+  openRouterApiKey: "",
+  openRouterMode: false,
+  openRouterRouterModel: "nvidia/nemotron-3-super-120b-a12b",
+  openRouterHighModel: "nvidia/nemotron-3-ultra-550b-a55b",
+  openRouterMiddleModel: "nvidia/nemotron-3-super-120b-a12b",
+  openRouterLowModel: "nvidia/nemotron-3.5-lightning",
   active: personas.map((row) => row.id),
   search: { apiKey: "" },
   speech: {

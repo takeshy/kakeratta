@@ -98,6 +98,42 @@ export function createSettings({ speaker, onSettings }) {
       apiKey,
       connectionCheck(() => patch({ apiKey: apiKey.querySelector("input").value.trim() })),
     );
+
+	const jevKey = field("OpenRouter APIキー", settings.openRouterApiKey,
+	  (value) => patch({ openRouterApiKey: value }), {
+	    type: "password",
+	    hint: "JevまたはOpenRouter専用モードに使います。サーバー側だけに保存します",
+	  });
+	const jevKeyInput = jevKey.querySelector("input");
+	const jevEnabled = el("input", { type: "checkbox", checked: !!settings.jevEnabled });
+	const openRouterMode = el("input", { type: "checkbox", checked: !!settings.openRouterMode });
+	const refreshKeyState = () => { jevKeyInput.disabled = !jevEnabled.checked && !openRouterMode.checked; };
+	refreshKeyState();
+	jevEnabled.addEventListener("change", () => {
+	  refreshKeyState();
+	  void patch({ jevEnabled: jevEnabled.checked });
+	});
+	openRouterMode.addEventListener("change", () => {
+	  refreshKeyState();
+	  void patch({ openRouterMode: openRouterMode.checked });
+	});
+	const openRouterModels = el("div", { class: "openrouter-models" },
+	  field("Routerモデル", settings.openRouterRouterModel, (value) => patch({ openRouterRouterModel: value })),
+	  field("Highモデル", settings.openRouterHighModel, (value) => patch({ openRouterHighModel: value })),
+	  field("Middleモデル", settings.openRouterMiddleModel, (value) => patch({ openRouterMiddleModel: value })),
+	  field("Lowモデル", settings.openRouterLowModel, (value) => patch({ openRouterLowModel: value }), {
+	    hint: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します",
+	  }),
+	);
+	view.append(el("details", { class: "advanced-settings" },
+	  el("summary", { label: "上級オプション" }),
+	  el("label", { class: "field check-field" }, jevEnabled, el("span", { label: "Jevを有効にする" })),
+	  el("p", { class: "hint", label: "Jevは投稿の振り分けだけに使います。判定理由は表示されず、jev-latestの更新で挙動が変わることがあります。" }),
+	  el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouter専用モード" })),
+	  el("p", { class: "hint", label: "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。" }),
+	  jevKey,
+	  openRouterModels,
+	));
   }
 
   // Web search is the one tool with a key of the user's own. Everything else a

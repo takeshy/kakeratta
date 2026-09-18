@@ -109,8 +109,12 @@ func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Messa
 	failures := map[string]string{}
 	budget := newLookups(maxReads)
 	refused := false
+	thinking := false
 	for round := 0; round < lightRounds; round++ {
-		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: offered, ToolChoice: "required"})
+		reply, err := client.Complete(ctx, llm.Request{
+			Model: model, Messages: messages, Tools: offered, ToolChoice: "required",
+			Thinking: &thinking, MaxTokens: 1024, Temperature: 0.1, Exacto: true,
+		})
 		if err != nil {
 			return failed(err)
 		}

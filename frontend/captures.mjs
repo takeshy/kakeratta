@@ -51,7 +51,7 @@ const shots = [
   { name: "timeline", id: "screen--hero" },
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
-  { name: "settings", id: "settings--default", clip: "#sheet" },
+  { name: "settings", id: "settings--default", clip: "#sheet", open: ".advanced-settings" },
   { name: "routing", id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },
   { name: "reply-fix", id: "timeline--reply-fix-proposal", clip: ".dialog.reply-fix", ready: ".reply-instructions" },
@@ -143,6 +143,10 @@ async function main() {
         await evaluate("document.fonts.ready.then(() => true)");
         // Fixtures arrive over a stubbed fetch and images decode; a beat for both.
         await sleep(700);
+        if (shot.open) {
+          await evaluate(`document.querySelector(${JSON.stringify(shot.open)})?.setAttribute("open", "")`);
+          await sleep(100);
+        }
         let clip;
         if (shot.clip) {
           const rect = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(shot.clip)}).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })()`);

@@ -1,15 +1,24 @@
 package persona
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+const openRouterDecisionsURL = "https://openrouter.ai/api/alpha/decisions"
+const jevModel = "~typesafe/jev-latest"
+
+var jevHTTPClient = &http.Client{Timeout: 4 * time.Minute}
 
 // Routing is what the app decides, and the only thing it decides about a post.
 //
@@ -74,8 +83,10 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	for _, skill := range skills {
 		domains = append(domains, fmt.Sprintf("- %s（%s）: %s", skill.ID, skill.Name, skill.Domain))
 	}
+	thinking := true
 	reply, err := client.Complete(ctx, llm.Request{
 		Model: model, Tools: []llm.Tool{deliverTool}, ToolChoice: "required",
+		Thinking: &thinking, Exacto: true,
 		Messages: []llm.Message{
 			{Role: "system", Content: routePrompt},
 			{Role: "user", Content: strings.Join([]string{
@@ -158,6 +169,85 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 			excluded[id] = reason
 		}
 	}
+	return Routing{Deliver: decision.Deliver, Excluded: excluded, Answered: true}
+}
+
+// RouteJev uses OpenRouter's Decisions API, which is deliberately separate
+// from its OpenAI-compatible chat endpoint. Each persona is one independent
+// deliver/exclude choice in a single request.
+func RouteJev(ctx context.Context, endpoint, key string, skills []Skill, thread []Entryish, trigger Entryish) Routing {
+	decision := routeRecord{Severity: "INFO", Message: "routing", Trigger: trigger.ID, Model: jevModel}
+	defer func() { logRouting(decision) }()
+	nobody := func(reason string) Routing {
+		decision.Severity, decision.Error = "WARNING", reason
+		return Routing{Error: reason}
+	}
+	if len(skills) == 0 || strings.TrimSpace(endpoint) == "" || strings.TrimSpace(key) == "" {
+		return nobody("routing is not configured")
+	}
+	questions := map[string]any{}
+	for _, skill := range skills {
+		questions[skill.ID] = map[string]any{
+			"type":         "choice",
+			"instructions": routePrompt + "\nこの担当条件に今回の対象発言が一致するか判定してください。担当条件: " + skill.Domain,
+			"criteria": map[string]any{
+				"deliver": "担当条件に一致する",
+				"exclude": "担当条件に一致しない",
+			},
+		}
+	}
+	body, err := json.Marshal(map[string]any{
+		"model": jevModel,
+		"state": strings.Join([]string{
+			"スレッド全体（古い順）:", renderAll(thread), "",
+			"今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
+		}, "\n"),
+		"questions": questions,
+	})
+	if err != nil {
+		return nobody("the routing request could not be encoded: " + err.Error())
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(endpoint, "/"), bytes.NewReader(body))
+	if err != nil {
+		return nobody("the routing request could not be made: " + err.Error())
+	}
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(key))
+	req.Header.Set("Content-Type", "application/json")
+	res, err := jevHTTPClient.Do(req)
+	if err != nil {
+		return nobody("the routing call failed: " + err.Error())
+	}
+	defer res.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(res.Body, 8<<20))
+	if err != nil {
+		return nobody("the routing response could not be read: " + err.Error())
+	}
+	if res.StatusCode >= 300 {
+		return nobody(fmt.Sprintf("the routing call failed: HTTP %d", res.StatusCode))
+	}
+	var parsed struct {
+		Answers map[string]struct {
+			Choice string `json:"choice"`
+		} `json:"answers"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nobody("the routing response made no sense: " + err.Error())
+	}
+	excluded := map[string]string{}
+	for _, skill := range skills {
+		answer, ok := parsed.Answers[skill.ID]
+		if !ok || (answer.Choice != "deliver" && answer.Choice != "exclude") {
+			return nobody("the routing response omitted a persona")
+		}
+		if answer.Choice == "deliver" {
+			decision.Deliver = append(decision.Deliver, skill.ID)
+		} else {
+			// Decisions API returns only the choice. Keep the excluded ID for
+			// feedback, but do not invent a reason Jev did not provide.
+			excluded[skill.ID] = ""
+		}
+	}
+	decision.ExcludedReasons = excluded
 	return Routing{Deliver: decision.Deliver, Excluded: excluded, Answered: true}
 }
 

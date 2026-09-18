@@ -183,12 +183,14 @@ Web Share Target が使えないため、ショートカットで代替します
 
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
-- Nemotron 3.5 Lightning — 振り分け、low の担当、任意の音声入力整形
-- Nemotron Super — middle の担当と workflow の確認
-- Nemotron Ultra — high の担当と担当案の作成
+- Nemotron 3.5 Lightning — low の担当、任意の音声入力整形
+- Nemotron Super — 振り分け、middle の担当、workflow の確認
+- Nemotron Ultra — high の担当、担当案の作成
 - Nebius Token Factory — 推論基盤
 
 画像の読み取りにはGLM-5.3-Flash、意味検索にはQwen3-Embedding-8Bを同じ基盤で使用します。
+
+振り分けは既定でNemotron Superを使います。設定の「上級オプション」でJevを有効にし、OpenRouter APIキーを入力すると、振り分けだけをJevへ切り替えます（Jevでは判定理由を表示しません）。OpenRouter専用モードをONにすると、high/middle/lowも画面で指定したOpenRouterモデルを使います。
 
 ![設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ](captures/ja/settings.png)
 
@@ -198,7 +200,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | middle の担当 | `middleModel` | Nemotron Super |
 | high の担当 | `highModel` | Nemotron Ultra |
 | 画像解析・OCR | `visionModel` | GLM-5.3-Flash |
-| 振り分け | 固定 | Nemotron 3.5 Lightning |
+| 振り分け | 上級設定でJevへ切り替え可能 | Nemotron Super |
 | workflow の確認 | 固定 | Nemotron Super |
 | 担当案の作成・修正 | high（空なら middle、さらに空なら low） | Nemotron Ultra |
 | 意味検索の embedding | 固定 | Qwen3-Embedding-8B |

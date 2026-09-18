@@ -15,7 +15,7 @@ Kakeratta は、投稿を小さなAIの担当（ペルソナ）に渡し、担�
 
 ```
 投稿
- ↓ 振り分け        Nemotron 3.5 Lightning が投稿と担当条件を照合し、当てはまらない担当には理由を付ける
+ ↓ 振り分け        Nemotron Super（任意でJev）が投稿と担当条件を照合する
  ↓ 担当ごと:
      low            メモ・Web検索・発言を直接呼ぶ。確認なし                 （Nemotron 3.5 Lightning）
      middle / high  read     → メモ・Web検索・店探し・経路・元画像を読む      （Nemotron Super / Ultra）
@@ -136,7 +136,7 @@ read → workflow の構造でいちばんつまずいたのは、いちばん�
 | low | Nemotron 3.5 Lightning | メモ・Web検索・発言を直接呼ぶ。workflow も確認も無し |
 | middle | Nemotron Super | 読む → workflow を出す → 確認 → 実行 |
 | high | Nemotron Ultra | middle と同じ |
-| 本体 | Nemotron 3.5 Lightning / Nemotron Super | 振り分け（Lightning）/ メモと発言以外を含む workflow の確認（Super） |
+| 本体 | Nemotron Super / 任意のJev | 振り分け（SuperまたはJev）/ workflow の確認（Super） |
 
 調べる以上のことをする道具には workflow が要るので、そうした道具を持つ low の担当は保存時に断ります。
 以前に保存されていたものは、道具を黙って取り上げず、1つ上の段で動かします。

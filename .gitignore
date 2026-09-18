@@ -12,8 +12,9 @@ node_modules/
 *.tfstate.*
 *.tfplan
 
-# Local Token Factory credential
+# Local model-provider credentials and replay artifacts
 token_factory.key
+tmp/*
 
 # Operator tool configuration for infra/ (MCP servers and their headers)
 *.tfvars

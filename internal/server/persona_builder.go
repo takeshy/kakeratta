@@ -80,7 +80,7 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	for _, skill := range s.catalogue.All() {
 		ids = append(ids, skill.ID)
 	}
-	client, _ := s.client()
+	client, settings := s.client()
 	context, _ := json.Marshal(map[string]any{"existing": original, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
 	messages := []llm.Message{{Role: "system", Content: builderPrompt + "\n設定データ:\n" + string(context)}}
 	messages = append(messages, body.Messages...)
@@ -112,7 +112,7 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		messages[len(messages)-1].Content += "\n\nスレッド全体（古い順）:\n" + timeline.Render(thread, nil, nil) +
 			"\n\n今回の対象発言:\n" + entry.Render(nil, nil)
 	}
-	model := personaBuilderModel()
+	model := settings.HighModel
 	reply, err := client.Chat(r.Context(), llm.Request{Model: model, JSON: true, Temperature: 0.4, Messages: messages})
 	if err != nil {
 		fail(w, 502, err.Error())
@@ -190,8 +190,8 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, saved)
 }
 
-// personaBuilderModel writes the conditions routing depends on, so it is Ultra
-// even though routing itself runs on Lightning.
+// personaBuilderModel writes the conditions routing depends on, so it remains
+// Ultra even though routing itself runs on Super or the optional Jev service.
 func personaBuilderModel() string {
 	return store.NemotronUltra
 }

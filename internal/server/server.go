@@ -106,6 +106,14 @@ func (s *Server) Close() {
 
 func (s *Server) client() (*llm.Client, store.Settings) {
 	settings := s.store.Settings()
+	if settings.OpenRouterMode && strings.TrimSpace(settings.OpenRouterAPIKey) != "" {
+		settings.RouterModel = settings.OpenRouterRouterModel
+		settings.HighModel = settings.OpenRouterHighModel
+		settings.MiddleModel = settings.OpenRouterMiddleModel
+		settings.LowModel = settings.OpenRouterLowModel
+		settings.VisionModel = store.OpenRouterVision
+		return llm.NewOpenRouter(store.OpenRouterBaseURL, settings.OpenRouterAPIKey), settings
+	}
 	client := llm.New(settings.BaseURL, settings.APIKey)
 	return client, settings
 }

@@ -21,9 +21,16 @@ import (
 var ErrNotConfigured = errors.New("AIの接続先が設定されていません")
 
 type Client struct {
-	BaseURL string
-	APIKey  string
-	HTTP    *http.Client
+	BaseURL    string
+	APIKey     string
+	HTTP       *http.Client
+	OpenRouter bool
+}
+
+func NewOpenRouter(baseURL, apiKey string) *Client {
+	client := New(baseURL, apiKey)
+	client.OpenRouter = true
+	return client
 }
 
 func New(baseURL, apiKey string) *Client {
@@ -47,6 +54,9 @@ type Request struct {
 	Model       string    `json:"model"`
 	Messages    []Message `json:"messages"`
 	Temperature float64   `json:"temperature"`
+	MaxTokens   int       `json:"-"`
+	Thinking    *bool     `json:"-"`
+	Exacto      bool      `json:"-"`
 	JSON        bool      `json:"-"`
 	// Tools are the functions the model may call. With ToolChoice "required" it
 	// must call one, which is the whole reason for using them here: a model that
@@ -156,6 +166,23 @@ func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 		"model":       request.Model,
 		"messages":    messages,
 		"temperature": request.Temperature,
+	}
+	if request.MaxTokens > 0 {
+		body["max_tokens"] = request.MaxTokens
+	}
+	if c.OpenRouter {
+		// OpenRouter's text slots reason by default; low explicitly overrides
+		// this to false. This avoids relying on each model alias's own default.
+		enabled := true
+		if request.Thinking != nil {
+			enabled = *request.Thinking
+		}
+		body["reasoning"] = map[string]any{"enabled": enabled}
+	} else if request.Thinking != nil {
+		body["chat_template_kwargs"] = map[string]any{"enable_thinking": *request.Thinking}
+	}
+	if (request.Exacto || len(request.Tools) > 0) && c.OpenRouter {
+		body["provider"] = map[string]any{"sort": "exacto"}
 	}
 	if request.JSON {
 		body["response_format"] = map[string]string{"type": "json_object"}

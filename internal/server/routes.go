@@ -603,6 +603,7 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	// Keys go out to the page only as "set or not". The page never needs them,
 	// and a page that does not have them cannot leak them.
 	settings.APIKey = masked(settings.APIKey)
+	settings.OpenRouterAPIKey = masked(settings.OpenRouterAPIKey)
 	settings.Search.APIKey = masked(settings.Search.APIKey)
 	writeJSON(w, http.StatusOK, settings)
 }
@@ -618,6 +619,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	next.DailyCheckIns = current.DailyCheckIns
 	// A masked key coming back means "unchanged", not "set it to asterisks".
 	next.APIKey = unmask(next.APIKey, current.APIKey)
+	next.OpenRouterAPIKey = unmask(next.OpenRouterAPIKey, current.OpenRouterAPIKey)
 	next.Search.APIKey = unmask(next.Search.APIKey, current.Search.APIKey)
 	if err := s.store.SaveSettings(next); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())

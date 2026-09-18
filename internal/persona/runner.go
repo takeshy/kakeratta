@@ -259,6 +259,21 @@ type RoutingCheck struct {
 	Error     string `json:"error,omitempty"`
 }
 
+func routeConfigured(ctx context.Context, client *llm.Client, settings store.Settings, skills []Skill, thread []Entryish, trigger Entryish) Routing {
+	if jevConfigured(settings) {
+		return RouteJev(ctx, openRouterDecisionsURL, settings.OpenRouterAPIKey, skills, thread, trigger)
+	}
+	model := strings.TrimSpace(settings.RouterModel)
+	if model == "" {
+		model = routingModel()
+	}
+	return Route(ctx, client, model, skills, thread, trigger)
+}
+
+func jevConfigured(settings store.Settings) bool {
+	return settings.JevEnabled && strings.TrimSpace(settings.OpenRouterAPIKey) != ""
+}
+
 // CheckRouting routes a post again without delivering it, so a person who has
 // just changed a persona's conditions can see whether the change did what
 // they meant. It reads the conditions as they are now saved; nothing is woken
@@ -284,7 +299,7 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 		return RoutingCheck{}, err
 	}
 	thread := timeline.Thread(entries, timeline.RootOf(entry))
-	routing := Route(ctx, client, routingModel(), skills, thread, entry)
+	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
 	check := RoutingCheck{Answered: routing.Answered, Error: routing.Error}
 	if routing.Answered {
 		check.Delivered = contains(routing.Deliver, skillID)
@@ -371,7 +386,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	for _, id := range named {
 		targets[id] = true
 	}
-	routing := Route(ctx, client, routingModel(), skills, thread, entry)
+	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}

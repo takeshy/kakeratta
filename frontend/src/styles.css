@@ -276,6 +276,12 @@ body.sheet-open .topbar { z-index: 21; }
 .field { display: grid; gap: 4px; }
 .field > span:first-child { color: var(--muted); font-size: 0.78rem; }
 .field.row-field { grid-auto-flow: column; justify-content: start; align-items: center; gap: 8px; }
+.advanced-settings { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.advanced-settings summary { cursor: pointer; color: var(--accent); }
+.advanced-settings[open] summary { margin-bottom: 12px; }
+.field.check-field { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.field.check-field input { width: auto; }
+.field.check-field > span:first-child { color: inherit; font-size: inherit; }
 input[type="text"], input[type="search"], input[type="password"], select, input[type="range"] {
   font: inherit;
   padding: 7px 9px;

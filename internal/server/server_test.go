@@ -353,6 +353,8 @@ func TestKeysNeverReachThePage(t *testing.T) {
 	server, s := app(t, "")
 	settings := s.Settings()
 	settings.APIKey = "real-key"
+	settings.OpenRouterAPIKey = "openrouter-key"
+	settings.JevEnabled = true
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
@@ -369,6 +371,9 @@ func TestKeysNeverReachThePage(t *testing.T) {
 	if out.APIKey == "" {
 		t.Fatal("the page cannot tell whether a key is set")
 	}
+	if out.OpenRouterAPIKey == "openrouter-key" || out.OpenRouterAPIKey == "" {
+		t.Fatalf("OpenRouter key was exposed or lost: %q", out.OpenRouterAPIKey)
+	}
 
 	out.LowModel = "something/else"
 	body, _ := json.Marshal(out)
@@ -380,6 +385,9 @@ func TestKeysNeverReachThePage(t *testing.T) {
 	after := s.Settings()
 	if after.APIKey != "real-key" {
 		t.Fatalf("the key was overwritten with the mask: %q", after.APIKey)
+	}
+	if after.OpenRouterAPIKey != "openrouter-key" || !after.JevEnabled {
+		t.Fatalf("OpenRouter settings were not preserved: %+v", after)
 	}
 	if after.LowModel != "something/else" {
 		t.Fatal("the change that was made did not save")

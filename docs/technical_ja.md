@@ -100,11 +100,13 @@ workflow の確認にはネイティブな tool calling（`tool_choice: "require
 
 | モデル（Token Factory） | 役割 |
 |---|---|
-| Nemotron 3 Ultra | high の担当と、担当案の作成 |
-| Nemotron 3 Super | middle の担当と、メモ・発言以外へ及ぶ workflow の確認 |
-| Nemotron 3.5 Lightning | 投稿の振り分け、low の担当、音声入力の文を整える（任意） |
+| Nemotron 3 Ultra | high の担当、担当案の作成 |
+| Nemotron 3 Super | 投稿の振り分け、middle の担当、workflow の実行前確認 |
+| Nemotron 3.5 Lightning | low の担当、音声入力の文を整える（thinking 無効、最大1,024トークン、temperature 0.1） |
 | GLM-5.3-Flash | スクリーンショットや写真を、投稿ごとに一度だけ読む |
 | Qwen3-Embedding-8B | 過去の投稿の意味検索 |
+
+上級設定でJevを有効にした場合は、OpenRouterのDecisions APIを通じて振り分けだけをJevへ切り替えます。Jevは理由文を返しません。OpenRouter専用モードではhigh/middle/lowも指定したOpenRouterモデルへ切り替わり、ツール呼び出しはExactoを使います。
 
 Web検索には Tavily を使います。これを信頼できる形にするまでに苦労したことと、その対処は
 [AIまわりで苦労したこと](ai-lessons_ja.md) にまとめています。

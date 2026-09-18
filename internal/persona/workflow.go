@@ -534,9 +534,8 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 	return &verdict, nil
 }
 
-// reviewModel checks a workflow for the obviously wrong - facts nobody read,
-// promises nobody arranged - which Nemotron Super catches at a fraction of
-// Ultra's price.
+// reviewModel checks workflows for unsafe or inconsistent actions. It remains
+// on Super independently of the persona's own tier.
 func reviewModel() string {
 	return store.NemotronSuper
 }
@@ -561,11 +560,11 @@ func needsReview(workflow Workflow, schedules bool) bool {
 	return schedules && !quiet
 }
 
-// routingModel matches a post against short persona conditions. Lightning did
-// that about 85% cheaper than Ultra on replayed production posts
-// (docs/routing-cost-experiment.md).
+// routingModel matches a post against short persona conditions. Production
+// replay showed Super to be much faster than Lightning with better handling
+// of overlapping conditions. Jev can replace it through advanced settings.
 func routingModel() string {
-	return store.NemotronLightning
+	return store.NemotronSuper
 }
 
 // readAll does what a persona asked to look at. Nothing here writes, so there

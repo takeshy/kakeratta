@@ -329,7 +329,7 @@
         <section id="ja-settings">
           <h2>9. 設定</h2>
           <figure>
-            <img src="/captures/ja/settings.png" alt="設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ" loading="lazy" width="390" height="1933" />
+            <img src="/captures/ja/settings.png" alt="設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ" loading="lazy" width="390" height="2575" />
             <figcaption>設定パネル。上から表示言語、AI、Web検索、Bluesky連携、音声入力、読み上げ。</figcaption>
           </figure>
           <h3>表示言語</h3>
@@ -338,8 +338,8 @@
           <p>KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。Token FactoryのAPIキーを入れれば動きます。</p>
           <ul>
             <li>Nemotron 3.5 Lightning — 道具を使わない軽い担当（メモと web 検索と発言だけ）</li>
-            <li>Nemotron Super — 担当分野をより深く考える推論</li>
-            <li>Nemotron Ultra — 振り分けと、担当が出した workflow の確認（本体の判断）</li>
+            <li>Nemotron Super — 振り分け、middle の担当、workflow の確認</li>
+            <li>Nemotron Ultra — high の担当と担当案の作成</li>
             <li>GLM-5.3-Flash — 画像の読み取り（同じ基盤）</li>
           </ul>
           <div class="table-scroll">
@@ -350,10 +350,12 @@
                 <tr><td>middle</td><td>Nemotron Super</td></tr>
                 <tr><td>high（最後に動く。下の発言を見て突っ込める）</td><td>Nemotron Ultra</td></tr>
                 <tr><td>画像を読むモデル（vision）</td><td>GLM-5.3-Flash</td></tr>
-                <tr><td>振り分け・workflow の確認（本体）</td><td>high と同じ（Nemotron Ultra）</td></tr>
+                <tr><td>振り分け</td><td>Nemotron Super</td></tr>
+                <tr><td>workflow の確認</td><td>Nemotron Super</td></tr>
               </tbody>
             </table>
           </div>
+          <p>上級オプションでは、振り分けだけをJevへ切り替えるか、OpenRouter専用モードでhigh/middle/lowも指定モデルへ切り替えられます。Jevでは判定理由を表示しません。</p>
           <p>担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。どのモデルをどの段に置くかが、そのまま体験の差になります。</p>
           <p><strong>web 検索以外の道具（経路、店探し、予定など）を使う担当は middle か high です。</strong>middle 以上の担当は、まず読んだり調べたりしてから、やること（メモ・予定・発言）を workflow として出し、本体が確認してから実行します。low の担当は workflow を使わず、メモと web 検索と発言だけで軽く動きます。</p>
           <h3 id="ja-tools">道具：担当が調べたり覚えたりする方法</h3>
@@ -732,7 +734,7 @@
         <section id="en-settings">
           <h2>9. Settings</h2>
           <figure>
-            <img src="/captures/en/settings.png" alt="Settings: display language, model, web search, Bluesky connection, voice input, read-aloud" loading="lazy" width="390" height="1953" />
+            <img src="/captures/en/settings.png" alt="Settings: display language, model, web search, Bluesky connection, voice input, read-aloud" loading="lazy" width="390" height="2615" />
             <figcaption>The Settings panel: display language, AI, web search, Bluesky connection, voice input, read-aloud.</figcaption>
           </figure>
           <h3>Display language</h3>
@@ -741,8 +743,8 @@
           <p>Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Entering your Token Factory API key is enough.</p>
           <ul>
             <li>Nemotron 3.5 Lightning — light personas without tools (notes, web search and a remark)</li>
-            <li>Nemotron Super — richer domain reasoning</li>
-            <li>Nemotron Ultra — routing, and reviewing the workflows personas hand in (the app's own judgement)</li>
+            <li>Nemotron Super — routing, middle-tier personas, and workflow review</li>
+            <li>Nemotron Ultra — high-tier personas and persona drafting</li>
             <li>GLM-5.3-Flash — image reading, on the same backend</li>
           </ul>
           <div class="table-scroll">
@@ -753,10 +755,12 @@
                 <tr><td>middle</td><td>Nemotron Super</td></tr>
                 <tr><td>high (last; can build on earlier responses)</td><td>Nemotron Ultra</td></tr>
                 <tr><td>Image model (vision)</td><td>GLM-5.3-Flash</td></tr>
-                <tr><td>Routing and workflow review (the app)</td><td>Same as high (Nemotron Ultra)</td></tr>
+                <tr><td>Routing</td><td>Nemotron Super</td></tr>
+                <tr><td>Workflow review</td><td>Nemotron Super</td></tr>
               </tbody>
             </table>
           </div>
+          <p>Advanced options can move routing alone to Jev, or move high/middle/low to selected OpenRouter models with OpenRouter-only mode. Jev does not display decision reasons.</p>
           <p>Each persona chooses low, middle, or high. Low runs first, and higher tiers can build on earlier responses. Which model sits in which tier is the difference in experience.</p>
           <p><strong>A persona that uses any tool other than web search (routes, places, schedules) is middle or high.</strong> Those personas first read and look things up, then hand in what they will do (notes, schedules, a remark) as a workflow that the app reviews before running it. A low persona has no workflow: it works with its notes, web search and a remark only.</p>
           <h3 id="en-tools">Tools: how personas look things up and remember</h3>

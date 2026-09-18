@@ -131,10 +131,14 @@ APIs instead.
 | Model (Token Factory) | Role |
 |---|---|
 | Nemotron 3 Ultra | High-tier personas and persona drafting |
-| Nemotron 3 Super | Middle-tier personas; reviews workflows that reach beyond notes and remarks |
-| Nemotron 3.5 Lightning | Routes posts; low-tier personas; optional polishing of dictated text |
+| Nemotron 3 Super | Routes posts; middle-tier personas; workflow review |
+| Nemotron 3.5 Lightning | Low-tier personas and dictation polishing (thinking off, 1,024 tokens, temperature 0.1) |
 | GLM-5.3-Flash | Reading screenshots and photos, once per post |
 | Qwen3-Embedding-8B | Meaning search over past posts |
+
+Advanced settings can move routing alone to Jev's Decisions API (which does
+not return reasons), or move the high/middle/low slots to OpenRouter models.
+OpenRouter tool calls use Exacto routing.
 
 Web search uses Tavily. What was hard about making this dependable — and what
 was done about it — is written up in [What was hard about the AI](ai-lessons.md).
