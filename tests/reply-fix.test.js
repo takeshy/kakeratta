@@ -247,3 +247,4 @@ test("a quiet turn is disputed from the post and tried again from it", async (t)
   assert.deepEqual(api.previewReply.mock.calls[0].arguments, ["p2", "gourmet"], "the trial runs from the post");
   assert.match(texts(), /ノートンのアルトゥーラ/);
 });
+

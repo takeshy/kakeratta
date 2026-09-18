@@ -17,7 +17,9 @@ import (
 type ReplyPreview struct {
 	Spoke string `json:"spoke"`
 	Quiet bool   `json:"quiet"`
-	Error string `json:"error,omitempty"`
+	// Notes are the paths it would have written, had this been a real turn.
+	Notes []string `json:"notes"`
+	Error string   `json:"error,omitempty"`
 }
 
 // PreviewReply runs a persona again over the thread as it stood at one entry,
@@ -83,7 +85,8 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 
 	// The same runner code over a workspace that keeps nothing, so the turn
 	// is the real thing without any of its consequences.
-	sandbox := New(&dryWorkspace{Workspace: r.store}, r.catalogue, r.clientOf)
+	notes := []string{}
+	sandbox := New(&dryWorkspace{Workspace: r.store, notes: &notes}, r.catalogue, r.clientOf)
 	sandbox.search, sandbox.tools = r.search, r.tools
 	var problems []string
 	sandbox.emit = func(name string, data any) {
@@ -95,7 +98,7 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 		}
 	}
 	said := sandbox.run(ctx, *skill, thread, trigger, named, false, "", client, settings, sandbox.registry(settings))
-	preview := ReplyPreview{Quiet: said == nil, Error: strings.Join(problems, "; ")}
+	preview := ReplyPreview{Quiet: said == nil, Notes: notes, Error: strings.Join(problems, "; ")}
 	if said != nil {
 		preview.Spoke = said.Text
 	}
@@ -107,26 +110,33 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 // and everything it would have changed is quietly not changed.
 type dryWorkspace struct {
 	store.Workspace
+	// notes collects the paths a preview would have written.
+	notes *[]string
 }
 
-func (d *dryWorkspace) Append(timeline.Entry) error                                 { return nil }
-func (d *dryWorkspace) RecordWake(string, string) error                             { return nil }
-func (d *dryWorkspace) SaveMemory(store.Memory) error                               { return nil }
-func (d *dryWorkspace) WriteNote(string, string, string, ...store.NoteSource) error { return nil }
-func (d *dryWorkspace) DeleteNote(string, string) error                             { return nil }
-func (d *dryWorkspace) DropNoteSource(string, string) ([]string, error)             { return nil, nil }
-func (d *dryWorkspace) SaveRouting(string, store.Routing) error                     { return nil }
-func (d *dryWorkspace) ForgetRouting(string) error                                  { return nil }
-func (d *dryWorkspace) ForgetWakes(string) error                                    { return nil }
-func (d *dryWorkspace) ForgetMemory(string) error                                   { return nil }
-func (d *dryWorkspace) SaveSettings(store.Settings) error                           { return nil }
-func (d *dryWorkspace) PersistSkill(string, []byte) error                           { return nil }
-func (d *dryWorkspace) DeleteSkill(string) error                                    { return nil }
-func (d *dryWorkspace) DeleteSchedule(string, string) error                         { return nil }
-func (d *dryWorkspace) DeleteSchedules(string) error                                { return nil }
-func (d *dryWorkspace) SavePublication(string, store.Publication) error             { return nil }
-func (d *dryWorkspace) ClaimPublication(string, store.Publication) (bool, error)    { return false, nil }
-func (d *dryWorkspace) ClaimDailyCheckIn(string, string) (bool, error)              { return false, nil }
+func (d *dryWorkspace) Append(timeline.Entry) error     { return nil }
+func (d *dryWorkspace) RecordWake(string, string) error { return nil }
+func (d *dryWorkspace) SaveMemory(store.Memory) error   { return nil }
+func (d *dryWorkspace) WriteNote(_, path, _ string, _ ...store.NoteSource) error {
+	if d.notes != nil {
+		*d.notes = append(*d.notes, path)
+	}
+	return nil
+}
+func (d *dryWorkspace) DeleteNote(string, string) error                          { return nil }
+func (d *dryWorkspace) DropNoteSource(string, string) ([]string, error)          { return nil, nil }
+func (d *dryWorkspace) SaveRouting(string, store.Routing) error                  { return nil }
+func (d *dryWorkspace) ForgetRouting(string) error                               { return nil }
+func (d *dryWorkspace) ForgetWakes(string) error                                 { return nil }
+func (d *dryWorkspace) ForgetMemory(string) error                                { return nil }
+func (d *dryWorkspace) SaveSettings(store.Settings) error                        { return nil }
+func (d *dryWorkspace) PersistSkill(string, []byte) error                        { return nil }
+func (d *dryWorkspace) DeleteSkill(string) error                                 { return nil }
+func (d *dryWorkspace) DeleteSchedule(string, string) error                      { return nil }
+func (d *dryWorkspace) DeleteSchedules(string) error                             { return nil }
+func (d *dryWorkspace) SavePublication(string, store.Publication) error          { return nil }
+func (d *dryWorkspace) ClaimPublication(string, store.Publication) (bool, error) { return false, nil }
+func (d *dryWorkspace) ClaimDailyCheckIn(string, string) (bool, error)           { return false, nil }
 func (d *dryWorkspace) ClaimSchedule(string, time.Time, time.Time) (store.Schedule, bool, error) {
 	return store.Schedule{}, false, nil
 }

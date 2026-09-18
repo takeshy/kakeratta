@@ -78,7 +78,7 @@ A persona does not call tools one at a time any more (`internal/persona/workflow
    | `write_schedule` | Place a wake **and** write the note it rests on, as one step. If the note cannot be written, the wake is taken back |
    | `cancel_schedule` | Cancel a wake by an id from the list the persona was given |
    | `tool` | Call a declared tool (not `schedule`) |
-   | `speak` | Say something. **Exactly one, and last.** Silence is a speak with an empty text: the persona decides out loud every turn, and a workflow without a speak is sent back |
+   | `speak` | Say something. **Exactly one, and last.** Silence is a speak with an empty text: the persona decides out loud every turn, and a workflow without a speak is sent back. A remark on a post also needs a `write_note` (a remark alone is sent back; a note alone is fine) |
 
 3. **Checked by the app.** Mechanically first — known step types, declared
    tools, no invented schedule ids, an empty speak on a turn that cannot speak,

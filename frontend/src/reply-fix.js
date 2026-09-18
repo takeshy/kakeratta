@@ -202,6 +202,7 @@ export function showReplyFix({ persona, remark = null, post, onSaved }) {
       el("p", { class: "hint", label: "保存しました。同じ投稿に、いまの口調と指示で返事を試し書きしました。" }),
       postText ? el("p", { class: "hint", text: t("投稿：{0}", postText) }) : null,
       quote(trial),
+      el("p", { class: "hint", text: preview.notes?.length ? t("書くメモ：{0}", preview.notes.join(", ")) : t("（メモは書きません）") }),
       preview.error ? el("p", { class: "hint warn", text: preview.error }) : null,
       el("div", { class: "compose-row" },
         action("これでよい", "button primary reply-accept", close),

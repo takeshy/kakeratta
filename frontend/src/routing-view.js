@@ -12,7 +12,7 @@ import { el, toast } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
 
-export async function showRouting({ entry, getPersona, onFixCondition, onFixReply, spoke = () => true }) {
+export async function showRouting({ entry, getPersona, onFixCondition, onFixReply }) {
   let record;
   try {
     record = await api.routing(entry.id);
@@ -75,9 +75,17 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
     // A persona that was called and stayed quiet is the case a person most
     // wants to see: it can be told a reply was wanted.
     for (const item of delivered) {
-      const line = row(item, spoke(item.id) ? "呼ばれました" : "呼ばれましたが、黙っていました", { label: "呼んでほしくなかった", direction: "exclude" });
+      // The server says whether the turn has finished and whether it spoke;
+      // the page's own timeline may be behind, so it is not consulted.
+      const done = item.done === true;
+      const said = item.spoke === true;
+      const noted = item.noted === true;
+      const verdict = !done ? "呼ばれました。返事を考えています…"
+        : said && noted ? "呼ばれました。返事とメモあり" : said ? "呼ばれました。返事あり、メモなし"
+        : noted ? "呼ばれました。黙ってメモだけ残しました" : "呼ばれましたが、黙っていました。メモもありません";
+      const line = row(item, verdict, { label: "呼んでほしくなかった", direction: "exclude" });
       const persona = getPersona?.(item.id);
-      if (persona && onFixReply && !spoke(item.id)) {
+      if (persona && onFixReply && done && !said) {
         line.append(el("button", {
           class: "chip ghost reply-wanted", label: "返事がほしかった",
           onclick: () => { close(); onFixReply({ persona, remark: null, post: current }); },

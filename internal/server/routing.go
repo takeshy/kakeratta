@@ -3,6 +3,9 @@ package server
 import (
 	"net/http"
 	"sort"
+
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // routingRow is one persona as the router saw it for a post. The name and
@@ -13,6 +16,13 @@ type routingRow struct {
 	Name   string `json:"name"`
 	Icon   string `json:"icon"`
 	Reason string `json:"reason,omitempty"`
+	// For a persona the router chose: whether its turn has finished, and
+	// whether it said anything in the thread after this post. Both false while
+	// it is still working; done and not spoke is a persona that stayed quiet.
+	Done  *bool `json:"done,omitempty"`
+	Spoke *bool `json:"spoke,omitempty"`
+	// Noted: whether one of its notes cites this post as a source.
+	Noted *bool `json:"noted,omitempty"`
 }
 
 func (s *Server) routingRow(id, reason string) routingRow {
@@ -42,9 +52,39 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"recorded": false})
 		return
 	}
+	// A record from before turns were noted reads as finished.
+	done := func(id string) bool {
+		if record.Done == nil {
+			return true
+		}
+		for _, finished := range record.Done {
+			if finished == id {
+				return true
+			}
+		}
+		return false
+	}
+	spoke := map[string]bool{}
+	if entries, err := s.store.Timeline(); err == nil {
+		for _, other := range timeline.Thread(entries, timeline.RootOf(entry)) {
+			if other.Kind == timeline.KindRemark && !other.Deleted && other.At.After(entry.At) {
+				spoke[other.Speaker] = true
+			}
+		}
+	}
 	delivered := make([]routingRow, 0, len(record.Delivered))
 	for _, id := range record.Delivered {
-		delivered = append(delivered, s.routingRow(id, ""))
+		row := s.routingRow(id, "")
+		finished, said, noted := done(id), spoke[id], false
+		for _, note := range s.store.Memory(id).Notes {
+			for _, source := range store.NoteSources(note.Text) {
+				if source.EntryID == entry.ID {
+					noted = true
+				}
+			}
+		}
+		row.Done, row.Spoke, row.Noted = &finished, &said, &noted
+		delivered = append(delivered, row)
 	}
 	excluded := make([]routingRow, 0, len(record.Excluded))
 	for id, reason := range record.Excluded {

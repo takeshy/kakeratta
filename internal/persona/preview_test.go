@@ -48,6 +48,9 @@ func TestPreviewReplyKeepsNothing(t *testing.T) {
 	if preview.Quiet || preview.Spoke != "渋谷なら20時までに着けます。" || preview.Error != "" {
 		t.Fatalf("preview = %+v", preview)
 	}
+	if len(preview.Notes) != 1 || preview.Notes[0] != "places/shibuya.md" {
+		t.Fatalf("the note it would have written was not reported: %v", preview.Notes)
+	}
 	if len(systems) == 0 || !strings.Contains(systems[0], "michi") {
 		t.Fatalf("the persona was not run: %v", systems)
 	}

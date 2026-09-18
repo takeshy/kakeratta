@@ -184,6 +184,9 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		steps := []any{}
 		switch parsed.Action {
 		case "speak":
+			// A remark on a post leaves a note behind, so a scripted remark
+			// carries one, as a live persona now must.
+			steps = append(steps, step(map[string]any{"type": "write_note", "path": "turns/said.md", "text": "type: Turn\n\n" + parsed.Text}))
 			steps = append(steps, step(map[string]any{"type": "speak", "text": parsed.Text}))
 		case "tool":
 			args, _ := json.Marshal(parsed.Args)
@@ -1505,17 +1508,17 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 		{
 			name: "named persona is not the router's choice", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":["gourmet","move"],"excluded_reasons":{"book":"本の話ではない"}}`,
-			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}},
+			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Done: []string{"move", "gourmet"}},
 		},
 		{
 			name: "named persona is not passed over either", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}},
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}, Done: []string{"gourmet"}},
 		},
 		{
 			name: "nobody is an answer", text: "今日は眠い",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}},
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}, Done: []string{}},
 		},
 		{name: "a broken router is no answer", text: "今日は眠い", routed: `モデルが壊れた返事`, want: nil},
 	} {
@@ -1578,5 +1581,17 @@ func TestEveryWorkflowDecidesWhetherToSpeak(t *testing.T) {
 	}
 	if problems := checkWorkflow(silent, turnRules{set: set, listening: true}); len(problems) != 0 {
 		t.Fatalf("a listening persona's silence was refused: %v", problems)
+	}
+	// A remark on a post leaves a note behind; a note without a remark is fine.
+	talkOnly := Workflow{Steps: []Step{{Type: "speak", Text: "また豚骨だ"}}}
+	if problems := checkWorkflow(talkOnly, turnRules{set: set, noteRequired: true}); len(problems) != 1 || !strings.Contains(problems[0], "メモがありません") {
+		t.Fatalf("a remark without a note on a post was accepted: %v", problems)
+	}
+	if problems := checkWorkflow(talkOnly, turnRules{set: set}); len(problems) != 0 {
+		t.Fatalf("a remark without a note on the app's own wake was refused: %v", problems)
+	}
+	noteOnly := Workflow{Steps: []Step{{Type: "write_note", Path: "a.md", Text: "x"}, {Type: "speak", Text: ""}}}
+	if problems := checkWorkflow(noteOnly, turnRules{set: set, noteRequired: true}); len(problems) != 0 {
+		t.Fatalf("a note without a remark was refused: %v", problems)
 	}
 }

@@ -230,7 +230,7 @@
           <p>メモを消しても、担当が残っている投稿を検索して再び覚えることがあります。今後の覚え方や判断を変えるには、担当画面の <strong>AIで修正</strong> を使います。</p>
           <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別削除し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。担当の修正は、すでに保存されたメモを自動で訂正する操作ではありません。</p></div>
           <h3 id="ja-routing">担当の判断を見て、条件を直す</h3>
-          <p>誰にかけらを渡すかは本体が決めています。自分の投稿・返信の <strong>⚖</strong>（担当の判断）を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が別の画面に並びます。<code>@名前</code> で指名した担当は出ません。指名で届いたのはあなたの判断だからです。判定できなかった投稿は「判断の記録がありません」と出ます。呼ばれたのに黙っていた担当は「呼ばれましたが、黙っていました」と出て、<strong>返事がほしかった</strong> から返事を直す流れに入れます。</p>
+          <p>誰にかけらを渡すかは本体が決めています。自分の投稿・返信の <strong>⚖</strong>（担当の判断）を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が別の画面に並びます。<code>@名前</code> で指名した担当は出ません。指名で届いたのはあなたの判断だからです。判定できなかった投稿は「判断の記録がありません」と出ます。呼ばれた担当には、一手が終わったか、返事をしたか、この投稿からメモを残したかが出ます。終わる前は「返事を考えています」です。黙っていたなら <strong>返事がほしかった</strong> から、口調と指示を直す流れに入れます。</p>
           <figure>
             <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="606" />
             <figcaption>呼ばれた担当と、呼ばれなかった理由。各行から担当条件を直せます（サンプル）。</figcaption>
@@ -631,7 +631,7 @@
           <p>A persona may remember something again by searching the remaining posts. To change its future memory or judgment rules, use <strong>Edit with AI</strong> in the Personas panel.</p>
           <div class="tip"><p>For example, delete an incorrect “Likes this wine” note individually, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not automatically correct its existing notes.</p></div>
           <h3 id="en-routing">See the router's call and fix a condition</h3>
-          <p>The app decides who gets each fragment. Tap <strong>⚖</strong> (the router's call) on one of your posts or replies to open, apart from the timeline, which personas were called and, for each one that was not, the router's one-line reason. A persona you mentioned with <code>@name</code> is not listed: reaching it was your call. A post the router could not judge reads as “No record of the router's call”. A persona that was called but said nothing reads as “Called, but stayed quiet”, and <strong>A reply was wanted</strong> opens the reply dialog for its silence.</p>
+          <p>The app decides who gets each fragment. Tap <strong>⚖</strong> (the router's call) on one of your posts or replies to open, apart from the timeline, which personas were called and, for each one that was not, the router's one-line reason. A persona you mentioned with <code>@name</code> is not listed: reaching it was your call. A post the router could not judge reads as “No record of the router's call”. For each persona that was called you see whether its turn has finished, whether it replied, and whether it kept a note from this post (“still working on it” until it finishes). <strong>A reply was wanted</strong> opens the reply dialog for a silence.</p>
           <figure>
             <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" width="382" height="632" />
             <figcaption>Who was called, and why the others were not. Each row can correct the persona's condition (sample data).</figcaption>

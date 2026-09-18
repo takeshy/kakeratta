@@ -484,7 +484,7 @@ test("the router's call opens from the user's posts and replies and can be dispu
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "move", name: "michi", icon: "🚃" }];
   t.mock.method(api, "routing", async (id) => id === "p"
-    ? { recorded: true, delivered: [{ id: "gourmet", name: "tabe", icon: "🍜" }], excluded: [{ id: "move", name: "michi", icon: "🚃", reason: "移動の話ではない" }, { id: "gone", name: "gone", icon: "", reason: "消えた担当" }] }
+    ? { recorded: true, delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true }], excluded: [{ id: "move", name: "michi", icon: "🚃", reason: "移動の話ではない" }, { id: "gone", name: "gone", icon: "", reason: "消えた担当" }] }
     : { recorded: false });
   const disputes = [];
   const feed = createFeed({
@@ -512,7 +512,7 @@ test("the router's call opens from the user's posts and replies and can be dispu
   assert.equal(document.body.querySelectorAll(".routing-dialog").length, 1, "the call opens in a dialog of its own");
   assert.equal(document.body.querySelectorAll(".routing-row").length, 3);
   assert.ok(texts().includes("移動の話ではない"), "the router's reason is shown");
-  assert.ok(texts().includes(translate("呼ばれました")) && texts().includes(translate("呼ばれませんでした")));
+  assert.ok(texts().includes(translate("呼ばれました。返事とメモあり")) && texts().includes(translate("呼ばれませんでした")));
   const fixes = document.body.querySelectorAll(".routing-fix");
   assert.equal(fixes.length, 2, "a persona gone from the room cannot be taught");
   fixes[1].fire("click");
@@ -614,8 +614,12 @@ test("a called persona that stayed quiet can be asked for a reply", async (t) =>
   globalThis.Node = TestNode;
   globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "wine", name: "ぶどう", icon: "🍷" }];
-  t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "wine", name: "ぶどう", icon: "🍷" }], excluded: [] }));
+  const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "wine", name: "ぶどう", icon: "🍷" }, { id: "move", name: "michi", icon: "🚃" }];
+  t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [
+    { id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true },
+    { id: "wine", name: "ぶどう", icon: "🍷", done: true, noted: true },
+    { id: "move", name: "michi", icon: "🚃" },
+  ], excluded: [] }));
   const wanted = [];
   const feed = createFeed({ getPersona: (id) => rows.find((row) => row.id === id) || null, onFixReply: (args) => wanted.push(args), showIntro: false });
   feed.set([
@@ -626,10 +630,11 @@ test("a called persona that stayed quiet can be asked for a reply", async (t) =>
   for (let i = 0; i < 3; i++) await new Promise(setImmediate);
   const walk = (node) => [node, ...node.children.flatMap(walk)];
   const texts = walk(document.body).map((node) => node.textContent);
-  assert.ok(texts.includes(translate("呼ばれました")), "the persona that spoke is simply called");
-  assert.ok(texts.includes(translate("呼ばれましたが、黙っていました")), "the persona that did not speak is marked");
+  assert.ok(texts.includes(translate("呼ばれました。返事とメモあり")), "the persona that spoke and noted is simply called");
+  assert.ok(texts.includes(translate("呼ばれました。黙ってメモだけ残しました")), "the persona that did not speak is marked");
+  assert.ok(texts.includes(translate("呼ばれました。返事を考えています…")), "a persona still working is not called quiet");
   const asks = document.body.querySelectorAll(".reply-wanted");
-  assert.equal(asks.length, 1, "only the quiet persona can be asked for a reply");
+  assert.equal(asks.length, 1, "only the persona that finished without a word can be asked for a reply");
   asks[0].fire("click");
   assert.equal(wanted.length, 1);
   assert.equal(wanted[0].persona.id, "wine");

@@ -192,8 +192,13 @@ func workflowToolFor(set *tools.Set) llm.Tool {
 // turnRules are what the app enforces on a workflow regardless of review.
 type turnRules struct {
 	named, listening bool
-	set              *tools.Set
-	schedules        map[string]bool
+	// noteRequired: a remark on a post has to leave a note behind. A persona
+	// that speaks and keeps nothing has an opinion but no memory of having had
+	// it. Wakes of the app's own making - daily, schedule, deletions - are
+	// exempt; the note those rest on is already there.
+	noteRequired bool
+	set          *tools.Set
+	schedules    map[string]bool
 }
 
 var scheduleIDRef = regexp.MustCompile(`\bs_[A-Za-z0-9]+`)
@@ -287,11 +292,12 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 	if len(workflow.Steps) > maxSteps {
 		problems = append(problems, fmt.Sprintf("ステップが多すぎます（%d件。上限は%d件）", len(workflow.Steps), maxSteps))
 	}
-	speaks := 0
+	speaks, notes, said := 0, 0, false
 	written := map[string]bool{}
 	for i, step := range workflow.Steps {
 		at := fmt.Sprintf("%d番目（%s）", i+1, step.Type)
 		if step.Type == "write_note" || step.Type == "write_schedule" {
+			notes++
 			path := strings.TrimSpace(step.Path)
 			if path != "" && written[path] {
 				problems = append(problems, at+": "+path+" はこの workflow ですでに書いています。1つのメモは1つのステップで書いてください")
@@ -350,6 +356,7 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			}
 		case "speak":
 			speaks++
+			said = strings.TrimSpace(step.Text) != ""
 			// An empty text is silence, chosen out loud; a named persona may not
 			// choose it, and a listening one may choose nothing else.
 			switch {
@@ -377,6 +384,8 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 		problems = append(problems, "speak は1回までです")
 	case speaks == 0:
 		problems = append(problems, "speak がありません。最後に必ず speak を入れ、何も言わないなら text を空にしてください")
+	case said && rules.noteRequired && notes == 0:
+		problems = append(problems, "発言するのにメモがありません。発言の根拠や覚えたことを write_note で残してください。残すことが無いなら、speak の text を空にして黙ってください")
 	}
 	return problems
 }

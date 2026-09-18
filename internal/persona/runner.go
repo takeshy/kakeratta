@@ -206,7 +206,7 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 		}
 		return
 	}
-	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text}
+	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text, Done: []string{}}
 	for _, id := range routing.Deliver {
 		if !contains(named, id) {
 			record.Delivered = append(record.Delivered, id)
@@ -224,6 +224,30 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 	if err := r.store.SaveRouting(entryID, record); err != nil {
 		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
 	}
+}
+
+// turnsDone notes on the post's routing record that these personas have had
+// their turn - spoken or not - and tells the page, so a sheet showing the
+// router's call can stop saying the persona is still thinking.
+func (r *Runner) turnsDone(entryID string, wave []Skill) {
+	record, err := r.store.Routing(entryID)
+	if err != nil || record == nil {
+		return
+	}
+	if record.Done == nil {
+		record.Done = []string{}
+	}
+	var ids []string
+	for _, skill := range wave {
+		ids = append(ids, skill.ID)
+		if !contains(record.Done, skill.ID) {
+			record.Done = append(record.Done, skill.ID)
+		}
+	}
+	if err := r.store.SaveRouting(entryID, *record); err != nil {
+		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+	}
+	r.emit("turn", map[string]any{"entryId": entryID, "personas": ids})
 }
 
 // RoutingCheck is a trial run of the router for one persona: whether the post
@@ -394,6 +418,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 			}(i, skill)
 		}
 		group.Wait()
+		r.turnsDone(entry.ID, wave)
 		ran = append(ran, wave...)
 		for _, remark := range remarks {
 			if remark != nil {
@@ -554,7 +579,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	rules := turnRules{named: named, listening: listening, set: set, schedules: scheduleIDs}
+	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs}
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {

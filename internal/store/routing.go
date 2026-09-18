@@ -16,6 +16,10 @@ type Routing struct {
 	Delivered []string          `json:"delivered"`
 	Excluded  map[string]string `json:"excluded"`
 	EntryText *string           `json:"entryText,omitempty"`
+	// Done lists the personas whose turn on this post has finished, spoken or
+	// not, so a reader can tell "still thinking" from "stayed quiet". nil is a
+	// record from before this was kept, and reads as finished.
+	Done []string `json:"done"`
 }
 
 func routingPath(root string) string { return filepath.Join(root, "routing.json") }
@@ -87,6 +91,9 @@ func normaliseRouting(record Routing) Routing {
 	out.Delivered = append(out.Delivered, record.Delivered...)
 	for id, reason := range record.Excluded {
 		out.Excluded[id] = reason
+	}
+	if record.Done != nil {
+		out.Done = append([]string{}, record.Done...)
 	}
 	return out
 }

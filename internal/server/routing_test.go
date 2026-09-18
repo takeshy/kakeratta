@@ -209,3 +209,62 @@ func TestRoutingDecisionMustMatchCurrentText(t *testing.T) {
 		t.Fatalf("stale decision exposed: %d %s", response.Code, response.Body.String())
 	}
 }
+
+// For a persona the router chose, the sheet needs to know whether its turn
+// has finished and whether it said anything - "still working" and "stayed
+// quiet" look the same on the timeline and are not the same thing.
+func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
+	server, workspace := app(t, "")
+	now := time.Now()
+	for _, entry := range []timeline.Entry{
+		{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "ラーメン", At: now},
+		{ID: "r", Kind: timeline.KindRemark, Speaker: "gourmet", Root: "p", ReplyTo: "p", Text: "いいね", At: now.Add(time.Second)},
+	} {
+		if err := workspace.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func() map[string]map[string]any {
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/entry/p/routing", nil))
+		var body struct{ Delivered []map[string]any }
+		_ = json.Unmarshal(response.Body.Bytes(), &body)
+		rows := map[string]map[string]any{}
+		for _, row := range body.Delivered {
+			rows[row["id"].(string)] = row
+		}
+		return rows
+	}
+	// Turns under way: gourmet has spoken, move and book have not finished.
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := workspace.WriteNote("gourmet", "shops/ramen.md", "type: Shop\n\nラーメン", store.NoteSource{EntryID: "p", Label: "ラーメン"}); err != nil {
+		t.Fatal(err)
+	}
+	rows := read()
+	if rows["gourmet"]["done"] != true || rows["gourmet"]["spoke"] != true || rows["gourmet"]["noted"] != true {
+		t.Fatalf("gourmet = %v", rows["gourmet"])
+	}
+	if rows["move"]["noted"] != false {
+		t.Fatalf("a persona without a note on this post = %v", rows["move"])
+	}
+	if rows["move"]["done"] != false || rows["move"]["spoke"] != false {
+		t.Fatalf("a persona still working reads as finished: %v", rows["move"])
+	}
+	// move finished without a word.
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet", "move"}}); err != nil {
+		t.Fatal(err)
+	}
+	rows = read()
+	if rows["move"]["done"] != true || rows["move"]["spoke"] != false {
+		t.Fatalf("a quiet persona = %v", rows["move"])
+	}
+	// A record from before turns were noted reads as finished.
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"book"}, Excluded: map[string]string{}}); err != nil {
+		t.Fatal(err)
+	}
+	if rows = read(); rows["book"]["done"] != true {
+		t.Fatalf("an old record = %v", rows["book"])
+	}
+}

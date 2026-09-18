@@ -179,6 +179,13 @@ async function reconnect(retry = false) {
   } catch { connectionFailed = true; void drawLocal(); }
 }
 window.addEventListener("online", () => { void reconnect(); setTimeout(() => void reconnect(), 2000); });
+// A phone that was put away and picked up again has missed whatever arrived
+// meanwhile: timers and the live channel do not run in the background.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || navigator.onLine === false) return;
+  void pages.poll();
+  void feed.refreshRouting();
+});
 window.addEventListener("offline", () => void drawLocal());
 setInterval(() => { if (!document.hidden && navigator.onLine !== false) void outbox.flush(); }, 30000);
 
@@ -240,7 +247,7 @@ function pollAfterSending() {
 // A reaction arriving is the app working, not an event to celebrate: it lands
 // in place and nothing else moves.
 api.on((name, data) => {
-  if (name === "routed") { void feed.refreshRouting(data?.entryId); return; }
+  if (name === "routed" || name === "turn") { void feed.refreshRouting(data?.entryId); return; }
   if (name === "outbox") { if (data) pages.upsert(data); void drawLocal(); if (data) pollAfterSending(); return; }
   if (name === "entry") {
     pages.upsert(data);

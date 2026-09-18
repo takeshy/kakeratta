@@ -13,7 +13,7 @@ func TestRoutingRecordRoundTrip(t *testing.T) {
 	if record, err := s.Routing("e_none"); err != nil || record != nil {
 		t.Fatalf("unknown post = %v (%v)", record, err)
 	}
-	first := Routing{Delivered: []string{"gourmet"}, Excluded: map[string]string{"book": "not about books"}}
+	first := Routing{Delivered: []string{"gourmet"}, Excluded: map[string]string{"book": "not about books"}, Done: []string{}}
 	if err := s.SaveRouting("e_1", first); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestRoutingRecordRoundTrip(t *testing.T) {
 		t.Fatalf("a reader changed the stored record: %+v", again)
 	}
 
-	second := Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "no longer food", "book": "still not books"}}
+	second := Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "no longer food", "book": "still not books"}, Done: []string{"gourmet"}}
 	if err := s.SaveRouting("e_1", second); err != nil {
 		t.Fatal(err)
 	}
