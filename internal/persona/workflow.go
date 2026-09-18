@@ -524,7 +524,7 @@ func routingModel() string {
 // readAll does what a persona asked to look at. Nothing here writes, so there
 // is nothing to review; a schedule is not something to read with a tool.
 func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set *tools.Set, post timeline.Entry,
-	noteSources *[]store.NoteSource, failures map[string]string) (text string, sources []timeline.Source, files []llm.Attachment) {
+	noteSources *[]store.NoteSource, failures map[string]string, budget *lookups) (text string, sources []timeline.Source, files []llm.Attachment) {
 
 	var parts []string
 	for _, step := range steps {
@@ -557,8 +557,16 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 				// outright: a live run spent six of its reads on one broken
 				// search and never tried the other tool it held.
 				call := step.Tool + " " + strings.TrimSpace(step.Args)
+				if answer, ok := budget.take(step.Tool, step.Args); !ok {
+					// Asked before, or asked too often: answered without a call.
+					out = answer
+					break
+				}
 				result, err := set.Run(ctx, step.Tool, args, post.Place)
 				out = result.Text
+				if err == nil {
+					budget.keep(step.Tool, step.Args, out)
+				}
 				if err != nil {
 					out = "道具が使えませんでした: " + err.Error()
 					if failures[call] == err.Error() {

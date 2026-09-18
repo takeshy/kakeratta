@@ -607,3 +607,33 @@ test("an open router's call is refreshed after edits and completion, and ignores
   await settle();
   assert.equal(document.body.children.length, 0, "the sheet closes with its post");
 });
+
+// A persona the router called can still have said nothing. The router's call
+// says so, and a reply can be asked for from there.
+test("a called persona that stayed quiet can be asked for a reply", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "wine", name: "ぶどう", icon: "🍷" }];
+  t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "wine", name: "ぶどう", icon: "🍷" }], excluded: [] }));
+  const wanted = [];
+  const feed = createFeed({ getPersona: (id) => rows.find((row) => row.id === id) || null, onFixReply: (args) => wanted.push(args), showIntro: false });
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "ワインのラベル", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "remark", speaker: "gourmet", root: "p", text: "白ですね", at: "2026-09-13T00:01:00Z" },
+  ]);
+  feed.element.querySelectorAll(".routing-open")[0].fire("click", {});
+  for (let i = 0; i < 3; i++) await new Promise(setImmediate);
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const texts = walk(document.body).map((node) => node.textContent);
+  assert.ok(texts.includes(translate("呼ばれました")), "the persona that spoke is simply called");
+  assert.ok(texts.includes(translate("呼ばれましたが、黙っていました")), "the persona that did not speak is marked");
+  const asks = document.body.querySelectorAll(".reply-wanted");
+  assert.equal(asks.length, 1, "only the quiet persona can be asked for a reply");
+  asks[0].fire("click");
+  assert.equal(wanted.length, 1);
+  assert.equal(wanted[0].persona.id, "wine");
+  assert.equal(wanted[0].remark, null);
+  assert.equal(wanted[0].post.id, "p");
+  assert.equal(document.body.children.length, 0, "the sheet gives way to the reply dialog");
+});

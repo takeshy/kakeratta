@@ -12,7 +12,7 @@ import { el, toast } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
 
-export async function showRouting({ entry, getPersona, onFixCondition }) {
+export async function showRouting({ entry, getPersona, onFixCondition, onFixReply, spoke = () => true }) {
   let record;
   try {
     record = await api.routing(entry.id);
@@ -72,7 +72,19 @@ export async function showRouting({ entry, getPersona, onFixCondition }) {
           onclick: () => { close(); onFixCondition({ persona, entry: current, direction: fix.direction, reason: item.reason || "" }); },
         }) : null);
     };
-    for (const item of delivered) body.append(row(item, "呼ばれました", { label: "呼んでほしくなかった", direction: "exclude" }));
+    // A persona that was called and stayed quiet is the case a person most
+    // wants to see: it can be told a reply was wanted.
+    for (const item of delivered) {
+      const line = row(item, spoke(item.id) ? "呼ばれました" : "呼ばれましたが、黙っていました", { label: "呼んでほしくなかった", direction: "exclude" });
+      const persona = getPersona?.(item.id);
+      if (persona && onFixReply && !spoke(item.id)) {
+        line.append(el("button", {
+          class: "chip ghost reply-wanted", label: "返事がほしかった",
+          onclick: () => { close(); onFixReply({ persona, remark: null, post: current }); },
+        }));
+      }
+      body.append(line);
+    }
     for (const item of excluded) body.append(row(item, "呼ばれませんでした", { label: "呼んでほしかった", direction: "include" }));
   }
 

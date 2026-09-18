@@ -132,7 +132,9 @@ Web Speech API).
 app decided about that post: the personas it chose, and for each one it passed over, the
 router's one-line reason. A persona you mentioned with `@` is not listed. A
 post the router could not judge (no model configured, the call failed) reads as
-"no record", which is different from a post it sent to nobody.
+"no record", which is different from a post it sent to nobody. A persona that
+was called but said nothing is marked, and **A reply was wanted** opens the
+reply dialog below for its silence; the trial then runs from the post itself.
 
 From each row you can correct the persona's condition. **Should have been
 called** and **Should not have been called** open the same dialog: say why, the

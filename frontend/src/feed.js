@@ -252,6 +252,15 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     return node;
   }
 
+  // spokeAfter says whether a persona said anything in this thread after the
+  // entry it was given - what the router's call shows as "called" is only
+  // half the story when the persona then stayed quiet.
+  function spokeAfter(entry, personaID) {
+    const root = entry.kind === "post" ? entry.id : entry.root;
+    return entries.some((other) => other.speaker === personaID && !other.deleted
+      && (other.kind === "post" ? other.id : other.root) === root && new Date(other.at) > new Date(entry.at));
+  }
+
   // The router's call about a post can be looked at: who it chose, whom it
   // passed over and why. It opens apart from the timeline, since a post and
   // the reasoning about it read badly in one column, and only on what the user
@@ -263,7 +272,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       disabled: offline(),
       onclick: async () => {
         routingView?.close();
-        routingView = await showRouting({ entry, getPersona, onFixCondition });
+        routingView = await showRouting({ entry, getPersona, onFixCondition, onFixReply, spoke: (id) => spokeAfter(entry, id) });
       },
     });
   }

@@ -20,19 +20,26 @@ type ReplyPreview struct {
 	Error string `json:"error,omitempty"`
 }
 
-// PreviewReply runs a persona again over the thread as it stood when it made
-// one remark, so a person who has just changed how it talks or what it does
-// can see the difference on the same post. The persona reads its notes and
-// may use its lookup tools, but nothing it does is kept: no remark lands on
-// the timeline, no note or schedule is written, no wake is counted.
-func (r *Runner) PreviewReply(ctx context.Context, remarkID, skillID string) (ReplyPreview, error) {
-	remark, ok := r.store.Entry(remarkID)
-	if !ok || remark.Deleted || remark.Kind != timeline.KindRemark {
-		return ReplyPreview{}, errors.New("担当の発言が見つかりません")
+// PreviewReply runs a persona again over the thread as it stood at one entry,
+// so a person who has just changed how it talks or what it does can see the
+// difference on the same post. The entry is either a remark the persona made
+// - the thread as it was before it spoke - or a post or line of the user's
+// that the persona stayed quiet on - the thread up to and including it. The
+// persona reads its notes and may use its lookup tools, but nothing it does
+// is kept: no remark lands on the timeline, no note or schedule is written,
+// no wake is counted.
+func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (ReplyPreview, error) {
+	at, ok := r.store.Entry(entryID)
+	if !ok || at.Deleted {
+		return ReplyPreview{}, errors.New("投稿が見つかりません")
 	}
-	if remark.Speaker != skillID {
+	switch {
+	case at.Kind == timeline.KindRemark && at.Speaker != skillID:
 		return ReplyPreview{}, errors.New("その担当の発言ではありません")
+	case at.Kind != timeline.KindRemark && at.Speaker != timeline.User:
+		return ReplyPreview{}, errors.New("担当の発言か、自分の投稿を指定してください")
 	}
+	remark := at
 	client, settings := r.clientOf()
 	var skill *Skill
 	skills := r.catalogue.Active(settings.Active)
@@ -48,10 +55,18 @@ func (r *Runner) PreviewReply(ctx context.Context, remarkID, skillID string) (Re
 	if err != nil {
 		return ReplyPreview{}, err
 	}
-	// The thread as the persona saw it: what was there before it spoke.
+	// The thread as the persona saw it: what was there before it spoke, or
+	// up to the line it was given and stayed quiet on.
+	quiet := remark.Kind != timeline.KindRemark
 	var thread []timeline.Entry
 	for _, entry := range timeline.Thread(entries, timeline.RootOf(remark)) {
-		if entry.At.Before(remark.At) && entry.ID != remark.ID {
+		if entry.ID == remark.ID {
+			if quiet {
+				thread = append(thread, entry)
+			}
+			continue
+		}
+		if entry.At.Before(remark.At) {
 			thread = append(thread, entry)
 		}
 	}
@@ -60,7 +75,7 @@ func (r *Runner) PreviewReply(ctx context.Context, remarkID, skillID string) (Re
 	}
 	trigger := thread[0]
 	for _, entry := range thread {
-		if entry.ID == remark.ReplyTo {
+		if entry.ID == remark.ReplyTo || (quiet && entry.ID == remark.ID) {
 			trigger = entry
 		}
 	}

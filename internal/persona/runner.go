@@ -470,6 +470,7 @@ const systemTemplate = `あなたは「%s」。%s
   複数の記録を統合しても、後から訂正できるよう代表的な根拠と例外を少し残してください。
 - 発言するときは短く。前に自分が覚えていたことと結びつくなら、それを言ってください。
 - **発言は投稿と同じ言語で。** 日本語で書かれた投稿には日本語で、英語なら英語で返してください。
+  投稿に文章がない（画像だけなど）ときは、あなたの担当条件と指示が書かれている言語で話してください。
   名前や口調はそのままで構いません。
 - 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。
 
@@ -586,6 +587,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	read := []string{"index.md（最初に渡したもの）:\n" + indexNote}
 	var files []llm.Attachment
 	failures := map[string]string{}
+	budget := newLookups(maxReads)
 	var approved *Workflow
 	submit := workflowToolFor(set)
 	reviewed, malformed := 0, 0
@@ -681,7 +683,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 					answers[call.ID] = "read を読めませんでした: " + err.Error()
 					break
 				}
-				text, sources, attached := r.readAll(ctx, skill, request.Steps, set, post, &noteSources, failures)
+				text, sources, attached := r.readAll(ctx, skill, request.Steps, set, post, &noteSources, failures, budget)
 				readSources = append(readSources, sources...)
 				if attached != nil {
 					files = attached

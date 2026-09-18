@@ -69,11 +69,29 @@ func TestPreviewReplyKeepsNothing(t *testing.T) {
 	if err := s.Append(idle); err != nil {
 		t.Fatal(err)
 	}
+	// A turn the persona stayed quiet on can be tried from the post itself:
+	// the thread then runs up to and including that post.
+	quiet := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User, Text: "新宿でラーメン", At: time.Now()}
+	quiet.Root = quiet.ID
+	if err := s.Append(quiet); err != nil {
+		t.Fatal(err)
+	}
+	untouched, _ := s.Timeline()
+	preview, err = runner.PreviewReply(context.Background(), quiet.ID, "move")
+	if err != nil || preview.Spoke != "渋谷なら20時までに着けます。" {
+		t.Fatalf("preview from the post = %+v (%v)", preview, err)
+	}
+	if last := systems[len(systems)-1]; !strings.Contains(last, "michi") {
+		t.Fatalf("the persona was not run for the quiet post: %s", last)
+	}
+	if after, _ := s.Timeline(); len(after) != len(untouched) {
+		t.Fatal("a preview from the post changed the timeline")
+	}
+
 	for _, tc := range []struct{ entry, skill, want string }{
-		{post.ID, "move", "担当の発言"},
 		{idle.ID, "book", "有効ではありません"},
 		{remark.ID, "gourmet", "その担当の発言ではありません"},
-		{"missing", "move", "担当の発言"},
+		{"missing", "move", "投稿が見つかりません"},
 	} {
 		if _, err := runner.PreviewReply(context.Background(), tc.entry, tc.skill); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Fatalf("%s/%s: %v", tc.entry, tc.skill, err)

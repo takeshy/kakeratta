@@ -83,7 +83,7 @@ func lightSpec(set *tools.Set) string {
 決まり:
 - **起きていないことを書きません。** 「これから見る」は予定であって、「見た」「済」ではありません。
 - **メモにも投稿にも` + map[bool]string{true: "検索結果にも", false: ""}[search != ""] + `無いことを、事実として言いません。** 店名・場所・時間などを思いつきで言い切らないでください。
-- 発言は投稿と同じ言語で、短く。`
+- 発言は投稿と同じ言語で、短く。投稿に文章がない（画像だけなど）ときは、担当条件と指示が書かれている言語で。`
 }
 
 // converse runs a low persona's turn: notes and a remark, called directly.
@@ -107,6 +107,7 @@ func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Messa
 	offered = append(offered, lightSilent)
 	var sources []timeline.Source
 	failures := map[string]string{}
+	budget := newLookups(maxReads)
 	refused := false
 	for round := 0; round < lightRounds; round++ {
 		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: offered, ToolChoice: "required"})
@@ -177,9 +178,17 @@ func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Messa
 					break
 				}
 				step.Tool = call.Name
+				if answer, ok := budget.take(call.Name, call.Args); !ok {
+					// Asked before, or asked too often: answered without a call.
+					out = answer
+					break
+				}
 				result, err := set.Run(ctx, call.Name, args, post.Place)
 				out = result.Text
 				sources = append(sources, result.Sources...)
+				if err == nil {
+					budget.keep(call.Name, call.Args, out)
+				}
 				if err != nil {
 					out = "道具が使えませんでした: " + err.Error()
 					step.Error = err.Error()

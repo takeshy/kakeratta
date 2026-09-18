@@ -22,7 +22,8 @@ import (
 const routePrompt = `投稿内容と担当条件を照合して振り分けます。
 本人と担当の発言を含むスレッド全体で今回の発言を解釈し、補足・訂正を反映してください。画像の説明・文字・出典も投稿内容です。
 各条件に当てはまる担当をすべて選びます。質問や依頼の有無、回答済みかは問いません。単語だけで判定せず、条件にない前提を足しません。列挙された対象はいずれか1つに当てはまれば一致です（条件が同時成立を指定する場合を除く）。例示は限定列挙ではなく、担当が調べる情報が投稿に揃っている必要もありません。
-deliver に一致する担当id、excluded_reasons に不一致の担当idと短い理由を入れてツールを呼んでください。担当idは「担当条件」の各行の先頭にあるidで、発言のidではありません。表示名を付けず、全担当idをどちらか一方に含めます。一致なしなら deliver は空です。`
+deliver に一致する担当id、excluded_reasons に不一致の担当idと短い理由を入れてツールを呼んでください。担当idは「担当条件」の各行の先頭にあるidで、発言のidではありません。表示名を付けず、全担当idをどちらか一方に含めます。一致なしなら deliver は空です。
+理由は本人が読みます。今回の対象発言と同じ言語で書き、発言に文章がない（画像だけなど）ときは担当条件が書かれている言語で書いてください。`
 
 // deliverTool returns condition matches and non-match explanations. The latter
 // are logged for diagnosing omissions; only matched IDs control delivery.
@@ -36,7 +37,7 @@ var deliverTool = llm.Tool{
 		},
 		"excluded_reasons": map[string]any{
 			"type": "object", "additionalProperties": map[string]any{"type": "string"},
-			"description": "条件に一致しない全担当のidごとの不一致の根拠",
+			"description": "条件に一致しない全担当のidごとの不一致の根拠。対象発言と同じ言語で（文章がなければ担当条件の言語で）",
 		},
 	}, "required": []any{"deliver", "excluded_reasons"}},
 }

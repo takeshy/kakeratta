@@ -1,6 +1,7 @@
-// Teaching a persona from one of its remarks.
+// Teaching a persona from one of its remarks - or from its silence.
 //
-// The persona said something, and it was not what the person wanted. Rather
+// The persona said something, and it was not what the person wanted; or it
+// was given a post and said nothing when it should have. Rather
 // than rewriting its tone and instructions in the settings, they say here how
 // it missed; the AI that builds personas rewrites the tone and the
 // instructions - nothing else - and the person can correct both by hand. OK
@@ -14,12 +15,15 @@ import { getLanguage, t } from "./i18n.js";
 const EXCERPT = 300;
 const cut = (text) => (text || "").length > EXCERPT ? `${text.slice(0, EXCERPT)}…` : text || "";
 
-export function showReplyFix({ persona, remark, post, onSaved }) {
-  const title = t("{0} の返事を直す", persona.name);
+export function showReplyFix({ persona, remark = null, post, onSaved }) {
+  // Without a remark, the dispute is about the persona's silence on the post,
+  // and the post is where its turn is tried again.
+  const target = remark || post;
+  const title = remark ? t("{0} の返事を直す", persona.name) : t("{0} に返事してほしかった", persona.name);
   const postText = cut(post?.text || "");
   // said is the remark being disputed: the original one, and then each trial
-  // turn the person said was still not it.
-  let said = remark.text || "";
+  // turn the person said was still not it. Silence is said as such.
+  let said = remark ? remark.text || "" : t("（何も言いませんでした）");
   // saved is the persona as it stands on the server; it moves when OK saves.
   let saved = { ...persona };
   // failure is what the person said about the last trial, told to the AI.
@@ -80,7 +84,8 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
     const lines = [];
     if (failure) lines.push(failure);
     if (post?.text) lines.push(t("次の投稿：「{0}」", post.text));
-    lines.push(t("への、この担当の返事が期待と違った：「{0}」", said));
+    if (!remark && !failure) lines.push(t("に、この担当は何も言わなかったが、返事がほしかった。"));
+    else lines.push(t("への、この担当の返事が期待と違った：「{0}」", said));
     if (note) lines.push(t("本人の説明：「{0}」", note));
     lines.push(t("口調（tone）と指示（instructions）だけを直し、担当条件（domain）や他の項目は変えないでください。"));
     return lines.join("\n");
@@ -94,7 +99,7 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
     error.textContent = "";
     const next = [...messages, { role: "user", content }];
     try {
-      const result = await api.buildPersona({ id: persona.id, entryId: remark.id, language: getLanguage(), messages: next, current: base });
+      const result = await api.buildPersona({ id: persona.id, entryId: target.id, language: getLanguage(), messages: next, current: base });
       if (closed) return null;
       messages.splice(0, messages.length, ...next, { role: "assistant", content: JSON.stringify(result) });
       const tone = String(result?.draft?.tone ?? base.tone ?? "").trim();
@@ -119,7 +124,7 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
     error.textContent = "";
     const note = el("textarea", {
       class: "skill-input reply-note", rows: 3, maxlength: 2000, "aria-label": t("期待とどう違うか"),
-      i18nPlaceholder: "例：おすすめの店を並べるより、前に行った店との違いを一言で言ってほしい。",
+      i18nPlaceholder: remark ? "例：おすすめの店を並べるより、前に行った店との違いを一言で言ってほしい。" : "例：ラベルの写真を送ったら、銘柄と品種を一言で教えてほしい。",
     });
     controls.push(note);
     const make = action("直し方を作る", "button primary reply-build", async () => {
@@ -224,7 +229,7 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
         savedSuccessfully = true;
         await onSaved?.();
       }
-      const preview = await api.previewReply(remark.id, persona.id);
+      const preview = await api.previewReply(target.id, persona.id);
       if (closed) return;
       showTrial(preview || { quiet: true });
     } catch (e) {

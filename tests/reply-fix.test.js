@@ -224,3 +224,26 @@ test("save failures and preview failures are distinguished and retry preserves s
   assert.equal(api.savePersonaDraft.mock.calls.length, 2, "retrying the preview does not save again");
   assert.ok(button("これでよい"));
 });
+
+// A persona that was given a post and said nothing can be asked for a reply:
+// the dispute is about its silence, and the trial runs from the post itself.
+test("a quiet turn is disputed from the post and tried again from it", async (t) => {
+  setup(t);
+  t.mock.method(api, "buildPersona", async (body) => ({ message: "", draft: { ...body.current, instructions: "ラベルの写真には銘柄と品種を一言で返す" } }));
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  t.mock.method(api, "previewReply", async () => ({ spoke: "ノートンのアルトゥーラ、白のブレンドです。", quiet: false }));
+  showReplyFix({ persona, remark: null, post: { id: "p2", kind: "post", speaker: "user", text: "ワインのラベル" } });
+  assert.match(texts(), /何も言いませんでした/, "silence is what is being disputed");
+  assert.match(texts(), /に返事してほしかった/);
+  one(".reply-note").value = "銘柄を教えてほしかった";
+  button("直し方を作る").fire("click");
+  await settle();
+  const first = api.buildPersona.mock.calls[0].arguments[0];
+  assert.equal(first.entryId, "p2", "the post stands in for the missing remark");
+  assert.match(first.messages[0].content, /何も言わなかった/);
+  assert.match(first.messages[0].content, /銘柄を教えてほしかった/);
+  button("OK").fire("click");
+  await settle();
+  assert.deepEqual(api.previewReply.mock.calls[0].arguments, ["p2", "gourmet"], "the trial runs from the post");
+  assert.match(texts(), /ノートンのアルトゥーラ/);
+});

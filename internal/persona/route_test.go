@@ -83,6 +83,10 @@ func TestTheRoutingPromptDeliversOnlyWhereAPostBelongs(t *testing.T) {
 		"本人と担当の発言を含むスレッド全体",
 		"補足・訂正",
 		"一致なしなら",
+		// The reasons are read by a person, so they come in the post's language,
+		// and in the conditions' language when the post is a bare image.
+		"同じ言語で書き",
+		"担当条件が書かれている言語",
 	} {
 		if !strings.Contains(routePrompt, rule) {
 			t.Fatalf("the routing prompt lost %q", rule)

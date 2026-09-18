@@ -1185,17 +1185,17 @@ func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	failures := map[string]string{}
 
-	text, _, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, &[]store.NoteSource{}, failures)
+	text, _, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
 	if !strings.Contains(text, "目次") {
 		t.Fatalf("a note read in the wrong field was refused: %s", text)
 	}
 
 	broken := []ReadStep{{Type: "tool", Tool: "place_search", Args: `{"query":"神谷町"}`}}
-	first, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures)
+	first, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
 	if strings.Contains(first, "前にも同じ理由で失敗") {
 		t.Fatalf("a first failure was called a repeat: %s", first)
 	}
-	second, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures)
+	second, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
 	if !strings.Contains(second, "前にも同じ理由で失敗") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1213,7 +1213,7 @@ func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
 	var sources []store.NoteSource
 	text, _, _ := runner.readAll(context.Background(), skill,
 		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
-		set, timeline.Entry{}, &sources, map[string]string{})
+		set, timeline.Entry{}, &sources, map[string]string{}, newLookups(maxReads))
 	if !strings.Contains(text, "豚骨に寄る") {
 		t.Fatalf("the note was not read: %s", text)
 	}
@@ -1229,11 +1229,11 @@ func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
 	var sources []store.NoteSource
 
-	first, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures)
+	first, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
 	if !strings.Contains(first, "道具が使えませんでした") || strings.Contains(first, "前にも同じ理由で") {
 		t.Fatalf("first failure: %s", first)
 	}
-	second, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures)
+	second, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
 	if !strings.Contains(second, "前にも同じ理由で失敗しています") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
