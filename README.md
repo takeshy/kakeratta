@@ -5,341 +5,204 @@ English | [日本語](README_ja.md)
 **Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
 
 Put thoughts and things that catch your eye into one timeline as text, images,
-URLs, or speech. AIs with separate memories for their own subjects react when
-they have something to say.
+URLs, or speech, without deciding first whether they matter or where they
+belong. AIs with separate memories for their own subjects react only when they
+have something to say.
 
-**A daily wake, with room for silence.** Enable a daily check-in for a persona
-and choose a time. Even without a new fragment, it can revisit its memory and
-look for relevant changes, speaking only when there is something worth sharing.
-A persona can also ask the app to wake it at a given minute, from what it has recorded.
+Built for the [Nebius Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/).
+Try it at [kakeratta.net](https://kakeratta.net/lp/?lang=en); how it works inside is in [Under the hood](docs/technical.md).
 
-The food persona learns your tastes from meals; the reading persona remembers
-passages that caught your eye. Keeping memory separate by subject prevents
-unrelated information from diluting it. Personas keep only what belongs to their
-subject, not every post, so feel free to toss in plain notes too.
+<img src="docs/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said underneath" width="390">
 
-**Create your own personas with AI.** Liked a wine at a restaurant or a
-friend's place? Send a photo of the label to a wine persona, and it tells you
-the wine and its grape varieties, so you can find it at a wine shop or order it
-next time. If you watch out for gout, a gout persona can look at a photo of
-your meal and warn you when it is high in purines. Describe the persona you
-want and AI drafts it. Start using it, then refine its tone and what it
-remembers through conversation.
+## Why it exists
 
-Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Persona
-execution, routing, and workflow review use native tool calling
-(`tool_choice: "required"`); image reading, persona drafting, dictation
-polishing, and embeddings use the provider's structured-output or embedding
-APIs instead.
+I talk to myself a lot. Saying out loud what a meal was like, or an idea that
+just came, feels like leaving a hook to catch it by later. Then I forget anyway.
 
-| Model (Token Factory) | Role |
-|---|---|
-| Nemotron 3 Ultra | High-tier personas and persona drafting |
-| Nemotron 3 Super | Middle-tier personas; reviews workflows that reach beyond notes and remarks |
-| Nemotron 3.5 Lightning | Routes posts; low-tier personas; optional polishing of dictated text |
-| GLM-5.3-Flash | Reading screenshots and photos, once per post |
-| Qwen3-Embedding-8B | Meaning search over past posts |
+I take notes too, but hardly ever read them back. The notes I do read are the
+ones I already know are there, like passwords and API keys.
 
-Web search uses Tavily. What was hard about making this dependable — and what
-was done about it — is written up in [What was hard about the AI](docs/ai-lessons.md).
+Even if an AI files every note neatly, information whose existence I have
+forgotten cannot be searched for. And what seemed unimportant when I wrote it
+down sometimes matters later.
+
+Talking to myself is also a way to sort out a thought, or a wish to tell
+someone about a small discovery. But a conversation with myself never leaves my
+own biases.
+
+So there should be a place where the fragments of a day can be tossed in as
+they are, without deciding whether they matter or where they belong. Something
+that remembers them, looks back through the past or the web when that helps,
+and speaks up at a good moment, in a good way.
+
+That is where kakeratta began.
+
+## What it does
+
+kakeratta is a timeline for talking to yourself. Text, photos, URLs, and speech
+go in without worrying about mistakes or categories.
+
+Living there are AIs called *personas*, one for each subject: food, travel,
+reading, follow-ups. Each finds the posts that concern it, reacts when there is
+a reason to, and keeps what is worth keeping in a memory of its own. Replying to
+everything would be tiresome, so a persona stays quiet when it has nothing to
+say. It can still take a note without speaking.
+
+Personas are created and changed in plain words. "Remember the wines I drink and
+help me choose next time" is enough to make one, and it grows to your taste as
+you use it.
+
+You can see what a persona remembers, trace a memory back to the post it came
+from, and make it forget just the one that is wrong.
+
+Once a day, a persona looks back over its memory and the recent timeline, and
+searches the web if that helps. It may bring you news related to your past, or
+something you had forgotten. If there is nothing, it stays silent.
+
+With speech, a send phrase of your choosing posts what you just said, so a
+thought is kept the moment it arrives.
 
 ## How it works
 
 1. Write a thought, paste a screenshot, send a URL, or speak.
-2. Relevant personas receive the post and decide what to remember and whether to reply.
-3. Reactions arrive later in the timeline. Mention a persona with `@` when you want an answer.
+2. The relevant personas receive the post and decide what to note and whether to reply.
+3. Reactions arrive in the timeline a little later. Mention a persona with `@` when you want an answer.
 
-<img src="docs/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said about them underneath" width="390">
+Four personas ship with the app: **tabe (food), michi (travel), shiori
+(reading), plana (follow-ups)**. Their names are Japanese words in Latin letters
+so that `@tabe` can be typed on any keyboard. They are examples of how to divide
+things up, not a complete set; make your own for other subjects.
 
-The timeline shows your newest posts, 20 at a time. Conversations stay folded under each post; tap **3 replies** to open one.
-
-Some posts get no reaction. A persona can remember information in its subject
-without speaking. Four personas ship with the app: **tabe (food), michi
-(travel), shiori (reading), and plana (routines)** — Japanese words in Latin letters,
-lowercase, so `@tabe` can be typed on any keyboard. A persona answers in the language the
-post was written in. They are examples of how to split things up rather than a
-complete set; the rest is yours to create.
-
-plana keeps the small things too light for a calendar. Some repeat — medicine
-taken, the goldfish fed, laundry, the bins. Others are said once: write “I'll
-buy flowers on the way home” and it will ask, later that evening, whether you
-did. Instead of waiting for a post it asks the app to wake it, at a time it
-works out from its own records, and it calls no external service. For medicine
-it only records and mentions lightly (“the morning medicine, by the way”): it
-never nags, and never decides or points out that a dose was missed.
-
-Browser voice input can optionally polish your words with Nemotron 3.5 Lightning before posting. Turn on **Polish text with AI before auto-send** in Settings, then finish with your configured send phrase. The option is OFF by default; manual sends keep your text as entered.
-
-## Fast startup and offline posts
-
-The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.
-
-[Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-offline)
-
-## Share the conversation you choose to Bluesky
-
-Each user connects their own Bluesky account and selects which original posts, persona replies, and follow-ups to publish.
-Enter your handle and authorize on Bluesky; kakeratta never asks for your Bluesky password or an API key.
-
-**Persona replies start unchecked.** Preview the text, images, reply structure, and account before publishing.
-Persona messages carry an attribution such as `🍚 tabeからの返信:` (reply from tabe), and branching replies keep their original parents.
-
-<img src="docs/captures/en/bluesky-preview.png" alt="Bluesky preview with tabe's reply and your follow-up selected, leaving out gout's reply (sample data)" width="382">
-
-Already published messages are reused as parents when you share additional replies.
-[Connect and publish](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication history](docs/social-sharing-en.md)
+plana keeps what is too small for a calendar but bad to forget: medicine,
+feeding the goldfish, laundry, the bins. Write "flowers on the way home" and it
+asks "did you get the flowers?" around the evening, working out the time from
+its own records.
 
 ## Find what you tossed in before
 
-“What was that wine I liked?” Open **Search** in the header.
+"What was that wine I liked?" Open **Search** in the header. A name like
+"Pinot" and a vague memory like "a light red that was easy to drink" go in the
+same box. Search covers your notes, text read from photos, and conversations
+with personas. A result opens the original post and its conversation.
 
-Enter a name like “Pinot” or a description like “a light red wine that was easy to drink” in the same field. Short terms use keyword search; questions and sentences use meaning search. After keyword search, “Search similar meanings too” broadens the search, even with zero results. You can switch search methods from the results.
+<img src="docs/captures/en/search-semantic.png" alt="Search from memory: records close to 'a light, easy-drinking red wine' (sample)" width="390">
 
-Search covers what you wrote, text read from your photos, and your conversations with personas.
-Tap a result to open the original post and its conversation.
-
-<img src="docs/captures/en/search-keyword.png" alt="Search by name for saved posts mentioning Pinot (sample data)" width="390">
-
-<img src="docs/captures/en/search-semantic.png" alt="Search from a description for a light red wine you enjoyed (sample data)" width="390">
-
-<img src="docs/captures/en/search-thread.png" alt="Open the original post and conversation from a search result (sample data)" width="390">
-
-**Personas look back through your fragments too, when it helps.** When a new label arrives, a wine persona may say
-“This is close to the Pinot you liked before,” with a link to that post.
-
-Meaning search uses the AI connection you already configured. How it is prepared and stored is in [Usage and configuration](docs/usage.md#search).
+**Personas look back too.** When a new label arrives, a wine persona may say
+"this is close to the Pinot you liked before", with a link to that post.
 
 ## See what a persona remembers
 
-Open **What I remember** in the Personas panel to read saved notes grouped into preferences, wines, shops, books, and other types.
-Descriptions, evidence, and exceptions stay as written. Links to related memories take you to those notes.
-A note's tags (`#白ワイン`, `#アルゼンチン` - what the persona put in its front matter) appear as chips; tap one to narrow the view to notes carrying it.
-The persona uses them too: its note listing shows the tags, and `notes_list` can be narrowed to one.
+Open **What it remembers** in the Personas panel to read its saved notes by
+kind: tastes, wines, places, books. Evidence and exceptions show as written.
+Filter by the tags the persona gave them, and open the post and conversation a
+note came from under **Posts that updated this memory**.
 
-<img src="docs/captures/en/memory.png" alt="A wine persona's saved preferences and wines, with tags, original post links, and the ✎ to edit (sample data)" width="382">
+<img src="docs/captures/en/memory.png" alt="What the wine persona remembers: tastes and wines, with tags, links to the posts, and ✎ to edit (sample)" width="382">
 
-**Posts behind this memory** opens the original post and conversation. The app automatically attaches the triggering post when a note is saved,
-keeps those links through rewrites, and carries them forward when a persona combines notes into another - one that links to them, or that replaces a note it throws away.
-A note read merely for context passes nothing on, and the index and the log carry no post links.
-These links show how a memory was recorded; they do not certify that its interpretation is correct.
-
-The view presents existing OKF notes without another AI summary; the **✎** editor shows the saved text as it is.
-For older notes without a saved post link, **Find original post** opens search.
-
-Under a persona's remark sit links (📝) to the notes it wrote with that remark; tap one to open it.
-A misspelling or a wrong fact can be fixed in place with the **✎** on the note's heading. When the image read misspelt a wine and the persona remembered it that way, this is where to correct it; the links to the posts stay.
-Use **Forget this note** to delete an incorrect memory individually. Original posts and other notes remain.
-A persona may remember it again from past posts. To change how it remembers, use **Edit with AI** in the Personas panel—for example, “Do not infer a preference from trying a wine once.”
+Fix a misspelling or a wrong fact with **✎** on the note. Remove a wrong note
+with **Forget this note**, one at a time; the post and the other notes stay. To
+change how it remembers, use **Edit with AI** and say, for example, "don't call
+something a favourite after one glass". Its memory is not a black box.
 
 ## See why a persona was called, or not
 
-The app decides who gets each post, and it says why. Tap **⚖** (the router's call) on one of your posts or replies to open, apart from the timeline, which personas were called and, for each one that was not, the router's one-line reason.
-A persona you mentioned with `@` is not listed: reaching it was your call, not the router's. For each persona that was called you see whether its turn has finished, whether it replied, and whether it kept a note from this post ("still working on it" until it finishes). **A reply was wanted** opens the same dialog for a silence, and the trial reply also lists the notes it would write.
+The app decides who receives a fragment, and it keeps the reason. Press **⚖
+(the router's call)** on a post to see the personas that were called and, for
+each one that was not, a one-line reason.
 
-<img src="docs/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" width="382">
+<img src="docs/captures/en/routing.png" alt="The router's call on a tantanmen post: tabe was called, and why michi, shiori and plana were not (sample)" width="382">
 
-When the router got it wrong, fix the persona's condition right there. **Should have been called** and **Should not have been called** open the same flow: say why in your own words, and the AI that builds personas rewrites the condition.
-The new condition is shown as text you can edit by hand; **Ask the AI to change it** takes a fresh request and rewrites what is in the box.
-
-<img src="docs/captures/en/condition-fix.png" alt="A new condition for michi, written by the AI from your reason and open for editing before saving (sample data)" width="382">
-
-**OK** saves the condition and then has the router try the same post again, without waking anyone. If the post now goes where you meant, you are done.
-If it still does not, you are told - with the router's reason - and asked again. What was saved stays saved, so the persona is never left with a condition you did not see.
+When it got it wrong, press **Should have been called** and say why in your own
+words. The AI rewrites the persona's condition and tries the same post again to
+make sure. The new condition is shown as text and can be edited before saving.
 
 ## Fix a reply where it went wrong
 
-A persona's remark is where its tone and instructions show, so that is where they get corrected. Tap **Change how it replies** on a remark, say how it missed - "I don't want recommendations, just how this differs from last time" - and the AI that builds personas rewrites the persona's tone and instructions. Nothing else: the condition, name and tools stay.
+Press **Fix the reply** on a persona's remark and say how it missed, such as
+"no recommendations, just one line on how it differs from last time". The AI
+rewrites only the tone and instructions; the condition, name, and tools stay.
 
-<img src="docs/captures/en/reply-fix.png" alt="tabe's remark disputed: the new tone and instructions the AI wrote, open for editing (sample data)" width="382">
+<img src="docs/captures/en/reply-trial.png" alt="A trial: how tabe would answer the same post now. 'Good' or 'Still off' (sample)" width="382">
 
-Both are shown as text you can edit; **Ask the AI to change it** takes a fresh request. **OK** saves them and then has the persona take the same turn again on the same post - reading its notes as it would, but with nothing landing anywhere: no remark on the timeline, no note written, no wake counted.
-
-<img src="docs/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" width="382">
-
-You are the judge. **That's it** closes; **Still not it** quotes the trial reply and asks again how it misses. What was saved stays saved either way.
+On save, the same persona is stood up on the same post again for a trial reply.
+Nothing lands in the timeline and no note or schedule is written. You judge the
+result. Nothing is learned behind your back.
 
 ## Describe a persona. Start using it.
 
-Answer “What would you like your persona to help with?” in your own words.
+Answer "What would you like your persona to help with?" in your own words.
 
-> When I send a photo of a wine label I liked, tell me the wine and its grape varieties so I can buy or order it.
+> When I send a photo of a wine label I liked, tell me the wine and its grape varieties so I can order it or buy it.
 
-Once the subject is clear, AI fills in a name, tone, and memory rules and gives
-you a draft right away. Even “wine” or “reading” is enough to start; there is no
-long questionnaire. Review the draft in plain language: what it helps with,
-how it talks, what it remembers, and when it replies.
-
-<img src="docs/captures/en/persona-create.png" alt="Create a persona with AI: describe what you want in your own words" width="382">
+Once the subject is clear, the AI fills in the name, tone, and what to remember,
+and shows a complete draft. A single word like "wine" is enough to start.
 
 <img src="docs/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" width="382">
 
-1. Open Personas and choose **Create a persona with AI**. Describe what you want.
-2. Review the draft and select **Save this persona**.
-3. **Enable** it and start posting as usual.
+**Start using it, then shape it.** "Reply more briefly", "remember why I liked a
+wine, not just its name": tell it through **Edit with AI**. Built-in personas
+can be edited the same way.
 
-**Try it first, then make it yours.** Use **Edit with AI** to say “Give shorter
-replies” or “Remember why I liked a wine, as well as its name.” Built-in personas
-can be edited too. Their existing memories and enabled status carry over.
+## Share the conversation you choose to Bluesky
 
-Creation and editing use your configured AI connection. Advanced users can also
-import a `skill.json` from the UI.
+Connect your own Bluesky account and choose which messages to publish from a
+post, the personas' replies, and your follow-ups. Persona replies start
+unchecked. Preview the text, reply structure, and account before publishing.
+Persona messages carry an attribution such as `🍚 tabeからの返信:` (reply from tabe).
 
-<img src="docs/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" width="390">
+<img src="docs/captures/en/bluesky-preview.png" alt="Bluesky preview with tabe's reply and your follow-up selected, leaving out gout's reply (sample)" width="382">
+
+[Connect and share a conversation](https://kakeratta.net/manual/?lang=en#en-bluesky)
+
+## Fast startup and offline posts
+
+Recent conversations stay in the browser and show first on the next visit. On a
+device that has been online once, text, images, URLs, and replies can be saved
+offline as pending, and they send when the connection returns.
+[Using offline posts](https://kakeratta.net/manual/?lang=en#en-offline)
+
+## What we learned
+
+An AI that organizes your information is not enough.
+
+A room someone else has tidied can be harder to find things in than before. AI
+organizing your notes is similar: perfectly filed, they are still out of reach
+if you do not know where they are. More fundamentally, **you cannot search for
+what you forgot exists.**
+
+So a personal AI cannot stop at remembering and organizing. It has to bring
+things to you when they are needed, and sometimes say "this might matter to you
+now" without being asked. We learned that **when to remind** matters as much as
+what to remember.
+
+The inside grew complex, but what the user does became simpler for it. Post
+what you are thinking. Tell a persona in plain words what you would like. That
+is all.
 
 ## Get started
 
-Kakeratta is a browser app in two pieces: a static page and a Go API. Vite
-serves the page while developing and Firebase Hosting serves it deployed; the
-Go binary is only the API, on Cloud Run or on your own machine.
-
-Requirements: Go 1.26 or later, Node.js, and Task (the `task` command).
-Run from the repository root:
+Requirements: Go 1.26 or later, Node.js, Task (the `task` command), and a
+Nebius Token Factory API key.
 
 ```sh
-task setup  # once: the page's dev dependencies (Vite, Storybook)
+task setup  # once
 task dev    # the API on :8787 and the page on :5173, together
 ```
 
-Open <http://127.0.0.1:5173>. A new workspace has nobody in the room yet, and the
-screen leads with that until you call someone in:
-
-<img src="docs/captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" width="390">
-
-Then enter your Nebius Token Factory API key in Settings. Lightning, Super, and Ultra are configured for the three tiers by default. The page proxies `/api` to the binary, the same split the
-deployed setup has. `task run` starts only the API, `task build` builds only the
-binary (`bin/kakeratta`), `task stories` opens Storybook, and `task test` runs
-the tests.
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `KAKERATTA_PUBLIC_URL` | empty | Public HTTPS origin for Bluesky OAuth |
-| `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](docs/social-sharing-en.md) |
-| `KAKERATTA_ADDR` | `:8787` | Listen address |
-| `KAKERATTA_HOME` | OS config directory | Storage for posts, notes, and images |
-| `KAKERATTA_TOKEN` | empty (no authentication) | Access token |
-| `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enables multi-user Firebase Authentication |
-| `KAKERATTA_FIREBASE_API_KEY` | empty | Public Firebase Web API key |
-| `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
-| `KAKERATTA_GCS_BUCKET` | empty | Private Cloud Storage bucket for images |
-| `KAKERATTA_STORE` | `file` | Set to `firestore` for Cloud Run |
-| `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebase project | Firestore project |
-| `KAKERATTA_MCP_SERVERS` | empty | JSON list of MCP servers whose tools personas may use |
-| `KAKERATTA_NOMINATIM_URL` etc. | public OpenStreetMap services | Place and route endpoints (see below) |
-
-**Set `KAKERATTA_TOKEN` whenever the app is reachable from outside.** Open the
-page as `/?token=<URL-encoded token>` once in each browser; it claims the token
-through the API and keeps a session cookie from then on.
-
-For a public multi-user deployment, set all three Firebase variables instead.
-Users sign in with Google and each gets isolated data. Firebase authentication
-takes precedence over the shared `KAKERATTA_TOKEN` mode. Where the data lives:
-
-- `KAKERATTA_STORE=firestore` (for Cloud Run): posts, settings, persona notes, and persona definitions go to Firestore under `users/<uid-hash>`.
-- `KAKERATTA_STORE=file` (default): the same data goes to disk under `KAKERATTA_HOME/users/<uid-hash>/`.
-- With `KAKERATTA_GCS_BUCKET` set, images go to the private bucket under `users/<uid-hash>/blobs`, with either store.
+Open <http://127.0.0.1:5173> and enter the API key in Settings. Environment
+variables, authentication, storage, and deployment are in
+[Under the hood](docs/technical.md#running-it).
 
 ## Read more
 
 | Document | Contents |
 | --- | --- |
-| Landing page and manual (`/lp/`, `/manual/`) | Bilingual pages served beside the app; the **?** icon in the app header opens the manual in a new tab |
+| [Under the hood](docs/technical.md) | The flow, why routing and workflows are shaped as they are, models, environment variables and storage, how check-ins work, tools and routes |
+| Landing page and manual ([/lp/](https://kakeratta.net/lp/?lang=en), [/manual/](https://kakeratta.net/manual/?lang=en)) | Bilingual pages served beside the app; the **?** icon in the app header opens the manual in a new tab |
 | [Usage and configuration](docs/usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
 | [Design and personas](docs/architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
 | [What was hard about the AI](docs/ai-lessons.md) | What went wrong with Nemotron personas in live runs and production, and how each was fixed |
 | [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
 | [Google Cloud deployment](infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
 
-Conversational AI persona creation and editing, posting and share intake,
-routing, notes, replies, search and route tools, and read-aloud are implemented. Sharing on real phones, OCR quality across different images and reaction frequency still need verification.
-
 [MIT licensed](LICENSE).
-
-### Check-ins and timers
-
-Each active persona can opt into **Daily check-in** in the Personas panel, with
-one preferred time per day (off by default). The browser's time zone is saved with that time, including
-daylight-saving rules; it stays saved when you travel and is not limited to JST.
-There is currently no time-zone picker. A persona can read its memory, search
-fragments, and use its usual tools; it starts a timeline thread only when it has
-something worth sharing. Silence leaves no system post or empty thread.
-
-A persona that declares the `schedule` tool asks the app to wake it at a given
-minute: up to 20 pending schedules per persona, 30 days ahead, once or every
-day. The app holds the schedule the way it holds the endpoint and the active
-personas; the persona decides its contents and asks for them as it writes the
-note they belong to. The time comes from what the persona recorded rather than
-from a question to you, and it is always shortly *after* the moment - plana asks
-"did you get the flowers?" rather than nudging beforehand. A schedule is claimed
-before the model runs, so a silent or failed wake is not repeated, and one more
-than 10 minutes late is dropped rather than replayed. Deleting a note wakes the
-persona so it can revisit the schedules that went with it; forgetting a
-persona's whole memory, pausing it, or removing it drops its schedules.
-
-Deleting a post works the same way. The app removes the post and tells the
-personas it had woken for it, so each can drop or correct what rested on it. Who
-to tell comes from the app's own record of who it woke - it never reads a note
-to find out - and a persona that finds nothing of its memory resting on the post
-says nothing. The app never edits a note itself.
-
-The server checks once per minute and uses the existing execution queue, so a
-busy queue can delay a wake. The server must be running; the browser can be
-closed. Configured workspaces are restored after server restarts, including
-Firestore users. The provided Cloud Run configuration already keeps one
-instance running with CPU allocated outside requests.
-
-A persisted claim limits each persona to one check-in attempt per local
-calendar day, including silent or failed attempts. Firestore claims are
-transactional across instances; local storage assumes one server process per
-workspace. Changing the time or forgetting memory does not reset the claim.
-After downtime, only today's due check-in runs; missed days are not replayed. A
-crash after claiming can skip that day's check-in rather than repeat it.
-
-### Tools are the operator's
-
-[Tool guide: purposes, setup, examples, and limits](https://kakeratta.web.app/manual/?lang=en#en-tools)
-
-Where a persona's tools go is configured by whoever runs the server, through
-environment variables, and is the same for every user: the map endpoints and
-the MCP servers. The one thing a user sets is their own Tavily API key for
-`web_search`, in Settings. A skill declares tool names; the app makes every
-call and holds the keys.
-
-**MCP servers** extend the tool list. `KAKERATTA_MCP_SERVERS` is a JSON array:
-
-```json
-[{"name":"geo","url":"https://geo.example.com/mcp","headers":{"Authorization":"Bearer …"}}]
-```
-
-Each server's tools appear as `name.tool` (for example `geo.compute_commute`),
-next to the built-in ones, and a skill declares them by that name. Only remote
-servers over Streamable HTTP are supported. Tool lists are cached for a few
-minutes; a server that stops answering keeps its last known list, and a call
-that fails is reported to the persona rather than dropped.
-
-### Place and route tools
-
-`route` needs a location attached to the post. Driving, walking, and cycling use
-separate OSRM endpoints: `KAKERATTA_OSRM_CAR_URL`, `KAKERATTA_OSRM_FOOT_URL`, and
-`KAKERATTA_OSRM_BIKE_URL`. The defaults are `https://router.project-osrm.org`,
-`https://routing.openstreetmap.de/routed-foot`, and
-`https://routing.openstreetmap.de/routed-bike`, respectively. Changing a URL's
-profile token alone does not select a travel mode: custom servers must prepare
-the corresponding routing data. These are road estimates, without public
-transport schedules or live traffic. Unsupported modes return an error.
-
-`place_search` uses Overpass (`KAKERATTA_OVERPASS_URL`) for nearby places when a
-post has a location, or Nominatim (`KAKERATTA_NOMINATIM_URL`) for a name lookup
-otherwise. Opening hours are returned only when
-recorded in OpenStreetMap; they do not confirm that a shop is open now. Temporary
-Overpass failures are retried once, then reported as unavailable rather than
-“no places found”. Public services can still be busy or unavailable.
-
-When an MCP server offers a tool with the same name that takes the position
-(`lat` and `lng`), as geo-home-mcp does, `route` and `place_search` go to that
-server with the post's position filled in. If the server cannot be reached, the
-built-in OpenStreetMap calls above answer instead; an error the server itself
-returns is passed on to the persona.
-
-Check-ins do not acquire a current location: `route` is unavailable and
-`place_search` can only do a name lookup during these wakes. Personas can still
-use their memory, timeline search, and declared web search.

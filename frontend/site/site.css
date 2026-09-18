@@ -160,6 +160,18 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .shot.crop-bottom img { object-position: bottom; }
 .section { padding: 40px 0; border-top: 1px solid var(--line); }
 .section-intro { color: var(--muted); max-width: 640px; }
+/* Why it was made: a short story, read at column width, with one line held up. */
+.why p { max-width: 640px; }
+.pull {
+  margin: 20px 0 24px;
+  padding: 0;
+  border: none;
+  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--accent);
+}
+.how-note { color: var(--muted); max-width: 640px; margin: 16px 0 0; }
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; counter-reset: step; }
 .step {
   background: var(--card);
