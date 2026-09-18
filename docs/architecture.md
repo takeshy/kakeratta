@@ -82,7 +82,8 @@ A persona does not call tools one at a time any more (`internal/persona/workflow
 
 3. **Checked by the app.** Mechanically first — known step types, declared
    tools, no invented schedule ids, an empty speak on a turn that cannot speak,
-   a non-empty one when named, and one speak at the end. Then the app's model reviews it against a narrow list:
+   a non-empty one when named, one speak at the end, and no second note under
+   a title that already exists - one thing, one note. Then the app's model reviews it against a narrow list:
    something written as fact that did not happen, an invented id, a time
    promised with no schedule, a remark in another language than the post, a
    note rewritten without being read, a persona's own instructions plainly

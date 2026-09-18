@@ -216,6 +216,9 @@ func (w *FirestoreWorkspace) WriteNote(personaID, name, text string, sources ...
 			}
 		}
 		merged := withNoteSources(previous.Text, text, sources)
+		if reservedNote(clean) {
+			merged, _ = splitNoteSources(merged)
+		}
 		if len(merged) > maxNoteBytes {
 			return errors.New("メモが大きすぎます")
 		}

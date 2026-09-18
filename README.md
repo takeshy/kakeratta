@@ -117,7 +117,8 @@ Descriptions, evidence, and exceptions stay as written. Links to related memorie
 <img src="docs/captures/en/memory.png" alt="A wine persona's saved preferences, wines, and original post links (sample data)" width="382">
 
 **Posts behind this memory** opens the original post and conversation. The app automatically attaches the triggering post when a note is saved,
-keeps those links through rewrites, and carries them forward when a persona reads notes and combines them into another note.
+keeps those links through rewrites, and carries them forward when a persona combines notes into another - one that links to them, or that replaces a note it throws away.
+A note read merely for context passes nothing on, and the index and the log carry no post links.
 These links show how a memory was recorded; they do not certify that its interpretation is correct.
 
 The view presents existing OKF notes without another AI summary. **View original note** reveals the saved text.

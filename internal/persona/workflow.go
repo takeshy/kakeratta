@@ -199,6 +199,9 @@ type turnRules struct {
 	noteRequired bool
 	set          *tools.Set
 	schedules    map[string]bool
+	// notes are the persona's notes as they stand, so a workflow filing one
+	// thing under a second path is sent back to the first.
+	notes []store.Note
 }
 
 var scheduleIDRef = regexp.MustCompile(`\bs_[A-Za-z0-9]+`)
@@ -294,6 +297,7 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 	}
 	speaks, notes, said := 0, 0, false
 	written := map[string]bool{}
+	newTitles := map[string]string{}
 	for i, step := range workflow.Steps {
 		at := fmt.Sprintf("%d番目（%s）", i+1, step.Type)
 		if step.Type == "write_note" || step.Type == "write_schedule" {
@@ -315,6 +319,18 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 		case "write_note":
 			if strings.TrimSpace(step.Path) == "" || strings.TrimSpace(step.Text) == "" {
 				problems = append(problems, at+": path と text が要ります")
+			}
+			if why := duplicateNote(rules.notes, strings.TrimSpace(step.Path), step.Text); why != "" {
+				problems = append(problems, at+": "+why)
+			}
+			// Two new notes with one title, in the same workflow, are the same
+			// mistake made at once.
+			if key := sameTitleKey(noteTitle(step.Text)); key != "" {
+				if first, taken := newTitles[key]; taken && first != strings.TrimSpace(step.Path) {
+					problems = append(problems, at+": "+first+" と同じ題名です。1つのメモにまとめてください")
+				} else if !taken {
+					newTitles[key] = strings.TrimSpace(step.Path)
+				}
 			}
 		case "forget_note":
 			if strings.TrimSpace(step.Path) == "" {
@@ -539,7 +555,7 @@ func routingModel() string {
 // readAll does what a persona asked to look at. Nothing here writes, so there
 // is nothing to review; a schedule is not something to read with a tool.
 func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set *tools.Set, post timeline.Entry,
-	noteSources *[]store.NoteSource, failures map[string]string, budget *lookups) (text string, sources []timeline.Source) {
+	prov *provenance, failures map[string]string, budget *lookups) (text string, sources []timeline.Source) {
 
 	var parts []string
 	for _, step := range steps {
@@ -552,13 +568,13 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 		name := step.Type
 		switch step.Type {
 		case "notes_list":
-			out, _ = r.notesTool(skill.ID, "notes_list", nil, noteSources)
+			out, _ = r.notesTool(skill.ID, "notes_list", nil, prov)
 		case "notes_read":
 			var paths []any
 			for _, path := range step.Paths {
 				paths = append(paths, path)
 			}
-			out, _ = r.notesTool(skill.ID, "notes_read", map[string]any{"paths": paths}, noteSources)
+			out, _ = r.notesTool(skill.ID, "notes_read", map[string]any{"paths": paths}, prov)
 		case "tool":
 			name = step.Tool
 			args, err := argsOf(step.Args)
@@ -614,21 +630,28 @@ var placedID = regexp.MustCompile(`schedule (s_[A-Za-z0-9]+) を置きました`
 // fails, so a remark at the end never goes out when what it rests on did not
 // happen.
 func (r *Runner) execute(ctx context.Context, skill Skill, workflow Workflow, set *tools.Set, rules turnRules, post timeline.Entry,
-	noteSources *[]store.NoteSource) (spoken string, sources []timeline.Source, records []stepRecord) {
+	prov *provenance) (spoken string, sources []timeline.Source, records []stepRecord) {
 
+	// What the workflow throws away is known before anything is written, so a
+	// note that takes a forgotten one's place inherits its posts either way.
+	for _, step := range workflow.Steps {
+		if step.Type == "forget_note" {
+			prov.noteForgotten(step.Path)
+		}
+	}
 	for _, step := range workflow.Steps {
 		record := stepRecord{Type: step.Type, Tool: step.Tool, Path: step.Path}
 		var out string
 		switch step.Type {
 		case "write_note":
-			out, record.Error = r.writeNote(skill, step.Path, step.Text, noteSources)
+			out, record.Error = r.writeNote(skill, step.Path, step.Text, prov)
 		case "forget_note":
-			out, _ = r.notesTool(skill.ID, "notes_forget", map[string]any{"path": step.Path}, noteSources)
+			out, _ = r.notesTool(skill.ID, "notes_forget", map[string]any{"path": step.Path}, prov)
 			if !strings.HasPrefix(out, "捨てました") {
 				record.Error = out
 			}
 		case "write_schedule":
-			out, record.Error = r.writeSchedule(ctx, skill, step, set, noteSources)
+			out, record.Error = r.writeSchedule(ctx, skill, step, set, prov)
 		case "cancel_schedule":
 			result, err := set.Run(ctx, "schedule", map[string]any{"action": "cancel", "id": step.ID}, nil)
 			out = result.Text
@@ -671,8 +694,8 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow Workflow, se
 	return spoken, sources, records
 }
 
-func (r *Runner) writeNote(skill Skill, path, text string, noteSources *[]store.NoteSource) (string, string) {
-	out, _ := r.notesTool(skill.ID, "notes_write", map[string]any{"path": path, "text": text}, noteSources)
+func (r *Runner) writeNote(skill Skill, path, text string, prov *provenance) (string, string) {
+	out, _ := r.notesTool(skill.ID, "notes_write", map[string]any{"path": path, "text": text}, prov)
 	if !strings.HasPrefix(out, "書きました") {
 		return out, out
 	}
@@ -684,7 +707,7 @@ func (r *Runner) writeNote(skill Skill, path, text string, noteSources *[]store.
 // and the failure this exists to prevent is having one without the other: a
 // note that says 22:30 with nothing set to wake at 22:30. So the schedule goes
 // first, and if the note cannot be written the schedule is taken back.
-func (r *Runner) writeSchedule(ctx context.Context, skill Skill, step Step, set *tools.Set, noteSources *[]store.NoteSource) (string, string) {
+func (r *Runner) writeSchedule(ctx context.Context, skill Skill, step Step, set *tools.Set, prov *provenance) (string, string) {
 	result, err := set.Run(ctx, "schedule", map[string]any{
 		"action": "set", "at": strings.TrimSpace(step.At), "daily": step.Daily,
 		"note": step.Note, "note_path": step.Path,
@@ -692,7 +715,7 @@ func (r *Runner) writeSchedule(ctx context.Context, skill Skill, step Step, set 
 	if err != nil {
 		return result.Text, err.Error()
 	}
-	written, failure := r.writeNote(skill, step.Path, step.Text, noteSources)
+	written, failure := r.writeNote(skill, step.Path, step.Text, prov)
 	if failure != "" {
 		if match := placedID.FindStringSubmatch(result.Text); match != nil {
 			_, _ = set.Run(ctx, "schedule", map[string]any{"action": "cancel", "id": match[1]}, nil)

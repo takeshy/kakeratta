@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -824,22 +825,48 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 	}
 }
 
+// A note that consolidates others keeps the trail to their posts, whether the
+// old note is thrown away before or after the new one is written. A note read
+// merely for context passes nothing on, and the index never carries a post.
 func TestNoteConsolidationCarriesReadSources(t *testing.T) {
 	runner, s, _ := setup(t, func(system, user string) string { return `{"action":"silent"}` }, "routine")
 	if err := s.WriteNote("routine", "old.md", "Old knowledge.", store.NoteSource{EntryID: "old-post", Label: "Old post"}); err != nil {
 		t.Fatal(err)
 	}
-	sources := []store.NoteSource{{EntryID: "current-post", Label: "Current post"}}
-	runner.notesTool("routine", "notes_read", map[string]any{"path": "old.md"}, &sources)
-	result, _ := runner.notesTool("routine", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, &sources)
+	if err := s.WriteNote("routine", "context.md", "Read for context.", store.NoteSource{EntryID: "ctx-post", Label: "Context post"}); err != nil {
+		t.Fatal(err)
+	}
+	prov := newProvenance(store.NoteSource{EntryID: "current-post", Label: "Current post"})
+	runner.notesTool("routine", "notes_read", map[string]any{"paths": []any{"old.md", "context.md"}}, prov)
+	result, _ := runner.notesTool("routine", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, prov)
 	if !strings.Contains(result, "書きました") {
 		t.Fatal(result)
 	}
-	runner.notesTool("routine", "notes_forget", map[string]any{"path": "old.md"}, &sources)
-	note, ok := s.Note("routine", "combined.md")
-	if !ok || len(store.NoteSources(note.Text)) != 2 {
-		t.Fatalf("consolidation lost sources: %+v", note)
+	runner.notesTool("routine", "notes_write", map[string]any{"path": "index.md", "text": "# Index\n* [combined](/combined.md)"}, prov)
+	note, _ := s.Note("routine", "combined.md")
+	if ids := sourceIDs(note.Text); !reflect.DeepEqual(ids, []string{"current-post"}) {
+		t.Fatalf("before the forget, combined cites %v", ids)
 	}
+	runner.notesTool("routine", "notes_forget", map[string]any{"path": "old.md"}, prov)
+	note, ok := s.Note("routine", "combined.md")
+	if !ok {
+		t.Fatal("combined.md is gone")
+	}
+	if ids := sourceIDs(note.Text); !reflect.DeepEqual(ids, []string{"current-post", "old-post"}) {
+		t.Fatalf("consolidation lost sources: %v", ids)
+	}
+	if index, _ := s.Note("routine", "index.md"); len(store.NoteSources(index.Text)) != 0 {
+		t.Fatalf("the index carries posts: %s", index.Text)
+	}
+}
+
+func sourceIDs(text string) []string {
+	var ids []string
+	for _, source := range store.NoteSources(text) {
+		ids = append(ids, source.EntryID)
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 // A model that escaped its own line breaks leaves a note that cannot be read as
@@ -1197,17 +1224,17 @@ func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	failures := map[string]string{}
 
-	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
+	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
 	if !strings.Contains(text, "目次") {
 		t.Fatalf("a note read in the wrong field was refused: %s", text)
 	}
 
 	broken := []ReadStep{{Type: "tool", Tool: "place_search", Args: `{"query":"神谷町"}`}}
-	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
+	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
 	if strings.Contains(first, "前にも同じ理由で失敗") {
 		t.Fatalf("a first failure was called a repeat: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
+	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
 	if !strings.Contains(second, "前にも同じ理由で失敗") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1222,10 +1249,9 @@ func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
 	}
 	set := runner.registry(s.Settings()).For([]string{"web_search"}).As("gourmet")
 	skill, _ := runner.catalogue.Find("gourmet")
-	var sources []store.NoteSource
 	text, _ := runner.readAll(context.Background(), skill,
 		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
-		set, timeline.Entry{}, &sources, map[string]string{}, newLookups(maxReads))
+		set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(maxReads))
 	if !strings.Contains(text, "豚骨に寄る") {
 		t.Fatalf("the note was not read: %s", text)
 	}
@@ -1239,13 +1265,12 @@ func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	failures := map[string]string{}
 	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
-	var sources []store.NoteSource
 
-	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
+	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
 	if !strings.Contains(first, "道具が使えませんでした") || strings.Contains(first, "前にも同じ理由で") {
 		t.Fatalf("first failure: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
+	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
 	if !strings.Contains(second, "前にも同じ理由で失敗しています") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}

@@ -488,6 +488,10 @@ const systemTemplate = `あなたは「%s」。%s
   出発時刻か到着時刻かなど、文脈でも特定できない点だけを確認してください。相対時刻は対象発言の日時を基準に解釈してください。
   ユーザーの訂正や追加条件を優先し、担当の推測をユーザーが決めた条件として扱わないでください。
   過去の回答があっても、追加条件で答えが変わる場合は更新して回答してください。
+- **同じものにメモは1つ。** 書く前にメモ一覧と index.md を見て、同じ銘柄・店・本・出来事のメモがあれば、新しく作らずその path を書き直します。
+  綴りの揺れや読み取りの誤りは新しいメモの理由になりません。同じ題名のメモを別の path に作った workflow は本体が差し戻します。
+  型（type）が違っても、対象が同じなら1つのメモです。型は対象の種類（Wine, Shop, Preference など）にし、
+  「説明」「情報」のような書き方の種類を型にしません。あなたの指示に型が書かれていれば、それだけを使います。
 - **メモはあなたが自分で読み書きします。** 下の workflow のステップで行います。何を概念にするか、
   何を残して何を捨てるか、いつまとめるかは、すべてあなたが決めます。
   本体は中身を読みませんし、数や長さの上限も持ちません。
@@ -579,15 +583,15 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs}
+	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: memory.Notes}
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
 		label = append(label[:140], '…')
 	}
-	var noteSources []store.NoteSource
+	prov := newProvenance()
 	if !daily {
-		noteSources = []store.NoteSource{{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)}}
+		prov = newProvenance(store.NoteSource{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)})
 	}
 
 	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: reviewModel()}
@@ -601,7 +605,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		return r.hush(skill, memory)
 	}
 	if light {
-		return r.converse(ctx, skill, messages, named, listening, set, post, client, model, memory, root, trigger, &noteSources, &record, failed)
+		return r.converse(ctx, skill, messages, named, listening, set, post, client, model, memory, root, trigger, prov, &record, failed)
 	}
 
 	// What the persona read goes to the reviewer too: whether a note says
@@ -706,7 +710,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 					answers[call.ID] = "read を読めませんでした: " + err.Error()
 					break
 				}
-				text, sources := r.readAll(ctx, skill, request.Steps, set, post, &noteSources, failures, budget)
+				text, sources := r.readAll(ctx, skill, request.Steps, set, post, prov, failures, budget)
 				readSources = append(readSources, sources...)
 				read = append(read, text)
 				record.Reads = append(record.Reads, readRecord{Steps: request.Steps, Output: preview(text)})
@@ -722,7 +726,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 
 	record.Ran = true
-	spoken, sources, steps := r.execute(ctx, skill, *approved, set, rules, post, &noteSources)
+	spoken, sources, steps := r.execute(ctx, skill, *approved, set, rules, post, prov)
 	record.Steps = steps
 	record.Spoke = spoken
 	if len(steps) > 0 && steps[len(steps)-1].Error != "" {
@@ -896,7 +900,7 @@ func contains(list []string, value string) bool {
 //
 // The host carries text without interpreting it, and retains source links
 // when a persona reads and consolidates its notes.
-func (r *Runner) notesTool(personaID, name string, args map[string]any, sources *[]store.NoteSource) (string, bool) {
+func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *provenance) (string, bool) {
 	switch name {
 	case "notes_list":
 		return listNotes(r.store.Memory(personaID)), true
@@ -917,7 +921,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, sources 
 				continue
 			}
 			parts = append(parts, "=== "+note.Path+" ===\n"+note.Text)
-			*sources = append(*sources, store.NoteSources(note.Text)...)
+			prov.noteRead(note.Path, note.Text)
 		}
 		return strings.Join(parts, "\n\n"), true
 
@@ -926,9 +930,13 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, sources 
 		if path == "" || strings.TrimSpace(text) == "" {
 			return "path と text が要ります。", true
 		}
-		if err := r.store.WriteNote(personaID, path, text, (*sources)...); err != nil {
+		if why := duplicateNote(r.store.Memory(personaID).Notes, path, text); why != "" {
+			return "書きませんでした: " + why, true
+		}
+		if err := r.store.WriteNote(personaID, path, text, prov.forWrite(path, text)...); err != nil {
 			return "書けませんでした: " + err.Error(), true
 		}
+		prov.noteWritten(path)
 		return "書きました: " + path, true
 
 	case "notes_forget":
@@ -939,6 +947,16 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, sources 
 		if err := r.store.DeleteNote(personaID, path); err != nil {
 			return "捨てられませんでした: " + err.Error(), true
 		}
+		// A note thrown away leaves its posts to the notes written this turn
+		// in its place, so a consolidation keeps the trail to the originals.
+		if sources, to := prov.passOn(path); len(to) > 0 {
+			for _, written := range to {
+				if note, ok := r.store.Note(personaID, written); ok {
+					_ = r.store.WriteNote(personaID, written, note.Text, sources...)
+				}
+			}
+		}
+		prov.noteForgotten(path)
 		return "捨てました: " + path, true
 	}
 	return "", false

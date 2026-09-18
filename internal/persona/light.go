@@ -89,7 +89,7 @@ func lightSpec(set *tools.Set) string {
 // converse runs a low persona's turn: notes and a remark, called directly.
 func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Message, named, listening bool,
 	set *tools.Set, post timeline.Entry, client *llm.Client, model string, memory store.Memory, root string, trigger timeline.Entry,
-	noteSources *[]store.NoteSource, record *runRecord, failed func(error) *timeline.Entry) *timeline.Entry {
+	prov *provenance, record *runRecord, failed func(error) *timeline.Entry) *timeline.Entry {
 
 	record.Path = "light"
 	record.Reviewer = ""
@@ -131,14 +131,14 @@ func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Messa
 			var out string
 			switch call.Name {
 			case "notes_read":
-				out, _ = r.notesTool(skill.ID, "notes_read", args, noteSources)
+				out, _ = r.notesTool(skill.ID, "notes_read", args, prov)
 			case "write_note":
-				out, _ = r.notesTool(skill.ID, "notes_write", args, noteSources)
+				out, _ = r.notesTool(skill.ID, "notes_write", args, prov)
 				if !strings.HasPrefix(out, "書きました") {
 					step.Error = out
 				}
 			case "forget_note":
-				out, _ = r.notesTool(skill.ID, "notes_forget", args, noteSources)
+				out, _ = r.notesTool(skill.ID, "notes_forget", args, prov)
 				if !strings.HasPrefix(out, "捨てました") {
 					step.Error = out
 				}

@@ -419,6 +419,10 @@ func (s *Store) WriteNote(personaID, path, text string, sources ...NoteSource) e
 		return err
 	}
 	text = withNoteSources(string(previous), text, sources)
+	if reservedNote(clean) {
+		// The index and the log are about the whole memory, not a post.
+		text, _ = splitNoteSources(text)
+	}
 	if len(text) > maxNoteBytes {
 		return fmt.Errorf("メモが大きすぎます: %s", clean)
 	}

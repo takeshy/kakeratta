@@ -90,3 +90,10 @@ func withNoteSources(previous, next string, added []NoteSource) string {
 	}
 	return strings.TrimSpace(body) + "\n\n" + noteSourcesStart + "\n# 記憶を更新した投稿\n\n" + strings.Join(lines, "\n") + "\n" + noteSourcesEnd + "\n"
 }
+
+// reservedNote is a note the app names and every turn rewrites: the index and
+// the log. Neither is about any one post, so neither carries the app's post
+// links.
+func reservedNote(path string) bool {
+	return path == "index.md" || path == "log.md"
+}
