@@ -472,13 +472,12 @@ high（実行すると困る。verdict は fail）:
 1b. **読んだ結果に無い事実を断定している。** 店名・場所・路線・営業時間・値段などを、スレッドにも担当が読んだ内容にも無いのに言い切っている。
    例: 検索で店が見つからなかったのに「駅前の定食屋がおすすめ」と言う。神谷町を「JR鶴見線の住宅地」と言う。
    「〜かもしれない」「調べられなかった」と言っているなら問題にしません。
-2. **ありもしない id を使っている。** 渡された schedule 一覧に無い id。
-3. **時刻を約束しているのに、それを置いていない。** 「22:30ごろに聞くね」と発言するのに、write_schedule が無い。
-4. **担当自身への指示にはっきり反している。** 例: 薬について催促する、飲み忘れと決めつける。
-5. **投稿と違う言語で発言している。** 日本語の投稿に英語で答える、など。発言は投稿と同じ言語でするのが規則です。
-6. **既存のメモを読まずに丸ごと書き換えている。** メモ一覧にある path への write_note / write_schedule なのに、担当がそのメモを読んでいない（中身が消える）。
+2. **時刻を約束しているのに、それを置いていない。** 「22:30ごろに聞くね」と発言するのに、write_schedule が無く、渡された schedule 一覧にもその時刻の予定が無い。
+3. **担当自身への指示にはっきり反している。** 例: 薬について催促する、飲み忘れと決めつける。
+4. **投稿と違う言語で発言している。** 日本語の投稿に英語で答える、など。発言は投稿と同じ言語でするのが規則です。
+5. **既存のメモを読まずに丸ごと書き換えている。** メモ一覧にある path への write_note / write_schedule なのに、担当がそのメモを読んでいない（中身が消える）。
 
-7. **発言がユーザーに向けた言葉になっていない。** 「神谷町駅周辺のランチ情報をWeb検索で探す」のような、作業の説明や予定になっている。
+6. **発言がユーザーに向けた言葉になっていない。** 「神谷町駅周辺のランチ情報をWeb検索で探す」のような、作業の説明や予定になっている。
    調べた結果を伝えるはずの発言なら、結果の中身（店名など）が入っているはずです。
 
 **判定の前に、speak の text をそのまま引用して確かめてください。** 発言の中身を想像で補って判定しないでください。
@@ -542,16 +541,24 @@ func reviewModel() string {
 	return store.NemotronSuper
 }
 
-// needsReview reports whether a workflow does more than keep notes and speak.
+// needsReview reports whether a workflow is worth the app's review call.
 // A note and a remark stay inside the persona's own corner and can be corrected
-// by the next post; schedules, forgetting and tools reach further.
-func needsReview(workflow Workflow) bool {
+// by the next post; schedules, forgetting and tools reach further. A persona
+// that can schedule is reviewed even for a note and a remark: the failure it
+// is prone to is a time promised in the remark with no schedule behind it,
+// and that workflow has nothing but a note and a remark in it. Staying quiet
+// has nothing to check.
+func needsReview(workflow Workflow, schedules bool) bool {
+	quiet := true
 	for _, step := range workflow.Steps {
 		if step.Type != "write_note" && step.Type != "speak" {
 			return true
 		}
+		if step.Type != "speak" || strings.TrimSpace(step.Text) != "" {
+			quiet = false
+		}
 	}
-	return false
+	return schedules && !quiet
 }
 
 // routingModel matches a post against short persona conditions. Lightning did

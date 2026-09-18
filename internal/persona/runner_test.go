@@ -1051,23 +1051,29 @@ func TestAWorkflowTheReviewRejectsNeverRuns(t *testing.T) {
 }
 
 // Keeping a note and speaking stays in the persona's own corner, so it costs no
-// review; a schedule reaches further and is still checked.
+// review; a schedule reaches further and is still checked. A persona that can
+// schedule is reviewed even for a note and a remark, because the promise it
+// tends to make - a time with nothing set to wake - lives in exactly that shape.
 func TestOnlyWorkflowsThatReachFurtherThanNotesAndRemarksAreReviewed(t *testing.T) {
 	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
 	for _, tc := range []struct {
+		skill   string
 		steps   string
 		reviews int
 	}{
-		{`{"type":"write_note","path":"errands/bath.md","text":"---\ntype: Errand\n---\n\nお風呂","tool":"","args":"{}","at":"","daily":false,"note":"","id":""},
-			{"type":"speak","path":"","text":"いってらっしゃい","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}`, 0},
-		{`{"type":"write_schedule","path":"errands/bath.md","text":"---\ntype: Errand\n---\n\nお風呂","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"入ったか","id":""}`, 1},
+		{"gourmet", `{"type":"write_note","path":"shops/sento.md","text":"---\ntype: Shop\n---\n\n銭湯の帰りの定食屋","tool":"","args":"{}","at":"","daily":false,"note":"","id":""},
+			{"type":"speak","path":"","text":"帰りに一杯どう","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}`, 0},
+		{"routine", `{"type":"write_note","path":"errands/bath.md","text":"---\ntype: Errand\n---\n\nお風呂","tool":"","args":"{}","at":"","daily":false,"note":"","id":""},
+			{"type":"speak","path":"","text":"いってらっしゃい","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}`, 1},
+		{"routine", `{"type":"write_schedule","path":"errands/bath.md","text":"---\ntype: Errand\n---\n\nお風呂","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"入ったか","id":""},
+			{"type":"speak","path":"","text":"","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}`, 1},
 	} {
 		runner, s, stub := setup(t, func(system, user string) string {
 			if strings.Contains(system, "振り分け") {
-				return `{"deliver":["routine"]}`
+				return `{"deliver":["` + tc.skill + `"]}`
 			}
-			return `{"summary":"覚える","steps":[` + tc.steps + `,{"type":"speak","path":"","text":"","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
-		}, "routine")
+			return `{"summary":"覚える","steps":[` + tc.steps + `]}`
+		}, tc.skill)
 		runner.react(post(t, s, "今からお風呂入ります").ID)
 		if len(stub.reviews) != tc.reviews {
 			t.Fatalf("reviews = %d, want %d for %s", len(stub.reviews), tc.reviews, tc.steps)

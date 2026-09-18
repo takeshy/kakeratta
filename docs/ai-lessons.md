@@ -136,9 +136,11 @@ mistake a live run actually made.
 
 A review that judges taste becomes a second persona. The review here only looks
 for things that go wrong: something stated that did not happen or was not in
-what the persona read, an invented id, a promised time with no schedule, a
-remark in a different language from the post, a note overwritten without being
-read, the persona's own instructions broken.
+what the persona read, a promised time with no schedule, a remark in a
+different language from the post, a note overwritten without being read, the
+persona's own instructions broken. An invented schedule id used to be on this
+list; the app now catches it before the review, by matching every id in the
+workflow against the persona's own schedules.
 
 It still made mistakes. In one live run a persona's remark was its own plan -
 "search the web for lunch near Kamiyacho", word for word its summary - and the

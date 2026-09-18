@@ -667,9 +667,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			switch {
 			case len(entry.Problems) > 0:
 				malformed++
-			case !needsReview(workflow):
+			case !needsReview(workflow, rules.set.Allows("schedule")):
 				// Staying quiet, or only keeping a note and speaking, is not
-				// worth a review call.
+				// worth a review call - unless the persona can schedule, whose
+				// typical slip is a promised time with nothing set to wake.
 				approved = &workflow
 			default:
 				known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当のメモ一覧:\n" + listNotes(memory) +

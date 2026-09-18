@@ -84,12 +84,14 @@ A persona does not call tools one at a time any more (`internal/persona/workflow
    tools, no invented schedule ids, an empty speak on a turn that cannot speak,
    a non-empty one when named, one speak at the end, and no second note under
    a title that already exists - one thing, one note. Then the app's model reviews it against a narrow list:
-   something written as fact that did not happen, an invented id, a time
-   promised with no schedule, a remark in another language than the post, a
-   note rewritten without being read, a persona's own instructions plainly
-   broken. A rejected workflow goes back once with the reasons. The review uses
-   Nemotron Super. A workflow that only writes notes and speaks,
-   or does nothing, is not reviewed; schedules, forgetting and tools are.
+   something written as fact that did not happen, a time promised with no
+   schedule, a remark in another language than the post, a note rewritten
+   without being read, a persona's own instructions plainly broken. A rejected
+   workflow goes back once with the reasons. The review uses Nemotron Super.
+   A workflow that does nothing is not reviewed. One that only writes notes and
+   speaks is not reviewed either, except from a persona that holds `schedule`:
+   a time promised with nothing set to wake appears in exactly that shape, so
+   those are reviewed too. Schedules, forgetting and tools are always reviewed.
 4. **Run.** In order; **the first step that fails stops the rest**, so a remark
    never goes out after what it rests on did not happen.
 
