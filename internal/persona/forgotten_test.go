@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // Deleting a post is the user's; tidying the memory built on it is the
@@ -179,5 +180,100 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 	}
 	if !stub.seen("speak の text は空にしてください") {
 		t.Fatal("a workflow that speaks on a silent turn was not sent back")
+	}
+}
+
+// A deleted post takes the conversation under it along. The persona woken for
+// the post is told once, the links from its notes to the post and to the
+// user's lines under it are all taken out, and the record of who was woken is
+// spent.
+func TestDeletingAPostForgetsTheConversationUnderIt(t *testing.T) {
+	r, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":[]}`
+		}
+		return `{"action":"silent"}`
+	}, "gourmet")
+	entry := post(t, s, "この前の担々麺")
+	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User, Root: entry.ID, ReplyTo: entry.ID, Text: "辛いのは平気", At: time.Now()}
+	remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: entry.ID, ReplyTo: entry.ID, Text: "ごま強め", At: time.Now()}
+	for _, one := range []timeline.Entry{reply, remark} {
+		if err := s.Append(one); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("gourmet", "tastes/sesame.md", "ごま強めは苦手", store.NoteSource{EntryID: entry.ID, Label: "担々麺"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("gourmet", "tastes/heat.md", "辛さは平気", store.NoteSource{EntryID: reply.ID, Label: "辛いのは平気"}); err != nil {
+		t.Fatal(err)
+	}
+
+	r.EntriesForgotten(entry.ID, []timeline.Entry{entry, reply, remark})
+	r.stopMu.Lock()
+	var items []deletedPost
+	for _, item := range r.queue {
+		if item.deleted != nil {
+			items = append(items, *item.deleted)
+		}
+	}
+	r.stopMu.Unlock()
+	if len(items) != 1 || items[0].skill != "gourmet" || items[0].entryID != entry.ID {
+		t.Fatalf("queued %+v, want one wake for the post", items)
+	}
+	if len(items[0].notes) != 2 || !strings.Contains(items[0].label, "担々麺") || !strings.Contains(items[0].label, "辛いのは平気") {
+		t.Fatalf("the wake does not carry both lines and both notes: %+v", items[0])
+	}
+	for _, path := range []string{"tastes/sesame.md", "tastes/heat.md"} {
+		note, ok := s.Note("gourmet", path)
+		if !ok || strings.Contains(note.Text, entry.ID) || strings.Contains(note.Text, reply.ID) {
+			t.Fatalf("%s still cites a deleted line: %v", path, note.Text)
+		}
+	}
+	if woke, _ := s.Woke(entry.ID); len(woke) != 0 {
+		t.Fatalf("the wake record was not spent: %v", woke)
+	}
+}
+
+// Deleting one of the user's lines under a post reaches the personas woken for
+// that post, and leaves the post's own record in place.
+func TestDeletingAReplyReachesThePersonasWokenForItsPost(t *testing.T) {
+	r, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":[]}`
+		}
+		return `{"action":"silent"}`
+	}, "gourmet")
+	entry := post(t, s, "この前の担々麺")
+	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User, Root: entry.ID, ReplyTo: entry.ID, Text: "辛いのは平気", At: time.Now()}
+	if err := s.Append(reply); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("gourmet", "tastes/heat.md", "辛さは平気", store.NoteSource{EntryID: reply.ID, Label: "辛いのは平気"}); err != nil {
+		t.Fatal(err)
+	}
+	r.EntryForgotten(reply.ID, reply.Text)
+	r.stopMu.Lock()
+	queued := 0
+	for _, item := range r.queue {
+		if item.deleted != nil {
+			queued++
+		}
+	}
+	r.stopMu.Unlock()
+	if queued != 1 {
+		t.Fatalf("queued %d wakes, want one", queued)
+	}
+	if note, _ := s.Note("gourmet", "tastes/heat.md"); strings.Contains(note.Text, reply.ID) {
+		t.Fatalf("the deleted reply is still cited: %s", note.Text)
+	}
+	if woke, _ := s.Woke(entry.ID); len(woke) != 1 {
+		t.Fatalf("the post's own record went with its reply: %v", woke)
 	}
 }

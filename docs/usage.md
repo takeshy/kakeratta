@@ -128,6 +128,12 @@ or reply (not while the tab is in the background).
 **Read-aloud mode** reads the backlog while you are moving (the browser's own
 Web Speech API).
 
+Deleting a post deletes the remarks and your replies under it as well (the log
+is append-only, so each gets its own tombstone line). Notes that cited the
+post or those replies lose their links, and each persona that was woken for
+the post is woken once to tidy what rested on them. A remark can be deleted on
+its own.
+
 **⚖ Router's call**, on your own posts and replies, opens a dialog with what the
 app decided about that post: the personas it chose, and for each one it passed over, the
 router's one-line reason. A persona you mentioned with `@` is not listed. A

@@ -341,24 +341,46 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, entry)
 }
 
+// deleteEntry removes an entry. A post takes the conversation under it along
+// - the remarks and the user's own lines - since a reply without its post is
+// nothing, and a note that cited such a reply would otherwise keep pointing at
+// a thread that no longer opens.
 func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 	entry, ok := s.store.Entry(r.PathValue("id"))
 	if !ok {
 		fail(w, http.StatusNotFound, "見つかりません")
 		return
 	}
-	entry.Deleted = true
-	if err := s.store.Append(entry); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
+	root := timeline.RootOf(entry)
+	gone := []timeline.Entry{entry}
+	if entry.Kind == timeline.KindPost {
+		if entries, err := s.store.Timeline(); err == nil {
+			var thread []timeline.Entry
+			for _, other := range timeline.Thread(entries, root) {
+				if !other.Deleted {
+					thread = append(thread, other)
+				}
+			}
+			if len(thread) > 0 {
+				gone = thread
+			}
+		}
 	}
-	s.publishEvent("entry", entry)
-	// What the router decided about the post goes with it. Failing to drop it
-	// is not a reason to keep the post.
-	_ = s.store.ForgetRouting(entry.ID)
-	// Whoever wrote this post down is told, and tidies its own notes. The app
-	// removes the post, never the memory someone built on it.
-	s.runner.EntryForgotten(entry.ID, entry.Text)
+	for i := range gone {
+		gone[i].Deleted = true
+		if err := s.store.Append(gone[i]); err != nil {
+			fail(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		s.publishEvent("entry", gone[i])
+		// What the router decided about a line goes with it. Failing to drop
+		// it is not a reason to keep the line.
+		_ = s.store.ForgetRouting(gone[i].ID)
+	}
+	// Whoever wrote any of this down is told, and tidies its own notes. The
+	// app removes the lines, never the memory someone built on them.
+	s.runner.EntriesForgotten(root, gone)
+	entry.Deleted = true
 	writeJSON(w, http.StatusOK, entry)
 }
 

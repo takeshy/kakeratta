@@ -35,21 +35,69 @@ type deletedPost struct {
 	notes []string
 }
 
-// EntryForgotten tells the personas woken for a deleted post to tidy up.
-//
-// Who to tell comes from the app's own record of who it woke, never from
-// reading a note. A persona that holds the post as a source corrects or drops
-// what rested on it; one that holds nothing says nothing.
+// EntryForgotten tells the personas woken for a deleted entry to tidy up. A
+// deleted post takes the conversation under it along; the server hands those
+// over together through EntriesForgotten, and this is the one-entry case.
 func (r *Runner) EntryForgotten(entryID, label string) {
 	if strings.TrimSpace(entryID) == "" {
 		return
 	}
-	woke, err := r.store.Woke(entryID)
+	entry, ok := r.store.Entry(entryID)
+	if !ok {
+		entry = timeline.Entry{ID: entryID, Kind: timeline.KindPost, Speaker: timeline.User, Root: entryID}
+	}
+	if strings.TrimSpace(label) != "" {
+		entry.Text = label
+	}
+	r.EntriesForgotten(timeline.RootOf(entry), []timeline.Entry{entry})
+}
+
+// EntriesForgotten tells the personas woken for a post that some of it is
+// gone: the post itself and everything said under it, or one line of the
+// user's. Who to tell comes from the app's own record of who it woke for the
+// post, never from reading a note. The links the app kept from notes to the
+// deleted lines are taken out first, and each persona gets one wake for the
+// whole deletion rather than one per line. A persona that holds nothing says
+// nothing.
+func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
+	root = strings.TrimSpace(root)
+	if root == "" || len(gone) == 0 {
+		return
+	}
+	var ids, labels []string
+	rootGone := false
+	for _, entry := range gone {
+		if entry.ID == root {
+			rootGone = true
+		}
+		// Only the user's lines are ever cited by a note; a persona's remark
+		// going with them is nothing a persona wrote down.
+		if entry.Speaker != timeline.User {
+			continue
+		}
+		ids = append(ids, entry.ID)
+		if text := strings.TrimSpace(entry.Text); text != "" {
+			labels = append(labels, text)
+		}
+	}
+	forget := func() {
+		if rootGone {
+			if err := r.store.ForgetWakes(root); err != nil {
+				r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
+			}
+		}
+	}
+	if len(ids) == 0 {
+		forget()
+		return
+	}
+	woke, err := r.store.Woke(root)
 	if err != nil {
 		r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
 		return
 	}
 	if len(woke) == 0 {
+		forget()
 		return
 	}
 	_, settings := r.clientOf()
@@ -57,28 +105,37 @@ func (r *Runner) EntryForgotten(entryID, label string) {
 	for _, skill := range r.catalogue.Active(settings.Active) {
 		active[skill.ID] = true
 	}
+	label := strings.Join(labels, " ／ ")
 	r.stopMu.Lock()
 	if r.stopped {
 		r.stopMu.Unlock()
 		return
 	}
 	for _, skill := range woke {
-		if !active[skill] || r.queuedDeletion(entryID, skill) {
+		if !active[skill] || r.queuedDeletion(root, skill) {
 			continue
 		}
 		// The links are the app's own, so the app takes them out before anyone
 		// is woken to look at what is left.
-		notes, err := r.store.DropNoteSource(skill, entryID)
-		if err != nil {
-			r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
+		var notes []string
+		seen := map[string]bool{}
+		for _, id := range ids {
+			dropped, err := r.store.DropNoteSource(skill, id)
+			if err != nil {
+				r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
+			}
+			for _, path := range dropped {
+				if !seen[path] {
+					seen[path] = true
+					notes = append(notes, path)
+				}
+			}
 		}
-		r.queue = append(r.queue, reaction{deleted: &deletedPost{entryID: entryID, label: label, skill: skill, notes: notes}})
+		r.queue = append(r.queue, reaction{deleted: &deletedPost{entryID: root, label: label, skill: skill, notes: notes}})
 		r.wake.Signal()
 	}
 	r.stopMu.Unlock()
-	if err := r.store.ForgetWakes(entryID); err != nil {
-		r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
-	}
+	forget()
 }
 
 // queuedDeletion reports an unprocessed wake for the same post and persona.
@@ -116,7 +173,7 @@ func (r *Runner) deletedAt(gone deletedPost) {
 		cited = strings.Join(gone.notes, ", ")
 	}
 	trigger := timeline.Entry{At: time.Now(), Speaker: "system", Text: fmt.Sprintf(
-		"The user deleted the post you cited: %s (/?entry=%s). Notes that cited it: %s. Tidy what rested on it; the body is untouched.",
+		"The user deleted the post you cited, and whatever was said under it: %s (/?entry=%s). Notes that cited it: %s. Tidy what rested on it; the body is untouched.",
 		label, gone.entryID, cited)}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
