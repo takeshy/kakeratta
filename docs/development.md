@@ -101,10 +101,10 @@ CAPTURE_ONLY=bluesky-connect,bluesky-selection,bluesky-preview,settings,timeline
 npm --prefix frontend run build
 ```
 
-The router's call and the condition dialog are captured from
-`frontend/stories/Timeline.stories.js` (`routing`, `condition-fix`); the
-stories serve the decision and the builder's answer from fixtures, so no model
-is called.
+The router's call, the condition dialog and the reply dialog are captured from
+`frontend/stories/Timeline.stories.js` (`routing`, `condition-fix`,
+`reply-fix`, `reply-trial`); the stories serve the decision, the builder's
+answer and the trial reply from fixtures, so no model is called.
 
 ## Browser storage and offline validation
 

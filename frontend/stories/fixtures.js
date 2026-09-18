@@ -6,7 +6,8 @@ const minutes = (n) => new Date(Date.now() - n * 60000).toISOString();
 
 export const personas = [
   { id: "gourmet", name: "tabe", icon: "🍜", model: "high", builtin: true, active: true, wakes: 12,
-    domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"] },
+    domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"],
+    tone: "丁寧で、少し長め。おすすめを添える。", instructions: "食べた店と味の感想を覚える。似た店を三つまで勧める。" },
   { id: "move", name: "michi", icon: "🚃", model: "middle", builtin: true, active: true, wakes: 3,
     domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
   { id: "book", name: "shiori", icon: "📖", model: "middle", builtin: true, active: true, wakes: 21,
@@ -60,6 +61,10 @@ const WORDS = {
     notRoutine: "繰り返しの用事や、あとで確かめる予定ではありません。",
     fixNote: "店の場所や行き方の話もしているので、michi にも見てほしい。",
     fixedDomain: "移動。経路、所要時間、行き先。または、飲食店の場所や行き方の話。",
+    replyNote: "おすすめの店は要らない。前に食べた店との違いを一言で言ってほしい。",
+    newTone: "短く一言。おすすめは頼まれたときだけ。",
+    newInstructions: "食べた店と味の感想を覚える。新しい感想が来たら、前に食べた店との違いを一言で返す。店は頼まれたときだけ勧める。",
+    trialReply: "前の担々麺より、ごまが強くて辛さが後ろに下がった感じですね。",
   },
   en: {
     noodles: "That dan dan noodle place from the other day - too much sesame, I think",
@@ -83,8 +88,24 @@ const WORDS = {
     notRoutine: "Not a recurring chore or something to check on later.",
     fixNote: "It is also about where the place is and how to get there, so michi should see it.",
     fixedDomain: "Getting around: routes, travel time, destinations. Or where a restaurant is and how to get there.",
+    replyNote: "I don't want recommendations. Say in a line how this differs from the place I ate at before.",
+    newTone: "One short line. Recommendations only when asked.",
+    newInstructions: "Remember the places eaten at and what they tasted like. When a new impression comes in, say in one line how it differs from a place before. Recommend only when asked.",
+    trialReply: "Heavier on sesame than the last dan dan noodles, with the heat sitting further back.",
   },
 };
+
+// The persona builder's answer when asked, from one of tabe's remarks, to
+// change how it talks and what it does - and the reply it would then give.
+export function replyDraft() {
+  const w = words();
+  const gourmet = personas.find((row) => row.id === "gourmet");
+  return { message: "", placeholder: "", draft: { ...gourmet, tone: w.newTone, instructions: w.newInstructions } };
+}
+
+export function replyPreview() {
+  return { spoke: words().trialReply, quiet: false };
+}
 
 // What the router decided about the sample posts, as /api/entry/{id}/routing
 // returns it: who it chose, whom it passed over and its reason for each.

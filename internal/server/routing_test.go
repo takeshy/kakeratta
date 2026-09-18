@@ -152,3 +152,43 @@ func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 		t.Fatal("a trial run woke someone")
 	}
 }
+
+// A persona's turn can be previewed on the remark it made, but only for that
+// persona's own remark, and only signed in.
+func TestReplyPreviewIsGuarded(t *testing.T) {
+	server, workspace := app(t, "")
+	now := time.Now()
+	for _, entry := range []timeline.Entry{
+		{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "渋谷に行きたい", At: now},
+		{ID: "r", Kind: timeline.KindRemark, Speaker: "move", Root: "p", ReplyTo: "p", Text: "渋谷ですね", At: now.Add(time.Minute)},
+	} {
+		if err := workspace.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	preview := func(id, body string) int {
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/entry/"+id+"/reply/preview", strings.NewReader(body)))
+		return response.Code
+	}
+	for _, tc := range []struct{ id, body string }{
+		{"p", `{"persona":"move"}`},    // not a remark
+		{"r", `{"persona":"gourmet"}`}, // somebody else's remark
+		{"r", `{}`},                    // no persona
+		{"missing", `{"persona":"move"}`},
+	} {
+		if code := preview(tc.id, tc.body); code != http.StatusBadRequest {
+			t.Fatalf("%s %s: %d", tc.id, tc.body, code)
+		}
+	}
+
+	locked, workspace := app(t, "secret")
+	if err := workspace.Append(timeline.Entry{ID: "r", Kind: timeline.KindRemark, Speaker: "move", Root: "r", Text: "x", At: now}); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	locked.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/entry/r/reply/preview", strings.NewReader(`{"persona":"move"}`)))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated preview: %d", response.Code)
+	}
+}

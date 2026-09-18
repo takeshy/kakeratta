@@ -39,12 +39,13 @@ export function room(rows) {
   return view;
 }
 
-export function feed(entries, rows = [], { onFixCondition } = {}) {
+export function feed(entries, rows = [], { onFixCondition, onFixReply } = {}) {
   const view = createFeed({
     getPersona: (id) => rows.find((row) => row.id === id),
     onReply: () => {},
     onSpeak: () => {},
     onFixCondition,
+    onFixReply,
   });
   view.set(entries);
   return view;

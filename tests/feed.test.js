@@ -526,3 +526,28 @@ test("the router's call is shown on the user's posts and replies and can be disp
   feed.upsert({ id: "u", kind: "reply", speaker: "user", root: "p", text: "また行く（編集）", at: "2026-09-13T00:02:00Z" });
   assert.equal(feed.element.querySelectorAll(".routing").length, 0, "an edited entry is routed again, so what was shown is dropped");
 });
+
+// What a persona said is where its tone and instructions show, so a remark
+// carries the way to dispute them. The user's own lines do not.
+test("a persona's remark can be disputed", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }];
+  const disputes = [];
+  const feed = createFeed({ getPersona: (id) => rows.find((row) => row.id === id) || null, onFixReply: (args) => disputes.push(args), showIntro: false });
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "担々麺", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "remark", speaker: "gourmet", root: "p", text: "ごま強め", at: "2026-09-13T00:01:00Z" },
+    { id: "g", kind: "remark", speaker: "gone", root: "p", text: "消えた担当", at: "2026-09-13T00:02:00Z" },
+    { id: "u", kind: "reply", speaker: "user", root: "p", text: "たしかに", at: "2026-09-13T00:03:00Z" },
+  ]);
+  feed.reveal("u");
+  const fixes = feed.element.querySelectorAll(".reply-fix");
+  assert.equal(fixes.length, 1, "only a remark by a persona still in the room can be disputed");
+  fixes[0].fire("click");
+  assert.equal(disputes.length, 1);
+  assert.equal(disputes[0].persona.id, "gourmet");
+  assert.equal(disputes[0].remark.id, "r");
+  assert.equal(disputes[0].post.id, "p");
+});

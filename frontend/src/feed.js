@@ -17,7 +17,7 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, showIntro = true }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, showIntro = true }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let speakingThread = null;
@@ -373,19 +373,26 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     const decision = drawRouting(entry);
     if (decision) node.append(decision);
     if (!mine) {
+      // A remark can be answered, and it can be disputed: what the persona
+      // said is the one place its tone and instructions show, so that is
+      // where they get corrected.
       node.append(
-        el("button", {
-          class: "chip ghost",
-          label: "返す",
-          onclick: () => {
-            openReply = entry.id;
-            draw();
-          },
-        }),
+        el("div", { class: "said-actions" },
+          el("button", {
+            class: "chip ghost",
+            label: "返す",
+            onclick: () => {
+              openReply = entry.id;
+              draw();
+            },
+          }),
+          persona && onFixReply ? el("button", {
+            class: "chip ghost reply-fix", label: "返事を直す",
+            onclick: () => onFixReply({ persona, remark: entry, post }),
+          }) : null),
       );
     }
     if (openReply === entry.id) node.append(drawReplyBox(entry.id));
-    void post;
     return node;
   }
 

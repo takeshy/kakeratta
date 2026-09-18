@@ -116,6 +116,7 @@
             <li>投稿・返信のあと 5 分間は、取りこぼしに備えて自動でタイムラインを読み直します。</li>
             <li><strong>🔈 読み上げ</strong> で、溜まった反応を順に読み上げます。移動中に便利です。</li>
             <li>自分の投稿・返信の <strong>担当の判断</strong> で、誰が呼ばれ、誰がなぜ呼ばれなかったかを見られます。詳しくは <a href="#ja-routing">担当の判断を見て、条件を直す</a>。</li>
+            <li>担当の発言の <strong>返事を直す</strong> で、期待とどう違うかを伝えて口調と指示を直せます。詳しくは <a href="#ja-reply-fix">返事がずれたところで、口調と指示を直す</a>。</li>
             <li>投稿の <strong>消す</strong> で削除できます。削除した投稿は検索にも出ません。</li>
           </ul>
         </section>
@@ -246,6 +247,23 @@
             <figcaption>今の判定条件と、AI が書いた新しい判定条件。OK で保存して、同じ投稿で試します（サンプル）。</figcaption>
           </figure>
           <div class="tip"><p>変わるのは担当条件だけです。口調や覚え方は変わりません。裏で何かを学習することもなく、条件は保存前にいつも目で確かめられます。</p></div>
+          <h3 id="ja-reply-fix">返事がずれたところで、口調と指示を直す</h3>
+          <p>担当の発言の <strong>返事を直す</strong> を押すと、その返事が期待とどう違うかを書けます。担当を作る AI が <strong>口調</strong> と <strong>指示</strong> だけを書き直し、担当条件や名前、道具は変えません。</p>
+          <figure>
+            <img src="/captures/ja/reply-fix.png" alt="tabe の発言に異を唱えたところ。AI が書いた新しい口調と指示を、保存前に手で直せる（サンプル）" loading="lazy" />
+            <figcaption>新しい口調と指示。どちらも手で直せます。今の口調と指示はたたんで置いてあります（サンプル）。</figcaption>
+          </figure>
+          <ol>
+            <li>発言の <strong>返事を直す</strong> を押し、期待とどう違うかを書いて <strong>直し方を作る</strong> を押します。</li>
+            <li><strong>新しい口調</strong> と <strong>新しい指示</strong> は文章のまま表示され、手で直せます。<strong>AIに変更を依頼</strong> で直してほしい内容を新たに書くこともできます。</li>
+            <li><strong>OK</strong> で保存し、続けて同じ投稿に同じ担当をもう一度立たせます。メモを読むところまでは本番どおりで、発言はタイムラインに載らず、メモも予定も書かれません。</li>
+            <li>いま返すならこう、という文章が出ます。<strong>これでよい</strong> で閉じ、<strong>まだ違う</strong> ならその文章を引用して、どう違うかをもう一度聞きます。</li>
+          </ol>
+          <figure>
+            <img src="/captures/ja/reply-trial.png" alt="同じ投稿に tabe がいま返すなら、という試し書き。これでよいか、まだ違うか（サンプル）" loading="lazy" />
+            <figcaption>試し書き。判断するのはあなたです（サンプル）。</figcaption>
+          </figure>
+          <div class="tip"><p>担当の一手は計画と確認を経るので、試し書きには数分かかることがあります。保存した口調と指示は、試し書きの結果がどうでもそのまま残ります。</p></div>
           <p>上級者向けに、<code>skill.json</code> を書いて <strong>担当を追加する</strong> ことも、この画面からできます。</p>
         </section>
 
@@ -499,6 +517,7 @@
             <li>For five minutes after you post or reply, the timeline is re-read automatically in case a reaction was missed.</li>
             <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Handy while moving.</li>
             <li><strong>Router's call</strong> on your own posts and replies shows who was called and why the others were not. See <a href="#en-routing">See the router's call and fix a condition</a>.</li>
+            <li><strong>Fix this reply</strong> on a persona's remark lets you say how it missed and corrects its tone and instructions. See <a href="#en-reply-fix">Fix the tone and instructions where a reply went wrong</a>.</li>
             <li><strong>Delete</strong> removes a post. Deleted posts never appear in search.</li>
           </ul>
         </section>
@@ -629,6 +648,23 @@
             <figcaption>The current condition and the AI's new one. OK saves it and tries the same post (sample data).</figcaption>
           </figure>
           <div class="tip"><p>Only the condition changes; tone and memory rules stay. Nothing is learned in the background, and the condition is always in front of you before it is saved.</p></div>
+          <h3 id="en-reply-fix">Fix the tone and instructions where a reply went wrong</h3>
+          <p>Tap <strong>Fix this reply</strong> on a persona's remark to say how that reply missed. The AI that builds personas rewrites the <strong>tone</strong> and the <strong>instructions</strong>, and only those; the condition, name and tools stay.</p>
+          <figure>
+            <img src="/captures/en/reply-fix.png" alt="tabe's remark disputed: the new tone and instructions the AI wrote, open for editing (sample data)" loading="lazy" />
+            <figcaption>The new tone and instructions, both editable. The current ones are folded away underneath (sample data).</figcaption>
+          </figure>
+          <ol>
+            <li>Tap <strong>Fix this reply</strong> on a remark, say how it missed, and tap <strong>Write the fix</strong>.</li>
+            <li><strong>New tone</strong> and <strong>New instructions</strong> are shown as text you can edit. <strong>Ask the AI to change it</strong> takes a fresh request.</li>
+            <li><strong>OK</strong> saves them and then has the persona take the same turn again on the same post. It reads its notes as it would, but no remark lands on the timeline and no note or schedule is written.</li>
+            <li>The reply it would now give is shown. <strong>That's it</strong> closes; <strong>Still not it</strong> quotes that reply and asks again how it misses.</li>
+          </ol>
+          <figure>
+            <img src="/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" loading="lazy" />
+            <figcaption>The trial reply. You are the judge (sample data).</figcaption>
+          </figure>
+          <div class="tip"><p>A persona's turn is planned and reviewed, so the trial can take a few minutes. What was saved stays saved whatever the trial says.</p></div>
           <p>Advanced users can also <strong>add a persona</strong> from a hand-written <code>skill.json</code> in the same panel.</p>
         </section>
 

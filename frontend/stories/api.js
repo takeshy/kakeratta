@@ -4,7 +4,7 @@
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, routing = {}, bluesky = { available: true, connected: false } } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, routing = {}, replyPreview = { quiet: true }, bluesky = { available: true, connected: false } } = {}) {
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
   let connection = { ...bluesky };
@@ -53,6 +53,7 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     const decided = path.match(/^\/api\/entry\/([^/]+)\/routing$/);
     if (decided && method === "GET") return json(routing[decodeURIComponent(decided[1])] || { recorded: false });
     if (/^\/api\/entry\/[^/]+\/routing\/check$/.test(path) && method === "POST") return json({ answered: true, delivered: true });
+    if (/^\/api\/entry\/[^/]+\/reply\/preview$/.test(path) && method === "POST") return json(replyPreview);
     if (/^\/api\/personas\/[^/]+$/.test(path) && method === "PUT") {
       rows = rows.map((row) => row.id === body.id ? { ...row, ...body } : row);
       return json(body);

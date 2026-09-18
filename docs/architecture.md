@@ -53,6 +53,14 @@ persona's condition from their reason, they edit the text, and saving has the
 router try the same post again without delivering it (`Runner.CheckRouting`).
 The condition is the only thing that changes; nothing is learned silently.
 
+**A remark can be disputed the same way**, for the persona's tone and
+instructions. After they are rewritten and saved, the persona takes the same
+turn again (`Runner.PreviewReply`): the ordinary `run`, over a workspace
+wrapper that reads from the real one and writes nowhere. The persona reads its
+notes and may look things up, but no remark is appended, no note or schedule
+is written and no wake is counted. What it would have said comes back for the
+person to judge.
+
 ### A turn: read, then a workflow
 
 A persona does not call tools one at a time any more (`internal/persona/workflow.go`).

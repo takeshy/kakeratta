@@ -143,6 +143,17 @@ the router try the same post again without waking anyone. If it lands as you
 meant, the dialog closes; if not, the router's reason is shown and you are
 asked again. The save is not rolled back.
 
+**Fix this reply**, on a persona's remark, does the same for the persona's
+tone and instructions. Say how the reply missed; the persona builder rewrites
+the tone and the instructions and nothing else, both shown as text you can
+edit. **OK** saves them and then has the persona take the same turn again on
+the same post (`POST /api/entry/{id}/reply/preview`). The turn is the real
+thing - it reads its notes and may use its lookup tools - but runs over a
+workspace that keeps nothing: no remark is appended, no note or schedule is
+written, no wake is counted. The reply it would give is shown; **That's it**
+closes and **Still not it** asks again with that reply quoted. This call can
+take a few minutes, since a persona's turn may be planned and reviewed.
+
 ## Fast startup and offline posts
 
 The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.

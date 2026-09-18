@@ -32,6 +32,8 @@ const shots = [
   { name: "timeline", id: "screen--hero", height: 900 },
   { name: "routing", id: "timeline--routing-opened", height: 900 },
   { name: "condition-fix", id: "timeline--condition-proposal", height: 1000 },
+  { name: "reply-fix", id: "timeline--reply-fix-proposal", height: 1200 },
+  { name: "reply-trial", id: "timeline--reply-fix-trial", height: 900 },
   { name: "nobody", id: "screen--nobody-in-the-room", height: 600 },
   { name: "personas", id: "personas--all-present", height: 1500 },
   { name: "settings", id: "settings--default", height: 2200 },

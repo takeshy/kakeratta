@@ -12,6 +12,7 @@ import { finishBlueskyConnection } from "./bluesky.js";
 import { openSocial } from "./social.js";
 import { createFeed } from "./feed.js";
 import { showConditionFix } from "./condition-fix.js";
+import { showReplyFix } from "./reply-fix.js";
 import { createPersonas } from "./personas.js";
 import { createRoom } from "./room.js";
 import { screenNodes, sheetNodes } from "./screen.js";
@@ -45,6 +46,7 @@ const feed = createFeed({
   // The router's call about a post is where a persona's conditions get
   // corrected; personas is wired below and is only reached on a click.
   onFixCondition: (args) => showConditionFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
+  onFixReply: (args) => showReplyFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
 });
 const compose = createCompose({
   getSettings: () => settings,

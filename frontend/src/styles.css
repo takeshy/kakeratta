@@ -516,3 +516,8 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .condition-current { margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* An author display rule would beat the hidden attribute, so the grid applies only while shown. */
 .condition-ask:not([hidden]) { display: grid; gap: 8px; }
+.said-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.reply-fix .condition-quote { display: block; }
+.reply-fix .condition-quote .who { font-weight: 600; color: var(--ink); }
+.reply-current summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+.reply-current { display: grid; gap: 8px; }

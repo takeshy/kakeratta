@@ -12,7 +12,10 @@ let backoff = 1000;
 async function call(method, path, body) {
   const user = localIdentity()?.key;
   if (user) await verifyIdentity();
-  const options = { method, headers: {}, signal: AbortSignal.timeout(path === "/api/social/publish" ? 250000 : 45000) };
+  // Publishing and a persona's trial turn are the two calls that legitimately
+  // take minutes; everything else should be back well inside 45 seconds.
+  const slow = path === "/api/social/publish" || path.endsWith("/reply/preview");
+  const options = { method, headers: {}, signal: AbortSignal.timeout(slow ? 250000 : 45000) };
   if (user) options.headers["X-Kakeratta-Workspace"] = user;
   if (body !== undefined) {
     options.headers["Content-Type"] = "application/json";
@@ -98,6 +101,7 @@ export const api = {
   edit: (id, text) => call("PATCH", `/api/entry/${encodeURIComponent(id)}`, { text }),
   routing: (id) => call("GET", `/api/entry/${encodeURIComponent(id)}/routing`),
   checkRouting: (id, persona) => call("POST", `/api/entry/${encodeURIComponent(id)}/routing/check`, { persona }),
+  previewReply: (id, persona) => call("POST", `/api/entry/${encodeURIComponent(id)}/reply/preview`, { persona }),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),
 
   buildPersona: (body) => call("POST", "/api/personas/build", body),

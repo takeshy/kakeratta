@@ -141,6 +141,18 @@ The new condition is shown as text you can edit by hand; **Ask the AI to change 
 **OK** saves the condition and then has the router try the same post again, without waking anyone. If the post now goes where you meant, you are done.
 If it still does not, you are told - with the router's reason - and asked again. What was saved stays saved, so the persona is never left with a condition you did not see.
 
+## Fix a reply where it went wrong
+
+A persona's remark is where its tone and instructions show, so that is where they get corrected. Tap **Fix this reply** on a remark, say how it missed - "I don't want recommendations, just how this differs from last time" - and the AI that builds personas rewrites the persona's tone and instructions. Nothing else: the condition, name and tools stay.
+
+![tabe's remark disputed: the new tone and instructions the AI wrote, open for editing (sample data)](docs/captures/en/reply-fix.png)
+
+Both are shown as text you can edit; **Ask the AI to change it** takes a fresh request. **OK** saves them and then has the persona take the same turn again on the same post - reading its notes as it would, but with nothing landing anywhere: no remark on the timeline, no note written, no wake counted.
+
+![The reply tabe would now give to the same post, with That's it or Still not it (sample data)](docs/captures/en/reply-trial.png)
+
+You are the judge. **That's it** closes; **Still not it** quotes the trial reply and asks again how it misses. What was saved stays saved either way.
+
 ## Describe a persona. Start using it.
 
 Answer “What would you like your persona to help with?” in your own words.

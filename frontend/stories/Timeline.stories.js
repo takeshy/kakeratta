@@ -1,7 +1,8 @@
 import { showConditionFix } from "../src/condition-fix.js";
+import { showReplyFix } from "../src/reply-fix.js";
 import { serve } from "./api.js";
 import { feed, panel } from "./frame.js";
-import { conditionDraft, personas, routing, timeline, words } from "./fixtures.js";
+import { conditionDraft, personas, replyDraft, replyPreview, routing, timeline, words } from "./fixtures.js";
 
 export default { title: "Timeline" };
 
@@ -70,6 +71,60 @@ export const ConditionProposal = {
     document.querySelector(".condition-build").click();
     return host;
   },
+};
+
+// tabe's remark on the noodle post, disputed: how it missed, the tone and
+// instructions the AI wrote back, and the reply it would give now.
+const disputedReply = () => {
+  const entries = timeline().answered;
+  return {
+    persona: personas.find((row) => row.id === "gourmet"),
+    remark: entries.find((entry) => entry.id === "s1"),
+    post: entries.find((entry) => entry.id === "p1"),
+    onSaved: () => {},
+  };
+};
+
+function replyFixScene(after) {
+  clearDialogs();
+  serve({ personas, personaDraft: replyDraft(), replyPreview: replyPreview() });
+  const view = feed(timeline().hero, personas, { onFixReply: (args) => showReplyFix({ ...args, onSaved: () => {} }) });
+  view.element.querySelector('.thread[data-id="p1"] .thread-toggle')?.click();
+  const host = panel(view.element);
+  showReplyFix(disputedReply());
+  after?.();
+  return host;
+}
+
+// Waits for a dialog state that arrives after a stubbed fetch, then acts.
+const once = (selector, act) => {
+  const tick = () => {
+    const node = document.querySelector(selector);
+    if (node) act(node); else setTimeout(tick, 30);
+  };
+  tick();
+};
+
+export const ReplyFixAsk = {
+  name: "返事を直す・どう違うか書く",
+  render: () => replyFixScene(() => { document.querySelector(".reply-note").value = words().replyNote; }),
+};
+
+export const ReplyFixProposal = {
+  name: "返事を直す・新しい口調と指示",
+  render: () => replyFixScene(() => {
+    document.querySelector(".reply-note").value = words().replyNote;
+    document.querySelector(".reply-build").click();
+  }),
+};
+
+export const ReplyFixTrial = {
+  name: "返事を直す・試し書き",
+  render: () => replyFixScene(() => {
+    document.querySelector(".reply-note").value = words().replyNote;
+    document.querySelector(".reply-build").click();
+    once(".reply-ok", (ok) => ok.click());
+  }),
 };
 
 export const Reading = { name: "画像を読み取り中", render: () => show(timeline().reading) };
