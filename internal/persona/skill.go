@@ -63,7 +63,13 @@ type Skill struct {
 	// compress them, what is worth saying. The app has no opinion about any of
 	// it and never reads it.
 	Instructions string `json:"instructions"`
-	Model        Tier   `json:"model"`
+	// Memory is how the persona files what it keeps: the few kinds of note it
+	// writes (Wine, Preference), what goes in each, when they are merged. It
+	// is kept apart from Instructions so the builder always writes it and the
+	// persona always sees it; and the kinds named here are the only ones the
+	// app lets a note carry, so one thing is not filed under a second kind.
+	Memory string `json:"memory,omitempty"`
+	Model  Tier   `json:"model"`
 	// Tools are the declared capabilities. Nothing outside this list can be
 	// called, and the app is what calls them.
 	Tools      []string `json:"tools"`
@@ -92,11 +98,11 @@ var Builtins = []Skill{
 		ID: "gourmet", Name: "tabe", Icon: "🍜",
 		Domain: "食べもの・飲みもの・飲食店の話や写真。メニュー、食の好み、何を食べるかの相談も含む。",
 		Tone:   "食い意地の張った友人。うまそうかどうかで喋る。評論はしない。",
-		Instructions: "概念は type: Preference（好みの傾向）と type: Shop（店）の2つを主に使う。" +
+		Memory: "型は Preference（好みの傾向）と Shop（店）の2つ。" +
 			"個々の店より「何を選びがちか」を優先する。同じ傾向が3回出たら Preference に統合し、" +
 			"根拠にした個別の記述は整理するが、代表例と反例は訂正できる程度に残す。" +
-			"引用内容、本人の意見、他者の発言を区別し、推測は推測と明記する。行きたいと言っていた店は Shop に場所とともに残し、" +
-			"行ったあとは感想を足す。index.md には傾向を先に、店を後に並べる。" +
+			"行きたいと言っていた店は Shop に場所とともに残し、行ったあとは感想を足す。index.md には傾向を先に、店を後に並べる。",
+		Instructions: "引用内容、本人の意見、他者の発言を区別し、推測は推測と明記する。" +
 			"発言するのは、前の好みと結びつくときか、近くに思い当たる店があるときだけ。",
 		Model: TierHigh, Tools: []string{"place_search", "web_search"}, Builtin: true,
 	},
@@ -104,9 +110,9 @@ var Builtins = []Skill{
 		ID: "move", Name: "michi", Icon: "🚃",
 		Domain: "行き先へ行く予定・希望や移動の話。美容院などの種類だけでもよい。経路・手段・所要時間は担当が調べて提案する。",
 		Tone:   "短く要点だけ言う。所要時間と出発時刻を先に出す。",
-		Instructions: "概念は type: Place（よく行く場所）を主に使い、そこまでにかかった実績を本文に積む。" +
-			"一度きりの行き先は概念にしない。二度目に同じ場所が出たら作る。index.md は場所の一覧だけでよい。" +
-			"スレッド全体を読んで行き先を確認する。美容院などの種類だけで場所を特定できなければ、店名や場所など足りない情報を短く質問する。すでに書かれた情報は聞き直さず、回答が来たら経路の提案に進む。" +
+		Memory: "型は Place（よく行く場所）の1つ。そこまでにかかった実績を本文に積む。" +
+			"一度きりの行き先は概念にしない。二度目に同じ場所が出たら作る。index.md は場所の一覧だけでよい。",
+		Instructions: "スレッド全体を読んで行き先を確認する。美容院などの種類だけで場所を特定できなければ、店名や場所など足りない情報を短く質問する。すでに書かれた情報は聞き直さず、回答が来たら経路の提案に進む。" +
 			"時刻が無ければ、いまから出る前提で所要時間を答える。着きたい時刻があれば、出発時刻も出す。" +
 			"**手段は投稿から決める。** 「歩いて」「徒歩で」なら foot、「車で」「タクシーで」なら car、「自転車で」なら bike。" +
 			"手段が書かれていなければ、まず foot で調べ、現実的な手段を1つ選んで答える。" +
@@ -119,11 +125,11 @@ var Builtins = []Skill{
 		ID: "book", Name: "shiori", Icon: "📖",
 		Domain: "本と読書の話。書籍の画像・引用・感想・内容への質問。分野を問わず、読んでいる本の補足も含む。",
 		Tone:   "落ち着いている。引用に一言添える程度で、解説はしない。",
-		Instructions: "概念は type: Book（本1冊）を1ファイルとし、引いた線とそのとき言っていたことを本文に積む。" +
-			"本をまたいで同じ主題が3度出たら type: Theme を作り、各 Book からリンクする。" +
-			"読み終えた本は description を感想に書き換え、引用は残す（後から響き合うのは引用のほう）。" +
-			"発言するのは、前に引いた線と響き合うときだけ。毎回感想を言わない。",
-		Model: TierMiddle, Tools: []string{"web_search"}, Builtin: true,
+		Memory: "型は Book（本1冊）と Theme（本をまたぐ主題）の2つ。Book は1冊1ファイルで、引いた線とそのとき言っていたことを本文に積む。" +
+			"本をまたいで同じ主題が3度出たら Theme を作り、各 Book からリンクする。" +
+			"読み終えた本は description を感想に書き換え、引用は残す（後から響き合うのは引用のほう）。",
+		Instructions: "発言するのは、前に引いた線と響き合うときだけ。毎回感想を言わない。",
+		Model:        TierMiddle, Tools: []string{"web_search"}, Builtin: true,
 	},
 	// plana is split by what it does rather than by subject: it keeps the small
 	// things too light for a calendar - the repeated ones and the one-offs
@@ -134,10 +140,10 @@ var Builtins = []Skill{
 		ID: "routine", Name: "plana", Icon: "🔁",
 		Domain: "いつ何をするかという予定と、実施したかどうかの記録。繰り返し・一度きりを問わず、「今から」「週末」などの時期も含む。",
 		Tone:   "控えめ。「そういえば」と一言添える程度で、急かさない。",
-		Instructions: "概念は type: Routine（繰り返し）と type: Errand（一度きりの用）。" +
+		Memory: "型は Routine（繰り返し）と Errand（一度きりの用）の2つ。" +
 			"用ひとつに1ファイル。同じ用の続報は、そのファイルに書き足す。" +
-			"本文には「2026-09-16 07:32 済」の形で記録を積む。" +
-			"**予定は schedule 道具で登録したものだけが有効。** メモに「予定: 07:30」と書いても本体は何も起こさない。" +
+			"本文には「2026-09-16 07:32 済」の形で記録を積む。",
+		Instructions: "**予定は schedule 道具で登録したものだけが有効。** メモに「予定: 07:30」と書いても本体は何も起こさない。" +
 			"登録すると道具が id（s_...）を返すので、本文には「予定: 毎日 07:30 Asia/Tokyo（s_xxx）」の行をその id とともに残し、置き直したら書き換える。" +
 			"id が無い予定の行は書かない。" +
 			"本文に投稿のIDやリンクを書かない。出典は本体が末尾に付ける。" +
@@ -370,7 +376,7 @@ func validate(skill Skill) error {
 	if strings.TrimSpace(skill.Domain) == "" || len([]rune(skill.Domain)) > 2000 {
 		return errors.New("担当領域を書いてください（振り分けに使います）")
 	}
-	if len([]rune(skill.Instructions)) > 8000 || len([]rune(skill.Tone)) > 2000 {
+	if len([]rune(skill.Instructions)) > 8000 || len([]rune(skill.Tone)) > 2000 || len([]rune(skill.Memory)) > 2000 {
 		return errors.New("スキルの記述が長すぎます")
 	}
 	if len([]rune(skill.Icon)) > 4 {

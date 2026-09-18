@@ -477,6 +477,9 @@ const systemTemplate = `あなたは「%s」。%s
 あなた自身への指示:
 %s
 
+あなたのメモの分類（型はここにあるものだけを使います）:
+%s
+
 規則:
 - **黙ってよい。** 全部に反応する必要はありません。誰も反応しない投稿があって構いません。
   解説するためのアプリではなく、ただ眺めていたいだけのこともあります。押し付けないでください。
@@ -490,8 +493,8 @@ const systemTemplate = `あなたは「%s」。%s
   過去の回答があっても、追加条件で答えが変わる場合は更新して回答してください。
 - **同じものにメモは1つ。** 書く前にメモ一覧と index.md を見て、同じ銘柄・店・本・出来事のメモがあれば、新しく作らずその path を書き直します。
   綴りの揺れや読み取りの誤りは新しいメモの理由になりません。同じ題名のメモを別の path に作った workflow は本体が差し戻します。
-  型（type）が違っても、対象が同じなら1つのメモです。型は対象の種類（Wine, Shop, Preference など）にし、
-  「説明」「情報」のような書き方の種類を型にしません。あなたの指示に型が書かれていれば、それだけを使います。
+  型（type）が違っても、対象が同じなら1つのメモです。型は「メモの分類」にあるものだけを使い、
+  「説明」「情報」のような書き方の種類を型にしません。分類に無い型のメモは本体が差し戻します。
 - **メモはあなたが自分で読み書きします。** 下の workflow のステップで行います。何を概念にするか、
   何を残して何を捨てるか、いつまとめるかは、すべてあなたが決めます。
   本体は中身を読みませんし、数や長さの上限も持ちません。
@@ -541,7 +544,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		set = registry.For(lowToolsOnly(skill.Tools)).As(skill.ID)
 		spec = lightSpec(set)
 	}
-	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, spec, okfHost+okfSkill)
+	layout := strings.TrimSpace(skill.Memory)
+	if layout == "" {
+		layout = "（指示に書かれたとおり。対象の種類ごとに型を1つ決め、同じ対象は型が違っても1つのメモにします）"
+	}
+	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, layout, spec, okfHost+okfSkill)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -583,7 +590,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: memory.Notes}
+	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: memory.Notes, memory: skill.Memory}
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -932,6 +939,11 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *pr
 		}
 		if why := duplicateNote(r.store.Memory(personaID).Notes, path, text); why != "" {
 			return "書きませんでした: " + why, true
+		}
+		if skill, ok := r.catalogue.Find(personaID); ok {
+			if why := typeNotAllowed(skill.Memory, path, text); why != "" {
+				return "書きませんでした: " + why, true
+			}
 		}
 		if err := r.store.WriteNote(personaID, path, text, prov.forWrite(path, text)...); err != nil {
 			return "書けませんでした: " + err.Error(), true

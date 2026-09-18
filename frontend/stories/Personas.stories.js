@@ -62,6 +62,7 @@ export const AICreateDraft = {
     const draft = {
       id: "wine", name: ja ? "ぶどう" : "budou", icon: "🍷", model: "middle", tools: ["web_search"],
       domain: ja ? "ラベルの写真から、ワインの銘柄・産地・ブドウ品種を解説し、お店で買ったり注文したりできるようにする。" : "Identify wines from label photos and explain the producer, region, and grapes so you can buy or order them.",
+      memory: ja ? "型は Wine（銘柄。産地・品種・感想）と Preference（好みの傾向。同じ好みが3回出たら統合）の2つ。" : "Two kinds: Wine (producer, region, grapes, impressions) and Preference (a taste that has come up three times).",
       tone: ja ? "気軽に話せる友達のように、短く親しみやすく。" : "Friendly and relaxed, with short replies.",
       instructions: ja ? "ラベルが届いたら、ワインショップやお店で伝わる名前と、ブドウ品種・味わいを短く解説します。飲んだワインと感想も覚えます。" : "When a label arrives, give the name a shop or restaurant would recognize, with its grapes and style. Remember the wines you try and what you thought.",
     };

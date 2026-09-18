@@ -243,7 +243,7 @@ but the steps are written against this app's tools. It rides along in every
 persona's prompt, so it has to stay short.
 
 Which `type` values to use and when to merge differ by subject, so they go in
-each skill's `instructions` — `Preference` and `Shop` for the food one, `Book`
+each skill's `memory` (its note kinds) — `Preference` and `Shop` for the food one, `Book`
 and `Theme` for the reading one. **The format is handed over; the policy belongs
 to the skill.**
 

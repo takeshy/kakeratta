@@ -202,6 +202,9 @@ type turnRules struct {
 	// notes are the persona's notes as they stand, so a workflow filing one
 	// thing under a second path is sent back to the first.
 	notes []store.Note
+	// memory is the persona's memory layout; the kinds it names are the only
+	// ones a note may carry.
+	memory string
 }
 
 var scheduleIDRef = regexp.MustCompile(`\bs_[A-Za-z0-9]+`)
@@ -323,6 +326,9 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			if why := duplicateNote(rules.notes, strings.TrimSpace(step.Path), step.Text); why != "" {
 				problems = append(problems, at+": "+why)
 			}
+			if why := typeNotAllowed(rules.memory, strings.TrimSpace(step.Path), step.Text); why != "" {
+				problems = append(problems, at+": "+why)
+			}
 			// Two new notes with one title, in the same workflow, are the same
 			// mistake made at once.
 			if key := sameTitleKey(noteTitle(step.Text)); key != "" {
@@ -348,6 +354,9 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			}
 			if strings.TrimSpace(step.Path) == "" || strings.TrimSpace(step.Text) == "" {
 				problems = append(problems, at+": 根拠のメモの path と text が要ります")
+			}
+			if why := typeNotAllowed(rules.memory, strings.TrimSpace(step.Path), step.Text); why != "" {
+				problems = append(problems, at+": "+why)
 			}
 		case "cancel_schedule":
 			if !rules.set.Allows("schedule") {
