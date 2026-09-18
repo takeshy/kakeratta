@@ -106,12 +106,12 @@ const once = (selector, act) => {
 };
 
 export const ReplyFixAsk = {
-  name: "返事を直す・どう違うか書く",
+  name: "返し方を直す・どう違うか書く",
   render: () => replyFixScene(() => { document.querySelector(".reply-note").value = words().replyNote; }),
 };
 
 export const ReplyFixProposal = {
-  name: "返事を直す・新しい口調と指示",
+  name: "返し方を直す・新しい口調と指示",
   render: () => replyFixScene(() => {
     document.querySelector(".reply-note").value = words().replyNote;
     document.querySelector(".reply-build").click();
@@ -119,7 +119,7 @@ export const ReplyFixProposal = {
 };
 
 export const ReplyFixTrial = {
-  name: "返事を直す・試し書き",
+  name: "返し方を直す・試し書き",
   render: () => replyFixScene(() => {
     document.querySelector(".reply-note").value = words().replyNote;
     document.querySelector(".reply-build").click();

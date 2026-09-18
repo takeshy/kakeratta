@@ -148,7 +148,7 @@ If it still does not, you are told - with the router's reason - and asked again.
 
 ## Fix a reply where it went wrong
 
-A persona's remark is where its tone and instructions show, so that is where they get corrected. Tap **Fix this reply** on a remark, say how it missed - "I don't want recommendations, just how this differs from last time" - and the AI that builds personas rewrites the persona's tone and instructions. Nothing else: the condition, name and tools stay.
+A persona's remark is where its tone and instructions show, so that is where they get corrected. Tap **Change how it replies** on a remark, say how it missed - "I don't want recommendations, just how this differs from last time" - and the AI that builds personas rewrites the persona's tone and instructions. Nothing else: the condition, name and tools stay.
 
 <img src="docs/captures/en/reply-fix.png" alt="tabe's remark disputed: the new tone and instructions the AI wrote, open for editing (sample data)" width="382">
 

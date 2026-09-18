@@ -19,7 +19,7 @@ export function showReplyFix({ persona, remark = null, post, onSaved }) {
   // Without a remark, the dispute is about the persona's silence on the post,
   // and the post is where its turn is tried again.
   const target = remark || post;
-  const title = remark ? t("{0} の返事を直す", persona.name) : t("{0} に返事してほしかった", persona.name);
+  const title = remark ? t("{0} の返し方を直す", persona.name) : t("{0} に返事してほしかった", persona.name);
   const postText = cut(post?.text || "");
   // said is the remark being disputed: the original one, and then each trial
   // turn the person said was still not it. Silence is said as such.

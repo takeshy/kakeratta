@@ -154,7 +154,7 @@ the router try the same post again without waking anyone. If it lands as you
 meant, the dialog closes; if not, the router's reason is shown and you are
 asked again. The save is not rolled back.
 
-**Fix this reply**, on a persona's remark, does the same for the persona's
+**Change how it replies**, on a persona's remark, does the same for the persona's
 tone and instructions. Say how the reply missed; the persona builder rewrites
 the tone and the instructions and nothing else, both shown as text you can
 edit. **OK** saves them and then has the persona take the same turn again on

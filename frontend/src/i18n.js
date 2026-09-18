@@ -192,7 +192,7 @@ const EN = {
   "今の担当条件では対象と判断された。": "Under the current condition it was judged to be in scope.",
   "本人の補足：「{0}」": "The user adds: \"{0}\"",
   "担当条件（domain）だけを最小限に直し、他の項目は変えないでください。": "Change only the condition (domain), as little as possible, and leave everything else as it is.",
-  "返事を直す": "Fix this reply", "{0} の返事を直す": "Fix {0}'s reply",
+  "返し方を直す": "Change how it replies", "{0} の返し方を直す": "Change how {0} replies",
   "期待とどう違うか": "How it missed", "投稿：{0}": "Post: {0}",
   "例：おすすめの店を並べるより、前に行った店との違いを一言で言ってほしい。": "e.g. Rather than listing places, say in a line how this differs from one I went to before.",
   "例：もっと短く。理由は一つだけ挙げて。": "e.g. Shorter. Give one reason, not three.",

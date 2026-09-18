@@ -116,6 +116,32 @@ speaker.onLine((line) => {
   document.querySelector(`[data-id="${line.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
 });
 
+// While a sheet is open the page behind it holds still. Without this a
+// finger that runs past the end of the sheet, or lands beside it, scrolls the
+// timeline instead - and the sheet, which is what the finger was on, does not
+// move. The page keeps its place and gets it back when the sheet closes.
+let heldAt = 0;
+function holdPage() {
+  if (document.body.classList.contains("sheet-open")) return;
+  heldAt = window.scrollY || 0;
+  document.body.style.top = `-${heldAt}px`;
+  document.body.classList.add("sheet-open");
+}
+function releasePage() {
+  if (!document.body.classList.contains("sheet-open")) return;
+  document.body.classList.remove("sheet-open");
+  document.body.style.top = "";
+  window.scrollTo(0, heldAt);
+}
+
+// A tap on the held page beside the sheet closes it, as a tap beside a dialog
+// does - unless the sheet is the settings the app cannot run without.
+document.body.addEventListener("click", (event) => {
+  if (event.target !== document.body || !document.body.classList.contains("sheet-open")) return;
+  if (panel === "settings" && settingsRequired) return;
+  close();
+});
+
 function showPanel() {
   const body = panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : settingsPanel.element;
   const host = $("#sheet");
@@ -125,6 +151,7 @@ function showPanel() {
     body,
     onClose: panel === "settings" && settingsRequired ? null : close,
   }));
+  holdPage();
 }
 
 function open(which) {
@@ -149,6 +176,7 @@ function close() {
   const host = $("#sheet");
   host.classList.remove("required");
   clear(host);
+  releasePage();
 }
 
 let serverEntries = [];
