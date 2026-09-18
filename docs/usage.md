@@ -128,6 +128,21 @@ or reply (not while the tab is in the background).
 **Read-aloud mode** reads the backlog while you are moving (the browser's own
 Web Speech API).
 
+**Router's call**, on your own posts and replies, shows what the app decided
+about that post: the personas it chose, and for each one it passed over, the
+router's one-line reason. A persona you mentioned with `@` is not listed. A
+post the router could not judge (no model configured, the call failed) reads as
+"no record", which is different from a post it sent to nobody.
+
+From each row you can correct the persona's condition. **Should have been
+called** and **Should not have been called** open the same dialog: say why, the
+persona builder rewrites the condition (only the condition), and the result is
+shown as text you can edit. **Ask the AI to change it** sends a new request
+that works from whatever is in the box. **OK** saves the condition and then has
+the router try the same post again without waking anyone. If it lands as you
+meant, the dialog closes; if not, the router's reason is shown and you are
+asked again. The save is not rolled back.
+
 ## Fast startup and offline posts
 
 The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.
@@ -248,6 +263,7 @@ persona receives earlier reactions as context for more complex reasoning.
 <workspace>/blobs/<id>.png         captures
 <workspace>/memory/<id>/           each persona's notes (an OKF bundle; the app does not read inside)
 <workspace>/memory/<id>.meta.json  how many times it woke, and so on
+<workspace>/routing.json           the router's call per post: who was chosen, who was passed over and why
 <workspace>/skills/<id>/skill.json added personas
 <workspace>/search-embeddings/     semantic search vectors (rebuilt on the next search if removed)
 ```

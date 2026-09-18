@@ -115,6 +115,7 @@
             <li>必ず答えがほしいときは <code>@tabe</code> のように <strong>@名前</strong> で指名します。担当の名前の並び（担当バー）を押すと、@名前 が書き込まれます。</li>
             <li>投稿・返信のあと 5 分間は、取りこぼしに備えて自動でタイムラインを読み直します。</li>
             <li><strong>🔈 読み上げ</strong> で、溜まった反応を順に読み上げます。移動中に便利です。</li>
+            <li>自分の投稿・返信の <strong>担当の判断</strong> で、誰が呼ばれ、誰がなぜ呼ばれなかったかを見られます。詳しくは <a href="#ja-routing">担当の判断を見て、条件を直す</a>。</li>
             <li>投稿の <strong>消す</strong> で削除できます。削除した投稿は検索にも出ません。</li>
           </ul>
         </section>
@@ -227,6 +228,24 @@
           <p><strong>このメモを忘れさせる</strong> を押し、メモの名前を確認すると、その1件だけを削除します。ほかのメモと元の投稿は残ります。<strong>すべてのメモを忘れさせる</strong> は、その担当のメモをまとめて消す操作です。どちらも元に戻せません。担当そのものの <strong>削除</strong> ではメモは残ります。</p>
           <p>メモを消しても、担当が残っている投稿を検索して再び覚えることがあります。今後の覚え方や判断を変えるには、担当画面の <strong>AIで修正</strong> を使います。</p>
           <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別削除し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。担当の修正は、すでに保存されたメモを自動で訂正する操作ではありません。</p></div>
+          <h3 id="ja-routing">担当の判断を見て、条件を直す</h3>
+          <p>誰にかけらを渡すかは本体が決めています。自分の投稿・返信の <strong>担当の判断</strong> を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が並びます。<code>@名前</code> で指名した担当は出ません。指名で届いたのはあなたの判断だからです。判定できなかった投稿は「判断の記録がありません」と出ます。</p>
+          <figure>
+            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" />
+            <figcaption>呼ばれた担当と、呼ばれなかった理由。各行から担当条件を直せます（サンプル）。</figcaption>
+          </figure>
+          <ol>
+            <li>行の <strong>呼んでほしかった</strong>（または <strong>呼んでほしくなかった</strong>）を押します。</li>
+            <li>理由や、どう変えてほしいかを自分の言葉で書き、<strong>条件を作る</strong> を押します。担当を作る AI が担当条件だけを書き直します。</li>
+            <li><strong>新しい判定条件</strong> は文章のまま表示され、手で直せます。<strong>AIに変更を依頼</strong> を押すと別の欄が開き、直してほしい内容を新たに書いて、欄の条件を書き直させられます。</li>
+            <li><strong>OK</strong> で条件を保存し、続けて同じ投稿で振り分けを試します。担当は起こしません。狙いどおりに届けば閉じます。</li>
+            <li>まだ違っていれば、届かなかった理由とともにそのことを伝え、理由の入力からやり直します。保存した条件はそのまま残ります。<strong>キャンセル</strong> は何もしません。</li>
+          </ol>
+          <figure>
+            <img src="/captures/ja/condition-fix.png" alt="あなたの理由から AI が書いた michi の新しい判定条件。保存前に手で直せる（サンプル）" loading="lazy" />
+            <figcaption>今の判定条件と、AI が書いた新しい判定条件。OK で保存して、同じ投稿で試します（サンプル）。</figcaption>
+          </figure>
+          <div class="tip"><p>変わるのは担当条件だけです。口調や覚え方は変わりません。裏で何かを学習することもなく、条件は保存前にいつも目で確かめられます。</p></div>
           <p>上級者向けに、<code>skill.json</code> を書いて <strong>担当を追加する</strong> ことも、この画面からできます。</p>
         </section>
 
@@ -479,6 +498,7 @@
             <li>For a guaranteed answer, mention a persona with <strong>@name</strong>, such as <code>@tabe</code>. Tapping a name in the persona bar writes the mention for you.</li>
             <li>For five minutes after you post or reply, the timeline is re-read automatically in case a reaction was missed.</li>
             <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Handy while moving.</li>
+            <li><strong>Router's call</strong> on your own posts and replies shows who was called and why the others were not. See <a href="#en-routing">See the router's call and fix a condition</a>.</li>
             <li><strong>Delete</strong> removes a post. Deleted posts never appear in search.</li>
           </ul>
         </section>
@@ -591,6 +611,24 @@
           <p>Select <strong>Forget this note</strong> and confirm its name to delete only that note. Other notes and original posts remain. <strong>Forget all notes</strong> erases all notes for that persona. Neither action can be undone. Deleting the persona itself keeps its memory.</p>
           <p>A persona may remember something again by searching the remaining posts. To change its future memory or judgment rules, use <strong>Edit with AI</strong> in the Personas panel.</p>
           <div class="tip"><p>For example, delete an incorrect “Likes this wine” note individually, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not automatically correct its existing notes.</p></div>
+          <h3 id="en-routing">See the router's call and fix a condition</h3>
+          <p>The app decides who gets each fragment. Tap <strong>Router's call</strong> on one of your posts or replies to see which personas were called and, for each one that was not, the router's one-line reason. A persona you mentioned with <code>@name</code> is not listed: reaching it was your call. A post the router could not judge reads as “No record of the router's call”.</p>
+          <figure>
+            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" />
+            <figcaption>Who was called, and why the others were not. Each row can correct the persona's condition (sample data).</figcaption>
+          </figure>
+          <ol>
+            <li>Tap <strong>Should have been called</strong> (or <strong>Should not have been called</strong>) on a row.</li>
+            <li>Say why, or what should change, in your own words and tap <strong>Write the condition</strong>. The AI that builds personas rewrites the condition, and only the condition.</li>
+            <li><strong>New condition</strong> is shown as text you can edit by hand. <strong>Ask the AI to change it</strong> opens another box: write a fresh request and the AI rewrites what is in the condition box.</li>
+            <li><strong>OK</strong> saves the condition and then has the router try the same post again. Nobody is woken. If the post lands as you meant, the dialog closes.</li>
+            <li>If it still does not, you are told - with the router's reason - and asked again from the start. What was saved stays saved. <strong>Cancel</strong> changes nothing.</li>
+          </ol>
+          <figure>
+            <img src="/captures/en/condition-fix.png" alt="A new condition for michi, written by the AI from your reason and open for editing before saving (sample data)" loading="lazy" />
+            <figcaption>The current condition and the AI's new one. OK saves it and tries the same post (sample data).</figcaption>
+          </figure>
+          <div class="tip"><p>Only the condition changes; tone and memory rules stay. Nothing is learned in the background, and the condition is always in front of you before it is saved.</p></div>
           <p>Advanced users can also <strong>add a persona</strong> from a hand-written <code>skill.json</code> in the same panel.</p>
         </section>
 

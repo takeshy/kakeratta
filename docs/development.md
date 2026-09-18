@@ -101,6 +101,11 @@ CAPTURE_ONLY=bluesky-connect,bluesky-selection,bluesky-preview,settings,timeline
 npm --prefix frontend run build
 ```
 
+The router's call and the condition dialog are captured from
+`frontend/stories/Timeline.stories.js` (`routing`, `condition-fix`); the
+stories serve the decision and the builder's answer from fixtures, so no model
+is called.
+
 ## Browser storage and offline validation
 
 `local-store.js` provides per-user IndexedDB storage; `outbox.js` manages pending submissions. The cache holds the latest 20 original posts and their replies; unsent posts are separate. The server’s atomic `CreateEntry` allows each post ID to be created only once. The service worker caches public application assets, never API responses.

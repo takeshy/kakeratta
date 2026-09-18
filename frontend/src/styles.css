@@ -514,4 +514,5 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .condition-body { display: grid; gap: 10px; }
 .condition-quote { margin: 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .condition-current { margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.condition-ask { display: grid; gap: 8px; }
+/* An author display rule would beat the hidden attribute, so the grid applies only while shown. */
+.condition-ask:not([hidden]) { display: grid; gap: 8px; }

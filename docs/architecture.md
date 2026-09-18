@@ -43,6 +43,16 @@ A place, a time or a food named in passing is not a reason: "明日9:10に神谷
 ordinary answer, and so is a routing call that fails. Every decision is logged
 with a one-line reason per persona.
 
+**The decision is kept, and can be corrected.** What the router said about a
+post - whom it chose, whom it passed over and why - is stored per post
+(`routing.json`, or a `routing` collection on Firestore) and shown from the
+timeline. A persona reached by an @ mention is left out, since that was not
+the router's call, and a router that had no answer leaves no record. From the
+timeline a person can dispute a row: the persona builder rewrites the
+persona's condition from their reason, they edit the text, and saving has the
+router try the same post again without delivering it (`Runner.CheckRouting`).
+The condition is the only thing that changes; nothing is learned silently.
+
 ### A turn: read, then a workflow
 
 A persona does not call tools one at a time any more (`internal/persona/workflow.go`).

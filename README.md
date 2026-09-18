@@ -126,6 +126,21 @@ For older notes without a saved post link, **Find original post** opens search.
 Use **Forget this note** to delete an incorrect memory individually. Original posts and other notes remain.
 A persona may remember it again from past posts. To change how it remembers, use **Edit with AI** in the Personas panel—for example, “Do not infer a preference from trying a wine once.”
 
+## See why a persona was called, or not
+
+The app decides who gets each post, and it says why. Tap **Router's call** on one of your posts or replies to see which personas were called and, for each one that was not, the router's one-line reason.
+A persona you mentioned with `@` is not listed: reaching it was your call, not the router's.
+
+![The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)](docs/captures/en/routing.png)
+
+When the router got it wrong, fix the persona's condition right there. **Should have been called** and **Should not have been called** open the same flow: say why in your own words, and the AI that builds personas rewrites the condition.
+The new condition is shown as text you can edit by hand; **Ask the AI to change it** takes a fresh request and rewrites what is in the box.
+
+![A new condition for michi, written by the AI from your reason and open for editing before saving (sample data)](docs/captures/en/condition-fix.png)
+
+**OK** saves the condition and then has the router try the same post again, without waking anyone. If the post now goes where you meant, you are done.
+If it still does not, you are told - with the router's reason - and asked again. What was saved stays saved, so the persona is never left with a condition you did not see.
+
 ## Describe a persona. Start using it.
 
 Answer “What would you like your persona to help with?” in your own words.

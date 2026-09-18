@@ -55,6 +55,11 @@ const WORDS = {
     mentioning: "@tabe 今日の昼、どこがいいと思う",
     medicine: "朝の薬",
     flowers: "仕事帰りに花を買う",
+    notTravel: "移動や場所についての話ではありません。",
+    notBook: "本や読書に関する内容ではありません。",
+    notRoutine: "繰り返しの用事や、あとで確かめる予定ではありません。",
+    fixNote: "店の場所や行き方の話もしているので、michi にも見てほしい。",
+    fixedDomain: "移動。経路、所要時間、行き先。または、飲食店の場所や行き方の話。",
   },
   en: {
     noodles: "That dan dan noodle place from the other day - too much sesame, I think",
@@ -73,8 +78,38 @@ const WORDS = {
     mentioning: "@tabe where should I have lunch today",
     medicine: "morning medicine",
     flowers: "flowers on the way home",
+    notTravel: "Not about getting somewhere or a place.",
+    notBook: "Not about a book or reading.",
+    notRoutine: "Not a recurring chore or something to check on later.",
+    fixNote: "It is also about where the place is and how to get there, so michi should see it.",
+    fixedDomain: "Getting around: routes, travel time, destinations. Or where a restaurant is and how to get there.",
   },
 };
+
+// What the router decided about the sample posts, as /api/entry/{id}/routing
+// returns it: who it chose, whom it passed over and its reason for each.
+export function routing() {
+  const w = words();
+  return {
+    p1: {
+      recorded: true,
+      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜" }],
+      excluded: [
+        { id: "book", name: "shiori", icon: "📖", reason: w.notBook },
+        { id: "move", name: "michi", icon: "🚃", reason: w.notTravel },
+        { id: "routine", name: "plana", icon: "🔁", reason: w.notRoutine },
+      ],
+    },
+  };
+}
+
+// The persona builder's answer when asked, from the router's call, to widen
+// michi's condition to the noodle post.
+export function conditionDraft() {
+  const w = words();
+  const move = personas.find((row) => row.id === "move");
+  return { message: "", placeholder: "", draft: { ...move, domain: w.fixedDomain } };
+}
 
 export const words = () => WORDS[getLanguage()] || WORDS.en;
 
