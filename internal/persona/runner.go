@@ -610,7 +610,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// The index was handed over at the start, so it counts as read: the review
 	// should not call an index rewrite unread.
 	read := []string{"index.md（最初に渡したもの）:\n" + indexNote}
-	var files []llm.Attachment
 	failures := map[string]string{}
 	budget := newLookups(maxReads)
 	var approved *Workflow
@@ -622,9 +621,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			offered = []llm.Tool{readTool, submit}
 		}
 		reply, err := client.Complete(ctx, llm.Request{
-			Model: model, Messages: messages, Files: files, Tools: offered, ToolChoice: "required",
+			Model: model, Messages: messages, Tools: offered, ToolChoice: "required",
 		})
-		files = nil
 		if err != nil {
 			return failed(err)
 		}
@@ -708,11 +706,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 					answers[call.ID] = "read を読めませんでした: " + err.Error()
 					break
 				}
-				text, sources, attached := r.readAll(ctx, skill, request.Steps, set, post, &noteSources, failures, budget)
+				text, sources := r.readAll(ctx, skill, request.Steps, set, post, &noteSources, failures, budget)
 				readSources = append(readSources, sources...)
-				if attached != nil {
-					files = attached
-				}
 				read = append(read, text)
 				record.Reads = append(record.Reads, readRecord{Steps: request.Steps, Output: preview(text)})
 				answers[call.ID] = text + readFooter(maxReads-len(record.Reads), set)
@@ -720,10 +715,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 		for _, call := range reply.Calls {
 			messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: answers[call.ID]})
-		}
-		if files != nil {
-			// A picture travels with a user message, so it gets one of its own.
-			messages = append(messages, llm.Message{Role: "user", Content: "元の画像です。"})
 		}
 	}
 	if approved == nil {

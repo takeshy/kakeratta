@@ -212,6 +212,8 @@ func asCall(content string, offered map[string]bool) map[string]any {
 					read = map[string]any{"type": "notes_read", "paths": parsed.Args["paths"], "tool": "", "args": "{}"}
 				case "notes_list":
 					read = map[string]any{"type": "notes_list", "paths": []any{}, "tool": "", "args": "{}"}
+				case "image":
+					read = map[string]any{"type": "image", "paths": []any{}, "tool": "", "args": string(args)}
 				}
 				return call("read", map[string]any{"steps": []any{read}})
 			}
@@ -1195,17 +1197,17 @@ func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	failures := map[string]string{}
 
-	text, _, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
+	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
 	if !strings.Contains(text, "目次") {
 		t.Fatalf("a note read in the wrong field was refused: %s", text)
 	}
 
 	broken := []ReadStep{{Type: "tool", Tool: "place_search", Args: `{"query":"神谷町"}`}}
-	first, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
+	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
 	if strings.Contains(first, "前にも同じ理由で失敗") {
 		t.Fatalf("a first failure was called a repeat: %s", first)
 	}
-	second, _, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
+	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, &[]store.NoteSource{}, failures, newLookups(maxReads))
 	if !strings.Contains(second, "前にも同じ理由で失敗") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1221,7 +1223,7 @@ func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
 	set := runner.registry(s.Settings()).For([]string{"web_search"}).As("gourmet")
 	skill, _ := runner.catalogue.Find("gourmet")
 	var sources []store.NoteSource
-	text, _, _ := runner.readAll(context.Background(), skill,
+	text, _ := runner.readAll(context.Background(), skill,
 		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
 		set, timeline.Entry{}, &sources, map[string]string{}, newLookups(maxReads))
 	if !strings.Contains(text, "豚骨に寄る") {
@@ -1239,11 +1241,11 @@ func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
 	var sources []store.NoteSource
 
-	first, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
+	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
 	if !strings.Contains(first, "道具が使えませんでした") || strings.Contains(first, "前にも同じ理由で") {
 		t.Fatalf("first failure: %s", first)
 	}
-	second, _, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
+	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, &sources, failures, newLookups(maxReads))
 	if !strings.Contains(second, "前にも同じ理由で失敗しています") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1593,5 +1595,44 @@ func TestEveryWorkflowDecidesWhetherToSpeak(t *testing.T) {
 	noteOnly := Workflow{Steps: []Step{{Type: "write_note", Path: "a.md", Text: "x"}, {Type: "speak", Text: ""}}}
 	if problems := checkWorkflow(noteOnly, turnRules{set: set, noteRequired: true}); len(problems) != 0 {
 		t.Fatalf("a note without a remark was refused: %v", problems)
+	}
+}
+
+// None of the persona models take a picture, so the original is never handed
+// over: a persona that asks for it is told what it already has and goes on.
+// The one read on arrival is made rich enough - colour, shape, count, layout -
+// that there is nothing left to ask.
+func TestThePictureIsNeverHandedOver(t *testing.T) {
+	asked := 0
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["gourmet"]}`
+		}
+		if asked == 0 {
+			asked++
+			return `{"action":"tool","tool":"image"}`
+		}
+		return `{"action":"speak","text":"白のブレンドですね"}`
+	}, "gourmet")
+	blob, err := s.PutBlob([]byte("png"), "image/png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := time.Now()
+	entry := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User, Text: "楽しみ", At: time.Now(),
+		Media: &timeline.Media{BlobID: blob, MIME: "image/png", ReadAt: &read, Describe: "ワインのラベル"}}
+	entry.Root = entry.ID
+	if err := s.Append(entry); err != nil {
+		t.Fatal(err)
+	}
+	runner.react(entry.ID)
+	if said := remarks(t, s); len(said) != 1 || said[0].Text != "白のブレンドですね" {
+		t.Fatalf("remarks = %+v", said)
+	}
+	if !stub.seen("元画像は渡せません") {
+		t.Fatal("the persona was not told the picture is not handed over")
+	}
+	if strings.Contains(stub.promptFor("tabe"), "### image") {
+		t.Fatal("the image read is still described to the persona")
 	}
 }

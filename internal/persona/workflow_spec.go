@@ -194,10 +194,7 @@ read の形:
 ### notes_read
 paths のメモの中身を読みます。
 ` + fence(`{"type":"notes_read","paths":["tastes/tonkotsu.md","shops/jiro-mita.md"],"tool":"","args":"{}"}`) + `❌ メモを tool で読む
-` + fence(`{"type":"tool","paths":["index.md"],"tool":"notes_read","args":"{}"}`) + `
-### image
-投稿の元画像を見ます（画像の付いた投稿だけ）。
-` + fence(`{"type":"image","paths":[],"tool":"","args":"{}"}`))
+` + fence(`{"type":"tool","paths":["index.md"],"tool":"notes_read","args":"{}"}`))
 
 	if len(lookups) > 0 {
 		b.WriteString(`
@@ -209,7 +206,7 @@ paths のメモの中身を読みます。
 			b.WriteString(fence(`{"type":"tool","paths":[],"tool":"` + declared.Name + `","args":` + jsonString(sampleArgs(declared)) + `}`))
 		}
 	} else {
-		b.WriteString("\n（あなたが調べるために使える道具はありません。read では notes_list / notes_read / image だけを使います）\n")
+		b.WriteString("\n（あなたが調べるために使える道具はありません。read では notes_list / notes_read だけを使います）\n")
 	}
 
 	b.WriteString(`

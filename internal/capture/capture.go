@@ -2,8 +2,9 @@
 //
 // An image is read once, here, and the text is shared. Handing the picture to
 // every persona would mean paying for vision once per persona for the same
-// screenshot; a persona that decides it needs the detail can ask for the
-// original afterwards.
+// screenshot - and none of the persona models take one anyway. So the read
+// says everything a persona might later want to know: the text, what is in
+// it, where it seems to come from, and how it looks.
 //
 // Nothing here judges the content. Whether a post matters, and to whom, is the
 // personas' business - the app only turns a picture into something they can all
@@ -23,12 +24,13 @@ import (
 const readPrompt = `画面のキャプチャや写真を読み取ります。次のJSONだけを返してください。
 
 {"text":"画像内の文字を原文のまま。改行も保つ。文字がなければ空文字",
- "describe":"何が写っているかの説明（1〜3文）",
+ "describe":"何が写っているかの説明（2〜4文）。あとから誰かが尋ねそうな見た目の特徴も含める: 物なら色・形・素材・数量・状態、ラベルや包装なら図柄・配色・配置、料理なら盛り付けや量、画面なら何のどの画面か",
  "origin":"出典の手がかり（アプリ名・サイト名・書名・著者・UIの特徴など。分からなければ空文字）"}
 
 規則:
 - 文字は要約せず、見えるとおりに写す。縦書きは読み順に直してよい。
 - 推測で固有名詞を足さない。読めないものは書かない。
+- 見た目の特徴（色・形・数・状態）は、文字が無くても describe に書く。担当はこの説明だけを見て、画像そのものは見ない。
 - 画像の内容について意見や感想を書かない。`
 
 // Read looks at an image once and fills in what everyone will share.

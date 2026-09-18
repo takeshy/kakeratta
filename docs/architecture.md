@@ -67,8 +67,8 @@ A persona does not call tools one at a time any more (`internal/persona/workflow
 
 1. **Read.** Its `index.md` is handed over whole at the start of every turn.
    It may then ask, up to ten times, to look at things: its note list,
-   notes, a search, the original image. Reading writes nothing, so the app just
-   does it and hands the results back.
+   notes, a search. Reading writes nothing, so the app just does it and hands
+   the results back.
 2. **Workflow.** It hands in what it has decided, as steps in order, with every
    text written out in full:
 
@@ -152,10 +152,14 @@ still, which is acceptable because asynchronous is the default.
 
 ### Reading the image
 
-When a post arrives the app reads the image once (`internal/capture`). Handing
-the picture to every persona would mean paying for vision once per persona for
-the same screenshot, so it is turned into text and shared. A persona that
-decides it needs the detail calls `image` and gets the original.
+When a post arrives the app reads the image once (`internal/capture`), with
+the vision model: what is in it, the text on it, where it seems to come from,
+and how it looks - colour, shape, count, layout, the things a persona might
+otherwise want to ask about. That text travels with the post to every persona. The picture itself is never
+handed to a persona: none of the persona models (Lightning, Super, Ultra)
+take image input, and a live run lost a wine label's remark to a picture sent
+to one. A persona that asks for the original is told what it already has; the first
+read is made rich enough that there is nothing left to ask.
 
 ## Personas
 

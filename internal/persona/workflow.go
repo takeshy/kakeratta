@@ -98,7 +98,7 @@ var readTool = llm.Tool{
 		"steps": map[string]any{"type": "array", "items": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"type":  map[string]any{"type": "string", "enum": []any{"notes_list", "notes_read", "tool", "image"}},
+				"type":  map[string]any{"type": "string", "enum": []any{"notes_list", "notes_read", "tool"}},
 				"paths": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "notes_read で読むメモ。他は []"},
 				"tool":  stringField("tool で呼ぶ道具の名前。他は \"\""),
 				"args":  stringField("tool の引数を JSON オブジェクトとして書いた文字列。例: {\"query\":\"赤ワイン\"}。他は \"{}\""),
@@ -539,7 +539,7 @@ func routingModel() string {
 // readAll does what a persona asked to look at. Nothing here writes, so there
 // is nothing to review; a schedule is not something to read with a tool.
 func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set *tools.Set, post timeline.Entry,
-	noteSources *[]store.NoteSource, failures map[string]string, budget *lookups) (text string, sources []timeline.Source, files []llm.Attachment) {
+	noteSources *[]store.NoteSource, failures map[string]string, budget *lookups) (text string, sources []timeline.Source) {
 
 	var parts []string
 	for _, step := range steps {
@@ -592,23 +592,20 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 				sources = append(sources, result.Sources...)
 			}
 		case "image":
-			if post.Media == nil || post.Media.BlobID == "" {
-				out = "この投稿に画像はありません。"
-			} else if data, mime, err := r.store.Blob(post.Media.BlobID); err != nil {
-				out = "画像を読み出せませんでした。"
-			} else {
-				files = []llm.Attachment{{Name: "capture", MIME: mime, Data: data}}
-				out = "元の画像を次に添えます。"
-			}
+			// None of the persona models take a picture. The one read the app
+			// did on arrival - what is in it, its text, where it seems to come
+			// from, how it looks - is in the post already, and that is all
+			// there is.
+			out = "元画像は渡せません（担当のモデルは画像を見られません）。投稿に付いている読み取り結果（説明・文字・出典）を使ってください。"
 		default:
 			out = "知らない読み方です: " + step.Type
 		}
 		parts = append(parts, name+" の結果:\n"+out)
 	}
 	if len(parts) == 0 {
-		return "何も読みませんでした。", sources, files
+		return "何も読みませんでした。", sources
 	}
-	return strings.Join(parts, "\n\n"), sources, files
+	return strings.Join(parts, "\n\n"), sources
 }
 
 var placedID = regexp.MustCompile(`schedule (s_[A-Za-z0-9]+) を置きました`)
