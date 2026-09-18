@@ -2,7 +2,7 @@
 
 実施日: 2026-09-19（JST）  
 対象: 本番タイムラインの直近20件  
-比較モデル: Nemotron 3.5 Lightning / Nemotron 3 Nano / Nemotron 3 Super / Nemotron 3 Ultra / OpenRouter Jev Latest
+比較モデル: Nemotron 3.5 Lightning / Nemotron 3 Nano / Nemotron 3 Super / Nemotron 3 Ultra / OpenRouter Jev Latest / OpenRouter GPT Luna Latest
 
 ## 結論
 
@@ -109,6 +109,21 @@ NanoとJevの不一致9件を現行担当条件と照合すると、9件すべ�
 Lightningも入浴、学習、美容院、到着希望、服薬、仕事開始などから `routine` を落とし、ワイン画像1件を `wine-assistant` から外した。再計測途中には1024トークン以内に有効なtool callを完成できない応答も1回発生したが、同ケースの再試行は完了した。
 
 このため、Nanoはthinkingを有効にすれば品質は高いが遅く、無効にすれば速いが振り分け品質が不足する。今回の条件ではJevの代替にならない。
+
+## 追加計測: OpenRouter GPT Luna Latest
+
+OpenRouterのChat Completionsを通じて `~openai/gpt-luna-latest` を同じ20件で追加計測した。既存Routerと同じ必須ツール呼び出しを使い、OpenRouterのプロバイダ選択はExacto、reasoningは有効とした。OpenRouter掲載単価は入力 $0.20/M、出力 $1.20/Mである。
+
+| モデル | 平均 | 入力 | 出力 | 20件費用 | 1件費用（1ドル150円） | Jevとの一致 | Superとの一致 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| GPT Luna Latest | 3.65秒 | 21,424 | 3,467 | $0.008445（約1.27円） | 約0.063円 | **19/20（95%）** | 16/20（80%） |
+| GPT Luna Latest（thinking無効） | **2.02秒** | 21,424 | 2,587 | $0.007389（約1.11円） | **約0.055円** | **19/20（95%）** | 18/20（90%） |
+
+Jevとの差はP20の1件だけだった。ワインについての短い食味発言に対し、Jevは `wine-assistant` のみ、Lunaは `wine-assistant` と `purine-checker` を選んだ。`purine-checker` の条件は料理名・献立・料理写真からのプリン体判定であるため、この追加配信は条件に沿わない。既存の差分5件（P02、P06、P07、P08、P10）はすべてJevと一致し、現行条件に沿った判定だった。
+
+判定品質は今回の20件ではJevに近かったが、速度はJevの約9.9倍、Superの約1.9倍遅い。費用はJevの約2.4倍だが、Superの約65%である。したがって、Chat Completionsと理由表示を維持しつつ判定品質を優先するOpenRouter候補にはなるものの、速度・費用を含むRouterの第一候補は引き続きJev、Token Factoryの既定はSuperとする判断が妥当である。
+
+thinking無効では平均2.02秒（p50 1.85秒、p95 2.83秒、最大5.02秒）まで短縮し、費用も約13%下がった。Jev一致は19/20のままだが、差分の内容は入れ替わった。thinking有効で誤配したP20はJevと一致する一方、P06の「今日、空き時間に学習・実装したい」から `routine` を外した。現行のroutine条件は時期を含む予定を対象とするため、これは条件に沿わない。今回の20件ではthinking無効による品質崩壊は見られず、Lunaを使うなら無効設定の方が速度・費用面で有利だが、Jevよりは平均約5.5倍遅く、Superとほぼ同速だった。
 
 ## モデル別所見
 

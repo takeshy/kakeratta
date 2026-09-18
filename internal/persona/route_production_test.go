@@ -161,13 +161,19 @@ func TestRouteProductionComparison(t *testing.T) {
 			{"nebius", store.NebiusBaseURL, os.Getenv("KAKERATTA_ROUTE_KEY_FILE"), store.NemotronNano, .06, .24, true},
 			{"nebius", store.NebiusBaseURL, os.Getenv("KAKERATTA_ROUTE_KEY_FILE"), store.NemotronSuper, .30, .90, false},
 			{"nebius", store.NebiusBaseURL, os.Getenv("KAKERATTA_ROUTE_KEY_FILE"), store.NemotronUltra, 1, 3, false},
-			{"openrouter", "https://openrouter.ai/api/v1", os.Getenv("KAKERATTA_ROUTE_OPENROUTER_KEY_FILE"), "~typesafe/jev-latest", .042, 0, false},
+			{"openrouter-decisions", store.OpenRouterBaseURL, os.Getenv("KAKERATTA_ROUTE_OPENROUTER_KEY_FILE"), "~typesafe/jev-latest", .042, 0, false},
+			{"openrouter-chat", store.OpenRouterBaseURL, os.Getenv("KAKERATTA_ROUTE_OPENROUTER_KEY_FILE"), "~openai/gpt-luna-latest", .20, 1.20, false},
+			{"openrouter-chat", store.OpenRouterBaseURL, os.Getenv("KAKERATTA_ROUTE_OPENROUTER_KEY_FILE"), "~openai/gpt-luna-latest#thinking-off", .20, 1.20, false},
 		}
+		only := strings.TrimSpace(os.Getenv("KAKERATTA_ROUTE_ONLY"))
 		// Rotate order to reduce systematic warm-up/order effects.
 		if shift := n % len(models); shift != 0 {
 			models = append(models[shift:], models[:shift]...)
 		}
 		for _, model := range models {
+			if only != "" && model.id != only {
+				continue
+			}
 			if model.fast && os.Getenv("KAKERATTA_ROUTE_REMEASURE_FAST") == "1" && n+1 >= remeasureFrom {
 				row.Measurements = slices.DeleteFunc(row.Measurements, func(measurement productionRouteMeasurement) bool {
 					return measurement.Model == model.id
@@ -193,13 +199,17 @@ func TestRouteProductionComparison(t *testing.T) {
 			var input, output int
 			var actualCost float64
 			var callErr error
-			if model.provider == "openrouter" {
+			if model.provider == "openrouter-decisions" {
 				targets, input, output, actualCost, callErr = routeWithJev(callCtx, strings.TrimSpace(string(modelKey)), model.id, skills, thread, trigger)
 			} else {
 				meter := &routeMeter{}
 				api := llm.New(model.baseURL, strings.TrimSpace(string(modelKey)))
-				api.HTTP.Transport = &routeBenchmarkTransport{meter: meter, fast: model.fast}
-				targets = Route(callCtx, api, model.id, skills, thread, trigger).Deliver
+				if model.provider == "openrouter-chat" {
+					api = llm.NewOpenRouter(model.baseURL, strings.TrimSpace(string(modelKey)))
+				}
+				thinkingOff := strings.HasSuffix(model.id, "#thinking-off")
+				api.HTTP.Transport = &routeBenchmarkTransport{meter: meter, fast: model.fast, thinkingOff: thinkingOff}
+				targets = Route(callCtx, api, strings.TrimSuffix(model.id, "#thinking-off"), skills, thread, trigger).Deliver
 				input, output, callErr = meter.input, meter.output, meter.err
 			}
 			elapsed := time.Since(start)
@@ -245,7 +255,7 @@ func TestRouteProductionComparison(t *testing.T) {
 		}
 	}
 	t.Logf("AGREEMENT %d/%d (agreement is not ground-truth accuracy)", agreement, len(results))
-	for _, model := range []string{store.NemotronLightning, store.NemotronNano, store.NemotronSuper, store.NemotronUltra, "~typesafe/jev-latest"} {
+	for _, model := range []string{store.NemotronLightning, store.NemotronNano, store.NemotronSuper, store.NemotronUltra, "~typesafe/jev-latest", "~openai/gpt-luna-latest", "~openai/gpt-luna-latest#thinking-off"} {
 		var input, output int
 		var usd, seconds float64
 		for _, row := range results {
@@ -258,18 +268,30 @@ func TestRouteProductionComparison(t *testing.T) {
 				}
 			}
 		}
-		t.Logf("SUMMARY model=%s cases=%d input=%d output=%d USD=%.6f JPY/route@150=%.4f mean_seconds=%.2f",
-			model, len(results), input, output, usd, usd*150/float64(len(results)), seconds/float64(len(results)))
+		cases := 0
+		for _, row := range results {
+			for _, measurement := range row.Measurements {
+				if measurement.Model == model {
+					cases++
+					break
+				}
+			}
+		}
+		if cases > 0 {
+			t.Logf("SUMMARY model=%s cases=%d input=%d output=%d USD=%.6f JPY/route@150=%.4f mean_seconds=%.2f",
+				model, cases, input, output, usd, usd*150/float64(cases), seconds/float64(cases))
+		}
 	}
 }
 
 type routeBenchmarkTransport struct {
-	meter *routeMeter
-	fast  bool
+	meter       *routeMeter
+	fast        bool
+	thinkingOff bool
 }
 
 func (t *routeBenchmarkTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if !t.fast {
+	if !t.fast && !t.thinkingOff {
 		return t.meter.RoundTrip(req)
 	}
 	raw, err := io.ReadAll(req.Body)
@@ -281,9 +303,14 @@ func (t *routeBenchmarkTransport) RoundTrip(req *http.Request) (*http.Response, 
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return nil, err
 	}
-	body["chat_template_kwargs"] = map[string]any{"enable_thinking": false}
-	body["max_tokens"] = 1024
-	body["temperature"] = 0.1
+	if t.fast {
+		body["chat_template_kwargs"] = map[string]any{"enable_thinking": false}
+		body["max_tokens"] = 1024
+		body["temperature"] = 0.1
+	}
+	if t.thinkingOff {
+		body["reasoning"] = map[string]any{"enabled": false}
+	}
 	raw, err = json.Marshal(body)
 	if err != nil {
 		return nil, err
