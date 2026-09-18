@@ -41,6 +41,9 @@ type Workspace interface {
 	RecordWake(string, string) error
 	Woke(string) ([]string, error)
 	ForgetWakes(string) error
+	SaveRouting(string, Routing) error
+	Routing(string) (*Routing, error)
+	ForgetRouting(string) error
 	Schedules(string) ([]Schedule, error)
 	SaveSchedule(Schedule) (Schedule, error)
 	DeleteSchedule(string, string) error

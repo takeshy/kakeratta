@@ -17,7 +17,7 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, showIntro = true }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, showIntro = true }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let speakingThread = null;
@@ -26,6 +26,9 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   let postEditor = null;
   const expanded = new Set();
   const drafts = new Map();
+  // The router's call about a post, once asked for. Kept here rather than in
+  // the DOM because every draw rebuilds the DOM.
+  const routing = new Map();
   let composing = false;
   let drawPending = false;
   const offline = () => globalThis.navigator?.onLine === false;
@@ -47,8 +50,11 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   // post it belongs to rather than at the bottom.
   function upsert(entry) {
     const index = entries.findIndex((existing) => existing.id === entry.id);
-    if (index >= 0) entries[index] = entry;
-    else entries.push(entry);
+    if (index >= 0) {
+      entries[index] = entry;
+      // An edited post is routed again; what was shown about it is stale.
+      routing.delete(entry.id);
+    } else entries.push(entry);
     entries.sort((a, b) => new Date(a.at) - new Date(b.at));
     draw();
   }
@@ -180,6 +186,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
             postEditor = createPostEditor(entry); draw(); postEditor.input.focus();
           },
         }) : null,
+        drawRoutingChip(entry),
         // Append-only means a delete is recoverable in the log, but nobody
         // wants to go and get it. It stays out of the way until reached for.
         el("button", {
@@ -223,7 +230,71 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       node.append(el("a", { class: "source", href: source.url, target: "_blank", rel: "noreferrer", text: source.label || source.url }));
     }
     if (media) node.append(drawRead(media));
+    const decision = drawRouting(entry);
+    if (decision) node.append(decision);
     return node;
+  }
+
+  // The router's call about a post can be looked at: who it chose, whom it
+  // passed over and why. It is fetched when asked for, since most posts are
+  // never asked about, and the chip is only on what the user wrote - the
+  // router never judges a persona's remark.
+  function drawRoutingChip(entry) {
+    if (entry.speaker !== "user" || entry.pending) return null;
+    const open = routing.has(entry.id);
+    return el("button", {
+      class: "chip ghost routing-open", label: "担当の判断", "aria-expanded": String(open),
+      disabled: !open && offline(),
+      onclick: async (event) => {
+        if (open) {
+          routing.delete(entry.id);
+          draw();
+          return;
+        }
+        const button = event?.currentTarget;
+        if (button) button.disabled = true;
+        try {
+          routing.set(entry.id, await api.routing(entry.id));
+          draw();
+        } catch (error) {
+          toast(String(error.message || error), "error");
+          if (button) button.disabled = false;
+        }
+      },
+    });
+  }
+
+  function drawRouting(entry) {
+    const record = routing.get(entry.id);
+    if (!record) return null;
+    const box = el("div", { class: "routing" });
+    if (record.recorded === false) {
+      box.append(el("p", { class: "hint", label: "判断の記録がありません" }));
+      return box;
+    }
+    const delivered = record.delivered || [];
+    const excluded = record.excluded || [];
+    if (!delivered.length && !excluded.length) {
+      box.append(el("p", { class: "hint", label: "記録された判断はありません" }));
+      return box;
+    }
+    // A persona still in the catalogue can be taught; one that has gone can
+    // only be read about.
+    const row = (item, verdict, fix) => {
+      const persona = getPersona?.(item.id);
+      return el("div", { class: "routing-row" },
+        el("span", { class: "avatar", text: persona?.icon || item.icon || "◎" }),
+        el("span", { class: "who", text: persona?.name || item.name || item.id }),
+        el("span", { class: "routing-verdict", label: verdict }),
+        item.reason ? el("span", { class: "routing-reason", text: item.reason }) : null,
+        persona && onFixCondition ? el("button", {
+          class: "chip ghost routing-fix", label: fix.label,
+          onclick: () => onFixCondition({ persona, entry, direction: fix.direction, reason: item.reason || "" }),
+        }) : null);
+    };
+    for (const item of delivered) box.append(row(item, "呼ばれました", { label: "呼んでほしくなかった", direction: "exclude" }));
+    for (const item of excluded) box.append(row(item, "呼ばれませんでした", { label: "呼んでほしかった", direction: "include" }));
+    return box;
   }
 
   function createPostEditor(entry) {
@@ -290,6 +361,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
         el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
+        drawRoutingChip(entry),
       ),
       el("p", { class: "said", text: entry.text }),
     );
@@ -298,6 +370,8 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("a", { class: "source", href: source.url, target: "_blank", rel: "noreferrer", text: source.label || source.url }),
       );
     }
+    const decision = drawRouting(entry);
+    if (decision) node.append(decision);
     if (!mine) {
       node.append(
         el("button", {

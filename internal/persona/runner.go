@@ -193,6 +193,78 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	r.reactEntry(entryID, transientPlace, false)
 }
 
+// keepRouting writes down what the router decided about a post, for a person
+// to look at later. What is kept is the router's own call: a persona reached
+// by name is left out of the chosen, and anyone who got the post for whatever
+// reason is left out of the passed-over. Nothing is kept when the router had
+// no answer - "no record" and "nobody" are different things to read.
+func (r *Runner) keepRouting(entryID string, routing Routing, named []string, targets map[string]bool) {
+	if !routing.Answered {
+		return
+	}
+	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}}
+	for _, id := range routing.Deliver {
+		if !contains(named, id) {
+			record.Delivered = append(record.Delivered, id)
+		}
+	}
+	for id, reason := range routing.Excluded {
+		if !targets[id] {
+			record.Excluded[id] = reason
+		}
+	}
+	// Routing takes a while; a post deleted meanwhile keeps no record.
+	if current, ok := r.store.Entry(entryID); !ok || current.Deleted {
+		return
+	}
+	if err := r.store.SaveRouting(entryID, record); err != nil {
+		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+	}
+}
+
+// RoutingCheck is a trial run of the router for one persona: whether the post
+// would reach it now, and if not, what the router said.
+type RoutingCheck struct {
+	Answered  bool   `json:"answered"`
+	Delivered bool   `json:"delivered"`
+	Reason    string `json:"reason,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// CheckRouting routes a post again without delivering it, so a person who has
+// just changed a persona's conditions can see whether the change did what
+// they meant. It reads the conditions as they are now saved; nothing is woken
+// and nothing is written down.
+func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (RoutingCheck, error) {
+	entry, ok := r.store.Entry(entryID)
+	if !ok || entry.Deleted {
+		return RoutingCheck{}, errors.New("投稿が見つかりません")
+	}
+	client, settings := r.clientOf()
+	skills := r.catalogue.Active(settings.Active)
+	found := false
+	for _, skill := range skills {
+		if skill.ID == skillID {
+			found = true
+		}
+	}
+	if !found {
+		return RoutingCheck{}, errors.New("その担当は有効ではありません")
+	}
+	entries, err := r.store.Timeline()
+	if err != nil {
+		return RoutingCheck{}, err
+	}
+	thread := timeline.Thread(entries, timeline.RootOf(entry))
+	routing := Route(ctx, client, routingModel(), skills, thread, entry)
+	check := RoutingCheck{Answered: routing.Answered, Error: routing.Error}
+	if routing.Answered {
+		check.Delivered = contains(routing.Deliver, skillID)
+		check.Reason = routing.Excluded[skillID]
+	}
+	return check, nil
+}
+
 const editedInstructions = "\n\n以前あなたに渡した投稿が編集されました。今回の対象発言は編集後の内容です。以前の内容より優先し、必要に応じて回答・メモ・予定を更新してください。担当領域の内容が削除された場合も、その変更を反映してください。"
 
 func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edited bool) {
@@ -271,9 +343,11 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	for _, id := range named {
 		targets[id] = true
 	}
-	for _, id := range Route(ctx, client, routingModel(), skills, thread, entry) {
+	routing := Route(ctx, client, routingModel(), skills, thread, entry)
+	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
+	r.keepRouting(entryID, routing, named, targets)
 	if len(targets) == 0 {
 		r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": []string{}})
 		return

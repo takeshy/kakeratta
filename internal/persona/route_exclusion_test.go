@@ -267,7 +267,7 @@ deliver を呼んで答えてください。excluded_reasons には選ばない�
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		start := time.Now()
-		targets := Route(ctx, api, store.NemotronLightning, snapshot.Skills, thread, trigger)
+		targets := Route(ctx, api, store.NemotronLightning, snapshot.Skills, thread, trigger).Deliver
 		elapsed := time.Since(start).Seconds()
 		cancel()
 		if (meter.err != nil && meter.err.Error() != "invalid routing response") || meter.input == 0 {

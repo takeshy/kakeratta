@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -151,7 +152,8 @@ func asCall(content string, offered map[string]bool) map[string]any {
 	switch {
 	case offered["deliver"]:
 		if scripted && parsed.Deliver != nil {
-			return call("deliver", map[string]any{"deliver": parsed.Deliver})
+			// The scripted reply is the call as written, reasons included.
+			return call("deliver", json.RawMessage(content))
 		}
 		return map[string]any{"content": content}
 
@@ -1479,6 +1481,53 @@ func TestEditedPostNotifiesPreviousRecipientsAndRoutesNewOnes(t *testing.T) {
 			}
 			if count != 1 {
 				t.Fatalf("previous recipient called %d times, want once", count)
+			}
+		})
+	}
+}
+
+// What the router decided is kept for a person to read: who it chose, and why
+// it passed over the rest. A persona reached by name was not the router's
+// choice, and anyone who got the post is not among the passed-over. A router
+// with no answer leaves no record at all.
+func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
+	for _, tc := range []struct {
+		name, routed, text string
+		want               *store.Routing
+	}{
+		{
+			name: "named persona is not the router's choice", text: "@tabe 今日の昼どうしよう",
+			routed: `{"deliver":["gourmet","move"],"excluded_reasons":{"book":"本の話ではない"}}`,
+			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}},
+		},
+		{
+			name: "named persona is not passed over either", text: "@tabe 今日の昼どうしよう",
+			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}},
+		},
+		{
+			name: "nobody is an answer", text: "今日は眠い",
+			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}},
+		},
+		{name: "a broken router is no answer", text: "今日は眠い", routed: `モデルが壊れた返事`, want: nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runner, s, _ := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					return tc.routed
+				}
+				return `{"action":"silent","notes":""}`
+			}, "gourmet", "move", "book")
+			entry := post(t, s, tc.text)
+			runner.React(entry.ID, nil)
+			runner.Stop()
+			got, err := s.Routing(entry.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("kept %+v, want %+v", got, tc.want)
 			}
 		})
 	}

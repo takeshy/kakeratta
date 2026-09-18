@@ -96,6 +96,8 @@ export const api = {
   },
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),
   edit: (id, text) => call("PATCH", `/api/entry/${encodeURIComponent(id)}`, { text }),
+  routing: (id) => call("GET", `/api/entry/${encodeURIComponent(id)}/routing`),
+  checkRouting: (id, persona) => call("POST", `/api/entry/${encodeURIComponent(id)}/routing/check`, { persona }),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),
 
   buildPersona: (body) => call("POST", "/api/personas/build", body),

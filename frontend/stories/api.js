@@ -48,6 +48,10 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       return json({ entries: search.entries.filter((entry) => entry.id === root || entry.root === root) });
     }
     if (path === "/api/personas/build" && method === "POST" && personaDraft) return json(personaDraft);
+    // The router's call about a post: a story shows nothing recorded, and a
+    // trial run that lands as meant.
+    if (/^\/api\/entry\/[^/]+\/routing$/.test(path) && method === "GET") return json({ recorded: false });
+    if (/^\/api\/entry\/[^/]+\/routing\/check$/.test(path) && method === "POST") return json({ answered: true, delivered: true });
     if (path === "/api/personas" && method === "GET") return json({ personas: rows, tools });
     if (path === "/api/personas" && method === "PUT") {
       rows = rows.map((row) => ({ ...row, active: body.active.includes(row.id) }));

@@ -41,22 +41,33 @@ var deliverTool = llm.Tool{
 	}, "required": []any{"deliver", "excluded_reasons"}},
 }
 
+// Routing is what the router said about one post: who it goes to, and for
+// everyone else, why not. Answered is false when there was no usable answer -
+// no model configured, the call failed, the reply made no sense - and Error
+// then says which.
+type Routing struct {
+	Deliver  []string
+	Excluded map[string]string
+	Answered bool
+	Error    string
+}
+
 // Route picks who a post goes to.
 //
 // When it cannot decide - no model configured, the call failed, the reply made
 // no sense - nobody gets it. A persona named in the post is reached without
 // routing, so the one case where a post must not be lost does not depend on
 // this.
-func Route(ctx context.Context, client *llm.Client, model string, skills []Skill, thread []Entryish, trigger Entryish) []string {
+func Route(ctx context.Context, client *llm.Client, model string, skills []Skill, thread []Entryish, trigger Entryish) Routing {
 	if len(skills) == 0 || client == nil || client.BaseURL == "" || model == "" {
-		return nil
+		return Routing{Error: "routing is not configured"}
 	}
 	decision := routeRecord{Severity: "INFO", Message: "routing", Trigger: trigger.ID, Model: model}
 	defer func() { logRouting(decision) }()
-	nobody := func(reason string) []string {
+	nobody := func(reason string) Routing {
 		decision.Severity = "WARNING"
 		decision.Error = reason
-		return nil
+		return Routing{Error: reason}
 	}
 	var domains []string
 	for _, skill := range skills {
@@ -133,7 +144,20 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 			decision.Deliver = append(decision.Deliver, id)
 		}
 	}
-	return decision.Deliver
+	// The reasons are keyed however the router chose to name each persona;
+	// they are kept under the id so a reader can find them again. The first
+	// reason given for a persona stands when it was named twice.
+	excluded := map[string]string{}
+	for named, reason := range parsed.ExcludedReasons {
+		id := resolve(named)
+		if id == "" {
+			continue
+		}
+		if _, ok := excluded[id]; !ok {
+			excluded[id] = reason
+		}
+	}
+	return Routing{Deliver: decision.Deliver, Excluded: excluded, Answered: true}
 }
 
 // routeRecord is one routing decision, logged as a structured entry.

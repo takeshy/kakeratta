@@ -499,3 +499,19 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .social-preview-post > .tag { margin-inline-start: 8px; white-space: nowrap; }
 .social-published-link:empty { display: none; }
 .social-published-link a { color: var(--accent); text-underline-offset: 3px; }
+
+/* The router's call about a post: who it chose, whom it passed over and why,
+   each with a way to say the router was wrong. */
+.routing { display: grid; gap: 6px; padding-left: 10px; border-left: 2px solid var(--line); }
+.routing-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.85rem; }
+.routing-row .who { font-weight: 600; }
+.routing-verdict { color: var(--muted); font-size: 0.78rem; }
+.routing-reason { color: var(--muted); flex-basis: 100%; }
+.routing-fix { justify-self: start; }
+.condition-fix { width: min(640px, 100%); max-height: calc(100dvh - 32px); overflow: auto; }
+.condition-fix:focus { outline: none; }
+.condition-fix h2 { margin: 0; font-size: 1.2rem; line-height: 1.5; }
+.condition-body { display: grid; gap: 10px; }
+.condition-quote { margin: 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.condition-current { margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.condition-ask { display: grid; gap: 8px; }

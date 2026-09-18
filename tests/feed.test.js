@@ -474,3 +474,55 @@ test("persona editor edits directly, asks the AI underneath, and shows what chan
   assert.equal(api.savePersonaDraft.mock.calls[0].arguments[1], "move");
   assert.ok(saved);
 });
+
+// The router's call about a post - who it chose, whom it passed over and why -
+// is a chip on what the user wrote, fetched when asked for. Each persona still
+// in the room can be told the router was wrong about it.
+test("the router's call is shown on the user's posts and replies and can be disputed", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "move", name: "michi", icon: "🚃" }];
+  t.mock.method(api, "routing", async (id) => id === "p"
+    ? { recorded: true, delivered: [{ id: "gourmet", name: "tabe", icon: "🍜" }], excluded: [{ id: "move", name: "michi", icon: "🚃", reason: "移動の話ではない" }, { id: "gone", name: "gone", icon: "", reason: "消えた担当" }] }
+    : { recorded: false });
+  const disputes = [];
+  const feed = createFeed({
+    getPersona: (id) => rows.find((row) => row.id === id) || null,
+    onFixCondition: (args) => disputes.push(args),
+    showIntro: false,
+  });
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const texts = () => walk(feed.element).map((node) => node.textContent);
+  const chips = () => feed.element.querySelectorAll(".routing-open");
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "ラーメン屋まで歩いた", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "remark", speaker: "gourmet", root: "p", text: "いいですね", at: "2026-09-13T00:01:00Z" },
+    { id: "u", kind: "reply", speaker: "user", root: "p", text: "また行く", at: "2026-09-13T00:02:00Z" },
+    { id: "q", kind: "post", speaker: "user", pending: true, text: "送信待ち", at: "2026-09-13T00:03:00Z" },
+  ]);
+  feed.reveal("u");
+  assert.equal(chips().length, 2, "the user's post and reply carry the chip; a remark and a pending post do not");
+
+  chips()[0].fire("click", {});
+  for (let i = 0; i < 3; i++) await new Promise(setImmediate);
+  assert.equal(api.routing.mock.calls[0].arguments[0], "p");
+  assert.equal(feed.element.querySelectorAll(".routing").length, 1);
+  assert.equal(feed.element.querySelectorAll(".routing-row").length, 3);
+  assert.ok(texts().includes("移動の話ではない"), "the router's reason is shown");
+  assert.ok(texts().includes(translate("呼ばれました")) && texts().includes(translate("呼ばれませんでした")));
+  const fixes = feed.element.querySelectorAll(".routing-fix");
+  assert.equal(fixes.length, 2, "a persona gone from the room cannot be taught");
+  fixes[0].fire("click");
+  fixes[1].fire("click");
+  assert.deepEqual(disputes.map((d) => [d.persona.id, d.entry.id, d.direction, d.reason]), [["gourmet", "p", "exclude", ""], ["move", "p", "include", "移動の話ではない"]]);
+
+  chips()[1].fire("click", {});
+  for (let i = 0; i < 3; i++) await new Promise(setImmediate);
+  assert.ok(texts().includes(translate("判断の記録がありません")), "a post the router never answered for says so");
+
+  chips()[0].fire("click", {});
+  assert.equal(feed.element.querySelectorAll(".routing").length, 1, "the chip closes its own panel");
+  feed.upsert({ id: "u", kind: "reply", speaker: "user", root: "p", text: "また行く（編集）", at: "2026-09-13T00:02:00Z" });
+  assert.equal(feed.element.querySelectorAll(".routing").length, 0, "an edited entry is routed again, so what was shown is dropped");
+});

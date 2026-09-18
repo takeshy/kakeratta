@@ -63,6 +63,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/reply", s.guard(s.postReply))
 	s.mux.HandleFunc("DELETE /api/entry/{id}", s.guard(s.deleteEntry))
 	s.mux.HandleFunc("PATCH /api/entry/{id}", s.guard(s.editEntry))
+	s.mux.HandleFunc("GET /api/entry/{id}/routing", s.guard(s.getRouting))
+	s.mux.HandleFunc("POST /api/entry/{id}/routing/check", s.guard(s.checkRouting))
 	s.mux.HandleFunc("GET /api/blob/{id}", s.guard(s.getBlob))
 	s.mux.HandleFunc("GET /api/events", s.guard(s.events2))
 	s.mux.HandleFunc("POST /api/fetch", s.guard(s.postFetch))
@@ -347,6 +349,9 @@ func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publishEvent("entry", entry)
+	// What the router decided about the post goes with it. Failing to drop it
+	// is not a reason to keep the post.
+	_ = s.store.ForgetRouting(entry.ID)
 	// Whoever wrote this post down is told, and tidies its own notes. The app
 	// removes the post, never the memory someone built on it.
 	s.runner.EntryForgotten(entry.ID, entry.Text)

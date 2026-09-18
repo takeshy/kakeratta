@@ -29,11 +29,37 @@ func TestRoutingThatCannotBeUsedDeliversToNobody(t *testing.T) {
 		t.Run(tc.reply, func(t *testing.T) {
 			f := &fake{reply: func(string, string) string { return tc.reply }}
 			server := f.start(t)
-			got := Route(context.Background(), llm.New(server.URL, ""), "route", []Skill{{ID: "food"}, {ID: "tech"}}, nil, Entryish{})
+			got := Route(context.Background(), llm.New(server.URL, ""), "route", []Skill{{ID: "food"}, {ID: "tech"}}, nil, Entryish{}).Deliver
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("got %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// The reasons come back under whatever name the router used for a persona and
+// are kept under its id; a name that is nobody's is dropped. A reply that made
+// no sense is not an answer, and neither is a router that is not configured.
+func TestRoutingKeepsExclusionReasonsByID(t *testing.T) {
+	skills := []Skill{{ID: "food", Name: "tabe"}, {ID: "tech"}}
+	f := &fake{reply: func(string, string) string {
+		return `{"deliver":[],"excluded_reasons":{"food（tabe）":"x","unknown":"y","tech":"z"}}`
+	}}
+	server := f.start(t)
+	got := Route(context.Background(), llm.New(server.URL, ""), "route", skills, nil, Entryish{})
+	if !got.Answered || got.Error != "" {
+		t.Fatalf("expected an answer, got %+v", got)
+	}
+	if want := map[string]string{"food": "x", "tech": "z"}; !reflect.DeepEqual(got.Excluded, want) {
+		t.Fatalf("excluded %v, want %v", got.Excluded, want)
+	}
+
+	f.reply = func(string, string) string { return `{}` }
+	if got := Route(context.Background(), llm.New(server.URL, ""), "route", skills, nil, Entryish{}); got.Answered || got.Error == "" {
+		t.Fatalf("a reply without deliver is not an answer: %+v", got)
+	}
+	if got := Route(context.Background(), nil, "route", skills, nil, Entryish{}); got.Answered || got.Error == "" {
+		t.Fatalf("no client is not an answer: %+v", got)
 	}
 }
 

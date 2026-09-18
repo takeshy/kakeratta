@@ -167,7 +167,7 @@ func TestRouteProductionComparison(t *testing.T) {
 			api.HTTP.Transport = meter
 			callCtx, stop := context.WithTimeout(ctx, 90*time.Second)
 			start := time.Now()
-			targets := Route(callCtx, api, model.id, skills, thread, trigger)
+			targets := Route(callCtx, api, model.id, skills, thread, trigger).Deliver
 			elapsed := time.Since(start)
 			stop()
 			if (meter.err != nil && meter.err.Error() != "invalid routing response") || meter.input == 0 {
