@@ -577,7 +577,8 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 		name := step.Type
 		switch step.Type {
 		case "notes_list":
-			out, _ = r.notesTool(skill.ID, "notes_list", nil, prov)
+			args, _ := argsOf(step.Args)
+			out, _ = r.notesTool(skill.ID, "notes_list", args, prov)
 		case "notes_read":
 			var paths []any
 			for _, path := range step.Paths {

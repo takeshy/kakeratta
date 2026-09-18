@@ -26,7 +26,9 @@ export function parseMemoryNote(note) {
   }
   const metadata = Object.create(null);
   let body = text;
-  const front = text.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
+  // A closing fence glued to the last value ("+09:00---") still closes the
+  // block: notes saved before the app mended that on write read this way.
+  const front = text.match(/^---\n([\s\S]*?)\n?---(?:\n|$)/);
   if (front) {
     body = text.slice(front[0].length).trim();
     const lines = front[1].split("\n");
@@ -38,6 +40,11 @@ export function parseMemoryNote(note) {
         const parts = [];
         while (i + 1 < lines.length && /^(?:\s+|$)/.test(lines[i + 1])) parts.push(lines[++i].trim());
         metadata[key] = parts.join(value.startsWith(">") ? " " : "\n").trim();
+      } else if (!value.trim() && i + 1 < lines.length && /^\s+-\s/.test(lines[i + 1])) {
+        // A block list: tags written one per line.
+        const items = [];
+        while (i + 1 < lines.length && /^\s+-\s/.test(lines[i + 1])) items.push(lines[++i].replace(/^\s+-\s*/, "").trim());
+        metadata[key] = items;
       } else metadata[key] = scalar(value);
     }
   }
@@ -45,7 +52,22 @@ export function parseMemoryNote(note) {
   const heading = body.match(/^#\s+(.+)$/m)?.[1];
   const title = field("title") || heading || note.path.replace(/\.md$/i, "").split("/").pop();
   if (body.startsWith(`# ${title}\n`) || body === `# ${title}`) body = body.slice(title.length + 2).trim();
-  return { ...note, title, type: field("type"), description: field("description"), resource: field("resource"), body };
+  return { ...note, title, type: field("type"), description: field("description"), resource: field("resource"), tags: tagsOf(metadata.tags), body };
+}
+
+// tagsOf reads the tags however they were written: [a, b], or one per line.
+function tagsOf(value) {
+  const raw = Array.isArray(value) ? value
+    : typeof value === "string" ? value.replace(/^\[|\]$/g, "").split(",") : [];
+  const seen = new Set();
+  const tags = [];
+  for (const item of raw) {
+    const tag = String(item).trim().replace(/^["']|["']$/g, "").trim();
+    if (!tag || seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    tags.push(tag);
+  }
+  return tags;
 }
 
 // OKF links are bundle-relative; also accept ordinary sibling-relative links.
@@ -164,6 +186,17 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
   const paths = new Set(parsed.map(note => note.path));
   const cards = new Map();
   const view = el("div", { class: "memory-inspector" });
+  // A tag narrows the view to the notes that carry it; the whole view is
+  // drawn again either way, which is how the memory reader already works.
+  let filter = "";
+  const showTag = (tag) => { filter = tag; draw(); };
+  function tagChips(note) {
+    if (!note.tags?.length) return null;
+    return el("div", { class: "memory-tags" }, ...note.tags.map((tag) => el("button", {
+      class: `chip ghost memory-tag${filter === tag ? " active" : ""}`, text: `#${tag}`, i18nTitle: "このタグのメモだけを表示",
+      onclick: () => showTag(filter === tag ? "" : tag),
+    })));
+  }
   const openNote = (path) => {
     const card = cards.get(path);
     if (!card) return;
@@ -184,17 +217,15 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
     } });
     return el("div", { class: "memory-forget" }, button, error);
   }
-  // The note as saved, and - since a persona only knows what it was told - a
-  // way to put the text right by hand. What is edited is the persona's own
-  // text; the links the app keeps underneath stay as they are.
-  function original(note) {
-    const shown = el("pre", { class: "memo", text: note.text });
-    const host = el("div", { class: "memory-text" }, shown);
-    const details = el("details", { class: "memory-original" }, el("summary", { label: "元のメモを見る" }),
-      el("p", { class: "hint", text: note.path }), host);
-    if (!onEdit) return details;
+  // A pencil on the card. Since a persona only knows what it was told, the
+  // text can be put right by hand: the card turns into an editor of the
+  // persona's own text, and the links the app keeps underneath stay as they
+  // are.
+  function head(note, title, mount, reading) {
+    if (!onEdit) return el("div", { class: "memory-head" }, title);
     const error = el("p", { class: "hint warn", role: "alert", hidden: true });
-    const edit = el("button", { class: "chip ghost memory-edit", label: "編集", onclick: () => {
+    const pencil = el("button", { class: "chip ghost icon memory-edit", text: "✎", "aria-label": t("編集"), i18nTitle: "編集", onclick: (event) => {
+      event?.preventDefault?.();
       const input = el("textarea", { class: "skill-input memory-input", rows: 12, maxlength: 262144, "aria-label": t("メモの本文") });
       input.value = editableBody(note.text);
       const save = el("button", { class: "button primary memory-save", label: "メモを保存", onclick: async () => {
@@ -204,20 +235,22 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
         try { await onEdit(note.path, input.value); }
         catch (reason) { error.textContent = t(reason.message || String(reason)); error.hidden = false; save.disabled = false; }
       } });
-      const cancel = el("button", { class: "chip ghost", label: "キャンセル", onclick: () => host.replaceChildren(shown, row) });
-      host.replaceChildren(
+      const cancel = el("button", { class: "chip ghost", label: "キャンセル", onclick: () => mount(reading()) });
+      mount([
+        el("div", { class: "memory-head" }, title),
+        el("p", { class: "hint", text: note.path }),
         el("p", { class: "hint", label: "担当が書いたメモです。綴りや事実の誤りはここで直せます。下の「記憶を更新した投稿」のリンクはそのまま残ります。" }),
-        input, el("div", { class: "compose-row" }, save, cancel), error);
+        input, el("div", { class: "compose-row" }, save, cancel), error,
+      ]);
       input.focus?.();
     } });
-    const row = el("div", { class: "memory-edit-row" }, edit);
-    host.append(row);
-    return details;
+    return el("div", { class: "memory-head" }, title, el("span", { class: "spacer" }), pencil);
   }
 
   function content(note) {
     const context = { path: note.path, paths, openNote };
     return [
+      tagChips(note),
       note.description ? el("p", { class: "memory-description", text: note.description }) : null,
       markdown(note.body, context),
       onSearch && !/\/\?entry=/.test(note.text)
@@ -226,13 +259,21 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
           el("button", { class: "chip ghost", label: "元の投稿を探す", onclick: () => onSearch(note.title) })) : null,
       note.resource && /^https?:\/\//i.test(note.resource) && safeLink(note.resource)
         ? el("a", { href: note.resource, target: "_blank", rel: "noopener noreferrer", label: "関連リンク" }) : null,
-      original(note),
       forgetButton(note),
     ];
   }
+  function draw() {
+  view.replaceChildren();
+  cards.clear();
+  if (filter) {
+    view.append(el("div", { class: "memory-filter" },
+      el("span", { class: "hint", text: t("タグ「{0}」のメモ", filter) }),
+      el("button", { class: "chip ghost", label: "すべてのメモを表示", onclick: () => showTag("") })));
+  }
+  const shown = filter ? parsed.filter((note) => note.tags?.some((tag) => tag === filter)) : parsed;
   const groups = new Map();
   const reserved = [];
-  for (const note of parsed) {
+  for (const note of shown) {
     if (["index.md", "log.md"].includes(note.path)) { reserved.push(note); continue; }
     const key = note.type.toLowerCase() || "other";
     if (!groups.has(key)) groups.set(key, []);
@@ -244,19 +285,27 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
       text: typeLabels[key] ? t(typeLabels[key]) : group[0].type || t("その他のメモ"),
     }));
     for (const note of group) {
-      const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path },
-        el("h4", { text: note.title }), ...content(note));
+      const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
+      const mount = (nodes) => card.replaceChildren(...nodes.filter(Boolean));
+      const reading = () => [head(note, el("h4", { text: note.title }), mount, reading), ...content(note)];
+      mount(reading());
       cards.set(note.path, card);
       section.append(card);
     }
     view.append(section);
   }
   for (const note of reserved) {
-    const card = el("details", { class: "memory-card", tabindex: "-1", open: !groups.size, "data-path": note.path },
-      el("summary", { label: note.path === "index.md" ? "記憶の目次" : "記憶の更新履歴" }), ...content(note));
+    const summary = el("summary", { label: note.path === "index.md" ? "記憶の目次" : "記憶の更新履歴" });
+    const card = el("details", { class: "memory-card", tabindex: "-1", open: !groups.size, "data-path": note.path });
+    const mount = (nodes) => card.replaceChildren(summary, ...nodes.filter(Boolean));
+    const reading = () => [head(note, el("h4", { text: note.path }), mount, reading), ...content(note)];
+    mount(reading());
     cards.set(note.path, card);
     view.append(card);
   }
   if (!parsed.length) view.append(el("p", { class: "hint", label: "まだ覚えていることはありません。" }));
+  else if (!shown.length) view.append(el("p", { class: "hint", text: t("タグ「{0}」のメモはありません。", filter) }));
+  }
+  draw();
   return view;
 }

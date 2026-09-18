@@ -217,13 +217,14 @@
           <h3 id="ja-memory">覚えていることを確かめる</h3>
           <p>担当の <strong>覚えていること</strong> を開くと、好み・ワイン・お店・本などの種類ごとに、保存済みのメモを読めます。説明や根拠、例外も保存された内容のまま表示します。表示のために新しくAIで要約することはありません。</p>
           <figure>
-            <img src="/captures/ja/memory.png" alt="ワイン担当の好みとワインの記憶。元投稿へのリンクと個別削除（サンプル）" loading="lazy" width="382" height="988" />
-            <figcaption>覚えた内容、元の投稿、このメモだけを忘れさせる操作を同じ画面で確認できます（サンプル）。</figcaption>
+            <img src="/captures/ja/memory.png" alt="ワイン担当の好みとワインの記憶。タグ、元投稿へのリンク、✎ での編集、個別削除（サンプル）" loading="lazy" width="382" height="1018" />
+            <figcaption>覚えた内容、タグ、元の投稿、✎ での編集、このメモだけを忘れさせる操作を同じ画面で確認できます（サンプル）。</figcaption>
           </figure>
           <ul>
             <li><strong>記憶を更新した投稿</strong> のリンクで、元の投稿と会話を新しいタブに開けます。リンクはメモ保存時に自動で付き、書き直しや、読み込んだメモの統合（統合先がそのメモへリンクする、または元のメモを捨てる）でも引き継がれます。参照のために読んだだけのメモの投稿は付きません。</li>
+            <li>メモのタグ（担当が付けたもの）はチップで並びます。押すとそのタグのメモだけになり、<strong>すべてのメモを表示</strong> で戻ります。</li>
             <li>タイムラインの担当の発言の下にある <strong>📝</strong> は、その発言と一緒に書いたメモです。押すとこの画面がそのメモで開きます。</li>
-            <li>関連する記憶のリンクを押すと、そのメモへ移動します。<strong>元のメモを見る</strong> では保存された原文を確認でき、<strong>編集</strong> で綴りや事実の誤りをその場で直せます。画像の読み取りが銘柄を読み違えたまま覚えたときなどに使います。「記憶を更新した投稿」のリンクは残ります。</li>
+            <li>関連する記憶のリンクを押すと、そのメモへ移動します。メモの見出しの <strong>✎</strong> を押すと、そのメモが保存された原文のまま編集欄になり、綴りや事実の誤りをその場で直せます。画像の読み取りが銘柄を読み違えたまま覚えたときなどに使います。「記憶を更新した投稿」のリンクは残ります。</li>
             <li>以前のメモに投稿リンクが無い場合は、<strong>元の投稿を探す</strong> で検索できます。</li>
           </ul>
           <h3>間違った記憶を消す・覚え方を変える</h3>
@@ -233,7 +234,7 @@
           <h3 id="ja-routing">担当の判断を見て、条件を直す</h3>
           <p>誰にかけらを渡すかは本体が決めています。自分の投稿・返信の <strong>⚖</strong>（担当の判断）を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が別の画面に並びます。<code>@名前</code> で指名した担当は出ません。指名で届いたのはあなたの判断だからです。判定できなかった投稿は「判断の記録がありません」と出ます。呼ばれた担当には、一手が終わったか、返事をしたか、この投稿からメモを残したかが出ます。終わる前は「返事を考えています」です。黙っていたなら <strong>返事がほしかった</strong> から、口調と指示を直す流れに入れます。</p>
           <figure>
-            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="606" />
+            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="639" />
             <figcaption>呼ばれた担当と、呼ばれなかった理由。各行から担当条件を直せます（サンプル）。</figcaption>
           </figure>
           <ol>
@@ -261,7 +262,7 @@
             <li>いま返すならこう、という文章が出ます。<strong>これでよい</strong> で閉じ、<strong>まだ違う</strong> ならその文章を引用して、どう違うかをもう一度聞きます。</li>
           </ol>
           <figure>
-            <img src="/captures/ja/reply-trial.png" alt="同じ投稿に tabe がいま返すなら、という試し書き。これでよいか、まだ違うか（サンプル）" loading="lazy" width="382" height="287" />
+            <img src="/captures/ja/reply-trial.png" alt="同じ投稿に tabe がいま返すなら、という試し書き。これでよいか、まだ違うか（サンプル）" loading="lazy" width="382" height="317" />
             <figcaption>試し書き。判断するのはあなたです（サンプル）。</figcaption>
           </figure>
           <div class="tip"><p>担当の一手は計画と確認を経るので、試し書きには数分かかることがあります。保存した口調と指示は、試し書きの結果がどうでもそのまま残ります。</p></div>
@@ -619,13 +620,14 @@
           <h3 id="en-memory">See what a persona remembers</h3>
           <p>Open <strong>What I remember</strong> on a persona to read its saved notes grouped into preferences, wines, shops, books, and other types. Descriptions, evidence, and exceptions stay as written. Viewing memory does not generate another AI summary.</p>
           <figure>
-            <img src="/captures/en/memory.png" alt="A wine persona's preferences and wines, original post links, and individual deletion (sample data)" loading="lazy" width="382" height="960" />
-            <figcaption>Review what was remembered, open the original post, or forget a single note (sample data).</figcaption>
+            <img src="/captures/en/memory.png" alt="A wine persona's preferences and wines, with tags, original post links, the ✎ to edit, and individual deletion (sample data)" loading="lazy" width="382" height="952" />
+            <figcaption>Review what was remembered, narrow by a tag, open the original post, edit with ✎, or forget a single note (sample data).</figcaption>
           </figure>
           <ul>
             <li><strong>Posts behind this memory</strong> opens the original post and conversation in a new tab. The app attaches these links when saving notes and retains them through rewrites and consolidation - a note that links to another, or replaces one it throws away, inherits its posts. A note read merely for context passes nothing on.</li>
+            <li>A note's tags (the persona's own) appear as chips; tap one to see only the notes carrying it, and <strong>Show all notes</strong> to go back.</li>
             <li>The <strong>📝</strong> chips under a persona's remark on the timeline are the notes it wrote with that remark; tap one to open this view at that note.</li>
-            <li>Related-memory links take you to those notes. <strong>View original note</strong> shows the text as saved, and <strong>Edit</strong> lets you fix a misspelling or a wrong fact in place - a wine misread off its label, say. The links under “Posts behind this memory” stay.</li>
+            <li>Related-memory links take you to those notes. The <strong>✎</strong> on a note's heading turns that note into an editor of the text as saved, to fix a misspelling or a wrong fact in place - a wine misread off its label, say. The links under “Posts behind this memory” stay.</li>
             <li>For older notes without saved post links, <strong>Find original post</strong> opens search.</li>
           </ul>
           <h3>Remove a mistaken memory or change how a persona remembers</h3>
@@ -635,7 +637,7 @@
           <h3 id="en-routing">See the router's call and fix a condition</h3>
           <p>The app decides who gets each fragment. Tap <strong>⚖</strong> (the router's call) on one of your posts or replies to open, apart from the timeline, which personas were called and, for each one that was not, the router's one-line reason. A persona you mentioned with <code>@name</code> is not listed: reaching it was your call. A post the router could not judge reads as “No record of the router's call”. For each persona that was called you see whether its turn has finished, whether it replied, and whether it kept a note from this post (“still working on it” until it finishes). <strong>A reply was wanted</strong> opens the reply dialog for a silence.</p>
           <figure>
-            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" width="382" height="632" />
+            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" width="382" height="665" />
             <figcaption>Who was called, and why the others were not. Each row can correct the persona's condition (sample data).</figcaption>
           </figure>
           <ol>
@@ -663,7 +665,7 @@
             <li>The reply it would now give is shown. <strong>That's it</strong> closes; <strong>Still not it</strong> quotes that reply and asks again how it misses.</li>
           </ol>
           <figure>
-            <img src="/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" loading="lazy" width="382" height="332" />
+            <img src="/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" loading="lazy" width="382" height="362" />
             <figcaption>The trial reply. You are the judge (sample data).</figcaption>
           </figure>
           <div class="tip"><p>A persona's turn is planned and reviewed, so the trial can take a few minutes. What was saved stays saved whatever the trial says.</p></div>

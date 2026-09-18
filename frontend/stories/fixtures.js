@@ -104,7 +104,7 @@ export function replyDraft() {
 }
 
 export function replyPreview() {
-  return { spoke: words().trialReply, quiet: false };
+  return { spoke: words().trialReply, quiet: false, notes: ["tastes/sesame.md"] };
 }
 
 // What the router decided about the sample posts, as /api/entry/{id}/routing
@@ -114,7 +114,7 @@ export function routing() {
   return {
     p1: {
       recorded: true,
-      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜" }],
+      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true }],
       excluded: [
         { id: "book", name: "shiori", icon: "📖", reason: w.notBook },
         { id: "move", name: "michi", icon: "🚃", reason: w.notTravel },
@@ -141,7 +141,7 @@ export function timeline() {
   const quiet = [post("p1", minutes(6), { text: w.noodles })];
   const answered = [
     post("p1", minutes(140), { text: w.noodles }),
-    said("s1", "p1", "gourmet", minutes(128), w.sesame),
+    said("s1", "p1", "gourmet", minutes(128), w.sesame, { notes: ["tastes/sesame.md"] }),
     said("s2", "p1", "user", minutes(120), w.heat),
     post("p2", minutes(52), { text: w.shibuya, place: { lat: 35.6896, lon: 139.7006, label: w.station } }),
     said("s3", "p2", "move", minutes(50), w.route, {
@@ -151,7 +151,7 @@ export function timeline() {
       text: "",
       media: { blobId: "b1", mime: "image/png", readAt: minutes(19), describe: w.pagePhoto, origin: w.origin, text: w.ocr },
     }),
-    said("s4", "p3", "book", minutes(17), w.sameChapter),
+    said("s4", "p3", "book", minutes(17), w.sameChapter, { notes: ["quotes/embodiment.md"] }),
   ];
   // What the README leads with: one exchange and one mention, nothing cut off.
   const hero = answered.filter((entry) => ["p1", "p2"].includes(entry.kind === "post" ? entry.id : entry.root));
@@ -211,13 +211,13 @@ export const dictatingSettings = {
 export const memory = {
   gourmet: {
     notes: [
-      { path: "preferences/sesame.md", text: "type: Preference\n\nごまが前に出る担々麺は苦手。辛さ自体は平気。\n\n根拠:\n- 2026-09-01 「ごまが強すぎた気がする」\n- 2026-09-13 「たしかに。辛いのは平気」\n\n反例: 担々麺以外のごま（胡麻和え）には言及なし。" },
-      { path: "places/2026-09.md", text: "type: Place\n\n- 神保町の担々麺（店名不明）。ごま強め。\n- 東京駅周辺で20時前に食べたがっていた（移動の話に混ざっていたので推測）。" },
+      { path: "preferences/sesame.md", text: "---\ntype: Preference\ntitle: ごま強めの担々麺は苦手\ntags: [担々麺, ごま, 傾向]\n---\n\nごまが前に出る担々麺は苦手。辛さ自体は平気。\n\n根拠:\n- 2026-09-01 「ごまが強すぎた気がする」\n- 2026-09-13 「たしかに。辛いのは平気」\n\n反例: 担々麺以外のごま（胡麻和え）には言及なし。" },
+      { path: "places/2026-09.md", text: "---\ntype: Place\ntitle: 2026年9月に出た店\ntags: [担々麺, 神保町, 東京駅]\n---\n\n- 神保町の担々麺（店名不明）。ごま強め。\n- 東京駅周辺で20時前に食べたがっていた（移動の話に混ざっていたので推測）。" },
     ],
   },
   book: {
     notes: [
-      { path: "quotes/embodiment.md", text: "type: Quote\n\n「身体の状態が先にあって、感情はあとから名前を付けられる」\n出典の手がかり: 『動きが心をつくる』\n\n同じ章に二度反応している。" },
+      { path: "quotes/embodiment.md", text: "---\ntype: Quote\ntitle: 身体が先、感情はあと\ntags: [身体論, 動きが心をつくる]\n---\n\n「身体の状態が先にあって、感情はあとから名前を付けられる」\n出典の手がかり: 『動きが心をつくる』\n\n同じ章に二度反応している。" },
     ],
   },
 };

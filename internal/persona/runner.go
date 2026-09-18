@@ -491,6 +491,8 @@ const systemTemplate = `あなたは「%s」。%s
   出発時刻か到着時刻かなど、文脈でも特定できない点だけを確認してください。相対時刻は対象発言の日時を基準に解釈してください。
   ユーザーの訂正や追加条件を優先し、担当の推測をユーザーが決めた条件として扱わないでください。
   過去の回答があっても、追加条件で答えが変わる場合は更新して回答してください。
+- **メモには tags を付けます。** frontmatter の tags に、探すときの手がかりになる語を2〜5つ（産地・品種・色・店の種類・主題など）。
+  メモ一覧にはタグが出ます。探すときは notes_list を args の {"tag":"…"} で絞れます。
 - **同じものにメモは1つ。** 書く前にメモ一覧と index.md を見て、同じ銘柄・店・本・出来事のメモがあれば、新しく作らずその path を書き直します。
   綴りの揺れや読み取りの誤りは新しいメモの理由になりません。同じ題名のメモを別の path に作った workflow は本体が差し戻します。
   型（type）が違っても、対象が同じなら1つのメモです。型は「メモの分類」にあるものだけを使い、
@@ -910,7 +912,7 @@ func contains(list []string, value string) bool {
 func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *provenance) (string, bool) {
 	switch name {
 	case "notes_list":
-		return listNotes(r.store.Memory(personaID)), true
+		return listNotesTagged(r.store.Memory(personaID), stringOf(args["tag"])), true
 
 	case "notes_read":
 		wanted := stringsOf(args["paths"])
@@ -988,34 +990,73 @@ func repairNewlines(text string) string {
 	return strings.NewReplacer(`\n`, "\n", `\t`, "\t").Replace(body)
 }
 
-// repairFrontmatter drops the indentation a model sometimes puts in front of
-// the frontmatter block. Indented, it is not frontmatter at all: the note reads
-// as prose and its type is lost.
+// repairFrontmatter mends the two ways a model breaks a frontmatter block
+// without noticing: indenting it, so it reads as prose and the type is lost;
+// and gluing the closing fence to the last value ("+09:00---") or to the first
+// line of the body ("---基本情報"), so the block never closes and the whole
+// note reads as one broken header. A live run kept a wine that way.
 func repairFrontmatter(text string) string {
 	lines := strings.Split(text, "\n")
 	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
 		return text
 	}
 	lines[0] = "---"
+	out := []string{"---"}
+	closed := false
 	for i := 1; i < len(lines); i++ {
-		lines[i] = strings.TrimLeft(lines[i], " \t")
-		if lines[i] == "---" {
-			break
+		line := strings.TrimLeft(lines[i], " \t")
+		if closed {
+			out = append(out, lines[i])
+			continue
 		}
+		switch {
+		case line == "---":
+			closed = true
+		case strings.HasSuffix(line, "---") && len(line) > 3 && !strings.HasPrefix(line, "---"):
+			// The fence at the end of a value: the value keeps its line.
+			line = strings.TrimRight(strings.TrimSuffix(line, "---"), " \t")
+			out = append(out, line)
+			line = "---"
+			closed = true
+		case strings.HasPrefix(line, "---") && len(line) > 3:
+			// The fence at the start of the body: the body keeps its line.
+			out = append(out, "---")
+			line = strings.TrimLeft(strings.TrimPrefix(line, "---"), " \t")
+			closed = true
+		}
+		out = append(out, line)
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(out, "\n")
 }
 
 // listNotes is the one thing about the notes that is handed over unasked: their
 // names and how long each one is. It is what makes deciding what to read
 // possible without a round trip just to find out what exists.
 func listNotes(memory store.Memory) string {
+	return listNotesTagged(memory, "")
+}
+
+// listNotesTagged is the listing narrowed to one tag, or the whole listing
+// when tag is empty. Each line carries the note's tags, so a persona can pick
+// what to read by them without the index having said so.
+func listNotesTagged(memory store.Memory, tag string) string {
 	if len(memory.Notes) == 0 {
 		return "（まだ何もありません）"
 	}
 	var lines []string
 	for _, note := range memory.Notes {
-		lines = append(lines, fmt.Sprintf("- %s（%d字）", note.Path, len([]rune(note.Text))))
+		tags := noteTags(note.Text)
+		if tag != "" && !hasTag(tags, tag) {
+			continue
+		}
+		line := fmt.Sprintf("- %s（%d字）", note.Path, len([]rune(note.Text)))
+		if len(tags) > 0 {
+			line += " tags: " + strings.Join(tags, ", ")
+		}
+		lines = append(lines, line)
+	}
+	if len(lines) == 0 {
+		return "タグ「" + tag + "」のメモはありません。"
 	}
 	return strings.Join(lines, "\n")
 }

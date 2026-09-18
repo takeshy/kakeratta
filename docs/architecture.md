@@ -220,7 +220,7 @@ woken it is handed **the list only** — never the contents.
 | `notes_read` | Read contents (only what it wants) |
 | `notes_write` | Write one file. **Only that file** is replaced; the rest are untouched |
 | `notes_forget` | Throw one file away |
-| `notes_list` | Fetch the list again |
+| `notes_list` | Fetch the list again, with each note's tags; `{"tag":"…"}` narrows it to one tag |
 
 They need no declaration. What a skill declares are the tools that reach
 **outside**, and its own notes are not outside.

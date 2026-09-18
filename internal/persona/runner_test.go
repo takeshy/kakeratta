@@ -1682,3 +1682,20 @@ func TestARemarkPointsAtTheNotesWrittenWithIt(t *testing.T) {
 		t.Fatalf("remarks = %+v", said)
 	}
 }
+
+// A closing fence glued to the last value, or to the first line of the body,
+// leaves a note that never closes its front matter. Both are mended on write;
+// a block that is already right is left alone.
+func TestAGluedFrontmatterFenceIsMended(t *testing.T) {
+	for _, tc := range []struct{ name, in, want string }{
+		{"glued to the value", "---\ntype: Wine\ntimestamp: 2026-09-18T21:06:00+09:00---\n\n基本情報", "---\ntype: Wine\ntimestamp: 2026-09-18T21:06:00+09:00\n---\n\n基本情報"},
+		{"glued to the body", "---\ntype: Wine\n---基本情報\n生産者", "---\ntype: Wine\n---\n基本情報\n生産者"},
+		{"indented", "  ---\n  type: Wine\n  ---\n本文", "---\ntype: Wine\n---\n本文"},
+		{"already right", "---\ntype: Wine\n---\n本文 --- 区切り", "---\ntype: Wine\n---\n本文 --- 区切り"},
+		{"no front matter", "ただのメモ---", "ただのメモ---"},
+	} {
+		if got := repairFrontmatter(tc.in); got != tc.want {
+			t.Fatalf("%s: %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

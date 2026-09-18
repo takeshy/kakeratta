@@ -189,8 +189,8 @@ read の形:
 ` + fence(`{"steps":[ {"type":"…","paths":[],"tool":"","args":"{}"} ]}`) + `1回の read に複数のステップを並べられます。
 
 ### notes_list
-自分のメモの一覧を取り直します。
-` + fence(`{"type":"notes_list","paths":[],"tool":"","args":"{}"}`) + `
+自分のメモの一覧を取り直します。一覧には各メモの tags が出ます。args に {"tag":"…"} を書くと、そのタグのメモだけになります。
+` + fence(`{"type":"notes_list","paths":[],"tool":"","args":"{}"}`) + fence(`{"type":"notes_list","paths":[],"tool":"","args":"{\"tag\":\"アルゼンチン\"}"}`) + `
 ### notes_read
 paths のメモの中身を読みます。
 ` + fence(`{"type":"notes_read","paths":["tastes/tonkotsu.md","shops/jiro-mita.md"],"tool":"","args":"{}"}`) + `❌ メモを tool で読む

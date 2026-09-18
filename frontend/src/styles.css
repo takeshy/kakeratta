@@ -433,6 +433,8 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .memory-group > h3 { font-size: .85rem; color: var(--muted); }
 .memory-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
 .memory-card h4 { margin: 0 0 8px; font-size: 1rem; }
+.memory-head { display: flex; align-items: center; gap: 8px; }
+.memory-head h4 { margin: 0; flex: 1; min-width: 0; }
 .memory-description { margin: 0 0 12px; line-height: 1.7; }
 .memory-body { font-size: .9rem; line-height: 1.7; }
 .memory-body h5 { font-size: .85rem; margin: 16px 0 6px; color: var(--muted); }
@@ -531,3 +533,6 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .reply-current { display: grid; gap: 8px; }
 .said-notes { display: flex; flex-wrap: wrap; gap: 6px; }
 .said-note { font-size: 0.78rem; }
+.memory-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.memory-tag { font-size: 0.78rem; }
+.memory-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

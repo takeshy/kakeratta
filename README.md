@@ -113,19 +113,21 @@ Meaning search uses the AI connection you already configured. How it is prepared
 
 Open **What I remember** in the Personas panel to read saved notes grouped into preferences, wines, shops, books, and other types.
 Descriptions, evidence, and exceptions stay as written. Links to related memories take you to those notes.
+A note's tags (`#白ワイン`, `#アルゼンチン` - what the persona put in its front matter) appear as chips; tap one to narrow the view to notes carrying it.
+The persona uses them too: its note listing shows the tags, and `notes_list` can be narrowed to one.
 
-<img src="docs/captures/en/memory.png" alt="A wine persona's saved preferences, wines, and original post links (sample data)" width="382">
+<img src="docs/captures/en/memory.png" alt="A wine persona's saved preferences and wines, with tags, original post links, and the ✎ to edit (sample data)" width="382">
 
 **Posts behind this memory** opens the original post and conversation. The app automatically attaches the triggering post when a note is saved,
 keeps those links through rewrites, and carries them forward when a persona combines notes into another - one that links to them, or that replaces a note it throws away.
 A note read merely for context passes nothing on, and the index and the log carry no post links.
 These links show how a memory was recorded; they do not certify that its interpretation is correct.
 
-The view presents existing OKF notes without another AI summary. **View original note** reveals the saved text.
+The view presents existing OKF notes without another AI summary; the **✎** editor shows the saved text as it is.
 For older notes without a saved post link, **Find original post** opens search.
 
 Under a persona's remark sit links (📝) to the notes it wrote with that remark; tap one to open it.
-A misspelling or a wrong fact can be fixed in place: **View original note** → **Edit**. When the image read misspelt a wine and the persona remembered it that way, this is where to correct it; the links to the posts stay.
+A misspelling or a wrong fact can be fixed in place with the **✎** on the note's heading. When the image read misspelt a wine and the persona remembered it that way, this is where to correct it; the links to the posts stay.
 Use **Forget this note** to delete an incorrect memory individually. Original posts and other notes remain.
 A persona may remember it again from past posts. To change how it remembers, use **Edit with AI** in the Personas panel—for example, “Do not infer a preference from trying a wine once.”
 

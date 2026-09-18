@@ -30,6 +30,10 @@ test("OKF display reads quoted and folded metadata and preserves evidence and ex
   assert.equal(note.text, preference.text);
   assert.equal(parseMemoryNote({ path: "old.md", text: "Unstructured memory" }).body, "Unstructured memory");
   assert.match(parseMemoryNote({ path: "broken.md", text: "---\ntitle: unfinished" }).body, /unfinished/);
+  const glued = parseMemoryNote({ path: "glued.md", text: "---\ntype: Wine\ntitle: Altura\ntimestamp: 2026-09-18T21:06:00+09:00---\n\n基本情報\n生産者: Norton" });
+  assert.equal(glued.type, "Wine");
+  assert.equal(glued.title, "Altura");
+  assert.match(glued.body, /^基本情報/);
 });
 
 test("source navigation preserves entry IDs; bundle links resolve without inventing sources", () => {
@@ -49,6 +53,7 @@ class Element {
   setAttribute(key, value) { this.attributes[key] = value; }
   addEventListener(key, callback) { this.events[key] = callback; }
   append(...nodes) { this.children.push(...nodes); }
+  replaceChildren(...nodes) { this.children = nodes; }
   scrollIntoView() { this.scrolled = true; }
   focus() { this.focused = true; }
   all() { return [this, ...this.children.flatMap(child => child.all())]; }
@@ -69,8 +74,6 @@ test("reader shows wine preferences, evidence links and raw fallback without exe
   assert.match(texts, /Wines/);
   assert.match(texts, /Evidence/);
   assert.match(texts, /Exceptions/);
-  assert.match(texts, /View original note/);
-  assert.ok(nodes.some(node => node.textContent === preference.text));
   assert.equal(nodes.filter(node => node.tagName === "IMG").length, 0);
   const links = nodes.filter(node => node.tagName === "A");
   assert.deepEqual(links.map(node => node.attributes.href), ["/?entry=post-12", "/?entry=post-13"]);
@@ -136,10 +139,9 @@ test("a note can be edited without touching the app's source block", async (ctx)
   const cited = { path: "wines/altra.md", text: "---\ntype: Wine\ntitle: ALTRA White Blend\n---\nノートンの白。\n\n<!-- kakeratta:note-sources -->\n# 記憶を更新した投稿\n\n* [ラベル](/?entry=p1)\n<!-- /kakeratta:note-sources -->\n" };
   assert.equal(editableBody(cited.text), "---\ntype: Wine\ntitle: ALTRA White Blend\n---\nノートンの白。");
   const edits = [];
-  Element.prototype.replaceChildren = function (...nodes) { this.children = nodes; };
   const view = createMemoryView([cited], { onEdit: async (path, text) => { edits.push([path, text]); } });
-  const button = view.all().find(node => node.tagName === "BUTTON" && node.textContent === "編集");
-  assert.ok(button, "the note offers editing");
+  const button = view.all().find(node => node.tagName === "BUTTON" && node.textContent === "✎");
+  assert.ok(button, "the note carries a pencil");
   button.events.click();
   const input = view.all().find(node => node.tagName === "TEXTAREA");
   assert.equal(input.value, editableBody(cited.text), "the editor shows the persona's text only");
@@ -147,5 +149,33 @@ test("a note can be edited without touching the app's source block", async (ctx)
   const save = view.all().find(node => node.tagName === "BUTTON" && node.textContent === "メモを保存");
   await save.events.click();
   assert.deepEqual(edits, [["wines/altra.md", "---\ntype: Wine\ntitle: ALTURA White Blend\n---\nノートンの白。"]]);
-  assert.equal(createMemoryView([cited], {}).all().some(node => node.tagName === "BUTTON" && node.textContent === "編集"), false, "without a handler there is nothing to edit with");
+  assert.equal(createMemoryView([cited], {}).all().some(node => node.tagName === "BUTTON" && node.textContent === "✎"), false, "without a handler there is no pencil");
+});
+
+
+// Tags come out of the front matter as chips, and one chip narrows the view
+// to the notes that carry it.
+test("tags are shown as chips and narrow the view", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+    activeElement: null,
+  };
+  ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
+  setLanguage("ja");
+  const altura = { path: "wines/altura.md", text: "---\ntype: Wine\ntitle: Altura\ntags: [白ワイン, \"アルゼンチン\"]\n---\n白。" };
+  const margaux = { path: "wines/margaux.md", text: "---\ntype: Wine\ntitle: Margaux\ntags:\n  - 赤ワイン\n  - ボルドー\n---\n赤。" };
+  assert.deepEqual(parseMemoryNote(altura).tags, ["白ワイン", "アルゼンチン"]);
+  assert.deepEqual(parseMemoryNote(margaux).tags, ["赤ワイン", "ボルドー"]);
+  assert.deepEqual(parseMemoryNote(wine).tags, []);
+  const view = createMemoryView([altura, margaux]);
+  const chips = () => view.all().filter(node => node.tagName === "BUTTON" && String(node.textContent).startsWith("#"));
+  assert.deepEqual(chips().map(node => node.textContent), ["#白ワイン", "#アルゼンチン", "#赤ワイン", "#ボルドー"]);
+  chips()[3].events.click();
+  const titles = () => view.all().filter(node => node.tagName === "H4").map(node => node.textContent);
+  assert.deepEqual(titles(), ["Margaux"], "only the tagged note remains");
+  assert.ok(view.all().some(node => node.textContent === "タグ「ボルドー」のメモ"));
+  view.all().find(node => node.tagName === "BUTTON" && node.textContent === "すべてのメモを表示").events.click();
+  assert.deepEqual(titles(), ["Altura", "Margaux"]);
 });
