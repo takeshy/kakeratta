@@ -353,3 +353,15 @@ Private artifacts:
 
 Reproduce with KAKERATTA_ROUTE_COMPACT=1 in addition to the revised-condition
 flags (KAKERATTA_ROUTE_CONDITIONS, _NORMALIZED_CONDITIONS, _REVISED, key file).
+
+## Final run
+
+Reported by the author after the runs above, with the final production
+configuration (compact conditions, `excluded_reasons` required, no examples in
+the prompt): Lightning agreed with the earlier Ultra output on 18/20 cases. The
+two remaining disagreements were immediate-action posts of the case 7 kind
+(bathing today / maybe again), which Lightning routed to routine and Ultra to
+nobody. Both were reviewed by hand and judged acceptable either way. This result
+is recorded as reported; it was not reproduced in this document's replays, and
+the artifacts of the run were not kept.
+

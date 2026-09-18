@@ -81,12 +81,14 @@ was dropped in favour of **a required `excluded_reasons` for every persona not
 chosen**. Concrete examples were also removed from the router prompt, because
 they pulled the judgement towards themselves.
 
-Agreement with Ultra stayed at 15 to 17 of 20; it did not go up. What changed
-was the substance. Broken responses disappeared, and the remaining disagreements
-became posts like "taking a bath now", too immediate to be worth a schedule:
-Ultra ignored them and Lightning took them as plans, and either reading is
-defensible. The improvement was the reliability of the answer, not the count.
-The method and every run's figures are in
+Through the intermediate runs, agreement with Ultra stayed at 15 to 17 of 20,
+and what improved was the substance: broken responses disappeared, and the
+food photo and the book question that had been missed were picked up. The
+final production configuration reached 18/20. The two remaining disagreements
+were posts like "did I bathe today, maybe again", too immediate to be worth a
+schedule: Ultra ignored them and Lightning took them as plans, and either
+reading is defensible. Both were checked by hand and judged acceptable. The
+method and every run's figures are in
 [Routing model comparison](routing-cost-experiment.md).
 
 The good thing about this design was that showing the exclusion reasons to the
