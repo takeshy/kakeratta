@@ -212,8 +212,13 @@ func asCall(content string, offered map[string]bool) map[string]any {
 				}
 				return call("read", map[string]any{"steps": []any{read}})
 			}
+		case "silent":
+			// Staying quiet is said as such.
 		case "":
 			return map[string]any{"content": content}
+		}
+		if parsed.Action != "speak" {
+			steps = append(steps, step(map[string]any{"type": "speak", "text": ""}))
 		}
 		return call("submit_workflow", map[string]any{"summary": "test", "steps": steps})
 
@@ -895,7 +900,8 @@ func TestAPostCanPlaceASchedule(t *testing.T) {
 			return `{"deliver":["routine"]}`
 		}
 		return `{"summary":"予定とメモ","steps":[
-			{"type":"write_schedule","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n22:30から見る予定","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ドラマを見たか","id":""}]}`
+			{"type":"write_schedule","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n22:30から見る予定","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ドラマを見たか","id":""},
+			{"type":"speak","path":"","text":"","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 	}, "routine")
 
 	runner.react(post(t, s, "今日の22時半からドラマを見る").ID)
@@ -1028,7 +1034,7 @@ func TestOnlyWorkflowsThatReachFurtherThanNotesAndRemarksAreReviewed(t *testing.
 			if strings.Contains(system, "振り分け") {
 				return `{"deliver":["routine"]}`
 			}
-			return `{"summary":"覚える","steps":[` + tc.steps + `]}`
+			return `{"summary":"覚える","steps":[` + tc.steps + `,{"type":"speak","path":"","text":"","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 		}, "routine")
 		runner.react(post(t, s, "今からお風呂入ります").ID)
 		if len(stub.reviews) != tc.reviews {
@@ -1043,7 +1049,7 @@ func TestAnEmptyWorkflowIsNotReviewed(t *testing.T) {
 		if strings.Contains(system, "振り分け") {
 			return `{"deliver":["routine"]}`
 		}
-		return `{"summary":"何もしない","steps":[]}`
+		return `{"summary":"何もしない","steps":[{"type":"speak","path":"","text":"","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 	}, "routine")
 
 	runner.react(post(t, s, "晴れ").ID)
@@ -1168,6 +1174,7 @@ func TestTheSameNoteWrittenTwiceIsSentBack(t *testing.T) {
 	problems := checkWorkflow(Workflow{Steps: []Step{
 		{Type: "write_note", Path: "errands/drama.md", Text: "a"},
 		{Type: "write_schedule", Path: "errands/drama.md", Text: "b", At: "2026-09-18T22:00:00+09:00", Note: "見たか"},
+		{Type: "speak", Text: ""},
 	}}, turnRules{set: registry.For([]string{"schedule"}).As("routine")})
 	if len(problems) != 1 || !strings.Contains(problems[0], "すでに書いています") {
 		t.Fatalf("problems = %v", problems)
@@ -1336,7 +1343,7 @@ func TestTheLowTierHoldsOnlyReadingTools(t *testing.T) {
 // Web search is used before a workflow, like reading a note, and never in one.
 func TestWebSearchIsNotAWorkflowStep(t *testing.T) {
 	set := tools.New(tools.Config{}).For([]string{"web_search"})
-	problems := checkWorkflow(Workflow{Steps: []Step{{Type: "tool", Tool: "web_search", Args: `{"query":"x"}`}}}, turnRules{set: set})
+	problems := checkWorkflow(Workflow{Steps: []Step{{Type: "tool", Tool: "web_search", Args: `{"query":"x"}`}, {Type: "speak"}}}, turnRules{set: set})
 	if len(problems) != 1 || !strings.Contains(problems[0], "read で使ってください") {
 		t.Fatalf("problems = %v", problems)
 	}
@@ -1546,5 +1553,30 @@ func TestFailedRoutingDropsPreviousDecision(t *testing.T) {
 	runner.Stop()
 	if record, err := workspace.Routing(entry.ID); err != nil || record != nil {
 		t.Fatalf("stale decision: %+v (%v)", record, err)
+	}
+}
+
+// Every workflow ends with a speak, and staying quiet is a speak with nothing
+// in it: the persona decides out loud. A live run's summary promised a remark
+// that the steps did not carry, and the note was written in silence.
+func TestEveryWorkflowDecidesWhetherToSpeak(t *testing.T) {
+	set := tools.New(tools.Config{}).For(nil)
+	silent := Workflow{Summary: "メモを書いて黙る", Steps: []Step{{Type: "write_note", Path: "a.md", Text: "x"}, {Type: "speak", Text: ""}}}
+	if problems := checkWorkflow(silent, turnRules{set: set}); len(problems) != 0 {
+		t.Fatalf("explicit silence was refused: %v", problems)
+	}
+	missing := Workflow{Summary: "メモを書いて発言する", Steps: []Step{{Type: "write_note", Path: "a.md", Text: "x"}}}
+	if problems := checkWorkflow(missing, turnRules{set: set}); len(problems) != 1 || !strings.Contains(problems[0], "speak がありません") {
+		t.Fatalf("a workflow without a speak was accepted: %v", problems)
+	}
+	if problems := checkWorkflow(silent, turnRules{set: set, named: true}); len(problems) != 1 || !strings.Contains(problems[0], "空にはできません") {
+		t.Fatalf("a named persona was allowed to stay quiet: %v", problems)
+	}
+	spoken := Workflow{Steps: []Step{{Type: "speak", Text: "また豚骨だ"}}}
+	if problems := checkWorkflow(spoken, turnRules{set: set, listening: true}); len(problems) != 1 || !strings.Contains(problems[0], "空にしてください") {
+		t.Fatalf("a listening persona was allowed to speak: %v", problems)
+	}
+	if problems := checkWorkflow(silent, turnRules{set: set, listening: true}); len(problems) != 0 {
+		t.Fatalf("a listening persona's silence was refused: %v", problems)
 	}
 }

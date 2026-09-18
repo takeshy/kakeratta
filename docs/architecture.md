@@ -78,11 +78,11 @@ A persona does not call tools one at a time any more (`internal/persona/workflow
    | `write_schedule` | Place a wake **and** write the note it rests on, as one step. If the note cannot be written, the wake is taken back |
    | `cancel_schedule` | Cancel a wake by an id from the list the persona was given |
    | `tool` | Call a declared tool (not `schedule`) |
-   | `speak` | Say something. At most one, and only as the last step |
+   | `speak` | Say something. **Exactly one, and last.** Silence is a speak with an empty text: the persona decides out loud every turn, and a workflow without a speak is sent back |
 
 3. **Checked by the app.** Mechanically first — known step types, declared
-   tools, no invented schedule ids, no remark on a turn that cannot speak, an
-   answer when named. Then the app's model reviews it against a narrow list:
+   tools, no invented schedule ids, an empty speak on a turn that cannot speak,
+   a non-empty one when named, and one speak at the end. Then the app's model reviews it against a narrow list:
    something written as fact that did not happen, an invented id, a time
    promised with no schedule, a remark in another language than the post, a
    note rewritten without being read, a persona's own instructions plainly

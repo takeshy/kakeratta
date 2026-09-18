@@ -177,7 +177,7 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 	if !stub.seen("このターンは発言できません") {
 		t.Fatal("the wake was not told it cannot speak")
 	}
-	if !stub.seen("speak を外してください") {
+	if !stub.seen("speak の text は空にしてください") {
 		t.Fatal("a workflow that speaks on a silent turn was not sent back")
 	}
 }

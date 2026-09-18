@@ -350,9 +350,14 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			}
 		case "speak":
 			speaks++
-			if strings.TrimSpace(step.Text) == "" {
-				problems = append(problems, at+": text がありません")
-			} else if strings.TrimSpace(step.Text) == strings.TrimSpace(workflow.Summary) {
+			// An empty text is silence, chosen out loud; a named persona may not
+			// choose it, and a listening one may choose nothing else.
+			switch {
+			case strings.TrimSpace(step.Text) == "" && rules.named && !rules.listening:
+				problems = append(problems, at+": 名指しで呼ばれています。speak の text を空にはできません")
+			case strings.TrimSpace(step.Text) != "" && rules.listening:
+				problems = append(problems, at+": このターンは発言できません。speak の text は空にしてください")
+			case strings.TrimSpace(step.Text) != "" && strings.TrimSpace(step.Text) == strings.TrimSpace(workflow.Summary):
 				// A live run said its own plan out loud: "神谷町駅周辺のランチ情報を
 				// Web検索で探す", word for word the summary.
 				problems = append(problems, at+": speak の text が summary と同じです。何をするかの説明ではなく、ユーザーに向けた発言そのものを書いてください")
@@ -364,13 +369,14 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			problems = append(problems, at+": 知らないステップです")
 		}
 	}
+	// A workflow without a speak step has not decided whether to speak, and a
+	// live run lost a remark that way: the summary promised one and the steps
+	// did not carry it. Silence is asked for as a speak with an empty text.
 	switch {
 	case speaks > 1:
 		problems = append(problems, "speak は1回までです")
-	case rules.listening && speaks > 0:
-		problems = append(problems, "このターンは発言できません。speak を外してください")
-	case rules.named && !rules.listening && speaks == 0:
-		problems = append(problems, "名指しで呼ばれています。最後に speak を入れてください")
+	case speaks == 0:
+		problems = append(problems, "speak がありません。最後に必ず speak を入れ、何も言わないなら text を空にしてください")
 	}
 	return problems
 }
@@ -641,11 +647,11 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow Workflow, se
 			}
 			sources = append(sources, result.Sources...)
 		case "speak":
-			if rules.listening {
-				record.Error = "このターンは発言できません"
-				break
+			// A listening turn's speak is empty by rule; whatever it holds is
+			// not said.
+			if !rules.listening {
+				spoken = strings.TrimSpace(step.Text)
 			}
-			spoken = strings.TrimSpace(step.Text)
 			out = spoken
 		default:
 			record.Error = "知らないステップです"

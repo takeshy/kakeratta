@@ -791,9 +791,9 @@ func turnLine(named, listening bool) string {
 	switch {
 	case listening:
 		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
-			"覚えておくことがあればメモに書いてください。workflow に speak は入れられません。"
+			"覚えておくことがあればメモに書いてください。最後の speak の text は空にしてください。"
 	case named:
-		return "\n※ あなたは名指しで呼ばれています。workflow に when の付かない speak を必ず入れてください。"
+		return "\n※ あなたは名指しで呼ばれています。最後の speak の text を空にはできません。必ず何か答えてください。"
 	}
 	return ""
 }
