@@ -88,6 +88,7 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     }
     if (path === "/api/about") return about ? json(about) : json({ error: "about" }, 404);
     if (path === "/api/models") return json({ models });
+    if (path === "/api/openrouter/models") return json({ models });
     return json({ error: `the story has no ${method} ${path}` }, 404);
   };
 }

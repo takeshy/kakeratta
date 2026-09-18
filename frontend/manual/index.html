@@ -329,7 +329,7 @@
         <section id="ja-settings">
           <h2>9. 設定</h2>
           <figure>
-            <img src="/captures/ja/settings.png" alt="設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ" loading="lazy" width="390" height="2575" />
+            <img src="/captures/ja/settings.png" alt="設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ" loading="lazy" width="390" height="2409" />
             <figcaption>設定パネル。上から表示言語、AI、Web検索、Bluesky連携、音声入力、読み上げ。</figcaption>
           </figure>
           <h3>表示言語</h3>
@@ -355,7 +355,7 @@
               </tbody>
             </table>
           </div>
-          <p>上級オプションでは、振り分けだけをJevへ切り替えるか、OpenRouter専用モードでhigh/middle/lowも指定モデルへ切り替えられます。Jevでは判定理由を表示しません。</p>
+          <p><strong>OpenRouterを使う</strong>では、APIキーを入力して接続確認すると利用可能なモデルを取得し、router/high/middle/lowごとに選べます。振り分けだけをJevへ切り替えることも、OpenRouter専用モードでhigh/middle/lowを選択モデルへ切り替えることもできます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。</p>
           <p>担当ごとに low / middle / high を選びます。low が先に動き、その発言を見て上の段が突っ込めます。どのモデルをどの段に置くかが、そのまま体験の差になります。</p>
           <p><strong>web 検索以外の道具（経路、店探し、予定など）を使う担当は middle か high です。</strong>middle 以上の担当は、まず読んだり調べたりしてから、やること（メモ・予定・発言）を workflow として出し、本体が確認してから実行します。low の担当は workflow を使わず、メモと web 検索と発言だけで軽く動きます。</p>
           <h3 id="ja-tools">道具：担当が調べたり覚えたりする方法</h3>
@@ -734,7 +734,7 @@
         <section id="en-settings">
           <h2>9. Settings</h2>
           <figure>
-            <img src="/captures/en/settings.png" alt="Settings: display language, model, web search, Bluesky connection, voice input, read-aloud" loading="lazy" width="390" height="2615" />
+            <img src="/captures/en/settings.png" alt="Settings: display language, model, web search, Bluesky connection, voice input, read-aloud" loading="lazy" width="390" height="2429" />
             <figcaption>The Settings panel: display language, AI, web search, Bluesky connection, voice input, read-aloud.</figcaption>
           </figure>
           <h3>Display language</h3>
@@ -760,7 +760,7 @@
               </tbody>
             </table>
           </div>
-          <p>Advanced options can move routing alone to Jev, or move high/middle/low to selected OpenRouter models with OpenRouter-only mode. Jev does not display decision reasons.</p>
+          <p><strong>Use OpenRouter</strong> saves an API key, checks the connection, fetches available models, and lets you pick each router/high/middle/low slot. You can move routing alone to Jev or move high/middle/low to the selected models with OpenRouter-only mode. In the 20-production-item comparison, Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026 per route, but it does not display decision reasons.</p>
           <p>Each persona chooses low, middle, or high. Low runs first, and higher tiers can build on earlier responses. Which model sits in which tier is the difference in experience.</p>
           <p><strong>A persona that uses any tool other than web search (routes, places, schedules) is middle or high.</strong> Those personas first read and look things up, then hand in what they will do (notes, schedules, a remark) as a workflow that the app reviews before running it. A low persona has no workflow: it works with its notes, web search and a remark only.</p>
           <h3 id="en-tools">Tools: how personas look things up and remember</h3>

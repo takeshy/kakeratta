@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/capture"
+	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
@@ -87,6 +88,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /api/settings", s.guard(s.putSettings))
 	s.mux.HandleFunc("POST /api/search/check", s.guard(s.checkSearch))
 	s.mux.HandleFunc("GET /api/models", s.guard(s.getModels))
+	s.mux.HandleFunc("GET /api/openrouter/models", s.guard(s.getOpenRouterModels))
 	s.mux.HandleFunc("GET /api/about", s.guard(s.getAbout))
 
 	// The dictation stack is reached through the relay so credentials stay out
@@ -633,6 +635,40 @@ func (s *Server) getModels(w http.ResponseWriter, r *http.Request) {
 	client, _ := s.client()
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
+	models, err := client.Models(ctx)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"models": models})
+}
+
+func (s *Server) getOpenRouterModels(w http.ResponseWriter, r *http.Request) {
+	settings := s.store.Settings()
+	if strings.TrimSpace(settings.OpenRouterAPIKey) == "" {
+		fail(w, http.StatusBadRequest, "OpenRouter APIキーを入力してください")
+		return
+	}
+	client := llm.NewOpenRouter(store.OpenRouterBaseURL, settings.OpenRouterAPIKey)
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	check, err := http.NewRequestWithContext(ctx, http.MethodGet, store.OpenRouterBaseURL+"/key", nil)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	check.Header.Set("Authorization", "Bearer "+settings.OpenRouterAPIKey)
+	response, err := client.HTTP.Do(check)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<20))
+	_ = response.Body.Close()
+	if response.StatusCode >= 300 {
+		fail(w, http.StatusBadGateway, "OpenRouter APIキーを確認できませんでした")
+		return
+	}
 	models, err := client.Models(ctx)
 	if err != nil {
 		fail(w, http.StatusBadGateway, err.Error())

@@ -190,7 +190,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 画像の読み取りにはGLM-5.3-Flash、意味検索にはQwen3-Embedding-8Bを同じ基盤で使用します。
 
-振り分けは既定でNemotron Superを使います。設定の「上級オプション」でJevを有効にし、OpenRouter APIキーを入力すると、振り分けだけをJevへ切り替えます（Jevでは判定理由を表示しません）。OpenRouter専用モードをONにすると、high/middle/lowも画面で指定したOpenRouterモデルを使います。
+振り分けは既定でNemotron Superを使います。設定の「OpenRouterを使う」でAPIキーを入力し、接続確認すると利用可能なモデルを取得してrouter/high/middle/lowごとに選べます。Jevを有効にすると振り分けだけをJevへ切り替えます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。OpenRouter専用モードをONにすると、high/middle/lowも選択したOpenRouterモデルを使います。
 
 ![設定。表示言語、モデル、Web検索、Bluesky連携、音声入力、読み上げ](captures/ja/settings.png)
 

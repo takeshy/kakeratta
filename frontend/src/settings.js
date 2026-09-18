@@ -18,7 +18,8 @@ export function createSettings({ speaker, onSettings }) {
   const view = el("div", { class: "panel-body" });
   let settings = null;
   let about = null;
- let bluesky = null;
+  let bluesky = null;
+  let openRouterModels = [];
   let stopMicCheck = () => {};
 
   async function load() {
@@ -58,22 +59,23 @@ export function createSettings({ speaker, onSettings }) {
 
   // Models are not chosen here; the tiers keep their defaults (see the manual).
   // Listing the endpoint's models is still the check that the key works.
-  function connectionCheck(saveKey) {
+  function connectionCheck(saveKey, { fetchModels = () => api.models(), label = "接続確認", onModels } = {}) {
     const check = el("button", {
       class: "chip",
-      label: "接続確認",
+      label,
       onclick: async () => {
         check.disabled = true;
         check.textContent = t("接続中…");
         try {
           if (!(await saveKey())) return;
-          await api.models();
+          const result = await fetchModels();
+          onModels?.(result.models ?? []);
           toast(t("接続できました"));
         } catch (error) {
           toast(String(error.message || error), "error");
         } finally {
           check.disabled = false;
-          check.textContent = t("接続確認");
+          check.textContent = t(label);
         }
       },
     });
@@ -104,35 +106,53 @@ export function createSettings({ speaker, onSettings }) {
 	    type: "password",
 	    hint: "JevまたはOpenRouter専用モードに使います。サーバー側だけに保存します",
 	  });
-	const jevKeyInput = jevKey.querySelector("input");
 	const jevEnabled = el("input", { type: "checkbox", checked: !!settings.jevEnabled });
 	const openRouterMode = el("input", { type: "checkbox", checked: !!settings.openRouterMode });
-	const refreshKeyState = () => { jevKeyInput.disabled = !jevEnabled.checked && !openRouterMode.checked; };
-	refreshKeyState();
+	jevEnabled.disabled = true;
+	openRouterMode.disabled = true;
 	jevEnabled.addEventListener("change", () => {
-	  refreshKeyState();
 	  void patch({ jevEnabled: jevEnabled.checked });
 	});
 	openRouterMode.addEventListener("change", () => {
-	  refreshKeyState();
 	  void patch({ openRouterMode: openRouterMode.checked });
 	});
-	const openRouterModels = el("div", { class: "openrouter-models" },
-	  field("Routerモデル", settings.openRouterRouterModel, (value) => patch({ openRouterRouterModel: value })),
-	  field("Highモデル", settings.openRouterHighModel, (value) => patch({ openRouterHighModel: value })),
-	  field("Middleモデル", settings.openRouterMiddleModel, (value) => patch({ openRouterMiddleModel: value })),
-	  field("Lowモデル", settings.openRouterLowModel, (value) => patch({ openRouterLowModel: value }), {
-	    hint: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します",
-	  }),
+	const modelChoices = (current) => [...new Set([current, ...openRouterModels].filter(Boolean))].map((id) => [id, id]);
+	const pickers = [
+	  select("Routerモデル", settings.openRouterRouterModel, modelChoices(settings.openRouterRouterModel), (value) => patch({ openRouterRouterModel: value })),
+	  select("Highモデル", settings.openRouterHighModel, modelChoices(settings.openRouterHighModel), (value) => patch({ openRouterHighModel: value })),
+	  select("Middleモデル", settings.openRouterMiddleModel, modelChoices(settings.openRouterMiddleModel), (value) => patch({ openRouterMiddleModel: value })),
+	  select("Lowモデル", settings.openRouterLowModel, modelChoices(settings.openRouterLowModel), (value) => patch({ openRouterLowModel: value })),
+	];
+	const refreshPickers = (models) => {
+	  openRouterModels = models;
+	  for (const picker of pickers) {
+	    const node = picker.querySelector("select");
+	    const current = node.value;
+	    node.replaceChildren(...modelChoices(current).map(([id, text]) => el("option", { value: id, text, selected: id === current })));
+	  }
+	};
+	const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
+	  el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }));
+	pickerGroup.hidden = !openRouterMode.checked;
+	openRouterMode.addEventListener("change", () => { pickerGroup.hidden = !openRouterMode.checked; });
+	const openRouterCheck = connectionCheck(
+	  () => patch({ openRouterApiKey: jevKey.querySelector("input").value.trim() }),
+	  { fetchModels: () => api.openRouterModels(), label: "OpenRouterの接続確認", onModels: (models) => {
+	    refreshPickers(models);
+	    jevEnabled.disabled = false;
+	    openRouterMode.disabled = false;
+	  } },
 	);
 	view.append(el("details", { class: "advanced-settings" },
-	  el("summary", { label: "上級オプション" }),
+	  el("summary", { label: "OpenRouterを使う" }),
+	  jevKey,
+	  openRouterCheck,
+	  el("p", { class: "hint", label: "接続確認が成功すると、JevとOpenRouter専用モードを選べます。" }),
 	  el("label", { class: "field check-field" }, jevEnabled, el("span", { label: "Jevを有効にする" })),
-	  el("p", { class: "hint", label: "Jevは投稿の振り分けだけに使います。判定理由は表示されず、jev-latestの更新で挙動が変わることがあります。" }),
+	  el("p", { class: "hint", label: "Jevは正確で速く、費用が最も安い振り分け専用モデルです。判定理由は表示されません。" }),
 	  el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouter専用モード" })),
 	  el("p", { class: "hint", label: "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。" }),
-	  jevKey,
-	  openRouterModels,
+	  pickerGroup,
 	));
   }
 

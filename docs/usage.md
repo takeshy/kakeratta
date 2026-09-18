@@ -239,10 +239,12 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 - Nemotron Ultra — high-tier personas and persona drafting
 - Nebius Token Factory — inference backend
 
-Routing uses Nemotron Super by default. Under Advanced options, enabling Jev
-and entering an OpenRouter API key moves only routing to Jev; Jev does not show
-decision reasons. OpenRouter-only mode also moves high, middle, and low to the
-OpenRouter models entered in Advanced options.
+Routing uses Nemotron Super by default. Under Use OpenRouter, enter an API key
+and check the connection to fetch available models and pick one for each slot.
+Enabling Jev moves only routing to Jev. In the 20-production-item comparison,
+Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026
+per route, but it does not show decision reasons. OpenRouter-only mode also
+moves high, middle, and low to their selected OpenRouter models.
 
 Image reading uses GLM-5.3-Flash and meaning search uses
 Qwen3-Embedding-8B on the same backend.

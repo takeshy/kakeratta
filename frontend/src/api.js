@@ -125,6 +125,7 @@ export const api = {
   settings: () => call("GET", "/api/settings"),
   saveSettings: (settings) => call("PUT", "/api/settings", settings),
   models: () => call("GET", "/api/models"),
+  openRouterModels: () => call("GET", "/api/openrouter/models"),
   about: () => call("GET", "/api/about"),
 
   on(listener) {

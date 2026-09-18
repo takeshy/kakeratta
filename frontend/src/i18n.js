@@ -2,12 +2,16 @@ const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
  "上級オプション": "Advanced options",
+ "OpenRouterを使う": "Use OpenRouter",
+ "OpenRouterの接続確認": "Check OpenRouter connection",
+ "接続確認が成功すると、JevとOpenRouter専用モードを選べます。": "After the connection check succeeds, you can select Jev or OpenRouter-only mode.",
  "Jevを有効にする": "Enable Jev",
  "OpenRouter APIキー": "OpenRouter API key",
  "OpenRouter専用モード": "OpenRouter-only mode",
  "Routerモデル": "Router model", "Highモデル": "High model", "Middleモデル": "Middle model", "Lowモデル": "Low model",
  "JevまたはOpenRouter専用モードに使います。サーバー側だけに保存します": "Used for Jev or OpenRouter-only mode. Stored only on the server.",
  "Jevは投稿の振り分けだけに使います。判定理由は表示されず、jev-latestの更新で挙動が変わることがあります。": "Jev is used only for post routing. It does not show decision reasons, and jev-latest updates may change behavior.",
+ "Jevは正確で速く、費用が最も安い振り分け専用モデルです。判定理由は表示されません。": "Jev is an accurate and fast routing model with the lowest cost. It does not show decision reasons.",
  "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。": "When on, High, Middle, and Low also use OpenRouter. Tool calls use Exacto.",
  "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します": "Low is called with thinking disabled, up to 1,024 tokens, and temperature 0.1.",
  "Jevの振り分けだけに使います。空欄またはOFFならNemotron Superを使います": "Used only for Jev routing. If empty or off, Nemotron Super is used.",

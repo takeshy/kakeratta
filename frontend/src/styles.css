@@ -279,6 +279,13 @@ body.sheet-open .topbar { z-index: 21; }
 .advanced-settings { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
 .advanced-settings summary { cursor: pointer; color: var(--accent); }
 .advanced-settings[open] summary { margin-bottom: 12px; }
+.advanced-settings > .field,
+.advanced-settings > .compose-row,
+.advanced-settings > .hint,
+.advanced-settings > .openrouter-models { margin-top: 12px; }
+.openrouter-models { display: grid; gap: 12px; }
+.openrouter-models[hidden] { display: none; }
+.openrouter-models > .hint { margin: 0; }
 .field.check-field { display: flex; flex-direction: row; align-items: center; gap: 8px; }
 .field.check-field input { width: auto; }
 .field.check-field > span:first-child { color: inherit; font-size: inherit; }
