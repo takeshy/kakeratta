@@ -161,7 +161,7 @@ const EN = {
   "消す": "Delete", "この投稿を消しますか": "Delete this post?",
   "担当の判断": "Router's call", "呼ばれました": "Called", "呼ばれませんでした": "Not called",
   "呼んでほしかった": "Should have been called", "呼んでほしくなかった": "Should not have been called",
-  "判断の記録がありません": "No record of the router's call.", "記録された判断はありません": "The router recorded nothing for this post.",
+  "判断の記録がありません": "No record of the router's call.", "判断の記録がありません。振り分けの途中なら、終わるとここに出ます。": "No record of the router's call yet. If it is still deciding, the call appears here when it is done.", "記録された判断はありません": "The router recorded nothing for this post.",
   "{0} を呼んでほしかった": "{0} should have been called", "{0} を呼んでほしくなかった": "{0} should not have been called",
   "担当の判断：{0}": "Router's reason: {0}", "今の判定条件": "Current condition", "新しい判定条件": "New condition",
   "理由や、どう変えてほしいか": "Why, or what should change",

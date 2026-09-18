@@ -171,7 +171,10 @@ body {
   gap: 10px;
 }
 .post { display: grid; gap: 8px; }
-.post-head { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
+/* On a narrow screen the head wraps as a whole; a name or a chip never breaks
+   in the middle of a word. */
+.post-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.8rem; color: var(--muted); }
+.post-head > *, .said-head > * { white-space: nowrap; }
 .post-head .who { font-weight: 600; color: var(--ink); }
 /* Append-only makes a delete recoverable in the log, but nobody wants to go and
    get it back. Reachable, not in the way - and always there without hover. */
@@ -215,7 +218,7 @@ body {
 }
 .said-row.mine { border-left-color: var(--line); }
 .said-row > .chip { justify-self: start; }
-.said-head { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+.said-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 0.8rem; color: var(--muted); }
 .said-head .who { font-weight: 600; color: var(--ink); }
 .avatar { font-size: 1rem; }
 .source {
@@ -502,8 +505,13 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 
 /* The router's call about a post: who it chose, whom it passed over and why,
    each with a way to say the router was wrong. */
-.routing { display: grid; gap: 6px; padding-left: 10px; border-left: 2px solid var(--line); }
-.routing-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.85rem; }
+/* A one-glyph chip: the pencil, the scales, the cross. */
+.chip.icon { padding-inline: 8px; font-size: 1rem; line-height: 1; }
+.routing-dialog { width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; }
+.routing-dialog:focus { outline: none; }
+.routing-dialog h2 { margin: 0; font-size: 1.2rem; line-height: 1.5; }
+.routing { display: grid; gap: 10px; }
+.routing-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.9rem; padding-left: 10px; border-left: 2px solid var(--line); }
 .routing-row .who { font-weight: 600; }
 .routing-verdict { color: var(--muted); font-size: 0.78rem; }
 .routing-reason { color: var(--muted); flex-basis: 100%; }

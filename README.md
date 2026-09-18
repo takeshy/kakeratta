@@ -49,7 +49,7 @@ was done about it — is written up in [What was hard about the AI](docs/ai-less
 2. Relevant personas receive the post and decide what to remember and whether to reply.
 3. Reactions arrive later in the timeline. Mention a persona with `@` when you want an answer.
 
-![The timeline: your fragments, with what the personas said about them underneath](docs/captures/en/timeline.png)
+<img src="docs/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said about them underneath" width="390">
 
 The timeline shows your newest posts, 20 at a time. Conversations stay folded under each post; tap **3 replies** to open one.
 
@@ -84,7 +84,7 @@ Enter your handle and authorize on Bluesky; kakeratta never asks for your Bluesk
 **Persona replies start unchecked.** Preview the text, images, reply structure, and account before publishing.
 Persona messages carry an attribution such as `🍚 tabeからの返信:` (reply from tabe), and branching replies keep their original parents.
 
-![Bluesky preview with tabe's reply and your follow-up selected, leaving out gout's reply (sample data)](docs/captures/en/bluesky-preview.png)
+<img src="docs/captures/en/bluesky-preview.png" alt="Bluesky preview with tabe's reply and your follow-up selected, leaving out gout's reply (sample data)" width="382">
 
 Already published messages are reused as parents when you share additional replies.
 [Connect and publish](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication history](docs/social-sharing-en.md)
@@ -98,11 +98,11 @@ Enter a name like “Pinot” or a description like “a light red wine that was
 Search covers what you wrote, text read from your photos, and your conversations with personas.
 Tap a result to open the original post and its conversation.
 
-![Search by name for saved posts mentioning Pinot (sample data)](docs/captures/en/search-keyword.png)
+<img src="docs/captures/en/search-keyword.png" alt="Search by name for saved posts mentioning Pinot (sample data)" width="390">
 
-![Search from a description for a light red wine you enjoyed (sample data)](docs/captures/en/search-semantic.png)
+<img src="docs/captures/en/search-semantic.png" alt="Search from a description for a light red wine you enjoyed (sample data)" width="390">
 
-![Open the original post and conversation from a search result (sample data)](docs/captures/en/search-thread.png)
+<img src="docs/captures/en/search-thread.png" alt="Open the original post and conversation from a search result (sample data)" width="390">
 
 **Personas look back through your fragments too, when it helps.** When a new label arrives, a wine persona may say
 “This is close to the Pinot you liked before,” with a link to that post.
@@ -114,7 +114,7 @@ Meaning search uses the AI connection you already configured. How it is prepared
 Open **What I remember** in the Personas panel to read saved notes grouped into preferences, wines, shops, books, and other types.
 Descriptions, evidence, and exceptions stay as written. Links to related memories take you to those notes.
 
-![A wine persona's saved preferences, wines, and original post links (sample data)](docs/captures/en/memory.png)
+<img src="docs/captures/en/memory.png" alt="A wine persona's saved preferences, wines, and original post links (sample data)" width="382">
 
 **Posts behind this memory** opens the original post and conversation. The app automatically attaches the triggering post when a note is saved,
 keeps those links through rewrites, and carries them forward when a persona reads notes and combines them into another note.
@@ -128,15 +128,15 @@ A persona may remember it again from past posts. To change how it remembers, use
 
 ## See why a persona was called, or not
 
-The app decides who gets each post, and it says why. Tap **Router's call** on one of your posts or replies to see which personas were called and, for each one that was not, the router's one-line reason.
+The app decides who gets each post, and it says why. Tap **⚖** (the router's call) on one of your posts or replies to open, apart from the timeline, which personas were called and, for each one that was not, the router's one-line reason.
 A persona you mentioned with `@` is not listed: reaching it was your call, not the router's.
 
-![The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)](docs/captures/en/routing.png)
+<img src="docs/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" width="382">
 
 When the router got it wrong, fix the persona's condition right there. **Should have been called** and **Should not have been called** open the same flow: say why in your own words, and the AI that builds personas rewrites the condition.
 The new condition is shown as text you can edit by hand; **Ask the AI to change it** takes a fresh request and rewrites what is in the box.
 
-![A new condition for michi, written by the AI from your reason and open for editing before saving (sample data)](docs/captures/en/condition-fix.png)
+<img src="docs/captures/en/condition-fix.png" alt="A new condition for michi, written by the AI from your reason and open for editing before saving (sample data)" width="382">
 
 **OK** saves the condition and then has the router try the same post again, without waking anyone. If the post now goes where you meant, you are done.
 If it still does not, you are told - with the router's reason - and asked again. What was saved stays saved, so the persona is never left with a condition you did not see.
@@ -145,11 +145,11 @@ If it still does not, you are told - with the router's reason - and asked again.
 
 A persona's remark is where its tone and instructions show, so that is where they get corrected. Tap **Fix this reply** on a remark, say how it missed - "I don't want recommendations, just how this differs from last time" - and the AI that builds personas rewrites the persona's tone and instructions. Nothing else: the condition, name and tools stay.
 
-![tabe's remark disputed: the new tone and instructions the AI wrote, open for editing (sample data)](docs/captures/en/reply-fix.png)
+<img src="docs/captures/en/reply-fix.png" alt="tabe's remark disputed: the new tone and instructions the AI wrote, open for editing (sample data)" width="382">
 
 Both are shown as text you can edit; **Ask the AI to change it** takes a fresh request. **OK** saves them and then has the persona take the same turn again on the same post - reading its notes as it would, but with nothing landing anywhere: no remark on the timeline, no note written, no wake counted.
 
-![The reply tabe would now give to the same post, with That's it or Still not it (sample data)](docs/captures/en/reply-trial.png)
+<img src="docs/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" width="382">
 
 You are the judge. **That's it** closes; **Still not it** quotes the trial reply and asks again how it misses. What was saved stays saved either way.
 
@@ -164,9 +164,9 @@ you a draft right away. Even “wine” or “reading” is enough to start; the
 long questionnaire. Review the draft in plain language: what it helps with,
 how it talks, what it remembers, and when it replies.
 
-![Create a persona with AI: describe what you want in your own words](docs/captures/en/persona-create.png)
+<img src="docs/captures/en/persona-create.png" alt="Create a persona with AI: describe what you want in your own words" width="382">
 
-![Review and save a sample wine persona drafted by AI](docs/captures/en/persona-draft.png)
+<img src="docs/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" width="382">
 
 1. Open Personas and choose **Create a persona with AI**. Describe what you want.
 2. Review the draft and select **Save this persona**.
@@ -179,7 +179,7 @@ can be edited too. Their existing memories and enabled status carry over.
 Creation and editing use your configured AI connection. Advanced users can also
 import a `skill.json` from the UI.
 
-![The Personas panel: each one's subject, model tier, tools, and notes](docs/captures/en/personas.png)
+<img src="docs/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" width="390">
 
 ## Get started
 
@@ -198,7 +198,7 @@ task dev    # the API on :8787 and the page on :5173, together
 Open <http://127.0.0.1:5173>. A new workspace has nobody in the room yet, and the
 screen leads with that until you call someone in:
 
-![Nobody in the room yet: call in a built-in persona with one tap](docs/captures/en/nobody.png)
+<img src="docs/captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" width="390">
 
 Then enter your Nebius Token Factory API key in Settings. Lightning, Super, and Ultra are configured for the three tiers by default. The page proxies `/api` to the binary, the same split the
 deployed setup has. `task run` starts only the API, `task build` builds only the

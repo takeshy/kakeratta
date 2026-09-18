@@ -9,6 +9,7 @@ import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
 import { createMentionPicker } from "./mention-picker.js";
 import { openSocial } from "./social.js";
+import { showRouting } from "./routing-view.js";
 import { createVoiceInput } from "./voice_input.js";
 
 // Silence is the design, but an empty screen cannot say so for itself. The note
@@ -26,10 +27,10 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   let postEditor = null;
   const expanded = new Set();
   const drafts = new Map();
-  // The router's call about a post, once asked for. Kept here rather than in
-  // the DOM because every draw rebuilds the DOM.
-  const routing = new Map();
-  const routingRequests = new Map();
+  // The router's call, while its sheet is open. Kept so a decision that
+  // arrives or changes after opening - the router was still working, the post
+  // was edited - reaches the sheet rather than going stale in it.
+  let routingView = null;
   let composing = false;
   let drawPending = false;
   const offline = () => globalThis.navigator?.onLine === false;
@@ -43,58 +44,38 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   globalThis.addEventListener?.("offline", updateEditAvailability);
 
   function set(next) {
-    const previous = new Map(entries.map((entry) => [entry.id, entry]));
-    for (const id of routingRequests.keys()) {
-      const current = next.find((entry) => entry.id === id && !entry.deleted);
-      if (!current || JSON.stringify(previous.get(id)) !== JSON.stringify(current)) routingRequests.delete(id);
-    }
-    for (const id of routing.keys()) {
-      const current = next.find((entry) => entry.id === id && !entry.deleted);
-      if (!current) {
-        routing.delete(id);
-        routingRequests.delete(id);
-      } else if (JSON.stringify(previous.get(id)) !== JSON.stringify(current)) {
-        routing.set(id, { recorded: false });
-      }
-    }
     entries = next;
     draw();
-    // Polls and reconnects also refresh open decisions, including a decision
-    // first opened while the router was still working.
+    // Polls and reconnects also refresh an open decision, including one first
+    // opened while the router was still working.
     void refreshRouting();
   }
 
+  // refreshRouting fetches the router's call again for the sheet that is open,
+  // if any. With an id, only when that is the post the sheet is about. A post
+  // that has gone takes its sheet with it.
   async function refreshRouting(id) {
-    if (offline()) return;
-    const ids = id ? (routing.has(id) ? [id] : []) : [...routing.keys()];
-    await Promise.all(ids.map(async (entryID) => {
-      const request = {};
-      routingRequests.set(entryID, request);
-      try {
-        const record = await api.routing(entryID);
-        if (routingRequests.get(entryID) !== request || !routing.has(entryID)) return;
-        routing.set(entryID, record);
-        draw();
-      } catch {
-        // Keep the panel usable; a later poll or reopening retries.
-      } finally {
-        if (routingRequests.get(entryID) === request) routingRequests.delete(entryID);
-      }
-    }));
+    if (routingView && !routingView.isOpen()) routingView = null;
+    if (!routingView || (id && routingView.entryId !== id) || offline()) return;
+    const current = entries.find((entry) => entry.id === routingView.entryId);
+    if (!current || current.deleted) {
+      routingView.close();
+      routingView = null;
+      return;
+    }
+    await routingView.refresh(current);
   }
 
   // One entry arriving, from the live channel. A late remark lands under the
   // post it belongs to rather than at the bottom.
   function upsert(entry) {
     const index = entries.findIndex((existing) => existing.id === entry.id);
-    if (index >= 0) {
-      entries[index] = entry;
-      // An edited post is routed again; what was shown about it is stale.
-      routing.delete(entry.id);
-      routingRequests.delete(entry.id);
-    } else entries.push(entry);
+    if (index >= 0) entries[index] = entry;
+    else entries.push(entry);
     entries.sort((a, b) => new Date(a.at) - new Date(b.at));
     draw();
+    // An edited post is routed again; what the sheet shows about it is stale.
+    void refreshRouting(entry.id);
   }
 
   function groups() {
@@ -217,7 +198,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "at", text: when(entry.at) }),
         el("span", { class: "spacer" }),
         mine ? el("button", {
-          class: "chip ghost edit-post", label: "編集", disabled: offline() || !!entry.pending || !!postEditor,
+          class: "chip ghost icon edit-post", text: "✎", "aria-label": t("編集"), disabled: offline() || !!entry.pending || !!postEditor,
           "data-pending": String(!!entry.pending), i18nTitle: "編集はオンライン時に利用できます",
           onclick: () => {
             if (offline() || entry.pending || postEditor) return;
@@ -268,78 +249,23 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       node.append(el("a", { class: "source", href: source.url, target: "_blank", rel: "noreferrer", text: source.label || source.url }));
     }
     if (media) node.append(drawRead(media));
-    const decision = drawRouting(entry);
-    if (decision) node.append(decision);
     return node;
   }
 
   // The router's call about a post can be looked at: who it chose, whom it
-  // passed over and why. It is fetched when asked for, since most posts are
-  // never asked about, and the chip is only on what the user wrote - the
-  // router never judges a persona's remark.
+  // passed over and why. It opens apart from the timeline, since a post and
+  // the reasoning about it read badly in one column, and only on what the user
+  // wrote - the router never judges a persona's remark.
   function drawRoutingChip(entry) {
     if (entry.speaker !== "user" || entry.pending) return null;
-    const open = routing.has(entry.id);
     return el("button", {
-      class: "chip ghost routing-open", label: "担当の判断", "aria-expanded": String(open),
-      disabled: !open && offline(),
-      onclick: async (event) => {
-        if (open) {
-          routing.delete(entry.id);
-          routingRequests.delete(entry.id);
-          draw();
-          return;
-        }
-        const button = event?.currentTarget;
-        if (button) button.disabled = true;
-        const request = {};
-        routingRequests.set(entry.id, request);
-        try {
-          const record = await api.routing(entry.id);
-          if (routingRequests.get(entry.id) !== request) return;
-          routing.set(entry.id, record);
-          draw();
-        } catch (error) {
-          toast(String(error.message || error), "error");
-          if (button) button.disabled = false;
-        } finally {
-          if (routingRequests.get(entry.id) === request) routingRequests.delete(entry.id);
-        }
+      class: "chip ghost icon routing-open", text: "⚖", "aria-label": t("担当の判断"), i18nTitle: "担当の判断",
+      disabled: offline(),
+      onclick: async () => {
+        routingView?.close();
+        routingView = await showRouting({ entry, getPersona, onFixCondition });
       },
     });
-  }
-
-  function drawRouting(entry) {
-    const record = routing.get(entry.id);
-    if (!record) return null;
-    const box = el("div", { class: "routing" });
-    if (record.recorded === false) {
-      box.append(el("p", { class: "hint", label: "判断の記録がありません" }));
-      return box;
-    }
-    const delivered = record.delivered || [];
-    const excluded = record.excluded || [];
-    if (!delivered.length && !excluded.length) {
-      box.append(el("p", { class: "hint", label: "記録された判断はありません" }));
-      return box;
-    }
-    // A persona still in the catalogue can be taught; one that has gone can
-    // only be read about.
-    const row = (item, verdict, fix) => {
-      const persona = getPersona?.(item.id);
-      return el("div", { class: "routing-row" },
-        el("span", { class: "avatar", text: persona?.icon || item.icon || "◎" }),
-        el("span", { class: "who", text: persona?.name || item.name || item.id }),
-        el("span", { class: "routing-verdict", label: verdict }),
-        item.reason ? el("span", { class: "routing-reason", text: item.reason }) : null,
-        persona && onFixCondition ? el("button", {
-          class: "chip ghost routing-fix", label: fix.label,
-          onclick: () => onFixCondition({ persona, entry, direction: fix.direction, reason: item.reason || "" }),
-        }) : null);
-    };
-    for (const item of delivered) box.append(row(item, "呼ばれました", { label: "呼んでほしくなかった", direction: "exclude" }));
-    for (const item of excluded) box.append(row(item, "呼ばれませんでした", { label: "呼んでほしかった", direction: "include" }));
-    return box;
   }
 
   function createPostEditor(entry) {
@@ -415,8 +341,6 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("a", { class: "source", href: source.url, target: "_blank", rel: "noreferrer", text: source.label || source.url }),
       );
     }
-    const decision = drawRouting(entry);
-    if (decision) node.append(decision);
     if (!mine) {
       // A remark can be answered, and it can be disputed: what the persona
       // said is the one place its tone and instructions show, so that is

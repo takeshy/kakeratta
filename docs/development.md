@@ -106,6 +106,14 @@ The router's call, the condition dialog and the reply dialog are captured from
 `reply-fix`, `reply-trial`); the stories serve the decision, the builder's
 answer and the trial reply from fixtures, so no model is called.
 
+Captures are taken as a phone sees the app: a 390px viewport at 2x, driven
+over Chromium's DevTools protocol (`frontend/captures.mjs`, no extra
+packages). A screen is captured to the bottom of its content; a sheet or a
+dialog is captured as that element alone, so there is no dead space around
+it. After retaking, `python3 frontend/capture-sizes.py` writes each image's
+display size into the manual, the landing page and both READMEs, and
+`npm --prefix frontend run build` copies the images into `dist/`.
+
 ## Browser storage and offline validation
 
 `local-store.js` provides per-user IndexedDB storage; `outbox.js` manages pending submissions. The cache holds the latest 20 original posts and their replies; unsent posts are separate. The server’s atomic `CreateEntry` allows each post ID to be created only once. The service worker caches public application assets, never API responses.

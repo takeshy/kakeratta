@@ -128,8 +128,8 @@ or reply (not while the tab is in the background).
 **Read-aloud mode** reads the backlog while you are moving (the browser's own
 Web Speech API).
 
-**Router's call**, on your own posts and replies, shows what the app decided
-about that post: the personas it chose, and for each one it passed over, the
+**⚖ Router's call**, on your own posts and replies, opens a dialog with what the
+app decided about that post: the personas it chose, and for each one it passed over, the
 router's one-line reason. A persona you mentioned with `@` is not listed. A
 post the router could not judge (no model configured, the call failed) reads as
 "no record", which is different from a post it sent to nobody.

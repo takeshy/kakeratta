@@ -476,11 +476,11 @@ test("persona editor edits directly, asks the AI underneath, and shows what chan
 });
 
 // The router's call about a post - who it chose, whom it passed over and why -
-// is a chip on what the user wrote, fetched when asked for. Each persona still
-// in the room can be told the router was wrong about it.
-test("the router's call is shown on the user's posts and replies and can be disputed", async (t) => {
+// is a one-glyph chip on what the user wrote, and opens apart from the
+// timeline. Each persona still in the room can be told the router was wrong.
+test("the router's call opens from the user's posts and replies and can be disputed", async (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "move", name: "michi", icon: "🚃" }];
   t.mock.method(api, "routing", async (id) => id === "p"
@@ -493,7 +493,7 @@ test("the router's call is shown on the user's posts and replies and can be disp
     showIntro: false,
   });
   const walk = (node) => [node, ...node.children.flatMap(walk)];
-  const texts = () => walk(feed.element).map((node) => node.textContent);
+  const texts = () => walk(document.body).map((node) => node.textContent);
   const chips = () => feed.element.querySelectorAll(".routing-open");
   feed.set([
     { id: "p", kind: "post", speaker: "user", text: "ラーメン屋まで歩いた", at: "2026-09-13T00:00:00Z" },
@@ -503,28 +503,27 @@ test("the router's call is shown on the user's posts and replies and can be disp
   ]);
   feed.reveal("u");
   assert.equal(chips().length, 2, "the user's post and reply carry the chip; a remark and a pending post do not");
+  assert.equal(feed.element.querySelectorAll(".edit-post")[0].textContent, "✎", "editing is a pencil");
+  assert.equal(feed.element.querySelectorAll(".routing").length, 0, "nothing about the router sits in the timeline");
 
   chips()[0].fire("click", {});
   for (let i = 0; i < 3; i++) await new Promise(setImmediate);
   assert.equal(api.routing.mock.calls[0].arguments[0], "p");
-  assert.equal(feed.element.querySelectorAll(".routing").length, 1);
-  assert.equal(feed.element.querySelectorAll(".routing-row").length, 3);
+  assert.equal(document.body.querySelectorAll(".routing-dialog").length, 1, "the call opens in a dialog of its own");
+  assert.equal(document.body.querySelectorAll(".routing-row").length, 3);
   assert.ok(texts().includes("移動の話ではない"), "the router's reason is shown");
   assert.ok(texts().includes(translate("呼ばれました")) && texts().includes(translate("呼ばれませんでした")));
-  const fixes = feed.element.querySelectorAll(".routing-fix");
+  const fixes = document.body.querySelectorAll(".routing-fix");
   assert.equal(fixes.length, 2, "a persona gone from the room cannot be taught");
-  fixes[0].fire("click");
   fixes[1].fire("click");
-  assert.deepEqual(disputes.map((d) => [d.persona.id, d.entry.id, d.direction, d.reason]), [["gourmet", "p", "exclude", ""], ["move", "p", "include", "移動の話ではない"]]);
+  assert.deepEqual(disputes.map((d) => [d.persona.id, d.entry.id, d.direction, d.reason]), [["move", "p", "include", "移動の話ではない"]]);
+  assert.equal(document.body.children.length, 0, "disputing closes the dialog so the condition dialog can take its place");
 
   chips()[1].fire("click", {});
   for (let i = 0; i < 3; i++) await new Promise(setImmediate);
-  assert.ok(texts().includes(translate("判断の記録がありません")), "a post the router never answered for says so");
-
-  chips()[0].fire("click", {});
-  assert.equal(feed.element.querySelectorAll(".routing").length, 1, "the chip closes its own panel");
-  feed.upsert({ id: "u", kind: "reply", speaker: "user", root: "p", text: "また行く（編集）", at: "2026-09-13T00:02:00Z" });
-  assert.equal(feed.element.querySelectorAll(".routing").length, 0, "an edited entry is routed again, so what was shown is dropped");
+  assert.ok(texts().includes(translate("判断の記録がありません。振り分けの途中なら、終わるとここに出ます。")), "a post the router never answered for says so");
+  walk(document.body).find((node) => node.textContent === translate("閉じる")).fire("click");
+  assert.equal(document.body.children.length, 0);
 });
 
 // What a persona said is where its tone and instructions show, so a remark
@@ -552,41 +551,59 @@ test("a persona's remark can be disputed", (t) => {
   assert.equal(disputes[0].post.id, "p");
 });
 
-test("set refreshes open routing after edits and completion and ignores late responses", async (t) => {
+test("an open router's call is refreshed after edits and completion, and ignores late responses", async (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const pending = [];
   t.mock.method(api, "routing", () => new Promise(resolve => pending.push(resolve)));
   const feed = createFeed({ getPersona: () => null, showIntro: false });
   const post = { id: "p", kind: "post", speaker: "user", text: "old", at: "2026-09-13T00:00:00Z" };
   const record = reason => ({ recorded: true, excluded: [{ id: "book", reason }] });
-  const reasons = () => feed.element.querySelectorAll(".routing-reason").map(node => node.textContent);
+  const reasons = () => document.body.querySelectorAll(".routing-reason").map(node => node.textContent);
   const settle = async () => { for (let i = 0; i < 3; i++) await new Promise(setImmediate); };
   feed.set([post]);
+  await settle();
+  assert.equal(pending.length, 0, "nothing is fetched while no sheet is open");
   feed.element.querySelectorAll(".routing-open")[0].fire("click");
   pending.shift()(record("old reason"));
   await settle();
   assert.deepEqual(reasons(), ["old reason"]);
+
+  // A poll that brings an edit refreshes the open sheet.
   feed.set([{ ...post, text: "edited" }]);
-  assert.deepEqual(reasons(), [], "an edit immediately hides the old decision");
-  pending.shift()({ recorded: false });
   await settle();
-  const completion = feed.refreshRouting("p");
   pending.shift()(record("new reason"));
-  await completion;
+  await settle();
   assert.deepEqual(reasons(), ["new reason"]);
-  feed.set([{ ...post, text: "edited" }]);
+
+  // The router finishing is announced; a response that arrives after a newer
+  // request is ignored.
+  const first = feed.refreshRouting("p");
   const late = pending.shift();
-  const newer = feed.refreshRouting("p");
+  const second = feed.refreshRouting("p");
   pending.shift()(record("latest reason"));
-  await newer;
+  await second;
   late(record("stale reason"));
+  await first;
   await settle();
   assert.deepEqual(reasons(), ["latest reason"]);
-  const closing = feed.refreshRouting("p");
+
+  // Another post's completion does not touch this sheet.
+  await feed.refreshRouting("other");
+  assert.equal(pending.length, 0);
+
+  // Closing the sheet ends the refreshing; a post that disappears closes it.
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  walk(document.body).find((node) => node.textContent === translate("閉じる")).fire("click");
+  assert.equal(document.body.children.length, 0);
+  await feed.refreshRouting("p");
+  assert.equal(pending.length, 0, "a closed sheet is not refreshed");
   feed.element.querySelectorAll(".routing-open")[0].fire("click");
-  pending.shift()(record("closed"));
-  await closing;
-  assert.equal(feed.element.querySelectorAll(".routing").length, 0);
+  pending.shift()(record("again"));
+  await settle();
+  assert.equal(document.body.children.length, 1);
+  feed.set([]);
+  await settle();
+  assert.equal(document.body.children.length, 0, "the sheet closes with its post");
 });
