@@ -29,6 +29,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   // The router's call about a post, once asked for. Kept here rather than in
   // the DOM because every draw rebuilds the DOM.
   const routing = new Map();
+  const routingRequests = new Map();
   let composing = false;
   let drawPending = false;
   const offline = () => globalThis.navigator?.onLine === false;
@@ -42,8 +43,44 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   globalThis.addEventListener?.("offline", updateEditAvailability);
 
   function set(next) {
+    const previous = new Map(entries.map((entry) => [entry.id, entry]));
+    for (const id of routingRequests.keys()) {
+      const current = next.find((entry) => entry.id === id && !entry.deleted);
+      if (!current || JSON.stringify(previous.get(id)) !== JSON.stringify(current)) routingRequests.delete(id);
+    }
+    for (const id of routing.keys()) {
+      const current = next.find((entry) => entry.id === id && !entry.deleted);
+      if (!current) {
+        routing.delete(id);
+        routingRequests.delete(id);
+      } else if (JSON.stringify(previous.get(id)) !== JSON.stringify(current)) {
+        routing.set(id, { recorded: false });
+      }
+    }
     entries = next;
     draw();
+    // Polls and reconnects also refresh open decisions, including a decision
+    // first opened while the router was still working.
+    void refreshRouting();
+  }
+
+  async function refreshRouting(id) {
+    if (offline()) return;
+    const ids = id ? (routing.has(id) ? [id] : []) : [...routing.keys()];
+    await Promise.all(ids.map(async (entryID) => {
+      const request = {};
+      routingRequests.set(entryID, request);
+      try {
+        const record = await api.routing(entryID);
+        if (routingRequests.get(entryID) !== request || !routing.has(entryID)) return;
+        routing.set(entryID, record);
+        draw();
+      } catch {
+        // Keep the panel usable; a later poll or reopening retries.
+      } finally {
+        if (routingRequests.get(entryID) === request) routingRequests.delete(entryID);
+      }
+    }));
   }
 
   // One entry arriving, from the live channel. A late remark lands under the
@@ -54,6 +91,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       entries[index] = entry;
       // An edited post is routed again; what was shown about it is stale.
       routing.delete(entry.id);
+      routingRequests.delete(entry.id);
     } else entries.push(entry);
     entries.sort((a, b) => new Date(a.at) - new Date(b.at));
     draw();
@@ -248,17 +286,24 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       onclick: async (event) => {
         if (open) {
           routing.delete(entry.id);
+          routingRequests.delete(entry.id);
           draw();
           return;
         }
         const button = event?.currentTarget;
         if (button) button.disabled = true;
+        const request = {};
+        routingRequests.set(entry.id, request);
         try {
-          routing.set(entry.id, await api.routing(entry.id));
+          const record = await api.routing(entry.id);
+          if (routingRequests.get(entry.id) !== request) return;
+          routing.set(entry.id, record);
           draw();
         } catch (error) {
           toast(String(error.message || error), "error");
           if (button) button.disabled = false;
+        } finally {
+          if (routingRequests.get(entry.id) === request) routingRequests.delete(entry.id);
         }
       },
     });
@@ -533,5 +578,5 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     }
   }
 
-  return { element: view, set, upsert, draw, spoken, reveal, setSpeaking, entries: () => entries };
+  return { element: view, set, upsert, draw, spoken, reveal, setSpeaking, refreshRouting, entries: () => entries };
 }

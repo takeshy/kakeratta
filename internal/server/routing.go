@@ -28,7 +28,8 @@ func (s *Server) routingRow(id, reason string) routingRow {
 // record, which is a different thing from a post it sent to nobody.
 func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if _, ok := s.store.Entry(id); !ok {
+	entry, ok := s.store.Entry(id)
+	if !ok || entry.Deleted {
 		fail(w, http.StatusNotFound, "見つかりません")
 		return
 	}
@@ -37,7 +38,7 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if record == nil {
+	if record == nil || (record.EntryText != nil && *record.EntryText != entry.Text) {
 		writeJSON(w, http.StatusOK, map[string]any{"recorded": false})
 		return
 	}

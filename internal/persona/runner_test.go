@@ -1526,9 +1526,25 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if tc.want != nil {
+				tc.want.EntryText = &entry.Text
+			}
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("kept %+v, want %+v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestFailedRoutingDropsPreviousDecision(t *testing.T) {
+	runner, workspace, _ := setup(t, func(system, user string) string { return "broken answer" }, "book")
+	entry := post(t, workspace, "edited post")
+	if err := workspace.SaveRouting(entry.ID, store.Routing{Delivered: []string{"book"}}); err != nil {
+		t.Fatal(err)
+	}
+	runner.React(entry.ID, nil)
+	runner.Stop()
+	if record, err := workspace.Routing(entry.ID); err != nil || record != nil {
+		t.Fatalf("stale decision: %+v (%v)", record, err)
 	}
 }

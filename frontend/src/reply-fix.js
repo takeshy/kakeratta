@@ -7,7 +7,7 @@
 // saves them and then has the persona take the same turn again, without any
 // of it landing anywhere, so the difference can be read on the same post. If
 // it still misses, they say how, and it goes round again.
-import { clear, el, toast } from "./dom.js";
+import { clear, el } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
 
@@ -19,7 +19,7 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
   const postText = cut(post?.text || "");
   // said is the remark being disputed: the original one, and then each trial
   // turn the person said was still not it.
-  let said = cut(remark.text);
+  let said = remark.text || "";
   // saved is the persona as it stands on the server; it moves when OK saves.
   let saved = { ...persona };
   // failure is what the person said about the last trial, told to the AI.
@@ -79,7 +79,7 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
   function request(note) {
     const lines = [];
     if (failure) lines.push(failure);
-    if (postText) lines.push(t("次の投稿：「{0}」", postText));
+    if (post?.text) lines.push(t("次の投稿：「{0}」", post.text));
     lines.push(t("への、この担当の返事が期待と違った：「{0}」", said));
     if (note) lines.push(t("本人の説明：「{0}」", note));
     lines.push(t("口調（tone）と指示（instructions）だけを直し、担当条件（domain）や他の項目は変えないでください。"));
@@ -94,7 +94,7 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
     error.textContent = "";
     const next = [...messages, { role: "user", content }];
     try {
-      const result = await api.buildPersona({ id: persona.id, language: getLanguage(), messages: next, current: base });
+      const result = await api.buildPersona({ id: persona.id, entryId: remark.id, language: getLanguage(), messages: next, current: base });
       if (closed) return null;
       messages.splice(0, messages.length, ...next, { role: "assistant", content: JSON.stringify(result) });
       const tone = String(result?.draft?.tone ?? base.tone ?? "").trim();
@@ -192,7 +192,7 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
   function showTrial(preview) {
     controls = [];
     error.textContent = "";
-    const trial = preview.quiet ? t("（何も言いませんでした）") : cut(preview.spoke);
+    const trial = preview.quiet ? t("（何も言いませんでした）") : (preview.spoke || "");
     fill(
       el("p", { class: "hint", label: "保存しました。同じ投稿に、いまの口調と指示で返事を試し書きしました。" }),
       postText ? el("p", { class: "hint", text: t("投稿：{0}", postText) }) : null,
@@ -216,17 +216,19 @@ export function showReplyFix({ persona, remark, post, onSaved }) {
     if (busy) return;
     setBusy(true, button, "試し書きしています…");
     error.textContent = "";
+    let savedSuccessfully = next.tone === (saved.tone || "") && next.instructions === (saved.instructions || "");
     try {
-      if (next.tone !== (saved.tone || "") || next.instructions !== (saved.instructions || "")) {
+      if (!savedSuccessfully) {
         const stored = await api.savePersonaDraft(next, persona.id);
         saved = { ...next, ...(stored && typeof stored === "object" ? stored : {}), tone: next.tone, instructions: next.instructions };
+        savedSuccessfully = true;
         await onSaved?.();
       }
       const preview = await api.previewReply(remark.id, persona.id);
       if (closed) return;
       showTrial(preview || { quiet: true });
     } catch (e) {
-      error.textContent = [t("保存しましたが、返事を試せませんでした"), e.message].filter(Boolean).join(" ");
+      error.textContent = [t(savedSuccessfully ? "保存しましたが、返事を試せませんでした" : "口調と指示を保存できませんでした"), e.message].filter(Boolean).join(" ");
     } finally {
       setBusy(false, button);
     }

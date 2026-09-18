@@ -80,6 +80,7 @@ test("a condition is written from the reason, corrected by hand or by the AI, sa
   await settle();
   const first = api.buildPersona.mock.calls[0].arguments[0];
   assert.equal(first.id, "move");
+  assert.equal(first.entryId, entry.id);
   assert.equal(first.current.domain, "移動や場所の話。");
   assert.equal(first.messages.length, 1);
   assert.match(first.messages[0].content, /駅前のラーメン屋まで歩いた/);
@@ -101,6 +102,7 @@ test("a condition is written from the reason, corrected by hand or by the AI, sa
   await settle();
   const second = api.buildPersona.mock.calls[1].arguments[0];
   assert.equal(second.current.domain, "飲食店を含む、移動や場所の話。写真も対象。", "the AI starts from what is in the box");
+  assert.equal(second.entryId, entry.id, "follow-up requests also carry the source post");
   assert.equal(second.messages.length, 3);
   assert.equal(second.messages[1].role, "assistant");
   assert.equal(second.messages[2].content, "行き方の話に限って");

@@ -8,6 +8,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
@@ -34,6 +35,7 @@ modelは通常middle、道具は必要なものだけ利用可能なリストか
 func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ID       string        `json:"id"`
+		EntryID  string        `json:"entryId"`
 		Messages []llm.Message `json:"messages"`
 		Language string        `json:"language"`
 		// Current is the persona as it stands in the edit form, unsaved changes
@@ -81,6 +83,34 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	context, _ := json.Marshal(map[string]any{"existing": original, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
 	messages := []llm.Message{{Role: "system", Content: builderPrompt + "\n設定データ:\n" + string(context)}}
 	messages = append(messages, body.Messages...)
+	if body.EntryID != "" {
+		entry, ok := s.store.Entry(body.EntryID)
+		if !ok || entry.Deleted {
+			fail(w, http.StatusNotFound, "投稿が見つかりません")
+			return
+		}
+		entries, err := s.store.Timeline()
+		if err != nil {
+			fail(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		// Use the same rendering as the router, including media, sources and
+		// conversation context. The browser's excerpt is only for display.
+		thread := timeline.Thread(entries, timeline.RootOf(entry))
+		if entry.Kind == timeline.KindRemark {
+			// A disputed reply is judged against the conversation before it,
+			// just as in PreviewReply, rather than later user corrections.
+			before := make([]timeline.Entry, 0, len(thread))
+			for _, candidate := range thread {
+				if candidate.ID != entry.ID && candidate.At.Before(entry.At) {
+					before = append(before, candidate)
+				}
+			}
+			thread = before
+		}
+		messages[len(messages)-1].Content += "\n\nスレッド全体（古い順）:\n" + timeline.Render(thread, nil, nil) +
+			"\n\n今回の対象発言:\n" + entry.Render(nil, nil)
+	}
 	model := personaBuilderModel()
 	reply, err := client.Chat(r.Context(), llm.Request{Model: model, JSON: true, Temperature: 0.4, Messages: messages})
 	if err != nil {

@@ -333,6 +333,9 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, status, err.Error())
 		return
 	}
+	// New records also carry the routed text, so a late result or failed
+	// deletion cannot make the old decision apply to the edited post.
+	_ = s.store.ForgetRouting(entry.ID)
 	s.publishEvent("entry", entry)
 	s.runner.EntryEdited(entry.ID)
 	writeJSON(w, http.StatusOK, entry)

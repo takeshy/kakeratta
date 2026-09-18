@@ -72,10 +72,10 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
     const lines = [];
     if (failure) lines.push(failure);
     if (include) {
-      lines.push(t("次の投稿をこの担当の対象にしてほしい：「{0}」", excerpt));
+      lines.push(t("次の投稿をこの担当の対象にしてほしい：「{0}」", text));
       if (reason) lines.push(t("今の担当条件では「{0}」と判断され対象外になった。", reason));
     } else {
-      lines.push(t("次の投稿はこの担当の対象にしないでほしい：「{0}」", excerpt));
+      lines.push(t("次の投稿はこの担当の対象にしないでほしい：「{0}」", text));
       lines.push(t("今の担当条件では対象と判断された。"));
     }
     if (note) lines.push(t("本人の補足：「{0}」", note));
@@ -91,7 +91,7 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
     error.textContent = "";
     const next = [...messages, { role: "user", content }];
     try {
-      const result = await api.buildPersona({ id: persona.id, language: getLanguage(), messages: next, current: base });
+      const result = await api.buildPersona({ id: persona.id, entryId: entry.id, language: getLanguage(), messages: next, current: base });
       if (closed) return null;
       messages.splice(0, messages.length, ...next, { role: "assistant", content: JSON.stringify(result) });
       const domain = String(result?.draft?.domain || "").trim();

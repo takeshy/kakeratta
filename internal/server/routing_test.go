@@ -192,3 +192,20 @@ func TestReplyPreviewIsGuarded(t *testing.T) {
 		t.Fatalf("unauthenticated preview: %d", response.Code)
 	}
 }
+
+func TestRoutingDecisionMustMatchCurrentText(t *testing.T) {
+	server, workspace := app(t, "")
+	old := "old text"
+	if err := workspace.Append(timeline.Entry{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "edited text", At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	// An old in-flight result can finish after the edit invalidates its record.
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"book"}, EntryText: &old}); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/entry/p/routing", nil))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"recorded":false`) {
+		t.Fatalf("stale decision exposed: %d %s", response.Code, response.Body.String())
+	}
+}

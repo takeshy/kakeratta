@@ -240,6 +240,7 @@ function pollAfterSending() {
 // A reaction arriving is the app working, not an event to celebrate: it lands
 // in place and nothing else moves.
 api.on((name, data) => {
+  if (name === "routed") { void feed.refreshRouting(data?.entryId); return; }
   if (name === "outbox") { if (data) pages.upsert(data); void drawLocal(); if (data) pollAfterSending(); return; }
   if (name === "entry") {
     pages.upsert(data);

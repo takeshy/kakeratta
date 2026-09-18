@@ -198,11 +198,15 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 // by name is left out of the chosen, and anyone who got the post for whatever
 // reason is left out of the passed-over. Nothing is kept when the router had
 // no answer - "no record" and "nobody" are different things to read.
-func (r *Runner) keepRouting(entryID string, routing Routing, named []string, targets map[string]bool) {
+func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []string, targets map[string]bool) {
+	entryID := entry.ID
 	if !routing.Answered {
+		if err := r.store.ForgetRouting(entryID); err != nil {
+			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+		}
 		return
 	}
-	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}}
+	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text}
 	for _, id := range routing.Deliver {
 		if !contains(named, id) {
 			record.Delivered = append(record.Delivered, id)
@@ -214,7 +218,7 @@ func (r *Runner) keepRouting(entryID string, routing Routing, named []string, ta
 		}
 	}
 	// Routing takes a while; a post deleted meanwhile keeps no record.
-	if current, ok := r.store.Entry(entryID); !ok || current.Deleted {
+	if current, ok := r.store.Entry(entryID); !ok || current.Deleted || current.Text != entry.Text {
 		return
 	}
 	if err := r.store.SaveRouting(entryID, record); err != nil {
@@ -347,7 +351,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
-	r.keepRouting(entryID, routing, named, targets)
+	r.keepRouting(entry, routing, named, targets)
 	if len(targets) == 0 {
 		r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": []string{}})
 		return

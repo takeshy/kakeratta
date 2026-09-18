@@ -195,6 +195,7 @@ const EN = {
   "直した口調と指示での返事「{0}」も、まだ期待と違った。": "With the corrected tone and instructions the reply was \"{0}\", which was still not what was wanted.",
   "直した口調と指示での返事は上のとおりでした。どう違うか、もう一度書いてください。": "The reply with the corrected tone and instructions is quoted above. Say again how it misses.",
   "保存しましたが、返事を試せませんでした": "Saved, but the reply could not be tried.",
+  "口調と指示を保存できませんでした": "Could not save the tone and instructions.",
   "次の投稿：「{0}」": "To this post: \"{0}\"",
   "への、この担当の返事が期待と違った：「{0}」": "this persona's reply was not what was wanted: \"{0}\"",
   "本人の説明：「{0}」": "The user explains: \"{0}\"",

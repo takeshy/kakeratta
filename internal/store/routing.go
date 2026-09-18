@@ -15,6 +15,7 @@ import (
 type Routing struct {
 	Delivered []string          `json:"delivered"`
 	Excluded  map[string]string `json:"excluded"`
+	EntryText *string           `json:"entryText,omitempty"`
 }
 
 func routingPath(root string) string { return filepath.Join(root, "routing.json") }
@@ -79,6 +80,10 @@ func (s *Store) ForgetRouting(entryID string) error {
 // so an empty decision is written as empty rather than null.
 func normaliseRouting(record Routing) Routing {
 	out := Routing{Delivered: []string{}, Excluded: map[string]string{}}
+	if record.EntryText != nil {
+		text := *record.EntryText
+		out.EntryText = &text
+	}
 	out.Delivered = append(out.Delivered, record.Delivered...)
 	for id, reason := range record.Excluded {
 		out.Excluded[id] = reason
