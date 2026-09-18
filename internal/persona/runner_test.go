@@ -1636,3 +1636,24 @@ func TestThePictureIsNeverHandedOver(t *testing.T) {
 		t.Fatal("the image read is still described to the persona")
 	}
 }
+
+// A remark on a post leaves a note behind, and the remark says which: the
+// timeline can lead from what a persona said to what it wrote down.
+func TestARemarkPointsAtTheNotesWrittenWithIt(t *testing.T) {
+	workflow := map[string]any{"summary": "test", "steps": []any{
+		map[string]any{"type": "write_note", "path": "wines/altura.md", "text": "type: Wine\n\nNorton Altura", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""},
+		map[string]any{"type": "speak", "path": "", "text": "ノートンの白ですね", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""},
+	}}
+	scripted, _ := json.Marshal(workflow)
+	runner, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["move"]}`
+		}
+		return string(scripted)
+	}, "move")
+	runner.react(post(t, s, "ワインのラベル").ID)
+	said := remarks(t, s)
+	if len(said) != 1 || len(said[0].Notes) != 1 || said[0].Notes[0] != "wines/altura.md" {
+		t.Fatalf("remarks = %+v", said)
+	}
+}

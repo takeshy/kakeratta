@@ -47,6 +47,7 @@ const feed = createFeed({
   // corrected; personas is wired below and is only reached on a click.
   onFixCondition: (args) => showConditionFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
   onFixReply: (args) => showReplyFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
+  onOpenNote: ({ persona, path }) => void personas.showMemoryFor(persona, path),
 });
 const compose = createCompose({
   getSettings: () => settings,

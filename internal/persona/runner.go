@@ -596,7 +596,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		record.Error = err.Error()
 		r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
 		if named && !listening {
-			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
+			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil)
 		}
 		return r.hush(skill, memory)
 	}
@@ -730,12 +730,23 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	if listening || spoken == "" {
 		if named && !listening {
-			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID)
+			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil)
 		}
 		// It had its turn. Whatever it wrote down is kept either way.
 		return r.hush(skill, memory)
 	}
-	return r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID)
+	return r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, notesWritten(steps))
+}
+
+// notesWritten lists the notes a turn wrote, for the remark to point at.
+func notesWritten(steps []stepRecord) []string {
+	var paths []string
+	for _, step := range steps {
+		if (step.Type == "write_note" || step.Type == "write_schedule") && step.Error == "" && step.Path != "" {
+			paths = append(paths, step.Path)
+		}
+	}
+	return paths
 }
 
 // wakeKind names why a persona was woken, for the log.
@@ -768,7 +779,7 @@ func (r *Runner) hush(skill Skill, memory store.Memory) *timeline.Entry {
 	return nil
 }
 
-func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source, memory store.Memory, replyTo string) *timeline.Entry {
+func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source, memory store.Memory, replyTo string, notes []string) *timeline.Entry {
 	memory.Wakes++
 	_ = r.store.SaveMemory(memory)
 	if replyTo == "" {
@@ -776,7 +787,7 @@ func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source
 	}
 	remark := timeline.Entry{
 		ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: skill.ID,
-		Text: text, At: time.Now(), Root: root, ReplyTo: replyTo, Sources: dedupe(sources),
+		Text: text, At: time.Now(), Root: root, ReplyTo: replyTo, Sources: dedupe(sources), Notes: notes,
 	}
 	if root == "" {
 		remark.Kind = timeline.KindPost

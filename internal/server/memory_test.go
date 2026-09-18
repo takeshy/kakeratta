@@ -1,12 +1,16 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -67,5 +71,61 @@ func TestForgetOneNoteRequiresAuthentication(t *testing.T) {
 	}
 	if _, ok := workspace.Note("gourmet", "private.md"); !ok {
 		t.Fatal("unauthenticated deletion")
+	}
+}
+
+// A note can be put right by hand - a wine misread off its label stays
+// misspelt otherwise - and the links the app keeps from the note to its posts
+// survive the edit untouched.
+func TestEditingANoteKeepsItsSources(t *testing.T) {
+	server, workspace := app(t, "")
+	if err := workspace.WriteNote("gourmet", "wines/altra.md", "type: Wine\ntitle: ALTRA White Blend\n\nノートンの白。", store.NoteSource{EntryID: "p1", Label: "ラベルの写真"}); err != nil {
+		t.Fatal(err)
+	}
+	edit := func(path, body string) (int, string) {
+		request := httptest.NewRequest(http.MethodPut, "/api/personas/gourmet/memory/note?path="+url.QueryEscape(path), strings.NewReader(body))
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+		return response.Code, response.Body.String()
+	}
+	code, reply := edit("wines/altra.md", `{"text":"type: Wine\ntitle: ALTURA White Blend\n\nノートンの白。"}`)
+	if code != http.StatusOK {
+		t.Fatalf("edit: %d %s", code, reply)
+	}
+	var returned store.Note
+	_ = json.Unmarshal([]byte(reply), &returned)
+	note, _ := workspace.Note("gourmet", "wines/altra.md")
+	if !strings.Contains(note.Text, "ALTURA") || strings.Contains(note.Text, "ALTRA White") {
+		t.Fatalf("the body was not replaced: %s", note.Text)
+	}
+	if !strings.Contains(note.Text, "/?entry=p1") {
+		t.Fatalf("the source link did not survive the edit: %s", note.Text)
+	}
+	if returned.Text != note.Text {
+		t.Fatal("the reply is not the note as saved")
+	}
+	// The managed block is the app's; a copy pasted back in does not double it.
+	code, _ = edit("wines/altra.md", `{"text":`+strconv.Quote(note.Text+"\n追記")+`}`)
+	if code != http.StatusOK {
+		t.Fatalf("edit with block: %d", code)
+	}
+	if note, _ = workspace.Note("gourmet", "wines/altra.md"); strings.Count(note.Text, "/?entry=p1") != 1 {
+		t.Fatalf("the source block was doubled: %s", note.Text)
+	}
+	for _, bad := range []struct{ path, body string }{
+		{"wines/missing.md", `{"text":"x"}`}, {"", `{"text":"x"}`}, {"wines/altra.md", `{"text":"  "}`}, {"wines/altra.md", `broken`},
+	} {
+		if code, _ := edit(bad.path, bad.body); code != http.StatusBadRequest && code != http.StatusNotFound {
+			t.Fatalf("%q %q: %d", bad.path, bad.body, code)
+		}
+	}
+	locked, workspace := app(t, "secret")
+	if err := workspace.WriteNote("gourmet", "a.md", "x"); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	locked.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas/gourmet/memory/note?path=a.md", strings.NewReader(`{"text":"y"}`)))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated edit: %d", response.Code)
 	}
 }

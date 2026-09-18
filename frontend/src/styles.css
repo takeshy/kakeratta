@@ -529,3 +529,5 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
 .reply-fix .condition-quote .who { font-weight: 600; color: var(--ink); }
 .reply-current summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
 .reply-current { display: grid; gap: 8px; }
+.said-notes { display: flex; flex-wrap: wrap; gap: 6px; }
+.said-note { font-size: 0.78rem; }

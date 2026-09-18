@@ -88,6 +88,9 @@ const EN = {
   "繰り返し": "Routines", "一度きりの用": "One-offs",
   "その他のメモ": "Other memories", "記憶の目次": "Memory overview", "記憶の更新履歴": "Memory history",
   "元のメモを見る": "View original note", "関連リンク": "Related link",
+  "メモの本文": "Note text", "メモを保存": "Save note", "メモを保存しました": "Note saved.",
+  "この発言と一緒に書いたメモを開く": "Open the note written with this remark",
+  "担当が書いたメモです。綴りや事実の誤りはここで直せます。下の「記憶を更新した投稿」のリンクはそのまま残ります。": "This is the persona's own note. Fix a misspelling or a wrong fact here; the links under \"Posts behind this memory\" stay as they are.",
   "元の投稿を開く（新しいタブ）": "Open original post (new tab)",
   "まだ覚えていることはありません。": "Nothing remembered yet.",
 

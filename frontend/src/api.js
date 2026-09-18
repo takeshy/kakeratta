@@ -118,6 +118,7 @@ export const api = {
   uninstallPersona: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}`),
   memory: (id) => call("GET", `/api/personas/${encodeURIComponent(id)}/memory`),
   forgetNote: (id, path) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`),
+  editNote: (id, path, text) => call("PUT", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`, { text }),
   forget: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory`),
 
   checkSearch: () => call("POST", "/api/search/check"),

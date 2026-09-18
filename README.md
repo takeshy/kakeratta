@@ -123,6 +123,8 @@ These links show how a memory was recorded; they do not certify that its interpr
 The view presents existing OKF notes without another AI summary. **View original note** reveals the saved text.
 For older notes without a saved post link, **Find original post** opens search.
 
+Under a persona's remark sit links (📝) to the notes it wrote with that remark; tap one to open it.
+A misspelling or a wrong fact can be fixed in place: **View original note** → **Edit**. When the image read misspelt a wine and the persona remembered it that way, this is where to correct it; the links to the posts stay.
 Use **Forget this note** to delete an incorrect memory individually. Original posts and other notes remain.
 A persona may remember it again from past posts. To change how it remembers, use **Edit with AI** in the Personas panel—for example, “Do not infer a preference from trying a wine once.”
 

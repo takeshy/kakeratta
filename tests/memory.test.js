@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseMemoryNote, memoryLink, createMemoryView } from "../frontend/src/memory.js";
+import { parseMemoryNote, memoryLink, createMemoryView, editableBody } from "../frontend/src/memory.js";
 import { setLanguage } from "../frontend/src/i18n.js";
 
 const preference = { path: "preferences/light.md", text: `---
@@ -119,4 +119,33 @@ test("individual forget confirms the selected title, handles cancellation and pe
   await buttons[1].events.click();
   assert.deepEqual(calls,[wine.path,wine.path]);
   assert.ok(view.all().some(node => node.textContent === preference.title || node.textContent === "Prefers lighter red wines"));
+});
+
+
+// A note can be put right by hand: the editor holds the persona's text without
+// the block the app appends, and saving hands back what was typed.
+test("a note can be edited without touching the app's source block", async (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => { const node = new Element("#text"); node.textContent = text; return node; },
+    activeElement: null,
+  };
+  ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
+  setLanguage("ja");
+  const cited = { path: "wines/altra.md", text: "---\ntype: Wine\ntitle: ALTRA White Blend\n---\nノートンの白。\n\n<!-- kakeratta:note-sources -->\n# 記憶を更新した投稿\n\n* [ラベル](/?entry=p1)\n<!-- /kakeratta:note-sources -->\n" };
+  assert.equal(editableBody(cited.text), "---\ntype: Wine\ntitle: ALTRA White Blend\n---\nノートンの白。");
+  const edits = [];
+  Element.prototype.replaceChildren = function (...nodes) { this.children = nodes; };
+  const view = createMemoryView([cited], { onEdit: async (path, text) => { edits.push([path, text]); } });
+  const button = view.all().find(node => node.tagName === "BUTTON" && node.textContent === "編集");
+  assert.ok(button, "the note offers editing");
+  button.events.click();
+  const input = view.all().find(node => node.tagName === "TEXTAREA");
+  assert.equal(input.value, editableBody(cited.text), "the editor shows the persona's text only");
+  input.value = "---\ntype: Wine\ntitle: ALTURA White Blend\n---\nノートンの白。";
+  const save = view.all().find(node => node.tagName === "BUTTON" && node.textContent === "メモを保存");
+  await save.events.click();
+  assert.deepEqual(edits, [["wines/altra.md", "---\ntype: Wine\ntitle: ALTURA White Blend\n---\nノートンの白。"]]);
+  assert.equal(createMemoryView([cited], {}).all().some(node => node.tagName === "BUTTON" && node.textContent === "編集"), false, "without a handler there is nothing to edit with");
 });

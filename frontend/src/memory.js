@@ -151,7 +151,15 @@ function markdown(body, context) {
 
 const typeLabels = { feedback: "感想", preference: "好み", wine: "ワイン", shop: "お店", book: "本", theme: "テーマ", thread: "会話", place: "場所", routine: "繰り返し", errand: "一度きりの用" };
 
-export function createMemoryView(notes, { onSearch, onForget } = {}) {
+// The block the app appends to a note, listing the posts it rests on. It is
+// the app's own and stays out of the editor.
+const SOURCES_MARKER = "<!-- kakeratta:note-sources -->";
+export const editableBody = (text) => {
+  const marker = String(text || "").indexOf(SOURCES_MARKER);
+  return (marker < 0 ? String(text || "") : String(text || "").slice(0, marker)).trimEnd();
+};
+
+export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
   const parsed = (notes || []).map(parseMemoryNote);
   const paths = new Set(parsed.map(note => note.path));
   const cards = new Map();
@@ -176,6 +184,37 @@ export function createMemoryView(notes, { onSearch, onForget } = {}) {
     } });
     return el("div", { class: "memory-forget" }, button, error);
   }
+  // The note as saved, and - since a persona only knows what it was told - a
+  // way to put the text right by hand. What is edited is the persona's own
+  // text; the links the app keeps underneath stay as they are.
+  function original(note) {
+    const shown = el("pre", { class: "memo", text: note.text });
+    const host = el("div", { class: "memory-text" }, shown);
+    const details = el("details", { class: "memory-original" }, el("summary", { label: "元のメモを見る" }),
+      el("p", { class: "hint", text: note.path }), host);
+    if (!onEdit) return details;
+    const error = el("p", { class: "hint warn", role: "alert", hidden: true });
+    const edit = el("button", { class: "chip ghost memory-edit", label: "編集", onclick: () => {
+      const input = el("textarea", { class: "skill-input memory-input", rows: 12, maxlength: 262144, "aria-label": t("メモの本文") });
+      input.value = editableBody(note.text);
+      const save = el("button", { class: "button primary memory-save", label: "メモを保存", onclick: async () => {
+        if (save.disabled) return;
+        save.disabled = true;
+        error.hidden = true;
+        try { await onEdit(note.path, input.value); }
+        catch (reason) { error.textContent = t(reason.message || String(reason)); error.hidden = false; save.disabled = false; }
+      } });
+      const cancel = el("button", { class: "chip ghost", label: "キャンセル", onclick: () => host.replaceChildren(shown, row) });
+      host.replaceChildren(
+        el("p", { class: "hint", label: "担当が書いたメモです。綴りや事実の誤りはここで直せます。下の「記憶を更新した投稿」のリンクはそのまま残ります。" }),
+        input, el("div", { class: "compose-row" }, save, cancel), error);
+      input.focus?.();
+    } });
+    const row = el("div", { class: "memory-edit-row" }, edit);
+    host.append(row);
+    return details;
+  }
+
   function content(note) {
     const context = { path: note.path, paths, openNote };
     return [
@@ -187,8 +226,7 @@ export function createMemoryView(notes, { onSearch, onForget } = {}) {
           el("button", { class: "chip ghost", label: "元の投稿を探す", onclick: () => onSearch(note.title) })) : null,
       note.resource && /^https?:\/\//i.test(note.resource) && safeLink(note.resource)
         ? el("a", { href: note.resource, target: "_blank", rel: "noopener noreferrer", label: "関連リンク" }) : null,
-      el("details", { class: "memory-original" }, el("summary", { label: "元のメモを見る" }),
-        el("p", { class: "hint", text: note.path }), el("pre", { class: "memo", text: note.text })),
+      original(note),
       forgetButton(note),
     ];
   }
@@ -206,7 +244,7 @@ export function createMemoryView(notes, { onSearch, onForget } = {}) {
       text: typeLabels[key] ? t(typeLabels[key]) : group[0].type || t("その他のメモ"),
     }));
     for (const note of group) {
-      const card = el("article", { class: "memory-card", tabindex: "-1" },
+      const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path },
         el("h4", { text: note.title }), ...content(note));
       cards.set(note.path, card);
       section.append(card);
@@ -214,7 +252,7 @@ export function createMemoryView(notes, { onSearch, onForget } = {}) {
     view.append(section);
   }
   for (const note of reserved) {
-    const card = el("details", { class: "memory-card", tabindex: "-1", open: !groups.size },
+    const card = el("details", { class: "memory-card", tabindex: "-1", open: !groups.size, "data-path": note.path },
       el("summary", { label: note.path === "index.md" ? "記憶の目次" : "記憶の更新履歴" }), ...content(note));
     cards.set(note.path, card);
     view.append(card);

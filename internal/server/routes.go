@@ -81,6 +81,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/personas/{id}/memory", s.guard(s.getMemory))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/memory", s.guard(s.forgetMemory))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/memory/note", s.guard(s.forgetNote))
+	s.mux.HandleFunc("PUT /api/personas/{id}/memory/note", s.guard(s.editNote))
 
 	s.mux.HandleFunc("GET /api/settings", s.guard(s.getSettings))
 	s.mux.HandleFunc("PUT /api/settings", s.guard(s.putSettings))
@@ -547,6 +548,38 @@ func (s *Server) forgetNote(w http.ResponseWriter, r *http.Request) {
 	// persona is woken and puts its own memory back in order.
 	s.runner.NoteForgotten(r.PathValue("id"), path)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// editNote replaces the body of one note with what the user typed. A persona's
+// notes are its own, but a misread label is a misread label: when the text a
+// persona was given was wrong, the person who knows can put the note right
+// without waiting for the persona to be told. The links the app keeps from the
+// note to its posts are kept as they were; the persona is not woken.
+func (s *Server) editNote(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		fail(w, http.StatusBadRequest, "メモを指定してください")
+		return
+	}
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := readJSON(r, &body); err != nil || strings.TrimSpace(body.Text) == "" {
+		fail(w, http.StatusBadRequest, "メモの本文を入力してください")
+		return
+	}
+	id := r.PathValue("id")
+	note, ok := s.store.Note(id, path)
+	if !ok || note.Path != path {
+		fail(w, http.StatusNotFound, "メモが見つかりません")
+		return
+	}
+	if err := s.store.WriteNote(id, path, body.Text); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	updated, _ := s.store.Note(id, path)
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {

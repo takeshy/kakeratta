@@ -642,3 +642,24 @@ test("a called persona that stayed quiet can be asked for a reply", async (t) =>
   assert.equal(wanted[0].post.id, "p");
   assert.equal(document.body.children.length, 0, "the sheet gives way to the reply dialog");
 });
+
+
+// A remark says which notes were written with it, and each opens the persona's
+// memory at that note.
+test("a remark leads to the notes written with it", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const opened = [];
+  const feed = createFeed({ getPersona: (id) => id === "gourmet" ? { id: "gourmet", name: "tabe", icon: "🍜" } : null, onOpenNote: (args) => opened.push(args), showIntro: false });
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "ワインのラベル", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "remark", speaker: "gourmet", root: "p", text: "ノートンの白", notes: ["wines/altura.md", "index.md"], at: "2026-09-13T00:01:00Z" },
+  ]);
+  feed.reveal("r");
+  const chips = feed.element.querySelectorAll(".said-note");
+  assert.equal(chips.length, 2);
+  assert.equal(chips[0].textContent, "📝 wines/altura");
+  chips[0].fire("click");
+  assert.deepEqual(opened, [{ persona: { id: "gourmet", name: "tabe", icon: "🍜" }, path: "wines/altura.md" }]);
+});

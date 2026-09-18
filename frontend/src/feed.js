@@ -18,7 +18,7 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, showIntro = true }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, showIntro = true }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let speakingThread = null;
@@ -340,6 +340,14 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       node.append(
         el("a", { class: "source", href: source.url, target: "_blank", rel: "noreferrer", text: source.label || source.url }),
       );
+    }
+    // A remark on a post leaves a note behind, and the remark says which; the
+    // note opens from here.
+    if (!mine && persona && onOpenNote && entry.notes?.length) {
+      node.append(el("div", { class: "said-notes" }, ...entry.notes.map((path) => el("button", {
+        class: "chip ghost said-note", text: `📝 ${path.replace(/\.md$/, "")}`, i18nTitle: "この発言と一緒に書いたメモを開く",
+        onclick: () => onOpenNote({ persona, path }),
+      }))));
     }
     if (!mine) {
       // A remark can be answered, and it can be disputed: what the persona

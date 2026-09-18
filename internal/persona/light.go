@@ -155,7 +155,7 @@ func (r *Runner) converse(ctx context.Context, skill Skill, messages []llm.Messa
 					step.Output = preview(text)
 					record.Steps = append(record.Steps, step)
 					record.Spoke = text
-					return r.speak(skill, root, text, sources, memory, trigger.ID)
+					return r.speak(skill, root, text, sources, memory, trigger.ID, notesWritten(record.Steps))
 				}
 			case "silent":
 				if named && !listening && !refused {

@@ -93,6 +93,10 @@ type Entry struct {
 	// ReplyTo is the entry being answered, for display.
 	ReplyTo string   `json:"replyTo,omitempty"`
 	Sources []Source `json:"sources,omitempty"`
+	// Notes are the paths of the notes a persona wrote in the turn that
+	// produced this remark. A remark on a post always leaves a note behind,
+	// and this is how the remark leads to it.
+	Notes []string `json:"notes,omitempty"`
 
 	// Deleted marks a tombstone in the log rather than removing history.
 	Deleted bool `json:"deleted,omitempty"`

@@ -190,7 +190,9 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     return box;
   }
 
-  async function showMemory(row) {
+  // focusPath: a note to open and scroll to first - the one a remark on the
+  // timeline said it wrote.
+  async function showMemory(row, focusPath = "") {
     let memory = { notes: [] };
     try {
       memory = await api.memory(row.id);
@@ -207,6 +209,13 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         drawMemory();
         memoryHost.focus();
       },
+      onEdit: async (path, text) => {
+        const updated = await api.editNote(row.id, path, text);
+        memory.notes = (memory.notes || []).map(note => note.path === path ? { ...note, ...updated } : note);
+        drawMemory();
+        toast(t("メモを保存しました"));
+        memoryHost.focus();
+      },
     }));
     memoryHost.setAttribute("tabindex", "-1");
     const backdrop = el("div", { class: "dialog-backdrop" });
@@ -216,7 +225,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     backdrop.addEventListener("keydown", (event) => {
       if (event.key === "Escape") { event.preventDefault(); close(); }
       if (event.key !== "Tab") return;
-      const focusable = [...backdrop.querySelectorAll("button, a[href], summary")]
+      const focusable = [...backdrop.querySelectorAll("button, a[href], summary, textarea")]
         .filter(node => !node.disabled && node.getClientRects().length);
       const first = focusable[0], last = focusable.at(-1);
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -253,6 +262,14 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     document.body.append(backdrop);
     backdrop.querySelector(".memory-dialog").setAttribute("tabindex", "-1");
     backdrop.querySelector(".memory-dialog").focus();
+    if (focusPath) {
+      const card = [...backdrop.querySelectorAll("[data-path]")].find((node) => node.getAttribute("data-path") === focusPath);
+      if (card) {
+        if (card.tagName === "DETAILS") card.open = true;
+        card.scrollIntoView?.({ block: "start" });
+        card.focus?.({ preventScroll: true });
+      }
+    }
   }
 
   function drawInstall() {
@@ -313,5 +330,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     // opening this panel at all.
     activate: (id) => setActive(id, true),
     reveal: (id) => { pending = id; revealPending(); },
+    // A remark on the timeline leads to the note written with it.
+    showMemoryFor: (row, path) => showMemory(row, path),
   };
 }
