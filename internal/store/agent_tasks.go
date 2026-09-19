@@ -11,16 +11,17 @@ import (
 // hosted workspaces and the store lock locally. Claims never expire implicitly:
 // reconnecting must not automatically repeat an external side effect.
 type AgentTask struct {
-	ID          string    `json:"id"`
-	Trigger     string    `json:"trigger,omitempty"`
-	Fingerprint string    `json:"fingerprint,omitempty"`
-	Kind        string    `json:"kind"`
-	Prompt      string    `json:"prompt,omitempty"`
-	At          time.Time `json:"at"`
-	State       string    `json:"state"`
-	Claim       string    `json:"claim,omitempty"`
-	Result      string    `json:"result,omitempty"`
-	Published   bool      `json:"published,omitempty"`
+	ID          string     `json:"id"`
+	Trigger     string     `json:"trigger,omitempty"`
+	Fingerprint string     `json:"fingerprint,omitempty"`
+	Kind        string     `json:"kind"`
+	Prompt      string     `json:"prompt,omitempty"`
+	At          time.Time  `json:"at"`
+	State       string     `json:"state"`
+	Claim       string     `json:"claim,omitempty"`
+	ClaimedAt   *time.Time `json:"claimedAt"`
+	Result      string     `json:"result,omitempty"`
+	Published   bool       `json:"published,omitempty"`
 }
 
 const taskQueueKey = "mcp-hermes-tasks"
@@ -130,6 +131,8 @@ func ClaimAgentTask(ctx context.Context, s Workspace, id, claim string) (AgentTa
 			if t.State == "pending" {
 				t.State = "claimed"
 				t.Claim = claim
+				now := time.Now().UTC()
+				t.ClaimedAt = &now
 			}
 			found = *t
 			return tasks, nil

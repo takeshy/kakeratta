@@ -21,6 +21,18 @@ type mcpTool struct {
 	Annotations map[string]bool `json:"annotations"`
 }
 
+// Preserve state/claim for existing clients and stored tasks while exposing
+// explicit recovery metadata in both list_tasks and claim_task responses.
+type mcpAgentTask struct {
+	store.AgentTask
+	Status  string `json:"status"`
+	ClaimID string `json:"claimId,omitempty"`
+}
+
+func agentTaskResponse(task store.AgentTask) mcpAgentTask {
+	return mcpAgentTask{AgentTask: task, Status: task.State, ClaimID: task.Claim}
+}
+
 func kakerattaMCPTools() []mcpTool {
 	str := func(description string) map[string]any {
 		return map[string]any{"type": "string", "description": description}
@@ -38,9 +50,9 @@ func kakerattaMCPTools() []mcpTool {
 		tool("list_notes", "List note paths for one of this user's personas.", true, map[string]any{"persona": str("Persona ID")}, "persona"),
 		tool("read_note", "Read a persona's Markdown note. Links starting / are relative to that persona's note bundle.", true, map[string]any{"persona": str("Persona ID"), "path": str("Bundle-relative note path")}, "persona", "path"),
 		tool("write_note", "Save a complete Markdown note in the Hermes persona's own bundle. Other personas' notes are read-only. Read an existing note before replacing it.", false, map[string]any{"path": str("Note path, e.g. index.md or tasks/readme.md"), "text": str("Complete Markdown"), "sourceEntryId": str("Optional source entry ID")}, "path", "text"),
-		tool("list_tasks", "Read pending and claimed requests. Completed results awaiting delivery are recovered. This tool does not run your agent. Claimed tasks must not be executed again just because you reconnect.", false, map[string]any{}),
-		tool("claim_task", "Claim a pending request before executing it. Choose a unique claimId per execution and reuse it when retrying this call. Another claimId cannot take the same task. Claims do not expire.", false, map[string]any{"taskId": str("Task ID"), "claimId": str("Stable client-generated execution ID, max 200 characters")}, "taskId", "claimId"),
-		tool("cancel_task", "Cancel a pending or claimed request when the user no longer wants it. This cannot stop external work already running.", false, map[string]any{"taskId": str("Task ID")}, "taskId"),
+		tool("list_tasks", "Read pending and claimed requests with status, claimId and claimedAt (null for legacy claims with unknown acquisition time). Completed results awaiting delivery are recovered. This tool does not run your agent. Claimed tasks must not be executed again just because you reconnect.", false, map[string]any{}),
+		tool("claim_task", "Claim a pending request before executing it. Choose a unique claimId per execution and reuse it when retrying this call. Another claimId cannot take the same task. Claims do not expire. A claimed task cannot be taken with another claimId. If execution outcome is unknown after a crash, do not repeat the work; ask the user to verify external effects and cancel before submitting a new request.", false, map[string]any{"taskId": str("Task ID"), "claimId": str("Stable client-generated execution ID, max 200 characters")}, "taskId", "claimId"),
+		tool("cancel_task", "Cancel a pending or claimed request only at the user's direction. To retry uncertain work, the user must verify external effects and submit a new request after cancellation. This cannot stop external work already running.", false, map[string]any{"taskId": str("Task ID")}, "taskId"),
 		tool("complete_task", "Finish a claimed request and post the result to its original thread. An empty text completes quietly. Retries reuse the first accepted result; never repeat external work because delivery failed.", false, map[string]any{"taskId": str("Task ID"), "claimId": str("Claim ID used to acquire this task"), "text": str("Result, max 32000 bytes; empty means no post")}, "taskId", "claimId", "text"),
 		tool("post_report", "Post a proactive report as Hermes. Use a unique id for each report and the same id on delivery retries. Does not invoke other agents.", false, map[string]any{"id": str("Unique report ID, max 200 characters"), "text": str("Markdown report, max 32000 bytes"), "replyTo": str("Optional existing entry ID")}, "id", "text"),
 	}
@@ -72,6 +84,9 @@ func (s *Server) hermesActive() bool {
 func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessage) (any, error) {
 	ctx, cancel := mcpContext(ctx)
 	defer cancel()
+	if !s.hermesActive() {
+		return nil, errors.New("担当画面でHermesを有効にしてください")
+	}
 	var a mcpArgs
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
@@ -132,9 +147,6 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		}
 		return note, nil
 	}
-	if !s.hermesActive() {
-		return nil, errors.New("担当画面でHermesを有効にしてください")
-	}
 	switch name {
 	case "write_note":
 		var sources []store.NoteSource
@@ -154,7 +166,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		if err != nil {
 			return nil, err
 		}
-		out := []store.AgentTask{}
+		out := []mcpAgentTask{}
 		for _, task := range tasks {
 			if task.State == "completed" {
 				if !task.Published {
@@ -173,7 +185,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 				}
 				continue
 			}
-			out = append(out, task)
+			out = append(out, agentTaskResponse(task))
 		}
 		return map[string]any{"tasks": out}, nil
 	case "claim_task":
@@ -202,7 +214,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"task": claimed, "thread": thread, "instructions": s.hermesInstructions()}, nil
+		return map[string]any{"task": agentTaskResponse(claimed), "thread": thread, "instructions": s.hermesInstructions()}, nil
 	case "cancel_task":
 		if a.TaskID == "" {
 			return nil, errors.New("taskIdを指定してください")

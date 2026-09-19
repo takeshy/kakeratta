@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -37,7 +38,7 @@ func mcpTaskFixture(t *testing.T) (*Server, *failingMCPWorkspace, store.AgentTas
 		t.Fatal(err)
 	}
 	w := &failingMCPWorkspace{Workspace: s}
-	server := &Server{store: w, events: newHub()}
+	server := &Server{store: w, events: newHub(), catalogue: persona.NewCatalogue(s.SkillDir())}
 	entry := timeline.Entry{ID: "request", Root: "request", Kind: timeline.KindPost, Text: "do work", At: time.Now()}
 	if err := s.Append(entry); err != nil {
 		t.Fatal(err)
@@ -175,5 +176,99 @@ func TestMCPCompleteTaskRetriesDeliveryAfterReadFailure(t *testing.T) {
 	tasks, err = store.AgentTasks(ctx, w)
 	if err != nil || !tasks[0].Published {
 		t.Fatalf("tasks = %+v, error = %v", tasks, err)
+	}
+}
+
+func TestMCPClaimRecoveryMetadata(t *testing.T) {
+	s, w, _ := mcpTaskFixture(t)
+	ctx := context.Background()
+	result, err := s.callMCPTool(ctx, "claim_task", json.RawMessage(`{"taskId":"task","claimId":"execution"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response struct {
+		Task struct {
+			Status    string     `json:"status"`
+			ClaimID   string     `json:"claimId"`
+			ClaimedAt *time.Time `json:"claimedAt"`
+		} `json:"task"`
+	}
+	if err := json.Unmarshal(raw, &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Task.Status != "claimed" || response.Task.ClaimID != "execution" || response.Task.ClaimedAt == nil {
+		t.Fatalf("claim response = %s", raw)
+	}
+	result, err = s.callMCPTool(ctx, "list_tasks", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err = json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var listed struct {
+		Tasks []struct {
+			Status    string     `json:"status"`
+			ClaimID   string     `json:"claimId"`
+			ClaimedAt *time.Time `json:"claimedAt"`
+		} `json:"tasks"`
+	}
+	if err := json.Unmarshal(raw, &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Tasks) != 1 || listed.Tasks[0].Status != "claimed" || listed.Tasks[0].ClaimID != "execution" || listed.Tasks[0].ClaimedAt == nil || !listed.Tasks[0].ClaimedAt.Equal(*response.Task.ClaimedAt) {
+		t.Fatalf("list response = %s", raw)
+	}
+	// Existing queue JSON lacks claimedAt; do not invent a timestamp on retry.
+	v, err := w.SocialValue(ctx, "mcp-hermes-tasks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, err := w.SwapSocialValue(ctx, "mcp-hermes-tasks", v.Version, store.SocialValue{Data: json.RawMessage(`[{"id":"legacy","kind":"check-in","state":"claimed","claim":"old-execution"}]`)})
+	if err != nil || !ok {
+		t.Fatalf("legacy setup: %v, %v", ok, err)
+	}
+	result, err = s.callMCPTool(ctx, "claim_task", json.RawMessage(`{"taskId":"legacy","claimId":"old-execution"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err = json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Task.Status != "claimed" || response.Task.ClaimID != "old-execution" || response.Task.ClaimedAt != nil {
+		t.Fatalf("legacy response = %s", raw)
+	}
+}
+
+func TestMCPDisabledBlocksEveryTool(t *testing.T) {
+	s, w, _ := mcpTaskFixture(t)
+	settings := w.Settings()
+	settings.Active = nil
+	if err := w.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range kakerattaMCPTools() {
+		t.Run(tool.Name, func(t *testing.T) {
+			result, err := s.callMCPTool(context.Background(), tool.Name, json.RawMessage(`{}`))
+			if err == nil || err.Error() != "担当画面でHermesを有効にしてください" || result != nil {
+				t.Fatalf("disabled tool returned %v, %v", result, err)
+			}
+		})
+	}
+	settings.Active = []string{"hermes"}
+	if err := w.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.callMCPTool(context.Background(), "get_thread", json.RawMessage(`{"entryId":"request"}`)); err != nil {
+		t.Fatal(err)
 	}
 }
