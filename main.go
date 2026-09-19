@@ -93,6 +93,15 @@ func main() {
 				}
 				return cloudBlobs.Scope("users/" + userKey + "/blobs")
 			},
+			// Backups sit under their own prefix, which the bucket sweeps on a
+			// lifecycle rule: a download link is worth an hour, not a copy of
+			// everyone's workspace kept for good.
+			ExportTarget: func(userKey string) store.ExportTarget {
+				if cloudBlobs == nil {
+					return nil
+				}
+				return cloudBlobs.Exports("exports/" + userKey)
+			},
 		}
 		if firestoreClient != nil {
 			authOptions.ListWorkspaces = func(ctx context.Context) ([]string, error) {
@@ -127,12 +136,16 @@ func main() {
 		if cloudBlobs != nil {
 			workspace.SetBlobStore(cloudBlobs.Scope("single/blobs"))
 		}
-		app := server.New(server.Options{
+		options := server.Options{
 			Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
 			Version: version,
 			Token:   strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
 			Tools:   toolConfig,
-		})
+		}
+		if cloudBlobs != nil {
+			options.Exports = cloudBlobs.Exports("exports/single")
+		}
+		app := server.New(options)
 		handler, closeApp = app, app.Close
 	}
 

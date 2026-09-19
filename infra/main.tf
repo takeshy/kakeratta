@@ -15,6 +15,7 @@ locals {
     "firebase.googleapis.com",
     "firebasehosting.googleapis.com",
     "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
     "identitytoolkit.googleapis.com",
     "secretmanager.googleapis.com",
     "storage.googleapis.com",
@@ -88,6 +89,19 @@ resource "google_storage_bucket" "blobs" {
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
   force_destroy               = false
+
+  # A backup under exports/ is a download someone starts within the hour, not
+  # a second copy of their workspace to keep. Captures live elsewhere in the
+  # bucket and are never touched by this.
+  lifecycle_rule {
+    condition {
+      age            = 1
+      matches_prefix = ["exports/"]
+    }
+    action {
+      type = "Delete"
+    }
+  }
 
   lifecycle {
     prevent_destroy = true
@@ -166,6 +180,14 @@ resource "google_project_iam_member" "app_roles" {
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.app.email}"
+}
+
+# A backup is downloaded straight from the bucket through a link that expires,
+# so the app has to sign one, which means signing as itself.
+resource "google_service_account_iam_member" "app_signs_urls" {
+  service_account_id = google_service_account.app.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.app.email}"
 }
 
 resource "google_storage_bucket_iam_member" "app_blobs" {
@@ -268,6 +290,7 @@ resource "google_cloud_run_v2_service" "app" {
     google_firestore_database.app,
     google_project_iam_member.app_roles,
     google_storage_bucket_iam_member.app_blobs,
+    google_service_account_iam_member.app_signs_urls,
   ]
 }
 

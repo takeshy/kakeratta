@@ -126,6 +126,7 @@ export const api = {
 
   checkSearch: () => call("POST", "/api/search/check"),
   settings: () => call("GET", "/api/settings"),
+  startExport: () => call("POST", "/api/export"),
   saveSettings: (settings) => call("PUT", "/api/settings", settings),
   models: () => call("GET", "/api/models"),
   openRouterModels: () => call("GET", "/api/openrouter/models"),

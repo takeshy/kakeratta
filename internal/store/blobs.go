@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 )
 
 // BlobStore is the narrow object-storage boundary used for captures. Timeline
@@ -18,6 +20,8 @@ import (
 type BlobStore interface {
 	Put(name string, data []byte, mime string) error
 	Get(name string) ([]byte, string, error)
+	// List names every stored blob, so a workspace can be copied out whole.
+	List() ([]string, error)
 }
 
 type fileBlobs struct{ root string }
@@ -29,6 +33,23 @@ func (b fileBlobs) Put(name string, data []byte, _ string) error {
 func (b fileBlobs) Get(name string) ([]byte, string, error) {
 	data, err := os.ReadFile(filepath.Join(b.root, name))
 	return data, mimeFor(name), err
+}
+
+func (b fileBlobs) List() ([]string, error) {
+	entries, err := os.ReadDir(b.root)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			names = append(names, entry.Name())
+		}
+	}
+	return names, nil
 }
 
 // GCSBlobs owns one reusable Cloud Storage client. Scope returns a user-bound
@@ -92,4 +113,21 @@ func (g gcsBlobScope) Get(name string) ([]byte, string, error) {
 		mime = mimeFor(name)
 	}
 	return data, mime, nil
+}
+
+func (g gcsBlobScope) List() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	it := g.client.Bucket(g.bucket).Objects(ctx, &storage.Query{Prefix: g.prefix + "/"})
+	var names []string
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			return names, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		names = append(names, strings.TrimPrefix(attrs.Name, g.prefix+"/"))
+	}
 }

@@ -97,6 +97,11 @@ terraform output -raw login_url
 このURLは公開しないでください。Terraform stateにも生成したトークンが含まれるため、
 同じく安全に保管してください。
 
+バックアップ（設定→バックアップ）は同じバケットの `exports/` 以下に書き出し、
+1時間だけ有効な署名URLをブラウザに渡します。ダウンロード自体はCloud Runを通りません。
+`exports/` 以下はライフサイクルルールで1日後に削除され、署名には実行用サービス
+アカウントが自分自身に対して `roles/iam.serviceAccountTokenCreator` を持つことが必要です。
+
 データのある場所には削除の保護を掛けています。キャプチャのバケットは `prevent_destroy`、
 Firestoreは削除保護、Cloud Runサービスは `deletion_protection` です。applyを通すためでは
 なく、消すと決めたときにだけ外してください。

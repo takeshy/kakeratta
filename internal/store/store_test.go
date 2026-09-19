@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -30,6 +31,15 @@ func (b *memoryBlobs) Get(name string) ([]byte, string, error) {
 		return nil, "", errors.New("not found")
 	}
 	return append([]byte(nil), data...), b.mime[name], nil
+}
+
+func (b *memoryBlobs) List() ([]string, error) {
+	names := make([]string, 0, len(b.data))
+	for name := range b.data {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 func open(t *testing.T) *Store {

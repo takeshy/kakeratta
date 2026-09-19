@@ -38,7 +38,9 @@ type AuthOptions struct {
 	FirebaseAPIKey     string
 	FirebaseAuthDomain string
 	BlobStore          func(userKey string) store.BlobStore
-	ListWorkspaces     func(context.Context) ([]string, error)
+	// ExportTarget is where one user's backup is put for them to download.
+	ExportTarget   func(userKey string) store.ExportTarget
+	ListWorkspaces func(context.Context) ([]string, error)
 	// Tools is the operator's configuration, the same for every user.
 	Tools         tools.Config
 	OpenWorkspace func(userKey string, blobs store.BlobStore) (store.Workspace, error)
@@ -217,9 +219,13 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	var exports store.ExportTarget
+	if g.options.ExportTarget != nil {
+		exports = g.options.ExportTarget(userKey)
+	}
 	tenant := New(Options{
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
-		Version: g.options.Version, Tools: g.options.Tools,
+		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
 	})
 	tenant.workspaceKey = userKey
 	g.tenants[userKey] = tenant

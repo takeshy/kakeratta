@@ -51,4 +51,7 @@ type Workspace interface {
 	ClaimSchedule(string, time.Time, time.Time) (Schedule, bool, error)
 	PersistSkill(string, []byte) error
 	DeleteSkill(string) error
+	// Export hands the whole workspace to sink as plain files in the layout a
+	// local kakeratta reads, so a development server can serve it as is.
+	Export(context.Context, ExportSink) error
 }

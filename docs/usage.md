@@ -301,3 +301,17 @@ The timeline is **append only**. An entry is never rewritten: a change (the
 image finished being read, it was deleted) is another line with the same id
 further down, and the later one wins. Appending costs the same however long the
 log gets, and a crash mid-write costs the last line rather than the file.
+
+### Taking it with you
+
+Settings → Backup writes the whole workspace as this same tree, zipped: posts,
+personas and their notes, settings, captures and the connection state. Extract
+it into `KAKERATTA_HOME` and `task dev` serves what you were looking at; a
+hosted workspace goes under `KAKERATTA_HOME/users/<workspaceKey>/`, and the key
+is in the `backup.json` inside.
+
+It is written as one stream and never assembled anywhere, so the size of a
+workspace is not the size of anything held in memory. Where a bucket is
+configured the backup is written there and the page is handed a link that lasts
+an hour; on a laptop it comes straight down the response. `settings.json`
+carries your API keys, so keep the file to yourself.

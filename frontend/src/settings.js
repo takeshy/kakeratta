@@ -23,6 +23,10 @@ export function createSettings({ speaker, onSettings }) {
   let openRouterModels = [];
   let openRouterVerified = false;
   let stopMicCheck = () => {};
+  let exportRow = null;
+  let exporting = false;
+  let exportLink = null;
+  let stopExportWatch = () => {};
 
   async function load() {
     settings = await api.settings();
@@ -341,6 +345,89 @@ export function createSettings({ speaker, onSettings }) {
     );
   }
 
+  // The backup is the user's own data as the files a development kakeratta
+  // reads. Where it comes from depends on the deployment: a hosted workspace
+  // writes it to storage and answers with a link over the event stream, a
+  // laptop streams it down the response. The page treats both the same - it
+  // waits for a link, then follows it.
+  function startExport() {
+    exporting = true;
+    exportLink = null;
+    drawExportRow();
+    api.startExport().then((started) => {
+      if (started?.state === "ready" && started.url) finishExport(started);
+      else watchExport();
+    }).catch((error) => {
+      exporting = false;
+      drawExportRow();
+      toast(String(error.message || error), "error");
+    });
+  }
+
+  // A big workspace takes minutes to write out, so the answer comes later and
+  // over the same channel a reaction would.
+  function watchExport() {
+    stopExportWatch();
+    stopExportWatch = api.on((name, data) => {
+      if (name !== "export") return;
+      if (data?.state === "ready" && data.url) return finishExport(data);
+      if (data?.state !== "failed") return;
+      stopWatching();
+      exporting = false;
+      drawExportRow();
+      toast(t("書き出しできませんでした"), "error");
+    });
+  }
+
+  function stopWatching() {
+    stopExportWatch();
+    stopExportWatch = () => {};
+  }
+
+  function finishExport(ready) {
+    stopWatching();
+    exporting = false;
+    exportLink = { url: ready.url, name: ready.name || "" };
+    drawExportRow();
+    // The download starts on its own and stays on the page; the link remains
+    // for a browser that would rather be clicked.
+    try {
+      globalThis.location.assign(exportLink.url);
+    } catch {
+      /* the link is there to follow */
+    }
+  }
+
+  function drawExportRow() {
+    if (!exportRow) return;
+    clear(exportRow);
+    const start = el("button", {
+      class: "chip",
+      label: exporting ? "書き出し中…" : "zipに書き出す",
+      onclick: () => startExport(),
+    });
+    if (exporting) start.setAttribute("disabled", "");
+    exportRow.append(start);
+    if (exportLink) {
+      exportRow.append(el("a", {
+        class: "chip", href: exportLink.url, download: exportLink.name, label: "ダウンロード",
+      }));
+    }
+  }
+
+  function drawBackup() {
+    exportRow = el("div", { class: "compose-row" });
+    view.append(
+      el("h3", { label: "バックアップ" }),
+      el("p", {
+        class: "hint",
+        label: "投稿・担当・メモ・設定・画像を、開発環境でそのまま動く構成のままzipに書き出します。設定にはAPIキーが含まれるため、書き出したzipは他人に渡さないでください。",
+      }),
+      exportRow,
+    );
+    drawExportRow();
+  }
+
   function drawAbout() {
     if (!about) return;
     view.append(
@@ -373,6 +460,7 @@ export function createSettings({ speaker, onSettings }) {
     view.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
     drawSpeech();
     drawReadAloud();
+    drawBackup();
     drawAbout();
   }
 

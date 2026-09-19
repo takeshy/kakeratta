@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
@@ -32,6 +33,9 @@ type Options struct {
 	Token     string
 	// Tools is the operator's configuration, shared by every workspace.
 	Tools tools.Config
+	// Exports is where a finished backup is put for the user to download.
+	// Without one the backup is streamed down the response instead.
+	Exports store.ExportTarget
 }
 
 // Server is the app.
@@ -46,6 +50,8 @@ type Server struct {
 	version      string
 	token        string
 	search       *search.Service
+	exports      store.ExportTarget
+	exporting    atomic.Bool
 
 	mux         *http.ServeMux
 	indexWake   chan struct{}
@@ -64,6 +70,7 @@ func New(options Options) *Server {
 		version:   options.Version,
 		token:     options.Token,
 		tools:     options.Tools,
+		exports:   options.Exports,
 		mux:       http.NewServeMux(),
 		events:    newHub(),
 	}

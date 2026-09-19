@@ -104,6 +104,12 @@ terraform output -raw login_url
 Keep it private. Terraform state contains the generated token and must be kept
 private for the same reason.
 
+Backups (Settings → Backup) are written into the same bucket under `exports/`
+and handed to the browser as a signed link that lasts an hour, so a download
+never runs through Cloud Run. A lifecycle rule deletes anything under that
+prefix after a day, and the runtime service account can sign for itself
+(`roles/iam.serviceAccountTokenCreator`), which is what makes the link work.
+
 Deletion is guarded where data lives: the captures bucket has
 `prevent_destroy`, Firestore has delete protection, and the Cloud Run service
 has `deletion_protection`. Remove those deliberately, not to get an apply
