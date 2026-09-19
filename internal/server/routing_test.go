@@ -236,7 +236,7 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 		return rows
 	}
 	// Turns under way: gourmet has spoken, move and book have not finished.
-	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet"}}); err != nil {
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := workspace.WriteNote("gourmet", "shops/ramen.md", "type: Shop\n\nラーメン", store.NoteSource{EntryID: "p", Label: "ラーメン"}); err != nil {
@@ -254,6 +254,14 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 	}
 	if rows["move"]["done"] != false || rows["move"]["spoke"] != false {
 		t.Fatalf("a persona still working reads as finished: %v", rows["move"])
+	}
+	// A stored reply outcome is authoritative even when the timeline cannot
+	// identify it by timestamp (for example, both entries share the same time).
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet", "move"}, Spoke: []string{"gourmet", "move"}}); err != nil {
+		t.Fatal(err)
+	}
+	if rows = read(); rows["move"]["spoke"] != true {
+		t.Fatalf("stored speech outcome was ignored: %v", rows["move"])
 	}
 	// move finished without a word.
 	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet", "move"}}); err != nil {

@@ -1541,17 +1541,17 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 		{
 			name: "named persona is not the router's choice", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":["gourmet","move"],"excluded_reasons":{"book":"本の話ではない"}}`,
-			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Done: []string{"move", "gourmet"}},
+			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Done: []string{"move", "gourmet"}, Spoke: []string{}},
 		},
 		{
 			name: "named persona is not passed over either", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}, Done: []string{"gourmet"}},
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}, Done: []string{"gourmet"}, Spoke: []string{}},
 		},
 		{
 			name: "nobody is an answer", text: "今日は眠い",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}, Done: []string{}},
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}, Done: []string{}, Spoke: []string{}},
 		},
 		{name: "a broken router is no answer", text: "今日は眠い", routed: `モデルが壊れた返事`, want: nil},
 	} {

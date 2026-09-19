@@ -68,7 +68,12 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		return false
 	}
 	spoke := map[string]bool{}
-	if entries, err := s.store.Timeline(); err == nil {
+	if record.Spoke != nil {
+		for _, id := range record.Spoke {
+			spoke[id] = true
+		}
+	} else if entries, err := s.store.Timeline(); err == nil {
+		// Compatibility for records written before the speech outcome was kept.
 		for _, other := range timeline.Thread(entries, timeline.RootOf(entry)) {
 			if other.Kind == timeline.KindRemark && !other.Deleted && other.At.After(entry.At) {
 				spoke[other.Speaker] = true

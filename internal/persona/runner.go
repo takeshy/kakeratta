@@ -206,7 +206,7 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 		}
 		return
 	}
-	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text, Done: []string{}}
+	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text, Done: []string{}, Spoke: []string{}}
 	for _, id := range routing.Deliver {
 		if !contains(named, id) {
 			record.Delivered = append(record.Delivered, id)
@@ -229,7 +229,7 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 // turnsDone notes on the post's routing record that these personas have had
 // their turn - spoken or not - and tells the page, so a sheet showing the
 // router's call can stop saying the persona is still thinking.
-func (r *Runner) turnsDone(entryID string, wave []Skill) {
+func (r *Runner) turnsDone(entryID string, wave []Skill, spoke map[string]bool) {
 	record, err := r.store.Routing(entryID)
 	if err != nil || record == nil {
 		return
@@ -237,11 +237,17 @@ func (r *Runner) turnsDone(entryID string, wave []Skill) {
 	if record.Done == nil {
 		record.Done = []string{}
 	}
+	if record.Spoke == nil {
+		record.Spoke = []string{}
+	}
 	var ids []string
 	for _, skill := range wave {
 		ids = append(ids, skill.ID)
 		if !contains(record.Done, skill.ID) {
 			record.Done = append(record.Done, skill.ID)
+		}
+		if contains(record.Delivered, skill.ID) && spoke[skill.ID] && !contains(record.Spoke, skill.ID) {
+			record.Spoke = append(record.Spoke, skill.ID)
 		}
 	}
 	if err := r.store.SaveRouting(entryID, *record); err != nil {
@@ -406,7 +412,8 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	// why plana wrote its times into a note as prose instead of placing them.
 	registry := r.registry(settings)
 	var ran []Skill
-	spoke := map[Tier]bool{}
+	spokeByTier := map[Tier]bool{}
+	spokeByPersona := map[string]bool{}
 	for _, tier := range Tiers {
 		var wave []Skill
 		for _, skill := range skills {
@@ -433,12 +440,12 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 			}(i, skill)
 		}
 		group.Wait()
-		r.turnsDone(entry.ID, wave)
 		ran = append(ran, wave...)
 		for _, remark := range remarks {
 			if remark != nil {
 				thread = append(thread, *remark)
-				spoke[tier] = true
+				spokeByTier[tier] = true
+				spokeByPersona[remark.Speaker] = true
 			}
 		}
 	}
@@ -449,14 +456,21 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	// asking, and the timeline would fill up with a conversation that is not
 	// yours.
 	for _, skill := range ran {
-		if !spokeAfter(spoke, skill.Model) {
+		if !spokeAfter(spokeByTier, skill.Model) {
 			continue
 		}
 		func() {
 			defer func() { _ = recover() }()
-			r.run(ctx, skill, thread, entry, false, true, "", client, settings, registry)
+			if remark := r.run(ctx, skill, thread, entry, false, true, "", client, settings, registry); remark != nil {
+				spokeByPersona[remark.Speaker] = true
+			}
 		}()
 	}
+	// A lower-tier persona can speak on its second pass after hearing a higher
+	// tier. Its turn is not finished until those listening passes are complete;
+	// marking it earlier makes the routing sheet briefly call it quiet while it
+	// is still working.
+	r.turnsDone(entry.ID, ran, spokeByPersona)
 }
 
 // readCapture does the one pass over the image and writes the result back onto

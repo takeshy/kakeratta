@@ -20,6 +20,9 @@ type Routing struct {
 	// not, so a reader can tell "still thinking" from "stayed quiet". nil is a
 	// record from before this was kept, and reads as finished.
 	Done []string `json:"done"`
+	// Spoke lists the personas that produced a remark during this turn. nil is
+	// an older record whose speech outcome must be inferred from the timeline.
+	Spoke []string `json:"spoke"`
 }
 
 func routingPath(root string) string { return filepath.Join(root, "routing.json") }
@@ -94,6 +97,9 @@ func normaliseRouting(record Routing) Routing {
 	}
 	if record.Done != nil {
 		out.Done = append([]string{}, record.Done...)
+	}
+	if record.Spoke != nil {
+		out.Spoke = append([]string{}, record.Spoke...)
 	}
 	return out
 }
