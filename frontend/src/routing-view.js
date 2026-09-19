@@ -12,7 +12,7 @@ import { el, toast } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
 
-export async function showRouting({ entry, getPersona, onFixCondition, onFixReply }) {
+export async function showRouting({ entry, getPersona, onFixCondition, onFixReply, onSelectPersona, onOpenNote }) {
   let record;
   try {
     record = await api.routing(entry.id);
@@ -63,8 +63,10 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
     const row = (item, verdict, fix) => {
       const persona = getPersona?.(item.id);
       return el("div", { class: "routing-row" },
-        el("span", { class: "avatar", text: persona?.icon || item.icon || "◎" }),
-        el("span", { class: "who", text: persona?.name || item.name || item.id }),
+        persona && onSelectPersona ? el("button", {
+          class: "routing-persona", text: `${persona.icon || item.icon || "◎"} ${persona.name || item.name || item.id}`,
+          onclick: () => { close(); onSelectPersona(persona); },
+        }) : el("span", { class: "who", text: `${persona?.icon || item.icon || "◎"} ${persona?.name || item.name || item.id}` }),
         el("span", { class: "routing-verdict", label: verdict }),
         item.reason ? el("span", { class: "routing-reason", text: item.reason }) : null,
         persona && onFixCondition ? el("button", {
@@ -89,6 +91,13 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
         line.append(el("button", {
           class: "chip ghost reply-wanted", label: "返事がほしかった",
           onclick: () => { close(); onFixReply({ persona, remark: null, post: current }); },
+        }));
+      }
+      if (persona && onOpenNote) {
+        for (const path of item.notes || []) line.append(el("button", {
+          class: "chip ghost routing-note", text: `📝 ${path.replace(/\.md$/, "")}`,
+          i18nTitle: "この判断で書いたメモを開く",
+          onclick: () => { close(); onOpenNote({ persona, path }); },
         }));
       }
       body.append(line);

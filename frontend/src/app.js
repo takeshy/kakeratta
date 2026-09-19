@@ -48,6 +48,7 @@ const feed = createFeed({
   onFixCondition: (args) => showConditionFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
   onFixReply: (args) => showReplyFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
   onOpenNote: ({ persona, path }) => void personas.showMemoryFor(persona, path),
+  onSelectPersona: (persona) => { open("personas"); personas.reveal(persona.id); },
 });
 const compose = createCompose({
   getSettings: () => settings,

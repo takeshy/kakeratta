@@ -114,7 +114,7 @@ export function routing() {
   return {
     p1: {
       recorded: true,
-      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true }],
+      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true, notes: ["foods/tantanmen.md"] }],
       excluded: [
         { id: "book", name: "shiori", icon: "📖", reason: w.notBook },
         { id: "move", name: "michi", icon: "🚃", reason: w.notTravel },

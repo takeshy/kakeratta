@@ -18,7 +18,7 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, showIntro = true }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, showIntro = true }) {
   const view = el("div", { class: "feed" });
   let entries = [];
   let speakingThread = null;
@@ -34,6 +34,21 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   let composing = false;
   let drawPending = false;
   const offline = () => globalThis.navigator?.onLine === false;
+
+  async function removeEntry(entry, button) {
+    if (!confirm(t("この投稿を消しますか"))) return;
+    button.disabled = true;
+    try {
+      const removed = await api.remove(entry.id);
+      const deleted = { ...entry, ...removed, deleted: true };
+      if (onEntryChange) onEntryChange(deleted);
+      else upsert(deleted);
+    } catch (error) {
+      toast(String(error.message || error), "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
   const updateEditAvailability = () => {
     for (const button of view.querySelectorAll(".edit-post")) {
       button.disabled = offline() || !!postEditor || button.dataset.pending === "true";
@@ -213,22 +228,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
           i18nTitle: "消す",
           disabled: !!entry.pending,
           label: "×",
-          onclick: async (event) => {
-            if (!confirm(t("この投稿を消しますか"))) return;
-            const button = event.currentTarget;
-            button.disabled = true;
-            try {
-              const removed = await api.remove(entry.id);
-              const deleted = { ...entry, ...removed, deleted: true };
-              // Apply the successful response even if SSE is delayed or disconnected.
-              if (onEntryChange) onEntryChange(deleted);
-              else upsert(deleted);
-            } catch (error) {
-              toast(String(error.message || error), "error");
-            } finally {
-              button.disabled = false;
-            }
-          },
+          onclick: (event) => void removeEntry(entry, event.currentTarget),
         }),
       ),
     );
@@ -263,7 +263,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       disabled: offline(),
       onclick: async () => {
         routingView?.close();
-        routingView = await showRouting({ entry, getPersona, onFixCondition, onFixReply });
+        routingView = await showRouting({ entry, getPersona, onFixCondition, onFixReply, onSelectPersona, onOpenNote });
       },
     });
   }
@@ -333,6 +333,10 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
         drawRoutingChip(entry),
+        mine ? el("button", {
+          class: "chip ghost remove", i18nTitle: "消す", disabled: !!entry.pending, label: "×",
+          onclick: (event) => void removeEntry(entry, event.currentTarget),
+        }) : null,
       ),
       el("p", { class: "said", text: entry.text }),
     );

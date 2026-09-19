@@ -20,6 +20,7 @@ export function createSettings({ speaker, onSettings }) {
   let about = null;
   let bluesky = null;
   let openRouterModels = [];
+  let openRouterVerified = false;
   let stopMicCheck = () => {};
 
   async function load() {
@@ -55,6 +56,52 @@ export function createSettings({ speaker, onSettings }) {
     node.addEventListener("change", () => void onChange(node.value));
     return el("label", { class: "field" },
       el("span", { text: t(label) }), node, hint ? el("span", { class: "hint", text: t(hint) }) : null);
+  }
+
+  function modelPicker(label, value, models, onChange) {
+    let selected = value || "";
+    let choices = models;
+    const current = el("span", { class: "model-picker-current", text: selected });
+    const search = el("input", { type: "search", i18nPlaceholder: "モデルを検索" });
+    const list = el("div", { class: "model-picker-list", role: "listbox" });
+    const details = el("details", { class: "model-picker" },
+      el("summary", {}, current), search, list);
+    const render = () => {
+      const query = search.value.trim().toLowerCase();
+      const matching = [...new Set([selected, ...choices].filter(Boolean))]
+        .filter((id) => !query || id.toLowerCase().includes(query))
+        .slice(0, 100);
+      list.replaceChildren(...matching.map((id) => el("button", {
+        type: "button",
+        class: id === selected ? "selected" : "",
+        role: "option",
+        "aria-selected": id === selected ? "true" : "false",
+        text: id,
+        onclick: () => {
+          selected = id;
+          current.textContent = id;
+          details.open = false;
+          search.value = "";
+          render();
+          void onChange(id);
+        },
+      })));
+      if (!matching.length) list.append(el("p", { class: "hint", label: "一致するモデルがありません" }));
+    };
+    search.addEventListener("input", render);
+    details.addEventListener("toggle", () => {
+      if (details.open) {
+        render();
+        search.focus();
+      }
+    });
+    render();
+    const field = el("div", { class: "field" }, el("span", { text: t(label) }), details);
+    field.setModels = (next) => {
+      choices = next;
+      render();
+    };
+    return field;
   }
 
   // Models are not chosen here; the tiers keep their defaults (see the manual).
@@ -108,37 +155,44 @@ export function createSettings({ speaker, onSettings }) {
 	  });
 	const jevEnabled = el("input", { type: "checkbox", checked: !!settings.jevEnabled });
 	const openRouterMode = el("input", { type: "checkbox", checked: !!settings.openRouterMode });
-	jevEnabled.disabled = true;
-	openRouterMode.disabled = true;
+	jevEnabled.disabled = !openRouterVerified;
+	openRouterMode.disabled = !openRouterVerified;
+	const routerPicker = modelPicker("Routerモデル", settings.openRouterRouterModel, openRouterModels, (value) => patch({ openRouterRouterModel: value }));
+	const jevRouter = el("div", { class: "field fixed-model" },
+	  el("span", { label: "Routerモデル" }),
+	  el("strong", { text: "Jev (jev-latest)" }),
+	  el("span", { class: "hint", label: "Jevが有効な間はRouterに固定されます" }));
+	const pickers = [
+	  routerPicker,
+	  modelPicker("Highモデル", settings.openRouterHighModel, openRouterModels, (value) => patch({ openRouterHighModel: value })),
+	  modelPicker("Middleモデル", settings.openRouterMiddleModel, openRouterModels, (value) => patch({ openRouterMiddleModel: value })),
+	  modelPicker("Lowモデル", settings.openRouterLowModel, openRouterModels, (value) => patch({ openRouterLowModel: value })),
+	];
+	const syncRouterModel = () => {
+	  routerPicker.hidden = jevEnabled.checked;
+	  jevRouter.hidden = !jevEnabled.checked;
+	};
 	jevEnabled.addEventListener("change", () => {
+	  syncRouterModel();
 	  void patch({ jevEnabled: jevEnabled.checked });
 	});
 	openRouterMode.addEventListener("change", () => {
 	  void patch({ openRouterMode: openRouterMode.checked });
 	});
-	const modelChoices = (current) => [...new Set([current, ...openRouterModels].filter(Boolean))].map((id) => [id, id]);
-	const pickers = [
-	  select("Routerモデル", settings.openRouterRouterModel, modelChoices(settings.openRouterRouterModel), (value) => patch({ openRouterRouterModel: value })),
-	  select("Highモデル", settings.openRouterHighModel, modelChoices(settings.openRouterHighModel), (value) => patch({ openRouterHighModel: value })),
-	  select("Middleモデル", settings.openRouterMiddleModel, modelChoices(settings.openRouterMiddleModel), (value) => patch({ openRouterMiddleModel: value })),
-	  select("Lowモデル", settings.openRouterLowModel, modelChoices(settings.openRouterLowModel), (value) => patch({ openRouterLowModel: value })),
-	];
 	const refreshPickers = (models) => {
 	  openRouterModels = models;
-	  for (const picker of pickers) {
-	    const node = picker.querySelector("select");
-	    const current = node.value;
-	    node.replaceChildren(...modelChoices(current).map(([id, text]) => el("option", { value: id, text, selected: id === current })));
-	  }
+	  for (const picker of pickers) picker.setModels(models);
 	};
 	const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
 	  el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }));
+	syncRouterModel();
 	pickerGroup.hidden = !openRouterMode.checked;
 	openRouterMode.addEventListener("change", () => { pickerGroup.hidden = !openRouterMode.checked; });
 	const openRouterCheck = connectionCheck(
 	  () => patch({ openRouterApiKey: jevKey.querySelector("input").value.trim() }),
 	  { fetchModels: () => api.openRouterModels(), label: "OpenRouterの接続確認", onModels: (models) => {
 	    refreshPickers(models);
+	    openRouterVerified = true;
 	    jevEnabled.disabled = false;
 	    openRouterMode.disabled = false;
 	  } },
@@ -150,6 +204,7 @@ export function createSettings({ speaker, onSettings }) {
 	  el("p", { class: "hint", label: "接続確認が成功すると、JevとOpenRouter専用モードを選べます。" }),
 	  el("label", { class: "field check-field" }, jevEnabled, el("span", { label: "Jevを有効にする" })),
 	  el("p", { class: "hint", label: "Jevは正確で速く、費用が最も安い振り分け専用モデルです。判定理由は表示されません。" }),
+	  jevRouter,
 	  el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouter専用モード" })),
 	  el("p", { class: "hint", label: "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。" }),
 	  pickerGroup,

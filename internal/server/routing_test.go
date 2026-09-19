@@ -246,6 +246,9 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 	if rows["gourmet"]["done"] != true || rows["gourmet"]["spoke"] != true || rows["gourmet"]["noted"] != true {
 		t.Fatalf("gourmet = %v", rows["gourmet"])
 	}
+	if notes, ok := rows["gourmet"]["notes"].([]any); !ok || len(notes) != 1 || notes[0] != "shops/ramen.md" {
+		t.Fatalf("gourmet note links = %v", rows["gourmet"]["notes"])
+	}
 	if rows["move"]["noted"] != false {
 		t.Fatalf("a persona without a note on this post = %v", rows["move"])
 	}

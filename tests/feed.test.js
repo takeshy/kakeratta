@@ -202,6 +202,27 @@ test("a failed delete keeps the post and allows retry", async (t) => {
   assert.equal(toasts.children[0].textContent, "offline");
 });
 
+test("the user's own reply can be deleted", async (t) => {
+  const post = { id: "p", kind: "post", speaker: "user", root: "p", text: "root", at: "2026-09-13T00:00:00Z" };
+  const reply = { id: "u", kind: "reply", speaker: "user", root: "p", replyTo: "p", text: "my reply", at: "2026-09-13T00:01:00Z" };
+  t.mock.method(api, "remove", async () => ({ ...reply, deleted: true }));
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.confirm = () => true;
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
+  let feed;
+  feed = createFeed({ getPersona: () => null, onEntryChange: (entry) => feed.upsert(entry), showIntro: false });
+  feed.set([post, reply]);
+  feed.reveal(reply.id);
+  const buttons = feed.element.querySelectorAll(".remove");
+  assert.equal(buttons.length, 2, "the post and the user's reply both have delete controls");
+  buttons[1].fire("click", { currentTarget: buttons[1] });
+  await new Promise(setImmediate);
+  assert.equal(api.remove.mock.calls[0].arguments[0], reply.id);
+  assert.equal(feed.element.querySelectorAll(".said-row.mine").length, 0);
+  assert.equal(feed.element.querySelectorAll(".thread").length, 1);
+});
+
 test("persona builder dictates with saved settings, sends, and stops on close", async (t) => {
   const { showPersonaBuilder } = await import("../frontend/src/persona-builder.js");
   t.mock.method(api, "buildPersona", async () => ({ message: "続けて教えてください", draft: null }));

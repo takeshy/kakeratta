@@ -23,6 +23,9 @@ type routingRow struct {
 	Spoke *bool `json:"spoke,omitempty"`
 	// Noted: whether one of its notes cites this post as a source.
 	Noted *bool `json:"noted,omitempty"`
+	// Notes are the paths written from this post, so even a quiet turn leads
+	// directly to what it remembered.
+	Notes []string `json:"notes,omitempty"`
 }
 
 func (s *Server) routingRow(id, reason string) routingRow {
@@ -80,9 +83,12 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 			for _, source := range store.NoteSources(note.Text) {
 				if source.EntryID == entry.ID {
 					noted = true
+					row.Notes = append(row.Notes, note.Path)
+					break
 				}
 			}
 		}
+		sort.Strings(row.Notes)
 		row.Done, row.Spoke, row.Noted = &finished, &said, &noted
 		delivered = append(delivered, row)
 	}
