@@ -2,8 +2,6 @@
 
 English | [日本語](README_ja.md)
 
-**Hermes Agent integration:** connect an external agent as a persona, ask it from the timeline, and receive daily check-ins or cron reports. [Setup and API guide (Japanese)](docs/hermes.md).
-
 **Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
 
 Put thoughts and things that catch your eye into one timeline as text, images,
@@ -184,15 +182,44 @@ is all.
 ## Get started
 
 Requirements: Go 1.26 or later, Node.js, Task (the `task` command), and a
-Nebius Token Factory API key.
+Nebius Token Factory API key. With [mise](https://mise.jdx.dev), `mise install`
+in the repository root gets Go and Task from `mise.toml`; otherwise install
+Task with `go install github.com/go-task/task/v3/cmd/task@latest`.
 
 ```sh
 task setup  # once
 task dev    # the API on :8787 and the page on :5173, together
 ```
 
-Open <http://127.0.0.1:5173> and enter the API key in Settings. Environment
-variables, authentication, storage, and deployment are in
+Open <http://127.0.0.1:5173> and enter the API key in Settings. Anything past
+that — another provider for the models, an external agent, running the server
+yourself — is under [Advanced](#advanced).
+
+## Advanced
+
+None of this is needed to use the app. It is here for when the defaults are not
+what you want.
+
+**Another provider for the models.** Settings → **Use OpenRouter** takes an
+OpenRouter API key, and once the connection check passes it unlocks two things.
+Routing alone can move to **Jev**, a decision-only model that is fast and cheap
+but returns no reasons, so the router's call shows who was chosen without
+saying why. **OpenRouter-only mode** moves the high, middle and low tiers to
+models you pick, with tool calls routed through Exacto. Left alone, everything
+runs on Nemotron through Nebius Token Factory. The measurements behind Jev are
+in [the routing model comparison](docs/routing-model-comparison-2026-09-19.md)
+(Japanese).
+
+**An external agent as a persona.** Hermes Agent joins the room like anyone
+else. Kakeratta keeps your requests as an MCP server; Hermes connects to it,
+runs them with its own models, tools and long-term memory, and reports back
+into the timeline — from **Ask Hermes**, from `@Hermes` in a post, from a daily
+check-in, or from Hermes's own cron. Kakeratta never starts the Hermes process;
+it only needs a URL Hermes can reach. Issue the key in Settings, under **MCP
+連携**, and follow [Setup and API guide](docs/hermes.md) (Japanese).
+
+**Running the server yourself.** Environment variables, authentication, where
+the data lives, and the tools an operator provides are in
 [Under the hood](docs/technical.md#running-it).
 
 ## Read more
@@ -204,6 +231,7 @@ variables, authentication, storage, and deployment are in
 | [Usage and configuration](docs/usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
 | [Design and personas](docs/architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
 | [What was hard about the AI](docs/ai-lessons.md) | What went wrong with Nemotron personas in live runs and production, and how each was fixed |
+| [Hermes Agent](docs/hermes.md) (Japanese) | Connecting an external agent as a persona: the MCP key, requests, and reports |
 | [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
 | [Google Cloud deployment](infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
 

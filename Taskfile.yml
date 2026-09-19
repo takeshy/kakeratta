@@ -55,6 +55,7 @@ tasks:
       - npm run captures
 
   test:
+    desc: Go と画面側のテストを走らせる
     cmds:
       - go test ./internal/...
       - node --test tests/*.test.js

@@ -1,7 +1,5 @@
 # kakeratta
 
-**Hermes Agent連携**：外部エージェントを担当として追加し、タイムラインから依頼できます。毎日のチェックインやHermesのcronからの報告にも対応します。[設定と使い方](docs/hermes.md)。
-
 [English](README.md) | 日本語
 
 **か・け・らった。** かけらを放り込む動作の名前です。
@@ -155,6 +153,8 @@ AIによるメモの整理も似ています。完璧に分類されていても
 ## はじめる
 
 必要なもの: Go 1.26 以降、Node.js、Task（`task` コマンド）、Nebius Token Factory の API キー。
+[mise](https://mise.jdx.dev) があればリポジトリ直下で `mise install` すると `mise.toml` から Go と Task が入ります。
+無ければ `go install github.com/go-task/task/v3/cmd/task@latest` で Task を入れてください。
 
 ```sh
 task setup  # 初回のみ
@@ -162,7 +162,29 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 ```
 
 <http://127.0.0.1:5173> を開き、「設定」で API キーを入力します。
-環境変数、認証、保存先、デプロイは [中で起きていること](docs/technical_ja.md#動かす) にあります。
+モデルの提供元を変える、外部エージェントをつなぐ、サーバーを自分で動かす——その先は
+[上級者向け](#上級者向け) にまとめました。
+
+## 上級者向け
+
+ここから先は、使うだけなら必要ありません。既定のままで困ったときに読んでください。
+
+**モデルを別の提供元にする。** 「設定 → OpenRouterを使う」でOpenRouterのAPIキーを入れ、接続確認が通ると
+2つ選べるようになります。ひとつは **Jev**：振り分けだけをJevに移します。速くて安く判定も良い一方、
+理由を返さないので、振り分けの判断は「誰に配ったか」だけが残り、理由は表示されません。
+もうひとつは **OpenRouter専用モード**：high・middle・low も選んだOpenRouterのモデルに移り、
+ツール呼び出しはExactoを使います。何もしなければ、すべてNebius Token FactoryのNemotronで動きます。
+Jevを選んだ根拠の実測は [振り分けモデル比較レポート](docs/routing-model-comparison-2026-09-19.md) にあります。
+
+**外部エージェントを担当にする。** Hermes Agent は他の担当と同じように部屋に入れます。kakeratta は
+依頼をMCPサーバーとして保持し、Hermesがそこへ接続して、自分のモデル・ツール・長期記憶で実行し、
+タイムラインへ報告します。きっかけは「Hermesに聞く」、投稿中の `@Hermes`、毎日のチェックイン、
+Hermes側のcronのいずれでも構いません。kakeratta から Hermes のプロセスを起動することはなく、
+Hermesから到達できるkakerattaのURLだけが要ります。キーは「設定 → MCP連携（Hermesなど）」で発行し、
+[設定と使い方](docs/hermes.md) に従って接続します。
+
+**サーバーを自分で動かす。** 環境変数、認証、保存先、運用者が用意する道具は
+[中で起きていること](docs/technical_ja.md#動かす) にあります。
 
 ## 詳しく読む
 
@@ -173,6 +195,7 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [設計とペルソナ](docs/architecture_ja.md) | 設計原則、振り分け、実行順序、OKFメモ、スキルとツール |
 | [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
+| [Hermes Agent](docs/hermes.md) | 外部エージェントを担当としてつなぐ。MCPキー、依頼、報告 |
 | [開発と実装状況](docs/development_ja.md) | テスト、ソース構成、実装済みの機能と未確認項目 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformでの構築。画面はFirebase Hosting、APIはCloud Run |
 
