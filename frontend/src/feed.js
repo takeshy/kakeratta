@@ -367,7 +367,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
               draw();
             },
           }),
-          persona && onFixReply ? el("button", {
+          persona && persona.id !== "hermes" && onFixReply ? el("button", {
             class: "chip ghost reply-fix", label: "返し方を直す",
             onclick: () => onFixReply({ persona, remark: entry, post }),
           }) : null),

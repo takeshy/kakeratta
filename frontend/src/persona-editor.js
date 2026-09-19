@@ -66,11 +66,11 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   inputs.model = model;
   previous.model = el("details", { class: "previous" });
   previous.model.hidden = true;
-  form.append(el("label", { class: "persona-field" }, el("strong", { label: "賢さ" }), model, previous.model));
+  if (persona.id !== "hermes") form.append(el("label", { class: "persona-field" }, el("strong", { label: "賢さ" }), model, previous.model));
 
   const toolBoxes = {};
   const toolList = el("div", { class: "persona-tools" });
-  const available = uniqueTools([...new Set([...toolNames, ...original.tools])]).filter((name) => name !== "timeline_search");
+  const available = persona.id === "hermes" ? [] : uniqueTools([...new Set([...toolNames, ...original.tools])]).filter((name) => name !== "timeline_search");
   for (const name of available) {
     const box = el("input", { type: "checkbox" });
     box.checked = original.tools.some((tool) => capability(tool) === capability(name));
@@ -81,7 +81,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   previous.tools = el("details", { class: "previous" });
   previous.tools.hidden = true;
   const tierWarning = el("p", { class: "hint warn", role: "status" });
-  form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools, tierWarning));
+  if (persona.id !== "hermes") form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools, tierWarning));
 
   function read() {
     const draft = { ...persona };

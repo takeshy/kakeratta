@@ -1,5 +1,7 @@
 # kakeratta
 
+**Hermes Agent連携**：外部エージェントを担当として追加し、タイムラインから依頼できます。毎日のチェックインやHermesのcronからの報告にも対応します。[設定と使い方](docs/hermes.md)。
+
 [English](README.md) | 日本語
 
 **か・け・らった。** かけらを放り込む動作の名前です。

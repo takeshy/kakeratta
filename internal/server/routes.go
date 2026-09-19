@@ -28,6 +28,10 @@ import (
 const maxCapture = 20 << 20
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/mcp/connection", s.guard(s.mcpConnection))
+	s.mux.HandleFunc("POST /api/mcp/connection", s.guard(s.issueMCPKey))
+	s.mux.HandleFunc("DELETE /api/mcp/connection", s.guard(s.revokeMCPKey))
+	s.mux.HandleFunc("/api/mcp/users/{workspace}", s.serveMCP)
 	s.mux.HandleFunc("GET /api/auth/identity", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		key := fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00"+s.token)))
@@ -426,16 +430,24 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		DailyCheckIn store.DailyCheckIn `json:"dailyCheckIn"`
 		// Schedules are the wakes this persona asked the app for, so the card can
 		// show what it is waiting for.
-		Schedules []store.Schedule `json:"schedules,omitempty"`
-		Active    bool             `json:"active"`
-		Wakes     int              `json:"wakes"`
-		Notes     string           `json:"notes,omitempty"`
+		Schedules    []store.Schedule `json:"schedules,omitempty"`
+		Active       bool             `json:"active"`
+		Wakes        int              `json:"wakes"`
+		Notes        string           `json:"notes,omitempty"`
+		PendingTasks int              `json:"pendingTasks,omitempty"`
 	}
 	active := map[string]bool{}
 	for _, id := range settings.Active {
 		active[id] = true
 	}
 	out := make([]row, 0, len(skills))
+	tasks, _ := store.AgentTasks(r.Context(), s.store)
+	pendingTasks := 0
+	for _, task := range tasks {
+		if task.State != "completed" {
+			pendingTasks++
+		}
+	}
 	for _, skill := range skills {
 		memory := s.store.Memory(skill.ID)
 		schedules, err := s.store.Schedules(skill.ID)
@@ -443,7 +455,11 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 			// A listing failure must not hide the room; the card shows none.
 			schedules = nil
 		}
-		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes})
+		pending := 0
+		if skill.ID == "hermes" {
+			pending = pendingTasks
+		}
+		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, PendingTasks: pending})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names()})
 }
@@ -601,6 +617,7 @@ func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {
 // ---- settings --------------------------------------------------------------
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	settings := s.store.ConfiguredSettings()
 	// Keys go out to the page only as "set or not". The page never needs them,
 	// and a page that does not have them cannot leak them.

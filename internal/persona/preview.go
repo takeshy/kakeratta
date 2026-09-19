@@ -31,6 +31,10 @@ type ReplyPreview struct {
 // is kept: no remark lands on the timeline, no note or schedule is written,
 // no wake is counted.
 func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (ReplyPreview, error) {
+	// Hermes works outside the app, so there is nothing here to run again.
+	if skillID == "hermes" {
+		return ReplyPreview{}, errors.New("Hermesは外部で作業するため、試し直しはできません。新しい投稿で依頼してください。")
+	}
 	at, ok := r.store.Entry(entryID)
 	if !ok || at.Deleted {
 		return ReplyPreview{}, errors.New("投稿が見つかりません")

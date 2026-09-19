@@ -38,7 +38,7 @@ const tierLabels = {
   high: "high（最後に動く）",
 };
 
-export function createPersonas({ onChange, onSearch, getSettings }) {
+export function createPersonas({ onChange, onSearch, onAsk, getSettings }) {
   const view = el("div", { class: "panel-body" });
   let rows = [];
   let toolNames = [];
@@ -119,7 +119,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         el("span", { class: "avatar", text: row.icon || "◎" }),
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
-        el("span", { class: "tag", label: tierLabels[row.model] || row.model }),
+        el("span", { class: "tag", label: row.id === "hermes" ? "外部エージェント" : tierLabels[row.model] || row.model }),
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
           el("input", {
@@ -131,6 +131,12 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       ),
       el("p", { class: "domain", text: shown.domain }),
     );
+    if (row.id === "hermes") {
+      box.append(el("p", { class: "hint", label: "あなたのHermesがMCPで依頼を取得し、結果を返します。接続は設定画面から行えます。" }));
+      box.append(el("p", { class: "hint", text: t("未処理の依頼 {0}件", row.pendingTasks || 0) }));
+      box.append(el("button", { class: "button primary", label: "Hermesに聞く", disabled: !row.active,
+        onclick: () => onAsk?.(row) }));
+    }
     const schedule = row.dailyCheckIn || {};
     const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });
     const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active, "aria-label": t("希望時刻") });
@@ -153,7 +159,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     box.append(el("div", { class: "compose-row" },
       el("label", { class: "switch" }, enabled, el("span", { label: "1日1回のチェックイン" })),
       time, el("span", { class: "hint", text: zone })));
-    box.append(el("p", { class: "hint", label: "毎日一度だけ起き、伝えることがある日だけ話します。" }));
+    box.append(el("p", { class: "hint", label: row.id === "hermes" ? "希望時刻に確認依頼を保存します。Hermes側で取得すると実行されます。" : "毎日一度だけ起き、伝えることがある日だけ話します。" }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当が預けた予定" }),

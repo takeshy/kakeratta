@@ -75,6 +75,9 @@ function emit(name, data) {
 }
 
 export const api = {
+  mcpConnection: () => call("GET", "/api/mcp/connection"),
+  issueMCPKey: () => call("POST", "/api/mcp/connection"),
+  revokeMCPKey: () => call("DELETE", "/api/mcp/connection"),
   blueskyConnection: () => call("GET", "/api/social/bluesky/connection"),
   connectBluesky: (body) => call("POST", "/api/social/bluesky/connect", body),
   finishBluesky: (body) => call("POST", "/api/social/bluesky/finish", body),

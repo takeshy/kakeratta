@@ -34,6 +34,11 @@ func TestANoteCarriesOnlyANamedKind(t *testing.T) {
 		t.Fatalf("the index was checked: %q", why)
 	}
 	for _, builtin := range Builtins {
+		// Hermes keeps its memory on the server it connects to, so it has no
+		// layout here to name kinds in.
+		if builtin.ID == "hermes" {
+			continue
+		}
 		if len(allowedTypes(builtin.Memory)) == 0 {
 			t.Fatalf("%s names no kinds in its memory layout", builtin.ID)
 		}

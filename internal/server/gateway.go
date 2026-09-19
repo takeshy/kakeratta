@@ -84,6 +84,25 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/api/mcp/users/") {
+		key := strings.TrimPrefix(r.URL.Path, "/api/mcp/users/")
+		decoded, err := hex.DecodeString(key)
+		if err != nil || len(decoded) != 32 || len(bearer(r.Header.Get("Authorization"))) != 64 {
+			fail(w, http.StatusUnauthorized, "invalid MCP credential")
+			return
+		}
+		// Only restored/existing workspaces accept MCP requests; unauthenticated input
+		// must never create a tenant. The startup worker restores saved workspaces.
+		g.mu.Lock()
+		tenant := g.tenants[key]
+		g.mu.Unlock()
+		if tenant == nil {
+			fail(w, http.StatusServiceUnavailable, "workspace unavailable; retry later")
+			return
+		}
+		tenant.ServeHTTP(w, r)
+		return
+	}
 	switch {
 	case r.URL.Path == "/api/social/bluesky/client-metadata.json" && r.Method == http.MethodGet:
 		blueskyMetadata(w, r)

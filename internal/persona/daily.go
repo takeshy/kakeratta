@@ -42,13 +42,13 @@ func (r *Runner) dailyAt(now time.Time) {
 		}
 	}()
 	client, settings := r.clientOf()
-	if client == nil || client.BaseURL == "" {
-		return
-	}
 	for _, skill := range r.catalogue.Active(settings.Active) {
+		if skill.ID != "hermes" && (client == nil || client.BaseURL == "") {
+			continue
+		}
 		schedule := settings.DailyCheckIns[skill.ID]
 		day, due := schedule.Due(now)
-		if !due || modelFor(skill.Model, settings) == "" {
+		if !due || (skill.ID != "hermes" && modelFor(skill.Model, settings) == "") {
 			continue
 		}
 		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)

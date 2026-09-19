@@ -392,6 +392,13 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	for _, id := range named {
 		targets[id] = true
 	}
+	if parent, ok := r.store.Entry(entry.ReplyTo); ok && parent.Speaker == "hermes" {
+		for _, skill := range skills {
+			if skill.ID == "hermes" {
+				targets[skill.ID] = true
+			}
+		}
+	}
 	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
 	for _, id := range routing.Deliver {
 		targets[id] = true
@@ -548,6 +555,12 @@ const systemTemplate = `あなたは「%s」。%s
 // the app has the workflow checked, and only then does anything happen.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
 	wakeInstructions string, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
+	if skill.ID == "hermes" {
+		if listening {
+			return nil
+		}
+		return r.queueHermes(ctx, trigger, wakeInstructions)
+	}
 
 	root := timeline.RootOf(trigger)
 	daily := trigger.ID == ""

@@ -4,6 +4,7 @@
 // come back as "set or not". A page that does not have a key cannot leak one.
 import { el, clear, toast } from "./dom.js";
 import { createBlueskyConnection } from "./bluesky.js";
+import { createMCPConnection } from "./mcp-connection.js";
 import { api } from "./api.js";
 import { speechLanguageOptions } from "./speech_languages.js";
 import { createAudioMeter } from "./meter.js";
@@ -247,6 +248,12 @@ export function createSettings({ speaker, onSettings }) {
     );
   }
 
+  function drawMCP() {
+    const connection = createMCPConnection();
+    view.append(connection.element);
+    void connection.load();
+  }
+
   // The level meter opens a microphone of its own, so it runs only while the
   // reader asks for it here and never beside dictation.
   function micCheck() {
@@ -360,6 +367,7 @@ export function createSettings({ speaker, onSettings }) {
     drawLanguage();
     drawAI();
     drawTools();
+    drawMCP();
     bluesky?.dispose();
     bluesky = createBlueskyConnection();
     view.append(el("h3", { label: "Bluesky連携" }), bluesky.element);

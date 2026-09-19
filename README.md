@@ -2,6 +2,8 @@
 
 English | [日本語](README_ja.md)
 
+**Hermes Agent integration:** connect an external agent as a persona, ask it from the timeline, and receive daily check-ins or cron reports. [Setup and API guide (Japanese)](docs/hermes.md).
+
 **Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
 
 Put thoughts and things that catch your eye into one timeline as text, images,

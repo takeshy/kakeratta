@@ -61,6 +61,7 @@ const compose = createCompose({
   },
 });
 const personas = createPersonas({
+  onAsk: (row) => { close(); compose.mention(row.name); },
   getSettings: () => settings,
   onSearch: (query) => { open("search"); void searchPanel.searchFor(query); },
   onChange: (rows) => {
