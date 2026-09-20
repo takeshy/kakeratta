@@ -8,6 +8,7 @@ REGION=${KAKERATTA_REGION:-asia-northeast1}
 ZONE=${KAKERATTA_ZONE:-asia-northeast1-b}
 RUN_REGION=${KAKERATTA_RUN_REGION:-asia-east1}
 IMAGE_TAG=${KAKERATTA_IMAGE_TAG:-$(date -u +%Y%m%d%H%M%S)}
+COMMIT_ID=$(git rev-parse HEAD)
 FIREBASE_PROJECT_ID=${KAKERATTA_FIREBASE_PROJECT_ID:-$PROJECT_ID}
 
 # Firebase's browser configuration is public metadata. Fetch the active Web
@@ -55,7 +56,7 @@ terraform apply -auto-approve \
 
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/kakeratta/kakeratta:$IMAGE_TAG"
 gcloud builds submit .. --project="$PROJECT_ID" --config=../cloudbuild.yaml \
-  --substitutions="_IMAGE=$IMAGE,_VERSION=$IMAGE_TAG"
+  --substitutions="_IMAGE=$IMAGE,_VERSION=$COMMIT_ID"
 
 terraform apply -auto-approve "${TF_ARGS[@]}"
 
@@ -76,6 +77,7 @@ for attempt in $(seq 1 30); do
 done
 
 printf '\nkakeratta: %s\n' "$URL"
+printf 'Commit: %s\n' "$COMMIT_ID"
 printf 'Cloud Run: '
 terraform -chdir=infra output -raw cloud_run_url
 printf '\n'

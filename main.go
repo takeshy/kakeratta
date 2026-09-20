@@ -164,7 +164,7 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		log.Printf("kakeratta %s — %s  （保存先 %s）", version, address, root)
+		log.Printf("kakeratta %s — %s", version, address)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
 		}
