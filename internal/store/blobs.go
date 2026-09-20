@@ -22,6 +22,8 @@ type BlobStore interface {
 	Get(name string) ([]byte, string, error)
 	// List names every stored blob, so a workspace can be copied out whole.
 	List() ([]string, error)
+	// Purge removes every stored blob: the workspace is being closed.
+	Purge() error
 }
 
 type fileBlobs struct{ root string }
@@ -50,6 +52,19 @@ func (b fileBlobs) List() ([]string, error) {
 		}
 	}
 	return names, nil
+}
+
+func (b fileBlobs) Purge() error {
+	names, err := b.List()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		if err := os.Remove(filepath.Join(b.root, name)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 // GCSBlobs owns one reusable Cloud Storage client. Scope returns a user-bound
@@ -113,6 +128,30 @@ func (g gcsBlobScope) Get(name string) ([]byte, string, error) {
 		mime = mimeFor(name)
 	}
 	return data, mime, nil
+}
+
+func (g gcsBlobScope) Purge() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	return deleteObjects(ctx, g.client.Bucket(g.bucket), g.prefix)
+}
+
+// deleteObjects removes everything under one prefix of a bucket, one object at
+// a time: a closed workspace has a few hundred captures, not millions.
+func deleteObjects(ctx context.Context, bucket *storage.BucketHandle, prefix string) error {
+	it := bucket.Objects(ctx, &storage.Query{Prefix: strings.Trim(prefix, "/") + "/"})
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := bucket.Object(attrs.Name).Delete(ctx); err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+			return err
+		}
+	}
 }
 
 func (g gcsBlobScope) List() ([]string, error) {

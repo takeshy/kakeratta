@@ -52,8 +52,11 @@ type Gateway struct {
 	options  AuthOptions
 	verifier tokenVerifier
 
-	mu        sync.Mutex
-	tenants   map[string]*Server
+	mu      sync.Mutex
+	tenants map[string]*Server
+	// closing names the workspaces being deleted right now, so neither a
+	// request nor the restore worker opens one again halfway through.
+	closing   map[string]bool
 	stop      chan struct{}
 	done      chan struct{}
 	closeOnce sync.Once
@@ -78,7 +81,7 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 	g := &Gateway{
 		stop: make(chan struct{}), done: make(chan struct{}),
 		options: options, verifier: verifier,
-		tenants: map[string]*Server{},
+		tenants: map[string]*Server{}, closing: map[string]bool{},
 	}
 	go g.restoreWorkspaces()
 	return g
@@ -138,12 +141,85 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"key": hex.EncodeToString(digest[:]), "enabled": true})
 		return
 	}
+	if r.URL.Path == "/api/workspace" && r.Method == http.MethodDelete {
+		g.closeAccount(w, r, uid)
+		return
+	}
 	tenant, err := g.tenant(uid)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	tenant.ServeHTTP(w, r)
+}
+
+// userDeleter is what the Firebase auth client can do beyond verifying: forget
+// the account. The fake in tests may or may not offer it.
+type userDeleter interface {
+	DeleteUser(context.Context, string) error
+}
+
+// closeTimeout bounds one account closure. Shutting the tenant waits for the
+// reaction in hand; the deletion then walks every capture and document.
+const closeTimeout = 10 * time.Minute
+
+// closeAccount is the user leaving. The tenant is taken out of service first so
+// nothing lands in a workspace that is being removed, then its data goes
+// wherever it was kept, then the login itself; the cookie is cleared last. The
+// request that asked is answered when all of it is done, not before - a page
+// that has to wait knows more than one told to assume.
+func (g *Gateway) closeAccount(w http.ResponseWriter, r *http.Request, uid string) {
+	var body struct {
+		Confirm bool `json:"confirm"`
+	}
+	if err := readJSON(r, &body); err != nil || !body.Confirm {
+		fail(w, http.StatusBadRequest, "確認が必要です")
+		return
+	}
+	key := workspaceKey(uid)
+	g.mu.Lock()
+	if g.closing[key] {
+		g.mu.Unlock()
+		fail(w, http.StatusConflict, "削除の途中です")
+		return
+	}
+	g.closing[key] = true
+	tenant := g.tenants[key]
+	delete(g.tenants, key)
+	g.mu.Unlock()
+	defer func() {
+		g.mu.Lock()
+		delete(g.closing, key)
+		g.mu.Unlock()
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
+	defer cancel()
+	if tenant == nil {
+		// Nothing of this user's is open, but the data may still be there.
+		var err error
+		if tenant, err = g.open(key); err != nil {
+			log.Printf("close account %s: %v", key, err)
+			fail(w, http.StatusInternalServerError, "削除できませんでした。もう一度お試しください")
+			return
+		}
+	}
+	tenant.Close()
+	if err := tenant.destroy(ctx); err != nil {
+		log.Printf("close account %s: %v", key, err)
+		fail(w, http.StatusInternalServerError, "削除できませんでした。もう一度お試しください")
+		return
+	}
+	// The data is gone either way; the login is forgotten where the verifier
+	// can do that, and only logged where it cannot be, so the answer to the
+	// page stays true to what happened to the workspace.
+	if deleter, ok := g.verifier.(userDeleter); ok {
+		if err := deleter.DeleteUser(ctx, uid); err != nil {
+			log.Printf("close account %s: delete user: %v", key, err)
+		}
+	}
+	clearSession(w, r)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (g *Gateway) createSession(w http.ResponseWriter, r *http.Request) {
@@ -168,11 +244,20 @@ func (g *Gateway) createSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Gateway) logout(w http.ResponseWriter, r *http.Request) {
+	clearSession(w, r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func clearSession(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name: authCookieName, Path: "/", HttpOnly: true, Secure: requestIsHTTPS(r),
 		SameSite: http.SameSiteLaxMode, MaxAge: -1,
 	})
-	w.WriteHeader(http.StatusNoContent)
+}
+
+func workspaceKey(uid string) string {
+	digest := sha256.Sum256([]byte(uid))
+	return hex.EncodeToString(digest[:])
 }
 
 func (g *Gateway) user(r *http.Request) (string, bool) {
@@ -188,8 +273,7 @@ func (g *Gateway) user(r *http.Request) (string, bool) {
 }
 
 func (g *Gateway) tenant(uid string) (*Server, error) {
-	digest := sha256.Sum256([]byte(uid))
-	return g.workspace(hex.EncodeToString(digest[:]))
+	return g.workspace(workspaceKey(uid))
 }
 
 func (g *Gateway) workspace(userKey string) (*Server, error) {
@@ -198,6 +282,19 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 	if existing := g.tenants[userKey]; existing != nil {
 		return existing, nil
 	}
+	if g.closing[userKey] {
+		return nil, errors.New("workspace is being deleted")
+	}
+	tenant, err := g.open(userKey)
+	if err != nil {
+		return nil, err
+	}
+	g.tenants[userKey] = tenant
+	return tenant, nil
+}
+
+// open builds the Server for one workspace without keeping it.
+func (g *Gateway) open(userKey string) (*Server, error) {
 	var blobs store.BlobStore
 	if g.options.BlobStore != nil {
 		blobs = g.options.BlobStore(userKey)
@@ -227,7 +324,6 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
 	})
 	tenant.workspaceKey = userKey
-	g.tenants[userKey] = tenant
 	return tenant, nil
 }
 

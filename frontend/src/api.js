@@ -14,7 +14,9 @@ async function call(method, path, body) {
   if (user) await verifyIdentity();
   // Publishing and a persona's trial turn are the two calls that legitimately
   // take minutes; everything else should be back well inside 45 seconds.
-  const slow = path === "/api/social/publish" || path.endsWith("/reply/preview");
+  // Closing an account waits for the reaction in hand and then walks every
+  // capture and note, so it is given the same room.
+  const slow = path === "/api/social/publish" || path.endsWith("/reply/preview") || path === "/api/workspace";
   const options = { method, headers: {}, signal: AbortSignal.timeout(slow ? 250000 : 45000) };
   if (user) options.headers["X-Kakeratta-Workspace"] = user;
   if (body !== undefined) {
@@ -127,6 +129,7 @@ export const api = {
   checkSearch: () => call("POST", "/api/search/check"),
   settings: () => call("GET", "/api/settings"),
   startExport: () => call("POST", "/api/export"),
+  closeAccount: () => call("DELETE", "/api/workspace", { confirm: true }),
   saveSettings: (settings) => call("PUT", "/api/settings", settings),
   models: () => call("GET", "/api/models"),
   openRouterModels: () => call("GET", "/api/openrouter/models"),

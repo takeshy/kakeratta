@@ -80,6 +80,8 @@ const room = createRoom({
 });
 const settingsPanel = createSettings({
   speaker,
+  // Only an account can be closed: alone on a laptop, the directory is yours.
+  closeAccount: authenticationEnabled() ? () => logout({ confirmUnsent: false }) : null,
   onSettings: (next) => {
     settings = next;
     const wasRequired = settingsRequired;

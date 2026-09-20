@@ -88,8 +88,10 @@ async function authenticate() {
   }
 }
 
-export async function logout() {
-  if ((await localList("outbox:").catch(() => [])).length && !confirm(t("未送信の投稿もこの端末から削除してログアウトしますか？"))) return;
+// Leaving with confirmUnsent off is the account already closed on the server:
+// there is nowhere for an unsent post to go, so nothing to ask about.
+export async function logout({ confirmUnsent = true } = {}) {
+  if (confirmUnsent && (await localList("outbox:").catch(() => [])).length && !confirm(t("未送信の投稿もこの端末から削除してログアウトしますか？"))) return;
   if (enabled && !firebaseAuth && navigator.onLine !== false) {
     const authConfig = await config();
     const [appModule, authModule] = await Promise.all([import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js"), import("https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js")]);

@@ -146,6 +146,7 @@ type fakeExports struct {
 	saved   []byte
 	started chan struct{}
 	release chan struct{}
+	purged  bool
 }
 
 func (f *fakeExports) Save(ctx context.Context, name string, write func(io.Writer) error) (string, error) {
@@ -163,6 +164,14 @@ func (f *fakeExports) Save(ctx context.Context, name string, write func(io.Write
 	f.name, f.saved = name, buffer.Bytes()
 	f.mu.Unlock()
 	return "https://storage.example/" + name + "?signed", nil
+}
+
+func (f *fakeExports) Purge(context.Context) error {
+	f.mu.Lock()
+	f.name, f.saved = "", nil
+	f.purged = true
+	f.mu.Unlock()
+	return nil
 }
 
 func (f *fakeExports) bytes() []byte {

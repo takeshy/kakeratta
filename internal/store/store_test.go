@@ -33,6 +33,11 @@ func (b *memoryBlobs) Get(name string) ([]byte, string, error) {
 	return append([]byte(nil), data...), b.mime[name], nil
 }
 
+func (b *memoryBlobs) Purge() error {
+	b.data, b.mime = nil, nil
+	return nil
+}
+
 func (b *memoryBlobs) List() ([]string, error) {
 	names := make([]string, 0, len(b.data))
 	for name := range b.data {

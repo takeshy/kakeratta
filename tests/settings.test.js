@@ -133,6 +133,44 @@ test("speech, OpenRouter, Hermes and Bluesky wait behind the advanced line", asy
   assert.equal(api.blueskyConnection.mock.callCount(), 1);
 });
 
+// Leaving is asked for in a word, done on the server, and finished by signing
+// out of this browser. Without an account there is nothing to close, so the
+// section is not there.
+test("closing the account asks for the word, deletes on the server, and signs out", async t => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.prompt; });
+  t.mock.method(api, "settings", async () => ({ baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", speech: {}, search: {} }));
+  t.mock.method(api, "about", async () => ({ version: "test" }));
+  t.mock.method(api, "mcpConnection", async () => ({ configured: false }));
+  t.mock.method(api, "blueskyConnection", async () => ({ available: false }));
+  t.mock.method(api, "closeAccount", async () => null);
+  let signedOut = 0;
+  const view = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {}, closeAccount: async () => { signedOut++; } });
+  await view.load();
+  openAdvanced(view);
+  assert.ok(heading(view, "利用停止"), "the closing section is missing");
+  const button = () => walk(view.element).find(node => node.tag === "button" && node.textContent === translate("すべて削除して利用を停止する"));
+  assert.ok(button(), "the closing button is missing");
+
+  globalThis.prompt = () => "";
+  button().listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(api.closeAccount.mock.callCount(), 0, "a wrong word closes nothing");
+  assert.equal(signedOut, 0);
+
+  globalThis.prompt = () => ` ${translate("削除")} `;
+  button().listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(api.closeAccount.mock.callCount(), 1);
+  assert.equal(signedOut, 1);
+
+  const local = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
+  await local.load();
+  openAdvanced(local);
+  assert.equal(heading(local, "利用停止"), false, "without an account there is nothing to close");
+});
+
 // The path is the server's answer, not the page's guess: a hosted workspace
 // keeps its files in Firestore and sends none.
 test("the version is shown without a workspace path", async t => {

@@ -16,7 +16,7 @@ export function aiConfigured(settings) {
   return Boolean(settings.baseUrl?.trim() && settings.lowModel?.trim() && settings.apiKey?.trim());
 }
 
-export function createSettings({ speaker, onSettings }) {
+export function createSettings({ speaker, onSettings, closeAccount = null }) {
   const view = el("div", { class: "panel-body" });
   let settings = null;
   let revealOpenRouter = () => {};
@@ -435,6 +435,51 @@ export function createSettings({ speaker, onSettings }) {
     drawExportRow();
   }
 
+  // Leaving is the one thing here that takes away rather than adds, and the
+  // whole of it at once: everything the account holds, and the account. A
+  // button that erases years of notes should not be a slip of the thumb from
+  // the backup button above it, so the word is asked for, and the backup is
+  // pointed at first.
+  let closingRow = null;
+  let closing = false;
+  function drawClosingRow() {
+    if (!closingRow) return;
+    clear(closingRow);
+    const button = el("button", {
+      class: "chip danger",
+      label: closing ? "削除しています…" : "すべて削除して利用を停止する",
+      onclick: () => void closeAccountNow(),
+    });
+    if (closing) button.setAttribute("disabled", "");
+    closingRow.append(button);
+  }
+
+  async function closeAccountNow() {
+    if (closing) return;
+    const word = t("削除");
+    const typed = globalThis.prompt?.(t("投稿・担当・メモ・画像・設定・接続をすべて削除して、利用を停止します。元に戻せません。続けるには「{0}」と入力してください。", word));
+    if ((typed ?? "").trim().toLowerCase() !== word.toLowerCase()) return;
+    closing = true;
+    drawClosingRow();
+    try {
+      await api.closeAccount();
+      await closeAccount();
+    } catch (error) {
+      closing = false;
+      drawClosingRow();
+      toast(String(error?.message || t("削除できませんでした。もう一度お試しください")), "error");
+    }
+  }
+
+  function drawClosing(into) {
+    closingRow = el("div", { class: "compose-row" });
+    into.append(
+      el("p", { class: "hint", label: "このアカウントのデータをすべて消して、利用を停止します。必要なものは先に上のバックアップで書き出してください。" }),
+      closingRow,
+    );
+    drawClosingRow();
+  }
+
   // Show the deployed version alongside device preferences.
   function drawDevice() {
     view.append(
@@ -484,6 +529,7 @@ export function createSettings({ speaker, onSettings }) {
       bluesky = createBlueskyConnection();
       integrations.content.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
       drawBackup(category("バックアップ").content);
+      if (closeAccount) drawClosing(category("利用停止").content);
     };
     section.addEventListener("toggle", build);
     revealOpenRouter = () => {

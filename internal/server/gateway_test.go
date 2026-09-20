@@ -4,7 +4,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -111,5 +114,112 @@ func TestLocalServerNeedsNoLoginAndHasNoTokenLogin(t *testing.T) {
 	server.ServeHTTP(response, httptest.NewRequest("GET", "/api/auth/token?token=obsolete", nil))
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("removed login endpoint: %d", response.Code)
+	}
+}
+
+// forgettingVerifier is the fake with the one thing the real auth client can
+// also do: delete the account.
+type forgettingVerifier struct {
+	fakeVerifier
+	mu      sync.Mutex
+	deleted []string
+}
+
+func (v *forgettingVerifier) DeleteUser(_ context.Context, uid string) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.deleted = append(v.deleted, uid)
+	return nil
+}
+
+// Leaving takes everything with it: the tenant, the directory it served, the
+// login, the cookie. Someone else's workspace is untouched, and the next
+// request under the old cookie finds nothing of what was there.
+func TestGatewayClosesAnAccountAndRemovesItsWorkspace(t *testing.T) {
+	verifier := &forgettingVerifier{}
+	root := t.TempDir()
+	gateway := newGateway(AuthOptions{
+		Root: root, Version: "test",
+		FirebaseProjectID: "project", FirebaseAPIKey: "key", FirebaseAuthDomain: "project.firebaseapp.com",
+	}, verifier)
+	t.Cleanup(gateway.Close)
+
+	for _, uid := range []string{"alice", "bob"} {
+		post := httptest.NewRequest(http.MethodPost, "/api/post", strings.NewReader(`{"text":"`+uid+`"}`))
+		post.Header.Set("Content-Type", "application/json")
+		post.AddCookie(sessionCookie(t, gateway, uid))
+		response := httptest.NewRecorder()
+		gateway.ServeHTTP(response, post)
+		if response.Code != http.StatusOK {
+			t.Fatalf("post %s: %d %s", uid, response.Code, response.Body.String())
+		}
+	}
+	alice := filepath.Join(root, "users", workspaceKey("alice"))
+	if _, err := os.Stat(filepath.Join(alice, "timeline.jsonl")); err != nil {
+		t.Fatalf("alice's timeline was not written: %v", err)
+	}
+
+	unconfirmed := httptest.NewRequest(http.MethodDelete, "/api/workspace", strings.NewReader(`{}`))
+	unconfirmed.AddCookie(sessionCookie(t, gateway, "alice"))
+	response := httptest.NewRecorder()
+	gateway.ServeHTTP(response, unconfirmed)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("unconfirmed = %d %s", response.Code, response.Body.String())
+	}
+
+	closing := httptest.NewRequest(http.MethodDelete, "/api/workspace", strings.NewReader(`{"confirm":true}`))
+	closing.Header.Set("Content-Type", "application/json")
+	cookie := sessionCookie(t, gateway, "alice")
+	closing.AddCookie(cookie)
+	response = httptest.NewRecorder()
+	gateway.ServeHTTP(response, closing)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("close = %d %s", response.Code, response.Body.String())
+	}
+	cleared := response.Result().Cookies()
+	if len(cleared) != 1 || cleared[0].Name != authCookieName || cleared[0].MaxAge != -1 {
+		t.Fatalf("the session cookie was not cleared: %+v", cleared)
+	}
+	if _, err := os.Stat(alice); !os.IsNotExist(err) {
+		t.Fatalf("alice's workspace remains: %v", err)
+	}
+	if verifier.deleted == nil || verifier.deleted[0] != "alice" {
+		t.Fatalf("the login was not deleted: %v", verifier.deleted)
+	}
+	gateway.mu.Lock()
+	_, kept := gateway.tenants[workspaceKey("alice")]
+	_, closingStill := gateway.closing[workspaceKey("alice")]
+	gateway.mu.Unlock()
+	if kept || closingStill {
+		t.Fatalf("tenant kept = %v, still closing = %v", kept, closingStill)
+	}
+
+	// Bob is still there.
+	bob := httptest.NewRequest(http.MethodGet, "/api/timeline", nil)
+	bob.AddCookie(sessionCookie(t, gateway, "bob"))
+	response = httptest.NewRecorder()
+	gateway.ServeHTTP(response, bob)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"bob"`) {
+		t.Fatalf("bob's timeline = %d %s", response.Code, response.Body.String())
+	}
+
+	// The old cookie, if the verifier still honoured it, opens an empty workspace.
+	again := httptest.NewRequest(http.MethodGet, "/api/timeline", nil)
+	again.AddCookie(cookie)
+	response = httptest.NewRecorder()
+	gateway.ServeHTTP(response, again)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), `"alice"`) {
+		t.Fatalf("after closing = %d %s", response.Code, response.Body.String())
+	}
+}
+
+// The single-user server has nobody to sign out and cannot stop itself: the
+// directory is the user's to remove, and the answer says so.
+func TestSingleUserServerDoesNotCloseAccounts(t *testing.T) {
+	server, _ := app(t)
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/workspace", strings.NewReader(`{"confirm":true}`)))
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d %s", response.Code, response.Body.String())
 	}
 }

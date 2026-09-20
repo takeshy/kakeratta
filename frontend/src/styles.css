@@ -88,6 +88,7 @@ body {
 .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .button.primary:hover { color: #fff; filter: brightness(1.05); }
 .chip.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.chip.danger { border-color: var(--danger, #a33); color: var(--danger, #a33); }
 .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .chip.voice-button:not(.active):hover { border-color: var(--line); color: inherit; }
 

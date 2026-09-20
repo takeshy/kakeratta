@@ -20,6 +20,10 @@ type ExportTarget interface {
 	// Save streams one export into storage under name and returns a URL that
 	// works for a short while, for that object alone.
 	Save(ctx context.Context, name string, write func(io.Writer) error) (string, error)
+	// Purge removes every export kept for this workspace. A backup is a whole
+	// copy of it, so closing the workspace has to take the copies too rather
+	// than leave them to the lifecycle rule.
+	Purge(ctx context.Context) error
 }
 
 // exportLifetime is how long the link works. It is a download the user starts
@@ -67,4 +71,8 @@ func (g gcsExports) Save(ctx context.Context, name string, write func(io.Writer)
 			"response-content-disposition": {`attachment; filename="` + name + `"`},
 		},
 	})
+}
+
+func (g gcsExports) Purge(ctx context.Context) error {
+	return deleteObjects(ctx, g.client.Bucket(g.bucket), g.prefix)
 }

@@ -54,4 +54,7 @@ type Workspace interface {
 	// Export hands the whole workspace to sink as plain files in the layout a
 	// local kakeratta reads, so a development server can serve it as is.
 	Export(context.Context, ExportSink) error
+	// Destroy removes everything the workspace holds, wherever it is kept. The
+	// workspace is unusable afterwards; whoever holds it closes first.
+	Destroy(context.Context) error
 }

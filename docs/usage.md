@@ -322,3 +322,20 @@ It is written as one stream and never assembled anywhere, so the size of a
 workspace is not the size of anything held in memory. Where a bucket is
 configured the backup is written there and the page is handed a link that lasts
 an hour; on a laptop it comes straight down the response.
+
+### Closing the account
+
+Settings → Advanced options → Close account deletes everything the account
+holds and the account with it. The button asks you to type the word "delete";
+after that there is no way back, so export a backup first if there is anything
+you want to keep.
+
+What goes: the user's `users/<workspaceKey>/` (on Firestore, the document and
+every collection under it), the captures and backups in Cloud Storage, the
+Firebase Authentication account, and the login session. Nobody else's data is
+touched. The server first takes the workspace out of service and lets the
+reaction in hand finish, then removes it, so nothing is written halfway. The
+conversations kept in the browser go with the sign-out.
+
+A single-user setup without login has no such item: stop the app and remove
+the workspace directory shown in Settings.
