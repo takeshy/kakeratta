@@ -2,15 +2,6 @@
 name: kakeratta
 description: >
   Process tasks assigned to Hermes from kakeratta.
-metadata:
-  hermes:
-    blueprint:
-      schedule: "every 1m"
-      deliver: local
-      prompt: >
-        Check kakeratta for pending tasks assigned to Hermes by calling mcp__kakeratta__list_tasks.
-        Process them according to this skill. If there are no pending tasks, respond with [SILENT].
-      no_agent: false
 ---
 
 # kakeratta
@@ -51,3 +42,18 @@ Use kakeratta persona notes only when relevant to the task. Do not overwrite unr
 ## Verification
 
 After `complete_task`, confirm that the MCP call succeeded.
+
+## Automation and Zero-Token Standby (Wake Gate)
+
+Schedule this skill with a Wake Gate. A cron job that only names the skill wakes the LLM every minute, even when no work exists. Hermes blueprint suggestions do not attach a pre-run script, so this skill does not declare a blueprint.
+
+1. Install this skill **as a bundle**, including `scripts/check_kakeratta_gate.py`. A single `SKILL.md` URL does not include the script; download `https://kakeratta.net/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py` separately when installing from that URL.
+2. Copy `scripts/check_kakeratta_gate.py` to `~/.hermes/scripts/check_kakeratta_gate.py` (or the `scripts` directory under `HERMES_HOME`) and make it executable.
+3. Create the recurring job with the gate attached:
+
+   ```bash
+   hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
+   ```
+
+   For an existing job, use `hermes cron edit <job_id> --script check_kakeratta_gate.py`. Check `hermes cron list` and remove any duplicate ungated kakeratta job.
+4. The script calls `list_tasks` before the agent starts. It returns `{"wakeAgent": false}` when the task list is empty, so no LLM call is made. Tasks or pre-check errors return `{"wakeAgent": true}`; Hermes then runs this skill and checks the task state again through MCP. Do not use an output-diff monitor: an unchanged task ID must not suppress the next check.

@@ -17,12 +17,12 @@ flowchart TD
     end
     subgraph S[OpenShell サンドボックス]
       G[Hermes Gateway]
-      C[Blueprint Cron / every 1m]
+      C[Hermes Cron + Wake Gate / every 1m]
       A[Hermes Agent + kakeratta Skill]
       G --> C --> A
     end
     A -->|list / claim / read / complete| M -->|MCP over HTTPS| K
-    A -->|推論| P --> N[Nebius Token Factory / Nemotron 3.5 Lightning]
+    A -->|推論| P --> N[Nebius Token Factory / Nemotron Super 120B]
 ```
 
 | コンポーネント | 役割 |
@@ -32,7 +32,7 @@ flowchart TD
 | NemoClaw / OpenShell | サンドボックス、Gateway のライフサイクル、ネットワークと推論経路を管理する |
 | Nebius Token Factory | モデル推論を提供する |
 
-kakeratta は Hermes のプロセスを起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP です。推論用の認証情報は Hermes の設定へ直接配布せず、環境が管理する推論経路を使いました。
+kakeratta は Hermes のプロセスを起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP です。モデル推論は OpenShell のプロキシを通します。MCP 接続には別の認証キーが必要です。
 
 ## MCP と自律実行
 
@@ -53,15 +53,17 @@ kakeratta の MCP は、検証時に次の 11 ツールを公開しました。
 
 Hermes からの接続テストでは、接続成功と全 11 ツールの検出を確認しました。実際の呼び出し名は `mcp__kakeratta__list_tasks` のように `mcp__kakeratta__` が付きます。
 
-リポジトリで配布する [kakeratta Skill](../frontend/public/integrations/hermes/kakeratta/SKILL.md) は、`every 1m` の Blueprint と以下の手順を定義しています。
+リポジトリで配布する [kakeratta Skill](../frontend/public/integrations/hermes/kakeratta/SKILL.md) は、以下の手順を定義しています。1 分周期の Hermes Cron には Wake Gate スクリプトを指定します。
 
 ```text
 list_tasks → claim_task → get_thread → 推論・ツール利用 → complete_task
 ```
 
-依頼がなければ `[SILENT]` を返します。検証環境では、このアイドル実行は約 3 秒でした。初期構成で試した独自ポーリングスクリプトや出力差分監視は、最終構成から削除しました。タスク ID が前回と同じ場合にエージェントを再起動しない差分監視では、処理失敗後に依頼が残り続ける問題があったためです。
+初期構成では依頼がなければ `[SILENT]` を返し、アイドル実行は約 3 秒でした。ただし Super 120B へ切り替えた後、この方式でも毎分推論が発生することが分かりました。現在は Cron の事前実行スクリプトによる **Wake Gate** を使い、タスクがなければ `{"wakeAgent": false}` を返してエージェントの起動自体を省略します。検証したアイドル tick は約 0.06 秒で、LLM 呼び出しは 0 回でした。タスクがある場合、または事前確認で通信エラーが起きた場合は `{"wakeAgent": true}` としてエージェントを起動します。[配布スクリプト](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)を Cron ジョブに指定します。
 
-この検証で重視した原則は、**未完了のタスクは正常完了するまで再実行可能であるべき**ということです。初期の出力差分監視では、Task A の処理が失敗した後もポーリング結果が Task A のままだと「変更なし」と判定され、Hermes が二度と起動しませんでした。Blueprint Cron では毎回タスクを確認するため、この独自の差分状態管理を削除できました。
+初期構成で試した独自ポーリングスクリプトや出力差分監視は、最終構成から削除しました。タスク ID が前回と同じ場合にエージェントを再起動しない差分監視では、処理失敗後に依頼が残り続ける問題があったためです。Wake Gate は毎回 `list_tasks` を確認する方式です。
+
+この検証で重視した原則は、**未完了のタスクは正常完了するまで再確認できるべき**ということです。初期の出力差分監視では、Task A の処理が失敗した後もポーリング結果が Task A のままだと「変更なし」と判定され、Hermes が二度と起動しませんでした。現在は毎回確認します。取得済みタスクで外部操作の成否が不明な場合の再実行は、[再試行ガイド](hermes_ja.md#claim後にクラッシュした場合)に従います。
 
 ## 構築中に解決した問題
 
@@ -71,8 +73,9 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 | 非対話オンボーディングで別の推論プロバイダが選ばれる | `NEMOCLAW_PROVIDER="custom"`、`NEMOCLAW_MODEL="nvidia/Nemotron-3_5-Lightning"`、`NEMOCLAW_ENDPOINT_URL="https://api.tokenfactory.nebius.com/v1"` を明示し、Nebius の OpenAI 互換エンドポイントを指定した。 |
 | 小型モデルが不要なツール探索やシェル操作に進む | `--tool-disclosure direct` でツール定義を直接開示し、Skill に正式な `mcp__kakeratta__*` 名と手順を記した。 |
 | モデル変更後に Cron が推論を実行しない | Hermes が `global inference config drifted since this job was created` として実行を保留した。ジョブのモデルを明示的に固定した。これは意図しないモデル変更や費用増加を防ぐ安全機構だった。 |
+| MCP が `401 Unauthorized` を返す | ネットワークポリシー変更後、MCP bridge の認証情報プレースホルダーが解決されず、そのまま送信された。MCP の認証設定と OpenShell ポリシーを点検し、11 ツールを再検出できることを確認して復旧した。 |
 
-開発中には、決定的なタスク管理だけを Python ワーカーへ移す方式も試しました。この方式は安定したものの、独自コードの保守が必要でした。最終的には Hermes 標準の **Skill + Blueprint Cron + MCP** に統一し、独自ワーカーを不要にしました。高速モデルでは、モデル選択に加えてツールの開示方法と Skill の明確さが動作を左右しました。
+開発中には、決定的なタスク管理だけを Python ワーカーへ移す方式も試しました。この方式は安定したものの、独自コードの保守が必要でした。最終的には Hermes 標準の **Skill + Cron + MCP** に統一し、独自ワーカーを不要にしました。高速モデルでは、モデル選択に加えてツールの開示方法と Skill の明確さが動作を左右しました。
 
 初期の Nemotron-3.5-Lightning 検証では、複雑な多段 MCP 操作で引数の誤り、JSON 構造の破損、同じツールの再試行、不要なシェル操作や設定調査が発生しました。`progressive` なツール開示から `direct` へ切り替え、Skill に正式なツール名と処理順序を明示することで、ツール探索に使う推論を減らしました。
 
@@ -88,12 +91,16 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 
 投稿は **09:08:53 UTC**、返信は **09:09:13 UTC** で、この実行では 1 分周期のスケジューリングを含めて約 **20 秒** でした。Hermes の CLI や管理画面を人が操作せずに、元スレッドへの返信まで完了しました。この数値は単一の検証例であり、一般的な応答時間の保証値ではありません。
 
-開発時には `NousResearch/Hermes-4-405B` と `nvidia/Nemotron-3_5-Lightning` を試しました。この環境の単純なプロンプトでは前者が約 45 秒かかる場合があり、後者は約 2～3 秒で応答しました。頻繁に起動し、1 回の仕事が比較的小さいパーソナル AI 用途では後者の応答速度を重視しました。これにより Hermes を、時折起動するバッチ処理ではなく、常に呼び出せる外部 AI ペルソナとして扱えます。
+開発時には `NousResearch/Hermes-4-405B` と `nvidia/Nemotron-3_5-Lightning` を試しました。この環境の単純なプロンプトでは前者が約 45 秒かかる場合があり、後者は約 2～3 秒で応答しました。その後、Lightning がツールエラーやネットワーク不達時に不要な設定変更を試みて長い実行に陥るケースがあったため、より複雑な文脈理解とツール判断が必要な運用を **`nvidia/nemotron-3-super-120b-a12b`** に切り替えました。
+
+Super 120B での追加検証では、Hermes がユーザーのモデルに関する質問を `list_tasks` で検出し、`claim_task` の後に Web 検索を行い、収集した情報を使って `complete_task` で元スレッドへ回答しました。これにより、単純な応答に加えて外部調査を含む自律処理を確認しました。回答文中の個別のモデル仕様やベンチマーク値は、この連携の検証結果としては扱いません。
+
+Skill のエラー処理も改訂しました。タスク取得後にツールや外部 API が失敗した場合は、失敗した操作と理由をユーザーへ説明する結果を `complete_task` で返す手順です。`complete_task` 自体に到達できない障害では返信を保証できないため、接続復旧後の確認が必要です。
 
 ## 検証範囲と今後の用途
 
-OpenShell 内での Hermes 起動、Nebius への推論接続、Managed MCP 経由での本番 kakeratta 接続、全 11 ツールの検出、Skill と 1 分周期 Cron、アイドル時の `[SILENT]`、依頼の claim、会話取得、自律推論、元スレッドへの自動投稿を確認しました。
+OpenShell 内での Hermes 起動、Nebius への推論接続、本番 kakeratta MCP への接続、全 11 ツールの検出、Skill と 1 分周期 Cron、Wake Gate によるアイドル時の LLM 呼び出し省略、依頼の claim、会話取得、自律推論、Web 検索、元スレッドへの自動投稿を確認しました。
 
-最終構成では、kakeratta が提供するのは **MCP Server + Hermes Skill + Blueprint のスケジュール情報**です。Hermes が自律的に作業し、NemoClaw / OpenShell が実行境界を制御し、Nebius Token Factory が推論を提供します。独自の Daemon やオーケストレーションサービスは使いません。
+最終構成では、kakeratta が提供するのは **MCP Server + Hermes Skill + Wake Gate スクリプト**です。Hermes が自律的に作業し、NemoClaw / OpenShell が実行境界を制御し、Nebius Token Factory が推論を提供します。独自の Daemon やオーケストレーションサービスは使いません。
 
 同じ MCP 境界を使えば、将来的には外部情報の調査、ファイルやコードの処理、データ分析、他の MCP サービスとの連携結果を kakeratta へ返せます。外部サービスへの操作については Hermes 側の承認方針が適用され、kakeratta の通常の workflow レビューは通りません。

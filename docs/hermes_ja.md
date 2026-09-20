@@ -22,17 +22,18 @@ kakerattaはMCPサーバーとして依頼を保存し、Hermesが接続して�
 3. キーを確認できるのは発行直後の画面だけです。設定はキーを含むため、第三者に共有しないでください。再発行した場合は、`config.yaml` の設定を新しいものに置き換えます。
 
 4. Hermesを再起動し、kakerattaの「担当」でHermesを有効にします。
-5. Hermesで定期的に自動処理させるには、kakeratta公式Skillをインストールします。SkillのBlueprintにより、毎分（every 1m）自動的に依頼を確認・処理するCronジョブが提案されます。
+5. Hermesで定期的に自動処理させるには、kakeratta公式Skillと Wake Gate スクリプトをインストールし、スクリプト付きの Cron ジョブを作ります。`SKILL.md` の URL だけをインストールしてもスクリプトは含まれないため、別途コピーしてください。
 
    ```bash
    # Skillのインストール
    hermes skills install https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md
 
-   # Blueprintの提案（every 1m）を確認・承認
-   hermes suggestions accept 1
+   # https://kakeratta.net/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py
+   # を ~/.hermes/scripts/check_kakeratta_gate.py に配置してから
+   hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
    ```
 
-   タスクがない時は `[SILENT]` で即座に終了します。毎回 `list_tasks` を呼ぶため、前回と同じ未完了タスクが残っていても確認されます。
+   Wake Gate がタスクなしと判定した場合、Agent を起動せず、待機時の LLM 呼び出しを省きます。
 6. 「Hermesに聞く」から依頼を投稿します。`@Hermes READMEの構成を整理して` と直接投稿しても呼び出せます。通常投稿はRouterの担当条件で振り分けられ、Hermesの返信への返事も依頼になります。Hermesが自律的にタスクを取得・処理し、完了報告を返信します。
 
 URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサーバーを公開する必要はありません。kakerattaからHermesのプロセスを起動することもありません。
@@ -62,9 +63,13 @@ Hermesは次のMCPツールで依頼を処理します。
 
 ### 定期実行と未完了タスク
 
-Blueprint Cron は毎分 Skill を起動し、毎回 `list_tasks` で依頼を確認します。前回と同じタスク ID が返っても「変化なし」を理由に実行を省略しません。初期に試した出力差分監視では、処理に失敗したタスクが次回も同じ ID のまま残ると Hermes が再起動せず、依頼が pending のまま止まる問題がありました。最終構成ではその差分監視を使わず、未完了タスクを定期的に確認します。
+Hermes Cron は毎分依頼を確認します。Wake Gate の事前実行スクリプトが `list_tasks` を呼び、タスクがあるときだけ Agent を起動します。前回と同じタスク ID が返っても「変化なし」を理由に実行を省略しません。初期に試した出力差分監視では、処理に失敗したタスクが次回も同じ ID のまま残ると Hermes が再起動せず、依頼が pending のまま止まる問題がありました。
 
 未取得（pending）のタスクは次の起動で処理できます。取得済み（claimed）のタスクも `list_tasks` で状態を確認できますが、作業の再実行は別の判断です。特に外部操作の成否が不明な場合は、同じ作業を無条件に繰り返さないでください。
+
+### Wake Gate による待機時の推論省略
+
+[配布スクリプト](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)は上記の Cron 作成時に指定します。既存ジョブへ追加する場合は `hermes cron edit <job_id> --script check_kakeratta_gate.py` を使います。タスクがなければスクリプトが `{"wakeAgent": false}` を返し、LLM を起動しません。タスクがある場合や事前確認で通信エラーが起きた場合は `{"wakeAgent": true}` を返します。検証したアイドル tick は約 0.06 秒、LLM 呼び出し 0 回でした。これはモデル推論の待機時消費についての値です。
 
 ### claim後にクラッシュした場合
 

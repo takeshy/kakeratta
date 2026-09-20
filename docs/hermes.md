@@ -22,17 +22,18 @@ Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the r
 3. The key is shown only on the screen right after it is issued. Because the configuration contains the key, do not share it with anyone. If you reissue the key, replace the entry in `config.yaml` with the new configuration.
 
 4. Restart Hermes and enable Hermes under **Personas** in Kakeratta.
-5. To process requests automatically on a recurring basis, install the official Kakeratta skill. Its blueprint proposes a cron job scheduled to check and process requests every minute (`every 1m`):
+5. To process requests automatically, install the official Kakeratta skill and its Wake Gate script, then create a cron job with the script attached. Installing only the `SKILL.md` URL does not include the script, so copy it separately.
 
    ```bash
    # Install the skill
    hermes skills install https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md
 
-   # Accept the suggested cron schedule
-   hermes suggestions accept 1
+   # Place https://kakeratta.net/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py
+   # at ~/.hermes/scripts/check_kakeratta_gate.py first
+   hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
    ```
 
-   When there are no pending tasks, the agent immediately exits with `[SILENT]`. It calls `list_tasks` on every run, so an unfinished task is checked again even if its ID has not changed.
+   When the Wake Gate finds no tasks, it skips the agent and the idle LLM call.
 6. Post a request from **Ask Hermes** or directly via `@Hermes ...`. Hermes will autonomously pick up the task via its scheduled cron, complete it, and reply to the thread.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
@@ -62,9 +63,13 @@ Results are stored before they are delivered to the timeline. If delivery fails,
 
 ### Scheduled runs and unfinished requests
 
-The blueprint cron starts the skill every minute and calls `list_tasks` on each run. It does not skip a task merely because its ID matches the previous run. An earlier output-diff monitor could leave a failed task pending indefinitely: the unchanged task ID prevented Hermes from running again. The final setup removes that monitor and checks unfinished tasks on every scheduled run.
+Hermes Cron checks requests every minute. The Wake Gate script calls `list_tasks` and starts the agent only when tasks exist. It does not skip a task merely because its ID matches the previous run. An earlier output-diff monitor could leave a failed task pending indefinitely: the unchanged task ID prevented Hermes from running again.
 
 A pending task can be processed on the next run. A claimed task remains visible through `list_tasks`, but checking its state and repeating its work are separate decisions. In particular, do not repeat an external operation when its outcome is unknown.
+
+### Skipping idle inference with the Wake Gate
+
+The [distributed script](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py) is attached when creating the cron job above. To add it to an existing job, use `hermes cron edit <job_id> --script check_kakeratta_gate.py`. It returns `{"wakeAgent": false}` when there are no tasks, skipping the LLM run. If tasks exist or the pre-check has a connection error, it returns `{"wakeAgent": true}`. One verified idle tick took about 0.06 seconds with zero LLM calls. This figure describes idle model inference, not all background resource use.
 
 ### If Hermes crashes after claiming
 
