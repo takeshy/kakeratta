@@ -305,14 +305,15 @@ log gets, and a crash mid-write costs the last line rather than the file.
 ### Taking it with you
 
 Settings → Backup writes the whole workspace as this same tree, zipped: posts,
-personas and their notes, who is in the room, captures and the connection
-state. Extract it into `KAKERATTA_HOME` and `task dev` serves what you were
-looking at; a hosted workspace goes under `KAKERATTA_HOME/users/<workspaceKey>/`,
-and the key is in the `backup.json` inside.
+personas and their notes, who is in the room, and captures. Extract it into
+`KAKERATTA_HOME` and `task dev` serves what you were looking at; a hosted
+workspace goes under `KAKERATTA_HOME/users/<workspaceKey>/`, and the key is in
+the `backup.json` inside.
 
-No API keys travel with it. Of the settings it keeps only the room — who is in
-it, in order, and when each one wakes — so a restored workspace asks for a key
-of its own, and the file is safe to keep anywhere.
+No credentials travel with it. Of the settings it keeps only the room — who is
+in it, in order, and when each one wakes — and the Bluesky and MCP connections
+stay where they were made, so a restored workspace asks for a key of its own
+and connects for itself. The file is safe to keep anywhere.
 
 It is written as one stream and never assembled anywhere, so the size of a
 workspace is not the size of anything held in memory. Where a bucket is

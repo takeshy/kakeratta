@@ -16,9 +16,14 @@ import (
 // The backup is the user's whole workspace as the files a development
 // kakeratta reads — the same tree as KAKERATTA_HOME — so extracting it and
 // pointing a server at it reproduces what they see here: posts, personas and
-// their notes, who is in the room, captures, and the connection state. What it
-// leaves behind is the settings that say how this person reached the models:
-// there is no API key in the file, and a restored workspace asks for one.
+// their notes, who is in the room, and captures.
+//
+// What it leaves behind is everything that says how this person reached a
+// service from this machine: the API keys and the rest of the settings, the
+// Bluesky tokens, the key an external agent connects with. None of that is
+// what a workspace is made of, and leaving it out is what makes the file safe
+// to keep anywhere — there is no credential in it to lose. A restored
+// workspace asks for a key and connects for itself.
 //
 // It is written as one stream and never assembled anywhere: this runs in a
 // container with a gigabyte of memory and /tmp is part of that memory, so a
@@ -165,13 +170,12 @@ Restore / 戻し方
 
 Notes / 注意
 
-- No API keys travel with this. settings.json carries only who is in the
-  room and when each one wakes, so a restored workspace asks for a key of
-  its own. / APIキーは入っていません。settings.json にあるのは、いる担当と
-  起きる時刻だけです。復元先では自分のキーを入れてください。
-- Bluesky's connection data is encrypted; it opens only with the same
-  KAKERATTA_BLUESKY_KEY. / Bluesky の接続情報は暗号化されており、同じ
-  KAKERATTA_BLUESKY_KEY でだけ開けます。
+- No credentials travel with this. settings.json carries only who is in the
+  room and when each one wakes, and the Bluesky and MCP connections are left
+  behind, so a restored workspace asks for a key and connects for itself. /
+  鍵のたぐいは入っていません。settings.json にあるのは、いる担当と起きる時刻
+  だけで、BlueskyとMCPの接続も持ち出しません。復元先では自分のキーを入れて、
+  つなぎ直してください。
 - Semantic search rebuilds its index on the first search when the zip carries
   no cached vectors. / 意味検索のキャッシュが無いときは、最初の検索でインデックスを作り直します。
 `

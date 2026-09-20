@@ -103,6 +103,13 @@ func (s *Store) exportFiles(ctx context.Context, sink ExportSink) (BlobStore, er
 			if relative == "blobs" {
 				return filepath.SkipDir
 			}
+			// What a connection left here is not the workspace: the Bluesky
+			// tokens, the key an external agent connects with, the requests
+			// waiting for it, and the record of what was published from this
+			// account. A restored workspace connects for itself.
+			if relative == "social-state" || relative == "publications" {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		// A temporary file is a crash half way through a write, never state.
@@ -169,8 +176,6 @@ func (w *FirestoreWorkspace) Export(ctx context.Context, sink ExportSink) error 
 		w.exportSettings,
 		w.exportSkills,
 		w.exportPersonas,
-		w.exportSocialState,
-		w.exportPublications,
 		w.exportDailyCheckIns,
 		w.exportSchedules,
 		w.exportWakes,
@@ -329,42 +334,6 @@ func (w *FirestoreWorkspace) exportNotes(ctx context.Context, sink ExportSink, n
 			return err
 		}
 	}
-}
-
-// exportSocialState carries the connection data as it stands: encrypted where
-// it was encrypted, the same document ids the file store names files by.
-func (w *FirestoreWorkspace) exportSocialState(ctx context.Context, sink ExportSink) error {
-	docs, err := w.user.Collection("socialState").Documents(ctx).GetAll()
-	if err != nil {
-		return err
-	}
-	for _, doc := range docs {
-		var value SocialValue
-		if err := doc.DataTo(&value); err != nil {
-			return err
-		}
-		if err := addJSON(sink, path.Join("social-state", doc.Ref.ID+".json"), time.Time{}, value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (w *FirestoreWorkspace) exportPublications(ctx context.Context, sink ExportSink) error {
-	docs, err := w.user.Collection("publications").Documents(ctx).GetAll()
-	if err != nil {
-		return err
-	}
-	for _, doc := range docs {
-		var publication Publication
-		if err := doc.DataTo(&publication); err != nil {
-			return err
-		}
-		if err := addJSON(sink, path.Join("publications", doc.Ref.ID+".json"), time.Time{}, publication); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (w *FirestoreWorkspace) exportDailyCheckIns(ctx context.Context, sink ExportSink) error {

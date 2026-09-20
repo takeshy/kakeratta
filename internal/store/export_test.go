@@ -161,11 +161,14 @@ func TestExportedWorkspaceOpensAsTheOriginal(t *testing.T) {
 	if err != nil || string(data) != "capture" {
 		t.Fatalf("blob = %q, %v", data, err)
 	}
-	if value, err := exported.SocialValue(ctx, "connection"); err != nil || string(value.Data) != "encrypted" {
-		t.Fatalf("social value = %+v, %v", value, err)
+	// A connection is not part of a workspace: the Bluesky tokens, the key an
+	// external agent connects with, and what was published from this account
+	// stay behind, and the copy connects for itself.
+	if value, err := exported.SocialValue(ctx, "connection"); err != nil || len(value.Data) != 0 {
+		t.Fatalf("connection data travelled with the export: %+v, %v", value, err)
 	}
-	if publication, err := exported.Publication("post_1"); err != nil || publication.URI != "at://did:example/post" {
-		t.Fatalf("publication = %+v, %v", publication, err)
+	if publication, err := exported.Publication("post_1"); err != nil || publication.URI != "" {
+		t.Fatalf("a publication record travelled with the export: %+v, %v", publication, err)
 	}
 	if ok, err := exported.ClaimDailyCheckIn("cafe", "2026-09-19"); err != nil || ok {
 		t.Fatalf("an earlier day was claimed again: %v, %v", ok, err)
