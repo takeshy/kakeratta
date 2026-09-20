@@ -30,14 +30,29 @@ export function createMCPConnection() {
       el("button", { class: "chip ghost", disabled: busy || !connection?.configured, label: "連携を解除", onclick: () => act(api.revokeMCPKey) }),
     ));
     if (key) {
-      const yaml = `mcp_servers:\n  kakeratta:\n    url: ${JSON.stringify(endpoint())}\n    headers:\n      Authorization: "Bearer ${key}"\n`;
-      const config = el("textarea", { class: "skill-input", rows: 7, readonly: true, "aria-label": t("HermesのMCP接続設定") });
+      const skillUrl = new URL("/integrations/hermes/kakeratta/SKILL.md", location.origin).href;
+      const mcpUrl = endpoint();
+      const promptText = `Install the kakeratta skill from: ${skillUrl}\nConnect the kakeratta MCP server: ${mcpUrl}\nUse this bearer token: ${key}\nThen show me the kakeratta automation suggestion so I can approve it.\nFinally, test the MCP connection and tell me whether kakeratta is ready.`;
+      const nemoCommand = `export KAKERATTA_MCP_TOKEN=${JSON.stringify(key)}\n\nnemohermes hermes-sandbox mcp add kakeratta \\\n  --url ${JSON.stringify(mcpUrl)} \\\n  --env KAKERATTA_MCP_TOKEN\n\nunset KAKERATTA_MCP_TOKEN`;
+      const yaml = `mcp_servers:\n  kakeratta:\n    url: ${JSON.stringify(mcpUrl)}\n    headers:\n      Authorization: "Bearer ${key}"\n`;
+
+      const promptArea = el("textarea", { class: "skill-input", rows: 5, readonly: true, "aria-label": t("Hermesへの指示プロンプト") });
+      promptArea.value = promptText;
+
+      const nemoArea = el("textarea", { class: "skill-input", rows: 6, readonly: true, "aria-label": t("NemoClaw用コマンド") });
+      nemoArea.value = nemoCommand;
+
+      const config = el("textarea", { class: "skill-input", rows: 6, readonly: true, "aria-label": t("HermesのMCP接続設定") });
       config.value = yaml;
+
       view.append(
-        el("p", { label: "次の設定を自分のHermesの ~/.hermes/config.yaml に追加してください。" }),
+        el("p", { label: "1. 通常のHermesをお使いの場合: 以下の指示をHermesにそのまま渡してください（SkillとMCPが自動設定され、毎分の定期実行が提案されます）。" }),
+        promptArea,
+        el("p", { label: "2. NemoClawをお使いの場合: 以下のコマンドでManaged MCPを追加してください。" }),
+        nemoArea,
+        el("p", { label: "3. 手動で ~/.hermes/config.yaml を設定する場合:" }),
         config,
         el("p", { class: "hint", label: "接続キーを含む設定です。第三者に共有しないでください。再発行すると以前のキーは無効になります。" }),
-        el("p", { class: "hint", label: "Hermesを再起動し、「kakerattaの依頼を確認して」と話しかけてください。" }),
       );
     }
   }
