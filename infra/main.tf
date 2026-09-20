@@ -5,7 +5,6 @@ locals {
   domain          = trimsuffix(var.domain, ".")
   dns_name        = "${local.domain}."
   fallback_domain = "${replace(google_compute_address.app.address, ".", "-")}.sslip.io"
-  access_token    = coalesce(var.access_token, random_password.access_token.result)
   services = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
@@ -120,26 +119,6 @@ resource "google_firestore_database" "app" {
   app_engine_integration_mode = "DISABLED"
 
   depends_on = [google_project_service.required]
-}
-
-resource "random_password" "access_token" {
-  length  = 32
-  special = false
-}
-
-resource "google_secret_manager_secret" "access_token" {
-  secret_id = "${local.name}-access-token"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.required]
-}
-
-resource "google_secret_manager_secret_version" "access_token" {
-  secret      = google_secret_manager_secret.access_token.id
-  secret_data = local.access_token
 }
 
 # Shared across revisions: OAuth client signing and encrypted user sessions.

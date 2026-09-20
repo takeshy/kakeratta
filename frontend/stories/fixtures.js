@@ -179,7 +179,6 @@ export const about = {
   ],
   tools,
   mcpServers: [],
-  needsToken: true,
 };
 
 export const settings = {

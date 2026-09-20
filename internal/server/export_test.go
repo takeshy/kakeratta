@@ -23,7 +23,7 @@ import (
 // The download is a workspace: unzip it and a local kakeratta serves the same
 // state. The manifest and the restore instructions travel with the files.
 func TestExportDownloadsAWorkspaceThatRunsInDevelopment(t *testing.T) {
-	server, s := app(t, "")
+	server, s := app(t)
 	if err := s.SaveSettings(store.Settings{APIKey: "nebius-key", LowModel: "low"}); err != nil {
 		t.Fatal(err)
 	}
@@ -138,15 +138,6 @@ func TestExportDownloadsAWorkspaceThatRunsInDevelopment(t *testing.T) {
 	}
 }
 
-func TestExportNeedsTheToken(t *testing.T) {
-	server, _ := app(t, "secret")
-	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/export", nil))
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d", recorder.Code)
-	}
-}
-
 // fakeExports stands in for object storage: it keeps what was streamed to it
 // and hands back a link, which is all the app knows about the place.
 type fakeExports struct {
@@ -258,7 +249,7 @@ func TestExportGoesToStorageAndIsAnnounced(t *testing.T) {
 // Without storage there is nowhere to put it, so the page is sent to the
 // endpoint that streams it down the response instead.
 func TestExportWithoutStorageIsStreamed(t *testing.T) {
-	server, _ := app(t, "")
+	server, _ := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/export", nil))
 	if recorder.Code != http.StatusOK {

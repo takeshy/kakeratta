@@ -139,7 +139,6 @@ func main() {
 		options := server.Options{
 			Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
 			Version: version,
-			Token:   strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")),
 			Tools:   toolConfig,
 		}
 		if cloudBlobs != nil {
@@ -151,7 +150,10 @@ func main() {
 
 	address := os.Getenv("KAKERATTA_ADDR")
 	if address == "" {
-		address = ":8787"
+		address = "127.0.0.1:8787"
+		if firebaseProjectID != "" {
+			address = ":8787"
+		}
 	}
 	httpServer := &http.Server{
 		Addr:              address,
@@ -163,9 +165,6 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		log.Printf("kakeratta %s — %s  （保存先 %s）", version, address, root)
-		if firebaseProjectID == "" && strings.TrimSpace(os.Getenv("KAKERATTA_TOKEN")) == "" {
-			log.Print("KAKERATTA_TOKEN が未設定です。手元だけで動かしてください。")
-		}
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
 		}

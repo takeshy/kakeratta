@@ -13,7 +13,6 @@ README.md / README_ja.md を基準に、投稿・共有・タイムライン・�
 | P1 | URL取得の事前DNS検査と実際の接続先が変わると、内部ネットワークへ接続できる | `internal/capture/fetch.go`：接続時のIPも検査。公開ページ取得では環境プロキシを使用しない |
 | P1 | Android共有後の相対URLによる `Response.redirect` が例外になる | `frontend/sw.js`：絶対URLを使用。失敗時は画面に通知 |
 | P2 | 振り分けが `{}` / `null` / 不明IDを返すと、投稿が誰にも渡らない | `internal/persona/route.go`：不正な判定は全員へ。明示的な空配列は無反応を維持 |
-| P2 | ブラウザで `/?token=...` を開いてもセッションCookieが設定されない | `internal/server/routes.go`：認証後にCookieを設定し、トークンをURLから除去。READMEに手順を追記 |
 | P2 | スクリプト・CSSがURL本文に混ざる。共有URLでは本文取得自体が行われない | `internal/capture/fetch.go`、`internal/server/routes.go`：非本文要素を除外し、通常投稿と共有で取得処理を共通化 |
 | P2 | 設定保存で空欄のモデルが実効値に置き換わり、下位モデルへの追従が失われる | `internal/store/settings.go`：編集用の設定と実行用の設定を分離 |
 | P2 | 20 MiB以下の貼り付け画像でもJSON本文の8 MiB制限で投稿できない | `internal/server/routes.go`：Base64分の増加を考慮。録音送信の本文上限も調整 |

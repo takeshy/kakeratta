@@ -14,7 +14,7 @@ import (
 // the user's own lines, with what the router decided about each. Deleting one
 // remark deletes just that.
 func TestDeletingAPostDeletesTheConversationUnderIt(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	now := time.Now()
 	for _, entry := range []timeline.Entry{
 		{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Root: "p", Text: "担々麺", At: now},

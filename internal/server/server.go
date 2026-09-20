@@ -30,7 +30,6 @@ type Options struct {
 	Store     store.Workspace
 	Catalogue *persona.Catalogue
 	Version   string
-	Token     string
 	// Tools is the operator's configuration, shared by every workspace.
 	Tools tools.Config
 	// Exports is where a finished backup is put for the user to download.
@@ -48,7 +47,6 @@ type Server struct {
 	runner       *persona.Runner
 	tools        tools.Config
 	version      string
-	token        string
 	search       *search.Service
 	exports      store.ExportTarget
 	exporting    atomic.Bool
@@ -68,7 +66,6 @@ func New(options Options) *Server {
 		store:     options.Store,
 		catalogue: options.Catalogue,
 		version:   options.Version,
-		token:     options.Token,
 		tools:     options.Tools,
 		exports:   options.Exports,
 		mux:       http.NewServeMux(),

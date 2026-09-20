@@ -302,6 +302,7 @@
             <li>他のアプリでスクリーンショットを共有すると、共有先に kakeratta が並びます。選ぶだけでタイムラインに入ります。</li>
           </ol>
           <h3>iOS</h3>
+          <p>Googleログイン環境ではブラウザから画像を添付してください。以下のショートカットは認証なしのローカル環境向けです。</p>
           <p>共有シートからの受け取りは「ショートカット」アプリで代替します。</p>
           <ol>
             <li>ショートカットを新規作成し、「共有シートで表示」を有効にして、受け取る種類を「イメージ」にします。</li>
@@ -309,7 +310,6 @@
               <ul>
                 <li><code>image</code> … ショートカットの入力</li>
                 <li><code>text</code> … （任意）その場で書くなら「入力を要求」の結果</li>
-                <li>共有トークンで動かしている場合はヘッダ <code>Authorization: Bearer &lt;トークン&gt;</code></li>
               </ul>
             </li>
           </ol>
@@ -709,14 +709,13 @@
             <li>Share a screenshot from any app and kakeratta appears in the share sheet. Pick it and the image lands in the timeline.</li>
           </ol>
           <h3>iOS</h3>
-          <p>The share sheet is handled by a Shortcut instead.</p>
+          <p>For Google sign-in, attach images through the browser. The following Shortcut instructions apply to local environments without authentication.</p>
           <ol>
             <li>Create a shortcut, turn on “Show in Share Sheet”, and accept images.</li>
             <li>Add “Get contents of URL”: URL <code>https://&lt;your app address&gt;/api/capture</code>, method <code>POST</code>, body <strong>Form</strong>.
               <ul>
                 <li><code>image</code> … the shortcut’s input</li>
                 <li><code>text</code> … optional; the result of “Ask for input” if you want to write there and then</li>
-                <li>When the app runs with a shared token, add the header <code>Authorization: Bearer &lt;token&gt;</code></li>
               </ul>
             </li>
           </ol>

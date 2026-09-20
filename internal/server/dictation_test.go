@@ -40,7 +40,7 @@ func TestDictationFormattingBeforePersistence(t *testing.T) {
 					_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": content}}}})
 				}))
 				defer model.Close()
-				server, s := app(t, "")
+				server, s := app(t)
 				settings := s.ConfiguredSettings()
 				settings.BaseURL, settings.LowModel, settings.Active = model.URL, "light-model", []string{}
 				settings.Speech.FormatBeforeSend = tc.enabled
@@ -95,7 +95,7 @@ func TestDictationFormattingBeforePersistence(t *testing.T) {
 }
 
 func TestLegacySpeechSettingsUseBrowser(t *testing.T) {
-	_, s := app(t, "")
+	_, s := app(t)
 	settings := s.ConfiguredSettings()
 	settings.Speech.Provider = "live"
 	settings.Speech.FormatBeforeSend = true

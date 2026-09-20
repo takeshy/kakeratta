@@ -148,7 +148,6 @@ func TestBlueskyOAuthConnectPublishAndDisconnect(t *testing.T) {
 }
 func TestBlueskyMetadataPublicAndNoSecrets(t *testing.T) {
 	s, _ := socialApp(t)
-	s.token = "private"
 	recorder := httptest.NewRecorder()
 	s.ServeHTTP(recorder, httptest.NewRequest("GET", social.MetadataPath, nil))
 	if recorder.Code != 200 {
@@ -169,7 +168,7 @@ func TestBlueskyFlowCannotFinishInAnotherWorkspace(t *testing.T) {
 	start := socialRequest(a, "/api/social/bluesky/connect", map[string]string{"handle": "alice.bsky.social"})
 	var auth map[string]string
 	json.Unmarshal(start.Body.Bytes(), &auth)
-	b, _ := app(t, "")
+	b, _ := app(t)
 	setupOAuthProvider(t, b)
 	params := url.Values{"state": {*state}, "iss": {"https://auth.example.com"}, "code": {"code"}}
 	result := socialRequest(b, "/api/social/bluesky/finish", map[string]string{"params": params.Encode(), "browserSecret": auth["browserSecret"]})

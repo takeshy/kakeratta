@@ -20,8 +20,7 @@ The session cookie is named `__session` because Firebase Hosting strips every
 other cookie before a request reaches Cloud Run; any other name logs in and is
 then `login required` on the next call. Each signed-in user gets an isolated
 store keyed by their Firebase `uid`.
-Firebase authentication takes precedence over the shared `KAKERATTA_TOKEN`
-mode, which is what a local single-user run uses instead.
+Firebase authentication is required for deployment.
 
 ## Deploy
 
@@ -62,7 +61,7 @@ writes that block from geo-home-mcp's Terraform outputs (`mcp_url` and the
 `GEO_HOME_DIR` if the checkout is elsewhere.
 
 This becomes `KAKERATTA_MCP_SERVERS` on the Cloud Run service. It is marked
-sensitive because headers may carry tokens, but like the access token it ends up
+sensitive because headers may carry tokens, and ends up
 in the Terraform state, so keep the state private. Each user's Tavily key for web
 search is not here: users enter it in their own Settings.
 
@@ -93,16 +92,7 @@ DNS is still moving.
 
 ## After deploying
 
-Without Firebase authentication configured, the app falls back to the shared
-access token. The one-time login URL for that mode is:
-
-```sh
-cd infra
-terraform output -raw login_url
-```
-
-Keep it private. Terraform state contains the generated token and must be kept
-private for the same reason.
+Open the app URL and sign in with Google.
 
 Backups (Settings → Backup) are written into the same bucket under `exports/`
 and handed to the browser as a signed link that lasts an hour, so a download

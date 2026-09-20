@@ -72,3 +72,44 @@ func TestGatewayRequiresLoginAndSeparatesUsers(t *testing.T) {
 		t.Fatal("users share a workspace")
 	}
 }
+
+func TestGatewayProtectsAPIsWithoutGoogleSession(t *testing.T) {
+	gateway := testGateway(t)
+	for _, endpoint := range []struct{ method, path string }{
+		{"GET", "/api/export"},
+		{"POST", "/api/timeline/search"},
+		{"GET", "/api/thread/post"},
+		{"DELETE", "/api/personas/gourmet/memory/note?path=private.md"},
+		{"PUT", "/api/personas/gourmet/memory/note?path=private.md"},
+		{"GET", "/api/entry/post/routing"},
+		{"POST", "/api/entry/post/routing/check"},
+		{"POST", "/api/entry/post/reply/preview"},
+		{"POST", "/api/social/preview"},
+		{"POST", "/api/social/publish"},
+		{"POST", "/api/capture"},
+	} {
+		t.Run(endpoint.method+" "+endpoint.path, func(t *testing.T) {
+			request := httptest.NewRequest(endpoint.method, endpoint.path, nil)
+			request.Header.Set("Authorization", "Bearer former-shared-token")
+			response := httptest.NewRecorder()
+			gateway.ServeHTTP(response, request)
+			if response.Code != http.StatusUnauthorized {
+				t.Fatalf("without Google session: %d", response.Code)
+			}
+		})
+	}
+}
+
+func TestLocalServerNeedsNoLoginAndHasNoTokenLogin(t *testing.T) {
+	server, _ := app(t)
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest("GET", "/api/timeline", nil))
+	if response.Code != http.StatusOK || len(response.Result().Cookies()) != 0 {
+		t.Fatalf("local access: %d, cookies: %v", response.Code, response.Result().Cookies())
+	}
+	response = httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest("GET", "/api/auth/token?token=obsolete", nil))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("removed login endpoint: %d", response.Code)
+	}
+}

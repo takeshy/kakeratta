@@ -19,8 +19,7 @@ Firebase Management APIから直接読むため、ローカルの設定ファイ
 セッションCookieの名前は `__session` です。Firebase Hosting は Cloud Run へ渡す前にそれ以外の
 Cookieをすべて剥がすため、別名だとログイン直後から `login required` になります。
 ログインした利用者ごとに、Firebaseの `uid` で分離された保存先が割り当てられます。
-Firebase認証は共有の `KAKERATTA_TOKEN` より優先されます。トークン方式は、手元で
-1人で動かすときのための方式です。
+公開環境ではFirebase認証が必須です。
 
 ## デプロイ
 
@@ -58,7 +57,7 @@ mcp_servers = [
 チェックアウトが別の場所なら `GEO_HOME_DIR` で指定します。
 
 Cloud Runには `KAKERATTA_MCP_SERVERS` として渡ります。ヘッダーにトークンを含み得るため sensitive ですが、
-アクセストークンと同様にTerraform stateには残るので、stateは安全に保管してください。
+Terraform stateには残るので、stateは安全に保管してください。
 Web検索に使うTavilyの鍵はここにはなく、利用者が自分の設定画面で入れます。
 
 画面だけの変更にイメージは要りません。
@@ -86,16 +85,7 @@ terraform output name_servers
 
 ## デプロイしたあと
 
-Firebase認証を設定しない場合は、共有のアクセストークンに切り替わります。その方式での
-初回ログイン用URLは次で取得します。
-
-```sh
-cd infra
-terraform output -raw login_url
-```
-
-このURLは公開しないでください。Terraform stateにも生成したトークンが含まれるため、
-同じく安全に保管してください。
+アプリのURLを開き、Googleでログインしてください。
 
 バックアップ（設定→バックアップ）は同じバケットの `exports/` 以下に書き出し、
 1時間だけ有効な署名URLをブラウザに渡します。ダウンロード自体はCloud Runを通りません。

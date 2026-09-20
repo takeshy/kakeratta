@@ -34,7 +34,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/mcp/users/{workspace}", s.serveMCP)
 	s.mux.HandleFunc("GET /api/auth/identity", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		key := fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00"+s.token)))
+		key := fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00")))
 		writeJSON(w, http.StatusOK, map[string]any{"key": key, "enabled": false})
 	}))
 	s.mux.HandleFunc("POST /api/social/preview", s.guard(s.previewSocial))
@@ -49,16 +49,7 @@ func (s *Server) routes() {
 		writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
 	})
 	s.mux.HandleFunc("POST /api/auth/logout", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	// The page opens as /?token=... and hands the token here; the guard turns
-	// it into the cookie every later request rides on. Nothing else about the
-	// login changes for the person holding the URL.
-	s.mux.HandleFunc("GET /api/auth/token", s.guard(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	// The share target posts here, and so does the iOS shortcut. It is the one
-	// endpoint that has to work from outside the page, so it takes multipart
-	// and accepts its token in the form as well as the header.
+	// The share target posts multipart captures here.
 	s.mux.HandleFunc("POST /api/capture", s.guard(s.postCapture))
 
 	s.mux.HandleFunc("GET /api/timeline", s.guard(s.getTimeline))
@@ -718,7 +709,6 @@ func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
 		// What the operator wired up, so the page can say what personas can reach.
 		"tools":      tools.New(s.tools).Names(),
 		"mcpServers": s.tools.MCP.Servers(),
-		"needsToken": s.token != "",
 	}
 	// Where the files are is worth saying only on the machine that holds them.
 	// A hosted workspace lives in Firestore and object storage, and the

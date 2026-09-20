@@ -16,7 +16,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-func app(t *testing.T, token string) (*Server, *store.Store) {
+func app(t *testing.T) (*Server, *store.Store) {
 	t.Helper()
 	s, err := store.Open(t.TempDir())
 	if err != nil {
@@ -26,7 +26,6 @@ func app(t *testing.T, token string) (*Server, *store.Store) {
 		Store:     s,
 		Catalogue: persona.NewCatalogue(s.SkillDir()),
 		Version:   "test",
-		Token:     token,
 	})
 	// A post queues a reaction that writes as it goes. Letting it finish before
 	// the temporary workspace is removed is the same thing the binary does on
@@ -59,7 +58,7 @@ func shared(t *testing.T, fields map[string]string, image []byte) *http.Request 
 }
 
 func TestAScreenshotFromTheShareSheetLands(t *testing.T) {
-	server, s := app(t, "")
+	server, s := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "この一節がよかった"}, []byte{0x89, 'P', 'N', 'G'}))
 	if recorder.Code != http.StatusOK {
@@ -94,7 +93,7 @@ func TestAScreenshotFromTheShareSheetLands(t *testing.T) {
 // Android's share target sends title/text/url; a shortcut sends whatever it was
 // told to. Both are the same post.
 func TestTheShareSheetsFieldNamesAreAllAccepted(t *testing.T) {
-	server, _ := app(t, "")
+	server, _ := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, shared(t, map[string]string{
 		"title": "記事のタイトル", "url": "http://127.0.0.1/a",
@@ -114,7 +113,7 @@ func TestTheShareSheetsFieldNamesAreAllAccepted(t *testing.T) {
 
 // Share sheets and people both put the URL inside the sentence.
 func TestAURLInsideTheTextIsReadAsTheLink(t *testing.T) {
-	server, _ := app(t, "")
+	server, _ := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "この記事 http://127.0.0.1/a。よかった"}, nil))
 	if recorder.Code != http.StatusOK {
@@ -147,7 +146,7 @@ func TestLinkInTrimsSentencePunctuation(t *testing.T) {
 }
 
 func TestAnEmptyShareIsRefused(t *testing.T) {
-	server, _ := app(t, "")
+	server, _ := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, shared(t, nil, nil))
 	if recorder.Code != http.StatusBadRequest {
@@ -156,55 +155,19 @@ func TestAnEmptyShareIsRefused(t *testing.T) {
 }
 
 func TestOversizedShareIsRejectedWithoutStoringPartialImage(t *testing.T) {
-	for _, token := range []string{"", "sesame"} {
-		t.Run(token, func(t *testing.T) {
-			server, s := app(t, token)
-			recorder := httptest.NewRecorder()
-			server.ServeHTTP(recorder, shared(t, map[string]string{"token": token}, make([]byte, maxCapture+1)))
-			if recorder.Code != http.StatusRequestEntityTooLarge {
-				t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
-			}
-			if entries, err := s.Timeline(); err != nil || len(entries) != 0 {
-				t.Fatalf("entries = %v, err = %v", entries, err)
-			}
-		})
-	}
-}
-
-// The page opens as /?token=... wherever it is served from, and claims the
-// token through the API. That is the only login there is in token mode.
-func TestBrowserTokenEstablishesSession(t *testing.T) {
-	server, _ := app(t, "sesame")
+	server, s := app(t)
 	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/auth/token?token=sesame", nil))
-	if recorder.Code != http.StatusNoContent {
+	server.ServeHTTP(recorder, shared(t, nil, make([]byte, maxCapture+1)))
+	if recorder.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
 	}
-	wrong := httptest.NewRecorder()
-	server.ServeHTTP(wrong, httptest.NewRequest("GET", "/api/auth/token?token=nope", nil))
-	if wrong.Code != http.StatusUnauthorized {
-		t.Fatalf("wrong token status = %d", wrong.Code)
-	}
-	page := httptest.NewRecorder()
-	server.ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
-	if page.Code != http.StatusNotFound {
-		t.Fatalf("the binary is not the page any more; / = %d", page.Code)
-	}
-	cookies := recorder.Result().Cookies()
-	if len(cookies) == 0 {
-		t.Fatal("no session cookie")
-	}
-	request := httptest.NewRequest("GET", "/api/timeline", nil)
-	request.AddCookie(cookies[0])
-	recorder = httptest.NewRecorder()
-	server.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("session status = %d", recorder.Code)
+	if entries, err := s.Timeline(); err != nil || len(entries) != 0 {
+		t.Fatalf("entries = %v, err = %v", entries, err)
 	}
 }
 
 func TestSettingsRoundTripPreservesModelFallback(t *testing.T) {
-	server, s := app(t, "")
+	server, s := app(t)
 	configured := s.ConfiguredSettings()
 	configured.Provider = store.ProviderOpenAI
 	configured.BaseURL = "https://custom.example/v1"
@@ -231,7 +194,7 @@ func TestSettingsRoundTripPreservesModelFallback(t *testing.T) {
 }
 
 func TestPastedImageCanExceedOldJSONLimit(t *testing.T) {
-	server, s := app(t, "")
+	server, s := app(t)
 	settings := s.ConfiguredSettings()
 	settings.LowModel, settings.VisionModel = "", ""
 	if err := s.SaveSettings(settings); err != nil {
@@ -254,57 +217,10 @@ func TestPastedImageCanExceedOldJSONLimit(t *testing.T) {
 	}
 }
 
-// The relay holds the inference keys, so with a token set nothing gets in
-// without it - and the shortcut's way of presenting one has to work.
-func TestTheTokenGuardsEveryWayIn(t *testing.T) {
-	server, _ := app(t, "sesame")
-
-	bare := httptest.NewRecorder()
-	server.ServeHTTP(bare, httptest.NewRequest(http.MethodGet, "/api/timeline", nil))
-	if bare.Code != http.StatusUnauthorized {
-		t.Fatalf("without a token: %d", bare.Code)
-	}
-
-	// A shortcut sets a header.
-	header := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/timeline", nil)
-	request.Header.Set("Authorization", "Bearer sesame")
-	server.ServeHTTP(header, request)
-	if header.Code != http.StatusOK {
-		t.Fatalf("with a header: %d", header.Code)
-	}
-	// Having presented it once, the browser carries it, which is what makes the
-	// share target work: it posts with no chance to set a header.
-	cookies := header.Result().Cookies()
-	if len(cookies) == 0 || cookies[0].Name != cookieName {
-		t.Fatalf("no cookie was set: %+v", cookies)
-	}
-	withCookie := httptest.NewRecorder()
-	shareRequest := shared(t, map[string]string{"text": "共有"}, nil)
-	shareRequest.AddCookie(cookies[0])
-	server.ServeHTTP(withCookie, shareRequest)
-	if withCookie.Code != http.StatusOK {
-		t.Fatalf("share target with the cookie: %d %s", withCookie.Code, withCookie.Body.String())
-	}
-
-	// And the form field, for anything that can send neither.
-	inForm := httptest.NewRecorder()
-	server.ServeHTTP(inForm, shared(t, map[string]string{"text": "共有", "token": "sesame"}, nil))
-	if inForm.Code != http.StatusOK {
-		t.Fatalf("share target with the token in the form: %d", inForm.Code)
-	}
-
-	wrong := httptest.NewRecorder()
-	server.ServeHTTP(wrong, shared(t, map[string]string{"text": "共有", "token": "wrong"}, nil))
-	if wrong.Code != http.StatusUnauthorized {
-		t.Fatalf("with a wrong token: %d", wrong.Code)
-	}
-}
-
 // A reply is not a command: it goes into the timeline under the post, and the
 // personas see it the way they see anything else.
 func TestAReplyHangsOffThePost(t *testing.T) {
-	server, s := app(t, "")
+	server, s := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "ラーメン"}, nil))
 	var post timeline.Entry
@@ -327,7 +243,7 @@ func TestAReplyHangsOffThePost(t *testing.T) {
 }
 
 func TestDeletingLeavesATombstoneRatherThanRewritingHistory(t *testing.T) {
-	server, s := app(t, "")
+	server, s := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "消す"}, nil))
 	var post timeline.Entry
@@ -350,7 +266,7 @@ func TestDeletingLeavesATombstoneRatherThanRewritingHistory(t *testing.T) {
 // The page never holds a key. It is told whether one is set, and sending that
 // back must not wipe the real one.
 func TestKeysNeverReachThePage(t *testing.T) {
-	server, s := app(t, "")
+	server, s := app(t)
 	settings := s.Settings()
 	settings.APIKey = "real-key"
 	settings.OpenRouterAPIKey = "openrouter-key"
@@ -396,7 +312,7 @@ func TestKeysNeverReachThePage(t *testing.T) {
 
 // A URL is user input, and the relay sits on a network of its own.
 func TestFetchRefusesToReachTheServersOwnNetwork(t *testing.T) {
-	server, _ := app(t, "")
+	server, _ := app(t)
 	for _, target := range []string{"http://127.0.0.1:8787/", "http://localhost/", "file:///etc/passwd"} {
 		body, _ := json.Marshal(map[string]string{"url": target})
 		recorder := httptest.NewRecorder()
@@ -417,7 +333,7 @@ func mustTimeline(t *testing.T, s *store.Store) []timeline.Entry {
 }
 
 func TestEditPostPreservesThreadAndMedia(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	post := timeline.Entry{ID: "editable", Kind: timeline.KindPost, Speaker: timeline.User, Text: "before", At: time.Now().UTC(), Media: &timeline.Media{BlobID: "image"}, Link: "https://example.com"}
 	if err := workspace.Append(post); err != nil {
 		t.Fatal(err)

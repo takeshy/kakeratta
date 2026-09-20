@@ -171,9 +171,8 @@ the tests.
 | --- | --- | --- |
 | `KAKERATTA_PUBLIC_URL` | empty | Public HTTPS origin for Bluesky OAuth |
 | `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](social-sharing-en.md) |
-| `KAKERATTA_ADDR` | `:8787` | Listen address |
+| `KAKERATTA_ADDR` | `127.0.0.1:8787` (Firebase: `:8787`) | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Storage for posts, notes, and images |
-| `KAKERATTA_TOKEN` | empty (no authentication) | Access token |
 | `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enables multi-user Firebase Authentication |
 | `KAKERATTA_FIREBASE_API_KEY` | empty | Public Firebase Web API key |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
@@ -183,13 +182,9 @@ the tests.
 | `KAKERATTA_MCP_SERVERS` | empty | JSON list of MCP servers whose tools personas may use |
 | `KAKERATTA_NOMINATIM_URL` etc. | public OpenStreetMap services | Place and route endpoints (see below) |
 
-**Set `KAKERATTA_TOKEN` whenever the app is reachable from outside.** Open the
-page as `/?token=<URL-encoded token>` once in each browser; it claims the token
-through the API and keeps a session cookie from then on.
-
-For a public multi-user deployment, set all three Firebase variables instead.
-Users sign in with Google and each gets isolated data. Firebase authentication
-takes precedence over the shared `KAKERATTA_TOKEN` mode. Where the data lives:
+Local runs require no login and listen on loopback by default.
+For public deployments, set all three Firebase variables to enable Google sign-in
+and isolate each user's data. Where the data lives:
 
 - `KAKERATTA_STORE=firestore` (for Cloud Run): posts, settings, persona notes, and persona definitions go to Firestore under `users/<uid-hash>`.
 - `KAKERATTA_STORE=file` (default): the same data goes to disk under `KAKERATTA_HOME/users/<uid-hash>/`.

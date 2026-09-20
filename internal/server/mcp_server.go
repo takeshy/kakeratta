@@ -25,7 +25,7 @@ func (s *Server) mcpWorkspace() string {
 	if s.workspaceKey != "" {
 		return s.workspaceKey
 	}
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00"+s.token)))
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00")))
 }
 
 func mcpOriginOK(r *http.Request) bool {

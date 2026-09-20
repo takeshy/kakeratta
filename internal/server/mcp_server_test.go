@@ -11,7 +11,7 @@ import (
 )
 
 func TestMCPAccessToggleAndKeyRevocation(t *testing.T) {
-	s, w := app(t, "browser-key")
+	s, w := app(t)
 	key := strings.Repeat("a", 64)
 	digest := sha256.Sum256([]byte(key))
 	if err := s.setMCPKey(context.Background(), digest[:]); err != nil {
@@ -58,7 +58,6 @@ func TestMCPAccessToggleAndKeyRevocation(t *testing.T) {
 		}
 	}
 	r := httptest.NewRequest(http.MethodDelete, "/api/mcp/connection", nil)
-	r.Header.Set("Authorization", "Bearer browser-key")
 	out := httptest.NewRecorder()
 	s.ServeHTTP(out, r)
 	if out.Code != http.StatusOK {

@@ -14,7 +14,7 @@ import (
 )
 
 func TestPostAndCompletedImageAreIndexedWithoutSearching(t *testing.T) {
-	s, w := app(t, "")
+	s, w := app(t)
 	indexed := make(chan string, 16)
 	analyze := make(chan struct{})
 	provider := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {

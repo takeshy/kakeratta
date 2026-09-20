@@ -13,7 +13,7 @@ import (
 )
 
 func TestDailySettingsEndpoint(t *testing.T) {
-	app, s := app(t, "")
+	app, s := app(t)
 	id := app.catalogue.All()[0].ID
 	for _, tc := range []struct {
 		body string
@@ -97,7 +97,7 @@ func TestGatewayRestoresWorkspacesWithoutLogin(t *testing.T) {
 // Forgetting a persona's whole memory takes the app's own bookkeeping with it:
 // there is nothing left for the persona to reconcile, so it is not woken.
 func TestForgettingMemoryDropsSchedules(t *testing.T) {
-	app, s := app(t, "")
+	app, s := app(t)
 	id := app.catalogue.All()[0].ID
 	if _, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(time.Hour).UTC(), Note: "朝の薬"}); err != nil {
 		t.Fatal(err)
@@ -113,7 +113,7 @@ func TestForgettingMemoryDropsSchedules(t *testing.T) {
 }
 
 func TestPausingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
-	app, s := app(t, "")
+	app, s := app(t)
 	id := app.catalogue.All()[0].ID
 	settings := s.ConfiguredSettings()
 	settings.Active = []string{id}
@@ -135,7 +135,7 @@ func TestPausingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
 }
 
 func TestRemovingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
-	app, s := app(t, "")
+	app, s := app(t)
 	skill := persona.Skill{
 		ID: "removable", Name: "removable", Icon: "🧹", Domain: "test",
 		Model: persona.TierMiddle, Tools: []string{"schedule"},

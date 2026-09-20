@@ -16,5 +16,5 @@ export const Default = { name: "既定（Nebius・ブラウザ音声認識）", 
 export const Dictating = { name: "Web検索あり・音声のAI整形ON", render: () => panelOf(dictatingSettings) };
 export const NoToken = {
   name: "トークン未設定の警告",
-  render: () => panelOf(settings, { ...about, needsToken: false }),
+  render: () => panelOf(settings, about),
 };

@@ -40,19 +40,6 @@ variable "data_disk_size_gb" {
   default     = 20
 }
 
-variable "access_token" {
-  description = "Optional app access token. A random token is generated when omitted."
-  type        = string
-  default     = null
-  nullable    = true
-  sensitive   = true
-
-  validation {
-    condition     = var.access_token == null || length(var.access_token) >= 20
-    error_message = "access_token must contain at least 20 characters."
-  }
-}
-
 variable "mcp_servers" {
   description = "MCP servers whose tools every persona may declare, as server.tool. Headers are sent on every request (for example an Authorization header)."
   type = list(object({
@@ -71,9 +58,12 @@ variable "image_tag" {
 }
 
 variable "firebase_project_id" {
-  description = "Firebase project ID. Leave empty to keep shared-token authentication."
+  description = "Firebase project ID for Google sign-in. Required for deployment."
   type        = string
-  default     = ""
+  validation {
+    condition     = trimspace(var.firebase_project_id) != ""
+    error_message = "Firebase authentication is required for deployment."
+  }
 }
 
 variable "firebase_api_key" {

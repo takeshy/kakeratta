@@ -16,7 +16,7 @@ import (
 // personas are named today. A post the router never answered for reads as
 // unrecorded, and a deleted post takes its record with it.
 func TestRoutingDecisionCanBeRead(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	get := func(id string) (int, map[string]any) {
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/entry/"+id+"/routing", nil))
@@ -73,28 +73,11 @@ func TestRoutingDecisionCanBeRead(t *testing.T) {
 	}
 }
 
-func TestRoutingDecisionRequiresAuthentication(t *testing.T) {
-	server, workspace := app(t, "secret")
-	if err := workspace.Append(timeline.Entry{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "x", At: time.Now()}); err != nil {
-		t.Fatal(err)
-	}
-	for _, request := range []*http.Request{
-		httptest.NewRequest(http.MethodGet, "/api/entry/p/routing", nil),
-		httptest.NewRequest(http.MethodPost, "/api/entry/p/routing/check", strings.NewReader(`{"persona":"gourmet"}`)),
-	} {
-		response := httptest.NewRecorder()
-		server.ServeHTTP(response, request)
-		if response.Code != http.StatusUnauthorized {
-			t.Fatalf("%s %s: %d", request.Method, request.URL.Path, response.Code)
-		}
-	}
-}
-
 // After changing a persona's conditions, a person can have the router try the
 // same post again and see whether it now lands where they meant. Nothing is
 // delivered and nothing is written down.
 func TestRoutingCheckTriesThePostAgain(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	var reply string
 	var conditions string
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +139,7 @@ func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 // A persona's turn can be previewed on the remark it made, but only for that
 // persona's own remark, and only signed in.
 func TestReplyPreviewIsGuarded(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	now := time.Now()
 	for _, entry := range []timeline.Entry{
 		{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "渋谷に行きたい", At: now},
@@ -182,19 +165,10 @@ func TestReplyPreviewIsGuarded(t *testing.T) {
 		}
 	}
 
-	locked, workspace := app(t, "secret")
-	if err := workspace.Append(timeline.Entry{ID: "r", Kind: timeline.KindRemark, Speaker: "move", Root: "r", Text: "x", At: now}); err != nil {
-		t.Fatal(err)
-	}
-	response := httptest.NewRecorder()
-	locked.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/entry/r/reply/preview", strings.NewReader(`{"persona":"move"}`)))
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("unauthenticated preview: %d", response.Code)
-	}
 }
 
 func TestRoutingDecisionMustMatchCurrentText(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	old := "old text"
 	if err := workspace.Append(timeline.Entry{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "edited text", At: time.Now()}); err != nil {
 		t.Fatal(err)
@@ -214,7 +188,7 @@ func TestRoutingDecisionMustMatchCurrentText(t *testing.T) {
 // has finished and whether it said anything - "still working" and "stayed
 // quiet" look the same on the timeline and are not the same thing.
 func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	now := time.Now()
 	for _, entry := range []timeline.Entry{
 		{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "ラーメン", At: now},

@@ -138,9 +138,8 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 | --- | --- | --- |
 | `KAKERATTA_PUBLIC_URL` | 空 | Bluesky OAuthに使う公開HTTPSオリジン |
 | `KAKERATTA_BLUESKY_KEY` | 空 | Bluesky接続の署名・暗号化用秘密鍵（64桁の16進文字列）。[運営設定](social-sharing.md)を参照 |
-| `KAKERATTA_ADDR` | `:8787` | 待ち受けアドレス |
+| `KAKERATTA_ADDR` | `127.0.0.1:8787`（Firebase: `:8787`） | 待ち受けアドレス |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
-| `KAKERATTA_TOKEN` | 空（認証なし） | アクセス用トークン |
 | `KAKERATTA_FIREBASE_PROJECT_ID` | 空 | Firebaseによるマルチユーザー認証を有効化 |
 | `KAKERATTA_FIREBASE_API_KEY` | 空 | Firebase Web APIキー（公開値） |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | 空 | Firebase Authドメイン |
@@ -150,12 +149,9 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 | `KAKERATTA_MCP_SERVERS` | 空 | 担当が使えるMCPサーバーの一覧（JSON） |
 | `KAKERATTA_NOMINATIM_URL` ほか | OpenStreetMapの公開サービス | 店舗・経路検索の接続先（後述） |
 
-**外からアクセスできる場所で動かす場合は `KAKERATTA_TOKEN` を設定してください。**
-各ブラウザで一度 `/?token=<URLエンコードしたトークン>` を開くと、画面が API 経由でトークンを
-渡し、以後はセッションCookieで認証されます。
-
-公開するマルチユーザー環境では、代わりにFirebaseの3変数をすべて設定します。
-Googleでログインした利用者ごとにデータが分離されます。Firebase認証を設定した場合は、共有の `KAKERATTA_TOKEN` より優先されます。
+ローカルでは認証なしで動作し、既定ではこのPC内からのみ接続できます。
+公開する場合はFirebaseの3変数をすべて設定してください。
+Googleでログインした利用者ごとにデータが分離されます。
 保存先は次の組み合わせで決まります。
 
 - `KAKERATTA_STORE=firestore`（Cloud Run向け）: 投稿・設定・担当メモ・担当の定義をFirestoreの `users/<uidのハッシュ>` 以下に保存します。

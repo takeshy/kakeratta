@@ -9,7 +9,7 @@ import (
 )
 
 func TestOfflinePostRetryPreservesEntryAndDeletion(t *testing.T) {
-	s, st := app(t, "")
+	s, st := app(t)
 	body := postBody{ClientID: "local-12345678-1234-1234-1234-123456789abc", ClientAt: time.Now().Add(-time.Hour).UTC(), Text: "offline"}
 	send := func(body postBody) *httptest.ResponseRecorder {
 		raw, _ := json.Marshal(body)
@@ -49,7 +49,7 @@ func TestOfflinePostRetryPreservesEntryAndDeletion(t *testing.T) {
 	}
 }
 func TestOfflineIdentityRejectsWrongWorkspace(t *testing.T) {
-	s, _ := app(t, "")
+	s, _ := app(t)
 	r := httptest.NewRequest("POST", "/api/post", bytes.NewBufferString(`{"text":"wrong account"}`))
 	r.Header.Set("X-Kakeratta-Workspace", "another-user")
 	w := httptest.NewRecorder()

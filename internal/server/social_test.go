@@ -176,14 +176,6 @@ func TestSocialPendingDoesNotPublishAgain(t *testing.T) {
 		t.Fatal(result.Body.String())
 	}
 }
-func TestSocialEndpointsRequireAuthentication(t *testing.T) {
-	s, _ := app(t, "secret")
-	for _, path := range []string{"/api/social/preview", "/api/social/publish"} {
-		if w := socialRequest(s, path, socialBody{}); w.Code != 401 {
-			t.Fatalf("%s: %d", path, w.Code)
-		}
-	}
-}
 
 func TestSocialResumesAfterDefiniteRejection(t *testing.T) {
 	s, workspace := socialApp(t)
@@ -250,7 +242,7 @@ func socialApp(t *testing.T) (*Server, *store.Store) {
 	t.Helper()
 	t.Setenv("KAKERATTA_PUBLIC_URL", "https://example.com")
 	t.Setenv("KAKERATTA_BLUESKY_KEY", strings.Repeat("01", 32))
-	s, w := app(t, "")
+	s, w := app(t)
 	setSocialConnection(t, s, "did:plc:one")
 	return s, w
 }

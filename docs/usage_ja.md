@@ -17,9 +17,8 @@ task test       # go test ./internal/... と node --test tests/*.test.js
 | --- | --- | --- |
 | `KAKERATTA_PUBLIC_URL` | 空 | Bluesky OAuthに使う公開HTTPSオリジン |
 | `KAKERATTA_BLUESKY_KEY` | 空 | Bluesky接続の署名・暗号化用秘密鍵（64桁の16進文字列）。[運営設定](social-sharing.md)を参照 |
-| `KAKERATTA_ADDR` | `:8787` | 待ち受け |
+| `KAKERATTA_ADDR` | `127.0.0.1:8787`（Firebase: `:8787`） | 待ち受け |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
-| `KAKERATTA_TOKEN` | 空 | 空だと誰でも入れます。**外から届く場所に置くときは必ず設定してください**（推論の鍵を持っているのはこのプロセスです） |
 | `KAKERATTA_FIREBASE_PROJECT_ID` | 空 | Googleログインとユーザー別ワークスペースを有効化 |
 | `KAKERATTA_FIREBASE_API_KEY` | 空 | Firebase Web APIキー |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | 空 | Firebase Authドメイン |
@@ -28,12 +27,11 @@ task test       # go test ./internal/... と node --test tests/*.test.js
 
 道具の接続先とMCPサーバーは運用者の設定で、全利用者で共通です。`web_search` のTavilyのキーは利用者自身が設定画面で入れます。
 
-トークンを設定した場合は、各ブラウザで一度 `/?token=<URLエンコードしたトークン>` を開いてください。
-サーバーが HttpOnly のセッションCookieを設定し、トークンを除いたURLへ移動します。
-以後のAPI呼び出しとAndroidの共有は、このCookieで認証されます。
+ローカルでは認証なしで動作し、既定ではこのPC内からのみ接続できます。
+公開する場合はFirebase認証を設定してください。
 画像は貼り付け・multipart共有とも1投稿あたり20 MiBまでです。上限を超える共有は、途中で切って保存せず拒否します。
 
-Firebaseの3変数を設定すると、共有トークンの代わりにGoogleログインを使います。
+Firebaseの3変数を設定すると、Googleログインを使います。
 Firebase IDトークンを署名付きHttpOnlyセッションCookieへ交換し、Firebase `uid`ごとに
 保存先、反応キュー、イベント配信を分離します。
 
@@ -79,13 +77,14 @@ Firebase IDトークンを署名付きHttpOnlyセッションCookieへ交換し�
 
 ### iOS
 
+Googleログイン環境では、ショートカット単体の直接送信には対応していません。ブラウザでログインして画像を添付してください。以下は認証なしのローカル環境向けです。
+
 Web Share Target が使えないため、ショートカットで代替します。ネイティブコードは書きません。
 
 1. ショートカットを新規作成し、「共有シートで表示」を有効にして、受け取る種類を「イメージ」にする
 2. 「URLの内容を取得」— メソッド `POST`、本文は `フォーム`
    - `image` … ショートカットの入力
    - `text` … （任意）その場で書くなら「入力を要求」の結果
-   - ヘッダ `Authorization: Bearer <KAKERATTA_TOKEN>`
 
 読書中は無言で投げて、あとからまとめて一言を足す使い方もできます。
 

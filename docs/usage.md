@@ -17,9 +17,8 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 | --- | --- | --- |
 | `KAKERATTA_PUBLIC_URL` | empty | Public HTTPS origin for Bluesky OAuth |
 | `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](social-sharing-en.md) |
-| `KAKERATTA_ADDR` | `:8787` | Listen address |
+| `KAKERATTA_ADDR` | `127.0.0.1:8787` (Firebase: `:8787`) | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Where posts, notes and images are kept |
-| `KAKERATTA_TOKEN` | empty | Empty means anyone can walk in. **Set it whenever the app is reachable from outside** — this process is the one holding the inference keys |
 | `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enable Google sign-in and per-user workspaces |
 | `KAKERATTA_FIREBASE_API_KEY` | empty | Firebase Web API key |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
@@ -29,14 +28,12 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 Tool endpoints and MCP servers are the operator's configuration and the same
 for every user. The Tavily key for `web_search` is the user's own, in Settings.
 
-With a token set, open `/?token=<URL-encoded token>` once in each browser.
-The server sets an HttpOnly session cookie and redirects to a URL without the
-token. Subsequent API requests and Android shares use that cookie.
+Local runs require no login and listen on loopback by default.
+Configure Firebase authentication for public deployments.
 Images are limited to 20 MiB per post, including paste and multipart shares;
 oversized shares are rejected rather than saved as truncated images.
 
-When all Firebase variables are set, Google sign-in replaces shared-token
-authentication. The server exchanges a Firebase ID token for a signed,
+When all Firebase variables are set, Google sign-in is enabled. The server exchanges a Firebase ID token for a signed,
 HttpOnly session cookie and gives every Firebase `uid` a separate store,
 reaction queue and event stream.
 
@@ -89,13 +86,14 @@ shared POST and forwards it to `/api/capture`.
 
 ### iOS
 
+Direct uploads from Shortcuts do not support Google sign-in. In hosted environments, sign in through the browser and attach the image there. The steps below apply to local environments without authentication.
+
 Web Share Target is unavailable, so a shortcut stands in for it. No native code.
 
 1. Create a shortcut, turn on "Show in Share Sheet", and accept images
 2. "Get contents of URL" — method `POST`, body `Form`
    - `image` … the shortcut's input
    - `text` … optional; the result of "Ask for input" if you want to write there and then
-   - Header `Authorization: Bearer <KAKERATTA_TOKEN>`
 
 While reading you can throw things in silently and add the lines later, in one go.
 

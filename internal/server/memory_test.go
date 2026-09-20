@@ -15,7 +15,7 @@ import (
 )
 
 func TestForgetOneNoteKeepsOtherMemoryAndTimeline(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	path := "tastes/軽い赤 & wine.md"
 	for _, item := range []struct{ persona, path string }{{"gourmet", path}, {"gourmet", "other.md"}, {"book", path}} {
 		if err := workspace.WriteNote(item.persona, item.path, "Keep the rest."); err != nil {
@@ -59,26 +59,11 @@ func TestForgetOneNoteKeepsOtherMemoryAndTimeline(t *testing.T) {
 	}
 }
 
-func TestForgetOneNoteRequiresAuthentication(t *testing.T) {
-	server, workspace := app(t, "secret")
-	if err := workspace.WriteNote("gourmet", "private.md", "Private memory"); err != nil {
-		t.Fatal(err)
-	}
-	response := httptest.NewRecorder()
-	server.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/personas/gourmet/memory/note?path=private.md", nil))
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("status: %d", response.Code)
-	}
-	if _, ok := workspace.Note("gourmet", "private.md"); !ok {
-		t.Fatal("unauthenticated deletion")
-	}
-}
-
 // A note can be put right by hand - a wine misread off its label stays
 // misspelt otherwise - and the links the app keeps from the note to its posts
 // survive the edit untouched.
 func TestEditingANoteKeepsItsSources(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	if err := workspace.WriteNote("gourmet", "wines/altra.md", "type: Wine\ntitle: ALTRA White Blend\n\nノートンの白。", store.NoteSource{EntryID: "p1", Label: "ラベルの写真"}); err != nil {
 		t.Fatal(err)
 	}
@@ -118,14 +103,5 @@ func TestEditingANoteKeepsItsSources(t *testing.T) {
 		if code, _ := edit(bad.path, bad.body); code != http.StatusBadRequest && code != http.StatusNotFound {
 			t.Fatalf("%q %q: %d", bad.path, bad.body, code)
 		}
-	}
-	locked, workspace := app(t, "secret")
-	if err := workspace.WriteNote("gourmet", "a.md", "x"); err != nil {
-		t.Fatal(err)
-	}
-	response := httptest.NewRecorder()
-	locked.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas/gourmet/memory/note?path=a.md", strings.NewReader(`{"text":"y"}`)))
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("unauthenticated edit: %d", response.Code)
 	}
 }

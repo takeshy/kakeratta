@@ -22,9 +22,3 @@ output "cloud_run_url" {
   description = "Cloud Run backend URL."
   value       = google_cloud_run_v2_service.app.uri
 }
-
-output "login_url" {
-  description = "One-time browser login URL. Keep this value private."
-  value       = "https://${local.domain}/?token=${urlencode(local.access_token)}"
-  sensitive   = true
-}

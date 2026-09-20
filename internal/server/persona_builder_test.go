@@ -14,7 +14,7 @@ import (
 )
 
 func TestPersonaBuilderConversationAndValidation(t *testing.T) {
-	s, workspace := app(t, "")
+	s, workspace := app(t)
 	reply := `{"message":"どんな話し方がいいですか？","placeholder":"例：友達のように気軽に話してほしい。","draft":null}`
 	calls := 0
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +66,7 @@ func TestPersonaBuilderConversationAndValidation(t *testing.T) {
 }
 
 func TestSavePersonaDraftKeepsMemoryAndActivation(t *testing.T) {
-	s, workspace := app(t, "")
+	s, workspace := app(t)
 	skill := persona.Builtins[0]
 	if err := workspace.WriteNote(skill.ID, "index.md", "keep this memory"); err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestPersonaBuilderUsesUltra(t *testing.T) {
 }
 
 func TestPersonaBuilderReceivesFullPostAndThread(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	var captured string
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {

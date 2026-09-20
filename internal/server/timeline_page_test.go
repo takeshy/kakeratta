@@ -13,7 +13,7 @@ import (
 )
 
 func TestTimelineAPIDefaultsToTwentyWholeThreads(t *testing.T) {
-	server, workspace := app(t, "")
+	server, workspace := app(t)
 	for i := 0; i < 21; i++ {
 		id := fmt.Sprintf("post-%02d", i)
 		at := time.Date(2026, 9, 13, 0, i, 0, 0, time.UTC)

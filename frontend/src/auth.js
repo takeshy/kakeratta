@@ -43,19 +43,7 @@ function loginScreen(onLogin, error = "") {
   );
 }
 
-// Token mode. The URL someone was handed is /?token=...; the page turns it into
-// the cookie and then takes it out of the address bar so it is not copied on.
-async function claimToken() {
-  const url = new URL(location.href);
-  const token = url.searchParams.get("token");
-  if (token === null) return;
-  await fetch(`/api/auth/token?token=${encodeURIComponent(token)}`, { cache: "no-store" }).catch(() => {});
-  url.searchParams.delete("token");
-  history.replaceState(null, "", url.pathname + (url.search || "") + url.hash);
-}
-
 async function authenticate() {
-  await claimToken();
   let authConfig;
   try {
     authConfig = await config();
@@ -146,7 +134,7 @@ export function verifyIdentity(force = false) {
 }
 export async function ensureAuthentication() {
   const cached = localIdentity();
-  if (cached && !new URL(location.href).searchParams.has("token")) {
+  if (cached) {
     enabled = cached.enabled;
     return true;
   }
