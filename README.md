@@ -62,6 +62,10 @@ something you had forgotten. If there is nothing, it stays silent.
 With speech, a send phrase of your choosing posts what you just said, so a
 thought is kept the moment it arrives.
 
+What you have kept is yours to take. Settings → Backup writes your posts,
+personas, notes and images as a zip laid out for a kakeratta running on your
+own machine. No API keys or connections travel with it.
+
 ## How it works
 
 1. Write a thought, paste a screenshot, send a URL, or speak.

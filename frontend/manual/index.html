@@ -359,6 +359,9 @@
             <img src="/captures/ja/settings.png" alt="設定。モデル、Web検索、バックアップ、この端末、上級オプション（OpenRouter・音声入力・読み上げ・MCP連携・Bluesky連携）" loading="lazy" width="390" height="1202" />
             <figcaption>設定パネル。上からモデル、Web検索、バックアップ、この端末。線の下の「上級オプション」を開くと、OpenRouter、音声入力、読み上げ、MCP連携、Bluesky連携が出ます。</figcaption>
           </figure>
+          <h3>バックアップ（zipに書き出す）</h3>
+          <p><strong>zipに書き出す</strong> を押すと、ワークスペース全体を1つのzipにして渡します。投稿・担当とその記憶（メモ）・いる担当とその順番・キャプチャ画像が入ります。手元で動かすkakerattaが読むファイル構成そのままなので、<code>KAKERATTA_HOME</code> に展開して起動すれば同じ見え方で開きます。中の <code>backup.json</code> にワークスペースの鍵（workspaceKey）があります。</p>
+          <p>APIキー、BlueskyやMCPの接続は入りません。復元先では自分のキーを入れてつなぎ直します。書き出しには少し時間がかかることがあり、ホスティング版では準備ができると「ダウンロード」のリンクが出ます。リンクは1時間有効です。</p>
           <h3>この端末（表示言語）</h3>
           <p>日本語と英語を切り替えられます。このマニュアルも同じ設定を引き継ぎます。kakerattaの版と、手元で動かしている場合は保存先もここに出ます。</p>
           <h3>上級オプション</h3>
@@ -784,6 +787,9 @@
             <img src="/captures/en/settings.png" alt="Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky" loading="lazy" width="390" height="1222" />
             <figcaption>The Settings panel: models, web search, backup, this device. Opening <strong>Advanced options</strong> below the line reveals OpenRouter, voice input, read-aloud, the MCP connection and Bluesky.</figcaption>
           </figure>
+          <h3>Backup (Export as zip)</h3>
+          <p><strong>Export as zip</strong> hands you the whole workspace as one zip: posts, personas with their notes, who is in the room and in what order, and captured images. It is laid out exactly as a kakeratta running on your own machine reads it, so extracting it into <code>KAKERATTA_HOME</code> and starting the server shows what you were looking at. The workspace key is in the <code>backup.json</code> inside.</p>
+          <p>No API keys and no Bluesky or MCP connections travel with it; a restored workspace asks for its own. Preparing the file can take a moment, and on the hosted version a <strong>Download</strong> link appears once it is ready. The link lasts an hour.</p>
           <h3>This device (display language)</h3>
           <p>Switch between Japanese and English. This manual follows the same setting. The version is here too, and the workspace path when you run kakeratta yourself.</p>
           <h3>Advanced options</h3>
