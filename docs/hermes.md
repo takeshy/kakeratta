@@ -1,5 +1,7 @@
 # Using Hermes Agent as a persona
 
+For the NemoClaw / OpenShell architecture and verification results, see the [integration report](nemoclaw-hermes-integration.md).
+
 [README](../README.md) · [日本語](hermes_ja.md)
 
 Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the requests, runs them, and reports back. Hermes's models, tools, skills, and long-term memory are managed on the Hermes side. Installing and configuring Hermes itself is a separate step.
@@ -20,12 +22,22 @@ Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the r
 3. The key is shown only on the screen right after it is issued. Because the configuration contains the key, do not share it with anyone. If you reissue the key, replace the entry in `config.yaml` with the new configuration.
 
 4. Restart Hermes and enable Hermes under **Personas** in Kakeratta.
-5. Post a request from **Ask Hermes**. Posting `@Hermes tidy up the README structure` directly also invokes it. Ordinary posts are routed by the Router's persona conditions, and a reply to a Hermes response also becomes a request.
-6. Tell Hermes to "check the Kakeratta requests". To have it respond automatically, set up a scheduled run on the Hermes side that checks for requests.
+5. To process requests automatically on a recurring basis, install the official Kakeratta skill. Its blueprint proposes a cron job scheduled to check and process requests every minute (`every 1m`):
+
+   ```bash
+   # Install the skill
+   hermes skills install https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md
+
+   # Accept the suggested cron schedule
+   hermes suggestions accept 1
+   ```
+
+   When there are no pending tasks, the agent immediately exits with `[SILENT]`. It calls `list_tasks` on every run, so an unfinished task is checked again even if its ID has not changed.
+6. Post a request from **Ask Hermes** or directly via `@Hermes ...`. Hermes will autonomously pick up the task via its scheduled cron, complete it, and reply to the thread.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
 
-For the configuration format, see the [official Hermes MCP guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp) and the [MCP configuration reference](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference).
+For the configuration format, see the [official Hermes MCP guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp), the [MCP configuration reference](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference), and the [Hermes Cron guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron).
 
 ## The key and its scope
 
@@ -47,6 +59,12 @@ Hermes processes requests with the following MCP tools.
 4. `complete_task` takes the `taskId`, the `claimId`, and the result `text`. An empty body completes the request without posting. The body is limited to 32 KB.
 
 Results are stored before they are delivered to the timeline. If delivery fails, do not redo the work; retry the same completion call, or use `list_tasks` to redeliver undelivered results. The first accepted result cannot be changed later. On transient read failures, requests and undelivered results are kept; a request is invalidated only once its deletion or edit has been confirmed.
+
+### Scheduled runs and unfinished requests
+
+The blueprint cron starts the skill every minute and calls `list_tasks` on each run. It does not skip a task merely because its ID matches the previous run. An earlier output-diff monitor could leave a failed task pending indefinitely: the unchanged task ID prevented Hermes from running again. The final setup removes that monitor and checks unfinished tasks on every scheduled run.
+
+A pending task can be processed on the next run. A claimed task remains visible through `list_tasks`, but checking its state and repeating its work are separate decisions. In particular, do not repeat an external operation when its outcome is unknown.
 
 ### If Hermes crashes after claiming
 

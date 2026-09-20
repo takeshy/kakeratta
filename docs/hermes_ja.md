@@ -2,6 +2,8 @@
 
 [README](../README_ja.md) · [English](hermes.md)
 
+NemoClaw / OpenShell での構成と検証結果は[統合・検証レポート](nemoclaw-hermes-integration_ja.md)を参照してください。
+
 kakerattaはMCPサーバーとして依頼を保存し、Hermesが接続して依頼を取得・実行・報告します。Hermesのモデル・ツール・スキル・長期記憶はHermes側で管理します。Hermes自体のインストールと設定は別途必要です。
 
 ## 接続
@@ -20,12 +22,22 @@ kakerattaはMCPサーバーとして依頼を保存し、Hermesが接続して�
 3. キーを確認できるのは発行直後の画面だけです。設定はキーを含むため、第三者に共有しないでください。再発行した場合は、`config.yaml` の設定を新しいものに置き換えます。
 
 4. Hermesを再起動し、kakerattaの「担当」でHermesを有効にします。
-5. 「Hermesに聞く」から依頼を投稿します。`@Hermes READMEの構成を整理して` と直接投稿しても呼び出せます。通常投稿はRouterの担当条件で振り分けられ、Hermesの返信への返事も依頼になります。
-6. Hermesに「kakerattaの依頼を確認して」と伝えます。自動で対応させるには、Hermes側で依頼を確認する定期実行を設定してください。
+5. Hermesで定期的に自動処理させるには、kakeratta公式Skillをインストールします。SkillのBlueprintにより、毎分（every 1m）自動的に依頼を確認・処理するCronジョブが提案されます。
+
+   ```bash
+   # Skillのインストール
+   hermes skills install https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md
+
+   # Blueprintの提案（every 1m）を確認・承認
+   hermes suggestions accept 1
+   ```
+
+   タスクがない時は `[SILENT]` で即座に終了します。毎回 `list_tasks` を呼ぶため、前回と同じ未完了タスクが残っていても確認されます。
+6. 「Hermesに聞く」から依頼を投稿します。`@Hermes READMEの構成を整理して` と直接投稿しても呼び出せます。通常投稿はRouterの担当条件で振り分けられ、Hermesの返信への返事も依頼になります。Hermesが自律的にタスクを取得・処理し、完了報告を返信します。
 
 URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサーバーを公開する必要はありません。kakerattaからHermesのプロセスを起動することもありません。
 
-設定形式は[Hermes公式MCPガイド](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)と[MCP設定リファレンス](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference)を参照してください。
+設定形式は[Hermes公式MCPガイド](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)と[MCP設定リファレンス](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference)、および[Hermes Cronガイド](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron)を参照してください。
 
 ## キーとアクセス範囲
 
@@ -47,6 +59,12 @@ Hermesは次のMCPツールで依頼を処理します。
 4. `complete_task` に `taskId`、`claimId`、結果の `text` を渡します。空の本文なら投稿せず完了します。本文は32KBまでです。
 
 結果はタイムラインへの配信前に保存されます。配信が失敗しても作業をやり直さず、同じ完了操作を再試行するか、`list_tasks` で未配信結果を再配信します。最初に受理した結果は後から変更できません。一時的な読み取り障害では依頼や未配信結果を残し、削除・編集を確認できた依頼は無効にします。
+
+### 定期実行と未完了タスク
+
+Blueprint Cron は毎分 Skill を起動し、毎回 `list_tasks` で依頼を確認します。前回と同じタスク ID が返っても「変化なし」を理由に実行を省略しません。初期に試した出力差分監視では、処理に失敗したタスクが次回も同じ ID のまま残ると Hermes が再起動せず、依頼が pending のまま止まる問題がありました。最終構成ではその差分監視を使わず、未完了タスクを定期的に確認します。
+
+未取得（pending）のタスクは次の起動で処理できます。取得済み（claimed）のタスクも `list_tasks` で状態を確認できますが、作業の再実行は別の判断です。特に外部操作の成否が不明な場合は、同じ作業を無条件に繰り返さないでください。
 
 ### claim後にクラッシュした場合
 

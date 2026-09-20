@@ -254,6 +254,10 @@ For the kakeratta-side protocol, credential scope, task lifecycle, retries, and
 reports, see [Hermes Agent setup](docs/hermes.md)
 ([日本語](docs/hermes_ja.md)).
 
+For the architecture and production end-to-end verification, see the
+[autonomous agent integration report](docs/nemoclaw-hermes-integration.md)
+([日本語](docs/nemoclaw-hermes-integration_ja.md)).
+
 For the NemoClaw side, see the
 [NVIDIA NemoClaw Hermes documentation](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart).
 

@@ -211,6 +211,9 @@ Hermes は単独でも、互換性のある別のランタイム構成の下で�
 kakeratta 側のプロトコル、認証情報の範囲、依頼のライフサイクル、再試行、報告は
 [Hermes Agent の設定](docs/hermes_ja.md)（[English](docs/hermes.md)）にあります。
 
+NemoClaw / OpenShell、Hermes、Nebius Token Factory を接続した構成と本番環境での検証結果は
+[自律型エージェント統合・検証レポート](docs/nemoclaw-hermes-integration_ja.md)（[English](docs/nemoclaw-hermes-integration.md)）にまとめています。
+
 NemoClaw 側は
 [NVIDIA NemoClaw の Hermes ドキュメント](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) を参照してください。
 
