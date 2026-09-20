@@ -708,9 +708,8 @@ func (s *Server) checkSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"version":   s.version,
-		"workspace": s.store.Root(),
+	about := map[string]any{
+		"version": s.version,
 		"providers": []map[string]string{
 			{"id": string(store.ProviderNebius), "label": "Nebius Token Factory", "endpoint": store.NebiusBaseURL},
 		},
@@ -720,7 +719,14 @@ func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
 		"tools":      tools.New(s.tools).Names(),
 		"mcpServers": s.tools.MCP.Servers(),
 		"needsToken": s.token != "",
-	})
+	}
+	// Where the files are is worth saying only on the machine that holds them.
+	// A hosted workspace lives in Firestore and object storage, and the
+	// directory left behind is a scratch one nobody can open.
+	if s.workspaceKey == "" {
+		about["workspace"] = s.store.Root()
+	}
+	writeJSON(w, http.StatusOK, about)
 }
 
 func masked(key string) string {

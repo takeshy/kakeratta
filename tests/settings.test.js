@@ -81,3 +81,56 @@ test("a backup prepared in storage is offered when its link arrives", async t =>
   assert.ok(link, "the download link is missing");
   assert.equal(link.textContent, translate("ダウンロード"));
 });
+
+// A fresh panel with every call the page makes on load stubbed out.
+function panel(t, { about: info = { version: "test" } } = {}) {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  t.mock.method(api, "settings", async () => ({ baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", speech: {}, search: {} }));
+  t.mock.method(api, "about", async () => info);
+  t.mock.method(api, "mcpConnection", async () => ({ configured: false }));
+  t.mock.method(api, "blueskyConnection", async () => ({ available: false }));
+  return createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
+}
+
+const heading = (view, label) => walk(view.element).some(node => node.tag === "h3" && node.textContent === translate(label));
+
+// What the defaults already answer is behind one line, and it is not even
+// built - so a panel that opens does not ask Hermes or Bluesky anything.
+test("speech, OpenRouter, Hermes and Bluesky wait behind the advanced line", async t => {
+  const view = panel(t);
+  await view.load();
+  for (const label of ["モデル", "Web検索", "バックアップ", "この端末"]) {
+    assert.ok(heading(view, label), `${label} should be in plain sight`);
+  }
+  for (const label of ["OpenRouterを使う", "音声入力", "読み上げ", "Bluesky連携"]) {
+    assert.equal(heading(view, label), false, `${label} should be behind the line`);
+  }
+  assert.equal(api.mcpConnection.mock.callCount(), 0, "a shut section should ask nothing");
+  assert.equal(api.blueskyConnection.mock.callCount(), 0, "a shut section should ask nothing");
+
+  const advanced = walk(view.element).find(node => node.tag === "details" && node.className === "settings-advanced");
+  assert.ok(advanced, "the advanced section is missing");
+  assert.equal(advanced.firstChild.textContent, translate("上級オプション"));
+  advanced.open = true;
+  advanced.listeners.toggle();
+  for (const label of ["OpenRouterを使う", "音声入力", "読み上げ", "Bluesky連携"]) {
+    assert.ok(heading(view, label), `${label} should appear once the section is opened`);
+  }
+  assert.equal(api.mcpConnection.mock.callCount(), 1);
+  assert.equal(api.blueskyConnection.mock.callCount(), 1);
+});
+
+// The path is the server's answer, not the page's guess: a hosted workspace
+// keeps its files in Firestore and sends none.
+test("the workspace path is shown only when the server names one", async t => {
+  const hosted = panel(t);
+  await hosted.load();
+  assert.equal(walk(hosted.element).some(node => String(node.textContent).includes("kakeratta test")), true);
+  assert.equal(walk(hosted.element).some(node => String(node.textContent).startsWith(translate("保存先 {0}", "").trim())), false);
+
+  const local = panel(t, { about: { version: "test", workspace: "~/.config/kakeratta" } });
+  await local.load();
+  assert.ok(walk(local.element).some(node => node.textContent === translate("保存先 {0}", "~/.config/kakeratta")));
+});

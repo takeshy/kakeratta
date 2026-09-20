@@ -4,7 +4,7 @@
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, routing = {}, replyPreview = { quiet: true }, bluesky = { available: true, connected: false } } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, routing = {}, replyPreview = { quiet: true }, bluesky = { available: true, connected: false }, mcp = { configured: false, path: "/api/mcp/users/sample" } } = {}) {
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
   let connection = { ...bluesky };
@@ -86,6 +86,9 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       current = body;
       return json(current);
     }
+    // The MCP key is what an external agent connects with. A story says
+    // whether one exists and never hands out a key.
+    if (path === "/api/mcp/connection" && method === "GET") return json(mcp);
     if (path === "/api/about") return about ? json(about) : json({ error: "about" }, 404);
     if (path === "/api/models") return json({ models });
     if (path === "/api/openrouter/models") return json({ models });

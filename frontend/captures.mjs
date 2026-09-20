@@ -51,7 +51,7 @@ const shots = [
   { name: "timeline", id: "screen--hero" },
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
-  { name: "settings", id: "settings--default", clip: "#sheet", open: ".advanced-settings" },
+  { name: "settings", id: "settings--default", clip: "#sheet", open: ".settings-advanced" },
   { name: "routing", id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },
   { name: "reply-fix", id: "timeline--reply-fix-proposal", clip: ".dialog.reply-fix", ready: ".reply-instructions" },
@@ -145,6 +145,9 @@ async function main() {
         await sleep(700);
         if (shot.open) {
           await evaluate(`document.querySelector(${JSON.stringify(shot.open)})?.setAttribute("open", "")`);
+          // A section that grows can carry the page with it, and the clip is
+          // measured against the viewport: start from the top either way.
+          await evaluate("window.scrollTo(0, 0)");
           await sleep(100);
         }
         let clip;

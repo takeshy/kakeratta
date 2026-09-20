@@ -4,7 +4,7 @@ kakerattaはMCPサーバーとして依頼を保存し、Hermesが接続して�
 
 ## 接続
 
-1. kakerattaの「設定 → MCP連携（Hermesなど）」でMCPキーを発行します。
+1. kakerattaの「設定 → 上級オプション → MCP連携（Hermesなど）」でMCPキーを発行します。
 2. 表示された設定を、自分のHermesの `~/.hermes/config.yaml` に追加します。既に `mcp_servers` がある場合は、その配下に `kakeratta` を追加します。
 
    ```yaml

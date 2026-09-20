@@ -228,7 +228,7 @@ Where vectors live:
 
 ## Voice input
 
-Dictation uses browser speech recognition. “Polish text with AI before auto-send” is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron 3.5 Lightning by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
+Dictation uses browser speech recognition. “Polish text with AI before auto-send”, under Advanced options, is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron 3.5 Lightning by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
 
 ## Models and deployment
 
@@ -239,7 +239,7 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 - Nemotron Ultra — high-tier personas and persona drafting
 - Nebius Token Factory — inference backend
 
-Routing uses Nemotron Super by default. Under Use OpenRouter, enter an API key
+Routing uses Nemotron Super by default. Under Advanced options → Use OpenRouter, enter an API key
 and check the connection to fetch available models and pick one for each slot.
 Enabling Jev moves only routing to Jev. In the 20-production-item comparison,
 Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026
@@ -249,7 +249,7 @@ moves high, middle, and low to their selected OpenRouter models.
 Image reading uses GLM-5.3-Flash and meaning search uses
 Qwen3-Embedding-8B on the same backend.
 
-![Settings: display language, model, web search, Bluesky connection, voice input, read-aloud](captures/en/settings.png)
+![Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky](captures/en/settings.png)
 
 | For | Setting | Default |
 | --- | --- | --- |

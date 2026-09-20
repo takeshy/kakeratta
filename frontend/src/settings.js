@@ -152,68 +152,73 @@ export function createSettings({ speaker, onSettings }) {
       apiKey,
       connectionCheck(() => patch({ apiKey: apiKey.querySelector("input").value.trim() })),
     );
+  }
 
-	const jevKey = field("OpenRouter APIキー", settings.openRouterApiKey,
-	  (value) => patch({ openRouterApiKey: value }), {
-	    type: "password",
-	    hint: "JevまたはOpenRouter専用モードに使います。サーバー側だけに保存します",
-	  });
-	const jevEnabled = el("input", { type: "checkbox", checked: !!settings.jevEnabled });
-	const openRouterMode = el("input", { type: "checkbox", checked: !!settings.openRouterMode });
-	jevEnabled.disabled = !openRouterVerified;
-	openRouterMode.disabled = !openRouterVerified;
-	const routerPicker = modelPicker("Routerモデル", settings.openRouterRouterModel, openRouterModels, (value) => patch({ openRouterRouterModel: value }));
-	const jevRouter = el("div", { class: "field fixed-model" },
-	  el("span", { label: "Routerモデル" }),
-	  el("strong", { text: "Jev (jev-latest)" }),
-	  el("span", { class: "hint", label: "Jevが有効な間はRouterに固定されます" }));
-	const pickers = [
-	  routerPicker,
-	  modelPicker("Highモデル", settings.openRouterHighModel, openRouterModels, (value) => patch({ openRouterHighModel: value })),
-	  modelPicker("Middleモデル", settings.openRouterMiddleModel, openRouterModels, (value) => patch({ openRouterMiddleModel: value })),
-	  modelPicker("Lowモデル", settings.openRouterLowModel, openRouterModels, (value) => patch({ openRouterLowModel: value })),
-	];
-	const syncRouterModel = () => {
-	  routerPicker.hidden = jevEnabled.checked;
-	  jevRouter.hidden = !jevEnabled.checked;
-	};
-	jevEnabled.addEventListener("change", () => {
-	  syncRouterModel();
-	  void patch({ jevEnabled: jevEnabled.checked });
-	});
-	openRouterMode.addEventListener("change", () => {
-	  void patch({ openRouterMode: openRouterMode.checked });
-	});
-	const refreshPickers = (models) => {
-	  openRouterModels = models;
-	  for (const picker of pickers) picker.setModels(models);
-	};
-	const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
-	  el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }));
-	syncRouterModel();
-	pickerGroup.hidden = !openRouterMode.checked;
-	openRouterMode.addEventListener("change", () => { pickerGroup.hidden = !openRouterMode.checked; });
-	const openRouterCheck = connectionCheck(
-	  () => patch({ openRouterApiKey: jevKey.querySelector("input").value.trim() }),
-	  { fetchModels: () => api.openRouterModels(), label: "OpenRouterの接続確認", onModels: (models) => {
-	    refreshPickers(models);
-	    openRouterVerified = true;
-	    jevEnabled.disabled = false;
-	    openRouterMode.disabled = false;
-	  } },
-	);
-	view.append(el("details", { class: "advanced-settings" },
-	  el("summary", { label: "OpenRouterを使う" }),
-	  jevKey,
-	  openRouterCheck,
-	  el("p", { class: "hint", label: "接続確認が成功すると、JevとOpenRouter専用モードを選べます。" }),
-	  el("label", { class: "field check-field" }, jevEnabled, el("span", { label: "Jevを有効にする" })),
-	  el("p", { class: "hint", label: "Jevは正確で速く、費用が最も安い振り分け専用モデルです。判定理由は表示されません。" }),
-	  jevRouter,
-	  el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouter専用モード" })),
-	  el("p", { class: "hint", label: "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。" }),
-	  pickerGroup,
-	));
+  // OpenRouter is the other way to run the models: Jev for routing alone, or
+  // every tier moved across. It sits under Advanced because what almost
+  // everyone runs is the default.
+  function openRouterSection() {
+    const jevKey = field("OpenRouter APIキー", settings.openRouterApiKey,
+      (value) => patch({ openRouterApiKey: value }), {
+        type: "password",
+        hint: "JevまたはOpenRouter専用モードに使います。サーバー側だけに保存します",
+      });
+    const jevEnabled = el("input", { type: "checkbox", checked: !!settings.jevEnabled });
+    const openRouterMode = el("input", { type: "checkbox", checked: !!settings.openRouterMode });
+    jevEnabled.disabled = !openRouterVerified;
+    openRouterMode.disabled = !openRouterVerified;
+    const routerPicker = modelPicker("Routerモデル", settings.openRouterRouterModel, openRouterModels, (value) => patch({ openRouterRouterModel: value }));
+    const jevRouter = el("div", { class: "field fixed-model" },
+      el("span", { label: "Routerモデル" }),
+      el("strong", { text: "Jev (jev-latest)" }),
+      el("span", { class: "hint", label: "Jevが有効な間はRouterに固定されます" }));
+    const pickers = [
+      routerPicker,
+      modelPicker("Highモデル", settings.openRouterHighModel, openRouterModels, (value) => patch({ openRouterHighModel: value })),
+      modelPicker("Middleモデル", settings.openRouterMiddleModel, openRouterModels, (value) => patch({ openRouterMiddleModel: value })),
+      modelPicker("Lowモデル", settings.openRouterLowModel, openRouterModels, (value) => patch({ openRouterLowModel: value })),
+    ];
+    const syncRouterModel = () => {
+      routerPicker.hidden = jevEnabled.checked;
+      jevRouter.hidden = !jevEnabled.checked;
+    };
+    jevEnabled.addEventListener("change", () => {
+      syncRouterModel();
+      void patch({ jevEnabled: jevEnabled.checked });
+    });
+    const refreshPickers = (models) => {
+      openRouterModels = models;
+      for (const picker of pickers) picker.setModels(models);
+    };
+    const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
+      el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }));
+    syncRouterModel();
+    pickerGroup.hidden = !openRouterMode.checked;
+    openRouterMode.addEventListener("change", () => {
+      pickerGroup.hidden = !openRouterMode.checked;
+      void patch({ openRouterMode: openRouterMode.checked });
+    });
+    const openRouterCheck = connectionCheck(
+      () => patch({ openRouterApiKey: jevKey.querySelector("input").value.trim() }),
+      { fetchModels: () => api.openRouterModels(), label: "OpenRouterの接続確認", onModels: (models) => {
+        refreshPickers(models);
+        openRouterVerified = true;
+        jevEnabled.disabled = false;
+        openRouterMode.disabled = false;
+      } },
+    );
+    return el("div", { class: "settings-block" },
+      el("h3", { label: "OpenRouterを使う" }),
+      jevKey,
+      openRouterCheck,
+      el("p", { class: "hint", label: "接続確認が成功すると、JevとOpenRouter専用モードを選べます。" }),
+      el("label", { class: "field check-field" }, jevEnabled, el("span", { label: "Jevを有効にする" })),
+      el("p", { class: "hint", label: "Jevは正確で速く、費用が最も安い振り分け専用モデルです。判定理由は表示されません。" }),
+      jevRouter,
+      el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouter専用モード" })),
+      el("p", { class: "hint", label: "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。" }),
+      pickerGroup,
+    );
   }
 
   // Web search is the one tool with a key of the user's own. Everything else a
@@ -250,12 +255,6 @@ export function createSettings({ speaker, onSettings }) {
       apiKey,
       el("div", { class: "compose-row" }, check),
     );
-  }
-
-  function drawMCP() {
-    const connection = createMCPConnection();
-    view.append(connection.element);
-    void connection.load();
   }
 
   // The level meter opens a microphone of its own, so it runs only while the
@@ -298,10 +297,10 @@ export function createSettings({ speaker, onSettings }) {
     return el("div", { class: "compose-row" }, button, meterNode);
   }
 
-  function drawSpeech() {
+  function drawSpeech(into) {
     const speech = settings.speech ?? {};
     const languages = speechLanguageOptions(speech.language || "auto");
-    view.append(
+    into.append(
       el("h3", { label: "音声入力" }),
       el("p", { class: "hint", label: "ブラウザ音声認識" }),
       select("自動送信前にAIで文章を整える", String(!!speech.formatBeforeSend),
@@ -320,8 +319,8 @@ export function createSettings({ speaker, onSettings }) {
     );
   }
 
-  function drawReadAloud() {
-    view.append(el("h3", { label: "読み上げ" }));
+  function drawReadAloud(into) {
+    into.append(el("h3", { label: "読み上げ" }));
     const rate = el("input", {
       type: "range", min: "0.5", max: "2", step: "0.1", value: String(settings.readAloudRate || 1.2),
     });
@@ -339,7 +338,7 @@ export function createSettings({ speaker, onSettings }) {
       speaker.setVoice(voice.value);
       void patch({ readAloudVoice: voice.value });
     });
-    view.append(
+    into.append(
       el("label", { class: "field" }, el("span", { label: "速さ" }), rate, rateValue),
       el("label", { class: "field" }, el("span", { label: "声" }), voice),
     );
@@ -428,40 +427,62 @@ export function createSettings({ speaker, onSettings }) {
     drawExportRow();
   }
 
-  function drawAbout() {
-    if (!about) return;
+  // One line about the copy of kakeratta in front of you. The workspace path
+  // comes back only from a server that keeps its files where you can open
+  // them; a hosted one has none to name.
+  function drawDevice() {
     view.append(
       el("h3", { label: "この端末" }),
-      el("p", { class: "hint", text: `kakeratta ${about.version}` }),
-      el("p", { class: "hint", text: t("保存先 {0}", about.workspace) }),
-    );
-  }
-
-  function drawLanguage() {
-    view.append(
-      el("h3", { label: "表示言語" }),
-      select("言語", getLanguage(), [["en", "English"], ["ja", "日本語"]], (next) => {
+      select("表示言語", getLanguage(), [["en", "English"], ["ja", "日本語"]], (next) => {
         setLanguage(next, { persist: true });
         location.reload();
       }),
     );
+    if (!about) return;
+    view.append(el("p", { class: "hint", text: `kakeratta ${about.version}` }));
+    if (about.workspace) view.append(el("p", { class: "hint", text: t("保存先 {0}", about.workspace) }));
   }
 
+  // Everything below the line is something most people never open: another
+  // provider for the models, how dictation and reading aloud behave, an
+  // external agent, and posting to Bluesky. The defaults are the answer for
+  // all of them, so the section stays shut and is built the first time it is
+  // opened - which is also when Hermes and Bluesky are asked about.
+  function drawAdvanced() {
+    const body = el("div", { class: "advanced-body" });
+    const section = el("details", { class: "settings-advanced" },
+      el("summary", { label: "上級オプション" }), body);
+    let built = false;
+    section.addEventListener("toggle", () => {
+      if (!section.open || built) return;
+      built = true;
+      body.append(openRouterSection());
+      drawSpeech(body);
+      drawReadAloud(body);
+      const mcp = createMCPConnection();
+      body.append(mcp.element);
+      void mcp.load();
+      bluesky?.dispose();
+      bluesky = createBlueskyConnection();
+      body.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
+    });
+    view.append(section);
+  }
+
+  // The screen leads with the two keys that decide whether anything works at
+  // all, then what you came to do with your own data. The rest is behind the
+  // line.
   function draw() {
     if (!settings) return;
     stopMicCheck();
+    bluesky?.dispose();
+    bluesky = null;
     clear(view);
-    drawLanguage();
     drawAI();
     drawTools();
-    drawMCP();
-    bluesky?.dispose();
-    bluesky = createBlueskyConnection();
-    view.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
-    drawSpeech();
-    drawReadAloud();
     drawBackup();
-    drawAbout();
+    drawDevice();
+    drawAdvanced();
   }
 
   return { element: view, load, draw, settings: () => settings, stopMicCheck: () => stopMicCheck() };
