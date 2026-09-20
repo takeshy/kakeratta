@@ -37,7 +37,6 @@ const EN = {
  "Jevの振り分けだけに使います。空欄またはOFFならNemotron Superを使います": "Used only for Jev routing. If empty or off, Nemotron Super is used.",
  "有効にしてOpenRouter APIキーを設定すると、投稿の振り分けだけをJevで行います。担当の応答には引き続きNemotronを使います。": "When enabled with an OpenRouter API key, only post routing uses Jev. Persona responses continue to use Nemotron.",
   "HermesのMCP環境変数": "Hermes MCP environment variable",
-  "次のキーを ~/.hermes/.env に追加してください。再発行時はこの値を更新します。": "Add this key to ~/.hermes/.env. Update this value when you reissue the key.",
   "Hermes担当をOFFにするとMCPからの読み書きを停止します。MCP接続を解除するとキーが失効します。": "Turning Hermes OFF blocks MCP reads and writes. Disconnecting MCP revokes the key.",
   "外部エージェント": "External agent",
   "Hermesに聞く": "Ask Hermes",
