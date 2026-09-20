@@ -59,6 +59,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   globalThis.addEventListener?.("offline", updateEditAvailability);
 
   function set(next) {
+    openArrivals(next);
     entries = next;
     draw();
     // Polls and reconnects also refresh an open decision, including one first
@@ -84,6 +85,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   // One entry arriving, from the live channel. A late remark lands under the
   // post it belongs to rather than at the bottom.
   function upsert(entry) {
+    openArrivals([entry]);
     const index = entries.findIndex((existing) => existing.id === entry.id);
     if (index >= 0) entries[index] = entry;
     else entries.push(entry);
@@ -91,6 +93,24 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     draw();
     // An edited post is routed again; what the sheet shows about it is stale.
     void refreshRouting(entry.id);
+  }
+
+  // A persona's remark lands under a folded post, where it is easy to miss:
+  // nothing counts it and nothing moves. So a remark that arrives while the
+  // timeline is already showing unfolds its conversation. Only arrivals do
+  // this - the first load and older pages leave every fold as it was, and a
+  // fold closed by hand stays closed until the next remark.
+  function openArrivals(next) {
+    if (!entries.length) return;
+    const known = new Set(entries.map((entry) => entry.id));
+    let latest = 0;
+    for (const entry of entries) latest = Math.max(latest, new Date(entry.at).getTime() || 0);
+    for (const entry of next) {
+      if (known.has(entry.id) || entry.deleted || entry.kind === "post" || !entry.root) continue;
+      if (!entry.speaker || entry.speaker === "user") continue;
+      if ((new Date(entry.at).getTime() || 0) < latest) continue;
+      expanded.add(entry.root);
+    }
   }
 
   function groups() {

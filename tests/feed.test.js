@@ -87,6 +87,47 @@ test("search reveals a folded reply and polling preserves a later manual fold", 
   assert.equal(feed.element.querySelectorAll(".said-row").length, 0);
 });
 
+// The person watching a folded timeline cannot tell that a persona has just
+// spoken. A remark that arrives after the timeline is showing unfolds its
+// post; the first load and older pages do not, and a fold closed by hand stays
+// closed until the next remark.
+test("a persona's remark arriving unfolds its post; loads and older pages do not", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  const said = (count) => feed.element.querySelectorAll(".said-row").length === count;
+  const old = [
+    { id: "p1", kind: "post", speaker: "user", text: "old", at: "2026-09-13T00:00:00Z" },
+    { id: "r1", kind: "reply", root: "p1", speaker: "tech", text: "old remark", at: "2026-09-13T00:01:00Z" },
+  ];
+  const post = { id: "p2", kind: "post", speaker: "user", text: "wine", at: "2026-09-14T00:00:00Z" };
+  // First load: everything stays folded.
+  feed.set([post, ...old]);
+  assert.ok(said(0), "the first load leaves folds closed");
+  // A poll brings a persona's remark: its post opens.
+  const remark = { id: "r2", kind: "reply", root: "p2", speaker: "tech", text: "Pinot", at: "2026-09-14T00:03:00Z" };
+  feed.set([post, remark, ...old]);
+  assert.ok(said(1), "the arriving remark is shown");
+  // Folding by hand holds through the next poll with nothing new.
+  feed.element.querySelectorAll(".thread-toggle")[0].fire("click");
+  feed.set([post, remark, ...old]);
+  assert.ok(said(0), "a fold closed by hand stays closed");
+  // The live channel brings another remark to the same post: it opens again.
+  feed.upsert({ id: "r3", kind: "reply", root: "p2", speaker: "wine", text: "Or a Gamay", at: "2026-09-14T00:04:00Z" });
+  assert.ok(said(2), "a remark over the live channel opens the post again");
+  // An older page arriving under the timeline opens nothing.
+  const older = [
+    { id: "p0", kind: "post", speaker: "user", text: "older", at: "2026-09-12T00:00:00Z" },
+    { id: "r0", kind: "reply", root: "p0", speaker: "tech", text: "older remark", at: "2026-09-12T00:01:00Z" },
+  ];
+  feed.set([post, remark, { id: "r3", kind: "reply", root: "p2", speaker: "wine", text: "Or a Gamay", at: "2026-09-14T00:04:00Z" }, ...old, ...older]);
+  assert.ok(said(2), "an older page does not unfold its posts");
+  // The user's own reply from elsewhere is not a persona speaking.
+  feed.upsert({ id: "u1", kind: "reply", root: "p1", speaker: "user", text: "mine", at: "2026-09-14T00:05:00Z" });
+  assert.ok(said(2), "the user's own reply does not unfold a post");
+});
+
 test("reply dictation survives updates, sends to its target, and stops when closed", async (t) => {
   t.mock.method(globalThis, "setTimeout", () => 0);
   t.mock.method(api, "reply", async () => ({}));

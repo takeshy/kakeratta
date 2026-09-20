@@ -276,7 +276,8 @@ function pollAfterSending() {
 }
 
 // A reaction arriving is the app working, not an event to celebrate: it lands
-// in place and nothing else moves.
+// in place and nothing else moves, except that the feed unfolds the
+// conversation it landed in so it is seen.
 api.on((name, data) => {
   if (name === "routed" || name === "turn") { void feed.refreshRouting(data?.entryId); return; }
   if (name === "outbox") { if (data) pages.upsert(data); void drawLocal(); if (data) pollAfterSending(); return; }

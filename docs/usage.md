@@ -119,7 +119,8 @@ not. No unread count, and no "an AI is thinking".
 
 It starts with the latest 20 posts and loads 20 more as you scroll. Remarks and
 replies fold under **N replies**; **Add a comment** or **Reply** opens that
-thread. Reactions normally arrive over the live channel, but in case one is
+thread, and a persona's remark arriving while the timeline is showing opens
+its thread by itself. Reactions normally arrive over the live channel, but in case one is
 missed, the timeline is re-read every 10 seconds for five minutes after you post
 or reply (not while the tab is in the background).
 
