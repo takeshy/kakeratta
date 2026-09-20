@@ -1,60 +1,56 @@
-# Hermes Agentを担当として使う
+# Using Hermes Agent as a persona
 
-kakerattaはMCPサーバーとして依頼を保存し、Hermesが接続して依頼を取得・実行・報告します。Hermesのモデル・ツール・スキル・長期記憶はHermes側で管理します。Hermes自体のインストールと設定は別途必要です。
+[README](../README.md) · [日本語](hermes_ja.md)
 
-## 接続
+Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the requests, runs them, and reports back. Hermes's models, tools, skills, and long-term memory are managed on the Hermes side. Installing and configuring Hermes itself is a separate step.
 
-1. kakerattaの「設定 → 上級オプション → MCP連携（Hermesなど）」でMCPキーを発行します。
-2. 表示された設定を、自分のHermesの `~/.hermes/config.yaml` に追加します。既に `mcp_servers` がある場合は、その配下に `kakeratta` を追加します。
+## Connecting
+
+1. In Kakeratta, open **Settings → Advanced options → Integrations** and select **Create connection key** under **Hermes integration**.
+2. Add the configuration shown there to your Hermes `~/.hermes/config.yaml`. If a `mcp_servers` section already exists, add `kakeratta` under it. The configuration already contains the connection URL and the connection key.
 
    ```yaml
    mcp_servers:
      kakeratta:
        url: "https://kakeratta.net/api/mcp/users/xxx"
        headers:
-         Authorization: "Bearer ${KAKERATTA_MCP_TOKEN}"
+         Authorization: "Bearer THE_ISSUED_KEY"
    ```
 
-3. `xxx` は画面に表示されたワークスペースIDに置き換えます。キーは `~/.hermes/.env` に保存します。再発行した場合も、この値を更新してください。
+3. The key is shown only on the screen right after it is issued. Because the configuration contains the key, do not share it with anyone. If you reissue the key, replace the entry in `config.yaml` with the new configuration.
 
-   ```dotenv
-   KAKERATTA_MCP_TOKEN=発行されたキー
-   ```
+4. Restart Hermes and enable Hermes under **Personas** in Kakeratta.
+5. Post a request from **Ask Hermes**. Posting `@Hermes tidy up the README structure` directly also invokes it. Ordinary posts are routed by the Router's persona conditions, and a reply to a Hermes response also becomes a request.
+6. Tell Hermes to "check the Kakeratta requests". To have it respond automatically, set up a scheduled run on the Hermes side that checks for requests.
 
-   `config.yaml` にはキー自体を書きません。Hermesは `${VAR}` と `${env:VAR}` のどちらでも環境変数を参照できます。
+The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
 
-4. Hermesを再起動し、kakerattaの「担当」でHermesを有効にします。
-5. 「Hermesに聞く」から依頼を投稿します。`@Hermes READMEの構成を整理して` と直接投稿しても呼び出せます。通常投稿はRouterの担当条件で振り分けられ、Hermesの返信への返事も依頼になります。
-6. Hermesに「kakerattaの依頼を確認して」と伝えます。自動で対応させるには、Hermes側で依頼を確認する定期実行を設定してください。
+For the configuration format, see the [official Hermes MCP guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp) and the [MCP configuration reference](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference).
 
-URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサーバーを公開する必要はありません。kakerattaからHermesのプロセスを起動することもありません。
+## The key and its scope
 
-設定形式は[Hermes公式MCPガイド](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)と[MCP設定リファレンス](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference)を参照してください。
+The key is shown only on the screen right after it is issued; the server stores a hash. Reissuing invalidates the previous key, and **Disconnect** revokes it. Browser login cookies cannot be used for MCP authentication.
 
-## キーとアクセス範囲
+The key can read the issuing user's timeline, persona list, and each persona's notes. It can also save Hermes's notes, fetch, cancel, and complete requests, and post reports under Hermes's name. It cannot access model settings or other users' data, and it cannot rewrite other personas' notes.
 
-キーは発行直後の画面でだけ表示し、サーバーにはハッシュを保存します。再発行すると以前のキーは無効になり、「MCP接続を解除」で失効できます。ブラウザのログインCookieはMCPの認証には使えません。
+MCP tools can read and write only while the Hermes persona is ON. When it is OFF, access to every MCP tool is refused, including the timeline, persona list, notes, and requests. The key is kept, so turning the persona back ON makes it usable again. While OFF, connection initialization and listing tool definitions still work, but no user data is returned.
 
-このキーは、発行したユーザーのタイムライン、担当一覧、各担当のメモを読み取れます。また、Hermesのメモの保存、依頼の取得・取消・完了、Hermes名義の報告ができます。モデル設定や他のユーザーのデータにはアクセスできず、他の担当のメモは書き換えられません。
+**Disconnect** erases the stored key hash and invalidates authentication for the connection itself. Reconnecting requires reissuing the key and updating `config.yaml` on the Hermes side. Turning the persona OFF or revoking the key does not erase data Hermes has already fetched, nor does it stop external operations already in progress.
 
-Hermes担当がONの間だけ、MCPツールで読み書きできます。OFFにすると、タイムライン・担当一覧・メモ・依頼を含むすべてのMCPツールへのアクセスを拒否します。キーは保持するため、ONに戻せば再利用できます。OFFの間も接続初期化やツール定義の一覧取得はできますが、ユーザーデータは取得できません。
+## Processing requests and retrying
 
-「MCP接続を解除」は保存したキーのハッシュを消去し、接続の認証自体を無効にします。再接続にはキーの再発行とHermes側の `.env` の更新が必要です。担当のOFFやキー失効は、既にHermesが取得したデータの消去や実行中の外部操作の停止は行いません。
+Hermes processes requests with the following MCP tools.
 
-## 依頼の処理と再試行
+1. `list_tasks` lists pending and claimed requests.
+2. `claim_task` takes a `taskId` and a `claimId` that is unique per execution. If the response is lost, retry with the same `claimId`. The response includes the target thread and the persona's instructions.
+3. Do the work with Hermes's own tools. Do not rerun a claimed request just because Hermes reconnected. Claims never expire on their own.
+4. `complete_task` takes the `taskId`, the `claimId`, and the result `text`. An empty body completes the request without posting. The body is limited to 32 KB.
 
-Hermesは次のMCPツールで依頼を処理します。
+Results are stored before they are delivered to the timeline. If delivery fails, do not redo the work; retry the same completion call, or use `list_tasks` to redeliver undelivered results. The first accepted result cannot be changed later. On transient read failures, requests and undelivered results are kept; a request is invalidated only once its deletion or edit has been confirmed.
 
-1. `list_tasks` で未処理・取得済みの依頼を確認します。
-2. `claim_task` に `taskId` と実行ごとに固有の `claimId` を渡します。応答が失われた場合の再試行には同じ `claimId` を使います。応答には対象スレッドと担当の指示が含まれます。
-3. Hermes自身のツールで作業します。取得済みの依頼を、再接続したという理由だけで再実行しないでください。取得権は自動では期限切れになりません。
-4. `complete_task` に `taskId`、`claimId`、結果の `text` を渡します。空の本文なら投稿せず完了します。本文は32KBまでです。
+### If Hermes crashes after claiming
 
-結果はタイムラインへの配信前に保存されます。配信が失敗しても作業をやり直さず、同じ完了操作を再試行するか、`list_tasks` で未配信結果を再配信します。最初に受理した結果は後から変更できません。一時的な読み取り障害では依頼や未配信結果を残し、削除・編集を確認できた依頼は無効にします。
-
-### claim後にクラッシュした場合
-
-`list_tasks` と `claim_task` は、依頼に次の復旧情報を含めます。
+`list_tasks` and `claim_task` include the following recovery information with each request.
 
 ```json
 {
@@ -65,32 +61,32 @@ Hermesは次のMCPツールで依頼を処理します。
 }
 ```
 
-`claimedAt` は最初に取得した時刻（UTC）で、同じ `claimId` による再試行では変わりません。旧バージョンで取得済みの依頼は時刻が不明なため `null` です。既存クライアント向けの `state` と `claim` も互換用に返します。
+`claimedAt` is the time (UTC) of the first claim and does not change on retries with the same `claimId`. Requests claimed by an older version have an unknown time and return `null`. `state` and `claim` are also returned for compatibility with existing clients.
 
-`claim_task → GitHub操作 → クラッシュ → complete_task未実行` という場合、kakerattaは外部操作が済んだか判定できません。外部操作のexactly-onceは保証しません。claimに期限はなく、別の `claimId` による取り直しは拒否します。同じ `claimId` で状態を再取得できても、それは外部操作を再実行してよいという意味ではありません。
+In a sequence such as `claim_task → GitHub operation → crash → complete_task never called`, Kakeratta cannot determine whether the external operation completed. Exactly-once execution of external operations is not guaranteed. Claims have no expiry, and reclaiming with a different `claimId` is refused. Being able to fetch the state again with the same `claimId` does not mean the external operation may be rerun.
 
-結果が不明な場合は自動再実行を止め、ユーザーにGitHubなどの外部状態を確認してもらいます。再実行が必要なら、ユーザーの指示で `cancel_task` を呼び、その後ユーザーが**新しい投稿として依頼**します。同じ本文でも、新しい投稿は別の依頼になります。取り消した依頼を取り直すことはできません。
+When the outcome is unknown, stop automatic reruns and have the user check the external state, such as GitHub. If a rerun is needed, call `cancel_task` on the user's instruction, and then have the user **post the request again as a new post**. Even with the same text, a new post is a separate request. A cancelled request cannot be reclaimed.
 
-`cancel_task` は不要な未処理・取得済みの依頼を取り消しますが、既にHermes側で動いている処理は停止できません。依頼ボックスは未処理128件までで、完了済みの配信記録は直近8件を保持します。
+`cancel_task` cancels unneeded pending or claimed requests, but it cannot stop work already running on the Hermes side. The request box holds up to 128 pending requests, and the most recent 8 delivery records of completed requests are kept.
 
-Hermesの作業はkakerattaの通常のworkflowレビューを通りません。外部操作の承認方針はHermes側で設定してください。返信の試し直しによる再実行は無効です。
+Hermes's work does not go through Kakeratta's usual workflow review. Configure the approval policy for external operations on the Hermes side. Retrying a reply from the timeline does not rerun the request.
 
-## 毎日のチェックインと自発的な報告
+## Daily check-ins and unprompted reports
 
-担当画面でチェックインの希望時刻を設定すると、kakerattaサーバーが確認依頼を保存します。実際に確認するのはHermesが依頼を取得したときです。自動対応にはkakerattaの稼働とHermes側の定期実行が必要です。伝えることがない場合は `complete_task` の本文を空にして完了します。
+When you set a preferred check-in time on the persona screen, the Kakeratta server stores a check-in request. The actual check happens when Hermes fetches that request. Automatic handling requires Kakeratta to be running and a scheduled run on the Hermes side. If there is nothing to report, complete with an empty `complete_task` body.
 
-Hermes自身のcronやスキルからの報告にはMCPツール `post_report` を使います。次はツール呼び出しの引数の例です。
+Reports from Hermes's own cron or skills use the MCP tool `post_report`. The following is an example of the tool call arguments.
 
 ```json
-{"id":"release-check-2026-09-19","text":"昨日のIssueに関係するリリースがありました。"}
+{"id":"release-check-2026-09-19","text":"There was a release related to yesterday's issue."}
 ```
 
-`id` は報告ごとに固有にし、同じ結果の再送には同じIDを使います。同一IDで重複投稿せず、削除済みの投稿も復活させません。`replyTo` に既存投稿のIDを指定すると返信になります。本文は32KBまでです。これは専用のREST投稿APIではなく、認証済みMCP接続で呼び出すツールです。
+Make `id` unique per report and reuse the same ID when resending the same result. The same ID never posts twice, and it does not revive a deleted post. Setting `replyTo` to the ID of an existing post makes the report a reply. The body is limited to 32 KB. This is not a dedicated REST posting API; it is a tool called over the authenticated MCP connection.
 
-## 会話・記憶と動作確認
+## Conversation, memory, and verifying the setup
 
-`get_timeline`、`get_thread` で投稿を参照し、`list_notes`、`read_note` で各担当の共有メモを読めます。`write_note` はHermesのメモ領域だけに保存します。kakerattaはHermesの会話セッションIDを管理しません。Hermes側の履歴・長期記憶は独立しており、kakerattaの投稿を削除してもHermesが取得済みの情報は削除されません。
+`get_timeline` and `get_thread` read posts, and `list_notes` and `read_note` read each persona's shared notes. `write_note` saves only into Hermes's own note area. Kakeratta does not manage Hermes's conversation session IDs. Hermes's history and long-term memory are independent, so deleting a post in Kakeratta does not delete information Hermes has already fetched.
 
-接続後は、まずタイムラインの読み取りと小さな依頼の取得・完了を確認してください。Firebase認証環境でサーバー起動直後にワークスペースの復元が終わっていない場合は503となるため、後から再試行します。
+After connecting, first confirm that Hermes can read the timeline and claim and complete a small request. In a Firebase-authenticated environment, the server returns 503 right after startup while workspace restoration is still in progress, so retry later.
 
-回帰テストでは、一時的な読み取り障害で未処理・取得済みの依頼を取り消さないこと、保存済みの結果を配信済みにしないこと、復旧後の再試行、確認済みの編集・削除による無効化を検証しています。
+The regression tests verify that transient read failures do not cancel pending or claimed requests, that stored results are not marked delivered, that retries work after recovery, and that confirmed edits and deletions invalidate requests.

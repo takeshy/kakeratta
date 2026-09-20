@@ -4,13 +4,15 @@ English | [日本語](README_ja.md)
 
 **Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
 
-Put thoughts and things that catch your eye into one timeline as text, images,
-URLs, or speech, without deciding first whether they matter or where they
-belong. AIs with separate memories for their own subjects react only when they
-have something to say.
+Drop fragments of your day into one timeline. Subject-specific AIs remember
+what matters, stay silent when they have nothing useful to add, and bring things
+back when they matter later.
 
 Built for the [Nebius Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/).
-Try it at [kakeratta.net](https://kakeratta.net/lp/?lang=en); how it works inside is in [Under the hood](docs/technical.md).
+
+**Try it:** [kakeratta.net](https://kakeratta.net/lp/?lang=en)
+**Manual:** [kakeratta.net/manual](https://kakeratta.net/manual/?lang=en)
+**Technical design:** [Under the hood](docs/technical.md)
 
 <img src="docs/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said underneath" width="390">
 
@@ -20,7 +22,7 @@ I talk to myself a lot. Saying out loud what a meal was like, or an idea that
 just came, feels like leaving a hook to catch it by later. Then I forget anyway.
 
 I take notes too, but hardly ever read them back. The notes I do read are the
-ones I already know are there, like passwords and API keys.
+ones I already know are there, like commands or reference notes.
 
 Even if an AI files every note neatly, information whose existence I have
 forgotten cannot be searched for. And what seemed unimportant when I wrote it
@@ -44,125 +46,341 @@ go in without worrying about mistakes or categories.
 
 Living there are AIs called *personas*, one for each subject: food, travel,
 reading, follow-ups. Each finds the posts that concern it, reacts when there is
-a reason to, and keeps what is worth keeping in a memory of its own. Replying to
-everything would be tiresome, so a persona stays quiet when it has nothing to
-say. It can still take a note without speaking.
+a reason to, and keeps what is worth keeping in a memory of its own.
+
+Replying to everything would be tiresome, so a persona stays quiet when it has
+nothing to say. It can still take a note without speaking.
 
 Personas are created and changed in plain words. "Remember the wines I drink and
 help me choose next time" is enough to make one, and it grows to your taste as
 you use it.
 
 You can see what a persona remembers, trace a memory back to the post it came
-from, and make it forget just the one that is wrong.
+from, fix it, or make it forget just the one thing that is wrong.
 
-Once a day, a persona looks back over its memory and the recent timeline, and
-searches the web if that helps. It may bring you news related to your past, or
-something you had forgotten. If there is nothing, it stays silent.
+Each persona gets only the tools declared for its role. Built-in tools include:
+
+* **web search** through Tavily
+* **place search** through OpenStreetMap, Overpass, and Nominatim
+* **walking, cycling, and driving routes** through OSRM
+* additional tools supplied through **MCP servers**
+
+The user supplies their own Tavily key for web search.
 
 With speech, a send phrase of your choosing posts what you just said, so a
 thought is kept the moment it arrives.
 
-What you have kept is yours to take. Settings → Backup writes your posts,
-personas, notes and images as a zip laid out for a kakeratta running on your
-own machine. No API keys or connections travel with it.
-
 ## How it works
 
 1. Write a thought, paste a screenshot, send a URL, or speak.
-2. The relevant personas receive the post and decide what to note and whether to reply.
-3. Reactions arrive in the timeline a little later. Mention a persona with `@` when you want an answer.
+2. The router wakes only the personas whose conditions match the post.
+3. Each persona decides whether to remember something, reply, use a tool, or stay silent.
+4. Reactions arrive in the timeline a little later. Mention a persona with `@` when you want an answer directly.
 
 Four personas ship with the app: **tabe (food), michi (travel), shiori
-(reading), plana (follow-ups)**. Their names are Japanese words in Latin letters
-so that `@tabe` can be typed on any keyboard. They are examples of how to divide
-things up, not a complete set; make your own for other subjects.
+(reading), and plana (follow-ups)**.
+
+Their names are Japanese words in Latin letters so that `@tabe` can be typed on
+any keyboard. They are examples of how to divide things up, not a complete set;
+make your own for other subjects.
 
 plana keeps what is too small for a calendar but bad to forget: medicine,
 feeding the goldfish, laundry, the bins. Write "flowers on the way home" and it
-asks "did you get the flowers?" around the evening, working out the time from
+can ask "did you get the flowers?" around the evening, working out the time from
 its own records.
+
+## Built with NVIDIA Nemotron on Nebius Token Factory
+
+kakeratta uses **NVIDIA Nemotron models through Nebius Token Factory**, choosing
+different model sizes according to how difficult a task is and how often it
+runs instead of sending everything to one large model.
+
+| Model                      | Role                                               |
+| -------------------------- | -------------------------------------------------- |
+| **Nemotron 3 Ultra**       | High-tier personas and persona drafting            |
+| **Nemotron 3 Super**       | Routing, middle-tier personas, and workflow review |
+| **Nemotron 3.5 Lightning** | Low-tier personas and dictation polishing          |
+| **GLM-5.3-Flash**          | Reading screenshots and photos                     |
+| **Qwen3-Embedding-8B**     | Meaning search over past fragments                 |
+
+Token Factory made this division practical.
+
+The same platform provides the large, middle, and lightweight models used by
+the persona system, together with image understanding and embeddings. Each job
+can therefore use a model proportionate to its difficulty and frequency without
+adding another model-provider integration.
+
+That mattered most for routing because routing happens on every post.
+
+Early versions asked a larger model to make a broad judgement about which
+personas should receive a fragment. The router was eventually redesigned as a
+simpler matching problem against explicit persona conditions, making a smaller
+model viable for this frequent step while keeping stronger models for work that
+actually needs them.
+
+Using one API across model sizes also accelerated experimentation during
+development: models could be moved between roles without rebuilding the
+surrounding application, while Token Factory usage data made the cost of those
+choices visible.
+
+Persona execution and workflow review use native tool calling. Image reading,
+structured generation, and embeddings use the corresponding Token Factory APIs.
+
+Token Factory is also used by the tested external-agent setup described below,
+so both kakeratta's built-in personas and a sandboxed autonomous agent can use
+remote models through the same inference platform.
+
+The routing experiments, workflow constraints, and model responsibilities are
+described in [Under the hood](docs/technical.md).
+
+## Your data stays yours
+
+A personal AI remembers a lot, so its memory should not be a black box or a
+one-way import.
+
+You can inspect what each persona remembers, trace a memory back to the post
+that produced it, edit an incorrect fact, or forget an individual note without
+removing the original post.
+
+**Backup** exports your posts, personas, notes, and images as a zip laid out in
+the same structure used by a kakeratta instance running on your own machine.
+API keys and external connections are not included.
+
+Self-hosting is a normal deployment mode, not a separate edition. The default
+local store is files on disk (`KAKERATTA_STORE=file`), local runs require no
+login, and the server listens only on loopback by default.
+
+The hosted app also provides full account deletion. Before leaving, the user is
+given a path to **Backup** so the data can be taken out first. Deleting the
+account removes the user's:
+
+* posts and conversations
+* personas and their memories
+* uploaded images
+* settings and stored credentials
+* external connections such as Bluesky and MCP
+* server-side backup data
+* kakeratta login account itself
+
+Model and search credentials are **bring your own**. The user supplies their
+own Nebius Token Factory API key and, when web search is used, their own Tavily
+API key.
+
+External-agent access is opt-in. The MCP credential issued for Hermes belongs
+to that workspace, can be revoked, and stops granting access to user data when
+the integration is disabled. Disconnecting the integration invalidates the
+credential itself.
+
+kakeratta is [MIT licensed](LICENSE).
+
+## Always-on when you want it
+
+Personas do not have to wait for a new post.
+
+Each persona can opt into **Daily check-in**, with one preferred time each day.
+It is **off by default**.
+
+When enabled, the persona can look through its memory and recent timeline, use
+its declared tools, search the web when appropriate, and bring something back
+only when it finds something worth saying. A silent check-in creates no empty
+conversation.
+
+Personas can also create scheduled follow-ups. plana can, for example, remember
+"flowers on the way home" and later ask whether you got them.
+
+These wakes run on the **server**, not in the browser. The browser can be
+closed.
+
+A self-hosted kakeratta server therefore needs to remain running for scheduled
+work. The provided Cloud Run deployment keeps an instance available for these
+server-side wakes.
+
+## A sandboxed external agent with NVIDIA NemoClaw
+
+Some work goes beyond what a small subject-specific persona should do.
+
+For those tasks, **Hermes Agent** can join kakeratta as an external persona
+through MCP. kakeratta holds the request and the surrounding personal context;
+Hermes claims the request, works with its own tools and skills, and reports the
+result back into the timeline.
+
+The integration has been built and tested with:
+
+* **NVIDIA NemoClaw** for orchestration, lifecycle, and policy setup
+* **OpenShell** as the sandbox and policy-enforcement layer
+* **Hermes Agent v0.20.6** as the autonomous agent runtime
+* **Nebius Token Factory** for remote inference
+* the production **kakeratta MCP server** at `kakeratta.net`
+
+The tested OpenShell sandbox uses filesystem and network isolation, including
+Landlock restrictions and controlled outbound access. Inference requests leave
+the sandbox through the OpenShell gateway rather than placing the raw provider
+credential in Hermes's own configuration.
+
+The tested inference setup used:
+
+* `NousResearch/Hermes-4-405B`
+* `nvidia/Nemotron-3_5-Lightning`
+
+through Nebius Token Factory.
+
+Hermes then connected from inside the sandbox to the production kakeratta
+instance over Streamable HTTP MCP.
+
+The connection was tested successfully and all **11 kakeratta MCP tools** were
+discovered:
+
+`list_personas`, `get_timeline`, `get_thread`, `list_notes`, `read_note`,
+`write_note`, `list_tasks`, `claim_task`, `cancel_task`, `complete_task`, and
+`post_report`.
+
+That keeps the responsibilities separate:
+
+**kakeratta** owns the user's timeline, persona-facing requests, memory access,
+and MCP permissions.
+
+**Hermes** owns its execution loop, tools, skills, and its own long-term memory.
+
+**NemoClaw + OpenShell** provide the controlled environment in which the
+external agent runs.
+
+**Nebius Token Factory** provides the inference behind it.
+
+kakeratta never has to start the Hermes process itself. The MCP boundary also
+means Hermes can be operated independently or under another compatible runtime
+setup.
+
+For the kakeratta-side protocol, credential scope, task lifecycle, retries, and
+reports, see [Hermes Agent setup](docs/hermes.md)
+([日本語](docs/hermes_ja.md)).
+
+For the NemoClaw side, see the
+[NVIDIA NemoClaw Hermes documentation](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart).
 
 ## Find what you tossed in before
 
-"What was that wine I liked?" Open **Search** in the header. A name like
-"Pinot" and a vague memory like "a light red that was easy to drink" go in the
-same box. Search covers your notes, text read from photos, and conversations
-with personas. A result opens the original post and its conversation.
+"What was that wine I liked?"
+
+Open **Search** in the header. A name like "Pinot" and a vague memory like "a
+light red that was easy to drink" go in the same box.
+
+Search covers your notes, text read from photos, and conversations with
+personas. A result opens the original post and its conversation.
 
 <img src="docs/captures/en/search-semantic.png" alt="Search from memory: records close to 'a light, easy-drinking red wine' (sample)" width="390">
 
-**Personas look back too.** When a new label arrives, a wine persona may say
-"this is close to the Pinot you liked before", with a link to that post.
+**Personas look back too.**
+
+When a new label arrives, a wine persona may say "this is close to the Pinot
+you liked before", with a link to that post.
 
 ## See what a persona remembers
 
 Open **What it remembers** in the Personas panel to read its saved notes by
-kind: tastes, wines, places, books. Evidence and exceptions show as written.
-Filter by the tags the persona gave them, and open the post and conversation a
-note came from under **Posts that updated this memory**.
+kind: tastes, wines, places, books.
+
+Evidence and exceptions show as written. Filter by the tags the persona gave
+them, and open the post and conversation a note came from under **Posts that
+updated this memory**.
 
 <img src="docs/captures/en/memory.png" alt="What the wine persona remembers: tastes and wines, with tags, links to the posts, and ✎ to edit (sample)" width="382">
 
-Fix a misspelling or a wrong fact with **✎** on the note. Remove a wrong note
-with **Forget this note**, one at a time; the post and the other notes stay. To
-change how it remembers, use **Edit with AI** and say, for example, "don't call
-something a favourite after one glass". Its memory is not a black box.
+Fix a misspelling or a wrong fact with **✎** on the note.
+
+Remove a wrong note with **Forget this note**, one at a time; the post and the
+other notes stay.
+
+To change how it remembers, use **Edit with AI** and say, for example, "don't
+call something a favourite after one glass".
+
+Its memory is not a black box.
 
 ## See why a persona was called, or not
 
-The app decides who receives a fragment, and it keeps the reason. Press **⚖
-(the router's call)** on a post to see the personas that were called and, for
-each one that was not, a one-line reason.
+The app decides who receives a fragment, and it keeps the reason.
+
+Press **⚖ (the router's call)** on a post to see the personas that were called
+and, for each one that was not, a one-line reason.
 
 <img src="docs/captures/en/routing.png" alt="The router's call on a tantanmen post: tabe was called, and why michi, shiori and plana were not (sample)" width="382">
 
 When it got it wrong, press **Should have been called** and say why in your own
-words. The AI rewrites the persona's condition and tries the same post again to
-make sure. The new condition is shown as text and can be edited before saving.
+words.
+
+The AI rewrites the persona's routing condition and tries the same post again
+to make sure. The new condition is shown as text and can be edited before
+saving.
+
+The same mechanism works in the other direction when a persona was called when
+it should not have been.
 
 ## Fix a reply where it went wrong
 
-Press **Fix the reply** on a persona's remark and say how it missed, such as
-"no recommendations, just one line on how it differs from last time". The AI
-rewrites only the tone and instructions; the condition, name, and tools stay.
+Press **Fix the reply** on a persona's remark and say how it missed, such as:
+
+> no recommendations, just one line on how it differs from last time
+
+The AI rewrites only the tone and instructions; the routing condition, name,
+and tools stay.
 
 <img src="docs/captures/en/reply-trial.png" alt="A trial: how tabe would answer the same post now. 'Good' or 'Still off' (sample)" width="382">
 
 On save, the same persona is stood up on the same post again for a trial reply.
-Nothing lands in the timeline and no note or schedule is written. You judge the
-result. Nothing is learned behind your back.
+
+Nothing lands in the timeline and no note or schedule is written.
+
+You judge the result.
+
+**Nothing is learned behind your back.**
 
 ## Describe a persona. Start using it.
 
-Answer "What would you like your persona to help with?" in your own words.
+Answer **"What would you like your persona to help with?"** in your own words.
 
 > When I send a photo of a wine label I liked, tell me the wine and its grape varieties so I can order it or buy it.
 
-Once the subject is clear, the AI fills in the name, tone, and what to remember,
-and shows a complete draft. A single word like "wine" is enough to start.
+Once the subject is clear, the AI fills in the name, tone, routing condition,
+and what to remember, and shows a complete draft.
+
+A single word like "wine" is enough to start.
 
 <img src="docs/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" width="382">
 
-**Start using it, then shape it.** "Reply more briefly", "remember why I liked a
-wine, not just its name": tell it through **Edit with AI**. Built-in personas
-can be edited the same way.
+**Start using it, then shape it.**
+
+"Reply more briefly", "remember why I liked a wine, not just its name": tell it
+through **Edit with AI**.
+
+Built-in personas can be edited the same way.
 
 ## Share the conversation you choose to Bluesky
 
 Connect your own Bluesky account and choose which messages to publish from a
-post, the personas' replies, and your follow-ups. Persona replies start
-unchecked. Preview the text, reply structure, and account before publishing.
-Persona messages carry an attribution such as `🍚 tabeからの返信:` (reply from tabe).
+post, the personas' replies, and your follow-ups.
 
-<img src="docs/captures/en/bluesky-preview.png" alt="Bluesky preview with tabe's reply and your follow-up selected, leaving out gout's reply (sample)" width="382">
+Persona replies start unchecked.
+
+Preview the text, reply structure, and account before publishing. Persona
+messages carry an attribution such as `🍚 tabeからの返信:` (reply from tabe).
+
+<img src="docs/captures/en/bluesky-preview.png" alt="Bluesky preview with selected persona replies and a follow-up (sample)" width="382">
 
 [Connect and share a conversation](https://kakeratta.net/manual/?lang=en#en-bluesky)
 
 ## Fast startup and offline posts
 
-Recent conversations stay in the browser and show first on the next visit. On a
-device that has been online once, text, images, URLs, and replies can be saved
-offline as pending, and they send when the connection returns.
+Recent conversations are cached in the browser so the timeline can appear
+immediately on the next visit instead of waiting for the server.
+
+After the app has been online once, its **Service Worker** keeps the application
+available offline. Text, images, URLs, and replies created without a connection
+are stored as pending work in **IndexedDB**.
+
+When connectivity returns, those pending posts are sent to the server and enter
+the same persona-routing flow as ordinary posts.
+
+A passing thought therefore does not have to wait for the network.
+
 [Using offline posts](https://kakeratta.net/manual/?lang=en#en-offline)
 
 ## What we learned
@@ -171,72 +389,136 @@ An AI that organizes your information is not enough.
 
 A room someone else has tidied can be harder to find things in than before. AI
 organizing your notes is similar: perfectly filed, they are still out of reach
-if you do not know where they are. More fundamentally, **you cannot search for
-what you forgot exists.**
+if you do not know where they are.
+
+More fundamentally, **you cannot search for what you forgot exists.**
 
 So a personal AI cannot stop at remembering and organizing. It has to bring
 things to you when they are needed, and sometimes say "this might matter to you
-now" without being asked. We learned that **when to remind** matters as much as
-what to remember.
+now" without being asked.
 
-The inside grew complex, but what the user does became simpler for it. Post
-what you are thinking. Tell a persona in plain words what you would like. That
-is all.
+We learned that **when to remind matters as much as what to remember.**
+
+We also learned that making the AI more capable does not always mean giving
+every decision to a larger model.
+
+If a high-end model gets a task right and a smaller model gets it wrong, the
+task may be too ambiguous.
+
+That is what happened with routing. Instead of continuing to spend a larger
+model on every post, the job was changed from a broad judgement into explicit
+condition matching.
+
+The smaller router became much more dependable, the work on every post became
+cheaper, and the routing conditions became something the user could inspect and
+correct.
+
+The same principle shaped the rest of the system: strong models are useful, but
+clear boundaries are useful too — between routing and execution, between a
+persona and its memory, between a persona and the tools it is allowed to use,
+and between kakeratta and an external autonomous agent.
+
+The inside grew complex, but what the user does became simpler.
+
+**Post what you are thinking. Tell a persona in plain words what you would like.**
+
+That is all.
 
 ## Get started
 
-Requirements: Go 1.26 or later, Node.js, Task (the `task` command), and a
-Nebius Token Factory API key. With [mise](https://mise.jdx.dev), `mise install`
-in the repository root gets Go and Task from `mise.toml`; otherwise install
-Task with `go install github.com/go-task/task/v3/cmd/task@latest`.
+Requirements:
+
+* Go 1.26 or later
+* Node.js
+* Task (the `task` command)
+* A Nebius Token Factory API key
+
+With [mise](https://mise.jdx.dev), `mise install` in the repository root gets Go
+and Task from `mise.toml`.
+
+Otherwise install Task with:
+
+```sh
+go install github.com/go-task/task/v3/cmd/task@latest
+```
+
+Then:
 
 ```sh
 task setup  # once
 task dev    # the API on :8787 and the page on :5173, together
 ```
 
-Open <http://127.0.0.1:5173> and enter the API key in Settings. Anything past
-that — another provider for the models, an external agent, running the server
-yourself — is under [Advanced](#advanced).
+Open http://127.0.0.1:5173 and enter your **Nebius Token Factory API key** in
+Settings.
+
+Lightning, Super, and Ultra are configured for the three model tiers by
+default.
+
+No Firebase account or external database is required for a local run. Data is
+stored on disk by default and the server listens on loopback.
+
+For environment variables, Firebase Authentication, Firestore, Cloud Storage,
+Cloud Run, MCP servers, and self-hosting, see
+[Running it](docs/technical.md#running-it).
 
 ## Advanced
 
-None of this is needed to use the app. It is here for when the defaults are not
-what you want.
+None of this is needed for normal use.
 
-**Another provider for the models.** Settings → **Use OpenRouter** takes an
-OpenRouter API key, and once the connection check passes it unlocks two things.
-Routing alone can move to **Jev**, a decision-only model that is fast and cheap
-but returns no reasons, so the router's call shows who was chosen without
-saying why. **OpenRouter-only mode** moves the high, middle and low tiers to
-models you pick, with tool calls routed through Exacto. Left alone, everything
-runs on Nemotron through Nebius Token Factory. The measurements behind Jev are
-in [the routing model comparison](docs/routing-model-comparison-2026-09-19.md)
-(Japanese).
+### Another provider for the models
 
-**An external agent as a persona.** Hermes Agent joins the room like anyone
-else. Kakeratta keeps your requests as an MCP server; Hermes connects to it,
-runs them with its own models, tools and long-term memory, and reports back
-into the timeline — from **Ask Hermes**, from `@Hermes` in a post, from a daily
-check-in, or from Hermes's own cron. Kakeratta never starts the Hermes process;
-it only needs a URL Hermes can reach. Issue the key in Settings, under **MCP
-連携**, and follow [Setup and API guide](docs/hermes.md) (Japanese).
+Settings → **Use OpenRouter** accepts an OpenRouter API key.
 
-**Running the server yourself.** Environment variables, authentication, where
-the data lives, and the tools an operator provides are in
+Routing alone can move to **Jev**, a decision-only model that is fast and cheap.
+Because it does not return routing reasons, the router's call can show who was
+chosen but cannot show the normal exclusion reasons.
+
+**OpenRouter-only mode** can instead move the high, middle, and low model tiers
+to models you choose, with tool calls routed through Exacto.
+
+Left alone, kakeratta uses its Nemotron configuration through Nebius Token
+Factory.
+
+### External agents through MCP
+
+Hermes does not have to run under NemoClaw to use kakeratta.
+
+The integration boundary is MCP: issue a workspace key in Settings, configure
+the kakeratta MCP server in Hermes, enable the Hermes persona, and Hermes can
+claim tasks and report their results.
+
+The NemoClaw/OpenShell setup described above is the tested sandboxed
+configuration used for the hackathon integration.
+
+kakeratta does not start or control the Hermes process itself.
+
+Detailed credential scope, task claiming, retries, reports, and failure
+semantics are in [Hermes Agent setup](docs/hermes.md)
+([日本語](docs/hermes_ja.md)).
+
+### Running the server yourself
+
+The browser app and Go API can be run locally or deployed separately.
+
+The default local configuration uses files on disk and loopback networking.
+
+Environment variables, authentication, storage, Cloud Run deployment,
+check-ins, schedules, and operator-provided tools are documented in
 [Under the hood](docs/technical.md#running-it).
 
 ## Read more
 
-| Document | Contents |
-| --- | --- |
-| [Under the hood](docs/technical.md) | The flow, why routing and workflows are shaped as they are, models, environment variables and storage, how check-ins work, tools and routes |
-| Landing page and manual ([/lp/](https://kakeratta.net/lp/?lang=en), [/manual/](https://kakeratta.net/manual/?lang=en)) | Bilingual pages served beside the app; the **?** icon in the app header opens the manual in a new tab |
-| [Usage and configuration](docs/usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
-| [Design and personas](docs/architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
-| [What was hard about the AI](docs/ai-lessons.md) | What went wrong with Nemotron personas in live runs and production, and how each was fixed |
-| [Hermes Agent](docs/hermes.md) (Japanese) | Connecting an external agent as a persona: the MCP key, requests, and reports |
-| [Development and status](docs/development.md) | Tests, source layout, implemented features, and unverified items |
-| [Google Cloud deployment](infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
+| Document                                                                                                 | Contents                                                                                                          |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [Under the hood](docs/technical.md)                                                                      | The system flow, routing design, Nemotron models, workflow constraints, storage, check-ins, tools, and deployment |
+| [Manual](https://kakeratta.net/manual/?lang=en)                                                          | Using personas, search, memory, speech, sharing, tools, offline posts, and settings                               |
+| [Usage and configuration](docs/usage.md)                                                                 | Android and iOS sharing, location, speech, model settings, and stored data                                        |
+| [Design and personas](docs/architecture.md)                                                              | Principles, routing, execution order, OKF notes, skills, and tools                                                |
+| [What was hard about the AI](docs/ai-lessons.md)                                                         | What went wrong with Nemotron personas in live runs and production, and how each was fixed                        |
+| [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, task claiming, completion, retries, and reports                            |
+| [NVIDIA NemoClaw with Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | Official setup for running Hermes in a NemoClaw/OpenShell sandbox                                                 |
+| [Development and status](docs/development.md)                                                            | Tests, source layout, implemented features, and unverified items                                                  |
+| [Google Cloud deployment](infra/README.md)                                                               | Terraform deployment: Firebase Hosting for the page and Cloud Run for the API                                     |
 
 [MIT licensed](LICENSE).

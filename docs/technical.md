@@ -2,290 +2,1001 @@
 
 [README](../README.md) · [日本語](technical_ja.md)
 
-You do not need this document to use kakeratta. The aim is that a user does two
-things only: post what they are thinking, and tell a persona in plain words what
-they would like it to do. This page collects what runs underneath to make that
-possible, and what the person running the server decides.
+You do not need this document to use kakeratta.
+
+The user-facing idea is deliberately small: post what you are thinking, and
+tell a persona in plain words what you would like it to do.
+
+This page describes what runs underneath to make that possible: routing,
+persona execution, memory, model selection, scheduled wakes, tools, storage,
+offline behavior, external agents, and the choices made by whoever runs the
+server.
 
 ## The flow
 
-When a post arrives, a lightweight routing step wakes only the personas that
-seem relevant. Each of them decides for itself whether to speak, to remember,
-or to do nothing.
+A post moves through three main layers:
 
-Long-term memory uses [OKF (Open Knowledge Format)](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf),
-split per persona and then per topic. Instead of reading one huge context every
-time, a persona reads and writes only the notes it needs.
+**mixed timeline → routing → subject-specific personas → structured memory**
 
-Everything stays in the timeline, including what no persona remembered. Keyword
-search and meaning search find a past fragment when it is needed.
+When a fragment arrives, the router checks it against each active persona's
+routing condition and wakes only the ones that match.
 
-Inference runs on NVIDIA Nemotron through Nebius Token Factory, with light,
-middle, and high models for different jobs. Personas can also use tools such as
-web search and MCP servers.
+Each selected persona then decides what to do:
 
-A note has to be writable the moment it comes to mind, so a Service Worker lets
-the timeline be read and written offline.
+* read the parts of its memory that are relevant
+* inspect the current thread or older fragments
+* call one of the tools allowed for that persona
+* write or update a note
+* schedule a later follow-up
+* speak in the timeline
+* or stay silent
 
-Put together, the shape is this:
+Long-term memory uses
+[OKF (Open Knowledge Format)](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf),
+split first by persona and then by topic.
 
-**A mixed timeline → personas by subject → structured memory per persona**
+A persona therefore does not receive one ever-growing personal-history prompt.
+It reads and writes the notes needed for the task at hand.
 
-Inside there are MCP, RAG, OKF, skills, meaning search, and model routing. None
-of it needs to be understood to use the app.
+Everything else still remains in the timeline, including fragments that no
+persona chose to remember. Keyword and embedding-based meaning search can bring
+those fragments back later.
 
-## Stopping AIs from talking to each other
+Inference is primarily provided through **Nebius Token Factory**, with different
+models assigned according to task difficulty and frequency.
 
-Several AIs reacting to one another burn tokens and fill the timeline with a
-conversation among themselves.
+Personas can also use tools such as:
 
-So personas run in the order light → middle → high, and each later model can see
-the reactions so far. A later judgement can be fed back to an earlier persona so
-it updates its memory, but that persona cannot speak again in the same turn.
-This keeps AI-to-AI chatter from continuing while still making use of the
-stronger model's judgement.
+* Tavily web search
+* place lookup
+* walking, cycling, and driving routes
+* remote MCP servers
 
-The order is described in detail in [Design and personas](architecture.md#order).
+The browser keeps recent state locally and supports offline posting, while
+server-side check-ins and schedules can continue when the browser is closed.
 
-## Routing is matching against conditions, not judgement
+The complexity stays below the surface. None of MCP, RAG, OKF, model tiers, or
+workflow validation needs to be understood by the person using the app.
 
-At first, Lightning was asked to judge who a post should go to. Each persona's
-description included what we wanted from it and what it would actually do, and
-posts were misrouted, sometimes missing the persona that should have reacted.
+## Routing is condition matching, not open-ended judgement
 
-So routing moved to Ultra. Ultra also misbehaved at first, but responded
-clearly to prompt fixes, and after some tuning it ran steadily.
+Routing happens on every post, so it needs to be both inexpensive and
+predictable.
 
-Then the actual spend showed up in Usage, and the setup was reconsidered. Ultra
-by itself is not extreme, but one post in kakeratta triggers several AI steps,
-and in some cases the total came to one or two yen per post. A personal AI
-should never make the user ask "is this worth sending to an AI?"; the small
-events of a day should go in freely. So the cost of the router, which runs on
-every single post, mattered.
+Each persona has a short **routing condition** describing the fragments it
+should receive. The router's job is not to decide what that persona ought to do
+with the post. It only decides whether the post matches that condition.
 
-Comparing the six production personas over the latest twenty posts, at 150 yen
-to the dollar, one routing call cost about 0.069 yen on Lightning and about
-0.456 yen on Ultra. Simply switching to Lightning at that point agreed with
-Ultra on 17 of 20 posts, but the three disagreements were two personas that
-should have reacted and were missed, and one broken response that ran to 8,192
-tokens without a decision. Close on paper, but a router that misses personas
-and breaks could not go to production. Agreement here is between models, not a
-human-checked accuracy.
+That separation was learned the hard way.
 
-If a high-end model gets it right and a low-end one gets it wrong, the routing
-conditions are probably too complex. So what the router reads about each
-persona changed from "what it is responsible for achieving" to a *routing
-condition*, and the job became a plain check of whether the post matches. That
-helped, but personas were still overlooked, so `reasons` for the chosen ones
-was dropped in favour of **a required `excluded_reasons` for every persona not
-chosen**. Concrete examples were also removed from the router prompt, because
-they pulled the judgement towards themselves.
+Early versions gave the router broader persona descriptions containing both the
+subject and what the persona was expected to accomplish. Smaller models missed
+personas that should have reacted, and some prompts became too open-ended.
 
-Through the intermediate runs, agreement with Ultra stayed at 15 to 17 of 20,
-and what improved was the substance: broken responses disappeared, and the
-food photo and the book question that had been missed were picked up. The
-final production configuration reached 18/20. The two remaining disagreements
-were posts like "did I bathe today, maybe again", too immediate to be worth a
-schedule: Ultra ignored them and Lightning took them as plans, and either
-reading is defensible. Both were checked by hand and judged acceptable. The
-method and every run's figures are in
-[Routing model comparison](routing-cost-experiment.md).
+Routing was moved to a larger model while the prompt was being debugged. That
+made the problems easier to see, but usage data exposed a more important design
+issue: routing runs for every fragment, while one post may already trigger
+several later AI calls.
 
-The good thing about this design was that showing the exclusion reasons to the
-user suggested a feature: the user can improve the routing themselves. Not even
-Ultra routed perfectly from the start, so when a routing feels wrong, the user
-says why with "I wanted it called", and that grew into the way personas are
-trained.
+A personal AI should not make the user hesitate before saving a small thought
+because every fragment is expensive.
 
-## Persona actions as a workflow, with constraints and a review
+The useful lesson was:
 
-Apart from the router, there is execution control so that what a persona
-generates is not run as is. A persona hands in a **workflow**, its writes and
-its remark in order, and the app checks it before running it.
+**If a high-end model gets a routing task right and a smaller model gets it
+wrong, the routing task may be too ambiguous.**
 
-One thing Nemotron (and LLMs in general) is poor at is doing two similar things
-in the same flow: it prefers to skip the second. The core of this app is that a
-persona remembers a fragment and replies when there is a reason to. When the
-note and the remark would say the same thing, it tends to write the note and
-forget to speak, or the other way round. So a remark now requires a note, and
-the `speak` step is always required even when only a note is wanted, with an
-empty text meaning silence, which forces the question of whether to speak.
+So the problem was changed instead of simply keeping the larger model.
 
-For schedules, it does no harm for the schedule and the note to say the same
-thing, so the opposite was done: one step writes the note and places the
-schedule together.
+What the router sees became a short routing condition rather than a description
+of what the persona is responsible for achieving. Concrete examples that pulled
+the model toward particular cases were removed.
 
-A wrong schedule costs trust, so for a persona that holds the schedule tool the
-workflow goes to Super for review, including the note's contents. If they do
-not agree, or the persona spoke without placing the schedule, the workflow is
-sent back to the persona.
+For models that support explanations, the output also requires an
+`excluded_reasons` entry for every persona that was not selected.
+
+This did two things at once:
+
+1. it forced the router to explicitly consider every persona;
+2. it created a reason that could be shown to the user.
+
+That second effect became a product feature.
+
+When the user says **Should have been called** or that a persona should not have
+been called, kakeratta can use the correction to rewrite the persona's routing
+condition and try the same post again before saving it.
+
+The current default router is **Nemotron 3 Super through Nebius Token Factory**.
+
+Advanced settings can instead use **Jev** for routing alone. Jev is a
+decision-oriented model and can be faster and cheaper for that narrow task, but
+it does not provide the exclusion reasons used by the normal routing-inspection
+UI.
+
+### Measurements behind the routing design
+
+The measurements are kept in separate experiment documents because they are
+snapshots of particular prompts, personas, models, and production states rather
+than specifications of the current architecture.
+
+The first controlled comparison used 12 synthetic routing cases with expected
+recipients fixed before execution. Both Lightning and Ultra matched all 12
+cases. At the prices and exchange rate used for that experiment, the measured
+routing call averaged about **0.0465 yen with Lightning** and **0.3385 yen with
+Ultra**. Lightning was cheaper but slower in that run.
+
+See
+[Routing model comparison — 2026-09-17](routing-cost-experiment.md)
+for the full method, token counts, latency, cost assumptions, and reproduction
+command.
+
+A later read-only replay used the latest 20 production posts and the six active
+production persona conditions at that time. It compared Lightning, Nano, Super,
+Ultra, Jev, and GPT Luna without waking personas or writing anything back to
+production.
+
+Among the Nemotron models in that run, **Super averaged 1.91 seconds and about
+0.098 yen per route**, while Lightning averaged 6.55 seconds / 0.070 yen and
+Ultra 2.28 seconds / 0.449 yen. The optional Jev Decisions path averaged
+0.37 seconds / 0.026 yen.
+
+That replay did **not** have a pre-established human ground-truth label for all
+20 posts, so those figures should not be read as an accuracy leaderboard.
+
+See
+[Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md)
+*(Japanese)* for the complete measurements and limitations.
+
+The architecture described in this document remains the source of truth for the
+current configuration; the experiment documents explain why that configuration
+changed.
+
+## Preventing AI-to-AI chatter
+
+Several personas can react to the same fragment.
+
+If every reaction wakes every other AI again, the result is expensive,
+unbounded AI-to-AI conversation that fills the user's timeline.
+
+kakeratta therefore executes built-in personas in model-tier order:
+
+**light → middle → high**
+
+Later executions can see the reactions already produced during that turn.
+
+A stronger later persona can produce information that causes an earlier
+persona's memory to be updated, but the earlier persona cannot speak again in
+the same turn.
+
+This allows later judgement to improve state without opening a new conversation
+loop.
+
+The detailed ordering rules are documented in
+[Design and personas](architecture.md#order).
+
+## Persona actions are workflows, not raw model output
+
+A persona does not directly mutate application state from whatever text the
+model happens to produce.
+
+Instead, it submits a **workflow** describing the actions it wants kakeratta to
+perform.
+
+The application validates that workflow before executing it.
+
+This matters because several operations are deceptively similar from a model's
+point of view.
+
+For example, the core behavior of a persona is often:
+
+1. remember something;
+2. possibly say something about it.
+
+LLMs tend to collapse two similar actions into one. If a note and a remark
+contain related content, a model may write the note and omit the reply, or
+reply and forget the note.
+
+kakeratta makes that distinction explicit.
+
+A `speak` step is always present in the workflow, even when silence is intended.
+An empty text means "do not speak". This forces the model to answer the question
+of whether it should say something instead of simply forgetting the action.
+
+When a remark is produced, the workflow also requires the corresponding memory
+write expected by that persona.
+
+Schedules use a different rule. A scheduled follow-up and its note often
+describe the same future event, so note storage and scheduling are handled
+together instead of forcing the model to repeat nearly identical steps.
+
+### Review for schedule-capable personas
+
+A bad conversational reply is annoying.
+
+A bad schedule is worse because it can return later as if it were a fact the
+user asked the system to remember.
+
+For personas that can schedule future wakes, the generated workflow is reviewed
+by **Nemotron 3 Super** before execution.
+
+The review includes the note contents and checks whether the schedule agrees
+with what was actually recorded.
+
+If the workflow is inconsistent — for example, it speaks as if a reminder was
+created without creating the schedule — it is returned rather than executed as
+is.
 
 ## Models
 
-Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Persona
-execution, routing, and workflow review use native tool calling
-(`tool_choice: "required"`); image reading, persona drafting, dictation
-polishing, and embeddings use the provider's structured-output or embedding
-APIs instead.
+kakeratta uses multiple models through **Nebius Token Factory** rather than
+sending all work to one large model.
 
-| Model (Token Factory) | Role |
-|---|---|
-| Nemotron 3 Ultra | High-tier personas and persona drafting |
-| Nemotron 3 Super | Routes posts; middle-tier personas; workflow review |
-| Nemotron 3.5 Lightning | Low-tier personas and dictation polishing (thinking off, 1,024 tokens, temperature 0.1) |
-| GLM-5.3-Flash | Reading screenshots and photos, once per post |
-| Qwen3-Embedding-8B | Meaning search over past posts |
+| Model                      | Role                                               |
+| -------------------------- | -------------------------------------------------- |
+| **Nemotron 3 Ultra**       | High-tier personas and persona drafting            |
+| **Nemotron 3 Super**       | Routing, middle-tier personas, and workflow review |
+| **Nemotron 3.5 Lightning** | Low-tier personas and dictation polishing          |
+| **GLM-5.3-Flash**          | Reading screenshots and photos, once per post      |
+| **Qwen3-Embedding-8B**     | Meaning search over past fragments                 |
 
-Advanced settings can move routing alone to Jev's Decisions API (which does
-not return reasons), or move the high/middle/low slots to OpenRouter models.
+Persona execution, routing, and workflow review use native tool calling where
+appropriate.
+
+Image reading, persona drafting, dictation cleanup, structured generation, and
+embeddings use the provider's structured-output or embedding interfaces rather
+than pretending every operation is the same kind of chat request.
+
+One of the advantages of Token Factory during development was that the model
+roles could be changed without rebuilding the surrounding provider integration.
+
+Usage data also made the cost of those choices visible while the routing design
+was being changed.
+
+Advanced settings can:
+
+* move routing alone to Jev's Decisions API;
+* move the high, middle, and low slots to OpenRouter-selected models.
+
 OpenRouter tool calls use Exacto routing.
 
-Web search uses Tavily. What was hard about making this dependable — and what
-was done about it — is written up in [What was hard about the AI](ai-lessons.md).
+## Image understanding happens once per post
+
+A photo or screenshot is sent to **GLM-5.3-Flash once when the post is
+processed**.
+
+The resulting textual interpretation is attached to the fragment and shared
+with the relevant personas.
+
+The image is not independently sent through vision once for every persona.
+
+This is deliberate.
+
+If three personas receive the same photo, repeated vision calls would multiply
+both latency and cost while often extracting the same basic facts. A single
+interpretation also gives the personas a consistent description of what was
+seen.
+
+There is a trade-off.
+
+Different personas can care about different visual details. A food persona may
+want the ingredients, while a travel persona may care about the restaurant sign
+in the background.
+
+If the initial image interpretation did not extract a detail, a later persona
+cannot recover it simply by asking a different question: the original vision
+model is not run again from that persona's point of view.
+
+For kakeratta, the current choice is:
+
+**one predictable image-understanding step per post → shared textual context for
+all relevant personas**
+
+rather than:
+
+**one vision request per persona → potentially richer persona-specific details
+at multiplied cost and latency**.
+
+That limit is intentional and documented rather than hidden as if every persona
+had independently seen the original pixels.
+
+## Memory and search
+
+Each persona owns its own memory.
+
+A food persona cannot silently rewrite the travel persona's notes, and an
+external Hermes integration has its own writable memory area.
+
+Notes are stored as structured Markdown under OKF-style topics rather than as
+one conversation transcript.
+
+The user can inspect those notes directly from the interface.
+
+Each note can also retain provenance back to the fragments and conversations
+that changed it. That is why the UI can show **Posts that updated this memory**
+instead of presenting long-term memory as an unexplained model state.
+
+Individual notes can be edited or forgotten without deleting the source post.
+
+Deleting a source post is different.
+
+When a post is deleted, kakeratta looks at its own record of which personas were
+woken for that post and tells those personas to revisit anything that depended
+on it.
+
+It does not scan note text to guess who might have used the post.
+
+The persona can then correct or remove its own dependent memory. kakeratta
+itself does not rewrite persona notes behind the model's back.
+
+### Meaning search
+
+A fragment does not need to have been intentionally remembered by a persona to
+remain useful.
+
+Timeline text, persona conversations, and text extracted from images can be
+searched later.
+
+Meaning search uses **Qwen3-Embedding-8B** embeddings. A query such as "a light
+red that was easy to drink" can therefore find a past post without requiring
+the user to remember the exact word "Pinot".
+
+This is deliberately separate from long-term persona memory:
+
+* memory is what a persona chose to retain;
+* search can recover what remained only in the timeline.
+
+## Tools belong to the persona and the operator
+
+A persona does not automatically receive every tool available to the server.
+
+Its skill declares the tool names it may use.
+
+The server operator determines where those tool names actually point.
+
+Built-in integrations include:
+
+* `web_search`
+* `place_search`
+* `route`
+
+Remote MCP servers can extend the tool list.
+
+The application performs the actual calls and holds the relevant credentials.
+
+### Web search
+
+`web_search` uses **Tavily**.
+
+The Tavily API key is supplied by the user in Settings rather than embedded in
+the application.
+
+A persona receives web search only when its configured skill declares that
+tool.
+
+### Place search
+
+`place_search` uses OpenStreetMap services.
+
+When a post carries a location, nearby-place search uses Overpass through
+`KAKERATTA_OVERPASS_URL`.
+
+When no current position is available and the persona searches by place name,
+Nominatim is used through `KAKERATTA_NOMINATIM_URL`.
+
+Opening hours are returned only when OpenStreetMap contains them. They are not a
+live guarantee that a business is open now.
+
+Temporary Overpass failure is retried once and then reported as unavailable
+rather than being converted into a false "no places found" result.
+
+### Routes
+
+`route` requires a position attached to the post.
+
+Driving, walking, and cycling use separate OSRM-compatible endpoints:
+
+* `KAKERATTA_OSRM_CAR_URL`
+* `KAKERATTA_OSRM_FOOT_URL`
+* `KAKERATTA_OSRM_BIKE_URL`
+
+The defaults use public OpenStreetMap-based routing services.
+
+These are road-network estimates. They do not contain live traffic or public
+transport timetables.
+
+Changing only an OSRM URL's profile token is not sufficient to change travel
+mode; a custom routing server must be built with the corresponding routing
+data.
+
+### MCP tools
+
+`KAKERATTA_MCP_SERVERS` is a JSON array of remote Streamable HTTP MCP servers.
+
+For example:
+
+```json
+[
+  {
+    "name": "geo",
+    "url": "https://geo.example.com/mcp",
+    "headers": {
+      "Authorization": "Bearer …"
+    }
+  }
+]
+```
+
+Their tools appear alongside built-in tools using a qualified name such as:
+
+```text
+geo.compute_commute
+```
+
+A persona's skill can then declare that exact tool.
+
+Tool discovery is cached for a few minutes. If a remote server temporarily
+stops answering, its last known tool list can remain available, while an actual
+tool call failure is surfaced to the persona instead of silently disappearing.
+
+When an MCP server provides `route` or `place_search`-equivalent functionality
+that accepts `lat` and `lng`, kakeratta can route those operations through that
+server and fill in the post's position automatically.
+
+If the remote server itself cannot be reached, the built-in OpenStreetMap
+implementation can be used as fallback.
+
+An explicit error returned by the remote server is not hidden as a fallback
+success.
+
+## Check-ins and scheduled wakes
+
+Each active persona can optionally enable **Daily check-in**.
+
+It is **off by default**.
+
+A persona has one preferred check-in time per day. The browser's time zone is
+saved with that setting, including daylight-saving behavior. It remains the
+saved zone if the user travels; there is currently no separate time-zone picker.
+
+At check-in time, the persona can:
+
+* read its memory;
+* inspect recent fragments;
+* use the tools declared for it;
+* search the web where appropriate;
+* speak only if there is something worth bringing back.
+
+Silence produces no empty system post and no empty conversation thread.
+
+A persisted claim limits a persona to one check-in attempt per local calendar
+day, including silent or failed attempts.
+
+Firestore claims are transactional across server instances.
+
+Local file storage assumes one server process for a workspace.
+
+Changing the preferred check-in time or forgetting memory does not reset an
+already-used daily claim.
+
+After downtime, only today's due check-in can run. Missed previous days are not
+replayed.
+
+A crash after claiming a check-in can therefore skip that day's run rather
+than risk duplicating it.
+
+### Schedules created by personas
+
+A persona that has the `schedule` tool can ask kakeratta to wake it later.
+
+Current limits are:
+
+* up to 20 pending schedules per persona;
+* up to 30 days ahead;
+* one-time or daily recurrence.
+
+Schedules are attached to the note that caused them to exist.
+
+For example, plana may write a note about buying flowers and schedule a later
+wake to ask whether they were bought.
+
+The design favors a check shortly *after* the relevant moment rather than a
+traditional calendar alarm beforehand.
+
+A schedule is claimed before the model executes so a failed or silent wake is
+not run repeatedly.
+
+A wake more than 10 minutes late is dropped rather than replayed at an
+unexpected time.
+
+Deleting the note gives the persona a chance to revisit the schedules that
+depended on it.
+
+Forgetting all of a persona's memory, pausing it, or removing it drops its
+pending schedules.
+
+### The browser does not need to stay open
+
+Check-ins and schedules are server-side.
+
+The browser can be closed.
+
+The server itself must still be running.
+
+The provided Cloud Run deployment keeps one instance available and allocates
+CPU outside request handling so the server can perform these periodic checks.
+
+Configured workspaces are restored after a restart, including Firestore-backed
+users.
+
+The scheduler checks once per minute and uses the same execution queue as
+ordinary persona work, so a busy queue can delay a wake.
+
+## Offline posting
+
+A passing thought should not depend on having a network connection at that
+moment.
+
+The browser therefore keeps recent conversations locally for fast startup and
+registers a **Service Worker** after the application has been used online.
+
+Text, images, URLs, and replies created while offline are stored as pending
+operations in **IndexedDB**.
+
+They appear locally as pending rather than being discarded.
+
+When connectivity returns, they are sent to the server and enter the same
+routing and persona-execution path as ordinary posts.
+
+Offline support therefore changes when a post reaches the server, not what the
+post means once it arrives.
+
+The browser cache is not the authoritative long-term data store.
+
+## Storage, privacy, and account deletion
+
+kakeratta can run as a local single-user application or as a hosted multi-user
+service.
+
+### Local mode
+
+Local runs:
+
+* require no login;
+* listen on loopback by default;
+* use filesystem storage by default.
+
+`KAKERATTA_STORE=file` stores user state under `KAKERATTA_HOME`.
+
+This includes posts, settings, persona definitions, and persona notes.
+
+Images are stored locally unless a Cloud Storage bucket is configured.
+
+### Hosted mode
+
+Public deployments can enable Firebase Authentication by setting:
+
+* `KAKERATTA_FIREBASE_PROJECT_ID`
+* `KAKERATTA_FIREBASE_API_KEY`
+* `KAKERATTA_FIREBASE_AUTH_DOMAIN`
+
+Authenticated user data is isolated under a user-specific hashed namespace.
+
+With:
+
+```text
+KAKERATTA_STORE=firestore
+```
+
+posts, settings, persona definitions, and persona notes are stored in Firestore
+under:
+
+```text
+users/<uid-hash>/
+```
+
+With `KAKERATTA_GCS_BUCKET` configured, images are stored privately under:
+
+```text
+users/<uid-hash>/blobs/
+```
+
+### Backup and portability
+
+Settings → **Backup** creates a zip containing the user's:
+
+* posts
+* personas
+* notes
+* images
+
+The layout is deliberately usable by a self-hosted kakeratta instance.
+
+Provider API keys and external-service connections are excluded.
+
+### Account deletion
+
+The hosted application provides a complete account-deletion path.
+
+The user is directed to Backup first if they want to keep a copy.
+
+Deleting the account removes the user's:
+
+* posts and conversations;
+* persona definitions and persona memories;
+* uploaded images;
+* settings;
+* stored credentials;
+* Bluesky and other external connection state;
+* MCP credentials and connection state;
+* server-side backup data;
+* kakeratta login account itself.
+
+The goal is not to leave a personal-memory archive behind after the user has
+left the service.
 
 ## Running it
 
-Kakeratta is a browser app in two pieces: a static page and a Go API. Vite
-serves the page while developing and Firebase Hosting serves it deployed; the
-Go binary is only the API, on Cloud Run or on your own machine.
+kakeratta is a browser application in two pieces:
 
-Requirements: Go 1.26 or later, Node.js, and Task (the `task` command).
-Run from the repository root:
+1. a static web application;
+2. a Go API server.
+
+During development, Vite serves the page.
+
+The deployed reference setup uses Firebase Hosting for the static site and
+Cloud Run for the Go API.
+
+The Go binary itself is only the API and can also run on a user's own machine.
+
+### Requirements
+
+* Go 1.26 or later
+* Node.js
+* Task (`task`)
+* Nebius Token Factory API key
+
+With [mise](https://mise.jdx.dev):
 
 ```sh
-task setup  # once: the page's dev dependencies (Vite, Storybook)
-task dev    # the API on :8787 and the page on :5173, together
+mise install
 ```
 
-Open <http://127.0.0.1:5173>. A new workspace has nobody in the room yet, and the
-screen leads with that until you call someone in:
+uses `mise.toml` to install Go and Task.
+
+Otherwise install Task manually:
+
+```sh
+go install github.com/go-task/task/v3/cmd/task@latest
+```
+
+Then from the repository root:
+
+```sh
+task setup  # once: install the page's development dependencies
+task dev    # API on :8787 and Vite page on :5173
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173
+```
+
+A new workspace starts with no active personas and leads the user through
+adding one.
 
 <img src="captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" width="390">
 
-Then enter your Nebius Token Factory API key in Settings. Lightning, Super, and Ultra are configured for the three tiers by default. The page proxies `/api` to the binary, the same split the
-deployed setup has. `task run` starts only the API, `task build` builds only the
-binary (`bin/kakeratta`), `task stories` opens Storybook, and `task test` runs
-the tests.
+Enter a Nebius Token Factory API key in Settings.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `KAKERATTA_PUBLIC_URL` | empty | Public HTTPS origin for Bluesky OAuth |
-| `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](social-sharing-en.md) |
-| `KAKERATTA_ADDR` | `127.0.0.1:8787` (Firebase: `:8787`) | Listen address |
-| `KAKERATTA_HOME` | OS config directory | Storage for posts, notes, and images |
-| `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enables multi-user Firebase Authentication |
-| `KAKERATTA_FIREBASE_API_KEY` | empty | Public Firebase Web API key |
-| `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
-| `KAKERATTA_GCS_BUCKET` | empty | Private Cloud Storage bucket for images |
-| `KAKERATTA_STORE` | `file` | Set to `firestore` for Cloud Run |
-| `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebase project | Firestore project |
-| `KAKERATTA_MCP_SERVERS` | empty | JSON list of MCP servers whose tools personas may use |
-| `KAKERATTA_NOMINATIM_URL` etc. | public OpenStreetMap services | Place and route endpoints (see below) |
+Lightning, Super, and Ultra are configured for the low, middle, and high tiers
+by default.
 
-Local runs require no login and listen on loopback by default.
-For public deployments, set all three Firebase variables to enable Google sign-in
-and isolate each user's data. Where the data lives:
+Other development commands include:
 
-- `KAKERATTA_STORE=firestore` (for Cloud Run): posts, settings, persona notes, and persona definitions go to Firestore under `users/<uid-hash>`.
-- `KAKERATTA_STORE=file` (default): the same data goes to disk under `KAKERATTA_HOME/users/<uid-hash>/`.
-- With `KAKERATTA_GCS_BUCKET` set, images go to the private bucket under `users/<uid-hash>/blobs`, with either store.
-
-## Check-ins and timers
-
-Each active persona can opt into **Daily check-in** in the Personas panel, with
-one preferred time per day (off by default). The browser's time zone is saved with that time, including
-daylight-saving rules; it stays saved when you travel and is not limited to JST.
-There is currently no time-zone picker. A persona can read its memory, search
-fragments, and use its usual tools; it starts a timeline thread only when it has
-something worth sharing. Silence leaves no system post or empty thread.
-
-A persona that declares the `schedule` tool asks the app to wake it at a given
-minute: up to 20 pending schedules per persona, 30 days ahead, once or every
-day. The app holds the schedule the way it holds the endpoint and the active
-personas; the persona decides its contents and asks for them as it writes the
-note they belong to. The time comes from what the persona recorded rather than
-from a question to you, and it is always shortly *after* the moment - plana asks
-"did you get the flowers?" rather than nudging beforehand. A schedule is claimed
-before the model runs, so a silent or failed wake is not repeated, and one more
-than 10 minutes late is dropped rather than replayed. Deleting a note wakes the
-persona so it can revisit the schedules that went with it; forgetting a
-persona's whole memory, pausing it, or removing it drops its schedules.
-
-Deleting a post works the same way. The app removes the post and tells the
-personas it had woken for it, so each can drop or correct what rested on it. Who
-to tell comes from the app's own record of who it woke - it never reads a note
-to find out - and a persona that finds nothing of its memory resting on the post
-says nothing. The app never edits a note itself.
-
-The server checks once per minute and uses the existing execution queue, so a
-busy queue can delay a wake. The server must be running; the browser can be
-closed. Configured workspaces are restored after server restarts, including
-Firestore users. The provided Cloud Run configuration already keeps one
-instance running with CPU allocated outside requests.
-
-A persisted claim limits each persona to one check-in attempt per local
-calendar day, including silent or failed attempts. Firestore claims are
-transactional across instances; local storage assumes one server process per
-workspace. Changing the time or forgetting memory does not reset the claim.
-After downtime, only today's due check-in runs; missed days are not replayed. A
-crash after claiming can skip that day's check-in rather than repeat it.
-
-## Tools are the operator's
-
-[Tool guide: purposes, setup, examples, and limits](https://kakeratta.web.app/manual/?lang=en#en-tools)
-
-Where a persona's tools go is configured by whoever runs the server, through
-environment variables, and is the same for every user: the map endpoints and
-the MCP servers. The one thing a user sets is their own Tavily API key for
-`web_search`, in Settings. A skill declares tool names; the app makes every
-call and holds the keys.
-
-**MCP servers** extend the tool list. `KAKERATTA_MCP_SERVERS` is a JSON array:
-
-```json
-[{"name":"geo","url":"https://geo.example.com/mcp","headers":{"Authorization":"Bearer …"}}]
+```sh
+task run      # API only
+task build    # build bin/kakeratta
+task stories  # Storybook
+task test     # tests
 ```
 
-Each server's tools appear as `name.tool` (for example `geo.compute_commute`),
-next to the built-in ones, and a skill declares them by that name. Only remote
-servers over Streamable HTTP are supported. Tool lists are cached for a few
-minutes; a server that stops answering keeps its last known list, and a call
-that fails is reported to the persona rather than dropped.
+### Environment variables
 
-## Place and route tools
+| Variable                         | Default                                                         | Purpose                                                                 |
+| -------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `KAKERATTA_PUBLIC_URL`           | empty                                                           | Public HTTPS origin used by features such as Bluesky OAuth              |
+| `KAKERATTA_BLUESKY_KEY`          | empty                                                           | Secret used for Bluesky signing and encryption                          |
+| `KAKERATTA_ADDR`                 | `127.0.0.1:8787` (`:8787` in the reference Firebase deployment) | API listen address                                                      |
+| `KAKERATTA_HOME`                 | OS config directory                                             | Base directory for local state                                          |
+| `KAKERATTA_FIREBASE_PROJECT_ID`  | empty                                                           | Enables multi-user Firebase Authentication                              |
+| `KAKERATTA_FIREBASE_API_KEY`     | empty                                                           | Firebase Web API key                                                    |
+| `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty                                                           | Firebase Auth domain                                                    |
+| `KAKERATTA_GCS_BUCKET`           | empty                                                           | Private Cloud Storage bucket for images                                 |
+| `KAKERATTA_STORE`                | `file`                                                          | Storage backend; use `firestore` for the reference Cloud Run deployment |
+| `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebase project                                                | Firestore project                                                       |
+| `KAKERATTA_MCP_SERVERS`          | empty                                                           | Remote MCP servers whose tools may be assigned to personas              |
+| `KAKERATTA_NOMINATIM_URL`        | public service                                                  | Nominatim endpoint                                                      |
+| `KAKERATTA_OVERPASS_URL`         | public service                                                  | Overpass endpoint                                                       |
+| `KAKERATTA_OSRM_CAR_URL`         | public service                                                  | Driving route endpoint                                                  |
+| `KAKERATTA_OSRM_FOOT_URL`        | public service                                                  | Walking route endpoint                                                  |
+| `KAKERATTA_OSRM_BIKE_URL`        | public service                                                  | Cycling route endpoint                                                  |
 
-`route` needs a location attached to the post. Driving, walking, and cycling use
-separate OSRM endpoints: `KAKERATTA_OSRM_CAR_URL`, `KAKERATTA_OSRM_FOOT_URL`, and
-`KAKERATTA_OSRM_BIKE_URL`. The defaults are `https://router.project-osrm.org`,
-`https://routing.openstreetmap.de/routed-foot`, and
-`https://routing.openstreetmap.de/routed-bike`, respectively. Changing a URL's
-profile token alone does not select a travel mode: custom servers must prepare
-the corresponding routing data. These are road estimates, without public
-transport schedules or live traffic. Unsupported modes return an error.
+For Bluesky operator setup, see
+[social-sharing-en.md](social-sharing-en.md).
 
-`place_search` uses Overpass (`KAKERATTA_OVERPASS_URL`) for nearby places when a
-post has a location, or Nominatim (`KAKERATTA_NOMINATIM_URL`) for a name lookup
-otherwise. Opening hours are returned only when
-recorded in OpenStreetMap; they do not confirm that a shop is open now. Temporary
-Overpass failures are retried once, then reported as unavailable rather than
-“no places found”. Public services can still be busy or unavailable.
+## External agents through MCP
 
-When an MCP server offers a tool with the same name that takes the position
-(`lat` and `lng`), as geo-home-mcp does, `route` and `place_search` go to that
-server with the post's position filled in. If the server cannot be reached, the
-built-in OpenStreetMap calls above answer instead; an error the server itself
-returns is passed on to the persona.
+Built-in personas run inside kakeratta's own workflow system.
 
-Check-ins do not acquire a current location: `route` is unavailable and
-`place_search` can only do a name lookup during these wakes. Personas can still
-use their memory, timeline search, and declared web search.
+An external autonomous agent is deliberately different.
+
+kakeratta can expose a user's workspace as an authenticated **Streamable HTTP
+MCP server** and represent **Hermes Agent** as a persona.
+
+kakeratta stores tasks for Hermes.
+
+Hermes connects from its own runtime, claims those tasks, performs the work
+using its own models, tools, skills, and memory, and reports the result back into
+the timeline.
+
+kakeratta does not launch or supervise the Hermes process itself.
+
+This makes the boundary explicit:
+
+* kakeratta owns the user-facing timeline and permissions;
+* Hermes owns its execution environment.
+
+### MCP credential
+
+The user issues an MCP key from Settings.
+
+The raw key is shown only at creation time.
+
+The server stores a hash rather than the original credential.
+
+Reissuing the key invalidates the previous one.
+
+Disconnecting MCP removes the stored hash and makes the credential unusable.
+
+Pausing the Hermes persona blocks user-data MCP operations while allowing basic
+connection initialization and tool discovery.
+
+The key can access only the workspace for which it was issued.
+
+It can read:
+
+* the timeline;
+* persona definitions;
+* persona memories.
+
+It can write only the Hermes-owned note area rather than silently modifying
+another persona's memory.
+
+Turning Hermes off or revoking the key cannot erase data that Hermes already
+retrieved into its own external memory. That boundary is made explicit rather
+than pretending an external agent can be remotely un-told what it already
+received.
+
+### Exposed MCP tools
+
+The production kakeratta MCP server currently exposes 11 tools:
+
+```text
+list_personas
+get_timeline
+get_thread
+list_notes
+read_note
+write_note
+list_tasks
+claim_task
+cancel_task
+complete_task
+post_report
+```
+
+A normal task lifecycle is:
+
+```text
+list_tasks
+→ claim_task
+→ external work
+→ complete_task
+```
+
+A task is claimed with both a `taskId` and a caller-generated `claimId`.
+
+Repeated calls using the same `claimId` are treated as retries of the same
+claim.
+
+A different claim ID cannot silently steal an already-claimed task.
+
+### External side effects are not exactly-once
+
+kakeratta can make its own task operations idempotent, but it cannot know
+whether an arbitrary external side effect succeeded before the agent crashed.
+
+For example:
+
+```text
+claim_task
+→ Hermes changes something on GitHub
+→ Hermes crashes before complete_task
+```
+
+kakeratta cannot infer whether the GitHub change occurred.
+
+Claims therefore do not automatically expire and become available to another
+execution.
+
+If external state is uncertain, automatic re-execution should stop.
+
+The user can inspect the external system, cancel the old task if appropriate,
+and submit a new request.
+
+This trades automatic retry for avoiding accidental duplicate real-world
+actions.
+
+`complete_task` persists the result before attempting to post it back into the
+timeline, so delivery can be retried without redoing the underlying work.
+
+`post_report` lets Hermes proactively publish a report using a caller-provided
+unique ID, allowing the same report to be retried without creating duplicate
+timeline entries.
+
+Detailed semantics are in
+[Hermes Agent setup](hermes.md)
+([日本語](hermes_ja.md)).
+
+## NemoClaw and OpenShell
+
+For the hackathon integration, Hermes was also tested inside an
+**NVIDIA NemoClaw / OpenShell** environment.
+
+The tested stack was:
+
+```text
+NVIDIA NemoClaw
+    ↓
+OpenShell sandbox
+    ↓
+Hermes Agent v0.20.6
+    ↓
+Nebius Token Factory
+    ↓
+kakeratta production MCP server
+```
+
+NemoClaw provides the higher-level setup, orchestration, lifecycle, and policy
+configuration for the agent runtime.
+
+OpenShell provides the sandbox and policy-enforcement boundary.
+
+The tested `hermes-sandbox` used filesystem and network restrictions including
+Landlock-based filesystem isolation and controlled outbound network access.
+
+Inference credentials were kept outside Hermes's own configuration. Requests
+left the sandbox through the OpenShell gateway and were proxied to Nebius Token
+Factory.
+
+The tested inference configuration included:
+
+```text
+NousResearch/Hermes-4-405B
+nvidia/Nemotron-3_5-Lightning
+```
+
+The sandboxed Hermes instance successfully connected to:
+
+```text
+https://kakeratta.net/api/mcp/...
+```
+
+over Streamable HTTP MCP and discovered all 11 production MCP tools.
+
+This was an integration verification of the execution path and tool boundary.
+It does not mean kakeratta itself depends on NemoClaw.
+
+A Hermes installation can connect directly to the same MCP interface, while
+NemoClaw/OpenShell provides the tested sandboxed configuration used for the
+hackathon work.
+
+## Why the external agent is separate from a normal persona
+
+A normal kakeratta persona is intentionally constrained.
+
+It operates through a generated workflow that kakeratta validates before
+execution.
+
+Hermes is an autonomous external runtime and does not go through that same
+workflow-review layer.
+
+That is why its permissions are bounded at the MCP interface instead:
+
+* workspace-scoped authentication;
+* limited tool surface;
+* a separate writable memory area;
+* explicit task claiming;
+* explicit result completion;
+* revocable connection.
+
+Approval policy for external operations belongs to the Hermes/NemoClaw side.
+
+This distinction prevents "external agent" from becoming an invisible bypass of
+kakeratta's ownership model.
+
+## Design trade-offs
+
+Several choices in kakeratta deliberately favor understandable behavior over
+maximum automation.
+
+### Silence is a valid result
+
+A persona can write memory without speaking.
+
+A check-in can finish without creating a thread.
+
+Hermes can complete a task with an empty result when there is nothing worth
+posting.
+
+The system is not optimized for producing a visible AI response to every event.
+
+### Memory is inspectable
+
+Long-term memory is represented as notes the user can read and correct.
+
+It is not only a hidden vector store or conversation summary.
+
+Embeddings help retrieve fragments, but they are not treated as the source of
+truth for what the system "remembers".
+
+### Stronger models are not used everywhere
+
+The most capable model is not automatically the best model for a frequent,
+narrow task.
+
+The routing redesign is the clearest example.
+
+Making the task simpler reduced both model requirements and ambiguity.
+
+The measured routing experiments are kept alongside the repository rather than
+embedded as timeless claims in this architecture document, because prices,
+prompts, active personas, and model behavior can all change.
+
+### Vision is shared, not repeated per persona
+
+The original image is interpreted once and the resulting text is shared.
+
+That keeps vision cost and latency bounded as the number of personas grows, but
+it also means a persona cannot later ask the vision model to recover a detail
+that was omitted from the original interpretation.
+
+That is an explicit trade-off rather than an assumption that all personas need
+the same visual information.
+
+### External autonomy gets a harder boundary
+
+Built-in personas are controlled by workflow validation.
+
+Hermes has its own runtime, so the boundary moves outward to authentication,
+MCP capabilities, sandbox policy, and explicit task ownership.
+
+The architecture changes according to where control actually exists rather than
+pretending every agent is the same.
 
 ## Read more
 
-| Document | Contents |
-| --- | --- |
-| [Usage and configuration](usage.md) | Android and iOS sharing, location, speech, model settings, and stored data |
-| [Design and personas](architecture.md) | Principles, routing, execution order, OKF notes, skills, and tools |
-| [What was hard about the AI](ai-lessons.md) | What went wrong with Nemotron personas in live runs and production, and how each was fixed |
-| [Development and status](development.md) | Tests, source layout, implemented features, and unverified items |
-| [Google Cloud deployment](../infra/README.md) | Terraform deployment: Firebase Hosting for the page, Cloud Run for the API |
+| Document                                                                                     | Contents                                                                                                                          |
+| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [README](../README.md)                                                                       | What kakeratta is, what the user can do, privacy, always-on behavior, Nemotron/Token Factory, and the tested NemoClaw integration |
+| [Routing model comparison — 2026-09-17](routing-cost-experiment.md)                          | Controlled Lightning vs Ultra routing experiment with expected recipients, token counts, cost, and latency                        |
+| [Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md) *(Japanese)* | Read-only replay of 20 production posts across Nemotron models, Jev, and GPT Luna                                                 |
+| [Usage and configuration](usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |
+| [Design and personas](architecture.md)                                                       | Principles, routing, execution order, OKF notes, skills, and tools                                                                |
+| [What was hard about the AI](ai-lessons.md)                                                  | Failures seen with Nemotron personas and what changed to make them dependable                                                     |
+| [Hermes Agent](hermes.md) ([日本語](hermes_ja.md))                                              | MCP authentication, task lifecycle, retries, proactive reports, and external-agent behavior                                       |
+| [Development and status](development.md)                                                     | Tests, source layout, implemented features, and unverified items                                                                  |
+| [Google Cloud deployment](../infra/README.md)                                                | Terraform deployment with Firebase Hosting, Cloud Run, Firestore, and related infrastructure                                      |
+
+[MIT licensed](../LICENSE).
