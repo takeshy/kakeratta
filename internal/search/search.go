@@ -108,7 +108,7 @@ func normalize(text string) string {
 // request because each successful batch is saved before the next is started.
 func (s *Service) Search(ctx context.Context, query, mode string, limit, offset int) (Result, error) {
 	if mode == "" || mode == "hybrid" {
-		return s.Unified(ctx, query, limit, offset, 0.5)
+		return s.Unified(ctx, query, Window{}, limit, offset, 0.5)
 	}
 	query = strings.TrimSpace(query)
 	if len([]rune(query)) < 1 || len([]rune(query)) > 500 {

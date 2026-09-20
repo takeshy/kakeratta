@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/search"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"github.com/takeshy/kakeratta/internal/tools"
@@ -1230,17 +1231,17 @@ func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	failures := map[string]string{}
 
-	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
+	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
 	if !strings.Contains(text, "目次") {
 		t.Fatalf("a note read in the wrong field was refused: %s", text)
 	}
 
 	broken := []ReadStep{{Type: "tool", Tool: "place_search", Args: `{"query":"神谷町"}`}}
-	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
+	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
 	if strings.Contains(first, "前にも同じ理由で失敗") {
 		t.Fatalf("a first failure was called a repeat: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
+	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
 	if !strings.Contains(second, "前にも同じ理由で失敗") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1257,7 +1258,7 @@ func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	text, _ := runner.readAll(context.Background(), skill,
 		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
-		set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(maxReads))
+		set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(maxReads), map[string]string{})
 	if !strings.Contains(text, "豚骨に寄る") {
 		t.Fatalf("the note was not read: %s", text)
 	}
@@ -1272,11 +1273,11 @@ func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	failures := map[string]string{}
 	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
 
-	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
+	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
 	if !strings.Contains(first, "道具が使えませんでした") || strings.Contains(first, "前にも同じ理由で") {
 		t.Fatalf("first failure: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads))
+	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
 	if !strings.Contains(second, "前にも同じ理由で失敗しています") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1703,5 +1704,76 @@ func TestAGluedFrontmatterFenceIsMended(t *testing.T) {
 		if got := repairFrontmatter(tc.in); got != tc.want {
 			t.Fatalf("%s: %q, want %q", tc.name, got, tc.want)
 		}
+	}
+}
+
+// What a search found is not hung on the remark as it is. The persona names
+// in its speak the posts it rested on, by id, and those alone become the
+// links under it - an id no search of this turn returned sends the workflow
+// back. A live routine persona once cited ten posts it never used.
+func TestARemarkLinksOnlyThePostsItsSpeakNames(t *testing.T) {
+	calls := 0
+	runner, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["gourmet"]}`
+		}
+		calls++
+		switch calls {
+		case 1:
+			return `{"action":"tool","tool":"timeline_search","args":{"query":"ピノ","limit":5}}`
+		case 2:
+			return `{"summary":"前のピノを引く","steps":[` +
+				`{"type":"write_note","path":"tastes/pinot.md","text":"---\ntype: Preference\n---\n\nピノが好き","sources":[],"tool":"","args":"{}"},` +
+				`{"type":"speak","path":"","text":"前に飲んだピノに近いね","sources":["old","made-up"],"tool":"","args":"{}"}]}`
+		default:
+			return `{"summary":"前のピノを引く","steps":[` +
+				`{"type":"write_note","path":"tastes/pinot.md","text":"---\ntype: Preference\n---\n\nピノが好き","sources":[],"tool":"","args":"{}"},` +
+				`{"type":"speak","path":"","text":"前に飲んだピノに近いね","sources":["old"],"tool":"","args":"{}"}]}`
+		}
+	}, "gourmet")
+	runner.SetSearch(search.New(s))
+	old := timeline.Entry{ID: "old", Kind: timeline.KindPost, Speaker: timeline.User, Text: "ピノ・ノワール、軽くて飲みやすかった", At: time.Date(2026, 9, 12, 20, 0, 0, 0, time.UTC)}
+	old.Root = old.ID
+	if err := s.Append(old); err != nil {
+		t.Fatal(err)
+	}
+
+	runner.react(post(t, s, "今日は赤ワイン").ID)
+
+	said := remarks(t, s)
+	if len(said) != 1 || said[0].Text != "前に飲んだピノに近いね" {
+		t.Fatalf("calls = %d, remarks = %+v", calls, said)
+	}
+	if calls != 3 {
+		t.Fatalf("a speak citing a post no search returned was accepted: calls = %d", calls)
+	}
+	if len(said[0].Sources) != 1 || said[0].Sources[0].URL != "/?entry=old" || !strings.Contains(said[0].Sources[0].Label, "2026-09-12") || !strings.Contains(said[0].Sources[0].Label, "ピノ・ノワール") {
+		t.Fatalf("sources = %+v", said[0].Sources)
+	}
+}
+
+// The check itself: a speak may cite what this turn's searches found and
+// nothing else, and a persona with nothing found cites nothing.
+func TestSpeakSourcesMustComeFromThisTurnsSearches(t *testing.T) {
+	set := tools.New(tools.Config{}).For(nil)
+	speak := func(ids ...string) Workflow {
+		return Workflow{Steps: []Step{{Type: "speak", Text: "ひとこと", Sources: ids}}}
+	}
+	if problems := checkWorkflow(speak("old"), turnRules{set: set, cited: map[string]string{"old": "2026-09-12 ピノ"}}); len(problems) != 0 {
+		t.Fatalf("a found post was refused: %v", problems)
+	}
+	if problems := checkWorkflow(speak("old", "made-up"), turnRules{set: set, cited: map[string]string{"old": "2026-09-12 ピノ"}}); len(problems) != 1 || !strings.Contains(problems[0], "made-up") {
+		t.Fatalf("problems = %v", problems)
+	}
+	if problems := checkWorkflow(speak("old"), turnRules{set: set}); len(problems) != 1 {
+		t.Fatalf("a citation with no search behind it passed: %v", problems)
+	}
+	if sources := citedSources([]string{" old ", "made-up"}, map[string]string{"old": "2026-09-12 ピノ"}); len(sources) != 1 || sources[0].URL != "/?entry=old" || sources[0].Label != "2026-09-12 ピノ" {
+		t.Fatalf("sources = %+v", sources)
+	}
+	// The spec tells the persona about the field, and every sample carries it.
+	spec := workflowSpec(set)
+	if !strings.Contains(spec, "**sources**") || !strings.Contains(spec, `"sources":[]`) {
+		t.Fatalf("the spec does not explain sources:\n%s", spec)
 	}
 }

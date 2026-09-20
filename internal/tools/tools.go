@@ -27,6 +27,17 @@ import (
 type Result struct {
 	Text    string            `json:"text"`
 	Sources []timeline.Source `json:"sources,omitempty"`
+	// Citable are the saved posts a lookup found. Unlike Sources they are not
+	// hung on the remark as they are: the persona names the ones it rested on
+	// by id, and only those are linked.
+	Citable []Citable `json:"citable,omitempty"`
+}
+
+// Citable is one saved post a persona may cite, by id, with the line the
+// link shows.
+type Citable struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
 }
 
 // Args are the parameters a persona passed. They arrive as free JSON because

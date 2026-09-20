@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sort"
 	"strings"
@@ -12,13 +13,40 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
+// Window narrows a search to the entries written between From and To, both
+// inclusive. A zero side is open. A window alone, with no query, lists what
+// was written then: a persona woken in the morning can read the morning in one
+// call instead of guessing which words it would have used.
+type Window struct {
+	From time.Time
+	To   time.Time
+}
+
+func (w Window) empty() bool { return w.From.IsZero() && w.To.IsZero() }
+
+func (w Window) holds(at time.Time) bool {
+	if !w.From.IsZero() && at.Before(w.From) {
+		return false
+	}
+	if !w.To.IsZero() && at.After(w.To) {
+		return false
+	}
+	return true
+}
+
+// ErrWindow is a window with nothing in it: To before From.
+var ErrWindow = errors.New("期間の終了は開始より後にしてください")
+
 // Unified combines ranks, never incomparable lexical and cosine scores.
 // The semantic budget leaves time to return lexical matches if the provider
 // is unavailable or indexing is still in progress. Completed indexing persists.
-func (s *Service) Unified(ctx context.Context, query string, limit, offset int, minScore float64) (Result, error) {
+func (s *Service) Unified(ctx context.Context, query string, window Window, limit, offset int, minScore float64) (Result, error) {
 	query = strings.TrimSpace(query)
-	if n := len([]rune(query)); n < 1 || n > 500 {
+	if n := len([]rune(query)); n > 500 || (n < 1 && window.empty()) {
 		return Result{}, ErrQuery
+	}
+	if !window.From.IsZero() && !window.To.IsZero() && window.To.Before(window.From) {
+		return Result{}, ErrWindow
 	}
 	if math.IsNaN(minScore) || math.IsInf(minScore, 0) || minScore < 0 || minScore > 1 {
 		return Result{}, ErrScore
@@ -29,9 +57,13 @@ func (s *Service) Unified(ctx context.Context, query string, limit, offset int, 
 	if offset < 0 {
 		offset = 0
 	}
-	semanticCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-	semantic, semanticErr := s.Search(semanticCtx, query, "semantic", 100, 0)
-	cancel()
+	var semantic Result
+	var semanticErr error
+	if query != "" {
+		semanticCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		semantic, semanticErr = s.Search(semanticCtx, query, "semantic", 100, 0)
+		cancel()
+	}
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
@@ -49,23 +81,28 @@ func (s *Service) Unified(ctx context.Context, query string, limit, offset int, 
 	}
 	var candidates []timeline.Entry
 	for _, e := range current {
-		if root, ok := current[timeline.RootOf(e)]; ok && root.Kind == timeline.KindPost && Text(e) != "" {
+		if root, ok := current[timeline.RootOf(e)]; ok && root.Kind == timeline.KindPost && Text(e) != "" && window.holds(e.At) {
 			candidates = append(candidates, e)
 		}
 	}
-	lexical := lexicalHits(candidates, query)
-	var eligible []Hit
-	if semanticErr == nil {
-		for _, h := range semantic.Hits {
-			e, ok := current[h.Entry.ID]
-			root, rootOK := current[timeline.RootOf(h.Entry)]
-			if ok && rootOK && root.Kind == timeline.KindPost && Text(e) == Text(h.Entry) && h.Score >= minScore && !math.IsNaN(h.Score) && !math.IsInf(h.Score, 0) {
-				h.Entry = e
-				eligible = append(eligible, h)
+	var hits []Hit
+	if query == "" {
+		hits = windowHits(candidates)
+	} else {
+		lexical := lexicalHits(candidates, query)
+		var eligible []Hit
+		if semanticErr == nil {
+			for _, h := range semantic.Hits {
+				e, ok := current[h.Entry.ID]
+				root, rootOK := current[timeline.RootOf(h.Entry)]
+				if ok && rootOK && root.Kind == timeline.KindPost && Text(e) == Text(h.Entry) && window.holds(e.At) && h.Score >= minScore && !math.IsNaN(h.Score) && !math.IsInf(h.Score, 0) {
+					h.Entry = e
+					eligible = append(eligible, h)
+				}
 			}
 		}
+		hits = fuse(lexical, eligible)
 	}
-	hits := fuse(lexical, eligible)
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
@@ -194,6 +231,19 @@ func lexicalHits(entries []timeline.Entry, query string) []Hit {
 			}
 		}
 		hits = append(hits, Hit{Entry: e, Score: score, Snippet: excerpt(passage, anchor), Passage: passage})
+	}
+	sortHits(hits)
+	return hits
+}
+
+// windowHits is every entry in a window, newest first, with no words to rank
+// by. The passage is the opening of the entry, capped the way a matching
+// chunk is, so a long post does not flood the persona.
+func windowHits(entries []timeline.Entry) []Hit {
+	hits := make([]Hit, 0, len(entries))
+	for _, e := range entries {
+		passage := chunks(Text(e))[0]
+		hits = append(hits, Hit{Entry: e, Snippet: excerpt(passage, ""), Passage: passage})
 	}
 	sortHits(hits)
 	return hits

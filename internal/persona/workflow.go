@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -64,6 +65,9 @@ type Step struct {
 	Note  string `json:"note"`
 	// cancel_schedule.
 	ID string `json:"id"`
+	// speak: the ids of the saved posts the remark rests on, from this
+	// turn's timeline_search results. They become the links under it.
+	Sources []string `json:"sources"`
 }
 
 const (
@@ -144,7 +148,7 @@ func (shape stepShape) types() []any {
 
 // fields are a step's fields in the order samples write them.
 func (shape stepShape) fields() []string {
-	fields := []string{"type", "path", "text"}
+	fields := []string{"type", "path", "text", "sources"}
 	if len(shape.actions) > 0 {
 		fields = append(fields, "tool", "args")
 	}
@@ -170,6 +174,8 @@ func workflowToolFor(set *tools.Set) llm.Tool {
 		"daily": map[string]any{"type": "boolean", "description": "write_schedule を毎日繰り返すか。使わないなら false"},
 		"note":  stringField("write_schedule で起きたときに読む一言。使わないなら \"\""),
 		"id":    stringField("cancel_schedule で消す id。使わないなら \"\""),
+		"sources": map[string]any{"type": "array", "items": map[string]any{"type": "string"},
+			"description": "speak の根拠にした投稿の id。このターンの timeline_search の結果にある id だけ。使わないなら []"},
 	}
 	properties := map[string]any{}
 	var required []any
@@ -205,6 +211,9 @@ type turnRules struct {
 	// memory is the persona's memory layout; the kinds it names are the only
 	// ones a note may carry.
 	memory string
+	// cited are the saved posts this turn's searches found, by id, with the
+	// line a link to each shows. A speak may cite these and nothing else.
+	cited map[string]string
 }
 
 var scheduleIDRef = regexp.MustCompile(`\bs_[A-Za-z0-9]+`)
@@ -397,6 +406,11 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			if i != len(workflow.Steps)-1 {
 				problems = append(problems, at+": speak は最後のステップにしてください")
 			}
+			for _, id := range step.Sources {
+				if _, ok := rules.cited[strings.TrimSpace(id)]; !ok {
+					problems = append(problems, at+": sources の "+strings.TrimSpace(id)+" は、このターンの timeline_search の結果にない id です")
+				}
+			}
 		default:
 			problems = append(problems, at+": 知らないステップです")
 		}
@@ -570,7 +584,7 @@ func routingModel() string {
 // readAll does what a persona asked to look at. Nothing here writes, so there
 // is nothing to review; a schedule is not something to read with a tool.
 func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set *tools.Set, post timeline.Entry,
-	prov *provenance, failures map[string]string, budget *lookups) (text string, sources []timeline.Source) {
+	prov *provenance, failures map[string]string, budget *lookups, cited map[string]string) (text string, sources []timeline.Source) {
 
 	var parts []string
 	for _, step := range steps {
@@ -622,6 +636,9 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 					failures[call] = err.Error()
 				}
 				sources = append(sources, result.Sources...)
+				for _, post := range result.Citable {
+					cited[post.ID] = post.Label
+				}
 			}
 		case "image":
 			// None of the persona models take a picture. The one read the app
@@ -696,6 +713,7 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow Workflow, se
 			// not said.
 			if !rules.listening {
 				spoken = strings.TrimSpace(step.Text)
+				sources = append(sources, citedSources(step.Sources, rules.cited)...)
 			}
 			out = spoken
 		default:
@@ -708,6 +726,20 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow Workflow, se
 		}
 	}
 	return spoken, sources, records
+}
+
+// citedSources are the links a speak's sources become: the posts it named,
+// as this turn's searches showed them. An id no search returned is dropped;
+// the check that sends the workflow back for it runs before this.
+func citedSources(ids []string, cited map[string]string) []timeline.Source {
+	var out []timeline.Source
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if label, ok := cited[id]; ok {
+			out = append(out, timeline.Source{Label: label, URL: "/?entry=" + url.QueryEscape(id)})
+		}
+	}
+	return out
 }
 
 func (r *Runner) writeNote(skill Skill, path, text string, prov *provenance) (string, string) {

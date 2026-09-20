@@ -306,4 +306,6 @@ for the whole deployment. The Tavily key is the user's, from their settings.
 MCP tools are listed once per server and cached; a persona is offered them
 exactly like the built-in tools, each carrying the server's own input schema,
 and calls them the same way. The result's text goes back as the answer to that
-call and its resource links become sources.
+call and its resource links become sources. A timeline search is the
+exception: what it finds is offered for citing, the persona names in its
+`speak` the posts its remark rests on, and only those are linked under it.

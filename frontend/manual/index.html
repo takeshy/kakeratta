@@ -422,10 +422,10 @@
           <p><strong>依頼例：</strong>「@michi ここから渋谷駅まで徒歩で何分？」</p>
           <p><strong>制限：</strong>電車・バスなどの公共交通、時刻表、リアルタイムの渋滞は含みません。位置情報なしでは使えず、定期チェックインでも使えません。本文に出発地を書くだけでは、投稿に位置情報を付けたことにはなりません。</p>
           <h3 id="ja-tool-timeline_search">過去のかけら検索 — timeline_search</h3>
-          <p><strong>用途：</strong>このユーザーが保存した投稿、画像から読み取った文字、返信を語句の一致と意味の近さを合わせて検索します。担当のメモとは別に、過去の記録を振り返る道具です。</p>
+          <p><strong>用途：</strong>このユーザーが保存した投稿、画像から読み取った文字、返信を語句の一致と意味の近さを合わせて検索します。開始と終了の日時で期間を絞ることもでき、期間だけを指定すればその間の記録を語句なしでまとめて読めます。担当のメモとは別に、過去の記録を振り返る道具です。</p>
           <p><strong>設定：</strong>すべての担当で利用でき、Web検索サービスのAPIキーは不要です。自分で検索するときはヘッダーの <strong>検索</strong> を開きます。</p>
           <p><strong>依頼例：</strong>「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
-          <p><strong>制限：</strong>保存していない出来事は検索できません。一度に返るのは最大10件の抜粋で、意味が近い結果が必ず正解とは限りません。初回の意味検索は準備に時間がかかることがあります。定期チェックインでも利用できます。</p>
+          <p><strong>制限：</strong>保存していない出来事は検索できません。一度に返るのは最大30件の抜粋で、意味が近い結果が必ず正解とは限りません。検索結果は担当の発言に自動では添えられず、担当が根拠として申告した投稿だけが発言の下にリンクとして付きます。初回の意味検索は準備に時間がかかることがあります。定期チェックインでも利用できます。</p>
           <h3 id="ja-tool-notes">自分の記憶を扱う — notes系</h3>
           <p><strong>用途：</strong><code>notes_list</code> で記憶の一覧を確認し、<code>notes_read</code> で必要なメモを読み、<code>notes_write</code> で1件を保存・更新し、<code>notes_forget</code> で1件を削除します。担当同士でメモは共有しません。</p>
           <p><strong>設定：</strong>全担当が使え、追加設定は不要です。</p>
@@ -847,10 +847,10 @@
           <p><strong>Try:</strong> “@michi How long would it take to walk from here to Shibuya Station?”</p>
           <p><strong>Limits:</strong> No trains, buses, timetables, or live traffic. A location on the post is required, so the tool is unavailable during check-ins. Typing a starting place in the text does not attach location coordinates to the post.</p>
           <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
-          <p><strong>Purpose:</strong> Search this user's saved posts, text read from images, and replies by combining words and meaning. This looks back at records separately from the persona's memory.</p>
+          <p><strong>Purpose:</strong> Search this user's saved posts, text read from images, and replies by combining words and meaning. A start and end time narrow the search to a period, and a period alone reads everything written then without any words. This looks back at records separately from the persona's memory.</p>
           <p><strong>Setup:</strong> Available to every persona without a Web search API key. To search yourself, open <strong>Search</strong> in the header.</p>
           <p><strong>Try:</strong> “@tabe Find that light red wine I enjoyed before.”</p>
-          <p><strong>Limits:</strong> Events that were never saved cannot be found. Each call returns at most 10 excerpts. A similar result is not necessarily the right one, and the first semantic search may take time to prepare. Available during check-ins too.</p>
+          <p><strong>Limits:</strong> Events that were never saved cannot be found. Each call returns at most 30 excerpts. The hits are not attached to the persona's remark; only the posts it declares as its grounds are linked under it. A similar result is not necessarily the right one, and the first semantic search may take time to prepare. Available during check-ins too.</p>
           <h3 id="en-tool-notes">Manage personal memory — notes tools</h3>
           <p><strong>Purpose:</strong> <code>notes_list</code> lists memories, <code>notes_read</code> reads selected notes, <code>notes_write</code> saves or replaces one note, and <code>notes_forget</code> deletes one note. Personas do not share these notes with one another.</p>
           <p><strong>Setup:</strong> Every persona has these tools without additional configuration.</p>

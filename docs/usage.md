@@ -183,7 +183,11 @@ Already published messages are not sent again. Newly selected replies can be add
 
 **Search** in the header and the personas' `timeline_search` tool share one
 implementation. It covers text, URLs, image readings, place labels, and replies;
-deleted posts and their replies never appear.
+deleted posts and their replies never appear. A persona can narrow its search to
+a period with a start and end time, and a period alone reads everything written
+then without any words, newest first, up to 30 per call. What a search found is
+not attached to the persona's remark as it is; only the posts the persona
+declares as its grounds are linked under it.
 
 Enter a name such as “Pinot” or a description such as “a light red I enjoyed” in
 one search field. Short terms use keyword search without waiting for AI. Questions

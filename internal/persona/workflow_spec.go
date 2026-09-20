@@ -126,7 +126,7 @@ func jsonString(object string) string {
 // sampleStep writes one workflow step with exactly the fields this persona's
 // schema has, so a sample never shows a field the persona cannot send.
 func sampleStep(shape stepShape, values map[string]any) string {
-	defaults := map[string]any{"type": "", "path": "", "text": "", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""}
+	defaults := map[string]any{"type": "", "path": "", "text": "", "sources": []any{}, "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""}
 	var parts []string
 	for _, field := range shape.fields() {
 		value, ok := values[field]
@@ -172,7 +172,7 @@ func workflowSpec(set *tools.Set) string {
 
 ## 全体の決まり
 
-- **workflow の各ステップには、次の項目をすべて書きます:** ` + strings.Join(shape.fields(), ", ") + `。使わない項目は ""` + map[bool]string{true: "・false", false: ""}[shape.schedules] + map[bool]string{true: `・"{}"`, false: ""}[len(shape.actions) > 0] + ` にします。
+- **workflow の各ステップには、次の項目をすべて書きます:** ` + strings.Join(shape.fields(), ", ") + `。使わない項目は ""・[]` + map[bool]string{true: "・false", false: ""}[shape.schedules] + map[bool]string{true: `・"{}"`, false: ""}[len(shape.actions) > 0] + ` にします。
 - **text には、書き込まれる・発言される文面を最後まで書きます。**
 - **起きていないことを書きません。** 「これから見る」は予定であって、「見た」「済」ではありません。
 - **調べた結果にも投稿にもメモにも無いことを、事実として書きません。**
@@ -270,7 +270,8 @@ path のメモを捨てます。
 発言します。**必ず1つ、最後に入れます。** 黙って終わるなら text を空（""）にします。黙るかどうかは、あなたが毎回はっきり決めることです。
 **投稿に発言するなら、その根拠や覚えたことを write_note でも残します。** 発言だけでメモが無い workflow は差し戻されます。黙ってメモだけ残すのは構いません。
 - **text** — 発言そのもの。投稿と同じ言語で、短く。何も言わないなら ""
-` + fence(step(map[string]any{"type": "speak", "text": "また豚骨だ。前の二郎もそうだったね"})) + `❌ 投稿と違う言語で話す（日本語の投稿に "Acknowledged."）
+- **sources** — 発言の根拠にした過去の投稿の id。**このターンの timeline_search の結果にある id だけ**を書けます。発言の下に、その投稿へのリンクが付きます。使わなければ []
+` + fence(step(map[string]any{"type": "speak", "text": "また豚骨だ。前の二郎もそうだったね", "sources": []any{"e_（timeline_search の結果の id）"}})) + `❌ 投稿と違う言語で話す（日本語の投稿に "Acknowledged."）
 ❌ 希望を事実にする（「9:10に着きたい」に「9:10に着きます」）
 ❌ 投稿に無い条件を足す（「ランチどこがいい?」に「1時間後に着くなら」）
 ❌ 作業の説明を発言にする（「神谷町駅周辺のランチ情報をWeb検索で探す」）。調べ終わってから、分かったことを話します

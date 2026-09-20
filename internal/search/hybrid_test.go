@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
@@ -70,7 +71,7 @@ func TestUnifiedFusionPreservesLexicalMatchesBelowSemanticFloor(t *testing.T) {
 	if err := w.SaveSettings(store.Settings{BaseURL: provider.URL, APIKey: "test"}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := New(w).Unified(context.Background(), "ピノ", 20, 0, 0.5)
+	got, err := New(w).Unified(context.Background(), "ピノ", Window{}, 20, 0, 0.5)
 	if err != nil || got.SemanticUnavailable || got.Total != 3 || got.Hits[0].Entry.ID != "both" {
 		t.Fatalf("%+v %v", got, err)
 	}
@@ -95,16 +96,16 @@ func TestUnifiedProviderFailureAndCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := New(w)
-	got, err := s.Unified(context.Background(), "cafe ピノ", 20, 0, 0.5)
+	got, err := s.Unified(context.Background(), "cafe ピノ", Window{}, 20, 0, 0.5)
 	if err != nil || !got.SemanticUnavailable || got.Total != 1 {
 		t.Fatalf("%+v %v", got, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := s.Unified(ctx, "cafe", 20, 0, 0.5); !errors.Is(err, context.Canceled) {
+	if _, err := s.Unified(ctx, "cafe", Window{}, 20, 0, 0.5); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
-	if _, err := s.Unified(context.Background(), " ", 20, 0, 0.5); !errors.Is(err, ErrQuery) {
+	if _, err := s.Unified(context.Background(), " ", Window{}, 20, 0, 0.5); !errors.Is(err, ErrQuery) {
 		t.Fatal(err)
 	}
 }
@@ -145,8 +146,47 @@ func TestUnifiedNativeBranchRevalidatesAndKeepsTail(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := &nativeWorkspace{Store: local, entries: map[string]timeline.Entry{"p": post}, passages: []store.SearchPassage{{EntryID: "p", Hash: contentHash(Text(post)), Text: post.Text, Distance: 0.2}}}
-	got, err := New(hybridNativeWorkspace{w}).Unified(context.Background(), "軽いお酒", 20, 0, 0.5)
+	got, err := New(hybridNativeWorkspace{w}).Unified(context.Background(), "軽いお酒", Window{}, 20, 0, 0.5)
 	if err != nil || got.Total != 1 || !strings.Contains(got.Hits[0].Passage, "ピノ") {
 		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+func TestUnifiedWindowNarrowsWordsAndStandsAlone(t *testing.T) {
+	w, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	day := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
+	for _, entry := range []timeline.Entry{
+		{ID: "early", Kind: timeline.KindPost, Speaker: timeline.User, Text: "薬を飲んだ", At: day.Add(7 * time.Hour)},
+		{ID: "late", Kind: timeline.KindPost, Speaker: timeline.User, Text: "薬を飲んだ", At: day.Add(20 * time.Hour)},
+		{ID: "other", Kind: timeline.KindPost, Speaker: timeline.User, Text: "散歩", At: day.Add(8 * time.Hour)},
+		{ID: "reply", Kind: timeline.KindRemark, Speaker: "routine", Root: "other", ReplyTo: "other", Text: "いいですね", At: day.Add(9 * time.Hour)},
+	} {
+		if err := w.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := New(w)
+	morning := Window{From: day.Add(5 * time.Hour), To: day.Add(12 * time.Hour)}
+	got, err := s.Unified(context.Background(), "薬", morning, 20, 0, 0.5)
+	if err != nil || got.Total != 1 || got.Hits[0].Entry.ID != "early" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	// The window alone lists the morning, newest first, replies included,
+	// without touching the embedding provider.
+	got, err = s.Unified(context.Background(), "", morning, 20, 0, 0.5)
+	if err != nil || got.SemanticUnavailable || got.Total != 3 || got.Hits[0].Entry.ID != "reply" || got.Hits[2].Entry.ID != "early" || got.Hits[2].Passage != "薬を飲んだ" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if got, err = s.Unified(context.Background(), "", Window{From: day.Add(10 * time.Hour)}, 20, 0, 0.5); err != nil || got.Total != 1 || got.Hits[0].Entry.ID != "late" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if _, err := s.Unified(context.Background(), "", Window{}, 20, 0, 0.5); !errors.Is(err, ErrQuery) {
+		t.Fatal(err)
+	}
+	if _, err := s.Unified(context.Background(), "", Window{From: day.Add(time.Hour), To: day}, 20, 0, 0.5); !errors.Is(err, ErrWindow) {
+		t.Fatal(err)
 	}
 }

@@ -634,7 +634,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: memory.Notes, memory: skill.Memory}
+	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: memory.Notes, memory: skill.Memory, cited: map[string]string{}}
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -762,7 +762,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 					answers[call.ID] = "read を読めませんでした: " + err.Error()
 					break
 				}
-				text, sources := r.readAll(ctx, skill, request.Steps, set, post, prov, failures, budget)
+				text, sources := r.readAll(ctx, skill, request.Steps, set, post, prov, failures, budget, rules.cited)
 				readSources = append(readSources, sources...)
 				read = append(read, text)
 				record.Reads = append(record.Reads, readRecord{Steps: request.Steps, Output: preview(text)})
