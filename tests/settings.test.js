@@ -22,9 +22,16 @@ class Element {
   get firstChild() { return this.children[0]; }
   setAttribute(key, value) { this[key] = key === "disabled" || key === "checked" ? true : value; }
   addEventListener(key, fn) { this.listeners[key] = fn; }
-  focus() {}
+  focus() { this.focused = true; }
+  scrollIntoView() { this.scrolled = true; }
+  querySelector(tag) { return walk(this).find(node => node.tag === tag); }
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
+function openAdvanced(view) {
+  const section = walk(view.element).find(node => node.tag === "details");
+  section.open = true;
+  section.listeners.toggle();
+}
 
 // The page asks for a backup and waits for a link: on a laptop the answer is
 // the streaming endpoint, and a hosted workspace answers later over the event
@@ -36,10 +43,12 @@ test("the backup is offered as a link once the server has one", async t => {
   t.mock.method(api, "settings", async () => ({ baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", speech: {}, search: {} }));
   t.mock.method(api, "about", async () => ({ version: "test", workspace: "/tmp/kakeratta" }));
   t.mock.method(api, "mcpConnection", async () => ({ configured: false }));
+  t.mock.method(api, "blueskyConnection", async () => ({ available: false }));
   t.mock.method(api, "startExport", async () => ({ state: "ready", url: "/api/export", name: "kakeratta-test.zip" }));
 
   const view = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
   await view.load();
+  openAdvanced(view);
   assert.ok(walk(view.element).some(node => node.textContent === translate("バックアップ")));
   const start = walk(view.element).find(node => node.tag === "button" && node.textContent === translate("zipに書き出す"));
   assert.ok(start, "the backup button is missing");
@@ -61,12 +70,14 @@ test("a backup prepared in storage is offered when its link arrives", async t =>
   t.mock.method(api, "settings", async () => ({ baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", speech: {}, search: {} }));
   t.mock.method(api, "about", async () => ({ version: "test", workspace: "/tmp/kakeratta" }));
   t.mock.method(api, "mcpConnection", async () => ({ configured: false }));
+  t.mock.method(api, "blueskyConnection", async () => ({ available: false }));
   t.mock.method(api, "startExport", async () => ({ state: "running", name: "kakeratta-test.zip" }));
   let announce = () => {};
   t.mock.method(api, "on", listener => { announce = listener; return () => { announce = () => {}; }; });
 
   const view = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
   await view.load();
+  openAdvanced(view);
   const start = walk(view.element).find(node => node.tag === "button" && node.textContent === translate("zipに書き出す"));
   start.listeners.click();
   await new Promise(resolve => setImmediate(resolve));
@@ -94,17 +105,17 @@ function panel(t, { about: info = { version: "test" } } = {}) {
   return createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
 }
 
-const heading = (view, label) => walk(view.element).some(node => node.tag === "h3" && node.textContent === translate(label));
+const heading = (view, label) => walk(view.element).some(node => ["h3", "summary"].includes(node.tag) && node.textContent === translate(label));
 
 // What the defaults already answer is behind one line, and it is not even
 // built - so a panel that opens does not ask Hermes or Bluesky anything.
 test("speech, OpenRouter, Hermes and Bluesky wait behind the advanced line", async t => {
   const view = panel(t);
   await view.load();
-  for (const label of ["モデル", "Web検索", "バックアップ", "この端末"]) {
+  for (const label of ["モデル", "Web検索", "この端末"]) {
     assert.ok(heading(view, label), `${label} should be in plain sight`);
   }
-  for (const label of ["OpenRouterを使う", "音声入力", "読み上げ", "Bluesky連携"]) {
+  for (const label of ["OpenRouterを使う", "音声入力", "読み上げ", "Bluesky連携", "バックアップ"]) {
     assert.equal(heading(view, label), false, `${label} should be behind the line`);
   }
   assert.equal(api.mcpConnection.mock.callCount(), 0, "a shut section should ask nothing");
@@ -115,7 +126,7 @@ test("speech, OpenRouter, Hermes and Bluesky wait behind the advanced line", asy
   assert.equal(advanced.firstChild.textContent, translate("上級オプション"));
   advanced.open = true;
   advanced.listeners.toggle();
-  for (const label of ["OpenRouterを使う", "音声入力", "読み上げ", "Bluesky連携"]) {
+  for (const label of ["OpenRouterを使う", "音声入力", "読み上げ", "Bluesky連携", "バックアップ"]) {
     assert.ok(heading(view, label), `${label} should appear once the section is opened`);
   }
   assert.equal(api.mcpConnection.mock.callCount(), 1);
@@ -124,7 +135,7 @@ test("speech, OpenRouter, Hermes and Bluesky wait behind the advanced line", asy
 
 // The path is the server's answer, not the page's guess: a hosted workspace
 // keeps its files in Firestore and sends none.
-test("the workspace path is shown only when the server names one", async t => {
+test("the version is shown without a workspace path", async t => {
   const hosted = panel(t);
   await hosted.load();
   assert.equal(walk(hosted.element).some(node => String(node.textContent).includes("kakeratta test")), true);
@@ -132,5 +143,25 @@ test("the workspace path is shown only when the server names one", async t => {
 
   const local = panel(t, { about: { version: "test", workspace: "~/.config/kakeratta" } });
   await local.load();
-  assert.ok(walk(local.element).some(node => node.textContent === translate("保存先 {0}", "~/.config/kakeratta")));
+  assert.equal(walk(local.element).some(node => node.textContent.includes("~/.config/kakeratta")), false);
+});
+
+
+test("OpenRouter-only setup needs its own key, not a Token Factory key", () => {
+  assert.equal(aiConfigured({ openRouterMode: true, openRouterApiKey: "********", apiKey: "" }), true);
+  assert.equal(aiConfigured({ openRouterMode: true, openRouterApiKey: "  ", apiKey: "nebius", baseUrl: "https://example.com", lowModel: "low" }), false);
+  assert.equal(aiConfigured({ openRouterMode: false, openRouterApiKey: "********", jevEnabled: true }), false);
+});
+
+test("initial setup link opens and focuses the OpenRouter settings", async t => {
+  const view = panel(t);
+  t.mock.method(api, "settings", async () => ({ apiKey: "", speech: {}, search: {} }));
+  await view.load();
+  const link = walk(view.element).find(node => node.href === "#openrouter-settings");
+  assert.ok(link);
+  link.listeners.click({ preventDefault() {} });
+  const section = walk(view.element).find(node => node.id === "openrouter-settings");
+  assert.ok(section.scrolled);
+  assert.ok(section.querySelector("input").focused);
+  assert.ok(heading(view, "バックアップ"));
 });

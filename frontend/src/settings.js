@@ -12,12 +12,15 @@ import { getLanguage, setLanguage, t } from "./i18n.js";
 
 export function aiConfigured(settings) {
   if (!settings) return false;
+  if (settings.openRouterMode) return Boolean(settings.openRouterApiKey?.trim());
   return Boolean(settings.baseUrl?.trim() && settings.lowModel?.trim() && settings.apiKey?.trim());
 }
 
 export function createSettings({ speaker, onSettings }) {
   const view = el("div", { class: "panel-body" });
   let settings = null;
+  let revealOpenRouter = () => {};
+  let setupHint = null;
   let about = null;
   let bluesky = null;
   let openRouterModels = [];
@@ -39,6 +42,7 @@ export function createSettings({ speaker, onSettings }) {
     const next = { ...settings, ...change };
     try {
       settings = await api.saveSettings(next);
+      if (setupHint) setupHint.hidden = aiConfigured(settings);
       onSettings?.(settings);
       return true;
     } catch (error) {
@@ -144,10 +148,15 @@ export function createSettings({ speaker, onSettings }) {
       el("p", { label: "Nebius Token FactoryのNVIDIA Nemotronモデルを使います。Token FactoryのAPIキーを入力してください。" }),
       el("a", { href: "https://tokenfactory.nebius.com", target: "_blank", rel: "noopener noreferrer", text: t("APIキーを取得") }),
     );
-    if (!aiConfigured(settings)) view.append(el("p", {
-      class: "hint warn",
-      label: "最初にAI接続を設定してください。設定が完了するまでこの画面は閉じられません。",
-    }));
+    setupHint = el("p", { class: "hint warn", hidden: aiConfigured(settings) },
+      el("span", { label: "最初にAI接続を設定してください。設定が完了するまでこの画面は閉じられません。" }),
+      " ",
+      el("a", {
+        href: "#openrouter-settings", label: "OpenRouterを使うことも可能です。",
+        onclick: (event) => { event.preventDefault(); revealOpenRouter(); },
+      }),
+    );
+    view.append(setupHint);
     view.append(
       apiKey,
       connectionCheck(() => patch({ apiKey: apiKey.querySelector("input").value.trim() })),
@@ -207,7 +216,7 @@ export function createSettings({ speaker, onSettings }) {
         openRouterMode.disabled = false;
       } },
     );
-    return el("div", { class: "settings-block" },
+    return el("div", { class: "settings-block", id: "openrouter-settings" },
       el("h3", { label: "OpenRouterを使う" }),
       jevKey,
       openRouterCheck,
@@ -414,10 +423,9 @@ export function createSettings({ speaker, onSettings }) {
     }
   }
 
-  function drawBackup() {
+  function drawBackup(into) {
     exportRow = el("div", { class: "compose-row" });
-    view.append(
-      el("h3", { label: "バックアップ" }),
+    into.append(
       el("p", {
         class: "hint",
         label: "投稿・担当・メモ・画像を、開発環境でそのまま動く構成のままzipに書き出します。APIキーやBlueskyなどの接続は入らないので、復元先では入れ直してください。",
@@ -427,9 +435,7 @@ export function createSettings({ speaker, onSettings }) {
     drawExportRow();
   }
 
-  // One line about the copy of kakeratta in front of you. The workspace path
-  // comes back only from a server that keeps its files where you can open
-  // them; a hosted one has none to name.
+  // Show the deployed version alongside device preferences.
   function drawDevice() {
     view.append(
       el("h3", { label: "この端末" }),
@@ -440,7 +446,6 @@ export function createSettings({ speaker, onSettings }) {
     );
     if (!about) return;
     view.append(el("p", { class: "hint", text: `kakeratta ${about.version}` }));
-    if (about.workspace) view.append(el("p", { class: "hint", text: t("保存先 {0}", about.workspace) }));
   }
 
   // Everything below the line is something most people never open: another
@@ -453,20 +458,42 @@ export function createSettings({ speaker, onSettings }) {
     const section = el("details", { class: "settings-advanced" },
       el("summary", { label: "上級オプション" }), body);
     let built = false;
-    section.addEventListener("toggle", () => {
+    let routerSection = null;
+    let modelCategory = null;
+    const category = (label) => {
+      const content = el("div", { class: "advanced-category-body" });
+      const group = el("details", { class: "advanced-category" },
+        el("summary", { label }), content);
+      body.append(group);
+      return { group, content };
+    };
+    const build = () => {
       if (!section.open || built) return;
       built = true;
-      body.append(openRouterSection());
-      drawSpeech(body);
-      drawReadAloud(body);
+      routerSection = openRouterSection();
+      modelCategory = category("モデル");
+      modelCategory.content.append(routerSection);
+      const voice = category("音声");
+      drawSpeech(voice.content);
+      drawReadAloud(voice.content);
+      const integrations = category("外部連携");
       const mcp = createMCPConnection();
-      body.append(mcp.element);
+      integrations.content.append(mcp.element);
       void mcp.load();
       bluesky?.dispose();
       bluesky = createBlueskyConnection();
-      body.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
-    });
-    view.append(section);
+      integrations.content.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
+      drawBackup(category("バックアップ").content);
+    };
+    section.addEventListener("toggle", build);
+    revealOpenRouter = () => {
+      section.open = true;
+      build();
+      modelCategory.group.open = true;
+      routerSection.scrollIntoView({ block: "start", behavior: "smooth" });
+      routerSection.querySelector("input").focus({ preventScroll: true });
+    };
+    view.append(section, el("p", { class: "hint", label: "モデルの切り替え、音声入力・読み上げ、外部エージェント・Bluesky連携、バックアップができます。" }));
   }
 
   // The screen leads with the two keys that decide whether anything works at
@@ -480,7 +507,6 @@ export function createSettings({ speaker, onSettings }) {
     clear(view);
     drawAI();
     drawTools();
-    drawBackup();
     drawDevice();
     drawAdvanced();
   }

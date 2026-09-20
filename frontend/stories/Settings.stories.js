@@ -14,7 +14,4 @@ function panelOf(current, info = about) {
 
 export const Default = { name: "既定（Nebius・ブラウザ音声認識）", render: () => panelOf(settings) };
 export const Dictating = { name: "Web検索あり・音声のAI整形ON", render: () => panelOf(dictatingSettings) };
-export const NoToken = {
-  name: "トークン未設定の警告",
-  render: () => panelOf(settings, about),
-};
+export const InitialSetup = { name: "初回設定", render: () => panelOf({ ...settings, apiKey: "" }) };

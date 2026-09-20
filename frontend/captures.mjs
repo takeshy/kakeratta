@@ -52,6 +52,7 @@ const shots = [
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
   { name: "settings", id: "settings--default", clip: "#sheet", open: ".settings-advanced" },
+  { name: "hermes-settings", id: "settings--default", clip: ".advanced-category:nth-child(3)", ready: "#sheet", open: [".settings-advanced", ".advanced-category:nth-child(3)"] },
   { name: "routing", id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },
   { name: "reply-fix", id: "timeline--reply-fix-proposal", clip: ".dialog.reply-fix", ready: ".reply-instructions" },
@@ -144,7 +145,10 @@ async function main() {
         // Fixtures arrive over a stubbed fetch and images decode; a beat for both.
         await sleep(700);
         if (shot.open) {
-          await evaluate(`document.querySelector(${JSON.stringify(shot.open)})?.setAttribute("open", "")`);
+          for (const selector of [shot.open].flat()) {
+            await evaluate(`document.querySelector(${JSON.stringify(selector)})?.setAttribute("open", "")`);
+            await sleep(100);
+          }
           // A section that grows can carry the page with it, and the clip is
           // measured against the viewport: start from the top either way.
           await evaluate("window.scrollTo(0, 0)");

@@ -56,6 +56,7 @@
           <li><a href="#ja-search">検索</a></li>
           <li><a href="#ja-phone">スマホから共有する</a></li>
           <li><a href="#ja-voice">音声入力と読み上げ</a></li>
+          <li><a href="#ja-hermes">Hermes連携</a></li>
           <li><a href="#ja-settings">設定</a></li>
           <li><a href="#ja-tools">道具の一覧と使い方</a></li>
           <li><a href="#ja-faq">よくある質問</a></li>
@@ -234,7 +235,7 @@
           <h3 id="ja-routing">担当の判断を見て、条件を直す</h3>
           <p>誰にかけらを渡すかは本体が決めています。自分の投稿・返信の <strong>⚖</strong>（担当の判断）を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が別の画面に並びます。<code>@名前</code> で指名した担当は出ません。指名で届いたのはあなたの判断だからです。判定できなかった投稿は「判断の記録がありません」と出ます。呼ばれた担当には、一手が終わったか、返事をしたか、この投稿からメモを残したかが出ます。終わる前は「返事を考えています」です。黙っていたなら <strong>返事がほしかった</strong> から、口調と指示を直す流れに入れます。</p>
           <figure>
-            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="639" />
+            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="667" />
             <figcaption>呼ばれた担当と、呼ばれなかった理由。各行から担当条件を直せます（サンプル）。</figcaption>
           </figure>
           <ol>
@@ -326,10 +327,36 @@
           </ul>
         </section>
 
+        <section id="ja-hermes">
+
+<h2>Hermes連携</h2>
+<p class="lede">「Hermesに聞く」で送った依頼を、自分のHermesが受け取り、結果をkakerattaに返します。</p>
+<figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="530" /></figure>
+<h3>1. 接続キーを発行する</h3>
+<ol><li>kakerattaの「設定」→「上級オプション」→「外部連携」を開きます。</li><li>「Hermes連携」の「接続キーを発行」を押します。</li><li>表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li></ol>
+
+<h3>2. Hermesに設定を追加する</h3>
+<p>Hermesを動かしている端末の <code>~/.hermes/config.yaml</code> に、コピーした設定を追加します。すでに <code>mcp_servers</code> がある場合は、その中へ <code>kakeratta</code> を追加してください。</p>
+<pre><code>mcp_servers:
+  kakeratta:
+    url: "画面に表示された接続URL"
+    headers:
+      Authorization: "Bearer 画面に表示された接続キー"</code></pre>
+
+
+<h3>3. 依頼して確認する</h3>
+<ol><li>Hermesを再起動します。</li><li>kakerattaでHermes担当をONにし、「Hermesに聞く」から依頼を送ります。</li><li>自分のHermesに「kakerattaの依頼を確認して」と話しかけます。</li><li>Hermesが依頼を処理して報告すると、kakerattaで結果を確認できます。</li></ol>
+<p>依頼はHermesが取りに来るまで待機します。自動で対応させたい場合は、Hermes側で依頼を確認する定期実行を設定してください。HermesのAPIを公開する必要はありません。</p>
+<h3>接続できないとき</h3><ul><li>設定を変更したあと、Hermesを再起動したか確認してください。</li><li>接続URLにHermesからアクセスできるか確認してください。</li><li>キーを再発行した場合は、config.yamlも新しい設定に置き換えてください。</li><li>Hermes担当がOFFの場合はONにしてください。</li></ul>
+<h3>アクセス範囲と解除</h3><p>Hermesはあなたの投稿・担当のメモ・依頼を読み、Hermesのメモと報告を書き込めます。モデル設定や他のユーザーにはアクセスできません。</p><p>Hermes担当をOFFにすると読み書きを停止します。「連携を解除」を押すと接続キーが無効になります。</p>
+
+
+        </section>
+
         <section id="ja-settings">
           <h2>9. 設定</h2>
           <figure>
-            <img src="/captures/ja/settings.png" alt="設定。モデル、Web検索、バックアップ、この端末、上級オプション（OpenRouter・音声入力・読み上げ・MCP連携・Bluesky連携）" loading="lazy" width="390" height="2977" />
+            <img src="/captures/ja/settings.png" alt="設定。モデル、Web検索、バックアップ、この端末、上級オプション（OpenRouter・音声入力・読み上げ・MCP連携・Bluesky連携）" loading="lazy" width="390" height="1202" />
             <figcaption>設定パネル。上からモデル、Web検索、バックアップ、この端末。線の下の「上級オプション」を開くと、OpenRouter、音声入力、読み上げ、MCP連携、Bluesky連携が出ます。</figcaption>
           </figure>
           <h3>この端末（表示言語）</h3>
@@ -463,6 +490,7 @@
           <li><a href="#en-search">Search</a></li>
           <li><a href="#en-phone">Sharing from a phone</a></li>
           <li><a href="#en-voice">Voice input and read-aloud</a></li>
+          <li><a href="#en-hermes">Hermes integration</a></li>
           <li><a href="#en-settings">Settings</a></li>
           <li><a href="#en-tools">Tool guide</a></li>
           <li><a href="#en-faq">FAQ</a></li>
@@ -641,7 +669,7 @@
           <h3 id="en-routing">See the router's call and fix a condition</h3>
           <p>The app decides who gets each fragment. Tap <strong>⚖</strong> (the router's call) on one of your posts or replies to open, apart from the timeline, which personas were called and, for each one that was not, the router's one-line reason. A persona you mentioned with <code>@name</code> is not listed: reaching it was your call. A post the router could not judge reads as “No record of the router's call”. For each persona that was called you see whether its turn has finished, whether it replied, and whether it kept a note from this post (“still working on it” until it finishes). <strong>A reply was wanted</strong> opens the reply dialog for a silence.</p>
           <figure>
-            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" width="382" height="665" />
+            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" width="382" height="693" />
             <figcaption>Who was called, and why the others were not. Each row can correct the persona's condition (sample data).</figcaption>
           </figure>
           <ol>
@@ -732,10 +760,28 @@
           </ul>
         </section>
 
+        <section id="en-hermes">
+
+<h2>Hermes integration</h2><p class="lede">Your own Hermes picks up “Ask Hermes” requests and sends its reports back to kakeratta.</p>
+<figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="530" /></figure>
+<h3>1. Create a connection key</h3><ol><li>Open Settings → Advanced options → Integrations.</li><li>Under Hermes integration, select “Create connection key”.</li><li>Copy the configuration shown. The key is shown only immediately after it is issued.</li></ol>
+<h3>2. Configure Hermes</h3><p>Add the copied configuration to <code>~/.hermes/config.yaml</code> on the machine running Hermes. If <code>mcp_servers</code> already exists, add the <code>kakeratta</code> entry under it.</p>
+<pre><code>mcp_servers:
+  kakeratta:
+    url: "Connection URL shown in Settings"
+    headers:
+      Authorization: "Bearer CONNECTION_KEY"</code></pre>
+
+<h3>3. Send a request</h3><ol><li>Restart Hermes.</li><li>Enable the Hermes persona in kakeratta and send a request with “Ask Hermes”.</li><li>Tell your Hermes: “Check my kakeratta requests.”</li><li>After Hermes processes the request and submits its report, check the result in kakeratta.</li></ol><p>Requests wait until Hermes retrieves them. For automatic handling, configure a recurring check on the Hermes side. You do not need to expose a Hermes API.</p>
+<h3>Troubleshooting</h3><ul><li>Restart Hermes after changing its configuration.</li><li>Check that Hermes can reach the connection URL.</li><li>If you replaced the key, update config.yaml with the new configuration.</li><li>Make sure the Hermes persona is enabled.</li></ul>
+<h3>Access and disconnection</h3><p>Hermes can read your posts, persona notes and requests, and write its notes and reports. It cannot access model settings or other users.</p><p>Disable the Hermes persona to stop reads and writes. Select “Disconnect” to invalidate the key.</p>
+
+        </section>
+
         <section id="en-settings">
           <h2>9. Settings</h2>
           <figure>
-            <img src="/captures/en/settings.png" alt="Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky" loading="lazy" width="390" height="3037" />
+            <img src="/captures/en/settings.png" alt="Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky" loading="lazy" width="390" height="1222" />
             <figcaption>The Settings panel: models, web search, backup, this device. Opening <strong>Advanced options</strong> below the line reveals OpenRouter, voice input, read-aloud, the MCP connection and Bluesky.</figcaption>
           </figure>
           <h3>This device (display language)</h3>
