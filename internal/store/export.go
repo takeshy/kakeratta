@@ -13,10 +13,11 @@ package store
 // of its own: a workspace larger than its memory has to pass through it, not
 // sit in it.
 //
-// Search vectors are workspace files like any other and travel with the file
-// store; a Firestore workspace leaves them behind and its exported timeline
-// re-indexes on the first semantic search, the same recovery an index rebuild
-// uses.
+// Search vectors are left behind on both sides. They are the timeline put
+// through an embedding model rather than anything the user wrote, they are the
+// biggest thing in a text workspace at about 20KB a passage, and a restored
+// workspace re-indexes on its first semantic search - the same recovery an
+// index rebuild uses.
 
 import (
 	"bufio"
@@ -108,6 +109,12 @@ func (s *Store) exportFiles(ctx context.Context, sink ExportSink) (BlobStore, er
 			// waiting for it, and the record of what was published from this
 			// account. A restored workspace connects for itself.
 			if relative == "social-state" || relative == "publications" {
+				return filepath.SkipDir
+			}
+			// The embedding cache is the timeline read back through a model,
+			// not something written here, and it is made again on the first
+			// search. A hosted workspace never had one to carry either.
+			if relative == "search-embeddings" {
 				return filepath.SkipDir
 			}
 			return nil

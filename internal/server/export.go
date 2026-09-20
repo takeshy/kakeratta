@@ -176,6 +176,7 @@ Notes / 注意
   鍵のたぐいは入っていません。settings.json にあるのは、いる担当と起きる時刻
   だけで、BlueskyとMCPの接続も持ち出しません。復元先では自分のキーを入れて、
   つなぎ直してください。
-- Semantic search rebuilds its index on the first search when the zip carries
-  no cached vectors. / 意味検索のキャッシュが無いときは、最初の検索でインデックスを作り直します。
+- Semantic search has no cache here; it builds its index on the first search
+  after a key is set. / 意味検索のキャッシュは入っていません。キーを入れたあと、
+  最初の検索でインデックスを作ります。
 `

@@ -184,8 +184,10 @@ func TestExportedWorkspaceOpensAsTheOriginal(t *testing.T) {
 	if err != nil || routing == nil || len(routing.Delivered) != 1 || routing.Excluded["michi"] != "旅行とは無関係" {
 		t.Fatalf("routing = %+v, %v", routing, err)
 	}
-	if vector, err := exported.SearchVector(ctx, vectorKey); err != nil || len(vector.Vector) != 2 {
-		t.Fatalf("vector = %+v, %v", vector, err)
+	// The embedding cache is made again on the first search, so it is not
+	// worth the size it would add to every backup.
+	if vector, err := exported.SearchVector(ctx, vectorKey); err != nil || len(vector.Vector) != 0 {
+		t.Fatalf("the embedding cache travelled with the export: %+v, %v", vector, err)
 	}
 	if _, err := os.Stat(filepath.Join(target, "settings.json.tmp")); !os.IsNotExist(err) {
 		t.Fatalf("a temporary file travelled with the export: %v", err)
