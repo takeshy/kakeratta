@@ -70,3 +70,50 @@ func TestMCPAccessToggleAndKeyRevocation(t *testing.T) {
 		}
 	}
 }
+
+// The page is served from the site's domain and /api is rewritten to Cloud
+// Run, whose container sees its own run.app host. The browser's Origin is
+// the site, so it is matched against the forwarded host and the public URL,
+// never only against Host.
+func TestIssuingAnMCPKeyBehindHostingAcceptsTheSiteOrigin(t *testing.T) {
+	s, _ := app(t)
+	issue := func(origin string, set func(r *http.Request)) int {
+		t.Helper()
+		r := httptest.NewRequest(http.MethodPost, "https://kakeratta-2qhzs3hw7q-de.a.run.app/api/mcp/connection", nil)
+		r.Header.Set("X-Forwarded-Proto", "https")
+		if origin != "" {
+			r.Header.Set("Origin", origin)
+		}
+		if set != nil {
+			set(r)
+		}
+		out := httptest.NewRecorder()
+		s.ServeHTTP(out, r)
+		return out.Code
+	}
+	forwarded := func(r *http.Request) { r.Header.Set("X-Forwarded-Host", "kakeratta.net") }
+
+	if code := issue("https://kakeratta.net", nil); code != http.StatusForbidden {
+		t.Fatalf("an origin matching neither host nor public URL passed: %d", code)
+	}
+	if code := issue("https://kakeratta.net", forwarded); code != http.StatusOK {
+		t.Fatalf("the forwarded host was not accepted: %d", code)
+	}
+	t.Setenv("KAKERATTA_PUBLIC_URL", "https://kakeratta.net/")
+	if code := issue("https://kakeratta.net", nil); code != http.StatusOK {
+		t.Fatalf("the public URL was not accepted: %d", code)
+	}
+	for _, origin := range []string{"http://kakeratta.net", "https://evil.example", "https://kakeratta.net.evil.example", "https://user@kakeratta.net", "null"} {
+		if code := issue(origin, forwarded); code != http.StatusForbidden {
+			t.Fatalf("origin %q passed: %d", origin, code)
+		}
+	}
+	// The container's own host still matches, and a request with no Origin
+	// is not a browser's.
+	if code := issue("https://kakeratta-2qhzs3hw7q-de.a.run.app", nil); code != http.StatusOK {
+		t.Fatalf("the service's own origin was refused: %d", code)
+	}
+	if code := issue("", nil); code != http.StatusOK {
+		t.Fatalf("a request without an Origin was refused: %d", code)
+	}
+}

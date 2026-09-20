@@ -12,6 +12,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -28,16 +29,35 @@ func (s *Server) mcpWorkspace() string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00")))
 }
 
+// mcpOriginOK accepts a browser request only from the page's own origin. A
+// request without an Origin is not a browser's and passes. Behind Firebase
+// Hosting the container's Host is the Cloud Run service's own, not the site's:
+// the page's host arrives in X-Forwarded-Host, and KAKERATTA_PUBLIC_URL names
+// it outright. A live "接続キーを発行" was refused on kakeratta.net for
+// comparing the Origin against the run.app host alone.
 func mcpOriginOK(r *http.Request) bool {
-	if r.Header.Get("Origin") == "" {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
 		return true
 	}
-	u, err := url.Parse(r.Header.Get("Origin"))
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
 	scheme := "http"
 	if requestIsHTTPS(r) {
 		scheme = "https"
 	}
-	return err == nil && u.Scheme == scheme && u.Host == r.Host && u.User == nil && u.Path == "" && u.RawQuery == "" && u.Fragment == ""
+	if u.Scheme == scheme {
+		forwarded := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0])
+		for _, host := range []string{r.Host, forwarded} {
+			if host != "" && strings.EqualFold(u.Host, host) {
+				return true
+			}
+		}
+	}
+	public, err := url.Parse(strings.TrimSpace(os.Getenv("KAKERATTA_PUBLIC_URL")))
+	return err == nil && public.Host != "" && u.Scheme == public.Scheme && strings.EqualFold(u.Host, public.Host)
 }
 
 func (s *Server) mcpConnection(w http.ResponseWriter, r *http.Request) {
