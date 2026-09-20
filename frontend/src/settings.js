@@ -420,7 +420,7 @@ export function createSettings({ speaker, onSettings }) {
       el("h3", { label: "バックアップ" }),
       el("p", {
         class: "hint",
-        label: "投稿・担当・メモ・設定・画像を、開発環境でそのまま動く構成のままzipに書き出します。設定にはAPIキーが含まれるため、書き出したzipは他人に渡さないでください。",
+        label: "投稿・担当・メモ・画像を、開発環境でそのまま動く構成のままzipに書き出します。APIキーなどの接続設定は入らないので、復元先では自分のキーを入れてください。",
       }),
       exportRow,
     );

@@ -87,9 +87,13 @@ func TestFirestoreWorkspaceExportOpensAsAFileWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The backup keeps the room, not the keys that reached the models.
 	read := exported.ConfiguredSettings()
-	if read.APIKey != "nebius-key" || read.LowModel != "low" || read.TimeZone != "Asia/Tokyo" {
-		t.Fatalf("settings = %+v", read)
+	if read.APIKey != "" {
+		t.Fatalf("a key travelled with the export: %+v", read)
+	}
+	if len(read.Active) != 1 || read.Active[0] != "cafe" {
+		t.Fatalf("active = %v", read.Active)
 	}
 	entries, err := exported.Timeline()
 	if err != nil || len(entries) != 1 || entries[0].Text != "かけら" {

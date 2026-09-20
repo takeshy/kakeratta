@@ -115,8 +115,13 @@ func TestExportDownloadsAWorkspaceThatRunsInDevelopment(t *testing.T) {
 	if err != nil || len(entries) != 1 || entries[0].Text != "かけら" {
 		t.Fatalf("entries = %+v, %v", entries, err)
 	}
-	if read := opened.ConfiguredSettings(); read.APIKey != "nebius-key" || read.LowModel != "low" {
-		t.Fatalf("settings = %+v", read)
+	// The zip is safe to keep anywhere: the key stayed on the server.
+	if read := opened.ConfiguredSettings(); read.APIKey != "" {
+		t.Fatalf("a key travelled with the export: %+v", read)
+	}
+	settings, err := os.ReadFile(filepath.Join(extracted, "settings.json"))
+	if err != nil || bytes.Contains(settings, []byte("nebius-key")) {
+		t.Fatalf("settings.json = %s, %v", settings, err)
 	}
 	data, _, err := opened.Blob(blob)
 	if err != nil || string(data) != "capture" {

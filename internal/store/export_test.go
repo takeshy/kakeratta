@@ -121,12 +121,23 @@ func TestExportedWorkspaceOpensAsTheOriginal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Of the settings a backup keeps only the room: who is in it, and when
+	// each one wakes. The keys stayed where they were issued.
 	read := exported.ConfiguredSettings()
-	if read.APIKey != "nebius-key" || read.LowModel != "low" || read.TimeZone != "Asia/Tokyo" {
-		t.Fatalf("settings = %+v", read)
+	if read.APIKey != "" || read.Search.APIKey != "" {
+		t.Fatalf("a key travelled with the export: %+v", read)
 	}
 	if len(read.Active) != 1 || read.Active[0] != "cafe" {
 		t.Fatalf("active = %v", read.Active)
+	}
+	if daily := read.DailyCheckIns["cafe"]; !daily.Enabled || daily.Time != "08:00" {
+		t.Fatalf("daily check-in = %+v", daily)
+	}
+	// What was left out has to arrive as unset, not as a choice: a settings
+	// file of blanks would read as dictation with its silence timer turned off.
+	fresh := open(t).ConfiguredSettings()
+	if read.Speech != fresh.Speech || read.LowModel != fresh.LowModel || read.BaseURL != fresh.BaseURL {
+		t.Fatalf("a workspace opened from the export is not at its defaults: %+v", read)
 	}
 	entries, err := exported.Timeline()
 	if err != nil || len(entries) != 2 {

@@ -16,8 +16,9 @@ import (
 // The backup is the user's whole workspace as the files a development
 // kakeratta reads — the same tree as KAKERATTA_HOME — so extracting it and
 // pointing a server at it reproduces what they see here: posts, personas and
-// their notes, settings, captures, and the connection state. Settings carry
-// the user's API keys, so it is for their own keeping, not for sharing.
+// their notes, who is in the room, captures, and the connection state. What it
+// leaves behind is the settings that say how this person reached the models:
+// there is no API key in the file, and a restored workspace asks for one.
 //
 // It is written as one stream and never assembled anywhere: this runs in a
 // container with a gigabyte of memory and /tmp is part of that memory, so a
@@ -164,8 +165,10 @@ Restore / 戻し方
 
 Notes / 注意
 
-- settings.json carries the AI and web-search API keys. Keep the zip to
-  yourself. / settings.json にはAPIキーが含まれます。zip は他人に渡さないでください。
+- No API keys travel with this. settings.json carries only who is in the
+  room and when each one wakes, so a restored workspace asks for a key of
+  its own. / APIキーは入っていません。settings.json にあるのは、いる担当と
+  起きる時刻だけです。復元先では自分のキーを入れてください。
 - Bluesky's connection data is encrypted; it opens only with the same
   KAKERATTA_BLUESKY_KEY. / Bluesky の接続情報は暗号化されており、同じ
   KAKERATTA_BLUESKY_KEY でだけ開けます。

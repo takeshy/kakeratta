@@ -60,7 +60,24 @@ func (s *Store) Export(ctx context.Context, sink ExportSink) error {
 	if err != nil {
 		return err
 	}
+	if err := s.exportSettings(sink); err != nil {
+		return err
+	}
 	return exportBlobs(ctx, blobs, sink)
+}
+
+func (s *Store) exportSettings(sink ExportSink) error {
+	s.mu.RLock()
+	var settings Settings
+	err := readJSON(s.path("settings.json"), &settings)
+	s.mu.RUnlock()
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return addJSON(sink, "settings.json", time.Time{}, exportedSettings(settings))
 }
 
 // exportFiles lists the workspace once, then copies each file out. The list is
@@ -90,6 +107,10 @@ func (s *Store) exportFiles(ctx context.Context, sink ExportSink) (BlobStore, er
 		}
 		// A temporary file is a crash half way through a write, never state.
 		if strings.HasSuffix(entry.Name(), ".tmp") {
+			return nil
+		}
+		// Settings are not copied; what a backup keeps of them is written below.
+		if relative == "settings.json" {
 			return nil
 		}
 		names = append(names, filepath.ToSlash(relative))
@@ -208,7 +229,28 @@ func (w *FirestoreWorkspace) exportSettings(ctx context.Context, sink ExportSink
 	if err := doc.DataTo(&settings); err != nil {
 		return err
 	}
-	return addJSON(sink, "settings.json", time.Time{}, settings)
+	return addJSON(sink, "settings.json", time.Time{}, exportedSettings(settings))
+}
+
+// personaSettings is all a backup keeps of the settings: who is in the room,
+// in order, and when each one wakes. The rest - the keys, the endpoint, which
+// model sits in which tier, how this browser dictates and reads aloud - is how
+// one person reached the models from one machine, not something the workspace
+// is made of. Leaving it out is also what makes the file safe to keep
+// anywhere: there is no key in it to lose.
+//
+// It is written as these two fields alone, not as a settings file with the
+// rest blanked out. Settings are read over the defaults, so a field that is
+// there at all replaces one - and a zero would arrive as a choice, turning
+// dictation's silence timer off and emptying the models a fresh workspace
+// would have filled in.
+type personaSettings struct {
+	Active        []string                `json:"active,omitempty"`
+	DailyCheckIns map[string]DailyCheckIn `json:"dailyCheckIns,omitempty"`
+}
+
+func exportedSettings(settings Settings) personaSettings {
+	return personaSettings{Active: settings.Active, DailyCheckIns: settings.DailyCheckIns}
 }
 
 func (w *FirestoreWorkspace) exportSkills(ctx context.Context, sink ExportSink) error {

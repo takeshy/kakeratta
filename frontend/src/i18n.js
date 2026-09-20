@@ -284,7 +284,7 @@ const EN = {
   "送信の合図": "Send phrase", "読み上げ": "Read aloud", "既定の声": "Default voice", "速さ": "Speed", "声": "Voice",
   "表示言語": "Display language", "この端末": "This device", "保存先": "Storage",
   "バックアップ": "Backup",
-  "投稿・担当・メモ・設定・画像を、開発環境でそのまま動く構成のままzipに書き出します。設定にはAPIキーが含まれるため、書き出したzipは他人に渡さないでください。": "Download your posts, personas, notes, settings and images as a zip laid out for a development kakeratta. Settings include your API keys, so keep the zip to yourself.",
+  "投稿・担当・メモ・画像を、開発環境でそのまま動く構成のままzipに書き出します。APIキーなどの接続設定は入らないので、復元先では自分のキーを入れてください。": "Download your posts, personas, notes and images as a zip laid out for a development kakeratta. No API keys travel with it, so a restored workspace asks for one of its own.",
   "zipに書き出す": "Export as zip",
   "書き出し中…": "Preparing…", "ダウンロード": "Download",
   "書き出しできませんでした": "The backup could not be written.",
