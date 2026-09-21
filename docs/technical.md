@@ -880,12 +880,9 @@ Inference credentials were kept outside Hermes's own configuration. Requests
 left the sandbox through the OpenShell gateway and were proxied to Nebius Token
 Factory.
 
-The tested inference configuration included:
-
-```text
-NousResearch/Hermes-4-405B
-nvidia/Nemotron-3_5-Lightning
-```
+Hermes-4-405B and Nemotron 3.5 Lightning were tested during development. The
+final operational configuration used Nemotron 3 Super 120B after Lightning
+produced unreliable tool calls in multistep tasks.
 
 The sandboxed Hermes instance successfully connected to:
 

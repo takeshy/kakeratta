@@ -785,12 +785,9 @@ OpenShell は、サンドボックスとポリシー適用の境界を提供し�
 推論の認証情報は Hermes 自身の設定の外に置きました。
 リクエストは OpenShell のゲートウェイを通ってサンドボックスの外に出て、Nebius Token Factory へ中継されました。
 
-検証した推論構成には次が含まれます。
-
-```text
-NousResearch/Hermes-4-405B
-nvidia/Nemotron-3_5-Lightning
-```
+開発中には Hermes-4-405B と Nemotron 3.5 Lightning を検証しました。
+Lightning は多段のタスクで信頼できないツール呼び出しを行ったため、最終的な運用構成では
+Nemotron 3 Super 120B を使用しました。
 
 サンドボックス内の Hermes は、次への接続に成功しました。
 
