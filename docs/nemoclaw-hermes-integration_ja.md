@@ -10,19 +10,19 @@
 
 ```mermaid
 flowchart TD
-    U[ユーザー] -->|@Hermes 投稿| K[kakeratta 本番 Web アプリ / MCP]
-    subgraph H[NemoClaw / OpenShell ホスト]
-      M[Managed MCP / ネットワークポリシー]
-      P[Secure Inference Proxy]
+    U["ユーザー"] -->|"@Hermes 投稿"| K["kakeratta 本番 Web アプリ / MCP"]
+    subgraph H["NemoClaw / OpenShell ホスト"]
+      M["Managed MCP / ネットワークポリシー"]
+      P["Secure Inference Proxy"]
     end
-    subgraph S[OpenShell サンドボックス]
-      G[Hermes Gateway]
-      C[Hermes Cron + Wake Gate / every 1m]
-      A[Hermes Agent + kakeratta Skill]
+    subgraph S["OpenShell サンドボックス"]
+      G["Hermes Gateway"]
+      C["Hermes Cron + Wake Gate / every 1m"]
+      A["Hermes Agent + kakeratta Skill"]
       G --> C --> A
     end
-    A -->|list / claim / read / complete| M -->|MCP over HTTPS| K
-    A -->|推論| P --> N[Nebius Token Factory / Nemotron Super 120B]
+    A -->|"list / claim / read / complete"| M -->|"MCP over HTTPS"| K
+    A -->|"推論"| P --> N["Nebius Token Factory / Nemotron Super 120B"]
 ```
 
 | コンポーネント | 役割 |

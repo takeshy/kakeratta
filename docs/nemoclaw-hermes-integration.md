@@ -10,19 +10,19 @@ This report documents an integration in which Hermes Agent runs inside NVIDIA Ne
 
 ```mermaid
 flowchart TD
-    U[User] -->|@Hermes post| K[kakeratta production web app / MCP]
-    subgraph H[NemoClaw / OpenShell host]
-      M[Managed MCP / network policy]
-      P[Secure Inference Proxy]
+    U["User"] -->|"@Hermes post"| K["kakeratta production web app / MCP"]
+    subgraph H["NemoClaw / OpenShell host"]
+      M["Managed MCP / network policy"]
+      P["Secure Inference Proxy"]
     end
-    subgraph S[OpenShell sandbox]
-      G[Hermes Gateway]
-      C[Hermes Cron + Wake Gate / every 1m]
-      A[Hermes Agent + kakeratta Skill]
+    subgraph S["OpenShell sandbox"]
+      G["Hermes Gateway"]
+      C["Hermes Cron + Wake Gate / every 1m"]
+      A["Hermes Agent + kakeratta Skill"]
       G --> C --> A
     end
-    A -->|list / claim / read / complete| M -->|MCP over HTTPS| K
-    A -->|inference| P --> N[Nebius Token Factory / Nemotron Super 120B]
+    A -->|"list / claim / read / complete"| M -->|"MCP over HTTPS"| K
+    A -->|"inference"| P --> N["Nebius Token Factory / Nemotron Super 120B"]
 ```
 
 | Component | Responsibility |
