@@ -88,6 +88,9 @@ const settingsPanel = createSettings({
     settingsRequired = !aiConfigured(next);
     speaker.setRate(next.readAloudRate || 1.2);
     speaker.setVoice(next.readAloudVoice || "");
+    // How text is drawn is a setting now, so the timeline behind the sheet
+    // picks the change up without waiting for the next entry.
+    feed.draw();
     if (panel === "settings" && wasRequired !== settingsRequired) showPanel();
   },
 });

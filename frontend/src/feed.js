@@ -7,6 +7,7 @@
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
+import { looksLikeHtml, renderHtmlDocument, renderMarkdown, spokenText } from "./markdown.js";
 import { createMentionPicker } from "./mention-picker.js";
 import { openSocial } from "./social.js";
 import { showRouting } from "./routing-view.js";
@@ -219,6 +220,21 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     });
   }
 
+  // The body of anything said on the timeline. A persona's reply is model
+  // written and never edited here, so the app renders it - Markdown, or, when
+  // Hermes sends a whole HTML document, in a frame where nothing runs. Your own
+  // words are yours: they stay exactly as typed unless the setting asks for
+  // Markdown to be honoured, and editing has always meant writing the source.
+  function drawBody(entry) {
+    if (!entry.text) return null;
+    const mine = entry.speaker === "user";
+    if (!mine && entry.speaker === "hermes" && looksLikeHtml(entry.text)) {
+      return el("div", { class: "said said-html" }, renderHtmlDocument(entry.text));
+    }
+    if (mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
+    return el("div", { class: "said said-markdown" }, renderMarkdown(entry.text));
+  }
+
   function drawPost(entry) {
     const media = entry.media;
     const mine = entry.speaker === "user";
@@ -261,7 +277,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       );
     }
     if (postEditor?.id === entry.id) node.append(postEditor.box);
-    else if (entry.text) node.append(el("p", { class: "said", text: entry.text }));
+    else if (entry.text) node.append(drawBody(entry));
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
     }
@@ -358,7 +374,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
           onclick: (event) => void removeEntry(entry, event.currentTarget),
         }) : null,
       ),
-      el("p", { class: "said", text: entry.text }),
+      drawBody(entry) || el("p", { class: "said", text: entry.text }),
     );
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
@@ -509,11 +525,16 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       const post = thread.find((entry) => entry.kind === "post");
       if (post.id !== root) continue;
       const said = thread.filter((entry) => entry !== post);
-      const heading = post.text || post.media?.describe || "投稿";
+      // Read aloud says the words, not the Markdown punctuation that draws
+      // them, nor the HTML of a framed Hermes report.
+      const heading = post.text
+        ? post.speaker === "hermes" && looksLikeHtml(post.text) ? t("HTMLレポート") : spokenText(post.text) || post.text
+        : post.media?.describe || t("投稿");
       lines.push({ id: post.id, text: heading });
       for (const entry of said) {
         const persona = getPersona(entry.speaker);
-        lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona?.name || entry.speaker}。${entry.text}` });
+        const body = entry.speaker === "hermes" && looksLikeHtml(entry.text) ? t("HTMLレポート") : spokenText(entry.text) || entry.text;
+        lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona?.name || entry.speaker}。${body}` });
       }
     }
     return lines;

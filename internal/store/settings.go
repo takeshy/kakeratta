@@ -89,6 +89,12 @@ type Settings struct {
 	// means nothing to the person reading the timeline.
 	TimeZone string `json:"timeZone"`
 
+	// MarkdownInput renders the user's own posts and replies as Markdown. A
+	// persona's reply is always rendered, and a Hermes HTML report is shown in
+	// a frame; only the user's own words depend on this switch, because only
+	// they are edited by hand.
+	MarkdownInput bool `json:"markdownInput"`
+
 	ReadAloudRate  float64 `json:"readAloudRate"`
 	ReadAloudVoice string  `json:"readAloudVoice"`
 }

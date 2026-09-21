@@ -19,6 +19,7 @@ test("the silence note is for a new timeline only", () => {
 
 // A minimal DOM keeps these interaction tests independent of browser tooling.
 class TestNode {
+  constructor(tag) { if (tag) this.tagName = String(tag).toUpperCase(); }
   children = [];
   listeners = {};
   dataset = {};
@@ -68,7 +69,7 @@ class TestNode {
 
 test("search reveals a folded reply and polling preserves a later manual fold", (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const feed = createFeed({ getPersona: () => null, showIntro: false });
   const entries = [
@@ -91,7 +92,7 @@ test("search reveals a folded reply and polling preserves a later manual fold", 
 // still show up as a link a person can open in another tab, not just as text.
 test("a reply's link renders as a link that opens in a new tab", (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const feed = createFeed({ getPersona: () => null, showIntro: false });
   const entries = [
@@ -105,13 +106,52 @@ test("a reply's link renders as a link that opens in a new tab", (t) => {
   assert.equal(link?.target, "_blank");
 });
 
+// A persona's reply is rendered, because nobody edits it: emphasis, deletion,
+// code and links read as themselves, and a javascript: link stays inert. A
+// whole HTML document from Hermes is framed where nothing runs. Your own
+// words stay exactly as typed until the setting asks for Markdown.
+test("personas render as markdown, hermes HTML is framed, user text stays plain until asked", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  let settings = {};
+  const feed = createFeed({ getPersona: () => null, getSettings: () => settings, showIntro: false });
+  const at = "2026-09-14T00:00:00Z";
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "plain **stay**", at },
+    { id: "r", kind: "reply", root: "p", speaker: "tech", at, text: "**bold** ~~gone~~ `code` [ok](https://example.com/x) [bad](javascript:alert(1))" },
+    { id: "h", kind: "reply", root: "p", speaker: "hermes", at, text: "<!DOCTYPE html><html><body>report</body></html>" },
+  ]);
+  feed.reveal("r");
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const nodes = () => walk(feed.element);
+  const tag = (name, text) => (node) => node.tagName === name && node.textContent === text;
+  assert.ok(nodes().some(tag("STRONG", "bold")), "emphasis renders");
+  assert.ok(nodes().some(tag("DEL", "gone")), "deletion renders");
+  assert.ok(nodes().some(tag("CODE", "code")), "code renders");
+  assert.deepEqual(nodes().filter((node) => node.tagName === "A").map((node) => node.href), ["https://example.com/x"]);
+  const frame = nodes().find((node) => node.tagName === "IFRAME");
+  assert.ok(frame, "hermes HTML is framed");
+  assert.equal(frame.sandbox, "allow-popups");
+  assert.match(frame.srcdoc, /<base target="_blank"><!DOCTYPE html>/);
+  // The user's own words stay as typed.
+  assert.ok(nodes().some(tag("P", "plain **stay**")));
+  assert.ok(!nodes().some(tag("STRONG", "stay")));
+  // The setting asks for the user's Markdown to be honoured; editing keeps
+  // meaning the source, so the same text now renders.
+  settings = { markdownInput: true };
+  feed.draw();
+  assert.ok(nodes().some(tag("STRONG", "stay")));
+  assert.ok(!nodes().some(tag("P", "plain **stay**")));
+});
+
 // The person watching a folded timeline cannot tell that a persona has just
 // spoken. A remark that arrives after the timeline is showing unfolds its
 // post; the first load and older pages do not, and a fold closed by hand stays
 // closed until the next remark.
 test("a persona's remark arriving unfolds its post; loads and older pages do not", (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const feed = createFeed({ getPersona: () => null, showIntro: false });
   const said = (count) => feed.element.querySelectorAll(".said-row").length === count;
@@ -150,7 +190,7 @@ test("reply dictation survives updates, sends to its target, and stops when clos
   t.mock.method(globalThis, "setTimeout", () => 0);
   t.mock.method(api, "reply", async () => ({}));
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   globalThis.cancelAnimationFrame = () => {};
   const recognizers = [];
   globalThis.SpeechRecognition = class {
@@ -228,7 +268,7 @@ test("delete updates the displayed thread from the API response without SSE", as
   const post = { id: "delete-post", kind: "post", root: "delete-post", text: "remove me", at: new Date().toISOString() };
   t.mock.method(api, "remove", async () => ({ ...post, deleted: true }));
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   globalThis.confirm = () => true;
   t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
   let update;
@@ -248,7 +288,7 @@ test("a failed delete keeps the post and allows retry", async (t) => {
   t.mock.method(globalThis, "setTimeout", () => 0);
   globalThis.Node = TestNode;
   const toasts = new TestNode();
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null, querySelector: () => toasts };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null, querySelector: () => toasts };
   globalThis.confirm = () => true;
   t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
   const feed = createFeed({ getPersona: () => null });
@@ -266,7 +306,7 @@ test("the user's own reply can be deleted", async (t) => {
   const reply = { id: "u", kind: "reply", speaker: "user", root: "p", replyTo: "p", text: "my reply", at: "2026-09-13T00:01:00Z" };
   t.mock.method(api, "remove", async () => ({ ...reply, deleted: true }));
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   globalThis.confirm = () => true;
   t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
   let feed;
@@ -286,7 +326,7 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
   const { showPersonaBuilder } = await import("../frontend/src/persona-builder.js");
   t.mock.method(api, "buildPersona", async () => ({ message: "続けて教えてください", draft: null }));
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null };
   globalThis.cancelAnimationFrame = () => {};
   const recognizers = [];
   globalThis.SpeechRecognition = class {
@@ -327,7 +367,7 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
 
 test("read aloud selects only one thread, including user replies, and updates its stop button", t => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   let request;
   const feed = createFeed({ getPersona: () => ({ name: "ワイン係" }), onSpeak: (...args) => { request = args; } });
@@ -351,10 +391,19 @@ test("read aloud selects only one thread, including user replies, and updates it
   assert.deepEqual(feed.spoken("other").map(line => line.id), ["other"]);
 });
 
+test("read aloud names a root Hermes HTML report instead of speaking its source", t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => ({ name: "Hermes" }), showIntro: false });
+  feed.set([{ id: "report", root: "report", kind: "post", speaker: "hermes", text: "<!DOCTYPE html><html><body>secret source</body></html>", at: "2026-09-14T00:00:00Z" }]);
+  assert.deepEqual(feed.spoken("report"), [{ id: "report", text: translate("HTMLレポート") }]);
+});
+
 test("persona bar groups overflow and toggles without losing the selected persona", async t => {
   const { createRoom } = await import("../frontend/src/room.js");
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   let selected;
   const room = createRoom({ onSelect: row => { selected = row.id; } });
@@ -374,7 +423,7 @@ test("persona bar groups overflow and toggles without losing the selected person
 
 test("daily check-ins display their persona and sources as replyable parent posts", (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const feed = createFeed({ getPersona: () => ({ name: "Tech", icon: "💻" }), showIntro: false });
   feed.set([{ id: "daily", root: "daily", kind: "post", speaker: "tech", text: "A relevant change", at: "2026-09-14T00:00:00Z", sources: [{ label: "Source", url: "https://example.com/news" }] }]);
@@ -388,7 +437,7 @@ test("compose stops dictation and resets its button on manual and spoken send", 
   const { createCompose } = await import("../frontend/src/compose.js");
   t.mock.method(api, "post", async () => ({}));
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   globalThis.cancelAnimationFrame = () => {};
   const recognizers = [];
   globalThis.SpeechRecognition = class {
@@ -433,7 +482,7 @@ test("compose stops dictation and resets its button on manual and spoken send", 
 
 test("post editing preserves drafts across updates, handles failure, and saves or cancels", async t => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const post = { id: "edit", kind: "post", speaker: "user", text: "before", at: new Date().toISOString() };
   const feed = createFeed({ getPersona: () => null });
@@ -470,7 +519,7 @@ test("post editing preserves drafts across updates, handles failure, and saves o
 
 test("editing is disabled offline and an open draft can be saved after reconnecting", async t => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   const originalListener = Object.getOwnPropertyDescriptor(globalThis, "addEventListener");
   const network = { onLine: false };
@@ -516,7 +565,7 @@ test("persona editor edits directly, asks the AI underneath, and shows what chan
   t.mock.method(api, "buildPersona", async (body) => ({ message: "短くしました", draft: { ...body.current, tone: "一言だけ" } }));
   t.mock.method(api, "savePersonaDraft", async (skill) => skill);
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   globalThis.cancelAnimationFrame = () => {};
   t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.cancelAnimationFrame; });
 
@@ -560,7 +609,7 @@ test("persona editor edits directly, asks the AI underneath, and shows what chan
 // timeline. Each persona still in the room can be told the router was wrong.
 test("the router's call opens from the user's posts and replies and can be disputed", async (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "move", name: "michi", icon: "🚃" }];
   t.mock.method(api, "routing", async (id) => id === "p"
@@ -610,7 +659,7 @@ test("the router's call opens from the user's posts and replies and can be dispu
 // carries the way to dispute them. The user's own lines do not.
 test("a persona's remark can be disputed", (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }];
   const disputes = [];
@@ -633,7 +682,7 @@ test("a persona's remark can be disputed", (t) => {
 
 test("an open router's call is refreshed after edits and completion, and ignores late responses", async (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const pending = [];
   t.mock.method(api, "routing", () => new Promise(resolve => pending.push(resolve)));
@@ -692,7 +741,7 @@ test("an open router's call is refreshed after edits and completion, and ignores
 // says so, and a reply can be asked for from there.
 test("a called persona that stayed quiet can be asked for a reply", async (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const rows = [{ id: "gourmet", name: "tabe", icon: "🍜" }, { id: "wine", name: "ぶどう", icon: "🍷" }, { id: "move", name: "michi", icon: "🚃" }];
   t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [
@@ -729,7 +778,7 @@ test("a called persona that stayed quiet can be asked for a reply", async (t) =>
 // misread as Hermes having stayed quiet.
 test("Hermes's call in the router sheet skips the memo wording", async (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const rows = [{ id: "hermes", name: "Hermes", icon: "🪽" }];
   t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [
@@ -749,7 +798,7 @@ test("Hermes's call in the router sheet skips the memo wording", async (t) => {
 // memory at that note.
 test("a remark leads to the notes written with it", (t) => {
   globalThis.Node = TestNode;
-  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const opened = [];
   const feed = createFeed({ getPersona: (id) => id === "gourmet" ? { id: "gourmet", name: "tabe", icon: "🍜" } : null, onOpenNote: (args) => opened.push(args), showIntro: false });

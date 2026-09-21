@@ -266,6 +266,22 @@ export function createSettings({ speaker, onSettings, closeAccount = null }) {
     );
   }
 
+  // Markdown in your own words is opt-in: a persona's reply is rendered
+  // because nobody edits those, but what you write is yours, and writing
+  // Markdown is a decision, not a default. Editing stays what it has always
+  // been - the source, written directly.
+  function drawInput(into) {
+    const markdown = el("input", { type: "checkbox", checked: !!settings.markdownInput });
+    markdown.addEventListener("change", () => void patch({ markdownInput: markdown.checked }));
+    into.append(
+      el("label", { class: "field check-field" }, markdown, el("span", { label: "入力内容をマークダウンとして扱う" })),
+      el("p", {
+        class: "hint",
+        label: "ONにすると、あなたの投稿と返信もマークダウンとして表示します。編集はマークダウンをそのまま書きます。担当の返事は常にマークダウンで表示し、HermesのHTMLレポートはそのまま表示します。",
+      }),
+    );
+  }
+
   // The level meter opens a microphone of its own, so it runs only while the
   // reader asks for it here and never beside dictation.
   function micCheck() {
@@ -518,6 +534,7 @@ export function createSettings({ speaker, onSettings, closeAccount = null }) {
       routerSection = openRouterSection();
       modelCategory = category("モデル");
       modelCategory.content.append(routerSection);
+      drawInput(category("入力").content);
       const voice = category("音声");
       drawSpeech(voice.content);
       drawReadAloud(voice.content);
@@ -539,7 +556,7 @@ export function createSettings({ speaker, onSettings, closeAccount = null }) {
       routerSection.scrollIntoView({ block: "start", behavior: "smooth" });
       routerSection.querySelector("input").focus({ preventScroll: true });
     };
-    view.append(section, el("p", { class: "hint", label: "モデルの切り替え、音声入力・読み上げ、外部エージェント・Bluesky連携、バックアップができます。" }));
+    view.append(section, el("p", { class: "hint", label: "入力の書式、モデルの切り替え、音声入力・読み上げ、外部エージェント・Bluesky連携、バックアップができます。" }));
   }
 
   // The screen leads with the two keys that decide whether anything works at

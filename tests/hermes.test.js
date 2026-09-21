@@ -49,10 +49,14 @@ test("Hermes setup includes the key in one configuration and links to its manual
   await view.load();
   await walk(view.element).find(n => n.tag === "button" && n.textContent === translate("接続キーを発行")).listeners.click();
   const fields = walk(view.element).filter(n => n.tag === "textarea");
-  assert.equal(fields.length, 1);
-  assert.ok(fields[0].value.includes(`Authorization: "Bearer ${key}"`));
-  assert.ok(!fields[0].value.includes("KAKERATTA_MCP_TOKEN"));
-  assert.match(fields[0].value, /https:\/\/kakeratta.net\/api\/mcp\/users\/xxx/);
+  // The configuration comes in three shapes now: a prompt for a plain Hermes,
+  // a NemoClaw command, and the manual YAML.
+  assert.equal(fields.length, 3);
+  const config = fields.find(n => n["aria-label"] === translate("HermesのMCP接続設定"));
+  assert.ok(config, "the manual YAML is there");
+  assert.ok(config.value.includes(`Authorization: "Bearer ${key}"`));
+  assert.ok(!config.value.includes("KAKERATTA_MCP_TOKEN"));
+  assert.match(config.value, /https:\/\/kakeratta.net\/api\/mcp\/users\/xxx/);
   const help = walk(view.element).find(n => n.tag === "a" && n.href?.includes("-hermes"));
   assert.ok(help);
   assert.equal(help.target, "_blank");
