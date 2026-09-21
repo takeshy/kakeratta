@@ -1151,6 +1151,9 @@ func listNotesTagged(memory store.Memory, tag string) string {
 			continue
 		}
 		line := fmt.Sprintf("- %s（%d字）", note.Path, len([]rune(note.Text)))
+		if !note.Written.IsZero() {
+			line += " updated: " + note.Written.Format(time.RFC3339)
+		}
 		if len(tags) > 0 {
 			line += " tags: " + strings.Join(tags, ", ")
 		}

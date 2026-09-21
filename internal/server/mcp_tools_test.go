@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,6 +49,24 @@ func mcpTaskFixture(t *testing.T) (*Server, *failingMCPWorkspace, store.AgentTas
 		t.Fatal(err)
 	}
 	return server, w, task
+}
+
+func TestMCPNoteListingIncludesTagsAndWrittenTime(t *testing.T) {
+	s, w, _ := mcpTaskFixture(t)
+	if err := w.WriteNote("hermes", "topics/go.md", "---\ntags: [Go, Cloud Run]\n---\n\nDeployment notes"); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.callMCPTool(context.Background(), "list_notes", json.RawMessage(`{"persona":"hermes"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(result)
+	text := string(raw)
+	for _, want := range []string{`"path":"topics/go.md"`, `"tags":["Go","Cloud Run"]`, `"written":"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("note listing missing %s: %s", want, text)
+		}
+	}
 }
 
 func TestMCPTaskReadFailurePreservesWork(t *testing.T) {

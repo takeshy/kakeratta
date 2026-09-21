@@ -48,6 +48,12 @@ func noteTags(text string) []string {
 	return tags
 }
 
+// NoteTags exposes the frontmatter tags to read-only integrations such as the
+// Hermes MCP note listing. The note body remains owned by the persona.
+func NoteTags(text string) []string {
+	return noteTags(text)
+}
+
 // hasTag says whether a note carries a tag, spelling aside.
 func hasTag(tags []string, want string) bool {
 	want = strings.ToLower(strings.TrimSpace(want))

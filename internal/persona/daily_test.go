@@ -19,6 +19,11 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 				if !strings.Contains(system, "Daily check-in") {
 					t.Error("daily prompt missing")
 				}
+				for _, want := range []string{"直近24時間", "自分が返答していない", "最近更新されたメモ", "tags", "notes_read"} {
+					if !strings.Contains(system, want) {
+						t.Errorf("daily discovery instruction missing %q", want)
+					}
+				}
 				return `{"action":"` + action + `","text":"Something worth sharing"}`
 			})
 			skill := r.catalogue.All()[0]

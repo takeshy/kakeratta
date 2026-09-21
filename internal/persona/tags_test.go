@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
 )
@@ -48,4 +49,14 @@ func TestTagsAreReadListedAndFilteredBy(t *testing.T) {
 		t.Fatalf("empty listing = %s", none)
 	}
 	_ = store.Memory{}
+}
+
+func TestNoteListingIncludesUpdatedTime(t *testing.T) {
+	memory := store.Memory{Notes: []store.Note{{
+		Path: "topics/old.md", Text: "---\ntags: [Go]\n---\n\nOld topic", Written: time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC),
+	}}}
+	got := listNotes(memory)
+	if !strings.Contains(got, "updated: 2026-08-01T12:00:00Z") {
+		t.Fatalf("updated time missing: %s", got)
+	}
 }

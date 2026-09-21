@@ -33,7 +33,7 @@ When this skill is invoked:
      - `claimId`: the exact claim ID used for `claim_task`
       - `text`: the complete reply for the user, written in Japanese, formatted as described under "Reply formatting"
 
-     Every call, including retries, must include all three arguments; a call that omits any of them is rejected before reaching kakeratta. Never send an empty `text` after claiming: an empty `text` completes the task quietly and the user receives no reply. Always invoke `complete_task` as an actual tool call, never output `<function=mcp__kakeratta__complete_task>` as plain text.
+     Every call, including retries, must include all three arguments; a call that omits any of them is rejected before reaching kakeratta. For an ordinary user request, never send an empty `text` after claiming: an empty `text` completes the task quietly and the user receives no reply. A daily check-in may use an empty `text` when there is nothing worth sharing, as described below. Always invoke `complete_task` as an actual tool call, never output `<function=mcp__kakeratta__complete_task>` as plain text.
 4. Never claim a task you do not intend to process.
 5. Never report a task as complete before the requested work has actually completed.
 
@@ -55,6 +55,14 @@ If an error or failure occurs after claiming a task (e.g. tool failure, API erro
 ## Notes and memory
 
 Use kakeratta persona notes only when relevant to the task. Do not overwrite unrelated notes.
+
+## Daily check-ins
+
+For a task whose `kind` is `check-in`:
+1. Call `mcp__kakeratta__get_timeline` as needed to cover the 24 hours before the check-in. Look especially for user or persona conversations in Hermes's domain where Hermes did not reply.
+2. Call `mcp__kakeratta__list_notes` for `hermes`. Identify tags that occur repeatedly among recently written notes, then find older notes with the same tags. Call `mcp__kakeratta__read_note` before using an old note.
+3. Reply only when you find a concrete, useful connection to the recent timeline or a stale note that is relevant now. Age or a shared tag alone is not a reason to post. Do not send a routine greeting or daily summary.
+4. If there is nothing worth sharing, call `mcp__kakeratta__complete_task` with all required arguments and an empty `text` so the check-in completes quietly. This quiet-completion rule is specific to check-ins; ordinary claimed requests still require a non-empty reply.
 
 ## Verification
 

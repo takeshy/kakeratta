@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -137,7 +138,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		if name == "list_notes" {
 			notes := []map[string]any{}
 			for _, n := range s.store.Memory(a.Persona).Notes {
-				notes = append(notes, map[string]any{"path": n.Path, "written": n.Written})
+				notes = append(notes, map[string]any{"path": n.Path, "written": n.Written, "tags": persona.NoteTags(n.Text)})
 			}
 			return map[string]any{"notes": notes}, nil
 		}
@@ -265,7 +266,7 @@ func (s *Server) finishHermesTurn(entryID string, spoke bool) {
 
 func (s *Server) hermesInstructions() string {
 	skill, _ := s.catalogue.Find("hermes")
-	return skill.Tone + "\n" + skill.Instructions + "\nUse your own tools and skills. For check-ins, report only meaningful changes; complete quietly otherwise. Store shared notes using write_note with Markdown links relative to the Hermes bundle."
+	return skill.Tone + "\n" + skill.Instructions + "\nUse your own tools and skills. For daily check-ins, first read the previous 24 hours of the timeline and look especially for relevant threads where Hermes did not reply. Also compare tags on recently written notes with older notes carrying the same tags; read a candidate before mentioning it, and report only a concrete useful connection. Complete quietly when none exists. Store shared notes using write_note with Markdown links relative to the Hermes bundle."
 }
 
 // Only confirmed deletion or editing invalidates a task. Storage failures must
