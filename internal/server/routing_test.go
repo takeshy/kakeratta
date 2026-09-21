@@ -210,7 +210,7 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 		return rows
 	}
 	// Turns under way: gourmet has spoken, move and book have not finished.
-	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}}); err != nil {
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := workspace.WriteNote("gourmet", "shops/ramen.md", "type: Shop\n\nラーメン", store.NoteSource{EntryID: "p", Label: "ラーメン"}); err != nil {
@@ -231,14 +231,14 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 	}
 	// A stored reply outcome is authoritative even when the timeline cannot
 	// identify it by timestamp (for example, both entries share the same time).
-	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet", "move"}, Spoke: []string{"gourmet", "move"}}); err != nil {
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet", "move"}, Spoke: []string{"gourmet", "move"}}); err != nil {
 		t.Fatal(err)
 	}
 	if rows = read(); rows["move"]["spoke"] != true {
 		t.Fatalf("stored speech outcome was ignored: %v", rows["move"])
 	}
 	// move finished without a word.
-	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Done: []string{"gourmet", "move"}}); err != nil {
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet", "move"}}); err != nil {
 		t.Fatal(err)
 	}
 	rows = read()
@@ -251,5 +251,38 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 	}
 	if rows = read(); rows["book"]["done"] != true {
 		t.Fatalf("an old record = %v", rows["book"])
+	}
+}
+
+// The moment the router decides, nobody has finished yet - and the record says
+// so by being tracked with empty lists, not by the lists themselves, which is
+// the one thing they cannot say. Firestore hands an empty array back as a nil
+// slice, so a record whose turns are all still ahead of it arrives looking
+// exactly like one written before turns were kept. Reading finished off that
+// told a person every persona had been asked and had stayed silent, while they
+// were in fact still being asked.
+func TestRoutingWithNoTurnsYetIsNotReadAsFinished(t *testing.T) {
+	server, workspace := app(t)
+	if err := workspace.Append(timeline.Entry{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "ラーメン", At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	// Exactly what Firestore returns for the record keepRouting writes: tracked,
+	// with both lists empty and so nil.
+	if err := workspace.SaveRouting("p", store.Routing{
+		Delivered: []string{"gourmet", "hermes"}, Excluded: map[string]string{}, Tracked: true, Done: nil, Spoke: nil,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/entry/p/routing", nil))
+	var body struct{ Delivered []map[string]any }
+	_ = json.Unmarshal(response.Body.Bytes(), &body)
+	if len(body.Delivered) != 2 {
+		t.Fatalf("delivered = %v", body.Delivered)
+	}
+	for _, row := range body.Delivered {
+		if row["done"] != false || row["spoke"] != false {
+			t.Fatalf("a persona still being asked reads as finished: %v", row)
+		}
 	}
 }

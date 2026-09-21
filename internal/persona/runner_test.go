@@ -1542,17 +1542,17 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 		{
 			name: "named persona is not the router's choice", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":["gourmet","move"],"excluded_reasons":{"book":"本の話ではない"}}`,
-			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Done: []string{"move", "gourmet"}, Spoke: []string{}},
+			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Tracked: true, Done: []string{"move", "gourmet"}, Spoke: []string{}},
 		},
 		{
 			name: "named persona is not passed over either", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}, Done: []string{"gourmet"}, Spoke: []string{}},
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{}},
 		},
 		{
 			name: "nobody is an answer", text: "今日は眠い",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}, Done: []string{}, Spoke: []string{}},
+			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}, Tracked: true, Done: []string{}, Spoke: []string{}},
 		},
 		{name: "a broken router is no answer", text: "今日は眠い", routed: `モデルが壊れた返事`, want: nil},
 	} {
@@ -1630,6 +1630,58 @@ func TestHermesTurnStaysOpenUntilItActuallyReplies(t *testing.T) {
 	}
 	if !contains(record.Done, "hermes") || !contains(record.Spoke, "hermes") {
 		t.Fatalf("hermes's actual reply must finish the turn: %+v", record)
+	}
+}
+
+// Hermes reports back over its own MCP request, entirely apart from the wave
+// that delivered the post, so its completion can land at the same moment the
+// wave itself is writing down what the other persona did. A read-modify-write
+// that is not made atomic here would let one of the two writes clobber the
+// other, dropping a reply that really happened - which is what a person saw
+// as a persona's own routing verdict flipping from quiet to replied only
+// after reopening the sheet.
+// slowReadWorkspace widens the gap between a read-modify-write's read and its
+// write, so two racing updates that are not serialized reliably interleave
+// their reads before either writes back - instead of relying on scheduling
+// luck to expose the same bug.
+type slowReadWorkspace struct {
+	store.Workspace
+	delay time.Duration
+}
+
+func (w *slowReadWorkspace) Routing(id string) (*store.Routing, error) {
+	time.Sleep(w.delay)
+	return w.Workspace.Routing(id)
+}
+
+func TestConcurrentTurnFinishesDoNotLoseEachOthersUpdate(t *testing.T) {
+	s, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := post(t, s, "調べて")
+	if err := s.SaveRouting(entry.ID, store.Routing{
+		Delivered: []string{"gourmet", "hermes"}, Excluded: map[string]string{}, Done: []string{}, Spoke: []string{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	slow := &slowReadWorkspace{Workspace: s, delay: 20 * time.Millisecond}
+	runner := New(slow, NewCatalogue(s.SkillDir()), nil)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); runner.turnsDone(entry.ID, []Skill{{ID: "gourmet"}}, map[string]bool{"gourmet": true}) }()
+	go func() { defer wg.Done(); runner.FinishAsyncTurn(entry.ID, "hermes", true) }()
+	wg.Wait()
+
+	record, err := s.Routing(entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"gourmet", "hermes"} {
+		if !contains(record.Done, id) || !contains(record.Spoke, id) {
+			t.Fatalf("a racing write must not drop the other persona's recorded turn: %+v", record)
+		}
 	}
 }
 

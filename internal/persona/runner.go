@@ -82,6 +82,14 @@ type Runner struct {
 	// stopMu guards the unbounded in-memory queue and coordinates its worker.
 	stopMu  sync.Mutex
 	stopped bool
+
+	// routingMu makes a read-modify-write on one post's routing record atomic.
+	// keepRouting, turnsDone and FinishAsyncTurn each read the record and write
+	// back a change; Hermes reporting back over MCP runs on its own request,
+	// concurrently with the wave that delivered it, so without this a write
+	// racing the other could read a stale copy and silently drop the other
+	// persona's just-recorded reply.
+	routingMu sync.Mutex
 }
 
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
@@ -200,13 +208,15 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 // no answer - "no record" and "nobody" are different things to read.
 func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []string, targets map[string]bool) {
 	entryID := entry.ID
+	r.routingMu.Lock()
+	defer r.routingMu.Unlock()
 	if !routing.Answered {
 		if err := r.store.ForgetRouting(entryID); err != nil {
 			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
 		}
 		return
 	}
-	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text, Done: []string{}, Spoke: []string{}}
+	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text, Tracked: true, Done: []string{}, Spoke: []string{}}
 	for _, id := range routing.Deliver {
 		if !contains(named, id) {
 			record.Delivered = append(record.Delivered, id)
@@ -230,6 +240,8 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 // their turn - spoken or not - and tells the page, so a sheet showing the
 // router's call can stop saying the persona is still thinking.
 func (r *Runner) turnsDone(entryID string, wave []Skill, spoke map[string]bool) {
+	r.routingMu.Lock()
+	defer r.routingMu.Unlock()
 	record, err := r.store.Routing(entryID)
 	if err != nil || record == nil {
 		return
@@ -265,6 +277,8 @@ func (r *Runner) FinishAsyncTurn(entryID, personaID string, spoke bool) {
 	if entryID == "" {
 		return
 	}
+	r.routingMu.Lock()
+	defer r.routingMu.Unlock()
 	record, err := r.store.Routing(entryID)
 	if err != nil || record == nil {
 		return

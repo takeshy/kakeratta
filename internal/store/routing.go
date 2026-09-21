@@ -16,12 +16,21 @@ type Routing struct {
 	Delivered []string          `json:"delivered"`
 	Excluded  map[string]string `json:"excluded"`
 	EntryText *string           `json:"entryText,omitempty"`
+	// Tracked says the two lists below are this record's own account of the
+	// turns, so an empty one means "nobody yet" rather than "not kept".
+	//
+	// The lists cannot carry that themselves. Firestore reads an empty array
+	// back as a nil slice, so a record written the moment the router decided -
+	// every turn still ahead of it - came back indistinguishable from one
+	// written before turns were kept at all, and every persona read as
+	// finished and silent while it was still being asked.
+	Tracked bool `json:"tracked"`
 	// Done lists the personas whose turn on this post has finished, spoken or
-	// not, so a reader can tell "still thinking" from "stayed quiet". nil is a
-	// record from before this was kept, and reads as finished.
+	// not, so a reader can tell "still thinking" from "stayed quiet". Only
+	// meaningful on a tracked record.
 	Done []string `json:"done"`
-	// Spoke lists the personas that produced a remark during this turn. nil is
-	// an older record whose speech outcome must be inferred from the timeline.
+	// Spoke lists the personas that produced a remark during this turn. On an
+	// untracked record the speech outcome must be inferred from the timeline.
 	Spoke []string `json:"spoke"`
 }
 
@@ -86,7 +95,7 @@ func (s *Store) ForgetRouting(entryID string) error {
 // normaliseRouting copies a record so callers never share slices or maps, and
 // so an empty decision is written as empty rather than null.
 func normaliseRouting(record Routing) Routing {
-	out := Routing{Delivered: []string{}, Excluded: map[string]string{}}
+	out := Routing{Delivered: []string{}, Excluded: map[string]string{}, Tracked: record.Tracked}
 	if record.EntryText != nil {
 		text := *record.EntryText
 		out.EntryText = &text

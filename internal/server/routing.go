@@ -55,9 +55,12 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"recorded": false})
 		return
 	}
-	// A record from before turns were noted reads as finished.
+	// A record from before turns were noted reads as finished. An empty list on
+	// a tracked record is the opposite - nobody has finished yet - which is why
+	// the record says outright whether it keeps them, rather than this being
+	// read off a list that arrives back empty either way.
 	done := func(id string) bool {
-		if record.Done == nil {
+		if !record.Tracked {
 			return true
 		}
 		for _, finished := range record.Done {
@@ -68,7 +71,7 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		return false
 	}
 	spoke := map[string]bool{}
-	if record.Spoke != nil {
+	if record.Tracked {
 		for _, id := range record.Spoke {
 			spoke[id] = true
 		}
