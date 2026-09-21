@@ -53,7 +53,7 @@ The production connection exposed 11 MCP tools during verification.
 
 The Hermes connection test succeeded and discovered all 11 tools. Within Hermes, their callable names have the `mcp__kakeratta__` prefix, such as `mcp__kakeratta__list_tasks`.
 
-The distributed [kakeratta Skill](../frontend/public/integrations/hermes/kakeratta/SKILL.md) defines the following workflow. A one-minute Hermes cron job runs with the Wake Gate script attached:
+The distributed [kakeratta Skill](../frontend/public/integrations/hermes/kakeratta/SKILL.md) defines the following workflow, and names the required arguments of every `mcp__kakeratta__*` call so the model cannot omit them (`complete_task` takes `taskId`, `claimId`, and `text`; an empty `text` completes quietly without posting). A one-minute Hermes cron job runs with the Wake Gate script attached:
 
 ```text
 list_tasks → claim_task → get_thread → reason / use tools → complete_task
@@ -75,23 +75,56 @@ The design principle from this failure is that **unfinished tasks must remain vi
 | Cron stopped running inference after a model change | Hermes logged `global inference config drifted since this job was created` and skipped the run. Explicitly pinning the model resolved it. This protects scheduled jobs from unintended model and cost changes. |
 | MCP returned `401 Unauthorized` | OpenShell's L7 proxy expects generation-scoped placeholders (e.g., `openshell:resolve:env:v<REVISION>_KAKERATTA_MCP_TOKEN`). If the revision in `config.yaml` does not match the active provider revision, OpenShell skips token substitution and forwards the unresolved placeholder string to kakeratta. Inspecting the active provider environment revision and updating the placeholder in `config.yaml` restored authentication. |
 | NemoClaw CLI commands hang indefinitely | After an interrupted sandbox recreation, stale lock files (`~/.nemoclaw-portable-host.lock` and locks under `~/.nemoclaw/state/mcp-lifecycle-locks/`) remained with defunct owner PIDs. Each `nemoclaw` command blocked waiting for lock release. Checking for active PIDs and pruning orphan locks restored immediate responsiveness. |
-| Sandbox stuck in `Phase: Error` (Reconciliation deadlock) | When a container stopped during Gateway lifecycle changes, OpenShell Gateway recorded `Phase: Error`. Even after `docker start`, `openshell sandbox stop` failed (requiring `Ready`) and `start` failed (requiring `Stopped`). Reconciling the sandbox status payload back to `Ready` in the Gateway database (`openshell.db`) cleared the deadlock and restored CLI execution. |
+| Sandbox stuck in `Phase: Error` (Reconciliation deadlock) | When a container stopped during Gateway lifecycle changes, OpenShell Gateway recorded `Phase: Error`. Even after `docker start`, `openshell sandbox stop` failed (requiring `Ready`) and `start` failed (requiring `Stopped`). Reconciling the sandbox status payload back to `Ready` in the Gateway database (`openshell.db`) cleared the deadlock and restored CLI execution. It recurred when a SIGTERM-killed `nemoclaw-hermes-start.service` (its stale `gateway-route:nemoclaw` lock under `~/.nemoclaw/state/mcp-lifecycle-locks/`) coincided with a Gateway restart: the container kept running and Hermes stayed healthy, but the control plane kept reporting `Error`, and `nemoclaw <name> start`, `recover`, and `doctor --fix` cannot clear a running-container `Error` (`docker restart` did not clear it either). Working byte-level fix: stop `nemoclaw-hermes-start.service`, remove stale locks whose owner PID is dead, back up `openshell.db`, flip the sandbox object payload's phase byte from `SANDBOX_PHASE_ERROR` (enum 3) to `SANDBOX_PHASE_READY` (enum 2), restart `nemoclaw-openshell-gateway.service`, and confirm `openshell sandbox list` shows `Ready`. |
 | NemoClaw / sandbox does not start automatically on host reboot | Caused by a Gateway database path mismatch and NemoClaw's authority validation failsafe (`GatewayAuthorityError`). Running the Gateway as a systemd user service introduced an authority drift against the onboarding checkpoint (`standalone`), causing port-forward recovery probes to be rejected. Resolved by configuring the official environment file (`~/.config/openshell/gateway.env`), using the managed service (`nemoclaw-openshell-gateway.service`), and reconciling the authority source in `onboard-session.json` to `"packaged-service"`. |
-| Web search and page extraction blocked with `403 Forbidden` causing hallucinations | OpenShell's L7 proxy default egress policy blocked outbound traffic to search/extraction endpoints (Keenable: `api.keenable.ai`, Exa: `mcp.exa.ai`, and external websites). After failing external research, the agent hallucinated confident but false answers and stubbornly defended them in the thread. Resolved by applying the `personal-open-internet` policy preset (`nemoclaw <name> policy add personal-open-internet --yes`) to permit port 80/443 egress. |
+| Web search and page extraction blocked with `403 Forbidden` causing hallucinations | OpenShell's L7 proxy default egress policy blocked outbound traffic to search/extraction endpoints (Keenable: `api.keenable.ai`, Exa: `mcp.exa.ai`, and external websites). After failing external research, the agent hallucinated confident but false answers and stubbornly defended them in the thread. Resolved by applying the `personal-open-internet` policy preset (`nemoclaw <name> policy add personal-open-internet --yes`) to permit port 80/443 egress. In a later sandbox generation this preset no longer coexisted with the host-specific policies (see the next row), so egress was opened per host instead. |
+| Egress approvals never took effect | Approvals surfaced by OpenShell stayed as pending `draft_policy_chunk` objects and never merged into the active policy; the first merge was rejected because adding `/usr/bin/python3.13` to the `brew` policy would grant that binary undeclared authorization for `formulae.brew.sh`. Treat an approval as applied only after verifying the live policy (`openshell policy get -g <gateway> <sandbox> --full -o json`, or `nemoclaw <name> policy explain`). |
+| `personal-open-internet` rejected next to host-specific policies | OpenShell refuses a policy document whose endpoints overlap on the same port with conflicting metadata (`network endpoint ambiguity validation failed`: `tls=skip` vs auto, differing `allowed_ips`, protocol/enforcement). The broad `<any-host>:80,443` endpoint conflicts with `brew`, `huggingface`, `npm`, `pypi`, `nvidia`, `nous_research`, and `mcp_bridge_kakeratta`. Replaced it with per-host endpoints for the keyless search backends via `openshell policy update --add-endpoint` (see the egress section below). |
+| Applying a policy preset during `Phase: Error` wiped the composed policy | `nemoclaw <name> policy add personal-open-internet --yes` reported success while the sandbox was in `Phase: Error`, but the written base contained only the new preset; the composed entries (`mcp_bridge_kakeratta`, `managed_inference`, `nvidia`, `nous_research`, and the user presets) were dropped. kakeratta MCP calls then failed with `Server returned an error response` because the credential binding was gone and the unresolved `openshell:resolve:env:...` placeholder was forwarded. After restoring `Ready`, the full pre-incident document was rewritten with `openshell policy set --policy <file> --wait <name>`; the restored revision hash matched the pre-incident revision exactly. |
+| First `complete_task` call rejected for missing arguments | Nemotron Super 120B omitted `text` (and sometimes `claimId`) on the first `mcp__kakeratta__complete_task` call; Hermes rejected it locally (`The tool was NOT invoked`) and the retry roughly 5 seconds later succeeded, adding latency to every task. The Skill now names all three arguments (`taskId`, `claimId`, `text`), requires them on every call including retries, and forbids an empty `text`, which completes quietly without posting. |
 
 ### Opening egress for web search and page extraction (preventing hallucinations)
 
-When tasked with unknown terms, emerging tools, or cross-framework concepts, Hermes Agent autonomously attempts to use `web_search` (Keenable API) and `web_extract` (Exa API / web scraping).
+To ensure Hermes can accurately look up external and up-to-date documentation before answering, it needs egress to its keyless web search and page extraction backends: Tavily (`api.tavily.com`), Exa (`mcp.exa.ai`), Parallel (`search.parallel.ai`), Firecrawl (`api.firecrawl.dev`), Keenable (`api.keenable.ai`), Brave (`api.search.brave.com`), and DuckDuckGo (`duckduckgo.com`, `html.duckduckgo.com`).
 
-However, in a default sandbox, OpenShell's L7 proxy rejects all non-whitelisted egress with `403 Forbidden`. Certain models (especially code- or reasoning-tuned models) will not concede when a search fails; instead, they hallucinate speculative facts from fragment words, state them with high confidence, and stubbornly reject user corrections.
+However, in a default sandbox, OpenShell's L7 proxy rejects all non-whitelisted egress with `403 Forbidden`. Certain models (especially code- or reasoning-tuned) will not concede when a search fails; instead, they hallucinate speculative facts from fragment words, state them with high confidence, and stubbornly reject user corrections.
 
-To ensure Hermes can accurately look up external and up-to-date documentation before answering, apply the `personal-open-internet` preset to open outbound TCP ports 80 and 443:
+Two ways to open the egress:
 
-```bash
-nemoclaw <sandbox-name> policy add personal-open-internet --yes
-```
+1. **Broad**: apply the `personal-open-internet` preset to open outbound TCP ports 80 and 443. This is the simplest option, but it only validates when the sandbox has no host-specific endpoints that conflict with a broad `<any-host>:80,443` rule (see the ambiguity row above), and it must be applied while the sandbox is `Ready`. Afterwards, confirm that the composed entries (`mcp_bridge_kakeratta`, `managed_inference`) survived in the live policy.
 
-This allows the sandbox to reach `https://api.keenable.ai`, `https://mcp.exa.ai`, and arbitrary target URLs (such as `https://openclaw.ai/`), enabling grounded research and factual responses.
+   ```bash
+   nemoclaw <name> policy add personal-open-internet --yes
+   ```
+
+2. **Per host** (used in the current setup): add explicit endpoints for the backends plus any sites Hermes is expected to fetch. `openshell policy update` merges incrementally and never replaces the rest of the document, so it composes safely with the host-specific presets:
+
+   ```bash
+   openshell policy update -g <gateway> <sandbox> \
+     --add-endpoint "api.tavily.com:443:full" \
+     --add-endpoint "mcp.exa.ai:443:full" \
+     --add-endpoint "search.parallel.ai:443:full" \
+     --add-endpoint "api.firecrawl.dev:443:full" \
+     --add-endpoint "api.keenable.ai:443:full" \
+     --add-endpoint "api.search.brave.com:443:full" \
+     --add-endpoint "duckduckgo.com:443:full" \
+     --add-endpoint "html.duckduckgo.com:443:full" \
+     --binary "/usr/local/bin/hermes" --binary "/usr/bin/python3*" --binary "/opt/hermes/.venv/bin/python*" \
+     --wait
+   ```
+
+   Add the same kind of endpoint for specific sites you expect `web_extract` to fetch (for example `openclaw.ai:443:full` and `www.openclaw.ai:443:full`). To verify what is actually active, run `nemoclaw <name> policy explain` or `openshell policy get -g <gateway> <sandbox> --full -o json`; approved-but-unapplied requests remain visible only as pending drafts and do not count.
+
+### Restore the policy document after an accidental clobber
+
+`policy set` writes a complete base document, so a write prepared from a wrong or empty base drops every policy that is not part of it — including provider-composed entries such as `mcp_bridge_kakeratta` and `managed_inference`. When that happens:
+
+1. Restore the sandbox phase to `Ready` first (see the `Phase: Error` row above); writes are rejected with `sandbox is not ready` while it is not.
+2. Export the full pre-incident policy (`openshell policy get --full -o json`, or a `nemoclaw <name> policy get` export kept beforehand), extract its `policy` object, and write it back with `openshell policy set -g <gateway> --policy <file.yaml> --wait <sandbox>`.
+3. Confirm the result with `openshell policy list -g <gateway> <sandbox>`: the restored revision's hash must equal the pre-incident revision.
+4. Re-add any host endpoints that were introduced after the exported snapshot.
+
+Prefer `openshell policy update --add-endpoint` for additions on a healthy sandbox; it merges instead of replacing.
 
 ### Keep the Gateway restart fix across sandbox recreation
 
@@ -158,7 +191,7 @@ Development tested both `NousResearch/Hermes-4-405B` and `nvidia/Nemotron-3_5-Li
 
 In a further Super 120B test, Hermes detected a user's model question through `list_tasks`, claimed it, performed a web search, and posted a response to the original thread with `complete_task`. This verified autonomous processing that included external research. Specific model specifications and benchmark figures in the generated answer are not treated as findings of this integration test.
 
-The Skill's error handling was also revised. When a tool or external API fails after a task is claimed, Hermes is instructed to use `complete_task` to tell the user what failed and why. A reply cannot be guaranteed if `complete_task` itself is unreachable; the connection must be checked after recovery.
+The Skill's error handling was also revised. When a tool or external API fails after a task is claimed, Hermes is instructed to use `complete_task` to tell the user what failed and why. A reply cannot be guaranteed if `complete_task` itself is unreachable; the connection must be checked after recovery. A later revision additionally names every `complete_task` argument explicitly, because the model's first call was repeatedly rejected for omitting `text` (see the problems table).
 
 ## Verified scope and possible extensions
 

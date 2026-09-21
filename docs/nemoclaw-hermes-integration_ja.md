@@ -53,7 +53,7 @@ kakeratta の MCP は、検証時に次の 11 ツールを公開しました。
 
 Hermes からの接続テストでは、接続成功と全 11 ツールの検出を確認しました。実際の呼び出し名は `mcp__kakeratta__list_tasks` のように `mcp__kakeratta__` が付きます。
 
-リポジトリで配布する [kakeratta Skill](../frontend/public/integrations/hermes/kakeratta/SKILL.md) は、以下の手順を定義しています。1 分周期の Hermes Cron には Wake Gate スクリプトを指定します。
+リポジトリで配布する [kakeratta Skill](../frontend/public/integrations/hermes/kakeratta/SKILL.md) は、以下の手順を定義しています。あわせて `mcp__kakeratta__*` 各呼び出しの必須引数を明記しています（`complete_task` は `taskId`・`claimId`・`text` の 3 引数。空の `text` は何も投稿せず静かに完了するため禁止）。1 分周期の Hermes Cron には Wake Gate スクリプトを指定します。
 
 ```text
 list_tasks → claim_task → get_thread → 推論・ツール利用 → complete_task
@@ -75,23 +75,56 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 | モデル変更後に Cron が推論を実行しない | Hermes が `global inference config drifted since this job was created` として実行を保留した。ジョブのモデルを明示的に固定した。これは意図しないモデル変更や費用増加を防ぐ安全機構だった。 |
 | MCP が `401 Unauthorized` を返す | OpenShell の L7 プロキシは世代付きプレースホルダー（例: `openshell:resolve:env:v<REVISION>_KAKERATTA_MCP_TOKEN`）を要求する。`config.yaml` 側のリビジョンがプロバイダの最新リビジョンと一致しない場合、OpenShell がトークン置換をスキップし未解決のプレースホルダーをそのまま送信する。プロバイダの環境リビジョンを確認し、`config.yaml` 側のプレースホルダーを同期して復旧した。 |
 | NemoClaw CLI コマンドが無応答でハングする | サンドボックス再作成の中断時などに、古い PID のロックファイル（`~/.nemoclaw-portable-host.lock` や `~/.nemoclaw/state/mcp-lifecycle-locks/` 配下）が残存し、後続コマンドが排他ロック待ちでブロックされていた。所有 PID の生存確認を行い、孤立した stale ロックを安全に削除して即時応答を回復した。 |
-| サンドボックスが `Phase: Error` でデッドロックする | Gateway 停止に伴いコンテナが停止した際、OpenShell Gateway が `Phase: Error` を記録した。Docker 側でコンテナを再起動しても、`openshell sandbox stop` は Ready を要求し `start` は Stopped を要求するため CLI 操作が拒絶される。Gateway の内部 DB（`openshell.db`）の sandbox 状態を `Ready` に再同期して CLI 制御を復旧した。 |
+| サンドボックスが `Phase: Error` でデッドロックする | Gateway 停止に伴いコンテナが停止した際、OpenShell Gateway が `Phase: Error` を記録した。Docker 側でコンテナを再起動しても、`openshell sandbox stop` は Ready を要求し `start` は Stopped を要求するため CLI 操作が拒絶される。Gateway の内部 DB（`openshell.db`）の sandbox 状態を `Ready` に再同期して CLI 制御を復旧した。SIGTERM で停止した `nemoclaw-hermes-start.service`（`~/.nemoclaw/state/mcp-lifecycle-locks/` 配下に孤立した `gateway-route:nemoclaw` ロック）と Gateway 再起動が重なった際にも再発した。このときコンテナと Hermes は稼働し続けたが、制御面は `Error` のままとなり、実行中コンテナの `Error` は `nemoclaw <name> start`・`recover`・`doctor --fix` のいずれでも解消できず、`docker restart` でも解消しなかった。実際に効いた手順は、`nemoclaw-hermes-start.service` 停止 → 死亡 PID の stale ロック削除 → `openshell.db` バックアップ → sandbox オブジェクトの payload 内フェーズ値を `SANDBOX_PHASE_ERROR` (3) から `SANDBOX_PHASE_READY` (2) へ書き換え → `nemoclaw-openshell-gateway.service` 再起動 → `openshell sandbox list` で `Ready` を確認、というバイトレベルの修正。 |
 | ホスト再起動時に NemoClaw が自動起動しない | Gateway が参照する DB パスの不一致と、NemoClaw の権限保護フェイルセーフ（`GatewayAuthorityError`）が原因。Gateway を systemd サービス化したことでオンボーディング記録（`standalone`）と権限主体が食い違い、フォワード復旧プローブが拒絶されていた。公式設計に準拠した設定ファイル（`~/.config/openshell/gateway.env`）と正規サービス（`nemoclaw-openshell-gateway.service`）を導入し、セッション記録（`onboard-session.json`）の Authority を `packaged-service` に整合させて復旧した。 |
-| Web 検索・抽出が `403 Forbidden` で遮断されハルシネーションが発生 | OpenShell L7 プロキシの Egress 制限により、外部 Web（Keenable: `api.keenable.ai`、Exa: `mcp.exa.ai`、抽出対象の外部 Web ページ）が遮断されていた。外部調査に失敗したエージェントが推測で誤った回答（ハルシネーション）を生成し、スレッドに固執して投稿し続ける事象が発生。`personal-open-internet` ポリシー（ポート 80/443 Egress 許可）を適用して外部検索・抽出を開通させて解消した。 |
+| Web 検索・抽出が `403 Forbidden` で遮断されハルシネーションが発生 | OpenShell L7 プロキシの Egress 制限により、外部 Web（Keenable: `api.keenable.ai`、Exa: `mcp.exa.ai`、抽出対象の外部 Web ページ）が遮断されていた。外部調査に失敗したエージェントが推測で誤った回答（ハルシネーション）を生成し、スレッドに固執して投稿し続ける事象が発生。`personal-open-internet` ポリシー（ポート 80/443 Egress 許可）を適用して外部検索・抽出を開通させて解消した。後のサンドボックス世代では同プリセットがホスト別ポリシーと共存できなくなったため（次行参照）、ホスト単位の Egress 追加に切り替えた。 |
+| 許可したはずの Egress 承認が反映されない | OpenShell が提示した承認要求は `draft_policy_chunk` として pending のまま残り、実効ポリシーへ一度もマージされなかった。最初の 1 件は「`/usr/bin/python3.13` を `brew` に追加すると formulae.brew.sh への未宣言の権限を与える」という安全検証でマージ拒否されていた。承認の効果は、実効ポリシー（`openshell policy get -g <gateway> <sandbox> --full -o json`、または `nemoclaw <name> policy explain`）で直接確認するまで適用されたと見なさないこと。 |
+| `personal-open-internet` がホスト別ポリシーと共存できない | OpenShell は、同一ポートで重複するエンドポイントのメタデータが不一致（`tls=skip` vs auto、`allowed_ips` の差異、protocol/enforcement）のポリシードキュメントを `network endpoint ambiguity validation failed` として拒否する。`<any-host>:80,443` の広域エンドポイントは `brew`・`huggingface`・`npm`・`pypi`・`nvidia`・`nous_research`・`mcp_bridge_kakeratta` と競合するため、キーなし検索バックエンドを `openshell policy update --add-endpoint` でホスト単位に追加する方式に置き換えた（下の Egress セクション参照）。 |
+| `Phase: Error` 中にポリシープリセットを適用すると合成済みポリシーが消える | サンドボックスが `Phase: Error` の間に `nemoclaw <name> policy add personal-open-internet --yes` を実行すると成功と表示されたが、書き戻されたベースには新プリセットのみが含まれ、合成エントリ（`mcp_bridge_kakeratta`、`managed_inference`、`nvidia`、`nous_research`、ユーザープリセット）がすべて消えた。以降 kakeratta への MCP 呼び出しは、クレデンシャルバインディング喪失により未解決の `openshell:resolve:env:...` プレースホルダーが送信され、`Server returned an error response` で失敗した。`Ready` 復帰後に事故前の完全なドキュメントを `openshell policy set --policy <file> --wait <name>` で書き戻し、リビジョンハッシュが事故前と完全一致することで復元を確認した。 |
+| 初回の `complete_task` 呼び出しが毎回引数不足で拒否される | Nemotron Super 120B は初回の `mcp__kakeratta__complete_task` 呼び出しで `text`（時に `claimId`）を省略し、Hermes 側の検証で拒否（`The tool was NOT invoked`）された後、約 5 秒の再試行で成功していたため、全タスクに無駄な遅延が乗っていた。Skill 側で 3 引数（`taskId`、`claimId`、`text`）を明記し、再試行を含む全呼び出しでの必須化と、空の `text`（静かに完了して何も投稿しない）の禁止を追記して対処した。 |
 
 ### Web 検索・Web 抽出の Egress 開放（ハルシネーション防止）
 
-Hermes Agent は、未知の専門用語や最新技術（例: 他のエージェントフレームワークや外部サービス等）に関する依頼を受けると、自律的に `web_search`（Keenable）や `web_extract`（Exa / 外部ページ取得）を呼び出して外部調査を試みます。
+Hermes Agent は、未知の専門用語や最新技術（例: 他のエージェントフレームワークや外部サービス等）に関する依頼を受けると、自律的に `web_search` や `web_extract` を呼び出して外部調査を試みます。キーなしで使えるバックエンドは Tavily（`api.tavily.com`）、Exa（`mcp.exa.ai`）、Parallel（`search.parallel.ai`）、Firecrawl（`api.firecrawl.dev`）、Keenable（`api.keenable.ai`）、Brave（`api.search.brave.com`）、DuckDuckGo（`duckduckgo.com`、`html.duckduckgo.com`）です。
 
-しかし、初期状態のサンドボックスでは OpenShell L7 プロキシにより許可済みエンドポイント以外の Egress がすべて `403 Forbidden` で拒絶されます。このとき、モデル（特に推論・コーディング特化のモデル）によっては検索失敗を断念せず、手元の断片的な知識から「推測をもっともらしく事実のように語る（自信満々に嘘をつく）」ハルシネーションを起こし、ユーザーの訂正すら否定して誤った回答に固執するリスクが生じます。
+初期状態のサンドボックスでは OpenShell L7 プロキシにより許可済みエンドポイント以外の Egress がすべて `403 Forbidden` で拒絶されます。このとき、モデル（特に推論・コーディング特化のモデル）によっては検索失敗を断念せず、手元の断片的な知識から「推測をもっともらしく事実のように語る（自信満々に嘘をつく）」ハルシネーションを起こし、ユーザーの訂正すら否定して誤った回答に固執するリスクが生じます。
 
-これを防ぎ、Hermes が最新・外部の情報を正しく調査して回答できるようにするには、ポート 80/443 の広範なアウトバウンドを許可する `personal-open-internet` プリセットをサンドボックスに適用します：
+Egress の開放には 2 つの方法があります。
 
-```bash
-nemoclaw <sandbox-name> policy add personal-open-internet --yes
-```
+1. **広域**: ポート 80/443 を広く開く `personal-open-internet` プリセットを適用します。最も単純ですが、`<any-host>:80,443` と競合するホスト別エンドポイントが既にあるサンドボックスでは検証に失敗します（上の競合行参照）。また適用はサンドボックスが `Ready` の状態で行い、適用後に `mcp_bridge_kakeratta` や `managed_inference` が実効ポリシーに残っていることを確認してください。
 
-適用後、サンドボックスから `https://api.keenable.ai`、`https://mcp.exa.ai`、および任意の Web ページ（例: `https://openclaw.ai/`）への正常なアクセスが可能となり、事実に基づいた調査と回答が行えるようになります。
+   ```bash
+   nemoclaw <name> policy add personal-open-internet --yes
+   ```
+
+2. **ホスト単位**（現在の構成で使用）: バックエンドと取得予定のサイトに対してエンドポイントを個別に追加します。`openshell policy update` はドキュメント全体を置き換えず差分マージするため、ホスト別プリセットが共存する環境でも安全に使えます。
+
+   ```bash
+   openshell policy update -g <gateway> <sandbox> \
+     --add-endpoint "api.tavily.com:443:full" \
+     --add-endpoint "mcp.exa.ai:443:full" \
+     --add-endpoint "search.parallel.ai:443:full" \
+     --add-endpoint "api.firecrawl.dev:443:full" \
+     --add-endpoint "api.keenable.ai:443:full" \
+     --add-endpoint "api.search.brave.com:443:full" \
+     --add-endpoint "duckduckgo.com:443:full" \
+     --add-endpoint "html.duckduckgo.com:443:full" \
+     --binary "/usr/local/bin/hermes" --binary "/usr/bin/python3*" --binary "/opt/hermes/.venv/bin/python*" \
+     --wait
+   ```
+
+   `web_extract` で取得する具体的なサイト（例: `openclaw.ai:443:full` と `www.openclaw.ai:443:full`）は同じ形式で追加します。実効ポリシーは `nemoclaw <name> policy explain` か `openshell policy get -g <gateway> <sandbox> --full -o json` で確認します。承認だけして未適用の要求は pending draft のまま残るため、実効ポリシーに現れない限り有効とは見なせません。
+
+### ポリシーを誤って消した場合の復元手順
+
+`policy set` はベースドキュメント全体を書き換えるため、誤った（または空の）ベースから書き込むと、`mcp_bridge_kakeratta` や `managed_inference` などの合成エントリを含めて、含まれていないポリシーがすべて消えます。その場合は:
+
+1. 先にサンドボックスのフェーズを `Ready` に戻す（上の `Phase: Error` 行参照）。`Ready` でない間の書き込みは `sandbox is not ready` で拒否されます。
+2. 事故前の完全なポリシー（`openshell policy get --full -o json`、または事前に取得した `nemoclaw <name> policy get` のエクスポート）から `policy` オブジェクトを取り出し、`openshell policy set -g <gateway> --policy <file.yaml> --wait <sandbox>` で書き戻します。
+3. `openshell policy list -g <gateway> <sandbox>` で、復元リビジョンのハッシュが事故前のリビジョンと一致することを確認します。
+4. スナップショット以降に追加したホスト別エンドポイントを、再度追加します。
+
+稼働中のサンドボックスへの追加は、ドキュメントを置き換えず差分マージする `openshell policy update --add-endpoint` を優先してください。
 
 ### サンドボックス再作成後も Gateway の修正を残す
 
@@ -156,7 +189,7 @@ CLI（手動実行）で `nemoclaw onboard` を行った場合、オンボーデ
 
 Super 120B での追加検証では、Hermes がユーザーのモデルに関する質問を `list_tasks` で検出し、`claim_task` の後に Web 検索を行い、収集した情報を使って `complete_task` で元スレッドへ回答しました。これにより、単純な応答に加えて外部調査を含む自律処理を確認しました。回答文中の個別のモデル仕様やベンチマーク値は、この連携の検証結果としては扱いません。
 
-Skill のエラー処理も改訂しました。タスク取得後にツールや外部 API が失敗した場合は、失敗した操作と理由をユーザーへ説明する結果を `complete_task` で返す手順です。`complete_task` 自体に到達できない障害では返信を保証できないため、接続復旧後の確認が必要です。
+Skill のエラー処理も改訂しました。タスク取得後にツールや外部 API が失敗した場合は、失敗した操作と理由をユーザーへ説明する結果を `complete_task` で返す手順です。`complete_task` 自体に到達できない障害では返信を保証できないため、接続復旧後の確認が必要です。さらに、初回呼び出しが `text` の欠落で繰り返し拒否されていた問題（問題表参照）を受け、`complete_task` の全引数を Skill に明記する改訂も行いました。
 
 ## 検証範囲と今後の用途
 
