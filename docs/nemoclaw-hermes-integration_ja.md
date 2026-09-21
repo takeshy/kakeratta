@@ -73,7 +73,53 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 | 非対話オンボーディングで別の推論プロバイダが選ばれる | `NEMOCLAW_PROVIDER="custom"`、`NEMOCLAW_MODEL="nvidia/Nemotron-3_5-Lightning"`、`NEMOCLAW_ENDPOINT_URL="https://api.tokenfactory.nebius.com/v1"` を明示し、Nebius の OpenAI 互換エンドポイントを指定した。 |
 | 小型モデルが不要なツール探索やシェル操作に進む | `--tool-disclosure direct` でツール定義を直接開示し、Skill に正式な `mcp__kakeratta__*` 名と手順を記した。 |
 | モデル変更後に Cron が推論を実行しない | Hermes が `global inference config drifted since this job was created` として実行を保留した。ジョブのモデルを明示的に固定した。これは意図しないモデル変更や費用増加を防ぐ安全機構だった。 |
-| MCP が `401 Unauthorized` を返す | ネットワークポリシー変更後、MCP bridge の認証情報プレースホルダーが解決されず、そのまま送信された。MCP の認証設定と OpenShell ポリシーを点検し、11 ツールを再検出できることを確認して復旧した。 |
+| MCP が `401 Unauthorized` を返す | OpenShell の L7 プロキシは世代付きプレースホルダー（例: `openshell:resolve:env:v<REVISION>_KAKERATTA_MCP_TOKEN`）を要求する。`config.yaml` 側のリビジョンがプロバイダの最新リビジョンと一致しない場合、OpenShell がトークン置換をスキップし未解決のプレースホルダーをそのまま送信する。プロバイダの環境リビジョンを確認し、`config.yaml` 側のプレースホルダーを同期して復旧した。 |
+| NemoClaw CLI コマンドが無応答でハングする | サンドボックス再作成の中断時などに、古い PID のロックファイル（`~/.nemoclaw-portable-host.lock` や `~/.nemoclaw/state/mcp-lifecycle-locks/` 配下）が残存し、後続コマンドが排他ロック待ちでブロックされていた。所有 PID の生存確認を行い、孤立した stale ロックを安全に削除して即時応答を回復した。 |
+| サンドボックスが `Phase: Error` でデッドロックする | Gateway 停止に伴いコンテナが停止した際、OpenShell Gateway が `Phase: Error` を記録した。Docker 側でコンテナを再起動しても、`openshell sandbox stop` は Ready を要求し `start` は Stopped を要求するため CLI 操作が拒絶される。Gateway の内部 DB（`openshell.db`）の sandbox 状態を `Ready` に再同期して CLI 制御を復旧した。 |
+| ホスト再起動時に NemoClaw が自動起動しない | Gateway が参照する DB パスの不一致と、NemoClaw の権限保護フェイルセーフ（`GatewayAuthorityError`）が原因。Gateway を systemd サービス化したことでオンボーディング記録（`standalone`）と権限主体が食い違い、フォワード復旧プローブが拒絶されていた。公式設計に準拠した設定ファイル（`~/.config/openshell/gateway.env`）と正規サービス（`nemoclaw-openshell-gateway.service`）を導入し、セッション記録（`onboard-session.json`）の Authority を `packaged-service` に整合させて復旧した。 |
+
+### サンドボックス再作成後も Gateway の修正を残す
+
+管理付き MCP の登録後に `exec relay closed` が出る、またはサンドボックスが停止する場合は、Hermes Gateway の終了コード `75` を確認してください。これは Gateway の再起動要求です。コンテナ内の `/usr/local/bin/nemoclaw-start` を直接修正しただけでは、サンドボックス再作成時に消えます。
+
+修正済みの `agents/hermes/start.sh` を含む NemoClaw イメージを使うか、テスト済みのベースイメージを固定したカスタムイメージを作り、修正済みスクリプトを `/usr/local/bin/nemoclaw-start` にコピーします。`nemoclaw onboard --from /path/to/Dockerfile` で使う Dockerfile の最終ステージには、次の宣言も必要です。
+ビルドコンテキスト内の `start.sh` に実行権限を付けてください（`chmod 755 start.sh`）。
+
+```dockerfile
+ARG NEMOCLAW_TOOL_DISCLOSURE=progressive
+ENV NEMOCLAW_TOOL_DISCLOSURE=${NEMOCLAW_TOOL_DISCLOSURE}
+COPY --chown=root:root start.sh /usr/local/bin/nemoclaw-start
+```
+
+再作成前にサンドボックスの状態をバックアップしてください。再作成後は `Ready`、`hermes mcp list` での kakeratta の有効化、skill・Wake Gate スクリプト・cron ジョブの存在を確認します。MCP の認証情報は Dockerfile や skill、cron ではなく OpenShell に保存します。
+
+### ホスト再起動時の自動起動とデッドロック回避
+
+ホストマシン（Linux）の再起動後も Hermes と kakeratta を常駐運用するには、systemd ユーザーサービスを設定します。ただし、以下の 2 つの重大な落とし穴に注意してください。
+
+#### 1. ブート時 Docker 待ち合わせ（`Phase: Error` デッドロックの防止）
+systemd ユーザーサービス（`systemctl --user`）は、root 権限で動くシステムの `docker.service` を直接 `Requires=` で待機することができません。
+そのため、PC ブート時に Docker デーモンが立ち上がるより数秒早く NemoClaw が起動を試みてしまい、`Failure layer: docker_unreachable` で失敗します。
+さらに、この起動失敗を検知した OpenShell Gateway はサンドボックスを **`Phase: Error`** にマークしてしまい、以降は「`sandbox must be Stopped to start (current phase: Error)`」として一切の起動・停止操作を拒絶するデッドロックに陥ります。
+
+**対策**: サービス実行前（`ExecStartPre`）に、Docker デーモンが応答可能になるまで待機するループを必ず組み込んでください。
+
+```bash
+# ExecStartPre 用スクリプト例 (nemoclaw-wait-docker.sh)
+until docker info >/dev/null 2>&1; do
+  sleep 1
+done
+```
+
+#### 2. NemoClaw 権限整合性（`GatewayAuthorityError` の回避）
+CLI（手動実行）で `nemoclaw onboard` を行った場合、オンボーディング台帳（`~/.nemoclaw/onboard-session.json`）には Gateway 管理主体が `standalone` として記録されます。
+これを後から systemd サービス（`packaged-service`）で動かそうとすると、NemoClaw の権限保護フェイルセーフが働き、ポートフォワード復旧が「`host port ... is held by a listener that NemoClaw cannot attribute to this sandbox's OpenShell forward`」として拒絶されます（ポート競合と誤認されやすいエラーですが、実際には権限不一致による拒絶です）。
+
+**対策**:
+- NemoClaw 公式管理サービス **`nemoclaw-openshell-gateway.service`**（先頭に `# NEMOCLAW_MANAGED_OPENSHELL_GATEWAY=1` を付与）を使用する。
+- Gateway 設定は `~/.config/openshell/gateway.env` (`0600`) に記述し、正しい DB パス（`OPENSHELL_DATA_DIR`）を指定する。
+- `~/.nemoclaw/onboard-session.json` 内の `checkpoint.gatewayAuthority.value.source` を `"packaged-service"` に更新して整合させる。
+
 
 開発中には、決定的なタスク管理だけを Python ワーカーへ移す方式も試しました。この方式は安定したものの、独自コードの保守が必要でした。最終的には Hermes 標準の **Skill + Cron + MCP** に統一し、独自ワーカーを不要にしました。高速モデルでは、モデル選択に加えてツールの開示方法と Skill の明確さが動作を左右しました。
 

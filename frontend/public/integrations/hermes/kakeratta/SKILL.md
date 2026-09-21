@@ -8,6 +8,12 @@ description: >
 
 You are connected to kakeratta as an external agent.
 
+## Operator setup (NemoClaw / OpenShell)
+
+Before scheduling this skill, attach kakeratta as a **managed MCP provider** in the sandbox, configure its credential and network policy, and confirm that Hermes can call `mcp__kakeratta__list_tasks`. Installing the skill alone does not create the MCP connection. Keep the token in OpenShell's credential store; do not put it in this skill or the cron command.
+
+After adding or changing a managed MCP provider, check that the sandbox returns to `Ready` and that `hermes mcp list` shows kakeratta enabled. Hermes Gateway may exit with code `75` to request a restart. If sandbox commands then fail with `exec relay closed` or the sandbox stops, inspect the Hermes startup script: it must restart the Gateway on code `75`. A patched running container alone will lose that fix when the sandbox is recreated; build or select an image with the fixed startup script and recreate from that image. See the [integration guide](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md#keep-the-gateway-restart-fix-across-sandbox-recreation) for the failure and recovery path.
+
 ## Task processing
 
 When this skill is invoked:

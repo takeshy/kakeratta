@@ -73,7 +73,53 @@ The design principle from this failure is that **unfinished tasks must remain vi
 | Noninteractive onboarding chose the wrong inference provider | Explicitly passing `NEMOCLAW_PROVIDER="custom"`, `NEMOCLAW_MODEL="nvidia/Nemotron-3_5-Lightning"`, and `NEMOCLAW_ENDPOINT_URL="https://api.tokenfactory.nebius.com/v1"` selected Nebius as the OpenAI-compatible custom endpoint. |
 | The smaller model wandered into unnecessary tool discovery and shell commands | `--tool-disclosure direct` exposed tool definitions directly, and the Skill named the official `mcp__kakeratta__*` tools and their order. |
 | Cron stopped running inference after a model change | Hermes logged `global inference config drifted since this job was created` and skipped the run. Explicitly pinning the model resolved it. This protects scheduled jobs from unintended model and cost changes. |
-| MCP returned `401 Unauthorized` | After a network policy change, the MCP bridge did not resolve its credential placeholder and sent it unchanged. Checking the MCP authentication configuration and OpenShell policy restored the connection; all 11 tools were discovered again. |
+| MCP returned `401 Unauthorized` | OpenShell's L7 proxy expects generation-scoped placeholders (e.g., `openshell:resolve:env:v<REVISION>_KAKERATTA_MCP_TOKEN`). If the revision in `config.yaml` does not match the active provider revision, OpenShell skips token substitution and forwards the unresolved placeholder string to kakeratta. Inspecting the active provider environment revision and updating the placeholder in `config.yaml` restored authentication. |
+| NemoClaw CLI commands hang indefinitely | After an interrupted sandbox recreation, stale lock files (`~/.nemoclaw-portable-host.lock` and locks under `~/.nemoclaw/state/mcp-lifecycle-locks/`) remained with defunct owner PIDs. Each `nemoclaw` command blocked waiting for lock release. Checking for active PIDs and pruning orphan locks restored immediate responsiveness. |
+| Sandbox stuck in `Phase: Error` (Reconciliation deadlock) | When a container stopped during Gateway lifecycle changes, OpenShell Gateway recorded `Phase: Error`. Even after `docker start`, `openshell sandbox stop` failed (requiring `Ready`) and `start` failed (requiring `Stopped`). Reconciling the sandbox status payload back to `Ready` in the Gateway database (`openshell.db`) cleared the deadlock and restored CLI execution. |
+| NemoClaw / sandbox does not start automatically on host reboot | Caused by a Gateway database path mismatch and NemoClaw's authority validation failsafe (`GatewayAuthorityError`). Running the Gateway as a systemd user service introduced an authority drift against the onboarding checkpoint (`standalone`), causing port-forward recovery probes to be rejected. Resolved by configuring the official environment file (`~/.config/openshell/gateway.env`), using the managed service (`nemoclaw-openshell-gateway.service`), and reconciling the authority source in `onboard-session.json` to `"packaged-service"`. |
+
+### Keep the Gateway restart fix across sandbox recreation
+
+If managed MCP registration is followed by `exec relay closed` or a stopped sandbox, check whether Hermes Gateway exited with code `75`. That code requests a Gateway restart. The Hermes container entrypoint must handle it by restarting the Gateway process; patching `/usr/local/bin/nemoclaw-start` inside a running container is only temporary. Recreating the sandbox from the original image removes the patch.
+
+Use a NemoClaw image containing the corrected `agents/hermes/start.sh`, or build a custom image that copies the corrected script into `/usr/local/bin/nemoclaw-start`. Pin the base image version you have tested. A custom Dockerfile used with `nemoclaw onboard --from /path/to/Dockerfile` must also include these declarations in its final stage:
+Make sure `start.sh` is executable in the Docker build context (`chmod 755 start.sh`).
+
+```dockerfile
+ARG NEMOCLAW_TOOL_DISCLOSURE=progressive
+ENV NEMOCLAW_TOOL_DISCLOSURE=${NEMOCLAW_TOOL_DISCLOSURE}
+COPY --chown=root:root start.sh /usr/local/bin/nemoclaw-start
+```
+
+Back up the sandbox state before recreation. Afterward, confirm that the sandbox reaches `Ready`, the managed kakeratta MCP is enabled in `hermes mcp list`, and the kakeratta skill, Wake Gate script, and cron job are present. Store MCP credentials in OpenShell rather than in the Dockerfile, skill, or cron command.
+
+### Ensure reliable auto-start on host reboot
+
+To maintain continuous Hermes and kakeratta operation after a host Linux machine reboot, systemd user services are typically configured. Be aware of two critical operational pitfalls:
+
+#### 1. Waiting for Docker at boot (preventing `Phase: Error` deadlocks)
+systemd user services (`systemctl --user`) cannot directly declare `Requires=` dependencies on root-level system units such as `docker.service`.
+Consequently, at system boot, user services may start seconds before the Docker daemon is responsive, failing with `Failure layer: docker_unreachable`.
+When this happens, OpenShell Gateway marks the sandbox as **`Phase: Error`**. Once in `Error`, OpenShell rejects all subsequent start/stop commands with `sandbox must be Stopped to start (current phase: Error)`, creating an unrecoverable deadlock.
+
+**Mitigation**: Always introduce a pre-execution wait loop in `ExecStartPre` to block service startup until the Docker daemon responds:
+
+```bash
+# ExecStartPre helper script (nemoclaw-wait-docker.sh)
+until docker info >/dev/null 2>&1; do
+  sleep 1
+done
+```
+
+#### 2. Reconciling NemoClaw Gateway authority (`GatewayAuthorityError`)
+When `nemoclaw onboard` is performed interactively from the CLI, NemoClaw records the gateway authority source as `standalone` in `~/.nemoclaw/onboard-session.json`.
+Running the gateway as a systemd user service (`packaged-service`) causes an authority mismatch. NemoClaw's security verification detects this change and refuses port-forward recovery with `host port ... is held by a listener that NemoClaw cannot attribute to this sandbox's OpenShell forward`.
+
+**Mitigation**:
+- Use the official managed service unit **`nemoclaw-openshell-gateway.service`** with the `# NEMOCLAW_MANAGED_OPENSHELL_GATEWAY=1` header.
+- Store configuration in `~/.config/openshell/gateway.env` (`0600`), ensuring `OPENSHELL_DATA_DIR` points to the correct database directory.
+- Reconcile `checkpoint.gatewayAuthority.value.source` to `"packaged-service"` in `~/.nemoclaw/onboard-session.json`.
+
 
 Early tests with Nemotron-3.5-Lightning also produced incorrect MCP arguments, malformed JSON, repeated tool calls, and unnecessary configuration checks in complex multistep flows. A temporary design moved deterministic task management into a Python worker. It was stable but required custom orchestration code. The final design uses Hermes's native **Skill + Cron + MCP** capabilities, with direct tool disclosure and explicit Skill instructions.
 
