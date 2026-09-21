@@ -217,6 +217,7 @@ const EN = {
   "担当の判断": "Router's call", "呼ばれました": "Called", "呼ばれませんでした": "Not called",
   "呼んでほしかった": "Should have been called", "呼ばれましたが、黙っていました": "Called, but stayed quiet", "呼ばれました。返事を考えています…": "Called; still working on it…",
   "呼ばれました。返事とメモあり": "Called; replied and kept a note", "呼ばれました。返事あり、メモなし": "Called; replied, no note",
+  "呼ばれました。返事あり": "Called; replied",
   "呼ばれました。黙ってメモだけ残しました": "Called; kept a note without a word", "呼ばれましたが、黙っていました。メモもありません": "Called, but stayed quiet and kept no note",
   "書くメモ：{0}": "Notes it would write: {0}", "（メモは書きません）": "(It would write no note.)", "返事がほしかった": "A reply was wanted",
   "{0} に返事してほしかった": "{0} should have replied", "に、この担当は何も言わなかったが、返事がほしかった。": "this persona said nothing, but a reply was wanted.",

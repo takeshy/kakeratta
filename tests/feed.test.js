@@ -87,6 +87,24 @@ test("search reveals a folded reply and polling preserves a later manual fold", 
   assert.equal(feed.element.querySelectorAll(".said-row").length, 0);
 });
 
+// A URL dropped into a reply is read the same way as one in a post: it must
+// still show up as a link a person can open in another tab, not just as text.
+test("a reply's link renders as a link that opens in a new tab", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  const entries = [
+    { id: "p", kind: "post", text: "wine", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "reply", root: "p", text: "これ見て http://127.0.0.1/a", link: "http://127.0.0.1/a", at: "2026-09-13T00:01:00Z" },
+  ];
+  feed.set(entries);
+  feed.reveal("r");
+  const [link] = feed.element.querySelectorAll(".link");
+  assert.equal(link?.href, "http://127.0.0.1/a");
+  assert.equal(link?.target, "_blank");
+});
+
 // The person watching a folded timeline cannot tell that a persona has just
 // spoken. A remark that arrives after the timeline is showing unfolds its
 // post; the first load and older pages do not, and a fold closed by hand stays
@@ -705,6 +723,27 @@ test("a called persona that stayed quiet can be asked for a reply", async (t) =>
   assert.equal(document.body.children.length, 0, "the sheet gives way to the reply dialog");
 });
 
+// Hermes replies later through its own agent, not through a per-post note, so
+// its call is read without the memo wording that applies to the other
+// personas - and while that later reply is still pending it must not be
+// misread as Hermes having stayed quiet.
+test("Hermes's call in the router sheet skips the memo wording", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const rows = [{ id: "hermes", name: "Hermes", icon: "🪽" }];
+  t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [
+    { id: "hermes", name: "Hermes", icon: "🪽", done: false },
+  ], excluded: [] }));
+  const feed = createFeed({ getPersona: (id) => rows.find((row) => row.id === id) || null, showIntro: false });
+  feed.set([{ id: "p", kind: "post", speaker: "user", text: "調べて", at: "2026-09-13T00:00:00Z" }]);
+  feed.element.querySelectorAll(".routing-open")[0].fire("click", {});
+  for (let i = 0; i < 3; i++) await new Promise(setImmediate);
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const texts = () => walk(document.body).map((node) => node.textContent);
+  assert.ok(texts().includes(translate("呼ばれました。返事を考えています…")), "still queued, not yet called quiet");
+  assert.equal(document.body.querySelectorAll(".routing-note").length, 0);
+});
 
 // A remark says which notes were written with it, and each opens the persona's
 // memory at that note.

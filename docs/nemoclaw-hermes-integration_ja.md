@@ -77,6 +77,21 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 | NemoClaw CLI コマンドが無応答でハングする | サンドボックス再作成の中断時などに、古い PID のロックファイル（`~/.nemoclaw-portable-host.lock` や `~/.nemoclaw/state/mcp-lifecycle-locks/` 配下）が残存し、後続コマンドが排他ロック待ちでブロックされていた。所有 PID の生存確認を行い、孤立した stale ロックを安全に削除して即時応答を回復した。 |
 | サンドボックスが `Phase: Error` でデッドロックする | Gateway 停止に伴いコンテナが停止した際、OpenShell Gateway が `Phase: Error` を記録した。Docker 側でコンテナを再起動しても、`openshell sandbox stop` は Ready を要求し `start` は Stopped を要求するため CLI 操作が拒絶される。Gateway の内部 DB（`openshell.db`）の sandbox 状態を `Ready` に再同期して CLI 制御を復旧した。 |
 | ホスト再起動時に NemoClaw が自動起動しない | Gateway が参照する DB パスの不一致と、NemoClaw の権限保護フェイルセーフ（`GatewayAuthorityError`）が原因。Gateway を systemd サービス化したことでオンボーディング記録（`standalone`）と権限主体が食い違い、フォワード復旧プローブが拒絶されていた。公式設計に準拠した設定ファイル（`~/.config/openshell/gateway.env`）と正規サービス（`nemoclaw-openshell-gateway.service`）を導入し、セッション記録（`onboard-session.json`）の Authority を `packaged-service` に整合させて復旧した。 |
+| Web 検索・抽出が `403 Forbidden` で遮断されハルシネーションが発生 | OpenShell L7 プロキシの Egress 制限により、外部 Web（Keenable: `api.keenable.ai`、Exa: `mcp.exa.ai`、抽出対象の外部 Web ページ）が遮断されていた。外部調査に失敗したエージェントが推測で誤った回答（ハルシネーション）を生成し、スレッドに固執して投稿し続ける事象が発生。`personal-open-internet` ポリシー（ポート 80/443 Egress 許可）を適用して外部検索・抽出を開通させて解消した。 |
+
+### Web 検索・Web 抽出の Egress 開放（ハルシネーション防止）
+
+Hermes Agent は、未知の専門用語や最新技術（例: 他のエージェントフレームワークや外部サービス等）に関する依頼を受けると、自律的に `web_search`（Keenable）や `web_extract`（Exa / 外部ページ取得）を呼び出して外部調査を試みます。
+
+しかし、初期状態のサンドボックスでは OpenShell L7 プロキシにより許可済みエンドポイント以外の Egress がすべて `403 Forbidden` で拒絶されます。このとき、モデル（特に推論・コーディング特化のモデル）によっては検索失敗を断念せず、手元の断片的な知識から「推測をもっともらしく事実のように語る（自信満々に嘘をつく）」ハルシネーションを起こし、ユーザーの訂正すら否定して誤った回答に固執するリスクが生じます。
+
+これを防ぎ、Hermes が最新・外部の情報を正しく調査して回答できるようにするには、ポート 80/443 の広範なアウトバウンドを許可する `personal-open-internet` プリセットをサンドボックスに適用します：
+
+```bash
+nemoclaw <sandbox-name> policy add personal-open-internet --yes
+```
+
+適用後、サンドボックスから `https://api.keenable.ai`、`https://mcp.exa.ai`、および任意の Web ページ（例: `https://openclaw.ai/`）への正常なアクセスが可能となり、事実に基づいた調査と回答が行えるようになります。
 
 ### サンドボックス再作成後も Gateway の修正を残す
 

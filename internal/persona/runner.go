@@ -256,6 +256,37 @@ func (r *Runner) turnsDone(entryID string, wave []Skill, spoke map[string]bool) 
 	r.emit("turn", map[string]any{"entryId": entryID, "personas": ids})
 }
 
+// FinishAsyncTurn is turnsDone for a persona whose turn was left pending
+// because its real work happens outside this process - Hermes, replying
+// later through its own agent over MCP. Called once that work has actually
+// concluded, so a routing sheet that has been saying "still thinking" can
+// move on to what really happened.
+func (r *Runner) FinishAsyncTurn(entryID, personaID string, spoke bool) {
+	if entryID == "" {
+		return
+	}
+	record, err := r.store.Routing(entryID)
+	if err != nil || record == nil {
+		return
+	}
+	if record.Done == nil {
+		record.Done = []string{}
+	}
+	if record.Spoke == nil {
+		record.Spoke = []string{}
+	}
+	if !contains(record.Done, personaID) {
+		record.Done = append(record.Done, personaID)
+	}
+	if spoke && contains(record.Delivered, personaID) && !contains(record.Spoke, personaID) {
+		record.Spoke = append(record.Spoke, personaID)
+	}
+	if err := r.store.SaveRouting(entryID, *record); err != nil {
+		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+	}
+	r.emit("turn", map[string]any{"entryId": entryID, "personas": []string{personaID}})
+}
+
 // RoutingCheck is a trial run of the router for one persona: whether the post
 // would reach it now, and if not, what the router said.
 type RoutingCheck struct {
@@ -434,6 +465,10 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 		// Within a tier there is nothing to wait for, so they go together.
 		var group sync.WaitGroup
 		remarks := make([]*timeline.Entry, len(wave))
+		// pending marks a persona whose real turn happens later, out of process
+		// (Hermes, queued as a durable task); such a turn must not be counted as
+		// done yet, or a routing sheet would call it quiet before it has started.
+		pending := make([]bool, len(wave))
 		for i, skill := range wave {
 			group.Add(1)
 			go func(i int, skill Skill) {
@@ -443,11 +478,19 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 				if previous[skill.ID] {
 					instructions = editedInstructions
 				}
+				if skill.ID == "hermes" {
+					remarks[i], pending[i] = r.queueHermes(ctx, entry, instructions)
+					return
+				}
 				remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, client, settings, registry)
 			}(i, skill)
 		}
 		group.Wait()
-		ran = append(ran, wave...)
+		for i, skill := range wave {
+			if !pending[i] {
+				ran = append(ran, skill)
+			}
+		}
 		for _, remark := range remarks {
 			if remark != nil {
 				thread = append(thread, *remark)
@@ -559,7 +602,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		if listening {
 			return nil
 		}
-		return r.queueHermes(ctx, trigger, wakeInstructions)
+		remark, _ := r.queueHermes(ctx, trigger, wakeInstructions)
+		return remark
 	}
 
 	root := timeline.RootOf(trigger)

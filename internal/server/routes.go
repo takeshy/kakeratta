@@ -307,6 +307,7 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 		Text: trimmed(body.Text), At: at,
 		Root: timeline.RootOf(parent), ReplyTo: parent.ID,
 	}
+	readLink(r.Context(), &reply)
 	s.land(w, reply, nil)
 }
 

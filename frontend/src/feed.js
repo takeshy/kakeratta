@@ -360,6 +360,9 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       ),
       el("p", { class: "said", text: entry.text }),
     );
+    if (entry.link) {
+      node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
+    }
     for (const source of entry.sources || []) {
       node.append(
         el("a", { class: "source", href: source.url, target: "_blank", rel: "noreferrer", text: source.label || source.url }),

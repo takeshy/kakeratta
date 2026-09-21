@@ -1593,6 +1593,46 @@ func TestFailedRoutingDropsPreviousDecision(t *testing.T) {
 	}
 }
 
+// Hermes does its real work later, out of process, through its own agent
+// calling back over MCP. Its turn must stay open - not yet "done", so a
+// routing sheet keeps saying it is still thinking - until that later call
+// actually reports back, rather than the instant its task is merely queued.
+func TestHermesTurnStaysOpenUntilItActuallyReplies(t *testing.T) {
+	runner, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["hermes"]}`
+		}
+		return `{"action":"silent","notes":""}`
+	}, "hermes")
+
+	entry := post(t, s, "調べて")
+	runner.react(entry.ID)
+
+	record, err := s.Routing(entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record == nil || contains(record.Done, "hermes") {
+		t.Fatalf("hermes must still be thinking while its task is only queued: %+v", record)
+	}
+	tasks, err := store.AgentTasks(context.Background(), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 || tasks[0].Trigger != entry.ID {
+		t.Fatalf("tasks = %+v, want one queued for this post", tasks)
+	}
+
+	runner.FinishAsyncTurn(entry.ID, "hermes", true)
+	record, err = s.Routing(entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(record.Done, "hermes") || !contains(record.Spoke, "hermes") {
+		t.Fatalf("hermes's actual reply must finish the turn: %+v", record)
+	}
+}
+
 // Every workflow ends with a speak, and staying quiet is a speak with nothing
 // in it: the persona decides out loud. A live run's summary promised a remark
 // that the steps did not carry, and the note was written in silence.

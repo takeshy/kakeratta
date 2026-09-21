@@ -183,6 +183,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 				if err := store.CancelAgentTask(ctx, s.store, task.ID); err != nil {
 					return nil, err
 				}
+				s.finishHermesTurn(task.Trigger, false)
 				continue
 			}
 			out = append(out, agentTaskResponse(task))
@@ -219,9 +220,21 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		if a.TaskID == "" {
 			return nil, errors.New("taskIdを指定してください")
 		}
+		tasks, err := store.AgentTasks(ctx, s.store)
+		if err != nil {
+			return nil, err
+		}
+		var trigger string
+		for _, task := range tasks {
+			if task.ID == a.TaskID {
+				trigger = task.Trigger
+				break
+			}
+		}
 		if err := store.CancelAgentTask(ctx, s.store, a.TaskID); err != nil {
 			return nil, err
 		}
+		s.finishHermesTurn(trigger, false)
 		return map[string]bool{"cancelled": true}, nil
 	case "complete_task":
 		if a.ClaimID == "" || len(a.Text) > 32000 {
@@ -239,6 +252,15 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		return s.publishMCPEntry("report:"+a.ID, a.Text, a.ReplyTo, time.Now())
 	}
 	return nil, errors.New("Unknown tool")
+}
+
+// finishHermesTurn tells the routing sheet Hermes's out-of-process turn has
+// actually concluded. The runner is absent in tests that exercise MCP tool
+// logic in isolation, so this is a no-op there rather than a nil dereference.
+func (s *Server) finishHermesTurn(entryID string, spoke bool) {
+	if s.runner != nil {
+		s.runner.FinishAsyncTurn(entryID, "hermes", spoke)
+	}
 }
 
 func (s *Server) hermesInstructions() string {
@@ -282,15 +304,20 @@ func (s *Server) publishTask(ctx context.Context, task store.AgentTask) (any, er
 	if err != nil && !errors.Is(err, errInvalidAgentTask) {
 		return nil, err
 	}
+	spoke := false
 	if err == nil && task.Result != "" {
 		result, err = s.publishMCPEntry("task:"+task.ID, task.Result, task.Trigger, time.Now())
 		if err != nil {
 			return nil, err
 		}
+		spoke = true
 	}
 	if err := store.MarkAgentTaskPublished(ctx, s.store, task.ID); err != nil {
 		return nil, err
 	}
+	// The routing sheet has been saying Hermes is still thinking since this
+	// task was queued; now it actually knows the outcome.
+	s.finishHermesTurn(task.Trigger, spoke)
 	return result, nil
 }
 

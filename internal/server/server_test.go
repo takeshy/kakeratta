@@ -129,6 +129,31 @@ func TestAURLInsideTheTextIsReadAsTheLink(t *testing.T) {
 	}
 }
 
+// A reply is where a link is often dropped in mid-conversation, and it must
+// be read the same way a top-level post's link is.
+func TestAURLInsideAReplyIsReadAsTheLink(t *testing.T) {
+	server, _ := app(t)
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "ラーメン"}, nil))
+	var post timeline.Entry
+	_ = json.Unmarshal(recorder.Body.Bytes(), &post)
+
+	body, _ := json.Marshal(map[string]string{"replyTo": post.ID, "text": "これ見て http://127.0.0.1/a"})
+	replyRecorder := httptest.NewRecorder()
+	server.ServeHTTP(replyRecorder, httptest.NewRequest(http.MethodPost, "/api/reply", bytes.NewReader(body)))
+	if replyRecorder.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", replyRecorder.Code, replyRecorder.Body.String())
+	}
+	var reply timeline.Entry
+	_ = json.Unmarshal(replyRecorder.Body.Bytes(), &reply)
+	if reply.Link != "http://127.0.0.1/a" {
+		t.Fatalf("reply = %+v", reply)
+	}
+	if reply.Media == nil || reply.Media.Error == "" || reply.Media.ReadAt == nil {
+		t.Fatal("a URL inside a reply must go through the public-page fetcher")
+	}
+}
+
 func TestLinkInTrimsSentencePunctuation(t *testing.T) {
 	for text, want := range map[string]string{
 		"see https://example.com/a.":              "https://example.com/a",

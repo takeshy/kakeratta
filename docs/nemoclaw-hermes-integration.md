@@ -77,6 +77,21 @@ The design principle from this failure is that **unfinished tasks must remain vi
 | NemoClaw CLI commands hang indefinitely | After an interrupted sandbox recreation, stale lock files (`~/.nemoclaw-portable-host.lock` and locks under `~/.nemoclaw/state/mcp-lifecycle-locks/`) remained with defunct owner PIDs. Each `nemoclaw` command blocked waiting for lock release. Checking for active PIDs and pruning orphan locks restored immediate responsiveness. |
 | Sandbox stuck in `Phase: Error` (Reconciliation deadlock) | When a container stopped during Gateway lifecycle changes, OpenShell Gateway recorded `Phase: Error`. Even after `docker start`, `openshell sandbox stop` failed (requiring `Ready`) and `start` failed (requiring `Stopped`). Reconciling the sandbox status payload back to `Ready` in the Gateway database (`openshell.db`) cleared the deadlock and restored CLI execution. |
 | NemoClaw / sandbox does not start automatically on host reboot | Caused by a Gateway database path mismatch and NemoClaw's authority validation failsafe (`GatewayAuthorityError`). Running the Gateway as a systemd user service introduced an authority drift against the onboarding checkpoint (`standalone`), causing port-forward recovery probes to be rejected. Resolved by configuring the official environment file (`~/.config/openshell/gateway.env`), using the managed service (`nemoclaw-openshell-gateway.service`), and reconciling the authority source in `onboard-session.json` to `"packaged-service"`. |
+| Web search and page extraction blocked with `403 Forbidden` causing hallucinations | OpenShell's L7 proxy default egress policy blocked outbound traffic to search/extraction endpoints (Keenable: `api.keenable.ai`, Exa: `mcp.exa.ai`, and external websites). After failing external research, the agent hallucinated confident but false answers and stubbornly defended them in the thread. Resolved by applying the `personal-open-internet` policy preset (`nemoclaw <name> policy add personal-open-internet --yes`) to permit port 80/443 egress. |
+
+### Opening egress for web search and page extraction (preventing hallucinations)
+
+When tasked with unknown terms, emerging tools, or cross-framework concepts, Hermes Agent autonomously attempts to use `web_search` (Keenable API) and `web_extract` (Exa API / web scraping).
+
+However, in a default sandbox, OpenShell's L7 proxy rejects all non-whitelisted egress with `403 Forbidden`. Certain models (especially code- or reasoning-tuned models) will not concede when a search fails; instead, they hallucinate speculative facts from fragment words, state them with high confidence, and stubbornly reject user corrections.
+
+To ensure Hermes can accurately look up external and up-to-date documentation before answering, apply the `personal-open-internet` preset to open outbound TCP ports 80 and 443:
+
+```bash
+nemoclaw <sandbox-name> policy add personal-open-internet --yes
+```
+
+This allows the sandbox to reach `https://api.keenable.ai`, `https://mcp.exa.ai`, and arbitrary target URLs (such as `https://openclaw.ai/`), enabling grounded research and factual responses.
 
 ### Keep the Gateway restart fix across sandbox recreation
 
