@@ -182,10 +182,11 @@ kakeratta は依頼と、その周りの個人的な文脈を保持します。H
 推論リクエストは OpenShell のゲートウェイを通ってサンドボックスの外に出るため、
 Hermes 自身の設定に提供元の生の認証情報を置きません。
 
-検証した推論構成では、Nebius Token Factory 経由で次のモデルを使いました。
-
-* `NousResearch/Hermes-4-405B`
-* `nvidia/Nemotron-3_5-Lightning`
+検証した推論構成では、Nebius Token Factory 経由で
+`nvidia/nemotron-3-super-120b-a12b` を運用しています。開発中には
+`NousResearch/Hermes-4-405B` と `nvidia/Nemotron-3_5-Lightning` も試しました。
+Lightning は高速でしたが、多段の処理で誤ったツール呼び出しが発生したため、運用を
+Super 120B に切り替えました。
 
 Hermes はサンドボックスの中から、Streamable HTTP の MCP で本番の kakeratta に接続しました。
 

@@ -217,12 +217,11 @@ Landlock restrictions and controlled outbound access. Inference requests leave
 the sandbox through the OpenShell gateway rather than placing the raw provider
 credential in Hermes's own configuration.
 
-The tested inference setup used:
-
-* `NousResearch/Hermes-4-405B`
-* `nvidia/Nemotron-3_5-Lightning`
-
-through Nebius Token Factory.
+The tested inference setup runs `nvidia/nemotron-3-super-120b-a12b` through
+Nebius Token Factory. `NousResearch/Hermes-4-405B` and
+`nvidia/Nemotron-3_5-Lightning` were also tried during development; Lightning
+was faster but produced incorrect tool calls in multistep flows, so operation
+moved to Super 120B.
 
 Hermes then connected from inside the sandbox to the production kakeratta
 instance over Streamable HTTP MCP.
