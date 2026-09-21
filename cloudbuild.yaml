@@ -8,9 +8,44 @@ steps:
       - ${_IMAGE}
       - .
 
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_IMAGE}
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - kakeratta
+      - --image=${_IMAGE}
+      - --region=${_RUN_REGION}
+      - --project=${PROJECT_ID}
+      - --quiet
+
+  - name: node:24-bookworm
+    entrypoint: node
+    args:
+      - frontend/build.mjs
+
+  - name: node:24-bookworm
+    entrypoint: npx
+    args:
+      - --yes
+      - firebase-tools
+      - deploy
+      - --only=hosting
+      - --project=${PROJECT_ID}
+      - --non-interactive
+
 images:
   - ${_IMAGE}
 
 substitutions:
   _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:latest
+  _RUN_REGION: asia-east1
   _VERSION: dev
+
+options:
+  logging: CLOUD_LOGGING_ONLY

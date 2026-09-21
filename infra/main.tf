@@ -183,6 +183,28 @@ resource "google_project_iam_member" "cloud_build" {
   depends_on = [google_project_service.required]
 }
 
+# A push-triggered build publishes the image, updates the existing Cloud Run
+# service, and deploys the static frontend to Firebase Hosting. Infrastructure
+# and runtime configuration remain managed by Terraform.
+resource "google_project_iam_member" "cloud_build_deploy_roles" {
+  for_each = toset([
+    "roles/firebasehosting.admin",
+    "roles/run.admin",
+  ])
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_service_account_iam_member" "cloud_build_uses_app" {
+  service_account_id = google_service_account.app.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
 resource "google_cloud_run_v2_service" "app" {
   name                = local.name
   location            = var.run_region

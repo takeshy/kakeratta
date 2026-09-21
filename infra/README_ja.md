@@ -41,6 +41,11 @@ gcloud auth application-default login
 スクリプトは、バージョン付きイメージのビルド、Terraformの適用、`node frontend/build.mjs`、
 Firebase Hostingへのデプロイ、`https://PROJECT_ID.web.app` のHTTPS応答確認まで行います。
 
+初回のインフラ構築後は、Cloud Build の `kakeratta-main-deploy` トリガーが `main` への
+pushを検知し、既存のCloud RunサービスとFirebase Hostingを更新します。この自動処理は
+Terraformを適用しないため、実行環境の設定や秘密情報は維持されます。GitHub接続にはOAuth
+によるインストールが必要なため、リポジトリ接続とトリガーはCloud Buildで一度だけ作成します。
+
 ### 道具：MCPサーバー
 
 MCPサーバーの設定は利用者ごとではなくデプロイごとです。`infra/terraform.tfvars`（コミットしない）に書くか、

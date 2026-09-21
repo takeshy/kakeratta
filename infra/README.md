@@ -43,6 +43,12 @@ The script builds a versioned image, applies the Terraform configuration, runs
 `node frontend/build.mjs`, deploys Firebase Hosting, and waits for a valid HTTPS
 response at `https://PROJECT_ID.web.app`.
 
+After the initial infrastructure deployment, pushes to `main` are deployed by
+the `kakeratta-main-deploy` Cloud Build trigger. The build updates the existing
+Cloud Run service and Firebase Hosting; it does not apply Terraform or replace
+runtime configuration. The GitHub repository connection and trigger are created
+once in Cloud Build because connecting GitHub requires an OAuth installation.
+
 ### Tools: MCP servers
 
 MCP servers are configured per deployment, not per user. Put them in
