@@ -43,9 +43,10 @@ images:
   - ${_IMAGE}
 
 substitutions:
-  _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:latest
+  _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:${SHORT_SHA}
   _RUN_REGION: asia-east1
-  _VERSION: dev
+  _VERSION: ${COMMIT_SHA}
 
 options:
+  dynamicSubstitutions: true
   logging: CLOUD_LOGGING_ONLY
