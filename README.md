@@ -28,14 +28,19 @@ Even if an AI files every note neatly, information whose existence I have
 forgotten cannot be searched for. And what seemed unimportant when I wrote it
 down sometimes matters later.
 
-Talking to myself is also a way to sort out a thought, or a wish to tell
-someone about a small discovery. But a conversation with myself never leaves my
-own biases.
+Talking to myself serves another purpose too. Putting a vague thought into words
+helps me understand it, and sometimes I simply want to share the excitement of a
+small discovery.
 
-So there should be a place where the fragments of a day can be tossed in as
-they are, without deciding whether they matter or where they belong. Something
-that remembers them, looks back through the past or the web when that helps,
-and speaks up at a good moment, in a good way.
+But talking only to myself has limits. An idea may need criticism. A discovery
+may be more fun when someone responds to it. Sometimes I want another point of
+view that gets me outside my own assumptions.
+
+So I did not want only a place that stores my fragments.
+
+I wanted something that could respond when a response is useful, stay silent
+when it is not, remember what may matter later, and bring forgotten things back
+at the right moment.
 
 That is where kakeratta began.
 
