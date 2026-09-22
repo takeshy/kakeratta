@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ja" data-title-ja="kakeratta 初心者向けマニュアル" data-title-en="kakeratta Beginner Manual">
+<html lang="ja" data-title-ja="kakeratta 使い方" data-title-en="kakeratta Manual">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#faf8f4" />
-    <meta name="description" content="kakeratta の使い方。はじめ方、かけらの放り込み方、担当、検索、スマホからの共有、設定。How to use kakeratta: getting started, tossing in fragments, personas, search, sharing from a phone, and settings." />
+    <meta name="description" content="kakeratta の使い方。はじめ方、かけらの放り込み方、担当、検索、設定。How to use kakeratta: getting started, tossing in fragments, personas, search, and settings." />
     <title>kakeratta 使い方</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/icon.png" sizes="512x512" />
@@ -17,11 +17,16 @@
         var lang = q === "ja" || q === "en" ? q : s === "ja" || s === "en" ? s : b;
         document.documentElement.lang = lang;
         document.documentElement.dataset.lang = lang;
-        var guide = params.get("guide") === "advanced" ? "advanced" : "beginner";
+        // A link to a section opens the half of the manual that holds it, so
+        // the app's links to a tool or to Hermes land on something visible.
+        var hash = /^#(ja|en)-(.+)$/.exec(location.hash);
+        var advanced = /^(routing|reply-fix|wakes|bluesky|hermes|settings|tools|tool-.+|more)$/;
+        var guide = hash ? (advanced.test(hash[2]) ? "advanced" : "beginner")
+          : params.get("guide") === "advanced" ? "advanced" : "beginner";
         document.documentElement.dataset.guide = guide;
         if (guide === "advanced") {
-          document.documentElement.dataset.titleJa = "kakeratta 上級者向けマニュアル";
-          document.documentElement.dataset.titleEn = "kakeratta Advanced Manual";
+          document.documentElement.dataset.titleJa = "kakeratta 上級編";
+          document.documentElement.dataset.titleEn = "kakeratta Advanced Guide";
         }
       })();
     </script>
@@ -52,30 +57,32 @@
       <nav class="toc" aria-label="目次">
         <p class="toc-title">目次</p>
         <div class="beginner-guide">
-        <p><strong>初心者編</strong></p>
-        <ol>
-          <li><a href="#ja-start">はじめる</a></li>
-          <li><a href="#ja-toss">かけらを放り込む</a></li>
-          <li><a href="#ja-timeline">タイムラインと反応</a></li>
-          <li><a href="#ja-offline">オフライン投稿</a></li>
-          <li><a href="#ja-bluesky">Blueskyに公開する</a></li>
-          <li><a href="#ja-personas">担当</a></li>
-          <li><a href="#ja-daily">朝・昼・晩のチェックイン</a></li>
-          <li><a href="#ja-search">検索</a></li>
-          <li><a href="#ja-phone">スマホから共有する</a></li>
-          <li><a href="#ja-voice">音声入力と読み上げ</a></li>
-        </ol>
-        <p><a href="/manual/?guide=advanced" data-lang-link><strong>上級編へ</strong></a></p>
+          <p><strong>基本の使い方</strong></p>
+          <ol>
+            <li><a href="#ja-start">1. はじめる</a></li>
+            <li><a href="#ja-toss">2. かけらを放り込む</a></li>
+            <li><a href="#ja-timeline">3. 反応を読む・返す</a></li>
+            <li><a href="#ja-personas">4. 担当を選ぶ・作る</a></li>
+            <li><a href="#ja-memory">5. 覚えていることを確かめる</a></li>
+            <li><a href="#ja-search">6. 検索する</a></li>
+            <li><a href="#ja-voice">7. 音声入力と読み上げ</a></li>
+            <li><a href="#ja-offline">8. オフラインで使う</a></li>
+            <li><a href="#ja-faq">9. 困ったとき</a></li>
+          </ol>
+          <p><a href="/manual/?guide=advanced" data-lang-link><strong>上級編へ →</strong></a></p>
         </div>
         <div class="advanced-guide">
-          <p><a href="/manual/" data-lang-link><strong>初心者編へ</strong></a></p>
+          <p><a href="/manual/" data-lang-link><strong>← 基本の使い方へ</strong></a></p>
           <p><strong>上級編</strong></p>
           <ol>
-            <li><a href="#ja-hermes">Hermes連携</a></li>
-            <li><a href="#ja-settings">設定</a></li>
-            <li><a href="#ja-tools">道具の一覧と使い方</a></li>
-            <li><a href="#ja-faq">よくある質問</a></li>
-            <li><a href="#ja-more">もっと詳しく</a></li>
+            <li><a href="#ja-routing">1. 振り分けを直す</a></li>
+            <li><a href="#ja-reply-fix">2. 返し方を直す</a></li>
+            <li><a href="#ja-wakes">3. 担当が起きるタイミング</a></li>
+            <li><a href="#ja-bluesky">4. Blueskyに公開する</a></li>
+            <li><a href="#ja-hermes">5. Hermesに依頼する</a></li>
+            <li><a href="#ja-settings">6. 設定とデータ</a></li>
+            <li><a href="#ja-tools">7. 担当が使う道具</a></li>
+            <li><a href="#ja-more">8. もっと詳しく</a></li>
           </ol>
         </div>
       </nav>
@@ -83,118 +90,73 @@
       <article class="doc">
         <div class="beginner-guide">
           <h1>kakeratta の使い方</h1>
-          <p class="lede">思いついたこと、目に留まったものを、テキスト・画像・URL・音声でひとつのタイムラインへ放り込む。担当分野ごとに別々の記憶を持つ AI（担当）が、言うことがあるときだけ反応します。このページはその使い方をひと通りまとめたものです。</p>
-        </div>
-        <div class="advanced-guide">
-          <h1>kakeratta 上級者向けマニュアル</h1>
-          <p class="lede">Hermesとの連携、詳細設定、担当が使う道具の仕様をまとめています。基本的な使い方は<a href="/manual/" data-lang-link>初心者編</a>を参照してください。</p>
-        </div>
-
-        <div class="beginner-guide">
-        <h2 id="ja-beginner">初心者編</h2>
-        <p>まずはここから。投稿、担当との会話、検索や共有など、普段使う機能を説明します。</p>
+          <p class="lede">思いついたこと、目に留まったものを、ひとつのタイムラインへ放り込む。分野ごとに記憶を持つ AI（<strong>担当</strong>）が、言うことがあるときだけ反応します。</p>
+          <div class="tip">
+            <p>このページは毎日使う機能だけをまとめています。振り分けや返し方の調整、Bluesky・Hermes との連携、設定の詳細は <a href="/manual/?guide=advanced" data-lang-link>上級編</a> にあります。</p>
+          </div>
 
         <section id="ja-start">
           <h2>1. はじめる</h2>
           <ol>
-            <li><a href="/">アプリを開きます</a>。Google ログインが有効な環境では、最初にログインします。あなたのデータはあなたのアカウントにだけ結びつきます。</li>
-            <li>右上の <strong>設定</strong> を開き、<strong>Nebius Token Factory の API キー</strong>を入力します。<strong>接続確認</strong> を押して「接続できました」と出れば準備完了です。モデルは既定のまま（Lightning / Super / Ultra）で構いません。</li>
-            <li>画面の上に「担当が誰もいません」と出ていたら、<strong>「〇〇 を呼ぶ」</strong> で 1 人以上呼びます。誰もいないと、放り込んだかけらは誰にも渡りません。</li>
+            <li><a href="/">アプリを開きます</a>。Google アカウントでログインします。データはあなたのアカウントにだけ結びつき、ほかの人からは見えません。</li>
+            <li>右上の <strong>設定</strong> を開き、<a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a> で発行した <strong>API キー</strong> を入力します。「接続できました」と出れば準備完了です。</li>
+            <li>画面の上に「担当が誰もいません」と出ていたら、<strong>「〇〇 を呼ぶ」</strong> で 1 人以上呼びます。誰もいないと、かけらは誰にも届きません。</li>
             <li>欄に一言書いて <strong>流す</strong>。これが最初のかけらです。</li>
           </ol>
           <figure>
             <img src="/captures/ja/nobody.png" alt="担当が誰もいない状態。ワンタップで組み込みの担当を呼べる" loading="lazy" width="390" height="719" />
             <figcaption>担当が誰もいない状態。ここから 1 人呼ぶと、以後のかけらを受け取ります。</figcaption>
           </figure>
-          <div class="tip">
-            <p>API キーはサーバー側にだけ保存され、設定した接続先以外へは送られません。キーは <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a> で発行します。</p>
-          </div>
+          <p>API キーはサーバー側にだけ保存され、設定した接続先以外へは送られません。</p>
         </section>
 
         <section id="ja-toss">
           <h2>2. かけらを放り込む</h2>
-          <p>思いついたことは書くのが早く、画面に出ているものは撮るのが早い。どれも同じひとつの欄から入ります。</p>
+          <p>書く、貼る、URL、話す。どれも同じひとつの欄から入ります。</p>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>入り口</th><th>やり方</th></tr></thead>
+              <thead><tr><th>入れ方</th><th>やり方</th></tr></thead>
               <tbody>
                 <tr><td>書く</td><td>欄に書いて <strong>流す</strong>。<kbd>Ctrl</kbd>（<kbd>⌘</kbd>）+<kbd>Enter</kbd> でも送れます。</td></tr>
-                <tr><td>貼る・選ぶ</td><td>スクリーンショットを <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼る、または <strong>📷 画像</strong> でファイルを選びます。画像の文字は担当が読み取り、あとから検索できます。</td></tr>
-                <tr><td>URL</td><td>URL を書いて流すと、公開ページの本文を取りに行きます。</td></tr>
-                <tr><td>話す</td><td><strong>🎙 話す</strong> で音声入力。設定した「送信の合図」を言うと、そのまま投稿されます。</td></tr>
+                <tr><td>画像</td><td>PC はスクリーンショットを <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼るだけ。スマホは <strong>📷 画像</strong> からスクリーンショットを選ぶか、その場でカメラで撮ります。画像の文字は読み取られ、あとから検索できます。</td></tr>
+                <tr><td>URL</td><td>URL を書いて流すと、公開ページの本文を読み込みます。</td></tr>
+                <tr><td>話す</td><td><strong>🎙 話す</strong> で音声入力します（<a href="#ja-voice">7. 音声入力と読み上げ</a>）。</td></tr>
               </tbody>
             </table>
           </div>
-          <p>一言とあわせて画像を付けることもできます。投稿には「今どこで何時か」だけが添えられます。目的地や時刻は文面に書けば、担当が読み取ります。位置情報は任意で、無くても成立します。</p>
+          <p>Kindle も有料記事も SNS も、画面に出ていればスクリーンショットで放り込めます。一言と画像を一緒に送ることもできます。投稿に自動で添えられるのは「今どこで何時か」だけです。行き先や時刻は文面に書けば担当が読み取ります。位置情報は任意です。</p>
         </section>
 
         <section id="ja-timeline">
-          <h2>3. タイムラインと反応</h2>
+          <h2>3. 反応を読む・返す</h2>
           <figure>
             <img src="/captures/ja/timeline.png" alt="タイムライン。自分のかけらの下に、担当の発言が折りたたまれて並ぶ" loading="lazy" width="390" height="718" />
             <figcaption>自分のかけらと、その下の担当の発言。会話は「返信 N件」の下にたたまれます。</figcaption>
           </figure>
+          <h3>反応の届き方</h3>
           <ul>
-            <li>最新 20 件から表示し、下へスクロールすると 20 件ずつ追加されます。</li>
-            <li>担当の発言や自分の返信は <strong>返信 N件</strong> の下に折りたたまれます。押すと開きます。表示中に担当の発言が届いたときは、そのスレッドが自動で開きます。</li>
-            <li><strong>一言足す</strong> でその投稿に続けて書けます。担当の発言には <strong>返す</strong> で返事ができます。</li>
-            <li>反応は遅れて届きます。<strong>反応が付かないこともあります。</strong> 担当は喋らずに覚えるだけのこともあるからです。</li>
-            <li>必ず答えがほしいときは <code>@tabe</code> のように <strong>@名前</strong> で指名します。担当の名前の並び（担当バー）を押すと、@名前 が書き込まれます。</li>
-            <li>投稿・返信のあと 5 分間は、取りこぼしに備えて自動でタイムラインを読み直します。</li>
-            <li><strong>🔈 読み上げ</strong> で、溜まった反応を順に読み上げます。移動中に便利です。</li>
-            <li>自分の投稿・返信の <strong>⚖</strong>（担当の判断）で、誰が呼ばれ、誰がなぜ呼ばれなかったかを見られます。詳しくは <a href="#ja-routing">担当の判断を見て、条件を直す</a>。</li>
-            <li>担当の発言の <strong>返し方を直す</strong> で、期待とどう違うかを伝えて口調と指示を直せます。詳しくは <a href="#ja-reply-fix">返事がずれたところで、口調と指示を直す</a>。</li>
-            <li>投稿の <strong>✎</strong> で編集、<strong>×</strong> で削除できます。投稿を消すと、その下の担当の発言と自分の返信も一緒に消え、担当のメモからその投稿への出典が外れます。削除した投稿は検索にも出ません。</li>
+            <li>担当の反応は少し遅れて届きます。<strong>反応が付かないこともあります。</strong> 担当は喋らずに覚えるだけのこともあるからです。</li>
+            <li><strong>必ず答えてほしいときは <code>@名前</code> で指名します</strong>（例：<code>@tabe</code>）。指名された担当は必ず返事をします。担当の名前が並んだバーを押すと、<code>@名前</code> が書き込まれます。</li>
+            <li>担当の発言や自分の返信は <strong>返信 N件</strong> の下にたたまれます。表示中に届いた発言は、そのスレッドが自動で開きます。</li>
           </ul>
-        </section>
-
-        <section id="ja-offline">
-          <h2>素早い表示とオフライン投稿</h2>
-          <p>直近20件の元投稿とその返信を利用者ごとにブラウザへ保存し、次回は保存済みの会話を先に表示して裏で更新します。一度オンラインで開いた端末なら、オフラインでも文章・画像・URL・返信を「送信待ち」として保存できます。未送信の投稿は20件の上限とは別に保持します。アプリを開いている間に接続と認証が戻ると自動送信します。担当の反応やURL・画像の解析は、サーバーへ届いてから始まります。</p>
-          <figure class="shot">
-            <img src="/captures/ja/offline.png" alt="オフラインで保存した投稿と送信待ち件数（サンプル）" loading="lazy" width="380" height="500" />
-            <figcaption>実際のブラウザをオフラインにして撮影したサンプル画面。公開サーバーへの投稿は行っていません。</figcaption>
-          </figure>
-          <p>「端末に保存済み・送信待ち」は、まだサーバーに届いていない状態です。失敗した場合は「接続して再送」でやり直せます。同じ投稿IDで再送するため、通信が途切れても二重投稿を防ぎます。送信待ちはブラウザのデータ削除で失われます。ログアウト時は送信待ちがあれば確認し、この端末の保存データを削除します。</p>
-        </section>
-
-        <section id="ja-bluesky">
-          <h2>4. 会話をBlueskyに公開する</h2>
-          <p>自分の投稿と担当との会話から、公開する発言だけを選べます。すべて自分のBlueskyアカウントから投稿され、担当の発言には「🍚 tabeからの返信:」のような署名が付きます。</p>
-          <h3>自分のアカウントを接続する</h3>
-          <ol>
-            <li><strong>設定 → 上級オプション → Bluesky連携</strong>、または投稿の <strong>Blueskyに投稿</strong> を開きます。</li>
-            <li>自分のハンドル（例: <code>alice.bsky.social</code>）を入力し、<strong>Blueskyと接続</strong> を押します。</li>
-            <li>Blueskyの画面で接続を許可し、同じタブでkakerattaに戻ります。パスワードはBluesky側にだけ入力します。利用者ごとの開発者登録やAPIキー発行は不要です。</li>
-          </ol>
-          <figure>
-            <img src="/captures/ja/bluesky-connect.png" alt="Bluesky連携。自分のハンドルを入力してBluesky側の認可画面へ進む" loading="lazy" width="390" height="301" />
-            <figcaption>kakeratta側の接続画面。Blueskyへの接続や投稿は行わないサンプル表示です。</figcaption>
-          </figure>
-          <h3>公開する会話を選ぶ</h3>
-          <ol>
-            <li>元の投稿の <strong>Blueskyに投稿</strong> を押します。最初は元投稿だけが選択され、担当の返信や自分の追加返信は未選択です。</li>
-            <li>公開する発言を選びます。返信を選ぶときは、その返信先も選んでください。選ばなかった発言や、画面を開いた後で届いた返信は自動追加されません。</li>
-            <li><strong>プレビュー</strong> で本文・添付画像・返信先・投稿アカウントを確認し、<strong>選択した会話を投稿</strong> を押します。独立した担当の返信は、それぞれ元投稿への返信になります。</li>
-          </ol>
-          <figure>
-            <img src="/captures/ja/bluesky-selection.png" alt="元投稿だけが選択され、担当と自分の追加返信は未選択の公開画面（サンプル）" loading="lazy" width="382" height="799" />
-            <figcaption>担当は記憶をもとに個人的な内容を話すことがあります。見せたい発言だけ選んでください。</figcaption>
-          </figure>
-          <figure>
-            <img src="/captures/ja/bluesky-preview.png" alt="tabeの返信と自分の追加返信を選択した3件の投稿プレビュー（サンプル）" loading="lazy" width="382" height="1174" />
-            <figcaption>サンプルではgoutの返信を除外。自分の追加返信はtabeへの返信として公開されます。</figcaption>
-          </figure>
-          <p>本文・リンク・出典URL・添付画像が公開対象です。位置情報や画像解析結果を本文に追加したり、担当の記憶を読み出したりしません。長文は文末・改行を優先し、署名込みで300文字相当（書記素）・3,000バイト以内に自動分割します。2つ目以降は「つづき:」と署名を付けてつなぎます。一文が長すぎる場合は読点・空白、それでも収まらなければ文字の境界で分割します。URL単体が長すぎる場合はエラーになります。投稿済みの発言は再送せず、新しく選んだ返信だけを追加投稿できます。すべて投稿済みなら投稿ボタンは無効になります。投稿中は二重操作できません。公開先のリンクは会話の親投稿への1つにまとめます。画像は最初の分割投稿だけに添付します。2 MBを超える画像は送信用に縮小・JPEG圧縮し、保存済みの元画像は変更しません。透明部分は白背景、GIFは静止画になります。返信は相手の最後の分割投稿につながります。1回に100発言まで選択でき、分割結果はプレビューで確認できます。</p>
-          <h3>再操作と接続解除</h3>
-          <p>同じアカウントへ投稿済みの発言は再送せず、追加分を返信として続けます。通信が途切れて結果を確認できない場合は、重複防止のため再送を止めます。Bluesky上の結果を確認してください。</p>
-          <p><strong>設定 → 上級オプション → Bluesky連携 → 接続を解除</strong> で解除できます。接続や再接続だけでは公開されません。接続解除やkakeratta内での削除は、Blueskyの投稿を削除しません。</p>
-          <p>「Bluesky連携は準備中です」と表示される場合は、運営側の初期設定が必要です。<a href="https://github.com/takeshy/kakeratta/blob/main/docs/social-sharing_ja.md" rel="noopener">運営側の設定と投稿履歴の復旧</a>を参照してください。</p>
+          <h3>返す・直す・消す</h3>
+          <table>
+            <thead><tr><th>ボタン</th><th>できること</th></tr></thead>
+            <tbody>
+              <tr><td><strong>一言足す</strong></td><td>自分の投稿に続けて書く</td></tr>
+              <tr><td><strong>返す</strong></td><td>担当の発言に返事をする</td></tr>
+              <tr><td><strong>✎</strong> / <strong>×</strong></td><td>投稿を編集する / 削除する</td></tr>
+              <tr><td><strong>⚖</strong></td><td>誰に届き、誰になぜ届かなかったかを見る（<a href="/manual/?guide=advanced#ja-routing" data-lang-link>振り分けを直す</a>）</td></tr>
+              <tr><td><strong>返し方を直す</strong></td><td>担当の口調や指示を直す（<a href="/manual/?guide=advanced#ja-reply-fix" data-lang-link>返し方を直す</a>）</td></tr>
+              <tr><td><strong>🔈 読み上げ</strong></td><td>溜まった反応を順に読み上げる</td></tr>
+            </tbody>
+          </table>
+          <p>投稿を削除すると、その下の担当の発言と自分の返信も消え、検索にも出なくなります。<strong>その投稿だけをもとに書かれた担当のメモも一緒に消えます。</strong> ほかの投稿ももとにしているメモは残り、担当があとで整理します。</p>
         </section>
 
         <section id="ja-personas">
-          <h2>5. 担当</h2>
-          <p>担当は分野ごとに分かれた記憶を持つ AI です。投稿がどの担当に渡るかは本体が振り分け、そのうえで覚えるか、喋るかは各担当が自分で決めます。</p>
+          <h2>4. 担当を選ぶ・作る</h2>
+          <p>担当は、分野ごとに別々の記憶を持つ AI です。投稿をどの担当に渡すかは本体が決め、そのうえで覚えるか、喋るかを各担当が決めます。担当同士でメモは共有しません。</p>
           <h3>最初からいる 4 人</h3>
           <div class="table-scroll">
             <table>
@@ -203,311 +165,357 @@
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
                 <tr><td><code>@michi</code></td><td>移動</td><td>行き先、経路、所要時間、待ち合わせ、旅程、チケット</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
-                <tr><td><code>@plana</code></td><td>やること</td><td>薬、金魚の餌、洗濯、ゴミ出しのような繰り返し。「仕事帰りに花を買おう」のような一度きりの用と、したかどうか</td></tr>
+                <tr><td><code>@plana</code></td><td>やること</td><td>薬、金魚の餌、洗濯のような繰り返し。「仕事帰りに花を買おう」のような一度きりの用と、したかどうか</td></tr>
               </tbody>
             </table>
           </div>
-          <p>担当は投稿された言語で答えます。ヘッダーの <strong>担当</strong> から一覧を開き、<strong>有効</strong> / <strong>停止中</strong> を切り替えられます。</p>
+          <p>ヘッダーの <strong>担当</strong> で一覧を開き、<strong>有効にする</strong> で受け取る担当を選びます。担当は投稿された言語で答えます。</p>
           <figure>
             <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1586" />
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
           </figure>
-          <h3 id="ja-daily">毎日のチェックインと timer</h3>
-          <p>新しいかけらを投げない日も、担当が一度だけ起き、伝えることがあれば話しかけます。何もなければ黙り、空の投稿は残りません。メモの更新だけをすることもあります。</p>
-          <ol>
-            <li><strong>担当</strong> を開き、対象の担当を <strong>有効にする</strong> にします。</li>
-            <li><strong>1日1回のチェックイン</strong> をONにします（初期状態はOFF）。</li>
-            <li><strong>希望時刻</strong> を選びます。変更は自動保存されます。</li>
-          </ol>
-          <p>時刻の横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。チェックインをOFFにするか、担当を無効にすると定期起床は止まります。</p>
-          <p>これとは別に、<code>timer</code> を持つ担当は、自分で起きる時刻を置きます（<a href="/manual/?guide=advanced#ja-tool-schedule">schedule</a>）。時刻を尋ねられることはありません。担当が自分の記録から見当をつけます。</p>
-          <p>たとえば plana なら、記録から「朝の薬は7時半ごろ」と分かった項目にだけ timer を置き、その少しあとに起きて、まだ記録がないときだけ「そういえば朝の薬」と一言添えます。催促や飲み忘れの指摘はしません。決まった件数の通知を約束する機能ではありません。</p>
-          <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、希望時刻や処理の混雑によって少し遅れることがあります。設定した時刻を過ぎてONにした場合は、その日の分を次の確認で実行します。再起動時も当日分だけを実行し、過去の日の分はまとめて送りません。</p>
-          <p>沈黙や失敗もその日の1回に数えます。時刻の変更や記憶の削除で当日分を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
           <h3>AI と担当を作る</h3>
           <ol>
             <li><strong>担当</strong> を開き、<strong>AIと担当を作る</strong> を選びます。</li>
-            <li>「どんなことの担当を作りたい？」に自分の言葉で答えます。<br />例：<em>美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</em></li>
-            <li>AI が名前、話し方、記憶のルールを下書きします。内容を確認して <strong>この内容で保存</strong>。</li>
+            <li>「どんなことの担当を作りたい？」に自分の言葉で答えます。「ワイン」だけでも始められます。<br />例：<em>美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</em></li>
+            <li>AI が名前、話し方、覚えることの下書きを作ります。確認して <strong>この内容で保存</strong>。</li>
             <li><strong>有効にする</strong> と、以後のかけらを受け取り始めます。</li>
           </ol>
-          <figure>
-            <img src="/captures/ja/persona-create.png" alt="AIと担当を作る。ほしいことを自分の言葉で書く" loading="lazy" width="382" height="446" />
-            <figcaption>「ワイン」や「読書」だけでも始められます。長い質問票はありません。</figcaption>
-          </figure>
           <figure>
             <img src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="382" height="1459" />
             <figcaption>下書きは、担当すること、話し方、メモの分類、覚えること・返事をするタイミングの順に確認できます。</figcaption>
           </figure>
-          <h3>使いながら育てる</h3>
-          <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「銘柄だけでなく、なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、これまでのメモと有効・停止の状態はそのまま残ります。</p>
-          <h3 id="ja-memory">覚えていることを確かめる</h3>
-          <p>担当の <strong>覚えていること</strong> を開くと、好み・ワイン・お店・本などの種類ごとに、保存済みのメモを読めます。説明や根拠、例外も保存された内容のまま表示します。表示のために新しくAIで要約することはありません。</p>
+          <h3>使いながら直す</h3>
+          <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
+          <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
+          <h3 id="ja-daily">毎日のチェックイン</h3>
+          <p>かけらを投げない日も、担当が1日1回起きて、伝えることがあれば話しかけます。何もなければ黙ります。</p>
+          <ol>
+            <li><strong>担当</strong> を開き、対象の担当を有効にします。</li>
+            <li><strong>1日1回のチェックイン</strong> をONにします（初期状態はOFF）。</li>
+            <li>時刻を選びます。変更は自動で保存されます。</li>
+          </ol>
+          <p>時刻は、保存したときに端末が使っているタイムゾーンで記録され、横に表示されます。引っ越しなどでタイムゾーンが変わったら、時刻を保存し直してください。ブラウザを閉じていても、サーバーが動いていれば実行されます。</p>
+          <p>チェックインとは別に、plana のように担当が自分で起きる時刻を決めることもあります。詳しくは <a href="/manual/?guide=advanced#ja-wakes" data-lang-link>担当が起きるタイミング</a> を見てください。</p>
+        </section>
+
+        <section id="ja-memory">
+          <h2>5. 覚えていることを確かめる</h2>
+          <p>担当の <strong>覚えていること</strong> を開くと、保存されたメモを種類ごとに読めます。表示のためにAIで要約し直すことはなく、担当が書いたままの内容です。</p>
           <figure>
             <img src="/captures/ja/memory.png" alt="ワイン担当の好みとワインの記憶。タグ、元投稿へのリンク、✎ での編集、個別削除（サンプル）" loading="lazy" width="382" height="991" />
-            <figcaption>覚えた内容、タグ、元の投稿、✎ での編集、このメモだけを忘れさせる操作を同じ画面で確認できます（サンプル）。</figcaption>
+            <figcaption>覚えた内容、タグ、元の投稿、✎ での編集、このメモだけを忘れさせる操作（サンプル）。</figcaption>
+          </figure>
+          <h3>メモの見方</h3>
+          <ul>
+            <li><strong>記憶を更新した投稿</strong> のリンクで、そのメモのもとになった投稿と会話を開けます。</li>
+            <li>タグを押すと、そのタグのメモだけに絞り込めます。<strong>すべてのメモを表示</strong> で戻ります。</li>
+            <li>タイムラインの担当の発言の下にある <strong>📝</strong> は、その発言と一緒に書いたメモです。押すとそのメモが開きます。</li>
+            <li>投稿へのリンクがない古いメモは、<strong>元の投稿を探す</strong> で検索できます。</li>
+          </ul>
+          <h3>間違いを直す・消す</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>したいこと</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td>メモの誤字や事実の誤りを直す</td><td>メモの見出しの <strong>✎</strong> で原文を編集し、<strong>メモを保存</strong></td></tr>
+                <tr><td>メモを1件だけ消す</td><td><strong>このメモを忘れさせる</strong></td></tr>
+                <tr><td>その担当のメモを全部消す</td><td><strong>すべてのメモを忘れさせる</strong></td></tr>
+                <tr><td>今後の覚え方を変える</td><td>担当の <strong>AIで修正</strong> で頼む</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>削除は元に戻せません。消したことでも、残っている投稿を担当が検索して、また覚えることがあります。</p>
+          <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別に消し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。AIで修正しても、すでにあるメモは書き換わりません。</p></div>
+        </section>
+
+        <section id="ja-search">
+          <h2>6. 検索する</h2>
+          <p>ヘッダーの <strong>検索</strong> を開きます。「ピノ」のような名前も、「軽くて飲みやすかった赤ワイン」のような言い方も、同じ欄に入れられます。</p>
+          <ul>
+            <li>短い語句はキーワードで、質問や文章は意味の近さで探します。結果の画面から探し方を切り替えられます。</li>
+            <li>探す対象は、自分が書いた本文、画像から読み取った文字、担当との会話です。</li>
+            <li>結果を押すと、元の投稿と会話が開き、そこから返信も書けます。</li>
+          </ul>
+          <figure>
+            <img src="/captures/ja/search-keyword.png" alt="キーワード検索。ピノを含む投稿（サンプルデータ）" loading="lazy" width="390" height="669" />
+            <figcaption>名前から検索（サンプルデータ）。</figcaption>
+          </figure>
+          <p>担当も必要なときに過去のかけらを検索し、「前に気に入ったピノに近いですね」のように元の投稿へのリンク付きで答えることがあります。</p>
+        </section>
+
+        <section id="ja-voice">
+          <h2>7. 音声入力と読み上げ</h2>
+          <ul>
+            <li><strong>🎙 話す</strong> を押すと、ブラウザの音声認識で聞き取ります。無音が続くと自動で止まります。</li>
+            <li><strong>送信の合図</strong>（例：「以上」）を決めておくと、文の最後にそう言った時点で投稿されます。</li>
+            <li><strong>自動送信前にAIで文章を整える</strong> をONにすると、合図で送るときだけ、句読点や言いよどみを整えます（初期状態はOFF）。</li>
+            <li><strong>🔈 読み上げ</strong> は、溜まった反応を順に読み上げます。</li>
+          </ul>
+          <p>合図、無音での停止、声と速さは <strong>設定 → 上級オプション → 音声</strong> で変えられます。</p>
+        </section>
+
+        <section id="ja-offline">
+          <h2>8. オフラインで使う</h2>
+          <p>一度オンラインで開いた端末なら、電波がなくても文章・画像・URL・返信を書けます。書いたものは「端末に保存済み・送信待ち」として残り、アプリを開いている間に接続が戻ると自動で送られます。担当の反応は、サーバーに届いてから始まります。</p>
+          <figure class="shot">
+            <img src="/captures/ja/offline.png" alt="オフラインで保存した投稿と送信待ち件数（サンプル）" loading="lazy" width="380" height="500" />
+            <figcaption>オフラインで保存した投稿と、送信待ちの件数（サンプル）。</figcaption>
           </figure>
           <ul>
-            <li><strong>記憶を更新した投稿</strong> のリンクで、元の投稿と会話を新しいタブに開けます。リンクはメモ保存時に自動で付き、書き直しや、読み込んだメモの統合（統合先がそのメモへリンクする、または元のメモを捨てる）でも引き継がれます。参照のために読んだだけのメモの投稿は付きません。</li>
-            <li>メモのタグ（担当が付けたもの）はチップで並びます。押すとそのタグのメモだけになり、<strong>すべてのメモを表示</strong> で戻ります。</li>
-            <li>タイムラインの担当の発言の下にある <strong>📝</strong> は、その発言と一緒に書いたメモです。押すとこの画面がそのメモで開きます。</li>
-            <li>関連する記憶のリンクを押すと、そのメモへ移動します。メモの見出しの <strong>✎</strong> を押すと、そのメモが保存された原文のまま編集欄になり、綴りや事実の誤りをその場で直せます。画像の読み取りが銘柄を読み違えたまま覚えたときなどに使います。「記憶を更新した投稿」のリンクは残ります。</li>
-            <li>以前のメモに投稿リンクが無い場合は、<strong>元の投稿を探す</strong> で検索できます。</li>
+            <li>送信に失敗したときは <strong>接続して再送</strong> でやり直せます。二重に投稿されることはありません。</li>
+            <li>送信待ちは、ブラウザのデータを消すと失われます。ログアウトするときは確認のうえ、この端末の保存データを消します。</li>
+            <li>直近20件の会話は端末にも保存され、次に開いたときすぐ表示されます。</li>
           </ul>
-          <h3>間違った記憶を消す・覚え方を変える</h3>
-          <p><strong>このメモを忘れさせる</strong> を押し、メモの名前を確認すると、その1件だけを削除します。ほかのメモと元の投稿は残ります。<strong>すべてのメモを忘れさせる</strong> は、その担当のメモをまとめて消す操作です。どちらも元に戻せません。担当そのものの <strong>削除</strong> ではメモは残ります。</p>
-          <p>メモを消しても、担当が残っている投稿を検索して再び覚えることがあります。今後の覚え方や判断を変えるには、担当画面の <strong>AIで修正</strong> を使います。</p>
-          <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別削除し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。担当の修正は、すでに保存されたメモを自動で訂正する操作ではありません。</p></div>
-          <h3 id="ja-routing">担当の判断を見て、条件を直す</h3>
-          <p>誰にかけらを渡すかは本体が決めています。自分の投稿・返信の <strong>⚖</strong>（担当の判断）を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が別の画面に並びます。<code>@名前</code> で指名した担当は出ません。指名で届いたのはあなたの判断だからです。判定できなかった投稿は「判断の記録がありません」と出ます。呼ばれた担当には、一手が終わったか、返事をしたか、この投稿からメモを残したかが出ます。終わる前は「返事を考えています」です。黙っていたなら <strong>返事がほしかった</strong> から、口調と指示を直す流れに入れます。</p>
+        </section>
+
+        <section id="ja-faq">
+          <h2>9. 困ったとき</h2>
+          <dl class="faq">
+            <dt>反応が付きません。</dt>
+            <dd>担当が誰も有効でないか、どの担当の分野にも当たらなかったか、担当が「覚えるだけ」にしたのかもしれません。<strong>⚖</strong> で誰に届いたかを確認できます。必ず答えてほしいときは <code>@名前</code> で指名してください。</dd>
+            <dt>設定画面が閉じられません。</dt>
+            <dd>AI の接続が済むまでは閉じられません。API キーを入力してください。</dd>
+            <dt>検索で「語句の一致で探しました」と出ます。</dt>
+            <dd>意味で探す準備が終わっていないか、接続できない状態です。語句で見つかった結果は表示されています。少し待ってから検索し直してください。</dd>
+            <dt>画像の文字が読めていません。</dt>
+            <dd>読み取りには少し時間がかかります。しばらくして投稿の「読み取り結果」を開いてください。画像は1投稿あたり 20 MiB までです。</dd>
+            <dt>データはどこに保存されますか。</dt>
+            <dd>アカウントごとに分かれたサーバー上に保存され、ほかの人からは見えません。手元に保存したいときは <a href="/manual/?guide=advanced#ja-settings" data-lang-link>設定とデータ</a> を見てください。</dd>
+          </dl>
+        </section>
+        </div>
+
+        <div class="advanced-guide">
+          <h1>kakeratta 上級編</h1>
+          <p class="lede">担当の振り分けや返し方の調整、担当が起きるタイミング、Bluesky・Hermes との連携、設定とデータ、担当が使う道具を説明します。毎日の使い方は <a href="/manual/" data-lang-link>基本の使い方</a> を見てください。</p>
+
+        <section id="ja-routing">
+          <h2>1. 振り分けを直す</h2>
+          <p>かけらをどの担当に渡すかは本体が決めます。自分の投稿や返信の <strong>⚖</strong> を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が出ます。<code>@名前</code> で指名した担当は、あなたが選んだので出ません。</p>
           <figure>
             <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="677" />
-            <figcaption>呼ばれた担当と、呼ばれなかった理由。各行から担当条件を直せます（サンプル）。</figcaption>
+            <figcaption>呼ばれた担当と、呼ばれなかった理由（サンプル）。</figcaption>
           </figure>
+          <p>呼ばれた担当には、処理が終わったか、返事をしたか、メモを残したかが出ます。黙っていた担当には <strong>返事がほしかった</strong> から <a href="#ja-reply-fix">返し方を直す</a> 流れに入れます。</p>
+          <h3>担当の条件を直す</h3>
           <ol>
             <li>行の <strong>呼んでほしかった</strong>（または <strong>呼んでほしくなかった</strong>）を押します。</li>
-            <li>理由や、どう変えてほしいかを自分の言葉で書き、<strong>条件を作る</strong> を押します。担当を作る AI が担当条件だけを書き直します。</li>
-            <li><strong>新しい判定条件</strong> は文章のまま表示され、手で直せます。<strong>AIに変更を依頼</strong> を押すと別の欄が開き、直してほしい内容を新たに書いて、欄の条件を書き直させられます。</li>
-            <li><strong>OK</strong> で条件を保存し、続けて同じ投稿で振り分けを試します。担当は起こしません。狙いどおりに届けば閉じます。</li>
-            <li>まだ違っていれば、届かなかった理由とともにそのことを伝え、理由の入力からやり直します。保存した条件はそのまま残ります。<strong>キャンセル</strong> は何もしません。</li>
+            <li>理由やどう変えてほしいかを書き、<strong>条件を作る</strong> を押します。AI が担当の判定条件だけを書き直します。</li>
+            <li>新しい条件は手で直せます。<strong>AIに変更を依頼</strong> で書き直しを頼むこともできます。</li>
+            <li><strong>OK</strong> で保存すると、同じ投稿で振り分けを試します（担当は起こしません）。狙いどおりなら閉じ、違えば理由を見てやり直します。</li>
           </ol>
           <figure>
             <img src="/captures/ja/condition-fix.png" alt="あなたの理由から AI が書いた michi の新しい判定条件。保存前に手で直せる（サンプル）" loading="lazy" width="382" height="377" />
-            <figcaption>今の判定条件と、AI が書いた新しい判定条件。OK で保存して、同じ投稿で試します（サンプル）。</figcaption>
+            <figcaption>今の条件と、AI が書いた新しい条件（サンプル）。</figcaption>
           </figure>
-          <div class="tip"><p>変わるのは担当条件だけです。口調や覚え方は変わりません。裏で何かを学習することもなく、条件は保存前にいつも目で確かめられます。</p></div>
-          <h3 id="ja-reply-fix">返事がずれたところで、口調と指示を直す</h3>
-          <p>担当の発言の <strong>返し方を直す</strong> を押すと、その返事が期待とどう違うかを書けます。担当を作る AI が <strong>口調</strong> と <strong>指示</strong> だけを書き直し、担当条件や名前、道具は変えません。</p>
-          <figure>
-            <img src="/captures/ja/reply-fix.png" alt="tabe の発言に異を唱えたところ。AI が書いた新しい口調と指示を、保存前に手で直せる（サンプル）" loading="lazy" width="382" height="590" />
-            <figcaption>新しい口調と指示。どちらも手で直せます。今の口調と指示はたたんで置いてあります（サンプル）。</figcaption>
-          </figure>
+          <p>変わるのは判定条件だけで、口調や覚え方は変わりません。振り分けに Jev を使っている場合（<a href="#ja-settings">設定とデータ</a>）は理由が表示されませんが、条件は同じ手順で直せます。</p>
+        </section>
+
+        <section id="ja-reply-fix">
+          <h2>2. 返し方を直す</h2>
+          <p>担当の発言の <strong>返し方を直す</strong> を押し、期待とどう違うかを書きます。AI が担当の <strong>口調</strong> と <strong>指示</strong> だけを書き直します。判定条件、名前、道具は変わりません。</p>
           <ol>
-            <li>発言の <strong>返し方を直す</strong> を押し、期待とどう違うかを書いて <strong>直し方を作る</strong> を押します。</li>
-            <li><strong>新しい口調</strong> と <strong>新しい指示</strong> は文章のまま表示され、手で直せます。<strong>AIに変更を依頼</strong> で直してほしい内容を新たに書くこともできます。</li>
-            <li><strong>OK</strong> で保存し、続けて同じ投稿に同じ担当をもう一度立たせます。メモを読むところまでは本番どおりで、発言はタイムラインに載らず、メモも予定も書かれません。</li>
-            <li>いま返すならこう、という文章が出ます。<strong>これでよい</strong> で閉じ、<strong>まだ違う</strong> ならその文章を引用して、どう違うかをもう一度聞きます。</li>
+            <li>違いを書いて <strong>直し方を作る</strong> を押します。</li>
+            <li>新しい口調と指示は手で直せます。<strong>AIに変更を依頼</strong> で書き直しを頼むこともできます。</li>
+            <li><strong>OK</strong> で保存すると、同じ投稿で担当が試し書きをします。タイムラインには載らず、メモも予定も書かれません。数分かかることがあります。</li>
+            <li><strong>これでよい</strong> で閉じます。<strong>まだ違う</strong> なら、試し書きを見ながらもう一度伝えます。</li>
           </ol>
           <figure>
             <img src="/captures/ja/reply-trial.png" alt="同じ投稿に tabe がいま返すなら、という試し書き。これでよいか、まだ違うか（サンプル）" loading="lazy" width="382" height="327" />
             <figcaption>試し書き。判断するのはあなたです（サンプル）。</figcaption>
           </figure>
-          <div class="tip"><p>担当の一手は計画と確認を経るので、試し書きには数分かかることがあります。保存した口調と指示は、試し書きの結果がどうでもそのまま残ります。</p></div>
-          <p>上級者向けに、<code>skill.json</code> を書いて <strong>担当を追加する</strong> ことも、この画面からできます。</p>
+          <p>保存した口調と指示は、試し書きの結果にかかわらずそのまま残ります。</p>
         </section>
 
-        <section id="ja-search">
-          <h2>6. 検索</h2>
-          <p>「あのとき飲んだワイン、何だった？」 ヘッダーの <strong>検索</strong> を開きます。</p>
-          <ul>
-            <li>「ピノ」のような名前をそのまま入力できます。</li>
-            <li>「軽くて飲みやすかった赤ワイン」のような記憶も同じ欄に入力できます。単語や短い語句はキーワード検索、「？」「教えて」「探して」などを含む質問や文章は意味検索します。</li>
-            <li>キーワード検索後は、0件でも「似たような単語でも探す」で範囲を広げられます。自動判定が合わない場合も、結果から検索方法を切り替えられます。</li>
-          </ul>
-          <p>対象は、自分が書いた本文、画像から読み取った文字、担当との会話です。結果を押すと、元の投稿とその会話が開きます。</p>
-          <figure>
-            <img src="/captures/ja/search-keyword.png" alt="キーワード検索。ピノを含む投稿（サンプルデータ）" loading="lazy" width="390" height="669" />
-            <figcaption>名前から検索（サンプルデータ）。</figcaption>
-          </figure>
-          <figure>
-            <img src="/captures/ja/search-thread.png" alt="検索結果から元の投稿と会話を開く（サンプルデータ）" loading="lazy" width="390" height="672" />
-            <figcaption>結果から元の投稿を開く。そこから返信も書けます。</figcaption>
-          </figure>
-          <div class="tip">
-            <p>投稿・返信を保存した後と画像解析が完了した後に、意味検索用の登録をバックグラウンドで行います。画像内の文字・説明・出典も対象です。「サザエ」「さざえ」のようなひらがな・カタカナの違いは、語句一致でも吸収します。</p>
-            <p>意味検索の準備に時間がかかる場合や接続できない場合は、語句の一致だけで探した結果と、その旨を表示します。あとでもう一度検索できます。途中まで保存された準備は再利用します。</p>
+        <section id="ja-wakes">
+          <h2>3. 担当が起きるタイミング</h2>
+          <p>担当が動くのは、次の3つのときです。</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>きっかけ</th><th>決める人</th><th>内容</th></tr></thead>
+              <tbody>
+                <tr><td>かけらが届いたとき</td><td>本体（振り分け）</td><td>分野に当たる担当と、<code>@名前</code> で指名された担当が動きます。</td></tr>
+                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>あなた</td><td>選んだ時刻に1日1回起きます。</td></tr>
+                <tr><td>担当が預けた予定</td><td>担当</td><td><code>schedule</code> を持つ担当が、自分の記録から時刻を決めて起きます。</td></tr>
+              </tbody>
+            </table>
           </div>
-          <p>担当も、必要なときに過去のかけらを検索します。新しいラベルが届いたとき、ワイン担当が「前に気に入ったピノに近いですね」と元の投稿へのリンク付きで答えることがあります。</p>
-        </section>
-
-        <section id="ja-phone">
-          <h2>7. スマホから共有する</h2>
-          <p>Kindle も有料記事も SNS も、画面に出ていればスクリーンショットで放り込めます。PC は貼るだけ（<kbd>Ctrl</kbd>+<kbd>V</kbd>）。スマホは次の準備で共有シートから渡せます。</p>
-          <h3>Android</h3>
-          <ol>
-            <li>ブラウザのメニューから <strong>ホーム画面に追加</strong>（アプリとしてインストール）します。</li>
-            <li>他のアプリでスクリーンショットを共有すると、共有先に kakeratta が並びます。選ぶだけでタイムラインに入ります。</li>
-          </ol>
-          <h3>iOS</h3>
-          <p>Googleログイン環境ではブラウザから画像を添付してください。以下のショートカットは認証なしのローカル環境向けです。</p>
-          <p>共有シートからの受け取りは「ショートカット」アプリで代替します。</p>
-          <ol>
-            <li>ショートカットを新規作成し、「共有シートで表示」を有効にして、受け取る種類を「イメージ」にします。</li>
-            <li>「URL の内容を取得」を追加。URL は <code>https://&lt;アプリのアドレス&gt;/api/capture</code>、メソッド <code>POST</code>、本文は <strong>フォーム</strong>。
-              <ul>
-                <li><code>image</code> … ショートカットの入力</li>
-                <li><code>text</code> … （任意）その場で書くなら「入力を要求」の結果</li>
-              </ul>
-            </li>
-          </ol>
-          <p>読書中は無言で投げておいて、あとからまとめて一言を足す使い方もできます。</p>
-        </section>
-
-        <section id="ja-voice">
-          <h2>8. 音声入力と読み上げ</h2>
+          <h3>チェックインの細かい動き</h3>
           <ul>
-            <li><strong>🎙 話す</strong> を押すと、ブラウザの音声認識で聞き取ります。既定では無音が続くと自動で止まります（設定の上級オプションにある「無音で自動停止」）。</li>
-            <li><strong>送信の合図</strong>（例：「以上」）を設定しておくと、そう言った時点で投稿されます。手を使わずに放り込めます。</li>
-            <li><strong>自動送信前に AI で文章を整える</strong> を ON にすると、合図で送るときだけ、意味を変えずに句読点や言いよどみを整えます。既定は OFF で、手で送るときはそのまま投稿されます。</li>
-            <li><strong>🔈 読み上げ</strong> は、溜まった反応を順に読み上げます。声と速さは設定で変えられます。</li>
+            <li>サーバーは毎分確認するので、混み具合によって少し遅れることがあります。</li>
+            <li>時刻を過ぎてからONにした場合は、その日の分をすぐ実行します。サーバーの再起動後も当日分だけを実行し、過ぎた日の分はまとめて実行しません。</li>
+            <li>担当が黙った場合や失敗した場合も、その日の1回に数えます。時刻を変えたりメモを消したりしても、同じ日にもう一度は起きません。</li>
+            <li>チェックインでは現在地を使わないので、経路検索はできず、店舗検索は名前での検索だけになります。</li>
+          </ul>
+          <h3 id="ja-tool-schedule">担当が預けた予定（schedule）</h3>
+          <p>たとえば plana は、記録から「朝の薬は7時半ごろ」と分かったものにだけ予定を置き、その少しあとに起きます。まだ記録がなければ「そういえば朝の薬」と一言添え、済んでいれば黙ります。時刻の前に知らせるリマインダーではなく、催促もしません。あなたから「毎朝8時に知らせて」と頼む機能でもありません。</p>
+          <ul>
+            <li>担当ごとに20件まで、30日先まで、1回きりか毎日です。</li>
+            <li>予定は担当のカードに並びます。<strong>不要な予定は × で消せます。</strong></li>
+            <li>起きた回は、担当が黙っても失敗しても消費されます。予定より10分以上遅れた回は実行しません。</li>
+            <li>メモを消すと、担当が予定を見直します。担当を停止・削除したとき、メモを全部消したときは、その担当の予定も消えます。</li>
           </ul>
         </section>
-        </div>
 
-        <div class="advanced-guide">
-        <h2 id="ja-advanced">上級編</h2>
-        <p>外部エージェントとの連携、詳細設定、担当が使う道具の仕様を説明します。</p>
+        <section id="ja-bluesky">
+          <h2>4. Blueskyに公開する</h2>
+          <p>自分の投稿と担当との会話から、見せたい発言だけを選んで、自分の Bluesky アカウントから投稿できます。担当の発言には「🍚 tabeからの返信:」のような署名が付きます。</p>
+          <h3>アカウントをつなぐ</h3>
+          <ol>
+            <li><strong>設定 → 上級オプション → 外部連携 → Bluesky連携</strong>、または投稿の <strong>Blueskyに投稿</strong> を開きます。</li>
+            <li>自分のハンドル（例：<code>alice.bsky.social</code>）を入れて <strong>Blueskyと接続</strong> を押します。</li>
+            <li>Bluesky の画面で許可すると、同じタブで kakeratta に戻ります。パスワードは Bluesky 側にだけ入力します。</li>
+          </ol>
+          <h3>会話を選んで公開する</h3>
+          <ol>
+            <li>元の投稿の <strong>Blueskyに投稿</strong> を押します。最初は元の投稿だけが選ばれています。</li>
+            <li>公開する発言を選びます。返信を選ぶときは、その返信先も選んでください。</li>
+            <li><strong>プレビュー</strong> で分割のされ方や返信のつながりを確かめ、<strong>選択した会話を投稿</strong> を押します。</li>
+          </ol>
+          <figure>
+            <img src="/captures/ja/bluesky-selection.png" alt="元投稿だけが選択され、担当と自分の追加返信は未選択の公開画面（サンプル）" loading="lazy" width="382" height="799" />
+            <figcaption>担当は記憶をもとに個人的なことを話す場合があります。見せたい発言だけ選んでください。</figcaption>
+          </figure>
+          <h3>公開されるもの・されないもの</h3>
+          <ul>
+            <li>公開されるのは、選んだ発言の本文・リンク・出典URL・画像です。位置情報、画像の読み取り結果、担当のメモは公開されません。</li>
+            <li>長い発言は、文の切れ目で300文字程度ずつに分け、2つ目以降に「つづき:」を付けます。画像は最初の1つにだけ付きます。</li>
+            <li>2 MB を超える画像は送信用に縮小されます（元の画像はそのまま）。透明部分は白に、GIF は静止画になります。</li>
+            <li>一度に選べるのは100発言までです。</li>
+          </ul>
+          <h3>あとから足す・やめる</h3>
+          <ul>
+            <li>公開済みの発言は再送されません。あとで選んだ返信だけを追加で投稿できます。</li>
+            <li>通信が切れて結果が分からないときは、二重投稿を防ぐために止まります。Bluesky 側で確かめてください。</li>
+            <li><strong>接続を解除</strong> でつながりを外せます。解除しても、kakeratta で投稿を消しても、Bluesky の投稿は消えません。</li>
+          </ul>
+        </section>
 
         <section id="ja-hermes">
-
-<h2>Hermes連携</h2>
-<p class="lede">担当バーでHermesの名前を押して送った依頼を、自分のHermesが受け取り、結果をkakerattaに返します。</p>
-<div class="tip"><p>Hermes向けのkakeratta公式Skillを配布しています。インストール方法、定期実行、接続や依頼処理の詳しい説明は <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes Agentの詳しいマニュアル</a>を参照してください。</p></div>
-<figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="530" /></figure>
-<h3>1. 接続キーを発行する</h3>
-<ol><li>kakerattaの「設定」→「上級オプション」→「外部連携」を開きます。</li><li>「Hermes連携」の「接続キーを発行」を押します。</li><li>表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li></ol>
-
-<h3>2. Hermesに設定を追加する</h3>
-<p>Hermesを動かしている端末の <code>~/.hermes/config.yaml</code> に、コピーした設定を追加します。すでに <code>mcp_servers</code> がある場合は、その中へ <code>kakeratta</code> を追加してください。</p>
-<pre><code>mcp_servers:
+          <h2>5. Hermesに依頼する</h2>
+          <p>自分の Hermes に kakeratta から依頼を出し、結果をタイムラインで受け取れます。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
+          <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="530" /></figure>
+          <h3>つなぐ</h3>
+          <ol>
+            <li><strong>設定 → 上級オプション → 外部連携 → Hermes連携</strong> で <strong>接続キーを発行</strong> し、表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li>
+            <li>Hermes を動かす端末の <code>~/.hermes/config.yaml</code> に追加し、Hermes を再起動します。すでに <code>mcp_servers</code> があれば、その中に <code>kakeratta</code> を足します。</li>
+          </ol>
+          <pre><code>mcp_servers:
   kakeratta:
     url: "画面に表示された接続URL"
     headers:
       Authorization: "Bearer 画面に表示された接続キー"</code></pre>
-
-
-<h3>3. 依頼して確認する</h3>
-<ol><li>Hermesを再起動します。</li><li>kakerattaでHermes担当をONにします。</li><li>タイムライン上部の担当バーでHermesの名前を押し、入力された <code>@Hermes</code> に続けて依頼を書いて送ります。</li><li>自分のHermesに「kakerattaの依頼を確認して」と話しかけます。</li><li>Hermesが依頼を処理して報告すると、kakerattaで結果を確認できます。</li></ol>
-<p>依頼はHermesが取りに来るまで待機します。自動で対応させたい場合は、Hermes側で依頼を確認する定期実行を設定してください。HermesのAPIを公開する必要はありません。</p>
-<h3>接続できないとき</h3><ul><li>設定を変更したあと、Hermesを再起動したか確認してください。</li><li>接続URLにHermesからアクセスできるか確認してください。</li><li>キーを再発行した場合は、config.yamlも新しい設定に置き換えてください。</li><li>Hermes担当がOFFの場合はONにしてください。</li></ul>
-<h3>アクセス範囲と解除</h3><p>Hermesはあなたの投稿・担当のメモ・依頼を読み、Hermesのメモと報告を書き込めます。モデル設定や他のユーザーにはアクセスできません。</p><p>Hermes担当をOFFにすると読み書きを停止します。「連携を解除」を押すと接続キーが無効になります。</p>
-
-
+          <h3>依頼する</h3>
+          <ol>
+            <li>kakeratta で Hermes 担当を有効にします。</li>
+            <li>担当バーで Hermes を押し、<code>@Hermes</code> に続けて依頼を書いて送ります。</li>
+            <li>Hermes に「kakerattaの依頼を確認して」と話しかけます。報告がタイムラインに届きます。</li>
+          </ol>
+          <p>依頼は Hermes が取りに来るまで待っています。毎回話しかけずに済ませたいときは、Hermes 側で定期的に確認するよう設定します。</p>
+          <h3>Hermes が読めるもの</h3>
+          <p>Hermes は、あなたの投稿、依頼、そして <strong>すべての担当のメモ</strong> を読めます（担当同士はメモを共有しませんが、Hermes は例外です）。書き込めるのは Hermes 自身のメモと報告だけで、モデル設定や他の利用者のデータには触れません。Hermes 担当を停止すると読み書きが止まり、<strong>連携を解除</strong> で接続キーが無効になります。</p>
+          <h3>つながらないとき</h3>
+          <ul>
+            <li>設定を変えたあと Hermes を再起動したか確認してください。</li>
+            <li>Hermes から接続URLに届くか確認してください。</li>
+            <li>キーを再発行したら、config.yaml も置き換えてください。</li>
+          </ul>
         </section>
 
         <section id="ja-settings">
-          <h2>9. 設定</h2>
+          <h2>6. 設定とデータ</h2>
           <figure>
-            <img src="/captures/ja/settings.png" alt="設定。モデル、Web検索、バックアップ、この端末、上級オプション（OpenRouter・音声入力・読み上げ・MCP連携・Bluesky連携）" loading="lazy" width="390" height="1270" />
-            <figcaption>設定パネル。上からモデル、Web検索、バックアップ、この端末。線の下の「上級オプション」を開くと、OpenRouter、音声入力、読み上げ、MCP連携、Bluesky連携が出ます。</figcaption>
+            <img src="/captures/ja/settings.png" alt="設定パネル" loading="lazy" width="390" height="1270" />
+            <figcaption>設定パネル。よく使う項目が上に、ほかは「上級オプション」の中にあります。</figcaption>
           </figure>
-          <h3>バックアップ（zipに書き出す）</h3>
-          <p><strong>zipに書き出す</strong> を押すと、ワークスペース全体を1つのzipにして渡します。投稿・担当とその記憶（メモ）・いる担当とその順番・キャプチャ画像が入ります。手元で動かすkakerattaが読むファイル構成そのままなので、<code>KAKERATTA_HOME</code> に展開して起動すれば同じ見え方で開きます。中の <code>backup.json</code> にワークスペースの鍵（workspaceKey）があります。</p>
-          <p>APIキー、BlueskyやMCPの接続は入りません。復元先では自分のキーを入れてつなぎ直します。書き出しには少し時間がかかることがあり、ホスティング版では準備ができると「ダウンロード」のリンクが出ます。リンクは1時間有効です。</p>
+          <h3>どこに何があるか</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>場所</th><th>項目</th></tr></thead>
+              <tbody>
+                <tr><td>モデル</td><td>AI の API キー</td></tr>
+                <tr><td>Web検索</td><td>Tavily の API キー（<a href="#ja-tool-web_search">Web検索</a>を使う場合）</td></tr>
+                <tr><td>この端末</td><td>表示言語、kakeratta の版</td></tr>
+                <tr><td>上級オプション → モデル</td><td>OpenRouter を使う</td></tr>
+                <tr><td>上級オプション → 入力</td><td>入力をマークダウンとして扱う</td></tr>
+                <tr><td>上級オプション → 音声</td><td>音声入力（送信の合図、無音で停止など）、読み上げの声と速さ</td></tr>
+                <tr><td>上級オプション → 外部連携</td><td><a href="#ja-hermes">Hermes</a>、<a href="#ja-bluesky">Bluesky</a></td></tr>
+                <tr><td>上級オプション → バックアップ</td><td>zip に書き出す</td></tr>
+                <tr><td>上級オプション → 利用停止</td><td>すべて削除して退会する</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>バックアップ</h3>
+          <p><strong>zipに書き出す</strong> で、投稿、担当とメモ、担当の並び、画像をひとつの zip にまとめます。準備ができると <strong>ダウンロード</strong> のリンクが出ます（1時間有効）。個人的な内容を含むので、他人に渡さないでください。</p>
+          <p>API キーや Bluesky・Hermes の接続は入りません。</p>
           <h3>利用停止（退会）</h3>
-          <p><strong>すべて削除して利用を停止する</strong> を押すと、確認のため「削除」と入力する画面が出ます。実行すると、このアカウントの投稿・担当とメモ・キャプチャ画像・設定と鍵・BlueskyやMCPの接続・バックアップ、そしてログインのアカウント自体が消え、ログアウトした状態に戻ります。元に戻せないので、必要なものは先に上のバックアップで書き出してください。ほかの利用者のデータには触れません。</p>
-          <p>手元で一人で動かしている構成（ログインなし）にはこの項目はありません。アプリを止めて、「この端末」に出る保存先のディレクトリを削除してください。</p>
-          <h3>この端末（表示言語）</h3>
-          <p>日本語と英語を切り替えられます。このマニュアルも同じ設定を引き継ぎます。kakerattaの版と、手元で動かしている場合は保存先もここに出ます。</p>
-          <h3>上級オプション</h3>
-          <p>既定のままで困らないものは、線の下の <strong>上級オプション</strong> にまとめてあります：OpenRouterを使う、音声入力、読み上げ、MCP連携（Hermesなど）、Bluesky連携。開いたときに初めて読み込むので、使わない人の画面には出ませんし、通信も起きません。</p>
-          <h3>AI（Nebius Token Factory）</h3>
-          <p>KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。Token FactoryのAPIキーを入れれば動きます。</p>
+          <p><strong>すべて削除して利用を停止する</strong> を押し、確認のため「削除」と入力すると、このアカウントの投稿・担当とメモ・画像・設定・接続・バックアップ、ログインのアカウント自体が消えます。元に戻せないので、先にバックアップを取ってください。</p>
+          <h3>AI のモデル</h3>
+          <p>Nebius Token Factory では、用途ごとに次のモデルを使います。設定画面で選ぶ必要はありません。</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>用途</th><th>モデル</th></tr></thead>
+              <tbody>
+                <tr><td>振り分け、担当のふだんの返事、担当が出した操作の確認</td><td>Nemotron Super</td></tr>
+                <tr><td>「違う」「もっと詳しく」と返されたときの返事</td><td>Nemotron Ultra</td></tr>
+                <tr><td>返信が「考え直して」という依頼かの判定</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>画像の読み取り</td><td>GLM-5.3-Flash</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>担当の発言に「違う」「もう少し詳しく」などと返すと、考え直しの依頼かどうかを判定し、そうであれば返信先の担当が Ultra で答え直します。お礼やふつうの追加質問はそのままです。</p>
+          <h3>OpenRouter を使う</h3>
+          <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
-            <li>Nemotron 3.5 Lightning — 返信が「より良い回答」を求めているかの判定</li>
-            <li>Nemotron Super — 振り分け、すべての担当、workflow の確認</li>
-            <li>Nemotron Ultra — より良い・深い回答を求める返信を受けた、返信先の担当の回答と、担当案の作成</li>
-            <li>GLM-5.3-Flash — 画像の読み取り（同じ基盤）</li>
+            <li><strong>Jevを有効にする</strong>：振り分けだけを Jev に切り替えます。担当の返事は Token Factory のままです。Jev は振り分けの理由を表示しませんが、<a href="#ja-routing">条件の直し方</a> は同じです。</li>
+            <li><strong>OpenRouter専用モード</strong>：担当の返事に使うモデルも OpenRouter に切り替えます。</li>
           </ul>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>用途</th><th>既定</th></tr></thead>
-              <tbody>
-                <tr><td>low（返信の判定）</td><td>Nemotron 3.5 Lightning</td></tr>
-                <tr><td>middle（すべての担当）</td><td>Nemotron Super</td></tr>
-                <tr><td>high（より良い回答を求められた返信先の担当）</td><td>Nemotron Ultra</td></tr>
-                <tr><td>画像を読むモデル（vision）</td><td>GLM-5.3-Flash</td></tr>
-                <tr><td>振り分け</td><td>Nemotron Super</td></tr>
-                <tr><td>workflow の確認</td><td>Nemotron Super</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p><strong>OpenRouterを使う</strong>では、APIキーを入力して接続確認すると利用可能なモデルを取得し、router/high/middle/lowごとに選べます。振り分けだけをJevへ切り替えることも、OpenRouter専用モードでhigh/middle/lowを選択モデルへ切り替えることもできます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。</p>
-          <p>振り分けられた担当は全員並列に Super で答えます。担当の発言に「違う」「本当？」「もう一度考えて」「もっと詳しく」「深掘りして」のように、訂正・再検討・詳細化を求めて返信すると、Lightning がそれを判定し、返信先の担当が Ultra で答えます。その発言には Ultra のバッジが付きます。お礼や普通の追加質問、別の話題は Super のままです。</p>
-          <p>担当は、まず読んだり調べたりしてから、やること（メモ・予定・発言）を workflow として出し、本体が確認してから実行します。</p>
-          <h3 id="ja-tools">道具：担当が調べたり覚えたりする方法</h3>
-          <p><strong>どこで動く？</strong>道具を実行するのはkakerattaのサーバーです。公開版ではホスト先のサーバー、手元で起動した場合は手元のGoサーバーから呼び出します。ブラウザが外部の検索APIを直接呼ぶことはありません。位置情報を許可するとブラウザからサーバーへ座標が送られ、店舗・経路検索時は検索語や座標が外部サービスへ送られます。メモ操作はサーバーの保存先を使い、担当が読むメモや検索結果は設定したAIモデルへの入力にも含まれます。</p>
-          <p>道具は、担当が返答や記憶の更新に必要だと判断したときに使います。チャットにツール名やJSONを入力する必要はありません。普段の言葉で頼んでください。<strong>@名前</strong> は返答を求める操作で、特定のツールの実行を保証するものではありません。</p>
-          <p>Web・店舗・経路検索は、担当画面の <strong>道具</strong> に名前がある担当が使えます。追加したい場合は <strong>AIで修正</strong> で「Web検索も使って調べて」のように頼み、変更案を確認して保存します。過去のかけら検索と自分の記憶の操作は、すべての担当が使えます。</p>
-          <p><strong>道具の接続先を用意するのは運用者です。</strong>店舗・経路検索の接続先は、サーバーを動かす人が環境変数で設定し、利用者全員で共有します。利用者が自分で入れるのはWeb検索（Tavily）のAPIキーだけです。使える道具の名前は担当画面の <strong>道具</strong> に出ます。運用者はさらに <a href="https://modelcontextprotocol.io/" rel="noopener">MCP</a> サーバーを追加でき、その道具は <code>サーバー名.道具名</code>（例: <code>geo.compute_commute</code>）として担当に宣言できます。</p>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>道具</th><th>できること</th><th>必要な設定</th></tr></thead>
-              <tbody>
-                <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web上の情報を検索</td><td>担当への追加、TavilyのAPIキー</td></tr>
-                <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>周辺の店舗や場所、名前からの場所検索</td><td>担当への追加。接続先は運用者の設定（既定は公開サービス）</td></tr>
-                <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>車・徒歩・自転車の道路経路と所要時間</td><td>担当への追加、投稿の位置情報。接続先は運用者の設定（既定は公開サービス）</td></tr>
-                <tr><td><a href="#ja-tool-timeline_search"><code>timeline_search</code></a></td><td>保存したかけらをキーワード・意味で検索</td><td>担当への追加や検索専用のAPIキーは不要</td></tr>
-                <tr><td><a href="#ja-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>担当自身の記憶を一覧・読み取り・保存・削除</td><td>追加設定不要</td></tr>
-                <tr><td><a href="#ja-tool-schedule"><code>schedule</code></a></td><td>担当が自分で起きる時刻を本体に預ける</td><td>担当への追加。外部サービスは不要</td></tr>
-                <tr><td><code>サーバー名.道具名</code></td><td>運用者が追加したMCPサーバーの道具</td><td>担当への追加。サーバーは運用者が設定</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
-          <p><strong>用途：</strong>ニュースや技術情報など、Web上の情報を検索し、検索結果のリンクを返答の出典に付けられます。</p>
-          <p><strong>設定：</strong><strong>設定 → Web検索</strong> にTavilyのAPIキーを保存します。AIモデルのAPIキーとは別です。Web検索を使用しない場合は空欄のままで構いません。</p>
-          <p><strong>依頼例：</strong>「@shiori この本の著者についてWebで調べて」</p>
-          <p><strong>制限：</strong>検索結果の説明を使う道具で、リンク先の全文を必ず読めるわけではありません。最新情報や網羅性は保証しません。定期チェックインでも利用できます。</p>
-          <h3 id="ja-tool-place_search">店舗・場所検索 — place_search</h3>
-          <p><strong>用途：</strong>投稿に位置情報があれば周辺を検索し、店舗名、距離、地図に登録された営業時間などを返します。位置情報がなければ場所の名前で検索します。</p>
-          <p><strong>設定：</strong>周辺を探すには、投稿時にブラウザの位置情報利用を許可してください。地名検索（Nominatim）と周辺検索（Overpass）の接続先は運用者が環境変数で決めます。既定はAPIキー不要の公開サービスです。</p>
-          <p><strong>依頼例：</strong>位置情報付きで「@tabe この近くのラーメン屋を探して」。位置が分からないときは「@michi 渋谷駅という場所を探して」。</p>
-          <p><strong>制限：</strong>地図に載っていない店舗は見つからず、営業時間の登録がない場合もあります。現在営業中か、空席があるかは分かりません。周辺検索は一時的な障害で再試行することがありますが、混雑で取得できない場合もあります。取得失敗は「店がない」という意味ではありません。定期起床では現在地を取得しないため、名前検索だけになります。</p>
-          <h3 id="ja-tool-route">経路検索 — route</h3>
-          <p><strong>用途：</strong>投稿の位置から目的地まで、車・徒歩・自転車の道路上の距離と所要時間の目安を調べます。</p>
-          <p><strong>設定：</strong>投稿時に位置情報を許可します。車・徒歩・自転車ごとのOSRMの接続先は運用者が環境変数で決めます。既定は鍵不要の公開サービスです。</p>
-          <p><strong>依頼例：</strong>「@michi ここから渋谷駅まで徒歩で何分？」</p>
-          <p><strong>制限：</strong>電車・バスなどの公共交通、時刻表、リアルタイムの渋滞は含みません。位置情報なしでは使えず、定期チェックインでも使えません。本文に出発地を書くだけでは、投稿に位置情報を付けたことにはなりません。</p>
-          <h3 id="ja-tool-timeline_search">過去のかけら検索 — timeline_search</h3>
-          <p><strong>用途：</strong>このユーザーが保存した投稿、画像から読み取った文字、返信を語句の一致と意味の近さを合わせて検索します。開始と終了の日時で期間を絞ることもでき、期間だけを指定すればその間の記録を語句なしでまとめて読めます。担当のメモとは別に、過去の記録を振り返る道具です。</p>
-          <p><strong>設定：</strong>すべての担当で利用でき、Web検索サービスのAPIキーは不要です。自分で検索するときはヘッダーの <strong>検索</strong> を開きます。</p>
-          <p><strong>依頼例：</strong>「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
-          <p><strong>制限：</strong>保存していない出来事は検索できません。一度に返るのは最大30件の抜粋で、意味が近い結果が必ず正解とは限りません。検索結果は担当の発言に自動では添えられず、担当が根拠として申告した投稿だけが発言の下にリンクとして付きます。初回の意味検索は準備に時間がかかることがあります。定期チェックインでも利用できます。</p>
-          <h3 id="ja-tool-notes">自分の記憶を扱う — notes系</h3>
-          <p><strong>用途：</strong><code>notes_list</code> で記憶の一覧を確認し、<code>notes_read</code> で必要なメモを読み、<code>notes_write</code> で1件を保存・更新し、<code>notes_forget</code> で1件を削除します。担当同士でメモは共有しません。</p>
-          <p><strong>設定：</strong>全担当が使え、追加設定は不要です。</p>
-          <p><strong>依頼例：</strong>「@tabe 辛いものは好きだけど、ごまが強い味は苦手。覚えておいて」</p>
-          <p><strong>制限：</strong>何を記憶するかは担当が判断します。黙って記憶だけ更新する場合もあります。保存内容の確認や確実な削除は、担当画面の <strong>覚えていること</strong> から行ってください。定期チェックインでも読み書きできます。</p>
-          <h3 id="ja-tool-schedule">自分で起きる時刻を預ける — schedule</h3>
-          <p><strong>用途：</strong>担当が自分を起こす時刻を本体に預けます。カレンダーや目覚まし時計ではなく、担当が自分の担当分野の用のために使うものです。plana は、繰り返しの記録や「仕事帰りに」のような言葉から、いつごろかを読み取って預けます。声をかけるのはその時刻のあとで、済んでいれば黙ります。</p>
-          <p><strong>設定：</strong>担当に <code>schedule</code> を追加します。外部サービスもAPIキーも要りません。担当ごとに20件まで、30日以内、1回きりか毎日です。</p>
-          <p><strong>依頼例：</strong>預けるのは担当自身です。あなたから時刻を指定する道具ではありません（「毎朝8時に知らせて」のような使い方は想定していません）。</p>
-          <p><strong>制限：</strong>発火前に実行権を保存するため、沈黙や失敗でも同じ回は繰り返しません。10分以上遅れたものは鳴らさずに捨てます。メモを消すと担当が起きて予定を見直します。記憶を全部消したとき、担当を停止・削除したときは予定も消えます（メモは残ります）。預けた予定は担当パネルのカードに一覧で出ますが、画面からは消せません（消すのは担当自身です）。</p>
-          <h3 id="ja-tool-terms">公開サービスの利用条件</h3>
-          <p>APIキー不要でも、無制限に利用できるわけではありません。<a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMapのデータはODbL</a>で、著作権・ライセンスの表示が必要です。ソフトウェアのライセンスとは別に、各APIの利用条件が適用されます。</p>
-          <p><a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">公開Nominatimの利用条件</a>は、アプリ全体で最大1リクエスト/秒、アプリの識別、帰属表示などを要求します。定期アクセスは強く非推奨で、定期処理にはキャッシュやさらに低い頻度の条件があります。現状の地名検索にはキャッシュがないため、定期便での利用や公開運用の拡大では、条件に合う自前・契約サービスへの切り替えを検討してください。開発者・運営者自身が条件を理解し、採用を判断する必要があります。</p>
-          <p><a href="https://routing.openstreetmap.de/about.html" rel="noopener">公開経路サービス</a>にも頻度・負荷・帰属表示の条件があります。現在の頻度制限はサーバープロセス単位で、複数プロセスを合算した制御はありません。現在の出典リンクだけで必要な帰属表示をすべて満たすかも、運用前の確認・対応が必要です。Web検索にはTavilyの契約条件が適用されます。</p>
-          <h3>この端末</h3>
-          <p>音声入力の方式・言語・無音停止・送信の合図、読み上げの声と速さ。これらは端末ごとの設定です。</p>
         </section>
 
-        <section id="ja-faq">
-          <h2>10. よくある質問</h2>
-          <dl class="faq">
-            <dt>反応が付きません。</dt>
-            <dd>担当が誰もいないか、その分野に該当しなかったか、担当が「覚えるだけ」を選んだのかもしれません。<strong>担当</strong> で有効な担当を確認し、必ず答えがほしいときは @名前 で指名してください。反応は遅れて届きます。</dd>
-            <dt>設定画面が閉じられません。</dt>
-            <dd>AI 接続が未設定のときは、設定が終わるまで閉じられません。API キーを入力して接続確認をしてください。</dd>
-            <dt>検索で「語句の一致で探しました」と出ます。</dt>
-            <dd>意味検索が準備中か、接続できない状態です。語句で見つかる結果は表示します。少し待ってからもう一度検索してください。</dd>
-            <dt>画像の文字が読めていません。</dt>
-            <dd>読み取りには少し時間がかかります。しばらくして「読み取り結果」を開いてください。画像は 1 投稿あたり 20 MiB までです。</dd>
-            <dt>データはどこに保存されますか。</dt>
-            <dd>公開環境ではアカウントごとに分かれたサーバー側の保存先（Firestore / Cloud Storage）、手元で動かす場合はその機器のディスクです。API キーはサーバー側にだけ保存されます。</dd>
-            <dt>組み込みの担当を変えたくなりました。</dt>
-            <dd><strong>AIで修正</strong> から頼めます。これまでのメモと有効・停止の状態はそのまま残ります。</dd>
-          </dl>
+        <section id="ja-tools">
+          <h2>7. 担当が使う道具</h2>
+          <p>担当は、返事やメモに必要な道具を自分で選んで使います。ふだんの言葉で頼めばよく、道具の名前を書く必要はありません。<code>@名前</code> で指名された担当は必ず返事をしますが、どの道具を使うかは担当が決めます。</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>道具</th><th>できること</th><th>使える担当・必要な設定</th></tr></thead>
+              <tbody>
+                <tr><td><a href="#ja-tool-timeline_search"><code>timeline_search</code></a></td><td>過去のかけらを検索</td><td>すべての担当</td></tr>
+                <tr><td><a href="#ja-tool-notes"><code>notes_*</code></a></td><td>自分のメモの一覧・読み取り・保存・削除</td><td>すべての担当</td></tr>
+                <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web 検索</td><td>道具に追加した担当。Tavily の API キー</td></tr>
+                <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>店や場所を探す</td><td>道具に追加した担当</td></tr>
+                <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>道のりと所要時間</td><td>道具に追加した担当。投稿の位置情報</td></tr>
+                <tr><td><a href="#ja-tool-schedule"><code>schedule</code></a></td><td>自分が起きる時刻を預ける</td><td>道具に追加した担当</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>担当が使える道具は、担当パネルの <strong>道具</strong> に出ます。増やしたいときは <strong>AIで修正</strong> で「Web検索も使えるようにして」のように頼み、変更案を確かめて保存します。</p>
+          <div class="tip"><p>道具は kakeratta のサーバーで動きます。位置情報を許可すると、座標がサーバーへ送られ、店や経路を探すときに外部の地図サービスへ渡ります。担当が読んだメモや検索結果は、AI モデルへの入力にも含まれます。</p></div>
+
+          <h3 id="ja-tool-timeline_search">過去のかけら検索 — timeline_search</h3>
+          <p>保存した投稿、画像から読み取った文字、返信を、語句と意味の両方で探します。期間を指定して、その間の記録をまとめて読むこともできます。一度に返るのは30件までです。検索で見つかった投稿のうち、担当が根拠にしたものだけが発言の下にリンクされます。</p>
+          <p>例：「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
+
+          <h3 id="ja-tool-notes">メモの読み書き — notes_list / notes_read / notes_write / notes_forget</h3>
+          <p>担当が自分のメモを一覧し、読み、1件ずつ保存・削除します。何を覚えるかは担当が決め、黙ってメモだけ更新することもあります。中身の確認や確実な削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
+          <p>例：「@tabe 辛いものは好きだけど、ごまが強い味は苦手。覚えておいて」</p>
+
+          <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
+          <p>ニュースや技術情報などを検索し、結果のリンクを出典として付けます。<strong>設定 → Web検索</strong> に Tavily の API キーを入れて使います（AI の API キーとは別）。検索結果の要約を使うので、リンク先の全文を読むとは限りません。</p>
+          <p>例：「@shiori この本の著者についてWebで調べて」</p>
+
+          <h3 id="ja-tool-place_search">店舗・場所検索 — place_search</h3>
+          <p>投稿に位置情報があれば周りの店や場所を、なければ名前で場所を探します。地図に載っていない店は見つからず、営業中かどうかや空席は分かりません。見つからなくても「店がない」とは限りません。</p>
+          <p>例：位置情報付きで「@tabe この近くのラーメン屋を探して」</p>
+
+          <h3 id="ja-tool-route">経路検索 — route</h3>
+          <p>投稿の位置から目的地までの、車・徒歩・自転車での道のりと所要時間の目安を調べます。電車やバス、時刻表、渋滞は含みません。位置情報のない投稿やチェックインでは使えません。本文に出発地を書いても、位置情報の代わりにはなりません。</p>
+          <p>例：「@michi ここから渋谷駅まで徒歩で何分？」</p>
         </section>
 
         <section id="ja-more">
-          <h2>11. もっと詳しく</h2>
-          <p>自分で動かす方法、環境変数、担当の仕組み（振り分け、実行順、メモの形式、skill.json）、デプロイ手順は GitHub のドキュメントにあります。</p>
-          <ul>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/README_ja.md" rel="noopener">README（日本語）</a></li>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/usage_ja.md" rel="noopener">使い方と設定</a> — 環境変数、共有、保存データ</li>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/technical_ja.md" rel="noopener">中で起きていること</a> — 振り分け、実行順、OKF メモ、スキル、道具</li>
-          </ul>
+          <h2>8. もっと詳しく</h2>
+          <p>kakeratta の仕組みやソースコードは <a href="https://github.com/takeshy/kakeratta/blob/main/README_ja.md" rel="noopener">GitHub</a> で公開しています。</p>
           <p class="actions"><a class="button primary" href="/">アプリを開く</a> <a class="button" href="/lp/" data-lang-link>紹介ページへ</a></p>
         </section>
         </div>
@@ -519,53 +527,49 @@
       <nav class="toc" aria-label="Contents">
         <p class="toc-title">Contents</p>
         <div class="beginner-guide">
-        <p><strong>Beginner guide</strong></p>
-        <ol>
-          <li><a href="#en-start">Getting started</a></li>
-          <li><a href="#en-toss">Tossing in a fragment</a></li>
-          <li><a href="#en-timeline">Timeline and reactions</a></li>
-          <li><a href="#en-offline">Offline posts</a></li>
-          <li><a href="#en-bluesky">Share to Bluesky</a></li>
-          <li><a href="#en-personas">Personas</a></li>
-          <li><a href="#en-daily">Morning, noon, and evening check-ins</a></li>
-          <li><a href="#en-search">Search</a></li>
-          <li><a href="#en-phone">Sharing from a phone</a></li>
-          <li><a href="#en-voice">Voice input and read-aloud</a></li>
-        </ol>
-        <p><a href="/manual/?guide=advanced" data-lang-link><strong>Go to the advanced guide</strong></a></p>
+          <p><strong>Basics</strong></p>
+          <ol>
+            <li><a href="#en-start">1. Getting started</a></li>
+            <li><a href="#en-toss">2. Tossing in a fragment</a></li>
+            <li><a href="#en-timeline">3. Reading and replying</a></li>
+            <li><a href="#en-personas">4. Choosing and creating personas</a></li>
+            <li><a href="#en-memory">5. What a persona remembers</a></li>
+            <li><a href="#en-search">6. Search</a></li>
+            <li><a href="#en-voice">7. Voice input and read-aloud</a></li>
+            <li><a href="#en-offline">8. Using it offline</a></li>
+            <li><a href="#en-faq">9. Troubleshooting</a></li>
+          </ol>
+          <p><a href="/manual/?guide=advanced" data-lang-link><strong>Advanced guide →</strong></a></p>
         </div>
         <div class="advanced-guide">
-          <p><a href="/manual/" data-lang-link><strong>Go to the beginner guide</strong></a></p>
+          <p><a href="/manual/" data-lang-link><strong>← Basics</strong></a></p>
           <p><strong>Advanced guide</strong></p>
           <ol>
-            <li><a href="#en-hermes">Hermes integration</a></li>
-            <li><a href="#en-settings">Settings</a></li>
-            <li><a href="#en-tools">Tool guide</a></li>
-            <li><a href="#en-faq">FAQ</a></li>
-            <li><a href="#en-more">Read more</a></li>
+            <li><a href="#en-routing">1. Fix who gets a post</a></li>
+            <li><a href="#en-reply-fix">2. Fix how a persona replies</a></li>
+            <li><a href="#en-wakes">3. When personas wake</a></li>
+            <li><a href="#en-bluesky">4. Share to Bluesky</a></li>
+            <li><a href="#en-hermes">5. Send requests to Hermes</a></li>
+            <li><a href="#en-settings">6. Settings and data</a></li>
+            <li><a href="#en-tools">7. Tools personas use</a></li>
+            <li><a href="#en-more">8. Read more</a></li>
           </ol>
         </div>
       </nav>
 
       <article class="doc">
         <div class="beginner-guide">
-          <h1>kakeratta Manual</h1>
-          <p class="lede">Put thoughts and things that catch your eye into one timeline as text, images, URLs, or speech. AIs with separate memories for their own subjects, called personas, react when they have something to say. This page walks through how to use it.</p>
-        </div>
-        <div class="advanced-guide">
-          <h1>kakeratta Advanced Manual</h1>
-          <p class="lede">This guide covers Hermes integration, detailed settings, and the tools available to personas. See the <a href="/manual/" data-lang-link>beginner guide</a> for everyday use.</p>
-        </div>
-
-        <div class="beginner-guide">
-        <h2 id="en-beginner">Beginner guide</h2>
-        <p>Start here for everyday features: posting, talking with personas, searching, and sharing.</p>
+          <h1>Using kakeratta</h1>
+          <p class="lede">Put thoughts and things that catch your eye into one timeline. AIs with a memory for their own subject, called <strong>personas</strong>, react only when they have something to say.</p>
+          <div class="tip">
+            <p>This page covers what you use every day. Fixing routing and replies, Bluesky and Hermes, and settings in detail are in the <a href="/manual/?guide=advanced" data-lang-link>advanced guide</a>.</p>
+          </div>
 
         <section id="en-start">
           <h2>1. Getting started</h2>
           <ol>
-            <li><a href="/">Open the app</a>. Where Google sign-in is enabled, sign in first. Your data is tied to your account only.</li>
-            <li>Open <strong>Settings</strong> in the header and enter your <strong>Nebius Token Factory API key</strong>. Press <strong>Check connection</strong>; “Connected” means you are ready. The default models (Lightning / Super / Ultra) are fine.</li>
+            <li><a href="/">Open the app</a>. Sign in with your Google account. Your data is tied to your account and nobody else can see it.</li>
+            <li>Open <strong>Settings</strong> at the top right and enter an <strong>API key</strong> from <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a>. “Connected” means you are ready.</li>
             <li>If the screen says “Nobody is in the room”, call in at least one persona with <strong>Call in …</strong>. With nobody in the room, a fragment reaches no one.</li>
             <li>Write a line in the box and press <strong>Post</strong>. That is your first fragment.</li>
           </ol>
@@ -573,95 +577,56 @@
             <img src="/captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" loading="lazy" width="390" height="759" />
             <figcaption>Nobody in the room yet. Call one in and it starts receiving your fragments.</figcaption>
           </figure>
-          <div class="tip">
-            <p>The API key is stored only on the server and sent only to the configured endpoint. Keys are issued at <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a>.</p>
-          </div>
+          <p>The API key is stored only on the server and sent only to the configured endpoint.</p>
         </section>
 
         <section id="en-toss">
           <h2>2. Tossing in a fragment</h2>
-          <p>A thought is fastest written; something on screen is fastest shot. Everything goes through the same single box.</p>
+          <p>Write, paste, post a URL, or speak. Everything goes through the same box.</p>
           <div class="table-scroll">
             <table>
               <thead><tr><th>Way in</th><th>How</th></tr></thead>
               <tbody>
                 <tr><td>Write</td><td>Type and press <strong>Post</strong>, or <kbd>Ctrl</kbd> (<kbd>⌘</kbd>) + <kbd>Enter</kbd>.</td></tr>
-                <tr><td>Paste or pick</td><td>Paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd>, or choose a file with <strong>📷 Image</strong>. Text in the image is read and becomes searchable later.</td></tr>
-                <tr><td>URL</td><td>Post a URL and the body of the public page is fetched.</td></tr>
-                <tr><td>Speak</td><td><strong>🎙 Speak</strong> starts voice input. Say your configured send phrase and the text is posted.</td></tr>
+                <tr><td>Image</td><td>On a PC, paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd>. On a phone, pick a screenshot with <strong>📷 Image</strong> or take a photo there and then. Text in the image is read and becomes searchable.</td></tr>
+                <tr><td>URL</td><td>Post a URL and the body of the public page is read.</td></tr>
+                <tr><td>Speak</td><td><strong>🎙 Speak</strong> starts voice input (<a href="#en-voice">7. Voice input and read-aloud</a>).</td></tr>
               </tbody>
             </table>
           </div>
-          <p>An image can go with a line of text. Only where you are and what time it is travel with a post. Destinations and times belong in what you write; the persona reads them from the text. Location is optional.</p>
+          <p>Kindle, a paywalled article, a social feed: if it is on screen, a screenshot brings it in. An image can go with a line of text. Only where you are and what time it is travel with a post automatically; destinations and times belong in what you write. Location is optional.</p>
         </section>
 
         <section id="en-timeline">
-          <h2>3. Timeline and reactions</h2>
+          <h2>3. Reading and replying</h2>
           <figure>
             <img src="/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said folded underneath" loading="lazy" width="390" height="743" />
-            <figcaption>Your fragments with what the personas said underneath. Conversations stay folded under “N replies”.</figcaption>
+            <figcaption>Your fragments with what the personas said underneath. Conversations fold under “N replies”.</figcaption>
           </figure>
+          <h3>How reactions arrive</h3>
           <ul>
-            <li>The newest 20 posts show first; 20 more load as you scroll.</li>
-            <li>Persona remarks and your replies fold under <strong>N replies</strong>. Tap to open. A remark that arrives while the timeline is showing opens its thread by itself.</li>
-            <li><strong>Add a comment</strong> continues your own post. <strong>Reply</strong> answers a persona.</li>
-            <li>Reactions arrive later. <strong>Some posts get no reaction.</strong> A persona can remember something without speaking.</li>
-            <li>For a guaranteed answer, mention a persona with <strong>@name</strong>, such as <code>@tabe</code>. Tapping a name in the persona bar writes the mention for you.</li>
-            <li>For five minutes after you post or reply, the timeline is re-read automatically in case a reaction was missed.</li>
-            <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Handy while moving.</li>
-            <li><strong>⚖</strong> (the router's call) on your own posts and replies shows who was called and why the others were not. See <a href="#en-routing">See the router's call and fix a condition</a>.</li>
-            <li><strong>Change how it replies</strong> on a persona's remark lets you say how it missed and corrects its tone and instructions. See <a href="#en-reply-fix">Fix the tone and instructions where a reply went wrong</a>.</li>
-            <li><strong>✎</strong> edits a post and <strong>×</strong> removes it. Removing a post removes the remarks and your replies under it too, and the personas' notes lose their links to it. Deleted posts never appear in search.</li>
+            <li>Reactions arrive a little later. <strong>Some posts get no reaction</strong>: a persona can remember something without speaking.</li>
+            <li><strong>For a guaranteed answer, mention a persona with <code>@name</code></strong> (for example <code>@tabe</code>). A persona you mention always replies. Tapping a name in the persona bar writes the mention for you.</li>
+            <li>Persona remarks and your replies fold under <strong>N replies</strong>. A remark that arrives while you are looking opens its thread by itself.</li>
           </ul>
-        </section>
-
-        <section id="en-offline">
-          <h2>Fast startup and offline posts</h2>
-          <p>The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.</p>
-          <figure class="shot">
-            <img src="/captures/en/offline.png" alt="An offline post and the number waiting to send (sample data)" loading="lazy" width="380" height="500" />
-            <figcaption>Captured in a browser with networking disabled, using sample data. No posts were sent to a public server.</figcaption>
-          </figure>
-          <p>“Saved on this device · waiting to send” means the server has not received the post yet. Use “Reconnect and retry” after an error. Retries reuse the same post ID to prevent duplicates after a lost response. Clearing browser data removes unsent posts. Signing out clears this device’s saved data and asks for confirmation if posts are still waiting to send.</p>
-        </section>
-
-        <section id="en-bluesky">
-          <h2>4. Share a conversation to Bluesky</h2>
-          <p>Select the messages you want to publish from a conversation with your personas. They all appear on your own Bluesky account. Persona messages carry an attribution such as “🍚 tabeからの返信:” (reply from tabe).</p>
-          <h3>Connect your own account</h3>
-          <ol>
-            <li>Open <strong>Settings → Advanced options → Bluesky connection</strong>, or choose <strong>Share to Bluesky</strong> on a post.</li>
-            <li>Enter your handle (for example, <code>alice.bsky.social</code>) and press <strong>Connect Bluesky</strong>.</li>
-            <li>Authorize the connection on Bluesky and return to kakeratta in the same tab. Enter your password only on Bluesky. Users do not need a developer account or an API key.</li>
-          </ol>
-          <figure>
-            <img src="/captures/en/bluesky-connect.png" alt="Bluesky connection: enter your handle to continue to Bluesky's authorization screen" loading="lazy" width="390" height="301" />
-            <figcaption>The connection screen in kakeratta. This sample does not connect or publish to Bluesky.</figcaption>
-          </figure>
-          <h3>Choose the messages to publish</h3>
-          <ol>
-            <li>Press <strong>Share to Bluesky</strong> on the original post. Only that post is initially selected; persona replies and your follow-ups start unchecked.</li>
-            <li>Select the messages to share. Include the parent of each selected reply. Unchecked messages and replies that arrive after you open the dialog are never added automatically.</li>
-            <li>Press <strong>Preview</strong> to check the text, images, reply structure, and account, then <strong>Publish selected conversation</strong>. Independent persona replies stay attached to the original post.</li>
-          </ol>
-          <figure>
-            <img src="/captures/en/bluesky-selection.png" alt="The sharing dialog with only the original post checked and all replies unchecked (sample data)" loading="lazy" width="382" height="930" />
-            <figcaption>Personas may mention personal information from memory. Select only what you want others to see.</figcaption>
-          </figure>
-          <figure>
-            <img src="/captures/en/bluesky-preview.png" alt="Preview of three posts: the original, tabe's reply, and your follow-up (sample data)" loading="lazy" width="382" height="1356" />
-            <figcaption>This sample leaves out gout's reply. Your follow-up stays attached to tabe's reply.</figcaption>
-          </figure>
-          <p>Sharing includes the selected text, links, source URLs, and images. It does not add location or image analysis to the text or read persona notes. Long messages split at sentence endings or line breaks into posts of up to 300 graphemes and 3,000 UTF-8 bytes including attribution. Later parts begin with “つづき:” (continued) and repeat persona attribution. Oversized sentences split at commas or spaces, then at grapheme boundaries if necessary. Individually oversized URLs raise an error. Already published messages are not sent again. Newly selected replies can be added to their existing parent posts. Publishing is disabled while sending or when all selected messages are already posted. A single link opens the root post of the published conversation. Images appear only on the first part. Images over 2 MB are resized and compressed as JPEG for sharing; saved originals remain unchanged. Transparency becomes white and GIFs become still images. Replies attach to the final part of their parent message. Select up to 100 messages and review the resulting parts in the preview.</p>
-          <h3>Retrying and disconnecting</h3>
-          <p>Messages already published to the same account are reused as parents for new replies. If a connection breaks and the outcome is uncertain, publishing stops to avoid duplicates. Check the result on Bluesky.</p>
-          <p>Use <strong>Settings → Advanced options → Bluesky connection → Disconnect</strong> to remove the connection. Connecting or reconnecting never publishes anything. Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.</p>
-          <p>If the panel says Bluesky sharing is not available yet, the operator needs to complete setup. See <a href="https://github.com/takeshy/kakeratta/blob/main/docs/social-sharing.md" rel="noopener">operator setup and publication recovery</a>.</p>
+          <h3>Reply, fix, delete</h3>
+          <table>
+            <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Add a comment</strong></td><td>Continue your own post</td></tr>
+              <tr><td><strong>Reply</strong></td><td>Answer a persona</td></tr>
+              <tr><td><strong>✎</strong> / <strong>×</strong></td><td>Edit / delete a post</td></tr>
+              <tr><td><strong>⚖</strong></td><td>See who got the post and why the others did not (<a href="/manual/?guide=advanced#en-routing" data-lang-link>Fix who gets a post</a>)</td></tr>
+              <tr><td><strong>Change how it replies</strong></td><td>Correct a persona's tone and instructions (<a href="/manual/?guide=advanced#en-reply-fix" data-lang-link>Fix how a persona replies</a>)</td></tr>
+              <tr><td><strong>🔈 Read aloud</strong></td><td>Read the collected reactions in order</td></tr>
+            </tbody>
+          </table>
+          <p>Deleting a post removes the remarks and your replies under it, and it no longer appears in search. <strong>Persona notes that rest only on that post are deleted too.</strong> Notes that also rest on other posts stay, and the persona tidies them later.</p>
         </section>
 
         <section id="en-personas">
-          <h2>5. Personas</h2>
-          <p>A persona is an AI with its own memory for one subject. The app routes each post to the relevant personas; each one then decides what to remember and whether to speak.</p>
+          <h2>4. Choosing and creating personas</h2>
+          <p>A persona is an AI with its own memory for one subject. The app decides which personas get each post; each one then decides whether to remember and whether to speak. Personas do not share notes with one another.</p>
           <h3>The four that ship with the app</h3>
           <div class="table-scroll">
             <table>
@@ -670,302 +635,357 @@
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
                 <tr><td><code>@michi</code></td><td>travel</td><td>Destinations, routes, travel time, meeting times, itineraries, tickets</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
-                <tr><td><code>@plana</code></td><td>follow-ups</td><td>Medicine, feeding the goldfish, laundry, the bins - and one-offs like buying flowers on the way home, and whether they happened</td></tr>
+                <tr><td><code>@plana</code></td><td>follow-ups</td><td>Medicine, feeding the goldfish, laundry - and one-offs like buying flowers on the way home, and whether they happened</td></tr>
               </tbody>
             </table>
           </div>
-          <p>A persona answers in the language the post was written in. Open <strong>Personas</strong> in the header to see them all and switch each between <strong>Active</strong> and <strong>Paused</strong>.</p>
+          <p>Open <strong>Personas</strong> in the header and turn on <strong>Enable</strong> for the ones you want. A persona answers in the language you wrote in.</p>
           <figure>
             <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="1798" />
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
-          <h3 id="en-daily">Daily check-ins and timers</h3>
-          <p>Even without a new fragment, a persona can wake once a day and speak when it has something worth sharing. Silence leaves no empty post. It may just update its memory.</p>
-          <ol>
-            <li>Open <strong>Personas</strong> and enable the persona.</li>
-            <li>Turn on <strong>Daily check-in</strong> (off by default).</li>
-            <li>Choose a <strong>Preferred time</strong>. Changes save automatically.</li>
-          </ol>
-          <p>The browser's time zone shown beside the time is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Turn off the check-in or disable the persona to stop the daily wake.</p>
-          <p>Separately, a persona that has <code>timer</code> sets its own wake times (<a href="/manual/?guide=advanced#en-tool-schedule">schedule</a>). You are never asked for a time: the persona works it out from its own records.</p>
-          <p>plana, for example, sets a timer only for a routine its notes place at a usual time, wakes shortly after it, and adds “the morning medicine, by the way” only when nothing has been recorded yet. It does not nag or point out a missed dose. This does not promise a fixed number of notifications.</p>
-          <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Enabling it after the preferred time runs today's check-in at the next check. After a restart, only today's due wake runs, without replaying missed days.</p>
-          <p>Silent and failed attempts count as the day's wake. Changing the time or forgetting memory does not trigger a second attempt that day. Check-ins do not acquire your current location: routes are unavailable and place search is by name only.</p>
           <h3>Create a persona with AI</h3>
           <ol>
             <li>Open <strong>Personas</strong> and choose <strong>Create a persona with AI</strong>.</li>
-            <li>Answer “What would you like your persona to help with?” in your own words.<br />Example: <em>When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</em></li>
-            <li>AI drafts a name, tone, and memory rules. Review it and select <strong>Save this persona</strong>.</li>
+            <li>Answer “What would you like your persona to help with?” in your own words. Even “wine” is enough.<br />Example: <em>When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</em></li>
+            <li>The AI drafts a name, a way of talking, and what to remember. Review it and select <strong>Save this persona</strong>.</li>
             <li><strong>Enable</strong> it and it starts receiving fragments.</li>
           </ol>
           <figure>
-            <img src="/captures/en/persona-create.png" alt="Create a persona with AI: describe what you want in your own words" loading="lazy" width="382" height="471" />
-            <figcaption>Even “wine” or “reading” is enough to start. There is no long questionnaire.</figcaption>
-          </figure>
-          <figure>
             <img src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="382" height="1484" />
-            <figcaption>The draft, in plain language: what it helps with, how it talks, the kinds of note it keeps, what it remembers, and when it replies.</figcaption>
+            <figcaption>The draft: what it helps with, how it talks, the kinds of note it keeps, what it remembers, and when it replies.</figcaption>
           </figure>
-          <h3>Make it yours as you go</h3>
-          <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, as well as its name.” Built-in personas can be edited too. Their existing memories and enabled status carry over.</p>
-          <h3 id="en-memory">See what a persona remembers</h3>
-          <p>Open <strong>What I remember</strong> on a persona to read its saved notes grouped into preferences, wines, shops, books, and other types. Descriptions, evidence, and exceptions stay as written. Viewing memory does not generate another AI summary.</p>
+          <h3>Adjust as you go</h3>
+          <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
+          <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
+          <h3 id="en-daily">Daily check-ins</h3>
+          <p>Even on days without a new fragment, a persona can wake once a day and speak if it has something worth sharing. Otherwise it stays quiet.</p>
+          <ol>
+            <li>Open <strong>Personas</strong> and enable the persona.</li>
+            <li>Turn on <strong>Daily check-in</strong> (off by default).</li>
+            <li>Choose a time. Changes save automatically.</li>
+          </ol>
+          <p>The time is saved in the time zone your device is using when you save it, shown beside the time. If you move to another time zone, save the time again. The browser can be closed; the server runs the check-in.</p>
+          <p>Some personas, such as plana, also pick their own wake times. See <a href="/manual/?guide=advanced#en-wakes" data-lang-link>When personas wake</a>.</p>
+        </section>
+
+        <section id="en-memory">
+          <h2>5. What a persona remembers</h2>
+          <p>Open <strong>What I remember</strong> on a persona to read its saved notes by kind. They are shown as the persona wrote them; no new AI summary is made for display.</p>
           <figure>
             <img src="/captures/en/memory.png" alt="A wine persona's preferences and wines, with tags, original post links, the ✎ to edit, and individual deletion (sample data)" loading="lazy" width="382" height="991" />
-            <figcaption>Review what was remembered, narrow by a tag, open the original post, edit with ✎, or forget a single note (sample data).</figcaption>
+            <figcaption>What was remembered, tags, the original post, ✎ to edit, and forgetting a single note (sample data).</figcaption>
+          </figure>
+          <h3>Reading notes</h3>
+          <ul>
+            <li><strong>Posts behind this memory</strong> opens the posts and conversations a note came from.</li>
+            <li>Tap a tag to see only notes carrying it; <strong>Show all notes</strong> goes back.</li>
+            <li>The <strong>📝</strong> chips under a persona's remark are the notes it wrote with that remark. Tap one to open it.</li>
+            <li>For older notes without post links, <strong>Find original post</strong> opens search.</li>
+          </ul>
+          <h3>Fixing and removing</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>To</th><th>Do</th></tr></thead>
+              <tbody>
+                <tr><td>Fix a typo or a wrong fact in a note</td><td><strong>✎</strong> on the note's heading, then <strong>Save note</strong></td></tr>
+                <tr><td>Remove one note</td><td><strong>Forget this note</strong></td></tr>
+                <tr><td>Remove all of a persona's notes</td><td><strong>Forget all notes</strong></td></tr>
+                <tr><td>Change how it remembers from now on</td><td><strong>Edit with AI</strong> on the persona</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Deletion cannot be undone. A persona may learn something again by searching the posts that remain.</p>
+          <div class="tip"><p>For example, forget a wrong “Likes this wine” note on its own, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not rewrite notes it already has.</p></div>
+        </section>
+
+        <section id="en-search">
+          <h2>6. Search</h2>
+          <p>Open <strong>Search</strong> in the header. A name like “Pinot” and a description like “a light red wine that was easy to drink” go in the same box.</p>
+          <ul>
+            <li>Short terms search by words; questions and sentences search by meaning. You can switch from the results.</li>
+            <li>Search covers what you wrote, text read from your images, and your conversations with personas.</li>
+            <li>Tap a result to open the post and its conversation; you can reply from there.</li>
+          </ul>
+          <figure>
+            <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" width="390" height="762" />
+            <figcaption>Search by name (sample data).</figcaption>
+          </figure>
+          <p>Personas search too, when it helps: a wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>
+        </section>
+
+        <section id="en-voice">
+          <h2>7. Voice input and read-aloud</h2>
+          <ul>
+            <li><strong>🎙 Speak</strong> listens with the browser's speech recognition and stops after a stretch of silence.</li>
+            <li>Set a <strong>send phrase</strong> (for example “done”) and the text is posted when you end with it.</li>
+            <li>Turn on <strong>Polish text with AI before auto-send</strong> to tidy punctuation and hesitations, only when a send phrase posts (off by default).</li>
+            <li><strong>🔈 Read aloud</strong> reads the collected reactions in order.</li>
+          </ul>
+          <p>The send phrase, silence stop, voice and speed are under <strong>Settings → Advanced options → Voice</strong>.</p>
+        </section>
+
+        <section id="en-offline">
+          <h2>8. Using it offline</h2>
+          <p>On a device that has opened the app online once, you can write text, images, URLs and replies without a connection. They wait as “Saved on this device · waiting to send” and go out automatically when the connection returns while the app is open. Personas react once the server has them.</p>
+          <figure class="shot">
+            <img src="/captures/en/offline.png" alt="An offline post and the number waiting to send (sample data)" loading="lazy" width="380" height="500" />
+            <figcaption>A post saved offline, and how many are waiting to send (sample data).</figcaption>
           </figure>
           <ul>
-            <li><strong>Posts behind this memory</strong> opens the original post and conversation in a new tab. The app attaches these links when saving notes and retains them through rewrites and consolidation - a note that links to another, or replaces one it throws away, inherits its posts. A note read merely for context passes nothing on.</li>
-            <li>A note's tags (the persona's own) appear as chips; tap one to see only the notes carrying it, and <strong>Show all notes</strong> to go back.</li>
-            <li>The <strong>📝</strong> chips under a persona's remark on the timeline are the notes it wrote with that remark; tap one to open this view at that note.</li>
-            <li>Related-memory links take you to those notes. The <strong>✎</strong> on a note's heading turns that note into an editor of the text as saved, to fix a misspelling or a wrong fact in place - a wine misread off its label, say. The links under “Posts behind this memory” stay.</li>
-            <li>For older notes without saved post links, <strong>Find original post</strong> opens search.</li>
+            <li>After an error, <strong>Reconnect and retry</strong> sends again. Nothing is posted twice.</li>
+            <li>Clearing browser data loses posts still waiting. Signing out asks first, then clears this device's saved data.</li>
+            <li>The latest 20 conversations are also kept on the device, so the app opens with them straight away.</li>
           </ul>
-          <h3>Remove a mistaken memory or change how a persona remembers</h3>
-          <p>Select <strong>Forget this note</strong> and confirm its name to delete only that note. Other notes and original posts remain. <strong>Forget all notes</strong> erases all notes for that persona. Neither action can be undone. Deleting the persona itself keeps its memory.</p>
-          <p>A persona may remember something again by searching the remaining posts. To change its future memory or judgment rules, use <strong>Edit with AI</strong> in the Personas panel.</p>
-          <div class="tip"><p>For example, delete an incorrect “Likes this wine” note individually, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not automatically correct its existing notes.</p></div>
-          <h3 id="en-routing">See the router's call and fix a condition</h3>
-          <p>The app decides who gets each fragment. Tap <strong>⚖</strong> (the router's call) on one of your posts or replies to open, apart from the timeline, which personas were called and, for each one that was not, the router's one-line reason. A persona you mentioned with <code>@name</code> is not listed: reaching it was your call. A post the router could not judge reads as “No record of the router's call”. For each persona that was called you see whether its turn has finished, whether it replied, and whether it kept a note from this post (“still working on it” until it finishes). <strong>A reply was wanted</strong> opens the reply dialog for a silence.</p>
+        </section>
+
+        <section id="en-faq">
+          <h2>9. Troubleshooting</h2>
+          <dl class="faq">
+            <dt>Nothing reacts to my post.</dt>
+            <dd>Perhaps no persona is enabled, the post matched no persona's subject, or a persona chose to remember without speaking. <strong>⚖</strong> shows who got the post. Mention <code>@name</code> when you need an answer.</dd>
+            <dt>I cannot close Settings.</dt>
+            <dd>Settings stays open until the AI connection works. Enter an API key.</dd>
+            <dt>Search says it only matched words.</dt>
+            <dd>Meaning search is still preparing or cannot connect. Word matches are still shown. Try again in a moment.</dd>
+            <dt>The text in my image has not been read.</dt>
+            <dd>Reading takes a moment. Open “Reading result” under the post a little later. Images are limited to 20 MiB per post.</dd>
+            <dt>Where is my data stored?</dt>
+            <dd>On the server, separated per account; nobody else can see it. To keep a copy yourself, see <a href="/manual/?guide=advanced#en-settings" data-lang-link>Settings and data</a>.</dd>
+          </dl>
+        </section>
+        </div>
+
+        <div class="advanced-guide">
+          <h1>kakeratta advanced guide</h1>
+          <p class="lede">Fixing routing and replies, when personas wake, Bluesky and Hermes, settings and data, and the tools personas use. For everyday use, see the <a href="/manual/" data-lang-link>basics</a>.</p>
+
+        <section id="en-routing">
+          <h2>1. Fix who gets a post</h2>
+          <p>The app decides which personas get each fragment. Tap <strong>⚖</strong> on one of your posts or replies to see who was called and, for each one that was not, a one-line reason. A persona you mentioned with <code>@name</code> is not listed: that was your call.</p>
           <figure>
             <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" width="382" height="703" />
-            <figcaption>Who was called, and why the others were not. Each row can correct the persona's condition (sample data).</figcaption>
+            <figcaption>Who was called, and why the others were not (sample data).</figcaption>
           </figure>
+          <p>For each persona that was called you see whether it has finished, replied, or kept a note. For one that stayed silent, <strong>A reply was wanted</strong> leads to <a href="#en-reply-fix">fixing how it replies</a>.</p>
+          <h3>Fix a persona's condition</h3>
           <ol>
             <li>Tap <strong>Should have been called</strong> (or <strong>Should not have been called</strong>) on a row.</li>
-            <li>Say why, or what should change, in your own words and tap <strong>Write the condition</strong>. The AI that builds personas rewrites the condition, and only the condition.</li>
-            <li><strong>New condition</strong> is shown as text you can edit by hand. <strong>Ask the AI to change it</strong> opens another box: write a fresh request and the AI rewrites what is in the condition box.</li>
-            <li><strong>OK</strong> saves the condition and then has the router try the same post again. Nobody is woken. If the post lands as you meant, the dialog closes.</li>
-            <li>If it still does not, you are told - with the router's reason - and asked again from the start. What was saved stays saved. <strong>Cancel</strong> changes nothing.</li>
+            <li>Say why or what should change and tap <strong>Write the condition</strong>. The AI rewrites the persona's condition, and only that.</li>
+            <li>Edit the new condition by hand, or use <strong>Ask the AI to change it</strong>.</li>
+            <li><strong>OK</strong> saves it and tries the same post again (nobody is woken). If it lands as you meant, the dialog closes; if not, you see why and can try again.</li>
           </ol>
           <figure>
             <img src="/captures/en/condition-fix.png" alt="A new condition for michi, written by the AI from your reason and open for editing before saving (sample data)" loading="lazy" width="382" height="406" />
-            <figcaption>The current condition and the AI's new one. OK saves it and tries the same post (sample data).</figcaption>
+            <figcaption>The current condition and the AI's new one (sample data).</figcaption>
           </figure>
-          <div class="tip"><p>Only the condition changes; tone and memory rules stay. Nothing is learned in the background, and the condition is always in front of you before it is saved.</p></div>
-          <h3 id="en-reply-fix">Fix the tone and instructions where a reply went wrong</h3>
-          <p>Tap <strong>Change how it replies</strong> on a persona's remark to say how that reply missed. The AI that builds personas rewrites the <strong>tone</strong> and the <strong>instructions</strong>, and only those; the condition, name and tools stay.</p>
-          <figure>
-            <img src="/captures/en/reply-fix.png" alt="tabe's remark disputed: the new tone and instructions the AI wrote, open for editing (sample data)" loading="lazy" width="382" height="590" />
-            <figcaption>The new tone and instructions, both editable. The current ones are folded away underneath (sample data).</figcaption>
-          </figure>
+          <p>Only the condition changes; tone and memory rules stay. When routing uses Jev (<a href="#en-settings">Settings and data</a>), no reasons are shown, but conditions are fixed the same way.</p>
+        </section>
+
+        <section id="en-reply-fix">
+          <h2>2. Fix how a persona replies</h2>
+          <p>Tap <strong>Change how it replies</strong> on a persona's remark and say how it missed. The AI rewrites the persona's <strong>tone</strong> and <strong>instructions</strong> only; its condition, name and tools stay.</p>
           <ol>
-            <li>Tap <strong>Change how it replies</strong> on a remark, say how it missed, and tap <strong>Write the fix</strong>.</li>
-            <li><strong>New tone</strong> and <strong>New instructions</strong> are shown as text you can edit. <strong>Ask the AI to change it</strong> takes a fresh request.</li>
-            <li><strong>OK</strong> saves them and then has the persona take the same turn again on the same post. It reads its notes as it would, but no remark lands on the timeline and no note or schedule is written.</li>
-            <li>The reply it would now give is shown. <strong>That's it</strong> closes; <strong>Still not it</strong> quotes that reply and asks again how it misses.</li>
+            <li>Describe the miss and tap <strong>Write the fix</strong>.</li>
+            <li>Edit the new tone and instructions by hand, or use <strong>Ask the AI to change it</strong>.</li>
+            <li><strong>OK</strong> saves them, and the persona drafts a trial reply to the same post. Nothing lands on the timeline and no note or schedule is written. This can take a few minutes.</li>
+            <li><strong>That's it</strong> closes. <strong>Still not it</strong> lets you say again, with the trial reply in view.</li>
           </ol>
           <figure>
             <img src="/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" loading="lazy" width="382" height="372" />
             <figcaption>The trial reply. You are the judge (sample data).</figcaption>
           </figure>
-          <div class="tip"><p>A persona's turn is planned and reviewed, so the trial can take a few minutes. What was saved stays saved whatever the trial says.</p></div>
-          <p>Advanced users can also <strong>add a persona</strong> from a hand-written <code>skill.json</code> in the same panel.</p>
+          <p>What you saved stays saved, whatever the trial says.</p>
         </section>
 
-        <section id="en-search">
-          <h2>6. Search</h2>
-          <p>“What was that wine I liked?” Open <strong>Search</strong> in the header.</p>
-          <ul>
-            <li>Enter a name you remember, like “Pinot”.</li>
-            <li>Or describe it in the same field, like “a light red wine that was easy to drink”. Short terms use keyword search; questions and sentences use meaning search.</li>
-            <li>After keyword search, “Search similar meanings too” broadens the search, even with zero results. You can switch methods from the results if the automatic choice does not fit.</li>
-          </ul>
-          <p>Search covers what you wrote, text read from your photos, and your conversations with personas. Tap a result to open the original post and its conversation.</p>
-          <figure>
-            <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" width="390" height="762" />
-            <figcaption>Search by name (sample data).</figcaption>
-          </figure>
-          <figure>
-            <img src="/captures/en/search-thread.png" alt="Open the original post and conversation from a search result (sample data)" loading="lazy" width="390" height="780" />
-            <figcaption>Opening the original post from a result. You can reply from there.</figcaption>
-          </figure>
-          <div class="tip">
-            <p>Search embeddings are registered in the background after posts and replies are saved and after image analysis completes, including OCR text, descriptions, and source hints. Word matching also handles hiragana/katakana variants such as “サザエ” and “さざえ”.</p>
-            <p>If meaning search is still preparing or cannot connect, search returns word matches with a notice. You can search again later; saved indexing progress is reused.</p>
+        <section id="en-wakes">
+          <h2>3. When personas wake</h2>
+          <p>A persona acts at three kinds of moment.</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Trigger</th><th>Decided by</th><th>What happens</th></tr></thead>
+              <tbody>
+                <tr><td>A fragment arrives</td><td>The app (routing)</td><td>Personas whose subject matches, and any you mentioned with <code>@name</code>, act.</td></tr>
+                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>You</td><td>Wakes once a day at the time you chose.</td></tr>
+                <tr><td>A persona's own schedule</td><td>The persona</td><td>A persona with <code>schedule</code> picks a time from its own records.</td></tr>
+              </tbody>
+            </table>
           </div>
-          <p>Personas search too, when it helps. When a new label arrives, a wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>
-        </section>
-
-        <section id="en-phone">
-          <h2>7. Sharing from a phone</h2>
-          <p>Kindle, a paywalled article, a social feed: if it is on screen, a screenshot brings it in. On a PC, paste it (<kbd>Ctrl</kbd>+<kbd>V</kbd>). On a phone, set up the share sheet once.</p>
-          <h3>Android</h3>
-          <ol>
-            <li>From the browser menu, <strong>Add to Home screen</strong> (install as an app).</li>
-            <li>Share a screenshot from any app and kakeratta appears in the share sheet. Pick it and the image lands in the timeline.</li>
-          </ol>
-          <h3>iOS</h3>
-          <p>For Google sign-in, attach images through the browser. The following Shortcut instructions apply to local environments without authentication.</p>
-          <ol>
-            <li>Create a shortcut, turn on “Show in Share Sheet”, and accept images.</li>
-            <li>Add “Get contents of URL”: URL <code>https://&lt;your app address&gt;/api/capture</code>, method <code>POST</code>, body <strong>Form</strong>.
-              <ul>
-                <li><code>image</code> … the shortcut’s input</li>
-                <li><code>text</code> … optional; the result of “Ask for input” if you want to write there and then</li>
-              </ul>
-            </li>
-          </ol>
-          <p>While reading you can throw things in silently and add the lines later, in one go.</p>
-        </section>
-
-        <section id="en-voice">
-          <h2>8. Voice input and read-aloud</h2>
+          <h3>Check-in details</h3>
           <ul>
-            <li><strong>🎙 Speak</strong> listens with the browser’s speech recognition. By default it stops after a stretch of silence (“Stop after silence”, under Advanced options in Settings).</li>
-            <li>Set a <strong>send phrase</strong> (for example “done”) and the text is posted the moment you say it. Hands free.</li>
-            <li>Turn on <strong>Polish text with AI before auto-send</strong> and, only when a send phrase triggers posting, punctuation and hesitations are tidied without changing the meaning. It is OFF by default; manual sends keep your text as entered.</li>
-            <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Voice and speed are in Settings.</li>
+            <li>The server checks every minute, so a busy moment can delay a wake a little.</li>
+            <li>Turning it on after the time runs today's check-in right away. After a server restart only today's is run; missed days are not replayed.</li>
+            <li>A silent or failed wake still counts as the day's. Changing the time or deleting notes does not cause a second wake that day.</li>
+            <li>Check-ins do not use your location, so route search is unavailable and place search works by name only.</li>
+          </ul>
+          <h3 id="en-tool-schedule">A persona's own schedule (schedule)</h3>
+          <p>plana, for example, sets one only for something its records place at a usual time - “morning medicine around 7:30” - and wakes shortly after. If nothing has been recorded yet it adds “the morning medicine, by the way”; if it has, it stays quiet. This is not an advance reminder and it does not nag. It is also not a way for you to ask “tell me every morning at 8.”</p>
+          <ul>
+            <li>Up to 20 per persona, up to 30 days ahead, once or daily.</li>
+            <li>Schedules are listed on the persona's card. <strong>Remove one you do not want with ×.</strong></li>
+            <li>A wake is used up even if the persona stays silent or fails. One more than 10 minutes late is skipped.</li>
+            <li>Deleting a note makes the persona revisit its schedules. Pausing or deleting the persona, or forgetting all its notes, removes its schedules.</li>
           </ul>
         </section>
-        </div>
 
-        <div class="advanced-guide">
-        <h2 id="en-advanced">Advanced guide</h2>
-        <p>These sections cover external-agent integration, detailed settings, and the tools available to personas.</p>
+        <section id="en-bluesky">
+          <h2>4. Share to Bluesky</h2>
+          <p>Pick the messages you want from a post and its conversation and publish them from your own Bluesky account. Persona messages carry an attribution such as “🍚 tabeからの返信:” (reply from tabe).</p>
+          <h3>Connect your account</h3>
+          <ol>
+            <li>Open <strong>Settings → Advanced options → Integrations → Bluesky connection</strong>, or <strong>Share to Bluesky</strong> on a post.</li>
+            <li>Enter your handle (for example <code>alice.bsky.social</code>) and press <strong>Connect Bluesky</strong>.</li>
+            <li>Authorize on Bluesky and you return to kakeratta in the same tab. Your password is entered only on Bluesky.</li>
+          </ol>
+          <h3>Choose and publish</h3>
+          <ol>
+            <li>Press <strong>Share to Bluesky</strong> on the original post. At first only that post is selected.</li>
+            <li>Select the messages to share. When you select a reply, select what it replies to as well.</li>
+            <li>Check how it splits and connects with <strong>Preview</strong>, then press <strong>Publish selected conversation</strong>.</li>
+          </ol>
+          <figure>
+            <img src="/captures/en/bluesky-selection.png" alt="The sharing dialog with only the original post checked and all replies unchecked (sample data)" loading="lazy" width="382" height="930" />
+            <figcaption>Personas may mention personal things from memory. Select only what you want others to see.</figcaption>
+          </figure>
+          <h3>What is and is not published</h3>
+          <ul>
+            <li>The selected messages' text, links, source URLs and images are published. Location, image reading results and persona notes are not.</li>
+            <li>Long messages split at sentence breaks into posts of about 300 characters; later parts start with “つづき:” (continued). Images go on the first part only.</li>
+            <li>Images over 2 MB are shrunk for sending (the original stays as it is). Transparency becomes white and GIFs become still.</li>
+            <li>Up to 100 messages at a time.</li>
+          </ul>
+          <h3>Adding later and disconnecting</h3>
+          <ul>
+            <li>Published messages are not sent again. Replies you select later are added to the same thread.</li>
+            <li>If the connection drops and the outcome is unknown, publishing stops to avoid duplicates. Check on Bluesky.</li>
+            <li><strong>Disconnect</strong> removes the connection. Neither disconnecting nor deleting in kakeratta deletes anything on Bluesky.</li>
+          </ul>
+        </section>
 
         <section id="en-hermes">
-
-<h2>Hermes integration</h2><p class="lede">Your own Hermes picks up requests addressed through the persona bar and sends its reports back to kakeratta.</p>
-<div class="tip"><p>We distribute the official kakeratta Skill for Hermes. For installation, recurring checks, connection details, and task processing, see the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">detailed Hermes Agent guide</a>.</p></div>
-<figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="530" /></figure>
-<h3>1. Create a connection key</h3><ol><li>Open Settings → Advanced options → Integrations.</li><li>Under Hermes integration, select “Create connection key”.</li><li>Copy the configuration shown. The key is shown only immediately after it is issued.</li></ol>
-<h3>2. Configure Hermes</h3><p>Add the copied configuration to <code>~/.hermes/config.yaml</code> on the machine running Hermes. If <code>mcp_servers</code> already exists, add the <code>kakeratta</code> entry under it.</p>
-<pre><code>mcp_servers:
+          <h2>5. Send requests to Hermes</h2>
+          <p>Send your own Hermes a request from kakeratta and get its report on your timeline. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
+          <figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="530" /></figure>
+          <h3>Connect</h3>
+          <ol>
+            <li>Under <strong>Settings → Advanced options → Integrations → Hermes integration</strong>, press <strong>Create connection key</strong> and copy the configuration. The key is shown only then.</li>
+            <li>Add it to <code>~/.hermes/config.yaml</code> on the machine running Hermes and restart Hermes. If <code>mcp_servers</code> already exists, add <code>kakeratta</code> inside it.</li>
+          </ol>
+          <pre><code>mcp_servers:
   kakeratta:
     url: "Connection URL shown in Settings"
     headers:
       Authorization: "Bearer CONNECTION_KEY"</code></pre>
-
-<h3>3. Send a request</h3><ol><li>Restart Hermes.</li><li>Enable the Hermes persona in kakeratta.</li><li>Select Hermes in the persona bar above the timeline, then write your request after the inserted <code>@Hermes</code> and send it.</li><li>Tell your Hermes: “Check my kakeratta requests.”</li><li>After Hermes processes the request and submits its report, check the result in kakeratta.</li></ol><p>Requests wait until Hermes retrieves them. For automatic handling, configure a recurring check on the Hermes side. You do not need to expose a Hermes API.</p>
-<h3>Troubleshooting</h3><ul><li>Restart Hermes after changing its configuration.</li><li>Check that Hermes can reach the connection URL.</li><li>If you replaced the key, update config.yaml with the new configuration.</li><li>Make sure the Hermes persona is enabled.</li></ul>
-<h3>Access and disconnection</h3><p>Hermes can read your posts, persona notes and requests, and write its notes and reports. It cannot access model settings or other users.</p><p>Disable the Hermes persona to stop reads and writes. Select “Disconnect” to invalidate the key.</p>
-
+          <h3>Send a request</h3>
+          <ol>
+            <li>Enable the Hermes persona in kakeratta.</li>
+            <li>Tap Hermes in the persona bar and write your request after <code>@Hermes</code>.</li>
+            <li>Tell Hermes “Check my kakeratta requests.” Its report arrives on your timeline.</li>
+          </ol>
+          <p>Requests wait until Hermes picks them up. To avoid asking each time, set Hermes to check on a schedule.</p>
+          <h3>What Hermes can read</h3>
+          <p>Hermes can read your posts, your requests, and <strong>the notes of every persona</strong> (personas do not share notes with one another, but Hermes is the exception). It writes only its own notes and reports, and cannot reach model settings or other users. Pausing the Hermes persona stops its reads and writes; <strong>Disconnect</strong> invalidates the key.</p>
+          <h3>If it cannot connect</h3>
+          <ul>
+            <li>Restart Hermes after changing its configuration.</li>
+            <li>Check that Hermes can reach the connection URL.</li>
+            <li>If you replaced the key, replace it in config.yaml too.</li>
+          </ul>
         </section>
 
         <section id="en-settings">
-          <h2>9. Settings</h2>
+          <h2>6. Settings and data</h2>
           <figure>
-            <img src="/captures/en/settings.png" alt="Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky" loading="lazy" width="390" height="1290" />
-            <figcaption>The Settings panel: models, web search, backup, this device. Opening <strong>Advanced options</strong> below the line reveals OpenRouter, voice input, read-aloud, the MCP connection and Bluesky.</figcaption>
+            <img src="/captures/en/settings.png" alt="The Settings panel" loading="lazy" width="390" height="1290" />
+            <figcaption>The Settings panel. Common items are at the top; the rest are inside Advanced options.</figcaption>
           </figure>
-          <h3>Backup (Export as zip)</h3>
-          <p><strong>Export as zip</strong> hands you the whole workspace as one zip: posts, personas with their notes, who is in the room and in what order, and captured images. It is laid out exactly as a kakeratta running on your own machine reads it, so extracting it into <code>KAKERATTA_HOME</code> and starting the server shows what you were looking at. The workspace key is in the <code>backup.json</code> inside.</p>
-          <p>No API keys and no Bluesky or MCP connections travel with it; a restored workspace asks for its own. Preparing the file can take a moment, and on the hosted version a <strong>Download</strong> link appears once it is ready. The link lasts an hour.</p>
+          <h3>Where things are</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Place</th><th>Items</th></tr></thead>
+              <tbody>
+                <tr><td>Models</td><td>The AI API key</td></tr>
+                <tr><td>Web search</td><td>Tavily API key (for <a href="#en-tool-web_search">web search</a>)</td></tr>
+                <tr><td>This device</td><td>Display language, kakeratta version</td></tr>
+                <tr><td>Advanced options → Models</td><td>Use OpenRouter</td></tr>
+                <tr><td>Advanced options → Input</td><td>Treat what I write as Markdown</td></tr>
+                <tr><td>Advanced options → Voice</td><td>Voice input (send phrase, silence stop, …), read-aloud voice and speed</td></tr>
+                <tr><td>Advanced options → Integrations</td><td><a href="#en-hermes">Hermes</a>, <a href="#en-bluesky">Bluesky</a></td></tr>
+                <tr><td>Advanced options → Backup</td><td>Export as zip</td></tr>
+                <tr><td>Advanced options → Close account</td><td>Delete everything and leave</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Backup</h3>
+          <p><strong>Export as zip</strong> puts your posts, personas and their notes, persona order, and images into one zip. A <strong>Download</strong> link appears when it is ready (valid for an hour). It holds personal content, so keep it to yourself.</p>
+          <p>API keys and the Bluesky and Hermes connections are not included.</p>
           <h3>Close account</h3>
-          <p><strong>Delete everything and close the account</strong> asks you to type the word "delete" to confirm. It then removes this account's posts, personas and their notes, captured images, settings and keys, the Bluesky and MCP connections, any backups, and the login account itself, and leaves you signed out. There is no way back, so export a backup above first if there is anything you want to keep. Nobody else's data is touched.</p>
-          <p>A single-user setup without login has no such item: stop the app and remove the workspace directory shown under <strong>This device</strong>.</p>
-          <h3>This device (display language)</h3>
-          <p>Switch between Japanese and English. This manual follows the same setting. The version is here too, and the workspace path when you run kakeratta yourself.</p>
-          <h3>Advanced options</h3>
-          <p>Everything the defaults already answer sits below the line, under <strong>Advanced options</strong>: Use OpenRouter, voice input, read-aloud, the MCP connection (for Hermes) and the Bluesky connection. It is built the first time it is opened, so a panel you never open asks nothing and shows nothing.</p>
-          <h3>AI (Nebius Token Factory)</h3>
-          <p>Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Entering your Token Factory API key is enough.</p>
+          <p>Press <strong>Delete everything and close the account</strong> and type “delete” to confirm. This removes the account's posts, personas and notes, images, settings, connections, backups, and the login account itself. It cannot be undone, so export a backup first.</p>
+          <h3>AI models</h3>
+          <p>With Nebius Token Factory these models are used for each job; there is nothing to choose in Settings.</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Job</th><th>Model</th></tr></thead>
+              <tbody>
+                <tr><td>Routing, ordinary persona replies, reviewing what a persona proposes</td><td>Nemotron Super</td></tr>
+                <tr><td>Replying again after “that's wrong” or “tell me more”</td><td>Nemotron Ultra</td></tr>
+                <tr><td>Deciding whether a reply asks for a rethink</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>Reading images</td><td>GLM-5.3-Flash</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Reply to a persona with “that's wrong” or “tell me more” and the app checks whether you are asking for a rethink; if so, the persona answers again on Ultra. Thanks and ordinary follow-ups stay as they are.</p>
+          <h3>Using OpenRouter</h3>
+          <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>
-            <li>Nemotron 3.5 Lightning — judging whether a reply asks for a better answer</li>
-            <li>Nemotron Super — routing, every persona, and workflow review</li>
-            <li>Nemotron Ultra — the replied-to persona, when a reply asks for a better or deeper answer; persona drafting</li>
-            <li>GLM-5.3-Flash — image reading, on the same backend</li>
+            <li><strong>Enable Jev</strong>: moves routing only to Jev; persona replies stay on Token Factory. Jev shows no routing reasons, but <a href="#en-routing">fixing conditions</a> works the same.</li>
+            <li><strong>OpenRouter-only mode</strong>: moves the models for persona replies to OpenRouter too.</li>
           </ul>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>For</th><th>Default</th></tr></thead>
-              <tbody>
-                <tr><td>low (judging replies)</td><td>Nemotron 3.5 Lightning</td></tr>
-                <tr><td>middle (every persona)</td><td>Nemotron Super</td></tr>
-                <tr><td>high (the replied-to persona, when asked for more)</td><td>Nemotron Ultra</td></tr>
-                <tr><td>Image model (vision)</td><td>GLM-5.3-Flash</td></tr>
-                <tr><td>Routing</td><td>Nemotron Super</td></tr>
-                <tr><td>Workflow review</td><td>Nemotron Super</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p><strong>Use OpenRouter</strong> saves an API key, checks the connection, fetches available models, and lets you pick each router/high/middle/low slot. You can move routing alone to Jev or move high/middle/low to the selected models with OpenRouter-only mode. In the 20-production-item comparison, Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026 per route, but it does not display decision reasons.</p>
-          <p>Every persona a post reaches answers at once, on Super. When you reply to a persona asking for a correction, a rethink or more detail ("that's wrong", "are you sure?", "tell me more", "dig deeper"), Lightning notices and the persona you replied to answers on Ultra. That remark is marked with an Ultra badge. Thanks, ordinary follow-up questions and new topics stay on Super.</p>
-          <p>A persona first reads and looks things up, then hands in what it will do (notes, schedules, a remark) as a workflow that the app reviews before running it.</p>
-          <h3 id="en-tools">Tools: how personas look things up and remember</h3>
-          <p><strong>Where do tools run?</strong>On the kakeratta server: the hosted server for an online deployment, or the Go server on your computer when you run it locally. The browser does not call external search APIs directly. If you allow location access, coordinates go from the browser to the server; place and route searches send search terms or coordinates to the external services. Memory tools use the server's storage, and notes and search results read by a persona also become input to the configured AI model.</p>
-          <p>A persona uses tools when it decides they are needed for a reply or memory update. Ask in ordinary language; you do not need to type tool names or JSON. Mentioning <strong>@name</strong> asks for a reply but does not guarantee a particular tool will run.</p>
-          <p>Web, place, and route search are available to personas that list them under <strong>Tools</strong>. To add one, use <strong>Edit with AI</strong>, ask for the capability, and review and save the proposed change. Every persona can search past fragments and manage its own memory.</p>
-          <p><strong>The operator provides the tool endpoints.</strong> The place and route endpoints are set by whoever runs the server, through environment variables, and shared by every user. The only key a user enters is their own Tavily API key for web search. Available tool names appear under <strong>Tools</strong> in the Personas panel. An operator can also add <a href="https://modelcontextprotocol.io/" rel="noopener">MCP</a> servers; their tools appear as <code>server.tool</code> (for example <code>geo.compute_commute</code>) and can be declared for a persona like any other tool.</p>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Tool</th><th>Purpose</th><th>Setup</th></tr></thead>
-              <tbody>
-                <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search information on the Web</td><td>Add to persona; Tavily API key</td></tr>
-                <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find nearby places or look up a place by name</td><td>Add to persona; endpoints are the operator's (public defaults)</td></tr>
-                <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Driving, walking, and cycling routes and travel estimates</td><td>Add to persona; location on the post; endpoints are the operator's (public defaults)</td></tr>
-                <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search saved fragments by combining words and meaning</td><td>Available to all personas; no separate search API key</td></tr>
-                <tr><td><a href="#en-tool-notes"><code>notes_list</code> / <code>notes_read</code> / <code>notes_write</code> / <code>notes_forget</code></a></td><td>List, read, save, and delete the persona's own memory</td><td>No additional setup</td></tr>
-                <tr><td><a href="#en-tool-schedule"><code>schedule</code></a></td><td>Let a persona ask the app to wake it</td><td>Add to persona; no external service</td></tr>
-                <tr><td><code>server.tool</code></td><td>Tools from MCP servers the operator added</td><td>Add to persona; servers are configured by the operator</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <h3 id="en-tool-web_search">Web search — web_search</h3>
-          <p><strong>Purpose:</strong> Search news, technical information, and other Web content. Links from the results can appear as sources in the reply.</p>
-          <p><strong>Setup:</strong> Under <strong>Settings → Web search</strong>, save your Tavily API key. This is separate from your AI model API key. Leave it blank if you do not use web search.</p>
-          <p><strong>Try:</strong> “@shiori Search the Web for this book's author.”</p>
-          <p><strong>Limits:</strong> This tool returns search descriptions; it does not necessarily read the full linked pages. Results may not be current or comprehensive. Available during check-ins too.</p>
-          <h3 id="en-tool-place_search">Place search — place_search</h3>
-          <p><strong>Purpose:</strong> With a location on the post, search nearby places for names, distances, and opening hours recorded in the map. Without a location, look up places by name.</p>
-          <p><strong>Setup:</strong> Allow the browser to use your location when posting to search nearby. The Nominatim (name lookup) and Overpass (nearby search) endpoints are chosen by the operator through environment variables; the defaults are public services that need no API key.</p>
-          <p><strong>Try:</strong> With location enabled, “@tabe Find ramen near me.” Without a location, “@michi Look up Shibuya Station.”</p>
-          <p><strong>Limits:</strong> Places missing from the map cannot be found. Opening hours may be absent and do not confirm a shop is open now or has seats. Temporary failures may be retried, but the service can still be busy or unavailable. A failed search does not mean there are no places. Check-ins do not acquire your location, so only name lookup is available then.</p>
-          <h3 id="en-tool-route">Route search — route</h3>
-          <p><strong>Purpose:</strong> Estimate road distance and travel time from the post's location to a destination by car, on foot, or by bicycle.</p>
-          <p><strong>Setup:</strong> Allow location access when posting. The OSRM endpoints for driving, walking, and cycling are chosen by the operator through environment variables; the defaults are public services that need no key.</p>
-          <p><strong>Try:</strong> “@michi How long would it take to walk from here to Shibuya Station?”</p>
-          <p><strong>Limits:</strong> No trains, buses, timetables, or live traffic. A location on the post is required, so the tool is unavailable during check-ins. Typing a starting place in the text does not attach location coordinates to the post.</p>
-          <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
-          <p><strong>Purpose:</strong> Search this user's saved posts, text read from images, and replies by combining words and meaning. A start and end time narrow the search to a period, and a period alone reads everything written then without any words. This looks back at records separately from the persona's memory.</p>
-          <p><strong>Setup:</strong> Available to every persona without a Web search API key. To search yourself, open <strong>Search</strong> in the header.</p>
-          <p><strong>Try:</strong> “@tabe Find that light red wine I enjoyed before.”</p>
-          <p><strong>Limits:</strong> Events that were never saved cannot be found. Each call returns at most 30 excerpts. The hits are not attached to the persona's remark; only the posts it declares as its grounds are linked under it. A similar result is not necessarily the right one, and the first semantic search may take time to prepare. Available during check-ins too.</p>
-          <h3 id="en-tool-notes">Manage personal memory — notes tools</h3>
-          <p><strong>Purpose:</strong> <code>notes_list</code> lists memories, <code>notes_read</code> reads selected notes, <code>notes_write</code> saves or replaces one note, and <code>notes_forget</code> deletes one note. Personas do not share these notes with one another.</p>
-          <p><strong>Setup:</strong> Every persona has these tools without additional configuration.</p>
-          <p><strong>Try:</strong> “@tabe I like spicy food, but strong sesame flavours aren't for me. Remember that.”</p>
-          <p><strong>Limits:</strong> Each persona decides what to remember. It may update memory without speaking. To inspect saved notes or explicitly delete them, open <strong>What I remember</strong> in the Personas panel. Memory tools are available during check-ins too.</p>
-          <h3 id="en-tool-schedule">Ask the app to wake it — schedule</h3>
-          <p><strong>Purpose:</strong> A persona asks the app for the minute it wakes. This is not a calendar or an alarm clock: it is for the persona's own subject. plana works the time out of its records, or out of words like “on the way home”, and always speaks after the moment - never as a nudge beforehand.</p>
-          <p><strong>Setup:</strong> Add <code>schedule</code> to the persona. No external service or API key is needed. Up to 20 pending schedules per persona, 30 days ahead, once or every day.</p>
-          <p><strong>Try:</strong> Nothing - the persona asks for these itself. It is not a way for you to schedule a message (“tell me every morning at 8” is not what this is for).</p>
-          <p><strong>Limits:</strong> A schedule is claimed before the model runs, so a silent or failed wake is not repeated. One more than 10 minutes late is dropped rather than replayed. Deleting a note wakes the persona to revisit the schedules that went with it; forgetting its whole memory, pausing it, or removing it drops them. Pending schedules are listed on the persona's card, but cannot be removed from there - only the persona cancels them.</p>
-          <h3 id="en-tool-terms">Public service usage conditions</h3>
-          <p>No API key does not mean unlimited use. <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap data is licensed under ODbL</a> and requires attribution and license information. Each API's usage conditions apply separately from the software license.</p>
-          <p>The <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noopener">public Nominatim policy</a> requires an application-wide maximum of one request per second, application identification, and attribution. Periodic requests are strongly discouraged; recurring jobs have caching and stricter frequency requirements. Name lookup currently has no cache. For check-ins or a growing public deployment, consider a self-hosted or contracted service whose conditions fit your use. Developers and operators must make an informed decision about using the service.</p>
-          <p>The <a href="https://routing.openstreetmap.de/about.html" rel="noopener">public routing service</a> also has frequency, load, and attribution requirements. Current rate limiting is per server process, not aggregated across multiple processes. Existing source links also need review and possibly changes to meet all attribution requirements before deployment. Web search is subject to Tavily's contract.</p>
-          <h3>This device</h3>
-          <p>Voice input mode, language, silence stop, and send phrase, plus the read-aloud voice and speed. These are per-device settings.</p>
         </section>
 
-        <section id="en-faq">
-          <h2>10. FAQ</h2>
-          <dl class="faq">
-            <dt>Nothing reacts to my post.</dt>
-            <dd>Perhaps nobody is in the room, the post matched no persona’s subject, or the persona chose to remember without speaking. Check which personas are active under <strong>Personas</strong>, and mention @name when you need an answer. Reactions arrive late.</dd>
-            <dt>I cannot close Settings.</dt>
-            <dd>Until an AI connection is configured, Settings stays open. Enter an API key and check the connection.</dd>
-            <dt>Search says it only matched words.</dt>
-            <dd>Meaning search is preparing or unavailable. Word matches are still shown. Wait a moment and search again.</dd>
-            <dt>The text in my image has not been read.</dt>
-            <dd>Reading takes a moment. Open “Reading result” under the post a little later. Images are limited to 20 MiB per post.</dd>
-            <dt>Where is my data stored?</dt>
-            <dd>In a public deployment, in server-side storage separated per account (Firestore and Cloud Storage). When run on your own machine, on that machine’s disk. API keys are stored only on the server.</dd>
-            <dt>I want to change a built-in persona.</dt>
-            <dd>Use <strong>Edit with AI</strong>. Existing memories and enabled status carry over.</dd>
-          </dl>
+        <section id="en-tools">
+          <h2>7. Tools personas use</h2>
+          <p>A persona picks the tools it needs for a reply or a note. Ask in ordinary words; you never type tool names. A persona you mention with <code>@name</code> always replies, but which tools it uses is its own choice.</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Tool</th><th>Purpose</th><th>Who / setup</th></tr></thead>
+              <tbody>
+                <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search past fragments</td><td>Every persona</td></tr>
+                <tr><td><a href="#en-tool-notes"><code>notes_*</code></a></td><td>List, read, save and delete its own notes</td><td>Every persona</td></tr>
+                <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search the Web</td><td>Personas it is added to; Tavily API key</td></tr>
+                <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find shops and places</td><td>Personas it is added to</td></tr>
+                <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Road distance and travel time</td><td>Personas it is added to; location on the post</td></tr>
+                <tr><td><a href="#en-tool-schedule"><code>schedule</code></a></td><td>Pick its own wake time</td><td>Personas it is added to</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>A persona's tools are listed under <strong>Tools</strong> in the Personas panel. To add one, use <strong>Edit with AI</strong> (“let it search the Web too”), review the change and save.</p>
+          <div class="tip"><p>Tools run on the kakeratta server. If you allow location, coordinates go to the server and, for place and route search, to an external map service. Notes and search results a persona reads also go to the AI model as input.</p></div>
+
+          <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
+          <p>Searches your saved posts, text read from images, and replies by words and meaning together. A period can narrow it, or alone read everything written in it. Each call returns up to 30 results. Only the posts a persona uses as its grounds are linked under its remark.</p>
+          <p>Try: “@tabe Find that light red wine I enjoyed before.”</p>
+
+          <h3 id="en-tool-notes">Notes — notes_list / notes_read / notes_write / notes_forget</h3>
+          <p>A persona lists, reads, saves and deletes its own notes one at a time. It decides what to remember and may update notes without speaking. To inspect or reliably delete notes, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
+          <p>Try: “@tabe I like spicy food, but strong sesame isn't for me. Remember that.”</p>
+
+          <h3 id="en-tool-web_search">Web search — web_search</h3>
+          <p>Searches news, technical information and more, and cites result links as sources. Save a Tavily API key under <strong>Settings → Web search</strong> (separate from the AI key). It works from result summaries and does not necessarily read whole pages.</p>
+          <p>Try: “@shiori Search the Web for this book's author.”</p>
+
+          <h3 id="en-tool-place_search">Place search — place_search</h3>
+          <p>With a location on the post it searches nearby shops and places; without one, it looks places up by name. Places missing from the map cannot be found, and it cannot tell whether a shop is open now or has seats. Finding nothing does not mean there is nothing.</p>
+          <p>Try: with location on, “@tabe Find ramen near me.”</p>
+
+          <h3 id="en-tool-route">Route search — route</h3>
+          <p>Estimates road distance and time from the post's location to a destination by car, on foot, or by bicycle. No trains, buses, timetables or live traffic. It needs a location on the post, so it is unavailable in check-ins; typing a starting place in the text is not the same as a location.</p>
+          <p>Try: “@michi How long to walk from here to Shibuya Station?”</p>
         </section>
 
         <section id="en-more">
-          <h2>11. Read more</h2>
-          <p>Running it yourself, environment variables, how personas work (routing, execution order, the memory format, skill.json), and deployment are documented on GitHub.</p>
-          <ul>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/README.md" rel="noopener">README</a></li>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/usage.md" rel="noopener">Usage and configuration</a> — environment variables, sharing, stored data</li>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/technical.md" rel="noopener">Under the hood</a> — routing, execution order, OKF notes, skills, and tools</li>
-          </ul>
+          <h2>8. Read more</h2>
+          <p>How kakeratta works, and its source code, are on <a href="https://github.com/takeshy/kakeratta/blob/main/README.md" rel="noopener">GitHub</a>.</p>
           <p class="actions"><a class="button primary" href="/">Open the app</a> <a class="button" href="/lp/" data-lang-link>Overview</a></p>
         </section>
         </div>

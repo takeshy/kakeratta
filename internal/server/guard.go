@@ -4,15 +4,11 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
-	"mime/multipart"
 	"net/http"
 	"strings"
 )
 
-type multipartFile = multipart.File
-type multipartHeader = multipart.FileHeader
-
-// guard validates the workspace and limits multipart uploads.
+// guard validates the workspace.
 // Firebase authentication is handled by Gateway.
 func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -28,17 +24,6 @@ func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 			fail(w, http.StatusUnauthorized, "account changed")
 			return
 		}
-		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
-			// ParseMultipartForm's argument only limits memory, not body size.
-			// Apply the limit before the handler parses the upload.
-			r.Body = http.MaxBytesReader(w, r.Body, maxCapture+(1<<20))
-			defer func() {
-				if r.MultipartForm != nil {
-					_ = r.MultipartForm.RemoveAll()
-				}
-			}()
-		}
-
 		next(w, r)
 	}
 }

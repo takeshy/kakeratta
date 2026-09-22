@@ -183,13 +183,6 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
   return {
     element: view,
     focus: () => text.focus(),
-    // The share target lands on the page with a file already in hand.
-    accept(file, note) {
-      readFile(file);
-      if (note) text.value = note;
-      grow();
-      text.focus();
-    },
     // Naming someone is a promise of an answer, so it goes in the text where
     // the personas read it - not into a hidden "to:" field.
     mention(name) {

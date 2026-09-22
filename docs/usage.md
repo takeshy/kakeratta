@@ -60,7 +60,7 @@ through the same single box.
 | Way in | What it is |
 | --- | --- |
 | Write | A line. For a thought this is the quickest |
-| Shoot / paste | An image (paste with Ctrl+V, hand it over from the share sheet, pick a file) |
+| Shoot / paste | An image (paste with Ctrl+V, pick a file, or take a photo on a phone) |
 | URL | The body of a public page is fetched |
 | Speak | A transcript. The send phrase commits it |
 
@@ -69,36 +69,9 @@ or which app it was**. Kindle, a paywalled article, a social feed — if it is o
 screen it can be shot. No API and no DRM in the way. Shooting a passage that
 caught your eye mid-read and adding a line only works this way.
 
-Only the shoot-and-hand-over route from a phone needs anything set up.
-
-| | Shoot and hand over | Needs |
-| --- | --- | --- |
-| PC | The screenshot is already on the clipboard → paste it (Ctrl+V) | Nothing (a browser) |
-| Android | PWA + Web Share Target puts it in the share sheet | Nothing (PWA) |
-| iOS | A shortcut (takes an image from the share sheet and POSTs it) | Nothing |
-
-### Android
-
-Add it to the home screen and the `share_target` in `manifest.webmanifest` makes
-the OS treat it as somewhere to share to. It appears in the share sheet like a
-native app, and an image handed over lands in the timeline. `sw.js` takes the
-shared POST and forwards it to `/api/capture`.
-
-### iOS
-
-Direct uploads from Shortcuts do not support Google sign-in. In hosted environments, sign in through the browser and attach the image there. The steps below apply to local environments without authentication.
-
-Web Share Target is unavailable, so a shortcut stands in for it. No native code.
-
-1. Create a shortcut, turn on "Show in Share Sheet", and accept images
-2. "Get contents of URL" — method `POST`, body `Form`
-   - `image` … the shortcut's input
-   - `text` … optional; the result of "Ask for input" if you want to write there and then
-
-While reading you can throw things in silently and add the lines later, in one go.
-
-`/api/capture` takes multipart, so it has to be on a server. Static hosting
-cannot receive it.
+On a PC, paste the screenshot with Ctrl+V. On a phone, pick the screenshot with
+the image button or take a photo with the camera there and then. Nothing needs
+setting up.
 
 ## What travels with a post
 
@@ -308,9 +281,7 @@ log gets, and a crash mid-write costs the last line rather than the file.
 
 Settings → Backup writes the whole workspace as this same tree, zipped: posts,
 personas and their notes, who is in the room, and captures. Extract it into
-`KAKERATTA_HOME` and `task dev` serves what you were looking at; a hosted
-workspace goes under `KAKERATTA_HOME/users/<workspaceKey>/`, and the key is in
-the `backup.json` inside.
+`KAKERATTA_HOME` and `task dev` serves what you were looking at.
 
 No credentials travel with it. Of the settings it keeps only the room — who is
 in it, in order, and when each one wakes — and the Bluesky and MCP connections

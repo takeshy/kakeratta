@@ -37,7 +37,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   const offline = () => globalThis.navigator?.onLine === false;
 
   async function removeEntry(entry, button) {
-    if (!confirm(t("この投稿を消しますか"))) return;
+    if (!confirm(t("この投稿を消しますか。この投稿だけを元にした担当のメモも消えます。"))) return;
     button.disabled = true;
     try {
       const removed = await api.remove(entry.id);

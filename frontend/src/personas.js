@@ -133,8 +133,10 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });
     const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active, "aria-label": t("希望時刻") });
     const zone = schedule.timeZone || localZone();
+    // Saving takes the device's zone now, so someone who has moved re-anchors
+    // the check-in by saving the time again.
     const saveDaily = async () => {
-      const next = { enabled: enabled.checked, time: time.value || "08:00", timeZone: zone };
+      const next = { enabled: enabled.checked, time: time.value || "08:00", timeZone: localZone() };
       enabled.disabled = time.disabled = true;
       try {
         const payload = await api.setDailyCheckIn(row.id, next);
@@ -155,10 +157,27 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当が預けた予定" }),
-        ...row.schedules.map((schedule) => el("span", { class: "chip ghost schedule",
-          text: `${scheduleWhen(schedule)} · ${schedule.note || ""}`.trim() })),
+        ...row.schedules.map((schedule) => {
+          const text = `${scheduleWhen(schedule)} · ${schedule.note || ""}`.trim();
+          return el("span", { class: "chip ghost schedule", text },
+            el("button", { type: "button", class: "chip-remove", text: "×", "aria-label": t("予定「{0}」を消す", text),
+              onclick: async (event) => {
+                const button = event.currentTarget;
+                if (!confirm(t("予定「{0}」を消しますか", text))) return;
+                button.disabled = true;
+                try {
+                  const payload = await api.deleteSchedule(row.id, schedule.id);
+                  rows = payload.personas || rows;
+                  onChange?.(rows);
+                  draw();
+                } catch (error) {
+                  toast(String(error.message || error), "error");
+                  button.disabled = false;
+                }
+              } }));
+        }),
       ));
-      box.append(el("p", { class: "hint", label: "予定は担当が置きます。メモを消すと担当が見直します。" }));
+      box.append(el("p", { class: "hint", label: "予定は担当が置きます。不要なら × で消せます。メモを消すと担当が見直します。" }));
     }
     if (row.tools?.length) {
       box.append(el("p", { class: "tools" }, `${t("道具")}: `,
@@ -179,7 +198,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
             class: "chip ghost",
             label: "削除",
             onclick: async () => {
-              if (!confirm(t("{0} を削除しますか（メモは残ります）", row.name))) return;
+              if (!confirm(t("{0} を削除しますか。メモも消え、元に戻せません。", row.name))) return;
               await api.uninstallPersona(row.id).catch((error) => toast(String(error.message || error), "error"));
               await load();
             },

@@ -120,6 +120,7 @@ export const api = {
     if (!response.ok) throw new Error(payload?.error || "追加できませんでした");
     return payload;
   },
+  deleteSchedule: (id, schedule) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/schedules/${encodeURIComponent(schedule)}`),
   uninstallPersona: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}`),
   // One page of notes, the most recently written first; `next` continues.
   memory: (id, { after = "", tag = "", type = "" } = {}) => {

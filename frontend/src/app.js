@@ -309,18 +309,8 @@ if ("IntersectionObserver" in window) {
   if (autoLoad) pagingObserver.observe(pagingFooter);
 }
 
-// The share target lands here with the image already in the request. The
-// service worker hands it over, so the page opens with it in the box.
-navigator.serviceWorker?.addEventListener("message", (event) => {
-  if (event.data?.type !== "shared") return;
-  if (event.data.file) compose.accept(event.data.file, event.data.text || "");
-});
-
 async function boot() {
   navigator.serviceWorker?.register("/sw.js").catch(() => {});
-  if (new URLSearchParams(location.search).get("shared") === "0") {
-    toast("共有した内容を保存できませんでした。接続と認証を確認し、もう一度共有してください。", "error");
-  }
   const cached = await localRecord("timeline").catch(() => null);
   if (cached) pages.restore(cached);
   await drawLocal();

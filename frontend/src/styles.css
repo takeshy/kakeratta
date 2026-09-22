@@ -96,6 +96,9 @@ body {
 .chip.danger { border-color: var(--danger, #a33); color: var(--danger, #a33); }
 .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .chip.voice-button:not(.active):hover { border-color: var(--line); color: inherit; }
+.chip.schedule { display: inline-flex; align-items: center; gap: 4px; }
+.chip-remove { border: 0; background: transparent; color: var(--muted); padding: 0 2px; font: inherit; cursor: pointer; }
+.chip-remove:hover { color: var(--danger, #a33); }
 
 /* Nobody in the room. The one state where the app cannot do its job at all, so
    it is the one time the screen leads with something other than the timeline. */

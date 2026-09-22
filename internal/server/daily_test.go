@@ -150,6 +150,9 @@ func TestRemovingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
 	if _, err := s.SaveSchedule(store.Schedule{Skill: skill.ID, At: time.Now().Add(24 * time.Hour).UTC(), Note: "明日の用事"}); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.WriteNote(skill.ID, "errands/tomorrow.md", "明日の用事"); err != nil {
+		t.Fatal(err)
+	}
 
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/personas/"+skill.ID, nil))
@@ -158,5 +161,48 @@ func TestRemovingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
 	}
 	if left, err := s.Schedules(skill.ID); err != nil || len(left) != 0 {
 		t.Fatalf("future schedules survived removal: %+v (%v)", left, err)
+	}
+	// Nothing is left to show or forget the notes from, so they go too.
+	if paths, err := s.NotePaths(skill.ID); err != nil || len(paths) != 0 {
+		t.Fatalf("notes survived removal: %v (%v)", paths, err)
+	}
+}
+
+// The person a schedule would wake can take it off the card; another persona's
+// schedule is not reachable through this one's path.
+func TestRemovingOneScheduleFromTheCard(t *testing.T) {
+	app, s := app(t)
+	skills := app.catalogue.All()
+	id, other := skills[0].ID, skills[1].ID
+	kept, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(2 * time.Hour).UTC(), Note: "夜の薬"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(time.Hour).UTC(), Note: "朝の薬"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	theirs, err := s.SaveSchedule(store.Schedule{Skill: other, At: time.Now().Add(time.Hour).UTC(), Note: "洗濯"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/personas/"+id+"/schedules/"+gone.ID, nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	left, err := s.Schedules(id)
+	if err != nil || len(left) != 1 || left[0].ID != kept.ID {
+		t.Fatalf("left = %+v (%v)", left, err)
+	}
+
+	response = httptest.NewRecorder()
+	app.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/personas/"+id+"/schedules/"+theirs.ID, nil))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("another persona's schedule: status = %d", response.Code)
+	}
+	if left, _ := s.Schedules(other); len(left) != 1 {
+		t.Fatalf("another persona's schedule was removed: %+v", left)
 	}
 }

@@ -175,7 +175,6 @@ func TestGatewayProtectsAPIsWithoutGoogleSession(t *testing.T) {
 		{"POST", "/api/entry/post/reply/preview"},
 		{"POST", "/api/social/preview"},
 		{"POST", "/api/social/publish"},
-		{"POST", "/api/capture"},
 	} {
 		t.Run(endpoint.method+" "+endpoint.path, func(t *testing.T) {
 			request := httptest.NewRequest(endpoint.method, endpoint.path, nil)

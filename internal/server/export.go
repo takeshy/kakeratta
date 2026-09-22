@@ -127,16 +127,15 @@ func (z zipSink) Add(name string, modified time.Time, write func(io.Writer) erro
 	return write(entry)
 }
 
-// markExport adds what the file needs to be read on its own: the workspace key
-// a multi-user restore places the directory under, and how to put the files
-// where a development kakeratta serves them.
+// markExport adds what the file needs to be read on its own: which app and
+// version wrote it, and how to put the files where a development kakeratta
+// serves them.
 func (s *Server) markExport(sink store.ExportSink) error {
 	manifest := struct {
-		App          string    `json:"app"`
-		Version      string    `json:"version"`
-		ExportedAt   time.Time `json:"exportedAt"`
-		WorkspaceKey string    `json:"workspaceKey,omitempty"`
-	}{App: "kakeratta", Version: s.version, ExportedAt: time.Now(), WorkspaceKey: s.workspaceKey}
+		App        string    `json:"app"`
+		Version    string    `json:"version"`
+		ExportedAt time.Time `json:"exportedAt"`
+	}{App: "kakeratta", Version: s.version, ExportedAt: time.Now()}
 	raw, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return err
@@ -162,11 +161,9 @@ serves; the app itself is not included.
 
 Restore / 戻し方
 
-- Single user (task dev): extract into KAKERATTA_HOME — Settings shows the
-  path as 保存先 — or set KAKERATTA_HOME to the extracted directory, then run
+- Extract into KAKERATTA_HOME — Settings shows the path as 保存先 — or set
+  KAKERATTA_HOME to the extracted directory, then run
   ` + "`task setup` and `task dev`" + `.
-- Firebase multi-user: extract under KAKERATTA_HOME/users/<workspaceKey>/;
-  the key is in backup.json. Log in with the same account.
 
 Notes / 注意
 

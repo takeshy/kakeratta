@@ -50,8 +50,6 @@ func (s *Server) routes() {
 		writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
 	})
 	s.mux.HandleFunc("POST /api/auth/logout", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	// The share target posts multipart captures here.
-	s.mux.HandleFunc("POST /api/capture", s.guard(s.postCapture))
 
 	s.mux.HandleFunc("GET /api/timeline", s.guard(s.getTimeline))
 	s.mux.HandleFunc("POST /api/timeline/search", s.guard(s.searchTimeline))
@@ -69,6 +67,7 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /api/personas", s.guard(s.getPersonas))
 	s.mux.HandleFunc("PUT /api/personas/{id}/daily", s.guard(s.putDailyCheckIn))
+	s.mux.HandleFunc("DELETE /api/personas/{id}/schedules/{schedule}", s.guard(s.deleteSchedule))
 	s.mux.HandleFunc("PUT /api/personas", s.guard(s.putPersonas))
 	s.mux.HandleFunc("POST /api/personas/build", s.guard(s.buildPersona))
 	s.mux.HandleFunc("POST /api/personas/draft", s.guard(s.savePersonaDraft))
@@ -175,63 +174,7 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 	s.land(w, entry, body.Place)
 }
 
-// postCapture is the share sheet's way in: multipart, from outside the page.
-func (s *Server) postCapture(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(maxCapture); err != nil {
-		fail(w, http.StatusBadRequest, "受け取れませんでした")
-		return
-	}
-	entry := timeline.Entry{
-		ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User,
-		At: time.Now(),
-	}
-	entry.Root = entry.ID
-	// Android's share target sends title/text/url under those names; the iOS
-	// shortcut sends whatever it was told to. Both are accepted.
-	entry.Text = trimmed(first(r, "text", "note", "title"))
-	entry.Link = trimmed(first(r, "url", "link"))
-	var reactionPlace *timeline.Place
-	if lat, lon := r.FormValue("lat"), r.FormValue("lon"); lat != "" && lon != "" {
-		latitude, latErr := strconv.ParseFloat(lat, 64)
-		longitude, lonErr := strconv.ParseFloat(lon, 64)
-		if latErr == nil && lonErr == nil {
-			reactionPlace = &timeline.Place{Lat: latitude, Lon: longitude, Label: r.FormValue("place")}
-			entry.Place = reactionPlace
-		}
-	}
-
-	file, header, err := firstFile(r, "image", "file", "files", "photo")
-	if err == nil {
-		defer file.Close()
-		data, err := io.ReadAll(io.LimitReader(file, maxCapture+1))
-		if err != nil {
-			fail(w, http.StatusBadRequest, "画像を読めませんでした")
-			return
-		}
-		if len(data) > maxCapture {
-			fail(w, http.StatusRequestEntityTooLarge, "画像が大きすぎます")
-			return
-		}
-		mime := header.Header.Get("Content-Type")
-		if mime == "" || mime == "application/octet-stream" {
-			mime = http.DetectContentType(data)
-		}
-		id, err := s.store.PutBlob(data, mime)
-		if err != nil {
-			fail(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		entry.Media = &timeline.Media{BlobID: id, MIME: mime}
-	}
-	if entry.Media == nil && entry.Text == "" && entry.Link == "" {
-		fail(w, http.StatusBadRequest, "画像も文章もありません")
-		return
-	}
-	readLink(r.Context(), &entry)
-	s.land(w, entry, reactionPlace)
-}
-
-// Both the composer and share sheet hand every persona the same page text.
+// Every post hands each persona the same page text.
 func readLink(ctx context.Context, entry *timeline.Entry) {
 	if entry.Media != nil {
 		return
@@ -535,11 +478,33 @@ func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// A removed persona has no panel left to show or forget its notes from, so
+	// its memory goes with it rather than lingering where nobody can reach it.
+	if err := s.store.ForgetMemory(r.PathValue("id")); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if err := s.store.DeleteSchedules(r.PathValue("id")); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// deleteSchedule takes one wake a persona asked for off its card. The persona
+// sets them, but the person it would wake is the one who says when it stops;
+// the persona is not woken about it.
+func (s *Server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
+	err := s.store.DeleteSchedule(r.PathValue("id"), r.PathValue("schedule"))
+	if errors.Is(err, store.ErrScheduleNotFound) {
+		fail(w, http.StatusNotFound, "予定が見つかりません")
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.getPersonas(w, r)
 }
 
 // getMemory shows what a persona has kept. It is the persona's own text, and
@@ -787,25 +752,6 @@ func unmask(next, current string) string {
 // ---- dictation -------------------------------------------------------------
 
 // ---- helpers ---------------------------------------------------------------
-
-func first(r *http.Request, names ...string) string {
-	for _, name := range names {
-		if value := r.FormValue(name); value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func firstFile(r *http.Request, names ...string) (multipartFile, *multipartHeader, error) {
-	for _, name := range names {
-		file, header, err := r.FormFile(name)
-		if err == nil {
-			return file, header, nil
-		}
-	}
-	return nil, nil, http.ErrMissingFile
-}
 
 // decodeImage takes either a data: URL from a paste or bare base64.
 func decodeImage(value string) ([]byte, string, error) {

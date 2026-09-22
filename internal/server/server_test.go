@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,85 +36,21 @@ func app(t *testing.T) (*Server, *store.Store) {
 // shared builds the request a share sheet makes: a screenshot as multipart,
 // from outside the page. Everything else in the app is downstream of this
 // working.
-func shared(t *testing.T, fields map[string]string, image []byte) *http.Request {
+// posted is the composer's request for a post of this text.
+func posted(t *testing.T, text string) *http.Request {
 	t.Helper()
-	body := &bytes.Buffer{}
-	form := multipart.NewWriter(body)
-	for name, value := range fields {
-		_ = form.WriteField(name, value)
-	}
-	if image != nil {
-		part, err := form.CreateFormFile("image", "screenshot.png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, _ = part.Write(image)
-	}
-	_ = form.Close()
-	request := httptest.NewRequest(http.MethodPost, "/api/capture", body)
-	request.Header.Set("Content-Type", form.FormDataContentType())
-	return request
-}
-
-func TestAScreenshotFromTheShareSheetLands(t *testing.T) {
-	server, s := app(t)
-	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "この一節がよかった"}, []byte{0x89, 'P', 'N', 'G'}))
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
-	}
-	var entry timeline.Entry
-	if err := json.Unmarshal(recorder.Body.Bytes(), &entry); err != nil {
+	body, err := json.Marshal(postBody{Text: text})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if entry.Kind != timeline.KindPost || entry.Text != "この一節がよかった" {
-		t.Fatalf("entry = %+v", entry)
-	}
-	if entry.Media == nil || entry.Media.BlobID == "" {
-		t.Fatal("the screenshot did not make it")
-	}
-	// The capture has not been read yet, and the post is already in. The
-	// reaction happens afterwards; the user does not wait for it.
-	if entry.Media.Ready() {
-		t.Fatal("the response waited for the image to be read")
-	}
-	data, _, err := s.Blob(entry.Media.BlobID)
-	if err != nil || len(data) != 4 {
-		t.Fatalf("blob = %v (%v)", data, err)
-	}
-
-	entries, _ := s.Timeline()
-	if len(entries) != 1 {
-		t.Fatalf("timeline = %+v", entries)
-	}
+	return httptest.NewRequest(http.MethodPost, "/api/post", bytes.NewReader(body))
 }
 
-// Android's share target sends title/text/url; a shortcut sends whatever it was
-// told to. Both are the same post.
-func TestTheShareSheetsFieldNamesAreAllAccepted(t *testing.T) {
-	server, _ := app(t)
-	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, map[string]string{
-		"title": "記事のタイトル", "url": "http://127.0.0.1/a",
-	}, nil))
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
-	}
-	var entry timeline.Entry
-	_ = json.Unmarshal(recorder.Body.Bytes(), &entry)
-	if entry.Text != "記事のタイトル" || entry.Link != "http://127.0.0.1/a" {
-		t.Fatalf("entry = %+v", entry)
-	}
-	if entry.Media == nil || entry.Media.Error == "" || entry.Media.ReadAt == nil {
-		t.Fatal("shared links must also go through the public-page fetcher")
-	}
-}
-
-// Share sheets and people both put the URL inside the sentence.
+// People put the URL inside the sentence.
 func TestAURLInsideTheTextIsReadAsTheLink(t *testing.T) {
 	server, _ := app(t)
 	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "この記事 http://127.0.0.1/a。よかった"}, nil))
+	server.ServeHTTP(recorder, posted(t, "この記事 http://127.0.0.1/a。よかった"))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -134,7 +69,7 @@ func TestAURLInsideTheTextIsReadAsTheLink(t *testing.T) {
 func TestAURLInsideAReplyIsReadAsTheLink(t *testing.T) {
 	server, _ := app(t)
 	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "ラーメン"}, nil))
+	server.ServeHTTP(recorder, posted(t, "ラーメン"))
 	var post timeline.Entry
 	_ = json.Unmarshal(recorder.Body.Bytes(), &post)
 
@@ -170,24 +105,12 @@ func TestLinkInTrimsSentencePunctuation(t *testing.T) {
 	}
 }
 
-func TestAnEmptyShareIsRefused(t *testing.T) {
+func TestAnEmptyPostIsRefused(t *testing.T) {
 	server, _ := app(t)
 	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, nil, nil))
+	server.ServeHTTP(recorder, posted(t, ""))
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d", recorder.Code)
-	}
-}
-
-func TestOversizedShareIsRejectedWithoutStoringPartialImage(t *testing.T) {
-	server, s := app(t)
-	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, nil, make([]byte, maxCapture+1)))
-	if recorder.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
-	}
-	if entries, err := s.Timeline(); err != nil || len(entries) != 0 {
-		t.Fatalf("entries = %v, err = %v", entries, err)
 	}
 }
 
@@ -247,7 +170,7 @@ func TestPastedImageCanExceedOldJSONLimit(t *testing.T) {
 func TestAReplyHangsOffThePost(t *testing.T) {
 	server, s := app(t)
 	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "ラーメン"}, nil))
+	server.ServeHTTP(recorder, posted(t, "ラーメン"))
 	var post timeline.Entry
 	_ = json.Unmarshal(recorder.Body.Bytes(), &post)
 
@@ -270,7 +193,7 @@ func TestAReplyHangsOffThePost(t *testing.T) {
 func TestDeletingLeavesATombstoneRatherThanRewritingHistory(t *testing.T) {
 	server, s := app(t)
 	recorder := httptest.NewRecorder()
-	server.ServeHTTP(recorder, shared(t, map[string]string{"text": "消す"}, nil))
+	server.ServeHTTP(recorder, posted(t, "消す"))
 	var post timeline.Entry
 	_ = json.Unmarshal(recorder.Body.Bytes(), &post)
 
