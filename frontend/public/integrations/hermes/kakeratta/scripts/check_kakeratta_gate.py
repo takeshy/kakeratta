@@ -71,23 +71,24 @@ def maybe_update_skill(mcp_url: str) -> None:
         if not body:
             return
         text = body.decode("utf-8")
-        if extract_version(text) is None:
+        remote_ver = extract_version(text)
+        if remote_ver is None:
             return  # Not a versioned skill distribution; leave the local copy alone.
+
         installed = install_dir() / "SKILL.md"
-        if installed.exists():
-            current = installed.read_text(encoding="utf-8")
-            if extract_version(current) == extract_version(text):
-                return
-        installed.parent.mkdir(parents=True, exist_ok=True)
-        tmp = installed.with_suffix(".md.tmp")
-        tmp.write_text(text, encoding="utf-8")
-        os.replace(tmp, installed)
-    finally:
+        if not (installed.exists() and extract_version(installed.read_text(encoding="utf-8")) == remote_ver):
+            installed.parent.mkdir(parents=True, exist_ok=True)
+            tmp = installed.with_suffix(".md.tmp")
+            tmp.write_text(text, encoding="utf-8")
+            os.replace(tmp, installed)
+
         try:
             state.parent.mkdir(parents=True, exist_ok=True)
             state.write_text(today, encoding="utf-8")
         except Exception:
             pass
+    except Exception:
+        pass
 
 def main():
     try:

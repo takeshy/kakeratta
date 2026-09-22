@@ -61,6 +61,8 @@ list_tasks → claim_task → get_thread → reason / use tools → complete_tas
 
 Initially, Hermes returned `[SILENT]` when there was no task; an idle run took about 3 seconds. After switching to Super 120B, this still invoked the model every minute. The current setup uses a **Wake Gate** pre-check script attached to the cron job. It returns `{"wakeAgent": false}` when there are no tasks, skipping the agent run. One verified idle tick took about 0.06 seconds with zero LLM calls. If tasks exist, or the pre-check has a connection error, it returns `{"wakeAgent": true}`. The [distributed script](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py) is attached to the cron job.
 
+Additionally, the Wake Gate script integrates a **daily skill auto-update mechanism**. Once per day, it resolves the distribution origin from Hermes's MCP configuration in `config.yaml`, fetches the latest `SKILL.md`, and atomically updates the local skill when the distributed `metadata.version` is updated (see "Daily skill auto-update via Wake Gate" below).
+
 The final architecture removed the custom polling script and output-diff monitor used earlier. That monitor could leave a failed task stuck: when the pending task ID matched the previous output, it treated the result as unchanged and did not start Hermes again. The Wake Gate checks `list_tasks` on each run.
 
 The design principle from this failure is that **unfinished tasks must remain visible for rechecking until they are completed**. Cron checks tasks on every run, regardless of whether the list changed. A pending task can be picked up on the next run. For a claimed task, checking its state is separate from repeating an external action whose outcome may be unknown; see [Hermes setup and retries](hermes.md#if-hermes-crashes-after-claiming).
@@ -82,6 +84,7 @@ The design principle from this failure is that **unfinished tasks must remain vi
 | `personal-open-internet` rejected next to host-specific policies | OpenShell refuses a policy document whose endpoints overlap on the same port with conflicting metadata (`network endpoint ambiguity validation failed`: `tls=skip` vs auto, differing `allowed_ips`, protocol/enforcement). The broad `<any-host>:80,443` endpoint conflicts with `brew`, `huggingface`, `npm`, `pypi`, `nvidia`, `nous_research`, and `mcp_bridge_kakeratta`. Replaced it with per-host endpoints for the keyless search backends via `openshell policy update --add-endpoint` (see the egress section below). |
 | Applying a policy preset during `Phase: Error` wiped the composed policy | `nemoclaw <name> policy add personal-open-internet --yes` reported success while the sandbox was in `Phase: Error`, but the written base contained only the new preset; the composed entries (`mcp_bridge_kakeratta`, `managed_inference`, `nvidia`, `nous_research`, and the user presets) were dropped. kakeratta MCP calls then failed with `Server returned an error response` because the credential binding was gone and the unresolved `openshell:resolve:env:...` placeholder was forwarded. After restoring `Ready`, the full pre-incident document was rewritten with `openshell policy set --policy <file> --wait <name>`; the restored revision hash matched the pre-incident revision exactly. |
 | First `complete_task` call rejected for missing arguments | Nemotron Super 120B omitted `text` (and sometimes `claimId`) on the first `mcp__kakeratta__complete_task` call; Hermes rejected it locally (`The tool was NOT invoked`) and the retry roughly 5 seconds later succeeded, adding latency to every task. The Skill now names all three arguments (`taskId`, `claimId`, `text`), requires them on every call including retries, and forbids an empty `text`, which completes quietly without posting. |
+| Skill updates required manual reinstallation in each sandbox | Revisions to `SKILL.md` (such as reply formatting guidelines or error diagnostic instructions) required manual reinstallation inside the container. Integrated daily auto-update into `check_kakeratta_gate.py` to compare `metadata.version` and fetch over the existing `mcp_bridge_kakeratta` egress (`kakeratta.net:443`), eliminating maintenance overhead while keeping update failures silent and non-blocking. |
 
 ### Opening egress for web search and page extraction (preventing hallucinations)
 
@@ -128,18 +131,101 @@ Prefer `openshell policy update --add-endpoint` for additions on a healthy sandb
 
 ### Keep the Gateway restart fix across sandbox recreation
 
-If managed MCP registration is followed by `exec relay closed` or a stopped sandbox, check whether Hermes Gateway exited with code `75`. That code requests a Gateway restart. The Hermes container entrypoint must handle it by restarting the Gateway process; patching `/usr/local/bin/nemoclaw-start` inside a running container is only temporary. Recreating the sandbox from the original image removes the patch.
+Hermes Gateway exits with **exit code `75` (EX_TEMPFAIL)** when registering or modifying managed MCP providers to request a process reload.
+However, NemoClaw's standard container entrypoint script (`/usr/local/bin/nemoclaw-start`) treats this exit code as a fatal failure (due to `set -e` or unhandled return codes), causing the entire container process to terminate. This stops the sandbox immediately after MCP registration and frequently triggers `exec relay closed` or OpenShell Gateway database `Phase: Error` reconciliation deadlocks.
 
-Use a NemoClaw image containing the corrected `agents/hermes/start.sh`, or build a custom image that copies the corrected script into `/usr/local/bin/nemoclaw-start`. Pin the base image version you have tested. A custom Dockerfile used with `nemoclaw onboard --from /path/to/Dockerfile` must also include these declarations in its final stage:
-Make sure `start.sh` is executable in the Docker build context (`chmod 755 start.sh`).
+Patching `/usr/local/bin/nemoclaw-start` inside a running container is only temporary; recreating the sandbox (`recreate` or re-onboarding) overwrites it with the base image. To resolve this permanently, build a **custom Docker image that catches exit code 75 and restarts only the Gateway process**.
+
+Below is the verified, reproducible procedure used in this integration.
+
+#### 1. Prepare the build directory and entrypoint script
+Create a build directory on the host (e.g. `~/.config/nemoclaw/hermes-image/`), extract the startup script from the base container, and make it executable:
+
+```bash
+mkdir -p ~/.config/nemoclaw/hermes-image
+cd ~/.config/nemoclaw/hermes-image
+
+# Extract the original startup script from the running container
+docker cp <hermes_container_id>:/usr/local/bin/nemoclaw-start ./start.sh
+
+# Make executable (mandatory; otherwise the container fails to start with Permission Denied)
+chmod 755 start.sh
+```
+
+#### 2. Modify `start.sh` (Add the exit code 75 restart loop)
+Wrap the Hermes Gateway process wait logic in a `while true; do ... done` loop. When the process exits with code `75`, restart only the Gateway process and continue the monitoring loop instead of terminating the container:
+
+```bash
+# Modified section in start.sh (excerpt)
+while true; do
+  if wait "$GATEWAY_PID"; then
+    rc=0
+  else
+    rc=$?
+  fi
+
+  # Catch exit code 75 (Hermes restart request) and restart process only
+  if [ "$rc" -eq 75 ]; then
+    echo "[gateway] Hermes requested restart (exit code 75). Restarting gateway..." >&2
+    launch_hermes_gateway_current_user || exit 1
+    wait_for_hermes_gateway_internal "$GATEWAY_PID" || exit 1
+    ensure_hermes_supervised_auxiliaries || exit 1
+    continue
+  fi
+
+  # Exit on all other return codes
+  exit "$rc"
+done
+```
+
+#### 3. Create the `Dockerfile`
+Specify a pinned, verified base image digest and copy the patched `start.sh` over `/usr/local/bin/nemoclaw-start`:
 
 ```dockerfile
+# ~/.config/nemoclaw/hermes-image/Dockerfile
+FROM ghcr.io/nvidia/nemoclaw/hermes-sandbox@sha256:73fec1566a2cdf859a8c2832f77f90d7101755843847ecf78d5cd270f92790ed
 ARG NEMOCLAW_TOOL_DISCLOSURE=progressive
 ENV NEMOCLAW_TOOL_DISCLOSURE=${NEMOCLAW_TOOL_DISCLOSURE}
+
+# Preserve Hermes gateway restarts (exit 75) across sandbox recreation
 COPY --chown=root:root start.sh /usr/local/bin/nemoclaw-start
 ```
 
-Back up the sandbox state before recreation. Afterward, confirm that the sandbox reaches `Ready`, the managed kakeratta MCP is enabled in `hermes mcp list`, and the kakeratta skill, Wake Gate script, and cron job are present. Store MCP credentials in OpenShell rather than in the Dockerfile, skill, or cron command.
+#### 4. Build and onboard with NemoClaw
+Pass the Dockerfile to `nemoclaw onboard` using the `--from` option. The CLI automatically invokes Docker build and provisions the sandbox from the custom image:
+
+```bash
+nemoclaw onboard --from ~/.config/nemoclaw/hermes-image/Dockerfile
+```
+
+#### 5. Verification
+After the container starts, verify that the exit code 75 handling is present inside `/usr/local/bin/nemoclaw-start`:
+
+```bash
+nemoclaw hermes-sandbox exec -- grep "exit code 75" /usr/local/bin/nemoclaw-start
+```
+
+Afterward, confirm that the sandbox reaches `Ready` (`openshell sandbox list -g <gateway>`), managed kakeratta MCP is enabled in `hermes mcp list`, and the skill, Wake Gate script, and cron job are active. Store MCP credentials in OpenShell rather than in the Dockerfile, skill, or cron command.
+
+### Daily skill auto-update via Wake Gate
+
+The Hermes Skill (`SKILL.md`) evolves alongside application improvements—such as formatting rules (GFM Markdown / HTML documents) or stricter error diagnostic requirements (mandatory `complete_task` arguments and failure reporting). Because the skill is installed as static files under Hermes's home directory (`/sandbox/.hermes/skills/kakeratta`), updates previously required manual reinstallation inside each sandbox container.
+
+To automate this maintenance, the Wake Gate pre-check script (`check_kakeratta_gate.py`) includes a daily skill auto-update mechanism:
+
+1. **Trigger and frequency**:
+   On each minute's wake check, the script consults its state flag (`~/.hermes/state/kakeratta_gate_skill_check`). It executes the check only when the state indicates it has not run yet today (once per day).
+2. **Dynamic origin resolution**:
+   The script inspects `mcp_servers.kakeratta.url` in Hermes's `config.yaml`, extracts the origin (`https://kakeratta.net`), and fetches the distribution path (`integrations/hermes/kakeratta/SKILL.md`) over HTTPS.
+3. **Network policy alignment**:
+   Although sandbox egress is strictly restricted, the skill's origin matches the managed MCP endpoint over port 443. It falls directly under the egress already permitted by OpenShell's composed `mcp_bridge_kakeratta` policy, requiring **no additional egress rules**.
+4. **Version comparison and atomic replacement**:
+   The script parses `metadata.version` from the fetched markdown frontmatter. If it differs from the installed copy, the new text is written to a temporary file (`.md.tmp`) and atomically replaced via `os.replace`.
+5. **Fail-safe resilience**:
+   If network glitches or download failures occur, the state flag is not updated, allowing retry on the subsequent cron tick. Any exceptions during skill update are silently caught, guaranteeing that the primary wake decision (`wakeAgent: true/false`) is never interrupted (fail-open).
+
+> [!NOTE]
+> The script only updates `SKILL.md`, not itself. Manual placement into `/sandbox/.hermes/scripts/check_kakeratta_gate.py` is required upon initial sandbox onboarding or when modifying the script's internal logic.
 
 ### Ensure reliable auto-start on host reboot
 

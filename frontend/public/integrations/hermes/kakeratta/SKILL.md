@@ -33,7 +33,7 @@ When this skill is invoked:
    - Call `mcp__kakeratta__complete_task` in a single tool call that includes **all three required arguments**:
      - `taskId`: the task's `id`
      - `claimId`: the exact claim ID used for `claim_task`
-      - `text`: the complete reply for the user, written in Japanese, formatted as described under "Reply formatting"
+     - `text`: the complete reply for the user, written in Japanese, formatted as described under "Reply formatting"
 
      Every call, including retries, must include all three arguments; a call that omits any of them is rejected before reaching kakeratta. For an ordinary user request, never send an empty `text` after claiming: an empty `text` completes the task quietly and the user receives no reply. A daily check-in may use an empty `text` when there is nothing worth sharing, as described below. Always invoke `complete_task` as an actual tool call, never output `<function=mcp__kakeratta__complete_task>` as plain text.
 4. Never claim a task you do not intend to process.

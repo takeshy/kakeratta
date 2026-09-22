@@ -42,6 +42,64 @@ URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサー�
 
 設定形式は[Hermes公式MCPガイド](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)と[MCP設定リファレンス](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference)、および[Hermes Cronガイド](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron)を参照してください。
 
+### NemoClaw / OpenShellサンドボックスの場合
+
+NemoClaw / OpenShell によるガバナンス下で Hermes を運用する場合、設定管理やネットワーク境界の扱いが通常の手順と異なります（障害の詳細や運用知見は[統合レポート](nemoclaw-hermes-integration_ja.md)を参照）。
+
+以下の手順でセットアップします：
+
+#### 前提条件
+- サンドボックスのベースイメージに、Hermes Gateway の再起動要求（exit コード `75`）を捕捉してプロセス再起動を行う修正（`start.sh`）が含まれていること（「[サンドボックス再作成後もGatewayの修正を残す](nemoclaw-hermes-integration_ja.md#サンドボックス再作成後も-gateway-の修正を残す)」参照）。未修正のイメージでは MCP 登録時にサンドボックス全体が停止します。
+
+#### 手順1: 管理対象 MCP プロバイダーの登録（ホスト側作業）
+kakeratta の画面で発行したキーは、直接 `config.yaml` に書き込まず、OpenShell の管理対象 MCP プロバイダーとして登録します。OpenShell が認証情報を安全に保管し、Hermes 側には解決用の環境変数プレースホルダーを自動注入します。また、MCP 接続に必要な `kakeratta.net:443` の Egress ポリシー（`mcp_bridge_kakeratta`）も自動合成されます。
+
+```bash
+# kakeratta の設定画面に表示される NemoClaw 用コマンドを実行
+# 例:
+openshell provider add -g <gateway> <sandbox> kakeratta \
+  --type mcp \
+  --url "https://kakeratta.net/api/mcp/users/<user_id>" \
+  --token "<ISSUED_KEY>"
+```
+
+#### 手順2: コンテナ内への Skill と Wake Gate スクリプトの配置（サンドボックス内）
+Skill・スクリプト・Cron はコンテナ内（Hermes ホーム: `/sandbox/.hermes`）に配置します。
+
+```bash
+# 1. Skill のインストール
+nemoclaw <sandbox> exec -- hermes skills install https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md
+
+# 2. Wake Gate スクリプトの配置（ホストからコンテナへコピー）
+docker cp check_kakeratta_gate.py <container_id>:/sandbox/.hermes/scripts/check_kakeratta_gate.py
+nemoclaw <sandbox> exec -- chmod +x /sandbox/.hermes/scripts/check_kakeratta_gate.py
+```
+
+#### 手順3: Wake Gate 付き Cron ジョブの作成
+未処理タスクがない場合の無駄な推論（毎分のトークン消費）を防ぐため、Wake Gate を紐付けた Cron ジョブを作成します。
+
+```bash
+nemoclaw <sandbox> exec -- hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
+```
+
+#### 手順4: 疎通と動作の確認
+依存する前に、以下のコマンドで正常稼働を確認します：
+
+```bash
+# サンドボックスが Ready であることを確認
+openshell sandbox list -g <gateway>
+
+# kakeratta MCP が認識されていることを確認
+nemoclaw <sandbox> exec -- hermes mcp list
+
+# タスク確認ツールが正常に応答することを確認
+nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_tasks"
+```
+
+> [!TIP]
+> **Skill の自動更新について**:
+> 一度配置された Wake Gate スクリプトは、1日1回 `kakeratta.net`（`mcp_bridge_kakeratta` により 443 Egress は許可済み）から配布版 `SKILL.md` を取得し、バージョンが更新されていれば自動で上書き更新します。そのため、日々の運用で Skill を手動再インストールする必要はありません（スクリプト本体の更新時のみ手動反映が必要です）。
+
 ## キーとアクセス範囲
 
 キーは発行直後の画面でだけ表示し、サーバーにはハッシュを保存します。再発行すると以前のキーは無効になり、「連携を解除」で失効できます。ブラウザのログインCookieはMCPの認証には使えません。

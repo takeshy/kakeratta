@@ -42,6 +42,64 @@ The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expos
 
 For the configuration format, see the [official Hermes MCP guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp), the [MCP configuration reference](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference), and the [Hermes Cron guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron).
 
+### In a NemoClaw / OpenShell sandbox
+
+When running Hermes under the governance of NVIDIA NemoClaw / OpenShell, configuration management and network boundaries differ from the standard setup (see the [integration report](nemoclaw-hermes-integration.md) for detailed failure modes and operational insights).
+
+Follow these steps to set up the integration:
+
+#### Prerequisites
+- The sandbox base image must contain the startup script fix (`start.sh`) that catches Hermes Gateway's exit code `75` (restart request) and restarts the process instead of terminating the container (see ["Keep the Gateway restart fix across sandbox recreation"](nemoclaw-hermes-integration.md#keep-the-gateway-restart-fix-across-sandbox-recreation)). Images without this fix will stop the sandbox as soon as the MCP provider is registered.
+
+#### Step 1: Register kakeratta as a managed MCP provider (Host side)
+Do not paste the raw connection key into `config.yaml`. Instead, register kakeratta as a managed MCP provider for the sandbox. OpenShell securely manages credentials in its store and injects a resolved generation-scoped environment placeholder into Hermes's configuration. This registration also composes the `mcp_bridge_kakeratta` policy entry, which permits the `kakeratta.net:443` egress required for MCP.
+
+```bash
+# Run the NemoClaw command shown on the Kakeratta connection screen
+# Example:
+openshell provider add -g <gateway> <sandbox> kakeratta \
+  --type mcp \
+  --url "https://kakeratta.net/api/mcp/users/<user_id>" \
+  --token "<ISSUED_KEY>"
+```
+
+#### Step 2: Install the Skill and Wake Gate script (Inside the sandbox)
+The skill, scripts, and cron jobs run inside the container under Hermes's home directory (`/sandbox/.hermes`).
+
+```bash
+# 1. Install the skill
+nemoclaw <sandbox> exec -- hermes skills install https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md
+
+# 2. Place the Wake Gate script (copy from host to container)
+docker cp check_kakeratta_gate.py <container_id>:/sandbox/.hermes/scripts/check_kakeratta_gate.py
+nemoclaw <sandbox> exec -- chmod +x /sandbox/.hermes/scripts/check_kakeratta_gate.py
+```
+
+#### Step 3: Create the Cron job with Wake Gate attached
+To eliminate wasteful LLM execution (token spend every minute) when no tasks are pending, create the cron job with the Wake Gate attached:
+
+```bash
+nemoclaw <sandbox> exec -- hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
+```
+
+#### Step 4: Verify connectivity and tools
+Before relying on autonomous execution, verify healthy operation with these commands:
+
+```bash
+# Confirm the sandbox returns to Ready
+openshell sandbox list -g <gateway>
+
+# Verify kakeratta MCP is enabled
+nemoclaw <sandbox> exec -- hermes mcp list
+
+# Confirm mcp__kakeratta__list_tasks is callable
+nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_tasks"
+```
+
+> [!TIP]
+> **Skill Auto-Update in Sandbox**:
+> Once placed, the Wake Gate script automatically updates the installed skill once per day: it fetches the distributed `SKILL.md` from `kakeratta.net` (already covered by `mcp_bridge_kakeratta` egress on port 443) and overwrites `~/.hermes/skills/kakeratta/SKILL.md` when a newer `metadata.version` is distributed. Manual reinstallation is only needed when updating the script itself.
+
 ## The key and its scope
 
 The key is shown only on the screen right after it is issued; the server stores a hash. Reissuing invalidates the previous key, and **Disconnect** revokes it. Browser login cookies cannot be used for MCP authentication.

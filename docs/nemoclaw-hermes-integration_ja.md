@@ -61,6 +61,8 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 
 初期構成では依頼がなければ `[SILENT]` を返し、アイドル実行は約 3 秒でした。ただし Super 120B へ切り替えた後、この方式でも毎分推論が発生することが分かりました。現在は Cron の事前実行スクリプトによる **Wake Gate** を使い、タスクがなければ `{"wakeAgent": false}` を返してエージェントの起動自体を省略します。検証したアイドル tick は約 0.06 秒で、LLM 呼び出しは 0 回でした。タスクがある場合、または事前確認で通信エラーが起きた場合は `{"wakeAgent": true}` としてエージェントを起動します。[配布スクリプト](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)を Cron ジョブに指定します。
 
+さらに、この Wake Gate スクリプトには日次の **Skill 自動更新機構** も統合されています。1日1回、`config.yaml` の MCP 設定から kakeratta の配信元オリジンを解決して最新の `SKILL.md` を取得し、フロントマターの `metadata.version` が更新されていればローカルの Skill をアトミックに自動更新します（後述の「Wake Gate による Skill の日次自動更新」参照）。
+
 初期構成で試した独自ポーリングスクリプトや出力差分監視は、最終構成から削除しました。タスク ID が前回と同じ場合にエージェントを再起動しない差分監視では、処理失敗後に依頼が残り続ける問題があったためです。Wake Gate は毎回 `list_tasks` を確認する方式です。
 
 この検証で重視した原則は、**未完了のタスクは正常完了するまで再確認できるべき**ということです。初期の出力差分監視では、Task A の処理が失敗した後もポーリング結果が Task A のままだと「変更なし」と判定され、Hermes が二度と起動しませんでした。現在は毎回確認します。取得済みタスクで外部操作の成否が不明な場合の再実行は、[再試行ガイド](hermes_ja.md#claim後にクラッシュした場合)に従います。
@@ -82,6 +84,7 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 | `personal-open-internet` がホスト別ポリシーと共存できない | OpenShell は、同一ポートで重複するエンドポイントのメタデータが不一致（`tls=skip` vs auto、`allowed_ips` の差異、protocol/enforcement）のポリシードキュメントを `network endpoint ambiguity validation failed` として拒否する。`<any-host>:80,443` の広域エンドポイントは `brew`・`huggingface`・`npm`・`pypi`・`nvidia`・`nous_research`・`mcp_bridge_kakeratta` と競合するため、キーなし検索バックエンドを `openshell policy update --add-endpoint` でホスト単位に追加する方式に置き換えた（下の Egress セクション参照）。 |
 | `Phase: Error` 中にポリシープリセットを適用すると合成済みポリシーが消える | サンドボックスが `Phase: Error` の間に `nemoclaw <name> policy add personal-open-internet --yes` を実行すると成功と表示されたが、書き戻されたベースには新プリセットのみが含まれ、合成エントリ（`mcp_bridge_kakeratta`、`managed_inference`、`nvidia`、`nous_research`、ユーザープリセット）がすべて消えた。以降 kakeratta への MCP 呼び出しは、クレデンシャルバインディング喪失により未解決の `openshell:resolve:env:...` プレースホルダーが送信され、`Server returned an error response` で失敗した。`Ready` 復帰後に事故前の完全なドキュメントを `openshell policy set --policy <file> --wait <name>` で書き戻し、リビジョンハッシュが事故前と完全一致することで復元を確認した。 |
 | 初回の `complete_task` 呼び出しが毎回引数不足で拒否される | Nemotron Super 120B は初回の `mcp__kakeratta__complete_task` 呼び出しで `text`（時に `claimId`）を省略し、Hermes 側の検証で拒否（`The tool was NOT invoked`）された後、約 5 秒の再試行で成功していたため、全タスクに無駄な遅延が乗っていた。Skill 側で 3 引数（`taskId`、`claimId`、`text`）を明記し、再試行を含む全呼び出しでの必須化と、空の `text`（静かに完了して何も投稿しない）の禁止を追記して対処した。 |
+| Skill の機能更新時に各サンドボックスで手動再インストールが必要だった | SKILL.md の改定（返信フォーマット指示やエラーハンドリング強化など）のたびに、コンテナ内に入って手動で再インストールする必要があった。Wake Gate スクリプト（check_kakeratta_gate.py）に日次自動更新処理を統合し、既存の mcp_bridge_kakeratta Egress（kakeratta.net:443）を利用して metadata.version を比較・自動更新する仕組みを構築した。更新失敗時もタスク判定を阻害しない fail-open 設計とした。 |
 
 ### Web 検索・Web 抽出の Egress 開放（ハルシネーション防止）
 
@@ -128,18 +131,101 @@ Egress の開放には 2 つの方法があります。
 
 ### サンドボックス再作成後も Gateway の修正を残す
 
-管理付き MCP の登録後に `exec relay closed` が出る、またはサンドボックスが停止する場合は、Hermes Gateway の終了コード `75` を確認してください。これは Gateway の再起動要求です。コンテナ内の `/usr/local/bin/nemoclaw-start` を直接修正しただけでは、サンドボックス再作成時に消えます。
+Hermes Agent は、管理付き MCP の追加や変更、設定更新の際に、プロセスの再読み込みを要求するために **exit code `75`（EX_TEMPFAIL）** で終了します。
+しかし、NemoClaw の標準コンテナ起動スクリプト（`/usr/local/bin/nemoclaw-start`）は `set -e` 等でエラー扱いしてしまい、コンテナプロセス全体が終了（停止）してしまいます。これにより、MCP 登録直後にサンドボックスが停止したり、`exec relay closed` や Gateway DB の `Phase: Error` デッドロックを誘発します。
 
-修正済みの `agents/hermes/start.sh` を含む NemoClaw イメージを使うか、テスト済みのベースイメージを固定したカスタムイメージを作り、修正済みスクリプトを `/usr/local/bin/nemoclaw-start` にコピーします。`nemoclaw onboard --from /path/to/Dockerfile` で使う Dockerfile の最終ステージには、次の宣言も必要です。
-ビルドコンテキスト内の `start.sh` に実行権限を付けてください（`chmod 755 start.sh`）。
+稼働中コンテナ内の `/usr/local/bin/nemoclaw-start` を手動修正しても、サンドボックス再作成（`recreate` や再オンボーディング）時にベースイメージで上書きされて修正が失われます。そのため、**exit code 75 を捕捉して Gateway だけを再起動するカスタムイメージ** を作成して運用します。
+
+以下に、実運用環境で検証済みの具体的な作成・適用手順を示します。
+
+#### 1. ビルドディレクトリと起動スクリプトの準備
+ホスト上にビルド用の設定ディレクトリ（例: `~/.config/nemoclaw/hermes-image/`）を用意し、ベースイメージから起動スクリプトを取り出して実行権限を付与します：
+
+```bash
+mkdir -p ~/.config/nemoclaw/hermes-image
+cd ~/.config/nemoclaw/hermes-image
+
+# 稼働中のコンテナからオリジナルの起動スクリプトを抽出
+docker cp <hermes_container_id>:/usr/local/bin/nemoclaw-start ./start.sh
+
+# 実行権限を付与（必須: 権限がないとコンテナ起動時に Permission Denied で停止します）
+chmod 755 start.sh
+```
+
+#### 2. `start.sh` の修正（exit code 75 捕捉ループの追加）
+`start.sh` 内の Hermes Gateway プロセス終了待機処理を `while true; do ... done` ループで囲み、終了コードが `75` の場合はコンテナを終了させず、Gateway プロセスのみを再起動して監視ループを継続します：
+
+```bash
+# start.sh 内の修正箇所（抜粋）
+while true; do
+  if wait "$GATEWAY_PID"; then
+    rc=0
+  else
+    rc=$?
+  fi
+
+  # exit code 75（Hermes 再起動シグナル）を捕捉してプロセスのみ再起動
+  if [ "$rc" -eq 75 ]; then
+    echo "[gateway] Hermes requested restart (exit code 75). Restarting gateway..." >&2
+    launch_hermes_gateway_current_user || exit 1
+    wait_for_hermes_gateway_internal "$GATEWAY_PID" || exit 1
+    ensure_hermes_supervised_auxiliaries || exit 1
+    continue
+  fi
+
+  # 75 以外の終了コードはそのまま exit
+  exit "$rc"
+done
+```
+
+#### 3. `Dockerfile` の作成
+ベースイメージに検証済みのダイジェストを指定し、修正版 `start.sh` を `/usr/local/bin/nemoclaw-start` に上書き配置する Dockerfile を作成します：
 
 ```dockerfile
+# ~/.config/nemoclaw/hermes-image/Dockerfile
+FROM ghcr.io/nvidia/nemoclaw/hermes-sandbox@sha256:73fec1566a2cdf859a8c2832f77f90d7101755843847ecf78d5cd270f92790ed
 ARG NEMOCLAW_TOOL_DISCLOSURE=progressive
 ENV NEMOCLAW_TOOL_DISCLOSURE=${NEMOCLAW_TOOL_DISCLOSURE}
+
+# サンドボックス再作成後も Gateway の exit 75 再起動を維持する
 COPY --chown=root:root start.sh /usr/local/bin/nemoclaw-start
 ```
 
-再作成前にサンドボックスの状態をバックアップしてください。再作成後は `Ready`、`hermes mcp list` での kakeratta の有効化、skill・Wake Gate スクリプト・cron ジョブの存在を確認します。MCP の認証情報は Dockerfile や skill、cron ではなく OpenShell に保存します。
+#### 4. NemoClaw でのビルド＆オンボーディング
+NemoClaw の `onboard` コマンドに `--from` オプションで作成した Dockerfile を指定します。CLI が自動的に Docker build を呼び出し、カスタムイメージからサンドボックスを作成・起動します：
+
+```bash
+nemoclaw onboard --from ~/.config/nemoclaw/hermes-image/Dockerfile
+```
+
+#### 5. 動作確認
+コンテナ起動後、サンドボックス内で以下を実行して exit 75 の捕捉コードが含まれていることを確認します：
+
+```bash
+nemoclaw hermes-sandbox exec -- grep "exit code 75" /usr/local/bin/nemoclaw-start
+```
+
+その後、`openshell sandbox list -g <gateway>` でサンドボックスが `Ready` に達していること、`hermes mcp list` で管理付き MCP が有効なこと、skill・Wake Gate スクリプト・cron ジョブが正常に稼働していることを確認します。MCP 認証情報は Dockerfile やイメージ内には含めず、OpenShell の認証情報ストアに保持します。
+
+### Wake Gate による Skill の日次自動更新
+
+Hermes Agent の返信フォーマット（GFM Markdown / HTML文書）やエラーハンドリング指示（`complete_task` への必須引数や失敗時の報告義務）など、Skill (`SKILL.md`) は運用改善に伴って継続的に改定されます。しかし、サンドボックス内の Hermes Home (`/sandbox/.hermes/skills/kakeratta`) にインストールされた Skill は静的ファイルであり、通常は更新のたびに各サンドボックスへ手動で再インストールする必要がありました。
+
+これを自律化するため、Wake Gate スクリプト (`check_kakeratta_gate.py`) に日次の Skill 自動更新機構を組み込んでいます。
+
+1. **更新タイミングと頻度**:
+   毎分実行される Wake Gate の起動時、ステートファイル (`~/.hermes/state/kakeratta_gate_skill_check`) を確認し、最終チェックが本日でない場合のみ実行します（1日1回）。
+2. **配信元 URL の自動導出**:
+   Hermes の `config.yaml` 内の `mcp_servers.kakeratta.url` からオリジン（例: `https://kakeratta.net`）を抽出し、配布パス（`integrations/hermes/kakeratta/SKILL.md`）へ HTTPS GET リクエストを行います。
+3. **ネットワークポリシーとの整合性**:
+   サンドボックスの Egress は厳格に制限されていますが、この取得先は MCP 接続先と同一のオリジン（ポート 443）です。OpenShell が管理対象 MCP プロバイダー登録時に自動合成するポリシー（`mcp_bridge_kakeratta`）の通信範囲内に収まるため、**追加の Egress 許可設定なしで通信が通過**します。
+4. **バージョン比較とアトミック置換**:
+   取得した `SKILL.md` のフロントマターから `metadata.version` を抽出します。ローカルにインストール済みのバージョンと異なる場合、一時ファイル (`.md.tmp`) への書き込みを経て `os.replace` でアトミックに置換します。
+5. **フェイルセーフ設計**:
+   ネットワーク瞬断やダウンロード失敗時はステートファイルを更新せず終了するため、次回の Cron 実行時に自動で再試行されます。また、自動更新処理のすべての例外は安全に握りつぶされ、本来の目的である Wake Gate のタスク判定（`wakeAgent: true/false`）を決して阻害しません（fail-open）。
+
+> [!NOTE]
+> スクリプト本体 (`check_kakeratta_gate.py`) 自体は `SKILL.md` を更新するものであり、スクリプト自身の自己更新は行いません。そのため、スクリプト本体のロジックを変更した場合や、サンドボックスを新規作成・再作成した初回のみ、スクリプトを手動で配置する必要があります。
 
 ### ホスト再起動時の自動起動とデッドロック回避
 
