@@ -17,15 +17,16 @@ to see it happen.
 ## The shape it ended up in
 
 ```
-post
- ↓ routing           Nemotron Super (or optional Jev) matches the post against each persona's conditions
- ↓ each persona:
-     low tier         notes, web search, remark — called directly, no review   (Nemotron 3.5 Lightning)
-     middle / high    read   → notes, web search, places, routes, the image     (Nemotron Super / Ultra)
-                      workflow → the writes and the remark, every text final
-                      checked by code, then reviewed by Nemotron Super unless it only writes notes and speaks
-                      run in order, stopping at the first step that fails
- ↓ one structured log line per routing decision and per persona turn
+post / reply
+ ↓ the image is read once                  (GLM-5.3-Flash)
+ ↓ routing           Nemotron Super (or optional Jev) matches it against each persona's routing condition
+ ↓ a reply to a persona's remark: Nemotron 3.5 Lightning answers one question - does it ask for a better answer?
+ ↓ every recipient, in parallel, one turn   (Nemotron Super; the replied-to persona on Ultra when it does)
+     read     → index.md, notes, timeline search, web search, places, routes
+     workflow → the writes and the remark, every text final
+     checked by code, then reviewed by Nemotron Super unless it only writes notes and speaks
+     (and the persona cannot schedule); run in order, stopping at the first step that fails
+ ↓ one structured log line per routing decision and per persona turn; the routing decision is kept per post
 ```
 
 ## 1. A protocol in prose was followed in prose
@@ -66,12 +67,25 @@ misbehaving. The fix was one line; finding it took reading production data.
   to prevent - and nothing recorded whether "everyone" was a choice or a
   fallback.
 
-**Fix:** routing is now made by the best model configured (Nemotron Ultra),
-delivers only where a post belongs, resolves names as well as ids, ignores a
+**Fix:** routing delivers only where a post belongs, resolves names as well as ids, ignores a
 name that matches nobody instead of guessing, and delivers to nobody when it
 fails (a persona named with `@` is still always reached). Every decision is
 logged with a one-line reason per persona. The first such log line showed
 why a post had gone to all six personas: the router had answered `plana`.
+
+Routing was moved to Nemotron Ultra while this was being debugged. That made
+the problems easier to see, but routing runs on every post, and a personal
+notebook should not make anyone think twice before saving a small thought.
+What the router sees was cut down to a short routing condition per persona -
+what posts it should get, not what it is meant to achieve - and the examples
+that pulled the model toward particular cases were removed. After that, a
+replay of 20 production posts put Super at 1.91 seconds and about 0.098 yen a
+route against Ultra's 2.28 seconds and 0.449 yen, and Super became the default
+again ([2026-09-19](routing-model-comparison-2026-09-19.md), Japanese).
+
+**Lesson:** if a large model gets a routing task right and a smaller one gets
+it wrong, the task may be too ambiguous. Change the task before paying for the
+model.
 
 ## 4. Deciding and acting in the same breath
 
@@ -138,7 +152,8 @@ A review that judges taste becomes a second persona. The review here only looks
 for things that go wrong: something stated that did not happen or was not in
 what the persona read, a promised time with no schedule, a remark in a
 different language from the post, a note overwritten without being read, the
-persona's own instructions broken. An invented schedule id used to be on this
+persona's own instructions broken, a remark that describes work instead of
+answering. An invented schedule id used to be on this
 list; the app now catches it before the review, by matching every id in the
 workflow against the persona's own schedules.
 
@@ -147,6 +162,12 @@ It still made mistakes. In one live run a persona's remark was its own plan -
 review passed it by describing a remark that listed shops. Now a remark equal
 to the summary is rejected by code, and the review is told to quote the remark
 before judging it.
+
+What gets reviewed depends on the kinds of step, not how many there are. A
+workflow with anything beyond `write_note` and `speak` - schedules,
+forgetting, tools - is always reviewed. One that only writes notes and speaks
+is reviewed only when the persona holds `schedule`, because a time promised
+with nothing set to wake has exactly that shape.
 
 **Lesson:** anything code can check, code checks first. The model reviews only
 what code cannot.
@@ -162,21 +183,33 @@ what code cannot.
   is said outright. The next live run switched to web search after two
   failures.
 
-## 10. Not every tier should carry the same structure
+## 10. Model tiers per persona gave way to one model and a narrow question
 
-The read-then-workflow structure was where the smallest model stumbled most.
-The tiers now mean different ways of working:
+Personas used to carry a tier. Low ran on Nemotron 3.5 Lightning with notes,
+web search and a remark called directly, because the read-then-workflow
+structure was where the smallest model stumbled most; middle and high ran the
+full workflow on Super and Ultra. That meant two ways of running a turn, a
+rule refusing tools on a low persona, and the person writing a persona having
+to guess how hard its posts would be.
 
-| Tier | Model | How it works |
-|---|---|---|
-| low | Nemotron 3.5 Lightning | Notes, web search and a remark, called directly. No workflow, no review |
-| middle | Nemotron Super | Reads, hands in a workflow, reviewed, run |
-| high | Nemotron Ultra | Same as middle |
-| the app | Nemotron Super / optional Jev | Routing (Super or Jev) / reviewing workflows beyond notes and remarks (Super) |
+Now every persona a post reaches runs once, in parallel, on Super, always
+through the reviewed workflow. Ultra is used when the user asks for it: when
+someone replies to a persona's remark, Lightning is shown the remark and the
+reply and answers only whether the reply explicitly asks for a correction, a
+rethink, more detail or a deeper look ("違う", "本当？", "もっと詳しく"). If it
+does, the persona that was replied to answers on Ultra - added even when
+routing did not pick it - with "keep it short" replaced by a request for a
+thorough Markdown answer. Anyone else the reply reaches stays on Super, and so
+does a judgement that fails.
 
-Any tool that does more than look things up needs a workflow, so a low persona
-holding one is refused on save; one saved earlier runs a tier up rather than
-quietly losing its tools.
+Lightning is not asked whether Super would be good enough; only whether the
+user said, in so many words, that they want more. On 15 synthetic replies
+(2026-09-22) it judged all 15 correctly in 0.67 seconds on average; Super also
+got 15/15 but took 1.30 seconds at about five times the cost. Each remark
+records which model answered, and the timeline marks an Ultra answer.
+
+**Lesson:** the smallest model did badly at a whole turn and well at one
+narrow yes/no question. Give it the question.
 
 ## 11. Small things that broke real data
 
@@ -188,6 +221,14 @@ quietly losing its tools.
 - A persona woken only to tidy up after the user deleted a post published a new
   top-level post ("Watching the drama?"). Tidy-up wakes are now silent turns,
   and are not offered `speak` at all.
+- Every wake handed a persona a listing of all its notes, so the prompt grew
+  with the memory. A wake now hands over `index.md` and a note count; the index
+  is the way in, and `notes_list` pages 100 at a time, newest first.
+- Routing records showed every persona as "called, but stayed silent" the
+  moment a post was routed - only in production. Firestore returns an empty
+  array as a nil slice, and nil was how the app recognised an old record with
+  no turns tracked. Local development stores JSON, where the two differ, so no
+  test saw it. The record now says for itself that it tracks turns.
 
 ## 12. What made any of this findable
 
@@ -197,16 +238,14 @@ problems and review, each step as it ran, and what was said. Most of the fixes
 above started from one of those lines. Before them, "routing chose everyone"
 and "routing failed" were indistinguishable.
 
+The routing decision is also kept per post and shown from the timeline: whom
+the router chose, whom it passed over and why. When the user says a persona
+should or should not have been called, that correction rewrites the persona's
+routing condition, and the router tries the same post again before it is
+saved. The condition is the only thing that changes; nothing is learned
+silently.
+
 Tests were held to one rule: a test for a fix has to fail when the fix is
 removed. Twice a new test passed for the wrong reason - once because a test
 script's JSON was malformed and the case it was meant to exercise never ran -
 and was rewritten until it failed against the old code.
-
-## Still open
-
-- Place-name lookup through the geo MCP server does not prefer nearby matches:
-  "Tokyo Tower by car" once resolved to a place 150 km away. The fix belongs in
-  that server, not here.
-- Only a handful of live runs back any of this. A fixed set of posts run against
-  each tier would say more about which model suits which persona than the
-  anecdotes above.

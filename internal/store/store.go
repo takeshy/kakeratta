@@ -388,7 +388,7 @@ func (s *Store) MemoryPage(personaID, after string, limit int, match func(Note) 
 	var stamps []Note
 	root := s.memoryDir(personaID)
 	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
+		if err != nil || entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			return nil
 		}
 		relative, err := filepath.Rel(root, path)
@@ -459,7 +459,7 @@ func (s *Store) notePathsLocked(personaID string) []string {
 	root := s.memoryDir(personaID)
 	var paths []string
 	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
+		if err != nil || entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			return nil
 		}
 		if relative, err := filepath.Rel(root, path); err == nil {
@@ -515,6 +515,9 @@ func (s *Store) WriteNote(personaID, path, text string, sources ...NoteSource) e
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	if os.IsNotExist(err) && len(s.notePathsLocked(personaID)) >= maxNotes {
+		return errors.New("メモが多すぎます")
+	}
 	text = withNoteSources(string(previous), text, sources)
 	if reservedNote(clean) {
 		// The index and the log are about the whole memory, not a post.
@@ -526,7 +529,7 @@ func (s *Store) WriteNote(personaID, path, text string, sources ...NoteSource) e
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(target, []byte(text), 0o644); err != nil {
+	if err := writeNoteFile(target, text); err != nil {
 		return err
 	}
 	indexSet(s.noteSources, personaID, clean, sourceIDs(string(previous)), sourceIDs(text))
@@ -573,7 +576,7 @@ func (s *Store) DropNoteSource(personaID, entryID string) ([]string, error) {
 			indexSet(s.noteSources, personaID, relative, []string{entryID}, nil)
 			continue
 		}
-		if err := os.WriteFile(path, []byte(next), 0o644); err != nil {
+		if err := writeNoteFile(path, next); err != nil {
 			return nil, err
 		}
 		indexSet(s.noteSources, personaID, relative, sourceIDs(string(raw)), sourceIDs(next))
@@ -693,6 +696,32 @@ func (s *Store) PersistSkill(_ string, _ []byte) error { return nil }
 func (s *Store) DeleteSkill(_ string) error            { return nil }
 
 // ---- helpers ---------------------------------------------------------------
+
+// Replace a note only after its complete new contents are on disk. A stopped
+// write must leave the previous version readable.
+func writeNoteFile(path, text string) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".note-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	if err := file.Chmod(0o644); err != nil {
+		file.Close()
+		return err
+	}
+	if _, err := file.WriteString(text); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), path)
+}
 
 func readJSON(path string, target any) error {
 	raw, err := os.ReadFile(path)

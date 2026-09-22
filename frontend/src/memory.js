@@ -303,10 +303,10 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
   const shown = narrowed && !onFilter
     ? parsed.filter((note) => (!filter.tag || note.tags?.some((tag) => tag === filter.tag)) && (!filter.type || sameType(note.type, filter.type)))
     : parsed;
-  const reserved = [];
+  const reserved = new Map();
   const list = el("div", { class: "memory-list" });
   for (const note of shown) {
-    if (["index.md", "log.md"].includes(note.path)) { reserved.push(note); continue; }
+    if (["index.md", "log.md"].includes(note.path)) { reserved.set(note.path, note); continue; }
     const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
     const mount = (nodes) => card.replaceChildren(...nodes.filter(Boolean));
     const reading = () => [head(note, el("h4", { text: note.title }), mount, reading), ...content(note)];
@@ -314,17 +314,20 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
     cards.set(note.path, card);
     list.append(card);
   }
-  const regular = shown.length - reserved.length;
-  if (regular) view.append(list);
-  for (const note of reserved) {
+  const regular = shown.length - reserved.size;
+  const appendReserved = (note) => {
+    if (!note) return;
     const summary = el("summary", { label: note.path === "index.md" ? "記憶の目次" : "記憶の更新履歴" });
-    const card = el("details", { class: "memory-card", tabindex: "-1", open: !regular, "data-path": note.path });
+    const card = el("details", { class: "memory-card", tabindex: "-1", open: note.path === "index.md" || !regular, "data-path": note.path });
     const mount = (nodes) => card.replaceChildren(summary, ...nodes.filter(Boolean));
     const reading = () => [head(note, el("h4", { text: note.path }), mount, reading), ...content(note)];
     mount(reading());
     cards.set(note.path, card);
     view.append(card);
-  }
+  };
+  appendReserved(reserved.get("index.md"));
+  if (regular) view.append(list);
+  appendReserved(reserved.get("log.md"));
   if (narrowed && !shown.length) view.append(el("p", { class: "hint", text: narrowedTo("はありません。") }));
   else if (!parsed.length) view.append(el("p", { class: "hint", label: "まだ覚えていることはありません。" }));
   if (onMore) {

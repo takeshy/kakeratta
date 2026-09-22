@@ -238,3 +238,21 @@ test("reader lists notes in order with the type as a label that narrows", (ctx) 
   view.all().find(node => node.tagName === "BUTTON" && node.textContent === "すべてのメモを表示").events.click();
   assert.deepEqual(titles(), ["A", "Red", "B"]);
 });
+
+test("memory overview appears open before notes, with history after them", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+  };
+  ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
+  const view = createMemoryView([
+    wine,
+    { path: "log.md", text: "# History" },
+    { path: "index.md", text: "# Overview\n- [Wine](/wines/pinot.md)" },
+  ]);
+  assert.deepEqual(view.children.map(node => node.attributes["data-path"] || node.className),
+    ["index.md", "memory-list", "log.md"]);
+  assert.ok(Object.hasOwn(view.children[0].attributes, "open"));
+  assert.equal(Object.hasOwn(view.children[2].attributes, "open"), false);
+});

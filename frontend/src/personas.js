@@ -196,17 +196,25 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     // written first. The first page also names every note, for links and the
     // count.
     const memory = { notes: [], paths: [], next: "", filter: { tag: "", type: "" } };
+    let memoryGeneration = 0;
     const newest = (a, b) => String(b.written || "").localeCompare(String(a.written || "")) ||
       (a.path < b.path ? 1 : a.path > b.path ? -1 : 0);
     const take = (notes) => {
       const known = new Set(memory.notes.map(note => note.path));
       memory.notes = [...memory.notes, ...(notes || []).filter(note => !known.has(note.path))].sort(newest);
     };
+    const withOverview = async (notes, filter = {}) => {
+      if (filter.tag || filter.type || !memory.paths.includes("index.md") || notes.some(note => note.path === "index.md")) return notes;
+      const index = await api.note(row.id, "index.md").catch(() => null);
+      return index ? [...notes, index] : notes;
+    };
     try {
       const page = await api.memory(row.id);
-      memory.notes = page.notes || [];
-      memory.paths = page.paths || memory.notes.map(note => note.path);
+      memory.paths = page.paths || (page.notes || []).map(note => note.path);
       memory.next = page.next || "";
+      // The overview belongs above the list even when its last update is too
+      // old to be included in the first page of recently written notes.
+      memory.notes = await withOverview(page.notes || []);
       // A note named from the timeline may sit on a later page.
       if (focusPath && !memory.notes.some(note => note.path === focusPath) && memory.paths.includes(focusPath)) {
         // A note gone since the link was drawn still opens the memory.
@@ -230,21 +238,27 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       allPaths: memory.paths,
       filter: memory.filter,
       onFilter: async (filter) => {
+        const generation = ++memoryGeneration;
         try {
           const page = await api.memory(row.id, filter);
-          Object.assign(memory, { notes: page.notes || [], next: page.next || "", filter });
+          const notes = await withOverview(page.notes || [], filter);
+          if (generation !== memoryGeneration) return;
+          Object.assign(memory, { notes, next: page.next || "", filter });
           drawMemory();
           memoryHost.focus();
-        } catch (error) { failed(error); }
+        } catch (error) { if (generation === memoryGeneration) failed(error); }
       },
       onMore: memory.next ? async () => {
+        const generation = memoryGeneration;
+        const after = memory.next;
         try {
-          const page = await api.memory(row.id, { ...memory.filter, after: memory.next });
+          const page = await api.memory(row.id, { ...memory.filter, after });
+          if (generation !== memoryGeneration) return;
           take(page.notes);
           memory.next = page.next || "";
           drawMemory();
           memoryHost.querySelector(".memory-more")?.focus();
-        } catch (error) { failed(error); }
+        } catch (error) { if (generation === memoryGeneration) failed(error); }
       } : undefined,
       onOpenMissing: async (path) => {
         try {

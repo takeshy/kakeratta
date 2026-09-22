@@ -107,3 +107,44 @@ func TestMemoryMetaReadsNoNotes(t *testing.T) {
 		t.Fatal("missing note found")
 	}
 }
+
+func TestInterruptedNoteReplacementIsNotListed(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("gourmet", "index.md", "first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.memoryDir("gourmet"), ".note-interrupted"), []byte("partial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("gourmet", "index.md", "second"); err != nil {
+		t.Fatal(err)
+	}
+	page, err := s.MemoryPage("gourmet", "", 10, nil)
+	if err != nil || len(page.Paths) != 1 || page.Paths[0] != "index.md" || len(page.Notes) != 1 || page.Notes[0].Text != "second" {
+		t.Fatalf("page: %+v (%v)", page, err)
+	}
+}
+
+func TestFileMemoryEnforcesNoteLimitWithoutBlockingUpdates(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(s.memoryDir("gourmet"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for i := range maxNotes {
+		if err := os.WriteFile(filepath.Join(s.memoryDir("gourmet"), fmt.Sprintf("%04d.md", i)), []byte("old"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.WriteNote("gourmet", "extra.md", "new"); err == nil {
+		t.Fatal("a new note exceeded the limit")
+	}
+	if err := s.WriteNote("gourmet", "0000.md", "updated"); err != nil {
+		t.Fatalf("existing note could not be updated: %v", err)
+	}
+}
