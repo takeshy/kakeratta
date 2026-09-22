@@ -12,7 +12,7 @@ task test  # Go and JavaScript tests
 
 Done: the share-sheet entry point (PWA share_target / iOS shortcut); posting
 (capture, paste, URL, speech); reading the image once; the timeline and replies;
-routing; personas' notes and remarks; the low→middle→high exchange; place and
+routing; personas' notes and remarks; Ultra answers to replies asking for more; place and
 time; tools (web search, places, routes); read-aloud.
 
 **The entry point was built first**, because it is the only part that either
@@ -38,7 +38,7 @@ Unverified:
 ```
 internal/timeline   one list of posts and remarks (cutting out a thread, writing it into a prompt)
 internal/capture    reading an image once, and fetching a public page
-internal/persona    skills, routing, the reaction loop (low→middle→high), the notes format handed over (skills/okf)
+internal/persona    skills, routing, the reaction loop (parallel on Super, Ultra on escalation), the notes format handed over (skills/okf)
 internal/tools      the tools only a declaration can reach
 internal/websearch  search providers
 internal/llm        Nebius Token Factory inference client (images and file input included)

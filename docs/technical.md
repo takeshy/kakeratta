@@ -55,8 +55,32 @@ Personas can also use tools such as:
 The browser keeps recent state locally and supports offline posting, while
 server-side check-ins and schedules can continue when the browser is closed.
 
-The complexity stays below the surface. None of MCP, RAG, OKF, model tiers, or
-workflow validation needs to be understood by the person using the app.
+The complexity stays below the surface. None of MCP, RAG, OKF, model selection,
+or workflow validation needs to be understood by the person using the app.
+
+## Design principles
+
+**Memory is divided by subject.** The point of the split is not to hide
+anything — it is to **keep the concentration**.
+
+**The app routes, reviews and runs.** Who gets a post is decided centrally.
+Whether to speak, what to remember and when to compress it are each persona's
+own — but a persona says so as a workflow, and the app checks that workflow
+before running it. The app does not decide what a persona says; it stops a
+persona saying what did not happen, or promising what it did not arrange.
+
+**Silence is fine.** Not everything gets a reaction. This is not an app for
+having things explained to you, and being reacted to every time you just wanted
+to look at something is an imposition. A post nobody answers is a normal post.
+
+**Not speaking and not remembering are different things.** A post a persona
+said nothing about still goes into its notes, if it is its subject.
+
+**Name it with @ and it always answers.** Because the subjects are separate,
+there is something to choose between.
+
+**Asynchronous by default.** A post is stored and shown immediately; reactions
+arrive afterwards.
 
 ## Routing is condition matching, not open-ended judgement
 
@@ -106,6 +130,37 @@ When the user says **Should have been called** or that a persona should not have
 been called, kakeratta can use the correction to rewrite the persona's routing
 condition and try the same post again before saving it.
 
+### How routing behaves
+
+**A post goes only where it belongs** (`internal/persona/route.go`). A place, a
+time or a food named in passing is not a reason: "明日9:10に神谷町に着きたい"
+goes to the travel persona and not to the wine one. Nobody is an ordinary
+answer, and so is a routing call that fails. Every decision is logged with a
+one-line reason per persona.
+
+**The decision is kept.** What the router said about a post — whom it chose,
+whom it passed over and why — is stored per post (`routing.json`, or a
+`routing` collection on Firestore) and shown from the timeline. A persona
+reached by an @ mention is left out, since that was not the router's call, and
+a router that had no answer leaves no record. Disputing a row rewrites the
+persona's condition as above, and saving has the router try the same post
+again without delivering it (`Runner.CheckRouting`). The condition is the only
+thing that changes; nothing is learned silently.
+
+**A remark can be disputed the same way**, for the persona's tone and
+instructions. After they are rewritten and saved, the persona takes the same
+turn again (`Runner.PreviewReply`): the ordinary run, over a workspace wrapper
+that reads from the real one and writes nowhere. No remark is appended, no note
+or schedule is written and no wake is counted. What it would have said comes
+back for the person to judge.
+
+**An @ mention skips the routing.** A named persona always gets the post and
+always answers. Routing runs as usual for everyone else.
+
+**A reply goes through the same routing as a post.** It is routed against the
+whole thread. Whoever the router picks answers it, plus anyone @mentioned, plus
+Hermes when the reply is to Hermes.
+
 The current default router is **Nemotron 3 Super through Nebius Token Factory**.
 
 Advanced settings can instead use **Jev** for routing alone. Jev is a
@@ -151,28 +206,53 @@ The architecture described in this document remains the source of truth for the
 current configuration; the experiment documents explain why that configuration
 changed.
 
-## Preventing AI-to-AI chatter
+## Who answers, and on which model
 
-Several personas can react to the same fragment.
+**Every persona a post reaches runs at once, on Nemotron 3 Super.** Each takes
+one turn. On the timeline, only the user's own posts and replies wake anyone;
+a persona's remark never wakes another persona, so the timeline cannot fill
+with AI-to-AI conversation. (Check-ins and schedules wake a persona on their
+own clock, described below.) The remarks already under a post are part of what each persona
+is given, so a later reply can pick up on them.
 
-If every reaction wakes every other AI again, the result is expensive,
-unbounded AI-to-AI conversation that fills the user's timeline.
+**A reply that asks for a better answer is answered on Nemotron 3 Ultra.** When
+the user replies to a persona's remark, Nemotron 3.5 Lightning is shown that
+remark and the reply and answers one question
+(`internal/persona/escalate.go`): is the user explicitly asking for a
+correction, a rethink, more detail or a deeper look ("違う", "本当？",
+"もう一度考えて", "もっと詳しく", "深掘りして")?
 
-kakeratta therefore executes built-in personas in model-tier order:
+* If so, the persona whose remark was replied to answers on Ultra. It is added
+  to the recipients even when routing did not choose it, and it runs once. Its
+  prompt drops "keep it short" and asks for a thorough answer in Markdown.
+* Anyone else the reply reaches answers on Super as usual.
+* Thanks, ordinary follow-up questions and new topics stay on Super, as does a
+  judgement Lightning fails to give.
+* A reply to the user's own post, to Hermes, or to a persona no longer in the
+  room is not judged at all.
 
-**light → middle → high**
+The judgement runs after routing, so it adds its own time to such a reply. In
+a live measurement on 2026-09-22 (15 synthetic replies,
+`TestEscalateLiveLatency`), Lightning judged all 15 correctly in 0.67 seconds
+on average (1.52 at most, about 0.006 yen per call); Super was also 15/15 but
+took 1.30 seconds on average at about five times the cost.
 
-Later executions can see the reactions already produced during that turn.
+Lightning is not asked whether Super would be good enough — only whether the
+user said, in so many words, that they want more. That keeps the small model's
+task narrow, and it makes the difference between the models visible: Super is
+the everyday voice, Ultra is what the user reaches for.
 
-A stronger later persona can produce information that causes an earlier
-persona's memory to be updated, but the earlier persona cannot speak again in
-the same turn.
+**Each remark records which model answered** (`model: "super"` or `"ultra"`;
+nothing for a turn that failed), and the timeline marks an Ultra answer with a
+badge beside the time.
 
-This allows later judgement to improve state without opening a new conversation
-loop.
-
-The detailed ordering rules are documented in
-[Design and personas](architecture.md#order).
+```text
+post / reply
+ ↓ the image is read once
+ ↓ routing
+ ↓ a reply to a persona's remark: Lightning → {"escalate": true|false}
+every recipient runs in parallel on Super — the replied-to persona on Ultra when escalated
+```
 
 ## Persona actions are workflows, not raw model output
 
@@ -209,35 +289,74 @@ Schedules use a different rule. A scheduled follow-up and its note often
 describe the same future event, so note storage and scheduling are handled
 together instead of forcing the model to repeat nearly identical steps.
 
-### Review for schedule-capable personas
+### A turn: read, then a workflow
 
-A bad conversational reply is annoying.
+Every persona except Hermes (an external agent) works this way, whatever tools
+it holds (`internal/persona/workflow.go`).
 
-A bad schedule is worse because it can return later as if it were a fact the
-user asked the system to remember.
+1. **Read.** Its `index.md` is handed over whole at the start of every turn.
+   It may then ask, up to ten times, to look at things: its note list, notes,
+   a timeline search, a web search, a place or route lookup. Reading writes
+   nothing, so the app just does it and hands the results back.
+2. **Workflow.** It hands in what it has decided, as steps in order, with every
+   text written out in full:
 
-For personas that can schedule future wakes, the generated workflow is reviewed
-by **Nemotron 3 Super** before execution.
+   | Step | Does |
+   |---|---|
+   | `write_note` / `forget_note` | Write or discard one note |
+   | `write_schedule` | Place a wake **and** write the note it rests on, as one step. If the note cannot be written, the wake is taken back |
+   | `cancel_schedule` | Cancel a wake by an id from the list the persona was given |
+   | `tool` | Call a declared tool that acts rather than looks (not `schedule`) |
+   | `speak` | Say something. **Exactly one, and last.** Silence is a speak with an empty text. A remark answering a post or a reply — an Ultra answer included — also needs a `write_note` (a remark alone is sent back; a note alone is fine). Check-ins, schedules and deletions are exempt |
 
-The review includes the note contents and checks whether the schedule agrees
-with what was actually recorded.
+3. **Checked by the app.** Mechanically first: known step types, declared
+   tools, no invented schedule ids, a non-empty speak when named, one speak at
+   the end, and no second note under a title that already exists — one thing,
+   one note. Then Nemotron 3 Super reviews it against a narrow list: something
+   written as fact that did not happen, a fact asserted that nothing read
+   supports, a time promised with no schedule, a remark in another language
+   than the post, a note rewritten without being read, a persona's own
+   instructions plainly broken, a remark that describes work instead of
+   answering. A rejected workflow goes back once with the reasons.
 
-If the workflow is inconsistent — for example, it speaks as if a reminder was
-created without creating the schedule — it is returned rather than executed as
-is.
+   **What is reviewed depends on the kinds of step, not how many there are.**
+   A workflow holding any step other than `write_note` and `speak` —
+   schedules, forgetting, tools — is always reviewed. One that only writes
+   notes and speaks is not, except from a persona that holds `schedule`: a
+   time promised with nothing set to wake appears in exactly that shape. A
+   workflow that does nothing is not reviewed.
+
+   A bad conversational reply is annoying; a bad schedule is worse, because it
+   comes back later as if it were something the user asked to be reminded of.
+   The review sees the thread, the persona's instructions, and what the
+   persona read this turn — nothing else from its notes.
+4. **Run.** In order; **the first step that fails stops the rest**, so a remark
+   never goes out after what it rests on did not happen.
+
+What a persona is told about workflows is assembled for the tools it holds
+(`internal/persona/workflow_spec.go`): every step with its fields, a sample
+that is right, and a mistake a live run actually made. A persona without
+`schedule` is not taught `write_schedule`; one with web search is shown a
+search it can copy.
+
+Each turn is logged as one structured entry: what was read, every draft with
+its problems and review, each step as it ran, and what was said.
 
 ## Models
 
 kakeratta uses multiple models through **Nebius Token Factory** rather than
 sending all work to one large model.
 
-| Model                      | Role                                               |
-| -------------------------- | -------------------------------------------------- |
-| **Nemotron 3 Ultra**       | High-tier personas and persona drafting            |
-| **Nemotron 3 Super**       | Routing, middle-tier personas, and workflow review |
-| **Nemotron 3.5 Lightning** | Low-tier personas and dictation polishing          |
-| **GLM-5.3-Flash**          | Reading screenshots and photos, once per post      |
-| **Qwen3-Embedding-8B**     | Meaning search over past fragments                 |
+| Model                      | Role                                                                  |
+| -------------------------- | --------------------------------------------------------------------- |
+| **Nemotron 3 Super**       | Every persona's answers, routing, and workflow review                 |
+| **Nemotron 3 Ultra**       | The replied-to persona, when a reply asks for a better or deeper answer; persona drafting |
+| **Nemotron 3.5 Lightning** | Judging whether a reply asks for a better answer; dictation polishing |
+| **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
+| **Qwen3-Embedding-8B**     | Meaning search over past fragments                                    |
+
+The settings keep three slots — `lowModel` (Lightning), `middleModel` (Super)
+and `highModel` (Ultra) — and any OpenAI-compatible model name can go in each.
 
 Persona execution, routing, and workflow review use native tool calling where
 appropriate.
@@ -265,7 +384,14 @@ A photo or screenshot is sent to **GLM-5.3-Flash once when the post is
 processed**.
 
 The resulting textual interpretation is attached to the fragment and shared
-with the relevant personas.
+with the relevant personas (`internal/capture`): what is in it, the text on
+it, where it seems to come from, and how it looks — colour, shape, count,
+layout, the things a persona might otherwise want to ask about.
+
+The picture itself is never handed to a persona. None of the persona models
+take image input, and a live run lost a wine label's remark to a picture sent
+to one. A persona that asks for the original is told to use the reading it
+already has.
 
 The image is not independently sent through vision once for every persona.
 
@@ -328,6 +454,57 @@ It does not scan note text to guess who might have used the post.
 The persona can then correct or remove its own dependent memory. kakeratta
 itself does not rewrite persona notes behind the model's back.
 
+### What a persona is given
+
+* the post it was routed, and what the app read out of its image;
+* **the remarks under that post** — other personas' and the user's replies;
+* its own `index.md`, and the list of its notes (contents are read as needed);
+* its own pending schedules, if it can schedule.
+
+**Not the whole timeline.** Hand that over and every persona sees everything
+again, which is exactly what dividing by subject was for. Anything older is in
+its own notes, or found with a timeline search.
+
+### Notes are OKF, and the persona writes them
+
+The [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
+skill (`internal/persona/skills/okf/SKILL.md`) is handed to each persona, and
+**it reads and writes its own notes** as a bundle in that format: one concept
+per file, YAML frontmatter and a Markdown body.
+
+```text
+=== index.md ===
+# Tendencies
+* [Leans tonkotsu](/tastes/tonkotsu.md) - Picks tonkotsu when there is a choice.
+
+=== tastes/tonkotsu.md ===
+---
+type: Preference
+title: Leans tonkotsu
+description: Picks tonkotsu when there is a choice.
+tags: [ramen, tonkotsu]
+---
+# Evidence
+* 09-08 chose tonkotsu over shoyu when both were there
+```
+
+Notes are read in the read phase (`notes_list`, which can narrow by tag, and
+`notes_read`) and written by workflow steps (`write_note`, `forget_note`). A
+write replaces **only that file**, so a grown memory never travels in full on
+every wake, and nothing is lost by being left out of a rewrite. These need no
+declaration: a persona's own notes are not outside.
+
+Which `type` values to use and when to merge them differ by subject, so they go
+in each skill's `memory` field — `Preference` and `Shop` for the food persona,
+`Book` and `Theme` for the reading one. Only the types named there may be used.
+**The format is handed over; the policy belongs to the skill.** The app holds
+no threshold for when to compress.
+
+**The app does not read the notes.** It puts bytes at a name: it does not
+parse frontmatter, does not build the index, and cannot tell whether the
+contents are OKF at all. The files are plain files, so they can be read with
+`cat` and pointed at as an OKF knowledge source elsewhere.
+
 ### Meaning search
 
 A fragment does not need to have been intentionally remembered by a persona to
@@ -345,6 +522,41 @@ This is deliberately separate from long-term persona memory:
 * memory is what a persona chose to retain;
 * search can recover what remained only in the timeline.
 
+## Skills
+
+A persona is a `skill.json`:
+
+| Field | |
+| --- | --- |
+| `name`, `icon`, `tone` | How it shows up and how it talks |
+| `domain` | The routing condition: what it reacts to and remembers. **The router reads this** |
+| `memory` | Its note kinds (2–4 types such as `Wine`, `Preference`), what goes in each and when they merge. A note of any other type is sent back |
+| `instructions` | How to keep notes, when to speak. **Only the persona reads these** |
+| `tools` | Only what is declared can be called |
+
+Four ship with the app — tabe (food), michi (travel), shiori (reading), plana
+(routines) — plus Hermes, which appears once MCP is configured. More can be
+added from the UI, written by hand or drafted with the persona builder
+(Nemotron 3 Ultra).
+
+```json
+{
+  "id": "wine",
+  "name": "ぶどう",
+  "icon": "🍷",
+  "domain": "ワイン。銘柄、産地、ラベルの写真、飲んだ記録。",
+  "tone": "控えめ。おすすめを押しつけない。",
+  "memory": "型は Wine（銘柄）と Preference（好み）の2つ。同じ好みが3回出たら Preference に統合する。",
+  "instructions": "引用と本人の意見を分け、推測は推測と書く。",
+  "tools": ["web_search", "place_search"]
+}
+```
+
+**There is no ceiling on how many.** Because routing is central, only the few
+that matter wake for a given post, and routing runs once per post. **Without
+separate subjects, @ means nothing** — if there is nothing to choose between,
+naming someone is pointless.
+
 ## Tools belong to the persona and the operator
 
 A persona does not automatically receive every tool available to the server.
@@ -358,6 +570,12 @@ Built-in integrations include:
 * `web_search`
 * `place_search`
 * `route`
+
+* `schedule` — wake times a persona asks the app for; nothing leaves the app
+  (`schedules.json` / Firestore)
+
+Every persona also gets `timeline_search` — keyword and meaning search over the
+user's own timeline — without declaring it.
 
 Remote MCP servers can extend the tool list.
 
@@ -447,6 +665,11 @@ implementation can be used as fallback.
 
 An explicit error returned by the remote server is not hidden as a fallback
 success.
+
+An MCP tool's text result goes back as the answer to that call, and its
+resource links become sources under the remark. A timeline search is the
+exception: what it finds is offered for citing, the persona names in its
+`speak` the posts its remark rests on, and only those are linked.
 
 ## Check-ins and scheduled wakes
 
@@ -689,8 +912,8 @@ adding one.
 
 Enter a Nebius Token Factory API key in Settings.
 
-Lightning, Super, and Ultra are configured for the low, middle, and high tiers
-by default.
+Lightning, Super, and Ultra are configured for the low, middle, and high model
+slots by default.
 
 Other development commands include:
 
@@ -990,7 +1213,6 @@ pretending every agent is the same.
 | [Routing model comparison — 2026-09-17](routing-cost-experiment.md)                          | Controlled Lightning vs Ultra routing experiment with expected recipients, token counts, cost, and latency                        |
 | [Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md) *(Japanese)* | Read-only replay of 20 production posts across Nemotron models, Jev, and GPT Luna                                                 |
 | [Usage and configuration](usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |
-| [Design and personas](architecture.md)                                                       | Principles, routing, execution order, OKF notes, skills, and tools                                                                |
 | [What was hard about the AI](ai-lessons.md)                                                  | Failures seen with Nemotron personas and what changed to make them dependable                                                     |
 | [Hermes Agent](hermes.md) ([日本語](hermes_ja.md))                                              | MCP authentication, task lifecycle, retries, proactive reports, and external-agent behavior                                       |
 | [Development and status](development.md)                                                     | Tests, source layout, implemented features, and unverified items                                                                  |

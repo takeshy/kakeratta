@@ -12,7 +12,7 @@ task test  # Go と JavaScript のテスト
 
 実装済み: 共有シートからの受け口（PWA share_target / iOSショートカット） / 投稿（キャプチャ・ペースト・
 URL・音声） / 画像の一度きりの解析 / タイムライン表示と返信 / 振り分け / ペルソナのメモと発言 /
-low→middle→high の掛け合い / 位置と時刻 / ツール（Web検索・店舗検索・経路） / 読み上げ。
+「もっと詳しく」への Ultra の回答 / 位置と時刻 / ツール（Web検索・店舗検索・経路） / 読み上げ。
 
 **入り口を最初に通しました。** ここだけが「通るか通らないか」しかないためです。ペルソナのメモ機構や
 反応の閾値は、詰まっても質が下がるだけで代替が効きますが、入り口が通らなければ設計ごと変わります。
@@ -34,7 +34,7 @@ GLM-5.3-Flashによる日本語スクリーンショットの読み取りとJSON
 ```
 internal/timeline   投稿と発言の一列（スレッドの切り出しと、プロンプトへの書き出し）
 internal/capture    画像の一度きりの解析と、公開ページの取得
-internal/persona    スキル、振り分け、反応ループ（low→middle→high）、渡すメモ形式（skills/okf）
+internal/persona    スキル、振り分け、反応ループ（Super で並列、深掘りの返信は Ultra）、渡すメモ形式（skills/okf）
 internal/tools      宣言したものだけ呼べる道具
 internal/websearch  Web検索の接続先
 internal/llm        Nebius Token Factory推論クライアント（画像・ファイル入力を含む）

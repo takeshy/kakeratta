@@ -374,7 +374,7 @@
           <ul>
             <li>Nemotron 3.5 Lightning — 返信が「より良い回答」を求めているかの判定</li>
             <li>Nemotron Super — 振り分け、すべての担当、workflow の確認</li>
-            <li>Nemotron Ultra — より良い・深い回答を求める返信への回答と、担当案の作成</li>
+            <li>Nemotron Ultra — より良い・深い回答を求める返信を受けた、返信先の担当の回答と、担当案の作成</li>
             <li>GLM-5.3-Flash — 画像の読み取り（同じ基盤）</li>
           </ul>
           <div class="table-scroll">
@@ -383,7 +383,7 @@
               <tbody>
                 <tr><td>low（返信の判定）</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>middle（すべての担当）</td><td>Nemotron Super</td></tr>
-                <tr><td>high（より良い回答を求める返信）</td><td>Nemotron Ultra</td></tr>
+                <tr><td>high（より良い回答を求められた返信先の担当）</td><td>Nemotron Ultra</td></tr>
                 <tr><td>画像を読むモデル（vision）</td><td>GLM-5.3-Flash</td></tr>
                 <tr><td>振り分け</td><td>Nemotron Super</td></tr>
                 <tr><td>workflow の確認</td><td>Nemotron Super</td></tr>
@@ -474,7 +474,7 @@
           <ul>
             <li><a href="https://github.com/takeshy/kakeratta/blob/main/README_ja.md" rel="noopener">README（日本語）</a></li>
             <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/usage_ja.md" rel="noopener">使い方と設定</a> — 環境変数、共有、保存データ</li>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/architecture_ja.md" rel="noopener">設計と担当</a> — 振り分け、実行順、OKF メモ、スキル、道具</li>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/technical_ja.md" rel="noopener">中で起きていること</a> — 振り分け、実行順、OKF メモ、スキル、道具</li>
           </ul>
           <p class="actions"><a class="button primary" href="/">アプリを開く</a> <a class="button" href="/lp/" data-lang-link>紹介ページへ</a></p>
         </section>
@@ -805,7 +805,7 @@
           <ul>
             <li>Nemotron 3.5 Lightning — judging whether a reply asks for a better answer</li>
             <li>Nemotron Super — routing, every persona, and workflow review</li>
-            <li>Nemotron Ultra — replies asking for a better or deeper answer, and persona drafting</li>
+            <li>Nemotron Ultra — the replied-to persona, when a reply asks for a better or deeper answer; persona drafting</li>
             <li>GLM-5.3-Flash — image reading, on the same backend</li>
           </ul>
           <div class="table-scroll">
@@ -814,7 +814,7 @@
               <tbody>
                 <tr><td>low (judging replies)</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>middle (every persona)</td><td>Nemotron Super</td></tr>
-                <tr><td>high (replies asking for more)</td><td>Nemotron Ultra</td></tr>
+                <tr><td>high (the replied-to persona, when asked for more)</td><td>Nemotron Ultra</td></tr>
                 <tr><td>Image model (vision)</td><td>GLM-5.3-Flash</td></tr>
                 <tr><td>Routing</td><td>Nemotron Super</td></tr>
                 <tr><td>Workflow review</td><td>Nemotron Super</td></tr>
@@ -905,7 +905,7 @@
           <ul>
             <li><a href="https://github.com/takeshy/kakeratta/blob/main/README.md" rel="noopener">README</a></li>
             <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/usage.md" rel="noopener">Usage and configuration</a> — environment variables, sharing, stored data</li>
-            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/architecture.md" rel="noopener">Design and personas</a> — routing, execution order, OKF notes, skills, and tools</li>
+            <li><a href="https://github.com/takeshy/kakeratta/blob/main/docs/technical.md" rel="noopener">Under the hood</a> — routing, execution order, OKF notes, skills, and tools</li>
           </ul>
           <p class="actions"><a class="button primary" href="/">Open the app</a> <a class="button" href="/lp/" data-lang-link>Overview</a></p>
         </section>

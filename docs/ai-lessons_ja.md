@@ -1,6 +1,6 @@
 # AIまわりで苦労したこと
 
-[README](../README_ja.md) · [English](ai-lessons.md) · [設計とペルソナ](architecture_ja.md)
+[README](../README_ja.md) · [English](ai-lessons.md) · [中で起きていること](technical_ja.md)
 
 Kakeratta は、投稿を小さなAIの担当（ペルソナ）に渡し、担当は自分のメモに覚え、ときどき発言します。
 モデルは Nebius Token Factory 上の NVIDIA Nemotron です。このページは、それを信頼できる形にするまでに何が起き、

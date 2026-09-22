@@ -239,7 +239,7 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 - Nemotron 3.5 Lightning — judging whether a reply asks for a better answer, and optional dictation polishing
 - Nemotron Super — routing, every persona, and workflow review
-- Nemotron Ultra — replies asking for a better or deeper answer, and persona drafting
+- Nemotron Ultra — the replied-to persona, when a reply asks for a better or deeper answer; persona drafting
 - Nebius Token Factory — inference backend
 
 Routing uses Nemotron Super by default. Under Advanced options → Use OpenRouter, enter an API key
@@ -262,7 +262,7 @@ Qwen3-Embedding-8B on the same backend.
 | Reading images / OCR | `visionModel` | GLM-5.3-Flash |
 | Routing | advanced setting can select Jev | Nemotron Super |
 | Workflow review | fixed | Nemotron Super |
-| Persona drafting and editing | high tier (falling back to middle, then low) | Nemotron Ultra |
+| Persona drafting and editing | high slot (falling back to middle, then low) | Nemotron Ultra |
 | Meaning-search embeddings | fixed | Qwen3-Embedding-8B |
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |

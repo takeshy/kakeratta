@@ -89,9 +89,9 @@ kakeratta は **Nebius Token Factory 経由の NVIDIA Nemotron モデル** を�
 
 | モデル                     | 役割                                       |
 | -------------------------- | ------------------------------------------ |
-| **Nemotron 3 Ultra**       | high層の担当と、担当の下書き               |
-| **Nemotron 3 Super**       | 振り分け、middle層の担当、workflowのレビュー |
-| **Nemotron 3.5 Lightning** | low層の担当と、音声入力の整文              |
+| **Nemotron 3 Super**       | すべての担当の回答、振り分け、workflowのレビュー |
+| **Nemotron 3 Ultra**       | より良い回答を求められた返信先の担当の回答と、担当の下書き |
+| **Nemotron 3.5 Lightning** | 返信がより良い回答を求めているかの判定と、音声入力の整文 |
 | **GLM-5.3-Flash**          | スクリーンショットや写真の読み取り         |
 | **Qwen3-Embedding-8B**     | 過去のかけらの意味検索                     |
 
@@ -393,7 +393,7 @@ task dev    # API（:8787）と画面（:5173）を同時に起動
 
 http://127.0.0.1:5173 を開き、「設定」で **Nebius Token Factory の API キー** を入力します。
 
-3つのモデル層には、既定で Lightning・Super・Ultra が設定されています。
+low・middle・high の3つのモデルの枠には、既定で Lightning・Super・Ultra が設定されています。
 
 ローカル実行に Firebase のアカウントや外部データベースは要りません。
 データは既定でディスクに保存され、サーバーはループバックに待ち受けます。
@@ -412,7 +412,7 @@ http://127.0.0.1:5173 を開き、「設定」で **Nebius Token Factory の API
 振り分けだけを **Jev** に移せます。判定専用のモデルで、速くて安い一方、理由を返しません。
 そのため担当の判断は「誰に配ったか」は表示できますが、通常の「呼ばれなかった理由」は表示できません。
 
-**OpenRouter専用モード** では、代わりに high・middle・low の3層を選んだモデルに移し、ツール呼び出しは Exacto を経由します。
+**OpenRouter専用モード** では、代わりに high・middle・low の3つの枠を選んだモデルに移し、ツール呼び出しは Exacto を経由します。
 
 何もしなければ、kakeratta は Nebius Token Factory 経由の Nemotron 構成で動きます。
 
@@ -443,10 +443,9 @@ kakeratta が Hermes のプロセスを起動・制御することはありま�
 
 | 文書 | 内容 |
 | --- | --- |
-| [中で起きていること](docs/technical_ja.md) | 全体の流れ、振り分けの設計、Nemotron のモデル、workflow の制約、保存先、チェックイン、道具、デプロイ |
+| [中で起きていること](docs/technical_ja.md) | 設計原則、全体の流れ、振り分け、どのモデルが答えるか、workflow の制約、OKFメモ、スキル、保存先、チェックイン、道具、デプロイ |
 | [マニュアル](https://kakeratta.net/manual/?lang=ja) | 担当、検索、記憶、音声、共有、道具、オフライン投稿、設定の使い方 |
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
-| [設計とペルソナ](docs/architecture_ja.md) | 設計原則、振り分け、実行順序、OKFメモ、スキルとツール |
 | [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
 | [Hermes Agent](docs/hermes_ja.md)（[English](docs/hermes.md)） | kakeratta の MCP 接続、認証情報、依頼の取得・完了・再試行、報告 |
 | [NVIDIA NemoClaw と Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | NemoClaw/OpenShell のサンドボックスで Hermes を動かす公式手順 |

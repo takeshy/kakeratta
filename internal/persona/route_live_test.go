@@ -24,31 +24,7 @@ func TestRouteLiveComparison(t *testing.T) {
 	if os.Getenv("KAKERATTA_ROUTE_LIVE") != "1" {
 		t.Skip("set KAKERATTA_ROUTE_LIVE=1 and NEBIUS_API_KEY to run paid routing comparisons")
 	}
-	key := os.Getenv("NEBIUS_API_KEY")
-	if path := os.Getenv("KAKERATTA_ROUTE_KEY_FILE"); key == "" && path != "" {
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		key = strings.TrimSpace(string(raw))
-	}
-	if path := os.Getenv("KAKERATTA_ROUTE_SETTINGS"); key == "" && path != "" {
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var settings store.Settings
-		if err := json.Unmarshal(raw, &settings); err != nil {
-			t.Fatal("cannot decode settings")
-		}
-		if strings.TrimRight(settings.BaseURL, "/") != store.NebiusBaseURL {
-			t.Fatal("settings must use the Nebius endpoint")
-		}
-		key = settings.APIKey
-	}
-	if key == "" {
-		t.Fatal("NEBIUS_API_KEY, KAKERATTA_ROUTE_KEY_FILE, or KAKERATTA_ROUTE_SETTINGS is required")
-	}
+	key := liveKey(t)
 
 	cases := []struct {
 		name, original, text string
@@ -186,4 +162,37 @@ func (m *routeMeter) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	m.input, m.output = body.Usage.Input, body.Usage.Output
 	return res, nil
+}
+
+// liveKey is the Nebius key for an opted-in live test: from NEBIUS_API_KEY, a
+// key file, or a saved settings.json. It is never logged.
+func liveKey(t *testing.T) string {
+	t.Helper()
+	key := os.Getenv("NEBIUS_API_KEY")
+	if path := os.Getenv("KAKERATTA_ROUTE_KEY_FILE"); key == "" && path != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		key = strings.TrimSpace(string(raw))
+	}
+	if path := os.Getenv("KAKERATTA_ROUTE_SETTINGS"); key == "" && path != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var settings store.Settings
+		if err := json.Unmarshal(raw, &settings); err != nil {
+			t.Fatal("cannot decode settings")
+		}
+		if strings.TrimRight(settings.BaseURL, "/") != store.NebiusBaseURL {
+			t.Fatal("settings must use the Nebius endpoint")
+		}
+		key = settings.APIKey
+	}
+	if key == "" {
+		t.Fatal("NEBIUS_API_KEY, KAKERATTA_ROUTE_KEY_FILE, or KAKERATTA_ROUTE_SETTINGS is required")
+	}
+
+	return key
 }

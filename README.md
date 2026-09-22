@@ -102,7 +102,7 @@ runs instead of sending everything to one large model.
 
 | Model                      | Role                                               |
 | -------------------------- | -------------------------------------------------- |
-| **Nemotron 3 Ultra**       | Replies asking for a better answer; persona drafting |
+| **Nemotron 3 Ultra**       | The replied-to persona, when a reply asks for a better answer; persona drafting |
 | **Nemotron 3 Super**       | Routing, every persona, and workflow review        |
 | **Nemotron 3.5 Lightning** | Judging replies for Ultra; dictation polishing     |
 | **GLM-5.3-Flash**          | Reading screenshots and photos                     |
@@ -482,7 +482,7 @@ Routing alone can move to **Jev**, a decision-only model that is fast and cheap.
 Because it does not return routing reasons, the router's call can show who was
 chosen but cannot show the normal exclusion reasons.
 
-**OpenRouter-only mode** can instead move the high, middle, and low model tiers
+**OpenRouter-only mode** can instead move the high, middle, and low model slots
 to models you choose, with tool calls routed through Exacto.
 
 Left alone, kakeratta uses its Nemotron configuration through Nebius Token
@@ -519,10 +519,9 @@ check-ins, schedules, and operator-provided tools are documented in
 
 | Document                                                                                                 | Contents                                                                                                          |
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [Under the hood](docs/technical.md)                                                                      | The system flow, routing design, Nemotron models, workflow constraints, storage, check-ins, tools, and deployment |
+| [Under the hood](docs/technical.md)                                                                      | Design principles, the system flow, routing, which model answers, workflow constraints, OKF notes, skills, storage, check-ins, tools, and deployment |
 | [Manual](https://kakeratta.net/manual/?lang=en)                                                          | Using personas, search, memory, speech, sharing, tools, offline posts, and settings                               |
 | [Usage and configuration](docs/usage.md)                                                                 | Android and iOS sharing, location, speech, model settings, and stored data                                        |
-| [Design and personas](docs/architecture.md)                                                              | Principles, routing, execution order, OKF notes, skills, and tools                                                |
 | [What was hard about the AI](docs/ai-lessons.md)                                                         | What went wrong with Nemotron personas in live runs and production, and how each was fixed                        |
 | [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, task claiming, completion, retries, and reports                            |
 | [NVIDIA NemoClaw with Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | Official setup for running Hermes in a NemoClaw/OpenShell sandbox                                                 |

@@ -183,9 +183,9 @@ Web Share Target が使えないため、ショートカットで代替します
 
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
-- Nemotron 3.5 Lightning — low の担当、任意の音声入力整形
-- Nemotron Super — 振り分け、middle の担当、workflow の確認
-- Nemotron Ultra — high の担当、担当案の作成
+- Nemotron 3.5 Lightning — 返信がより良い回答を求めているかの判定、任意の音声入力整形
+- Nemotron Super — 振り分け、すべての担当の回答、workflow の確認
+- Nemotron Ultra — より良い・深い回答を求められた返信先の担当の回答、担当案の作成
 - Nebius Token Factory — 推論基盤
 
 画像の読み取りにはGLM-5.3-Flash、意味検索にはQwen3-Embedding-8Bを同じ基盤で使用します。
@@ -196,9 +196,9 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 | 用途 | 設定 | 既定 |
 | --- | --- | --- |
-| low の担当 | `lowModel` | Nemotron 3.5 Lightning |
-| middle の担当 | `middleModel` | Nemotron Super |
-| high の担当 | `highModel` | Nemotron Ultra |
+| 担当の発言への返信の判定 | `lowModel` | Nemotron 3.5 Lightning |
+| すべての担当 | `middleModel` | Nemotron Super |
+| より良い回答を求められた返信先の担当 | `highModel` | Nemotron Ultra |
 | 画像解析・OCR | `visionModel` | GLM-5.3-Flash |
 | 振り分け | 上級設定でJevへ切り替え可能 | Nemotron Super |
 | workflow の確認 | 固定 | Nemotron Super |
@@ -207,16 +207,13 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 
-画面にモデルの選択欄はありません。利用者はAPIキーを入れるだけで、段ごとのモデルは上の既定のままです。
+画面にモデルの選択欄はありません。利用者はAPIキーを入れるだけで、3つの枠のモデルは上の既定のままです。
 ワークスペースのモデルを変えたいときは、その `settings.json` の上記キー（または `PUT /api/settings`）を
 運用側で書き換えます。画面は保存されている値のまま動きます。
 
-**どのモデルをどの段に置くかが、そのまま体験の差になります。** コスト最適化ではありません。
-low は浅い感想でよく、「わからんくなってきた」で終わってもよい。そこに上の段が後から拾いに来ます。
-一方的に賢いことばかり言われてもつまらないので、**段が本当に違うこと**が効きます。
-
-**既定はLightning → Super → Ultraの3段です。** Token Factoryではhighが空欄の場合もUltraを使います。
-各担当に段を指定し、highの担当は先に動いた担当の発言も踏まえて、複雑な内容を考えます。
+担当はふだん全員 Super で答えます。担当の発言に「違う」「もっと詳しく」「深掘りして」のように、訂正・再検討・詳細化を
+求めて返信すると、Lightning がそれを判定し、返信先の担当が Ultra で答えます。その発言には Ultra のバッジが付きます。
+お礼や普通の追加質問、別の話題は Super のままです。Token Factoryではhighが空欄の場合もUltraを使います。
 
 - 推論基盤はNebius Token Factoryです。Nemotronによる推論、GLMによる画像読み取り、Qwenによるembedding生成に使います。
 - ブラウザからGo APIへリクエストを送り、APIキーの保持と非同期の反応処理はサーバー側で行います。

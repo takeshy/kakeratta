@@ -1,6 +1,6 @@
 # What was hard about the AI
 
-[README](../README.md) · [日本語](ai-lessons_ja.md) · [Design and personas](architecture.md)
+[README](../README.md) · [日本語](ai-lessons_ja.md) · [Under the hood](technical.md)
 
 Kakeratta hands each post to small AI personas that remember things in their
 own notes and, now and then, say something. The models are NVIDIA Nemotron on
