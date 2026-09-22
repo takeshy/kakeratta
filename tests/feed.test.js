@@ -106,6 +106,40 @@ test("a reply's link renders as a link that opens in a new tab", (t) => {
   assert.equal(link?.target, "_blank");
 });
 
+// An answer on Ultra is marked, so a reply to "もっと詳しく" can be told
+// apart from an ordinary one. Super is the default and goes unmarked, as does
+// a remark with no model (the user's own words, Hermes, a failed turn).
+test("only a remark answered on Ultra carries the Ultra badge", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  const at = "2026-09-14T00:00:00Z";
+  const said = [
+    { id: "s", kind: "remark", root: "p", speaker: "gourmet", model: "super", text: "豚骨", at },
+    { id: "u", kind: "reply", root: "p", speaker: "user", text: "もっと詳しく", at },
+    { id: "d", kind: "remark", root: "p", speaker: "gourmet", model: "ultra", text: "## 豚骨", at },
+    { id: "f", kind: "remark", root: "p", speaker: "move", text: "今はうまく答えられませんでした。", at },
+  ];
+  feed.set([{ id: "p", kind: "post", speaker: "user", text: "ラーメン", at }, ...said]);
+  feed.reveal("f");
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const badgesOf = (id) => {
+    const row = walk(feed.element).find((node) => node.attributes?.["data-id"] === id || node["data-id"] === id || node.dataset?.id === id);
+    assert.ok(row, `row ${id} is drawn`);
+    return walk(row).filter((node) => String(node.className).includes("model-badge"));
+  };
+  for (const entry of said) {
+    const badges = badgesOf(entry.id);
+    if (entry.model === "ultra") {
+      assert.equal(badges.length, 1, `${entry.id} carries the badge`);
+      assert.equal(badges[0].textContent, "Ultra");
+    } else {
+      assert.equal(badges.length, 0, `${entry.id} carries no badge`);
+    }
+  }
+});
+
 // A persona's reply is rendered, because nobody edits it: emphasis, deletion,
 // code and links read as themselves, and a javascript: link stays inert. A
 // whole HTML document from Hermes is framed where nothing runs. Your own

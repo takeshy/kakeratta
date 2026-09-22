@@ -63,7 +63,10 @@ person to judge.
 
 ### A turn: read, then a workflow
 
-A persona does not call tools one at a time any more (`internal/persona/workflow.go`).
+Every persona except Hermes (an external agent) works this way, whatever tools
+it holds: it reads, then hands in a workflow (`internal/persona/workflow.go`).
+It is reviewed when it holds any step other than `write_note` and `speak`, as
+step 3 describes.
 
 1. **Read.** Its `index.md` is handed over whole at the start of every turn.
    It may then ask, up to ten times, to look at things: its note list,
@@ -114,21 +117,32 @@ always answers. Routing runs as usual for everyone else.
 
 **Every persona the post reaches runs at once, on Super** (the middle model).
 
+**A reply goes through the same routing as a post.** Who answers it is whoever
+the router picks from the whole thread, plus anyone @mentioned, plus Hermes
+when the reply is to Hermes.
+
 **A reply that asks for a better answer is answered on Ultra.** When the user
 replies to a persona's remark, Lightning (the low model) is shown that remark
 and the reply and answers one question: is the user explicitly asking for a
 correction, a rethink, more detail or a deeper look ("違う", "本当？",
-"もう一度考えて", "もっと詳しく", "深掘りして")? If so, the personas answering
-that reply run on Ultra; thanks, ordinary follow-up questions and new topics
-stay on Super, as does anything Lightning fails to answer
-(`internal/persona/escalate.go`).
+"もう一度考えて", "もっと詳しく", "深掘りして")? If so, the persona whose remark
+was replied to answers on Ultra - added to the recipients even when routing did
+not choose it - and is told to answer thoroughly in Markdown instead of
+briefly. Anyone else the reply reaches answers on Super as usual. Thanks,
+ordinary follow-up questions and new topics stay on Super, as does anything
+Lightning fails to answer (`internal/persona/escalate.go`). A reply to the
+user's own post, or to Hermes, is not judged.
+
+**Each remark says which model answered.** It carries `model: "super"` or
+`"ultra"` (nothing for a turn that failed), and the timeline marks an Ultra
+answer with a badge beside the time.
 
 ```
 post / reply
  ↓ the image is read once (OCR, what is in it, where it seems to come from)
  ↓ routing
  ↓ a reply to a persona's remark: Lightning → {"escalate": true|false}
-every routed persona runs in parallel — Super, or Ultra when escalated
+every recipient runs in parallel on Super — the replied-to persona on Ultra when escalated
 ```
 
 ### Reading the image

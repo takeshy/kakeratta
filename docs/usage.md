@@ -275,7 +275,8 @@ is stored.
 Every persona answers on Super. When
 you reply to a persona's answer, Lightning checks one thing: are you explicitly
 asking for a correction, a rethink, more detail or a deeper look ("違う",
-"もっと詳しく", "深掘りして")? If so, that reply is answered on Ultra. Thanks,
+"もっと詳しく", "深掘りして")? If so, the persona you replied to answers on
+Ultra, marked with an Ultra badge. Thanks,
 ordinary follow-up questions and new topics stay on Super. On Token Factory,
 an empty high setting also uses Ultra.
 

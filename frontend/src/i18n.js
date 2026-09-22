@@ -189,6 +189,7 @@ const EN = {
   "担当条件（振り分けに使います）": "Matching conditions (used for routing)",
   "自分を起こす予定を置く": "Set its own wake-ups",
   "変更前の内容": "Before the change",
+  "より深い回答を求められたので Ultra で答えました": "Answered on Ultra because a better or deeper answer was asked for",
   "AIへの依頼": "Request to the AI",
   "現在の内容を見ながら、変えたいことを書いてください。AIの案ができたら編集して保存できます。": "Describe what you want to change while viewing the current content. You can edit and save the AI's proposal when it is ready.",
   "AIに頼む": "Ask the AI",

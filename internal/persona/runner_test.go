@@ -34,6 +34,9 @@ type fake struct {
 	// scripts a verdict; unset, every workflow passes.
 	reviews []string
 	review  func(user string) string
+	// fail makes the endpoint answer 500 to a request whose system prompt it
+	// matches, for a test that needs a call to fail.
+	fail func(system string) bool
 }
 
 func (f *fake) start(t *testing.T) *httptest.Server {
@@ -85,6 +88,10 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		offered := ""
 		for _, tool := range body.Tools {
 			offered += tool.Function.Name + " — " + tool.Function.Description + "\n"
+		}
+		if f.fail != nil && f.fail(system) {
+			http.Error(w, "unavailable", http.StatusInternalServerError)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if names := toolNames(body.Tools); names["submit_review"] {
@@ -383,36 +390,45 @@ func TestEveryoneAnswersTogetherOnSuper(t *testing.T) {
 }
 
 // A reply to a persona's answer is shown to Lightning, and only one asking for
-// a better or deeper answer is answered on Ultra.
+// a better or deeper answer is answered on Ultra - by the persona it was said
+// to, whether or not routing chose it. Anyone else it reaches stays on Super.
 func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 	for _, tc := range []struct {
 		reply    string
 		escalate bool
 		want     string
+		slot     string
 	}{
-		{"もっと詳しく", true, store.NemotronUltra},
-		{"ありがとう", false, store.NemotronSuper},
+		{"もっと詳しく", true, store.NemotronUltra, "ultra"},
+		{"ありがとう", false, store.NemotronSuper, "super"},
 	} {
 		t.Run(tc.reply, func(t *testing.T) {
 			asked := ""
+			replied := false
 			runner, s, stub := setup(t, func(system, user string) string {
 				switch {
 				case strings.Contains(system, "明示的に求めているか"):
 					asked = user
 					return `{"escalate":` + strconv.FormatBool(tc.escalate) + `}`
-				case strings.Contains(system, "振り分け"):
+				case strings.Contains(system, "振り分け") && !replied:
 					return `{"deliver":["gourmet"]}`
+				case strings.Contains(system, "振り分け"):
+					// The reply is routed to someone else only.
+					return `{"deliver":["move"]}`
+				case strings.Contains(system, "あなたは「michi」"):
+					return `{"action":"speak","text":"駅から5分"}`
 				default:
 					return `{"action":"speak","text":"豚骨の店がある"}`
 				}
-			}, "gourmet")
+			}, "gourmet", "move")
 
 			first := post(t, s, "ラーメン食べたい")
 			runner.react(first.ID)
 			said := remarks(t, s)
-			if len(said) != 1 {
+			if len(said) != 1 || said[0].Model != "super" {
 				t.Fatalf("remarks = %+v", said)
 			}
+			replied = true
 			reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User,
 				Root: first.ID, ReplyTo: said[0].ID, Text: tc.reply, At: time.Now()}
 			if err := s.Append(reply); err != nil {
@@ -423,35 +439,191 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			if !strings.Contains(asked, "豚骨の店がある") || !strings.Contains(asked, tc.reply) {
 				t.Fatalf("Lightning was not shown the answer and the reply:\n%s", asked)
 			}
+			if got := stub.modelFor("michi"); got != store.NemotronSuper {
+				t.Fatalf("the other persona answered on %q", got)
+			}
+			if !tc.escalate {
+				if len(remarks(t, s)) != 2 {
+					t.Fatalf("the persona replied to answered without being routed: %+v", remarks(t, s))
+				}
+				return
+			}
 			if got := stub.lastModelFor("tabe"); got != tc.want {
 				t.Fatalf("model = %q, want %q", got, tc.want)
 			}
-			// Ultra is not told to keep it short.
+			// Ultra is not told to keep it short; Super is.
 			prompt := stub.lastPromptFor("tabe")
-			if deep := strings.Contains(prompt, "前の回答より良い・深い回答を求めています") && strings.Contains(prompt, "求められた深さに見合う長さで、Markdown で。"); deep != tc.escalate {
-				t.Fatalf("deep prompt = %v, want %v", deep, tc.escalate)
+			if !strings.Contains(prompt, "前の回答より良い・深い回答を求めています") || !strings.Contains(prompt, "求められた深さに見合う長さで、Markdown で。") || strings.Contains(prompt, "発言するときは短く") {
+				t.Fatalf("tabe was not given the deep prompt:\n%s", prompt)
 			}
-			if brief := strings.Contains(prompt, "発言するときは短く"); brief == tc.escalate {
-				t.Fatalf("brief rule present = %v with escalate %v", brief, tc.escalate)
+			if !strings.Contains(stub.promptFor("michi"), "発言するときは短く") {
+				t.Fatal("the other persona lost the brief prompt")
+			}
+			models := map[string]string{}
+			for _, remark := range remarks(t, s)[1:] {
+				models[remark.Speaker] = remark.Model
+			}
+			if models["gourmet"] != tc.slot || models["move"] != "super" {
+				t.Fatalf("remark models = %v", models)
 			}
 		})
 	}
 }
 
-// A reply to the user's own post is not a reply to an answer; nothing is asked.
-func TestOnlyAReplyToAnAnswerIsJudged(t *testing.T) {
-	runner, s, _ := setup(t, func(system, user string) string {
+// replyTo appends the user's reply to an entry, in its thread.
+func replyTo(t *testing.T, s *store.Store, parent timeline.Entry, text string) timeline.Entry {
+	t.Helper()
+	root := parent.Root
+	if root == "" {
+		root = parent.ID
+	}
+	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User,
+		Root: root, ReplyTo: parent.ID, Text: text, At: time.Now()}
+	if err := s.Append(reply); err != nil {
+		t.Fatal(err)
+	}
+	return reply
+}
+
+// The persona replied to may already be a recipient - routed, or @mentioned.
+// It still takes one turn, and that turn is on Ultra.
+func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
+	for _, tc := range []struct{ name, reply, routed string }{
+		{"routed", "もっと詳しく", `{"deliver":["gourmet"]}`},
+		{"mentioned", "@tabe もっと詳しく", `{"deliver":[]}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			replied := false
+			runner, s, stub := setup(t, func(system, user string) string {
+				switch {
+				case strings.Contains(system, "明示的に求めているか"):
+					return `{"escalate":true}`
+				case strings.Contains(system, "振り分け") && !replied:
+					return `{"deliver":["gourmet"]}`
+				case strings.Contains(system, "振り分け"):
+					return tc.routed
+				default:
+					return `{"action":"speak","text":"豚骨の店がある"}`
+				}
+			}, "gourmet")
+			first := post(t, s, "ラーメン食べたい")
+			runner.react(first.ID)
+			answer := remarks(t, s)[0]
+
+			replied = true
+			stub.mu.Lock()
+			before := len(stub.prompts)
+			stub.mu.Unlock()
+			runner.react(replyTo(t, s, answer, tc.reply).ID)
+
+			stub.mu.Lock()
+			var models []string
+			for i := before; i < len(stub.prompts); i++ {
+				if strings.HasPrefix(stub.prompts[i], "あなたは「tabe」") {
+					models = append(models, stub.models[i])
+				}
+			}
+			stub.mu.Unlock()
+			if len(models) == 0 {
+				t.Fatal("tabe was not asked")
+			}
+			for _, model := range models {
+				if model != store.NemotronUltra {
+					t.Fatalf("tabe was asked on %v, want Ultra only", models)
+				}
+			}
+			if said := remarks(t, s); len(said) != 2 || said[1].Model != "ultra" {
+				t.Fatalf("remarks = %+v, want one more, on Ultra", said)
+			}
+		})
+	}
+}
+
+// Lightning is asked only about a reply to an active persona's remark. A
+// post, a reply to the user's own post, a reply to Hermes and a reply to a
+// persona no longer in the room are never shown to it.
+func TestLightningIsAskedOnlyAboutAReplyToAnActivePersona(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		speaker string // who the replied-to entry is from; "" means no reply
+	}{
+		{"a post", ""},
+		{"a reply to the user's own post", timeline.User},
+		{"a reply to Hermes", "hermes"},
+		{"a reply to a persona not in the room", "move"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			asked := 0
+			runner, s, _ := setup(t, func(system, user string) string {
+				switch {
+				case strings.Contains(system, "明示的に求めているか"):
+					asked++
+					return `{"escalate":true}`
+				case strings.Contains(system, "振り分け"):
+					return `{"deliver":["gourmet"]}`
+				default:
+					return `{"action":"silent"}`
+				}
+			}, "gourmet", "hermes")
+			first := post(t, s, "もっと詳しく")
+			trigger := first
+			switch tc.speaker {
+			case "":
+			case timeline.User:
+				trigger = replyTo(t, s, first, "もっと詳しく")
+			default:
+				remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: tc.speaker,
+					Root: first.ID, ReplyTo: first.ID, Text: "答え", At: time.Now()}
+				if err := s.Append(remark); err != nil {
+					t.Fatal(err)
+				}
+				trigger = replyTo(t, s, remark, "もっと詳しく")
+			}
+			runner.react(trigger.ID)
+			if asked != 0 {
+				t.Fatalf("Lightning was asked %d times", asked)
+			}
+		})
+	}
+}
+
+// A judgement that fails is a no: the reply is answered on Super by whoever
+// it reached, and the persona replied to is not added.
+func TestAFailedJudgementIsANo(t *testing.T) {
+	replied := false
+	runner, s, stub := setup(t, func(system, user string) string {
 		switch {
-		case strings.Contains(system, "明示的に求めているか"):
-			t.Error("Lightning was asked about a post")
-			return `{"escalate":true}`
-		case strings.Contains(system, "振り分け"):
+		case strings.Contains(system, "振り分け") && !replied:
 			return `{"deliver":["gourmet"]}`
+		case strings.Contains(system, "振り分け"):
+			return `{"deliver":["move"]}`
+		case strings.Contains(system, "あなたは「michi」"):
+			return `{"action":"speak","text":"駅から5分"}`
 		default:
-			return `{"action":"silent"}`
+			return `{"action":"speak","text":"豚骨の店がある"}`
 		}
-	}, "gourmet")
-	runner.react(post(t, s, "もっと詳しく").ID)
+	}, "gourmet", "move")
+	tried := 0
+	stub.fail = func(system string) bool {
+		if strings.Contains(system, "明示的に求めているか") {
+			tried++
+			return true
+		}
+		return false
+	}
+	first := post(t, s, "ラーメン食べたい")
+	runner.react(first.ID)
+	answer := remarks(t, s)[0]
+	replied = true
+	runner.react(replyTo(t, s, answer, "もっと詳しく").ID)
+
+	if tried != 1 {
+		t.Fatalf("Lightning was tried %d times, want once", tried)
+	}
+	said := remarks(t, s)
+	if len(said) != 2 || said[1].Speaker != "move" || said[1].Model != "super" {
+		t.Fatalf("remarks = %+v, want only michi, on Super", said)
+	}
 }
 
 // Not speaking is an outcome, not a failure - and it is not the same as not

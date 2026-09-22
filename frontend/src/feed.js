@@ -247,6 +247,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
         el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
+        drawModel(entry),
         el("span", { class: "spacer" }),
         mine ? el("button", {
           class: "chip ghost icon edit-post", text: "✎", "aria-label": t("編集"), disabled: offline() || !!entry.pending || !!postEditor,
@@ -357,6 +358,14 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     return el("details", { class: "read" }, el("summary", { text: summary }), body);
   }
 
+  // Ultra answers a reply that asked for a better or deeper answer, and the
+  // user should be able to see that it did. Super is the default and goes
+  // unmarked.
+  function drawModel(entry) {
+    if (entry.model !== "ultra") return null;
+    return el("span", { class: "model-badge", text: "Ultra", i18nTitle: "より深い回答を求められたので Ultra で答えました" });
+  }
+
   function drawSaid(entry, post) {
     const persona = getPersona(entry.speaker);
     const mine = entry.speaker === "user";
@@ -368,6 +377,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
         el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
+        drawModel(entry),
         drawRoutingChip(entry),
         mine ? el("button", {
           class: "chip ghost remove", i18nTitle: "消す", disabled: !!entry.pending, label: "×",

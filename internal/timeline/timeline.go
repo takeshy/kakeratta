@@ -97,6 +97,12 @@ type Entry struct {
 	// produced this remark. A remark on a post always leaves a note behind,
 	// and this is how the remark leads to it.
 	Notes []string `json:"notes,omitempty"`
+	// Model is which model a persona answered on: "super", or "ultra" for a
+	// reply that asked for a better or deeper answer. It is shown beside the
+	// remark so the user can tell the two apart. Empty for the user's own
+	// entries, for Hermes, and for a turn that failed - a remark saying it
+	// could not answer was not answered on anything.
+	Model string `json:"model,omitempty"`
 
 	// Deleted marks a tombstone in the log rather than removing history.
 	Deleted bool `json:"deleted,omitempty"`

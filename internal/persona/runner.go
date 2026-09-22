@@ -448,20 +448,23 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
+	// Everyone answers on Super. A reply that asks a persona's answer to be
+	// better or deeper - "違う", "もっと詳しく" - is answered on Ultra by the
+	// persona it was said to, which answers whether or not routing chose it.
+	// Anyone else it reaches answers as usual.
+	deep := ""
+	if parent, ok := r.store.Entry(entry.ReplyTo); ok && entry.Kind == timeline.KindReply && parent.Speaker != "hermes" && isActive(skills, parent.Speaker) {
+		if Escalate(ctx, client, lightningModel(settings), parent, entry) {
+			deep = parent.Speaker
+			targets[deep] = true
+		}
+	}
 	r.keepRouting(entry, routing, named, targets)
 	if len(targets) == 0 {
 		r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": []string{}})
 		return
 	}
 	r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": keys(targets)})
-
-	// Everyone answers on Super. A reply that asks a persona's answer to be
-	// better or deeper - "違う", "もっと詳しく" - is answered on Ultra instead:
-	// the larger model is what the user reaches for, not what a persona is.
-	deep := false
-	if parent, ok := r.store.Entry(entry.ReplyTo); ok && entry.Kind == timeline.KindReply && parent.Speaker != timeline.User {
-		deep = Escalate(ctx, client, lightningModel(settings), parent, entry)
-	}
 
 	// The same tool set the wake paths get. Without this a persona reacting to a
 	// post was offered schedule and then told it was not configured, which is
@@ -493,7 +496,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 				remarks[i], pending[i] = r.queueHermes(ctx, entry, instructions)
 				return
 			}
-			remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, deep, client, settings, registry)
+			remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, skill.ID == deep, client, settings, registry)
 		}(i, skill)
 	}
 	group.Wait()
@@ -508,6 +511,16 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 		}
 	}
 	r.turnsDone(entry.ID, ran, spoke)
+}
+
+// isActive reports whether the persona is in the room.
+func isActive(skills []Skill, id string) bool {
+	for _, skill := range skills {
+		if skill.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // Hermes is the catch-all for questions that none of the focused personas
@@ -650,9 +663,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	daily := trigger.ID == ""
 	// deep is a reply asking for a better or deeper answer: Ultra, and a
 	// remark allowed to be as long as the answer needs.
-	model := personaModel(settings)
+	model, slot := personaModel(settings), "super"
 	if deep {
-		model = ultraModel(settings)
+		model, slot = ultraModel(settings), "ultra"
 	}
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
@@ -737,7 +750,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		record.Error = err.Error()
 		r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
 		if named && !listening {
-			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil)
+			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil, "")
 		}
 		return r.hush(skill, memory)
 	}
@@ -869,12 +882,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	if listening || spoken == "" {
 		if named && !listening {
-			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil)
+			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil, "")
 		}
 		// It had its turn. Whatever it wrote down is kept either way.
 		return r.hush(skill, memory)
 	}
-	return r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, notesWritten(steps))
+	return r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, notesWritten(steps), slot)
 }
 
 // notesWritten lists the notes a turn wrote, for the remark to point at.
@@ -918,7 +931,7 @@ func (r *Runner) hush(skill Skill, memory store.Memory) *timeline.Entry {
 	return nil
 }
 
-func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source, memory store.Memory, replyTo string, notes []string) *timeline.Entry {
+func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source, memory store.Memory, replyTo string, notes []string, slot string) *timeline.Entry {
 	memory.Wakes++
 	_ = r.store.SaveMemory(memory)
 	if replyTo == "" {
@@ -926,7 +939,7 @@ func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source
 	}
 	remark := timeline.Entry{
 		ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: skill.ID,
-		Text: text, At: time.Now(), Root: root, ReplyTo: replyTo, Sources: dedupe(sources), Notes: notes,
+		Text: text, At: time.Now(), Root: root, ReplyTo: replyTo, Sources: dedupe(sources), Notes: notes, Model: slot,
 	}
 	if root == "" {
 		remark.Kind = timeline.KindPost
