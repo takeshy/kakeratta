@@ -81,8 +81,7 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
       save.hidden = !draft;
       if (draft) {
         preview.append(el("h4", { text: `${draft.icon || "◎"} ${draft.name}` }));
-        const modelLabels = { low: "すばやく短く答える", middle: "速さと丁寧さのバランス", high: "じっくり考えて答える" };
-        for (const [label, value] of [["担当条件", draft.domain], ["話し方", draft.tone], ["メモの分類", draft.memory], ["覚えること・返事をするタイミング", draft.instructions], ["考え方", t(modelLabels[draft.model])], ["できること", uniqueTools(draft.tools).map(tool => t(toolLabel(tool))).join(" / ") || t("会話と記憶")]]) {
+        for (const [label, value] of [["担当条件", draft.domain], ["話し方", draft.tone], ["メモの分類", draft.memory], ["覚えること・返事をするタイミング", draft.instructions], ["できること", uniqueTools(draft.tools).map(tool => t(toolLabel(tool))).join(" / ") || t("会話と記憶")]]) {
           preview.append(el("strong", { label }), el("p", { class: "builder-detail", text: value }));
         }
         preview.append(el("p", { class: "hint", label: "まずはこの内容で使ってみましょう。使ったあとでも「AIで修正」で変えられます。" }));

@@ -1,6 +1,6 @@
 // Who is in the room.
 //
-// Each one is a domain, a model size and a set of tools. There is no ceiling on
+// Each one is a domain and a set of tools. There is no ceiling on
 // how many: the routing is what keeps a post from waking all of them, so adding
 // a domain costs one more line in one routing call rather than one more model
 // call per post.
@@ -31,12 +31,6 @@ function scheduleWhen(schedule) {
   const clock = parts({ hour: "2-digit", minute: "2-digit" });
   return schedule.daily ? `${t("毎日")} ${clock}` : `${parts({ month: "2-digit", day: "2-digit" })} ${clock}`;
 }
-
-const tierLabels = {
-  low: "low（先に動く）",
-  middle: "middle",
-  high: "high（最後に動く）",
-};
 
 export function createPersonas({ onChange, onSearch, getSettings }) {
   const view = el("div", { class: "panel-body" });
@@ -119,7 +113,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         el("span", { class: "avatar", text: row.icon || "◎" }),
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
-        el("span", { class: "tag", label: row.id === "hermes" ? "外部エージェント" : tierLabels[row.model] || row.model }),
+        row.id === "hermes" ? el("span", { class: "tag", label: "外部エージェント" }) : null,
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
           el("input", {
@@ -290,7 +284,6 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
           tone: "控えめ。おすすめを押しつけない。",
           memory: "型は Wine（銘柄。産地・品種・感想）と Preference（好みの傾向）の2つ。同じ好みが3回出たら Preference に統合する。",
           instructions: "引用と本人の意見を分け、推測は明記し、統合後も代表例と反例を残す。",
-          model: "high",
           tools: uniqueTools(toolNames).slice(0, 2),
         },
         null,

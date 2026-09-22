@@ -101,7 +101,7 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 			problems = append(problems, fmt.Sprint(fields["message"]))
 		}
 	}
-	said := sandbox.run(ctx, *skill, thread, trigger, named, false, "", client, settings, sandbox.registry(settings))
+	said := sandbox.run(ctx, *skill, thread, trigger, named, false, "", false, client, settings, sandbox.registry(settings))
 	preview := ReplyPreview{Quiet: said == nil, Notes: notes, Error: strings.Join(problems, "; ")}
 	if said != nil {
 		preview.Spoke = said.Text

@@ -58,7 +58,7 @@ function setup(t) {
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
 }
 
-const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動や場所の話。", tone: "短く", instructions: "場所を覚える", model: "middle", tools: ["route"] };
+const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動や場所の話。", tone: "短く", instructions: "場所を覚える", tools: ["route"] };
 const entry = { id: "p", kind: "post", speaker: "user", text: "駅前のラーメン屋まで歩いた" };
 
 // The person says why; the AI writes the condition; the person can correct it

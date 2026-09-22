@@ -58,7 +58,7 @@ function setup(t) {
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
 }
 
-const persona = { id: "gourmet", name: "tabe", icon: "🍜", domain: "食事。", tone: "丁寧に長く", instructions: "店を三つ勧める", model: "high", tools: ["place_search"] };
+const persona = { id: "gourmet", name: "tabe", icon: "🍜", domain: "食事。", tone: "丁寧に長く", instructions: "店を三つ勧める", tools: ["place_search"] };
 const post = { id: "p", kind: "post", speaker: "user", text: "この前の担々麺、ごまが強すぎた" };
 const remark = { id: "r", kind: "remark", speaker: "gourmet", root: "p", replyTo: "p", text: "おすすめの店を三つご紹介します。一つ目は…" };
 

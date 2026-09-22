@@ -138,7 +138,7 @@ func TestRemovingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
 	app, s := app(t)
 	skill := persona.Skill{
 		ID: "removable", Name: "removable", Icon: "🧹", Domain: "test",
-		Model: persona.TierMiddle, Tools: []string{"schedule"},
+		Tools: []string{"schedule"},
 	}
 	raw, err := json.Marshal(skill)
 	if err != nil {

@@ -45,8 +45,7 @@ const rounds = maxReads + maxDrafts + maxMalformed + 2
 //
 // Reactions are asynchronous by default: a post is stored and shown
 // immediately, and whatever anyone has to say about it arrives afterwards. The
-// queue is what makes that true, and it is also what keeps the light tier
-// ahead of the heavy one.
+// queue is what makes that true.
 type reaction struct {
 	entryID   string
 	edited    bool
@@ -456,86 +455,59 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	}
 	r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": keys(targets)})
 
-	// The tiers run one after the other, and that is what makes the exchange
-	// work: what the low one said is in front of the ones above it, so they have
-	// something to pick up on. Running them together would leave the larger
-	// models with nothing but the post.
+	// Everyone answers on Super. A reply that asks a persona's answer to be
+	// better or deeper - "違う", "もっと詳しく" - is answered on Ultra instead:
+	// the larger model is what the user reaches for, not what a persona is.
+	deep := false
+	if parent, ok := r.store.Entry(entry.ReplyTo); ok && entry.Kind == timeline.KindReply && parent.Speaker != timeline.User {
+		deep = Escalate(ctx, client, lightningModel(settings), parent, entry)
+	}
+
 	// The same tool set the wake paths get. Without this a persona reacting to a
 	// post was offered schedule and then told it was not configured, which is
 	// why plana wrote its times into a note as prose instead of placing them.
 	registry := r.registry(settings)
-	var ran []Skill
-	spokeByTier := map[Tier]bool{}
-	spokeByPersona := map[string]bool{}
-	for _, tier := range Tiers {
-		var wave []Skill
-		for _, skill := range skills {
-			if targets[skill.ID] && skill.Model == tier {
-				wave = append(wave, skill)
-			}
-		}
-		if len(wave) == 0 {
-			continue
-		}
-		// Within a tier there is nothing to wait for, so they go together.
-		var group sync.WaitGroup
-		remarks := make([]*timeline.Entry, len(wave))
-		// pending marks a persona whose real turn happens later, out of process
-		// (Hermes, queued as a durable task); such a turn must not be counted as
-		// done yet, or a routing sheet would call it quiet before it has started.
-		pending := make([]bool, len(wave))
-		for i, skill := range wave {
-			group.Add(1)
-			go func(i int, skill Skill) {
-				defer group.Done()
-				defer func() { _ = recover() }()
-				instructions := ""
-				if previous[skill.ID] {
-					instructions = editedInstructions
-				}
-				if skill.ID == "hermes" {
-					remarks[i], pending[i] = r.queueHermes(ctx, entry, instructions)
-					return
-				}
-				remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, client, settings, registry)
-			}(i, skill)
-		}
-		group.Wait()
-		for i, skill := range wave {
-			if !pending[i] {
-				ran = append(ran, skill)
-			}
-		}
-		for _, remark := range remarks {
-			if remark != nil {
-				thread = append(thread, *remark)
-				spokeByTier[tier] = true
-				spokeByPersona[remark.Speaker] = true
-			}
+	var wave []Skill
+	for _, skill := range skills {
+		if targets[skill.ID] {
+			wave = append(wave, skill)
 		}
 	}
-
-	// A persona that already had its turn still gets to hear what was said
-	// above it - not speaking and not remembering are different things - but it
-	// cannot answer. Otherwise the two of them would keep going without anyone
-	// asking, and the timeline would fill up with a conversation that is not
-	// yours.
-	for _, skill := range ran {
-		if !spokeAfter(spokeByTier, skill.Model) {
-			continue
-		}
-		func() {
+	// Nobody waits for anyone: they all go together.
+	var group sync.WaitGroup
+	remarks := make([]*timeline.Entry, len(wave))
+	// pending marks a persona whose real turn happens later, out of process
+	// (Hermes, queued as a durable task); such a turn must not be counted as
+	// done yet, or a routing sheet would call it quiet before it has started.
+	pending := make([]bool, len(wave))
+	for i, skill := range wave {
+		group.Add(1)
+		go func(i int, skill Skill) {
+			defer group.Done()
 			defer func() { _ = recover() }()
-			if remark := r.run(ctx, skill, thread, entry, false, true, "", client, settings, registry); remark != nil {
-				spokeByPersona[remark.Speaker] = true
+			instructions := ""
+			if previous[skill.ID] {
+				instructions = editedInstructions
 			}
-		}()
+			if skill.ID == "hermes" {
+				remarks[i], pending[i] = r.queueHermes(ctx, entry, instructions)
+				return
+			}
+			remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, deep, client, settings, registry)
+		}(i, skill)
 	}
-	// A lower-tier persona can speak on its second pass after hearing a higher
-	// tier. Its turn is not finished until those listening passes are complete;
-	// marking it earlier makes the routing sheet briefly call it quiet while it
-	// is still working.
-	r.turnsDone(entry.ID, ran, spokeByPersona)
+	group.Wait()
+	var ran []Skill
+	spoke := map[string]bool{}
+	for i, skill := range wave {
+		if !pending[i] {
+			ran = append(ran, skill)
+		}
+		if remarks[i] != nil {
+			spoke[remarks[i].Speaker] = true
+		}
+	}
+	r.turnsDone(entry.ID, ran, spoke)
 }
 
 // Hermes is the catch-all for questions that none of the focused personas
@@ -638,7 +610,7 @@ const systemTemplate = `あなたは「%s」。%s
   本体は中身を読みませんし、数や長さの上限も持ちません。
 - メモでは引用内容、本人の意見、他の担当の推測を区別し、推測は推測と明記してください。
   複数の記録を統合しても、後から訂正できるよう代表的な根拠と例外を少し残してください。
-- 発言するときは短く。前に自分が覚えていたことと結びつくなら、それを言ってください。
+%s
 - **発言は投稿と同じ言語で。** 日本語で書かれた投稿には日本語で、英語なら英語で返してください。
   投稿に文章がない（画像だけなど）ときは、あなたの担当条件と指示が書かれている言語で話してください。
   名前や口調はそのままで構いません。
@@ -650,11 +622,22 @@ const systemTemplate = `あなたは「%s」。%s
 
 %s`
 
+// briefRule is how long a remark is, ordinarily.
+const briefRule = "- 発言するときは短く。前に自分が覚えていたことと結びつくなら、それを言ってください。"
+
+// deepRule replaces it when the user replied asking for a better or deeper
+// answer than the one they got.
+const deepRule = `- **今回ユーザーは、前の回答より良い・深い回答を求めています。** 短くまとめる必要はありません。
+  前の回答を見直し、誤りや不足があれば認めて正してください。必要なら調べ直してください。
+  根拠・比較・具体例を添え、求められた深さに見合うだけ詳しく答えてください。口調はそのままで構いません。
+  発言は Markdown で書いてください。
+  前に自分が覚えていたことと結びつくなら、それも言ってください。`
+
 // run wakes one persona and hands it the post. What to read, what to write and
 // whether to say anything are still the persona's; it says so as a workflow,
 // the app has the workflow checked, and only then does anything happen.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
-	wakeInstructions string, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
+	wakeInstructions string, deep bool, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 	if skill.ID == "hermes" {
 		if listening {
 			return nil
@@ -665,7 +648,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 
 	root := timeline.RootOf(trigger)
 	daily := trigger.ID == ""
-	model := modelFor(skill.Model, settings)
+	// deep is a reply asking for a better or deeper answer: Ultra, and a
+	// remark allowed to be as long as the answer needs.
+	model := personaModel(settings)
+	if deep {
+		model = ultraModel(settings)
+	}
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
 	}
@@ -680,20 +668,17 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if memory.JoinedAt.IsZero() {
 		memory.JoinedAt = time.Now()
 	}
-	// The low tier works without a workflow: its notes, web search, and a
-	// remark, called directly. Everything above it plans, is reviewed, and runs.
-	light := skill.Model == TierLow
 	set := registry.For(skill.Tools).As(skill.ID)
-	spec := workflowSpec(set)
-	if light {
-		set = registry.For(lowToolsOnly(skill.Tools)).As(skill.ID)
-		spec = lightSpec(set)
-	}
+	spec := workflowSpec(set, deep)
 	layout := strings.TrimSpace(skill.Memory)
 	if layout == "" {
 		layout = "（指示に書かれたとおり。対象の種類ごとに型を1つ決め、同じ対象は型が違っても1つのメモにします）"
 	}
-	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, layout, spec, okfHost+okfSkill)
+	length := briefRule
+	if deep {
+		length = deepRule
+	}
+	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, layout, length, spec, okfHost+okfSkill)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -755,9 +740,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil)
 		}
 		return r.hush(skill, memory)
-	}
-	if light {
-		return r.converse(ctx, skill, messages, named, listening, set, post, client, model, memory, root, trigger, prov, &record, failed)
 	}
 
 	// What the persona read goes to the reviewer too: whether a note says
@@ -982,17 +964,21 @@ func turnLine(named, listening bool) string {
 	return ""
 }
 
-// modelFor is which model answers for a tier. An unset tier falls back to the
-// one below it, so a single-model setup works - it just gives up the contrast.
-func modelFor(tier Tier, settings store.Settings) string {
-	switch tier {
-	case TierHigh:
-		return firstSet(settings.HighModel, settings.MiddleModel, settings.LowModel)
-	case TierMiddle:
-		return firstSet(settings.MiddleModel, settings.LowModel)
-	default:
-		return strings.TrimSpace(settings.LowModel)
-	}
+// personaModel is the model every persona answers on: Super, or whatever sits
+// in the middle slot. An unset slot falls back to the light one so a
+// single-model setup still works.
+func personaModel(settings store.Settings) string {
+	return firstSet(settings.MiddleModel, settings.LowModel)
+}
+
+// ultraModel answers a reply that asked for a better or deeper answer.
+func ultraModel(settings store.Settings) string {
+	return firstSet(settings.HighModel, settings.MiddleModel, settings.LowModel)
+}
+
+// lightningModel only decides whether a reply asks for Ultra.
+func lightningModel(settings store.Settings) string {
+	return strings.TrimSpace(settings.LowModel)
 }
 
 func firstSet(values ...string) string {
@@ -1002,17 +988,6 @@ func firstSet(values ...string) string {
 		}
 	}
 	return ""
-}
-
-// spokeAfter reports whether anything was said by a tier that runs later than
-// this one.
-func spokeAfter(spoke map[Tier]bool, tier Tier) bool {
-	for other, said := range spoke {
-		if said && other.after(tier) {
-			return true
-		}
-	}
-	return false
 }
 
 const maxReplySources = 3

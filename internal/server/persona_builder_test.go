@@ -44,7 +44,7 @@ func TestPersonaBuilderConversationAndValidation(t *testing.T) {
 	if w := send(body); w.Code != 200 || !strings.Contains(w.Body.String(), "話し方") || !strings.Contains(w.Body.String(), `"placeholder":"例：友達のように気軽に話してほしい。"`) {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
-	draft := persona.Skill{ID: "wine", Name: "ぶどう", Domain: "ワイン", Model: persona.TierMiddle}
+	draft := persona.Skill{ID: "wine", Name: "ぶどう", Domain: "ワイン"}
 	raw, _ := json.Marshal(map[string]any{"message": "完成案です", "draft": draft})
 	reply = string(raw)
 	if w := send(body); w.Code != 200 {

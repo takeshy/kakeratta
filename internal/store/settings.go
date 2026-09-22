@@ -23,8 +23,8 @@ const (
 	NebiusBaseURL     = "https://api.tokenfactory.nebius.com/v1"
 	OpenRouterBaseURL = "https://openrouter.ai/api/v1"
 
-	// Which model sits in which tier is what carries the contrast, so these are
-	// only where it starts. Any OpenAI-compatible name goes in any tier.
+	// Lightning judges replies, Super answers, Ultra answers a reply asking for
+	// more. These are only where it starts; any OpenAI-compatible name fits.
 	NemotronLightning  = "nvidia/Nemotron-3_5-Lightning"
 	NemotronNano       = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
 	NemotronSuper      = "nvidia/nemotron-3-super-120b-a12b"
@@ -46,10 +46,9 @@ type Settings struct {
 	BaseURL  string   `json:"baseUrl"`
 	APIKey   string   `json:"apiKey"`
 
-	// Three sizes, in the order they answer. A persona declares which tier it
-	// belongs to, and the contrast between the tiers is the experience: the low
-	// one reacts quickly and shallowly, and what it said is handed to the ones
-	// above it so they have something to pick up on.
+	// Three sizes. Every persona answers on the middle one (Super). The low one
+	// (Lightning) only judges whether a reply to an answer asks for a better or
+	// deeper one, and such a reply is answered on the high one (Ultra).
 	//
 	// An empty high tier uses Nemotron Ultra on Token Factory. Other endpoints
 	// retain the fallback to the tier below.

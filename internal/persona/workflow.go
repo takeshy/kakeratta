@@ -238,21 +238,6 @@ func argsOf(raw string) (map[string]any, error) {
 // it happens before a workflow and never in one.
 var lookupTools = map[string]bool{"web_search": true, "place_search": true, "route": true, "timeline_search": true}
 
-// lowTools are the only tools the low tier may hold. It has no workflow, so
-// it gets the one lookup that needs no position or setup.
-var lowTools = map[string]bool{"web_search": true}
-
-// lowToolsOnly keeps what the low tier may hold out of a declaration.
-func lowToolsOnly(declared []string) []string {
-	var out []string
-	for _, name := range declared {
-		if lowTools[strings.TrimSpace(name)] {
-			out = append(out, strings.TrimSpace(name))
-		}
-	}
-	return out
-}
-
 // stepNames are the step types a model sometimes writes into the tool field.
 var stepNames = map[string]bool{"write_note": true, "forget_note": true, "write_schedule": true, "cancel_schedule": true, "speak": true}
 
@@ -552,7 +537,7 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 }
 
 // reviewModel checks workflows for unsafe or inconsistent actions. It remains
-// on Super independently of the persona's own tier.
+// on Super even when a persona answers on Ultra.
 func reviewModel() string {
 	return store.NemotronSuper
 }
@@ -842,7 +827,7 @@ type runRecord struct {
 	Persona  string `json:"persona"`
 	Trigger  string `json:"trigger,omitempty"`
 	Wake     string `json:"wake"`
-	// Path is "workflow", or "light" for the low tier.
+	// Path is "workflow".
 	Path     string       `json:"path"`
 	Model    string       `json:"model"`
 	Reviewer string       `json:"reviewer"`

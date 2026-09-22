@@ -23,19 +23,6 @@ func TestTheBuiltInDomainsAreFarApart(t *testing.T) {
 			t.Fatalf("%s: %v", one.ID, err)
 		}
 	}
-	// The point of the sizes is the contrast, so the ones that ship are spread
-	// across more than one tier. None of them is low: they all hold tools that
-	// do more than look, and those need a workflow.
-	sizes := map[Tier]int{}
-	for _, skill := range Builtins {
-		sizes[skill.Model]++
-		if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
-			t.Fatalf("%s ships in the low tier with tools the low tier cannot hold", skill.ID)
-		}
-	}
-	if len(sizes) < 2 {
-		t.Fatal("everything ships in one tier, so there is no contrast")
-	}
 }
 
 // The domain is public - the app reads it to route. The instructions are not:
@@ -49,7 +36,7 @@ func TestTheDeclarationSaysWhatItShould(t *testing.T) {
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"domain", "instructions", "model", "tools"} {
+	for _, name := range []string{"domain", "instructions", "tools"} {
 		if _, found := fields[name]; !found {
 			t.Fatalf("a skill must declare %q", name)
 		}
@@ -60,11 +47,10 @@ func TestInstallRefusesWhatItCannotTrust(t *testing.T) {
 	catalogue := NewCatalogue(t.TempDir())
 	known := func(tool string) bool { return tool == "web_search" }
 	cases := map[string]string{
-		"パス区切りを含むID":  `{"id":"../evil","name":"x","domain":"y","model":"low"}`,
-		"担当領域が無い":     `{"id":"ok","name":"x","domain":"","model":"low"}`,
-		"知らないモデルの大きさ": `{"id":"ok","name":"x","domain":"y","model":"gigantic"}`,
-		"内蔵と同じID":     `{"id":"gourmet","name":"x","domain":"y","model":"low"}`,
-		"知らない道具":      `{"id":"ok","name":"x","domain":"y","model":"low","tools":["nuke"]}`,
+		"パス区切りを含むID": `{"id":"../evil","name":"x","domain":"y","model":"low"}`,
+		"担当領域が無い":    `{"id":"ok","name":"x","domain":"","model":"low"}`,
+		"内蔵と同じID":    `{"id":"gourmet","name":"x","domain":"y","model":"low"}`,
+		"知らない道具":     `{"id":"ok","name":"x","domain":"y","model":"low","tools":["nuke"]}`,
 	}
 	for name, definition := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -163,11 +149,6 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 	// schedule is the app's own; nothing plana declares leaves the deployment.
 	if len(plana.Tools) != 1 || plana.Tools[0] != "schedule" {
 		t.Fatalf("plana's tools = %v", plana.Tools)
-	}
-	// Reading an intention out of a passing remark, working out when to look in,
-	// and calling a tool in the same turn is not the light tier's work.
-	if plana.Model != TierMiddle {
-		t.Fatalf("plana = %+v", *plana)
 	}
 	// The domain is what the routing reads, so both kinds have to be in it.
 	// A time on a sentence is what makes it plana's, whatever the sentence is

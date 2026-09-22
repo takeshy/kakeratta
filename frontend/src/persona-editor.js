@@ -9,17 +9,6 @@ import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
 
-const modelLabels = {
-  low: "low — メモと Web 検索と発言だけの軽い担当",
-  middle: "middle — 道具を使える、速さと丁寧さのバランス",
-  high: "high — 道具を使える、じっくり考える",
-};
-
-// lowTools mirrors the server's rule: the low tier may hold web search and
-// nothing else. The server refuses anything else anyway; saying so here is
-// just earlier.
-const lowTools = new Set(["web_search"]);
-
 const fields = [
   { key: "icon", label: "アイコン", kind: "input", maxlength: 4 },
   { key: "name", label: "名前", kind: "input", maxlength: 40 },
@@ -55,18 +44,6 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     form.append(el("label", { class: "persona-field" }, el("strong", { label: field.label }), input, previous[field.key]));
   }
 
-  const model = el("select", { class: "skill-input" });
-  for (const tier of ["low", "middle", "high"]) {
-    model.append(el("option", { value: tier, label: modelLabels[tier] }));
-  }
-  model.value = original.model || "middle";
-  model.disabled = ai;
-  model.addEventListener("change", () => { markChanged("model"); checkTier(); });
-  inputs.model = model;
-  previous.model = el("details", { class: "previous" });
-  previous.model.hidden = true;
-  if (persona.id !== "hermes") form.append(el("label", { class: "persona-field" }, el("strong", { label: "賢さ" }), model, previous.model));
-
   const toolBoxes = {};
   const toolList = el("div", { class: "persona-tools" });
   const available = persona.id === "hermes" ? [] : uniqueTools([...new Set([...toolNames, ...original.tools])]).filter((name) => name !== "timeline_search");
@@ -74,25 +51,22 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     const box = el("input", { type: "checkbox" });
     box.checked = original.tools.some((tool) => capability(tool) === capability(name));
     box.disabled = ai;
-    box.addEventListener("change", () => { markChanged("tools"); checkTier(); });
+    box.addEventListener("change", () => markChanged("tools"));
     toolBoxes[name] = box;
     toolList.append(el("label", { class: "switch" }, box, el("span", { text: t(toolLabel(name)) })));
   }
   previous.tools = el("details", { class: "previous" });
   previous.tools.hidden = true;
-  const tierWarning = el("p", { class: "hint warn", role: "status" });
-  if (persona.id !== "hermes") form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools, tierWarning));
+  if (persona.id !== "hermes") form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools));
 
   function read() {
     const draft = { ...persona };
     for (const field of fields) draft[field.key] = inputs[field.key].value.trim();
-    draft.model = model.value;
     draft.tools = available.filter((name) => toolBoxes[name].checked);
     return draft;
   }
 
   function shown(key, value) {
-    if (key === "model") return t(modelLabels[value] || value || "");
     if (key === "tools") return uniqueTools(value || []).map((name) => t(toolLabel(name))).join(" / ") || t("（なし）");
     return value || "";
   }
@@ -111,18 +85,12 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     }
   }
 
-  function checkTier() {
-    const draft = read();
-    const beyond = draft.model === "low" ? draft.tools.filter((name) => !lowTools.has(name)) : [];
-    tierWarning.textContent = beyond.length
-      ? t("low の担当は Web 検索以外の道具を使えません（{0}）。middle か high にしてください。", beyond.join(" / "))
-      : "";
-    save.disabled = busy || beyond.length > 0 || !proposalReady;
+  function updateSave() {
+    save.disabled = busy || !proposalReady;
   }
 
   function setDraftEditable(value) {
     for (const field of fields) inputs[field.key].readOnly = !value;
-    model.disabled = !value;
     for (const box of Object.values(toolBoxes)) box.disabled = !value;
   }
 
@@ -133,13 +101,11 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
       if (typeof draft[field.key] === "string") inputs[field.key].value = draft[field.key];
       markChanged(field.key);
     }
-    if (["low", "middle", "high"].includes(draft.model)) model.value = draft.model;
-    markChanged("model");
     if (Array.isArray(draft.tools)) {
       for (const name of available) toolBoxes[name].checked = draft.tools.some((tool) => capability(tool) === capability(name));
     }
     markChanged("tools");
-    checkTier();
+    updateSave();
   }
 
   const save = el("button", { class: "button primary", label: "保存", onclick: async () => {
@@ -219,7 +185,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     send.disabled = value;
     voice.button.disabled = value;
     send.textContent = t(value ? "考えています…" : "AIに頼む");
-    checkTier();
+    updateSave();
   }
 
   function close() {
@@ -242,7 +208,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   dialog.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }
   });
-  checkTier();
+  updateSave();
   backdrop.append(dialog);
   document.body.append(backdrop);
   inputs.name.focus?.();

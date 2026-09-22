@@ -147,7 +147,7 @@
           </div>
           <figure class="shot crop-bottom">
             <img class="ja" src="/captures/ja/personas.png" alt="担当の一覧。それぞれの分野、モデルの段、道具、メモ" loading="lazy" width="390" height="1312" />
-            <img class="en" src="/captures/en/personas.png" alt="The Personas panel: each one's subject, model tier, tools, and notes" loading="lazy" width="390" height="1612" />
+            <img class="en" src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="1612" />
           </figure>
         </div>
 
@@ -232,12 +232,12 @@
 
       <section class="section" id="models">
         <h2><span class="ja">動かしているモデル</span><span class="en">The models behind it</span></h2>
-        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。担当ごとに段を選べるので、軽い担当は速く、深く考える担当はじっくり答えます。</p>
-        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Each persona picks a tier, so light personas answer fast and thoughtful ones take their time.</p>
+        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。ふだんは全員が Super で答え、「もっと詳しく」「違う」と返すとその返信には Ultra が答えます。</p>
+        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Every persona answers on Super; reply "tell me more" or "that's wrong" and that reply is answered on Ultra.</p>
         <ul class="models">
-          <li><span class="ja">Nemotron 3.5 Lightning — 軽量な振り分けと、日常的な担当の判断</span><span class="en">Nemotron 3.5 Lightning — lightweight routing and everyday persona decisions</span></li>
-          <li><span class="ja">Nemotron Super — 担当分野をより深く考える推論</span><span class="en">Nemotron Super — richer domain reasoning</span></li>
-          <li><span class="ja">Nemotron Ultra — 担当が必要とする複雑な推論</span><span class="en">Nemotron Ultra — complex reasoning when a persona needs it</span></li>
+          <li><span class="ja">Nemotron 3.5 Lightning — 返信がより深い回答を求めているかの判定</span><span class="en">Nemotron 3.5 Lightning — noticing when a reply asks for a deeper answer</span></li>
+          <li><span class="ja">Nemotron Super — 振り分けと、すべての担当の回答</span><span class="en">Nemotron Super — routing and every persona's answers</span></li>
+          <li><span class="ja">Nemotron Ultra — より良い・深い回答を求められたときの推論</span><span class="en">Nemotron Ultra — deeper reasoning when you ask for a better answer</span></li>
           <li><span class="ja">GLM-5.3-Flash — 画像の読み取り（同じ基盤）</span><span class="en">GLM-5.3-Flash — image reading, on the same backend</span></li>
         </ul>
       </section>

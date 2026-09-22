@@ -17,38 +17,6 @@ import (
 	"strings"
 )
 
-// Tier is which size of model answers for a persona.
-//
-// The difference is the experience, not a saving. A small model may stop at
-// "I'm losing the thread of this", and something larger arriving afterwards
-// picks that up - which only works if the sizes really differ, so which model
-// sits in which tier is the setting that carries the contrast.
-type Tier string
-
-const (
-	TierLow    Tier = "low"
-	TierMiddle Tier = "middle"
-	TierHigh   Tier = "high"
-)
-
-// Tiers are the order they run in: low first, so what it says can be handed to
-// the ones above it.
-var Tiers = []Tier{TierLow, TierMiddle, TierHigh}
-
-func (t Tier) Valid() bool { return t == TierLow || t == TierMiddle || t == TierHigh }
-
-// after reports whether this tier runs later than the other one.
-func (t Tier) after(other Tier) bool { return t.rank() > other.rank() }
-
-func (t Tier) rank() int {
-	for i, tier := range Tiers {
-		if tier == t {
-			return i
-		}
-	}
-	return -1
-}
-
 // Skill is everything a persona declares.
 type Skill struct {
 	ID   string `json:"id"`
@@ -69,7 +37,6 @@ type Skill struct {
 	// persona always sees it; and the kinds named here are the only ones the
 	// app lets a note carry, so one thing is not filed under a second kind.
 	Memory string `json:"memory,omitempty"`
-	Model  Tier   `json:"model"`
 	// Tools are the declared capabilities. Nothing outside this list can be
 	// called, and the app is what calls them.
 	Tools      []string `json:"tools"`
@@ -106,7 +73,7 @@ var Builtins = []Skill{
 		Instructions: "引用内容、本人の意見、他者の発言を区別し、推測は推測と明記する。" +
 			"店や食事の候補を探す相談には必ず答える。地域・料理・条件を組み合わせて web_search と place_search で実在する候補を調べ、検索結果に根拠がある店だけを少数提案する。" +
 			"それ以外で発言するのは、前の好みと結びつくときか、近くに思い当たる店があるときだけ。",
-		Model: TierHigh, Tools: []string{"place_search", "web_search"}, Builtin: true,
+		Tools: []string{"place_search", "web_search"}, Builtin: true,
 	},
 	{
 		ID: "move", Name: "michi", Icon: "🚃",
@@ -123,7 +90,7 @@ var Builtins = []Skill{
 			"徒歩30分以内なら徒歩だけ。徒歩1時間以上なら car でも調べて車だけ。徒歩30分〜1時間のときだけ、car でも調べて両方を並べる。" +
 			"電車・バスは調べられないので、必要ならそう言う。" +
 			"場所が「買い物」「出かける」のように特定できないものは、行き先ではない。所要時間は route の結果だけを使い、勝手に見積もらない。",
-		Model: TierMiddle, Tools: []string{"route", "place_search", "web_search"}, Builtin: true,
+		Tools: []string{"route", "place_search", "web_search"}, Builtin: true,
 	},
 	{
 		ID: "book", Name: "shiori", Icon: "📖",
@@ -134,7 +101,7 @@ var Builtins = []Skill{
 			"読み終えた本は description を感想に書き換え、引用は残す（後から響き合うのは引用のほう）。" +
 			"tags には著者・分野・主題を付ける（例: 身体論, 心理学）。",
 		Instructions: "発言するのは、前に引いた線と響き合うときだけ。毎回感想を言わない。",
-		Model:        TierMiddle, Tools: []string{"web_search"}, Builtin: true,
+		Tools:        []string{"web_search"}, Builtin: true,
 	},
 	// plana is split by what it does rather than by subject: it keeps the small
 	// things too light for a calendar - the repeated ones and the one-offs
@@ -160,14 +127,14 @@ var Builtins = []Skill{
 			"**登録できたら、その投稿への返事として一言だけ知らせる。**「21:30ごろに聞くね」程度でよい。" +
 			"登録しなかったときは黙る。起床したときの声かけとは別で、こちらは投稿への返事の話。" +
 			"薬は記録と軽い言及に留める。催促しない。飲み忘れと判断しない、指摘しない。量・効果・飲み合わせには触れない。",
-		Model: TierMiddle, Tools: []string{"schedule"}, Builtin: true,
+		Tools: []string{"schedule"}, Builtin: true,
 	},
 	{
 		ID: "hermes", Name: "Hermes", Icon: "🤖",
 		Domain:       "質問文。ほかの担当条件に一致しない場合だけ、外部ツールやスキルを使って調査・作業できる質問を引き受ける。質問ではない依頼や日常の記録には反応しない。",
 		Tone:         "作業内容と確認できた結果を簡潔に報告する。",
 		Instructions: "依頼された範囲で作業し、結果と未完了の点を区別する。外部への公開や破壊的な操作はユーザーに確認する。",
-		Model:        TierHigh, Builtin: true,
+		Builtin:      true,
 	},
 }
 
@@ -260,7 +227,7 @@ func (c *Catalogue) read(id string) (Skill, error) {
 		return Skill{}, errors.New("skill id does not match its directory")
 	}
 	skill.Builtin = false
-	return liftForTools(skill), nil
+	return skill, nil
 }
 
 // Install writes a skill into the workspace.
@@ -293,14 +260,6 @@ func Validate(skill Skill, known func(string) bool) error {
 			return errors.New("知らない道具が宣言されています: " + tool)
 		}
 	}
-	return checkTier(skill)
-}
-
-// checkTier refuses a low persona holding tools the low tier cannot hold.
-func checkTier(skill Skill) error {
-	if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
-		return errors.New("web_search 以外の道具を使う担当は middle か high にしてください（low はメモと web_search と発言だけの担当です）")
-	}
 	return nil
 }
 
@@ -313,9 +272,6 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 		return Skill{}, errors.New("スキルの定義を読めませんでした")
 	}
 	if err := validate(skill); err != nil {
-		return Skill{}, err
-	}
-	if err := checkTier(skill); err != nil {
 		return Skill{}, err
 	}
 	for _, builtin := range Builtins {
@@ -373,16 +329,6 @@ func (c *Catalogue) Uninstall(id string) error {
 	return os.RemoveAll(filepath.Join(c.root, id))
 }
 
-// liftForTools runs a skill saved in the low tier with tools the low tier
-// cannot hold one tier up. It keeps what it was built to do rather than
-// quietly losing it.
-func liftForTools(skill Skill) Skill {
-	if skill.Model == TierLow && len(lowToolsOnly(skill.Tools)) != len(skill.Tools) {
-		skill.Model = TierMiddle
-	}
-	return skill
-}
-
 func validate(skill Skill) error {
 	if !idPattern.MatchString(skill.ID) {
 		return errors.New("スキルのIDは英小文字・数字・ハイフンだけで書いてください")
@@ -398,9 +344,6 @@ func validate(skill Skill) error {
 	}
 	if len([]rune(skill.Icon)) > 4 {
 		return errors.New("アイコンは絵文字1つにしてください")
-	}
-	if !skill.Model.Valid() {
-		return errors.New("モデルは low / middle / high のいずれかです")
 	}
 	return nil
 }

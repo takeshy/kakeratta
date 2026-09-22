@@ -102,9 +102,9 @@ runs instead of sending everything to one large model.
 
 | Model                      | Role                                               |
 | -------------------------- | -------------------------------------------------- |
-| **Nemotron 3 Ultra**       | High-tier personas and persona drafting            |
-| **Nemotron 3 Super**       | Routing, middle-tier personas, and workflow review |
-| **Nemotron 3.5 Lightning** | Low-tier personas and dictation polishing          |
+| **Nemotron 3 Ultra**       | Replies asking for a better answer; persona drafting |
+| **Nemotron 3 Super**       | Routing, every persona, and workflow review        |
+| **Nemotron 3.5 Lightning** | Judging replies for Ultra; dictation polishing     |
 | **GLM-5.3-Flash**          | Reading screenshots and photos                     |
 | **Qwen3-Embedding-8B**     | Meaning search over past fragments                 |
 
@@ -460,7 +460,7 @@ task dev    # the API on :8787 and the page on :5173, together
 Open http://127.0.0.1:5173 and enter your **Nebius Token Factory API key** in
 Settings.
 
-Lightning, Super, and Ultra are configured for the three model tiers by
+Lightning, Super, and Ultra are configured for the three model slots by
 default.
 
 No Firebase account or external database is required for a local run. Data is

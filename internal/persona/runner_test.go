@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -27,7 +26,9 @@ import (
 type fake struct {
 	mu      sync.Mutex
 	prompts []string
-	reply   func(system, user string) string
+	// models are the model each prompt was sent to, by the same index.
+	models []string
+	reply  func(system, user string) string
 	// reviews are the app's own checks, kept apart from what the personas were
 	// asked so a test counting persona calls is not counting those. review
 	// scripts a verdict; unset, every workflow passes.
@@ -39,6 +40,7 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
+			Model    string `json:"model"`
 			Messages []struct {
 				Role       string `json:"role"`
 				Content    any    `json:"content"`
@@ -101,6 +103,7 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		}
 		f.mu.Lock()
 		f.prompts = append(f.prompts, system+"\n----\n"+user+"\n----\n"+offered)
+		f.models = append(f.models, body.Model)
 		f.mu.Unlock()
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []any{map[string]any{"message": asCall(f.reply(system, user), toolNames(body.Tools))}},
@@ -159,6 +162,8 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		}
 		return map[string]any{"content": content}
 
+	case offered["escalate"]:
+		return call("escalate", json.RawMessage(content))
 	case offered["submit_review"]:
 		if scripted && parsed.Verdict != "" {
 			return call("submit_review", json.RawMessage(content))
@@ -229,28 +234,6 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		}
 		return call("submit_workflow", map[string]any{"summary": "test", "steps": steps})
 
-	case offered["silent"]:
-		// The low tier's direct calls.
-		if !scripted {
-			return map[string]any{"content": content}
-		}
-		switch parsed.Action {
-		case "speak":
-			if offered["speak"] {
-				return call("speak", map[string]any{"text": parsed.Text})
-			}
-			return call("silent", map[string]any{})
-		case "tool":
-			switch parsed.Tool {
-			case "notes_write":
-				return call("write_note", parsed.Args)
-			case "notes_forget":
-				return call("forget_note", parsed.Args)
-			default:
-				return call(parsed.Tool, parsed.Args)
-			}
-		}
-		return call("silent", map[string]any{})
 	}
 	// A compose step: plain text back.
 	if scripted && parsed.Action == "speak" {
@@ -271,6 +254,42 @@ func (f *fake) seen(needle string) bool {
 		}
 	}
 	return false
+}
+
+// modelFor returns the model the persona with this name was first asked on.
+func (f *fake) modelFor(name string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, prompt := range f.prompts {
+		if strings.HasPrefix(prompt, "あなたは「"+name+"」") {
+			return f.models[i]
+		}
+	}
+	return ""
+}
+
+// lastModelFor returns the model the persona with this name was last asked on.
+func (f *fake) lastModelFor(name string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := len(f.prompts) - 1; i >= 0; i-- {
+		if strings.HasPrefix(f.prompts[i], "あなたは「"+name+"」") {
+			return f.models[i]
+		}
+	}
+	return ""
+}
+
+// lastPromptFor returns the last prompt sent to the persona with this name.
+func (f *fake) lastPromptFor(name string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := len(f.prompts) - 1; i >= 0; i-- {
+		if strings.HasPrefix(f.prompts[i], "あなたは「"+name+"」") {
+			return f.prompts[i]
+		}
+	}
+	return ""
 }
 
 // promptFor returns the prompt sent to the persona with this name.
@@ -335,150 +354,104 @@ func remarks(t *testing.T, s *store.Store) []timeline.Entry {
 	return out
 }
 
-// The rule the exchange rests on: the low tier goes first, and the ones above
-// it read what it said. Run together, the larger models would have nothing to
-// pick up on.
-func TestTheHigherTiersReadWhatTheLowerOneSaid(t *testing.T) {
+// Everyone a post reaches answers at once, on the same model, and nobody gets
+// a second turn to listen to the others.
+func TestEveryoneAnswersTogetherOnSuper(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		switch {
 		case strings.Contains(system, "振り分け"):
 			return `{"deliver":["move","gourmet"]}`
+		case strings.Contains(user, "このターンは発言できません"):
+			t.Error("a listening turn was given")
+			return `{"action":"silent"}`
 		case strings.Contains(system, "あなたは「michi」"):
-			return `{"action":"speak","text":"渋谷まで20分","notes":"渋谷によく行く"}`
+			return `{"action":"speak","text":"渋谷まで20分"}`
 		default:
-			return `{"action":"speak","text":"それなら店も見ておく","notes":"渋谷の店を探した"}`
+			return `{"action":"speak","text":"それなら店も見ておく"}`
 		}
 	}, "move", "gourmet")
 
 	entry := post(t, s, "20時に渋谷に着きたい")
 	runner.react(entry.ID)
 
-	said := remarks(t, s)
-	if len(said) != 2 {
+	if said := remarks(t, s); len(said) != 2 {
 		t.Fatalf("remarks = %+v", said)
 	}
-	if said[0].Speaker != "move" || said[1].Speaker != "gourmet" {
-		t.Fatalf("order = %s then %s, want the light one first", said[0].Speaker, said[1].Speaker)
-	}
-	high := stub.promptFor("tabe")
-	if high == "" {
-		t.Fatal("the high persona was never asked")
-	}
-	if !strings.Contains(high, "渋谷まで20分") {
-		t.Fatalf("the high one could not see the low one's remark:\n%s", high)
-	}
-	// And the low one cannot have seen a remark that had not happened yet.
-	if strings.Contains(stub.promptFor("michi"), "それなら店も見ておく") {
-		t.Fatal("the low one saw the future")
+	if stub.modelFor("michi") != store.NemotronSuper || stub.modelFor("tabe") != store.NemotronSuper {
+		t.Fatalf("models = %q, %q; want Super", stub.modelFor("michi"), stub.modelFor("tabe"))
 	}
 }
 
-// Three tiers in order, and then the rule that stops them talking to each
-// other: a persona that already had its turn hears what came after it, keeps
-// what it wants of it, and cannot answer.
-func TestAnEarlierTierHearsTheLaterOnesButCannotAnswer(t *testing.T) {
-	var listened []string
-	runner, s, stub := setup(t, func(system, user string) string {
-		switch {
-		case strings.Contains(system, "振り分け"):
-			return `{"deliver":["diary","book","gourmet"]}`
-		case strings.Contains(user, "notes_write の結果"):
-			return `{"action":"silent"}`
-		}
-		// A turn where it may not speak is a turn for the notes only.
-		if strings.Contains(user, "このターンは発言できません") {
-			for _, name := range []string{"nikki", "shiori", "tabe"} {
-				if strings.Contains(system, "あなたは「"+name+"」") {
-					listened = append(listened, name)
+// A reply to a persona's answer is shown to Lightning, and only one asking for
+// a better or deeper answer is answered on Ultra.
+func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
+	for _, tc := range []struct {
+		reply    string
+		escalate bool
+		want     string
+	}{
+		{"もっと詳しく", true, store.NemotronUltra},
+		{"ありがとう", false, store.NemotronSuper},
+	} {
+		t.Run(tc.reply, func(t *testing.T) {
+			asked := ""
+			runner, s, stub := setup(t, func(system, user string) string {
+				switch {
+				case strings.Contains(system, "明示的に求めているか"):
+					asked = user
+					return `{"escalate":` + strconv.FormatBool(tc.escalate) + `}`
+				case strings.Contains(system, "振り分け"):
+					return `{"deliver":["gourmet"]}`
+				default:
+					return `{"action":"speak","text":"豚骨の店がある"}`
 				}
+			}, "gourmet")
+
+			first := post(t, s, "ラーメン食べたい")
+			runner.react(first.ID)
+			said := remarks(t, s)
+			if len(said) != 1 {
+				t.Fatalf("remarks = %+v", said)
 			}
-			// Even asked to speak, nothing may come of it.
-			return `{"action":"speak","text":"割り込みたい"}`
-		}
-		switch {
-		case strings.Contains(system, "あなたは「nikki」"):
-			return `{"action":"speak","text":"三田まで30分。"}`
-		case strings.Contains(system, "あなたは「shiori」"):
-			return `{"action":"speak","text":"前に引いた線と重なる。"}`
-		default:
-			return `{"action":"speak","text":"みちの30分なら間に合う。"}`
-		}
-	}, "diary", "book", "gourmet")
+			reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User,
+				Root: first.ID, ReplyTo: said[0].ID, Text: tc.reply, At: time.Now()}
+			if err := s.Append(reply); err != nil {
+				t.Fatal(err)
+			}
+			runner.react(reply.ID)
 
-	// Nothing built in is low any more - a persona with tools is middle or
-	// higher - so the low one here is the test's own, holding no tools.
-	if _, err := runner.catalogue.Install([]byte(`{"id":"diary","name":"nikki","domain":"日々のこと","instructions":"覚える","model":"low","tools":[]}`), nil); err != nil {
-		t.Fatal(err)
-	}
-	entry := post(t, s, "ここ行きたい")
-	runner.react(entry.ID)
-
-	said := remarks(t, s)
-	if len(said) != 3 {
-		t.Fatalf("remarks = %d, want one per tier: %+v", len(said), said)
-	}
-	if said[0].Speaker != "diary" || said[1].Speaker != "book" || said[2].Speaker != "gourmet" {
-		t.Fatalf("order = %s, %s, %s; want low, middle, high",
-			said[0].Speaker, said[1].Speaker, said[2].Speaker)
-	}
-	// Each tier saw what the ones below it said, and nothing above.
-	if !strings.Contains(stub.promptFor("shiori"), "三田まで30分") {
-		t.Fatal("middle did not see low")
-	}
-	if !strings.Contains(stub.promptFor("tabe"), "前に引いた線と重なる") {
-		t.Fatal("high did not see middle")
-	}
-
-	// The two that went earlier were handed the later remarks, and the one that
-	// went last has nothing after it to hear. A listening persona that tries to
-	// speak is sent back once, so it may be asked twice.
-	once := map[string]bool{}
-	for _, name := range listened {
-		once[name] = true
-	}
-	if len(once) != 2 {
-		t.Fatalf("listened = %v, want the low and middle ones", listened)
-	}
-	for _, name := range listened {
-		if name == "tabe" {
-			t.Fatal("the last tier was given a listening turn it does not need")
-		}
-	}
-	// They asked to speak on that turn and were not allowed to, so the timeline
-	// did not grow. This is what keeps them from going back and forth on their
-	// own.
-	if len(remarks(t, s)) != 3 {
-		t.Fatal("a listening turn produced a remark")
+			if !strings.Contains(asked, "豚骨の店がある") || !strings.Contains(asked, tc.reply) {
+				t.Fatalf("Lightning was not shown the answer and the reply:\n%s", asked)
+			}
+			if got := stub.lastModelFor("tabe"); got != tc.want {
+				t.Fatalf("model = %q, want %q", got, tc.want)
+			}
+			// Ultra is not told to keep it short.
+			prompt := stub.lastPromptFor("tabe")
+			if deep := strings.Contains(prompt, "前の回答より良い・深い回答を求めています") && strings.Contains(prompt, "求められた深さに見合う長さで、Markdown で。"); deep != tc.escalate {
+				t.Fatalf("deep prompt = %v, want %v", deep, tc.escalate)
+			}
+			if brief := strings.Contains(prompt, "発言するときは短く"); brief == tc.escalate {
+				t.Fatalf("brief rule present = %v with escalate %v", brief, tc.escalate)
+			}
+		})
 	}
 }
 
-// Nobody above said anything, so there is nothing to hear and no extra call to
-// pay for - which is the common case, since staying quiet is the default.
-func TestNoListeningTurnWhenTheHigherTiersStayedQuiet(t *testing.T) {
-	listening := 0
+// A reply to the user's own post is not a reply to an answer; nothing is asked.
+func TestOnlyAReplyToAnAnswerIsJudged(t *testing.T) {
 	runner, s, _ := setup(t, func(system, user string) string {
 		switch {
+		case strings.Contains(system, "明示的に求めているか"):
+			t.Error("Lightning was asked about a post")
+			return `{"escalate":true}`
 		case strings.Contains(system, "振り分け"):
-			return `{"deliver":["move","gourmet"]}`
-		case strings.Contains(user, "このターンは発言できません"):
-			listening++
-			return `{"action":"silent"}`
-		case strings.Contains(system, "あなたは「michi」"):
-			return `{"action":"speak","text":"30分。"}`
+			return `{"deliver":["gourmet"]}`
 		default:
 			return `{"action":"silent"}`
 		}
-	}, "move", "gourmet")
-
-	entry := post(t, s, "ここ行きたい")
-	runner.react(entry.ID)
-
-	if listening != 0 {
-		t.Fatalf("listening turns = %d, want none", listening)
-	}
-	if len(remarks(t, s)) != 1 {
-		t.Fatalf("remarks = %+v", remarks(t, s))
-	}
+	}, "gourmet")
+	runner.react(post(t, s, "もっと詳しく").ID)
 }
 
 // Not speaking is an outcome, not a failure - and it is not the same as not
@@ -747,8 +720,8 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 				if strings.Contains(system, "振り分け") {
 					return `{"deliver":["move","gourmet"]}`
 				}
-				if strings.Contains(user, "このターンは発言できません") {
-					return `{"action":"silent"}`
+				if strings.Contains(system, "明示的に求めているか") {
+					return `{"escalate":false}`
 				}
 				return `{"action":"speak","text":"追加条件を踏まえた回答"}`
 			}, "move", "gourmet")
@@ -779,10 +752,17 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 			runner.react(trigger.ID)
 
 			stub.mu.Lock()
-			prompts := append([]string(nil), stub.prompts...)
+			var prompts []string
+			for _, prompt := range stub.prompts {
+				// Whether a reply asks for Ultra is judged on the answer and
+				// the reply alone.
+				if !strings.Contains(prompt, "明示的に求めているか") {
+					prompts = append(prompts, prompt)
+				}
+			}
 			stub.mu.Unlock()
-			if len(prompts) != 4 {
-				t.Fatalf("got %d calls, want routing, two personas, and a listening turn", len(prompts))
+			if len(prompts) != 3 {
+				t.Fatalf("got %d calls, want routing and two personas", len(prompts))
 			}
 			for i, prompt := range prompts {
 				_, context, ok := strings.Cut(prompt, "スレッド全体（古い順）:\n")
@@ -1128,8 +1108,8 @@ func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
 // shown a call to that tool it can copy.
 func TestTheWorkflowSpecFollowsThePersonasTools(t *testing.T) {
 	registry := tools.New(tools.Config{}).WithSchedules(nil)
-	plana := workflowSpec(registry.For([]string{"schedule"}))
-	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}))
+	plana := workflowSpec(registry.For([]string{"schedule"}), false)
+	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}), false)
 
 	for _, want := range []string{"### write_schedule", "### cancel_schedule", "ドラマを見たか"} {
 		if !strings.Contains(plana, want) {
@@ -1314,69 +1294,6 @@ func TestAReadSaysWhatIsLeftAndWhatElseThereIs(t *testing.T) {
 	}
 }
 
-// The low tier works without a workflow: its notes and a remark, called
-// directly, and nothing to review.
-func TestTheLowTierTalksToItsNotesDirectly(t *testing.T) {
-	runner, s, stub := setup(t, func(system, user string) string {
-		switch {
-		case strings.Contains(system, "振り分け"):
-			return `{"deliver":["diary"]}`
-		case strings.Contains(user, "write_note の結果"):
-			return `{"action":"speak","text":"覚えた"}`
-		default:
-			return `{"action":"tool","tool":"notes_write","args":{"path":"days/today.md","text":"---\\ntype: Day\\n---\\n\\n* 雨"}}`
-		}
-	}, "diary")
-	if _, err := runner.catalogue.Install([]byte(`{"id":"diary","name":"nikki","domain":"日々のこと","instructions":"覚える","model":"low","tools":["web_search"]}`), func(string) bool { return true }); err != nil {
-		t.Fatal(err)
-	}
-
-	runner.react(post(t, s, "今日は雨").ID)
-
-	if said := remarks(t, s); len(said) != 1 || said[0].Text != "覚えた" {
-		t.Fatalf("remarks = %+v", said)
-	}
-	if _, ok := s.Note("diary", "days/today.md"); !ok {
-		t.Fatal("the note was not written")
-	}
-	if len(stub.reviews) != 0 {
-		t.Fatal("the low tier was reviewed")
-	}
-	prompt := stub.promptFor("nikki")
-	if strings.Contains(prompt, "\nsubmit_workflow — ") || strings.Contains(prompt, "\nread — ") {
-		t.Fatalf("the low tier was offered the workflow:\n%s", prompt)
-	}
-	for _, want := range []string{"write_note — ", "speak — ", "silent — ", "web_search — "} {
-		if !strings.Contains(prompt, want) {
-			t.Fatalf("the low tier was not offered %q", want)
-		}
-	}
-}
-
-// Web search is reading. The low tier may hold it; anything that does more
-// than look needs a workflow, and so a tier above low.
-func TestTheLowTierHoldsOnlyReadingTools(t *testing.T) {
-	catalogue := NewCatalogue(t.TempDir())
-	known := func(string) bool { return true }
-	if _, err := catalogue.Install([]byte(`{"id":"walker","name":"w","domain":"移動","model":"low","tools":["route"]}`), known); err == nil {
-		t.Fatal("a low persona was saved holding route")
-	}
-	if _, err := catalogue.Install([]byte(`{"id":"reader","name":"r","domain":"調べもの","model":"low","tools":["web_search"]}`), known); err != nil {
-		t.Fatalf("a low persona with web search was refused: %v", err)
-	}
-	// One saved before the rule keeps its tools and runs a tier up.
-	dir := filepath.Join(catalogue.root, "old")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "skill.json"), []byte(`{"id":"old","name":"o","domain":"移動","model":"low","tools":["route"]}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if old, ok := catalogue.Find("old"); !ok || old.Model != TierMiddle || len(old.Tools) != 1 {
-		t.Fatalf("old = %+v", old)
-	}
-}
-
 // Web search is used before a workflow, like reading a note, and never in one.
 func TestWebSearchIsNotAWorkflowStep(t *testing.T) {
 	set := tools.New(tools.Config{}).For([]string{"web_search"})
@@ -1460,11 +1377,11 @@ func TestTheWorkflowSchemaFollowsThePersonasTools(t *testing.T) {
 	}
 
 	// The spec's samples carry exactly the fields the schema has.
-	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}))
+	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}), false)
 	if strings.Contains(tabe, `"at":`) || strings.Contains(tabe, "### tool\n") {
 		t.Fatalf("the spec showed a lookup-only persona fields or steps it cannot send")
 	}
-	plana := workflowSpec(registry.For([]string{"schedule"}))
+	plana := workflowSpec(registry.For([]string{"schedule"}), false)
 	if !strings.Contains(plana, `"at":"2026-09-18T22:00:00+09:00"`) {
 		t.Fatal("the scheduling sample lost its time")
 	}
@@ -1542,7 +1459,7 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 		{
 			name: "named persona is not the router's choice", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":["gourmet","move"],"excluded_reasons":{"book":"本の話ではない"}}`,
-			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Tracked: true, Done: []string{"move", "gourmet"}, Spoke: []string{}},
+			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Tracked: true, Done: []string{"gourmet", "move"}, Spoke: []string{}},
 		},
 		{
 			name: "named persona is not passed over either", text: "@tabe 今日の昼どうしよう",
@@ -1897,7 +1814,7 @@ func TestSpeakSourcesMustComeFromThisTurnsSearches(t *testing.T) {
 		t.Fatalf("sources = %+v", sources)
 	}
 	// The spec tells the persona about the field, and every sample carries it.
-	spec := workflowSpec(set)
+	spec := workflowSpec(set, false)
 	if !strings.Contains(spec, "**sources**") || !strings.Contains(spec, `"sources":[]`) {
 		t.Fatalf("the spec does not explain sources:\n%s", spec)
 	}

@@ -110,48 +110,28 @@ stored, and shows the reviewer only what the persona read this turn.
 **An @ mention skips the routing.** A named persona always gets the post and
 always answers. Routing runs as usual for everyone else.
 
-### Order
+### Which model answers
 
-Each persona is set to **low / middle / high**. They are **not run in parallel:
-low goes first and the order runs upwards.**
+There is no per-persona model. **Every persona the post reaches runs at once,
+on Super** (the middle model), and each takes one turn; nobody waits for
+anyone else, and nobody gets a second turn to hear what the others said.
 
-**The tier also decides how a persona works.** A persona that uses any tool
-other than web search (routes, places, schedules) is middle or high, and works
-through a reviewed workflow. A low persona holds no such tools: it reads its
-notes, may search the web, writes its notes and speaks, calling these directly
-with no workflow and no review (`internal/persona/light.go`). Web search counts
-as reading on both paths — on the workflow path it is used before the workflow,
-never inside one.
-
-The exchange only works because what came earlier is in the later input. Run
-together, the larger models cannot see what the smaller one said, so they have
-nothing to pick up on.
+**A reply that asks for a better answer is answered on Ultra.** When the user
+replies to a persona's remark, Lightning (the low model) is shown that remark
+and the reply and answers one question: is the user explicitly asking for a
+correction, a rethink, more detail or a deeper look ("違う", "本当？",
+"もう一度考えて", "もっと詳しく", "深掘りして")? If so, the personas answering
+that reply run on Ultra; thanks, ordinary follow-up questions and new topics
+stay on Super, as does anything Lightning fails to answer
+(`internal/persona/escalate.go`).
 
 ```
-post
+post / reply
  ↓ the image is read once (OCR, what is in it, where it seems to come from)
  ↓ routing
-low     runs ──→ anything it said is added to the context
- ↓
-middle  runs (with low's remark in the input)
- ↓
-high    runs (with low's and middle's remarks in the input)
- ↓
-the tiers that already ran are handed what came after them
-(**they cannot speak**; notes only)
+ ↓ a reply to a persona's remark: Lightning → {"escalate": true|false}
+every routed persona runs in parallel — Super, or Ultra when escalated
 ```
-
-**What came later is handed to the tiers that went earlier.** Not speaking and
-not remembering are different things, so it is passed once, to be remembered.
-But **they cannot speak on that turn** — otherwise they would keep answering
-each other unprompted and the timeline would fill with a conversation that is
-not yours. When the higher tiers all stayed quiet there is nothing to pass on,
-so that extra turn does not happen at all (staying quiet is the default, so
-this is the normal case).
-
-Nothing waits on a lower tier that said nothing. Personas in the same tier run
-together; the order only matters between tiers. The higher tiers answer later
-still, which is acceptable because asynchronous is the default.
 
 ### Reading the image
 
@@ -256,7 +236,6 @@ to the skill.**
 | Name, icon, tone | How it shows up and how it talks |
 | Subject | What it reacts to and remembers. **The router reads this** |
 | Instructions | How to keep notes, when to compress, what is worth saying. **Only it reads these** |
-| Model | `low` / `middle` / `high` |
 | Tools | Only what is declared can be called |
 
 Four ship with the app (tabe food / michi travel / shiori reading / plana routines). A

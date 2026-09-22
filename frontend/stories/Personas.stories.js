@@ -30,7 +30,7 @@ export const WithAdded = {
   name: "追加した担当がいる（削除できる）",
   render: () => panelOf([
     ...personas,
-    { id: "wine", name: "ぶどう", icon: "🍷", model: "high", builtin: false, active: true, wakes: 2,
+    { id: "wine", name: "ぶどう", icon: "🍷", builtin: false, active: true, wakes: 2,
       domain: "ワイン。銘柄、産地、ラベルの写真、飲んだ記録。", tools: ["web_search"] },
   ]),
 };
@@ -60,7 +60,7 @@ export const AICreateDraft = {
   render: () => panelOf(personas, () => {
     const ja = getLanguage() === "ja";
     const draft = {
-      id: "wine", name: ja ? "ぶどう" : "budou", icon: "🍷", model: "middle", tools: ["web_search"],
+      id: "wine", name: ja ? "ぶどう" : "budou", icon: "🍷", tools: ["web_search"],
       domain: ja ? "ラベルの写真から、ワインの銘柄・産地・ブドウ品種を解説し、お店で買ったり注文したりできるようにする。" : "Identify wines from label photos and explain the producer, region, and grapes so you can buy or order them.",
       memory: ja ? "型は Wine（銘柄。産地・品種・感想）と Preference（好みの傾向。同じ好みが3回出たら統合）の2つ。" : "Two kinds: Wine (producer, region, grapes, impressions) and Preference (a taste that has come up three times).",
       tone: ja ? "気軽に話せる友達のように、短く親しみやすく。" : "Friendly and relaxed, with short replies.",
@@ -85,7 +85,7 @@ export const WineMemory = {
   render: () => {
     for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove();
     const ja = getLanguage() === "ja";
-    const wine = { id: "wine", name: ja ? "ワイン担当" : "Wine", icon: "🍷", model: "middle", active: true,
+    const wine = { id: "wine", name: ja ? "ワイン担当" : "Wine", icon: "🍷", active: true,
       domain: ja ? "飲んだワインと、好きだった理由を覚えます。" : "Remembers the wines you tried and why you liked them.", tools: [], wakes: 4 };
     const sources = `<!-- kakeratta:note-sources -->\n# 記憶を更新した投稿\n\n* [${ja ? "9月12日 — レストランでピノ・ノワールを気に入った" : "Sep 12 — liked Pinot Noir at a restaurant"}](/?entry=sample-pinot)\n* [${ja ? "9月13日 — ガメイを「飲みやすい」と話した" : "Sep 13 — described Gamay as easy to drink"}](/?entry=sample-gamay)\n<!-- /kakeratta:note-sources -->`;
     const notes = [

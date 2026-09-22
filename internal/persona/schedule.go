@@ -106,7 +106,7 @@ func (r *Runner) schedulesAt(now time.Time) {
 			continue
 		}
 		skill, known := r.catalogue.Find(schedule.Skill)
-		if !known || !active[schedule.Skill] || modelFor(skill.Model, settings) == "" {
+		if !known || !active[schedule.Skill] || personaModel(settings) == "" {
 			// A persona that was paused or removed keeps its notes, not its wakes.
 			if !cleared[schedule.Skill] {
 				cleared[schedule.Skill] = true
@@ -135,7 +135,7 @@ func (r *Runner) schedulesAt(now time.Time) {
 			"Schedule: %s. Set for %s (%s). Check whether it is already done before saying anything.",
 			fired.Note, when.Format(time.RFC3339), zone)}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, scheduleInstructions, client, settings, r.registry(settings))
+		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, scheduleInstructions, false, client, settings, r.registry(settings))
 		cancel()
 	}
 }
@@ -152,7 +152,7 @@ func (r *Runner) forgottenAt(gone forgotten) {
 		return
 	}
 	skill, known := r.catalogue.Find(gone.skill)
-	if !known || modelFor(skill.Model, settings) == "" {
+	if !known || personaModel(settings) == "" {
 		return
 	}
 	now := time.Now()
@@ -163,5 +163,5 @@ func (r *Runner) forgottenAt(gone forgotten) {
 	defer cancel()
 	// Silent for the same reason as a deleted post: the user removed a note, and
 	// tidying up is not an occasion to say anything.
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, forgottenInstructions, client, settings, r.registry(settings))
+	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, forgottenInstructions, false, client, settings, r.registry(settings))
 }

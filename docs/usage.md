@@ -237,9 +237,9 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron 3.5 Lightning — low-tier personas and optional dictation polishing
-- Nemotron Super — routing, middle-tier personas, and workflow review
-- Nemotron Ultra — high-tier personas and persona drafting
+- Nemotron 3.5 Lightning — judging whether a reply asks for a better answer, and optional dictation polishing
+- Nemotron Super — routing, every persona, and workflow review
+- Nemotron Ultra — replies asking for a better or deeper answer, and persona drafting
 - Nebius Token Factory — inference backend
 
 Routing uses Nemotron Super by default. Under Advanced options → Use OpenRouter, enter an API key
@@ -256,9 +256,9 @@ Qwen3-Embedding-8B on the same backend.
 
 | For | Setting | Default |
 | --- | --- | --- |
-| The low tier | `lowModel` | Nemotron 3.5 Lightning |
-| The middle tier | `middleModel` | Nemotron Super |
-| The high tier | `highModel` | Nemotron Ultra |
+| Judging replies to an answer | `lowModel` | Nemotron 3.5 Lightning |
+| Every persona | `middleModel` | Nemotron Super |
+| Replies asking for more | `highModel` | Nemotron Ultra |
 | Reading images / OCR | `visionModel` | GLM-5.3-Flash |
 | Routing | advanced setting can select Jev | Nemotron Super |
 | Workflow review | fixed | Nemotron Super |
@@ -267,20 +267,17 @@ Qwen3-Embedding-8B on the same backend.
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
 
-The page has no model picker: users enter an API key and the tiers keep these
+The page has no model picker: users enter an API key and the slots keep these
 defaults. To change a model for a workspace, edit the keys above in its
 `settings.json` (or `PUT /api/settings`); the page keeps working with whatever
 is stored.
 
-**Which model sits in which tier is the difference in experience.** This is not
-cost optimisation. The low one is allowed a shallow reaction, allowed to stop at
-"I'm losing the thread of this", and the tiers above come along afterwards and
-pick it up. Being told clever things one-sidedly is dull, so what matters is
-that **the tiers really differ**.
-
-**The default has three distinct tiers: Lightning → Super → Ultra.** On Token Factory,
-an empty high setting also uses Ultra. Each persona chooses its tier; a high-tier
-persona receives earlier reactions as context for more complex reasoning.
+**Personas have no model of their own.** Every persona answers on Super. When
+you reply to a persona's answer, Lightning checks one thing: are you explicitly
+asking for a correction, a rethink, more detail or a deeper look ("違う",
+"もっと詳しく", "深掘りして")? If so, that reply is answered on Ultra. Thanks,
+ordinary follow-up questions and new topics stay on Super. On Token Factory,
+an empty high setting also uses Ultra.
 
 - Nebius Token Factory provides Nemotron inference, GLM image reading, and Qwen embeddings.
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.

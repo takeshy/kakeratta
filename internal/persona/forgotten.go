@@ -161,7 +161,7 @@ func (r *Runner) deletedAt(gone deletedPost) {
 		return
 	}
 	skill, known := r.catalogue.Find(gone.skill)
-	if !known || modelFor(skill.Model, settings) == "" {
+	if !known || personaModel(settings) == "" {
 		return
 	}
 	label := strings.Join(strings.Fields(gone.label), " ")
@@ -180,5 +180,5 @@ func (r *Runner) deletedAt(gone deletedPost) {
 	// It cannot speak. This wake is bookkeeping after the user deleted a post,
 	// and it has no post to answer: a remark here would become a new top-level
 	// post of its own, which is the app talking to itself.
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, deletedInstructions, client, settings, r.registry(settings))
+	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, deletedInstructions, false, client, settings, r.registry(settings))
 }

@@ -49,7 +49,7 @@ func (r *Runner) dailyAt(now time.Time) {
 		}
 		schedule := settings.DailyCheckIns[skill.ID]
 		day, due := schedule.Due(now)
-		if !due || (skill.ID != "hermes" && modelFor(skill.Model, settings) == "") {
+		if !due || (skill.ID != "hermes" && personaModel(settings) == "") {
 			continue
 		}
 		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
@@ -63,7 +63,7 @@ func (r *Runner) dailyAt(now time.Time) {
 		loc, _ := time.LoadLocation(schedule.TimeZone)
 		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, dailyInstructions, client, settings, r.registry(settings))
+		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, dailyInstructions, false, client, settings, r.registry(settings))
 		cancel()
 	}
 }

@@ -561,7 +561,7 @@ test("editing is disabled offline and an open draft can be saved after reconnect
 
 test("persona editor separates direct editing from AI editing", async (t) => {
   const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
-  const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動", tone: "短く", instructions: "場所を覚える", model: "middle", tools: ["route", "place_search"] };
+  const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動", tone: "短く", instructions: "場所を覚える", tools: ["route", "place_search"] };
   t.mock.method(api, "buildPersona", async (body) => ({ message: "短くしました", draft: { ...body.current, tone: "一言だけ" } }));
   t.mock.method(api, "savePersonaDraft", async (skill) => skill);
   globalThis.Node = TestNode;

@@ -19,7 +19,7 @@ test("Hermes card exposes shared notes without a redundant request button", asyn
   globalThis.Node = Element;
   globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  const row = { id: "hermes", name: "Hermes", icon: "🤖", model: "high", builtin: true, active: true, tools: [] };
+  const row = { id: "hermes", name: "Hermes", icon: "🤖", builtin: true, active: true, tools: [] };
   t.mock.method(api, "personas", async () => ({ personas: [row], tools: [] }));
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
