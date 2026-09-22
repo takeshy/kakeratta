@@ -87,3 +87,22 @@ variable "bluesky_public_url" {
     error_message = "Use an HTTPS origin without a path, query or fragment."
   }
 }
+
+variable "judge_token_factory_key" {
+  description = "Server-side Nebius Token Factory key used only by judge accounts."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "judge_expires_at" {
+  description = "RFC3339 end of judge registration and access."
+  type        = string
+  default     = "2026-12-15T20:00:00Z"
+}
+
+variable "judge_max_uses" {
+  description = "Maximum charged AI actions per judge account."
+  type        = number
+  default     = 200
+}

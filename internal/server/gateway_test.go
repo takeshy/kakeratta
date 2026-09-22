@@ -21,7 +21,27 @@ func (fakeVerifier) SessionCookie(_ context.Context, token string, _ time.Durati
 }
 
 func (fakeVerifier) VerifySessionCookie(_ context.Context, cookie string) (*auth.Token, error) {
-	return &auth.Token{UID: strings.TrimPrefix(cookie, "session:")}, nil
+	return fakeToken(strings.TrimPrefix(cookie, "session:")), nil
+}
+
+func (fakeVerifier) VerifyIDToken(_ context.Context, token string) (*auth.Token, error) {
+	return fakeToken(token), nil
+}
+
+func (fakeVerifier) SetCustomUserClaims(context.Context, string, map[string]interface{}) error {
+	return nil
+}
+
+func fakeToken(value string) *auth.Token {
+	provider := "google.com"
+	claims := map[string]interface{}{}
+	uid := value
+	if strings.HasPrefix(value, "judge:") {
+		provider, uid, claims["judge"] = "password", strings.TrimPrefix(value, "judge:"), true
+	} else if strings.HasPrefix(value, "password:") {
+		provider, uid = "password", strings.TrimPrefix(value, "password:")
+	}
+	return &auth.Token{UID: uid, Firebase: auth.FirebaseInfo{SignInProvider: provider}, Claims: claims}
 }
 
 func testGateway(t *testing.T) *Gateway {
@@ -73,6 +93,72 @@ func TestGatewayRequiresLoginAndSeparatesUsers(t *testing.T) {
 	bob, _ := gateway.tenant("bob")
 	if alice.store.Root() == bob.store.Root() {
 		t.Fatal("users share a workspace")
+	}
+}
+
+type judgeVerifier struct {
+	fakeVerifier
+	claimed string
+}
+
+func (v *judgeVerifier) SetCustomUserClaims(_ context.Context, uid string, claims map[string]interface{}) error {
+	if claims["judge"] == true {
+		v.claimed = uid
+	}
+	return nil
+}
+
+func TestJudgeRegistrationRequiresInviteAndPasswordThenAllowsClaimedSession(t *testing.T) {
+	verifier := &judgeVerifier{}
+	gateway := newGateway(AuthOptions{
+		Root: t.TempDir(), FirebaseProjectID: "project", FirebaseAPIKey: "key", FirebaseAuthDomain: "project.firebaseapp.com",
+		JudgeInviteToken: "secret-invite", JudgeAPIKey: "judge-key", JudgeExpiresAt: time.Now().Add(time.Hour), JudgeMaxUses: 200,
+	}, verifier)
+	t.Cleanup(gateway.Close)
+
+	register := func(token, invite string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/judge", strings.NewReader(`{"token":"`+invite+`"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		res := httptest.NewRecorder()
+		gateway.ServeHTTP(res, req)
+		return res
+	}
+	if got := register("password:alice", "wrong"); got.Code != http.StatusForbidden {
+		t.Fatalf("wrong invite = %d", got.Code)
+	}
+	if got := register("alice", "secret-invite"); got.Code != http.StatusUnauthorized {
+		t.Fatalf("google registration = %d", got.Code)
+	}
+	if got := register("password:alice", "secret-invite"); got.Code != http.StatusNoContent || verifier.claimed != "alice" {
+		t.Fatalf("registration = %d, claim = %q", got.Code, verifier.claimed)
+	}
+
+	denied := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/session", nil)
+	req.Header.Set("Authorization", "Bearer password:alice")
+	gateway.ServeHTTP(denied, req)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("unclaimed password session = %d", denied.Code)
+	}
+	if cookie := sessionCookie(t, gateway, "judge:alice"); cookie.Name != authCookieName {
+		t.Fatalf("judge cookie = %+v", cookie)
+	}
+}
+
+func TestJudgeUseRoutesAreLimitedToAIStartingActions(t *testing.T) {
+	for _, tc := range []struct {
+		method, path string
+		charged      bool
+	}{
+		{http.MethodPost, "/api/post", true}, {http.MethodPost, "/api/reply", true},
+		{http.MethodPost, "/api/personas/build", true}, {http.MethodPost, "/api/entry/x/routing/check", true},
+		{http.MethodPost, "/api/entry/x/reply/preview", true}, {http.MethodGet, "/api/timeline", false},
+		{http.MethodPut, "/api/settings", false},
+	} {
+		if got := judgeUseRoute(httptest.NewRequest(tc.method, tc.path, nil)); got != tc.charged {
+			t.Errorf("%s %s = %v", tc.method, tc.path, got)
+		}
 	}
 }
 

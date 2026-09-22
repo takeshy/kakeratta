@@ -29,6 +29,14 @@ FIREBASE_CONFIG=$(curl -fsS \
   "https://firebase.googleapis.com/v1beta1/projects/$FIREBASE_PROJECT_ID/webApps/$FIREBASE_APP_ID/config")
 FIREBASE_API_KEY=$(jq -er '.apiKey' <<<"$FIREBASE_CONFIG")
 FIREBASE_AUTH_DOMAIN=$(jq -er '.authDomain' <<<"$FIREBASE_CONFIG")
+# Judge registration uses Firebase email/password only behind the secret invite
+# URL. API sessions still require the server-issued judge custom claim.
+curl -fsS -X PATCH \
+  -H "Authorization: Bearer $FIREBASE_ACCESS_TOKEN" \
+  -H "x-goog-user-project: $FIREBASE_PROJECT_ID" \
+  -H "Content-Type: application/json" \
+  "https://identitytoolkit.googleapis.com/admin/v2/projects/$FIREBASE_PROJECT_ID/config?updateMask=signIn.email.enabled,signIn.email.passwordRequired" \
+  -d '{"signIn":{"email":{"enabled":true,"passwordRequired":true}}}' >/dev/null
 TF_ARGS=(
   -var="project_id=$PROJECT_ID"
   -var="region=$REGION"
@@ -39,6 +47,11 @@ TF_ARGS=(
   -var="firebase_api_key=$FIREBASE_API_KEY"
   -var="firebase_auth_domain=$FIREBASE_AUTH_DOMAIN"
 )
+JUDGE_KEY_FILE=${KAKERATTA_JUDGE_KEY_FILE:-../tmp/judge_token_factory.key}
+if [[ -s "$JUDGE_KEY_FILE" ]]; then
+  JUDGE_TOKEN_FACTORY_KEY=$(<"$JUDGE_KEY_FILE")
+  TF_ARGS+=(-var="judge_token_factory_key=$JUDGE_TOKEN_FACTORY_KEY")
+fi
 # Optional here: a terraform.tfvars in infra/ works as well, and is the better
 # place for the MCP server list.
 if [[ -n "${KAKERATTA_MCP_SERVERS:-}" ]]; then
@@ -80,4 +93,7 @@ printf '\nkakeratta: %s\n' "$URL"
 printf 'Commit: %s\n' "$COMMIT_ID"
 printf 'Cloud Run: '
 terraform -chdir=infra output -raw cloud_run_url
+printf '\n'
+printf 'Judge URL: '
+terraform -chdir=infra output -raw judge_url
 printf '\n'

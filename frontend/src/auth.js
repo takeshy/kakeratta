@@ -43,6 +43,29 @@ function loginScreen(onLogin, error = "") {
   );
 }
 
+function judgeInviteToken() {
+  const match = location.pathname.match(/^\/judge\/([^/]+)\/?$/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function judgeScreen(onRegister, onLogin, error = "") {
+  const root = document.querySelector("#app");
+  clear(root);
+  const email = el("input", { type: "email", autocomplete: "email", required: true, placeholder: "Email" });
+  const password = el("input", { type: "password", autocomplete: "new-password", required: true, minlength: 6, placeholder: "Password" });
+  const form = el("form", { class: "login" },
+    el("h1", { text: "kakeratta" }),
+    el("p", { text: "Judge access" }),
+    el("p", { text: "任意のメールアドレスと6文字以上のパスワードで登録すると、すぐに試せます。" }),
+    error ? el("p", { class: "error", text: error }) : null,
+    email, password,
+    el("button", { type: "submit", class: "button primary", text: "登録して使う" }),
+    el("button", { type: "button", class: "button", text: "登録済みのアカウントでログイン", onclick: () => onLogin(email.value, password.value) }),
+  );
+  form.addEventListener("submit", event => { event.preventDefault(); void onRegister(email.value, password.value); });
+  root.append(form);
+}
+
 async function authenticate() {
   let authConfig;
   try {
@@ -67,9 +90,33 @@ async function authenticate() {
     firebaseAuth = authModule.getAuth(app);
     firebaseSignOut = authModule.signOut;
     const user = await waitForUser(firebaseAuth, authModule.onAuthStateChanged);
-    if (user && localStorage.getItem("kakeratta.signedOut") !== "1") {
+    if (user && !judgeInviteToken() && localStorage.getItem("kakeratta.signedOut") !== "1") {
       await establishSession(user);
       return true;
+    }
+    const invite = judgeInviteToken();
+    if (invite) {
+      const finish = async user => {
+        const firstToken = await user.getIdToken();
+        const claimed = await fetch("/api/auth/judge", {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${firstToken}` },
+          body: JSON.stringify({ token: invite }),
+        });
+        if (!claimed.ok) throw new Error("Judge registration is unavailable.");
+        await user.getIdToken(true);
+        await establishSession(user);
+        localStorage.removeItem("kakeratta.signedOut");
+        location.replace("/");
+      };
+      const show = error => judgeScreen(async (email, password) => {
+        try { await finish((await authModule.createUserWithEmailAndPassword(firebaseAuth, email, password)).user); }
+        catch (problem) { show(String(problem.message || problem)); }
+      }, async (email, password) => {
+        try { await finish((await authModule.signInWithEmailAndPassword(firebaseAuth, email, password)).user); }
+        catch (problem) { show(String(problem.message || problem)); }
+      }, error);
+      show("");
+      return false;
     }
     loginScreen(async () => {
       try {

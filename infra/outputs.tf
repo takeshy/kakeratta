@@ -22,3 +22,9 @@ output "cloud_run_url" {
   description = "Cloud Run backend URL."
   value       = google_cloud_run_v2_service.app.uri
 }
+
+output "judge_url" {
+  description = "Shared registration URL for hackathon judges."
+  value       = "https://${local.domain}/judge/${random_id.judge_invite.hex}"
+  sensitive   = true
+}

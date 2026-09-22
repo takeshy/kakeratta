@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"log"
@@ -27,7 +28,9 @@ const authCookieName = "__session"
 
 type tokenVerifier interface {
 	SessionCookie(context.Context, string, time.Duration) (string, error)
+	VerifyIDToken(context.Context, string) (*auth.Token, error)
 	VerifySessionCookie(context.Context, string) (*auth.Token, error)
+	SetCustomUserClaims(context.Context, string, map[string]interface{}) error
 }
 
 type AuthOptions struct {
@@ -41,8 +44,13 @@ type AuthOptions struct {
 	ExportTarget   func(userKey string) store.ExportTarget
 	ListWorkspaces func(context.Context) ([]string, error)
 	// Tools is the operator's configuration, the same for every user.
-	Tools         tools.Config
-	OpenWorkspace func(userKey string, blobs store.BlobStore) (store.Workspace, error)
+	Tools            tools.Config
+	OpenWorkspace    func(userKey string, blobs store.BlobStore) (store.Workspace, error)
+	JudgeInviteToken string
+	JudgeAPIKey      string
+	JudgeExpiresAt   time.Time
+	JudgeMaxUses     int
+	ClaimJudgeUse    func(context.Context, string, int) (int, bool, error)
 }
 
 // Gateway authenticates a request and dispatches it to a completely separate
@@ -122,6 +130,9 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/api/auth/session" && r.Method == http.MethodPost:
 		g.createSession(w, r)
 		return
+	case r.URL.Path == "/api/auth/judge" && r.Method == http.MethodPost:
+		g.registerJudge(w, r)
+		return
 	case r.URL.Path == "/api/auth/logout" && r.Method == http.MethodPost:
 		g.logout(w, r)
 		return
@@ -130,9 +141,18 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uid, ok := g.user(r)
+	identity, ok := g.user(r)
 	if !ok {
 		fail(w, http.StatusUnauthorized, "login required")
+		return
+	}
+	uid := identity.UID
+	if isPassword(identity) && !isJudge(identity) {
+		fail(w, http.StatusForbidden, "judge registration required")
+		return
+	}
+	if isJudge(identity) && !g.judgeActive() {
+		fail(w, http.StatusForbidden, "judge access has expired")
 		return
 	}
 	if r.URL.Path == "/api/auth/identity" && r.Method == http.MethodGet {
@@ -150,7 +170,73 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if isJudge(identity) {
+		settings := tenant.store.ConfiguredSettings()
+		if settings.APIKey != g.options.JudgeAPIKey || settings.OpenRouterMode {
+			settings.Provider, settings.BaseURL, settings.APIKey = store.ProviderNebius, store.NebiusBaseURL, g.options.JudgeAPIKey
+			settings.OpenRouterMode = false
+			if err := tenant.store.SaveSettings(settings); err != nil {
+				fail(w, http.StatusInternalServerError, "judge settings unavailable")
+				return
+			}
+		}
+		if judgeUseRoute(r) && g.options.ClaimJudgeUse != nil {
+			_, allowed, err := g.options.ClaimJudgeUse(r.Context(), uid, g.options.JudgeMaxUses)
+			if err != nil {
+				fail(w, http.StatusInternalServerError, "judge usage unavailable")
+				return
+			}
+			if !allowed {
+				fail(w, http.StatusTooManyRequests, "judge usage limit reached")
+				return
+			}
+		}
+	}
 	tenant.ServeHTTP(w, r)
+}
+
+func (g *Gateway) registerJudge(w http.ResponseWriter, r *http.Request) {
+	if !g.judgeActive() {
+		fail(w, http.StatusForbidden, "judge registration is closed")
+		return
+	}
+	var body struct {
+		Token string `json:"token"`
+	}
+	if readJSON(r, &body) != nil || subtle.ConstantTimeCompare([]byte(body.Token), []byte(g.options.JudgeInviteToken)) != 1 {
+		fail(w, http.StatusForbidden, "invalid judge invitation")
+		return
+	}
+	idToken := bearer(r.Header.Get("Authorization"))
+	verified, err := g.verifier.VerifyIDToken(r.Context(), idToken)
+	if err != nil || verified.UID == "" || !isPassword(verified) {
+		fail(w, http.StatusUnauthorized, "password account required")
+		return
+	}
+	if err := g.verifier.SetCustomUserClaims(r.Context(), verified.UID, map[string]interface{}{"judge": true}); err != nil {
+		fail(w, http.StatusInternalServerError, "judge registration failed")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (g *Gateway) judgeActive() bool {
+	return g.options.JudgeInviteToken != "" && g.options.JudgeAPIKey != "" && g.options.JudgeMaxUses > 0 && time.Now().Before(g.options.JudgeExpiresAt)
+}
+
+func isPassword(token *auth.Token) bool { return token.Firebase.SignInProvider == "password" }
+func isJudge(token *auth.Token) bool {
+	value, _ := token.Claims["judge"].(bool)
+	return value
+}
+
+func judgeUseRoute(r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return false
+	}
+	path := r.URL.Path
+	return path == "/api/post" || path == "/api/reply" || path == "/api/personas/build" ||
+		strings.HasSuffix(path, "/routing/check") || strings.HasSuffix(path, "/reply/preview")
 }
 
 // userDeleter is what the Firebase auth client can do beyond verifying: forget
@@ -228,6 +314,11 @@ func (g *Gateway) createSession(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnauthorized, "Firebase ID token required")
 		return
 	}
+	verified, err := g.verifier.VerifyIDToken(r.Context(), idToken)
+	if err != nil || verified.UID == "" || (isPassword(verified) && !isJudge(verified)) || (isJudge(verified) && !g.judgeActive()) {
+		fail(w, http.StatusForbidden, "account is not allowed")
+		return
+	}
 	const duration = 14 * 24 * time.Hour
 	sessionCookie, err := g.verifier.SessionCookie(r.Context(), idToken, duration)
 	if err != nil || sessionCookie == "" {
@@ -260,16 +351,16 @@ func workspaceKey(uid string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func (g *Gateway) user(r *http.Request) (string, bool) {
+func (g *Gateway) user(r *http.Request) (*auth.Token, bool) {
 	cookie, err := r.Cookie(authCookieName)
 	if err != nil || cookie.Value == "" {
-		return "", false
+		return nil, false
 	}
 	verified, err := g.verifier.VerifySessionCookie(r.Context(), cookie.Value)
 	if err != nil || verified.UID == "" {
-		return "", false
+		return nil, false
 	}
-	return verified.UID, true
+	return verified, true
 }
 
 func (g *Gateway) tenant(uid string) (*Server, error) {

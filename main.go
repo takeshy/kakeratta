@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -27,6 +28,8 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // version is set at link time.
@@ -81,12 +84,18 @@ func main() {
 		defer firestoreClient.Close()
 	}
 	if firebaseProjectID != "" {
+		judgeExpiresAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_EXPIRES_AT")))
+		judgeMaxUses, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_MAX_USES")))
 		authOptions := server.AuthOptions{
 			Root: root, Version: version,
 			FirebaseProjectID:  firebaseProjectID,
 			FirebaseAPIKey:     strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_API_KEY")),
 			FirebaseAuthDomain: strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_AUTH_DOMAIN")),
 			Tools:              toolConfig,
+			JudgeInviteToken:   strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_INVITE_TOKEN")),
+			JudgeAPIKey:        strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_TOKEN_FACTORY_KEY")),
+			JudgeExpiresAt:     judgeExpiresAt,
+			JudgeMaxUses:       judgeMaxUses,
 			BlobStore: func(userKey string) store.BlobStore {
 				if cloudBlobs == nil {
 					return nil
@@ -104,6 +113,29 @@ func main() {
 			},
 		}
 		if firestoreClient != nil {
+			authOptions.ClaimJudgeUse = func(ctx context.Context, uid string, limit int) (int, bool, error) {
+				ref := firestoreClient.Collection("judgeUsage").Doc(uid)
+				count := 0
+				allowed := false
+				err := firestoreClient.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+					count, allowed = 0, false
+					snapshot, err := tx.Get(ref)
+					if err == nil {
+						if value, ok := snapshot.Data()["count"].(int64); ok {
+							count = int(value)
+						}
+					} else if status.Code(err) != codes.NotFound {
+						return err
+					}
+					if count >= limit {
+						return nil
+					}
+					count++
+					allowed = true
+					return tx.Set(ref, map[string]any{"count": count, "updatedAt": firestore.ServerTimestamp}, firestore.MergeAll)
+				})
+				return count, allowed, err
+			}
 			authOptions.ListWorkspaces = func(ctx context.Context) ([]string, error) {
 				iter := firestoreClient.Collection("users").Documents(ctx)
 				defer iter.Stop()

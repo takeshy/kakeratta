@@ -139,6 +139,36 @@ resource "google_secret_manager_secret_version" "bluesky_key" {
   secret_data = random_id.bluesky_key.hex
 }
 
+resource "random_id" "judge_invite" {
+  byte_length = 32
+}
+
+resource "google_secret_manager_secret" "judge_invite" {
+  secret_id = "${local.name}-judge-invite"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "judge_invite" {
+  secret      = google_secret_manager_secret.judge_invite.id
+  secret_data = random_id.judge_invite.hex
+}
+
+resource "google_secret_manager_secret" "judge_token_factory_key" {
+  secret_id = "${local.name}-judge-token-factory-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "judge_token_factory_key" {
+  secret      = google_secret_manager_secret.judge_token_factory_key.id
+  secret_data = var.judge_token_factory_key
+}
+
 resource "google_service_account" "app" {
   account_id   = local.name
   display_name = "kakeratta runtime"
@@ -273,6 +303,32 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "KAKERATTA_GCS_BUCKET"
         value = google_storage_bucket.blobs.name
+      }
+      env {
+        name = "KAKERATTA_JUDGE_INVITE_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.judge_invite.secret_id
+            version = google_secret_manager_secret_version.judge_invite.version
+          }
+        }
+      }
+      env {
+        name = "KAKERATTA_JUDGE_TOKEN_FACTORY_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.judge_token_factory_key.secret_id
+            version = google_secret_manager_secret_version.judge_token_factory_key.version
+          }
+        }
+      }
+      env {
+        name  = "KAKERATTA_JUDGE_EXPIRES_AT"
+        value = var.judge_expires_at
+      }
+      env {
+        name  = "KAKERATTA_JUDGE_MAX_USES"
+        value = tostring(var.judge_max_uses)
       }
       # MCP servers are the operator's, shared by every user. Each user's web
       # search key stays in their own settings.
