@@ -112,9 +112,7 @@ always answers. Routing runs as usual for everyone else.
 
 ### Which model answers
 
-There is no per-persona model. **Every persona the post reaches runs at once,
-on Super** (the middle model), and each takes one turn; nobody waits for
-anyone else, and nobody gets a second turn to hear what the others said.
+**Every persona the post reaches runs at once, on Super** (the middle model).
 
 **A reply that asks for a better answer is answered on Ultra.** When the user
 replies to a persona's remark, Lightning (the low model) is shown that remark

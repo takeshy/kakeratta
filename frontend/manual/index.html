@@ -391,7 +391,7 @@
             </table>
           </div>
           <p><strong>OpenRouterを使う</strong>では、APIキーを入力して接続確認すると利用可能なモデルを取得し、router/high/middle/lowごとに選べます。振り分けだけをJevへ切り替えることも、OpenRouter専用モードでhigh/middle/lowを選択モデルへ切り替えることもできます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。</p>
-          <p>担当ごとのモデル設定はありません。振り分けられた担当は全員並列に Super で答えます。担当の発言に「違う」「本当？」「もう一度考えて」「もっと詳しく」「深掘りして」のように、訂正・再検討・詳細化を求めて返信すると、Lightning がそれを判定し、その返信には Ultra で答えます。お礼や普通の追加質問、別の話題は Super のままです。</p>
+          <p>振り分けられた担当は全員並列に Super で答えます。担当の発言に「違う」「本当？」「もう一度考えて」「もっと詳しく」「深掘りして」のように、訂正・再検討・詳細化を求めて返信すると、Lightning がそれを判定し、その返信には Ultra で答えます。お礼や普通の追加質問、別の話題は Super のままです。</p>
           <p>担当は、まず読んだり調べたりしてから、やること（メモ・予定・発言）を workflow として出し、本体が確認してから実行します。</p>
           <h3 id="ja-tools">道具：担当が調べたり覚えたりする方法</h3>
           <p><strong>どこで動く？</strong>道具を実行するのはkakerattaのサーバーです。公開版ではホスト先のサーバー、手元で起動した場合は手元のGoサーバーから呼び出します。ブラウザが外部の検索APIを直接呼ぶことはありません。位置情報を許可するとブラウザからサーバーへ座標が送られ、店舗・経路検索時は検索語や座標が外部サービスへ送られます。メモ操作はサーバーの保存先を使い、担当が読むメモや検索結果は設定したAIモデルへの入力にも含まれます。</p>
@@ -822,7 +822,7 @@
             </table>
           </div>
           <p><strong>Use OpenRouter</strong> saves an API key, checks the connection, fetches available models, and lets you pick each router/high/middle/low slot. You can move routing alone to Jev or move high/middle/low to the selected models with OpenRouter-only mode. In the 20-production-item comparison, Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026 per route, but it does not display decision reasons.</p>
-          <p>Personas have no model setting. Every persona a post reaches answers at once, on Super. When you reply to a persona asking for a correction, a rethink or more detail ("that's wrong", "are you sure?", "tell me more", "dig deeper"), Lightning notices and that reply is answered on Ultra. Thanks, ordinary follow-up questions and new topics stay on Super.</p>
+          <p>Every persona a post reaches answers at once, on Super. When you reply to a persona asking for a correction, a rethink or more detail ("that's wrong", "are you sure?", "tell me more", "dig deeper"), Lightning notices and that reply is answered on Ultra. Thanks, ordinary follow-up questions and new topics stay on Super.</p>
           <p>A persona first reads and looks things up, then hands in what it will do (notes, schedules, a remark) as a workflow that the app reviews before running it.</p>
           <h3 id="en-tools">Tools: how personas look things up and remember</h3>
           <p><strong>Where do tools run?</strong>On the kakeratta server: the hosted server for an online deployment, or the Go server on your computer when you run it locally. The browser does not call external search APIs directly. If you allow location access, coordinates go from the browser to the server; place and route searches send search terms or coordinates to the external services. Memory tools use the server's storage, and notes and search results read by a persona also become input to the configured AI model.</p>

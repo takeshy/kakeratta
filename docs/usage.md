@@ -272,7 +272,7 @@ defaults. To change a model for a workspace, edit the keys above in its
 `settings.json` (or `PUT /api/settings`); the page keeps working with whatever
 is stored.
 
-**Personas have no model of their own.** Every persona answers on Super. When
+Every persona answers on Super. When
 you reply to a persona's answer, Lightning checks one thing: are you explicitly
 asking for a correction, a rethink, more detail or a deeper look ("違う",
 "もっと詳しく", "深掘りして")? If so, that reply is answered on Ultra. Thanks,

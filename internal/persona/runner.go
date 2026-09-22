@@ -473,7 +473,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 			wave = append(wave, skill)
 		}
 	}
-	// Nobody waits for anyone: they all go together.
+	// Everyone routed runs at once.
 	var group sync.WaitGroup
 	remarks := make([]*timeline.Entry, len(wave))
 	// pending marks a persona whose real turn happens later, out of process
