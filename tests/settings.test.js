@@ -191,6 +191,36 @@ test("OpenRouter-only setup needs its own key, not a Token Factory key", () => {
   assert.equal(aiConfigured({ openRouterMode: false, openRouterApiKey: "********", jevEnabled: true }), false);
 });
 
+test("saved Jev and OpenRouter-only modes can be turned off without reconnecting", async t => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  let saved = { baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", openRouterApiKey: "********", jevEnabled: true, openRouterMode: true, speech: {}, search: {} };
+  t.mock.method(api, "settings", async () => saved);
+  t.mock.method(api, "saveSettings", async next => { saved = next; return next; });
+  t.mock.method(api, "about", async () => ({ version: "test" }));
+  t.mock.method(api, "mcpConnection", async () => ({ configured: false }));
+  t.mock.method(api, "blueskyConnection", async () => ({ available: false }));
+  const view = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
+  await view.load();
+  openAdvanced(view);
+
+  const toggle = label => walk(view.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate(label))).children[0];
+  const jev = toggle("Jevを有効にする");
+  const openRouter = toggle("OpenRouter専用モード");
+  assert.equal(jev.disabled, false);
+  assert.equal(openRouter.disabled, false);
+
+  jev.checked = false;
+  jev.listeners.change();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(saved.jevEnabled, false);
+  openRouter.checked = false;
+  openRouter.listeners.change();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(saved.openRouterMode, false);
+});
+
 test("initial setup link opens and focuses the OpenRouter settings", async t => {
   const view = panel(t);
   t.mock.method(api, "settings", async () => ({ apiKey: "", speech: {}, search: {} }));

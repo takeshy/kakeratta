@@ -175,7 +175,7 @@ func workflowToolFor(set *tools.Set) llm.Tool {
 		"note":  stringField("write_schedule で起きたときに読む一言。使わないなら \"\""),
 		"id":    stringField("cancel_schedule で消す id。使わないなら \"\""),
 		"sources": map[string]any{"type": "array", "items": map[string]any{"type": "string"},
-			"description": "speak の根拠にした投稿の id。このターンの timeline_search の結果にある id だけ。使わないなら []"},
+			"maxItems": 3, "description": "speak の根拠にした投稿の id。このターンの timeline_search の結果から特に重要なものを最大3件。使わないなら []"},
 	}
 	properties := map[string]any{}
 	var required []any
@@ -405,6 +405,9 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			}
 			if i != len(workflow.Steps)-1 {
 				problems = append(problems, at+": speak は最後のステップにしてください")
+			}
+			if len(step.Sources) > maxReplySources {
+				problems = append(problems, at+": sources は特に重要なものを3件以内に絞ってください")
 			}
 			for _, id := range step.Sources {
 				if _, ok := rules.cited[strings.TrimSpace(id)]; !ok {

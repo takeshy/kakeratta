@@ -972,6 +972,11 @@ func spokeAfter(spoke map[Tier]bool, tier Tier) bool {
 	return false
 }
 
+const maxReplySources = 3
+
+// dedupe keeps the tools' relevance order and leaves a reply with only the
+// few links a reader is likely to inspect. Tool results remain in the model's
+// context; this limit applies only to links displayed beneath its reply.
 func dedupe(sources []timeline.Source) []timeline.Source {
 	seen := map[string]bool{}
 	var out []timeline.Source
@@ -981,6 +986,9 @@ func dedupe(sources []timeline.Source) []timeline.Source {
 		}
 		seen[source.URL] = true
 		out = append(out, source)
+		if len(out) == maxReplySources {
+			break
+		}
 	}
 	return out
 }

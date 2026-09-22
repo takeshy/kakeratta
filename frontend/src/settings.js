@@ -174,8 +174,11 @@ export function createSettings({ speaker, onSettings, closeAccount = null }) {
       });
     const jevEnabled = el("input", { type: "checkbox", checked: !!settings.jevEnabled });
     const openRouterMode = el("input", { type: "checkbox", checked: !!settings.openRouterMode });
-    jevEnabled.disabled = !openRouterVerified;
-    openRouterMode.disabled = !openRouterVerified;
+    // A new opt-in still requires a successful connection check. An existing
+    // opt-in must remain clickable so it can always be turned off after the
+    // page is reopened, when verification state starts fresh.
+    jevEnabled.disabled = !openRouterVerified && !jevEnabled.checked;
+    openRouterMode.disabled = !openRouterVerified && !openRouterMode.checked;
     const routerPicker = modelPicker("Routerモデル", settings.openRouterRouterModel, openRouterModels, (value) => patch({ openRouterRouterModel: value }));
     const jevRouter = el("div", { class: "field fixed-model" },
       el("span", { label: "Routerモデル" }),

@@ -1670,7 +1670,10 @@ func TestConcurrentTurnFinishesDoNotLoseEachOthersUpdate(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() { defer wg.Done(); runner.turnsDone(entry.ID, []Skill{{ID: "gourmet"}}, map[string]bool{"gourmet": true}) }()
+	go func() {
+		defer wg.Done()
+		runner.turnsDone(entry.ID, []Skill{{ID: "gourmet"}}, map[string]bool{"gourmet": true})
+	}()
 	go func() { defer wg.Done(); runner.FinishAsyncTurn(entry.ID, "hermes", true) }()
 	wg.Wait()
 
@@ -1867,5 +1870,18 @@ func TestSpeakSourcesMustComeFromThisTurnsSearches(t *testing.T) {
 	spec := workflowSpec(set)
 	if !strings.Contains(spec, "**sources**") || !strings.Contains(spec, `"sources":[]`) {
 		t.Fatalf("the spec does not explain sources:\n%s", spec)
+	}
+}
+
+func TestReplySourcesKeepOnlyTheFirstThreeUniqueLinks(t *testing.T) {
+	sources := dedupe([]timeline.Source{
+		{Label: "one", URL: "https://example.com/1"},
+		{Label: "one again", URL: "https://example.com/1"},
+		{Label: "two", URL: "https://example.com/2"},
+		{Label: "three", URL: "https://example.com/3"},
+		{Label: "four", URL: "https://example.com/4"},
+	})
+	if len(sources) != maxReplySources || sources[0].Label != "one" || sources[2].Label != "three" {
+		t.Fatalf("sources = %+v", sources)
 	}
 }
