@@ -34,7 +34,7 @@ Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the r
    ```
 
    When the Wake Gate finds no tasks, it skips the agent and the idle LLM call.
-6. Post a request from **Ask Hermes** or directly via `@Hermes ...`. Hermes will autonomously pick up the task via its scheduled cron, complete it, and reply to the thread.
+6. Select Hermes in the persona bar above the timeline, then post a request such as `@Hermes reorganize the README`. Hermes will autonomously pick up the task via its scheduled cron, complete it, and reply to the thread.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
 

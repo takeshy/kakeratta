@@ -38,7 +38,7 @@ const tierLabels = {
   high: "high（最後に動く）",
 };
 
-export function createPersonas({ onChange, onSearch, onAsk, getSettings }) {
+export function createPersonas({ onChange, onSearch, getSettings }) {
   const view = el("div", { class: "panel-body" });
   let rows = [];
   let toolNames = [];
@@ -134,8 +134,6 @@ export function createPersonas({ onChange, onSearch, onAsk, getSettings }) {
     if (row.id === "hermes") {
       box.append(el("p", { class: "hint", label: "あなたのHermesがMCPで依頼を取得し、結果を返します。接続は設定画面から行えます。" }));
       box.append(el("p", { class: "hint", text: t("未処理の依頼 {0}件", row.pendingTasks || 0) }));
-      box.append(el("button", { class: "button primary", label: "Hermesに聞く", disabled: !row.active,
-        onclick: () => onAsk?.(row) }));
     }
     const schedule = row.dailyCheckIn || {};
     const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });

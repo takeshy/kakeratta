@@ -15,25 +15,18 @@ class Element {
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
 
-test("Hermes card opens a direct request and exposes shared notes", async t => {
+test("Hermes card exposes shared notes without a redundant request button", async t => {
   globalThis.Node = Element;
   globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
   const row = { id: "hermes", name: "Hermes", icon: "🤖", model: "high", builtin: true, active: true, tools: [] };
   t.mock.method(api, "personas", async () => ({ personas: [row], tools: [] }));
-  let asked;
-  const view = createPersonas({ getSettings: () => ({}), onAsk: value => { asked = value; } });
+  const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
   const nodes = walk(view.element);
-  const button = nodes.find(n => n.tag === "button" && n.textContent === translate("Hermesに聞く"));
-  assert.ok(button);
+  assert.ok(!nodes.some(n => n.tag === "button" && n.textContent === "Hermesに聞く"));
   assert.ok(nodes.some(n => n.textContent === translate("外部エージェント")));
   assert.ok(nodes.some(n => n.textContent === translate("覚えていること")));
-  button.listeners.click();
-  assert.equal(asked, row);
-  row.active = false;
-  await view.load();
-  assert.equal(walk(view.element).find(n => n.textContent === translate("Hermesに聞く")).disabled, true);
 });
 
 test("Hermes setup includes the key in one configuration and links to its manual", async t => {

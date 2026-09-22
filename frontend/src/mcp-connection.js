@@ -15,7 +15,7 @@ export function createMCPConnection() {
           "aria-label": t("Hermes連携の使い方（別タブで開く）"), i18nTitle: "Hermes連携の使い方（別タブで開く）",
           html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 16v1"/></svg>',
         })),
-      el("p", { class: "hint", label: "「Hermesに聞く」の依頼を、自分のHermesで受け取れます。" }),
+      el("p", { class: "hint", label: "担当バーでHermesの名前を押し、@Hermesで依頼できます。" }),
       el("p", { text: connection ? t(connection.configured ? "接続キー発行済み" : "未設定") : t("読み込み中…") }),
       el("p", { role: "alert", text: error }),
     );

@@ -330,7 +330,7 @@
         <section id="ja-hermes">
 
 <h2>Hermes連携</h2>
-<p class="lede">「Hermesに聞く」で送った依頼を、自分のHermesが受け取り、結果をkakerattaに返します。</p>
+<p class="lede">担当バーでHermesの名前を押して送った依頼を、自分のHermesが受け取り、結果をkakerattaに返します。</p>
 <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="530" /></figure>
 <h3>1. 接続キーを発行する</h3>
 <ol><li>kakerattaの「設定」→「上級オプション」→「外部連携」を開きます。</li><li>「Hermes連携」の「接続キーを発行」を押します。</li><li>表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li></ol>
@@ -345,7 +345,7 @@
 
 
 <h3>3. 依頼して確認する</h3>
-<ol><li>Hermesを再起動します。</li><li>kakerattaでHermes担当をONにし、「Hermesに聞く」から依頼を送ります。</li><li>自分のHermesに「kakerattaの依頼を確認して」と話しかけます。</li><li>Hermesが依頼を処理して報告すると、kakerattaで結果を確認できます。</li></ol>
+<ol><li>Hermesを再起動します。</li><li>kakerattaでHermes担当をONにします。</li><li>タイムライン上部の担当バーでHermesの名前を押し、入力された <code>@Hermes</code> に続けて依頼を書いて送ります。</li><li>自分のHermesに「kakerattaの依頼を確認して」と話しかけます。</li><li>Hermesが依頼を処理して報告すると、kakerattaで結果を確認できます。</li></ol>
 <p>依頼はHermesが取りに来るまで待機します。自動で対応させたい場合は、Hermes側で依頼を確認する定期実行を設定してください。HermesのAPIを公開する必要はありません。</p>
 <h3>接続できないとき</h3><ul><li>設定を変更したあと、Hermesを再起動したか確認してください。</li><li>接続URLにHermesからアクセスできるか確認してください。</li><li>キーを再発行した場合は、config.yamlも新しい設定に置き換えてください。</li><li>Hermes担当がOFFの場合はONにしてください。</li></ul>
 <h3>アクセス範囲と解除</h3><p>Hermesはあなたの投稿・担当のメモ・依頼を読み、Hermesのメモと報告を書き込めます。モデル設定や他のユーザーにはアクセスできません。</p><p>Hermes担当をOFFにすると読み書きを停止します。「連携を解除」を押すと接続キーが無効になります。</p>
@@ -768,7 +768,7 @@
 
         <section id="en-hermes">
 
-<h2>Hermes integration</h2><p class="lede">Your own Hermes picks up “Ask Hermes” requests and sends its reports back to kakeratta.</p>
+<h2>Hermes integration</h2><p class="lede">Your own Hermes picks up requests addressed through the persona bar and sends its reports back to kakeratta.</p>
 <figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="530" /></figure>
 <h3>1. Create a connection key</h3><ol><li>Open Settings → Advanced options → Integrations.</li><li>Under Hermes integration, select “Create connection key”.</li><li>Copy the configuration shown. The key is shown only immediately after it is issued.</li></ol>
 <h3>2. Configure Hermes</h3><p>Add the copied configuration to <code>~/.hermes/config.yaml</code> on the machine running Hermes. If <code>mcp_servers</code> already exists, add the <code>kakeratta</code> entry under it.</p>
@@ -778,7 +778,7 @@
     headers:
       Authorization: "Bearer CONNECTION_KEY"</code></pre>
 
-<h3>3. Send a request</h3><ol><li>Restart Hermes.</li><li>Enable the Hermes persona in kakeratta and send a request with “Ask Hermes”.</li><li>Tell your Hermes: “Check my kakeratta requests.”</li><li>After Hermes processes the request and submits its report, check the result in kakeratta.</li></ol><p>Requests wait until Hermes retrieves them. For automatic handling, configure a recurring check on the Hermes side. You do not need to expose a Hermes API.</p>
+<h3>3. Send a request</h3><ol><li>Restart Hermes.</li><li>Enable the Hermes persona in kakeratta.</li><li>Select Hermes in the persona bar above the timeline, then write your request after the inserted <code>@Hermes</code> and send it.</li><li>Tell your Hermes: “Check my kakeratta requests.”</li><li>After Hermes processes the request and submits its report, check the result in kakeratta.</li></ol><p>Requests wait until Hermes retrieves them. For automatic handling, configure a recurring check on the Hermes side. You do not need to expose a Hermes API.</p>
 <h3>Troubleshooting</h3><ul><li>Restart Hermes after changing its configuration.</li><li>Check that Hermes can reach the connection URL.</li><li>If you replaced the key, update config.yaml with the new configuration.</li><li>Make sure the Hermes persona is enabled.</li></ul>
 <h3>Access and disconnection</h3><p>Hermes can read your posts, persona notes and requests, and write its notes and reports. It cannot access model settings or other users.</p><p>Disable the Hermes persona to stop reads and writes. Select “Disconnect” to invalidate the key.</p>
 

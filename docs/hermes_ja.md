@@ -34,7 +34,7 @@ kakerattaはMCPサーバーとして依頼を保存し、Hermesが接続して�
    ```
 
    Wake Gate がタスクなしと判定した場合、Agent を起動せず、待機時の LLM 呼び出しを省きます。
-6. 「Hermesに聞く」から依頼を投稿します。`@Hermes READMEの構成を整理して` と直接投稿しても呼び出せます。通常投稿はRouterの担当条件で振り分けられ、Hermesの返信への返事も依頼になります。Hermesが自律的にタスクを取得・処理し、完了報告を返信します。
+6. タイムライン上部の担当バーでHermesの名前を押し、`@Hermes READMEの構成を整理して` のように依頼を投稿します。通常投稿はRouterの担当条件で振り分けられ、Hermesの返信への返事も依頼になります。Hermesが自律的にタスクを取得・処理し、完了報告を返信します。
 
 URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサーバーを公開する必要はありません。kakerattaからHermesのプロセスを起動することもありません。
 

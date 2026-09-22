@@ -523,7 +523,7 @@ export function createSettings({ speaker, onSettings, closeAccount = null }) {
     let modelCategory = null;
     const category = (label) => {
       const content = el("div", { class: "advanced-category-body" });
-      const group = el("details", { class: "advanced-category" },
+      const group = el("details", { class: "advanced-category", "data-category": label },
         el("summary", { label }), content);
       body.append(group);
       return { group, content };

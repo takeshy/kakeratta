@@ -52,7 +52,7 @@ const shots = [
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
   { name: "settings", id: "settings--default", clip: "#sheet", open: ".settings-advanced" },
-  { name: "hermes-settings", id: "settings--default", clip: ".advanced-category:nth-child(3)", ready: "#sheet", open: [".settings-advanced", ".advanced-category:nth-child(3)"] },
+  { name: "hermes-settings", id: "settings--default", clip: '[data-category="外部連携"]', ready: "#sheet", open: [".settings-advanced", '[data-category="外部連携"]'] },
   { name: "routing", id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },
   { name: "reply-fix", id: "timeline--reply-fix-proposal", clip: ".dialog.reply-fix", ready: ".reply-instructions" },
