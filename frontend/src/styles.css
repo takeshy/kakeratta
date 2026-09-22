@@ -337,7 +337,7 @@ body.sheet-open .topbar { z-index: 21; }
 .field.check-field { display: flex; flex-direction: row; align-items: center; gap: 8px; }
 .field.check-field input { width: auto; }
 .field.check-field > span:first-child { color: inherit; font-size: inherit; }
-input[type="text"], input[type="search"], input[type="password"], select, input[type="range"] {
+input[type="text"], input[type="search"], input[type="email"], input[type="password"], select, input[type="range"] {
   font: inherit;
   padding: 7px 9px;
   border: 1px solid var(--line);
@@ -345,6 +345,24 @@ input[type="text"], input[type="search"], input[type="password"], select, input[
   background: var(--bg);
   color: inherit;
   width: 100%;
+}
+
+.login input {
+  min-height: 48px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.login input::placeholder {
+  color: var(--muted);
+  opacity: .85;
+}
+
+.login input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .hint { color: var(--muted); font-size: 0.78rem; line-height: 1.6; margin: 0; }
 .hint.warn { color: var(--warn); }

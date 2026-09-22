@@ -79,6 +79,7 @@ const room = createRoom({
 });
 const settingsPanel = createSettings({
   speaker,
+  onMCPChange: () => void personas.load({ quiet: true }),
   // Only an account can be closed: alone on a laptop, the directory is yours.
   closeAccount: authenticationEnabled() ? () => logout({ confirmUnsent: false }) : null,
   onSettings: (next) => {

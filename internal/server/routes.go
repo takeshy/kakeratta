@@ -425,11 +425,12 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		DailyCheckIn store.DailyCheckIn `json:"dailyCheckIn"`
 		// Schedules are the wakes this persona asked the app for, so the card can
 		// show what it is waiting for.
-		Schedules    []store.Schedule `json:"schedules,omitempty"`
-		Active       bool             `json:"active"`
-		Wakes        int              `json:"wakes"`
-		Notes        string           `json:"notes,omitempty"`
-		PendingTasks int              `json:"pendingTasks,omitempty"`
+		Schedules     []store.Schedule `json:"schedules,omitempty"`
+		Active        bool             `json:"active"`
+		Wakes         int              `json:"wakes"`
+		Notes         string           `json:"notes,omitempty"`
+		PendingTasks  int              `json:"pendingTasks,omitempty"`
+		MCPConfigured bool             `json:"mcpConfigured,omitempty"`
 	}
 	active := map[string]bool{}
 	for _, id := range settings.Active {
@@ -437,6 +438,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]row, 0, len(skills))
 	tasks, _ := store.AgentTasks(r.Context(), s.store)
+	mcp, _ := s.store.SocialValue(r.Context(), mcpCredential)
 	pendingTasks := 0
 	for _, task := range tasks {
 		if task.State != "completed" {
@@ -454,7 +456,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		if skill.ID == "hermes" {
 			pending = pendingTasks
 		}
-		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, PendingTasks: pending})
+		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, PendingTasks: pending, MCPConfigured: skill.ID == "hermes" && len(mcp.Data) > 0})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names()})
 }

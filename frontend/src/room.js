@@ -16,7 +16,7 @@ export function createRoom({ onOpen, onActivate, onSelect }) {
   let rows = [];
 
   function drawBanner() {
-    const active = rows.filter((row) => row.active);
+    const active = rows.filter((row) => row.active && (row.id !== "hermes" || row.mcpConfigured));
     banner.hidden = active.length > 0;
     if (!banner.hidden) clear(banner);
     if (active.length) return;
@@ -25,7 +25,7 @@ export function createRoom({ onOpen, onActivate, onSelect }) {
       el("p", { class: "hint", label: "いま放り込んだかけらは、どこにも渡りません。1人呼べば、そこから受け取ります。" }),
     );
     const quick = el("div", { class: "nobody-row" });
-    for (const row of rows.filter((row) => row.builtin && !row.active)) {
+    for (const row of rows.filter((row) => row.builtin && !row.active && (row.id !== "hermes" || row.mcpConfigured))) {
       quick.append(
         el("button", {
           class: "chip add",
@@ -44,7 +44,7 @@ export function createRoom({ onOpen, onActivate, onSelect }) {
 
   function drawBar() {
     clear(bar);
-    const active = rows.filter(row => row.active);
+    const active = rows.filter(row => row.active && (row.id !== "hermes" || row.mcpConfigured));
     for (const [index, row] of active.entries()) {
       bar.append(
         el("button", {

@@ -65,6 +65,7 @@ test("picker selects active personas, preserves surrounding text, and respects I
   const picker = createMentionPicker({ input, onChange: () => changes++, getPersonas: () => [
     { id: "wine", name: "ワイン係", active: true },
     { id: "book", name: "読書係", active: true },
+    { id: "hermes", name: "Hermes", active: true, mcpConfigured: false },
     { id: "off", name: "休み", active: false },
   ] });
   input.value = "相談 @ 後半";
@@ -84,4 +85,22 @@ test("picker selects active personas, preserves surrounding text, and respects I
   assert.equal(picker.element.children.length, 1);
   picker.element.children[0].fire("click");
   assert.equal(input.value, "@ワイン係 ");
+});
+
+test("Hermes is offered only after its MCP connection is configured", t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const input = new TestNode();
+  let configured = false;
+  const picker = createMentionPicker({ input, getPersonas: () => [
+    { id: "hermes", name: "Hermes", active: true, mcpConfigured: configured },
+  ] });
+  input.value = "@";
+  input.setSelectionRange(1, 1);
+  input.fire("input");
+  assert.equal(picker.element.children.length, 0);
+  configured = true;
+  input.fire("input");
+  assert.equal(picker.element.children.length, 1);
 });

@@ -16,7 +16,7 @@ export function aiConfigured(settings) {
   return Boolean(settings.baseUrl?.trim() && settings.lowModel?.trim() && settings.apiKey?.trim());
 }
 
-export function createSettings({ speaker, onSettings, closeAccount = null }) {
+export function createSettings({ speaker, onSettings, onMCPChange, closeAccount = null }) {
   const view = el("div", { class: "panel-body" });
   let settings = null;
   let revealOpenRouter = () => {};
@@ -542,7 +542,7 @@ export function createSettings({ speaker, onSettings, closeAccount = null }) {
       drawSpeech(voice.content);
       drawReadAloud(voice.content);
       const integrations = category("外部連携");
-      const mcp = createMCPConnection();
+      const mcp = createMCPConnection({ onChange: onMCPChange });
       integrations.content.append(mcp.element);
       void mcp.load();
       bluesky?.dispose();

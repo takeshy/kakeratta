@@ -2,7 +2,7 @@ import { el, clear } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
 
-export function createMCPConnection() {
+export function createMCPConnection({ onChange } = {}) {
   const view = el("section");
   let connection = null, key = "", busy = false, error = "";
   const endpoint = () => connection?.path ? new URL(connection.path, location.origin).href : "";
@@ -21,7 +21,10 @@ export function createMCPConnection() {
     );
     const act = async (action) => {
       busy = true; error = ""; draw();
-      try { connection = await action(); key = connection.key || ""; }
+      try {
+        connection = await action(); key = connection.key || "";
+        onChange?.(connection);
+      }
       catch (problem) { error = String(problem.message || problem); }
       finally { busy = false; draw(); }
     };

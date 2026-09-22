@@ -2,6 +2,7 @@ package persona
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -196,6 +197,45 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 	} {
 		if !strings.Contains(plana.Instructions, rule) {
 			t.Fatalf("plana's instructions lack %q", rule)
+		}
+	}
+}
+
+func TestMichiCanResolveDestinationsBeforeRouting(t *testing.T) {
+	var michi *Skill
+	for i := range Builtins {
+		if Builtins[i].ID == "move" {
+			michi = &Builtins[i]
+		}
+	}
+	if michi == nil {
+		t.Fatal("michi does not ship")
+	}
+	for _, tool := range []string{"web_search", "place_search", "route"} {
+		if !slices.Contains(michi.Tools, tool) {
+			t.Fatalf("michi lacks %s: %v", tool, michi.Tools)
+		}
+	}
+	for _, rule := range []string{"正式名称・住所・地域", "座標がないことだけを理由にユーザーへ聞き返さない"} {
+		if !strings.Contains(michi.Instructions, rule) {
+			t.Fatalf("michi's instructions lack %q", rule)
+		}
+	}
+}
+
+func TestTabeAnswersRestaurantSearchRequests(t *testing.T) {
+	var tabe *Skill
+	for i := range Builtins {
+		if Builtins[i].ID == "gourmet" {
+			tabe = &Builtins[i]
+		}
+	}
+	if tabe == nil {
+		t.Fatal("tabe does not ship")
+	}
+	for _, want := range []string{"店や食事の候補を探す相談には必ず答える", "web_search", "place_search", "実在する候補"} {
+		if !strings.Contains(tabe.Instructions, want) {
+			t.Fatalf("tabe's instructions lack %q", want)
 		}
 	}
 }
