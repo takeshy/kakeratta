@@ -291,12 +291,16 @@ func (w *FirestoreWorkspace) exportSkills(ctx context.Context, sink ExportSink) 
 // written time is a field in Firestore and a file time on disk, so it travels
 // as the file's time: the file store reads it back from there.
 func (w *FirestoreWorkspace) exportPersonas(ctx context.Context, sink ExportSink) error {
+	index := noteSourceIndex{}
 	iter := w.user.Collection("personas").Documents(ctx)
 	defer iter.Stop()
 	for {
 		doc, err := iter.Next()
 		if errors.Is(err, iterator.Done) {
-			return nil
+			if len(index) == 0 {
+				return nil
+			}
+			return addJSON(sink, noteSourceIndexName, time.Time{}, index)
 		}
 		if err != nil {
 			return err
@@ -309,13 +313,13 @@ func (w *FirestoreWorkspace) exportPersonas(ctx context.Context, sink ExportSink
 		if err := addJSON(sink, path.Join("memory", name+".meta.json"), time.Time{}, memory); err != nil {
 			return err
 		}
-		if err := w.exportNotes(ctx, sink, doc.Ref.Collection("memory"), name); err != nil {
+		if err := w.exportNotes(ctx, sink, doc.Ref.Collection("memory"), name, index); err != nil {
 			return err
 		}
 	}
 }
 
-func (w *FirestoreWorkspace) exportNotes(ctx context.Context, sink ExportSink, notes *firestore.CollectionRef, persona string) error {
+func (w *FirestoreWorkspace) exportNotes(ctx context.Context, sink ExportSink, notes *firestore.CollectionRef, persona string, index noteSourceIndex) error {
 	iter := notes.Documents(ctx)
 	defer iter.Stop()
 	for {
@@ -340,6 +344,7 @@ func (w *FirestoreWorkspace) exportNotes(ctx context.Context, sink ExportSink, n
 		if err := addBytes(sink, path.Join("memory", persona, clean), piece.Written, []byte(piece.Text)); err != nil {
 			return err
 		}
+		indexSet(index, persona, clean, nil, sourceIDs(piece.Text))
 	}
 }
 

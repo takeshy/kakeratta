@@ -53,7 +53,7 @@ func TestFirestoreWorkspaceExportOpensAsAFileWorkspace(t *testing.T) {
 	if err := w.Append(post); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.WriteNote("cafe", "shops/regular.md", "いつもの店"); err != nil {
+	if err := w.WriteNote("cafe", "shops/regular.md", "いつもの店", NoteSource{EntryID: "post_1", Label: "かけら"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.SaveMemory(Memory{PersonaID: "cafe", JoinedAt: now, Wakes: 3}); err != nil {
@@ -86,6 +86,9 @@ func TestFirestoreWorkspaceExportOpensAsAFileWorkspace(t *testing.T) {
 	exported, err := Open(target)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if paths, err := exported.NotesBySource("cafe", "post_1"); err != nil || len(paths) != 1 || paths[0] != "shops/regular.md" {
+		t.Fatalf("exported note-source index = %v, %v", paths, err)
 	}
 	// The backup keeps the room, not the keys that reached the models.
 	read := exported.ConfiguredSettings()

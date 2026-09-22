@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -20,10 +21,12 @@ import (
 // is only a disposable materialisation directory for components that consume
 // installed skill files and browser-only OAuth helpers.
 type FirestoreWorkspace struct {
-	client *firestore.Client
-	user   *firestore.DocumentRef
-	root   string
-	blobs  BlobStore
+	client  *firestore.Client
+	user    *firestore.DocumentRef
+	root    string
+	blobs   BlobStore
+	indexMu sync.Mutex
+	indexed map[string]bool
 }
 
 func NewFirestoreWorkspace(ctx context.Context, client *firestore.Client, userKey string, blobs BlobStore) (*FirestoreWorkspace, error) {
@@ -36,7 +39,7 @@ func NewFirestoreWorkspace(ctx context.Context, client *firestore.Client, userKe
 			return nil, err
 		}
 	}
-	w := &FirestoreWorkspace{client: client, user: client.Collection("users").Doc(userKey), root: root, blobs: blobs}
+	w := &FirestoreWorkspace{client: client, user: client.Collection("users").Doc(userKey), root: root, blobs: blobs, indexed: map[string]bool{}}
 	if w.blobs == nil {
 		w.blobs = fileBlobs{root: filepath.Join(root, "blobs")}
 	}
@@ -177,6 +180,20 @@ func (w *FirestoreWorkspace) Memory(personaID string) Memory {
 
 func noteID(path string) string { return base64.RawURLEncoding.EncodeToString([]byte(path)) }
 
+type noteSourceRecord struct {
+	EntryID string   `firestore:"entryId"`
+	Persona string   `firestore:"persona"`
+	Paths   []string `firestore:"paths"`
+}
+
+func noteSourceID(entryID, persona string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(entryID + "\x00" + persona))
+}
+
+func (w *FirestoreWorkspace) noteSource(entryID, persona string) *firestore.DocumentRef {
+	return w.user.Collection("noteSources").Doc(noteSourceID(entryID, persona))
+}
+
 func (w *FirestoreWorkspace) Note(personaID, name string) (Note, bool) {
 	clean, err := notePath(name)
 	if err != nil {
@@ -204,7 +221,8 @@ func (w *FirestoreWorkspace) WriteNote(personaID, name, text string, sources ...
 		}
 	}
 	ref := w.persona(personaID).Collection("memory").Doc(noteID(clean))
-	return w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+	var before, after []string
+	err = w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
 		previous := Note{}
 		doc, err := tx.Get(ref)
 		if err != nil && status.Code(err) != codes.NotFound {
@@ -222,16 +240,104 @@ func (w *FirestoreWorkspace) WriteNote(personaID, name, text string, sources ...
 		if len(merged) > maxNoteBytes {
 			return errors.New("メモが大きすぎます")
 		}
+		before, after = sourceIDs(previous.Text), sourceIDs(merged)
 		return tx.Set(ref, Note{Path: clean, Text: merged, Written: time.Now()})
 	})
+	if err != nil {
+		return err
+	}
+	return w.updateNoteSourceIndex(personaID, clean, before, after)
+}
+
+func (w *FirestoreWorkspace) updateNoteSourceIndex(persona, path string, before, after []string) error {
+	old, next := map[string]bool{}, map[string]bool{}
+	for _, id := range before {
+		old[id] = true
+	}
+	for _, id := range after {
+		next[id] = true
+	}
+	ctx := context.Background()
+	for id := range old {
+		if next[id] {
+			continue
+		}
+		_, err := w.noteSource(id, persona).Set(ctx, map[string]any{"entryId": id, "persona": persona, "paths": firestore.ArrayRemove(path)}, firestore.MergeAll)
+		if err != nil {
+			return err
+		}
+	}
+	for id := range next {
+		if old[id] {
+			continue
+		}
+		_, err := w.noteSource(id, persona).Set(ctx, map[string]any{"entryId": id, "persona": persona, "paths": firestore.ArrayUnion(path)}, firestore.MergeAll)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *FirestoreWorkspace) NotesBySource(personaID, entryID string) ([]string, error) {
+	if err := w.ensureNoteSourceIndex(personaID); err != nil {
+		return nil, err
+	}
+	doc, err := w.noteSource(entryID, personaID).Get(context.Background())
+	if status.Code(err) == codes.NotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var record noteSourceRecord
+	if err := doc.DataTo(&record); err != nil {
+		return nil, err
+	}
+	paths := append([]string(nil), record.Paths...)
+	sort.Strings(paths)
+	return paths, nil
+}
+
+func (w *FirestoreWorkspace) ensureNoteSourceIndex(persona string) error {
+	w.indexMu.Lock()
+	defer w.indexMu.Unlock()
+	if w.indexed[persona] {
+		return nil
+	}
+	ctx := context.Background()
+	marker := w.user.Collection("noteSourceIndexMigrations").Doc(sanitise(persona))
+	if _, err := marker.Get(ctx); err == nil {
+		w.indexed[persona] = true
+		return nil
+	} else if status.Code(err) != codes.NotFound {
+		return err
+	}
+	for _, note := range w.Memory(persona).Notes {
+		if err := w.updateNoteSourceIndex(persona, note.Path, nil, sourceIDs(note.Text)); err != nil {
+			return err
+		}
+	}
+	if _, err := marker.Set(ctx, map[string]any{"indexedAt": time.Now()}); err != nil {
+		return err
+	}
+	w.indexed[persona] = true
+	return nil
 }
 
 func (w *FirestoreWorkspace) DropNoteSource(personaID, entryID string) ([]string, error) {
 	if personaID == "" || entryID == "" {
 		return nil, nil
 	}
-	var touched []string
-	for _, note := range w.Memory(personaID).Notes {
+	touched, err := w.NotesBySource(personaID, entryID)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range touched {
+		note, ok := w.Note(personaID, path)
+		if !ok {
+			continue
+		}
 		next, changed := withoutNoteSource(note.Text, entryID)
 		if !changed {
 			continue
@@ -244,7 +350,10 @@ func (w *FirestoreWorkspace) DropNoteSource(personaID, entryID string) ([]string
 		if _, err := ref.Set(context.Background(), Note{Path: clean, Text: next, Written: time.Now()}); err != nil {
 			return touched, err
 		}
-		touched = append(touched, clean)
+	}
+	_, err = w.noteSource(entryID, personaID).Delete(context.Background())
+	if err != nil && status.Code(err) != codes.NotFound {
+		return touched, err
 	}
 	sort.Strings(touched)
 	return touched, nil
@@ -255,8 +364,12 @@ func (w *FirestoreWorkspace) DeleteNote(personaID, name string) error {
 	if err != nil {
 		return err
 	}
+	note, _ := w.Note(personaID, clean)
 	_, err = w.persona(personaID).Collection("memory").Doc(noteID(clean)).Delete(context.Background())
-	return err
+	if err != nil {
+		return err
+	}
+	return w.updateNoteSourceIndex(personaID, clean, sourceIDs(note.Text), nil)
 }
 
 func (w *FirestoreWorkspace) SaveMemory(memory Memory) error {
@@ -288,8 +401,34 @@ func (w *FirestoreWorkspace) ForgetMemory(personaID string) error {
 		}
 	}
 	batch.Delete(w.persona(personaID))
-	_, err := batch.Commit(context.Background())
-	return err
+	if _, err := batch.Commit(context.Background()); err != nil {
+		return err
+	}
+	refs, err := w.user.Collection("noteSources").Where("persona", "==", personaID).Documents(context.Background()).GetAll()
+	if err != nil {
+		return err
+	}
+	for start := 0; start < len(refs); start += 400 {
+		end := start + 400
+		if end > len(refs) {
+			end = len(refs)
+		}
+		cleanup := w.client.Batch()
+		for _, doc := range refs[start:end] {
+			cleanup.Delete(doc.Ref)
+		}
+		if _, err := cleanup.Commit(context.Background()); err != nil {
+			return err
+		}
+	}
+	_, err = w.user.Collection("noteSourceIndexMigrations").Doc(sanitise(personaID)).Delete(context.Background())
+	if err != nil && status.Code(err) != codes.NotFound {
+		return err
+	}
+	w.indexMu.Lock()
+	delete(w.indexed, personaID)
+	w.indexMu.Unlock()
+	return nil
 }
 
 func (w *FirestoreWorkspace) ConfiguredSettings() Settings {

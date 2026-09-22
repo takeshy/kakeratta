@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -87,16 +86,10 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 	for _, id := range record.Delivered {
 		row := s.routingRow(id, "")
 		finished, said, noted := done(id), spoke[id], false
-		for _, note := range s.store.Memory(id).Notes {
-			for _, source := range store.NoteSources(note.Text) {
-				if source.EntryID == entry.ID {
-					noted = true
-					row.Notes = append(row.Notes, note.Path)
-					break
-				}
-			}
+		if notes, err := s.store.NotesBySource(id, entry.ID); err == nil {
+			row.Notes = notes
+			noted = len(notes) > 0
 		}
-		sort.Strings(row.Notes)
 		row.Done, row.Spoke, row.Noted = &finished, &said, &noted
 		delivered = append(delivered, row)
 	}

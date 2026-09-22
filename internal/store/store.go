@@ -31,9 +31,10 @@ import (
 
 // Store is the on-disk workspace.
 type Store struct {
-	root  string
-	blobs BlobStore
-	mu    sync.RWMutex
+	root        string
+	blobs       BlobStore
+	noteSources noteSourceIndex
+	mu          sync.RWMutex
 }
 
 func Open(root string) (*Store, error) {
@@ -45,7 +46,11 @@ func Open(root string) (*Store, error) {
 			return nil, err
 		}
 	}
-	return &Store{root: root, blobs: fileBlobs{root: filepath.Join(root, "blobs")}}, nil
+	index, err := loadNoteSourceIndex(root)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{root: root, blobs: fileBlobs{root: filepath.Join(root, "blobs")}, noteSources: index}, nil
 }
 
 func (s *Store) SetBlobStore(blobs BlobStore) {
@@ -429,7 +434,21 @@ func (s *Store) WriteNote(personaID, path, text string, sources ...NoteSource) e
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(target, []byte(text), 0o644)
+	if err := os.WriteFile(target, []byte(text), 0o644); err != nil {
+		return err
+	}
+	indexSet(s.noteSources, personaID, clean, sourceIDs(string(previous)), sourceIDs(text))
+	return s.writeNoteSourceIndexLocked()
+}
+
+// NotesBySource uses the maintained reverse index; it never opens unrelated
+// notes. Returned paths are sorted and safe to pass to Note.
+func (s *Store) NotesBySource(personaID, entryID string) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	paths := append([]string(nil), s.noteSources[entryID][personaID]...)
+	sort.Strings(paths)
+	return paths, nil
 }
 
 // DropNoteSource removes a deleted post from the provenance blocks the app
@@ -445,36 +464,30 @@ func (s *Store) DropNoteSource(personaID, entryID string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	dir := s.memoryDir(personaID)
+	candidates := append([]string(nil), s.noteSources[entryID][personaID]...)
 	var touched []string
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return err
-		}
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			return nil
-		}
+	for _, relative := range candidates {
+		path := filepath.Join(dir, filepath.FromSlash(relative))
 		raw, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			if os.IsNotExist(err) {
+				indexSet(s.noteSources, personaID, relative, []string{entryID}, nil)
+				continue
+			}
+			return nil, err
 		}
 		next, changed := withoutNoteSource(string(raw), entryID)
 		if !changed {
-			return nil
+			indexSet(s.noteSources, personaID, relative, []string{entryID}, nil)
+			continue
 		}
 		if err := os.WriteFile(path, []byte(next), 0o644); err != nil {
-			return err
+			return nil, err
 		}
-		relative, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		touched = append(touched, filepath.ToSlash(relative))
-		return nil
-	})
-	if err != nil && !os.IsNotExist(err) {
+		indexSet(s.noteSources, personaID, relative, sourceIDs(string(raw)), sourceIDs(next))
+		touched = append(touched, relative)
+	}
+	if err := s.writeNoteSourceIndexLocked(); err != nil {
 		return touched, err
 	}
 	sort.Strings(touched)
@@ -492,7 +505,12 @@ func (s *Store) DeleteNote(personaID, path string) error {
 	defer s.mu.Unlock()
 	root := s.memoryDir(personaID)
 	target := filepath.Join(root, filepath.FromSlash(clean))
+	previous, _ := os.ReadFile(target)
 	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	indexSet(s.noteSources, personaID, clean, sourceIDs(string(previous)), nil)
+	if err := s.writeNoteSourceIndexLocked(); err != nil {
 		return err
 	}
 	// An emptied directory is noise in the listing, not history.
@@ -522,11 +540,24 @@ func (s *Store) ForgetMemory(personaID string) error {
 	if err := os.RemoveAll(s.memoryDir(personaID)); err != nil {
 		return err
 	}
+	for entryID, personas := range s.noteSources {
+		delete(personas, personaID)
+		if len(personas) == 0 {
+			delete(s.noteSources, entryID)
+		}
+	}
+	if err := s.writeNoteSourceIndexLocked(); err != nil {
+		return err
+	}
 	err := os.Remove(s.memoryMeta(personaID))
 	if os.IsNotExist(err) {
 		return nil
 	}
 	return err
+}
+
+func (s *Store) writeNoteSourceIndexLocked() error {
+	return writeJSON(s.path(noteSourceIndexName), s.noteSources)
 }
 
 func (s *Store) memoryDir(personaID string) string {

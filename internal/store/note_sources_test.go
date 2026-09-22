@@ -1,6 +1,8 @@
 package store
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -60,6 +62,28 @@ func TestNoteProvenanceSurvivesRewriteAndConsolidation(t *testing.T) {
 	}
 }
 
+func TestOpeningALegacyWorkspaceBuildsTheReverseSourceIndex(t *testing.T) {
+	root := t.TempDir()
+	s, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("book", "books/one.md", "one", NoteSource{EntryID: "post", Label: "post"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, noteSourceIndexName)); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := reopened.NotesBySource("book", "post")
+	if err != nil || len(paths) != 1 || paths[0] != "books/one.md" {
+		t.Fatalf("rebuilt index = %v (%v)", paths, err)
+	}
+}
+
 func TestLegacyNoteTextIsUnchangedWithoutProvenance(t *testing.T) {
 	text := "---\ntype: Book\n---\n\nText with no known source.\n"
 	if got := withNoteSources("", text, nil); got != text {
@@ -79,6 +103,10 @@ func TestDroppingADeletedPostFromTheSources(t *testing.T) {
 	if err := s.WriteNote("routine", "routines/other.md", "無関係"); err != nil {
 		t.Fatal(err)
 	}
+	indexed, err := s.NotesBySource("routine", "e_gone")
+	if err != nil || len(indexed) != 1 || indexed[0] != "routines/med.md" {
+		t.Fatalf("indexed = %v (%v)", indexed, err)
+	}
 	touched, err := s.DropNoteSource("routine", "e_gone")
 	if err != nil || len(touched) != 1 || touched[0] != "routines/med.md" {
 		t.Fatalf("touched = %v (%v)", touched, err)
@@ -96,5 +124,8 @@ func TestDroppingADeletedPostFromTheSources(t *testing.T) {
 	// Asking again changes nothing, and an unrelated note is never rewritten.
 	if touched, err := s.DropNoteSource("routine", "e_gone"); err != nil || len(touched) != 0 {
 		t.Fatalf("second pass touched %v (%v)", touched, err)
+	}
+	if indexed, err := s.NotesBySource("routine", "e_kept"); err != nil || len(indexed) != 1 {
+		t.Fatalf("kept index = %v (%v)", indexed, err)
 	}
 }

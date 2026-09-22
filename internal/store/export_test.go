@@ -157,6 +157,9 @@ func TestExportedWorkspaceOpensAsTheOriginal(t *testing.T) {
 	if note, ok := exported.Note("cafe", "shops/regular.md"); !ok || !strings.Contains(note.Text, "いつもの店") {
 		t.Fatalf("note = %+v, %v", note, ok)
 	}
+	if paths, err := exported.NotesBySource("cafe", "post_1"); err != nil || len(paths) != 1 || paths[0] != "shops/regular.md" {
+		t.Fatalf("exported note-source index = %v, %v", paths, err)
+	}
 	data, _, err := exported.Blob(blob)
 	if err != nil || string(data) != "capture" {
 		t.Fatalf("blob = %q, %v", data, err)

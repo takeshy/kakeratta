@@ -128,6 +128,7 @@ func (d *dryWorkspace) WriteNote(_, path, _ string, _ ...store.NoteSource) error
 	return nil
 }
 func (d *dryWorkspace) DeleteNote(string, string) error                          { return nil }
+func (d *dryWorkspace) NotesBySource(string, string) ([]string, error)           { return nil, nil }
 func (d *dryWorkspace) DropNoteSource(string, string) ([]string, error)          { return nil, nil }
 func (d *dryWorkspace) SaveRouting(string, store.Routing) error                  { return nil }
 func (d *dryWorkspace) ForgetRouting(string) error                               { return nil }
