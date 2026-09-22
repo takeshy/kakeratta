@@ -795,11 +795,15 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	entry := post(t, s, "新しい投稿")
 	runner.react(entry.ID)
 
-	// The first prompt has the names, not the contents: reading is the
-	// persona's own call, and a memory it does not need costs nothing.
+	// The first prompt has the index and how many notes there are, not the
+	// notes: reading is the persona's own call, and a memory it does not need
+	// costs nothing - not even a listing of every name.
 	prompt := stub.promptFor("plana")
-	if !strings.Contains(prompt, "threads/old.md") {
+	if !strings.Contains(prompt, "最初の目次") || !strings.Contains(prompt, "あなたのメモ: 2件") {
 		t.Fatalf("the persona was not told what it has:\n%s", prompt)
+	}
+	if strings.Contains(prompt, "threads/old.md") {
+		t.Fatalf("every note was listed unasked:\n%s", prompt)
 	}
 	if strings.Contains(prompt, "前から追いかけていること") {
 		t.Fatalf("the contents were handed over unasked:\n%s", prompt)

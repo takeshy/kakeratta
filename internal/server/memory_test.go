@@ -105,3 +105,77 @@ func TestEditingANoteKeepsItsSources(t *testing.T) {
 		}
 	}
 }
+
+// The notes only grow, so the memory reader asks for them a page at a time,
+// narrowed by tag on the server, and fetches a linked note on its own.
+func TestMemoryComesInPages(t *testing.T) {
+	server, workspace := app(t)
+	for i := range 5 {
+		tags := "[白]"
+		if i%2 == 0 {
+			tags = "[赤, 軽め]"
+		}
+		if err := workspace.WriteNote("gourmet", "wines/"+strconv.Itoa(i)+".md", "---\ntags: "+tags+"\n---\n本文"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	get := func(target string) (int, store.MemoryPage) {
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, target, nil))
+		var page store.MemoryPage
+		_ = json.Unmarshal(response.Body.Bytes(), &page)
+		return response.Code, page
+	}
+	code, first := get("/api/personas/gourmet/memory?limit=2")
+	if code != http.StatusOK || len(first.Notes) != 2 || first.Next == "" || len(first.Paths) != 5 {
+		t.Fatalf("first page: %d %+v", code, first)
+	}
+	seen := map[string]bool{}
+	for page := first; ; {
+		for _, note := range page.Notes {
+			if seen[note.Path] {
+				t.Fatalf("%s came twice", note.Path)
+			}
+			seen[note.Path] = true
+		}
+		if page.Next == "" {
+			break
+		}
+		_, page = get("/api/personas/gourmet/memory?limit=2&after=" + url.QueryEscape(page.Next))
+		if page.Paths != nil {
+			t.Fatalf("a later page names every note: %+v", page)
+		}
+	}
+	if len(seen) != 5 {
+		t.Fatalf("walked %d notes", len(seen))
+	}
+	if code, _ := get("/api/personas/gourmet/memory?after=wines%2F1.md"); code != http.StatusBadRequest {
+		t.Fatalf("bad cursor: %d", code)
+	}
+	_, red := get("/api/personas/gourmet/memory?tag=" + url.QueryEscape("赤"))
+	if len(red.Notes) != 3 || red.Next != "" {
+		t.Fatalf("tagged: %+v", red)
+	}
+	if err := workspace.WriteNote("gourmet", "shops/a.md", "---\ntype: Shop\ntags: [赤]\n---\n店"); err != nil {
+		t.Fatal(err)
+	}
+	_, shops := get("/api/personas/gourmet/memory?type=shop")
+	if len(shops.Notes) != 1 || shops.Notes[0].Path != "shops/a.md" {
+		t.Fatalf("by type: %+v", shops)
+	}
+	_, both := get("/api/personas/gourmet/memory?type=Shop&tag=" + url.QueryEscape("白"))
+	if len(both.Notes) != 0 {
+		t.Fatalf("by type and tag: %+v", both)
+	}
+
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/personas/gourmet/memory/note?path="+url.QueryEscape("wines/4.md"), nil))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "wines/4.md") {
+		t.Fatalf("one note: %d %s", response.Code, response.Body)
+	}
+	response = httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/personas/gourmet/memory/note?path=../x.md", nil))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("outside path: %d", response.Code)
+	}
+}

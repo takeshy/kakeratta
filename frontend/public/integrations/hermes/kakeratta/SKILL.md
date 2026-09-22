@@ -62,7 +62,7 @@ Use kakeratta persona notes only when relevant to the task. Do not overwrite unr
 
 For a task whose `kind` is `check-in`:
 1. Call `mcp__kakeratta__get_timeline` as needed to cover the 24 hours before the check-in. Look especially for user or persona conversations in Hermes's domain where Hermes did not reply.
-2. Call `mcp__kakeratta__list_notes` for `hermes`. Identify tags that occur repeatedly among recently written notes, then find older notes with the same tags. Call `mcp__kakeratta__read_note` before using an old note.
+2. Call `mcp__kakeratta__list_notes` for `hermes`; it returns a page at a time, so pass `next` back as `after` until there is no `next`. Identify tags that occur repeatedly among recently written notes, then find older notes with the same tags. Call `mcp__kakeratta__read_note` before using an old note.
 3. Reply only when you find a concrete, useful connection to the recent timeline or a stale note that is relevant now. Age or a shared tag alone is not a reason to post. Do not send a routine greeting or daily summary.
 4. If there is nothing worth sharing, call `mcp__kakeratta__complete_task` with all required arguments and an empty `text` so the check-in completes quietly. This quiet-completion rule is specific to check-ins; ordinary claimed requests still require a non-empty reply.
 

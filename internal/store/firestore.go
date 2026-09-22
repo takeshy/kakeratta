@@ -156,12 +156,7 @@ func (w *FirestoreWorkspace) persona(id string) *firestore.DocumentRef {
 }
 
 func (w *FirestoreWorkspace) Memory(personaID string) Memory {
-	memory := Memory{PersonaID: personaID}
-	if doc, err := w.persona(personaID).Get(context.Background()); err == nil {
-		_ = doc.DataTo(&memory)
-	}
-	memory.PersonaID = personaID
-	memory.Notes = nil
+	memory := w.MemoryMeta(personaID)
 	iter := w.persona(personaID).Collection("memory").Documents(context.Background())
 	defer iter.Stop()
 	for {
@@ -176,6 +171,118 @@ func (w *FirestoreWorkspace) Memory(personaID string) Memory {
 	}
 	sort.Slice(memory.Notes, func(i, j int) bool { return memory.Notes[i].Path < memory.Notes[j].Path })
 	return memory
+}
+
+// MemoryMeta is what Memory says about a persona, without reading a note.
+func (w *FirestoreWorkspace) MemoryMeta(personaID string) Memory {
+	memory := Memory{PersonaID: personaID}
+	if doc, err := w.persona(personaID).Get(context.Background()); err == nil {
+		_ = doc.DataTo(&memory)
+	}
+	memory.PersonaID = personaID
+	memory.Notes = nil
+	return memory
+}
+
+// MemoryPage reads up to limit notes that match accepts (nil accepts every
+// note), the most recently written first, continuing after the cursor after.
+// Without match, Firestore is asked for no more than the page needs. Notes
+// written at the same moment are told apart by document id, which the
+// single-field index on Written already orders, so no composite index is
+// needed.
+func (w *FirestoreWorkspace) MemoryPage(personaID, after string, limit int, match func(Note) bool) (MemoryPage, error) {
+	cursor, err := decodeNoteCursor(after)
+	if err != nil {
+		return MemoryPage{}, err
+	}
+	ctx := context.Background()
+	page := MemoryPage{Memory: w.MemoryMeta(personaID)}
+	if after == "" {
+		paths, err := w.notePaths(ctx, personaID)
+		if err != nil {
+			return page, err
+		}
+		page.Paths = paths
+	}
+	notes := w.persona(personaID).Collection("memory")
+	query := notes.OrderBy("Written", firestore.Desc).OrderBy(firestore.DocumentID, firestore.Desc)
+	if after != "" {
+		query = query.StartAfter(cursor.Written, notes.Doc(noteID(cursor.Path)))
+	}
+	if match == nil {
+		query = query.Limit(limit + 1)
+	}
+	docs := query.Documents(ctx)
+	defer docs.Stop()
+	var failed error
+	page.Notes, page.Next = notesPage(func(yield func(Note) bool) {
+		for {
+			doc, err := docs.Next()
+			if errors.Is(err, iterator.Done) {
+				return
+			}
+			if err != nil {
+				failed = err
+				return
+			}
+			var note Note
+			if doc.DataTo(&note) == nil && !yield(note) {
+				return
+			}
+		}
+	}, limit, match)
+	return page, failed
+}
+
+func (w *FirestoreWorkspace) NotePaths(personaID string) ([]string, error) {
+	return w.notePaths(context.Background(), personaID)
+}
+
+// Notes reads the notes named in one round trip, in the order given; a name
+// with no note is left out.
+func (w *FirestoreWorkspace) Notes(personaID string, paths []string) ([]Note, error) {
+	var refs []*firestore.DocumentRef
+	for _, path := range paths {
+		if clean, err := notePath(path); err == nil {
+			refs = append(refs, w.persona(personaID).Collection("memory").Doc(noteID(clean)))
+		}
+	}
+	if len(refs) == 0 {
+		return nil, nil
+	}
+	docs, err := w.client.GetAll(context.Background(), refs)
+	if err != nil {
+		return nil, err
+	}
+	var notes []Note
+	for _, doc := range docs {
+		var note Note
+		if doc.Exists() && doc.DataTo(&note) == nil {
+			notes = append(notes, note)
+		}
+	}
+	return notes, nil
+}
+
+// notePaths names every note a persona kept, in name order. The document ids
+// are the names, so no note is read.
+func (w *FirestoreWorkspace) notePaths(ctx context.Context, personaID string) ([]string, error) {
+	refs := w.persona(personaID).Collection("memory").DocumentRefs(ctx)
+	var paths []string
+	for {
+		ref, err := refs.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if path, err := base64.RawURLEncoding.DecodeString(ref.ID); err == nil {
+			paths = append(paths, string(path))
+		}
+	}
+	sort.Strings(paths)
+	return paths, nil
 }
 
 func noteID(path string) string { return base64.RawURLEncoding.EncodeToString([]byte(path)) }
@@ -215,7 +322,9 @@ func (w *FirestoreWorkspace) WriteNote(personaID, name, text string, sources ...
 	if len(text) > maxNoteBytes {
 		return errors.New("メモが大きすぎます")
 	}
-	if len(w.Memory(personaID).Notes) >= maxNotes {
+	if paths, err := w.notePaths(context.Background(), personaID); err != nil {
+		return err
+	} else if len(paths) >= maxNotes {
 		if _, exists := w.Note(personaID, clean); !exists {
 			return errors.New("メモが多すぎます")
 		}

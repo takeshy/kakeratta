@@ -54,7 +54,7 @@ func TestAWorkflowFilingOneThingTwiceIsSentBack(t *testing.T) {
 		{Type: "write_note", Path: "wines/altra.md", Text: "---\ntype: Wine\ntitle: ALTRA White Blend\n---\n白。"},
 		{Type: "speak", Text: "白ですね"},
 	}}
-	problems := checkWorkflow(twice, turnRules{set: set, noteRequired: true, notes: existing})
+	problems := checkWorkflow(twice, turnRules{set: set, noteRequired: true, notes: func(string) []store.Note { return existing }})
 	if len(problems) != 1 || !strings.Contains(problems[0], "wines/altura.md") {
 		t.Fatalf("problems = %v", problems)
 	}
@@ -62,7 +62,7 @@ func TestAWorkflowFilingOneThingTwiceIsSentBack(t *testing.T) {
 		{Type: "write_note", Path: "wines/altura.md", Text: "---\ntype: Wine\ntitle: ALTURA White Blend\n---\n白。"},
 		{Type: "speak", Text: "白ですね"},
 	}}
-	if problems := checkWorkflow(same, turnRules{set: set, noteRequired: true, notes: existing}); len(problems) != 0 {
+	if problems := checkWorkflow(same, turnRules{set: set, noteRequired: true, notes: func(string) []store.Note { return existing }}); len(problems) != 0 {
 		t.Fatalf("rewriting the existing note was refused: %v", problems)
 	}
 	atOnce := Workflow{Steps: []Step{

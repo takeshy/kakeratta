@@ -192,25 +192,78 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
   // focusPath: a note to open and scroll to first - the one a remark on the
   // timeline said it wrote.
   async function showMemory(row, focusPath = "") {
-    let memory = { notes: [] };
+    // The notes only grow, so they come a page at a time, the most recently
+    // written first. The first page also names every note, for links and the
+    // count.
+    const memory = { notes: [], paths: [], next: "", filter: { tag: "", type: "" } };
+    const newest = (a, b) => String(b.written || "").localeCompare(String(a.written || "")) ||
+      (a.path < b.path ? 1 : a.path > b.path ? -1 : 0);
+    const take = (notes) => {
+      const known = new Set(memory.notes.map(note => note.path));
+      memory.notes = [...memory.notes, ...(notes || []).filter(note => !known.has(note.path))].sort(newest);
+    };
     try {
-      memory = await api.memory(row.id);
+      const page = await api.memory(row.id);
+      memory.notes = page.notes || [];
+      memory.paths = page.paths || memory.notes.map(note => note.path);
+      memory.next = page.next || "";
+      // A note named from the timeline may sit on a later page.
+      if (focusPath && !memory.notes.some(note => note.path === focusPath) && memory.paths.includes(focusPath)) {
+        // A note gone since the link was drawn still opens the memory.
+        const note = await api.note(row.id, focusPath).catch(() => null);
+        if (note) take([note]);
+      }
     } catch (error) {
       toast(String(error.message || error), "error");
       return;
     }
     const memoryHost = el("div");
+    const reveal = (path) => {
+      const card = [...memoryHost.querySelectorAll("[data-path]")].find((node) => node.getAttribute("data-path") === path);
+      if (!card) return;
+      if (card.tagName === "DETAILS") card.open = true;
+      card.scrollIntoView?.({ block: "start" });
+      card.focus?.({ preventScroll: true });
+    };
+    const failed = (error) => toast(String(error.message || error), "error");
     const drawMemory = () => memoryHost.replaceChildren(createMemoryView(memory.notes, {
+      allPaths: memory.paths,
+      filter: memory.filter,
+      onFilter: async (filter) => {
+        try {
+          const page = await api.memory(row.id, filter);
+          Object.assign(memory, { notes: page.notes || [], next: page.next || "", filter });
+          drawMemory();
+          memoryHost.focus();
+        } catch (error) { failed(error); }
+      },
+      onMore: memory.next ? async () => {
+        try {
+          const page = await api.memory(row.id, { ...memory.filter, after: memory.next });
+          take(page.notes);
+          memory.next = page.next || "";
+          drawMemory();
+          memoryHost.querySelector(".memory-more")?.focus();
+        } catch (error) { failed(error); }
+      } : undefined,
+      onOpenMissing: async (path) => {
+        try {
+          take([await api.note(row.id, path)]);
+          drawMemory();
+          reveal(path);
+        } catch (error) { failed(error); }
+      },
       onSearch: onSearch ? (query) => { close(); onSearch(query); } : undefined,
       onForget: async (path) => {
         await api.forgetNote(row.id, path);
-        memory.notes = (memory.notes || []).filter(note => note.path !== path);
+        memory.notes = memory.notes.filter(note => note.path !== path);
+        memory.paths = memory.paths.filter(other => other !== path);
         drawMemory();
         memoryHost.focus();
       },
       onEdit: async (path, text) => {
         const updated = await api.editNote(row.id, path, text);
-        memory.notes = (memory.notes || []).map(note => note.path === path ? { ...note, ...updated } : note);
+        memory.notes = memory.notes.map(note => note.path === path ? { ...note, ...updated } : note);
         drawMemory();
         toast(t("メモを保存しました"));
         memoryHost.focus();
@@ -262,14 +315,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     mountOverlay(backdrop);
     backdrop.querySelector(".memory-dialog").setAttribute("tabindex", "-1");
     backdrop.querySelector(".memory-dialog").focus();
-    if (focusPath) {
-      const card = [...backdrop.querySelectorAll("[data-path]")].find((node) => node.getAttribute("data-path") === focusPath);
-      if (card) {
-        if (card.tagName === "DETAILS") card.open = true;
-        card.scrollIntoView?.({ block: "start" });
-        card.focus?.({ preventScroll: true });
-      }
-    }
+    if (focusPath) reveal(focusPath);
   }
 
   function drawInstall() {

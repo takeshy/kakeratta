@@ -77,8 +77,18 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       memory[id].notes = memory[id].notes.filter(note => note.path !== selected);
       return json({ ok: true });
     }
+    if (singleNote && method === "GET") {
+      const found = memory[decodeURIComponent(singleNote[1])]?.notes?.find(note => note.path === url.searchParams.get("path"));
+      return found ? json(found) : json({ error: "Note not found." }, 404);
+    }
     const note = path.match(/^\/api\/personas\/([^/]+)\/memory$/);
-    if (note && method === "GET") return json(memory[decodeURIComponent(note[1])] || { notes: [] });
+    if (note && method === "GET") {
+      const notes = memory[decodeURIComponent(note[1])]?.notes || [];
+      const tag = url.searchParams.get("tag");
+      const type = url.searchParams.get("type");
+      const shown = notes.filter(item => (!tag || item.text.includes(tag)) && (!type || new RegExp(`^type:\\s*${type}\\b`, "im").test(item.text)));
+      return json({ notes: shown, paths: notes.map(item => item.path) });
+    }
     if (note && method === "DELETE") { memory[decodeURIComponent(note[1])] = { notes: [] }; return json({ ok: true }); }
     if (path === "/api/personas/install") return json({ error: "ストーリーの中では追加できません" }, 400);
     if (path === "/api/settings" && method === "GET") return json(current);

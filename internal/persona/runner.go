@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	pathpkg "path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -613,8 +615,8 @@ const systemTemplate = `あなたは「%s」。%s
   ユーザーの訂正や追加条件を優先し、担当の推測をユーザーが決めた条件として扱わないでください。
   過去の回答があっても、追加条件で答えが変わる場合は更新して回答してください。
 - **メモには tags を付けます。** frontmatter の tags に、探すときの手がかりになる語を2〜5つ（産地・品種・色・店の種類・主題など）。
-  メモ一覧にはタグが出ます。探すときは notes_list を args の {"tag":"…"} で絞れます。
-- **同じものにメモは1つ。** 書く前にメモ一覧と index.md を見て、同じ銘柄・店・本・出来事のメモがあれば、新しく作らずその path を書き直します。
+  notes_list の一覧にはタグが出ます。探すときは args の {"tag":"…"} で絞れます。
+- **同じものにメモは1つ。** 書く前に index.md を見て、同じ銘柄・店・本・出来事のメモがあれば、新しく作らずその path を書き直します。
   綴りの揺れや読み取りの誤りは新しいメモの理由になりません。同じ題名のメモを別の path に作った workflow は本体が差し戻します。
   型（type）が違っても、対象が同じなら1つのメモです。型は「メモの分類」にあるものだけを使い、
   「説明」「情報」のような書き方の種類を型にしません。分類に無い型のメモは本体が差し戻します。
@@ -677,7 +679,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			r.emit("error", map[string]any{"where": "wakes", "message": err.Error()})
 		}
 	}
-	memory := r.store.Memory(skill.ID)
+	// Only what the store keeps about the persona: the notes themselves are
+	// read on demand, through index.md, which is what it is for.
+	memory := r.store.MemoryMeta(skill.ID)
 	if memory.JoinedAt.IsZero() {
 		memory.JoinedAt = time.Now()
 	}
@@ -712,8 +716,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		placeLine(post.Place),
 		"",
-		"あなたのメモ（一覧。中身は notes_read で読む）:",
-		listNotes(memory),
+		r.noteCount(skill.ID),
 		"",
 		"あなたの index.md（最初に必ず渡します）:",
 		indexNote,
@@ -733,7 +736,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: memory.Notes, memory: skill.Memory, cited: map[string]string{}}
+	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: func(path string) []store.Note { return r.siblingNotes(skill.ID, path) }, memory: skill.Memory, cited: map[string]string{}}
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -811,7 +814,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				// typical slip is a promised time with nothing set to wake.
 				approved = &workflow
 			default:
-				known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当のメモ一覧:\n" + listNotes(memory) +
+				known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当が書き込むメモ:\n" + r.writeTargets(skill.ID, workflow) +
 					"\n\nこの担当がこのターンに読んだもの:\n" + clip(strings.Join(read, "\n\n"), 20000)
 				reviewed++
 				verdict, err := r.review(ctx, client, settings, skill, thread, trigger, workflow, known, names, here)
@@ -1052,7 +1055,7 @@ func contains(list []string, value string) bool {
 func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *provenance) (string, bool) {
 	switch name {
 	case "notes_list":
-		return listNotesTagged(r.store.Memory(personaID), stringOf(args["tag"])), true
+		return r.listNotesPage(personaID, stringOf(args["tag"]), stringOf(args["after"])), true
 
 	case "notes_read":
 		wanted := stringsOf(args["paths"])
@@ -1079,7 +1082,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *pr
 		if path == "" || strings.TrimSpace(text) == "" {
 			return "path と text が要ります。", true
 		}
-		if why := duplicateNote(r.store.Memory(personaID).Notes, path, text); why != "" {
+		if why := duplicateNote(r.siblingNotes(personaID, path), path, text); why != "" {
 			return "書きませんでした: " + why, true
 		}
 		if skill, ok := r.catalogue.Find(personaID); ok {
@@ -1169,37 +1172,102 @@ func repairFrontmatter(text string) string {
 	return strings.Join(out, "\n")
 }
 
-// listNotes is the one thing about the notes that is handed over unasked: their
-// names and how long each one is. It is what makes deciding what to read
-// possible without a round trip just to find out what exists.
-func listNotes(memory store.Memory) string {
-	return listNotesTagged(memory, "")
+// notesPageSize is how many notes one notes_list shows. The index is the
+// persona's way into its notes; the listing is for looking when it is not.
+const notesPageSize = 100
+
+// noteCount tells a waking persona how many notes it keeps, by name alone.
+func (r *Runner) noteCount(personaID string) string {
+	paths, _ := r.store.NotePaths(personaID)
+	if len(paths) == 0 {
+		return "あなたのメモ: まだ何もありません"
+	}
+	return fmt.Sprintf("あなたのメモ: %d件（一覧は渡しません。index.md から辿り、中身は notes_read で読みます）", len(paths))
 }
 
-// listNotesTagged is the listing narrowed to one tag, or the whole listing
-// when tag is empty. Each line carries the note's tags, so a persona can pick
-// what to read by them without the index having said so.
-func listNotesTagged(memory store.Memory, tag string) string {
-	if len(memory.Notes) == 0 {
+// listNotesPage is one page of the listing, narrowed to one tag or not, the
+// most recently written first, continuing after the cursor after.
+func (r *Runner) listNotesPage(personaID, tag, after string) string {
+	var match func(store.Note) bool
+	if tag != "" {
+		match = func(note store.Note) bool { return hasTag(noteTags(note.Text), tag) }
+	}
+	page, err := r.store.MemoryPage(personaID, after, notesPageSize, match)
+	if err != nil {
+		return "一覧を読めませんでした: " + err.Error()
+	}
+	if len(page.Notes) == 0 {
+		switch {
+		case tag != "":
+			return "タグ「" + tag + "」のメモはありません。"
+		case after != "":
+			return "これより後のメモはありません。"
+		}
 		return "（まだ何もありません）"
 	}
-	var lines []string
-	for _, note := range memory.Notes {
-		tags := noteTags(note.Text)
-		if tag != "" && !hasTag(tags, tag) {
-			continue
+	listing := listNotes(page.Notes)
+	if page.Next != "" {
+		more := map[string]string{"after": page.Next}
+		if tag != "" {
+			more["tag"] = tag
 		}
+		args, _ := json.Marshal(more)
+		listing += "\n（続きがあります。notes_list の args に " + string(args) + " を書くと次の" + strconv.Itoa(notesPageSize) + "件です）"
+	}
+	return listing
+}
+
+// listNotes is one line per note. Each line carries the note's tags, so a
+// persona can pick what to read by them without the index having said so.
+func listNotes(notes []store.Note) string {
+	var lines []string
+	for _, note := range notes {
 		line := fmt.Sprintf("- %s（%d字）", note.Path, len([]rune(note.Text)))
 		if !note.Written.IsZero() {
 			line += " updated: " + note.Written.Format(time.RFC3339)
 		}
-		if len(tags) > 0 {
+		if tags := noteTags(note.Text); len(tags) > 0 {
 			line += " tags: " + strings.Join(tags, ", ")
 		}
 		lines = append(lines, line)
 	}
+	return strings.Join(lines, "\n")
+}
+
+// siblingNotes are the notes filed in the same directory as path: where a
+// second note about the same thing would be put. Only they are read.
+func (r *Runner) siblingNotes(personaID, path string) []store.Note {
+	path = strings.TrimPrefix(strings.TrimSpace(path), "/")
+	paths, err := r.store.NotePaths(personaID)
+	if err != nil {
+		return nil
+	}
+	var near []string
+	for _, other := range paths {
+		if other != path && pathpkg.Dir(other) == pathpkg.Dir(path) {
+			near = append(near, other)
+		}
+	}
+	notes, _ := r.store.Notes(personaID, near)
+	return notes
+}
+
+// writeTargets says, for each note a workflow writes, whether it is already
+// there - what a reviewer needs to see a note overwritten unread.
+func (r *Runner) writeTargets(personaID string, workflow Workflow) string {
+	var lines []string
+	for _, step := range workflow.Steps {
+		if step.Type != "write_note" || strings.TrimSpace(step.Path) == "" {
+			continue
+		}
+		state := "新規"
+		if _, ok := r.store.Note(personaID, step.Path); ok {
+			state = "既存"
+		}
+		lines = append(lines, "- "+strings.TrimSpace(step.Path)+"（"+state+"）")
+	}
 	if len(lines) == 0 {
-		return "タグ「" + tag + "」のメモはありません。"
+		return "（なし）"
 	}
 	return strings.Join(lines, "\n")
 }

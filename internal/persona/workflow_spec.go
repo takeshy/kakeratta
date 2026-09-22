@@ -198,7 +198,8 @@ read の形:
 ` + fence(`{"steps":[ {"type":"…","paths":[],"tool":"","args":"{}"} ]}`) + `1回の read に複数のステップを並べられます。
 
 ### notes_list
-自分のメモの一覧を取り直します。一覧には各メモの tags が出ます。args に {"tag":"…"} を書くと、そのタグのメモだけになります。
+自分のメモの一覧を、更新が新しい順に100件ずつ出します。一覧には各メモの tags が出ます。args に {"tag":"…"} を書くと、そのタグのメモだけになります。
+続きがあるときは一覧の最後に次の args（{"after":"…"}）が出ます。メモを探す入口は index.md です。notes_list はタグで横断して探すときに使います。
 ` + fence(`{"type":"notes_list","paths":[],"tool":"","args":"{}"}`) + fence(`{"type":"notes_list","paths":[],"tool":"","args":"{\"tag\":\"アルゼンチン\"}"}`) + `
 ### notes_read
 paths のメモの中身を読みます。

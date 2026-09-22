@@ -494,6 +494,13 @@ write replaces **only that file**, so a grown memory never travels in full on
 every wake, and nothing is lost by being left out of a rewrite. These need no
 declaration: a persona's own notes are not outside.
 
+A wake hands over `index.md` and how many notes there are, never a listing of
+every note: the index is the way in, and a note it does not name is taken not
+to exist. `notes_list` shows 100 at a time, the most recently written first, for
+looking across notes by tag. The check that sends a second note about one thing back to the
+first reads only the notes in the same directory, where that second note would
+be filed. The memory reader on the page reads 50 at a time the same way.
+
 Which `type` values to use and when to merge them differ by subject, so they go
 in each skill's `memory` field — `Preference` and `Shop` for the food persona,
 `Book` and `Theme` for the reading one. Only the types named there may be used.

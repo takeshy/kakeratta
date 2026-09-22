@@ -28,6 +28,10 @@ type Workspace interface {
 	PutBlob([]byte, string) (string, error)
 	Blob(string) ([]byte, string, error)
 	Memory(string) Memory
+	MemoryMeta(string) Memory
+	NotePaths(string) ([]string, error)
+	Notes(string, []string) ([]Note, error)
+	MemoryPage(string, string, int, func(Note) bool) (MemoryPage, error)
 	Note(string, string) (Note, bool)
 	WriteNote(string, string, string, ...NoteSource) error
 	DeleteNote(string, string) error

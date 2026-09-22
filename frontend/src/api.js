@@ -121,7 +121,15 @@ export const api = {
     return payload;
   },
   uninstallPersona: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}`),
-  memory: (id) => call("GET", `/api/personas/${encodeURIComponent(id)}/memory`),
+  // One page of notes, the most recently written first; `next` continues.
+  memory: (id, { after = "", tag = "", type = "" } = {}) => {
+    const query = new URLSearchParams();
+    if (after) query.set("after", after);
+    if (tag) query.set("tag", tag);
+    if (type) query.set("type", type);
+    return call("GET", `/api/personas/${encodeURIComponent(id)}/memory${query.size ? `?${query}` : ""}`);
+  },
+  note: (id, path) => call("GET", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`),
   forgetNote: (id, path) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`),
   editNote: (id, path, text) => call("PUT", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`, { text }),
   forget: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory`),

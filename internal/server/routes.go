@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -76,6 +77,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/personas/{id}", s.guard(s.uninstallPersona))
 	s.mux.HandleFunc("GET /api/personas/{id}/memory", s.guard(s.getMemory))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/memory", s.guard(s.forgetMemory))
+	s.mux.HandleFunc("GET /api/personas/{id}/memory/note", s.guard(s.getNote))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/memory/note", s.guard(s.forgetNote))
 	s.mux.HandleFunc("PUT /api/personas/{id}/memory/note", s.guard(s.editNote))
 
@@ -449,7 +451,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		if skill.ID == "hermes" && len(mcp.Data) == 0 {
 			continue
 		}
-		memory := s.store.Memory(skill.ID)
+		memory := s.store.MemoryMeta(skill.ID)
 		schedules, err := s.store.Schedules(skill.ID)
 		if err != nil {
 			// A listing failure must not hide the room; the card shows none.
@@ -542,8 +544,51 @@ func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
 
 // getMemory shows what a persona has kept. It is the persona's own text, and
 // seeing it is the only way to tell what it decided was worth keeping.
+//
+// The notes only ever grow, so they come a page at a time, the most recently
+// written first: ?after= is the next cursor of the page already shown, ?tag=
+// keeps only the notes that carry that tag, and ?type= only the notes of that
+// kind.
 func (s *Server) getMemory(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.Memory(r.PathValue("id")))
+	query := r.URL.Query()
+	limit, _ := strconv.Atoi(query.Get("limit"))
+	if limit <= 0 || limit > maxMemoryPage {
+		limit = defaultMemoryPage
+	}
+	var match func(store.Note) bool
+	tag, kind := strings.TrimSpace(query.Get("tag")), strings.TrimSpace(query.Get("type"))
+	if tag != "" || kind != "" {
+		match = func(note store.Note) bool {
+			return (tag == "" || slices.ContainsFunc(persona.NoteTags(note.Text), func(have string) bool { return strings.EqualFold(have, tag) })) &&
+				(kind == "" || strings.EqualFold(persona.NoteType(note.Text), kind))
+		}
+	}
+	page, err := s.store.MemoryPage(r.PathValue("id"), query.Get("after"), limit, match)
+	if errors.Is(err, store.ErrMemoryCursor) {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+const (
+	defaultMemoryPage = 50
+	maxMemoryPage     = 200
+)
+
+// getNote is one note by name: a link in a note can point at one on a page
+// not read yet.
+func (s *Server) getNote(w http.ResponseWriter, r *http.Request) {
+	note, ok := s.store.Note(r.PathValue("id"), r.URL.Query().Get("path"))
+	if !ok {
+		fail(w, http.StatusNotFound, "メモが見つかりません")
+		return
+	}
+	writeJSON(w, http.StatusOK, note)
 }
 
 // A separate route ensures a missing note path can never erase all memory.

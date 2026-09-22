@@ -48,7 +48,7 @@ func kakerattaMCPTools() []mcpTool {
 		tool("list_personas", "List this user's personas and their domains.", true, map[string]any{}),
 		tool("get_timeline", "Read a page of this user's timeline. Use next as before to continue.", true, map[string]any{"limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 50}, "before": str("Pagination cursor")}),
 		tool("get_thread", "Read the conversation containing an entry in this user's timeline.", true, map[string]any{"entryId": str("Entry ID")}, "entryId"),
-		tool("list_notes", "List note paths for one of this user's personas.", true, map[string]any{"persona": str("Persona ID")}, "persona"),
+		tool("list_notes", "List a page of note paths for one of this user's personas, most recently written first. Read index.md first; use next as after to continue.", true, map[string]any{"persona": str("Persona ID"), "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 200}, "after": str("Pagination cursor")}, "persona"),
 		tool("read_note", "Read a persona's Markdown note. Links starting / are relative to that persona's note bundle.", true, map[string]any{"persona": str("Persona ID"), "path": str("Bundle-relative note path")}, "persona", "path"),
 		tool("write_note", "Save a complete Markdown note in the Hermes persona's own bundle. Other personas' notes are read-only. Read an existing note before replacing it.", false, map[string]any{"path": str("Note path, e.g. index.md or tasks/readme.md"), "text": str("Complete Markdown"), "sourceEntryId": str("Optional source entry ID")}, "path", "text"),
 		tool("list_tasks", "Read pending and claimed requests with status, claimId and claimedAt (null for legacy claims with unknown acquisition time). Completed results awaiting delivery are recovered. This tool does not run your agent. Claimed tasks must not be executed again just because you reconnect.", false, map[string]any{}),
@@ -62,6 +62,7 @@ func kakerattaMCPTools() []mcpTool {
 type mcpArgs struct {
 	Limit         int    `json:"limit"`
 	Before        string `json:"before"`
+	After         string `json:"after"`
 	EntryID       string `json:"entryId"`
 	Persona       string `json:"persona"`
 	Path          string `json:"path"`
@@ -136,11 +137,25 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 			return nil, errors.New("担当が見つかりません")
 		}
 		if name == "list_notes" {
+			if a.Limit == 0 {
+				a.Limit = 100
+			}
+			if a.Limit < 1 || a.Limit > 200 {
+				return nil, errors.New("limitは1〜200です")
+			}
+			page, err := s.store.MemoryPage(a.Persona, a.After, a.Limit, nil)
+			if err != nil {
+				return nil, err
+			}
 			notes := []map[string]any{}
-			for _, n := range s.store.Memory(a.Persona).Notes {
+			for _, n := range page.Notes {
 				notes = append(notes, map[string]any{"path": n.Path, "written": n.Written, "tags": persona.NoteTags(n.Text)})
 			}
-			return map[string]any{"notes": notes}, nil
+			result := map[string]any{"notes": notes}
+			if page.Next != "" {
+				result["next"] = page.Next
+			}
+			return result, nil
 		}
 		note, ok := s.store.Note(a.Persona, strings.TrimPrefix(a.Path, "/"))
 		if !ok {

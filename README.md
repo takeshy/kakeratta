@@ -284,11 +284,12 @@ you liked before", with a link to that post.
 
 ## See what a persona remembers
 
-Open **What it remembers** in the Personas panel to read its saved notes by
-kind: tastes, wines, places, books.
+Open **What it remembers** in the Personas panel to read its saved notes, the
+most recently updated first, each labelled with its kind: tastes, wines,
+places, books.
 
-Evidence and exceptions show as written. Filter by the tags the persona gave
-them, and open the post and conversation a note came from under **Posts that
+Evidence and exceptions show as written. Filter by kind or by the tags the
+persona gave them, and open the post and conversation a note came from under **Posts that
 updated this memory**.
 
 <img src="docs/captures/en/memory.png" alt="What the wine persona remembers: tastes and wines, with tags, links to the posts, and ✎ to edit (sample)" width="382">

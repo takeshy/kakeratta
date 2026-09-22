@@ -358,35 +358,130 @@ const (
 func (s *Store) Memory(personaID string) Memory {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	memory := Memory{PersonaID: personaID}
-	_ = readJSON(s.memoryMeta(personaID), &memory)
-	memory.PersonaID = personaID
-	memory.Notes = nil
+	memory := s.memoryMetaLocked(personaID)
+	for _, path := range s.notePathsLocked(personaID) {
+		if note, ok := s.readNoteLocked(personaID, path); ok {
+			memory.Notes = append(memory.Notes, note)
+		}
+	}
+	return memory
+}
 
+// MemoryMeta is what Memory says about a persona, without reading a note.
+func (s *Store) MemoryMeta(personaID string) Memory {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.memoryMetaLocked(personaID)
+}
+
+// MemoryPage reads up to limit notes that match accepts (nil accepts every
+// note), the most recently written first, continuing after the cursor after.
+// Only the notes on the page, and the ones passed over to fill it, are read.
+func (s *Store) MemoryPage(personaID, after string, limit int, match func(Note) bool) (MemoryPage, error) {
+	cursor, err := decodeNoteCursor(after)
+	if err != nil {
+		return MemoryPage{}, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	page := MemoryPage{Memory: s.memoryMetaLocked(personaID)}
+	var stamps []Note
 	root := s.memoryDir(personaID)
 	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return nil
 		}
 		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return nil
+		info, infoErr := entry.Info()
+		if err == nil && infoErr == nil {
+			stamps = append(stamps, Note{Path: filepath.ToSlash(relative), Written: info.ModTime()})
 		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-		written := time.Time{}
-		if info, err := entry.Info(); err == nil {
-			written = info.ModTime()
-		}
-		memory.Notes = append(memory.Notes, Note{
-			Path: filepath.ToSlash(relative), Text: string(raw), Written: written,
-		})
 		return nil
 	})
-	sort.Slice(memory.Notes, func(i, j int) bool { return memory.Notes[i].Path < memory.Notes[j].Path })
+	if after == "" {
+		for _, stamp := range stamps {
+			page.Paths = append(page.Paths, stamp.Path)
+		}
+		sort.Strings(page.Paths)
+	}
+	sort.Slice(stamps, func(i, j int) bool { return newerNote(stamps[i], stamps[j]) })
+	last := Note{Path: cursor.Path, Written: cursor.Written}
+	page.Notes, page.Next = notesPage(func(yield func(Note) bool) {
+		for _, stamp := range stamps {
+			if after != "" && !newerNote(last, stamp) {
+				continue
+			}
+			if note, ok := s.readNoteLocked(personaID, stamp.Path); ok && !yield(note) {
+				return
+			}
+		}
+	}, limit, match)
+	return page, nil
+}
+
+// NotePaths names every note a persona kept, in name order, without reading
+// one.
+func (s *Store) NotePaths(personaID string) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.notePathsLocked(personaID), nil
+}
+
+// Notes reads the notes named, in the order given; a name with no note is
+// left out.
+func (s *Store) Notes(personaID string, paths []string) ([]Note, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var notes []Note
+	for _, path := range paths {
+		clean, err := notePath(path)
+		if err != nil {
+			continue
+		}
+		if note, ok := s.readNoteLocked(personaID, clean); ok {
+			notes = append(notes, note)
+		}
+	}
+	return notes, nil
+}
+
+func (s *Store) memoryMetaLocked(personaID string) Memory {
+	memory := Memory{PersonaID: personaID}
+	_ = readJSON(s.memoryMeta(personaID), &memory)
+	memory.PersonaID = personaID
+	memory.Notes = nil
 	return memory
+}
+
+// notePathsLocked names every note a persona kept, in name order, without
+// reading one.
+func (s *Store) notePathsLocked(personaID string) []string {
+	root := s.memoryDir(personaID)
+	var paths []string
+	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return nil
+		}
+		if relative, err := filepath.Rel(root, path); err == nil {
+			paths = append(paths, filepath.ToSlash(relative))
+		}
+		return nil
+	})
+	sort.Strings(paths)
+	return paths
+}
+
+func (s *Store) readNoteLocked(personaID, path string) (Note, bool) {
+	target := filepath.Join(s.memoryDir(personaID), filepath.FromSlash(path))
+	info, err := os.Stat(target)
+	if err != nil || info.IsDir() {
+		return Note{}, false
+	}
+	raw, err := os.ReadFile(target)
+	if err != nil {
+		return Note{}, false
+	}
+	return Note{Path: path, Text: string(raw), Written: info.ModTime()}, true
 }
 
 // Note returns one piece by name.
@@ -395,12 +490,9 @@ func (s *Store) Note(personaID, path string) (Note, bool) {
 	if err != nil {
 		return Note{}, false
 	}
-	for _, note := range s.Memory(personaID).Notes {
-		if note.Path == clean {
-			return note, true
-		}
-	}
-	return Note{}, false
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.readNoteLocked(personaID, clean)
 }
 
 // WriteNote stores one piece under the name the persona chose, leaving every

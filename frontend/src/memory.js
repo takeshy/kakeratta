@@ -181,25 +181,48 @@ export const editableBody = (text) => {
   return (marker < 0 ? String(text || "") : String(text || "").slice(0, marker)).trimEnd();
 };
 
-export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
+// typeLabel is how a note's type reads: the word for a known one, else the
+// type as the persona wrote it.
+const typeLabel = (type) => typeLabels[String(type || "").toLowerCase()] ? t(typeLabels[String(type).toLowerCase()]) : type;
+const sameType = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
+
+// The notes are one list, in the order given (the most recently written
+// first); a note's type is a label on it, not a heading over it.
+//
+// notes may be one page of many. allPaths then names every note, so a link to
+// one not read yet still resolves, and onOpenMissing fetches it. With onFilter
+// the notes come already narrowed to filter ({ tag, type }), and a tag or type
+// chip asks for another narrowing; without it the view narrows what it has.
+// onMore, when given, reads the next page.
+export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, filter: given = {}, onFilter, onMore, onOpenMissing } = {}) {
   const parsed = (notes || []).map(parseMemoryNote);
-  const paths = new Set(parsed.map(note => note.path));
+  const paths = new Set([...(allPaths || []), ...parsed.map(note => note.path)]);
   const cards = new Map();
   const view = el("div", { class: "memory-inspector" });
-  // A tag narrows the view to the notes that carry it; the whole view is
-  // drawn again either way, which is how the memory reader already works.
-  let filter = "";
-  const showTag = (tag) => { filter = tag; draw(); };
+  // A tag or a type narrows the view to the notes that carry it; the whole
+  // view is drawn again either way, which is how the memory reader already
+  // works.
+  let filter = { tag: given.tag || "", type: given.type || "" };
+  const narrow = (change) => {
+    const next = { ...filter, ...change };
+    if (onFilter) onFilter(next);
+    else { filter = next; draw(); }
+  };
   function tagChips(note) {
-    if (!note.tags?.length) return null;
-    return el("div", { class: "memory-tags" }, ...note.tags.map((tag) => el("button", {
-      class: `chip ghost memory-tag${filter === tag ? " active" : ""}`, text: `#${tag}`, i18nTitle: "このタグのメモだけを表示",
-      onclick: () => showTag(filter === tag ? "" : tag),
-    })));
+    if (!note.tags?.length && !note.type) return null;
+    return el("div", { class: "memory-tags" },
+      note.type ? el("button", {
+        class: `chip memory-type${sameType(filter.type, note.type) ? " active" : ""}`, text: typeLabel(note.type), i18nTitle: "この種類のメモだけを表示",
+        onclick: () => narrow({ type: sameType(filter.type, note.type) ? "" : note.type }),
+      }) : null,
+      ...(note.tags || []).map((tag) => el("button", {
+        class: `chip ghost memory-tag${filter.tag === tag ? " active" : ""}`, text: `#${tag}`, i18nTitle: "このタグのメモだけを表示",
+        onclick: () => narrow({ tag: filter.tag === tag ? "" : tag }),
+      })));
   }
   const openNote = (path) => {
     const card = cards.get(path);
-    if (!card) return;
+    if (!card) { onOpenMissing?.(path); return; }
     if (card.tagName === "DETAILS") card.open = true;
     card.scrollIntoView({ block: "nearest", behavior: "smooth" });
     card.focus({ preventScroll: true });
@@ -262,49 +285,58 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit } = {}) {
       forgetButton(note),
     ];
   }
+  // What the view is narrowed to, in words: "タグ「赤」のメモ" and the like.
+  function narrowedTo(suffix) {
+    const type = filter.type ? typeLabel(filter.type) : "";
+    if (type && filter.tag) return t(`種類「{0}」・タグ「{1}」のメモ${suffix}`, type, filter.tag);
+    return type ? t(`種類「{0}」のメモ${suffix}`, type) : t(`タグ「{0}」のメモ${suffix}`, filter.tag);
+  }
   function draw() {
   view.replaceChildren();
   cards.clear();
-  if (filter) {
+  const narrowed = Boolean(filter.tag || filter.type);
+  if (narrowed) {
     view.append(el("div", { class: "memory-filter" },
-      el("span", { class: "hint", text: t("タグ「{0}」のメモ", filter) }),
-      el("button", { class: "chip ghost", label: "すべてのメモを表示", onclick: () => showTag("") })));
+      el("span", { class: "hint", text: narrowedTo("") }),
+      el("button", { class: "chip ghost", label: "すべてのメモを表示", onclick: () => narrow({ tag: "", type: "" }) })));
   }
-  const shown = filter ? parsed.filter((note) => note.tags?.some((tag) => tag === filter)) : parsed;
-  const groups = new Map();
+  const shown = narrowed && !onFilter
+    ? parsed.filter((note) => (!filter.tag || note.tags?.some((tag) => tag === filter.tag)) && (!filter.type || sameType(note.type, filter.type)))
+    : parsed;
   const reserved = [];
+  const list = el("div", { class: "memory-list" });
   for (const note of shown) {
     if (["index.md", "log.md"].includes(note.path)) { reserved.push(note); continue; }
-    const key = note.type.toLowerCase() || "other";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(note);
+    const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
+    const mount = (nodes) => card.replaceChildren(...nodes.filter(Boolean));
+    const reading = () => [head(note, el("h4", { text: note.title }), mount, reading), ...content(note)];
+    mount(reading());
+    cards.set(note.path, card);
+    list.append(card);
   }
-  const ordered = [...groups].sort(([a], [b]) => a === b ? 0 : a === "preference" ? -1 : b === "preference" ? 1 : 0);
-  for (const [key, group] of ordered) {
-    const section = el("section", { class: "memory-group" }, el("h3", {
-      text: typeLabels[key] ? t(typeLabels[key]) : group[0].type || t("その他のメモ"),
-    }));
-    for (const note of group) {
-      const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
-      const mount = (nodes) => card.replaceChildren(...nodes.filter(Boolean));
-      const reading = () => [head(note, el("h4", { text: note.title }), mount, reading), ...content(note)];
-      mount(reading());
-      cards.set(note.path, card);
-      section.append(card);
-    }
-    view.append(section);
-  }
+  const regular = shown.length - reserved.length;
+  if (regular) view.append(list);
   for (const note of reserved) {
     const summary = el("summary", { label: note.path === "index.md" ? "記憶の目次" : "記憶の更新履歴" });
-    const card = el("details", { class: "memory-card", tabindex: "-1", open: !groups.size, "data-path": note.path });
+    const card = el("details", { class: "memory-card", tabindex: "-1", open: !regular, "data-path": note.path });
     const mount = (nodes) => card.replaceChildren(summary, ...nodes.filter(Boolean));
     const reading = () => [head(note, el("h4", { text: note.path }), mount, reading), ...content(note)];
     mount(reading());
     cards.set(note.path, card);
     view.append(card);
   }
-  if (!parsed.length) view.append(el("p", { class: "hint", label: "まだ覚えていることはありません。" }));
-  else if (!shown.length) view.append(el("p", { class: "hint", text: t("タグ「{0}」のメモはありません。", filter) }));
+  if (narrowed && !shown.length) view.append(el("p", { class: "hint", text: narrowedTo("はありません。") }));
+  else if (!parsed.length) view.append(el("p", { class: "hint", label: "まだ覚えていることはありません。" }));
+  if (onMore) {
+    const more = el("button", { class: "button memory-more", label: "さらに読み込む", onclick: async () => {
+      if (more.disabled) return;
+      more.disabled = true;
+      try { await onMore(); } finally { more.disabled = false; }
+    } });
+    view.append(el("div", { class: "memory-more-row" },
+      allPaths && !narrowed ? el("span", { class: "hint", text: t("{0}件中{1}件を表示", allPaths.length, parsed.length) }) : null,
+      more));
+  }
   }
   draw();
   return view;

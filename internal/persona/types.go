@@ -32,6 +32,12 @@ func allowedTypes(memory string) []string {
 }
 
 // noteType is the kind in a note's front matter, or the empty string.
+// NoteType exposes a note's frontmatter type to the memory reader, which can
+// narrow the notes to one kind.
+func NoteType(text string) string {
+	return noteType(text)
+}
+
 func noteType(text string) string {
 	text = strings.TrimSpace(text)
 	if !strings.HasPrefix(text, "---") {

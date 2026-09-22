@@ -179,3 +179,62 @@ test("tags are shown as chips and narrow the view", (ctx) => {
   view.all().find(node => node.tagName === "BUTTON" && node.textContent === "すべてのメモを表示").events.click();
   assert.deepEqual(titles(), ["Altura", "Margaux"]);
 });
+
+// One page of many: a link to a note on a later page still resolves and asks
+// for it, a tag asks the server rather than narrowing the page, and the next
+// page is one button away.
+test("reader pages notes and fetches what it has not read", async (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+  };
+  ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
+  const asked = { open: [], filter: [], more: 0 };
+  const view = createMemoryView([preference], {
+    allPaths: [preference.path, wine.path, "wines/other.md"],
+    onOpenMissing: path => asked.open.push(path),
+    onFilter: filter => asked.filter.push(filter),
+    onMore: async () => { asked.more++; },
+  });
+  const nodes = view.all();
+  nodes.find(node => node.tagName === "BUTTON" && node.textContent === "Domaine X Pinot Noir").events.click();
+  assert.deepEqual(asked.open, [wine.path]);
+  assert.ok(nodes.some(node => node.textContent === "3件中1件を表示"));
+  await nodes.find(node => node.tagName === "BUTTON" && node.textContent === "さらに読み込む").events.click();
+  assert.equal(asked.more, 1);
+
+  const tagged = { ...wine, text: "---\ntype: Wine\ntitle: Domaine X Pinot Noir\ntags: [赤]\n---\n" };
+  const narrowed = createMemoryView([tagged], { filter: { tag: "赤" }, onFilter: filter => asked.filter.push(filter) });
+  assert.ok(narrowed.all().some(node => node.textContent === "タグ「赤」のメモ"));
+  narrowed.all().find(node => node.tagName === "BUTTON" && node.textContent === "すべてのメモを表示").events.click();
+  assert.deepEqual(asked.filter, [{ tag: "", type: "" }]);
+  assert.equal(narrowed.all().some(node => node.textContent === "さらに読み込む"), false, "no more button on the last page");
+  // The type is a label on the card that asks for its own kind, keeping the tag.
+  narrowed.all().find(node => node.tagName === "BUTTON" && node.textContent === "ワイン").events.click();
+  assert.deepEqual(asked.filter.at(-1), { tag: "赤", type: "Wine" });
+});
+
+// The notes are one list in the order given, not sections by type: the type is
+// a label on each card, and it narrows the list the way a tag does.
+test("reader lists notes in order with the type as a label that narrows", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+  };
+  ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
+  setLanguage("ja");
+  const shop = { path: "shops/a.md", text: "---\ntype: Shop\ntitle: A\n---\n" };
+  const red = { path: "wines/red.md", text: "---\ntype: Wine\ntitle: Red\n---\n" };
+  const taste = { path: "tastes/b.md", text: "---\ntype: Preference\ntitle: B\n---\n" };
+  const view = createMemoryView([shop, red, taste]);
+  const titles = () => view.all().filter(node => node.tagName === "H4").map(node => node.textContent);
+  assert.deepEqual(titles(), ["A", "Red", "B"], "the order given, no grouping");
+  assert.equal(view.all().some(node => node.tagName === "H3"), false, "no section headings");
+  view.all().find(node => node.tagName === "BUTTON" && node.textContent === "ワイン").events.click();
+  assert.deepEqual(titles(), ["Red"]);
+  assert.ok(view.all().some(node => node.textContent === "種類「ワイン」のメモ"));
+  view.all().find(node => node.tagName === "BUTTON" && node.textContent === "すべてのメモを表示").events.click();
+  assert.deepEqual(titles(), ["A", "Red", "B"]);
+});
