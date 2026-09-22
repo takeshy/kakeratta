@@ -318,7 +318,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
   const appendReserved = (note) => {
     if (!note) return;
     const summary = el("summary", { label: note.path === "index.md" ? "記憶の目次" : "記憶の更新履歴" });
-    const card = el("details", { class: "memory-card", tabindex: "-1", open: note.path === "index.md" || !regular, "data-path": note.path });
+    const card = el("details", { class: "memory-card", tabindex: "-1", open: !regular, "data-path": note.path });
     const mount = (nodes) => card.replaceChildren(summary, ...nodes.filter(Boolean));
     const reading = () => [head(note, el("h4", { text: note.path }), mount, reading), ...content(note)];
     mount(reading());

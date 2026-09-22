@@ -239,7 +239,7 @@ test("reader lists notes in order with the type as a label that narrows", (ctx) 
   assert.deepEqual(titles(), ["A", "Red", "B"]);
 });
 
-test("memory overview appears open before notes, with history after them", (ctx) => {
+test("memory overview appears closed before notes, with history after them", (ctx) => {
   globalThis.Node = Element;
   globalThis.document = {
     createElement: tag => new Element(tag),
@@ -253,6 +253,6 @@ test("memory overview appears open before notes, with history after them", (ctx)
   ]);
   assert.deepEqual(view.children.map(node => node.attributes["data-path"] || node.className),
     ["index.md", "memory-list", "log.md"]);
-  assert.ok(Object.hasOwn(view.children[0].attributes, "open"));
+  assert.equal(Object.hasOwn(view.children[0].attributes, "open"), false);
   assert.equal(Object.hasOwn(view.children[2].attributes, "open"), false);
 });
