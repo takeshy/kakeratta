@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" data-title-ja="kakeratta 使い方" data-title-en="kakeratta Manual">
+<html lang="ja" data-title-ja="kakeratta 初心者向けマニュアル" data-title-en="kakeratta Beginner Manual">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -21,7 +21,7 @@
     </script>
     <script type="module" src="/site/lang.js"></script>
   </head>
-  <body class="manual">
+  <body class="manual beginner-page">
     <header class="site-head">
       <div class="site-head-row">
         <a class="brand" href="/lp/" data-lang-link>
@@ -45,6 +45,7 @@
     <main class="ja" lang="ja">
       <nav class="toc" aria-label="目次">
         <p class="toc-title">目次</p>
+        <p><strong>初心者編</strong></p>
         <ol>
           <li><a href="#ja-start">はじめる</a></li>
           <li><a href="#ja-toss">かけらを放り込む</a></li>
@@ -56,17 +57,17 @@
           <li><a href="#ja-search">検索</a></li>
           <li><a href="#ja-phone">スマホから共有する</a></li>
           <li><a href="#ja-voice">音声入力と読み上げ</a></li>
-          <li><a href="#ja-hermes">Hermes連携</a></li>
-          <li><a href="#ja-settings">設定</a></li>
-          <li><a href="#ja-tools">道具の一覧と使い方</a></li>
-          <li><a href="#ja-faq">よくある質問</a></li>
-          <li><a href="#ja-more">もっと詳しく</a></li>
         </ol>
+        <p><a href="/manual/advanced/" data-lang-link><strong>上級編へ</strong></a></p>
       </nav>
 
       <article class="doc">
         <h1>kakeratta の使い方</h1>
         <p class="lede">思いついたこと、目に留まったものを、テキスト・画像・URL・音声でひとつのタイムラインへ放り込む。担当分野ごとに別々の記憶を持つ AI（担当）が、言うことがあるときだけ反応します。このページはその使い方をひと通りまとめたものです。</p>
+
+        <div class="beginner-guide">
+        <h2 id="ja-beginner">初心者編</h2>
+        <p>まずはここから。投稿、担当との会話、検索や共有など、普段使う機能を説明します。</p>
 
         <section id="ja-start">
           <h2>1. はじめる</h2>
@@ -194,7 +195,7 @@
             <li><strong>希望時刻</strong> を選びます。変更は自動保存されます。</li>
           </ol>
           <p>時刻の横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。チェックインをOFFにするか、担当を無効にすると定期起床は止まります。</p>
-          <p>これとは別に、<code>timer</code> を持つ担当は、自分で起きる時刻を置きます（<a href="#ja-tool-timer">timer</a>）。時刻を尋ねられることはありません。担当が自分の記録から見当をつけます。</p>
+          <p>これとは別に、<code>timer</code> を持つ担当は、自分で起きる時刻を置きます（<a href="/manual/advanced/#ja-tool-schedule">schedule</a>）。時刻を尋ねられることはありません。担当が自分の記録から見当をつけます。</p>
           <p>たとえば plana なら、記録から「朝の薬は7時半ごろ」と分かった項目にだけ timer を置き、その少しあとに起きて、まだ記録がないときだけ「そういえば朝の薬」と一言添えます。催促や飲み忘れの指摘はしません。決まった件数の通知を約束する機能ではありません。</p>
           <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、希望時刻や処理の混雑によって少し遅れることがあります。設定した時刻を過ぎてONにした場合は、その日の分を次の確認で実行します。再起動時も当日分だけを実行し、過去の日の分はまとめて送りません。</p>
           <p>沈黙や失敗もその日の1回に数えます。時刻の変更や記憶の削除で当日分を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
@@ -326,11 +327,17 @@
             <li><strong>🔈 読み上げ</strong> は、溜まった反応を順に読み上げます。声と速さは設定で変えられます。</li>
           </ul>
         </section>
+        </div>
+
+        <div class="advanced-guide">
+        <h2 id="ja-advanced">上級編</h2>
+        <p>外部エージェントとの連携、詳細設定、担当が使う道具の仕様を説明します。</p>
 
         <section id="ja-hermes">
 
 <h2>Hermes連携</h2>
 <p class="lede">担当バーでHermesの名前を押して送った依頼を、自分のHermesが受け取り、結果をkakerattaに返します。</p>
+<div class="tip"><p>Hermes向けのkakeratta公式Skillを配布しています。インストール方法、定期実行、接続や依頼処理の詳しい説明は <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes Agentの詳しいマニュアル</a>を参照してください。</p></div>
 <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="530" /></figure>
 <h3>1. 接続キーを発行する</h3>
 <ol><li>kakerattaの「設定」→「上級オプション」→「外部連携」を開きます。</li><li>「Hermes連携」の「接続キーを発行」を押します。</li><li>表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li></ol>
@@ -478,6 +485,7 @@
           </ul>
           <p class="actions"><a class="button primary" href="/">アプリを開く</a> <a class="button" href="/lp/" data-lang-link>紹介ページへ</a></p>
         </section>
+        </div>
       </article>
     </main>
 
@@ -485,6 +493,7 @@
     <main class="en" lang="en">
       <nav class="toc" aria-label="Contents">
         <p class="toc-title">Contents</p>
+        <p><strong>Beginner guide</strong></p>
         <ol>
           <li><a href="#en-start">Getting started</a></li>
           <li><a href="#en-toss">Tossing in a fragment</a></li>
@@ -496,17 +505,17 @@
           <li><a href="#en-search">Search</a></li>
           <li><a href="#en-phone">Sharing from a phone</a></li>
           <li><a href="#en-voice">Voice input and read-aloud</a></li>
-          <li><a href="#en-hermes">Hermes integration</a></li>
-          <li><a href="#en-settings">Settings</a></li>
-          <li><a href="#en-tools">Tool guide</a></li>
-          <li><a href="#en-faq">FAQ</a></li>
-          <li><a href="#en-more">Read more</a></li>
         </ol>
+        <p><a href="/manual/advanced/" data-lang-link><strong>Go to the advanced guide</strong></a></p>
       </nav>
 
       <article class="doc">
         <h1>kakeratta Manual</h1>
         <p class="lede">Put thoughts and things that catch your eye into one timeline as text, images, URLs, or speech. AIs with separate memories for their own subjects, called personas, react when they have something to say. This page walks through how to use it.</p>
+
+        <div class="beginner-guide">
+        <h2 id="en-beginner">Beginner guide</h2>
+        <p>Start here for everyday features: posting, talking with personas, searching, and sharing.</p>
 
         <section id="en-start">
           <h2>1. Getting started</h2>
@@ -634,7 +643,7 @@
             <li>Choose a <strong>Preferred time</strong>. Changes save automatically.</li>
           </ol>
           <p>The browser's time zone shown beside the time is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Turn off the check-in or disable the persona to stop the daily wake.</p>
-          <p>Separately, a persona that has <code>timer</code> sets its own wake times (<a href="#en-tool-timer">timer</a>). You are never asked for a time: the persona works it out from its own records.</p>
+          <p>Separately, a persona that has <code>timer</code> sets its own wake times (<a href="/manual/advanced/#en-tool-schedule">schedule</a>). You are never asked for a time: the persona works it out from its own records.</p>
           <p>plana, for example, sets a timer only for a routine its notes place at a usual time, wakes shortly after it, and adds “the morning medicine, by the way” only when nothing has been recorded yet. It does not nag or point out a missed dose. This does not promise a fixed number of notifications.</p>
           <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Enabling it after the preferred time runs today's check-in at the next check. After a restart, only today's due wake runs, without replaying missed days.</p>
           <p>Silent and failed attempts count as the day's wake. Changing the time or forgetting memory does not trigger a second attempt that day. Check-ins do not acquire your current location: routes are unavailable and place search is by name only.</p>
@@ -765,10 +774,16 @@
             <li><strong>🔈 Read aloud</strong> reads the collected reactions in order. Voice and speed are in Settings.</li>
           </ul>
         </section>
+        </div>
+
+        <div class="advanced-guide">
+        <h2 id="en-advanced">Advanced guide</h2>
+        <p>These sections cover external-agent integration, detailed settings, and the tools available to personas.</p>
 
         <section id="en-hermes">
 
 <h2>Hermes integration</h2><p class="lede">Your own Hermes picks up requests addressed through the persona bar and sends its reports back to kakeratta.</p>
+<div class="tip"><p>We distribute the official kakeratta Skill for Hermes. For installation, recurring checks, connection details, and task processing, see the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">detailed Hermes Agent guide</a>.</p></div>
 <figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="530" /></figure>
 <h3>1. Create a connection key</h3><ol><li>Open Settings → Advanced options → Integrations.</li><li>Under Hermes integration, select “Create connection key”.</li><li>Copy the configuration shown. The key is shown only immediately after it is issued.</li></ol>
 <h3>2. Configure Hermes</h3><p>Add the copied configuration to <code>~/.hermes/config.yaml</code> on the machine running Hermes. If <code>mcp_servers</code> already exists, add the <code>kakeratta</code> entry under it.</p>
@@ -909,6 +924,7 @@
           </ul>
           <p class="actions"><a class="button primary" href="/">Open the app</a> <a class="button" href="/lp/" data-lang-link>Overview</a></p>
         </section>
+        </div>
       </article>
     </main>
 

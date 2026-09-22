@@ -254,6 +254,11 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
   gap: 40px;
   align-items: start;
 }
+
+.beginner-page .advanced-guide,
+.advanced-page .beginner-guide {
+  display: none;
+}
 .toc {
   position: sticky;
   top: 64px;
