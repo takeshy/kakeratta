@@ -3,7 +3,7 @@
 // Direct editing and asking the AI are separate entrances. In AI mode the
 // saved persona is initially reference-only; once an AI proposal arrives it
 // becomes an editable draft, and nothing is saved until the user saves it.
-import { el, clear, toast } from "./dom.js";
+import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
@@ -191,12 +191,13 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   function close() {
     closed = true;
     void voice.discard();
-    backdrop.remove();
+    unmountOverlay(backdrop);
     opener?.focus?.();
   }
 
   const title = ai ? t("{0} をAIで修正", persona.name) : t("{0} を修正", persona.name);
   const dialog = el("div", { class: "dialog persona-builder persona-editor", role: "dialog", "aria-modal": "true", "aria-label": title },
+    dialogCloseButton(close),
     el("h3", { text: title }),
     form,
     ai ? aiPanel : null,
@@ -210,7 +211,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   });
   updateSave();
   backdrop.append(dialog);
-  document.body.append(backdrop);
+  mountOverlay(backdrop);
   inputs.name.focus?.();
   return { close };
 }

@@ -33,6 +33,10 @@ body {
   font-size: 15px;
   line-height: 1.7;
   -webkit-text-size-adjust: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y pinch-zoom;
 }
 
 .login { max-width: 420px; margin: 18vh auto 0; padding: 28px; text-align: center; }
@@ -293,6 +297,7 @@ body {
    iOS, where overflow: hidden alone still lets a finger drag the page; the
    scroll position is kept in top and restored on close. */
 body.sheet-open { position: fixed; inset: 0 auto auto 0; width: 100%; overflow: hidden; }
+body.dialog-open { position: fixed; inset: 0 auto auto 0; width: 100%; overflow: hidden; }
 /* The strip of page above the sheet takes the tap and the drag, so neither
    reaches the timeline. */
 body.sheet-open::before { content: ""; position: fixed; inset: 0; z-index: 19; }
@@ -308,6 +313,7 @@ body.sheet-open .topbar { z-index: 21; }
   top: 0;
   background: var(--card);
 }
+.sheet-close { min-width: 36px; min-height: 36px; border-radius: 999px; font-size: 1.35rem; line-height: 1; }
 .panel-body { padding: 0 16px 24px; display: grid; gap: 14px; align-content: start; }
 .panel-body h3 { margin: 8px 0 0; font-size: 0.9rem; }
 .field { display: grid; gap: 4px; }
@@ -431,6 +437,19 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
   min-width: 0;
   display: grid;
   gap: 10px;
+}
+.dialog-close {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  justify-self: end;
+  min-width: 36px;
+  min-height: 36px;
+  margin-bottom: -46px;
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 1.35rem;
+  line-height: 1;
 }
 /* A grid child defaults to its content's minimum width, so one long line can
    push the sheet wider than the screen. */

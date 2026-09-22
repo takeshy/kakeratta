@@ -8,7 +8,7 @@
 // The sheet can be refreshed while open - the feed does so when the router
 // finishes, when the timeline is polled, and when the post is edited - and a
 // response that arrives after a newer request is ignored.
-import { el, toast } from "./dom.js";
+import { el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
 
@@ -27,7 +27,7 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
   const close = () => {
     if (!open) return;
     open = false;
-    backdrop.remove();
+    unmountOverlay(backdrop);
     previousFocus?.focus();
   };
   backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
@@ -126,13 +126,14 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
 
   render(entry, record);
   const dialog = el("div", { class: "dialog routing-dialog", role: "dialog", "aria-modal": "true", "aria-label": t("担当の判断") },
+    dialogCloseButton(close),
     el("h2", { label: "担当の判断" }),
     quote,
     el("p", { class: "hint", label: "この投稿を誰に渡したか、誰に渡さなかったか。@で指名した担当は本体の判断ではないので出ません。" }),
     body,
     el("div", { class: "compose-row" }, el("span", { class: "spacer" }), el("button", { class: "button primary", label: "閉じる", onclick: close })));
   backdrop.append(dialog);
-  document.body.append(backdrop);
+  mountOverlay(backdrop);
   dialog.setAttribute("tabindex", "-1");
   dialog.focus?.();
   return { entryId: entry.id, close, refresh, isOpen: () => open };

@@ -1,4 +1,4 @@
-import { el, clear, toast } from "./dom.js";
+import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
@@ -39,7 +39,7 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
   function close() {
     closed = true;
     void voice.discard();
-    backdrop.remove();
+    unmountOverlay(backdrop);
     opener?.focus();
   }
   function setBusy(value) {
@@ -93,6 +93,7 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) void submit(event);
   });
   const dialog = el("div", { class: "dialog persona-builder", role: "dialog", "aria-modal": "true", "aria-label": t(persona ? "AIで修正" : "AIと担当を作る") },
+    dialogCloseButton(close),
     el("h3", { text: persona ? t("{0} を修正", persona.name) : t("AIと担当を作る") }),
     conversation, preview, error,
     el("form", { onsubmit: submit }, input, el("div", { class: "compose-row" }, voice.button, send), voice.activity),
@@ -107,6 +108,6 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
     }
   });
   backdrop.append(dialog);
-  document.body.append(backdrop);
+  mountOverlay(backdrop);
   input.focus();
 }

@@ -52,7 +52,7 @@ export function sheetNodes({ title, body, onClose }) {
       { class: "sheet-head" },
       el("strong", { label: title }),
       el("span", { class: "spacer" }),
-      onClose ? el("button", { class: "chip ghost", label: "閉じる", onclick: () => onClose() }) : null,
+      onClose ? el("button", { class: "chip ghost sheet-close", text: "×", "aria-label": t("閉じる"), onclick: () => onClose() }) : null,
     ),
     body,
   );

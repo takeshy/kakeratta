@@ -41,6 +41,35 @@ export function clear(node) {
   return node;
 }
 
+// Overlays can open over the timeline or over an already fixed sheet. A small
+// reference count keeps nested overlays from releasing the page too early.
+let overlayLocks = 0;
+let overlayScrollY = 0;
+export function mountOverlay(node) {
+  const classes = document.body.classList;
+  if (overlayLocks++ === 0 && !classes?.contains?.("sheet-open")) {
+    overlayScrollY = globalThis.window?.scrollY || 0;
+    if (document.body.style) document.body.style.top = `-${overlayScrollY}px`;
+  }
+  classes?.add?.("dialog-open");
+  document.body.append(node);
+}
+
+export function unmountOverlay(node) {
+  node.remove();
+  if (overlayLocks > 0) overlayLocks--;
+  if (overlayLocks) return;
+  const classes = document.body.classList;
+  classes?.remove?.("dialog-open");
+  if (classes?.contains?.("sheet-open")) return;
+  if (document.body.style) document.body.style.top = "";
+  globalThis.window?.scrollTo?.(0, overlayScrollY);
+}
+
+export function dialogCloseButton(close) {
+  return el("button", { class: "chip ghost dialog-close", text: "×", type: "button", "aria-label": t("閉じる"), onclick: close });
+}
+
 // when reads as how long ago, because that is how a timeline is read. Older
 // than a day it becomes a date, because "17日前" is not something anyone
 // pictures.

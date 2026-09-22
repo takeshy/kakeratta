@@ -4,7 +4,7 @@
 // how many: the routing is what keeps a post from waking all of them, so adding
 // a domain costs one more line in one routing call rather than one more model
 // call per post.
-import { el, clear, toast } from "./dom.js";
+import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { showPersonaBuilder } from "./persona-builder.js";
@@ -219,7 +219,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     memoryHost.setAttribute("tabindex", "-1");
     const backdrop = el("div", { class: "dialog-backdrop" });
     const previousFocus = document.activeElement;
-    const close = () => { backdrop.remove(); previousFocus?.focus(); };
+    const close = () => { unmountOverlay(backdrop); previousFocus?.focus(); };
     backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
     backdrop.addEventListener("keydown", (event) => {
       if (event.key === "Escape") { event.preventDefault(); close(); }
@@ -235,6 +235,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       el(
         "div",
         { class: "dialog memory-dialog", role: "dialog", "aria-modal": "true", "aria-label": t("{0} があなたについて覚えていること", gloss(row).name) },
+        dialogCloseButton(close),
         el("h2", { text: t("{0} があなたについて覚えていること", gloss(row).name) }),
         el("p", { class: "hint", label: "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。" }),
         memoryHost,
@@ -258,7 +259,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         ),
       ),
     );
-    document.body.append(backdrop);
+    mountOverlay(backdrop);
     backdrop.querySelector(".memory-dialog").setAttribute("tabindex", "-1");
     backdrop.querySelector(".memory-dialog").focus();
     if (focusPath) {

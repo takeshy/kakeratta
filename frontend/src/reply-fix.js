@@ -8,7 +8,7 @@
 // saves them and then has the persona take the same turn again, without any
 // of it landing anywhere, so the difference can be read on the same post. If
 // it still misses, they say how, and it goes round again.
-import { clear, el } from "./dom.js";
+import { clear, el, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
 
@@ -38,7 +38,7 @@ export function showReplyFix({ persona, remark = null, post, onSaved }) {
   const body = el("div", { class: "condition-body" });
   const error = el("p", { class: "hint warn", role: "alert" });
   const previousFocus = document.activeElement;
-  const close = () => { closed = true; backdrop.remove(); previousFocus?.focus(); };
+  const close = () => { closed = true; unmountOverlay(backdrop); previousFocus?.focus(); };
   backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
   backdrop.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }
@@ -240,9 +240,9 @@ export function showReplyFix({ persona, remark = null, post, onSaved }) {
     }
   }
 
-  dialog.append(el("h2", { text: title }), body, error);
+  dialog.append(dialogCloseButton(close), el("h2", { text: title }), body, error);
   backdrop.append(dialog);
-  document.body.append(backdrop);
+  mountOverlay(backdrop);
   dialog.setAttribute("tabindex", "-1");
   showAsk("");
   return { close };

@@ -1,4 +1,4 @@
-import { el, clear, toast } from "./dom.js";
+import { el, clear, toast, dialogCloseButton } from "./dom.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { t } from "./i18n.js";
 import { api, blobURL } from "./api.js";
@@ -103,7 +103,7 @@ export async function openSocial(root, getPersona) {
     } catch (error) { status.textContent = t("{0}。再操作するときはプレビューから確認してください。", t(error.message)); plan = null; }
     finally { setBusy(false); }
   }
-  dialog.append(el("h2", { id: "social-title", label: "会話をBlueskyに公開" }),
+  dialog.append(dialogCloseButton(() => dialog.close()), el("h2", { id: "social-title", label: "会話をBlueskyに公開" }),
     el("p", { class: "note", label: "公開したい発言だけ選択してください。Personaの返信には個人的な情報が含まれることがあります。返信を選ぶときは、その返信先も選んでください。" }),
     connection.element, selection,
     previewButton, preview, status, publishedLink,

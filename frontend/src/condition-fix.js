@@ -6,7 +6,7 @@
 // person can correct that text by hand, and OK saves it and then has the
 // router try the same post again. If the post still does not go where it was
 // meant to, they are told - with the router's reason - and asked again.
-import { clear, el, toast } from "./dom.js";
+import { clear, el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
 
@@ -31,7 +31,7 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
   const body = el("div", { class: "condition-body" });
   const error = el("p", { class: "hint warn", role: "alert" });
   const previousFocus = document.activeElement;
-  const close = () => { closed = true; backdrop.remove(); previousFocus?.focus(); };
+  const close = () => { closed = true; unmountOverlay(backdrop); previousFocus?.focus(); };
   backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
   backdrop.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }
@@ -211,9 +211,9 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
     }
   }
 
-  dialog.append(el("h2", { text: title }), body, error);
+  dialog.append(dialogCloseButton(close), el("h2", { text: title }), body, error);
   backdrop.append(dialog);
-  document.body.append(backdrop);
+  mountOverlay(backdrop);
   dialog.setAttribute("tabindex", "-1");
   showAsk("");
   return { close };
