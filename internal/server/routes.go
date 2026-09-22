@@ -446,6 +446,9 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, skill := range skills {
+		if skill.ID == "hermes" && len(mcp.Data) == 0 {
+			continue
+		}
 		memory := s.store.Memory(skill.ID)
 		schedules, err := s.store.Schedules(skill.ID)
 		if err != nil {

@@ -71,6 +71,41 @@ func TestMCPAccessToggleAndKeyRevocation(t *testing.T) {
 	}
 }
 
+func TestHermesIsListedOnlyAfterMCPSetup(t *testing.T) {
+	s, _ := app(t)
+	hasHermes := func() bool {
+		t.Helper()
+		out := httptest.NewRecorder()
+		s.ServeHTTP(out, httptest.NewRequest(http.MethodGet, "/api/personas", nil))
+		if out.Code != http.StatusOK {
+			t.Fatalf("personas = %d: %s", out.Code, out.Body.String())
+		}
+		var payload struct {
+			Personas []struct {
+				ID string `json:"id"`
+			} `json:"personas"`
+		}
+		if err := json.Unmarshal(out.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range payload.Personas {
+			if row.ID == "hermes" {
+				return true
+			}
+		}
+		return false
+	}
+	if hasHermes() {
+		t.Fatal("Hermes was listed before MCP setup")
+	}
+	if err := s.setMCPKey(context.Background(), []byte("digest")); err != nil {
+		t.Fatal(err)
+	}
+	if !hasHermes() {
+		t.Fatal("Hermes was missing after MCP setup")
+	}
+}
+
 // The page is served from the site's domain and /api is rewritten to Cloud
 // Run, whose container sees its own run.app host. The browser's Origin is
 // the site, so it is matched against the forwarded host and the public URL,
