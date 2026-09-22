@@ -255,8 +255,8 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
   align-items: start;
 }
 
-.beginner-page .advanced-guide,
-.advanced-page .beginner-guide {
+[data-guide="beginner"] .advanced-guide,
+[data-guide="advanced"] .beginner-guide {
   display: none;
 }
 .toc {

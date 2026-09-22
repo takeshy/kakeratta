@@ -445,20 +445,18 @@ Individual notes can be edited or forgotten without deleting the source post.
 
 Deleting a source post is different.
 
-When a post is deleted, kakeratta looks at its own record of which personas were
-woken for that post and tells those personas to revisit anything that depended
-on it.
-
-It does not scan note text to guess who might have used the post.
-
-The persona can then correct or remove its own dependent memory. kakeratta
-itself does not rewrite persona notes behind the model's back.
+When a post is deleted, kakeratta uses a reverse index to find notes that cite
+it and removes the app-managed source links. Notes left with no source are
+deleted automatically, except the index and update log. Personas that were
+woken for the post or cited it are then asked to clean up surviving notes and
+references to deleted notes. Each persona decides how to revise the meaning of
+the surviving text; the app does not rewrite that text.
 
 ### What a persona is given
 
 * the post it was routed, and what the app read out of its image;
 * **the remarks under that post** — other personas' and the user's replies;
-* its own `index.md`, and the list of its notes (contents are read as needed);
+* its own `index.md` and a note count (other notes are read as needed);
 * its own pending schedules, if it can schedule.
 
 **Not the whole timeline.** Hand that over and every persona sees everything
@@ -495,11 +493,10 @@ every wake, and nothing is lost by being left out of a rewrite. These need no
 declaration: a persona's own notes are not outside.
 
 A wake hands over `index.md` and how many notes there are, never a listing of
-every note: the index is the way in, and a note it does not name is taken not
-to exist. `notes_list` shows 100 at a time, the most recently written first, for
-looking across notes by tag. The check that sends a second note about one thing back to the
-first reads only the notes in the same directory, where that second note would
-be filed. The memory reader on the page reads 50 at a time the same way.
+every note. The index is the usual way in; `notes_list` finds notes beyond it,
+100 at a time, newest first, and can narrow by tag. The duplicate check reads
+notes in the same directory as the proposed note. The memory reader on the
+page loads 50 notes at a time.
 
 Which `type` values to use and when to merge them differ by subject, so they go
 in each skill's `memory` field — `Preference` and `Shop` for the food persona,
@@ -507,10 +504,11 @@ in each skill's `memory` field — `Preference` and `Shop` for the food persona,
 **The format is handed over; the policy belongs to the skill.** The app holds
 no threshold for when to compress.
 
-**The app does not read the notes.** It puts bytes at a name: it does not
-parse frontmatter, does not build the index, and cannot tell whether the
-contents are OKF at all. The files are plain files, so they can be read with
-`cat` and pointed at as an OKF knowledge source elsewhere.
+**The app does not write the meaning of the notes or build `index.md`.** It
+parses `type` and `tags` to validate writes, detect duplicates, and filter the
+reader; it also maintains source links to posts. The Markdown body remains
+the persona's to write. In local storage the notes are plain files that can
+be read with `cat` or used as an OKF knowledge source elsewhere.
 
 ### Meaning search
 
@@ -931,6 +929,17 @@ task stories  # Storybook
 task test     # tests
 ```
 
+To refresh README screenshots in both languages, run `task captures` after a
+visible change. This starts Storybook and saves the images under
+`docs/captures/`. Run `python3 frontend/capture-sizes.py` if their display
+sizes have changed, then `task frontend` to rebuild `frontend/dist`.
+
+To check offline startup, posting, and delivery after reconnecting in a real
+browser, run `npm --prefix frontend run test:offline` after `task frontend`.
+This check also refreshes the offline screenshots. It requires Node.js 22 or
+later and Chromium (`CHROMIUM` can select its executable). Rebuild the frontend
+afterward to include the refreshed images.
+
 ### Environment variables
 
 | Variable                         | Default                                                         | Purpose                                                                 |
@@ -953,7 +962,7 @@ task test     # tests
 | `KAKERATTA_OSRM_BIKE_URL`        | public service                                                  | Cycling route endpoint                                                  |
 
 For Bluesky operator setup, see
-[social-sharing-en.md](social-sharing-en.md).
+[social-sharing.md](social-sharing.md).
 
 ## External agents through MCP
 
@@ -1222,7 +1231,6 @@ pretending every agent is the same.
 | [Usage and configuration](usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |
 | [What was hard about the AI](ai-lessons.md)                                                  | Failures seen with Nemotron personas and what changed to make them dependable                                                     |
 | [Hermes Agent](hermes.md) ([日本語](hermes_ja.md))                                              | MCP authentication, task lifecycle, retries, proactive reports, and external-agent behavior                                       |
-| [Development and status](development.md)                                                     | Tests, source layout, implemented features, and unverified items                                                                  |
 | [Google Cloud deployment](../infra/README.md)                                                | Terraform deployment with Firebase Hosting, Cloud Run, Firestore, and related infrastructure                                      |
 
 [MIT licensed](../LICENSE).

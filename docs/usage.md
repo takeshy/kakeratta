@@ -16,7 +16,7 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 | Variable | Default | |
 | --- | --- | --- |
 | `KAKERATTA_PUBLIC_URL` | empty | Public HTTPS origin for Bluesky OAuth |
-| `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](social-sharing-en.md) |
+| `KAKERATTA_BLUESKY_KEY` | empty | Secret for Bluesky signing and encryption (64 hexadecimal characters); see [operator setup](social-sharing.md) |
 | `KAKERATTA_ADDR` | `127.0.0.1:8787` (Firebase: `:8787`) | Listen address |
 | `KAKERATTA_HOME` | OS config directory | Where posts, notes and images are kept |
 | `KAKERATTA_FIREBASE_PROJECT_ID` | empty | Enable Google sign-in and per-user workspaces |
@@ -129,9 +129,10 @@ Web Speech API).
 
 Deleting a post deletes the remarks and your replies under it as well (the log
 is append-only, so each gets its own tombstone line). Notes that cited the
-post or those replies lose their links, and each persona that was woken for
-the post is woken once to tidy what rested on them. A remark can be deleted on
-its own.
+post or those replies lose their links. Notes left with no source are removed
+automatically, except the index and update log. Personas that were woken for
+or cited the post are woken once to tidy surviving notes and references. A
+remark can be deleted on its own.
 
 **⚖ Router's call**, on your own posts and replies, opens a dialog with what the
 app decided about that post: the personas it chose, and for each one it passed over, the
@@ -176,7 +177,7 @@ The browser saves the latest 20 original posts and their replies per user, displ
 
 In Settings, open Bluesky connection, enter your handle, and authorize on Bluesky. Each user connects their own account. Choose Share to Bluesky on a post, select the messages, preview, and publish. Persona replies start unchecked, and selected replies require their parents to be selected too. Published replies preserve their parents and include persona attribution.
 
-[Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication recovery](social-sharing-en.md). Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.
+[Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication recovery](social-sharing.md). Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.
 
 Already published messages are not sent again. Newly selected replies can be added to their existing parent posts. Publishing is disabled while sending or when all selected messages are already posted. The published conversation has a single link to its root post.
 
@@ -267,8 +268,8 @@ Qwen3-Embedding-8B on the same backend.
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
 
-The page has no model picker: users enter an API key and the slots keep these
-defaults. To change a model for a workspace, edit the keys above in its
+The page has no direct Token Factory model picker: users enter an API key and
+those slots keep their defaults. To change a model for a workspace, edit the keys above in its
 `settings.json` (or `PUT /api/settings`); the page keeps working with whatever
 is stored.
 
@@ -291,11 +292,11 @@ an empty high setting also uses Ultra.
 <workspace>/settings.json          endpoints, models, the web search key, who is in the room
 <workspace>/timeline.jsonl         posts and remarks (append only)
 <workspace>/blobs/<id>.png         captures
-<workspace>/memory/<id>/           each persona's notes (an OKF bundle; the app does not read inside)
+<workspace>/memory/<id>/           each persona's notes (OKF-style Markdown; the app reads metadata and maintains source links)
 <workspace>/memory/<id>.meta.json  how many times it woke, and so on
 <workspace>/routing.json           the router's call per post: who was chosen, who was passed over and why
 <workspace>/skills/<id>/skill.json added personas
-<workspace>/search-embeddings/     semantic search vectors (rebuilt on the next search if removed)
+<workspace>/search-embeddings/     semantic search vectors (rebuilt after restart or on search if removed)
 ```
 
 The timeline is **append only**. An entry is never rewritten: a change (the

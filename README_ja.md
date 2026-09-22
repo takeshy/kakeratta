@@ -449,7 +449,6 @@ kakeratta が Hermes のプロセスを起動・制御することはありま�
 | [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
 | [Hermes Agent](docs/hermes_ja.md)（[English](docs/hermes.md)） | kakeratta の MCP 接続、認証情報、依頼の取得・完了・再試行、報告 |
 | [NVIDIA NemoClaw と Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | NemoClaw/OpenShell のサンドボックスで Hermes を動かす公式手順 |
-| [開発と実装状況](docs/development_ja.md) | テスト、ソース構成、実装済みの機能と未確認項目 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformでの構築。画面はFirebase Hosting、APIはCloud Run |
 
 [MITライセンス](LICENSE)。

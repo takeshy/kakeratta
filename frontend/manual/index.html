@@ -11,17 +11,23 @@
     <link rel="stylesheet" href="/site/site.css" />
     <script>
       (function () {
-        var q = new URLSearchParams(location.search).get("lang"), s = null;
+        var params = new URLSearchParams(location.search), q = params.get("lang"), s = null;
         try { s = localStorage.getItem("kakeratta.language"); } catch (e) {}
         var b = String((navigator.languages || [])[0] || navigator.language || "").toLowerCase().split("-")[0] === "ja" ? "ja" : "en";
         var lang = q === "ja" || q === "en" ? q : s === "ja" || s === "en" ? s : b;
         document.documentElement.lang = lang;
         document.documentElement.dataset.lang = lang;
+        var guide = params.get("guide") === "advanced" ? "advanced" : "beginner";
+        document.documentElement.dataset.guide = guide;
+        if (guide === "advanced") {
+          document.documentElement.dataset.titleJa = "kakeratta 上級者向けマニュアル";
+          document.documentElement.dataset.titleEn = "kakeratta Advanced Manual";
+        }
       })();
     </script>
     <script type="module" src="/site/lang.js"></script>
   </head>
-  <body class="manual beginner-page">
+  <body class="manual">
     <header class="site-head">
       <div class="site-head-row">
         <a class="brand" href="/lp/" data-lang-link>
@@ -45,6 +51,7 @@
     <main class="ja" lang="ja">
       <nav class="toc" aria-label="目次">
         <p class="toc-title">目次</p>
+        <div class="beginner-guide">
         <p><strong>初心者編</strong></p>
         <ol>
           <li><a href="#ja-start">はじめる</a></li>
@@ -58,12 +65,30 @@
           <li><a href="#ja-phone">スマホから共有する</a></li>
           <li><a href="#ja-voice">音声入力と読み上げ</a></li>
         </ol>
-        <p><a href="/manual/advanced/" data-lang-link><strong>上級編へ</strong></a></p>
+        <p><a href="/manual/?guide=advanced" data-lang-link><strong>上級編へ</strong></a></p>
+        </div>
+        <div class="advanced-guide">
+          <p><a href="/manual/" data-lang-link><strong>初心者編へ</strong></a></p>
+          <p><strong>上級編</strong></p>
+          <ol>
+            <li><a href="#ja-hermes">Hermes連携</a></li>
+            <li><a href="#ja-settings">設定</a></li>
+            <li><a href="#ja-tools">道具の一覧と使い方</a></li>
+            <li><a href="#ja-faq">よくある質問</a></li>
+            <li><a href="#ja-more">もっと詳しく</a></li>
+          </ol>
+        </div>
       </nav>
 
       <article class="doc">
-        <h1>kakeratta の使い方</h1>
-        <p class="lede">思いついたこと、目に留まったものを、テキスト・画像・URL・音声でひとつのタイムラインへ放り込む。担当分野ごとに別々の記憶を持つ AI（担当）が、言うことがあるときだけ反応します。このページはその使い方をひと通りまとめたものです。</p>
+        <div class="beginner-guide">
+          <h1>kakeratta の使い方</h1>
+          <p class="lede">思いついたこと、目に留まったものを、テキスト・画像・URL・音声でひとつのタイムラインへ放り込む。担当分野ごとに別々の記憶を持つ AI（担当）が、言うことがあるときだけ反応します。このページはその使い方をひと通りまとめたものです。</p>
+        </div>
+        <div class="advanced-guide">
+          <h1>kakeratta 上級者向けマニュアル</h1>
+          <p class="lede">Hermesとの連携、詳細設定、担当が使う道具の仕様をまとめています。基本的な使い方は<a href="/manual/" data-lang-link>初心者編</a>を参照してください。</p>
+        </div>
 
         <div class="beginner-guide">
         <h2 id="ja-beginner">初心者編</h2>
@@ -164,7 +189,7 @@
           <h3>再操作と接続解除</h3>
           <p>同じアカウントへ投稿済みの発言は再送せず、追加分を返信として続けます。通信が途切れて結果を確認できない場合は、重複防止のため再送を止めます。Bluesky上の結果を確認してください。</p>
           <p><strong>設定 → 上級オプション → Bluesky連携 → 接続を解除</strong> で解除できます。接続や再接続だけでは公開されません。接続解除やkakeratta内での削除は、Blueskyの投稿を削除しません。</p>
-          <p>「Bluesky連携は準備中です」と表示される場合は、運営側の初期設定が必要です。<a href="https://github.com/takeshy/kakeratta/blob/main/docs/social-sharing.md" rel="noopener">運営側の設定と投稿履歴の復旧</a>を参照してください。</p>
+          <p>「Bluesky連携は準備中です」と表示される場合は、運営側の初期設定が必要です。<a href="https://github.com/takeshy/kakeratta/blob/main/docs/social-sharing_ja.md" rel="noopener">運営側の設定と投稿履歴の復旧</a>を参照してください。</p>
         </section>
 
         <section id="ja-personas">
@@ -195,7 +220,7 @@
             <li><strong>希望時刻</strong> を選びます。変更は自動保存されます。</li>
           </ol>
           <p>時刻の横に表示される端末のタイムゾーンを保存します。JST以外と夏時間にも対応し、旅行後も保存したタイムゾーンを維持します。現在はタイムゾーンの手動選択はありません。チェックインをOFFにするか、担当を無効にすると定期起床は止まります。</p>
-          <p>これとは別に、<code>timer</code> を持つ担当は、自分で起きる時刻を置きます（<a href="/manual/advanced/#ja-tool-schedule">schedule</a>）。時刻を尋ねられることはありません。担当が自分の記録から見当をつけます。</p>
+          <p>これとは別に、<code>timer</code> を持つ担当は、自分で起きる時刻を置きます（<a href="/manual/?guide=advanced#ja-tool-schedule">schedule</a>）。時刻を尋ねられることはありません。担当が自分の記録から見当をつけます。</p>
           <p>たとえば plana なら、記録から「朝の薬は7時半ごろ」と分かった項目にだけ timer を置き、その少しあとに起きて、まだ記録がないときだけ「そういえば朝の薬」と一言添えます。催促や飲み忘れの指摘はしません。決まった件数の通知を約束する機能ではありません。</p>
           <p>ブラウザを閉じても、サーバーが動いていれば実行します。毎分確認するため、希望時刻や処理の混雑によって少し遅れることがあります。設定した時刻を過ぎてONにした場合は、その日の分を次の確認で実行します。再起動時も当日分だけを実行し、過去の日の分はまとめて送りません。</p>
           <p>沈黙や失敗もその日の1回に数えます。時刻の変更や記憶の削除で当日分を再実行することはありません。定期起床では現在地を取得しないため、経路検索は使えず、店舗検索は名前検索だけになります。</p>
@@ -493,6 +518,7 @@
     <main class="en" lang="en">
       <nav class="toc" aria-label="Contents">
         <p class="toc-title">Contents</p>
+        <div class="beginner-guide">
         <p><strong>Beginner guide</strong></p>
         <ol>
           <li><a href="#en-start">Getting started</a></li>
@@ -506,12 +532,30 @@
           <li><a href="#en-phone">Sharing from a phone</a></li>
           <li><a href="#en-voice">Voice input and read-aloud</a></li>
         </ol>
-        <p><a href="/manual/advanced/" data-lang-link><strong>Go to the advanced guide</strong></a></p>
+        <p><a href="/manual/?guide=advanced" data-lang-link><strong>Go to the advanced guide</strong></a></p>
+        </div>
+        <div class="advanced-guide">
+          <p><a href="/manual/" data-lang-link><strong>Go to the beginner guide</strong></a></p>
+          <p><strong>Advanced guide</strong></p>
+          <ol>
+            <li><a href="#en-hermes">Hermes integration</a></li>
+            <li><a href="#en-settings">Settings</a></li>
+            <li><a href="#en-tools">Tool guide</a></li>
+            <li><a href="#en-faq">FAQ</a></li>
+            <li><a href="#en-more">Read more</a></li>
+          </ol>
+        </div>
       </nav>
 
       <article class="doc">
-        <h1>kakeratta Manual</h1>
-        <p class="lede">Put thoughts and things that catch your eye into one timeline as text, images, URLs, or speech. AIs with separate memories for their own subjects, called personas, react when they have something to say. This page walks through how to use it.</p>
+        <div class="beginner-guide">
+          <h1>kakeratta Manual</h1>
+          <p class="lede">Put thoughts and things that catch your eye into one timeline as text, images, URLs, or speech. AIs with separate memories for their own subjects, called personas, react when they have something to say. This page walks through how to use it.</p>
+        </div>
+        <div class="advanced-guide">
+          <h1>kakeratta Advanced Manual</h1>
+          <p class="lede">This guide covers Hermes integration, detailed settings, and the tools available to personas. See the <a href="/manual/" data-lang-link>beginner guide</a> for everyday use.</p>
+        </div>
 
         <div class="beginner-guide">
         <h2 id="en-beginner">Beginner guide</h2>
@@ -612,7 +656,7 @@
           <h3>Retrying and disconnecting</h3>
           <p>Messages already published to the same account are reused as parents for new replies. If a connection breaks and the outcome is uncertain, publishing stops to avoid duplicates. Check the result on Bluesky.</p>
           <p>Use <strong>Settings → Advanced options → Bluesky connection → Disconnect</strong> to remove the connection. Connecting or reconnecting never publishes anything. Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.</p>
-          <p>If the panel says Bluesky sharing is not available yet, the operator needs to complete setup. See <a href="https://github.com/takeshy/kakeratta/blob/main/docs/social-sharing-en.md" rel="noopener">operator setup and publication recovery</a>.</p>
+          <p>If the panel says Bluesky sharing is not available yet, the operator needs to complete setup. See <a href="https://github.com/takeshy/kakeratta/blob/main/docs/social-sharing.md" rel="noopener">operator setup and publication recovery</a>.</p>
         </section>
 
         <section id="en-personas">
@@ -643,7 +687,7 @@
             <li>Choose a <strong>Preferred time</strong>. Changes save automatically.</li>
           </ol>
           <p>The browser's time zone shown beside the time is saved, with support for daylight saving and zones beyond JST. It stays saved when you travel; there is currently no manual time-zone picker. Turn off the check-in or disable the persona to stop the daily wake.</p>
-          <p>Separately, a persona that has <code>timer</code> sets its own wake times (<a href="/manual/advanced/#en-tool-schedule">schedule</a>). You are never asked for a time: the persona works it out from its own records.</p>
+          <p>Separately, a persona that has <code>timer</code> sets its own wake times (<a href="/manual/?guide=advanced#en-tool-schedule">schedule</a>). You are never asked for a time: the persona works it out from its own records.</p>
           <p>plana, for example, sets a timer only for a routine its notes place at a usual time, wakes shortly after it, and adds “the morning medicine, by the way” only when nothing has been recorded yet. It does not nag or point out a missed dose. This does not promise a fixed number of notifications.</p>
           <p>The browser can be closed, but the server must be running. It checks every minute; a busy execution queue may delay a wake. Enabling it after the preferred time runs today's check-in at the next check. After a restart, only today's due wake runs, without replaying missed days.</p>
           <p>Silent and failed attempts count as the day's wake. Changing the time or forgetting memory does not trigger a second attempt that day. Check-ins do not acquire your current location: routes are unavailable and place search is by name only.</p>

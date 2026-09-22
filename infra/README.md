@@ -137,4 +137,4 @@ npx firebase-tools deploy --only firestore:indexes --project kakeratta
 
 Terraform generates the secret used for OAuth signing and connection encryption, stores it in Secret Manager, and passes it to Cloud Run as `KAKERATTA_BLUESKY_KEY`. The key also lives in Terraform state; keep that private and preserve the existing key. `KAKERATTA_PUBLIC_URL` defaults to `https://<domain>`. Set `bluesky_public_url` to use another public origin.
 
-Update the server, Terraform resources, and frontend. Each user authorizes their own account on Bluesky; users do not need developer registration or API keys. See [operator setup](../docs/social-sharing-en.md) for public metadata routing, same-tab authorization, key management, and recovery after partial failure.
+Update the server, Terraform resources, and frontend. Each user authorizes their own account on Bluesky; users do not need developer registration or API keys. See [operator setup](../docs/social-sharing.md) for public metadata routing, same-tab authorization, key management, and recovery after partial failure.

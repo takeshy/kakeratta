@@ -1,6 +1,9 @@
 # Routing model comparison — 2026-09-17
 
 Local experiment only. Production model selection and deployments were unchanged.
+This is a dated experiment, so references to the "current" prompt or settings
+below describe the code at the time of measurement. For the implemented router
+and default model, see [Under the hood](technical.md#routing-is-condition-matching-not-open-ended-judgement).
 
 The test calls the production Route function with the existing prompt, tool schema,
 four built-in persona domains, and 12 synthetic Japanese cases. Cases cover single
@@ -364,4 +367,3 @@ two remaining disagreements were immediate-action posts of the case 7 kind
 nobody. Both were reviewed by hand and judged acceptable either way. This result
 is recorded as reported; it was not reproduced in this document's replays, and
 the artifacts of the run were not kept.
-

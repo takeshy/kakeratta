@@ -526,7 +526,6 @@ check-ins, schedules, and operator-provided tools are documented in
 | [What was hard about the AI](docs/ai-lessons.md)                                                         | What went wrong with Nemotron personas in live runs and production, and how each was fixed                        |
 | [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, task claiming, completion, retries, and reports                            |
 | [NVIDIA NemoClaw with Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | Official setup for running Hermes in a NemoClaw/OpenShell sandbox                                                 |
-| [Development and status](docs/development.md)                                                            | Tests, source layout, implemented features, and unverified items                                                  |
 | [Google Cloud deployment](infra/README.md)                                                               | Terraform deployment: Firebase Hosting for the page and Cloud Run for the API                                     |
 
 [MIT licensed](LICENSE).

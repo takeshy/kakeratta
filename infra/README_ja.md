@@ -126,4 +126,4 @@ npx firebase-tools deploy --only firestore:indexes --project kakeratta
 
 TerraformはOAuth署名と接続情報の暗号化に使う秘密鍵を生成し、Secret Managerから `KAKERATTA_BLUESKY_KEY` としてCloud Runへ渡します。鍵はTerraform stateにも含まれるため非公開で管理し、既存の鍵を維持してください。`KAKERATTA_PUBLIC_URL` は既定で `https://<domain>` です。別の公開オリジンを使う場合は `bluesky_public_url` を設定します。
 
-サーバー・Terraform・画面の更新が必要です。利用者ごとの開発者登録やAPIキーは不要で、各ユーザーがBluesky側で認可します。メタデータの公開経路、同じタブでの認可、鍵の管理、途中失敗の復旧は[運営側の設定](../docs/social-sharing.md)を参照してください。
+サーバー・Terraform・画面の更新が必要です。利用者ごとの開発者登録やAPIキーは不要で、各ユーザーがBluesky側で認可します。メタデータの公開経路、同じタブでの認可、鍵の管理、途中失敗の復旧は[運営側の設定](../docs/social-sharing_ja.md)を参照してください。

@@ -16,7 +16,7 @@ task test       # go test ./internal/... と node --test tests/*.test.js
 | 環境変数 | 既定 | |
 | --- | --- | --- |
 | `KAKERATTA_PUBLIC_URL` | 空 | Bluesky OAuthに使う公開HTTPSオリジン |
-| `KAKERATTA_BLUESKY_KEY` | 空 | Bluesky接続の署名・暗号化用秘密鍵（64桁の16進文字列）。[運営設定](social-sharing.md)を参照 |
+| `KAKERATTA_BLUESKY_KEY` | 空 | Bluesky接続の署名・暗号化用秘密鍵（64桁の16進文字列）。[運営設定](social-sharing_ja.md)を参照 |
 | `KAKERATTA_ADDR` | `127.0.0.1:8787`（Firebase: `:8787`） | 待ち受け |
 | `KAKERATTA_HOME` | OS の設定ディレクトリ | 投稿・メモ・画像の保存先 |
 | `KAKERATTA_FIREBASE_PROJECT_ID` | 空 | Googleログインとユーザー別ワークスペースを有効化 |
@@ -112,7 +112,7 @@ Web Share Target が使えないため、ショートカットで代替します
 **読み上げモード**で、移動中に溜まった反応を聞けます（ブラウザ内蔵の Web Speech API）。
 
 投稿を消すと、その下の担当の発言と自分の返信もまとめて消えます（追記のみのログなので、それぞれに削除の行が足されます）。
-その投稿と返信を出典にしていた担当のメモからはリンクが外れ、起こされた担当は 1 回だけ起きてメモを整理します。担当の発言だけを消すこともできます。
+その投稿と返信を出典にしていた担当のメモからはリンクが外れ、出典がなくなったメモは索引と更新履歴を除き自動で消えます。投稿で起こされた担当と投稿を引用していた担当は 1 回だけ起きて、残ったメモや参照を整理します。担当の発言だけを消すこともできます。
 
 自分の投稿・返信の**⚖（担当の判断）**を押すと、その投稿について本体が決めたことが別画面で見えます。呼ばれた担当と、
 呼ばれなかった担当ごとの一行の理由です。`@` で指名した担当は出ません。判定できなかった投稿（モデル未設定、
@@ -145,7 +145,7 @@ Web Share Target が使えないため、ショートカットで代替します
 
 設定の上級オプションにある「Bluesky連携」で自分のハンドルを入力し、Bluesky側で接続を許可します。各ユーザーが自分のアカウントを使えます。投稿の「Blueskyに投稿」から公開する発言を選び、プレビュー後に投稿します。担当の返信は最初は未選択で、選んだ返信の親も選択する必要があります。担当名の署名と返信の親子関係が付きます。
 
-[画面付きの手順](https://kakeratta.net/manual/?lang=ja#ja-bluesky) · [運営側の初期設定・投稿履歴の復旧](social-sharing.md)。接続解除やkakeratta内での削除は、Blueskyの投稿を削除しません。
+[画面付きの手順](https://kakeratta.net/manual/?lang=ja#ja-bluesky) · [運営側の初期設定・投稿履歴の復旧](social-sharing_ja.md)。接続解除やkakeratta内での削除は、Blueskyの投稿を削除しません。
 
 投稿済みの発言は再送せず、新しく選んだ返信だけを追加投稿できます。すべて投稿済みなら投稿ボタンは無効になります。投稿中は二重操作できません。公開先のリンクは会話の親投稿への1つにまとめます。
 
@@ -207,7 +207,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 
-画面にモデルの選択欄はありません。利用者はAPIキーを入れるだけで、3つの枠のモデルは上の既定のままです。
+画面には Token Factory のモデルを直接選ぶ欄はありません。利用者がAPIキーを入れると、3つの枠は上の既定値を使います。
 ワークスペースのモデルを変えたいときは、その `settings.json` の上記キー（または `PUT /api/settings`）を
 運用側で書き換えます。画面は保存されている値のまま動きます。
 
@@ -226,11 +226,11 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 <workspace>/settings.json          接続先・モデル・Web検索の鍵・いる担当
 <workspace>/timeline.jsonl         投稿と発言（追記のみ）
 <workspace>/blobs/<id>.png         キャプチャ
-<workspace>/memory/<id>/           ペルソナごとのメモ（OKFバンドル。本体は中を読まない）
+<workspace>/memory/<id>/           担当ごとのメモ（OKF形式のMarkdown。本体はメタデータと出典リンクを扱う）
 <workspace>/memory/<id>.meta.json  起きた回数など
 <workspace>/routing.json           投稿ごとの振り分けの判断（呼んだ担当、呼ばなかった担当とその理由）
 <workspace>/skills/<id>/skill.json 追加した担当
-<workspace>/search-embeddings/     意味検索のベクトル（消しても次の検索で作り直します）
+<workspace>/search-embeddings/     意味検索のベクトル（消しても再起動後または検索時に作り直します）
 ```
 
 タイムラインは**追記のみ**です。エントリを書き換えず、変更（画像の読み取りが終わった、消した）は

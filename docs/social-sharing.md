@@ -1,62 +1,62 @@
-# 会話をBlueskyに公開する
+# Publish a conversation to Bluesky
 
-[README](../README_ja.md) · [English](social-sharing-en.md) · [画面付きの手順](https://kakeratta.net/manual/?lang=ja#ja-bluesky)
+[README](../README.md) · [日本語](social-sharing_ja.md)
 
-各ユーザーが自分のBlueskyアカウントを接続して利用します。設定の「Bluesky連携」、またはタイムラインの「Blueskyに投稿」からハンドルを入力し、Blueskyの画面で接続を許可してください。kakerattaにBlueskyのパスワードやアプリパスワードを入力する必要はありません。
+Each user connects their own Bluesky account. Open **Bluesky connection** in Settings or **Share to Bluesky** on a timeline post, enter your handle, and authorize on Bluesky. Kakeratta does not ask for your Bluesky password or an app password. See the [illustrated manual](https://kakeratta.net/manual/?lang=en#en-bluesky).
 
-接続後は、公開するPersona返信・自分の追加返信を選択し、プレビューで本文・画像・返信先・投稿アカウントを確認して「選択した会話を投稿」を押します。接続や再接続だけでは投稿しません。
+Select the persona replies and your follow-ups to publish. Review the text, images, reply parents, and account in the preview, then press the publish button. Connecting or reconnecting alone never publishes anything.
 
-- 元の投稿だけが最初から選択されています。Persona返信や後から届いた返信は自動選択されません。
-- Personaの発言には `🍚 tabeからの返信:` のような署名が付きます。
-- 返信先も選択する必要があります。除外した親を自動で公開したり、別の発言へ付け替えたりしません。
-- 独立したPersona返信はそれぞれ元投稿への返信になります。
-- 公開内容は選択した発言の本文、リンク、出典URL、添付画像です。位置情報や画像解析結果を本文に追加したり、Personaの記憶を読み出したりしません。
-- 1回に最大100発言を選択できます。長文は文末・改行を優先し、署名込みで300書記素・UTF-8で3,000バイト以内の投稿に自動分割します。2つ目以降は `つづき:` を付け、Personaの署名も繰り返します。一文が長すぎる場合は読点・空白、それでも収まらなければ文字の境界で分割します。
-- URLと絵文字などの書記素は途中で切りません。URL単体が長すぎる場合はエラーを表示します。画像は最初の分割投稿だけに添付し、1 MB以内です。発言への返信は、その発言の最後の分割投稿につながります。分割結果と件数はプレビューで確認できます。
-- 接続アカウントや内容がプレビュー後に変わると、再確認が必要です。
-- 設定から接続解除できます。接続解除・kakeratta内での削除は、Blueskyに公開済みの投稿を削除しません。
+- Only the original post starts selected. Persona replies, including replies arriving later, are never automatically selected.
+- Persona messages receive an attribution such as `🍚 tabeからの返信:` (reply from tabe).
+- Select the parent of each selected reply too. Excluded parents are not automatically published, and replies are not reparented.
+- Independent persona replies remain separate replies to the original post.
+- Publication includes the selected messages' text, links, source URLs, and attached images. It does not add location metadata or image analysis to the text, or read persona memories.
+- Select up to 100 messages. Long messages split automatically at sentence endings or line breaks into posts of up to 300 graphemes and 3,000 UTF-8 bytes, including attribution. Later parts start with `つづき:` (continued) and repeat persona attribution. An oversized sentence splits at commas or spaces, falling back to grapheme boundaries only when necessary.
+- URLs and graphemes such as emoji stay intact; an individually oversized URL raises an error. Images appear only on the first part. Images over 2 MB are resized and compressed as JPEG for sharing; saved originals remain unchanged. Transparency becomes white and GIFs become still images. Replies attach to the final part of their parent message. Review the resulting posts and count in the preview.
+- Changes to the account or content after preview require another preview.
+- Disconnect in Settings. Disconnecting or deleting a message in kakeratta does not delete posts on Bluesky.
 
-## 運営側の初期設定
+## Operator setup
 
-利用者ごとの開発者登録やAPIキー発行は不要です。OAuthのクライアントメタデータをアプリ自身の公開URLで配信します。[Bluesky公式OAuthガイド](https://bsky.network/docs/oauth-client/)に基づき、公式Go SDKのIndigoを利用しています。
+Users do not need developer registration or API keys. The app serves OAuth client metadata from its own public URL and uses the official Indigo Go SDK, following the [Bluesky OAuth guide](https://bsky.network/docs/oauth-client/).
 
-サーバーに次の環境変数を設定してください。
+Set these server environment variables:
 
-| 環境変数 | 値 |
+| Variable | Value |
 | --- | --- |
-| `KAKERATTA_PUBLIC_URL` | アプリの公開HTTPSオリジン。例: `https://kakeratta.net`。パス・末尾スラッシュ・クエリは付けない |
-| `KAKERATTA_BLUESKY_KEY` | ランダムな32バイトの秘密鍵を64桁の16進文字列で指定。全インスタンスで共通にし、Secret Managerなどで保管 |
+| `KAKERATTA_PUBLIC_URL` | The app's public HTTPS origin, such as `https://kakeratta.net`, without a path, trailing slash, or query |
+| `KAKERATTA_BLUESKY_KEY` | A random 32-byte secret encoded as 64 hexadecimal characters; share the same value across instances and keep it in Secret Manager or equivalent storage |
 
-鍵は `openssl rand -hex 32` などで生成できます。OAuthのクライアント署名に使い、別用途の鍵を導出してトークンをAES-GCMで暗号化します。鍵の紛失・変更は保存済みの接続を復号できなくするため、既存の鍵を維持してください。
+Generate a key with `openssl rand -hex 32`. It signs OAuth client requests; a separately derived key encrypts tokens with AES-GCM. Preserve the existing key: losing or replacing it makes stored connections unreadable.
 
-このリポジトリのTerraformは秘密鍵の生成・Secret Manager保存・Cloud Runへの設定を含みます。公開URLは既定で `https://<domain>`、必要なら `bluesky_public_url` で指定します。コード変更だけでは本番へ適用されません。既存のデプロイ手順でサーバーとフロントエンドを更新してください。
+The repository's Terraform generates the key, stores it in Secret Manager, and configures Cloud Run. The public URL defaults to `https://<domain>` and can be overridden with `bluesky_public_url`. Code changes alone do not update production. Update the server and frontend using the existing deployment procedure.
 
-公開URLの `/api/social/bluesky/client-metadata.json` はログインなしで取得できる必要があります。ここに公開鍵・要求権限・コールバックURLを載せます。秘密鍵やユーザーのトークンは返しません。既存のFirebase Hostingの `/api/**` 転送を利用します。
+`/api/social/bluesky/client-metadata.json` on the public origin must be reachable without login. It exposes the public key, requested permissions, and callback URL, never the secret key or user tokens. The existing Firebase Hosting `/api/**` rewrite forwards it to the API.
 
-認可のコールバックは `/api/social/bluesky/callback` です。Firebase Hostingが `__session` 以外のCookieを転送しないため、ブラウザーのsessionStorageに保存した一時シークレットで開始タブと完了操作を結び付けます。別ユーザー・別タブからの取り違えやコールバックの再利用を拒否します。接続操作は同じ公開オリジン・同じタブで完了してください。
+The authorization callback is `/api/social/bluesky/callback`. Firebase Hosting forwards only the `__session` cookie, so a temporary secret in browser sessionStorage binds authorization completion to the initiating tab. Completion by another user or tab, and callback reuse, are rejected. Complete authorization on the same public origin and in the same tab.
 
-ローカル開発時は `KAKERATTA_PUBLIC_URL=http://127.0.0.1:<port>` とするとSDKのループバックOAuthを利用します。ブラウザーも同じオリジンで開き、APIへのプロキシを設定してください。秘密鍵はローカルの接続情報の暗号化にも必要です。
+For local development, set `KAKERATTA_PUBLIC_URL=http://127.0.0.1:<port>` to use the SDK's loopback OAuth flow. Open the browser at that same origin and configure a proxy to the API. The secret key is still required to encrypt local connection data.
 
-## 認可と保存
+## Authorization and storage
 
-要求する権限は `atproto`、`repo:app.bsky.feed.post?action=create`、`blob:image/*` です。OAuthのPKCE、DPoP、PAR、トークン更新、ハンドル・DID・PDSの解決をIndigoが処理します。接続状態APIは接続先のDID・ハンドルだけを返し、トークンをブラウザーへ返しません。
+The requested scopes are `atproto`, `repo:app.bsky.feed.post?action=create`, and `blob:image/*`. Indigo handles PKCE, DPoP, PAR, token refresh, and handle/DID/PDS resolution. The connection status API returns the account DID and handle, never tokens.
 
-接続情報はユーザーのワークスペースごとに暗号化して保存します。ローカルでは `social-state/`、Firestoreでは `users/{userKey}/socialState/` です。認可待ち状態は10分で無効になります。OAuth処理と投稿はワークスペースごとの期限付きロックで直列化し、複数Cloud Runインスタンスによる更新トークンの競合を防ぎます。ローカルストアは従来どおり1ワークスペースにつき1サーバープロセスで運用します。
+Connections are encrypted and stored per user workspace: locally in `social-state/`, or in Firestore at `users/{userKey}/socialState/`. Pending authorization expires after ten minutes. Expiring workspace locks serialize OAuth and publication operations to prevent refresh-token races between Cloud Run instances. Run only one server process per workspace with the local store.
 
-接続解除では保存した接続・セッション・進行中の認可情報を無効化し、可能ならBluesky側のトークンも失効させます。Bluesky側で失効できなかった場合は、ユーザーにBlueskyの設定から解除するよう表示します。
+Disconnecting invalidates stored connections, sessions, and pending authorization, and attempts to revoke tokens on Bluesky. If remote revocation fails, the UI asks the user to revoke access from Bluesky settings.
 
-画像は認可済みのBluesky APIへ直接アップロードします。kakerattaの画像を認証なしで公開するエンドポイントは追加しません。
+Images upload directly to the authorized Bluesky API. No unauthenticated endpoint is added for kakeratta images.
 
-## 投稿履歴と途中失敗
+## Publication history and partial failure
 
-投稿先・BlueskyのDID・Entry ID・分割番号ごとにURI / CIDを保存します。最初の投稿は従来の履歴キーを引き継ぎ、2つ目以降は `:part:2` などを付けます。再度同じ会話を選んだときは成功済みの発言を再送せず、追加分の返信先に利用します。別ユーザーや別アカウントの履歴は混ざりません。
+The app stores a URI and CID for each destination, Bluesky DID, entry ID, and part number. The first part retains the original history key; subsequent parts use suffixes such as `:part:2`. Reusing a conversation skips already published messages and uses them as parents for new replies. Histories are isolated between users and accounts.
 
-- ローカル: `publications/*.json`
+- Local: `publications/*.json`
 - Firestore: `users/{userKey}/publications/{keyHash}`
-- 明確な拒否や画像アップロード失敗は再操作できます。成功分の後から続けます。
-- 投稿送信中の接続断・サーバーエラー、成功後の履歴保存失敗では成否を断定できません。`pending` を残し、自動再送を止めます。SNSで結果を確認し、必要なら管理者が該当履歴を復旧してください。未公開を確認できた場合のみ `retryable` に変更し、公開済みならURI / CIDを保存して `posted` にします。画面からの履歴修復は未対応です。
+- Explicit rejection or an image-upload failure can be retried, continuing after the successful messages.
+- A lost connection or server error while submitting a post, or failure to save history after success, leaves the outcome uncertain. The record remains `pending` and automatic resubmission stops. Check Bluesky and have an administrator repair the record if needed. Change it to `retryable` only after confirming that no post was published; otherwise save its URI/CID and mark it `posted`. There is no UI for repairing history yet.
 
-## 確認
+## Validation
 
 ```sh
 go test ./...
@@ -64,6 +64,4 @@ node --test tests/*.test.js
 npm --prefix frontend run build
 ```
 
-テストではBluesky APIを模擬して、認可から接続・投稿・解除まで、ユーザー分離、暗号化保存、返信の枝分かれ、選択の除外、プレビュー変更、途中失敗と再操作を確認します。実アカウントへの投稿は行いません。
-
-実アカウントでの認可と投稿は未確認です。
+Tests simulate the Bluesky API and cover authorization, connection, publication, disconnection, user isolation, encrypted storage, branching replies, excluded messages, preview changes, and recovery after partial failure. They do not publish to a real account. Real-account authorization and publication remain unverified.
