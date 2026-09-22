@@ -1633,6 +1633,36 @@ func TestHermesTurnStaysOpenUntilItActuallyReplies(t *testing.T) {
 	}
 }
 
+func TestHermesIsQuestionFallbackBehindOtherPersonas(t *testing.T) {
+	for _, tc := range []struct {
+		name, routed string
+		wantHermes   bool
+	}{
+		{name: "only Hermes matched", routed: `{"deliver":["hermes"],"excluded_reasons":{"book":"本の話ではない"}}`, wantHermes: true},
+		{name: "a focused persona matched too", routed: `{"deliver":["book","hermes"],"excluded_reasons":{}}`, wantHermes: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runner, s, _ := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					return tc.routed
+				}
+				return `{"action":"silent","notes":""}`
+			}, "book", "hermes")
+
+			entry := post(t, s, "これはどういう意味？")
+			runner.React(entry.ID, nil)
+			runner.Stop()
+			tasks, err := store.AgentTasks(context.Background(), s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := len(tasks) == 1; got != tc.wantHermes {
+				t.Fatalf("Hermes queued = %v, want %v (tasks: %+v)", got, tc.wantHermes, tasks)
+			}
+		})
+	}
+}
+
 // Hermes reports back over its own MCP request, entirely apart from the wave
 // that delivered the post, so its completion can land at the same moment the
 // wave itself is writing down what the other persona did. A read-modify-write

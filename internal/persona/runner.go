@@ -445,6 +445,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 		}
 	}
 	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
+	routing = hermesAsQuestionFallback(routing, targets)
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
@@ -535,6 +536,48 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	// marking it earlier makes the routing sheet briefly call it quiet while it
 	// is still working.
 	r.turnsDone(entry.ID, ran, spokeByPersona)
+}
+
+// Hermes is the catch-all for questions that none of the focused personas
+// own. The router still decides whether the post is a question (from Hermes's
+// domain), but this final comparison is deliberately done here: persona
+// conditions are otherwise classified independently, so Hermes cannot know
+// reliably whether another condition matched. An explicit wake already in
+// targets (a mention, a reply to Hermes, or an edited prior delivery) wins.
+func hermesAsQuestionFallback(routing Routing, targets map[string]bool) Routing {
+	if targets["hermes"] || !contains(routing.Deliver, "hermes") {
+		return routing
+	}
+	other := false
+	for id := range targets {
+		if id != "hermes" {
+			other = true
+			break
+		}
+	}
+	if !other {
+		for _, id := range routing.Deliver {
+			if id != "hermes" {
+				other = true
+				break
+			}
+		}
+	}
+	if !other {
+		return routing
+	}
+	deliver := make([]string, 0, len(routing.Deliver)-1)
+	for _, id := range routing.Deliver {
+		if id != "hermes" {
+			deliver = append(deliver, id)
+		}
+	}
+	routing.Deliver = deliver
+	if routing.Excluded == nil {
+		routing.Excluded = map[string]string{}
+	}
+	routing.Excluded["hermes"] = "ほかの担当に割り当てられたため"
+	return routing
 }
 
 // readCapture does the one pass over the image and writes the result back onto

@@ -1,12 +1,8 @@
 // Editing a persona.
 //
-// Everything a persona is can be changed here directly - what it covers, how it
-// talks, what it keeps, how much thought it gets, what it may reach. Asking the
-// AI is part of the same screen rather than a separate one: the request is
-// written underneath the persona as it stands, because it is much easier to say
-// what should change while looking at what is there. Whatever the AI proposes
-// goes into the same form, next to what it replaced, and nothing is saved until
-// the user saves it.
+// Direct editing and asking the AI are separate entrances. In AI mode the
+// saved persona is initially reference-only; once an AI proposal arrives it
+// becomes an editable draft, and nothing is saved until the user saves it.
 import { el, clear, toast } from "./dom.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
@@ -33,13 +29,14 @@ const fields = [
   { key: "instructions", label: "覚えること・返事をするタイミング", kind: "textarea", rows: 6, maxlength: 8000 },
 ];
 
-export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings = () => ({}) }) {
+export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings = () => ({}), ai = false }) {
   const opener = document.activeElement;
   const original = { ...persona, tools: [...(persona.tools || [])] };
   const inputs = {};
   const previous = {};
   let closed = false;
   let busy = false;
+  let proposalReady = !ai;
 
   const backdrop = el("div", { class: "dialog-backdrop" });
   const form = el("div", { class: "persona-form" });
@@ -50,6 +47,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
       ? el("textarea", { class: "skill-input", rows: field.rows, maxlength: field.maxlength })
       : el("input", { class: "skill-input", maxlength: field.maxlength });
     input.value = original[field.key] || "";
+    input.readOnly = ai;
     input.addEventListener("input", () => markChanged(field.key));
     inputs[field.key] = input;
     previous[field.key] = el("details", { class: "previous" });
@@ -62,6 +60,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     model.append(el("option", { value: tier, label: modelLabels[tier] }));
   }
   model.value = original.model || "middle";
+  model.disabled = ai;
   model.addEventListener("change", () => { markChanged("model"); checkTier(); });
   inputs.model = model;
   previous.model = el("details", { class: "previous" });
@@ -74,6 +73,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   for (const name of available) {
     const box = el("input", { type: "checkbox" });
     box.checked = original.tools.some((tool) => capability(tool) === capability(name));
+    box.disabled = ai;
     box.addEventListener("change", () => { markChanged("tools"); checkTier(); });
     toolBoxes[name] = box;
     toolList.append(el("label", { class: "switch" }, box, el("span", { text: t(toolLabel(name)) })));
@@ -117,10 +117,18 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     tierWarning.textContent = beyond.length
       ? t("low の担当は Web 検索以外の道具を使えません（{0}）。middle か high にしてください。", beyond.join(" / "))
       : "";
-    save.disabled = busy || beyond.length > 0;
+    save.disabled = busy || beyond.length > 0 || !proposalReady;
+  }
+
+  function setDraftEditable(value) {
+    for (const field of fields) inputs[field.key].readOnly = !value;
+    model.disabled = !value;
+    for (const box of Object.values(toolBoxes)) box.disabled = !value;
   }
 
   function apply(draft) {
+    proposalReady = true;
+    setDraftEditable(true);
     for (const field of fields) {
       if (typeof draft[field.key] === "string") inputs[field.key].value = draft[field.key];
       markChanged(field.key);
@@ -167,7 +175,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     onSend: () => void ask(),
   });
   const aiPanel = el("div", { class: "ai-panel" },
-    el("p", { class: "hint", label: "上の内容を見ながら、変えたいことを書いてください。AIの案はフォームに反映され、保存するまでは確定しません。" }),
+    el("p", { class: "hint", label: "現在の内容を見ながら、変えたいことを書いてください。AIの案ができたら編集して保存できます。" }),
     conversation, request, el("div", { class: "compose-row" }, voice.button, send), voice.activity);
 
   function bubble(role, text) {
@@ -186,7 +194,6 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     try {
       await voice.discard();
       if (closed) return;
-      // The AI changes the persona as it stands in the form, edits included.
       const result = await api.buildPersona({ id: persona.id, language: getLanguage(), messages: next, current: read() });
       if (closed) return;
       messages.push(next.at(-1), { role: "assistant", content: JSON.stringify(result) });
@@ -222,10 +229,11 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     opener?.focus?.();
   }
 
-  const dialog = el("div", { class: "dialog persona-builder persona-editor", role: "dialog", "aria-modal": "true", "aria-label": t("{0} を修正", persona.name) },
-    el("h3", { text: t("{0} を修正", persona.name) }),
+  const title = ai ? t("{0} をAIで修正", persona.name) : t("{0} を修正", persona.name);
+  const dialog = el("div", { class: "dialog persona-builder persona-editor", role: "dialog", "aria-modal": "true", "aria-label": title },
+    el("h3", { text: title }),
     form,
-    aiPanel,
+    ai ? aiPanel : null,
     error,
     el("div", { class: "compose-row" },
       el("button", { class: "button ghost", label: "閉じる", onclick: close }),

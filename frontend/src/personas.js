@@ -177,6 +177,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
         el("span", { class: "spacer" }),
         el("button", { class: "chip ghost", label: "修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load }) }),
+        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, ai: true }) }),
         el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
         row.builtin
           ? null

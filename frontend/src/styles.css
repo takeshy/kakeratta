@@ -135,6 +135,12 @@ body {
   padding: 8px;
   background: var(--bg);
 }
+.persona-editor .skill-input[readonly] {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0;
+  resize: none;
+}
 /* One line, and taller only when there is more in it. The timeline is what the
    screen is for; this is the way through to it. */
 .compose-text {
