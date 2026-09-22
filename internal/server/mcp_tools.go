@@ -281,7 +281,7 @@ func (s *Server) finishHermesTurn(entryID string, spoke bool) {
 
 func (s *Server) hermesInstructions() string {
 	skill, _ := s.catalogue.Find("hermes")
-	return skill.Tone + "\n" + skill.Instructions + "\nUse your own tools and skills. For daily check-ins, first read the previous 24 hours of the timeline and look especially for relevant threads where Hermes did not reply. Also compare tags on recently written notes with older notes carrying the same tags; read a candidate before mentioning it, and report only a concrete useful connection. Complete quietly when none exists. Store shared notes using write_note with Markdown links relative to the Hermes bundle."
+	return skill.Tone + "\n" + skill.Instructions + "\nUse your own tools and skills. For a daily check-in, follow the task prompt; it is the same check-in brief given to other personas, not a user request. Use the equivalent MCP tools and complete quietly when there is nothing worth sharing. Store shared notes using write_note with Markdown links relative to the Hermes bundle."
 }
 
 // Only confirmed deletion or editing invalidates a task. Storage failures must

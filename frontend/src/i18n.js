@@ -48,6 +48,7 @@ const EN = {
   "Hermes APIキー": "Hermes API key",
   "Hermesの接続確認": "Check Hermes connection",
   "担当画面でHermesを有効にすると、投稿への返信と毎日のチェックインを利用できます。": "Enable Hermes in Personas to receive replies and daily check-ins.",
+  "Hermesが毎日、伝えることがある日だけ自発的に報告します。Hermes側の定期確認が必要です。": "Hermes checks in daily and reports on its own only when it has something worth sharing. Set Hermes to check kakeratta regularly.",
   "Hermesからの自発投稿": "Proactive posts from Hermes",
   "Hermesのcronなどから投稿するための専用キーです。発行すると以前のキーは無効になります。キーはこの場でだけ表示します。": "A dedicated key for reports from Hermes cron jobs. Issuing a key revokes the previous one. The key is only shown here.",
   "投稿用キーを発行": "Issue reporting key",

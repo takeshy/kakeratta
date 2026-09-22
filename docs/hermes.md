@@ -156,7 +156,7 @@ Hermes's work does not go through Kakeratta's usual workflow review. Configure t
 
 ## Daily check-ins and unprompted reports
 
-When you set a preferred check-in time on the persona screen, the Kakeratta server stores a check-in request. The actual check happens when Hermes fetches that request. Automatic handling requires Kakeratta to be running and a scheduled run on the Hermes side. If there is nothing to report, complete with an empty `complete_task` body.
+At the preferred check-in time, Kakeratta passes Hermes the same daily check-in brief it gives other personas. This is separate from a request you send through a post. Hermes reviews recent history and its notes, then reports on its own only if it finds something worth sharing. Otherwise it completes quietly with an empty `complete_task` body. Kakeratta must be running, and Hermes must be configured to check it regularly.
 
 Reports from Hermes's own cron or skills use the MCP tool `post_report`. The following is an example of the tool call arguments.
 

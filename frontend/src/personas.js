@@ -153,7 +153,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     box.append(el("div", { class: "compose-row" },
       el("label", { class: "switch" }, enabled, el("span", { label: "1日1回のチェックイン" })),
       time, el("span", { class: "hint", text: zone })));
-    box.append(el("p", { class: "hint", label: row.id === "hermes" ? "希望時刻に確認依頼を保存します。Hermes側で取得すると実行されます。" : "毎日一度だけ起き、伝えることがある日だけ話します。" }));
+    box.append(el("p", { class: "hint", label: row.id === "hermes" ? "Hermesが毎日、伝えることがある日だけ自発的に報告します。Hermes側の定期確認が必要です。" : "毎日一度だけ起き、伝えることがある日だけ話します。" }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当が預けた予定" }),

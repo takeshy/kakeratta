@@ -98,3 +98,26 @@ func TestDailyCanRememberWithoutPosting(t *testing.T) {
 		t.Fatal("silent memory update posted")
 	}
 }
+
+func TestHermesDailyReceivesSharedCheckInInstructions(t *testing.T) {
+	r, s, _ := setup(t, func(system, user string) string { return `{"action":"silent"}` }, "hermes")
+	settings := s.Settings()
+	settings.DailyCheckIns = map[string]store.DailyCheckIn{
+		"hermes": {Enabled: true, Time: "08:00", TimeZone: "Asia/Tokyo"},
+	}
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 14, 23, 0, 0, 0, time.UTC)
+	r.dailyAt(now)
+	tasks, err := store.AgentTasks(context.Background(), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 || tasks[0].Kind != "check-in" || tasks[0].Trigger != "" {
+		t.Fatalf("check-in task = %+v", tasks)
+	}
+	if !strings.Contains(tasks[0].Prompt, "Daily check-in:") || !strings.Contains(tasks[0].Prompt, dailyInstructions) {
+		t.Fatalf("Hermes did not receive the shared daily prompt: %q", tasks[0].Prompt)
+	}
+}

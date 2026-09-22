@@ -26,7 +26,9 @@ func (r *Runner) queueHermes(ctx context.Context, trigger timeline.Entry, instru
 	prompt := ""
 	if trigger.ID == "" {
 		kind = "check-in"
-		prompt = trigger.Text
+		// Give Hermes the same check-in brief as an in-process persona. Its
+		// skill maps the in-process tool names to the MCP tools it can call.
+		prompt = trigger.Text + instructions
 		identity = trigger.At.Format(time.RFC3339Nano) + ":" + prompt
 	}
 	id := fmt.Sprintf("task_%x", sha256.Sum256([]byte(identity)))

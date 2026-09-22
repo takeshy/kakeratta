@@ -3,7 +3,7 @@ name: kakeratta
 description: >
   Process tasks assigned to Hermes from kakeratta.
 metadata:
-  version: "2"
+  version: "3"
 ---
 
 # kakeratta
@@ -24,16 +24,16 @@ When this skill is invoked:
    Do not call `get_timeline`, `list_notes`, or any other tools when there are no pending tasks.
 3. For each appropriate pending task:
    - Call `mcp__kakeratta__claim_task` with the arguments `taskId` (the task's `id`) and `claimId` (a unique stable string you generate once, e.g. `hermes-<date>-<short random>`). Use this exact `claimId` in every later call for this task.
-   - Read the relevant conversation with `mcp__kakeratta__get_thread` with the argument `entryId` (the task's `trigger`).
-   - Understand the user's request in the context of the thread.
-   - Perform the requested work using your normal Hermes tools and skills:
-     - Keep tool attempts concise (at most 2-3 tool calls).
+   - For an ordinary request (`kind: post`), read the conversation with `mcp__kakeratta__get_thread` using the task's `trigger`, then understand the user's request in context.
+   - For a daily check-in (`kind: check-in`), there is no user request or trigger thread. Follow the task's `prompt` and the tool mapping under **Daily check-ins** below; do not call `get_thread` with an empty ID.
+   - Perform the work using your normal Hermes tools and skills:
+     - Keep external-action attempts concise (at most 2-3 calls). For a check-in, read as many timeline and note pages as its prompt requires.
      - Do NOT attempt to modify system files (e.g. `/etc/hosts`) or enter troubleshooting loops if an external API or network request fails.
-     - If external data is unavailable or restricted, summarize what you know gracefully using your model knowledge.
+     - If external data is unavailable or restricted, explain the limitation for an ordinary request. For a check-in, do not invent a connection from unavailable records; use the failure-handling guidance below.
    - Call `mcp__kakeratta__complete_task` in a single tool call that includes **all three required arguments**:
      - `taskId`: the task's `id`
      - `claimId`: the exact claim ID used for `claim_task`
-     - `text`: the complete reply for the user, written in Japanese, formatted as described under "Reply formatting"
+     - `text`: the complete reply in the language appropriate to the request or check-in, formatted as described under "Reply formatting"
 
      Every call, including retries, must include all three arguments; a call that omits any of them is rejected before reaching kakeratta. For an ordinary user request, never send an empty `text` after claiming: an empty `text` completes the task quietly and the user receives no reply. A daily check-in may use an empty `text` when there is nothing worth sharing, as described below. Always invoke `complete_task` as an actual tool call, never output `<function=mcp__kakeratta__complete_task>` as plain text.
 4. Never claim a task you do not intend to process.
@@ -60,11 +60,13 @@ Use kakeratta persona notes only when relevant to the task. Do not overwrite unr
 
 ## Daily check-ins
 
-For a task whose `kind` is `check-in`:
-1. Call `mcp__kakeratta__get_timeline` as needed to cover the 24 hours before the check-in. Look especially for user or persona conversations in Hermes's domain where Hermes did not reply.
-2. Call `mcp__kakeratta__list_notes` for `hermes`; it returns a page at a time, so pass `next` back as `after` until there is no `next`. Identify tags that occur repeatedly among recently written notes, then find older notes with the same tags. Call `mcp__kakeratta__read_note` before using an old note.
-3. Reply only when you find a concrete, useful connection to the recent timeline or a stale note that is relevant now. Age or a shared tag alone is not a reason to post. Do not send a routine greeting or daily summary.
-4. If there is nothing worth sharing, call `mcp__kakeratta__complete_task` with all required arguments and an empty `text` so the check-in completes quietly. This quiet-completion rule is specific to check-ins; ordinary claimed requests still require a non-empty reply.
+The task's `prompt` is the same daily check-in brief kakeratta gives its in-process personas. It is a system-initiated opportunity to notice something worth sharing, **not a user request**. Follow its criteria for reading recent history and notes, and for deciding whether to speak. Its tool names describe the in-process persona interface; use the Hermes MCP equivalents:
+
+- `timeline_search` with a 24-hour window → page through `mcp__kakeratta__get_timeline` until you cover the preceding 24 hours.
+- `notes_list` → `mcp__kakeratta__list_notes` with `persona: "hermes"`; follow `next` as `after` until there is no next page. `notes_read` → `mcp__kakeratta__read_note` for the candidate notes.
+- `speak` → `mcp__kakeratta__complete_task`. If there is nothing worth sharing, call it with all required arguments and an empty `text` so the check-in completes quietly. This is specific to check-ins; ordinary user requests require a non-empty reply.
+
+Use `mcp__kakeratta__write_note` if a useful memory update is warranted even when there is no report. Do not call `get_thread`: a check-in has no trigger entry ID.
 
 ## Verification
 
