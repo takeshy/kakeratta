@@ -34,6 +34,8 @@ kakerattaはMCPサーバーとして依頼を保存し、Hermesが接続して�
    ```
 
    Wake Gate がタスクなしと判定した場合、Agent を起動せず、待機時の LLM 呼び出しを省きます。
+
+   スクリプトを配置すると、Skill は自動更新されます。1日1回、kakeratta.net から配布版の `SKILL.md` を取得し、`metadata.version` が新しくなっていれば `~/.hermes/skills/kakeratta/SKILL.md` を上書きします。手動の再インストールは、この仕組みの外でバージョンがズレた場合やスクリプト本体を新しく入れ直した場合にだけ必要です。
 6. タイムライン上部の担当バーでHermesの名前を押し、`@Hermes READMEの構成を整理して` のように依頼を投稿します。通常投稿はRouterの担当条件で振り分けられ、Hermesの返信への返事も依頼になります。Hermesが自律的にタスクを取得・処理し、完了報告を返信します。
 
 URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサーバーを公開する必要はありません。kakerattaからHermesのプロセスを起動することもありません。

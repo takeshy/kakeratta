@@ -2,6 +2,8 @@
 name: kakeratta
 description: >
   Process tasks assigned to Hermes from kakeratta.
+metadata:
+  version: "2"
 ---
 
 # kakeratta
