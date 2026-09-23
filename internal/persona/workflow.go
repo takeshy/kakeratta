@@ -77,6 +77,8 @@ const (
 	// it has to decide - searches included. Reading changes nothing, so the
 	// limit is only there to end a turn that would otherwise go on looking.
 	maxReads = 10
+	// An Ultra answer may look further before committing its workflow.
+	ultraReads = 20
 	// maxDrafts is how many workflows the review may see in one turn: the
 	// first, and one more after being told what was wrong with it.
 	maxDrafts = 2
@@ -87,6 +89,13 @@ const (
 	// with no chance left to fix what it found.
 	maxMalformed = 2
 )
+
+func turnReadLimit(deep bool) int {
+	if deep {
+		return ultraReads
+	}
+	return maxReads
+}
 
 func stringField(description string) map[string]any {
 	return map[string]any{"type": "string", "description": description}
@@ -434,6 +443,27 @@ type Issue struct {
 	Description string `json:"description"`
 }
 
+func (v Review) validate() error {
+	if v.Verdict != "pass" && v.Verdict != "fail" {
+		return fmt.Errorf("verdict は pass または fail にしてください")
+	}
+	if strings.TrimSpace(v.Summary) == "" {
+		return fmt.Errorf("summary がありません")
+	}
+	if v.Issues == nil {
+		return fmt.Errorf("issues は配列で提出してください")
+	}
+	for i, issue := range v.Issues {
+		if issue.Severity != "high" && issue.Severity != "medium" && issue.Severity != "low" {
+			return fmt.Errorf("issues[%d] の severity が不正です", i)
+		}
+		if strings.TrimSpace(issue.Description) == "" {
+			return fmt.Errorf("issues[%d] の description がありません", i)
+		}
+	}
+	return nil
+}
+
 func (v Review) passed() bool {
 	if v.Verdict == "fail" {
 		return false
@@ -495,13 +525,13 @@ medium / low（実行してよい。verdict は pass）:
 high が無ければ verdict は pass です。迷ったら pass にしてください。
 submit_review を呼んで答えてください。`
 
-// review asks the app's own model about one workflow. An error means no
-// verdict could be had; the caller runs the workflow anyway and the log says it
-// was not reviewed, because a check that is down should not silence everyone.
+// review asks the app's own model about one workflow. A malformed verdict is
+// returned as a tool result, giving the reviewer another turn to correct it.
+// An endpoint error remains unavailable to the caller, which records it.
 func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.Settings, skill Skill, thread []timeline.Entry, trigger timeline.Entry,
 	workflow Workflow, known string, names map[string]string, here *time.Location) (*Review, error) {
 
-	model := reviewModel()
+	model := reviewModel(settings)
 	encoded, _ := json.MarshalIndent(workflow, "", "  ")
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
@@ -521,30 +551,47 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 		"担当が提出した workflow:",
 		string(encoded),
 	}, "\n")
-	reply, err := client.Complete(ctx, llm.Request{
-		Model: model, Tools: []llm.Tool{reviewTool}, ToolChoice: "required",
-		Messages: []llm.Message{{Role: "system", Content: reviewPrompt}, {Role: "user", Content: user}},
-	})
-	if err != nil {
-		return nil, err
-	}
-	raw := firstJSON(reply.Content)
-	for _, call := range reply.Calls {
-		if call.Name == reviewTool.Name {
-			raw = call.Args
+	messages := []llm.Message{{Role: "system", Content: reviewPrompt}, {Role: "user", Content: user}}
+	for attempt := 0; attempt < 3; attempt++ {
+		reply, err := client.Complete(ctx, llm.Request{
+			Model: model, Tools: []llm.Tool{reviewTool}, ToolChoice: "required", Messages: messages,
+		})
+		if err != nil {
+			return nil, err
+		}
+		raw := firstJSON(reply.Content)
+		for _, call := range reply.Calls {
+			if call.Name == reviewTool.Name {
+				raw = call.Args
+				break
+			}
+		}
+		var verdict Review
+		parseErr := json.Unmarshal([]byte(raw), &verdict)
+		if parseErr == nil {
+			parseErr = verdict.validate()
+		}
+		if parseErr == nil {
+			return &verdict, nil
+		}
+		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
+		if len(reply.Calls) > 0 {
+			// Every call needs its tool result, or the next request is refused.
+			for _, call := range reply.Calls {
+				messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: "確認結果を読めませんでした（" + parseErr.Error() + "）。verdict、summary、issues を正しく入れて再提出してください。"})
+			}
+		} else {
+			messages = append(messages, llm.Message{Role: "user", Content: "submit_review を呼んで判定を提出してください。"})
 		}
 	}
-	var verdict Review
-	if err := json.Unmarshal([]byte(raw), &verdict); err != nil || (verdict.Verdict != "pass" && verdict.Verdict != "fail") {
-		return nil, fmt.Errorf("確認結果を読めませんでした: %q", raw)
-	}
-	return &verdict, nil
+	return nil, fmt.Errorf("確認結果を3回読めませんでした")
 }
 
-// reviewModel checks workflows for unsafe or inconsistent actions. It remains
-// on Super even when a persona answers on Ultra.
-func reviewModel() string {
-	return store.NemotronSuper
+// reviewModel checks workflows for unsafe or inconsistent actions. It uses the
+// middle slot - Super by default, or the Middle model chosen for OpenRouter -
+// and stays there even when a persona answers on Ultra.
+func reviewModel(settings store.Settings) string {
+	return personaModel(settings)
 }
 
 // needsReview reports whether a workflow is worth the app's review call.

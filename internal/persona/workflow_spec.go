@@ -171,7 +171,7 @@ func workflowSpec(set *tools.Set, deep bool) string {
 
 このターンは2つに分かれます。
 
-1. **read で読む**（必要なら。` + fmt.Sprint(maxReads) + ` 回まで）。メモを読む・調べる。何も書き換えません。本体が実行して結果を返します。
+1. **read で読む**（必要なら。` + fmt.Sprint(turnReadLimit(deep)) + ` 回まで）。メモを読む・調べる。何も書き換えません。本体が実行して結果を返します。
 2. **submit_workflow で workflow を出す**。やること（メモを書く・` + map[bool]string{true: "予定を置く・", false: ""}[shape.schedules] + `発言する）を並べます。
    本体が確認してから、上から順に実行します。**失敗したステップがあれば、そこで止まります。**
 

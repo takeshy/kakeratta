@@ -295,8 +295,9 @@ Every persona except Hermes (an external agent) works this way, whatever tools
 it holds (`internal/persona/workflow.go`).
 
 1. **Read.** Its `index.md` is handed over whole at the start of every turn.
-   It may then ask, up to ten times, to look at things: its note list, notes,
-   a timeline search, a web search, a place or route lookup. Reading writes
+   It may then ask, up to ten times (twenty in an Ultra turn for a deeper
+   answer), to look at things: its note list, notes, a timeline search, a web
+   search, a place or route lookup. Reading writes
    nothing, so the app just does it and hands the results back.
 2. **Workflow.** It hands in what it has decided, as steps in order, with every
    text written out in full:

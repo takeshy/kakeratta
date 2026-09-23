@@ -66,13 +66,17 @@ func TestRoutingKeepsExclusionReasonsByID(t *testing.T) {
 	}
 }
 
-// Routing and workflow review both use Super unless Jev is enabled.
+// Routing uses Super unless Jev is enabled. Workflow review uses the middle
+// slot, so it is Super by default and follows the Middle model on OpenRouter.
 func TestRoutingAndReviewUseSuper(t *testing.T) {
 	if got := routingModel(); got != store.NemotronSuper {
 		t.Fatalf("routing model = %q", got)
 	}
-	if got := reviewModel(); got != store.NemotronSuper {
+	if got := reviewModel(store.Settings{MiddleModel: store.NemotronSuper, LowModel: store.NemotronLightning}); got != store.NemotronSuper {
 		t.Fatalf("review model = %q", got)
+	}
+	if got := reviewModel(store.Settings{MiddleModel: "openai/gpt-oss-120b", LowModel: store.OpenRouterLow}); got != "openai/gpt-oss-120b" {
+		t.Fatalf("OpenRouter review model = %q", got)
 	}
 }
 

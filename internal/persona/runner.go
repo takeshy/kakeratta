@@ -38,11 +38,6 @@ var okfSkill string
 // says already fits this app, because the skill was written for it.
 const okfHost = "# メモの書き方\n\nメモを書くときは、次のスキルに従ってください。\n\n---\n\n"
 
-// rounds is how many requests one turn may make: every read, both drafts, and
-// a little room for a reply that called nothing. It follows from the limits in
-// workflow.go rather than being a limit of its own.
-const rounds = maxReads + maxDrafts + maxMalformed + 2
-
 // Runner wakes personas. One runs per app.
 //
 // Reactions are asynchronous by default: a post is stored and shown
@@ -644,8 +639,8 @@ const briefRule = "- 発言するときは短く。前に自分が覚えてい�
 // answer than the one they got.
 const deepRule = `- **今回ユーザーは、前の回答より良い・深い回答を求めています。** 短くまとめる必要はありません。
   前の回答を見直し、誤りや不足があれば認めて正してください。必要なら調べ直してください。
-  根拠・比較・具体例を添え、求められた深さに見合うだけ詳しく答えてください。口調はそのままで構いません。
-  発言は Markdown で書いてください。
+  必要な根拠・比較・具体例を添え、質問に答えるのに必要な長さで書いてください。口調はそのままで構いません。
+  発言は読みやすい Markdown で書いてください。見出しや箇条書きは内容に役立つときに使ってください。
   前に自分が覚えていたことと結びつくなら、それも言ってください。`
 
 // run wakes one persona and hands it the post. What to read, what to write and
@@ -747,7 +742,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		prov = newProvenance(store.NoteSource{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)})
 	}
 
-	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: reviewModel()}
+	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: reviewModel(settings)}
 	defer func() { logRun(record) }()
 	failed := func(err error) *timeline.Entry {
 		record.Error = err.Error()
@@ -765,13 +760,16 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// should not call an index rewrite unread.
 	read := []string{"index.md（最初に渡したもの）:\n" + indexNote}
 	failures := map[string]string{}
-	budget := newLookups(maxReads)
+	readLimit := turnReadLimit(deep)
+	budget := newLookups(readLimit)
 	var approved *Workflow
 	submit := workflowToolFor(set)
 	reviewed, malformed := 0, 0
-	for round := 0; round < rounds && approved == nil && reviewed < maxDrafts && malformed <= maxMalformed; round++ {
+	// One request per read or draft, plus room to recover malformed calls.
+	roundLimit := readLimit + maxDrafts + maxMalformed + 2
+	for round := 0; round < roundLimit && approved == nil && reviewed < maxDrafts && malformed <= maxMalformed; round++ {
 		offered := []llm.Tool{submit}
-		if len(record.Reads) < maxReads {
+		if len(record.Reads) < readLimit {
 			offered = []llm.Tool{readTool, submit}
 		}
 		reply, err := client.Complete(ctx, llm.Request{
@@ -821,7 +819,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				switch {
 				case err != nil:
 					entry.Unseen = err.Error()
-					approved = &workflow
+					record.Drafts = append(record.Drafts, entry)
+					return failed(fmt.Errorf("workflow の確認に失敗しました: %w", err))
 				case verdict.passed():
 					entry.Review = verdict
 					approved = &workflow
@@ -851,7 +850,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			switch {
 			case submitted != nil:
 				answers[call.ID] = "workflow と一緒に出された呼び出しは行いませんでした。"
-			case call.Name != readTool.Name || len(record.Reads) >= maxReads:
+			case call.Name != readTool.Name || len(record.Reads) >= readLimit:
 				answers[call.ID] = "これ以上は読めません。submit_workflow で workflow を出してください。"
 			default:
 				var request struct {
@@ -865,7 +864,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				readSources = append(readSources, sources...)
 				read = append(read, text)
 				record.Reads = append(record.Reads, readRecord{Steps: request.Steps, Output: preview(text)})
-				answers[call.ID] = text + readFooter(maxReads-len(record.Reads), set)
+				answers[call.ID] = text + readFooter(readLimit-len(record.Reads), set)
 			}
 		}
 		for _, call := range reply.Calls {

@@ -168,26 +168,25 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 ![設定。モデル、Web検索、この端末、上級オプション（モデル・音声・外部連携・バックアップ）](captures/ja/settings.png)
 
-| 用途 | 設定 | 既定 |
+| 用途 | OpenRouter 使用時に選ぶ枠 | 既定 |
 | --- | --- | --- |
-| 担当の発言への返信の判定 | `lowModel` | Nemotron 3.5 Lightning |
-| すべての担当 | `middleModel` | Nemotron Super |
-| より良い回答を求められた返信先の担当 | `highModel` | Nemotron Ultra |
-| 画像解析・OCR | `visionModel` | GLM-5.3-Flash |
-| 振り分け | 上級設定でJevへ切り替え可能 | Nemotron Super |
-| workflow の確認 | 固定 | Nemotron Super |
-| 担当案の作成・修正 | high（空なら middle、さらに空なら low） | Nemotron Ultra |
+| 担当の発言への返信の判定 | low | Nemotron 3.5 Lightning |
+| すべての担当 | middle | Nemotron Super |
+| より良い回答を求められた返信先の担当 | high | Nemotron Ultra |
+| 画像解析・OCR | 固定 | GLM-5.3-Flash |
+| 振り分け | router（Jevへの切り替えも可） | Nemotron Super |
+| workflow の確認 | middle | Nemotron Super |
+| 担当案の作成・修正 | high | Nemotron Ultra |
 | 意味検索の embedding | 固定 | Qwen3-Embedding-8B |
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |
 | 読み上げ | — | ブラウザ内蔵 |
 
 画面には Token Factory のモデルを直接選ぶ欄はありません。利用者がAPIキーを入れると、3つの枠は上の既定値を使います。
-ワークスペースのモデルを変えたいときは、その `settings.json` の上記キー（または `PUT /api/settings`）を
-運用側で書き換えます。画面は保存されている値のまま動きます。
 
 担当はふだん全員 Super で答えます。担当の発言に「違う」「もっと詳しく」「深掘りして」のように、訂正・再検討・詳細化を
 求めて返信すると、Lightning がそれを判定し、返信先の担当が Ultra で答えます。その発言には Ultra のバッジが付きます。
-お礼や普通の追加質問、別の話題は Super のままです。Token Factoryではhighが空欄の場合もUltraを使います。
+お礼や普通の追加質問、別の話題は Super のままです。
+調べるための `read` は通常のターンで最大10回、Ultra のターンで最大20回使えます。
 
 - 推論基盤はNebius Token Factoryです。Nemotronによる推論、GLMによる画像読み取り、Qwenによるembedding生成に使います。
 - ブラウザからGo APIへリクエストを送り、APIキーの保持と非同期の反応処理はサーバー側で行います。

@@ -32,8 +32,9 @@ type fake struct {
 	// reviews are the app's own checks, kept apart from what the personas were
 	// asked so a test counting persona calls is not counting those. review
 	// scripts a verdict; unset, every workflow passes.
-	reviews []string
-	review  func(user string) string
+	reviews      []string
+	reviewModels []string
+	review       func(user string) string
 	// fail makes the endpoint answer 500 to a request whose system prompt it
 	// matches, for a test that needs a call to fail.
 	fail func(system string) bool
@@ -97,6 +98,7 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		if names := toolNames(body.Tools); names["submit_review"] {
 			f.mu.Lock()
 			f.reviews = append(f.reviews, user)
+			f.reviewModels = append(f.reviewModels, body.Model)
 			script := f.review
 			f.mu.Unlock()
 			verdict := `{"verdict":"pass","summary":"ok","issues":[]}`
@@ -1207,6 +1209,104 @@ func TestAWorkflowTheReviewRejectsNeverRuns(t *testing.T) {
 	}
 }
 
+// A verdict the app cannot read goes back to the reviewer as its tool result,
+// and the reviewer, still on Super, gets another turn to submit it properly.
+func TestReviewerRetriesMalformedToolVerdict(t *testing.T) {
+	checks := 0
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["routine"]}`
+		}
+		return `{"action":"speak","text":"覚えました。"}`
+	}, "routine")
+	stub.review = func(user string) string {
+		checks++
+		if checks == 1 {
+			return `{"verdict":"unknown","summary":"","issues":[]}`
+		}
+		if !strings.Contains(user, "確認結果を読めませんでした") {
+			t.Errorf("reviewer did not receive its tool error: %s", user)
+		}
+		return `{"verdict":"pass","summary":"ok","issues":[]}`
+	}
+	runner.react(post(t, s, "今日のことを覚えて").ID)
+	if checks != 2 || len(remarks(t, s)) != 1 {
+		t.Fatalf("review loop did not recover: checks=%d", checks)
+	}
+	for _, model := range stub.reviewModels {
+		if model != store.NemotronSuper {
+			t.Fatalf("review model = %q, want Super", model)
+		}
+	}
+}
+
+func TestReviewerRejectsIncompleteVerdicts(t *testing.T) {
+	checks := 0
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["routine"]}`
+		}
+		return `{"action":"speak","text":"覚えました。"}`
+	}, "routine")
+	stub.review = func(user string) string {
+		checks++
+		switch checks {
+		case 1:
+			return `{"verdict":"pass"}`
+		case 2:
+			if !strings.Contains(user, "summary がありません") {
+				t.Errorf("missing summary was not reported: %s", user)
+			}
+			return `{"verdict":"pass","summary":"ok","issues":[{"severity":"urgent","description":"問題"}]}`
+		default:
+			if !strings.Contains(user, "severity が不正") {
+				t.Errorf("invalid severity was not reported: %s", user)
+			}
+			return `{"verdict":"pass","summary":"ok","issues":[]}`
+		}
+	}
+	runner.react(post(t, s, "今日のことを覚えて").ID)
+	if checks != 3 || len(remarks(t, s)) != 1 {
+		t.Fatalf("incomplete verdicts were accepted: checks=%d", checks)
+	}
+}
+
+func TestReviewFailureLeavesWorkflowUnexecuted(t *testing.T) {
+	for _, mode := range []string{"malformed", "endpoint"} {
+		t.Run(mode, func(t *testing.T) {
+			at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
+			runner, s, stub := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					return `{"deliver":["routine"]}`
+				}
+				return `{"summary":"予定を置く","steps":[
+					{"type":"write_schedule","path":"errands/plan.md","text":"---\ntype: Errand\n---\n\n予定","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"予定を確認","id":""},
+					{"type":"speak","path":"","text":"あとで聞くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+			}, "routine")
+			if mode == "endpoint" {
+				stub.fail = func(system string) bool { return strings.Contains(system, "あなたはアプリ本体です") }
+			} else {
+				stub.review = func(string) string {
+					return `{"verdict":"pass"}`
+				}
+			}
+			runner.react(post(t, s, "あとで予定を確認して").ID)
+			if _, ok := s.Note("routine", "errands/plan.md"); ok {
+				t.Fatal("an unreviewed note was written")
+			}
+			if scheduled, err := s.Schedules("routine"); err != nil || len(scheduled) != 0 {
+				t.Fatalf("an unreviewed schedule was placed: %+v (%v)", scheduled, err)
+			}
+			if said := remarks(t, s); len(said) != 0 {
+				t.Fatalf("an unreviewed remark was published: %+v", said)
+			}
+			if mode == "malformed" && len(stub.reviews) != 3 {
+				t.Fatalf("review attempts = %d, want 3", len(stub.reviews))
+			}
+		})
+	}
+}
+
 // Keeping a note and speaking stays in the persona's own corner, so it costs no
 // review; a schedule reaches further and is still checked. A persona that can
 // schedule is reviewed even for a note and a remark, because the promise it
@@ -1359,6 +1459,30 @@ func TestAPersonaMayReadTenTimes(t *testing.T) {
 	// empty workflow and the turn ends.
 	if reads != maxReads+1 || maxReads != 10 {
 		t.Fatalf("reads = %d (maxReads %d)", reads, maxReads)
+	}
+}
+
+func TestAnUltraTurnMayReadTwentyTimes(t *testing.T) {
+	reads := 0
+	runner, s, stub := setup(t, func(system, user string) string {
+		reads++
+		return `{"action":"tool","tool":"notes_list","args":{}}`
+	}, "gourmet")
+	entry := post(t, s, "ラーメン")
+	client, settings := runner.clientOf()
+	skill := runner.catalogue.Active(settings.Active)[0]
+	runner.run(context.Background(), skill, []timeline.Entry{entry}, entry, false, false, "", true,
+		client, settings, runner.registry(settings))
+	// Twenty reads run. On the next request, read is no longer offered and the
+	// fake submits a quiet workflow, ending the turn.
+	if reads != ultraReads+1 || ultraReads != 20 {
+		t.Fatalf("Ultra requests = %d (ultraReads %d)", reads, ultraReads)
+	}
+	if got := stub.lastModelFor("tabe"); got != store.NemotronUltra {
+		t.Fatalf("model = %q, want Ultra", got)
+	}
+	if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, "20 回まで") {
+		t.Fatalf("Ultra was not told its read limit: %s", prompt)
 	}
 }
 

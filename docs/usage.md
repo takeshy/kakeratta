@@ -228,31 +228,29 @@ Qwen3-Embedding-8B on the same backend.
 
 ![Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky](captures/en/settings.png)
 
-| For | Setting | Default |
+| For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
-| Judging replies to an answer | `lowModel` | Nemotron 3.5 Lightning |
-| Every persona | `middleModel` | Nemotron Super |
-| Replies asking for more | `highModel` | Nemotron Ultra |
-| Reading images / OCR | `visionModel` | GLM-5.3-Flash |
-| Routing | advanced setting can select Jev | Nemotron Super |
-| Workflow review | fixed | Nemotron Super |
-| Persona drafting and editing | high slot (falling back to middle, then low) | Nemotron Ultra |
+| Judging replies to an answer | low | Nemotron 3.5 Lightning |
+| Every persona | middle | Nemotron Super |
+| Replies asking for more | high | Nemotron Ultra |
+| Reading images / OCR | fixed | GLM-5.3-Flash |
+| Routing | router (or Jev) | Nemotron Super |
+| Workflow review | middle | Nemotron Super |
+| Persona drafting and editing | high | Nemotron Ultra |
 | Meaning-search embeddings | fixed | Qwen3-Embedding-8B |
 | Speech recognition | dictation settings | Browser speech recognition |
 | Read-aloud | — | The browser's own |
 
 The page has no direct Token Factory model picker: users enter an API key and
-those slots keep their defaults. To change a model for a workspace, edit the keys above in its
-`settings.json` (or `PUT /api/settings`); the page keeps working with whatever
-is stored.
+those slots keep their defaults.
 
 Every persona answers on Super. When
 you reply to a persona's answer, Lightning checks one thing: are you explicitly
 asking for a correction, a rethink, more detail or a deeper look ("違う",
 "もっと詳しく", "深掘りして")? If so, the persona you replied to answers on
 Ultra, marked with an Ultra badge. Thanks,
-ordinary follow-up questions and new topics stay on Super. On Token Factory,
-an empty high setting also uses Ultra.
+ordinary follow-up questions and new topics stay on Super.
+The persona can use `read` up to 10 times in an ordinary turn and 20 times in an Ultra turn.
 
 - Nebius Token Factory provides Nemotron inference, GLM image reading, and Qwen embeddings.
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.
