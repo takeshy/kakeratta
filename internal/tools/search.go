@@ -16,7 +16,7 @@ import (
 
 // searchLimit is the most a persona gets from one search. A routine persona
 // checking a morning wants the whole morning in one call, not the top ten.
-const searchLimit = 30
+const TimelineSearchLimit = 30
 
 var searchTimeline = Tool{
 	Name: "timeline_search",
@@ -40,14 +40,19 @@ var searchTimeline = Tool{
 		query := args.str("query")
 		fallback := 10.0
 		if query == "" {
-			fallback = searchLimit
+			fallback = TimelineSearchLimit
 		}
-		limit := max(1, min(searchLimit, int(args.num("limit", fallback))))
+		limit := max(1, min(TimelineSearchLimit, int(args.num("limit", fallback))))
 		minScore := args.num("min_score", 0.5)
 		if math.IsNaN(minScore) || math.IsInf(minScore, 0) || minScore < 0 || minScore > 1 {
 			return Result{}, errors.New("min_scoreは0〜1で指定してください")
 		}
-		found, err := r.search.Unified(ctx, query, window, limit, 0, minScore)
+		var found search.Result
+		if query == "" {
+			found, err = r.search.InWindow(ctx, window, limit, 0)
+		} else {
+			found, err = r.search.Unified(ctx, query, window, limit, 0, minScore)
+		}
 		if errors.Is(err, search.ErrQuery) {
 			return Result{}, errors.New("query か、from・to の期間のどちらかを指定してください")
 		}

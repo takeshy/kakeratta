@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -42,6 +43,27 @@ func TestUnifiedJapaneseNaturalQueryAndOfflineFallback(t *testing.T) {
 				t.Fatal("unrelated/deleted result", id)
 			}
 		}
+	}
+}
+
+func TestInWindowListsEveryEligibleEntryWithoutAScoreFloor(t *testing.T) {
+	w := workspace(t)
+	now := time.Now()
+	for i := range 31 {
+		save(t, w, timeline.Entry{
+			ID: fmt.Sprintf("entry-%02d", i), Kind: timeline.KindPost,
+			Text: fmt.Sprintf("record %02d", i), At: now.Add(time.Duration(i) * time.Second),
+		})
+	}
+	got, err := New(w).InWindow(context.Background(), Window{From: now, To: now.Add(time.Minute)}, 30, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Total != 31 || len(got.Hits) != 30 {
+		t.Fatalf("window result = total %d, hits %d", got.Total, len(got.Hits))
+	}
+	if got.Hits[0].Entry.ID != "entry-30" || got.Hits[29].Entry.ID != "entry-01" {
+		t.Fatalf("window was not newest-first without filtering: first=%s last=%s", got.Hits[0].Entry.ID, got.Hits[29].Entry.ID)
 	}
 }
 
