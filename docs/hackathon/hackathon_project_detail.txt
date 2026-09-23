@@ -1,0 +1,287 @@
+## Inspiration
+
+I talk to myself a lot. I say things out loud about a meal I just had, something I noticed, or an interesting idea that came to mind. It feels like leaving a hook that might help me remember it later.
+
+But in the end, I still forget.
+
+I take notes too, but I hardly ever read them back. The things I do look up are usually things I already know exist, such as my calendar or contacts.
+
+Even if an AI organized every note perfectly, that would not solve this problem. If I have forgotten that the information exists at all, I cannot even search for it. Something that felt trivial when I recorded it may become important a few weeks later.
+
+So the first thing I wanted was not an AI that organizes things, but an AI that brings forgotten things back when they become relevant.
+
+But talking to yourself has another purpose besides leaving memories.
+
+Putting a vague thought into words can help organize it in your head. Saying a small discovery out loud can also make the excitement feel more real.
+
+The problem is that ordinary self-talk has no one on the other side.
+
+If I talk through an idea, sometimes I want someone to question it: "Is that really true?" If I found something exciting, I want someone to be excited with me. Sometimes I want a different point of view that I would not have reached on my own.
+
+At the same time, I do not want an AI to reply to every unimportant thought. Sometimes I just want it to listen and remember.
+
+So what I wanted was not simply a note-taking app for self-talk. I wanted something that remembers what I say, reacts when a reaction is useful, stays quiet when it has nothing to add, and can bring something back much later when it becomes relevant.
+
+That led me to build a place where I can drop fragments of everyday life without first deciding whether they are important or how they should be organized.
+
+Depending on the fragment, the AI may empathize, criticize an idea, remember something, or simply stay quiet. Later, when it becomes useful, it can look through past records or the web and speak up again.
+
+That is kakeratta.
+
+## What it does
+
+kakeratta is a private timeline for talking to yourself.
+
+You can drop in text, photos, URLs, and speech without worrying about whether something is correct, important, or properly categorized.
+
+The timeline contains subject-specific AIs that I call **personas**. Four are included by default:
+
+- **tabe**: food
+- **michi**: travel and going out
+- **shiori**: reading
+- **plana**: things that are too small for the calendar but still easy to forget
+
+Each persona has its own memory and routing condition.
+
+When something is posted, only the personas related to that fragment receive it. A persona then decides whether to remember something, reply, use a tool, schedule a later follow-up, or do nothing.
+
+Doing nothing is important too.
+
+If every AI reacted to every post, the timeline would quickly become annoying. In kakeratta, it is normal for a persona to remember something without saying anything.
+
+Personas can be created and edited in natural language.
+
+For example:
+
+> Remember the wines I drink and help me choose next time.
+
+That is enough to create one.
+
+While using it, I can also say things like:
+
+> Reply more briefly.
+
+> Remember why I liked the wine, not just the label.
+
+and adjust how it behaves and what it remembers.
+
+### Memory can be inspected and edited
+
+A persona's long-term memory is not a black box.
+
+You can see what it remembers and trace a memory back to the post or conversation that produced it.
+
+Incorrect information can be fixed, and a specific memory can be deleted without removing the original post.
+
+You can also see why the router did not call a particular persona.
+
+If the routing was not what you expected, you can simply say something like:
+
+> I wanted this persona to receive this too.
+
+The AI rewrites the routing condition, and you can test it against the same post before saving the change.
+
+### It can speak up without being asked
+
+Each persona can enable a **Daily check-in**. It is off by default.
+
+When enabled, the persona wakes once a day and looks through its own memory and the recent timeline. It looks for connections between old memories and recent events, and can use web search or tools when necessary.
+
+It speaks only when it thinks there is something worth saying.
+
+If there is nothing useful, nothing happens.
+
+Personas can also schedule follow-ups.
+
+For example, plana can remember:
+
+> Buy flowers on the way home.
+
+and ask later in the evening:
+
+> Did you get the flowers?
+
+Speech input is designed to make it possible to capture a thought as quickly as possible. Instead of repeatedly pressing buttons, you can finish a post by speaking a send phrase of your own choosing.
+
+### The data always belongs to the user
+
+kakeratta is designed so that personal memory can be taken out and deleted.
+
+Backup exports posts, personas, notes, and images as a zip file. Its layout is the same one used by a self-hosted kakeratta instance, so the data can be moved directly to a local installation. API keys and external connection credentials are not included.
+
+kakerata also provides complete account deletion. Posts, personas and their memories, images, settings, stored credentials, external connections, and the login account itself are deleted.
+
+In the current hackathon build, model and web-search credentials are BYO. Users provide their own Nebius Token Factory key and, when needed, their own Tavily key.
+
+## How we built it
+
+When a fragment is posted, kakeratta first uses a router to decide which personas should receive it.
+
+Each selected persona can read its own memory and the past timeline, use tools when necessary, and decide whether to remember something, reply, follow up later, or stay silent.
+
+At a high level, the structure is:
+
+**mixed human timeline → subject-specific personas → structured memory for each persona**
+
+### Nebius Token Factory and NVIDIA Nemotron
+
+AI inference runs through Nebius Token Factory.
+
+Rather than sending everything to a single large model, kakeratta assigns
+different models to different roles, based on how often they run and how
+costly their mistakes would be. Every persona answers on Super by default;
+Ultra is used only when the user explicitly asks a persona for a better answer.
+
+- **Nemotron 3 Ultra**: the persona being replied to, when the reply asks for a correction or a deeper answer; persona creation
+- **Nemotron 3 Super**: routing, every persona, and workflow review
+- **Nemotron 3.5 Lightning**: judging whether a reply asks for a better answer; dictation polishing
+- **GLM-5.3-Flash**: image understanding
+- **Qwen3-Embedding-8B**: semantic search
+
+Because these models are available through the same Token Factory API, I was
+able to move responsibilities between models repeatedly during development
+without rebuilding the surrounding integration.
+
+Model selection, router experiments, workflow constraints, and the failures and
+fixes I encountered are described in more detail in the Additional Info section
+and in [Under the hood](https://github.com/takeshy/kakeratta/blob/main/docs/technical.md).
+
+### Persona memory with OKF
+
+Long-term memory uses **OKF (Open Knowledge Format)**.
+
+Memory is separated first by persona and then by topic. A persona does not need to receive an ever-growing history every time it runs. It can read and write only the notes it needs for the current task.
+
+The notes contain Markdown-style tags and internal links. A persona can search related notes by tag or follow links to gather nearby information.
+
+The full timeline is stored separately from memory.
+
+A fragment does not disappear just because no persona decided it was worth remembering. It can still be found later through keyword search or semantic search using Qwen3-Embedding-8B.
+
+What a persona remembers and everything that has happened in the timeline are intentionally not the same thing.
+
+### Images are interpreted only once
+
+Photos and screenshots are interpreted once by GLM-5.3-Flash.
+
+The resulting text is then shared with the relevant personas.
+
+Sending the same image through a vision model again for every persona would be wasteful.
+
+There is a trade-off. If the first image interpretation misses something, another persona cannot later inspect the original image from a different point of view.
+
+That is the current balance between richer interpretation and cost.
+
+### Tools belong to personas
+
+A persona can combine personal memory with outside information.
+
+However, I do not give every tool to every persona. The tools a persona can use are explicitly declared as part of its skill.
+
+Current tools include:
+
+- web search through Tavily
+- place search through Geo MCP
+- walking, cycling, and driving route search
+- timeline and memory search
+
+I built Geo MCP myself.
+
+In supported regions, it uses OpenStreetMap data and OSRM that I operate myself. If a region is not covered, or a place cannot be found by name, it can fall back to Overpass, Nominatim, and public OSRM services depending on the configuration.
+
+For example, michi can remember a place I wanted to visit and then check the travel time from my current location.
+
+### Recording while offline
+
+If I have to wait for a network connection before saving a passing thought, it is not very useful as a note-taking tool.
+
+kakeratta uses a Service Worker and IndexedDB so that text, images, URLs, and replies can be kept as pending posts while offline.
+
+When the connection returns, they are sent to the server and go through the same routing flow as ordinary posts.
+
+### A sandboxed external agent with NemoClaw / OpenShell
+
+Some tasks are too large for small subject-specific personas, such as analyzing many documents or doing longer research.
+
+Those tasks can be delegated to **Hermes Agent**, which joins kakeratta as an external persona through MCP.
+
+For the hackathon, I also ran Hermes inside an **NVIDIA NemoClaw / OpenShell** sandbox on my home PC. The boundary between kakeratta and Hermes is MCP; Hermes does not directly access the kakeratta database.
+
+I verified the full path against the production kakeratta.net instance: Hermes could receive a task and return the result to the original timeline thread. With Nemotron 3 Super 120B, it was also able to process multi-step tasks that included web search.
+
+The architecture, verification scope, and issues encountered during this integration are documented in the [NemoClaw / Hermes integration report](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md).
+
+## Challenges we ran into
+
+The first challenge was the number of features.
+
+Internally, kakeratta uses routing, multiple model tiers, MCP, OKF, semantic search, workflows, and scheduled execution. If all of those concepts have to be explained to users, the app starts to feel like something they need to learn before they can use it.
+
+But I wanted users to need to remember only two things:
+
+- post whatever comes to mind
+- tell a persona what you want it to do in ordinary language
+
+So I tried to keep the underlying machinery out of the way.
+
+For example, there is only one search box. Entering a word performs keyword search and then offers a "search by similar meaning" option. Entering a sentence automatically uses semantic search.
+
+Persona adjustments follow the same idea.
+
+If routing or a reply is not what you expected, you do not have to edit the underlying rules directly. You can simply explain what you wanted in ordinary language. The AI rewrites the routing condition or response behavior and lets you try it against the same post before saving it.
+
+The second challenge was preventing multiple AIs from continuously reacting to one another.
+
+Without limits, this does not just waste tokens. A personal timeline can quickly turn into a conversation between AIs instead of something useful to the user.
+
+kakeratta therefore gives each post a single round. The router picks the personas that should receive it, and those personas all answer at the same time, on the same model.
+
+No persona sees the others' replies in that round, and none of them gets a second turn to respond to another persona.
+
+A persona never speaks in response to another persona. It speaks again when the user replies to it, or later through a scheduled follow-up or a daily check-in. If a reply explicitly asks for a correction or a deeper answer, the persona answers once more on Ultra, with room to read up to 20 times instead of 10.
+
+This keeps the timeline a conversation with the user rather than an endless AI-to-AI conversation.
+
+## Accomplishments that we're proud of
+
+The idea of personas made it possible to naturally separate messy personal data by topic.
+
+**unorganized human timeline → topic-specific personas → structured memory for each persona**
+
+Each persona can navigate its memory hierarchically with OKF, search by tags, and follow internal links, so it only needs to read and write the information relevant to its current task.
+
+I think managing context is one of the most important problems when building with AI, so finding a practical way to handle that in kakeratta was a major accomplishment for me.
+
+## What we learned
+
+Simply having AI organize information is not enough.
+
+People often remember things while organizing them. Cleaning up papers on a desk can remind you of something. Finding old photos while moving can start a conversation about family memories.
+
+The opposite can also happen. If someone else tidies your room, things may actually become harder to find. Even if the room was messy before, you had your own sense of where things were.
+
+For the cases where I actively want to find something, I added semantic search. Even if I cannot remember the exact words, I can search using a vague description.
+
+But if I have forgotten that something exists at all, there is no reason to start searching for it.
+
+So I added an option for personas to speak up once a day on their own.
+
+A persona can look through posts from the last 24 hours that were not originally routed to it and find things that may connect to its own memory. If it finds something, it can share that connection. It can also bring back a note whose tags have recently become relevant even though the note itself has not been referenced for a long time.
+
+That makes it possible to say something like:
+
+> We did not have time to visit that shop on your last trip to Shizuoka. If you are going there tomorrow, maybe you could stop by this time.
+
+What I learned is that **when to bring something back matters just as much as what to remember**.
+
+## What's next for kakeratta
+
+At the moment, the operator provides MCP servers and tools and can assign a subset of them to each persona.
+
+In the future, I want to open this to users so that they can register their own MCP servers and tools and let their personas use them.
+
+I also want to build a community repository for personas.
+
+If routing conditions, behavior, memory structure, and MCP servers used as custom tools can be packaged together, useful personas could be shared much like applications.
+
+For example, someone could install a persona that investigates AI news every morning and explains not just what happened, but the background behind it.
