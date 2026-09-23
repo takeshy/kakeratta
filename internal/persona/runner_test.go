@@ -690,6 +690,10 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 	if !strings.Contains(stub.promptFor("tabe"), "名指し") {
 		t.Fatal("the persona was not told it had been named")
 	}
+	// Named, it answers as long as the question needs rather than briefly.
+	if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, "聞かれたことに答えるのに必要な長さで") || strings.Contains(prompt, "発言するときは短く") {
+		t.Fatalf("the named persona was still told to keep it short:\n%s", prompt)
+	}
 }
 
 // A named persona that plans to stay quiet is sent back: being asked is the one
@@ -1384,8 +1388,8 @@ func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
 // shown a call to that tool it can copy.
 func TestTheWorkflowSpecFollowsThePersonasTools(t *testing.T) {
 	registry := tools.New(tools.Config{}).WithSchedules(nil)
-	plana := workflowSpec(registry.For([]string{"schedule"}), false)
-	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}), false)
+	plana := workflowSpec(registry.For([]string{"schedule"}), false, false)
+	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}), false, false)
 
 	for _, want := range []string{"### write_schedule", "### cancel_schedule", "ドラマを見たか"} {
 		if !strings.Contains(plana, want) {
@@ -1677,11 +1681,11 @@ func TestTheWorkflowSchemaFollowsThePersonasTools(t *testing.T) {
 	}
 
 	// The spec's samples carry exactly the fields the schema has.
-	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}), false)
+	tabe := workflowSpec(registry.For([]string{"web_search", "place_search"}), false, false)
 	if strings.Contains(tabe, `"at":`) || strings.Contains(tabe, "### tool\n") {
 		t.Fatalf("the spec showed a lookup-only persona fields or steps it cannot send")
 	}
-	plana := workflowSpec(registry.For([]string{"schedule"}), false)
+	plana := workflowSpec(registry.For([]string{"schedule"}), false, false)
 	if !strings.Contains(plana, `"at":"2026-09-18T22:00:00+09:00"`) {
 		t.Fatal("the scheduling sample lost its time")
 	}
@@ -2114,7 +2118,7 @@ func TestSpeakSourcesMustComeFromThisTurnsSearches(t *testing.T) {
 		t.Fatalf("sources = %+v", sources)
 	}
 	// The spec tells the persona about the field, and every sample carries it.
-	spec := workflowSpec(set, false)
+	spec := workflowSpec(set, false, false)
 	if !strings.Contains(spec, "**sources**") || !strings.Contains(spec, `"sources":[]`) {
 		t.Fatalf("the spec does not explain sources:\n%s", spec)
 	}

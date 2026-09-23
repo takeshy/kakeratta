@@ -155,7 +155,9 @@ or schedule is written and no wake is counted. What it would have said comes
 back for the person to judge.
 
 **An @ mention skips the routing.** A named persona always gets the post and
-always answers. Routing runs as usual for everyone else.
+always answers. It was asked directly, so it is not told to keep it short: it
+answers at the length the question needs. Routing runs as usual for everyone
+else.
 
 **A reply goes through the same routing as a post.** It is routed against the
 whole thread. Whoever the router picks answers it, plus anyone @mentioned, plus

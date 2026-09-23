@@ -635,6 +635,11 @@ const systemTemplate = `あなたは「%s」。%s
 // briefRule is how long a remark is, ordinarily.
 const briefRule = "- 発言するときは短く。前に自分が覚えていたことと結びつくなら、それを言ってください。"
 
+// namedRule replaces it when the user named the persona: it was asked
+// something directly, so the answer is as long as the question needs - which
+// may still be short.
+const namedRule = "- 名指しで聞かれています。短くまとめる必要はありません。聞かれたことに答えるのに必要な長さで書いてください。前に自分が覚えていたことと結びつくなら、それを言ってください。"
+
 // deepRule replaces it when the user replied asking for a better or deeper
 // answer than the one they got.
 const deepRule = `- **今回ユーザーは、前の回答より良い・深い回答を求めています。** 短くまとめる必要はありません。
@@ -681,14 +686,17 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		memory.JoinedAt = time.Now()
 	}
 	set := registry.For(skill.Tools).As(skill.ID)
-	spec := workflowSpec(set, deep)
+	spec := workflowSpec(set, deep, named && !listening)
 	layout := strings.TrimSpace(skill.Memory)
 	if layout == "" {
 		layout = "（指示に書かれたとおり。対象の種類ごとに型を1つ決め、同じ対象は型が違っても1つのメモにします）"
 	}
 	length := briefRule
-	if deep {
+	switch {
+	case deep:
 		length = deepRule
+	case named && !listening:
+		length = namedRule
 	}
 	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, layout, length, spec, okfHost+okfSkill)
 	system += wakeInstructions

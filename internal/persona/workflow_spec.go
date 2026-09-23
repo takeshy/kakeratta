@@ -142,15 +142,19 @@ func sampleStep(shape stepShape, values map[string]any) string {
 // workflowSpec is the whole of what a persona is told about working, for the
 // tools this persona holds.
 // speakLength is what a remark's text is told about its length. A reply that
-// asked for a better or deeper answer is not held to "短く".
-func speakLength(deep bool) string {
+// asked for a better or deeper answer is not held to "短く", and neither is
+// one to a persona the user named: it was asked something directly.
+func speakLength(deep, named bool) string {
 	if deep {
 		return "求められた深さに見合う長さで、Markdown で。"
+	}
+	if named {
+		return "聞かれたことに答えるのに必要な長さで。**強調**・箇条書き・見出しなどの Markdown が使え、そのままの見た目で表示されます。短く済むなら装飾は要りません。"
 	}
 	return "短く。**強調**・箇条書き・見出しなどの Markdown が使え、そのままの見た目で表示されます。短く済むなら装飾は要りません。"
 }
 
-func workflowSpec(set *tools.Set, deep bool) string {
+func workflowSpec(set *tools.Set, deep, named bool) string {
 	shape := shapeOf(set)
 	var lookups, actions []tools.Declaration
 	for _, declared := range set.Declarations() {
@@ -279,7 +283,7 @@ path のメモを捨てます。
 ### speak
 発言します。**必ず1つ、最後に入れます。** 黙って終わるなら text を空（""）にします。黙るかどうかは、あなたが毎回はっきり決めることです。
 **投稿に発言するなら、その根拠や覚えたことを write_note でも残します。** 発言だけでメモが無い workflow は差し戻されます。黙ってメモだけ残すのは構いません。
-- **text** — 発言そのもの。投稿と同じ言語で、` + speakLength(deep) + `何も言わないなら ""
+- **text** — 発言そのもの。投稿と同じ言語で、` + speakLength(deep, named) + `何も言わないなら ""
 - **sources** — 発言の根拠にした過去の投稿の id。**このターンの timeline_search の結果にある id だけ**を、特に重要なものから最大3件書けます。発言の下に、その投稿へのリンクが付きます。使わなければ []
 ` + fence(step(map[string]any{"type": "speak", "text": "また豚骨だ。前の二郎もそうだったね", "sources": []any{"e_（timeline_search の結果の id）"}})) + `❌ 投稿と違う言語で話す（日本語の投稿に "Acknowledged."）
 ❌ 希望を事実にする（「9:10に着きたい」に「9:10に着きます」）
