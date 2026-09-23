@@ -47,7 +47,12 @@ var searchTimeline = Tool{
 		if math.IsNaN(minScore) || math.IsInf(minScore, 0) || minScore < 0 || minScore > 1 {
 			return Result{}, errors.New("min_scoreは0〜1で指定してください")
 		}
-		found, err := r.search.Unified(ctx, query, window, limit, 0, minScore)
+		var found search.Result
+		if query == "" {
+			found, err = r.search.InWindow(ctx, window, limit, 0)
+		} else {
+			found, err = r.search.Unified(ctx, query, window, limit, 0, minScore)
+		}
 		if errors.Is(err, search.ErrQuery) {
 			return Result{}, errors.New("query か、from・to の期間のどちらかを指定してください")
 		}

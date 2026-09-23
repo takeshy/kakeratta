@@ -32,7 +32,7 @@ const scheduleInstructions = `
 func (r *Runner) scheduleTimeline(ctx context.Context, now time.Time, zone *time.Location) string {
 	localNow := now.In(zone)
 	start := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, zone)
-	found, err := r.search.Unified(ctx, "", search.Window{From: start, To: now}, tools.TimelineSearchLimit, 0, 0.5)
+	found, err := r.search.InWindow(ctx, search.Window{From: start, To: now}, tools.TimelineSearchLimit, 0)
 	if err != nil {
 		return "## 今日のかけら\n\n※ 今日のかけらを取得できませんでした。記録がないとは判断しないでください。"
 	}

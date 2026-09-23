@@ -37,6 +37,13 @@ func (w Window) holds(at time.Time) bool {
 // ErrWindow is a window with nothing in it: To before From.
 var ErrWindow = errors.New("期間の終了は開始より後にしてください")
 
+// InWindow lists entries in a time window without relevance scoring. It is
+// the query-less timeline path: every eligible entry participates, ordered
+// newest first, and only limit/offset can remove one from the returned page.
+func (s *Service) InWindow(ctx context.Context, window Window, limit, offset int) (Result, error) {
+	return s.Unified(ctx, "", window, limit, offset, 0)
+}
+
 // Unified combines ranks, never incomparable lexical and cosine scores.
 // The semantic budget leaves time to return lexical matches if the provider
 // is unavailable or indexing is still in progress. Completed indexing persists.
