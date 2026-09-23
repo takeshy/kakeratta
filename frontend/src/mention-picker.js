@@ -15,6 +15,24 @@ export function mentionTag(row) {
   return `@${/^[^\s@＠、。]+$/u.test(row.name) && !/[さん!?！？]$/u.test(row.name) ? row.name : row.id}`;
 }
 
+const MENTION = /(^|[\s、。])[@＠][^\s@＠、。]+/gu;
+
+export function replaceMention(value, tag) {
+  MENTION.lastIndex = 0;
+  return MENTION.test(value)
+    ? value.replace(MENTION, (match, separator) => `${separator}${tag}`)
+    : value.trim() ? `${value.replace(/\s*$/, "")} ${tag} ` : `${tag} `;
+}
+
+function hasOtherMention(value, current) {
+  MENTION.lastIndex = 0;
+  for (const match of value.matchAll(MENTION)) {
+    const start = match.index + match[1].length;
+    if (start !== current.start) return true;
+  }
+  return false;
+}
+
 export function createMentionPicker({ input, getPersonas = () => [], onChange = () => {} }) {
   const id = `mention-picker-${++sequence}`;
   const list = el("div", { class: "mention-picker", id, role: "listbox", "aria-label": t("担当をえらぶ"), hidden: true });
@@ -49,6 +67,7 @@ export function createMentionPicker({ input, getPersonas = () => [], onChange = 
     if (composing) return;
     range = mentionQuery(input.value, input.selectionStart, input.selectionEnd);
     if (!range) { hide(); return; }
+    if (hasOtherMention(input.value, range)) { hide(); return; }
     const query = range.query.toLocaleLowerCase();
     rows = getPersonas().filter(row => row.active && (row.id !== "hermes" || row.mcpConfigured) &&
       [row.name, row.id, named(row)].some(value => value?.toLocaleLowerCase().includes(query)));
