@@ -164,6 +164,15 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 			t.Fatalf("plana's instructions lack %q", rule)
 		}
 	}
+	for _, rule := range []string{
+		"声をかける前に必ず timeline_search",
+		"確認せずに声をかけてはいけない",
+		"plana 自身が同じ用について今日すでに声をかけた記録",
+	} {
+		if !strings.Contains(plana.Instructions, rule) {
+			t.Fatalf("plana's schedule wake instructions lack %q", rule)
+		}
+	}
 	// A schedule written into a note as prose registers nothing: the app reads
 	// the store, never the note. These three came from watching plana write
 	// "予定: 17:00" and a raw entry id into its notes and call no tool at all.
@@ -178,6 +187,20 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 	} {
 		if !strings.Contains(plana.Instructions, rule) {
 			t.Fatalf("plana's instructions lack %q", rule)
+		}
+	}
+}
+
+func TestScheduleWakeRequiresTimelineCheckBeforeSpeaking(t *testing.T) {
+	for _, rule := range []string{
+		"必ず timeline_search",
+		"query なし・from/to だけ",
+		"済ませた・行った・飲んだ",
+		"あなた自身が同じ用について今日すでに声をかけた記録",
+		"確認せずに声をかけてはいけません",
+	} {
+		if !strings.Contains(scheduleInstructions, rule) {
+			t.Fatalf("schedule wake prompt lacks %q", rule)
 		}
 	}
 }
