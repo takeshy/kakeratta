@@ -32,9 +32,10 @@ type fake struct {
 	// reviews are the app's own checks, kept apart from what the personas were
 	// asked so a test counting persona calls is not counting those. review
 	// scripts a verdict; unset, every workflow passes.
-	reviews      []string
-	reviewModels []string
-	review       func(user string) string
+	reviews       []string
+	reviewSystems []string
+	reviewModels  []string
+	review        func(user string) string
 	// fail makes the endpoint answer 500 to a request whose system prompt it
 	// matches, for a test that needs a call to fail.
 	fail func(system string) bool
@@ -98,6 +99,7 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		if names := toolNames(body.Tools); names["submit_review"] {
 			f.mu.Lock()
 			f.reviews = append(f.reviews, user)
+			f.reviewSystems = append(f.reviewSystems, system)
 			f.reviewModels = append(f.reviewModels, body.Model)
 			script := f.review
 			f.mu.Unlock()
@@ -693,6 +695,48 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 	// Named, it answers as long as the question needs rather than briefly.
 	if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, "聞かれたことに答えるのに必要な長さで") || strings.Contains(prompt, "発言するときは短く") {
 		t.Fatalf("the named persona was still told to keep it short:\n%s", prompt)
+	}
+}
+
+// A direct question carries a stronger contract than an incidental routed
+// reaction: the app reviews whether the final answer actually addresses what
+// the user asked, and lets the persona replace an answer that does not.
+func TestBeingNamedReviewsWhetherTheAnswerMeetsTheRequest(t *testing.T) {
+	drafts := 0
+	runner, s, stub := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":[]}`
+		}
+		drafts++
+		if drafts == 1 {
+			return `{"action":"speak","text":"Goがおすすめです。"}`
+		}
+		if !strings.Contains(user, "理由を聞かれている") {
+			t.Errorf("the review issue was not returned to the persona:\n%s", user)
+		}
+		return `{"action":"speak","text":"並行処理を簡潔に書けるので、Goがおすすめです。"}`
+	}, "routine")
+	stub.review = func(user string) string {
+		if !strings.Contains(user, "今回の対象発言") || !strings.Contains(user, "@plana どの言語がいい？理由も教えて") {
+			t.Errorf("reviewer did not receive the mentioned request:\n%s", user)
+		}
+		if strings.Contains(user, "Goがおすすめです。") && !strings.Contains(user, "並行処理") {
+			return `{"verdict":"fail","summary":"理由に答えていない","issues":[{"severity":"high","description":"理由を聞かれているが、結論しか返していない"}]}`
+		}
+		return `{"verdict":"pass","summary":"質問と理由に答えている","issues":[]}`
+	}
+
+	runner.react(post(t, s, "@plana どの言語がいい？理由も教えて").ID)
+
+	if drafts != 2 || len(stub.reviews) != 2 {
+		t.Fatalf("drafts = %d, reviews = %d, want two of each", drafts, len(stub.reviews))
+	}
+	if !strings.Contains(stub.reviewSystems[0], "@メンションで名指し") || !strings.Contains(stub.reviewSystems[0], "頼まれたことに答えていない") {
+		t.Fatalf("named-answer criteria were not given to the reviewer:\n%s", stub.reviewSystems[0])
+	}
+	said := remarks(t, s)
+	if len(said) != 1 || !strings.Contains(said[0].Text, "並行処理") {
+		t.Fatalf("remarks = %+v, want the reviewed replacement", said)
 	}
 }
 

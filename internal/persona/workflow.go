@@ -525,11 +525,24 @@ medium / low（実行してよい。verdict は pass）:
 high が無ければ verdict は pass です。迷ったら pass にしてください。
 submit_review を呼んで答えてください。`
 
+// A direct mention is an explicit request rather than a persona choosing to
+// join a conversation. In that case the app also checks that the final remark
+// actually serves the request. This is kept out of the ordinary review prompt
+// so routed reactions retain the persona's freedom to decide what matters.
+const namedReviewPrompt = `
+
+今回の担当は @メンションで名指しされています。この場合に限り、次も確認してください。
+
+high（実行すると期待された回答にならない。verdict は fail）:
+7. **名指しで頼まれたことに答えていない。** スレッド全体と今回の対象発言からユーザーが求めていることを読み取り、speak の text がそれに直接応えているかを確かめる。
+   例: 理由を聞かれたのに結論だけ言う、比較を頼まれたのに片方にしか触れない、質問に答えず作業の説明だけを返す。
+   好みの違いや、口調・長さ・追加情報の多少は問題にしない。質問に前提が足りなければ、確認質問や条件付きの回答でよい。`
+
 // review asks the app's own model about one workflow. A malformed verdict is
 // returned as a tool result, giving the reviewer another turn to correct it.
 // An endpoint error remains unavailable to the caller, which records it.
 func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.Settings, skill Skill, thread []timeline.Entry, trigger timeline.Entry,
-	workflow Workflow, known string, names map[string]string, here *time.Location) (*Review, error) {
+	workflow Workflow, known string, names map[string]string, here *time.Location, named bool) (*Review, error) {
 
 	model := reviewModel(settings)
 	encoded, _ := json.MarshalIndent(workflow, "", "  ")
@@ -551,7 +564,11 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 		"担当が提出した workflow:",
 		string(encoded),
 	}, "\n")
-	messages := []llm.Message{{Role: "system", Content: reviewPrompt}, {Role: "user", Content: user}}
+	system := reviewPrompt
+	if named {
+		system += namedReviewPrompt
+	}
+	messages := []llm.Message{{Role: "system", Content: system}, {Role: "user", Content: user}}
 	for attempt := 0; attempt < 3; attempt++ {
 		reply, err := client.Complete(ctx, llm.Request{
 			Model: model, Tools: []llm.Tool{reviewTool}, ToolChoice: "required", Messages: messages,
@@ -599,9 +616,10 @@ func reviewModel(settings store.Settings) string {
 // by the next post; schedules, forgetting and tools reach further. A persona
 // that can schedule is reviewed even for a note and a remark: the failure it
 // is prone to is a time promised in the remark with no schedule behind it,
-// and that workflow has nothing but a note and a remark in it. Staying quiet
-// has nothing to check.
-func needsReview(workflow Workflow, schedules bool) bool {
+// and that workflow has nothing but a note and a remark in it. A named answer
+// is also reviewed because it has an explicit request to satisfy. Staying
+// quiet has nothing to check.
+func needsReview(workflow Workflow, schedules, named bool) bool {
 	quiet := true
 	for _, step := range workflow.Steps {
 		if step.Type != "write_note" && step.Type != "speak" {
@@ -611,7 +629,7 @@ func needsReview(workflow Workflow, schedules bool) bool {
 			quiet = false
 		}
 	}
-	return schedules && !quiet
+	return (schedules || named) && !quiet
 }
 
 // routingModel matches a post against short persona conditions. Production
