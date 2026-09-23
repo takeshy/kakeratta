@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -161,6 +162,21 @@ func TestPersonaBuilderReceivesFullPostAndThread(t *testing.T) {
 			}
 		} else if !strings.Contains(captured, "返事の後で加えた訂正") {
 			t.Error("condition correction lost the current thread context")
+		}
+	}
+}
+
+func TestAddedPersonaStartsActive(t *testing.T) {
+	s, workspace := app(t)
+	for _, add := range []struct{ path, id string }{{"/api/personas/draft", "wine"}, {"/api/personas/install", "tea"}} {
+		raw, _ := json.Marshal(persona.Skill{ID: add.id, Name: add.id, Domain: add.id})
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("POST", add.path, strings.NewReader(string(raw))))
+		if w.Code != 200 || !strings.Contains(w.Body.String(), `"active":true`) {
+			t.Fatalf("%s: %d %s", add.path, w.Code, w.Body.String())
+		}
+		if !slices.Contains(workspace.Settings().Active, add.id) {
+			t.Fatalf("%s: %s not active", add.path, add.id)
 		}
 	}
 }

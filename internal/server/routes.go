@@ -484,7 +484,26 @@ func (s *Server) installPersona(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "担当を保存できませんでした")
 		return
 	}
-	writeJSON(w, http.StatusOK, skill)
+	writeJSON(w, http.StatusOK, added{Skill: skill, Active: s.activatePersona(skill.ID) == nil})
+}
+
+// added is a new persona as the one who made it sees it: whether it is already
+// in the room decides what the confirmation says.
+type added struct {
+	persona.Skill
+	Active bool `json:"active"`
+}
+
+// activatePersona puts a newly added persona in the room. Adding one means
+// wanting to use it, and a separate switch nobody expects left new personas
+// silent; pausing one stays a switch on its card.
+func (s *Server) activatePersona(id string) error {
+	settings := s.store.ConfiguredSettings()
+	if slices.Contains(settings.Active, id) {
+		return nil
+	}
+	settings.Active = append(settings.Active, id)
+	return s.store.SaveSettings(settings)
 }
 
 func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {

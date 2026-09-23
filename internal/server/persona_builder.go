@@ -187,7 +187,11 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 		fail(w, 500, "担当を保存できませんでした")
 		return
 	}
-	writeJSON(w, 200, saved)
+	if exists {
+		writeJSON(w, 200, saved)
+		return
+	}
+	writeJSON(w, 200, added{Skill: saved, Active: s.activatePersona(saved.ID) == nil})
 }
 
 // personaBuilderModel writes the conditions routing depends on, so it remains

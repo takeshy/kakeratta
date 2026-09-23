@@ -522,6 +522,13 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .builder-message.user { margin-left: 24px; }
 .builder-message p, .builder-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
 .persona-builder form { display: grid; gap: 8px; }
+.persona-builder [hidden] { display: none; }
+.builder-notice { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-soft); font-weight: 600; }
+.builder-log { margin: 12px 0; }
+.builder-actions { flex-wrap: wrap; }
+/* Adding is the one thing the draft asks for, so it leads, full width. */
+.builder-actions > .button.primary { order: -1; flex-basis: 100%; }
+.builder-log > summary { cursor: pointer; color: var(--muted, #666); }
 .persona-form { display: grid; gap: 12px; margin: 12px 0; }
 .persona-field { display: grid; gap: 4px; }
 .persona-field select { width: 100%; }

@@ -7,7 +7,7 @@
 import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
-import { showPersonaBuilder } from "./persona-builder.js";
+import { showPersonaBuilder, addedToast } from "./persona-builder.js";
 import { showPersonaEditor } from "./persona-editor.js";
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
@@ -83,6 +83,13 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     setTimeout(() => card.classList.remove("revealed"), 2000);
   }
 
+  // A persona just added is shown where it landed, its switch already on.
+  async function showAdded(skill) {
+    await load();
+    pending = skill.id;
+    revealPending();
+  }
+
   function draw() {
     clear(view);
     view.append(
@@ -92,7 +99,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
           "そのうえで喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
       }),
     );
-    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ getSettings, onSave: load }) }));
+    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ getSettings, onSave: showAdded }) }));
     view.append(el("p", { class: "hint", label: "どの担当も、必要なときに過去のかけらを検索し、元の投稿を参照できます。" }));
     view.append(el("p", { class: "hint" },
       el("span", { label: "すべての担当が使える道具: " }),
@@ -385,13 +392,13 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         { class: "compose-row" },
         el("button", {
           class: "button primary",
-          label: "追加",
+          label: "この担当を追加",
           onclick: async () => {
             try {
               const skill = await api.installPersona(area.value);
-              toast(t("{0} を追加しました", skill.name));
+              addedToast(skill);
               area.value = "";
-              await load();
+              await showAdded(skill);
             } catch (error) {
               toast(String(error.message || error), "error");
             }
