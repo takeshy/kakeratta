@@ -165,9 +165,9 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 		}
 	}
 	for _, rule := range []string{
-		"声をかける前に必ず timeline_search",
-		"確認せずに声をかけてはいけない",
+		"本体から渡されたその日のかけらを確認する",
 		"plana 自身が同じ用について今日すでに声をかけた記録",
+		"声をかける根拠がある場合だけ一度だけ",
 	} {
 		if !strings.Contains(plana.Instructions, rule) {
 			t.Fatalf("plana's schedule wake instructions lack %q", rule)
@@ -193,15 +193,17 @@ func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
 
 func TestScheduleWakeRequiresTimelineCheckBeforeSpeaking(t *testing.T) {
 	for _, rule := range []string{
-		"必ず timeline_search",
-		"query なし・from/to だけ",
+		"本体が今日の00:00から現在までの直近のかけらを下に渡しています",
 		"済ませた・行った・飲んだ",
 		"あなた自身が同じ用について今日すでに声をかけた記録",
-		"確認せずに声をかけてはいけません",
+		"声をかける根拠がある場合だけ",
 	} {
 		if !strings.Contains(scheduleInstructions, rule) {
 			t.Fatalf("schedule wake prompt lacks %q", rule)
 		}
+	}
+	if strings.Contains(scheduleInstructions, "必ず timeline_search") {
+		t.Fatal("schedule wake still makes a tool call a prerequisite for speaking")
 	}
 }
 

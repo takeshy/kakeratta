@@ -1,12 +1,107 @@
 package persona
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+func TestScheduleTimelineUsesTheUsersLocalDayAndIncludesRemarks(t *testing.T) {
+	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
+	zone, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 23, 0, 30, 0, 0, zone)
+	yesterday := timeline.Entry{ID: "e_yesterday", Kind: timeline.KindPost, Speaker: timeline.User, Text: "前日の記録", At: now.Add(-time.Hour)}
+	yesterday.Root = yesterday.ID
+	today := timeline.Entry{ID: "e_today", Kind: timeline.KindPost, Speaker: timeline.User, Text: "朝の薬飲んだ", At: now.Add(-20 * time.Minute)}
+	today.Root = today.ID
+	plana := timeline.Entry{ID: "e_plana", Kind: timeline.KindRemark, Speaker: "routine", Text: "花、買った？", At: now.Add(-10 * time.Minute), Root: today.ID}
+	for _, entry := range []timeline.Entry{yesterday, today, plana} {
+		if err := s.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := r.scheduleTimeline(context.Background(), now, zone)
+	for _, want := range []string{"00:10 user:\n朝の薬飲んだ", "00:20 plana:\n花、買った？"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("schedule timeline lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "前日の記録") {
+		t.Fatalf("schedule timeline crossed the user's midnight:\n%s", got)
+	}
+}
+
+func TestScheduleTimelineMarksAClippedDay(t *testing.T) {
+	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
+	now := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
+	for i := range 31 {
+		entry := timeline.Entry{
+			ID: fmt.Sprintf("e_%02d", i), Kind: timeline.KindPost, Speaker: timeline.User,
+			Text: fmt.Sprintf("記録%d", i), At: now.Add(time.Duration(i-31) * time.Minute),
+		}
+		entry.Root = entry.ID
+		if err := s.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := r.scheduleTimeline(context.Background(), now, time.UTC); !strings.Contains(got, "今日のかけらは一部省略されています") {
+		t.Fatalf("clipped timeline was not marked:\n%s", got)
+	}
+}
+
+func TestOnlyScheduleWakesReceiveTodaysTimeline(t *testing.T) {
+	var schedulePrompt string
+	calls := 0
+	r, s, _ := setup(t, func(system, user string) string {
+		calls++
+		schedulePrompt = system + "\n" + user
+		return `{"action":"speak","text":"そういえば朝の薬"}`
+	}, "routine")
+	now := time.Now()
+	entry := timeline.Entry{ID: "e_today", Kind: timeline.KindPost, Speaker: timeline.User, Text: "朝の記録", At: now.Add(-time.Minute)}
+	entry.Root = entry.ID
+	if err := s.Append(entry); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SaveSchedule(store.Schedule{Skill: "routine", At: now.Add(-time.Second).UTC(), Note: "朝の薬"}); err != nil {
+		t.Fatal(err)
+	}
+	r.schedulesAt(now)
+	if !strings.Contains(schedulePrompt, "## 今日のかけら") || !strings.Contains(schedulePrompt, "朝の記録") {
+		t.Fatalf("schedule wake did not receive today's timeline:\n%s", schedulePrompt)
+	}
+	if calls != 1 {
+		t.Fatalf("direct workflow took %d model rounds; want one without timeline_search", calls)
+	}
+	if said := remarks(t, s); len(said) != 1 || said[0].Text != "そういえば朝の薬" {
+		t.Fatalf("direct workflow was not executed: %+v", said)
+	}
+
+	var ordinaryPrompt string
+	ordinaryRunner, ordinaryStore, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["routine"]}`
+		}
+		ordinaryPrompt = system + "\n" + user
+		return `{"action":"silent"}`
+	}, "routine")
+	ordinaryRunner.react(post(t, ordinaryStore, "通常投稿").ID)
+	if ordinaryPrompt == "" {
+		t.Fatal("ordinary persona did not run")
+	}
+	if strings.Contains(ordinaryPrompt, "## 今日のかけら") {
+		t.Fatalf("ordinary post received schedule timeline:\n%s", ordinaryPrompt)
+	}
+}
 
 func TestAScheduleWakesItsPersonaOnce(t *testing.T) {
 	calls := 0
