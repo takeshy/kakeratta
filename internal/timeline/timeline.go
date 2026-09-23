@@ -134,6 +134,22 @@ func Mentions(text string) []string {
 	return out
 }
 
+// HasMultipleMentionedPeople reports whether a fragment names more than one
+// person. Repeating the same name is harmless, and names are case-insensitive
+// in the same way as persona matching.
+func HasMultipleMentionedPeople(text string) bool {
+	var first string
+	for _, mention := range Mentions(text) {
+		mention = strings.ToLower(mention)
+		if first == "" {
+			first = mention
+		} else if mention != first {
+			return true
+		}
+	}
+	return false
+}
+
 // Thread is one post and everything said under it, oldest first.
 //
 // This is the unit a persona is woken with. What was said under a post is

@@ -190,6 +190,29 @@ func TestAReplyHangsOffThePost(t *testing.T) {
 	}
 }
 
+func TestAFragmentCanMentionOnlyOnePerson(t *testing.T) {
+	server, s := app(t)
+	postRecorder := httptest.NewRecorder()
+	server.ServeHTTP(postRecorder, posted(t, "@tabe @michi どっちに聞こう"))
+	if postRecorder.Code != http.StatusBadRequest || !strings.Contains(postRecorder.Body.String(), "1人だけ") {
+		t.Fatalf("post status = %d: %s", postRecorder.Code, postRecorder.Body.String())
+	}
+	if len(mustTimeline(t, s)) != 0 {
+		t.Fatal("post with two mentions was stored")
+	}
+
+	valid := httptest.NewRecorder()
+	server.ServeHTTP(valid, posted(t, "@tabe 質問"))
+	var post timeline.Entry
+	_ = json.Unmarshal(valid.Body.Bytes(), &post)
+	body, _ := json.Marshal(map[string]string{"replyTo": post.ID, "text": "@tabe @michi どっちも"})
+	replyRecorder := httptest.NewRecorder()
+	server.ServeHTTP(replyRecorder, httptest.NewRequest(http.MethodPost, "/api/reply", bytes.NewReader(body)))
+	if replyRecorder.Code != http.StatusBadRequest || !strings.Contains(replyRecorder.Body.String(), "1人だけ") {
+		t.Fatalf("reply status = %d: %s", replyRecorder.Code, replyRecorder.Body.String())
+	}
+}
+
 func TestDeletingLeavesATombstoneRatherThanRewritingHistory(t *testing.T) {
 	server, s := app(t)
 	recorder := httptest.NewRecorder()

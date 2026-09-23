@@ -32,6 +32,19 @@ func TestMentionsFindTheOneBeingAsked(t *testing.T) {
 	}
 }
 
+func TestMultipleMentionedPeople(t *testing.T) {
+	for _, text := range []string{"@tech @book どっちも", "＠tech、@book"} {
+		if !HasMultipleMentionedPeople(text) {
+			t.Errorf("HasMultipleMentionedPeople(%q) = false", text)
+		}
+	}
+	for _, text := range []string{"@tech 詳しく", "@tech @TECH 詳しく", "メールは a@example.com"} {
+		if HasMultipleMentionedPeople(text) {
+			t.Errorf("HasMultipleMentionedPeople(%q) = true", text)
+		}
+	}
+}
+
 // A persona gets its post and what was said under it. Nothing from any other
 // post comes with it: handing over the whole timeline would mean every persona
 // saw everything again, which is what separate memories were for.

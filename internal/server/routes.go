@@ -147,6 +147,10 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body.Text = text
+	if timeline.HasMultipleMentionedPeople(body.Text) {
+		fail(w, http.StatusBadRequest, "@で指名できる担当は1人だけです")
+		return
+	}
 	entry := timeline.Entry{
 		ID: id, RequestHash: hash, Kind: timeline.KindPost, Speaker: timeline.User,
 		Text: trimmed(body.Text), At: at, Link: trimmed(body.Link),
@@ -247,6 +251,10 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body.Text = text
+	if timeline.HasMultipleMentionedPeople(body.Text) {
+		fail(w, http.StatusBadRequest, "@で指名できる担当は1人だけです")
+		return
+	}
 	reply := timeline.Entry{
 		ID: id, RequestHash: hash, Kind: timeline.KindReply, Speaker: timeline.User,
 		Text: trimmed(body.Text), At: at,
@@ -262,6 +270,10 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil || body.Text == nil {
 		fail(w, http.StatusBadRequest, "本文を入力してください")
+		return
+	}
+	if timeline.HasMultipleMentionedPeople(*body.Text) {
+		fail(w, http.StatusBadRequest, "@で指名できる担当は1人だけです")
 		return
 	}
 	entry, ok := s.store.Entry(r.PathValue("id"))

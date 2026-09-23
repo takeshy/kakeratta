@@ -8,7 +8,7 @@
 // It starts one line tall and grows with what is in it. The timeline is what
 // the screen is for; this is the way through to it.
 import { el, clear, toast } from "./dom.js";
-import { createMentionPicker } from "./mention-picker.js";
+import { createMentionPicker, replaceMention } from "./mention-picker.js";
 import { api } from "./api.js";
 import { createVoiceInput } from "./voice_input.js";
 import { t } from "./i18n.js";
@@ -187,9 +187,7 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
     // the personas read it - not into a hidden "to:" field.
     mention(name) {
       const tag = `@${name}`;
-      if (!text.value.includes(tag)) {
-        text.value = text.value.trim() ? `${text.value.replace(/\s*$/, "")} ${tag} ` : `${tag} `;
-      }
+      text.value = replaceMention(text.value, tag);
       grow();
       text.focus();
       text.setSelectionRange(text.value.length, text.value.length);

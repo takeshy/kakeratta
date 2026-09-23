@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMentionPicker, mentionQuery, mentionTag } from "../frontend/src/mention-picker.js";
+import { createMentionPicker, mentionQuery, mentionTag, replaceMention } from "../frontend/src/mention-picker.js";
 
 class TestNode {
   children = [];
@@ -54,6 +54,22 @@ test("mention ranges handle Japanese, full width @, caret insertion and email", 
   assert.equal(mentionTag({ name: "ワイン係", id: "wine" }), "@ワイン係");
   assert.equal(mentionTag({ name: "Wine Expert", id: "wine" }), "@wine");
   assert.equal(mentionTag({ name: "ワインさん", id: "wine" }), "@wine");
+  assert.equal(replaceMention("相談 @tabe 続き", "@michi"), "相談 @michi 続き");
+  assert.equal(replaceMention("相談", "@michi"), "相談 @michi ");
+});
+
+test("picker does not offer a second mention", t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const input = new TestNode();
+  const picker = createMentionPicker({ input, getPersonas: () => [
+    { id: "wine", name: "ワイン係", active: true },
+  ] });
+  input.value = "@book 質問 @";
+  input.setSelectionRange(input.value.length, input.value.length);
+  input.fire("input");
+  assert.equal(picker.element.hidden, true);
 });
 
 test("picker selects active personas, preserves surrounding text, and respects IME", t => {
