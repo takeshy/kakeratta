@@ -191,14 +191,23 @@ func TestAReplyHangsOffThePost(t *testing.T) {
 }
 
 func TestAFragmentCanMentionOnlyOnePerson(t *testing.T) {
-	server, s := app(t)
+	server, _ := app(t)
+	for _, text := range []string{
+		"@gourmet @tabe 同じ担当のIDと名前",
+		"@alice @bob 登録されていないハンドル",
+		"@tabe @alice 担当と登録されていないハンドル",
+	} {
+		recorder := httptest.NewRecorder()
+		server.ServeHTTP(recorder, posted(t, text))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("post %q status = %d: %s", text, recorder.Code, recorder.Body.String())
+		}
+	}
+
 	postRecorder := httptest.NewRecorder()
 	server.ServeHTTP(postRecorder, posted(t, "@tabe @michi どっちに聞こう"))
 	if postRecorder.Code != http.StatusBadRequest || !strings.Contains(postRecorder.Body.String(), "1人だけ") {
 		t.Fatalf("post status = %d: %s", postRecorder.Code, postRecorder.Body.String())
-	}
-	if len(mustTimeline(t, s)) != 0 {
-		t.Fatal("post with two mentions was stored")
 	}
 
 	valid := httptest.NewRecorder()
