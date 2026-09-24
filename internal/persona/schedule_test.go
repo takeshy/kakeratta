@@ -82,7 +82,18 @@ func TestOnlyScheduleWakesReceiveTodaysTimeline(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("direct workflow took %d model rounds; want one without timeline_search", calls)
 	}
-	if said := remarks(t, s); len(said) != 1 || said[0].Text != "そういえば朝の薬" {
+	// A scheduled wake answers no post, so what it says is a post of its own.
+	entries, err := s.Timeline()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var said []timeline.Entry
+	for _, entry := range entries {
+		if entry.Speaker == "routine" {
+			said = append(said, entry)
+		}
+	}
+	if len(said) != 1 || said[0].Text != "そういえば朝の薬" {
 		t.Fatalf("direct workflow was not executed: %+v", said)
 	}
 

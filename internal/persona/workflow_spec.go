@@ -175,7 +175,7 @@ func workflowSpec(set *tools.Set, deep, named bool) string {
 
 このターンは2つに分かれます。
 
-1. **read で読む**（必要なら。` + fmt.Sprint(turnReadLimit(deep)) + ` 回まで）。メモを読む・調べる。何も書き換えません。本体が実行して結果を返します。
+1. **read で読む**（必要なら。` + fmt.Sprint(turnReadLimit(deep)) + ` 回まで）。メモを読む・調べる。何も書き換えません。本体が実行して結果を返します。` + searchLimitLine(set, deep) + `
 2. **submit_workflow で workflow を出す**。やること（メモを書く・` + map[bool]string{true: "予定を置く・", false: ""}[shape.schedules] + `発言する）を並べます。
    本体が確認してから、上から順に実行します。**失敗したステップがあれば、そこで止まります。**
 
@@ -333,4 +333,13 @@ read:
 ` + fence(`{"summary":"好みを記録するだけ","steps":[
  `+step(map[string]any{"type": "write_note", "path": "tastes/light.md", "text": "---\ntype: Preference\ntitle: 朝は軽め\ndescription: 朝は軽いものを選ぶ。\n---\n\n* 9/17 朝にうどん（本人の投稿）"})+`]}`))
 	return b.String()
+}
+
+// searchLimitLine tells a persona with web_search how many searches it has,
+// so it words the first query to count rather than finding out at the limit.
+func searchLimitLine(set *tools.Set, deep bool) string {
+	if !set.Allows("web_search") {
+		return ""
+	}
+	return "\n   web_search はこのうち " + fmt.Sprint(turnSearchLimit(deep)) + " 回までです。同じ語句で検索し直さず、1回目の結果で足りるよう語句を選んでください。"
 }

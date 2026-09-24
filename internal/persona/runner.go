@@ -779,7 +779,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	read := []string{"index.md（最初に渡したもの）:\n" + indexNote}
 	failures := map[string]string{}
 	readLimit := turnReadLimit(deep)
-	budget := newLookups(readLimit)
+	budget := newLookups(readLimit, turnSearchLimit(deep))
 	var approved *Workflow
 	submit := workflowToolFor(set)
 	reviewed, malformed := 0, 0

@@ -79,6 +79,10 @@ const (
 	maxReads = 10
 	// An Ultra answer may look further before committing its workflow.
 	ultraReads = 20
+	// maxSearches is how many of those reads may be web searches.
+	maxSearches = 2
+	// An Ultra answer may search a little more, not as much as it reads.
+	ultraSearches = 4
 	// maxDrafts is how many workflows the review may see in one turn: the
 	// first, and one more after being told what was wrong with it.
 	maxDrafts = 2
@@ -95,6 +99,13 @@ func turnReadLimit(deep bool) int {
 		return ultraReads
 	}
 	return maxReads
+}
+
+func turnSearchLimit(deep bool) int {
+	if deep {
+		return ultraSearches
+	}
+	return maxSearches
 }
 
 func stringField(description string) map[string]any {

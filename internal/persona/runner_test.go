@@ -1559,17 +1559,17 @@ func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	failures := map[string]string{}
 
-	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
+	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
 	if !strings.Contains(text, "目次") {
 		t.Fatalf("a note read in the wrong field was refused: %s", text)
 	}
 
 	broken := []ReadStep{{Type: "tool", Tool: "place_search", Args: `{"query":"神谷町"}`}}
-	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
+	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
 	if strings.Contains(first, "前にも同じ理由で失敗") {
 		t.Fatalf("a first failure was called a repeat: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
+	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
 	if !strings.Contains(second, "前にも同じ理由で失敗") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1586,7 +1586,7 @@ func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
 	skill, _ := runner.catalogue.Find("gourmet")
 	text, _ := runner.readAll(context.Background(), skill,
 		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
-		set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(maxReads), map[string]string{})
+		set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(maxReads, maxSearches), map[string]string{})
 	if !strings.Contains(text, "豚骨に寄る") {
 		t.Fatalf("the note was not read: %s", text)
 	}
@@ -1601,11 +1601,11 @@ func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	failures := map[string]string{}
 	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
 
-	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
+	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
 	if !strings.Contains(first, "道具が使えませんでした") || strings.Contains(first, "前にも同じ理由で") {
 		t.Fatalf("first failure: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads), map[string]string{})
+	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
 	if !strings.Contains(second, "前にも同じ理由で失敗しています") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}

@@ -195,7 +195,7 @@ func TestScheduleWakeRequiresTimelineCheckBeforeSpeaking(t *testing.T) {
 	for _, rule := range []string{
 		"本体が今日の00:00から現在までの直近のかけらを下に渡しています",
 		"済ませた・行った・飲んだ",
-		"あなた自身が同じ用について今日すでに声をかけた記録",
+		"あなた自身が同じ用について今日すでに声をかけている場合",
 		"声をかける根拠がある場合だけ",
 	} {
 		if !strings.Contains(scheduleInstructions, rule) {
