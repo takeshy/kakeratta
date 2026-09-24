@@ -79,7 +79,7 @@ If the routing was not what you expected, you can simply say something like:
 
 > I wanted this persona to receive this too.
 
-The AI rewrites the routing condition, and you can test it against the same post before saving the change.
+The AI rewrites the routing condition. After you approve and save it, kakeratta checks the same post again. If a previously missed persona is selected, it takes its normal turn on that original post, adding its reply and memory updates.
 
 ### It can speak up without being asked
 
@@ -103,16 +103,6 @@ and ask later in the evening:
 
 Speech input is designed to make it possible to capture a thought as quickly as possible. Instead of repeatedly pressing buttons, you can finish a post by speaking a send phrase of your own choosing.
 
-### The data always belongs to the user
-
-kakeratta is designed so that personal memory can be taken out and deleted.
-
-Backup exports posts, personas, notes, and images as a zip file. Its layout is the same one used by a self-hosted kakeratta instance, so the data can be moved directly to a local installation. API keys and external connection credentials are not included.
-
-kakerata also provides complete account deletion. Posts, personas and their memories, images, settings, stored credentials, external connections, and the login account itself are deleted.
-
-In the current hackathon build, model and web-search credentials are BYO. Users provide their own Nebius Token Factory key and, when needed, their own Tavily key.
-
 ## How we built it
 
 When a fragment is posted, kakeratta first uses a router to decide which personas should receive it.
@@ -127,24 +117,17 @@ At a high level, the structure is:
 
 AI inference runs through Nebius Token Factory.
 
-Rather than sending everything to a single large model, kakeratta assigns
-different models to different roles, based on how often they run and how
-costly their mistakes would be. Every persona answers on Super by default;
-Ultra is used only when the user explicitly asks a persona for a better answer.
+Rather than sending everything to a single large model, kakeratta assigns different models to different roles based on how often they run and how costly their mistakes would be.
 
-- **Nemotron 3 Ultra**: the persona being replied to, when the reply asks for a correction or a deeper answer; persona creation
-- **Nemotron 3 Super**: routing, every persona, and workflow review
-- **Nemotron 3.5 Lightning**: judging whether a reply asks for a better answer; dictation polishing
+- **Nemotron 3 Ultra**: persona creation and deeper or corrective answers when explicitly requested
+- **Nemotron 3 Super**: routing, normal persona turns, and workflow review
+- **Nemotron 3.5 Lightning**: judging whether a reply asks for a deeper answer; dictation polishing
 - **GLM-5.3-Flash**: image understanding
 - **Qwen3-Embedding-8B**: semantic search
 
-Because these models are available through the same Token Factory API, I was
-able to move responsibilities between models repeatedly during development
-without rebuilding the surrounding integration.
+Every persona normally runs on Super. Ultra is used when the user explicitly asks a persona to reconsider or go deeper.
 
-Model selection, router experiments, workflow constraints, and the failures and
-fixes I encountered are described in more detail in the Additional Info section
-and in [Under the hood](https://github.com/takeshy/kakeratta/blob/main/docs/technical.md).
+Because these models are available through the same Token Factory API, I was able to move responsibilities between them repeatedly during development without rebuilding the surrounding integration.
 
 ### Persona memory with OKF
 
@@ -164,13 +147,9 @@ What a persona remembers and everything that has happened in the timeline are in
 
 Photos and screenshots are interpreted once by GLM-5.3-Flash.
 
-The resulting text is then shared with the relevant personas.
+The resulting text is then shared with the relevant personas instead of sending the same image through a vision model again for every persona.
 
-Sending the same image through a vision model again for every persona would be wasteful.
-
-There is a trade-off. If the first image interpretation misses something, another persona cannot later inspect the original image from a different point of view.
-
-That is the current balance between richer interpretation and cost.
+There is a trade-off: if the first interpretation misses something, another persona cannot later inspect the original image from a different point of view.
 
 ### Tools belong to personas
 
@@ -185,35 +164,13 @@ Current tools include:
 - walking, cycling, and driving route search
 - timeline and memory search
 
-I built Geo MCP myself.
+I built Geo MCP myself. In supported regions, it uses OpenStreetMap data and OSRM that I operate myself, with fallbacks depending on the configuration.
 
-In supported regions, it uses OpenStreetMap data and OSRM that I operate myself. If a region is not covered, or a place cannot be found by name, it can fall back to Overpass, Nominatim, and public OSRM services depending on the configuration.
-
-For example, michi can remember a place I wanted to visit and then check the travel time from my current location.
-
-### Recording while offline
-
-If I have to wait for a network connection before saving a passing thought, it is not very useful as a note-taking tool.
-
-kakeratta uses a Service Worker and IndexedDB so that text, images, URLs, and replies can be kept as pending posts while offline.
-
-When the connection returns, they are sent to the server and go through the same routing flow as ordinary posts.
-
-### A sandboxed external agent with NemoClaw / OpenShell
-
-Some tasks are too large for small subject-specific personas, such as analyzing many documents or doing longer research.
-
-Those tasks can be delegated to **Hermes Agent**, which joins kakeratta as an external persona through MCP.
-
-For the hackathon, I also ran Hermes inside an **NVIDIA NemoClaw / OpenShell** sandbox on my home PC. The boundary between kakeratta and Hermes is MCP; Hermes does not directly access the kakeratta database.
-
-I verified the full path against the production kakeratta.net instance: Hermes could receive a task and return the result to the original timeline thread. With Nemotron 3 Super 120B, it was also able to process multi-step tasks that included web search.
-
-The architecture, verification scope, and issues encountered during this integration are documented in the [NemoClaw / Hermes integration report](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md).
+For example, michi can remember a place I wanted to visit and later check the travel time from my current location.
 
 ## Challenges we ran into
 
-The first challenge was the number of features.
+The main challenge was the number of features.
 
 Internally, kakeratta uses routing, multiple model tiers, MCP, OKF, semantic search, workflows, and scheduled execution. If all of those concepts have to be explained to users, the app starts to feel like something they need to learn before they can use it.
 
@@ -228,19 +185,7 @@ For example, there is only one search box. Entering a word performs keyword sear
 
 Persona adjustments follow the same idea.
 
-If routing or a reply is not what you expected, you do not have to edit the underlying rules directly. You can simply explain what you wanted in ordinary language. The AI rewrites the routing condition or response behavior and lets you try it against the same post before saving it.
-
-The second challenge was preventing multiple AIs from continuously reacting to one another.
-
-Without limits, this does not just waste tokens. A personal timeline can quickly turn into a conversation between AIs instead of something useful to the user.
-
-kakeratta therefore gives each post a single round. The router picks the personas that should receive it, and those personas all answer at the same time, on the same model.
-
-No persona sees the others' replies in that round, and none of them gets a second turn to respond to another persona.
-
-A persona never speaks in response to another persona. It speaks again when the user replies to it, or later through a scheduled follow-up or a daily check-in. If a reply explicitly asks for a correction or a deeper answer, the persona answers once more on Ultra, with room to read up to 20 times instead of 10.
-
-This keeps the timeline a conversation with the user rather than an endless AI-to-AI conversation.
+If routing or a reply is not what you expected, you do not have to edit the underlying rules directly. You can explain what you wanted in ordinary language. The AI rewrites the routing condition or response behavior, and the saved change is tried on the same post. A newly selected persona answers the original post; when you accept an improved reply, its exact text and note changes are applied to the original thread.
 
 ## Accomplishments that we're proud of
 
@@ -248,9 +193,13 @@ The idea of personas made it possible to naturally separate messy personal data 
 
 **unorganized human timeline → topic-specific personas → structured memory for each persona**
 
-Each persona can navigate its memory hierarchically with OKF, search by tags, and follow internal links, so it only needs to read and write the information relevant to its current task.
+Instead of building one enormous memory about a person, each persona has a smaller, subject-specific memory that can be inspected and corrected by the user.
 
-I think managing context is one of the most important problems when building with AI, so finding a practical way to handle that in kakeratta was a major accomplishment for me.
+Each persona can navigate that memory hierarchically with OKF, search by tags, and follow internal links, so it only needs to read and write information relevant to its current task.
+
+The original timeline remains separate as the broader record.
+
+I think managing context is one of the most important problems when building personal AI. Finding a practical way to keep that context small, separated by subject, and visible to the user was a major accomplishment for me.
 
 ## What we learned
 
@@ -278,10 +227,10 @@ What I learned is that **when to bring something back matters just as much as wh
 
 At the moment, the operator provides MCP servers and tools and can assign a subset of them to each persona.
 
-In the future, I want to open this to users so that they can register their own MCP servers and tools and let their personas use them.
+In the future, I want users to be able to register their own MCP servers and tools.
 
 I also want to build a community repository for personas.
 
-If routing conditions, behavior, memory structure, and MCP servers used as custom tools can be packaged together, useful personas could be shared much like applications.
+A persona is more than a prompt. It has a routing condition, behavior, memory structure, and tools. If those pieces can be packaged together, useful personas could be shared much like applications.
 
 For example, someone could install a persona that investigates AI news every morning and explains not just what happened, but the background behind it.

@@ -1,416 +1,255 @@
 ## Which model(s) did you use, and why did you choose that size/variant?
 
-By default, kakeratta uses five models through Nebius Token Factory. Models are assigned by role based on call frequency and how far the consequences of an error can propagate. A single post can trigger the Router and multiple persona inferences, so work that runs on every post needs to be fast and inexpensive, while rare work whose mistakes can affect later behavior is assigned to larger models.
+By default, kakeratta uses five models through Nebius Token Factory. Models are assigned by role based on call frequency and how far the consequences of an error can propagate.
 
-**Nemotron 3 Ultra (550B, 55B active)** — Persona drafting and deeper follow-up answers on request. Drafting turns a user's own words into a persona's name, voice, memory rules, and routing condition. It happens infrequently, but a bad routing condition can misroute every later post, so I assign it to the largest model. Ultra also handles replies that explicitly ask a persona to reconsider or go deeper, such as "That's not right" or "Tell me more." In that turn the persona may read up to 20 times (notes, timeline search, web search, places and routes) instead of the usual 10. Super handles normal conversation; Ultra is reserved for cases where the user explicitly wants an answer reconsidered or explored in greater depth.
+Nemotron 3 Ultra (550B, 55B active) — Persona drafting and deeper follow-up answers on request. Drafting happens infrequently, but a bad routing condition can affect every later post, so I assign it to the largest model. Ultra is also used when a user explicitly asks a persona to reconsider or explore an answer in greater depth.
 
-**Nemotron 3 Super (120B, 12B active)** — The default Router, every persona's normal answers, and pre-execution review of workflows that go beyond writing notes and speaking, such as schedules, external tools, and memory deletion. Hermes Agent on NemoClaw/OpenShell also runs on Super because Lightning produced unreliable tool calls in multistep tasks.
+Nemotron 3 Super (120B, 12B active) — The default Router, normal persona responses, and pre-execution review of workflows involving schedules, external tools, or memory deletion.
 
-**Nemotron 3.5 Lightning (30B, 3B active)** — Judging whether a reply explicitly asks for a better or deeper answer, plus proofreading and formatting voice input. The judgment is a narrow yes/no task with only about 25 output tokens, so unlike routing, it is fast on Lightning. Across 15 test replies, it matched Super at 15/15, with about half the latency (0.67 s vs. 1.30 s) and roughly one fifth of the cost.
+Nemotron 3.5 Lightning (30B, 3B active) — Narrow, contained tasks: judging whether a reply explicitly asks for a deeper answer, and proofreading or formatting voice input. For the reply judgment, Lightning with thinking disabled matched Super on all 15 test cases while running at about half the latency and roughly one fifth of the cost.
 
-**GLM-5.3-Flash** — Understanding screenshots and photos, because no vision-capable Nemotron model was available through the Token Factory public API I used. Each image is analyzed once per post, and the result is shared with every relevant persona.
+GLM-5.3-Flash — Image understanding. Each image is analyzed once per post and the result is shared with every relevant persona.
 
-**Qwen3-Embedding-8B** — Generating embeddings for semantic search over the timeline and persona memories. Vectors are stored in Firestore and queried with vector search.
+Qwen3-Embedding-8B — Embeddings for semantic search over the timeline and persona memories, with vectors stored and queried in Firestore.
 
-I first redesigned the Router so that it only matches posts against routing conditions rather than reasoning broadly about each persona's role. I then replayed the 20 most recent posts from my own everyday use across each Nemotron model.
+I arrived at this allocation through experiments with routing accuracy, latency, cost, reasoning settings, and tool use. Super became the default for high-frequency agentic work, Lightning is limited to tasks where mistakes remain contained, and Ultra is reserved for lower-frequency work where an error can have a larger downstream effect or where the user explicitly asks for deeper reasoning.
 
-With thinking enabled, Super was the fastest, so it became the default: 1.91 s and about 0.098 JPY per post on average, compared with 2.28 s / 0.449 JPY for Ultra and 6.55 s / 0.070 JPY for Lightning. On the five posts where the models disagreed, Ultra followed the routing conditions more faithfully.
-
-Super is therefore the default because it offers the best balance of latency and cost for this workload, not because it achieved the highest baseline-match score.
-
----
-
-## How would you rate Nemotron's output quality for your use case?
-
-### 1 = Poor, 10 = Excellent
-
-**7 / 10**
-
-The most valuable capability was native tool calling. With `tool_choice: "required"`, Super and Ultra reliably returned valid tool calls, and kakeratta builds post routing, persona execution, and workflow review on that foundation.
-
-Nemotron also understood Japanese posts naturally and produced natural Japanese responses. I encountered no language-related problems.
-
-The main difficulty was multi-step instruction following and consistency. In one representative case, an example in my route-search tool specification contained `"mode": "foot"`, and the travel persona copied that value literally, answering "about 259 minutes on foot" for a distance that clearly called for driving.
-
-In other cases, a model exposed its internal plan in the user-facing reply, recorded an event that had not happened yet as completed, or promised a time in its reply without creating the corresponding schedule. I observed these issues with Ultra as well as Super.
-
-In retrospect, many of these were not simply model-capability failures. The models were often too faithful to the examples and schemas I gave them. Instead of relying on prompt tuning alone, I changed the structure of the application layer.
-
-After those changes, the main issues stopped reproducing, and each fix now has a regression test based on the original real-world case.
-
-Both tool calling and Japanese-language quality were strong. Reliable multi-step execution still required application-level safeguards, so I rate the raw output quality **7 / 10**.
-
----
-
-## Did you fine-tune, prompt-engineer, or use Nemotron out of the box? What was your approach?
-
-I did not fine-tune. I combined prompt engineering, native tool calling, structured output, and an application-level mechanism that constrains persona actions as validated workflows.
-
-### 1. Shifting the Router from "judgment" to "condition matching"
-
-Initially, Lightning directly judged which persona should receive a post. Each persona description included what that persona was trying to accomplish, and this led to misrouting: personas that clearly should have responded were sometimes not selected.
-
-I temporarily switched the Router to Ultra. Ultra was not perfect either, but it responded predictably to prompt changes and reached acceptable routing quality after several adjustments.
-
-I then checked actual costs in the Token Factory usage dashboard and reconsidered the design. Ultra is not particularly expensive for an occasional call, but one post can trigger multiple inferences, and this configuration reached about 1–2 JPY per post.
-
-For a Personal AI product, users should never have to pause and ask themselves whether a note is worth sending to an LLM. That made the cost of a Router that runs on every post important.
-
-This led to a different hypothesis: if high-end models were making better decisions while lightweight models struggled, perhaps the criteria I was giving the Router were too complicated.
-
-So I changed what the Router reads about each persona.
-
-Instead of describing **what the persona does to fulfill its role**, the application now gives the Router a short, explicit condition describing **which kinds of posts the persona should handle**.
-
-Ultra generates those conditions at low frequency. The Router, which runs at high frequency, only decides whether each post matches them.
-
-I also removed positive explanations for why a persona was selected and instead made `excluded_reasons` mandatory for every persona that was not selected. Since I had learned that concrete examples could distort judgment, I removed all examples from the Router prompt as well.
-
-### 2. Choosing the Router model by measurement
-
-With the conditions simplified, I replayed the 20 most recent posts from my own everyday use of kakeratta across several models.
-
-Each model received the same posts, persona conditions, and thread context, with call order rotated per case. The replay did not activate personas, execute tools, or write anything to production data.
-
-The baseline was routing I manually labeled for all 20 posts against the six persona conditions active at the time. It was a post-hoc review created after seeing the model outputs, not a pre-registered ground-truth dataset.
-
-* **Nemotron 3 Super:** avg latency 1.91 s | p95 2.53 s | cost/post $0.00065 (0.098 JPY) | baseline match 17/20
-* **Nemotron 3 Ultra:** avg latency 2.28 s | p95 2.64 s | cost/post $0.00300 (0.449 JPY) | baseline match 19/20
-* **Nemotron 3.5 Lightning:** avg latency 6.55 s | p95 9.28 s | cost/post $0.00047 (0.070 JPY) | baseline match 17/20
-* **Nemotron 3 Nano:** avg latency 9.26 s | p95 22.85 s | cost/post $0.00046 (0.069 JPY) | baseline match 19/20
-
-Converted at **1 USD = 150 JPY**.
-
-Lightning and Nano were effectively the same price at this scale. Nano matched the baseline more often than Lightning, 19/20 versus 17/20, but was even slower, so neither fit a routing layer that runs on every post.
-
-Two findings surprised me.
-
-First, the lightweight tier was the slowest. Lightning averaged 6.55 s and Nano 9.26 s, compared with Ultra at 2.28 s.
-
-The cause was not call volume but generation length. Lightning and Nano each produced about 31,000 output tokens across 20 calls, around 1,566 per call and about seven times Super's output. Lightning sometimes reached the token limit before producing the final routing decision.
-
-Second, that generation length was contributing to accuracy.
-
-Nemotron 3.5 Lightning has thinking enabled by default. Routing is a short structured classification task, so I assumed the reasoning trace was unnecessary and tested disabling it with:
-
-`chat_template_kwargs.enable_thinking: false`
-
-Latency improved sharply, to 1.40 s for Lightning and 1.16 s for Nano, but judgment quality deteriorated.
-
-Nano's baseline match fell from 19/20 to 11/20. I manually reviewed all nine mismatches, and they were unambiguous errors against the persona conditions, including delivery to entirely unrelated personas. Lightning degraded in similar ways, such as dropping the routine persona from explicit plans and records and missing a persona on an image post.
-
-For this workload, the reasoning trace was not merely overhead; it was helping sustain judgment quality.
-
-I could not find a configuration in the lightweight Nemotron tier that simultaneously gave me the latency and accuracy I wanted. Nano matched Ultra at 19/20 with thinking enabled, but a 9.26 s average, 22.85 s p95, and 29.37 s maximum are not practical for a layer that runs on every post.
-
-The content of the disagreements also mattered.
-
-Fifteen of the 20 posts produced unanimous agreement across the models. All five disagreements came down to one boundary judgment: whether the routine persona should also be selected.
-
-Super's errors therefore looked more like a systematic boundary bias — dropping the routine persona on same-day plans and timed trips — than random degradation.
-
-On that basis, I moved the default Router to Super.
-
-At 1.91 s, it was the fastest Nemotron model I measured with thinking enabled and cost roughly one fifth as much as Ultra. The gap versus Lightning was only about $0.00018 (0.028 JPY) per post, or about $0.18 (28 JPY) per thousand posts.
-
-I considered that a very small price for reducing routing time to less than one third.
-
-I do not use Lightning where a wrong judgment can propagate, as it can in routing.
-
-Every persona now answers normally on Super. Lightning handles only narrow tasks whose mistakes remain contained: voice-input formatting and the yes/no judgment of whether a user's reply explicitly asks a persona to correct or deepen an answer.
-
-If Lightning returns yes, that persona answers again on Ultra with a prompt that removes the normal "keep it short" constraint and with a larger reading budget: up to 20 reads instead of 10.
-
-A false positive costs one Ultra call. A false negative, or a failed Lightning call, simply leaves the conversation on Super.
-
-Unlike routing, this narrow judgment held its accuracy with thinking disabled: it produces only about 25 output tokens and matched Super on all 15 test replies, while running at 0.67 s versus 1.30 s and at roughly one fifth of the cost.
-
-### 3. Letting users improve the Router
-
-Exposing `excluded_reasons` produced a feature I had not originally planned.
-
-When a routing decision feels wrong, users can say:
-
-* "I wanted this persona to answer."
-* "Don't call this persona for this."
-* optionally, why.
-
-An agentic rewrite step updates that persona's routing condition from the feedback and then replays the same post through the Router.
-
-Even Ultra could not infer every user's preferred boundaries perfectly from the start. Rather than chasing a perfect universal Router, I designed one whose mistakes users can inspect, correct, and refine over time.
-
-The two-case gap I accepted when moving from Ultra to Super falls into exactly this category. The disagreements were concentrated around one persona's boundary condition, which is better addressed by improving that condition than by permanently routing every post through a larger model.
-
-### 4. Constraining persona actions as workflows
-
-Personas do not execute actions directly.
-
-They submit a workflow: an ordered list of operations such as writing a note or speaking. The application validates the workflow and executes it one step at a time.
-
-One behavior I found difficult with Nemotron, and with LLMs more generally, was reliably performing two similar operations within one flow.
-
-A note and a reply often contain overlapping information. I saw cases where the model wrote the note but never spoke, or spoke but never saved the note.
-
-So I added structural validation.
-
-Whenever a persona speaks, a note is also required. When only a note is wanted, the speak step is still mandatory but must contain an empty string. This forces the model to make an explicit decision about whether to speak on every run.
-
-For schedules, overlap between the note and the schedule entry is harmless, so I merged them into a single operation.
-
-I also narrowed what each model sees.
-
-The workflow schema is built dynamically from the tools available to that persona. A persona that cannot create schedules never sees schedule-related schema. I also removed optional fields wherever possible so that required fields stand out clearly.
-
-Finally, incorrectly creating or omitting a schedule can badly damage user trust.
-
-Any workflow that goes beyond writing notes and speaking — schedules, external tools, or memory deletion — is therefore reviewed by Super before execution.
-
-A note-and-speak workflow is also reviewed when the persona has access to the schedule tool, because a reply that promises a time without actually scheduling anything has exactly that shape.
-
-If the workflow contradicts what the persona read, or the reply promises a time without a matching schedule operation, the workflow is returned to the persona rather than executed.
-
-The review itself is a required tool call. If the reviewer submits a verdict the application cannot read, the error goes back to the reviewer as the tool result, and it can submit again, up to three attempts.
-
-Anything that can be verified deterministically in code is verified in code. Only the remaining judgment is sent to a model.
-
----
-
-## How did Nemotron's performance compare to other models you've used for similar tasks?
-
-Compared with models I have used for agentic tasks so far, including the Gemini family, Nemotron has been competitive in both tool calling and Japanese-language quality.
-
-Super and Ultra reliably honor `tool_choice: "required"`, which was especially important for an application that turns model output into structured operations rather than simply displaying generated text.
-
-Two behaviors stood out.
-
-### Omitting the second of a paired operation
-
-When the same intent had to appear in two different forms — a note and a reply, or a time promised in a reply and the corresponding schedule entry — the second operation was sometimes omitted.
-
-I addressed this by changing the workflow structure so that the second decision cannot be skipped, rather than trying to reinforce the instruction through prompt wording alone.
-
-### Literalism toward examples
-
-Values included only as illustrations were sometimes adopted verbatim: the travel mode in a route-search example, a time expression in a shared prompt, or a web search included only to demonstrate a format.
-
-I observed this on Ultra as well.
-
-Because it did not look like a simple comprehension failure, I addressed it by minimizing what each persona sees instead of adding more instructions.
-
-The most unexpected difference appeared in the lightweight tier.
-
-Lightning was slower than Super on routing because of its long reasoning traces. Disabling thinking fixed the latency problem but sharply reduced routing quality.
-
-To see whether this behavior was inherent to low-cost reasoning models, I ran the same 20 posts through **OpenAI GPT Luna**, using OpenRouter's Exacto provider and the same required-tool-call setup.
-
-This was a diagnostic comparison, not a model-selection exercise.
-
-* **Luna, reasoning on:** avg latency 3.65 s | baseline match 19/20 | cost/post about $0.00042 (0.063 JPY)
-* **Luna, reasoning off:** avg latency 2.02 s | p95 2.83 s | baseline match 19/20 | cost/post about $0.00037 (0.055 JPY)
-
-Luna retained the same baseline-match score with reasoning disabled.
-
-Its single mismatch changed: with reasoning enabled, it delivered a post to an unrelated persona; with reasoning disabled, it dropped the routine persona from a same-day plan.
-
-But in both configurations it remained a single mismatch rather than a broad collapse.
-
-I therefore interpret the degradation I observed when disabling thinking as a characteristic of the lightweight Nemotron models on this particular multi-condition routing task, rather than an unavoidable property of all low-cost reasoning models.
-
-Japanese tokenization differs across model families, so token counts are not directly comparable. The costs above are the actual charges I observed.
-
-Within Nemotron, the resulting architecture is straightforward:
-
-Super handles routing and normal persona responses. Lightning with thinking disabled handles narrow, contained tasks. Ultra is used when an error has a larger downstream effect or when the user explicitly asks for a deeper answer.
-
----
-
-## Which Nebius platform capabilities were most valuable to your project and how?
-
-**Token Factory was by far the most valuable.**
-
-I originally built an OpenAI-compatible abstraction that allowed users to choose among several AI providers.
-
-After using Nemotron through Token Factory and confirming both output quality and actual costs in the usage dashboard, I made Nemotron the default for all three text-generation model slots.
-
-Image understanding with GLM-5.3-Flash and embeddings with Qwen3-Embedding-8B are available behind the same Token Factory API, so the default kakeratta configuration can use a single inference platform rather than requiring users to configure several providers.
-
-Advanced users can still point individual model slots elsewhere, and kakeratta also offers Jev as an optional Router, but ordinary use does not require users to choose a provider or model.
-
-### Native tool calling
-
-`tool_choice: "required"` allowed me to implement structured operations as real tool calls instead of asking models to generate JSON strings inside normal text responses.
-
-That became the foundation of routing, persona workflows, execution review, and other structured behavior.
-
-### Usage visibility
-
-Seeing consumption and actual cost per model in one place made it possible to decide which work justified Ultra and which belonged on a cheaper tier.
-
-The usage figures in the dashboard were what originally pushed me to redesign the Router rather than simply keeping Ultra everywhere.
-
-The application itself runs on Google Cloud Run and Firestore and calls the Token Factory public API over HTTPS. I did not provision GPU instances on Nebius.
-
-I chose Google Cloud because I already work fluently with Terraform on GCP and wanted to spend a short hackathon building the product rather than learning a new infrastructure stack at the same time.
-
----
-
-## How likely are you to recommend running Nemotron on Nebius to other developers?  
-
-### 1 = Unlikely, 10 = Highly Likely
+## How would you rate Nemotron's output quality for your use case? (1 = Poor, 10 = Excellent)
 
 7 / 10
 
-I would recommend it to developers and teams building AI-centric services that need to use different model sizes for different kinds of work.
+The strongest parts were native tool calling and Japanese-language quality. With tool_choice: "required", Super and Ultra reliably returned valid tool calls, which became the foundation for kakeratta’s routing, persona workflows, and execution review. Japanese posts and responses also worked naturally, and I encountered no language-related problems.
+
+The main difficulty was consistency in multi-step instructions. In one representative case, an example in my route-search tool specification contained "mode": "foot", and the travel persona copied that value literally, answering “about 259 minutes on foot” for a distance that clearly called for driving.
+
+I also encountered cases where a model exposed its internal plan in the user-facing reply, recorded a future event as already completed, or promised a time without creating the corresponding schedule. I observed these issues with Ultra as well as Super.
+
+Rather than relying on prompt tuning alone, I changed the application structure: workflows are validated before execution, models see only the tools and schema relevant to their role, and deterministic checks are handled in code. The original failures are now covered by regression tests.
+
+Tool calling and Japanese-language quality were strong, but reliable multi-step execution still required application-level safeguards, so I rate the raw output quality 7 / 10.
+
+## Did you fine-tune, prompt-engineer, or use Nemotron out of the box? What was your approach?
+
+I did not fine-tune. I combined prompt engineering, native tool calling, structured output, and application-level constraints on persona actions.
+
+1. Shifting the Router from “judgment” to “condition matching”
+
+Initially, Lightning directly judged which persona should receive a post. Each persona description included what that persona was trying to accomplish, and this led to misrouting: personas that clearly should have responded were sometimes not selected.
+
+I temporarily switched the Router to Ultra. It was not perfect either, but it responded predictably to prompt changes and reached acceptable routing quality after several adjustments.
+
+I then reconsidered the design itself. A single post can trigger multiple inferences, so even a relatively inexpensive Router matters when it runs on every post. For a Personal AI product, users should not have to wonder whether a note is worth sending to an LLM.
+
+This led to a different hypothesis: if larger models were making better decisions while lightweight models struggled, perhaps the criteria I was giving the Router were too complicated.
+
+Instead of describing what each persona does, the application now gives the Router a short, explicit condition describing which posts that persona should handle.
+
+Ultra generates these conditions infrequently. The high-frequency Router only decides whether each post matches them.
+
+I also made excluded_reasons mandatory for every persona that was not selected. Since concrete examples had sometimes distorted model behavior elsewhere in the application, I removed examples from the Router prompt as well.
+
+2. Choosing the Router model by measurement
+
+With the conditions simplified, I replayed the 20 most recent posts from my own everyday use of kakeratta across several Nemotron models.
+
+Each model received the same posts, persona conditions, and thread context, with call order rotated per case. The replay did not activate personas, execute tools, or modify production data.
+
+I manually labeled the expected routing for all 20 posts against the six persona conditions active at the time. This was a post-hoc baseline created after seeing the model outputs, not a pre-registered ground-truth dataset.
+
+* Nemotron 3 Super: avg 1.91 s | p95 2.53 s | $0.00065/post (0.098 JPY) | baseline match 17/20
+* Nemotron 3 Ultra: avg 2.28 s | p95 2.64 s | $0.00300/post (0.449 JPY) | baseline match 19/20
+* Nemotron 3.5 Lightning: avg 6.55 s | p95 9.28 s | $0.00047/post (0.070 JPY) | baseline match 17/20
+* Nemotron 3 Nano: avg 9.26 s | p95 22.85 s | $0.00046/post (0.069 JPY) | baseline match 19/20
+
+Converted at 1 USD = 150 JPY.
+
+The surprising result was that the lightweight models were the slowest. Lightning and Nano each generated about 31,000 output tokens across the 20 calls — roughly seven times Super’s output — because thinking was enabled.
+
+I tested disabling thinking with chat_template_kwargs.enable_thinking: false.
+
+Latency improved sharply, to 1.40 s for Lightning and 1.16 s for Nano, but routing quality deteriorated. Nano fell from 19/20 to 11/20, with clear errors against the persona conditions. Lightning showed similar degradation.
+
+For this workload, the reasoning trace was not merely overhead; it was contributing to judgment quality.
+
+Super therefore became the default Router. At 1.91 s it was the fastest Nemotron model I measured with thinking enabled, while costing roughly one fifth as much as Ultra. Its three mismatches were concentrated around one boundary condition — whether the routine persona should also receive same-day plans — rather than unrelated routing failures.
+
+I use Lightning only for narrow tasks where mistakes remain contained. One example is deciding whether a reply explicitly asks a persona to correct or deepen an answer. With thinking disabled, Lightning matched Super on all 15 test replies while running at 0.67 s versus 1.30 s and at roughly one fifth of the cost.
+
+If Lightning returns yes, the persona answers again on Ultra with a larger reading budget. A false positive costs one Ultra call; a false negative simply leaves the conversation on Super.
+
+3. Letting users improve the Router
+
+Exposing excluded_reasons led to a feature I had not originally planned.
+
+When a routing decision feels wrong, users can say that they wanted a persona to answer, did not want it to answer, and optionally explain why.
+
+An agentic rewrite step updates that persona’s routing condition from the feedback and checks the same post through the Router. If the previously missed persona is selected, kakeratta accepts that decision without routing again and runs the persona’s normal turn on the original post, including its reply and memory updates. Reply feedback works similarly: the user can accept a revised response and apply that exact preview to the original thread.
+
+Even Ultra could not infer every user’s preferred boundaries perfectly. Rather than trying to build a perfect universal Router, I designed one whose decisions users can inspect, correct, and refine over time.
+
+4. Constraining persona actions as workflows
+
+Personas do not execute actions directly. They submit an ordered workflow, which the application validates before executing step by step.
+
+One recurring problem was reliably performing two related operations. A model might write a note but omit the reply, or promise a time in its reply without creating the corresponding schedule.
+
+I addressed this structurally rather than by adding more prompt instructions.
+
+Whenever a persona speaks, a note is also required. When only a note is needed, the speak step is still mandatory but contains an empty string, forcing an explicit decision on every run. Schedule information is combined with its corresponding note where duplication is harmless.
+
+The workflow schema is also built dynamically from the tools available to each persona. A persona that cannot create schedules never sees schedule-related schema, and optional fields are minimized.
+
+Workflows involving schedules, external tools, or memory deletion are reviewed by Super before execution. The same review is applied when a schedule-capable persona speaks without scheduling, because that is the shape of a common failure: promising a time without actually creating the schedule.
+
+Anything that can be verified deterministically is checked in code. Only the remaining judgment is sent to the model.
+
+## How did Nemotron's performance compare to other models you've used for similar tasks?
+
+Compared with models I have used for agentic tasks, including the Gemini family, Nemotron has been competitive in both tool calling and Japanese-language quality.
+
+Super and Ultra reliably honor tool_choice: "required", which was especially important for an application that turns model output into structured operations rather than simply displaying generated text.
+
+Two behaviors stood out during development.
+
+Omitting the second of a paired operation. When the same intent had to appear in two forms — such as a note and a reply, or a time promised in a reply and the corresponding schedule entry — Nemotron sometimes omitted the second operation. I addressed this structurally by making these decisions explicit in the workflow rather than adding more prompt instructions.
+
+Literalism toward examples. Values included only as illustrations were sometimes adopted verbatim, such as the travel mode in a route-search example. I observed this with Ultra as well, so I reduced the amount of irrelevant schema and examples each persona sees.
+
+The most interesting comparison came from the Router experiments described above. Disabling thinking made lightweight Nemotron models much faster, but significantly reduced routing quality.
+
+To test whether this was an unavoidable tradeoff for low-cost reasoning models, I ran the same 20 posts through OpenAI GPT Luna using OpenRouter’s Exacto provider and the same required-tool-call setup.
+
+* Luna, reasoning on: avg latency 3.65 s | baseline match 19/20 | about $0.00042/post (0.063 JPY)
+* Luna, reasoning off: avg latency 2.02 s | p95 2.83 s | baseline match 19/20 | about $0.00037/post (0.055 JPY)
+
+Unlike the lightweight Nemotron models, Luna retained the same baseline-match score with reasoning disabled.
+
+This suggests that the degradation I observed when disabling thinking was specific to the lightweight Nemotron models on this multi-condition routing task, rather than an unavoidable property of low-cost reasoning models in general.
+
+Japanese tokenization differs across model families, so token counts are not directly comparable. The costs above are the actual charges I observed.
+
+## Which Nebius platform capabilities were most valuable to your project and how?
+
+Token Factory was by far the most valuable.
+
+kakeratta originally had an OpenAI-compatible abstraction that allowed users to choose among several AI providers.
+
+After using Nemotron through Token Factory and measuring both output quality and actual cost, I made Nemotron the default for all three text-generation model roles.
+
+Image understanding with GLM-5.3-Flash and embeddings with Qwen3-Embedding-8B are available through the same Token Factory API. This means the default kakeratta configuration can use text generation, vision, and embeddings through a single inference platform rather than requiring users to configure multiple providers.
+
+Advanced users can still point individual model roles elsewhere, but ordinary use does not require choosing a provider or model.
+
+Native tool calling was particularly important. tool_choice: "required" allowed kakeratta to implement routing, persona workflows, and execution review as actual tool calls rather than asking models to generate JSON inside normal responses.
+
+Usage visibility also directly influenced the architecture. Being able to see consumption and actual cost by model helped me decide which work justified Ultra and which belonged on a cheaper tier. Those measurements were one reason I redesigned the Router instead of simply using Ultra everywhere.
+
+The application itself runs on Google Cloud Run and Firestore and calls the Token Factory public API over HTTPS. I did not provision GPU instances on Nebius. I chose Google Cloud for the application infrastructure because I already work fluently with Terraform on GCP and wanted to spend the hackathon building the product rather than learning a new infrastructure stack at the same time.
+
+## How likely are you to recommend running Nemotron on Nebius to other developers? (1 = Unlikely, 10 = Highly Likely)
+
+7 / 10
+
+I would recommend it to developers and teams building AI-centric services that benefit from using different model sizes for different kinds of work.
 
 Having Lightning, Super, and Ultra behind one API made it easy to experiment with model allocation and compare latency, quality, and actual cost without changing providers.
 
-The standout model in this project was **Super**. It was capable, fast, and affordable enough to become the center of kakeratta's agentic workload, handling routing, normal persona responses, and workflow review.
+The standout model in this project was Super. It was capable, fast, and affordable enough to become the center of kakeratta’s agentic workload.
 
-Token Factory was also reliable during development. At my usage volume, I did not encounter rate-limit errors or inference timeouts, even when a single user action triggered several concurrent and chained model calls.
-
-The main reason I stopped at **7 / 10** is that the surrounding platform is still less mature than the inference experience itself.
+The main reason I stopped at 7 / 10 is that the surrounding platform is still less mature than the inference experience itself.
 
 The official Nebius Terraform provider is less established than the equivalent GCP tooling, public examples are comparatively limited, and, in my experience, coding-assistant models have less knowledge of Nebius infrastructure.
 
 AI-assisted implementation was central to this project, so I kept the application infrastructure on Google Cloud, where I could move faster.
 
-I would therefore recommend Nemotron on Nebius particularly for teams that want reliable hosted inference across several model sizes. As the infrastructure tooling, documentation, examples, and coding-model knowledge around Nebius mature, it will become easier to move more of the overall application stack there as well.
+I would therefore recommend Nemotron on Nebius particularly for teams looking for hosted inference across several model sizes. As the infrastructure tooling, documentation, examples, and coding-model knowledge around Nebius mature, it will become easier to move more of the overall application stack there as well.
 
----
+## How would you rate your experience running Nemotron inference on Nebius compared to previous cloud or local development environments? (1 = Poor, 10 = Excellent)
 
-## How would you rate your experience running Nemotron inference on Nebius compared to previous cloud or local development environments?
+1 = Poor, 10 = Excellent
 
-### 1 = Poor, 10 = Excellent
+8 / 10
 
-**8 / 10**
+The biggest difference from a local environment was being able to call whichever model I needed immediately.
 
-The biggest difference from a local environment is being able to call whichever model I need immediately.
-
-Running several large models simultaneously on personal hardware is impractical, switching between them requires loading and unloading models, and Ultra-class models are not realistic to run locally.
-
-The model comparison that determined kakeratta's current architecture would simply not have been practical on my own hardware.
+Running several large models simultaneously on personal hardware is impractical, switching between them requires loading and unloading models, and Ultra-class models are not realistic to run locally. The model comparisons that determined kakeratta’s current architecture would not have been practical on my own hardware.
 
 Compared with other cloud AI APIs, the most striking quality was stability.
 
-With other APIs, I have encountered `429 Too Many Requests` responses during development with as few as four concurrent calls.
+With other APIs, I have encountered 429 Too Many Requests responses during development with as few as four concurrent calls. During this project and at my usage volume, I did not encounter a single 429 response or inference timeout from Token Factory.
 
-Reducing concurrency to avoid those limits slows the application down, while breaking work into smaller pieces increases both call count and implementation complexity.
+That mattered because one kakeratta post can fan out into several concurrent and chained model calls. After routing, selected personas run in parallel, and each persona may read data, submit a workflow, have that workflow reviewed, and retry if the review rejects it. A failure anywhere in that chain can cause that persona’s turn to be lost.
 
-For an end-user product, failures and delays that the user did not cause are serious problems.
+Usage visibility was another advantage. As I changed how Lightning, Super, and Ultra were allocated, I could immediately see the effect on actual spending by model.
 
-During my development period and at my usage volume, I did not encounter a single `429` response or timeout from Token Factory.
+The main limitation was image handling. Although multimodal Nemotron models exist, they were not available through the Token Factory public API I used. kakeratta therefore analyzes each image once with GLM-5.3-Flash and passes the result to personas as text.
 
-That mattered because one kakeratta post fans out into concurrent work.
+This keeps the entire default model stack within Token Factory, but a persona cannot return to the original image to inspect a detail that the first analysis omitted.
 
-After routing, every selected persona runs at the same time. Each persona can itself trigger a chain of calls: reading, submitting a workflow, workflow review, and potentially a retry if the review rejects it.
-
-A single failure anywhere in that chain can cause that persona's turn to be lost, so inference reliability has a direct effect on the user experience.
-
-Usage visibility also helped. Whenever I changed how Lightning, Super, and Ultra were allocated, I could immediately see how the architecture affected actual spending by model.
-
-Images were the main constraint.
-
-Although multimodal Nemotron models exist, they were not available through the Token Factory public API I used, so kakeratta analyzes each image once with GLM-5.3-Flash through Token Factory and passes the result to personas as text.
-
-I never had to leave the provider, but a persona cannot return to the original image and inspect a detail that the first analysis omitted. That places a ceiling on accuracy.
-
-I rate the experience **8 / 10**: immediate access to models of different sizes, reliability across concurrent and chained calls, and clear usage visibility were major strengths. Direct image input to the persona models would improve it further.
-
----
+I rate the experience 8 / 10: immediate access to different model sizes, stability across concurrent and chained calls, and clear usage visibility were major strengths. Direct image input to the persona models would improve it further.
 
 ## What additional features or improvements would have made the Nemotron on Nebius experience more effective for your project?
 
-What I wanted most was **per-end-user authentication, usage, and billing**, so Token Factory could be embedded directly into a consumer application.
+What I wanted most was per-end-user authentication, usage, and billing, so Token Factory could be embedded more directly into a consumer application.
 
 I currently have two choices.
 
 One is to ask every user to create a Nebius account and provide their own API key. That creates a substantial onboarding barrier for ordinary users.
 
-The other is to use the developer's Token Factory credential server-side for everyone. In that case, the application itself must track each user's token consumption, models used, input and output pricing for each model, and resulting cost.
+The other is to use the developer’s Token Factory credential server-side for everyone. In that case, the application itself must track each user’s token consumption, models used, model pricing, and resulting cost.
 
-An end-user scope below Project would solve this.
-
-I would like to be able to:
+An end-user scope below Project would solve this. I would like to be able to:
 
 * issue and revoke credentials for individual end users
 * retrieve priced usage for each credential through an API
 * set per-user spending limits or prepaid balances
 * add balance from the application
-* automatically suspend inference when that user's balance reaches zero
+* automatically suspend inference when that user’s balance reaches zero
 
 This would remove the need for every application developer to build their own token accounting and per-model price calculation.
 
-A small starter allowance for new users would be especially useful.
+A small starter allowance for new users would also be useful. A Personal AI only starts showing its real value after enough memory has accumulated for it to recall earlier events and respond when those memories become relevant. Requiring API-key setup and billing configuration before users reach that point creates significant friction.
 
-A Personal AI only starts showing its real value after enough memory has accumulated for it to remember earlier events and respond selectively when those memories become relevant.
-
-Requiring API-key setup and billing configuration before users reach that point is a poor fit for this category of application.
-
-kakeratta currently uses the same bring-your-own-key approach for Tavily, and that experience reinforced my view that consumer AI products should minimize per-service credential setup wherever possible.
-
-The second improvement I want is the same kind of spending control for developers themselves: an option to disable automatic charging so that inference simply stops when available credit reaches zero.
+The second improvement I want is the same kind of spending control for developers themselves: an option to disable automatic charging and stop inference when available credit reaches zero.
 
 I could not find such a setting during the hackathon.
 
 During development, a coding agent picked up my Token Factory key from an environment variable and used it without my intending it to. My remaining $25 credit was exhausted, followed by a $55 invoice.
 
-A bug or runaway agent loop could create the same problem.
-
-A hard spending stop would make it substantially safer to keep an API credential in an active development environment.
-
----
+A bug or runaway agent loop could create the same problem. A hard spending limit would make it substantially safer to keep an API credential in an active development environment.
 
 ## What do you most hope to see from the Nemotron team next?
 
-### 1. A Nemotron model specialized for decisions
+1. A Nemotron model specialized for structured decisions
 
-kakeratta's Router evaluates every post against several persona conditions and decides which personas should receive it.
+kakeratta’s Router evaluates every post against several persona conditions and decides which personas should receive it.
 
 It does not need prose. It needs an accurate, fast, structured decision.
 
-My Nemotron benchmarks showed that the lightweight tier could either reason for a long time and remain reasonably accurate, or become fast when thinking was disabled but lose too much accuracy on this multi-condition task.
+My benchmarks showed that the lightweight Nemotron models could either reason for a long time and remain reasonably accurate, or become fast when thinking was disabled but lose too much accuracy on this multi-condition task.
 
 Super is currently the most practical Nemotron option, but it is still a large model for what is essentially a classification layer.
 
-The limitation is not short judgment in general.
+The limitation is not short judgment in general. Lightning with thinking disabled performs well on a narrow yes/no task in kakeratta — deciding whether a user explicitly asks for a deeper answer — and matched Super on all 15 test cases. The difficulty appears when one input must be evaluated against many conditions simultaneously.
 
-Lightning with thinking disabled already performs one narrow yes/no judgment in kakeratta — whether a reply explicitly asks for a deeper answer — and matched Super on all 15 test cases.
+Late in development, I benchmarked TypeSafe’s Jev on the same 20 routing cases. It averaged 0.37 s, cost roughly one seventeenth of Ultra per call, and matched my post-hoc baseline on all 20/20 posts.
 
-The difficulty appears when a single post must be evaluated against many conditions simultaneously.
+That profile was compelling enough that kakeratta now offers Jev as an optional Router. Super remains the default because Jev does not return exclusion reasons, while kakeratta’s routing-inspection and persona-refinement features depend on them.
 
-Late in the development period, I also benchmarked **TypeSafe's Jev** on the same 20 posts.
+What I want from Nemotron is therefore not simply a smaller general-purpose model. I want a model optimized for structured judgment across many conditions, without needing to generate a long reasoning trace.
 
-Jev returns typed decisions instead of generated prose or reasoning traces.
+Routing, validation, and workflow review often need only a typed decision. A first-party model of that shape inside Token Factory could move more of kakeratta’s high-frequency decision layer from Super onto a smaller model without leaving the Nemotron ecosystem.
 
-It averaged **0.37 s**, cost roughly **one seventeenth of Ultra per call**, and matched my post-hoc baseline on all **20/20** posts.
-
-That profile was compelling enough that kakeratta now offers Jev as an optional Router for users who prioritize sub-second routing.
-
-Super remains the default because Jev does not return exclusion reasons, while kakeratta's routing-inspection UI and persona-refinement feature are built around those reasons.
-
-What I want from Nemotron is therefore not simply a smaller general-purpose model.
-
-I want a model optimized for **structured judgment across many conditions**, without needing to generate a long reasoning trace.
-
-Routing, validation, and workflow review often need only the final typed decision. A long generated reasoning trace translates directly into latency and cost.
-
-A first-party model of that shape inside Token Factory would let me keep more of the high-frequency decision layer within the Nemotron ecosystem while moving work that currently requires Super onto a smaller dedicated model.
-
-### 2. A consolidated retrieval API
+2. A consolidated retrieval API
 
 The second thing I would like is a retrieval API that combines embedding, reranking, and storage.
 
-Ideally, an application could register data under a store name, reference that store during inference, and have relevant information retrieved and supplied as context automatically.
-
-The individual building blocks already exist in the broader Nemotron ecosystem, including Nemotron embedding models, although I did not evaluate those models during this project.
+Ideally, an application could register data under a store, reference that store during inference, and have relevant information retrieved and supplied as context automatically.
 
 kakeratta currently generates embeddings with Qwen3-Embedding-8B and implements vector storage and search itself with Firestore.
 
-The part I want to spend product-development time on is **what should be remembered and when that memory should be used**, not where vectors should be stored or how they should be retrieved.
-
----
+The part I want to spend product-development time on is what should be remembered and when that memory should be used, not where vectors should be stored or how they should be retrieved.
 
 ## Did you use Tavily in your project?
 
 **Yes**
-
