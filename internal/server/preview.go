@@ -27,3 +27,18 @@ func (s *Server) previewReply(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, preview)
 }
+
+func (s *Server) applyReply(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := readJSON(r, &body); err != nil || body.Token == "" {
+		fail(w, http.StatusBadRequest, "試し書きを指定してください")
+		return
+	}
+	if err := s.runner.ApplyReply(body.Token, r.PathValue("id")); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"applied": true})
+}

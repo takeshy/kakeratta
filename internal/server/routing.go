@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -118,4 +120,21 @@ func (s *Server) checkRouting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, check)
+}
+
+func (s *Server) applyRouting(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := readJSON(r, &body); err != nil || body.Token == "" {
+		fail(w, http.StatusBadRequest, "確認結果を指定してください")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Minute)
+	defer cancel()
+	if err := s.runner.ApplyRouting(ctx, body.Token, r.PathValue("id")); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"applied": true})
 }

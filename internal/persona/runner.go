@@ -85,15 +85,19 @@ type Runner struct {
 	// concurrently with the wave that delivered it, so without this a write
 	// racing the other could read a stale copy and silently drop the other
 	// persona's just-recorded reply.
-	routingMu sync.Mutex
+	routingMu     sync.Mutex
+	trialMu       sync.Mutex
+	routingTrials map[string]routingTrial
+	replyTrials   map[string]replyTrial
 }
 
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
 	r := &Runner{
 		store: s, catalogue: catalogue, clientOf: clientOf,
-		search: search.New(s),
-		emit:   func(string, any) {},
-		done:   make(chan struct{}),
+		search:        search.New(s),
+		emit:          func(string, any) {},
+		done:          make(chan struct{}),
+		routingTrials: map[string]routingTrial{}, replyTrials: map[string]replyTrial{},
 	}
 	r.wake = sync.NewCond(&r.stopMu)
 	return r
@@ -304,6 +308,7 @@ type RoutingCheck struct {
 	Delivered bool   `json:"delivered"`
 	Reason    string `json:"reason,omitempty"`
 	Error     string `json:"error,omitempty"`
+	Token     string `json:"token,omitempty"`
 }
 
 func routeConfigured(ctx context.Context, client *llm.Client, settings store.Settings, skills []Skill, thread []Entryish, trigger Entryish) Routing {
@@ -351,6 +356,11 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 	if routing.Answered {
 		check.Delivered = contains(routing.Deliver, skillID)
 		check.Reason = routing.Excluded[skillID]
+		check.Token = store.NewID("trial")
+		r.trialMu.Lock()
+		r.pruneTrials(time.Now())
+		r.routingTrials[check.Token] = routingTrial{entryID: entryID, personaID: skillID, text: entry.Text, delivered: check.Delivered, reason: check.Reason, at: time.Now()}
+		r.trialMu.Unlock()
 	}
 	return check, nil
 }

@@ -17,6 +17,7 @@ import (
 type ReplyPreview struct {
 	Spoke string `json:"spoke"`
 	Quiet bool   `json:"quiet"`
+	Token string `json:"token,omitempty"`
 	// Notes are the paths it would have written, had this been a real turn.
 	Notes []string `json:"notes"`
 	Error string   `json:"error,omitempty"`
@@ -90,7 +91,8 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 	// The same runner code over a workspace that keeps nothing, so the turn
 	// is the real thing without any of its consequences.
 	notes := []string{}
-	sandbox := New(&dryWorkspace{Workspace: r.store, notes: &notes}, r.catalogue, r.clientOf)
+	workspace := &dryWorkspace{Workspace: r.store, notes: &notes}
+	sandbox := New(workspace, r.catalogue, r.clientOf)
 	sandbox.search, sandbox.tools = r.search, r.tools
 	var problems []string
 	sandbox.emit = func(name string, data any) {
@@ -106,6 +108,13 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 	if said != nil {
 		preview.Spoke = said.Text
 	}
+	if said != nil && preview.Error == "" && workspace.remark != nil {
+		preview.Token = store.NewID("trial")
+		r.trialMu.Lock()
+		r.pruneTrials(time.Now())
+		r.replyTrials[preview.Token] = replyTrial{entryID: entryID, personaID: skillID, original: remark.Text, remark: workspace.remark, notes: workspace.changes, at: time.Now()}
+		r.trialMu.Unlock()
+	}
 	return preview, nil
 }
 
@@ -115,19 +124,25 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 type dryWorkspace struct {
 	store.Workspace
 	// notes collects the paths a preview would have written.
-	notes *[]string
+	notes   *[]string
+	remark  *timeline.Entry
+	changes []noteChange
 }
 
-func (d *dryWorkspace) Append(timeline.Entry) error     { return nil }
-func (d *dryWorkspace) RecordWake(string, string) error { return nil }
-func (d *dryWorkspace) SaveMemory(store.Memory) error   { return nil }
-func (d *dryWorkspace) WriteNote(_, path, _ string, _ ...store.NoteSource) error {
+func (d *dryWorkspace) Append(entry timeline.Entry) error { d.remark = &entry; return nil }
+func (d *dryWorkspace) RecordWake(string, string) error   { return nil }
+func (d *dryWorkspace) SaveMemory(store.Memory) error     { return nil }
+func (d *dryWorkspace) WriteNote(_, path, content string, sources ...store.NoteSource) error {
 	if d.notes != nil {
 		*d.notes = append(*d.notes, path)
 	}
+	d.changes = append(d.changes, noteChange{path: path, text: content, sources: append([]store.NoteSource(nil), sources...)})
 	return nil
 }
-func (d *dryWorkspace) DeleteNote(string, string) error                          { return nil }
+func (d *dryWorkspace) DeleteNote(_, path string) error {
+	d.changes = append(d.changes, noteChange{path: path, delete: true})
+	return nil
+}
 func (d *dryWorkspace) NotesBySource(string, string) ([]string, error)           { return nil, nil }
 func (d *dryWorkspace) DropNoteSource(string, string) ([]string, error)          { return nil, nil }
 func (d *dryWorkspace) SaveRouting(string, store.Routing) error                  { return nil }

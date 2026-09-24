@@ -16,7 +16,7 @@ async function call(method, path, body) {
   // take minutes; everything else should be back well inside 45 seconds.
   // Closing an account waits for the reaction in hand and then walks every
   // capture and note, so it is given the same room.
-  const slow = path === "/api/social/publish" || path.endsWith("/reply/preview") || path === "/api/workspace";
+  const slow = path === "/api/social/publish" || path.endsWith("/reply/preview") || path.endsWith("/routing/apply") || path === "/api/workspace";
   const options = { method, headers: {}, signal: AbortSignal.timeout(slow ? 250000 : 45000) };
   if (user) options.headers["X-Kakeratta-Workspace"] = user;
   if (body !== undefined) {
@@ -106,7 +106,9 @@ export const api = {
   edit: (id, text) => call("PATCH", `/api/entry/${encodeURIComponent(id)}`, { text }),
   routing: (id) => call("GET", `/api/entry/${encodeURIComponent(id)}/routing`),
   checkRouting: (id, persona) => call("POST", `/api/entry/${encodeURIComponent(id)}/routing/check`, { persona }),
+  applyRouting: (id, token) => call("POST", `/api/entry/${encodeURIComponent(id)}/routing/apply`, { token }),
   previewReply: (id, persona) => call("POST", `/api/entry/${encodeURIComponent(id)}/reply/preview`, { persona }),
+  applyReply: (id, token) => call("POST", `/api/entry/${encodeURIComponent(id)}/reply/apply`, { token }),
   fetchURL: (url) => call("POST", "/api/fetch", { url }),
 
   buildPersona: (body) => call("POST", "/api/personas/build", body),

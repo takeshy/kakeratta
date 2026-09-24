@@ -5,10 +5,10 @@
 // than rewriting its tone and instructions in the settings, they say here how
 // it missed; the AI that builds personas rewrites the tone and the
 // instructions - nothing else - and the person can correct both by hand. OK
-// saves them and then has the persona take the same turn again, without any
-// of it landing anywhere, so the difference can be read on the same post. If
-// it still misses, they say how, and it goes round again.
-import { clear, el, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
+// saves them and previews the same turn. Accepting the preview applies its
+// exact reply and note changes to the original thread. If it still misses,
+// they say how and try again.
+import { clear, el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
 
@@ -205,7 +205,17 @@ export function showReplyFix({ persona, remark = null, post, onSaved }) {
       el("p", { class: "hint", text: preview.notes?.length ? t("書くメモ：{0}", preview.notes.join(", ")) : t("（メモは書きません）") }),
       preview.error ? el("p", { class: "hint warn", text: preview.error }) : null,
       el("div", { class: "compose-row" },
-        action("これでよい", "button primary reply-accept", close),
+        preview.token ? action("これでよい", "button primary reply-accept", async () => {
+          if (busy || !preview.token) return;
+          setBusy(true);
+          try {
+            await api.applyReply(target.id, preview.token);
+            if (closed) return;
+            toast(t("この返事をスレッドに反映しました"));
+            close();
+          } catch (e) { error.textContent = e.message; }
+          finally { setBusy(false); }
+        }) : null,
         action("まだ違う", "chip ghost reply-again", () => {
           failure = t("直した口調と指示での返事「{0}」も、まだ期待と違った。", trial);
           said = trial;

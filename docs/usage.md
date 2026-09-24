@@ -123,8 +123,8 @@ called** and **Should not have been called** open the same dialog: say why, the
 persona builder rewrites the condition (only the condition), and the result is
 shown as text you can edit. **Ask the AI to change it** sends a new request
 that works from whatever is in the box. **OK** saves the condition and then has
-the router try the same post again without waking anyone. If it lands as you
-meant, the dialog closes; if not, the router's reason is shown and you are
+the router try the same post again. If a previously missed persona is selected,
+it takes its normal turn on the original post. If the decision is still wrong, the router's reason is shown and you are
 asked again. The save is not rolled back.
 
 **Change how it replies**, on a persona's remark, does the same for the persona's
@@ -133,9 +133,10 @@ the tone and the instructions and nothing else, both shown as text you can
 edit. **OK** saves them and then has the persona take the same turn again on
 the same post (`POST /api/entry/{id}/reply/preview`). The turn is the real
 thing - it reads its notes and may use its lookup tools - but runs over a
-workspace that keeps nothing: no remark is appended, no note or schedule is
-written, no wake is counted. The reply it would give is shown; **That's it**
-closes and **Still not it** asks again with that reply quoted. This call can
+workspace that keeps nothing while previewing. The reply it would give is shown;
+**That's it** applies that exact reply and its note changes to the original
+thread, replacing the old remark or adding a new one. **Still not it** asks
+again with that reply quoted. This call can
 take a few minutes, since a persona's turn may be planned and reviewed.
 
 ## Fast startup and offline posts

@@ -3,9 +3,9 @@
 // The router chose, or passed over, a persona for a post, and the person
 // disagrees. Rather than rewriting the persona's conditions in the settings,
 // they say why here; the AI that builds personas rewrites the condition, the
-// person can correct that text by hand, and OK saves it and then has the
-// router try the same post again. If the post still does not go where it was
-// meant to, they are told - with the router's reason - and asked again.
+// person can correct that text by hand. OK saves it and checks the same post;
+// a newly selected persona then takes its ordinary turn on that post. If the
+// decision is still wrong, the router's reason is shown and they try again.
 import { clear, el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
@@ -196,7 +196,9 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
         return;
       }
       if (include ? check.delivered : !check.delivered) {
-        toast(t("担当条件を保存しました。この投稿は狙いどおりに振り分けられます"));
+		if (include) await api.applyRouting(entry.id, check.token);
+		if (closed) return;
+		toast(t(include ? "担当条件を保存し、この投稿に担当を呼びました" : "担当条件を保存しました。この投稿は狙いどおりに振り分けられます"));
         close();
         return;
       }

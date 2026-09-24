@@ -69,7 +69,8 @@ test("a condition is written from the reason, corrected by hand or by the AI, sa
   const drafts = ["飲食店を含む、移動や場所の話。", "飲食店への行き方を含む、移動や場所の話。"];
   t.mock.method(api, "buildPersona", async () => ({ message: "直しました", draft: { ...persona, domain: drafts.shift() } }));
   t.mock.method(api, "savePersonaDraft", async (skill) => skill);
-  t.mock.method(api, "checkRouting", async () => ({ answered: true, delivered: true }));
+  t.mock.method(api, "checkRouting", async () => ({ answered: true, delivered: true, token: "route-1" }));
+  t.mock.method(api, "applyRouting", async () => ({ applied: true }));
   let reloaded = 0;
   showConditionFix({ persona, entry, direction: "include", reason: "移動の話ではない", onSaved: () => { reloaded++; } });
 
@@ -121,6 +122,7 @@ test("a condition is written from the reason, corrected by hand or by the AI, sa
   assert.equal(api.savePersonaDraft.mock.calls[0].arguments[1], "move");
   assert.equal(reloaded, 1);
   assert.deepEqual(api.checkRouting.mock.calls[0].arguments, ["p", "move"]);
+  assert.deepEqual(api.applyRouting.mock.calls[0].arguments, ["p", "route-1"]);
   assert.equal(document.body.children.length, 0, "landing as meant closes the dialog");
 });
 
@@ -131,8 +133,9 @@ test("a saved condition that still routes wrongly is reported and asked about ag
   setup(t);
   t.mock.method(api, "buildPersona", async (body) => ({ message: "", draft: { ...body.current, domain: body.current.domain + " 追加。" } }));
   t.mock.method(api, "savePersonaDraft", async (skill) => skill);
-  const checks = [{ answered: true, delivered: true }, { answered: false, error: "routing is not configured" }, { answered: true, delivered: false }];
+  const checks = [{ answered: true, delivered: true }, { answered: false, error: "routing is not configured" }, { answered: true, delivered: false, token: "route-2" }];
   t.mock.method(api, "checkRouting", async () => checks.shift());
+  t.mock.method(api, "applyRouting", async () => ({ applied: true }));
   showConditionFix({ persona, entry, direction: "exclude", onSaved: () => {} });
 
   one(".condition-note").value = "名前が出ただけ";
@@ -167,6 +170,7 @@ test("a saved condition that still routes wrongly is reported and asked about ag
   button("OK").fire("click");
   await settle();
   assert.equal(api.savePersonaDraft.mock.calls.length, 2, "an unchanged condition is not saved twice");
+  assert.equal(api.applyRouting.mock.calls.length, 0, "excluding a past recipient does not erase its existing turn");
   assert.equal(document.body.children.length, 0);
 });
 

@@ -319,6 +319,8 @@ words.
 The AI rewrites the persona's routing condition and tries the same post again
 to make sure. The new condition is shown as text and can be edited before
 saving.
+If a previously missed persona is selected, it answers the original post and
+writes its notes there.
 
 The same mechanism works in the other direction when a persona was called when
 it should not have been.
@@ -336,7 +338,8 @@ and tools stay.
 
 On save, the same persona is stood up on the same post again for a trial reply.
 
-Nothing lands in the timeline and no note or schedule is written.
+The trial stays out of the timeline until you accept it. **Good** applies its
+exact reply and note changes to the original thread.
 
 You judge the result.
 

@@ -70,7 +70,8 @@ test("a reply is disputed, the tone and instructions are rewritten, saved, and t
   // The AI always changes the tone; a second round on the saved tone changes it again.
   t.mock.method(api, "buildPersona", async (body) => ({ message: "直しました", draft: { ...body.current, tone: body.current.tone === "短く一言" ? "一言だけ" : "短く一言", instructions: "前の店との違いを言う", domain: "変えてはいけない" } }));
   t.mock.method(api, "savePersonaDraft", async (skill) => skill);
-  t.mock.method(api, "previewReply", async () => ({ spoke: "ごまが前に出る店は前も苦手でしたね。", quiet: false }));
+  t.mock.method(api, "previewReply", async () => ({ spoke: "ごまが前に出る店は前も苦手でしたね。", quiet: false, token: "reply-1" }));
+  t.mock.method(api, "applyReply", async () => ({ applied: true }));
   let reloaded = 0;
   showReplyFix({ persona, remark, post, onSaved: () => { reloaded++; } });
 
@@ -131,6 +132,8 @@ test("a reply is disputed, the tone and instructions are rewritten, saved, and t
   button("OK").fire("click");
   await settle();
   button("これでよい").fire("click");
+  await settle();
+  assert.deepEqual(api.applyReply.mock.calls[0].arguments, ["r", "reply-1"]);
   assert.equal(document.body.children.length, 0, "accepting closes");
 });
 
@@ -202,7 +205,7 @@ test("save failures and preview failures are distinguished and retry preserves s
   let previewFails = true;
   t.mock.method(api, "previewReply", async () => {
     if (previewFails) throw new Error("preview failed");
-    return { spoke: "返事", quiet: false };
+    return { spoke: "返事", quiet: false, token: "reply-retry" };
   });
   showReplyFix({ persona, remark, post });
   button("直し方を作る").fire("click");
@@ -247,4 +250,3 @@ test("a quiet turn is disputed from the post and tried again from it", async (t)
   assert.deepEqual(api.previewReply.mock.calls[0].arguments, ["p2", "gourmet"], "the trial runs from the post");
   assert.match(texts(), /ノートンのアルトゥーラ/);
 });
-
