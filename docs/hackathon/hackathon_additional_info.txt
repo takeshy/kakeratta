@@ -14,6 +14,8 @@ Qwen3-Embedding-8B — Embeddings for semantic search over the timeline and pers
 
 I arrived at this allocation through experiments with routing accuracy, latency, cost, reasoning settings, and tool use. Super became the default for high-frequency agentic work, Lightning is limited to tasks where mistakes remain contained, and Ultra is reserved for lower-frequency work where an error can have a larger downstream effect or where the user explicitly asks for deeper reasoning.
 
+The same pattern held outside the main app. Hermes Agent, running in an NVIDIA NemoClaw / OpenShell sandbox with inference routed to Token Factory, connects to kakeratta's MCP server, claims tasks that users address to it, and posts the results back to the original thread. Lightning answered simple prompts there in 2–3 seconds, but in multi-step tool flows it produced incorrect MCP arguments, repeated tool calls, and long troubleshooting loops after errors, so I switched Hermes to Super.
+
 ## How would you rate Nemotron's output quality for your use case? (1 = Poor, 10 = Excellent)
 
 7 / 10
@@ -71,7 +73,7 @@ Latency improved sharply, to 1.40 s for Lightning and 1.16 s for Nano, but routi
 
 For this workload, the reasoning trace was not merely overhead; it was contributing to judgment quality.
 
-Super therefore became the default Router. At 1.91 s it was the fastest Nemotron model I measured with thinking enabled, while costing roughly one fifth as much as Ultra. Its three mismatches were concentrated around one boundary condition — whether the routine persona should also receive same-day plans — rather than unrelated routing failures.
+Super therefore became the default Router. At 1.91 s it was the fastest Nemotron model I measured with thinking enabled, while costing roughly one fifth as much as Ultra. Its three mismatches were concentrated around one boundary condition — whether plana should also receive same-day plans — rather than unrelated routing failures.
 
 I use Lightning only for narrow tasks where mistakes remain contained. One example is deciding whether a reply explicitly asks a persona to correct or deepen an answer. With thinking disabled, Lightning matched Super on all 15 test replies while running at 0.67 s versus 1.30 s and at roughly one fifth of the cost.
 
@@ -166,8 +168,6 @@ I would therefore recommend Nemotron on Nebius particularly for teams looking fo
 
 ## How would you rate your experience running Nemotron inference on Nebius compared to previous cloud or local development environments? (1 = Poor, 10 = Excellent)
 
-1 = Poor, 10 = Excellent
-
 8 / 10
 
 The biggest difference from a local environment was being able to call whichever model I needed immediately.
@@ -232,7 +232,7 @@ Super is currently the most practical Nemotron option, but it is still a large m
 
 The limitation is not short judgment in general. Lightning with thinking disabled performs well on a narrow yes/no task in kakeratta — deciding whether a user explicitly asks for a deeper answer — and matched Super on all 15 test cases. The difficulty appears when one input must be evaluated against many conditions simultaneously.
 
-Late in development, I benchmarked TypeSafe’s Jev on the same 20 routing cases. It averaged 0.37 s, cost roughly one seventeenth of Ultra per call, and matched my post-hoc baseline on all 20/20 posts.
+Late in development, I benchmarked TypeSafe’s Jev on the same 20 routing cases. It averaged 0.37 s, cost about $0.00017 per post (0.026 JPY) — roughly one quarter of the default Super Router — and matched my post-hoc baseline on all 20/20 posts.
 
 That profile was compelling enough that kakeratta now offers Jev as an optional Router. Super remains the default because Jev does not return exclusion reasons, while kakeratta’s routing-inspection and persona-refinement features depend on them.
 
