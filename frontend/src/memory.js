@@ -1,7 +1,7 @@
 // A view of the notes already saved by a persona. No inference or rewriting:
 // unfamiliar metadata and Markdown are always available in the original note.
 import { el, safeLink } from "./dom.js";
-import { t } from "./i18n.js";
+import { getLanguage, t } from "./i18n.js";
 
 function scalar(value) {
   value = value.trim();
@@ -52,7 +52,27 @@ export function parseMemoryNote(note) {
   const heading = body.match(/^#\s+(.+)$/m)?.[1];
   const title = field("title") || heading || note.path.replace(/\.md$/i, "").split("/").pop();
   if (body.startsWith(`# ${title}\n`) || body === `# ${title}`) body = body.slice(title.length + 2).trim();
-  return { ...note, title, type: field("type"), description: field("description"), resource: field("resource"), tags: tagsOf(metadata.tags), body };
+  const expires = field("expires").trim();
+  return {
+    ...note, title, type: field("type"), description: field("description"), resource: field("resource"), tags: tagsOf(metadata.tags), body,
+    expires: expires.toLowerCase() === "never" ? "" : expires,
+  };
+}
+
+// expiresLabel is the date a note asked to be deleted on, as the reader shows
+// it. A bare date is shown as written: passing it through Date would shift it
+// a day in zones behind UTC. A timestamp is shown in the browser's zone.
+export function expiresLabel(expires) {
+  if (!expires) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(expires)) return expires;
+  const at = new Date(expires.replace(" ", "T"));
+  if (Number.isNaN(at.getTime())) return expires;
+  const locale = getLanguage() === "ja" ? "ja-JP" : "en-US";
+  try {
+    return new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(at);
+  } catch {
+    return expires;
+  }
 }
 
 // tagsOf reads the tags however they were written: [a, b], or one per line.
@@ -209,7 +229,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
     else { filter = next; draw(); }
   };
   function tagChips(note) {
-    if (!note.tags?.length && !note.type) return null;
+    if (!note.tags?.length && !note.type && !note.expires) return null;
     return el("div", { class: "memory-tags" },
       note.type ? el("button", {
         class: `chip memory-type${sameType(filter.type, note.type) ? " active" : ""}`, text: typeLabel(note.type), i18nTitle: "この種類のメモだけを表示",
@@ -218,7 +238,8 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       ...(note.tags || []).map((tag) => el("button", {
         class: `chip ghost memory-tag${filter.tag === tag ? " active" : ""}`, text: `#${tag}`, i18nTitle: "このタグのメモだけを表示",
         onclick: () => narrow({ tag: filter.tag === tag ? "" : tag }),
-      })));
+      })),
+      note.expires ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", expiresLabel(note.expires)), i18nTitle: "期限が過ぎると本体が消すメモ" }) : null);
   }
   const openNote = (path) => {
     const card = cards.get(path);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseMemoryNote, memoryLink, createMemoryView, editableBody } from "../frontend/src/memory.js";
+import { parseMemoryNote, memoryLink, createMemoryView, editableBody, expiresLabel } from "../frontend/src/memory.js";
 import { setLanguage } from "../frontend/src/i18n.js";
 
 const preference = { path: "preferences/light.md", text: `---
@@ -178,6 +178,35 @@ test("tags are shown as chips and narrow the view", (ctx) => {
   assert.ok(view.all().some(node => node.textContent === "タグ「ボルドー」のメモ"));
   view.all().find(node => node.tagName === "BUTTON" && node.textContent === "すべてのメモを表示").events.click();
   assert.deepEqual(titles(), ["Altura", "Margaux"]);
+});
+
+// A note the persona gave an expires date - a lunch candidate it searched up -
+// says so in the reader, so the day-old chip is not mistaken for memory.
+test("an expires date is shown as a chip that does not filter", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+    activeElement: null,
+  };
+  ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
+  setLanguage("ja");
+  const candidate = { path: "shops/soka-lunch.md", text: "---\ntype: Shop\ntitle: 草加ランチ候補\ntags: [草加]\nexpires: 2026-09-26\n---\n候補。" };
+  const kept = { path: "shops/kept.md", text: "---\ntype: Shop\ntitle: 行きたい店\nexpires: never\n---\n本人が行きたいと言った。" };
+  assert.equal(parseMemoryNote(candidate).expires, "2026-09-26");
+  assert.equal(parseMemoryNote(kept).expires, "");
+  assert.equal(parseMemoryNote(wine).expires, "");
+  assert.equal(expiresLabel("2026-09-26"), "2026-09-26", "a bare date is shown as written");
+  assert.equal(expiresLabel("明日"), "明日", "an unreadable value is shown as written");
+  const view = createMemoryView([candidate, kept]);
+  const labels = view.all().filter(node => node.tagName === "SPAN" && String(node.textContent).endsWith("に消える"));
+  assert.deepEqual(labels.map(node => node.textContent), ["2026-09-26 に消える"]);
+  const chips = view.all().filter(node => node.tagName === "BUTTON" && String(node.textContent).startsWith("#"));
+  assert.deepEqual(chips.map(node => node.textContent), ["#草加"], "the expiry is not a tag chip");
+  setLanguage("en");
+  ctx.after(() => setLanguage("ja"));
+  const english = createMemoryView([candidate]);
+  assert.ok(english.all().some(node => node.textContent === "Gone on 2026-09-26"));
 });
 
 // One page of many: a link to a note on a later page still resolves and asks
