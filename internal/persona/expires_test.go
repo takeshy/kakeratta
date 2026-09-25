@@ -136,3 +136,28 @@ func TestNothingExpiresWithoutAModelToTidyUp(t *testing.T) {
 		t.Fatal("deleted a note with nobody to tidy up after it")
 	}
 }
+
+// review is read the same way as expires, and the two do not touch.
+func TestReviewIsReadFromTheFrontMatter(t *testing.T) {
+	tokyo, _ := time.LoadLocation("Asia/Tokyo")
+	both := "---\ntype: Shop\nexpires: 2026-09-26\nreview: 2026-10-15\n---\n\n店"
+	if at, ok := noteReview(both, tokyo); !ok || !at.Equal(time.Date(2026, 10, 15, 0, 0, 0, 0, tokyo)) {
+		t.Fatalf("review = %v %v", at, ok)
+	}
+	if at, ok := noteExpires(both, tokyo); !ok || !at.Equal(time.Date(2026, 9, 26, 0, 0, 0, 0, tokyo)) {
+		t.Fatalf("expires = %v %v", at, ok)
+	}
+	for _, text := range []string{
+		"---\ntype: Shop\nreview: never\n---\n",
+		"---\ntype: Shop\nreview:\n---\n",
+		"---\ntype: Shop\nexpires: 2026-09-26\n---\n",
+		"---\ntype: Shop\n---\n\nreview: 2026-10-15",
+	} {
+		if _, ok := noteReview(text, tokyo); ok {
+			t.Errorf("%q read as having a review date", text)
+		}
+	}
+	if at, ok := noteReview("---\ntype: Shop\nreview: 2026-10-15T09:30:00+09:00\n---\n", tokyo); !ok || !at.Equal(time.Date(2026, 10, 15, 9, 30, 0, 0, tokyo)) {
+		t.Fatalf("timestamp review = %v %v", at, ok)
+	}
+}

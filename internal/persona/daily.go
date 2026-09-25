@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -47,9 +49,15 @@ func (r *Runner) dailyAt(now time.Time) {
 		if skill.ID != "hermes" && (client == nil || client.BaseURL == "") {
 			continue
 		}
+		if skill.ID != "hermes" && personaModel(settings) == "" {
+			continue
+		}
 		schedule := settings.DailyCheckIns[skill.ID]
 		day, due := schedule.Due(now)
-		if !due || (skill.ID != "hermes" && personaModel(settings) == "") {
+		if !due {
+			if skill.ID != "hermes" {
+				r.reviewAt(now, skill, schedule, client, settings)
+			}
 			continue
 		}
 		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
@@ -61,9 +69,51 @@ func (r *Runner) dailyAt(now time.Time) {
 			continue
 		}
 		loc, _ := time.LoadLocation(schedule.TimeZone)
-		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."}
+		text := "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."
+		instructions := dailyInstructions
+		// Reviews ride inside the check-in, so the persona posts once.
+		if skill.ID != "hermes" {
+			if due := r.reviewsDue(skill, now, loc); len(due) > 0 {
+				text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
+				instructions += reviewInstructions
+			}
+		}
+		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: text}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, dailyInstructions, false, client, settings, r.registry(settings))
+		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
 		cancel()
 	}
+}
+
+// reviewAt wakes a persona that has no daily check-in for its reviews, once
+// a day and only when a note is due. An enabled check-in that is not yet due
+// today is left alone: the reviews ride with it later. The day is claimed
+// with the check-in's own key, which a disabled check-in never takes, and
+// only once something is due, so a check-in the user turns on later the same
+// day is not lost to an empty morning.
+func (r *Runner) reviewAt(now time.Time, skill Skill, schedule store.DailyCheckIn, client *llm.Client, settings store.Settings) {
+	if schedule.Enabled && schedule.Validate() == nil {
+		return
+	}
+	day, zone, ready := reviewSlot(now, schedule, settings)
+	if !ready || r.reviewChecked[skill.ID] == day {
+		return
+	}
+	due := r.reviewsDue(skill, now, zone)
+	if len(due) == 0 {
+		r.reviewChecked[skill.ID] = day
+		return
+	}
+	claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
+	if err != nil {
+		r.emit("error", map[string]any{"where": "review", "message": err.Error()})
+		return
+	}
+	if !claimed {
+		return
+	}
+	trigger := timeline.Entry{At: now.In(zone), Speaker: "system", Text: "Review: " + now.In(zone).Format(time.RFC3339) + " (" + zone.String() + "). These notes reached their review date, oldest first:\n" + reviewList(due, zone) + "\nAsk the user about one of them."}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, reviewInstructions, false, client, settings, r.registry(settings))
 }

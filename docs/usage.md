@@ -139,6 +139,28 @@ thread, replacing the old remark or adding a new one. **Still not it** asks
 again with that reply quoted. This call can
 take a few minutes, since a persona's turn may be planned and reviewed.
 
+## Notes that expire or come up for review
+
+Two front-matter lines in a persona's notes are the app's business; everything
+else in a note belongs to the persona.
+
+`expires: 2026-09-26` marks a note the persona made from its own searching, a
+list of candidates or a route. The app deletes it once the date has passed (a
+bare date means 00:00 in the workspace's time zone), on the same tick that
+runs schedules, and wakes the persona silently to take it out of `index.md`.
+The reader shows such a note as **Gone on** that date. If you reply to the
+candidates, the persona rewrites the note without the line.
+
+`review: 2026-10-15` marks a note about something you said, dated by the
+persona from what it is. The app never deletes it. Once the date has passed,
+the persona is woken once a day with up to three such notes and asks about one
+in a post of its own; the reader shows **Review on** that date. Reply under
+that post: "keep it" drops the date, "later" moves it, "forget it" removes the
+note. The persona moves the date a week ahead when it asks, so you are not
+asked daily. The wake happens inside the persona's daily check-in when that is
+enabled, otherwise at the check-in time if one was ever set, else 09:00 in the
+workspace's zone, and only on days something is due.
+
 ## Fast startup and offline posts
 
 The browser saves the latest 20 original posts and their replies per user, displays them immediately on the next visit, and refreshes in the background. After opening the app online once, you can save text, images, URLs, and replies while offline. Unsent posts are kept separately from the 20-post limit. They send automatically when connectivity and authentication return while the app is open. Persona reactions and URL/image analysis start after the server receives the post.

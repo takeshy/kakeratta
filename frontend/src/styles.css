@@ -661,6 +661,6 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .said-notes { display: flex; flex-wrap: wrap; gap: 6px; }
 .said-note { font-size: 0.78rem; }
 .memory-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.memory-tag, .memory-type, .memory-expires { font-size: 0.78rem; }
+.memory-tag, .memory-type, .memory-expires, .memory-review { font-size: 0.78rem; }
 .memory-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .memory-more-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }

@@ -230,7 +230,34 @@ narrow yes/no question. Give it the question.
   no turns tracked. Local development stores JSON, where the two differ, so no
   test saw it. The record now says for itself that it tracks turns.
 
-## 12. What made any of this findable
+## 12. The persona's own answers were becoming its memory
+
+A persona that speaks on a post has to leave a note behind; otherwise it has
+opinions and no memory of having had them. That rule was right and had a
+side effect. Asked "where should I have lunch on the way to Soka", the food
+persona searched, proposed three places, and, needing a note, filed the three
+places. Nothing in that note was about the user. The more thoroughly a persona
+answered, the more of its memory was its own output, and every later wake
+read it back as if it were something learned.
+
+The fix was not to judge better what to keep. Notes now have lifetimes. A
+note a persona made from its own searching carries `expires`, the next day,
+and the app deletes it then; the user's reply is what turns it into memory,
+by having the persona rewrite it without the line. A note about something the
+user said can carry `review`, a date the persona picks from the content -
+weeks for a shop to try, months for a topic - and when it passes the persona
+asks, in a post of its own, whether to keep it. The app never deletes those.
+A wrong guess about what to keep now heals on its own, and expiry became the
+last moment a thing is brought back to the user rather than the moment it is
+thrown out.
+
+Two smaller things came out of it. A reply under a post a persona started on
+its own had gone through the router like any other and often reached nobody;
+it now always reaches the author. And "forget it" answered with `forget_note`
+and a word had failed the note-required rule, since forgetting was not
+counted as leaving something behind; it is now.
+
+## 13. What made any of this findable
 
 Every routing decision and every persona turn is written as one structured log
 entry: who was woken and why, what was read, each workflow draft with its

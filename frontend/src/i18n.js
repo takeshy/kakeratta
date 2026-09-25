@@ -142,6 +142,7 @@ const EN = {
   "その他のメモ": "Other memories", "記憶の目次": "Memory overview", "記憶の更新履歴": "Memory history",
   "関連リンク": "Related link",
   "{0} に消える": "Gone on {0}", "期限が過ぎると本体が消すメモ": "The app deletes this note once its date has passed",
+  "{0} に見直し": "Review on {0}", "この日を過ぎると担当が「まだ要る?」と聞くメモ": "Past this date the persona asks whether to keep this note",
   "このタグのメモだけを表示": "Show only notes with this tag", "タグ「{0}」のメモ": "Notes tagged \"{0}\"", "すべてのメモを表示": "Show all notes", "{0}件中{1}件を表示": "Showing {1} of {0}",
   "タグ「{0}」のメモはありません。": "No notes are tagged \"{0}\".",
   "この種類のメモだけを表示": "Show only notes of this kind", "種類「{0}」のメモ": "{0} notes", "種類「{0}」のメモはありません。": "No {0} notes.",

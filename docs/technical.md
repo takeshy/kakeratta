@@ -529,6 +529,19 @@ rewrites the note without the line. A day is long enough for that reply to
 arrive; anything the persona invented and nobody answered is gone by then,
 so a wrong guess about what to keep heals itself instead of accumulating.
 
+**What the user said can carry a `review` date the persona chooses, and the
+app never deletes it.** A shop they wanted to try gets a few weeks, a topic
+they were into a few months, a preference none; the persona decides from the
+content. When the day has passed, the app wakes the persona once per local
+day - inside its daily check-in when one is enabled, otherwise at 09:00 in the
+workspace's zone, and only on a day something is due - with at most three
+due notes, oldest first. The persona asks about one of them in a short post
+and moves that note's `review` a week ahead so it does not ask again
+tomorrow. A reply under that post always reaches its author, which then
+drops the line to keep the note for good, moves the date to extend it, or
+forgets it. Expiry is the last moment a thing is brought back to the user's
+attention, not merely when it is discarded.
+
 ### Meaning search
 
 A fragment does not need to have been intentionally remembered by a persona to
@@ -730,6 +743,25 @@ replayed.
 
 A crash after claiming a check-in can therefore skip that day's run rather
 than risk duplicating it.
+
+### Reviews ride on the same claim
+
+A note whose `review` date has passed is brought to the persona once per local
+day, at most three at a time, oldest first. When the persona's daily check-in
+is enabled, the list is appended to the check-in trigger and the persona posts
+once. When it is not, the app wakes the persona on its own at the check-in
+time if one was ever set, otherwise at 09:00 in the workspace's zone, and only
+on a day something is due. That wake takes the same per-day claim as the
+check-in; a disabled check-in never claims, so the two do not collide, and an
+empty morning claims nothing, so a check-in enabled later that day still runs.
+
+The app pages through the persona's notes to find what is due. It does so
+once per day per persona when nothing was due, and the daily tick runs every
+minute, so that result is remembered in memory until the day changes.
+
+A reply under a post a persona started on its own - a check-in, a schedule,
+a review - always reaches that persona, whatever the router decides. The
+persona is told which notes it had asked about and which others are due.
 
 ### Schedules created by personas
 
@@ -1205,6 +1237,10 @@ It is not only a hidden vector store or conversation summary.
 
 Embeddings help retrieve fragments, but they are not treated as the source of
 truth for what the system "remembers".
+
+A note's lifetime is visible too: the reader shows the day the app will
+delete a note the persona made up, and the day the persona will ask whether
+to keep a note about something the user said.
 
 ### Stronger models are not used everywhere
 

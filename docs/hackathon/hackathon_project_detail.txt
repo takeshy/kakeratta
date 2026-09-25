@@ -219,6 +219,10 @@ But if I have forgotten that something exists at all, there is no reason to star
 
 That is why Daily check-in became important. A persona can revisit recent activity in the context of its own older memories and surface a connection that I would never have thought to search for myself.
 
+Memory also needs a way to end. The rule that a persona must leave a note whenever it speaks had a side effect: when the food persona searched and proposed three restaurants, it filed those three restaurants, and its memory slowly filled with its own answers. Rather than judging better what to keep, I gave notes lifetimes. A note a persona made from its own searching expires the next day and is deleted by the application, unless the user reacts to it. A note about something the user said can carry a review date the persona chooses from the content, a few weeks for a shop to try, a few months for a topic. When that day comes, the persona asks in a short post whether to keep it, and the user's answer keeps, extends, or forgets the note. The application never deletes those on its own.
+
+That turns expiry into the last moment something is brought back to the user, rather than the moment it is thrown away.
+
 What I learned is that **when to bring something back matters just as much as what to remember**.
 
 ## What's next for kakeratta

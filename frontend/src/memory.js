@@ -52,10 +52,10 @@ export function parseMemoryNote(note) {
   const heading = body.match(/^#\s+(.+)$/m)?.[1];
   const title = field("title") || heading || note.path.replace(/\.md$/i, "").split("/").pop();
   if (body.startsWith(`# ${title}\n`) || body === `# ${title}`) body = body.slice(title.length + 2).trim();
-  const expires = field("expires").trim();
+  const date = (key) => { const value = field(key).trim(); return value.toLowerCase() === "never" ? "" : value; };
   return {
     ...note, title, type: field("type"), description: field("description"), resource: field("resource"), tags: tagsOf(metadata.tags), body,
-    expires: expires.toLowerCase() === "never" ? "" : expires,
+    expires: date("expires"), review: date("review"),
   };
 }
 
@@ -229,7 +229,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
     else { filter = next; draw(); }
   };
   function tagChips(note) {
-    if (!note.tags?.length && !note.type && !note.expires) return null;
+    if (!note.tags?.length && !note.type && !note.expires && !note.review) return null;
     return el("div", { class: "memory-tags" },
       note.type ? el("button", {
         class: `chip memory-type${sameType(filter.type, note.type) ? " active" : ""}`, text: typeLabel(note.type), i18nTitle: "この種類のメモだけを表示",
@@ -239,7 +239,8 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
         class: `chip ghost memory-tag${filter.tag === tag ? " active" : ""}`, text: `#${tag}`, i18nTitle: "このタグのメモだけを表示",
         onclick: () => narrow({ tag: filter.tag === tag ? "" : tag }),
       })),
-      note.expires ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", expiresLabel(note.expires)), i18nTitle: "期限が過ぎると本体が消すメモ" }) : null);
+      note.expires ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", expiresLabel(note.expires)), i18nTitle: "期限が過ぎると本体が消すメモ" }) : null,
+      note.review ? el("span", { class: "chip ghost memory-review", text: t("{0} に見直し", expiresLabel(note.review)), i18nTitle: "この日を過ぎると担当が「まだ要る?」と聞くメモ" }) : null);
   }
   const openNote = (path) => {
     const card = cards.get(path);

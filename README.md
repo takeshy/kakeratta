@@ -299,6 +299,14 @@ Fix a misspelling or a wrong fact with **✎** on the note.
 Remove a wrong note with **Forget this note**, one at a time; the post and the
 other notes stay.
 
+Notes are not kept forever by default. A note the persona wrote from its own
+searching, such as a list of lunch candidates, shows **Gone on** a date, the
+next day, and is deleted then unless you reacted to it. A note about
+something you said, such as a shop you wanted to try, may show **Review on**
+a date the persona chose from what it is. When that day comes, the persona
+asks in a short post whether to keep it. Answer "keep it", "later", or
+"forget it" and it does so.
+
 To change how it remembers, use **Edit with AI** and say, for example, "don't
 call something a favourite after one glass".
 

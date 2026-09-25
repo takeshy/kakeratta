@@ -93,6 +93,11 @@ type Runner struct {
 	trialMu       sync.Mutex
 	routingTrials map[string]routingTrial
 	replyTrials   map[string]replyTrial
+	// reviewChecked is the local day each persona's notes were last looked
+	// through for reviews and found to have none due. The daily tick comes
+	// every minute; paging every note each time would be the cost of nothing.
+	// Only the queue worker touches it.
+	reviewChecked map[string]string
 }
 
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
@@ -102,6 +107,7 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 		emit:          func(string, any) {},
 		done:          make(chan struct{}),
 		routingTrials: map[string]routingTrial{}, replyTrials: map[string]replyTrial{},
+		reviewChecked: map[string]string{},
 	}
 	r.wake = sync.NewCond(&r.stopMu)
 	return r
@@ -447,12 +453,21 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	for _, id := range named {
 		targets[id] = true
 	}
-	if parent, ok := r.store.Entry(entry.ReplyTo); ok && parent.Speaker == "hermes" {
+	parent, hasParent := r.store.Entry(entry.ReplyTo)
+	if hasParent && parent.Speaker == "hermes" {
 		for _, skill := range skills {
 			if skill.ID == "hermes" {
 				targets[skill.ID] = true
 			}
 		}
+	}
+	// A post a persona started on its own - a check-in, a schedule, a review -
+	// is its question, and a reply under it is the answer. The author hears
+	// it whether or not routing would have chosen it.
+	asked := ""
+	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && parent.Speaker != "hermes" && parent.Root == parent.ID && isActive(skills, parent.Speaker) {
+		targets[parent.Speaker] = true
+		asked = parent.Speaker
 	}
 	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
 	routing = hermesAsQuestionFallback(routing, targets)
@@ -502,6 +517,9 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 			instructions := ""
 			if previous[skill.ID] {
 				instructions = editedInstructions
+			}
+			if skill.ID == asked {
+				instructions += r.reviewReply(skill, parent, settings)
 			}
 			if skill.ID == "hermes" {
 				remarks[i], pending[i] = r.queueHermes(ctx, entry, instructions)
@@ -931,11 +949,15 @@ func wakeKind(trigger timeline.Entry, listening bool, instructions string) strin
 	switch {
 	case trigger.ID != "" && listening:
 		return "listening"
-	case trigger.ID != "" && instructions == editedInstructions:
+	case trigger.ID != "" && strings.HasPrefix(instructions, editedInstructions):
 		return "post-edited"
+	case trigger.ID != "" && strings.Contains(instructions, reviewReplyInstructions):
+		return "review-reply"
 	case trigger.ID != "":
 		return "post"
-	case instructions == dailyInstructions:
+	case instructions == reviewInstructions:
+		return "review"
+	case strings.HasPrefix(instructions, dailyInstructions):
 		return "daily"
 	case instructions == scheduleInstructions:
 		return "schedule"

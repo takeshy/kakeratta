@@ -318,6 +318,11 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 	newTitles := map[string]string{}
 	for i, step := range workflow.Steps {
 		at := fmt.Sprintf("%d番目（%s）", i+1, step.Type)
+		// Forgetting is a change of memory too: a persona told "もういい" answers
+		// with forget_note and a word, and that is a remark with something behind it.
+		if step.Type == "forget_note" {
+			notes++
+		}
 		if step.Type == "write_note" || step.Type == "write_schedule" {
 			notes++
 			path := strings.TrimSpace(step.Path)
@@ -437,7 +442,7 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 	case speaks == 0:
 		problems = append(problems, "speak がありません。最後に必ず speak を入れ、何も言わないなら text を空にしてください")
 	case said && rules.noteRequired && notes == 0:
-		problems = append(problems, "発言するのにメモがありません。発言の根拠や覚えたことを write_note で残してください。残すことが無いなら、speak の text を空にして黙ってください")
+		problems = append(problems, "発言するのにメモがありません。発言の根拠や覚えたことを write_note で残すか、不要になったメモを forget_note で消してください。残すことが無いなら、speak の text を空にして黙ってください")
 	}
 	return problems
 }

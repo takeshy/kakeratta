@@ -209,6 +209,34 @@ test("an expires date is shown as a chip that does not filter", (ctx) => {
   assert.ok(english.all().some(node => node.textContent === "Gone on 2026-09-26"));
 });
 
+// A review date the persona chose for something the user said is shown too,
+// and can sit beside an expires date without either being mistaken for a tag.
+test("a review date is shown as a chip beside the expiry", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+    activeElement: null,
+  };
+  ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
+  setLanguage("ja");
+  const wanted = { path: "shops/soka.md", text: "---\ntype: Shop\ntitle: 草加の店\ntags: [草加]\nreview: 2026-10-15\n---\n行きたいと言っていた。" };
+  const both = { path: "shops/both.md", text: "---\ntype: Shop\ntitle: 両方\nexpires: 2026-09-26\nreview: 2026-10-15\n---\n" };
+  const forever = { path: "tastes/tonkotsu.md", text: "---\ntype: Preference\ntitle: 豚骨\nreview: never\n---\n" };
+  assert.equal(parseMemoryNote(wanted).review, "2026-10-15");
+  assert.equal(parseMemoryNote(forever).review, "");
+  assert.equal(parseMemoryNote(wine).review, "");
+  const view = createMemoryView([wanted, both, forever]);
+  const spans = view.all().filter(node => node.tagName === "SPAN" && /に(見直し|消える)$/.test(String(node.textContent)));
+  assert.deepEqual(spans.map(node => node.textContent), ["2026-10-15 に見直し", "2026-09-26 に消える", "2026-10-15 に見直し"]);
+  const chips = view.all().filter(node => node.tagName === "BUTTON" && String(node.textContent).startsWith("#"));
+  assert.deepEqual(chips.map(node => node.textContent), ["#草加"], "the review is not a tag chip");
+  setLanguage("en");
+  ctx.after(() => setLanguage("ja"));
+  const english = createMemoryView([wanted]);
+  assert.ok(english.all().some(node => node.textContent === "Review on 2026-10-15"));
+});
+
 // One page of many: a link to a note on a later page still resolves and asks
 // for it, a tag asks the server rather than narrowing the page, and the next
 // page is one button away.
