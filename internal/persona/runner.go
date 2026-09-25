@@ -59,6 +59,10 @@ type reaction struct {
 type forgotten struct {
 	skill string
 	paths []string
+	// expired: the app deleted these itself because their expires date had
+	// passed, rather than the user removing them. The persona is told which,
+	// since one is a choice to respect and the other its own arrangement.
+	expired bool
 }
 
 type Runner struct {

@@ -15,15 +15,10 @@ var tagsBlock = regexp.MustCompile(`(?m)^tags:\s*(?:#.*)?$((?:\n[ \t]+-[^\n]*)+)
 
 // noteTags are the tags in a note's front matter, as written, in order.
 func noteTags(text string) []string {
-	text = strings.TrimSpace(text)
-	if !strings.HasPrefix(text, "---") {
+	front, ok := frontMatter(text)
+	if !ok {
 		return nil
 	}
-	end := strings.Index(text[3:], "\n---")
-	if end < 0 {
-		return nil
-	}
-	front := text[:end+3]
 	var raw []string
 	if match := tagsInline.FindStringSubmatch(front); match != nil {
 		raw = strings.Split(match[1], ",")

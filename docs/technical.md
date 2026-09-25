@@ -513,6 +513,22 @@ reader; it also maintains source links to posts. The Markdown body remains
 the persona's to write. In local storage the notes are plain files that can
 be read with `cat` or used as an OKF knowledge source elsewhere.
 
+**Memory comes from the user; what the persona made up has a deadline.** A
+persona that speaks must leave a note behind, and when the remark was a list
+of lunch candidates it found by searching, that note is the persona's own
+output, not something known about the user. The note-writing skill draws the
+line: a candidate list, search result, or route the persona produced gets an
+`expires` line in its front matter, dated the next day; what the user said
+does not. The app deletes a
+note once that date has passed - the one time it removes a note on its own
+schedule - and wakes the persona to take it out of `index.md`, told plainly
+that this was its own arrangement rather than the user's deletion. A note
+without `expires` is never aged out by the app. The user's reaction is what
+promotes a candidate into memory: when they reply, choose, or go, the persona
+rewrites the note without the line. A day is long enough for that reply to
+arrive; anything the persona invented and nobody answered is gone by then,
+so a wrong guess about what to keep heals itself instead of accumulating.
+
 ### Meaning search
 
 A fragment does not need to have been intentionally remembered by a persona to

@@ -71,6 +71,80 @@ index.md や他のメモからの参照も直してください。
 伝えることがなければ speak の text は空にします。整えたことをわざわざ報告する必要はありません。
 `
 
+const expiredInstructions = `
+
+## 期限が来たメモを本体が消しました
+あなたが frontmatter の expires に書いた期限が過ぎたので、本体がそのメモを消しました。どれが消えたかは対象発言に入っています。
+候補や調べた結果など、あなた自身が出した情報に付けた期限です。ユーザーがそれに反応していれば、あなたはすでに expires を外して書き直しているはずです。
+本体はほかのメモを書き換えません。index.md や他のメモからの参照を外してください。
+消えた項目に紐づく schedule が下の一覧に残っていれば cancel してください。
+このターンは発言できません。整えたことをわざわざ報告する必要はありません。
+`
+
+// expirePage is how many notes one sweep reads at a time.
+const expirePage = 200
+
+// expireNotes deletes the notes whose expires date has passed and queues one
+// wake per persona to tidy up after them. Only active personas with a model
+// to wake are swept: deleting a note nobody can be told about would leave an
+// index pointing at nothing.
+func (r *Runner) expireNotes(now time.Time, settings store.Settings) {
+	if personaModel(settings) == "" {
+		return
+	}
+	zone := settings.Location()
+	for _, skill := range r.catalogue.Active(settings.Active) {
+		var gone []string
+		after := ""
+		for {
+			page, err := r.store.MemoryPage(skill.ID, after, expirePage, func(note store.Note) bool {
+				at, ok := noteExpires(note.Text, zone)
+				return ok && !at.After(now)
+			})
+			if err != nil {
+				r.emit("error", map[string]any{"where": "expire", "message": err.Error()})
+				break
+			}
+			for _, note := range page.Notes {
+				if note.Path == "index.md" {
+					continue
+				}
+				if err := r.store.DeleteNote(skill.ID, note.Path); err != nil {
+					r.emit("error", map[string]any{"where": "expire", "message": err.Error()})
+					continue
+				}
+				gone = append(gone, note.Path)
+			}
+			if page.Next == "" {
+				break
+			}
+			after = page.Next
+		}
+		if len(gone) > 0 {
+			r.emit("expired", map[string]any{"persona": skill.ID, "paths": gone})
+			r.notesExpired(skill.ID, gone)
+		}
+	}
+}
+
+// notesExpired queues the tidy-up wake for notes the app deleted. It is kept
+// apart from a user's deletion so the persona is told the right thing.
+func (r *Runner) notesExpired(skill string, paths []string) {
+	r.stopMu.Lock()
+	defer r.stopMu.Unlock()
+	if r.stopped || skill == "" || len(paths) == 0 {
+		return
+	}
+	for _, item := range r.queue {
+		if item.forgotten != nil && item.forgotten.expired && item.forgotten.skill == skill {
+			item.forgotten.paths = append(item.forgotten.paths, paths...)
+			return
+		}
+	}
+	r.queue = append(r.queue, reaction{forgotten: &forgotten{skill: skill, paths: slices.Clone(paths), expired: true}})
+	r.wake.Signal()
+}
+
 // registry is the tool set as it exists for this workspace: the user's search
 // key, the operator's endpoints, and the app's own wake bookkeeping.
 func (r *Runner) registry(settings store.Settings) *tools.Registry {
@@ -104,7 +178,7 @@ func (r *Runner) NoteForgotten(skill, path string) {
 		return
 	}
 	for _, item := range r.queue {
-		if item.forgotten != nil && item.forgotten.skill == skill {
+		if item.forgotten != nil && !item.forgotten.expired && item.forgotten.skill == skill {
 			item.forgotten.paths = append(item.forgotten.paths, path)
 			return
 		}
@@ -128,6 +202,7 @@ func (r *Runner) schedulesAt(now time.Time) {
 	if client == nil || client.BaseURL == "" {
 		return
 	}
+	r.expireNotes(now, settings)
 	schedules, err := r.store.Schedules("")
 	if err != nil {
 		r.emit("error", map[string]any{"where": "schedule", "message": err.Error()})
@@ -194,12 +269,17 @@ func (r *Runner) forgottenAt(gone forgotten) {
 		return
 	}
 	now := time.Now()
-	trigger := timeline.Entry{At: now, Speaker: "system", Text: fmt.Sprintf(
-		"The user deleted your note(s): %s. Put the rest of your memory and your schedules back in order; nothing was rewritten for you.",
-		strings.Join(gone.paths, ", "))}
+	text := fmt.Sprintf("The user deleted your note(s): %s. Put the rest of your memory and your schedules back in order; nothing was rewritten for you.", strings.Join(gone.paths, ", "))
+	instructions := forgottenInstructions
+	if gone.expired {
+		text = fmt.Sprintf("Your note(s) reached their expires date and were deleted: %s. Take them out of index.md and any schedule; nothing else was rewritten for you.", strings.Join(gone.paths, ", "))
+		instructions = expiredInstructions
+	}
+	trigger := timeline.Entry{At: now, Speaker: "system", Text: text}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	// Silent for the same reason as a deleted post: the user removed a note, and
-	// tidying up is not an occasion to say anything.
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, forgottenInstructions, false, client, settings, r.registry(settings))
+	// Silent for the same reason as a deleted post: the user removed a note, or
+	// the persona had arranged for it to go, and tidying up is not an occasion
+	// to say anything.
+	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, instructions, false, client, settings, r.registry(settings))
 }
