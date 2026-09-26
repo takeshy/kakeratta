@@ -3,7 +3,7 @@ name: kakeratta
 description: >
   Plan turns for kakeratta personas whose planner is this external agent.
 metadata:
-  version: "6"
+  version: "7"
 ---
 
 # kakeratta
@@ -68,3 +68,4 @@ Schedule this skill with a Wake Gate. A cron job that only names the skill wakes
 
    For an existing job, use `hermes cron edit <job_id> --script check_kakeratta_gate.py`. Check `hermes cron list` and remove any duplicate ungated kakeratta job.
 4. The script calls `list_asks` before the agent starts. It returns `{"wakeAgent": false}` when no ask is pending, so no LLM call is made. A pending ask or a pre-check error returns `{"wakeAgent": true}`; Hermes then runs this skill and checks the asks again through MCP. Do not use an output-diff monitor: an unchanged ask ID must not suppress the next check. Keep the interval at one minute: an ask waits only a few minutes to be claimed, and kakeratta treats an agent that has made no MCP call for that long as away, planning every turn itself until the next call.
+5. The script keeps this skill and itself current. `list_asks` reports the distributed versions; when either differs, the script fetches both with `get_integration` over the same MCP endpoint and replaces them, so no other host has to be allowed. It writes each update and any failure to stderr. When an update adds MCP tools, restart the Hermes Gateway, which caches the tool list.

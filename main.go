@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"log"
 	"net/http"
@@ -35,7 +36,18 @@ import (
 // version is set at link time.
 var version = "dev"
 
+// The Hermes integration is served over MCP as well as from the page's host:
+// a sandbox that allows only the MCP endpoint updates through list_asks and
+// get_integration. The files are the ones the page publishes.
+//
+//go:embed frontend/public/integrations/hermes/kakeratta/SKILL.md
+var hermesSkill string
+
+//go:embed frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py
+var hermesGate string
+
 func main() {
+	server.SetIntegration(hermesSkill, hermesGate)
 	root := os.Getenv("KAKERATTA_HOME")
 	if root == "" {
 		root = store.DefaultRoot()

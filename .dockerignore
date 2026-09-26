@@ -5,6 +5,9 @@ bin
 build
 node_modules
 frontend
+# The Hermes skill and Wake Gate script are embedded in the binary, to be
+# served over MCP.
+!frontend/public/integrations/hermes/kakeratta
 infra/.terraform
 infra/*.tfstate
 infra/*.tfstate.*

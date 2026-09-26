@@ -39,7 +39,7 @@ If Hermes does not claim the ask in time (3 minutes by default), or no workflow 
 
    When the Wake Gate finds no pending ask, it skips the agent and the idle LLM call. An ask waits only minutes to be claimed, so keep the interval at one minute.
 
-   Once the script is in place, it keeps the skill up to date automatically: once per day it fetches the distributed `SKILL.md` from kakeratta.net and overwrites `~/.hermes/skills/kakeratta/SKILL.md` when the distributed `metadata.version` is newer. Manual reinstallation is only needed when versions drift outside that mechanism or after a fresh install of the script itself.
+   Once the script is in place, it keeps the skill and itself up to date through the MCP endpoint it already calls: every `list_asks` answer carries the versions of the distributed skill and Wake Gate script (`integration: {skill, gate}`), and when either differs from what is installed, the script calls `get_integration` and replaces `~/.hermes/skills/kakeratta/SKILL.md` and its own file. No other host or path is fetched, so a sandbox that allows only the MCP endpoint still updates. Each update, and any failure, is written to stderr. A Wake Gate from before Gate version 2 cannot do this and has to be replaced by hand once.
 6. Post as usual. For each persona routed a post whose planner is the external agent, an ask is opened and Hermes plans the turn. The reply arrives under that persona's name, marked **External agent**.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
@@ -102,7 +102,7 @@ nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_asks"
 
 > [!TIP]
 > **Skill Auto-Update in Sandbox**:
-> Once placed, the Wake Gate script automatically updates the installed skill once per day: it fetches the distributed `SKILL.md` from `kakeratta.net` (already covered by `mcp_bridge_kakeratta` egress on port 443) and overwrites `~/.hermes/skills/kakeratta/SKILL.md` when a newer `metadata.version` is distributed. Manual reinstallation is only needed when updating the script itself.
+> Once the script is in place, it keeps the skill and itself up to date through the MCP endpoint it already calls: every `list_asks` answer carries the versions of the distributed skill and Wake Gate script (`integration: {skill, gate}`), and when either differs from what is installed, the script calls `get_integration` and replaces `~/.hermes/skills/kakeratta/SKILL.md` and its own file. No other host or path is fetched, so a sandbox that allows only the MCP endpoint still updates. Each update, and any failure, is written to stderr. A Wake Gate from before Gate version 2 cannot do this and has to be replaced by hand once. After an update that adds MCP tools, restart the Hermes Gateway: it caches the tool list.
 
 ## The key and its scope
 

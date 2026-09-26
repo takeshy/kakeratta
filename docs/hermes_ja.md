@@ -39,7 +39,7 @@ Hermes が時間内に取得しない（既定3分）、または取得後に wo
 
    Wake Gate が未取得の ask なしと判定した場合、Agent を起動せず、待機時の LLM 呼び出しを省きます。ask の取得期限は数分なので、間隔は1分のままにしてください。
 
-   スクリプトを配置すると、Skill は自動更新されます。1日1回、kakeratta.net から配布版の `SKILL.md` を取得し、`metadata.version` が新しくなっていれば `~/.hermes/skills/kakeratta/SKILL.md` を上書きします。手動の再インストールは、この仕組みの外でバージョンがズレた場合やスクリプト本体を新しく入れ直した場合にだけ必要です。
+   スクリプトを配置すると、Skill とスクリプト自身が、すでに呼んでいる MCP の経路で自動更新されます。毎分の `list_asks` の応答に配布版の Skill と Wake Gate の版（`integration: {skill, gate}`）が入っていて、どちらかが入っているものと違えば、スクリプトが `get_integration` を呼んで `~/.hermes/skills/kakeratta/SKILL.md` と自分自身を置き換えます。ほかのホストやパスには取りに行かないので、MCP のエンドポイントしか許可していないサンドボックスでも更新できます。更新したことと失敗は stderr に出ます。Gate の版2より前の Wake Gate はこの仕組みを持たないので、一度だけ手で入れ替えてください。
 6. いつもどおり投稿します。振り分けで選ばれた担当のうち「外部エージェントを優先する」がONの担当について ask が出され、Hermes が workflow を考えます。返事はその担当の名前で届き、「外部エージェント」の印が付きます。
 
 URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサーバーを公開する必要はありません。kakerattaからHermesのプロセスを起動することもありません。
@@ -102,7 +102,7 @@ nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_asks"
 
 > [!TIP]
 > **Skill の自動更新について**:
-> 一度配置された Wake Gate スクリプトは、1日1回 `kakeratta.net`（`mcp_bridge_kakeratta` により 443 Egress は許可済み）から配布版 `SKILL.md` を取得し、バージョンが更新されていれば自動で上書き更新します。そのため、日々の運用で Skill を手動再インストールする必要はありません（スクリプト本体の更新時のみ手動反映が必要です）。
+> スクリプトを配置すると、Skill とスクリプト自身が、すでに呼んでいる MCP の経路で自動更新されます。毎分の `list_asks` の応答に配布版の Skill と Wake Gate の版（`integration: {skill, gate}`）が入っていて、どちらかが入っているものと違えば、スクリプトが `get_integration` を呼んで `~/.hermes/skills/kakeratta/SKILL.md` と自分自身を置き換えます。ほかのホストやパスには取りに行かないので、MCP のエンドポイントしか許可していないサンドボックスでも更新できます。更新したことと失敗は stderr に出ます。Gate の版2より前の Wake Gate はこの仕組みを持たないので、一度だけ手で入れ替えてください。MCP の道具が増える更新のあとは、道具の一覧がキャッシュされているため Hermes Gateway を再起動してください。
 
 ## キーとアクセス範囲
 

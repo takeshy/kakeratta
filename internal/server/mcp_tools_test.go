@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -117,5 +118,45 @@ func TestPlannerIsChosenPerPersona(t *testing.T) {
 	}
 	if code := put("nobody", "builtin"); code != http.StatusNotFound {
 		t.Fatalf("unknown persona = %d", code)
+	}
+}
+
+// list_asks carries the versions of the distributed skill and Wake Gate
+// script, read from the files, and get_integration hands both over, so an
+// agent allowed only this endpoint keeps them current.
+func TestIntegrationIsServedOverMCP(t *testing.T) {
+	skill, err := os.ReadFile("../../frontend/public/integrations/hermes/kakeratta/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gate, err := os.ReadFile("../../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := integration
+	t.Cleanup(func() { integration = saved })
+	SetIntegration(string(skill), string(gate))
+	if integration.skill.Version == "" || integration.gate.Version == "" {
+		t.Fatalf("versions = %q, %q", integration.skill.Version, integration.gate.Version)
+	}
+
+	s, _ := app(t)
+	ctx := context.Background()
+	result, err := s.callMCPTool(ctx, "list_asks", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := result.(map[string]any)["integration"].(map[string]string)
+	if listed["skill"] != integration.skill.Version || listed["gate"] != integration.gate.Version {
+		t.Fatalf("integration = %v", listed)
+	}
+	bundle, err := s.callMCPTool(ctx, "get_integration", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(bundle)
+	var got struct{ Skill, Gate integrationFile }
+	if json.Unmarshal(raw, &got) != nil || got.Skill.Text != string(skill) || got.Gate.Text != string(gate) {
+		t.Fatalf("bundle = %.200s", raw)
 	}
 }

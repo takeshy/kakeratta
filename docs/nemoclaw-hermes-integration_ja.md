@@ -64,7 +64,7 @@ list_tasks → claim_task → get_thread → 推論・ツール利用 → comple
 
 初期構成では依頼がなければ `[SILENT]` を返し、アイドル実行は約 3 秒でした。ただし Super 120B へ切り替えた後、この方式でも毎分推論が発生することが分かりました。現在は Cron の事前実行スクリプトによる **Wake Gate** を使い、タスクがなければ `{"wakeAgent": false}` を返してエージェントの起動自体を省略します。検証したアイドル tick は約 0.06 秒で、LLM 呼び出しは 0 回でした。タスクがある場合、または事前確認で通信エラーが起きた場合は `{"wakeAgent": true}` としてエージェントを起動します。[配布スクリプト](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)を Cron ジョブに指定します。
 
-さらに、この Wake Gate スクリプトには日次の **Skill 自動更新機構** も統合されています。1日1回、`config.yaml` の MCP 設定から kakeratta の配信元オリジンを解決して最新の `SKILL.md` を取得し、フロントマターの `metadata.version` が更新されていればローカルの Skill をアトミックに自動更新します（後述の「Wake Gate による Skill の日次自動更新」参照）。
+さらに、この Wake Gate スクリプトには日次の **Skill 自動更新機構** も統合されています。1日1回、`config.yaml` の MCP 設定から kakeratta の配信元オリジンを解決して最新の `SKILL.md` を取得し、フロントマターの `metadata.version` が更新されていればローカルの Skill をアトミックに自動更新します（後述の「Wake Gate による Skill の日次自動更新」参照）。**その後の変更：** 同じホストの別パスから `SKILL.md` を取得する方式は、MCP のパスだけを許可する OpenShell のポリシーで拒否されたため、今は Skill と Wake Gate 自身を MCP 経由で更新します。`list_asks` が版を返し、`get_integration` が本文を返します（[Hermes 連携の設定](hermes_ja.md) 参照）。
 
 初期構成で試した独自ポーリングスクリプトや出力差分監視は、最終構成から削除しました。タスク ID が前回と同じ場合にエージェントを再起動しない差分監視では、処理失敗後に依頼が残り続ける問題があったためです。Wake Gate は毎回 `list_tasks` を確認する方式です。
 

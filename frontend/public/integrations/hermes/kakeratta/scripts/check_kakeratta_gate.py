@@ -5,21 +5,26 @@ Checks kakeratta for pending planning asks via MCP list_asks.
 If no ask is pending, outputs {"wakeAgent": false} to skip LLM execution entirely (zero token spend).
 If an ask is pending or on error, outputs {"wakeAgent": true} to wake Hermes Agent.
 
-It also self-updates the installed skill: once per day (state flag file), it
-fetches the distributed SKILL.md from the kakeratta origin and overwrites
-~/.hermes/skills/kakeratta/SKILL.md when the distributed metadata.version
-differs from the installed copy. Any failure in this path is silent and must
-not affect the wake-agent decision.
+It also keeps the integration current. list_asks carries the versions of the
+distributed skill and of this script; when either differs from what is
+installed, the script fetches both through the same MCP endpoint
+(get_integration) and replaces ~/.hermes/skills/kakeratta/SKILL.md and itself.
+No other host or path is needed, so a sandbox that allows only the MCP
+endpoint can still update. Updates and failures are written to stderr; a
+failure never changes the wake decision.
 """
 
 import json
 import os
 import re
 import sys
-from datetime import date
 from pathlib import Path
 import urllib.request
 import urllib.error
+
+# GATE_VERSION is this script's version, compared with the one list_asks reports.
+GATE_VERSION = "2"
+
 
 def get_hermes_home() -> Path:
     env_home = os.environ.get("HERMES_HOME")
@@ -27,13 +32,10 @@ def get_hermes_home() -> Path:
         return Path(env_home).expanduser()
     return Path.home() / ".hermes"
 
-SKILL_PATH_REL = "integrations/hermes/kakeratta/SKILL.md"
 
-def install_dir() -> Path:
-    return get_hermes_home() / "skills" / "kakeratta"
+def installed_skill() -> Path:
+    return get_hermes_home() / "skills" / "kakeratta" / "SKILL.md"
 
-def state_file() -> Path:
-    return get_hermes_home() / "state" / "kakeratta_gate_skill_check"
 
 def extract_version(text: str) -> str | None:
     m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
@@ -42,53 +44,71 @@ def extract_version(text: str) -> str | None:
     vm = re.search(r"^\s*version:\s*[\"']?([^\"'\n]+)", m.group(1), re.MULTILINE)
     return vm.group(1).strip() if vm else None
 
-def fetch_skill(url: str) -> bytes | None:
+
+def call_tool(url: str, headers: dict, name: str) -> dict:
+    """Call one kakeratta MCP tool and return its structured result."""
+    payload = json.dumps({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": name, "arguments": {}},
+    }).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=5) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    if "error" in data:
+        raise ValueError(f"{name}: {data['error'].get('message')}")
+    res_obj = data["result"]
+    if res_obj.get("isError"):
+        raise ValueError(f"{name} returned an MCP error")
+    structured = res_obj.get("structuredContent")
+    if isinstance(structured, dict):
+        return structured
+    content = res_obj.get("content") or []
+    if not content:
+        raise ValueError(f"{name} returned no data")
+    return json.loads(content[0]["text"])
+
+
+def replace_file(path: Path, text: str) -> None:
+    """Write text to path through a temporary file, so a failure leaves the old one."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
     try:
-        req = urllib.request.Request(url, headers={"Accept": "text/markdown"}, method="GET")
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status != 200:
-                return None
-            return response.read()
-    except Exception:
-        return None
+        os.chmod(tmp, os.stat(path).st_mode if path.exists() else 0o644)
+    except OSError:
+        pass
+    os.replace(tmp, path)
 
-def skill_origin(mcp_url: str) -> str | None:
-    m = re.match(r"^(https?://[^/]+)", mcp_url)
-    return f"{m.group(1)}/{SKILL_PATH_REL}" if m else None
 
-def maybe_update_skill(mcp_url: str) -> None:
-    """Once per day, refresh the installed skill from the origin. Fail silently."""
-    today = date.today().isoformat()
-    state = state_file()
-    if state.exists() and state.read_text(encoding="utf-8").strip() == today:
+def update_integration(url: str, headers: dict, versions: dict) -> None:
+    """Bring the skill and this script up to the versions kakeratta reports."""
+    skill_path = installed_skill()
+    installed = None
+    if skill_path.exists():
+        installed = extract_version(skill_path.read_text(encoding="utf-8"))
+    want_skill = versions.get("skill")
+    want_gate = versions.get("gate")
+    if (not want_skill or want_skill == installed) and (not want_gate or want_gate == GATE_VERSION):
         return
 
-    try:
-        origin = skill_origin(mcp_url)
-        if not origin:
-            return
-        body = fetch_skill(origin)
-        if not body:
-            return
-        text = body.decode("utf-8")
-        remote_ver = extract_version(text)
-        if remote_ver is None:
-            return  # Not a versioned skill distribution; leave the local copy alone.
-
-        installed = install_dir() / "SKILL.md"
-        if not (installed.exists() and extract_version(installed.read_text(encoding="utf-8")) == remote_ver):
-            installed.parent.mkdir(parents=True, exist_ok=True)
-            tmp = installed.with_suffix(".md.tmp")
-            tmp.write_text(text, encoding="utf-8")
-            os.replace(tmp, installed)
-
+    bundle = call_tool(url, headers, "get_integration")
+    skill = bundle.get("skill") or {}
+    if want_skill and want_skill != installed and skill.get("text"):
         try:
-            state.parent.mkdir(parents=True, exist_ok=True)
-            state.write_text(today, encoding="utf-8")
-        except Exception:
-            pass
-    except Exception:
-        pass
+            replace_file(skill_path, skill["text"])
+            print(f"kakeratta skill updated: {installed} -> {skill.get('version')}", file=sys.stderr)
+        except Exception as e:
+            print(f"kakeratta skill update failed: {e}", file=sys.stderr)
+    gate = bundle.get("gate") or {}
+    if want_gate and want_gate != GATE_VERSION and gate.get("text"):
+        try:
+            replace_file(Path(__file__).resolve(), gate["text"])
+            print(f"kakeratta wake gate updated: {GATE_VERSION} -> {gate.get('version')}", file=sys.stderr)
+        except Exception as e:
+            print(f"kakeratta wake gate update failed: {e}", file=sys.stderr)
+
 
 def main():
     try:
@@ -112,39 +132,17 @@ def main():
         headers["Content-Type"] = "application/json"
         headers["Accept"] = "application/json, text/event-stream"
 
-        try:
-            maybe_update_skill(url)
-        except Exception:
-            pass
+        result = call_tool(url, headers, "list_asks")
+        asks = result.get("asks")
+        if not isinstance(asks, list):
+            raise ValueError("list_asks.asks is not a list")
 
-        payload = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "list_asks",
-                "arguments": {}
-            }
-        }).encode("utf-8")
-
-        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=5) as response:
-            data = json.loads(response.read().decode("utf-8"))
-
-        res_obj = data["result"]
-        if res_obj.get("isError"):
-            raise ValueError("list_asks returned an MCP error")
-        structured = res_obj.get("structuredContent")
-        if isinstance(structured, dict) and isinstance(structured.get("asks"), list):
-            asks = structured["asks"]
-        else:
-            content = res_obj.get("content") or []
-            if not content:
-                raise ValueError("list_asks returned no ask data")
-            parsed = json.loads(content[0]["text"])
-            asks = parsed["asks"]
-            if not isinstance(asks, list):
-                raise ValueError("list_asks.asks is not a list")
+        versions = result.get("integration")
+        if isinstance(versions, dict):
+            try:
+                update_integration(url, headers, versions)
+            except Exception as e:
+                print(f"kakeratta integration update failed: {e}", file=sys.stderr)
 
         # A claimed ask is already being planned by a running agent; only an
         # unclaimed one needs a new wake.
@@ -158,6 +156,7 @@ def main():
         # On error (e.g. network timeout), fail-open to wake the agent so no ask waits out its claim time
         print(f"Pre-check error: {e}", file=sys.stderr)
         print(json.dumps({"wakeAgent": True}))
+
 
 if __name__ == "__main__":
     main()

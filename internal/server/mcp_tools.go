@@ -64,6 +64,7 @@ func kakerattaMCPTools() []mcpTool {
 		tool("claim_ask", "Claim a pending ask and receive its planning context: persona identity, instructions and note-writing skill, the trigger, the thread, the persona's memory index.md, the workflow schema and spec, and the tools available to it. Choose a unique claimId per execution and reuse it when retrying this call.", false, with(with(map[string]any{}, "askId", str("Ask ID")), "claimId", str("Stable client-generated execution ID, max 200 characters")), "askId", "claimId"),
 		tool("read_for_ask", "Look things up for a claimed ask with the persona's own notes and tools (notes_list, notes_read, or a read-use tool from the context), within the ask's read limits. Saved posts found by timeline_search here are the only ones a speak step may cite in sources.", false, with(ask(), "steps", map[string]any{"type": "array", "items": readStepSchema, "minItems": 1}), "askId", "claimId", "steps"),
 		tool("submit_workflow", "Submit the workflow for a claimed ask. Kakeratta checks and reviews it and, if accepted, runs it as the persona: writing notes, placing schedules, calling tools and speaking. A rejected workflow comes back with problems to fix; submit again. Empty steps means the persona stays quiet.", false, with(ask(), "workflow", map[string]any{"type": "object", "description": "{summary, steps}; see workflow.schema in the claim_ask context"}), "askId", "claimId", "workflow"),
+		tool("get_integration", "Fetch the distributed kakeratta skill (SKILL.md) and Wake Gate script with their versions. list_asks reports the versions; call this when yours differ.", true, map[string]any{}),
 		tool("release_ask", "Give a claimed ask back: the persona plans in-process at once instead of waiting out planBy. Use when you cannot plan it.", false, with(ask(), "reason", str("Optional short reason")), "askId", "claimId"),
 	}
 }
@@ -180,7 +181,13 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 	}
 	switch name {
 	case "list_asks":
-		return map[string]any{"asks": s.runner.Asks()}, nil
+		result := map[string]any{"asks": s.runner.Asks()}
+		if versions := integrationVersions(); versions != nil {
+			result["integration"] = versions
+		}
+		return result, nil
+	case "get_integration":
+		return map[string]any{"skill": integration.skill, "gate": integration.gate}, nil
 	case "list_tasks":
 		pending := []persona.Ask{}
 		for _, ask := range s.runner.Asks() {
