@@ -535,10 +535,8 @@ so a wrong guess about what to keep heals itself instead of accumulating.
 **What the user said can carry a `review` date the persona chooses, and the
 app never deletes it.** A shop they wanted to try gets a few weeks, a topic
 they were into a few months, a preference none; the persona decides from the
-content. When the day has passed, the app wakes the persona once per local
-day - inside its daily check-in when one is enabled, otherwise at 09:00 in the
-workspace's zone, and only on a day something is due - with at most three
-due notes, oldest first. The persona asks about one of them in a short post
+content. When the day has passed, the persona's next daily check-in is
+handed at most three due notes, oldest first. The persona asks about one of them in a short post
 and moves that note's `review` a week ahead so it does not ask again
 tomorrow. A reply under that post always reaches its author, which then
 drops the line to keep the note for good, moves the date to extend it, or
@@ -713,21 +711,22 @@ exception: what it finds is offered for citing, the persona names in its
 
 ## Check-ins and scheduled wakes
 
-Each active persona can optionally enable **Daily check-in**.
+Every active persona has a **Daily check-in** once a day. It cannot be turned
+off; its time and how much it says can be chosen.
 
-It is **off by default**.
-
-A persona has one preferred check-in time per day. The browser's time zone is
-saved with that setting, including daylight-saving behavior. It remains the
+A persona has one check-in time per day, 09:00 in the workspace's zone by
+default. The browser's time zone is saved when the time is, including daylight-saving behavior. It remains the
 saved zone if the user travels; there is currently no separate time-zone picker.
 
-At check-in time, the persona can:
+With **Speak only when needed** on (it is off by default), the persona may speak only
+about what needs the user's decision; today that is a note that has reached its
+review date (whether it can be forgotten). It does not bring discoveries,
+suggestions, news or greetings. It may tidy its notes quietly. On a day with
+nothing to ask it still wakes, and ends silent.
 
-* read its memory;
-* inspect recent fragments;
-* use the tools declared for it;
-* search the web where appropriate;
-* speak only if there is something worth bringing back.
+With it off (the default), the persona also reads the last 24 hours of the
+timeline and older notes sharing tags with recent ones, and speaks when it finds
+a connection worth bringing back.
 
 Silence produces no empty system post and no empty conversation thread.
 
@@ -749,18 +748,9 @@ than risk duplicating it.
 
 ### Reviews ride on the same claim
 
-A note whose `review` date has passed is brought to the persona once per local
-day, at most three at a time, oldest first. When the persona's daily check-in
-is enabled, the list is appended to the check-in trigger and the persona posts
-once. When it is not, the app wakes the persona on its own at the check-in
-time if one was ever set, otherwise at 09:00 in the workspace's zone, and only
-on a day something is due. That wake takes the same per-day claim as the
-check-in; a disabled check-in never claims, so the two do not collide, and an
-empty morning claims nothing, so a check-in enabled later that day still runs.
-
-The app pages through the persona's notes to find what is due. It does so
-once per day per persona when nothing was due, and the daily tick runs every
-minute, so that result is remembered in memory until the day changes.
+A note whose `review` date has passed is appended to the check-in trigger, at
+most three at a time, oldest first. The persona asks about one of them and
+posts once.
 
 A reply under a post a persona started on its own - a check-in, a schedule,
 a review - always reaches that persona, whatever the router decides. The

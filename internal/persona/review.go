@@ -13,9 +13,8 @@ import (
 // A review is the app bringing a note back to the user's attention before
 // the persona lets it go. The persona picked the day; the app only keeps it.
 //
-// Reviews ride inside the persona's daily check-in when it has one. A persona
-// without one is woken on its own, once a day and only on a day something is
-// due, so that a memory nobody asked to keep does not sit unquestioned.
+// Reviews ride inside the persona's daily check-in, which every active persona
+// has, so that a memory nobody asked to keep does not sit unquestioned.
 
 const reviewInstructions = `
 
@@ -38,10 +37,6 @@ const reviewReplyInstructions = `
 // reviewLimit is how many due notes one wake is handed. Oldest first, so a
 // backlog drains from the far end without the prompt growing with it.
 const reviewLimit = 3
-
-// reviewTime is when a persona without a daily check-in is woken for its
-// reviews, in the workspace's zone.
-const reviewTime = "09:00"
 
 // dueNote is a note whose review date has passed.
 type dueNote struct {
@@ -99,22 +94,6 @@ func reviewList(due []dueNote, zone *time.Location) string {
 		lines = append(lines, fmt.Sprintf("%s (review: %s)", note.Path, note.At.In(zone).Format("2006-01-02")))
 	}
 	return strings.Join(lines, "\n")
-}
-
-// reviewSlot is when a persona without a daily check-in has its reviews: the
-// check-in's own hour and zone if the user once set them, else reviewTime in
-// the workspace's zone. It returns the local day and whether the hour has come.
-func reviewSlot(now time.Time, schedule store.DailyCheckIn, settings store.Settings) (day string, zone *time.Location, ready bool) {
-	at := reviewTime
-	if t, err := time.Parse("15:04", schedule.Time); err == nil && t.Format("15:04") == schedule.Time {
-		at = schedule.Time
-	}
-	zone = settings.Location()
-	if loc, err := time.LoadLocation(schedule.TimeZone); err == nil && schedule.TimeZone != "" && schedule.TimeZone != "Local" {
-		zone = loc
-	}
-	local := now.In(zone)
-	return local.Format("2006-01-02"), zone, local.Format("15:04") >= at
 }
 
 // askedNotes are the notes a persona's own post rested on that still carry a

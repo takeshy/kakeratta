@@ -413,12 +413,13 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 			schedules = nil
 		}
 		planner := "builtin"
-		if settings.PlansExternally(skill.ID) {
+		// The saved choice, paused or not: the card keeps showing it.
+		if settings.Planners[skill.ID] == store.PlannerExternal {
 			planner = store.PlannerExternal
 		}
-		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
+		out = append(out, row{Skill: skill, DailyCheckIn: settings.CheckInFor(skill.ID), Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp.Data) > 0})
+	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp.Data) > 0, "externalAgentPaused": settings.ExternalAgent.Paused})
 }
 
 func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
@@ -823,6 +824,17 @@ func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 	var schedule store.DailyCheckIn
 	if err := readJSON(r, &schedule); err != nil {
 		fail(w, http.StatusBadRequest, "設定を読めませんでした")
+		return
+	}
+	// Every active persona checks in; the time and how much it says are the
+	// user's to choose.
+	schedule.Enabled = true
+	switch schedule.Talk {
+	case "":
+		schedule.Talk = store.CheckInShare
+	case store.CheckInMinimal, store.CheckInShare:
+	default:
+		fail(w, http.StatusBadRequest, "話し方が不正です")
 		return
 	}
 	if err := schedule.Validate(); err != nil {

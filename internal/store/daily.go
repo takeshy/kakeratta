@@ -13,12 +13,50 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// DefaultCheckInTime is when an active persona checks in until the user picks
+// another time, in the workspace's zone.
+const DefaultCheckInTime = "09:00"
+
+// How a check-in talks. CheckInMinimal speaks only about what needs the
+// user's decision; CheckInShare also looks for something worth sharing.
+const (
+	CheckInMinimal = "minimal"
+	CheckInShare   = "share"
+)
+
+// CheckInFor is a persona's daily check-in as it runs. Every active persona
+// checks in once a day: the user chooses when, and how much it says. A time
+// or zone never set, or no longer valid, falls back to DefaultCheckInTime in
+// the workspace's zone. A check-in shares unless the user chose minimal.
+func (s Settings) CheckInFor(personaID string) DailyCheckIn {
+	saved := s.DailyCheckIns[personaID]
+	out := DailyCheckIn{Enabled: true, Time: DefaultCheckInTime, TimeZone: s.Location().String(), Talk: CheckInShare}
+	if saved.Talk == CheckInMinimal {
+		out.Talk = CheckInMinimal
+	}
+	if t, err := time.Parse("15:04", saved.Time); err == nil && t.Format("15:04") == saved.Time {
+		out.Time = saved.Time
+	}
+	if saved.TimeZone != "" && saved.TimeZone != "Local" {
+		if _, err := time.LoadLocation(saved.TimeZone); err == nil {
+			out.TimeZone = saved.TimeZone
+		}
+	}
+	return out
+}
+
 // DailyCheckIn deliberately supports only one local time per persona.
 type DailyCheckIn struct {
 	Enabled  bool   `json:"enabled"`
 	Time     string `json:"time"`
 	TimeZone string `json:"timeZone"`
+	// Talk is CheckInMinimal or CheckInShare; see CheckInFor.
+	Talk string `json:"talk,omitempty"`
 }
+
+// Minimal reports whether the check-in speaks only about what needs the
+// user's decision.
+func (d DailyCheckIn) Minimal() bool { return d.Talk != CheckInShare }
 
 func (d DailyCheckIn) Validate() error {
 	if !d.Enabled {

@@ -14,6 +14,9 @@ class Element {
   addEventListener(key, fn) { this.listeners[key] = fn; }
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
+// The "prefer the external agent" checkbox of each persona card.
+const preferBoxes = root => walk(root).filter(n => n.tag === "label" && n.children.some(c => c.textContent === translate("外部エージェントを優先する")))
+  .map(label => label.children.find(c => c.tag === "input"));
 
 test("the planner choice stays hidden until an external agent is connected", async t => {
   globalThis.Node = Element;
@@ -26,10 +29,10 @@ test("the planner choice stays hidden until an external agent is connected", asy
   t.mock.method(api, "personas", async () => ({ personas: rows, tools: [], mcpConfigured: false }));
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
-  const selects = walk(view.element).filter(n => n.tag === "select" && n["aria-label"] === translate("考える役"));
+  const boxes = preferBoxes(view.element);
   // Only the persona already handed over shows it, so it can be handed back.
-  assert.equal(selects.length, 1);
-  assert.equal(selects[0].value, "external");
+  assert.equal(boxes.length, 1);
+  assert.equal(boxes[0].checked, true);
 });
 
 test("each persona chooses its planner, and Hermes is not a persona", async t => {
@@ -49,10 +52,11 @@ test("each persona chooses its planner, and Hermes is not a persona", async t =>
   let nodes = walk(view.element);
   assert.ok(!nodes.some(n => n.textContent === "Hermes"));
   assert.ok(!nodes.some(n => n.textContent === translate("外部エージェント")), "no badge while planned in-process");
-  const select = nodes.find(n => n.tag === "select" && n["aria-label"] === translate("考える役"));
-  assert.ok(select);
-  select.value = "external";
-  await select.listeners.change();
+  const [prefer] = preferBoxes(view.element);
+  assert.ok(prefer);
+  assert.ok(!prefer.checked);
+  prefer.checked = true;
+  await prefer.listeners.change();
   assert.deepEqual(chosen, [["gourmet", "external"]]);
   nodes = walk(view.element);
   assert.ok(nodes.some(n => n.textContent === translate("外部エージェント")));
@@ -84,4 +88,40 @@ test("Hermes setup includes the key in one configuration and links to its manual
   assert.ok(help);
   assert.equal(help.target, "_blank");
   assert.equal(help.rel, "noopener");
+});
+
+test("a paused external agent is said so on the persona it plans for", async t => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const rows = [{ id: "book", name: "shiori", icon: "📖", builtin: true, active: true, tools: [], planner: "external" }];
+  t.mock.method(api, "personas", async () => ({ personas: rows, tools: [], mcpConfigured: true, externalAgentPaused: true }));
+  const view = createPersonas({ getSettings: () => ({}) });
+  await view.load();
+  const nodes = walk(view.element);
+  assert.ok(nodes.some(n => n.textContent === translate("外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。")));
+  assert.equal(preferBoxes(view.element)[0].checked, true, "the setting is kept");
+});
+
+test("the check-in always runs; the checkbox only chooses how much it says", async t => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  let rows = [{ id: "gourmet", name: "tabe", icon: "🍜", builtin: true, active: true, tools: [], dailyCheckIn: { enabled: true, time: "09:00", timeZone: "Asia/Tokyo", talk: "minimal" } }];
+  t.mock.method(api, "personas", async () => ({ personas: rows, tools: [] }));
+  const saved = [];
+  t.mock.method(api, "setDailyCheckIn", async (id, body) => {
+    saved.push(body);
+    rows = [{ ...rows[0], dailyCheckIn: body }];
+    return { personas: rows };
+  });
+  const view = createPersonas({ getSettings: () => ({}) });
+  await view.load();
+  const label = walk(view.element).find(n => n.tag === "label" && n.children.some(c => c.textContent === translate("最低限のことだけ話す")));
+  const minimal = label.children.find(c => c.tag === "input");
+  assert.equal(minimal.checked, true);
+  minimal.checked = false;
+  await minimal.listeners.change();
+  assert.equal(saved[0].talk, "share");
+  assert.equal(saved[0].enabled, true, "the check-in itself stays on");
 });

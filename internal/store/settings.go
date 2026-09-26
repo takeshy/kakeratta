@@ -123,9 +123,13 @@ const PlannerExternal = "external"
 // ExternalAgentSettings are the waits, in minutes, before an ask falls through
 // to the in-process planner: for an agent to claim it, and then for the
 // claimed ask to come back as an approved workflow.
+//
+// Paused sets the external agent aside for a while: every persona plans
+// in-process, and each persona's planner choice is kept for when it resumes.
 type ExternalAgentSettings struct {
-	ClaimMinutes int `json:"claimMinutes"`
-	PlanMinutes  int `json:"planMinutes"`
+	ClaimMinutes int  `json:"claimMinutes"`
+	PlanMinutes  int  `json:"planMinutes"`
+	Paused       bool `json:"paused,omitempty"`
 }
 
 const (
@@ -154,9 +158,10 @@ func minutesOr(value, fallback int) int {
 	return value
 }
 
-// PlansExternally reports whether a persona's planner is the external agent.
+// PlansExternally reports whether a persona's planner is the external agent
+// and the external agent is not paused.
 func (s Settings) PlansExternally(personaID string) bool {
-	return s.Planners[personaID] == PlannerExternal
+	return !s.ExternalAgent.Paused && s.Planners[personaID] == PlannerExternal
 }
 
 // SearchSettings is the user's Tavily key. The app makes the call; a skill

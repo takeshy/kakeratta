@@ -37,6 +37,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
   let rows = [];
   let toolNames = [];
   let mcpConfigured = false;
+  let agentPaused = false;
 
   async function load({ quiet = false } = {}) {
     try {
@@ -44,6 +45,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       rows = payload.personas || [];
       toolNames = payload.tools || [];
       mcpConfigured = !!payload.mcpConfigured;
+      agentPaused = !!payload.externalAgentPaused;
       onChange?.(rows);
       draw();
     } catch (error) {
@@ -112,23 +114,24 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     revealPending();
   }
 
-  // Who does the thinking: reading the context, deciding what to do, and
-  // writing the workflow. The app checks and runs the workflow either way.
+  // Whether the external agent does the thinking - reading the context,
+  // deciding what to do, and writing the workflow - when it can. The app
+  // checks and runs the workflow either way.
   // The choice only appears once an external agent is connected: most people
   // never connect one and need not know there is anything to choose. A
   // persona already handed over keeps it, so it can be handed back.
   function drawPlanner(row) {
     if (!mcpConfigured && row.planner !== "external") return null;
-    const choice = el("select", { "aria-label": t("考える役") },
-      el("option", { value: "builtin", label: "内蔵モデル" }),
-      el("option", { value: "external", label: "外部エージェント（Hermesなど）" }));
-    choice.value = row.planner === "external" ? "external" : "builtin";
-    choice.addEventListener("change", async () => {
-      choice.disabled = true;
+    // "Prefer": the agent plans when it answers in time, and the built-in
+    // model still takes the turn when it does not.
+    const prefer = el("input", { type: "checkbox", checked: row.planner === "external" });
+    prefer.addEventListener("change", async () => {
+      prefer.disabled = true;
       try {
-        const payload = await api.setPlanner(row.id, choice.value);
+        const payload = await api.setPlanner(row.id, prefer.checked ? "external" : "builtin");
         rows = payload.personas || rows;
         mcpConfigured = payload.mcpConfigured ?? mcpConfigured;
+        agentPaused = payload.externalAgentPaused ?? agentPaused;
         onChange?.(rows);
         draw();
       } catch (error) {
@@ -136,11 +139,14 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         draw();
       }
     });
-    const box = el("div", {}, el("div", { class: "compose-row" }, el("span", { class: "hint", label: "考える役" }), choice));
+    const box = el("div", {}, el("div", { class: "compose-row" },
+      el("label", { class: "switch" }, prefer, el("span", { label: "外部エージェントを優先する" }))));
     if (row.planner === "external") {
-      box.append(el("p", { class: "hint", label: mcpConfigured
-        ? "外部エージェントが文脈を読み、次にすることを workflow にします。時間内に取得・返却されなければ内蔵モデルが代わりに考えます。"
-        : "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。" }));
+      box.append(el("p", { class: "hint", label: !mcpConfigured
+        ? "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。"
+        : agentPaused
+        ? "外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。"
+        : "外部エージェントが文脈を読み、次にすることを workflow にします。時間内に取得・返却されなければ内蔵モデルが代わりに考えます。" }));
     }
     return box;
   }
@@ -169,17 +175,20 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     );
     const planner = drawPlanner(row);
     if (planner) box.append(planner);
+    // Every active persona checks in once a day. The time is chosen, and
+    // whether it speaks only about what needs your decision.
     const schedule = row.dailyCheckIn || {};
-    const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });
-    const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active, "aria-label": t("希望時刻") });
+    const time = el("input", { type: "time", value: schedule.time || "09:00", disabled: !row.active, "aria-label": t("チェックインの時刻") });
+    const minimal = el("input", { type: "checkbox", checked: schedule.talk === "minimal", disabled: !row.active });
     const zone = schedule.timeZone || localZone();
     // Saving takes the device's zone now, so someone who has moved re-anchors
     // the check-in by saving the time again.
     const saveDaily = async () => {
-      const next = { enabled: enabled.checked, time: time.value || "08:00", timeZone: localZone() };
-      enabled.disabled = time.disabled = true;
+      time.disabled = minimal.disabled = true;
       try {
-        const payload = await api.setDailyCheckIn(row.id, next);
+        const payload = await api.setDailyCheckIn(row.id, {
+          enabled: true, time: time.value || "09:00", timeZone: localZone(), talk: minimal.checked ? "minimal" : "share",
+        });
         rows = payload.personas || rows;
         onChange?.(rows);
         draw();
@@ -188,12 +197,16 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         draw();
       }
     };
-    enabled.addEventListener("change", saveDaily);
     time.addEventListener("change", saveDaily);
+    minimal.addEventListener("change", saveDaily);
     box.append(el("div", { class: "compose-row" },
-      el("label", { class: "switch" }, enabled, el("span", { label: "1日1回のチェックイン" })),
+      el("span", { class: "hint", label: "毎日のチェックイン" }),
       time, el("span", { class: "hint", text: zone })));
-    box.append(el("p", { class: "hint", label: "毎日一度だけ起き、伝えることがある日だけ話します。" }));
+    box.append(el("div", { class: "compose-row" },
+      el("label", { class: "switch" }, minimal, el("span", { label: "最低限のことだけ話す" }))));
+    box.append(el("p", { class: "hint", label: schedule.talk === "minimal"
+      ? "毎日この時刻に起きてメモを整えます。話すのは、メモを忘れてよいかの確認など、あなたの判断が必要なときだけです。"
+      : "毎日この時刻に起き、最近の記録と自分のメモを見直して、伝える価値があることを見つけたときも話します。" }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当が預けた予定" }),

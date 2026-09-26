@@ -330,6 +330,10 @@ body.sheet-open .topbar { z-index: 21; }
 .advanced-category-body { display: grid; gap: 14px; padding-top: 12px; }
 .advanced-category-body > .settings-block { display: grid; gap: 14px; }
 .advanced-body > [hidden] { display: none; }
+.advanced-category-body > [hidden] { display: none; }
+.external-agent, .external-agent .settings-block { display: grid; gap: 14px; }
+.external-agent [hidden] { display: none; }
+.external-agent .hint { margin: 0; }
 .settings-block > [hidden] { display: none; }
 .openrouter-models { display: grid; gap: 12px; }
 .openrouter-models[hidden] { display: none; }

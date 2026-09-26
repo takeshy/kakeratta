@@ -51,7 +51,7 @@ const shots = [
   { name: "timeline", id: "screen--hero" },
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
-  { name: "persona-planner", id: "personas--external-planner", clip: '.persona[data-id="book"]', ready: '.persona[data-id="book"] select' },
+  { name: "persona-planner", id: "personas--external-planner", clip: '.persona[data-id="book"]', ready: '.persona[data-id="book"] .switch input[type="checkbox"]' },
   { name: "settings", id: "settings--default", clip: "#sheet", open: ".settings-advanced" },
   { name: "hermes-settings", id: "settings--external-agent", clip: '[data-category="外部連携"]', ready: "#sheet", open: [".settings-advanced", '[data-category="外部連携"]'] },
   { name: "routing", id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },

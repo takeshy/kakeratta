@@ -8,6 +8,12 @@ import { setLanguage } from "../frontend/src/i18n.js";
 const frontend = new URL("../frontend/", import.meta.url).pathname;
 const read = (path) => readFileSync(join(frontend, path), "utf8");
 
+// A capture's CSS size: the PNG is taken at 2x, so half its pixel size.
+function captureSize(source) {
+  const png = readFileSync(join(frontend, "..", "docs", "captures", source));
+  return { width: png.readUInt32BE(16) / 2, height: png.readUInt32BE(20) / 2 };
+}
+
 // The landing page leads to the manual and the app; the manual leads back to
 // both. Both pages carry both languages.
 test("the landing page and the manual point at each other and at the app", () => {
@@ -86,4 +92,17 @@ test("the header links to the manual in a new tab, in the reader's language", as
 
   setLanguage("ja");
   assert.equal(manualLink(), "/manual/?lang=ja");
+});
+
+// Retaking a capture changes its height. An <img> still sized for the old one
+// shows the new picture stretched, which is how a manual image went out
+// squashed after its capture was retaken.
+test("every screenshot is sized to the capture it shows", () => {
+  for (const path of ["lp/index.html", "manual/index.html"]) {
+    for (const [tag, source] of read(path).matchAll(/<img [^>]*src="\/captures\/([^"]+)"[^>]*>/g)) {
+      const { width, height } = captureSize(source);
+      assert.match(tag, new RegExp(`width="${width}"`), `${path} → ${source} width`);
+      assert.match(tag, new RegExp(`height="${height}"`), `${path} → ${source} height`);
+    }
+  }
 });

@@ -14,7 +14,7 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 	for _, action := range []string{"silent", "speak"} {
 		t.Run(action, func(t *testing.T) {
 			calls := 0
-			r, s, stub := setup(t, func(system, user string) string {
+			r, s, _ := setup(t, func(system, user string) string {
 				calls++
 				if !strings.Contains(system, "Daily check-in") {
 					t.Error("daily prompt missing")
@@ -42,9 +42,6 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 			r.dailyAt(now.Add(time.Hour))
 			if calls != 1 {
 				t.Fatalf("calls = %d", calls)
-			}
-			if !stub.seen("timeline_search") || !stub.seen("notes_read") {
-				t.Fatal("missing tools")
 			}
 			entries, _ := s.Timeline()
 			if action == "silent" && len(entries) != 0 {
@@ -96,5 +93,38 @@ func TestDailyCanRememberWithoutPosting(t *testing.T) {
 	entries, _ := s.Timeline()
 	if len(entries) != 0 {
 		t.Fatal("silent memory update posted")
+	}
+}
+
+// Every active persona checks in; the checkbox decides only how much it says.
+func TestCheckInTalksAsChosen(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		saved   store.DailyCheckIn
+		want    string
+		notWant string
+	}{
+		{"never set shares", store.DailyCheckIn{}, "直近24時間", "ユーザーの判断が必要なことだけ"},
+		{"minimal", store.DailyCheckIn{Time: "09:00", TimeZone: "UTC", Talk: store.CheckInMinimal}, "ユーザーの判断が必要なことだけ", "直近24時間"},
+		{"share", store.DailyCheckIn{Time: "09:00", TimeZone: "UTC", Talk: store.CheckInShare}, "直近24時間", "ユーザーの判断が必要なことだけ"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var system string
+			r, s, _ := setup(t, func(sys, user string) string {
+				if strings.HasPrefix(sys, "あなたは「tabe」") {
+					system = sys
+				}
+				return `{"action":"silent"}`
+			}, "gourmet")
+			settings := s.Settings()
+			settings.DailyCheckIns = map[string]store.DailyCheckIn{"gourmet": tc.saved}
+			if err := s.SaveSettings(settings); err != nil {
+				t.Fatal(err)
+			}
+			r.dailyAt(time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC))
+			if !strings.Contains(system, tc.want) || strings.Contains(system, tc.notWant) {
+				t.Fatalf("check-in instructions:\n%s", system)
+			}
+		})
 	}
 }

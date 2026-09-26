@@ -93,11 +93,6 @@ type Runner struct {
 	trialMu       sync.Mutex
 	routingTrials map[string]routingTrial
 	replyTrials   map[string]replyTrial
-	// reviewChecked is the local day each persona's notes were last looked
-	// through for reviews and found to have none due. The daily tick comes
-	// every minute; paging every note each time would be the cost of nothing.
-	// Only the queue worker touches it.
-	reviewChecked map[string]string
 
 	// desk holds the asks waiting on an external planner.
 	desk *desk
@@ -117,8 +112,7 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 		emit:          func(string, any) {},
 		done:          make(chan struct{}),
 		routingTrials: map[string]routingTrial{}, replyTrials: map[string]replyTrial{},
-		reviewChecked: map[string]string{},
-		desk:          newDesk(),
+		desk: newDesk(),
 	}
 	r.apart, r.stopApart = context.WithCancel(context.Background())
 	r.wake = sync.NewCond(&r.stopMu)
@@ -971,7 +965,7 @@ func wakeKind(trigger timeline.Entry, listening bool, instructions string) strin
 		return "post"
 	case instructions == reviewInstructions:
 		return "review"
-	case strings.HasPrefix(instructions, dailyInstructions):
+	case strings.HasPrefix(instructions, dailyHeader):
 		return "daily"
 	case instructions == scheduleInstructions:
 		return "schedule"

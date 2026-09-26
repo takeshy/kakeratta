@@ -157,9 +157,8 @@ the persona is woken once a day with up to three such notes and asks about one
 in a post of its own; the reader shows **Review on** that date. Reply under
 that post: "keep it" drops the date, "later" moves it, "forget it" removes the
 note. The persona moves the date a week ahead when it asks, so you are not
-asked daily. The wake happens inside the persona's daily check-in when that is
-enabled, otherwise at the check-in time if one was ever set, else 09:00 in the
-workspace's zone, and only on days something is due.
+asked daily. It asks during the persona's daily check-in (09:00 in the
+workspace's zone unless you chose another time).
 
 ## Fast startup and offline posts
 
@@ -275,16 +274,17 @@ Ultra, marked with an Ultra badge. Thanks,
 ordinary follow-up questions and new topics stay on Super.
 The persona can use `read` up to 10 times in an ordinary turn and 20 times in an Ultra turn.
 
-Once an external agent's connection key has been issued, each persona's **planner**
-can be switched to an external agent such as Hermes (the choice stays hidden until then).
+Once an external agent's connection key has been issued, each persona can turn on
+**Prefer the external agent** to hand its planning to an agent such as Hermes
+(the checkbox stays hidden until then).
 Such a persona hands only the part that reads the context and writes the
 workflow to the agent connected over MCP; kakeratta still reviews and runs the
 workflow as in the table above. If the agent does not claim the turn within 3
 minutes, or no workflow is accepted within 15 minutes of the claim, the built-in
 model (Super) plans instead. The waits are under Advanced options →
-Integrations. See [Hermes Agent setup](hermes.md).
+Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md).
 
-![Personas: choosing each persona's planner](captures/en/persona-planner.png)
+![Personas: preferring the external agent for a persona](captures/en/persona-planner.png)
 
 - Nebius Token Factory provides Nemotron inference, GLM image reading, and Qwen embeddings.
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.

@@ -54,10 +54,10 @@ func TestReviewsDueAreOldestFirstAndCapped(t *testing.T) {
 // the user is, once a day, and only on a day something is due. An empty
 // morning does not take the day's claim: a check-in turned on later that
 // day still fires.
-func TestReviewWakesAPersonaWithoutACheckInOnceADay(t *testing.T) {
+func TestEveryActivePersonaChecksInOnceADay(t *testing.T) {
 	calls := 0
 	var system, user string
-	r, s, stub := setup(t, func(sys, usr string) string {
+	r, s, _ := setup(t, func(sys, usr string) string {
 		if strings.HasPrefix(sys, "あなたは「tabe」") {
 			calls++
 			system, user = sys, usr
@@ -69,69 +69,65 @@ func TestReviewWakesAPersonaWithoutACheckInOnceADay(t *testing.T) {
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
+	// Minimal, with the time never set: 09:00 in the workspace's zone.
+	settings.DailyCheckIns = map[string]store.DailyCheckIn{"gourmet": {Talk: store.CheckInMinimal}}
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
 	nine := time.Date(2026, 9, 25, 9, 0, 0, 0, tokyo)
 
-	// Nothing due: no wake, and the day stays unclaimed.
+	// It wakes with nothing due.
 	writeNotes(t, s, "gourmet", map[string]string{"tastes/keep.md": "---\ntype: Preference\n---\n豚骨"})
-	r.dailyAt(nine)
+	r.dailyAt(nine.Add(-time.Minute))
 	if calls != 0 {
-		t.Fatal("woke with nothing due")
+		t.Fatal("woke before 09:00")
 	}
+	r.dailyAt(nine)
+	if calls != 1 || !strings.Contains(user, "Daily check-in") || !strings.Contains(user, "Nothing needs the user's decision") {
+		t.Fatalf("calls=%d trigger:\n%s", calls, user)
+	}
+	if !strings.Contains(system, "ユーザーの判断が必要なことだけ") {
+		t.Fatal("the check-in was not told to speak only when needed")
+	}
+	r.dailyAt(nine.Add(2 * time.Hour))
+	if calls != 1 {
+		t.Fatal("woke twice in a day")
+	}
+
+	// The next day, with a note due: the review rides inside.
+	writeNotes(t, s, "gourmet", map[string]string{"shops/soka.md": "---\ntype: Shop\nreview: 2026-09-20\n---\n草加の店"})
+	r.dailyAt(nine.AddDate(0, 0, 1))
+	if calls != 2 || !strings.Contains(user, "shops/soka.md (review: 2026-09-20)") || !strings.Contains(system, "見直し時期が来たメモ") {
+		t.Fatalf("calls=%d review trigger:\n%s", calls, user)
+	}
+
+	// A chosen time is kept.
 	settings.DailyCheckIns = map[string]store.DailyCheckIn{"gourmet": {Enabled: true, Time: "10:00", TimeZone: "Asia/Tokyo"}}
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	r.dailyAt(nine.Add(time.Hour))
-	if calls != 1 || !strings.Contains(user, "Daily check-in") {
-		t.Fatalf("a check-in enabled after an empty morning did not fire: calls=%d", calls)
-	}
-	settings.DailyCheckIns = nil
-	if err := s.SaveSettings(settings); err != nil {
-		t.Fatal(err)
-	}
-
-	// The next day, with a note due.
-	writeNotes(t, s, "gourmet", map[string]string{"shops/soka.md": "---\ntype: Shop\nreview: 2026-09-20\n---\n草加の店"})
-	next := nine.AddDate(0, 0, 1)
-	r.dailyAt(next.Add(-time.Minute))
-	if calls != 1 {
-		t.Fatal("woke before 09:00")
-	}
-	r.dailyAt(next)
+	r.dailyAt(nine.AddDate(0, 0, 2))
 	if calls != 2 {
-		t.Fatalf("calls = %d after 09:00", calls)
+		t.Fatal("woke before the chosen 10:00")
 	}
-	for _, want := range []string{"見直し時期が来たメモ", "1週間先"} {
-		if !strings.Contains(system, want) {
-			t.Fatalf("review instructions missing %q", want)
-		}
-	}
-	if !strings.Contains(user, "shops/soka.md (review: 2026-09-20)") || strings.Contains(user, "Daily check-in") {
-		t.Fatalf("review trigger:\n%s", user)
-	}
-	r.dailyAt(next.Add(2 * time.Hour))
-	if calls != 2 {
-		t.Fatal("woke twice in a day")
-	}
-	r.dailyAt(next.AddDate(0, 0, 1))
+	r.dailyAt(nine.AddDate(0, 0, 2).Add(time.Hour))
 	if calls != 3 {
-		t.Fatalf("calls = %d the day after", calls)
+		t.Fatalf("calls = %d at the chosen time", calls)
 	}
-	_ = stub
 
-	// A paused persona keeps its dates and is not woken.
+	// An inactive persona does not check in.
 	settings.Active = nil
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	r.dailyAt(next.AddDate(0, 0, 2))
+	r.dailyAt(nine.AddDate(0, 0, 3).Add(time.Hour))
 	if calls != 3 {
-		t.Fatal("paused persona woke")
+		t.Fatal("an inactive persona woke")
 	}
 }
 
-// With a check-in enabled, reviews wait for it and ride inside: one wake,
-// with both sets of instructions.
+// Reviews wait for the check-in's time and ride inside: one wake, with both
+// sets of instructions.
 func TestReviewRidesInsideAnEnabledCheckIn(t *testing.T) {
 	calls := 0
 	var system, user string
@@ -152,7 +148,7 @@ func TestReviewRidesInsideAnEnabledCheckIn(t *testing.T) {
 	day := time.Date(2026, 9, 25, 9, 0, 0, 0, tokyo)
 	r.dailyAt(day)
 	if calls != 0 {
-		t.Fatal("a review woke ahead of the enabled check-in")
+		t.Fatal("a review woke ahead of the check-in")
 	}
 	r.dailyAt(day.Add(time.Hour))
 	r.dailyAt(day.Add(2 * time.Hour))
@@ -224,7 +220,9 @@ func TestReviewPostThenReplyWakesItsAuthor(t *testing.T) {
 	if len(remarks) != 1 || remarks[0].Text != "わかった、忘れるね" {
 		t.Fatalf("remarks = %+v", remarks)
 	}
-	if stub.promptFor("michi") != "" {
+	// michi checked in that morning like every active persona, but the
+	// answer under tabe's question was not routed to it.
+	if !strings.Contains(stub.lastPromptFor("michi"), "Daily check-in") {
 		t.Fatal("a persona routing left out was woken")
 	}
 }

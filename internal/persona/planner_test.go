@@ -218,7 +218,7 @@ func TestACheckInIsPlannedExternallyWithoutHoldingTheQueue(t *testing.T) {
 		t.Fatalf("ask = %+v", ask)
 	}
 	_, brief, err := runner.ClaimAsk(ask.ID, "exec")
-	if err != nil || !strings.Contains(brief.WakeNote, dailyInstructions) {
+	if err != nil || !strings.Contains(brief.WakeNote, dailyHeader) {
 		t.Fatalf("check-in brief = %q, %v", brief.WakeNote, err)
 	}
 }
@@ -233,5 +233,18 @@ func TestAPreviewIsPlannedInProcess(t *testing.T) {
 	}
 	if runner.detaches(withBuiltinPlanner(context.Background()), skill, settings) {
 		t.Fatal("a preview was handed to the agent")
+	}
+}
+
+// Paused, the agent is set aside without forgetting who it planned for.
+func TestAPausedExternalAgentPlansNothing(t *testing.T) {
+	settings := store.Settings{Planners: map[string]string{"gourmet": store.PlannerExternal}}
+	settings.ExternalAgent.Paused = true
+	runner := New(nil, nil, nil)
+	if runner.detaches(context.Background(), Skill{ID: "gourmet"}, settings) {
+		t.Fatal("a paused agent was handed the turn")
+	}
+	if settings.Planners["gourmet"] != store.PlannerExternal {
+		t.Fatal("the choice was lost")
 	}
 }

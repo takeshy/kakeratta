@@ -22,6 +22,7 @@ func TestDailySettingsEndpoint(t *testing.T) {
 		{`{"enabled":true,"time":"08:00","timeZone":"Asia/Tokyo"}`, 200},
 		{`{"enabled":true,"time":"24:00","timeZone":"Asia/Tokyo"}`, 400},
 		{`{"enabled":true,"time":"08:00","timeZone":"invalid"}`, 400},
+		{`{"time":"08:00","timeZone":"Asia/Tokyo","talk":"loud"}`, 400},
 	} {
 		response := httptest.NewRecorder()
 		app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas/"+id+"/daily", strings.NewReader(tc.body)))
@@ -35,7 +36,7 @@ func TestDailySettingsEndpoint(t *testing.T) {
 	if stale.Code != 200 || s.Settings().DailyCheckIns[id] != got {
 		t.Fatal("stale settings erased schedule")
 	}
-	if !got.Enabled || got.Time != "08:00" {
+	if !got.Enabled || got.Time != "08:00" || got.Talk != store.CheckInShare {
 		t.Fatalf("bad persistence: %+v", got)
 	}
 	response := httptest.NewRecorder()

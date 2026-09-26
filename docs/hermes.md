@@ -8,7 +8,7 @@ Of a persona's turn, only the part that thinks — reading the context, deciding
 
 When a persona whose planner is the external agent wakes, Kakeratta opens an **ask** over MCP. Hermes claims the ask, receives the context, and submits a workflow. Kakeratta checks and reviews that workflow exactly as it would the built-in model's, then runs it **as the persona**: writing its notes, placing its schedules, calling its tools, and speaking. Hermes never posts or writes notes itself.
 
-If Hermes does not claim the ask in time (3 minutes by default), or no workflow is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits can be changed under **Settings → Advanced options → Integrations**. Installing and configuring Hermes itself is a separate step.
+If Hermes does not claim the ask in time (3 minutes by default), or no workflow is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits can be changed under **Settings → Advanced options → Integrations**, where turning off **Use the external agent** pauses it: every persona plans with the built-in model for now, and each persona's choice is kept. Installing and configuring Hermes itself is a separate step.
 
 ## Connecting
 
@@ -25,7 +25,7 @@ If Hermes does not claim the ask in time (3 minutes by default), or no workflow 
 
 3. The key is shown only on the screen right after it is issued. Because the configuration contains the key, do not share it with anyone. If you reissue the key, replace the entry in `config.yaml` with the new configuration.
 
-4. Restart Hermes, then under **Personas** in Kakeratta set **Planner** to **External agent (e.g. Hermes)** for each persona you want Hermes to plan. The planner choice and the wait settings appear only once a connection key has been issued.
+4. Restart Hermes, then under **Personas** in Kakeratta turn on **Prefer the external agent** for each persona you want Hermes to plan. The checkbox and the wait settings appear only once a connection key has been issued. It is a preference: when Hermes does not answer in time, the built-in model plans.
 5. To plan asks automatically, install the official Kakeratta skill and its Wake Gate script, then create a cron job with the script attached. Installing only the `SKILL.md` URL does not include the script, so copy it separately.
 
     ```bash

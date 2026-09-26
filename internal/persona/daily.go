@@ -5,16 +5,28 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/takeshy/kakeratta/internal/llm"
-	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-const dailyInstructions = `
+// dailyHeader opens every check-in's instructions, whichever way it talks.
+const dailyHeader = `
 
 ## Daily check-in（1日1回の定期起床）
 今回はユーザーの投稿ではなく、システムによる定期起床です。返答の義務はありません。
-最初に timeline_search を query なし・from/to だけで1回使い、起床時刻から直近24時間の記録を読んでください。特に、ユーザーや他の担当が発言したスレッドのうち、自分が返答していないものから、自分の担当分野と関係する変化やつながりを探します。
+`
+
+// dailyInstructions is the minimal check-in: it speaks only about what needs
+// the user's decision.
+const dailyInstructions = dailyHeader + `このチェックインで話してよいのは、ユーザーの判断が必要なことだけです。見直し時期が来たメモ（そろそろ忘れてよいかの確認）など、対象発言で本体から渡されたものがあるときだけ、それについて短く一言話してください。
+それ以外の発見・提案・近況の報告・挨拶はしません。伝えたいことがあっても、ユーザーが次に投稿したときに話してください。
+メモの整理（index.md の更新、同じ対象のメモの統合など）は黙って行って構いません。
+話すことがなければ speak の text を空にします。
+発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
+`
+
+// dailyShareInstructions is the check-in that also looks for something worth
+// bringing back from the last day and the persona's older notes.
+const dailyShareInstructions = dailyHeader + `最初に timeline_search を query なし・from/to だけで1回使い、起床時刻から直近24時間の記録を読んでください。特に、ユーザーや他の担当が発言したスレッドのうち、自分が返答していないものから、自分の担当分野と関係する変化やつながりを探します。
 次に notes_list で、最近更新されたメモによく現れる tags と同じ tags を持つのに、更新日時が長く前のメモがないか確認してください。候補があれば notes_read で中身を読み、直近24時間の記録と今も具体的な関係があるか確かめます。古いという理由だけでは話しません。
 直近24時間の未参加の話題から役立つ関係を発見した場合や、最近よく使う tag と古いメモの間に今伝える価値のあるつながりを発見した場合だけ、短く話してください。
 毎日の件数合わせ、一般的なニュース一覧、同じ助言の繰り返し、挨拶だけの投稿は不要です。
@@ -38,6 +50,10 @@ func (r *Runner) CheckDaily() {
 	r.wake.Signal()
 }
 
+// dailyAt checks in every active persona once a day, at its chosen time. A
+// minimal check-in speaks only for what needs the user's decision - a note
+// due for review is the one the app hands it; a sharing one may also bring
+// back something worth saying.
 func (r *Runner) dailyAt(now time.Time) {
 	defer func() {
 		if problem := recover(); problem != nil {
@@ -52,10 +68,9 @@ func (r *Runner) dailyAt(now time.Time) {
 		if personaModel(settings) == "" {
 			continue
 		}
-		schedule := settings.DailyCheckIns[skill.ID]
+		schedule := settings.CheckInFor(skill.ID)
 		day, due := schedule.Due(now)
 		if !due {
-			r.reviewAt(now, skill, schedule, client, settings)
 			continue
 		}
 		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
@@ -68,48 +83,21 @@ func (r *Runner) dailyAt(now time.Time) {
 		}
 		loc, _ := time.LoadLocation(schedule.TimeZone)
 		text := "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."
-		instructions := dailyInstructions
+		instructions := dailyShareInstructions
+		if schedule.Minimal() {
+			text = "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Speak only about what needs the user's decision."
+			instructions = dailyInstructions
+		}
 		// Reviews ride inside the check-in, so the persona posts once.
 		if due := r.reviewsDue(skill, now, loc); len(due) > 0 {
 			text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
 			instructions += reviewInstructions
+		} else if schedule.Minimal() {
+			text += "\n\nNothing needs the user's decision today."
 		}
 		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: text}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
 		cancel()
 	}
-}
-
-// reviewAt wakes a persona that has no daily check-in for its reviews, once
-// a day and only when a note is due. An enabled check-in that is not yet due
-// today is left alone: the reviews ride with it later. The day is claimed
-// with the check-in's own key, which a disabled check-in never takes, and
-// only once something is due, so a check-in the user turns on later the same
-// day is not lost to an empty morning.
-func (r *Runner) reviewAt(now time.Time, skill Skill, schedule store.DailyCheckIn, client *llm.Client, settings store.Settings) {
-	if schedule.Enabled && schedule.Validate() == nil {
-		return
-	}
-	day, zone, ready := reviewSlot(now, schedule, settings)
-	if !ready || r.reviewChecked[skill.ID] == day {
-		return
-	}
-	due := r.reviewsDue(skill, now, zone)
-	if len(due) == 0 {
-		r.reviewChecked[skill.ID] = day
-		return
-	}
-	claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
-	if err != nil {
-		r.emit("error", map[string]any{"where": "review", "message": err.Error()})
-		return
-	}
-	if !claimed {
-		return
-	}
-	trigger := timeline.Entry{At: now.In(zone), Speaker: "system", Text: "Review: " + now.In(zone).Format(time.RFC3339) + " (" + zone.String() + "). These notes reached their review date, oldest first:\n" + reviewList(due, zone) + "\nAsk the user about one of them."}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, reviewInstructions, false, client, settings, r.registry(settings))
 }

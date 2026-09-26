@@ -182,12 +182,14 @@ kakeratta is [MIT licensed](LICENSE).
 
 Personas do not have to wait for a new post.
 
-Each persona can opt into **Daily check-in**, with one preferred time each day.
-It is **off by default**.
+Every active persona has a **Daily check-in** once a day, at a time the user
+can change (09:00 by default).
 
-When enabled, the persona can look through its memory and recent timeline, use
-its declared tools, search the web when appropriate, and bring something back
-only when it finds something worth saying. A silent check-in creates no empty
+By default the persona looks through its memory and the recent timeline, uses
+its tools, and brings something back only when it finds something worth
+saying; it also asks whether a note that has reached its review date can be
+forgotten. Turning on **Speak only when needed** limits it to what needs the
+user's decision, such as that question. A silent check-in creates no empty
 conversation.
 
 Personas can also create scheduled follow-ups. plana can, for example, remember
@@ -510,8 +512,8 @@ Factory.
 Hermes does not have to run under NemoClaw to use kakeratta.
 
 The integration boundary is MCP: issue a workspace key in Settings, configure
-the kakeratta MCP server in Hermes, set a persona's planner to the external
-agent, and Hermes can claim its asks and submit workflows.
+the kakeratta MCP server in Hermes, turn on **Prefer the external agent** for a
+persona, and Hermes can claim its asks and submit workflows.
 
 The NemoClaw/OpenShell setup described above is the tested sandboxed
 configuration used for the hackathon integration.

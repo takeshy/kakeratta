@@ -98,7 +98,18 @@ func TestPlannerIsChosenPerPersona(t *testing.T) {
 	if !strings.Contains(string(raw), `"id":"gourmet","name":"tabe","planner":"external"`) {
 		t.Fatalf("personas = %s", raw)
 	}
-	if code := put("gourmet", "builtin"); code != http.StatusOK || w.Settings().PlansExternally("gourmet") {
+	// Pausing sets the agent aside; the card still shows the saved choice.
+	paused := httptest.NewRecorder()
+	s.ServeHTTP(paused, httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(`{"externalAgent":{"claimMinutes":3,"planMinutes":15,"paused":true}}`)))
+	if paused.Code != http.StatusOK || w.Settings().PlansExternally("gourmet") {
+		t.Fatalf("pause = %d, still planning externally", paused.Code)
+	}
+	listed := httptest.NewRecorder()
+	s.ServeHTTP(listed, httptest.NewRequest(http.MethodGet, "/api/personas", nil))
+	if !strings.Contains(listed.Body.String(), `"planner":"external"`) || !strings.Contains(listed.Body.String(), `"externalAgentPaused":true`) {
+		t.Fatalf("personas while paused = %s", listed.Body.String())
+	}
+	if code := put("gourmet", "builtin"); code != http.StatusOK || w.ConfiguredSettings().Planners["gourmet"] != "" {
 		t.Fatalf("back to builtin = %d", code)
 	}
 	if code := put("gourmet", "hermes"); code != http.StatusBadRequest {

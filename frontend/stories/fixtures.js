@@ -13,7 +13,7 @@ export const personas = [
   { id: "book", name: "shiori", icon: "📖", builtin: true, active: true, wakes: 21, planner: "builtin",
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
   { id: "routine", name: "plana", icon: "🔁", builtin: true, active: true, wakes: 7, planner: "builtin",
-    domain: "やること。繰り返しも、一度きりの用も。", tools: ["schedule"], dailyCheckIn: { enabled: true, time: "07:00", timeZone: "Asia/Tokyo" },
+    domain: "やること。繰り返しも、一度きりの用も。", tools: ["schedule"], dailyCheckIn: { enabled: true, time: "07:00", timeZone: "Asia/Tokyo", talk: "share" },
     // A getter, so the sample reads in whichever language the story is showing.
     get schedules() {
       const w = words();
