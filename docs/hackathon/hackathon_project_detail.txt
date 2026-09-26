@@ -83,7 +83,7 @@ Replies work the same way. If a reply is not what you wanted, you can explain wh
 
 ### It can speak up without being asked
 
-Every active persona has a **Daily check-in**. It wakes once a day, at a time I can change, and looks through its own memory and the recent timeline. It can also check recent posts that were not originally routed to it, searching for connections that only become relevant in light of what it already remembers.
+Every active persona has a **Daily check-in**. It wakes once a day, at a time the application spreads between 7:00 and 21:00 in my time zone, and looks through its own memory and the timeline since its previous check-in, so nothing between two check-ins goes unread. It can also check recent posts that were not originally routed to it, searching for connections that only become relevant in light of what it already remembers.
 
 For example, michi might remember a shop I wanted to visit on an earlier trip to Shizuoka. Weeks later, I might casually mention somewhere else on the timeline that I am going to Shizuoka tomorrow. Even if that new post was not originally meant for michi, its Daily check-in can connect the new trip with the old memory and say:
 
@@ -93,7 +93,7 @@ This can bring back something I had completely forgotten, without requiring me t
 
 The persona can use web search or tools when necessary, but it speaks only when it thinks there is something worth saying. If there is nothing useful, nothing happens.
 
-If I would rather a persona stay quiet unless it needs me, I can turn on **Speak only when needed** for it. It then speaks only about what needs my decision, such as whether a note it has kept can now be forgotten.
+If I would rather a persona stay quiet unless it needs me, I can turn on **At check-in, speak only when needed** for it. It then speaks only about what needs my decision, such as whether a note it has kept can now be forgotten.
 
 Personas can also schedule simpler follow-ups.
 

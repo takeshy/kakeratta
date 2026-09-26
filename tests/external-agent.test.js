@@ -103,7 +103,7 @@ test("a paused external agent is said so on the persona it plans for", async t =
   assert.equal(preferBoxes(view.element)[0].checked, true, "the setting is kept");
 });
 
-test("the check-in always runs; the checkbox only chooses how much it says", async t => {
+test("the check-in has no time to set; the checkbox chooses how much it says", async t => {
   globalThis.Node = Element;
   globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
@@ -117,13 +117,13 @@ test("the check-in always runs; the checkbox only chooses how much it says", asy
   });
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
-  const label = walk(view.element).find(n => n.tag === "label" && n.children.some(c => c.textContent === translate("最低限のことだけ話す")));
+  const label = walk(view.element).find(n => n.tag === "label" && n.children.some(c => c.textContent === translate("チェックインでは最低限のことだけ話す")));
   const minimal = label.children.find(c => c.tag === "input");
   assert.equal(minimal.checked, true);
   minimal.checked = false;
   await minimal.listeners.change();
   assert.equal(saved[0].talk, "share");
-  assert.equal(saved[0].enabled, true, "the check-in itself stays on");
+  assert.deepEqual(saved[0], { talk: "share" }, "only how much it says is sent; when is the app's");
 });
 
 test("the connection says whether the agent is calling in", async t => {

@@ -182,13 +182,17 @@ kakeratta is [MIT licensed](LICENSE).
 
 Personas do not have to wait for a new post.
 
-Every active persona has a **Daily check-in** once a day, at a time the user
-can change (09:00 by default).
+Every active persona has a **Daily check-in** once a day, at a time the app
+picks for it between 07:00 and 21:00 in the user's time zone. The time drifts
+by at most an hour a day, so check-ins spread across the day instead of
+arriving all at once. On the rare day it would wrap from the evening round to
+the morning, that day is skipped rather than checking in twice within hours.
 
-By default the persona looks through its memory and the recent timeline, uses
+By default the persona looks through its memory and the timeline since its
+previous check-in, so nothing between two check-ins goes unread, uses
 its tools, and brings something back only when it finds something worth
 saying; it also asks whether a note that has reached its review date can be
-forgotten. Turning on **Speak only when needed** limits it to what needs the
+forgotten. Turning on **At check-in, speak only when needed** limits it to what needs the
 user's decision, such as that question. A silent check-in creates no empty
 conversation.
 

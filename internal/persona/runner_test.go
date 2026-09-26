@@ -337,6 +337,24 @@ func setup(t *testing.T, reply func(system, user string) string, active ...strin
 	return runner, s, stub
 }
 
+// checkInDay is the first day from day on which none of these personas skips
+// its check-in. Which days are skipped depends on the workspace, and a test's
+// workspace is a new temporary directory each run.
+func checkInDay(s *store.Store, day time.Time, personas ...string) time.Time {
+	for {
+		skipped := false
+		for _, persona := range personas {
+			if store.CheckInSkipped(s.Root(), persona, day) {
+				skipped = true
+			}
+		}
+		if !skipped {
+			return day
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+}
+
 func post(t *testing.T, s *store.Store, text string) timeline.Entry {
 	t.Helper()
 	entry := timeline.Entry{

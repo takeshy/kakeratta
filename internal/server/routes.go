@@ -815,37 +815,32 @@ func decodeImage(value string) ([]byte, string, error) {
 	return data, mime, nil
 }
 
+// putDailyCheckIn chooses how much a persona says at its daily check-in.
+// When it runs is the app's to choose, so only Talk is kept.
 func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, ok := s.catalogue.Find(id); !ok {
 		fail(w, http.StatusNotFound, "担当が見つかりません")
 		return
 	}
-	var schedule store.DailyCheckIn
-	if err := readJSON(r, &schedule); err != nil {
+	var body store.DailyCheckIn
+	if err := readJSON(r, &body); err != nil {
 		fail(w, http.StatusBadRequest, "設定を読めませんでした")
 		return
 	}
-	// Every active persona checks in; the time and how much it says are the
-	// user's to choose.
-	schedule.Enabled = true
-	switch schedule.Talk {
+	switch body.Talk {
 	case "":
-		schedule.Talk = store.CheckInShare
+		body.Talk = store.CheckInShare
 	case store.CheckInMinimal, store.CheckInShare:
 	default:
 		fail(w, http.StatusBadRequest, "話し方が不正です")
-		return
-	}
-	if err := schedule.Validate(); err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	settings := s.store.ConfiguredSettings()
 	if settings.DailyCheckIns == nil {
 		settings.DailyCheckIns = map[string]store.DailyCheckIn{}
 	}
-	settings.DailyCheckIns[id] = schedule
+	settings.DailyCheckIns[id] = store.DailyCheckIn{Enabled: true, Talk: body.Talk}
 	if err := s.store.SaveSettings(settings); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return

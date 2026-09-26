@@ -723,21 +723,37 @@ exception: what it finds is offered for citing, the persona names in its
 ## Check-ins and scheduled wakes
 
 Every active persona has a **Daily check-in** once a day. It cannot be turned
-off; its time and how much it says can be chosen.
+off, and only how much it says can be chosen.
 
-A persona has one check-in time per day, 09:00 in the workspace's zone by
-default. The browser's time zone is saved when the time is, including daylight-saving behavior. It remains the
-saved zone if the user travels; there is currently no separate time-zone picker.
+When it runs is the app's choice: a minute between 07:00 and 21:00 in the
+user's time zone (the one the page last saved) that drifts by at most an hour
+from one day to the next. The window is a ring - after 21:00 comes 07:00. Every 7
+days a fixed point is chosen by a hash of the workspace, the persona and the
+point, and the days between move the shorter way round from one point to the
+next in equal steps; two points are at most half the ring (7 hours) apart, so
+that is at most 60 minutes a day. Walking straight between points would crowd
+the minutes toward midday; the ring uses the edges of the window as much as the
+middle. A day on which the minute moves forward past 21:00 and wraps to
+the morning (20:50 yesterday, 07:10 today) has no check-in, so that two do not
+come about ten hours apart; the day after a skip never wraps again, so no two
+days in a row are skipped. The minute is computed, not remembered: the same day always gives the same
+minute, so a restart does not move it, and check-ins spread across the day
+rather than every persona of every user waking at once. A check-in not run by 21:00 - the
+server was down - is skipped rather than run at night.
 
-With **Speak only when needed** on (it is off by default), the persona may speak only
+With **At check-in, speak only when needed** on (it is off by default), the persona may speak only
 about what needs the user's decision; today that is a note that has reached its
 review date (whether it can be forgotten). It does not bring discoveries,
 suggestions, news or greetings. It may tidy its notes quietly. On a day with
 nothing to ask it still wakes, and ends silent.
 
-With it off (the default), the persona also reads the last 24 hours of the
-timeline and older notes sharing tags with recent ones, and speaks when it finds
-a connection worth bringing back.
+With it off (the default), the persona also reads the timeline since the
+previous check-in actually ran - recorded with the day's claim - and older notes
+sharing tags with recent ones, and speaks when it finds a connection worth
+bringing back. "The last 24 hours" would leave stretches unread when the minute
+moves later, or a day is skipped or missed; reading from the previous run makes
+the spans meet end to end. With no previous run on record it reads a day, and
+it reads a week at most.
 
 Silence produces no empty system post and no empty conversation thread.
 
@@ -748,8 +764,7 @@ Firestore claims are transactional across server instances.
 
 Local file storage assumes one server process for a workspace.
 
-Changing the preferred check-in time or forgetting memory does not reset an
-already-used daily claim.
+Forgetting memory does not reset an already-used daily claim.
 
 After downtime, only today's due check-in can run. Missed previous days are not
 replayed.

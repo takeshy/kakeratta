@@ -160,8 +160,9 @@ the persona is woken once a day with up to three such notes and asks about one
 in a post of its own; the reader shows **Review on** that date. Reply under
 that post: "keep it" drops the date, "later" moves it, "forget it" removes the
 note. The persona moves the date a week ahead when it asks, so you are not
-asked daily. It asks during the persona's daily check-in (09:00 in the
-workspace's zone unless you chose another time).
+asked daily. It asks during the persona's daily check-in, which runs
+once a day somewhere between 07:00 and 21:00 in your time zone (skipping the
+day its time would wrap from the evening round to the morning).
 
 ## Fast startup and offline posts
 

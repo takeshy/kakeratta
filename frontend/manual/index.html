@@ -171,7 +171,7 @@
           </div>
           <p>ヘッダーの <strong>担当</strong> で一覧を開き、<strong>有効にする</strong> で受け取る担当を選びます。担当は投稿された言語で答えます。</p>
           <figure>
-            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1685" />
+            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1645" />
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
           </figure>
           <h3>AI と担当を作る</h3>
@@ -189,12 +189,9 @@
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
           <h3 id="ja-daily">毎日のチェックイン</h3>
-          <p>有効な担当は、毎日1回決まった時刻に起きてメモを整えます。初期状態では、最近の記録と古いメモを見直して、伝える価値があることを見つけたときに話します。<strong>最低限のことだけ話す</strong> をONにすると、話しかけるのは見直しの日が来たメモを忘れてよいかの確認など、あなたの判断が必要なときだけになります。何もなければ黙ります。</p>
-          <ol>
-            <li><strong>担当</strong> を開き、対象の担当の <strong>毎日のチェックイン</strong> の時刻を選びます（初期値は 09:00）。</li>
-            <li>必要なら <strong>最低限のことだけ話す</strong> を切り替えます。変更は自動で保存されます。</li>
-          </ol>
-          <p>時刻は、保存したときに端末が使っているタイムゾーンで記録され、横に表示されます。引っ越しなどでタイムゾーンが変わったら、時刻を保存し直してください。ブラウザを閉じていても、サーバーが動いていれば実行されます。</p>
+          <p>有効な担当は、毎日1回、7時〜21時のどこかで起きてメモを整えます。時刻は担当ごとに本体が決め、日ごとに1時間以内で少しずつずれていくので、設定はいりません。初期状態では、最近の記録と古いメモを見直して、伝える価値があることを見つけたときに話します。<strong>チェックインでは最低限のことだけ話す</strong> をONにすると、話しかけるのは見直しの日が来たメモを忘れてよいかの確認など、あなたの判断が必要なときだけになります。何もなければ黙ります。</p>
+          <p>話す量を変えるには、<strong>担当</strong> を開き、対象の担当の <strong>チェックインでは最低限のことだけ話す</strong> を切り替えます。変更は自動で保存されます。</p>
+          <p>時刻は、この端末のタイムゾーンで数えます。ブラウザを閉じていても、サーバーが動いていれば実行されます。</p>
           <p>チェックインとは別に、plana のように担当が自分で起きる時刻を決めることもあります。詳しくは <a href="/manual/?guide=advanced#ja-wakes" data-lang-link>担当が起きるタイミング</a> を見てください。</p>
         </section>
 
@@ -335,7 +332,7 @@
               <thead><tr><th>きっかけ</th><th>決める人</th><th>内容</th></tr></thead>
               <tbody>
                 <tr><td>かけらが届いたとき</td><td>本体（振り分け）</td><td>分野に当たる担当と、<code>@名前</code> で指名された担当が動きます。</td></tr>
-                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>あなた</td><td>有効な担当が、選んだ時刻に1日1回起きます。</td></tr>
+                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>本体</td><td>有効な担当が、7時〜21時のどこかで1日1回起きます。</td></tr>
                 <tr><td>担当が預けた予定</td><td>担当</td><td><code>schedule</code> を持つ担当が、自分の記録から時刻を決めて起きます。</td></tr>
               </tbody>
             </table>
@@ -343,8 +340,10 @@
           <h3>チェックインの細かい動き</h3>
           <ul>
             <li>サーバーは毎分確認するので、混み具合によって少し遅れることがあります。</li>
-            <li>時刻を過ぎてから担当を有効にした場合は、その日の分をすぐ実行します。サーバーの再起動後も当日分だけを実行し、過ぎた日の分はまとめて実行しません。</li>
-            <li>担当が黙った場合や失敗した場合も、その日の1回に数えます。時刻を変えたりメモを消したりしても、同じ日にもう一度は起きません。</li>
+            <li>その日の時刻を過ぎてから担当を有効にした場合は、その日の分をすぐ実行します。21時を過ぎたら、その日の分は見送ります。サーバーの再起動後も当日分だけを実行し、過ぎた日の分はまとめて実行しません。</li>
+            <li>担当が黙った場合や失敗した場合も、その日の1回に数えます。メモを消しても、同じ日にもう一度は起きません。</li>
+            <li>時刻が夜から朝へ回り込む日（前の日 20時台 → その日 7時台など）は、数時間おきに2回起きないよう、その日を休みにします。</li>
+            <li>最近の記録は、前回のチェックインから今までの分を読みます。休んだ日や見送った日があっても、その間の記録を取りこぼしません。</li>
             <li>チェックインでは現在地を使わないので、経路検索はできず、店舗検索は名前での検索だけになります。</li>
           </ul>
           <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を整え、何を聞くかを Hermes が考えます。時間内に Hermes が応じなければ、内蔵モデルが代わりに考えます。</p>
@@ -408,7 +407,7 @@
     headers:
       Authorization: "Bearer 画面に表示された接続キー"</code></pre>
           <h3>担当を任せる</h3>
-          <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="399" /></figure>
+          <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="389" /></figure>
           <ol>
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは接続キーを発行したあとにだけ表示されます。</li>
             <li>いつもどおり投稿します。その担当に届いた投稿は Hermes が考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
@@ -642,7 +641,7 @@
           </div>
           <p>Open <strong>Personas</strong> in the header and turn on <strong>Enable</strong> for the ones you want. A persona answers in the language you wrote in.</p>
           <figure>
-            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="1989" />
+            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="1869" />
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
           <h3>Create a persona with AI</h3>
@@ -660,12 +659,9 @@
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
           <h3 id="en-daily">Daily check-ins</h3>
-          <p>Every active persona wakes once a day at a set time to tidy its notes. By default it looks over recent records and older notes and speaks when it finds something worth sharing. With <strong>Speak only when needed</strong> on, it speaks only when your decision is needed, such as whether a note that has reached its review date can be forgotten. Otherwise it stays quiet.</p>
-          <ol>
-            <li>Open <strong>Personas</strong> and choose the persona's <strong>Daily check-in</strong> time (09:00 by default).</li>
-            <li>Toggle <strong>Speak only when needed</strong> if you like. Changes save automatically.</li>
-          </ol>
-          <p>The time is saved in the time zone your device is using when you save it, shown beside the time. If you move to another time zone, save the time again. The browser can be closed; the server runs the check-in.</p>
+          <p>Every active persona wakes once a day, somewhere between 7:00 and 21:00, to tidy its notes. The app picks each persona's time, drifting by an hour a day at most, so there is nothing to set. By default it looks over recent records and older notes and speaks when it finds something worth sharing. With <strong>At check-in, speak only when needed</strong> on, it speaks only when your decision is needed, such as whether a note that has reached its review date can be forgotten. Otherwise it stays quiet.</p>
+          <p>To change how much it says, open <strong>Personas</strong> and toggle the persona's <strong>At check-in, speak only when needed</strong>. Changes save automatically.</p>
+          <p>The hours are counted in this device's time zone. The browser can be closed; the server runs the check-in.</p>
           <p>Some personas, such as plana, also pick their own wake times. See <a href="/manual/?guide=advanced#en-wakes" data-lang-link>When personas wake</a>.</p>
         </section>
 
@@ -806,7 +802,7 @@
               <thead><tr><th>Trigger</th><th>Decided by</th><th>What happens</th></tr></thead>
               <tbody>
                 <tr><td>A fragment arrives</td><td>The app (routing)</td><td>Personas whose subject matches, and any you mentioned with <code>@name</code>, act.</td></tr>
-                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>You</td><td>Each active persona wakes once a day at the time you chose.</td></tr>
+                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>The app</td><td>Each active persona wakes once a day, somewhere between 7:00 and 21:00.</td></tr>
                 <tr><td>A persona's own schedule</td><td>The persona</td><td>A persona with <code>schedule</code> picks a time from its own records.</td></tr>
               </tbody>
             </table>
@@ -814,8 +810,10 @@
           <h3>Check-in details</h3>
           <ul>
             <li>The server checks every minute, so a busy moment can delay a wake a little.</li>
-            <li>Enabling a persona after the time runs today's check-in right away. After a server restart only today's is run; missed days are not replayed.</li>
-            <li>A silent or failed wake still counts as the day's. Changing the time or deleting notes does not cause a second wake that day.</li>
+            <li>Enabling a persona after that day's time runs today's check-in right away. After 21:00 the day's check-in is skipped. After a server restart only today's is run; missed days are not replayed.</li>
+            <li>A silent or failed wake still counts as the day's. Deleting notes does not cause a second wake that day.</li>
+            <li>On a day the time would wrap from the evening round to the morning (the 20s one day, the 7s the next), that day is skipped, so a persona does not wake twice within hours.</li>
+            <li>Recent records are read from the previous check-in onward, so a skipped or missed day leaves nothing unread.</li>
             <li>Check-ins do not use your location, so route search is unavailable and place search works by name only.</li>
           </ul>
           <p>For a persona that prefers the external agent, Hermes decides what to tidy and what to ask at check-in. If Hermes does not respond in time, the built-in model plans instead.</p>
@@ -879,7 +877,7 @@
     headers:
       Authorization: "Bearer CONNECTION_KEY"</code></pre>
           <h3>Hand a persona over</h3>
-          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="463" /></figure>
+          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="433" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only after a connection key has been issued.</li>
             <li>Post as usual. Hermes plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>

@@ -204,12 +204,14 @@ func TestAReleasedAskFallsThroughAtOnce(t *testing.T) {
 func TestACheckInIsPlannedExternallyWithoutHoldingTheQueue(t *testing.T) {
 	runner, s, _ := externalSetup(t, time.Minute, time.Minute)
 	settings := s.ConfiguredSettings()
-	settings.DailyCheckIns = map[string]store.DailyCheckIn{"gourmet": {Enabled: true, Time: "08:00", TimeZone: "Asia/Tokyo"}}
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan struct{})
-	go func() { runner.dailyAt(time.Date(2026, 9, 14, 23, 0, 0, 0, time.UTC)); close(done) }()
+	go func() {
+		runner.dailyAt(store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), "gourmet")).Add(-time.Minute))
+		close(done)
+	}()
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):

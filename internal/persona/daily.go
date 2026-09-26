@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -26,9 +27,9 @@ const dailyInstructions = dailyHeader + `このチェックインで話してよ
 
 // dailyShareInstructions is the check-in that also looks for something worth
 // bringing back from the last day and the persona's older notes.
-const dailyShareInstructions = dailyHeader + `最初に timeline_search を query なし・from/to だけで1回使い、起床時刻から直近24時間の記録を読んでください。特に、ユーザーや他の担当が発言したスレッドのうち、自分が返答していないものから、自分の担当分野と関係する変化やつながりを探します。
-次に notes_list で、最近更新されたメモによく現れる tags と同じ tags を持つのに、更新日時が長く前のメモがないか確認してください。候補があれば notes_read で中身を読み、直近24時間の記録と今も具体的な関係があるか確かめます。古いという理由だけでは話しません。
-直近24時間の未参加の話題から役立つ関係を発見した場合や、最近よく使う tag と古いメモの間に今伝える価値のあるつながりを発見した場合だけ、短く話してください。
+const dailyShareInstructions = dailyHeader + `最初に timeline_search を query なし・from/to だけで1回使い、前回のチェックインから今回までの記録を読んでください。期間は対象発言の「Since the previous check-in」に書いてあるので、その from と to をそのまま渡します。特に、ユーザーや他の担当が発言したスレッドのうち、自分が返答していないものから、自分の担当分野と関係する変化やつながりを探します。
+次に notes_list で、最近更新されたメモによく現れる tags と同じ tags を持つのに、更新日時が長く前のメモがないか確認してください。候補があれば notes_read で中身を読み、前回のチェックインからの記録と今も具体的な関係があるか確かめます。古いという理由だけでは話しません。
+前回のチェックインからの未参加の話題から役立つ関係を発見した場合や、最近よく使う tag と古いメモの間に今伝える価値のあるつながりを発見した場合だけ、短く話してください。
 毎日の件数合わせ、一般的なニュース一覧、同じ助言の繰り返し、挨拶だけの投稿は不要です。
 伝えることがない場合や根拠を得られない場合は speak の text を空にします。黙ったままメモを更新しても構いません。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
@@ -50,7 +51,12 @@ func (r *Runner) CheckDaily() {
 	r.wake.Signal()
 }
 
-// dailyAt checks in every active persona once a day, at its chosen time. A
+// checkInLookback is the furthest back a sharing check-in reads: a persona
+// back after weeks away catches up on a week, not on everything.
+const checkInLookback = 7 * 24 * time.Hour
+
+// dailyAt checks in every active persona once a day, at a minute of the
+// user's 07:00-21:00 the app picks for it (see store.CheckInAt). A
 // minimal check-in speaks only for what needs the user's decision - a note
 // due for review is the one the app hands it; a sharing one may also bring
 // back something worth saying.
@@ -69,11 +75,13 @@ func (r *Runner) dailyAt(now time.Time) {
 			continue
 		}
 		schedule := settings.CheckInFor(skill.ID)
-		day, due := schedule.Due(now)
-		if !due {
+		loc := settings.Location()
+		local := now.In(loc)
+		root := r.store.Root()
+		if store.CheckInSkipped(root, skill.ID, local) || local.Before(store.CheckInAt(root, skill.ID, local)) || !local.Before(store.CheckInCloses(local)) {
 			continue
 		}
-		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
+		claimed, previous, err := r.store.ClaimDailyCheckInAt(skill.ID, local.Format("2006-01-02"), now)
 		if err != nil {
 			r.emit("error", map[string]any{"where": "daily", "message": err.Error()})
 			continue
@@ -81,11 +89,21 @@ func (r *Runner) dailyAt(now time.Time) {
 		if !claimed {
 			continue
 		}
-		loc, _ := time.LoadLocation(schedule.TimeZone)
-		text := "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."
+		// What happened since the previous check-in actually ran, read as one
+		// span: the minute moves, and a day can be skipped or missed, so "the
+		// last 24 hours" would leave stretches unread. With no previous run on
+		// record, or one long ago, it reads a day, or a week at most.
+		since := previous
+		if since.IsZero() {
+			since = now.Add(-24 * time.Hour)
+		} else if now.Sub(since) > checkInLookback {
+			since = now.Add(-checkInLookback)
+		}
+		text := "Daily check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + "). Decide whether there is anything worth sharing today." +
+			"\nSince the previous check-in: from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\""
 		instructions := dailyShareInstructions
 		if schedule.Minimal() {
-			text = "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Speak only about what needs the user's decision."
+			text = "Daily check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + "). Speak only about what needs the user's decision."
 			instructions = dailyInstructions
 		}
 		// Reviews ride inside the check-in, so the persona posts once.
@@ -95,7 +113,7 @@ func (r *Runner) dailyAt(now time.Time) {
 		} else if schedule.Minimal() {
 			text += "\n\nNothing needs the user's decision today."
 		}
-		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: text}
+		trigger := timeline.Entry{At: local, Speaker: "system", Text: text}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
 		cancel()

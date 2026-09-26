@@ -19,7 +19,7 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 				if !strings.Contains(system, "Daily check-in") {
 					t.Error("daily prompt missing")
 				}
-				for _, want := range []string{"直近24時間", "自分が返答していない", "最近更新されたメモ", "tags", "notes_read"} {
+				for _, want := range []string{"前回のチェックインから今回まで", "自分が返答していない", "最近更新されたメモ", "tags", "notes_read"} {
 					if !strings.Contains(system, want) {
 						t.Errorf("daily discovery instruction missing %q", want)
 					}
@@ -29,14 +29,13 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 			skill := r.catalogue.All()[0]
 			settings := s.Settings()
 			settings.Active = []string{skill.ID}
-			settings.DailyCheckIns = map[string]store.DailyCheckIn{skill.ID: {Enabled: true, Time: "08:00", TimeZone: "Asia/Tokyo"}}
 			if err := s.SaveSettings(settings); err != nil {
 				t.Fatal(err)
 			}
-			now := time.Date(2026, 9, 14, 23, 0, 0, 0, time.UTC)
+			now := store.CheckInAt(s.Root(), skill.ID, checkInDay(s, time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), skill.ID))
 			r.dailyAt(now.Add(-time.Minute))
 			if calls != 0 {
-				t.Fatal("ran before preferred time")
+				t.Fatal("ran before its minute")
 			}
 			r.dailyAt(now)
 			r.dailyAt(now.Add(time.Hour))
@@ -58,7 +57,7 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 			}
 			settings.Active = nil
 			_ = s.SaveSettings(settings)
-			r.dailyAt(now.AddDate(0, 0, 1))
+			r.dailyAt(store.CheckInCloses(checkInDay(s, now.AddDate(0, 0, 1), skill.ID)).Add(-time.Minute))
 			if calls != 1 {
 				t.Fatal("inactive persona woke")
 			}
@@ -78,11 +77,10 @@ func TestDailyCanRememberWithoutPosting(t *testing.T) {
 	skill := r.catalogue.All()[0]
 	settings := s.Settings()
 	settings.Active = []string{skill.ID}
-	settings.DailyCheckIns = map[string]store.DailyCheckIn{skill.ID: {Enabled: true, Time: "00:00", TimeZone: "UTC"}}
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	r.dailyAt(time.Now())
+	r.dailyAt(store.CheckInCloses(checkInDay(s, time.Now().UTC(), skill.ID)).Add(-time.Minute))
 	note, ok := s.Note(skill.ID, "daily.md")
 	if !ok || !strings.Contains(note.Text, "Remembered quietly") {
 		t.Fatal("silent wake did not retain memory")
@@ -104,9 +102,9 @@ func TestCheckInTalksAsChosen(t *testing.T) {
 		want    string
 		notWant string
 	}{
-		{"never set shares", store.DailyCheckIn{}, "直近24時間", "ユーザーの判断が必要なことだけ"},
-		{"minimal", store.DailyCheckIn{Time: "09:00", TimeZone: "UTC", Talk: store.CheckInMinimal}, "ユーザーの判断が必要なことだけ", "直近24時間"},
-		{"share", store.DailyCheckIn{Time: "09:00", TimeZone: "UTC", Talk: store.CheckInShare}, "直近24時間", "ユーザーの判断が必要なことだけ"},
+		{"never set shares", store.DailyCheckIn{}, "前回のチェックインから今回まで", "ユーザーの判断が必要なことだけ"},
+		{"minimal", store.DailyCheckIn{Talk: store.CheckInMinimal}, "ユーザーの判断が必要なことだけ", "前回のチェックインから今回まで"},
+		{"share", store.DailyCheckIn{Talk: store.CheckInShare}, "前回のチェックインから今回まで", "ユーザーの判断が必要なことだけ"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var system string
@@ -121,10 +119,37 @@ func TestCheckInTalksAsChosen(t *testing.T) {
 			if err := s.SaveSettings(settings); err != nil {
 				t.Fatal(err)
 			}
-			r.dailyAt(time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC))
+			r.dailyAt(store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC), "gourmet")).Add(-time.Minute))
 			if !strings.Contains(system, tc.want) || strings.Contains(system, tc.notWant) {
 				t.Fatalf("check-in instructions:\n%s", system)
 			}
 		})
+	}
+}
+
+// A sharing check-in reads from when the previous one actually ran, so no
+// stretch falls between two - whatever the minute did, or a day missed.
+func TestASharingCheckInReadsSinceThePreviousRun(t *testing.T) {
+	var user string
+	r, s, _ := setup(t, func(sys, usr string) string {
+		if strings.HasPrefix(sys, "あなたは「tabe」") {
+			user = usr
+		}
+		return `{"action":"silent"}`
+	}, "gourmet")
+	day := checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC), "gourmet")
+	// The first check-in knows no previous run and reads a day.
+	first := store.CheckInCloses(day).Add(-time.Minute)
+	r.dailyAt(first)
+	if want := `from "` + first.Add(-24*time.Hour).Format("2006-01-02 15:04") + `"`; !strings.Contains(user, want) {
+		t.Fatalf("want %q in:\n%s", want, user)
+	}
+	// Two days later - one day missed - it reads from that run.
+	later := checkInDay(s, day.AddDate(0, 0, 2), "gourmet")
+	at := store.CheckInCloses(later).Add(-time.Minute)
+	r.dailyAt(at)
+	want := `Since the previous check-in: from "` + first.Format("2006-01-02 15:04") + `" to "` + at.Format("2006-01-02 15:04") + `"`
+	if !strings.Contains(user, want) {
+		t.Fatalf("want %q in:\n%s", want, user)
 	}
 }

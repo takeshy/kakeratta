@@ -153,7 +153,9 @@ func (d *dryWorkspace) DeleteSchedule(string, string) error                     
 func (d *dryWorkspace) DeleteSchedules(string) error                             { return nil }
 func (d *dryWorkspace) SavePublication(string, store.Publication) error          { return nil }
 func (d *dryWorkspace) ClaimPublication(string, store.Publication) (bool, error) { return false, nil }
-func (d *dryWorkspace) ClaimDailyCheckIn(string, string) (bool, error)           { return false, nil }
+func (d *dryWorkspace) ClaimDailyCheckInAt(string, string, time.Time) (bool, time.Time, error) {
+	return false, time.Time{}, nil
+}
 func (d *dryWorkspace) ClaimSchedule(string, time.Time, time.Time) (store.Schedule, bool, error) {
 	return store.Schedule{}, false, nil
 }

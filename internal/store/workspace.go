@@ -42,7 +42,7 @@ type Workspace interface {
 	ConfiguredSettings() Settings
 	Settings() Settings
 	SaveSettings(Settings) error
-	ClaimDailyCheckIn(string, string) (bool, error)
+	ClaimDailyCheckInAt(id, day string, at time.Time) (bool, time.Time, error)
 	RecordWake(string, string) error
 	Woke(string) ([]string, error)
 	ForgetWakes(string) error

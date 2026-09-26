@@ -179,20 +179,14 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     );
     const planner = drawPlanner(row);
     if (planner) box.append(planner);
-    // Every active persona checks in once a day. The time is chosen, and
-    // whether it speaks only about what needs your decision.
+    // Every active persona checks in once a day, at a time of the app's
+    // choosing between 07:00 and 21:00; the user chooses how much it says.
     const schedule = row.dailyCheckIn || {};
-    const time = el("input", { type: "time", value: schedule.time || "09:00", disabled: !row.active, "aria-label": t("チェックインの時刻") });
     const minimal = el("input", { type: "checkbox", checked: schedule.talk === "minimal", disabled: !row.active });
-    const zone = schedule.timeZone || localZone();
-    // Saving takes the device's zone now, so someone who has moved re-anchors
-    // the check-in by saving the time again.
-    const saveDaily = async () => {
-      time.disabled = minimal.disabled = true;
+    minimal.addEventListener("change", async () => {
+      minimal.disabled = true;
       try {
-        const payload = await api.setDailyCheckIn(row.id, {
-          enabled: true, time: time.value || "09:00", timeZone: localZone(), talk: minimal.checked ? "minimal" : "share",
-        });
+        const payload = await api.setDailyCheckIn(row.id, { talk: minimal.checked ? "minimal" : "share" });
         rows = payload.personas || rows;
         onChange?.(rows);
         draw();
@@ -200,17 +194,12 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         toast(String(error.message || error), "error");
         draw();
       }
-    };
-    time.addEventListener("change", saveDaily);
-    minimal.addEventListener("change", saveDaily);
+    });
     box.append(el("div", { class: "compose-row" },
-      el("span", { class: "hint", label: "毎日のチェックイン" }),
-      time, el("span", { class: "hint", text: zone })));
-    box.append(el("div", { class: "compose-row" },
-      el("label", { class: "switch" }, minimal, el("span", { label: "最低限のことだけ話す" }))));
+      el("label", { class: "switch" }, minimal, el("span", { label: "チェックインでは最低限のことだけ話す" }))));
     box.append(el("p", { class: "hint", label: schedule.talk === "minimal"
-      ? "毎日この時刻に起きてメモを整えます。話すのは、メモを忘れてよいかの確認など、あなたの判断が必要なときだけです。"
-      : "毎日この時刻に起き、最近の記録と自分のメモを見直して、伝える価値があることを見つけたときも話します。" }));
+      ? "毎日7時〜21時のどこかで起きてメモを整えます。話すのは、メモを忘れてよいかの確認など、あなたの判断が必要なときだけです。"
+      : "毎日7時〜21時のどこかで起き、最近の記録と自分のメモを見直して、伝える価値があることを見つけたときに話します。" }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当が預けた予定" }),
