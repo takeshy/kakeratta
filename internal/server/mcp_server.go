@@ -259,6 +259,10 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !known {
+			if retiredMCPTools[params.Name] {
+				mcpError(w, message.ID, -32602, retiredToolMessage(params.Name))
+				return
+			}
 			mcpError(w, message.ID, -32602, "Unknown tool")
 			return
 		}

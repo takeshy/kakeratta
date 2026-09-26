@@ -103,6 +103,11 @@ func TestAnExternalPlannerWorkflowRunsAsThePersona(t *testing.T) {
 		t.Fatal("the workflow schema is missing")
 	case !strings.HasPrefix(brief.Briefing.System, "あなたは「tabe」"):
 		t.Fatalf("briefing = %q", brief.Briefing.System)
+	// The agent is not held to a short remark, as the built-in model is.
+	case !strings.Contains(brief.Briefing.System, agentRule) || strings.Contains(brief.Briefing.System, briefRule):
+		t.Fatal("the agent was told to be brief")
+	case strings.Contains(brief.Workflow.Spec, speakLength(false, false)) || !strings.Contains(brief.Workflow.Spec, speakLength(false, true)):
+		t.Fatal("the agent's workflow spec asks for a short remark")
 	}
 	tools := map[string]string{}
 	for _, tool := range brief.Tools {

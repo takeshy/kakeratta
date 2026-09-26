@@ -221,6 +221,20 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 	return nil, errors.New("Unknown tool")
 }
 
+// retiredMCPTools are the tools of the earlier integration, in which the
+// agent was a persona of its own. An agent still calling them runs a skill
+// older than asks; it is told so, and where to get the current one, rather
+// than only that the tool is unknown.
+var retiredMCPTools = map[string]bool{"claim_task": true, "complete_task": true, "cancel_task": true, "write_note": true, "post_report": true}
+
+func retiredToolMessage(name string) string {
+	return name + " は廃止されました（Unknown tool）。kakeratta のスキルが古い版です。" +
+		"https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md の最新版に入れ替え、" +
+		"list_asks → claim_ask → read_for_ask → submit_workflow を使ってください。" +
+		" / " + name + " was retired: this kakeratta skill is out of date. Install the current SKILL.md from " +
+		"https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md and use list_asks, claim_ask, read_for_ask and submit_workflow."
+}
+
 func (s *Server) mcpThread(ctx context.Context, id string) ([]timeline.Entry, error) {
 	return store.SearchThread(ctx, s.store, id)
 }

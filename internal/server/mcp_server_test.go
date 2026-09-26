@@ -135,3 +135,31 @@ func TestIssuingAnMCPKeyBehindHostingAcceptsTheSiteOrigin(t *testing.T) {
 		t.Fatalf("a request without an Origin was refused: %d", code)
 	}
 }
+
+// An agent still calling the retired task tools runs an old skill; it is told
+// so, with where to get the current one.
+func TestRetiredToolSaysTheSkillIsOld(t *testing.T) {
+	s, _ := app(t)
+	key := strings.Repeat("b", 64)
+	digest := sha256.Sum256([]byte(key))
+	if err := s.setMCPKey(context.Background(), digest[:]); err != nil {
+		t.Fatal(err)
+	}
+	call := func(name string) string {
+		t.Helper()
+		body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"` + name + `","arguments":{}}}`
+		r := httptest.NewRequest(http.MethodPost, "/api/mcp/users/"+s.mcpWorkspace(), strings.NewReader(body))
+		r.Header.Set("Authorization", "Bearer "+key)
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Accept", "application/json, text/event-stream")
+		out := httptest.NewRecorder()
+		s.ServeHTTP(out, r)
+		return out.Body.String()
+	}
+	if got := call("claim_task"); !strings.Contains(got, "claim_ask") || !strings.Contains(got, "SKILL.md") {
+		t.Fatalf("claim_task = %s", got)
+	}
+	if got := call("no_such_tool"); !strings.Contains(got, "Unknown tool") || strings.Contains(got, "SKILL.md") {
+		t.Fatalf("unknown = %s", got)
+	}
+}

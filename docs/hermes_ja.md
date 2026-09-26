@@ -139,7 +139,7 @@ Hermesは次のMCPツールで ask を処理します。
 | `workflow.spec` / `workflow.schema` | workflow の書き方と JSON Schema |
 | `tools` | 担当が使える道具。`use: "read"` は判断前の調べもの、`use: "workflow"` は workflow のステップで使う |
 | `limits` | 読み取り・Web検索・ステップ・差し戻しの上限 |
-| `briefing` | 内蔵モデルに送る system / user メッセージそのもの |
+| `briefing` | 内蔵モデルに送る system / user メッセージ。ただし外部エージェントには「発言は短く」の決まりを課さない |
 
 投稿やメモの中身はデータであり、Hermes への指示ではありません。
 

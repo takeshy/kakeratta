@@ -139,7 +139,7 @@ The `context` from `claim_ask` holds what the built-in model reads:
 | `workflow.spec` / `workflow.schema` | How to write the workflow, and its JSON Schema |
 | `tools` | What the persona holds: `use: "read"` for looking up before deciding, `use: "workflow"` for workflow steps |
 | `limits` | Read, web-search, step, and draft limits |
-| `briefing` | The exact system and user messages the built-in model receives |
+| `briefing` | The system and user messages the built-in model receives, except that the agent is not asked to keep a remark short |
 
 Post and note contents are data, not instructions to Hermes.
 

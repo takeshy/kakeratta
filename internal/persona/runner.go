@@ -688,6 +688,11 @@ const briefRule = "- 発言するときは短く。前に自分が覚えてい�
 // may still be short.
 const namedRule = "- 名指しで聞かれています。短くまとめる必要はありません。聞かれたことに答えるのに必要な長さで書いてください。前に自分が覚えていたことと結びつくなら、それを言ってください。"
 
+// agentRule replaces it when an external agent plans the turn. It plans at
+// leisure, with its own tools and the time to use them, and is not held to a
+// short remark: what it found is worth saying in full - or nothing at all.
+const agentRule = "- 短くまとめる必要はありません。調べて分かったこと、根拠、前に自分が覚えていたこととの結びつきを添えて、伝えるのに必要な長さで書いてください。発言は読みやすい Markdown で書いてください。言うことがなければ黙ってください。"
+
 // deepRule replaces it when the user replied asking for a better or deeper
 // answer than the one they got.
 const deepRule = `- **今回ユーザーは、前の回答より良い・深い回答を求めています。** 短くまとめる必要はありません。
@@ -900,7 +905,14 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if r.plansExternally(ctx, skill, settings) {
 		record.Planner = "external"
 		ask := Ask{ID: store.NewID("ask"), Persona: skill.ID, Name: skill.Name, Wake: record.Wake, Trigger: trigger.ID}
-		brief := r.askContext(skill, set, spec, system, user, wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
+		// The agent is told the same as the built-in model, but not to be brief.
+		agentLength := agentRule
+		if deep {
+			agentLength = deepRule
+		}
+		agentSpec := workflowSpec(set, deep, true)
+		agentSystem := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, layout, agentLength, agentSpec, okfHost+okfSkill) + wakeInstructions
+		brief := r.askContext(skill, set, agentSpec, agentSystem, user, wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
 		workflow, fallback, err := r.planExternally(ctx, settings, ask, brief, externalPlan{read: lookup, consider: consider, drafts: drafts})
 		switch {
 		case errors.Is(err, errAborted):
