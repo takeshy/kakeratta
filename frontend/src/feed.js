@@ -7,7 +7,7 @@
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
-import { looksLikeHtml, renderHtmlDocument, renderMarkdown, spokenText } from "./markdown.js";
+import { renderMarkdown, spokenText } from "./markdown.js";
 import { createMentionPicker } from "./mention-picker.js";
 import { openSocial } from "./social.js";
 import { showRouting } from "./routing-view.js";
@@ -221,16 +221,12 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   }
 
   // The body of anything said on the timeline. A persona's reply is model
-  // written and never edited here, so the app renders it - Markdown, or, when
-  // Hermes sends a whole HTML document, in a frame where nothing runs. Your own
+  // written and never edited here, so the app renders it as Markdown. Your own
   // words are yours: they stay exactly as typed unless the setting asks for
   // Markdown to be honoured, and editing has always meant writing the source.
   function drawBody(entry) {
     if (!entry.text) return null;
     const mine = entry.speaker === "user";
-    if (!mine && entry.speaker === "hermes" && looksLikeHtml(entry.text)) {
-      return el("div", { class: "said said-html" }, renderHtmlDocument(entry.text));
-    }
     if (mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
     return el("div", { class: "said said-markdown" }, renderMarkdown(entry.text));
   }
@@ -361,7 +357,9 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   // Ultra answers a reply that asked for a better or deeper answer, and the
   // user should be able to see that it did. Super is the default and goes
   // unmarked.
+  // A remark planned by an external agent is marked too.
   function drawModel(entry) {
+    if (entry.model === "agent") return el("span", { class: "model-badge", label: "外部エージェント", i18nTitle: "外部エージェントが考えた workflow で答えました" });
     if (entry.model !== "ultra") return null;
     return el("span", { class: "model-badge", text: "Ultra", i18nTitle: "より深い回答を求められたので Ultra で答えました" });
   }
@@ -416,7 +414,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
               draw();
             },
           }),
-          persona && persona.id !== "hermes" && onFixReply ? el("button", {
+          persona && onFixReply ? el("button", {
             class: "chip ghost reply-fix", label: "返し方を直す",
             onclick: () => onFixReply({ persona, remark: entry, post }),
           }) : null),
@@ -536,14 +534,14 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       if (post.id !== root) continue;
       const said = thread.filter((entry) => entry !== post);
       // Read aloud says the words, not the Markdown punctuation that draws
-      // them, nor the HTML of a framed Hermes report.
+      // them.
       const heading = post.text
-        ? post.speaker === "hermes" && looksLikeHtml(post.text) ? t("HTMLレポート") : spokenText(post.text) || post.text
+        ? spokenText(post.text) || post.text
         : post.media?.describe || t("投稿");
       lines.push({ id: post.id, text: heading });
       for (const entry of said) {
         const persona = getPersona(entry.speaker);
-        const body = entry.speaker === "hermes" && looksLikeHtml(entry.text) ? t("HTMLレポート") : spokenText(entry.text) || entry.text;
+        const body = spokenText(entry.text) || entry.text;
         lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona?.name || entry.speaker}。${body}` });
       }
     }

@@ -914,9 +914,13 @@ type runRecord struct {
 	Trigger  string `json:"trigger,omitempty"`
 	Wake     string `json:"wake"`
 	// Path is "workflow".
-	Path     string       `json:"path"`
-	Model    string       `json:"model"`
-	Reviewer string       `json:"reviewer"`
+	Path     string `json:"path"`
+	Model    string `json:"model"`
+	Reviewer string `json:"reviewer"`
+	// Planner is "external" when an external agent planned the turn, or
+	// "external→builtin" when it fell through, with the reason in Fallback.
+	Planner  string       `json:"planner,omitempty"`
+	Fallback string       `json:"fallback,omitempty"`
 	Reads    []readRecord `json:"reads,omitempty"`
 	// Stalls are replies that called nothing, which use up a turn as surely as
 	// a read does and were invisible in the log.

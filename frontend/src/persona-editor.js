@@ -46,7 +46,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
 
   const toolBoxes = {};
   const toolList = el("div", { class: "persona-tools" });
-  const available = persona.id === "hermes" ? [] : uniqueTools([...new Set([...toolNames, ...original.tools])]).filter((name) => name !== "timeline_search");
+  const available = uniqueTools([...new Set([...toolNames, ...original.tools])]).filter((name) => name !== "timeline_search");
   for (const name of available) {
     const box = el("input", { type: "checkbox" });
     box.checked = original.tools.some((tool) => capability(tool) === capability(name));
@@ -57,7 +57,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   }
   previous.tools = el("details", { class: "previous" });
   previous.tools.hidden = true;
-  if (persona.id !== "hermes") form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools));
+  form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools));
 
   function read() {
     const draft = { ...persona };

@@ -221,11 +221,6 @@ body {
 .markdown-callout[data-type="question"], .markdown-callout[data-type="warning"] { border-left-color: var(--warn); }
 .markdown-callout[data-type="danger"], .markdown-callout[data-type="failure"], .markdown-callout[data-type="bug"] { border-left-color: var(--warn); }
 .markdown-callout[data-type="quote"] { border-left-color: var(--muted); }
-/* A whole HTML document from Hermes: shown in a frame that cannot run
-   anything, so it is displayed, never executed. Documents assume light
-   paper whatever the app's theme. */
-.said.said-html { display: grid; }
-.said-html .html-document { width: 100%; height: 380px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color-scheme: light; }
 .shot img {
   width: 100%;
   border-radius: 12px;

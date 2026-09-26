@@ -79,7 +79,7 @@
             <li><a href="#ja-reply-fix">2. 返し方を直す</a></li>
             <li><a href="#ja-wakes">3. 担当が起きるタイミング</a></li>
             <li><a href="#ja-bluesky">4. Blueskyに公開する</a></li>
-            <li><a href="#ja-hermes">5. Hermesに依頼する</a></li>
+            <li><a href="#ja-hermes">5. 担当の考える役をHermesにする</a></li>
             <li><a href="#ja-settings">6. 設定とデータ</a></li>
             <li><a href="#ja-tools">7. 担当が使う道具</a></li>
             <li><a href="#ja-more">8. もっと詳しく</a></li>
@@ -348,7 +348,7 @@
             <li>担当が黙った場合や失敗した場合も、その日の1回に数えます。時刻を変えたりメモを消したりしても、同じ日にもう一度は起きません。</li>
             <li>チェックインでは現在地を使わないので、経路検索はできず、店舗検索は名前での検索だけになります。</li>
           </ul>
-          <p>Hermesもチェックインで最近の記録とメモを見直し、伝えることがあるときだけ自発的に報告します。利用者からの依頼とは別の動きです。Hermesを動かす端末では、kakerattaを定期的に確認する設定が必要です。</p>
+          <p>「考える役」を外部エージェントにした担当では、チェックインで何を見て何を言うかを Hermes が考えます。時間内に Hermes が応じなければ、内蔵モデルが代わりに考えます。</p>
           <h3 id="ja-tool-schedule">担当が預けた予定（schedule）</h3>
           <p>たとえば plana は、記録から「朝の薬は7時半ごろ」と分かったものにだけ予定を置き、その少しあとに起きます。まだ記録がなければ「そういえば朝の薬」と一言添え、済んでいれば黙ります。時刻の前に知らせるリマインダーではなく、催促もしません。あなたから「毎朝8時に知らせて」と頼む機能でもありません。</p>
           <ul>
@@ -394,28 +394,29 @@
         </section>
 
         <section id="ja-hermes">
-          <h2>5. Hermesに依頼する</h2>
-          <p>自分の Hermes に kakeratta から依頼を出し、結果をタイムラインで受け取れます。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
+          <h2>5. 担当の考える役をHermesにする</h2>
+          <p>担当ごとに「考える役」を選べます。外部エージェントにした担当は、投稿やチェックインで起きたとき、文脈を読んで次に何をするか（workflow）を考える部分を自分の Hermes に任せます。kakeratta はその workflow を確認してから、担当として実行します（メモ・予定・発言）。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
           <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="530" /></figure>
           <h3>つなぐ</h3>
           <ol>
-            <li><strong>設定 → 上級オプション → 外部連携 → Hermes連携</strong> で <strong>接続キーを発行</strong> し、表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li>
+            <li><strong>設定 → 上級オプション → 外部連携 → 外部エージェント連携（Hermes）</strong> で <strong>接続キーを発行</strong> し、表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li>
             <li>Hermes を動かす端末の <code>~/.hermes/config.yaml</code> に追加し、Hermes を再起動します。すでに <code>mcp_servers</code> があれば、その中に <code>kakeratta</code> を足します。</li>
+            <li>Hermes に kakeratta の Skill と Wake Gate を入れ、毎分確認するよう設定します（手順は手引きにあります）。</li>
           </ol>
           <pre><code>mcp_servers:
   kakeratta:
     url: "画面に表示された接続URL"
     headers:
       Authorization: "Bearer 画面に表示された接続キー"</code></pre>
-          <h3>依頼する</h3>
+          <h3>担当を任せる</h3>
+          <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで考える役を外部エージェントにしたところ" loading="lazy" /></figure>
           <ol>
-            <li>kakeratta で Hermes 担当を有効にします。</li>
-            <li>担当バーで Hermes を押し、<code>@Hermes</code> に続けて依頼を書いて送ります。</li>
-            <li>Hermes に「kakerattaの依頼を確認して」と話しかけます。報告がタイムラインに届きます。</li>
+            <li><strong>担当</strong> 画面で、任せたい担当の <strong>考える役</strong> を <strong>外部エージェント（Hermesなど）</strong> にします。この選択は接続キーを発行したあとにだけ表示されます。</li>
+            <li>いつもどおり投稿します。その担当に届いた投稿は Hermes が考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
-          <p>依頼は Hermes が取りに来るまで待っています。毎回話しかけずに済ませたいときは、Hermes 側で定期的に確認するよう設定します。</p>
+          <p>Hermes が3分以内に取りに来ない、または15分以内に workflow を返さないときは、内蔵モデルが代わりに考えます。時間は <strong>外部連携</strong> の「外部エージェントの待ち時間」で変えられます。試し直しは常に内蔵モデルで行います。</p>
           <h3>Hermes が読めるもの</h3>
-          <p>Hermes は、あなたの投稿、依頼、そして <strong>すべての担当のメモ</strong> を読めます（担当同士はメモを共有しませんが、Hermes は例外です）。書き込めるのは Hermes 自身のメモと報告だけで、モデル設定や他の利用者のデータには触れません。Hermes 担当を停止すると読み書きが止まり、<strong>連携を解除</strong> で接続キーが無効になります。</p>
+          <p>Hermes は、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、書き込みはすべて kakeratta が確認した workflow を通ります。モデル設定や他の利用者のデータには触れません。<strong>連携を解除</strong> で接続キーが無効になります。</p>
           <h3>つながらないとき</h3>
           <ul>
             <li>設定を変えたあと Hermes を再起動したか確認してください。</li>
@@ -550,7 +551,7 @@
             <li><a href="#en-reply-fix">2. Fix how a persona replies</a></li>
             <li><a href="#en-wakes">3. When personas wake</a></li>
             <li><a href="#en-bluesky">4. Share to Bluesky</a></li>
-            <li><a href="#en-hermes">5. Send requests to Hermes</a></li>
+            <li><a href="#en-hermes">5. Let Hermes plan for a persona</a></li>
             <li><a href="#en-settings">6. Settings and data</a></li>
             <li><a href="#en-tools">7. Tools personas use</a></li>
             <li><a href="#en-more">8. Read more</a></li>
@@ -819,7 +820,7 @@
             <li>A silent or failed wake still counts as the day's. Changing the time or deleting notes does not cause a second wake that day.</li>
             <li>Check-ins do not use your location, so route search is unavailable and place search works by name only.</li>
           </ul>
-          <p>Hermes also reviews recent posts and notes at check-in and reports on its own only if there is something worth sharing. This is separate from requests you send it. Set up Hermes to check kakeratta regularly on the machine where it runs.</p>
+          <p>For a persona whose planner is the external agent, Hermes decides what to look at and whether to say anything at check-in. If Hermes does not respond in time, the built-in model plans instead.</p>
           <h3 id="en-tool-schedule">A persona's own schedule (schedule)</h3>
           <p>plana, for example, sets one only for something its records place at a usual time - “morning medicine around 7:30” - and wakes shortly after. If nothing has been recorded yet it adds “the morning medicine, by the way”; if it has, it stays quiet. This is not an advance reminder and it does not nag. It is also not a way for you to ask “tell me every morning at 8.”</p>
           <ul>
@@ -865,28 +866,29 @@
         </section>
 
         <section id="en-hermes">
-          <h2>5. Send requests to Hermes</h2>
-          <p>Send your own Hermes a request from kakeratta and get its report on your timeline. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
+          <h2>5. Let Hermes plan for a persona</h2>
+          <p>Each persona chooses its planner. A persona planned by the external agent hands the thinking part of its turn — reading the context and deciding what to do next (the workflow) — to your own Hermes, whether it woke for a post or a check-in. kakeratta checks that workflow and then runs it as the persona (notes, schedules, remarks). If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
           <figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="530" /></figure>
           <h3>Connect</h3>
           <ol>
-            <li>Under <strong>Settings → Advanced options → Integrations → Hermes integration</strong>, press <strong>Create connection key</strong> and copy the configuration. The key is shown only then.</li>
+            <li>Under <strong>Settings → Advanced options → Integrations → External agent (Hermes)</strong>, press <strong>Create connection key</strong> and copy the configuration. The key is shown only then.</li>
             <li>Add it to <code>~/.hermes/config.yaml</code> on the machine running Hermes and restart Hermes. If <code>mcp_servers</code> already exists, add <code>kakeratta</code> inside it.</li>
+            <li>Install the kakeratta skill and Wake Gate in Hermes and have it check every minute (the guide has the steps).</li>
           </ol>
           <pre><code>mcp_servers:
   kakeratta:
     url: "Connection URL shown in Settings"
     headers:
       Authorization: "Bearer CONNECTION_KEY"</code></pre>
-          <h3>Send a request</h3>
+          <h3>Hand a persona over</h3>
+          <figure><img src="/captures/en/persona-planner.png" alt="A persona card with its planner set to the external agent" loading="lazy" /></figure>
           <ol>
-            <li>Enable the Hermes persona in kakeratta.</li>
-            <li>Tap Hermes in the persona bar and write your request after <code>@Hermes</code>.</li>
-            <li>Tell Hermes “Check my kakeratta requests.” Its report arrives on your timeline.</li>
+            <li>In <strong>Personas</strong>, set <strong>Planner</strong> to <strong>External agent (e.g. Hermes)</strong> for the persona. The choice appears only after a connection key has been issued.</li>
+            <li>Post as usual. Hermes plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
-          <p>Requests wait until Hermes picks them up. To avoid asking each time, set Hermes to check on a schedule.</p>
+          <p>If Hermes does not pick it up within 3 minutes, or does not return a workflow within 15 minutes, the built-in model plans instead. Change the waits under <strong>Integrations</strong> → <strong>External agent waits</strong>. <strong>Try again</strong> always uses the built-in model.</p>
           <h3>What Hermes can read</h3>
-          <p>Hermes can read your posts, your requests, and <strong>the notes of every persona</strong> (personas do not share notes with one another, but Hermes is the exception). It writes only its own notes and reports, and cannot reach model settings or other users. Pausing the Hermes persona stops its reads and writes; <strong>Disconnect</strong> invalidates the key.</p>
+          <p>Hermes can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: every write goes through a workflow kakeratta has checked. It cannot reach model settings or other users. <strong>Disconnect</strong> invalidates the key.</p>
           <h3>If it cannot connect</h3>
           <ul>
             <li>Restart Hermes after changing its configuration.</li>

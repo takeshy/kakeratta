@@ -115,6 +115,7 @@ export const api = {
   savePersonaDraft: (skill, id) => call(id ? "PUT" : "POST", id ? `/api/personas/${encodeURIComponent(id)}` : "/api/personas/draft", skill),
   personas: () => call("GET", "/api/personas"),
   setDailyCheckIn: (id, schedule) => call("PUT", `/api/personas/${encodeURIComponent(id)}/daily`, schedule),
+  setPlanner: (id, planner) => call("PUT", `/api/personas/${encodeURIComponent(id)}/planner`, { planner }),
   setActive: (active) => call("PUT", "/api/personas", { active }),
   installPersona: async (definition) => {
     const response = await fetch("/api/personas/install", { method: "POST", body: definition });

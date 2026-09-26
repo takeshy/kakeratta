@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderMarkdown, looksLikeHtml, renderHtmlDocument, spokenText } from "../frontend/src/markdown.js";
+import { renderMarkdown, spokenText } from "../frontend/src/markdown.js";
 
 // The same minimal DOM the other view tests use: element creation, text
 // nodes, and nothing else. Rendering must not depend on anything a browser
@@ -101,17 +101,3 @@ test("reading aloud says the words, not the markdown punctuation", () => {
     "Heading\ndone\nitem\nfirst\nquoted\nbold gone code ok\nlet x = 1\nPlain");
   assert.equal(spokenText("何もない"), "何もない");
 });
-
-test("only whole HTML documents take the framed path; prose and tag mentions do not", withDOM(() => {
-  for (const document of ["<!DOCTYPE html><html>", "<html>", "<div>x</div>", "<p>hi", "<TABLE>", "<img src=x>"]) {
-    assert.ok(looksLikeHtml(document), document);
-  }
-  for (const plain of ["", "plain **text**", "# heading", "1 < 2 and 3 > 1", "<3 hearts", "<hoge>不明", "a < b"]) {
-    assert.ok(!looksLikeHtml(plain), plain);
-  }
-  const frame = renderHtmlDocument("<!DOCTYPE html><html><body>x</body></html>");
-  assert.equal(frame.tagName, "IFRAME");
-  assert.equal(frame.attributes.sandbox, "allow-popups");
-  assert.equal(frame.srcdoc ?? frame.attributes.srcdoc, '<base target="_blank"><!DOCTYPE html><html><body>x</body></html>');
-  assert.ok(Object.keys(frame.attributes).includes("title"));
-}));

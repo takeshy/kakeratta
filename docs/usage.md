@@ -275,6 +275,17 @@ Ultra, marked with an Ultra badge. Thanks,
 ordinary follow-up questions and new topics stay on Super.
 The persona can use `read` up to 10 times in an ordinary turn and 20 times in an Ultra turn.
 
+Once an external agent's connection key has been issued, each persona's **planner**
+can be switched to an external agent such as Hermes (the choice stays hidden until then).
+Such a persona hands only the part that reads the context and writes the
+workflow to the agent connected over MCP; kakeratta still reviews and runs the
+workflow as in the table above. If the agent does not claim the turn within 3
+minutes, or no workflow is accepted within 15 minutes of the claim, the built-in
+model (Super) plans instead. The waits are under Advanced options →
+Integrations. See [Hermes Agent setup](hermes.md).
+
+![Personas: choosing each persona's planner](captures/en/persona-planner.png)
+
 - Nebius Token Factory provides Nemotron inference, GLM image reading, and Qwen embeddings.
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.
 - In production, Cloud Run hosts the API, Firebase Hosting serves the page, and Firestore and Cloud Storage persist user data. Local mode stores data on disk.

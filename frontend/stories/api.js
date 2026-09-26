@@ -58,7 +58,12 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       rows = rows.map((row) => row.id === body.id ? { ...row, ...body } : row);
       return json(body);
     }
-    if (path === "/api/personas" && method === "GET") return json({ personas: rows, tools });
+    if (path === "/api/personas" && method === "GET") return json({ personas: rows, tools, mcpConfigured: mcp.configured });
+    const planner = path.match(/^\/api\/personas\/([^/]+)\/planner$/);
+    if (planner && method === "PUT") {
+      rows = rows.map(row => row.id === decodeURIComponent(planner[1]) ? { ...row, planner: body.planner } : row);
+      return json({ personas: rows, tools, mcpConfigured: mcp.configured });
+    }
     if (path === "/api/personas" && method === "PUT") {
       rows = rows.map((row) => ({ ...row, active: body.active.includes(row.id) }));
       return json({ personas: rows, tools });

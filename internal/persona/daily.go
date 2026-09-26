@@ -46,18 +46,16 @@ func (r *Runner) dailyAt(now time.Time) {
 	}()
 	client, settings := r.clientOf()
 	for _, skill := range r.catalogue.Active(settings.Active) {
-		if skill.ID != "hermes" && (client == nil || client.BaseURL == "") {
+		if client == nil || client.BaseURL == "" {
 			continue
 		}
-		if skill.ID != "hermes" && personaModel(settings) == "" {
+		if personaModel(settings) == "" {
 			continue
 		}
 		schedule := settings.DailyCheckIns[skill.ID]
 		day, due := schedule.Due(now)
 		if !due {
-			if skill.ID != "hermes" {
-				r.reviewAt(now, skill, schedule, client, settings)
-			}
+			r.reviewAt(now, skill, schedule, client, settings)
 			continue
 		}
 		claimed, err := r.store.ClaimDailyCheckIn(skill.ID, day)
@@ -72,11 +70,9 @@ func (r *Runner) dailyAt(now time.Time) {
 		text := "Daily check-in: " + now.In(loc).Format(time.RFC3339) + " (" + schedule.TimeZone + "). Decide whether there is anything worth sharing today."
 		instructions := dailyInstructions
 		// Reviews ride inside the check-in, so the persona posts once.
-		if skill.ID != "hermes" {
-			if due := r.reviewsDue(skill, now, loc); len(due) > 0 {
-				text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
-				instructions += reviewInstructions
-			}
+		if due := r.reviewsDue(skill, now, loc); len(due) > 0 {
+			text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
+			instructions += reviewInstructions
 		}
 		trigger := timeline.Entry{At: now.In(loc), Speaker: "system", Text: text}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)

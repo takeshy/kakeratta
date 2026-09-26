@@ -1,14 +1,18 @@
-# Using Hermes Agent as a persona
+# Using Hermes Agent as a persona's planner
 
 For the NemoClaw / OpenShell architecture and verification results, see the [integration report](nemoclaw-hermes-integration.md).
 
 [README](../README.md) · [日本語](hermes_ja.md)
 
-Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the requests, runs them, and reports back. Hermes's models, tools, skills, and long-term memory are managed on the Hermes side. Installing and configuring Hermes itself is a separate step.
+Of a persona's turn, only the part that thinks — reading the context, deciding what to do next, and writing a workflow — can be handed to an external agent (Hermes). Each persona chooses its **planner**: the built-in model or the external agent.
+
+When a persona whose planner is the external agent wakes, Kakeratta opens an **ask** over MCP. Hermes claims the ask, receives the context, and submits a workflow. Kakeratta checks and reviews that workflow exactly as it would the built-in model's, then runs it **as the persona**: writing its notes, placing its schedules, calling its tools, and speaking. Hermes never posts or writes notes itself.
+
+If Hermes does not claim the ask in time (3 minutes by default), or no workflow is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits can be changed under **Settings → Advanced options → Integrations**. Installing and configuring Hermes itself is a separate step.
 
 ## Connecting
 
-1. In Kakeratta, open **Settings → Advanced options → Integrations** and select **Create connection key** under **Hermes integration**.
+1. In Kakeratta, open **Settings → Advanced options → Integrations** and select **Create connection key** under **External agent (Hermes)**.
 2. Add the configuration shown there to your Hermes `~/.hermes/config.yaml`. If a `mcp_servers` section already exists, add `kakeratta` under it. The configuration already contains the connection URL and the connection key.
 
    ```yaml
@@ -21,8 +25,8 @@ Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the r
 
 3. The key is shown only on the screen right after it is issued. Because the configuration contains the key, do not share it with anyone. If you reissue the key, replace the entry in `config.yaml` with the new configuration.
 
-4. Restart Hermes and enable Hermes under **Personas** in Kakeratta.
-5. To process requests automatically, install the official Kakeratta skill and its Wake Gate script, then create a cron job with the script attached. Installing only the `SKILL.md` URL does not include the script, so copy it separately.
+4. Restart Hermes, then under **Personas** in Kakeratta set **Planner** to **External agent (e.g. Hermes)** for each persona you want Hermes to plan. The planner choice and the wait settings appear only once a connection key has been issued.
+5. To plan asks automatically, install the official Kakeratta skill and its Wake Gate script, then create a cron job with the script attached. Installing only the `SKILL.md` URL does not include the script, so copy it separately.
 
     ```bash
     # Install the skill
@@ -33,10 +37,10 @@ Kakeratta stores requests as an MCP server; Hermes connects to it, fetches the r
     hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
     ```
 
-   When the Wake Gate finds no tasks, it skips the agent and the idle LLM call.
+   When the Wake Gate finds no pending ask, it skips the agent and the idle LLM call. An ask waits only minutes to be claimed, so keep the interval at one minute.
 
    Once the script is in place, it keeps the skill up to date automatically: once per day it fetches the distributed `SKILL.md` from kakeratta.net and overwrites `~/.hermes/skills/kakeratta/SKILL.md` when the distributed `metadata.version` is newer. Manual reinstallation is only needed when versions drift outside that mechanism or after a fresh install of the script itself.
-6. Select Hermes in the persona bar above the timeline, then post a request such as `@Hermes reorganize the README`. Hermes will autonomously pick up the task via its scheduled cron, complete it, and reply to the thread.
+6. Post as usual. For each persona routed a post whose planner is the external agent, an ask is opened and Hermes plans the turn. The reply arrives under that persona's name, marked **External agent**.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
 
@@ -76,7 +80,7 @@ nemoclaw <sandbox> exec -- chmod +x /sandbox/.hermes/scripts/check_kakeratta_gat
 ```
 
 #### Step 3: Create the Cron job with Wake Gate attached
-To eliminate wasteful LLM execution (token spend every minute) when no tasks are pending, create the cron job with the Wake Gate attached:
+To eliminate wasteful LLM execution (token spend every minute) when no ask is pending, create the cron job with the Wake Gate attached:
 
 ```bash
 nemoclaw <sandbox> exec -- hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
@@ -92,8 +96,8 @@ openshell sandbox list -g <gateway>
 # Verify kakeratta MCP is enabled
 nemoclaw <sandbox> exec -- hermes mcp list
 
-# Confirm mcp__kakeratta__list_tasks is callable
-nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_tasks"
+# Confirm mcp__kakeratta__list_asks is callable
+nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_asks"
 ```
 
 > [!TIP]
@@ -102,74 +106,66 @@ nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_tasks"
 
 ## The key and its scope
 
-The key is shown only on the screen right after it is issued; the server stores a hash. Reissuing invalidates the previous key, and **Disconnect** revokes it. Browser login cookies cannot be used for MCP authentication.
+The key is shown only right after it is issued; the server stores only its hash. Reissuing invalidates the previous key, and **Disconnect** revokes it. A browser login cookie cannot authenticate MCP.
 
-The key can read the issuing user's timeline, persona list, and each persona's notes. It can also save Hermes's notes, fetch, cancel, and complete requests, and post reports under Hermes's name. It cannot access model settings or other users' data, and it cannot rewrite other personas' notes.
+With this key, Hermes can read the issuing user's timeline, persona list, and each persona's notes. Its only write is submitting a workflow for an ask, and Kakeratta checks and reviews that workflow before running it as the persona. It cannot access model settings or other users' data.
 
-MCP tools can read and write only while the Hermes persona is ON. When it is OFF, access to every MCP tool is refused, including the timeline, persona list, notes, and requests. The key is kept, so turning the persona back ON makes it usable again. While OFF, connection initialization and listing tool definitions still work, but no user data is returned.
+**Disconnect** erases the stored key hash and invalidates the connection itself; reconnecting needs a new key and an updated Hermes configuration. Revoking the key does not erase data Hermes has already fetched. To stop handing a persona to the external agent, set its planner back to **Built-in model**.
 
-**Disconnect** erases the stored key hash and invalidates authentication for the connection itself. Reconnecting requires reissuing the key and updating `config.yaml` on the Hermes side. Turning the persona OFF or revoking the key does not erase data Hermes has already fetched, nor does it stop external operations already in progress.
+## Handling asks
 
-## Processing requests and retrying
+Hermes handles asks with these MCP tools:
 
-Hermes processes requests with the following MCP tools.
+1. `list_asks` lists the open asks. Those with `status: "pending"` are unclaimed; one not claimed by its `claimBy` goes to the built-in model.
+2. `claim_ask` takes an `askId` and a `claimId` unique to this execution. Retry a lost response with the same `claimId`; another `claimId` cannot take the ask. The response includes `planBy` (the deadline for an accepted workflow) and the `context`.
+3. If needed, `read_for_ask` looks things up with the persona's own notes and tools (`notes_list`, `notes_read`, and read-use tools), within the same limits as the built-in model. Only saved posts found here by `timeline_search` may be cited in a `speak` step's `sources`.
+4. `submit_workflow` takes the `askId`, `claimId`, and `workflow` (`{summary, steps}`). Kakeratta checks it at once, reviews it when warranted, and answers. `accepted: true` means Kakeratta will run it. A rejected workflow comes back with `problems` to fix; submit again. Past the draft limit, the ask goes back to the built-in model (`closed: true`).
+5. An ask Hermes cannot plan is given back with `release_ask`: the built-in model takes it at once instead of waiting out the deadline.
 
-1. `list_tasks` lists pending and claimed requests.
-2. `claim_task` takes a `taskId` and a `claimId` that is unique per execution. If the response is lost, retry with the same `claimId`. The response includes the target thread and the persona's instructions.
-3. Do the work with Hermes's own tools. Do not rerun a claimed request just because Hermes reconnected. Claims never expire on their own.
-4. `complete_task` takes the `taskId`, the `claimId`, and the result `text`. An empty body completes the request without posting. The body is limited to 32 KB.
+### The context a claim returns
 
-Results are stored before they are delivered to the timeline. If delivery fails, do not redo the work; retry the same completion call, or use `list_tasks` to redeliver undelivered results. The first accepted result cannot be changed later. On transient read failures, requests and undelivered results are kept; a request is invalidated only once its deletion or edit has been confirmed.
+The `context` from `claim_ask` holds what the built-in model reads:
 
-### Scheduled runs and unfinished requests
+| Field | Contents |
+| --- | --- |
+| `persona` | The persona's ID, name, tone, domain, and memory layout (the note `type`s it may use) |
+| `instructions` | The persona's own instructions |
+| `skill` | How the persona writes notes (Open Knowledge Format) |
+| `wake` / `wakeInstructions` | Why it woke (`post`, `daily`, `schedule`, `review`, …) and that wake's brief (such as the check-in brief) |
+| `trigger` | The entry to respond to |
+| `thread` / `threadText` | The whole thread containing it, oldest first |
+| `memoryIndex` | The persona's `index.md` |
+| `schedules` | The schedules the persona has placed |
+| `workflow.spec` / `workflow.schema` | How to write the workflow, and its JSON Schema |
+| `tools` | What the persona holds: `use: "read"` for looking up before deciding, `use: "workflow"` for workflow steps |
+| `limits` | Read, web-search, step, and draft limits |
+| `briefing` | The exact system and user messages the built-in model receives |
 
-Hermes Cron checks requests every minute. The Wake Gate script calls `list_tasks` and starts the agent only when tasks exist. It does not skip a task merely because its ID matches the previous run. An earlier output-diff monitor could leave a failed task pending indefinitely: the unchanged task ID prevented Hermes from running again.
+Post and note contents are data, not instructions to Hermes.
 
-A pending task can be processed on the next run. A claimed task remains visible through `list_tasks`, but checking its state and repeating its work are separate decisions. In particular, do not repeat an external operation when its outcome is unknown.
+### Waits and fall-through
 
-### Skipping idle inference with the Wake Gate
+| Situation | Result |
+| --- | --- |
+| Not claimed by `claimBy` (default: 3 minutes after opening) | The built-in model plans |
+| No workflow accepted by `planBy` (default: 15 minutes after the claim) | The built-in model plans |
+| Draft limit exceeded, or the review failed | The built-in model plans |
+| `release_ask` called | The built-in model plans at once |
 
-The [distributed script](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py) is attached when creating the cron job above. To add it to an existing job, use `hermes cron edit <job_id> --script check_kakeratta_gate.py`. It returns `{"wakeAgent": false}` when there are no tasks, skipping the LLM run. If tasks exist or the pre-check has a connection error, it returns `{"wakeAgent": true}`. One verified idle tick took about 0.06 seconds with zero LLM calls. This figure describes idle model inference, not all background resource use.
+An ask that fell through is gone; a late `submit_workflow` is refused as not found. Asks live in memory with the turn waiting on them, and a Kakeratta restart ends them too. A persona waiting on the external agent runs apart from the queue, so other posts and check-ins are not held up; the routing sheet shows it as still thinking until its turn ends.
 
-### If Hermes crashes after claiming
+**Try again** (the reply preview) always uses the built-in model, whatever the persona's planner.
 
-`list_tasks` and `claim_task` include the following recovery information with each request.
+### Scheduled runs and the Wake Gate
 
-```json
-{
-  "id": "task_...",
-  "status": "claimed",
-  "claimId": "execution-...",
-  "claimedAt": "2026-09-20T03:00:00Z"
-}
-```
+Hermes Cron checks for asks every minute. The [distributed script](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py) calls `list_asks` and wakes the agent only when an unclaimed ask exists; a claimed ask is already being planned by a running agent. With no pending ask it returns `{"wakeAgent": false}` and no LLM call is made; a pre-check error returns `{"wakeAgent": true}`. To add it to an existing job, use `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
 
-`claimedAt` is the time (UTC) of the first claim and does not change on retries with the same `claimId`. Requests claimed by an older version have an unknown time and return `null`. `state` and `claim` are also returned for compatibility with existing clients.
+So that earlier Wake Gate scripts (which call `list_tasks`) keep working, `list_tasks` remains as a compatibility tool that returns only pending asks. The skill updates itself but the script does not, so replacing it with the new script is recommended.
 
-In a sequence such as `claim_task → GitHub operation → crash → complete_task never called`, Kakeratta cannot determine whether the external operation completed. Exactly-once execution of external operations is not guaranteed. Claims have no expiry, and reclaiming with a different `claimId` is refused. Being able to fetch the state again with the same `claimId` does not mean the external operation may be rerun.
+## Check-ins, schedules, and note reviews
 
-When the outcome is unknown, stop automatic reruns and have the user check the external state, such as GitHub. If a rerun is needed, call `cancel_task` on the user's instruction, and then have the user **post the request again as a new post**. Even with the same text, a new post is a separate request. A cancelled request cannot be reclaimed.
+Daily check-ins, schedule wakes, note reviews, and deletion notices also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit a workflow that ends with an empty `speak`.
 
-`cancel_task` cancels unneeded pending or claimed requests, but it cannot stop work already running on the Hermes side. The request box holds up to 128 pending requests, and the most recent 8 delivery records of completed requests are kept.
+## From the former "Ask Hermes"
 
-Hermes's work does not go through Kakeratta's usual workflow review. Configure the approval policy for external operations on the Hermes side. Retrying a reply from the timeline does not rerun the request.
-
-## Daily check-ins and unprompted reports
-
-At the preferred check-in time, Kakeratta passes Hermes the same daily check-in brief it gives other personas. This is separate from a request you send through a post. Hermes reviews recent history and its notes, then reports on its own only if it finds something worth sharing. Otherwise it completes quietly with an empty `complete_task` body. Kakeratta must be running, and Hermes must be configured to check it regularly.
-
-Reports from Hermes's own cron or skills use the MCP tool `post_report`. The following is an example of the tool call arguments.
-
-```json
-{"id":"release-check-2026-09-19","text":"There was a release related to yesterday's issue."}
-```
-
-Make `id` unique per report and reuse the same ID when resending the same result. The same ID never posts twice, and it does not revive a deleted post. Setting `replyTo` to the ID of an existing post makes the report a reply. The body is limited to 32 KB. This is not a dedicated REST posting API; it is a tool called over the authenticated MCP connection.
-
-## Conversation, memory, and verifying the setup
-
-`get_timeline` and `get_thread` read posts, and `list_notes` and `read_note` read each persona's shared notes. `write_note` saves only into Hermes's own note area. Kakeratta does not manage Hermes's conversation session IDs. Hermes's history and long-term memory are independent, so deleting a post in Kakeratta does not delete information Hermes has already fetched.
-
-After connecting, first confirm that Hermes can read the timeline and claim and complete a small request. In a Firebase-authenticated environment, the server returns 503 right after startup while workspace restoration is still in progress, so retry later.
-
-The regression tests verify that transient read failures do not cancel pending or claimed requests, that stored results are not marked delivered, that retries work after recovery, and that confirmed edits and deletions invalidate requests.
+Hermes used to be a persona of its own: it took requests (`list_tasks` / `claim_task` / `complete_task`), replied under its own name, and posted on its own with `post_report`. That has been retired. Hermes is no longer a persona; `@Hermes`, posts under Hermes's name, and writes to a Hermes note area (`write_note`) are gone.

@@ -9,9 +9,9 @@ export default { title: "Personas", parameters: { layout: "fullscreen" } };
 
 // The dialog the panel opens lives on <body>, outside the story root, so a
 // story starts by taking down the one the previous story left.
-function panelOf(rows, after) {
+function panelOf(rows, after, { mcp } = {}) {
   for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove();
-  serve({ personas: rows, tools, memory });
+  serve({ personas: rows, tools, memory, ...(mcp ? { mcp } : {}) });
   const panel = createPersonas({ onChange: () => {} });
   void panel.load().then(() => after?.(panel.element));
   return sheet("担当", panel.element);
@@ -22,6 +22,14 @@ export const AllPresent = { name: "4体とも有効", render: () => panelOf(pers
 export const OneOn = {
   name: "1体だけ有効",
   render: () => panelOf(personas.map((row) => ({ ...row, active: row.id === "book" }))),
+};
+
+// shiori plans through the connected external agent; the others plan in-process.
+export const ExternalPlanner = {
+  name: "考える役を外部エージェントにした",
+  render: () => panelOf(personas.map((row) => row.id === "book" ? { ...row, planner: "external" } : row),
+    (element) => element.querySelector('[data-id="book"]')?.scrollIntoView({ block: "start" }),
+    { mcp: { configured: true, path: "/api/mcp/users/sample" } }),
 };
 
 export const Nobody = { name: "誰もいない", render: () => panelOf(nobody) };

@@ -108,7 +108,7 @@ test("a reply's link renders as a link that opens in a new tab", (t) => {
 
 // An answer on Ultra is marked, so a reply to "もっと詳しく" can be told
 // apart from an ordinary one. Super is the default and goes unmarked, as does
-// a remark with no model (the user's own words, Hermes, a failed turn).
+// a remark with no model (the user's own words, a failed turn).
 test("only a remark answered on Ultra carries the Ultra badge", (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
@@ -141,10 +141,9 @@ test("only a remark answered on Ultra carries the Ultra badge", (t) => {
 });
 
 // A persona's reply is rendered, because nobody edits it: emphasis, deletion,
-// code and links read as themselves, and a javascript: link stays inert. A
-// whole HTML document from Hermes is framed where nothing runs. Your own
-// words stay exactly as typed until the setting asks for Markdown.
-test("personas render as markdown, hermes HTML is framed, user text stays plain until asked", (t) => {
+// code and links read as themselves, and a javascript: link stays inert. Your
+// own words stay exactly as typed until the setting asks for Markdown.
+test("personas render as markdown, user text stays plain until asked", (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
@@ -154,7 +153,6 @@ test("personas render as markdown, hermes HTML is framed, user text stays plain 
   feed.set([
     { id: "p", kind: "post", speaker: "user", text: "plain **stay**", at },
     { id: "r", kind: "reply", root: "p", speaker: "tech", at, text: "**bold** ~~gone~~ `code` [ok](https://example.com/x) [bad](javascript:alert(1))" },
-    { id: "h", kind: "reply", root: "p", speaker: "hermes", at, text: "<!DOCTYPE html><html><body>report</body></html>" },
   ]);
   feed.reveal("r");
   const walk = (node) => [node, ...node.children.flatMap(walk)];
@@ -164,10 +162,6 @@ test("personas render as markdown, hermes HTML is framed, user text stays plain 
   assert.ok(nodes().some(tag("DEL", "gone")), "deletion renders");
   assert.ok(nodes().some(tag("CODE", "code")), "code renders");
   assert.deepEqual(nodes().filter((node) => node.tagName === "A").map((node) => node.href), ["https://example.com/x"]);
-  const frame = nodes().find((node) => node.tagName === "IFRAME");
-  assert.ok(frame, "hermes HTML is framed");
-  assert.equal(frame.sandbox, "allow-popups");
-  assert.match(frame.srcdoc, /<base target="_blank"><!DOCTYPE html>/);
   // The user's own words stay as typed.
   assert.ok(nodes().some(tag("P", "plain **stay**")));
   assert.ok(!nodes().some(tag("STRONG", "stay")));
@@ -423,15 +417,6 @@ test("read aloud selects only one thread, including user replies, and updates it
   feed.setSpeaking(null);
   assert.ok(feed.element.querySelectorAll(".thread-speak").every(node => node.textContent === translate("🔈 読み上げ")));
   assert.deepEqual(feed.spoken("other").map(line => line.id), ["other"]);
-});
-
-test("read aloud names a root Hermes HTML report instead of speaking its source", t => {
-  globalThis.Node = TestNode;
-  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
-  t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  const feed = createFeed({ getPersona: () => ({ name: "Hermes" }), showIntro: false });
-  feed.set([{ id: "report", root: "report", kind: "post", speaker: "hermes", text: "<!DOCTYPE html><html><body>secret source</body></html>", at: "2026-09-14T00:00:00Z" }]);
-  assert.deepEqual(feed.spoken("report"), [{ id: "report", text: translate("HTMLレポート") }]);
 });
 
 test("persona bar groups overflow and toggles without losing the selected persona", async t => {
@@ -809,26 +794,39 @@ test("a called persona that stayed quiet can be asked for a reply", async (t) =>
   assert.equal(document.body.children.length, 0, "the sheet gives way to the reply dialog");
 });
 
-// Hermes replies later through its own agent, not through a per-post note, so
-// its call is read without the memo wording that applies to the other
-// personas - and while that later reply is still pending it must not be
-// misread as Hermes having stayed quiet.
-test("Hermes's call in the router sheet skips the memo wording", async (t) => {
+// A persona whose planner is an external agent is still thinking until the
+// agent's turn has really ended; it must not be misread as having stayed quiet.
+test("a turn still waiting on the external agent reads as thinking", async (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  const rows = [{ id: "hermes", name: "Hermes", icon: "🪽" }];
+  const rows = [{ id: "gourmet", name: "tabe", icon: "🍜", planner: "external" }];
   t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [
-    { id: "hermes", name: "Hermes", icon: "🪽", done: false },
+    { id: "gourmet", name: "tabe", icon: "🍜", done: false },
   ], excluded: [] }));
   const feed = createFeed({ getPersona: (id) => rows.find((row) => row.id === id) || null, showIntro: false });
-  feed.set([{ id: "p", kind: "post", speaker: "user", text: "調べて", at: "2026-09-13T00:00:00Z" }]);
+  feed.set([{ id: "p", kind: "post", speaker: "user", text: "ラーメン", at: "2026-09-13T00:00:00Z" }]);
   feed.element.querySelectorAll(".routing-open")[0].fire("click", {});
   for (let i = 0; i < 3; i++) await new Promise(setImmediate);
   const walk = (node) => [node, ...node.children.flatMap(walk)];
   const texts = () => walk(document.body).map((node) => node.textContent);
-  assert.ok(texts().includes(translate("呼ばれました。返事を考えています…")), "still queued, not yet called quiet");
-  assert.equal(document.body.querySelectorAll(".routing-note").length, 0);
+  assert.ok(texts().includes(translate("呼ばれました。返事を考えています…")), "still planning, not yet called quiet");
+});
+
+// A remark planned by the external agent says so.
+test("a remark planned by the external agent is marked", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: (id) => id === "gourmet" ? { id: "gourmet", name: "tabe", icon: "🍜" } : null, showIntro: false });
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "ラーメン", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "remark", speaker: "gourmet", root: "p", text: "うまそう", model: "agent", at: "2026-09-13T00:01:00Z" },
+  ]);
+  feed.reveal("r");
+  const badges = feed.element.querySelectorAll(".model-badge");
+  assert.equal(badges.length, 1);
+  assert.equal(badges[0].textContent, translate("外部エージェント"));
 });
 
 // A remark says which notes were written with it, and each opens the persona's

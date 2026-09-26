@@ -172,9 +172,9 @@ own Nebius Token Factory API key and, when web search is used, their own Tavily
 API key.
 
 External-agent access is opt-in. The MCP credential issued for Hermes belongs
-to that workspace, can be revoked, and stops granting access to user data when
-the integration is disabled. Disconnecting the integration invalidates the
-credential itself.
+to that workspace and can be revoked; disconnecting the integration invalidates
+the credential itself. An external agent never writes directly: it submits a
+workflow, which kakeratta checks and reviews before running it as the persona.
 
 kakeratta is [MIT licensed](LICENSE).
 
@@ -204,10 +204,15 @@ server-side wakes.
 
 Some work goes beyond what a small subject-specific persona should do.
 
-For those tasks, **Hermes Agent** can join kakeratta as an external persona
-through MCP. kakeratta holds the request and the surrounding personal context;
-Hermes claims the request, works with its own tools and skills, and reports the
-result back into the timeline.
+For those, any persona can hand its thinking to **Hermes Agent** through MCP.
+Each persona chooses its planner: the built-in model, or the external agent.
+When a persona planned by the external agent wakes, kakeratta opens an *ask*
+carrying the persona's identity, instructions, the trigger and its thread, the
+persona's memory index, the workflow schema, and its available tools. Hermes
+claims the ask, thinks with its own tools and skills, and submits a workflow;
+kakeratta checks, reviews, and runs it as the persona. If Hermes does not claim
+the ask within 3 minutes, or no workflow is accepted within 15 minutes of the
+claim (both configurable), the built-in model takes the turn instead.
 
 The integration has been built and tested with:
 
@@ -231,19 +236,19 @@ moved to Super 120B.
 Hermes then connected from inside the sandbox to the production kakeratta
 instance over Streamable HTTP MCP.
 
-The connection was tested successfully and all **11 kakeratta MCP tools** were
-discovered:
+The connection was tested successfully with the task-based tools of the
+earlier integration, in which Hermes was a persona of its own. Those have since
+been replaced by the planning tools:
 
 `list_personas`, `get_timeline`, `get_thread`, `list_notes`, `read_note`,
-`write_note`, `list_tasks`, `claim_task`, `cancel_task`, `complete_task`, and
-`post_report`.
+`list_asks`, `claim_ask`, `read_for_ask`, `submit_workflow`, and `release_ask`.
 
 That keeps the responsibilities separate:
 
-**kakeratta** owns the user's timeline, persona-facing requests, memory access,
-and MCP permissions.
+**kakeratta** owns the user's timeline, the personas, their memory, the review
+and execution of every workflow, and MCP permissions.
 
-**Hermes** owns its execution loop, tools, skills, and its own long-term memory.
+**Hermes** owns its planning loop, tools, skills, and its own long-term memory.
 
 **NemoClaw + OpenShell** provide the controlled environment in which the
 external agent runs.
@@ -254,8 +259,8 @@ kakeratta never has to start the Hermes process itself. The MCP boundary also
 means Hermes can be operated independently or under another compatible runtime
 setup.
 
-For the kakeratta-side protocol, credential scope, task lifecycle, retries, and
-reports, see [Hermes Agent setup](docs/hermes.md)
+For the kakeratta-side protocol, credential scope, the ask lifecycle, and
+fall-through, see [Hermes Agent setup](docs/hermes.md)
 ([日本語](docs/hermes_ja.md)).
 
 For the architecture and production end-to-end verification, see the
@@ -505,16 +510,16 @@ Factory.
 Hermes does not have to run under NemoClaw to use kakeratta.
 
 The integration boundary is MCP: issue a workspace key in Settings, configure
-the kakeratta MCP server in Hermes, enable the Hermes persona, and Hermes can
-claim tasks and report their results.
+the kakeratta MCP server in Hermes, set a persona's planner to the external
+agent, and Hermes can claim its asks and submit workflows.
 
 The NemoClaw/OpenShell setup described above is the tested sandboxed
 configuration used for the hackathon integration.
 
 kakeratta does not start or control the Hermes process itself.
 
-Detailed credential scope, task claiming, retries, reports, and failure
-semantics are in [Hermes Agent setup](docs/hermes.md)
+Detailed credential scope, the context an ask carries, waits, and fall-through
+are in [Hermes Agent setup](docs/hermes.md)
 ([日本語](docs/hermes_ja.md)).
 
 ### Running the server yourself
@@ -535,7 +540,7 @@ check-ins, schedules, and operator-provided tools are documented in
 | [Manual](https://kakeratta.net/manual/?lang=en)                                                          | Using personas, search, memory, speech, sharing, tools, offline posts, and settings                               |
 | [Usage and configuration](docs/usage.md)                                                                 | Android and iOS sharing, location, speech, model settings, and stored data                                        |
 | [What was hard about the AI](docs/ai-lessons.md)                                                         | What went wrong with Nemotron personas in live runs and production, and how each was fixed                        |
-| [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, task claiming, completion, retries, and reports                            |
+| [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, claiming asks, submitting workflows, and fall-through                    |
 | [NVIDIA NemoClaw with Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | Official setup for running Hermes in a NemoClaw/OpenShell sandbox                                                 |
 | [Google Cloud deployment](infra/README.md)                                                               | Terraform deployment: Firebase Hosting for the page and Cloud Run for the API                                     |
 

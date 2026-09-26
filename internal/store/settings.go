@@ -78,6 +78,13 @@ type Settings struct {
 	// more model call per post.
 	Active        []string                `json:"active"`
 	DailyCheckIns map[string]DailyCheckIn `json:"dailyCheckIns,omitempty"`
+	// Planners names the personas whose planning - reading the context,
+	// deciding what to do, writing the workflow - is handed to an external
+	// agent over MCP. A persona not named plans in-process.
+	Planners map[string]string `json:"planners,omitempty"`
+	// ExternalAgent is how long an external planner is waited for before the
+	// in-process planner takes the turn back.
+	ExternalAgent ExternalAgentSettings `json:"externalAgent"`
 
 	Search SearchSettings `json:"search"`
 	Speech SpeechSettings `json:"speech"`
@@ -89,9 +96,8 @@ type Settings struct {
 	TimeZone string `json:"timeZone"`
 
 	// MarkdownInput renders the user's own posts and replies as Markdown. A
-	// persona's reply is always rendered, and a Hermes HTML report is shown in
-	// a frame; only the user's own words depend on this switch, because only
-	// they are edited by hand.
+	// persona's reply is always rendered; only the user's own words depend on
+	// this switch, because only they are edited by hand.
 	MarkdownInput bool `json:"markdownInput"`
 
 	ReadAloudRate  float64 `json:"readAloudRate"`
@@ -108,6 +114,49 @@ type SpeechSettings struct {
 	SendPhrase       string `json:"sendPhrase"`
 	Replacements     string `json:"replacements"`
 	SymbolCommands   string `json:"symbolCommands"`
+}
+
+// PlannerExternal is the Planners value for a persona planned by an external
+// agent. Anything else, or no entry, is the in-process planner.
+const PlannerExternal = "external"
+
+// ExternalAgentSettings are the waits, in minutes, before an ask falls through
+// to the in-process planner: for an agent to claim it, and then for the
+// claimed ask to come back as an approved workflow.
+type ExternalAgentSettings struct {
+	ClaimMinutes int `json:"claimMinutes"`
+	PlanMinutes  int `json:"planMinutes"`
+}
+
+const (
+	DefaultClaimMinutes = 3
+	DefaultPlanMinutes  = 15
+	maxWaitMinutes      = 120
+)
+
+// ClaimWait is how long an ask waits to be claimed.
+func (e ExternalAgentSettings) ClaimWait() time.Duration {
+	return time.Duration(e.ClaimMinutes) * time.Minute
+}
+
+// PlanWait is how long a claimed ask waits for an approved workflow.
+func (e ExternalAgentSettings) PlanWait() time.Duration {
+	return time.Duration(e.PlanMinutes) * time.Minute
+}
+
+func minutesOr(value, fallback int) int {
+	if value <= 0 {
+		return fallback
+	}
+	if value > maxWaitMinutes {
+		return maxWaitMinutes
+	}
+	return value
+}
+
+// PlansExternally reports whether a persona's planner is the external agent.
+func (s Settings) PlansExternally(personaID string) bool {
+	return s.Planners[personaID] == PlannerExternal
 }
 
 // SearchSettings is the user's Tavily key. The app makes the call; a skill
@@ -193,6 +242,16 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 		settings.OpenRouterLowModel = OpenRouterLow
 	}
 	settings.Speech.Provider = "browser"
+	settings.ExternalAgent.ClaimMinutes = minutesOr(settings.ExternalAgent.ClaimMinutes, DefaultClaimMinutes)
+	settings.ExternalAgent.PlanMinutes = minutesOr(settings.ExternalAgent.PlanMinutes, DefaultPlanMinutes)
+	// Hermes was once a persona of its own; its planning now lives behind
+	// each persona, and the old entry would only name a persona that is gone.
+	for i := 0; i < len(settings.Active); i++ {
+		if settings.Active[i] == "hermes" {
+			settings.Active = append(settings.Active[:i:i], settings.Active[i+1:]...)
+			i--
+		}
+	}
 	if settings.Search.Provider == "brave" {
 		settings.Search.APIKey = ""
 	}

@@ -85,8 +85,8 @@ type Runner struct {
 
 	// routingMu makes a read-modify-write on one post's routing record atomic.
 	// keepRouting, turnsDone and FinishAsyncTurn each read the record and write
-	// back a change; Hermes reporting back over MCP runs on its own request,
-	// concurrently with the wave that delivered it, so without this a write
+	// back a change; a turn planned by an external agent finishes on its own
+	// goroutine, concurrently with the wave that delivered it, so without this a write
 	// racing the other could read a stale copy and silently drop the other
 	// persona's just-recorded reply.
 	routingMu     sync.Mutex
@@ -98,6 +98,16 @@ type Runner struct {
 	// every minute; paging every note each time would be the cost of nothing.
 	// Only the queue worker touches it.
 	reviewChecked map[string]string
+
+	// desk holds the asks waiting on an external planner.
+	desk *desk
+	// apart ends the waits of turns running apart from the queue - those
+	// waiting on an external planner. Stop cancels it and waits for them.
+	apart     context.Context
+	stopApart context.CancelFunc
+	detached  sync.WaitGroup
+	// waitsForAsk overrides the settings' claim and plan waits, for tests.
+	waitsForAsk func() (time.Duration, time.Duration)
 }
 
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
@@ -108,7 +118,9 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 		done:          make(chan struct{}),
 		routingTrials: map[string]routingTrial{}, replyTrials: map[string]replyTrial{},
 		reviewChecked: map[string]string{},
+		desk:          newDesk(),
 	}
+	r.apart, r.stopApart = context.WithCancel(context.Background())
 	r.wake = sync.NewCond(&r.stopMu)
 	return r
 }
@@ -168,7 +180,14 @@ func (r *Runner) Start() {
 // A reaction writes as it goes - a remark, a persona's notes - so killing one
 // half way through leaves the workspace mid-thought. There is at most one in
 // flight, and shutdown drains everything already accepted.
+//
+// Turns waiting on an external planner are abandoned: an agent may take many
+// minutes, and a restart ends the ask it would hand its workflow to anyway.
 func (r *Runner) Stop() {
+	defer func() {
+		r.stopApart()
+		r.detached.Wait()
+	}()
 	r.stopMu.Lock()
 	if r.stopped || !r.started {
 		r.stopped = true
@@ -279,10 +298,9 @@ func (r *Runner) turnsDone(entryID string, wave []Skill, spoke map[string]bool) 
 }
 
 // FinishAsyncTurn is turnsDone for a persona whose turn was left pending
-// because its real work happens outside this process - Hermes, replying
-// later through its own agent over MCP. Called once that work has actually
-// concluded, so a routing sheet that has been saying "still thinking" can
-// move on to what really happened.
+// because it runs apart from the queue - waiting on an external planner.
+// Called once that turn has actually concluded, so a routing sheet that has
+// been saying "still thinking" can move on to what really happened.
 func (r *Runner) FinishAsyncTurn(entryID, personaID string, spoke bool) {
 	if entryID == "" {
 		return
@@ -454,23 +472,15 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 		targets[id] = true
 	}
 	parent, hasParent := r.store.Entry(entry.ReplyTo)
-	if hasParent && parent.Speaker == "hermes" {
-		for _, skill := range skills {
-			if skill.ID == "hermes" {
-				targets[skill.ID] = true
-			}
-		}
-	}
 	// A post a persona started on its own - a check-in, a schedule, a review -
 	// is its question, and a reply under it is the answer. The author hears
 	// it whether or not routing would have chosen it.
 	asked := ""
-	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && parent.Speaker != "hermes" && parent.Root == parent.ID && isActive(skills, parent.Speaker) {
+	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && parent.Root == parent.ID && isActive(skills, parent.Speaker) {
 		targets[parent.Speaker] = true
 		asked = parent.Speaker
 	}
 	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
-	routing = hermesAsQuestionFallback(routing, targets)
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
@@ -479,7 +489,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	// persona it was said to, which answers whether or not routing chose it.
 	// Anyone else it reaches answers as usual.
 	deep := ""
-	if parent, ok := r.store.Entry(entry.ReplyTo); ok && entry.Kind == timeline.KindReply && parent.Speaker != "hermes" && isActive(skills, parent.Speaker) {
+	if parent, ok := r.store.Entry(entry.ReplyTo); ok && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
 		if Escalate(ctx, client, lightningModel(settings), parent, entry) {
 			deep = parent.Speaker
 			targets[deep] = true
@@ -505,9 +515,9 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	// Everyone routed runs at once.
 	var group sync.WaitGroup
 	remarks := make([]*timeline.Entry, len(wave))
-	// pending marks a persona whose real turn happens later, out of process
-	// (Hermes, queued as a durable task); such a turn must not be counted as
-	// done yet, or a routing sheet would call it quiet before it has started.
+	// pending marks a persona whose turn runs apart from the queue, waiting
+	// on an external planner; such a turn must not be counted as done yet,
+	// or a routing sheet would call it quiet before it has started.
 	pending := make([]bool, len(wave))
 	for i, skill := range wave {
 		group.Add(1)
@@ -521,10 +531,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 			if skill.ID == asked {
 				instructions += r.reviewReply(skill, parent, settings)
 			}
-			if skill.ID == "hermes" {
-				remarks[i], pending[i] = r.queueHermes(ctx, entry, instructions)
-				return
-			}
+			pending[i] = r.detaches(ctx, skill, settings)
 			remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, skill.ID == deep, client, settings, registry)
 		}(i, skill)
 	}
@@ -550,48 +557,6 @@ func isActive(skills []Skill, id string) bool {
 		}
 	}
 	return false
-}
-
-// Hermes is the catch-all for questions that none of the focused personas
-// own. The router still decides whether the post is a question (from Hermes's
-// domain), but this final comparison is deliberately done here: persona
-// conditions are otherwise classified independently, so Hermes cannot know
-// reliably whether another condition matched. An explicit wake already in
-// targets (a mention, a reply to Hermes, or an edited prior delivery) wins.
-func hermesAsQuestionFallback(routing Routing, targets map[string]bool) Routing {
-	if targets["hermes"] || !contains(routing.Deliver, "hermes") {
-		return routing
-	}
-	other := false
-	for id := range targets {
-		if id != "hermes" {
-			other = true
-			break
-		}
-	}
-	if !other {
-		for _, id := range routing.Deliver {
-			if id != "hermes" {
-				other = true
-				break
-			}
-		}
-	}
-	if !other {
-		return routing
-	}
-	deliver := make([]string, 0, len(routing.Deliver)-1)
-	for _, id := range routing.Deliver {
-		if id != "hermes" {
-			deliver = append(deliver, id)
-		}
-	}
-	routing.Deliver = deliver
-	if routing.Excluded == nil {
-		routing.Excluded = map[string]string{}
-	}
-	routing.Excluded["hermes"] = "ほかの担当に割り当てられたため"
-	return routing
 }
 
 // readCapture does the one pass over the image and writes the result back onto
@@ -685,12 +650,11 @@ const deepRule = `- **今回ユーザーは、前の回答より良い・深い�
 // the app has the workflow checked, and only then does anything happen.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
 	wakeInstructions string, deep bool, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
-	if skill.ID == "hermes" {
-		if listening {
-			return nil
-		}
-		remark, _ := r.queueHermes(ctx, trigger, wakeInstructions)
-		return remark
+	if r.detaches(ctx, skill, settings) {
+		r.detach(skill, trigger, settings, func(ctx context.Context) *timeline.Entry {
+			return r.run(ctx, skill, thread, trigger, named, listening, wakeInstructions, deep, client, settings, registry)
+		})
+		return nil
 	}
 
 	root := timeline.RootOf(trigger)
@@ -803,13 +767,104 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	readLimit := turnReadLimit(deep)
 	budget := newLookups(readLimit, turnSearchLimit(deep))
 	var approved *Workflow
+	readsUsed := 0
 	submit := workflowToolFor(set)
 	reviewed, malformed := 0, 0
+	// consider checks a submitted workflow, and reviews it when it is worth
+	// a review, exactly the same whoever planned it.
+	consider := func(workflow *Workflow, parseErr error) (bool, []string, error) {
+		entry := draftRecord{}
+		if parseErr != nil || workflow == nil {
+			if parseErr == nil {
+				parseErr = errors.New("workflow がありません")
+			}
+			entry.Problems = []string{"workflow を読めませんでした: " + parseErr.Error()}
+		} else {
+			*workflow = normaliseWorkflow(*workflow)
+			entry.Workflow = workflow
+			entry.Problems = checkWorkflow(*workflow, rules)
+		}
+		ok := false
+		switch {
+		case len(entry.Problems) > 0:
+			malformed++
+		case !needsReview(*workflow, rules.set.Allows("schedule"), rules.named):
+			// Staying quiet, or only keeping a note and speaking, is not
+			// worth a review call - unless the persona can schedule, whose
+			// typical slip is a promised time with nothing set to wake, or
+			// the persona was explicitly asked and its answer must be checked.
+			ok = true
+		default:
+			known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当が書き込むメモ:\n" + r.writeTargets(skill.ID, *workflow) +
+				"\n\nこの担当がこのターンに読んだもの:\n" + clip(strings.Join(read, "\n\n"), 20000)
+			reviewed++
+			verdict, err := r.review(ctx, client, settings, skill, thread, trigger, *workflow, known, names, here, rules.named)
+			switch {
+			case err != nil:
+				entry.Unseen = err.Error()
+				record.Drafts = append(record.Drafts, entry)
+				return false, nil, fmt.Errorf("workflow の確認に失敗しました: %w", err)
+			case verdict.passed():
+				entry.Review = verdict
+				ok = true
+			default:
+				entry.Review = verdict
+				for _, issue := range verdict.Issues {
+					if issue.Severity == "high" {
+						entry.Problems = append(entry.Problems, issue.Description)
+					}
+				}
+				if len(entry.Problems) == 0 {
+					entry.Problems = []string{verdict.Summary}
+				}
+			}
+		}
+		record.Drafts = append(record.Drafts, entry)
+		return ok, entry.Problems, nil
+	}
+	drafts := func() bool { return reviewed < maxDrafts && malformed <= maxMalformed }
+	// lookup does what a persona asked to look at, within this turn's limits.
+	lookup := func(steps []ReadStep) string {
+		if readsUsed >= readLimit {
+			return "これ以上は読めません。submit_workflow で workflow を出してください。"
+		}
+		text, sources := r.readAll(ctx, skill, steps, set, post, prov, failures, budget, rules.cited)
+		readSources = append(readSources, sources...)
+		read = append(read, text)
+		record.Reads = append(record.Reads, readRecord{Steps: steps, Output: preview(text)})
+		readsUsed++
+		return text + readFooter(readLimit-readsUsed, set)
+	}
+
+	if plansExternally(ctx, skill, settings) {
+		record.Planner = "external"
+		ask := Ask{ID: store.NewID("ask"), Persona: skill.ID, Name: skill.Name, Wake: record.Wake, Trigger: trigger.ID}
+		brief := r.askContext(skill, set, spec, system, user, wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
+		workflow, fallback, err := r.planExternally(ctx, settings, ask, brief, externalPlan{read: lookup, consider: consider, drafts: drafts})
+		switch {
+		case errors.Is(err, errAborted):
+			record.Error = "aborted while waiting for the external planner"
+			return nil
+		case workflow != nil:
+			approved = workflow
+			// The remark is marked as the agent's plan, not a model slot's.
+			slot = "agent"
+		default:
+			// The in-process planner takes the turn back, from the start and
+			// with its own allowance of drafts.
+			record.Fallback = fallback
+			record.Planner = "external→builtin"
+			r.emit("ask", map[string]any{"persona": skill.ID, "id": ask.ID, "state": "fallback", "reason": fallback, "trigger": trigger.ID})
+			reviewed, malformed, readsUsed = 0, 0, 0
+			budget = newLookups(readLimit, turnSearchLimit(deep))
+		}
+	}
+
 	// One request per read or draft, plus room to recover malformed calls.
 	roundLimit := readLimit + maxDrafts + maxMalformed + 2
-	for round := 0; round < roundLimit && approved == nil && reviewed < maxDrafts && malformed <= maxMalformed; round++ {
+	for round := 0; round < roundLimit && approved == nil && drafts(); round++ {
 		offered := []llm.Tool{submit}
-		if len(record.Reads) < readLimit {
+		if readsUsed < readLimit {
 			offered = []llm.Tool{readTool, submit}
 		}
 		reply, err := client.Complete(ctx, llm.Request{
@@ -835,53 +890,16 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		answers := map[string]string{}
 		if submitted != nil {
 			var workflow Workflow
-			entry := draftRecord{}
-			if err := json.Unmarshal([]byte(submitted.Args), &workflow); err != nil {
-				entry.Problems = []string{"workflow を読めませんでした: " + err.Error()}
-			} else {
-				workflow = normaliseWorkflow(workflow)
-				entry.Workflow = &workflow
-				entry.Problems = checkWorkflow(workflow, rules)
+			parseErr := json.Unmarshal([]byte(submitted.Args), &workflow)
+			ok, problems, err := consider(&workflow, parseErr)
+			if err != nil {
+				return failed(err)
 			}
-			switch {
-			case len(entry.Problems) > 0:
-				malformed++
-			case !needsReview(workflow, rules.set.Allows("schedule"), rules.named):
-				// Staying quiet, or only keeping a note and speaking, is not
-				// worth a review call - unless the persona can schedule, whose
-				// typical slip is a promised time with nothing set to wake, or
-				// the persona was explicitly asked and its answer must be checked.
+			if ok {
 				approved = &workflow
-			default:
-				known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当が書き込むメモ:\n" + r.writeTargets(skill.ID, workflow) +
-					"\n\nこの担当がこのターンに読んだもの:\n" + clip(strings.Join(read, "\n\n"), 20000)
-				reviewed++
-				verdict, err := r.review(ctx, client, settings, skill, thread, trigger, workflow, known, names, here, rules.named)
-				switch {
-				case err != nil:
-					entry.Unseen = err.Error()
-					record.Drafts = append(record.Drafts, entry)
-					return failed(fmt.Errorf("workflow の確認に失敗しました: %w", err))
-				case verdict.passed():
-					entry.Review = verdict
-					approved = &workflow
-				default:
-					entry.Review = verdict
-					for _, issue := range verdict.Issues {
-						if issue.Severity == "high" {
-							entry.Problems = append(entry.Problems, issue.Description)
-						}
-					}
-					if len(entry.Problems) == 0 {
-						entry.Problems = []string{verdict.Summary}
-					}
-				}
-			}
-			record.Drafts = append(record.Drafts, entry)
-			if approved == nil {
-				answers[submitted.ID] = "この workflow は実行されませんでした。直して、もう一度 submit_workflow を呼んでください:\n- " + strings.Join(entry.Problems, "\n- ")
-			} else {
 				answers[submitted.ID] = "受け付けました。"
+			} else {
+				answers[submitted.ID] = "この workflow は実行されませんでした。直して、もう一度 submit_workflow を呼んでください:\n- " + strings.Join(problems, "\n- ")
 			}
 		}
 		for _, call := range reply.Calls {
@@ -891,7 +909,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			switch {
 			case submitted != nil:
 				answers[call.ID] = "workflow と一緒に出された呼び出しは行いませんでした。"
-			case call.Name != readTool.Name || len(record.Reads) >= readLimit:
+			case call.Name != readTool.Name || readsUsed >= readLimit:
 				answers[call.ID] = "これ以上は読めません。submit_workflow で workflow を出してください。"
 			default:
 				var request struct {
@@ -901,11 +919,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 					answers[call.ID] = "read を読めませんでした: " + err.Error()
 					break
 				}
-				text, sources := r.readAll(ctx, skill, request.Steps, set, post, prov, failures, budget, rules.cited)
-				readSources = append(readSources, sources...)
-				read = append(read, text)
-				record.Reads = append(record.Reads, readRecord{Steps: request.Steps, Output: preview(text)})
-				answers[call.ID] = text + readFooter(readLimit-len(record.Reads), set)
+				answers[call.ID] = lookup(request.Steps)
 			}
 		}
 		for _, call := range reply.Calls {

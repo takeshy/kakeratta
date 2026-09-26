@@ -99,8 +99,9 @@ type Entry struct {
 	Notes []string `json:"notes,omitempty"`
 	// Model is which model a persona answered on: "super", or "ultra" for a
 	// reply that asked for a better or deeper answer. It is shown beside the
-	// remark so the user can tell the two apart. Empty for the user's own
-	// entries, for Hermes, and for a turn that failed - a remark saying it
+	// remark so the user can tell the two apart. "agent" marks a remark
+	// whose workflow an external agent planned. Empty for the user's own
+	// entries, and for a turn that failed - a remark saying it
 	// could not answer was not answered on anything.
 	Model string `json:"model,omitempty"`
 

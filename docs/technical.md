@@ -160,8 +160,7 @@ answers at the length the question needs. Routing runs as usual for everyone
 else.
 
 **A reply goes through the same routing as a post.** It is routed against the
-whole thread. Whoever the router picks answers it, plus anyone @mentioned, plus
-Hermes when the reply is to Hermes.
+whole thread. Whoever the router picks answers it, plus anyone @mentioned.
 
 The current default router is **Nemotron 3 Super through Nebius Token Factory**.
 
@@ -230,8 +229,8 @@ correction, a rethink, more detail or a deeper look ("違う", "本当？",
 * Anyone else the reply reaches answers on Super as usual.
 * Thanks, ordinary follow-up questions and new topics stay on Super, as does a
   judgement Lightning fails to give.
-* A reply to the user's own post, to Hermes, or to a persona no longer in the
-  room is not judged at all.
+* A reply to the user's own post, or to a persona no longer in the room, is not
+  judged at all.
 
 The judgement runs after routing, so it adds its own time to such a reply. In
 a live measurement on 2026-09-22 (15 synthetic replies,
@@ -293,8 +292,11 @@ together instead of forcing the model to repeat nearly identical steps.
 
 ### A turn: read, then a workflow
 
-Every persona except Hermes (an external agent) works this way, whatever tools
-it holds (`internal/persona/workflow.go`).
+Every persona works this way, whatever tools it holds
+(`internal/persona/workflow.go`). The reading and deciding can be done by the
+built-in model or, for a persona whose planner is set to it, by an external
+agent over MCP (see [External agents through MCP](#external-agents-through-mcp));
+the check, review and execution of the workflow are the same either way.
 
 1. **Read.** Its `index.md` is handed over whole at the start of every turn.
    It may then ask, up to ten times (twenty in an Ultra turn for a deeper
@@ -433,7 +435,8 @@ had independently seen the original pixels.
 Each persona owns its own memory.
 
 A food persona cannot silently rewrite the travel persona's notes, and an
-external Hermes integration has its own writable memory area.
+external agent cannot write notes at all except through a persona's reviewed
+workflow.
 
 Notes are stored as structured Markdown under OKF-style topics rather than as
 one conversation transcript.
@@ -572,7 +575,7 @@ A persona is a `skill.json`:
 | `tools` | Only what is declared can be called |
 
 Four ship with the app — tabe (food), michi (travel), shiori (reading), plana
-(routines) — plus Hermes, which appears once MCP is configured. More can be
+(routines). More can be
 added from the UI, written by hand or drafted with the persona builder
 (Nemotron 3 Ultra).
 
@@ -1017,25 +1020,46 @@ For Bluesky operator setup, see
 
 ## External agents through MCP
 
-Built-in personas run inside kakeratta's own workflow system.
+Of a persona's turn, only the part that thinks — reading the context, deciding
+what to do next, and writing the workflow — can be handed to an external agent
+such as **Hermes Agent**. Each persona chooses its planner: the built-in model
+(the default) or the external agent. kakeratta exposes the user's workspace as
+an authenticated **Streamable HTTP MCP server** for this.
 
-An external autonomous agent is deliberately different.
+When a persona planned externally wakes — for a post, a check-in, a schedule, a
+note review — kakeratta builds exactly the context the built-in model would get
+and opens an **ask**. The agent claims it, reads the context, may look things up
+with the persona's own notes and tools, and submits a workflow. kakeratta checks
+and reviews it like any other and, once accepted, runs it as the persona. The
+agent never writes a note or a remark itself.
 
-kakeratta can expose a user's workspace as an authenticated **Streamable HTTP
-MCP server** and represent **Hermes Agent** as a persona.
+```text
+persona wakes
+→ ask opened (pending, claimBy)
+→ agent: claim_ask → context
+→ agent: read_for_ask (optional) → submit_workflow
+→ kakeratta: check, review → accepted
+→ kakeratta runs the workflow as the persona
+```
 
-kakeratta stores tasks for Hermes.
+Waiting on an agent must not stall everything else, so an externally planned
+turn runs apart from the reaction queue and reports to the routing sheet when it
+has really ended.
 
-Hermes connects from its own runtime, claims those tasks, performs the work
-using its own models, tools, skills, and memory, and reports the result back into
-the timeline.
+### Fall-through
 
-kakeratta does not launch or supervise the Hermes process itself.
+The built-in model takes the turn back when:
 
-This makes the boundary explicit:
+* no agent claims the ask within the claim wait (3 minutes by default);
+* no workflow is accepted within the plan wait after the claim (15 minutes by
+  default);
+* the agent runs out of drafts, or the review fails;
+* the agent calls `release_ask`.
 
-* kakeratta owns the user-facing timeline and permissions;
-* Hermes owns its execution environment.
+Both waits are set under Settings → Advanced options → Integrations. An ask
+lives in memory with the turn waiting on it; a restart ends both, and a late
+workflow is refused. A preview a person is waiting on is always planned
+in-process.
 
 ### MCP credential
 
@@ -1049,9 +1073,6 @@ Reissuing the key invalidates the previous one.
 
 Disconnecting MCP removes the stored hash and makes the credential unusable.
 
-Pausing the Hermes persona blocks user-data MCP operations while allowing basic
-connection initialization and tool discovery.
-
 The key can access only the workspace for which it was issued.
 
 It can read:
@@ -1060,17 +1081,14 @@ It can read:
 * persona definitions;
 * persona memories.
 
-It can write only the Hermes-owned note area rather than silently modifying
-another persona's memory.
+Its only write is a workflow submitted for a claimed ask, which kakeratta checks
+and reviews before running it as that persona.
 
-Turning Hermes off or revoking the key cannot erase data that Hermes already
-retrieved into its own external memory. That boundary is made explicit rather
-than pretending an external agent can be remotely un-told what it already
-received.
+Revoking the key cannot erase data the agent already retrieved into its own
+external memory. That boundary is made explicit rather than pretending an
+external agent can be remotely un-told what it already received.
 
 ### Exposed MCP tools
-
-The production kakeratta MCP server currently exposes 11 tools:
 
 ```text
 list_personas
@@ -1078,62 +1096,25 @@ get_timeline
 get_thread
 list_notes
 read_note
-write_note
-list_tasks
-claim_task
-cancel_task
-complete_task
-post_report
+list_asks
+claim_ask
+read_for_ask
+submit_workflow
+release_ask
 ```
 
-A normal task lifecycle is:
+`claim_ask` takes an `askId` and a caller-generated `claimId`. Repeated calls
+with the same `claimId` are retries of the same claim; a different claim ID
+cannot take a claimed ask.
 
-```text
-list_tasks
-→ claim_task
-→ external work
-→ complete_task
-```
+The context a claim returns holds the persona's identity, instructions and
+note-writing skill, why it woke, the trigger and its thread, the persona's
+`index.md`, its schedules, the workflow spec and JSON Schema, its tools and
+where each may be used, the turn's limits, and the built-in model's own system
+and user messages.
 
-A task is claimed with both a `taskId` and a caller-generated `claimId`.
-
-Repeated calls using the same `claimId` are treated as retries of the same
-claim.
-
-A different claim ID cannot silently steal an already-claimed task.
-
-### External side effects are not exactly-once
-
-kakeratta can make its own task operations idempotent, but it cannot know
-whether an arbitrary external side effect succeeded before the agent crashed.
-
-For example:
-
-```text
-claim_task
-→ Hermes changes something on GitHub
-→ Hermes crashes before complete_task
-```
-
-kakeratta cannot infer whether the GitHub change occurred.
-
-Claims therefore do not automatically expire and become available to another
-execution.
-
-If external state is uncertain, automatic re-execution should stop.
-
-The user can inspect the external system, cancel the old task if appropriate,
-and submit a new request.
-
-This trades automatic retry for avoiding accidental duplicate real-world
-actions.
-
-`complete_task` persists the result before attempting to post it back into the
-timeline, so delivery can be retried without redoing the underlying work.
-
-`post_report` lets Hermes proactively publish a report using a caller-provided
-unique ID, allowing the same report to be retried without creating duplicate
-timeline entries.
+`list_tasks` remains as a compatibility tool returning only pending asks, for
+Wake Gate scripts installed before asks replaced tasks.
 
 Detailed semantics are in
 [Hermes Agent setup](hermes.md)
@@ -1180,7 +1161,9 @@ The sandboxed Hermes instance successfully connected to:
 https://kakeratta.net/api/mcp/...
 ```
 
-over Streamable HTTP MCP and discovered all 11 production MCP tools.
+over Streamable HTTP MCP and discovered all 11 production MCP tools of the
+earlier, task-based integration in which Hermes was a persona of its own; the
+planning tools above have since replaced them.
 
 This was an integration verification of the execution path and tool boundary.
 It does not mean kakeratta itself depends on NemoClaw.
@@ -1189,29 +1172,16 @@ A Hermes installation can connect directly to the same MCP interface, while
 NemoClaw/OpenShell provides the tested sandboxed configuration used for the
 hackathon work.
 
-## Why the external agent is separate from a normal persona
+## Why the external agent only plans
 
-A normal kakeratta persona is intentionally constrained.
+A normal kakeratta persona is intentionally constrained: it acts through a
+generated workflow that kakeratta validates before execution.
 
-It operates through a generated workflow that kakeratta validates before
-execution.
-
-Hermes is an autonomous external runtime and does not go through that same
-workflow-review layer.
-
-That is why its permissions are bounded at the MCP interface instead:
-
-* workspace-scoped authentication;
-* limited tool surface;
-* a separate writable memory area;
-* explicit task claiming;
-* explicit result completion;
-* revocable connection.
-
-Approval policy for external operations belongs to the Hermes/NemoClaw side.
-
-This distinction prevents "external agent" from becoming an invisible bypass of
-kakeratta's ownership model.
+Handing the planning to an external agent keeps that constraint. The agent may
+think with any tools and skills it has, but what reaches the user's timeline and
+memory is still a workflow the app has checked and reviewed and runs itself.
+"External agent" does not become an invisible bypass of kakeratta's ownership
+model, and a persona whose agent is asleep still answers, only later.
 
 ## Design trade-offs
 
@@ -1224,8 +1194,7 @@ A persona can write memory without speaking.
 
 A check-in can finish without creating a thread.
 
-Hermes can complete a task with an empty result when there is nothing worth
-posting.
+An external agent planning a turn can end its workflow with an empty `speak`.
 
 The system is not optimized for producing a visible AI response to every event.
 
@@ -1268,13 +1237,10 @@ the same visual information.
 
 ### External autonomy gets a harder boundary
 
-Built-in personas are controlled by workflow validation.
-
-Hermes has its own runtime, so the boundary moves outward to authentication,
-MCP capabilities, sandbox policy, and explicit task ownership.
-
-The architecture changes according to where control actually exists rather than
-pretending every agent is the same.
+An external agent only plans. What it plans still goes through the same
+workflow validation and review as the built-in model's, and kakeratta alone
+executes it. Authentication, the MCP tool surface, and sandbox policy bound what
+the agent can read and do on its own side.
 
 ## Read more
 
@@ -1285,7 +1251,7 @@ pretending every agent is the same.
 | [Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md) *(Japanese)* | Read-only replay of 20 production posts across Nemotron models, Jev, and GPT Luna                                                 |
 | [Usage and configuration](usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |
 | [What was hard about the AI](ai-lessons.md)                                                  | Failures seen with Nemotron personas and what changed to make them dependable                                                     |
-| [Hermes Agent](hermes.md) ([日本語](hermes_ja.md))                                              | MCP authentication, task lifecycle, retries, proactive reports, and external-agent behavior                                       |
+| [Hermes Agent](hermes.md) ([日本語](hermes_ja.md))                                              | MCP authentication, the ask lifecycle, the planning context, and fall-through                                                     |
 | [Google Cloud deployment](../infra/README.md)                                                | Terraform deployment with Firebase Hosting, Cloud Run, Firestore, and related infrastructure                                      |
 
 [MIT licensed](../LICENSE).

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Wake gate pre-check script for kakeratta Hermes integration.
 
-Checks kakeratta for pending tasks via MCP list_tasks.
-If tasks are empty, outputs {"wakeAgent": false} to skip LLM execution entirely (zero token spend).
-If tasks are present or on error, outputs {"wakeAgent": true} to wake Hermes Agent.
+Checks kakeratta for pending planning asks via MCP list_asks.
+If no ask is pending, outputs {"wakeAgent": false} to skip LLM execution entirely (zero token spend).
+If an ask is pending or on error, outputs {"wakeAgent": true} to wake Hermes Agent.
 
 It also self-updates the installed skill: once per day (state flag file), it
 fetches the distributed SKILL.md from the kakeratta origin and overwrites
@@ -122,7 +122,7 @@ def main():
             "id": 1,
             "method": "tools/call",
             "params": {
-                "name": "list_tasks",
+                "name": "list_asks",
                 "arguments": {}
             }
         }).encode("utf-8")
@@ -133,26 +133,29 @@ def main():
 
         res_obj = data["result"]
         if res_obj.get("isError"):
-            raise ValueError("list_tasks returned an MCP error")
+            raise ValueError("list_asks returned an MCP error")
         structured = res_obj.get("structuredContent")
-        if isinstance(structured, dict) and isinstance(structured.get("tasks"), list):
-            tasks = structured["tasks"]
+        if isinstance(structured, dict) and isinstance(structured.get("asks"), list):
+            asks = structured["asks"]
         else:
             content = res_obj.get("content") or []
             if not content:
-                raise ValueError("list_tasks returned no task data")
+                raise ValueError("list_asks returned no ask data")
             parsed = json.loads(content[0]["text"])
-            tasks = parsed["tasks"]
-            if not isinstance(tasks, list):
-                raise ValueError("list_tasks.tasks is not a list")
+            asks = parsed["asks"]
+            if not isinstance(asks, list):
+                raise ValueError("list_asks.asks is not a list")
 
-        if len(tasks) == 0:
+        # A claimed ask is already being planned by a running agent; only an
+        # unclaimed one needs a new wake.
+        pending = [a for a in asks if isinstance(a, dict) and a.get("status") == "pending"]
+        if len(pending) == 0:
             print(json.dumps({"wakeAgent": False}))
         else:
             print(json.dumps({"wakeAgent": True}))
 
     except Exception as e:
-        # On error (e.g. network timeout), fail-open to wake the agent so no tasks are lost
+        # On error (e.g. network timeout), fail-open to wake the agent so no ask waits out its claim time
         print(f"Pre-check error: {e}", file=sys.stderr)
         print(json.dumps({"wakeAgent": True}))
 

@@ -7,10 +7,6 @@
 import { getLanguage } from "./i18n.js";
 
 const GLOSS = {
-  hermes: {
-    ja: "作業", en: "tasks",
-    domain: "Requests to carry out work with external tools and skills: code, README editing, GitHub research and files. Does not react to everyday notes alone.",
-  },
   gourmet: {
     ja: "食事",
     en: "food",

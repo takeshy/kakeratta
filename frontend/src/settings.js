@@ -280,8 +280,25 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       el("label", { class: "field check-field" }, markdown, el("span", { label: "入力内容をマークダウンとして扱う" })),
       el("p", {
         class: "hint",
-        label: "ONにすると、あなたの投稿と返信もマークダウンとして表示します。編集はマークダウンをそのまま書きます。担当の返事は常にマークダウンで表示し、HermesのHTMLレポートはそのまま表示します。",
+        label: "ONにすると、あなたの投稿と返信もマークダウンとして表示します。編集はマークダウンをそのまま書きます。担当の返事は常にマークダウンで表示します。",
       }),
+    );
+  }
+
+  // How long an ask waits for the external agent before the persona's own
+  // model plans the turn instead.
+  function drawExternalAgent(into) {
+    const agent = settings.externalAgent || {};
+    const minutes = (value, fallback) => {
+      const n = Math.round(Number(value));
+      return Number.isFinite(n) && n > 0 ? Math.min(n, 120) : fallback;
+    };
+    const save = (change) => patch({ externalAgent: { ...(settings.externalAgent || {}), ...change } });
+    into.append(
+      el("h4", { label: "外部エージェントの待ち時間" }),
+      field("取得を待つ時間（分）", agent.claimMinutes || 3, (value) => save({ claimMinutes: minutes(value, 3) }), { type: "number" }),
+      field("取得後、workflow を待つ時間（分）", agent.planMinutes || 15, (value) => save({ planMinutes: minutes(value, 15) }), { type: "number" }),
+      el("p", { class: "hint", label: "時間内に外部エージェントが取得しない、または workflow を返さない場合は、内蔵モデルが代わりに考えます。" }),
     );
   }
 
@@ -516,7 +533,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
   // provider for the models, how dictation and reading aloud behave, an
   // external agent, and posting to Bluesky. The defaults are the answer for
   // all of them, so the section stays shut and is built the first time it is
-  // opened - which is also when Hermes and Bluesky are asked about.
+  // opened - which is also when the external agent and Bluesky are asked about.
   function drawAdvanced() {
     const body = el("div", { class: "advanced-body" });
     const section = el("details", { class: "settings-advanced" },
@@ -542,8 +559,12 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       drawSpeech(voice.content);
       drawReadAloud(voice.content);
       const integrations = category("外部連携");
-      const mcp = createMCPConnection({ onChange: onMCPChange });
-      integrations.content.append(mcp.element);
+      // The waits only matter once an agent is connected; until then they
+      // stay out of sight, like the planner choice on the persona cards.
+      const waits = el("div", { class: "external-agent-waits", hidden: true });
+      drawExternalAgent(waits);
+      const mcp = createMCPConnection({ onChange: onMCPChange, onState: (connection) => { waits.hidden = !connection?.configured; } });
+      integrations.content.append(mcp.element, waits);
       void mcp.load();
       bluesky?.dispose();
       bluesky = createBlueskyConnection();

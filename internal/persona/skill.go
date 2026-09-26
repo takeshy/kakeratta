@@ -138,13 +138,6 @@ var Builtins = []Skill{
 			"薬は記録と軽い言及に留める。催促しない。飲み忘れと判断しない、指摘しない。量・効果・飲み合わせには触れない。",
 		Tools: []string{"schedule"}, Builtin: true,
 	},
-	{
-		ID: "hermes", Name: "Hermes", Icon: "🤖",
-		Domain:       "質問文。ほかの担当条件に一致しない場合だけ、外部ツールやスキルを使って調査・作業できる質問を引き受ける。質問ではない依頼や日常の記録には反応しない。",
-		Tone:         "作業内容と確認できた結果を簡潔に報告する。",
-		Instructions: "依頼された範囲で作業し、結果と未完了の点を区別する。外部への公開や破壊的な操作はユーザーに確認する。",
-		Builtin:      true,
-	},
 }
 
 // Catalogue is the built-in skills plus whatever was installed.
@@ -184,10 +177,6 @@ func (c *Catalogue) All() []Skill {
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Builtin != out[j].Builtin {
 			return out[i].Builtin
-		}
-		// Keep the external agent after the built-in local personas.
-		if (out[i].ID == "hermes") != (out[j].ID == "hermes") {
-			return out[j].ID == "hermes"
 		}
 		return out[i].Name < out[j].Name
 	})

@@ -32,10 +32,6 @@ type ReplyPreview struct {
 // is kept: no remark lands on the timeline, no note or schedule is written,
 // no wake is counted.
 func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (ReplyPreview, error) {
-	// Hermes works outside the app, so there is nothing here to run again.
-	if skillID == "hermes" {
-		return ReplyPreview{}, errors.New("Hermesは外部で作業するため、試し直しはできません。新しい投稿で依頼してください。")
-	}
 	at, ok := r.store.Entry(entryID)
 	if !ok || at.Deleted {
 		return ReplyPreview{}, errors.New("投稿が見つかりません")
@@ -103,7 +99,8 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 			problems = append(problems, fmt.Sprint(fields["message"]))
 		}
 	}
-	said := sandbox.run(ctx, *skill, thread, trigger, named, false, "", false, client, settings, sandbox.registry(settings))
+	// A person is waiting on the preview; it is planned in-process.
+	said := sandbox.run(withBuiltinPlanner(ctx), *skill, thread, trigger, named, false, "", false, client, settings, sandbox.registry(settings))
 	preview := ReplyPreview{Quiet: said == nil, Notes: notes, Error: strings.Join(problems, "; ")}
 	if said != nil {
 		preview.Spoke = said.Text

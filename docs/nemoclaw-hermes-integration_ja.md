@@ -2,7 +2,10 @@
 
 ## 自律型パーソナルAIエージェント統合・検証レポート
 
-[README](../README_ja.md) · [Hermes の設定と再試行](hermes_ja.md)
+[README](../README_ja.md) · [Hermes の設定](hermes_ja.md)
+
+> [!NOTE]
+> このレポートは、Hermes が独立した担当として `list_tasks` / `claim_task` / `complete_task` で依頼を処理していた以前の連携の検証記録です。現在の Hermes は、「考える役」を外部エージェントにした担当のターンを `list_asks` / `claim_ask` / `submit_workflow` で考えます（[Hermes の設定](hermes_ja.md)）。サンドボックス・ネットワークポリシー・推論についての知見は引き続き有効です。
 
 本書は、NVIDIA NemoClaw / OpenShell 内で動く Hermes Agent が、Nebius Token Factory で推論し、kakeratta の MCP を介して依頼を取得・処理・返信する構成の検証記録です。目的は、単に LLM をサンドボックス内で実行することではなく、本番稼働中のパーソナル AI アプリケーションから自律エージェントへ安全に仕事を委譲し、結果を元の会話へ返すところまで自動化することです。認証情報、ワークスペース ID、アクセストークン、内部タスク ID は掲載しません。
 

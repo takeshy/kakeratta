@@ -10,8 +10,10 @@ import (
 	"testing"
 )
 
-func TestMCPAccessToggleAndKeyRevocation(t *testing.T) {
-	s, w := app(t)
+// The key alone grants access; revoking it ends access, initialisation
+// included.
+func TestMCPKeyAccessAndRevocation(t *testing.T) {
+	s, _ := app(t)
 	key := strings.Repeat("a", 64)
 	digest := sha256.Sum256([]byte(key))
 	if err := s.setMCPKey(context.Background(), digest[:]); err != nil {
@@ -28,37 +30,18 @@ func TestMCPAccessToggleAndKeyRevocation(t *testing.T) {
 		return out
 	}
 	read := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_timeline","arguments":{}}}`
-	for _, active := range []bool{true, false, true} {
-		settings := w.Settings()
-		settings.Active = nil
-		if active {
-			settings.Active = []string{"hermes"}
-		}
-		if err := w.SaveSettings(settings); err != nil {
-			t.Fatal(err)
-		}
-		out := call(read)
-		if out.Code != http.StatusOK {
-			t.Fatalf("response = %d: %s", out.Code, out.Body.String())
-		}
-		var response struct {
-			Result struct {
-				IsError bool            `json:"isError"`
-				Data    json.RawMessage `json:"structuredContent"`
-			} `json:"result"`
-		}
-		if err := json.Unmarshal(out.Body.Bytes(), &response); err != nil {
-			t.Fatal(err)
-		}
-		if response.Result.IsError == active {
-			t.Fatalf("active = %v, response = %s", active, out.Body.String())
-		}
-		if !active && len(response.Result.Data) > 0 {
-			t.Fatal("disabled persona exposed data")
-		}
+	out := call(read)
+	var response struct {
+		Result struct {
+			IsError bool            `json:"isError"`
+			Data    json.RawMessage `json:"structuredContent"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(out.Body.Bytes(), &response); err != nil || out.Code != http.StatusOK || response.Result.IsError {
+		t.Fatalf("response = %d: %s", out.Code, out.Body.String())
 	}
 	r := httptest.NewRequest(http.MethodDelete, "/api/mcp/connection", nil)
-	out := httptest.NewRecorder()
+	out = httptest.NewRecorder()
 	s.ServeHTTP(out, r)
 	if out.Code != http.StatusOK {
 		t.Fatalf("revoke = %d: %s", out.Code, out.Body.String())
@@ -71,38 +54,34 @@ func TestMCPAccessToggleAndKeyRevocation(t *testing.T) {
 	}
 }
 
-func TestHermesIsListedOnlyAfterMCPSetup(t *testing.T) {
+// Hermes is no longer a persona of its own, before or after connecting.
+func TestHermesIsNotAPersona(t *testing.T) {
 	s, _ := app(t)
-	hasHermes := func() bool {
-		t.Helper()
-		out := httptest.NewRecorder()
-		s.ServeHTTP(out, httptest.NewRequest(http.MethodGet, "/api/personas", nil))
-		if out.Code != http.StatusOK {
-			t.Fatalf("personas = %d: %s", out.Code, out.Body.String())
-		}
-		var payload struct {
-			Personas []struct {
-				ID string `json:"id"`
-			} `json:"personas"`
-		}
-		if err := json.Unmarshal(out.Body.Bytes(), &payload); err != nil {
-			t.Fatal(err)
-		}
-		for _, row := range payload.Personas {
-			if row.ID == "hermes" {
-				return true
-			}
-		}
-		return false
-	}
-	if hasHermes() {
-		t.Fatal("Hermes was listed before MCP setup")
-	}
 	if err := s.setMCPKey(context.Background(), []byte("digest")); err != nil {
 		t.Fatal(err)
 	}
-	if !hasHermes() {
-		t.Fatal("Hermes was missing after MCP setup")
+	out := httptest.NewRecorder()
+	s.ServeHTTP(out, httptest.NewRequest(http.MethodGet, "/api/personas", nil))
+	var payload struct {
+		Personas []struct {
+			ID      string `json:"id"`
+			Planner string `json:"planner"`
+		} `json:"personas"`
+		MCPConfigured bool `json:"mcpConfigured"`
+	}
+	if err := json.Unmarshal(out.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.MCPConfigured {
+		t.Fatal("the connection is not reported")
+	}
+	for _, row := range payload.Personas {
+		if row.ID == "hermes" {
+			t.Fatal("Hermes is listed")
+		}
+		if row.Planner != "builtin" {
+			t.Fatalf("%s planner = %q", row.ID, row.Planner)
+		}
 	}
 }
 

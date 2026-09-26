@@ -5,14 +5,14 @@ import { getLanguage } from "../src/i18n.js";
 const minutes = (n) => new Date(Date.now() - n * 60000).toISOString();
 
 export const personas = [
-  { id: "gourmet", name: "tabe", icon: "🍜", builtin: true, active: true, wakes: 12,
+  { id: "gourmet", name: "tabe", icon: "🍜", builtin: true, active: true, wakes: 12, planner: "builtin",
     domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"],
     tone: "丁寧で、少し長め。おすすめを添える。", instructions: "食べた店と味の感想を覚える。似た店を三つまで勧める。" },
-  { id: "move", name: "michi", icon: "🚃", builtin: true, active: true, wakes: 3,
+  { id: "move", name: "michi", icon: "🚃", builtin: true, active: true, wakes: 3, planner: "builtin",
     domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
-  { id: "book", name: "shiori", icon: "📖", builtin: true, active: true, wakes: 21,
+  { id: "book", name: "shiori", icon: "📖", builtin: true, active: true, wakes: 21, planner: "builtin",
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
-  { id: "routine", name: "plana", icon: "🔁", builtin: true, active: true, wakes: 7,
+  { id: "routine", name: "plana", icon: "🔁", builtin: true, active: true, wakes: 7, planner: "builtin",
     domain: "やること。繰り返しも、一度きりの用も。", tools: ["schedule"], dailyCheckIn: { enabled: true, time: "07:00", timeZone: "Asia/Tokyo" },
     // A getter, so the sample reads in whichever language the story is showing.
     get schedules() {
@@ -104,7 +104,9 @@ export function replyDraft() {
 }
 
 export function replyPreview() {
-  return { spoke: words().trialReply, quiet: false, notes: ["tastes/sesame.md"] };
+  // The token is what /reply/preview returns for a draft that can be kept;
+  // without one the dialog offers no "これでよい".
+  return { spoke: words().trialReply, quiet: false, notes: ["tastes/sesame.md"], token: "trial_sample" };
 }
 
 // What the router decided about the sample posts, as /api/entry/{id}/routing

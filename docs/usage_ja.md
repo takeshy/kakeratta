@@ -204,6 +204,13 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 お礼や普通の追加質問、別の話題は Super のままです。
 調べるための `read` は通常のターンで最大10回、Ultra のターンで最大20回使えます。
 
+外部エージェントの接続キーを発行すると、担当ごとに「考える役」を外部エージェント（Hermes など）に切り替えられます（接続するまで、この選択は表示されません）。その担当は、文脈を読んで workflow を書く部分だけを
+MCP でつないだ外部エージェントに任せ、workflow の確認と実行は上の表のとおり kakeratta が行います。
+3分以内に取得されない、または取得後15分以内に workflow が受理されないと、内蔵モデル（Super）が代わりに考えます。
+待ち時間は上級オプションの「外部連携」で変えられます。詳しくは [Hermes Agent の設定](hermes_ja.md) を見てください。
+
+![担当画面。担当ごとに「考える役」を選ぶ](captures/ja/persona-planner.png)
+
 - 推論基盤はNebius Token Factoryです。Nemotronによる推論、GLMによる画像読み取り、Qwenによるembedding生成に使います。
 - ブラウザからGo APIへリクエストを送り、APIキーの保持と非同期の反応処理はサーバー側で行います。
 - 公開環境ではAPIをCloud Run、画面をFirebase Hostingで配信し、利用者のデータをFirestoreとCloud Storageに保存します。ローカル環境ではディスクに保存します。

@@ -69,7 +69,7 @@ export function createMentionPicker({ input, getPersonas = () => [], onChange = 
     if (!range) { hide(); return; }
     if (hasOtherMention(input.value, range)) { hide(); return; }
     const query = range.query.toLocaleLowerCase();
-    rows = getPersonas().filter(row => row.active && (row.id !== "hermes" || row.mcpConfigured) &&
+    rows = getPersonas().filter(row => row.active &&
       [row.name, row.id, named(row)].some(value => value?.toLocaleLowerCase().includes(query)));
     clear(list);
     selected = 0;

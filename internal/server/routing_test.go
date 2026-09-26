@@ -269,7 +269,7 @@ func TestRoutingWithNoTurnsYetIsNotReadAsFinished(t *testing.T) {
 	// Exactly what Firestore returns for the record keepRouting writes: tracked,
 	// with both lists empty and so nil.
 	if err := workspace.SaveRouting("p", store.Routing{
-		Delivered: []string{"gourmet", "hermes"}, Excluded: map[string]string{}, Tracked: true, Done: nil, Spoke: nil,
+		Delivered: []string{"gourmet", "book"}, Excluded: map[string]string{}, Tracked: true, Done: nil, Spoke: nil,
 	}); err != nil {
 		t.Fatal(err)
 	}

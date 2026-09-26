@@ -2,7 +2,10 @@
 
 ## Autonomous personal AI agent integration and verification report
 
-[README](../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup and retries](hermes.md)
+[README](../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](hermes.md)
+
+> [!NOTE]
+> This report records the verification of the earlier integration, in which Hermes was a persona of its own and took requests through `list_tasks` / `claim_task` / `complete_task`. Hermes now plans turns for the personas whose planner is set to the external agent, through `list_asks` / `claim_ask` / `submit_workflow`; see [Hermes setup](hermes.md). The sandbox, network policy and inference findings below still apply.
 
 This report documents an integration in which Hermes Agent runs inside NVIDIA NemoClaw / OpenShell, uses Nebius Token Factory for inference, and retrieves, processes, and replies to requests through kakeratta's MCP server. The goal was to delegate work safely from a production personal AI application to an autonomous agent and return the result to the original conversation. Credentials, workspace IDs, access tokens, and internal task IDs are intentionally omitted.
 

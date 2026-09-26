@@ -36,12 +36,14 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
   const view = el("div", { class: "panel-body" });
   let rows = [];
   let toolNames = [];
+  let mcpConfigured = false;
 
   async function load({ quiet = false } = {}) {
     try {
       const payload = await api.personas();
       rows = payload.personas || [];
       toolNames = payload.tools || [];
+      mcpConfigured = !!payload.mcpConfigured;
       onChange?.(rows);
       draw();
     } catch (error) {
@@ -110,6 +112,39 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     revealPending();
   }
 
+  // Who does the thinking: reading the context, deciding what to do, and
+  // writing the workflow. The app checks and runs the workflow either way.
+  // The choice only appears once an external agent is connected: most people
+  // never connect one and need not know there is anything to choose. A
+  // persona already handed over keeps it, so it can be handed back.
+  function drawPlanner(row) {
+    if (!mcpConfigured && row.planner !== "external") return null;
+    const choice = el("select", { "aria-label": t("考える役") },
+      el("option", { value: "builtin", label: "内蔵モデル" }),
+      el("option", { value: "external", label: "外部エージェント（Hermesなど）" }));
+    choice.value = row.planner === "external" ? "external" : "builtin";
+    choice.addEventListener("change", async () => {
+      choice.disabled = true;
+      try {
+        const payload = await api.setPlanner(row.id, choice.value);
+        rows = payload.personas || rows;
+        mcpConfigured = payload.mcpConfigured ?? mcpConfigured;
+        onChange?.(rows);
+        draw();
+      } catch (error) {
+        toast(String(error.message || error), "error");
+        draw();
+      }
+    });
+    const box = el("div", {}, el("div", { class: "compose-row" }, el("span", { class: "hint", label: "考える役" }), choice));
+    if (row.planner === "external") {
+      box.append(el("p", { class: "hint", label: mcpConfigured
+        ? "外部エージェントが文脈を読み、次にすることを workflow にします。時間内に取得・返却されなければ内蔵モデルが代わりに考えます。"
+        : "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。" }));
+    }
+    return box;
+  }
+
   function drawRow(row) {
     const shown = gloss(row);
     const box = el("section", { class: `persona ${row.active ? "on" : ""}`, "data-id": row.id });
@@ -120,7 +155,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         el("span", { class: "avatar", text: row.icon || "◎" }),
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
-        row.id === "hermes" ? el("span", { class: "tag", label: "外部エージェント" }) : null,
+        row.planner === "external" ? el("span", { class: "tag", label: "外部エージェント" }) : null,
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
           el("input", {
@@ -132,10 +167,8 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       ),
       el("p", { class: "domain", text: shown.domain }),
     );
-    if (row.id === "hermes") {
-      box.append(el("p", { class: "hint", label: "あなたのHermesがMCPで依頼を取得し、結果を返します。接続は設定画面から行えます。" }));
-      box.append(el("p", { class: "hint", text: t("未処理の依頼 {0}件", row.pendingTasks || 0) }));
-    }
+    const planner = drawPlanner(row);
+    if (planner) box.append(planner);
     const schedule = row.dailyCheckIn || {};
     const enabled = el("input", { type: "checkbox", checked: !!schedule.enabled, disabled: !row.active });
     const time = el("input", { type: "time", value: schedule.time || "08:00", disabled: !row.active, "aria-label": t("希望時刻") });
@@ -160,7 +193,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     box.append(el("div", { class: "compose-row" },
       el("label", { class: "switch" }, enabled, el("span", { label: "1日1回のチェックイン" })),
       time, el("span", { class: "hint", text: zone })));
-    box.append(el("p", { class: "hint", label: row.id === "hermes" ? "Hermesが毎日、伝えることがある日だけ自発的に報告します。Hermes側の定期確認が必要です。" : "毎日一度だけ起き、伝えることがある日だけ話します。" }));
+    box.append(el("p", { class: "hint", label: "毎日一度だけ起き、伝えることがある日だけ話します。" }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当が預けた予定" }),

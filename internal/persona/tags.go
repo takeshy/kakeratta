@@ -44,7 +44,7 @@ func noteTags(text string) []string {
 }
 
 // NoteTags exposes the frontmatter tags to read-only integrations such as the
-// Hermes MCP note listing. The note body remains owned by the persona.
+// MCP note listing for an external agent. The note body remains owned by the persona.
 func NoteTags(text string) []string {
 	return noteTags(text)
 }

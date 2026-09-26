@@ -75,6 +75,7 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /api/personas", s.guard(s.getPersonas))
 	s.mux.HandleFunc("PUT /api/personas/{id}/daily", s.guard(s.putDailyCheckIn))
+	s.mux.HandleFunc("PUT /api/personas/{id}/planner", s.guard(s.putPlanner))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/schedules/{schedule}", s.guard(s.deleteSchedule))
 	s.mux.HandleFunc("PUT /api/personas", s.guard(s.putPersonas))
 	s.mux.HandleFunc("POST /api/personas/build", s.guard(s.buildPersona))
@@ -390,43 +391,34 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		DailyCheckIn store.DailyCheckIn `json:"dailyCheckIn"`
 		// Schedules are the wakes this persona asked the app for, so the card can
 		// show what it is waiting for.
-		Schedules     []store.Schedule `json:"schedules,omitempty"`
-		Active        bool             `json:"active"`
-		Wakes         int              `json:"wakes"`
-		Notes         string           `json:"notes,omitempty"`
-		PendingTasks  int              `json:"pendingTasks,omitempty"`
-		MCPConfigured bool             `json:"mcpConfigured,omitempty"`
+		Schedules []store.Schedule `json:"schedules,omitempty"`
+		Active    bool             `json:"active"`
+		Wakes     int              `json:"wakes"`
+		Notes     string           `json:"notes,omitempty"`
+		// Planner is "builtin" or "external": who reads the context and
+		// writes this persona's workflow.
+		Planner string `json:"planner"`
 	}
 	active := map[string]bool{}
 	for _, id := range settings.Active {
 		active[id] = true
 	}
 	out := make([]row, 0, len(skills))
-	tasks, _ := store.AgentTasks(r.Context(), s.store)
 	mcp, _ := s.store.SocialValue(r.Context(), mcpCredential)
-	pendingTasks := 0
-	for _, task := range tasks {
-		if task.State != "completed" {
-			pendingTasks++
-		}
-	}
 	for _, skill := range skills {
-		if skill.ID == "hermes" && len(mcp.Data) == 0 {
-			continue
-		}
 		memory := s.store.MemoryMeta(skill.ID)
 		schedules, err := s.store.Schedules(skill.ID)
 		if err != nil {
 			// A listing failure must not hide the room; the card shows none.
 			schedules = nil
 		}
-		pending := 0
-		if skill.ID == "hermes" {
-			pending = pendingTasks
+		planner := "builtin"
+		if settings.PlansExternally(skill.ID) {
+			planner = store.PlannerExternal
 		}
-		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, PendingTasks: pending, MCPConfigured: skill.ID == "hermes" && len(mcp.Data) > 0})
+		out = append(out, row{Skill: skill, DailyCheckIn: settings.DailyCheckIns[skill.ID], Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names()})
+	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp.Data) > 0})
 }
 
 func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
@@ -683,8 +675,10 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "設定を読めませんでした")
 		return
 	}
-	// Persona schedules have their own endpoint; a stale settings form must not undo them.
+	// Persona schedules and planners have their own endpoints; a stale
+	// settings form must not undo them.
 	next.DailyCheckIns = current.DailyCheckIns
+	next.Planners = current.Planners
 	// A masked key coming back means "unchanged", not "set it to asterisks".
 	next.APIKey = unmask(next.APIKey, current.APIKey)
 	next.OpenRouterAPIKey = unmask(next.OpenRouterAPIKey, current.OpenRouterAPIKey)
@@ -840,6 +834,37 @@ func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 		settings.DailyCheckIns = map[string]store.DailyCheckIn{}
 	}
 	settings.DailyCheckIns[id] = schedule
+	if err := s.store.SaveSettings(settings); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.getPersonas(w, r)
+}
+
+// putPlanner chooses who plans a persona's turns: the in-process model, or
+// the external agent connected over MCP.
+func (s *Server) putPlanner(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, ok := s.catalogue.Find(id); !ok {
+		fail(w, http.StatusNotFound, "担当が見つかりません")
+		return
+	}
+	var body struct {
+		Planner string `json:"planner"`
+	}
+	if err := readJSON(r, &body); err != nil || (body.Planner != "builtin" && body.Planner != store.PlannerExternal) {
+		fail(w, http.StatusBadRequest, "設定を読めませんでした")
+		return
+	}
+	settings := s.store.ConfiguredSettings()
+	if settings.Planners == nil {
+		settings.Planners = map[string]string{}
+	}
+	if body.Planner == store.PlannerExternal {
+		settings.Planners[id] = store.PlannerExternal
+	} else {
+		delete(settings.Planners, id)
+	}
 	if err := s.store.SaveSettings(settings); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return

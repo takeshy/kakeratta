@@ -82,11 +82,7 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
       const done = item.done === true;
       const said = item.spoke === true;
       const noted = item.noted === true;
-      // Hermes keeps its own memory outside a post-by-post note, so the memo
-      // wording that matters for the other personas has nothing to say here.
-      const isHermes = item.id === "hermes";
       const verdict = !done ? "呼ばれました。返事を考えています…"
-        : isHermes ? (said ? "呼ばれました。返事あり" : "呼ばれましたが、黙っていました")
         : said && noted ? "呼ばれました。返事とメモあり" : said ? "呼ばれました。返事あり、メモなし"
         : noted ? "呼ばれました。黙ってメモだけ残しました" : "呼ばれましたが、黙っていました。メモもありません";
       const line = row(item, verdict, { label: "呼んでほしくなかった", direction: "exclude" });
@@ -97,7 +93,7 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
           onclick: () => { close(); onFixReply({ persona, remark: null, post: current }); },
         }));
       }
-      if (persona && onOpenNote && !isHermes) {
+      if (persona && onOpenNote) {
         for (const path of item.notes || []) line.append(el("button", {
           class: "chip ghost routing-note", text: `📝 ${path.replace(/\.md$/, "")}`,
           i18nTitle: "この判断で書いたメモを開く",

@@ -123,12 +123,16 @@ func (r *Runner) ApplyRouting(ctx context.Context, token, entryID string) error 
 		r.markRoutingApplied(token, trial)
 		return nil
 	}
+	pending := r.detaches(ctx, *skill, settings)
 	remark := r.run(ctx, *skill, thread, entry, contains(Named(skills, entry.Text), skill.ID), false, "", false, client, settings, r.registry(settings))
 	spoke := map[string]bool{}
 	if remark != nil {
 		spoke[skill.ID] = true
 	}
-	r.turnsDone(entry.ID, []Skill{*skill}, spoke)
+	// A turn waiting on an external planner is marked done when it ends.
+	if !pending {
+		r.turnsDone(entry.ID, []Skill{*skill}, spoke)
+	}
 	r.markRoutingApplied(token, trial)
 	return nil
 }

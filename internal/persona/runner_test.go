@@ -544,8 +544,8 @@ func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 }
 
 // Lightning is asked only about a reply to an active persona's remark. A
-// post, a reply to the user's own post, a reply to Hermes and a reply to a
-// persona no longer in the room are never shown to it.
+// post, a reply to the user's own post and a reply to a persona no longer in
+// the room are never shown to it.
 func TestLightningIsAskedOnlyAboutAReplyToAnActivePersona(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -553,7 +553,6 @@ func TestLightningIsAskedOnlyAboutAReplyToAnActivePersona(t *testing.T) {
 	}{
 		{"a post", ""},
 		{"a reply to the user's own post", timeline.User},
-		{"a reply to Hermes", "hermes"},
 		{"a reply to a persona not in the room", "move"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -568,7 +567,7 @@ func TestLightningIsAskedOnlyAboutAReplyToAnActivePersona(t *testing.T) {
 				default:
 					return `{"action":"silent"}`
 				}
-			}, "gourmet", "hermes")
+			}, "gourmet")
 			first := post(t, s, "もっと詳しく")
 			trigger := first
 			switch tc.speaker {
@@ -1858,79 +1857,9 @@ func TestFailedRoutingDropsPreviousDecision(t *testing.T) {
 	}
 }
 
-// Hermes does its real work later, out of process, through its own agent
-// calling back over MCP. Its turn must stay open - not yet "done", so a
-// routing sheet keeps saying it is still thinking - until that later call
-// actually reports back, rather than the instant its task is merely queued.
-func TestHermesTurnStaysOpenUntilItActuallyReplies(t *testing.T) {
-	runner, s, _ := setup(t, func(system, user string) string {
-		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["hermes"]}`
-		}
-		return `{"action":"silent","notes":""}`
-	}, "hermes")
-
-	entry := post(t, s, "調べて")
-	runner.react(entry.ID)
-
-	record, err := s.Routing(entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if record == nil || contains(record.Done, "hermes") {
-		t.Fatalf("hermes must still be thinking while its task is only queued: %+v", record)
-	}
-	tasks, err := store.AgentTasks(context.Background(), s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(tasks) != 1 || tasks[0].Trigger != entry.ID {
-		t.Fatalf("tasks = %+v, want one queued for this post", tasks)
-	}
-
-	runner.FinishAsyncTurn(entry.ID, "hermes", true)
-	record, err = s.Routing(entry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !contains(record.Done, "hermes") || !contains(record.Spoke, "hermes") {
-		t.Fatalf("hermes's actual reply must finish the turn: %+v", record)
-	}
-}
-
-func TestHermesIsQuestionFallbackBehindOtherPersonas(t *testing.T) {
-	for _, tc := range []struct {
-		name, routed string
-		wantHermes   bool
-	}{
-		{name: "only Hermes matched", routed: `{"deliver":["hermes"],"excluded_reasons":{"book":"本の話ではない"}}`, wantHermes: true},
-		{name: "a focused persona matched too", routed: `{"deliver":["book","hermes"],"excluded_reasons":{}}`, wantHermes: false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			runner, s, _ := setup(t, func(system, user string) string {
-				if strings.Contains(system, "振り分け") {
-					return tc.routed
-				}
-				return `{"action":"silent","notes":""}`
-			}, "book", "hermes")
-
-			entry := post(t, s, "これはどういう意味？")
-			runner.React(entry.ID, nil)
-			runner.Stop()
-			tasks, err := store.AgentTasks(context.Background(), s)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := len(tasks) == 1; got != tc.wantHermes {
-				t.Fatalf("Hermes queued = %v, want %v (tasks: %+v)", got, tc.wantHermes, tasks)
-			}
-		})
-	}
-}
-
-// Hermes reports back over its own MCP request, entirely apart from the wave
-// that delivered the post, so its completion can land at the same moment the
-// wave itself is writing down what the other persona did. A read-modify-write
+// A turn planned by an external agent finishes on its own goroutine, entirely
+// apart from the wave that delivered the post, so its completion can land at
+// the same moment the wave itself is writing down what the other persona did. A read-modify-write
 // that is not made atomic here would let one of the two writes clobber the
 // other, dropping a reply that really happened - which is what a person saw
 // as a persona's own routing verdict flipping from quiet to replied only
@@ -1956,7 +1885,7 @@ func TestConcurrentTurnFinishesDoNotLoseEachOthersUpdate(t *testing.T) {
 	}
 	entry := post(t, s, "調べて")
 	if err := s.SaveRouting(entry.ID, store.Routing{
-		Delivered: []string{"gourmet", "hermes"}, Excluded: map[string]string{}, Done: []string{}, Spoke: []string{},
+		Delivered: []string{"gourmet", "book"}, Excluded: map[string]string{}, Done: []string{}, Spoke: []string{},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -1969,14 +1898,14 @@ func TestConcurrentTurnFinishesDoNotLoseEachOthersUpdate(t *testing.T) {
 		defer wg.Done()
 		runner.turnsDone(entry.ID, []Skill{{ID: "gourmet"}}, map[string]bool{"gourmet": true})
 	}()
-	go func() { defer wg.Done(); runner.FinishAsyncTurn(entry.ID, "hermes", true) }()
+	go func() { defer wg.Done(); runner.FinishAsyncTurn(entry.ID, "book", true) }()
 	wg.Wait()
 
 	record, err := s.Routing(entry.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"gourmet", "hermes"} {
+	for _, id := range []string{"gourmet", "book"} {
 		if !contains(record.Done, id) || !contains(record.Spoke, id) {
 			t.Fatalf("a racing write must not drop the other persona's recorded turn: %+v", record)
 		}

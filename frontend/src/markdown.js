@@ -7,10 +7,6 @@
 // typed unless the setting asks for them to be honoured, because those are the
 // ones a person edits - and editing has always meant writing the source.
 //
-// Hermes is the one persona that may send a whole HTML document; those are
-// shown the way a document viewer shows HTML, in a frame that cannot script
-// and cannot see the app's origin.
-//
 // Like the memory reader this builds DOM nodes and never touches innerHTML:
 // model-authored text is rendered, never run.
 import { el, safeLink } from "./dom.js";
@@ -146,19 +142,6 @@ export function renderMarkdown(text) {
   return result;
 }
 
-// Whole HTML documents, the way Hermes sometimes reports. Recognised by the
-// first thing in the text being a document or block tag, so ordinary prose or
-// Markdown that merely mentions a tag in passing never takes this path.
-const HTML_OPENERS = new Set(["html", "body", "head", "doctype", "div", "p", "section", "article",
-  "aside", "main", "header", "footer", "nav", "table", "thead", "tbody", "tr", "td", "th",
-  "ul", "ol", "li", "blockquote", "pre", "figure", "figcaption", "h1", "h2", "h3", "h4", "h5",
-  "h6", "hr", "img", "a", "b", "i", "em", "strong", "span", "code", "font", "center"]);
-
-export function looksLikeHtml(text) {
-  const match = String(text || "").trim().match(/^<!?([a-z][a-z0-9]*)/i);
-  return Boolean(match) && HTML_OPENERS.has(match[1].toLowerCase());
-}
-
 // What reading aloud says: the same Markdown without its punctuation. A
 // heading is its words, a list is its items, a link says its label, and the
 // task marks and fence lines - which a voice cannot use - drop away.
@@ -176,12 +159,4 @@ export function spokenText(text) {
     .join("\n")
     .replace(/```[a-z0-9]*\n?/gi, "")
     .trim();
-}
-
-export function renderHtmlDocument(text) {
-  return el("iframe", {
-    class: "html-document", sandbox: "allow-popups", i18nTitle: "HTMLレポート",
-    // The base makes links open beside the small frame instead of inside it.
-    srcdoc: `<base target="_blank">${String(text || "")}`,
-  });
 }

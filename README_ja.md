@@ -147,7 +147,8 @@ APIキーや外部連携は含まれません。
 Web検索を使う場合は Tavily のAPIキーを、使う人が自分で持ち込みます。
 
 外部エージェントのアクセスはオプトインです。Hermes 向けに発行するMCPの認証情報はそのワークスペースに属し、
-失効でき、連携をOFFにするとユーザーデータへのアクセスを与えなくなります。連携を解除すると認証情報そのものが無効になります。
+失効できます。連携を解除すると認証情報そのものが無効になります。外部エージェントが直接書き込むことはなく、
+提出した workflow を kakeratta が検査・レビューしてから担当として実行します。
 
 kakeratta は [MITライセンス](LICENSE) です。
 
@@ -172,9 +173,11 @@ kakeratta は [MITライセンス](LICENSE) です。
 
 分野ごとの小さな担当に任せるには大きすぎる仕事もあります。
 
-そうした仕事のために、**Hermes Agent** を外部の担当として MCP 経由で kakeratta に参加させられます。
-kakeratta は依頼と、その周りの個人的な文脈を保持します。Hermes は依頼を取得し、自分の道具とスキルで作業し、
-結果をタイムラインへ報告します。
+そうしたときのために、どの担当も「考える役」を MCP 経由で **Hermes Agent** に任せられます。
+担当ごとに「考える役」を内蔵モデルか外部エージェントから選びます。外部エージェントの担当が起きると、
+kakeratta は担当の人格・指示、対象発言とスレッド、担当の index.md、workflow の形式、使える道具を載せた *ask* を出します。
+Hermes は ask を取得し、自分の道具とスキルで考えて workflow を提出し、kakeratta がそれを検査・レビューして担当として実行します。
+3分以内に取得されない、または取得後15分以内に workflow が受理されない場合（どちらも設定で変更可）は、内蔵モデルが代わりに考えます。
 
 この連携は、次の構成で構築・検証しました。
 
@@ -196,17 +199,17 @@ Super 120B に切り替えました。
 
 Hermes はサンドボックスの中から、Streamable HTTP の MCP で本番の kakeratta に接続しました。
 
-接続は成功し、**kakeratta の MCP ツール11個** がすべて検出されました。
+接続は、Hermes が独立した担当だった以前の連携の依頼用ツールで検証し、成功しました。
+これらは現在、計画用のツールに置き換わっています。
 
 `list_personas`、`get_timeline`、`get_thread`、`list_notes`、`read_note`、
-`write_note`、`list_tasks`、`claim_task`、`cancel_task`、`complete_task`、
-`post_report`。
+`list_asks`、`claim_ask`、`read_for_ask`、`submit_workflow`、`release_ask`。
 
 これで責任が分かれます。
 
-**kakeratta** は、ユーザーのタイムライン、担当への依頼、記憶へのアクセス、MCPの権限を持ちます。
+**kakeratta** は、ユーザーのタイムライン、担当、その記憶、すべての workflow のレビューと実行、MCPの権限を持ちます。
 
-**Hermes** は、自分の実行ループ、道具、スキル、自分の長期記憶を持ちます。
+**Hermes** は、自分の計画のループ、道具、スキル、自分の長期記憶を持ちます。
 
 **NemoClaw + OpenShell** は、外部エージェントが走る管理された環境を提供します。
 
@@ -215,7 +218,7 @@ Hermes はサンドボックスの中から、Streamable HTTP の MCP で本番�
 kakeratta が Hermes のプロセスを起動する必要はありません。MCP を境界にしているので、
 Hermes は単独でも、互換性のある別のランタイム構成の下でも運用できます。
 
-kakeratta 側のプロトコル、認証情報の範囲、依頼のライフサイクル、再試行、報告は
+kakeratta 側のプロトコル、認証情報の範囲、ask のライフサイクル、フォールスルーは
 [Hermes Agent の設定](docs/hermes_ja.md)（[English](docs/hermes.md)）にあります。
 
 NemoClaw / OpenShell、Hermes、Nebius Token Factory を接続した構成と本番環境での検証結果は
@@ -428,13 +431,13 @@ low・middle・high の3つのモデルの枠には、既定で Lightning・Supe
 kakeratta を使うために、Hermes を NemoClaw の下で動かす必要はありません。
 
 連携の境界は MCP です。「設定」でワークスペースのキーを発行し、Hermes に kakeratta の MCP サーバーを設定し、
-Hermes 担当をONにすれば、Hermes は依頼を取得して結果を報告できます。
+担当の「考える役」を外部エージェントにすれば、Hermes はその担当の ask を取得して workflow を提出できます。
 
 前述の NemoClaw/OpenShell 構成は、ハッカソンの連携で検証したサンドボックス構成です。
 
 kakeratta が Hermes のプロセスを起動・制御することはありません。
 
-認証情報の範囲、依頼の取得、再試行、報告、失敗時の挙動の詳細は
+認証情報の範囲、ask が運ぶ文脈、待ち時間、フォールスルーの詳細は
 [Hermes Agent の設定](docs/hermes_ja.md)（[English](docs/hermes.md)）にあります。
 
 ### サーバーを自分で動かす
@@ -454,7 +457,7 @@ kakeratta が Hermes のプロセスを起動・制御することはありま�
 | [マニュアル](https://kakeratta.net/manual/?lang=ja) | 担当、検索、記憶、音声、共有、道具、オフライン投稿、設定の使い方 |
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
-| [Hermes Agent](docs/hermes_ja.md)（[English](docs/hermes.md)） | kakeratta の MCP 接続、認証情報、依頼の取得・完了・再試行、報告 |
+| [Hermes Agent](docs/hermes_ja.md)（[English](docs/hermes.md)） | kakeratta の MCP 接続、認証情報、ask の取得・workflow の提出・フォールスルー |
 | [NVIDIA NemoClaw と Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | NemoClaw/OpenShell のサンドボックスで Hermes を動かす公式手順 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformでの構築。画面はFirebase Hosting、APIはCloud Run |
 
