@@ -13,8 +13,11 @@ type routingTrial struct {
 	entryID, personaID, text string
 	delivered                bool
 	reason                   string
-	at                       time.Time
-	applied                  bool
+	// heard is the name or keyword a person was found by, kept on the record
+	// as a routed delivery would keep it.
+	heard   string
+	at      time.Time
+	applied bool
 }
 
 type replyTrial struct {
@@ -105,6 +108,12 @@ func (r *Runner) ApplyRouting(ctx context.Context, token, entryID string) error 
 		}
 		record.Delivered = append(record.Delivered, skill.ID)
 		delete(record.Excluded, skill.ID)
+		if trial.heard != "" {
+			if record.Heard == nil {
+				record.Heard = map[string]string{}
+			}
+			record.Heard[skill.ID] = trial.heard
+		}
 	} else {
 		// A previous real delivery cannot be undone by a later decision.
 		if contains(record.Delivered, skill.ID) {

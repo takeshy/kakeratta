@@ -58,6 +58,8 @@ var deliverTool = llm.Tool{
 type Routing struct {
 	Deliver  []string
 	Excluded map[string]string
+	// Heard is, for each person delivered, the name or keyword it was found by.
+	Heard    map[string]string
 	Answered bool
 	Error    string
 }

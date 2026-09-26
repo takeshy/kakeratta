@@ -2,7 +2,7 @@ import { showConditionFix } from "../src/condition-fix.js";
 import { showReplyFix } from "../src/reply-fix.js";
 import { serve } from "./api.js";
 import { feed, panel } from "./frame.js";
-import { conditionDraft, personas, replyDraft, replyPreview, routing, timeline, words } from "./fixtures.js";
+import { conditionDraft, keywordDraft, person, personRouting, personTimeline, personWords, personas, replyDraft, replyPreview, routing, timeline, words } from "./fixtures.js";
 
 export default { title: "Timeline" };
 
@@ -129,3 +129,51 @@ export const ReplyFixTrial = {
 
 export const Reading = { name: "画像を読み取り中", render: () => show(timeline().reading) };
 export const Unreadable = { name: "画像を読めなかった", render: () => show(timeline().unreadable) };
+
+// ---- a person ---------------------------------------------------------------
+
+const people = () => [...personas, person()];
+
+function personScene(open, { draft = null } = {}) {
+  clearDialogs();
+  serve({ personas: people(), routing: personRouting(), personaDraft: draft,
+    routingCheck: { answered: true, delivered: true, heard: personWords().added[0], token: "trial_sample" } });
+  const view = feed(personTimeline(), people(), { onFixCondition: fixing });
+  view.element.querySelector(`.thread[data-id="${open}"] .routing-open`)?.click();
+  return panel(view.element);
+}
+
+// A person is reached by a word, and the sheet says which.
+export const PersonRouting = { name: "担当の判断・人物に届いた", render: () => personScene("q1") };
+
+// A post about him in words he is not listed under: asking for him adds
+// keywords instead of rewriting a condition.
+export const PersonMissed = { name: "担当の判断・人物に届かなかった", render: () => personScene("q2") };
+
+const missedPerson = () => ({
+  persona: person(),
+  entry: personTimeline().find((entry) => entry.id === "q2"),
+  direction: "include",
+  reason: personWords().missed,
+});
+
+export const PersonKeywordAsk = {
+  name: "人物を呼んでほしかった・語を書く",
+  render: () => {
+    const host = personScene(null, { draft: keywordDraft() });
+    fixing(missedPerson());
+    document.querySelector(".condition-note").value = personWords().note;
+    return host;
+  },
+};
+
+export const PersonKeywordProposal = {
+  name: "人物を呼んでほしかった・足すキーワード",
+  render: () => {
+    const host = personScene(null, { draft: keywordDraft() });
+    fixing(missedPerson());
+    document.querySelector(".condition-note").value = personWords().note;
+    document.querySelector(".condition-build").click();
+    return host;
+  },
+};

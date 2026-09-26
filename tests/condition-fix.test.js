@@ -189,3 +189,49 @@ test("cancel saves nothing and an unchanged proposal is not offered", async (t) 
   assert.equal(api.savePersonaDraft.mock.calls.length, 0);
   assert.equal(document.body.children.length, 0);
 });
+
+// A person has no condition: a post that should have reached one adds
+// keywords, from the post and near it, and the check is whether the post now
+// has one of them.
+test("a person's missed post adds keywords from the post rather than a condition", async (t) => {
+  setup(t);
+  const sato = { id: "sato", name: "佐藤さん", icon: "🧑", domain: "佐藤さんのこと。", tools: [], kind: "person", aliases: ["サトウ"], keywords: ["キャンプ"] };
+  const post = { id: "q", kind: "post", speaker: "user", text: "週末は海釣りに行くらしい" };
+  t.mock.method(api, "buildPersona", async ({ current }) => ({ message: "足しました", draft: { ...current, keywords: [...current.keywords, "海釣り", "釣り"] } }));
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  const checks = [{ answered: true, delivered: false, reason: "呼び名・キーワードが投稿にありませんでした" }, { answered: true, delivered: true, heard: "海釣り", token: "route-2" }];
+  t.mock.method(api, "checkRouting", async () => checks.shift());
+  t.mock.method(api, "applyRouting", async () => ({ applied: true }));
+  showConditionFix({ persona: sato, entry: post, direction: "include", reason: "呼び名・キーワードが投稿にありませんでした" });
+
+  assert.ok(walk(document.body).some((n) => n.textContent === "キャンプ"), "the current keywords are shown");
+  button("キーワードを作る").fire("click");
+  await settle();
+  const asked = api.buildPersona.mock.calls[0].arguments[0];
+  assert.equal(asked.entryId, "q");
+  assert.match(asked.messages[0].content, /週末は海釣りに行くらしい/);
+  assert.match(asked.messages[0].content, /keywords/);
+  const next = one(".condition-new");
+  assert.equal(next.value, "海釣り、釣り", "only what is added is proposed");
+
+  // A proposal the post does not contain is said, and asked again.
+  next.value = "渓流";
+  next.fire("input");
+  button("OK").fire("click");
+  await settle();
+  assert.deepEqual(api.savePersonaDraft.mock.calls[0].arguments[0].keywords, ["キャンプ", "渓流"]);
+  assert.equal(api.applyRouting.mock.calls.length, 0);
+  assert.ok(walk(document.body).some((n) => n.textContent === translate("足したキーワードはどれもこの投稿に書かれていないので、{0} に届きませんでした。", "佐藤さん")));
+
+  button("キーワードを作る").fire("click");
+  await settle();
+  assert.match(api.buildPersona.mock.calls[1].arguments[0].messages.at(-1).content, /届きませんでした/, "the failure is told to the AI");
+  button("OK").fire("click");
+  await settle();
+  const saved = api.savePersonaDraft.mock.calls[1].arguments[0];
+  assert.deepEqual(saved.keywords, ["キャンプ", "渓流", "海釣り", "釣り"]);
+  assert.equal(saved.kind, "person");
+  assert.deepEqual(saved.aliases, ["サトウ"]);
+  assert.deepEqual(api.applyRouting.mock.calls[0].arguments, ["q", "route-2"]);
+  assert.equal(document.body.children.length, 0);
+});

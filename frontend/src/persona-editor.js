@@ -18,9 +18,15 @@ const fields = [
   { key: "instructions", label: "覚えること・返事をするタイミング", kind: "textarea", rows: 6, maxlength: 8000 },
 ];
 
+// A person's names and keywords are edited as one line of text each, split on
+// commas, 読点 and line breaks.
+export function splitTerms(text) {
+  return String(text || "").split(/[,，、\n]+/).map((term) => term.trim()).filter(Boolean);
+}
+
 export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings = () => ({}), ai = false }) {
   const opener = document.activeElement;
-  const original = { ...persona, tools: [...(persona.tools || [])] };
+  const original = { ...persona, tools: [...(persona.tools || [])], kind: persona.kind || "", aliases: [...(persona.aliases || [])], keywords: [...(persona.keywords || [])] };
   const inputs = {};
   const previous = {};
   let closed = false;
@@ -31,6 +37,35 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   const form = el("div", { class: "persona-form" });
   const error = el("p", { class: "hint", role: "alert" });
 
+  // A person is reached by its names and keywords instead of the router, so
+  // those replace the condition as what decides; the condition stays as what
+  // the persona is told it keeps.
+  const person = el("input", { type: "checkbox" });
+  person.checked = original.kind === "person";
+  person.disabled = ai;
+  previous.kind = el("details", { class: "previous" });
+  previous.kind.hidden = true;
+  form.append(el("div", { class: "persona-field" },
+    el("label", { class: "switch" }, person, el("span", { label: "人物の担当（投稿に呼び名かキーワードがあるときに届きます）" })),
+    previous.kind));
+  const terms = {};
+  const termFields = [
+    { key: "aliases", label: "呼び名（読点区切り。名前・あだ名・続柄・かな表記）", rows: 2 },
+    { key: "keywords", label: "キーワード（読点区切り。類似語や言い換えも並べると届きやすくなります）", rows: 3 },
+  ];
+  const termBox = el("div");
+  for (const field of termFields) {
+    const input = el("textarea", { class: "skill-input", rows: field.rows, maxlength: 4000 });
+    input.value = original[field.key].join("、");
+    input.readOnly = ai;
+    input.addEventListener("input", () => markChanged(field.key));
+    terms[field.key] = input;
+    previous[field.key] = el("details", { class: "previous" });
+    previous[field.key].hidden = true;
+    termBox.append(el("label", { class: "persona-field" }, el("strong", { label: field.label }), input, previous[field.key]));
+  }
+
+  const labels = {};
   for (const field of fields) {
     const input = field.kind === "textarea"
       ? el("textarea", { class: "skill-input", rows: field.rows, maxlength: field.maxlength })
@@ -41,8 +76,27 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     inputs[field.key] = input;
     previous[field.key] = el("details", { class: "previous" });
     previous[field.key].hidden = true;
-    form.append(el("label", { class: "persona-field" }, el("strong", { label: field.label }), input, previous[field.key]));
+    labels[field.key] = el("strong", { label: field.label });
+    form.append(el("label", { class: "persona-field" }, labels[field.key], input, previous[field.key]));
+    if (field.key === "name") form.append(termBox);
   }
+
+  function showKind() {
+    termBox.hidden = !person.checked;
+    labels.domain.textContent = t(person.checked ? "担当の説明（人物の担当は振り分けに使いません）" : "担当条件（振り分けに使います）");
+  }
+  // A person is up on the morning of a meeting only through a wake it placed,
+  // so becoming one turns schedule on; it can still be turned off by hand.
+  person.addEventListener("change", () => {
+    showKind();
+    markChanged("kind");
+    const schedule = Object.entries(toolBoxes).find(([name]) => capability(name) === capability("schedule"))?.[1];
+    if (person.checked && schedule && !schedule.checked) {
+      schedule.checked = true;
+      markChanged("tools");
+    }
+  });
+  showKind();
 
   const toolBoxes = {};
   const toolList = el("div", { class: "persona-tools" });
@@ -63,11 +117,16 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     const draft = { ...persona };
     for (const field of fields) draft[field.key] = inputs[field.key].value.trim();
     draft.tools = available.filter((name) => toolBoxes[name].checked);
+    draft.kind = person.checked ? "person" : "";
+    draft.aliases = person.checked ? splitTerms(terms.aliases.value) : [];
+    draft.keywords = person.checked ? splitTerms(terms.keywords.value) : [];
     return draft;
   }
 
   function shown(key, value) {
     if (key === "tools") return uniqueTools(value || []).map((name) => t(toolLabel(name))).join(" / ") || t("（なし）");
+    if (key === "kind") return t(value === "person" ? "人物の担当" : "人物ではない担当");
+    if (Array.isArray(value)) return value.join("、") || t("（なし）");
     return value || "";
   }
 
@@ -92,6 +151,8 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   function setDraftEditable(value) {
     for (const field of fields) inputs[field.key].readOnly = !value;
     for (const box of Object.values(toolBoxes)) box.disabled = !value;
+    for (const input of Object.values(terms)) input.readOnly = !value;
+    person.disabled = !value;
   }
 
   function apply(draft) {
@@ -105,6 +166,13 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
       for (const name of available) toolBoxes[name].checked = draft.tools.some((tool) => capability(tool) === capability(name));
     }
     markChanged("tools");
+    if (typeof draft.kind === "string") person.checked = draft.kind === "person";
+    for (const field of termFields) {
+      if (Array.isArray(draft[field.key])) terms[field.key].value = draft[field.key].join("、");
+      markChanged(field.key);
+    }
+    showKind();
+    markChanged("kind");
     updateSave();
   }
 

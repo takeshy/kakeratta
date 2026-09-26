@@ -247,6 +247,12 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 	for _, id := range routing.Deliver {
 		if !contains(named, id) {
 			record.Delivered = append(record.Delivered, id)
+			if term, ok := routing.Heard[id]; ok {
+				if record.Heard == nil {
+					record.Heard = map[string]string{}
+				}
+				record.Heard[id] = term
+			}
 		}
 	}
 	for id, reason := range routing.Excluded {
@@ -333,8 +339,10 @@ type RoutingCheck struct {
 	Answered  bool   `json:"answered"`
 	Delivered bool   `json:"delivered"`
 	Reason    string `json:"reason,omitempty"`
-	Error     string `json:"error,omitempty"`
-	Token     string `json:"token,omitempty"`
+	// Heard is the name or keyword a person would be reached by.
+	Heard string `json:"heard,omitempty"`
+	Error string `json:"error,omitempty"`
+	Token string `json:"token,omitempty"`
 }
 
 func routeConfigured(ctx context.Context, client *llm.Client, settings store.Settings, skills []Skill, thread []Entryish, trigger Entryish) Routing {
@@ -346,6 +354,37 @@ func routeConfigured(ctx context.Context, client *llm.Client, settings store.Set
 		model = routingModel()
 	}
 	return Route(ctx, client, model, skills, thread, trigger)
+}
+
+// routeSubjects is the router's call on the subjects, with the people
+// decided beside it by their names and keywords. A person heard in the post is
+// delivered as if routed, so the routing sheet shows it and the word it was
+// heard by; one not heard is passed over for that reason.
+func routeSubjects(ctx context.Context, client *llm.Client, settings store.Settings, skills []Skill, thread []Entryish, trigger Entryish) Routing {
+	subjects := Subjects(skills)
+	people := People(skills)
+	routing := Routing{Answered: true}
+	if len(subjects) > 0 {
+		routing = routeConfigured(ctx, client, settings, subjects, thread, trigger)
+	}
+	if len(people) == 0 {
+		return routing
+	}
+	if routing.Excluded == nil {
+		routing.Excluded = map[string]string{}
+	}
+	routing.Heard = Heard(people, search.Text(trigger))
+	for _, skill := range people {
+		if _, ok := routing.Heard[skill.ID]; ok {
+			routing.Deliver = append(routing.Deliver, skill.ID)
+			continue
+		}
+		routing.Excluded[skill.ID] = "呼び名・キーワードが投稿にありませんでした"
+	}
+	// The people are decided even when the router could not be: a post about
+	// someone is not lost because the subjects' model was down. The record of
+	// it still needs the router's answer, as before.
+	return routing
 }
 
 func jevConfigured(settings store.Settings) bool {
@@ -367,6 +406,11 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 	for _, skill := range skills {
 		if skill.ID == skillID {
 			found = true
+			// A person is decided by its own words; the router has no say.
+			if skill.IsPerson() {
+				skills = []Skill{skill}
+			}
+			break
 		}
 	}
 	if !found {
@@ -377,15 +421,16 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 		return RoutingCheck{}, err
 	}
 	thread := timeline.Thread(entries, timeline.RootOf(entry))
-	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
+	routing := routeSubjects(ctx, client, settings, skills, thread, entry)
 	check := RoutingCheck{Answered: routing.Answered, Error: routing.Error}
 	if routing.Answered {
 		check.Delivered = contains(routing.Deliver, skillID)
 		check.Reason = routing.Excluded[skillID]
+		check.Heard = routing.Heard[skillID]
 		check.Token = store.NewID("trial")
 		r.trialMu.Lock()
 		r.pruneTrials(time.Now())
-		r.routingTrials[check.Token] = routingTrial{entryID: entryID, personaID: skillID, text: entry.Text, delivered: check.Delivered, reason: check.Reason, at: time.Now()}
+		r.routingTrials[check.Token] = routingTrial{entryID: entryID, personaID: skillID, text: entry.Text, delivered: check.Delivered, reason: check.Reason, heard: check.Heard, at: time.Now()}
 		r.trialMu.Unlock()
 	}
 	return check, nil
@@ -478,7 +523,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 		targets[parent.Speaker] = true
 		asked = parent.Speaker
 	}
-	routing := routeConfigured(ctx, client, settings, skills, thread, entry)
+	routing := routeSubjects(ctx, client, settings, skills, thread, entry)
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
@@ -528,6 +573,9 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 			}
 			if skill.ID == asked {
 				instructions += r.reviewReply(skill, parent, settings)
+			}
+			if term, ok := routing.Heard[skill.ID]; ok && !contains(named, skill.ID) && !previous[skill.ID] && skill.ID != asked {
+				instructions += heardInstructions(skill, term)
 			}
 			pending[i] = r.detaches(ctx, skill, settings)
 			remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, skill.ID == deep, client, settings, registry)

@@ -39,7 +39,18 @@ type Skill struct {
 	Memory string `json:"memory,omitempty"`
 	// Tools are the declared capabilities. Nothing outside this list can be
 	// called, and the app is what calls them.
-	Tools      []string `json:"tools"`
+	Tools []string `json:"tools"`
+	// Kind is "person" for a persona that keeps one person in mind, and empty
+	// for one that keeps a subject. A person is never put to the router: a
+	// post reaches it by being about that person in so many words - one of
+	// the names below, or one of the keywords - or by an @.
+	Kind string `json:"kind,omitempty"`
+	// Aliases are what the person is called: a family name, a nickname, the
+	// same name in kana. Any of them answers an @ as well.
+	Aliases []string `json:"aliases,omitempty"`
+	// Keywords are the things that bring the person up without naming them,
+	// each with its near words spelled out, since matching is on the words.
+	Keywords   []string `json:"keywords,omitempty"`
 	Builtin    bool     `json:"builtin"`
 	Customized bool     `json:"customized,omitempty"`
 }
@@ -49,8 +60,21 @@ var idPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$`)
 // Answers reports whether this persona was the one called out by name.
 func (s Skill) Answers(mention string) bool {
 	mention = strings.TrimSpace(mention)
+	if mention == "" {
+		return false
+	}
 	// Case does not matter: @tabe on a phone keyboard is the same call as @tabe.
-	return mention != "" && (strings.EqualFold(mention, s.ID) || strings.EqualFold(mention, s.Name))
+	if strings.EqualFold(mention, s.ID) || strings.EqualFold(mention, s.Name) {
+		return true
+	}
+	if s.IsPerson() {
+		for _, alias := range append([]string{s.Name}, s.Aliases...) {
+			if foldTerm(alias) == foldTerm(mention) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Builtins ship with the app so there is someone in the room before anything
@@ -269,6 +293,7 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 	if err := json.Unmarshal(raw, &skill); err != nil {
 		return Skill{}, errors.New("スキルの定義を読めませんでした")
 	}
+	skill.TidyTerms()
 	if err := validate(skill); err != nil {
 		return Skill{}, err
 	}
@@ -342,6 +367,22 @@ func validate(skill Skill) error {
 	}
 	if len([]rune(skill.Icon)) > 4 {
 		return errors.New("アイコンは絵文字1つにしてください")
+	}
+	switch skill.Kind {
+	case "", KindPerson:
+	default:
+		return errors.New("担当の種類が不正です")
+	}
+	if skill.Kind != KindPerson && (len(skill.Aliases) > 0 || len(skill.Keywords) > 0) {
+		return errors.New("呼び名とキーワードは人物の担当だけに付けられます")
+	}
+	if len(skill.Aliases)+len(skill.Keywords) > maxTerms {
+		return errors.New("呼び名とキーワードが多すぎます")
+	}
+	for _, term := range append(append([]string(nil), skill.Aliases...), skill.Keywords...) {
+		if foldTerm(term) == "" || len([]rune(term)) > 40 {
+			return errors.New("呼び名とキーワードは1つ40文字以内で書いてください")
+		}
 	}
 	return nil
 }

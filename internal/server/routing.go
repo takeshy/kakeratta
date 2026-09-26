@@ -17,6 +17,12 @@ type routingRow struct {
 	Name   string `json:"name"`
 	Icon   string `json:"icon"`
 	Reason string `json:"reason,omitempty"`
+	// Heard is the name or keyword a person was delivered by, in place of the
+	// router's call.
+	Heard string `json:"heard,omitempty"`
+	// Person: the persona keeps a person, so it is matched by words rather
+	// than by a condition the router reads.
+	Person bool `json:"person,omitempty"`
 	// For a persona the router chose: whether its turn has finished, and
 	// whether it said anything in the thread after this post. Both false while
 	// it is still working; done and not spoke is a persona that stayed quiet.
@@ -32,7 +38,7 @@ type routingRow struct {
 func (s *Server) routingRow(id, reason string) routingRow {
 	row := routingRow{ID: id, Name: id, Reason: reason}
 	if skill, ok := s.catalogue.Find(id); ok {
-		row.Name, row.Icon = skill.Name, skill.Icon
+		row.Name, row.Icon, row.Person = skill.Name, skill.Icon, skill.IsPerson()
 	}
 	return row
 }
@@ -87,6 +93,7 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 	delivered := make([]routingRow, 0, len(record.Delivered))
 	for _, id := range record.Delivered {
 		row := s.routingRow(id, "")
+		row.Heard = record.Heard[id]
 		finished, said, noted := done(id), spoke[id], false
 		if notes, err := s.store.NotesBySource(id, entry.ID); err == nil {
 			row.Notes = notes

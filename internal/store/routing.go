@@ -32,6 +32,9 @@ type Routing struct {
 	// Spoke lists the personas that produced a remark during this turn. On an
 	// untracked record the speech outcome must be inferred from the timeline.
 	Spoke []string `json:"spoke"`
+	// Heard is, for a person delivered by a name or keyword rather than by the
+	// router, the word it was found by.
+	Heard map[string]string `json:"heard,omitempty"`
 }
 
 func routingPath(root string) string { return filepath.Join(root, "routing.json") }
@@ -109,6 +112,12 @@ func normaliseRouting(record Routing) Routing {
 	}
 	if record.Spoke != nil {
 		out.Spoke = append([]string{}, record.Spoke...)
+	}
+	for id, term := range record.Heard {
+		if out.Heard == nil {
+			out.Heard = map[string]string{}
+		}
+		out.Heard[id] = term
 	}
 	return out
 }

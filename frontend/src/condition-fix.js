@@ -6,14 +6,21 @@
 // person can correct that text by hand. OK saves it and checks the same post;
 // a newly selected persona then takes its ordinary turn on that post. If the
 // decision is still wrong, the router's reason is shown and they try again.
+//
+// A person has no condition: it is reached by its words. For a post that
+// should have reached one, the same steps add keywords instead - words from
+// the post and their near words - and the check is whether the post now
+// contains one of them.
 import { clear, el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
+import { splitTerms } from "./persona-editor.js";
 
 const EXCERPT = 300;
 
 export function showConditionFix({ persona, entry, direction, reason = "", onSaved }) {
   const include = direction === "include";
+  const person = persona.kind === "person" && include;
   const title = include ? t("{0} を呼んでほしかった", persona.name) : t("{0} を呼んでほしくなかった", persona.name);
   const text = entry.text || "";
   const excerpt = text.length > EXCERPT ? `${text.slice(0, EXCERPT)}…` : text;
@@ -71,6 +78,13 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
   function request(note) {
     const lines = [];
     if (failure) lines.push(failure);
+    if (person) {
+      lines.push(t("次の投稿がこの人物の担当に届くよう、キーワードを足してほしい：「{0}」", text));
+      lines.push(t("投稿に書かれている語をそのままの形で少なくとも1つ選び、その言い換えや類似語とあわせて keywords に加えてください。"));
+      if (note) lines.push(t("本人の補足：「{0}」", note));
+      lines.push(t("既存の呼び名とキーワード、他の項目は変えないでください。"));
+      return lines.join("\n");
+    }
     if (include) {
       lines.push(t("次の投稿をこの担当の対象にしてほしい：「{0}」", text));
       if (reason) lines.push(t("今の担当条件では「{0}」と判断され対象外になった。", reason));
@@ -94,12 +108,12 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
       const result = await api.buildPersona({ id: persona.id, entryId: entry.id, language: getLanguage(), messages: next, current: base });
       if (closed) return null;
       messages.splice(0, messages.length, ...next, { role: "assistant", content: JSON.stringify(result) });
-      const domain = String(result?.draft?.domain || "").trim();
-      if (!domain || domain === base.domain) {
-        error.textContent = [t("条件を変えられませんでした"), result?.message || ""].filter(Boolean).join(" ");
+      const value = person ? added(result?.draft?.keywords) : String(result?.draft?.domain || "").trim();
+      if (!value || (!person && value === base.domain)) {
+        error.textContent = [t(person ? "キーワードを足せませんでした" : "条件を変えられませんでした"), result?.message || ""].filter(Boolean).join(" ");
         return null;
       }
-      return domain;
+      return value;
     } catch (e) {
       error.textContent = e.message;
       return null;
@@ -108,17 +122,28 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
     }
   }
 
+  // added is what a proposal adds to the saved keywords, as the text shown.
+  function added(keywords) {
+    const have = new Set(saved.keywords || []);
+    return (Array.isArray(keywords) ? keywords : []).map((word) => String(word).trim()).filter((word) => word && !have.has(word)).join("、");
+  }
+
+  // current is what the dialog changes, as it stands.
+  const current = () => person ? (saved.keywords || []).join("、") || t("（なし）") : saved.domain || "";
+  const currentLabel = person ? "今のキーワード" : "今の判定条件";
+
   // 1. Why. The post, what the router said, the condition as it is, and room
   // to say what should have happened.
   function showAsk(notice) {
     controls = [];
     error.textContent = "";
+    const noteLabel = person ? "どの語で呼んでほしいか（任意）" : "理由や、どう変えてほしいか";
     const note = el("textarea", {
-      class: "skill-input condition-note", rows: 3, maxlength: 2000, "aria-label": t("理由や、どう変えてほしいか"),
-      i18nPlaceholder: include ? "例：飲食店の話でも、場所や移動に関係するときは反応してほしい。" : "例：本のタイトルが出るだけの話には反応しないでほしい。",
+      class: "skill-input condition-note", rows: 3, maxlength: 2000, "aria-label": t(noteLabel),
+      i18nPlaceholder: person ? "例：「釣り」の話は佐藤さんのことが多い。" : include ? "例：飲食店の話でも、場所や移動に関係するときは反応してほしい。" : "例：本のタイトルが出るだけの話には反応しないでほしい。",
     });
     controls.push(note);
-    const make = action("条件を作る", "button primary condition-build", async () => {
+    const make = action(person ? "キーワードを作る" : "条件を作る", "button primary condition-build", async () => {
       if (busy) return;
       const domain = await build(request(note.value.trim()), saved, make, "考えています…");
       if (domain) showProposal(domain);
@@ -127,8 +152,8 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
       notice ? el("p", { class: "hint warn condition-notice", role: "alert", text: notice }) : null,
       el("blockquote", { class: "condition-quote", text: excerpt }),
       include && reason ? el("p", { class: "hint", text: t("担当の判断：{0}", reason) }) : null,
-      field("今の判定条件", el("p", { class: "condition-current", text: saved.domain || "" })),
-      field("理由や、どう変えてほしいか", note),
+      field(currentLabel, el("p", { class: "condition-current", text: current() })),
+      field(noteLabel, note),
       el("div", { class: "compose-row" }, make, el("span", { class: "spacer" }), action("キャンセル", "chip ghost", close)),
     );
     note.focus();
@@ -140,19 +165,21 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
   function showProposal(domain) {
     controls = [];
     error.textContent = "";
-    const next = el("textarea", { class: "skill-input condition-new", rows: 4, maxlength: 2000, "aria-label": t("新しい判定条件") });
+    const nextLabel = person ? "足すキーワード（読点区切り）" : "新しい判定条件";
+    const next = el("textarea", { class: "skill-input condition-new", rows: 4, maxlength: 2000, "aria-label": t(nextLabel) });
     next.value = domain;
     controls.push(next);
     const ask = el("textarea", {
       class: "skill-input condition-request", rows: 3, maxlength: 2000, "aria-label": t("AIへの依頼"),
-      i18nPlaceholder: "例：飲食店の名前だけでは反応しないようにして。",
+      i18nPlaceholder: person ? "例：「キャンプ」も足して。" : "例：飲食店の名前だけでは反応しないようにして。",
     });
     controls.push(ask);
-    const askBuild = action("条件を作る", "button primary condition-rebuild", async () => {
+    const askBuild = action(person ? "キーワードを作る" : "条件を作る", "button primary condition-rebuild", async () => {
       if (busy) return;
       const content = ask.value.trim();
       if (!content) return;
-      const changed = await build(content, { ...saved, domain: next.value.trim() }, askBuild, "考えています…");
+      const base = person ? { ...saved, keywords: [...(saved.keywords || []), ...splitTerms(next.value)] } : { ...saved, domain: next.value.trim() };
+      const changed = await build(content, base, askBuild, "考えています…");
       if (changed) {
         next.value = changed;
         ask.value = "";
@@ -168,8 +195,8 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
     });
     next.addEventListener("input", () => { ok.disabled = busy || !next.value.trim(); });
     fill(
-      field("今の判定条件", el("p", { class: "condition-current", text: saved.domain || "" })),
-      field("新しい判定条件", next),
+      field(currentLabel, el("p", { class: "condition-current", text: current() })),
+      field(nextLabel, next),
       askBox,
       el("div", { class: "compose-row" }, ok, askAI, el("span", { class: "spacer" }), action("キャンセル", "chip ghost", close)),
     );
@@ -184,7 +211,14 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
     setBusy(true, button, "確認しています…");
     error.textContent = "";
     try {
-      if (domain !== saved.domain) {
+      if (person) {
+        const keywords = [...new Set([...(saved.keywords || []), ...splitTerms(domain)])];
+        if (keywords.length !== (saved.keywords || []).length) {
+          const stored = await api.savePersonaDraft({ ...saved, keywords }, persona.id);
+          saved = { ...saved, ...(stored && typeof stored === "object" ? stored : {}), keywords: stored?.keywords || keywords };
+          await onSaved?.();
+        }
+      } else if (domain !== saved.domain) {
         const stored = await api.savePersonaDraft({ ...saved, domain }, persona.id);
         saved = { ...saved, ...(stored && typeof stored === "object" ? stored : {}), domain };
         await onSaved?.();
@@ -198,11 +232,14 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
       if (include ? check.delivered : !check.delivered) {
 		if (include) await api.applyRouting(entry.id, check.token);
 		if (closed) return;
-		toast(t(include ? "担当条件を保存し、この投稿に担当を呼びました" : "担当条件を保存しました。この投稿は狙いどおりに振り分けられます"));
+		toast(person ? t("キーワードを保存し、「{0}」に一致したので担当を呼びました", check.heard || "")
+		  : t(include ? "担当条件を保存し、この投稿に担当を呼びました" : "担当条件を保存しました。この投稿は狙いどおりに振り分けられます"));
         close();
         return;
       }
-      failure = include
+      failure = person
+        ? t("足したキーワードはどれもこの投稿に書かれていないので、{0} に届きませんでした。", persona.name)
+        : include
         ? t("保存した条件では、この投稿は {0} に届きませんでした。理由：{1}", persona.name, check.reason || "")
         : t("保存した条件でも、この投稿は {0} に届きました。", persona.name);
       showAsk(failure);

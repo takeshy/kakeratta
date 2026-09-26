@@ -139,6 +139,39 @@ thread, replacing the old remark or adding a new one. **Still not it** asks
 again with that reply quoted. This call can
 take a few minutes, since a persona's turn may be planned and reviewed.
 
+### People
+
+A persona that keeps one person - your mother, a friend - can be made a
+**person's persona** (the "Keeps a person" switch in the editor, or ask the
+persona builder to "remember things about Sato"). A person is never handed to
+the router. A post reaches it only when the post - including text read from or
+described in a photo - contains one of its **names** or **keywords** as
+written. Being called with `@`, replies in a thread it was already called to,
+and the daily check-in work as for any other persona. A person reached by a
+word is told that a word is all it was: a post about 母校 (alma mater) reaches
+母 (mother), and if the post is not about them the persona ends its turn
+without a reply or a note.
+
+A person's persona places wakes (schedule). The persona builder always gives it
+the tool, and turning on "Keeps a person" in the editor turns it on. When a
+post mentions meeting them, the persona places a wake for that morning, and on
+the day brings up what happened last time and anything still open.
+
+Matching is on the words, but width, case, hiragana against katakana and a
+trailing honorific (さん, くん, ちゃん, 様 and the like) do not matter: 佐藤
+reaches 佐藤くん and さとうさん too. To catch posts that say the same thing in
+other words, list the near words as keywords of their own (釣り, つり, 釣行,
+海釣り). The persona builder proposes the spellings of the names and the near
+words of the keywords for you. Names also answer an `@`. In ⚖ the word a
+person was reached by is shown next to it.
+
+A person has no condition, so in ⚖ **Should have been called** adds keywords
+instead. The persona builder proposes words written in the post together with
+their near words; you can edit them, and **OK** saves them and checks the same
+post. If one of the added words is in the post, the persona is called on it;
+if not, you are told and asked again. **Should not have been called** is not
+offered for a person - remove the word in the editor.
+
 ## Notes that expire or come up for review
 
 Two front-matter lines in a persona's notes are the app's business; everything

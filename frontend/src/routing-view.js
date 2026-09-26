@@ -69,7 +69,11 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
         }) : el("span", { class: "who", text: `${persona?.icon || item.icon || "◎"} ${persona?.name || item.name || item.id}` }),
         el("span", { class: "routing-verdict", label: verdict }),
         item.reason ? el("span", { class: "routing-reason", text: item.reason }) : null,
-        persona && onFixCondition ? el("button", {
+        item.heard ? el("span", { class: "routing-reason", text: t("「{0}」に一致", item.heard) }) : null,
+        // A person has no condition to teach. A post that should have reached
+        // one can add keywords; one that should not have is a word to remove,
+        // done in the editor.
+        persona && onFixCondition && (!item.person || fix.direction === "include") ? el("button", {
           class: "chip ghost routing-fix", label: fix.label,
           onclick: () => { close(); onFixCondition({ persona, entry: current, direction: fix.direction, reason: item.reason || "" }); },
         }) : null);

@@ -4,7 +4,7 @@
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, routing = {}, replyPreview = { quiet: true }, bluesky = { available: true, connected: false }, mcp = { configured: false, path: "/api/mcp/users/sample" } } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, routing = {}, routingCheck = { answered: true, delivered: true }, replyPreview = { quiet: true }, bluesky = { available: true, connected: false }, mcp = { configured: false, path: "/api/mcp/users/sample" } } = {}) {
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
   let connection = { ...bluesky };
@@ -52,7 +52,7 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     // nothing about reads as unrecorded. A trial run always lands as meant.
     const decided = path.match(/^\/api\/entry\/([^/]+)\/routing$/);
     if (decided && method === "GET") return json(routing[decodeURIComponent(decided[1])] || { recorded: false });
-    if (/^\/api\/entry\/[^/]+\/routing\/check$/.test(path) && method === "POST") return json({ answered: true, delivered: true });
+    if (/^\/api\/entry\/[^/]+\/routing\/check$/.test(path) && method === "POST") return json(routingCheck);
     if (/^\/api\/entry\/[^/]+\/reply\/preview$/.test(path) && method === "POST") return json(replyPreview);
     if (/^\/api\/personas\/[^/]+$/.test(path) && method === "PUT") {
       rows = rows.map((row) => row.id === body.id ? { ...row, ...body } : row);

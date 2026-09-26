@@ -626,6 +626,63 @@ test("persona editor separates direct editing from AI editing", async (t) => {
   assert.equal(aiName.readOnly, false, "the proposal becomes editable");
 });
 
+test("a person's names and keywords are edited as lists and saved with the kind", async (t) => {
+  const { showPersonaEditor, splitTerms } = await import("../frontend/src/persona-editor.js");
+  assert.deepEqual(splitTerms("釣り、つり, 釣行\n海釣り、 "), ["釣り", "つり", "釣行", "海釣り"]);
+  const persona = { id: "sato", name: "佐藤さん", icon: "🧑", domain: "佐藤さんのこと", tone: "", instructions: "", tools: [], kind: "person", aliases: ["サトウ"], keywords: ["釣り"] };
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.cancelAnimationFrame = () => {};
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.cancelAnimationFrame; });
+
+  showPersonaEditor({ persona, toolNames: [] });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const inputs = document.body.querySelectorAll(".skill-input");
+  const keywords = inputs.find(node => node.value === "釣り");
+  keywords.value = "釣り、つり、キャンプ";
+  keywords.fire("input");
+  walk(document.body).find(node => node.textContent === translate("保存")).fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  const saved = api.savePersonaDraft.mock.calls[0].arguments[0];
+  assert.equal(saved.kind, "person");
+  assert.deepEqual(saved.aliases, ["サトウ"]);
+  assert.deepEqual(saved.keywords, ["釣り", "つり", "キャンプ"]);
+
+  // Becoming a person turns schedule on, so a meeting day can wake it.
+  const friend = { id: "friend", name: "友人", icon: "🧑", domain: "友人のこと", tone: "", instructions: "", tools: [] };
+  showPersonaEditor({ persona: friend, toolNames: ["web_search", "schedule"] });
+  const dialog = document.body.querySelectorAll(".persona-editor").at(-1);
+  const boxes = walk(dialog).filter(node => node.type === "checkbox");
+  boxes[0].checked = true;
+  boxes[0].fire("change");
+  walk(dialog).find(node => node.textContent === translate("保存")).fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  const becoming = api.savePersonaDraft.mock.calls.at(-1).arguments[0];
+  assert.equal(becoming.kind, "person");
+  assert.deepEqual(becoming.tools, ["schedule"]);
+});
+
+test("a person on the router's sheet can only be asked for, with the word it was reached by", async (t) => {
+  const { showRouting } = await import("../frontend/src/routing-view.js");
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const people = { sato: { id: "sato", name: "佐藤さん", kind: "person" }, mother: { id: "mother", name: "母", kind: "person" } };
+  t.mock.method(api, "routing", async () => ({ recorded: true,
+    delivered: [{ id: "sato", name: "佐藤さん", person: true, heard: "佐藤", done: true, spoke: false }],
+    excluded: [{ id: "mother", name: "母", person: true, reason: "呼び名・キーワードが投稿にありませんでした" }] }));
+  const fixes = [];
+  await showRouting({ entry: { id: "p", text: "佐藤さんと会った" }, getPersona: (id) => people[id], onFixCondition: (args) => fixes.push(args) });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const nodes = walk(document.body);
+  assert.ok(nodes.some(node => node.textContent === translate("「{0}」に一致", "佐藤")));
+  assert.ok(!nodes.some(node => node.textContent === translate("呼んでほしくなかった")), "a person has no condition to narrow");
+  nodes.find(node => node.textContent === translate("呼んでほしかった")).fire("click");
+  assert.equal(fixes[0].persona.id, "mother");
+  assert.equal(fixes[0].direction, "include");
+});
+
 // The router's call about a post - who it chose, whom it passed over and why -
 // is a one-glyph chip on what the user wrote, and opens apart from the
 // timeline. Each persona still in the room can be told the router was wrong.

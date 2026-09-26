@@ -3,7 +3,7 @@ import { getLanguage } from "../src/i18n.js";
 import { createPersonas } from "../src/personas.js";
 import { serve } from "./api.js";
 import { sheet } from "./frame.js";
-import { memory, nobody, personas, tools } from "./fixtures.js";
+import { memory, nobody, person, personWords, personas, tools } from "./fixtures.js";
 
 export default { title: "Personas", parameters: { layout: "fullscreen" } };
 
@@ -107,4 +107,36 @@ export const WineMemory = {
     });
     return sheet("担当", panel.element);
   },
+};
+
+// ---- a person ---------------------------------------------------------------
+
+const withPerson = () => [...personas, person()];
+const personCard = (element) => element.querySelector('[data-id="sato"]');
+
+// A person's card shows the names and keywords that reach it, since nothing
+// else does.
+export const PersonCard = {
+  name: "人物の担当がいる",
+  render: () => panelOf([person(), ...personas]),
+};
+
+export const PersonEdit = {
+  name: "人物の担当を修正",
+  render: () => panelOf(withPerson(), (element) => {
+    [...personCard(element).querySelectorAll("button")].find((button) => /^(修正|Edit)$/.test(button.textContent))?.click();
+  }),
+};
+
+export const PersonCreateDraft = {
+  name: "AIと担当を作る・人物の完成案",
+  render: () => panelOf(personas, () => {
+    const w = personWords();
+    const { active, wakes, planner, dailyCheckIn, builtin, ...draft } = person();
+    serve({ personas, tools, memory, personaDraft: { message: w.builderMessage, placeholder: "", draft } });
+    showPersonaBuilder({});
+    const dialog = document.querySelector(".persona-builder");
+    dialog.querySelector("textarea").value = w.builderRequest;
+    dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  }),
 };

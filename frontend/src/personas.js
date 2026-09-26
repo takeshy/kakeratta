@@ -165,6 +165,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         el("span", { class: "avatar", text: row.icon || "◎" }),
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
+        row.kind === "person" ? el("span", { class: "tag", label: "人物" }) : null,
         row.planner === "external" ? el("span", { class: "tag", label: "外部エージェント" }) : null,
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
@@ -177,6 +178,13 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       ),
       el("p", { class: "domain", text: shown.domain }),
     );
+    // A person is reached by these words and nothing else, so they are what
+    // the card has to show.
+    if (row.kind === "person") {
+      box.append(
+        el("p", { class: "hint", text: t("呼び名: {0}", [row.name, ...(row.aliases || [])].join(" / ")) }),
+        el("p", { class: "hint", text: t("キーワード: {0}", (row.keywords || []).join(" / ") || t("（なし）")) }));
+    }
     const planner = drawPlanner(row);
     if (planner) box.append(planner);
     // Every active persona checks in once a day, at a time of the app's

@@ -180,3 +180,27 @@ func TestAddedPersonaStartsActive(t *testing.T) {
 		}
 	}
 }
+
+func TestNewPersonDraftCanPlaceWakes(t *testing.T) {
+	s, workspace := app(t)
+	draft := persona.Skill{ID: "mother", Name: "母", Domain: "母のこと、または母との出来事。", Kind: persona.KindPerson, Aliases: []string{"お母さん"}}
+	raw, _ := json.Marshal(map[string]any{"message": "案です", "draft": draft})
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(raw)}}}})
+	}))
+	defer model.Close()
+	settings := workspace.ConfiguredSettings()
+	settings.BaseURL = model.URL
+	if err := workspace.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest("POST", "/api/personas/build", strings.NewReader(`{"messages":[{"role":"user","content":"母のことを覚えて"}]}`)))
+	var result struct{ Draft persona.Skill }
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if !slices.Contains(result.Draft.Tools, "schedule") {
+		t.Fatalf("a new person cannot be up on the day of a meeting: %v", result.Draft.Tools)
+	}
+}
