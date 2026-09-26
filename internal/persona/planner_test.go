@@ -2,7 +2,9 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -101,10 +103,10 @@ func TestAnExternalPlannerWorkflowRunsAsThePersona(t *testing.T) {
 		t.Fatalf("index = %q", brief.MemoryIndex)
 	case brief.Workflow.Schema == nil || !strings.Contains(brief.Workflow.Spec, "speak"):
 		t.Fatal("the workflow schema is missing")
-	case !strings.HasPrefix(brief.Briefing.System, "あなたは「tabe」"):
-		t.Fatalf("briefing = %q", brief.Briefing.System)
+	case !strings.HasPrefix(brief.Rules, "規則:"):
+		t.Fatalf("rules = %q", brief.Rules)
 	// The agent is not held to a short remark, as the built-in model is.
-	case !strings.Contains(brief.Briefing.System, agentRule) || strings.Contains(brief.Briefing.System, briefRule):
+	case !strings.Contains(brief.Rules, agentRule) || strings.Contains(brief.Rules, briefRule):
 		t.Fatal("the agent was told to be brief")
 	case strings.Contains(brief.Workflow.Spec, speakLength(false, false)) || !strings.Contains(brief.Workflow.Spec, speakLength(false, true)):
 		t.Fatal("the agent's workflow spec asks for a short remark")
@@ -311,5 +313,89 @@ func TestAnAwayAgentOpensNoAsk(t *testing.T) {
 	}
 	if len(runner.Asks()) != 0 {
 		t.Fatal("an ask was opened for an agent that is away")
+	}
+}
+
+// Compact claims must retain the context formerly found only in briefing,
+// and preserve the whole index rather than truncate memory to save tokens.
+func TestCompactAskContextPreservesTurnContext(t *testing.T) {
+	for _, tc := range []struct {
+		name                   string
+		named, listening, deep bool
+	}{{"ordinary", false, false, false}, {"named", true, false, false}, {"listening", false, true, false}, {"deep", false, false, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			runner, s, _ := externalSetup(t, time.Minute, time.Minute)
+			index := strings.Repeat("memory-index-unique-content\n", 500)
+			if err := s.WriteNote("gourmet", "index.md", index); err != nil {
+				t.Fatal(err)
+			}
+			entry := post(t, s, "投稿の全文")
+			entry.Place = &timeline.Place{Label: "渋谷", Lat: 35.658, Lon: 139.7016}
+			entry.Link = "https://example.com/article"
+			entry.Media = &timeline.Media{Describe: "ページの題名", Text: "リンク先の全文"}
+			client, settings := runner.clientOf()
+			skill := runner.catalogue.Active(settings.Active)[0]
+			wakeNote := "このターン固有の追加指示"
+			runner.run(context.Background(), skill, []timeline.Entry{entry}, entry, tc.named, tc.listening, wakeNote, tc.deep,
+				client, settings, runner.registry(settings))
+			ask := openAskOf(t, runner)
+			_, brief, err := runner.ClaimAsk(ask.ID, "compact-test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			length := agentRule
+			if tc.deep {
+				length = deepRule
+			}
+			if !strings.Contains(brief.Rules, length) || strings.Contains(brief.Rules, briefRule) {
+				t.Fatal("wrong length rule")
+			}
+			if brief.Turn != turnLine(tc.named, tc.listening) || brief.WakeNote != wakeNote {
+				t.Fatal("turn instructions lost")
+			}
+			if brief.Place != placeLine(entry.Place) || brief.NoteCount != runner.noteCount(skill.ID) || brief.Now == "" {
+				t.Fatal("location, inventory or clock lost")
+			}
+			if brief.MemoryIndex != index || brief.Instructions != skill.Instructions || brief.Persona.Memory == "" {
+				t.Fatal("persona or memory context lost")
+			}
+			if len(brief.Thread) != 1 || !strings.Contains(brief.Thread[0].Rendered, entry.Link) || !strings.Contains(brief.Thread[0].Rendered, entry.Media.Text) {
+				t.Fatal("rich post context lost")
+			}
+			raw, err := json.Marshal(brief)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]any
+			if err := json.Unmarshal(raw, &fields); err != nil {
+				t.Fatal(err)
+			}
+			if fields["briefing"] != nil || fields["threadText"] != nil {
+				t.Fatal("duplicate prompts returned")
+			}
+			// Large note indexes used to occur in both memoryIndex and briefing.user.
+			if strings.Count(string(raw), "memory-index-unique-content") != 500 {
+				t.Fatal("index was duplicated or truncated")
+			}
+			// Reconstruct the former payload for a byte-size comparison on this fixture.
+			delete(fields, "rules")
+			delete(fields, "place")
+			delete(fields, "noteCount")
+			delete(fields, "turn")
+			threadText := timeline.Render([]timeline.Entry{entry}, nil, settings.Location())
+			fields["threadText"] = threadText
+			fields["briefing"] = map[string]string{
+				"system": fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, brief.Persona.Memory, length, brief.Workflow.Spec, brief.Skill) + wakeNote,
+				"user":   strings.Join([]string{"いまの日時: " + time.Now().In(settings.Location()).Format("2006-01-02 15:04 MST"), brief.Place, "", brief.NoteCount, "", "あなたの index.md（最初に必ず渡します）:", index, "", "あなたが置いている schedule:", brief.Schedules, "", "スレッド全体（古い順）:", threadText, "", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", entry.Render(nil, settings.Location()), brief.Turn}, "\n"),
+			}
+			old, err := json.Marshal(fields)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(raw) >= len(old) {
+				t.Fatal("claim payload did not shrink")
+			}
+			t.Logf("claim context bytes: %d -> %d (%.1f%% smaller)", len(old), len(raw), 100*(1-float64(len(raw))/float64(len(old))))
+		})
 	}
 }

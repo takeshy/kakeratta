@@ -43,24 +43,25 @@ type Ask struct {
 }
 
 // AskContext is what the agent is given on claiming an ask: the same things
-// the in-process planner reads, as separate fields and as the two messages
-// the in-process planner itself is sent.
+// the in-process planner reads, without duplicating them as full prompts.
 type AskContext struct {
 	Persona      AskPersona  `json:"persona"`
 	Instructions string      `json:"instructions"`
+	Rules        string      `json:"rules"`
+	Place        string      `json:"place"`
+	NoteCount    string      `json:"noteCount"`
+	Turn         string      `json:"turn,omitempty"`
 	Skill        string      `json:"skill"`
 	Wake         string      `json:"wake"`
 	WakeNote     string      `json:"wakeInstructions,omitempty"`
 	Now          string      `json:"now"`
 	Trigger      AskEntry    `json:"trigger"`
 	Thread       []AskEntry  `json:"thread"`
-	ThreadText   string      `json:"threadText"`
 	MemoryIndex  string      `json:"memoryIndex"`
 	Schedules    string      `json:"schedules"`
 	Workflow     AskWorkflow `json:"workflow"`
 	Tools        []AskTool   `json:"tools"`
 	Limits       AskLimits   `json:"limits"`
-	Briefing     AskBriefing `json:"briefing"`
 }
 
 type AskPersona struct {
@@ -100,13 +101,6 @@ type AskLimits struct {
 	Steps     int `json:"steps"`
 	Drafts    int `json:"drafts"`
 	Malformed int `json:"malformed"`
-}
-
-// AskBriefing is the two messages the in-process planner is sent, word for
-// word, for an agent that would rather read the brief than the fields.
-type AskBriefing struct {
-	System string `json:"system"`
-	User   string `json:"user"`
 }
 
 // AskVerdict is the app's answer to a submitted workflow.
@@ -526,7 +520,7 @@ func askEntry(entry timeline.Entry, names map[string]string, here *time.Location
 }
 
 // askContext gathers what the agent needs to plan this turn.
-func (r *Runner) askContext(skill Skill, set *tools.Set, spec, system, user, wakeNote, wake string, thread []timeline.Entry, trigger timeline.Entry,
+func (r *Runner) askContext(skill Skill, set *tools.Set, spec, rules, turn, wakeNote, wake string, thread []timeline.Entry, trigger timeline.Entry,
 	indexNote, schedules string, names map[string]string, here *time.Location, deep bool) AskContext {
 	entries := make([]AskEntry, 0, len(thread))
 	for _, entry := range thread {
@@ -536,19 +530,21 @@ func (r *Runner) askContext(skill Skill, set *tools.Set, spec, system, user, wak
 	return AskContext{
 		Persona:      AskPersona{ID: skill.ID, Name: skill.Name, Icon: skill.Icon, Tone: skill.Tone, Domain: skill.Domain, Memory: skill.Memory},
 		Instructions: skill.Instructions,
+		Rules:        rules,
+		Place:        placeLine(thread[0].Place),
+		NoteCount:    r.noteCount(skill.ID),
+		Turn:         turn,
 		Skill:        okfHost + okfSkill,
 		Wake:         wake,
 		WakeNote:     wakeNote,
 		Now:          time.Now().In(here).Format(time.RFC3339),
 		Trigger:      askEntry(trigger, names, here),
 		Thread:       entries,
-		ThreadText:   timeline.Render(thread, names, here),
 		MemoryIndex:  indexNote,
 		Schedules:    schedules,
 		Workflow:     AskWorkflow{Spec: spec, Schema: submit.Parameters},
 		Tools:        askTools(set),
 		Limits: AskLimits{Reads: turnReadLimit(deep), Searches: turnSearchLimit(deep), Steps: maxSteps,
 			Drafts: maxDrafts, Malformed: maxMalformed},
-		Briefing: AskBriefing{System: system, User: user},
 	}
 }

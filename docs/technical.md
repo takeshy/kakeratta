@@ -1195,8 +1195,10 @@ cannot take a claimed ask.
 The context a claim returns holds the persona's identity, instructions and
 note-writing skill, why it woke, the trigger and its thread, the persona's
 `index.md`, its schedules, the workflow spec and JSON Schema, its tools and
-where each may be used, the turn's limits, and the built-in model's own system
-and user messages.
+where each may be used, the turn's limits and common rules, current time, post
+location, note inventory summary, and whether the turn requires an answer or
+silence. Full system/user prompts and a second rendering of the thread are
+omitted to avoid repeating the same context.
 
 `list_tasks` remains as a compatibility tool returning only pending asks, for
 Wake Gate scripts installed before asks replaced tasks.

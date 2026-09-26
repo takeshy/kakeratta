@@ -635,7 +635,10 @@ func (r *Runner) readCapture(entry timeline.Entry, client *llm.Client, settings 
 	return entry
 }
 
-const systemTemplate = `あなたは「%s」。%s
+// systemHead is who the persona is; rulesTemplate is how every persona
+// works, with the length rule for this turn in its one %s. An external agent
+// is handed the rules alone, since the rest it gets as fields of its own.
+const systemHead = `あなたは「%s」。%s
 
 あなたの担当領域:
 %s
@@ -646,7 +649,9 @@ const systemTemplate = `あなたは「%s」。%s
 あなたのメモの分類（型はここにあるものだけを使います）:
 %s
 
-規則:
+`
+
+const rulesTemplate = `規則:
 - **黙ってよい。** 全部に反応する必要はありません。誰も反応しない投稿があって構いません。
   解説するためのアプリではなく、ただ眺めていたいだけのこともあります。押し付けないでください。
 - **喋らないことと覚えないことは別です。** 黙る場合でも、自分の領域のことならメモには書いてください。
@@ -672,7 +677,9 @@ const systemTemplate = `あなたは「%s」。%s
 - **発言は投稿と同じ言語で。** 日本語で書かれた投稿には日本語で、英語なら英語で返してください。
   投稿に文章がない（画像だけなど）ときは、あなたの担当条件と指示が書かれている言語で話してください。
   名前や口調はそのままで構いません。
-- 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。
+- 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。`
+
+const systemTemplate = systemHead + rulesTemplate + `
 
 %s
 
@@ -911,8 +918,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			agentLength = deepRule
 		}
 		agentSpec := workflowSpec(set, deep, true)
-		agentSystem := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, layout, agentLength, agentSpec, okfHost+okfSkill) + wakeInstructions
-		brief := r.askContext(skill, set, agentSpec, agentSystem, user, wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
+		agentRules := fmt.Sprintf(rulesTemplate, agentLength)
+		brief := r.askContext(skill, set, agentSpec, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
+		brief.Persona.Memory = layout
 		workflow, fallback, err := r.planExternally(ctx, settings, ask, brief, externalPlan{read: lookup, consider: consider, drafts: drafts})
 		switch {
 		case errors.Is(err, errAborted):

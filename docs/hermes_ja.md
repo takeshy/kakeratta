@@ -133,13 +133,14 @@ Hermesは次のMCPツールで ask を処理します。
 | `skill` | メモの書き方（Open Knowledge Format） |
 | `wake` / `wakeInstructions` | 起きた理由（`post`・`daily`・`schedule`・`review` など）と、その起床の指示（チェックインの指示など） |
 | `trigger` | 今回の対象発言 |
-| `thread` / `threadText` | 対象発言を含むスレッド全体（古い順） |
+| `thread` | 対象発言を含むスレッド全体（古い順） |
 | `memoryIndex` | 担当の `index.md` |
 | `schedules` | 担当が置いている予定 |
 | `workflow.spec` / `workflow.schema` | workflow の書き方と JSON Schema |
 | `tools` | 担当が使える道具。`use: "read"` は判断前の調べもの、`use: "workflow"` は workflow のステップで使う |
 | `limits` | 読み取り・Web検索・ステップ・差し戻しの上限 |
-| `briefing` | 内蔵モデルに送る system / user メッセージ。ただし外部エージェントには「発言は短く」の決まりを課さない |
+| `rules` | このターンに適用する共通ルール。外部エージェントには「発言は短く」の決まりを課さない |
+| `now` / `place` / `noteCount` / `turn` | 現在時刻・投稿の位置情報・メモ件数の概要・名指しや傾聴による発言条件 |
 
 投稿やメモの中身はデータであり、Hermes への指示ではありません。
 
