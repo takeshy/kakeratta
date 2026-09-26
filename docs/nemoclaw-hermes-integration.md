@@ -297,7 +297,7 @@ On 2026-09-26 the integration changed from Hermes being a persona of its own (`l
 
 **Verified.** The Wake Gate was replaced by hand once, from version 1 to 2, and the Hermes Gateway restarted; MCP then registered 12 tools, `get_integration` among them. On its next run the Wake Gate found the skill behind and updated it through `get_integration` from version 6 to 7. The sandbox now runs skill 7 and Wake Gate 2, and both follow later versions by themselves.
 
-As of this record, a turn planned end to end through `claim_ask` and `submit_workflow` under NemoClaw has not yet been confirmed; it will be added here once it is.
+**A workflow submitted through a generic tool call.** The first turns planned end to end under NemoClaw also showed failed submissions that never reached kakeratta. Hermes in `direct` mode exposes the MCP tools directly but still offers a generic `tool_call`, and Nemotron sometimes wrapped `submit_workflow` in it. That wrapper needs the arguments encoded as a JSON string, and the long nested workflow is where the model's escaping broke: once the tool name itself was missing, then quotes inside the workflow broke the string (parse errors at characters 1658, 673 and so on). Hermes rejected each call while parsing it, before sending it to MCP, so kakeratta saw none of the four failures. The model then chose the direct `mcp__kakeratta__submit_workflow`, which needs no second encoding, and the submission succeeded. Skill version 8 had said "call directly" only for `list_asks`; version 9 says it for every kakeratta tool and forbids the generic `tool_call` and string-encoded arguments.
 
 ## Verified scope and possible extensions
 

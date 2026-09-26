@@ -295,7 +295,7 @@ Skill のエラー処理も改訂しました。タスク取得後にツール�
 
 **確認したこと。** Wake Gate を一度だけ手で版1から版2に入れ替え、Hermes Gateway を再起動しました。MCP には `get_integration` を含む 12 ツールが登録されました。次の実行で Wake Gate が Skill の版の遅れを検出し、`get_integration` 経由で版6から版7に自動更新しました。現在のサンドボックスは Skill 7、Wake Gate 2 で動いており、以後の版には両方とも自動で追従します。
 
-この記録の時点では、NemoClaw の中で `claim_ask` から `submit_workflow` まで通った一手はまだ確認できていません。確認でき次第ここに追記します。
+**汎用 tool_call 経由の workflow 提出。** NemoClaw の中で最後まで通った最初の一手では、kakeratta に届かない提出の失敗も見られました。Hermes の `direct` モードは MCP ツールを直接公開する一方で、汎用の `tool_call` も残しており、Nemotron が `submit_workflow` をそれで包むことがありました。汎用 `tool_call` では引数を JSON 文字列として二重に符号化する必要があり、長い入れ子の workflow でモデルのエスケープが崩れました。1回目はツール名そのものが抜け、以降は workflow 内の引用符が文字列を壊しました（1658文字目、673文字目などで解析エラー）。Hermes は MCP へ送る前の JSON 解析でこれを拒否したため、失敗した4回は kakeratta に届いていません。その後モデルが直接の `mcp__kakeratta__submit_workflow` を選び、二重の符号化が不要になって提出は成功しました。Skill の版8は「直接呼ぶ」を `list_asks` にしか書いていなかったため、版9ではすべての kakeratta ツールについて直接呼ぶこと、汎用 `tool_call` と文字列にした引数を使わないことを明記しました。
 
 ## 検証範囲と今後の用途
 
