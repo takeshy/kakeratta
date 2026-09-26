@@ -13,9 +13,13 @@ If Hermes does not claim the ask in time (3 minutes by default), or no workflow 
 ## Connecting
 
 1. In Kakeratta, open **Settings → Advanced options → Integrations** and select **Create connection key** under **External agent (Hermes)**.
-2. Add the configuration shown there to your Hermes `~/.hermes/config.yaml`. If a `mcp_servers` section already exists, add `kakeratta` under it. The configuration already contains the connection URL and the connection key.
+2. Add the configuration shown there to your Hermes `~/.hermes/config.yaml`. If a `mcp_servers` section already exists, add `kakeratta` under it. To prevent argument quotation and double-escaping syntax errors (`Expecting ',' delimiter...`) on nested workflow schemas, also configure Direct disclosure (`tools.tool_search.enabled: "off"`).
 
    ```yaml
+   tools:
+     tool_search:
+       enabled: "off"
+
    mcp_servers:
      kakeratta:
        url: "https://kakeratta.net/api/mcp/users/xxx"
@@ -39,70 +43,18 @@ If Hermes does not claim the ask in time (3 minutes by default), or no workflow 
 
    When the Wake Gate finds no pending ask, it skips the agent and the idle LLM call. An ask waits only minutes to be claimed, so keep the interval at one minute.
 
-   Once the script is in place, it keeps the skill and itself up to date through the MCP endpoint it already calls: every `list_asks` answer carries the versions of the distributed skill and Wake Gate script (`integration: {skill, gate}`), and when either differs from what is installed, the script calls `get_integration` and replaces `~/.hermes/skills/kakeratta/SKILL.md` and its own file. No other host or path is fetched, so a sandbox that allows only the MCP endpoint still updates. Each update, and any failure, is written to stderr. A Wake Gate from before Gate version 2 cannot do this and has to be replaced by hand once.
+   Once the script is in place, it keeps the skill and itself up to date through the MCP endpoint it already calls: every `list_asks` answer carries the versions of the distributed skill and Wake Gate script (`integration: {skill, gate}`), and when either differs from what is installed, the script calls `get_integration` and replaces `~/.hermes/skills/kakeratta/SKILL.md` and its own file. No other host or path is fetched, so an environment that restricts external network access still updates. Each update, and any failure, is written to stderr. A Wake Gate from before Gate version 2 cannot do this and has to be replaced by hand once.
 6. Post as usual. For each persona routed a post whose planner is the external agent, an ask is opened and Hermes plans the turn. The reply arrives under that persona's name, marked **External agent**.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
 
 For the configuration format, see the [official Hermes MCP guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp), the [MCP configuration reference](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference), and the [Hermes Cron guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron).
 
-### In a NemoClaw / OpenShell sandbox
+### Using with NemoClaw / OpenShell
 
-When running Hermes under the governance of NVIDIA NemoClaw / OpenShell, configuration management and network boundaries differ from the standard setup (see the [integration report](nemoclaw-hermes-integration.md) for detailed failure modes and operational insights).
+When running Hermes under the governance of an NVIDIA NemoClaw / OpenShell sandbox, configuration management, policy composition, and process lifecycles involve container-specific requirements.
 
-Follow these steps to set up the integration:
-
-#### Prerequisites
-- The sandbox base image must contain the startup script fix (`start.sh`) that catches Hermes Gateway's exit code `75` (restart request) and restarts the process instead of terminating the container (see ["Keep the Gateway restart fix across sandbox recreation"](nemoclaw-hermes-integration.md#keep-the-gateway-restart-fix-across-sandbox-recreation)). Images without this fix will stop the sandbox as soon as the MCP provider is registered.
-
-#### Step 1: Register kakeratta as a managed MCP provider (Host side)
-Do not paste the raw connection key into `config.yaml`. Instead, register kakeratta as a managed MCP provider for the sandbox. OpenShell securely manages credentials in its store and injects a resolved generation-scoped environment placeholder into Hermes's configuration. This registration also composes the `mcp_bridge_kakeratta` policy entry, which permits the `kakeratta.net:443` egress required for MCP.
-
-```bash
-# Run the NemoClaw command shown on the Kakeratta connection screen
-# Example:
-openshell provider add -g <gateway> <sandbox> kakeratta \
-  --type mcp \
-  --url "https://kakeratta.net/api/mcp/users/<user_id>" \
-  --token "<ISSUED_KEY>"
-```
-
-#### Step 2: Install the Skill and Wake Gate script (Inside the sandbox)
-The skill, scripts, and cron jobs run inside the container under Hermes's home directory (`/sandbox/.hermes`).
-
-```bash
-# 1. Install the skill
-nemoclaw <sandbox> exec -- hermes skills install https://kakeratta.net/integrations/hermes/kakeratta/SKILL.md
-
-# 2. Place the Wake Gate script (copy from host to container)
-docker cp check_kakeratta_gate.py <container_id>:/sandbox/.hermes/scripts/check_kakeratta_gate.py
-nemoclaw <sandbox> exec -- chmod +x /sandbox/.hermes/scripts/check_kakeratta_gate.py
-```
-
-#### Step 3: Create the Cron job with Wake Gate attached
-To eliminate wasteful LLM execution (token spend every minute) when no ask is pending, create the cron job with the Wake Gate attached:
-
-```bash
-nemoclaw <sandbox> exec -- hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
-```
-
-#### Step 4: Verify connectivity and tools
-Before relying on autonomous execution, verify healthy operation with these commands:
-
-```bash
-# Confirm the sandbox returns to Ready
-openshell sandbox list -g <gateway>
-
-# Verify kakeratta MCP is enabled
-nemoclaw <sandbox> exec -- hermes mcp list
-
-# Confirm mcp__kakeratta__list_asks is callable
-nemoclaw <sandbox> exec -- hermes -z "call mcp__kakeratta__list_asks"
-```
-
-> [!TIP]
-> **Skill Auto-Update in Sandbox**:
-> Once the script is in place, it keeps the skill and itself up to date through the MCP endpoint it already calls: every `list_asks` answer carries the versions of the distributed skill and Wake Gate script (`integration: {skill, gate}`), and when either differs from what is installed, the script calls `get_integration` and replaces `~/.hermes/skills/kakeratta/SKILL.md` and its own file. No other host or path is fetched, so a sandbox that allows only the MCP endpoint still updates. Each update, and any failure, is written to stderr. A Wake Gate from before Gate version 2 cannot do this and has to be replaced by hand once. After an update that adds MCP tools, restart the Hermes Gateway: it caches the tool list.
+For the dedicated setup procedure (managed MCP provider registration, container script provisioning, search egress policies, and `Phase: Error` deadlock prevention), refer to the [**NemoClaw / OpenShell Integration and Verification Report**](nemoclaw-hermes-integration.md).
 
 ## The key and its scope
 
@@ -112,15 +64,36 @@ With this key, Hermes can read the issuing user's timeline, persona list, and ea
 
 **Disconnect** erases the stored key hash and invalidates the connection itself; reconnecting needs a new key and an updated Hermes configuration. Revoking the key does not erase data Hermes has already fetched. To stop handing a persona to the external agent, set its planner back to **Built-in model**.
 
-## Handling asks
+## MCP and autonomous planning
 
-Hermes handles asks with these MCP tools:
+Kakeratta's MCP server exposes the following tools for external agents. In Hermes, tool names are prefixed as `mcp__kakeratta__<tool_name>`.
 
-1. `list_asks` lists the open asks. Those with `status: "pending"` are unclaimed; one not claimed by its `claimBy` goes to the built-in model.
-2. `claim_ask` takes an `askId` and a `claimId` unique to this execution. Retry a lost response with the same `claimId`; another `claimId` cannot take the ask. The response includes `planBy` (the deadline for an accepted workflow) and the `context`.
-3. If needed, `read_for_ask` looks things up with the persona's own notes and tools (`notes_list`, `notes_read`, and read-use tools), within the same limits as the built-in model. Only saved posts found here by `timeline_search` may be cited in a `speak` step's `sources`.
-4. `submit_workflow` takes the `askId`, `claimId`, and `workflow` (`{summary, steps}`). Kakeratta checks it at once, reviews it when warranted, and answers. `accepted: true` means Kakeratta will run it. A rejected workflow comes back with `problems` to fix; submit again. Past the draft limit, the ask goes back to the built-in model (`closed: true`).
-5. An ask Hermes cannot plan is given back with `release_ask`: the built-in model takes it at once instead of waiting out the deadline.
+| Tool | Purpose |
+| --- | --- |
+| `list_personas` | List available personas |
+| `get_timeline` | Retrieve timeline entries |
+| `get_thread` | Retrieve conversation threads |
+| `list_notes` / `read_note` | List and read persona notes |
+| `list_asks` | Check pending and claimed asks (includes distributed version metadata) |
+| `claim_ask` | Claim an ask exclusively and retrieve context (instructions, persona, constraints) |
+| `read_for_ask` | Look up additional context during planning (notes and read-only tools) |
+| `submit_workflow` | Submit the finalized workflow (`speak`, `write_note`, etc.) |
+| `release_ask` | Relinquish planning back to Kakeratta's built-in model immediately |
+| `get_integration` | Retrieve latest official Skill and Wake Gate script payloads |
+
+### Planning loop
+
+Based on the official Skill (`SKILL.md`), Hermes plans a persona's turn through these steps:
+
+```text
+list_asks → claim_ask → context interpretation → read_for_ask (if needed) → submit_workflow
+```
+
+1. **`list_asks`**: Check open asks. Unclaimed asks have `status: "pending"`; if not claimed before `claimBy`, the built-in model takes over.
+2. **`claim_ask`**: Claim the target ask using its `askId` and an execution-unique `claimId`. The response returns `planBy` (accepted workflow deadline) and the full `context`. Retry lost responses with the same `claimId`.
+3. **Research & reasoning**: If needed, call `read_for_ask` to inspect notes or run read-only tools (`notes_list`, `notes_read`). Only saved posts discovered via `timeline_search` can be cited in `speak`'s `sources`. Run external web searches if necessary.
+4. **`submit_workflow`**: Submit the `askId`, `claimId`, and structured action plan `workflow` (`{summary, steps}`). Kakeratta validates and reviews it immediately. Upon acceptance (`accepted: true`), Kakeratta executes it as the persona (posts, notes, schedules). If rejected, revise using the returned `problems`.
+5. **`release_ask`**: If an ask cannot be planned, release it immediately rather than waiting for timeouts.
 
 ### The context a claim returns
 
@@ -160,18 +133,24 @@ An ask that fell through is gone; a late `submit_workflow` is refused as not fou
 
 **Try again** (the reply preview) always uses the built-in model, whatever the persona's planner.
 
-### Scheduled runs and the Wake Gate
+### Zero-token standby (Wake Gate)
 
-Hermes Cron checks for asks every minute. The [distributed script](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py) calls `list_asks` and wakes the agent only when an unclaimed ask exists; a claimed ask is already being planned by a running agent. With no pending ask it returns `{"wakeAgent": false}` and no LLM call is made; a pre-check error returns `{"wakeAgent": true}`. To add it to an existing job, use `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
+Running an agent (LLM invocation) on a 1-minute cron check wastes tokens and inference budget when no asks are pending.
+To avoid idle spend, attach the **Wake Gate** pre-check script ([check_kakeratta_gate.py](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)) to the cron job.
 
-So that earlier Wake Gate scripts (which call `list_tasks`) keep working, `list_tasks` remains as a compatibility tool that returns only pending asks. The skill updates itself but the script does not, so replacing it with the new script is recommended.
+- **No pending ask**: Returns `{"wakeAgent": false}` and exits immediately without invoking the LLM (~0.06s tick, 0 LLM calls).
+- **Pending ask exists (or connection error)**: Returns `{"wakeAgent": true}`, waking Hermes Agent to claim and plan.
+
+To update an existing cron job, run `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
+
+### Autonomous updates over MCP
+
+The Wake Gate script integrates an autonomous update mechanism for both the Skill and the script itself:
+
+- Every `list_asks` response includes current distributed versions (`integration: {skill, gate}`).
+- When the script detects a version difference, it invokes `get_integration` over the existing MCP connection to retrieve and atomically overwrite `~/.hermes/skills/kakeratta/SKILL.md` and itself via temporary files.
+- This keeps planning logic current even inside network-restricted sandboxes without requiring external web access.
 
 ## Check-ins, schedules, and note reviews
 
 Daily check-ins, schedule wakes, note reviews, and deletion notices also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit a workflow that ends with an empty `speak`.
-
-## From the former "Ask Hermes"
-
-Hermes used to be a persona of its own: it took requests (`list_tasks` / `claim_task` / `complete_task`), replied under its own name, and posted on its own with `post_report`. That has been retired. Hermes is no longer a persona; `@Hermes`, posts under Hermes's name, and writes to a Hermes note area (`write_note`) are gone.
-
-An agent still calling `claim_task` or the other retired tools runs a skill and Wake Gate from before asks: every turn it is handed falls back to the built-in model with `claim timeout`. The server answers such a call with where to get the current `SKILL.md`. Replace the Wake Gate by hand once with version 2 or later and restart the Hermes Gateway; from then on the Wake Gate keeps the skill and itself current over MCP.
