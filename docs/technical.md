@@ -532,6 +532,17 @@ rewrites the note without the line. A day is long enough for that reply to
 arrive; anything the persona invented and nobody answered is gone by then,
 so a wrong guess about what to keep heals itself instead of accumulating.
 
+**A note in use keeps longer.** When a persona reads a note with `notes_read`
+while answering a post, the app moves both its `expires` and `review` dates:
+the span the persona gave it, from when it was written to the date, starts
+again from the read. A next-day candidate read again today lasts until
+tomorrow; a shop given a few weeks gets a few weeks from the read. A date
+still ahead moves too when the restarted span ends later; one that would end
+sooner is left alone, so reading never shortens a note's life. A note the
+turn itself rewrote or forgot is left as the persona left it. Reading at a
+check-in, a schedule or any other wake that is not a post does not count, so a
+note read in order to ask about it is not put off again and again.
+
 **What the user said can carry a `review` date the persona chooses, and the
 app never deletes it.** A shop they wanted to try gets a few weeks, a topic
 they were into a few months, a preference none; the persona decides from the

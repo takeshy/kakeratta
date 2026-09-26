@@ -23,6 +23,9 @@ import (
 // it wakes the persona, which asks the user and then keeps, extends, or
 // forgets the note on their answer.
 //
+// Both dates move when the note is read while answering a post: see
+// extendedDate below.
+//
 // A note with neither lives as long as the persona keeps it - the app never
 // ages one out on its own.
 
@@ -90,4 +93,79 @@ func noteDate(text string, line *regexp.Regexp, zone *time.Location) (time.Time,
 // go can be shown as such.
 func NoteExpires(text string, zone *time.Location) (time.Time, bool) {
 	return noteExpires(text, zone)
+}
+
+// A note a persona reads while answering a post is still in use, so both of
+// its dates move: the span the persona gave it - from when it was written to
+// its expires or review date - starts again from now. A date still ahead moves
+// too when that ends later; reading never brings a date closer. A next-day candidate
+// read again today lives until tomorrow; a shop given a few weeks gets a few
+// more weeks. Only reading for a post counts: a check-in reading the note it
+// is about to ask about must not put off its own question.
+
+// extendedDate moves one front-matter date so that its span, counted from
+// written, starts again from now. It reports false when there is no date, the
+// span is not positive, or the date would not move later. A bare date keeps
+// being a bare date, counted in calendar days where the user is; a timestamp
+// keeps its own layout.
+func extendedDate(text string, line *regexp.Regexp, written, now time.Time, zone *time.Location) (string, bool) {
+	front, ok := frontMatter(text)
+	if !ok {
+		return text, false
+	}
+	match := line.FindStringSubmatchIndex(front)
+	if match == nil {
+		return text, false
+	}
+	start, end := match[2], match[3]
+	raw := strings.TrimSpace(front[start:end])
+	quote := ""
+	if len(raw) >= 2 && (raw[0] == '"' || raw[0] == '\'') && raw[len(raw)-1] == raw[0] {
+		quote, raw = raw[:1], raw[1:len(raw)-1]
+	}
+	if zone == nil {
+		zone = time.UTC
+	}
+	var next string
+	if day, err := time.ParseInLocation("2006-01-02", raw, zone); err == nil {
+		from := written.In(zone)
+		days := int(day.Sub(time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, zone)).Hours()/24 + 0.5)
+		if days <= 0 {
+			return text, false
+		}
+		today := now.In(zone)
+		moved := time.Date(today.Year(), today.Month(), today.Day()+days, 0, 0, 0, 0, zone)
+		if !moved.After(day) {
+			return text, false
+		}
+		next = moved.Format("2006-01-02")
+	} else {
+		found := false
+		for _, layout := range []string{time.RFC3339, "2006-01-02T15:04", "2006-01-02 15:04"} {
+			at, err := time.ParseInLocation(layout, raw, zone)
+			if err != nil {
+				continue
+			}
+			found = true
+			span := at.Sub(written)
+			moved := now.Add(span)
+			if span <= 0 || !moved.After(at) {
+				return text, false
+			}
+			next = moved.In(at.Location()).Format(layout)
+			break
+		}
+		if !found {
+			return text, false
+		}
+	}
+	offset := strings.Index(text, front)
+	return text[:offset+start] + quote + next + quote + text[offset+end:], true
+}
+
+// extendedDates moves both dates of a note read in use; see extendedDate.
+func extendedDates(text string, written, now time.Time, zone *time.Location) (string, bool) {
+	text, expires := extendedDate(text, expiresLine, written, now, zone)
+	text, review := extendedDate(text, reviewLine, written, now, zone)
+	return text, expires || review
 }

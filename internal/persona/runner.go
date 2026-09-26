@@ -817,10 +817,19 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		return ok, entry.Problems, nil
 	}
 	drafts := func() bool { return reviewed < maxDrafts && malformed <= maxMalformed }
+	// referenced are the notes read this turn, for their dates to move.
+	referenced := map[string]bool{}
 	// lookup does what a persona asked to look at, within this turn's limits.
 	lookup := func(steps []ReadStep) string {
 		if readsUsed >= readLimit {
 			return "これ以上は読めません。submit_workflow で workflow を出してください。"
+		}
+		for _, step := range steps {
+			if step.Type == "notes_read" || (step.Type == "tool" && step.Tool == "notes_read") {
+				for _, path := range step.Paths {
+					referenced[path] = true
+				}
+			}
 		}
 		text, sources := r.readAll(ctx, skill, steps, set, post, prov, failures, budget, rules.cited)
 		readSources = append(readSources, sources...)
@@ -927,6 +936,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	record.Ran = true
 	spoken, sources, steps := r.execute(ctx, skill, *approved, set, rules, post, prov)
 	record.Steps = steps
+	if trigger.ID != "" && !listening {
+		r.extendReferenced(skill.ID, referenced, steps, here)
+	}
 	record.Spoke = spoken
 	if len(steps) > 0 && steps[len(steps)-1].Error != "" {
 		record.Error = "stopped at " + steps[len(steps)-1].Type + ": " + steps[len(steps)-1].Error
@@ -1288,6 +1300,32 @@ func listNotes(notes []store.Note) string {
 
 // siblingNotes are the notes filed in the same directory as path: where a
 // second note about the same thing would be put. Only they are read.
+// extendReferenced moves the dates of the notes a persona read while
+// answering a post, since they are still in use. A note the turn itself
+// wrote or forgot is left to what the persona did with it.
+func (r *Runner) extendReferenced(personaID string, referenced map[string]bool, steps []stepRecord, zone *time.Location) {
+	touched := map[string]bool{}
+	for _, step := range steps {
+		if step.Path != "" {
+			touched[strings.TrimPrefix(step.Path, "/")] = true
+		}
+	}
+	now := time.Now()
+	for path := range referenced {
+		note, ok := r.store.Note(personaID, strings.TrimPrefix(path, "/"))
+		if !ok || touched[note.Path] || reservedNote(note.Path) {
+			continue
+		}
+		text, moved := extendedDates(note.Text, note.Written, now, zone)
+		if !moved {
+			continue
+		}
+		if err := r.store.WriteNote(personaID, note.Path, text); err != nil {
+			r.emit("error", map[string]any{"where": "extend", "persona": personaID, "message": err.Error()})
+		}
+	}
+}
+
 func (r *Runner) siblingNotes(personaID, path string) []store.Note {
 	path = strings.TrimPrefix(strings.TrimSpace(path), "/")
 	paths, err := r.store.NotePaths(personaID)
