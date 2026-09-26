@@ -151,6 +151,7 @@ const PERSON = {
     note: "「釣り」の話はだいたい佐藤さんのこと。",
     added: ["海釣り", "釣り", "つり", "釣行"],
     missed: "呼び名・キーワードが投稿にありませんでした",
+    notFood: "食べものや飲食店の話ではありません。",
     builderMessage: "佐藤さんの担当の案を作りました。呼び名の書き方の違いと、キャンプまわりの言い換えも入れています。使ってからAIで修正できます。",
     builderRequest: "友人の佐藤健二さんのことを覚えてほしい。最近キャンプを始めたらしい。",
   },
@@ -166,6 +167,7 @@ const PERSON = {
     note: "Talk about fishing is usually about Sato.",
     added: ["sea fishing", "fishing", "angling"],
     missed: "None of the names or keywords were in the post",
+    notFood: "Not about food or a place to eat.",
     builderMessage: "Here is a persona for Sato, with other spellings of his name and near words for camping. Try it first and refine it later with AI.",
     builderRequest: "Remember things about my friend Kenji Sato. He has just taken up camping.",
   },
@@ -198,7 +200,7 @@ export function personRouting() {
   return {
     q1: { recorded: true,
       delivered: [{ id: "sato", name, icon, person: true, heard: name, done: true, spoke: true, noted: true, notes: ["events/hokkaido-souvenir.md"] }],
-      excluded: [{ id: "gourmet", name: "tabe", icon: "🍜", reason: words().notTravel }] },
+      excluded: [{ id: "gourmet", name: "tabe", icon: "🍜", reason: w.notFood }] },
     q2: { recorded: true, delivered: [],
       excluded: [{ id: "sato", name, icon, person: true, reason: w.missed }] },
   };

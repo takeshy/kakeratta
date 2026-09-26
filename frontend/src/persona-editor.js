@@ -24,6 +24,11 @@ export function splitTerms(text) {
   return String(text || "").split(/[,，、\n]+/).map((term) => term.trim()).filter(Boolean);
 }
 
+// joinTerms writes them back the way the language lists things.
+export function joinTerms(terms) {
+  return (terms || []).join(getLanguage() === "ja" ? "、" : ", ");
+}
+
 export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings = () => ({}), ai = false }) {
   const opener = document.activeElement;
   const original = { ...persona, tools: [...(persona.tools || [])], kind: persona.kind || "", aliases: [...(persona.aliases || [])], keywords: [...(persona.keywords || [])] };
@@ -56,7 +61,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   const termBox = el("div");
   for (const field of termFields) {
     const input = el("textarea", { class: "skill-input", rows: field.rows, maxlength: 4000 });
-    input.value = original[field.key].join("、");
+    input.value = joinTerms(original[field.key]);
     input.readOnly = ai;
     input.addEventListener("input", () => markChanged(field.key));
     terms[field.key] = input;
@@ -126,7 +131,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   function shown(key, value) {
     if (key === "tools") return uniqueTools(value || []).map((name) => t(toolLabel(name))).join(" / ") || t("（なし）");
     if (key === "kind") return t(value === "person" ? "人物の担当" : "人物ではない担当");
-    if (Array.isArray(value)) return value.join("、") || t("（なし）");
+    if (Array.isArray(value)) return joinTerms(value) || t("（なし）");
     return value || "";
   }
 
@@ -168,7 +173,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     markChanged("tools");
     if (typeof draft.kind === "string") person.checked = draft.kind === "person";
     for (const field of termFields) {
-      if (Array.isArray(draft[field.key])) terms[field.key].value = draft[field.key].join("、");
+      if (Array.isArray(draft[field.key])) terms[field.key].value = joinTerms(draft[field.key]);
       markChanged(field.key);
     }
     showKind();

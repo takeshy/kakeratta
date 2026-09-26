@@ -457,6 +457,9 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
    push the sheet wider than the screen. */
 .dialog > * { min-width: 0; }
 .dialog h3 { margin: 0; }
+/* The close button floats over the dialog's first line; a long title wraps
+   before it instead of running under it. */
+.dialog-close + h2, .dialog-close + h3 { padding-right: 44px; }
 #toasts {
   position: fixed;
   left: 50%;

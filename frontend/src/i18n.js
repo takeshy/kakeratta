@@ -212,6 +212,7 @@ const EN = {
   "呼び名（読点区切り。名前・あだ名・続柄・かな表記）": "Names (comma-separated: name, nickname, relation, other spellings)",
   "キーワード（読点区切り。類似語や言い換えも並べると届きやすくなります）": "Keywords (comma-separated; listing near words and rewordings helps posts reach them)",
   "「{0}」に一致": "Matched \"{0}\"",
+  "この投稿を誰に渡したか、誰に渡さなかったか。@で指名した担当は本体の判断ではないので出ません。": "Who this post went to, and who it did not. A persona you called with @ is not listed: that was your choice, not the app's.",
   "次の投稿がこの人物の担当に届くよう、キーワードを足してほしい：「{0}」": "Add keywords so that this post reaches this person's persona: \"{0}\"",
   "投稿に書かれている語をそのままの形で少なくとも1つ選び、その言い換えや類似語とあわせて keywords に加えてください。": "Pick at least one word exactly as it is written in the post, and add it to keywords together with its rewordings and near words.",
   "既存の呼び名とキーワード、他の項目は変えないでください。": "Keep the existing names and keywords, and leave everything else as it is.",

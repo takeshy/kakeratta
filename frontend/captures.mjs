@@ -58,6 +58,10 @@ const shots = [
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },
   { name: "reply-fix", id: "timeline--reply-fix-proposal", clip: ".dialog.reply-fix", ready: ".reply-instructions" },
   { name: "reply-trial", id: "timeline--reply-fix-trial", clip: ".dialog.reply-fix", ready: ".reply-accept" },
+  { name: "person-card", id: "personas--person-card", clip: '.persona[data-id="sato"]' },
+  { name: "person-draft", id: "personas--person-create-draft", clip: ".dialog", ready: ".persona-builder .builder-detail" },
+  { name: "person-routing", id: "timeline--person-routing", clip: ".routing-dialog", ready: ".routing-row" },
+  { name: "person-keywords", id: "timeline--person-keyword-proposal", clip: ".condition-fix", ready: ".condition-new" },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

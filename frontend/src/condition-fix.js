@@ -14,7 +14,7 @@
 import { clear, el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
-import { splitTerms } from "./persona-editor.js";
+import { joinTerms, splitTerms } from "./persona-editor.js";
 
 const EXCERPT = 300;
 
@@ -125,11 +125,12 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
   // added is what a proposal adds to the saved keywords, as the text shown.
   function added(keywords) {
     const have = new Set(saved.keywords || []);
-    return (Array.isArray(keywords) ? keywords : []).map((word) => String(word).trim()).filter((word) => word && !have.has(word)).join("、");
+    const words = (Array.isArray(keywords) ? keywords : []).map((word) => String(word).trim()).filter((word) => word && !have.has(word));
+    return joinTerms(words);
   }
 
   // current is what the dialog changes, as it stands.
-  const current = () => person ? (saved.keywords || []).join("、") || t("（なし）") : saved.domain || "";
+  const current = () => person ? joinTerms(saved.keywords) || t("（なし）") : saved.domain || "";
   const currentLabel = person ? "今のキーワード" : "今の判定条件";
 
   // 1. Why. The post, what the router said, the condition as it is, and room
