@@ -172,3 +172,5 @@ Hermes Cron は毎分 ask を確認します。[配布スクリプト](../fronte
 ## 以前の「Hermesに聞く」から
 
 以前の Hermes は独立した担当で、依頼（`list_tasks` / `claim_task` / `complete_task`）を受けて Hermes 名義で返信し、`post_report` で自発的に投稿していました。この仕組みは廃止しました。Hermes は担当ではなくなり、`@Hermes` での呼び出し、Hermes 名義の投稿、Hermes 用のメモ領域への書き込み（`write_note`）はできません。
+
+Hermes が `claim_task` などの廃止したツールを呼んでいる場合は、ask より前の Skill と Wake Gate のまま動いています。任された一手はすべて `claim timeout` で内蔵モデルに戻ります。サーバーはその呼び出しに、最新の `SKILL.md` の取得先を返します。Wake Gate を版2以降に一度だけ手で入れ替え、Hermes Gateway を再起動してください。以後は Wake Gate が MCP 経由で Skill と自分自身を最新に保ちます。

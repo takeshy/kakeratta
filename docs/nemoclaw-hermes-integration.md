@@ -212,6 +212,8 @@ Afterward, confirm that the sandbox reaches `Ready` (`openshell sandbox list -g 
 
 ### Daily skill auto-update via Wake Gate
 
+> Superseded on 2026-09-26: the skill and the Wake Gate now update over MCP (see "Moving to asks, and updating over MCP" below). This section records the earlier daily mechanism.
+
 The Hermes Skill (`SKILL.md`) evolves alongside application improvements—such as formatting rules (GFM Markdown / HTML documents) or stricter error diagnostic requirements (mandatory `complete_task` arguments and failure reporting). Because the skill is installed as static files under Hermes's home directory (`/sandbox/.hermes/skills/kakeratta`), updates previously required manual reinstallation inside each sandbox container.
 
 To automate this maintenance, the Wake Gate pre-check script (`check_kakeratta_gate.py`) includes a daily skill auto-update mechanism:
@@ -281,6 +283,21 @@ Development tested both `NousResearch/Hermes-4-405B` and `nvidia/Nemotron-3_5-Li
 In a further Super 120B test, Hermes detected a user's model question through `list_tasks`, claimed it, performed a web search, and posted a response to the original thread with `complete_task`. This verified autonomous processing that included external research. Specific model specifications and benchmark figures in the generated answer are not treated as findings of this integration test.
 
 The Skill's error handling was also revised. When a tool or external API fails after a task is claimed, Hermes is instructed to use `complete_task` to tell the user what failed and why. A reply cannot be guaranteed if `complete_task` itself is unreachable; the connection must be checked after recovery. A later revision additionally names every `complete_task` argument explicitly, because the model's first call was repeatedly rejected for omitting `text` (see the problems table).
+
+## Moving to asks, and updating over MCP (2026-09-26)
+
+On 2026-09-26 the integration changed from Hermes being a persona of its own (`list_tasks` / `claim_task` / `complete_task`) to Hermes planning the turns of personas whose planner is the external agent (`list_asks` / `claim_ask` / `read_for_ask` / `submit_workflow` / `release_ask`). The server kept `list_tasks` for older Wake Gates and retired the other task tools.
+
+**What went wrong the same day.** Every externally planned turn fell back to the built-in model with `claim timeout`. The production logs showed the Wake Gate finding the pending ask and Hermes waking within seconds, but the claim never succeeded. Hermes was still running the older skill and Wake Gate: the gate found the ask through the kept `list_tasks`, and the skill called the retired `claim_task`, which the server rejected as `Unknown tool`. The daily skill update had not helped, because it fetched `SKILL.md` with a plain GET from another path of the same host, and the OpenShell policy allows only the MCP path there; the failure was silent, and the Wake Gate did not update itself.
+
+**What changed.**
+
+- A retired task tool now answers that the kakeratta skill is out of date, with the URL of the current `SKILL.md` and the tools to use, instead of only `Unknown tool`.
+- `list_asks` carries the versions of the distributed skill and Wake Gate (`integration: {skill, gate}`), and a new MCP tool, `get_integration`, returns both files. When either version differs from what is installed, the Wake Gate replaces the skill and itself through a temporary file, over the MCP endpoint it already calls. Updates and failures are written to stderr. No other host, path or daily state file is involved.
+
+**Verified.** The Wake Gate was replaced by hand once, from version 1 to 2, and the Hermes Gateway restarted; MCP then registered 12 tools, `get_integration` among them. On its next run the Wake Gate found the skill behind and updated it through `get_integration` from version 6 to 7. The sandbox now runs skill 7 and Wake Gate 2, and both follow later versions by themselves.
+
+As of this record, a turn planned end to end through `claim_ask` and `submit_workflow` under NemoClaw has not yet been confirmed; it will be added here once it is.
 
 ## Verified scope and possible extensions
 

@@ -212,6 +212,8 @@ nemoclaw hermes-sandbox exec -- grep "exit code 75" /usr/local/bin/nemoclaw-star
 
 ### Wake Gate による Skill の日次自動更新
 
+> 2026-09-26 以降は、Skill と Wake Gate を MCP 経由で更新しています（後述の「ask への移行と、MCP 経由の更新」参照）。この節は以前の日次の仕組みの記録です。
+
 Hermes Agent の返信フォーマット（GFM Markdown / HTML文書）やエラーハンドリング指示（`complete_task` への必須引数や失敗時の報告義務）など、Skill (`SKILL.md`) は運用改善に伴って継続的に改定されます。しかし、サンドボックス内の Hermes Home (`/sandbox/.hermes/skills/kakeratta`) にインストールされた Skill は静的ファイルであり、通常は更新のたびに各サンドボックスへ手動で再インストールする必要がありました。
 
 これを自律化するため、Wake Gate スクリプト (`check_kakeratta_gate.py`) に日次の Skill 自動更新機構を組み込んでいます。
@@ -279,6 +281,21 @@ CLI（手動実行）で `nemoclaw onboard` を行った場合、オンボーデ
 Super 120B での追加検証では、Hermes がユーザーのモデルに関する質問を `list_tasks` で検出し、`claim_task` の後に Web 検索を行い、収集した情報を使って `complete_task` で元スレッドへ回答しました。これにより、単純な応答に加えて外部調査を含む自律処理を確認しました。回答文中の個別のモデル仕様やベンチマーク値は、この連携の検証結果としては扱いません。
 
 Skill のエラー処理も改訂しました。タスク取得後にツールや外部 API が失敗した場合は、失敗した操作と理由をユーザーへ説明する結果を `complete_task` で返す手順です。`complete_task` 自体に到達できない障害では返信を保証できないため、接続復旧後の確認が必要です。さらに、初回呼び出しが `text` の欠落で繰り返し拒否されていた問題（問題表参照）を受け、`complete_task` の全引数を Skill に明記する改訂も行いました。
+
+## ask への移行と、MCP 経由の更新（2026-09-26）
+
+2026-09-26 に、Hermes が独立した担当として動く連携（`list_tasks` / `claim_task` / `complete_task`）から、「外部エージェントを優先する」担当の一手を Hermes が考える連携（`list_asks` / `claim_ask` / `read_for_ask` / `submit_workflow` / `release_ask`）に切り替えました。サーバーは古い Wake Gate のために `list_tasks` だけを残し、ほかの task 系ツールは廃止しました。
+
+**当日に起きたこと。** 外部エージェントに任せた一手が、すべて `claim timeout` で内蔵モデルに戻りました。本番のログでは、Wake Gate が未取得の ask を見つけ、数秒で Hermes が起きていましたが、取得は一度も成立していません。Hermes が古い Skill と Wake Gate のまま動いていたためです。Gate は残してあった `list_tasks` で ask を見つけ、Skill は廃止済みの `claim_task` を呼び、サーバーに `Unknown tool` として拒否されていました。日次の Skill 自動更新も効いていませんでした。同じホストの別パスから `SKILL.md` を通常の GET で取得する方式で、OpenShell のポリシーはそのホストで MCP のパスしか許可していないためです。その失敗は無言で捨てられ、Wake Gate 自身は更新の対象でもありませんでした。
+
+**変えたこと。**
+
+- 廃止した task 系ツールで呼ばれると、`Unknown tool` だけでなく、Skill が古いこと、最新の `SKILL.md` の URL、使うべきツールを返します。
+- `list_asks` の応答に配布版の Skill と Wake Gate の版（`integration: {skill, gate}`）を載せ、新しい MCP ツール `get_integration` で両方の本文を返します。どちらかの版が入っているものと違えば、Wake Gate がすでに呼んでいる MCP の経路で、Skill と自分自身を一時ファイル経由で置き換えます。更新と失敗は stderr に出ます。ほかのホストやパス、日次の状態ファイルは使いません。
+
+**確認したこと。** Wake Gate を一度だけ手で版1から版2に入れ替え、Hermes Gateway を再起動しました。MCP には `get_integration` を含む 12 ツールが登録されました。次の実行で Wake Gate が Skill の版の遅れを検出し、`get_integration` 経由で版6から版7に自動更新しました。現在のサンドボックスは Skill 7、Wake Gate 2 で動いており、以後の版には両方とも自動で追従します。
+
+この記録の時点では、NemoClaw の中で `claim_ask` から `submit_workflow` まで通った一手はまだ確認できていません。確認でき次第ここに追記します。
 
 ## 検証範囲と今後の用途
 

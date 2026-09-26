@@ -172,3 +172,5 @@ Daily check-ins, schedule wakes, note reviews, and deletion notices also become 
 ## From the former "Ask Hermes"
 
 Hermes used to be a persona of its own: it took requests (`list_tasks` / `claim_task` / `complete_task`), replied under its own name, and posted on its own with `post_report`. That has been retired. Hermes is no longer a persona; `@Hermes`, posts under Hermes's name, and writes to a Hermes note area (`write_note`) are gone.
+
+An agent still calling `claim_task` or the other retired tools runs a skill and Wake Gate from before asks: every turn it is handed falls back to the built-in model with `claim timeout`. The server answers such a call with where to get the current `SKILL.md`. Replace the Wake Gate by hand once with version 2 or later and restart the Hermes Gateway; from then on the Wake Gate keeps the skill and itself current over MCP.
