@@ -72,6 +72,11 @@ export const AICreateStart = {
   render: () => panelOf(personas, () => showPersonaBuilder({})),
 };
 
+export const AICreatePersonStart = {
+  name: "AIと人物の担当を作る・入力",
+  render: () => panelOf(personas, () => showPersonaBuilder({ kind: "person" })),
+};
+
 export const AICreateDraft = {
   name: "AIと担当を作る・完成案",
   render: () => panelOf(personas, () => {

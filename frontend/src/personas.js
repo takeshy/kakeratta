@@ -171,7 +171,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
           "関心ごとの担当には本体が振り分けた投稿が届き、喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
       }),
     );
-    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ getSettings, onSave: showAdded, onPosted }) }));
+    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ kind: tab, getSettings, onSave: showAdded, onPosted }) }));
     view.append(el("p", { class: "hint", label: "どの担当も、必要なときに過去のかけらを検索し、元の投稿を参照できます。" }));
     view.append(el("p", { class: "hint" },
       el("span", { label: "すべての担当が使える道具: " }),

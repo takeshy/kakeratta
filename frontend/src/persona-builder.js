@@ -12,9 +12,13 @@ export function addedToast(saved) {
   else toast(t("「{0}」を追加しましたが、有効にできませんでした。カードの「有効にする」をオンにしてください", saved.name), "error");
 }
 
-export function showPersonaBuilder({ persona, onSave, onPosted, getSettings = () => ({}) }) {
+export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted, getSettings = () => ({}) }) {
   const opener = document.activeElement;
-  const messages = [];
+  const person = (persona?.kind || kind) === "person";
+  const opening = t(persona ? "どんなところを変えたい？" : person
+    ? "誰のことを覚える担当を作りたい？名前や呼び名、あなたとの関係を教えてください。"
+    : "どんなことの担当を作りたい？");
+  const messages = [{ role: "assistant", content: opening }];
   let draft = null;
   // How often a person is looked back on, as the AI chose from how close they are.
   let checkIn = "";
@@ -32,7 +36,7 @@ export function showPersonaBuilder({ persona, onSave, onPosted, getSettings = ()
   const preview = el("div");
   const facts = factsField();
   const error = el("p", { class: "hint", role: "alert" });
-  const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。" });
+  const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : person ? "例：大学時代の友人の佐藤さん。さっちゃんと呼んでいて、たまに一緒に食事をします。" : "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。" });
   const send = el("button", { class: "button primary", label: "送る", type: "submit" });
   const revise = el("button", { class: "button ghost", label: "さらに修正する", hidden: true, onclick: () => {
     form.hidden = false;
@@ -87,7 +91,7 @@ export function showPersonaBuilder({ persona, onSave, onPosted, getSettings = ()
     conversation.append(el("div", { class: `builder-message ${role}` }, el("strong", { text: role === "user" ? t("あなた") : "AI" }), el("p", { text })));
     conversation.scrollTop = conversation.scrollHeight;
   }
-  bubble("assistant", t(persona ? "どんなところを変えたい？" : "どんなことの担当を作りたい？"));
+  bubble("assistant", opening);
   async function submit(event) {
     event?.preventDefault();
     const answer = input.value.trim();
@@ -110,7 +114,9 @@ export function showPersonaBuilder({ persona, onSave, onPosted, getSettings = ()
       input.placeholder = typeof result.placeholder === "string" && result.placeholder.trim()
         ? result.placeholder.trim()
         : t(draft
-          ? "例：もう少し親しみやすい話し方にしてほしい。"
+          ? draft.kind === "person"
+            ? "例：呼び名に「さっちゃん」も加えてほしい。"
+            : "例：もう少し親しみやすい話し方にしてほしい。"
           : "上の質問に答えてください。迷うところは「おまかせ」でも大丈夫です。");
       clear(preview);
       save.hidden = notice.hidden = revise.hidden = !draft;
