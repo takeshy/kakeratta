@@ -48,6 +48,11 @@ class TestNode {
     this.parent = null;
   }
   get firstChild() { return this.children[0]; }
+  get isConnected() {
+    let node = this;
+    while (node.parent) node = node.parent;
+    return node === globalThis.document?.body;
+  }
   setAttribute(name, value) {
     if (name === "disabled") this.disabled = true;
     else if (name === "data-pending") this.dataset.pending = value;
@@ -377,7 +382,7 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
   showPersonaBuilder({ getSettings: () => ({ speech: { language: "ja", sendPhrase: "送信" } }) });
   const walk = node => [node, ...node.children.flatMap(walk)];
   const button = label => walk(document.body).find(node => node.textContent === translate(label));
-  const input = document.body.querySelectorAll(".skill-input")[0];
+  const input = document.body.querySelectorAll(".skill-input").find(node => !node.className.includes("person-facts"));
   button("🎙 話す").fire("click");
   assert.equal(recognizers[0].lang, "ja-JP");
   recognizers[0].result("ワインの担当を作りたい");
@@ -392,6 +397,63 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
   assert.equal(document.body.children.length, 0);
 });
 
+
+// What the user told the builder about a person is shown apart from the
+// draft, can be edited, and is posted naming the person once it is saved, so
+// the persona makes its notes from a post. A subject's draft posts nothing.
+test("facts told about a person are posted to them after the persona is saved", async (t) => {
+  const { showPersonaBuilder } = await import("../frontend/src/persona-builder.js");
+  const nagomi = { id: "nagomi", name: "nagomi", icon: "🌸", domain: "nagomi本人のこと。", tone: "短く", memory: "Fact と Event", instructions: "覚える", tools: ["schedule"], kind: "person", aliases: ["なごみ", "恋人"], keywords: [] };
+  t.mock.method(api, "buildPersona", async () => ({ message: "案です", draft: nagomi, facts: "nagomiは1972/11/10生まれ。タイ料理が好き。", checkIn: "monthly" }));
+  t.mock.method(api, "setDailyCheckIn", async () => ({ personas: [] }));
+  t.mock.method(api, "savePersonaDraft", async (skill) => ({ ...skill, active: true }));
+  t.mock.method(api, "post", async (body) => ({ id: "f1", kind: "post", text: body.text }));
+  t.mock.method(globalThis, "setTimeout", () => 0);
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const posted = [];
+  let saved = null;
+  showPersonaBuilder({ onSave: (skill) => { saved = skill; }, onPosted: (entry) => posted.push(entry) });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const button = label => walk(document.body).find(node => node.textContent === translate(label) && node.listeners.click);
+  const input = document.body.querySelectorAll(".skill-input").find(node => !node.className.includes("person-facts"));
+  input.value = "恋人のnagomiのことを覚えて。1972/11/10生まれ。タイ料理が好き。";
+  walk(document.body).find(node => node.listeners.submit).fire("submit", { preventDefault() {} });
+  await new Promise(setImmediate);
+  const box = document.body.querySelectorAll(".person-facts")[0];
+  assert.equal(box.value, "nagomiは1972/11/10生まれ。タイ料理が好き。");
+  assert.equal(document.body.querySelectorAll(".person-facts-field")[0].hidden, false);
+  box.value = "nagomiは1972/11/10生まれ。辛いタイ料理が好き。";
+  button("この担当を追加").fire("click");
+  for (let i = 0; i < 6; i++) await new Promise(setImmediate);
+  assert.equal(saved?.id, "nagomi");
+  assert.deepEqual(api.post.mock.calls.map(call => call.arguments[0]), [{ text: "@nagomi nagomiは1972/11/10生まれ。辛いタイ料理が好き。" }]);
+  assert.equal(posted[0].id, "f1");
+  // The AI chose to look back on her monthly; saving says so.
+  assert.deepEqual(api.setDailyCheckIn.mock.calls[0].arguments, ["nagomi", { talk: "share", every: "monthly" }]);
+});
+
+// The month's summary is the app's post, with an edit button like the user's.
+test("the month's summary is shown as the app's and can be edited", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  feed.set([{ id: "m", kind: "post", speaker: "kakeratta", summary: "month", root: "m", text: "### 人\n- 佐藤さんと会った", at: "2026-10-12T09:00:00Z" }]);
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  assert.ok(walk(feed.element).some(node => node.textContent === translate("今月のまとめ")));
+  assert.equal(feed.element.querySelectorAll(".edit-post").length, 1);
+  assert.equal(feed.element.querySelectorAll(".routing-open").length, 0, "the router never judged it");
+});
+
+test("a subject's draft posts nothing, and an emptied box posts nothing", async (t) => {
+  const { factsPost } = await import("../frontend/src/person-facts.js");
+  assert.equal(factsPost({ id: "wine", name: "wine" }, "赤が好き"), "");
+  assert.equal(factsPost({ id: "sato", name: "佐藤さん", kind: "person" }, "   "), "");
+  assert.equal(factsPost({ id: "sato", name: "佐藤さん", kind: "person" }, "釣りが趣味"), "@佐藤さん 釣りが趣味");
+  assert.equal(factsPost({ id: "kenji-sato", name: "Kenji Sato", kind: "person" }, "Likes fishing"), "@kenji-sato Likes fishing");
+});
 
 test("read aloud selects only one thread, including user replies, and updates its stop button", t => {
   globalThis.Node = TestNode;
@@ -649,9 +711,21 @@ test("a person's names and keywords are edited as lists and saved with the kind"
   assert.deepEqual(saved.aliases, ["サトウ"]);
   assert.deepEqual(saved.keywords, ["釣り", "つり", "キャンプ"]);
 
-  // Becoming a person turns schedule on, so a meeting day can wake it.
+  // A person's tone and kinds of note are the app's: hidden, and not saved.
+  const field = (root, label) => walk(root).find(node => node.tagName === "LABEL" && node.children[0]?.textContent === translate(label));
+  showPersonaEditor({ persona, toolNames: [] });
+  const first = document.body.querySelectorAll(".persona-editor").at(-1);
+  assert.equal(field(first, "話し方").hidden, true);
+  assert.equal(field(first, "メモの分類（型と、それぞれに書くこと）").hidden, true);
+  assert.ok(walk(first).some(node => node.textContent === translate("この人についての指示（任意。例：健康の話は控えめに）")));
+  walk(first).find(node => node.textContent === translate("閉じる")).fire("click");
+  assert.equal(saved.tone, "");
+  assert.equal(saved.memory, "");
+
+  // Becoming a person turns on the built-in tools: a meeting day wakes it,
+  // and presents, places and the way there are looked up.
   const friend = { id: "friend", name: "友人", icon: "🧑", domain: "友人のこと", tone: "", instructions: "", tools: [] };
-  showPersonaEditor({ persona: friend, toolNames: ["web_search", "schedule"] });
+  showPersonaEditor({ persona: friend, toolNames: ["web_search", "place_search", "route", "schedule", "notes.extra"] });
   const dialog = document.body.querySelectorAll(".persona-editor").at(-1);
   const boxes = walk(dialog).filter(node => node.type === "checkbox");
   boxes[0].checked = true;
@@ -660,10 +734,10 @@ test("a person's names and keywords are edited as lists and saved with the kind"
   for (let i = 0; i < 5; i++) await new Promise(setImmediate);
   const becoming = api.savePersonaDraft.mock.calls.at(-1).arguments[0];
   assert.equal(becoming.kind, "person");
-  assert.deepEqual(becoming.tools, ["schedule"]);
+  assert.deepEqual(becoming.tools, ["web_search", "place_search", "route", "schedule"]);
 });
 
-test("a person on the router's sheet can only be asked for, with the word it was reached by", async (t) => {
+test("a person on the router's sheet shows the word it was reached by, and can be disputed either way", async (t) => {
   const { showRouting } = await import("../frontend/src/routing-view.js");
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
@@ -677,10 +751,12 @@ test("a person on the router's sheet can only be asked for, with the word it was
   const walk = node => [node, ...node.children.flatMap(walk)];
   const nodes = walk(document.body);
   assert.ok(nodes.some(node => node.textContent === translate("「{0}」に一致", "佐藤")));
-  assert.ok(!nodes.some(node => node.textContent === translate("呼んでほしくなかった")), "a person has no condition to narrow");
+  nodes.find(node => node.textContent === translate("呼んでほしくなかった")).fire("click");
+  assert.equal(fixes[0].persona.id, "sato");
+  assert.equal(fixes[0].direction, "exclude");
   nodes.find(node => node.textContent === translate("呼んでほしかった")).fire("click");
-  assert.equal(fixes[0].persona.id, "mother");
-  assert.equal(fixes[0].direction, "include");
+  assert.equal(fixes[1].persona.id, "mother");
+  assert.equal(fixes[1].direction, "include");
 });
 
 // The router's call about a post - who it chose, whom it passed over and why -

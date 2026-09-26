@@ -200,7 +200,49 @@ func TestNewPersonDraftCanPlaceWakes(t *testing.T) {
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
-	if !slices.Contains(result.Draft.Tools, "schedule") {
-		t.Fatalf("a new person cannot be up on the day of a meeting: %v", result.Draft.Tools)
+	for _, name := range personTools {
+		if !slices.Contains(result.Draft.Tools, name) {
+			t.Fatalf("a new person lacks %s: %v", name, result.Draft.Tools)
+		}
+	}
+}
+
+// What the user tells the builder about a person comes back as facts, to be
+// posted on save; a subject's builder answer never carries any.
+func TestPersonDraftCarriesFacts(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		draft persona.Skill
+		want  string
+	}{
+		{"person", persona.Skill{ID: "nagomi", Name: "nagomi", Domain: "nagomi本人のこと、またはnagomiとの出来事。", Kind: persona.KindPerson, Aliases: []string{"なごみ", "恋人"}}, "nagomiは1972/11/10生まれ。タイ料理が好き。"},
+		{"subject", persona.Skill{ID: "wine", Name: "wine", Domain: "ワインの話。"}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, workspace := app(t)
+			raw, _ := json.Marshal(map[string]any{"message": "案です", "draft": tc.draft, "facts": "  nagomiは1972/11/10生まれ。タイ料理が好き。 ", "checkIn": "monthly"})
+			model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(raw)}}}})
+			}))
+			defer model.Close()
+			settings := workspace.ConfiguredSettings()
+			settings.BaseURL = model.URL
+			if err := workspace.SaveSettings(settings); err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, httptest.NewRequest("POST", "/api/personas/build", strings.NewReader(`{"messages":[{"role":"user","content":"恋人のnagomiのことを覚えて。1972/11/10生まれ。タイ料理が好き。"}]}`)))
+			var result struct{ Facts, CheckIn string }
+			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
+				t.Fatalf("%d %s", w.Code, w.Body.String())
+			}
+			if result.Facts != tc.want {
+				t.Fatalf("facts = %q, want %q", result.Facts, tc.want)
+			}
+			// How often a person is looked back on comes with it; a subject has none.
+			if want := map[bool]string{true: "monthly", false: ""}[tc.want != ""]; result.CheckIn != want {
+				t.Fatalf("checkIn = %q, want %q", result.CheckIn, want)
+			}
+		})
 	}
 }

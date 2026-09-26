@@ -8,6 +8,10 @@ import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
+import { factsField, postFacts } from "./person-facts.js";
+
+// The built-in tools a person's persona starts with.
+const PERSON_TOOLS = ["web_search", "place_search", "route", "schedule"];
 
 const fields = [
   { key: "icon", label: "アイコン", kind: "input", maxlength: 4 },
@@ -29,7 +33,7 @@ export function joinTerms(terms) {
   return (terms || []).join(getLanguage() === "ja" ? "、" : ", ");
 }
 
-export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings = () => ({}), ai = false }) {
+export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, getSettings = () => ({}), ai = false }) {
   const opener = document.activeElement;
   const original = { ...persona, tools: [...(persona.tools || [])], kind: persona.kind || "", aliases: [...(persona.aliases || [])], keywords: [...(persona.keywords || [])] };
   const inputs = {};
@@ -56,7 +60,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   const terms = {};
   const termFields = [
     { key: "aliases", label: "呼び名（読点区切り。名前・あだ名・続柄・かな表記）", rows: 2 },
-    { key: "keywords", label: "キーワード（読点区切り。類似語や言い換えも並べると届きやすくなります）", rows: 3 },
+    { key: "keywords", label: "キーワード（読点区切り。類似語や言い換えも並べると届きやすくなります）", rows: 2 },
   ];
   const termBox = el("div");
   for (const field of termFields) {
@@ -71,6 +75,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   }
 
   const labels = {};
+  const boxes = {};
   for (const field of fields) {
     const input = field.kind === "textarea"
       ? el("textarea", { class: "skill-input", rows: field.rows, maxlength: field.maxlength })
@@ -82,24 +87,38 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     previous[field.key] = el("details", { class: "previous" });
     previous[field.key].hidden = true;
     labels[field.key] = el("strong", { label: field.label });
-    form.append(el("label", { class: "persona-field" }, labels[field.key], input, previous[field.key]));
+    boxes[field.key] = el("label", { class: "persona-field" }, labels[field.key], input, previous[field.key]);
+    form.append(boxes[field.key]);
     if (field.key === "name") form.append(termBox);
   }
 
+  // A person speaks and files its notes the way the app has every person do,
+  // so only the relationship and instructions for this one person are asked.
   function showKind() {
     termBox.hidden = !person.checked;
-    labels.domain.textContent = t(person.checked ? "担当の説明（人物の担当は振り分けに使いません）" : "担当条件（振り分けに使います）");
+    boxes.tone.hidden = boxes.memory.hidden = person.checked;
+    labels.domain.textContent = t(person.checked ? "関係性（例：恋人、母、大学時代の友人）" : "担当条件（振り分けに使います）");
+    // A relationship is a line, and a person's own instructions a couple; a
+    // condition and a subject's instructions are paragraphs.
+    inputs.domain.setAttribute("rows", person.checked ? 1 : 4);
+    inputs.instructions.setAttribute("rows", person.checked ? 2 : 6);
+    labels.instructions.textContent = t(person.checked ? "この人についての指示（任意。例：健康の話は控えめに）" : "覚えること・返事をするタイミング");
   }
   // A person is up on the morning of a meeting only through a wake it placed,
-  // so becoming one turns schedule on; it can still be turned off by hand.
+  // and looks up presents, places and the way there for someone, so becoming
+  // one turns those tools on; each can still be turned off by hand.
   person.addEventListener("change", () => {
     showKind();
     markChanged("kind");
-    const schedule = Object.entries(toolBoxes).find(([name]) => capability(name) === capability("schedule"))?.[1];
-    if (person.checked && schedule && !schedule.checked) {
-      schedule.checked = true;
-      markChanged("tools");
+    if (!person.checked) return;
+    let changed = false;
+    for (const [name, box] of Object.entries(toolBoxes)) {
+      if (PERSON_TOOLS.includes(capability(name)) && !box.checked) {
+        box.checked = true;
+        changed = true;
+      }
     }
+    if (changed) markChanged("tools");
   });
   showKind();
 
@@ -121,6 +140,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   function read() {
     const draft = { ...persona };
     for (const field of fields) draft[field.key] = inputs[field.key].value.trim();
+    if (person.checked) draft.tone = draft.memory = "";
     draft.tools = available.filter((name) => toolBoxes[name].checked);
     draft.kind = person.checked ? "person" : "";
     draft.aliases = person.checked ? splitTerms(terms.aliases.value) : [];
@@ -190,8 +210,10 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
       if (closed) return;
       const saved = await api.savePersonaDraft(read(), persona.id);
       toast(t("{0} を保存しました", saved.name));
+      const told = facts.node.hidden ? "" : facts.box.value;
       close();
       await onSave?.();
+      await postFacts(saved, told, onPosted);
     } catch (e) {
       error.textContent = e.message;
     } finally {
@@ -201,6 +223,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
 
   // --- asking the AI, underneath the form ---------------------------------
   const messages = [];
+  const facts = factsField();
   const conversation = el("div", { class: "builder-conversation", role: "log", "aria-live": "polite" });
   const request = el("textarea", {
     class: "skill-input ai-request", rows: 3, maxlength: 12000, "aria-label": t("AIへの依頼"),
@@ -215,7 +238,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
   });
   const aiPanel = el("div", { class: "ai-panel" },
     el("p", { class: "hint", label: "現在の内容を見ながら、変えたいことを書いてください。AIの案ができたら編集して保存できます。" }),
-    conversation, request, el("div", { class: "compose-row" }, voice.button, send), voice.activity);
+    conversation, request, el("div", { class: "compose-row" }, voice.button, send), voice.activity, facts.node);
 
   function bubble(role, text) {
     conversation.append(el("div", { class: `builder-message ${role}` },
@@ -240,7 +263,10 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
       bubble("assistant", result.message);
       request.value = "";
       if (typeof result.placeholder === "string" && result.placeholder.trim()) request.placeholder = result.placeholder.trim();
-      if (result.draft) apply(result.draft);
+      if (result.draft) {
+        apply(result.draft);
+        facts.set(result.draft, result.facts);
+      }
     } catch (e) {
       error.textContent = e.message;
     } finally {
@@ -256,6 +282,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, getSettings
     busy = value;
     request.disabled = value;
     send.disabled = value;
+    facts.box.disabled = value;
     voice.button.disabled = value;
     send.textContent = t(value ? "考えています…" : "AIに頼む");
     updateSave();

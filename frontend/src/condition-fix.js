@@ -11,6 +11,12 @@
 // should have reached one, the same steps add keywords instead - words from
 // the post and their near words - and the check is whether the post now
 // contains one of them.
+//
+// A post that should not have reached a person reached it by a word. The
+// words of the persona that are in the post are listed, and the person
+// chooses which to remove - or none: a word like 母 is also in 母校, and the
+// persona already ends a turn that is not about them without a word. The
+// persona's own name is not removed here. What was said on the post stays.
 import { clear, el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
@@ -21,6 +27,7 @@ const EXCERPT = 300;
 export function showConditionFix({ persona, entry, direction, reason = "", onSaved }) {
   const include = direction === "include";
   const person = persona.kind === "person" && include;
+  const unheard = persona.kind === "person" && !include;
   const title = include ? t("{0} を呼んでほしかった", persona.name) : t("{0} を呼んでほしくなかった", persona.name);
   const text = entry.text || "";
   const excerpt = text.length > EXCERPT ? `${text.slice(0, EXCERPT)}…` : text;
@@ -43,7 +50,7 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
   backdrop.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }
     if (event.key !== "Tab") return;
-    const focusable = [...backdrop.querySelectorAll("button, textarea, a[href]")]
+    const focusable = [...backdrop.querySelectorAll("button, textarea, input, a[href]")]
       .filter((node) => !node.disabled && node.getClientRects().length);
     const first = focusable[0], last = focusable.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -251,10 +258,92 @@ export function showConditionFix({ persona, entry, direction, reason = "", onSav
     }
   }
 
+  // The words a person was reached by, from a fresh check: the record keeps
+  // only the first, and the persona may have changed since.
+  async function showWords(notice) {
+    controls = [];
+    error.textContent = "";
+    const quote = el("blockquote", { class: "condition-quote", text: excerpt });
+    fill(quote, el("p", { class: "hint", label: "確認しています…" }));
+    let check;
+    try {
+      check = await api.checkRouting(entry.id, persona.id);
+    } catch (e) {
+      if (!closed) error.textContent = e.message;
+      return;
+    }
+    if (closed) return;
+    const words = check?.words?.length ? check.words : check?.heard ? [check.heard] : [];
+    if (!check?.answered || !check.delivered || !words.length) {
+      fill(quote,
+        el("p", { class: "hint", text: t("今の呼び名とキーワードでは、この投稿は {0} に届きません。", persona.name) }),
+        el("div", { class: "compose-row" }, el("span", { class: "spacer" }), action("閉じる", "chip ghost", close)));
+      return;
+    }
+    const kindOf = (word) => (saved.keywords || []).includes(word) ? "キーワードの1つ"
+      : (saved.aliases || []).includes(word) ? "呼び名の1つ" : "担当の名前";
+    const chosen = new Set();
+    const remove = action("外す", "button primary condition-remove", () => void removeWords([...chosen], remove));
+    remove.disabled = true;
+    const rows = words.map((word) => {
+      const kind = kindOf(word);
+      const box = el("input", { type: "checkbox", disabled: kind === "担当の名前" });
+      if (kind !== "担当の名前") controls.push(box);
+      box.addEventListener("change", () => {
+        if (box.checked) chosen.add(word); else chosen.delete(word);
+        remove.disabled = busy || !chosen.size;
+      });
+      return el("label", { class: "condition-word" }, box,
+        el("span", { text: word }), el("span", { class: "routing-verdict", label: kind }));
+    });
+    const onlyName = words.every((word) => kindOf(word) === "担当の名前");
+    fill(
+      notice ? el("p", { class: "hint warn condition-notice", role: "alert", text: notice }) : null,
+      quote,
+      field("この投稿に一致した語", el("div", { class: "condition-words" }, ...rows)),
+      el("p", { class: "hint", label: onlyName
+        ? "担当の名前で届いたので、ここで外せる語はありません。名前は編集画面で変えられます。"
+        : "外すと、その語だけの投稿は今後届かなくなります。呼び名は@での指名にも使われます。残しても、その人と関係のない投稿なら担当は発言もメモもせずに終えます。" }),
+      el("div", { class: "compose-row" }, onlyName ? null : remove, el("span", { class: "spacer" }), action(onlyName ? "閉じる" : "残す", "chip ghost", close)),
+    );
+    rows.find((row) => !row.firstChild.disabled)?.firstChild.focus();
+  }
+
+  // Remove the chosen words, then check the post again. Still reaching the
+  // person by another word goes back to the list with that said.
+  async function removeWords(words, button) {
+    if (!words.length || busy) return;
+    setBusy(true, button, "保存しています…");
+    error.textContent = "";
+    try {
+      const drop = (terms) => (terms || []).filter((term) => !words.includes(term));
+      const next = { ...saved, aliases: drop(saved.aliases), keywords: drop(saved.keywords) };
+      const stored = await api.savePersonaDraft(next, persona.id);
+      saved = { ...next, ...(stored && typeof stored === "object" ? stored : {}) };
+      await onSaved?.();
+      if (closed) return;
+      const check = await api.checkRouting(entry.id, persona.id);
+      if (closed) return;
+      if (check?.answered && !check.delivered) {
+        toast(t("「{0}」を外しました。この投稿はもう {1} に届きません", joinTerms(words), persona.name));
+        close();
+        return;
+      }
+      const still = check?.words?.length ? check.words : check?.heard ? [check.heard] : [];
+      setBusy(false, button);
+      // The list is drawn again from a fresh check, with its own buttons.
+      await showWords(still.length ? t("「{0}」を外しましたが、「{1}」でも一致します。", joinTerms(words), joinTerms(still)) : "");
+    } catch (e) {
+      error.textContent = e.message;
+      setBusy(false, button);
+    }
+  }
+
   dialog.append(dialogCloseButton(close), el("h2", { text: title }), body, error);
   backdrop.append(dialog);
   mountOverlay(backdrop);
   dialog.setAttribute("tabindex", "-1");
-  showAsk("");
+  if (unheard) void showWords("");
+  else showAsk("");
   return { close };
 }

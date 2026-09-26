@@ -202,7 +202,10 @@ var ErrNotEditable = errors.New("編集できる投稿が見つかりません")
 var ErrEmptyText = errors.New("本文を入力してください")
 
 func editText(entry *timeline.Entry, text string) error {
-	if entry.Deleted || entry.Speaker != timeline.User || entry.Kind != timeline.KindPost {
+	// The user's own posts, and the app's summaries, which are theirs to set
+	// right.
+	summary := entry.Speaker == timeline.App && entry.Summary != ""
+	if entry.Deleted || (entry.Speaker != timeline.User && !summary) || entry.Kind != timeline.KindPost {
 		return ErrNotEditable
 	}
 	text = strings.TrimSpace(text)

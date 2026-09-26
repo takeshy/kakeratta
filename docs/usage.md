@@ -152,8 +152,53 @@ word is told that a word is all it was: a post about 母校 (alma mater) reaches
 母 (mother), and if the post is not about them the persona ends its turn
 without a reply or a note.
 
-A person's persona places wakes (schedule). The persona builder always gives it
-the tool, and turning on "Keeps a person" in the editor turns it on. When a
+What you tell the persona builder about the person - a birthday, what they
+like, what happened - is not written into the persona's settings. It comes
+back apart from the draft as **Keep as a fragment**, which you can edit or
+empty. Saving the persona posts it as a fragment naming the person with `@`,
+and the persona takes its ordinary turn on that post, so the facts become its
+notes and each note leads back to the post. What you tell **Edit with AI**
+about a person is posted the same way.
+
+In place of a condition, a person's persona has a **relationship** (partner,
+mother, a friend from university). The persona is told it keeps the person
+and what happens with them, with the relationship alongside.
+
+In the Personas panel, people and interests are on tabs of their own, each with
+a search over names, conditions, names of a person and keywords (kana and
+width do not matter). The People tab can be put in name order; a name in kanji
+sorts by the kana among its names.
+
+### This month's summary, and people looked back on monthly
+
+Once a month the app reads the month's timeline (since the previous summary,
+32 days at most) and posts **This month** under its own name: a list by topic,
+each line ending in a link to the post it came from. The app picks the day for
+the account (from the 1st to the 28th) and, like a check-in, a minute between
+7:00 and 21:00. The summary can be edited with ✎ like your own post; editing
+it routes nothing.
+
+A person's card offers **Look back daily** or **Look back monthly**. A person
+looked back on monthly wakes on the summary's day, after the summary, and is
+handed the summary and the posts since its previous check-in that contain its
+names or keywords (the newest 40). It does not read the whole timeline again.
+The persona builder picks the default from the relationship: family and close
+friends daily, people seen now and then monthly. Interests check in daily.
+
+How a person's persona speaks, the kinds of note it keeps (Fact and Event)
+and how it handles loans, promises, meetings, birthdays and anniversaries are
+the same for every person and held by the app, so an improvement reaches all
+of them. In the editor a person has only its relationship and optional
+**instructions for this person**; tone and kinds of note are not shown.
+Once it knows a birthday or an anniversary, it places a wake a week before
+(a wake can be at most 30 days ahead, so until then it checks the date at each
+check-in) and
+tells you then, with an idea drawn from past gifts and what they like.
+
+A person's persona has all the built-in tools - web search, place search,
+routes and wakes (schedule) - to look up presents and places to meet and to
+wake itself on the day. The persona builder always gives them, and turning on
+"Keeps a person" in the editor turns them on; each can be turned off. When a
 post mentions meeting them, the persona places a wake for that morning, and on
 the day brings up what happened last time and anything still open.
 
@@ -169,8 +214,16 @@ A person has no condition, so in ⚖ **Should have been called** adds keywords
 instead. The persona builder proposes words written in the post together with
 their near words; you can edit them, and **OK** saves them and checks the same
 post. If one of the added words is in the post, the persona is called on it;
-if not, you are told and asked again. **Should not have been called** is not
-offered for a person - remove the word in the editor.
+if not, you are told and asked again.
+
+**Should not have been called** on a person lists the words of its names and
+keywords that are in the post, and you choose which to remove. The persona's
+own name is shown but cannot be removed here (change it in the editor). A
+removed word no longer brings posts that have only it, and a removed name no
+longer answers an `@`. **Remove** saves and checks the same post: if it still
+matches another word, you are told which and can remove that too. **Keep**
+closes without a change - a post that is not about the person already ends
+with no reply and no note. What the persona said on the post stays.
 
 ## Notes that expire or come up for review
 

@@ -35,6 +35,30 @@ const dailyShareInstructions = dailyHeader + `最初に timeline_search を quer
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
 
+// monthlyHeader opens the check-in of a person heard from once a month.
+const monthlyHeader = `
+
+## Monthly check-in（月1回の定期起床）
+今回はユーザーの投稿ではなく、システムによる月1回の定期起床です。返答の義務はありません。
+この月のタイムラインは本体がまとめを書いています。対象発言に、そのまとめと、前回のチェックインから自分の名前やキーワードが出た投稿があります。timeline_search で期間全体を読み直す必要はありません。細部を確かめたいときだけ、語句や短い期間を指定して検索してください。
+`
+
+// monthlyInstructions is a monthly check-in that speaks only about what needs
+// the user's decision.
+const monthlyInstructions = monthlyHeader + `話してよいのは、ユーザーの判断が必要なことだけです。見直し時期が来たメモの確認など、対象発言で本体から渡されたものがあるときだけ、それについて短く一言話してください。
+まとめと投稿から分かった、その人についての事実や出来事は黙ってメモに残し、誕生日や記念日、会う予定が近ければ予定を置いてください。
+話すことがなければ speak の text を空にします。
+発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
+`
+
+// monthlyShareInstructions is a monthly check-in that may also bring back
+// something worth saying.
+const monthlyShareInstructions = monthlyHeader + `まず、まとめと投稿のうち自分の担当する人に関わることを読み、メモにない事実や出来事があれば残してください。誕生日や記念日、会う予定が近ければ予定を置きます。
+次に自分のメモを見直し、済んでいない約束や貸し借り、しばらく連絡していないことなど、今伝える価値があることがあれば短く話してください。
+挨拶だけ、まとめの繰り返し、一般的な助言は不要です。伝えることがなければ speak の text を空にします。
+発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
+`
+
 // CheckDaily enters the same serial queue as fragment-triggered execution.
 func (r *Runner) CheckDaily() {
 	r.stopMu.Lock()
@@ -67,18 +91,29 @@ func (r *Runner) dailyAt(now time.Time) {
 		}
 	}()
 	client, settings := r.clientOf()
+	if client == nil || client.BaseURL == "" || personaModel(settings) == "" {
+		return
+	}
+	// The month's summary comes first: a person checking in monthly reads it.
+	r.summarizeAt(now, client, settings)
 	for _, skill := range r.catalogue.Active(settings.Active) {
-		if client == nil || client.BaseURL == "" {
-			continue
-		}
-		if personaModel(settings) == "" {
-			continue
-		}
 		schedule := settings.CheckInFor(skill.ID)
 		loc := settings.Location()
 		local := now.In(loc)
 		root := r.store.Root()
-		if store.CheckInSkipped(root, skill.ID, local) || local.Before(store.CheckInAt(root, skill.ID, local)) || !local.Before(store.CheckInCloses(local)) {
+		// A person heard from monthly checks in on the summary's day, once the
+		// summary is written. A daily check-in skips the day its minute
+		// wrapped, so two do not come hours apart; a monthly one has only its
+		// day.
+		monthly := schedule.Every == store.CheckInMonthly && skill.IsPerson()
+		if monthly {
+			if local.Day() != store.SummaryDay(root) || local.Before(store.CheckInAt(root, store.SummaryID, local)) {
+				continue
+			}
+		} else if store.CheckInSkipped(root, skill.ID, local) {
+			continue
+		}
+		if local.Before(store.CheckInAt(root, skill.ID, local)) || !local.Before(store.CheckInCloses(local)) {
 			continue
 		}
 		claimed, previous, err := r.store.ClaimDailyCheckInAt(skill.ID, local.Format("2006-01-02"), now)
@@ -94,10 +129,18 @@ func (r *Runner) dailyAt(now time.Time) {
 		// last 24 hours" would leave stretches unread. With no previous run on
 		// record, or one long ago, it reads a day, or a week at most.
 		since := previous
+		lookback := checkInLookback
+		if monthly {
+			lookback = summaryLookback
+		}
 		if since.IsZero() {
+			// A first check-in reads a day - or, heard from monthly, the month.
 			since = now.Add(-24 * time.Hour)
-		} else if now.Sub(since) > checkInLookback {
-			since = now.Add(-checkInLookback)
+			if monthly {
+				since = now.Add(-lookback)
+			}
+		} else if now.Sub(since) > lookback {
+			since = now.Add(-lookback)
 		}
 		text := "Daily check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + "). Decide whether there is anything worth sharing today." +
 			"\nSince the previous check-in: from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\""
@@ -105,6 +148,15 @@ func (r *Runner) dailyAt(now time.Time) {
 		if schedule.Minimal() {
 			text = "Daily check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + "). Speak only about what needs the user's decision."
 			instructions = dailyInstructions
+		}
+		if monthly {
+			text = "Monthly check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + ")." +
+				"\nSince the previous check-in: from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\"" +
+				r.monthlyCheckIn(skill, since, now, loc)
+			instructions = monthlyShareInstructions
+			if schedule.Minimal() {
+				instructions = monthlyInstructions
+			}
 		}
 		// Reviews ride inside the check-in, so the persona posts once.
 		if due := r.reviewsDue(skill, now, loc); len(due) > 0 {

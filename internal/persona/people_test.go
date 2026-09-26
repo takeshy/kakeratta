@@ -3,6 +3,7 @@ package persona
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -35,6 +36,16 @@ func TestHeardMatchesNamesAndKeywordsLoosely(t *testing.T) {
 	}
 	if heard := Heard(skills, "石破さんのニュースを見た"); len(heard) != 0 {
 		t.Fatalf("heard %v in a post not about the person", heard)
+	}
+}
+
+func TestHeardTermsListsEveryWordInThePost(t *testing.T) {
+	got := HeardTerms(sato(), "さとうさんと釣行、釣りの話")
+	if !slices.Equal(got, []string{"サトウ", "釣り", "釣行"}) {
+		t.Fatalf("heard %v", got)
+	}
+	if got := HeardTerms(sato(), "石破さんのニュース"); len(got) != 0 {
+		t.Fatalf("heard %v", got)
 	}
 }
 
@@ -137,6 +148,9 @@ func TestCheckedKeywordReachesPersonAndIsRecorded(t *testing.T) {
 	if err != nil || !check.Delivered || check.Heard != "海釣り" {
 		t.Fatalf("check = %+v, %v", check, err)
 	}
+	if !slices.Equal(check.Words, []string{"海釣り"}) {
+		t.Fatalf("words = %v", check.Words)
+	}
 	if routes != 0 {
 		t.Fatalf("checking a person asked the router %d times", routes)
 	}
@@ -177,5 +191,42 @@ func TestPersonWokenByAWordIsToldItMayNotBeAboutThem(t *testing.T) {
 	runner.reactEntry(entry.ID, nil, false)
 	if strings.Contains(strings.Join(prompts, "\n"), "という語が含まれていたため") {
 		t.Fatal("an @ was treated as a word match")
+	}
+}
+
+// A person's persona is told the app's rules for every person, its
+// relationship, and its own instructions; a subject is as saved.
+func TestPersonTurnGetsTheAppsRules(t *testing.T) {
+	person := sato()
+	person.Domain = "大学時代の友人。"
+	person.Instructions = "仕事の話は結論から。"
+	got := person.forTurn()
+	if !strings.Contains(got.Domain, "佐藤さん本人のこと") || !strings.Contains(got.Domain, "ユーザーとの関係性：大学時代の友人。") {
+		t.Fatalf("domain = %q", got.Domain)
+	}
+	if got.Tone != personTone || got.Memory != personMemory {
+		t.Fatalf("tone = %q, memory = %q", got.Tone, got.Memory)
+	}
+	if !strings.HasPrefix(got.Instructions, personRules) || !strings.HasSuffix(got.Instructions, "佐藤さんについての指示：\n仕事の話は結論から。") {
+		t.Fatalf("instructions = %q", got.Instructions)
+	}
+	if !strings.Contains(got.Instructions, "誕生日") {
+		t.Fatal("a person is not told about birthdays")
+	}
+	person.Instructions = ""
+	if got := person.forTurn(); got.Instructions != personRules {
+		t.Fatalf("instructions without its own = %q", got.Instructions)
+	}
+	if got := Builtins[0].forTurn(); !reflect.DeepEqual(got, Builtins[0]) {
+		t.Fatalf("subject changed: %+v", got)
+	}
+}
+
+func TestPersonKeepsNoToneOrKindsOfNote(t *testing.T) {
+	person := sato()
+	person.Tone, person.Memory = "丁寧に", "型は Wine"
+	person.TidyTerms()
+	if person.Tone != "" || person.Memory != "" {
+		t.Fatalf("tone = %q, memory = %q", person.Tone, person.Memory)
 	}
 }

@@ -31,21 +31,51 @@ type DailyCheckIn struct {
 	TimeZone string `json:"timeZone,omitempty"`
 	// Talk is CheckInMinimal or CheckInShare; see CheckInFor.
 	Talk string `json:"talk,omitempty"`
+	// Every is how often: "" for every day, or CheckInMonthly for a person
+	// seen now and then - a room with many people in it need not hear from
+	// each every day. A monthly check-in reads the month's summary.
+	Every string `json:"every,omitempty"`
+	// On is the day of the month a monthly check-in falls on, shown on the
+	// card and never stored.
+	On int `json:"on,omitempty"`
 }
+
+// CheckInMonthly is a check-in once a month, on the day the month's summary
+// is written.
+const CheckInMonthly = "monthly"
 
 // Minimal reports whether the check-in speaks only about what needs the
 // user's decision.
 func (d DailyCheckIn) Minimal() bool { return d.Talk != CheckInShare }
 
-// CheckInFor is a persona's daily check-in as it runs. Every active persona
-// checks in once a day; the user chooses only how much it says, and it
-// shares unless the user chose minimal.
+// CheckInFor is a persona's check-in as it runs. Every active persona checks
+// in - once a day, unless it keeps a person the user chose to hear about
+// monthly. The user also chooses how much it says; it shares unless the user
+// chose minimal.
 func (s Settings) CheckInFor(personaID string) DailyCheckIn {
 	out := DailyCheckIn{Enabled: true, Talk: CheckInShare}
-	if s.DailyCheckIns[personaID].Talk == CheckInMinimal {
+	saved := s.DailyCheckIns[personaID]
+	if saved.Talk == CheckInMinimal {
 		out.Talk = CheckInMinimal
 	}
+	if saved.Every == CheckInMonthly {
+		out.Every = CheckInMonthly
+	}
 	return out
+}
+
+// SummaryID stands for the app's monthly summary where a persona id would go:
+// in the check-in claims, and in the hashes that pick its day and minute. No
+// persona id can start with an underscore.
+const SummaryID = "_summary"
+
+// SummaryDay is the day of the month, 1 to 28 so that every month has it, the
+// month's summary is written on - and a monthly check-in runs, after it. It is
+// picked by a hash of the workspace, as a check-in's minute is: nothing is
+// remembered, and workspaces spread over the month.
+func SummaryDay(workspace string) int {
+	sum := sha256.Sum256([]byte(workspace + "\x00" + SummaryID + "\x00day"))
+	return int(binary.BigEndian.Uint64(sum[:8])%28) + 1
 }
 
 // Check-ins run between these hours of the user's day, each persona at its

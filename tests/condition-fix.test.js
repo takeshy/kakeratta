@@ -235,3 +235,69 @@ test("a person's missed post adds keywords from the post rather than a condition
   assert.deepEqual(api.applyRouting.mock.calls[0].arguments, ["q", "route-2"]);
   assert.equal(document.body.children.length, 0);
 });
+
+// A post that should not have reached a person lists the words it was reached
+// by. The persona's name cannot be removed here; a removed word that leaves
+// another in the post says so, and removing that one too ends it. Nothing is
+// delivered or undone on the post.
+test("a person reached by a word it should not have been offers the words to remove", async (t) => {
+  setup(t);
+  const haha = { id: "haha", name: "母", icon: "👩", domain: "母のこと。", tools: [], kind: "person", aliases: ["お母さん"], keywords: ["実家", "母校"] };
+  const post = { id: "r", kind: "post", speaker: "user", text: "母校の文化祭。実家にも寄った" };
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  const checks = [
+    { answered: true, delivered: true, heard: "母", words: ["母", "実家", "母校"] },
+    { answered: true, delivered: true, heard: "母", words: ["母", "実家"] },
+    { answered: true, delivered: true, heard: "母", words: ["母", "実家"] },
+  ];
+  t.mock.method(api, "checkRouting", async () => checks.shift());
+  t.mock.method(api, "applyRouting", async () => ({ applied: true }));
+  t.mock.method(api, "buildPersona", async () => { throw new Error("no AI for removing words"); });
+  let reloaded = 0;
+  showConditionFix({ persona: haha, entry: post, direction: "exclude", onSaved: () => { reloaded++; } });
+  await settle();
+
+  const boxes = () => walk(document.body).filter((n) => n.type === "checkbox");
+  const box = (word) => boxes().find((n) => n.parent.children.some((c) => c.textContent === word));
+  assert.equal(boxes().length, 3, "every word in the post is listed");
+  assert.equal(box("母").disabled, true, "the persona's own name is not removed here");
+  assert.equal(button("外す").disabled, true, "nothing is removed until a word is chosen");
+
+  box("母校").checked = true;
+  box("母校").fire("change");
+  button("外す").fire("click");
+  await settle();
+  const first = api.savePersonaDraft.mock.calls[0].arguments[0];
+  assert.deepEqual(first.keywords, ["実家"]);
+  assert.deepEqual(first.aliases, ["お母さん"]);
+  assert.equal(first.kind, "person");
+  assert.ok(walk(document.body).some((n) => n.textContent === translate("「{0}」を外しましたが、「{1}」でも一致します。", "母校", "母、実家")));
+  assert.equal(boxes().length, 2, "the list is drawn again from the new check");
+  assert.equal(box("母").disabled, true, "the name stays out of reach after a save");
+
+  // Keeping the rest closes without saving anything more.
+  button("残す").fire("click");
+  assert.equal(document.body.children.length, 0);
+  assert.equal(api.savePersonaDraft.mock.calls.length, 1);
+  assert.equal(reloaded, 1);
+  assert.equal(api.applyRouting.mock.calls.length, 0);
+  assert.equal(api.buildPersona.mock.calls.length, 0);
+});
+
+test("removing the last word a person was reached by ends it", async (t) => {
+  setup(t);
+  const sato = { id: "sato", name: "佐藤さん", icon: "🧑", domain: "佐藤さんのこと。", tools: [], kind: "person", aliases: [], keywords: ["釣り", "キャンプ"] };
+  const post = { id: "s", kind: "post", speaker: "user", text: "釣りのニュース" };
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  const checks = [{ answered: true, delivered: true, heard: "釣り", words: ["釣り"] }, { answered: true, delivered: false, reason: "呼び名・キーワードが投稿にありませんでした" }];
+  t.mock.method(api, "checkRouting", async () => checks.shift());
+  showConditionFix({ persona: sato, entry: post, direction: "exclude" });
+  await settle();
+  const box = walk(document.body).find((n) => n.type === "checkbox");
+  box.checked = true;
+  box.fire("change");
+  button("外す").fire("click");
+  await settle();
+  assert.deepEqual(api.savePersonaDraft.mock.calls[0].arguments[0].keywords, ["キャンプ"]);
+  assert.equal(document.body.children.length, 0);
+});

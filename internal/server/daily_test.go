@@ -10,6 +10,7 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 func TestDailySettingsEndpoint(t *testing.T) {
@@ -205,5 +206,76 @@ func TestRemovingOneScheduleFromTheCard(t *testing.T) {
 	}
 	if left, _ := s.Schedules(other); len(left) != 1 {
 		t.Fatalf("another persona's schedule was removed: %+v", left)
+	}
+}
+
+// Only a person can be heard from monthly; the card is told the day.
+func TestMonthlyCheckInIsForPeople(t *testing.T) {
+	app, s := app(t)
+	subject := app.catalogue.All()[0].ID
+	raw, _ := json.Marshal(persona.Skill{ID: "sato", Name: "佐藤さん", Domain: "友人。", Kind: persona.KindPerson})
+	if _, err := app.catalogue.Install(raw, nil); err != nil {
+		t.Fatal(err)
+	}
+	put := func(id, body string) int {
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/personas/"+id+"/daily", strings.NewReader(body)))
+		return response.Code
+	}
+	if code := put(subject, `{"talk":"share","every":"monthly"}`); code != 400 {
+		t.Fatalf("a subject went monthly: %d", code)
+	}
+	if code := put("sato", `{"talk":"share","every":"weekly"}`); code != 400 {
+		t.Fatalf("weekly was taken: %d", code)
+	}
+	if code := put("sato", `{"talk":"share","every":"monthly"}`); code != 200 {
+		t.Fatalf("a person could not go monthly: %d", code)
+	}
+	if s.Settings().DailyCheckIns["sato"].Every != store.CheckInMonthly {
+		t.Fatalf("not saved: %+v", s.Settings().DailyCheckIns["sato"])
+	}
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/personas", nil))
+	var payload struct {
+		Personas []struct {
+			ID    string             `json:"id"`
+			Daily store.DailyCheckIn `json:"dailyCheckIn"`
+		} `json:"personas"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range payload.Personas {
+		if row.ID == "sato" && (row.Daily.Every != store.CheckInMonthly || row.Daily.On != store.SummaryDay(s.Root())) {
+			t.Fatalf("card = %+v", row.Daily)
+		}
+	}
+}
+
+// The user can set the month's summary right; editing it routes nothing.
+func TestSummaryCanBeEdited(t *testing.T) {
+	app, s := app(t)
+	summary := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.App, Text: "### 人\n- 佐藤さんと会った", At: time.Now(), Summary: timeline.SummaryMonth}
+	summary.Root = summary.ID
+	remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: "gourmet", Text: "check-in", At: time.Now()}
+	remark.Root = remark.ID
+	for _, entry := range []timeline.Entry{summary, remark} {
+		if err := s.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	edit := func(id string) int {
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, httptest.NewRequest(http.MethodPatch, "/api/entry/"+id, strings.NewReader(`{"text":"### 人\n- 佐藤さんと釣りに行った"}`)))
+		return response.Code
+	}
+	if code := edit(summary.ID); code != 200 {
+		t.Fatalf("summary edit = %d", code)
+	}
+	if got, _ := s.Entry(summary.ID); got.Text != "### 人\n- 佐藤さんと釣りに行った" || got.Summary != timeline.SummaryMonth {
+		t.Fatalf("summary = %+v", got)
+	}
+	if code := edit(remark.ID); code == 200 {
+		t.Fatal("a persona's post was edited")
 	}
 }

@@ -382,6 +382,18 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .hint { color: var(--muted); font-size: 0.78rem; line-height: 1.6; margin: 0; }
 .hint.warn { color: var(--warn); }
 
+.persona-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.persona-tab {
+  border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  background: none; color: var(--muted); font: inherit; font-weight: 600;
+  padding: 8px 14px; cursor: pointer;
+}
+.persona-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.persona-filters { display: flex; gap: 8px; align-items: center; }
+.persona-search { flex: 1 1 auto; min-width: 0; }
+.persona-order { flex: 0 0 auto; width: auto; }
+.persona-list { display: grid; gap: 14px; }
+.check-in-every { width: auto; flex: 0 0 auto; }
 .persona {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -652,6 +664,9 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .condition-fix h2 { margin: 0; font-size: 1.2rem; line-height: 1.5; }
 .condition-body { display: grid; gap: 10px; }
 .condition-quote { margin: 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.condition-words { display: grid; gap: 2px; }
+.condition-word { display: flex; align-items: center; gap: 8px; padding-block: 4px; }
+.condition-word input { flex: 0 0 auto; width: auto; margin: 0; }
 .condition-current { margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* An author display rule would beat the hidden attribute, so the grid applies only while shown. */
 .condition-ask:not([hidden]) { display: grid; gap: 8px; }

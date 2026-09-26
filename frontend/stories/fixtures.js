@@ -141,10 +141,10 @@ export const words = () => WORDS[getLanguage()] || WORDS.en;
 const PERSON = {
   ja: {
     name: "佐藤さん", aliases: ["佐藤", "サトウ", "健二", "けんじ"], keywords: ["キャンプ", "キャンプ場", "テント", "焚き火"],
-    domain: "佐藤さん本人のこと、または佐藤さんとの出来事。",
-    tone: "落ち着いて、短く。思い出したことを一言添える。",
-    memory: "型は Fact（佐藤さんについて分かったこと。好み・誕生日など）と Event（佐藤さんとの出来事。会話・贈り物・約束・貸し借り）の2つ。tags には話題と場所を付ける。",
-    instructions: "貸し借りや約束など未解決のことは、解決を確認するまで忘れない。会う予定が分かったら、その日の朝に自分を起こす予定を置いて Event に残す。起きたら、前回の出来事や未解決のことを一言添えて知らせる。",
+    domain: "友人。",
+    tone: "",
+    memory: "",
+    instructions: "仕事の相談は結論から話す。",
     souvenir: "佐藤くんから北海道のお土産もらった。白い恋人",
     remembered: "前に会ったとき、夏は家族で北海道に行くと言っていました。お土産のこと、覚えておきます。",
     fishing: "週末は海釣りに行くらしい",
@@ -152,15 +152,18 @@ const PERSON = {
     added: ["海釣り", "釣り", "つり", "釣行"],
     missed: "呼び名・キーワードが投稿にありませんでした",
     notFood: "食べものや飲食店の話ではありません。",
+    campsite: "キャンプ場の予約サイトがまた落ちてる",
+    unheard: ["キャンプ", "キャンプ場"],
     builderMessage: "佐藤さんの担当の案を作りました。呼び名の書き方の違いと、キャンプまわりの言い換えも入れています。使ってからAIで修正できます。",
     builderRequest: "友人の佐藤健二さんのことを覚えてほしい。最近キャンプを始めたらしい。",
+    facts: "佐藤健二さんは友人。最近キャンプを始めたらしい。",
   },
   en: {
     name: "Sato", aliases: ["Kenji", "佐藤", "さとう"], keywords: ["camping", "campsite", "tent", "campfire"],
-    domain: "Sato himself, or things that happened with Sato.",
-    tone: "Calm and short. Adds one thing it remembers.",
-    memory: "Two kinds: Fact (what is known about Sato - tastes, birthday) and Event (things that happened with Sato - talks, gifts, promises, loans). Tag notes with the topic and the place.",
-    instructions: "Keep unresolved loans and promises until they are settled. When a meeting comes up, place a wake for that morning and note it in an Event. On waking, mention what happened last time and anything still open.",
+    domain: "A friend.",
+    tone: "",
+    memory: "",
+    instructions: "Get to the point on work matters.",
     souvenir: "Got a souvenir from Hokkaido from Sato",
     remembered: "Last time you met he said the family was going to Hokkaido this summer. I'll remember the souvenir.",
     fishing: "Apparently going sea fishing this weekend",
@@ -168,8 +171,11 @@ const PERSON = {
     added: ["sea fishing", "fishing", "angling"],
     missed: "None of the names or keywords were in the post",
     notFood: "Not about food or a place to eat.",
+    campsite: "The campsite booking site is down again",
+    unheard: ["campsite"],
     builderMessage: "Here is a persona for Sato, with other spellings of his name and near words for camping. Try it first and refine it later with AI.",
     builderRequest: "Remember things about my friend Kenji Sato. He has just taken up camping.",
+    facts: "Kenji Sato is my friend. He has just taken up camping.",
   },
 };
 
@@ -180,17 +186,19 @@ export function person() {
   const w = personWords();
   return { id: "sato", name: w.name, icon: "🧑", builtin: false, active: true, wakes: 5, planner: "builtin", kind: "person",
     aliases: w.aliases, keywords: w.keywords, domain: w.domain, tone: w.tone, memory: w.memory, instructions: w.instructions,
-    tools: ["schedule"], dailyCheckIn: { enabled: true, talk: "share" } };
+    tools: ["web_search", "place_search", "route", "schedule"], dailyCheckIn: { enabled: true, talk: "share" } };
 }
 
-// Two posts: one that reached the person by name, one that said something
-// about him in words he was not listed under.
+// Three posts: one that reached the person by name, one that said something
+// about him in words he was not listed under, and one that reached him by a
+// keyword without being about him.
 export function personTimeline() {
   const w = personWords();
   return [
     post("q1", minutes(90), { text: w.souvenir }),
     said("r1", "q1", "sato", minutes(88), w.remembered, { notes: ["events/hokkaido-souvenir.md"] }),
     post("q2", minutes(12), { text: w.fishing }),
+    post("q3", minutes(4), { text: w.campsite }),
   ];
 }
 
@@ -203,6 +211,9 @@ export function personRouting() {
       excluded: [{ id: "gourmet", name: "tabe", icon: "🍜", reason: w.notFood }] },
     q2: { recorded: true, delivered: [],
       excluded: [{ id: "sato", name, icon, person: true, reason: w.missed }] },
+    q3: { recorded: true,
+      delivered: [{ id: "sato", name, icon, person: true, heard: w.unheard[0], done: true, spoke: false, noted: false }],
+      excluded: [] },
   };
 }
 
@@ -305,3 +316,12 @@ export const memory = {
     ],
   },
 };
+
+// The month's summary the app posts, in the reader's language.
+export function monthSummary() {
+  const ja = getLanguage() === "ja";
+  const text = ja
+    ? "### 人\n- 佐藤さんが週末に海釣りへ。キャンプも始めたらしい [→](/?entry=q2)\n- 青木先生の発表会は11月3日 [→](/?entry=q4)\n\n### 食\n- 担々麺の店を2軒。辛さ控えめの方が好み [→](/?entry=q5)\n\n### これからのこと\n- 母の誕生日（11月20日）の贈り物をまだ決めていない [→](/?entry=q6)"
+    : "### People\n- Sato went sea fishing at the weekend, and has taken up camping [→](/?entry=q2)\n- Ms Aoki's recital is on 3 November [→](/?entry=q4)\n\n### Food\n- Two dandan noodle places; the milder one was the favourite [→](/?entry=q5)\n\n### Still open\n- No present chosen yet for Mum's birthday (20 November) [→](/?entry=q6)";
+  return [{ id: "m1", kind: "post", speaker: "kakeratta", summary: "month", root: "m1", at: minutes(30), text }];
+}

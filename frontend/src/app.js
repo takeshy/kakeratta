@@ -50,19 +50,25 @@ const feed = createFeed({
   onOpenNote: ({ persona, path }) => void personas.showMemoryFor(persona, path),
   onSelectPersona: (persona) => { open("personas"); personas.reveal(persona.id); },
 });
+// A post made here or on the app's behalf - what was told about a person when
+// saving its persona - lands in the timeline the same way.
+function posted(entry) {
+  if (!entry.pending) pages.upsert(entry);
+  void drawLocal();
+  pollAfterSending();
+}
 const compose = createCompose({
   getSettings: () => settings,
   getPersonas: () => personaRows,
   onPosted: (entry) => {
-    if (!entry.pending) pages.upsert(entry);
-    void drawLocal();
-    pollAfterSending();
+    posted(entry);
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
 });
 const personas = createPersonas({
   getSettings: () => settings,
   onSearch: (query) => { open("search"); void searchPanel.searchFor(query); },
+  onPosted: posted,
   onChange: (rows) => {
     personaRows = rows;
     void localRecord("personas", rows).catch(() => {});

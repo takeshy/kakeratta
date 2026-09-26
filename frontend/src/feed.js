@@ -234,18 +234,20 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   function drawPost(entry) {
     const media = entry.media;
     const mine = entry.speaker === "user";
+    // The month's summary is the app's, but the user's to set right.
+    const summary = entry.speaker === "kakeratta" && !!entry.summary;
     const persona = getPersona(entry.speaker);
-    const node = el("div", { class: "post" });
+    const node = el("div", { class: `post${summary ? " summary" : ""}` });
     node.append(
       el(
         "div",
         { class: "post-head" },
-        el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
-        el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
+        el("span", { class: "avatar", text: mine ? "🙂" : summary ? "🗓" : persona?.icon || "◎" }),
+        el("span", { class: "who", text: mine ? t("あなた") : summary ? t("今月のまとめ") : persona?.name || entry.speaker }),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         el("span", { class: "spacer" }),
-        mine ? el("button", {
+        mine || summary ? el("button", {
           class: "chip ghost icon edit-post", text: "✎", "aria-label": t("編集"), disabled: offline() || !!entry.pending || !!postEditor,
           "data-pending": String(!!entry.pending), i18nTitle: "編集はオンライン時に利用できます",
           onclick: () => {
@@ -302,7 +304,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   }
 
   function createPostEditor(entry) {
-    const input = el("textarea", { class: "reply-input edit-input", rows: "3", "aria-label": t("投稿を編集") });
+    const input = el("textarea", { class: "reply-input edit-input", rows: entry.summary ? "12" : "3", "aria-label": t("投稿を編集") });
     input.value = entry.text || "";
     input.addEventListener("compositionstart", () => { composing = true; });
     input.addEventListener("compositionend", () => { composing = false; if (drawPending) draw(); });

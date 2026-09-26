@@ -273,6 +273,25 @@ func TestAQuietAgentIsSetAsideUntilItCallsIn(t *testing.T) {
 	if runner.AgentAway(settings) || !runner.detaches(context.Background(), skill, settings) {
 		t.Fatal("an agent that called in within the claim wait was set aside")
 	}
+
+	// While it works on an ask it claimed, its Wake Gate is quiet: it is not
+	// away, and the next turn goes to it too.
+	runner.AgentSeen(time.Now().Add(-10 * time.Minute))
+	ask := &openAsk{Ask: Ask{ID: "ask_busy", State: "pending"}, planWait: time.Minute, claimed: make(chan struct{}), requests: make(chan askRequest), done: make(chan struct{})}
+	runner.desk.open(ask)
+	if !runner.AgentAway(settings) {
+		t.Fatal("an unclaimed ask kept a silent agent present")
+	}
+	if _, _, err := runner.ClaimAsk("ask_busy", "claim-1"); err != nil {
+		t.Fatal(err)
+	}
+	if runner.AgentAway(settings) || !runner.detaches(context.Background(), skill, settings) {
+		t.Fatal("an agent working on a claimed ask was set aside")
+	}
+	runner.desk.close(ask)
+	if !runner.AgentAway(settings) {
+		t.Fatal("an agent silent past the claim wait stayed present after its ask ended")
+	}
 }
 
 // Nobody waits out the claim for an agent that is away: the in-process

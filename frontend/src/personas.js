@@ -13,6 +13,55 @@ import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
 import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
 
+// The panel shows subjects and people apart, each with a search, and people
+// can be put in name order. Which tab and which order are the viewer's own
+// convenience, kept in this browser when it lets us.
+const remembered = (key, fallback, allowed) => {
+  try {
+    const value = globalThis.localStorage?.getItem(key);
+    return allowed.includes(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const remember = (key, value) => {
+  try { globalThis.localStorage?.setItem(key, value); } catch { /* not kept */ }
+};
+
+// fold makes width, case, kana and spacing not matter, as the app does when it
+// hears a person's name in a post.
+export function fold(text) {
+  return String(text || "").normalize("NFKC").toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+
+// matches reports whether a persona is found by the words typed: its name, id,
+// what it covers, and for a person its names and keywords.
+export function matches(row, query) {
+  const words = fold(query) ? String(query).split(/[\s　]+/).map(fold).filter(Boolean) : [];
+  if (!words.length) return true;
+  const shown = gloss(row);
+  const text = fold([shown.name, row.id, shown.note, shown.domain, row.domain, ...(row.aliases || []), ...(row.keywords || [])].join("\n"));
+  return words.every((word) => text.includes(word));
+}
+
+// A name in kanji does not sort by how it is read. A person's names usually
+// include a spelling in kana (the builder adds them), so that reading is what
+// name order goes by; without one, the name itself.
+const KANA = /^[\u3041-\u309f\u30a0-\u30ff\u30fcー・]+$/u;
+const KANJI = /\p{Script=Han}/u;
+export function readingOf(row) {
+  const name = String(row.name || "");
+  if (!KANJI.test(name)) return name;
+  return (row.aliases || []).find((alias) => KANA.test(alias)) || name;
+}
+
+export function byName(rows, language = getLanguage()) {
+  const collator = new Intl.Collator(language === "ja" ? "ja" : "en", { numeric: true, sensitivity: "base" });
+  return [...rows].sort((a, b) => collator.compare(fold(readingOf(a)), fold(readingOf(b))) || collator.compare(a.name || "", b.name || ""));
+}
+
 const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 // A schedule is shown in the zone it was set in, so the card reads the way the
@@ -32,13 +81,18 @@ function scheduleWhen(schedule) {
   return schedule.daily ? `${t("毎日")} ${clock}` : `${parts({ month: "2-digit", day: "2-digit" })} ${clock}`;
 }
 
-export function createPersonas({ onChange, onSearch, getSettings }) {
+export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   const view = el("div", { class: "panel-body" });
   let rows = [];
   let toolNames = [];
   let mcpConfigured = false;
   let agentPaused = false;
   let agentAway = false;
+  // With no tab chosen yet, people come first when there are any.
+  let tab = remembered("kakeratta.personas.tab", "", ["subject", "person"]);
+  let order = remembered("kakeratta.personas.order", "added", ["added", "name"]);
+  let query = "";
+  const list = el("div", { class: "persona-list" });
 
   async function load({ quiet = false } = {}) {
     try {
@@ -81,6 +135,17 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
   let pending = null;
   function revealPending() {
     if (!pending) return;
+    // The card may be on the other tab or hidden by the search: go to it.
+    const row = rows.find((candidate) => candidate.id === pending);
+    if (row) {
+      const kind = row.kind === "person" ? "person" : "subject";
+      if (kind !== tab || !matches(row, query)) {
+        tab = kind;
+        query = "";
+        draw();
+        return;
+      }
+    }
     const card = view.querySelector(`[data-id="${pending}"]`);
     if (!card) return;
     pending = null;
@@ -97,23 +162,92 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
   }
 
   function draw() {
+    if (!tab) tab = rows.some((row) => kindOf(row) === "person") ? "person" : "subject";
     clear(view);
     view.append(
       el("p", {
         class: "hint",
-        label: "担当領域ごとに記憶が分かれています。投稿がどれに渡るかは本体が振り分け、" +
-          "そのうえで喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
+        label: "人や関心ごとに、担当の記憶が分かれています。人物の担当にはその人の名前が出た投稿が、" +
+          "関心ごとの担当には本体が振り分けた投稿が届き、喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
       }),
     );
-    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ getSettings, onSave: showAdded }) }));
+    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ getSettings, onSave: showAdded, onPosted }) }));
     view.append(el("p", { class: "hint", label: "どの担当も、必要なときに過去のかけらを検索し、元の投稿を参照できます。" }));
     view.append(el("p", { class: "hint" },
       el("span", { label: "すべての担当が使える道具: " }),
       toolLink("timeline_search", t("過去のかけら検索")), " / ",
       toolLink("notes", t("記憶の読み書き"))));
-    for (const row of rows) view.append(drawRow(row));
+    view.append(drawTabs(), drawFilters(), list);
+    drawList();
     view.append(drawInstall());
     revealPending();
+  }
+
+  const kindOf = (row) => row.kind === "person" ? "person" : "subject";
+
+  function drawTabs() {
+    const count = (kind) => rows.filter((row) => kindOf(row) === kind).length;
+    const bar = el("div", { class: "persona-tabs", role: "tablist", "aria-label": t("担当の種類") });
+    // "人物" already reads "Person" on a card; a tab holds several.
+    const ja = getLanguage() === "ja";
+    for (const [kind, label] of [["person", ja ? "人物" : "People"], ["subject", ja ? "関心ごと" : "Interests"]]) {
+      const selected = kind === tab;
+      bar.append(el("button", {
+        class: "persona-tab", type: "button", role: "tab", "aria-selected": selected ? "true" : "false",
+        text: `${label} ${count(kind)}`,
+        onclick: () => {
+          if (tab === kind) return;
+          tab = kind;
+          remember("kakeratta.personas.tab", tab);
+          draw();
+        },
+      }));
+    }
+    return bar;
+  }
+
+  function drawFilters() {
+    const search = el("input", {
+      type: "search", class: "persona-search", maxlength: 200, "aria-label": t("担当を検索"),
+      i18nPlaceholder: tab === "person" ? "名前・呼び名・キーワードで探す" : "名前・担当条件で探す",
+    });
+    search.value = query;
+    search.addEventListener("input", () => {
+      query = search.value;
+      drawList();
+    });
+    const row = el("div", { class: "persona-filters" }, search);
+    if (tab === "person") {
+      const sort = el("select", { class: "persona-order", "aria-label": t("並べ順") },
+        el("option", { value: "added", label: "追加順" }),
+        el("option", { value: "name", label: "名前順" }));
+      sort.value = order;
+      sort.addEventListener("change", () => {
+        order = sort.value === "name" ? "name" : "added";
+        remember("kakeratta.personas.order", order);
+        drawList();
+      });
+      row.append(sort);
+    }
+    return row;
+  }
+
+  function drawList() {
+    clear(list);
+    const ofTab = rows.filter((row) => kindOf(row) === tab);
+    const found = ofTab.filter((row) => matches(row, query));
+    const shown = tab === "person" && order === "name" ? byName(found) : found;
+    if (!ofTab.length) {
+      list.append(el("p", { class: "hint", label: tab === "person"
+        ? "人物の担当はまだありません。「AIと担当を作る」で「佐藤さんのことを覚えて」のように頼むと作れます。"
+        : "関心ごとの担当はまだありません。" }));
+      return;
+    }
+    if (!shown.length) {
+      list.append(el("p", { class: "hint", label: "一致する担当がありません" }));
+      return;
+    }
+    for (const row of shown) list.append(drawRow(row));
   }
 
   // Whether the external agent does the thinking - reading the context,
@@ -187,14 +321,17 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
     }
     const planner = drawPlanner(row);
     if (planner) box.append(planner);
-    // Every active persona checks in once a day, at a time of the app's
-    // choosing between 07:00 and 21:00; the user chooses how much it says.
+    // Every active persona checks in, at a time of the app's choosing between
+    // 07:00 and 21:00: once a day, or - for a person seen now and then - once
+    // a month, reading the month's summary. The user chooses how often a
+    // person is looked back on, and how much any of them says.
     const schedule = row.dailyCheckIn || {};
-    const minimal = el("input", { type: "checkbox", checked: schedule.talk === "minimal", disabled: !row.active });
-    minimal.addEventListener("change", async () => {
-      minimal.disabled = true;
+    const monthly = row.kind === "person" && schedule.every === "monthly";
+    const save = async (change, control) => {
+      control.disabled = true;
       try {
-        const payload = await api.setDailyCheckIn(row.id, { talk: minimal.checked ? "minimal" : "share" });
+        const base = { talk: schedule.talk || "share", ...(row.kind === "person" ? { every: monthly ? "monthly" : "" } : {}) };
+        const payload = await api.setDailyCheckIn(row.id, { ...base, ...change });
         rows = payload.personas || rows;
         onChange?.(rows);
         draw();
@@ -202,12 +339,27 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         toast(String(error.message || error), "error");
         draw();
       }
-    });
-    box.append(el("div", { class: "compose-row" },
-      el("label", { class: "switch" }, minimal, el("span", { label: "チェックインでは最低限のことだけ話す" }))));
-    box.append(el("p", { class: "hint", label: schedule.talk === "minimal"
-      ? "毎日7時〜21時のどこかで起きてメモを整えます。話すのは、メモを忘れてよいかの確認など、あなたの判断が必要なときだけです。"
-      : "毎日7時〜21時のどこかで起き、最近の記録と自分のメモを見直して、伝える価値があることを見つけたときに話します。" }));
+    };
+    const minimal = el("input", { type: "checkbox", checked: schedule.talk === "minimal", disabled: !row.active });
+    minimal.addEventListener("change", () => void save({ talk: minimal.checked ? "minimal" : "share" }, minimal));
+    const controls = el("div", { class: "compose-row" });
+    if (row.kind === "person") {
+      const every = el("select", { class: "check-in-every", "aria-label": t("振り返る頻度"), disabled: !row.active },
+        el("option", { value: "", label: "毎日振り返る" }),
+        el("option", { value: "monthly", label: "月1回振り返る" }));
+      every.value = monthly ? "monthly" : "";
+      every.addEventListener("change", () => void save({ every: every.value }, every));
+      controls.append(every);
+    }
+    controls.append(el("label", { class: "switch" }, minimal, el("span", { label: "チェックインでは最低限のことだけ話す" })));
+    box.append(controls);
+    box.append(el("p", { class: "hint", text: monthly
+      ? t(schedule.talk === "minimal"
+        ? "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読んでメモを整えます。話すのは、あなたの判断が必要なときだけです。"
+        : "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿と自分のメモを見直して、伝える価値があることを見つけたときに話します。", schedule.on || "")
+      : t(schedule.talk === "minimal"
+        ? "毎日7時〜21時のどこかで起きてメモを整えます。話すのは、メモを忘れてよいかの確認など、あなたの判断が必要なときだけです。"
+        : "毎日7時〜21時のどこかで起き、最近の記録と自分のメモを見直して、伝える価値があることを見つけたときに話します。") }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当が預けた予定" }),
@@ -243,8 +395,8 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         { class: "compose-row" },
         el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
         el("span", { class: "spacer" }),
-        el("button", { class: "chip ghost", label: "修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load }) }),
-        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, ai: true }) }),
+        el("button", { class: "chip ghost", label: "修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted }) }),
+        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, ai: true }) }),
         el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
         row.builtin
           ? null

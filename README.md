@@ -4,11 +4,11 @@ English | [日本語](README_ja.md)
 
 **Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
 
-Drop fragments of your day into one timeline. Subject-specific AIs remember
-what matters, stay silent when they have nothing useful to add, and bring things
-back when they matter later.
+A personal AI timeline where you simply jot down fragments of your day, and
+dedicated AI personas - assigned to specific interests or people - memorize only
+what is relevant to them.
 
-Built for the [Nebius Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/).
+Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/).
 
 **Try it:** [kakeratta.net](https://kakeratta.net/lp/?lang=en)
 **Manual:** [kakeratta.net/manual](https://kakeratta.net/manual/?lang=en)
@@ -18,47 +18,82 @@ Built for the [Nebius Global AI Hackathon](https://nebiusglobalaihackathon.devpo
 
 ## Why it exists
 
-I talk to myself a lot. Saying out loud what a meal was like, or an idea that
-just came, feels like leaving a hook to catch it by later. Then I forget anyway.
+With smartphones, jotting down notes and snapping photos has become effortless,
+leading to an overwhelming volume of data. Naturally, the more data piles up,
+the less often we revisit it. We forget we even took a note, or look back at
+one and have no idea what it was about.
 
-I take notes too, but hardly ever read them back. The notes I do read are the
-ones I already know are there, like commands or reference notes.
+I tried building an app that uses AI to automatically categorize and organize
+notes. But much like when someone cleans up your room for you and suddenly
+nothing is where you expect it to be, it only made things harder to find. When
+things were cluttered, it may have been messy, but because they were always in
+sight or being shuffled around, I still had a rough sense of where everything
+was. That said, with the sheer volume of data I now had, leaving it scattered
+meant I would never find anything.
 
-Even if an AI files every note neatly, information whose existence I have
-forgotten cannot be searched for. And what seemed unimportant when I wrote it
-down sometimes matters later.
+Then it hit me: what if the organizer could tell you where things are,
+anticipate that you might forget something even exists, proactively bring it
+up when relevant topics arise, and ask, "Can I forget this?" for things left
+untouched for far too long? Wouldn't that fulfill the true purpose of taking
+notes?
 
-Talking to myself serves another purpose too. Putting a vague thought into words
-helps me understand it, and sometimes I simply want to share the excitement of a
-small discovery.
+One of my biggest personal regrets is losing touch with someone who always
+cared about me - simply because I was too busy, forgot to send a thank-you
+message, and before I realized it, the moment had passed, letting us drift
+apart.
 
-But talking only to myself has limits. An idea may need criticism. A discovery
-may be more fun when someone responds to it. Sometimes I want another point of
-view that gets me outside my own assumptions.
-
-So I did not want only a place that stores my fragments.
-
-I wanted something that could respond when a response is useful, stay silent
-when it is not, remember what may matter later, and bring forgotten things back
-at the right moment.
-
-That is where kakeratta began.
+That is how kakeratta was born.
 
 ## What it does
 
-kakeratta is a timeline for talking to yourself. Text, photos, URLs, and speech
-go in without worrying about mistakes or categories.
+kakeratta is a personal AI timeline where you simply jot down fragments of your
+day, and dedicated AI personas - assigned to specific interests or people -
+memorize only what is relevant to them.
 
-Living there are AIs called *personas*, one for each subject: food, travel,
-reading, follow-ups. Each finds the posts that concern it, reacts when there is
-a reason to, and keeps what is worth keeping in a memory of its own.
+Rather than dumping everything into one monolithic personal memory, you just
+post text, photos, URLs, or voice notes as they come. Each AI persona receives
+only the fragments pertinent to its domain, deciding whether to remember it,
+reply, use a tool, schedule a future follow-up, or simply stay silent.
 
-Replying to everything would be tiresome, so a persona stays quiet when it has
-nothing to say. It can still take a note without speaking.
+Personas can be created in natural language. For a person-based persona, you
+might set it up like this:
 
-Personas are created and changed in plain words. "Remember the wines I drink and
-help me choose next time" is enough to make one, and it grows to your taste as
-you use it.
+> My partner's name is Nagomi, born Nov 10, 1972. Loves K-pop idols and
+> cosmetics. Great at playing the piano. Loves spicy food, like Thai cuisine.
+
+Once you establish that baseline, just casually share little daily moments.
+Nagomi's persona will remind you when her birthday is coming up, track gifts
+exchanged over time, and suggest thoughtful ideas when the time is right.
+
+Posts reach person personas via nicknames and keywords, and interest personas
+based on filtering rules - meaning not every fragment is broadcast to every AI.
+
+By default, four interest personas are included (no person-based personas
+are set by default):
+
+* **tabe**: Dining & food
+* **michi**: Travel & outings
+* **shiori**: Reading & books
+* **plana**: Things too small for a calendar, yet easy to forget
+
+Interest personas are created in natural language too. For instance, for a
+persona focused on wine:
+
+> Remember the wines I drink and help me pick one next time.
+
+That is all it takes to set one up. As you use it, you can fine-tune its
+behavior and memory priorities:
+
+> Keep your replies briefer.
+
+> Don't just log the label - remember why I liked that wine.
+
+Doing nothing is just as vital. If every AI chimed in on every post, your
+timeline would become overwhelming in no time. In kakeratta, it is completely
+normal for a persona to silently commit something to memory without saying a
+word.
+
+### Memory, tools and speech
 
 You can see what a persona remembers, trace a memory back to the post it came
 from, fix it, or make it forget just the one thing that is wrong.
@@ -78,21 +113,14 @@ thought is kept the moment it arrives.
 ## How it works
 
 1. Write a thought, paste a screenshot, send a URL, or speak.
-2. The router wakes only the personas whose conditions match the post.
+2. The router hands a fragment only to the interest personas whose conditions it
+   matches; a person persona receives the fragments that contain one of its
+   nicknames or keywords.
 3. Each persona decides whether to remember something, reply, use a tool, or stay silent.
 4. Reactions arrive in the timeline a little later. Mention a persona with `@` when you want an answer directly.
 
-Four personas ship with the app: **tabe (food), michi (travel), shiori
-(reading), and plana (follow-ups)**.
-
-Their names are Japanese words in Latin letters so that `@tabe` can be typed on
-any keyboard. They are examples of how to divide things up, not a complete set;
-make your own for other subjects.
-
-plana keeps what is too small for a calendar but bad to forget: medicine,
-feeding the goldfish, laundry, the bins. Write "flowers on the way home" and it
-can ask "did you get the flowers?" around the evening, working out the time from
-its own records.
+Persona names are Japanese words in Latin letters so that `@tabe` can be typed
+on any keyboard. A person persona also answers to their nicknames.
 
 ## Built with NVIDIA Nemotron on Nebius Token Factory
 
@@ -196,6 +224,12 @@ forgotten. Turning on **At check-in, speak only when needed** limits it to what 
 user's decision, such as that question. A silent check-in creates no empty
 conversation.
 
+A person's persona can instead look back once a month. Once a month the app
+reads the month's timeline and posts **This month**, a summary by topic with
+each line linked to the post it came from, which you can edit like your own
+post. A person looked back on monthly reads that summary and the posts that
+name them, so however many people there are, the timeline is read once a month.
+
 Personas can also create scheduled follow-ups. plana can, for example, remember
 "flowers on the way home" and later ask whether you got them.
 
@@ -208,7 +242,7 @@ server-side wakes.
 
 ## A sandboxed external agent with NVIDIA NemoClaw
 
-Some work goes beyond what a small subject-specific persona should do.
+Some work goes beyond what a small persona for one interest or person should do.
 
 For those, any persona can hand its thinking to **Hermes Agent** through MCP.
 Each persona chooses its planner: the built-in model, or the external agent.
@@ -343,6 +377,12 @@ writes its notes there.
 
 The same mechanism works in the other direction when a persona was called when
 it should not have been.
+
+A persona that keeps a person skips the router: a post reaches it when one of
+its names or keywords is in it. ⚖ shows the word that matched. **Should have
+been called** has the AI propose keywords from the post and their near words,
+and **Should not have been called** lets you choose which of the matched words
+to remove.
 
 ## Fix a reply where it went wrong
 

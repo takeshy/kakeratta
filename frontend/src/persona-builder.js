@@ -3,6 +3,7 @@ import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { toolLabel, uniqueTools } from "./tool_labels.js";
+import { factsField, postFacts } from "./person-facts.js";
 
 // A new persona starts active, and saying so is what keeps someone from
 // thinking it was made while it still waits for a switch.
@@ -11,10 +12,12 @@ export function addedToast(saved) {
   else toast(t("「{0}」を追加しましたが、有効にできませんでした。カードの「有効にする」をオンにしてください", saved.name), "error");
 }
 
-export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }) {
+export function showPersonaBuilder({ persona, onSave, onPosted, getSettings = () => ({}) }) {
   const opener = document.activeElement;
   const messages = [];
   let draft = null;
+  // How often a person is looked back on, as the AI chose from how close they are.
+  let checkIn = "";
   let busy = false;
   let closed = false;
   const backdrop = el("div", { class: "dialog-backdrop" });
@@ -27,6 +30,7 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
     ? "まだ保存されていません。下記の内容で問題なければ「この内容で保存」を押してください。"
     : "まだ追加されていません。下記の内容で問題なければ「この担当を追加」を押してください。追加するとすぐに有効になります。" });
   const preview = el("div");
+  const facts = factsField();
   const error = el("p", { class: "hint", role: "alert" });
   const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。" });
   const send = el("button", { class: "button primary", label: "送る", type: "submit" });
@@ -44,10 +48,16 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
       await voice.discard();
       if (closed) return;
       const saved = await api.savePersonaDraft(draft, persona?.id);
+      if (!persona && saved.kind === "person" && checkIn === "monthly") {
+        try { await api.setDailyCheckIn(saved.id, { talk: "share", every: "monthly" }); }
+        catch (e) { toast(String(e.message || e), "error"); }
+      }
       if (persona) toast(t("{0} を保存しました", saved.name));
       else addedToast(saved);
+      const told = facts.node.hidden ? "" : facts.box.value;
       close();
       await onSave?.(saved);
+      await postFacts(saved, told, onPosted);
     } catch (e) { error.textContent = e.message; }
     finally { setBusy(false); }
   }});
@@ -69,6 +79,7 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
     send.disabled = value;
     save.disabled = value;
     revise.disabled = value;
+    facts.box.disabled = value;
     voice.button.disabled = value;
     send.textContent = t(value ? "考えています…" : "送る");
   }
@@ -94,6 +105,8 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
       bubble("assistant", result.message);
       input.value = "";
       draft = result.draft;
+      checkIn = draft?.kind === "person" ? (result.checkIn === "monthly" ? "monthly" : "daily") : "";
+      facts.set(draft, result.facts);
       input.placeholder = typeof result.placeholder === "string" && result.placeholder.trim()
         ? result.placeholder.trim()
         : t(draft
@@ -109,7 +122,13 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
         const words = draft.kind === "person"
           ? [["呼び名", [draft.name, ...(draft.aliases || [])].join(" / ")], ["キーワード", (draft.keywords || []).join(" / ") || t("（なし）")]]
           : [];
-        for (const [label, value] of [...words, [draft.kind === "person" ? "担当の説明" : "担当条件", draft.domain], ["話し方", draft.tone], ["メモの分類", draft.memory], ["覚えること・返事をするタイミング", draft.instructions], ["できること", uniqueTools(draft.tools).map(tool => t(toolLabel(tool))).join(" / ") || t("会話と記憶")]]) {
+        // A person's tone and kinds of note are the app's; only instructions
+        // for this one person are its own, and there may be none.
+        const about = draft.kind === "person"
+          ? [["関係性", draft.domain], ...(String(draft.instructions || "").trim() ? [["この人についての指示", draft.instructions]] : []),
+            ...(persona ? [] : [["振り返り", t(checkIn === "monthly" ? "月1回（月のまとめを読む）" : "毎日")]])]
+          : [["担当条件", draft.domain], ["話し方", draft.tone], ["メモの分類", draft.memory], ["覚えること・返事をするタイミング", draft.instructions]];
+        for (const [label, value] of [...words, ...about, ["できること", uniqueTools(draft.tools).map(tool => t(toolLabel(tool))).join(" / ") || t("会話と記憶")]]) {
           preview.append(el("strong", { label }), el("p", { class: "builder-detail", text: value }));
         }
         preview.append(el("p", { class: "hint", label: "まずはこの内容で使ってみましょう。使ったあとでも「AIで修正」で変えられます。" }));
@@ -127,7 +146,7 @@ export function showPersonaBuilder({ persona, onSave, getSettings = () => ({}) }
   const dialog = el("div", { class: "dialog persona-builder", role: "dialog", "aria-modal": "true", "aria-label": t(persona ? "AIで修正" : "AIと担当を作る") },
     dialogCloseButton(close),
     el("h3", { text: persona ? t("{0} を修正", persona.name) : t("AIと担当を作る") }),
-    notice, preview, log, error, form,
+    notice, preview, facts.node, log, error, form,
     el("div", { class: "compose-row builder-actions" }, el("button", { class: "button ghost", label: "閉じる", onclick: close }), el("span", { class: "spacer" }), revise, save));
   dialog.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }

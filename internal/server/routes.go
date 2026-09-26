@@ -286,7 +286,8 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	entry, ok := s.store.Entry(r.PathValue("id"))
-	if !ok || entry.Deleted || entry.Speaker != timeline.User || entry.Kind != timeline.KindPost {
+	summary := entry.Speaker == timeline.App && entry.Summary != ""
+	if !ok || entry.Deleted || (entry.Speaker != timeline.User && !summary) || entry.Kind != timeline.KindPost {
 		fail(w, http.StatusNotFound, store.ErrNotEditable.Error())
 		return
 	}
@@ -299,6 +300,12 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusBadRequest
 		}
 		fail(w, status, err.Error())
+		return
+	}
+	// A summary is not routed: setting it right is all an edit does.
+	if summary {
+		s.publishEvent("entry", entry)
+		writeJSON(w, http.StatusOK, entry)
 		return
 	}
 	// New records also carry the routed text, so a late result or failed
@@ -417,7 +424,11 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		if settings.Planners[skill.ID] == store.PlannerExternal {
 			planner = store.PlannerExternal
 		}
-		out = append(out, row{Skill: skill, DailyCheckIn: settings.CheckInFor(skill.ID), Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
+		checkIn := settings.CheckInFor(skill.ID)
+		if checkIn.Every == store.CheckInMonthly {
+			checkIn.On = store.SummaryDay(s.store.Root())
+		}
+		out = append(out, row{Skill: skill, DailyCheckIn: checkIn, Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp.Data) > 0, "externalAgentPaused": settings.ExternalAgent.Paused, "externalAgentAway": s.agentStatus()["away"]})
 }
@@ -836,11 +847,23 @@ func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "話し方が不正です")
 		return
 	}
+	// A subject checks in every day; a person may be heard about monthly.
+	switch body.Every {
+	case "":
+	case store.CheckInMonthly:
+		if skill, _ := s.catalogue.Find(id); !skill.IsPerson() {
+			fail(w, http.StatusBadRequest, "月1回のチェックインは人物の担当だけです")
+			return
+		}
+	default:
+		fail(w, http.StatusBadRequest, "チェックインの頻度が不正です")
+		return
+	}
 	settings := s.store.ConfiguredSettings()
 	if settings.DailyCheckIns == nil {
 		settings.DailyCheckIns = map[string]store.DailyCheckIn{}
 	}
-	settings.DailyCheckIns[id] = store.DailyCheckIn{Enabled: true, Talk: body.Talk}
+	settings.DailyCheckIns[id] = store.DailyCheckIn{Enabled: true, Talk: body.Talk, Every: body.Every}
 	if err := s.store.SaveSettings(settings); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return

@@ -9,11 +9,20 @@ export default { title: "Personas", parameters: { layout: "fullscreen" } };
 
 // The dialog the panel opens lives on <body>, outside the story root, so a
 // story starts by taking down the one the previous story left.
-function panelOf(rows, after, { mcp } = {}) {
+// The tab and the order a viewer chose are kept in the browser; a story starts
+// from the defaults, or from the tab it names.
+function panelOf(rows, after, { mcp, tab } = {}) {
   for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove();
+  try {
+    localStorage.removeItem("kakeratta.personas.tab");
+    localStorage.removeItem("kakeratta.personas.order");
+  } catch { /* nothing kept */ }
   serve({ personas: rows, tools, memory, ...(mcp ? { mcp } : {}) });
   const panel = createPersonas({ onChange: () => {} });
-  void panel.load().then(() => after?.(panel.element));
+  void panel.load().then(() => {
+    if (tab) [...panel.element.querySelectorAll(".persona-tab")][tab === "person" ? 0 : 1]?.click();
+    after?.(panel.element);
+  });
   return sheet("担当", panel.element);
 }
 
@@ -81,7 +90,7 @@ export const AICreateDraft = {
     }});
     showPersonaBuilder({});
     const dialog = document.querySelector(".persona-builder");
-    dialog.querySelector("textarea").value = ja
+    dialog.querySelector("form textarea").value = ja
       ? "美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。お店で注文したり買ったりできるように。"
       : "When I send a photo of a wine label I liked, tell me the wine and its grape varieties so I can buy or order it.";
     dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -118,12 +127,42 @@ const personCard = (element) => element.querySelector('[data-id="sato"]');
 // else does.
 export const PersonCard = {
   name: "人物の担当がいる",
-  render: () => panelOf([person(), ...personas]),
+  render: () => panelOf([person(), ...personas], null, { tab: "person" }),
+};
+
+// People on a tab of their own, found by any of their names or keywords, and
+// in name order by the reading of their names.
+const people = () => {
+  const ja = getLanguage() === "ja";
+  return [
+    person(),
+    { ...person(), id: "aoki", dailyCheckIn: { enabled: true, talk: "share", every: "monthly", on: 12 }, name: ja ? "青木先生" : "Ms Aoki", icon: "🎹", domain: ja ? "子どものピアノの先生。" : "Our child's piano teacher.", aliases: ja ? ["青木", "あおき", "先生"] : ["Aoki", "teacher"], keywords: ja ? ["ピアノ教室", "発表会"] : ["piano lesson", "recital"] },
+    { ...person(), id: "mother", name: ja ? "母" : "Mum", icon: "👩", domain: ja ? "母。" : "My mother.", aliases: ja ? ["お母さん", "おかあさん", "おかん"] : ["Mother", "Mom"], keywords: ja ? ["実家"] : ["my parents' house"] },
+  ];
+};
+
+export const PeopleByName = {
+  name: "人物のタブ・名前順",
+  render: () => panelOf([...personas, ...people()], (element) => {
+    const order = element.querySelector(".persona-order");
+    order.value = "name";
+    order.dispatchEvent(new Event("change"));
+  }, { tab: "person" }),
+};
+
+export const PeopleSearch = {
+  name: "人物のタブ・検索",
+  render: () => panelOf([...personas, ...people()], (element) => {
+    const search = element.querySelector(".persona-search");
+    search.value = getLanguage() === "ja" ? "ぴあの" : "piano";
+    search.dispatchEvent(new Event("input"));
+  }, { tab: "person" }),
 };
 
 export const PersonEdit = {
   name: "人物の担当を修正",
   render: () => panelOf(withPerson(), (element) => {
+    element.querySelectorAll(".persona-tab")[0]?.click();
     [...personCard(element).querySelectorAll("button")].find((button) => /^(修正|Edit)$/.test(button.textContent))?.click();
   }),
 };
@@ -133,10 +172,10 @@ export const PersonCreateDraft = {
   render: () => panelOf(personas, () => {
     const w = personWords();
     const { active, wakes, planner, dailyCheckIn, builtin, ...draft } = person();
-    serve({ personas, tools, memory, personaDraft: { message: w.builderMessage, placeholder: "", draft } });
+    serve({ personas, tools, memory, personaDraft: { message: w.builderMessage, placeholder: "", draft, facts: w.facts } });
     showPersonaBuilder({});
     const dialog = document.querySelector(".persona-builder");
-    dialog.querySelector("textarea").value = w.builderRequest;
+    dialog.querySelector("form textarea").value = w.builderRequest;
     dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }),
 };

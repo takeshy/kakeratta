@@ -2,7 +2,7 @@ import { showConditionFix } from "../src/condition-fix.js";
 import { showReplyFix } from "../src/reply-fix.js";
 import { serve } from "./api.js";
 import { feed, panel } from "./frame.js";
-import { conditionDraft, keywordDraft, person, personRouting, personTimeline, personWords, personas, replyDraft, replyPreview, routing, timeline, words } from "./fixtures.js";
+import { conditionDraft, keywordDraft, monthSummary, person, personRouting, personTimeline, personWords, personas, replyDraft, replyPreview, routing, timeline, words } from "./fixtures.js";
 
 export default { title: "Timeline" };
 
@@ -134,10 +134,9 @@ export const Unreadable = { name: "画像を読めなかった", render: () => s
 
 const people = () => [...personas, person()];
 
-function personScene(open, { draft = null } = {}) {
+function personScene(open, { draft = null, routingCheck = { answered: true, delivered: true, heard: personWords().added[0], token: "trial_sample" } } = {}) {
   clearDialogs();
-  serve({ personas: people(), routing: personRouting(), personaDraft: draft,
-    routingCheck: { answered: true, delivered: true, heard: personWords().added[0], token: "trial_sample" } });
+  serve({ personas: people(), routing: personRouting(), personaDraft: draft, routingCheck });
   const view = feed(personTimeline(), people(), { onFixCondition: fixing });
   view.element.querySelector(`.thread[data-id="${open}"] .routing-open`)?.click();
   return panel(view.element);
@@ -177,3 +176,18 @@ export const PersonKeywordProposal = {
     return host;
   },
 };
+
+// A post that reached him by a keyword without being about him: the words it
+// matched are listed, to remove or keep.
+export const PersonWordsRemove = {
+  name: "人物を呼んでほしくなかった・外す語",
+  render: () => {
+    const w = personWords();
+    const host = personScene(null, { routingCheck: { answered: true, delivered: true, heard: w.unheard[0], words: w.unheard, token: "trial_sample" } });
+    fixing({ persona: person(), entry: personTimeline().find((entry) => entry.id === "q3"), direction: "exclude" });
+    return host;
+  },
+};
+
+// The app's summary of the month, which the user can edit.
+export const MonthSummary = { name: "今月のまとめ", render: () => show(monthSummary()) };

@@ -341,8 +341,11 @@ type RoutingCheck struct {
 	Reason    string `json:"reason,omitempty"`
 	// Heard is the name or keyword a person would be reached by.
 	Heard string `json:"heard,omitempty"`
-	Error string `json:"error,omitempty"`
-	Token string `json:"token,omitempty"`
+	// Words are all of a person's names and keywords in the post, so one it
+	// should not have reached shows every word there is to remove.
+	Words []string `json:"words,omitempty"`
+	Error string   `json:"error,omitempty"`
+	Token string   `json:"token,omitempty"`
 }
 
 func routeConfigured(ctx context.Context, client *llm.Client, settings store.Settings, skills []Skill, thread []Entryish, trigger Entryish) Routing {
@@ -403,12 +406,14 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 	client, settings := r.clientOf()
 	skills := r.catalogue.Active(settings.Active)
 	found := false
+	var words []string
 	for _, skill := range skills {
 		if skill.ID == skillID {
 			found = true
 			// A person is decided by its own words; the router has no say.
 			if skill.IsPerson() {
 				skills = []Skill{skill}
+				words = HeardTerms(skill, search.Text(entry))
 			}
 			break
 		}
@@ -422,7 +427,7 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 	}
 	thread := timeline.Thread(entries, timeline.RootOf(entry))
 	routing := routeSubjects(ctx, client, settings, skills, thread, entry)
-	check := RoutingCheck{Answered: routing.Answered, Error: routing.Error}
+	check := RoutingCheck{Answered: routing.Answered, Error: routing.Error, Words: words}
 	if routing.Answered {
 		check.Delivered = contains(routing.Deliver, skillID)
 		check.Reason = routing.Excluded[skillID]
@@ -702,6 +707,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		})
 		return nil
 	}
+	skill = skill.forTurn()
 
 	root := timeline.RootOf(trigger)
 	daily := trigger.ID == ""
@@ -1202,7 +1208,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *pr
 			return "書きませんでした: " + why, true
 		}
 		if skill, ok := r.catalogue.Find(personaID); ok {
-			if why := typeNotAllowed(skill.Memory, path, text); why != "" {
+			if why := typeNotAllowed(skill.forTurn().Memory, path, text); why != "" {
 				return "書きませんでした: " + why, true
 			}
 		}

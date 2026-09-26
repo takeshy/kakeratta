@@ -1,65 +1,49 @@
 ## Inspiration
 
-I talk to myself a lot. I say things out loud about a meal I just had, something I noticed, or an interesting idea that came to mind. It feels like leaving a hook that might help me remember it later.
+With smartphones, jotting down notes and snapping photos has become effortless, leading to an overwhelming volume of data. Naturally, the more data piles up, the less often we revisit it. We forget we even took a note, or look back at one and have no idea what it was about.
 
-But in the end, I still forget.
+I tried building an app that uses AI to automatically categorize and organize notes. But much like when someone cleans up your room for you and suddenly nothing is where you expect it to be, it only made things harder to find. When things were cluttered, it may have been messy, but because they were always in sight or being shuffled around, I still had a rough sense of where everything was. That said, with the sheer volume of data I now had, leaving it scattered meant I would never find anything.
 
-I take notes too, but I hardly ever read them back. The things I do look up are usually things I already know exist, such as my calendar or contacts.
+Then it hit me: what if the organizer could tell you where things are, anticipate that you might forget something even exists, proactively bring it up when relevant topics arise, and ask, "Can I forget this?" for things left untouched for far too long? Wouldn't that fulfill the true purpose of taking notes?
 
-Even if an AI organized every note perfectly, that would not solve this problem. If I have forgotten that the information exists at all, I cannot even search for it. Something that felt trivial when I recorded it may become important a few weeks later.
+One of my biggest personal regrets is losing touch with someone who always cared about me—simply because I was too busy, forgot to send a thank-you message, and before I realized it, the moment had passed, letting us drift apart.
 
-So the first thing I wanted was not an AI that organizes things, but an AI that brings forgotten things back when they become relevant.
+That is how kakeratta was born.
 
-But talking to yourself has another purpose besides leaving memories.
+Features
+kakeratta is a personal AI timeline where you simply jot down fragments of your day, and dedicated AI personas—assigned to specific topics or people—memorize only what is relevant to them.
 
-Putting a vague thought into words can help organize it in your head. Saying a small discovery out loud can also make the excitement feel more real.
+Rather than dumping everything into one monolithic personal memory, you just post text, photos, URLs, or voice notes as they come. Each AI persona receives only the fragments pertinent to its domain, deciding whether to remember it, reply, use a tool, schedule a future follow-up, or simply stay silent.
 
-The problem is that ordinary self-talk has no one on the other side.
+By default, four topic-based Personas are included (no person-based personas are set by default):
 
-If I talk through an idea, sometimes I want someone to question it: "Is that really true?" If I found something exciting, I want someone to be excited with me. Sometimes I want a different point of view that I would not have reached on my own.
+tabe : Dining & food
 
-At the same time, I do not want an AI to reply to every unimportant thought. Sometimes I just want it to listen and remember.
+michi : Travel & outings
 
-So what I wanted was not simply a note-taking app for self-talk. I wanted something that remembers what I say, reacts when a reaction is useful, stays quiet when it has nothing to add, and can bring something back much later when it becomes relevant.
+shiori : Reading & books
 
-That led me to build a place where I can drop fragments of everyday life without first deciding whether they are important or how they should be organized.
+plana : Things too small for a calendar, yet easy to forget
 
-Depending on the fragment, the AI may empathize, criticize an idea, remember something, or simply stay quiet. Later, when it becomes useful, it can look through past records or the web and speak up again.
+Posts are routed to topic personas based on filtering rules, and to person personas via nicknames and keywords—meaning not every fragment is broadcast to every AI.
 
-That is kakeratta.
+Doing nothing is just as vital. If every AI chimed in on every post, your timeline would become overwhelming in no time. In kakeratta, it is completely normal for a persona to silently commit something to memory without saying a word.
 
-## What it does
+Personas can be created and customized entirely in natural language. For instance, for a persona focused on wine:
 
-kakeratta is a personal AI timeline where multiple subject-specific AIs decide which fragments of your everyday life matter to them and build separate memories from them.
+"Remember the wines I drink and help me pick one next time."
 
-Instead of sending everything you say into one large personal memory, kakeratta lets you simply drop in text, photos, URLs, and speech. Each AI persona receives only the fragments relevant to its role, then decides whether to remember something, reply, use a tool, schedule a later follow-up, or simply stay quiet.
+That is all it takes to set one up. As you use it, you can fine-tune its behavior and memory priorities:
 
-Four **personas** are included by default:
+"Keep your replies briefer."
 
-- **tabe**: food
-- **michi**: travel and going out
-- **shiori**: reading
-- **plana**: things that are too small for the calendar but still easy to forget
+"Don't just log the label—remember why I liked that wine."
 
-Each persona has its own memory and routing condition, so not every fragment is sent to every AI.
+For a person-based persona, you might set it up like this:
 
-Doing nothing is important too. If every AI reacted to every post, the timeline would quickly become annoying. In kakeratta, it is normal for a persona to remember something without saying anything.
+"My partner's name is Nagomi, born Nov 10, 1972. Loves K-pop idols and cosmetics. Great at playing the piano. Loves spicy food, like Thai cuisine."
 
-Personas can be created and edited in natural language.
-
-For example:
-
-> Remember the wines I drink and help me choose next time.
-
-That is enough to create one.
-
-While using it, I can also say things like:
-
-> Reply more briefly.
-
-> Remember why I liked the wine, not just the label.
-
-and adjust how it behaves and what it remembers.
+Once you establish that baseline, just casually share little daily moments. Nagomi's persona will remind you when her birthday is coming up, track gifts exchanged over time, and suggest thoughtful ideas when the time is right.
 
 ### Memory can be inspected and edited
 

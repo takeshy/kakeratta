@@ -90,7 +90,7 @@
       <article class="doc">
         <div class="beginner-guide">
           <h1>kakeratta の使い方</h1>
-          <p class="lede">思いついたこと、目に留まったものを、ひとつのタイムラインへ放り込む。分野ごとに記憶を持つ AI（<strong>担当</strong>）が、言うことがあるときだけ反応します。</p>
+          <p class="lede">日々のかけらを、ひとつのタイムラインへ放り込む。人や関心ごとに置いた、自分とは別の記憶を持つ AI（<strong>担当</strong>）が、言うことがあるときだけ反応し、必要なときに思い出させます。</p>
           <div class="tip">
             <p>このページは毎日使う機能だけをまとめています。振り分けや返し方の調整、Bluesky・Hermes との連携、設定の詳細は <a href="/manual/?guide=advanced" data-lang-link>上級編</a> にあります。</p>
           </div>
@@ -156,7 +156,7 @@
 
         <section id="ja-personas">
           <h2>4. 担当を選ぶ・作る</h2>
-          <p>担当は、分野ごとに別々の記憶を持つ AI です。投稿をどの担当に渡すかは本体が決め、そのうえで覚えるか、喋るかを各担当が決めます。担当同士でメモは共有しません。</p>
+          <p>担当は、一人の人物か一つの関心ごとについて、別々の記憶を持つ AI です。人物の担当にはその人の名前が出たかけらが、関心ごとの担当には本体が振り分けたかけらが届き、そのうえで覚えるか、喋るかを各担当が決めます。担当同士でメモは共有しません。</p>
           <h3>最初からいる 4 人</h3>
           <div class="table-scroll">
             <table>
@@ -171,7 +171,7 @@
           </div>
           <p>ヘッダーの <strong>担当</strong> で一覧を開き、<strong>有効にする</strong> で受け取る担当を選びます。担当は投稿された言語で答えます。</p>
           <figure>
-            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1645" />
+            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1778" />
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
           </figure>
           <h3>AI と担当を作る</h3>
@@ -193,17 +193,25 @@
             <li>名前を出さない話も拾えるよう、キーワードには言い換えや似た言葉を並べます（例：釣り、つり、釣行、海釣り）。AI で作ると、呼び名の書き方の違いとキーワードの似た言葉をまとめて入れます。</li>
             <li>「母」で「母校」の話が届くように、文字が合っただけで届くことがあります。担当はその人の話かを確かめ、関係なければ何もしません。</li>
             <li>人物の担当はその人について分かったこと（好み、誕生日など）と、その人との出来事（会話、贈り物、約束、貸し借り）を覚えます。貸し借りや約束は、済んだと分かるまで忘れません。</li>
-            <li><strong>会う予定を書くと、担当はその日の朝に起きて</strong>、前回の出来事や済んでいないことを一言添えて知らせます。そのため人物の担当は予定を置く道具（schedule）を持ちます。</li>
+            <li><strong>作るときに伝えたことも覚えます。</strong>「恋人の nagomi。11/10生まれで、辛いタイ料理が好き」のように書くと、その人についての事実は担当の設定ではなく <strong>かけらとして残すこと</strong> に分けて出ます。保存すると、それが <code>@呼び名</code> 付きのかけらとして投稿され、担当はそこからメモを作ります。メモからは元のかけらに戻れます。AIで修正で伝えたことも同じです。</li>
+            <li><strong>会う予定を書くと、担当はその日の朝に起きて</strong>、前回の出来事や済んでいないことを一言添えて知らせます。人物の担当は、この予定を置く道具のほか、Web 検索、お店や場所の検索、行き方の検索も最初から使えます。贈り物や会う場所を調べるためです。</li>
+            <li><strong>誕生日や記念日が分かると、その1週間前に知らせます。</strong> これまでの贈り物やその人の好みから思いつくことも添えます。</li>
+            <li>話し方、覚え方、約束や予定の扱いはすべての人物の担当で共通で、本体が決めます。担当ごとに書くのは <strong>関係性</strong>（恋人、母、大学時代の友人など）と、必要なら <strong>この人についての指示</strong>（「健康の話は控えめに」など）だけです。</li>
           </ul>
           <figure>
-            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名とキーワードの一覧（サンプル）" loading="lazy" width="382" height="353" />
+            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名とキーワードの一覧（サンプル）" loading="lazy" width="382" height="374" />
             <figcaption>人物の担当のカード。届くきっかけになる呼び名とキーワードが並びます（サンプル）。</figcaption>
           </figure>
+          <p><strong>担当</strong> の一覧は <strong>人物</strong> と <strong>関心ごと</strong> のタブに分かれ、どちらも名前や担当条件、呼び名、キーワードで検索できます。ひらがな・カタカナや全角・半角は区別しません。人物のタブは <strong>名前順</strong> にも並べられ、漢字の名前はかなの呼び名（「青木」なら「あおき」）の読みで並びます。</p>
           <figure>
-            <img src="/captures/ja/person-draft.png" alt="AI が下書きした佐藤さんの担当。呼び名、キーワード、担当の説明、メモの分類（サンプル）" loading="lazy" width="382" height="1302" />
-            <figcaption>AI の下書き。呼び名の書き方の違いと、キーワードの似た言葉も入ります（サンプル）。</figcaption>
+            <img src="/captures/ja/people.png" alt="担当の人物のタブ。青木先生・母・佐藤さんが名前順に並ぶ（サンプル）" loading="lazy" width="390" height="1710" />
+            <figcaption>人物のタブを名前順にしたところ（サンプル）。</figcaption>
           </figure>
-          <p>届かなかったかけらがあれば、<strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せます（<a href="/manual/?guide=advanced#ja-people-keywords" data-lang-link>人物の担当にキーワードを足す</a>）。</p>
+          <figure>
+            <img src="/captures/ja/person-draft.png" alt="AI が下書きした佐藤さんの担当。呼び名、キーワード、関係性、メモの分類と、かけらとして残すこと（サンプル）" loading="lazy" width="382" height="1160" />
+            <figcaption>AI の下書き。呼び名の書き方の違いと、キーワードの似た言葉も入ります。伝えた事実は「かけらとして残すこと」に分かれます（サンプル）。</figcaption>
+          </figure>
+          <p>届かなかったかけらがあれば <strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せ、関係のないかけらが届いたら <strong>呼んでほしくなかった</strong> から一致した語を外せます（<a href="/manual/?guide=advanced#ja-people-keywords" data-lang-link>人物の担当のキーワードを直す</a>）。</p>
           <h3>使いながら直す</h3>
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
@@ -212,6 +220,13 @@
           <p>話す量を変えるには、<strong>担当</strong> を開き、対象の担当の <strong>チェックインでは最低限のことだけ話す</strong> を切り替えます。変更は自動で保存されます。</p>
           <p>時刻は、この端末のタイムゾーンで数えます。ブラウザを閉じていても、サーバーが動いていれば実行されます。</p>
           <p>チェックインとは別に、plana のように担当が自分で起きる時刻を決めることもあります。詳しくは <a href="/manual/?guide=advanced#ja-wakes" data-lang-link>担当が起きるタイミング</a> を見てください。</p>
+          <h3 id="ja-summary">今月のまとめと、月1回振り返る人物</h3>
+          <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。話題ごとの箇条書きで、各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
+          <figure>
+            <img src="/captures/ja/month-summary.png" alt="本体が投稿した今月のまとめ。人・食・これからのことの箇条書き（サンプル）" loading="lazy" width="382" height="384" />
+            <figcaption>今月のまとめ（サンプル）。</figcaption>
+          </figure>
+          <p>人物の担当は、カードで <strong>毎日振り返る</strong> か <strong>月1回振り返る</strong> を選べます。月1回にした人物は、まとめが書かれた日に起き、まとめと、その人の名前やキーワードが出たかけらを読んで振り返ります。人物が増えても、タイムラインを読むのは月に1回で済みます。AI と担当を作ると、家族や親しい人は毎日、たまに会う人は月1回のように、関係性から選ばれます。関心ごとの担当は毎日です。</p>
         </section>
 
         <section id="ja-memory">
@@ -325,7 +340,7 @@
             <figcaption>今の条件と、AI が書いた新しい条件（サンプル）。</figcaption>
           </figure>
           <p>変わるのは判定条件だけで、口調や覚え方は変わりません。振り分けに Jev を使っている場合（<a href="#ja-settings">設定とデータ</a>）は理由が表示されませんが、条件は同じ手順で直せます。</p>
-          <h3 id="ja-people-keywords">人物の担当にキーワードを足す</h3>
+          <h3 id="ja-people-keywords">人物の担当のキーワードを直す</h3>
           <p><a href="/manual/#ja-people" data-lang-link>人物の担当</a>には判定条件がなく、呼び名かキーワードが書かれたかけらだけが届きます。⚖ には、どの語で届いたかが「「佐藤さん」に一致」のように出ます。</p>
           <figure>
             <img src="/captures/ja/person-routing.png" alt="佐藤さんの担当が「佐藤さん」の一致で呼ばれたことを示す担当の判断（サンプル）" loading="lazy" width="382" height="462" />
@@ -341,7 +356,17 @@
             <img src="/captures/ja/person-keywords.png" alt="「週末は海釣りに行くらしい」から AI が出した、足すキーワード（サンプル）" loading="lazy" width="382" height="377" />
             <figcaption>今のキーワードと、AI が出した足すキーワード（サンプル）。</figcaption>
           </figure>
-          <p>人物の担当には <strong>呼んでほしくなかった</strong> は出ません。届いてほしくない語は、担当の <strong>修正</strong> で呼び名やキーワードから消してください。</p>
+          <p>関係のないかけらが語の一致で届いたときは、呼ばれた人物の担当の行で <strong>呼んでほしくなかった</strong> を押します。</p>
+          <ol>
+            <li>呼び名とキーワードのうち、そのかけらに一致した語が並びます。担当の名前そのものは表示だけで、ここでは外せません（担当の <strong>修正</strong> で変えます）。</li>
+            <li>外す語にチェックを入れて <strong>外す</strong> を押します。保存して同じかけらで確かめ、ほかの語でもまだ一致するなら、その語を伝えるので続けて外せます。</li>
+            <li>外さないなら <strong>残す</strong> で閉じます。その人と関係のないかけらなら、担当はもともと発言もメモもせずに終えます。</li>
+          </ol>
+          <figure>
+            <img src="/captures/ja/person-words.png" alt="「キャンプ場の予約サイトがまた落ちてる」に一致した語と、外す・残すの選択（サンプル）" loading="lazy" width="382" height="397" />
+            <figcaption>かけらに一致した語から、外すものを選びます（サンプル）。</figcaption>
+          </figure>
+          <p>外した語だけを含むかけらは今後届かず、外した呼び名は @ での指名にも使えなくなります。そのかけらに担当がすでに残した発言やメモは消えません。</p>
         </section>
 
         <section id="ja-reply-fix">
@@ -368,7 +393,7 @@
               <thead><tr><th>きっかけ</th><th>決める人</th><th>内容</th></tr></thead>
               <tbody>
                 <tr><td>かけらが届いたとき</td><td>本体（振り分け）</td><td>分野に当たる担当と、<code>@名前</code> で指名された担当が動きます。人物の担当は、呼び名かキーワードが書かれているときに動きます。</td></tr>
-                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>本体</td><td>有効な担当が、7時〜21時のどこかで1日1回起きます。</td></tr>
+                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>本体</td><td>有効な担当が、7時〜21時のどこかで1日1回起きます。月1回振り返る人物は、<a href="/manual/#ja-summary" data-lang-link>今月のまとめ</a>の日に起きます。</td></tr>
                 <tr><td>担当が預けた予定</td><td>担当</td><td><code>schedule</code> を持つ担当が、自分の記録から時刻を決めて起きます。</td></tr>
               </tbody>
             </table>
@@ -597,7 +622,7 @@
       <article class="doc">
         <div class="beginner-guide">
           <h1>Using kakeratta</h1>
-          <p class="lede">Put thoughts and things that catch your eye into one timeline. AIs with a memory for their own subject, called <strong>personas</strong>, react only when they have something to say.</p>
+          <p class="lede">Toss fragments of your day into one timeline. AIs you keep for the people and interests in your life, each with a memory separate from yours, called <strong>personas</strong>, react only when they have something to say and bring things back when they matter.</p>
           <div class="tip">
             <p>This page covers what you use every day. Fixing routing and replies, Bluesky and Hermes, and settings in detail are in the <a href="/manual/?guide=advanced" data-lang-link>advanced guide</a>.</p>
           </div>
@@ -663,7 +688,7 @@
 
         <section id="en-personas">
           <h2>4. Choosing and creating personas</h2>
-          <p>A persona is an AI with its own memory for one subject. The app decides which personas get each post; each one then decides whether to remember and whether to speak. Personas do not share notes with one another.</p>
+          <p>A persona is an AI with its own memory for one person or one interest. A person's persona gets the fragments that mention them; an interest's gets the ones the app routes to it. Each then decides whether to remember and whether to speak. Personas do not share notes with one another.</p>
           <h3>The four that ship with the app</h3>
           <div class="table-scroll">
             <table>
@@ -678,7 +703,7 @@
           </div>
           <p>Open <strong>Personas</strong> in the header and turn on <strong>Enable</strong> for the ones you want. A persona answers in the language you wrote in.</p>
           <figure>
-            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="1869" />
+            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="2002" />
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
           <h3>Create a persona with AI</h3>
@@ -700,17 +725,25 @@
             <li>To catch posts that do not name them, list rewordings and near words as keywords (fishing, angling, sea fishing). The AI fills in the other spellings of the names and the near words of the keywords.</li>
             <li>A word can match by accident, as 母 (mother) does in 母校 (alma mater). The persona checks whether the post is about the person and does nothing if it is not.</li>
             <li>A person's persona remembers what it learns about them (tastes, birthday) and what happens with them (talks, gifts, promises, loans). Loans and promises are kept until you say they are settled.</li>
-            <li><strong>Mention meeting them and the persona wakes that morning</strong> to bring up what happened last time and anything still open. That is why a person's persona has the tool that places wakes (schedule).</li>
+            <li><strong>What you tell it when making it is remembered too.</strong> Write something like “My partner nagomi. Born on 10 November, loves spicy Thai food” and the facts about them come out apart from the settings, under <strong>Keep as a fragment</strong>. Saving posts them as a fragment with <code>@name</code>, and the persona makes its notes from it, each leading back to that fragment. The same goes for what you tell <strong>Edit with AI</strong>.</li>
+            <li><strong>Mention meeting them and the persona wakes that morning</strong> to bring up what happened last time and anything still open. Besides placing wakes, a person's persona starts with web search, place search and routes, to look up presents and places to meet.</li>
+            <li><strong>Once it knows a birthday or an anniversary, it tells you a week before</strong>, with an idea drawn from past gifts and what they like.</li>
+            <li>How a person's persona speaks, what it keeps and how it handles promises and meetings are the same for every person, set by the app. Each one has only a <strong>relationship</strong> (partner, mother, a friend from university) and, if you like, <strong>instructions for this person</strong> (“go easy on health topics”).</li>
           </ul>
           <figure>
-            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names and keywords (sample data)" loading="lazy" width="382" height="353" />
+            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names and keywords (sample data)" loading="lazy" width="382" height="374" />
             <figcaption>A person's card lists the names and keywords that reach it (sample data).</figcaption>
           </figure>
+          <p>The <strong>Personas</strong> panel has a <strong>People</strong> tab and an <strong>Interests</strong> tab, and each can be searched by name, condition, names or keywords; kana and width do not matter. People can also be put <strong>By name</strong>, a name in kanji going by the kana among its names.</p>
           <figure>
-            <img src="/captures/en/person-draft.png" alt="A persona for Sato drafted by the AI: names, keywords, description and kinds of note (sample data)" loading="lazy" width="382" height="1379" />
-            <figcaption>The AI's draft, with other spellings of the names and near words for the keywords (sample data).</figcaption>
+            <img src="/captures/en/people.png" alt="The People tab of the Personas panel, with Ms Aoki, Mum and Sato in name order (sample data)" loading="lazy" width="390" height="1770" />
+            <figcaption>The People tab in name order (sample data).</figcaption>
           </figure>
-          <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong> (<a href="/manual/?guide=advanced#en-people-keywords" data-lang-link>Add keywords to a person</a>).</p>
+          <figure>
+            <img src="/captures/en/person-draft.png" alt="A persona for Sato drafted by the AI: names, keywords, relationship, kinds of note, and what to keep as a fragment (sample data)" loading="lazy" width="382" height="1211" />
+            <figcaption>The AI's draft, with other spellings of the names and near words for the keywords. The facts you told it are kept apart, to be posted (sample data).</figcaption>
+          </figure>
+          <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong>; if an unrelated one did, remove the matched word from <strong>Should not have been called</strong> (<a href="/manual/?guide=advanced#en-people-keywords" data-lang-link>Fix a person's keywords</a>).</p>
           <h3>Adjust as you go</h3>
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
@@ -719,6 +752,13 @@
           <p>To change how much it says, open <strong>Personas</strong> and toggle the persona's <strong>At check-in, speak only when needed</strong>. Changes save automatically.</p>
           <p>The hours are counted in this device's time zone. The browser can be closed; the server runs the check-in.</p>
           <p>Some personas, such as plana, also pick their own wake times. See <a href="/manual/?guide=advanced#en-wakes" data-lang-link>When personas wake</a>.</p>
+          <h3 id="en-summary">This month's summary, and people looked back on monthly</h3>
+          <p>Once a month the app reads the month's timeline and posts <strong>This month</strong>: a list by topic, each line with a <strong>→</strong> to the fragment it came from. The app picks the day for your account (somewhere from the 1st to the 28th). The summary is yours to set right with <strong>✎</strong>.</p>
+          <figure>
+            <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app, listed under People, Food and Still open (sample data)" loading="lazy" width="382" height="450" />
+            <figcaption>This month's summary (sample data).</figcaption>
+          </figure>
+          <p>On a person's card you choose <strong>Look back daily</strong> or <strong>Look back monthly</strong>. A person looked back on monthly wakes on the summary's day and reads the summary and the fragments that mention its names or keywords, so however many people there are, the timeline is read once a month. <strong>Create a persona with AI</strong> chooses from the relationship: family and close friends daily, people you see now and then monthly. Interests check in daily.</p>
         </section>
 
         <section id="en-memory">
@@ -832,7 +872,7 @@
             <figcaption>The current condition and the AI's new one (sample data).</figcaption>
           </figure>
           <p>Only the condition changes; tone and memory rules stay. When routing uses Jev (<a href="#en-settings">Settings and data</a>), no reasons are shown, but conditions are fixed the same way.</p>
-          <h3 id="en-people-keywords">Add keywords to a person</h3>
+          <h3 id="en-people-keywords">Fix a person's keywords</h3>
           <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> has no condition: only fragments with one of its names or keywords reach it. In ⚖ the word it was reached by is shown, as in Matched “Sato”.</p>
           <figure>
             <img src="/captures/en/person-routing.png" alt="The router's call showing Sato's persona called because the post matched “Sato” (sample data)" loading="lazy" width="382" height="457" />
@@ -848,7 +888,17 @@
             <img src="/captures/en/person-keywords.png" alt="Keywords to add, proposed by the AI from “Apparently going sea fishing this weekend” (sample data)" loading="lazy" width="382" height="406" />
             <figcaption>The current keywords and the ones the AI proposes to add (sample data).</figcaption>
           </figure>
-          <p><strong>Should not have been called</strong> is not offered for a person. Remove a word you do not want from the names or keywords with <strong>Edit</strong>.</p>
+          <p>When an unrelated fragment reached a person by a word, tap <strong>Should not have been called</strong> on its row.</p>
+          <ol>
+            <li>The names and keywords that match the fragment are listed. The persona's own name is shown but cannot be removed here (change it with <strong>Edit</strong>).</li>
+            <li>Check the words to remove and tap <strong>Remove</strong>. They are saved and the same fragment is checked; if it still matches another word, you are told which and can remove that too.</li>
+            <li>To leave them, tap <strong>Keep</strong>. A fragment that is not about the person already ends with no reply and no note.</li>
+          </ol>
+          <figure>
+            <img src="/captures/en/person-words.png" alt="The word matched in “The campsite booking site is down again”, with Remove and Keep (sample data)" loading="lazy" width="382" height="381" />
+            <figcaption>Choose which of the matched words to remove (sample data).</figcaption>
+          </figure>
+          <p>A removed word no longer brings fragments that have only it, and a removed name no longer answers an @. What the persona already said or noted on the fragment stays.</p>
         </section>
 
         <section id="en-reply-fix">
@@ -875,7 +925,7 @@
               <thead><tr><th>Trigger</th><th>Decided by</th><th>What happens</th></tr></thead>
               <tbody>
                 <tr><td>A fragment arrives</td><td>The app (routing)</td><td>Personas whose subject matches, and any you mentioned with <code>@name</code>, act. A person's persona acts when one of its names or keywords is written.</td></tr>
-                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>The app</td><td>Each active persona wakes once a day, somewhere between 7:00 and 21:00.</td></tr>
+                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>The app</td><td>Each active persona wakes once a day, somewhere between 7:00 and 21:00. A person looked back on monthly wakes on the day of <a href="/manual/#en-summary" data-lang-link>this month's summary</a>.</td></tr>
                 <tr><td>A persona's own schedule</td><td>The persona</td><td>A persona with <code>schedule</code> picks a time from its own records.</td></tr>
               </tbody>
             </table>

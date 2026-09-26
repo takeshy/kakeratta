@@ -53,9 +53,30 @@ func Heard(skills []Skill, text string) map[string]string {
 	}
 	out := map[string]string{}
 	for _, skill := range People(skills) {
-		for _, term := range skill.Terms() {
-			if key := foldTerm(term); key != "" && strings.Contains(folded, key) {
-				out[skill.ID] = term
+		if terms := heardIn(skill, folded, true); len(terms) > 0 {
+			out[skill.ID] = terms[0]
+		}
+	}
+	return out
+}
+
+// HeardTerms are all of a person's words found in the text, in the order of
+// Terms. A post that should not have reached a person can be in it by more
+// than one word, and each is one the person may want to remove.
+func HeardTerms(skill Skill, text string) []string {
+	folded := foldText(text)
+	if folded == "" {
+		return nil
+	}
+	return heardIn(skill, folded, false)
+}
+
+func heardIn(skill Skill, folded string, first bool) []string {
+	var out []string
+	for _, term := range skill.Terms() {
+		if key := foldTerm(term); key != "" && strings.Contains(folded, key) {
+			out = append(out, term)
+			if first {
 				break
 			}
 		}
@@ -109,6 +130,8 @@ func (s *Skill) TidyTerms() {
 		s.Aliases, s.Keywords = nil, nil
 		return
 	}
+	// A person's tone and kinds of note are the app's; see forTurn.
+	s.Tone, s.Memory = "", ""
 	seen := map[string]bool{foldTerm(s.Name): true}
 	room := maxTerms
 	keep := func(terms []string) []string {
@@ -127,6 +150,37 @@ func (s *Skill) TidyTerms() {
 	}
 	s.Aliases = keep(s.Aliases)
 	s.Keywords = keep(s.Keywords)
+}
+
+// How a person's persona speaks, files and behaves is the same for everyone
+// it keeps, so the app holds it rather than each persona: a better rule
+// reaches every person at once. What a person's persona has of its own is the
+// relationship (its domain) and, if any, instructions for this one person.
+const (
+	personTone   = "落ち着いて、短く。思い出したことを一言添える。"
+	personMemory = "型は Fact（その人について分かったこと。好み・誕生日・記念日・家族・仕事など）と Event（その人との出来事。会話・贈り物・約束・貸し借り・会う予定）の2つ。tags には話題と場所を付ける。"
+	personRules  = `その人本人のことと、その人との出来事を覚えます。
+- 貸し借りや約束など済んでいないことは、済んだと分かるまで忘れません。
+- 会う予定が分かったら、schedule でその日の朝に自分を起こす予定を置き、Event のメモに予定の行を残します。起きたら、前回の出来事や済んでいないことを一言添えて知らせます。
+- 誕生日や記念日が分かったら Fact に日付を残します。その1週間前の朝（1週間を切っていればその日の朝）が30日以内に来るなら、その時刻に自分を起こす予定を置きます。まだ先なら、チェックインのたびにメモの日付を確かめ、30日以内に入ったら置きます。起きたら、その日が近いことと、これまでの贈り物や相手の好みから思いつくことを一言添えて知らせます。`
+)
+
+// forTurn is the persona as a turn sees it. A subject is as saved; a person
+// gets the app's tone, kinds of note and rules, with its relationship and its
+// own instructions set among them.
+func (s Skill) forTurn() Skill {
+	if !s.IsPerson() {
+		return s
+	}
+	s.Tone = personTone
+	s.Memory = personMemory
+	s.Domain = s.Name + "本人のこと、または" + s.Name + "との出来事。\nユーザーとの関係性：" + strings.TrimSpace(s.Domain)
+	own := strings.TrimSpace(s.Instructions)
+	s.Instructions = personRules
+	if own != "" {
+		s.Instructions += "\n\n" + s.Name + "についての指示：\n" + own
+	}
+	return s
 }
 
 // heardInstructions tell a person woken by a word that a word is all it was.

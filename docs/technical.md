@@ -16,10 +16,13 @@ server.
 
 A post moves through three main layers:
 
-**mixed timeline → routing → subject-specific personas → structured memory**
+**fragments of the day → personas for people and interests → a separate memory for each → recall when it matters**
 
-When a fragment arrives, the router checks it against each active persona's
-routing condition and wakes only the ones that match.
+In code both kinds are personas (`skill.json`); the user sees them as **People**
+and **Interests**. When a fragment arrives, a person's persona is reached if
+the fragment contains one of their names or keywords, and the router checks it
+against each interest persona's routing condition and wakes only the ones that
+match.
 
 Each selected persona then decides what to do:
 
@@ -168,6 +171,27 @@ Advanced settings can instead use **Jev** for routing alone. Jev is a
 decision-oriented model and can be faster and cheaper for that narrow task, but
 it does not provide the exclusion reasons used by the normal routing-inspection
 UI.
+
+### People are matched by words, not routed
+
+A persona can keep one person instead of a subject (`"kind": "person"`). A
+person is never put to the router: asked about 佐藤さん, it would hand over
+every post with a 佐藤 in it, a politician's included. A post reaches a person
+when it contains the persona's name, one of its `aliases` or one of its
+`keywords` (`internal/persona/people.go`). Width, case, hiragana against
+katakana, spacing and a trailing honorific (さん, くん, 様...) are folded away,
+so 佐藤 matches 佐藤くん and さとうさん; near words are listed as keywords of
+their own. Names also answer an `@`. Text read from a photo counts.
+
+A word can match by accident - 母 is in 母校. The persona is told that a word
+is all it was, and one whose post is not about the person ends its turn with
+no reply and no note. The word matched is kept on the routing record and shown
+in ⚖. There, **Should have been called** has the persona builder propose
+keywords from the post and their near words, and the saved words are checked
+against the same post without the router; **Should not have been called**
+lists every one of the person's words found in the post and lets the user
+remove the ones they choose (never the persona's own name). A person heard in
+a post is delivered even when the subjects' router fails.
 
 ### Measurements behind the routing design
 
@@ -606,6 +630,27 @@ that matter wake for a given post, and routing runs once per post. **Without
 separate subjects, @ means nothing** — if there is nothing to choose between,
 naming someone is pointless.
 
+### A person's persona
+
+A person's `skill.json` adds `kind`, `aliases` and `keywords`, and its
+`domain` is the relationship (恋人, 母, a friend from university) rather than a
+routing condition. It has no `tone` or `memory` of its own, and its
+`instructions` are only what is particular to this one person, if anything.
+How a person's persona speaks, its two note kinds (Fact and Event) and its
+rules - keep loans and promises until settled, wake on the morning of a
+meeting, wake a week before a birthday or an anniversary - are held by the app
+and given to every person at the start of a turn (`forTurn` in
+`internal/persona/people.go`), so a better rule reaches every person at once.
+
+The persona builder hands back, apart from the draft, the **facts** the user
+told it about the person (a birthday, what they like, what happened). They are
+not written into the settings: saving the persona posts them as a fragment
+naming the person with `@`, and the persona makes its notes from that post in
+an ordinary turn, so each fact is a note that leads back to where it was said.
+The builder also gives a new person every built-in tool - web search, place
+search, routes and schedule - and chooses from the relationship whether it is
+looked back on daily or monthly (see the month's summary below).
+
 ## Tools belong to the persona and the operator
 
 A persona does not automatically receive every tool available to the server.
@@ -723,7 +768,8 @@ exception: what it finds is offered for citing, the persona names in its
 ## Check-ins and scheduled wakes
 
 Every active persona has a **Daily check-in** once a day. It cannot be turned
-off, and only how much it says can be chosen.
+off, and only how much it says can be chosen - and, for a person, whether it is
+looked back on monthly instead (see the month's summary below).
 
 When it runs is the app's choice: a minute between 07:00 and 21:00 in the
 user's time zone (the one the page last saved) that drifts by at most an hour
@@ -781,6 +827,27 @@ posts once.
 A reply under a post a persona started on its own - a check-in, a schedule,
 a review - always reaches that persona, whatever the router decides. The
 persona is told which notes it had asked about and which others are due.
+
+### The month's summary, and people looked back on monthly
+
+Once a month the app reads the timeline since its previous summary (32 days at
+most, the newest 120,000 characters of it) and posts **This month** under its
+own name (`timeline.App`, `internal/persona/summary.go`): headings by topic,
+one line per item, each ending in a link to the post it came from. People's
+events, plans and anything still open are always kept. The day is picked by a
+hash of the workspace (1st to 28th, so every month has it) and the minute like
+a check-in's; the run is claimed like one, so it is written once. A month with
+no posts gets no summary. The user can edit the summary like their own post;
+editing it routes nothing.
+
+A person's persona can be looked back on **monthly** instead of daily (a
+subject always checks in daily). Such a person checks in on the summary's day,
+after it, and is handed the summary - as the user may have corrected it - and
+the posts since its previous check-in that contain its names or keywords (the
+newest 40), instead of reading the whole timeline. However many people there
+are, the month is read once. Since a wake can be at most 30 days ahead, a
+person checks at each check-in for a birthday whose week-before morning has
+come within reach, which a monthly gap cannot jump over.
 
 ### Schedules created by personas
 

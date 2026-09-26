@@ -200,6 +200,18 @@ func (d *desk) closeUnclaimed(a *openAsk) bool {
 	return true
 }
 
+// working reports whether an agent holds a claimed ask it has not finished.
+func (d *desk) working() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, a := range d.asks {
+		if a.State == "claimed" {
+			return true
+		}
+	}
+	return false
+}
+
 func (d *desk) find(id string) (*openAsk, bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -337,7 +349,14 @@ func (r *Runner) AgentLastSeen() time.Time {
 // AgentAway reports whether the external agent has gone quiet for longer than
 // the claim wait: silent that long, it would not claim an ask in time either. An agent away is set aside without anyone switching it
 // off, and comes back by itself the moment it calls in again.
+//
+// An agent working on an ask it claimed is not away, however long since it
+// last called: while it plans, its Wake Gate does not run, and the turn it is
+// planning has its own deadline.
 func (r *Runner) AgentAway(settings store.Settings) bool {
+	if r.desk.working() {
+		return false
+	}
 	seen := r.AgentLastSeen()
 	claim, _ := r.askWaits(settings)
 	return seen.IsZero() || time.Since(seen) > claim

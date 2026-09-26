@@ -26,8 +26,15 @@ const (
 	KindReply Kind = "reply"
 )
 
-// Speaker is who an entry came from. Anything that is not User is a persona id.
+// Speaker is who an entry came from. Anything that is not User or App is a
+// persona id.
 const User = "user"
+
+// App is the speaker of what the app itself posts: the month's summary.
+const App = "kakeratta"
+
+// SummaryMonth marks the app's summary of a month.
+const SummaryMonth = "month"
 
 // Source is a place a remark got something from, so a claim can be checked.
 type Source struct {
@@ -104,6 +111,10 @@ type Entry struct {
 	// entries, and for a turn that failed - a remark saying it
 	// could not answer was not answered on anything.
 	Model string `json:"model,omitempty"`
+
+	// Summary marks a post the app wrote to sum up a span: SummaryMonth. The
+	// user can edit it like their own post.
+	Summary string `json:"summary,omitempty"`
 
 	// Deleted marks a tombstone in the log rather than removing history.
 	Deleted bool `json:"deleted,omitempty"`
