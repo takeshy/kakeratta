@@ -3,7 +3,7 @@ name: kakeratta
 description: >
   Plan turns for kakeratta personas whose planner is this external agent.
 metadata:
-  version: "10"
+  version: "11"
 ---
 
 # kakeratta
@@ -15,6 +15,8 @@ If you do not claim an ask before its `claimBy`, or do not get a workflow accept
 ## Operator setup (NemoClaw / OpenShell)
 
 Before scheduling this skill, attach kakeratta as a **managed MCP provider** in the sandbox, configure its credential and network policy, and confirm that Hermes can call `mcp__kakeratta__list_asks`. Installing the skill alone does not create the MCP connection. Keep the token in OpenShell's credential store; do not put it in this skill or the cron command.
+
+Disable Hermes's Progressive Tool Disclosure in `/sandbox/.hermes/config.yaml` (`tools.tool_search.enabled: "off"`). When enabled, Hermes hides MCP tools behind a generic `tool_call` wrapper that requires tool arguments to be stringified JSON blobs; serializing nested workflow schemas then triggers quotation and double-escaping syntax errors. Setting `tools.tool_search.enabled: "off"` exposes every MCP tool directly with native JSON schemas.
 
 After adding or changing a managed MCP provider, check that the sandbox returns to `Ready` and that `hermes mcp list` shows kakeratta enabled. Hermes Gateway may exit with code `75` to request a restart. If sandbox commands then fail with `exec relay closed` or the sandbox stops, inspect the Hermes startup script: it must restart the Gateway on code `75`. A patched running container alone will lose that fix when the sandbox is recreated; build or select an image with the fixed startup script and recreate from that image. See the [integration guide](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md#keep-the-gateway-restart-fix-across-sandbox-recreation) for the failure and recovery path.
 
