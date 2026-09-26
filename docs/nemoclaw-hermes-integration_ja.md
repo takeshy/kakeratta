@@ -187,7 +187,7 @@ done
 ```dockerfile
 # ~/.config/nemoclaw/hermes-image/Dockerfile
 FROM ghcr.io/nvidia/nemoclaw/hermes-sandbox@sha256:73fec1566a2cdf859a8c2832f77f90d7101755843847ecf78d5cd270f92790ed
-ARG NEMOCLAW_TOOL_DISCLOSURE=progressive
+ARG NEMOCLAW_TOOL_DISCLOSURE=direct
 ENV NEMOCLAW_TOOL_DISCLOSURE=${NEMOCLAW_TOOL_DISCLOSURE}
 
 # サンドボックス再作成後も Gateway の exit 75 再起動を維持する
@@ -198,7 +198,7 @@ COPY --chown=root:root start.sh /usr/local/bin/nemoclaw-start
 NemoClaw の `onboard` コマンドに `--from` オプションで作成した Dockerfile を指定します。CLI が自動的に Docker build を呼び出し、カスタムイメージからサンドボックスを作成・起動します：
 
 ```bash
-nemoclaw onboard --from ~/.config/nemoclaw/hermes-image/Dockerfile
+nemoclaw onboard --from ~/.config/nemoclaw/hermes-image/Dockerfile --tool-disclosure direct
 ```
 
 #### 5. 動作確認

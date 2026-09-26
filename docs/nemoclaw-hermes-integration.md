@@ -187,7 +187,7 @@ Specify a pinned, verified base image digest and copy the patched `start.sh` ove
 ```dockerfile
 # ~/.config/nemoclaw/hermes-image/Dockerfile
 FROM ghcr.io/nvidia/nemoclaw/hermes-sandbox@sha256:73fec1566a2cdf859a8c2832f77f90d7101755843847ecf78d5cd270f92790ed
-ARG NEMOCLAW_TOOL_DISCLOSURE=progressive
+ARG NEMOCLAW_TOOL_DISCLOSURE=direct
 ENV NEMOCLAW_TOOL_DISCLOSURE=${NEMOCLAW_TOOL_DISCLOSURE}
 
 # Preserve Hermes gateway restarts (exit 75) across sandbox recreation
@@ -198,7 +198,7 @@ COPY --chown=root:root start.sh /usr/local/bin/nemoclaw-start
 Pass the Dockerfile to `nemoclaw onboard` using the `--from` option. The CLI automatically invokes Docker build and provisions the sandbox from the custom image:
 
 ```bash
-nemoclaw onboard --from ~/.config/nemoclaw/hermes-image/Dockerfile
+nemoclaw onboard --from ~/.config/nemoclaw/hermes-image/Dockerfile --tool-disclosure direct
 ```
 
 #### 5. Verification
