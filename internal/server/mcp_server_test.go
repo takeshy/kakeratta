@@ -40,6 +40,10 @@ func TestMCPKeyAccessAndRevocation(t *testing.T) {
 	if err := json.Unmarshal(out.Body.Bytes(), &response); err != nil || out.Code != http.StatusOK || response.Result.IsError {
 		t.Fatalf("response = %d: %s", out.Code, out.Body.String())
 	}
+	// Calling in is how the app knows the agent is there.
+	if s.runner.AgentLastSeen().IsZero() || s.runner.AgentAway(s.store.Settings()) {
+		t.Fatal("an authenticated call did not mark the agent as there")
+	}
 	r := httptest.NewRequest(http.MethodDelete, "/api/mcp/connection", nil)
 	out = httptest.NewRecorder()
 	s.ServeHTTP(out, r)

@@ -2,6 +2,20 @@ import { el, clear } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
 
+// Whether the agent is calling in. It is set aside by itself after going quiet
+// for the claim wait, and comes back the moment it calls in again.
+function agentLine(agent) {
+  if (!agent) return null;
+  const seen = agent.lastSeen ? new Date(agent.lastSeen) : null;
+  const when = seen ? seen.toLocaleString(getLanguage() === "ja" ? "ja-JP" : "en-US", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  if (agent.away) {
+    return el("p", { class: "hint warn", text: seen
+      ? t("外部エージェントから応答がありません（最終接続 {0}）。接続があるまで内蔵モデルが考えます。", when)
+      : t("外部エージェントからまだ接続がありません。接続があるまで内蔵モデルが考えます。") });
+  }
+  return el("p", { class: "hint", text: t("外部エージェント接続中（最終接続 {0}）", when) });
+}
+
 export function createMCPConnection({ onChange, onState } = {}) {
   const view = el("section");
   let connection = null, key = "", busy = false, error = "";
@@ -17,6 +31,7 @@ export function createMCPConnection({ onChange, onState } = {}) {
         })),
       el("p", { class: "hint", label: "担当画面で「外部エージェントを優先する」をONにした担当は、文脈の読み取りと workflow づくりを接続したエージェントに任せます。" }),
       el("p", { text: connection ? t(connection.configured ? "接続キー発行済み" : "未設定") : t("読み込み中…") }),
+      ...[connection?.configured ? agentLine(connection.agent) : null].filter(Boolean),
       el("p", { role: "alert", text: error }),
     );
     const act = async (action) => {

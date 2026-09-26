@@ -126,6 +126,11 @@ const PlannerExternal = "external"
 //
 // Paused sets the external agent aside for a while: every persona plans
 // in-process, and each persona's planner choice is kept for when it resumes.
+//
+// ClaimMinutes is also how long the agent may go without calling in over MCP
+// before it is taken to be away: an agent silent that long would not claim an
+// ask in time either, so until it calls again every persona plans in-process
+// at once instead of waiting out a claim nobody will make.
 type ExternalAgentSettings struct {
 	ClaimMinutes int  `json:"claimMinutes"`
 	PlanMinutes  int  `json:"planMinutes"`

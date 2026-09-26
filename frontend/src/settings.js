@@ -305,7 +305,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
         (next) => save({ claimMinutes: Number(next) })),
       select("取得後、workflow を待つ時間", String(agent.planMinutes || 15), minutes([5, 10, 15, 30, 60, 120], agent.planMinutes || 15),
         (next) => save({ planMinutes: Number(next) })),
-      el("p", { class: "hint", label: "時間内に外部エージェントが取得しない、または workflow を返さない場合は、内蔵モデルが代わりに考えます。" }),
+      el("p", { class: "hint", label: "時間内に外部エージェントが取得しない、または workflow を返さない場合は、内蔵モデルが代わりに考えます。取得を待つ時間のあいだ一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが考えます。" }),
     );
     enabled.addEventListener("change", async () => {
       enabled.disabled = true;

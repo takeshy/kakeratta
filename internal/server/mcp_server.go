@@ -67,7 +67,21 @@ func (s *Server) mcpConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]any{"configured": len(v.Data) > 0, "path": "/api/mcp/users/" + s.mcpWorkspace()})
+	writeJSON(w, 200, map[string]any{"configured": len(v.Data) > 0, "path": "/api/mcp/users/" + s.mcpWorkspace(), "agent": s.agentStatus()})
+}
+
+// agentStatus is whether the external agent is calling in, for the page: when
+// it last did, and whether it has gone quiet long enough to be set aside.
+func (s *Server) agentStatus() map[string]any {
+	status := map[string]any{"away": true, "lastSeen": nil}
+	if s.runner == nil {
+		return status
+	}
+	if seen := s.runner.AgentLastSeen(); !seen.IsZero() {
+		status["lastSeen"] = seen.UTC().Format(time.RFC3339)
+	}
+	status["away"] = s.runner.AgentAway(s.store.Settings())
+	return status
 }
 
 func (s *Server) issueMCPKey(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +168,11 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="kakeratta-mcp"`)
 		fail(w, 401, "invalid MCP credential")
 		return
+	}
+	// Any authenticated call - the Wake Gate's list every minute included -
+	// is the agent saying it is there.
+	if s.runner != nil {
+		s.runner.AgentSeen(time.Now())
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", "POST")

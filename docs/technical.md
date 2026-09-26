@@ -1055,7 +1055,9 @@ The built-in model takes the turn back when:
 * no workflow is accepted within the plan wait after the claim (15 minutes by
   default);
 * the agent runs out of drafts, or the review fails;
-* the agent calls `release_ask`.
+* the agent calls `release_ask`;
+* the agent has made no MCP call at all for the claim wait (away). No ask is
+  opened then, and the agent comes back by itself on its next call.
 
 Both waits are set under Settings → Advanced options → Integrations. An ask
 lives in memory with the turn waiting on it; a restart ends both, and a late

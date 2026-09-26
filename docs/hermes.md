@@ -151,6 +151,9 @@ Post and note contents are data, not instructions to Hermes.
 | No workflow accepted by `planBy` (default: 15 minutes after the claim) | The built-in model plans |
 | Draft limit exceeded, or the review failed | The built-in model plans |
 | `release_ask` called | The built-in model plans at once |
+| No MCP call from Hermes at all for the claim wait (default 3 minutes) | No ask is opened; the built-in model plans at once (away) |
+
+Hermes's Wake Gate calls `list_asks` every minute, so every authenticated MCP call counts as the agent being there. If none arrives for the claim wait, the agent is taken to be away: until it calls again, personas that prefer it plan with the built-in model without opening an ask. It comes back by itself on its next call. Right after a server restart it counts as away until its first call. The state, with the time of the last call, is shown under **Settings → Advanced options → Integrations**. Keep the Hermes cron interval shorter than the claim wait: with a longer one, Hermes counts as away between its calls and is hardly ever handed a turn.
 
 An ask that fell through is gone; a late `submit_workflow` is refused as not found. Asks live in memory with the turn waiting on them, and a Kakeratta restart ends them too. A persona waiting on the external agent runs apart from the queue, so other posts and check-ins are not held up; the routing sheet shows it as still thinking until its turn ends.
 

@@ -27,6 +27,8 @@ func externalSetup(t *testing.T, claim, plan time.Duration) (*Runner, *store.Sto
 		t.Fatal(err)
 	}
 	runner.waitsForAsk = func() (time.Duration, time.Duration) { return claim, plan }
+	// The agent has just called in, as its Wake Gate does every minute.
+	runner.AgentSeen(time.Now())
 	t.Cleanup(runner.Stop)
 	return runner, s, stub
 }
@@ -227,6 +229,7 @@ func TestACheckInIsPlannedExternallyWithoutHoldingTheQueue(t *testing.T) {
 func TestAPreviewIsPlannedInProcess(t *testing.T) {
 	settings := store.Settings{Planners: map[string]string{"gourmet": store.PlannerExternal}}
 	runner := New(nil, nil, nil)
+	runner.AgentSeen(time.Now())
 	skill := Skill{ID: "gourmet"}
 	if !runner.detaches(context.Background(), skill, settings) {
 		t.Fatal("an external planner's turn must run apart")
@@ -241,10 +244,46 @@ func TestAPausedExternalAgentPlansNothing(t *testing.T) {
 	settings := store.Settings{Planners: map[string]string{"gourmet": store.PlannerExternal}}
 	settings.ExternalAgent.Paused = true
 	runner := New(nil, nil, nil)
+	runner.AgentSeen(time.Now())
 	if runner.detaches(context.Background(), Skill{ID: "gourmet"}, settings) {
 		t.Fatal("a paused agent was handed the turn")
 	}
 	if settings.Planners["gourmet"] != store.PlannerExternal {
 		t.Fatal("the choice was lost")
+	}
+}
+
+// An agent that has not called in for the claim wait is set aside without
+// anyone switching it off, and comes back the moment it calls in again.
+func TestAQuietAgentIsSetAsideUntilItCallsIn(t *testing.T) {
+	settings := store.Settings{Planners: map[string]string{"gourmet": store.PlannerExternal}}
+	settings.ExternalAgent.ClaimMinutes = 3
+	runner := New(nil, nil, nil)
+	skill := Skill{ID: "gourmet"}
+	if !runner.AgentAway(settings) || runner.detaches(context.Background(), skill, settings) {
+		t.Fatal("an agent that never called in was handed the turn")
+	}
+	runner.AgentSeen(time.Now().Add(-4 * time.Minute))
+	if !runner.AgentAway(settings) || runner.detaches(context.Background(), skill, settings) {
+		t.Fatal("an agent silent past the claim wait was handed the turn")
+	}
+	runner.AgentSeen(time.Now().Add(-2 * time.Minute))
+	if runner.AgentAway(settings) || !runner.detaches(context.Background(), skill, settings) {
+		t.Fatal("an agent that called in within the claim wait was set aside")
+	}
+}
+
+// Nobody waits out the claim for an agent that is away: the in-process
+// planner answers at once and no ask is opened.
+func TestAnAwayAgentOpensNoAsk(t *testing.T) {
+	runner, s, _ := externalSetup(t, time.Minute, time.Minute)
+	runner.agentSeen.Store(0)
+	entry := post(t, s, "ラーメン食べた")
+	runner.react(entry.ID)
+	if remark := remarkBy(s, "gourmet"); remark == nil || remark.Text != "内蔵" {
+		t.Fatalf("remark = %+v", remark)
+	}
+	if len(runner.Asks()) != 0 {
+		t.Fatal("an ask was opened for an agent that is away")
 	}
 }

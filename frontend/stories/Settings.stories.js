@@ -18,5 +18,5 @@ export const InitialSetup = { name: "初回設定", render: () => panelOf({ ...s
 // Once an external agent is connected, the waits before falling back show.
 export const ExternalAgent = {
   name: "外部エージェント接続済み",
-  render: () => panelOf({ ...settings, externalAgent: { claimMinutes: 3, planMinutes: 15 } }, about, { mcp: { configured: true, path: "/api/mcp/users/sample" } }),
+  render: () => panelOf({ ...settings, externalAgent: { claimMinutes: 3, planMinutes: 15 } }, about, { mcp: { configured: true, path: "/api/mcp/users/sample", agent: { away: false, lastSeen: new Date(Date.now() - 40000).toISOString() } } }),
 };

@@ -318,20 +318,45 @@ func plannedApart(ctx context.Context) bool {
 	return v
 }
 
+// AgentSeen notes that the external agent called in over MCP. Its Wake Gate
+// calls every minute, so calling in is how the app knows it is there.
+func (r *Runner) AgentSeen(at time.Time) {
+	r.agentSeen.Store(at.UnixNano())
+}
+
+// AgentLastSeen is when the external agent last called in, or the zero time
+// if it has not since the app started.
+func (r *Runner) AgentLastSeen() time.Time {
+	seen := r.agentSeen.Load()
+	if seen == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, seen)
+}
+
+// AgentAway reports whether the external agent has gone quiet for longer than
+// the claim wait: silent that long, it would not claim an ask in time either. An agent away is set aside without anyone switching it
+// off, and comes back by itself the moment it calls in again.
+func (r *Runner) AgentAway(settings store.Settings) bool {
+	seen := r.AgentLastSeen()
+	claim, _ := r.askWaits(settings)
+	return seen.IsZero() || time.Since(seen) > claim
+}
+
 // plansExternally reports whether this turn's planning goes to the external
-// agent.
-func plansExternally(ctx context.Context, skill Skill, settings store.Settings) bool {
+// agent: the persona prefers it, it is not paused, and it is calling in.
+func (r *Runner) plansExternally(ctx context.Context, skill Skill, settings store.Settings) bool {
 	if v, _ := ctx.Value(builtinOnlyKey{}).(bool); v {
 		return false
 	}
-	return settings.PlansExternally(skill.ID)
+	return settings.PlansExternally(skill.ID) && !r.AgentAway(settings)
 }
 
 // Detaches reports whether a turn for this persona runs apart from the queue,
 // finishing later: a caller keeping track of who is still thinking must not
 // count it as done when run returns.
 func (r *Runner) detaches(ctx context.Context, skill Skill, settings store.Settings) bool {
-	return plansExternally(ctx, skill, settings) && !plannedApart(ctx)
+	return r.plansExternally(ctx, skill, settings) && !plannedApart(ctx)
 }
 
 // detach runs an externally planned turn apart from the queue. Waiting for an

@@ -419,7 +419,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, row{Skill: skill, DailyCheckIn: settings.CheckInFor(skill.ID), Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp.Data) > 0, "externalAgentPaused": settings.ExternalAgent.Paused})
+	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp.Data) > 0, "externalAgentPaused": settings.ExternalAgent.Paused, "externalAgentAway": s.agentStatus()["away"]})
 }
 
 func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {

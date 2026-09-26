@@ -125,3 +125,15 @@ test("the check-in always runs; the checkbox only chooses how much it says", asy
   assert.equal(saved[0].talk, "share");
   assert.equal(saved[0].enabled, true, "the check-in itself stays on");
 });
+
+test("the connection says whether the agent is calling in", async t => {
+  const { createMCPConnection } = await import("../frontend/src/mcp-connection.js");
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  globalThis.location = { origin: "https://kakeratta.net" };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.location; });
+  t.mock.method(api, "mcpConnection", async () => ({ configured: true, path: "/api/mcp/users/xxx", agent: { away: true, lastSeen: null } }));
+  const view = createMCPConnection();
+  await view.load();
+  assert.ok(walk(view.element).some(n => n.textContent === translate("外部エージェントからまだ接続がありません。接続があるまで内蔵モデルが考えます。")));
+});

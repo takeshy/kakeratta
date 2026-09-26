@@ -38,6 +38,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
   let toolNames = [];
   let mcpConfigured = false;
   let agentPaused = false;
+  let agentAway = false;
 
   async function load({ quiet = false } = {}) {
     try {
@@ -46,6 +47,7 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
       toolNames = payload.tools || [];
       mcpConfigured = !!payload.mcpConfigured;
       agentPaused = !!payload.externalAgentPaused;
+      agentAway = !!payload.externalAgentAway;
       onChange?.(rows);
       draw();
     } catch (error) {
@@ -146,6 +148,8 @@ export function createPersonas({ onChange, onSearch, getSettings }) {
         ? "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。"
         : agentPaused
         ? "外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。"
+        : agentAway
+        ? "外部エージェントから応答がありません。接続があるまで内蔵モデルが考えます。"
         : "外部エージェントが文脈を読み、次にすることを workflow にします。時間内に取得・返却されなければ内蔵モデルが代わりに考えます。" }));
     }
     return box;

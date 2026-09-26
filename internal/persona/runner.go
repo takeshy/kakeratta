@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/capture"
@@ -101,6 +102,9 @@ type Runner struct {
 	apart     context.Context
 	stopApart context.CancelFunc
 	detached  sync.WaitGroup
+	// agentSeen is when the external agent last called in over MCP, as Unix
+	// nanoseconds; zero until it first does after a start.
+	agentSeen atomic.Int64
 	// waitsForAsk overrides the settings' claim and plan waits, for tests.
 	waitsForAsk func() (time.Duration, time.Duration)
 }
@@ -839,7 +843,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		return text + readFooter(readLimit-readsUsed, set)
 	}
 
-	if plansExternally(ctx, skill, settings) {
+	if r.plansExternally(ctx, skill, settings) {
 		record.Planner = "external"
 		ask := Ask{ID: store.NewID("ask"), Persona: skill.ID, Name: skill.Name, Wake: record.Wake, Trigger: trigger.ID}
 		brief := r.askContext(skill, set, spec, system, user, wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
