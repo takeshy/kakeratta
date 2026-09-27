@@ -319,7 +319,9 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 // deleteEntry removes an entry. A post takes the conversation under it along
 // - the remarks and the user's own lines - since a reply without its post is
 // nothing, and a note that cited such a reply would otherwise keep pointing at
-// a thread that no longer opens.
+// a thread that no longer opens. A remark or a reply takes what answered it,
+// directly or further down: a wrong answer deleted alone left the replies
+// that repeated it, and those were searched and read back in its place.
 func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 	entry, ok := s.store.Entry(r.PathValue("id"))
 	if !ok {
@@ -328,17 +330,14 @@ func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	root := timeline.RootOf(entry)
 	gone := []timeline.Entry{entry}
-	if entry.Kind == timeline.KindPost {
-		if entries, err := s.store.Timeline(); err == nil {
-			var thread []timeline.Entry
-			for _, other := range timeline.Thread(entries, root) {
-				if !other.Deleted {
-					thread = append(thread, other)
-				}
-			}
+	if entries, err := s.store.Timeline(); err == nil {
+		thread := timeline.Thread(entries, root)
+		if entry.Kind == timeline.KindPost {
 			if len(thread) > 0 {
 				gone = thread
 			}
+		} else {
+			gone = append(gone, timeline.Replies(thread, entry.ID)...)
 		}
 	}
 	for i := range gone {

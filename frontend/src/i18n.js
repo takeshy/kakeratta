@@ -284,6 +284,8 @@ const EN = {
   "反応が付かないことがあります。付くときも、遅れて届きます。": "Some posts get no reaction. The ones that do arrive later.",
   "消す": "Delete", "この投稿を消しますか。この投稿だけを元にした担当のメモも消えます。": "Delete this post? Persona notes that rest only on it are deleted too.",
   "この回答を消しますか。検索や以降の会話からは参照されなくなります。一緒に書いたメモは残ります。": "Delete this answer? Searches and later conversation will no longer refer to it. Notes written with it are kept.",
+  "この回答と、これに返事している {0} 件の発言を消しますか。検索や以降の会話からは参照されなくなります。一緒に書いたメモは残ります。": "Delete this answer and the {0} lines answering it? Searches and later conversation will no longer refer to them. Notes written with the answer are kept.",
+  "この投稿と、これに返事している {0} 件の発言を消しますか。これらだけを元にした担当のメモも消えます。": "Delete this line and the {0} lines answering it? Persona notes that rest only on them are deleted too.",
   "担当の判断": "Router's call", "呼ばれました": "Called", "呼ばれませんでした": "Not called",
   "呼んでほしかった": "Should have been called", "呼ばれましたが、黙っていました": "Called, but stayed quiet", "呼ばれました。返事を考えています…": "Called; still working on it…",
   "呼ばれました。返事とメモあり": "Called; replied and kept a note", "呼ばれました。返事あり、メモなし": "Called; replied, no note",

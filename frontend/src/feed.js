@@ -36,20 +36,45 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   let drawPending = false;
   const offline = () => globalThis.navigator?.onLine === false;
 
+  // What answers an entry, directly or through another reply. Deleting a
+  // remark or a reply takes these with it, as the server does.
+  function answersTo(id) {
+    const under = new Set([id]);
+    const found = [];
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const other of entries) {
+        if (other.deleted || under.has(other.id) || !other.replyTo || !under.has(other.replyTo)) continue;
+        under.add(other.id);
+        found.push(other);
+        grew = true;
+      }
+    }
+    return found;
+  }
+
   async function removeEntry(entry, button) {
-    // A persona's remark goes alone: what it wrote down with it stays, to be
-    // corrected in its memory if it was wrong too.
+    // A persona's remark goes without the notes written with it: they stay,
+    // to be corrected in its memory if they were wrong too.
     const remark = entry.speaker && entry.speaker !== "user" && entry.kind !== "post";
-    const question = remark
+    const answers = entry.kind === "post" ? [] : answersTo(entry.id);
+    let question = remark
       ? "この回答を消しますか。検索や以降の会話からは参照されなくなります。一緒に書いたメモは残ります。"
       : "この投稿を消しますか。この投稿だけを元にした担当のメモも消えます。";
-    if (!confirm(t(question))) return;
+    if (answers.length) {
+      question = remark
+        ? "この回答と、これに返事している {0} 件の発言を消しますか。検索や以降の会話からは参照されなくなります。一緒に書いたメモは残ります。"
+        : "この投稿と、これに返事している {0} 件の発言を消しますか。これらだけを元にした担当のメモも消えます。";
+    }
+    if (!confirm(t(question, answers.length))) return;
     button.disabled = true;
     try {
       const removed = await api.remove(entry.id);
-      const deleted = { ...entry, ...removed, deleted: true };
-      if (onEntryChange) onEntryChange(deleted);
-      else upsert(deleted);
+      const deleted = [{ ...entry, ...removed, deleted: true }, ...answers.map((other) => ({ ...other, deleted: true }))];
+      for (const gone of deleted) {
+        if (onEntryChange) onEntryChange(gone);
+        else upsert(gone);
+      }
     } catch (error) {
       toast(String(error.message || error), "error");
     } finally {

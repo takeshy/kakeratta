@@ -379,6 +379,32 @@ test("a persona's answer can be deleted, keeping the thread", async (t) => {
   assert.equal(feed.element.querySelectorAll(".thread").length, 1);
 });
 
+test("deleting an answer takes the replies under it, and theirs", async (t) => {
+  const post = { id: "p", kind: "post", speaker: "user", root: "p", text: "root", at: "2026-09-13T00:00:00Z" };
+  const remark = { id: "r", kind: "reply", speaker: "gourmet", root: "p", replyTo: "p", text: "wrong answer", at: "2026-09-13T00:01:00Z" };
+  const mine = { id: "u", kind: "reply", speaker: "user", root: "p", replyTo: "r", text: "that is wrong", at: "2026-09-13T00:02:00Z" };
+  const again = { id: "r2", kind: "reply", speaker: "gourmet", root: "p", replyTo: "u", text: "still wrong", at: "2026-09-13T00:03:00Z" };
+  const other = { id: "s", kind: "reply", speaker: "move", root: "p", replyTo: "p", text: "unrelated", at: "2026-09-13T00:04:00Z" };
+  t.mock.method(api, "remove", async () => ({ ...remark, deleted: true }));
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  let asked = "";
+  globalThis.confirm = (message) => { asked = message; return true; };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
+  let feed;
+  feed = createFeed({ getPersona: (id) => ({ id, name: id }), onEntryChange: (entry) => feed.upsert(entry), showIntro: false });
+  feed.set([post, remark, mine, again, other]);
+  feed.reveal(other.id);
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 4);
+  const buttons = feed.element.querySelectorAll(".remove");
+  buttons[1].fire("click", { currentTarget: buttons[1] });
+  await new Promise(setImmediate);
+  assert.match(asked, /2/);
+  assert.equal(api.remove.mock.calls.length, 1, "the server takes the replies itself");
+  assert.equal(api.remove.mock.calls[0].arguments[0], remark.id);
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 1, "only the unrelated remark is left");
+});
+
 test("persona builder dictates with saved settings, sends, and stops on close", async (t) => {
   const { showPersonaBuilder } = await import("../frontend/src/persona-builder.js");
   t.mock.method(api, "buildPersona", async () => ({ message: "続けて教えてください", draft: null }));

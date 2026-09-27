@@ -11,8 +11,9 @@ import (
 )
 
 // Deleting a post deletes the conversation under it: the personas' remarks and
-// the user's own lines, with what the router decided about each. Deleting one
-// remark deletes just that.
+// the user's own lines, with what the router decided about each. Deleting a
+// remark deletes it and what answered it, directly or further down, and
+// nothing else.
 func TestDeletingAPostDeletesTheConversationUnderIt(t *testing.T) {
 	server, workspace := app(t)
 	now := time.Now()
@@ -54,9 +55,12 @@ func TestDeletingAPostDeletesTheConversationUnderIt(t *testing.T) {
 		t.Fatal("another post lost its routing record")
 	}
 
-	// A remark on its own goes alone.
+	// A remark takes the replies under it, and theirs; a sibling stays.
 	for _, entry := range []timeline.Entry{
 		{ID: "r2", Kind: timeline.KindRemark, Speaker: "gourmet", Root: "q", ReplyTo: "q", Text: "いいね", At: now.Add(4 * time.Second)},
+		{ID: "u2", Kind: timeline.KindReply, Speaker: timeline.User, Root: "q", ReplyTo: "r2", Text: "それ違う", At: now.Add(5 * time.Second)},
+		{ID: "r3", Kind: timeline.KindRemark, Speaker: "gourmet", Root: "q", ReplyTo: "u2", Text: "でもいいね", At: now.Add(6 * time.Second)},
+		{ID: "s2", Kind: timeline.KindRemark, Speaker: "move", Root: "q", ReplyTo: "q", Text: "別の話", At: now.Add(7 * time.Second)},
 	} {
 		if err := workspace.Append(entry); err != nil {
 			t.Fatal(err)
@@ -65,8 +69,13 @@ func TestDeletingAPostDeletesTheConversationUnderIt(t *testing.T) {
 	if code := remove("r2"); code != http.StatusOK {
 		t.Fatalf("delete remark: %d", code)
 	}
-	if entry, _ := workspace.Entry("r2"); !entry.Deleted {
-		t.Fatal("the remark was not deleted")
+	for _, id := range []string{"r2", "u2", "r3"} {
+		if entry, _ := workspace.Entry(id); !entry.Deleted {
+			t.Fatalf("%s survived the remark it answered", id)
+		}
+	}
+	if entry, _ := workspace.Entry("s2"); entry.Deleted {
+		t.Fatal("a remark that did not answer it was deleted")
 	}
 	if entry, _ := workspace.Entry("q"); entry.Deleted {
 		t.Fatal("the remark took its post with it")

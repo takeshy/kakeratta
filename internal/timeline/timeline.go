@@ -168,6 +168,32 @@ func Thread(entries []Entry, root string) []Entry {
 	return out
 }
 
+// Replies are the entries in a thread that answer id, directly or through
+// another reply, in thread order. id itself is not among them.
+func Replies(thread []Entry, id string) []Entry {
+	under := map[string]bool{id: true}
+	var out []Entry
+	for grew := true; grew; {
+		grew = false
+		for _, entry := range thread {
+			if entry.Deleted || under[entry.ID] || entry.ReplyTo == "" || !under[entry.ReplyTo] {
+				continue
+			}
+			under[entry.ID] = true
+			out = append(out, entry)
+			grew = true
+		}
+	}
+	// Keep thread order whatever order the loop found them in.
+	ordered := make([]Entry, 0, len(out))
+	for _, entry := range thread {
+		if entry.ID != id && under[entry.ID] {
+			ordered = append(ordered, entry)
+		}
+	}
+	return ordered
+}
+
 // RootOf returns the post an entry belongs to.
 func RootOf(entry Entry) string {
 	if entry.Kind == KindPost {
