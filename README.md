@@ -314,6 +314,8 @@ fall-through, see [Hermes Agent setup](docs/hermes.md)
 For the architecture and production end-to-end verification, see the
 [autonomous agent integration report](docs/nemoclaw-hermes-integration.md)
 ([日本語](docs/nemoclaw-hermes-integration_ja.md)).
+For an empirical inference comparison between Nemotron Super and Hermes 405B, see the
+[model comparison report](docs/nemoclaw-hermes-model-comparison.md).
 
 For the NemoClaw side, see the
 [NVIDIA NemoClaw Hermes documentation](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart).

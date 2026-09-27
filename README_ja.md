@@ -251,6 +251,7 @@ kakeratta 側のプロトコル、認証情報の範囲、ask のライフサイ
 
 NemoClaw / OpenShell、Hermes、Nebius Token Factory を接続した構成と本番環境での検証結果は
 [自律型エージェント統合・検証レポート](docs/nemoclaw-hermes-integration_ja.md)（[English](docs/nemoclaw-hermes-integration.md)）にまとめています。
+また、実機ログに基づく推論モデル比較（Nemotron Super vs Hermes 405B）は [モデル比較レポート (英語)](docs/nemoclaw-hermes-model-comparison.md) を参照してください。
 
 NemoClaw 側は
 [NVIDIA NemoClaw の Hermes ドキュメント](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) を参照してください。

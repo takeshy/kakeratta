@@ -2,7 +2,7 @@
 
 ## 自律型外部プランナー統合・検証レポート
 
-[README](../README_ja.md) · [Hermes の設定](hermes_ja.md)
+[README](../README_ja.md) · [English](nemoclaw-hermes-integration.md) · [Hermes の設定](hermes_ja.md) · [モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md)
 
 本書は、NVIDIA NemoClaw / OpenShell のサンドボックス内で動作する Hermes Agent を、kakeratta の担当ペルソナにおける「外部プランナー（思考エンジン）」として連携させ、Nebius Token Factory で推論し、kakeratta の MCP を介して安全かつ自律的にプランニング（ワークフロー策定）と自己更新を行う構成の実装・検証レポートです。目的は、単に LLM をサンドボックス内で実行することではなく、本番稼働中のパーソナル AI アプリケーションから自律エージェントへ安全に思考を委譲し、結果を元の会話へ返すところまで自動化することです。認証情報、ワークスペース ID、アクセストークン、内部 ID は掲載しません。
 
