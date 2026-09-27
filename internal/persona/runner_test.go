@@ -39,6 +39,8 @@ type fake struct {
 	reviewSystems []string
 	reviewModels  []string
 	review        func(user string) string
+	// records numbers the notes the fake keeps for scripted remarks.
+	records int
 	// fail makes the endpoint answer 500 to a request whose system prompt it
 	// matches, for a test that needs a call to fail.
 	fail func(system string) bool
@@ -175,6 +177,19 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 			f.mu.Unlock()
 			result = testCall("submit_answer", prepared.answer)
 		case phase != "":
+			// A scripted remark that kept no note is sent back for a record of
+			// what was asked; the fake keeps one, as a live persona must, and
+			// leaves the script alone.
+			if phase == "note" && have && prepared.done[phase] && !prepared.recorded && strings.Contains(user, "ユーザーに回答したターンです") {
+				f.mu.Lock()
+				prepared.recorded = true
+				f.records++
+				prepared.steps = append(prepared.steps, operation{Type: "write_note", Path: "records/turn-" + strconv.Itoa(f.records) + ".md", Text: "ユーザーの問いと、どう答えたか"})
+				f.prepared[key] = prepared
+				f.mu.Unlock()
+				result = testCall("submit_note", prepared.submission("note"))
+				break
+			}
 			// A phase asked a second time was sent back or blamed by a review:
 			// the script says what the persona hands in now.
 			if !have || prepared.done[phase] {
@@ -205,6 +220,7 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 // each later phase hands in.
 type testTurn struct {
 	answered bool
+	recorded bool
 	done     map[string]bool
 	answer   Answer
 	steps    []operation
@@ -912,7 +928,7 @@ func TestANamedAnswerWithoutChangesIsNotReviewed(t *testing.T) {
 		case offered["submit_schedule"]:
 			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 		}
-		return `{"operations":[]}`
+		return `{"operations":[{"type":"write","path":"questions/lang.md","text":"---\ntitle: 言語\n---\n- どの言語がよいか聞かれた。配布の楽さでGoを挙げた。"}]}`
 	}
 	f.review = func(user string) string {
 		return `{"verdict":"fail","summary":"不要","issues":[{"phase":"both","severity":"high","description":"呼ばれるべきでない"}]}`

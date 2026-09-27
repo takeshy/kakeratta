@@ -141,8 +141,15 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	if remark.Text != "うまそう" || remark.Model != "agent" {
 		t.Fatalf("remark = %+v", remark)
 	}
-	if len(s.Memory("gourmet").Notes) > 1 {
-		t.Fatal("answer-only turn fabricated notes")
+	// The built-in note phase keeps a record of what was asked, and only that.
+	var kept []string
+	for _, note := range s.Memory("gourmet").Notes {
+		if note.Path != "index.md" {
+			kept = append(kept, note.Path)
+		}
+	}
+	if len(kept) != 1 {
+		t.Fatalf("notes kept for an answer: %v", kept)
 	}
 	eventually(t, "the turn to finish", func() bool {
 		record, _ := s.Routing(entry.ID)

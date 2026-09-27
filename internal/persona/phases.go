@@ -109,12 +109,13 @@ func phasePrompt(phase string, skill Skill, set *tools.Set, layout, wake string)
 			}
 		}
 	case "note":
-		s += `将来のために記憶を変える必要があるかを判断する。**何も書かない（operations:[]）のが普通の結果**で、書くのは次に当てはまるときだけ。
-- ユーザーが言ったこと（事実・好み・予定・関係の変化・明示的に覚えてと頼まれたこと）→ メモの候補。書くのはユーザーの言葉と、それが何を示すか。
-- AI（あなたや他の担当、外部エージェント）が調べた事実・候補一覧・背景説明・解説 → 保存しない。必要になったら、その時点の最新情報で調べ直す方が正確。
-- AI の回答から得た結論・見立て → ユーザーが反応した（選んだ・同意した・行った）か、その後の会話で前提になったときだけ、一行の要点で残す。今回の Answer はまだ誰も反応していないので、Answer の結論はここでは書かない。
-- 後から取り直せない情報（ユーザーが渡した画像やリンクの中身など）→ 例外的に残してよい。
-Answer の文章をメモに写さない。本体は Answer の文を含むメモを差し戻す。メモの分類の型（見方・好み・質問など）は残すものの分け方で、毎回埋める枠ではない。担当の指示が話題を記録するように言っていても、記録するのはユーザーがその話題について言ったことや関心であり、解説ではない。
+		s += `このターンで何を覚えておくかを判断する。
+- **ユーザーの投稿や返信に回答したターンは、必ず記録を残す。** 書くのは、ユーザーが何を言った・聞いたか（1〜2行、ユーザーの言葉で）と、どう答えたかの要点1行（例: 「〜という見方で答えた（不確実）」「A店とB店を挙げた」）。メモには元の投稿へのリンクが付くので、詳しくはそこからたどれる。同じ話題のメモが index.md にあれば、新しく作らず読んでから日付付きの行を書き足す。
+- ユーザーが言ったこと（事実・好み・予定・関係の変化・明示的に覚えてと頼まれたこと）は、それ自体を残す。黙るターンでも、自分の領域のことなら残す。
+- AI（あなたや他の担当、外部エージェント）が調べた事実・候補一覧・背景説明・解説の本文は保存しない。必要になったら、その時点の最新情報で調べ直す方が正確。残すのは「どう答えたか」の1行だけ。
+- 回答の結論をユーザーが受け入れた（選んだ・同意した・行った）、またはその後の会話で前提になったら、その結論を事実として残してよい。今回の Answer にはまだ誰も反応していないので、「そう答えた」とだけ書く。
+- 後から取り直せない情報（ユーザーが渡した画像やリンクの中身など）は例外的に残してよい。
+Answer の文章を写さない。本体は Answer の文を2文以上含むメモを差し戻す。メモの分類の型（見方・好み・質問など）は残すものの分け方で、解説を書く枠ではない。
 予定の背景メモはScheduleにあるので書かない。Actionの実行結果はまだ不明なので成功済みと記録しない。writeは全文、forgetはpath。
 `
 	}
@@ -131,8 +132,22 @@ const noteRules = `メモの規則:
 - frontmatter の tags に、探すときの手がかりになる語を2〜5つ（産地・品種・店の種類・主題など）。
 - 同じものにメモは1つ。index.md に同じ対象のメモがあれば、新しく作らずその path を書き直す。綴りの揺れや型の違いは新しいメモの理由にならない。型はメモの分類にあるものだけ。
 - 引用内容、本人の意見、他の担当の推測を区別し、推測は推測と明記する。統合しても代表的な根拠と例外を少し残す。
-- 回答の文章を写さない。回答はスレッドに残り、メモは回答のキャッシュではない。
+- 回答の文章を写さない。回答はスレッドに残り、メモは回答のキャッシュではない。どう答えたかは1行の要点で書く。
 `
+
+// unrecorded says why an answer to the user left nothing behind. A schedule
+// with its note counts: it is a record of what was asked.
+func unrecorded(plan Workflow, notes []NoteOperation, rules turnRules) string {
+	if !rules.noteRequired || strings.TrimSpace(plan.Answer.Text) == "" || len(notes) > 0 {
+		return ""
+	}
+	for _, schedule := range plan.Schedules {
+		if schedule.Type == "create" {
+			return ""
+		}
+	}
+	return "ユーザーに回答したターンです。ユーザーが何を言った・聞いたかと、どう答えたかの要点1行をメモに残してください（同じ話題のメモがあれば読んでから書き足す）"
+}
 
 // copiedAnswer reports notes that carry the answer's own sentences. The answer
 // stays in the thread; a note holding it is a cache of what was researched,
@@ -377,6 +392,9 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 			problems := checkBatch(merged(candidate).batch(), rules)
 			if phase == "note" {
 				problems = append(problems, copiedAnswer(plan.Answer.Text, candidate.Notes)...)
+				if why := unrecorded(plan, candidate.Notes, rules); why != "" {
+					problems = append(problems, why)
+				}
 			}
 			return problems
 		})

@@ -10,7 +10,9 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchCreatesNoNotes(t *testing.T) {
+// A general research answer keeps only a record: what the user asked and, in
+// a line, how it was answered. The research itself is not kept.
+func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	var phases []string
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
@@ -35,10 +37,10 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchCreatesNoNotes(t *t
 			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 		case offered["submit_note"]:
 			phases = append(phases, "note")
-			if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "何も書かない（operations:[]）のが普通の結果") {
+			if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "必ず記録を残す") || !strings.Contains(system, "解説の本文は保存しない") {
 				t.Error("note phase lacks the finished answer or its selection policy")
 			}
-			return `{"operations":[]}`
+			return `{"operations":[{"type":"write","path":"questions/food-culture.md","text":"---\ntitle: 食文化\n---\n- 一般的な食文化について調べてと聞かれた。概観を答えた。"}]}`
 		}
 		t.Fatalf("unexpected phase: %v", offered)
 		return ""
@@ -47,8 +49,9 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchCreatesNoNotes(t *t
 	if strings.Join(phases, ",") != "read,answer,schedule,note" {
 		t.Fatal(phases)
 	}
-	if len(s.Memory("gourmet").Notes) != 0 {
-		t.Fatal("research answer created a note")
+	notes := s.Memory("gourmet").Notes
+	if len(notes) != 1 || strings.Contains(notes[0].Text, "一般的な調査の詳しい回答") {
+		t.Fatalf("notes = %+v", notes)
 	}
 	if len(f.reviews) != 0 {
 		t.Fatalf("a plain answer was reviewed %d times", len(f.reviews))
@@ -336,7 +339,7 @@ func TestAFailingReviewWithoutIssuesRegenerates(t *testing.T) {
 }
 
 // A note holding the answer's own sentences is a cache of what was researched.
-// It is sent back to the note phase; what the user said may still be kept.
+// It is sent back to the note phase, which keeps a one-line record instead.
 func TestANoteCopyingTheAnswerIsSentBack(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	answer := "トランプ大統領の発言は、米中対立を続けながらも協調の余地を示したものと考えられます。輸出規制の緩和を示す合図だという見方もありますが、現時点では不確実です。"
@@ -357,14 +360,15 @@ func TestANoteCopyingTheAnswerIsSentBack(t *testing.T) {
 		if !strings.Contains(user, "Answer の文章をそのまま写しています") {
 			t.Error("the note phase was not told why it was sent back")
 		}
-		return `{"operations":[]}`
+		return `{"operations":[{"type":"write","path":"viewpoints/trump.md","text":"---\ntype: Preference\ntitle: 発言の意図\n---\n- 中国同盟国発言の意図を聞かれた。協調の余地を示すという見方で答えた（不確実）。"}]}`
 	}
 	r.react(post(t, s, "トランプの中国同盟国発言の意図は？").ID)
 	if notes != 2 {
 		t.Fatalf("note phase calls = %d", notes)
 	}
-	if _, ok := s.Note("gourmet", "viewpoints/trump.md"); ok {
-		t.Fatal("the answer was kept as a note")
+	note, ok := s.Note("gourmet", "viewpoints/trump.md")
+	if !ok || strings.Contains(note.Text, "輸出規制の緩和を示す合図") {
+		t.Fatalf("the record is missing or holds the answer: %+v", note)
 	}
 	if said := remarks(t, s); len(said) != 1 {
 		t.Fatalf("remarks: %v", said)
@@ -383,5 +387,37 @@ func TestCopiedAnswerSparesWhatTheUserSaid(t *testing.T) {
 	}
 	if problems := copiedAnswer(answer, []NoteOperation{{Type: "forget", Path: "shops/a.md"}}); len(problems) != 0 {
 		t.Fatal(problems)
+	}
+}
+
+// Answering the user's post leaves a record. A note phase that keeps nothing
+// is sent back to write what was asked and how it was answered.
+func TestAnAnswerWithoutARecordIsSentBack(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	notes := 0
+	f.phaseReply = func(system, user string, offered map[string]bool) string {
+		switch {
+		case offered["finish_read"]:
+			return "read_done"
+		case offered["submit_answer"]:
+			return `{"text":"豚骨ならA店がおすすめです。","sources":[]}`
+		case offered["submit_schedule"]:
+			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+		}
+		notes++
+		if notes == 1 {
+			return `{"operations":[]}`
+		}
+		if !strings.Contains(user, "ユーザーに回答したターンです") {
+			t.Error("the note phase was not told to keep a record")
+		}
+		return `{"operations":[{"type":"write","path":"questions/ramen.md","text":"---\ntitle: ラーメン\n---\n- 豚骨の店を聞かれた。A店を挙げた。"}]}`
+	}
+	r.react(post(t, s, "豚骨ラーメンのおすすめは？").ID)
+	if notes != 2 {
+		t.Fatalf("note phase calls = %d", notes)
+	}
+	if _, ok := s.Note("gourmet", "questions/ramen.md"); !ok {
+		t.Fatal("no record was kept")
 	}
 }

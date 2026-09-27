@@ -139,8 +139,12 @@ func shapeOf(set *tools.Set) stepShape {
 // turnRules are what the app enforces on a workflow regardless of review.
 type turnRules struct {
 	named, listening bool
-	set              *tools.Set
-	schedules        map[string]bool
+	// noteRequired is a turn answering the user's post or reply: an answer
+	// there leaves a record of what was asked and how it was answered, or
+	// the persona's memory holds no trace that it ever came up.
+	noteRequired bool
+	set          *tools.Set
+	schedules    map[string]bool
 	// notes finds the persona's notes filed beside a path, as they stand, so
 	// a workflow filing one thing under a second path is sent back to the
 	// first. Only those are read; nil means there are none.

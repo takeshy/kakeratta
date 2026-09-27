@@ -750,7 +750,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// for a plan that rewrites an existing note unread to be sent back. The
 	// index was handed over at the start, so it counts as read.
 	referenced := map[string]bool{"index.md": true}
-	rules := turnRules{named: named, listening: listening, set: set, schedules: scheduleIDs, notes: func(path string) []store.Note { return r.siblingNotes(skill.ID, path) }, memory: skill.Memory, cited: map[string]string{},
+	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: func(path string) []store.Note { return r.siblingNotes(skill.ID, path) }, memory: skill.Memory, cited: map[string]string{},
 		readState: func(path string) (bool, bool) {
 			note, ok := r.store.Note(skill.ID, strings.TrimPrefix(strings.TrimSpace(path), "/"))
 			if !ok {
