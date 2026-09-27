@@ -181,7 +181,7 @@ Lightning が6.55秒 / 0.070円、Ultra が2.28秒 / 0.449円でした。
 そのため、これらの数字を精度のランキングとして読まないでください。
 
 測定の全体と限界は
-[振り分けモデル比較 — 2026-09-19](routing-model-comparison-2026-09-19.md)
+[振り分けモデル比較 — 2026-09-19](routing-model-comparison-2026-09-19_ja.md)
 にあります。
 
 現在の構成について正しいのは、この文書に書かれたアーキテクチャです。
@@ -1118,7 +1118,7 @@ embedding はかけらを取り出す助けにはなりますが、
 | --- | --- |
 | [README](../README_ja.md) | kakeratta とは何か、使う人にできること、プライバシー、常時稼働のふるまい、Nemotron と Token Factory、検証した NemoClaw 連携 |
 | [Routing model comparison — 2026-09-17](routing-cost-experiment.md) | 想定される受け取り手・トークン数・費用・レイテンシを揃えた Lightning と Ultra の統制比較 |
-| [振り分けモデル比較 — 2026-09-19](routing-model-comparison-2026-09-19.md) | 本番20投稿を Nemotron 各モデル・Jev・GPT Luna で読み取り専用に再実行した比較 |
+| [振り分けモデル比較 — 2026-09-19](routing-model-comparison-2026-09-19_ja.md) | 本番20投稿を Nemotron 各モデル・Jev・GPT Luna で読み取り専用に再実行した比較 |
 | [使い方と設定](usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [AIまわりで苦労したこと](ai-lessons_ja.md) | Nemotron の担当で起きた失敗と、頼れるようにするために変えたこと |
 | [Hermes Agent](hermes_ja.md)（[English](hermes.md)） | MCPの認証、ask のライフサイクル、計画に渡す文脈、フォールスルー |

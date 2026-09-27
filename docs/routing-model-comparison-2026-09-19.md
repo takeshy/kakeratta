@@ -1,53 +1,56 @@
-# 振り分けモデル比較レポート
+# Routing model comparison report
 
-実施日: 2026-09-19（JST）  
-対象: 本番タイムラインの直近20件  
-比較モデル: Nemotron 3.5 Lightning / Nemotron 3 Nano / Nemotron 3 Super / Nemotron 3 Ultra / OpenRouter Jev Latest / OpenRouter GPT Luna Latest
+[日本語](routing-model-comparison-2026-09-19_ja.md)
 
-これは実施日時点の記録です。本文の「現行」「第一候補」は当時の担当条件と設定についての判断で、
-現在の実装と既定値は[技術文書](technical_ja.md)を参照してください。
+Date: 2026-09-19 (JST)
 
-## 結論
+Dataset: The 20 most recent posts in the production timeline
 
-今回の20件では、OpenRouter Jevが速度、費用、現行担当条件への整合性で最も良い結果だった。
+Models compared: Nemotron 3.5 Lightning / Nemotron 3 Nano / Nemotron 3 Super / Nemotron 3 Ultra / OpenRouter Jev Latest / OpenRouter GPT Luna Latest
 
-- Jevの平均応答時間は0.37秒で、次に速いSuperの約5分の1だった。
-- Jevの推定費用は1件約0.026円で、5モデル中最安だった。
-- 5モデルが完全に一致したのは15/20件だった。
-- 差が出た5件を現行担当条件と照合すると、Jevは5件すべてで条件どおりの判定だった。
-- UltraとNanoはそれぞれJevと19/20件で一致し、差分の条件照合ではともに次点だった。
-- Ultraの1件費用はJevの約17倍だった。Nanoはthinking有効時に平均9.26秒、無効時に1.16秒だったが、無効時のJev一致は11/20件へ低下した。
-- LightningはSuperより安いものの、今回の環境では平均6.55秒と2番目に遅く、`routine` の取りこぼしも見られた。
+This is a record of the experiment at the time it was conducted. References to “current” conditions or a “leading candidate” concern the persona conditions and settings used then. For the current implementation and defaults, see the [technical documentation](technical.md).
 
-この20件だけを根拠にすると、振り分け用途の第一候補はJev、既存のChat Completions形式を維持する場合の候補はSuperとなる。Nanoはthinking有効なら安価で判定品質も高いが遅く、thinking無効では速いが品質が不足した。ただし、本評価には事前に確定した正解ラベルがなく、少数データによる一回の観測である。
+## Findings
 
-## 評価方法
+On these 20 posts, OpenRouter Jev performed best on speed, cost, and adherence to the persona conditions in effect at the time.
 
-本番Firestoreは読み取り専用で参照し、ユーザー投稿のうち直近20件を抽出した。削除済み投稿と、ルート投稿が削除されたスレッドは除外した。担当条件は実行時点で有効な6担当の本番設定を使用した。
+- Jev's mean response time was 0.37 seconds, about one fifth of Super's, the next fastest model.
+- Jev's estimated cost was approximately JPY 0.026 per post, the lowest of the five models in the initial comparison.
+- All five models agreed exactly on 15/20 posts.
+- Checking the five disagreements against the persona conditions showed that Jev followed the conditions in all five cases.
+- Ultra and Nano each agreed with Jev on 19/20 posts and tied for second in the manual review of disagreements.
+- Ultra cost about 17 times as much per post as Jev. Nano averaged 9.26 seconds with thinking enabled and 1.16 seconds with it disabled, but disabling thinking reduced its agreement with Jev to 11/20 posts.
+- Lightning was cheaper than Super, but averaged 6.55 seconds in this environment, making it the second slowest model. It also missed some deliveries to `routine`.
 
-各モデルには同一の投稿、同一の担当条件、同一のスレッド文脈を渡した。未来の返信や回答が判断に混ざらないよう、スレッドは対象投稿の位置で切った。モデルの呼び出し順はケースごとにローテーションし、ウォームアップや実行順による偏りを抑えた。
+Based solely on these 20 posts, Jev was the leading routing candidate, with Super the candidate for retaining the existing Chat Completions interface. Nano was inexpensive and made good decisions with thinking enabled, but was slow; without thinking, it was fast but its decision quality was insufficient. However, this evaluation had no ground-truth labels established in advance and represents a single observation on a small dataset.
 
-Nemotronは本番と同じChat Completionsと必須ツール呼び出しを使用した。JevはChat Completionsに対応しないDecisionsモデルのため、1リクエスト内に担当ごとの `deliver` / `exclude` 二択を6問設定した。
+## Method
 
-リプレイは担当を起動せず、ツールも実行せず、本番データにも書き込まない。モデルによる振り分け判断とAPI使用量だけを記録した。
+Production Firestore was accessed read-only to extract the 20 most recent user posts. Deleted posts and threads whose root post had been deleted were excluded. The experiment used the production conditions for the six personas active at the time.
 
-## 実測結果
+Each model received the same posts, persona conditions, and thread context. Threads were cut off at the target post to prevent later replies or answers from influencing the decision. Model call order was rotated for each case to reduce warm-up and execution-order bias.
 
-### 速度と費用（thinking有効の初回計測）
+Nemotron used the same Chat Completions interface and required tool calling as production. Jev is a Decisions model that does not support Chat Completions, so each request contained six binary `deliver` / `exclude` questions, one per persona.
 
-| モデル | 平均 | p50 | p95 | 最小 | 最大 | 20件費用 | 1件平均 | 1,000件換算 |
+The replay did not activate personas, execute tools, or write to production data. It recorded only model routing decisions and API usage.
+
+## Measurements
+
+### Speed and cost (initial run with thinking enabled)
+
+| Model | Mean | p50 | p95 | Min | Max | Cost for 20 posts | Mean cost per post | Per 1,000 posts |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| OpenRouter Jev Latest | **0.37秒** | **0.28秒** | **0.51秒** | 0.22秒 | 1.77秒 | **約0.52円** | **約0.026円** | **約26円** |
-| Nemotron 3 Super | 1.91秒 | 1.79秒 | 2.53秒 | 1.47秒 | 2.77秒 | 約1.96円 | 約0.098円 | 約98円 |
-| Nemotron 3 Ultra | 2.28秒 | 2.03秒 | 2.64秒 | 1.66秒 | 6.48秒 | 約8.98円 | 約0.449円 | 約449円 |
-| Nemotron 3.5 Lightning | 6.55秒 | 5.93秒 | 9.28秒 | 2.45秒 | 16.11秒 | 約1.39円 | 約0.070円 | 約70円 |
-| Nemotron 3 Nano | 9.26秒 | 6.97秒 | 22.85秒 | 3.94秒 | 29.37秒 | 約1.38円 | 約0.069円 | 約69円 |
+| OpenRouter Jev Latest | **0.37 s** | **0.28 s** | **0.51 s** | 0.22 s | 1.77 s | **~JPY 0.52** | **~JPY 0.026** | **~JPY 26** |
+| Nemotron 3 Super | 1.91 s | 1.79 s | 2.53 s | 1.47 s | 2.77 s | ~JPY 1.96 | ~JPY 0.098 | ~JPY 98 |
+| Nemotron 3 Ultra | 2.28 s | 2.03 s | 2.64 s | 1.66 s | 6.48 s | ~JPY 8.98 | ~JPY 0.449 | ~JPY 449 |
+| Nemotron 3.5 Lightning | 6.55 s | 5.93 s | 9.28 s | 2.45 s | 16.11 s | ~JPY 1.39 | ~JPY 0.070 | ~JPY 70 |
+| Nemotron 3 Nano | 9.26 s | 6.97 s | 22.85 s | 3.94 s | 29.37 s | ~JPY 1.38 | ~JPY 0.069 | ~JPY 69 |
 
-円換算は1ドル150円。税、為替変動、将来の価格改定は含まない。20件の比較本体100リクエストの合計は約14.24円だった。
+Yen conversions assume USD 1 = JPY 150. They exclude taxes, exchange-rate changes, and future price changes. The initial comparison comprised 100 requests across 20 posts, costing approximately JPY 14.24 in total.
 
-### トークン使用量
+### Token usage
 
-| モデル | 入力トークン | 出力トークン | 合計 | USD |
+| Model | Input tokens | Output tokens | Total | USD |
 |---|---:|---:|---:|---:|
 | OpenRouter Jev Latest | 82,680 | 3,560 | 86,240 | $0.003473 |
 | Nemotron 3 Super | 30,736 | 4,283 | 35,019 | $0.013076 |
@@ -55,11 +58,11 @@ Nemotronは本番と同じChat Completionsと必須ツール呼び出しを使�
 | Nemotron 3.5 Lightning | 29,383 | 31,316 | 60,699 | $0.009279 |
 | Nemotron 3 Nano | 29,243 | 31,145 | 60,388 | $0.009229 |
 
-Jevは担当ごとに質問と条件を持つDecisions API形式のため、Nemotronより入力トークンが多い。一方、出力単価が0ドルであり、総費用は最小だった。LightningとNanoはともに約31,000出力トークンで、Superの約7.3倍となった。両モデルの長い応答時間とも整合する。
+Jev used more input tokens than Nemotron because its Decisions API format includes a question and conditions for each persona. However, its output token price was zero, and its total cost was the lowest. Lightning and Nano each generated approximately 31,000 output tokens, about 7.3 times Super's output. This was consistent with their longer response times.
 
-### モデル間の完全一致
+### Exact agreement between models
 
-| 組み合わせ | 一致件数 | 一致率 |
+| Pair | Matching posts | Agreement |
 |---|---:|---:|
 | Lightning ↔ Super | 18/20 | 90% |
 | Lightning ↔ Ultra | 16/20 | 80% |
@@ -71,106 +74,106 @@ Jevは担当ごとに質問と条件を持つDecisions API形式のため、Nemo
 | Super ↔ Ultra | 16/20 | 80% |
 | Super ↔ Jev | 17/20 | 85% |
 | Ultra ↔ Jev | **19/20** | **95%** |
-| 5モデルすべて | 15/20 | 75% |
+| All five models | 15/20 | 75% |
 
-ここでの一致は、選択された担当IDの集合が完全に同じことを意味する。一致率は正解率ではない。
+Agreement means that the sets of selected persona IDs were exactly identical. Agreement is not accuracy.
 
-## 差分分析
+## Analysis of disagreements
 
-差が出た5件は、すべて `routine` を併せて選ぶかどうかの違いだった。以下は本番本文をそのまま転載せず、意味を保って要約したもの。
+All five disagreements concerned whether to include `routine` as a recipient. The summaries below preserve the meaning without reproducing the production posts verbatim.
 
-| ケース | 要約 | Lightning | Nano | Super | Ultra | Jev | 条件に沿う判定 |
+| Case | Summary | Lightning | Nano | Super | Ultra | Jev | Decision consistent with the conditions |
 |---|---|---|---|---|---|---|---|
-| P02 | 今日の入浴済み確認と、再度入る可能性 | routine | routine | なし | routine | routine | routine |
-| P06 | 今日、空き時間にLLMを学習・実装したい | なし | routine | なし | routine | routine | routine |
-| P07 | 週末に美容院へ行きたい | move | move | move + routine | move + routine | move + routine | move + routine |
-| P08 | 土曜午前に特定の美容院へ行く | move + routine | move + routine | move + routine | move | move + routine | move + routine |
-| P10 | 指定時刻に目的地へ到着したい | move | move + routine | move | move + routine | move + routine | move + routine |
+| P02 | Confirming a bath already taken today and the possibility of another | routine | routine | none | routine | routine | routine |
+| P06 | Wanting to study and implement LLMs during free time today | none | routine | none | routine | routine | routine |
+| P07 | Wanting to visit a hair salon on the weekend | move | move | move + routine | move + routine | move + routine | move + routine |
+| P08 | Going to a specific hair salon on Saturday morning | move + routine | move + routine | move + routine | move | move + routine | move + routine |
+| P10 | Wanting to arrive at a destination at a specified time | move | move + routine | move | move + routine | move + routine | move + routine |
 
-現行の `routine` 条件は、予定と実施記録の両方を対象にし、「今から」「週末」などの時期も含む。この文言をそのまま基準にすると、差分5件における整合数はJev 5/5、Nano 4/5、Ultra 4/5、Lightning 2/5、Super 2/5となる。NanoとUltraはいずれも4/5だが、NanoはP07、UltraはP08を外した。
+The `routine` condition in effect covered both plans and records of completed activities, including timing such as “starting now” or “on the weekend.” Taking that wording literally, consistency across the five disagreements was Jev 5/5, Nano 4/5, Ultra 4/5, Lightning 2/5, and Super 2/5. Nano and Ultra both scored 4/5, but Nano missed P07 and Ultra missed P08.
 
-これは差分だけを対象にした事後の手動確認であり、正式な正解データによる精度ではない。全モデルが一致した15件にも共通の誤りが存在する可能性がある。
+This was a post-hoc manual review of disagreements only, not an accuracy measurement against a formal ground-truth dataset. The 15 posts on which all models agreed could also contain shared errors.
 
-## thinking無効での再計測
+## Rerun with thinking disabled
 
-LightningとNanoだけを同じ20件で再実行した。条件は `chat_template_kwargs.enable_thinking: false`、`max_tokens: 1024`、`temperature: 0.1` とした。Token Factoryではトップレベルの `enable_thinking` では無効化されず、`chat_template_kwargs` 内で指定する必要があった。
+Only Lightning and Nano were rerun on the same 20 posts, with `chat_template_kwargs.enable_thinking: false`, `max_tokens: 1024`, and `temperature: 0.1`. On Token Factory, a top-level `enable_thinking` setting did not disable thinking; it had to be specified inside `chat_template_kwargs`.
 
-| モデル | 平均 | p50 | p95 | 最大 | 20件費用 | Jevとの一致 |
+| Model | Mean | p50 | p95 | Max | Cost for 20 posts | Agreement with Jev |
 |---|---:|---:|---:|---:|---:|---:|
-| Lightning（thinking無効） | 1.40秒 | 1.36秒 | 2.01秒 | 2.03秒 | 約0.44円 | 11/20（55%） |
-| Nano（thinking無効） | **1.16秒** | **1.14秒** | **1.36秒** | **1.45秒** | **約0.39円** | 11/20（55%） |
+| Lightning (thinking disabled) | 1.40 s | 1.36 s | 2.01 s | 2.03 s | ~JPY 0.44 | 11/20 (55%) |
+| Nano (thinking disabled) | **1.16 s** | **1.14 s** | **1.36 s** | **1.45 s** | **~JPY 0.39** | 11/20 (55%) |
 
-速度は大幅に改善した。Nanoは平均9.26秒から1.16秒、Lightningは6.55秒から1.40秒となり、出力トークンもそれぞれ約31,000から3,611、4,866へ減った。しかし、両モデルともJevとの一致が11/20まで低下した。
+Speed improved substantially. Nano's mean fell from 9.26 to 1.16 seconds, and Lightning's from 6.55 to 1.40 seconds. Output tokens fell from approximately 31,000 each to 3,611 and 4,866, respectively. However, both models' agreement with Jev dropped to 11/20.
 
-NanoとJevの不一致9件を現行担当条件と照合すると、9件すべてでJev側が条件に沿っていた。Nanoは次の誤りを出した。
+Checking all nine Nano–Jev disagreements against the persona conditions showed that Jev followed the conditions in every case. Nano made the following errors:
 
-- 入浴、当日の学習、美容院、到着希望、毎朝の服薬など、明示的な予定・実施記録から `routine` を外した。
-- 担当外のマッチングサービスへの不満を `routine` に誤配した。
-- 毎朝の服薬を `purine-checker` に誤配した。
-- マイク問題の解決報告を `move` に誤配した。
+- Excluded `routine` from explicit plans or activity records involving bathing, studying that day, a hair salon visit, a desired arrival time, and taking medication every morning.
+- Routed a complaint about a matchmaking service to `routine`, outside its scope.
+- Routed daily morning medication to `purine-checker`.
+- Routed a report that a microphone problem had been resolved to `move`.
 
-Lightningも入浴、学習、美容院、到着希望、服薬、仕事開始などから `routine` を落とし、ワイン画像1件を `wine-assistant` から外した。再計測途中には1024トークン以内に有効なtool callを完成できない応答も1回発生したが、同ケースの再試行は完了した。
+Lightning also omitted `routine` from posts about bathing, studying, a hair salon visit, arrival time, medication, and starting work, and omitted `wine-assistant` from one wine image. During the rerun, one response failed to complete a valid tool call within 1024 tokens, but a retry of that case completed.
 
-このため、Nanoはthinkingを有効にすれば品質は高いが遅く、無効にすれば速いが振り分け品質が不足する。今回の条件ではJevの代替にならない。
+Nano therefore offered good decision quality but slow responses with thinking enabled, and fast responses but insufficient routing quality with it disabled. Under these conditions, it was not a substitute for Jev.
 
-## 追加計測: OpenRouter GPT Luna Latest
+## Additional measurement: OpenRouter GPT Luna Latest
 
-OpenRouterのChat Completionsを通じて `~openai/gpt-luna-latest` を同じ20件で追加計測した。既存Routerと同じ必須ツール呼び出しを使い、OpenRouterのプロバイダ選択はExacto、reasoningは有効とした。OpenRouter掲載単価は入力 $0.20/M、出力 $1.20/Mである。
+`~openai/gpt-luna-latest` was tested on the same 20 posts through OpenRouter Chat Completions. It used the same required tool calling as the existing router, with Exacto selected as the OpenRouter provider and reasoning enabled. OpenRouter's listed prices at the time were $0.20/M input tokens and $1.20/M output tokens.
 
-| モデル | 平均 | 入力 | 出力 | 20件費用 | 1件費用（1ドル150円） | Jevとの一致 | Superとの一致 |
+| Model | Mean | Input | Output | Cost for 20 posts | Cost per post (USD 1 = JPY 150) | Agreement with Jev | Agreement with Super |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| GPT Luna Latest | 3.65秒 | 21,424 | 3,467 | $0.008445（約1.27円） | 約0.063円 | **19/20（95%）** | 16/20（80%） |
-| GPT Luna Latest（thinking無効） | **2.02秒** | 21,424 | 2,587 | $0.007389（約1.11円） | **約0.055円** | **19/20（95%）** | 18/20（90%） |
+| GPT Luna Latest | 3.65 s | 21,424 | 3,467 | $0.008445 (~JPY 1.27) | ~JPY 0.063 | **19/20 (95%)** | 16/20 (80%) |
+| GPT Luna Latest (thinking disabled) | **2.02 s** | 21,424 | 2,587 | $0.007389 (~JPY 1.11) | **~JPY 0.055** | **19/20 (95%)** | 18/20 (90%) |
 
-Jevとの差はP20の1件だけだった。ワインについての短い食味発言に対し、Jevは `wine-assistant` のみ、Lunaは `wine-assistant` と `purine-checker` を選んだ。`purine-checker` の条件は料理名・献立・料理写真からのプリン体判定であるため、この追加配信は条件に沿わない。既存の差分5件（P02、P06、P07、P08、P10）はすべてJevと一致し、現行条件に沿った判定だった。
+With thinking enabled, the only disagreement with Jev was P20. For a short tasting comment about wine, Jev selected only `wine-assistant`, while Luna selected both `wine-assistant` and `purine-checker`. The condition for `purine-checker` concerned assessing purines from dish names, menus, or food photos, so the extra delivery did not follow the condition. Luna agreed with Jev on all five earlier disagreements (P02, P06, P07, P08, P10), following the conditions in effect.
 
-判定品質は今回の20件ではJevに近かったが、速度はJevの約9.9倍、Superの約1.9倍遅い。費用はJevの約2.4倍だが、Superの約65%である。したがって、Chat Completionsと理由表示を維持しつつ判定品質を優先するOpenRouter候補にはなるものの、速度・費用を含むRouterの第一候補は引き続きJev、Token Factoryの既定はSuperとする判断が妥当である。
+Decision quality was close to Jev's on these 20 posts, but response time was about 9.9 times Jev's and 1.9 times Super's. Cost was about 2.4 times Jev's, but approximately 65% of Super's. It was therefore an OpenRouter candidate for prioritizing decision quality while retaining Chat Completions and explanatory reasons. Considering speed and cost as well, Jev remained the leading router candidate, and Super remained a reasonable Token Factory default.
 
-thinking無効では平均2.02秒（p50 1.85秒、p95 2.83秒、最大5.02秒）まで短縮し、費用も約13%下がった。Jev一致は19/20のままだが、差分の内容は入れ替わった。thinking有効で誤配したP20はJevと一致する一方、P06の「今日、空き時間に学習・実装したい」から `routine` を外した。現行のroutine条件は時期を含む予定を対象とするため、これは条件に沿わない。今回の20件ではthinking無効による品質崩壊は見られず、Lunaを使うなら無効設定の方が速度・費用面で有利だが、Jevよりは平均約5.5倍遅く、Superとほぼ同速だった。
+Disabling thinking reduced the mean to 2.02 seconds (p50 1.85 seconds, p95 2.83 seconds, maximum 5.02 seconds) and lowered cost by about 13%. Agreement with Jev stayed at 19/20, but the disagreement changed. P20, misrouted with thinking enabled, now matched Jev, while P06—wanting to study and implement something during free time today—lost `routine`. Since the condition covered plans that included timing, this did not follow it. No collapse in decision quality was observed on these 20 posts when thinking was disabled. For Luna, disabling it was better on speed and cost, but still averaged about 5.5 times Jev's response time and roughly matched Super's speed.
 
-## モデル別所見
+## Observations by model
 
 ### OpenRouter Jev Latest
 
-今回のデータでは最速・最安で、差分ケースも担当条件に最も忠実だった。振り分けや分類専用のDecisions APIとの相性がよい。一方、既存のOpenAI互換Chat Completionsクライアントをそのまま使えず、専用APIへの変換層が必要になる。また `jev-latest` は最新版を指す別名なので、モデル更新によって挙動が変わり得る。
+It was the fastest and cheapest on this dataset and followed the persona conditions most closely in the disagreement cases. The Decisions API was well suited to routing and classification. However, it could not use the existing OpenAI-compatible Chat Completions client unchanged; an adapter for its dedicated API would be needed. Also, `jev-latest` is an alias for the latest version, so updates could change its behavior.
 
 ### Nemotron 3 Ultra
 
-Jevとの一致率は95%で、差分の手動確認でも5件中4件が条件どおりだった。既存のツール呼び出し方式を維持できるが、費用は5モデル中最大だった。
+It agreed with Jev on 95% of posts, and the manual review found that it followed the conditions in four of the five disagreements. It could retain the existing tool-calling interface, but was the most expensive of the initial five models.
 
 ### Nemotron 3 Super
 
-平均1.91秒で、Nemotronの中では最速だった。費用もUltraより低い。一方、時刻付き移動や当日の実施予定を `routine` に含めない傾向があり、差分ケースでは5件中2件の整合に留まった。
+At a mean of 1.91 seconds, it was the fastest Nemotron model in the initial run and cost less than Ultra. However, it tended not to include `routine` for travel with a specified time or activities planned for the same day, following the conditions in only two of the five disagreement cases.
 
 ### Nemotron 3.5 Lightning
 
-単価は低いが、今回の実測では平均6.55秒と2番目に遅かった。出力トークンも多く、名前の印象どおりの低遅延にはならなかった。判定はSuperと90%一致したが、週末の美容院予定を `routine` から外すなど、複数条件への同時振り分けを落とすケースがあった。
+Its token prices were low, but at a mean of 6.55 seconds, it was the second slowest in this experiment. It generated many output tokens and did not deliver the low latency its name might suggest. Its decisions agreed with Super on 90% of posts, but it missed some cases that matched multiple conditions, such as excluding `routine` from a weekend hair salon plan.
 
 ### Nemotron 3 Nano
 
-thinking有効ではJevとの一致率が95%で、差分の手動確認でも5件中4件が条件どおりだった。入力・出力単価はLightningと同じで、20件費用も約1.38円と安い。一方、平均9.26秒、p95 22.85秒、最大29.37秒で5モデル中最も遅かった。thinking無効では平均1.16秒まで改善したが、Jevとの一致率が55%へ落ち、誤配も発生した。
+With thinking enabled, it agreed with Jev on 95% of posts, and the manual review found that it followed the conditions in four of the five disagreements. Its input and output prices were the same as Lightning's, and the 20-post cost was low at approximately JPY 1.38. However, it was the slowest of the initial five models, with a mean of 9.26 seconds, p95 of 22.85 seconds, and maximum of 29.37 seconds. Disabling thinking improved its mean to 1.16 seconds, but agreement with Jev dropped to 55%, and misrouting occurred.
 
-## 推奨
+## Recommendations
 
-次の段階ではJevを第一候補として、より多いデータと正解ラベルで検証する。
+The next step was to evaluate Jev as the leading candidate using more data and ground-truth labels.
 
-1. 50〜100件程度を、個人情報を除いた固定評価セットとして作る。
-2. 各担当について `deliver` / `exclude` の正解を人手で付ける。
-3. 完全集合一致率に加え、担当別precision・recall、特に取りこぼし率を測る。
-4. Jev Latestの更新影響を避ける必要があれば、固定バージョンも同時比較する。
-5. 本番切り替え前に、失敗時のフォールバックとDecisions APIの監視を追加する。
+1. Create a fixed evaluation set of approximately 50–100 posts with personal information removed.
+2. Manually label the expected `deliver` / `exclude` decision for each persona.
+3. Measure per-persona precision and recall, especially missed deliveries, alongside exact recipient-set agreement.
+4. Compare a pinned version as well if avoiding the effects of Jev Latest updates is necessary.
+5. Add failure fallbacks and monitoring for the Decisions API before switching production.
 
-現時点ではJevが速度・費用・品質のバランスで第一候補である。API方式を変更しない既定値には、Lightningより速く、Nanoのthinking無効時より安定したSuperが妥当である。Nanoはthinking有効では遅く、無効では品質が不足した。Lightningを振り分けに採用する根拠も、今回の結果からは得られなかった。
+At the time of this experiment, Jev was the leading candidate on the balance of speed, cost, and quality. For a default that retained the existing API, Super was reasonable: faster than Lightning and more reliable than Nano with thinking disabled. Nano was slow with thinking enabled and lacked sufficient quality without it. These results also did not support choosing Lightning for routing.
 
-## 再現情報とデータの扱い
+## Reproduction and data handling
 
-比較コードは `internal/persona/route_production_test.go` にある。通常テストでは実行されず、明示的な本番リプレイ指定と鍵ファイルが必要になる。20件ごとの本文、モデル出力、使用量、実行時間を含む詳細結果は `/tmp/kakeratta-production-routing.json` に権限 `0600` で保存した。
+The comparison code is in `internal/persona/route_production_test.go`. It does not run as part of normal tests; it requires an explicit production-replay option and a key file. Detailed results, including each of the 20 posts, model outputs, usage, and execution time, were saved to `/tmp/kakeratta-production-routing.json` with permissions `0600`.
 
-この詳細JSONには本番投稿本文が含まれるため、リポジトリへ追加しないこと。鍵ファイルも `.gitignore` の `tmp/*.key` で除外している。
+This detailed JSON contains production post text and must not be added to the repository. Key files are also excluded by `tmp/*.key` in `.gitignore`.
 
-今回の価格計算には次の単価を使用した。
+The following token prices were used for this experiment's cost calculations.
 
-| モデル | 入力 / 100万token | 出力 / 100万token |
+| Model | Input / million tokens | Output / million tokens |
 |---|---:|---:|
 | Lightning | $0.06 | $0.24 |
 | Nano | $0.06 | $0.24 |
@@ -178,4 +181,4 @@ thinking有効ではJevとの一致率が95%で、差分の手動確認でも5�
 | Ultra | $1.00 | $3.00 |
 | Jev | $0.042 | $0.00 |
 
-JevについてはAPIレスポンスの `usage.cost` を実測費用として優先した。
+For Jev, the API response's `usage.cost` was preferred as the measured cost.

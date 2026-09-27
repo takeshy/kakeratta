@@ -81,7 +81,7 @@ what posts it should get, not what it is meant to achieve - and the examples
 that pulled the model toward particular cases were removed. After that, a
 replay of 20 production posts put Super at 1.91 seconds and about 0.098 yen a
 route against Ultra's 2.28 seconds and 0.449 yen, and Super became the default
-again ([2026-09-19](routing-model-comparison-2026-09-19.md), Japanese).
+again ([2026-09-19](routing-model-comparison-2026-09-19.md)).
 
 **Lesson:** if a large model gets a routing task right and a smaller one gets
 it wrong, the task may be too ambiguous. Change the task before paying for the
