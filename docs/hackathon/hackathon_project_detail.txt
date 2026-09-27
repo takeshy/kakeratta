@@ -128,11 +128,17 @@ So there is one search box: "Pinot" and "that light red I liked before" both sta
 
 ## Accomplishments that we're proud of
 
-Avoiding one enormous AI memory for a whole person. The food persona remembers food, the travel persona remembers travel, and a person persona remembers that person. Each memory space stays small enough to inspect and correct, while the full timeline remains the record of what really happened.
+**Raising answer quality by narrowing what each AI call carries.** Instead of one enormous memory for everything about a user, the food persona remembers food, the travel persona remembers travel, and each person in the user's life has a persona of their own. Each memory stays small enough to inspect and correct, while the timeline remains the full record of what actually happened.
 
-It changed how I think about context in personal AI. It is not only about retrieving the right information, but also about deciding what belongs together, what stays separate, which AI may remember what, and who gets to correct those decisions.
+Repeated tuning showed that the biggest gains in answer quality came from changing what each model call had to carry.
 
-I also verified autonomous persona planning with Hermes inside NVIDIA NemoClaw / OpenShell. External planning lets users bring their own choice of model, tools, and resources through their agent, tailoring how a persona thinks to their individual needs. The production cycle ran from a user post through external planning to reviewed memory updates and a reply, while kakeratta retained control of execution.
+- **Context.** A persona is given its own index, the post, and the remarks under it, not the whole timeline, and reads further notes only when it needs them.
+- **Notes.** Notes keep what the user said, not what an answer happened to research. A candidate list a persona produced expires the next day unless the user reacts to it, so memory does not fill with the persona's own guesses.
+- **Workflow.** Each turn is split into phases that build one workflow. The persona first writes only its answer, with no note format or change schema in its prompt; separate phases then add schedules, actions, and notes. When one call had to do everything, it shortened its replies to make room for the notes it was required to write. With the answer on its own, the model can spend its attention on what the user actually asked.
+
+Building this changed how I think about context in personal AI. It is not only about retrieving the right information, but about deciding what belongs together, what stays separate, which AI may remember what, and who gets to correct those decisions.
+
+**Handing the answer to an external agent without handing over control.** I verified Hermes Agent inside NVIDIA NemoClaw / OpenShell, with inference routed to Token Factory, working against kakeratta's production MCP server. A persona can hand its research and answer to such an agent, so users can bring their own model, tools, and resources to shape how a persona thinks. The agent submits only the answer; kakeratta still decides what to schedule, act on, and remember, checks those changes, and runs them itself.
 
 ## What we learned
 
@@ -150,3 +156,4 @@ When to remind matters as much as what to remember, and so does when to forget.
 - **A community persona repository.** A persona is more than a prompt: routing conditions or keywords, behavior, memory structure, and tools. Packaged together, personas could be shared like apps, for example one that researches AI news every morning and explains the background that makes it matter.
 
 The goal is a place where you toss in fragments of everyday life, and different AIs help you remember what matters, bring it back when it becomes relevant, and let it go when it no longer needs remembering.
+
