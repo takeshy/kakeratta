@@ -109,7 +109,13 @@ func phasePrompt(phase string, skill Skill, set *tools.Set, layout, wake string)
 			}
 		}
 	case "note":
-		s += `将来のために記憶を変更する必要があるかを判断。ユーザーの事実・好み・関係の変化・明示的な記憶依頼を記録。回答で使っただけの一般知識、調査結果、候補一覧は保存しない。一般的な調査回答はoperations:[]でよい。予定の背景メモはScheduleにあるので書かない。Actionの実行結果はまだ不明なので成功済みと記録しない。writeは全文、forgetはpath。
+		s += `将来のために記憶を変える必要があるかを判断する。**何も書かない（operations:[]）のが普通の結果**で、書くのは次に当てはまるときだけ。
+- ユーザーが言ったこと（事実・好み・予定・関係の変化・明示的に覚えてと頼まれたこと）→ メモの候補。書くのはユーザーの言葉と、それが何を示すか。
+- AI（あなたや他の担当、外部エージェント）が調べた事実・候補一覧・背景説明・解説 → 保存しない。必要になったら、その時点の最新情報で調べ直す方が正確。
+- AI の回答から得た結論・見立て → ユーザーが反応した（選んだ・同意した・行った）か、その後の会話で前提になったときだけ、一行の要点で残す。今回の Answer はまだ誰も反応していないので、Answer の結論はここでは書かない。
+- 後から取り直せない情報（ユーザーが渡した画像やリンクの中身など）→ 例外的に残してよい。
+Answer の文章をメモに写さない。本体は Answer の文を含むメモを差し戻す。メモの分類の型（見方・好み・質問など）は残すものの分け方で、毎回埋める枠ではない。担当の指示が話題を記録するように言っていても、記録するのはユーザーがその話題について言ったことや関心であり、解説ではない。
+予定の背景メモはScheduleにあるので書かない。Actionの実行結果はまだ不明なので成功済みと記録しない。writeは全文、forgetはpath。
 `
 	}
 	if phase != "action" {
@@ -125,7 +131,72 @@ const noteRules = `メモの規則:
 - frontmatter の tags に、探すときの手がかりになる語を2〜5つ（産地・品種・店の種類・主題など）。
 - 同じものにメモは1つ。index.md に同じ対象のメモがあれば、新しく作らずその path を書き直す。綴りの揺れや型の違いは新しいメモの理由にならない。型はメモの分類にあるものだけ。
 - 引用内容、本人の意見、他の担当の推測を区別し、推測は推測と明記する。統合しても代表的な根拠と例外を少し残す。
+- 回答の文章を写さない。回答はスレッドに残り、メモは回答のキャッシュではない。
 `
+
+// copiedAnswer reports notes that carry the answer's own sentences. The answer
+// stays in the thread; a note holding it is a cache of what was researched,
+// found again by searches and read back as if it were something known about
+// the user, long after it went stale.
+func copiedAnswer(answer string, notes []NoteOperation) []string {
+	var sentences []string
+	for _, sentence := range strings.FieldsFunc(answer, func(r rune) bool {
+		return r == '。' || r == '！' || r == '？' || r == '\n' || r == '.' || r == '!' || r == '?'
+	}) {
+		sentence = squash(sentence)
+		if len([]rune(sentence)) >= copiedSentenceRunes {
+			sentences = append(sentences, sentence)
+		}
+	}
+	var problems []string
+	for _, note := range notes {
+		if note.Type != "write" {
+			continue
+		}
+		body := squash(noteBody(note.Text))
+		copied := 0
+		for _, sentence := range sentences {
+			if strings.Contains(body, sentence) {
+				copied++
+			}
+		}
+		if copied >= copiedSentences {
+			problems = append(problems, note.Path+": Answer の文章をそのまま写しています。回答はスレッドに残ります。ユーザーが言ったことだけを残すか、operations を空にしてください")
+		}
+	}
+	return problems
+}
+
+const (
+	// copiedSentenceRunes is how long a sentence must be to count: short ones
+	// ("いいね") match by chance.
+	copiedSentenceRunes = 20
+	// copiedSentences is how many of the answer's sentences make a copy. One
+	// can be a quoted fact the user gave; two are the answer being kept.
+	copiedSentences = 2
+)
+
+// squash drops spacing and Markdown marks, so a sentence reflowed into a
+// list or a heading is still found.
+func squash(text string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', '\t', '\n', '\r', '　', '*', '#', '>', '-', '`', '_', '|':
+			return -1
+		}
+		return r
+	}, text)
+}
+
+// noteBody is a note without its front matter.
+func noteBody(text string) string {
+	if rest, ok := strings.CutPrefix(strings.TrimLeft(text, "\n"), "---\n"); ok {
+		if _, body, found := strings.Cut(rest, "\n---"); found {
+			return body
+		}
+	}
+	return text
+}
 
 func strictPhase(raw string, dst any) error {
 	d := json.NewDecoder(bytes.NewBufferString(raw))
@@ -302,7 +373,13 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 			}
 			return whole
 		}
-		next, rec, err := proposePhase(ctx, client, model, phase, phasePrompt(phase, skill, rules.set, layout, wake), user+"\n現在の workflow（他フェーズを変更しない）:\n"+string(encoded)+"\n修正指示:\n"+feedback, rules.set, lookup, func(candidate Workflow) []string { return checkBatch(merged(candidate).batch(), rules) })
+		next, rec, err := proposePhase(ctx, client, model, phase, phasePrompt(phase, skill, rules.set, layout, wake), user+"\n現在の workflow（他フェーズを変更しない）:\n"+string(encoded)+"\n修正指示:\n"+feedback, rules.set, lookup, func(candidate Workflow) []string {
+			problems := checkBatch(merged(candidate).batch(), rules)
+			if phase == "note" {
+				problems = append(problems, copiedAnswer(plan.Answer.Text, candidate.Notes)...)
+			}
+			return problems
+		})
 		if rec != nil {
 			log.phases = append(log.phases, *rec)
 		}

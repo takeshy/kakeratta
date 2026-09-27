@@ -35,7 +35,7 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchCreatesNoNotes(t *t
 			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 		case offered["submit_note"]:
 			phases = append(phases, "note")
-			if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "回答で使っただけの一般知識") {
+			if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "何も書かない（operations:[]）のが普通の結果") {
 				t.Error("note phase lacks the finished answer or its selection policy")
 			}
 			return `{"operations":[]}`
@@ -332,5 +332,56 @@ func TestAFailingReviewWithoutIssuesRegenerates(t *testing.T) {
 	}
 	if said := remarks(t, s); len(said) != 1 {
 		t.Fatalf("remarks: %v", said)
+	}
+}
+
+// A note holding the answer's own sentences is a cache of what was researched.
+// It is sent back to the note phase; what the user said may still be kept.
+func TestANoteCopyingTheAnswerIsSentBack(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	answer := "トランプ大統領の発言は、米中対立を続けながらも協調の余地を示したものと考えられます。輸出規制の緩和を示す合図だという見方もありますが、現時点では不確実です。"
+	notes := 0
+	f.phaseReply = func(system, user string, offered map[string]bool) string {
+		switch {
+		case offered["finish_read"]:
+			return "read_done"
+		case offered["submit_answer"]:
+			return `{"text":"` + answer + `","sources":[]}`
+		case offered["submit_schedule"]:
+			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+		}
+		notes++
+		if notes == 1 {
+			return `{"operations":[{"type":"write","path":"viewpoints/trump.md","text":"---\ntype: Preference\ntitle: 発言の意図\n---\n\n## 見立て\n\n- ` + answer + `"}]}`
+		}
+		if !strings.Contains(user, "Answer の文章をそのまま写しています") {
+			t.Error("the note phase was not told why it was sent back")
+		}
+		return `{"operations":[]}`
+	}
+	r.react(post(t, s, "トランプの中国同盟国発言の意図は？").ID)
+	if notes != 2 {
+		t.Fatalf("note phase calls = %d", notes)
+	}
+	if _, ok := s.Note("gourmet", "viewpoints/trump.md"); ok {
+		t.Fatal("the answer was kept as a note")
+	}
+	if said := remarks(t, s); len(said) != 1 {
+		t.Fatalf("remarks: %v", said)
+	}
+}
+
+func TestCopiedAnswerSparesWhatTheUserSaid(t *testing.T) {
+	answer := "A店は豚骨が濃厚で、夜は行列ができることが多い店です。近くのB店は魚介系で、昼の定食が安いと評判です。"
+	user := []NoteOperation{{Type: "write", Path: "tastes/a.md", Text: "---\ntype: Preference\n---\n本人は豚骨が好きで、A店に行きたいと言った。"}}
+	if problems := copiedAnswer(answer, user); len(problems) != 0 {
+		t.Fatalf("a note of what the user said was refused: %v", problems)
+	}
+	copied := []NoteOperation{{Type: "write", Path: "shops/a.md", Text: "---\ntype: Shop\n---\n# A店\n\n* A店は豚骨が濃厚で、夜は行列ができることが多い店です\n* 近くのB店は魚介系で、昼の定食が安いと評判です"}}
+	if problems := copiedAnswer(answer, copied); len(problems) != 1 {
+		t.Fatalf("a reflowed copy of the answer was accepted: %v", problems)
+	}
+	if problems := copiedAnswer(answer, []NoteOperation{{Type: "forget", Path: "shops/a.md"}}); len(problems) != 0 {
+		t.Fatal(problems)
 	}
 }

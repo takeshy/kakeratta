@@ -348,16 +348,22 @@ the answer is the same either way.
 4. **Action phase.** Only for a persona that holds a tool that acts. It hands
    in `submit_action` — the tool calls and their arguments — with the same
    consistency statement about what the answer promised.
-5. **Note phase.** It hands in `submit_note`: writes and forgets. It keeps what
-   will matter later — the user's facts, preferences, changes in a relationship,
-   something they asked to be remembered — and not the research or the
-   recommendations an answer happened to use. A general answer usually keeps
-   nothing. A schedule's note belongs to the schedule phase and is not written
-   again here.
+5. **Note phase.** It hands in `submit_note`: writes and forgets. Keeping
+   nothing is the ordinary result. What the user said — facts, preferences,
+   plans, changes in a relationship, something they asked to be remembered —
+   is a candidate. What an AI researched — facts, candidate lists, background,
+   explanations — is not kept: when it is needed again, looking it up then is
+   more accurate. A conclusion drawn in an answer is kept, as a one-line point,
+   only once the user has reacted to it or it became a premise of the
+   conversation, so never in the turn that gave it. Information that could not
+   be fetched again, such as what an image the user sent showed, is the
+   exception. A note type in the persona's memory layout is how kept things
+   are filed, not a slot to fill every turn. A schedule's note belongs to the
+   schedule phase and is not written again here.
 6. **Checked by code, every time.** Known operation types, declared tools and no
    lookup used as an action, schedule ids that exist, paths that stay inside
    the persona's bundle, the same note not written twice or both written and
-   forgotten, an existing note not rewritten unread, note types from the
+   forgotten, no note carrying two or more of the answer's own sentences, an existing note not rewritten unread, note types from the
    persona's memory layout, and no second note under a title that already
    exists — one thing, one note. A proposal that fails is sent back to its own
    phase with the reasons.
