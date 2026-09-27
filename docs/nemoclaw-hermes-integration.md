@@ -66,6 +66,8 @@ The following sections document issues encountered during verification and long-
 | Granted egress approvals never take effect | Approvals surfaced by OpenShell may remain pending as `draft_policy_chunk` and not merge into the active policy. Never consider an approval active until confirmed directly via `openshell policy get` or `nemoclaw policy explain`. |
 | `personal-open-internet` rejected next to host-specific policies | Overlapping endpoints on port 443 with differing metadata trigger `network endpoint ambiguity validation failed`. Resolved by adding keyless endpoints individually per host via `openshell policy update --add-endpoint` instead of broad opening. |
 | Applying policy preset during `Phase: Error` wipes composed policy | Running `policy add` while the sandbox is in `Phase: Error` drops composed entries (`mcp_bridge_kakeratta`, `managed_inference`), breaking token resolution. Resolved by restoring the pre-incident policy backup via `openshell policy set --policy <file> --wait`. |
+| A tool added by a kakeratta deploy is invisible to Hermes | Hermes Gateway caches the MCP tool list (`tools/mcp_schema_cache.py`). After the deploy that introduced `submit_answer`, the Skill self-updated to v12 but the cached list still lacked the new tool, so Hermes claimed an ask it could not answer and the turn fell through to the built-in model at the plan wait. Clearing Hermes's MCP schema cache restored it at once. kakeratta now returns a freshness hint (`ttlMs: 300000`) in `tools/list`, so the cache is re-probed within 5 minutes of a tool change. See [below](#tool-list-cache-after-a-kakeratta-deploy). |
+| Hermes wrote the answer but never submitted it | Hermes claimed an ask, researched for about 50 seconds with web search and `read_for_ask`, and wrote a good answer, then printed it to the cron console and stopped instead of calling `submit_answer`, so the ask waited until `planBy`. The cron job's common prompt tells the model that its final response is delivered for it ("Just produce your report/output as your final response and the system handles the rest"); with `submit_workflow` the deliverable was a nested JSON object and the call was never skipped, but with `submit_answer` the deliverable is plain text, and Nemotron Super took the prompt at its word. Skill v13 states that printed text never reaches kakeratta, that the answer must be submitted with `submit_answer` and confirmed `accepted` before ending with `[SILENT]`, and adds a final check for claimed asks left unsubmitted; `claim_ask`'s `next` and the MCP server instructions say the same. |
 
 ### Opening egress for web search and page extraction (preventing hallucinations)
 
@@ -86,6 +88,27 @@ openshell policy update -g <gateway> <sandbox> \
   --binary "/usr/local/bin/hermes" --binary "/usr/bin/python3*" --binary "/opt/hermes/.venv/bin/python*" \
   --wait
 ```
+
+### Tool list cache after a kakeratta deploy
+
+Hermes Gateway keeps the MCP tool list it fetched in a schema cache (`tools/mcp_schema_cache.py`) instead of calling `tools/list` on every run. The Wake Gate keeps the Skill and itself current over MCP, but it does not refresh that cache, so a deploy that **adds** an MCP tool can leave Hermes following a Skill that names a tool it cannot see.
+
+Observed on 2026-09-27, right after the deploy that replaced `submit_workflow` with `submit_answer`:
+
+1. The Wake Gate updated the Skill to v12, and Hermes kept calling `list_asks` every minute.
+2. Hermes claimed an ask for a post and looked things up with `read_for_ask`, but `submit_answer` was not in its cached tool list, so no answer was ever submitted.
+3. The ask ran out its plan wait (15 minutes after the claim) and the built-in model answered instead (`fallback: "answer timeout"` in the run log). The reply reached the user about 18 minutes after the post.
+4. After Hermes's MCP schema cache was cleared, the next ask was answered through `submit_answer` without further changes.
+
+Fix on the kakeratta side: `tools/list` now returns a freshness hint alongside the tools.
+
+```json
+{"tools": [...], "ttlMs": 300000}
+```
+
+Hermes's schema cache treats an entry older than `ttlMs` as expired and lists the tools again, so a tool added by a deploy reaches Hermes within 5 minutes without a Gateway restart. Clients that do not know the field ignore it.
+
+If a turn still falls through with `answer timeout` right after a deploy that adds tools, check whether the tools Hermes sees include the new one; clearing the MCP schema cache or restarting the Hermes Gateway fixes it immediately.
 
 ### Restoring policy after accidental removal
 

@@ -66,6 +66,8 @@ NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点
 | 許可したはずの Egress 承認が反映されない | OpenShell が提示した承認要求が `draft_policy_chunk` として pending のまま実効ポリシーへマージされない場合がある。実効ポリシー（`openshell policy get` や `nemoclaw policy explain`）で直接確認するまで有効と見なさないこと。 |
 | `personal-open-internet` がホスト別ポリシーと共存できない | 同一ポートで重複するエンドポイントのメタデータ不一致により `network endpoint ambiguity validation failed` で拒絶される。`<any-host>:80,443` の広域開放ではなく、`openshell policy update --add-endpoint` でホスト単位に個別追加して対処した。 |
 | `Phase: Error` 中にポリシープリセットを適用すると合成済みポリシーが消える | サンドボックスが `Phase: Error` の間に `policy add` を行うと、合成エントリ（`mcp_bridge_kakeratta` や `managed_inference`）がベースから脱落し、未解決の `openshell:resolve:env:...` が送信されて認証不能になる。事故前のバックアップから `policy set --policy <file> --wait` で完全復元した。 |
+| kakeratta のデプロイで追加した道具が Hermes から見えない | Hermes Gateway は MCP の道具一覧をキャッシュする（`tools/mcp_schema_cache.py`）。`submit_answer` を追加したデプロイの後、Skill は v12 に自己更新されたが、キャッシュした一覧に新しい道具がなく、Hermes は答えられない ask を取得したまま回答を提出できず、回答の待ち時間でターンが内蔵モデルに移った。Hermes の MCP スキーマキャッシュを消すとすぐに回復した。現在の kakeratta は `tools/list` に鮮度ヒント（`ttlMs: 300000`）を返すので、道具が変わっても5分以内にキャッシュが取り直される。詳細は[下記](#kakeratta-のデプロイ後に残る道具一覧のキャッシュ)。 |
+| Hermes が回答を書いたのに提出しない | Hermes は ask を取得し、Web 検索と `read_for_ask` で約50秒調べて質の高い回答を書いたが、`submit_answer` を呼ばずに Cron のコンソールへテキストとして出力して終了したため、ask は `planBy` まで待ち続けた。Cron ジョブの共通プロンプトに「最終回答を出力すればシステムが残りを処理する（Just produce your report/output as your final response and the system handles the rest）」とあり、提出物が入れ子の JSON だった `submit_workflow` では呼び忘れなかったが、提出物が回答テキストになった `submit_answer` では Nemotron Super がこれを文字どおりに受け取った。Skill v13 で「出力したテキストは kakeratta に届かない。必ず `submit_answer` で提出し、`accepted` を確認してから `[SILENT]` で終える」と明記し、取得したのに未提出の ask が残っていないかの最終確認を加えた。`claim_ask` の `next` と MCP サーバーの instructions にも同じ注意を入れた。 |
 
 ### Web 検索・Web 抽出の Egress 開放（ハルシネーション防止）
 
@@ -86,6 +88,27 @@ openshell policy update -g <gateway> <sandbox> \
   --binary "/usr/local/bin/hermes" --binary "/usr/bin/python3*" --binary "/opt/hermes/.venv/bin/python*" \
   --wait
 ```
+
+### kakeratta のデプロイ後に残る道具一覧のキャッシュ
+
+Hermes Gateway は、取得した MCP の道具一覧を実行のたびに `tools/list` で取り直すのではなく、スキーマキャッシュ（`tools/mcp_schema_cache.py`）に保持します。Wake Gate は MCP 経由で Skill と自分自身を最新に保ちますが、このキャッシュは更新しません。そのため、MCP の道具を**追加する**デプロイの後は、Hermes が「見えない道具を使え」と書かれた Skill に従う状態になりえます。
+
+2026-09-27、`submit_workflow` を `submit_answer` に置き換えたデプロイの直後に観測した経過:
+
+1. Wake Gate が Skill を v12 に更新し、Hermes は1分ごとの `list_asks` を続けていた。
+2. Hermes は投稿の ask を取得して `read_for_ask` で調べたが、キャッシュした道具一覧に `submit_answer` がなく、回答は提出されなかった。
+3. 回答の待ち時間（取得から15分）が切れ、内蔵モデルが代わりに答えた（実行ログの `fallback: "answer timeout"`）。返事がユーザーに届いたのは投稿から約18分後だった。
+4. Hermes の MCP スキーマキャッシュを消した後、次の ask はそれ以上の変更なしに `submit_answer` で回答された。
+
+kakeratta 側の対策として、`tools/list` は道具と一緒に鮮度ヒントを返します。
+
+```json
+{"tools": [...], "ttlMs": 300000}
+```
+
+Hermes のスキーマキャッシュは `ttlMs` より古いエントリを期限切れとして扱い、道具を取り直します。これにより、デプロイで追加した道具は Gateway を再起動しなくても5分以内に Hermes へ届きます。この項目を知らないクライアントは無視します。
+
+道具を追加するデプロイの直後に `answer timeout` でターンが内蔵モデルに移る場合は、Hermes から見える道具に新しいものが含まれているかを確認してください。MCP スキーマキャッシュを消すか Hermes Gateway を再起動すれば、すぐに直ります。
 
 ### ポリシーを誤って消した場合の復元手順
 
