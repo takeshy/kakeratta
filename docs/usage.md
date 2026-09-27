@@ -105,7 +105,9 @@ is append-only, so each gets its own tombstone line). Notes that cited the
 post or those replies lose their links. Notes left with no source are removed
 automatically, except the index and update log. Personas that were woken for
 or cited the post are woken once to tidy surviving notes and references. A
-remark can be deleted on its own.
+remark can be deleted on its own with its ×: a wrong answer then no longer
+turns up in searches or as context in the thread. The notes written with it
+stay; correct them in the persona's memory if they are wrong too.
 
 **⚖ Router's call**, on your own posts and replies, opens a dialog with what the
 app decided about that post: the personas it chose, and for each one it passed over, the

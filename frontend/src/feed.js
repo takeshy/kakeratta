@@ -37,7 +37,13 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   const offline = () => globalThis.navigator?.onLine === false;
 
   async function removeEntry(entry, button) {
-    if (!confirm(t("この投稿を消しますか。この投稿だけを元にした担当のメモも消えます。"))) return;
+    // A persona's remark goes alone: what it wrote down with it stays, to be
+    // corrected in its memory if it was wrong too.
+    const remark = entry.speaker && entry.speaker !== "user" && entry.kind !== "post";
+    const question = remark
+      ? "この回答を消しますか。検索や以降の会話からは参照されなくなります。一緒に書いたメモは残ります。"
+      : "この投稿を消しますか。この投稿だけを元にした担当のメモも消えます。";
+    if (!confirm(t(question))) return;
     button.disabled = true;
     try {
       const removed = await api.remove(entry.id);
@@ -379,10 +385,12 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         drawRoutingChip(entry),
-        mine ? el("button", {
+        // A persona's remark can be removed too: a wrong answer left in the
+        // thread is found again by searches and read back as context.
+        el("button", {
           class: "chip ghost remove", i18nTitle: "消す", disabled: !!entry.pending, label: "×",
           onclick: (event) => void removeEntry(entry, event.currentTarget),
-        }) : null,
+        }),
       ),
       drawBody(entry) || el("p", { class: "said", text: entry.text }),
     );

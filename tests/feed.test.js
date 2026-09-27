@@ -355,6 +355,30 @@ test("the user's own reply can be deleted", async (t) => {
   assert.equal(feed.element.querySelectorAll(".thread").length, 1);
 });
 
+test("a persona's answer can be deleted, keeping the thread", async (t) => {
+  const post = { id: "p", kind: "post", speaker: "user", root: "p", text: "root", at: "2026-09-13T00:00:00Z" };
+  const remark = { id: "r", kind: "reply", speaker: "gourmet", root: "p", replyTo: "p", text: "wrong answer", at: "2026-09-13T00:01:00Z" };
+  t.mock.method(api, "remove", async () => ({ ...remark, deleted: true }));
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  let asked = "";
+  globalThis.confirm = (message) => { asked = message; return true; };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.confirm; });
+  let feed;
+  feed = createFeed({ getPersona: () => ({ id: "gourmet", name: "tabe" }), onEntryChange: (entry) => feed.upsert(entry), showIntro: false });
+  feed.set([post, remark]);
+  feed.reveal(remark.id);
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 1);
+  const buttons = feed.element.querySelectorAll(".remove");
+  assert.equal(buttons.length, 2, "the post and the persona's answer both have delete controls");
+  buttons[1].fire("click", { currentTarget: buttons[1] });
+  await new Promise(setImmediate);
+  assert.match(asked, /一緒に書いたメモは残ります|Notes written with it are kept/);
+  assert.equal(api.remove.mock.calls[0].arguments[0], remark.id);
+  assert.equal(feed.element.querySelectorAll(".said-row").length, 0);
+  assert.equal(feed.element.querySelectorAll(".thread").length, 1);
+});
+
 test("persona builder dictates with saved settings, sends, and stops on close", async (t) => {
   const { showPersonaBuilder } = await import("../frontend/src/persona-builder.js");
   t.mock.method(api, "buildPersona", async () => ({ message: "続けて教えてください", draft: null }));
