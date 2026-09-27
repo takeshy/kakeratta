@@ -16,21 +16,10 @@ import (
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
-// A persona does not act on its own any more. A turn has two halves.
-//
-// First it reads: its notes, a search, the picture. Reading changes nothing, so
-// the app simply does what is asked and hands the results back.
-//
-// Then it hands over a workflow - the writes and the remark, spelled out in
-// full, in order - and the app has that looked at before any of it happens.
-// Everything the review needs is final by then: the text of the note, the text
-// of the remark, the schedule it places. Nothing is filled in afterwards, which
-// is what lets a review mean something; an earlier shape let the persona
-// compose the remark after the review, and the first live run promised
-// "22:30ごろに聞くね" with no schedule behind it.
-//
-// Running it is mechanical: in order, stop at the first step that fails, and
-// refuse what a persona is not allowed whatever the review said.
+// A turn reads, drafts an Answer, then assembles a state-changing plan one
+// phase at a time. Review sees the side-effect phases only. Actions execute
+// before the answer is published; a failure never publishes a promise whose
+// action did not succeed.
 
 // ReadStep is something a persona wants to look at before deciding.
 type ReadStep struct {
@@ -40,15 +29,16 @@ type ReadStep struct {
 	Args  string   `json:"args"`
 }
 
-// Workflow is what a persona has decided to do.
-type Workflow struct {
-	Summary string `json:"summary"`
-	Steps   []Step `json:"steps"`
+// operationBatch is a Workflow flattened into the order it runs in:
+// schedules, actions, then notes. It is the host's own adapter to the checks
+// and the executor, never a shape a model is shown.
+type operationBatch struct {
+	Steps []operation
 }
 
-// Step is one thing to do. Which fields matter depends on the type; the rest
+// operation is one thing to do. Which fields matter depends on the type; the rest
 // are empty.
-type Step struct {
+type operation struct {
 	Type string `json:"type"`
 	// write_note, forget_note, and the note behind a write_schedule.
 	Path string `json:"path"`
@@ -65,9 +55,6 @@ type Step struct {
 	Note  string `json:"note"`
 	// cancel_schedule.
 	ID string `json:"id"`
-	// speak: the ids of the saved posts the remark rests on, from this
-	// turn's timeline_search results. They become the links under it.
-	Sources []string `json:"sources"`
 }
 
 const (
@@ -77,20 +64,19 @@ const (
 	// it has to decide - searches included. Reading changes nothing, so the
 	// limit is only there to end a turn that would otherwise go on looking.
 	maxReads = 10
-	// An Ultra answer may look further before committing its workflow.
+	// An Ultra answer may look further before committing its answer.
 	ultraReads = 20
 	// maxSearches is how many of those reads may be web searches.
 	maxSearches = 2
 	// An Ultra answer may search a little more, not as much as it reads.
 	ultraSearches = 4
-	// maxDrafts is how many workflows the review may see in one turn: the
-	// first, and one more after being told what was wrong with it.
+	// maxDrafts is how many workflows the review may see in one turn: the first,
+	// and one more after the blamed phases were regenerated.
 	maxDrafts = 2
-	// maxMalformed is how many workflows may be sent back for their shape - a
-	// missing field, a search inside the workflow - before the turn gives up.
-	// These are counted apart from review drafts: a live run spent its first
-	// draft on a misplaced web_search, and the review then rejected the second
-	// with no chance left to fix what it found.
+	// maxMalformed is how many proposals a phase may have sent back for their
+	// shape - a missing field, an unknown path - before the turn gives up.
+	// These are counted apart from review drafts, so a shape slip does not use
+	// up the chance to fix what the review found.
 	maxMalformed = 2
 )
 
@@ -132,14 +118,9 @@ var readTool = llm.Tool{
 	}, "required": []any{"steps"}},
 }
 
-// submitWorkflow is the name of the call that hands a workflow in.
-const submitWorkflow = "submit_workflow"
-
-// stepShape is which kinds of step, and which fields, a persona's workflow can
-// have. It follows what the persona holds: a persona that cannot schedule is
-// not offered write_schedule or an "at", and one whose tools only look things
-// up is not offered a tool step at all - a live run put web_search into a
-// workflow because the schema said it could.
+// stepShape is which kinds of change a persona's plan can hold, following what
+// the persona holds: a persona that cannot schedule is offered no schedule
+// fields, and one whose tools only look things up has no action phase at all.
 type stepShape struct {
 	schedules bool
 	actions   []string
@@ -148,83 +129,18 @@ type stepShape struct {
 func shapeOf(set *tools.Set) stepShape {
 	shape := stepShape{schedules: set.Allows("schedule")}
 	for _, declared := range set.Declarations() {
-		if declared.Name != "schedule" && !lookupTools[declared.Name] {
+		if declared.Name != "schedule" && !set.IsReadOnly(declared.Name) {
 			shape.actions = append(shape.actions, declared.Name)
 		}
 	}
 	return shape
 }
 
-func (shape stepShape) types() []any {
-	types := []any{"write_note", "forget_note"}
-	if shape.schedules {
-		types = append(types, "write_schedule", "cancel_schedule")
-	}
-	if len(shape.actions) > 0 {
-		types = append(types, "tool")
-	}
-	return append(types, "speak")
-}
-
-// fields are a step's fields in the order samples write them.
-func (shape stepShape) fields() []string {
-	fields := []string{"type", "path", "text", "sources"}
-	if len(shape.actions) > 0 {
-		fields = append(fields, "tool", "args")
-	}
-	if shape.schedules {
-		fields = append(fields, "at", "daily", "note", "id")
-	}
-	return fields
-}
-
-// workflowToolFor is submit_workflow as this persona is offered it. Every
-// field is required, with empty values for the ones a step does not use: with
-// only "type" required, a provider constraining its output to the schema left
-// out everything else.
-func workflowToolFor(set *tools.Set) llm.Tool {
-	shape := shapeOf(set)
-	all := map[string]any{
-		"type":  map[string]any{"type": "string", "enum": shape.types()},
-		"path":  stringField("メモの path。使わないなら \"\""),
-		"text":  stringField("メモの全文、または発言。使わないなら \"\""),
-		"tool":  stringField("tool で呼ぶ道具の名前。使わないなら \"\""),
-		"args":  stringField("tool の引数を JSON オブジェクトとして書いた文字列。使わないなら \"{}\""),
-		"at":    stringField("write_schedule で起きる時刻。RFC3339。使わないなら \"\""),
-		"daily": map[string]any{"type": "boolean", "description": "write_schedule を毎日繰り返すか。使わないなら false"},
-		"note":  stringField("write_schedule で起きたときに読む一言。使わないなら \"\""),
-		"id":    stringField("cancel_schedule で消す id。使わないなら \"\""),
-		"sources": map[string]any{"type": "array", "items": map[string]any{"type": "string"},
-			"maxItems": 3, "description": "speak の根拠にした投稿の id。このターンの timeline_search の結果から特に重要なものを最大3件。使わないなら []"},
-	}
-	properties := map[string]any{}
-	var required []any
-	for _, field := range shape.fields() {
-		properties[field] = all[field]
-		required = append(required, field)
-	}
-	return llm.Tool{
-		Name:        submitWorkflow,
-		Description: "このターンでやることを、順に並べた workflow として提出する。本体が確認してから実行する。何もしないなら steps を空にする。",
-		Parameters: map[string]any{"type": "object", "properties": map[string]any{
-			"summary": stringField("この workflow で何をするかを一文で"),
-			"steps": map[string]any{"type": "array", "items": map[string]any{
-				"type": "object", "properties": properties, "required": required,
-			}},
-		}, "required": []any{"summary", "steps"}},
-	}
-}
-
 // turnRules are what the app enforces on a workflow regardless of review.
 type turnRules struct {
 	named, listening bool
-	// noteRequired: a remark on a post has to leave a note behind. A persona
-	// that speaks and keeps nothing has an opinion but no memory of having had
-	// it. Wakes of the app's own making - daily, schedule, deletions - are
-	// exempt; the note those rest on is already there.
-	noteRequired bool
-	set          *tools.Set
-	schedules    map[string]bool
+	set              *tools.Set
+	schedules        map[string]bool
 	// notes finds the persona's notes filed beside a path, as they stand, so
 	// a workflow filing one thing under a second path is sent back to the
 	// first. Only those are read; nil means there are none.
@@ -232,6 +148,11 @@ type turnRules struct {
 	// memory is the persona's memory layout; the kinds it names are the only
 	// ones a note may carry.
 	memory string
+	// readState reports whether the persona already keeps a note at path, and
+	// whether it read it this turn. Overwriting an existing note unread loses
+	// what it held, so the plan is sent back rather than run. Nil means the
+	// caller keeps no record of reads.
+	readState func(path string) (exists, read bool)
 	// cited are the saved posts this turn's searches found, by id, with the
 	// line a link to each shows. A speak may cite these and nothing else.
 	cited map[string]string
@@ -255,44 +176,13 @@ func argsOf(raw string) (map[string]any, error) {
 	return args, nil
 }
 
-// lookupTools only look things up. Using one is reading, like opening a note:
-// it happens before a workflow and never in one.
-var lookupTools = map[string]bool{"web_search": true, "place_search": true, "route": true, "timeline_search": true}
-
-// stepNames are the step types a model sometimes writes into the tool field.
-var stepNames = map[string]bool{"write_note": true, "forget_note": true, "write_schedule": true, "cancel_schedule": true, "speak": true}
-
-// normaliseWorkflow puts a step written in the wrong field back where it
-// belongs. A live run handed in {"type":"tool","tool":"speak","args":"{\"text\":…}"}:
-// the same remark, in the wrong shape, and sending it back cost the turn.
-func normaliseWorkflow(workflow Workflow) Workflow {
-	for i, step := range workflow.Steps {
-		if step.Type != "tool" || !stepNames[step.Tool] {
-			continue
-		}
-		args, _ := argsOf(step.Args)
-		step.Type, step.Tool = step.Tool, ""
-		for field, target := range map[string]*string{"text": &step.Text, "path": &step.Path, "at": &step.At, "note": &step.Note, "id": &step.ID} {
-			if value, ok := args[field].(string); ok && strings.TrimSpace(*target) == "" {
-				*target = value
-			}
-		}
-		if daily, ok := args["daily"].(bool); ok {
-			step.Daily = daily
-		}
-		step.Args = "{}"
-		workflow.Steps[i] = step
-	}
-	return workflow
-}
-
 // readFooter is what goes under every read: how many are left, and what else
 // the persona holds. A live run spent every read on one flaky map search and
 // never tried the web search it also had.
 func readFooter(left int, set *tools.Set) string {
 	var names []string
 	for _, declared := range set.Declarations() {
-		if declared.Name != "schedule" {
+		if set.IsReadOnly(declared.Name) {
 			names = append(names, declared.Name)
 		}
 	}
@@ -301,35 +191,70 @@ func readFooter(left int, set *tools.Set) string {
 		footer += "調べるのに使える道具: " + strings.Join(names, " / ") + "。見つからない・使えないときは別の道具を試してください。"
 	}
 	if left <= 0 {
-		footer += "もう読めないので、submit_workflow で workflow を出してください。"
+		footer += "もう読めないので、現在のフェーズの結果を提出してください。"
 	}
 	return footer + "）"
 }
 
-// checkWorkflow reports what makes a workflow unrunnable or not this persona's
-// to run. It reads the workflow, never the notes.
-func checkWorkflow(workflow Workflow, rules turnRules) []string {
+// unsafeNotePath reports a path that could not stay inside the persona's own
+// bundle. The store refuses it at run time; the plan is refused before that,
+// so the persona can fix it instead of losing its remark.
+func unsafeNotePath(path string) bool {
+	clean := strings.TrimSpace(strings.ReplaceAll(path, `\`, "/"))
+	clean = strings.TrimPrefix(clean, "/")
+	if clean == "" {
+		return true
+	}
+	for _, segment := range strings.Split(clean, "/") {
+		if segment == "" || segment == "." || segment == ".." || strings.HasPrefix(segment, ".") {
+			return true
+		}
+	}
+	return false
+}
+
+// checkBatch reports what makes a plan unrunnable or not this persona's to
+// run. It reads the plan, never the notes.
+func checkBatch(workflow operationBatch, rules turnRules) []string {
 	var problems []string
 	if len(workflow.Steps) > maxSteps {
 		problems = append(problems, fmt.Sprintf("ステップが多すぎます（%d件。上限は%d件）", len(workflow.Steps), maxSteps))
 	}
-	speaks, notes, said := 0, 0, false
 	written := map[string]bool{}
+	noted := map[string]bool{}
+	forgot := map[string]bool{}
+	backing := map[string]bool{}
 	newTitles := map[string]string{}
 	for i, step := range workflow.Steps {
 		at := fmt.Sprintf("%d番目（%s）", i+1, step.Type)
-		// Forgetting is a change of memory too: a persona told "もういい" answers
-		// with forget_note and a word, and that is a remark with something behind it.
-		if step.Type == "forget_note" {
-			notes++
-		}
 		if step.Type == "write_note" || step.Type == "write_schedule" {
-			notes++
 			path := strings.TrimSpace(step.Path)
 			if path != "" && written[path] {
 				problems = append(problems, at+": "+path+" はこの workflow ですでに書いています。1つのメモは1つのステップで書いてください")
 			}
 			written[path] = true
+			if forgot[path] {
+				problems = append(problems, at+": "+path+" を書く操作と捨てる操作が混ざっています。どちらかにしてください")
+			}
+			if rules.readState != nil && step.Type == "write_note" {
+				if exists, read := rules.readState(path); exists && !read {
+					problems = append(problems, at+": "+path+" は既存のメモです。read で読んでから更新してください")
+				}
+			}
+			if step.Type == "write_note" {
+				noted[path] = true
+			} else {
+				backing[path] = true
+			}
+		}
+		if step.Type == "forget_note" {
+			path := strings.TrimSpace(step.Path)
+			if path != "" {
+				forgot[path] = true
+			}
+			if written[path] {
+				problems = append(problems, at+": "+path+" を書く操作と捨てる操作が混ざっています。どちらかにしてください")
+			}
 		}
 		for _, text := range []string{step.Path, step.Text, step.Args, step.Note, step.ID} {
 			for _, id := range scheduleIDRef.FindAllString(text, -1) {
@@ -342,6 +267,9 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 		case "write_note":
 			if strings.TrimSpace(step.Path) == "" || strings.TrimSpace(step.Text) == "" {
 				problems = append(problems, at+": path と text が要ります")
+			}
+			if unsafeNotePath(step.Path) {
+				problems = append(problems, at+": path をメモの名前として書き直してください: "+step.Path)
 			}
 			var near []store.Note
 			if rules.notes != nil {
@@ -366,6 +294,9 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			if strings.TrimSpace(step.Path) == "" {
 				problems = append(problems, at+": path がありません")
 			}
+			if unsafeNotePath(step.Path) {
+				problems = append(problems, at+": path をメモの名前として書き直してください: "+step.Path)
+			}
 		case "write_schedule":
 			if !rules.set.Allows("schedule") {
 				problems = append(problems, at+": あなたは schedule を使えません")
@@ -379,6 +310,14 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			if strings.TrimSpace(step.Path) == "" || strings.TrimSpace(step.Text) == "" {
 				problems = append(problems, at+": 根拠のメモの path と text が要ります")
 			}
+			if unsafeNotePath(step.Path) {
+				problems = append(problems, at+": path をメモの名前として書き直してください: "+step.Path)
+			}
+			if rules.readState != nil {
+				if exists, read := rules.readState(strings.TrimSpace(step.Path)); exists && !read {
+					problems = append(problems, at+": "+strings.TrimSpace(step.Path)+" は既存のメモです。read で読んでから更新してください")
+				}
+			}
 			if why := typeNotAllowed(rules.memory, strings.TrimSpace(step.Path), step.Text); why != "" {
 				problems = append(problems, at+": "+why)
 			}
@@ -386,7 +325,7 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 			if !rules.set.Allows("schedule") {
 				problems = append(problems, at+": あなたは schedule を使えません")
 			}
-			if strings.TrimSpace(step.ID) == "" {
+			if !rules.schedules[strings.TrimSpace(step.ID)] {
 				problems = append(problems, at+": id がありません")
 			}
 		case "tool":
@@ -400,49 +339,21 @@ func checkWorkflow(workflow Workflow, rules turnRules) []string {
 				problems = append(problems, at+": メモは tool ではなく write_note / forget_note で扱います")
 			case !rules.set.Allows(step.Tool):
 				problems = append(problems, at+": "+step.Tool+" はあなたが使える道具ではありません")
-			case lookupTools[step.Tool]:
-				problems = append(problems, at+": "+step.Tool+" は調べるための道具です。workflow ではなく、その前の read で使ってください")
+			case rules.set.IsReadOnly(step.Tool):
+				problems = append(problems, at+": "+step.Tool+" は調べるための道具です。Action ではなく read で使ってください")
 			}
-		case "speak":
-			speaks++
-			said = strings.TrimSpace(step.Text) != ""
-			// An empty text is silence, chosen out loud; a named persona may not
-			// choose it, and a listening one may choose nothing else.
-			switch {
-			case strings.TrimSpace(step.Text) == "" && rules.named && !rules.listening:
-				problems = append(problems, at+": 名指しで呼ばれています。speak の text を空にはできません")
-			case strings.TrimSpace(step.Text) != "" && rules.listening:
-				problems = append(problems, at+": このターンは発言できません。speak の text は空にしてください")
-			case strings.TrimSpace(step.Text) != "" && strings.TrimSpace(step.Text) == strings.TrimSpace(workflow.Summary):
-				// A live run said its own plan out loud: "神谷町駅周辺のランチ情報を
-				// Web検索で探す", word for word the summary.
-				problems = append(problems, at+": speak の text が summary と同じです。何をするかの説明ではなく、ユーザーに向けた発言そのものを書いてください")
-			}
-			if i != len(workflow.Steps)-1 {
-				problems = append(problems, at+": speak は最後のステップにしてください")
-			}
-			if len(step.Sources) > maxReplySources {
-				problems = append(problems, at+": sources は特に重要なものを3件以内に絞ってください")
-			}
-			for _, id := range step.Sources {
-				if _, ok := rules.cited[strings.TrimSpace(id)]; !ok {
-					problems = append(problems, at+": sources の "+strings.TrimSpace(id)+" は、このターンの timeline_search の結果にない id です")
-				}
-			}
+
 		default:
 			problems = append(problems, at+": 知らないステップです")
 		}
 	}
-	// A workflow without a speak step has not decided whether to speak, and a
-	// live run lost a remark that way: the summary promised one and the steps
-	// did not carry it. Silence is asked for as a speak with an empty text.
-	switch {
-	case speaks > 1:
-		problems = append(problems, "speak は1回までです")
-	case speaks == 0:
-		problems = append(problems, "speak がありません。最後に必ず speak を入れ、何も言わないなら text を空にしてください")
-	case said && rules.noteRequired && notes == 0:
-		problems = append(problems, "発言するのにメモがありません。発言の根拠や覚えたことを write_note で残すか、不要になったメモを forget_note で消してください。残すことが無いなら、speak の text を空にして黙ってください")
+	// A schedule's backing note belongs to the schedule, and the note phase
+	// is told not to duplicate it. The plan that writes both writes the note
+	// twice, whichever order the steps are in.
+	for path := range backing {
+		if noted[path] {
+			problems = append(problems, path+" は write_schedule の背景メモです。Note phase で書かないでください")
+		}
 	}
 	return problems
 }
@@ -455,6 +366,7 @@ type Review struct {
 }
 
 type Issue struct {
+	Phase       string `json:"phase,omitempty"`
 	Severity    string `json:"severity"`
 	Description string `json:"description"`
 }
@@ -470,6 +382,11 @@ func (v Review) validate() error {
 		return fmt.Errorf("issues は配列で提出してください")
 	}
 	for i, issue := range v.Issues {
+		switch issue.Phase {
+		case "schedule", "action", "both":
+		default:
+			return fmt.Errorf("issues[%d] の phase は schedule / action / both で指定してください", i)
+		}
 		if issue.Severity != "high" && issue.Severity != "medium" && issue.Severity != "low" {
 			return fmt.Errorf("issues[%d] の severity が不正です", i)
 		}
@@ -494,17 +411,18 @@ func (v Review) passed() bool {
 
 var reviewTool = llm.Tool{
 	Name:        "submit_review",
-	Description: "workflow の確認結果を提出する。",
+	Description: "実行計画の確認結果を提出する。",
 	Parameters: map[string]any{"type": "object", "properties": map[string]any{
 		"verdict": map[string]any{"type": "string", "enum": []any{"pass", "fail"}},
 		"summary": stringField("判定の理由を一文で"),
 		"issues": map[string]any{"type": "array", "items": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
+				"phase":       map[string]any{"type": "string", "enum": []string{"schedule", "action", "both"}},
 				"severity":    map[string]any{"type": "string", "enum": []any{"high", "medium", "low"}},
 				"description": map[string]any{"type": "string"},
 			},
-			"required": []any{"severity", "description"},
+			"required": []any{"phase", "severity", "description"},
 		}},
 	}, "required": []any{"verdict", "summary", "issues"}},
 }
@@ -514,54 +432,29 @@ var reviewTool = llm.Tool{
 // persona's, and a reviewer with opinions about them would be a second persona
 // wearing the app's name. What the app checks is whether the workflow says
 // things that are not true and promises things it did not arrange.
-const reviewPrompt = `あなたはアプリ本体です。担当（ペルソナ）が作った workflow を、実行する前に確認します。
+const reviewPrompt = `あなたはアプリ本体です。実行計画のScheduleとActionのみを実行前に確認します。
+Answerの品質・長さ・調査結果や通常のNote更新はレビューしません。
+次の場合だけhighとしてfailにする:
+- Answerの約束と予定の日時、作成・取消・変更が一致しない。
+- 複数の予定やActionが矛盾し、または相互依存を満たさない。
+- ユーザーの依頼・担当の権限とActionの対象・引数が一致しない。
+- 状態変更を完了したというAnswerに操作または既存状態の裏付けがない。
+背景メモはScheduleの一部です。外部調査の出典が内部readにないという理由でAnswerを却下しない。
+問題にはphaseをschedule/action/bothのどれかで指定する。AnswerとNoteは再生成しない。
+highがなければpass。submit_reviewで提出する。`
 
-担当が何に反応するか、何をメモにするか、どんな口調で話すかは担当が決めることです。そこには口を出さないでください。
-workflow の text は、そのまま書き込まれ・発言される最終的な文面です。あなたが見るのは、次の点だけです。
-
-high（実行すると困る。verdict は fail）:
-1. **起きていないことを事実として書いている。** スレッドにも、担当が読んだ内容にも無い出来事を、メモや発言に事実として書いている。
-   例: 「22時半からドラマを見る」という投稿に対して「22:21 済」「ドラマを見た」とメモに書く。これから見ると言っただけです。
-1b. **読んだ結果に無い事実を断定している。** 店名・場所・路線・営業時間・値段などを、スレッドにも担当が読んだ内容にも無いのに言い切っている。
-   例: 検索で店が見つからなかったのに「駅前の定食屋がおすすめ」と言う。神谷町を「JR鶴見線の住宅地」と言う。
-   「〜かもしれない」「調べられなかった」と言っているなら問題にしません。
-2. **時刻を約束しているのに、それを置いていない。** 「22:30ごろに聞くね」と発言するのに、write_schedule が無く、渡された schedule 一覧にもその時刻の予定が無い。
-3. **担当自身への指示にはっきり反している。** 例: 薬について催促する、飲み忘れと決めつける。
-4. **投稿と違う言語で発言している。** 日本語の投稿に英語で答える、など。発言は投稿と同じ言語でするのが規則です。
-5. **既存のメモを読まずに丸ごと書き換えている。** メモ一覧にある path への write_note / write_schedule なのに、担当がそのメモを読んでいない（中身が消える）。
-
-6. **発言がユーザーに向けた言葉になっていない。** 「神谷町駅周辺のランチ情報をWeb検索で探す」のような、作業の説明や予定になっている。
-   調べた結果を伝えるはずの発言なら、結果の中身（店名など）が入っているはずです。
-
-**判定の前に、speak の text をそのまま引用して確かめてください。** 発言の中身を想像で補って判定しないでください。
-
-medium / low（実行してよい。verdict は pass）:
-- 発言が長い、同じことを繰り返している
-
-high が無ければ verdict は pass です。迷ったら pass にしてください。
-submit_review を呼んで答えてください。`
-
-// A direct mention is an explicit request rather than a persona choosing to
-// join a conversation. In that case the app also checks that the final remark
-// actually serves the request. This is kept out of the ordinary review prompt
-// so routed reactions retain the persona's freedom to decide what matters.
-const namedReviewPrompt = `
-
-今回の担当は @メンションで名指しされています。この場合に限り、次も確認してください。
-
-high（実行すると期待された回答にならない。verdict は fail）:
-7. **名指しで頼まれたことに答えていない。** スレッド全体と今回の対象発言からユーザーが求めていることを読み取り、speak の text がそれに直接応えているかを確かめる。
-   例: 理由を聞かれたのに結論だけ言う、比較を頼まれたのに片方にしか触れない、質問に答えず作業の説明だけを返す。
-   好みの違いや、口調・長さ・追加情報の多少は問題にしない。質問に前提が足りなければ、確認質問や条件付きの回答でよい。`
-
-// review asks the app's own model about one workflow. A malformed verdict is
+// review asks the app's own model about one assembled plan. A malformed verdict is
 // returned as a tool result, giving the reviewer another turn to correct it.
 // An endpoint error remains unavailable to the caller, which records it.
 func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.Settings, skill Skill, thread []timeline.Entry, trigger timeline.Entry,
-	workflow Workflow, known string, names map[string]string, here *time.Location, named bool) (*Review, error) {
+	answer Answer, plan Workflow, known string, names map[string]string, here *time.Location) (*Review, error) {
 
 	model := reviewModel(settings)
-	encoded, _ := json.MarshalIndent(workflow, "", "  ")
+	encoded, _ := json.MarshalIndent(struct {
+		Schedules []ScheduleOperation `json:"schedules"`
+		Actions   []ActionOperation   `json:"actions"`
+		Notes     []NoteOperation     `json:"notes"`
+	}{plan.Schedules, plan.Actions, plan.Notes}, "", "  ")
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		"",
@@ -577,13 +470,12 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 		"今回の対象発言:",
 		trigger.Render(names, here),
 		"",
-		"担当が提出した workflow:",
+		"完成した Answer（調査の出典は本文中のリンクも参照。これはメモへの保存指示ではありません）:",
+		answer.Text,
+		"担当が提出した状態変更計画（schedules / actions / notes）:",
 		string(encoded),
 	}, "\n")
 	system := reviewPrompt
-	if named {
-		system += namedReviewPrompt
-	}
 	messages := []llm.Message{{Role: "system", Content: system}, {Role: "user", Content: user}}
 	for attempt := 0; attempt < 3; attempt++ {
 		reply, err := client.Complete(ctx, llm.Request{
@@ -620,32 +512,11 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 	return nil, fmt.Errorf("確認結果を3回読めませんでした")
 }
 
-// reviewModel checks workflows for unsafe or inconsistent actions. It uses the
+// reviewModel checks plans for unsafe or inconsistent actions. It uses the
 // middle slot - Super by default, or the Middle model chosen for OpenRouter -
 // and stays there even when a persona answers on Ultra.
 func reviewModel(settings store.Settings) string {
 	return personaModel(settings)
-}
-
-// needsReview reports whether a workflow is worth the app's review call.
-// A note and a remark stay inside the persona's own corner and can be corrected
-// by the next post; schedules, forgetting and tools reach further. A persona
-// that can schedule is reviewed even for a note and a remark: the failure it
-// is prone to is a time promised in the remark with no schedule behind it,
-// and that workflow has nothing but a note and a remark in it. A named answer
-// is also reviewed because it has an explicit request to satisfy. Staying
-// quiet has nothing to check.
-func needsReview(workflow Workflow, schedules, named bool) bool {
-	quiet := true
-	for _, step := range workflow.Steps {
-		if step.Type != "write_note" && step.Type != "speak" {
-			return true
-		}
-		if step.Type != "speak" || strings.TrimSpace(step.Text) != "" {
-			quiet = false
-		}
-	}
-	return (schedules || named) && !quiet
 }
 
 // routingModel matches a post against short persona conditions. Production
@@ -686,7 +557,9 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 			case err != nil:
 				out = "args を JSON オブジェクトとして読めません: " + err.Error()
 			case step.Tool == "schedule":
-				out = "予定は読むものではありません。置いている予定は最初に渡した一覧にあります。置く・消すは workflow の write_schedule / cancel_schedule で。"
+				out = "予定は読むものではありません。置いている予定は最初に渡した一覧にあります。置く・消すは後の Schedule フェーズで扱います。"
+			case !set.IsReadOnly(step.Tool):
+				out = "この道具は状態を変えるため read では実行できません。後の Action フェーズで扱います。"
 			default:
 				// The same call failing the same way again is worth saying
 				// outright: a live run spent six of its reads on one broken
@@ -705,7 +578,7 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 				if err != nil {
 					out = "道具が使えませんでした: " + err.Error()
 					if failures[call] == err.Error() {
-						out += "\n**同じ呼び出しは前にも同じ理由で失敗しています。繰り返さず、別の道具か別の引数にするか、読むのをやめて workflow を出してください。**"
+						out += "\n**同じ呼び出しは前にも同じ理由で失敗しています。繰り返さず、別の道具か別の引数にするか、読むのをやめて現在のフェーズの結果を提出してください。**"
 					}
 					failures[call] = err.Error()
 				}
@@ -736,8 +609,8 @@ var placedID = regexp.MustCompile(`schedule (s_[A-Za-z0-9]+) を置きました`
 // execute runs an approved workflow in order and stops at the first step that
 // fails, so a remark at the end never goes out when what it rests on did not
 // happen.
-func (r *Runner) execute(ctx context.Context, skill Skill, workflow Workflow, set *tools.Set, rules turnRules, post timeline.Entry,
-	prov *provenance) (spoken string, sources []timeline.Source, records []stepRecord) {
+func (r *Runner) execute(ctx context.Context, skill Skill, workflow operationBatch, set *tools.Set, rules turnRules, post timeline.Entry,
+	prov *provenance) (sources []timeline.Source, records []stepRecord) {
 
 	// What the workflow throws away is known before anything is written, so a
 	// note that takes a forgotten one's place inherits its posts either way.
@@ -782,24 +655,17 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow Workflow, se
 				record.Error = err.Error()
 			}
 			sources = append(sources, result.Sources...)
-		case "speak":
-			// A listening turn's speak is empty by rule; whatever it holds is
-			// not said.
-			if !rules.listening {
-				spoken = strings.TrimSpace(step.Text)
-				sources = append(sources, citedSources(step.Sources, rules.cited)...)
-			}
-			out = spoken
+
 		default:
 			record.Error = "知らないステップです"
 		}
 		record.Output = preview(out)
 		records = append(records, record)
 		if record.Error != "" {
-			return "", sources, records
+			return sources, records
 		}
 	}
-	return spoken, sources, records
+	return sources, records
 }
 
 // citedSources are the links a speak's sources become: the posts it named,
@@ -829,7 +695,7 @@ func (r *Runner) writeNote(skill Skill, path, text string, prov *provenance) (st
 // and the failure this exists to prevent is having one without the other: a
 // note that says 22:30 with nothing set to wake at 22:30. So the schedule goes
 // first, and if the note cannot be written the schedule is taken back.
-func (r *Runner) writeSchedule(ctx context.Context, skill Skill, step Step, set *tools.Set, prov *provenance) (string, string) {
+func (r *Runner) writeSchedule(ctx context.Context, skill Skill, step operation, set *tools.Set, prov *provenance) (string, string) {
 	result, err := set.Run(ctx, "schedule", map[string]any{
 		"action": "set", "at": strings.TrimSpace(step.At), "daily": step.Daily,
 		"note": step.Note, "note_path": step.Path,
@@ -891,14 +757,6 @@ type stepRecord struct {
 	Output string `json:"output,omitempty"`
 }
 
-// draftRecord is one workflow a persona handed in and what became of it.
-type draftRecord struct {
-	Workflow *Workflow `json:"workflow,omitempty"`
-	Problems []string  `json:"problems,omitempty"`
-	Review   *Review   `json:"review,omitempty"`
-	Unseen   string    `json:"reviewUnavailable,omitempty"`
-}
-
 // readRecord is one round of reading.
 type readRecord struct {
 	Steps  []ReadStep `json:"steps"`
@@ -924,12 +782,15 @@ type runRecord struct {
 	Reads    []readRecord `json:"reads,omitempty"`
 	// Stalls are replies that called nothing, which use up a turn as surely as
 	// a read does and were invisible in the log.
-	Stalls int           `json:"stalls,omitempty"`
-	Drafts []draftRecord `json:"drafts"`
-	Ran    bool          `json:"ran"`
-	Steps  []stepRecord  `json:"steps,omitempty"`
-	Spoke  string        `json:"spoke,omitempty"`
-	Error  string        `json:"error,omitempty"`
+	Stalls  int            `json:"stalls,omitempty"`
+	Answer  *Answer        `json:"answer,omitempty"`
+	Phases  []phaseRecord  `json:"phases,omitempty"`
+	Reviews []reviewRecord `json:"reviews,omitempty"`
+	Plan    *Workflow      `json:"plan,omitempty"`
+	Ran     bool           `json:"ran"`
+	Steps   []stepRecord   `json:"steps,omitempty"`
+	Spoke   string         `json:"spoke,omitempty"`
+	Error   string         `json:"error,omitempty"`
 }
 
 // logRun writes the record as JSON on stdout, which Cloud Run keeps as a

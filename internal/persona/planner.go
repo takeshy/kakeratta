@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,20 +13,11 @@ import (
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
-// A persona's turn has one part that is thinking: reading the context,
-// deciding what to do, and writing that down as a workflow. That part - and
-// only that part - can be handed to an external agent, such as Hermes, over
-// MCP. The app still checks and reviews the workflow the agent hands in, and
-// still runs it: the agent never writes a note or a remark itself.
-//
-// The hand-off is an ask. It waits for an agent to claim it, then for the
-// claimed ask to come back as an approved workflow. Either wait running out -
-// or the agent giving up - hands the turn back to the in-process planner, so
-// a persona whose agent is asleep still answers, only later.
-//
-// Asks live in memory with the turn that is waiting on them. A restart ends
-// the turn, and with it the ask: there is nothing left for a workflow to be
-// handed to.
+// The external agent owns Read + Answer only. After accepting its answer,
+// Kakeratta's own model plans the schedule, action and note phases, reviews
+// and executes the changes,
+// then publishes the answer. Asks live in memory; timeouts return research and
+// answering to the built-in model, without giving the agent write privileges.
 
 // Ask is one planning request, as an external agent sees it.
 type Ask struct {
@@ -45,23 +37,26 @@ type Ask struct {
 // AskContext is what the agent is given on claiming an ask: the same things
 // the in-process planner reads, without duplicating them as full prompts.
 type AskContext struct {
-	Persona      AskPersona  `json:"persona"`
-	Instructions string      `json:"instructions"`
-	Rules        string      `json:"rules"`
-	Place        string      `json:"place"`
-	NoteCount    string      `json:"noteCount"`
-	Turn         string      `json:"turn,omitempty"`
-	Skill        string      `json:"skill"`
-	Wake         string      `json:"wake"`
-	WakeNote     string      `json:"wakeInstructions,omitempty"`
-	Now          string      `json:"now"`
-	Trigger      AskEntry    `json:"trigger"`
-	Thread       []AskEntry  `json:"thread"`
-	MemoryIndex  string      `json:"memoryIndex"`
-	Schedules    string      `json:"schedules"`
-	Workflow     AskWorkflow `json:"workflow"`
-	Tools        []AskTool   `json:"tools"`
-	Limits       AskLimits   `json:"limits"`
+	Persona      AskPersona `json:"persona"`
+	Instructions string     `json:"instructions"`
+	Rules        string     `json:"rules"`
+	Place        string     `json:"place"`
+	NoteCount    string     `json:"noteCount"`
+	Turn         string     `json:"turn,omitempty"`
+	// Capabilities are the changes the later phases can make, so the answer
+	// promises nothing the persona cannot carry out.
+	Capabilities string `json:"capabilities"`
+
+	Wake        string         `json:"wake"`
+	WakeNote    string         `json:"wakeInstructions,omitempty"`
+	Now         string         `json:"now"`
+	Trigger     AskEntry       `json:"trigger"`
+	Thread      []AskEntry     `json:"thread"`
+	MemoryIndex string         `json:"memoryIndex"`
+	Schedules   string         `json:"schedules"`
+	Answer      map[string]any `json:"answerSchema"`
+	Tools       []AskTool      `json:"tools"`
+	Limits      AskLimits      `json:"limits"`
 }
 
 type AskPersona struct {
@@ -70,7 +65,6 @@ type AskPersona struct {
 	Icon   string `json:"icon,omitempty"`
 	Tone   string `json:"tone"`
 	Domain string `json:"domain"`
-	Memory string `json:"memoryLayout"`
 }
 
 type AskEntry struct {
@@ -81,29 +75,21 @@ type AskEntry struct {
 	Rendered string `json:"rendered"`
 }
 
-type AskWorkflow struct {
-	Spec   string         `json:"spec"`
-	Schema map[string]any `json:"schema"`
-}
-
 type AskTool struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
 	Parameters  map[string]any `json:"parameters,omitempty"`
-	// Use is where the tool may appear: "read" (looked up through read_for_ask
-	// before deciding) or "workflow" (a step the app runs afterwards).
+	// Use is always "read": the agent looks things up through read_for_ask.
+	// Tools that change state belong to the app's own later phases.
 	Use string `json:"use"`
 }
 
 type AskLimits struct {
-	Reads     int `json:"reads"`
-	Searches  int `json:"searches"`
-	Steps     int `json:"steps"`
-	Drafts    int `json:"drafts"`
-	Malformed int `json:"malformed"`
+	Reads    int `json:"reads"`
+	Searches int `json:"searches"`
 }
 
-// AskVerdict is the app's answer to a submitted workflow.
+// AskVerdict is the app's answer to a submitted answer.
 type AskVerdict struct {
 	Accepted bool     `json:"accepted"`
 	Problems []string `json:"problems,omitempty"`
@@ -121,7 +107,7 @@ var (
 
 type askRequest struct {
 	read     []ReadStep
-	workflow *Workflow
+	answer   *Answer
 	parseErr error
 	release  string
 	reply    chan askReply
@@ -183,7 +169,7 @@ func (d *desk) closeLocked(a *openAsk) {
 
 // closeUnclaimed ends an ask whose claim wait ran out - unless an agent
 // claimed it at the last moment, in which case the turn goes on waiting for
-// its workflow instead.
+// its answer instead.
 func (d *desk) closeUnclaimed(a *openAsk) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -275,6 +261,13 @@ func (r *Runner) sendAsk(ctx context.Context, id, claimID string, request askReq
 	select {
 	case reply := <-request.reply:
 		return reply, reply.err
+	case <-a.done:
+		select {
+		case reply := <-request.reply:
+			return reply, reply.err
+		default:
+			return askReply{}, ErrAskNotFound
+		}
 	case <-ctx.Done():
 		return askReply{}, ctx.Err()
 	}
@@ -289,11 +282,11 @@ func (r *Runner) ReadForAsk(ctx context.Context, id, claimID string, steps []Rea
 	return reply.text, err
 }
 
-// SubmitAskWorkflow hands a claimed ask's workflow to the app, which checks
+// SubmitAskAnswer hands a claimed ask's answer to the app, which checks
 // and reviews it exactly as it would the in-process planner's. The verdict
-// comes back at once: rejected workflows may be fixed and submitted again.
-func (r *Runner) SubmitAskWorkflow(ctx context.Context, id, claimID string, workflow *Workflow, parseErr error) (AskVerdict, error) {
-	reply, err := r.sendAsk(ctx, id, claimID, askRequest{workflow: workflow, parseErr: parseErr})
+// comes back at once: rejected answers may be fixed and submitted again.
+func (r *Runner) SubmitAskAnswer(ctx context.Context, id, claimID string, answer *Answer, parseErr error) (AskVerdict, error) {
+	reply, err := r.sendAsk(ctx, id, claimID, askRequest{answer: answer, parseErr: parseErr})
 	return reply.verdict, err
 }
 
@@ -414,9 +407,7 @@ func (r *Runner) askWaits(settings store.Settings) (time.Duration, time.Duration
 // externalPlan is what the waiting turn does with an agent's requests.
 type externalPlan struct {
 	read     func(steps []ReadStep) string
-	consider func(workflow *Workflow, parseErr error) (approved bool, problems []string, err error)
-	// drafts reports whether another workflow may still be considered.
-	drafts func() bool
+	consider func(answer *Answer, parseErr error) (approved bool, problems []string, err error)
 }
 
 // errAborted is a turn cut short by shutdown, not by the agent: nothing falls
@@ -424,9 +415,9 @@ type externalPlan struct {
 var errAborted = errors.New("aborted")
 
 // planExternally opens an ask and waits on it. It returns the approved
-// workflow, or nil with the reason the turn falls through to the in-process
+// answer, or nil with the reason the turn falls through to the in-process
 // planner.
-func (r *Runner) planExternally(ctx context.Context, settings store.Settings, ask Ask, brief AskContext, plan externalPlan) (*Workflow, string, error) {
+func (r *Runner) planExternally(ctx context.Context, settings store.Settings, ask Ask, brief AskContext, plan externalPlan) (*Answer, string, error) {
 	claimWait, planWait := r.askWaits(settings)
 	now := time.Now().UTC()
 	ask.State, ask.At, ask.ClaimBy = "pending", now, now.Add(claimWait)
@@ -455,6 +446,7 @@ func (r *Runner) planExternally(ctx context.Context, settings store.Settings, as
 
 	planTimer := time.NewTimer(time.Until(planBy))
 	defer planTimer.Stop()
+	malformed := 0
 	for {
 		select {
 		case request := <-a.requests:
@@ -462,26 +454,27 @@ func (r *Runner) planExternally(ctx context.Context, settings store.Settings, as
 			case request.release != "":
 				request.reply <- askReply{}
 				return nil, "released: " + request.release, nil
-			case request.workflow != nil || request.parseErr != nil:
-				approved, problems, err := plan.consider(request.workflow, request.parseErr)
+			case request.answer != nil || request.parseErr != nil:
+				approved, problems, err := plan.consider(request.answer, request.parseErr)
 				if err != nil {
-					request.reply <- askReply{verdict: AskVerdict{Closed: true, Problems: []string{err.Error()}, Note: "確認に失敗したため、内蔵のプランナーに戻しました。"}}
+					request.reply <- askReply{verdict: AskVerdict{Closed: true, Problems: []string{err.Error()}, Note: "回答の確認に失敗したため、内蔵モデルに戻しました。"}}
 					return nil, "review failed: " + err.Error(), nil
 				}
 				if approved {
-					request.reply <- askReply{verdict: AskVerdict{Accepted: true, Closed: true, Note: "受け付けました。本体が実行します。"}}
-					return request.workflow, "", nil
+					request.reply <- askReply{verdict: AskVerdict{Accepted: true, Closed: true, Note: "回答を受け付けました。本体が記憶・操作を判断し、必要な確認と実行後に公開します。"}}
+					return request.answer, "", nil
 				}
-				if !plan.drafts() {
+				malformed++
+				if malformed > maxMalformed {
 					request.reply <- askReply{verdict: AskVerdict{Problems: problems, Closed: true, Note: "差し戻しの上限に達したため、内蔵のプランナーに戻しました。"}}
 					return nil, "drafts exhausted", nil
 				}
-				request.reply <- askReply{verdict: AskVerdict{Problems: problems, Note: "この workflow は実行されませんでした。直して、もう一度 submit_workflow を呼んでください。"}}
+				request.reply <- askReply{verdict: AskVerdict{Problems: problems, Note: "この Answer は受け付けられませんでした。直して submit_answer を呼んでください。"}}
 			default:
 				request.reply <- askReply{text: plan.read(request.read)}
 			}
 		case <-planTimer.C:
-			return nil, "workflow timeout", nil
+			return nil, "answer timeout", nil
 		case <-ctx.Done():
 			return nil, "", errAborted
 		case <-r.apart.Done():
@@ -492,25 +485,14 @@ func (r *Runner) planExternally(ctx context.Context, settings store.Settings, as
 
 // askTools lists what the persona holds, and where each may be used.
 func askTools(set *tools.Set) []AskTool {
-	shape := shapeOf(set)
-	actions := map[string]bool{}
-	for _, name := range shape.actions {
-		actions[name] = true
-	}
 	out := []AskTool{
-		{Name: "notes_list", Description: "自分のメモの一覧（新しい順）。args で {\"tag\":\"…\"} や {\"after\":\"…\"} を渡せる。", Use: "read"},
-		{Name: "notes_read", Description: "自分のメモを paths で読む。", Use: "read"},
+		{Name: "notes_list", Description: "メモ一覧。argsでtagやafterを指定できます。", Use: "read"},
+		{Name: "notes_read", Description: "pathsで自分のメモを読む。", Use: "read"},
 	}
-	for _, declared := range set.Declarations() {
-		use := "read"
-		switch {
-		case declared.Name == "schedule":
-			use = "workflow"
-			declared.Description += "（workflow の write_schedule / cancel_schedule で使う）"
-		case actions[declared.Name]:
-			use = "workflow"
+	for _, d := range set.Declarations() {
+		if set.IsReadOnly(d.Name) {
+			out = append(out, AskTool{Name: d.Name, Description: d.Description, Parameters: d.Parameters, Use: "read"})
 		}
-		out = append(out, AskTool{Name: declared.Name, Description: declared.Description, Parameters: declared.Parameters, Use: use})
 	}
 	return out
 }
@@ -520,21 +502,21 @@ func askEntry(entry timeline.Entry, names map[string]string, here *time.Location
 }
 
 // askContext gathers what the agent needs to plan this turn.
-func (r *Runner) askContext(skill Skill, set *tools.Set, spec, rules, turn, wakeNote, wake string, thread []timeline.Entry, trigger timeline.Entry,
+func (r *Runner) askContext(skill Skill, set *tools.Set, rules, turn, wakeNote, wake string, thread []timeline.Entry, trigger timeline.Entry,
 	indexNote, schedules string, names map[string]string, here *time.Location, deep bool) AskContext {
 	entries := make([]AskEntry, 0, len(thread))
 	for _, entry := range thread {
 		entries = append(entries, askEntry(entry, names, here))
 	}
-	submit := workflowToolFor(set)
+
 	return AskContext{
-		Persona:      AskPersona{ID: skill.ID, Name: skill.Name, Icon: skill.Icon, Tone: skill.Tone, Domain: skill.Domain, Memory: skill.Memory},
+		Persona:      AskPersona{ID: skill.ID, Name: skill.Name, Icon: skill.Icon, Tone: skill.Tone, Domain: skill.Domain},
 		Instructions: skill.Instructions,
 		Rules:        rules,
 		Place:        placeLine(thread[0].Place),
 		NoteCount:    r.noteCount(skill.ID),
 		Turn:         turn,
-		Skill:        okfHost + okfSkill,
+		Capabilities: strings.TrimSpace(capabilityLine(set)),
 		Wake:         wake,
 		WakeNote:     wakeNote,
 		Now:          time.Now().In(here).Format(time.RFC3339),
@@ -542,9 +524,8 @@ func (r *Runner) askContext(skill Skill, set *tools.Set, spec, rules, turn, wake
 		Thread:       entries,
 		MemoryIndex:  indexNote,
 		Schedules:    schedules,
-		Workflow:     AskWorkflow{Spec: spec, Schema: submit.Parameters},
+		Answer:       answerTool.Parameters,
 		Tools:        askTools(set),
-		Limits: AskLimits{Reads: turnReadLimit(deep), Searches: turnSearchLimit(deep), Steps: maxSteps,
-			Drafts: maxDrafts, Malformed: maxMalformed},
+		Limits:       AskLimits{Reads: turnReadLimit(deep), Searches: turnSearchLimit(deep)},
 	}
 }

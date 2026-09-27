@@ -6,6 +6,9 @@
 
 本書は、NVIDIA NemoClaw / OpenShell のサンドボックス内で動作する Hermes Agent を、kakeratta の担当ペルソナにおける「外部プランナー（思考エンジン）」として連携させ、Nebius Token Factory で推論し、kakeratta の MCP を介して安全かつ自律的にプランニング（ワークフロー策定）と自己更新を行う構成の実装・検証レポートです。目的は、単に LLM をサンドボックス内で実行することではなく、本番稼働中のパーソナル AI アプリケーションから自律エージェントへ安全に思考を委譲し、結果を元の会話へ返すところまで自動化することです。認証情報、ワークスペース ID、アクセストークン、内部 ID は掲載しません。
 
+> [!NOTE]
+> **この検証のあとにプロトコルを変更しました。** ここに記録したエンドツーエンドの検証は、Hermes が workflow 全体（`submit_workflow`: 発言・メモ・予定・道具の呼び出し）を提出していた以前のプロトコル（スキル v11）で行ったものです。現在の Hermes は回答だけを提出し（`submit_answer`、スキル v12）、予定・操作・メモは kakeratta が自分のモデルでフェーズごとに決め、予定と操作をレビューして実行してから回答を公開します。現在のプロトコルは kakeratta の自動テストで確認していますが、**この NemoClaw 環境でのエンドツーエンドの再検証はしていません**。以下のサンドボックス・認証情報・ネットワークポリシー・Gateway・Wake Gate に関する知見は引き続き有効です。現在のプロトコルは [Hermes Agent 連携ガイド](hermes_ja.md) を参照してください。
+
 ## 構成と責務
 
 ```mermaid
@@ -36,7 +39,7 @@ kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta
 
 ## MCP と自律プランニング
 
-kakeratta の MCP ツール群（`list_asks`, `claim_ask`, `read_for_ask`, `submit_workflow` 等）、自律プランニングの流れ、および Wake Gate によるゼロトークン待機と自律アップデートの詳細仕様については、[**Hermes Agent 連携ガイド**](hermes_ja.md#mcp-と自律プランニング) を参照してください。
+kakeratta の現在の MCP ツール群（`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer` 等）、回答の流れ、および Wake Gate によるゼロトークン待機と自律アップデートの詳細仕様については、[**Hermes Agent 連携ガイド**](hermes_ja.md#mcp-と自律プランニング) を参照してください。
 
 NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点は以下の通りです：
 

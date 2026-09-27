@@ -163,7 +163,7 @@ Token Factory is also used by the tested external-agent setup described below,
 so both kakeratta's built-in personas and a sandboxed autonomous agent can use
 remote models through the same inference platform.
 
-The routing experiments, workflow constraints, and model responsibilities are
+The routing experiments, workflow phases and constraints, and model responsibilities are
 described in [Under the hood](docs/technical.md).
 
 ## Your data stays yours
@@ -201,8 +201,9 @@ API key.
 
 External-agent access is opt-in. The MCP credential issued for Hermes belongs
 to that workspace and can be revoked; disconnecting the integration invalidates
-the credential itself. An external agent never writes directly: it submits a
-workflow, which kakeratta checks and reviews before running it as the persona.
+the credential itself. An external agent never writes directly: it submits only
+an answer, and kakeratta assembles the workflow around it, checks and reviews
+it, and runs it as the persona.
 
 kakeratta is [MIT licensed](LICENSE).
 
@@ -244,17 +245,24 @@ server-side wakes.
 
 Some work goes beyond what a small persona for one interest or person should do.
 
-For those, any persona can hand its thinking to **Hermes Agent** through MCP.
+For those, any persona can hand its research and answer to **Hermes Agent** through MCP.
 Each persona chooses its planner: the built-in model, or the external agent.
 When a persona planned by the external agent wakes, kakeratta opens an *ask*
 carrying the persona's identity, instructions, the trigger and its thread, the
-persona's memory index, the workflow schema, and its available tools. Hermes
-claims the ask, thinks with its own tools and skills, and submits a workflow;
-kakeratta checks, reviews, and runs it as the persona. If Hermes does not claim
-the ask within 3 minutes, or no workflow is accepted within 15 minutes of the
-claim (both configurable), the built-in model takes the turn instead.
+persona's memory index, what the persona can change, and its read-only tools.
+Hermes claims the ask, researches with its own tools and skills, and submits
+only the answer. kakeratta then decides the turn's schedules, tool actions, and
+notes with its own model, one phase at a time, assembles them with the answer
+into a workflow, checks it against what the answer promises, runs it as the
+persona, and publishes the answer. The answer
+itself is not reviewed, so research kakeratta cannot see is never held against
+it. If Hermes does not claim the ask within 3 minutes, or no answer is accepted
+within 15 minutes of the claim (both configurable), the built-in model takes
+the turn instead.
 
-The integration has been built and tested with:
+The integration has been built and tested with the following. That end-to-end
+run used the earlier protocol, in which Hermes submitted a whole workflow; the
+current answer-only protocol is covered by the automated tests.
 
 * **NVIDIA NemoClaw** for orchestration, lifecycle, and policy setup
 * **OpenShell** as the sandbox and policy-enforcement layer
@@ -281,14 +289,14 @@ earlier integration, in which Hermes was a persona of its own. Those have since
 been replaced by the planning tools:
 
 `list_personas`, `get_timeline`, `get_thread`, `list_notes`, `read_note`,
-`list_asks`, `claim_ask`, `read_for_ask`, `submit_workflow`, and `release_ask`.
+`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer`, and `release_ask`.
 
 That keeps the responsibilities separate:
 
-**kakeratta** owns the user's timeline, the personas, their memory, the review
-and execution of every workflow, and MCP permissions.
+**kakeratta** owns the user's timeline, the personas, their memory, the
+assembly, review and execution of every workflow, and MCP permissions.
 
-**Hermes** owns its planning loop, tools, skills, and its own long-term memory.
+**Hermes** owns its research, the answer, its tools, skills, and its own long-term memory.
 
 **NemoClaw + OpenShell** provide the controlled environment in which the
 external agent runs.
@@ -557,7 +565,7 @@ Hermes does not have to run under NemoClaw to use kakeratta.
 
 The integration boundary is MCP: issue a workspace key in Settings, configure
 the kakeratta MCP server in Hermes, turn on **Prefer the external agent** for a
-persona, and Hermes can claim its asks and submit workflows.
+persona, and Hermes can claim its asks and submit answers.
 
 The NemoClaw/OpenShell setup described above is the tested sandboxed
 configuration used for the hackathon integration.
@@ -582,11 +590,11 @@ check-ins, schedules, and operator-provided tools are documented in
 
 | Document                                                                                                 | Contents                                                                                                          |
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [Under the hood](docs/technical.md)                                                                      | Design principles, the system flow, routing, which model answers, workflow constraints, OKF notes, skills, storage, check-ins, tools, and deployment |
+| [Under the hood](docs/technical.md)                                                                      | Design principles, the system flow, routing, which model answers, workflow phases and constraints, OKF notes, skills, storage, check-ins, tools, and deployment |
 | [Manual](https://kakeratta.net/manual/?lang=en)                                                          | Using personas, search, memory, speech, sharing, tools, offline posts, and settings                               |
 | [Usage and configuration](docs/usage.md)                                                                 | Android and iOS sharing, location, speech, model settings, and stored data                                        |
 | [What was hard about the AI](docs/ai-lessons.md)                                                         | What went wrong with Nemotron personas in live runs and production, and how each was fixed                        |
-| [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, claiming asks, submitting workflows, and fall-through                    |
+| [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, claiming asks, submitting answers, and fall-through                      |
 | [NVIDIA NemoClaw with Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | Official setup for running Hermes in a NemoClaw/OpenShell sandbox                                                 |
 | [Google Cloud deployment](infra/README.md)                                                               | Terraform deployment: Firebase Hosting for the page and Cloud Run for the API                                     |
 

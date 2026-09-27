@@ -455,7 +455,7 @@
 
         <section id="ja-hermes">
           <h2>5. 担当の考える役をHermesにする</h2>
-          <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで次に何をするか（workflow）を考える部分を自分の Hermes に任せます。kakeratta はその workflow を確認してから、担当として実行します（メモ・予定・発言）。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
+          <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を自分の Hermes に任せます。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
           <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="963" /></figure>
           <h3>つなぐ</h3>
           <ol>
@@ -474,9 +474,9 @@
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは接続キーを発行したあとにだけ表示されます。</li>
             <li>いつもどおり投稿します。その担当に届いた投稿は Hermes が考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
-          <p>Hermes が3分以内に取りに来ない、または15分以内に workflow を返さないときは、内蔵モデルが代わりに考えます。取得を待つ時間のあいだ Hermes から一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが考えます。時間は <strong>外部連携</strong> で変えられます。同じ場所の <strong>外部エージェントを使う</strong> をOFFにすると、担当ごとの設定を残したまま一時的に内蔵モデルで考えます。試し直しは常に内蔵モデルで行います。</p>
+          <p>Hermes が3分以内に取りに来ない、または15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ Hermes から一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。時間は <strong>外部連携</strong> で変えられます。同じ場所の <strong>外部エージェントを使う</strong> をOFFにすると、担当ごとの設定を残したまま一時的に内蔵モデルで考えます。試し直しは常に内蔵モデルで行います。</p>
           <h3>Hermes が読めるもの</h3>
-          <p>Hermes は、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、書き込みはすべて kakeratta が確認した workflow を通ります。モデル設定や他の利用者のデータには触れません。<strong>連携を解除</strong> で接続キーが無効になります。</p>
+          <p>Hermes は、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、Hermes が渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。<strong>連携を解除</strong> で接続キーが無効になります。</p>
           <h3>つながらないとき</h3>
           <ul>
             <li>設定を変えたあと Hermes を再起動したか確認してください。</li>
@@ -987,7 +987,7 @@
 
         <section id="en-hermes">
           <h2>5. Let Hermes plan for a persona</h2>
-          <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the thinking part of its turn — reading the context and deciding what to do next (the workflow) — to your own Hermes, whether it woke for a post or a check-in. kakeratta checks that workflow and then runs it as the persona (notes, schedules, remarks). If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
+          <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to your own Hermes, whether it woke for a post or a check-in. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
           <figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="983" /></figure>
           <h3>Connect</h3>
           <ol>
@@ -1006,9 +1006,9 @@
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only after a connection key has been issued.</li>
             <li>Post as usual. Hermes plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
-          <p>If Hermes does not pick it up within 3 minutes, or does not return a workflow within 15 minutes, the built-in model plans instead. If Hermes has not connected at all for the claim wait, it is taken to be away and the built-in model plans without waiting until it connects again. Change the waits under <strong>Integrations</strong>; turning off <strong>Use the external agent</strong> there pauses it while keeping each persona's choice. <strong>Try again</strong> always uses the built-in model.</p>
+          <p>If Hermes does not pick it up within 3 minutes, or does not return an answer within 15 minutes, the built-in model answers instead. If Hermes has not connected at all for the claim wait, it is taken to be away and the built-in model answers without waiting until it connects again. Change the waits under <strong>Integrations</strong>; turning off <strong>Use the external agent</strong> there pauses it while keeping each persona's choice. <strong>Try again</strong> always uses the built-in model.</p>
           <h3>What Hermes can read</h3>
-          <p>Hermes can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: every write goes through a workflow kakeratta has checked. It cannot reach model settings or other users. <strong>Disconnect</strong> invalidates the key.</p>
+          <p>Hermes can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. <strong>Disconnect</strong> invalidates the key.</p>
           <h3>If it cannot connect</h3>
           <ul>
             <li>Restart Hermes after changing its configuration.</li>

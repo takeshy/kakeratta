@@ -365,13 +365,15 @@ ordinary follow-up questions and new topics stay on Super.
 The persona can use `read` up to 10 times in an ordinary turn and 20 times in an Ultra turn.
 
 Once an external agent's connection key has been issued, each persona can turn on
-**Prefer the external agent** to hand its planning to an agent such as Hermes
+**Prefer the external agent** to hand its research and answer to an agent such as Hermes
 (the checkbox stays hidden until then).
-Such a persona hands only the part that reads the context and writes the
-workflow to the agent connected over MCP; kakeratta still reviews and runs the
-workflow as in the table above. If the agent does not claim the turn within 3
-minutes, or no workflow is accepted within 15 minutes of the claim, the built-in
-model (Super) plans instead. The waits are under Advanced options →
+Such a persona hands only the part that reads the context, looks things up and
+writes the answer to the agent connected over MCP. kakeratta then decides the
+turn's schedules, actions and notes on the persona's own model, assembles them
+with the answer into a workflow, reviews it as in the table above when it holds a
+schedule or an action, runs it, and publishes the answer. If the
+agent does not claim the turn within 3 minutes, or no answer is accepted within
+15 minutes of the claim, the built-in model (Super) answers instead. The waits are under Advanced options →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md).
 
 ![Personas: preferring the external agent for a persona](captures/en/persona-planner.png)

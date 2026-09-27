@@ -73,6 +73,9 @@ func ParseServers(raw string) ([]Server, error) {
 
 // Tool is what a server says it can do, as listed by tools/list.
 type Tool struct {
+	Annotations struct {
+		ReadOnlyHint bool `json:"readOnlyHint"`
+	} `json:"annotations,omitempty"`
 	Name        string          `json:"name"`
 	Title       string          `json:"title,omitempty"`
 	Description string          `json:"description,omitempty"`

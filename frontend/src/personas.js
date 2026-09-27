@@ -251,8 +251,8 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   }
 
   // Whether the external agent does the thinking - reading the context,
-  // deciding what to do, and writing the workflow - when it can. The app
-  // checks and runs the workflow either way.
+  // looking things up and writing the answer - when it can. The app decides,
+  // checks and runs the notes, schedules and actions either way.
   // The choice only appears once an external agent is connected: most people
   // never connect one and need not know there is anything to choose. A
   // persona already handed over keeps it, so it can be handed back.
@@ -284,7 +284,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         ? "外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。"
         : agentAway
         ? "外部エージェントから応答がありません。接続があるまで内蔵モデルが考えます。"
-        : "外部エージェントが文脈を読み、次にすることを workflow にします。時間内に取得・返却されなければ内蔵モデルが代わりに考えます。" }));
+        : "外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定・操作はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。" }));
     }
     return box;
   }

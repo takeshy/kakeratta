@@ -361,7 +361,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   // unmarked.
   // A remark planned by an external agent is marked too.
   function drawModel(entry) {
-    if (entry.model === "agent") return el("span", { class: "model-badge", label: "外部エージェント", i18nTitle: "外部エージェントが考えた workflow で答えました" });
+    if (entry.model === "agent") return el("span", { class: "model-badge", label: "外部エージェント", i18nTitle: "外部エージェントが書いた回答です" });
     if (entry.model !== "ultra") return null;
     return el("span", { class: "model-badge", text: "Ultra", i18nTitle: "より深い回答を求められたので Ultra で答えました" });
   }

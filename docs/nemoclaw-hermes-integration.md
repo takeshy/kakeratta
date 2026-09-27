@@ -6,6 +6,9 @@
 
 This report documents an integration in which Hermes Agent runs inside NVIDIA NemoClaw / OpenShell, acts as an external **planner** (thinking engine) for designated kakeratta personas, uses Nebius Token Factory for inference, and safely plans turns, formulates workflows, and keeps itself updated via kakeratta's MCP server. Credentials, workspace IDs, access tokens, and internal task IDs are intentionally omitted.
 
+> [!NOTE]
+> **Protocol change after this verification.** The end-to-end run recorded here used the earlier protocol (skill v11), in which Hermes submitted a whole workflow (`submit_workflow`: the remark, notes, schedules and tool calls). Hermes now submits only the answer (`submit_answer`, skill v12); kakeratta plans the schedule, action and note phases with its own model, reviews schedules and actions, runs them, and then publishes the answer. The current protocol is covered by kakeratta's automated tests but **has not been re-verified end to end in this NemoClaw environment**. The sandbox, credential, network-policy, Gateway and Wake Gate findings below still apply. See the [Hermes Agent Setup Guide](hermes.md) for the current protocol.
+
 ## Architecture and responsibilities
 
 ```mermaid
@@ -36,7 +39,7 @@ kakeratta does not start the Hermes process, and Hermes does not access kakeratt
 
 ## MCP and autonomous planning
 
-For the full specification of Kakeratta's MCP tools (`list_asks`, `claim_ask`, `read_for_ask`, `submit_workflow`, etc.), the autonomous planning loop, and Wake Gate's zero-token standby and self-updating mechanisms, refer to the [**Hermes Agent Setup Guide**](hermes.md#mcp-and-autonomous-planning).
+For the full specification of Kakeratta's current MCP tools (`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer`, etc.), the answering loop, and Wake Gate's zero-token standby and self-updating mechanisms, refer to the [**Hermes Agent Setup Guide**](hermes.md#mcp-and-autonomous-planning).
 
 Key aspects of operating MCP under NemoClaw / OpenShell include:
 

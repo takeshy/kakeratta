@@ -23,7 +23,7 @@ func newLookups(limit, searches int) *lookups {
 	return &lookups{limit: limit, searches: searches, seen: map[string]string{}}
 }
 
-const lookupsSpent = "これ以上は調べられません。分かっていることで speak か silent で終えてください。"
+const lookupsSpent = "これ以上は調べられません。分かっていることで finish_read して回答へ進んでください。"
 
 const searchesSpent = "このターンの web_search はもう使えません。これまでの検索結果か、ほかの道具で進めてください。"
 

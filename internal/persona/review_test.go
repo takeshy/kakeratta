@@ -128,6 +128,9 @@ func TestReviewPostThenReplyWakesItsAuthor(t *testing.T) {
 			return `{"deliver":[]}`
 		case strings.HasPrefix(system, "あなたは「tabe」") && strings.Contains(system, "Review への返事"):
 			return `{"summary":"forget","steps":[{"type":"forget_note","path":"shops/soka.md","text":"","tool":"","args":"{}","at":"","daily":false,"note":"","id":""},{"type":"speak","path":"","text":"わかった、忘れるね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
+		case strings.HasPrefix(system, "あなたは「tabe」") && !strings.Contains(user, `"notes_read"`):
+			// An existing note is read before it is rewritten.
+			return `{"action":"tool","tool":"notes_read","args":{"paths":["shops/soka.md"]}}`
 		case strings.HasPrefix(system, "あなたは「tabe」"):
 			return `{"summary":"ask","steps":[{"type":"write_note","path":"shops/soka.md","text":` + jsonString(moved) + `,"tool":"","args":"{}","at":"","daily":false,"note":"","id":""},{"type":"speak","path":"","text":"そろそろ忘れていい？ 草加の店の話","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 		}
@@ -210,16 +213,13 @@ func TestAReplyUnderAPersonasOwnPostReachesIt(t *testing.T) {
 // forget_note and a word, and the check lets it through.
 func TestForgetNoteCountsAsANoteWhenSpeaking(t *testing.T) {
 	set := tools.New(tools.Config{}).For(nil)
-	workflow := Workflow{Steps: []Step{
+	workflow := operationBatch{Steps: []operation{
 		{Type: "forget_note", Path: "shops/soka.md"},
-		{Type: "speak", Text: "わかった、忘れるね"},
 	}}
-	if problems := checkWorkflow(workflow, turnRules{set: set, noteRequired: true, notes: func(string) []store.Note { return nil }}); len(problems) != 0 {
+	if problems := checkBatch(workflow, turnRules{set: set, notes: func(string) []store.Note { return nil }}); len(problems) != 0 {
 		t.Fatalf("problems = %v", problems)
 	}
-	bare := Workflow{Steps: []Step{{Type: "speak", Text: "わかった"}}}
-	problems := checkWorkflow(bare, turnRules{set: set, noteRequired: true, notes: func(string) []store.Note { return nil }})
-	if len(problems) != 1 || !strings.Contains(problems[0], "forget_note") {
-		t.Fatalf("problems = %v", problems)
+	if problems := checkBatch(operationBatch{Steps: []operation{}}, turnRules{set: set}); len(problems) != 0 {
+		t.Fatal(problems)
 	}
 }

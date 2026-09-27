@@ -63,8 +63,9 @@ func (a Args) num(name string, fallback float64) float64 {
 
 // Tool is one capability, with the line that tells a persona how to ask for it.
 type Tool struct {
-	Name  string
-	Usage string
+	ReadOnly bool
+	Name     string
+	Usage    string
 	// Parameters is the JSON Schema for the arguments, so the model is given
 	// the shape rather than asked to copy an example out of prose.
 	Parameters map[string]any
@@ -74,6 +75,7 @@ type Tool struct {
 // Declaration is one tool as the model is offered it, in a shape this package
 // can hand over without knowing anything about a provider.
 type Declaration struct {
+	ReadOnly    bool
 	Name        string
 	Description string
 	Parameters  map[string]any
@@ -182,6 +184,19 @@ func (r *Registry) For(declared []string) *Set {
 // Allows reports whether this persona may call one tool by name.
 func (s *Set) Allows(name string) bool { return s.allowed[strings.TrimSpace(name)] }
 
+// IsReadOnly is the execution boundary for research. Unannotated MCP tools
+// are actions; configured servers can explicitly advertise readOnlyHint.
+func (s *Set) IsReadOnly(name string) bool {
+	if !s.Allows(name) {
+		return false
+	}
+	switch name {
+	case "web_search", "place_search", "route", "timeline_search":
+		return true
+	}
+	return s.registry.tools[name].ReadOnly
+}
+
 // Declarations lists what this persona may call, for a request that carries
 // its tools rather than describing them.
 func (s *Set) Declarations() []Declaration {
@@ -193,7 +208,7 @@ func (s *Set) Declarations() []Declaration {
 	out := make([]Declaration, 0, len(names))
 	for _, name := range names {
 		tool := s.registry.tools[name]
-		out = append(out, Declaration{Name: name, Description: tool.Usage, Parameters: tool.Parameters})
+		out = append(out, Declaration{Name: name, Description: tool.Usage, Parameters: tool.Parameters, ReadOnly: s.IsReadOnly(name)})
 	}
 	return out
 }

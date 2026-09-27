@@ -47,30 +47,27 @@ func TestOneThingIsFiledOnce(t *testing.T) {
 // The check reaches the workflow before it runs, so the persona can fix the
 // path rather than lose its remark, and it catches two new notes with one
 // title in the same workflow.
-func TestAWorkflowFilingOneThingTwiceIsSentBack(t *testing.T) {
+func TestAPlanFilingOneThingTwiceIsSentBack(t *testing.T) {
 	set := tools.New(tools.Config{}).For(nil)
 	existing := []store.Note{{Path: "wines/altura.md", Text: "---\ntype: Wine\ntitle: ALTURA White Blend\n---\n"}}
-	twice := Workflow{Steps: []Step{
+	twice := operationBatch{Steps: []operation{
 		{Type: "write_note", Path: "wines/altra.md", Text: "---\ntype: Wine\ntitle: ALTRA White Blend\n---\n白。"},
-		{Type: "speak", Text: "白ですね"},
 	}}
-	problems := checkWorkflow(twice, turnRules{set: set, noteRequired: true, notes: func(string) []store.Note { return existing }})
+	problems := checkBatch(twice, turnRules{set: set, notes: func(string) []store.Note { return existing }})
 	if len(problems) != 1 || !strings.Contains(problems[0], "wines/altura.md") {
 		t.Fatalf("problems = %v", problems)
 	}
-	same := Workflow{Steps: []Step{
+	same := operationBatch{Steps: []operation{
 		{Type: "write_note", Path: "wines/altura.md", Text: "---\ntype: Wine\ntitle: ALTURA White Blend\n---\n白。"},
-		{Type: "speak", Text: "白ですね"},
 	}}
-	if problems := checkWorkflow(same, turnRules{set: set, noteRequired: true, notes: func(string) []store.Note { return existing }}); len(problems) != 0 {
+	if problems := checkBatch(same, turnRules{set: set, notes: func(string) []store.Note { return existing }}); len(problems) != 0 {
 		t.Fatalf("rewriting the existing note was refused: %v", problems)
 	}
-	atOnce := Workflow{Steps: []Step{
+	atOnce := operationBatch{Steps: []operation{
 		{Type: "write_note", Path: "wines/a.md", Text: "---\ntitle: Norton Malbec\n---\n"},
 		{Type: "write_note", Path: "wines/b.md", Text: "---\ntitle: Norton Malbec\n---\n"},
-		{Type: "speak", Text: ""},
 	}}
-	if problems := checkWorkflow(atOnce, turnRules{set: set}); len(problems) != 1 || !strings.Contains(problems[0], "同じ題名です") {
+	if problems := checkBatch(atOnce, turnRules{set: set}); len(problems) != 1 || !strings.Contains(problems[0], "同じ題名です") {
 		t.Fatalf("two new notes with one title were accepted: %v", problems)
 	}
 }

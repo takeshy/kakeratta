@@ -19,6 +19,7 @@ func mcpTools(catalogue *mcp.Catalogue) []Tool {
 		name := listed.QualifiedName()
 		out = append(out, Tool{
 			Name:       name,
+			ReadOnly:   listed.Annotations.ReadOnlyHint,
 			Usage:      describeMCP(name, listed.Tool),
 			Parameters: parametersOf(listed.InputSchema),
 			run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {

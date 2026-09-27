@@ -635,58 +635,6 @@ func (r *Runner) readCapture(entry timeline.Entry, client *llm.Client, settings 
 	return entry
 }
 
-// systemHead is who the persona is; rulesTemplate is how every persona
-// works, with the length rule for this turn in its one %s. An external agent
-// is handed the rules alone, since the rest it gets as fields of its own.
-const systemHead = `あなたは「%s」。%s
-
-あなたの担当領域:
-%s
-
-あなた自身への指示:
-%s
-
-あなたのメモの分類（型はここにあるものだけを使います）:
-%s
-
-`
-
-const rulesTemplate = `規則:
-- **黙ってよい。** 全部に反応する必要はありません。誰も反応しない投稿があって構いません。
-  解説するためのアプリではなく、ただ眺めていたいだけのこともあります。押し付けないでください。
-- **喋らないことと覚えないことは別です。** 黙る場合でも、自分の領域のことならメモには書いてください。
-- 渡されるのはこの投稿と、それに付いた発言だけです。**それ以外の過去は、メモや timeline_search で必要な分だけ調べてください。**
-  次に必要になりそうなことは、いまメモに書いてください。
-- **今回の対象発言に、スレッド全体の文脈を踏まえて対応してください。** ユーザーの追加発言は、元の投稿や担当の質問への補足・訂正・回答として読んでください。
-  例: 「渋谷にいきたい」の後の「1時間後。」は渋谷への移動の時間に関する補足です。行き先を再度尋ねず、既知の条件と合わせて答えてください。
-  出発時刻か到着時刻かなど、文脈でも特定できない点だけを確認してください。相対時刻は対象発言の日時を基準に解釈してください。
-  ユーザーの訂正や追加条件を優先し、担当の推測をユーザーが決めた条件として扱わないでください。
-  過去の回答があっても、追加条件で答えが変わる場合は更新して回答してください。
-- **メモには tags を付けます。** frontmatter の tags に、探すときの手がかりになる語を2〜5つ（産地・品種・色・店の種類・主題など）。
-  notes_list の一覧にはタグが出ます。探すときは args の {"tag":"…"} で絞れます。
-- **同じものにメモは1つ。** 書く前に index.md を見て、同じ銘柄・店・本・出来事のメモがあれば、新しく作らずその path を書き直します。
-  綴りの揺れや読み取りの誤りは新しいメモの理由になりません。同じ題名のメモを別の path に作った workflow は本体が差し戻します。
-  型（type）が違っても、対象が同じなら1つのメモです。型は「メモの分類」にあるものだけを使い、
-  「説明」「情報」のような書き方の種類を型にしません。分類に無い型のメモは本体が差し戻します。
-- **メモはあなたが自分で読み書きします。** 下の workflow のステップで行います。何を概念にするか、
-  何を残して何を捨てるか、いつまとめるかは、すべてあなたが決めます。
-  本体は中身を読みませんし、数や長さの上限も持ちません。
-- メモでは引用内容、本人の意見、他の担当の推測を区別し、推測は推測と明記してください。
-  複数の記録を統合しても、後から訂正できるよう代表的な根拠と例外を少し残してください。
-%s
-- **発言は投稿と同じ言語で。** 日本語で書かれた投稿には日本語で、英語なら英語で返してください。
-  投稿に文章がない（画像だけなど）ときは、あなたの担当条件と指示が書かれている言語で話してください。
-  名前や口調はそのままで構いません。
-- 他の担当の発言がすでにあるときは、繰り返さず、拾うか、別の角度から言ってください。`
-
-const systemTemplate = systemHead + rulesTemplate + `
-
-%s
-
----
-
-%s`
-
 // briefRule is how long a remark is, ordinarily.
 const briefRule = "- 発言するときは短く。前に自分が覚えていたことと結びつくなら、それを言ってください。"
 
@@ -746,7 +694,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		memory.JoinedAt = time.Now()
 	}
 	set := registry.For(skill.Tools).As(skill.ID)
-	spec := workflowSpec(set, deep, named && !listening)
 	layout := strings.TrimSpace(skill.Memory)
 	if layout == "" {
 		layout = "（指示に書かれたとおり。対象の種類ごとに型を1つ決め、同じ対象は型が違っても1つのメモにします）"
@@ -758,7 +705,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	case named && !listening:
 		length = namedRule
 	}
-	system := fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, layout, length, spec, okfHost+okfSkill)
+	system := answerSystem(skill, length) + readSpec(set, deep) + capabilityLine(set)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -799,7 +746,18 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: func(path string) []store.Note { return r.siblingNotes(skill.ID, path) }, memory: skill.Memory, cited: map[string]string{}}
+	// referenced are the notes read this turn, for their dates to move - and
+	// for a plan that rewrites an existing note unread to be sent back. The
+	// index was handed over at the start, so it counts as read.
+	referenced := map[string]bool{"index.md": true}
+	rules := turnRules{named: named, listening: listening, set: set, schedules: scheduleIDs, notes: func(path string) []store.Note { return r.siblingNotes(skill.ID, path) }, memory: skill.Memory, cited: map[string]string{},
+		readState: func(path string) (bool, bool) {
+			note, ok := r.store.Note(skill.ID, strings.TrimPrefix(strings.TrimSpace(path), "/"))
+			if !ok {
+				return false, false
+			}
+			return true, referenced[note.Path]
+		}}
 	// The triggering entry is known by the host; no model-supplied ID is needed.
 	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
 	if len(label) > 140 {
@@ -821,83 +779,24 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		return r.hush(skill, memory)
 	}
 
-	// What the persona read goes to the reviewer too: whether a note says
-	// something that did not happen can only be judged against what was there.
+	// What the persona read goes to the phases too: a note the turn read
+	// may be rewritten, one it did not is sent back before anything runs.
 	var readSources []timeline.Source
-	// The index was handed over at the start, so it counts as read: the review
-	// should not call an index rewrite unread.
 	read := []string{"index.md（最初に渡したもの）:\n" + indexNote}
 	failures := map[string]string{}
 	readLimit := turnReadLimit(deep)
 	budget := newLookups(readLimit, turnSearchLimit(deep))
-	var approved *Workflow
+	var answer *Answer
 	readsUsed := 0
-	submit := workflowToolFor(set)
-	reviewed, malformed := 0, 0
-	// consider checks a submitted workflow, and reviews it when it is worth
-	// a review, exactly the same whoever planned it.
-	consider := func(workflow *Workflow, parseErr error) (bool, []string, error) {
-		entry := draftRecord{}
-		if parseErr != nil || workflow == nil {
-			if parseErr == nil {
-				parseErr = errors.New("workflow がありません")
-			}
-			entry.Problems = []string{"workflow を読めませんでした: " + parseErr.Error()}
-		} else {
-			*workflow = normaliseWorkflow(*workflow)
-			entry.Workflow = workflow
-			entry.Problems = checkWorkflow(*workflow, rules)
-		}
-		ok := false
-		switch {
-		case len(entry.Problems) > 0:
-			malformed++
-		case !needsReview(*workflow, rules.set.Allows("schedule"), rules.named):
-			// Staying quiet, or only keeping a note and speaking, is not
-			// worth a review call - unless the persona can schedule, whose
-			// typical slip is a promised time with nothing set to wake, or
-			// the persona was explicitly asked and its answer must be checked.
-			ok = true
-		default:
-			known := "この担当が置いている schedule:\n" + scheduleList + "\n\nこの担当が書き込むメモ:\n" + r.writeTargets(skill.ID, *workflow) +
-				"\n\nこの担当がこのターンに読んだもの:\n" + clip(strings.Join(read, "\n\n"), 20000)
-			reviewed++
-			verdict, err := r.review(ctx, client, settings, skill, thread, trigger, *workflow, known, names, here, rules.named)
-			switch {
-			case err != nil:
-				entry.Unseen = err.Error()
-				record.Drafts = append(record.Drafts, entry)
-				return false, nil, fmt.Errorf("workflow の確認に失敗しました: %w", err)
-			case verdict.passed():
-				entry.Review = verdict
-				ok = true
-			default:
-				entry.Review = verdict
-				for _, issue := range verdict.Issues {
-					if issue.Severity == "high" {
-						entry.Problems = append(entry.Problems, issue.Description)
-					}
-				}
-				if len(entry.Problems) == 0 {
-					entry.Problems = []string{verdict.Summary}
-				}
-			}
-		}
-		record.Drafts = append(record.Drafts, entry)
-		return ok, entry.Problems, nil
-	}
-	drafts := func() bool { return reviewed < maxDrafts && malformed <= maxMalformed }
-	// referenced are the notes read this turn, for their dates to move.
-	referenced := map[string]bool{}
 	// lookup does what a persona asked to look at, within this turn's limits.
 	lookup := func(steps []ReadStep) string {
 		if readsUsed >= readLimit {
-			return "これ以上は読めません。submit_workflow で workflow を出してください。"
+			return "これ以上は読めません。現在のフェーズの結果を提出してください。"
 		}
 		for _, step := range steps {
 			if step.Type == "notes_read" || (step.Type == "tool" && step.Tool == "notes_read") {
 				for _, path := range step.Paths {
-					referenced[path] = true
+					referenced[strings.TrimPrefix(path, "/")] = true
 				}
 			}
 		}
@@ -917,17 +816,24 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		if deep {
 			agentLength = deepRule
 		}
-		agentSpec := workflowSpec(set, deep, true)
-		agentRules := fmt.Sprintf(rulesTemplate, agentLength)
-		brief := r.askContext(skill, set, agentSpec, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
-		brief.Persona.Memory = layout
-		workflow, fallback, err := r.planExternally(ctx, settings, ask, brief, externalPlan{read: lookup, consider: consider, drafts: drafts})
+		agentRules := fmt.Sprintf(answerRules, agentLength)
+		brief := r.askContext(skill, set, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
+		externalAnswer, fallback, err := r.planExternally(ctx, settings, ask, brief, externalPlan{
+			read: lookup,
+			consider: func(candidate *Answer, parseErr error) (bool, []string, error) {
+				if parseErr != nil || candidate == nil {
+					return false, []string{"Answer の形式が不正です"}, nil
+				}
+				problems := checkAnswer(*candidate, rules)
+				return len(problems) == 0, problems, nil
+			},
+		})
 		switch {
 		case errors.Is(err, errAborted):
 			record.Error = "aborted while waiting for the external planner"
 			return nil
-		case workflow != nil:
-			approved = workflow
+		case externalAnswer != nil:
+			answer = externalAnswer
 			// The remark is marked as the agent's plan, not a model slot's.
 			slot = "agent"
 		default:
@@ -936,91 +842,53 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			record.Fallback = fallback
 			record.Planner = "external→builtin"
 			r.emit("ask", map[string]any{"persona": skill.ID, "id": ask.ID, "state": "fallback", "reason": fallback, "trigger": trigger.ID})
-			reviewed, malformed, readsUsed = 0, 0, 0
+			readsUsed = 0
 			budget = newLookups(readLimit, turnSearchLimit(deep))
 		}
 	}
 
-	// One request per read or draft, plus room to recover malformed calls.
-	roundLimit := readLimit + maxDrafts + maxMalformed + 2
-	for round := 0; round < roundLimit && approved == nil && drafts(); round++ {
-		offered := []llm.Tool{submit}
-		if readsUsed < readLimit {
-			offered = []llm.Tool{readTool, submit}
-		}
-		reply, err := client.Complete(ctx, llm.Request{
-			Model: model, Messages: messages, Tools: offered, ToolChoice: "required",
-		})
+	if answer == nil {
+		var err error
+		messages, err = research(ctx, client, model, messages, func() bool { return readsUsed < readLimit }, lookup)
 		if err != nil {
 			return failed(err)
 		}
-		if len(reply.Calls) == 0 {
-			record.Stalls++
-			messages = append(messages,
-				llm.Message{Role: "assistant", Content: reply.Content},
-				llm.Message{Role: "user", Content: "read か submit_workflow を呼んでください。文章だけの返事は誰にも届きません。"})
-			continue
-		}
-		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
-		var submitted *llm.ToolCall
-		for i := range reply.Calls {
-			if reply.Calls[i].Name == submitWorkflow && submitted == nil {
-				submitted = &reply.Calls[i]
-			}
-		}
-		answers := map[string]string{}
-		if submitted != nil {
-			var workflow Workflow
-			parseErr := json.Unmarshal([]byte(submitted.Args), &workflow)
-			ok, problems, err := consider(&workflow, parseErr)
-			if err != nil {
-				return failed(err)
-			}
-			if ok {
-				approved = &workflow
-				answers[submitted.ID] = "受け付けました。"
-			} else {
-				answers[submitted.ID] = "この workflow は実行されませんでした。直して、もう一度 submit_workflow を呼んでください:\n- " + strings.Join(problems, "\n- ")
-			}
-		}
-		for _, call := range reply.Calls {
-			if _, done := answers[call.ID]; done {
-				continue
-			}
-			switch {
-			case submitted != nil:
-				answers[call.ID] = "workflow と一緒に出された呼び出しは行いませんでした。"
-			case call.Name != readTool.Name || readsUsed >= readLimit:
-				answers[call.ID] = "これ以上は読めません。submit_workflow で workflow を出してください。"
-			default:
-				var request struct {
-					Steps []ReadStep `json:"steps"`
-				}
-				if err := json.Unmarshal([]byte(call.Args), &request); err != nil {
-					answers[call.ID] = "read を読めませんでした: " + err.Error()
-					break
-				}
-				answers[call.ID] = lookup(request.Steps)
-			}
-		}
-		for _, call := range reply.Calls {
-			messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: answers[call.ID]})
+		answer, err = composeAnswer(ctx, client, model, messages, rules)
+		if err != nil {
+			return failed(err)
 		}
 	}
-	if approved == nil {
-		return failed(errors.New("承認された workflow がありません"))
+	record.Answer = answer
+	encodedAnswer, _ := json.Marshal(answer)
+	phaseContext := user + "\n\nこのターンに読んだ内容:\n" + strings.Join(read, "\n\n") + "\n\n完成した Answer:\n" + string(encodedAnswer)
+	// The phases run on the model the turn runs on: one turn, one voice.
+	log := turnLog{}
+	plan, err := r.planPhases(ctx, client, model, skill, *answer, phaseContext, layout, wakeInstructions, rules, lookup,
+		func(plan Workflow) (*Review, error) {
+			return r.review(ctx, client, settings, skill, thread, trigger, *answer, plan,
+				"既存の予定:\n"+scheduleList+"\n読んだ内容:\n"+clip(strings.Join(read, "\n\n"), 20000), names, here)
+		}, &log)
+	record.Phases, record.Reviews = log.phases, log.reviews
+	if err == nil {
+		record.Plan = &plan
 	}
+	if err != nil {
+		return failed(err)
+	}
+	approved := plan.batch()
 
 	record.Ran = true
-	spoken, sources, steps := r.execute(ctx, skill, *approved, set, rules, post, prov)
+	sources, steps := r.execute(ctx, skill, approved, set, rules, post, prov)
 	record.Steps = steps
 	if trigger.ID != "" && !listening {
 		r.extendReferenced(skill.ID, referenced, steps, here)
 	}
-	record.Spoke = spoken
 	if len(steps) > 0 && steps[len(steps)-1].Error != "" {
-		record.Error = "stopped at " + steps[len(steps)-1].Type + ": " + steps[len(steps)-1].Error
+		return failed(fmt.Errorf("stopped at %s: %s", steps[len(steps)-1].Type, steps[len(steps)-1].Error))
 	}
+	spoken := strings.TrimSpace(answer.Text)
+	record.Spoke = spoken
+	sources = append(sources, citedSources(answer.Sources, rules.cited)...)
 	if listening || spoken == "" {
 		if named && !listening {
 			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil, "")
@@ -1115,9 +983,9 @@ func turnLine(named, listening bool) string {
 	switch {
 	case listening:
 		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
-			"覚えておくことがあればメモに書いてください。最後の speak の text は空にしてください。"
+			"覚えておくことがあればメモに書いてください。Answer の text は空にしてください。"
 	case named:
-		return "\n※ あなたは名指しで呼ばれています。最後の speak の text を空にはできません。必ず何か答えてください。"
+		return "\n※ あなたは名指しで呼ばれています。Answer の text を空にはできません。必ず何か答えてください。"
 	}
 	return ""
 }
@@ -1418,26 +1286,6 @@ func (r *Runner) siblingNotes(personaID, path string) []store.Note {
 	}
 	notes, _ := r.store.Notes(personaID, near)
 	return notes
-}
-
-// writeTargets says, for each note a workflow writes, whether it is already
-// there - what a reviewer needs to see a note overwritten unread.
-func (r *Runner) writeTargets(personaID string, workflow Workflow) string {
-	var lines []string
-	for _, step := range workflow.Steps {
-		if step.Type != "write_note" || strings.TrimSpace(step.Path) == "" {
-			continue
-		}
-		state := "新規"
-		if _, ok := r.store.Note(personaID, step.Path); ok {
-			state = "既存"
-		}
-		lines = append(lines, "- "+strings.TrimSpace(step.Path)+"（"+state+"）")
-	}
-	if len(lines) == 0 {
-		return "（なし）"
-	}
-	return strings.Join(lines, "\n")
 }
 
 func stringOf(value any) string {

@@ -136,7 +136,7 @@ Token Factory の使用量データで、その選択のコストが見えまし
 Token Factory は、後述の外部エージェント構成の検証でも使っています。
 kakeratta の内蔵担当と、サンドボックス内の自律エージェントの両方が、同じ推論基盤のリモートモデルを使えます。
 
-振り分けの実験、workflow の制約、モデルの役割分担は [中で起きていること](docs/technical_ja.md) にまとめています。
+振り分けの実験、workflow のフェーズと制約、モデルの役割分担は [中で起きていること](docs/technical_ja.md) にまとめています。
 
 ## データはあなたのもの
 
@@ -168,7 +168,7 @@ Web検索を使う場合は Tavily のAPIキーを、使う人が自分で持ち
 
 外部エージェントのアクセスはオプトインです。Hermes 向けに発行するMCPの認証情報はそのワークスペースに属し、
 失効できます。連携を解除すると認証情報そのものが無効になります。外部エージェントが直接書き込むことはなく、
-提出した workflow を kakeratta が検査・レビューしてから担当として実行します。
+提出するのは回答だけで、kakeratta がそれを含む workflow を組み立て、検査・レビューしてから担当として実行します。
 
 kakeratta は [MITライセンス](LICENSE) です。
 
@@ -200,13 +200,14 @@ kakeratta は [MITライセンス](LICENSE) です。
 
 人物や関心ごとの小さな担当に任せるには大きすぎる仕事もあります。
 
-そうしたときのために、どの担当も「考える役」を MCP 経由で **Hermes Agent** に任せられます。
+そうしたときのために、どの担当も調べものと回答を MCP 経由で **Hermes Agent** に任せられます。
 担当ごとに「外部エージェントを優先する」をONにすると、その担当は外部エージェントに考えさせます。外部エージェントの担当が起きると、
-kakeratta は担当の人格・指示、対象発言とスレッド、担当の index.md、workflow の形式、使える道具を載せた *ask* を出します。
-Hermes は ask を取得し、自分の道具とスキルで考えて workflow を提出し、kakeratta がそれを検査・レビューして担当として実行します。
-3分以内に取得されない、または取得後15分以内に workflow が受理されない場合（どちらも設定で変更可）は、内蔵モデルが代わりに考えます。
+kakeratta は担当の人格・指示、対象発言とスレッド、担当の index.md、担当にできる変更、読み取り専用の道具を載せた *ask* を出します。
+Hermes は ask を取得し、自分の道具とスキルで調べて回答だけを提出します。kakeratta はそのあと予定・道具の操作・メモを自分のモデルでフェーズごとに決めて回答とあわせた workflow を組み立て、回答の約束と照らして検査し、担当として実行してから回答を公開します。
+回答そのものはレビューしないので、kakeratta から見えない調査を理由に差し戻されることはありません。
+3分以内に取得されない、または取得後15分以内に回答が受理されない場合（どちらも設定で変更可）は、内蔵モデルが代わりに考えます。
 
-この連携は、次の構成で構築・検証しました。
+この連携は、次の構成で構築・検証しました。このエンドツーエンドの検証は、Hermes が workflow 全体を提出していた以前のプロトコルで行ったものです。回答だけを提出する現在のプロトコルは自動テストで確認しています。
 
 * **NVIDIA NemoClaw**：オーケストレーション、ライフサイクル、ポリシー設定
 * **OpenShell**：サンドボックスとポリシー適用の層
@@ -230,13 +231,13 @@ Hermes はサンドボックスの中から、Streamable HTTP の MCP で本番�
 これらは現在、計画用のツールに置き換わっています。
 
 `list_personas`、`get_timeline`、`get_thread`、`list_notes`、`read_note`、
-`list_asks`、`claim_ask`、`read_for_ask`、`submit_workflow`、`release_ask`。
+`list_asks`、`claim_ask`、`read_for_ask`、`submit_answer`、`release_ask`。
 
 これで責任が分かれます。
 
-**kakeratta** は、ユーザーのタイムライン、担当、その記憶、すべての workflow のレビューと実行、MCPの権限を持ちます。
+**kakeratta** は、ユーザーのタイムライン、担当、その記憶、すべての workflow の組み立て・レビュー・実行、MCPの権限を持ちます。
 
-**Hermes** は、自分の計画のループ、道具、スキル、自分の長期記憶を持ちます。
+**Hermes** は、自分の調べもの、回答、道具、スキル、自分の長期記憶を持ちます。
 
 **NemoClaw + OpenShell** は、外部エージェントが走る管理された環境を提供します。
 
@@ -462,7 +463,7 @@ low・middle・high の3つのモデルの枠には、既定で Lightning・Supe
 kakeratta を使うために、Hermes を NemoClaw の下で動かす必要はありません。
 
 連携の境界は MCP です。「設定」でワークスペースのキーを発行し、Hermes に kakeratta の MCP サーバーを設定し、
-担当の「外部エージェントを優先する」をONにすれば、Hermes はその担当の ask を取得して workflow を提出できます。
+担当の「外部エージェントを優先する」をONにすれば、Hermes はその担当の ask を取得して回答を提出できます。
 
 前述の NemoClaw/OpenShell 構成は、ハッカソンの連携で検証したサンドボックス構成です。
 
@@ -484,11 +485,11 @@ kakeratta が Hermes のプロセスを起動・制御することはありま�
 
 | 文書 | 内容 |
 | --- | --- |
-| [中で起きていること](docs/technical_ja.md) | 設計原則、全体の流れ、振り分け、どのモデルが答えるか、workflow の制約、OKFメモ、スキル、保存先、チェックイン、道具、デプロイ |
+| [中で起きていること](docs/technical_ja.md) | 設計原則、全体の流れ、振り分け、どのモデルが答えるか、workflow のフェーズと制約、OKFメモ、スキル、保存先、チェックイン、道具、デプロイ |
 | [マニュアル](https://kakeratta.net/manual/?lang=ja) | 担当、検索、記憶、音声、共有、道具、オフライン投稿、設定の使い方 |
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
-| [Hermes Agent](docs/hermes_ja.md)（[English](docs/hermes.md)） | kakeratta の MCP 接続、認証情報、ask の取得・workflow の提出・フォールスルー |
+| [Hermes Agent](docs/hermes_ja.md)（[English](docs/hermes.md)） | kakeratta の MCP 接続、認証情報、ask の取得・回答の提出・フォールスルー |
 | [NVIDIA NemoClaw と Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | NemoClaw/OpenShell のサンドボックスで Hermes を動かす公式手順 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformでの構築。画面はFirebase Hosting、APIはCloud Run |
 

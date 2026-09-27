@@ -4,7 +4,7 @@ By default, kakeratta uses five models through Nebius Token Factory. Models are 
 
 Nemotron 3 Ultra (550B, 55B active) — Persona drafting and deeper follow-up answers on request. Drafting happens infrequently, but a bad routing condition can affect every later post, so I assign it to the largest model. Ultra is also used when a user explicitly asks a persona to reconsider or explore an answer in greater depth.
 
-Nemotron 3 Super (120B, 12B active) — The default Router, normal persona responses, and pre-execution review of workflows involving schedules, external tools, or memory deletion.
+Nemotron 3 Super (120B, 12B active) — The default Router, normal persona responses and their follow-up phases, and pre-execution review of plans involving schedules or external tools.
 
 Nemotron 3.5 Lightning (30B, 3B active) — Narrow, contained tasks: judging whether a reply explicitly asks for a deeper answer, and proofreading or formatting voice input. For the reply judgment, Lightning with thinking disabled matched Super on all 15 test cases while running at about half the latency (0.67 s vs 1.30 s) and roughly one fifth of the cost.
 
@@ -20,13 +20,13 @@ The same allocation held outside the main app: Hermes Agent, which can take over
 
 7 / 10
 
-The strongest parts were native tool calling and Japanese-language quality. With tool_choice: "required", Super and Ultra reliably returned valid tool calls, which became the foundation for kakeratta’s routing, persona workflows, and execution review. Japanese posts and responses also worked naturally, and I encountered no language-related problems.
+The strongest parts were native tool calling and Japanese-language quality. With tool_choice: "required", Super and Ultra reliably returned valid tool calls, which became the foundation for kakeratta’s routing, persona phases, and execution review. Japanese posts and responses also worked naturally, and I encountered no language-related problems.
 
 The main difficulty was consistency in multi-step instructions. In one representative case, an example in my route-search tool specification contained "mode": "foot", and the travel persona copied that value literally, answering “about 259 minutes on foot” for a distance that clearly called for driving.
 
 I also encountered cases where a model exposed its internal plan in the user-facing reply, recorded a future event as already completed, or promised a time without creating the corresponding schedule. I observed these issues with Ultra as well as Super.
 
-Rather than relying on prompt tuning alone, I changed the application structure: workflows are validated before execution, models see only the tools and schema relevant to their role, and deterministic checks are handled in code. The original failures are now covered by regression tests.
+Rather than relying on prompt tuning alone, I changed the application structure: changes are validated before execution, models see only the tools and schema relevant to their role, and deterministic checks are handled in code. The original failures are now covered by regression tests.
 
 Tool calling and Japanese-language quality were strong, but reliable multi-step execution still required application-level safeguards, so I rate the raw output quality 7 / 10.
 
@@ -91,21 +91,19 @@ An agentic rewrite step updates that persona’s routing condition from the feed
 
 Even Ultra could not infer every user’s preferred boundaries perfectly. Rather than trying to build a perfect universal Router, I designed one whose decisions users can inspect, correct, and refine over time.
 
-4. Constraining persona actions as workflows
+4. Answering first, then planning changes phase by phase
 
-Personas do not execute actions directly. They submit an ordered workflow, which the application validates before executing step by step.
+Personas do not execute actions directly. The application assembles what they propose and validates it before executing it.
 
 One recurring problem was reliably performing two related operations. A model might write a note but omit the reply, or promise a time in its reply without creating the corresponding schedule.
 
-I addressed this structurally rather than by adding more prompt instructions.
+My first structural fix was a single workflow: the reply, notes, schedules and tool calls handed in together, with a note required whenever a persona spoke. It made the pairs explicit, but the answer paid for it. The model spent its attention on the note format and the step schema, shortened replies to leave room for the required note, and a reviewer that could not see what had been researched sent good answers back. When I handed answering to Hermes, the drop in quality was obvious.
 
-Whenever a persona speaks, a note is also required. When only a note is needed, the speak step is still mandatory but contains an empty string, forcing an explicit decision on every run. Schedule information is combined with its corresponding note where duplication is harmless.
+So a turn is now split by responsibility. The persona first reads and writes only the answer, with no note format or change schema in its prompt. Then separate calls on the same model propose, one phase each, the schedules, the tool actions (only for a persona that has them) and the notes, each through its own submit tool, and the application assembles the workflow from those parts. The schedule and action phases must also state whether every promise in the answer is backed by an operation or an existing schedule; "I'll ask you at 22:30" with nothing placed is sent back, and if it cannot be made consistent the answer is not published. The note phase keeps what will matter later about the user, not what an answer happened to research.
 
-The workflow schema is also built dynamically from the tools available to each persona. A persona that cannot create schedules never sees schedule-related schema, and optional fields are minimized.
+Each phase's schema is built from the tools the persona holds. A persona that cannot create schedules never sees schedule-related schema, and one whose tools only look things up has no action phase at all.
 
-Workflows involving schedules, external tools, or memory deletion are reviewed by Super before execution. The same review is applied when a schedule-capable persona speaks without scheduling, because that is the shape of a common failure: promising a time without actually creating the schedule.
-
-Anything that can be verified deterministically is checked in code. Only the remaining judgment is sent to the model.
+Anything that can be verified deterministically is checked in code on every plan: declared tools, existing schedule ids, safe note paths, duplicate or conflicting writes, and existing notes rewritten unread. Only plans holding a schedule or an external action are reviewed by Super, and only for consistency between the answer and those changes. The answer's quality is not reviewed, and a failed review regenerates only the phase it blamed. The answer is published only after everything it rests on has run.
 
 ## How did Nemotron's performance compare to other models you've used for similar tasks?
 
@@ -115,7 +113,7 @@ Super and Ultra reliably honor tool_choice: "required", which was especially imp
 
 Two behaviors stood out during development.
 
-Omitting the second of a paired operation. When the same intent had to appear in two forms — such as a note and a reply, or a time promised in a reply and the corresponding schedule entry — Nemotron sometimes omitted the second operation. I addressed this structurally by making these decisions explicit in the workflow rather than adding more prompt instructions.
+Omitting the second of a paired operation. When the same intent had to appear in two forms — such as a note and a reply, or a time promised in a reply and the corresponding schedule entry — Nemotron sometimes omitted the second operation. I addressed this structurally rather than by adding more prompt instructions: the answer and each kind of change are now handed in separately, and the change phases must state how they back up what the answer promised.
 
 Literalism toward examples. Values included only as illustrations were sometimes adopted verbatim, such as the travel mode in a route-search example. I observed this with Ultra as well, so I reduced the amount of irrelevant schema and examples each persona sees.
 
@@ -144,7 +142,7 @@ Image understanding with GLM-5.3-Flash and embeddings with Qwen3-Embedding-8B ar
 
 Advanced users can still point individual model roles elsewhere, but ordinary use does not require choosing a provider or model.
 
-Native tool calling was particularly important. tool_choice: "required" allowed kakeratta to implement routing, persona workflows, and execution review as actual tool calls rather than asking models to generate JSON inside normal responses.
+Native tool calling was particularly important. tool_choice: "required" allowed kakeratta to implement routing, persona phases, and execution review as actual tool calls rather than asking models to generate JSON inside normal responses.
 
 Usage visibility also directly influenced the architecture. Being able to see consumption and actual cost by model helped me decide which work justified Ultra and which belonged on a cheaper tier. Those measurements were one reason I redesigned the Router instead of simply using Ultra everywhere.
 
@@ -182,7 +180,7 @@ Compared with other cloud AI APIs, the most striking quality was stability.
 
 With other APIs, I have encountered 429 Too Many Requests responses during development with as few as four concurrent calls. During this project and at my usage volume, I did not encounter a single 429 response or inference timeout from Token Factory.
 
-That mattered because one kakeratta post can fan out into several concurrent and chained model calls. After routing, selected personas run in parallel, and each persona may read data, submit a workflow, have that workflow reviewed, and retry if the review rejects it. A failure anywhere in that chain can cause that persona’s turn to be lost.
+That mattered because one kakeratta post can fan out into several concurrent and chained model calls. After routing, selected personas run in parallel, and each persona may read data, answer, propose its schedules, actions and notes phase by phase, have those reviewed, and regenerate a phase if the review rejects it. A failure anywhere in that chain can cause that persona’s turn to be lost.
 
 Usage visibility was another advantage. As I changed how Lightning, Super, and Ultra were allocated, I could immediately see the effect on actual spending by model.
 

@@ -68,8 +68,9 @@ anything — it is to **keep the concentration**.
 
 **The app routes, reviews and runs.** Who gets a post is decided centrally.
 Whether to speak, what to remember and when to compress it are each persona's
-own — but a persona says so as a workflow, and the app checks that workflow
-before running it. The app does not decide what a persona says; it stops a
+own — but a persona hands in its answer and each kind of change apart, the app
+assembles them into a workflow, and checks that workflow before running it and
+publishing the answer. The app does not decide what a persona says; it stops a
 persona saying what did not happen, or promising what it did not arrange.
 
 **Silence is fine.** Not everything gets a reaction. This is not an app for
@@ -279,97 +280,108 @@ post / reply
 every recipient runs in parallel on Super — the replied-to persona on Ultra when escalated
 ```
 
-## Persona actions are workflows, not raw model output
+## A workflow assembled phase by phase, not written in one call
 
 A persona does not directly mutate application state from whatever text the
-model happens to produce.
+model happens to produce, and it does not write its answer and its changes in
+one breath either.
 
-Instead, it submits a **workflow** describing the actions it wants kakeratta to
-perform.
+An earlier shape asked one model call for everything at once: the remark, the
+notes to keep, the schedules and the tool calls, as one workflow. It carried a
+cost the answer paid for. The model spent its attention on the note format and
+the step schema, shortened the remark to leave room for a note it was required
+to write, and a reviewer that could not see what had been researched sent good
+answers back. When the answering was handed to an external agent, the quality
+dropped visibly.
 
-The application validates that workflow before executing it.
+The workflow stays - `Workflow{answer, schedules, actions, notes}` is still
+what kakeratta checks, reviews and runs - but no model writes it whole any more.
+A turn is split by responsibility, each phase fills one typed part, and the
+host assembles the workflow:
 
-This matters because several operations are deceptively similar from a model's
-point of view.
+```text
+Built-in: Read → Answer        External agent: Read + Answer → submit_answer
+                     ↓
+            Schedule phase → schedules
+                     ↓
+            Action phase   → actions      (only if the persona holds one)
+                     ↓
+            Note phase     → notes
+                     ↓
+            Code checks (every time)
+                     ↓
+            Review (only when there is a schedule or an action)
+                     ↓
+            Execute → publish the answer
+```
 
-For example, the core behavior of a persona is often:
-
-1. remember something;
-2. possibly say something about it.
-
-LLMs tend to collapse two similar actions into one. If a note and a remark
-contain related content, a model may write the note and omit the reply, or
-reply and forget the note.
-
-kakeratta makes that distinction explicit.
-
-A `speak` step is always present in the workflow, even when silence is intended.
-An empty text means "do not speak". This forces the model to answer the question
-of whether it should say something instead of simply forgetting the action.
-
-When a remark is produced, the workflow also requires the corresponding memory
-write expected by that persona.
-
-Schedules use a different rule. A scheduled follow-up and its note often
-describe the same future event, so note storage and scheduling are handled
-together instead of forcing the model to repeat nearly identical steps.
-
-### A turn: read, then a workflow
+### A turn, phase by phase
 
 Every persona works this way, whatever tools it holds
-(`internal/persona/workflow.go`). The reading and deciding can be done by the
-built-in model or, for a persona whose planner is set to it, by an external
-agent over MCP (see [External agents through MCP](#external-agents-through-mcp));
-the check, review and execution of the workflow are the same either way.
+(`internal/persona/answer.go`, `phases.go`, `workflow.go`). The reading and the
+answer can be done by the built-in model or, for a persona whose planner is set
+to it, by an external agent over MCP (see
+[External agents through MCP](#external-agents-through-mcp)); everything after
+the answer is the same either way.
 
 1. **Read.** Its `index.md` is handed over whole at the start of every turn.
    It may then ask, up to ten times (twenty in an Ultra turn for a deeper
    answer), to look at things: its note list, notes, a timeline search, a web
-   search, a place or route lookup. Reading writes
-   nothing, so the app just does it and hands the results back.
-2. **Workflow.** It hands in what it has decided, as steps in order, with every
-   text written out in full:
+   search, a place or route lookup. Only read-only tools run here; an MCP tool
+   counts as read-only only when its server marks it `readOnlyHint`. Reading
+   writes nothing, so the app just does it and hands the results back.
+2. **Answer.** With the reading done, the persona hands in only
+   `{text, sources}`. Its prompt holds no note format, memory layout or
+   change schema, and it is not told to keep notes. It is told what the later
+   phases can do for it (`capabilities`), so it does not promise a reminder or
+   an action the persona cannot make. An empty text is silence; a named turn
+   must answer, a listening turn must not. The answer is fixed from here on:
+   no later phase can change it.
+3. **Schedule phase.** A separate call, on the same model, sees the finished
+   answer and the schedules already placed, and hands in `submit_schedule`:
+   create and cancel operations (a change is a cancel and a create), each
+   create with the note it rests on. It also states whether every promise the
+   answer makes about time is backed by an operation or an existing schedule
+   (`consistent`, with a `reason`). "I cancelled it" with no cancel, or "I'll
+   ask you at 22:30" with nothing placed, is sent back; if it cannot be made
+   consistent, the turn stops and the answer is not published.
+4. **Action phase.** Only for a persona that holds a tool that acts. It hands
+   in `submit_action` — the tool calls and their arguments — with the same
+   consistency statement about what the answer promised.
+5. **Note phase.** It hands in `submit_note`: writes and forgets. It keeps what
+   will matter later — the user's facts, preferences, changes in a relationship,
+   something they asked to be remembered — and not the research or the
+   recommendations an answer happened to use. A general answer usually keeps
+   nothing. A schedule's note belongs to the schedule phase and is not written
+   again here.
+6. **Checked by code, every time.** Known operation types, declared tools and no
+   lookup used as an action, schedule ids that exist, paths that stay inside
+   the persona's bundle, the same note not written twice or both written and
+   forgotten, an existing note not rewritten unread, note types from the
+   persona's memory layout, and no second note under a title that already
+   exists — one thing, one note. A proposal that fails is sent back to its own
+   phase with the reasons.
+7. **Reviewed, only when it reaches further.** A plan holding a schedule or an
+   action is reviewed by Nemotron 3 Super against a narrow list: the answer's
+   promises and the schedules' times, creates and cancels agree; schedules and
+   actions do not contradict or depend on each other unmet; an action's target
+   and arguments fit the user's request and the persona's permissions; an
+   answer that says a change is done has something behind it. The answer's
+   quality, its length and its research are not reviewed, and a missing
+   internal read is never a reason to reject research done elsewhere. A plain
+   answer, or an answer with note updates, costs no review. A failed review
+   regenerates only the phases it blamed (`schedule`, `action` or `both`); the
+   answer and the notes stay as they were. After two reviews, the turn stops.
+8. **Run, then publish.** Schedules, actions and notes run in order; **the
+   first step that fails stops the rest**, and the answer is published only
+   when everything ran. A schedule whose note cannot be written is taken back.
+   An external action is not a transaction: what already ran is recorded, and
+   an answer promising success is withheld.
 
-   | Step | Does |
-   |---|---|
-   | `write_note` / `forget_note` | Write or discard one note |
-   | `write_schedule` | Place a wake **and** write the note it rests on, as one step. If the note cannot be written, the wake is taken back |
-   | `cancel_schedule` | Cancel a wake by an id from the list the persona was given |
-   | `tool` | Call a declared tool that acts rather than looks (not `schedule`) |
-   | `speak` | Say something. **Exactly one, and last.** Silence is a speak with an empty text. A remark answering a post or a reply — an Ultra answer included — also needs a `write_note` (a remark alone is sent back; a note alone is fine). Check-ins, schedules and deletions are exempt |
-
-3. **Checked by the app.** Mechanically first: known step types, declared
-   tools, no invented schedule ids, a non-empty speak when named, one speak at
-   the end, and no second note under a title that already exists — one thing,
-   one note. Then Nemotron 3 Super reviews it against a narrow list: something
-   written as fact that did not happen, a fact asserted that nothing read
-   supports, a time promised with no schedule, a remark in another language
-   than the post, a note rewritten without being read, a persona's own
-   instructions plainly broken, a remark that describes work instead of
-   answering. A rejected workflow goes back once with the reasons.
-
-   **What is reviewed depends on the kinds of step, not how many there are.**
-   A workflow holding any step other than `write_note` and `speak` —
-   schedules, forgetting, tools — is always reviewed. One that only writes
-   notes and speaks is not, except from a persona that holds `schedule`: a
-   time promised with nothing set to wake appears in exactly that shape. A
-   workflow that does nothing is not reviewed.
-
-   A bad conversational reply is annoying; a bad schedule is worse, because it
-   comes back later as if it were something the user asked to be reminded of.
-   The review sees the thread, the persona's instructions, and what the
-   persona read this turn — nothing else from its notes.
-4. **Run.** In order; **the first step that fails stops the rest**, so a remark
-   never goes out after what it rests on did not happen.
-
-What a persona is told about workflows is assembled for the tools it holds
-(`internal/persona/workflow_spec.go`): every step with its fields, a sample
-that is right, and a mistake a live run actually made. A persona without
-`schedule` is not taught `write_schedule`; one with web search is shown a
-search it can copy.
-
-Each turn is logged as one structured entry: what was read, every draft with
-its problems and review, each step as it ran, and what was said.
+Each turn is logged as one structured entry: what was read, the answer, each
+phase with its rounds, reads and what it had sent back and why, each review and
+which phases it regenerated, the assembled workflow, each step as it ran, and what
+was said.
 
 ## Models
 
@@ -378,7 +390,7 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | Every persona's answers, routing, and workflow review                 |
+| **Nemotron 3 Super**       | Every persona's answers and phases, routing, and workflow review      |
 | **Nemotron 3 Ultra**       | The replied-to persona, when a reply asks for a better or deeper answer; persona drafting |
 | **Nemotron 3.5 Lightning** | Judging whether a reply asks for a better answer; dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
@@ -459,8 +471,8 @@ had independently seen the original pixels.
 Each persona owns its own memory.
 
 A food persona cannot silently rewrite the travel persona's notes, and an
-external agent cannot write notes at all except through a persona's reviewed
-workflow.
+external agent cannot write notes at all: it hands in only an answer, and the
+persona's note phase decides what to keep.
 
 Notes are stored as structured Markdown under OKF-style topics rather than as
 one conversation transcript.
@@ -517,7 +529,7 @@ tags: [ramen, tonkotsu]
 ```
 
 Notes are read in the read phase (`notes_list`, which can narrow by tag, and
-`notes_read`) and written by workflow steps (`write_note`, `forget_note`). A
+`notes_read`) and written by the note phase (`write`, `forget`) or a schedule's own note. A
 write replaces **only that file**, so a grown memory never travels in full on
 every wake, and nothing is lost by being left out of a rewrite. These need no
 declaration: a persona's own notes are not outside.
@@ -540,10 +552,11 @@ reader; it also maintains source links to posts. The Markdown body remains
 the persona's to write. In local storage the notes are plain files that can
 be read with `cat` or used as an OKF knowledge source elsewhere.
 
-**Memory comes from the user; what the persona made up has a deadline.** A
-persona that speaks must leave a note behind, and when the remark was a list
-of lunch candidates it found by searching, that note is the persona's own
-output, not something known about the user. The note-writing skill draws the
+**Memory comes from the user; what the persona made up has a deadline.** The note
+phase is told to keep the user's facts and preferences, not what an answer
+researched or recommended; when a persona does keep something it produced -
+a list of lunch candidates it found by searching - that note is the persona's
+own output, not something known about the user. The note-writing skill draws the
 line: a candidate list, search result, or route the persona produced gets an
 `expires` line in its front matter, dated the next day; what the user said
 does not. The app deletes a
@@ -763,7 +776,7 @@ success.
 An MCP tool's text result goes back as the answer to that call, and its
 resource links become sources under the remark. A timeline search is the
 exception: what it finds is offered for citing, the persona names in its
-`speak` the posts its remark rests on, and only those are linked.
+answer's `sources` the posts it rests on, and only those are linked.
 
 ## Check-ins and scheduled wakes
 
@@ -1103,26 +1116,30 @@ For Bluesky operator setup, see
 
 ## External agents through MCP
 
-Of a persona's turn, only the part that thinks — reading the context, deciding
-what to do next, and writing the workflow — can be handed to an external agent
-such as **Hermes Agent**. Each persona chooses its planner: the built-in model
+Of a persona's turn, the research and the answer — reading the context, looking
+things up, and writing what the persona says — can be handed to an external
+agent such as **Hermes Agent**. Each persona chooses its planner: the built-in model
 (the default) or the external agent. kakeratta exposes the user's workspace as
 an authenticated **Streamable HTTP MCP server** for this.
 
 When a persona planned externally wakes — for a post, a check-in, a schedule, a
-note review — kakeratta builds exactly the context the built-in model would get
+note review — kakeratta builds the context the built-in model would get to answer
 and opens an **ask**. The agent claims it, reads the context, may look things up
-with the persona's own notes and tools, and submits a workflow. kakeratta checks
-and reviews it like any other and, once accepted, runs it as the persona. The
-agent never writes a note or a remark itself.
+with the persona's own notes and read-only tools or with its own, and submits
+only the answer. kakeratta checks its shape and the turn's rules, then plans the
+schedule, action and note phases on the persona's model, checks and reviews
+them as for any turn, runs them as the persona, and publishes the answer. The
+agent never writes a note, a schedule or a remark itself, and its answer is not
+reviewed: the app's reviewer cannot see what the agent researched.
 
 ```text
 persona wakes
 → ask opened (pending, claimBy)
 → agent: claim_ask → context
-→ agent: read_for_ask (optional) → submit_workflow
-→ kakeratta: check, review → accepted
-→ kakeratta runs the workflow as the persona
+→ agent: read_for_ask / own research (optional) → submit_answer
+→ kakeratta: check the answer → accepted
+→ kakeratta: schedule → action → note phases, checks, review if needed
+→ kakeratta runs the changes, then publishes the answer as the persona
 ```
 
 Waiting on an agent must not stall everything else, so an externally planned
@@ -1134,16 +1151,17 @@ has really ended.
 The built-in model takes the turn back when:
 
 * no agent claims the ask within the claim wait (3 minutes by default);
-* no workflow is accepted within the plan wait after the claim (15 minutes by
+* no answer is accepted within the plan wait after the claim (15 minutes by
   default);
-* the agent runs out of drafts, or the review fails;
+* the agent's answer is sent back more than the allowed number of times;
 * the agent calls `release_ask`;
 * the agent has made no MCP call at all for the claim wait (away). No ask is
   opened then, and the agent comes back by itself on its next call.
 
 Both waits are set under Settings → Advanced options → Integrations. An ask
 lives in memory with the turn waiting on it; a restart ends both, and a late
-workflow is refused. A preview a person is waiting on is always planned
+answer is refused. An accepted answer is not taken back: if the later phases
+cannot back up what it promised, or a change fails, it is withheld. A preview a person is waiting on is always planned
 in-process.
 
 ### MCP credential
@@ -1166,8 +1184,8 @@ It can read:
 * persona definitions;
 * persona memories.
 
-Its only write is a workflow submitted for a claimed ask, which kakeratta checks
-and reviews before running it as that persona.
+Its only write is an answer submitted for a claimed ask. kakeratta decides,
+checks and runs any change itself before publishing it as that persona.
 
 Revoking the key cannot erase data the agent already retrieved into its own
 external memory. That boundary is made explicit rather than pretending an
@@ -1184,7 +1202,7 @@ read_note
 list_asks
 claim_ask
 read_for_ask
-submit_workflow
+submit_answer
 release_ask
 ```
 
@@ -1192,13 +1210,14 @@ release_ask
 with the same `claimId` are retries of the same claim; a different claim ID
 cannot take a claimed ask.
 
-The context a claim returns holds the persona's identity, instructions and
-note-writing skill, why it woke, the trigger and its thread, the persona's
-`index.md`, its schedules, the workflow spec and JSON Schema, its tools and
-where each may be used, the turn's limits and common rules, current time, post
+The context a claim returns holds the persona's identity and instructions,
+what it can change (`capabilities`), why it woke, the trigger and its thread,
+the persona's `index.md`, its schedules, the answer's JSON Schema, its read-only
+tools, the turn's read limits and answering rules, current time, post
 location, note inventory summary, and whether the turn requires an answer or
 silence. Full system/user prompts and a second rendering of the thread are
-omitted to avoid repeating the same context.
+omitted to avoid repeating the same context, and the note-writing skill and
+change schemas are left out: they belong to the later phases, not the answer.
 
 `list_tasks` remains as a compatibility tool returning only pending asks, for
 Wake Gate scripts installed before asks replaced tasks.
@@ -1259,14 +1278,15 @@ A Hermes installation can connect directly to the same MCP interface, while
 NemoClaw/OpenShell provides the tested sandboxed configuration used for the
 hackathon work.
 
-## Why the external agent only plans
+## Why the external agent only answers
 
-A normal kakeratta persona is intentionally constrained: it acts through a
-generated workflow that kakeratta validates before execution.
+A normal kakeratta persona is intentionally constrained: its changes go through
+phases that kakeratta checks before execution.
 
-Handing the planning to an external agent keeps that constraint. The agent may
-think with any tools and skills it has, but what reaches the user's timeline and
-memory is still a workflow the app has checked and reviewed and runs itself.
+Handing the answer to an external agent keeps that constraint. The agent may
+research with any tools and skills it has, but every change that reaches the
+user's memory is decided by the app's own phases, checked, reviewed where it
+reaches further, and run by the app itself.
 "External agent" does not become an invisible bypass of kakeratta's ownership
 model, and a persona whose agent is asleep still answers, only later.
 
@@ -1281,7 +1301,7 @@ A persona can write memory without speaking.
 
 A check-in can finish without creating a thread.
 
-An external agent planning a turn can end its workflow with an empty `speak`.
+An external agent answering a turn can hand in an empty answer.
 
 The system is not optimized for producing a visible AI response to every event.
 
@@ -1324,8 +1344,8 @@ the same visual information.
 
 ### External autonomy gets a harder boundary
 
-An external agent only plans. What it plans still goes through the same
-workflow validation and review as the built-in model's, and kakeratta alone
+An external agent only answers. Every change still goes through the same
+phases, checks and review as for the built-in model, and kakeratta alone
 executes it. Authentication, the MCP tool surface, and sandbox policy bound what
 the agent can read and do on its own side.
 

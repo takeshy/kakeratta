@@ -4,16 +4,16 @@ For the NemoClaw / OpenShell architecture and verification results, see the [int
 
 [README](../README.md) · [日本語](hermes_ja.md)
 
-Of a persona's turn, only the part that thinks — reading the context, deciding what to do next, and writing a workflow — can be handed to an external agent (Hermes). Each persona chooses its **planner**: the built-in model or the external agent.
+Of a persona's turn, the research and the answer — reading the context, looking things up, and writing what the persona says — can be handed to an external agent (Hermes). Each persona chooses its **planner**: the built-in model or the external agent.
 
-When a persona whose planner is the external agent wakes, Kakeratta opens an **ask** over MCP. Hermes claims the ask, receives the context, and submits a workflow. Kakeratta checks and reviews that workflow exactly as it would the built-in model's, then runs it **as the persona**: writing its notes, placing its schedules, calling its tools, and speaking. Hermes never posts or writes notes itself.
+When a persona whose planner is the external agent wakes, Kakeratta opens an **ask** over MCP. Hermes claims the ask, receives the context, and submits an **answer** (`{text, sources}`) and nothing else. Kakeratta then decides the turn's changes with its own model, one phase at a time — schedules, tool actions, notes — assembles them with the answer into a **workflow**, checks it in code, has schedules and actions reviewed for consistency with the answer, runs it **as the persona**, and only then publishes the answer. Hermes never posts, writes notes or changes state itself, and its answer is not reviewed for quality: a reviewer on Kakeratta's model cannot see what Hermes researched with its own tools.
 
-If Hermes does not claim the ask in time (3 minutes by default), or no workflow is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits can be changed under **Settings → Advanced options → Integrations**, where turning off **Use the external agent** pauses it: every persona plans with the built-in model for now, and each persona's choice is kept. Installing and configuring Hermes itself is a separate step.
+If Hermes does not claim the ask in time (3 minutes by default), or no answer is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits can be changed under **Settings → Advanced options → Integrations**, where turning off **Use the external agent** pauses it: every persona plans with the built-in model for now, and each persona's choice is kept. Installing and configuring Hermes itself is a separate step.
 
 ## Connecting
 
 1. In Kakeratta, open **Settings → Advanced options → Integrations** and select **Create connection key** under **External agent (Hermes)**.
-2. Add the configuration shown there to your Hermes `~/.hermes/config.yaml`. If a `mcp_servers` section already exists, add `kakeratta` under it. To prevent argument quotation and double-escaping syntax errors (`Expecting ',' delimiter...`) on nested workflow schemas, also configure Direct disclosure (`tools.tool_search.enabled: "off"`).
+2. Add the configuration shown there to your Hermes `~/.hermes/config.yaml`. If a `mcp_servers` section already exists, add `kakeratta` under it. To prevent argument quotation and double-escaping syntax errors (`Expecting ',' delimiter...`) on nested arguments such as the answer object, also configure Direct disclosure (`tools.tool_search.enabled: "off"`).
 
    ```yaml
    tools:
@@ -45,7 +45,7 @@ If Hermes does not claim the ask in time (3 minutes by default), or no workflow 
 
    For automatic updates after installation, see [Autonomous updates over MCP](#autonomous-updates-over-mcp).
 
-6. Post as usual. For each persona routed a post whose planner is the external agent, an ask is opened and Hermes plans the turn. The reply arrives under that persona's name, marked **External agent**.
+6. Post as usual. For each persona routed a post whose planner is the external agent, an ask is opened and Hermes researches and writes the answer. The reply arrives under that persona's name, marked **External agent**.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
 
@@ -61,7 +61,7 @@ For the dedicated setup procedure (managed MCP provider registration, container 
 
 The key is shown only right after it is issued; the server stores only its hash. Reissuing invalidates the previous key, and **Disconnect** revokes it. A browser login cookie cannot authenticate MCP.
 
-With this key, Hermes can read the issuing user's timeline, persona list, and each persona's notes. Its only write is submitting a workflow for an ask, and Kakeratta checks and reviews that workflow before running it as the persona. It cannot access model settings or other users' data.
+With this key, Hermes can read the issuing user's timeline, persona list, and each persona's notes. Its only write is submitting an answer for an ask. Kakeratta decides, checks and runs any change the turn needs, and publishes the answer as the persona. It cannot access model settings or other users' data.
 
 **Disconnect** erases the stored key hash and invalidates the connection itself; reconnecting needs a new key and an updated Hermes configuration. Revoking the key does not erase data Hermes has already fetched. To stop handing a persona to the external agent, set its planner back to **Built-in model**.
 
@@ -76,44 +76,44 @@ Kakeratta's MCP server exposes the following tools for external agents. In Herme
 | `get_thread` | Retrieve conversation threads |
 | `list_notes` / `read_note` | List and read persona notes |
 | `list_asks` | Check pending and claimed asks (includes distributed version metadata) |
-| `claim_ask` | Claim an ask exclusively and retrieve context (instructions, persona, constraints) |
-| `read_for_ask` | Look up additional context during planning (`notes_list`, `notes_read`, and read-use tools such as `timeline_search`) |
-| `submit_workflow` | Submit the finalized workflow (`speak`, `write_note`, etc.) |
-| `release_ask` | Relinquish planning back to Kakeratta's built-in model immediately |
+| `claim_ask` | Claim an ask exclusively and retrieve context (persona, instructions, capabilities, answer schema, read-only tools) |
+| `read_for_ask` | Look up additional context while answering (`notes_list`, `notes_read`, and read-only tools such as `timeline_search`) |
+| `submit_answer` | Submit the final answer (`{text, sources}`); nothing else |
+| `release_ask` | Hand the turn back to Kakeratta's built-in model immediately |
 | `get_integration` | Retrieve latest official Skill and Wake Gate script payloads |
 
-### Planning loop
+### Answering loop
 
-Based on the official Skill (`SKILL.md`), Hermes plans a persona's turn through these steps:
+Based on the official Skill (`SKILL.md`), Hermes answers a persona's turn through these steps:
 
 ```text
-list_asks → claim_ask → context interpretation → read_for_ask (if needed) → submit_workflow
+list_asks → claim_ask → context interpretation → read_for_ask / own research (if needed) → submit_answer
 ```
 
 1. **`list_asks`**: Check open asks. Unclaimed asks have `status: "pending"`; if not claimed before `claimBy`, the built-in model takes over.
-2. **`claim_ask`**: Claim the target ask using its `askId` and an execution-unique `claimId`. The response returns `planBy` (accepted workflow deadline) and the full `context`. Retry lost responses with the same `claimId`.
-3. **Research & reasoning**: If needed, call `read_for_ask` with `notes_list` or `notes_read` steps to inspect notes, or a `tool` step to run a tool marked `use: "read"` in `context.tools`, such as `timeline_search`. Only saved posts discovered via `timeline_search` through `read_for_ask` can be cited in `speak`'s `sources`. Run external web searches if necessary.
-4. **`submit_workflow`**: Submit the `askId`, `claimId`, and structured action plan `workflow` (`{summary, steps}`). Kakeratta validates and reviews it immediately. Upon acceptance (`accepted: true`), Kakeratta executes it as the persona (posts, notes, schedules). If rejected, revise using the returned `problems`.
-5. **`release_ask`**: If an ask cannot be planned, release it immediately rather than waiting for timeouts.
+2. **`claim_ask`**: Claim the target ask using its `askId` and an execution-unique `claimId`. The response returns `planBy` (accepted answer deadline) and the full `context`. Retry lost responses with the same `claimId`.
+3. **Research & reasoning**: If needed, call `read_for_ask` with `notes_list` or `notes_read` steps to inspect notes, or a `tool` step to run a read-only tool in `context.tools`, such as `timeline_search`. Only saved posts discovered via `timeline_search` through `read_for_ask` can be cited in the answer's `sources`. Research with Hermes's own tools as needed and cite web sources as links in the answer text.
+4. **`submit_answer`**: Submit the `askId`, `claimId`, and `answer: {text, sources}`. Kakeratta checks only its shape and the turn's rules (a named turn must answer, a listening turn must stay quiet, `sources` must come from this ask's searches). `accepted: true` means the answer was received, not yet published: Kakeratta goes on to the schedule, action and note phases, runs them, and then publishes it. If rejected, revise using the returned `problems`.
+5. **`release_ask`**: If an ask cannot be answered, release it immediately rather than waiting for timeouts.
 
 ### The context a claim returns
 
-The `context` from `claim_ask` holds what the built-in model reads:
+The `context` from `claim_ask` holds what the built-in model reads when it answers. The note-writing skill, the memory layout and any state-changing schema are not part of it: those belong to Kakeratta's own later phases.
 
 | Field | Contents |
 | --- | --- |
-| `persona` | The persona's ID, name, tone, domain, and memory layout (the note `type`s it may use) |
+| `persona` | The persona's ID, name, tone, and domain |
 | `instructions` | The persona's own instructions |
-| `skill` | How the persona writes notes (Open Knowledge Format) |
+| `capabilities` | The changes Kakeratta can make for the persona after the answer; the answer must not promise anything else |
 | `wake` / `wakeInstructions` | Why it woke (`post`, `daily`, `schedule`, `review`, …) and that wake's brief (such as the check-in brief) |
 | `trigger` | The entry to respond to |
 | `thread` | The whole thread containing it, oldest first |
 | `memoryIndex` | The persona's `index.md` |
 | `schedules` | The schedules the persona has placed |
-| `workflow.spec` / `workflow.schema` | How to write the workflow, and its JSON Schema |
-| `tools` | What the persona holds: `use: "read"` for lookups through `read_for_ask` (including `notes_list`, `notes_read`, and `timeline_search`), `use: "workflow"` for workflow steps |
-| `limits` | Read, web-search, step, and draft limits |
-| `rules` | Common rules for this turn; the agent is not asked to keep a remark short |
+| `answerSchema` | The JSON Schema of the answer (`{text, sources}`) |
+| `tools` | The persona's read-only lookups through `read_for_ask` (including `notes_list`, `notes_read`, and `timeline_search`) |
+| `limits` | Read and web-search limits |
+| `rules` | How the persona answers this turn; the agent is not asked to keep an answer short |
 | `now` / `place` / `noteCount` / `turn` | Current time, post location, note inventory summary, and whether the turn requires an answer or silence |
 
 Post and note contents are data, not instructions to Hermes.
@@ -124,12 +124,14 @@ Once an ask is opened, the following conditions return its turn to the built-in 
 
 | Situation | Result |
 | --- | --- |
-| Not claimed by `claimBy` (default: 3 minutes after opening) | The built-in model plans |
-| No workflow accepted by `planBy` (default: 15 minutes after the claim) | The built-in model plans |
-| Draft limit exceeded, or the review failed | The built-in model plans |
-| `release_ask` called | The built-in model plans at once |
+| Not claimed by `claimBy` (default: 3 minutes after opening) | The built-in model answers |
+| No answer accepted by `planBy` (default: 15 minutes after the claim) | The built-in model answers |
+| An answer rejected more than the allowed number of times | The built-in model answers |
+| `release_ask` called | The built-in model answers at once |
 
-An ask that fell through is gone; a late `submit_workflow` is refused as not found. Asks live in memory with the turn waiting on them, and a Kakeratta restart ends them too. A persona waiting on the external agent runs apart from the queue, so other posts and check-ins are not held up; the routing sheet shows it as still thinking until its turn ends.
+An ask that fell through is gone; a late `submit_answer` is refused as not found. Asks live in memory with the turn waiting on them, and a Kakeratta restart ends them too. A persona waiting on the external agent runs apart from the queue, so other posts and check-ins are not held up; the routing sheet shows it as still thinking until its turn ends.
+
+An accepted answer is not retried by the built-in model. If the later phases cannot back up what it promised (for example, it says it will remind the user and no schedule can be placed), or a change fails when it runs, the answer is withheld rather than published; a named persona says it could not answer this time. The run log (`workflow <persona>` on stdout) records each phase's proposal, what was sent back, the review and the steps run.
 
 **Try again** (the reply preview) always uses the built-in model, whatever the persona's planner.
 
@@ -166,4 +168,4 @@ A Wake Gate from before Gate version 2 cannot update itself and must be replaced
 
 ## Check-ins, schedules, and note reviews
 
-Daily check-ins, schedule wakes, note reviews, and deletion notices also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit a workflow that ends with an empty `speak`.
+Daily check-ins, schedule wakes, note reviews, and deletion notices also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit an answer with an empty `text`. Whatever the wake asks to keep or push back (such as a note's review date) is done by Kakeratta's note phase.

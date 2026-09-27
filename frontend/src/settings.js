@@ -303,9 +303,9 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     const waits = el("div", { class: "settings-block", hidden: !!agent.paused },
       select("取得を待つ時間", String(agent.claimMinutes || 3), minutes([1, 2, 3, 5, 10, 15, 30], agent.claimMinutes || 3),
         (next) => save({ claimMinutes: Number(next) })),
-      select("取得後、workflow を待つ時間", String(agent.planMinutes || 15), minutes([5, 10, 15, 30, 60, 120], agent.planMinutes || 15),
+      select("取得後、回答を待つ時間", String(agent.planMinutes || 15), minutes([5, 10, 15, 30, 60, 120], agent.planMinutes || 15),
         (next) => save({ planMinutes: Number(next) })),
-      el("p", { class: "hint", label: "時間内に外部エージェントが取得しない、または workflow を返さない場合は、内蔵モデルが代わりに考えます。取得を待つ時間のあいだ一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが考えます。" }),
+      el("p", { class: "hint", label: "時間内に外部エージェントが取得しない、または回答を返さない場合は、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。" }),
     );
     enabled.addEventListener("change", async () => {
       enabled.disabled = true;

@@ -101,9 +101,9 @@ A service worker caches the application shell so the app can open without a conn
 
 ### An MCP server for external planners: NemoClaw and Hermes
 
-kakeratta also acts as an MCP server, allowing a persona's planning to be delegated to an external agent. I ran Hermes Agent inside NVIDIA NemoClaw / OpenShell, with Nemotron inference through Nebius Token Factory, and verified the full cycle against the production app: a user post opens a planning request, Hermes claims it, reads the persona's context, performs lookups, and submits a workflow. kakeratta validates and reviews that workflow, then executes it as the persona, including memory updates and a reply in the original thread.
+kakeratta also acts as an MCP server, allowing a persona's research and answer to be delegated to an external agent. I ran Hermes Agent inside NVIDIA NemoClaw / OpenShell, with Nemotron inference through Nebius Token Factory, and verified the full cycle against the production app: a user post opened a planning request, Hermes claimed it, read the persona's context, performed lookups, and submitted a workflow. kakeratta validated and reviewed that workflow, then executed it as the persona, including memory updates and a reply in the original thread. Since that run, the protocol has been narrowed: Hermes now submits only the answer, and kakeratta decides the schedules, actions and notes itself, one phase at a time, and assembles them with the answer into the workflow it checks and runs before publishing it. The narrower protocol is covered by automated tests but has not yet been re-verified end to end in NemoClaw.
 
-The responsibility boundary stays the same whether the planner is built in or external: Hermes decides what to propose; kakeratta controls execution. Each persona can prefer the external planner, with the built-in model taking over if the agent is away or misses its deadline. A Wake Gate script checks for pending requests every minute without invoking an LLM when there is no work. This end-to-end flow completed autonomously; the reproduction steps and operational findings are documented in the [NemoClaw / OpenShell integration report](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md).
+The responsibility boundary stays the same whether the planner is built in or external: Hermes researches and answers; kakeratta decides and controls every change. Each persona can prefer the external planner, with the built-in model taking over if the agent is away or misses its deadline. A Wake Gate script checks for pending requests every minute without invoking an LLM when there is no work. This end-to-end flow completed autonomously; the reproduction steps and operational findings are documented in the [NemoClaw / OpenShell integration report](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md).
 
 ### Other design choices
 
@@ -120,7 +120,7 @@ This is server-side processing, not end-to-end encryption: authorized infrastruc
 
 ## Challenges we ran into
 
-The hardest problem was keeping internal complexity from becoming the user's problem. Under the hood are routing, model tiers, OKF, semantic search, MCP, workflows, and scheduled execution. The user should only need two rules:
+The hardest problem was keeping internal complexity from becoming the user's problem. Under the hood are routing, model tiers, OKF, semantic search, MCP, phased planning, and scheduled execution. The user should only need two rules:
 
 Post what's on your mind. Tell a persona what you want in plain language.
 

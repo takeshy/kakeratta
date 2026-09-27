@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -67,7 +66,7 @@ func remarkBy(s *store.Store, speaker string) *timeline.Entry {
 // in a workflow, and the app checks it and runs it as the persona. The queue
 // is not held while the agent thinks, and the routing sheet keeps the turn
 // open until it has really ended.
-func TestAnExternalPlannerWorkflowRunsAsThePersona(t *testing.T) {
+func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	runner, s, stub := externalSetup(t, time.Minute, time.Minute)
 	if err := s.WriteNote("gourmet", "index.md", "# tabe の索引"); err != nil {
 		t.Fatal(err)
@@ -95,21 +94,20 @@ func TestAnExternalPlannerWorkflowRunsAsThePersona(t *testing.T) {
 	switch {
 	case brief.Persona.ID != "gourmet" || brief.Persona.Name != "tabe" || brief.Instructions == "":
 		t.Fatalf("identity = %+v", brief.Persona)
-	case !strings.Contains(brief.Skill, "メモの書き方"):
-		t.Fatal("the note-writing skill is missing")
 	case brief.Trigger.ID != entry.ID || len(brief.Thread) != 1:
 		t.Fatalf("trigger/thread = %+v / %+v", brief.Trigger, brief.Thread)
 	case brief.MemoryIndex != "# tabe の索引":
 		t.Fatalf("index = %q", brief.MemoryIndex)
-	case brief.Workflow.Schema == nil || !strings.Contains(brief.Workflow.Spec, "speak"):
-		t.Fatal("the workflow schema is missing")
+	case brief.Answer == nil:
+		t.Fatal("the answer schema is missing")
+	case brief.Capabilities == "":
+		t.Fatal("the agent was not told what the persona can change")
 	case !strings.HasPrefix(brief.Rules, "規則:"):
 		t.Fatalf("rules = %q", brief.Rules)
 	// The agent is not held to a short remark, as the built-in model is.
 	case !strings.Contains(brief.Rules, agentRule) || strings.Contains(brief.Rules, briefRule):
 		t.Fatal("the agent was told to be brief")
-	case strings.Contains(brief.Workflow.Spec, speakLength(false, false)) || !strings.Contains(brief.Workflow.Spec, speakLength(false, true)):
-		t.Fatal("the agent's workflow spec asks for a short remark")
+
 	}
 	tools := map[string]string{}
 	for _, tool := range brief.Tools {
@@ -126,15 +124,8 @@ func TestAnExternalPlannerWorkflowRunsAsThePersona(t *testing.T) {
 	if _, err := runner.ReadForAsk(ctx, ask.ID, "exec-2", nil); !errors.Is(err, ErrAskNotYours) {
 		t.Fatalf("another claimId read: %v", err)
 	}
-	// A remark on a post leaves a note behind: this one is sent back.
-	verdict, err := runner.SubmitAskWorkflow(ctx, ask.ID, "exec-1", &Workflow{Summary: "言う", Steps: []Step{{Type: "speak", Text: "うまそう"}}}, nil)
-	if err != nil || verdict.Accepted || verdict.Closed || len(verdict.Problems) == 0 {
-		t.Fatalf("verdict = %+v, %v", verdict, err)
-	}
-	verdict, err = runner.SubmitAskWorkflow(ctx, ask.ID, "exec-1", &Workflow{Summary: "覚えて言う", Steps: []Step{
-		{Type: "write_note", Path: "ramen.md", Text: "---\ntype: Preference\ntitle: ラーメン\n---\n食べた。"},
-		{Type: "speak", Text: "うまそう"},
-	}}, nil)
+	// The agent submits only an answer; no note or workflow is required.
+	verdict, err := runner.SubmitAskAnswer(ctx, ask.ID, "exec-1", &Answer{Text: "うまそう", Sources: []string{}}, nil)
 	if err != nil || !verdict.Accepted || !verdict.Closed {
 		t.Fatalf("verdict = %+v, %v", verdict, err)
 	}
@@ -144,15 +135,15 @@ func TestAnExternalPlannerWorkflowRunsAsThePersona(t *testing.T) {
 	if remark.Text != "うまそう" || remark.Model != "agent" {
 		t.Fatalf("remark = %+v", remark)
 	}
-	if _, ok := s.Note("gourmet", "ramen.md"); !ok {
-		t.Fatal("the workflow's note was not written")
+	if len(s.Memory("gourmet").Notes) > 1 {
+		t.Fatal("answer-only turn fabricated notes")
 	}
 	eventually(t, "the turn to finish", func() bool {
 		record, _ := s.Routing(entry.ID)
 		return record != nil && contains(record.Done, "gourmet") && contains(record.Spoke, "gourmet")
 	})
-	if stub.promptFor("tabe") != "" {
-		t.Fatal("the in-process planner was asked although the agent planned")
+	if !strings.Contains(strings.Join(stub.phases, "\n"), "submit_note") {
+		t.Fatal("the builtin note phase did not run")
 	}
 	if len(runner.Asks()) != 0 {
 		t.Fatal("the ask stayed open")
@@ -176,7 +167,7 @@ func TestAnUnclaimedAskFallsThroughToTheBuiltinPlanner(t *testing.T) {
 
 // Claimed, but no workflow in time: the in-process planner takes the turn,
 // and the late workflow has nowhere to go.
-func TestAClaimedAskWithoutAWorkflowFallsThrough(t *testing.T) {
+func TestAClaimedAskWithoutAnAnswerFallsThrough(t *testing.T) {
 	runner, s, _ := externalSetup(t, time.Minute, 30*time.Millisecond)
 	entry := post(t, s, "ラーメン食べた")
 	runner.react(entry.ID)
@@ -185,7 +176,7 @@ func TestAClaimedAskWithoutAWorkflowFallsThrough(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, "the in-process remark", func() bool { return remarkBy(s, "gourmet") != nil })
-	_, err := runner.SubmitAskWorkflow(context.Background(), ask.ID, "exec", &Workflow{Summary: "黙る", Steps: []Step{{Type: "speak"}}}, nil)
+	_, err := runner.SubmitAskAnswer(context.Background(), ask.ID, "exec", &Answer{}, nil)
 	if !errors.Is(err, ErrAskNotFound) {
 		t.Fatalf("late workflow = %v", err)
 	}
@@ -356,7 +347,7 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 			if brief.Place != placeLine(entry.Place) || brief.NoteCount != runner.noteCount(skill.ID) || brief.Now == "" {
 				t.Fatal("location, inventory or clock lost")
 			}
-			if brief.MemoryIndex != index || brief.Instructions != skill.Instructions || brief.Persona.Memory == "" {
+			if brief.MemoryIndex != index || brief.Instructions != skill.Instructions {
 				t.Fatal("persona or memory context lost")
 			}
 			if len(brief.Thread) != 1 || !strings.Contains(brief.Thread[0].Rendered, entry.Link) || !strings.Contains(brief.Thread[0].Rendered, entry.Media.Text) {
@@ -377,25 +368,10 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 			if strings.Count(string(raw), "memory-index-unique-content") != 500 {
 				t.Fatal("index was duplicated or truncated")
 			}
-			// Reconstruct the former payload for a byte-size comparison on this fixture.
-			delete(fields, "rules")
-			delete(fields, "place")
-			delete(fields, "noteCount")
-			delete(fields, "turn")
-			threadText := timeline.Render([]timeline.Entry{entry}, nil, settings.Location())
-			fields["threadText"] = threadText
-			fields["briefing"] = map[string]string{
-				"system": fmt.Sprintf(systemTemplate, skill.Name, skill.Tone, skill.Domain, skill.Instructions, brief.Persona.Memory, length, brief.Workflow.Spec, brief.Skill) + wakeNote,
-				"user":   strings.Join([]string{"いまの日時: " + time.Now().In(settings.Location()).Format("2006-01-02 15:04 MST"), brief.Place, "", brief.NoteCount, "", "あなたの index.md（最初に必ず渡します）:", index, "", "あなたが置いている schedule:", brief.Schedules, "", "スレッド全体（古い順）:", threadText, "", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", entry.Render(nil, settings.Location()), brief.Turn}, "\n"),
+			if fields["workflow"] != nil || fields["skill"] != nil {
+				t.Fatal("answer agent received memory-writing instructions")
 			}
-			old, err := json.Marshal(fields)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(raw) >= len(old) {
-				t.Fatal("claim payload did not shrink")
-			}
-			t.Logf("claim context bytes: %d -> %d (%.1f%% smaller)", len(old), len(raw), 100*(1-float64(len(raw))/float64(len(old))))
+
 		})
 	}
 }

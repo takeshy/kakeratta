@@ -39,11 +39,10 @@ func TestANoteCarriesOnlyANamedKind(t *testing.T) {
 		}
 	}
 	set := tools.New(tools.Config{}).For(nil)
-	workflow := Workflow{Steps: []Step{
+	workflow := operationBatch{Steps: []operation{
 		{Type: "write_note", Path: "wines/altura.md", Text: "---\ntype: Explanation\ntitle: Altura\n---\n白。"},
-		{Type: "speak", Text: "白ですね"},
 	}}
-	if problems := checkWorkflow(workflow, turnRules{set: set, noteRequired: true, memory: layout}); len(problems) != 1 || !strings.Contains(problems[0], "Explanation") {
+	if problems := checkBatch(workflow, turnRules{set: set, memory: layout}); len(problems) != 1 || !strings.Contains(problems[0], "Explanation") {
 		t.Fatalf("problems = %v", problems)
 	}
 }
