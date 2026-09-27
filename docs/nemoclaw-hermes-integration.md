@@ -44,6 +44,8 @@ Key aspects of operating MCP under NemoClaw / OpenShell include:
 - **Autonomous Updates under Egress Restrictions**: Initial sandbox policies block arbitrary outbound HTTP requests. However, the Wake Gate script leverages the `get_integration` MCP tool across the already-authorized `kakeratta.net` route to self-update the Skill and itself without requiring external web access.
 - **Heartbeat and Fall-through**: Every 1-minute `list_asks` call by Wake Gate acts as a liveness heartbeat. If MCP calls cease during the claim wait window (3 minutes by default), Kakeratta's built-in model answers automatically (fall-through), preventing turns from hanging even during sandbox outages.
 
+The following sections document issues encountered during verification and long-running operation. They are not required for a normal installation; use them as troubleshooting references if the corresponding symptoms occur. For the normal connection procedure, see [Using Hermes Agent as a persona's planner](hermes.md).
+
 ## Key operational issues resolved
 
 | Observed issue | Root cause and resolution |
@@ -194,7 +196,7 @@ When abrupt container termination (such as host shutdown SIGTERM / exit code 143
 - `nemoclaw recover` or `doctor --fix` call the same underlying OpenShell APIs and cannot bypass the precondition check.
 
 #### 2. Emergency manual recovery (Gateway DB Byte-Level Repair)
-When locked in `Phase: Error`, you can directly reconcile Gateway's internal SQLite database (`openshell.db`) back to `Ready` without destroying or recreating the sandbox:
+During verification, the following emergency procedure was used to repair Gateway's internal SQLite database (`openshell.db`) when the sandbox was locked in `Phase: Error`:
 
 ```bash
 # 1. Stop the start service
@@ -303,7 +305,7 @@ openshell sandbox list
 systemctl --user start nemoclaw-hermes-start.service
 ```
 
-This reconciles Gateway's database safely back to `Ready`, immediately restoring CLI responsiveness and background automatic restarts.
+This was used as an emergency recovery procedure to reconcile the Gateway database back to `Ready` without recreating the sandbox. In that instance, CLI responsiveness and background automatic restarts were restored.
 
 ## End-to-end verification
 

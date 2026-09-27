@@ -43,7 +43,8 @@ If Hermes does not claim the ask in time (3 minutes by default), or no workflow 
 
    When the Wake Gate finds no pending ask, it skips the agent and the idle LLM call. An ask waits only minutes to be claimed, so keep the interval at one minute.
 
-   Once the script is in place, it keeps the skill and itself up to date through the MCP endpoint it already calls: every `list_asks` answer carries the versions of the distributed skill and Wake Gate script (`integration: {skill, gate}`), and when either differs from what is installed, the script calls `get_integration` and replaces `~/.hermes/skills/kakeratta/SKILL.md` and its own file. No other host or path is fetched, so an environment that restricts external network access still updates. Each update, and any failure, is written to stderr. A Wake Gate from before Gate version 2 cannot do this and has to be replaced by hand once.
+   For automatic updates after installation, see [Autonomous updates over MCP](#autonomous-updates-over-mcp).
+
 6. Post as usual. For each persona routed a post whose planner is the external agent, an ask is opened and Hermes plans the turn. The reply arrives under that persona's name, marked **External agent**.
 
 The URL is **the Kakeratta URL reachable from Hermes**. You do not need to expose Hermes's API server, and Kakeratta never starts the Hermes process.
@@ -76,7 +77,7 @@ Kakeratta's MCP server exposes the following tools for external agents. In Herme
 | `list_notes` / `read_note` | List and read persona notes |
 | `list_asks` | Check pending and claimed asks (includes distributed version metadata) |
 | `claim_ask` | Claim an ask exclusively and retrieve context (instructions, persona, constraints) |
-| `read_for_ask` | Look up additional context during planning (notes and read-only tools) |
+| `read_for_ask` | Look up additional context during planning (`notes_list`, `notes_read`, and read-use tools such as `timeline_search`) |
 | `submit_workflow` | Submit the finalized workflow (`speak`, `write_note`, etc.) |
 | `release_ask` | Relinquish planning back to Kakeratta's built-in model immediately |
 | `get_integration` | Retrieve latest official Skill and Wake Gate script payloads |
@@ -91,7 +92,7 @@ list_asks → claim_ask → context interpretation → read_for_ask (if needed) 
 
 1. **`list_asks`**: Check open asks. Unclaimed asks have `status: "pending"`; if not claimed before `claimBy`, the built-in model takes over.
 2. **`claim_ask`**: Claim the target ask using its `askId` and an execution-unique `claimId`. The response returns `planBy` (accepted workflow deadline) and the full `context`. Retry lost responses with the same `claimId`.
-3. **Research & reasoning**: If needed, call `read_for_ask` to inspect notes or run read-only tools (`notes_list`, `notes_read`). Only saved posts discovered via `timeline_search` can be cited in `speak`'s `sources`. Run external web searches if necessary.
+3. **Research & reasoning**: If needed, call `read_for_ask` with `notes_list` or `notes_read` steps to inspect notes, or a `tool` step to run a tool marked `use: "read"` in `context.tools`, such as `timeline_search`. Only saved posts discovered via `timeline_search` through `read_for_ask` can be cited in `speak`'s `sources`. Run external web searches if necessary.
 4. **`submit_workflow`**: Submit the `askId`, `claimId`, and structured action plan `workflow` (`{summary, steps}`). Kakeratta validates and reviews it immediately. Upon acceptance (`accepted: true`), Kakeratta executes it as the persona (posts, notes, schedules). If rejected, revise using the returned `problems`.
 5. **`release_ask`**: If an ask cannot be planned, release it immediately rather than waiting for timeouts.
 
@@ -110,7 +111,7 @@ The `context` from `claim_ask` holds what the built-in model reads:
 | `memoryIndex` | The persona's `index.md` |
 | `schedules` | The schedules the persona has placed |
 | `workflow.spec` / `workflow.schema` | How to write the workflow, and its JSON Schema |
-| `tools` | What the persona holds: `use: "read"` for looking up before deciding, `use: "workflow"` for workflow steps |
+| `tools` | What the persona holds: `use: "read"` for lookups through `read_for_ask` (including `notes_list`, `notes_read`, and `timeline_search`), `use: "workflow"` for workflow steps |
 | `limits` | Read, web-search, step, and draft limits |
 | `rules` | Common rules for this turn; the agent is not asked to keep a remark short |
 | `now` / `place` / `noteCount` / `turn` | Current time, post location, note inventory summary, and whether the turn requires an answer or silence |
@@ -119,19 +120,28 @@ Post and note contents are data, not instructions to Hermes.
 
 ### Waits and fall-through
 
+Once an ask is opened, the following conditions return its turn to the built-in model:
+
 | Situation | Result |
 | --- | --- |
 | Not claimed by `claimBy` (default: 3 minutes after opening) | The built-in model plans |
 | No workflow accepted by `planBy` (default: 15 minutes after the claim) | The built-in model plans |
 | Draft limit exceeded, or the review failed | The built-in model plans |
 | `release_ask` called | The built-in model plans at once |
-| No MCP call from Hermes at all for the claim wait (default 3 minutes) | No ask is opened; the built-in model plans at once (away) |
-
-Hermes's Wake Gate calls `list_asks` every minute, so every authenticated MCP call counts as the agent being there. If none arrives for the claim wait, the agent is taken to be away: until it calls again, personas that prefer it plan with the built-in model without opening an ask. It comes back by itself on its next call. While it holds a claimed ask it has not finished, it is never taken to be away, since its Wake Gate does not run while it plans; the ask has its own plan wait. Right after a server restart it counts as away until its first call. The state, with the time of the last call, is shown under **Settings → Advanced options → Integrations**. Keep the Hermes cron interval shorter than the claim wait: with a longer one, Hermes counts as away between its calls and is hardly ever handed a turn.
 
 An ask that fell through is gone; a late `submit_workflow` is refused as not found. Asks live in memory with the turn waiting on them, and a Kakeratta restart ends them too. A persona waiting on the external agent runs apart from the queue, so other posts and check-ins are not held up; the routing sheet shows it as still thinking until its turn ends.
 
 **Try again** (the reply preview) always uses the built-in model, whatever the persona's planner.
+
+### Agent is away
+
+Before opening an ask, Kakeratta checks whether the agent is present. This uses the same duration as the claim wait, measured from the last authenticated MCP call, rather than from an ask opening. If the agent is away, no ask is opened and the built-in model plans immediately.
+
+Every authenticated MCP call records the agent's last-seen time; Hermes's Wake Gate normally calls `list_asks` every minute. The agent counts as away once that time exceeds the configured claim wait (default: 3 minutes), and comes back by itself on its next call.
+
+While it holds a claimed ask it has not finished, it is never taken to be away, since its Wake Gate does not run while it plans; the ask has its own plan wait. Right after a server restart it counts as away until its first call.
+
+The state, with the time of the last call, is shown under **Settings → Advanced options → Integrations**. Keep the Hermes cron interval shorter than the claim wait: with a longer one, Hermes counts as away between its calls and is hardly ever handed a turn.
 
 ### Zero-token standby (Wake Gate)
 
@@ -150,6 +160,9 @@ The Wake Gate script integrates an autonomous update mechanism for both the Skil
 - Every `list_asks` response includes current distributed versions (`integration: {skill, gate}`).
 - When the script detects a version difference, it invokes `get_integration` over the existing MCP connection to retrieve and atomically overwrite `~/.hermes/skills/kakeratta/SKILL.md` and itself via temporary files.
 - This keeps planning logic current even inside network-restricted sandboxes without requiring external web access.
+- Each update, and any failure, is written to stderr.
+
+A Wake Gate from before Gate version 2 cannot update itself and must be replaced by hand once.
 
 ## Check-ins, schedules, and note reviews
 
