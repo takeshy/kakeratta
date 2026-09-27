@@ -22,6 +22,10 @@ import (
 const mcpCredential = "mcp-credential"
 const mcpVersion = "2025-11-25"
 
+// mcpToolsTTL is how long a client may keep the tool list before listing it
+// again.
+const mcpToolsTTL = 5 * time.Minute
+
 func (s *Server) mcpWorkspace() string {
 	if s.workspaceKey != "" {
 		return s.workspaceKey
@@ -242,7 +246,11 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 	case "ping":
 		result = map[string]any{}
 	case "tools/list":
-		result = map[string]any{"tools": kakerattaMCPTools()}
+		// ttlMs is a freshness hint: a client that caches the tool list
+		// (Hermes Gateway does) probes again after it, so a tool added by a
+		// deploy reaches the agent without a Gateway restart. A client that
+		// does not know the field ignores it.
+		result = map[string]any{"tools": kakerattaMCPTools(), "ttlMs": mcpToolsTTL.Milliseconds()}
 	case "tools/call":
 		var params struct {
 			Name      string          `json:"name"`

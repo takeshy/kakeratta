@@ -787,26 +787,39 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	readLimit := turnReadLimit(deep)
 	budget := newLookups(readLimit, turnSearchLimit(deep))
 	var answer *Answer
-	readsUsed := 0
-	// lookup does what a persona asked to look at, within this turn's limits.
-	lookup := func(steps []ReadStep) string {
-		if readsUsed >= readLimit {
-			return "これ以上は読めません。現在のフェーズの結果を提出してください。"
-		}
-		for _, step := range steps {
-			if step.Type == "notes_read" || (step.Type == "tool" && step.Tool == "notes_read") {
-				for _, path := range step.Paths {
-					referenced[strings.TrimPrefix(path, "/")] = true
+	// reader does what a persona asked to look at, within its own count.
+	// Research and the later phases count apart: research spending every
+	// read must not leave a phase unable to read the note it has to rewrite.
+	reader := func(used *int, limit int, budget func() *lookups, answering bool) func([]ReadStep) string {
+		return func(steps []ReadStep) string {
+			if *used >= limit {
+				return "これ以上は読めません。現在のフェーズの結果を提出してください。"
+			}
+			for _, step := range steps {
+				if step.Type == "notes_read" || (step.Type == "tool" && step.Tool == "notes_read") {
+					for _, path := range step.Paths {
+						referenced[strings.TrimPrefix(path, "/")] = true
+					}
 				}
 			}
+			text, sources := r.readAll(ctx, skill, steps, set, post, prov, failures, budget(), rules.cited)
+			// Only what the answer was researched with goes under it.
+			if answering {
+				readSources = append(readSources, sources...)
+			}
+			read = append(read, text)
+			record.Reads = append(record.Reads, readRecord{Steps: steps, Output: preview(text)})
+			*used++
+			return text + readFooter(limit-*used, set)
 		}
-		text, sources := r.readAll(ctx, skill, steps, set, post, prov, failures, budget, rules.cited)
-		readSources = append(readSources, sources...)
-		read = append(read, text)
-		record.Reads = append(record.Reads, readRecord{Steps: steps, Output: preview(text)})
-		readsUsed++
-		return text + readFooter(readLimit-readsUsed, set)
 	}
+	readsUsed := 0
+	lookup := reader(&readsUsed, readLimit, func() *lookups { return budget }, true)
+	// The phases decide changes, not research: they read notes and may look
+	// again, but do not search the web.
+	phaseReads := 0
+	phaseBudget := newLookups(maxReads, 0)
+	phaseLookup := reader(&phaseReads, maxReads, func() *lookups { return phaseBudget }, false)
 
 	if r.plansExternally(ctx, skill, settings) {
 		record.Planner = "external"
@@ -821,7 +834,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		externalAnswer, fallback, err := r.planExternally(ctx, settings, ask, brief, externalPlan{
 			read: lookup,
 			consider: func(candidate *Answer, parseErr error) (bool, []string, error) {
-				if parseErr != nil || candidate == nil {
+				if parseErr != nil {
+					return false, []string{"Answer の形式が不正です: " + parseErr.Error()}, nil
+				}
+				if candidate == nil {
 					return false, []string{"Answer の形式が不正です"}, nil
 				}
 				problems := checkAnswer(*candidate, rules)
@@ -863,7 +879,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	phaseContext := user + "\n\nこのターンに読んだ内容:\n" + strings.Join(read, "\n\n") + "\n\n完成した Answer:\n" + string(encodedAnswer)
 	// The phases run on the model the turn runs on: one turn, one voice.
 	log := turnLog{}
-	plan, err := r.planPhases(ctx, client, model, skill, *answer, phaseContext, layout, wakeInstructions, rules, lookup,
+	plan, err := r.planPhases(ctx, client, model, skill, *answer, phaseContext, layout, wakeInstructions, rules, phaseLookup,
 		func(plan Workflow) (*Review, error) {
 			return r.review(ctx, client, settings, skill, thread, trigger, *answer, plan,
 				"既存の予定:\n"+scheduleList+"\n読んだ内容:\n"+clip(strings.Join(read, "\n\n"), 20000), names, here)

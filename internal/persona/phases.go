@@ -286,7 +286,23 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 	plan := Workflow{Answer: answer, Schedules: []ScheduleOperation{}, Actions: []ActionOperation{}, Notes: []NoteOperation{}}
 	generate := func(phase, feedback string) error {
 		encoded, _ := json.Marshal(plan)
-		next, rec, err := proposePhase(ctx, client, model, phase, phasePrompt(phase, skill, rules.set, layout, wake), user+"\n現在の実行計画（他フェーズを変更しない）:\n"+string(encoded)+"\n修正指示:\n"+feedback, rules.set, lookup, func(candidate Workflow) []string { return checkBatch(candidate.batch(), rules) })
+		// A proposal is checked with the rest of the workflow in place: a
+		// note on a schedule's own path, a path written twice, or too many
+		// steps show only together, and the phase that brought the conflict
+		// is the one sent back to fix it.
+		merged := func(candidate Workflow) Workflow {
+			whole := plan
+			switch phase {
+			case "schedule":
+				whole.Schedules = candidate.Schedules
+			case "action":
+				whole.Actions = candidate.Actions
+			case "note":
+				whole.Notes = candidate.Notes
+			}
+			return whole
+		}
+		next, rec, err := proposePhase(ctx, client, model, phase, phasePrompt(phase, skill, rules.set, layout, wake), user+"\n現在の workflow（他フェーズを変更しない）:\n"+string(encoded)+"\n修正指示:\n"+feedback, rules.set, lookup, func(candidate Workflow) []string { return checkBatch(merged(candidate).batch(), rules) })
 		if rec != nil {
 			log.phases = append(log.phases, *rec)
 		}
@@ -347,6 +363,11 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 				scheduleFix = true
 				actionFix = true
 			}
+		}
+		// A failing verdict that names no phase still has to change
+		// something, or the next review sees the same workflow.
+		if !scheduleFix && !actionFix {
+			scheduleFix, actionFix = true, true
 		}
 		var fixed []string
 		if scheduleFix {

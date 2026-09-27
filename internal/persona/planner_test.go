@@ -125,6 +125,12 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 		t.Fatalf("another claimId read: %v", err)
 	}
 	// The agent submits only an answer; no note or workflow is required.
+	// A malformed answer is told what was wrong with it, not only that it was.
+	_, parseErr := ParseAnswer([]byte(`{"text":"うまそう"}`))
+	sentBack, err := runner.SubmitAskAnswer(ctx, ask.ID, "exec-1", &Answer{}, parseErr)
+	if err != nil || sentBack.Accepted || sentBack.Closed || len(sentBack.Problems) != 1 || !strings.Contains(sentBack.Problems[0], "sources") {
+		t.Fatalf("malformed verdict = %+v, %v", sentBack, err)
+	}
 	verdict, err := runner.SubmitAskAnswer(ctx, ask.ID, "exec-1", &Answer{Text: "うまそう", Sources: []string{}}, nil)
 	if err != nil || !verdict.Accepted || !verdict.Closed {
 		t.Fatalf("verdict = %+v, %v", verdict, err)

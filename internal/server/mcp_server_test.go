@@ -163,3 +163,25 @@ func TestRetiredToolSaysTheSkillIsOld(t *testing.T) {
 		t.Fatalf("unknown = %s", got)
 	}
 }
+
+// The tool list carries a freshness hint, so an agent that caches it picks up
+// a tool added by a deploy without restarting.
+func TestToolListCarriesAFreshnessHint(t *testing.T) {
+	s, _ := app(t)
+	key := strings.Repeat("c", 64)
+	digest := sha256.Sum256([]byte(key))
+	if err := s.setMCPKey(context.Background(), digest[:]); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`
+	r := httptest.NewRequest(http.MethodPost, "/api/mcp/users/"+s.mcpWorkspace(), strings.NewReader(body))
+	r.Header.Set("Authorization", "Bearer "+key)
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json, text/event-stream")
+	out := httptest.NewRecorder()
+	s.ServeHTTP(out, r)
+	got := out.Body.String()
+	if !strings.Contains(got, `"ttlMs":300000`) || !strings.Contains(got, "submit_answer") {
+		t.Fatalf("tools/list = %s", got)
+	}
+}

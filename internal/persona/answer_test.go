@@ -243,3 +243,94 @@ func TestReadCannotExecuteActions(t *testing.T) {
 		t.Fatal("state changes leaked into the answer schema")
 	}
 }
+
+// A note on a schedule's own path shows only when the phases are put
+// together. The note phase that brought it is sent back to fix it, rather
+// than the whole turn failing with nothing run.
+func TestACrossPhaseConflictIsSentBackToThePhaseThatMadeIt(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["routine"]}` }, "routine")
+	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
+	script, calls := scheduleTurn(func(int) string { return createSchedule(at, "errands/reminder.md") })
+	notes := 0
+	f.phaseReply = func(system, user string, offered map[string]bool) string {
+		if !offered["submit_note"] {
+			return script(system, user, offered)
+		}
+		notes++
+		if notes == 1 {
+			return `{"operations":[{"type":"write","path":"errands/reminder.md","text":"---\ntype: Errand\ntitle: 通知\n---\n重複"}]}`
+		}
+		if !strings.Contains(user, "背景メモ") {
+			t.Error("the note phase was not told what conflicted")
+		}
+		return `{"operations":[]}`
+	}
+	r.react(post(t, s, "2時間後に知らせて").ID)
+	if notes != 2 || calls["schedule"] != 1 {
+		t.Fatalf("notes=%d calls=%v", notes, calls)
+	}
+	if said := remarks(t, s); len(said) != 1 {
+		t.Fatalf("remarks: %v", said)
+	}
+	if schedules, _ := s.Schedules("routine"); len(schedules) != 1 {
+		t.Fatalf("schedules: %v", schedules)
+	}
+}
+
+// Research may spend every read. A phase that has to rewrite an existing
+// note still reads it on its own count, and the turn goes through.
+func TestPhasesReadApartFromResearch(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	writeNotes(t, s, "gourmet", map[string]string{"tastes/a.md": "---\ntype: Preference\ntitle: A店\n---\n前から好き"})
+	researched, notes := 0, 0
+	f.phaseReply = func(system, user string, offered map[string]bool) string {
+		switch {
+		case offered["finish_read"]:
+			researched++
+			return `{"steps":[{"type":"notes_list","paths":[],"tool":"","args":"{}"}]}`
+		case offered["submit_answer"]:
+			return `{"text":"A店、また行ったんだね。","sources":[]}`
+		case offered["submit_schedule"]:
+			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+		}
+		notes++
+		if notes == 1 {
+			return `read:{"steps":[{"type":"notes_read","paths":["tastes/a.md"],"tool":"","args":"{}"}]}`
+		}
+		return `{"operations":[{"type":"write","path":"tastes/a.md","text":"---\ntype: Preference\ntitle: A店\n---\n前から好き。また行った。"}]}`
+	}
+	r.react(post(t, s, "A店にまた行った").ID)
+	if researched != maxReads {
+		t.Fatalf("research reads = %d", researched)
+	}
+	if note, ok := s.Note("gourmet", "tastes/a.md"); !ok || !strings.Contains(note.Text, "また行った") {
+		t.Fatalf("note = %+v", note)
+	}
+	if said := remarks(t, s); len(said) != 1 {
+		t.Fatalf("remarks: %v", said)
+	}
+}
+
+// A failing review that names no phase still regenerates the changes, so the
+// second review does not see the same workflow again.
+func TestAFailingReviewWithoutIssuesRegenerates(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["routine"]}` }, "routine")
+	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
+	script, calls := scheduleTurn(func(int) string { return createSchedule(at, "errands/reminder.md") })
+	f.phaseReply = script
+	reviews := 0
+	f.review = func(string) string {
+		reviews++
+		if reviews == 1 {
+			return `{"verdict":"fail","summary":"どこか違う","issues":[]}`
+		}
+		return `{"verdict":"pass","summary":"ok","issues":[]}`
+	}
+	r.react(post(t, s, "2時間後に知らせて").ID)
+	if calls["schedule"] != 2 || reviews != 2 {
+		t.Fatalf("calls=%v reviews=%d", calls, reviews)
+	}
+	if said := remarks(t, s); len(said) != 1 {
+		t.Fatalf("remarks: %v", said)
+	}
+}

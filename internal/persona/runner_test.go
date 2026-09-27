@@ -331,6 +331,10 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		Verdict string         `json:"verdict"`
 	}
 	scripted := json.Unmarshal([]byte(content), &parsed) == nil
+	// "read:" followed by steps is a phase looking something up first.
+	if rest, ok := strings.CutPrefix(content, "read:"); ok && offered["read"] {
+		return call("read", json.RawMessage(rest))
+	}
 	switch {
 	case offered["submit_answer"]:
 		return call("submit_answer", json.RawMessage(content))
