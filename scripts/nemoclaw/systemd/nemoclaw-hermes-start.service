@@ -1,0 +1,21 @@
+[Unit]
+Description=Start Hermes sandbox through NemoClaw (Self-Healing)
+Requires=nemoclaw-openshell-gateway.service
+After=nemoclaw-openshell-gateway.service
+StartLimitIntervalSec=30min
+StartLimitBurst=10
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=NEMOCLAW_GATEWAY_PORT=8080
+Environment=PATH=%h/.local/share/mise/installs/node/22.21.1/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/nemoclaw-hermes-autostart.sh
+ExecStop=%h/.local/bin/nemoclaw-hermes-autostop.sh
+TimeoutStartSec=600
+TimeoutStopSec=60
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,19 @@
+# NEMOCLAW_MANAGED_OPENSHELL_GATEWAY=1
+
+[Unit]
+Description=NemoClaw OpenShell Gateway Daemon
+Documentation=https://github.com/NVIDIA/OpenShell
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%E/openshell/gateway.env
+ExecStartPre=%h/.local/bin/nemoclaw-wait-docker.sh
+ExecStart=%h/.local/bin/openshell-gateway
+Restart=always
+RestartSec=3
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

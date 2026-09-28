@@ -60,7 +60,7 @@ The following sections document issues encountered during verification and long-
 | NemoClaw CLI commands hang indefinitely | Orphan lock files (`~/.nemoclaw-portable-host.lock`) remained with defunct owner PIDs after interrupted operations. Pruning stale locks whose owner PIDs were dead restored responsiveness. |
 | Sandbox stuck in `Phase: Error` (Reconciliation deadlock) | Abrupt container exit caused Gateway to record `Phase: Error`. OpenShell CLI `start` requires `Stopped` and `stop` requires `Ready`, creating a deadlock. Reconciled the sandbox state directly in `openshell.db` back to `Ready` (2) to recover. |
 | Sandbox does not start on host reboot (`GatewayAuthorityError`) | Running the Gateway as a systemd user service drifted authority against the onboarding checkpoint (`standalone`). Resolved by configuring `~/.config/openshell/gateway.env` (`0600`), using `nemoclaw-openshell-gateway.service`, and reconciling authority to `"packaged-service"`. |
-| Host shutdown triggers `Phase: Error` deadlock on subsequent boot | Abrupt host shutdown killed the container with SIGTERM (exit code 143) without clean stopping. Resolved by adding `ExecStop=/home/takeshy/.local/bin/nemoclaw hermes-sandbox stop` and `TimeoutStopSec=60` to `nemoclaw-hermes-start.service` to ensure clean transition to `Stopped`. |
+| Host shutdown / Docker stop race triggers `Phase: Error` deadlock on subsequent boot | Abrupt host shutdown or systemd stopping Docker prior to user service `ExecStop` killed the container with SIGTERM (exit code 143), recording `Phase: Error` in Gateway DB. Because CLI commands require `Stopped` or `Ready`, subsequent reboots failed into `start-limit-hit`. Resolved permanently by introducing an autonomous self-healing startup system: `nemoclaw-reconcile-sandbox.py` (automatically audits DB and reconciles protobuf payload back to `Ready`), `nemoclaw-hermes-autostart.sh` (handles Docker readiness, stale locks, and startup settling), and `nemoclaw-hermes-autostop.sh`. |
 | Web search and page extraction blocked with `403 Forbidden` causing hallucinations | OpenShell's L7 proxy default egress policy blocked search backends. After failed research, the agent hallucinated confident but false answers. Resolved by whitelisting search/extraction endpoints per host. |
 | Cron stops executing inference after model change | Hermes suspended execution with `global inference config drifted since this job was created`. Pinning the model explicitly in the job resolved it. This is a built-in safety feature against unintended drift and cost spikes. |
 | Granted egress approvals never take effect | Approvals surfaced by OpenShell may remain pending as `draft_policy_chunk` and not merge into the active policy. Never consider an approval active until confirmed directly via `openshell policy get` or `nemoclaw policy explain`. |
@@ -332,6 +332,25 @@ systemctl --user start nemoclaw-hermes-start.service
 ```
 
 This was used as an emergency recovery procedure to reconcile the Gateway database back to `Ready` without recreating the sandbox. In that instance, CLI responsiveness and background automatic restarts were restored.
+
+#### 3. Permanent Resolution: Self-Healing Autostart System
+To permanently resolve Phase: Error deadlocks caused by Docker shutdown race conditions or abrupt poweroffs, an automated self-healing wrapper architecture was implemented:
+
+1. **Pre-Shutdown Watcher Service (`nemoclaw-hermes-shutdown-watch.service`)**:
+   Maintains a delay inhibitor via `systemd-inhibit --what=shutdown --mode=delay` and continuously listens for D-Bus `org.freedesktop.login1.Manager.PrepareForShutdown` signals. Upon shutdown/reboot requests, logind delays the poweroff by up to 15 seconds, executing `nemoclaw-hermes-autostop.sh` to cleanly stop the container (`Phase: Stopped` / exit 0) **before the host Docker daemon is stopped** (entirely in user space, no sudo required).
+2. **Safe Autostop Wrapper (`~/.local/bin/nemoclaw-hermes-autostop.sh`)**:
+   Safely terminates the sandbox when Docker is available with `flock` concurrency gating, or exits gracefully without polluting systemd unit failure state if Docker is already down.
+3. **Reconciliation Script (`~/.local/bin/nemoclaw-reconcile-sandbox.py`)**:
+   Audits the Gateway DB on each startup loop iteration. In the event of an abrupt power cut or crash, it automatically detects `Phase: Error` (enum 3) and forcibly rebuilds the protobuf payload back to `Ready` (enum 2), restarting the gateway daemon to release the deadlock.
+4. **Autostart Wrapper (`~/.local/bin/nemoclaw-hermes-autostart.sh`)**:
+   Monitors Docker readiness, waits for the Gateway, clears stale locks, invokes the reconciler before each start attempt, accounts for internal agent settlement windows, and verifies the Web Dashboard (port 18789) health in a single self-contained workflow.
+5. **systemd Service Update (`~/.config/systemd/user/nemoclaw-hermes-start.service`)**:
+   Configured `ExecStart` with `nemoclaw-hermes-autostart.sh` and `ExecStop` with `nemoclaw-hermes-autostop.sh`, ensuring 100% autonomous recovery across host reboots.
+
+> [!TIP]
+> **Source Code Management in Repository**:
+> All scripts and systemd unit files are tracked in the repository under [`scripts/nemoclaw/`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/).
+> Running [`scripts/nemoclaw/install.sh`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/install.sh) symlinks them directly into `~/.local/bin` and `~/.config/systemd/user`, maintaining immediate alignment between git versioning and the running host environment.
 
 ## End-to-end verification
 

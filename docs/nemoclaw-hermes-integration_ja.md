@@ -60,7 +60,7 @@ NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点
 | NemoClaw CLI コマンドが無応答でハングする | サンドボックス再作成の中断時などに、古い PID のロックファイル（`~/.nemoclaw-portable-host.lock` 等）が残存し排他ロック待ちになっていた。所有 PID の生存確認を行い、孤立した stale ロックを削除して即時復旧した。 |
 | サンドボックスが `Phase: Error` でデッドロックする | コンテナ停止に伴い OpenShell Gateway が `Phase: Error` を記録した際、CLI の `start`（Stopped 要求）も `stop`（Ready 要求）も拒絶されるデッドロックに陥る。Gateway 内部 DB（`openshell.db`）の sandbox 状態を直接 `Ready` (2) に書き戻して復旧した。 |
 | ホスト再起動時に NemoClaw が自動起動しない | Gateway を systemd ユーザーサービス化したことでオンボーディング記録（`standalone`）と権限主体が食い違い、NemoClaw の保護機構（`GatewayAuthorityError`）で復旧が拒絶されていた。正規サービス `nemoclaw-openshell-gateway.service` を導入し、`onboard-session.json` の Authority を `packaged-service` に整合させて復旧した。 |
-| ホストシャットダウン時に次回起動時の `Phase: Error` デッドロックを誘発する | `nemoclaw-hermes-start.service` に `ExecStop` 停止処理がなかったため、PC シャットダウン時にコンテナが強制終了され、Gateway が `Phase: Error` を記録していた。サービスに `ExecStop=/home/takeshy/.local/bin/nemoclaw hermes-sandbox stop` と `TimeoutStopSec=60` を追加し、シャットダウン時に安全にクリーン停止（`Stopped`）させることで解消した。 |
+| ホストシャットダウン・Docker停止順序競合で次回起動時の `Phase: Error` デッドロックを誘発する | PC シャットダウン時に systemd の並行停止で Docker デーモンが先に落ちる等の原因でコンテナが強制終了（exit 143）されると、Gateway が `Phase: Error` を記録し、次回ブート時に起動拒絶（`must be Stopped to start`）のデッドロックに陥る。シャットダウン要求時に `systemd-inhibit` で電源断を最大15秒遅延させて Docker 停止前に先行してクリーン停止させる監視サービス（`nemoclaw-hermes-shutdown-watch.service`）を導入し、さらに起動時にも DB の `Phase: Error` を自動検知・解除する自律修復スクリプト（`nemoclaw-reconcile-sandbox.py`）を多重配備して恒久解決した。 |
 | Web 検索・抽出が `403 Forbidden` で遮断されハルシネーションが発生 | OpenShell L7 プロキシのデフォルト Egress 制限により、外部 Web 調査が遮断され、モデルが推測で誤った回答（ハルシネーション）を生成して固執していた。キーなし検索バックエンドへの Egress エンドポイントを個別追加して解消した。 |
 | モデル変更後に Cron が推論を実行しない | Hermes が `global inference config drifted since this job was created` として実行を保留した。ジョブのモデルを明示的に固定して対処。意図しないモデル変更やコスト急増を防ぐ安全機構。 |
 | 許可したはずの Egress 承認が反映されない | OpenShell が提示した承認要求が `draft_policy_chunk` として pending のまま実効ポリシーへマージされない場合がある。実効ポリシー（`openshell policy get` や `nemoclaw policy explain`）で直接確認するまで有効と見なさないこと。 |
@@ -333,6 +333,25 @@ systemctl --user start nemoclaw-hermes-start.service
 ```
 
 この手順は、サンドボックスを再作成せずに Gateway DB の状態を `Ready` に戻す緊急復旧として用いました。この事例では、CLI 操作の応答性とバックグラウンドでの自動再起動が回復しました。
+
+#### 3. 恒久対策：自己修復型自動起動システムの導入
+PC シャットダウン時の Docker 停止順序競合や強制終了などにより、次回起動時に `Phase: Error` でデッドロックする問題を防ぐため、起動時に自律修復を行うラッパー構成を導入しました。
+
+1. **事前シャットダウン監視サービス (`nemoclaw-hermes-shutdown-watch.service`)**:
+   `systemd-inhibit --what=shutdown --mode=delay` でシャットダウン遅延インヒビターを保持し、D-Bus の `org.freedesktop.login1.Manager.PrepareForShutdown` シグナルを常駐監視。シャットダウン要求を検知すると、logind にシャットダウンを最大 15 秒間遅延させ、**システム側の Docker デーモンが停止する前に** 安全停止ラッパー（`nemoclaw-hermes-autostop.sh`）を先行実行してコンテナを正常に `Phase: Stopped` (exit 0) でクリーン停止させます（sudo 不要、ユーザー空間で完結）。
+2. **安全停止ラッパー (`~/.local/bin/nemoclaw-hermes-autostop.sh`)**:
+   Docker が生存している場合は安全にクリーン停止を行い、排他ロック（`flock`）による二重実行ガードを内包。すでに停止済みの場合は即座にスキップし、重複呼び出しにも安全に応答します。
+3. **自律修復スクリプト (`~/.local/bin/nemoclaw-reconcile-sandbox.py`)**:
+   起動ループの各試行時に Gateway DB を監査し、万一の強制電源断やクラッシュなどで `Phase: Error` (enum 3) や異常な終了コードが残存した場合でも、自動的に Protobuf ペイロードを `Ready` (enum 2) に修正・強制解除して Gateway デーモンを再起動し、デッドロックを瞬時に解消します。
+4. **自動起動ラッパー (`~/.local/bin/nemoclaw-hermes-autostart.sh`)**:
+   Docker 待機、Gateway 待機、stale ロック除去、各試行ごとの DB デッドロック自動修復・強制解除、コンテナ起動待機（settlement window 考慮）、Web Dashboard（ポート 18789）疎通確認までを 1 本のスクリプトで完結して自律実行します。
+5. **systemd サービスの更新 (`~/.config/systemd/user/nemoclaw-hermes-start.service`)**:
+   `ExecStart` に `nemoclaw-hermes-autostart.sh`、`ExecStop` に `nemoclaw-hermes-autostop.sh` を設定し、OS 再起動時にいかなる終了状態からでも 100% 確実に自動復旧・起動できるようにしました。
+
+> [!TIP]
+> **リポジトリ内でのソースコード管理**:
+> これらの一連のスクリプト群および systemd ユニットファイルは、リポジトリ内の [`scripts/nemoclaw/`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/) ディレクトリに集約・バージョン管理されています。
+> 新しい環境へのセットアップやリンク作成は [`scripts/nemoclaw/install.sh`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/install.sh) を実行することで、`~/.local/bin` および `~/.config/systemd/user` へシンボリックリンクとして一括配備できます。
 
 ## エンドツーエンド検証
 

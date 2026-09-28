@@ -1,0 +1,13 @@
+[Unit]
+Description=NemoClaw Hermes Pre-Shutdown Watcher (Stop before Docker stops)
+Documentation=https://github.com/takeshy/kakeratta
+After=nemoclaw-hermes-start.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/nemoclaw-hermes-shutdown-monitor.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
