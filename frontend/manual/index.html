@@ -455,13 +455,19 @@
         </section>
 
         <section id="ja-hermes">
-          <p>「＋ 接続先を追加」で名前を付けて複数の接続先を登録し、「使用する接続先」の一覧でアプリ全体の接続先を1つ選べます。キーの再発行と削除は接続先ごとの行で行います。外部エージェントを優先する担当すべてに適用されます。追加した接続先が選択され、他のキーは保存されますがMCPへアクセスできるのは選択中のキーだけです。切り替え時の待機中ターンは内蔵モデルへ戻ります。Hermes のほか、Obsidian の LLM Connect Hub にも対応しています。それ以外のエージェントも、MCP Streamable HTTPで接続し、依頼の定期取得・調査・回答提出を実装すれば利用できます。キーは発行時のみ表示します。</p>
           <h2>5. 担当の考える役を外部エージェントに任せる</h2>
-          <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。使えるのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
+          <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。標準で対応しているのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。ほかのエージェントも、MCP Streamable HTTP で接続し、依頼の定期取得・調査・回答の提出を実装すれば使えます。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
           <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携の外部エージェント接続とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="850" /></figure>
+          <h3>接続先を管理する</h3>
+          <p>同時に使える接続先は1つです。外部エージェントを優先する担当は、すべて「使用する接続先」で選んだ接続先を使います。</p>
+          <ul>
+            <li>「＋ 接続先を追加」で名前を付けると、その接続先のキーが発行され、そのまま使用中になります。キーが表示されるのは発行した直後だけです。</li>
+            <li>一覧で別の接続先を選ぶと切り替わります。ほかの接続先のキーは残りますが、使用中でないキーでは接続できません。切り替えたときに取りに来るのを待っていた依頼は、内蔵モデルが答えます。</li>
+            <li>キーの再発行と削除は、接続先ごとの行で行います。</li>
+          </ul>
           <h3>Hermes とつなぐ</h3>
           <ol>
-            <li><strong>設定 → 上級オプション → 外部連携 → 外部エージェント接続</strong> で <strong>追加してキーを発行</strong> を押し、表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li>
+            <li><strong>設定 → 上級オプション → 外部連携 → 外部エージェント接続</strong> で <strong>追加してキーを発行</strong> を押し、表示された設定をコピーします。</li>
             <li>Hermes を動かす端末の <code>~/.hermes/config.yaml</code> に追加し、Hermes を再起動します。すでに <code>mcp_servers</code> があれば、その中に <code>kakeratta</code> を足します。</li>
             <li>Hermes に kakeratta の Skill と Wake Gate を入れ、毎分確認するよう設定します（手順は手引きにあります）。</li>
           </ol>
@@ -480,16 +486,19 @@
             <li>回答に使うモデル、読んでよい Vault のフォルダ、RAG、スキルを決めます。担当ごとに変えることもできます。</li>
             <li><strong>Check periodically</strong> をONにして <strong>Enabled</strong> をONにし、<strong>Save and reconnect</strong> を押します。</li>
           </ol>
-          <p>LLM Connect Hub は Obsidian を開いている間、1分ごとに依頼を確認します。依頼がないときにモデルのトークンは使いません。Obsidian を閉じているあいだに届いた依頼は、待ち時間を過ぎると内蔵モデルが答えます。詳しい設定は <a href="https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md" rel="noopener">LLM Connect Hub の説明</a> を見てください。</p>
+          <p>LLM Connect Hub は Obsidian を開いている間、1分ごとに依頼を確認します。依頼がないときにモデルのトークンは使いません。確認の間隔が1分なので、取得の待ち時間は1分より長くしておいてください。Obsidian を閉じて取得の待ち時間が過ぎると不在とみなされ（下の「担当を任せる」を参照）、それ以降の依頼は待たずに内蔵モデルが答えます。閉じた直後に届いた依頼は、待ち時間が過ぎてから内蔵モデルが答えます。詳しい設定は <a href="https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md" rel="noopener">LLM Connect Hub の説明</a> を見てください。</p>
           <h3>担当を任せる</h3>
           <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="389" /></figure>
           <ol>
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは接続キーを発行したあとにだけ表示されます。</li>
             <li>いつもどおり投稿します。その担当に届いた投稿は外部エージェントが考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
-          <p>外部エージェントが3分以内に取りに来ない、または15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ外部エージェントから一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。時間は <strong>外部連携</strong> の接続先ごとの <strong>接続情報と待ち時間</strong> で、エージェントごとに変えられます。同じ画面の <strong>外部エージェントを使う</strong> をOFFにすると、外部エージェントからの接続を受け付けず、担当ごとの設定を残したまま内蔵モデルで考えます。試し直しは常に内蔵モデルで行います。</p>
+          <p>外部エージェントが3分以内に依頼を取りに来ない、または取ってから15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。</p>
+          <p>最後の接続から取得の待ち時間（3分）が過ぎても接続がなければ、外部エージェントは不在とみなされます。不在のあいだは、以後の依頼を待たずに内蔵モデルが答えます。再び接続されると、次の依頼から外部エージェントに戻ります。依頼に取り組んでいる最中は不在になりません。</p>
+          <p>待ち時間は <strong>外部連携</strong> の接続先ごとの <strong>接続情報と待ち時間</strong> で、エージェントごとに変えられます。同じ画面の <strong>外部エージェントを使う</strong> をOFFにすると、外部エージェントからの接続を受け付けず、担当ごとの設定を残したまま内蔵モデルで考えます。<a href="#ja-reply-fix">返し方を直す</a> ときの試し書きは、常に内蔵モデルで行います。</p>
           <h3>外部エージェントが読めるもの</h3>
           <p>外部エージェントは、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、外部エージェントが渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。接続先を<strong>削除</strong>すると接続キーが無効になります。</p>
+          <p>外部エージェントが読んだ投稿やメモは、そのエージェントが使うモデルにも渡ります。Hermes や LLM Hub で外部の API のモデルを選んでいれば、その提供元に送られます。端末の外に出したくない場合は、ローカルのモデルを使ってください。ただし LLM Connect Hub で Vault・RAG・スキルを使って答えるには、API のモデルが必要です。</p>
           <h3>つながらないとき</h3>
           <ul>
             <li>設定を変えたあと Hermes を再起動したか確認してください。</li>
@@ -1001,13 +1010,19 @@
         </section>
 
         <section id="en-hermes">
-          <p>Add named connections with + Add connection, then choose one in the Active connection list for the whole app. Replace or delete a key on each connection's row. All personas that prefer an external agent use it. Adding a connection selects it; other keys are kept, but only the selected key can access MCP. Switching returns pending turns to the built-in model. Hermes and Obsidian's LLM Connect Hub are supported; other agents can use MCP Streamable HTTP if they implement polling, research, and answer submission. Keys are shown only when issued.</p>
           <h2>5. Hand a persona to an external agent</h2>
-          <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in: Hermes Agent, or the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a>. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
+          <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in. Hermes Agent and the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> are supported out of the box; any other agent can connect over MCP Streamable HTTP if it polls for asks, does the research and submits the answer. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
           <figure><img src="/captures/en/hermes-settings.png" alt="External agent connections under Integrations, with the manual help icon" loading="lazy" width="382" height="889" /></figure>
+          <h3>Manage connections</h3>
+          <p>One connection is in use at a time. Every persona that prefers the external agent uses the one chosen under <strong>Active connection</strong>.</p>
+          <ul>
+            <li><strong>+ Add connection</strong> names a connection, issues its key and puts it in use. The key is shown only right after it is issued.</li>
+            <li>Choose another connection in the list to switch. Other connections keep their keys, but a key not in use cannot connect. Asks still waiting to be picked up when you switch are answered by the built-in model.</li>
+            <li>Replace or delete a key on each connection's row.</li>
+          </ul>
           <h3>Connect Hermes</h3>
           <ol>
-            <li>Under <strong>Settings → Advanced options → Integrations → External agent connections</strong>, press <strong>Add and create key</strong> and copy the configuration. The key is shown only then.</li>
+            <li>Under <strong>Settings → Advanced options → Integrations → External agent connections</strong>, press <strong>Add and create key</strong> and copy the configuration.</li>
             <li>Add it to <code>~/.hermes/config.yaml</code> on the machine running Hermes and restart Hermes. If <code>mcp_servers</code> already exists, add <code>kakeratta</code> inside it.</li>
             <li>Install the kakeratta skill and Wake Gate in Hermes and have it check every minute (the guide has the steps).</li>
           </ol>
@@ -1026,16 +1041,19 @@
             <li>Choose the answer model, the Vault folders it may read, the RAG index and the skills. Each persona can override them.</li>
             <li>Turn on <strong>Check periodically</strong> and <strong>Enabled</strong>, then press <strong>Save and reconnect</strong>.</li>
           </ol>
-          <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. An ask that arrives while Obsidian is closed is answered by the built-in model once its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
+          <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. Because it checks once a minute, keep the claim wait longer than a minute. Once Obsidian has been closed for longer than the claim wait, the agent is taken to be away (see <em>Hand a persona over</em> below) and later asks go to the built-in model without waiting. An ask that arrives just after Obsidian closes is answered by the built-in model when its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
           <h3>Hand a persona over</h3>
           <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="433" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only after a connection key has been issued.</li>
             <li>Post as usual. The external agent plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
-          <p>If the external agent does not pick it up within 3 minutes, or does not return an answer within 15 minutes, the built-in model answers instead. If it has not connected at all for the claim wait, it is taken to be away and the built-in model answers without waiting until it connects again. Change the waits per agent under each connection's <strong>Connection details and waits</strong> in <strong>Integrations</strong>; turning off <strong>Use the external agent</strong> there refuses its connections and plans with the built-in model while keeping each persona's choice. <strong>Try again</strong> always uses the built-in model.</p>
+          <p>If the external agent does not pick an ask up within 3 minutes, or does not return an answer within 15 minutes of picking it up, the built-in model answers instead.</p>
+          <p>If the agent has not connected for longer than the claim wait (3 minutes), it is taken to be away. While it is away, later asks go straight to the built-in model instead of waiting. As soon as it connects again, the next ask goes to it. An agent is never away while it is working on an ask.</p>
+          <p>Change the waits per agent under each connection's <strong>Connection details and waits</strong> in <strong>Integrations</strong>. Turning off <strong>Use the external agent</strong> there refuses its connections and plans with the built-in model while keeping each persona's choice. The trial reply when you <a href="#en-reply-fix">fix how a persona replies</a> always uses the built-in model.</p>
           <h3>What an external agent can read</h3>
           <p>An external agent can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. Deleting the connection invalidates the key.</p>
+          <p>What the agent reads also goes to the model it uses. If you chose an API model in Hermes or LLM Hub, your posts and notes are sent to that provider. To keep them on your machine, use a local model; note that LLM Connect Hub needs an API model to answer with Vault notes, RAG or skills.</p>
           <h3>If it cannot connect</h3>
           <ul>
             <li>Restart Hermes after changing its configuration.</li>
