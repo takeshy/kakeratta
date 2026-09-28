@@ -130,7 +130,8 @@ export function createMCPConnection({ onChange, onState, controls = null } = {})
     name.value = newName;
     const add = el("button", { class: "chip", disabled: busy || !newName.trim(), label: "追加してキーを発行", onclick: () => issue({ name: newName.trim() }) });
     name.addEventListener("input", () => { newName = name.value; add.disabled = busy || !newName.trim(); });
-    return el("div", { class: "settings-block mcp-add-connection" },
+    // A name is short: on a wide screen the field and its buttons share a line.
+    return el("div", { class: "mcp-add-connection" },
       el("label", { class: "field" }, el("span", { label: "接続名" }), name),
       el("div", { class: "compose-row" }, add,
         rows.length ? el("button", { class: "chip ghost", disabled: busy, label: "キャンセル", onclick: () => { adding = false; newName = ""; draw(); } }) : null));
