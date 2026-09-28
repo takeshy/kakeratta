@@ -246,3 +246,54 @@ func TestPersonDraftCarriesFacts(t *testing.T) {
 		})
 	}
 }
+
+// The dialog sends the question it opened with ahead of the user's answer. That
+// question is what tells the builder a name is a person's, so it reaches the
+// model - as context, with the conversation still starting from the user.
+func TestPersonaBuilderAcceptsTheDialogsOpeningQuestion(t *testing.T) {
+	s, workspace := app(t)
+	var got []struct{ Role, Content string }
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Messages []struct{ Role, Content string }
+		}
+		_ = json.NewDecoder(r.Body).Decode(&request)
+		got = request.Messages
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"message":"どんな関係ですか？","draft":null}`}}}})
+	}))
+	defer model.Close()
+	settings := workspace.ConfiguredSettings()
+	settings.BaseURL = model.URL
+	if err := workspace.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	send := func(body string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("POST", "/api/personas/build", strings.NewReader(body)))
+		return w
+	}
+	opening := "誰のことを覚える担当を作りたい？名前や呼び名、あなたとの関係を教えてください。"
+	if w := send(`{"messages":[{"role":"assistant","content":"` + opening + `"},{"role":"user","content":"佐藤さん"}]}`); w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if len(got) != 2 || got[0].Role != "system" || !strings.Contains(got[0].Content, opening) || got[1].Role != "user" || got[1].Content != "佐藤さん" {
+		t.Fatalf("the model was sent %+v", got)
+	}
+	// A follow-up keeps the same shape: the opening, then the exchange.
+	if w := send(`{"messages":[{"role":"assistant","content":"` + opening + `"},{"role":"user","content":"佐藤さん"},{"role":"assistant","content":"{}"},{"role":"user","content":"大学の友人"}]}`); w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if len(got) != 4 || got[1].Role != "user" || got[3].Content != "大学の友人" {
+		t.Fatalf("the model was sent %+v", got)
+	}
+	// Only the opening may come from the assistant ahead of the user.
+	for _, body := range []string{
+		`{"messages":[{"role":"assistant","content":"` + opening + `"}]}`,
+		`{"messages":[{"role":"assistant","content":"a"},{"role":"assistant","content":"b"},{"role":"user","content":"c"}]}`,
+		`{"messages":[{"role":"assistant","content":" "},{"role":"user","content":"c"}]}`,
+	} {
+		if w := send(body); w.Code != 400 {
+			t.Fatalf("%s was accepted: %d", body, w.Code)
+		}
+	}
+}

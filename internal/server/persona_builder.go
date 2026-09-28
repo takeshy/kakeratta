@@ -46,6 +46,10 @@ keywordsは名前を出さなくてもその人の話だとわかる語です（
 // personTools are the built-in tools a new person's persona starts with.
 var personTools = []string{"web_search", "place_search", "route", "schedule"}
 
+// maxOpening bounds the question the dialog opened with, which is the app's
+// own text and never long.
+const maxOpening = 500
+
 // maxFacts bounds the post made from what the user told the builder about a
 // person.
 const maxFacts = 2000
@@ -63,6 +67,23 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := readJSONLimit(r, &body, 256<<10); err != nil || len(body.Messages) == 0 {
 		fail(w, 400, "会話を読めませんでした")
+		return
+	}
+	// The dialog opens with its own question - who the person is, or what the
+	// persona is for - so the answer to it is read as that. The model is
+	// handed the question as context and the conversation from the user's
+	// first line, as it always was.
+	opening := ""
+	if first := body.Messages[0]; first.Role == "assistant" {
+		opening = strings.TrimSpace(first.Content)
+		if opening == "" || len([]rune(opening)) > maxOpening {
+			fail(w, 400, "会話の形式が不正です")
+			return
+		}
+		body.Messages = body.Messages[1:]
+	}
+	if len(body.Messages) == 0 {
+		fail(w, 400, "回答を入力してください")
 		return
 	}
 	for i, m := range body.Messages {
@@ -99,7 +120,11 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	}
 	client, settings := s.client()
 	context, _ := json.Marshal(map[string]any{"existing": original, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
-	messages := []llm.Message{{Role: "system", Content: builderPrompt + "\n設定データ:\n" + string(context)}}
+	system := builderPrompt + "\n設定データ:\n" + string(context)
+	if opening != "" {
+		system += "\n\nこの会話は、画面がユーザーに最初にこう尋ねて始まりました（ユーザーの最初の発言はその答えです）:\n" + opening
+	}
+	messages := []llm.Message{{Role: "system", Content: system}}
 	messages = append(messages, body.Messages...)
 	if body.EntryID != "" {
 		entry, ok := s.store.Entry(body.EntryID)
