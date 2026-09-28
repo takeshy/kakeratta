@@ -44,17 +44,25 @@ While evaluating `NousResearch/Hermes-4-405B` in a live multi-turn environment, 
 | **Output Tokens** | **0.11 1M tokens** (110,000) | $3.09 / 1M tokens | **$0.34** |
 | **Total Incurred** | — | — | **$26.31** |
 
-#### Why Did Input Cost Skyrocket?
+#### Why Did Input Cost Skyrocket? (Forensic Audit Findings)
 1. **Dense Architecture Overhead**: A dense 405B model requires evaluating all 405 billion weights on every forward pass, pricing standard prompt inputs at $1.00 per 1M tokens.
 2. **Wake Gate Fail-Open Vulnerability (Root Cause of Spurious Token Burns)**:
-   - When users only executed a handful of turns, telemetry revealed that background token consumption reached tens of millions.
+   - When users only executed a handful of intentional turns, telemetry revealed that background token consumption reached tens of millions.
    - **Root Cause**: The pre-check script (`check_kakeratta_gate.py`) contained a fail-open default (`print(json.dumps({"wakeAgent": True}))`) on network error, missing MCP URL, or HTTP 401/403/500 responses.
    - When network policy or credentials temporarily blocked MCP communication, the Wake Gate panicked and woke Hermes Agent **every single minute despite 0 pending tasks**.
-   - Woken with zero work, the agent failed to cleanly exit and spun into an unchecked multi-tool retry loop up to the engine's hard ceiling (`max_turns: 60`), consuming **between 550,000 and 3,414,492 prompt tokens in a single execution**.
-   - **Remediation**: The Wake Gate was completely re-architected to be **Fail-Closed** (never wakes unless pending tasks are explicitly validated; exits cleanly with 0 tokens on any error), and an `agent.max_turns: 15` ceiling was enforced in `config.yaml`.
-3. **Cumulative Context Compounding**:
-   - Because each tool call appends prior tool outputs to the conversation history (expanding context from 18k to 92k tokens), a single 60-turn runaway run consumed over 3.4M tokens within 5 minutes.
-   - Across dozens of such runs, input tokens rapidly totaled **25.97M tokens ($25.97)** while outputs remained negligible (110k tokens, $0.34).
+   - Woken with zero work, the agent failed to cleanly exit and spun into an unchecked multi-tool retry loop (`web_search`, shell commands) up to the engine's hard ceiling (`max_turns: 60`).
+3. **Forensic Session Audit (20 Hard Ceiling Breaches)**:
+   - Auditing `/sandbox/.hermes/logs/agent.log` and `/sandbox/.hermes/cron/usage_audit.jsonl` across 270 total sessions revealed:
+     - **Reached 60-turn hard ceiling**: **20 sessions**
+     - **Reached 16–59 turns**: **19 sessions**
+     - **1–15 turns (normal/minor)**: 231 sessions
+   - **Single-Session Explosion**: Each 60-turn runaway session consumed **between 1,129,946 and 3,421,088 tokens** (average ~1.3M tokens).
+   - **Exact Math of the $25.97 Surge**:
+     $$\approx 1.3\text{M tokens/runaway} \times 20\text{ ceiling sessions} \approx \mathbf{25.97\text{M tokens}}$$
+   - Outputs remained tiny (110k tokens, $0.34) because the model spent almost all its budget reading back its own accumulated search history rather than generating text.
+4. **Remediation & Defense-in-Depth**:
+   - The Wake Gate was completely re-architected to be **Fail-Closed** (never wakes unless pending tasks are explicitly validated; exits cleanly with 0 tokens on any error).
+   - An `agent.max_turns: 15` safety ceiling was enforced in `/sandbox/.hermes/config.yaml` to physically cap worst-case context compounding.
 
 ### Economics: Dense vs. MoE Comparison
 
