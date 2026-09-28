@@ -60,6 +60,7 @@ const shots = [
   { name: "reply-trial", id: "timeline--reply-fix-trial", clip: ".dialog.reply-fix", ready: ".reply-accept" },
   { name: "person-card", id: "personas--person-card", clip: '.persona[data-id="sato"]' },
   { name: "people", id: "personas--people-by-name", clip: "#sheet", ready: '.persona[data-id="mother"]' },
+  { name: "llm-connect-hub", id: "timeline--external-agent-vault", clip: ".thread", ready: ".model-badge" },
   { name: "month-summary", id: "timeline--month-summary", clip: ".thread", ready: ".post.summary" },
   { name: "person-draft", id: "personas--person-create-draft", clip: ".dialog", ready: ".persona-builder .builder-detail" },
   { name: "person-routing", id: "timeline--person-routing", clip: ".routing-dialog", ready: ".routing-row" },

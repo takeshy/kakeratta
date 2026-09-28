@@ -24,6 +24,16 @@ export const Opened = {
     return panel(view.element);
   },
 };
+// A persona handed to Obsidian's LLM Connect Hub, answering from a file in the
+// vault and saying which.
+export const ExternalAgentVault = {
+  name: "外部エージェント（Obsidian）が答えた",
+  render: () => {
+    const view = feed(timeline().vault, personas);
+    view.element.querySelector(".thread-toggle")?.click();
+    return panel(view.element);
+  },
+};
 export const Settled ={ name: "溜まってきた", render: () => show(timeline().many) };
 // The router's call about the noodle post: tabe was called, and the reasons
 // the other three were not - each with a way to say the router was wrong.

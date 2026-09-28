@@ -79,7 +79,7 @@
             <li><a href="#ja-reply-fix">2. 返し方を直す</a></li>
             <li><a href="#ja-wakes">3. 担当が起きるタイミング</a></li>
             <li><a href="#ja-bluesky">4. Blueskyに公開する</a></li>
-            <li><a href="#ja-hermes">5. 担当の考える役をHermesにする</a></li>
+            <li><a href="#ja-hermes">5. 担当の考える役を外部エージェントに任せる</a></li>
             <li><a href="#ja-settings">6. 設定とデータ</a></li>
             <li><a href="#ja-tools">7. 担当が使う道具</a></li>
             <li><a href="#ja-more">8. もっと詳しく</a></li>
@@ -92,7 +92,7 @@
           <h1>kakeratta の使い方</h1>
           <p class="lede">日々のかけらを、ひとつのタイムラインへ放り込む。人や関心ごとに置いた、自分とは別の記憶を持つ AI（<strong>担当</strong>）が、言うことがあるときだけ反応し、必要なときに思い出させます。</p>
           <div class="tip">
-            <p>このページは毎日使う機能だけをまとめています。振り分けや返し方の調整、Bluesky・Hermes との連携、設定の詳細は <a href="/manual/?guide=advanced" data-lang-link>上級編</a> にあります。</p>
+            <p>このページは毎日使う機能だけをまとめています。振り分けや返し方の調整、Bluesky・外部エージェント（Hermes、Obsidian）との連携、設定の詳細は <a href="/manual/?guide=advanced" data-lang-link>上級編</a> にあります。</p>
           </div>
 
         <section id="ja-start">
@@ -319,7 +319,7 @@
 
         <div class="advanced-guide">
           <h1>kakeratta 上級編</h1>
-          <p class="lede">担当の振り分けや返し方の調整、担当が起きるタイミング、Bluesky・Hermes との連携、設定とデータ、担当が使う道具を説明します。毎日の使い方は <a href="/manual/" data-lang-link>基本の使い方</a> を見てください。</p>
+          <p class="lede">担当の振り分けや返し方の調整、担当が起きるタイミング、Bluesky・外部エージェント（Hermes、Obsidian）との連携、設定とデータ、担当が使う道具を説明します。毎日の使い方は <a href="/manual/" data-lang-link>基本の使い方</a> を見てください。</p>
 
         <section id="ja-routing">
           <h2>1. 振り分けを直す</h2>
@@ -408,7 +408,7 @@
             <li>最近の記録は、前回のチェックインから今までの分を読みます。休んだ日や見送った日があっても、その間の記録を取りこぼしません。</li>
             <li>チェックインでは現在地を使わないので、経路検索はできず、店舗検索は名前での検索だけになります。</li>
           </ul>
-          <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を整え、何を聞くかを Hermes が考えます。時間内に Hermes が応じなければ、内蔵モデルが代わりに考えます。</p>
+          <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を整え、何を聞くかを外部エージェントが考えます。時間内に外部エージェントが応じなければ、内蔵モデルが代わりに考えます。</p>
           <h3 id="ja-tool-schedule">担当が預けた予定（schedule）</h3>
           <p>たとえば plana は、記録から「朝の薬は7時半ごろ」と分かったものにだけ予定を置き、その少しあとに起きます。まだ記録がなければ「そういえば朝の薬」と一言添え、済んでいれば黙ります。時刻の前に知らせるリマインダーではなく、催促もしません。あなたから「毎朝8時に知らせて」と頼む機能でもありません。</p>
           <p><a href="/manual/#ja-people" data-lang-link>人物の担当</a>は、「来週土曜、佐藤さんと飲む」のような会う予定が書かれると、その日の朝に予定を置きます。起きたら前回の出来事や済んでいないこと（貸し借り、約束）を一言添えて知らせます。</p>
@@ -455,11 +455,11 @@
         </section>
 
         <section id="ja-hermes">
-          <p>「＋ 接続先を追加」で名前を付けて複数の接続先を登録し、「使用する接続先」の一覧でアプリ全体の接続先を1つ選べます。キーの再発行と削除は接続先ごとの行で行います。外部エージェントを優先する担当すべてに適用されます。追加した接続先が選択され、他のキーは保存されますがMCPへアクセスできるのは選択中のキーだけです。切り替え時の待機中ターンは内蔵モデルへ戻ります。Hermes以外もMCP Streamable HTTPで接続し、依頼の定期取得・調査・回答提出を実装すれば利用できます。キーは発行時のみ表示します。</p>
-          <h2>5. 担当の考える役をHermesにする</h2>
-          <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を自分の Hermes に任せます。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
-          <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="963" /></figure>
-          <h3>つなぐ</h3>
+          <p>「＋ 接続先を追加」で名前を付けて複数の接続先を登録し、「使用する接続先」の一覧でアプリ全体の接続先を1つ選べます。キーの再発行と削除は接続先ごとの行で行います。外部エージェントを優先する担当すべてに適用されます。追加した接続先が選択され、他のキーは保存されますがMCPへアクセスできるのは選択中のキーだけです。切り替え時の待機中ターンは内蔵モデルへ戻ります。Hermes のほか、Obsidian の LLM Connect Hub にも対応しています。それ以外のエージェントも、MCP Streamable HTTPで接続し、依頼の定期取得・調査・回答提出を実装すれば利用できます。キーは発行時のみ表示します。</p>
+          <h2>5. 担当の考える役を外部エージェントに任せる</h2>
+          <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。使えるのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
+          <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携の外部エージェント接続とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="850" /></figure>
+          <h3>Hermes とつなぐ</h3>
           <ol>
             <li><strong>設定 → 上級オプション → 外部連携 → 外部エージェント接続</strong> で <strong>追加してキーを発行</strong> を押し、表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li>
             <li>Hermes を動かす端末の <code>~/.hermes/config.yaml</code> に追加し、Hermes を再起動します。すでに <code>mcp_servers</code> があれば、その中に <code>kakeratta</code> を足します。</li>
@@ -470,20 +470,32 @@
     url: "画面に表示された接続URL"
     headers:
       Authorization: "Bearer 画面に表示された接続キー"</code></pre>
+          <h3>Obsidian（LLM Connect Hub）とつなぐ</h3>
+          <p>LLM Connect Hub を使うと、担当の回答を Obsidian の <a href="https://github.com/takeshy/obsidian-llm-hub" rel="noopener">LLM Hub</a> が答えます。モデルは LLM Hub で選んだものを使い、Vault のノート・RAG・スキルを調べて回答します。回答の出典には、参照した Vault のファイルが <code>[[ファイル名]]</code> で示されます。</p>
+          <figure><img src="/captures/ja/llm-connect-hub.png" alt="Obsidian の LLM Connect Hub が shiori として答えた返事。外部エージェントの印と、Vault のファイルを示す出典" loading="lazy" width="382" height="991" /></figure>
+          <ol>
+            <li>Obsidian のコミュニティプラグインから <strong>LLM Hub</strong> と <strong>LLM Connect Hub</strong> を入れて有効にします（デスクトップ版のみ）。</li>
+            <li>kakeratta の <strong>設定 → 上級オプション → 外部連携 → 外部エージェント接続</strong> で接続名（例: Obsidian）を付けて <strong>追加してキーを発行</strong> を押します。</li>
+            <li>LLM Connect Hub の設定の <strong>Kakeratta</strong> に、<strong>接続情報と待ち時間</strong> に表示された MCPエンドポイントを入れます。<strong>Add header</strong> で名前 <code>Authorization</code>、値 <code>Bearer 接続キー</code> を追加します。</li>
+            <li>回答に使うモデル、読んでよい Vault のフォルダ、RAG、スキルを決めます。担当ごとに変えることもできます。</li>
+            <li><strong>Check periodically</strong> をONにして <strong>Enabled</strong> をONにし、<strong>Save and reconnect</strong> を押します。</li>
+          </ol>
+          <p>LLM Connect Hub は Obsidian を開いている間、1分ごとに依頼を確認します。依頼がないときにモデルのトークンは使いません。Obsidian を閉じているあいだに届いた依頼は、待ち時間を過ぎると内蔵モデルが答えます。詳しい設定は <a href="https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md" rel="noopener">LLM Connect Hub の説明</a> を見てください。</p>
           <h3>担当を任せる</h3>
           <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="389" /></figure>
           <ol>
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは接続キーを発行したあとにだけ表示されます。</li>
-            <li>いつもどおり投稿します。その担当に届いた投稿は Hermes が考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
+            <li>いつもどおり投稿します。その担当に届いた投稿は外部エージェントが考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
-          <p>Hermes が3分以内に取りに来ない、または15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ Hermes から一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。時間は <strong>外部連携</strong> の接続先ごとの <strong>接続情報と待ち時間</strong> で、エージェントごとに変えられます。同じ画面の <strong>外部エージェントを使う</strong> をOFFにすると、外部エージェントからの接続を受け付けず、担当ごとの設定を残したまま内蔵モデルで考えます。試し直しは常に内蔵モデルで行います。</p>
-          <h3>Hermes が読めるもの</h3>
-          <p>Hermes は、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、Hermes が渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。接続先を<strong>削除</strong>すると接続キーが無効になります。</p>
+          <p>外部エージェントが3分以内に取りに来ない、または15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ外部エージェントから一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。時間は <strong>外部連携</strong> の接続先ごとの <strong>接続情報と待ち時間</strong> で、エージェントごとに変えられます。同じ画面の <strong>外部エージェントを使う</strong> をOFFにすると、外部エージェントからの接続を受け付けず、担当ごとの設定を残したまま内蔵モデルで考えます。試し直しは常に内蔵モデルで行います。</p>
+          <h3>外部エージェントが読めるもの</h3>
+          <p>外部エージェントは、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、外部エージェントが渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。接続先を<strong>削除</strong>すると接続キーが無効になります。</p>
           <h3>つながらないとき</h3>
           <ul>
             <li>設定を変えたあと Hermes を再起動したか確認してください。</li>
             <li>Hermes から接続URLに届くか確認してください。</li>
             <li>キーを再発行したら、config.yaml も置き換えてください。</li>
+            <li>LLM Connect Hub では、設定画面の接続状態（例: <code>Kakeratta: connected; 1 ask failed</code>）を見てください。回答が失敗した依頼は内蔵モデルが答えます。</li>
           </ul>
         </section>
 
@@ -504,7 +516,7 @@
                 <tr><td>上級オプション → モデル</td><td>OpenRouter を使う</td></tr>
                 <tr><td>上級オプション → 入力</td><td>入力をマークダウンとして扱う</td></tr>
                 <tr><td>上級オプション → 音声</td><td>音声入力（送信の合図、無音で停止など）、読み上げの声と速さ</td></tr>
-                <tr><td>上級オプション → 外部連携</td><td><a href="#ja-hermes">Hermes</a>、<a href="#ja-bluesky">Bluesky</a></td></tr>
+                <tr><td>上級オプション → 外部連携</td><td><a href="#ja-hermes">外部エージェント</a>、<a href="#ja-bluesky">Bluesky</a></td></tr>
                 <tr><td>上級オプション → バックアップ</td><td>zip に書き出す</td></tr>
                 <tr><td>上級オプション → 利用停止</td><td>すべて削除して退会する</td></tr>
               </tbody>
@@ -512,7 +524,7 @@
           </div>
           <h3>バックアップ</h3>
           <p><strong>zipに書き出す</strong> で、投稿、担当とメモ、担当の並び、画像をひとつの zip にまとめます。準備ができるとダウンロードが始まり、<strong>ダウンロード</strong> のリンクも表示されます。リンクは1時間有効です。個人的な内容を含むので、他人に渡さないでください。</p>
-          <p>API キーや Bluesky・Hermes の接続は入りません。</p>
+          <p>API キーや Bluesky・外部エージェントの接続は入りません。</p>
           <h3>利用停止（退会）</h3>
           <p><strong>すべて削除して利用を停止する</strong> を押し、確認のため「削除」と入力すると、このアカウントの投稿・担当とメモ・画像・設定・接続・バックアップ、ログインのアカウント自体が消えます。元に戻せないので、先にバックアップを取ってください。</p>
           <h3>AI のモデル</h3>
@@ -613,7 +625,7 @@
             <li><a href="#en-reply-fix">2. Fix how a persona replies</a></li>
             <li><a href="#en-wakes">3. When personas wake</a></li>
             <li><a href="#en-bluesky">4. Share to Bluesky</a></li>
-            <li><a href="#en-hermes">5. Let Hermes plan for a persona</a></li>
+            <li><a href="#en-hermes">5. Hand a persona to an external agent</a></li>
             <li><a href="#en-settings">6. Settings and data</a></li>
             <li><a href="#en-tools">7. Tools personas use</a></li>
             <li><a href="#en-more">8. Read more</a></li>
@@ -626,7 +638,7 @@
           <h1>Using kakeratta</h1>
           <p class="lede">Toss fragments of your day into one timeline. AIs you keep for the people and interests in your life, each with a memory separate from yours, called <strong>personas</strong>, react only when they have something to say and bring things back when they matter.</p>
           <div class="tip">
-            <p>This page covers what you use every day. Fixing routing and replies, Bluesky and Hermes, and settings in detail are in the <a href="/manual/?guide=advanced" data-lang-link>advanced guide</a>.</p>
+            <p>This page covers what you use every day. Fixing routing and replies, Bluesky and external agents (Hermes, Obsidian), and settings in detail are in the <a href="/manual/?guide=advanced" data-lang-link>advanced guide</a>.</p>
           </div>
 
         <section id="en-start">
@@ -853,7 +865,7 @@
 
         <div class="advanced-guide">
           <h1>kakeratta advanced guide</h1>
-          <p class="lede">Fixing routing and replies, when personas wake, Bluesky and Hermes, settings and data, and the tools personas use. For everyday use, see the <a href="/manual/" data-lang-link>basics</a>.</p>
+          <p class="lede">Fixing routing and replies, when personas wake, Bluesky and external agents (Hermes, Obsidian), settings and data, and the tools personas use. For everyday use, see the <a href="/manual/" data-lang-link>basics</a>.</p>
 
         <section id="en-routing">
           <h2>1. Fix who gets a post</h2>
@@ -942,7 +954,7 @@
             <li>Recent records are read from the previous check-in onward, so a skipped or missed day leaves nothing unread.</li>
             <li>Check-ins do not use your location, so route search is unavailable and place search works by name only.</li>
           </ul>
-          <p>For a persona that prefers the external agent, Hermes decides what to tidy and what to ask at check-in. If Hermes does not respond in time, the built-in model plans instead.</p>
+          <p>For a persona that prefers the external agent, the external agent decides what to tidy and what to ask at check-in. If it does not respond in time, the built-in model plans instead.</p>
           <h3 id="en-tool-schedule">A persona's own schedule (schedule)</h3>
           <p>plana, for example, sets one only for something its records place at a usual time - “morning medicine around 7:30” - and wakes shortly after. If nothing has been recorded yet it adds “the morning medicine, by the way”; if it has, it stays quiet. This is not an advance reminder and it does not nag. It is also not a way for you to ask “tell me every morning at 8.”</p>
           <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> sets one for the morning of a meeting you mention, such as “drinks with Sato next Saturday.” On waking it brings up what happened last time and anything still open, like a loan or a promise.</p>
@@ -989,11 +1001,11 @@
         </section>
 
         <section id="en-hermes">
-          <p>Add named connections with + Add connection, then choose one in the Active connection list for the whole app. Replace or delete a key on each connection's row. All personas that prefer an external agent use it. Adding a connection selects it; other keys are kept, but only the selected key can access MCP. Switching returns pending turns to the built-in model. Other agents can use MCP Streamable HTTP if they implement polling, research, and answer submission. Keys are shown only when issued.</p>
-          <h2>5. Let Hermes plan for a persona</h2>
-          <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to your own Hermes, whether it woke for a post or a check-in. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
-          <figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="983" /></figure>
-          <h3>Connect</h3>
+          <p>Add named connections with + Add connection, then choose one in the Active connection list for the whole app. Replace or delete a key on each connection's row. All personas that prefer an external agent use it. Adding a connection selects it; other keys are kept, but only the selected key can access MCP. Switching returns pending turns to the built-in model. Hermes and Obsidian's LLM Connect Hub are supported; other agents can use MCP Streamable HTTP if they implement polling, research, and answer submission. Keys are shown only when issued.</p>
+          <h2>5. Hand a persona to an external agent</h2>
+          <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in: Hermes Agent, or the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a>. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
+          <figure><img src="/captures/en/hermes-settings.png" alt="External agent connections under Integrations, with the manual help icon" loading="lazy" width="382" height="889" /></figure>
+          <h3>Connect Hermes</h3>
           <ol>
             <li>Under <strong>Settings → Advanced options → Integrations → External agent connections</strong>, press <strong>Add and create key</strong> and copy the configuration. The key is shown only then.</li>
             <li>Add it to <code>~/.hermes/config.yaml</code> on the machine running Hermes and restart Hermes. If <code>mcp_servers</code> already exists, add <code>kakeratta</code> inside it.</li>
@@ -1004,20 +1016,32 @@
     url: "Connection URL shown in Settings"
     headers:
       Authorization: "Bearer CONNECTION_KEY"</code></pre>
+          <h3>Connect Obsidian (LLM Connect Hub)</h3>
+          <p>With LLM Connect Hub, a persona's answer comes from <a href="https://github.com/takeshy/obsidian-llm-hub" rel="noopener">LLM Hub</a> in your Obsidian. It uses the model you choose in LLM Hub and researches your Vault notes, RAG and skills; the vault files it read are cited as <code>[[file name]]</code>.</p>
+          <figure><img src="/captures/en/llm-connect-hub.png" alt="shiori answering through Obsidian's LLM Connect Hub, marked External agent, citing a file in the vault as its source" loading="lazy" width="382" height="1068" /></figure>
+          <ol>
+            <li>Install and enable <strong>LLM Hub</strong> and <strong>LLM Connect Hub</strong> from Obsidian's community plugins (desktop only).</li>
+            <li>In kakeratta, under <strong>Settings → Advanced options → Integrations → External agent connections</strong>, name the connection (for example, Obsidian) and press <strong>Add and create key</strong>.</li>
+            <li>In LLM Connect Hub's <strong>Kakeratta</strong> settings, enter the MCP endpoint shown under <strong>Connection details and waits</strong>. Use <strong>Add header</strong> to add the name <code>Authorization</code> with the value <code>Bearer CONNECTION_KEY</code>.</li>
+            <li>Choose the answer model, the Vault folders it may read, the RAG index and the skills. Each persona can override them.</li>
+            <li>Turn on <strong>Check periodically</strong> and <strong>Enabled</strong>, then press <strong>Save and reconnect</strong>.</li>
+          </ol>
+          <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. An ask that arrives while Obsidian is closed is answered by the built-in model once its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
           <h3>Hand a persona over</h3>
           <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="433" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only after a connection key has been issued.</li>
-            <li>Post as usual. Hermes plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
+            <li>Post as usual. The external agent plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
-          <p>If Hermes does not pick it up within 3 minutes, or does not return an answer within 15 minutes, the built-in model answers instead. If Hermes has not connected at all for the claim wait, it is taken to be away and the built-in model answers without waiting until it connects again. Change the waits per agent under each connection's <strong>Connection details and waits</strong> in <strong>Integrations</strong>; turning off <strong>Use the external agent</strong> there refuses its connections and plans with the built-in model while keeping each persona's choice. <strong>Try again</strong> always uses the built-in model.</p>
-          <h3>What Hermes can read</h3>
-          <p>Hermes can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. Deleting the connection invalidates the key.</p>
+          <p>If the external agent does not pick it up within 3 minutes, or does not return an answer within 15 minutes, the built-in model answers instead. If it has not connected at all for the claim wait, it is taken to be away and the built-in model answers without waiting until it connects again. Change the waits per agent under each connection's <strong>Connection details and waits</strong> in <strong>Integrations</strong>; turning off <strong>Use the external agent</strong> there refuses its connections and plans with the built-in model while keeping each persona's choice. <strong>Try again</strong> always uses the built-in model.</p>
+          <h3>What an external agent can read</h3>
+          <p>An external agent can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. Deleting the connection invalidates the key.</p>
           <h3>If it cannot connect</h3>
           <ul>
             <li>Restart Hermes after changing its configuration.</li>
             <li>Check that Hermes can reach the connection URL.</li>
             <li>If you replaced the key, replace it in config.yaml too.</li>
+            <li>In LLM Connect Hub, look at the connection status in its settings (for example, <code>Kakeratta: connected; 1 ask failed</code>). An ask it failed to answer is answered by the built-in model.</li>
           </ul>
         </section>
 
@@ -1038,7 +1062,7 @@
                 <tr><td>Advanced options → Models</td><td>Use OpenRouter</td></tr>
                 <tr><td>Advanced options → Input</td><td>Treat what I write as Markdown</td></tr>
                 <tr><td>Advanced options → Voice</td><td>Voice input (send phrase, silence stop, …), read-aloud voice and speed</td></tr>
-                <tr><td>Advanced options → Integrations</td><td><a href="#en-hermes">Hermes</a>, <a href="#en-bluesky">Bluesky</a></td></tr>
+                <tr><td>Advanced options → Integrations</td><td><a href="#en-hermes">External agents</a>, <a href="#en-bluesky">Bluesky</a></td></tr>
                 <tr><td>Advanced options → Backup</td><td>Export as zip</td></tr>
                 <tr><td>Advanced options → Close account</td><td>Delete everything and leave</td></tr>
               </tbody>
@@ -1046,7 +1070,7 @@
           </div>
           <h3>Backup</h3>
           <p><strong>Export as zip</strong> puts your posts, personas and their notes, persona order, and images into one zip. The download starts when it is ready, and a <strong>Download</strong> link also appears. The link is valid for an hour. The zip holds personal content, so keep it to yourself.</p>
-          <p>API keys and the Bluesky and Hermes connections are not included.</p>
+          <p>API keys and the Bluesky and external agent connections are not included.</p>
           <h3>Close account</h3>
           <p>Press <strong>Delete everything and close the account</strong> and type “delete” to confirm. This removes the account's posts, personas and notes, images, settings, connections, backups, and the login account itself. It cannot be undone, so export a backup first.</p>
           <h3>AI models</h3>

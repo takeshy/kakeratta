@@ -65,6 +65,8 @@ const WORDS = {
     newTone: "短く一言。おすすめは頼まれたときだけ。",
     newInstructions: "食べた店と味の感想を覚える。新しい感想が来たら、前に食べた店との違いを一言で返す。店は頼まれたときだけ勧める。",
     trialReply: "前の担々麺より、ごまが強くて辛さが後ろに下がった感じですね。",
+    agentAsk: "LLMの本であるIntroduction to Agentsの要約を教えて",
+    agentSummary: "『Introduction to Agents and Agent architectures』（2025年11月）の要約です。\nこの本は、AIを「質問に答えたり文章を生成したりするモデル」から、**目標に向かって計画し、ツールを使い、結果を観察しながら仕事を進めるエージェント**へと捉え直します。\n\n- **基本ループ**：目標を受け取る → 状況を調べる → 計画する → ツールで実行する → 結果を観察・評価する → 必要なら計画を修正する\n- **基本構成**：推論を担う **Model**、外界に働きかける **Tools**、処理の流れを制御する **Orchestration layer**、実行環境などの **Runtime services**\n- **重要な考え方**：エージェントの性能は、モデルそのものだけでなく、毎回どの情報を文脈として選び、組み合わせるかという **context engineering** に大きく左右される\n- **実運用上の課題**：評価、メモリ、権限管理、プロンプトインジェクション対策、人間による監督が不可欠\n\n出典：[[resource/Introduction to Agents.pdf]]",
   },
   en: {
     noodles: "That dan dan noodle place from the other day - too much sesame, I think",
@@ -92,6 +94,8 @@ const WORDS = {
     newTone: "One short line. Recommendations only when asked.",
     newInstructions: "Remember the places eaten at and what they tasted like. When a new impression comes in, say in one line how it differs from a place before. Recommend only when asked.",
     trialReply: "Heavier on sesame than the last dan dan noodles, with the heat sitting further back.",
+    agentAsk: "Summarise the LLM book Introduction to Agents for me",
+    agentSummary: "A summary of \"Introduction to Agents and Agent architectures\" (November 2025).\nThe book recasts AI from \"a model that answers questions and writes text\" into **an agent that plans toward a goal, uses tools, and works while watching the results**.\n\n- **The core loop**: take a goal → look at the situation → plan → act with tools → observe and judge the result → revise the plan if needed\n- **The parts**: a **Model** that reasons, **Tools** that act on the world, an **Orchestration layer** that runs the flow, and **Runtime services** such as the execution environment\n- **The key idea**: an agent's quality depends not only on the model but on **context engineering** - which information is chosen and combined as context each time\n- **In production**: evaluation, memory, permissions, defence against prompt injection, and human oversight are essential\n\nSource: [[resource/Introduction to Agents.pdf]]",
   },
 };
 
@@ -253,7 +257,13 @@ export function timeline() {
   const unreadable = [
     post("p7", minutes(2), { media: { blobId: "b3", mime: "image/png", readAt: minutes(1), error: w.noVision } }),
   ];
-  return { quiet, answered, hero, many, reading, unreadable };
+  // shiori handed to LLM Connect Hub: the answer comes from Obsidian, and the
+  // file it read in the vault is named as the source.
+  const vault = [
+    post("p8", minutes(7), { text: w.agentAsk }),
+    said("a1", "p8", "book", minutes(6), w.agentSummary, { model: "agent", notes: ["books/introduction-to-agents.md"] }),
+  ];
+  return { quiet, answered, hero, many, reading, unreadable, vault };
 }
 
 // ---- what the panels read ---------------------------------------------------

@@ -473,6 +473,16 @@ kakeratta が Hermes のプロセスを起動・制御することはありま�
 認証情報の範囲、ask が運ぶ文脈、待ち時間、フォールスルーの詳細は
 [Hermes Agent の設定](docs/hermes_ja.md)（[English](docs/hermes.md)）にあります。
 
+同じ MCP 接続は、Obsidian のプラグイン
+[LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub) からも使えます。
+任せた担当には、Obsidian の [LLM Hub](https://github.com/takeshy/obsidian-llm-hub) が、
+そこで選んだモデルと Vault のノート・RAG・スキルを使って答えます。
+LLM Connect Hub の **Kakeratta** 設定に MCP エンドポイントと `Authorization: Bearer <キー>` を入れると、
+Obsidian を開いている間、1分ごとに依頼を確認します。手順は
+[マニュアル](https://kakeratta.net/manual/?lang=ja#ja-hermes)にあります。
+
+![Obsidian の LLM Connect Hub が担当として答え、Vault のファイルを出典に示した返事](docs/captures/ja/llm-connect-hub.png)
+
 ### サーバーを自分で動かす
 
 ブラウザアプリと Go の API は、ローカルで動かすことも、別々にデプロイすることもできます。
@@ -491,6 +501,7 @@ kakeratta が Hermes のプロセスを起動・制御することはありま�
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
 | [Hermes Agent](docs/hermes_ja.md)（[English](docs/hermes.md)） | kakeratta の MCP 接続、認証情報、ask の取得・回答の提出・フォールスルー |
+| [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub) | LLM Hub のモデル、Vault のノート、RAG、スキルで kakeratta の担当に答える Obsidian プラグイン |
 | [NVIDIA NemoClaw と Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | NemoClaw/OpenShell のサンドボックスで Hermes を動かす公式手順 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Terraformでの構築。画面はFirebase Hosting、APIはCloud Run |
 

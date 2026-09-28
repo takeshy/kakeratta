@@ -370,6 +370,7 @@ The persona can use `read` up to 10 times in an ordinary turn and 20 times in an
 
 Once an external agent's connection key has been issued, each persona can turn on
 **Prefer the external agent** to hand its research and answer to an agent such as Hermes
+or Obsidian's [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub)
 (the checkbox stays hidden until then).
 Such a persona hands only the part that reads the context, looks things up and
 writes the answer to the agent connected over MCP. kakeratta then decides the
@@ -378,7 +379,8 @@ with the answer into a workflow, reviews it as in the table above when it holds 
 schedule or an action, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
 15 minutes of the claim, the built-in model (Super) answers instead. The waits are under Advanced options →
-Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md).
+Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
+[manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 
 ![Personas: preferring the external agent for a persona](captures/en/persona-planner.png)
 

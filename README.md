@@ -578,6 +578,17 @@ Detailed credential scope, the context an ask carries, waits, and fall-through
 are in [Hermes Agent setup](docs/hermes.md)
 ([日本語](docs/hermes_ja.md)).
 
+The same MCP connection also serves
+[LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub), an
+Obsidian plugin. A persona handed to it is answered by
+[LLM Hub](https://github.com/takeshy/obsidian-llm-hub) in your Obsidian, with
+the model you choose there and your Vault notes, RAG and skills. Enter the MCP
+endpoint and `Authorization: Bearer <key>` in its **Kakeratta** settings; it
+checks for asks once a minute while Obsidian is open. See the
+[manual](https://kakeratta.net/manual/?lang=en#en-hermes).
+
+![shiori answering through LLM Connect Hub, citing a file in the vault](docs/captures/en/llm-connect-hub.png)
+
 ### Running the server yourself
 
 The browser app and Go API can be run locally or deployed separately.
@@ -597,6 +608,7 @@ check-ins, schedules, and operator-provided tools are documented in
 | [Usage and configuration](docs/usage.md)                                                                 | Android and iOS sharing, location, speech, model settings, and stored data                                        |
 | [What was hard about the AI](docs/ai-lessons.md)                                                         | What went wrong with Nemotron personas in live runs and production, and how each was fixed                        |
 | [Hermes Agent](docs/hermes.md) ([日本語](docs/hermes_ja.md))                                                | kakeratta MCP connection, credentials, claiming asks, submitting answers, and fall-through                      |
+| [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub)                                   | Obsidian plugin that answers kakeratta personas with LLM Hub models, Vault notes, RAG, and skills                 |
 | [NVIDIA NemoClaw with Hermes](https://docs.nvidia.com/nemoclaw/user-guide/hermes/get-started/quickstart) | Official setup for running Hermes in a NemoClaw/OpenShell sandbox                                                 |
 | [Google Cloud deployment](infra/README.md)                                                               | Terraform deployment: Firebase Hosting for the page and Cloud Run for the API                                     |
 
