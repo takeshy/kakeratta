@@ -46,12 +46,21 @@ While evaluating `NousResearch/Hermes-4-405B` in a live multi-turn environment, 
 
 #### Why Did Input Cost Skyrocket? (Forensic Audit Findings)
 1. **Dense Architecture Overhead**: A dense 405B model requires evaluating all 405 billion weights on every forward pass, pricing standard prompt inputs at $1.00 per 1M tokens.
-2. **Wake Gate Fail-Open Vulnerability (Root Cause of Spurious Token Burns)**:
-   - When users only executed a handful of intentional turns, telemetry revealed that background token consumption reached tens of millions.
-   - **Root Cause**: The pre-check script (`check_kakeratta_gate.py`) contained a fail-open default (`print(json.dumps({"wakeAgent": True}))`) on network error, missing MCP URL, or HTTP 401/403/500 responses.
-   - When network policy or credentials temporarily blocked MCP communication, the Wake Gate panicked and woke Hermes Agent **every single minute despite 0 pending tasks**.
-   - Woken with zero work, the agent failed to cleanly exit and spun into an unchecked multi-tool retry loop (`web_search`, shell commands) up to the engine's hard ceiling (`max_turns: 60`).
-3. **Forensic Session Audit (20 Hard Ceiling Breaches)**:
+2. **The Root Error: OpenShell Composed Policy Eviction (`credential_unavailable`)**:
+   - Why was the Wake Gate throwing errors in the first place?
+   - Forensic inspection of `openshell.db` and Docker supervisor logs revealed that when an egress preset (`personal-open-internet`) was added to the sandbox, OpenShell's policy update logic replaced the composed policy (Revision 1) with an uncomposed single-rule policy (Revision 2).
+   - This eviction stripped the `mcp_bridge_kakeratta` network policy containing the **credential binding** (`credential_binding: { provider: "hermes-sandbox-mcp-kakeratta" }`).
+   - Consequently, when `check_kakeratta_gate.py` attempted to connect to `kakeratta.net`, OpenShell's L7 reverse proxy could not resolve the token placeholder (`openshell:resolve:env:...`) and returned:
+     ```json
+     HTTP 500 Internal Server Error
+     {"error": "credential_unavailable", "message": "Credential placeholder could not be resolved"}
+     ```
+3. **The Fail-Open Runaway Trap & Autonomous Debugging**:
+   - Because `check_kakeratta_gate.py` was previously **Fail-Open**, this recurring HTTP 500 error triggered the exception block, returning `{"wakeAgent": true}` every minute.
+   - Once awakened, Hermes Agent discovered that `mcp__kakeratta__*` tools were unavailable due to the same proxy failure.
+   - Rather than stopping, the agent's autonomous problem-solving routine engaged: it began self-debugging the environment, firing dozens of web searches across GitHub and technical docs to understand why the kakeratta CLI was missing, hitting the hard ceiling of 60 turns before producing a final diagnostic report.
+   - This diagnostic cycle executed **20 times**, burning ~1.3M to 3.4M tokens per run.
+4. **Forensic Session Audit (20 Hard Ceiling Breaches)**:
    - Auditing `/sandbox/.hermes/logs/agent.log` and `/sandbox/.hermes/cron/usage_audit.jsonl` across 270 total sessions revealed:
      - **Reached 60-turn hard ceiling**: **20 sessions**
      - **Reached 16–59 turns**: **19 sessions**
@@ -60,9 +69,10 @@ While evaluating `NousResearch/Hermes-4-405B` in a live multi-turn environment, 
    - **Exact Math of the $25.97 Surge**:
      $$\approx 1.3\text{M tokens/runaway} \times 20\text{ ceiling sessions} \approx \mathbf{25.97\text{M tokens}}$$
    - Outputs remained tiny (110k tokens, $0.34) because the model spent almost all its budget reading back its own accumulated search history rather than generating text.
-4. **Remediation & Defense-in-Depth**:
+5. **Remediation & Defense-in-Depth**:
    - The Wake Gate was completely re-architected to be **Fail-Closed** (never wakes unless pending tasks are explicitly validated; exits cleanly with 0 tokens on any error).
    - An `agent.max_turns: 15` safety ceiling was enforced in `/sandbox/.hermes/config.yaml` to physically cap worst-case context compounding.
+   - The evicted `mcp_bridge_kakeratta` network policy with its explicit `credential_binding` was restored via `openshell policy set`.
 
 ### Economics: Dense vs. MoE Comparison
 
