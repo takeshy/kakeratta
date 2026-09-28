@@ -439,7 +439,11 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
   assert.equal(input.value, "ワインの担当を作りたい");
   recognizers[0].result("ワインの担当を作りたい送信");
   await new Promise(setImmediate);
-  assert.equal(api.buildPersona.mock.calls[0].arguments[0].messages[0].content, "ワインの担当を作りたい");
+  assert.equal(api.buildPersona.mock.callCount(), 1);
+  assert.deepEqual(api.buildPersona.mock.calls[0].arguments[0].messages, [
+    { role: "assistant", content: translate("どんなことの担当を作りたい？") },
+    { role: "user", content: "ワインの担当を作りたい" },
+  ]);
   assert.equal(recognizers[0].stopped, true);
   button("🎙 話す").fire("click");
   button("閉じる").fire("click");

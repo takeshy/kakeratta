@@ -455,12 +455,13 @@
         </section>
 
         <section id="ja-hermes">
+          <p>「＋ 接続先を追加」で名前を付けて複数の接続先を登録し、「使用する接続先」の一覧でアプリ全体の接続先を1つ選べます。キーの再発行と削除は接続先ごとの行で行います。外部エージェントを優先する担当すべてに適用されます。追加した接続先が選択され、他のキーは保存されますがMCPへアクセスできるのは選択中のキーだけです。切り替え時の待機中ターンは内蔵モデルへ戻ります。Hermes以外もMCP Streamable HTTPで接続し、依頼の定期取得・調査・回答提出を実装すれば利用できます。キーは発行時のみ表示します。</p>
           <h2>5. 担当の考える役をHermesにする</h2>
           <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を自分の Hermes に任せます。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
           <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携のHermes設定とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="963" /></figure>
           <h3>つなぐ</h3>
           <ol>
-            <li><strong>設定 → 上級オプション → 外部連携 → 外部エージェント連携（Hermes）</strong> で <strong>接続キーを発行</strong> し、表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li>
+            <li><strong>設定 → 上級オプション → 外部連携 → 外部エージェント接続</strong> で <strong>追加してキーを発行</strong> を押し、表示された設定をコピーします。キーを確認できるのは発行直後だけです。</li>
             <li>Hermes を動かす端末の <code>~/.hermes/config.yaml</code> に追加し、Hermes を再起動します。すでに <code>mcp_servers</code> があれば、その中に <code>kakeratta</code> を足します。</li>
             <li>Hermes に kakeratta の Skill と Wake Gate を入れ、毎分確認するよう設定します（手順は手引きにあります）。</li>
           </ol>
@@ -475,9 +476,9 @@
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは接続キーを発行したあとにだけ表示されます。</li>
             <li>いつもどおり投稿します。その担当に届いた投稿は Hermes が考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
-          <p>Hermes が3分以内に取りに来ない、または15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ Hermes から一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。時間は <strong>外部連携</strong> で変えられます。同じ場所の <strong>外部エージェントを使う</strong> をOFFにすると、担当ごとの設定を残したまま一時的に内蔵モデルで考えます。試し直しは常に内蔵モデルで行います。</p>
+          <p>Hermes が3分以内に取りに来ない、または15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ Hermes から一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。時間は <strong>外部連携</strong> の接続先ごとの <strong>接続情報と待ち時間</strong> で、エージェントごとに変えられます。同じ画面の <strong>外部エージェントを使う</strong> をOFFにすると、外部エージェントからの接続を受け付けず、担当ごとの設定を残したまま内蔵モデルで考えます。試し直しは常に内蔵モデルで行います。</p>
           <h3>Hermes が読めるもの</h3>
-          <p>Hermes は、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、Hermes が渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。<strong>連携を解除</strong> で接続キーが無効になります。</p>
+          <p>Hermes は、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、Hermes が渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。接続先を<strong>削除</strong>すると接続キーが無効になります。</p>
           <h3>つながらないとき</h3>
           <ul>
             <li>設定を変えたあと Hermes を再起動したか確認してください。</li>
@@ -988,12 +989,13 @@
         </section>
 
         <section id="en-hermes">
+          <p>Add named connections with + Add connection, then choose one in the Active connection list for the whole app. Replace or delete a key on each connection's row. All personas that prefer an external agent use it. Adding a connection selects it; other keys are kept, but only the selected key can access MCP. Switching returns pending turns to the built-in model. Other agents can use MCP Streamable HTTP if they implement polling, research, and answer submission. Keys are shown only when issued.</p>
           <h2>5. Let Hermes plan for a persona</h2>
           <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to your own Hermes, whether it woke for a post or a check-in. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
           <figure><img src="/captures/en/hermes-settings.png" alt="Hermes integration settings and the manual help icon" loading="lazy" width="382" height="983" /></figure>
           <h3>Connect</h3>
           <ol>
-            <li>Under <strong>Settings → Advanced options → Integrations → External agent (Hermes)</strong>, press <strong>Create connection key</strong> and copy the configuration. The key is shown only then.</li>
+            <li>Under <strong>Settings → Advanced options → Integrations → External agent connections</strong>, press <strong>Add and create key</strong> and copy the configuration. The key is shown only then.</li>
             <li>Add it to <code>~/.hermes/config.yaml</code> on the machine running Hermes and restart Hermes. If <code>mcp_servers</code> already exists, add <code>kakeratta</code> inside it.</li>
             <li>Install the kakeratta skill and Wake Gate in Hermes and have it check every minute (the guide has the steps).</li>
           </ol>
@@ -1008,9 +1010,9 @@
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only after a connection key has been issued.</li>
             <li>Post as usual. Hermes plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
-          <p>If Hermes does not pick it up within 3 minutes, or does not return an answer within 15 minutes, the built-in model answers instead. If Hermes has not connected at all for the claim wait, it is taken to be away and the built-in model answers without waiting until it connects again. Change the waits under <strong>Integrations</strong>; turning off <strong>Use the external agent</strong> there pauses it while keeping each persona's choice. <strong>Try again</strong> always uses the built-in model.</p>
+          <p>If Hermes does not pick it up within 3 minutes, or does not return an answer within 15 minutes, the built-in model answers instead. If Hermes has not connected at all for the claim wait, it is taken to be away and the built-in model answers without waiting until it connects again. Change the waits per agent under each connection's <strong>Connection details and waits</strong> in <strong>Integrations</strong>; turning off <strong>Use the external agent</strong> there refuses its connections and plans with the built-in model while keeping each persona's choice. <strong>Try again</strong> always uses the built-in model.</p>
           <h3>What Hermes can read</h3>
-          <p>Hermes can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. <strong>Disconnect</strong> invalidates the key.</p>
+          <p>Hermes can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. Deleting the connection invalidates the key.</p>
           <h3>If it cannot connect</h3>
           <ul>
             <li>Restart Hermes after changing its configuration.</li>

@@ -61,7 +61,7 @@ func TestMCPKeyAccessAndRevocation(t *testing.T) {
 // Hermes is no longer a persona of its own, before or after connecting.
 func TestHermesIsNotAPersona(t *testing.T) {
 	s, _ := app(t)
-	if err := s.setMCPKey(context.Background(), []byte("digest")); err != nil {
+	if err := s.setMCPKey(context.Background(), make([]byte, 32)); err != nil {
 		t.Fatal(err)
 	}
 	out := httptest.NewRecorder()

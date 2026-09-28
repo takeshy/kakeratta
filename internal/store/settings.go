@@ -153,7 +153,9 @@ func (e ExternalAgentSettings) PlanWait() time.Duration {
 	return time.Duration(e.PlanMinutes) * time.Minute
 }
 
-func minutesOr(value, fallback int) int {
+// WaitMinutesOr is a wait in minutes kept within what an ask may wait, or
+// the fallback when none is set.
+func WaitMinutesOr(value, fallback int) int {
 	if value <= 0 {
 		return fallback
 	}
@@ -252,8 +254,8 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 		settings.OpenRouterLowModel = OpenRouterLow
 	}
 	settings.Speech.Provider = "browser"
-	settings.ExternalAgent.ClaimMinutes = minutesOr(settings.ExternalAgent.ClaimMinutes, DefaultClaimMinutes)
-	settings.ExternalAgent.PlanMinutes = minutesOr(settings.ExternalAgent.PlanMinutes, DefaultPlanMinutes)
+	settings.ExternalAgent.ClaimMinutes = WaitMinutesOr(settings.ExternalAgent.ClaimMinutes, DefaultClaimMinutes)
+	settings.ExternalAgent.PlanMinutes = WaitMinutesOr(settings.ExternalAgent.PlanMinutes, DefaultPlanMinutes)
 	// Hermes was once a persona of its own; its planning now lives behind
 	// each persona, and the old entry would only name a persona that is gone.
 	for i := 0; i < len(settings.Active); i++ {

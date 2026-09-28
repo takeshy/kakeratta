@@ -107,6 +107,9 @@ type Runner struct {
 	agentSeen atomic.Int64
 	// waitsForAsk overrides the settings' claim and plan waits, for tests.
 	waitsForAsk func() (time.Duration, time.Duration)
+	// connectionWaits are the waits of the connection in use; a zero one
+	// falls back to the settings.
+	connectionWaits func() (time.Duration, time.Duration)
 }
 
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {

@@ -323,6 +323,23 @@ func (r *Runner) AgentSeen(at time.Time) {
 	r.agentSeen.Store(at.UnixNano())
 }
 
+// ResetExternalAgent prevents a newly selected connection from inheriting the
+// old connection's presence or in-flight claims. Waiting turns fall back.
+func (r *Runner) ResetExternalAgent() {
+	r.agentSeen.Store(0)
+	r.desk.mu.Lock()
+	defer r.desk.mu.Unlock()
+	for _, a := range r.desk.asks {
+		r.desk.closeLocked(a)
+	}
+}
+
+// SetConnectionWaits gives the claim and plan waits of the connection in use.
+// Each agent answers at its own pace, so the waits belong to its connection.
+func (r *Runner) SetConnectionWaits(waits func() (time.Duration, time.Duration)) {
+	r.connectionWaits = waits
+}
+
 // AgentLastSeen is when the external agent last called in, or the zero time
 // if it has not since the app started.
 func (r *Runner) AgentLastSeen() time.Time {
@@ -395,6 +412,16 @@ func (r *Runner) askWaits(settings store.Settings) (time.Duration, time.Duration
 		return r.waitsForAsk()
 	}
 	claim, plan := settings.ExternalAgent.ClaimWait(), settings.ExternalAgent.PlanWait()
+	if r.connectionWaits != nil {
+		if c, p := r.connectionWaits(); c > 0 || p > 0 {
+			if c > 0 {
+				claim = c
+			}
+			if p > 0 {
+				plan = p
+			}
+		}
+	}
 	if claim <= 0 {
 		claim = store.DefaultClaimMinutes * time.Minute
 	}
@@ -429,6 +456,8 @@ func (r *Runner) planExternally(ctx context.Context, settings store.Settings, as
 	claimTimer := time.NewTimer(claimWait)
 	defer claimTimer.Stop()
 	select {
+	case <-a.done:
+		return nil, "connection changed", nil
 	case <-a.claimed:
 	case <-claimTimer.C:
 		if r.desk.closeUnclaimed(a) {
@@ -449,6 +478,8 @@ func (r *Runner) planExternally(ctx context.Context, settings store.Settings, as
 	malformed := 0
 	for {
 		select {
+		case <-a.done:
+			return nil, "connection changed", nil
 		case request := <-a.requests:
 			switch {
 			case request.release != "":

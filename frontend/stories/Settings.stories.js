@@ -20,3 +20,12 @@ export const ExternalAgent = {
   name: "外部エージェント接続済み",
   render: () => panelOf({ ...settings, externalAgent: { claimMinutes: 3, planMinutes: 15 } }, about, { mcp: { configured: true, path: "/api/mcp/users/sample", agent: { away: false, lastSeen: new Date(Date.now() - 40000).toISOString() } } }),
 };
+
+export const MultipleExternalAgents = {
+  name: "外部エージェントの切り替え",
+  render: () => panelOf(settings, about, { mcp: {
+    configured: true, path: "/api/mcp/users/sample",
+    connections: [{ id: "default", name: "Hermes", active: true, claimMinutes: 3, planMinutes: 15 }, { id: "other", name: "My research agent", active: false, claimMinutes: 10, planMinutes: 60 }],
+    agent: { away: false, lastSeen: new Date().toISOString() },
+  } }),
+};

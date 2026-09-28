@@ -8,6 +8,9 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
   let connection = { ...bluesky };
+  mcp = structuredClone(mcp);
+  mcp.connections ||= mcp.configured ? [{ id: "default", name: "Hermes", active: true }] : [];
+  let nextConnection = 1;
   memory = structuredClone(memory);
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === "string" ? input : input.url, location.origin);
@@ -101,9 +104,37 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       current = body;
       return json(current);
     }
-    // The MCP key is what an external agent connects with. A story says
-    // whether one exists and never hands out a key.
     if (path === "/api/mcp/connection" && method === "GET") return json(mcp);
+    if (path === "/api/mcp/connection" && method === "POST") {
+      const id = body?.id || (body?.name ? `sample-${nextConnection++}` : "default");
+      let row = mcp.connections.find(row => row.id === id);
+      if (!row) {
+        mcp.connections.forEach(row => { row.active = false; });
+        row = { id, name: body?.name || "Hermes", active: true };
+        mcp.connections.push(row);
+      }
+      mcp.configured = true;
+      mcp.agent = { away: true, lastSeen: null };
+      return json({ ...mcp, id, key: `storybook-demo-token-${id}-not-a-real-credential` });
+    }
+    if (path === "/api/mcp/connection" && method === "PATCH") {
+      const row = mcp.connections.find(row => row.id === body.id);
+      if (body.claimMinutes) row.claimMinutes = body.claimMinutes;
+      if (body.planMinutes) row.planMinutes = body.planMinutes;
+      return json(mcp);
+    }
+    if (path === "/api/mcp/connection" && method === "PUT") {
+      mcp.connections.forEach(row => { row.active = row.id === body.id; });
+      mcp.agent = { away: true, lastSeen: null };
+      return json(mcp);
+    }
+    if (path === "/api/mcp/connection" && method === "DELETE") {
+      mcp.connections = mcp.connections.filter(row => row.id !== (url.searchParams.get("id") || "default"));
+      if (mcp.connections.length && !mcp.connections.some(row => row.active)) mcp.connections[0].active = true;
+      mcp.configured = mcp.connections.length > 0;
+      mcp.agent = { away: true, lastSeen: null };
+      return json(mcp);
+    }
     if (path === "/api/about") return about ? json(about) : json({ error: "about" }, 404);
     if (path === "/api/models") return json({ models });
     if (path === "/api/openrouter/models") return json({ models });

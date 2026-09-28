@@ -75,6 +75,7 @@ func New(options Options) *Server {
 	s.search = search.New(s.store)
 	s.runner.SetSearch(s.search)
 	s.runner.SetTools(s.tools)
+	s.runner.SetConnectionWaits(s.activeMCPWaits)
 	s.startIndexing()
 	s.runner.OnEvent(s.publishEvent)
 	s.runner.Start()

@@ -334,6 +334,21 @@ body.sheet-open .topbar { z-index: 21; }
 .external-agent, .external-agent .settings-block { display: grid; gap: 14px; }
 .external-agent [hidden] { display: none; }
 .external-agent .hint { margin: 0; }
+.mcp-connection-values { margin: 0; display: grid; gap: 4px; }
+.mcp-connection-values dt { color: var(--muted); font-size: 0.78rem; }
+.mcp-connection-values dd { margin: 0 0 8px; overflow-wrap: anywhere; user-select: text; }
+.mcp-connection-values code { font-size: 0.85rem; }
+.mcp-connection { display: grid; gap: 12px; }
+.mcp-connection .hint { margin: 0; }
+.mcp-connection [role="alert"]:empty { display: none; }
+.mcp-connections { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.mcp-connections legend { padding: 0; margin-bottom: 4px; font-weight: 600; }
+.mcp-connection-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.mcp-connection-row.active { border-color: var(--accent); }
+.mcp-connection-row .check-field, label.mcp-connection-row { display: flex; align-items: center; gap: 8px; }
+.mcp-connection-row input[type="radio"] { width: auto; margin: 0; }
+.mcp-connection-name { font-weight: 600; overflow-wrap: anywhere; }
+.mcp-connection-row .chip-note { font-size: 0.75rem; color: var(--accent); }
 .settings-block > [hidden] { display: none; }
 .openrouter-models { display: grid; gap: 12px; }
 .openrouter-models[hidden] { display: none; }

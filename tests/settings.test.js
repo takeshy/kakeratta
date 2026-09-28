@@ -133,6 +133,26 @@ test("speech, OpenRouter, Hermes and Bluesky wait behind the advanced line", asy
   assert.equal(api.blueskyConnection.mock.callCount(), 1);
 });
 
+test("the external agent switch sits under its heading, above the connections", async t => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  globalThis.location = { origin: "https://kakeratta.example" };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.location; });
+  t.mock.method(api, "settings", async () => ({ baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", speech: {}, search: {}, externalAgent: { paused: false } }));
+  t.mock.method(api, "about", async () => ({ version: "test" }));
+  t.mock.method(api, "mcpConnection", async () => ({ configured: true, path: "/api/mcp/users/sample", connections: [{ id: "hermes", name: "Hermes", active: true }] }));
+  t.mock.method(api, "blueskyConnection", async () => ({ available: false }));
+  const view = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
+  await view.load();
+  openAdvanced(view);
+  await new Promise(setImmediate);
+  const nodes = walk(view.element);
+  const at = text => nodes.findIndex(node => node.textContent === translate(text));
+  assert.ok(at("外部エージェント接続") < at("外部エージェントを使う"));
+  assert.ok(at("外部エージェントを使う") < at("使用する接続先"));
+  assert.ok(at("使用する接続先") < at("＋ 接続先を追加"));
+});
+
 // Leaving is asked for in a word, done on the server, and finished by signing
 // out of this browser. Without an account there is nothing to close, so the
 // section is not there.

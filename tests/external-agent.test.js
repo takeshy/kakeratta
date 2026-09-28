@@ -74,7 +74,11 @@ test("Hermes setup includes the key in one configuration and links to its manual
   t.mock.method(api, "issueMCPKey", async () => ({ configured: true, path: "/api/mcp/users/xxx", key }));
   const view = createMCPConnection();
   await view.load();
-  await walk(view.element).find(n => n.tag === "button" && n.textContent === translate("接続キーを発行")).listeners.click();
+  // With nothing connected yet, the form to add one is already open, named Hermes.
+  const name = walk(view.element).find(n => n["aria-label"] === translate("接続名"));
+  assert.equal(name.value, "Hermes");
+  await walk(view.element).find(n => n.tag === "button" && n.textContent === translate("追加してキーを発行")).listeners.click();
+  assert.deepEqual(api.issueMCPKey.mock.calls[0].arguments[0], { name: "Hermes" });
   const fields = walk(view.element).filter(n => n.tag === "textarea");
   // The configuration comes in three shapes now: a prompt for a plain Hermes,
   // a NemoClaw command, and the manual YAML.
@@ -136,4 +140,93 @@ test("the connection says whether the agent is calling in", async t => {
   const view = createMCPConnection();
   await view.load();
   assert.ok(walk(view.element).some(n => n.textContent === translate("外部エージェントからまだ接続がありません。接続があるまで内蔵モデルが考えます。")));
+});
+
+test("connections are a list: each keeps its details, waits and actions, and an issued key stays visible", async t => {
+  const { createMCPConnection } = await import("../frontend/src/mcp-connection.js");
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  globalThis.location = { origin: "https://kakeratta.net" };
+  globalThis.confirm = () => true;
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.location; delete globalThis.confirm; });
+  let rows = [{ id: "default", name: "Hermes", active: true, claimMinutes: 3, planMinutes: 15 }];
+  const payload = () => ({ configured: rows.length > 0, path: "/api/mcp/users/sample", connections: rows.map(row => ({ ...row })) });
+  t.mock.method(api, "mcpConnection", async () => payload());
+  t.mock.method(api, "issueMCPKey", async body => {
+    if (body.id) return { ...payload(), id: body.id, key: `${body.id}-key2` };
+    for (const row of rows) row.active = false;
+    rows.push({ id: "research", name: body.name, active: true, claimMinutes: 3, planMinutes: 15 });
+    return { ...payload(), id: "research", key: "research-key" };
+  });
+  t.mock.method(api, "selectMCPConnection", async id => {
+    for (const row of rows) row.active = row.id === id;
+    return payload();
+  });
+  t.mock.method(api, "setMCPConnectionWaits", async (id, waits) => {
+    Object.assign(rows.find(row => row.id === id), waits);
+    return payload();
+  });
+  t.mock.method(api, "revokeMCPKey", async id => {
+    rows = rows.filter(row => row.id !== id);
+    return payload();
+  });
+  const view = createMCPConnection(); await view.load();
+  const nodes = () => walk(view.element);
+  const row = name => nodes().find(n => n.className?.startsWith("mcp-connection-row") && walk(n).some(c => c.textContent === name));
+  const within = name => walk(row(name));
+  const button = (text, name) => (name ? within(name) : nodes()).find(n => n.tag === "button" && n.textContent === translate(text));
+  const radio = name => within(name).find(n => n.type === "radio");
+  const header = name => {
+    const label = within(name).find(n => n.tag === "dt" && n.textContent === translate("認証ヘッダー"));
+    return label.parent.children[label.parent.children.indexOf(label) + 1].children[0].textContent;
+  };
+  const details = name => within(name).find(n => n.tag === "details" && n.className.includes("mcp-connection-details"));
+  // A saved connection shows where to call, but its key only as a placeholder.
+  assert.equal(header("Hermes"), "Authorization: Bearer <TOKEN>");
+  assert.equal(radio("Hermes").checked, true);
+
+  await button("＋ 接続先を追加").listeners.click();
+  const input = nodes().find(n => n["aria-label"] === translate("接続名"));
+  input.value = "Research agent"; input.listeners.input();
+  await button("追加してキーを発行").listeners.click();
+  assert.deepEqual(api.issueMCPKey.mock.calls[0].arguments[0], { name: "Research agent" });
+  assert.notEqual(details("Research agent").open, undefined, "the new connection's details open by themselves");
+  assert.equal(header("Research agent"), "Authorization: Bearer research-key");
+  assert.equal(radio("Research agent").checked, true);
+
+  // Switching keeps the issued key on view for its connection.
+  await radio("Hermes").listeners.change();
+  assert.deepEqual(api.selectMCPConnection.mock.calls[0].arguments, ["default"]);
+  assert.equal(radio("Hermes").checked, true);
+  assert.equal(header("Research agent"), "Authorization: Bearer research-key");
+
+  // Waits are the connection's own.
+  const claim = within("Research agent").find(n => n.tag === "select" && n["aria-label"] === translate("取得を待つ時間"));
+  assert.equal(claim.value, "3");
+  claim.value = "10"; await claim.listeners.change();
+  assert.deepEqual(api.setMCPConnectionWaits.mock.calls[0].arguments, ["research", { claimMinutes: 10 }]);
+  assert.equal(within("Research agent").find(n => n.tag === "select" && n["aria-label"] === translate("取得を待つ時間")).value, "10");
+  assert.equal(within("Hermes").find(n => n.tag === "select" && n["aria-label"] === translate("取得を待つ時間")).value, "3");
+
+  await button("キーを再発行", "Research agent").listeners.click();
+  assert.deepEqual(api.issueMCPKey.mock.calls[1].arguments[0], { id: "research" });
+  assert.equal(header("Research agent"), "Authorization: Bearer research-key2");
+
+  await button("削除", "Research agent").listeners.click();
+  assert.deepEqual(api.revokeMCPKey.mock.calls[0].arguments, ["research"]);
+  assert.equal(row("Research agent"), undefined);
+});
+
+test("a switched-off agent is said to be refused, not merely quiet", async t => {
+  const { createMCPConnection } = await import("../frontend/src/mcp-connection.js");
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  globalThis.location = { origin: "https://kakeratta.net" };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.location; });
+  t.mock.method(api, "mcpConnection", async () => ({ configured: true, path: "/api/mcp/users/xxx", connections: [{ id: "h", name: "Hermes", active: true }], agent: { away: true, paused: true, lastSeen: null } }));
+  const view = createMCPConnection();
+  await view.load();
+  const nodes = walk(view.element);
+  assert.ok(nodes.some(n => n.textContent === translate("外部エージェントを使わない設定のため、接続を受け付けていません。")));
+  assert.ok(!nodes.some(n => n.type === "radio" && n.value === ""), "there is no choosing no connection");
 });

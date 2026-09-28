@@ -65,19 +65,19 @@ func mcpOriginOK(r *http.Request) bool {
 }
 
 func (s *Server) mcpConnection(w http.ResponseWriter, r *http.Request) {
-	v, err := s.store.SocialValue(r.Context(), mcpCredential)
+	rows, err := s.publicMCPConnections(r.Context())
 	if err != nil {
 		fail(w, 500, "接続設定を読めませんでした")
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]any{"configured": len(v.Data) > 0, "path": "/api/mcp/users/" + s.mcpWorkspace(), "agent": s.agentStatus()})
+	writeJSON(w, 200, map[string]any{"configured": len(rows) > 0, "path": "/api/mcp/users/" + s.mcpWorkspace(), "agent": s.agentStatus(), "connections": rows})
 }
 
 // agentStatus is whether the external agent is calling in, for the page: when
 // it last did, and whether it has gone quiet long enough to be set aside.
 func (s *Server) agentStatus() map[string]any {
-	status := map[string]any{"away": true, "lastSeen": nil}
+	status := map[string]any{"away": true, "lastSeen": nil, "paused": s.store.Settings().ExternalAgent.Paused}
 	if s.runner == nil {
 		return status
 	}
@@ -93,6 +93,24 @@ func (s *Server) issueMCPKey(w http.ResponseWriter, r *http.Request) {
 		fail(w, 403, "invalid origin")
 		return
 	}
+	var body struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+			fail(w, 400, "設定を読めませんでした")
+			return
+		}
+	}
+	id, create := body.ID, false
+	if id == "" {
+		create = true
+		id = "default"
+		if strings.TrimSpace(body.Name) != "" {
+			id = store.NewID("connection")
+		}
+	}
 	var secret [32]byte
 	if _, err := rand.Read(secret[:]); err != nil {
 		fail(w, 500, "キーを作成できませんでした")
@@ -100,12 +118,16 @@ func (s *Server) issueMCPKey(w http.ResponseWriter, r *http.Request) {
 	}
 	key := hex.EncodeToString(secret[:])
 	digest := sha256.Sum256([]byte(key))
-	if err := s.setMCPKey(r.Context(), digest[:]); err != nil {
+	if err := s.changeMCPConnection(r.Context(), id, body.Name, digest[:], create); err != nil {
 		fail(w, 409, err.Error())
 		return
 	}
+	if s.runner != nil {
+		s.runner.ResetExternalAgent()
+	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]any{"key": key, "path": "/api/mcp/users/" + s.mcpWorkspace(), "configured": true})
+	rows, _ := s.publicMCPConnections(r.Context())
+	writeJSON(w, 200, map[string]any{"id": id, "key": key, "path": "/api/mcp/users/" + s.mcpWorkspace(), "configured": true, "connections": rows, "agent": s.agentStatus()})
 }
 
 func (s *Server) revokeMCPKey(w http.ResponseWriter, r *http.Request) {
@@ -113,9 +135,16 @@ func (s *Server) revokeMCPKey(w http.ResponseWriter, r *http.Request) {
 		fail(w, 403, "invalid origin")
 		return
 	}
-	if err := s.setMCPKey(r.Context(), nil); err != nil {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		id = "default"
+	}
+	if err := s.changeMCPConnection(r.Context(), id, "", nil, false); err != nil {
 		fail(w, 409, err.Error())
 		return
+	}
+	if s.runner != nil {
+		s.runner.ResetExternalAgent()
 	}
 	s.mcpConnection(w, r)
 }
@@ -162,15 +191,27 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := bearer(r.Header.Get("Authorization"))
-	v, err := s.store.SocialValue(r.Context(), mcpCredential)
+	rows, err := s.mcpConnections(r.Context())
 	if err != nil {
 		fail(w, 503, "credential store unavailable")
 		return
 	}
 	digest := sha256.Sum256([]byte(key))
-	if r.PathValue("workspace") != s.mcpWorkspace() || len(key) != 64 || len(v.Data) != 32 || !same(string(digest[:]), string(v.Data)) {
+	connectionID := ""
+	for _, row := range rows {
+		if row.Active && len(key) == 64 && same(string(digest[:]), string(row.Digest)) {
+			connectionID = row.ID
+		}
+	}
+	if r.PathValue("workspace") != s.mcpWorkspace() || connectionID == "" {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="kakeratta-mcp"`)
 		fail(w, 401, "invalid MCP credential")
+		return
+	}
+	// Switched off, the agent is not let in at all. Gone quiet on its own, it
+	// still is: calling in again is how it comes back.
+	if s.store.Settings().ExternalAgent.Paused {
+		fail(w, 403, "external agent is paused")
 		return
 	}
 	// Any authenticated call - the Wake Gate's list every minute included -

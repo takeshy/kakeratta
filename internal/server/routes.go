@@ -36,6 +36,8 @@ func (s *Server) hasMultipleMentionedPeople(text string) bool {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/mcp/connection", s.guard(s.mcpConnection))
+	s.mux.HandleFunc("PUT /api/mcp/connection", s.guard(s.selectMCPConnection))
+	s.mux.HandleFunc("PATCH /api/mcp/connection", s.guard(s.setMCPConnectionWaits))
 	s.mux.HandleFunc("POST /api/mcp/connection", s.guard(s.issueMCPKey))
 	s.mux.HandleFunc("DELETE /api/mcp/connection", s.guard(s.revokeMCPKey))
 	s.mux.HandleFunc("/api/mcp/users/{workspace}", s.serveMCP)
@@ -410,7 +412,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		active[id] = true
 	}
 	out := make([]row, 0, len(skills))
-	mcp, _ := s.store.SocialValue(r.Context(), mcpCredential)
+	mcp, _ := s.mcpConnections(r.Context())
 	for _, skill := range skills {
 		memory := s.store.MemoryMeta(skill.ID)
 		schedules, err := s.store.Schedules(skill.ID)
@@ -429,7 +431,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, row{Skill: skill, DailyCheckIn: checkIn, Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp.Data) > 0, "externalAgentPaused": settings.ExternalAgent.Paused, "externalAgentAway": s.agentStatus()["away"]})
+	writeJSON(w, http.StatusOK, map[string]any{"personas": out, "tools": tools.New(s.tools).Names(), "mcpConfigured": len(mcp) > 0, "externalAgentPaused": settings.ExternalAgent.Paused, "externalAgentAway": s.agentStatus()["away"]})
 }
 
 func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
@@ -697,6 +699,11 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.SaveSettings(next); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// Switching the agent off hands its waiting turns back at once, since it
+	// can no longer call in to answer them.
+	if next.ExternalAgent.Paused && !current.ExternalAgent.Paused && s.runner != nil {
+		s.runner.ResetExternalAgent()
 	}
 	s.scheduleIndex()
 	s.getSettings(w, r)

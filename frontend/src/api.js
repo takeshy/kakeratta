@@ -78,8 +78,10 @@ function emit(name, data) {
 
 export const api = {
   mcpConnection: () => call("GET", "/api/mcp/connection"),
-  issueMCPKey: () => call("POST", "/api/mcp/connection"),
-  revokeMCPKey: () => call("DELETE", "/api/mcp/connection"),
+  issueMCPKey: (connection) => call("POST", "/api/mcp/connection", connection),
+  selectMCPConnection: (id) => call("PUT", "/api/mcp/connection", { id }),
+  setMCPConnectionWaits: (id, waits) => call("PATCH", "/api/mcp/connection", { id, ...waits }),
+  revokeMCPKey: (id) => call("DELETE", "/api/mcp/connection" + (id ? `?id=${encodeURIComponent(id)}` : "")),
   blueskyConnection: () => call("GET", "/api/social/bluesky/connection"),
   connectBluesky: (body) => call("POST", "/api/social/bluesky/connect", body),
   finishBluesky: (body) => call("POST", "/api/social/bluesky/finish", body),

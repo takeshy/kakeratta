@@ -388,3 +388,34 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 		})
 	}
 }
+
+func TestSwitchingExternalConnectionFallsBackPendingAndClaimedTurns(t *testing.T) {
+	for _, claimed := range []bool{false, true} {
+		name := "pending"
+		if claimed {
+			name = "claimed"
+		}
+		t.Run(name, func(t *testing.T) {
+			runner, s, _ := externalSetup(t, time.Minute, time.Minute)
+			entry := post(t, s, "ラーメン食べた")
+			runner.react(entry.ID)
+			ask := openAskOf(t, runner)
+			if claimed {
+				if _, _, err := runner.ClaimAsk(ask.ID, "old-agent"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			runner.ResetExternalAgent()
+			if !runner.AgentLastSeen().IsZero() || len(runner.Asks()) != 0 {
+				t.Fatal("old presence or asks retained")
+			}
+			if _, _, err := runner.ClaimAsk(ask.ID, "new-agent"); err == nil {
+				t.Fatal("new agent inherited old ask")
+			}
+			eventually(t, "builtin fallback", func() bool { return remarkBy(s, "gourmet") != nil })
+			if got := remarkBy(s, "gourmet").Text; got != "内蔵" {
+				t.Fatal(got)
+			}
+		})
+	}
+}

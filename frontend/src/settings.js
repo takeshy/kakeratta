@@ -285,38 +285,26 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     );
   }
 
-  // Whether the external agent is used at all, and how long an ask waits
-  // for it before the persona's own model plans the turn instead. Pausing
-  // keeps every persona's planner choice for when it is switched back on.
-  function drawExternalAgent(into) {
+  // Whether the external agent is used at all. Pausing keeps every persona's
+  // planner choice for when it is switched back on. How long an ask waits is
+  // each connection's own.
+  function drawExternalAgent(into, onPause) {
     const agent = settings.externalAgent || {};
     const save = async (change) => {
       const saved = await patch({ externalAgent: { ...(settings.externalAgent || {}), ...change } });
       if (saved) onMCPChange?.();
       return saved;
     };
-    const minutes = (options, value) => {
-      const all = options.includes(value) ? options : [...options, value].sort((a, b) => a - b);
-      return all.map((n) => [String(n), t("{0}分", n)]);
-    };
     const enabled = el("input", { type: "checkbox", checked: !agent.paused });
-    const waits = el("div", { class: "settings-block", hidden: !!agent.paused },
-      select("取得を待つ時間", String(agent.claimMinutes || 3), minutes([1, 2, 3, 5, 10, 15, 30], agent.claimMinutes || 3),
-        (next) => save({ claimMinutes: Number(next) })),
-      select("取得後、回答を待つ時間", String(agent.planMinutes || 15), minutes([5, 10, 15, 30, 60, 120], agent.planMinutes || 15),
-        (next) => save({ planMinutes: Number(next) })),
-      el("p", { class: "hint", label: "時間内に外部エージェントが取得しない、または回答を返さない場合は、内蔵モデルが代わりに答えます。取得を待つ時間のあいだ一度も接続がなければ応答なしとみなし、次に接続があるまで待たずに内蔵モデルが答えます。" }),
-    );
     enabled.addEventListener("change", async () => {
       enabled.disabled = true;
-      if (await save({ paused: !enabled.checked })) waits.hidden = !enabled.checked;
+      if (await save({ paused: !enabled.checked })) onPause?.();
       else enabled.checked = !enabled.checked;
       enabled.disabled = false;
     });
     into.append(
       el("label", { class: "field check-field" }, enabled, el("span", { label: "外部エージェントを使う" })),
-      el("p", { class: "hint", label: "OFFにすると、外部エージェントを優先する担当も一時的に内蔵モデルで考えます。担当ごとの設定はそのまま残ります。" }),
-      waits,
+      el("p", { class: "hint", label: "OFFにすると、外部エージェントからの接続を受け付けず、外部エージェントを優先する担当も内蔵モデルで考えます。担当ごとの設定はそのまま残ります。" }),
     );
   }
 
@@ -577,12 +565,15 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       drawSpeech(voice.content);
       drawReadAloud(voice.content);
       const integrations = category("外部連携");
-      // The waits only matter once an agent is connected; until then they
-      // stay out of sight, like the planner choice on the persona cards.
-      const waits = el("div", { class: "settings-block external-agent", hidden: true });
-      drawExternalAgent(waits);
-      const mcp = createMCPConnection({ onChange: onMCPChange, onState: (connection) => { waits.hidden = !connection?.configured; } });
-      integrations.content.append(mcp.element, waits);
+      // The switch only matters once an agent is connected; until then it
+      // stays out of sight, like the planner choice on the persona cards.
+      const controls = el("div", { class: "settings-block external-agent", hidden: true });
+      // The connection says whether it is let in, so it is asked again.
+      drawExternalAgent(controls, () => void mcp.load());
+      const mcp = createMCPConnection({ controls, onChange: onMCPChange, onState: (connection) => {
+        controls.hidden = !connection?.configured;
+      } });
+      integrations.content.append(mcp.element);
       void mcp.load();
       bluesky?.dispose();
       bluesky = createBlueskyConnection();
