@@ -180,6 +180,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       replyEditor = null;
       void previous.dispose();
     }
+    const place = holdPlace();
     clear(view);
     if (!threads.length) {
       view.append(
@@ -193,6 +194,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       view.append(el("p", { class: "note", label: "反応が付かないことがあります。付くときも、遅れて届きます。" }));
     }
     for (const thread of threads) view.append(drawThread(thread));
+    place();
     if (selection && active === postEditor?.input) {
       active.focus();
       active.setSelectionRange(selection.start, selection.end);
@@ -203,6 +205,24 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       input?.focus();
       input?.setSelectionRange(selection.start, selection.end);
     }
+  }
+
+  // A redraw replaces every thread, so nothing on the page is left for the
+  // browser to keep its place by, and one that lays the emptied timeline out
+  // midway - removing the button that was just pressed can make it - drops the
+  // reader at the top. The thread at the top of the screen is noted and put
+  // back where it was.
+  function holdPlace() {
+    if (!view.isConnected || !globalThis.window?.scrollBy) return () => {};
+    const anchor = [...view.querySelectorAll(".thread")]
+      .find((node) => node.getBoundingClientRect().bottom > 0);
+    if (!anchor) return () => {};
+    const id = anchor.dataset.id;
+    const top = anchor.getBoundingClientRect().top;
+    return () => {
+      const again = [...view.querySelectorAll(".thread")].find((node) => node.dataset.id === id);
+      if (again) window.scrollBy(0, again.getBoundingClientRect().top - top);
+    };
   }
 
   function drawThread(thread) {
