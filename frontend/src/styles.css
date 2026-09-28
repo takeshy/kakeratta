@@ -142,6 +142,8 @@ body {
   padding: 8px;
   background: var(--bg);
 }
+/* Held while what is in it is being sent. */
+.compose-text[readonly], .reply-input[readonly] { color: var(--muted); }
 .persona-editor .skill-input[readonly] {
   border-color: transparent;
   background: transparent;

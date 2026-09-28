@@ -105,7 +105,9 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
       toast("何か書くか、画像を貼ってください");
       return;
     }
-    sending = true;
+    // What is being sent is what was in the box when send was pressed; the box
+    // is emptied once it lands, so nothing can be added to it meanwhile.
+    setSending(true);
     status.textContent = t(speechAutoSend && getSettings()?.speech?.formatBeforeSend ? "文章を整えて送っています…" : "送っています…");
     try {
       await voice.discard();
@@ -130,8 +132,14 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
       toast(String(error.message || error), "error");
       status.textContent = "";
     } finally {
-      sending = false;
+      setSending(false);
     }
+  }
+
+  function setSending(on) {
+    sending = on;
+    text.readOnly = on;
+    submit.disabled = on;
   }
 
   const voice = createVoiceInput({
@@ -158,6 +166,7 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
     void send();
   });
 
+  const submit = el("button", { class: "button send", type: "submit", label: "送る", i18nTitle: "Ctrl（⌘）+ Enter" });
   view.append(
     text,
     mentions.element,
@@ -175,7 +184,7 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
       picker,
       status,
       el("span", { class: "spacer" }),
-      el("button", { class: "button send", type: "submit", label: "送る", i18nTitle: "Ctrl（⌘）+ Enter" }),
+      submit,
     ),
     voice.activity,
   );
@@ -186,6 +195,7 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
     // Naming someone is a promise of an answer, so it goes in the text where
     // the personas read it - not into a hidden "to:" field.
     mention(name) {
+      if (sending) return;
       const tag = `@${name}`;
       text.value = replaceMention(text.value, tag);
       grow();

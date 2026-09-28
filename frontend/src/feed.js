@@ -514,7 +514,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     const send = async (speechAutoSend = false) => {
       const text = input.value.trim();
       if (!text || sending || disposed) return;
-      sending = true;
+      setSending(true);
       try {
         await voice.discard();
         if (disposed) return;
@@ -528,8 +528,14 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       } catch (error) {
         toast(String(error.message || error), "error");
       } finally {
-        sending = false;
+        setSending(false);
       }
+    };
+    // The box is cleared once the reply lands, so it holds still until then.
+    const setSending = (on) => {
+      sending = on;
+      input.readOnly = on;
+      submit.disabled = on;
     };
     input.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -548,6 +554,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       onSend: () => void send(true),
     });
     const mentions = createMentionPicker({ input, getPersonas, onChange: () => drafts.set(replyTo, input.value) });
+    const submit = el("button", { class: "button send", label: "送る", onclick: () => void send() });
     const box = el(
       "div",
       { class: "reply" },
@@ -557,7 +564,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         "div",
         { class: "compose-row" },
         voice.button,
-        el("button", { class: "button send", label: "送る", onclick: () => void send() }),
+        submit,
         el("button", {
           class: "chip ghost",
           label: "やめる",
