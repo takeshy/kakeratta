@@ -2,8 +2,9 @@
 """Wake gate pre-check script for kakeratta Hermes integration.
 
 Checks kakeratta for pending planning asks via MCP list_asks.
-If no ask is pending, outputs {"wakeAgent": false} to skip LLM execution entirely (zero token spend).
-If an ask is pending or on error, outputs {"wakeAgent": true} to wake Hermes Agent.
+If no ask is pending or on any error/missing config, outputs {"wakeAgent": false}
+to skip LLM execution entirely (fail-closed, zero token spend).
+If an unclaimed ask is pending, outputs {"wakeAgent": true} to wake Hermes Agent.
 
 It also keeps the integration current. list_asks carries the versions of the
 distributed skill and of this script; when either differs from what is
@@ -23,7 +24,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "2"
+GATE_VERSION = "3"
 
 
 def get_hermes_home() -> Path:
@@ -114,8 +115,8 @@ def main():
     try:
         config_path = get_hermes_home() / "config.yaml"
         if not config_path.exists():
-            # Fallback to wake agent if config cannot be found
-            print(json.dumps({"wakeAgent": True}))
+            print("Pre-check warning: config.yaml not found; skipping wake", file=sys.stderr)
+            print(json.dumps({"wakeAgent": False}))
             return
 
         import yaml  # Hermes runtime always has PyYAML
@@ -125,7 +126,8 @@ def main():
         mcp_cfg = cfg.get("mcp_servers", {}).get("kakeratta", {})
         url = mcp_cfg.get("url")
         if not url:
-            print(json.dumps({"wakeAgent": True}))
+            print("Pre-check warning: kakeratta MCP url not configured in config.yaml; skipping wake", file=sys.stderr)
+            print(json.dumps({"wakeAgent": False}))
             return
 
         headers = dict(mcp_cfg.get("headers", {}))
@@ -153,9 +155,11 @@ def main():
             print(json.dumps({"wakeAgent": True}))
 
     except Exception as e:
-        # On error (e.g. network timeout), fail-open to wake the agent so no ask waits out its claim time
-        print(f"Pre-check error: {e}", file=sys.stderr)
-        print(json.dumps({"wakeAgent": True}))
+        # Fail-closed: on error (e.g. network timeout or 401/403/500), do NOT wake
+        # the agent to prevent token runaway. Kakeratta's built-in model will
+        # automatically answer if the external agent does not claim the turn.
+        print(f"Pre-check error: {e}; skipping wake to protect tokens", file=sys.stderr)
+        print(json.dumps({"wakeAgent": False}))
 
 
 if __name__ == "__main__":
