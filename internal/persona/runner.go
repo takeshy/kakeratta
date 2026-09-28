@@ -725,6 +725,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if note, ok := r.store.Note(skill.ID, "index.md"); ok {
 		indexNote = note.Text
 	}
+	// A tidy-up is told what it is by its own instructions; the line for a
+	// turn that reads what was said after it would only mislead it.
+	turn := turnLine(named, listening)
+	if tidiesUp(wakeInstructions) {
+		turn = ""
+	}
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		placeLine(post.Place),
@@ -742,7 +748,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		"",
 		"今回の対象発言（この発言をスレッド全体の文脈で解釈）:",
 		trigger.Render(names, here),
-		turnLine(named, listening),
+		turn,
 	}, "\n")
 
 	messages := []llm.Message{
@@ -866,6 +872,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 	}
 
+	if answer == nil && tidiesUp(wakeInstructions) {
+		// Nothing to answer: the phases do the tidying, reading as they go.
+		answer = &Answer{Sources: []string{}}
+	}
 	if answer == nil {
 		var err error
 		messages, err = research(ctx, client, model, messages, func() bool { return readsUsed < readLimit }, lookup)
@@ -950,6 +960,8 @@ func wakeKind(trigger timeline.Entry, listening bool, instructions string) strin
 		return "note-deleted"
 	case instructions == deletedInstructions:
 		return "post-deleted"
+	case instructions == expiredInstructions:
+		return "note-expired"
 	}
 	return "wake"
 }

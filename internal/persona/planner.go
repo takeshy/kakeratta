@@ -305,7 +305,8 @@ func (r *Runner) ReleaseAsk(ctx context.Context, id, claimID, reason string) err
 type planningKey struct{}
 
 // builtinOnlyKey marks a turn that must be planned in-process: one a person
-// is waiting on, such as a trial reply.
+// is waiting on, such as a trial reply, or a tidy-up after a deletion, which
+// has no answer to ask an agent for.
 type builtinOnlyKey struct{}
 
 func withBuiltinPlanner(ctx context.Context) context.Context {

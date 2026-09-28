@@ -68,7 +68,7 @@ const forgottenInstructions = `
 消えた項目に紐づく schedule が下の一覧に残っていれば、不要なら cancel、続けるなら置き直してください。
 index.md や他のメモからの参照も直してください。
 これはユーザーの操作の結果です。消したことを責めたり、理由を尋ねたりしないでください。
-伝えることがなければ Answer の text は空にします。整えたことをわざわざ報告する必要はありません。
+このターンは発言できません。整えたことをわざわざ報告する必要はありません。
 `
 
 const expiredInstructions = `
@@ -281,5 +281,5 @@ func (r *Runner) forgottenAt(gone forgotten) {
 	// Silent for the same reason as a deleted post: the user removed a note, or
 	// the persona had arranged for it to go, and tidying up is not an occasion
 	// to say anything.
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, instructions, false, client, settings, r.registry(settings))
+	r.run(withBuiltinPlanner(ctx), skill, []timeline.Entry{trigger}, trigger, false, true, instructions, false, client, settings, r.registry(settings))
 }

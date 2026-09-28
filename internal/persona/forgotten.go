@@ -17,7 +17,7 @@ const deletedInstructions = `
 ユーザーが、あなたがメモの根拠にしていた投稿を削除しました。どの投稿かは対象発言に入っています。
 本体はあなたのメモを書き換えません。整理するのはあなたの仕事です。
 その投稿だけが根拠だったメモは、本体がすでに削除しました。対象発言にその一覧があります。index.md や他のメモからそれらへの参照を外してください。
-対象発言には、ほかの投稿も根拠にしていて残ったメモの一覧も入っています。どちらも空なら、steps を空にして終えてください。
+対象発言には、ほかの投稿も根拠にしていて残ったメモの一覧も入っています。どちらも空なら、operations を空にして終えてください。
 残ったメモは notes_read で読み、消えた投稿に由来する記述を直すか捨ててください。
 index.md と更新履歴は捨てないでください。消えた項目への参照だけを外し、ファイルは残します。
 ほかの根拠が残っている記述は、そのまま残して構いません。出典のリンクは本体が外してあるので、触らなくてよいです。
@@ -26,6 +26,16 @@ index.md と更新履歴は捨てないでください。消えた項目への�
 これはユーザーの操作の結果です。消したことを責めたり、理由を尋ねたりしないでください。
 このターンは発言できません。整理したことをわざわざ報告する必要はありません。
 `
+
+// tidiesUp reports a wake that only puts memory back in order after something
+// was deleted: a post, a note, or a note past its expires date. It cannot
+// speak and has nothing to answer, so it skips the research and the answer
+// and goes straight to the schedule and note phases, which read what they
+// need themselves. It is never handed to the external agent, which would only
+// be asked for an answer nobody will see.
+func tidiesUp(instructions string) bool {
+	return instructions == deletedInstructions || instructions == forgottenInstructions || instructions == expiredInstructions
+}
 
 // deletedPost is a post the user removed, and who had written it down.
 type deletedPost struct {
@@ -225,5 +235,5 @@ func (r *Runner) deletedAt(gone deletedPost) {
 	// It cannot speak. This wake is bookkeeping after the user deleted a post,
 	// and it has no post to answer: a remark here would become a new top-level
 	// post of its own, which is the app talking to itself.
-	r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, true, deletedInstructions, false, client, settings, r.registry(settings))
+	r.run(withBuiltinPlanner(ctx), skill, []timeline.Entry{trigger}, trigger, false, true, deletedInstructions, false, client, settings, r.registry(settings))
 }

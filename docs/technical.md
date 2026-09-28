@@ -505,6 +505,11 @@ woken for the post or cited it are then asked to clean up surviving notes and
 references to deleted notes. Each persona decides how to revise the meaning of
 the surviving text; the app does not rewrite that text.
 
+That clean-up, like the one after a note is deleted or passes its `expires`
+date, cannot speak and has nothing to answer. It skips research and the answer,
+is never handed to the external agent, and runs only the schedule and note
+phases, which read the notes they need themselves.
+
 ### What a persona is given
 
 * the post it was routed, and what the app read out of its image;

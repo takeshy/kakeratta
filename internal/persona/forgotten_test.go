@@ -187,13 +187,21 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 			t.Fatalf("a deletion wake wrote to the timeline: kind=%s %q", one.Kind, one.Text)
 		}
 	}
-	// It was told so up front, and the speak it planned anyway was sent back
-	// rather than run.
+	// It was told so up front, and it was never asked for an answer at all:
+	// there is nothing to research or say, so the wake goes straight to the
+	// schedule and the notes - and never to an action.
 	if !stub.seen("このターンは発言できません") {
 		t.Fatal("the wake was not told it cannot speak")
 	}
-	if !strings.Contains(strings.Join(stub.phases, "\n"), "Answer の text は空にしてください") {
-		t.Fatal("a workflow that speaks on a silent turn was not sent back")
+	for _, call := range stub.phases {
+		for _, tool := range []string{"finish_read —", "submit_answer —", "submit_action —"} {
+			if strings.Contains(call, tool) {
+				t.Fatalf("a deletion wake was offered %s:\n%s", strings.TrimSuffix(tool, " —"), call)
+			}
+		}
+	}
+	if len(stub.phases) != 2 {
+		t.Fatalf("a deletion wake made %d calls, not the schedule and note phases", len(stub.phases))
 	}
 }
 

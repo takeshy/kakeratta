@@ -415,7 +415,8 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 		return nil
 	}
 	for _, phase := range []string{"schedule", "action", "note"} {
-		if phase == "action" && len(shapeOf(rules.set).actions) == 0 {
+		// Tidying up after a deletion changes memory and schedules only.
+		if phase == "action" && (len(shapeOf(rules.set).actions) == 0 || tidiesUp(wake)) {
 			continue
 		}
 		if err := generate(phase, ""); err != nil {
