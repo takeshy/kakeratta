@@ -24,6 +24,10 @@ The main difficulty was consistency in multi-step instructions. In one represent
 
 I also encountered cases where a model exposed its internal plan in the user-facing reply, recorded a future event as already completed, or promised a time without creating the corresponding schedule. I observed these issues with Ultra as well as Super.
 
+The same literalism appeared when I let Nemotron 3 Super run as an external planner inside Hermes Agent (an agent framework running in an NVIDIA NemoClaw sandbox, connected to kakeratta over MCP). Hermes's cron job prompt says the model's final response is delivered for it. Super took that at its word: it researched an ask for about 50 seconds, wrote a good answer, printed it to the console, and stopped without calling the submit tool, so the ask timed out and kakeratta's built-in model answered instead. When the deliverable was a nested JSON workflow the call was never skipped, but once it became plain text the model treated printing as delivery. The fix was again structural rather than a prompt tweak alone: the skill and the tool responses now state that printed text never reaches kakeratta, and a final check looks for claimed asks left unsubmitted.
+
+In the same setup, Nemotron 3.5 Lightning was extremely fast (2-3 seconds) but omitted arguments, broke JSON in multi-step MCP calls, and fell into troubleshooting loops on transient tool errors, so I used Super as the planner at first. I later dropped Super after it confused two frameworks and kept the error even when I corrected it. I then tried Hermes-4-405B, the model Hermes Agent recommends, but that trial ended in the runaway bill described below. The planner now runs on Nemotron 3 Ultra, which kakeratta already uses for persona drafting and deeper answers.
+
 Rather than relying on prompt tuning alone, I changed the application structure: workflows are validated before execution, models see only the tools and schema relevant to their role, and deterministic checks are handled in code. The original failures are now covered by regression tests.
 
 Tool calling and Japanese-language quality were strong, but reliable multi-step execution still required application-level safeguards, so I rate the raw output quality 7 / 10.
@@ -186,33 +190,24 @@ I rate the experience 8 / 10: immediate access to different model sizes, stabili
 
 ## What additional features or improvements would have made the Nemotron on Nebius experience more effective for your project?
 
-What I wanted most was per-end-user authentication, usage, and billing, so Token Factory could be embedded more directly into a consumer application.
+Two things: per-end-user billing primitives, and hard spending limits.
 
-I currently have two choices.
+1. End-user credentials and billing. I wanted Token Factory to be embeddable in a consumer app. Today there are two options. I can ask every user to create a Nebius account and paste an API key, which is a large onboarding barrier. Or I can use my own credential server-side and build token accounting, per-model pricing, and cost tracking myself.
 
-One is to ask every user to create a Nebius account and provide their own API key. That creates a substantial onboarding barrier for ordinary users.
+A scope below Project would solve this. I'd want to be able to:
 
-The other is to use the developer's Token Factory credential server-side for everyone. In that case, the application itself must track each user's token consumption, models used, model pricing, and resulting cost.
+issue and revoke credentials per end user
+retrieve priced usage per credential via API
+set per-user spending limits or prepaid balances, and top them up from the app
+automatically suspend inference when a user's balance hits zero
 
-An end-user scope below Project would solve this. I would like to be able to:
+A small starter allowance for new users would complete this. A personal AI only shows its value after it has accumulated enough memory to recall earlier events at the right moment. Requiring key setup and billing before that point loses most users.
 
-* issue and revoke credentials for individual end users
-* retrieve priced usage for each credential through an API
-* set per-user spending limits or prepaid balances
-* add balance from the application
-* automatically suspend inference when that user's balance reaches zero
+2. Hard spending limits for developers. I couldn't find a way to disable automatic charging and stop inference when credit runs out.
 
-This would remove the need for every application developer to build their own token accounting and per-model price calculation.
+This cost me twice. First, a coding agent picked up my Token Factory key from an environment variable and used it without my intending it to. My remaining $25 credit was exhausted, and a $55 invoice followed.
 
-A small starter allowance for new users would also be useful. A Personal AI only starts showing its real value after enough memory has accumulated for it to recall earlier events and respond when those memories become relevant. Requiring API-key setup and billing configuration before users reach that point creates significant friction.
-
-The second improvement I want is the same kind of spending control for developers themselves: an option to disable automatic charging and stop inference when available credit reaches zero.
-
-I could not find such a setting during the hackathon.
-
-During development, a coding agent picked up my Token Factory key from an environment variable and used it without my intending it to. My remaining $25 credit was exhausted, followed by a $55 invoice.
-
-A bug or runaway agent loop could create the same problem. A hard spending limit would make it substantially safer to keep an API credential in an active development environment.
+Second, later in the hackathon, my Hermes Agent wake-up check failed open on errors, and a network-policy change had silently broken its MCP credential binding. Hermes was woken every minute without usable tools and ran 60-turn self-debugging loops on Hermes-4-405B via Token Factory. It consumed 34.54M input tokens ($34.98) before I stopped it. The cause was my configuration, and I've since fixed it: the check now fails closed, turns are capped at 15, and the policy is restored. But nothing on the platform side would have stopped the spend. A hard limit, or even a spend alert, would have caught it on day one.
 
 ## What do you most hope to see from the Nemotron team next?
 

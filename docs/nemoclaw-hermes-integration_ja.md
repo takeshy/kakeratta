@@ -2,7 +2,7 @@
 
 ## 自律型外部プランナー統合・検証レポート
 
-[README](../README_ja.md) · [English](nemoclaw-hermes-integration.md) · [Hermes の設定](hermes_ja.md) · [モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md)
+[README](../README_ja.md) · [English](nemoclaw-hermes-integration.md) · [Hermes の設定](hermes_ja.md) · [モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) · [暴走ループ事故の分析 (英語)](nemoclaw-hermes-runaway-incident.md)
 
 本書は、NVIDIA NemoClaw / OpenShell のサンドボックス内で動作する Hermes Agent を、kakeratta の担当ペルソナにおける「外部プランナー（思考エンジン）」として連携させ、Nebius Token Factory で推論し、kakeratta の MCP を介して安全かつ自律的にプランニング（ワークフロー策定）と自己更新を行う構成の実装・検証レポートです。目的は、単に LLM をサンドボックス内で実行することではなく、本番稼働中のパーソナル AI アプリケーションから自律エージェントへ安全に思考を委譲し、結果を元の会話へ返すところまで自動化することです。認証情報、ワークスペース ID、アクセストークン、内部 ID は掲載しません。
 
@@ -25,7 +25,7 @@ flowchart TD
       G --> C --> A
     end
     A -->|"list_asks / claim_ask / read_for_ask / submit_workflow"| M -->|"MCP over HTTPS"| K
-    A -->|"推論"| P --> N["Nebius Token Factory / Nemotron Super 120B"]
+    A -->|"推論"| P --> N["Nebius Token Factory / Nemotron 3 Ultra 550B"]
 ```
 
 | コンポーネント | 役割 |
@@ -33,7 +33,7 @@ flowchart TD
 | kakeratta | ユーザーの会話、依頼（ask）、MCP の認証、ワークフローの検証と実行を管理する |
 | Hermes Agent (Planner) | Skill に従って ask を解釈し、必要な調査を行ってペルソナのワークフロー（思考結果）を返す |
 | NemoClaw / OpenShell | サンドボックス、Gateway のライフサイクル、ネットワークおよび推論経路を隔離・管理する |
-| Nebius Token Factory | 高性能モデル推論（`nvidia/nemotron-3-super-120b-a12b`）を提供する |
+| Nebius Token Factory | モデル推論（`nvidia/Nemotron-3-Ultra-550b-a55b`）を提供する |
 
 kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP（Model Context Protocol）です。モデル推論は OpenShell のプロキシを通し、クレデンシャルは安全に秘匿されます。毎分の Wake Gate は、Hermes が正常に接続していることを kakeratta に伝えるハートビートも兼ねており、取得待ち時間（既定3分）の間に MCP 呼び出しがなければ、次回接続まで kakeratta の内蔵モデルが自動で代替します。
 
@@ -68,7 +68,7 @@ NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点
 | `Phase: Error` 中にポリシープリセットを適用すると合成済みポリシーが消える | サンドボックスが `Phase: Error` の間に `policy add` を行うと、合成エントリ（`mcp_bridge_kakeratta` や `managed_inference`）がベースから脱落し、未解決の `openshell:resolve:env:...` が送信されて認証不能になる。事故前のバックアップから `policy set --policy <file> --wait` で完全復元した。 |
 | kakeratta のデプロイで追加した道具が Hermes から見えない | Hermes Gateway は MCP の道具一覧をキャッシュする（`tools/mcp_schema_cache.py`）。`submit_answer` を追加したデプロイの後、Skill は v12 に自己更新されたが、キャッシュした一覧に新しい道具がなく、Hermes は答えられない ask を取得したまま回答を提出できず、回答の待ち時間でターンが内蔵モデルに移った。Hermes の MCP スキーマキャッシュを消すとすぐに回復した。現在の kakeratta は `tools/list` に鮮度ヒント（`ttlMs: 300000`）を返すので、道具が変わっても5分以内にキャッシュが取り直される。詳細は[下記](#kakeratta-のデプロイ後に残る道具一覧のキャッシュ)。 |
 | Hermes が回答を書いたのに提出しない | Hermes は ask を取得し、Web 検索と `read_for_ask` で約50秒調べて質の高い回答を書いたが、`submit_answer` を呼ばずに Cron のコンソールへテキストとして出力して終了したため、ask は `planBy` まで待ち続けた。Cron ジョブの共通プロンプトに「最終回答を出力すればシステムが残りを処理する（Just produce your report/output as your final response and the system handles the rest）」とあり、提出物が入れ子の JSON だった `submit_workflow` では呼び忘れなかったが、提出物が回答テキストになった `submit_answer` では Nemotron Super がこれを文字どおりに受け取った。Skill v13 で「出力したテキストは kakeratta に届かない。必ず `submit_answer` で提出し、`accepted` を確認してから `[SILENT]` で終える」と明記し、取得したのに未提出の ask が残っていないかの最終確認を加えた。`claim_ask` の `next` と MCP サーバーの instructions にも同じ注意を入れた。 |
-| Wake Gate の Fail-Open 欠陥によるトークン爆食ループ | 未処理タスクがない時にゼロトークン待機（0.1秒）するはずの Wake Gate（`check_kakeratta_gate.py`）が、設定未完了や通信エラー時に「タスク取りこぼし防止」のため安易に `wakeAgent: true`（Fail-Open）を出力していた。原因の究明により、OpenShell に `personal_open_internet` を追加した際にベースの合成ポリシーが脱落し、`mcp_bridge_kakeratta` のクレデンシャルバインディングが消失して L7 プロキシが `HTTP 500 credential_unavailable` を返していたことが判明。このエラーで毎分起床した Hermes Agent は、MCP ツール（`mcp__kakeratta__*`）が使えないため自律的に「なぜツールが動かないのか」を Web 検索やコマンドで上限 60 ターンまで調査し尽くし、1 回で 110 万〜342 万トークンを消費。この 60 ターン暴走セッションが【計 20 回】発生し、累計 25.97M トークン（約 26 ドル）の課金障害を引き起こしていた。スクリプトを **Fail-Closed（未処理タスクの存在が確実に確認できた時のみ起床し、エラー・例外時は一切 LLM を起こさず `wakeAgent: false` で即時終了）** に全面改修し、`config.yaml` の `agent.max_turns: 15` 安全上限を設定、さらに脱落したポリシーを `openshell policy set` で復元して完全解決した。 |
+| Wake Gate の Fail-Open 欠陥によるトークン爆食ループ | 未処理タスクがない時にゼロトークン待機（0.1秒）するはずの Wake Gate（`check_kakeratta_gate.py`）が、設定未完了や通信エラー時に「タスク取りこぼし防止」のため安易に `wakeAgent: true`（Fail-Open）を出力していた。原因の究明により、OpenShell に `personal_open_internet` を追加した際にベースの合成ポリシーが脱落し、`mcp_bridge_kakeratta` のクレデンシャルバインディングが消失して L7 プロキシが `HTTP 500 credential_unavailable` を返していたことが判明。このエラーで毎分起床した Hermes Agent は、MCP ツール（`mcp__kakeratta__*`）が使えないため自律的に「なぜツールが動かないのか」を Web 検索やコマンドで上限 60 ターンまで調査し尽くし、1 回で 110 万〜342 万トークンを消費。この 60 ターン暴走セッションは監査時点で【計 20 回】発生しており、モデルを止めるまで続いた結果、最終的に Hermes-4-405B の入力 34.54M トークン（合計 34.98 ドル）の課金障害を引き起こしていた。スクリプトを **Fail-Closed（未処理タスクの存在が確実に確認できた時のみ起床し、エラー・例外時は一切 LLM を起こさず `wakeAgent: false` で即時終了）** に全面改修し、`config.yaml` の `agent.max_turns: 15` 安全上限を設定、さらに脱落したポリシーを `openshell policy set` で復元して完全解決した。 |
 
 ### Web 検索・Web 抽出の Egress 開放（ハルシネーション防止）
 
@@ -373,7 +373,8 @@ Hermes の CLI や管理画面を人が直接操作することなく、未処�
 モデル選定にあたっては、複数のモデルを検証しました：
 - **`NousResearch/Hermes-4-405B`**: 推論精度は高いものの、単純なプロンプトでも応答に約 45 秒を要し、毎分の自律プランニング運用には応答遅延が大きすぎる課題がありました。
 - **`nvidia/Nemotron-3_5-Lightning`**: 応答は約 2〜3 秒と極めて高速でしたが、多段 MCP 操作での引数誤りや JSON 構造破損が発生しやすく、ツールエラーや一時的なネットワーク不達時に不要な設定変更・シェル調査ループに陥って実行が長引くケースが確認されました。
-- **`nvidia/nemotron-3-super-120b-a12b`**: 応答速度と高い文脈理解・ツール判断能力のバランスに最も優れており、複雑な外部調査を含む自律プランニングを安定して遂行できるため、標準モデルとして採用しました。
+- **`nvidia/nemotron-3-super-120b-a12b`**: 応答速度とツール判断のバランスがよく、上記のエンドツーエンド検証ではこのモデルがプランナーでした。ただし、ユーザーに誤りを指摘されても前の主張を維持したセッションや、回答を書いたのに提出しなかったセッションがありました。
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: 現在のプランナーモデルです。Hermes のプランナーとしての挙動は、まだ他のモデルと同じ条件で比較していません。[モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) を参照してください。
 
 さらに Hermes 側で `tools.tool_search.enabled: "off"`（Direct disclosure）を適用することで、モデルはネストの深い複雑なワークフロー構造を純粋なネイティブ JSON オブジェクトとして引数に渡すことができ、文字列エスケープ破損による失敗を起こすことなく、一貫して安定したワークフロー提出が行えることを実証しました。
 

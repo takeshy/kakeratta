@@ -2,7 +2,7 @@
 
 ## Autonomous External Planner Integration and Verification Report
 
-[README](../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](hermes.md) · [Model Comparison](nemoclaw-hermes-model-comparison.md)
+[README](../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](hermes.md) · [Model Comparison](nemoclaw-hermes-model-comparison.md) · [Runaway loop incident](nemoclaw-hermes-runaway-incident.md)
 
 This report documents an integration in which Hermes Agent runs inside NVIDIA NemoClaw / OpenShell, acts as an external **planner** (thinking engine) for designated kakeratta personas, uses Nebius Token Factory for inference, and safely plans turns, formulates workflows, and keeps itself updated via kakeratta's MCP server. Credentials, workspace IDs, access tokens, and internal task IDs are intentionally omitted.
 
@@ -25,7 +25,7 @@ flowchart TD
       G --> C --> A
     end
     A -->|"list_asks / claim_ask / read_for_ask / submit_workflow"| M -->|"MCP over HTTPS"| K
-    A -->|"inference"| P --> N["Nebius Token Factory / Nemotron Super 120B"]
+    A -->|"inference"| P --> N["Nebius Token Factory / Nemotron 3 Ultra 550B"]
 ```
 
 | Component | Responsibility |
@@ -33,7 +33,7 @@ flowchart TD
 | kakeratta | Manages conversations, asks, MCP authentication, workflow validation and execution |
 | Hermes Agent (Planner) | Interprets asks according to Skill, performs lookups, and returns persona workflows |
 | NemoClaw / OpenShell | Isolates the sandbox, manages Gateway lifecycle, network policy, and inference proxy |
-| Nebius Token Factory | Provides high-performance model inference (`nvidia/nemotron-3-super-120b-a12b`) |
+| Nebius Token Factory | Provides model inference (`nvidia/Nemotron-3-Ultra-550b-a55b`) |
 
 kakeratta does not start the Hermes process, and Hermes does not access kakeratta's database directly. MCP (Model Context Protocol) is the boundary between them. Model inference routes through OpenShell's proxy, keeping credentials completely hidden. The recurring Wake Gate also serves as a heartbeat: if no MCP calls arrive within the claim wait window (3 minutes by default), kakeratta's built-in model answers instead.
 
@@ -68,7 +68,7 @@ The following sections document issues encountered during verification and long-
 | Applying policy preset during `Phase: Error` wipes composed policy | Running `policy add` while the sandbox is in `Phase: Error` drops composed entries (`mcp_bridge_kakeratta`, `managed_inference`), breaking token resolution. Resolved by restoring the pre-incident policy backup via `openshell policy set --policy <file> --wait`. |
 | A tool added by a kakeratta deploy is invisible to Hermes | Hermes Gateway caches the MCP tool list (`tools/mcp_schema_cache.py`). After the deploy that introduced `submit_answer`, the Skill self-updated to v12 but the cached list still lacked the new tool, so Hermes claimed an ask it could not answer and the turn fell through to the built-in model at the plan wait. Clearing Hermes's MCP schema cache restored it at once. kakeratta now returns a freshness hint (`ttlMs: 300000`) in `tools/list`, so the cache is re-probed within 5 minutes of a tool change. See [below](#tool-list-cache-after-a-kakeratta-deploy). |
 | Hermes wrote the answer but never submitted it | Hermes claimed an ask, researched for about 50 seconds with web search and `read_for_ask`, and wrote a good answer, then printed it to the cron console and stopped instead of calling `submit_answer`, so the ask waited until `planBy`. The cron job's common prompt tells the model that its final response is delivered for it ("Just produce your report/output as your final response and the system handles the rest"); with `submit_workflow` the deliverable was a nested JSON object and the call was never skipped, but with `submit_answer` the deliverable is plain text, and Nemotron Super took the prompt at its word. Skill v13 states that printed text never reaches kakeratta, that the answer must be submitted with `submit_answer` and confirmed `accepted` before ending with `[SILENT]`, and adds a final check for claimed asks left unsubmitted; `claim_ask`'s `next` and the MCP server instructions say the same. |
-| Wake Gate Fail-Open flaw triggers multi-million token runaway loops | The Wake Gate pre-check script (`check_kakeratta_gate.py`), designed to yield 0-token idle exits (0.1s) when no asks are pending, previously fell open (`wakeAgent: true`) on network timeout, unconfigured URL, or HTTP 401/403/500 errors to prevent dropped asks. Forensic investigation revealed that adding `personal_open_internet` had evicted the base composed policy, stripping `mcp_bridge_kakeratta`'s credential binding and causing the L7 proxy to return `HTTP 500 credential_unavailable`. Woken by this HTTP 500 without usable MCP tools, Hermes Agent entered 60-turn autonomous self-debugging loops (searching GitHub and technical docs to diagnose the missing tools), consuming 1.1M to 3.4M tokens per run. Audit revealed 20 such runaway sessions totaling 25.97M input tokens (~$26). Permanently resolved by converting the Wake Gate to **Fail-Closed (outputs `wakeAgent: false` on any error or missing config, ensuring 0 token expenditure)**, imposing an `agent.max_turns: 15` safety boundary in `config.yaml`, and restoring the composed policy with its credential binding via `openshell policy set`. |
+| Wake Gate Fail-Open flaw triggers multi-million token runaway loops | The Wake Gate pre-check script (`check_kakeratta_gate.py`), designed to yield 0-token idle exits (0.1s) when no asks are pending, previously fell open (`wakeAgent: true`) on network timeout, unconfigured URL, or HTTP 401/403/500 errors to prevent dropped asks. Forensic investigation revealed that adding `personal_open_internet` had evicted the base composed policy, stripping `mcp_bridge_kakeratta`'s credential binding and causing the L7 proxy to return `HTTP 500 credential_unavailable`. Woken by this HTTP 500 without usable MCP tools, Hermes Agent entered 60-turn autonomous self-debugging loops (searching GitHub and technical docs to diagnose the missing tools), consuming 1.1M to 3.4M tokens per run. Audit revealed 20 such runaway sessions by the time it was taken, and the loops continued until the model was switched off, for a final bill of 34.54M input tokens on Hermes-4-405B ($34.98 in total). Permanently resolved by converting the Wake Gate to **Fail-Closed (outputs `wakeAgent: false` on any error or missing config, ensuring 0 token expenditure)**, imposing an `agent.max_turns: 15` safety boundary in `config.yaml`, and restoring the composed policy with its credential binding via `openshell policy set`. |
 
 ### Opening egress for web search and page extraction (preventing hallucinations)
 
@@ -372,7 +372,8 @@ The entire cycle completed autonomously with zero human intervention.
 Multiple models were evaluated during development:
 - **`NousResearch/Hermes-4-405B`**: Highly capable, but simple prompts took ~45 seconds, adding unacceptable latency to a 1-minute scheduling cadence.
 - **`nvidia/Nemotron-3_5-Lightning`**: Extremely fast (2–3 seconds), but prone to argument omission, JSON structure syntax errors during multi-step MCP operations, and getting caught in troubleshooting loops (attempting unwanted configuration changes and shell commands) upon transient network or tool hiccups.
-- **`nvidia/nemotron-3-super-120b-a12b`**: Provided the best operational balance between response speed and sophisticated context understanding/tool judgment, making it the standard model for production autonomous planning.
+- **`nvidia/nemotron-3-super-120b-a12b`**: Balanced response speed and tool judgment, and was the planner model for the end-to-end run above. In one session it held on to an earlier error when the user corrected it, and in another it wrote an answer without submitting it.
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: The current planner model. Its behavior as the Hermes planner has not yet been measured against the other models; see the [model comparison](nemoclaw-hermes-model-comparison.md).
 
 Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex, nested workflow structures as pure native JSON objects without double-escaping, structurally eliminating parse failures.
 
