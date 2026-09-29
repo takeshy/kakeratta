@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	pathpkg "path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -231,16 +232,17 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 	r.reactEntry(entryID, transientPlace, false)
 }
 
-// keepRouting writes down what the router decided about a post, for a person
-// to look at later. What is kept is the router's own call: a persona reached
-// by name is left out of the chosen, and anyone who got the post for whatever
-// reason is left out of the passed-over. Nothing is kept when the router had
-// no answer - "no record" and "nobody" are different things to read.
-func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []string, targets map[string]bool) {
+// keepRouting writes down who a post went to, for a person to look at later:
+// the personas the router chose, the ones the user called by @ or by replying
+// to them (with how), and the ones the router passed over. Anyone who got the
+// post for another reason is left out of the passed-over. Nothing is kept when
+// the router had no answer and nobody was called - "no record" and "nobody"
+// are different things to read.
+func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, called map[string]string, targets map[string]bool) {
 	entryID := entry.ID
 	r.routingMu.Lock()
 	defer r.routingMu.Unlock()
-	if !routing.Answered {
+	if !routing.Answered && len(called) == 0 {
 		if err := r.store.ForgetRouting(entryID); err != nil {
 			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
 		}
@@ -248,7 +250,7 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 	}
 	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text, Tracked: true, Done: []string{}, Spoke: []string{}}
 	for _, id := range routing.Deliver {
-		if !contains(named, id) {
+		if _, ok := called[id]; !ok {
 			record.Delivered = append(record.Delivered, id)
 			if term, ok := routing.Heard[id]; ok {
 				if record.Heard == nil {
@@ -257,6 +259,18 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, named []stri
 				record.Heard[id] = term
 			}
 		}
+	}
+	ids := make([]string, 0, len(called))
+	for id := range called {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		if record.Called == nil {
+			record.Called = map[string]string{}
+		}
+		record.Called[id] = called[id]
+		record.Delivered = append(record.Delivered, id)
 	}
 	for id, reason := range routing.Excluded {
 		if !targets[id] {
@@ -513,6 +527,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 
 	// Who gets it is the app's one decision about a post.
 	named := Named(skills, entry.Text)
+	called := map[string]string{}
 	targets := map[string]bool{}
 	for _, skill := range skills {
 		if previous[skill.ID] {
@@ -521,6 +536,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	}
 	for _, id := range named {
 		targets[id] = true
+		called[id] = "mention"
 	}
 	parent, hasParent := r.store.Entry(entry.ReplyTo)
 	// A reply to a persona is said to it: it hears it whether or not routing
@@ -530,6 +546,9 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	asked := ""
 	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
 		targets[parent.Speaker] = true
+		if _, ok := called[parent.Speaker]; !ok {
+			called[parent.Speaker] = "reply"
+		}
 		if parent.Root == parent.ID {
 			asked = parent.Speaker
 		}
@@ -547,7 +566,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 			deep = parent.Speaker
 		}
 	}
-	r.keepRouting(entry, routing, named, targets)
+	r.keepRouting(entry, routing, called, targets)
 	if len(targets) == 0 {
 		r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": []string{}})
 		return

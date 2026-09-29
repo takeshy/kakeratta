@@ -286,3 +286,29 @@ func TestRoutingWithNoTurnsYetIsNotReadAsFinished(t *testing.T) {
 		}
 	}
 }
+
+// A persona the user called by @ or by replying is listed with how, next to
+// the router's own choices, and its notes are reachable like theirs.
+func TestRoutingSaysHowAPersonaWasCalled(t *testing.T) {
+	server, workspace := app(t)
+	if err := workspace.Append(timeline.Entry{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "@tabe ラーメン", At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := workspace.SaveRouting("p", store.Routing{
+		Delivered: []string{"move", "gourmet", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{}, Spoke: []string{},
+		Called: map[string]string{"gourmet": "mention", "book": "reply"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/entry/p/routing", nil))
+	var body struct{ Delivered []map[string]any }
+	_ = json.Unmarshal(response.Body.Bytes(), &body)
+	via := map[string]any{}
+	for _, row := range body.Delivered {
+		via[row["id"].(string)] = row["via"]
+	}
+	if len(body.Delivered) != 3 || via["gourmet"] != "mention" || via["book"] != "reply" || via["move"] != nil {
+		t.Fatalf("delivered = %v", body.Delivered)
+	}
+}

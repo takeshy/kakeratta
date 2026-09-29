@@ -205,8 +205,15 @@ export function showReplyFix({ persona, remark = null, post, onSaved }) {
       el("p", { class: "hint", text: preview.notes?.length ? t("書くメモ：{0}", preview.notes.join(", ")) : t("（メモは書きません）") }),
       preview.error ? el("p", { class: "hint warn", text: preview.error }) : null,
       el("div", { class: "compose-row" },
-        preview.token ? action("これでよい", "button primary reply-accept", async () => {
-          if (busy || !preview.token) return;
+        // A trial that stayed quiet has no reply to put in the thread, but
+        // silence can be what was wanted: accepting it keeps what was saved.
+        preview.token || (preview.quiet && !preview.error) ? action("これでよい", "button primary reply-accept", async () => {
+          if (busy) return;
+          if (!preview.token) {
+            toast(t("口調と指示を保存しました"));
+            close();
+            return;
+          }
           setBusy(true);
           try {
             await api.applyReply(target.id, preview.token);

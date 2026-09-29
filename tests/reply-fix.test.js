@@ -149,8 +149,10 @@ test("a quiet trial is said, and cancel saves nothing", async (t) => {
   button("OK").fire("click");
   await settle();
   assert.match(texts(), /何も言いませんでした/);
-  button("キャンセル").fire("click");
-  assert.equal(document.body.children.length, 0);
+  // Silence can be the answer that was wanted: it is accepted without
+  // anything to put in the thread.
+  button("これでよい").fire("click");
+  assert.equal(document.body.children.length, 0, "accepting silence closes");
 
   showReplyFix({ persona, remark, post });
   one(".reply-note").value = "y";

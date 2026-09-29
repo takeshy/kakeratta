@@ -70,9 +70,11 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
         el("span", { class: "routing-verdict", label: verdict }),
         item.reason ? el("span", { class: "routing-reason", text: item.reason }) : null,
         item.heard ? el("span", { class: "routing-reason", text: t("「{0}」に一致", item.heard) }) : null,
+        // A persona the user called was not the router's choice, so it says how.
+        item.via ? el("span", { class: "routing-reason", label: item.via === "mention" ? "@で呼ばれました" : "返信で呼ばれました" }) : null,
         // A person has no condition to teach. A post that should have reached
         // one adds keywords; one that should not have offers its words to remove.
-        persona && onFixCondition ? el("button", {
+        persona && onFixCondition && fix ? el("button", {
           class: "chip ghost routing-fix", label: fix.label,
           onclick: () => { close(); onFixCondition({ persona, entry: current, direction: fix.direction, reason: item.reason || "" }); },
         }) : null);
@@ -88,7 +90,8 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
       const verdict = !done ? "呼ばれました。返事を考えています…"
         : said && noted ? "呼ばれました。返事とメモあり" : said ? "呼ばれました。返事あり、メモなし"
         : noted ? "呼ばれました。黙ってメモだけ残しました" : "呼ばれましたが、黙っていました。メモもありません";
-      const line = row(item, verdict, { label: "呼んでほしくなかった", direction: "exclude" });
+      // There is nothing to teach a persona the user called themselves.
+      const line = row(item, verdict, item.via ? null : { label: "呼んでほしくなかった", direction: "exclude" });
       const persona = getPersona?.(item.id);
       if (persona && onFixReply && done && !said) {
         line.append(el("button", {
@@ -128,7 +131,7 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
     dialogCloseButton(close),
     el("h2", { label: "担当の判断" }),
     quote,
-    el("p", { class: "hint", label: "この投稿を誰に渡したか、誰に渡さなかったか。@で指名した担当は本体の判断ではないので出ません。" }),
+    el("p", { class: "hint", label: "この投稿を誰に渡したか、誰に渡さなかったか。@や返信で呼んだ担当は、その理由と一緒に出ます。" }),
     body,
     el("div", { class: "compose-row" }, el("span", { class: "spacer" }), el("button", { class: "button primary", label: "閉じる", onclick: close })));
   backdrop.append(dialog);

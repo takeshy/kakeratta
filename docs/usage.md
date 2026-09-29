@@ -113,8 +113,10 @@ stay; correct them in the persona's memory if they are wrong too.
 
 **⚖ Router's call**, on your own posts and replies, opens a dialog with what the
 app decided about that post: the personas it chose, and for each one it passed over, the
-router's one-line reason. A persona you mentioned with `@` is not listed. A
-post the router could not judge (no model configured, the call failed) reads as
+router's one-line reason. A persona you called with `@`, or by replying to its
+remark or post, is listed too, with "Called with @" or "Called by your reply"
+as the reason; it has no *Should not have been called*, since you called it
+yourself. A post the router could not judge (no model configured, the call failed) reads as
 "no record", which is different from a post it sent to nobody. For each
 persona that was called you see whether its turn has finished (`done` in
 `routing.json`), whether it replied, and whether one of its notes cites this

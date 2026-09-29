@@ -20,6 +20,9 @@ type routingRow struct {
 	// Heard is the name or keyword a person was delivered by, in place of the
 	// router's call.
 	Heard string `json:"heard,omitempty"`
+	// Via is how the user called a persona rather than the router choosing it:
+	// "mention" for an @, "reply" for a reply under its remark or post.
+	Via string `json:"via,omitempty"`
 	// Person: the persona keeps a person, so it is matched by words rather
 	// than by a condition the router reads.
 	Person bool `json:"person,omitempty"`
@@ -94,6 +97,7 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 	for _, id := range record.Delivered {
 		row := s.routingRow(id, "")
 		row.Heard = record.Heard[id]
+		row.Via = record.Called[id]
 		finished, said, noted := done(id), spoke[id], false
 		if notes, err := s.store.NotesBySource(id, entry.ID); err == nil {
 			row.Notes = notes

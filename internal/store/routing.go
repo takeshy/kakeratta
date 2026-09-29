@@ -35,6 +35,10 @@ type Routing struct {
 	// Heard is, for a person delivered by a name or keyword rather than by the
 	// router, the word it was found by.
 	Heard map[string]string `json:"heard,omitempty"`
+	// Called is, for a persona delivered by the user's own doing rather than by
+	// the router, how: "mention" for an @, "reply" for a reply under its remark
+	// or post. Such a persona is also listed in Delivered.
+	Called map[string]string `json:"called,omitempty"`
 }
 
 func routingPath(root string) string { return filepath.Join(root, "routing.json") }
@@ -118,6 +122,12 @@ func normaliseRouting(record Routing) Routing {
 			out.Heard = map[string]string{}
 		}
 		out.Heard[id] = term
+	}
+	for id, how := range record.Called {
+		if out.Called == nil {
+			out.Called = map[string]string{}
+		}
+		out.Called[id] = how
 	}
 	return out
 }

@@ -1980,24 +1980,25 @@ func TestEditedPostNotifiesPreviousRecipientsAndRoutesNewOnes(t *testing.T) {
 	}
 }
 
-// What the router decided is kept for a person to read: who it chose, and why
-// it passed over the rest. A persona reached by name was not the router's
-// choice, and anyone who got the post is not among the passed-over. A router
-// with no answer leaves no record at all.
+// What happened to a post is kept for a person to read: who the router chose,
+// who the user called by name, and why the router passed over the rest. A
+// persona reached by name is listed as called, not as the router's choice, and
+// anyone who got the post is not among the passed-over. A router with no
+// answer and nobody called leaves no record at all.
 func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 	for _, tc := range []struct {
 		name, routed, text string
 		want               *store.Routing
 	}{
 		{
-			name: "named persona is not the router's choice", text: "@tabe 今日の昼どうしよう",
+			name: "named persona is called, not the router's choice", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":["gourmet","move"],"excluded_reasons":{"book":"本の話ではない"}}`,
-			want:   &store.Routing{Delivered: []string{"move"}, Excluded: map[string]string{"book": "本の話ではない"}, Tracked: true, Done: []string{"gourmet", "move"}, Spoke: []string{}},
+			want:   &store.Routing{Delivered: []string{"move", "gourmet"}, Excluded: map[string]string{"book": "本の話ではない"}, Tracked: true, Done: []string{"gourmet", "move"}, Spoke: []string{"gourmet"}, Called: map[string]string{"gourmet": "mention"}},
 		},
 		{
 			name: "named persona is not passed over either", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"move": "b", "book": "c"}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{}},
+			want:   &store.Routing{Delivered: []string{"gourmet"}, Excluded: map[string]string{"move": "b", "book": "c"}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}, Called: map[string]string{"gourmet": "mention"}},
 		},
 		{
 			name: "nobody is an answer", text: "今日は眠い",
@@ -2005,6 +2006,10 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 			want:   &store.Routing{Delivered: []string{}, Excluded: map[string]string{"gourmet": "a", "move": "b", "book": "c"}, Tracked: true, Done: []string{}, Spoke: []string{}},
 		},
 		{name: "a broken router is no answer", text: "今日は眠い", routed: `モデルが壊れた返事`, want: nil},
+		{
+			name: "a broken router still records who was called", text: "@tabe 今日の昼どうしよう", routed: `モデルが壊れた返事`,
+			want: &store.Routing{Delivered: []string{"gourmet"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}, Called: map[string]string{"gourmet": "mention"}},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			runner, s, _ := setup(t, func(system, user string) string {
@@ -2027,6 +2032,41 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 				t.Fatalf("kept %+v, want %+v", got, tc.want)
 			}
 		})
+	}
+}
+
+// A reply under a persona's remark reaches that persona, and the record says
+// it was called by the reply. The persona is not among the passed-over even
+// when the router would have passed over it.
+func TestAReplyIsRecordedAsHowThePersonaWasCalled(t *testing.T) {
+	replied := false
+	runner, s, _ := setup(t, func(system, user string) string {
+		switch {
+		case strings.Contains(system, "明示的に求めているか"):
+			return `{"escalate":false}`
+		case strings.Contains(system, "振り分け") && !replied:
+			return `{"deliver":["gourmet"]}`
+		case strings.Contains(system, "振り分け"):
+			return `{"deliver":["move"],"excluded_reasons":{"gourmet":"a","book":"c"}}`
+		}
+		return `{"action":"speak","text":"うん"}`
+	}, "gourmet", "move", "book")
+	first := post(t, s, "ラーメン食べたい")
+	runner.react(first.ID)
+	answer := remarks(t, s)[0]
+	replied = true
+	reply := replyTo(t, s, answer, "ありがとう")
+	runner.react(reply.ID)
+
+	got, err := s.Routing(reply.ID)
+	if err != nil || got == nil {
+		t.Fatalf("routing = %+v, %v", got, err)
+	}
+	if !reflect.DeepEqual(got.Called, map[string]string{"gourmet": "reply"}) || !contains(got.Delivered, "gourmet") || !contains(got.Delivered, "move") {
+		t.Fatalf("kept %+v", got)
+	}
+	if _, passed := got.Excluded["gourmet"]; passed || got.Excluded["book"] != "c" {
+		t.Fatalf("excluded = %v", got.Excluded)
 	}
 }
 

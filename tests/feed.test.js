@@ -813,6 +813,28 @@ test("a person on the router's sheet shows the word it was reached by, and can b
   assert.equal(fixes[1].direction, "include");
 });
 
+test("the router's sheet says a persona was called with @ or by a reply, and has no should-not-have-been-called for it", async (t) => {
+  const { showRouting } = await import("../frontend/src/routing-view.js");
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const rows = { gourmet: { id: "gourmet", name: "tabe" }, move: { id: "move", name: "michi" }, book: { id: "book", name: "hon" } };
+  t.mock.method(api, "routing", async () => ({ recorded: true,
+    delivered: [
+      { id: "move", name: "michi", done: true, spoke: true, noted: false },
+      { id: "gourmet", name: "tabe", via: "mention", done: true, spoke: true, noted: true, notes: ["shops/soka.md"] },
+      { id: "book", name: "hon", via: "reply", done: true, spoke: true, noted: false }],
+    excluded: [] }));
+  const opened = [];
+  await showRouting({ entry: { id: "p", text: "@tabe ラーメン" }, getPersona: (id) => rows[id], onFixCondition: () => {}, onOpenNote: (args) => opened.push(args) });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const texts = walk(document.body).map(node => node.textContent);
+  assert.ok(texts.includes(translate("@で呼ばれました")) && texts.includes(translate("返信で呼ばれました")));
+  assert.equal(document.body.querySelectorAll(".routing-fix").length, 1, "only the router's own choice can be disputed");
+  walk(document.body).find(node => node.textContent === "📝 shops/soka").fire("click");
+  assert.equal(opened[0].path, "shops/soka.md", "a called persona's note opens like any other");
+});
+
 // The router's call about a post - who it chose, whom it passed over and why -
 // is a one-glyph chip on what the user wrote, and opens apart from the
 // timeline. Each persona still in the room can be told the router was wrong.
