@@ -523,13 +523,16 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 		targets[id] = true
 	}
 	parent, hasParent := r.store.Entry(entry.ReplyTo)
-	// A post a persona started on its own - a check-in, a schedule, a review -
-	// is its question, and a reply under it is the answer. The author hears
-	// it whether or not routing would have chosen it.
+	// A reply to a persona is said to it: it hears it whether or not routing
+	// would have chosen it. A post that persona started on its own - a
+	// check-in, a schedule, a review - is its question, and a reply under it
+	// is the answer.
 	asked := ""
-	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && parent.Root == parent.ID && isActive(skills, parent.Speaker) {
+	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
 		targets[parent.Speaker] = true
-		asked = parent.Speaker
+		if parent.Root == parent.ID {
+			asked = parent.Speaker
+		}
 	}
 	routing := routeSubjects(ctx, client, settings, skills, thread, entry)
 	for _, id := range routing.Deliver {
@@ -537,13 +540,11 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	}
 	// Everyone answers on Super. A reply that asks a persona's answer to be
 	// better or deeper - "違う", "もっと詳しく" - is answered on Ultra by the
-	// persona it was said to, which answers whether or not routing chose it.
-	// Anyone else it reaches answers as usual.
+	// persona it was said to. Anyone else it reaches answers as usual.
 	deep := ""
-	if parent, ok := r.store.Entry(entry.ReplyTo); ok && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
+	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
 		if Escalate(ctx, client, lightningModel(settings), parent, entry) {
 			deep = parent.Speaker
-			targets[deep] = true
 		}
 	}
 	r.keepRouting(entry, routing, named, targets)

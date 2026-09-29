@@ -662,14 +662,19 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			if got := stub.modelFor("michi"); got != store.NemotronSuper {
 				t.Fatalf("the other persona answered on %q", got)
 			}
-			if !tc.escalate {
-				if len(remarks(t, s)) != 2 {
-					t.Fatalf("the persona replied to answered without being routed: %+v", remarks(t, s))
-				}
-				return
-			}
+			// The persona replied to answers whether or not routing chose it.
 			if got := stub.lastModelFor("tabe"); got != tc.want {
 				t.Fatalf("model = %q, want %q", got, tc.want)
+			}
+			models := map[string]string{}
+			for _, remark := range remarks(t, s)[1:] {
+				models[remark.Speaker] = remark.Model
+			}
+			if models["gourmet"] != tc.slot || models["move"] != "super" {
+				t.Fatalf("remark models = %v", models)
+			}
+			if !tc.escalate {
+				return
 			}
 			// Ultra is not told to keep it short; Super is.
 			prompt := stub.lastPromptFor("tabe")
@@ -678,13 +683,6 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			}
 			if !strings.Contains(stub.promptFor("michi"), "発言するときは短く") {
 				t.Fatal("the other persona lost the brief prompt")
-			}
-			models := map[string]string{}
-			for _, remark := range remarks(t, s)[1:] {
-				models[remark.Speaker] = remark.Model
-			}
-			if models["gourmet"] != tc.slot || models["move"] != "super" {
-				t.Fatalf("remark models = %v", models)
 			}
 		})
 	}
@@ -806,8 +804,8 @@ func TestLightningIsAskedOnlyAboutAReplyToAnActivePersona(t *testing.T) {
 	}
 }
 
-// A judgement that fails is a no: the reply is answered on Super by whoever
-// it reached, and the persona replied to is not added.
+// A judgement that fails is a no: the reply is answered on Super, by the
+// persona replied to as well as by whoever routing chose.
 func TestAFailedJudgementIsANo(t *testing.T) {
 	replied := false
 	runner, s, stub := setup(t, func(system, user string) string {
@@ -839,9 +837,12 @@ func TestAFailedJudgementIsANo(t *testing.T) {
 	if tried != 1 {
 		t.Fatalf("Lightning was tried %d times, want once", tried)
 	}
-	said := remarks(t, s)
-	if len(said) != 2 || said[1].Speaker != "move" || said[1].Model != "super" {
-		t.Fatalf("remarks = %+v, want only michi, on Super", said)
+	models := map[string]string{}
+	for _, remark := range remarks(t, s)[1:] {
+		models[remark.Speaker] = remark.Model
+	}
+	if len(models) != 2 || models["gourmet"] != "super" || models["move"] != "super" {
+		t.Fatalf("remark models = %v, want tabe and michi, both on Super", models)
 	}
 }
 

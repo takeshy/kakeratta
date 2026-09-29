@@ -165,6 +165,8 @@ else.
 
 **A reply goes through the same routing as a post.** It is routed against the
 whole thread. Whoever the router picks answers it, plus anyone @mentioned.
+A reply to a persona's remark or post always reaches that persona as well,
+whether or not the router picked it.
 
 The current default router is **Nemotron 3 Super through Nebius Token Factory**.
 
@@ -248,12 +250,11 @@ remark and the reply and answers one question
 correction, a rethink, more detail or a deeper look ("違う", "本当？",
 "もう一度考えて", "もっと詳しく", "深掘りして")?
 
-* If so, the persona whose remark was replied to answers on Ultra. It is added
-  to the recipients even when routing did not choose it, and it runs once. Its
+* If so, the persona whose remark was replied to answers on Ultra, once. Its
   prompt drops "keep it short" and asks for a thorough answer in Markdown.
 * Anyone else the reply reaches answers on Super as usual.
 * Thanks, ordinary follow-up questions and new topics stay on Super, as does a
-  judgement Lightning fails to give.
+  judgement Lightning fails to give. The persona replied to still answers.
 * A reply to the user's own post, or to a persona no longer in the room, is not
   judged at all.
 

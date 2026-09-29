@@ -197,9 +197,9 @@ through the reviewed workflow. Ultra is used when the user asks for it: when
 someone replies to a persona's remark, Lightning is shown the remark and the
 reply and answers only whether the reply explicitly asks for a correction, a
 rethink, more detail or a deeper look ("違う", "本当？", "もっと詳しく"). If it
-does, the persona that was replied to answers on Ultra - added even when
-routing did not pick it - with "keep it short" replaced by a request for a
-thorough Markdown answer. Anyone else the reply reaches stays on Super, and so
+does, the persona that was replied to - which a reply always reaches - answers
+on Ultra, with "keep it short" replaced by a request for a thorough Markdown
+answer. Anyone else the reply reaches stays on Super, and so
 does a judgement that fails.
 
 Lightning is not asked whether Super would be good enough; only whether the
