@@ -36,6 +36,9 @@ type Workspace interface {
 	WriteNote(string, string, string, ...NoteSource) error
 	DeleteNote(string, string) error
 	NotesBySource(string, string) ([]string, error)
+	NoteJobs() ([]NoteJob, error)
+	SaveNoteJob(NoteJob) error
+	DeleteNoteJob(string) error
 	DropNoteSource(string, string) ([]string, error)
 	SaveMemory(Memory) error
 	ForgetMemory(string) error

@@ -47,11 +47,12 @@ const okfHost = "# メモの書き方\n\nメモを書くときは、次のスキ
 // immediately, and whatever anyone has to say about it arrives afterwards. The
 // queue is what makes that true.
 type reaction struct {
-	entryID   string
-	edited    bool
-	place     *timeline.Place
-	daily     bool
-	schedules bool
+	entryID    string
+	edited     bool
+	place      *timeline.Place
+	retryNotes bool
+	daily      bool
+	schedules  bool
 	// forgotten is a note the user deleted: the persona is told, so it can put
 	// its own memory back in order. The app never edits a note itself.
 	forgotten *forgotten
@@ -152,7 +153,25 @@ func (r *Runner) Start() {
 	r.once.Do(func() {
 		r.started = true
 		go func() {
+			ticker := time.NewTicker(time.Minute)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-r.done:
+					return
+				case <-ticker.C:
+					r.stopMu.Lock()
+					if !r.stopped {
+						r.queue = append(r.queue, reaction{retryNotes: true})
+						r.wake.Signal()
+					}
+					r.stopMu.Unlock()
+				}
+			}
+		}()
+		go func() {
 			defer close(r.done)
+			r.retryNoteJobs(time.Now())
 			for {
 				r.stopMu.Lock()
 				for len(r.queue) == 0 && !r.stopped {
@@ -165,7 +184,9 @@ func (r *Runner) Start() {
 				item := r.queue[0]
 				r.queue = r.queue[1:]
 				r.stopMu.Unlock()
-				if item.daily {
+				if item.retryNotes {
+					r.retryNoteJobs(time.Now())
+				} else if item.daily {
 					r.dailyAt(time.Now())
 				} else if item.schedules {
 					r.schedulesAt(time.Now())
@@ -979,12 +1000,28 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		r.markUnrelated(trigger.ID, skill.ID)
 	}
 	if keepsNotes(trigger, wakeInstructions) && !unrelated {
-		kept := r.keepNotes(ctx, client, settings, keeperTurn{
+		keeper := keeperTurn{
 			skill: skill, set: set, rules: rules, thread: thread, trigger: trigger, post: post,
 			answer: spoken, wake: wakeInstructions, here: here, names: names, own: prov.own, layout: layout, schedules: plan.Schedules, preread: prereadNotes(referenced),
 			handed: r.handedNotes(skill.ID, trigger, wakeInstructions),
-		})
-		r.pointAtNotes(remark, kept)
+		}
+		snapshot := snapshotKeeper(keeper, remark)
+		if payload, err := json.Marshal(snapshot); err == nil {
+			// A detached turn may still be running when the queue's periodic
+			// retry pass sees its job. Lease the first attempt for the turn's
+			// ten-minute deadline; a failure replaces this with normal backoff.
+			job := store.NoteJob{ID: store.NewID("note"), Persona: skill.ID, Stage: "notes", Payload: payload,
+				NextAttempt: time.Now().Add(11 * time.Minute)}
+			if err := r.store.SaveNoteJob(job); err != nil {
+				r.emit("error", map[string]any{"where": "note retry", "message": err.Error()})
+				written, _, _ := r.keepNotes(ctx, client, settings, keeper)
+				r.pointAtNotes(remark, written)
+			} else {
+				r.runKeeperJob(ctx, client, settings, job, snapshot)
+			}
+		} else {
+			r.emit("error", map[string]any{"where": "note retry", "message": err.Error()})
+		}
 	}
 	return remark
 }

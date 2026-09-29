@@ -115,12 +115,16 @@ func (r *Runner) keeperLock(personaID string) *sync.Mutex {
 
 // allNotes reads every note a persona keeps, in name order.
 func (r *Runner) allNotes(personaID string) []store.Note {
+	notes, _ := r.allNotesChecked(personaID)
+	return notes
+}
+
+func (r *Runner) allNotesChecked(personaID string) ([]store.Note, error) {
 	paths, err := r.store.NotePaths(personaID)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	notes, _ := r.store.Notes(personaID, paths)
-	return notes
+	return r.store.Notes(personaID, paths)
 }
 
 // keeperRecord is one keeper run, for the log.
@@ -149,34 +153,47 @@ func logKeeper(record keeperRecord) {
 	}
 }
 
-// keepNotes writes down what the turn should leave behind. It never fails the
-// turn: a problem is logged, and the index is repaired whatever happened, so it
-// is the one thing a person can count on being complete.
-//
-// It returns the notes it wrote, for the remark to point at.
-func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings store.Settings, k keeperTurn) (written []string) {
+// keepNotes writes down what the turn should leave behind. A failure never
+// retracts the answer; the caller persists it for retry. Index repair is
+// attempted even when note work fails, and a failed repair is returned too.
+func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings store.Settings, k keeperTurn) (written []string, stage string, failure error) {
+	stage = "notes"
 	model := personaModel(settings)
-	if client == nil || client.BaseURL == "" || model == "" || ctx.Err() != nil {
-		return nil
+	if err := ctx.Err(); err != nil {
+		return nil, stage, err
+	}
+	if client == nil || client.BaseURL == "" || model == "" {
+		return nil, stage, fmt.Errorf("note keeper has no model connection")
 	}
 	lock := r.keeperLock(k.skill.ID)
 	lock.Lock()
 	defer lock.Unlock()
+	record := keeperRecord{Persona: k.skill.ID, Trigger: k.trigger.ID, Model: model}
 	defer func() {
 		if problem := recover(); problem != nil {
-			r.emit("error", map[string]any{"persona": k.skill.ID, "where": "notes", "message": fmt.Sprint(problem)})
+			failure = fmt.Errorf("note keeper panic: %v", problem)
+			record.Error = failure.Error()
 		}
 	}()
 
-	record := keeperRecord{Persona: k.skill.ID, Trigger: k.trigger.ID, Model: model}
 	defer func() {
-		if r.repairIndex(k.skill.ID) {
+		if repaired, err := r.repairIndex(k.skill.ID); err != nil {
+			if failure == nil {
+				failure = err
+				stage = "index"
+			}
+			record.Error = failure.Error()
+		} else if repaired {
 			record.Repaired = true
 		}
 		logKeeper(record)
 	}()
 
-	notes := r.allNotes(k.skill.ID)
+	notes, err := r.allNotesChecked(k.skill.ID)
+	if err != nil {
+		record.Error = err.Error()
+		return nil, stage, err
+	}
 	index := "（まだありません）"
 	if note, ok := r.store.Note(k.skill.ID, "index.md"); ok {
 		index = note.Text
@@ -270,26 +287,33 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		// Logged, not emitted: a note that did not come out is not an error the
 		// turn, or a preview of it, should report.
 		record.Error = err.Error()
-		return nil
+		return nil, stage, err
 	}
 	record.Plan = next.Notes
 	if len(next.Notes) == 0 {
-		return nil
+		return nil, "index", nil
 	}
 	_, steps := r.execute(ctx, k.skill, Workflow{Notes: next.Notes}.batch(), k.set, rules, k.post, prov)
 	record.Steps = steps
 	written = notesWritten(steps)
 	if len(steps) > 0 && steps[len(steps)-1].Error != "" {
 		record.Error = fmt.Sprintf("stopped at %s: %s", steps[len(steps)-1].Type, steps[len(steps)-1].Error)
+		failure = fmt.Errorf("%s", record.Error)
 	}
-	r.placeInIndex(k.skill.ID, next.Notes, written)
-	return written
+	if err := r.placeInIndex(k.skill.ID, next.Notes, written); err != nil && failure == nil {
+		failure = err
+		stage = "index"
+	}
+	if failure != nil {
+		return written, stage, failure
+	}
+	return written, "index", nil
 }
 
 // placeInIndex puts a line for each note written with a section under that
 // heading of index.md, and refreshes the line of a listed note written without
 // one. Only notes that were actually written are placed.
-func (r *Runner) placeInIndex(personaID string, ops []NoteOperation, written []string) {
+func (r *Runner) placeInIndex(personaID string, ops []NoteOperation, written []string) error {
 	index := ""
 	if note, ok := r.store.Note(personaID, "index.md"); ok {
 		index = note.Text
@@ -307,8 +331,9 @@ func (r *Runner) placeInIndex(personaID string, ops []NoteOperation, written []s
 		updated = placeNoteInIndex(updated, strings.TrimSpace(op.Section), note)
 	}
 	if updated != index {
-		_ = r.store.WriteNote(personaID, "index.md", updated)
+		return r.store.WriteNote(personaID, "index.md", updated)
 	}
+	return nil
 }
 
 // indexLine is how a note is listed: its title linked, then its description.
@@ -675,8 +700,11 @@ func indexProblems(notes []store.Note, index string, ops []NoteOperation) []stri
 // that are gone are taken out, and a note it does not link is added under a
 // heading of its own. It reports whether it wrote. Grouping stays the persona's;
 // this only guarantees nothing is missing or dead.
-func (r *Runner) repairIndex(personaID string) bool {
-	notes := r.allNotes(personaID)
+func (r *Runner) repairIndex(personaID string) (bool, error) {
+	notes, err := r.allNotesChecked(personaID)
+	if err != nil {
+		return false, err
+	}
 	index, hasIndex := "", false
 	var real []store.Note
 	for _, note := range notes {
@@ -687,13 +715,16 @@ func (r *Runner) repairIndex(personaID string) bool {
 		}
 	}
 	if len(real) == 0 && !hasIndex {
-		return false
+		return false, nil
 	}
 	fixed := repairedIndex(index, real)
 	if fixed == index {
-		return false
+		return false, nil
 	}
-	return r.store.WriteNote(personaID, "index.md", fixed) == nil
+	if err := r.store.WriteNote(personaID, "index.md", fixed); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // unsortedHeading is where a note the keeper did not place is put.

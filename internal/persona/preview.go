@@ -195,8 +195,11 @@ func (d *dryWorkspace) NotePaths(personaID string) ([]string, error) {
 	sort.Strings(out)
 	return out, nil
 }
-func (d *dryWorkspace) RecordWake(string, string) error { return nil }
-func (d *dryWorkspace) SaveMemory(store.Memory) error   { return nil }
+func (d *dryWorkspace) RecordWake(string, string) error    { return nil }
+func (d *dryWorkspace) SaveMemory(store.Memory) error      { return nil }
+func (d *dryWorkspace) NoteJobs() ([]store.NoteJob, error) { return nil, nil }
+func (d *dryWorkspace) SaveNoteJob(store.NoteJob) error    { return nil }
+func (d *dryWorkspace) DeleteNoteJob(string) error         { return nil }
 func (d *dryWorkspace) WriteNote(_, path, content string, sources ...store.NoteSource) error {
 	// The index and the log are housekeeping; what a person is shown is the notes
 	// that carry what was said.

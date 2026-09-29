@@ -313,7 +313,7 @@ Built-in: Read → Answer        External agent: Read + Answer → submit_answer
                      ↓
             Execute → publish the answer
                      ↓
-            Note keeper    → notes, then index.md made complete
+            Note keeper    → notes, then index.md repair attempt
 ```
 
 ### A turn, phase by phase
@@ -415,7 +415,7 @@ the reasons when it is not:
   (`section`), unless it is already listed (asked once; a proposal is not lost
   to the layout of the index).
 
-**The index is the persona's, and the app makes it complete.** How `index.md` is
+**The index is the persona's, and the app repairs it after note work.** How `index.md` is
 grouped is the persona's judgement — headings that fit its subject, related notes
 together. The keeper does not rewrite the index to add a note: it names the
 heading, and the app puts the note's line there (`* [title](/path) - description`),
@@ -424,14 +424,20 @@ moving it from any other heading and making the heading if it is new. It writes
 failed to do, the app then repairs the index:
 links to notes that no longer exist are taken out, and a note it does not link is
 added under an "unsorted" heading with its title and description. The persona is
-shown that heading on its next turn and sorts it. An index can therefore be
-regrouped badly but never be empty of a note or point at one that is gone.
+shown that heading on its next turn and sorts it. A successful repair makes the
+index complete; a storage or cancellation failure leaves repair pending.
 
-If the keeper cannot finish, the answer is already out: the turn costs the note
-and nothing else, and the failure is in the log. Two turns of one persona
+If the keeper cannot finish, the answer is already out. Its input is saved as a
+note job before the keeper runs. Failed note work is retried after one minute,
+with backoff up to one hour, on startup and during periodic queue passes. A
+failed index write retries just the repair, without writing the note again. A
+deleted or edited post's old input is not replayed. Failures are logged; a
+permanent storage or model failure can still leave a job pending. Two turns of one persona
 finishing together take turns, so they do not rewrite the same note or index from
 what each saw. The remark is updated afterwards to point at the notes that were
 written, so a check-in that asked about a note is still found by it.
+If the job itself cannot be saved, the keeper still makes one immediate attempt;
+that attempt has no durable retry.
 
 ## Models
 
@@ -603,8 +609,8 @@ no threshold for when to compress.
 
 **The app does not write the meaning of the notes or group `index.md`.** It
 parses `type`, `title`, `description` and `tags` to validate writes, detect
-duplicates, filter the reader and keep the index complete (every note linked
-under its title, no link to a note that is gone); it also maintains source links
+duplicates, filter the reader and repair the index (every note linked
+under its title, no link to a note that is gone, when repair succeeds); it also maintains source links
 to posts. The Markdown body, and how the index is grouped, remain the persona's
 to write. In local storage the notes are plain files that can
 be read with `cat` or used as an OKF knowledge source elsewhere.

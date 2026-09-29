@@ -187,6 +187,7 @@ func (w *FirestoreWorkspace) Export(ctx context.Context, sink ExportSink) error 
 		w.exportSchedules,
 		w.exportWakes,
 		w.exportRouting,
+		w.exportNoteJobs,
 	} {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -196,6 +197,27 @@ func (w *FirestoreWorkspace) Export(ctx context.Context, sink ExportSink) error 
 		}
 	}
 	return exportBlobs(ctx, w.blobs, sink)
+}
+
+func (w *FirestoreWorkspace) exportNoteJobs(ctx context.Context, sink ExportSink) error {
+	iter := w.user.Collection("noteJobs").Documents(ctx)
+	defer iter.Stop()
+	for {
+		doc, err := iter.Next()
+		if errors.Is(err, iterator.Done) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var job NoteJob
+		if err := doc.DataTo(&job); err != nil {
+			return err
+		}
+		if err := addJSON(sink, path.Join("note-jobs", doc.Ref.ID+".json"), time.Time{}, job); err != nil {
+			return err
+		}
+	}
 }
 
 // exportTimeline streams the log as it is read: the timeline is the one part of
