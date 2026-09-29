@@ -131,14 +131,14 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	if err != nil || sentBack.Accepted || sentBack.Closed || len(sentBack.Problems) != 1 || !strings.Contains(sentBack.Problems[0], "sources") {
 		t.Fatalf("malformed verdict = %+v, %v", sentBack, err)
 	}
-	verdict, err := runner.SubmitAskAnswer(ctx, ask.ID, "exec-1", &Answer{Text: "うまそう", Sources: []string{}}, nil)
+	verdict, err := runner.SubmitAskAnswer(ctx, ask.ID, "exec-1", &Answer{Text: `うまそう\nまたね`, Sources: []string{}}, nil)
 	if err != nil || !verdict.Accepted || !verdict.Closed {
 		t.Fatalf("verdict = %+v, %v", verdict, err)
 	}
 
 	var remark *timeline.Entry
 	eventually(t, "the remark", func() bool { remark = remarkBy(s, "gourmet"); return remark != nil })
-	if remark.Text != "うまそう" || remark.Model != "agent" {
+	if remark.Text != "うまそう\nまたね" || remark.Model != "agent" {
 		t.Fatalf("remark = %+v", remark)
 	}
 	// The built-in note phase keeps a record of what was asked, and only that.

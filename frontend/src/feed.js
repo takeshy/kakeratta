@@ -19,6 +19,10 @@ import { createVoiceInput } from "./voice_input.js";
 export const SILENCE_NOTE_UNTIL = 3;
 export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NOTE_UNTIL;
 
+// Older external replies may have stored escaped newlines before submission
+// normalized them. Read those as lines without changing the saved entry.
+const entryText = (entry) => entry.model === "agent" ? (entry.text || "").replace(/\\n/g, "\n") : entry.text;
+
 export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, showIntro = true }) {
   const view = el("div", { class: "feed" });
   let entries = [];
@@ -279,7 +283,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     if (!entry.text) return null;
     const mine = entry.speaker === "user";
     if (mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
-    return el("div", { class: "said said-markdown" }, renderMarkdown(entry.text));
+    return el("div", { class: "said said-markdown" }, renderMarkdown(entryText(entry)));
   }
 
   function drawPost(entry) {
@@ -603,7 +607,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       lines.push({ id: post.id, text: heading });
       for (const entry of said) {
         const persona = getPersona(entry.speaker);
-        const body = spokenText(entry.text) || entry.text;
+        const body = spokenText(entryText(entry)) || entryText(entry);
         lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona?.name || entry.speaker}。${body}` });
       }
     }

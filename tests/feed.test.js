@@ -1038,6 +1038,23 @@ test("a remark planned by the external agent is marked", (t) => {
   assert.equal(badges[0].textContent, translate("外部エージェント"));
 });
 
+test("older external replies show escaped newlines as lines", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "一行目\\n二行目", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "remark", speaker: "gourmet", root: "p", text: "一行目\\n二行目", model: "agent", at: "2026-09-13T00:01:00Z" },
+  ]);
+  feed.reveal("r");
+  const paragraphs = feed.element.querySelectorAll(".said-markdown");
+  assert.equal(paragraphs.length, 1);
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  assert.equal(walk(paragraphs[0]).filter((node) => node.tagName === "BR").length, 1);
+  assert.equal(feed.element.querySelectorAll(".said").find((node) => node.textContent === "一行目\\n二行目")?.tagName, "P");
+});
+
 // A remark says which notes were written with it, and each opens the persona's
 // memory at that note.
 test("a remark leads to the notes written with it", (t) => {

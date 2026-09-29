@@ -286,6 +286,13 @@ func (r *Runner) ReadForAsk(ctx context.Context, id, claimID string, steps []Rea
 // and reviews it exactly as it would the in-process planner's. The verdict
 // comes back at once: rejected answers may be fixed and submitted again.
 func (r *Runner) SubmitAskAnswer(ctx context.Context, id, claimID string, answer *Answer, parseErr error) (AskVerdict, error) {
+	if parseErr == nil && answer != nil {
+		// Some agents send escaped newlines inside the already decoded JSON text.
+		// Normalize the submitted copy before planning, saving, and publishing it.
+		copy := *answer
+		copy.Text = strings.ReplaceAll(copy.Text, `\n`, "\n")
+		answer = &copy
+	}
 	reply, err := r.sendAsk(ctx, id, claimID, askRequest{answer: answer, parseErr: parseErr})
 	return reply.verdict, err
 }
