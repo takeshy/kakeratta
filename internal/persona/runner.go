@@ -105,7 +105,8 @@ type Runner struct {
 	detached  sync.WaitGroup
 
 	// keepers holds one lock per persona, so its note keeper runs one at a time.
-	keepers sync.Map
+	keepers       sync.Map
+	calendarLocks sync.Map
 	// agentSeen is when the external agent last called in over MCP, as Unix
 	// nanoseconds; zero until it first does after a start.
 	agentSeen atomic.Int64
@@ -735,6 +736,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
 	}
+	r.syncEntryPersonSchedules(ctx, skill, trigger)
 	if trigger.ID != "" {
 		// Who was woken for this post, so that deleting it can tell them - the
 		// app never looks inside a note to work that out.

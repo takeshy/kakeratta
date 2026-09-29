@@ -10,9 +10,8 @@ func TestScheduleValidationAndOwnership(t *testing.T) {
 	s := open(t)
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	for _, bad := range []Schedule{
-		{Skill: "routine", At: now.Add(time.Hour)},                // no note
-		{Skill: "routine", At: now.Add(-time.Minute), Note: "過去"}, // already gone
-		{Skill: "routine", At: now.Add(40 * 24 * time.Hour), Note: "遠すぎる"},
+		{Skill: "routine", At: now.Add(time.Hour)},                          // no note
+		{Skill: "routine", At: now.Add(-time.Minute), Note: "過去"},           // already gone
 		{Skill: "routine", At: now.Add(time.Hour), Note: "毎日", Daily: true}, // repeating without a zone
 		{Skill: "routine", At: now.Add(time.Hour), Note: "毎日", Daily: true, TimeZone: "bad/zone"},
 	} {
@@ -104,5 +103,25 @@ func TestScheduleClaimFiresOnceAndRepeatsDaily(t *testing.T) {
 	// The advanced schedule is a different fire, so the old instant cannot run again.
 	if _, claimed, _ := s.ClaimSchedule(daily.ID, at, now); claimed {
 		t.Fatal("the same daily fire ran twice")
+	}
+}
+
+func TestScheduleWithoutHorizon(t *testing.T) {
+	s := open(t)
+	now := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+	at := now.AddDate(10, 0, 0)
+	schedule := Schedule{Skill: "routine", At: at, Note: "将来の約束"}
+	if err := schedule.Validate(now); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.SaveSchedule(schedule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, claimed, err := s.ClaimSchedule(saved.ID, at, at); err != nil || !claimed {
+		t.Fatalf("due claim: %v %v", claimed, err)
+	}
+	if _, claimed, err := s.ClaimSchedule(saved.ID, at, at); err != nil || claimed {
+		t.Fatalf("duplicate claim: %v %v", claimed, err)
 	}
 }

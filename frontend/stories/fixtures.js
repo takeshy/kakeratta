@@ -159,8 +159,8 @@ const PERSON = {
     campsite: "キャンプ場の予約サイトがまた落ちてる",
     unheard: ["キャンプ", "キャンプ場"],
     builderMessage: "佐藤さんの担当の案を作りました。呼び名の書き方の違いと、キャンプまわりの言い換えも入れています。使ってからAIで修正できます。",
-    builderRequest: "友人の佐藤健二さんのことを覚えてほしい。最近キャンプを始めたらしい。",
-    facts: "佐藤健二さんは友人。最近キャンプを始めたらしい。",
+    builderRequest: "友人の佐藤健二さん。11月10日生まれで最近キャンプを始めた。2026年10月8日15時に一緒に食事する予定。",
+    basicInfo: "11月10日生まれ。最近キャンプを始めた。2026年10月8日15時に一緒に食事する予定。",
   },
   en: {
     name: "Sato", aliases: ["Kenji", "佐藤", "さとう"], keywords: ["camping", "campsite", "tent", "campfire"],
@@ -178,8 +178,8 @@ const PERSON = {
     campsite: "The campsite booking site is down again",
     unheard: ["campsite"],
     builderMessage: "Here is a persona for Sato, with other spellings of his name and near words for camping. Try it first and refine it later with AI.",
-    builderRequest: "Remember things about my friend Kenji Sato. He has just taken up camping.",
-    facts: "Kenji Sato is my friend. He has just taken up camping.",
+    builderRequest: "My friend Kenji Sato was born on November 10 and recently started camping. We are meeting for a meal on October 8, 2026 at 15:00.",
+    basicInfo: "Born on November 10. Recently started camping. Meeting for a meal on October 8, 2026 at 15:00.",
   },
 };
 
@@ -189,8 +189,19 @@ export const personWords = () => PERSON[getLanguage()] || PERSON.en;
 export function person() {
   const w = personWords();
   return { id: "sato", name: w.name, icon: "🧑", builtin: false, active: true, wakes: 5, planner: "builtin", kind: "person",
-    aliases: w.aliases, keywords: w.keywords, domain: w.domain, tone: w.tone, memory: w.memory, instructions: w.instructions,
+    aliases: w.aliases, keywords: w.keywords, domain: w.domain, tone: w.tone, memory: w.memory, instructions: w.instructions, basicInfo: w.basicInfo,
     tools: ["web_search", "place_search", "route", "schedule"], dailyCheckIn: { enabled: true, talk: "share" } };
+}
+
+// Confirmed dates shown on the person's card, independent of memory notes.
+export function personCalendar() {
+  const ja = getLanguage() === "ja";
+  const event = { key: "birthday", name: ja ? "誕生日" : "Birthday", source: "basicInfo", annual: true, month: 11, day: 10 };
+  return { ...person(), schedules: [
+    { id: "sample-birthday-week", at: "2026-11-03T09:00:00+09:00", timeZone: "Asia/Tokyo", note: ja ? "誕生日（1週間前の通知）" : "Birthday (one week before)", personEvent: { ...event, leadDays: 7 } },
+    { id: "sample-birthday-day", at: "2026-11-10T09:00:00+09:00", timeZone: "Asia/Tokyo", note: ja ? "誕生日（当日の通知）" : "Birthday (on the day)", personEvent: { ...event, leadDays: 0 } },
+    { id: "sample-meeting", at: "2026-10-08T09:00:00+09:00", timeZone: "Asia/Tokyo", note: ja ? "10月8日15時に一緒に食事" : "Meal together on Oct 8 at 15:00", personEvent: { key: "meal", name: ja ? "食事" : "Meal", source: "basicInfo", annual: false } },
+  ] };
 }
 
 // Three posts: one that reached the person by name, one that said something

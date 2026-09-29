@@ -194,14 +194,14 @@
             <li>名前を出さない話も拾えるよう、キーワードには言い換えや似た言葉を並べます（例：釣り、つり、釣行、海釣り）。AI で作ると、呼び名の書き方の違いとキーワードの似た言葉をまとめて入れます。</li>
             <li>「母」で「母校」の話が届くように、文字が合っただけで届くことがあります。担当はその人の話かを確かめ、関係なければ何もしません。</li>
             <li>人物の担当はその人について分かったこと（好み、誕生日など）と、その人との出来事（会話、贈り物、約束、貸し借り）を覚えます。貸し借りや約束は、済んだと分かるまで忘れません。</li>
-            <li><strong>作るときに伝えたことも覚えます。</strong>「恋人の nagomi。11/10生まれで、辛いタイ料理が好き」のように書くと、その人についての事実は担当の設定ではなく <strong>かけらとして残すこと</strong> に分けて出ます。保存すると、それが <code>@呼び名</code> 付きのかけらとして投稿され、担当はそこからメモを作ります。メモからは元のかけらに戻れます。AIで修正で伝えたことも同じです。</li>
+            <li>人物の作成時や「AIで修正」で伝えた誕生日・好み・出来事などは、編集できる基本情報として担当の設定に保存されます。かけらの投稿やメモへの転記は行いません。基本情報は通常の編集画面でも修正できます。</li>
             <li><strong>会う予定を書くと、担当はその日の朝に起きて</strong>、前回の出来事や済んでいないことを一言添えて知らせます。人物の担当は、この予定を置く道具のほか、Web 検索、お店や場所の検索、行き方の検索も最初から使えます。贈り物や会う場所を調べるためです。</li>
-            <li><strong>誕生日や記念日が分かると、その1週間前に知らせます。</strong> これまでの贈り物やその人の好みから思いつくことも添えます。</li>
-            <li>話し方、覚え方、約束や予定の扱いはすべての人物の担当で共通で、本体が決めます。担当ごとに書くのは <strong>関係性</strong>（恋人、母、大学時代の友人など）と、必要なら <strong>この人についての指示</strong>（「健康の話は控えめに」など）だけです。</li>
+            <li>基本情報の保存・編集や、その人物に届いたかけらから、日付の分かる誕生日・記念日・会う予定を自動で登録します。誕生日・記念日は毎年、1週間前と当日の午前9時に知らせます。会う予定は指定された通知時刻を優先し、指定がなければ当日午前9時（午前9時より早い予定は1時間前）に知らせます。通知は担当の投稿として届きます。未来の予定に日数の上限はなく、日付の分からない情報は推測で登録しません。予定の変更や中止も反映します。</li>
+            <li>話し方、覚え方、約束や予定の扱いはすべての人物の担当で共通で、本体が決めます。担当ごとに書くのは <strong>関係性</strong>（恋人、母、大学時代の友人など）、編集できる<strong>基本情報</strong>と、必要なら <strong>この人についての指示</strong>（「健康の話は控えめに」など）だけです。</li>
           </ul>
           <figure>
-            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名とキーワードの一覧（サンプル）" loading="lazy" width="382" height="374" />
-            <figcaption>人物の担当のカード。届くきっかけになる呼び名とキーワードが並びます（サンプル）。</figcaption>
+            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名とキーワードの一覧（サンプル）" loading="lazy" width="382" height="614" />
+            <figcaption>人物の担当のカード。呼び名・キーワードと、毎年の誕生日や会う予定の通知が並びます（サンプル）。</figcaption>
           </figure>
           <p><strong>担当</strong> の一覧は <strong>人物</strong> と <strong>関心ごと</strong> のタブに分かれ、どちらも名前や担当条件、呼び名、キーワードで検索できます。ひらがな・カタカナや全角・半角は区別しません。人物のタブは <strong>名前順</strong> にも並べられ、漢字の名前はかなの呼び名（「青木」なら「あおき」）の読みで並びます。</p>
           <figure>
@@ -209,9 +209,10 @@
             <figcaption>人物のタブを名前順にしたところ（サンプル）。</figcaption>
           </figure>
           <figure>
-            <img src="/captures/ja/person-draft.png" alt="AI が下書きした佐藤さんの担当。呼び名、キーワード、関係性、メモの分類と、かけらとして残すこと（サンプル）" loading="lazy" width="382" height="1160" />
-            <figcaption>AI の下書き。呼び名の書き方の違いと、キーワードの似た言葉も入ります。伝えた事実は「かけらとして残すこと」に分かれます（サンプル）。</figcaption>
+            <img src="/captures/ja/person-draft.png" alt="AI が下書きした佐藤さんの担当。呼び名、キーワード、関係性、基本情報（サンプル）" loading="lazy" width="382" height="1221" />
+            <figcaption>AI の下書き。呼び名の書き方の違いと、キーワードの似た言葉も入ります。伝えた事実は編集できる基本情報になります（サンプル）。</figcaption>
           </figure>
+          <figure><img src="/captures/ja/person-edit.png" alt="人物の基本情報を修正する画面（サンプル）" loading="lazy" width="382" height="1136" /><figcaption>基本情報は編集画面で修正できます。保存すると通知予定も更新します（サンプル）。</figcaption></figure>
           <p>届かなかったかけらがあれば <strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せ、関係のないかけらが届いたら <strong>呼んでほしくなかった</strong> から一致した語を外せます（<a href="/manual/?guide=advanced#ja-people-keywords" data-lang-link>人物の担当のキーワードを直す</a>）。</p>
           <h3>使いながら直す</h3>
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
@@ -413,7 +414,7 @@
           <p>たとえば plana は、記録から「朝の薬は7時半ごろ」と分かったものにだけ予定を置き、その少しあとに起きます。まだ記録がなければ「そういえば朝の薬」と一言添え、済んでいれば黙ります。時刻の前に知らせるリマインダーではなく、催促もしません。あなたから「毎朝8時に知らせて」と頼む機能でもありません。</p>
           <p><a href="/manual/#ja-people" data-lang-link>人物の担当</a>は、「来週土曜、佐藤さんと飲む」のような会う予定が書かれると、その日の朝に予定を置きます。起きたら前回の出来事や済んでいないこと（貸し借り、約束）を一言添えて知らせます。</p>
           <ul>
-            <li>担当ごとに20件まで、30日先まで、1回きりか毎日です。</li>
+            <li>担当ごとに20件まで。未来の時刻に日数の上限はありません。道具の予定は1回きりか毎日、誕生日・記念日は毎年繰り返します。</li>
             <li>予定は担当のカードに並びます。<strong>不要な予定は × で消せます。</strong></li>
             <li>起きた回は、担当が黙っても失敗しても消費されます。予定より10分以上遅れた回は実行しません。</li>
             <li>メモを消すと、担当が予定を見直します。担当を停止・削除したとき、メモを全部消したときは、その担当の予定も消えます。</li>
@@ -749,14 +750,14 @@
             <li>To catch posts that do not name them, list rewordings and near words as keywords (fishing, angling, sea fishing). The AI fills in the other spellings of the names and the near words of the keywords.</li>
             <li>A word can match by accident, as 母 (mother) does in 母校 (alma mater). The persona checks whether the post is about the person and does nothing if it is not.</li>
             <li>A person's persona remembers what it learns about them (tastes, birthday) and what happens with them (talks, gifts, promises, loans). Loans and promises are kept until you say they are settled.</li>
-            <li><strong>What you tell it when making it is remembered too.</strong> Write something like “My partner nagomi. Born on 10 November, loves spicy Thai food” and the facts about them come out apart from the settings, under <strong>Keep as a fragment</strong>. Saving posts them as a fragment with <code>@name</code>, and the persona makes its notes from it, each leading back to that fragment. The same goes for what you tell <strong>Edit with AI</strong>.</li>
+            <li>Birthdays, preferences and other details supplied when creating a person or using Edit with AI are saved as editable Basic information in the persona definition. Saving does not post a fragment or copy them into notes. You can also change them in the regular editor.</li>
             <li><strong>Mention meeting them and the persona wakes that morning</strong> to bring up what happened last time and anything still open. Besides placing wakes, a person's persona starts with web search, place search and routes, to look up presents and places to meet.</li>
-            <li><strong>Once it knows a birthday or an anniversary, it tells you a week before</strong>, with an idea drawn from past gifts and what they like.</li>
-            <li>How a person's persona speaks, what it keeps and how it handles promises and meetings are the same for every person, set by the app. Each one has only a <strong>relationship</strong> (partner, mother, a friend from university) and, if you like, <strong>instructions for this person</strong> (“go easy on health topics”).</li>
+            <li>Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.</li>
+            <li>How a person's persona speaks, what it keeps and how it handles promises and meetings are the same for every person, set by the app. Each one has editable basic information, a <strong>relationship</strong> (partner, mother, a friend from university) and, if you like, <strong>instructions for this person</strong> (“go easy on health topics”).</li>
           </ul>
           <figure>
-            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names and keywords (sample data)" loading="lazy" width="382" height="374" />
-            <figcaption>A person's card lists the names and keywords that reach it (sample data).</figcaption>
+            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names and keywords (sample data)" loading="lazy" width="382" height="703" />
+            <figcaption>A person's card lists names, keywords, annual birthday notifications and upcoming appointments (sample data).</figcaption>
           </figure>
           <p>The <strong>Personas</strong> panel has a <strong>People</strong> tab and an <strong>Interests</strong> tab, and each can be searched by name, condition, names or keywords; kana and width do not matter. People can also be put <strong>By name</strong>, a name in kanji going by the kana among its names.</p>
           <figure>
@@ -764,9 +765,10 @@
             <figcaption>The People tab in name order (sample data).</figcaption>
           </figure>
           <figure>
-            <img src="/captures/en/person-draft.png" alt="A persona for Sato drafted by the AI: names, keywords, relationship, kinds of note, and what to keep as a fragment (sample data)" loading="lazy" width="382" height="1211" />
-            <figcaption>The AI's draft, with other spellings of the names and near words for the keywords. The facts you told it are kept apart, to be posted (sample data).</figcaption>
+            <img src="/captures/en/person-draft.png" alt="A persona for Sato drafted by the AI: names, keywords, relationship, basic information (sample data)" loading="lazy" width="382" height="1241" />
+            <figcaption>The AI's draft, with other spellings of the names and near words for the keywords. The details you supplied become editable basic information (sample data).</figcaption>
           </figure>
+          <figure><img src="/captures/en/person-edit.png" alt="Editable basic information" loading="lazy" width="382" height="1187" /><figcaption>Edit basic information directly; saving updates calendar notifications too (sample data).</figcaption></figure>
           <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong>; if an unrelated one did, remove the matched word from <strong>Should not have been called</strong> (<a href="/manual/?guide=advanced#en-people-keywords" data-lang-link>Fix a person's keywords</a>).</p>
           <h3>Adjust as you go</h3>
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
@@ -968,7 +970,7 @@
           <p>plana, for example, sets one only for something its records place at a usual time - “morning medicine around 7:30” - and wakes shortly after. If nothing has been recorded yet it adds “the morning medicine, by the way”; if it has, it stays quiet. This is not an advance reminder and it does not nag. It is also not a way for you to ask “tell me every morning at 8.”</p>
           <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> sets one for the morning of a meeting you mention, such as “drinks with Sato next Saturday.” On waking it brings up what happened last time and anything still open, like a loan or a promise.</p>
           <ul>
-            <li>Up to 20 per persona, up to 30 days ahead, once or daily.</li>
+            <li>Up to 20 per persona, at any future date. Tool-created schedules run once or daily; birthdays and anniversaries recur annually.</li>
             <li>Schedules are listed on the persona's card. <strong>Remove one you do not want with ×.</strong></li>
             <li>A wake is used up even if the persona stays silent or fails. One more than 10 minutes late is skipped.</li>
             <li>Deleting a note makes the persona revisit its schedules. Pausing or deleting the persona, or forgetting all its notes, removes its schedules.</li>

@@ -76,6 +76,21 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 			stillActive[id] = true
 		}
 	}
+	calendars := []*persona.PersonSchedulePlan{}
+	for _, id := range kept {
+		if previouslyActive[id] {
+			continue
+		}
+		skill, _ := s.catalogue.Find(id)
+		if skill.IsPerson() {
+			calendar, err := s.runner.PreparePersonSchedules(r.Context(), skill)
+			if err != nil {
+				fail(w, http.StatusBadGateway, err.Error())
+				return
+			}
+			calendars = append(calendars, calendar)
+		}
+	}
 	settings.Active = kept
 	if err := s.store.SaveSettings(settings); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
@@ -91,6 +106,12 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	for _, calendar := range calendars {
+		if err := s.runner.ApplyPersonSchedules(calendar); err != nil {
+			fail(w, 500, err.Error())
+			return
+		}
+	}
 	s.getPersonas(w, r)
 }
 
@@ -101,6 +122,19 @@ func (s *Server) installPersona(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "読めませんでした")
 		return
 	}
+	var candidate persona.Skill
+	var calendar *persona.PersonSchedulePlan
+	if json.Unmarshal(raw, &candidate) == nil && candidate.IsPerson() {
+		if err := persona.Validate(candidate, s.knownTool); err != nil {
+			fail(w, 400, err.Error())
+			return
+		}
+		calendar, err = s.runner.PreparePersonSchedules(r.Context(), candidate)
+		if err != nil {
+			fail(w, 502, err.Error())
+			return
+		}
+	}
 	skill, err := s.catalogue.Install(raw, s.knownTool)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
@@ -110,6 +144,10 @@ func (s *Server) installPersona(w http.ResponseWriter, r *http.Request) {
 	if err != nil || s.store.PersistSkill(skill.ID, encoded) != nil {
 		_ = s.catalogue.Uninstall(skill.ID)
 		fail(w, http.StatusInternalServerError, "担当を保存できませんでした")
+		return
+	}
+	if err := s.runner.ApplyPersonSchedules(calendar); err != nil {
+		fail(w, 500, "担当は保存しましたが、通知予定を登録できませんでした："+err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, added{Skill: skill, Active: s.activatePersona(skill.ID) == nil})

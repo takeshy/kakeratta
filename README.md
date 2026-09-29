@@ -110,6 +110,16 @@ The user supplies their own Tavily key for web search.
 With speech, a send phrase of your choosing posts what you just said, so a
 thought is kept the moment it arrives.
 
+### People and calendar notifications
+
+Birthdays, preferences and other details supplied when creating a person or using **Edit with AI** are saved as editable **Basic information** in the persona definition. Saving does not post a fragment or copy them into notes. You can also change them in the regular editor.
+
+Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.
+
+![Basic information](docs/captures/en/person-edit.png)
+
+![Calendar notifications](docs/captures/en/person-card.png)
+
 ## How it works
 
 1. Write a thought, paste a screenshot, send a URL, or speak.

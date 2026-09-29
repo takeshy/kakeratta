@@ -158,13 +158,11 @@ word is told that a word is all it was: a post about 母校 (alma mater) reaches
 母 (mother), and if the post is not about them the persona ends its turn
 without a reply or a note.
 
-What you tell the persona builder about the person - a birthday, what they
-like, what happened - is not written into the persona's settings. It comes
-back apart from the draft as **Keep as a fragment**, which you can edit or
-empty. Saving the persona posts it as a fragment naming the person with `@`,
-and the persona takes its ordinary turn on that post, so the facts become its
-notes and each note leads back to the post. What you tell **Edit with AI**
-about a person is posted the same way.
+Birthdays, preferences and other details supplied when creating a person or using **Edit with AI** are saved as editable **Basic information** in the persona definition. Saving does not post a fragment or copy them into notes. You can also change them in the regular editor.
+
+![Basic information editor](captures/en/person-edit.png)
+
+![Calendar notifications](captures/en/person-card.png)
 
 In place of a condition, a person's persona has a **relationship** (partner,
 mother, a friend from university). The persona is told it keeps the person
@@ -194,12 +192,9 @@ friends daily, people seen now and then monthly. Interests check in daily.
 How a person's persona speaks, the kinds of note it keeps (Fact and Event)
 and how it handles loans, promises, meetings, birthdays and anniversaries are
 the same for every person and held by the app, so an improvement reaches all
-of them. In the editor a person has only its relationship and optional
+of them. In the editor a person has its relationship, basic information and optional
 **instructions for this person**; tone and kinds of note are not shown.
-Once it knows a birthday or an anniversary, it places a wake a week before
-(a wake can be at most 30 days ahead, so until then it checks the date at each
-check-in) and
-tells you then, with an idea drawn from past gifts and what they like.
+Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.
 
 A person's persona has all the built-in tools - web search, place search,
 routes and wakes (schedule) - to look up presents and places to meet and to
@@ -395,7 +390,7 @@ Integrations, where **Use the external agent** can pause it for a while. See [He
 
 ```
 <workspace>/settings.json          endpoints, models, the web search key, who is in the room
-<workspace>/timeline.jsonl         posts and remarks (append only)
+<workspace>/timeline/YYYY/MM/DD.json posts and remarks by date
 <workspace>/blobs/<id>.png         captures
 <workspace>/memory/<id>/           each persona's notes (OKF-style Markdown; the app reads metadata and maintains source links)
 <workspace>/memory/<id>.meta.json  how many times it woke, and so on
@@ -404,10 +399,7 @@ Integrations, where **Use the external agent** can pause it for a while. See [He
 <workspace>/search-embeddings/     semantic search vectors (rebuilt after restart or on search if removed)
 ```
 
-The timeline is **append only**. An entry is never rewritten: a change (the
-image finished being read, it was deleted) is another line with the same id
-further down, and the later one wins. Appending costs the same however long the
-log gets, and a crash mid-write costs the last line rather than the file.
+The timeline stores current records in daily files. Changes atomically replace the affected file. Deletion removes the records and their replies; empty daily files are removed too.
 
 ### Taking it with you
 

@@ -108,3 +108,11 @@ test("a person's card chooses daily or monthly, and says the day", async (t) => 
   assert.deepEqual(sent[0], ["sato", { talk: "share", every: "monthly" }]);
   assert.ok(walk(view.element).some((node) => String(node.textContent).startsWith("毎月12日")), "the card says the day");
 });
+
+test("person calendar schedules show their annual recurrence", async (t) => {
+  setup(t);
+  t.mock.method(api, "personas", async () => ({ personas: [{ ...rows[2], schedules: [{ id: "birthday", at: "2027-11-10T00:00:00Z", timeZone: "Asia/Tokyo", note: "誕生日（当日の通知）", personEvent: { annual: true } }] }], tools: [] }));
+  const view = createPersonas({ getSettings: () => ({}) });
+  await view.load();
+  assert.ok(walk(view.element).some(node => node.className.includes("schedule") && node.textContent.includes("毎年") && node.textContent.includes("誕生日")));
+});

@@ -101,7 +101,7 @@ func phasePrompt(phase string, skill Skill, set *tools.Set, layout, wake string)
 	switch phase {
 	case "schedule":
 		s += `今回のターンで未来の予定を変える必要があるかを判断する。Answerにある作成・取消・変更の約束、日時を確認し、すべてoperationsまたは既存予定で裏付ける。約束があるのにoperationsが空で既存予定にも根拠がなければconsistent:false。取り消したという回答は実際のcancel操作を必要とする。
-変更はcancel+createで表す。createはat,daily,noteと背景メモpath,textを一緒に指定する。cancelは既存id。他の文字列は空、dailyはfalse。明示された通知時刻を守る。それ以外の確認は用が済むころ、30日以内。背景メモは予定に属する。
+変更はcancel+createで表す。createはat,daily,noteと背景メモpath,textを一緒に指定する。cancelは既存id。他の文字列は空、dailyはfalse。明示された通知時刻を守る。それ以外の確認は用が済むころの未来の時刻。背景メモは予定に属する。
 `
 		if !set.Allows("schedule") {
 			s += "この担当は予定操作を許可されていない。operationsは空。予定操作の約束があればconsistent:false。\n"

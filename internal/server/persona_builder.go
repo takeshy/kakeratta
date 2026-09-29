@@ -235,6 +235,19 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "担当のIDは変更できません")
 		return
 	}
+	if err := persona.Validate(skill, s.knownTool); err != nil {
+		fail(w, 400, err.Error())
+		return
+	}
+	var calendar *persona.PersonSchedulePlan
+	if skill.IsPerson() && (!exists || previous.BasicInfo != skill.BasicInfo || !previous.IsPerson()) {
+		var err error
+		calendar, err = s.runner.PreparePersonSchedules(r.Context(), skill)
+		if err != nil {
+			fail(w, 502, err.Error())
+			return
+		}
+	}
 	raw, _ := json.Marshal(skill)
 	var saved persona.Skill
 	var err error
@@ -257,6 +270,12 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 		}
 		fail(w, 500, "担当を保存できませんでした")
 		return
+	}
+	if calendar != nil {
+		if err := s.runner.ApplyPersonSchedules(calendar); err != nil {
+			fail(w, 500, "担当は保存しましたが、通知予定を登録できませんでした："+err.Error())
+			return
+		}
 	}
 	if exists {
 		writeJSON(w, 200, saved)

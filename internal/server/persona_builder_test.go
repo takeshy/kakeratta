@@ -303,6 +303,16 @@ func TestPersonaBuilderAcceptsTheDialogsOpeningQuestion(t *testing.T) {
 
 func TestPersonBasicInformationSavedAndEditableWithoutPosting(t *testing.T) {
 	s, workspace := app(t)
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		content := `{"events":[{"key":"birthday","name":"誕生日","annual":true,"month":11,"day":10,"at":"","cancel":false}]}`
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": content}}}})
+	}))
+	defer model.Close()
+	settings := workspace.ConfiguredSettings()
+	settings.BaseURL = model.URL
+	if err := workspace.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
 	skill := persona.Skill{ID: "sato", Name: "佐藤さん", Domain: "大学の友人", Kind: persona.KindPerson, BasicInfo: "11月10日生まれ。タイ料理が好き。"}
 	save := func(method, path string) {
 		raw, _ := json.Marshal(skill)
@@ -317,10 +327,16 @@ func TestPersonBasicInformationSavedAndEditableWithoutPosting(t *testing.T) {
 		}
 	}
 	save("POST", "/api/personas/draft")
+	if schedules, err := workspace.Schedules(skill.ID); err != nil || len(schedules) != 2 {
+		t.Fatalf("birthday schedules = %+v, %v", schedules, err)
+	}
 	skill.BasicInfo = "11月10日生まれ。辛くないタイ料理が好き。"
 	save("PUT", "/api/personas/sato")
 	skill.BasicInfo = ""
 	save("PUT", "/api/personas/sato")
+	if schedules, err := workspace.Schedules(skill.ID); err != nil || len(schedules) != 0 {
+		t.Fatalf("cleared schedules = %+v, %v", schedules, err)
+	}
 	entries, err := workspace.Timeline()
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("unexpected post: %+v, %v", entries, err)

@@ -754,6 +754,9 @@ func (r *Runner) scheduleListFor(skill Skill, set *tools.Set) (string, map[strin
 	for _, schedule := range schedules {
 		known[schedule.ID] = true
 		repeat := "1回"
+		if schedule.PersonEvent != nil && schedule.PersonEvent.Annual {
+			repeat = "毎年"
+		}
 		if schedule.Daily {
 			repeat = "毎日"
 		}

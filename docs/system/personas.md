@@ -20,7 +20,7 @@ Subject personas cover topics. Person personas use `Kind: person` and have `Alia
 
 Installing a definition from the frontend validates and installs it in the Catalogue, persists it through Workspace, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
 
-For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. The field is limited to 8,000 characters and cleared for subject personas.
+For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. Date-bearing information is separately normalized into notification schedules before saving; dates that cannot be established are omitted. The field is limited to 8,000 characters and cleared for subject personas.
 
 Each person turn receives the current basic information through `forTurn`, alongside the shared person rules. Personas use it for answers, research, and scheduling, without copying it into notes; the current definition takes precedence over outdated notes. AI edits receive the current draft and preserve existing basic information when the response omits the field.
 
@@ -136,7 +136,13 @@ The keeper's input is persisted as a `NoteJob`. Failures retry with increasing d
 
 ## Scheduled wakes
 
-Creating a schedule stores its time, recurrence, wake note, and background memory. Runner claims due schedules before executing the persona. Claiming is part of the persistence contract and prevents duplicate execution of the same schedule. Pausing or removing a persona removes its schedules.
+Creating an ordinary persona schedule stores its time, recurrence, wake note, and background memory.
+
+Person calendars are also synchronized when a person is created, installed, reactivated, or its basic information is edited, and when it receives a user post or reply containing date or plan information (including analyzed image text). A dedicated model request extracts confirmed birthdays, anniversaries, meetings, appointments, and cancellations using the current time, timezone, and existing schedule keys. Basic-information synchronization replaces schedules sourced from that field; posts add or correct only the specified events. Unrelated schedules are preserved. These schedules require no memory note.
+
+Birthdays and anniversaries have two annual notifications: seven days before and on the date, at 09:00 in the saved timezone. Newly learned imminent dates notify at the next minute when the usual time has passed. February 29 is observed on February 28 in non-leap years. Annual schedules retain the original calendar date and advance to the following occurrence when claimed; repeating the same information preserves that occurrence. Appointments are one-time notifications, respecting explicitly requested notification times; otherwise the default is 09:00 on the event date, or one hour before an event earlier than 09:00. All schedules accept any future date without a scheduling horizon, within the existing per-persona count limit.
+
+Due person events use the normal Runner notification path, with instructions to notify even when no memory note exists. Model or storage failures are surfaced as API errors during basic-information saving or live error events during post processing. Runner claims due schedules before executing the persona. Claiming is part of the persistence contract and prevents duplicate execution of the same schedule. Pausing or removing a persona removes its schedules.
 
 Past schedules are not all replayed unconditionally. Execution windows and persona state determine how late schedules are handled.
 
@@ -153,7 +159,12 @@ The app itself builds monthly summaries from the timeline as topic-based posts w
 ## Implementation and verification
 
 - [schedule.go](../../internal/persona/schedule.go)
+- [person_schedules.go](../../internal/persona/person_schedules.go): event extraction and calendar reconciliation
+- [person_schedule.go](../../internal/store/person_schedule.go): annual dates and recurrence
+- [person_schedules_test.go](../../internal/persona/person_schedules_test.go)
+- [person_schedule_test.go](../../internal/store/person_schedule_test.go)
 - [schedule.go](../../internal/store/schedule.go)
+- [schedule_test.go](../../internal/store/schedule_test.go): future dates without a horizon, ownership, caps, and claims
 - [daily.go](../../internal/persona/daily.go)
 - [summary.go](../../internal/persona/summary.go)
 - [daily.go](../../internal/store/daily.go)

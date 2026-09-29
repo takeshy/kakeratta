@@ -24,6 +24,7 @@ import (
 // how the ordering rules are checked: what the heavy model was given is the
 // evidence that it saw the light one's remark.
 type fake struct {
+	calendar   func(user string) string
 	prepared   map[string]testTurn
 	phases     []string
 	phaseReply func(system, user string, offered map[string]bool) string
@@ -90,6 +91,14 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 				text += call.Function.Name + " " + call.Function.Arguments
 			}
 			user += text + "\n"
+		}
+		if strings.HasPrefix(system, "# Person calendar events") {
+			content := `{"events":[]}`
+			if f.calendar != nil {
+				content = f.calendar(user)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": content}}}})
+			return
 		}
 		// What a persona may call travels in the request now rather than in the
 		// prompt, so it is recorded beside it - a test asking whether a persona

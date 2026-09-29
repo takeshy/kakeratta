@@ -78,6 +78,7 @@ function scheduleWhen(schedule) {
     }
   };
   const clock = parts({ hour: "2-digit", minute: "2-digit" });
+  if (schedule.personEvent?.annual) return `${t("毎年")} ${parts({ month: "2-digit", day: "2-digit" })} ${clock}`;
   return schedule.daily ? `${t("毎日")} ${clock}` : `${parts({ month: "2-digit", day: "2-digit" })} ${clock}`;
 }
 
@@ -362,7 +363,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         : "毎日7時〜21時のどこかで起き、最近の記録と自分のメモを見直して、伝える価値があることを見つけたときに話します。") }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
-        el("span", { class: "hint", label: "この担当が預けた予定" }),
+        el("span", { class: "hint", label: "この担当の通知予定" }),
         ...row.schedules.map((schedule) => {
           const text = `${scheduleWhen(schedule)} · ${schedule.note || ""}`.trim();
           return el("span", { class: "chip ghost schedule", text },
@@ -383,7 +384,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
               } }));
         }),
       ));
-      box.append(el("p", { class: "hint", label: "予定は担当が置きます。不要なら × で消せます。メモを消すと担当が見直します。" }));
+      box.append(el("p", { class: "hint", label: "基本情報やかけらから登録された予定と、担当が置いた予定です。不要なら × で消せます。" }));
     }
     if (row.tools?.length) {
       box.append(el("p", { class: "tools" }, `${t("道具")}: `,

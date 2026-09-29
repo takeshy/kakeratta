@@ -246,9 +246,16 @@ func (r *Runner) schedulesAt(now time.Time) {
 		trigger := timeline.Entry{At: now, Speaker: "system", Text: fmt.Sprintf(
 			"Schedule: %s. Set for %s (%s). Check whether it is already done before saying anything.",
 			fired.Note, when.Format(time.RFC3339), zone)}
+		if fired.PersonEvent != nil && fired.PersonEvent.Annual {
+			trigger.Text += fmt.Sprintf("\n対象の誕生日・記念日は毎年%02d月%02d日です（2月29日は平年には2月28日に通知）。この通知は%d日前の通知です。", fired.PersonEvent.Month, fired.PersonEvent.Day, fired.PersonEvent.LeadDays)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		today := timeline.Entry{At: now, Speaker: "system", Text: r.scheduleTimeline(ctx, now, settings.Location())}
-		r.run(ctx, skill, []timeline.Entry{trigger, today}, trigger, false, false, scheduleInstructions, false, client, settings, r.registry(settings))
+		instructions := scheduleInstructions
+		if fired.PersonEvent != nil {
+			instructions += "\n今回は人物の誕生日・記念日・予定の通知です。対象の日時は保存済み予定で確認できています。今日すでに同じ通知をした場合や予定が取り消されている場合を除き、対象のことを短く通知してください。メモがないことを理由に黙らないでください。年次の予定は本体が来年へ進めるので、同じ予定をscheduleで追加しないでください。"
+		}
+		r.run(ctx, skill, []timeline.Entry{trigger, today}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
 		cancel()
 	}
 }

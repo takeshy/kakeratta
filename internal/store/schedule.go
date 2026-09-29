@@ -30,7 +30,8 @@ type Schedule struct {
 	// NotePath is the note the persona wrote alongside the schedule. The app
 	// keeps the path so the persona can be shown which note a wake rests on; it
 	// never opens the note.
-	NotePath string `json:"notePath,omitempty"`
+	NotePath    string       `json:"notePath,omitempty"`
+	PersonEvent *PersonEvent `json:"personEvent,omitempty"`
 }
 
 // MaxSchedulesPerSkill caps what one persona can queue: every wake is a model
@@ -41,11 +42,8 @@ const MaxSchedulesPerSkill = 20
 // Coming back from downtime should not spend the morning saying yesterday.
 const ScheduleGrace = 10 * time.Minute
 
-// ScheduleHorizon is how far ahead a schedule may be set.
-const ScheduleHorizon = 30 * 24 * time.Hour
-
 var (
-	ErrScheduleTime     = errors.New("schedule は今から30日以内の時刻を指定してください")
+	ErrScheduleTime     = errors.New("schedule は未来の時刻を指定してください")
 	ErrScheduleNote     = errors.New("schedule には何のためかを書いてください（200文字以内）")
 	ErrScheduleZone     = errors.New("毎日繰り返す schedule には IANA のタイムゾーンが必要です")
 	ErrScheduleTooMany  = errors.New("この担当の schedule は上限に達しています。不要なものを cancel で消してください")
@@ -55,13 +53,21 @@ var (
 // Validate checks a schedule before it is stored, with now passed in so the
 // caller decides what "too late" means.
 func (s Schedule) Validate(now time.Time) error {
-	if s.At.IsZero() || !s.At.After(now) || s.At.Sub(now) > ScheduleHorizon {
+	if s.At.IsZero() || !s.At.After(now) {
 		return ErrScheduleTime
 	}
 	if note := []rune(s.Note); len(note) == 0 || len(note) > 200 {
 		return ErrScheduleNote
 	}
-	if s.Daily {
+	if s.PersonEvent != nil {
+		if err := s.PersonEvent.Validate(); err != nil {
+			return err
+		}
+		if s.Daily {
+			return errors.New("person events cannot repeat daily")
+		}
+	}
+	if s.Daily || s.PersonEvent != nil {
 		if s.TimeZone == "" || s.TimeZone == "Local" {
 			return ErrScheduleZone
 		}
@@ -72,9 +78,19 @@ func (s Schedule) Validate(now time.Time) error {
 	return nil
 }
 
-// Next is when a daily schedule runs after this firing, keeping the local clock
-// time across daylight-saving changes.
+// Next advances a recurring schedule using calendar dates in its timezone,
+// keeping the local clock time across daylight-saving changes.
 func (s Schedule) Next(from time.Time) (time.Time, bool) {
+	if s.PersonEvent != nil && s.PersonEvent.Annual {
+		if s.PersonEvent.Validate() != nil {
+			return time.Time{}, false
+		}
+		zone, err := time.LoadLocation(s.TimeZone)
+		if err != nil {
+			zone = time.UTC
+		}
+		return s.PersonEvent.NextAt(from, zone, false), true
+	}
 	if !s.Daily {
 		return time.Time{}, false
 	}

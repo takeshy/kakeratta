@@ -714,18 +714,15 @@ routing condition. It has no `tone` or `memory` of its own, and its
 `instructions` are only what is particular to this one person, if anything.
 How a person's persona speaks, its two note kinds (Fact and Event) and its
 rules - keep loans and promises until settled, wake on the morning of a
-meeting, wake a week before a birthday or an anniversary - are held by the app
+meeting, wake a week before and on a birthday or an anniversary - are held by the app
 and given to every person at the start of a turn (`forTurn` in
 `internal/persona/people.go`), so a better rule reaches every person at once.
 
-The persona builder hands back, apart from the draft, the **facts** the user
-told it about the person (a birthday, what they like, what happened). They are
-not written into the settings: saving the persona posts them as a fragment
-naming the person with `@`, and the persona makes its notes from that post in
-an ordinary turn, so each fact is a note that leads back to where it was said.
-The builder also gives a new person every built-in tool - web search, place
-search, routes and schedule - and chooses from the relationship whether it is
-looked back on daily or monthly (see the month's summary below).
+Birthdays, preferences and other details supplied when creating a person or using **Edit with AI** are saved as editable **Basic information** in the persona definition. Saving does not post a fragment or copy them into notes. You can also change them in the regular editor.
+
+The definition stores `basicInfo` (up to 8,000 characters), supplied on each `forTurn`. `internal/persona/person_schedules.go` extracts calendar events before saving basic information, then reconciles schedules after persistence. Fragments use the same extraction and reconciliation.
+
+Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.
 
 ## Tools belong to the persona and the operator
 
@@ -921,9 +918,7 @@ subject always checks in daily). Such a person checks in on the summary's day,
 after it, and is handed the summary - as the user may have corrected it - and
 the posts since its previous check-in that contain its names or keywords (the
 newest 40), instead of reading the whole timeline. However many people there
-are, the month is read once. Since a wake can be at most 30 days ahead, a
-person checks at each check-in for a birthday whose week-before morning has
-come within reach, which a monthly gap cannot jump over.
+are, the month is read once. Calendar notifications execute from saved schedules independently of check-in frequency.
 
 ### Schedules created by personas
 
@@ -932,10 +927,10 @@ A persona that has the `schedule` tool can ask kakeratta to wake it later.
 Current limits are:
 
 * up to 20 pending schedules per persona;
-* up to 30 days ahead;
+* any future time, without a scheduling horizon;
 * one-time or daily recurrence.
 
-Schedules are attached to the note that caused them to exist.
+Tool-created schedules are attached to their background notes. Host-managed person events need no note; birthdays and anniversaries recur annually and share the 20-schedule limit.
 
 For example, plana may write a note about buying flowers and schedule a later
 wake to ask whether they were bought.

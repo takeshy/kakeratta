@@ -3,7 +3,7 @@ import { getLanguage } from "../src/i18n.js";
 import { createPersonas } from "../src/personas.js";
 import { serve } from "./api.js";
 import { sheet } from "./frame.js";
-import { memory, nobody, person, personWords, personas, tools } from "./fixtures.js";
+import { memory, nobody, person, personCalendar, personWords, personas, tools } from "./fixtures.js";
 
 export default { title: "Personas", parameters: { layout: "fullscreen" } };
 
@@ -132,7 +132,7 @@ const personCard = (element) => element.querySelector('[data-id="sato"]');
 // else does.
 export const PersonCard = {
   name: "人物の担当がいる",
-  render: () => panelOf([person(), ...personas], null, { tab: "person" }),
+  render: () => panelOf([personCalendar(), ...personas], null, { tab: "person" }),
 };
 
 // People on a tab of their own, found by any of their names or keywords, and
@@ -141,8 +141,8 @@ const people = () => {
   const ja = getLanguage() === "ja";
   return [
     person(),
-    { ...person(), id: "aoki", dailyCheckIn: { enabled: true, talk: "share", every: "monthly", on: 12 }, name: ja ? "青木先生" : "Ms Aoki", icon: "🎹", domain: ja ? "子どものピアノの先生。" : "Our child's piano teacher.", aliases: ja ? ["青木", "あおき", "先生"] : ["Aoki", "teacher"], keywords: ja ? ["ピアノ教室", "発表会"] : ["piano lesson", "recital"] },
-    { ...person(), id: "mother", name: ja ? "母" : "Mum", icon: "👩", domain: ja ? "母。" : "My mother.", aliases: ja ? ["お母さん", "おかあさん", "おかん"] : ["Mother", "Mom"], keywords: ja ? ["実家"] : ["my parents' house"] },
+    { ...person(), id: "aoki", dailyCheckIn: { enabled: true, talk: "share", every: "monthly", on: 12 }, basicInfo: "", name: ja ? "青木先生" : "Ms Aoki", icon: "🎹", domain: ja ? "子どものピアノの先生。" : "Our child's piano teacher.", aliases: ja ? ["青木", "あおき", "先生"] : ["Aoki", "teacher"], keywords: ja ? ["ピアノ教室", "発表会"] : ["piano lesson", "recital"] },
+    { ...person(), id: "mother", basicInfo: "", name: ja ? "母" : "Mum", icon: "👩", domain: ja ? "母。" : "My mother.", aliases: ja ? ["お母さん", "おかあさん", "おかん"] : ["Mother", "Mom"], keywords: ja ? ["実家"] : ["my parents' house"] },
   ];
 };
 
@@ -177,7 +177,7 @@ export const PersonCreateDraft = {
   render: () => panelOf(personas, () => {
     const w = personWords();
     const { active, wakes, planner, dailyCheckIn, builtin, ...draft } = person();
-    serve({ personas, tools, memory, personaDraft: { message: w.builderMessage, placeholder: "", draft, facts: w.facts } });
+    serve({ personas, tools, memory, personaDraft: { message: w.builderMessage, placeholder: "", draft } });
     showPersonaBuilder({});
     const dialog = document.querySelector(".persona-builder");
     dialog.querySelector("form textarea").value = w.builderRequest;

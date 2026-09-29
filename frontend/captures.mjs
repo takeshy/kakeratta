@@ -58,6 +58,7 @@ const shots = [
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },
   { name: "reply-fix", id: "timeline--reply-fix-proposal", clip: ".dialog.reply-fix", ready: ".reply-instructions" },
   { name: "reply-trial", id: "timeline--reply-fix-trial", clip: ".dialog.reply-fix", ready: ".reply-accept" },
+  { name: "person-edit", id: "personas--person-edit", clip: ".persona-editor", ready: ".persona-editor" },
   { name: "person-card", id: "personas--person-card", clip: '.persona[data-id="sato"]' },
   { name: "people", id: "personas--people-by-name", clip: "#sheet", ready: '.persona[data-id="mother"]' },
   { name: "llm-connect-hub", id: "timeline--external-agent-vault", clip: ".thread", ready: ".model-badge" },
