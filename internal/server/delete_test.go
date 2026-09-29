@@ -41,14 +41,14 @@ func TestDeletingAPostDeletesTheConversationUnderIt(t *testing.T) {
 		t.Fatalf("delete: %d", code)
 	}
 	for _, id := range []string{"p", "r", "u"} {
-		if entry, ok := workspace.Entry(id); !ok || !entry.Deleted {
+		if entry, ok := workspace.Entry(id); ok {
 			t.Fatalf("%s survived its post: %+v", id, entry)
 		}
 		if record, _ := workspace.Routing(id); record != nil {
 			t.Fatalf("%s kept its routing record", id)
 		}
 	}
-	if entry, _ := workspace.Entry("q"); entry.Deleted {
+	if _, ok := workspace.Entry("q"); !ok {
 		t.Fatal("another post was deleted")
 	}
 	if record, _ := workspace.Routing("q"); record == nil {
@@ -70,14 +70,14 @@ func TestDeletingAPostDeletesTheConversationUnderIt(t *testing.T) {
 		t.Fatalf("delete remark: %d", code)
 	}
 	for _, id := range []string{"r2", "u2", "r3"} {
-		if entry, _ := workspace.Entry(id); !entry.Deleted {
+		if _, ok := workspace.Entry(id); ok {
 			t.Fatalf("%s survived the remark it answered", id)
 		}
 	}
-	if entry, _ := workspace.Entry("s2"); entry.Deleted {
+	if _, ok := workspace.Entry("s2"); !ok {
 		t.Fatal("a remark that did not answer it was deleted")
 	}
-	if entry, _ := workspace.Entry("q"); entry.Deleted {
+	if _, ok := workspace.Entry("q"); !ok {
 		t.Fatal("the remark took its post with it")
 	}
 }

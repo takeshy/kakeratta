@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -56,9 +57,8 @@ func open(t *testing.T) *Store {
 	return s
 }
 
-// The log is append-only, and changing an entry means writing it again. History
-// is never rewritten underneath anything that already read it.
-func TestALaterLineWinsWithoutRewritingTheLog(t *testing.T) {
+// An update replaces the current entry within its daily snapshot.
+func TestLaterUpdateReplacesCurrentEntry(t *testing.T) {
 	s := open(t)
 	entry := timeline.Entry{
 		ID: "e1", Kind: timeline.KindPost, Speaker: timeline.User,
@@ -116,42 +116,49 @@ func TestBlobStoreCanBeReplacedByObjectStorage(t *testing.T) {
 	}
 }
 
-func TestAppendAfterInterruptedRecord(t *testing.T) {
+func TestDailySnapshotSurvivesReopen(t *testing.T) {
 	s := open(t)
-	if err := s.Append(timeline.Entry{ID: "before", Kind: timeline.KindPost}); err != nil {
+	at := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	if err := s.Append(timeline.Entry{ID: "post", Kind: timeline.KindPost, At: at, Text: "original"}); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.OpenFile(s.path(logName), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err := s.Append(timeline.Entry{ID: "post", Kind: timeline.KindPost, At: at, Text: "edited"}); err != nil {
+		t.Fatal(err)
+	}
+	var saved []timeline.Entry
+	if err := readJSON(s.path("timeline", "2026", "09", "30.json"), &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved) != 1 || saved[0].Text != "edited" {
+		t.Fatalf("snapshot = %+v", saved)
+	}
+	reopened, err := Open(s.Root())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = f.WriteString(`{"id":"interrupted`)
-	f.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Append(timeline.Entry{ID: "after", Kind: timeline.KindPost}); err != nil {
-		t.Fatal(err)
-	}
-	entries, err := s.Timeline()
-	if err != nil || len(entries) != 2 || entries[1].ID != "after" {
-		t.Fatalf("entries = %+v, err = %v", entries, err)
+	entry, exists := reopened.Entry("post")
+	if !exists || entry.Text != "edited" {
+		t.Fatalf("entry = %+v, exists = %v", entry, exists)
 	}
 }
 
 func TestMediaUpdateCannotResurrectDeletedPost(t *testing.T) {
 	s := open(t)
-	entry := timeline.Entry{ID: "post", Kind: timeline.KindPost, Deleted: true}
+	entry := timeline.Entry{ID: "post", Kind: timeline.KindPost}
 	if err := s.Append(entry); err != nil {
 		t.Fatal(err)
 	}
-	updated, err := s.UpdateMedia(entry.ID, &timeline.Media{Text: "OCR finished"})
-	if err != nil || !updated.Deleted || updated.Media != nil {
-		t.Fatalf("updated = %+v, err = %v", updated, err)
+	if _, err := s.DeleteEntry(context.Background(), entry.ID); err != nil {
+		t.Fatal(err)
 	}
-	stored, _ := s.Entry(entry.ID)
-	if !stored.Deleted {
-		t.Fatal("deleted post was resurrected")
+	if _, err := s.UpdateMedia(entry.ID, &timeline.Media{Text: "late OCR"}); err == nil {
+		t.Fatal("missing entry updated")
+	}
+	if err := s.UpdateEntry(entry); !errors.Is(err, ErrEntryMissing) {
+		t.Fatalf("update = %v", err)
+	}
+	if _, ok := s.Entry(entry.ID); ok {
+		t.Fatal("deleted post resurrected")
 	}
 }
 

@@ -19,6 +19,8 @@ type Workspace interface {
 	Root() string
 	SkillDir() string
 	Append(timeline.Entry) error
+	UpdateEntry(timeline.Entry) error
+	DeleteEntry(context.Context, string) ([]timeline.Entry, error)
 	CreateEntry(timeline.Entry) (timeline.Entry, bool, error)
 	Timeline() ([]timeline.Entry, error)
 	TimelinePage(context.Context, int, string) (TimelinePage, error)

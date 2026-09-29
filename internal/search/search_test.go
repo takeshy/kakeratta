@@ -38,9 +38,14 @@ func TestKeywordSearchIncludesOlderMediaAndRepliesButNotDeletedThreads(t *testin
 	old := timeline.Entry{ID: "old", Kind: timeline.KindPost, Text: "Ｃａｆｅ", At: time.Unix(1, 0), Media: &timeline.Media{Text: "赤ワイン"}}
 	save(t, w, old,
 		timeline.Entry{ID: "reply", Kind: timeline.KindReply, Root: "old", Text: "Cafe 赤ワイン おいしい", At: time.Unix(2, 0)},
-		timeline.Entry{ID: "deleted", Kind: timeline.KindPost, Text: "Cafe 赤ワイン", Deleted: true},
-		timeline.Entry{ID: "hidden", Kind: timeline.KindReply, Root: "deleted", Text: "Cafe 赤ワイン"},
-		timeline.Entry{ID: "orphan", Kind: timeline.KindReply, Root: "missing", Text: "Cafe 赤ワイン"})
+		timeline.Entry{ID: "deleted", Kind: timeline.KindPost, Text: "Cafe 赤ワイン"},
+		timeline.Entry{ID: "hidden", Kind: timeline.KindReply, Root: "deleted", Text: "Cafe 赤ワイン"})
+	if _, err := w.DeleteEntry(context.Background(), "deleted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Append(timeline.Entry{ID: "orphan", Kind: timeline.KindReply, Root: "missing", Text: "Cafe 赤ワイン"}); !errors.Is(err, store.ErrEntryMissing) {
+		t.Fatalf("orphan = %v", err)
+	}
 	for i := 0; i < 25; i++ {
 		save(t, w, timeline.Entry{ID: store.NewID("p"), Kind: timeline.KindPost, Text: "最近の投稿", At: time.Now()})
 	}

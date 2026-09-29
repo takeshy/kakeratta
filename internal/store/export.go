@@ -20,7 +20,6 @@ package store
 // index rebuild uses.
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -146,9 +145,8 @@ func (s *Store) exportFiles(ctx context.Context, sink ExportSink) (BlobStore, er
 }
 
 // exportFile hands one file to the sink. It is opened and measured under the
-// lock and written out without it, and the copy stops at the length measured
-// there: a line being appended at that moment is left whole for the next
-// export rather than copied half written.
+// lock and written out without it. Daily snapshots are atomically replaced,
+// so the open file continues to refer to a complete version throughout copying.
 func (s *Store) exportFile(name string, sink ExportSink) error {
 	s.mu.RLock()
 	file, err := os.Open(s.path(filepath.FromSlash(name)))
@@ -220,35 +218,41 @@ func (w *FirestoreWorkspace) exportNoteJobs(ctx context.Context, sink ExportSink
 	}
 }
 
-// exportTimeline streams the log as it is read: the timeline is the one part of
-// a workspace with no bound, so it is never held as a whole.
+// exportTimeline groups the ordered stream into daily snapshots, holding one day at a time.
 func (w *FirestoreWorkspace) exportTimeline(ctx context.Context, sink ExportSink) error {
-	return sink.Add(logName, time.Time{}, func(out io.Writer) error {
-		iter := w.timeline().OrderBy("At", firestore.Asc).Documents(ctx)
-		defer iter.Stop()
-		writer := bufio.NewWriter(out)
-		for {
-			doc, err := iter.Next()
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			var entry timeline.Entry
-			if err := doc.DataTo(&entry); err != nil {
-				return err
-			}
-			raw, err := json.Marshal(entry)
-			if err != nil {
-				return err
-			}
-			if _, err := writer.Write(append(raw, '\n')); err != nil {
-				return err
-			}
+	iter := w.timeline().OrderBy("At", firestore.Asc).Documents(ctx)
+	defer iter.Stop()
+	zone := w.Settings().Location()
+	day := ""
+	entries := []timeline.Entry{}
+	flush := func() error {
+		if day == "" {
+			return nil
 		}
-		return writer.Flush()
-	})
+		sortEntries(entries)
+		return addJSON(sink, path.Join(timelineDir, day), time.Time{}, entries)
+	}
+	for {
+		doc, err := iter.Next()
+		if errors.Is(err, iterator.Done) {
+			return flush()
+		}
+		if err != nil {
+			return err
+		}
+		var entry timeline.Entry
+		if err := doc.DataTo(&entry); err != nil {
+			return err
+		}
+		next := timelineDay(entry.At, zone)
+		if next != day {
+			if err := flush(); err != nil {
+				return err
+			}
+			day, entries = next, []timeline.Entry{}
+		}
+		entries = append(entries, entry)
+	}
 }
 
 func (w *FirestoreWorkspace) exportSettings(ctx context.Context, sink ExportSink) error {

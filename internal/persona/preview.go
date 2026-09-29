@@ -55,7 +55,7 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 	if skill == nil {
 		return ReplyPreview{}, errors.New("その担当は有効ではありません")
 	}
-	entries, err := r.store.Timeline()
+	entries, err := store.SearchThread(ctx, r.store, at.ID)
 	if err != nil {
 		return ReplyPreview{}, err
 	}
@@ -127,7 +127,8 @@ type dryWorkspace struct {
 	changes []noteChange
 }
 
-func (d *dryWorkspace) Append(entry timeline.Entry) error { d.remark = &entry; return nil }
+func (d *dryWorkspace) Append(entry timeline.Entry) error      { d.remark = &entry; return nil }
+func (d *dryWorkspace) UpdateEntry(entry timeline.Entry) error { return d.Append(entry) }
 
 // Entry sees the remark this preview produced, so the note keeper can point it
 // at the notes it wrote, as it does a real remark.

@@ -2,13 +2,14 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
 	"time"
 )
 
-func TestOfflinePostRetryPreservesEntryAndDeletion(t *testing.T) {
+func TestOfflinePostRetryPreservesEntry(t *testing.T) {
 	s, st := app(t)
 	body := postBody{ClientID: "local-12345678-1234-1234-1234-123456789abc", ClientAt: time.Now().Add(-time.Hour).UTC(), Text: "offline"}
 	send := func(body postBody) *httptest.ResponseRecorder {
@@ -33,19 +34,22 @@ func TestOfflinePostRetryPreservesEntryAndDeletion(t *testing.T) {
 	if !entries[0].At.Equal(body.ClientAt) {
 		t.Fatal("offline creation time lost")
 	}
-	original := entries[0]
-	original.Deleted = true
-	st.Append(original)
-	if send(body).Code != 200 {
-		t.Fatal("retry after deletion failed")
-	}
-	original, _ = st.Entry(body.ClientID)
-	if !original.Deleted {
-		t.Fatal("retry resurrected deletion")
-	}
 	body.Text = "different"
 	if send(body).Code != 409 {
 		t.Fatal("reused ID accepted different content")
+	}
+	if _, err := st.DeleteEntry(context.Background(), body.ClientID); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := st.Entry(body.ClientID); exists {
+		t.Fatal("deleted ID remains")
+	}
+	body.Text = "offline"
+	if got := send(body); got.Code != 200 {
+		t.Fatalf("resend deleted post: %d %s", got.Code, got.Body.String())
+	}
+	if _, exists := st.Entry(body.ClientID); !exists {
+		t.Fatal("resend was not a new post")
 	}
 }
 func TestOfflineIdentityRejectsWrongWorkspace(t *testing.T) {

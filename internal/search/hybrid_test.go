@@ -22,8 +22,11 @@ func TestUnifiedJapaneseNaturalQueryAndOfflineFallback(t *testing.T) {
 		timeline.Entry{ID: "red", Kind: timeline.KindPost, Text: "赤い果実の香り"},
 		timeline.Entry{ID: "both", Kind: timeline.KindPost, Text: "ピノの軽い赤を飲んだ"},
 		timeline.Entry{ID: "unrelated", Kind: timeline.KindPost, Text: "サーバーの実装"},
-		timeline.Entry{ID: "deleted", Kind: timeline.KindPost, Text: "ピノの軽い赤", Deleted: true},
+		timeline.Entry{ID: "deleted", Kind: timeline.KindPost, Text: "ピノの軽い赤"},
 		timeline.Entry{ID: "hidden", Root: "deleted", Kind: timeline.KindReply, Text: "ピノの軽い赤"})
+	if _, err := w.DeleteEntry(context.Background(), "deleted"); err != nil {
+		t.Fatal(err)
+	}
 	s := New(w)
 	got, err := s.Search(context.Background(), "前に飲んだピノの軽い赤", "", 1, 0)
 	if err != nil || !got.SemanticUnavailable || got.Total != 3 || len(got.Hits) != 1 || got.Hits[0].Entry.ID != "both" {

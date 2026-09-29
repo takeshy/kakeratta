@@ -1,5 +1,6 @@
 import { verifyIdentity } from "./auth.js";
 import { localIdentity, localRecord, localList } from "./local-store.js";
+import { createAPIRequest } from "./api-request.js";
 import { createOutbox } from "./outbox.js";
 // The only place that knows how to reach the relay.
 //
@@ -9,35 +10,7 @@ const listeners = new Set();
 let stream = null;
 let backoff = 1000;
 
-async function call(method, path, body) {
-  const user = localIdentity()?.key;
-  if (user) await verifyIdentity();
-  // Publishing and a persona's trial turn are the two calls that legitimately
-  // take minutes; everything else should be back well inside 45 seconds.
-  // Closing an account waits for the reaction in hand and then walks every
-  // capture and note, so it is given the same room.
-  const slow = path === "/api/social/publish" || path.endsWith("/reply/preview") || path.endsWith("/routing/apply") || path === "/api/workspace";
-  const options = { method, headers: {}, signal: AbortSignal.timeout(slow ? 250000 : 45000) };
-  if (user) options.headers["X-Kakeratta-Workspace"] = user;
-  if (body !== undefined) {
-    options.headers["Content-Type"] = "application/json";
-    options.body = JSON.stringify(body);
-  }
-  const response = await fetch(path, options);
-  const text = await response.text();
-  let payload = null;
-  try {
-    payload = text ? JSON.parse(text) : null;
-  } catch {
-    payload = null;
-  }
-  if (!response.ok) {
-    const error = new Error(payload?.error || `${response.status} ${response.statusText}`);
-    error.status = response.status; throw error;
-  }
-  if (user && localIdentity()?.key !== user) throw Error("Account changed");
-  return payload;
-}
+const call = createAPIRequest({ identity: localIdentity, verify: verifyIdentity });
 
 // The live channel. Reactions arrive late by design, so the page is told rather
 // than asking: it reconnects on its own and reloads when it comes back.
@@ -119,12 +92,7 @@ export const api = {
   setDailyCheckIn: (id, schedule) => call("PUT", `/api/personas/${encodeURIComponent(id)}/daily`, schedule),
   setPlanner: (id, planner) => call("PUT", `/api/personas/${encodeURIComponent(id)}/planner`, { planner }),
   setActive: (active) => call("PUT", "/api/personas", { active }),
-  installPersona: async (definition) => {
-    const response = await fetch("/api/personas/install", { method: "POST", body: definition });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(payload?.error || "追加できませんでした");
-    return payload;
-  },
+  installPersona: (definition) => call("POST", "/api/personas/install", definition, { raw: true }),
   deleteSchedule: (id, schedule) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/schedules/${encodeURIComponent(schedule)}`),
   uninstallPersona: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}`),
   // One page of notes, the most recently written first; `next` continues.

@@ -222,7 +222,7 @@ func TestAFragmentCanMentionOnlyOnePerson(t *testing.T) {
 	}
 }
 
-func TestDeletingLeavesATombstoneRatherThanRewritingHistory(t *testing.T) {
+func TestDeletingRemovesStoredRecord(t *testing.T) {
 	server, s := app(t)
 	recorder := httptest.NewRecorder()
 	server.ServeHTTP(recorder, posted(t, "消す"))
@@ -235,7 +235,7 @@ func TestDeletingLeavesATombstoneRatherThanRewritingHistory(t *testing.T) {
 		t.Fatalf("status = %d", deleted.Code)
 	}
 	entries := mustTimeline(t, s)
-	if len(entries) != 1 || !entries[0].Deleted {
+	if len(entries) != 0 {
 		t.Fatalf("entries = %+v", entries)
 	}
 	if len(timeline.Thread(entries, post.ID)) != 0 {

@@ -83,7 +83,7 @@ func (r *Runner) ApplyRouting(ctx context.Context, token, entryID string) error 
 	}
 	var thread []timeline.Entry
 	if trial.delivered {
-		entries, err := r.store.Timeline()
+		entries, err := store.SearchThread(ctx, r.store, entry.ID)
 		if err != nil {
 			return err
 		}

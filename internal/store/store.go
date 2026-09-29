@@ -1,17 +1,14 @@
 // Package store keeps everything on disk as plain files under one directory.
 //
-// The timeline is an append-only log: an entry is written once and never
-// rewritten in place, and a change to one - an image finishing its reading, a
-// deletion - is another line that wins over the earlier one. Appending is cheap
-// no matter how long the log gets, and a crash halfway through a write costs
-// the last line rather than the file.
+// The timeline keeps current entries in one JSON file per calendar day.
+// Updates atomically replace only that day; an ID/thread index locates records
+// without rereading the entire workspace.
 //
 // No database and no account. What the user captured is files they can read,
 // copy and back up.
 package store
 
 import (
-	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -25,16 +22,16 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // Store is the on-disk workspace.
 type Store struct {
-	root        string
-	blobs       BlobStore
-	noteSources noteSourceIndex
-	mu          sync.RWMutex
+	root            string
+	blobs           BlobStore
+	noteSources     noteSourceIndex
+	timelineRefs    map[string]timelineRef
+	timelineThreads map[string]map[string]bool
+	mu              sync.RWMutex
 }
 
 func Open(root string) (*Store, error) {
@@ -50,7 +47,11 @@ func Open(root string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{root: root, blobs: fileBlobs{root: filepath.Join(root, "blobs")}, noteSources: index}, nil
+	s := &Store{root: root, blobs: fileBlobs{root: filepath.Join(root, "blobs")}, noteSources: index}
+	if err := s.openTimeline(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *Store) SetBlobStore(blobs BlobStore) {
@@ -78,176 +79,6 @@ func (s *Store) Root() string { return s.root }
 
 func (s *Store) path(parts ...string) string {
 	return filepath.Join(append([]string{s.root}, parts...)...)
-}
-
-// ---- timeline --------------------------------------------------------------
-
-const logName = "timeline.jsonl"
-
-// Append writes an entry to the end of the log. It is also how an entry is
-// changed: a later line with the same id replaces the earlier one, so history
-// is never rewritten underneath anything that already read it.
-func (s *Store) Append(entry timeline.Entry) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.appendLocked(entry)
-}
-
-func (s *Store) appendLocked(entry timeline.Entry) error {
-	raw, err := json.Marshal(entry)
-	if err != nil {
-		return err
-	}
-	if len(raw) >= 8<<20 {
-		return errors.New("投稿が大きすぎます")
-	}
-	file, err := os.OpenFile(s.path(logName), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	// Separate an interrupted last record from the next append. Never rewrite
-	// the log, and never let a partial record swallow the next accepted post.
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	if info.Size() > 0 {
-		var last [1]byte
-		if _, err := file.ReadAt(last[:], info.Size()-1); err != nil {
-			return err
-		}
-		if last[0] != '\n' {
-			if _, err := file.Write([]byte{'\n'}); err != nil {
-				return err
-			}
-		}
-	}
-	if _, err := file.Write(append(raw, '\n')); err != nil {
-		return err
-	}
-	return file.Sync()
-}
-
-// Timeline reads the whole log, oldest first, with later versions of an entry
-// replacing earlier ones.
-func (s *Store) Timeline() ([]timeline.Entry, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.timelineLocked()
-}
-
-func (s *Store) timelineLocked() ([]timeline.Entry, error) {
-	file, err := os.Open(s.path(logName))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer file.Close()
-
-	order := []string{}
-	latest := map[string]timeline.Entry{}
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		var entry timeline.Entry
-		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			// A half-written last line after a crash is the only way this
-			// happens. Skipping it loses that one entry, not the log.
-			continue
-		}
-		if _, seen := latest[entry.ID]; !seen {
-			order = append(order, entry.ID)
-		}
-		latest[entry.ID] = entry
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	entries := make([]timeline.Entry, 0, len(order))
-	for _, id := range order {
-		entries = append(entries, latest[id])
-	}
-	sort.SliceStable(entries, func(i, j int) bool { return entries[i].At.Before(entries[j].At) })
-	return entries, nil
-}
-
-// UpdateMedia preserves any deletion made while an image was being analysed.
-func (s *Store) UpdateMedia(id string, media *timeline.Media) (timeline.Entry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	entries, err := s.timelineLocked()
-	if err != nil {
-		return timeline.Entry{}, err
-	}
-	for _, entry := range entries {
-		if entry.ID == id {
-			if entry.Deleted {
-				return entry, nil
-			}
-			entry.Media = media
-			return entry, s.appendLocked(entry)
-		}
-	}
-	return timeline.Entry{}, errors.New("投稿が見つかりません")
-}
-
-var ErrNotEditable = errors.New("編集できる投稿が見つかりません")
-var ErrEmptyText = errors.New("本文を入力してください")
-
-func editText(entry *timeline.Entry, text string) error {
-	// The user's own posts, and the app's summaries, which are theirs to set
-	// right.
-	summary := entry.Speaker == timeline.App && entry.Summary != ""
-	if entry.Deleted || (entry.Speaker != timeline.User && !summary) || entry.Kind != timeline.KindPost {
-		return ErrNotEditable
-	}
-	text = strings.TrimSpace(text)
-	if text == "" && entry.Media == nil && entry.Link == "" {
-		return ErrEmptyText
-	}
-	entry.Text = text
-	entry.SearchDirty = true
-	return nil
-}
-
-// UpdateText changes only the author's text, preserving concurrent media updates.
-func (s *Store) UpdateText(id, text string) (timeline.Entry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	entries, err := s.timelineLocked()
-	if err != nil {
-		return timeline.Entry{}, err
-	}
-	for _, entry := range entries {
-		if entry.ID == id {
-			if err := editText(&entry, text); err != nil {
-				return timeline.Entry{}, err
-			}
-			return entry, s.appendLocked(entry)
-		}
-	}
-	return timeline.Entry{}, ErrNotEditable
-}
-
-// Entry returns one entry by id.
-func (s *Store) Entry(id string) (timeline.Entry, bool) {
-	entries, err := s.Timeline()
-	if err != nil {
-		return timeline.Entry{}, false
-	}
-	for _, entry := range entries {
-		if entry.ID == id {
-			return entry, true
-		}
-	}
-	return timeline.Entry{}, false
 }
 
 // ---- blobs -----------------------------------------------------------------
@@ -773,21 +604,4 @@ func NewID(prefix string) string {
 		return fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
 	}
 	return fmt.Sprintf("%s_%d%s", prefix, time.Now().UnixNano(), hex.EncodeToString(noise[:]))
-}
-
-// CreateEntry atomically preserves the first accepted entry, including tombstones.
-func (s *Store) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	entries, err := s.timelineLocked()
-	if err != nil {
-		return timeline.Entry{}, false, err
-	}
-	for _, old := range entries {
-		if old.ID == entry.ID {
-			return old, false, nil
-		}
-	}
-	err = s.appendLocked(entry)
-	return entry, err == nil, err
 }

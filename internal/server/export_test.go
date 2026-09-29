@@ -245,10 +245,17 @@ func TestExportGoesToStorageAndIsAnnounced(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := map[string]bool{}
+	daily := false
 	for _, file := range reader.File {
 		found[file.Name] = true
+		if strings.HasPrefix(file.Name, "timeline/") && strings.HasSuffix(file.Name, ".json") {
+			daily = true
+		}
 	}
-	for _, name := range []string{"timeline.jsonl", "backup.json", "README.txt"} {
+	if !daily {
+		t.Fatal("daily timeline missing from export")
+	}
+	for _, name := range []string{"backup.json", "README.txt"} {
 		if !found[name] {
 			t.Fatalf("%s is missing from %v", name, found)
 		}

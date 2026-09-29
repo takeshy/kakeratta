@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/takeshy/kakeratta/internal/timeline"
@@ -43,9 +44,14 @@ func SearchTimeline(ctx context.Context, workspace Workspace) ([]timeline.Entry,
 
 var ErrSearchThreadMissing = errors.New("投稿が見つかりません")
 
-// SearchThread fetches only the selected conversation in Firestore. Polling an
+// SearchThread fetches only the selected conversation in indexed stores. Polling an
 // old search result must not repeatedly download the user's entire timeline.
 func SearchThread(ctx context.Context, workspace Workspace, id string) ([]timeline.Entry, error) {
+	if local, ok := workspace.(interface {
+		SearchThread(context.Context, string) ([]timeline.Entry, error)
+	}); ok {
+		return local.SearchThread(ctx, id)
+	}
 	if w, ok := workspace.(*FirestoreWorkspace); ok {
 		entry, exists, err := w.CurrentSearchEntry(ctx, id)
 		if err != nil {
@@ -143,4 +149,14 @@ func (s *Store) SaveSearchVector(ctx context.Context, key string, value SearchVe
 		return err
 	}
 	return writeJSON(path, value)
+}
+
+// SearchTimelineWindow reads only relevant local dates, including reply parents.
+func SearchTimelineWindow(ctx context.Context, workspace Workspace, from, to time.Time) ([]timeline.Entry, error) {
+	if local, ok := workspace.(interface {
+		TimelineWindow(context.Context, time.Time, time.Time) ([]timeline.Entry, error)
+	}); ok {
+		return local.TimelineWindow(ctx, from, to)
+	}
+	return SearchTimeline(ctx, workspace)
 }

@@ -57,9 +57,24 @@ func (w *FirestoreWorkspace) timeline() *firestore.CollectionRef {
 }
 
 func (w *FirestoreWorkspace) Append(entry timeline.Entry) error {
+	if entry.Deleted {
+		_, err := w.DeleteEntry(context.Background(), entry.ID)
+		if errors.Is(err, ErrEntryMissing) {
+			return nil
+		}
+		return err
+	}
 	entry.SearchDirty = true
-	_, err := w.timeline().Doc(entry.ID).Set(context.Background(), entry)
-	return err
+	if entry.Kind == timeline.KindPost {
+		_, err := w.timeline().Doc(entry.ID).Set(context.Background(), entry)
+		return err
+	}
+	return w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		if err := w.checkEntryParents(tx, entry); err != nil {
+			return err
+		}
+		return tx.Set(w.timeline().Doc(entry.ID), entry)
+	})
 }
 
 func (w *FirestoreWorkspace) Timeline() ([]timeline.Entry, error) {
@@ -595,16 +610,26 @@ func (w *FirestoreWorkspace) materialiseSkills(ctx context.Context) error {
 }
 
 func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {
+	if entry.Deleted {
+		return timeline.Entry{}, false, errors.New("deletion notifications cannot be stored")
+	}
 	entry.SearchDirty = true
-	_, err := w.timeline().Doc(entry.ID).Create(context.Background(), entry)
-	if status.Code(err) != codes.AlreadyExists {
-		return entry, err == nil, err
-	}
-	doc, err := w.timeline().Doc(entry.ID).Get(context.Background())
-	if err != nil {
-		return timeline.Entry{}, false, err
-	}
-	var old timeline.Entry
-	err = doc.DataTo(&old)
-	return old, false, err
+	var result timeline.Entry
+	var created bool
+	err := w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		created = false
+		doc, err := tx.Get(w.timeline().Doc(entry.ID))
+		if err == nil {
+			return doc.DataTo(&result)
+		}
+		if status.Code(err) != codes.NotFound {
+			return err
+		}
+		if err := w.checkEntryParents(tx, entry); err != nil {
+			return err
+		}
+		result, created = entry, true
+		return tx.Create(w.timeline().Doc(entry.ID), entry)
+	})
+	return result, created && err == nil, err
 }

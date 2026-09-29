@@ -14,12 +14,15 @@ func TestTimelinePagesKeepWholeThreadsAndStableCursors(t *testing.T) {
 	at := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
 	for i := 0; i < 46; i++ {
 		id := fmt.Sprintf("post-%02d", i)
-		if err := s.Append(timeline.Entry{ID: id, Kind: timeline.KindPost, Root: id, At: at, Deleted: i == 45}); err != nil {
+		if err := s.Append(timeline.Entry{ID: id, Kind: timeline.KindPost, Root: id, At: at, Deleted: false}); err != nil {
 			t.Fatal(err)
 		}
 		if err := s.Append(timeline.Entry{ID: "reply-" + id, Kind: timeline.KindReply, Root: id, At: at.Add(time.Hour)}); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err := s.DeleteEntry(context.Background(), "post-45"); err != nil {
+		t.Fatal(err)
 	}
 	first, err := s.TimelinePage(context.Background(), 20, "")
 	if err != nil {

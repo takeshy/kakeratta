@@ -240,7 +240,7 @@ func TestGatewayClosesAnAccountAndRemovesItsWorkspace(t *testing.T) {
 		}
 	}
 	alice := filepath.Join(root, "users", workspaceKey("alice"))
-	if _, err := os.Stat(filepath.Join(alice, "timeline.jsonl")); err != nil {
+	if _, err := os.Stat(filepath.Join(alice, "timeline")); err != nil {
 		t.Fatalf("alice's timeline was not written: %v", err)
 	}
 

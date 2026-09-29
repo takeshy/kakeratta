@@ -64,16 +64,15 @@ func (s *Store) TimelinePage(ctx context.Context, limit int, before string) (Tim
 	if err != nil {
 		return TimelinePage{}, err
 	}
-	all, err := s.Timeline()
-	if err != nil {
-		return TimelinePage{}, err
-	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if err := ctx.Err(); err != nil {
 		return TimelinePage{}, err
 	}
 	limit = pageSize(limit)
 	posts := []timeline.Entry{}
-	for _, entry := range all {
+	for _, ref := range s.timelineRefs {
+		entry := ref.entry
 		if entry.Kind == timeline.KindPost && !entry.Deleted && (before == "" || newer(timeline.Entry{At: c.At, ID: c.ID}, entry)) {
 			posts = append(posts, entry)
 		}
@@ -87,6 +86,16 @@ func (s *Store) TimelinePage(ctx context.Context, limit int, before string) (Tim
 	roots := map[string]bool{}
 	for _, post := range posts {
 		roots[post.ID] = true
+	}
+	days := map[string]bool{}
+	for root := range roots {
+		for id := range s.timelineThreads[root] {
+			days[s.timelineRefs[id].day] = true
+		}
+	}
+	all, err := s.timelineDaysLocked(ctx, days)
+	if err != nil {
+		return TimelinePage{}, err
 	}
 	for _, entry := range all {
 		if !entry.Deleted && (roots[entry.ID] || roots[entry.Root]) {
@@ -107,7 +116,7 @@ func (w *FirestoreWorkspace) TimelinePage(ctx context.Context, limit int, before
 	if before != "" {
 		query = query.StartAfter(c.At, c.ID)
 	}
-	// Deleted posts still exist in the append-only timeline. Read bounded batches
+	// Deleted posts still exist as documents. Read bounded batches
 	// until there are enough visible parents, plus one to determine whether to continue.
 	posts := []timeline.Entry{}
 	for len(posts) <= limit {

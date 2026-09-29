@@ -116,11 +116,11 @@ type Entry struct {
 	// user can edit it like their own post.
 	Summary string `json:"summary,omitempty"`
 
-	// Deleted marks a tombstone in the log rather than removing history.
+	// Deleted is a transient browser removal notification; stores remove records.
 	Deleted bool `json:"deleted,omitempty"`
 
 	// Firestore tracks pending embedding updates without exposing indexing
-	// metadata in the API or the local append-only JSON log.
+	// metadata in the API or the local daily JSON files.
 	SearchDirty bool `json:"-"`
 }
 

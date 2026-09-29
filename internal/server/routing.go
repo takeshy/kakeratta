@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -87,7 +88,7 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		for _, id := range record.Spoke {
 			spoke[id] = true
 		}
-	} else if entries, err := s.store.Timeline(); err == nil {
+	} else if entries, err := store.SearchThread(r.Context(), s.store, entry.ID); err == nil {
 		// Compatibility for records written before the speech outcome was kept.
 		for _, other := range timeline.Thread(entries, timeline.RootOf(entry)) {
 			if other.Kind == timeline.KindRemark && !other.Deleted && other.At.After(entry.At) {

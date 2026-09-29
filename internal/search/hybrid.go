@@ -76,7 +76,7 @@ func (s *Service) Unified(ctx context.Context, query string, window Window, limi
 	}
 	// Read after the potentially slow embedding call, so deleted/changed
 	// sources cannot be resurrected through the lexical branch or fusion.
-	entries, err := store.SearchTimeline(ctx, s.workspace)
+	entries, err := store.SearchTimelineWindow(ctx, s.workspace, window.From, window.To)
 	if err != nil {
 		return Result{}, err
 	}
