@@ -1,6 +1,6 @@
 # System documentation
 
-The system implementation is documented as an English OKF v0.1 bundle in
+The system implementation is documented as an English OKF v0.2 bundle in
 `docs/system/`. Start with `docs/system/index.md` and read the relevant subsystem
 chapters before changing implementation. The format is defined in
 `internal/persona/skills/okf/SKILL.md`.

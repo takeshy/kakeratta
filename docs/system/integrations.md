@@ -92,6 +92,6 @@ Publication history is keyed by target, account, and post, and each publication 
 
 # Related chapters
 
-- [API and persistent state](/backend.md)
-- [Persona execution and memory](/personas.md)
-- [Browser application and device state](/frontend.md)
+- [API and persistent state](./backend.md)
+- [Persona execution and memory](./personas.md)
+- [Browser application and device state](./frontend.md)

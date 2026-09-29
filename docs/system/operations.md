@@ -70,8 +70,8 @@ For hosted workspace deletion, Gateway accepts a confirmed request, takes the us
 
 # Related chapters
 
-- [Architecture and runtime](/architecture.md)
-- [API and persistent state](/backend.md)
-- [Browser application and device state](/frontend.md)
+- [Architecture and runtime](./architecture.md)
+- [API and persistent state](./backend.md)
+- [Browser application and device state](./frontend.md)
 
 Local timeline files and Firestore exports use `timeline/YYYY/MM/DD.json`: one JSON array of current entries per date. Firestore export streams entries in timestamp order and buffers one day at a time. Restoring the exported directory rebuilds the local timeline index on startup.

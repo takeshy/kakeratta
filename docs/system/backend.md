@@ -177,7 +177,7 @@ After slow semantic work, search rereads current entries and excludes deleted co
 
 # Related chapters
 
-- [Persona execution and memory](/personas.md)
-- [Browser application and device state](/frontend.md)
-- [External agents, tools, and sharing](/integrations.md)
-- [Development and workspace operations](/operations.md)
+- [Persona execution and memory](./personas.md)
+- [Browser application and device state](./frontend.md)
+- [External agents, tools, and sharing](./integrations.md)
+- [Development and workspace operations](./operations.md)

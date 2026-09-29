@@ -106,7 +106,7 @@ Failure in the note keeper after publication does not retract an already publish
 
 ## Memory format
 
-Each persona has `index.md` and Markdown files for individual concepts. Concepts use YAML frontmatter such as `type`, `title`, `description`, and `tags`; relationships use bundle-relative links. The persona's `Memory` and instructions define its categories and content.
+Each persona has `index.md` and Markdown files for individual concepts. Concepts follow OKF v0.2 with YAML frontmatter such as `type`, `title`, `description`, and `tags`. Relationships may use bundle-relative or file-relative Markdown links; the host-generated index uses bundle-relative links. The optional provenance, trust, and lifecycle fields are not required. `expires` and `review` are application extensions with the scheduling behavior described below. The persona's `Memory` and instructions define its categories and content.
 
 When woken, the persona receives its index and note count and reads the bodies it needs. `notes_tools.go` handles listing, reading, writing, and forgetting notes and repairs some malformed line breaks and frontmatter. Research reads and later note-keeper changes are separate stages.
 
@@ -201,7 +201,7 @@ Trials live in Runner memory and expire after 15 minutes; they do not survive re
 
 # Related chapters
 
-- [Architecture and runtime](/architecture.md)
-- [API and persistent state](/backend.md)
-- [Browser application and device state](/frontend.md)
-- [External agents, tools, and sharing](/integrations.md)
+- [Architecture and runtime](./architecture.md)
+- [API and persistent state](./backend.md)
+- [Browser application and device state](./frontend.md)
+- [External agents, tools, and sharing](./integrations.md)

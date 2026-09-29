@@ -118,5 +118,5 @@ Read-aloud uses browser speechSynthesis. It selects a voice matching the interfa
 
 # Related chapters
 
-- [API and persistent state](/backend.md)
-- [Development and workspace operations](/operations.md)
+- [API and persistent state](./backend.md)
+- [Development and workspace operations](./operations.md)

@@ -74,6 +74,6 @@ On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes t
 
 # Related chapters
 
-- [API and persistent state](/backend.md)
-- [Persona execution and memory](/personas.md)
-- [External agents, tools, and sharing](/integrations.md)
+- [API and persistent state](./backend.md)
+- [Persona execution and memory](./personas.md)
+- [External agents, tools, and sharing](./integrations.md)

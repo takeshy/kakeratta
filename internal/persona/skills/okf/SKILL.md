@@ -5,7 +5,7 @@ description: 自分のメモを Open Knowledge Format (OKF) のバンドルと�
 
 # メモの書き方（OKF）
 
-あなたのメモは **OKF (Open Knowledge Format) v0.1** のバンドルです。
+あなたのメモは **OKF (Open Knowledge Format) v0.2** のバンドルです。
 1つの概念につき1ファイル、YAML frontmatter と markdown 本文でできた、ただのファイルの集まりです。
 スキーマ登録も要りません。`cat` できれば読めます。
 
@@ -32,7 +32,7 @@ description: 自分のメモを Open Knowledge Format (OKF) のバンドルと�
 ## ファイルの置き方
 
 ```text
-index.md                  # 目次。frontmatter なし
+index.md                  # 目次。ルートのみ任意の okf_version を宣言可能
 log.md                    # 任意。変更の履歴
 tastes/tonkotsu.md        # 概念1つ = ファイル1つ
 shops/jiro-mita.md
@@ -53,7 +53,7 @@ title: ラーメン二郎 三田本店   # 推奨。表示用の名前
 description: 三田の豚骨。行きたいと言っていた店。  # 推奨。一文
 resource: https://tabelog.com/…                   # 任意。実在の対象があるときだけ
 tags: [ラーメン, 豚骨, 三田]                       # 任意
-timestamp: 2026-09-12T17:00:00Z                   # 任意。ISO 8601
+generated: { by: "process:note-keeper", at: 2026-09-12T17:00:00Z } # 任意。実際の作成者と更新日時
 expires: 2026-09-13                               # 任意。過ぎたら本体が消す
 review: 2026-10-15                                # 任意。過ぎたら本体が起こし、「まだ要る?」と聞く
 ---
@@ -70,14 +70,17 @@ review: 2026-10-15                                # 任意。過ぎたら本体�
   行きたい店なら数週間後、関心のある話題なら数か月後、好みや習慣には付けません。過ぎても本体は消さず、あなたを起こします。
   そのときユーザーに「そろそろ忘れていい？」と一言聞き、同じターンで `review` を1週間先に書き直します。
   返事が来たら、残すなら `review` を外して書き直し、延ばすなら日付を先へ、もういいなら forget_note。
-- 独自のキーを足して構いません。
+- 独自のキーを足して構いません。`expires` と `review` はこのアプリの拡張です。
+- v0.2 の `generated: { by, at }` は作成者と更新日時です。`by` は `human:<id>`、`process:<id>`、または `<producer>/<version>`。日時には UTC オフセットを付けます。旧 `timestamp` は既存メモに残っていても構いませんが、新しく書くときは `generated` を使います。作成者や日時が分からなければ省略し、推測で埋めません。
+- 出典は任意の `sources` リストに書き、各要素に `resource`、必要なら `id` と `title` を付けます。本文の個別の主張は `sources[].id` と同じラベルの Markdown 脚注で対応付けます。旧 `# Citations` は既存メモの互換形式です。
+- `verified`（確認者と日時）、`status`（`draft` / `stable` / `deprecated`）、`stale_after`（情報が古くなる日時）も任意です。`stale_after` はメモの削除期限ではありません。これらを省略しても v0.2 準拠です。
 
 ## 本文
 
 普通の markdown です。**散文よりも構造**（見出し・箇条書き・表）を優先してください。
 後から自分が読み返すためのものです。
 
-`# Examples`（具体例）と `# Citations`（外部の出典）は慣習的な見出しです。
+`# Examples`（具体例）は慣習的な見出しです。外部の出典は frontmatter の `sources` に書きます。
 
 ```markdown
 ---
@@ -85,7 +88,7 @@ type: Preference
 title: 豚骨に寄る
 description: 選べるときは豚骨を選んでいる。
 tags: [ラーメン, 傾向]
-timestamp: 2026-09-12T17:00:00Z
+generated: { by: "process:note-keeper", at: 2026-09-12T17:00:00Z }
 ---
 
 # 根拠
@@ -102,7 +105,12 @@ timestamp: 2026-09-12T17:00:00Z
 ## 相互リンク
 
 関係は普通の markdown リンクで書きます。関係の種類は前後の文で表します。
-**バンドル相対**（`/` で始める）を使ってください — `[三田](/shops/jiro-mita.md)`。
+OKF v0.2 は次の両方をサポートします。
+
+- **バンドル相対**（`/` で始める）: `[三田](/shops/jiro-mita.md)`。バンドルのルートが基準です。仕様の推奨形式で、このアプリが生成する目次にも使います。
+- **ファイル相対**: `[隣のメモ](./other.md)`、`[三田](../shops/jiro-mita.md)`。リンクを書くファイルのディレクトリが基準です。GitHub など普通の Markdown 表示でもたどれます。
+
+`docs/system/` の開発ドキュメントでは、GitHub でたどれるファイル相対リンクを使います。
 本文のリンク切れは構いません（まだ書いていない概念を指していることがあります）。`index.md` はこの限りではありません（下記）。
 
 ## 元の投稿へのリンク
@@ -114,7 +122,7 @@ timestamp: 2026-09-12T17:00:00Z
 
 ## index.md
 
-frontmatter なし。見出しごとに、リンクと description を並べた箇条書きです。
+概念の frontmatter は付けません。ただしバンドルのルートの `index.md` に限り、任意の YAML frontmatter `okf_version: "0.2"` で対象バージョンを宣言できます。見出しごとに、リンクと description を並べた箇条書きです。
 
 ```markdown
 # 傾向
@@ -154,3 +162,7 @@ frontmatter なし。見出しごとに、リンクと description を並べた�
   ファイルが増えるだけなら、分けた意味がありません。
 - 1つのファイルに詰め込みすぎないでください。別の話になったら別のファイルにします。
 - 書いたら確かめること: frontmatter があるか、`type` が空でないか、`index.md` が実態と合っているか。
+
+## 仕様
+
+[公式 OKF v0.2 仕様](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)。必須なのは概念ファイルの YAML frontmatter と空でない `type` です。このスキルのメモ更新手順、分類制約、削除期限はアプリの運用ルールです。
