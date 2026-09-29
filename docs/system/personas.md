@@ -20,7 +20,9 @@ Subject personas cover topics. Person personas use `Kind: person` and have `Alia
 
 Installing a definition from the frontend validates and installs it in the Catalogue, persists it through Workspace, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
 
-For person personas, the builder returns personal facts separately from the definition. Saving posts these facts to the timeline only when the user explicitly selects the option; it is unchecked by default. Facts that are not selected are not retained.
+For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. The field is limited to 8,000 characters and cleared for subject personas.
+
+Each person turn receives the current basic information through `forTurn`, alongside the shared person rules. Personas use it for answers, research, and scheduling, without copying it into notes; the current definition takes precedence over outdated notes. AI edits receive the current draft and preserve existing basic information when the response omits the field.
 
 A persona's declared tools are selected from the Registry. When its memory layout names types, generated notes are checked against those categories. This is not general YAML schema validation of every note body.
 
@@ -32,6 +34,8 @@ A persona's declared tools are selected from the Registry. When its memory layou
 - [persona_builder.go](../../internal/server/persona_builder.go)
 - [types.go](../../internal/persona/types.go)
 - [skill_test.go](../../internal/persona/skill_test.go)
+- [persona_builder_test.go](../../internal/server/persona_builder_test.go): basic-information persistence and editing without posts or notes
+- [people_test.go](../../internal/persona/people_test.go): basic information in turn instructions
 
 # Delivering posts to personas
 

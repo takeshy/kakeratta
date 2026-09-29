@@ -3,7 +3,7 @@ import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { toolLabel, uniqueTools } from "./tool_labels.js";
-import { factsField, postFacts } from "./person-facts.js";
+import { basicInfoField } from "./person-basic-info.js";
 
 // A new persona starts active, and saying so is what keeps someone from
 // thinking it was made while it still waits for a switch.
@@ -34,7 +34,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     ? "まだ保存されていません。下記の内容で問題なければ「この内容で保存」を押してください。"
     : "まだ追加されていません。下記の内容で問題なければ「この担当を追加」を押してください。追加するとすぐに有効になります。" });
   const preview = el("div");
-  const facts = factsField();
+  const basicInfo = basicInfoField();
   const error = el("p", { class: "hint", role: "alert" });
   const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : person ? "例：大学時代の友人の佐藤さん。さっちゃんと呼んでいて、たまに一緒に食事をします。" : "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。" });
   const send = el("button", { class: "button primary", label: "送る", type: "submit" });
@@ -51,17 +51,15 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     try {
       await voice.discard();
       if (closed) return;
-      const saved = await api.savePersonaDraft(draft, persona?.id);
+      const saved = await api.savePersonaDraft({ ...draft, basicInfo: draft.kind === "person" ? basicInfo.box.value.trim() : "" }, persona?.id);
       if (!persona && saved.kind === "person" && checkIn === "monthly") {
         try { await api.setDailyCheckIn(saved.id, { talk: "share", every: "monthly" }); }
         catch (e) { toast(String(e.message || e), "error"); }
       }
       if (persona) toast(t("{0} を保存しました", saved.name));
       else addedToast(saved);
-      const told = facts.node.hidden || !facts.post.checked ? "" : facts.box.value;
       close();
       await onSave?.(saved);
-      await postFacts(saved, told, onPosted);
     } catch (e) { error.textContent = e.message; }
     finally { setBusy(false); }
   }});
@@ -83,8 +81,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     send.disabled = value;
     save.disabled = value;
     revise.disabled = value;
-    facts.box.disabled = value;
-    facts.post.disabled = value;
+    basicInfo.box.disabled = value;
     voice.button.disabled = value;
     send.textContent = t(value ? "考えています…" : "送る");
   }
@@ -103,7 +100,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     try {
       await voice.discard();
       if (closed) return;
-      const result = await api.buildPersona({ id: persona?.id, language: getLanguage(), messages: next });
+      const result = await api.buildPersona({ id: persona?.id, language: getLanguage(), messages: next, current: draft ? { ...draft, basicInfo: basicInfo.box.value.trim() } : persona });
       if (!backdrop.isConnected) return;
       messages.push(next.at(-1), { role: "assistant", content: JSON.stringify(result) });
       bubble("user", answer);
@@ -111,7 +108,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
       input.value = "";
       draft = result.draft;
       checkIn = draft?.kind === "person" ? (result.checkIn === "monthly" ? "monthly" : "daily") : "";
-      facts.set(draft, result.facts);
+      basicInfo.set(draft);
       input.placeholder = typeof result.placeholder === "string" && result.placeholder.trim()
         ? result.placeholder.trim()
         : t(draft
@@ -153,7 +150,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   const dialog = el("div", { class: "dialog persona-builder", role: "dialog", "aria-modal": "true", "aria-label": t(persona ? "AIで修正" : "AIと担当を作る") },
     dialogCloseButton(close),
     el("h3", { text: persona ? t("{0} を修正", persona.name) : t("AIと担当を作る") }),
-    notice, preview, facts.node, log, error, form,
+    notice, preview, basicInfo.node, log, error, form,
     el("div", { class: "compose-row builder-actions" }, el("button", { class: "button ghost", label: "閉じる", onclick: close }), el("span", { class: "spacer" }), revise, save));
   dialog.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }

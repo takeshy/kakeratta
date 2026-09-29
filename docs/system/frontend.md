@@ -36,6 +36,8 @@ External-agent answers (`model: agent`) normalize literal escaped newlines for M
 - [feed.test.js](../../tests/feed.test.js)
 - [Screen.stories.js](../../frontend/stories/Screen.stories.js)
 
+Person persona creation and editing show an editable **Basic information** field, saved as `basicInfo` with the definition. The builder uses [person-basic-info.js](../../frontend/src/person-basic-info.js), while the editor includes the field in its ordinary form. There is no option to post these details as a fragment.
+
 # Frontend requests and account checks
 
 ## Ordinary requests

@@ -19,7 +19,7 @@ const builderPrompt = `あなたは対話でAIペルソナを設計するアシ�
 担当分野が全く分からず案を作れない場合だけ、具体例を添えた短い質問を1回まで許可します。その回答後は、不明点を補って必ず完成案を出してください。「おまかせ」「まず作って」と言われたら確認なしで完成案を出します。
 既存のペルソナの修正でも、依頼内容をそのまま反映した完成案をすぐ返し、依頼のない内容とIDを保持してください。追加修正も同様で、確認のための質問を挟まないでください。
 messageは補った点を必要に応じて一言添える程度の短い説明にし、「使ってからAIで修正できます」と案内してください。完成案のあとに追加質問を付けないでください。専門用語やJSON入力を要求しないでください。
-必ずJSONで {"message":"完成案の短い説明", "placeholder":"追加修正の具体例", "draft":完全なskillオブジェクト, "facts":"人物の担当だけ。その人について伝えられた事実", "checkIn":"人物の担当だけ。daily か monthly"} を返します。例外として、担当分野を初めて確認する場合だけdraftをnullにします。
+必ずJSONで {"message":"完成案の短い説明", "placeholder":"追加修正の具体例", "draft":完全なskillオブジェクト, "checkIn":"人物の担当だけ。daily か monthly"} を返します。例外として、担当分野を初めて確認する場合だけdraftをnullにします。
 placeholderはユーザーが次に入力する回答の短い具体例です。必ずユーザーの言語で「例：」から始め、今回の質問と会話の担当分野に合わせて毎回作り直してください。質問文そのものや「回答してください」のような抽象的な案内にしないでください。
 例えばワイン担当の案への修正なら「例：飲んだワインの名前と、好きだった理由を覚えてほしい。」、担当分野の確認なら「例：読んだ本の感想を覚える担当。」のようにします。
 完成案を返すときのplaceholderは、その完成案に対する追加修正の具体例にしてください。例は選択肢の制約ではなく入力のヒントです。本文と同じく専門用語を避け、120文字程度までにしてください。
@@ -37,8 +37,8 @@ keywordsは名前を出さなくてもその人の話だとわかる語です（
 人物の担当の checkIn は、その人の様子をどれくらいの頻度で振り返るかです。家族・恋人・親しい友人・毎日のように関わる同僚など日常的に関わる人は "daily"、たまに会う友人・親戚・昔の知り合いなどは "monthly" にします。monthly の担当は月に一度、本体が書くその月のまとめを読んで振り返ります。ユーザーが頻度を言ったらそれに従います。
 人物の担当のdomainは、ユーザーから見たその人との関係性を短く書きます（例：「恋人。」「母。」「大学時代の友人で、今は同じ会社の同僚。」）。誕生日や好みなどの事実は書きません。
 人物の担当の話し方、メモの分類、約束・貸し借り・会う予定・誕生日の扱いは、本体がすべての人物の担当に共通で渡します。instructionsは、その人に特有の扱いです（例：「母には健康の話は控えめに」「仕事の相談は結論から」）。ユーザーの依頼から読み取れることを書き、共通の扱いは書きません。人物の担当の tools には、利用可能な web_search・place_search・route・schedule をすべて入れます（贈り物や会う場所を調べ、会う日や誕生日に自分を起こすため）。
-人物の担当では、ユーザーがこの会話でその人について伝えた事実（誕生日・好み・得意なこと・家族・仕事・これまでの出来事など）を facts に書きます。factsはユーザーが明示的に選んだ場合だけ、保存時にユーザーの投稿としてタイムラインに残り、担当がそこからメモを作ります。ユーザーの言語で、ユーザー自身が書いた短い投稿のように、伝えられたことを落とさず、推測や補足を加えずに書きます。日付や数字は伝えられたとおりに書きます。毎回この会話全体で伝えられた事実をまとめて返し、事実がなければ "" にします。
-事実は domain・instructions・memory に書き写さないでください。好みや得意なこと（例：コスメ、タイ料理、ピアノ）はその人を指す語ではないので keywords にもしません。人物以外の担当では facts を "" にします。
+人物の担当では、ユーザーが伝えた事実（誕生日・好み・得意なこと・家族・仕事・これまでの出来事など）を draft.basicInfo に基本情報として書きます。基本情報は担当の定義に保存され、ユーザーが編集できます。タイムラインに投稿したり、メモにする必要はありません。8000文字以内で、ユーザーの言語で簡潔に整理し、推測や補足を加えず、日付や数字は伝えられたとおりに書きます。既存の基本情報を保持して今回の追加・修正を反映し、依頼されていない情報を削除しないでください。事実がなければ basicInfo を "" にします。人物のdraftにはbasicInfoを必ず含めてください。
+事実は domain・instructions・memory に書き写さないでください。好みや得意なこと（例：コスメ、タイ料理、ピアノ）はその人を指す語ではないので keywords にもしません。人物以外の担当では basicInfo を付けません。
 既存の人物の担当に「キーワードを足して」と頼まれたら、その語と類似語をkeywordsに加え、既存の呼び名とキーワードは残します。人物以外の担当には kind・aliases・keywords を付けません。
 道具は必要なものだけ利用可能なリストから選びます。新規IDは既存IDと重複させないでください。
 保存はユーザーが別の保存ボタンで行います。保存済みと発言しないでください。`
@@ -49,10 +49,6 @@ var personTools = []string{"web_search", "place_search", "route", "schedule"}
 // maxOpening bounds the question the dialog opened with, which is the app's
 // own text and never long.
 const maxOpening = 500
-
-// maxFacts bounds the post made from what the user told the builder about a
-// person.
-const maxFacts = 2000
 
 func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -119,7 +115,11 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		ids = append(ids, skill.ID)
 	}
 	client, settings := s.client()
-	context, _ := json.Marshal(map[string]any{"existing": original, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
+	existing := original
+	if existing == nil {
+		existing = body.Current
+	}
+	context, _ := json.Marshal(map[string]any{"existing": existing, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
 	system := builderPrompt + "\n設定データ:\n" + string(context)
 	if opening != "" {
 		system += "\n\nこの会話は、画面がユーザーに最初にこう尋ねて始まりました（ユーザーの最初の発言はその答えです）:\n" + opening
@@ -164,9 +164,6 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		Message     string         `json:"message"`
 		Placeholder string         `json:"placeholder"`
 		Draft       *persona.Skill `json:"draft"`
-		// Facts are what the user said about a person, to be posted when the
-		// persona is saved so that the persona makes its notes from a post.
-		Facts string `json:"facts,omitempty"`
 		// CheckIn is how often a person is looked back on: "daily" or
 		// "monthly", chosen from how close they are. Saved with the persona.
 		CheckIn string `json:"checkIn,omitempty"`
@@ -175,22 +172,24 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		fail(w, 502, "AIの応答を読めませんでした。もう一度送信してください。")
 		return
 	}
-	// Facts belong to a person; a subject's builder has nothing to post.
-	result.Facts = strings.TrimSpace(result.Facts)
 	if result.Draft == nil || !result.Draft.IsPerson() {
-		result.Facts = ""
 		result.CheckIn = ""
-	} else {
-		if runes := []rune(result.Facts); len(runes) > maxFacts {
-			result.Facts = string(runes[:maxFacts])
-		}
-		if result.CheckIn != store.CheckInMonthly {
-			result.CheckIn = "daily"
-		}
+	} else if result.CheckIn != store.CheckInMonthly {
+		result.CheckIn = "daily"
 	}
 	if result.Draft != nil {
 		if original != nil {
 			result.Draft.ID = original.ID
+		}
+		if existing != nil && existing.IsPerson() && result.Draft.IsPerson() {
+			var fields struct {
+				Draft map[string]json.RawMessage `json:"draft"`
+			}
+			if llm.DecodeJSON(reply, &fields) == nil {
+				if _, present := fields.Draft["basicInfo"]; !present {
+					result.Draft.BasicInfo = existing.BasicInfo
+				}
+			}
 		}
 		result.Draft.Builtin = false
 		result.Draft.Customized = false

@@ -127,9 +127,10 @@ func foldText(text string) string {
 // limit, names first. Only a person keeps any.
 func (s *Skill) TidyTerms() {
 	if !s.IsPerson() {
-		s.Aliases, s.Keywords = nil, nil
+		s.Aliases, s.Keywords, s.BasicInfo = nil, nil, ""
 		return
 	}
+	s.BasicInfo = strings.TrimSpace(s.BasicInfo)
 	// A person's tone and kinds of note are the app's; see forTurn.
 	s.Tone, s.Memory = "", ""
 	seen := map[string]bool{foldTerm(s.Name): true}
@@ -162,7 +163,7 @@ const (
 	personRules  = `その人本人のことと、その人との出来事を覚えます。
 - 貸し借りや約束など済んでいないことは、済んだと分かるまで忘れません。
 - 会う予定が分かったら、schedule でその日の朝に自分を起こす予定を置き、Event のメモに予定の行を残します。起きたら、前回の出来事や済んでいないことを一言添えて知らせます。
-- 誕生日や記念日が分かったら Fact に日付を残します。その1週間前の朝（1週間を切っていればその日の朝）が30日以内に来るなら、その時刻に自分を起こす予定を置きます。まだ先なら、チェックインのたびにメモの日付を確かめ、30日以内に入ったら置きます。起きたら、その日が近いことと、これまでの贈り物や相手の好みから思いつくことを一言添えて知らせます。`
+- 誕生日や記念日が会話から分かったら Fact に日付を残します。基本情報にある日付はメモに複製しません。その1週間前の朝（1週間を切っていればその日の朝）が30日以内に来るなら、その時刻に自分を起こす予定を置きます。まだ先なら、チェックインのたびに基本情報とメモの日付を確かめ、30日以内に入ったら置きます。起きたら、その日が近いことと、これまでの贈り物や相手の好みから思いつくことを一言添えて知らせます。`
 )
 
 // forTurn is the persona as a turn sees it. A subject is as saved; a person
@@ -177,6 +178,9 @@ func (s Skill) forTurn() Skill {
 	s.Domain = s.Name + "本人のこと、または" + s.Name + "との出来事。\nユーザーとの関係性：" + strings.TrimSpace(s.Domain)
 	own := strings.TrimSpace(s.Instructions)
 	s.Instructions = personRules
+	if s.BasicInfo != "" {
+		s.Instructions += "\n\n" + s.Name + "の基本情報（ユーザーが担当の設定として保存した内容）：\n" + s.BasicInfo + "\n基本情報はメモに複製せず、回答・調査・予定の判断で参照します。基本情報の修正はユーザーが担当の編集画面で行います。メモに古い情報がある場合は、この基本情報を優先します。誕生日・記念日の予定も基本情報を参照してください。"
+	}
 	if own != "" {
 		s.Instructions += "\n\n" + s.Name + "についての指示：\n" + own
 	}

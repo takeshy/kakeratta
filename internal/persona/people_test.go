@@ -230,3 +230,19 @@ func TestPersonKeepsNoToneOrKindsOfNote(t *testing.T) {
 		t.Fatalf("tone = %q, memory = %q", person.Tone, person.Memory)
 	}
 }
+
+func TestPersonBasicInformationIsAvailableWithoutNotes(t *testing.T) {
+	person := sato()
+	person.BasicInfo = "誕生日は11月10日。タイ料理が好き。"
+	got := person.forTurn()
+	if !strings.Contains(got.Instructions, person.BasicInfo) || !strings.Contains(got.Instructions, "基本情報はメモに複製せず") {
+		t.Fatalf("instructions = %q", got.Instructions)
+	}
+	if got.Memory != personMemory || person.Instructions != "" {
+		t.Fatal("basic information changed the note schema or stored instructions")
+	}
+	person.BasicInfo = "辛くないタイ料理が好き。"
+	if got := person.forTurn(); !strings.Contains(got.Instructions, person.BasicInfo) || strings.Contains(got.Instructions, "誕生日は11月10日。") {
+		t.Fatalf("old information survived edit: %q", got.Instructions)
+	}
+}

@@ -207,9 +207,8 @@ func TestNewPersonDraftCanPlaceWakes(t *testing.T) {
 	}
 }
 
-// What the user tells the builder about a person comes back as facts, to be
-// posted on save; a subject's builder answer never carries any.
-func TestPersonDraftCarriesFacts(t *testing.T) {
+// Personal facts are part of the saved definition, never a separate post.
+func TestPersonDraftCarriesBasicInfo(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		draft persona.Skill
@@ -220,7 +219,8 @@ func TestPersonDraftCarriesFacts(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, workspace := app(t)
-			raw, _ := json.Marshal(map[string]any{"message": "案です", "draft": tc.draft, "facts": "  nagomiは1972/11/10生まれ。タイ料理が好き。 ", "checkIn": "monthly"})
+			tc.draft.BasicInfo = "  nagomiは1972/11/10生まれ。タイ料理が好き。 "
+			raw, _ := json.Marshal(map[string]any{"message": "案です", "draft": tc.draft, "checkIn": "monthly"})
 			model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(raw)}}}})
 			}))
@@ -232,12 +232,15 @@ func TestPersonDraftCarriesFacts(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, httptest.NewRequest("POST", "/api/personas/build", strings.NewReader(`{"messages":[{"role":"user","content":"恋人のnagomiのことを覚えて。1972/11/10生まれ。タイ料理が好き。"}]}`)))
-			var result struct{ Facts, CheckIn string }
+			var result struct {
+				Draft   persona.Skill
+				CheckIn string
+			}
 			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
 				t.Fatalf("%d %s", w.Code, w.Body.String())
 			}
-			if result.Facts != tc.want {
-				t.Fatalf("facts = %q, want %q", result.Facts, tc.want)
+			if result.Draft.BasicInfo != tc.want {
+				t.Fatalf("basicInfo = %q, want %q", result.Draft.BasicInfo, tc.want)
 			}
 			// How often a person is looked back on comes with it; a subject has none.
 			if want := map[bool]string{true: "monthly", false: ""}[tc.want != ""]; result.CheckIn != want {
@@ -295,5 +298,81 @@ func TestPersonaBuilderAcceptsTheDialogsOpeningQuestion(t *testing.T) {
 		if w := send(body); w.Code != 400 {
 			t.Fatalf("%s was accepted: %d", body, w.Code)
 		}
+	}
+}
+
+func TestPersonBasicInformationSavedAndEditableWithoutPosting(t *testing.T) {
+	s, workspace := app(t)
+	skill := persona.Skill{ID: "sato", Name: "佐藤さん", Domain: "大学の友人", Kind: persona.KindPerson, BasicInfo: "11月10日生まれ。タイ料理が好き。"}
+	save := func(method, path string) {
+		raw, _ := json.Marshal(skill)
+		response := httptest.NewRecorder()
+		s.ServeHTTP(response, httptest.NewRequest(method, path, strings.NewReader(string(raw))))
+		if response.Code != 200 {
+			t.Fatalf("save: %d %s", response.Code, response.Body.String())
+		}
+		restored, exists := persona.NewCatalogue(workspace.SkillDir()).Find(skill.ID)
+		if !exists || restored.BasicInfo != skill.BasicInfo {
+			t.Fatalf("restored=%+v, exists=%v", restored, exists)
+		}
+	}
+	save("POST", "/api/personas/draft")
+	skill.BasicInfo = "11月10日生まれ。辛くないタイ料理が好き。"
+	save("PUT", "/api/personas/sato")
+	skill.BasicInfo = ""
+	save("PUT", "/api/personas/sato")
+	entries, err := workspace.Timeline()
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("unexpected post: %+v, %v", entries, err)
+	}
+	paths, err := workspace.NotePaths(skill.ID)
+	if err != nil || len(paths) != 0 {
+		t.Fatalf("unexpected notes: %+v, %v", paths, err)
+	}
+}
+
+func TestPersonBuilderPreservesBasicInformationUnlessExplicitlyChanged(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		present     bool
+		value, want string
+	}{
+		{name: "omitted", want: "11月10日生まれ。"},
+		{name: "modified", present: true, value: "11月11日生まれ。", want: "11月11日生まれ。"},
+		{name: "cleared", present: true, value: "", want: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, workspace := app(t)
+			current := persona.Skill{ID: "sato", Name: "佐藤さん", Domain: "友人", Kind: persona.KindPerson, BasicInfo: "11月10日生まれ。"}
+			draft := map[string]any{"id": current.ID, "name": current.Name, "domain": current.Domain, "kind": current.Kind}
+			if tc.present {
+				draft["basicInfo"] = tc.value
+			}
+			raw, _ := json.Marshal(map[string]any{"message": "修正案です", "draft": draft})
+			model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request struct{ Messages []struct{ Content string } }
+				_ = json.NewDecoder(r.Body).Decode(&request)
+				if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, current.BasicInfo) {
+					t.Error("current basic information missing from builder context")
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(raw)}}}})
+			}))
+			defer model.Close()
+			settings := workspace.ConfiguredSettings()
+			settings.BaseURL = model.URL
+			if err := workspace.SaveSettings(settings); err != nil {
+				t.Fatal(err)
+			}
+			body, _ := json.Marshal(map[string]any{"current": current, "messages": []map[string]string{{"role": "user", "content": "呼び名を追加して"}}})
+			response := httptest.NewRecorder()
+			s.ServeHTTP(response, httptest.NewRequest("POST", "/api/personas/build", strings.NewReader(string(body))))
+			var result struct{ Draft persona.Skill }
+			if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &result) != nil {
+				t.Fatalf("build: %d %s", response.Code, response.Body.String())
+			}
+			if result.Draft.BasicInfo != tc.want {
+				t.Fatalf("basicInfo=%q, want=%q", result.Draft.BasicInfo, tc.want)
+			}
+		})
 	}
 }

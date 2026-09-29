@@ -45,6 +45,8 @@ type Skill struct {
 	// post reaches it by being about that person in so many words - one of
 	// the names below, or one of the keywords - or by an @.
 	Kind string `json:"kind,omitempty"`
+	// BasicInfo is user-editable person information saved with the definition, not notes.
+	BasicInfo string `json:"basicInfo,omitempty"`
 	// Aliases are what the person is called: a family name, a nickname, the
 	// same name in kana. Any of them answers an @ as well.
 	Aliases []string `json:"aliases,omitempty"`
@@ -362,7 +364,7 @@ func validate(skill Skill) error {
 	if strings.TrimSpace(skill.Domain) == "" || len([]rune(skill.Domain)) > 2000 {
 		return errors.New("担当領域を書いてください（振り分けに使います）")
 	}
-	if len([]rune(skill.Instructions)) > 8000 || len([]rune(skill.Tone)) > 2000 || len([]rune(skill.Memory)) > 2000 {
+	if len([]rune(skill.BasicInfo)) > 8000 || len([]rune(skill.Instructions)) > 8000 || len([]rune(skill.Tone)) > 2000 || len([]rune(skill.Memory)) > 2000 {
 		return errors.New("スキルの記述が長すぎます")
 	}
 	if len([]rune(skill.Icon)) > 4 {
