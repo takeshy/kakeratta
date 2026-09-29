@@ -210,7 +210,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
       if (closed) return;
       const saved = await api.savePersonaDraft(read(), persona.id);
       toast(t("{0} を保存しました", saved.name));
-      const told = facts.node.hidden ? "" : facts.box.value;
+      const told = facts.node.hidden || !facts.post.checked ? "" : facts.box.value;
       close();
       await onSave?.();
       await postFacts(saved, told, onPosted);
@@ -283,6 +283,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     request.disabled = value;
     send.disabled = value;
     facts.box.disabled = value;
+    facts.post.disabled = value;
     voice.button.disabled = value;
     send.textContent = t(value ? "考えています…" : "AIに頼む");
     updateSave();

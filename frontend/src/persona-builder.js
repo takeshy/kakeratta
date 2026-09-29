@@ -58,7 +58,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
       }
       if (persona) toast(t("{0} を保存しました", saved.name));
       else addedToast(saved);
-      const told = facts.node.hidden ? "" : facts.box.value;
+      const told = facts.node.hidden || !facts.post.checked ? "" : facts.box.value;
       close();
       await onSave?.(saved);
       await postFacts(saved, told, onPosted);
@@ -84,6 +84,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     save.disabled = value;
     revise.disabled = value;
     facts.box.disabled = value;
+    facts.post.disabled = value;
     voice.button.disabled = value;
     send.textContent = t(value ? "考えています…" : "送る");
   }

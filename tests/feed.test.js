@@ -452,10 +452,9 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
 });
 
 
-// What the user told the builder about a person is shown apart from the
-// draft, can be edited, and is posted naming the person once it is saved, so
-// the persona makes its notes from a post. A subject's draft posts nothing.
-test("facts told about a person are posted to them after the persona is saved", async (t) => {
+// Saving a person's persona does not itself create a fragment. The proposed
+// facts are posted only when the user explicitly selects that action.
+test("facts from persona creation are posted only when selected", async (t) => {
   const { showPersonaBuilder } = await import("../frontend/src/persona-builder.js");
   const nagomi = { id: "nagomi", name: "nagomi", icon: "🌸", domain: "nagomi本人のこと。", tone: "短く", memory: "Fact と Event", instructions: "覚える", tools: ["schedule"], kind: "person", aliases: ["なごみ", "恋人"], keywords: [] };
   t.mock.method(api, "buildPersona", async () => ({ message: "案です", draft: nagomi, facts: "nagomiは1972/11/10生まれ。タイ料理が好き。", checkIn: "monthly" }));
@@ -478,14 +477,28 @@ test("facts told about a person are posted to them after the persona is saved", 
   const box = document.body.querySelectorAll(".person-facts")[0];
   assert.equal(box.value, "nagomiは1972/11/10生まれ。タイ料理が好き。");
   assert.equal(document.body.querySelectorAll(".person-facts-field")[0].hidden, false);
+  const post = document.body.querySelectorAll(".person-facts-field")[0].querySelectorAll(".switch")[0].children[0];
+  assert.equal(post.checked, false);
   box.value = "nagomiは1972/11/10生まれ。辛いタイ料理が好き。";
   button("この担当を追加").fire("click");
   for (let i = 0; i < 6; i++) await new Promise(setImmediate);
   assert.equal(saved?.id, "nagomi");
-  assert.deepEqual(api.post.mock.calls.map(call => call.arguments[0]), [{ text: "@nagomi nagomiは1972/11/10生まれ。辛いタイ料理が好き。" }]);
-  assert.equal(posted[0].id, "f1");
+  assert.equal(api.post.mock.calls.length, 0);
+  assert.equal(posted.length, 0);
   // The AI chose to look back on her monthly; saving says so.
   assert.deepEqual(api.setDailyCheckIn.mock.calls[0].arguments, ["nagomi", { talk: "share", every: "monthly" }]);
+
+  showPersonaBuilder({ onPosted: (entry) => posted.push(entry) });
+  const again = document.body.querySelectorAll(".skill-input").find(node => !node.className.includes("person-facts"));
+  again.value = "恋人のnagomiのことを覚えて。";
+  walk(document.body).find(node => node.listeners.submit).fire("submit", { preventDefault() {} });
+  await new Promise(setImmediate);
+  const selected = document.body.querySelectorAll(".person-facts-field")[0].querySelectorAll(".switch")[0].children[0];
+  selected.checked = true;
+  button("この担当を追加").fire("click");
+  for (let i = 0; i < 6; i++) await new Promise(setImmediate);
+  assert.deepEqual(api.post.mock.calls.map(call => call.arguments[0]), [{ text: "@nagomi nagomiは1972/11/10生まれ。タイ料理が好き。" }]);
+  assert.equal(posted[0].id, "f1");
 });
 
 // The month's summary is the app's post, with an edit button like the user's.
@@ -740,6 +753,30 @@ test("persona editor separates direct editing from AI editing", async (t) => {
   assert.equal(body.current.name, "michi", "the AI is handed the saved content");
   assert.equal(aiTone.value, "一言だけ", "the proposal fills the form");
   assert.equal(aiName.readOnly, false, "the proposal becomes editable");
+});
+
+test("saving an AI edited person's persona does not post proposed facts by default", async (t) => {
+  const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
+  const persona = { id: "sato", name: "佐藤さん", icon: "🧑", domain: "友人", kind: "person", aliases: [], keywords: [], tools: [] };
+  t.mock.method(api, "buildPersona", async () => ({ message: "案です", draft: persona, facts: "佐藤さんは釣りが好き。" }));
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  t.mock.method(api, "post", async () => ({ id: "unexpected" }));
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+
+  showPersonaEditor({ persona, ai: true });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  document.body.querySelectorAll(".ai-request")[0].value = "釣りの話を覚えて";
+  walk(document.body).find(node => node.textContent === translate("AIに頼む")).fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  const field = document.body.querySelectorAll(".person-facts-field")[0];
+  assert.equal(field.hidden, false);
+  assert.equal(field.querySelectorAll(".switch")[0].children[0].checked, false);
+  walk(document.body).find(node => node.textContent === translate("保存")).fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  assert.equal(api.savePersonaDraft.mock.calls.length, 1);
+  assert.equal(api.post.mock.calls.length, 0);
 });
 
 test("a person's names and keywords are edited as lists and saved with the kind", async (t) => {

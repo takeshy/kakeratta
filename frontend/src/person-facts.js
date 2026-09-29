@@ -1,9 +1,8 @@
 // What was told about a person while making or changing its persona.
 //
 // Birthdays, tastes and what happened are not settings: the builder hands them
-// back apart from the draft, and saving posts them as a fragment naming the
-// person. The persona then takes its ordinary turn on that post, so each fact
-// becomes a note that leads back to where it was said, like any other.
+// back apart from the draft. The user can choose to post them as a fragment
+// naming the person, so the persona can make notes from that post.
 import { el, toast } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
@@ -31,21 +30,25 @@ export async function postFacts(skill, facts, onPosted) {
   }
 }
 
-// factsField is the box that shows them, editable, and says what saving does.
+// factsField shows the proposed fragment and asks separately whether to post it.
 // It is hidden until a person's draft brings facts.
 export function factsField() {
-  const box = el("textarea", { class: "skill-input person-facts", rows: 4, maxlength: 2000, "aria-label": t("かけらとして残すこと") });
+  const box = el("textarea", { class: "skill-input person-facts", rows: 4, maxlength: 2000, "aria-label": t("会話で伝えたこと") });
+  const post = el("input", { type: "checkbox" });
   const node = el("div", { class: "persona-field person-facts-field" },
-    el("strong", { label: "かけらとして残すこと" }),
+    el("strong", { label: "会話で伝えたこと" }),
     box,
-    el("p", { class: "hint", label: "保存すると、この内容を担当宛てのかけらとして投稿します。担当はそこからメモを作ります。空にすると投稿しません。" }));
+    el("label", { class: "switch" }, post, el("span", { label: "保存時にこの内容をかけらとして投稿する" })),
+    el("p", { class: "hint", label: "選ぶと担当宛てのかけらを作り、担当がそこからメモを作ります。選ばない場合、この内容は残りません。" }));
   node.hidden = true;
   return {
     node,
     box,
+    post,
     set(draft, facts) {
       const shown = draft?.kind === "person" && !!String(facts || "").trim();
       box.value = shown ? String(facts).trim() : "";
+      post.checked = false;
       node.hidden = !shown;
     },
   };
