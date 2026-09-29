@@ -16,8 +16,11 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	var phases []string
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
-		if len(remarks(t, s)) != 0 {
+		// The answer waits for the schedule and action phases, not for the notes.
+		if got := len(remarks(t, s)); got != 0 && !offered["submit_note"] {
 			t.Error("answer published before phases completed")
+		} else if got != 1 && offered["submit_note"] {
+			t.Error("the notes were written before the answer was out")
 		}
 		switch {
 		case offered["finish_read"]:
@@ -40,7 +43,10 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 			if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "必ず記録を残す") || !strings.Contains(system, "解説の本文は保存しない") {
 				t.Error("note phase lacks the finished answer or its selection policy")
 			}
-			return `{"operations":[{"type":"write","path":"questions/food-culture.md","text":"---\ntitle: 食文化\n---\n- 一般的な食文化について調べてと聞かれた。概観を答えた。"}]}`
+			if offered["read"] {
+				t.Error("the note keeper was offered read")
+			}
+			return `{"operations":[{"type":"write","path":"questions/food-culture.md","text":"---\ntitle: 食文化\n---\n- 一般的な食文化について調べてと聞かれた。概観を答えた。"},{"type":"write","path":"index.md","text":"# 質問\n\n* [食文化](/questions/food-culture.md) - 食文化について聞かれた"}]}`
 		}
 		t.Fatalf("unexpected phase: %v", offered)
 		return ""
@@ -50,7 +56,7 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 		t.Fatal(phases)
 	}
 	notes := s.Memory("gourmet").Notes
-	if len(notes) != 1 || strings.Contains(notes[0].Text, "一般的な調査の詳しい回答") {
+	if len(notes) != 2 || strings.Contains(notes[0].Text, "一般的な調査の詳しい回答") || strings.Contains(notes[1].Text, "一般的な調査の詳しい回答") {
 		t.Fatalf("notes = %+v", notes)
 	}
 	if len(f.reviews) != 0 {
@@ -103,7 +109,7 @@ func TestAnswerWaitsForReviewedScheduleAndExecution(t *testing.T) {
 			}
 			script, calls := scheduleTurn(func(int) string { return createSchedule(at, path) })
 			f.phaseReply = func(system, user string, offered map[string]bool) string {
-				if len(remarks(t, s)) != 0 {
+				if len(remarks(t, s)) != 0 && !offered["submit_note"] {
 					t.Fatal("answer published before the plan ran")
 				}
 				return script(system, user, offered)
@@ -131,7 +137,7 @@ func TestAnswerWaitsForReviewedScheduleAndExecution(t *testing.T) {
 			case "review-fail":
 				// Only the blamed phase is made again; the answer and the notes
 				// stay as they were.
-				if calls["schedule"] != maxDrafts || calls["answer"] != 1 || calls["note"] != 1 {
+				if calls["schedule"] != maxDrafts || calls["answer"] != 1 || calls["note"] != 0 {
 					t.Fatalf("regenerated phases: %v", calls)
 				}
 				fallthrough
@@ -247,10 +253,10 @@ func TestReadCannotExecuteActions(t *testing.T) {
 	}
 }
 
-// A note on a schedule's own path shows only when the phases are put
-// together. The note phase that brought it is sent back to fix it, rather
-// than the whole turn failing with nothing run.
-func TestACrossPhaseConflictIsSentBackToThePhaseThatMadeIt(t *testing.T) {
+// The note keeper cannot rewrite a note it was not handed whole, and the
+// schedule's background note - written in this very turn - is one: a proposal
+// that overwrites it is sent back rather than run.
+func TestTheKeeperCannotOverwriteANoteItWasNotHanded(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["routine"]}` }, "routine")
 	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
 	script, calls := scheduleTurn(func(int) string { return createSchedule(at, "errands/reminder.md") })
@@ -261,16 +267,16 @@ func TestACrossPhaseConflictIsSentBackToThePhaseThatMadeIt(t *testing.T) {
 		}
 		notes++
 		if notes == 1 {
-			return `{"operations":[{"type":"write","path":"errands/reminder.md","text":"---\ntype: Errand\ntitle: 通知\n---\n重複"}]}`
-		}
-		if !strings.Contains(user, "背景メモ") {
-			t.Error("the note phase was not told what conflicted")
+			return `{"operations":[{"type":"write","path":"errands/reminder.md","text":"---\ntype: Errand\ntitle: 通知\n---\n重複"},{"type":"write","path":"index.md","text":"# 用事\n\n* [通知](/errands/reminder.md) - 通知"}]}`
 		}
 		return `{"operations":[]}`
 	}
 	r.react(post(t, s, "2時間後に知らせて").ID)
 	if notes != 2 || calls["schedule"] != 1 {
 		t.Fatalf("notes=%d calls=%v", notes, calls)
+	}
+	if note, _ := s.Note("routine", "errands/reminder.md"); strings.Contains(note.Text, "重複") {
+		t.Fatalf("the schedule's note was overwritten: %s", note.Text)
 	}
 	if said := remarks(t, s); len(said) != 1 {
 		t.Fatalf("remarks: %v", said)
@@ -280,12 +286,18 @@ func TestACrossPhaseConflictIsSentBackToThePhaseThatMadeIt(t *testing.T) {
 	}
 }
 
-// Research may spend every read. A phase that has to rewrite an existing
-// note still reads it on its own count, and the turn goes through.
-func TestPhasesReadApartFromResearch(t *testing.T) {
+// Research may spend every read, and the keeper has none of its own: it picks
+// the notes it wants whole, is handed them, and rewrites one of them.
+func TestTheKeeperIsHandedTheNotesItChose(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	writeNotes(t, s, "gourmet", map[string]string{"tastes/a.md": "---\ntype: Preference\ntitle: A店\n---\n前から好き"})
-	researched, notes := 0, 0
+	researched := 0
+	f.choose = func(user string) []string {
+		if !strings.Contains(user, "tastes/a.md") {
+			t.Error("the keeper was not shown the index or the note list")
+		}
+		return []string{"tastes/a.md", "tastes/missing.md"}
+	}
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
 		case offered["finish_read"]:
@@ -296,9 +308,11 @@ func TestPhasesReadApartFromResearch(t *testing.T) {
 		case offered["submit_schedule"]:
 			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 		}
-		notes++
-		if notes == 1 {
-			return `read:{"steps":[{"type":"notes_read","paths":["tastes/a.md"],"tool":"","args":"{}"}]}`
+		if offered["read"] || !strings.Contains(user, "=== tastes/a.md ===") || !strings.Contains(user, "前から好き") {
+			t.Errorf("the keeper was not handed the chosen note whole: read=%v\n%s", offered["read"], user)
+		}
+		if strings.Contains(user, "missing.md ===") {
+			t.Error("a note that does not exist was handed over")
 		}
 		return `{"operations":[{"type":"write","path":"tastes/a.md","text":"---\ntype: Preference\ntitle: A店\n---\n前から好き。また行った。"}]}`
 	}
@@ -419,5 +433,41 @@ func TestAnAnswerWithoutARecordIsSentBack(t *testing.T) {
 	}
 	if _, ok := s.Note("gourmet", "questions/ramen.md"); !ok {
 		t.Fatal("no record was kept")
+	}
+}
+
+// A phase that has spent its reads and asks to read again is no longer
+// offered read, so it hands its proposal in and the answer is published.
+// Before, the refusals used up the phase's rounds: a live Ultra turn read
+// eleven times without ever submitting, and the whole turn - answer included -
+// was dropped as "retry limit reached", which the user saw as the persona
+// having stayed quiet.
+func TestAPhaseOutOfReadsIsMadeToSubmit(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	reads := 0
+	f.phaseReply = func(system, user string, offered map[string]bool) string {
+		switch {
+		case offered["finish_read"]:
+			return "read_done"
+		case offered["submit_answer"]:
+			return `{"text":"駅から5分の店です。","sources":[]}`
+		case offered["submit_schedule"] && offered["read"]:
+			reads++
+			return `read:{"steps":[{"type":"notes_list","paths":[],"tool":"","args":"{}"}]}`
+		case offered["submit_schedule"]:
+			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+		case offered["submit_note"]:
+			return `{"operations":[]}`
+		}
+		t.Fatalf("unexpected phase: %v", offered)
+		return ""
+	}
+	r.react(post(t, s, "ラーメン屋を教えて").ID)
+
+	if reads != maxReads {
+		t.Fatalf("the schedule phase read %d times, want %d before being made to submit", reads, maxReads)
+	}
+	if got := remarks(t, s); len(got) != 1 || got[0].Text != "駅から5分の店です。" {
+		t.Fatalf("the answer was dropped with the phase: %+v", got)
 	}
 }

@@ -23,6 +23,8 @@ type routingRow struct {
 	// Via is how the user called a persona rather than the router choosing it:
 	// "mention" for an @, "reply" for a reply under its remark or post.
 	Via string `json:"via,omitempty"`
+	// Unrelated: it stayed quiet because it judged the post not its business.
+	Unrelated bool `json:"unrelated,omitempty"`
 	// Person: the persona keeps a person, so it is matched by words rather
 	// than by a condition the router reads.
 	Person bool `json:"person,omitempty"`
@@ -98,6 +100,9 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		row := s.routingRow(id, "")
 		row.Heard = record.Heard[id]
 		row.Via = record.Called[id]
+		for _, quiet := range record.Unrelated {
+			row.Unrelated = row.Unrelated || quiet == id
+		}
 		finished, said, noted := done(id), spoke[id], false
 		if notes, err := s.store.NotesBySource(id, entry.ID); err == nil {
 			row.Notes = notes

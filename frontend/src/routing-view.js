@@ -89,7 +89,11 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
       const noted = item.noted === true;
       const verdict = !done ? "呼ばれました。返事を考えています…"
         : said && noted ? "呼ばれました。返事とメモあり" : said ? "呼ばれました。返事あり、メモなし"
-        : noted ? "呼ばれました。黙ってメモだけ残しました" : "呼ばれましたが、黙っていました。メモもありません";
+        : noted ? "呼ばれました。黙ってメモだけ残しました"
+        // The persona's own judgement that the post was not its business:
+        // "should not have been called" beside it is how the user agrees.
+        : item.unrelated === true ? "呼ばれましたが、自分の担当ではないと判断して黙りました"
+        : "呼ばれましたが、黙っていました。メモもありません";
       // There is nothing to teach a persona the user called themselves.
       const line = row(item, verdict, item.via ? null : { label: "呼んでほしくなかった", direction: "exclude" });
       const persona = getPersona?.(item.id);

@@ -30,8 +30,8 @@ index.md と更新履歴は捨てないでください。消えた項目への�
 // tidiesUp reports a wake that only puts memory back in order after something
 // was deleted: a post, a note, or a note past its expires date. It cannot
 // speak and has nothing to answer, so it skips the research and the answer
-// and goes straight to the schedule and note phases, which read what they
-// need themselves. It is never handed to the external agent, which would only
+// and goes straight to the schedule phase and the note keeper, which are handed
+// or read what they need themselves. It is never handed to the external agent, which would only
 // be asked for an answer nobody will see.
 func tidiesUp(instructions string) bool {
 	return instructions == deletedInstructions || instructions == forgottenInstructions || instructions == expiredInstructions

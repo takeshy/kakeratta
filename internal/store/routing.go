@@ -39,6 +39,9 @@ type Routing struct {
 	// the router, how: "mention" for an @, "reply" for a reply under its remark
 	// or post. Such a persona is also listed in Delivered.
 	Called map[string]string `json:"called,omitempty"`
+	// Unrelated lists the personas that stayed quiet because they judged the
+	// post not theirs, as opposed to having nothing to say about it.
+	Unrelated []string `json:"unrelated,omitempty"`
 }
 
 func routingPath(root string) string { return filepath.Join(root, "routing.json") }
@@ -122,6 +125,9 @@ func normaliseRouting(record Routing) Routing {
 			out.Heard = map[string]string{}
 		}
 		out.Heard[id] = term
+	}
+	if record.Unrelated != nil {
+		out.Unrelated = append([]string{}, record.Unrelated...)
 	}
 	for id, how := range record.Called {
 		if out.Called == nil {

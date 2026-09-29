@@ -78,6 +78,18 @@ const (
 	// These are counted apart from review drafts, so a shape slip does not use
 	// up the chance to fix what the review found.
 	maxMalformed = 2
+	// maxPhaseRounds bounds one phase's model replies whatever they hold: every
+	// read, and a few sent-back proposals and stalls besides.
+	maxPhaseRounds = maxReads + 2*maxMalformed + 3
+)
+
+const (
+	// readsRefused answers a read asked for after the budget was spent, and
+	// readsLastNote closes the footer of the read that spent it. Both tell the
+	// persona to submit; a phase also takes them as the cue to stop offering
+	// read, since a model that has been told twice may still ask again.
+	readsRefused  = "これ以上は読めません。現在のフェーズの結果を提出してください。"
+	readsLastNote = "もう読めないので、現在のフェーズの結果を提出してください。"
 )
 
 func turnReadLimit(deep bool) int {
@@ -157,6 +169,9 @@ type turnRules struct {
 	// what it held, so the plan is sent back rather than run. Nil means the
 	// caller keeps no record of reads.
 	readState func(path string) (exists, read bool)
+	// handed is set for the note keeper, which cannot read: an existing note it
+	// was not handed whole cannot be rewritten, and is told so in those words.
+	handed bool
 	// cited are the saved posts this turn's searches found, by id, with the
 	// line a link to each shows. A speak may cite these and nothing else.
 	cited map[string]string
@@ -195,7 +210,7 @@ func readFooter(left int, set *tools.Set) string {
 		footer += "調べるのに使える道具: " + strings.Join(names, " / ") + "。見つからない・使えないときは別の道具を試してください。"
 	}
 	if left <= 0 {
-		footer += "もう読めないので、現在のフェーズの結果を提出してください。"
+		footer += readsLastNote
 	}
 	return footer + "）"
 }
@@ -242,7 +257,11 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 			}
 			if rules.readState != nil && step.Type == "write_note" {
 				if exists, read := rules.readState(path); exists && !read {
-					problems = append(problems, at+": "+path+" は既存のメモです。read で読んでから更新してください")
+					if rules.handed {
+						problems = append(problems, at+": "+path+" は既存のメモですが、全文を渡されていないので書き換えられません。書かずに済ませるか、同じ話題が別にないなら新しいメモにしてください")
+					} else {
+						problems = append(problems, at+": "+path+" は既存のメモです。read で読んでから更新してください")
+					}
 				}
 			}
 			if step.Type == "write_note" {
@@ -351,12 +370,11 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 			problems = append(problems, at+": 知らないステップです")
 		}
 	}
-	// A schedule's backing note belongs to the schedule, and the note phase
-	// is told not to duplicate it. The plan that writes both writes the note
-	// twice, whichever order the steps are in.
+	// A schedule's backing note belongs to the schedule. A plan that also writes
+	// it as a note of its own writes it twice, whichever order the steps are in.
 	for path := range backing {
 		if noted[path] {
-			problems = append(problems, path+" は write_schedule の背景メモです。Note phase で書かないでください")
+			problems = append(problems, path+" は write_schedule の背景メモです。ほかのステップで書かないでください")
 		}
 	}
 	return problems

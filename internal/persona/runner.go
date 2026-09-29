@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	pathpkg "path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -103,6 +104,9 @@ type Runner struct {
 	apart     context.Context
 	stopApart context.CancelFunc
 	detached  sync.WaitGroup
+
+	// keepers holds one lock per persona, so its note keeper runs one at a time.
+	keepers sync.Map
 	// agentSeen is when the external agent last called in over MCP, as Unix
 	// nanoseconds; zero until it first does after a start.
 	agentSeen atomic.Int64
@@ -316,6 +320,21 @@ func (r *Runner) turnsDone(entryID string, wave []Skill, spoke map[string]bool) 
 		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
 	}
 	r.emit("turn", map[string]any{"entryId": entryID, "personas": ids})
+}
+
+// markUnrelated notes on the post's routing record that this persona stayed
+// quiet because the post was not its business.
+func (r *Runner) markUnrelated(entryID, personaID string) {
+	r.routingMu.Lock()
+	defer r.routingMu.Unlock()
+	record, err := r.store.Routing(entryID)
+	if err != nil || record == nil || contains(record.Unrelated, personaID) {
+		return
+	}
+	record.Unrelated = append(record.Unrelated, personaID)
+	if err := r.store.SaveRouting(entryID, *record); err != nil {
+		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+	}
 }
 
 // FinishAsyncTurn is turnsDone for a persona whose turn was left pending
@@ -822,7 +841,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	reader := func(used *int, limit int, budget func() *lookups, answering bool) func([]ReadStep) string {
 		return func(steps []ReadStep) string {
 			if *used >= limit {
-				return "これ以上は読めません。現在のフェーズの結果を提出してください。"
+				return readsRefused
 			}
 			for _, step := range steps {
 				if step.Type == "notes_read" || (step.Type == "tool" && step.Tool == "notes_read") {
@@ -938,14 +957,142 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	spoken := strings.TrimSpace(answer.Text)
 	record.Spoke = spoken
 	sources = append(sources, citedSources(answer.Sources, rules.cited)...)
-	if listening || spoken == "" {
+	var remark *timeline.Entry
+	switch {
+	case listening || spoken == "":
 		if named && !listening {
-			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil, "")
+			remark = r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil, "")
+		} else {
+			// It had its turn; its notes are kept below either way.
+			remark = r.hush(skill, memory)
 		}
-		// It had its turn. Whatever it wrote down is kept either way.
-		return r.hush(skill, memory)
+	default:
+		remark = r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, notesWritten(steps), slot)
 	}
-	return r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, notesWritten(steps), slot)
+	// The remark is out. Notes come after it, so a note that cannot be written
+	// costs the note and never the answer.
+	// A persona that stayed quiet because the post is not its business has
+	// nothing to keep. That is its call; the routing sheet shows it, and the
+	// user can tell it otherwise there.
+	unrelated := answer.Unrelated && spoken == "" && trigger.ID != "" && !named
+	if unrelated {
+		r.markUnrelated(trigger.ID, skill.ID)
+	}
+	if keepsNotes(trigger, wakeInstructions) && !unrelated {
+		kept := r.keepNotes(ctx, client, settings, keeperTurn{
+			skill: skill, set: set, rules: rules, thread: thread, trigger: trigger, post: post,
+			answer: spoken, wake: wakeInstructions, here: here, names: names, own: prov.own, layout: layout, schedules: plan.Schedules, preread: prereadNotes(referenced),
+			handed: r.handedNotes(skill.ID, trigger, wakeInstructions),
+		})
+		r.pointAtNotes(remark, kept)
+	}
+	return remark
+}
+
+// prereadNotes are the notes a turn opened while it worked, in name order and no
+// more than the keeper takes.
+func prereadNotes(referenced map[string]bool) []string {
+	var paths []string
+	for path := range referenced {
+		if !reservedNote(path) {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	if len(paths) > maxKeeperReads {
+		paths = paths[:maxKeeperReads]
+	}
+	return paths
+}
+
+// maxHanded caps the notes the app hands the keeper on its own account. A
+// tidy-up can touch more notes than a turn chooses, so it is larger than
+// maxKeeperReads.
+const maxHanded = 12
+
+// notePathMention finds note paths named in a wake's text: the notes a review
+// is due for, or the notes a deletion took away or left behind.
+var notePathMention = regexp.MustCompile(`[^\s,()（）、「」:：]+\.md`)
+
+// handedNotes are the notes the keeper must see whole without having to find
+// them: the ones the app itself named in the wake - due for review, left behind
+// or taken away by a deletion - the notes that still link to one taken away,
+// and, for the user's reply to a post of the persona's own, the notes that post
+// was about. The keeper cannot read, so a note it needs and is not handed is a
+// note it cannot fix.
+func (r *Runner) handedNotes(personaID string, trigger timeline.Entry, instructions string) []string {
+	var named []string
+	if trigger.Speaker == "system" || trigger.ID == "" {
+		named = notePathMention.FindAllString(trigger.Text, -1)
+	}
+	if parent, ok := r.store.Entry(trigger.ReplyTo); ok && trigger.Kind == timeline.KindReply && parent.Speaker == personaID && parent.Root == parent.ID {
+		named = append(named, parent.Notes...)
+	}
+	var out, gone []string
+	seen := map[string]bool{}
+	for _, path := range named {
+		path = strings.TrimPrefix(strings.TrimSpace(path), "/")
+		if path == "" || seen[path] || reservedNote(path) {
+			continue
+		}
+		seen[path] = true
+		if _, ok := r.store.Note(personaID, path); ok {
+			out = append(out, path)
+		} else {
+			gone = append(gone, path)
+		}
+	}
+	// A note that links to one that is gone has a reference to take out, and
+	// the index does not say which notes those are.
+	if len(gone) > 0 && tidiesUp(instructions) {
+		for _, note := range r.allNotes(personaID) {
+			if seen[note.Path] || reservedNote(note.Path) {
+				continue
+			}
+			for _, path := range gone {
+				if mentions(note.Text, path) {
+					seen[note.Path] = true
+					out = append(out, note.Path)
+					break
+				}
+			}
+		}
+	}
+	if len(out) > maxHanded {
+		out = out[:maxHanded]
+	}
+	return out
+}
+
+// pointAtNotes adds the notes the keeper wrote to the remark that was already
+// out, so the remark still leads to what it left behind - a check-in that
+// asked about a note is found by the note it asked about.
+func (r *Runner) pointAtNotes(remark *timeline.Entry, kept []string) {
+	if remark == nil || len(kept) == 0 {
+		return
+	}
+	current, ok := r.store.Entry(remark.ID)
+	if !ok || current.Deleted {
+		return
+	}
+	for _, path := range kept {
+		if !reservedNote(path) && !contains(current.Notes, path) {
+			current.Notes = append(current.Notes, path)
+		}
+	}
+	if err := r.store.Append(current); err != nil {
+		return
+	}
+	*remark = current
+	r.emit("entry", current)
+}
+
+// keepsNotes says whether a turn leaves the note keeper something to do: a
+// post or reply of the user's, a tidy-up after something was deleted or
+// expired, the daily check-in, where a persona may sort its memory, and a review,
+// where the note asked about has its date moved.
+func keepsNotes(trigger timeline.Entry, instructions string) bool {
+	return trigger.ID != "" || tidiesUp(instructions) || strings.HasPrefix(instructions, dailyHeader) || instructions == reviewInstructions
 }
 
 // notesWritten lists the notes a turn wrote, for the remark to point at.
@@ -1034,7 +1181,7 @@ func turnLine(named, listening bool) string {
 	switch {
 	case listening:
 		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
-			"覚えておくことがあればメモに書いてください。Answer の text は空にしてください。"
+			"覚えておくことがあれば、あとでメモ係が書きます。Answer の text は空にしてください。"
 	case named:
 		return "\n※ あなたは名指しで呼ばれています。Answer の text を空にはできません。必ず何か答えてください。"
 	}

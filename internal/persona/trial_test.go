@@ -85,6 +85,14 @@ func TestApplyReplyKeepsExactPreviewWithoutRunningModelAgain(t *testing.T) {
 	if note, ok := workspace.Note("gourmet", "food/ramen.md"); !ok || !strings.HasPrefix(note.Text, "味噌ラーメン") {
 		t.Fatalf("note = %+v, %v", note, ok)
 	}
+	// The remark points at the note the keeper wrote in the trial, and the
+	// index the trial left links it - not an older index rebuilt over it.
+	if len(changed.Notes) != 1 || changed.Notes[0] != "food/ramen.md" {
+		t.Fatalf("the accepted remark lost its note: %+v", changed.Notes)
+	}
+	if index, ok := workspace.Note("gourmet", "index.md"); !ok || !strings.Contains(index.Text, "/food/ramen.md") {
+		t.Fatalf("index.md = %+v, %v", index, ok)
+	}
 	if err := runner.ApplyReply(preview.Token, old.ID); err != nil {
 		t.Fatal(err)
 	}

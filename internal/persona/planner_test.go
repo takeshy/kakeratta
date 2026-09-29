@@ -142,12 +142,17 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 		t.Fatalf("remark = %+v", remark)
 	}
 	// The built-in note phase keeps a record of what was asked, and only that.
+	// It is written after the remark, by the note keeper.
 	var kept []string
-	for _, note := range s.Memory("gourmet").Notes {
-		if note.Path != "index.md" {
-			kept = append(kept, note.Path)
+	eventually(t, "the record of what was asked", func() bool {
+		kept = nil
+		for _, note := range s.Memory("gourmet").Notes {
+			if note.Path != "index.md" {
+				kept = append(kept, note.Path)
+			}
 		}
-	}
+		return len(kept) >= 1
+	})
 	if len(kept) != 1 {
 		t.Fatalf("notes kept for an answer: %v", kept)
 	}

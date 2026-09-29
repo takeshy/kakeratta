@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -127,10 +128,79 @@ type dryWorkspace struct {
 }
 
 func (d *dryWorkspace) Append(entry timeline.Entry) error { d.remark = &entry; return nil }
-func (d *dryWorkspace) RecordWake(string, string) error   { return nil }
-func (d *dryWorkspace) SaveMemory(store.Memory) error     { return nil }
+
+// Entry sees the remark this preview produced, so the note keeper can point it
+// at the notes it wrote, as it does a real remark.
+func (d *dryWorkspace) Entry(id string) (timeline.Entry, bool) {
+	if d.remark != nil && d.remark.ID == id {
+		return *d.remark, true
+	}
+	return d.Workspace.Entry(id)
+}
+
+// latest is the last change this preview made to a note, if any.
+func (d *dryWorkspace) latest(path string) (noteChange, bool) {
+	for i := len(d.changes) - 1; i >= 0; i-- {
+		if d.changes[i].path == path {
+			return d.changes[i], true
+		}
+	}
+	return noteChange{}, false
+}
+
+// Note, Notes and NotePaths read the notes as this preview left them, so what
+// runs after a write - the index repair above all - builds on the write rather
+// than on the notes as they were.
+func (d *dryWorkspace) Note(personaID, path string) (store.Note, bool) {
+	if change, ok := d.latest(path); ok {
+		if change.delete {
+			return store.Note{}, false
+		}
+		return store.Note{Path: path, Text: change.text}, true
+	}
+	return d.Workspace.Note(personaID, path)
+}
+
+func (d *dryWorkspace) Notes(personaID string, paths []string) ([]store.Note, error) {
+	var out []store.Note
+	for _, path := range paths {
+		if note, ok := d.Note(personaID, path); ok {
+			out = append(out, note)
+		}
+	}
+	return out, nil
+}
+
+func (d *dryWorkspace) NotePaths(personaID string) ([]string, error) {
+	paths, err := d.Workspace.NotePaths(personaID)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, path := range paths {
+		seen[path] = true
+		if _, ok := d.Note(personaID, path); ok {
+			out = append(out, path)
+		}
+	}
+	for _, change := range d.changes {
+		if !seen[change.path] {
+			seen[change.path] = true
+			if _, ok := d.Note(personaID, change.path); ok {
+				out = append(out, change.path)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+func (d *dryWorkspace) RecordWake(string, string) error { return nil }
+func (d *dryWorkspace) SaveMemory(store.Memory) error   { return nil }
 func (d *dryWorkspace) WriteNote(_, path, content string, sources ...store.NoteSource) error {
-	if d.notes != nil {
+	// The index and the log are housekeeping; what a person is shown is the notes
+	// that carry what was said.
+	if d.notes != nil && !reservedNote(path) {
 		*d.notes = append(*d.notes, path)
 	}
 	d.changes = append(d.changes, noteChange{path: path, text: content, sources: append([]store.NoteSource(nil), sources...)})

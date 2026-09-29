@@ -99,7 +99,7 @@ list_asks → claim_ask → context interpretation → read_for_ask / own resear
 1. **`list_asks`**: Check open asks. Unclaimed asks have `status: "pending"`; if not claimed before `claimBy`, the built-in model takes over.
 2. **`claim_ask`**: Claim the target ask using its `askId` and an execution-unique `claimId`. The response returns `planBy` (accepted answer deadline) and the full `context`. Retry lost responses with the same `claimId`.
 3. **Research & reasoning**: If needed, call `read_for_ask` with `notes_list` or `notes_read` steps to inspect notes, or a `tool` step to run a read-only tool in `context.tools`, such as `timeline_search`. Only saved posts discovered via `timeline_search` through `read_for_ask` can be cited in the answer's `sources`. Research with Hermes's own tools as needed and cite web sources as links in the answer text.
-4. **`submit_answer`**: Submit the `askId`, `claimId`, and `answer: {text, sources}`. Kakeratta checks only its shape and the turn's rules (a named turn must answer, a listening turn must stay quiet, `sources` must come from this ask's searches). `accepted: true` means the answer was received, not yet published: Kakeratta goes on to the schedule, action and note phases, runs them, and then publishes it. If rejected, revise using the returned `problems`.
+4. **`submit_answer`**: Submit the `askId`, `claimId`, and `answer: {text, sources}`. Kakeratta checks only its shape and the turn's rules (a named turn must answer, a listening turn must stay quiet, `sources` must come from this ask's searches). `accepted: true` means the answer was received, not yet published: Kakeratta goes on to the schedule and action phases, runs them, and then publishes it (the persona's note keeper writes the notes after that). If rejected, revise using the returned `problems`.
 5. **`release_ask`**: If an ask cannot be answered, release it immediately rather than waiting for timeouts.
 
 ### The context a claim returns
@@ -174,4 +174,4 @@ A Wake Gate from before Gate version 2 cannot update itself and must be replaced
 
 ## Check-ins, schedules, and note reviews
 
-Daily check-ins, schedule wakes, note reviews, and deletion notices also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit an answer with an empty `text`. Whatever the wake asks to keep or push back (such as a note's review date) is done by Kakeratta's note phase.
+Daily check-ins, schedule wakes, note reviews, and deletion notices also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit an answer with an empty `text`. Whatever the wake asks to keep or push back (such as a note's review date) is done by Kakeratta's note keeper.

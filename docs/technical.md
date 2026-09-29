@@ -307,13 +307,13 @@ Built-in: Read → Answer        External agent: Read + Answer → submit_answer
                      ↓
             Action phase   → actions      (only if the persona holds one)
                      ↓
-            Note phase     → notes
-                     ↓
             Code checks (every time)
                      ↓
             Review (only when there is a schedule or an action)
                      ↓
             Execute → publish the answer
+                     ↓
+            Note keeper    → notes, then index.md made complete
 ```
 
 ### A turn, phase by phase
@@ -349,30 +349,15 @@ the answer is the same either way.
 4. **Action phase.** Only for a persona that holds a tool that acts. It hands
    in `submit_action` — the tool calls and their arguments — with the same
    consistency statement about what the answer promised.
-5. **Note phase.** It hands in `submit_note`: writes and forgets. A turn that
-   answered the user's post or reply always leaves a record: what the user said
-   or asked, in their words, and one line on how it was answered ("answered
-   that it signals room for cooperation (uncertain)"). The note links to the
-   post, so the rest is a click away, and a topic already in `index.md` gets a
-   dated line added rather than a second note. What the user said — facts,
-   preferences, plans, changes in a relationship, something they asked to be
-   remembered — is kept for itself. What an AI researched — facts, candidate
-   lists, background, explanations — is not kept beyond that one line: when it
-   is needed again, looking it up then is more accurate. A conclusion from an
-   answer is kept as a fact only once the user has reacted to it or it became a
-   premise of the conversation. Information that could not
-   be fetched again, such as what an image the user sent showed, is the
-   exception. A note type in the persona's memory layout is how kept things
-   are filed, not a slot to fill every turn. A schedule's note belongs to the
-   schedule phase and is not written again here.
+5. **Notes come after the answer.** They are not a phase of the turn: a note
+   that fails to come out must not take a finished answer with it. Once the
+   remark is out, the persona's **note keeper** writes them (see
+   [The note keeper](#the-note-keeper)).
 6. **Checked by code, every time.** Known operation types, declared tools and no
    lookup used as an action, schedule ids that exist, paths that stay inside
-   the persona's bundle, the same note not written twice or both written and
-   forgotten, no note carrying two or more of the answer's own sentences, an answer to the
-   user that left no note behind, an existing note not rewritten unread, note types from the
-   persona's memory layout, and no second note under a title that already
-   exists — one thing, one note. A proposal that fails is sent back to its own
-   phase with the reasons.
+   the persona's bundle, a schedule's note not rewritten unread, and note types
+   from the persona's memory layout. A proposal that fails is sent back to its
+   own phase with the reasons.
 7. **Reviewed, only when it reaches further.** A plan holding a schedule or an
    action is reviewed by Nemotron 3 Super against a narrow list: the answer's
    promises and the schedules' times, creates and cancels agree; schedules and
@@ -381,19 +366,72 @@ the answer is the same either way.
    answer that says a change is done has something behind it. The answer's
    quality, its length and its research are not reviewed, and a missing
    internal read is never a reason to reject research done elsewhere. A plain
-   answer, or an answer with note updates, costs no review. A failed review
+   answer costs no review. A failed review
    regenerates only the phases it blamed (`schedule`, `action` or `both`); the
-   answer and the notes stay as they were. After two reviews, the turn stops.
-8. **Run, then publish.** Schedules, actions and notes run in order; **the
-   first step that fails stops the rest**, and the answer is published only
-   when everything ran. A schedule whose note cannot be written is taken back.
+   answer stays as it was. After two reviews, the turn stops.
+8. **Run, then publish.** Schedules and actions run in order; **the first step
+   that fails stops the rest**, and the answer is published only when
+   everything ran. A schedule whose note cannot be written is taken back.
    An external action is not a transaction: what already ran is recorded, and
    an answer promising success is withheld.
 
 Each turn is logged as one structured entry: what was read, the answer, each
 phase with its rounds, reads and what it had sent back and why, each review and
 which phases it regenerated, the assembled workflow, each step as it ran, and what
-was said.
+was said. The note keeper logs its own entry (`notes <persona>`): the notes it
+chose to see, its proposal and what it had sent back, the steps as they ran, and
+whether the index had to be repaired.
+
+### The note keeper
+
+`internal/persona/notekeeper.go`. After the remark is published, the persona
+writes down what the turn should leave behind, on the persona model (Super,
+even in an Ultra turn), in its own voice, with the OKF skill. It runs for a post
+or reply of the user's — also when the persona stayed quiet or could not speak —
+for the daily check-in, for a review, and for the tidy-ups after something was
+deleted or expired. A schedule wake does not run it.
+
+It reads in two steps that cannot loop. It is shown `index.md` whole, what needs
+tidying (notes the index does not link, and notes that carry one title under
+different paths) and the thread; it picks up to four notes from the index
+(`choose_notes`). Some notes are handed over without being chosen: the ones the
+turn itself opened, the ones a review is due for, the notes behind a post of the
+persona's own that the user replied to, and in a tidy-up the notes left behind
+and the notes whose text still links to one taken away (at most twelve). Then it
+is handed those notes whole and proposes the changes (`submit_note`: writes and
+forgets) **with no way to read more**. An existing note it was not handed cannot
+be rewritten.
+
+The app decides what has to be true afterwards, and sends a proposal back with
+the reasons when it is not:
+
+* one thing, one note — a title the persona already has, or one within a slip of
+  it, is refused **whatever the directory** (a note thrown away in the same
+  proposal does not count, so merging is a write and a forget);
+* note types from the persona's memory layout, no note carrying two or more of
+  the answer's own sentences, and an answer to the user that leaves no note
+  behind (a schedule with its note counts);
+* every note it writes names the `index.md` heading it belongs under
+  (`section`), unless it is already listed (asked once; a proposal is not lost
+  to the layout of the index).
+
+**The index is the persona's, and the app makes it complete.** How `index.md` is
+grouped is the persona's judgement — headings that fit its subject, related notes
+together. The keeper does not rewrite the index to add a note: it names the
+heading, and the app puts the note's line there (`* [title](/path) - description`),
+moving it from any other heading and making the heading if it is new. It writes
+`index.md` itself only to rename or regroup headings. Whatever the keeper did, or
+failed to do, the app then repairs the index:
+links to notes that no longer exist are taken out, and a note it does not link is
+added under an "unsorted" heading with its title and description. The persona is
+shown that heading on its next turn and sorts it. An index can therefore be
+regrouped badly but never be empty of a note or point at one that is gone.
+
+If the keeper cannot finish, the answer is already out: the turn costs the note
+and nothing else, and the failure is in the log. Two turns of one persona
+finishing together take turns, so they do not rewrite the same note or index from
+what each saw. The remark is updated afterwards to point at the notes that were
+written, so a check-in that asked about a note is still found by it.
 
 ## Models
 
@@ -484,7 +522,7 @@ Each persona owns its own memory.
 
 A food persona cannot silently rewrite the travel persona's notes, and an
 external agent cannot write notes at all: it hands in only an answer, and the
-persona's note phase decides what to keep.
+persona's note keeper decides what to keep.
 
 Notes are stored as structured Markdown under OKF-style topics rather than as
 one conversation transcript.
@@ -546,7 +584,7 @@ tags: [ramen, tonkotsu]
 ```
 
 Notes are read in the read phase (`notes_list`, which can narrow by tag, and
-`notes_read`) and written by the note phase (`write`, `forget`) or a schedule's own note. A
+`notes_read`) and written by the note keeper (`write`, `forget`) or a schedule's own note. A
 write replaces **only that file**, so a grown memory never travels in full on
 every wake, and nothing is lost by being left out of a rewrite. These need no
 declaration: a persona's own notes are not outside.
@@ -554,7 +592,7 @@ declaration: a persona's own notes are not outside.
 A wake hands over `index.md` and how many notes there are, never a listing of
 every note. The index is the usual way in; `notes_list` finds notes beyond it,
 100 at a time, newest first, and can narrow by tag. The duplicate check reads
-notes in the same directory as the proposed note. The memory reader on the
+every note the persona has, whatever the directory. The memory reader on the
 page loads 50 notes at a time.
 
 Which `type` values to use and when to merge them differ by subject, so they go
@@ -563,14 +601,16 @@ in each skill's `memory` field — `Preference` and `Shop` for the food persona,
 **The format is handed over; the policy belongs to the skill.** The app holds
 no threshold for when to compress.
 
-**The app does not write the meaning of the notes or build `index.md`.** It
-parses `type` and `tags` to validate writes, detect duplicates, and filter the
-reader; it also maintains source links to posts. The Markdown body remains
-the persona's to write. In local storage the notes are plain files that can
+**The app does not write the meaning of the notes or group `index.md`.** It
+parses `type`, `title`, `description` and `tags` to validate writes, detect
+duplicates, filter the reader and keep the index complete (every note linked
+under its title, no link to a note that is gone); it also maintains source links
+to posts. The Markdown body, and how the index is grouped, remain the persona's
+to write. In local storage the notes are plain files that can
 be read with `cat` or used as an OKF knowledge source elsewhere.
 
 **Memory comes from the user; what the persona made up has a deadline.** The note
-phase is told to keep the user's facts and preferences, not what an answer
+keeper is told to keep the user's facts and preferences, not what an answer
 researched or recommended; when a persona does keep something it produced -
 a list of lunch candidates it found by searching - that note is the persona's
 own output, not something known about the user. The note-writing skill draws the
@@ -1144,8 +1184,9 @@ note review — kakeratta builds the context the built-in model would get to ans
 and opens an **ask**. The agent claims it, reads the context, may look things up
 with the persona's own notes and read-only tools or with its own, and submits
 only the answer. kakeratta checks its shape and the turn's rules, then plans the
-schedule, action and note phases on the persona's model, checks and reviews
-them as for any turn, runs them as the persona, and publishes the answer. The
+schedule and action phases on the persona's model, checks and reviews
+them as for any turn, runs them as the persona, publishes the answer, and then
+has the persona's note keeper write the notes. The
 agent never writes a note, a schedule or a remark itself, and its answer is not
 reviewed: the app's reviewer cannot see what the agent researched.
 
@@ -1155,8 +1196,8 @@ persona wakes
 → agent: claim_ask → context
 → agent: read_for_ask / own research (optional) → submit_answer
 → kakeratta: check the answer → accepted
-→ kakeratta: schedule → action → note phases, checks, review if needed
-→ kakeratta runs the changes, then publishes the answer as the persona
+→ kakeratta: schedule → action phases, checks, review if needed
+→ kakeratta runs the changes, publishes the answer as the persona, then keeps notes
 ```
 
 Waiting on an agent must not stall everything else, so an externally planned

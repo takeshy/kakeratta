@@ -38,6 +38,10 @@ type NoteOperation struct {
 	Type string `json:"type"`
 	Path string `json:"path"`
 	Text string `json:"text"`
+	// Section is the index.md heading a written note is listed under. The app
+	// puts the note's line there, so the index is not rewritten whole to add
+	// one note. Empty leaves a listed note where it is.
+	Section string `json:"section,omitempty"`
 }
 
 // batch is a private adapter to the existing deterministic validators and
@@ -72,7 +76,8 @@ func phaseTool(phase string, set *tools.Set) llm.Tool {
 	case "action":
 		fields = map[string]any{"tool": map[string]any{"type": "string", "enum": shapeOf(set).actions}, "args": stringField("引数のJSONオブジェクトを文字列で")}
 	case "note":
-		fields = map[string]any{"type": map[string]any{"type": "string", "enum": []string{"write", "forget"}}, "path": stringField("メモのpath"), "text": stringField("writeは全文、forgetは空")}
+		fields = map[string]any{"type": map[string]any{"type": "string", "enum": []string{"write", "forget"}}, "path": stringField("メモのpath"), "text": stringField("writeは全文、forgetは空"),
+			"section": stringField("write したメモを index.md のどの見出しの下に載せるか（見出しの文字だけ。例: 質問）。本体がその見出しに1行入れる。index.md 自身と forget では空")}
 	}
 	required := []string{}
 	for k := range fields {
@@ -96,7 +101,7 @@ func phasePrompt(phase string, skill Skill, set *tools.Set, layout, wake string)
 	switch phase {
 	case "schedule":
 		s += `今回のターンで未来の予定を変える必要があるかを判断する。Answerにある作成・取消・変更の約束、日時を確認し、すべてoperationsまたは既存予定で裏付ける。約束があるのにoperationsが空で既存予定にも根拠がなければconsistent:false。取り消したという回答は実際のcancel操作を必要とする。
-変更はcancel+createで表す。createはat,daily,noteと背景メモpath,textを一緒に指定する。cancelは既存id。他の文字列は空、dailyはfalse。明示された通知時刻を守る。それ以外の確認は用が済むころ、30日以内。背景メモは予定に属し、Note phaseで重複させない。
+変更はcancel+createで表す。createはat,daily,noteと背景メモpath,textを一緒に指定する。cancelは既存id。他の文字列は空、dailyはfalse。明示された通知時刻を守る。それ以外の確認は用が済むころ、30日以内。背景メモは予定に属する。
 `
 		if !set.Allows("schedule") {
 			s += "この担当は予定操作を許可されていない。operationsは空。予定操作の約束があればconsistent:false。\n"
@@ -108,16 +113,6 @@ func phasePrompt(phase string, skill Skill, set *tools.Set, layout, wake string)
 				s += d.Name + ": " + d.Description + "\n" + argsTable(d) + "\n"
 			}
 		}
-	case "note":
-		s += `このターンで何を覚えておくかを判断する。
-- **ユーザーの投稿や返信に回答したターンは、必ず記録を残す。** 書くのは、ユーザーが何を言った・聞いたか（1〜2行、ユーザーの言葉で）と、どう答えたかの要点1行（例: 「〜という見方で答えた（不確実）」「A店とB店を挙げた」）。メモには元の投稿へのリンクが付くので、詳しくはそこからたどれる。同じ話題のメモが index.md にあれば、新しく作らず読んでから日付付きの行を書き足す。
-- ユーザーが言ったこと（事実・好み・予定・関係の変化・明示的に覚えてと頼まれたこと）は、それ自体を残す。黙るターンでも、自分の領域のことなら残す。
-- AI（あなたや他の担当、外部エージェント）が調べた事実・候補一覧・背景説明・解説の本文は保存しない。必要になったら、その時点の最新情報で調べ直す方が正確。残すのは「どう答えたか」の1行だけ。
-- 回答の結論をユーザーが受け入れた（選んだ・同意した・行った）、またはその後の会話で前提になったら、その結論を事実として残してよい。今回の Answer にはまだ誰も反応していないので、「そう答えた」とだけ書く。
-- 後から取り直せない情報（ユーザーが渡した画像やリンクの中身など）は例外的に残してよい。
-Answer の文章を写さない。本体は Answer の文を2文以上含むメモを差し戻す。メモの分類の型（見方・好み・質問など）は残すものの分け方で、解説を書く枠ではない。
-予定の背景メモはScheduleにあるので書かない。Actionの実行結果はまだ不明なので成功済みと記録しない。writeは全文、forgetはpath。
-`
 	}
 	if phase != "action" {
 		s += noteRules + "メモの分類（型はここにあるものだけ）: " + layout + "\n" + okfHost + okfSkill
@@ -268,8 +263,19 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 	tool := phaseTool(phase, set)
 	messages := []llm.Message{{Role: "system", Content: system}, {Role: "user", Content: user}}
 	rec := phaseRecord{Phase: phase}
-	for rec.Reads <= maxReads && rec.SentBack <= maxMalformed && rec.Stalls <= maxMalformed {
-		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: []llm.Tool{readTool, tool}, ToolChoice: "required"})
+	// Once the reads are spent, read is no longer offered: a model told to
+	// submit that asks to read again would otherwise spend its remaining
+	// rounds on refusals and never hand the phase in, losing the whole turn.
+	outOfReads := lookup == nil
+	// Rounds are capped outright as well: once read is withdrawn, the read count
+	// no longer ends the loop, and a model that keeps calling it anyway must not
+	// keep a phase - or the keeper's lock - for ever.
+	for (rec.Reads <= maxReads || outOfReads) && rec.SentBack <= maxMalformed && rec.Stalls <= maxMalformed && rec.Rounds < maxPhaseRounds {
+		offered := []llm.Tool{readTool, tool}
+		if outOfReads {
+			offered = []llm.Tool{tool}
+		}
+		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: offered, ToolChoice: "required"})
 		if err != nil {
 			return Workflow{}, &rec, err
 		}
@@ -285,8 +291,11 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 		var reason string
 		for _, call := range reply.Calls {
 			result := "このフェーズには使えないtoolです。read か " + tool.Name + " を呼んでください。"
+			if lookup == nil {
+				result = "このフェーズでは読めません。" + tool.Name + " を呼んでください。"
+			}
 			switch {
-			case call.Name == readTool.Name:
+			case call.Name == readTool.Name && lookup != nil && !outOfReads:
 				rec.Reads++
 				var req struct {
 					Steps []ReadStep `json:"steps"`
@@ -295,6 +304,9 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 					result = err.Error()
 				} else {
 					result = lookup(req.Steps)
+					if strings.HasPrefix(result, readsRefused) || strings.Contains(result, readsLastNote) {
+						outOfReads = true
+					}
 				}
 			case call.Name == tool.Name && candidate == nil:
 				plan := Workflow{}
@@ -351,6 +363,10 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 			case call.Name == tool.Name:
 				rec.SentBack++
 				result = "提出はこのフェーズ1件だけにしてください。"
+			default:
+				// A tool it was not offered - read after it was withdrawn, or
+				// anything else - is a reply that did not move the phase on.
+				rec.Stalls++
 			}
 			messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: result})
 		}
@@ -389,14 +405,7 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 			return whole
 		}
 		next, rec, err := proposePhase(ctx, client, model, phase, phasePrompt(phase, skill, rules.set, layout, wake), user+"\n現在の workflow（他フェーズを変更しない）:\n"+string(encoded)+"\n修正指示:\n"+feedback, rules.set, lookup, func(candidate Workflow) []string {
-			problems := checkBatch(merged(candidate).batch(), rules)
-			if phase == "note" {
-				problems = append(problems, copiedAnswer(plan.Answer.Text, candidate.Notes)...)
-				if why := unrecorded(plan, candidate.Notes, rules); why != "" {
-					problems = append(problems, why)
-				}
-			}
-			return problems
+			return checkBatch(merged(candidate).batch(), rules)
 		})
 		if rec != nil {
 			log.phases = append(log.phases, *rec)
@@ -414,7 +423,10 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 		}
 		return nil
 	}
-	for _, phase := range []string{"schedule", "action", "note"} {
+	// Notes are not a phase of the turn. A note that fails to come out must not
+	// take a finished answer with it, so they are kept by the note keeper once
+	// the turn has run and the remark is out (notekeeper.go).
+	for _, phase := range []string{"schedule", "action"} {
 		// Tidying up after a deletion changes memory and schedules only.
 		if phase == "action" && (len(shapeOf(rules.set).actions) == 0 || tidiesUp(wake)) {
 			continue

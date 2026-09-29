@@ -13,7 +13,7 @@ import (
 // does not read what a note says, but it can see that two files carry the same
 // title, and that is a filing matter, not a judgement about wine.
 
-var titleLine = regexp.MustCompile(`(?m)^title:\s*["']?([^"'\n]+?)["']?\s*$`)
+var titleLine = regexp.MustCompile(`(?m)^title:[ \t]*["']?([^"'\n]+?)["']?[ \t]*$`)
 
 // noteTitle is the title in a note's front matter, or the empty string.
 func noteTitle(text string) string {

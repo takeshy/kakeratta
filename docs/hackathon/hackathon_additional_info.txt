@@ -97,7 +97,7 @@ Even Ultra could not infer every user's preferred boundaries perfectly. Rather t
 
 Personas do not change application state directly. An earlier design asked one call for the reply, notes, schedules, and tool calls as a single workflow. The model spent its attention on the schema, shortened replies to make room for required notes, and still sometimes omitted the second of a paired operation, such as promising a time without creating the schedule.
 
-Each turn is now split by responsibility. The persona reads with read-only tools and hands in only its answer. Separate schedule, action, and note phases then see that fixed answer and fill their own typed parts. The schedule and action phases must also state whether every promise in the answer is backed by an operation; a turn that cannot be made consistent is not published. The application assembles the parts into a workflow.
+Each turn is now split by responsibility. The persona reads with read-only tools and hands in only its answer. Separate schedule and action phases then see that fixed answer and fill their own typed parts. Those phases must also state whether every promise in the answer is backed by an operation; a turn that cannot be made consistent is not published. Notes are not part of the turn: once the answer is out, a note keeper on the persona model writes them, so a note that fails to come out can no longer take a good answer with it (that is how a good answer once showed up as "stayed quiet"). The application assembles the parts into a workflow.
 
 Each phase sees only the schema it needs, and a persona that cannot create schedules or take actions never sees those phases.
 
@@ -178,7 +178,7 @@ Compared with other cloud AI APIs, the most striking quality was stability.
 
 With other APIs, I have encountered 429 Too Many Requests responses during development with as few as four concurrent calls. During this project and at my usage volume, I did not encounter a single 429 response or inference timeout from Token Factory.
 
-That mattered because one kakeratta post can fan out into several concurrent and chained model calls. After routing, selected personas run in parallel, and each persona may read data, answer, run its schedule, action, and note phases, have the plan reviewed, and retry if the review rejects it. A failure anywhere in that chain can cause that persona's turn to be lost.
+That mattered because one kakeratta post can fan out into several concurrent and chained model calls. After routing, selected personas run in parallel, and each persona may read data, answer, run its schedule and action phases, have the plan reviewed, and retry if the review rejects it. A failure anywhere in that chain can cause that persona's turn to be lost.
 
 Usage visibility was another advantage. As I changed how Lightning, Super, and Ultra were allocated, I could immediately see the effect on actual spending by model.
 

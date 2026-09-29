@@ -14,9 +14,9 @@ import (
 )
 
 // The external agent owns Read + Answer only. After accepting its answer,
-// Kakeratta's own model plans the schedule, action and note phases, reviews
-// and executes the changes,
-// then publishes the answer. Asks live in memory; timeouts return research and
+// Kakeratta's own model plans the schedule and action phases, reviews
+// and executes the changes, then publishes the answer; its note keeper writes
+// the notes after that. Asks live in memory; timeouts return research and
 // answering to the built-in model, without giving the agent write privileges.
 
 // Ask is one planning request, as an external agent sees it.

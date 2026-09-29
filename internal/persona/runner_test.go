@@ -44,6 +44,9 @@ type fake struct {
 	// fail makes the endpoint answer 500 to a request whose system prompt it
 	// matches, for a test that needs a call to fail.
 	fail func(system string) bool
+	// choose scripts which existing notes the note keeper asks to see whole;
+	// unset, it asks for none.
+	choose func(user string) []string
 }
 
 func (f *fake) start(t *testing.T) *httptest.Server {
@@ -147,6 +150,16 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		}
 		var result map[string]any
 		switch {
+		case names["choose_notes"]:
+			// The note keeper reads nothing unless a test scripts it to.
+			paths := []string{}
+			f.mu.Lock()
+			choose := f.choose
+			f.mu.Unlock()
+			if choose != nil {
+				paths = choose(user)
+			}
+			result = testCall("choose_notes", map[string]any{"paths": paths})
 		case script != nil && (names["finish_read"] || names["submit_answer"] || phase != ""):
 			result = asCall(script(system, user, names), names)
 		case names["finish_read"]:
@@ -245,6 +258,19 @@ func (turn testTurn) submission(phase string) map[string]any {
 				kind = "forget"
 			}
 			operations = append(operations, map[string]any{"type": kind, "path": step.Path, "text": step.Text})
+		}
+	}
+	if phase == "note" {
+		// A live keeper writes index.md with the notes it writes, as its
+		// instructions and the app's check require: link each one.
+		var index []string
+		for _, step := range turn.steps {
+			if step.Type == "write_note" && !reservedNote(step.Path) {
+				index = append(index, "* ["+strings.TrimSuffix(step.Path, ".md")+"](/"+step.Path+")")
+			}
+		}
+		if len(index) > 0 {
+			operations = append(operations, map[string]any{"type": "write", "path": "index.md", "text": "# テスト\n\n" + strings.Join(index, "\n") + "\n"})
 		}
 	}
 	out := map[string]any{"operations": operations}
@@ -349,6 +375,11 @@ func asCall(content string, offered map[string]bool) map[string]any {
 	scripted := json.Unmarshal([]byte(content), &parsed) == nil
 	// "read:" followed by steps is a phase looking something up first.
 	if rest, ok := strings.CutPrefix(content, "read:"); ok && offered["read"] {
+		return call("read", json.RawMessage(rest))
+	}
+	// "force-read:" calls read even when it was not offered, as a live model
+	// told to submit has been seen to.
+	if rest, ok := strings.CutPrefix(content, "force-read:"); ok {
 		return call("read", json.RawMessage(rest))
 	}
 	switch {
@@ -866,9 +897,16 @@ func TestSilenceStillWritesNotes(t *testing.T) {
 		t.Fatalf("something was said when it should have been quiet: %+v", said)
 	}
 	memory := s.Memory("routine")
-	if len(memory.Notes) != 1 || !strings.Contains(memory.Notes[0].Text, "エラーハンドリング") {
+	var written []store.Note
+	for _, note := range memory.Notes {
+		if note.Path != "index.md" {
+			written = append(written, note)
+		}
+	}
+	if len(written) != 1 || !strings.Contains(written[0].Text, "エラーハンドリング") {
 		t.Fatalf("notes = %+v", memory.Notes)
 	}
+	memory.Notes = written
 	provenance := store.NoteSources(memory.Notes[0].Text)
 	if len(provenance) != 1 || provenance[0].EntryID != entry.ID {
 		t.Fatalf("silent note must link to its triggering post: %+v", provenance)
@@ -1076,8 +1114,9 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	if !strings.Contains(notes["threads/old.md"], "続き") {
 		t.Fatalf("the note it wrote = %q", notes["threads/old.md"])
 	}
-	if notes["index.md"] != "最初の目次" {
-		t.Fatalf("an untouched note changed: %q", notes["index.md"])
+	// The keeper wrote the index with the note, so the note is listed in it.
+	if !strings.Contains(notes["index.md"], "/threads/old.md") {
+		t.Fatalf("index.md = %q", notes["index.md"])
 	}
 }
 
