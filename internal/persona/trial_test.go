@@ -32,6 +32,8 @@ func TestApplyRoutingUsesCheckedDecisionAndRunsPersona(t *testing.T) {
 	if err := runner.ApplyRouting(context.Background(), check.Token, post.ID); err != nil {
 		t.Fatal(err)
 	}
+	// The persona gets the post as a reaction of its own.
+	runner.Stop()
 	if routes != 1 || turns == 0 {
 		t.Fatalf("apply rerouted or skipped persona: routes=%d turns=%d", routes, turns)
 	}

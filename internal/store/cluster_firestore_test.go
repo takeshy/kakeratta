@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,43 +54,93 @@ func TestFirestoreTimelineWindow(t *testing.T) {
 	}
 }
 
-// Reactions are kept until finished, oldest first, and one added anywhere is
-// announced to the owner's feed.
-func TestFirestoreReactions(t *testing.T) {
-	_, w := firestoreWorkspace(t)
+// The reaction queue, runtime records and locks behave the same on Firestore
+// as on files, and a reaction queued anywhere is announced to every watcher.
+func TestFirestoreRuntimeContract(t *testing.T) {
+	client, w := firestoreWorkspace(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	added := make(chan struct{}, 4)
-	w.WatchReactions(ctx, func() { added <- struct{}{} })
-	time.Sleep(500 * time.Millisecond)
-	now := time.Now()
-	place := &timeline.Place{Lat: 35.6, Lon: 139.7}
-	for i, item := range []Reaction{
-		{ID: "r2", At: now.Add(time.Second), Forgotten: &ForgottenReaction{Skill: "gourmet", Paths: []string{"a.md"}, Expired: true}},
-		{ID: "r1", At: now, Entry: "e1", Edited: true, Place: place},
-	} {
-		if err := w.SaveReaction(item); err != nil {
-			t.Fatal(i, err)
+	queued := make(chan string, 16)
+	WatchReactions(ctx, client, func(key string) {
+		if key == w.user.ID {
+			queued <- key
 		}
-	}
+	})
+	time.Sleep(500 * time.Millisecond)
+	runtimeContract(t, w)
 	select {
-	case <-added:
+	case <-queued:
 	case <-ctx.Done():
-		t.Fatal("the feed did not announce the reaction")
+		t.Fatal("the change feed did not announce a queued reaction")
 	}
-	items, err := w.Reactions(ctx)
+	if err := EnqueueTick(ctx, client, w.user.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnqueueTick(ctx, client, w.user.ID); err != nil {
+		t.Fatalf("a second tick while one waits: %v", err)
+	}
+	if claimable, err := WorkspaceClaimable(ctx, client, w.user.ID); err != nil || !claimable {
+		t.Fatalf("claimable = %v, %v", claimable, err)
+	}
+	pending, err := ClaimableWorkspaces(ctx, client)
+	if err != nil || !pending[w.user.ID] {
+		t.Fatalf("pending = %v, %v", pending, err)
+	}
+	if err := w.SetClosing(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if closing, _ := WorkspaceClosing(ctx, client, w.user.ID); !closing {
+		t.Fatal("the closing mark is not seen")
+	}
+	if claimable, _ := WorkspaceClaimable(ctx, client, w.user.ID); claimable {
+		t.Fatal("a closing workspace offered work")
+	}
+	if _, _, ok, _ := w.ClaimReaction(ctx, "w1", time.Minute); ok {
+		t.Fatal("a closing workspace let work be claimed")
+	}
+	if err := w.SetClosing(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if exists, err := WorkspaceExists(ctx, client, w.user.ID); err != nil || exists {
+		t.Fatalf("exists before any settings = %v, %v", exists, err)
+	}
+	if err := w.SaveSettings(w.ConfiguredSettings()); err != nil {
+		t.Fatal(err)
+	}
+	if exists, _ := WorkspaceExists(ctx, client, w.user.ID); !exists {
+		t.Fatal("a configured workspace is not found")
+	}
+}
+
+// Events published through one workspace object reach a subscriber on another,
+// as they would another process.
+func TestFirestoreEvents(t *testing.T) {
+	client, w := firestoreWorkspace(t)
+	other, err := NewFirestoreWorkspace(context.Background(), client, w.user.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 2 || items[0].ID != "r1" || items[0].Place == nil || items[0].Place.Lat != 35.6 || !items[0].Edited ||
-		items[1].Forgotten == nil || !items[1].Forgotten.Expired || items[1].Forgotten.Paths[0] != "a.md" {
-		t.Fatalf("items = %+v", items)
-	}
-	if err := w.FinishReaction("r1"); err != nil {
+	defer other.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	got := make(chan string, 4)
+	other.Subscribe(ctx, func(name string, data []byte) { got <- name + ":" + string(data[:min(len(data), 8)]) })
+	time.Sleep(500 * time.Millisecond)
+	if err := w.Publish("entry", []byte(`{"id":1}`)); err != nil {
 		t.Fatal(err)
 	}
-	if items, _ := w.Reactions(ctx); len(items) != 1 || items[0].ID != "r2" {
-		t.Fatalf("after finishing = %+v", items)
+	if err := w.Publish("big", []byte(strings.Repeat("y", 2*inlineEventBytes))); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`entry:{"id":1}`, "big:yyyyyyyy"} {
+		select {
+		case event := <-got:
+			if event != want {
+				t.Fatalf("event = %q, want %q", event, want)
+			}
+		case <-ctx.Done():
+			t.Fatalf("no %s event", want)
+		}
 	}
 }
 

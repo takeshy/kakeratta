@@ -17,7 +17,6 @@ import (
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
 
-	"github.com/takeshy/kakeratta/internal/cluster"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
@@ -52,11 +51,10 @@ type AuthOptions struct {
 	JudgeExpiresAt   time.Time
 	JudgeMaxUses     int
 	ClaimJudgeUse    func(context.Context, string, int) (int, bool, error)
-	// Cluster lets several instances serve the same users. Each workspace's
-	// persona work runs on the one instance holding its lease; the others
-	// answer what they can and carry the rest there. Without it this process
-	// is the only one and works every workspace itself.
-	Cluster cluster.Coordinator
+	// Shared lets several instances serve the same users (see Shared).
+	// Without it this process is the only one: it keeps every workspace open
+	// and each queues its own periodic checks.
+	Shared *Shared
 }
 
 // Gateway authenticates a request and dispatches it to a completely separate
@@ -75,16 +73,12 @@ type Gateway struct {
 	done      chan struct{}
 	closeOnce sync.Once
 
-	// With a cluster: the workspaces this instance owns, each with the
-	// cancel of its call listener; when each lease was last renewed; which
-	// are being let go; and when each open workspace last served a request.
-	cluster    cluster.Coordinator
-	owned      map[string]context.CancelFunc
-	renewed    map[string]time.Time
-	demoting   map[string]bool
-	used       map[string]time.Time
-	leasesDone chan struct{}
-	demotions  sync.WaitGroup
+	// With a shared deployment: when each open workspace last served a
+	// request, and which are being opened for queued work.
+	shared    *Shared
+	used      map[string]time.Time
+	waking    map[string]bool
+	stopWatch context.CancelFunc
 }
 
 func NewGateway(ctx context.Context, options AuthOptions) (*Gateway, error) {
@@ -107,17 +101,16 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 		stop: make(chan struct{}), done: make(chan struct{}),
 		options: options, verifier: verifier,
 		tenants: map[string]*Server{}, closing: map[string]bool{},
-		cluster: options.Cluster,
-		owned:   map[string]context.CancelFunc{}, renewed: map[string]time.Time{},
-		demoting: map[string]bool{}, used: map[string]time.Time{},
-		leasesDone: make(chan struct{}),
+		shared: options.Shared,
+		used:   map[string]time.Time{}, waking: map[string]bool{},
+		stopWatch: func() {},
+	}
+	if g.shared != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		g.stopWatch = cancel
+		g.shared.Watch(ctx, g.wake)
 	}
 	go g.restoreWorkspaces()
-	if g.cluster != nil {
-		go g.keepLeases()
-	} else {
-		close(g.leasesDone)
-	}
 	return g
 }
 
@@ -129,17 +122,17 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusUnauthorized, "invalid MCP credential")
 			return
 		}
-		// Only restored/existing workspaces accept MCP requests; unauthenticated input
-		// must never create a tenant. The startup worker restores saved workspaces.
-		if g.cluster != nil {
-			// Carried to the owner if another instance has it; never taken
-			// over on the strength of this request.
-			g.serveOwned(w, r, key, false)
-			return
-		}
+		// Only existing workspaces accept MCP requests; unauthenticated input
+		// must never create a tenant. The startup worker restores saved
+		// workspaces; with a shared deployment, one set up is opened here.
 		g.mu.Lock()
 		tenant := g.tenants[key]
 		g.mu.Unlock()
+		if tenant == nil && g.shared != nil {
+			if exists, err := g.shared.Exists(r.Context(), key); err == nil && exists {
+				tenant, _ = g.workspace(key)
+			}
+		}
 		if tenant == nil {
 			fail(w, http.StatusServiceUnavailable, "workspace unavailable; retry later")
 			return
@@ -225,10 +218,6 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	}
-	if g.cluster != nil && ownerRoute(r) {
-		g.serveOwned(w, r, workspaceKey(uid), true)
-		return
 	}
 	tenant.ServeHTTP(w, r)
 }
@@ -317,24 +306,6 @@ func (g *Gateway) closeAccount(w http.ResponseWriter, r *http.Request, uid strin
 
 	ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
 	defer cancel()
-	if g.cluster != nil {
-		// Nobody may take the workspace from here on, and whoever works it
-		// lets it go - this instance at once, another at its next renewal.
-		if err := g.cluster.MarkClosing(ctx, key); err != nil {
-			log.Printf("close account %s: %v", key, err)
-			fail(w, http.StatusInternalServerError, "削除できませんでした。もう一度お試しください")
-			return
-		}
-		g.demote(key)
-		wait, stop := context.WithTimeout(ctx, 2*cluster.LeaseTTL)
-		err := g.waitForRelease(wait, key)
-		stop()
-		if err != nil {
-			log.Printf("close account %s: %v", key, err)
-			fail(w, http.StatusServiceUnavailable, "削除できませんでした。もう一度お試しください")
-			return
-		}
-	}
 	g.mu.Lock()
 	tenant := g.tenants[key]
 	delete(g.tenants, key)
@@ -349,14 +320,27 @@ func (g *Gateway) closeAccount(w http.ResponseWriter, r *http.Request, uid strin
 			return
 		}
 	}
-	// Queued reactions go with the workspace; only the one in hand finishes.
+	// From here no reaction is taken up anywhere, and one in hand elsewhere
+	// loses its claim at its next renewal. This process finishes its own.
+	if err := tenant.store.SetClosing(ctx, true); err != nil {
+		log.Printf("close account %s: %v", key, err)
+		fail(w, http.StatusInternalServerError, "削除できませんでした。もう一度お試しください")
+		return
+	}
 	tenant.Halt()
+	if g.shared != nil {
+		wait, stop := context.WithTimeout(ctx, 2*time.Minute)
+		if err := waitForClaims(wait, tenant.store); err != nil {
+			log.Printf("close account %s: work still in hand elsewhere: %v", key, err)
+		}
+		stop()
+	}
 	if err := tenant.destroy(ctx); err != nil {
 		log.Printf("close account %s: %v", key, err)
 		fail(w, http.StatusInternalServerError, "削除できませんでした。もう一度お試しください")
 		return
 	}
-	if g.cluster != nil {
+	if g.shared != nil {
 		closeWorkspace(tenant)
 		go g.sweepClosed(key)
 	}
@@ -370,34 +354,6 @@ func (g *Gateway) closeAccount(w http.ResponseWriter, r *http.Request, uid strin
 	}
 	clearSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// sweepDelay is how long after a deletion the workspace is deleted once
-// more. Another instance may have had it open for a request in flight when
-// it was marked closing; it closes it within a minute, and what that request
-// wrote in the meantime goes with the second pass.
-var sweepDelay = 90 * time.Second
-
-func (g *Gateway) sweepClosed(key string) {
-	select {
-	case <-g.stop:
-		return
-	case <-time.After(sweepDelay):
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
-	defer cancel()
-	if tenant, err := g.open(key); err != nil {
-		log.Printf("sweep closed %s: %v", key, err)
-	} else {
-		tenant.Halt()
-		if err := tenant.destroy(ctx); err != nil {
-			log.Printf("sweep closed %s: %v", key, err)
-		}
-		closeWorkspace(tenant)
-	}
-	if err := g.cluster.ClearClosing(ctx, key); err != nil {
-		log.Printf("sweep closed %s: %v", key, err)
-	}
 }
 
 func (g *Gateway) createSession(w http.ResponseWriter, r *http.Request) {
@@ -469,16 +425,16 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 	if g.closing[userKey] {
 		return nil, errors.New("workspace is being deleted")
 	}
-	if g.cluster != nil {
+	if g.shared != nil {
 		// Another instance may be deleting it.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		lease, err := g.cluster.Lease(ctx, userKey)
+		closing, err := g.shared.Closing(ctx, userKey)
 		cancel()
 		if err != nil {
 			return nil, err
 		}
-		if lease.Closing {
-			return nil, cluster.ErrClosing
+		if closing {
+			return nil, errors.New("workspace is being deleted")
 		}
 	}
 	tenant, err := g.open(userKey)
@@ -519,11 +475,10 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
 	}
-	if g.cluster != nil {
-		// A workspace is opened to answer requests; its persona work starts
-		// only once this instance holds it (see promote).
-		options.Follower = true
-		options.Events = clusterBus{coordinator: g.cluster, key: userKey}
+	if g.shared != nil {
+		// The elected scheduler queues the periodic checks of every
+		// workspace, open here or not.
+		options.NoClock = true
 	}
 	tenant := New(options)
 	tenant.workspaceKey = userKey
@@ -537,37 +492,32 @@ func requestIsHTTPS(r *http.Request) bool {
 func (g *Gateway) Close() {
 	g.closeOnce.Do(func() {
 		close(g.stop)
+		g.stopWatch()
 		<-g.done
-		<-g.leasesDone
-		if g.cluster != nil {
-			// Owned workspaces finish the reaction in hand and are let go at
-			// once, so another instance takes them up without waiting for
-			// the leases to run out.
-			g.mu.Lock()
-			keys := make([]string, 0, len(g.owned))
-			for key := range g.owned {
-				keys = append(keys, key)
-			}
-			g.mu.Unlock()
-			var wg sync.WaitGroup
-			for _, key := range keys {
-				wg.Add(1)
-				go func(key string) {
-					defer wg.Done()
-					g.demote(key)
-				}(key)
-			}
-			wg.Wait()
-			g.demotions.Wait()
-		}
 		g.mu.Lock()
-		defer g.mu.Unlock()
-		// The rest of each queue is kept for the next start to take up.
+		tenants := make([]*Server, 0, len(g.tenants))
 		for _, tenant := range g.tenants {
-			tenant.Halt()
-			if g.cluster != nil {
-				closeWorkspace(tenant)
-			}
+			tenants = append(tenants, tenant)
+		}
+		g.mu.Unlock()
+		// Each finishes what it has in hand; the rest of its queue is kept
+		// for the next start, or another instance, to take up.
+		var wg sync.WaitGroup
+		for _, tenant := range tenants {
+			wg.Add(1)
+			go func(tenant *Server) {
+				defer wg.Done()
+				tenant.Halt()
+				if g.shared != nil {
+					closeWorkspace(tenant)
+				}
+			}(tenant)
+		}
+		wg.Wait()
+		if g.shared != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = g.shared.Coordinator.Release(ctx, schedulerJob)
 		}
 	})
 }
@@ -606,8 +556,8 @@ func (g *Gateway) restoreWorkspaces() {
 			}
 		}
 		keys = valid
-		if g.cluster != nil {
-			g.restoreCluster(keys)
+		if g.shared != nil {
+			g.tickShared(keys)
 			keys = nil
 		}
 		for _, key := range keys {

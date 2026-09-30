@@ -960,9 +960,9 @@ The server itself must still be running.
 
 The provided Cloud Run deployment keeps one instance available and allocates
 CPU outside request handling so the server can perform these periodic checks.
-It may scale to more instances; each workspace's checks, schedules and
-reactions run on the one instance holding its Firestore lease, and another
-takes the workspace over when that instance stops.
+It may scale to more instances; checks, schedules and reactions are taken up
+by whichever instance claims them in Firestore first, and work an instance
+left when it stopped is taken up by another.
 
 Configured workspaces are restored after a restart, including Firestore-backed
 users.
@@ -1221,8 +1221,8 @@ The built-in model takes the turn back when:
   opened then, and the agent comes back by itself on its next call.
 
 Both waits are set under Settings → Advanced options → Integrations. An ask
-lives in memory with the turn waiting on it; a restart ends both, and a late
-answer is refused. An accepted answer is not taken back: if the later phases
+is kept in the workspace and survives a restart; the turn that opened it ends
+and is carried on once the ask closes, and a late answer is refused. An accepted answer is not taken back: if the later phases
 cannot back up what it promised, or a change fails, it is withheld. A preview a person is waiting on is always planned
 in-process.
 

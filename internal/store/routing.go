@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"cloud.google.com/go/firestore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -165,4 +166,59 @@ func (w *FirestoreWorkspace) Routing(entryID string) (*Routing, error) {
 func (w *FirestoreWorkspace) ForgetRouting(entryID string) error {
 	_, err := w.user.Collection("routing").Doc(sanitise(entryID)).Delete(context.Background())
 	return err
+}
+
+// UpdateRouting changes one post's decision atomically: change is handed the
+// current record (nil when there is none) and returns the one to save, or nil
+// to leave it as it is. Turns finishing on different goroutines, or different
+// instances, each add their own outcome without dropping the other's.
+func (s *Store) UpdateRouting(entryID string, change func(*Routing) (*Routing, error)) error {
+	if entryID == "" {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	records, err := s.readRouting()
+	if err != nil {
+		return err
+	}
+	var current *Routing
+	if record, ok := records[entryID]; ok {
+		copied := normaliseRouting(record)
+		current = &copied
+	}
+	next, err := change(current)
+	if err != nil || next == nil {
+		return err
+	}
+	records[entryID] = normaliseRouting(*next)
+	return writeJSON(routingPath(s.root), records)
+}
+
+func (w *FirestoreWorkspace) UpdateRouting(entryID string, change func(*Routing) (*Routing, error)) error {
+	if entryID == "" {
+		return nil
+	}
+	ref := w.user.Collection("routing").Doc(sanitise(entryID))
+	return w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		var current *Routing
+		doc, err := tx.Get(ref)
+		switch {
+		case status.Code(err) == codes.NotFound:
+		case err != nil:
+			return err
+		default:
+			var record Routing
+			if err := doc.DataTo(&record); err != nil {
+				return err
+			}
+			record = normaliseRouting(record)
+			current = &record
+		}
+		next, err := change(current)
+		if err != nil || next == nil {
+			return err
+		}
+		return tx.Set(ref, normaliseRouting(*next))
+	})
 }

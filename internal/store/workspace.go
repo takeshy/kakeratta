@@ -40,8 +40,17 @@ type Workspace interface {
 	DeleteNote(string, string) error
 	NotesBySource(string, string) ([]string, error)
 	SaveReaction(Reaction) error
+	CreateReaction(Reaction) error
 	Reactions(context.Context) ([]Reaction, error)
+	ClaimReaction(ctx context.Context, worker string, ttl time.Duration) (Reaction, []Reaction, bool, error)
+	RenewReaction(ctx context.Context, id, worker string, ttl time.Duration) (bool, error)
+	ReleaseReaction(ctx context.Context, id, worker string) error
 	FinishReaction(string) error
+	Record(ctx context.Context, collection, id string) ([]byte, bool, error)
+	Records(ctx context.Context, collection string) (map[string][]byte, error)
+	UpdateRecord(ctx context.Context, collection, id string, expire time.Time, change RecordChange) error
+	Lock(ctx context.Context, name string) (func(), error)
+	SetClosing(ctx context.Context, closing bool) error
 	NoteJobs() ([]NoteJob, error)
 	SaveNoteJob(NoteJob) error
 	DeleteNoteJob(string) error
@@ -56,6 +65,7 @@ type Workspace interface {
 	Woke(string) ([]string, error)
 	ForgetWakes(string) error
 	SaveRouting(string, Routing) error
+	UpdateRouting(string, func(*Routing) (*Routing, error)) error
 	Routing(string) (*Routing, error)
 	ForgetRouting(string) error
 	Schedules(string) ([]Schedule, error)

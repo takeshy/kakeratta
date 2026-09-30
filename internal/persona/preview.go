@@ -108,10 +108,11 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 	}
 	if said != nil && preview.Error == "" && workspace.remark != nil {
 		preview.Token = store.NewID("trial")
-		r.trialMu.Lock()
-		r.pruneTrials(time.Now())
-		r.replyTrials[preview.Token] = replyTrial{entryID: entryID, personaID: skillID, original: remark.Text, remark: workspace.remark, notes: workspace.changes, at: time.Now()}
-		r.trialMu.Unlock()
+		if err := r.saveTrial(ctx, preview.Token, trialRecord{Reply: &replyTrial{
+			EntryID: entryID, PersonaID: skillID, Original: remark.Text, Remark: workspace.remark, Notes: workspace.changes,
+		}}); err != nil {
+			return ReplyPreview{}, err
+		}
 	}
 	return preview, nil
 }
@@ -142,7 +143,7 @@ func (d *dryWorkspace) Entry(id string) (timeline.Entry, bool) {
 // latest is the last change this preview made to a note, if any.
 func (d *dryWorkspace) latest(path string) (noteChange, bool) {
 	for i := len(d.changes) - 1; i >= 0; i-- {
-		if d.changes[i].path == path {
+		if d.changes[i].Path == path {
 			return d.changes[i], true
 		}
 	}
@@ -154,10 +155,10 @@ func (d *dryWorkspace) latest(path string) (noteChange, bool) {
 // than on the notes as they were.
 func (d *dryWorkspace) Note(personaID, path string) (store.Note, bool) {
 	if change, ok := d.latest(path); ok {
-		if change.delete {
+		if change.Delete {
 			return store.Note{}, false
 		}
-		return store.Note{Path: path, Text: change.text}, true
+		return store.Note{Path: path, Text: change.Text}, true
 	}
 	return d.Workspace.Note(personaID, path)
 }
@@ -186,10 +187,10 @@ func (d *dryWorkspace) NotePaths(personaID string) ([]string, error) {
 		}
 	}
 	for _, change := range d.changes {
-		if !seen[change.path] {
-			seen[change.path] = true
-			if _, ok := d.Note(personaID, change.path); ok {
-				out = append(out, change.path)
+		if !seen[change.Path] {
+			seen[change.Path] = true
+			if _, ok := d.Note(personaID, change.Path); ok {
+				out = append(out, change.Path)
 			}
 		}
 	}
@@ -202,21 +203,39 @@ func (d *dryWorkspace) SaveReaction(store.Reaction) error { return nil }
 func (d *dryWorkspace) Reactions(context.Context) ([]store.Reaction, error) {
 	return nil, nil
 }
-func (d *dryWorkspace) FinishReaction(string) error        { return nil }
-func (d *dryWorkspace) NoteJobs() ([]store.NoteJob, error) { return nil, nil }
-func (d *dryWorkspace) SaveNoteJob(store.NoteJob) error    { return nil }
-func (d *dryWorkspace) DeleteNoteJob(string) error         { return nil }
+func (d *dryWorkspace) FinishReaction(string) error         { return nil }
+func (d *dryWorkspace) CreateReaction(store.Reaction) error { return nil }
+func (d *dryWorkspace) ClaimReaction(context.Context, string, time.Duration) (store.Reaction, []store.Reaction, bool, error) {
+	return store.Reaction{}, nil, false, nil
+}
+func (d *dryWorkspace) RenewReaction(context.Context, string, string, time.Duration) (bool, error) {
+	return false, nil
+}
+func (d *dryWorkspace) ReleaseReaction(context.Context, string, string) error { return nil }
+func (d *dryWorkspace) UpdateRouting(string, func(*store.Routing) (*store.Routing, error)) error {
+	return nil
+}
+func (d *dryWorkspace) UpdateRecord(context.Context, string, string, time.Time, store.RecordChange) error {
+	return nil
+}
+
+// A preview holds no lock: it writes nothing another turn could overwrite.
+func (d *dryWorkspace) Lock(context.Context, string) (func(), error) { return func() {}, nil }
+func (d *dryWorkspace) SetClosing(context.Context, bool) error       { return nil }
+func (d *dryWorkspace) NoteJobs() ([]store.NoteJob, error)           { return nil, nil }
+func (d *dryWorkspace) SaveNoteJob(store.NoteJob) error              { return nil }
+func (d *dryWorkspace) DeleteNoteJob(string) error                   { return nil }
 func (d *dryWorkspace) WriteNote(_, path, content string, sources ...store.NoteSource) error {
 	// The index and the log are housekeeping; what a person is shown is the notes
 	// that carry what was said.
 	if d.notes != nil && !reservedNote(path) {
 		*d.notes = append(*d.notes, path)
 	}
-	d.changes = append(d.changes, noteChange{path: path, text: content, sources: append([]store.NoteSource(nil), sources...)})
+	d.changes = append(d.changes, noteChange{Path: path, Text: content, Sources: append([]store.NoteSource(nil), sources...)})
 	return nil
 }
 func (d *dryWorkspace) DeleteNote(_, path string) error {
-	d.changes = append(d.changes, noteChange{path: path, delete: true})
+	d.changes = append(d.changes, noteChange{Path: path, Delete: true})
 	return nil
 }
 func (d *dryWorkspace) NotesBySource(string, string) ([]string, error)           { return nil, nil }

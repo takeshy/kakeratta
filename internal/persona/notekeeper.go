@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/llm"
@@ -106,11 +105,11 @@ const keeperNoteRules = `メモの規則:
 - 回答の文章を写さない。回答はスレッドに残り、メモは回答のキャッシュではない。どう答えたかは1行の要点で書く。
 `
 
-// keeperLock serialises one persona's keeper: two turns finishing together must
-// not each rewrite the same note or the same index.md from what they saw.
-func (r *Runner) keeperLock(personaID string) *sync.Mutex {
-	lock, _ := r.keepers.LoadOrStore(personaID, &sync.Mutex{})
-	return lock.(*sync.Mutex)
+// lockKeeper serialises one persona's keeper: two turns finishing together -
+// here or in another process serving the workspace - must not each rewrite the
+// same note or the same index.md from what they saw.
+func (r *Runner) lockKeeper(ctx context.Context, personaID string) (func(), error) {
+	return r.store.Lock(ctx, "keeper:"+personaID)
 }
 
 // allNotes reads every note a persona keeps, in name order.
@@ -165,9 +164,11 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil, stage, fmt.Errorf("note keeper has no model connection")
 	}
-	lock := r.keeperLock(k.skill.ID)
-	lock.Lock()
-	defer lock.Unlock()
+	release, err := r.lockKeeper(ctx, k.skill.ID)
+	if err != nil {
+		return nil, stage, err
+	}
+	defer release()
 	record := keeperRecord{Persona: k.skill.ID, Trigger: k.trigger.ID, Model: model}
 	defer func() {
 		if problem := recover(); problem != nil {

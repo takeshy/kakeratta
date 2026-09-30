@@ -18,7 +18,7 @@ Subject personas cover topics. Person personas use `Kind: person` and have `Alia
 
 ## Management
 
-Installing a definition from the frontend validates and installs it in the Catalogue, persists it through Workspace, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules. With several instances, persona changes run on the workspace's owner, and other instances pick up the new definitions through the Firestore `skills` change feed.
+Installing a definition from the frontend validates and installs it in the Catalogue, persists it through Workspace, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules. With several instances, others pick up new definitions through the Firestore `skills` change feed.
 
 For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. Date-bearing information is separately normalized into notification schedules before saving; dates that cannot be established are omitted. The field is limited to 8,000 characters and cleared for subject personas.
 
@@ -55,7 +55,7 @@ Person personas are not sent to the subject router; their matches are recorded i
 
 Missing configuration, request failure, or malformed output leaves the router with no subject recipients and `Answered: false` plus an error. A valid explicit empty array means a completed decision with no recipients. Unknown IDs are ignored. Explicit mentions, reply targets, person matching, and other recipient paths operate separately from that model decision.
 
-Routing records retain recipients, exclusion reasons, explicit-call reasons, completed personas, and personas that spoke. `routingMu` protects updates by asynchronous completions and ordinary turns from dropping each other's state. The frontend receives `routed` and `turn` events.
+Routing records retain recipients, exclusion reasons, explicit-call reasons, completed personas, and personas that spoke. Completions change them through `UpdateRouting` transactions, so turns finishing at the same time - in one process or several - do not drop each other's state. The frontend receives `routed` and `turn` events.
 
 Check and correction APIs distinguish a trial after changing conditions from applying the result. Merely checking a trial does not wake the actual persona.
 
@@ -82,7 +82,7 @@ flowchart TD
   Publish --> Keeper[Maintain memory with note keeper]
 ```
 
-The built-in model researches through `research`, calls `finish_read` to move to answering, and submits an `Answer` with `submit_answer`. External-agent answers enter the same subsequent processing.
+The built-in model researches through `research`, calls `finish_read` to move to answering, and submits an `Answer` with `submit_answer`. When the answer is asked of the external agent, the turn opens an ask and ends; once the ask closes, a reaction carries the turn on with the agent's answer and research, which enter the same subsequent processing, or with the built-in planner from the start.
 
 `Answer` contains text and source entry IDs. Sources must be IDs found through timeline search in this turn. Web evidence is linked in the answer body. Silence uses empty text, with `Unrelated` distinguishing an out-of-domain turn.
 
@@ -120,7 +120,7 @@ The host checks unread overwrites, duplicates, types outside the memory layout, 
 
 Persistence attaches links to source posts and carries provenance forward when read notes are consolidated. A reverse index finds notes citing an entry. Deleting posts or notes asks the persona to tidy the remaining memory.
 
-The keeper's input is persisted as a `NoteJob`. Failures retry with increasing delays from one minute up to one hour. Note updates and index repair are separate stages, so completed memory generation is not needlessly repeated. This durability is separate from the ordinary post reaction queue.
+The keeper's input is persisted as a `NoteJob`. Failures retry with increasing delays from one minute up to one hour, on the minute's tick. Note updates and index repair are separate stages, so completed memory generation is not needlessly repeated. A persona's keeper runs under the named lock `keeper:{id}`, one at a time across processes.
 
 ## Implementation and verification
 
@@ -142,7 +142,7 @@ Person calendars are also synchronized when a person is created, installed, reac
 
 Birthdays and anniversaries have two annual notifications: seven days before and on the date, at 09:00 in the saved timezone. Newly learned imminent dates notify at the next minute when the usual time has passed. February 29 is observed on February 28 in non-leap years. Annual schedules retain the original calendar date and advance to the following occurrence when claimed; repeating the same information preserves that occurrence. Appointments are one-time notifications, respecting explicitly requested notification times; otherwise the default is 09:00 on the event date, or one hour before an event earlier than 09:00. All schedules accept any future date without a scheduling horizon, within the existing per-persona count limit.
 
-Due person events use the normal Runner notification path, with instructions to notify even when no memory note exists. Model or storage failures are surfaced as API errors during basic-information saving or live error events during post processing. Runner claims due schedules before executing the persona. Claiming is part of the persistence contract and prevents duplicate execution of the same schedule. Pausing or removing a persona removes its schedules.
+Calendar reconciliation for one persona runs under the named lock `calendar:{id}`. Due person events use the normal Runner notification path, with instructions to notify even when no memory note exists. Model or storage failures are surfaced as API errors during basic-information saving or live error events during post processing. Runner claims due schedules before executing the persona. Claiming is part of the persistence contract and prevents duplicate execution of the same schedule. Pausing or removing a persona removes its schedules.
 
 Past schedules are not all replayed unconditionally. Execution windows and persona state determine how late schedules are handled.
 
@@ -177,7 +177,7 @@ The app itself builds monthly summaries from the timeline as topic-based posts w
 
 `CheckRouting` evaluates a target entry against the persona's current conditions and returns the delivery decision and reason. Person personas return alias and keyword matches. A token records the entry text, persona, and decision at check time.
 
-`ApplyRouting` uses that decision without calling the router again and updates the routing record. A newly selected persona runs an ordinary turn. A later trial cannot undo delivery that already happened.
+`ApplyRouting` uses that decision without calling the router again and updates the routing record. A newly selected persona gets the post as a `Deliver` reaction in the conversation's lane and answers like any other reaction; the request does not wait for its turn. A later trial cannot undo delivery that already happened.
 
 ## Reply previews
 
@@ -187,11 +187,12 @@ The app itself builds monthly summaries from the timeline as topic-based posts w
 
 ## Token constraints
 
-Trials live in the owning instance's Runner memory and expire after 15 minutes; they do not survive a restart or the workspace moving to another instance. Trial requests are carried to the owner (see [Multiple instances](./architecture.md#multiple-instances)). Application checks the token and entry ID, changed or deleted text, and whether the persona remains active. A completed application is recorded so repeating the same token is treated as already applied.
+Trials are `trials` runtime records kept for 15 minutes, so a check and its application may reach different processes and survive a restart. Application marks a trial as being applied in a transaction, so two requests cannot apply it at once. Application checks the token and entry ID, changed or deleted text, and whether the persona remains active. A completed application is recorded so repeating the same token is treated as already applied.
 
 ## Implementation and verification
 
-- [trial.go](../../internal/persona/trial.go): `ApplyRouting`, `ApplyReply`
+- [trial.go](../../internal/persona/trial.go): `trialRecord`, `takeTrial`, `ApplyRouting`, `ApplyReply`
+- [queue.go](../../internal/persona/queue.go): `deliver`
 - [preview.go](../../internal/persona/preview.go): `PreviewReply`, `dryWorkspace`
 - [routing.go](../../internal/server/routing.go)
 - [preview.go](../../internal/server/preview.go)

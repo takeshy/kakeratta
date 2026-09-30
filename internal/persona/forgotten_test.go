@@ -44,15 +44,8 @@ func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 	}
 
 	r.EntryForgotten(entry.ID, entry.Text)
-	r.stopMu.Lock()
-	queued := len(r.queue)
-	var items []deletedPost
-	for _, item := range r.queue {
-		if item.deleted != nil {
-			items = append(items, *item.deleted)
-		}
-	}
-	r.stopMu.Unlock()
+	queued := len(wakes(t, r))
+	items := deletedWakes(t, r)
 	if queued != 1 || len(items) != 1 || items[0].skill != "gourmet" {
 		t.Fatalf("queued %d wakes: %+v", queued, items)
 	}
@@ -86,9 +79,7 @@ func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 	}
 	// The record is spent, so the same deletion cannot queue another wake.
 	r.EntryForgotten(entry.ID, entry.Text)
-	r.stopMu.Lock()
-	again := len(r.queue)
-	r.stopMu.Unlock()
+	again := len(wakes(t, r))
 	if again != 1 {
 		t.Fatalf("the same deletion queued %d wakes", again)
 	}
@@ -120,14 +111,7 @@ func TestADeletionWakeCanCancelTheSchedule(t *testing.T) {
 	}
 
 	r.EntryForgotten(entry.ID, entry.Text)
-	r.stopMu.Lock()
-	var gone []deletedPost
-	for _, item := range r.queue {
-		if item.deleted != nil {
-			gone = append(gone, *item.deleted)
-		}
-	}
-	r.stopMu.Unlock()
+	gone := deletedWakes(t, r)
 	if len(gone) != 1 {
 		t.Fatalf("queued %+v", gone)
 	}
@@ -160,14 +144,7 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 	before := len(remarks(t, s))
 
 	r.EntryForgotten(entry.ID, entry.Text)
-	r.stopMu.Lock()
-	var gone []deletedPost
-	for _, item := range r.queue {
-		if item.deleted != nil {
-			gone = append(gone, *item.deleted)
-		}
-	}
-	r.stopMu.Unlock()
+	gone := deletedWakes(t, r)
 	if len(gone) != 1 {
 		t.Fatalf("queued %+v", gone)
 	}
@@ -234,14 +211,7 @@ func TestDeletingAPostForgetsTheConversationUnderIt(t *testing.T) {
 	}
 
 	r.EntriesForgotten(entry.ID, []timeline.Entry{entry, reply, remark})
-	r.stopMu.Lock()
-	var items []deletedPost
-	for _, item := range r.queue {
-		if item.deleted != nil {
-			items = append(items, *item.deleted)
-		}
-	}
-	r.stopMu.Unlock()
+	items := deletedWakes(t, r)
 	if len(items) != 1 || items[0].skill != "gourmet" || items[0].entryID != entry.ID {
 		t.Fatalf("queued %+v, want one wake for the post", items)
 	}
@@ -280,14 +250,7 @@ func TestDeletingAReplyReachesThePersonasWokenForItsPost(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.EntryForgotten(reply.ID, reply.Text)
-	r.stopMu.Lock()
-	queued := 0
-	for _, item := range r.queue {
-		if item.deleted != nil {
-			queued++
-		}
-	}
-	r.stopMu.Unlock()
+	queued := len(deletedWakes(t, r))
 	if queued != 1 {
 		t.Fatalf("queued %d wakes, want one", queued)
 	}
@@ -313,9 +276,8 @@ func TestDeletingAPostReachesNotesCitingItFromSearch(t *testing.T) {
 	if _, ok := s.Note("book", "shops/used.md"); ok {
 		t.Fatal("a note citing the deleted post from search survived")
 	}
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	if len(r.queue) != 1 || r.queue[0].deleted == nil || r.queue[0].deleted.skill != "book" {
-		t.Fatalf("the persona that cited the post was not told: %+v", r.queue)
+	queued := wakes(t, r)
+	if len(queued) != 1 || queued[0].deleted == nil || queued[0].deleted.skill != "book" {
+		t.Fatalf("the persona that cited the post was not told: %+v", queued)
 	}
 }

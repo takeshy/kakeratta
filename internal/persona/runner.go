@@ -7,9 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -41,28 +39,6 @@ var okfSkill string
 // says already fits this app, because the skill was written for it.
 const okfHost = "# メモの書き方\n\nメモを書くときは、次のスキルに従ってください。\n\n---\n\n"
 
-// Runner wakes personas. One runs per app.
-//
-// Reactions are asynchronous by default: a post is stored and shown
-// immediately, and whatever anyone has to say about it arrives afterwards. The
-// queue is what makes that true.
-type reaction struct {
-	// ids are the durable records (store.Reaction) behind this item. The
-	// periodic checks have none: they are asked for again every minute.
-	ids        []string
-	entryID    string
-	edited     bool
-	place      *timeline.Place
-	retryNotes bool
-	daily      bool
-	schedules  bool
-	// forgotten is a note the user deleted: the persona is told, so it can put
-	// its own memory back in order. The app never edits a note itself.
-	forgotten *forgotten
-	// deleted is a post the user removed that a persona had cited.
-	deleted *deletedPost
-}
-
 type forgotten struct {
 	skill string
 	paths []string
@@ -72,6 +48,15 @@ type forgotten struct {
 	expired bool
 }
 
+// Runner wakes personas. One runs per workspace in each process serving it.
+//
+// Reactions are asynchronous by default: a post is stored and shown
+// immediately, and whatever anyone has to say about it arrives afterwards.
+// The work is kept in the workspace as store.Reaction records and taken up
+// by whichever runner claims it first - this one, or one in another process
+// serving the same workspace (see queue.go). A runner holds nothing another
+// one would need: asks waiting on the external agent, trials and locks are
+// kept in the workspace too.
 type Runner struct {
 	store     store.Workspace
 	catalogue *Catalogue
@@ -80,50 +65,29 @@ type Runner struct {
 	tools     tools.Config
 	emit      func(name string, data any)
 
-	queue   []reaction
-	wake    *sync.Cond
-	done    chan struct{}
-	once    sync.Once
-	started bool
+	// worker names this runner's claims; see queue.go for the rest.
+	worker   string
+	nudge    chan struct{}
+	slots    chan struct{}
+	done     chan struct{}
+	once     sync.Once
+	stopMu   sync.Mutex
+	started  bool
+	stopping bool
+	halting  bool
+	inFlight atomic.Int32
+	working  sync.WaitGroup
 
-	// stopMu guards the unbounded in-memory queue and coordinates its worker.
-	stopMu  sync.Mutex
-	stopped bool
-	// known names the durable reactions in the queue or in hand, so rereading
-	// the store does not queue one twice.
-	known map[string]bool
-	// recovered is set once the reactions a previous process left behind have
-	// been taken up.
-	recovered bool
-	// follower is a runner on an instance that does not own the workspace. It
-	// keeps what it is given durable for the owner, and works nothing itself.
-	follower atomic.Bool
+	// timers end asks this runner opened or saw claimed when their waits
+	// run out; a sweep on the periodic tick catches the rest.
+	timersMu sync.Mutex
+	timers   map[*time.Timer]bool
 
-	// routingMu makes a read-modify-write on one post's routing record atomic.
-	// keepRouting, turnsDone and FinishAsyncTurn each read the record and write
-	// back a change; a turn planned by an external agent finishes on its own
-	// goroutine, concurrently with the wave that delivered it, so without this a write
-	// racing the other could read a stale copy and silently drop the other
-	// persona's just-recorded reply.
-	routingMu     sync.Mutex
-	trialMu       sync.Mutex
-	routingTrials map[string]routingTrial
-	replyTrials   map[string]replyTrial
-
-	// desk holds the asks waiting on an external planner.
-	desk *desk
-	// apart ends the waits of turns running apart from the queue - those
-	// waiting on an external planner. Stop cancels it and waits for them.
-	apart     context.Context
-	stopApart context.CancelFunc
-	detached  sync.WaitGroup
-
-	// keepers holds one lock per persona, so its note keeper runs one at a time.
-	keepers       sync.Map
-	calendarLocks sync.Map
 	// agentSeen is when the external agent last called in over MCP, as Unix
-	// nanoseconds; zero until it first does after a start.
-	agentSeen atomic.Int64
+	// nanoseconds, as this process heard it; the workspace keeps it for the
+	// others, written at most every presenceEvery.
+	agentSeen    atomic.Int64
+	agentWritten atomic.Int64
 	// waitsForAsk overrides the settings' claim and plan waits, for tests.
 	waitsForAsk func() (time.Duration, time.Duration)
 	// connectionWaits are the waits of the connection in use; a zero one
@@ -132,18 +96,16 @@ type Runner struct {
 }
 
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
-	r := &Runner{
+	return &Runner{
 		store: s, catalogue: catalogue, clientOf: clientOf,
-		search:        search.New(s),
-		emit:          func(string, any) {},
-		done:          make(chan struct{}),
-		routingTrials: map[string]routingTrial{}, replyTrials: map[string]replyTrial{},
-		known: map[string]bool{},
-		desk:  newDesk(),
+		search: search.New(s),
+		emit:   func(string, any) {},
+		worker: store.NewID("w"),
+		nudge:  make(chan struct{}, 1),
+		slots:  make(chan struct{}, maxWorkers),
+		done:   make(chan struct{}),
+		timers: map[*time.Timer]bool{},
 	}
-	r.apart, r.stopApart = context.WithCancel(context.Background())
-	r.wake = sync.NewCond(&r.stopMu)
-	return r
 }
 
 // SetSearch shares the UI's indexing work with all personas. Set before Start.
@@ -153,239 +115,11 @@ func (r *Runner) SetSearch(service *search.Service) { r.search = service }
 // MCP servers. Set before Start.
 func (r *Runner) SetTools(config tools.Config) { r.tools = config }
 
-// SetFollower makes this runner keep reactions for the instance that owns the
-// workspace instead of working them. Set before anything is queued.
-func (r *Runner) SetFollower(follower bool) { r.follower.Store(follower) }
-
 // OnEvent is how the screen hears that something landed.
 func (r *Runner) OnEvent(emit func(name string, data any)) {
 	if emit != nil {
 		r.emit = emit
 	}
-}
-
-// Start begins draining the queue. Posts are handled one at a time: two posts
-// reacting at once would interleave remarks from different threads and make the
-// ordering inside each one impossible to reason about.
-func (r *Runner) Start() {
-	r.once.Do(func() {
-		r.stopMu.Lock()
-		r.started = true
-		r.stopMu.Unlock()
-		// What a previous process or owner left unfinished is taken up first.
-		r.Poke()
-		go func() {
-			ticker := time.NewTicker(time.Minute)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-r.done:
-					return
-				case <-ticker.C:
-					r.stopMu.Lock()
-					if !r.stopped && !r.queuedLocked(func(item reaction) bool { return item.retryNotes }) {
-						r.queue = append(r.queue, reaction{retryNotes: true})
-						r.wake.Signal()
-					}
-					r.stopMu.Unlock()
-					// A reaction another instance kept while the change
-					// feed was down is found here at the latest.
-					r.Poke()
-				}
-			}
-		}()
-		go func() {
-			defer close(r.done)
-			r.retryNoteJobs(time.Now())
-			for {
-				r.stopMu.Lock()
-				for len(r.queue) == 0 && !r.stopped {
-					r.wake.Wait()
-				}
-				if len(r.queue) == 0 && r.stopped {
-					r.stopMu.Unlock()
-					return
-				}
-				item := r.queue[0]
-				r.queue = r.queue[1:]
-				r.stopMu.Unlock()
-				r.work(item)
-			}
-		}()
-	})
-}
-
-// work does one queued item and then lets its durable records go.
-func (r *Runner) work(item reaction) {
-	defer r.finish(item)
-	switch {
-	case item.retryNotes:
-		r.retryNoteJobs(time.Now())
-	case item.daily:
-		r.dailyAt(time.Now())
-	case item.schedules:
-		r.schedulesAt(time.Now())
-	case item.forgotten != nil:
-		r.forgottenAt(*item.forgotten)
-	case item.deleted != nil:
-		r.deletedAt(*item.deleted)
-	default:
-		r.reactEntry(item.entryID, item.place, item.edited)
-	}
-}
-
-func (r *Runner) finish(item reaction) {
-	for _, id := range item.ids {
-		if err := r.store.FinishReaction(id); err != nil {
-			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
-		}
-	}
-	r.stopMu.Lock()
-	for _, id := range item.ids {
-		delete(r.known, id)
-	}
-	r.stopMu.Unlock()
-}
-
-// maxReactionAttempts bounds how often a reaction left behind is taken up
-// again. One that brought its process down each time would otherwise do so
-// forever.
-const maxReactionAttempts = 3
-
-// Poke rereads the durable queue for reactions this runner has not got in
-// hand: ones another instance kept for it, or ones a previous process left
-// unfinished. The first reread after starting counts each of those as another
-// attempt.
-func (r *Runner) Poke() {
-	// The store is read with the queue held: a reaction finishing meanwhile
-	// is still known when the read comes back, so it is not queued again.
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	if r.stopped || r.follower.Load() || !r.started {
-		return
-	}
-	recovering := !r.recovered
-	r.recovered = true
-	items, err := r.store.Reactions(context.Background())
-	if err != nil {
-		r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
-		return
-	}
-	for _, record := range items {
-		if r.known[record.ID] {
-			continue
-		}
-		if recovering {
-			record.Attempts++
-			if record.Attempts > maxReactionAttempts {
-				_ = r.store.FinishReaction(record.ID)
-				r.emit("error", map[string]any{"where": "queue", "message": "反応を" + strconv.Itoa(maxReactionAttempts) + "回試みても終わらなかったため、取りやめました"})
-				continue
-			}
-			_ = r.store.SaveReaction(record)
-		}
-		r.known[record.ID] = true
-		r.takeLocked(reactionFrom(record))
-	}
-	r.wake.Signal()
-}
-
-// takeLocked puts an item in the queue, folding deleted notes and posts into
-// a wake already waiting for the same persona.
-func (r *Runner) takeLocked(item reaction) {
-	for i := range r.queue {
-		queued := &r.queue[i]
-		switch {
-		case item.forgotten != nil && queued.forgotten != nil && queued.forgotten.skill == item.forgotten.skill && queued.forgotten.expired == item.forgotten.expired:
-			queued.forgotten.paths = append(queued.forgotten.paths, item.forgotten.paths...)
-		case item.deleted != nil && queued.deleted != nil && queued.deleted.skill == item.deleted.skill && queued.deleted.entryID == item.deleted.entryID:
-		default:
-			continue
-		}
-		queued.ids = append(queued.ids, item.ids...)
-		return
-	}
-	r.queue = append(r.queue, item)
-}
-
-// acceptLocked keeps a reaction durable and, on a runner that works the
-// queue, in hand. A stopped runner still keeps it: whoever starts next - this
-// process again, or another instance - takes it up. Callers hold stopMu.
-func (r *Runner) acceptLocked(item reaction) {
-	record := item.record()
-	record.ID, record.At = store.NewID("r"), time.Now()
-	if err := r.store.SaveReaction(record); err != nil {
-		r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
-	} else {
-		item.ids = []string{record.ID}
-	}
-	if r.stopped || r.follower.Load() {
-		return
-	}
-	for _, id := range item.ids {
-		r.known[id] = true
-	}
-	r.takeLocked(item)
-	r.wake.Signal()
-}
-
-func (item reaction) record() store.Reaction {
-	record := store.Reaction{Entry: item.entryID, Edited: item.edited, Place: item.place}
-	if item.forgotten != nil {
-		record.Forgotten = &store.ForgottenReaction{Skill: item.forgotten.skill, Paths: slices.Clone(item.forgotten.paths), Expired: item.forgotten.expired}
-	}
-	if item.deleted != nil {
-		d := item.deleted
-		record.Deleted = &store.DeletedReaction{EntryID: d.entryID, Label: d.label, Skill: d.skill, Notes: slices.Clone(d.notes), Removed: slices.Clone(d.removed)}
-	}
-	return record
-}
-
-func reactionFrom(record store.Reaction) reaction {
-	item := reaction{ids: []string{record.ID}, entryID: record.Entry, edited: record.Edited, place: record.Place}
-	if f := record.Forgotten; f != nil {
-		item.forgotten = &forgotten{skill: f.Skill, paths: slices.Clone(f.Paths), expired: f.Expired}
-	}
-	if d := record.Deleted; d != nil {
-		item.deleted = &deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: slices.Clone(d.Notes), removed: slices.Clone(d.Removed)}
-	}
-	return item
-}
-
-// Stop lets the reactions in hand finish and then returns.
-//
-// A reaction writes as it goes - a remark, a persona's notes - so killing one
-// half way through leaves the workspace mid-thought. There is at most one in
-// flight, and shutdown drains everything already accepted.
-//
-// Turns waiting on an external planner are abandoned: an agent may take many
-// minutes, and a restart ends the ask it would hand its workflow to anyway.
-func (r *Runner) Stop() { r.stop(false) }
-
-// Halt finishes the item in hand and stops without working the rest of the
-// queue. Those reactions stay kept, for this process when it starts again or
-// for another instance taking the workspace over - which is what a shutdown
-// with seconds to spare, or an instance giving a workspace up, wants.
-func (r *Runner) Halt() { r.stop(true) }
-
-func (r *Runner) stop(halt bool) {
-	defer func() {
-		r.stopApart()
-		r.detached.Wait()
-	}()
-	r.stopMu.Lock()
-	if halt {
-		r.queue = nil
-	}
-	if r.stopped || !r.started {
-		r.stopped = true
-		r.stopMu.Unlock()
-		return
-	}
-	r.stopped = true
-	r.wake.Broadcast()
-	r.stopMu.Unlock()
-	<-r.done
 }
 
 // React queues an entry. It never blocks the request that made the post: the
@@ -400,24 +134,16 @@ func (r *Runner) EntryEdited(entryID string) {
 }
 
 func (r *Runner) enqueueEntry(entryID string, place *timeline.Place, edited bool) {
-	if !r.follower.Load() {
-		r.Start()
-	}
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	r.acceptLocked(reaction{entryID: entryID, place: place, edited: edited})
+	r.accept(store.Reaction{Lane: r.threadLane(entryID), Entry: entryID, Edited: edited, Place: place})
 }
 
-// queuedLocked reports whether a matching item is already waiting, so a
-// periodic check held up behind a long reaction is queued once, not once for
-// every minute it waited.
-func (r *Runner) queuedLocked(match func(reaction) bool) bool {
-	for _, item := range r.queue {
-		if match(item) {
-			return true
-		}
+// threadLane is the lane of an entry's conversation: its replies and edits
+// are reacted to one at a time, in order.
+func (r *Runner) threadLane(entryID string) string {
+	if entry, ok := r.store.Entry(entryID); ok {
+		return "thread:" + timeline.RootOf(entry)
 	}
-	return false
+	return "thread:" + entryID
 }
 
 func (r *Runner) react(entryID string) {
@@ -425,7 +151,7 @@ func (r *Runner) react(entryID string) {
 }
 
 func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
-	r.reactEntry(entryID, transientPlace, false)
+	r.reactEntry(context.Background(), entryID, transientPlace, false)
 }
 
 // keepRouting writes down who a post went to, for a person to look at later:
@@ -436,8 +162,6 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 // are different things to read.
 func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, called map[string]string, targets map[string]bool) {
 	entryID := entry.ID
-	r.routingMu.Lock()
-	defer r.routingMu.Unlock()
 	if !routing.Answered && len(called) == 0 {
 		if err := r.store.ForgetRouting(entryID); err != nil {
 			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
@@ -486,63 +210,28 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, called map[s
 // their turn - spoken or not - and tells the page, so a sheet showing the
 // router's call can stop saying the persona is still thinking.
 func (r *Runner) turnsDone(entryID string, wave []Skill, spoke map[string]bool) {
-	r.routingMu.Lock()
-	defer r.routingMu.Unlock()
-	record, err := r.store.Routing(entryID)
-	if err != nil || record == nil {
-		return
-	}
-	if record.Done == nil {
-		record.Done = []string{}
-	}
-	if record.Spoke == nil {
-		record.Spoke = []string{}
-	}
 	var ids []string
 	for _, skill := range wave {
 		ids = append(ids, skill.ID)
-		if !contains(record.Done, skill.ID) {
-			record.Done = append(record.Done, skill.ID)
-		}
-		if contains(record.Delivered, skill.ID) && spoke[skill.ID] && !contains(record.Spoke, skill.ID) {
-			record.Spoke = append(record.Spoke, skill.ID)
-		}
 	}
-	if err := r.store.SaveRouting(entryID, *record); err != nil {
+	err := r.store.UpdateRouting(entryID, func(record *store.Routing) (*store.Routing, error) {
+		if record == nil {
+			return nil, nil
+		}
+		for _, skill := range wave {
+			markDone(record, skill.ID, spoke[skill.ID])
+		}
+		return record, nil
+	})
+	if err != nil {
 		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
 	}
 	r.emit("turn", map[string]any{"entryId": entryID, "personas": ids})
 }
 
-// markUnrelated notes on the post's routing record that this persona stayed
-// quiet because the post was not its business.
-func (r *Runner) markUnrelated(entryID, personaID string) {
-	r.routingMu.Lock()
-	defer r.routingMu.Unlock()
-	record, err := r.store.Routing(entryID)
-	if err != nil || record == nil || contains(record.Unrelated, personaID) {
-		return
-	}
-	record.Unrelated = append(record.Unrelated, personaID)
-	if err := r.store.SaveRouting(entryID, *record); err != nil {
-		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
-	}
-}
-
-// FinishAsyncTurn is turnsDone for a persona whose turn was left pending
-// because it runs apart from the queue - waiting on an external planner.
-// Called once that turn has actually concluded, so a routing sheet that has
-// been saying "still thinking" can move on to what really happened.
-func (r *Runner) FinishAsyncTurn(entryID, personaID string, spoke bool) {
-	if entryID == "" {
-		return
-	}
-	r.routingMu.Lock()
-	defer r.routingMu.Unlock()
-	record, err := r.store.Routing(entryID)
-	if err != nil || record == nil {
-		return
-	}
+// markDone notes on a routing record that a persona has had its turn, and
+// whether it spoke.
+func markDone(record *store.Routing, personaID string, spoke bool) {
 	if record.Done == nil {
 		record.Done = []string{}
 	}
@@ -555,7 +244,39 @@ func (r *Runner) FinishAsyncTurn(entryID, personaID string, spoke bool) {
 	if spoke && contains(record.Delivered, personaID) && !contains(record.Spoke, personaID) {
 		record.Spoke = append(record.Spoke, personaID)
 	}
-	if err := r.store.SaveRouting(entryID, *record); err != nil {
+}
+
+// markUnrelated notes on the post's routing record that this persona stayed
+// quiet because the post was not its business.
+func (r *Runner) markUnrelated(entryID, personaID string) {
+	err := r.store.UpdateRouting(entryID, func(record *store.Routing) (*store.Routing, error) {
+		if record == nil || contains(record.Unrelated, personaID) {
+			return nil, nil
+		}
+		record.Unrelated = append(record.Unrelated, personaID)
+		return record, nil
+	})
+	if err != nil {
+		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+	}
+}
+
+// FinishAsyncTurn is turnsDone for a persona whose turn was left pending
+// because its answer was asked of the external agent. Called once that turn
+// has actually concluded, so a routing sheet that has been saying "still
+// thinking" can move on to what really happened.
+func (r *Runner) FinishAsyncTurn(entryID, personaID string, spoke bool) {
+	if entryID == "" {
+		return
+	}
+	err := r.store.UpdateRouting(entryID, func(record *store.Routing) (*store.Routing, error) {
+		if record == nil {
+			return nil, nil
+		}
+		markDone(record, personaID, spoke)
+		return record, nil
+	})
+	if err != nil {
 		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
 	}
 	r.emit("turn", map[string]any{"entryId": entryID, "personas": []string{personaID}})
@@ -661,17 +382,18 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 		check.Reason = routing.Excluded[skillID]
 		check.Heard = routing.Heard[skillID]
 		check.Token = store.NewID("trial")
-		r.trialMu.Lock()
-		r.pruneTrials(time.Now())
-		r.routingTrials[check.Token] = routingTrial{entryID: entryID, personaID: skillID, text: entry.Text, delivered: check.Delivered, reason: check.Reason, heard: check.Heard, at: time.Now()}
-		r.trialMu.Unlock()
+		if err := r.saveTrial(ctx, check.Token, trialRecord{Routing: &routingTrial{
+			EntryID: entryID, PersonaID: skillID, Text: entry.Text, Delivered: check.Delivered, Reason: check.Reason, Heard: check.Heard,
+		}}); err != nil {
+			return RoutingCheck{}, err
+		}
 	}
 	return check, nil
 }
 
 const editedInstructions = "\n\n以前あなたに渡した投稿が編集されました。今回の対象発言は編集後の内容です。以前の内容より優先し、必要に応じて回答・メモ・予定を更新してください。担当領域の内容が削除された場合も、その変更を反映してください。"
 
-func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edited bool) {
+func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlace *timeline.Place, edited bool) {
 	defer func() {
 		// A persona is a model doing as it pleases with a prompt. One of them
 		// panicking must not take the queue with it.
@@ -714,7 +436,7 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 		thread[0].Place = transientPlace
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(outer, 10*time.Minute)
 	defer cancel()
 
 	// Read before running anyone: new recipients must get an ordinary first delivery.
@@ -791,9 +513,9 @@ func (r *Runner) reactEntry(entryID string, transientPlace *timeline.Place, edit
 	// Everyone routed runs at once.
 	var group sync.WaitGroup
 	remarks := make([]*timeline.Entry, len(wave))
-	// pending marks a persona whose turn runs apart from the queue, waiting
-	// on an external planner; such a turn must not be counted as done yet,
-	// or a routing sheet would call it quiet before it has started.
+	// pending marks a persona whose answer was asked of the external agent;
+	// its turn is carried on later and must not be counted as done yet, or a
+	// routing sheet would call it quiet before it has started.
 	pending := make([]bool, len(wave))
 	for i, skill := range wave {
 		group.Add(1)
@@ -889,12 +611,7 @@ const deepRule = `- **今回ユーザーは、前の回答より良い・深い�
 // the app has the workflow checked, and only then does anything happen.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
 	wakeInstructions string, deep bool, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
-	if r.detaches(ctx, skill, settings) {
-		r.detach(skill, trigger, settings, func(ctx context.Context) *timeline.Entry {
-			return r.run(ctx, skill, thread, trigger, named, listening, wakeInstructions, deep, client, settings, registry)
-		})
-		return nil
-	}
+	resumed := resumedFrom(ctx)
 	skill = skill.forTurn()
 
 	root := timeline.RootOf(trigger)
@@ -908,7 +625,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
 	}
-	r.syncEntryPersonSchedules(ctx, skill, trigger)
+	if resumed == nil {
+		// Carried on after an ask, the turn did this when it began.
+		r.syncEntryPersonSchedules(ctx, skill, trigger)
+	}
 	if trigger.ID != "" {
 		// Who was woken for this post, so that deleting it can tell them - the
 		// app never looks inside a note to work that out.
@@ -1056,7 +776,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	phaseBudget := newLookups(maxReads, 0)
 	phaseLookup := reader(&phaseReads, maxReads, func() *lookups { return phaseBudget }, false)
 
-	if r.plansExternally(ctx, skill, settings) {
+	switch {
+	case r.plansExternally(ctx, skill, settings):
+		// The answer is asked of the external agent. This turn ends here;
+		// once the ask is over, resumeAsk takes it up again from the top.
 		record.Planner = "external"
 		ask := Ask{ID: store.NewID("ask"), Persona: skill.ID, Name: skill.Name, Wake: record.Wake, Trigger: trigger.ID}
 		// The agent is told the same as the built-in model, but not to be brief.
@@ -1066,36 +789,41 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 		agentRules := fmt.Sprintf(answerRules, agentLength)
 		brief := r.askContext(skill, set, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
-		externalAnswer, fallback, err := r.planExternally(ctx, settings, ask, brief, externalPlan{
-			read: lookup,
-			consider: func(candidate *Answer, parseErr error) (bool, []string, error) {
-				if parseErr != nil {
-					return false, []string{"Answer の形式が不正です: " + parseErr.Error()}, nil
-				}
-				if candidate == nil {
-					return false, []string{"Answer の形式が不正です"}, nil
-				}
-				problems := checkAnswer(*candidate, rules)
-				return len(problems) == 0, problems, nil
-			},
-		})
-		switch {
-		case errors.Is(err, errAborted):
-			record.Error = "aborted while waiting for the external planner"
-			return nil
-		case externalAnswer != nil:
-			answer = externalAnswer
-			// The remark is marked as the agent's plan, not a model slot's.
-			slot = "agent"
-		default:
-			// The in-process planner takes the turn back, from the start and
-			// with its own allowance of drafts.
-			record.Fallback = fallback
-			record.Planner = "external→builtin"
-			r.emit("ask", map[string]any{"persona": skill.ID, "id": ask.ID, "state": "fallback", "reason": fallback, "trigger": trigger.ID})
-			readsUsed = 0
-			budget = newLookups(readLimit, turnSearchLimit(deep))
+		turn := askTurn{Persona: skill.ID, Trigger: trigger, Place: post.Place, Named: named, Listening: listening, Instructions: wakeInstructions, Deep: deep}
+		if err := r.openAsk(ctx, settings, ask, brief, turn); err != nil {
+			return failed(err)
 		}
+		record.Asked = ask.ID
+		return nil
+	case resumed != nil && resumed.Answer != nil:
+		// What the agent read is what the answer was researched with.
+		research := resumed.Research
+		readsUsed = research.ReadsUsed
+		budget = research.Lookups.restore(readLimit, turnSearchLimit(deep))
+		for _, path := range research.Referenced {
+			referenced[path] = true
+		}
+		read = append(read, research.Read...)
+		readSources = append(readSources, research.ReadSources...)
+		for id, line := range research.Cited {
+			rules.cited[id] = line
+		}
+		for id, why := range research.Failures {
+			failures[id] = why
+		}
+		for path, sources := range research.NotesRead {
+			prov.read[path] = sources
+		}
+		answer = resumed.Answer
+		record.Planner = "external"
+		// The remark is marked as the agent's plan, not a model slot's.
+		slot = "agent"
+	case resumed != nil:
+		// The in-process planner takes the turn back, from the start and
+		// with its own allowance of drafts.
+		record.Fallback = resumed.Fallback
+		record.Planner = "external→builtin"
+		r.emit("ask", map[string]any{"persona": skill.ID, "id": resumed.Ask.ID, "state": "fallback", "reason": resumed.Fallback, "trigger": trigger.ID})
 	}
 
 	if answer == nil && tidiesUp(wakeInstructions) {
@@ -1173,9 +901,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 		snapshot := snapshotKeeper(keeper, remark)
 		if payload, err := json.Marshal(snapshot); err == nil {
-			// A detached turn may still be running when the queue's periodic
-			// retry pass sees its job. Lease the first attempt for the turn's
-			// ten-minute deadline; a failure replaces this with normal backoff.
+			// This turn is still running when the periodic retry pass, here or
+			// in another process, may see its job. Lease the first attempt for
+			// the turn's ten-minute deadline; a failure replaces this with
+			// normal backoff.
 			job := store.NoteJob{ID: store.NewID("note"), Persona: skill.ID, Stage: "notes", Payload: payload,
 				NextAttempt: time.Now().Add(11 * time.Minute)}
 			if err := r.store.SaveNoteJob(job); err != nil {

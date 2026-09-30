@@ -1,6 +1,7 @@
 package persona
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -154,7 +155,7 @@ func TestReviewPostThenReplyWakesItsAuthor(t *testing.T) {
 	}
 
 	reply := replyTo(t, s, entries[0], "もういい")
-	r.reactEntry(reply.ID, nil, false)
+	r.reactEntry(context.Background(), reply.ID, nil, false)
 	prompt := stub.lastPromptFor("tabe")
 	for _, want := range []string{"Review への返事", "聞いたメモ: shops/soka.md"} {
 		if !strings.Contains(prompt, want) {
@@ -199,7 +200,7 @@ func TestAReplyUnderAPersonasOwnPostReachesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	reply := replyTo(t, s, post, "ラーメン")
-	r.reactEntry(reply.ID, nil, false)
+	r.reactEntry(context.Background(), reply.ID, nil, false)
 	prompt := stub.lastPromptFor("tabe")
 	if prompt == "" {
 		t.Fatal("the author was not woken")

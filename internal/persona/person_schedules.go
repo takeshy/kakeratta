@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/llm"
@@ -131,10 +130,15 @@ func (r *Runner) ApplyPersonSchedules(plan *PersonSchedulePlan) error {
 	if plan == nil {
 		return nil
 	}
-	lock, _ := r.calendarLocks.LoadOrStore(plan.skill.ID, &sync.Mutex{})
-	mu := lock.(*sync.Mutex)
-	mu.Lock()
-	defer mu.Unlock()
+	// One persona's calendar is reconciled by one caller at a time, in this
+	// process or any other serving the workspace.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	release, err := r.store.Lock(ctx, "calendar:"+plan.skill.ID)
+	if err != nil {
+		return err
+	}
+	defer release()
 	current, exists := r.catalogue.Find(plan.skill.ID)
 	if !exists || !current.IsPerson() || current.BasicInfo != plan.skill.BasicInfo {
 		return errors.New("基本情報が変更されました。通知予定を再確認してください")

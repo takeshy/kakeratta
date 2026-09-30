@@ -135,7 +135,7 @@ Once an ask is opened, the following conditions return its turn to the built-in 
 | An answer rejected more than the allowed number of times | The built-in model answers |
 | `release_ask` called | The built-in model answers at once |
 
-An ask that fell through is gone; a late `submit_answer` is refused as not found. Asks live in memory with the turn waiting on them, on the server instance that runs the workspace's personas, and a Kakeratta restart - or the workspace moving to another instance - ends them too. With several instances, MCP requests reaching any instance are carried to that one. A persona waiting on the external agent runs apart from the queue, so other posts and check-ins are not held up; the routing sheet shows it as still thinking until its turn ends.
+An ask that fell through is gone; a late `submit_answer` is refused as not found. Asks are kept in the workspace, not in a waiting process: they survive a Kakeratta restart, and with several server instances the agent may reach any of them. Opening an ask ends the persona's turn for now, so other posts and check-ins are not held up; once the ask closes, the turn is carried on with the agent's answer or by the built-in model. The routing sheet shows the persona as still thinking until then.
 
 An accepted answer is not retried by the built-in model. If the later phases cannot back up what it promised (for example, it says it will remind the user and no schedule can be placed), or a change fails when it runs, the answer is withheld rather than published; a named persona says it could not answer this time. The run log (`workflow <persona>` on stdout) records each phase's proposal, what was sent back, the review and the steps run.
 

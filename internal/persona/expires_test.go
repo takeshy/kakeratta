@@ -77,13 +77,12 @@ func TestExpiredNotesAreDeletedAndThePersonaToldOnce(t *testing.T) {
 		}
 	}
 
-	r.stopMu.Lock()
-	queued := len(r.queue)
+	pending := wakes(t, r)
+	queued := len(pending)
 	var gone forgotten
-	if queued == 1 && r.queue[0].forgotten != nil {
-		gone = *r.queue[0].forgotten
+	if queued == 1 && pending[0].forgotten != nil {
+		gone = *pending[0].forgotten
 	}
-	r.stopMu.Unlock()
 	if queued != 1 || !gone.expired || gone.skill != "gourmet" || len(gone.paths) != 2 {
 		t.Fatalf("queued %d wakes: %+v", queued, gone)
 	}
@@ -109,16 +108,15 @@ func TestExpiredAndUserDeletedNotesWakeSeparately(t *testing.T) {
 	r.NoteForgotten("gourmet", "shops/a.md")
 	r.notesExpired("gourmet", []string{"shops/b.md"})
 	r.notesExpired("gourmet", []string{"shops/c.md"})
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	if len(r.queue) != 2 {
-		t.Fatalf("queued %d wakes", len(r.queue))
+	queued := wakes(t, r)
+	if len(queued) != 2 {
+		t.Fatalf("queued %d wakes", len(queued))
 	}
-	if r.queue[0].forgotten.expired || len(r.queue[0].forgotten.paths) != 1 {
-		t.Fatalf("user deletion = %+v", *r.queue[0].forgotten)
+	if queued[0].forgotten.expired || len(queued[0].forgotten.paths) != 1 {
+		t.Fatalf("user deletion = %+v", *queued[0].forgotten)
 	}
-	if !r.queue[1].forgotten.expired || len(r.queue[1].forgotten.paths) != 2 {
-		t.Fatalf("expiry = %+v", *r.queue[1].forgotten)
+	if !queued[1].forgotten.expired || len(queued[1].forgotten.paths) != 2 {
+		t.Fatalf("expiry = %+v", *queued[1].forgotten)
 	}
 }
 

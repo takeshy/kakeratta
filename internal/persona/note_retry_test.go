@@ -55,7 +55,8 @@ func TestFailedNoteJobSurvivesRestartAndRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	restarted := New(reopened, r.catalogue, r.clientOf)
-	restarted.Start()
+	// The minute's periodic checks retry what is due.
+	restarted.Tick()
 	restarted.Stop()
 	if jobs, err := s.NoteJobs(); err != nil || len(jobs) != 0 {
 		if len(jobs) > 0 {

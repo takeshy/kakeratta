@@ -802,9 +802,11 @@ type runRecord struct {
 	Reviewer string `json:"reviewer"`
 	// Planner is "external" when an external agent planned the turn, or
 	// "external→builtin" when it fell through, with the reason in Fallback.
-	Planner  string       `json:"planner,omitempty"`
-	Fallback string       `json:"fallback,omitempty"`
-	Reads    []readRecord `json:"reads,omitempty"`
+	Planner  string `json:"planner,omitempty"`
+	Fallback string `json:"fallback,omitempty"`
+	// Asked is the ask a turn ended with, to be carried on once it is over.
+	Asked string       `json:"asked,omitempty"`
+	Reads []readRecord `json:"reads,omitempty"`
 	// Stalls are replies that called nothing, which use up a turn as surely as
 	// a read does and were invisible in the log.
 	Stalls  int            `json:"stalls,omitempty"`

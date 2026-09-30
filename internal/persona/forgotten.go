@@ -134,7 +134,6 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 		active[skill.ID] = true
 	}
 	label := strings.Join(labels, " ／ ")
-	r.stopMu.Lock()
 	for _, skill := range woke {
 		// The links are the app's own, so the app takes them out before anyone
 		// is woken to look at what is left - a paused persona included.
@@ -153,12 +152,12 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 			}
 		}
 		cited, removed := r.dropUnsourcedNotes(skill, notes)
-		if !active[skill] || r.queuedDeletion(root, skill) {
+		if !active[skill] {
 			continue
 		}
-		r.acceptLocked(reaction{deleted: &deletedPost{entryID: root, label: label, skill: skill, notes: cited, removed: removed}})
+		// Queued twice for the same post, the wakes are folded into one.
+		r.accept(store.Reaction{Lane: "thread:" + root, Deleted: &store.DeletedReaction{EntryID: root, Label: label, Skill: skill, Notes: cited, Removed: removed}})
 	}
-	r.stopMu.Unlock()
 	forget()
 }
 
@@ -184,17 +183,6 @@ func (r *Runner) dropUnsourcedNotes(skill string, paths []string) (cited, remove
 		removed = append(removed, path)
 	}
 	return cited, removed
-}
-
-// queuedDeletion reports an unprocessed wake for the same post and persona.
-// Callers hold stopMu.
-func (r *Runner) queuedDeletion(entryID, skill string) bool {
-	for _, item := range r.queue {
-		if item.deleted != nil && item.deleted.skill == skill && item.deleted.entryID == entryID {
-			return true
-		}
-	}
-	return false
 }
 
 // deletedAt hands one persona the post that is gone.

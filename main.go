@@ -167,9 +167,30 @@ func main() {
 			authOptions.OpenWorkspace = func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
 				return store.NewFirestoreWorkspace(context.Background(), firestoreClient, userKey, blobs)
 			}
-			// Instances share the users through Firestore: each workspace's
-			// persona work runs on whichever instance holds its lease.
-			authOptions.Cluster = cluster.NewFirestore(firestoreClient, "")
+			// Instances share the users through Firestore: any of them
+			// answers any request, and each workspace's persona work is
+			// taken up by whichever instance claims it.
+			authOptions.Shared = &server.Shared{
+				Coordinator: cluster.NewFirestore(firestoreClient, ""),
+				Tick: func(ctx context.Context, key string) error {
+					return store.EnqueueTick(ctx, firestoreClient, key)
+				},
+				Watch: func(ctx context.Context, queued func(string)) {
+					store.WatchReactions(ctx, firestoreClient, queued)
+				},
+				Pending: func(ctx context.Context) (map[string]bool, error) {
+					return store.ClaimableWorkspaces(ctx, firestoreClient)
+				},
+				Claimable: func(ctx context.Context, key string) (bool, error) {
+					return store.WorkspaceClaimable(ctx, firestoreClient, key)
+				},
+				Exists: func(ctx context.Context, key string) (bool, error) {
+					return store.WorkspaceExists(ctx, firestoreClient, key)
+				},
+				Closing: func(ctx context.Context, key string) (bool, error) {
+					return store.WorkspaceClosing(ctx, firestoreClient, key)
+				},
+			}
 			if cloudBlobs == nil {
 				log.Print("KAKERATTA_GCS_BUCKET が未設定です。画像はインスタンスごとの一時ディレクトリに置かれ、複数インスタンスでは共有されません")
 			}

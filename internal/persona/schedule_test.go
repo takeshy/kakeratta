@@ -205,13 +205,12 @@ func TestForgottenNotesWakeThePersonaOnce(t *testing.T) {
 
 	r.NoteForgotten("routine", "errands/flowers.md")
 	r.NoteForgotten("routine", "routines/medicine.md")
-	r.stopMu.Lock()
-	queued := len(r.queue)
+	pending := wakes(t, r)
+	queued := len(pending)
 	var gone forgotten
-	if queued == 1 && r.queue[0].forgotten != nil {
-		gone = *r.queue[0].forgotten
+	if queued == 1 && pending[0].forgotten != nil {
+		gone = *pending[0].forgotten
 	}
-	r.stopMu.Unlock()
 	if queued != 1 {
 		t.Fatalf("queued %d wakes for two deletions", queued)
 	}

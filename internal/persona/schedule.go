@@ -133,29 +133,13 @@ func (r *Runner) notesExpired(skill string, paths []string) {
 	if skill == "" || len(paths) == 0 {
 		return
 	}
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	r.forgetLocked(forgotten{skill: skill, paths: slices.Clone(paths), expired: true})
+	r.forget(forgotten{skill: skill, paths: slices.Clone(paths), expired: true})
 }
 
-// forgetLocked queues a tidy-up wake, adding to one already waiting for the
-// same persona and reason, whose durable record is kept up to date with it.
-func (r *Runner) forgetLocked(gone forgotten) {
-	for i := range r.queue {
-		item := &r.queue[i]
-		if item.forgotten != nil && item.forgotten.expired == gone.expired && item.forgotten.skill == gone.skill {
-			item.forgotten.paths = append(item.forgotten.paths, gone.paths...)
-			if len(item.ids) > 0 {
-				record := item.record()
-				record.ID, record.At = item.ids[0], time.Now()
-				if err := r.store.SaveReaction(record); err != nil {
-					r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
-				}
-			}
-			return
-		}
-	}
-	r.acceptLocked(reaction{forgotten: &gone})
+// forget queues a tidy-up wake in the persona's lane. Wakes queued there one
+// after another are folded into one when it is taken up.
+func (r *Runner) forget(gone forgotten) {
+	r.accept(store.Reaction{Lane: "persona:" + gone.skill, Forgotten: &store.ForgottenReaction{Skill: gone.skill, Paths: gone.paths, Expired: gone.expired}})
 }
 
 // registry is the tool set as it exists for this workspace: the user's search
@@ -165,20 +149,6 @@ func (r *Runner) registry(settings store.Settings) *tools.Registry {
 		WithSchedules(r.store).WithZone(settings.TimeZone)
 }
 
-// CheckSchedules enters the same serial queue as posts and the daily check-in.
-func (r *Runner) CheckSchedules() {
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	if r.stopped {
-		return
-	}
-	if r.queuedLocked(func(item reaction) bool { return item.schedules }) {
-		return
-	}
-	r.queue = append(r.queue, reaction{schedules: true})
-	r.wake.Signal()
-}
-
 // NoteForgotten tells a persona that the user deleted one of its notes, so it
 // can put the rest of its memory - and the schedules that went with it - back in
 // order itself. Deleting several notes in a row is one wake, not one each.
@@ -186,9 +156,7 @@ func (r *Runner) NoteForgotten(skill, path string) {
 	if skill == "" || path == "" {
 		return
 	}
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	r.forgetLocked(forgotten{skill: skill, paths: []string{path}})
+	r.forget(forgotten{skill: skill, paths: []string{path}})
 }
 
 // schedulesAt runs the schedules that are due, one at a time.

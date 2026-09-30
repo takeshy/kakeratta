@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,8 +21,9 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-// instance is one API process of a deployment sharing Firestore.
-func instance(t *testing.T, client *firestore.Client, name string) *Gateway {
+// instance is one API process of a deployment sharing Firestore, wired as
+// main wires it.
+func instance(t *testing.T, client *firestore.Client, coordinator cluster.Coordinator) *Gateway {
 	t.Helper()
 	gateway := newGateway(AuthOptions{
 		Root: t.TempDir(), Version: "test",
@@ -28,7 +31,17 @@ func instance(t *testing.T, client *firestore.Client, name string) *Gateway {
 		OpenWorkspace: func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
 			return store.NewFirestoreWorkspace(context.Background(), client, userKey, blobs)
 		},
-		Cluster: cluster.NewFirestore(client, name),
+		Shared: &Shared{
+			Coordinator: coordinator,
+			Tick:        func(ctx context.Context, key string) error { return store.EnqueueTick(ctx, client, key) },
+			Watch: func(ctx context.Context, queued func(string)) {
+				store.WatchReactions(ctx, client, queued)
+			},
+			Pending:   func(ctx context.Context) (map[string]bool, error) { return store.ClaimableWorkspaces(ctx, client) },
+			Claimable: func(ctx context.Context, key string) (bool, error) { return store.WorkspaceClaimable(ctx, client, key) },
+			Exists:    func(ctx context.Context, key string) (bool, error) { return store.WorkspaceExists(ctx, client, key) },
+			Closing:   func(ctx context.Context, key string) (bool, error) { return store.WorkspaceClosing(ctx, client, key) },
+		},
 	}, fakeVerifier{})
 	t.Cleanup(gateway.Close)
 	return gateway
@@ -67,32 +80,46 @@ func eventually(t *testing.T, what string, ok func() bool) {
 	}
 }
 
-// Two instances serve one user: the one holding the workspace runs its
-// persona work and answers what needs the runner; the other takes posts,
-// streams events and carries runner requests over. When the owner goes, the
-// other takes the workspace and its unfinished reactions over, and a
-// deletion asked of either reaches both.
-func TestTwoInstancesShareOneWorkspace(t *testing.T) {
+// Several instances serve one user with nothing owned by any of them: each
+// answers what reaches it, work queued anywhere is done once by whichever
+// claims it, pages hear events from every instance, a trial made on one is
+// applied on another, an instance that never had the workspace open takes up
+// work queued for it, and a deletion asked of any instance holds for all.
+func TestInstancesShareWorkspacesWithoutOwners(t *testing.T) {
 	if os.Getenv("FIRESTORE_EMULATOR_HOST") == "" {
 		t.Skip("set FIRESTORE_EMULATOR_HOST to run the multi-instance test")
 	}
 	ctx := context.Background()
-	client, err := firestore.NewClient(ctx, "kakeratta-cluster-gateway-test")
+	client, err := firestore.NewClient(ctx, "kakeratta-shared-gateway-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	defer func(delay time.Duration) { sweepDelay = delay }(sweepDelay)
-	sweepDelay = time.Second
+	defer func(delays []time.Duration) { sweepDelays = delays }(sweepDelays)
+	sweepDelays = []time.Duration{time.Second, 2 * time.Second}
 
-	// The model says every post is for nobody: the router's decision is
-	// kept either way, and it is kept by whichever instance ran the router.
+	// The router is asked once per post; the model delivers every post to
+	// gourmet only when routing is being checked by a person.
+	var routed atomic.Int32
+	routedTexts := sync.Map{}
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body := string(raw)
+		if strings.Contains(body, "振り分け") {
+			routed.Add(1)
+			for _, text := range []string{"one", "two", "three", "four", "late"} {
+				if strings.Contains(body, "post-"+text) {
+					count, _ := routedTexts.LoadOrStore(text, new(atomic.Int32))
+					count.(*atomic.Int32).Add(1)
+				}
+			}
+		}
 		json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"deliver":[]}`}}}})
 	}))
 	defer provider.Close()
 
-	a, b := instance(t, client, "a"), instance(t, client, "b")
+	memory := cluster.NewMemory()
+	a, b := instance(t, client, memory.Instance("a")), instance(t, client, memory.Instance("b"))
 	uid := "user-" + store.NewID("u")
 	key := workspaceKey(uid)
 	cookie := &http.Cookie{Name: authCookieName, Value: "session:" + uid}
@@ -109,46 +136,28 @@ func TestTwoInstancesShareOneWorkspace(t *testing.T) {
 		recorder := call(g, http.MethodPost, "/api/post", `{"text":"`+text+`"}`)
 		var entry timeline.Entry
 		if recorder.Code != http.StatusOK || json.Unmarshal(recorder.Body.Bytes(), &entry) != nil {
-			t.Fatalf("post via %s = %d %s", text, recorder.Code, recorder.Body.String())
+			t.Fatalf("post %s = %d %s", text, recorder.Code, recorder.Body.String())
 		}
 		return entry
 	}
-	routed := func(g *Gateway, id string) func() bool {
-		return func() bool {
-			tenant, err := g.workspace(key)
-			if err != nil {
-				return false
-			}
-			record, err := tenant.store.Routing(id)
-			return err == nil && record != nil
-		}
-	}
-	owner := func() string {
-		lease, err := a.cluster.Lease(ctx, key)
-		if err != nil || !lease.Live(time.Now()) {
-			return ""
-		}
-		return lease.Owner
-	}
-
-	// a comes to own the workspace by answering a request that needs it.
-	if got := call(a, http.MethodGet, "/api/mcp/connection", ""); got.Code != http.StatusOK {
-		t.Fatalf("owner route via a = %d %s", got.Code, got.Body.String())
-	}
-	if owner() != "a" {
-		t.Fatalf("owner = %q", owner())
-	}
-	tenant, err := a.workspace(key)
+	workspace, err := store.NewFirestoreWorkspace(ctx, client, key, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	settings := tenant.store.ConfiguredSettings()
+	defer workspace.Close()
+	routedRecord := func(id string) func() bool {
+		return func() bool {
+			record, err := workspace.Routing(id)
+			return err == nil && record != nil
+		}
+	}
+	settings := workspace.ConfiguredSettings()
 	settings.Provider, settings.BaseURL, settings.APIKey, settings.Active = store.ProviderOpenAI, provider.URL, "test", []string{"gourmet"}
-	if err := tenant.store.SaveSettings(settings); err != nil {
+	if err := workspace.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
 
-	// b streams the workspace's events, whoever publishes them.
+	// b's page hears what a does.
 	stream, stopStream := context.WithCancel(ctx)
 	events := &sseRecorder{header: http.Header{}}
 	streaming := make(chan struct{})
@@ -160,65 +169,73 @@ func TestTwoInstancesShareOneWorkspace(t *testing.T) {
 	}()
 	time.Sleep(time.Second) // The stream's listener takes its first snapshot.
 
-	// A post taken by b is reacted to by a, and a's own post reaches b's page.
-	fromB := post(b, "follower post")
-	eventually(t, "a to route b's post", routed(a, fromB.ID))
-	if bTenant, err := b.workspace(key); err != nil || bTenant.leading.Load() {
-		t.Fatalf("b leads the workspace: %v", err)
+	// Posts taken by either instance are each routed once, by whichever
+	// instance claimed the reaction.
+	var entries []timeline.Entry
+	for i, text := range []string{"one", "two", "three", "four"} {
+		gateway := a
+		if i%2 == 1 {
+			gateway = b
+		}
+		entries = append(entries, post(gateway, "post-"+text))
 	}
-	fromA := post(a, "owner post")
-	eventually(t, "b's page to hear a's post", func() bool { return strings.Contains(events.String(), fromA.ID) })
+	for _, entry := range entries {
+		eventually(t, "routing of "+entry.Text, routedRecord(entry.ID))
+	}
+	routedTexts.Range(func(text, count any) bool {
+		if n := count.(*atomic.Int32).Load(); n != 1 {
+			t.Fatalf("post-%s routed %d times", text, n)
+		}
+		return true
+	})
+	eventually(t, "b's page to hear a's post", func() bool { return strings.Contains(events.String(), entries[0].ID) })
 	stopStream()
 	<-streaming
 
-	// A runner request made of b is answered by a.
-	if got := call(b, http.MethodGet, "/api/mcp/connection", ""); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), `"agent"`) {
-		t.Fatalf("forwarded = %d %s", got.Code, got.Body.String())
+	// A routing check made through b is applied through a.
+	check := call(b, http.MethodPost, "/api/entry/"+entries[0].ID+"/routing/check", `{"persona":"gourmet"}`)
+	var result struct {
+		Token string `json:"token"`
 	}
-	if owner() != "a" {
-		t.Fatalf("forwarding moved the workspace to %q", owner())
+	if check.Code != http.StatusOK || json.Unmarshal(check.Body.Bytes(), &result) != nil || result.Token == "" {
+		t.Fatalf("check via b = %d %s", check.Code, check.Body.String())
+	}
+	if applied := call(a, http.MethodPost, "/api/entry/"+entries[0].ID+"/routing/apply", `{"persona":"gourmet","token":"`+result.Token+`"}`); applied.Code != http.StatusOK {
+		t.Fatalf("apply via a = %d %s", applied.Code, applied.Body.String())
+	}
+	if again := call(b, http.MethodPost, "/api/entry/"+entries[0].ID+"/routing/apply", `{"persona":"gourmet","token":"`+result.Token+`"}`); again.Code != http.StatusOK {
+		t.Fatalf("applying again via b = %d %s", again.Code, again.Body.String())
 	}
 
-	// a shuts down with a reaction still unstarted; b takes the workspace
-	// over and works it.
-	left := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User, Text: "left behind", At: time.Now()}
-	left.Root = left.ID
-	if err := tenant.store.Append(left); err != nil {
-		t.Fatal(err)
-	}
-	if err := tenant.store.SaveReaction(store.Reaction{ID: store.NewID("r"), At: time.Now(), Entry: left.ID}); err != nil {
-		t.Fatal(err)
-	}
+	// With a and b gone, an instance that never had the workspace open takes
+	// up work queued for it.
 	a.Close()
-	if owner() != "" {
-		t.Fatalf("a's lease outlived it: %q", owner())
+	b.Close()
+	c := instance(t, client, memory.Instance("c"))
+	late := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User, Text: "post-late", At: time.Now()}
+	late.Root = late.ID
+	if err := workspace.Append(late); err != nil {
+		t.Fatal(err)
 	}
-	if got := call(b, http.MethodGet, "/api/mcp/connection", ""); got.Code != http.StatusOK {
-		t.Fatalf("take over = %d %s", got.Code, got.Body.String())
+	if err := workspace.SaveReaction(store.Reaction{ID: store.NewID("r"), At: time.Now(), Lane: "thread:" + late.ID, Entry: late.ID}); err != nil {
+		t.Fatal(err)
 	}
-	if owner() != "b" {
-		t.Fatalf("owner after take over = %q", owner())
-	}
-	eventually(t, "b to take up the reaction a left", routed(b, left.ID))
+	eventually(t, "c to take up the queued post", routedRecord(late.ID))
 
-	// Deleting the account through another instance reaches the owner: it
-	// lets the workspace go, and the data goes.
-	c := instance(t, client, "c")
+	// Deleting the account through c: nothing is claimed any more, the data
+	// goes, and the mark is lifted after the sweeps.
 	if got := call(c, http.MethodDelete, "/api/workspace", `{"confirm":true}`); got.Code != http.StatusNoContent {
 		t.Fatalf("delete via c = %d %s", got.Code, got.Body.String())
-	}
-	b.mu.Lock()
-	_, stillOwned := b.owned[key]
-	b.mu.Unlock()
-	if stillOwned {
-		t.Fatal("b still works a deleted workspace")
 	}
 	docs, err := client.Collection("users").Doc(key).Collection("timeline").Documents(ctx).GetAll()
 	if err != nil || len(docs) != 0 {
 		t.Fatalf("timeline left after deletion: %d %v", len(docs), err)
 	}
-	eventually(t, "the closing mark to be lifted after the sweep", func() bool {
-		lease, err := c.cluster.Lease(ctx, key)
-		return err == nil && !lease.Closing
+	eventually(t, "the closing mark to be lifted after the sweeps", func() bool {
+		closing, err := store.WorkspaceClosing(ctx, client, key)
+		return err == nil && !closing
 	})
+	if exists, _ := store.WorkspaceExists(ctx, client, key); exists {
+		t.Fatal("the workspace came back after the sweeps")
+	}
 }

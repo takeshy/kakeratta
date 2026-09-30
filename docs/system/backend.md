@@ -16,7 +16,7 @@ In a hosted deployment, `Gateway` verifies Firebase sessions. The browser sends 
 
 `Server.guard` compares `X-Kakeratta-Workspace` with the current workspace. For SSE, it uses the `workspace` query parameter. This key detects account mixups; `Gateway` verifies Firebase sessions. `guard` itself does not authenticate requests that omit the key. For every method other than GET, HEAD, and OPTIONS it also refuses a request whose `Origin` is not the page's own (`sameOrigin`, which honours `X-Forwarded-Host` and `KAKERATTA_PUBLIC_URL`), so another site cannot post into or reconfigure a local app that has no login. Requests without `Origin`, such as tools and tests, pass.
 
-With a cluster coordinator, requests that need the persona runner are answered by the instance owning the workspace; see [Multiple instances](./architecture.md#multiple-instances).
+Any instance of a shared deployment answers any request; nothing is routed to a particular instance (see [Multiple instances](./architecture.md#multiple-instances)).
 
 ## Handler organization
 
@@ -102,7 +102,7 @@ The frontend's `createTimelinePages` merges fetched pages with live changes. Rep
 
 ## Persistence contract
 
-`Workspace` is a per-user contract covering the timeline, memory, settings, persona definitions, schedules, routing records, note retries, unfinished reactions, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
+`Workspace` is a per-user contract covering the timeline, memory, settings, persona definitions, schedules, routing records, note retries, the reaction queue with its claims, runtime records (asks, trials, agent presence), named locks, the closing mark, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
 
 ## Two implementations
 
@@ -168,7 +168,7 @@ Lexical search derives terms from character-script runs and contiguous Han chara
 
 ## Index updates and changing records
 
-`entry` events after persistence or image analysis, and settings changes, schedule indexing. The worker runs where the workspace's persona work runs; with several instances, the owner hears `entry` events published elsewhere through the event bus. A worker coalesces nearby updates and calls `IndexPending` for pending work. Failures are retried later.
+`entry` events after persistence or image analysis, and settings changes, schedule indexing: `Runner.ScheduleIndex` queues the `index` reaction, of which at most one waits, so a workspace is indexed by one worker at a time in whichever process claims it. The pass calls `IndexPending` for pending work; a failure queues another pass 30 seconds later.
 
 Where the workspace implements the native indexing contract, search uses that implementation; otherwise, it uses the local index path. Persisted vectors and dirty state allow updates to continue at startup or during searches.
 
@@ -181,6 +181,7 @@ After slow semantic work, search rereads current entries and excludes deleted co
 - [index.go](../../internal/search/index.go): `IndexPending`
 - [native.go](../../internal/search/native.go)
 - [index.go](../../internal/server/index.go)
+- [queue.go](../../internal/persona/queue.go): `indexPending`
 - [search.go](../../internal/server/search.go)
 - [hybrid_test.go](../../internal/search/hybrid_test.go)
 

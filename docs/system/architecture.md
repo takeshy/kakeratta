@@ -2,7 +2,7 @@
 type: "Architecture"
 title: "Architecture and runtime"
 description: "System boundaries, dependency assembly, background workers, multiple instances, and shutdown."
-tags: ["architecture", "workspace", "runtime", "queue", "cluster", "lease"]
+tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
 updated: "2026-09-30"
 ---
 
@@ -37,70 +37,79 @@ flowchart LR
 | Inference and tools | Model requests and permitted external capabilities | `internal/llm`, `internal/tools`, `internal/mcp` |
 | Search | Lexical and semantic timeline search, index updates | `internal/search` |
 
-`store.Workspace` defines the persistence boundary. HTTP handlers and persona execution use the same interface, allowing file storage and Firestore to be selected. A local deployment has one `Server`; with Firebase authentication, `Gateway` holds a `Server` for each user. With Firestore, several API instances can serve the same users; `internal/cluster` divides each workspace's persona work between them (see below).
+`store.Workspace` defines the persistence boundary. HTTP handlers and persona execution use the same interface, allowing file storage and Firestore to be selected. A local deployment has one `Server`; with Firebase authentication, `Gateway` holds a `Server` for each user. Nothing assumes a single process: persona work in progress, asks, trials, and locks live in the workspace, so any number of API instances can serve the same users (see [Multiple instances](#multiple-instances)).
 
 ## Implementation and verification
 
 - [main.go](../../main.go)
 - [server.go](../../internal/server/server.go): `New`
 - [workspace.go](../../internal/store/workspace.go): `Workspace`
-- [cluster.go](../../internal/cluster/cluster.go): `Coordinator`
 - [server_test.go](../../internal/server/server_test.go)
 
 # Startup, background work, and shutdown
 
 ## Startup
 
-`main` creates the tool configuration and, when configured, GCS and Firestore clients. With `KAKERATTA_FIREBASE_PROJECT_ID`, it creates a `Gateway`; with Firestore as well, the Gateway gets a `cluster.Firestore` coordinator. Otherwise, it opens a file workspace and creates a `Server`.
+`main` creates the tool configuration and, when configured, GCS and Firestore clients. With `KAKERATTA_FIREBASE_PROJECT_ID`, it creates a `Gateway`; with Firestore as well, the Gateway gets a `Shared` configuration for several instances. Otherwise, it opens a file workspace and creates a `Server`.
 
-`Server.New` connects the Catalogue, Runner, and search Service and registers routes. Unless built as a follower, it then calls `Lead`, which starts the search indexing worker, the Runner, and daily and schedule checks. Daily and schedule checks enqueue execution requests at startup and every minute. A follower `Server` answers requests and keeps reactions durable, but runs no persona work until `Lead` is called.
+`Server.New` connects the Catalogue, Runner, and search Service, registers routes, starts the Runner, and queues a search-index pass. Unless built with `NoClock`, it also queues the periodic checks at once and every minute (`Runner.Tick`).
 
-## Units of execution
+## The reaction queue
 
-`Runner` works a reaction queue using a mutex and a condition variable. It takes posts, edits, daily checks, schedules, memory cleanup after deletion, and note retries in order. Multiple personas receiving the same post run concurrently. Waiting for an external agent's answer can be detached into a separate goroutine.
+Persona work is kept in the workspace as `store.Reaction` records (files under `reactions/`, or `users/{key}/reactions`) until it is done. A reaction belongs to a lane:
 
-Posts, edits, and deletion wakes are durable: `acceptLocked` saves each as a `store.Reaction` (files under `reactions/`, or `users/{key}/reactions`) before queueing it, and `finish` removes the record once the work is done. Deleted notes and posts for the same persona fold into one waiting wake. `Poke` rereads the saved reactions: at `Start` (taking up what a previous process left, counting an attempt each time and dropping one after three), every minute, and when the Firestore change feed reports a new one. Delivery is at least once: a reaction interrupted by a crash runs again. Daily, schedule, and note-retry checks are periodic and not saved; each kind is queued at most once at a time.
+| Lane | Work |
+| --- | --- |
+| `thread:{root}` | Reacting to a post, reply, or edit; a delivery approved in a routing check; carrying on a turn after an external agent's ask; telling personas about a deleted post |
+| `persona:{id}` | Telling a persona about notes deleted by the user or expired by the app |
+| `tick` | The periodic checks: asks past their waits, note retries, daily check-ins and monthly summaries, schedules and expired notes |
+| `index` | Bringing the search index up to date |
+
+`ClaimReaction` takes the first reaction of a lane not held by a live claim and not held back by `NotBefore`, together with the rest of its lane. The file store does this under its lock. Firestore reads the queue without a transaction and claims the candidate in a transaction on that one document, so claiming never locks the queue against reactions being written; a candidate taken meanwhile passes its lane over for this round. Writing a reaction retries transient errors twice. A lane is therefore worked one reaction at a time, in order, while different lanes run side by side. Each `Runner` dispatches up to four claims at once. A worker renews its claim every 10 seconds (`claimTTL` 30 seconds); a claim that lapses - its process died - is taken up again by anyone, and each claim counts an attempt, so a reaction is dropped after three. Delivery is at least once. Deleted notes of one persona, or deletion wakes for the same post and persona, queued one after another are folded into one wake when claimed. `tick` and `index` have fixed IDs, so at most one of each waits at a time; an index pass releases its record as it starts so changes made meanwhile queue the next pass.
+
+Personas receiving the same post run concurrently. A persona's note keeper, a person persona's calendar reconciliation, and an external agent's reads of one ask take named locks from `Workspace.Lock`: in-process for files, and documents under `users/{key}/locks` with a 30-second renewable lease for Firestore. Routing records change through `UpdateRouting` transactions.
 
 ## Shutdown
 
-On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes the application. The local server and the Gateway call `Halt`: the reaction in hand finishes and the rest of the queue stays saved for the next start or another instance. `Server.Close` and `Runner.Stop` instead drain every accepted item; tests use them to wait for reactions. Both cancel turns waiting for an external agent and wait for those goroutines to end.
+On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes the application. The local server and the Gateway call `Halt`: the reactions in hand finish and the rest stay queued for the next start or another instance. `Server.Close` and `Runner.Stop` instead work everything claimable before returning; tests use them to wait for reactions.
 
 ## Implementation and verification
 
 - [main.go](../../main.go): `main`
-- [server.go](../../internal/server/server.go): `New`, `Lead`, `Close`, `Halt`
-- [runner.go](../../internal/persona/runner.go): `Start`, `Stop`, `Halt`, `Poke`, `acceptLocked`
-- [reactions.go](../../internal/store/reactions.go): `Reaction`, `WatchReactions`
-- [index.go](../../internal/server/index.go): `startIndexing`
-- [queue_test.go](../../internal/persona/queue_test.go): restart, follower hand-off, and repeated failure
+- [server.go](../../internal/server/server.go): `New`, `Close`, `Halt`
+- [queue.go](../../internal/persona/queue.go): `Start`, `dispatch`, `handle`, `accept`, `Tick`, `Stop`, `Halt`
+- [reactions.go](../../internal/store/reactions.go): `Reaction`, `ClaimReaction`, `nextClaim`
+- [runtime.go](../../internal/store/runtime.go): runtime records, `Lock`, `SetClosing`
+- [runtime_test.go](../../internal/store/runtime_test.go): lane order, claims, records, and locks for both stores
+- [queue_test.go](../../internal/persona/queue_test.go): restart, two runners sharing a queue, and repeated failure
 - [runner_test.go](../../internal/persona/runner_test.go)
 
 # Multiple instances
 
-## Workspace ownership
+## No owners
 
-Each workspace's persona work - the Runner and its queue, trials, external-agent asks, calendar locks, daily and schedule checks, and indexing - runs on exactly one instance, its owner. Ownership is a lease in `workspaceLeases/{key}`, outside the workspace document. `Acquire` takes a lease nobody holds or extends the caller's own; `LeaseTTL` is 30 seconds and the owner renews every 10 seconds in `keepLeases`. An owner that loses its lease, or cannot renew it for 20 seconds, demotes the workspace: it halts the Runner, closes the tenant, and releases the lease.
+With `Shared`, every instance answers every request it receives, and no instance owns a workspace. Work queued anywhere is claimed by whichever runner gets it first. `store.WatchReactions` follows the `reactions` collection group: an instance with the workspace open pokes its runner; one without waits about two seconds, so an instance that has the workspace open claims first, and opens the workspace only if work is still claimable. Every minute each instance also scans `ClaimableWorkspaces`, catching lapsed claims and missed events, and closes workspaces idle for 10 minutes with no open event stream, running export, or reaction in hand.
 
-Every instance opens workspaces as followers to answer requests. `restoreCluster` runs every minute: it takes over workspaces with no live lease, so check-ins and schedules run, and closes follower tenants idle for 10 minutes with no open event stream or running export. A request that needs the runner also takes over a workspace nobody holds.
+The only elected role is the scheduler: the instance holding the `scheduler` lease in `leases/` (`cluster.Coordinator`, 90-second lease renewed each minute) queues a `tick` reaction for every workspace each minute with `store.EnqueueTick`. Any instance may then work it; the tick's work claims check-ins and schedules transactionally, so a second tick cannot repeat them.
 
-## Forwarding and events
+## State shared through the workspace
 
-`ownerRoute` names requests that need the owner: all `/api/mcp/` paths, routing and reply trials, `PUT /api/settings`, and persona changes. On another instance, `serveOwned` carries such a request through `Forward`: the call is written to `users/{key}/calls`, the owner's `Serve` listener runs it against its tenant with `serveCall`, and the reply is written back. Bodies over 512 KiB are split into parts; the session cookie is not carried, while an MCP bearer token is carried transiently in the call document. When the owner's lease ends before it answers, the caller takes the workspace over and retries. Posts, replies, edits, and deletions are not forwarded; they save a durable reaction the owner's change feed picks up.
+External-agent asks, routing and reply trials, and the agent's last call are runtime records (`asks`, `trials`, `presence`) changed by transactions, so an MCP call, a trial, and its application may each reach a different instance. Events go through `users/{key}/events`: `publishEvent` writes them, and each instance with an open event stream subscribes while it is open. Persona definitions are materialised per instance and kept current by a Firestore change feed on `skills`. Events, asks, and trials carry `expireAt` for Firestore TTL policies.
 
-Events go through `users/{key}/events`. `publishEvent` writes them; each instance with an open event stream, and the owner for indexing, subscribes while needed and feeds its local hub. Persona definitions are materialised per instance and kept current by a Firestore change feed on `skills`. Calls and events carry `expireAt` for Firestore TTL policies.
+## Account deletion
 
-Account deletion marks the lease closing so nobody may take the workspace, waits for the owner to release it, destroys the data, and deletes it once more after 90 seconds to catch writes from requests in flight on other instances before lifting the mark. A closing mark older than 10 minutes is ignored.
+Deletion sets `workspaceClosures/{key}` through `SetClosing`. While it stands, no reaction is claimed and no claim is renewed, so work in hand elsewhere is cancelled at its next renewal; instances also refuse to open the workspace. The deleting instance halts its own runner, waits up to two minutes for other claims to end, destroys the data, and deletes it again after 90 seconds and after 11 minutes - after requests and the longest turn that may still have been running elsewhere - before lifting the mark. A mark older than 20 minutes is ignored.
 
 ## Implementation and verification
 
-- [cluster.go](../../internal/cluster/cluster.go): `Coordinator`, `Lease`, `LeaseTTL`
-- [firestore.go](../../internal/cluster/firestore.go): leases, `Forward`, `Serve`, `Publish`, `Subscribe`
-- [memory.go](../../internal/cluster/memory.go): in-process coordinator for tests
-- [forward.go](../../internal/server/forward.go): `ownerRoute`, `owner`, `promote`, `demote`, `serveOwned`, `keepLeases`, `restoreCluster`
-- [gateway.go](../../internal/server/gateway.go): `closeAccount`, `sweepClosed`
+- [shared.go](../../internal/server/shared.go): `Shared`, `wake`, `tickShared`, `closeIdle`, `waitForClaims`, `sweepClosed`
+- [gateway.go](../../internal/server/gateway.go): `closeAccount`, `restoreWorkspaces`
+- [cluster.go](../../internal/cluster/cluster.go): `Coordinator`, `LeaseTTL`
+- [firestore.go](../../internal/cluster/firestore.go): scheduler lease
+- [events.go](../../internal/store/events.go): `Publish`, `Subscribe`
 - [firestore.go](../../internal/store/firestore.go): `watchSkills`, `Close`
-- [firestore_test.go](../../internal/cluster/firestore_test.go): leases, forwarding, owner loss, and events on the emulator
-- [cluster_test.go](../../internal/server/cluster_test.go): two gateways sharing one workspace, takeover, and deletion
+- [cluster_firestore_test.go](../../internal/store/cluster_firestore_test.go): claims, change feed, closing, and events on the emulator
+- [cluster_test.go](../../internal/server/cluster_test.go): instances sharing a workspace without owners, taking up queued work, and deletion
 
 # Related chapters
 

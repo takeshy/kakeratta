@@ -121,13 +121,21 @@ resource "google_firestore_database" "app" {
   depends_on = [google_project_service.required]
 }
 
-# Requests carried between instances and the events they fan out are
-# deleted by their reader or subscriber's window; these policies sweep what
-# an instance that died left behind.
-resource "google_firestore_field" "calls_ttl" {
+# Events are read only while they arrive, and asks and trials lapse after
+# their waits; these policies sweep the documents nobody deletes.
+resource "google_firestore_field" "asks_ttl" {
   project    = var.project_id
   database   = google_firestore_database.app.name
-  collection = "calls"
+  collection = "asks"
+  field      = "expireAt"
+
+  ttl_config {}
+}
+
+resource "google_firestore_field" "trials_ttl" {
+  project    = var.project_id
+  database   = google_firestore_database.app.name
+  collection = "trials"
   field      = "expireAt"
 
   ttl_config {}
@@ -265,9 +273,8 @@ resource "google_cloud_run_v2_service" "app" {
     service_account = google_service_account.app.email
 
     # One instance is always up to run check-ins and schedules. More can
-    # start under load: each workspace's persona work runs on the instance
-    # holding its lease (workspaceLeases/{key}), and the others carry the
-    # requests that need it there.
+    # start under load: any instance answers any request, and each piece of
+    # persona work is taken up by whichever instance claims it in Firestore.
     scaling {
       min_instance_count = 1
       max_instance_count = var.max_instances

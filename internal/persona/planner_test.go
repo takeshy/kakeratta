@@ -30,6 +30,8 @@ func externalSetup(t *testing.T, claim, plan time.Duration) (*Runner, *store.Sto
 	runner.waitsForAsk = func() (time.Duration, time.Duration) { return claim, plan }
 	// The agent has just called in, as its Wake Gate does every minute.
 	runner.AgentSeen(time.Now())
+	// Turns carried on after an ask are reactions of their own.
+	runner.Start()
 	t.Cleanup(runner.Stop)
 	return runner, s, stub
 }
@@ -216,7 +218,7 @@ func TestAReleasedAskFallsThroughAtOnce(t *testing.T) {
 	eventually(t, "the in-process remark", func() bool { return remarkBy(s, "gourmet") != nil })
 }
 
-// The daily check-in waits on the agent apart from the queue as well.
+// The daily check-in asks the agent as well, and does not wait for its answer.
 func TestACheckInIsPlannedExternallyWithoutHoldingTheQueue(t *testing.T) {
 	runner, s, _ := externalSetup(t, time.Minute, time.Minute)
 	settings := s.ConfiguredSettings()
@@ -231,7 +233,7 @@ func TestACheckInIsPlannedExternallyWithoutHoldingTheQueue(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
-		t.Fatal("the check-in held the queue while waiting on the agent")
+		t.Fatal("the check-in waited on the agent")
 	}
 	ask := openAskOf(t, runner)
 	if ask.Wake != "daily" || ask.Trigger != "" {
@@ -292,19 +294,23 @@ func TestAQuietAgentIsSetAsideUntilItCallsIn(t *testing.T) {
 
 	// While it works on an ask it claimed, its Wake Gate is quiet: it is not
 	// away, and the next turn goes to it too.
+	runner, _, _ = setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
+	t.Cleanup(runner.Halt)
 	runner.AgentSeen(time.Now().Add(-10 * time.Minute))
-	ask := &openAsk{Ask: Ask{ID: "ask_busy", State: "pending"}, planWait: time.Minute, claimed: make(chan struct{}), requests: make(chan askRequest), done: make(chan struct{})}
-	runner.desk.open(ask)
+	ctx := context.Background()
+	if err := runner.openAsk(ctx, settings, Ask{ID: "ask_busy", Persona: "gourmet"}, AskContext{}, askTurn{Persona: "gourmet"}); err != nil {
+		t.Fatal(err)
+	}
 	if !runner.AgentAway(settings) {
 		t.Fatal("an unclaimed ask kept a silent agent present")
 	}
 	if _, _, err := runner.ClaimAsk("ask_busy", "claim-1"); err != nil {
 		t.Fatal(err)
 	}
-	if runner.AgentAway(settings) || !runner.detaches(context.Background(), skill, settings) {
+	if runner.AgentAway(settings) || !runner.detaches(ctx, skill, settings) {
 		t.Fatal("an agent working on a claimed ask was set aside")
 	}
-	runner.desk.close(ask)
+	runner.closeAsk(ctx, "ask_busy", "done", nil)
 	if !runner.AgentAway(settings) {
 		t.Fatal("an agent silent past the claim wait stayed present after its ask ended")
 	}
@@ -314,7 +320,7 @@ func TestAQuietAgentIsSetAsideUntilItCallsIn(t *testing.T) {
 // planner answers at once and no ask is opened.
 func TestAnAwayAgentOpensNoAsk(t *testing.T) {
 	runner, s, _ := externalSetup(t, time.Minute, time.Minute)
-	runner.agentSeen.Store(0)
+	runner.ResetExternalAgent()
 	entry := post(t, s, "ラーメン食べた")
 	runner.react(entry.ID)
 	if remark := remarkBy(s, "gourmet"); remark == nil || remark.Text != "内蔵" {

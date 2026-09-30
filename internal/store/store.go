@@ -35,6 +35,9 @@ type Store struct {
 	timelineRefs    map[string]timelineRef
 	timelineThreads map[string]map[string]bool
 	mu              sync.RWMutex
+	// locks are the named locks of Lock; closing is SetClosing's mark.
+	locks   sync.Map
+	closing bool
 }
 
 func Open(root string) (*Store, error) {

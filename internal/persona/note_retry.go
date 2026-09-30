@@ -95,10 +95,11 @@ func (r *Runner) finishNoteJob(job store.NoteJob, stage string, failure error) {
 
 func (r *Runner) runKeeperJob(ctx context.Context, client *llm.Client, settings store.Settings, job store.NoteJob, snapshot keeperSnapshot) []string {
 	if job.Stage == "index" {
-		lock := r.keeperLock(job.Persona)
-		lock.Lock()
-		_, err := r.repairIndex(job.Persona)
-		lock.Unlock()
+		release, err := r.lockKeeper(ctx, job.Persona)
+		if err == nil {
+			_, err = r.repairIndex(job.Persona)
+			release()
+		}
 		r.finishNoteJob(job, "index", err)
 		return nil
 	}

@@ -59,20 +59,6 @@ const monthlyShareInstructions = monthlyHeader + `まず、まとめと投稿の
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
 
-// CheckDaily enters the same serial queue as fragment-triggered execution.
-func (r *Runner) CheckDaily() {
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	if r.stopped {
-		return
-	}
-	if r.queuedLocked(func(item reaction) bool { return item.daily }) {
-		return
-	}
-	r.queue = append(r.queue, reaction{daily: true})
-	r.wake.Signal()
-}
-
 // checkInLookback is the furthest back a sharing check-in reads: a persona
 // back after weeks away catches up on a week, not on everything.
 const checkInLookback = 7 * 24 * time.Hour

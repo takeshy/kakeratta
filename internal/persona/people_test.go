@@ -177,7 +177,7 @@ func TestPersonWokenByAWordIsToldItMayNotBeAboutThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := post(t, workspace, "母校の同窓会に行った")
-	runner.reactEntry(entry.ID, nil, false)
+	runner.reactEntry(context.Background(), entry.ID, nil, false)
 	if len(prompts) == 0 {
 		t.Fatal("the person was not woken")
 	}
@@ -188,7 +188,7 @@ func TestPersonWokenByAWordIsToldItMayNotBeAboutThem(t *testing.T) {
 	// Called by name, it is being asked, and is not told to doubt it.
 	prompts = nil
 	entry = post(t, workspace, "@母 来週の予定どうする?")
-	runner.reactEntry(entry.ID, nil, false)
+	runner.reactEntry(context.Background(), entry.ID, nil, false)
 	if strings.Contains(strings.Join(prompts, "\n"), "という語が含まれていたため") {
 		t.Fatal("an @ was treated as a word match")
 	}

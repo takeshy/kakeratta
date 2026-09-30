@@ -3,9 +3,7 @@ package persona
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
@@ -16,8 +14,14 @@ import (
 // The external agent owns Read + Answer only. After accepting its answer,
 // Kakeratta's own model plans the schedule and action phases, reviews
 // and executes the changes, then publishes the answer; its note keeper writes
-// the notes after that. Asks live in memory; timeouts return research and
-// answering to the built-in model, without giving the agent write privileges.
+// the notes after that. Timeouts return research and answering to the
+// built-in model, without giving the agent write privileges.
+//
+// An ask is kept in the workspace (store.RecordAsks), not held by a waiting
+// goroutine: the turn that opens it ends there, any process serving the
+// workspace can answer the agent's claim, reads and answer, and once the ask
+// is over - answered, released, timed out or set aside - a reaction carries
+// the turn on from where it stopped (asks.go).
 
 // Ask is one planning request, as an external agent sees it.
 type Ask struct {
@@ -105,212 +109,6 @@ var (
 	ErrAskNotYours = errors.New("claimId が一致しません。先に claim_ask で取得してください")
 )
 
-type askRequest struct {
-	read     []ReadStep
-	answer   *Answer
-	parseErr error
-	release  string
-	reply    chan askReply
-}
-
-type askReply struct {
-	text    string
-	verdict AskVerdict
-	err     error
-}
-
-type openAsk struct {
-	Ask
-	context  AskContext
-	planWait time.Duration
-	claimed  chan struct{}
-	requests chan askRequest
-	// done is closed once the waiting turn stops listening.
-	done   chan struct{}
-	closed bool
-}
-
-type desk struct {
-	mu   sync.Mutex
-	asks map[string]*openAsk
-	// order keeps asks listed oldest first.
-	order []string
-}
-
-func newDesk() *desk { return &desk{asks: map[string]*openAsk{}} }
-
-func (d *desk) open(a *openAsk) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.asks[a.ID] = a
-	d.order = append(d.order, a.ID)
-}
-
-func (d *desk) close(a *openAsk) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.closeLocked(a)
-}
-
-func (d *desk) closeLocked(a *openAsk) {
-	if a.closed {
-		return
-	}
-	a.closed = true
-	close(a.done)
-	delete(d.asks, a.ID)
-	for i, id := range d.order {
-		if id == a.ID {
-			d.order = append(d.order[:i:i], d.order[i+1:]...)
-			break
-		}
-	}
-}
-
-// closeUnclaimed ends an ask whose claim wait ran out - unless an agent
-// claimed it at the last moment, in which case the turn goes on waiting for
-// its answer instead.
-func (d *desk) closeUnclaimed(a *openAsk) bool {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if a.State == "claimed" {
-		return false
-	}
-	d.closeLocked(a)
-	return true
-}
-
-// working reports whether an agent holds a claimed ask it has not finished.
-func (d *desk) working() bool {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	for _, a := range d.asks {
-		if a.State == "claimed" {
-			return true
-		}
-	}
-	return false
-}
-
-func (d *desk) find(id string) (*openAsk, bool) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	a, ok := d.asks[id]
-	return a, ok
-}
-
-// Asks lists the open asks, oldest first.
-func (r *Runner) Asks() []Ask {
-	r.desk.mu.Lock()
-	defer r.desk.mu.Unlock()
-	out := []Ask{}
-	for _, id := range r.desk.order {
-		out = append(out, r.desk.asks[id].Ask)
-	}
-	return out
-}
-
-// ClaimAsk takes an ask for one execution. The same claimID may claim again,
-// after a lost response; another may not.
-func (r *Runner) ClaimAsk(id, claimID string) (Ask, AskContext, error) {
-	r.desk.mu.Lock()
-	defer r.desk.mu.Unlock()
-	a, ok := r.desk.asks[id]
-	if !ok {
-		return Ask{}, AskContext{}, ErrAskNotFound
-	}
-	switch {
-	case a.State == "pending":
-		now := time.Now().UTC()
-		planBy := now.Add(a.planWait)
-		a.State, a.ClaimID, a.ClaimedAt, a.PlanBy = "claimed", claimID, &now, &planBy
-		close(a.claimed)
-	case a.ClaimID != claimID:
-		return Ask{}, AskContext{}, ErrAskClaimed
-	}
-	return a.Ask, a.context, nil
-}
-
-func (r *Runner) askFor(id, claimID string) (*openAsk, error) {
-	a, ok := r.desk.find(id)
-	if !ok {
-		return nil, ErrAskNotFound
-	}
-	r.desk.mu.Lock()
-	state, claim := a.State, a.ClaimID
-	r.desk.mu.Unlock()
-	if state != "claimed" || claim != claimID {
-		return nil, ErrAskNotYours
-	}
-	return a, nil
-}
-
-func (r *Runner) sendAsk(ctx context.Context, id, claimID string, request askRequest) (askReply, error) {
-	a, err := r.askFor(id, claimID)
-	if err != nil {
-		return askReply{}, err
-	}
-	request.reply = make(chan askReply, 1)
-	select {
-	case a.requests <- request:
-	case <-a.done:
-		return askReply{}, ErrAskNotFound
-	case <-ctx.Done():
-		return askReply{}, ctx.Err()
-	}
-	select {
-	case reply := <-request.reply:
-		return reply, reply.err
-	case <-a.done:
-		select {
-		case reply := <-request.reply:
-			return reply, reply.err
-		default:
-			return askReply{}, ErrAskNotFound
-		}
-	case <-ctx.Done():
-		return askReply{}, ctx.Err()
-	}
-}
-
-// ReadForAsk looks things up for a claimed ask with the persona's own tools
-// and notes, the way the in-process planner's read does, and within the same
-// limits. What it finds - saved posts in particular - may then be cited by a
-// speak step.
-func (r *Runner) ReadForAsk(ctx context.Context, id, claimID string, steps []ReadStep) (string, error) {
-	reply, err := r.sendAsk(ctx, id, claimID, askRequest{read: steps})
-	return reply.text, err
-}
-
-// SubmitAskAnswer hands a claimed ask's answer to the app, which checks
-// and reviews it exactly as it would the in-process planner's. The verdict
-// comes back at once: rejected answers may be fixed and submitted again.
-func (r *Runner) SubmitAskAnswer(ctx context.Context, id, claimID string, answer *Answer, parseErr error) (AskVerdict, error) {
-	if parseErr == nil && answer != nil {
-		// Some agents send escaped newlines inside the already decoded JSON text.
-		// Normalize the submitted copy before planning, saving, and publishing it.
-		copy := *answer
-		copy.Text = strings.ReplaceAll(copy.Text, `\n`, "\n")
-		answer = &copy
-	}
-	reply, err := r.sendAsk(ctx, id, claimID, askRequest{answer: answer, parseErr: parseErr})
-	return reply.verdict, err
-}
-
-// ReleaseAsk gives a claimed ask back: the in-process planner takes the turn
-// at once instead of waiting out the deadline.
-func (r *Runner) ReleaseAsk(ctx context.Context, id, claimID, reason string) error {
-	if reason == "" {
-		reason = "released"
-	}
-	_, err := r.sendAsk(ctx, id, claimID, askRequest{release: reason})
-	return err
-}
-
-// planning marks a context whose turn already runs apart from the queue, so
-// run does not detach it again.
-type planningKey struct{}
-
 // builtinOnlyKey marks a turn that must be planned in-process: one a person
 // is waiting on, such as a trial reply, or a tidy-up after a deletion, which
 // has no answer to ask an agent for.
@@ -318,100 +116,6 @@ type builtinOnlyKey struct{}
 
 func withBuiltinPlanner(ctx context.Context) context.Context {
 	return context.WithValue(ctx, builtinOnlyKey{}, true)
-}
-
-func plannedApart(ctx context.Context) bool {
-	v, _ := ctx.Value(planningKey{}).(bool)
-	return v
-}
-
-// AgentSeen notes that the external agent called in over MCP. Its Wake Gate
-// calls every minute, so calling in is how the app knows it is there.
-func (r *Runner) AgentSeen(at time.Time) {
-	r.agentSeen.Store(at.UnixNano())
-}
-
-// ResetExternalAgent prevents a newly selected connection from inheriting the
-// old connection's presence or in-flight claims. Waiting turns fall back.
-func (r *Runner) ResetExternalAgent() {
-	r.agentSeen.Store(0)
-	r.desk.mu.Lock()
-	defer r.desk.mu.Unlock()
-	for _, a := range r.desk.asks {
-		r.desk.closeLocked(a)
-	}
-}
-
-// SetConnectionWaits gives the claim and plan waits of the connection in use.
-// Each agent answers at its own pace, so the waits belong to its connection.
-func (r *Runner) SetConnectionWaits(waits func() (time.Duration, time.Duration)) {
-	r.connectionWaits = waits
-}
-
-// AgentLastSeen is when the external agent last called in, or the zero time
-// if it has not since the app started.
-func (r *Runner) AgentLastSeen() time.Time {
-	seen := r.agentSeen.Load()
-	if seen == 0 {
-		return time.Time{}
-	}
-	return time.Unix(0, seen)
-}
-
-// AgentAway reports whether the external agent has gone quiet for longer than
-// the claim wait: silent that long, it would not claim an ask in time either. An agent away is set aside without anyone switching it
-// off, and comes back by itself the moment it calls in again.
-//
-// An agent working on an ask it claimed is not away, however long since it
-// last called: while it plans, its Wake Gate does not run, and the turn it is
-// planning has its own deadline.
-func (r *Runner) AgentAway(settings store.Settings) bool {
-	if r.desk.working() {
-		return false
-	}
-	seen := r.AgentLastSeen()
-	claim, _ := r.askWaits(settings)
-	return seen.IsZero() || time.Since(seen) > claim
-}
-
-// plansExternally reports whether this turn's planning goes to the external
-// agent: the persona prefers it, it is not paused, and it is calling in.
-func (r *Runner) plansExternally(ctx context.Context, skill Skill, settings store.Settings) bool {
-	if v, _ := ctx.Value(builtinOnlyKey{}).(bool); v {
-		return false
-	}
-	return settings.PlansExternally(skill.ID) && !r.AgentAway(settings)
-}
-
-// Detaches reports whether a turn for this persona runs apart from the queue,
-// finishing later: a caller keeping track of who is still thinking must not
-// count it as done when run returns.
-func (r *Runner) detaches(ctx context.Context, skill Skill, settings store.Settings) bool {
-	return r.plansExternally(ctx, skill, settings) && !plannedApart(ctx)
-}
-
-// detach runs an externally planned turn apart from the queue. Waiting for an
-// agent can take many minutes, and the queue - every other post, check-in and
-// schedule - must not wait with it. When the turn ends, the routing sheet is
-// told, as for any turn that finished late.
-func (r *Runner) detach(skill Skill, trigger timeline.Entry, settings store.Settings, turn func(context.Context) *timeline.Entry) {
-	claim, plan := r.askWaits(settings)
-	ctx, cancel := context.WithTimeout(context.WithValue(context.Background(), planningKey{}, true), claim+plan+10*time.Minute)
-	r.detached.Add(1)
-	go func() {
-		defer r.detached.Done()
-		defer cancel()
-		var remark *timeline.Entry
-		defer func() {
-			if problem := recover(); problem != nil {
-				r.emit("error", map[string]any{"persona": skill.ID, "message": fmt.Sprint(problem)})
-			}
-			if trigger.ID != "" {
-				r.FinishAsyncTurn(trigger.ID, skill.ID, remark != nil)
-			}
-		}()
-		remark = turn(ctx)
-	}()
 }
 
 // askWaits are how long an ask waits to be claimed, and then to be planned.
@@ -437,89 +141,6 @@ func (r *Runner) askWaits(settings store.Settings) (time.Duration, time.Duration
 		plan = store.DefaultPlanMinutes * time.Minute
 	}
 	return claim, plan
-}
-
-// externalPlan is what the waiting turn does with an agent's requests.
-type externalPlan struct {
-	read     func(steps []ReadStep) string
-	consider func(answer *Answer, parseErr error) (approved bool, problems []string, err error)
-}
-
-// errAborted is a turn cut short by shutdown, not by the agent: nothing falls
-// through, because nothing is going to run it.
-var errAborted = errors.New("aborted")
-
-// planExternally opens an ask and waits on it. It returns the approved
-// answer, or nil with the reason the turn falls through to the in-process
-// planner.
-func (r *Runner) planExternally(ctx context.Context, settings store.Settings, ask Ask, brief AskContext, plan externalPlan) (*Answer, string, error) {
-	claimWait, planWait := r.askWaits(settings)
-	now := time.Now().UTC()
-	ask.State, ask.At, ask.ClaimBy = "pending", now, now.Add(claimWait)
-	a := &openAsk{Ask: ask, context: brief, planWait: planWait, claimed: make(chan struct{}), requests: make(chan askRequest), done: make(chan struct{})}
-	r.desk.open(a)
-	defer r.desk.close(a)
-	r.emit("ask", map[string]any{"persona": ask.Persona, "id": ask.ID, "state": "pending", "trigger": ask.Trigger})
-
-	claimTimer := time.NewTimer(claimWait)
-	defer claimTimer.Stop()
-	select {
-	case <-a.done:
-		return nil, "connection changed", nil
-	case <-a.claimed:
-	case <-claimTimer.C:
-		if r.desk.closeUnclaimed(a) {
-			return nil, "claim timeout", nil
-		}
-	case <-ctx.Done():
-		return nil, "", errAborted
-	case <-r.apart.Done():
-		return nil, "", errAborted
-	}
-	r.desk.mu.Lock()
-	planBy := *a.PlanBy
-	r.desk.mu.Unlock()
-	r.emit("ask", map[string]any{"persona": ask.Persona, "id": ask.ID, "state": "claimed", "trigger": ask.Trigger})
-
-	planTimer := time.NewTimer(time.Until(planBy))
-	defer planTimer.Stop()
-	malformed := 0
-	for {
-		select {
-		case <-a.done:
-			return nil, "connection changed", nil
-		case request := <-a.requests:
-			switch {
-			case request.release != "":
-				request.reply <- askReply{}
-				return nil, "released: " + request.release, nil
-			case request.answer != nil || request.parseErr != nil:
-				approved, problems, err := plan.consider(request.answer, request.parseErr)
-				if err != nil {
-					request.reply <- askReply{verdict: AskVerdict{Closed: true, Problems: []string{err.Error()}, Note: "回答の確認に失敗したため、内蔵モデルに戻しました。"}}
-					return nil, "review failed: " + err.Error(), nil
-				}
-				if approved {
-					request.reply <- askReply{verdict: AskVerdict{Accepted: true, Closed: true, Note: "回答を受け付けました。本体が記憶・操作を判断し、必要な確認と実行後に公開します。"}}
-					return request.answer, "", nil
-				}
-				malformed++
-				if malformed > maxMalformed {
-					request.reply <- askReply{verdict: AskVerdict{Problems: problems, Closed: true, Note: "差し戻しの上限に達したため、内蔵のプランナーに戻しました。"}}
-					return nil, "drafts exhausted", nil
-				}
-				request.reply <- askReply{verdict: AskVerdict{Problems: problems, Note: "この Answer は受け付けられませんでした。直して submit_answer を呼んでください。"}}
-			default:
-				request.reply <- askReply{text: plan.read(request.read)}
-			}
-		case <-planTimer.C:
-			return nil, "answer timeout", nil
-		case <-ctx.Done():
-			return nil, "", errAborted
-		case <-r.apart.Done():
-			return nil, "", errAborted
-		}
-	}
 }
 
 // askTools lists what the persona holds, and where each may be used.

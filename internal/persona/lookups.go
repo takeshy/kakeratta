@@ -54,3 +54,23 @@ func (l *lookups) keep(name, args, out string) {
 }
 
 func (l *lookups) left() int { return l.limit - l.used }
+
+// lookupsState is a budget as an ask keeps it between the agent's reads.
+type lookupsState struct {
+	Used     int               `json:"used"`
+	Searched int               `json:"searched"`
+	Seen     map[string]string `json:"seen,omitempty"`
+}
+
+func (l *lookups) state() lookupsState {
+	return lookupsState{Used: l.used, Searched: l.searched, Seen: l.seen}
+}
+
+func (s lookupsState) restore(limit, searches int) *lookups {
+	restored := newLookups(limit, searches)
+	restored.used, restored.searched = s.Used, s.Searched
+	for key, out := range s.Seen {
+		restored.seen[key] = out
+	}
+	return restored
+}

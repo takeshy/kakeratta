@@ -24,13 +24,14 @@ The external agent researches as the persona and submits only the final answer. 
 4. Submit text and sources with `submit_answer`. Invalid submissions receive correction requests.
 5. If unable to respond, call `release_ask` to return the turn to the built-in model.
 
-Claiming and answering have separate deadlines. Unclaimed asks, answer timeouts, connection changes, explicit release, and exhausted correction attempts can trigger fallback. Shutdown aborts waiting. A connection with no recent MCP activity, or paused external-agent settings, can select the built-in model immediately.
+Claiming and answering have separate deadlines. Unclaimed asks, answer timeouts, connection changes, explicit release, and exhausted correction attempts can trigger fallback. A connection with no recent MCP activity, or paused external-agent settings, can select the built-in model immediately.
 
-Asks live in the memory of the instance that owns the workspace. With several instances, every `/api/mcp/users/{workspace}` request is carried to that owner, so an agent may reach any instance; an MCP request never makes an instance take a workspace over, and answers 503 while nobody holds it. A takeover ends waiting asks like a restart does.
+An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the turn, and claim, reads, answer, and release are transactions on the record, so the agent may reach any process serving the workspace and an ask survives a restart. The agent's reads run where they arrive, under the lock `ask:{id}`, and their results - reads used, lookups, notes read, cited posts - are kept on the record. Deadlines are enforced by a timer in the process that opened or claimed the ask and by the minute's tick. A closed ask queues the reaction `ask-{id}` in the conversation's lane, which carries the turn on and deletes the ask. The agent's last call is the `presence` record, written at most every 30 seconds. An MCP request opens a workspace only if it exists.
 
 ## Implementation and verification
 
-- [planner.go](../../internal/persona/planner.go): `desk`, `ClaimAsk`, `planExternally`
+- [planner.go](../../internal/persona/planner.go): ask types and context
+- [asks.go](../../internal/persona/asks.go): `openAsk`, `ClaimAsk`, `ReadForAsk`, `SubmitAskAnswer`, `sweepAsks`, `resumeAsk`
 - [mcp_server.go](../../internal/server/mcp_server.go)
 - [mcp_tools.go](../../internal/server/mcp_tools.go)
 - [mcp_connections.go](../../internal/server/mcp_connections.go)

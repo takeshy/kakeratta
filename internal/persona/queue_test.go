@@ -29,11 +29,9 @@ func pending(t *testing.T, s *store.Store) []store.Reaction {
 func TestAHaltedReactionIsTakenUpOnRestart(t *testing.T) {
 	runner, s, _ := setup(t, answering, "gourmet")
 	entry := post(t, s, "ラーメン食べたい")
-	runner.stopMu.Lock()
-	runner.acceptLocked(reaction{entryID: entry.ID})
-	runner.stopMu.Unlock()
+	runner.React(entry.ID, nil)
 	runner.Halt()
-	if got := pending(t, s); len(got) != 1 || got[0].Entry != entry.ID {
+	if got := pending(t, s); len(got) != 1 || got[0].Entry != entry.ID || got[0].Lane != "thread:"+entry.ID {
 		t.Fatalf("kept = %+v", got)
 	}
 	if len(remarks(t, s)) != 0 {
@@ -51,42 +49,38 @@ func TestAHaltedReactionIsTakenUpOnRestart(t *testing.T) {
 	}
 }
 
-// A follower keeps what it is given for the owner and works none of it; the
-// owner finds it when poked, as the change feed does.
-func TestAFollowerKeepsReactionsForTheOwner(t *testing.T) {
-	owner, s, _ := setup(t, answering, "gourmet")
-	follower := New(s, owner.catalogue, owner.clientOf)
-	follower.SetFollower(true)
-	entry := post(t, s, "餃子もいい")
-	follower.React(entry.ID, nil)
-	follower.NoteForgotten("gourmet", "shops/a.md")
-	follower.NoteForgotten("gourmet", "shops/b.md")
-	if follower.started || len(follower.queue) != 0 {
-		t.Fatal("the follower took the work itself")
-	}
-	if got := pending(t, s); len(got) != 3 {
-		t.Fatalf("kept = %+v", got)
-	}
-
-	owner.Start()
-	owner.Poke()
-	owner.stopMu.Lock()
-	var forgottenPaths []string
-	for _, item := range owner.queue {
-		if item.forgotten != nil {
-			forgottenPaths = append(forgottenPaths, item.forgotten.paths...)
+// Two runners over one workspace - two processes serving the same user - share
+// its queue: every reaction is worked once, by whichever claims it.
+func TestTwoRunnersShareOneQueue(t *testing.T) {
+	first, s, _ := setup(t, answering, "gourmet")
+	second := New(s, first.catalogue, first.clientOf)
+	var posts []string
+	for _, text := range []string{"ラーメン", "餃子", "チャーハン", "天津飯", "麻婆豆腐", "回鍋肉"} {
+		entry := post(t, s, text)
+		posts = append(posts, entry.ID)
+		if len(posts)%2 == 0 {
+			first.React(entry.ID, nil)
+		} else {
+			second.React(entry.ID, nil)
 		}
 	}
-	owner.stopMu.Unlock()
-	owner.Stop()
-	if len(forgottenPaths) != 2 {
-		t.Fatalf("the two deletions were not one wake: %v", forgottenPaths)
+	first.Start()
+	second.Start()
+	done := make(chan struct{})
+	go func() { first.Stop(); close(done) }()
+	second.Stop()
+	<-done
+	answered := map[string]int{}
+	for _, remark := range remarks(t, s) {
+		answered[remark.Root]++
 	}
-	if len(remarks(t, s)) != 1 {
-		t.Fatal("the owner did not answer the follower's post")
+	for _, id := range posts {
+		if answered[id] != 1 {
+			t.Fatalf("post %s answered %d times: %v", id, answered[id], answered)
+		}
 	}
 	if got := pending(t, s); len(got) != 0 {
-		t.Fatalf("finished reactions still kept: %+v", got)
+		t.Fatalf("left = %+v", got)
 	}
 }
 
@@ -109,4 +103,55 @@ func TestAReactionThatKeepsFailingIsDropped(t *testing.T) {
 	if len(remarks(t, s)) != 0 || len(pending(t, s)) != 0 || len(errors) == 0 {
 		t.Fatalf("remarks=%d pending=%d errors=%v", len(remarks(t, s)), len(pending(t, s)), errors)
 	}
+}
+
+// wake is a queued reaction as a worker takes it up: folded with those after
+// it in its lane that ask the same thing.
+type wake struct {
+	entry     string
+	forgotten *forgotten
+	deleted   *deletedPost
+}
+
+func wakes(t *testing.T, r *Runner) []wake {
+	t.Helper()
+	items, err := r.store.Reactions(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []wake
+	last := map[string]int{}
+	for _, item := range items {
+		next := wake{entry: item.Entry}
+		if f := item.Forgotten; f != nil {
+			next.forgotten = &forgotten{skill: f.Skill, paths: append([]string(nil), f.Paths...), expired: f.Expired}
+		}
+		if d := item.Deleted; d != nil {
+			next.deleted = &deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: d.Notes, removed: d.Removed}
+		}
+		if i, ok := last[item.Lane]; ok {
+			prev := &out[i]
+			switch {
+			case prev.forgotten != nil && next.forgotten != nil && prev.forgotten.skill == next.forgotten.skill && prev.forgotten.expired == next.forgotten.expired:
+				prev.forgotten.paths = append(prev.forgotten.paths, next.forgotten.paths...)
+				continue
+			case prev.deleted != nil && next.deleted != nil && prev.deleted.skill == next.deleted.skill && prev.deleted.entryID == next.deleted.entryID:
+				continue
+			}
+		}
+		out = append(out, next)
+		last[item.Lane] = len(out) - 1
+	}
+	return out
+}
+
+func deletedWakes(t *testing.T, r *Runner) []deletedPost {
+	t.Helper()
+	var out []deletedPost
+	for _, w := range wakes(t, r) {
+		if w.deleted != nil {
+			out = append(out, *w.deleted)
+		}
+	}
+	return out
 }

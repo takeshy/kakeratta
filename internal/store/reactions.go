@@ -6,28 +6,48 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/takeshy/kakeratta/internal/timeline"
-	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-// Reaction is one piece of persona work the runner has accepted and not yet
-// finished: a post or an edit to react to, a deleted note or post a persona
-// is to be told about. It is kept until the work is done, so a restart, a
-// crash or another instance taking the workspace over carries on with it
-// instead of losing it.
+// Reaction is one piece of persona work accepted and not yet finished: a post
+// or an edit to react to, a delivery a person approved, an external agent's
+// answer to carry on with, deleted notes or posts a persona is to be told
+// about, the minute's periodic checks, search indexing. It is kept until the
+// work is done, so a restart or a crash carries on with it.
+//
+// Reactions in one lane run one at a time, in order: the replies of one
+// conversation, the tidy-ups of one persona. Different lanes run side by
+// side, on any instance - whoever claims one first. A claim lapses unless
+// its holder renews it, so work a dead process held is taken up again.
 type Reaction struct {
 	ID       string    `json:"id" firestore:"id"`
 	At       time.Time `json:"at" firestore:"at"`
+	Lane     string    `json:"lane" firestore:"lane"`
 	Attempts int       `json:"attempts" firestore:"attempts"`
+	// NotBefore holds a reaction back until then, as a retry after a failure.
+	NotBefore time.Time `json:"notBefore,omitempty" firestore:"notBefore,omitempty"`
+	// ClaimedBy and ClaimUntil are the worker working it, while it renews.
+	ClaimedBy  string    `json:"claimedBy,omitempty" firestore:"claimedBy,omitempty"`
+	ClaimUntil time.Time `json:"claimUntil,omitempty" firestore:"claimUntil,omitempty"`
 
 	Entry  string          `json:"entry,omitempty" firestore:"entry,omitempty"`
 	Edited bool            `json:"edited,omitempty" firestore:"edited,omitempty"`
 	Place  *timeline.Place `json:"place,omitempty" firestore:"place,omitempty"`
+	// Deliver is a persona the post is to reach now, as a person approved in
+	// a routing check.
+	Deliver string `json:"deliver,omitempty" firestore:"deliver,omitempty"`
+	// Ask is an external agent's ask that ended, answered or not, whose turn
+	// is to be carried on.
+	Ask string `json:"ask,omitempty" firestore:"ask,omitempty"`
+	// Tick runs the periodic checks; Index brings the search index up to date.
+	Tick  bool `json:"tick,omitempty" firestore:"tick,omitempty"`
+	Index bool `json:"index,omitempty" firestore:"index,omitempty"`
 
 	Forgotten *ForgottenReaction `json:"forgotten,omitempty" firestore:"forgotten,omitempty"`
 	Deleted   *DeletedReaction   `json:"deleted,omitempty" firestore:"deleted,omitempty"`
@@ -49,6 +69,12 @@ type DeletedReaction struct {
 	Removed []string `json:"removed,omitempty" firestore:"removed,omitempty"`
 }
 
+// Fixed IDs of the reactions a workspace has at most one of waiting.
+const (
+	TickReaction  = "tick"
+	IndexReaction = "index"
+)
+
 const reactionsDir = "reactions"
 
 func sortReactions(items []Reaction) {
@@ -60,6 +86,42 @@ func sortReactions(items []Reaction) {
 	})
 }
 
+func laneOf(item Reaction) string {
+	if item.Lane != "" {
+		return item.Lane
+	}
+	return "reaction:" + item.ID
+}
+
+// nextClaim picks the reaction to work next: the first in its lane, not held
+// by a live claim, not held back. The rest of its lane, in order, comes with
+// it; a worker may fold those of the same kind into one piece of work.
+func nextClaim(items []Reaction, now time.Time) (int, []Reaction, bool) {
+	sortReactions(items)
+	seen := map[string]bool{}
+	for i, item := range items {
+		lane := laneOf(item)
+		if seen[lane] {
+			continue
+		}
+		seen[lane] = true
+		if now.Before(item.ClaimUntil) || now.Before(item.NotBefore) {
+			continue
+		}
+		var rest []Reaction
+		for _, other := range items[i+1:] {
+			if laneOf(other) == lane {
+				rest = append(rest, other)
+			}
+		}
+		return i, rest, true
+	}
+	return 0, nil, false
+}
+
+// ErrReactionExists is a reaction created under an ID already waiting.
+var ErrReactionExists = errors.New("reaction already waiting")
+
 // SaveReaction keeps a reaction, replacing one with the same ID.
 func (s *Store) SaveReaction(item Reaction) error {
 	if item.ID == "" || !safeName(item.ID) {
@@ -70,19 +132,28 @@ func (s *Store) SaveReaction(item Reaction) error {
 	return writeJSON(s.path(reactionsDir, item.ID+".json"), item)
 }
 
-// Reactions lists the unfinished reactions, oldest first.
-func (s *Store) Reactions(ctx context.Context) ([]Reaction, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+// CreateReaction keeps a reaction unless one with its ID is waiting already,
+// which it reports as ErrReactionExists.
+func (s *Store) CreateReaction(item Reaction) error {
+	if item.ID == "" || !safeName(item.ID) {
+		return errors.New("reaction needs an id")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	path := s.path(reactionsDir, item.ID+".json")
+	if _, err := os.Stat(path); err == nil {
+		return ErrReactionExists
+	}
+	return writeJSON(path, item)
+}
+
+func (s *Store) reactionsLocked() ([]Reaction, error) {
 	paths, err := filepath.Glob(s.path(reactionsDir, "*.json"))
 	if err != nil {
 		return nil, err
 	}
 	items := make([]Reaction, 0, len(paths))
 	for _, path := range paths {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
 		var item Reaction
 		if err := readJSON(path, &item); err != nil {
 			if os.IsNotExist(err) {
@@ -94,6 +165,79 @@ func (s *Store) Reactions(ctx context.Context) ([]Reaction, error) {
 	}
 	sortReactions(items)
 	return items, nil
+}
+
+// Reactions lists the unfinished reactions, oldest first.
+func (s *Store) Reactions(context.Context) ([]Reaction, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.reactionsLocked()
+}
+
+// ClaimReaction takes the next reaction for worker until ttl from now, with
+// the rest of its lane. It reports false when there is nothing to take.
+func (s *Store) ClaimReaction(_ context.Context, worker string, ttl time.Duration) (Reaction, []Reaction, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closingLocked() {
+		return Reaction{}, nil, false, nil
+	}
+	items, err := s.reactionsLocked()
+	if err != nil {
+		return Reaction{}, nil, false, err
+	}
+	now := time.Now()
+	i, rest, ok := nextClaim(items, now)
+	if !ok {
+		return Reaction{}, nil, false, nil
+	}
+	item := items[i]
+	item.ClaimedBy, item.ClaimUntil = worker, now.Add(ttl)
+	item.Attempts++
+	if err := writeJSON(s.path(reactionsDir, item.ID+".json"), item); err != nil {
+		return Reaction{}, nil, false, err
+	}
+	return item, rest, true, nil
+}
+
+// RenewReaction extends worker's claim. It reports false when the claim is
+// no longer worker's, or the workspace is being deleted.
+func (s *Store) RenewReaction(_ context.Context, id, worker string, ttl time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	path := s.path(reactionsDir, id+".json")
+	var item Reaction
+	if err := readJSON(path, &item); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if item.ClaimedBy != worker || s.closingLocked() {
+		return false, nil
+	}
+	item.ClaimUntil = time.Now().Add(ttl)
+	return true, writeJSON(path, item)
+}
+
+// ReleaseReaction gives worker's claim up, so the reaction is taken up again
+// at once rather than when the claim lapses.
+func (s *Store) ReleaseReaction(_ context.Context, id, worker string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	path := s.path(reactionsDir, id+".json")
+	var item Reaction
+	if err := readJSON(path, &item); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if item.ClaimedBy != worker {
+		return nil
+	}
+	item.ClaimedBy, item.ClaimUntil = "", time.Time{}
+	return writeJSON(path, item)
 }
 
 // FinishReaction forgets a reaction whose work is done.
@@ -109,8 +253,12 @@ func (s *Store) FinishReaction(id string) error {
 	return nil
 }
 
+func reactionsOf(client *firestore.Client, key string) *firestore.CollectionRef {
+	return client.Collection("users").Doc(key).Collection("reactions")
+}
+
 func (w *FirestoreWorkspace) reactions() *firestore.CollectionRef {
-	return w.user.Collection("reactions")
+	return reactionsOf(w.client, w.user.ID)
 }
 
 func (w *FirestoreWorkspace) SaveReaction(item Reaction) error {
@@ -121,18 +269,34 @@ func (w *FirestoreWorkspace) SaveReaction(item Reaction) error {
 	return err
 }
 
-func (w *FirestoreWorkspace) Reactions(ctx context.Context) ([]Reaction, error) {
-	iter := w.reactions().Documents(ctx)
-	defer iter.Stop()
-	var items []Reaction
-	for {
-		doc, err := iter.Next()
-		if errors.Is(err, iterator.Done) {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
+func (w *FirestoreWorkspace) CreateReaction(item Reaction) error {
+	return createReaction(context.Background(), w.client, w.user.ID, item)
+}
+
+func createReaction(ctx context.Context, client *firestore.Client, key string, item Reaction) error {
+	if item.ID == "" || !safeName(item.ID) {
+		return errors.New("reaction needs an id")
+	}
+	_, err := reactionsOf(client, key).Doc(item.ID).Create(ctx, item)
+	if status.Code(err) == codes.AlreadyExists {
+		return ErrReactionExists
+	}
+	return err
+}
+
+// EnqueueTick queues a workspace's periodic checks, unless they are waiting
+// already. The scheduler does this for every workspace without opening it.
+func EnqueueTick(ctx context.Context, client *firestore.Client, key string) error {
+	err := createReaction(ctx, client, key, Reaction{ID: TickReaction, At: time.Now(), Lane: TickReaction, Tick: true})
+	if errors.Is(err, ErrReactionExists) {
+		return nil
+	}
+	return err
+}
+
+func readReactions(docs []*firestore.DocumentSnapshot) ([]Reaction, error) {
+	items := make([]Reaction, 0, len(docs))
+	for _, doc := range docs {
 		var item Reaction
 		if err := doc.DataTo(&item); err != nil {
 			return nil, err
@@ -141,6 +305,132 @@ func (w *FirestoreWorkspace) Reactions(ctx context.Context) ([]Reaction, error) 
 	}
 	sortReactions(items)
 	return items, nil
+}
+
+func (w *FirestoreWorkspace) Reactions(ctx context.Context) ([]Reaction, error) {
+	docs, err := w.reactions().Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	return readReactions(docs)
+}
+
+// ClaimReaction finds the next reaction with a plain read and claims it with
+// a transaction on that one document. A transaction querying the whole queue
+// would lock it against the posts being queued meanwhile. The transaction
+// checks the claim is still free; losing the race moves on to the next
+// candidate. A reaction queued later sorts after those already there, so a
+// lane's head from the read is still its head unless it was finished, which
+// the transaction sees as the document being gone.
+func (w *FirestoreWorkspace) ClaimReaction(ctx context.Context, worker string, ttl time.Duration) (Reaction, []Reaction, bool, error) {
+	if closing, err := WorkspaceClosing(ctx, w.client, w.user.ID); err != nil || closing {
+		return Reaction{}, nil, false, err
+	}
+	docs, err := w.reactions().Documents(ctx).GetAll()
+	if err != nil {
+		return Reaction{}, nil, false, err
+	}
+	items, err := readReactions(docs)
+	if err != nil {
+		return Reaction{}, nil, false, err
+	}
+	for len(items) > 0 {
+		i, rest, ok := nextClaim(items, time.Now())
+		if !ok {
+			return Reaction{}, nil, false, nil
+		}
+		candidate := items[i]
+		var claimed Reaction
+		taken := false
+		err := w.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+			taken = false
+			if closing, err := closingIn(tx.Get(closureRef(w.client, w.user.ID))); err != nil || closing {
+				return err
+			}
+			ref := w.reactions().Doc(candidate.ID)
+			doc, err := tx.Get(ref)
+			if status.Code(err) == codes.NotFound {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if err := doc.DataTo(&claimed); err != nil {
+				return err
+			}
+			now := time.Now()
+			if now.Before(claimed.ClaimUntil) || now.Before(claimed.NotBefore) {
+				return nil
+			}
+			claimed.ClaimedBy, claimed.ClaimUntil = worker, now.Add(ttl)
+			claimed.Attempts++
+			taken = true
+			return tx.Set(ref, claimed)
+		})
+		if err != nil {
+			return Reaction{}, nil, false, err
+		}
+		if taken {
+			return claimed, rest, true, nil
+		}
+		// Someone else took it, or it is done: the rest of its lane waits
+		// behind it either way, so the whole lane is passed over this time.
+		lane := laneOf(candidate)
+		kept := items[:0]
+		for _, item := range items {
+			if laneOf(item) != lane {
+				kept = append(kept, item)
+			}
+		}
+		items = kept
+	}
+	return Reaction{}, nil, false, nil
+}
+
+func (w *FirestoreWorkspace) RenewReaction(ctx context.Context, id, worker string, ttl time.Duration) (bool, error) {
+	ref := w.reactions().Doc(id)
+	kept := false
+	err := w.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		kept = false
+		if closing, err := closingIn(tx.Get(closureRef(w.client, w.user.ID))); err != nil || closing {
+			return err
+		}
+		doc, err := tx.Get(ref)
+		if status.Code(err) == codes.NotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var item Reaction
+		if err := doc.DataTo(&item); err != nil {
+			return err
+		}
+		if item.ClaimedBy != worker {
+			return nil
+		}
+		kept = true
+		return tx.Update(ref, []firestore.Update{{Path: "claimUntil", Value: time.Now().Add(ttl)}})
+	})
+	return kept, err
+}
+
+func (w *FirestoreWorkspace) ReleaseReaction(ctx context.Context, id, worker string) error {
+	ref := w.reactions().Doc(id)
+	return w.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(ref)
+		if status.Code(err) == codes.NotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var item Reaction
+		if err := doc.DataTo(&item); err != nil || item.ClaimedBy != worker {
+			return err
+		}
+		return tx.Update(ref, []firestore.Update{{Path: "claimedBy", Value: ""}, {Path: "claimUntil", Value: time.Time{}}})
+	})
 }
 
 func (w *FirestoreWorkspace) FinishReaction(id string) error {
@@ -154,31 +444,107 @@ func (w *FirestoreWorkspace) FinishReaction(id string) error {
 	return err
 }
 
-// WatchReactions calls changed whenever a reaction is added anywhere - by
-// this instance or another one serving the same workspace - until ctx ends.
-func (w *FirestoreWorkspace) WatchReactions(ctx context.Context, changed func()) {
+// workspaceOf is the workspace key a document under users/{key} belongs to.
+func workspaceOf(ref *firestore.DocumentRef) string {
+	for ref != nil {
+		if ref.Parent != nil && ref.Parent.ID == "users" && ref.Parent.Parent == nil {
+			return ref.ID
+		}
+		if ref.Parent == nil {
+			return ""
+		}
+		ref = ref.Parent.Parent
+	}
+	return ""
+}
+
+// ClaimableWorkspaces names the workspaces with a reaction someone could
+// take now, across every user.
+func ClaimableWorkspaces(ctx context.Context, client *firestore.Client) (map[string]bool, error) {
+	docs, err := client.CollectionGroup("reactions").Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	byKey := map[string][]Reaction{}
+	for _, doc := range docs {
+		key := workspaceOf(doc.Ref)
+		if key == "" {
+			continue
+		}
+		var item Reaction
+		if err := doc.DataTo(&item); err != nil {
+			continue
+		}
+		byKey[key] = append(byKey[key], item)
+	}
+	out := map[string]bool{}
+	now := time.Now()
+	for key, items := range byKey {
+		if _, _, ok := nextClaim(items, now); ok {
+			out[key] = true
+		}
+	}
+	return out, nil
+}
+
+// WatchReactions calls added with the workspace key whenever a reaction is
+// queued for any user, until ctx ends.
+func WatchReactions(ctx context.Context, client *firestore.Client, added func(key string)) {
 	go func() {
-		iter := w.reactions().Snapshots(ctx)
-		defer iter.Stop()
-		for {
-			snapshot, err := iter.Next()
-			if err != nil {
-				if ctx.Err() == nil {
-					// The runner also rereads the queue every minute, so a
-					// broken listener delays a reaction rather than losing it.
-					time.Sleep(5 * time.Second)
-					if ctx.Err() == nil {
-						w.WatchReactions(ctx, changed)
-					}
-				}
-				return
-			}
-			for _, change := range snapshot.Changes {
-				if change.Kind == firestore.DocumentAdded {
-					changed()
+		for ctx.Err() == nil {
+			iter := client.CollectionGroup("reactions").Snapshots(ctx)
+			for {
+				snapshot, err := iter.Next()
+				if err != nil {
 					break
 				}
+				for _, change := range snapshot.Changes {
+					released := change.Kind == firestore.DocumentModified && strings.TrimSpace(stringField(change.Doc, "claimedBy")) == ""
+					if change.Kind == firestore.DocumentAdded || released {
+						if key := workspaceOf(change.Doc.Ref); key != "" {
+							added(key)
+						}
+					}
+				}
+			}
+			iter.Stop()
+			select {
+			case <-ctx.Done():
+			case <-time.After(5 * time.Second):
 			}
 		}
 	}()
+}
+
+func stringField(doc *firestore.DocumentSnapshot, field string) string {
+	value, _ := doc.Data()[field].(string)
+	return value
+}
+
+// WorkspaceClaimable reports whether one workspace has a reaction someone
+// could take now.
+func WorkspaceClaimable(ctx context.Context, client *firestore.Client, key string) (bool, error) {
+	if closing, err := WorkspaceClosing(ctx, client, key); err != nil || closing {
+		return false, err
+	}
+	docs, err := reactionsOf(client, key).Documents(ctx).GetAll()
+	if err != nil {
+		return false, err
+	}
+	items, err := readReactions(docs)
+	if err != nil {
+		return false, err
+	}
+	_, _, ok := nextClaim(items, time.Now())
+	return ok, nil
+}
+
+// WorkspaceExists reports whether a workspace was ever set up: saving its
+// settings writes the user document.
+func WorkspaceExists(ctx context.Context, client *firestore.Client, key string) (bool, error) {
+	_, err := client.Collection("users").Doc(key).Get(ctx)
+	if status.Code(err) == codes.NotFound {
+		return false, nil
+	}
+	return err == nil, err
 }
