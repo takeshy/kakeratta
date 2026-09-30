@@ -393,3 +393,68 @@ func TestWorkCutShortByFailingRenewalsIsKeptForAnotherTry(t *testing.T) {
 		t.Fatalf("a reaction cut short was not kept for another try: %+v", got)
 	}
 }
+
+// An earlier turn can record its recipient after the edit has already routed.
+// Persist the prepared phase so the assertion also covers restart delivery.
+func TestEditedDeliveryRefreshesRecipientsAfterRouting(t *testing.T) {
+	for _, decision := range []string{`{"deliver":[],"excluded":{"move":"not relevant"}}`, `{"deliver":["gourmet"]}`} {
+		t.Run(decision, func(t *testing.T) {
+			r, s, stub := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					return decision
+				}
+				return `{"action":"silent","notes":""}`
+			}, "move", "gourmet")
+			entry := post(t, s, "今夜は自宅でワインを飲みたい")
+			plan, record, err := r.prepareEntry(r.withSkills(context.Background()), entry.ID, nil, true)
+			if err != nil || plan == nil || len(plan.Previous) != 0 {
+				t.Fatalf("prepare = %+v, %v", plan, err)
+			}
+			if record != nil {
+				if err := s.SaveRouting(entry.ID, *record); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := s.RecordWake(entry.ID, "move"); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.SaveReaction(store.Reaction{ID: "edit", At: time.Now(), Lane: "thread:" + entry.ID, Entry: entry.ID, Edited: true, Delivery: plan}); err != nil {
+				t.Fatal(err)
+			}
+			r.Stop()
+			if prompt := stub.promptFor("michi"); !strings.Contains(prompt, editedInstructions) || !strings.Contains(prompt, entry.Text) {
+				t.Fatalf("late recipient missed the edit: %s", prompt)
+			}
+			if prompt := stub.promptFor("tabe"); strings.Contains(prompt, editedInstructions) {
+				t.Fatal("a new recipient received edit instructions")
+			}
+			if got := pending(t, s); len(got) != 0 {
+				t.Fatalf("unfinished delivery: %+v", got)
+			}
+		})
+	}
+}
+
+type failingDeliveryWakes struct{ *store.Store }
+
+func (s *failingDeliveryWakes) Woke(string) ([]string, error) {
+	return nil, errors.New("wake history unavailable")
+}
+
+func TestEditedDeliveryRetainsReactionWhenRecipientsCannotBeRead(t *testing.T) {
+	r, s, _ := setup(t, answering, "gourmet")
+	entry := post(t, s, "編集後")
+	r.store = &failingDeliveryWakes{Store: s}
+	if err := s.SaveReaction(store.Reaction{
+		ID: "edit", At: time.Now(), Lane: "thread:" + entry.ID,
+		Entry: entry.ID, Edited: true,
+		Delivery: &store.EntryDelivery{Text: entry.Text, SkillsJSON: "[]"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	r.Stop()
+	items := pending(t, s)
+	if len(items) != 1 || items[0].ClaimedBy != "" || !items[0].NotBefore.After(time.Now()) {
+		t.Fatalf("failed delivery was not deferred: %+v", items)
+	}
+}

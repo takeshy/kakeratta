@@ -2,7 +2,9 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"slices"
 	"strconv"
@@ -82,6 +84,8 @@ func (r *Runner) stop(halt bool) {
 	if started {
 		r.Poke()
 		<-r.done
+	} else if halt {
+		r.working.Wait()
 	}
 }
 
@@ -167,7 +171,22 @@ func (r *Runner) skills(ctx context.Context) *Skills {
 // its records go. Reactions following it in its lane that ask the same thing
 // - notes deleted one after another - are folded into it.
 func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
-	ctx, cancel := context.WithCancel(r.withSkills(context.Background()))
+	r.handleAs(item, rest, r.worker)
+}
+
+func (r *Runner) handleAs(item store.Reaction, rest []store.Reaction, worker string) {
+	base := context.Background()
+	if item.Delivery != nil {
+		var definitions []Skill
+		if err := json.Unmarshal([]byte(item.Delivery.SkillsJSON), &definitions); err != nil {
+			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
+			return // Keep corrupt payloads for inspection rather than rerouting.
+		}
+		base = context.WithValue(base, skillsKey{}, &Skills{all: definitions})
+	} else {
+		base = r.withSkills(base)
+	}
+	ctx, cancel := context.WithCancel(base)
 	renewed := make(chan struct{})
 	// The work ends if the claim has not been renewed for most of its lease,
 	// on a clock of its own: a renewal that hangs must not let the work run on
@@ -188,7 +207,7 @@ func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 				// workspace is being deleted - ends the work. One renewal
 				// may take no longer than the interval.
 				renewing, stop := context.WithTimeout(ctx, claimTTL/3)
-				kept, err := r.store.RenewReaction(renewing, item.ID, r.worker, claimTTL)
+				kept, err := r.store.RenewReaction(renewing, item.ID, worker, claimTTL)
 				stop()
 				switch {
 				case err == nil && kept:
@@ -218,7 +237,7 @@ func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 			// folded into it - would be lost. It is held back briefly with
 			// its attempts spent afresh; if that cannot be stored either, the
 			// claim runs out and it is taken up again all the same.
-			if _, err := r.store.DeferReaction(context.Background(), item.ID, r.worker, time.Now().Add(interruptedDelay)); err != nil {
+			if _, err := r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay)); err != nil {
 				r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
 			}
 			return
@@ -226,8 +245,14 @@ func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 		// Only the worker whose claim it still is may let it go, with what
 		// was folded into it: if the claim lapsed and another took it over,
 		// that one's work is not ours to delete.
-		if _, err := r.store.FinishReaction(context.Background(), item.ID, r.worker, folded...); err != nil {
+		if _, err := r.store.FinishReaction(context.Background(), item.ID, worker, folded...); err != nil {
 			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
+		}
+	}()
+	defer func() {
+		if problem := recover(); problem != nil {
+			r.emit("error", map[string]any{"where": "react", "message": fmt.Sprint(problem)})
+			cancel() // Recovery must retain work interrupted by a panic.
 		}
 	}()
 	if item.Attempts > maxReactionAttempts {
@@ -238,7 +263,7 @@ func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 			// its attempts spent afresh, so that the workspace is woken again
 			// when the queue is back, without anything having to remember it.
 			if err := r.armAgain(ctx, time.Now().Add(retryDue)); err != nil {
-				if _, deferErr := r.store.DeferReaction(context.Background(), item.ID, r.worker, time.Now().Add(retryDue)); deferErr != nil {
+				if _, deferErr := r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(retryDue)); deferErr != nil {
 					r.emit("error", map[string]any{"where": "queue", "message": deferErr.Error()})
 				}
 				keep = true
@@ -258,7 +283,7 @@ fold:
 		folded = append(folded, next.ID)
 	}
 	now := time.Now()
-	if !item.Due && !item.Index {
+	if !item.Due && !item.Index && !item.Route {
 		// The work may have set a schedule, a retry, or an expires date; the
 		// workspace looks at its times again soon.
 		defer r.arm(time.Now().Add(soonDue))
@@ -275,7 +300,7 @@ fold:
 	case item.Index:
 		// Let go at once: what is saved while this pass runs asks for the
 		// next one, rather than finding this one still waiting.
-		ok, err := r.store.FinishReaction(context.Background(), item.ID, r.worker)
+		ok, err := r.store.FinishReaction(context.Background(), item.ID, worker)
 		if err != nil {
 			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
 		}
@@ -293,6 +318,42 @@ fold:
 	case item.Deleted != nil:
 		d := item.Deleted
 		r.deletedAt(ctx, deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: d.Notes, removed: d.Removed})
+	case item.Route:
+		entry, exists := r.store.Entry(item.Entry)
+		if !exists || entry.Deleted || (item.EntryText != nil && entry.Text != *item.EntryText) {
+			return
+		}
+		plan, record, err := r.prepareEntry(ctx, item.Entry, item.Place, item.Edited)
+		if err != nil {
+			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+			_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
+			keep = true
+			return
+		}
+		if plan == nil {
+			return
+		}
+		entry, exists = r.store.Entry(item.Entry)
+		if !exists || entry.Deleted || entry.Text != plan.Text {
+			return
+		}
+		prepared, err := r.store.PrepareReaction(ctx, item.ID, worker, *plan, record)
+		if err != nil || !prepared {
+			if err != nil {
+				r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+			}
+			_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
+			keep = true
+			return
+		}
+		finished = true // The durable record now belongs to the delivery phase.
+		r.emit("routed", map[string]any{"entryId": item.Entry, "deliver": plan.Targets})
+		r.Poke()
+	case item.Delivery != nil:
+		if err := r.deliverEntry(ctx, item.Entry, item.Place, *item.Delivery, item.Edited); err != nil {
+			r.emit("error", map[string]any{"where": "delivery", "message": err.Error()})
+			cancel() // Leave a failed delivery available for another attempt.
+		}
 	case item.Entry != "":
 		r.reactEntry(ctx, item.Entry, item.Place, item.Edited)
 	}

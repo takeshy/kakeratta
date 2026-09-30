@@ -44,6 +44,11 @@ type Workspace interface {
 	CreateReaction(Reaction) error
 	Reactions(context.Context) ([]Reaction, error)
 	ClaimReaction(ctx context.Context, worker string, ttl time.Duration) (Reaction, []Reaction, bool, error)
+	// ClaimRoutingReaction lets the accepting request start routing immediately.
+	ClaimRoutingReaction(ctx context.Context, id, worker string, ttl time.Duration) (Reaction, bool, error)
+	// PrepareReaction atomically checks ownership and releases a routed reaction
+	// for ordered delivery, keeping its original position in the lane.
+	PrepareReaction(ctx context.Context, id, worker string, delivery EntryDelivery, routing *Routing) (bool, error)
 	RenewReaction(ctx context.Context, id, worker string, ttl time.Duration) (bool, error)
 	ReleaseReaction(ctx context.Context, id, worker string) error
 	FinishReaction(ctx context.Context, id, worker string, also ...string) (bool, error)

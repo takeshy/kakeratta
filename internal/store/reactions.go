@@ -36,6 +36,12 @@ type Reaction struct {
 	ClaimedBy  string    `json:"claimedBy,omitempty" firestore:"claimedBy,omitempty"`
 	ClaimUntil time.Time `json:"claimUntil,omitempty" firestore:"claimUntil,omitempty"`
 
+	// Route is the initial routing phase. It may run ahead of its conversation,
+	// but still blocks later deliveries in that lane until it is prepared.
+	Route     bool           `json:"route,omitempty" firestore:"route,omitempty"`
+	Delivery  *EntryDelivery `json:"delivery,omitempty" firestore:"delivery,omitempty"`
+	EntryText *string        `json:"entryText,omitempty" firestore:"entryText,omitempty"`
+
 	Entry  string          `json:"entry,omitempty" firestore:"entry,omitempty"`
 	Edited bool            `json:"edited,omitempty" firestore:"edited,omitempty"`
 	Place  *timeline.Place `json:"place,omitempty" firestore:"place,omitempty"`
@@ -53,6 +59,20 @@ type Reaction struct {
 
 	Forgotten *ForgottenReaction `json:"forgotten,omitempty" firestore:"forgotten,omitempty"`
 	Deleted   *DeletedReaction   `json:"deleted,omitempty" firestore:"deleted,omitempty"`
+}
+
+// EntryDelivery is the durable result of routing, consumed without rerouting.
+// SkillsJSON keeps the definition snapshot used by the router for the turns.
+type EntryDelivery struct {
+	Text         string            `json:"text" firestore:"text"`
+	Active       []string          `json:"active,omitempty" firestore:"active,omitempty"`
+	Targets      []string          `json:"targets" firestore:"targets"`
+	Named        []string          `json:"named,omitempty" firestore:"named,omitempty"`
+	Previous     []string          `json:"previous,omitempty" firestore:"previous,omitempty"`
+	ReplySpeaker string            `json:"replySpeaker,omitempty" firestore:"replySpeaker,omitempty"`
+	Asked        string            `json:"asked,omitempty" firestore:"asked,omitempty"`
+	Heard        map[string]string `json:"heard,omitempty" firestore:"heard,omitempty"`
+	SkillsJSON   string            `json:"skillsJSON" firestore:"skillsJSON"`
 }
 
 // ForgottenReaction is notes a persona is to be told were deleted.
@@ -103,7 +123,7 @@ func nextClaim(items []Reaction, now time.Time) (int, []Reaction, bool) {
 	seen := map[string]bool{}
 	for i, item := range items {
 		lane := laneOf(item)
-		if seen[lane] {
+		if seen[lane] && !item.Route {
 			continue
 		}
 		seen[lane] = true
@@ -395,7 +415,7 @@ func (w *FirestoreWorkspace) ClaimReaction(ctx context.Context, worker string, t
 				return err
 			}
 			now := time.Now()
-			if now.Before(claimed.ClaimUntil) || now.Before(claimed.NotBefore) {
+			if claimed.Route != candidate.Route || now.Before(claimed.ClaimUntil) || now.Before(claimed.NotBefore) {
 				return nil
 			}
 			claimed.ClaimedBy, claimed.ClaimUntil = worker, now.Add(ttl)
@@ -414,7 +434,7 @@ func (w *FirestoreWorkspace) ClaimReaction(ctx context.Context, worker string, t
 		lane := laneOf(candidate)
 		kept := items[:0]
 		for _, item := range items {
-			if laneOf(item) != lane {
+			if item.ID != candidate.ID && (laneOf(item) != lane || item.Route) {
 				kept = append(kept, item)
 			}
 		}

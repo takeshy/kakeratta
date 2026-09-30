@@ -120,8 +120,8 @@ func (r *Runner) OnEvent(emit func(name string, data any)) {
 	}
 }
 
-// React queues an entry. It never blocks the request that made the post: the
-// user has already seen their capture land.
+// React durably accepts an entry and starts routing directly. Routing and persona turns
+// remain asynchronous and ordered within the conversation.
 func (r *Runner) React(entryID string, place *timeline.Place) {
 	r.enqueueEntry(entryID, place, false)
 }
@@ -132,7 +132,35 @@ func (r *Runner) EntryEdited(entryID string) {
 }
 
 func (r *Runner) enqueueEntry(entryID string, place *timeline.Place, edited bool) {
-	r.accept(store.Reaction{Lane: r.threadLane(entryID), Entry: entryID, Edited: edited, Place: place})
+	item := store.Reaction{ID: store.NewID("r"), Lane: r.threadLane(entryID), Entry: entryID, Edited: edited, Place: place, Route: true}
+	if entry, ok := r.store.Entry(entryID); ok {
+		item.EntryText = &entry.Text
+	}
+	if err := r.accept(item); err != nil {
+		return
+	}
+	// Routing runs directly, outside the delivery slots. The durable claim
+	// still makes recovery and competing instances use exactly this phase.
+	r.stopMu.Lock()
+	if r.stopping || r.halting {
+		r.stopMu.Unlock()
+		return
+	}
+	r.working.Add(1)
+	r.inFlight.Add(1)
+	r.stopMu.Unlock()
+	go func() {
+		defer r.working.Done()
+		defer func() { r.inFlight.Add(-1); r.Poke() }()
+		claimed, ok, err := r.store.ClaimRoutingReaction(context.Background(), item.ID, store.NewID("route"), claimTTL)
+		if err != nil {
+			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+			return
+		}
+		if ok {
+			r.handleAs(claimed, nil, claimed.ClaimedBy)
+		}
+	}()
 }
 
 // threadLane is the lane of an entry's conversation: its replies and edits
@@ -158,13 +186,9 @@ func (r *Runner) reactAt(entryID string, transientPlace *timeline.Place) {
 // post for another reason is left out of the passed-over. Nothing is kept when
 // the router had no answer and nobody was called - "no record" and "nobody"
 // are different things to read.
-func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, called map[string]string, targets map[string]bool) {
-	entryID := entry.ID
+func routingRecord(entry timeline.Entry, routing Routing, called map[string]string, targets map[string]bool) *store.Routing {
 	if !routing.Answered && len(called) == 0 {
-		if err := r.store.ForgetRouting(entryID); err != nil {
-			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
-		}
-		return
+		return nil
 	}
 	record := store.Routing{Delivered: []string{}, Excluded: map[string]string{}, EntryText: &entry.Text, Tracked: true, Done: []string{}, Spoke: []string{}}
 	for _, id := range routing.Deliver {
@@ -195,13 +219,7 @@ func (r *Runner) keepRouting(entry timeline.Entry, routing Routing, called map[s
 			record.Excluded[id] = reason
 		}
 	}
-	// Routing takes a while; a post deleted meanwhile keeps no record.
-	if current, ok := r.store.Entry(entryID); !ok || current.Deleted || current.Text != entry.Text {
-		return
-	}
-	if err := r.store.SaveRouting(entryID, record); err != nil {
-		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
-	}
+	return &record
 }
 
 // turnsDone notes on the post's routing record that these personas have had
@@ -392,18 +410,37 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 
 const editedInstructions = "\n\n以前あなたに渡した投稿が編集されました。今回の対象発言は編集後の内容です。以前の内容より優先し、必要に応じて回答・メモ・予定を更新してください。担当領域の内容が削除された場合も、その変更を反映してください。"
 
+// reactEntry is also used by direct test/legacy paths. Durable reactions split
+// these two phases so routing never waits behind a previous persona turn.
 func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlace *timeline.Place, edited bool) {
 	defer func() {
-		// A persona is a model doing as it pleases with a prompt. One of them
-		// panicking must not take the queue with it.
 		if problem := recover(); problem != nil {
 			r.emit("error", map[string]any{"where": "react", "message": fmt.Sprint(problem)})
 		}
 	}()
+	plan, record, err := r.prepareEntry(outer, entryID, transientPlace, edited)
+	if err != nil || plan == nil {
+		return
+	}
+	if record == nil {
+		err = r.store.ForgetRouting(entryID)
+	} else {
+		err = r.store.SaveRouting(entryID, *record)
+	}
+	if err != nil {
+		r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
+		return
+	}
+	r.emit("routed", map[string]any{"entryId": entryID, "deliver": plan.Targets})
+	if err := r.deliverEntry(outer, entryID, transientPlace, *plan, edited); err != nil {
+		r.emit("error", map[string]any{"where": "delivery", "message": err.Error()})
+	}
+}
 
+func (r *Runner) prepareEntry(outer context.Context, entryID string, transientPlace *timeline.Place, edited bool) (*store.EntryDelivery, *store.Routing, error) {
 	entry, exists := r.store.Entry(entryID)
 	if !exists || entry.Deleted {
-		return
+		return nil, nil, nil
 	}
 	client, settings := r.clientOf()
 	root := timeline.RootOf(entry)
@@ -413,21 +450,21 @@ func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlac
 	if entry.Kind == timeline.KindPost && entry.Media != nil && !entry.Media.Ready() {
 		entry = r.readCapture(entry, client, settings)
 		if entry.Deleted {
-			return
+			return nil, nil, nil
 		}
 	}
 
 	skills := r.skills(outer).Active(settings.Active)
 	if len(skills) == 0 {
-		return
+		return nil, nil, nil
 	}
 	entries, err := store.SearchThread(context.Background(), r.store, entry.ID)
 	if err != nil {
-		return
+		return nil, nil, err
 	}
 	thread := timeline.Thread(entries, root)
 	if len(thread) == 0 {
-		return
+		return nil, nil, nil
 	}
 	// A place may be used for this wake without becoming part of the saved
 	// timeline. The post copy is shared by prompts and tools below only.
@@ -443,8 +480,7 @@ func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlac
 	if edited {
 		ids, err := r.store.Woke(root)
 		if err != nil {
-			r.emit("error", map[string]any{"where": "wakes", "message": err.Error()})
-			return
+			return nil, nil, err
 		}
 		for _, id := range ids {
 			previous[id] = true
@@ -483,29 +519,89 @@ func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlac
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
-	// Everyone answers on Super. A reply that asks a persona's answer to be
-	// better or deeper - "違う", "もっと詳しく" - is answered on Ultra by the
-	// persona it was said to. Anyone else it reaches answers as usual.
-	deep := ""
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	definitions, err := json.Marshal(r.skills(ctx).All())
+	if err != nil {
+		return nil, nil, err
+	}
+	plan := &store.EntryDelivery{Text: entry.Text, Active: append([]string{}, settings.Active...), Targets: keys(targets), Named: named, Previous: keys(previous), Asked: asked, Heard: routing.Heard, SkillsJSON: string(definitions)}
 	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
+		plan.ReplySpeaker = parent.Speaker
+	}
+	return plan, routingRecord(entry, routing, called, targets), nil
+}
+
+func (r *Runner) deliverEntry(outer context.Context, entryID string, transientPlace *timeline.Place, plan store.EntryDelivery, edited bool) error {
+	entry, exists := r.store.Entry(entryID)
+	if !exists || entry.Deleted || entry.Text != plan.Text {
+		return nil
+	}
+	client, settings := r.clientOf()
+	skills := r.skills(outer).All()
+	if plan.Active != nil {
+		skills = r.skills(outer).Active(plan.Active)
+	}
+	// Routing may precede an earlier turn's RecordWake. Refresh only once
+	// this edit owns the delivery lane, after earlier turns have finished.
+	if edited {
+		previous, err := r.store.Woke(timeline.RootOf(entry))
+		if err != nil {
+			return err
+		}
+		for _, skill := range skills {
+			if contains(previous, skill.ID) {
+				if !contains(plan.Previous, skill.ID) {
+					plan.Previous = append(plan.Previous, skill.ID)
+				}
+				if !contains(plan.Targets, skill.ID) {
+					plan.Targets = append(plan.Targets, skill.ID)
+				}
+			}
+		}
+		if err := r.store.UpdateRouting(entryID, func(record *store.Routing) (*store.Routing, error) {
+			if record != nil && record.EntryText != nil && *record.EntryText == plan.Text {
+				for _, id := range plan.Previous {
+					delete(record.Excluded, id)
+				}
+			}
+			return record, nil
+		}); err != nil {
+			return err
+		}
+		r.emit("routed", map[string]any{"entryId": entryID, "deliver": plan.Targets})
+	}
+	if len(plan.Targets) == 0 {
+		return nil
+	}
+	entries, err := store.SearchThread(outer, r.store, entry.ID)
+	if err != nil {
+		return err
+	}
+	thread := timeline.Thread(entries, timeline.RootOf(entry))
+	if len(thread) == 0 {
+		return nil
+	}
+	if transientPlace != nil {
+		thread[0].Place = transientPlace
+	}
+	ctx, cancel := context.WithTimeout(outer, 10*time.Minute)
+	defer cancel()
+	parent, hasParent := r.store.Entry(entry.ReplyTo)
+	deep := ""
+	if hasParent && !parent.Deleted && plan.ReplySpeaker != "" {
 		if Escalate(ctx, client, lightningModel(settings), parent, entry) {
 			deep = parent.Speaker
 		}
 	}
-	r.keepRouting(entry, routing, called, targets)
-	if len(targets) == 0 {
-		r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": []string{}})
-		return
-	}
-	r.emit("routed", map[string]any{"entryId": entry.ID, "deliver": keys(targets)})
-
 	// The same tool set the wake paths get. Without this a persona reacting to a
 	// post was offered schedule and then told it was not configured, which is
 	// why plana wrote its times into a note as prose instead of placing them.
 	registry := r.registry(settings)
 	var wave []Skill
 	for _, skill := range skills {
-		if targets[skill.ID] {
+		if contains(plan.Targets, skill.ID) {
 			wave = append(wave, skill)
 		}
 	}
@@ -522,17 +618,17 @@ func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlac
 			defer group.Done()
 			defer func() { _ = recover() }()
 			instructions := ""
-			if previous[skill.ID] {
+			if contains(plan.Previous, skill.ID) {
 				instructions = editedInstructions
 			}
-			if skill.ID == asked {
+			if skill.ID == plan.Asked {
 				instructions += r.reviewReply(skill, parent, settings)
 			}
-			if term, ok := routing.Heard[skill.ID]; ok && !contains(named, skill.ID) && !previous[skill.ID] && skill.ID != asked {
+			if term, ok := plan.Heard[skill.ID]; ok && !contains(plan.Named, skill.ID) && !contains(plan.Previous, skill.ID) && skill.ID != plan.Asked {
 				instructions += heardInstructions(skill, term)
 			}
 			pending[i] = r.detaches(ctx, skill, settings)
-			remarks[i] = r.run(ctx, skill, thread, entry, contains(named, skill.ID), false, instructions, skill.ID == deep, client, settings, registry)
+			remarks[i] = r.run(ctx, skill, thread, entry, contains(plan.Named, skill.ID), false, instructions, skill.ID == deep, client, settings, registry)
 		}(i, skill)
 	}
 	group.Wait()
@@ -547,6 +643,7 @@ func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlac
 		}
 	}
 	r.turnsDone(entry.ID, ran, spoke)
+	return nil
 }
 
 // isActive reports whether the persona is in the room.
