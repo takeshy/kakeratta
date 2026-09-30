@@ -302,13 +302,15 @@ resource "google_cloud_run_v2_service" "app" {
   template {
     service_account = google_service_account.app.email
 
-    # One instance stays up, with its CPU, to work the reactions it claims
-    # (a turn can run for minutes). More can start under load: any instance
-    # answers any request, and each piece of persona work is taken up by
-    # whichever instance claims it in Firestore. Times are not kept here: a
-    # Cloud Tasks task wakes the workspace when something of its comes due.
+    # No instance is kept up: times are not kept here, a Cloud Tasks task wakes
+    # the workspace when something of its comes due, and any instance answers
+    # any request. Each piece of persona work is taken up by whichever
+    # instance claims it in Firestore, and one cut short by an instance going
+    # away is found again at the next start or wake. The CPU stays allocated
+    # while an instance is up, since a turn can run for minutes after the
+    # request that began it has answered.
     scaling {
-      min_instance_count = 1
+      min_instance_count = 0
       max_instance_count = var.max_instances
     }
 

@@ -110,5 +110,5 @@ variable "judge_max_uses" {
 variable "max_instances" {
   description = "Most Cloud Run instances serving the API at once. Persona work is claimed reaction by reaction in Firestore, so any instance may take it up."
   type        = number
-  default     = 3
+  default     = 2
 }
