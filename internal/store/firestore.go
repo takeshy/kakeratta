@@ -27,6 +27,9 @@ type FirestoreWorkspace struct {
 	blobs   BlobStore
 	indexMu sync.Mutex
 	indexed map[string]bool
+	// stopWatch ends the skills change feed; closeOnce guards Close.
+	stopWatch context.CancelFunc
+	closeOnce sync.Once
 }
 
 func NewFirestoreWorkspace(ctx context.Context, client *firestore.Client, userKey string, blobs BlobStore) (*FirestoreWorkspace, error) {
@@ -46,7 +49,55 @@ func NewFirestoreWorkspace(ctx context.Context, client *firestore.Client, userKe
 	if err := w.materialiseSkills(ctx); err != nil {
 		return nil, err
 	}
+	watch, stop := context.WithCancel(context.Background())
+	w.stopWatch = stop
+	go w.watchSkills(watch)
 	return w, nil
+}
+
+// Close stops following the workspace and removes its local materialisation.
+// The workspace itself stays where it is kept.
+func (w *FirestoreWorkspace) Close() error {
+	var err error
+	w.closeOnce.Do(func() {
+		w.stopWatch()
+		err = os.RemoveAll(w.root)
+	})
+	return err
+}
+
+// watchSkills keeps the materialised persona definitions current. Another
+// instance serving the same user may install, edit or remove one; the
+// catalogue reads this directory, so it sees the change here too.
+func (w *FirestoreWorkspace) watchSkills(ctx context.Context) {
+	for ctx.Err() == nil {
+		iter := w.user.Collection("skills").Snapshots(ctx)
+		for {
+			snapshot, err := iter.Next()
+			if err != nil {
+				break
+			}
+			for _, change := range snapshot.Changes {
+				dir := filepath.Join(w.SkillDir(), sanitise(change.Doc.Ref.ID))
+				if change.Kind == firestore.DocumentRemoved {
+					_ = os.RemoveAll(dir)
+					continue
+				}
+				raw, _ := change.Doc.Data()["raw"].(string)
+				if raw == "" {
+					continue
+				}
+				if err := os.MkdirAll(dir, 0o755); err == nil {
+					_ = writeFileAtomic(filepath.Join(dir, "skill.json"), []byte(raw), 0o600)
+				}
+			}
+		}
+		iter.Stop()
+		select {
+		case <-ctx.Done():
+		case <-time.After(5 * time.Second):
+		}
+	}
 }
 
 func (w *FirestoreWorkspace) Root() string     { return w.root }
@@ -164,6 +215,13 @@ func (w *FirestoreWorkspace) Blob(id string) ([]byte, string, error) {
 		return nil, "", errors.New("不正なファイル名です")
 	}
 	return w.blobs.Get(id)
+}
+
+func (w *FirestoreWorkspace) DeleteBlob(id string) error {
+	if !safeName(id) {
+		return errors.New("不正なファイル名です")
+	}
+	return w.blobs.Delete(id)
 }
 
 func (w *FirestoreWorkspace) persona(id string) *firestore.DocumentRef {

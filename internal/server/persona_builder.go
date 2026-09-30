@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -132,14 +133,18 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusNotFound, "投稿が見つかりません")
 			return
 		}
-		entries, err := s.store.Timeline()
+		// Only this conversation is read, not the whole timeline.
+		thread, err := store.SearchThread(r.Context(), s.store, entry.ID)
+		if errors.Is(err, store.ErrSearchThreadMissing) {
+			fail(w, http.StatusNotFound, "投稿が見つかりません")
+			return
+		}
 		if err != nil {
 			fail(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		// Use the same rendering as the router, including media, sources and
 		// conversation context. The browser's excerpt is only for display.
-		thread := timeline.Thread(entries, timeline.RootOf(entry))
 		if entry.Kind == timeline.KindRemark {
 			// A disputed reply is judged against the conversation before it,
 			// just as in PreviewReply, rather than later user corrections.

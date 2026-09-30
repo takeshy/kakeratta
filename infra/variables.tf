@@ -106,3 +106,9 @@ variable "judge_max_uses" {
   type        = number
   default     = 200
 }
+
+variable "max_instances" {
+  description = "Most Cloud Run instances serving the API at once. Workspaces are divided between them by Firestore leases."
+  type        = number
+  default     = 3
+}

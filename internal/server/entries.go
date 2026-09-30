@@ -102,6 +102,14 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 	s.land(w, entry, body.Place)
 }
 
+// dropCapture removes the image a request saved for an entry that was not
+// stored after all.
+func (s *Server) dropCapture(entry timeline.Entry) {
+	if entry.Media != nil && entry.Media.BlobID != "" {
+		_ = s.store.DeleteBlob(entry.Media.BlobID)
+	}
+}
+
 // Every post hands each persona the same page text.
 func readLink(ctx context.Context, entry *timeline.Entry) {
 	if entry.Media != nil {
@@ -132,9 +140,29 @@ func readLink(ctx context.Context, entry *timeline.Entry) {
 // The response goes back before anyone has reacted. That is the whole shape of
 // the app: the capture is in, and whatever anyone has to say about it turns up
 // later.
+//
+// Only the request that creates the entry reacts to it. Two tabs sending the
+// same queued post, or a retry racing the first attempt, both pass the early
+// clientEntry check; here the second one finds the first and answers with it
+// instead of waking every persona again.
 func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace *timeline.Place) {
-	if err := s.store.Append(entry); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
+	stored, created, err := s.store.CreateEntry(entry)
+	if err != nil {
+		s.dropCapture(entry)
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrEntryMissing) {
+			status = http.StatusNotFound
+		}
+		fail(w, status, err.Error())
+		return
+	}
+	if !created {
+		s.dropCapture(entry)
+		if stored.RequestHash != entry.RequestHash {
+			fail(w, http.StatusConflict, "投稿IDが別の内容に使われています")
+			return
+		}
+		writeJSON(w, http.StatusOK, stored)
 		return
 	}
 	s.publishEvent("entry", entry)
@@ -267,7 +295,14 @@ func (s *Server) getBlob(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if !imageTypes[mime] {
+		// Blobs saved before types were checked are served as bytes, never
+		// as a page on the app's own origin.
+		mime = "application/octet-stream"
+	}
 	w.Header().Set("Content-Type", mime)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
 	_, _ = w.Write(data)
 }
@@ -290,6 +325,14 @@ func (s *Server) postFetch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, fetched)
 }
 
+// imageTypes are the captures the app stores. The blob is served from the
+// page's own origin, so anything else - HTML, SVG with script - is refused
+// rather than kept under a name the browser would run.
+var imageTypes = map[string]bool{
+	"image/png": true, "image/jpeg": true, "image/gif": true, "image/webp": true,
+	"image/heic": true, "image/heif": true, "image/avif": true,
+}
+
 // decodeImage takes either a data: URL from a paste or bare base64.
 func decodeImage(value string) ([]byte, string, error) {
 	mime := "image/png"
@@ -304,7 +347,13 @@ func decodeImage(value string) ([]byte, string, error) {
 			header = header[:semicolon]
 		}
 		if header != "" {
-			mime = header
+			mime = strings.ToLower(strings.TrimSpace(header))
+		}
+		if mime == "image/jpg" {
+			mime = "image/jpeg"
+		}
+		if !imageTypes[mime] {
+			return nil, "", errors.New("この形式の画像は保存できません")
 		}
 		payload = value[comma+1:]
 	}

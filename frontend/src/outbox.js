@@ -1,6 +1,10 @@
 import { localIdentity, localRecord, localList } from "./local-store.js";
 
-export function createOutbox({ send, verify, changed = () => {}, record = localRecord, list = localList, identity = localIdentity, online = () => navigator.onLine !== false }) {
+// Tabs of one browser share the outbox in IndexedDB. Only one of them sends at
+// a time, so two tabs never deliver the same queued post side by side.
+const tabLock = (name, work) => globalThis.navigator?.locks?.request ? navigator.locks.request(name, work) : work();
+
+export function createOutbox({ send, verify, changed = () => {}, record = localRecord, list = localList, identity = localIdentity, online = () => navigator.onLine !== false, lock = tabLock }) {
   let running = null;
   let again = false;
   const entries = async () => (await list("outbox:")).sort((a,b) => a.entry.at.localeCompare(b.entry.at));
@@ -20,9 +24,9 @@ export function createOutbox({ send, verify, changed = () => {}, record = localR
   async function flush() {
     if (running) { again = true; return running; }
     if (!online()) return;
-    running = (async () => {
-      const user = identity()?.key;
-      if (!user) return;
+    const user = identity()?.key;
+    if (!user) return;
+    running = lock(`kakeratta-outbox:${user}`, async () => {
       await verify();
       if (identity()?.key !== user) return;
       for (const item of await entries()) {
@@ -44,7 +48,7 @@ export function createOutbox({ send, verify, changed = () => {}, record = localR
           break;
         }
       }
-    })().catch(() => {}).finally(() => { running = null; if (again) { again = false; void flush(); } });
+    }).catch(() => {}).finally(() => { running = null; if (again) { again = false; void flush(); } });
     return running;
   }
   return { enqueue, flush, entries, async retry() {

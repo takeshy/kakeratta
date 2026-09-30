@@ -51,3 +51,14 @@ test('the default snapshot contains 20 roots, without counting their replies',()
  assert.equal(snapshot.filter(e=>e.kind==='post').length,20);
  assert.ok(snapshot.some(e=>e.id==='reply'));
 });
+test('two tabs flushing one outbox send each queued post once',async()=>{
+ const sent=[];
+ const s=setup(async(path,body)=>{sent.push(body.clientId);await new Promise(r=>setTimeout(r,5));return {id:body.clientId};});
+ let held=Promise.resolve();
+ const lock=(name,work)=>{const run=held.then(work);held=run.catch(()=>{});return run;};
+ await s.box.enqueue('/api/post',{text:'one'});await s.box.enqueue('/api/post',{text:'two'});
+ s.online(true);
+ const tabA=createOutbox({...s.options,lock}),tabB=createOutbox({...s.options,lock});
+ await Promise.all([tabA.flush(),tabB.flush()]);
+ assert.equal(sent.length,2);assert.equal(new Set(sent).size,2);
+});

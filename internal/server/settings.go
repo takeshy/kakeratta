@@ -36,7 +36,15 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	next.DailyCheckIns = current.DailyCheckIns
 	next.Planners = current.Planners
 	// A masked key coming back means "unchanged", not "set it to asterisks".
+	reusedKey := next.APIKey == "********" && current.APIKey != ""
 	next.APIKey = unmask(next.APIKey, current.APIKey)
+	// A saved key belongs to the endpoint it was entered for. Moving it to
+	// another address takes the key typed again, so a changed URL can never
+	// carry a key it was not given for.
+	if reusedKey && next.Endpoint() != current.Endpoint() {
+		fail(w, http.StatusBadRequest, "接続先を変えるときはAPIキーを入力し直してください")
+		return
+	}
 	next.OpenRouterAPIKey = unmask(next.OpenRouterAPIKey, current.OpenRouterAPIKey)
 	next.Search.APIKey = unmask(next.Search.APIKey, current.Search.APIKey)
 	if err := s.store.SaveSettings(next); err != nil {

@@ -960,6 +960,9 @@ The server itself must still be running.
 
 The provided Cloud Run deployment keeps one instance available and allocates
 CPU outside request handling so the server can perform these periodic checks.
+It may scale to more instances; each workspace's checks, schedules and
+reactions run on the one instance holding its Firestore lease, and another
+takes the workspace over when that instance stops.
 
 Configured workspaces are restored after a restart, including Firestore-backed
 users.

@@ -20,17 +20,17 @@ Development, validation, deployment, portable exports, and workspace deletion.
 
 ```sh
 go test ./...
-node --test --test-isolation=none tests/*.test.js
+node --test tests/*.test.js
 node frontend/build.mjs
 ```
 
-Go tests cover persistence, HTTP, personas, search, and integrations. Frontend tests exercise state transitions and DOM operations under Node. Storybook provides screen examples, and `offline-check.mjs` checks offline behavior in a browser. Real model providers, OAuth, microphones, and similar integrations require checks beyond unit tests.
+Go tests cover persistence, HTTP, personas, search, and integrations. Firestore tests, including the coordination and two-instance tests, run against the Firestore emulator when `FIRESTORE_EMULATOR_HOST` is set (for example `firebase emulators:start --only firestore`) and are skipped otherwise. `mise.toml` pins Go 1.26 and Node 24, matching the Dockerfile and Cloud Build. Frontend tests exercise state transitions and DOM operations under Node. Storybook provides screen examples, and `offline-check.mjs` checks offline behavior in a browser. Real model providers, OAuth, microphones, and similar integrations require checks beyond unit tests.
 
 ## Deployment
 
 The Dockerfile builds the Go binary and runs only the API. The frontend is not embedded in the container. `cloudbuild.yaml` defines image build and push, Cloud Run deployment, frontend build, and Firebase Hosting deployment in sequence.
 
-`firebase.json` forwards `/api/**` to Cloud Run and serves `frontend/dist`. `infra` holds cloud resource and environment configuration. This document explains repository implementation; it is not a procedure that executes a deployment.
+`firebase.json` forwards `/api/**` to Cloud Run and serves `frontend/dist`. `infra` holds cloud resource and environment configuration. Cloud Run keeps one instance with always-allocated CPU for check-ins and schedules and may scale to `max_instances` (default 3); workspaces are divided between instances by Firestore leases. Firestore TTL policies on `expireAt` sweep leftover `calls` and `events` documents. This document explains repository implementation; it is not a procedure that executes a deployment.
 
 ## Implementation and verification
 
@@ -40,6 +40,8 @@ The Dockerfile builds the Go binary and runs only the API. The frontend is not e
 - [Dockerfile](../../Dockerfile)
 - [cloudbuild.yaml](../../cloudbuild.yaml)
 - [firebase.json](../../firebase.json)
+- [main.tf](../../infra/main.tf): scaling and TTL policies
+- [mise.toml](../../mise.toml)
 - [README.md](../../infra/README.md)
 
 # Workspace export and deletion
@@ -47,6 +49,8 @@ The Dockerfile builds the Go binary and runs only the API. The frontend is not e
 ## Backup format
 
 `Workspace.Export` converts state into the layout a local kakeratta reads and passes files to a sink in sequence. The HTTP layer streams a zip without assembling the entire workspace in memory. It includes posts, personas, memory, images, and related data.
+
+Local timeline files and Firestore exports use `timeline/YYYY/MM/DD.json`: one JSON array of current entries per date. Firestore export streams entries in timestamp order and buffers one day at a time. Restoring the exported directory rebuilds the local timeline index on startup. Unfinished reactions and cluster calls and events are runtime state and are not exported.
 
 Export settings omit API credentials, and Bluesky tokens and MCP connection keys are excluded as well. Connections must be configured again after restoration. The implementation does not simply zip the entire workspace directory.
 
@@ -56,7 +60,7 @@ With an external ExportTarget, `POST /api/export` starts asynchronous work. Comp
 
 ## Deletion
 
-For hosted workspace deletion, Gateway accepts a confirmed request, takes the user out of service, closes Runner and related workers, then calls `Destroy` and removes backups. It subsequently removes the login and cookie, and the frontend clears device storage. A standalone local Server returns 409 for deletion and tells the user to stop the app and remove the workspace directory manually.
+For hosted workspace deletion, Gateway accepts a confirmed request, takes the user out of service, halts the Runner and related workers, then calls `Destroy` and removes backups. With several instances, it first marks the workspace closing and waits for its owner to release it, and deletes it once more after 90 seconds (see [Multiple instances](./architecture.md#multiple-instances)). It subsequently removes the login and cookie, and the frontend clears device storage. A standalone local Server returns 409 for deletion and tells the user to stop the app and remove the workspace directory manually.
 
 ## Implementation and verification
 
@@ -67,6 +71,7 @@ For hosted workspace deletion, Gateway accepts a confirmed request, takes the us
 - [destroy.go](../../internal/store/destroy.go)
 - [export_test.go](../../internal/server/export_test.go)
 - [destroy_test.go](../../internal/store/destroy_test.go)
+- [cluster_test.go](../../internal/server/cluster_test.go): deletion requested through a non-owning instance
 
 # Related chapters
 
@@ -74,4 +79,3 @@ For hosted workspace deletion, Gateway accepts a confirmed request, takes the us
 - [API and persistent state](./backend.md)
 - [Browser application and device state](./frontend.md)
 
-Local timeline files and Firestore exports use `timeline/YYYY/MM/DD.json`: one JSON array of current entries per date. Firestore export streams entries in timestamp order and buffers one day at a time. Restoring the exported directory rebuilds the local timeline index on startup.

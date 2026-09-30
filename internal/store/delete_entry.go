@@ -22,8 +22,17 @@ func deletionEntries(entry timeline.Entry, entries []timeline.Entry) []timeline.
 	return append([]timeline.Entry{entry}, timeline.Replies(thread, entry.ID)...)
 }
 
-// DeleteEntry removes the selected entry and descendants from durable storage.
+// DeleteEntry removes the selected entry and descendants from durable storage,
+// with the captures they carried.
 func (s *Store) DeleteEntry(ctx context.Context, id string) ([]timeline.Entry, error) {
+	gone, err := s.deleteEntryLocked(ctx, id)
+	if err == nil {
+		dropBlobs(s.DeleteBlob, gone)
+	}
+	return gone, err
+}
+
+func (s *Store) deleteEntryLocked(ctx context.Context, id string) ([]timeline.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, exists, err := s.entryLocked(id)
@@ -163,6 +172,9 @@ func (w *FirestoreWorkspace) DeleteEntry(ctx context.Context, id string) ([]time
 		}
 		return nil
 	})
+	if err == nil {
+		dropBlobs(w.DeleteBlob, gone)
+	}
 	return gone, err
 }
 

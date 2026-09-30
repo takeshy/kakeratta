@@ -16,12 +16,15 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // Store is the on-disk workspace.
@@ -112,6 +115,29 @@ func (s *Store) Blob(id string) ([]byte, string, error) {
 	return s.blobs.Get(id)
 }
 
+// DeleteBlob removes a capture nothing refers to any longer.
+func (s *Store) DeleteBlob(id string) error {
+	if !safeName(id) {
+		return errors.New("不正なファイル名です")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.blobs.Delete(id)
+}
+
+// dropBlobs removes the captures of entries that are gone. It runs after the
+// entries themselves are deleted: a blob left behind by a failure here is
+// unreferenced, never a post pointing at a missing image.
+func dropBlobs(delete func(string) error, gone []timeline.Entry) {
+	for _, entry := range gone {
+		if entry.Media != nil && entry.Media.BlobID != "" && safeName(entry.Media.BlobID) {
+			if err := delete(entry.Media.BlobID); err != nil {
+				log.Printf("blob %s: %v", entry.Media.BlobID, err)
+			}
+		}
+	}
+}
+
 func extensionFor(mime string) string {
 	switch {
 	case strings.Contains(mime, "png"):
@@ -120,6 +146,12 @@ func extensionFor(mime string) string {
 		return ".webp"
 	case strings.Contains(mime, "gif"):
 		return ".gif"
+	case strings.Contains(mime, "avif"):
+		return ".avif"
+	case strings.Contains(mime, "heic"):
+		return ".heic"
+	case strings.Contains(mime, "heif"):
+		return ".heif"
 	default:
 		return ".jpg"
 	}
@@ -133,6 +165,12 @@ func mimeFor(name string) string {
 		return "image/webp"
 	case ".gif":
 		return "image/gif"
+	case ".avif":
+		return "image/avif"
+	case ".heic":
+		return "image/heic"
+	case ".heif":
+		return "image/heif"
 	default:
 		return "image/jpeg"
 	}
@@ -580,6 +618,28 @@ func writeJSON(path string, value any) error {
 		return err
 	}
 	return os.Rename(temp, path)
+}
+
+// writeFileAtomic replaces a file that another goroutine may be reading, so
+// the reader sees the old content or the new, never half of either.
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Chmod(mode); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), path)
 }
 
 func sanitise(id string) string {

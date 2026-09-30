@@ -20,6 +20,8 @@ import (
 type BlobStore interface {
 	Put(name string, data []byte, mime string) error
 	Get(name string) ([]byte, string, error)
+	// Delete removes one blob; a missing one is already gone.
+	Delete(name string) error
 	// List names every stored blob, so a workspace can be copied out whole.
 	List() ([]string, error)
 	// Purge removes every stored blob: the workspace is being closed.
@@ -35,6 +37,13 @@ func (b fileBlobs) Put(name string, data []byte, _ string) error {
 func (b fileBlobs) Get(name string) ([]byte, string, error) {
 	data, err := os.ReadFile(filepath.Join(b.root, name))
 	return data, mimeFor(name), err
+}
+
+func (b fileBlobs) Delete(name string) error {
+	if err := os.Remove(filepath.Join(b.root, name)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func (b fileBlobs) List() ([]string, error) {
@@ -128,6 +137,15 @@ func (g gcsBlobScope) Get(name string) ([]byte, string, error) {
 		mime = mimeFor(name)
 	}
 	return data, mime, nil
+}
+
+func (g gcsBlobScope) Delete(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := g.object(name).Delete(ctx); err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+		return err
+	}
+	return nil
 }
 
 func (g gcsBlobScope) Purge() error {

@@ -135,10 +135,6 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 	}
 	label := strings.Join(labels, " ／ ")
 	r.stopMu.Lock()
-	if r.stopped {
-		r.stopMu.Unlock()
-		return
-	}
 	for _, skill := range woke {
 		// The links are the app's own, so the app takes them out before anyone
 		// is woken to look at what is left - a paused persona included.
@@ -160,8 +156,7 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 		if !active[skill] || r.queuedDeletion(root, skill) {
 			continue
 		}
-		r.queue = append(r.queue, reaction{deleted: &deletedPost{entryID: root, label: label, skill: skill, notes: cited, removed: removed}})
-		r.wake.Signal()
+		r.acceptLocked(reaction{deleted: &deletedPost{entryID: root, label: label, skill: skill, notes: cited, removed: removed}})
 	}
 	r.stopMu.Unlock()
 	forget()

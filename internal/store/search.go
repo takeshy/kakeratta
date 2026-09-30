@@ -160,3 +160,59 @@ func SearchTimelineWindow(ctx context.Context, workspace Workspace, from, to tim
 	}
 	return SearchTimeline(ctx, workspace)
 }
+
+// TimelineWindow reads the entries saved between from and to (either may be
+// zero), with the posts that replies in the window hang off.
+func (w *FirestoreWorkspace) TimelineWindow(ctx context.Context, from, to time.Time) ([]timeline.Entry, error) {
+	query := w.timeline().Query
+	if !from.IsZero() {
+		query = query.Where("At", ">=", from)
+	}
+	if !to.IsZero() {
+		query = query.Where("At", "<=", to)
+	}
+	iter := query.OrderBy("At", firestore.Asc).Documents(ctx)
+	defer iter.Stop()
+	var entries []timeline.Entry
+	have := map[string]bool{}
+	for {
+		doc, err := iter.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		var entry timeline.Entry
+		if err := doc.DataTo(&entry); err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+		have[entry.ID] = true
+	}
+	var parents []*firestore.DocumentRef
+	for _, entry := range entries {
+		if root := timeline.RootOf(entry); root != "" && !have[root] {
+			have[root] = true
+			parents = append(parents, w.timeline().Doc(root))
+		}
+	}
+	if len(parents) > 0 {
+		docs, err := w.client.GetAll(ctx, parents)
+		if err != nil {
+			return nil, err
+		}
+		for _, doc := range docs {
+			if !doc.Exists() {
+				continue
+			}
+			var entry timeline.Entry
+			if err := doc.DataTo(&entry); err != nil {
+				return nil, err
+			}
+			entries = append(entries, entry)
+		}
+	}
+	sortEntries(entries)
+	return entries, nil
+}

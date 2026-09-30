@@ -2,14 +2,28 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 )
 
 func (s *Server) publishEvent(name string, data any) {
-	s.events.send(name, data)
 	if name == "entry" {
 		s.scheduleIndex()
+	}
+	if s.bus == nil {
+		s.events.send(name, data)
+		return
+	}
+	// Every instance with a page open on the workspace hears it, this one
+	// through the bus like the rest.
+	raw, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("event %s: %v", name, err)
+		return
+	}
+	if err := s.bus.Publish(name, raw); err != nil {
+		log.Printf("event %s: %v", name, err)
 	}
 }
 func (s *Server) scheduleIndex() {

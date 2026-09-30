@@ -34,6 +34,12 @@ func (b *memoryBlobs) Get(name string) ([]byte, string, error) {
 	return append([]byte(nil), data...), b.mime[name], nil
 }
 
+func (b *memoryBlobs) Delete(name string) error {
+	delete(b.data, name)
+	delete(b.mime, name)
+	return nil
+}
+
 func (b *memoryBlobs) Purge() error {
 	b.data, b.mime = nil, nil
 	return nil

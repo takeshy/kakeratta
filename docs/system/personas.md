@@ -18,7 +18,7 @@ Subject personas cover topics. Person personas use `Kind: person` and have `Alia
 
 ## Management
 
-Installing a definition from the frontend validates and installs it in the Catalogue, persists it through Workspace, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
+Installing a definition from the frontend validates and installs it in the Catalogue, persists it through Workspace, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules. With several instances, persona changes run on the workspace's owner, and other instances pick up the new definitions through the Firestore `skills` change feed.
 
 For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. Date-bearing information is separately normalized into notification schedules before saving; dates that cannot be established are omitted. The field is limited to 8,000 characters and cleared for subject personas.
 
@@ -150,7 +150,7 @@ Past schedules are not all replayed unconditionally. Execution windows and perso
 
 Daily checks use the user's time zone and times derived from the workspace and persona. The previous actual execution time determines the lookback window, and execution is claimed first. Users can choose minimal check-ins or sharing. Person personas can check in monthly instead.
 
-The app itself builds monthly summaries from the timeline as topic-based posts with source links. Person personas' monthly checks use the summary and relevant records. Summaries have lookback and input length limits.
+The app itself builds monthly summaries from the timeline as topic-based posts with source links. Person personas' monthly checks use the summary and relevant records. Both read only the lookback window through `TimelineWindow`, and summaries have an input length limit.
 
 ## Memory dates
 
@@ -187,7 +187,7 @@ The app itself builds monthly summaries from the timeline as topic-based posts w
 
 ## Token constraints
 
-Trials live in Runner memory and expire after 15 minutes; they do not survive restarts. Application checks the token and entry ID, changed or deleted text, and whether the persona remains active. A completed application is recorded so repeating the same token is treated as already applied.
+Trials live in the owning instance's Runner memory and expire after 15 minutes; they do not survive a restart or the workspace moving to another instance. Trial requests are carried to the owner (see [Multiple instances](./architecture.md#multiple-instances)). Application checks the token and entry ID, changed or deleted text, and whether the persona remains active. A completed application is recorded so repeating the same token is treated as already applied.
 
 ## Implementation and verification
 

@@ -66,10 +66,8 @@ func (r *Runner) CheckDaily() {
 	if r.stopped {
 		return
 	}
-	for _, item := range r.queue {
-		if item.daily {
-			return
-		}
+	if r.queuedLocked(func(item reaction) bool { return item.daily }) {
+		return
 	}
 	r.queue = append(r.queue, reaction{daily: true})
 	r.wake.Signal()

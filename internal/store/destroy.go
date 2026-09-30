@@ -34,6 +34,11 @@ func (s *Store) Destroy(ctx context.Context) error {
 // Destroy removes the user's document with every collection under it, the
 // captures, and the directory the skills were materialised into.
 func (w *FirestoreWorkspace) Destroy(ctx context.Context) error {
+	// The skills feed would otherwise write definitions back into the
+	// directory removed below.
+	if w.stopWatch != nil {
+		w.stopWatch()
+	}
 	if err := deleteDocument(ctx, w.client, w.user); err != nil {
 		return err
 	}

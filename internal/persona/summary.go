@@ -57,7 +57,7 @@ func (r *Runner) summarizeAt(now time.Time, client *llm.Client, settings store.S
 	if since.IsZero() || now.Sub(since) > summaryLookback {
 		since = now.Add(-summaryLookback)
 	}
-	entries, err := r.store.Timeline()
+	entries, err := store.SearchTimelineWindow(context.Background(), r.store, since, now)
 	if err != nil {
 		r.emit("error", map[string]any{"where": "summary", "message": err.Error()})
 		return
@@ -114,7 +114,7 @@ func (r *Runner) summarizeAt(now time.Time, client *llm.Client, settings store.S
 // month's summary, as the user may have set it right, and the posts since its
 // previous check-in that name it, which a summary may have left out.
 func (r *Runner) monthlyCheckIn(skill Skill, since, now time.Time, loc *time.Location) string {
-	entries, err := r.store.Timeline()
+	entries, err := store.SearchTimelineWindow(context.Background(), r.store, since, now)
 	if err != nil {
 		return ""
 	}

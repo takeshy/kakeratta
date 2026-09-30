@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"github.com/takeshy/kakeratta/internal/cluster"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/server"
 	"github.com/takeshy/kakeratta/internal/store"
@@ -166,6 +167,12 @@ func main() {
 			authOptions.OpenWorkspace = func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
 				return store.NewFirestoreWorkspace(context.Background(), firestoreClient, userKey, blobs)
 			}
+			// Instances share the users through Firestore: each workspace's
+			// persona work runs on whichever instance holds its lease.
+			authOptions.Cluster = cluster.NewFirestore(firestoreClient, "")
+			if cloudBlobs == nil {
+				log.Print("KAKERATTA_GCS_BUCKET が未設定です。画像はインスタンスごとの一時ディレクトリに置かれ、複数インスタンスでは共有されません")
+			}
 		}
 		app, err := server.NewGateway(context.Background(), authOptions)
 		if err != nil {
@@ -189,7 +196,7 @@ func main() {
 			options.Exports = cloudBlobs.Exports("exports/single")
 		}
 		app := server.New(options)
-		handler, closeApp = app, app.Close
+		handler, closeApp = app, app.Halt
 	}
 
 	address := os.Getenv("KAKERATTA_ADDR")
@@ -218,6 +225,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
-	// Stop taking posts first, then let the reactions already in hand finish.
+	// Stop taking posts first, then finish the reaction in hand. The rest of
+	// the queue is kept: the next start, or another instance, takes it up.
 	closeApp()
 }

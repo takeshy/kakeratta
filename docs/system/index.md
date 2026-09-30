@@ -8,7 +8,7 @@ This **OKF v0.2 bundle** documents the implementation in six subsystem chapters.
 
 # Chapters
 
-- [Architecture and runtime](./architecture.md) - System boundaries, dependency assembly, background workers, and shutdown.
+- [Architecture and runtime](./architecture.md) - System boundaries, dependency assembly, background workers, multiple instances, and shutdown.
 - [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, and search.
 - [Persona execution and memory](./personas.md) - Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections.
 - [Browser application and device state](./frontend.md) - Frontend composition, requests, live updates, offline delivery, speech input, and read-aloud.

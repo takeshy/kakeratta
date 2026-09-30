@@ -107,6 +107,10 @@ func TestExportedWorkspaceOpensAsTheOriginal(t *testing.T) {
 	if err := s.SaveSearchVector(ctx, vectorKey, SearchVector{Vector: []float64{1, 2}}); err != nil {
 		t.Fatal(err)
 	}
+	// Work in hand is not part of a backup: a restored copy must not replay it.
+	if err := s.SaveReaction(Reaction{ID: "r_1", At: now, Entry: "post_1"}); err != nil {
+		t.Fatal(err)
+	}
 	// A crash half way through a write leaves a .tmp behind; it is not state.
 	if err := os.WriteFile(filepath.Join(s.Root(), "settings.json.tmp"), []byte("half"), 0o644); err != nil {
 		t.Fatal(err)
@@ -117,6 +121,9 @@ func TestExportedWorkspaceOpensAsTheOriginal(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if _, err := os.Stat(filepath.Join(target, reactionsDir)); !os.IsNotExist(err) {
+		t.Fatalf("unfinished reactions were exported: %v", err)
+	}
 	exported, err := Open(target)
 	if err != nil {
 		t.Fatal(err)

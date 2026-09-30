@@ -26,6 +26,10 @@ Dedicated code renders Markdown and creates links. User text and persona Markdow
 
 External-agent answers (`model: agent`) normalize literal escaped newlines for Markdown display and read-aloud, without rewriting the stored entry.
 
+Person persona creation and editing show an editable **Basic information** field, saved as `basicInfo` with the definition. The builder uses [person-basic-info.js](../../frontend/src/person-basic-info.js), while the editor includes the field in its ordinary form. There is no option to post these details as a fragment. Confirmed dates and appointments register notification schedules when saved. Annual notifications are labeled **Every year** on the persona card. Cards show both host-registered calendar events and persona-created schedules.
+
+[Personas.stories.js](../../frontend/stories/Personas.stories.js) supplies localized sample data for creation, editing, and notification cards. [captures.mjs](../../frontend/captures.mjs) captures the actual UI into `docs/captures/ja/` and `docs/captures/en/`; the manual and landing page reference these files with their current dimensions.
+
 ## Implementation and verification
 
 - [bootstrap.js](../../frontend/src/bootstrap.js)
@@ -33,12 +37,12 @@ External-agent answers (`model: agent`) normalize literal escaped newlines for M
 - [feed.js](../../frontend/src/feed.js)
 - [screen.js](../../frontend/src/screen.js)
 - [dom.js](../../frontend/src/dom.js)
+- [person-basic-info.js](../../frontend/src/person-basic-info.js)
 - [feed.test.js](../../tests/feed.test.js)
 - [Screen.stories.js](../../frontend/stories/Screen.stories.js)
+- [Personas.stories.js](../../frontend/stories/Personas.stories.js)
+- [captures.mjs](../../frontend/captures.mjs)
 
-Person persona creation and editing show an editable **Basic information** field, saved as `basicInfo` with the definition. The builder uses [person-basic-info.js](../../frontend/src/person-basic-info.js), while the editor includes the field in its ordinary form. There is no option to post these details as a fragment. Confirmed dates and appointments register notification schedules when saved. Annual notifications are labeled **Every year** on the persona card. Cards show both host-registered calendar events and persona-created schedules.
-
-[Personas.stories.js](../../frontend/stories/Personas.stories.js) supplies localized sample data for creation, editing, and notification cards. [captures.mjs](../../frontend/captures.mjs) captures the actual UI into `docs/captures/ja/` and `docs/captures/en/`; the manual and landing page reference these files with their current dimensions.
 
 # Frontend requests and account checks
 
@@ -78,7 +82,7 @@ The Service Worker caches public application assets. API responses do not enter 
 3. Persist the server acknowledgement under `ack:`.
 4. Remove the corresponding `outbox:` record afterwards.
 
-Lost responses retry the same ID and body, relying on the server's duplicate checks. Account changes stop delivery. Failed local persistence rejects enqueue so the input can remain available.
+Lost responses retry the same ID and body, relying on the server's duplicate checks. Tabs of one browser share the outbox, so delivery takes a Web Locks lock named per account (`kakeratta-outbox:{key}`) and only one tab sends at a time; where Web Locks is unavailable, delivery is serialised within the tab only and the server's exclusive `CreateEntry` still stores and reacts to a post once. Account changes stop delivery. Failed local persistence rejects enqueue so the input can remain available.
 
 Authentication and transient failures can be retried later. Non-retryable 4xx responses are recorded as delivery errors and stop automatic retries. Manual retry clears those errors and attempts delivery again. Removing or logging out of an account also clears its device records.
 
@@ -88,7 +92,7 @@ Authentication and transient failures can be retried later. Non-retryable 4xx re
 - [outbox.js](../../frontend/src/outbox.js)
 - [sw.js](../../frontend/public/sw.js)
 - [build.mjs](../../frontend/build.mjs)
-- [outbox.test.js](../../tests/outbox.test.js)
+- [outbox.test.js](../../tests/outbox.test.js): restart, retries, and two tabs flushing at once
 - [offline-check.mjs](../../frontend/offline-check.mjs)
 
 # Speech input and read-aloud

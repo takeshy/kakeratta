@@ -116,6 +116,11 @@ func (s *Store) exportFiles(ctx context.Context, sink ExportSink) (BlobStore, er
 			if relative == "search-embeddings" {
 				return filepath.SkipDir
 			}
+			// Unfinished reactions are this process's work in hand; a
+			// restored copy is not to replay them.
+			if relative == reactionsDir {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		// A temporary file is a crash half way through a write, never state.

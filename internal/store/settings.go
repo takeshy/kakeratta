@@ -299,6 +299,20 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 	return settings
 }
 
+// Endpoint is where the model key in these settings is sent: the saved address,
+// or the provider's default when none is saved.
+func (settings Settings) Endpoint() string {
+	provider := settings.Provider
+	if provider == "" {
+		provider = ProviderNebius
+	}
+	endpoint := strings.TrimSpace(settings.BaseURL)
+	if endpoint == "" {
+		endpoint = EndpointFor(provider)
+	}
+	return strings.TrimRight(endpoint, "/")
+}
+
 func usesNebiusEndpoint(settings Settings) bool {
 	return settings.Provider == ProviderNebius && strings.TrimRight(strings.TrimSpace(settings.BaseURL), "/") == NebiusBaseURL
 }

@@ -33,13 +33,13 @@ func (s *Server) mcpWorkspace() string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(s.store.Root()+"\x00")))
 }
 
-// mcpOriginOK accepts a browser request only from the page's own origin. A
+// sameOrigin accepts a browser request only from the page's own origin. A
 // request without an Origin is not a browser's and passes. Behind Firebase
 // Hosting the container's Host is the Cloud Run service's own, not the site's:
 // the page's host arrives in X-Forwarded-Host, and KAKERATTA_PUBLIC_URL names
 // it outright. A live "接続キーを発行" was refused on kakeratta.net for
 // comparing the Origin against the run.app host alone.
-func mcpOriginOK(r *http.Request) bool {
+func sameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return true
@@ -89,7 +89,7 @@ func (s *Server) agentStatus() map[string]any {
 }
 
 func (s *Server) issueMCPKey(w http.ResponseWriter, r *http.Request) {
-	if !mcpOriginOK(r) {
+	if !sameOrigin(r) {
 		fail(w, 403, "invalid origin")
 		return
 	}
@@ -131,7 +131,7 @@ func (s *Server) issueMCPKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) revokeMCPKey(w http.ResponseWriter, r *http.Request) {
-	if !mcpOriginOK(r) {
+	if !sameOrigin(r) {
 		fail(w, 403, "invalid origin")
 		return
 	}
@@ -186,7 +186,7 @@ func supportedMCPVersion(version string) bool {
 // browser login cookie or an MCP session ID never substitutes for the token.
 func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	if !mcpOriginOK(r) {
+	if !sameOrigin(r) {
 		fail(w, 403, "invalid origin")
 		return
 	}

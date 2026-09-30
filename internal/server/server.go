@@ -35,6 +35,19 @@ type Options struct {
 	// Exports is where a finished backup is put for the user to download.
 	// Without one the backup is streamed down the response instead.
 	Exports store.ExportTarget
+	// Follower builds a server on an instance that does not own the
+	// workspace: it answers requests and keeps reactions for the owner, but
+	// runs no persona work until Lead is called.
+	Follower bool
+	// Events carries the workspace's events between instances. Without it
+	// they stay in this process.
+	Events EventBus
+}
+
+// EventBus carries one workspace's events to every instance serving it.
+type EventBus interface {
+	Publish(name string, data []byte) error
+	Subscribe(ctx context.Context, deliver func(name string, data []byte))
 }
 
 // Server is the app.
@@ -59,6 +72,17 @@ type Server struct {
 	dailyDone   chan struct{}
 	closeOnce   sync.Once
 	events      *hub
+
+	// bus, feed: with an event bus, the hub is fed from it while anyone -
+	// an open page, or the persona work of an owner - is listening.
+	bus      EventBus
+	feedMu   sync.Mutex
+	feedRefs int
+	feedStop context.CancelFunc
+
+	leadOnce  sync.Once
+	leading   atomic.Bool
+	watchStop context.CancelFunc
 }
 
 func New(options Options) *Server {
@@ -70,16 +94,47 @@ func New(options Options) *Server {
 		exports:   options.Exports,
 		mux:       http.NewServeMux(),
 		events:    newHub(),
+		bus:       options.Events,
 	}
 	s.runner = persona.New(s.store, s.catalogue, s.client)
+	s.runner.SetFollower(options.Follower)
 	s.search = search.New(s.store)
 	s.runner.SetSearch(s.search)
 	s.runner.SetTools(s.tools)
 	s.runner.SetConnectionWaits(s.activeMCPWaits)
-	s.startIndexing()
 	s.runner.OnEvent(s.publishEvent)
-	s.runner.Start()
 	s.routes()
+	if !options.Follower {
+		s.Lead()
+	}
+	return s
+}
+
+// Lead starts the persona work of the workspace on this instance: the
+// reaction queue, the daily and schedule checks, search indexing. It is
+// called once, when this instance comes to own the workspace; the server
+// stops leading only by being closed.
+func (s *Server) Lead() {
+	s.leadOnce.Do(s.lead)
+}
+
+func (s *Server) lead() {
+	s.leading.Store(true)
+	s.runner.SetFollower(false)
+	s.startIndexing()
+	if s.bus != nil {
+		// Posts saved on other instances are indexed here, where the
+		// indexing runs.
+		s.feedJoin()
+	}
+	if watcher, ok := s.store.(interface {
+		WatchReactions(context.Context, func())
+	}); ok {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.watchStop = cancel
+		watcher.WatchReactions(ctx, s.runner.Poke)
+	}
+	s.runner.Start()
 	s.dailyStop = make(chan struct{})
 	s.dailyDone = make(chan struct{})
 	go func() {
@@ -98,15 +153,84 @@ func New(options Options) *Server {
 			}
 		}
 	}()
-	return s
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
 
 // Close lets whatever is reacting finish. Reactions write as they go, so
 // exiting in the middle of one leaves a persona's notes half written.
-func (s *Server) Close() {
-	s.closeOnce.Do(func() { close(s.dailyStop); <-s.dailyDone; s.indexCancel(); s.runner.Stop(); <-s.indexDone })
+func (s *Server) Close() { s.close(false) }
+
+// Halt finishes the reaction in hand and stops, leaving the rest of the queue
+// kept for the next process or instance to take up.
+func (s *Server) Halt() { s.close(true) }
+
+func (s *Server) close(halt bool) {
+	s.closeOnce.Do(func() {
+		s.leadOnce.Do(func() {}) // A follower never leads after closing.
+		if s.leading.Load() {
+			close(s.dailyStop)
+			<-s.dailyDone
+			if s.watchStop != nil {
+				s.watchStop()
+			}
+			s.indexCancel()
+		}
+		if halt {
+			s.runner.Halt()
+		} else {
+			s.runner.Stop()
+		}
+		if s.leading.Load() {
+			<-s.indexDone
+		}
+		s.feedMu.Lock()
+		if s.feedStop != nil {
+			s.feedStop()
+			s.feedStop, s.feedRefs = nil, 0
+		}
+		s.feedMu.Unlock()
+	})
+}
+
+// feedJoin starts feeding the hub from the event bus for one more listener;
+// feedLeave ends that once the last one is gone.
+func (s *Server) feedJoin() {
+	s.feedMu.Lock()
+	defer s.feedMu.Unlock()
+	s.feedRefs++
+	if s.feedStop != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.feedStop = cancel
+	s.bus.Subscribe(ctx, func(name string, data []byte) {
+		s.events.send(name, json.RawMessage(data))
+		if name == "entry" {
+			s.scheduleIndex()
+		}
+	})
+}
+
+func (s *Server) feedLeave() {
+	s.feedMu.Lock()
+	defer s.feedMu.Unlock()
+	if s.feedRefs--; s.feedRefs <= 0 && s.feedStop != nil {
+		s.feedStop()
+		s.feedStop, s.feedRefs = nil, 0
+	}
+}
+
+// Idle reports whether nothing on this server needs it kept open: no page is
+// listening, no backup is being written and it does not lead the workspace.
+func (s *Server) Idle() bool {
+	s.feedMu.Lock()
+	listening := s.feedRefs > 0
+	s.feedMu.Unlock()
+	s.events.mu.Lock()
+	watching := len(s.events.watchers) > 0
+	s.events.mu.Unlock()
+	return !listening && !watching && !s.exporting.Load() && !s.leading.Load()
 }
 
 func (s *Server) client() (*llm.Client, store.Settings) {
@@ -212,6 +336,10 @@ func (s *Server) events2(w http.ResponseWriter, r *http.Request) {
 
 	channel := s.events.join()
 	defer s.events.leave(channel)
+	if s.bus != nil {
+		s.feedJoin()
+		defer s.feedLeave()
+	}
 
 	// A heartbeat keeps proxies from closing an idle stream, which matters here
 	// because idle is the normal state: nobody is meant to be reacting most of

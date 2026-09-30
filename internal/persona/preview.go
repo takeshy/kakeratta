@@ -196,8 +196,13 @@ func (d *dryWorkspace) NotePaths(personaID string) ([]string, error) {
 	sort.Strings(out)
 	return out, nil
 }
-func (d *dryWorkspace) RecordWake(string, string) error    { return nil }
-func (d *dryWorkspace) SaveMemory(store.Memory) error      { return nil }
+func (d *dryWorkspace) RecordWake(string, string) error   { return nil }
+func (d *dryWorkspace) SaveMemory(store.Memory) error     { return nil }
+func (d *dryWorkspace) SaveReaction(store.Reaction) error { return nil }
+func (d *dryWorkspace) Reactions(context.Context) ([]store.Reaction, error) {
+	return nil, nil
+}
+func (d *dryWorkspace) FinishReaction(string) error        { return nil }
 func (d *dryWorkspace) NoteJobs() ([]store.NoteJob, error) { return nil, nil }
 func (d *dryWorkspace) SaveNoteJob(store.NoteJob) error    { return nil }
 func (d *dryWorkspace) DeleteNoteJob(string) error         { return nil }
@@ -248,6 +253,7 @@ func (d *dryWorkspace) UpdateMedia(id string, _ *timeline.Media) (timeline.Entry
 	return entry, nil
 }
 func (d *dryWorkspace) PutBlob([]byte, string) (string, error) { return "preview", nil }
+func (d *dryWorkspace) DeleteBlob(string) error                { return nil }
 
 // SaveSchedule hands back the schedule as if placed, so a persona planning a
 // wake in a preview is told it worked and the plan runs to its remark.

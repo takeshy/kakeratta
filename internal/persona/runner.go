@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -45,6 +47,9 @@ const okfHost = "# メモの書き方\n\nメモを書くときは、次のスキ
 // immediately, and whatever anyone has to say about it arrives afterwards. The
 // queue is what makes that true.
 type reaction struct {
+	// ids are the durable records (store.Reaction) behind this item. The
+	// periodic checks have none: they are asked for again every minute.
+	ids        []string
 	entryID    string
 	edited     bool
 	place      *timeline.Place
@@ -84,6 +89,15 @@ type Runner struct {
 	// stopMu guards the unbounded in-memory queue and coordinates its worker.
 	stopMu  sync.Mutex
 	stopped bool
+	// known names the durable reactions in the queue or in hand, so rereading
+	// the store does not queue one twice.
+	known map[string]bool
+	// recovered is set once the reactions a previous process left behind have
+	// been taken up.
+	recovered bool
+	// follower is a runner on an instance that does not own the workspace. It
+	// keeps what it is given durable for the owner, and works nothing itself.
+	follower atomic.Bool
 
 	// routingMu makes a read-modify-write on one post's routing record atomic.
 	// keepRouting, turnsDone and FinishAsyncTurn each read the record and write
@@ -124,7 +138,8 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 		emit:          func(string, any) {},
 		done:          make(chan struct{}),
 		routingTrials: map[string]routingTrial{}, replyTrials: map[string]replyTrial{},
-		desk: newDesk(),
+		known: map[string]bool{},
+		desk:  newDesk(),
 	}
 	r.apart, r.stopApart = context.WithCancel(context.Background())
 	r.wake = sync.NewCond(&r.stopMu)
@@ -138,6 +153,10 @@ func (r *Runner) SetSearch(service *search.Service) { r.search = service }
 // MCP servers. Set before Start.
 func (r *Runner) SetTools(config tools.Config) { r.tools = config }
 
+// SetFollower makes this runner keep reactions for the instance that owns the
+// workspace instead of working them. Set before anything is queued.
+func (r *Runner) SetFollower(follower bool) { r.follower.Store(follower) }
+
 // OnEvent is how the screen hears that something landed.
 func (r *Runner) OnEvent(emit func(name string, data any)) {
 	if emit != nil {
@@ -150,7 +169,11 @@ func (r *Runner) OnEvent(emit func(name string, data any)) {
 // ordering inside each one impossible to reason about.
 func (r *Runner) Start() {
 	r.once.Do(func() {
+		r.stopMu.Lock()
 		r.started = true
+		r.stopMu.Unlock()
+		// What a previous process or owner left unfinished is taken up first.
+		r.Poke()
 		go func() {
 			ticker := time.NewTicker(time.Minute)
 			defer ticker.Stop()
@@ -160,11 +183,14 @@ func (r *Runner) Start() {
 					return
 				case <-ticker.C:
 					r.stopMu.Lock()
-					if !r.stopped {
+					if !r.stopped && !r.queuedLocked(func(item reaction) bool { return item.retryNotes }) {
 						r.queue = append(r.queue, reaction{retryNotes: true})
 						r.wake.Signal()
 					}
 					r.stopMu.Unlock()
+					// A reaction another instance kept while the change
+					// feed was down is found here at the latest.
+					r.Poke()
 				}
 			}
 		}()
@@ -183,22 +209,147 @@ func (r *Runner) Start() {
 				item := r.queue[0]
 				r.queue = r.queue[1:]
 				r.stopMu.Unlock()
-				if item.retryNotes {
-					r.retryNoteJobs(time.Now())
-				} else if item.daily {
-					r.dailyAt(time.Now())
-				} else if item.schedules {
-					r.schedulesAt(time.Now())
-				} else if item.forgotten != nil {
-					r.forgottenAt(*item.forgotten)
-				} else if item.deleted != nil {
-					r.deletedAt(*item.deleted)
-				} else {
-					r.reactEntry(item.entryID, item.place, item.edited)
-				}
+				r.work(item)
 			}
 		}()
 	})
+}
+
+// work does one queued item and then lets its durable records go.
+func (r *Runner) work(item reaction) {
+	defer r.finish(item)
+	switch {
+	case item.retryNotes:
+		r.retryNoteJobs(time.Now())
+	case item.daily:
+		r.dailyAt(time.Now())
+	case item.schedules:
+		r.schedulesAt(time.Now())
+	case item.forgotten != nil:
+		r.forgottenAt(*item.forgotten)
+	case item.deleted != nil:
+		r.deletedAt(*item.deleted)
+	default:
+		r.reactEntry(item.entryID, item.place, item.edited)
+	}
+}
+
+func (r *Runner) finish(item reaction) {
+	for _, id := range item.ids {
+		if err := r.store.FinishReaction(id); err != nil {
+			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
+		}
+	}
+	r.stopMu.Lock()
+	for _, id := range item.ids {
+		delete(r.known, id)
+	}
+	r.stopMu.Unlock()
+}
+
+// maxReactionAttempts bounds how often a reaction left behind is taken up
+// again. One that brought its process down each time would otherwise do so
+// forever.
+const maxReactionAttempts = 3
+
+// Poke rereads the durable queue for reactions this runner has not got in
+// hand: ones another instance kept for it, or ones a previous process left
+// unfinished. The first reread after starting counts each of those as another
+// attempt.
+func (r *Runner) Poke() {
+	// The store is read with the queue held: a reaction finishing meanwhile
+	// is still known when the read comes back, so it is not queued again.
+	r.stopMu.Lock()
+	defer r.stopMu.Unlock()
+	if r.stopped || r.follower.Load() || !r.started {
+		return
+	}
+	recovering := !r.recovered
+	r.recovered = true
+	items, err := r.store.Reactions(context.Background())
+	if err != nil {
+		r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
+		return
+	}
+	for _, record := range items {
+		if r.known[record.ID] {
+			continue
+		}
+		if recovering {
+			record.Attempts++
+			if record.Attempts > maxReactionAttempts {
+				_ = r.store.FinishReaction(record.ID)
+				r.emit("error", map[string]any{"where": "queue", "message": "反応を" + strconv.Itoa(maxReactionAttempts) + "回試みても終わらなかったため、取りやめました"})
+				continue
+			}
+			_ = r.store.SaveReaction(record)
+		}
+		r.known[record.ID] = true
+		r.takeLocked(reactionFrom(record))
+	}
+	r.wake.Signal()
+}
+
+// takeLocked puts an item in the queue, folding deleted notes and posts into
+// a wake already waiting for the same persona.
+func (r *Runner) takeLocked(item reaction) {
+	for i := range r.queue {
+		queued := &r.queue[i]
+		switch {
+		case item.forgotten != nil && queued.forgotten != nil && queued.forgotten.skill == item.forgotten.skill && queued.forgotten.expired == item.forgotten.expired:
+			queued.forgotten.paths = append(queued.forgotten.paths, item.forgotten.paths...)
+		case item.deleted != nil && queued.deleted != nil && queued.deleted.skill == item.deleted.skill && queued.deleted.entryID == item.deleted.entryID:
+		default:
+			continue
+		}
+		queued.ids = append(queued.ids, item.ids...)
+		return
+	}
+	r.queue = append(r.queue, item)
+}
+
+// acceptLocked keeps a reaction durable and, on a runner that works the
+// queue, in hand. A stopped runner still keeps it: whoever starts next - this
+// process again, or another instance - takes it up. Callers hold stopMu.
+func (r *Runner) acceptLocked(item reaction) {
+	record := item.record()
+	record.ID, record.At = store.NewID("r"), time.Now()
+	if err := r.store.SaveReaction(record); err != nil {
+		r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
+	} else {
+		item.ids = []string{record.ID}
+	}
+	if r.stopped || r.follower.Load() {
+		return
+	}
+	for _, id := range item.ids {
+		r.known[id] = true
+	}
+	r.takeLocked(item)
+	r.wake.Signal()
+}
+
+func (item reaction) record() store.Reaction {
+	record := store.Reaction{Entry: item.entryID, Edited: item.edited, Place: item.place}
+	if item.forgotten != nil {
+		record.Forgotten = &store.ForgottenReaction{Skill: item.forgotten.skill, Paths: slices.Clone(item.forgotten.paths), Expired: item.forgotten.expired}
+	}
+	if item.deleted != nil {
+		d := item.deleted
+		record.Deleted = &store.DeletedReaction{EntryID: d.entryID, Label: d.label, Skill: d.skill, Notes: slices.Clone(d.notes), Removed: slices.Clone(d.removed)}
+	}
+	return record
+}
+
+func reactionFrom(record store.Reaction) reaction {
+	item := reaction{ids: []string{record.ID}, entryID: record.Entry, edited: record.Edited, place: record.Place}
+	if f := record.Forgotten; f != nil {
+		item.forgotten = &forgotten{skill: f.Skill, paths: slices.Clone(f.Paths), expired: f.Expired}
+	}
+	if d := record.Deleted; d != nil {
+		item.deleted = &deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: slices.Clone(d.Notes), removed: slices.Clone(d.Removed)}
+	}
+	return item
 }
 
 // Stop lets the reactions in hand finish and then returns.
@@ -209,12 +360,23 @@ func (r *Runner) Start() {
 //
 // Turns waiting on an external planner are abandoned: an agent may take many
 // minutes, and a restart ends the ask it would hand its workflow to anyway.
-func (r *Runner) Stop() {
+func (r *Runner) Stop() { r.stop(false) }
+
+// Halt finishes the item in hand and stops without working the rest of the
+// queue. Those reactions stay kept, for this process when it starts again or
+// for another instance taking the workspace over - which is what a shutdown
+// with seconds to spare, or an instance giving a workspace up, wants.
+func (r *Runner) Halt() { r.stop(true) }
+
+func (r *Runner) stop(halt bool) {
 	defer func() {
 		r.stopApart()
 		r.detached.Wait()
 	}()
 	r.stopMu.Lock()
+	if halt {
+		r.queue = nil
+	}
 	if r.stopped || !r.started {
 		r.stopped = true
 		r.stopMu.Unlock()
@@ -238,14 +400,24 @@ func (r *Runner) EntryEdited(entryID string) {
 }
 
 func (r *Runner) enqueueEntry(entryID string, place *timeline.Place, edited bool) {
-	r.Start()
+	if !r.follower.Load() {
+		r.Start()
+	}
 	r.stopMu.Lock()
 	defer r.stopMu.Unlock()
-	if r.stopped {
-		return
+	r.acceptLocked(reaction{entryID: entryID, place: place, edited: edited})
+}
+
+// queuedLocked reports whether a matching item is already waiting, so a
+// periodic check held up behind a long reaction is queued once, not once for
+// every minute it waited.
+func (r *Runner) queuedLocked(match func(reaction) bool) bool {
+	for _, item := range r.queue {
+		if match(item) {
+			return true
+		}
 	}
-	r.queue = append(r.queue, reaction{entryID: entryID, place: place, edited: edited})
-	r.wake.Signal()
+	return false
 }
 
 func (r *Runner) react(entryID string) {

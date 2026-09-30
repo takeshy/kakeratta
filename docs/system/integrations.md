@@ -26,6 +26,8 @@ The external agent researches as the persona and submits only the final answer. 
 
 Claiming and answering have separate deadlines. Unclaimed asks, answer timeouts, connection changes, explicit release, and exhausted correction attempts can trigger fallback. Shutdown aborts waiting. A connection with no recent MCP activity, or paused external-agent settings, can select the built-in model immediately.
 
+Asks live in the memory of the instance that owns the workspace. With several instances, every `/api/mcp/users/{workspace}` request is carried to that owner, so an agent may reach any instance; an MCP request never makes an instance take a workspace over, and answers 503 while nobody holds it. A takeover ends waiting asks like a restart does.
+
 ## Implementation and verification
 
 - [planner.go](../../internal/persona/planner.go): `desk`, `ClaimAsk`, `planExternally`

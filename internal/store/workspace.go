@@ -29,6 +29,7 @@ type Workspace interface {
 	Entry(string) (timeline.Entry, bool)
 	PutBlob([]byte, string) (string, error)
 	Blob(string) ([]byte, string, error)
+	DeleteBlob(string) error
 	Memory(string) Memory
 	MemoryMeta(string) Memory
 	NotePaths(string) ([]string, error)
@@ -38,6 +39,9 @@ type Workspace interface {
 	WriteNote(string, string, string, ...NoteSource) error
 	DeleteNote(string, string) error
 	NotesBySource(string, string) ([]string, error)
+	SaveReaction(Reaction) error
+	Reactions(context.Context) ([]Reaction, error)
+	FinishReaction(string) error
 	NoteJobs() ([]NoteJob, error)
 	SaveNoteJob(NoteJob) error
 	DeleteNoteJob(string) error

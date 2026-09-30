@@ -133,7 +133,7 @@ func (s *Server) publicMCPConnections(ctx context.Context) ([]map[string]any, er
 }
 
 func (s *Server) selectMCPConnection(w http.ResponseWriter, r *http.Request) {
-	if !mcpOriginOK(r) {
+	if !sameOrigin(r) {
 		fail(w, 403, "invalid origin")
 		return
 	}
@@ -199,7 +199,7 @@ func (s *Server) activeMCPWaits() (time.Duration, time.Duration) {
 
 // setMCPConnectionWaits changes how long asks wait for one connection's agent.
 func (s *Server) setMCPConnectionWaits(w http.ResponseWriter, r *http.Request) {
-	if !mcpOriginOK(r) {
+	if !sameOrigin(r) {
 		fail(w, 403, "invalid origin")
 		return
 	}

@@ -130,19 +130,32 @@ func (r *Runner) expireNotes(now time.Time, settings store.Settings) {
 // notesExpired queues the tidy-up wake for notes the app deleted. It is kept
 // apart from a user's deletion so the persona is told the right thing.
 func (r *Runner) notesExpired(skill string, paths []string) {
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	if r.stopped || skill == "" || len(paths) == 0 {
+	if skill == "" || len(paths) == 0 {
 		return
 	}
-	for _, item := range r.queue {
-		if item.forgotten != nil && item.forgotten.expired && item.forgotten.skill == skill {
-			item.forgotten.paths = append(item.forgotten.paths, paths...)
+	r.stopMu.Lock()
+	defer r.stopMu.Unlock()
+	r.forgetLocked(forgotten{skill: skill, paths: slices.Clone(paths), expired: true})
+}
+
+// forgetLocked queues a tidy-up wake, adding to one already waiting for the
+// same persona and reason, whose durable record is kept up to date with it.
+func (r *Runner) forgetLocked(gone forgotten) {
+	for i := range r.queue {
+		item := &r.queue[i]
+		if item.forgotten != nil && item.forgotten.expired == gone.expired && item.forgotten.skill == gone.skill {
+			item.forgotten.paths = append(item.forgotten.paths, gone.paths...)
+			if len(item.ids) > 0 {
+				record := item.record()
+				record.ID, record.At = item.ids[0], time.Now()
+				if err := r.store.SaveReaction(record); err != nil {
+					r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
+				}
+			}
 			return
 		}
 	}
-	r.queue = append(r.queue, reaction{forgotten: &forgotten{skill: skill, paths: slices.Clone(paths), expired: true}})
-	r.wake.Signal()
+	r.acceptLocked(reaction{forgotten: &gone})
 }
 
 // registry is the tool set as it exists for this workspace: the user's search
@@ -159,10 +172,8 @@ func (r *Runner) CheckSchedules() {
 	if r.stopped {
 		return
 	}
-	for _, item := range r.queue {
-		if item.schedules {
-			return
-		}
+	if r.queuedLocked(func(item reaction) bool { return item.schedules }) {
+		return
 	}
 	r.queue = append(r.queue, reaction{schedules: true})
 	r.wake.Signal()
@@ -172,19 +183,12 @@ func (r *Runner) CheckSchedules() {
 // can put the rest of its memory - and the schedules that went with it - back in
 // order itself. Deleting several notes in a row is one wake, not one each.
 func (r *Runner) NoteForgotten(skill, path string) {
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	if r.stopped || skill == "" || path == "" {
+	if skill == "" || path == "" {
 		return
 	}
-	for _, item := range r.queue {
-		if item.forgotten != nil && !item.forgotten.expired && item.forgotten.skill == skill {
-			item.forgotten.paths = append(item.forgotten.paths, path)
-			return
-		}
-	}
-	r.queue = append(r.queue, reaction{forgotten: &forgotten{skill: skill, paths: []string{path}}})
-	r.wake.Signal()
+	r.stopMu.Lock()
+	defer r.stopMu.Unlock()
+	r.forgetLocked(forgotten{skill: skill, paths: []string{path}})
 }
 
 // schedulesAt runs the schedules that are due, one at a time.
