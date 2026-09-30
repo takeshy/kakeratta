@@ -19,31 +19,26 @@ steps:
       - firebase-tools
     waitFor: ["-"]
 
-  # The registry keeps the layer cache between builds: a fresh worker has none,
-  # so without it every build downloads and recompiles all of the Go modules.
-  - id: builder
-    name: gcr.io/cloud-builders/docker
-    args:
-      - buildx
-      - create
-      - --driver=docker-container
-      - --use
-    waitFor: ["-"]
-
+  # A fresh worker has no Go build cache, so the compile is the whole cost and
+  # it parallelises: the larger machine is what makes this step short. (A
+  # registry layer cache was tried and cost more to pull and push than it saved.)
   - id: image
     name: gcr.io/cloud-builders/docker
     args:
-      - buildx
       - build
       - --build-arg
       - VERSION=${_VERSION}
-      - --cache-from=type=registry,ref=${_CACHE}
-      - --cache-to=type=registry,ref=${_CACHE},mode=max
       - --tag
       - ${_IMAGE}
-      - --push
       - .
-    waitFor: [builder]
+    waitFor: ["-"]
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_IMAGE}
+    waitFor: [image]
 
   - id: deploy-run
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -56,7 +51,7 @@ steps:
       - --region=${_RUN_REGION}
       - --project=${PROJECT_ID}
       - --quiet
-    waitFor: [image]
+    waitFor: [push]
 
   - id: deploy-hosting
     name: node:24-bookworm
@@ -70,10 +65,10 @@ steps:
 
 substitutions:
   _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:${SHORT_SHA}
-  _CACHE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:buildcache
   _RUN_REGION: asia-east1
   _VERSION: ${COMMIT_SHA}
 
 options:
+  machineType: E2_HIGHCPU_8
   dynamicSubstitutions: true
   logging: CLOUD_LOGGING_ONLY
