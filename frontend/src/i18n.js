@@ -393,7 +393,7 @@ const EN = {
   "音声入力": "Voice input", "方式": "Mode", "ブラウザ音声認識": "Browser speech recognition",
   "サービス": "Service", "言語": "Language", "無音で自動停止": "Stop after silence", "しない": "Never",
   "送信の合図": "Send phrase", "読み上げ": "Read aloud", "既定の声": "Default voice", "速さ": "Speed", "声": "Voice",
-  "表示言語": "Display language", "この端末": "This device", "保存先": "Storage",
+  "表示言語": "Display language", "文字サイズ": "Text size", "標準": "Standard", "大": "Large", "特大": "Extra large", "この端末": "This device", "保存先": "Storage",
   "バックアップ": "Backup",
   "投稿・担当・メモ・画像を、開発環境でそのまま動く構成のままzipに書き出します。APIキーやBlueskyなどの接続は入らないので、復元先では入れ直してください。": "Download your posts, personas, notes and images as a zip laid out for a development kakeratta. No API keys or connections travel with it, so a restored workspace asks for its own.",
   "zipに書き出す": "Export as zip",

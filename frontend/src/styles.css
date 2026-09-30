@@ -30,7 +30,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 0.9375rem;
   line-height: 1.7;
   -webkit-text-size-adjust: 100%;
   max-width: 100%;

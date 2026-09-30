@@ -9,6 +9,7 @@ import { api } from "./api.js";
 import { speechLanguageOptions } from "./speech_languages.js";
 import { createAudioMeter } from "./meter.js";
 import { getLanguage, setLanguage, t } from "./i18n.js";
+import { TEXT_SIZES, getTextSize, setTextSize } from "./text-size.js";
 
 export function aiConfigured(settings) {
   if (!settings) return false;
@@ -530,6 +531,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
         setLanguage(next, { persist: true });
         location.reload();
       }),
+      select("文字サイズ", getTextSize(), TEXT_SIZES.map(([id, label]) => [id, label]), setTextSize),
     );
     if (!about) return;
     view.append(el("p", { class: "hint", text: `kakeratta ${about.version}` }));

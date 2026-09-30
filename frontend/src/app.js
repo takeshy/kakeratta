@@ -22,9 +22,11 @@ import { createTimelinePages } from "./timeline-pages.js";
 import { createSearch } from "./search.js";
 import { createSpeaker } from "./speaker.js";
 import { getLanguage, t } from "./i18n.js";
+import { applyTextSize } from "./text-size.js";
 import { authenticationEnabled, logout, reconnectAuthentication } from "./auth.js";
 
 document.documentElement.lang = getLanguage();
+applyTextSize();
 
 const root = $("#app");
 let settings = null;

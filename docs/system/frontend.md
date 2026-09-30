@@ -14,7 +14,7 @@ Frontend composition, requests, live updates, offline delivery, speech input, an
 
 `bootstrap.js` checks authentication before loading `app.js`. `app.js` assembles the composer, persona list, timeline, and settings, search, memory, and other panels. `screen.js` provides the basic layout; `feed.js` renders conversations and their controls.
 
-Panels have dedicated modules for persona creation and editing, routing checks, reply corrections, memory browsing, and other functions. The app opens and closes them. `dom.js` centralizes DOM creation and notifications; `i18n.js` handles interface language.
+Panels have dedicated modules for persona creation and editing, routing checks, reply corrections, memory browsing, and other functions. The app opens and closes them. `dom.js` centralizes DOM creation and notifications; `i18n.js` handles interface language. `text-size.js` keeps the text size (standard, large, extra large) in this browser's `localStorage`, like the language, and applies it by scaling the root font size at startup and when the Settings sheet changes it; the page is sized in rem, so all of it follows.
 
 ## Names and speaker lists
 
@@ -41,6 +41,8 @@ A person's card shows its basic information in a collapsed **Basic information**
 - [feed.js](../../frontend/src/feed.js)
 - [screen.js](../../frontend/src/screen.js)
 - [dom.js](../../frontend/src/dom.js)
+- [text-size.js](../../frontend/src/text-size.js)
+- [text-size.test.js](../../tests/text-size.test.js)
 - [person-basic-info.js](../../frontend/src/person-basic-info.js)
 - [feed.test.js](../../tests/feed.test.js): names as buttons
 - [speaker.test.js](../../tests/speaker.test.js): speaker lists and their card
