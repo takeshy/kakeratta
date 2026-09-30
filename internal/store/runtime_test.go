@@ -56,8 +56,16 @@ func runtimeContract(t *testing.T, w Workspace) {
 	if !ok || again.ID != "a1" || again.Attempts != 2 {
 		t.Fatalf("after release = %+v %v", again, ok)
 	}
-	if err := w.FinishReaction("a1"); err != nil {
-		t.Fatal(err)
+	// Only the worker whose claim it is may finish it: w1 gave it up and w3
+	// has it now, so w1 finding out late deletes nothing.
+	if done, err := w.FinishReaction(ctx, "a1", "w1", "a2"); err != nil || done {
+		t.Fatalf("a stale worker finished it: %v %v", done, err)
+	}
+	if items, _ := w.Reactions(ctx); len(items) != 4 {
+		t.Fatalf("a stale finish deleted reactions: %d left", len(items))
+	}
+	if done, err := w.FinishReaction(ctx, "a1", "w3"); err != nil || !done {
+		t.Fatalf("the holder could not finish it: %v %v", done, err)
 	}
 	if after, _, ok, _ := w.ClaimReaction(ctx, "w1", time.Minute); !ok || after.ID != "a2" {
 		t.Fatalf("after finishing the head = %+v %v", after, ok)
@@ -75,6 +83,30 @@ func runtimeContract(t *testing.T, w Workspace) {
 	}
 	if err := w.CreateReaction(Reaction{ID: DueReaction, At: now, Lane: DueReaction, Due: true}); !errors.Is(err, ErrReactionExists) {
 		t.Fatalf("second tick = %v", err)
+	}
+
+	// A reaction that must not be dropped is held back by the worker whose
+	// claim it is, with its attempts spent afresh.
+	if err := w.SaveReaction(Reaction{ID: "held", At: now, Lane: "thread:held", ClaimedBy: "w9", ClaimUntil: now.Add(time.Minute), Attempts: 5}); err != nil {
+		t.Fatal(err)
+	}
+	if done, err := w.DeferReaction(ctx, "held", "w8", now.Add(time.Hour)); err != nil || done {
+		t.Fatalf("another worker deferred it: %v %v", done, err)
+	}
+	if done, err := w.DeferReaction(ctx, "held", "w9", now.Add(time.Hour)); err != nil || !done {
+		t.Fatalf("the holder could not defer it: %v %v", done, err)
+	}
+	items, err := w.Reactions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range items {
+		if item.ID == "held" && (item.ClaimedBy != "" || item.Attempts != 0 || !item.NotBefore.After(now.Add(50*time.Minute))) {
+			t.Fatalf("deferred = %+v", item)
+		}
+	}
+	if i, _, ok := nextClaim(items, time.Now()); ok && items[i].ID == "held" {
+		t.Fatal("a deferred reaction can be claimed before its time")
 	}
 
 	// Records change atomically and lapse.
@@ -111,17 +143,20 @@ func runtimeContract(t *testing.T, w Workspace) {
 	}
 
 	// A lock is held by one at a time.
-	release, err := w.Lock(ctx, "keeper:gourmet")
+	held, release, err := w.Lock(ctx, "keeper:gourmet")
 	if err != nil {
 		t.Fatal(err)
 	}
 	waiting, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
-	if _, err := w.Lock(waiting, "keeper:gourmet"); err == nil {
+	if _, _, err := w.Lock(waiting, "keeper:gourmet"); err == nil {
 		t.Fatal("a held lock was taken")
 	}
 	cancel()
+	if held.Err() != nil {
+		t.Fatalf("a held lock's context ended: %v", held.Err())
+	}
 	release()
-	again2, err := w.Lock(ctx, "keeper:gourmet")
+	_, again2, err := w.Lock(ctx, "keeper:gourmet")
 	if err != nil {
 		t.Fatal(err)
 	}

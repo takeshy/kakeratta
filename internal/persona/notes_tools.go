@@ -46,6 +46,9 @@ func (r *Runner) notesTool(ctx context.Context, personaID, name string, args map
 		return strings.Join(parts, "\n\n"), true
 
 	case "notes_write":
+		if err := ctx.Err(); err != nil {
+			return "書けませんでした（処理が中断されました）: " + err.Error(), false
+		}
 		path, text := stringOf(args["path"]), repairFrontmatter(repairNewlines(stringOf(args["text"])))
 		if path == "" || strings.TrimSpace(text) == "" {
 			return "path と text が要ります。", true
@@ -65,6 +68,9 @@ func (r *Runner) notesTool(ctx context.Context, personaID, name string, args map
 		return "書きました: " + path, true
 
 	case "notes_forget":
+		if err := ctx.Err(); err != nil {
+			return "消せませんでした（処理が中断されました）: " + err.Error(), false
+		}
 		path := stringOf(args["path"])
 		if path == "" {
 			return "path がありません。", true

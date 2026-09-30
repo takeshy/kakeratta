@@ -126,7 +126,7 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 - [timeline_files.go](../../internal/store/timeline_files.go): daily snapshots and ID/thread indexes
 - [delete_entry.go](../../internal/store/delete_entry.go): physical deletion, image removal, and late-write protection
 - [reactions.go](../../internal/store/reactions.go): durable reaction queue
-- [cluster_firestore_test.go](../../internal/store/cluster_firestore_test.go): time windows, reactions, skills feed, and image removal on the emulator
+- [cluster_firestore_test.go](../../internal/store/cluster_firestore_test.go): time windows, reactions, lock loss, skills reads, and image removal on the emulator
 - [timeline_files_test.go](../../internal/store/timeline_files_test.go): cross-date reads and timezone behavior
 - [firestore.go](../../internal/store/firestore.go)
 - [blobs.go](../../internal/store/blobs.go)

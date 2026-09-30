@@ -125,7 +125,7 @@ The host checks unread overwrites, duplicates, types outside the memory layout, 
 
 Persistence attaches links to source posts and carries provenance forward when read notes are consolidated. A reverse index finds notes citing an entry. Deleting posts or notes asks the persona to tidy the remaining memory.
 
-The keeper's input is persisted as a `NoteJob`. Failures retry with increasing delays from one minute up to one hour, on their due time (see [Times and wakes](./architecture.md#times-and-wakes)). Note updates and index repair are separate stages, so completed memory generation is not needlessly repeated. A persona's keeper runs under the named lock `keeper:{id}`, one at a time across processes.
+The keeper's input is persisted as a `NoteJob`. Failures retry with increasing delays from one minute up to one hour, on their due time (see [Times and wakes](./architecture.md#times-and-wakes)). Note updates and index repair are separate stages, so completed memory generation is not needlessly repeated. A persona's keeper runs under the named lock `keeper:{id}`, one at a time across processes; if the lock is lost the keeper stops - it writes no further note and does not repair `index.md` - and the job is tried again.
 
 ## Implementation and verification
 
@@ -147,7 +147,7 @@ Person calendars are also synchronized when a person is created, installed, reac
 
 Birthdays and anniversaries have two annual notifications: seven days before and on the date, at 09:00 in the saved timezone. Newly learned imminent dates notify at the next minute when the usual time has passed. February 29 is observed on February 28 in non-leap years. Annual schedules retain the original calendar date and advance to the following occurrence when claimed; repeating the same information preserves that occurrence. Appointments are one-time notifications, respecting explicitly requested notification times; otherwise the default is 09:00 on the event date, or one hour before an event earlier than 09:00. All schedules accept any future date without a scheduling horizon, within the existing per-persona count limit.
 
-Calendar reconciliation for one persona runs under the named lock `calendar:{id}`. Due person events use the normal Runner notification path, with instructions to notify even when no memory note exists. Model or storage failures are surfaced as API errors during basic-information saving or live error events during post processing. Runner claims due schedules before executing the persona. Claiming is part of the persistence contract and prevents duplicate execution of the same schedule. Pausing or removing a persona removes its schedules.
+Calendar reconciliation for one persona runs under the named lock `calendar:{id}`, and stops writing if the lock is lost. Due person events use the normal Runner notification path, with instructions to notify even when no memory note exists. Model or storage failures are surfaced as API errors during basic-information saving or live error events during post processing. Runner claims due schedules before executing the persona. Claiming is part of the persistence contract and prevents duplicate execution of the same schedule. Pausing or removing a persona removes its schedules.
 
 Past schedules are not all replayed unconditionally. Execution windows and persona state determine how late schedules are handled.
 

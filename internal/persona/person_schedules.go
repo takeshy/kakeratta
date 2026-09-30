@@ -135,7 +135,7 @@ func (r *Runner) ApplyPersonSchedules(plan *PersonSchedulePlan) error {
 	// process or any other serving the workspace.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	release, err := r.store.Lock(ctx, "calendar:"+plan.skill.ID)
+	ctx, release, err := r.store.Lock(ctx, "calendar:"+plan.skill.ID)
 	if err != nil {
 		return err
 	}
@@ -213,12 +213,20 @@ func (r *Runner) ApplyPersonSchedules(plan *PersonSchedulePlan) error {
 	if retained+len(desired) > store.MaxSchedulesPerSkill {
 		return store.ErrScheduleTooMany
 	}
+	// The lock is held only while ctx lives: a lock lost to another process
+	// stops the writing, which another is doing now.
 	for _, old := range remove {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := r.store.DeleteSchedule(old.Skill, old.ID); err != nil && !errors.Is(err, store.ErrScheduleNotFound) {
 			return err
 		}
 	}
 	for _, schedule := range desired {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if _, err := r.store.SaveSchedule(schedule); err != nil {
 			return err
 		}

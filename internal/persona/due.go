@@ -30,16 +30,25 @@ const (
 	// soonDue is how long after a piece of work the workspace looks again:
 	// the work may have set a schedule, a retry, or an expires date.
 	soonDue = 30 * time.Second
+	// retryDue is how long the next wake is put off when what it depends on
+	// could not be read, or the wake before it gave up.
+	retryDue = 5 * time.Minute
 )
+
+// armBackoff is the wait before the second try of setting an alarm, and twice
+// it before the third. A variable so that tests can shorten it.
+var armBackoff = time.Second
 
 // SetAlarm gives the runner the way to wake its workspace at a time. Set
 // before Start.
 func (r *Runner) SetAlarm(set func(at time.Time) error) { r.alarm = set }
 
 // Due queues the reaction that runs whatever has come due. It does nothing if
-// one is waiting already.
-func (r *Runner) Due() {
-	r.accept(store.Reaction{ID: store.DueReaction, Lane: store.DueReaction, Due: true})
+// one is waiting already, and returns the error if it could not be kept: a
+// wake that is not kept is a wake lost, so whoever asked must be able to try
+// again.
+func (r *Runner) Due() error {
+	return r.accept(store.Reaction{ID: store.DueReaction, Lane: store.DueReaction, Due: true})
 }
 
 // Rearm works out when the workspace next has something to do and sets the
@@ -49,29 +58,56 @@ func (r *Runner) Due() {
 func (r *Runner) Rearm() { r.arm(time.Now()) }
 
 // arm sets the alarm for at, or for as soon as allowed if at has passed.
-func (r *Runner) arm(at time.Time) {
+func (r *Runner) arm(at time.Time) error {
 	if r.alarm == nil {
-		return
+		return nil
 	}
-	if err := r.alarm(at); err != nil {
+	err := r.alarm(at)
+	if err != nil {
 		r.emit("error", map[string]any{"where": "due", "message": err.Error()})
 	}
+	return err
+}
+
+// armAgain sets the alarm, trying a few times: it is the only thing that
+// wakes the workspace again.
+func (r *Runner) armAgain(ctx context.Context, at time.Time) (err error) {
+	for attempt := 1; attempt <= 3; attempt++ {
+		if err = r.arm(at); err == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(time.Duration(attempt) * armBackoff):
+		}
+	}
+	return err
 }
 
 // due runs everything that has come due and sets the alarm for the next time.
-func (r *Runner) due(ctx context.Context, now time.Time) {
+// The alarm is set whatever went wrong before, since it is the only thing that
+// wakes the workspace again; it returns an error only if that could not be.
+func (r *Runner) due(ctx context.Context, now time.Time) (err error) {
+	_, settings := r.clientOf()
+	var expiry time.Time
 	defer func() {
 		if problem := recover(); problem != nil {
 			r.emit("error", map[string]any{"where": "due", "message": fmt.Sprint(problem)})
 		}
+		if ctx.Err() != nil {
+			// The claim is lost: whoever has it now sets the next wake.
+			err = ctx.Err()
+			return
+		}
+		err = r.armAgain(ctx, r.nextDue(ctx, time.Now(), settings, expiry))
 	}()
 	r.sweepAsks(ctx, now)
 	r.retryNoteJobs(ctx, now)
-	_, settings := r.clientOf()
-	expiry := r.expireNotes(ctx, now, settings)
+	expiry = r.expireNotes(ctx, now, settings)
 	r.dailyAt(ctx, now)
 	r.schedulesAt(ctx, now)
-	r.arm(r.nextDue(ctx, time.Now(), settings, expiry))
+	return nil
 }
 
 // nextDue is the earliest time after now that anything of the workspace's
@@ -83,9 +119,13 @@ func (r *Runner) nextDue(ctx context.Context, now time.Time, settings store.Sett
 			next = at
 		}
 	}
+	// A time that could not be read may be sooner than any that could: the
+	// next look is not put off further than retryDue.
+	failed := false
 	consider(expiry)
 	if schedules, err := r.store.Schedules(""); err != nil {
 		r.emit("error", map[string]any{"where": "due", "message": err.Error()})
+		failed = true
 	} else {
 		for _, schedule := range schedules {
 			consider(schedule.At)
@@ -93,12 +133,18 @@ func (r *Runner) nextDue(ctx context.Context, now time.Time, settings store.Sett
 	}
 	if jobs, err := r.store.NoteJobs(); err != nil {
 		r.emit("error", map[string]any{"where": "due", "message": err.Error()})
+		failed = true
 	} else {
 		for _, job := range jobs {
 			consider(job.NextAttempt)
 		}
 	}
-	for _, record := range r.openAsks(ctx) {
+	asks, err := r.readAsks(ctx)
+	if err != nil {
+		r.emit("error", map[string]any{"where": "due", "message": err.Error()})
+		failed = true
+	}
+	for _, record := range asks {
 		switch {
 		case record.Closed:
 		case record.Ask.State == "claimed" && record.Ask.PlanBy != nil:
@@ -108,6 +154,9 @@ func (r *Runner) nextDue(ctx context.Context, now time.Time, settings store.Sett
 		}
 	}
 	consider(r.nextCheckIn(ctx, now, settings))
+	if failed {
+		consider(now.Add(retryDue))
+	}
 	if floor := now.Add(minDue); next.Before(floor) {
 		next = floor
 	}

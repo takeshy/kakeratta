@@ -221,18 +221,23 @@ func (w *FirestoreWorkspace) UpdateRecord(ctx context.Context, collection, id st
 
 // LockTTL is how long a lock holds without renewal; its holder renews it at a
 // third of that while it works.
-const LockTTL = 30 * time.Second
+// (A variable so that tests can shorten it.)
+var LockTTL = 30 * time.Second
 
 // Lock takes a named lock on the workspace, waiting for it until ctx ends. The
-// release it returns must be called once the work is done.
-func (s *Store) Lock(ctx context.Context, name string) (func(), error) {
+// context it returns is the holder's to work under: it ends when the lock is
+// lost - another process took it after this one failed to renew in time - so
+// the work stops instead of running beside the new holder. The release it
+// returns must be called once the work is done.
+func (s *Store) Lock(ctx context.Context, name string) (context.Context, func(), error) {
 	value, _ := s.locks.LoadOrStore(name, make(chan struct{}, 1))
 	lock := value.(chan struct{})
 	select {
 	case lock <- struct{}{}:
-		return func() { <-lock }, nil
+		// Held in this process: it cannot be lost to another.
+		return ctx, func() { <-lock }, nil
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, nil, ctx.Err()
 	}
 }
 
@@ -242,8 +247,10 @@ type lockDoc struct {
 }
 
 // Lock takes a named lock shared by every instance serving the workspace. A
-// holder that dies leaves it to run out after LockTTL.
-func (w *FirestoreWorkspace) Lock(ctx context.Context, name string) (func(), error) {
+// holder that dies leaves it to run out after LockTTL. A holder that can no
+// longer renew it - another took it, or renewing failed for most of LockTTL -
+// has the context it was given ended.
+func (w *FirestoreWorkspace) Lock(ctx context.Context, name string) (context.Context, func(), error) {
 	ref := w.user.Collection("locks").Doc(sanitise(name))
 	owner := NewID("lock")
 	take := func(ctx context.Context, renew bool) (bool, error) {
@@ -277,20 +284,27 @@ func (w *FirestoreWorkspace) Lock(ctx context.Context, name string) (func(), err
 	for {
 		taken, err := take(ctx, false)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if taken {
 			break
 		}
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, nil, ctx.Err()
 		case <-time.After(wait):
 		}
 		wait = min(wait*2, 2*time.Second)
 	}
+	// The holder works under work, which ends with ctx or with the lock.
+	work, lost := context.WithCancel(ctx)
 	held, stop := context.WithCancel(context.Background())
 	done := make(chan struct{})
+	// The watchdog ends the work if the lock has not been renewed for most of
+	// its lease. It runs on its own clock, so a renewal that hangs - a request
+	// that never returns - cannot keep the work going past the lease.
+	safe := LockTTL * 2 / 3
+	watchdog := time.AfterFunc(safe, lost)
 	go func() {
 		defer close(done)
 		ticker := time.NewTicker(LockTTL / 3)
@@ -300,17 +314,29 @@ func (w *FirestoreWorkspace) Lock(ctx context.Context, name string) (func(), err
 			case <-held.Done():
 				return
 			case <-ticker.C:
-				if kept, err := take(held, true); err == nil && !kept {
+				// One renewal may take no longer than the interval.
+				renewing, cancel := context.WithTimeout(held, LockTTL/3)
+				kept, err := take(renewing, true)
+				cancel()
+				switch {
+				case err == nil && kept:
+					watchdog.Reset(safe)
+				case err == nil:
+					lost() // Another holds it now.
 					return
 				}
+				// A renewal that failed is tried again at the next tick; the
+				// watchdog ends the work if they keep failing.
 			}
 		}
 	}()
 	var once sync.Once
-	return func() {
+	return work, func() {
 		once.Do(func() {
+			watchdog.Stop()
 			stop()
 			<-done
+			lost()
 			release, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			_ = w.client.RunTransaction(release, func(ctx context.Context, tx *firestore.Transaction) error {

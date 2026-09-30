@@ -204,7 +204,9 @@ func (d *dryWorkspace) SaveReaction(store.Reaction) error { return nil }
 func (d *dryWorkspace) Reactions(context.Context) ([]store.Reaction, error) {
 	return nil, nil
 }
-func (d *dryWorkspace) FinishReaction(string) error         { return nil }
+func (d *dryWorkspace) FinishReaction(context.Context, string, string, ...string) (bool, error) {
+	return true, nil
+}
 func (d *dryWorkspace) CreateReaction(store.Reaction) error { return nil }
 func (d *dryWorkspace) ClaimReaction(context.Context, string, time.Duration) (store.Reaction, []store.Reaction, bool, error) {
 	return store.Reaction{}, nil, false, nil
@@ -213,6 +215,9 @@ func (d *dryWorkspace) RenewReaction(context.Context, string, string, time.Durat
 	return false, nil
 }
 func (d *dryWorkspace) ReleaseReaction(context.Context, string, string) error { return nil }
+func (d *dryWorkspace) DeferReaction(context.Context, string, string, time.Time) (bool, error) {
+	return true, nil
+}
 func (d *dryWorkspace) UpdateRouting(string, func(*store.Routing) (*store.Routing, error)) error {
 	return nil
 }
@@ -221,11 +226,13 @@ func (d *dryWorkspace) UpdateRecord(context.Context, string, string, time.Time, 
 }
 
 // A preview holds no lock: it writes nothing another turn could overwrite.
-func (d *dryWorkspace) Lock(context.Context, string) (func(), error) { return func() {}, nil }
-func (d *dryWorkspace) SetClosing(context.Context, bool) error       { return nil }
-func (d *dryWorkspace) NoteJobs() ([]store.NoteJob, error)           { return nil, nil }
-func (d *dryWorkspace) SaveNoteJob(store.NoteJob) error              { return nil }
-func (d *dryWorkspace) DeleteNoteJob(string) error                   { return nil }
+func (d *dryWorkspace) Lock(ctx context.Context, _ string) (context.Context, func(), error) {
+	return ctx, func() {}, nil
+}
+func (d *dryWorkspace) SetClosing(context.Context, bool) error { return nil }
+func (d *dryWorkspace) NoteJobs() ([]store.NoteJob, error)     { return nil, nil }
+func (d *dryWorkspace) SaveNoteJob(store.NoteJob) error        { return nil }
+func (d *dryWorkspace) DeleteNoteJob(string) error             { return nil }
 func (d *dryWorkspace) WriteNote(_, path, content string, sources ...store.NoteSource) error {
 	// The index and the log are housekeeping; what a person is shown is the notes
 	// that carry what was said.

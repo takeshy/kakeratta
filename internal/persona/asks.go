@@ -114,13 +114,21 @@ func (record askRecord) expiry() time.Time {
 }
 
 func (r *Runner) openAsks(ctx context.Context) []askRecord {
+	records, err := r.readAsks(ctx)
+	if err != nil {
+		r.emit("error", map[string]any{"where": "ask", "message": err.Error()})
+	}
+	return records
+}
+
+// readAsks lists the asks, oldest first, or the error if they could not be read.
+func (r *Runner) readAsks(ctx context.Context) ([]askRecord, error) {
 	if r.store == nil {
-		return nil
+		return nil, nil
 	}
 	raws, err := r.store.Records(ctx, store.RecordAsks)
 	if err != nil {
-		r.emit("error", map[string]any{"where": "ask", "message": err.Error()})
-		return nil
+		return nil, err
 	}
 	var out []askRecord
 	for _, raw := range raws {
@@ -135,7 +143,7 @@ func (r *Runner) openAsks(ctx context.Context) []askRecord {
 		}
 		return out[i].Ask.ID < out[j].Ask.ID
 	})
-	return out
+	return out, nil
 }
 
 // Asks lists the open asks, oldest first.
@@ -215,7 +223,7 @@ func claimedBy(record askRecord, exists bool, claimID string) error {
 // the answer.
 func (r *Runner) ReadForAsk(ctx context.Context, id, claimID string, steps []ReadStep) (string, error) {
 	// One read at a time per ask: each builds on the budget the last left.
-	release, err := r.store.Lock(ctx, "ask:"+id)
+	ctx, release, err := r.store.Lock(ctx, "ask:"+id)
 	if err != nil {
 		return "", err
 	}

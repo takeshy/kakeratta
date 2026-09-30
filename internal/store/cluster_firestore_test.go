@@ -180,3 +180,68 @@ func TestFirestoreDeletionRemovesCaptures(t *testing.T) {
 		t.Fatal("the capture outlived its post")
 	}
 }
+
+// A lock that another process now holds ends the holder's context, and the
+// holder releasing it later does not delete the new holder's lock.
+func TestFirestoreLockLostEndsTheHoldersContext(t *testing.T) {
+	_, w := firestoreWorkspace(t)
+	ctx := context.Background()
+	defer func(ttl time.Duration) { LockTTL = ttl }(LockTTL)
+	LockTTL = 600 * time.Millisecond
+	held, release, err := w.Lock(ctx, "keeper:x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := w.user.Collection("locks").Doc(sanitise("keeper:x"))
+	if _, err := ref.Set(ctx, lockDoc{Owner: "someone-else", Until: time.Now().Add(time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-held.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the context of a lost lock did not end")
+	}
+	release()
+	doc, err := ref.Get(ctx)
+	if err != nil {
+		t.Fatalf("the new holder's lock was deleted: %v", err)
+	}
+	if owner, _ := doc.Data()["owner"].(string); owner != "someone-else" {
+		t.Fatalf("owner = %q", owner)
+	}
+}
+
+// A lock whose renewals keep failing ends its holder's context before the
+// lease runs out, without waiting for a renewal to return.
+func TestFirestoreLockEndsWhenRenewalsFail(t *testing.T) {
+	if os.Getenv("FIRESTORE_EMULATOR_HOST") == "" {
+		t.Skip("set FIRESTORE_EMULATOR_HOST to run the Firestore workspace tests")
+	}
+	ctx := context.Background()
+	client, err := firestore.NewClient(ctx, "kakeratta-store-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := NewFirestoreWorkspace(ctx, client, NewID("user"), &memoryBlobs{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	defer func(ttl time.Duration) { LockTTL = ttl }(LockTTL)
+	LockTTL = 600 * time.Millisecond
+	held, release, err := w.Lock(ctx, "keeper:y")
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	_ = client.Close() // Every renewal fails from here on.
+	select {
+	case <-held.Done():
+	case <-time.After(3 * time.Second):
+		t.Fatal("the context of a lock that cannot be renewed did not end")
+	}
+	if took := time.Since(started); took > LockTTL {
+		t.Fatalf("it ended after %s, past the lease of %s", took, LockTTL)
+	}
+	release()
+}

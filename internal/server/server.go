@@ -98,7 +98,12 @@ func New(options Options) *Server {
 	if options.Alarm != nil {
 		s.runner.SetAlarm(options.Alarm)
 	} else {
-		s.alarm = newLocalAlarm(s.runner.Due)
+		s.alarm = newLocalAlarm(func() {
+			if err := s.runner.Due(); err != nil {
+				// The wake was not kept: try again in a minute.
+				_ = s.alarm.Set(time.Now().Add(time.Minute))
+			}
+		})
 		s.runner.SetAlarm(s.alarm.Set)
 	}
 	// Whatever was queued and not finished - here before a restart, or by

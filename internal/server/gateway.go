@@ -22,6 +22,9 @@ import (
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
+// errWorkspaceClosing is a workspace being deleted: it is not opened.
+var errWorkspaceClosing = errors.New("workspace is being deleted")
+
 // Firebase Hosting drops every cookie but one named __session before a request
 // reaches Cloud Run, so that is the only name a session can have.
 const authCookieName = "__session"
@@ -429,7 +432,7 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 		return existing, nil
 	}
 	if g.closing[userKey] {
-		return nil, errors.New("workspace is being deleted")
+		return nil, errWorkspaceClosing
 	}
 	if g.shared != nil {
 		// Another instance may be deleting it.
@@ -440,7 +443,7 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 			return nil, err
 		}
 		if closing {
-			return nil, errors.New("workspace is being deleted")
+			return nil, errWorkspaceClosing
 		}
 	}
 	tenant, err := g.open(userKey)

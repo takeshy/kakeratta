@@ -2,9 +2,11 @@ package persona
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
 )
@@ -187,5 +189,207 @@ func TestAReactionReadsThePersonaDefinitionsOnce(t *testing.T) {
 	}
 	if reads := counting.reads.Load(); reads != 1 {
 		t.Fatalf("the definitions were read %d times for one reaction", reads)
+	}
+}
+
+// A worker whose claim was lost to another does not delete the reaction the
+// other is working, when it finds out at the end.
+func TestAWorkerThatLostItsClaimLeavesTheReactionAlone(t *testing.T) {
+	runner, s, _ := setup(t, answering, "gourmet")
+	entry := post(t, s, "ラーメン食べたい")
+	item := store.Reaction{
+		ID: "r-taken", At: time.Now(), Lane: "thread:" + entry.ID, Entry: entry.ID,
+		ClaimedBy: "another", ClaimUntil: time.Now().Add(time.Minute),
+	}
+	if err := s.SaveReaction(item); err != nil {
+		t.Fatal(err)
+	}
+	runner.handle(item, nil)
+	if got := pending(t, s); len(got) != 1 || got[0].ID != "r-taken" || got[0].ClaimedBy != "another" {
+		t.Fatalf("the other worker's reaction was touched: %+v", got)
+	}
+}
+
+// A due reaction that cannot set the next wake is not finished: it is tried
+// again, rather than the workspace going quiet.
+func TestADueThatCannotSetTheNextWakeIsTriedAgain(t *testing.T) {
+	defer func(backoff time.Duration) { armBackoff = backoff }(armBackoff)
+	armBackoff = time.Millisecond
+	runner, s, _ := setup(t, answering, "gourmet")
+	var calls atomic.Int32
+	var down atomic.Bool
+	down.Store(true)
+	runner.SetAlarm(func(time.Time) error {
+		calls.Add(1)
+		if down.Load() {
+			return errors.New("the queue is down")
+		}
+		return nil
+	})
+	if err := runner.due(context.Background(), time.Now()); err == nil || calls.Load() != 3 {
+		t.Fatalf("due = %v after %d tries", err, calls.Load())
+	}
+
+	if err := s.CreateReaction(store.Reaction{ID: store.DueReaction, At: time.Now(), Lane: store.DueReaction, Due: true}); err != nil {
+		t.Fatal(err)
+	}
+	item, rest, ok, err := s.ClaimReaction(context.Background(), runner.worker, time.Minute)
+	if err != nil || !ok {
+		t.Fatalf("claim = %v %v", ok, err)
+	}
+	runner.handle(item, rest)
+	if got := pending(t, s); len(got) != 1 || got[0].ID != store.DueReaction {
+		t.Fatalf("a due that set no next wake was finished: %+v", got)
+	}
+
+	down.Store(false)
+	item.ClaimedBy = runner.worker
+	runner.handle(item, nil)
+	if got := pending(t, s); len(got) != 0 {
+		t.Fatalf("a due that set the next wake was kept: %+v", got)
+	}
+}
+
+// A keeper that lost its lock writes nothing more: its context has ended, and
+// index.md is the new holder's to write.
+func TestALostLockStopsIndexAndNoteWrites(t *testing.T) {
+	r, s, _ := setup(t, answering, "gourmet")
+	if err := s.WriteNote("gourmet", "index.md", "# 目次\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WriteNote("gourmet", "shops/ramen.md", "---\ntype: Shop\ntitle: ラーメン\n---\n\n店"); err != nil {
+		t.Fatal(err)
+	}
+	lost, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	before, _ := s.Note("gourmet", "index.md")
+	if _, err := r.repairIndex(lost, "gourmet"); err == nil {
+		t.Fatal("a lost lock still repaired the index")
+	}
+	ops := []NoteOperation{{Type: "write", Path: "shops/ramen.md", Section: "店"}}
+	if err := r.placeInIndex(lost, "gourmet", ops, []string{"shops/ramen.md"}); err == nil {
+		t.Fatal("a lost lock still placed a note in the index")
+	}
+	if out, ok := r.notesTool(lost, "gourmet", "notes_write", map[string]any{"path": "shops/new.md", "text": "x"}, newProvenance()); ok {
+		t.Fatalf("a lost lock still wrote a note: %s", out)
+	}
+	if out, ok := r.notesTool(lost, "gourmet", "notes_forget", map[string]any{"path": "shops/ramen.md"}, newProvenance()); ok {
+		t.Fatalf("a lost lock still forgot a note: %s", out)
+	}
+	if after, _ := s.Note("gourmet", "index.md"); after.Text != before.Text {
+		t.Fatalf("the index was written: %q", after.Text)
+	}
+	if _, ok := s.Note("gourmet", "shops/new.md"); ok {
+		t.Fatal("a note was written")
+	}
+
+	// The holder repairs it as before.
+	if repaired, err := r.repairIndex(context.Background(), "gourmet"); err != nil || !repaired {
+		t.Fatalf("repair = %v, %v", repaired, err)
+	}
+}
+
+// A due reaction out of attempts is dropped only once the next wake is set;
+// until then it is kept, held back and with its attempts spent afresh, so the
+// workspace is woken again when the queue is back.
+func TestADueOutOfAttemptsIsNotDroppedWithoutANextWake(t *testing.T) {
+	defer func(backoff time.Duration) { armBackoff = backoff }(armBackoff)
+	armBackoff = time.Millisecond
+	runner, s, _ := setup(t, answering, "gourmet")
+	var down atomic.Bool
+	down.Store(true)
+	runner.SetAlarm(func(time.Time) error {
+		if down.Load() {
+			return errors.New("the queue is down")
+		}
+		return nil
+	})
+	claim := func() store.Reaction {
+		item, _, ok, err := s.ClaimReaction(context.Background(), runner.worker, time.Minute)
+		if err != nil || !ok {
+			t.Fatalf("claim = %v %v", ok, err)
+		}
+		return item
+	}
+	if err := s.CreateReaction(store.Reaction{ID: store.DueReaction, At: time.Now(), Lane: store.DueReaction, Due: true, Attempts: maxReactionAttempts}); err != nil {
+		t.Fatal(err)
+	}
+	item := claim() // Attempts is now over the limit.
+	if item.Attempts <= maxReactionAttempts {
+		t.Fatalf("attempts = %d", item.Attempts)
+	}
+	runner.handle(item, nil)
+	got := pending(t, s)
+	if len(got) != 1 || got[0].ClaimedBy != "" || got[0].Attempts != 0 || !got[0].NotBefore.After(time.Now().Add(retryDue-time.Minute)) {
+		t.Fatalf("a due that could not set the next wake = %+v", got)
+	}
+	if _, _, ok, _ := s.ClaimReaction(context.Background(), "someone", time.Minute); ok {
+		t.Fatal("the deferred reaction can be claimed at once")
+	}
+
+	// Once the queue is back, and the time has come, it is worked and goes.
+	got[0].NotBefore = time.Time{}
+	if err := s.SaveReaction(got[0]); err != nil {
+		t.Fatal(err)
+	}
+	down.Store(false)
+	runner.handle(claim(), nil)
+	if left := pending(t, s); len(left) != 0 {
+		t.Fatalf("left = %+v", left)
+	}
+
+	// Given up on with the next wake set, it simply goes.
+	if err := s.CreateReaction(store.Reaction{ID: store.DueReaction, At: time.Now(), Lane: store.DueReaction, Due: true, Attempts: maxReactionAttempts + 1}); err != nil {
+		t.Fatal(err)
+	}
+	runner.handle(claim(), nil)
+	if left := pending(t, s); len(left) != 0 {
+		t.Fatalf("a due given up on with the next wake set was kept: %+v", left)
+	}
+}
+
+// failingRenewals is a workspace whose claims cannot be renewed.
+type failingRenewals struct{ *store.Store }
+
+func (failingRenewals) RenewReaction(context.Context, string, string, time.Duration) (bool, error) {
+	return false, errors.New("firestore is down")
+}
+
+// Work cut short because its claim could not be renewed is not finished: it
+// stays, held back briefly and unclaimed, to be taken up again once the
+// storage is back - the answer it was to give is not lost with it.
+func TestWorkCutShortByFailingRenewalsIsKeptForAnotherTry(t *testing.T) {
+	defer func(ttl time.Duration) { claimTTL = ttl }(claimTTL)
+	claimTTL = 150 * time.Millisecond
+	block := make(chan struct{})
+	runner, s, _ := setup(t, func(system, user string) string {
+		<-block // The model does not answer.
+		return `{"deliver":[]}`
+	}, "gourmet")
+	t.Cleanup(func() { close(block) })
+	runner.store = failingRenewals{s}
+	entry := post(t, s, "ラーメン食べたい")
+	if err := s.SaveReaction(store.Reaction{ID: "r-cut", At: time.Now(), Lane: "thread:" + entry.ID, Entry: entry.ID}); err != nil {
+		t.Fatal(err)
+	}
+	item, _, ok, err := s.ClaimReaction(context.Background(), runner.worker, claimTTL)
+	if err != nil || !ok {
+		t.Fatalf("claim = %v %v", ok, err)
+	}
+	done := make(chan struct{})
+	go func() {
+		runner.handle(item, nil)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("work whose claim could not be renewed was not cut short")
+	}
+	got := pending(t, s)
+	if len(got) != 1 || got[0].ID != "r-cut" || got[0].ClaimedBy != "" || got[0].Attempts != 0 ||
+		!got[0].NotBefore.After(time.Now().Add(interruptedDelay-10*time.Second)) {
+		t.Fatalf("a reaction cut short was not kept for another try: %+v", got)
 	}
 }

@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/takeshy/kakeratta/internal/store"
 )
 
 // The earliest wake stands; a later one asked for meanwhile waits behind it,
@@ -54,10 +56,10 @@ func TestAStoppedAlarmDoesNotFire(t *testing.T) {
 
 // dueGateway is a gateway of a shared deployment whose alarms are recorded,
 // over file workspaces.
-func dueGateway(t *testing.T, verify func(*http.Request) (string, error)) (*Gateway, *dueCalls) {
+func dueGateway(t *testing.T, verify func(*http.Request) (string, error), tweak ...func(*AuthOptions)) (*Gateway, *dueCalls) {
 	t.Helper()
 	calls := &dueCalls{}
-	gateway := newGateway(AuthOptions{
+	options := AuthOptions{
 		Root: t.TempDir(), Version: "test",
 		FirebaseProjectID: "project", FirebaseAPIKey: "key", FirebaseAuthDomain: "project.firebaseapp.com",
 		Shared: &Shared{
@@ -75,9 +77,76 @@ func dueGateway(t *testing.T, verify func(*http.Request) (string, error)) (*Gate
 			Exists:    func(context.Context, string) (bool, error) { return true, nil },
 			Closing:   func(context.Context, string) (bool, error) { return false, nil },
 		},
-	}, fakeVerifier{})
+	}
+	for _, change := range tweak {
+		change(&options)
+	}
+	gateway := newGateway(options, fakeVerifier{})
 	t.Cleanup(gateway.Close)
 	return gateway, calls
+}
+
+// failingQueue is a workspace that cannot keep a reaction.
+type failingQueue struct{ *store.Store }
+
+func (failingQueue) CreateReaction(store.Reaction) error { return errors.New("the queue is down") }
+func (failingQueue) SaveReaction(store.Reaction) error   { return errors.New("the queue is down") }
+
+// A wake that could not be kept is answered with a failure, so the task is
+// tried again; one for a workspace that is gone or being deleted is not.
+func TestAWakeThatIsNotKeptIsAFailure(t *testing.T) {
+	verify := func(r *http.Request) (string, error) {
+		var body struct {
+			Workspace string `json:"workspace"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&body)
+		return body.Workspace, err
+	}
+	post := func(g *Gateway, key string) int {
+		request := httptest.NewRequest(http.MethodPost, "/internal/due", strings.NewReader(`{"workspace":"`+key+`"}`))
+		recorder := httptest.NewRecorder()
+		g.ServeHTTP(recorder, request)
+		return recorder.Code
+	}
+	key := workspaceKey("user-failing")
+
+	broken, _ := dueGateway(t, verify, func(o *AuthOptions) {
+		o.OpenWorkspace = func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
+			s, err := store.Open(t.TempDir())
+			return failingQueue{s}, err
+		}
+	})
+	if got := post(broken, key); got != http.StatusServiceUnavailable {
+		t.Fatalf("a wake the queue could not keep = %d", got)
+	}
+
+	unreadable, _ := dueGateway(t, verify, func(o *AuthOptions) {
+		o.Shared.Exists = func(context.Context, string) (bool, error) { return false, errors.New("firestore is down") }
+	})
+	if got := post(unreadable, key); got != http.StatusServiceUnavailable {
+		t.Fatalf("a wake that could not tell if the workspace exists = %d", got)
+	}
+
+	unopenable, _ := dueGateway(t, verify, func(o *AuthOptions) {
+		o.OpenWorkspace = func(string, store.BlobStore) (store.Workspace, error) { return nil, errors.New("cannot open") }
+	})
+	if got := post(unopenable, key); got != http.StatusServiceUnavailable {
+		t.Fatalf("a wake that could not open the workspace = %d", got)
+	}
+
+	gone, _ := dueGateway(t, verify, func(o *AuthOptions) {
+		o.Shared.Exists = func(context.Context, string) (bool, error) { return false, nil }
+	})
+	if got := post(gone, key); got != http.StatusNoContent {
+		t.Fatalf("a wake for a workspace that is gone = %d", got)
+	}
+
+	closing, _ := dueGateway(t, verify, func(o *AuthOptions) {
+		o.Shared.Closing = func(context.Context, string) (bool, error) { return true, nil }
+	})
+	if got := post(closing, key); got != http.StatusNoContent {
+		t.Fatalf("a wake for a workspace being deleted = %d", got)
+	}
 }
 
 type dueCalls struct {

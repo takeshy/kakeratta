@@ -242,17 +242,61 @@ func (s *Store) ReleaseReaction(_ context.Context, id, worker string) error {
 	return writeJSON(path, item)
 }
 
-// FinishReaction forgets a reaction whose work is done.
-func (s *Store) FinishReaction(id string) error {
-	if !safeName(id) {
-		return errors.New("reaction needs an id")
+// FinishReaction forgets a reaction whose work is done, together with the
+// ones behind it that were folded into it. Only the worker whose claim it is
+// may: if the claim lapsed and another worker took the reaction over, the
+// first finding out at the end must not delete what the second is working.
+// It reports whether the reaction was finished.
+func (s *Store) FinishReaction(_ context.Context, id, worker string, also ...string) (bool, error) {
+	for _, name := range append([]string{id}, also...) {
+		if !safeName(name) {
+			return false, errors.New("reaction needs an id")
+		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := os.Remove(s.path(reactionsDir, id+".json")); err != nil && !os.IsNotExist(err) {
-		return err
+	var head Reaction
+	if err := readJSON(s.path(reactionsDir, id+".json"), &head); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
 	}
-	return nil
+	if head.ClaimedBy != worker {
+		return false, nil
+	}
+	for _, name := range append(append([]string(nil), also...), id) {
+		if err := os.Remove(s.path(reactionsDir, name+".json")); err != nil && !os.IsNotExist(err) {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// DeferReaction gives worker's claim up and holds the reaction back until
+// notBefore, with its attempts spent afresh. It is for work that cannot be
+// done now and must not be dropped: a reaction given up on after its attempts
+// would otherwise be lost with whatever it was to set going. It reports
+// whether the reaction was worker's to defer.
+func (s *Store) DeferReaction(_ context.Context, id, worker string, notBefore time.Time) (bool, error) {
+	if !safeName(id) {
+		return false, errors.New("reaction needs an id")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	path := s.path(reactionsDir, id+".json")
+	var item Reaction
+	if err := readJSON(path, &item); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if item.ClaimedBy != worker {
+		return false, nil
+	}
+	item.ClaimedBy, item.ClaimUntil, item.Attempts, item.NotBefore = "", time.Time{}, 0, notBefore
+	return true, writeJSON(path, item)
 }
 
 func reactionsOf(client *firestore.Client, key string) *firestore.CollectionRef {
@@ -425,15 +469,66 @@ func (w *FirestoreWorkspace) ReleaseReaction(ctx context.Context, id, worker str
 	})
 }
 
-func (w *FirestoreWorkspace) FinishReaction(id string) error {
+func (w *FirestoreWorkspace) FinishReaction(ctx context.Context, id, worker string, also ...string) (bool, error) {
+	for _, name := range append([]string{id}, also...) {
+		if !safeName(name) {
+			return false, errors.New("reaction needs an id")
+		}
+	}
+	finished := false
+	err := w.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		finished = false
+		doc, err := tx.Get(w.reactions().Doc(id))
+		if status.Code(err) == codes.NotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var head Reaction
+		if err := doc.DataTo(&head); err != nil {
+			return err
+		}
+		if head.ClaimedBy != worker {
+			return nil
+		}
+		for _, name := range also {
+			if err := tx.Delete(w.reactions().Doc(name)); err != nil {
+				return err
+			}
+		}
+		finished = true
+		return tx.Delete(w.reactions().Doc(id))
+	})
+	return finished && err == nil, err
+}
+
+func (w *FirestoreWorkspace) DeferReaction(ctx context.Context, id, worker string, notBefore time.Time) (bool, error) {
 	if !safeName(id) {
-		return errors.New("reaction needs an id")
+		return false, errors.New("reaction needs an id")
 	}
-	_, err := w.reactions().Doc(id).Delete(context.Background())
-	if status.Code(err) == codes.NotFound {
-		return nil
-	}
-	return err
+	ref := w.reactions().Doc(id)
+	deferred := false
+	err := w.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		deferred = false
+		doc, err := tx.Get(ref)
+		if status.Code(err) == codes.NotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var item Reaction
+		if err := doc.DataTo(&item); err != nil || item.ClaimedBy != worker {
+			return err
+		}
+		deferred = true
+		return tx.Update(ref, []firestore.Update{
+			{Path: "claimedBy", Value: ""}, {Path: "claimUntil", Value: time.Time{}},
+			{Path: "attempts", Value: 0}, {Path: "notBefore", Value: notBefore},
+		})
+	})
+	return deferred && err == nil, err
 }
 
 // workspaceOf is the workspace key a document under users/{key} belongs to.

@@ -22,15 +22,20 @@ import (
 // is the only one.
 const (
 	maxWorkers = 4
-	// claimTTL is how long a claim holds unless renewed; a worker renews it
-	// every third of that while it works.
-	claimTTL = 30 * time.Second
 	// idlePoll is how often an idle runner looks for work it was not told of.
 	idlePoll = time.Minute
 	// maxReactionAttempts bounds how often a reaction is taken up. One that
 	// brought its process down each time would otherwise do so forever.
 	maxReactionAttempts = 3
+	// interruptedDelay is how long a reaction whose work was cut short - its
+	// claim was lost, or could not be renewed - is held back before it is
+	// taken up again.
+	interruptedDelay = 30 * time.Second
 )
+
+// claimTTL is how long a claim holds unless renewed; a worker renews it every
+// third of that while it works. A variable so that tests can shorten it.
+var claimTTL = 30 * time.Second
 
 // Start begins taking up reactions. It is safe to call more than once.
 func (r *Runner) Start() {
@@ -164,8 +169,14 @@ func (r *Runner) skills(ctx context.Context) *Skills {
 func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 	ctx, cancel := context.WithCancel(r.withSkills(context.Background()))
 	renewed := make(chan struct{})
+	// The work ends if the claim has not been renewed for most of its lease,
+	// on a clock of its own: a renewal that hangs must not let the work run on
+	// after another worker may have taken the reaction over.
+	safe := claimTTL * 2 / 3
+	watchdog := time.AfterFunc(safe, cancel)
 	go func() {
 		defer close(renewed)
+		defer watchdog.Stop()
 		ticker := time.NewTicker(claimTTL / 3)
 		defer ticker.Stop()
 		for {
@@ -174,8 +185,15 @@ func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 				return
 			case <-ticker.C:
 				// A claim that is not ours any more - lapsed, or the
-				// workspace is being deleted - ends the work.
-				if kept, err := r.store.RenewReaction(ctx, item.ID, r.worker, claimTTL); err == nil && !kept {
+				// workspace is being deleted - ends the work. One renewal
+				// may take no longer than the interval.
+				renewing, stop := context.WithTimeout(ctx, claimTTL/3)
+				kept, err := r.store.RenewReaction(renewing, item.ID, r.worker, claimTTL)
+				stop()
+				switch {
+				case err == nil && kept:
+					watchdog.Reset(safe)
+				case err == nil:
 					cancel()
 					return
 				}
@@ -183,23 +201,49 @@ func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 		}
 	}()
 	folded := []string{}
-	finished := false
+	// finished: already let go. keep: leave it kept for a later attempt.
+	finished, keep := false, false
 	defer func() {
+		// The context ends only when the claim is lost or could not be
+		// renewed, before this: the work was cut short, not done.
+		interrupted := ctx.Err() != nil
 		cancel()
 		<-renewed
-		// What was folded in goes first: while the claimed one stands, no one
-		// else can take the rest of its lane.
-		if !finished {
-			folded = append(folded, item.ID)
+		if finished || keep {
+			return
 		}
-		for _, id := range folded {
-			if err := r.store.FinishReaction(id); err != nil {
+		if interrupted {
+			// Not finished, whatever the claim says: the work did not get to
+			// the end, and what it was for - an answer, a tidy-up, what was
+			// folded into it - would be lost. It is held back briefly with
+			// its attempts spent afresh; if that cannot be stored either, the
+			// claim runs out and it is taken up again all the same.
+			if _, err := r.store.DeferReaction(context.Background(), item.ID, r.worker, time.Now().Add(interruptedDelay)); err != nil {
 				r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
 			}
+			return
+		}
+		// Only the worker whose claim it still is may let it go, with what
+		// was folded into it: if the claim lapsed and another took it over,
+		// that one's work is not ours to delete.
+		if _, err := r.store.FinishReaction(context.Background(), item.ID, r.worker, folded...); err != nil {
+			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
 		}
 	}()
 	if item.Attempts > maxReactionAttempts {
 		r.emit("error", map[string]any{"where": "queue", "message": "反応を" + strconv.Itoa(maxReactionAttempts) + "回試みても終わらなかったため、取りやめました"})
+		if item.Due {
+			// Giving it up must not end the wakes. It goes only once the next
+			// one is set; until then it is kept, put off for a while and with
+			// its attempts spent afresh, so that the workspace is woken again
+			// when the queue is back, without anything having to remember it.
+			if err := r.armAgain(ctx, time.Now().Add(retryDue)); err != nil {
+				if _, deferErr := r.store.DeferReaction(context.Background(), item.ID, r.worker, time.Now().Add(retryDue)); deferErr != nil {
+					r.emit("error", map[string]any{"where": "queue", "message": deferErr.Error()})
+				}
+				keep = true
+			}
+		}
 		return
 	}
 fold:
@@ -221,14 +265,24 @@ fold:
 	}
 	switch {
 	case item.Due:
-		r.due(ctx, now)
+		if err := r.due(ctx, now); err != nil {
+			// The next wake could not be set. Not finished: the claim lapses
+			// and the reaction is tried again, rather than the workspace
+			// going quiet.
+			r.emit("error", map[string]any{"where": "due", "message": err.Error()})
+			keep = true
+		}
 	case item.Index:
 		// Let go at once: what is saved while this pass runs asks for the
 		// next one, rather than finding this one still waiting.
-		if err := r.store.FinishReaction(item.ID); err != nil {
+		ok, err := r.store.FinishReaction(context.Background(), item.ID, r.worker)
+		if err != nil {
 			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
 		}
 		finished = true
+		if !ok {
+			return // Not ours any more: whoever has it does the pass.
+		}
 		r.indexPending(ctx)
 	case item.Ask != "":
 		r.resumeAsk(ctx, item.Ask)
@@ -245,8 +299,8 @@ fold:
 }
 
 // accept keeps a reaction for whichever runner claims it first, and wakes
-// this one.
-func (r *Runner) accept(item store.Reaction) {
+// this one. It returns the error if the reaction could not be kept.
+func (r *Runner) accept(item store.Reaction) error {
 	if item.ID == "" {
 		item.ID = store.NewID("r")
 	}
@@ -273,9 +327,10 @@ func (r *Runner) accept(item store.Reaction) {
 		// A reaction that could not be kept is work nobody will do.
 		log.Printf("queue %s: %v", item.Lane, err)
 		r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
-		return
+		return err
 	}
 	r.Poke()
+	return nil
 }
 
 // ScheduleIndex queues bringing the search index up to date, unless that is
