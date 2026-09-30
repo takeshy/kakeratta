@@ -530,7 +530,7 @@ test("read aloud selects only one thread, including user replies, and updates it
   assert.deepEqual(feed.spoken("other").map(line => line.id), ["other"]);
 });
 
-test("persona bar groups overflow and toggles without losing the selected persona", async t => {
+test("persona bar starts fully collapsed and expands every badge for selection", async t => {
   const { createRoom } = await import("../frontend/src/room.js");
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
@@ -539,16 +539,19 @@ test("persona bar groups overflow and toggles without losing the selected person
   const room = createRoom({ onSelect: row => { selected = row.id; } });
   room.set(Array.from({ length: 6 }, (_, i) => ({ id: String(i), name: `担当${i}`, active: true })));
   const more = room.bar.querySelectorAll(".persona-more")[0];
-  assert.equal(more.textContent, translate("その他{0}体", 4));
-  assert.equal(room.bar.querySelectorAll(".persona-overflow").length, 4);
+  assert.equal(more.textContent, translate("担当を表示"));
+  assert.equal(room.bar.querySelectorAll(".persona-chip").length, 0);
   more.fire("click");
   assert.equal(room.bar.classList.contains("expanded"), true);
-  room.bar.querySelectorAll(".persona-overflow")[0].fire("click");
+  assert.equal(room.bar.querySelectorAll(".persona-chip").length, 6);
+  room.bar.querySelectorAll(".persona-chip")[2].fire("click");
   assert.equal(selected, "2");
-  more.fire("click");
+  room.bar.querySelectorAll(".persona-more")[0].fire("click");
   assert.equal(room.bar.classList.contains("expanded"), false);
+  assert.equal(room.bar.querySelectorAll(".persona-chip").length, 0);
   room.set([{ id: "one", name: "担当", active: true }]);
-  assert.equal(room.bar.querySelectorAll(".persona-more").length, 0);
+  assert.equal(room.bar.querySelectorAll(".persona-more").length, 1);
+  assert.equal(room.bar.querySelectorAll(".persona-chip").length, 0);
 });
 
 test("daily check-ins display their persona and sources as replyable parent posts", (t) => {

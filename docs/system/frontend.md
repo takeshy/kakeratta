@@ -14,7 +14,11 @@ Frontend composition, requests, live updates, offline delivery, speech input, an
 
 `bootstrap.js` checks authentication before loading `app.js`. `app.js` assembles the composer, persona list, timeline, and settings, search, memory, and other panels. `screen.js` provides the basic layout; `feed.js` renders conversations and their controls.
 
-Panels have dedicated modules for persona creation and editing, routing checks, reply corrections, memory browsing, and other functions. The app opens and closes them. `dom.js` centralizes DOM creation and notifications; `i18n.js` handles interface language. `room.js` draws the persona badges under the composer, grouped into interests and people; a tap on a badge writes `@name` in the composer through `compose.mention`, so a newcomer sees how to ask someone; a badge can be dragged to a new place within its group (pointer events, so it works by touch), and the order is kept in this browser's `localStorage` (`kakeratta.room.order`) and applied by `arranged`. Badges that step aside glide into place (Web Animations, skipped under reduced motion), and the first time a group has badges to swap, the first one nudges sideways once (`kakeratta.room.hinted`) so they read as movable. `text-size.js` keeps the text size (standard, large, extra large) in this browser's `localStorage`, like the language, and applies it by scaling the root font size at startup and when the Settings sheet changes it; the page is sized in rem, so all of it follows.
+Panels have dedicated modules for persona creation and editing, routing checks, reply corrections, memory browsing, and other functions. The app opens and closes them. `dom.js` centralizes DOM creation and notifications; `i18n.js` handles interface language. `compose.js` starts the text field at three lines and includes an @ mention hint in its placeholder. `room.js` initially hides all persona badges under the composer on every screen size; **Show personas** expands all badges, grouped into interests and people, and **Collapse** hides them again; a tap on a badge writes `@name` in the composer through `compose.mention`, so a newcomer sees how to ask someone; right-clicking a badge or holding it for 550 ms on touch opens a dialog with **Settings**, **View memory**, and **Edit**, wired to the persona panel and existing memory viewer/editor; moving the touch cancels the hold so a badge can be dragged to a new place within its group (pointer events, so it works by touch), and the order is kept in this browser's `localStorage` (`kakeratta.room.order`) and applied by `arranged`. Badges that step aside glide into place (Web Animations, skipped under reduced motion), and the first time a group has badges to swap, the first one nudges sideways once (`kakeratta.room.hinted`) so they read as movable. `text-size.js` keeps the text size (standard, large, extra large) in this browser's `localStorage`, like the language, and applies it by scaling the root font size at startup and when the Settings sheet changes it; the page is sized in rem, so all of it follows.
+
+## OpenRouter model selection
+
+When an OpenRouter key is entered but no model list has been loaded, settings shows a hint to click **Check OpenRouter connection** to select models. This hint remains visible even before OpenRouter-only mode can be enabled, and disappears once the connection check loads models ([settings.js](../../frontend/src/settings.js)).
 
 ## Names and speaker lists
 
@@ -42,10 +46,13 @@ A person's card shows its basic information in a collapsed **Basic information**
 - [screen.js](../../frontend/src/screen.js)
 - [dom.js](../../frontend/src/dom.js)
 - [room.js](../../frontend/src/room.js)
+- [compose.js](../../frontend/src/compose.js)
+- [settings.js](../../frontend/src/settings.js)
+- [settings.test.js](../../tests/settings.test.js)
 - [text-size.js](../../frontend/src/text-size.js)
 - [text-size.test.js](../../tests/text-size.test.js)
 - [person-basic-info.js](../../frontend/src/person-basic-info.js)
-- [feed.test.js](../../tests/feed.test.js): names as buttons
+- [feed.test.js](../../tests/feed.test.js): names as buttons and fully collapsed persona badges
 - [speaker.test.js](../../tests/speaker.test.js): speaker lists and their card
 - [Screen.stories.js](../../frontend/stories/Screen.stories.js)
 - [Personas.stories.js](../../frontend/stories/Personas.stories.js)

@@ -5,7 +5,7 @@
 // one that does not care whether what was on screen sat behind a login, a DRM
 // reader or a paywall, which is why it works for Kindle when nothing else does.
 //
-// It starts one line tall and grows with what is in it. The timeline is what
+// It starts three lines tall and grows with what is in it. The timeline is what
 // the screen is for; this is the way through to it.
 import { el, clear, toast } from "./dom.js";
 import { createMentionPicker, replaceMention } from "./mention-picker.js";
@@ -19,8 +19,8 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
   const view = el("form", { class: "compose" });
   const text = el("textarea", {
     class: "compose-text",
-    rows: "1",
-    i18nPlaceholder: "かけらを放り込む",
+    rows: "3",
+    i18nPlaceholder: "かけらを放り込む\n@で担当に話し掛けられます",
   });
   const preview = el("div", { class: "compose-preview", hidden: true });
   const status = el("span", { class: "compose-status" });
@@ -28,7 +28,7 @@ export function createCompose({ getSettings, getPersonas, onPosted }) {
   let place = null;
   let sending = false;
 
-  // One line until there is more than one line of it.
+  // Keep three lines available, then grow with the text.
   function grow() {
     text.style.height = "auto";
     const ceiling = Math.round((globalThis.innerHeight || 800) * 0.4);

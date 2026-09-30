@@ -150,9 +150,10 @@ body {
   padding-inline: 0;
   resize: none;
 }
-/* One line, and taller only when there is more in it. The timeline is what the
+/* Three lines, and taller only when there is more in it. The timeline is what the
    screen is for; this is the way through to it. */
 .compose-text {
+  min-height: 5.1em;
   resize: none;
   line-height: 1.7;
   max-height: 40vh;
@@ -679,10 +680,8 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .mention-option { display: block; width: 100%; text-align: left; padding: 10px 12px; background: transparent; color: inherit; border: 0; border-radius: 6px; cursor: pointer; }
 .mention-option[aria-selected="true"] { background: var(--line); }
 
-.persona-more { display: none; }
+.persona-more { display: inline-flex; white-space: nowrap; }
 @media (max-width: 600px) {
-  .who-bar:not(.expanded) .persona-overflow { display: none; }
-  .who-bar .persona-more { display: inline-flex; white-space: nowrap; }
   .who-bar .persona-chip { max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .who-bar.expanded .persona-chip { max-width: 100%; }
 }
@@ -762,3 +761,7 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .memory-tag, .memory-type, .memory-expires, .memory-review { font-size: 0.78rem; }
 .memory-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .memory-more-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+
+.persona-menu { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); padding: 16px; }
+.persona-menu[open] { display: flex; flex-direction: column; gap: 10px; min-width: 12rem; }
+.persona-menu::backdrop { background: #0005; }

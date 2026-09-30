@@ -50,19 +50,29 @@ function glide(nodes, from) {
 }
 
 // Dragging a badge over another one puts it in that place. A press that does
-// not travel is still a tap, which opens the persona; one that does is not.
-function draggable(chip, bar, onDrop) {
+// not travel is still a tap, which inserts a mention; one that does is not.
+function draggable(chip, bar, onDrop, onMenu) {
+  let holdTimer;
+  let held = false;
   let start = null;
   let dragging = false;
   chip.addEventListener("pointerdown", (event) => {
     if (event.button) return;
     start = { x: event.clientX, y: event.clientY, id: event.pointerId };
     dragging = false;
+    held = false;
+    clearTimeout(holdTimer);
+    if (event.pointerType === "touch") holdTimer = setTimeout(() => {
+      held = true;
+      start = null;
+      onMenu();
+    }, 550);
   });
   chip.addEventListener("pointermove", (event) => {
     if (!start || event.pointerId !== start.id) return;
     if (!dragging) {
       if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 8) return;
+      clearTimeout(holdTimer);
       dragging = true;
       chip.setPointerCapture?.(event.pointerId);
       chip.classList.add("dragging");
@@ -76,6 +86,7 @@ function draggable(chip, bar, onDrop) {
     glide(siblings.filter((node) => node !== chip), from);
   });
   const finish = () => {
+    clearTimeout(holdTimer);
     if (!start) return;
     start = null;
     if (!dragging) return;
@@ -84,11 +95,42 @@ function draggable(chip, bar, onDrop) {
     setTimeout(() => { dragging = false; }, 0);
     onDrop();
   };
+  chip.addEventListener("click", (event) => {
+    if (!held) return;
+    held = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, { capture: true });
+  chip.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    clearTimeout(holdTimer);
+    start = null;
+    onMenu();
+  });
   chip.addEventListener("pointerup", finish);
   chip.addEventListener("pointercancel", finish);
 }
 
-export function createRoom({ onOpen, onActivate, onSelect }) {
+export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory, onEdit }) {
+  let menu = null;
+  function showMenu(row, chip) {
+    if (menu) return;
+    let restoreFocus = true;
+    const close = () => {
+      menu?.close();
+    };
+    menu = el("dialog", { class: "persona-menu", "aria-label": row.name },
+      el("strong", { text: row.name }),
+      ...[["設定", onSettings], ["記録を見る", onMemory], ["修正", onEdit]].map(([label, action]) =>
+        el("button", { type: "button", class: "chip", label, onclick: () => { restoreFocus = false; close(); action?.(row); } })),
+      el("button", { type: "button", class: "chip ghost", label: "閉じる", onclick: close }),
+    );
+    const current = menu;
+    current.addEventListener("close", () => { current.remove(); menu = null; if (restoreFocus) chip.focus(); });
+    current.addEventListener("click", (event) => { if (event.target === current) close(); });
+    document.body.append(current);
+    current.showModal();
+  }
   const banner = el("section", { class: "nobody", hidden: true });
   const bar = el("div", { class: "who-bar" });
   let expanded = false;
@@ -131,12 +173,22 @@ export function createRoom({ onOpen, onActivate, onSelect }) {
       .map(([kind, label]) => [kind, label, arranged(active.filter(row => (row.kind === "person" ? "person" : "subject") === kind))])
       .filter(([, , members]) => members.length);
     bar.classList.toggle("expanded", expanded);
+    if (active.length) bar.append(el("button", {
+      class: "chip ghost persona-more", type: "button",
+      label: expanded ? "折りたたむ" : "担当を表示",
+      "aria-expanded": String(expanded),
+      onclick: () => {
+        expanded = !expanded;
+        drawBar();
+      },
+    }));
+    if (!expanded) return;
     for (const [kind, label, members] of groups) {
       const group = el("div", { class: "who-group", "data-kind": kind });
       if (groups.length > 1) group.append(el("span", { class: "who-label", label }));
-      for (const [index, row] of members.entries()) {
+      for (const row of members) {
         const chip = el("button", {
-          class: `chip persona-chip${kind === "person" ? " person-chip" : ""}${index >= 2 ? " persona-overflow" : ""}`,
+          class: `chip persona-chip${kind === "person" ? " person-chip" : ""}`,
           title: `${gloss(row).domain}\n${t("押すと @{0} を入力します", row.name)}\n${t("ドラッグで並べ替えできます")}`,
           text: `${row.icon || "◎"} ${row.name}`,
           "data-id": row.id,
@@ -146,23 +198,8 @@ export function createRoom({ onOpen, onActivate, onSelect }) {
           const shown = [...bar.querySelectorAll(".persona-chip")].map((node) => node.getAttribute("data-id"));
           saveOrder([...shown, ...savedOrder().filter((id) => !shown.includes(id))]);
           drawBar();
-        });
+        }, () => showMenu(row, chip));
         group.append(chip);
-      }
-      if (members.length > 2) {
-        const hidden = members.length - 2;
-        const text = () => expanded ? t("折りたたむ") : t(kind === "person" ? "その他{0}人" : "その他{0}体", hidden);
-        const more = el("button", {
-          class: "chip ghost persona-more", type: "button", text: text(),
-          "aria-expanded": String(expanded),
-          onclick: () => {
-            expanded = !expanded;
-            bar.classList.toggle("expanded", expanded);
-            for (const button of bar.querySelectorAll(".persona-more")) button.setAttribute("aria-expanded", String(expanded));
-            drawBar();
-          },
-        });
-        group.append(more);
       }
       bar.append(group);
     }

@@ -199,8 +199,17 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       syncRouterModel();
       void patch({ jevEnabled: jevEnabled.checked });
     });
+    const modelSelectionHint = el("p", {
+      class: "hint",
+      label: "モデルを選択するにはOpenRouterの接続確認をクリックしてください。",
+      hidden: !settings.openRouterApiKey?.trim() || openRouterModels.length > 0,
+    });
+    jevKey.querySelector("input").addEventListener("input", (event) => {
+      modelSelectionHint.hidden = !event.target.value.trim() || openRouterModels.length > 0;
+    });
     const refreshPickers = (models) => {
       openRouterModels = models;
+      modelSelectionHint.hidden = models.length > 0 || !jevKey.querySelector("input").value.trim();
       for (const picker of pickers) picker.setModels(models);
     };
     const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
@@ -224,6 +233,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       el("h3", { label: "OpenRouterを使う" }),
       jevKey,
       openRouterCheck,
+      modelSelectionHint,
       el("p", { class: "hint", label: "接続確認が成功すると、JevとOpenRouter専用モードを選べます。" }),
       el("label", { class: "field check-field" }, jevEnabled, el("span", { label: "Jevを有効にする" })),
       el("p", { class: "hint", label: "Jevは正確で速く、費用が最も安い振り分け専用モデルです。判定理由は表示されません。" }),

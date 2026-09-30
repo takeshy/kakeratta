@@ -89,6 +89,9 @@ const room = createRoom({
   onOpen: () => open("personas"),
   onActivate: (id) => void personas.activate(id),
   onSelect: (row) => compose.mention(row.name),
+  onSettings: (row) => { open("personas"); personas.reveal(row.id); },
+  onMemory: (row) => void personas.showMemoryFor(row),
+  onEdit: (row) => personas.edit(row),
 });
 const settingsPanel = createSettings({
   speaker,
