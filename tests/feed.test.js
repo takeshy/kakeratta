@@ -1142,3 +1142,11 @@ test("a remark leads to the notes written with it", (t) => {
   chips[0].fire("click");
   assert.deepEqual(opened, [{ persona: { id: "gourmet", name: "tabe", icon: "🍜" }, path: "wines/altura.md" }]);
 });
+
+test("badges follow the order the viewer saved, and newcomers come after", async () => {
+  const { arranged } = await import("../frontend/src/room.js");
+  const rows = ["a", "b", "c", "d"].map((id) => ({ id }));
+  assert.deepEqual(arranged(rows, ["c", "a"]).map((row) => row.id), ["c", "a", "b", "d"]);
+  assert.deepEqual(arranged(rows, ["gone", "d"]).map((row) => row.id), ["d", "a", "b", "c"]);
+  assert.deepEqual(arranged(rows, []).map((row) => row.id), ["a", "b", "c", "d"]);
+});

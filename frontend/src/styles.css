@@ -168,8 +168,18 @@ body {
   border: 1px solid var(--line);
 }
 
-.who-bar { display: flex; align-items: center; gap: 6px; padding: 12px 2px; flex-wrap: wrap; }
+.who-bar { display: flex; align-items: center; gap: 8px 14px; padding: 12px 2px; flex-wrap: wrap; }
+.who-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.who-label { color: var(--muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
 .persona-chip { background: var(--accent-soft); border-color: transparent; }
+.persona-chip { touch-action: none; }
+.persona-chip { cursor: grab; transition: box-shadow 0.15s, transform 0.15s; }
+.persona-chip.dragging { transform: scale(1.06); }
+.persona-chip.nudge { animation: nudge 1.1s ease-in-out 0.4s 2; }
+@keyframes nudge { 0%, 100% { transform: translateX(0); } 35% { transform: translateX(10px); } 70% { transform: translateX(-3px); } }
+@media (prefers-reduced-motion: reduce) { .persona-chip, .persona-chip.nudge { animation: none; transition: none; } }
+.persona-chip.dragging { cursor: grabbing; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); position: relative; z-index: 1; }
+.person-chip { background: var(--card); border-color: var(--line); }
 /* The card a tapped name scrolled to, so it is obvious which one opened. */
 .persona.revealed { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
@@ -673,7 +683,7 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 @media (max-width: 600px) {
   .who-bar:not(.expanded) .persona-overflow { display: none; }
   .who-bar .persona-more { display: inline-flex; white-space: nowrap; }
-  .who-bar .persona-chip { max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who-bar .persona-chip { max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .who-bar.expanded .persona-chip { max-width: 100%; }
 }
 

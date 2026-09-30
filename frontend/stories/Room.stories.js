@@ -1,5 +1,5 @@
 import { panel, room } from "./frame.js";
-import { nobody, personas } from "./fixtures.js";
+import { nobody, person, personas } from "./fixtures.js";
 
 export default { title: "Room" };
 
@@ -16,4 +16,8 @@ export const Speaking = { name: "読み上げ中", render: () => both(personas, 
 export const PartlyOn = {
   name: "1体だけ有効",
   render: () => both(personas.map((row, index) => ({ ...row, active: index === 3 }))),
+};
+export const WithPeople = {
+  name: "関心ごとと人物がいる",
+  render: () => both([...personas, person(), { ...person(), id: "tanaka", name: "田中", icon: "🧑‍💼" }, { ...person(), id: "suzuki", name: "鈴木", icon: "👩" }]),
 };
