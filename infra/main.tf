@@ -1,10 +1,9 @@
 locals {
-  name            = "kakeratta"
-  repository      = "kakeratta"
-  image           = "${var.region}-docker.pkg.dev/${var.project_id}/${local.repository}/${local.name}:${var.image_tag}"
-  domain          = trimsuffix(var.domain, ".")
-  dns_name        = "${local.domain}."
-  fallback_domain = "${replace(google_compute_address.app.address, ".", "-")}.sslip.io"
+  name       = "kakeratta"
+  repository = "kakeratta"
+  image      = "${var.region}-docker.pkg.dev/${var.project_id}/${local.repository}/${local.name}:${var.image_tag}"
+  domain     = trimsuffix(var.domain, ".")
+  dns_name   = "${local.domain}."
   services = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
@@ -72,13 +71,6 @@ resource "google_artifact_registry_repository" "app" {
   repository_id = local.repository
   description   = "Container images for kakeratta"
   format        = "DOCKER"
-
-  depends_on = [google_project_service.required]
-}
-
-resource "google_compute_address" "app" {
-  name   = "${local.name}-ipv4"
-  region = var.region
 
   depends_on = [google_project_service.required]
 }
@@ -442,17 +434,3 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   member   = "allUsers"
 }
 
-resource "google_compute_firewall" "web" {
-  name    = "${local.name}-web"
-  network = "default"
-
-  allow {
-    protocol = "tcp"
-    ports    = ["80", "443"]
-  }
-
-  source_ranges = ["0.0.0.0/0"]
-  target_tags   = [local.name]
-
-  depends_on = [google_project_service.required]
-}

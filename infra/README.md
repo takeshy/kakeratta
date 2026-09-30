@@ -118,14 +118,6 @@ To read the backend logs:
 gcloud run services logs read kakeratta --region=asia-east1 --project=kakeratta
 ```
 
-## Left over from the VM deployment
-
-The earlier single-VM setup (Compute Engine with Caddy terminating TLS on an
-`sslip.io` name) is gone. Two of its resources are still declared —
-`google_compute_address.app` and `google_compute_firewall.web` — and the
-`fallback_url` output is still derived from that address, so it no longer points
-at anything serving. Remove them once the Cloud Run path has been verified.
-
 ## Firestore indexes
 
 Before updating the API, deploy the indexes in `firestore.indexes.json` and wait for them to become ready. They let Firestore fetch 20 parent posts without reading the whole timeline, and back semantic search with a vector index.

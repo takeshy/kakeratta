@@ -28,18 +28,6 @@ variable "domain" {
   default     = "kakeratta.net"
 }
 
-variable "machine_type" {
-  description = "Compute Engine machine type."
-  type        = string
-  default     = "e2-small"
-}
-
-variable "data_disk_size_gb" {
-  description = "Persistent disk size for posts, images, settings, and persona memories."
-  type        = number
-  default     = 20
-}
-
 variable "mcp_servers" {
   description = "MCP servers whose tools every persona may declare, as server.tool. Headers are sent on every request (for example an Authorization header)."
   type = list(object({

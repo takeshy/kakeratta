@@ -3,11 +3,6 @@ output "url" {
   value       = "https://${local.domain}"
 }
 
-output "fallback_url" {
-  description = "HTTPS URL that works while custom-domain DNS is being delegated."
-  value       = "https://${local.fallback_domain}"
-}
-
 output "name_servers" {
   description = "Authoritative name servers to configure at the domain registrar."
   value       = google_dns_managed_zone.app.name_servers

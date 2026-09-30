@@ -107,13 +107,6 @@ Firestoreは削除保護、Cloud Runサービスは `deletion_protection` です
 gcloud run services logs read kakeratta --region=asia-east1 --project=kakeratta
 ```
 
-## VM構成の残り
-
-以前の単一VM構成（Compute Engine上のCaddyが `sslip.io` 名でTLSを終端する形）は
-無くなりました。ただし `google_compute_address.app` と `google_compute_firewall.web`
-の2つは宣言が残っており、`fallback_url` 出力もそのアドレスから作られているため、
-現在はどこにも繋がりません。Cloud Run経路の確認が済んだら削除してください。
-
 ## Firestoreのインデックス
 
 APIの更新前に `firestore.indexes.json` のインデックスを公開し、作成が完了するまで待ってください。Firestoreから全件を読み出さずに親投稿を20件ずつ取得するためと、意味検索のベクトルインデックスのために必要です。
