@@ -1,19 +1,52 @@
 steps:
-  - name: gcr.io/cloud-builders/docker
+  # The image build is the long pole, so the frontend copy and the firebase CLI
+  # install run beside it, and nothing waits on them until the hosting deploy.
+  - id: frontend
+    name: node:24-bookworm
+    entrypoint: node
     args:
+      - frontend/build.mjs
+    waitFor: ["-"]
+
+  - id: firebase-cli
+    name: node:24-bookworm
+    entrypoint: npm
+    args:
+      - install
+      - --no-audit
+      - --no-fund
+      - --prefix=/workspace/.firebase-cli
+      - firebase-tools
+    waitFor: ["-"]
+
+  # The registry keeps the layer cache between builds: a fresh worker has none,
+  # so without it every build downloads and recompiles all of the Go modules.
+  - id: builder
+    name: gcr.io/cloud-builders/docker
+    args:
+      - buildx
+      - create
+      - --driver=docker-container
+      - --use
+    waitFor: ["-"]
+
+  - id: image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - buildx
       - build
       - --build-arg
       - VERSION=${_VERSION}
+      - --cache-from=type=registry,ref=${_CACHE}
+      - --cache-to=type=registry,ref=${_CACHE},mode=max
       - --tag
       - ${_IMAGE}
+      - --push
       - .
+    waitFor: [builder]
 
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_IMAGE}
-
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  - id: deploy-run
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
       - run
@@ -23,27 +56,21 @@ steps:
       - --region=${_RUN_REGION}
       - --project=${PROJECT_ID}
       - --quiet
+    waitFor: [image]
 
-  - name: node:24-bookworm
-    entrypoint: node
+  - id: deploy-hosting
+    name: node:24-bookworm
+    entrypoint: /workspace/.firebase-cli/node_modules/.bin/firebase
     args:
-      - frontend/build.mjs
-
-  - name: node:24-bookworm
-    entrypoint: npx
-    args:
-      - --yes
-      - firebase-tools
       - deploy
       - --only=hosting
       - --project=${PROJECT_ID}
       - --non-interactive
-
-images:
-  - ${_IMAGE}
+    waitFor: [deploy-run, frontend, firebase-cli]
 
 substitutions:
   _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:${SHORT_SHA}
+  _CACHE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:buildcache
   _RUN_REGION: asia-east1
   _VERSION: ${COMMIT_SHA}
 
