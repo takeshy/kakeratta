@@ -17,7 +17,7 @@ import { createPersonas } from "./personas.js";
 import { createRoom } from "./room.js";
 import { screenNodes, sheetNodes } from "./screen.js";
 import { aiConfigured, createSettings } from "./settings.js";
-import { createSpeaker } from "./speak.js";
+import { createSpeaker as createReader } from "./speak.js";
 import { createTimelinePages } from "./timeline-pages.js";
 import { createSearch } from "./search.js";
 import { createSpeaker } from "./speaker.js";
@@ -32,7 +32,7 @@ let personaRows = [];
 let panel = null;
 let settingsRequired = false;
 
-const speaker = createSpeaker();
+const speaker = createReader();
 let speakingThread = null;
 const feed = createFeed({
   getSettings: () => settings,
