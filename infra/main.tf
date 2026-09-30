@@ -8,6 +8,7 @@ locals {
   services = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
+    "cloudtasks.googleapis.com",
     "compute.googleapis.com",
     "dns.googleapis.com",
     "firestore.googleapis.com",
@@ -208,6 +209,7 @@ resource "google_service_account" "app" {
 resource "google_project_iam_member" "app_roles" {
   for_each = toset([
     "roles/artifactregistry.reader",
+    "roles/cloudtasks.enqueuer",
     "roles/firebaseauth.admin",
     "roles/datastore.user",
     "roles/logging.logWriter",
@@ -222,6 +224,34 @@ resource "google_project_iam_member" "app_roles" {
 
 # A backup is downloaded straight from the bucket through a link that expires,
 # so the app has to sign one, which means signing as itself.
+# A task carries an identity token of the app's own account, so the app may
+# create tasks that act as itself.
+resource "google_service_account_iam_member" "app_acts_as_itself" {
+  service_account_id = google_service_account.app.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.app.email}"
+}
+
+# A workspace asks to be woken at the next time anything of its comes due, and
+# the wake is a task scheduled for then. Nothing runs between.
+resource "google_cloud_tasks_queue" "due" {
+  name     = "${local.name}-due"
+  location = var.run_region
+
+  rate_limits {
+    max_dispatches_per_second = 50
+  }
+
+  retry_config {
+    max_attempts  = 5
+    min_backoff   = "10s"
+    max_backoff   = "300s"
+    max_doublings = 4
+  }
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_service_account_iam_member" "app_signs_urls" {
   service_account_id = google_service_account.app.name
   role               = "roles/iam.serviceAccountTokenCreator"
@@ -272,9 +302,11 @@ resource "google_cloud_run_v2_service" "app" {
   template {
     service_account = google_service_account.app.email
 
-    # One instance is always up to run check-ins and schedules. More can
-    # start under load: any instance answers any request, and each piece of
-    # persona work is taken up by whichever instance claims it in Firestore.
+    # One instance stays up, with its CPU, to work the reactions it claims
+    # (a turn can run for minutes). More can start under load: any instance
+    # answers any request, and each piece of persona work is taken up by
+    # whichever instance claims it in Firestore. Times are not kept here: a
+    # Cloud Tasks task wakes the workspace when something of its comes due.
     scaling {
       min_instance_count = 1
       max_instance_count = var.max_instances
@@ -311,6 +343,21 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "KAKERATTA_HOME"
         value = "/tmp/kakeratta"
+      }
+      # Wakes: the queue, where a task calls back, and the account it carries
+      # a token for. The URL is the service's own, which Cloud Run names from
+      # the project number.
+      env {
+        name  = "KAKERATTA_TASKS_QUEUE"
+        value = google_cloud_tasks_queue.due.id
+      }
+      env {
+        name  = "KAKERATTA_TASKS_URL"
+        value = "https://${local.name}-${data.google_project.current.number}.${var.run_region}.run.app/internal/due"
+      }
+      env {
+        name  = "KAKERATTA_TASKS_ACCOUNT"
+        value = google_service_account.app.email
       }
       env {
         name  = "KAKERATTA_STORE"
@@ -380,6 +427,8 @@ resource "google_cloud_run_v2_service" "app" {
     google_project_iam_member.app_roles,
     google_storage_bucket_iam_member.app_blobs,
     google_service_account_iam_member.app_signs_urls,
+    google_service_account_iam_member.app_acts_as_itself,
+    google_cloud_tasks_queue.due,
   ]
 }
 

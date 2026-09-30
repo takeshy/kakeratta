@@ -78,10 +78,9 @@ type Runner struct {
 	inFlight atomic.Int32
 	working  sync.WaitGroup
 
-	// timers end asks this runner opened or saw claimed when their waits
-	// run out; a sweep on the periodic tick catches the rest.
-	timersMu sync.Mutex
-	timers   map[*time.Timer]bool
+	// alarm wakes the workspace at a time: it makes sure a due reaction is
+	// queued then, through Cloud Tasks or a timer in this process.
+	alarm func(at time.Time) error
 
 	// agentSeen is when the external agent last called in over MCP, as Unix
 	// nanoseconds, as this process heard it; the workspace keeps it for the
@@ -104,7 +103,6 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 		nudge:  make(chan struct{}, 1),
 		slots:  make(chan struct{}, maxWorkers),
 		done:   make(chan struct{}),
-		timers: map[*time.Timer]bool{},
 	}
 }
 

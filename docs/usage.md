@@ -233,8 +233,8 @@ else in a note belongs to the persona.
 
 `expires: 2026-09-26` marks a note the persona made from its own searching, a
 list of candidates or a route. The app deletes it once the date has passed (a
-bare date means 00:00 in the workspace's time zone), on the same tick that
-runs schedules, and wakes the persona silently to take it out of `index.md`.
+bare date means 00:00 in the workspace's time zone), when that time comes,
+and wakes the persona silently to take it out of `index.md`.
 The reader shows such a note as **Gone on** that date. If you reply to the
 candidates, the persona rewrites the note without the line. When a persona
 reads the note again while answering a post, the date moves out by the span the

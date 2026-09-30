@@ -16,14 +16,13 @@ import (
 
 	"cloud.google.com/go/firestore"
 
-	"github.com/takeshy/kakeratta/internal/cluster"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // instance is one API process of a deployment sharing Firestore, wired as
 // main wires it.
-func instance(t *testing.T, client *firestore.Client, coordinator cluster.Coordinator) *Gateway {
+func instance(t *testing.T, client *firestore.Client) *Gateway {
 	t.Helper()
 	gateway := newGateway(AuthOptions{
 		Root: t.TempDir(), Version: "test",
@@ -32,8 +31,6 @@ func instance(t *testing.T, client *firestore.Client, coordinator cluster.Coordi
 			return store.NewFirestoreWorkspace(context.Background(), client, userKey, blobs)
 		},
 		Shared: &Shared{
-			Coordinator: coordinator,
-			Tick:        func(ctx context.Context, key string) error { return store.EnqueueTick(ctx, client, key) },
 			Watch: func(ctx context.Context, queued func(string)) {
 				store.WatchReactions(ctx, client, queued)
 			},
@@ -118,8 +115,7 @@ func TestInstancesShareWorkspacesWithoutOwners(t *testing.T) {
 	}))
 	defer provider.Close()
 
-	memory := cluster.NewMemory()
-	a, b := instance(t, client, memory.Instance("a")), instance(t, client, memory.Instance("b"))
+	a, b := instance(t, client), instance(t, client)
 	uid := "user-" + store.NewID("u")
 	key := workspaceKey(uid)
 	cookie := &http.Cookie{Name: authCookieName, Value: "session:" + uid}
@@ -211,7 +207,7 @@ func TestInstancesShareWorkspacesWithoutOwners(t *testing.T) {
 	// up work queued for it.
 	a.Close()
 	b.Close()
-	c := instance(t, client, memory.Instance("c"))
+	c := instance(t, client)
 	late := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User, Text: "post-late", At: time.Now()}
 	late.Root = late.ID
 	if err := workspace.Append(late); err != nil {

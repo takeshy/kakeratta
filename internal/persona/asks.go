@@ -163,7 +163,7 @@ func (r *Runner) openAsk(ctx context.Context, settings store.Settings, ask Ask, 
 		return err
 	}
 	r.emit("ask", map[string]any{"persona": ask.Persona, "id": ask.ID, "state": "pending", "trigger": ask.Trigger})
-	r.after(claimWait, ask.ID)
+	r.arm(ask.ClaimBy)
 	return nil
 }
 
@@ -192,7 +192,9 @@ func (r *Runner) ClaimAsk(id, claimID string) (Ask, AskContext, error) {
 	}
 	if first {
 		r.emit("ask", map[string]any{"persona": record.Ask.Persona, "id": id, "state": "claimed", "trigger": record.Ask.Trigger})
-		r.after(record.PlanWait, id)
+		if record.Ask.PlanBy != nil {
+			r.arm(*record.Ask.PlanBy)
+		}
 	}
 	return record.Ask, record.Context, nil
 }
@@ -382,43 +384,6 @@ func (r *Runner) sweepAsks(ctx context.Context, now time.Time) {
 				return due
 			})
 		}
-	}
-}
-
-// after ends an ask once a wait runs out, without waiting for the minute's
-// sweep. Any process may do it; the sweep catches what a stopped one did not.
-func (r *Runner) after(wait time.Duration, id string) {
-	r.timersMu.Lock()
-	defer r.timersMu.Unlock()
-	var timer *time.Timer
-	timer = time.AfterFunc(wait, func() {
-		r.timersMu.Lock()
-		_, live := r.timers[timer]
-		delete(r.timers, timer)
-		r.timersMu.Unlock()
-		if !live {
-			return
-		}
-		record, exists, err := r.readAsk(context.Background(), id)
-		if err != nil || !exists || record.Closed {
-			return
-		}
-		if reason, due := askDue(record, time.Now()); due {
-			r.closeAsk(context.Background(), id, reason, func(current askRecord, now time.Time) bool {
-				_, due := askDue(current, now)
-				return due
-			})
-		}
-	})
-	r.timers[timer] = true
-}
-
-func (r *Runner) stopTimers() {
-	r.timersMu.Lock()
-	defer r.timersMu.Unlock()
-	for timer := range r.timers {
-		timer.Stop()
-		delete(r.timers, timer)
 	}
 }
 

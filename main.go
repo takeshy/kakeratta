@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
-	"github.com/takeshy/kakeratta/internal/cluster"
+	"github.com/takeshy/kakeratta/internal/alarm"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/server"
 	"github.com/takeshy/kakeratta/internal/store"
@@ -171,10 +171,6 @@ func main() {
 			// answers any request, and each workspace's persona work is
 			// taken up by whichever instance claims it.
 			authOptions.Shared = &server.Shared{
-				Coordinator: cluster.NewFirestore(firestoreClient, ""),
-				Tick: func(ctx context.Context, key string) error {
-					return store.EnqueueTick(ctx, firestoreClient, key)
-				},
 				Watch: func(ctx context.Context, queued func(string)) {
 					store.WatchReactions(ctx, firestoreClient, queued)
 				},
@@ -193,6 +189,20 @@ func main() {
 			}
 			if cloudBlobs == nil {
 				log.Print("KAKERATTA_GCS_BUCKET が未設定です。画像はインスタンスごとの一時ディレクトリに置かれ、複数インスタンスでは共有されません")
+			}
+			// A workspace is woken by a Cloud Tasks task at the next time
+			// anything of its comes due, and the task comes back to
+			// /internal/due. Without a queue, timers in each process do it.
+			queue, dueURL, account := os.Getenv("KAKERATTA_TASKS_QUEUE"), os.Getenv("KAKERATTA_TASKS_URL"), os.Getenv("KAKERATTA_TASKS_ACCOUNT")
+			if queue != "" {
+				tasks, err := alarm.NewTasks(context.Background(), queue, dueURL, account)
+				if err != nil {
+					log.Fatalf("Cloud Tasksを初期化できません: %v", err)
+				}
+				authOptions.Shared.Alarm = tasks.Set
+				authOptions.Shared.Verify = func(r *http.Request) (string, error) {
+					return alarm.Workspace(r, alarm.GoogleValidator, dueURL, account)
+				}
 			}
 		}
 		app, err := server.NewGateway(context.Background(), authOptions)

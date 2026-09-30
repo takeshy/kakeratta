@@ -70,10 +70,10 @@ func runtimeContract(t *testing.T, w Workspace) {
 		t.Fatalf("lapsed claim = %+v %v", taken, ok)
 	}
 	// A fixed ID waits once.
-	if err := w.CreateReaction(Reaction{ID: TickReaction, At: now, Lane: TickReaction, Tick: true}); err != nil {
+	if err := w.CreateReaction(Reaction{ID: DueReaction, At: now, Lane: DueReaction, Due: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.CreateReaction(Reaction{ID: TickReaction, At: now, Lane: TickReaction, Tick: true}); !errors.Is(err, ErrReactionExists) {
+	if err := w.CreateReaction(Reaction{ID: DueReaction, At: now, Lane: DueReaction, Due: true}); !errors.Is(err, ErrReactionExists) {
 		t.Fatalf("second tick = %v", err)
 	}
 

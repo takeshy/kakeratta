@@ -52,7 +52,7 @@ flowchart LR
 
 `main` creates the tool configuration and, when configured, GCS and Firestore clients. With `KAKERATTA_FIREBASE_PROJECT_ID`, it creates a `Gateway`; with Firestore as well, the Gateway gets a `Shared` configuration for several instances. Otherwise, it opens a file workspace and creates a `Server`.
 
-`Server.New` connects the Catalogue, Runner, and search Service, registers routes, starts the Runner, and queues a search-index pass. Unless built with `NoClock`, it also queues the periodic checks at once and every minute (`Runner.Tick`).
+`Server.New` connects the Catalogue, Runner, and search Service, registers routes, starts the Runner, queues a search-index pass, and asks to be woken now (`Runner.Rearm`), which is how a workspace looks at its times. There is no clock going round: see [Times and wakes](#times-and-wakes).
 
 ## The reaction queue
 
@@ -62,14 +62,47 @@ Persona work is kept in the workspace as `store.Reaction` records (files under `
 | --- | --- |
 | `thread:{root}` | Reacting to a post, reply, or edit; a delivery approved in a routing check; carrying on a turn after an external agent's ask; telling personas about a deleted post |
 | `persona:{id}` | Telling a persona about notes deleted by the user or expired by the app |
-| `tick` | The periodic checks: asks past their waits, note retries, daily check-ins and monthly summaries, schedules and expired notes |
+| `due` | Whatever has come due: asks past their waits, note retries, daily check-ins and monthly summaries, schedules, expired notes |
 | `index` | Bringing the search index up to date |
 
-`ClaimReaction` takes the first reaction of a lane not held by a live claim and not held back by `NotBefore`, together with the rest of its lane. The file store does this under its lock. Firestore reads the queue without a transaction and claims the candidate in a transaction on that one document, so claiming never locks the queue against reactions being written; a candidate taken meanwhile passes its lane over for this round. Writing a reaction retries transient errors twice. A lane is therefore worked one reaction at a time, in order, while different lanes run side by side. Each `Runner` dispatches up to four claims at once. A worker renews its claim every 10 seconds (`claimTTL` 30 seconds); a claim that lapses - its process died - is taken up again by anyone, and each claim counts an attempt, so a reaction is dropped after three. Delivery is at least once. Deleted notes of one persona, or deletion wakes for the same post and persona, queued one after another are folded into one wake when claimed. `tick` and `index` have fixed IDs, so at most one of each waits at a time; an index pass releases its record as it starts so changes made meanwhile queue the next pass.
+`ClaimReaction` takes the first reaction of a lane not held by a live claim and not held back by `NotBefore`, together with the rest of its lane. The file store does this under its lock. Firestore reads the queue without a transaction and claims the candidate in a transaction on that one document, so claiming never locks the queue against reactions being written; a candidate taken meanwhile passes its lane over for this round. Writing a reaction retries transient errors twice. A lane is therefore worked one reaction at a time, in order, while different lanes run side by side. Each `Runner` dispatches up to four claims at once. A worker renews its claim every 10 seconds (`claimTTL` 30 seconds); a claim that lapses - its process died - is taken up again by anyone, and each claim counts an attempt, so a reaction is dropped after three. Delivery is at least once. Deleted notes of one persona, or deletion wakes for the same post and persona, queued one after another are folded into one wake when claimed. `due` and `index` have fixed IDs, so at most one of each waits at a time; an index pass releases its record as it starts so changes made meanwhile queue the next pass.
 
 Personas receiving the same post run concurrently. A persona's note keeper, a person persona's calendar reconciliation, and an external agent's reads of one ask take named locks from `Workspace.Lock`: in-process for files, and documents under `users/{key}/locks` with a 30-second renewable lease for Firestore. Routing records change through `UpdateRouting` transactions.
 
-## Shutdown
+## Times and wakes
+
+A workspace is not looked at on a clock. It asks to be woken at the next time anything of its own comes due, and at no other.
+
+## The due reaction
+
+The `due` reaction (`Runner.due`) runs everything that has come due - `sweepAsks` closes asks past their waits, `retryNoteJobs` retries failed note work, `expireNotes` deletes notes past their `expires` date, `dailyAt` runs check-ins and the month's summary, and `schedulesAt` runs schedules - and then ends by setting the alarm for the next time. `nextDue` is the earliest of a schedule's time, a note job's `NextAttempt`, an open ask's claim or plan wait, the earliest `expires` date still to come (returned by `expireNotes`), and the next check-in (`nextCheckIn`, which follows `dailyAt` and `summarizeAt`: a persona's minute on each day in its window, a skipped day passed over, a monthly one on the summary's day). It is at most 29 days away - Cloud Tasks schedules no further, so a workspace with nothing sooner wakes then and sets the rest, and a far-off birthday is reached in steps - and at least 30 seconds away, so a time that cannot be cleared does not wake the workspace in a loop.
+
+Whatever changes a time calls `Runner.Rearm`, which asks to be woken now; the due reaction that follows works the times out afresh, so a change never has to say which time it moved. Callers are settings saved (the time zone, check-ins), the room or a persona changed, a note edited by hand, and person calendars applied. A piece of work of the Runner's own asks to be looked at again 30 seconds after it ends, since a turn may have set a schedule, a note retry, or an `expires` date. An ask being opened or claimed asks for its own wait. A change forgotten costs a wake up to 29 days late, and is a bug; tests cover each caller.
+
+## The alarm
+
+The alarm is `Runner.SetAlarm`, and does nothing but make sure a due reaction is queued at the time:
+
+| Where | Alarm |
+| --- | --- |
+| A server running alone (`Server.New`) | A timer in the process (`localAlarm`); the earliest time asked for stands, and it sets the next itself. |
+| A shared deployment with `KAKERATTA_TASKS_QUEUE` | A Cloud Tasks task scheduled for the time (`alarm.Tasks.Set`), named `due-{workspace}-{time bucket of 30 seconds}` so setting one twice sets one. The task calls `POST /internal/due` with an identity token of the app's service account; `alarm.Workspace` refuses anything not issued to that account for that URL, and the gateway opens the workspace, if this instance has it closed, and queues its due reaction. |
+| A shared deployment without a queue | One `localAlarm` per workspace in the gateway; when it fires, the workspace is opened and woken. |
+
+At start each instance asks every workspace to be woken now, once (`restoreWorkspaces`), so workspaces from before this design set their own next time; tasks are named, so instances starting together set one. After that nothing lists the workspaces again. A minute's sweep (`sweepShared`) only takes up work whose claim lapsed and closes what is idle. A workspace that is deleted has no reason to wake: the wake finds no workspace and ends.
+
+## Implementation and verification
+
+- [due.go](../../internal/persona/due.go): `due`, `nextDue`, `nextCheckIn`, `Rearm`, `SetAlarm`
+- [schedule.go](../../internal/persona/schedule.go): `expireNotes`, `schedulesAt`
+- [alarm.go](../../internal/server/alarm.go): `localAlarm`
+- [shared.go](../../internal/server/shared.go): `setAlarm`, `fire`, `serveDue`, `sweepShared`
+- [tasks.go](../../internal/alarm/tasks.go): `Tasks`, `Workspace`, `GoogleValidator`
+- [due_test.go](../../internal/persona/due_test.go): the next check-in, the next due, and asking again
+- [alarm_test.go](../../internal/server/alarm_test.go): local alarm and a task calling back
+- [tasks_test.go](../../internal/alarm/tasks_test.go): tasks and their verification
+
+# Shutdown
 
 On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes the application. The local server and the Gateway call `Halt`: the reactions in hand finish and the rest stay queued for the next start or another instance. `Server.Close` and `Runner.Stop` instead work everything claimable before returning; tests use them to wait for reactions.
 
@@ -77,7 +110,7 @@ On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes t
 
 - [main.go](../../main.go): `main`
 - [server.go](../../internal/server/server.go): `New`, `Close`, `Halt`
-- [queue.go](../../internal/persona/queue.go): `Start`, `dispatch`, `handle`, `accept`, `Tick`, `Stop`, `Halt`
+- [queue.go](../../internal/persona/queue.go): `Start`, `dispatch`, `handle`, `accept`, `Stop`, `Halt`
 - [reactions.go](../../internal/store/reactions.go): `Reaction`, `ClaimReaction`, `nextClaim`
 - [runtime.go](../../internal/store/runtime.go): runtime records, `Lock`, `SetClosing`
 - [runtime_test.go](../../internal/store/runtime_test.go): lane order, claims, records, and locks for both stores
@@ -90,7 +123,7 @@ On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes t
 
 With `Shared`, every instance answers every request it receives, and no instance owns a workspace. Work queued anywhere is claimed by whichever runner gets it first. `store.WatchReactions` follows the `reactions` collection group: an instance with the workspace open pokes its runner; one without waits about two seconds, so an instance that has the workspace open claims first, and opens the workspace only if work is still claimable. Every minute each instance also scans `ClaimableWorkspaces`, catching lapsed claims and missed events, and closes workspaces idle for 10 minutes with no open event stream, running export, or reaction in hand.
 
-The only elected role is the scheduler: the instance holding the `scheduler` lease in `leases/` (`cluster.Coordinator`, 90-second lease renewed each minute) queues a `tick` reaction for every workspace each minute with `store.EnqueueTick`. Any instance may then work it; the tick's work claims check-ins and schedules transactionally, so a second tick cannot repeat them.
+Nothing is elected. Times are not kept by an instance: a workspace's alarm brings its due reaction, which any instance may work; check-ins and schedules are claimed transactionally, so a second due reaction cannot repeat them.
 
 ## State shared through the workspace
 
@@ -102,10 +135,8 @@ Deletion sets `workspaceClosures/{key}` through `SetClosing`. While it stands, n
 
 ## Implementation and verification
 
-- [shared.go](../../internal/server/shared.go): `Shared`, `wake`, `tickShared`, `closeIdle`, `waitForClaims`, `sweepClosed`
+- [shared.go](../../internal/server/shared.go): `Shared`, `wake`, `sweepShared`, `closeIdle`, `waitForClaims`, `sweepClosed`
 - [gateway.go](../../internal/server/gateway.go): `closeAccount`, `restoreWorkspaces`
-- [cluster.go](../../internal/cluster/cluster.go): `Coordinator`, `LeaseTTL`
-- [firestore.go](../../internal/cluster/firestore.go): scheduler lease
 - [events.go](../../internal/store/events.go): `Publish`, `Subscribe`
 - [firestore.go](../../internal/store/firestore.go): `Skills`, `Close`
 - [cluster_firestore_test.go](../../internal/store/cluster_firestore_test.go): claims, change feed, closing, and events on the emulator

@@ -30,6 +30,13 @@ func externalSetup(t *testing.T, claim, plan time.Duration) (*Runner, *store.Sto
 	runner.waitsForAsk = func() (time.Duration, time.Duration) { return claim, plan }
 	// The agent has just called in, as its Wake Gate does every minute.
 	runner.AgentSeen(time.Now())
+	// An ask past its wait is closed when the workspace's alarm goes off. The
+	// alarm here does only that; what a due reaction does besides is tested
+	// on its own.
+	runner.SetAlarm(func(at time.Time) error {
+		time.AfterFunc(time.Until(at), func() { runner.sweepAsks(context.Background(), time.Now()) })
+		return nil
+	})
 	// Turns carried on after an ask are reactions of their own.
 	runner.Start()
 	t.Cleanup(runner.Stop)

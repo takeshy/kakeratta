@@ -26,8 +26,9 @@ Firebase authentication is required for deployment.
 
 Requirements: an authenticated `gcloud` CLI, Terraform 1.7 or later, Node.js,
 `jq`, and a GCP project with billing enabled. The current account needs
-permission to manage project services, Cloud Run, Firestore, Cloud Storage,
-Firebase Hosting, Cloud DNS, IAM, Artifact Registry, and Secret Manager.
+permission to manage project services, Cloud Run, Cloud Tasks, Firestore,
+Cloud Storage, Firebase Hosting, Cloud DNS, IAM, Artifact Registry, and Secret
+Manager.
 
 ```sh
 gcloud auth application-default login

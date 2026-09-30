@@ -25,7 +25,7 @@ Cookieをすべて剥がすため、別名だとログイン直後から `login 
 
 必要なもの: 認証済みの `gcloud` CLI、Terraform 1.7以降、Node.js、`jq`、課金を有効に
 したGCPプロジェクト。実行アカウントには、API、Cloud Run、Firestore、Cloud Storage、
-Firebase Hosting、Cloud DNS、IAM、Artifact Registry、Secret Managerを管理する権限が
+Firebase Hosting、Cloud DNS、Cloud Tasks、IAM、Artifact Registry、Secret Managerを管理する権限が
 必要です。
 
 ```sh

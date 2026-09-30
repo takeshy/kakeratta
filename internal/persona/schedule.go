@@ -88,9 +88,12 @@ const expirePage = 200
 // wake per persona to tidy up after them. Only active personas with a model
 // to wake are swept: deleting a note nobody can be told about would leave an
 // index pointing at nothing.
-func (r *Runner) expireNotes(ctx context.Context, now time.Time, settings store.Settings) {
+//
+// It returns the earliest expires date still to come among the notes it saw,
+// or the zero time if there is none, so the next sweep can be set for then.
+func (r *Runner) expireNotes(ctx context.Context, now time.Time, settings store.Settings) (next time.Time) {
 	if personaModel(settings) == "" {
-		return
+		return next
 	}
 	zone := settings.Location()
 	for _, skill := range r.skills(ctx).Active(settings.Active) {
@@ -99,6 +102,9 @@ func (r *Runner) expireNotes(ctx context.Context, now time.Time, settings store.
 		for {
 			page, err := r.store.MemoryPage(skill.ID, after, expirePage, func(note store.Note) bool {
 				at, ok := noteExpires(note.Text, zone)
+				if ok && at.After(now) && (next.IsZero() || at.Before(next)) {
+					next = at
+				}
 				return ok && !at.After(now)
 			})
 			if err != nil {
@@ -125,6 +131,7 @@ func (r *Runner) expireNotes(ctx context.Context, now time.Time, settings store.
 			r.notesExpired(skill.ID, gone)
 		}
 	}
+	return next
 }
 
 // notesExpired queues the tidy-up wake for notes the app deleted. It is kept
@@ -174,7 +181,6 @@ func (r *Runner) schedulesAt(ctx context.Context, now time.Time) {
 	if client == nil || client.BaseURL == "" {
 		return
 	}
-	r.expireNotes(ctx, now, settings)
 	schedules, err := r.store.Schedules("")
 	if err != nil {
 		r.emit("error", map[string]any{"where": "schedule", "message": err.Error()})

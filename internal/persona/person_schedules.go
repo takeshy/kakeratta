@@ -130,6 +130,7 @@ func (r *Runner) ApplyPersonSchedules(plan *PersonSchedulePlan) error {
 	if plan == nil {
 		return nil
 	}
+	defer r.Rearm()
 	// One persona's calendar is reconciled by one caller at a time, in this
 	// process or any other serving the workspace.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

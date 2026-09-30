@@ -106,6 +106,7 @@ func (s *Server) editNote(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "メモが見つかりません")
 		return
 	}
+	defer s.runner.Rearm() // The note may carry an expires date.
 	if err := s.store.WriteNote(id, path, body.Text); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return

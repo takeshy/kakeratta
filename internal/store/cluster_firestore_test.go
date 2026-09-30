@@ -72,12 +72,6 @@ func TestFirestoreRuntimeContract(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("the change feed did not announce a queued reaction")
 	}
-	if err := EnqueueTick(ctx, client, w.user.ID); err != nil {
-		t.Fatal(err)
-	}
-	if err := EnqueueTick(ctx, client, w.user.ID); err != nil {
-		t.Fatalf("a second tick while one waits: %v", err)
-	}
 	if claimable, err := WorkspaceClaimable(ctx, client, w.user.ID); err != nil || !claimable {
 		t.Fatalf("claimable = %v, %v", claimable, err)
 	}

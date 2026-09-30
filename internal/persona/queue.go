@@ -70,7 +70,6 @@ func (r *Runner) stop(halt bool) {
 		r.halting = true
 	}
 	r.stopMu.Unlock()
-	r.stopTimers()
 	if !started && !halt {
 		r.Start()
 		started = true
@@ -215,9 +214,14 @@ fold:
 		folded = append(folded, next.ID)
 	}
 	now := time.Now()
+	if !item.Due && !item.Index {
+		// The work may have set a schedule, a retry, or an expires date; the
+		// workspace looks at its times again soon.
+		defer r.arm(time.Now().Add(soonDue))
+	}
 	switch {
-	case item.Tick:
-		r.tick(ctx, now)
+	case item.Due:
+		r.due(ctx, now)
 	case item.Index:
 		// Let go at once: what is saved while this pass runs asks for the
 		// next one, rather than finding this one still waiting.
@@ -251,7 +255,7 @@ func (r *Runner) accept(item store.Reaction) {
 	}
 	var err error
 	for attempt := 1; ; attempt++ {
-		if item.ID == store.TickReaction || item.ID == store.IndexReaction || item.Ask != "" {
+		if item.ID == store.DueReaction || item.ID == store.IndexReaction || item.Ask != "" {
 			// At most one waits at a time; one already waiting covers this.
 			if err = r.store.CreateReaction(item); errors.Is(err, store.ErrReactionExists) {
 				err = nil
@@ -274,26 +278,12 @@ func (r *Runner) accept(item store.Reaction) {
 	r.Poke()
 }
 
-// Tick queues the periodic checks - check-ins, schedules, note retries,
-// expired notes, asks past their waits - unless they are waiting already.
-// Whoever runs the clock calls it every minute.
-func (r *Runner) Tick() {
-	r.accept(store.Reaction{ID: store.TickReaction, Lane: store.TickReaction, Tick: true})
-}
-
 // ScheduleIndex queues bringing the search index up to date, unless that is
 // waiting already.
 func (r *Runner) ScheduleIndex() { r.scheduleIndex(time.Time{}) }
 
 func (r *Runner) scheduleIndex(notBefore time.Time) {
 	r.accept(store.Reaction{ID: store.IndexReaction, Lane: store.IndexReaction, Index: true, NotBefore: notBefore})
-}
-
-func (r *Runner) tick(ctx context.Context, now time.Time) {
-	r.sweepAsks(ctx, now)
-	r.retryNoteJobs(ctx, now)
-	r.dailyAt(ctx, now)
-	r.schedulesAt(ctx, now)
 }
 
 // indexPending brings the search index up to date. A failure is tried again

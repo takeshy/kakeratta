@@ -57,6 +57,8 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		s.runner.ResetExternalAgent()
 	}
 	s.scheduleIndex()
+	// The time zone and the check-ins are among the settings.
+	s.runner.Rearm()
 	s.getSettings(w, r)
 }
 

@@ -97,6 +97,7 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.runner.Rearm()
 	// Wakes belong to an active persona. Remove them at the moment it is
 	// paused, including future schedules that the minute loop has not reached.
 	for id := range previouslyActive {
@@ -164,7 +165,9 @@ func (s *Server) activatePersona(id string) error {
 		return nil
 	}
 	settings.Active = append(settings.Active, id)
-	return s.store.SaveSettings(settings)
+	err := s.store.SaveSettings(settings)
+	s.runner.Rearm()
+	return err
 }
 
 func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
@@ -243,6 +246,7 @@ func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.runner.Rearm()
 	s.getPersonas(w, r)
 }
 

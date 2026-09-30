@@ -45,8 +45,10 @@ type Reaction struct {
 	// Ask is an external agent's ask that ended, answered or not, whose turn
 	// is to be carried on.
 	Ask string `json:"ask,omitempty" firestore:"ask,omitempty"`
-	// Tick runs the periodic checks; Index brings the search index up to date.
-	Tick  bool `json:"tick,omitempty" firestore:"tick,omitempty"`
+	// Due runs whatever has come due - asks past their waits, note retries,
+	// check-ins, schedules, expired notes - and arms the next time something
+	// will; Index brings the search index up to date.
+	Due   bool `json:"due,omitempty" firestore:"due,omitempty"`
 	Index bool `json:"index,omitempty" firestore:"index,omitempty"`
 
 	Forgotten *ForgottenReaction `json:"forgotten,omitempty" firestore:"forgotten,omitempty"`
@@ -71,7 +73,7 @@ type DeletedReaction struct {
 
 // Fixed IDs of the reactions a workspace has at most one of waiting.
 const (
-	TickReaction  = "tick"
+	DueReaction   = "due"
 	IndexReaction = "index"
 )
 
@@ -280,16 +282,6 @@ func createReaction(ctx context.Context, client *firestore.Client, key string, i
 	_, err := reactionsOf(client, key).Doc(item.ID).Create(ctx, item)
 	if status.Code(err) == codes.AlreadyExists {
 		return ErrReactionExists
-	}
-	return err
-}
-
-// EnqueueTick queues a workspace's periodic checks, unless they are waiting
-// already. The scheduler does this for every workspace without opening it.
-func EnqueueTick(ctx context.Context, client *firestore.Client, key string) error {
-	err := createReaction(ctx, client, key, Reaction{ID: TickReaction, At: time.Now(), Lane: TickReaction, Tick: true})
-	if errors.Is(err, ErrReactionExists) {
-		return nil
 	}
 	return err
 }

@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"log"
 	"math/rand/v2"
+	"net/http"
 	"time"
 
-	"github.com/takeshy/kakeratta/internal/cluster"
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
@@ -15,13 +17,17 @@ import (
 // workspaces themselves. With it, any number of instances serve the same
 // users: every request is answered where it lands, and each workspace's
 // persona work is taken up reaction by reaction by whichever instance claims
-// it (store.Reaction). No instance owns a workspace.
+// it (store.Reaction). No instance owns a workspace, and none keeps a clock:
+// a workspace asks to be woken at the next time anything of its comes due.
 type Shared struct {
-	// Coordinator elects the one instance that queues every workspace's
-	// periodic checks each minute.
-	Coordinator cluster.Coordinator
-	// Tick queues a workspace's periodic checks without opening it.
-	Tick func(ctx context.Context, key string) error
+	// Alarm wakes a workspace at a time without opening it, by queueing a
+	// task for it. Without one, a timer in each process does, and opens the
+	// workspace when it fires.
+	Alarm func(ctx context.Context, key string, at time.Time) error
+	// Verify reads a wake a task delivered to /internal/due and returns the
+	// workspace it names, refusing anything that is not a task's. Without
+	// one, /internal/due is not served.
+	Verify func(r *http.Request) (string, error)
 	// Watch reports the workspaces reactions are queued for, until ctx ends.
 	Watch func(ctx context.Context, queued func(key string))
 	// Pending names the workspaces with work someone could take up now.
@@ -35,8 +41,6 @@ type Shared struct {
 }
 
 const (
-	// schedulerJob is the lease name of the instance queueing ticks.
-	schedulerJob = "scheduler"
 	// idleTenant is how long an open workspace stays open after its last
 	// request, with nothing in hand and no page listening.
 	idleTenant = 10 * time.Minute
@@ -94,32 +98,12 @@ func (g *Gateway) wake(key string) {
 	}()
 }
 
-// tickShared runs the minute's shared duties: the elected instance queues
-// every workspace's periodic checks; every instance takes up work nobody has
-// claimed and closes what it holds open for nothing.
-func (g *Gateway) tickShared(keys []string) {
+// sweepShared takes up work nobody has claimed and closes what this instance
+// holds open for nothing. It queues nothing: the work of a workspace's own
+// times is its alarm's.
+func (g *Gateway) sweepShared() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if elected, err := g.shared.Coordinator.Acquire(ctx, schedulerJob); err != nil {
-		log.Printf("scheduler election: %v", err)
-	} else if elected {
-		for _, key := range keys {
-			select {
-			case <-g.stop:
-				return
-			default:
-			}
-			g.mu.Lock()
-			closing := g.closing[key]
-			g.mu.Unlock()
-			if closing {
-				continue
-			}
-			if err := g.shared.Tick(ctx, key); err != nil {
-				log.Printf("tick %s: %v", key, err)
-			}
-		}
-	}
 	if pending, err := g.shared.Pending(ctx); err != nil {
 		log.Printf("pending work: %v", err)
 	} else {
@@ -128,6 +112,65 @@ func (g *Gateway) tickShared(keys []string) {
 		}
 	}
 	g.closeIdle()
+}
+
+// setAlarm wakes a workspace at a time: a task if the deployment has a queue
+// for them, else a timer in this process.
+func (g *Gateway) setAlarm(key string, at time.Time) error {
+	if g.shared.Alarm != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		return g.shared.Alarm(ctx, key, at)
+	}
+	g.alarmsMu.Lock()
+	alarm := g.alarms[key]
+	if alarm == nil {
+		alarm = newLocalAlarm(func() { g.fire(key) })
+		g.alarms[key] = alarm
+	}
+	g.alarmsMu.Unlock()
+	return alarm.Set(at)
+}
+
+// fire is a workspace's alarm going off: it is opened here if need be, and
+// its due reaction queued.
+func (g *Gateway) fire(key string) {
+	select {
+	case <-g.stop:
+		return
+	default:
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if exists, err := g.shared.Exists(ctx, key); err != nil || !exists {
+		return // Deleted, or not set up: nothing to wake.
+	}
+	tenant, err := g.workspace(key)
+	if err != nil {
+		log.Printf("wake %s: %v", key, err)
+		return
+	}
+	tenant.runner.Due()
+}
+
+// serveDue is a task delivering a wake. The reaction it leads to is worked by
+// whichever instance claims it, this one or another.
+func (g *Gateway) serveDue(w http.ResponseWriter, r *http.Request) {
+	if g.shared == nil || g.shared.Verify == nil {
+		notFound(w, r)
+		return
+	}
+	key, err := g.shared.Verify(r)
+	if err != nil {
+		fail(w, http.StatusUnauthorized, "invalid task credential")
+		return
+	}
+	if raw, err := hex.DecodeString(key); err != nil || len(raw) != sha256.Size {
+		fail(w, http.StatusBadRequest, "invalid workspace")
+		return
+	}
+	g.fire(key)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // closeIdle closes the workspaces open here with nothing to do.

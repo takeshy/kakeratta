@@ -35,10 +35,9 @@ type Options struct {
 	// Exports is where a finished backup is put for the user to download.
 	// Without one the backup is streamed down the response instead.
 	Exports store.ExportTarget
-	// NoClock leaves the minute's periodic checks to whoever queues them for
-	// every workspace - the elected scheduler of a deployment with several
-	// instances. Without it the server queues its own.
-	NoClock bool
+	// Alarm wakes the workspace at a time: it makes sure a due reaction is
+	// queued then. Without one the server sets a timer in its own process.
+	Alarm func(at time.Time) error
 }
 
 // EventBus carries one workspace's events to every process serving it. A
@@ -64,8 +63,7 @@ type Server struct {
 	exporting    atomic.Bool
 
 	mux       *http.ServeMux
-	clockStop chan struct{}
-	clockDone chan struct{}
+	alarm     *localAlarm
 	closeOnce sync.Once
 	events    *hub
 
@@ -97,27 +95,17 @@ func New(options Options) *Server {
 	s.runner.SetConnectionWaits(s.activeMCPWaits)
 	s.runner.OnEvent(s.publishEvent)
 	s.routes()
+	if options.Alarm != nil {
+		s.runner.SetAlarm(options.Alarm)
+	} else {
+		s.alarm = newLocalAlarm(s.runner.Due)
+		s.runner.SetAlarm(s.alarm.Set)
+	}
 	// Whatever was queued and not finished - here before a restart, or by
-	// another process - is taken up now.
+	// another process - is taken up now, and the workspace looks at its times.
 	s.runner.Start()
 	s.scheduleIndex()
-	if !options.NoClock {
-		s.clockStop, s.clockDone = make(chan struct{}), make(chan struct{})
-		go func() {
-			defer close(s.clockDone)
-			ticker := time.NewTicker(time.Minute)
-			defer ticker.Stop()
-			s.runner.Tick()
-			for {
-				select {
-				case <-s.clockStop:
-					return
-				case <-ticker.C:
-					s.runner.Tick()
-				}
-			}
-		}()
-	}
+	s.runner.Rearm()
 	return s
 }
 
@@ -134,9 +122,8 @@ func (s *Server) Halt() { s.close(true) }
 
 func (s *Server) close(halt bool) {
 	s.closeOnce.Do(func() {
-		if s.clockStop != nil {
-			close(s.clockStop)
-			<-s.clockDone
+		if s.alarm != nil {
+			s.alarm.Stop()
 		}
 		if halt {
 			s.runner.Halt()

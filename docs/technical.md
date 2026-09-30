@@ -967,8 +967,11 @@ left when it stopped is taken up by another.
 Configured workspaces are restored after a restart, including Firestore-backed
 users.
 
-The scheduler checks once per minute and uses the same execution queue as
-ordinary persona work, so a busy queue can delay a wake.
+There is no clock going round every workspace. A workspace asks to be woken at
+the next time anything of its comes due - a schedule, a check-in, a retry, an
+`expires` date - through a Cloud Tasks task (a timer where there is no queue),
+and the wake uses the same execution queue as ordinary persona work, so a busy
+queue can delay it.
 
 ## Offline posting
 

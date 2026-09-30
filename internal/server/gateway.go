@@ -79,6 +79,8 @@ type Gateway struct {
 	used      map[string]time.Time
 	waking    map[string]bool
 	stopWatch context.CancelFunc
+	alarmsMu  sync.Mutex
+	alarms    map[string]*localAlarm
 }
 
 func NewGateway(ctx context.Context, options AuthOptions) (*Gateway, error) {
@@ -102,7 +104,7 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 		options: options, verifier: verifier,
 		tenants: map[string]*Server{}, closing: map[string]bool{},
 		shared: options.Shared,
-		used:   map[string]time.Time{}, waking: map[string]bool{},
+		used:   map[string]time.Time{}, waking: map[string]bool{}, alarms: map[string]*localAlarm{},
 		stopWatch: func() {},
 	}
 	if g.shared != nil {
@@ -115,6 +117,10 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/internal/due" && r.Method == http.MethodPost {
+		g.serveDue(w, r)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/api/mcp/users/") {
 		key := strings.TrimPrefix(r.URL.Path, "/api/mcp/users/")
 		decoded, err := hex.DecodeString(key)
@@ -476,9 +482,9 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
 	}
 	if g.shared != nil {
-		// The elected scheduler queues the periodic checks of every
-		// workspace, open here or not.
-		options.NoClock = true
+		// A workspace here may be closed when idle, so it is woken from
+		// outside: by a task, or by a timer that opens it again.
+		options.Alarm = func(at time.Time) error { return g.setAlarm(userKey, at) }
 	}
 	tenant := New(options)
 	tenant.workspaceKey = userKey
@@ -514,11 +520,11 @@ func (g *Gateway) Close() {
 			}(tenant)
 		}
 		wg.Wait()
-		if g.shared != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			_ = g.shared.Coordinator.Release(ctx, schedulerJob)
+		g.alarmsMu.Lock()
+		for _, alarm := range g.alarms {
+			alarm.Stop()
 		}
+		g.alarmsMu.Unlock()
 	})
 }
 
@@ -526,7 +532,18 @@ func (g *Gateway) restoreWorkspaces() {
 	defer close(g.done)
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
-	for {
+	for first := true; ; first = false {
+		if g.shared != nil && !first {
+			// Nothing is listed again: workspaces wake themselves. This only
+			// takes up work whose claim lapsed, and closes what is idle.
+			g.sweepShared()
+			select {
+			case <-g.stop:
+				return
+			case <-ticker.C:
+			}
+			continue
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		var keys []string
 		var err error
@@ -557,7 +574,15 @@ func (g *Gateway) restoreWorkspaces() {
 		}
 		keys = valid
 		if g.shared != nil {
-			g.tickShared(keys)
+			// Once, at start: every workspace asks to be woken now, which
+			// sets its own next time. Tasks are named, so instances starting
+			// together set one.
+			for _, key := range keys {
+				if err := g.setAlarm(key, time.Now()); err != nil {
+					log.Printf("wake %s: %v", key, err)
+				}
+			}
+			g.sweepShared()
 			keys = nil
 		}
 		for _, key := range keys {

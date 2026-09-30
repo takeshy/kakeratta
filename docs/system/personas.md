@@ -125,7 +125,7 @@ The host checks unread overwrites, duplicates, types outside the memory layout, 
 
 Persistence attaches links to source posts and carries provenance forward when read notes are consolidated. A reverse index finds notes citing an entry. Deleting posts or notes asks the persona to tidy the remaining memory.
 
-The keeper's input is persisted as a `NoteJob`. Failures retry with increasing delays from one minute up to one hour, on the minute's tick. Note updates and index repair are separate stages, so completed memory generation is not needlessly repeated. A persona's keeper runs under the named lock `keeper:{id}`, one at a time across processes.
+The keeper's input is persisted as a `NoteJob`. Failures retry with increasing delays from one minute up to one hour, on their due time (see [Times and wakes](./architecture.md#times-and-wakes)). Note updates and index repair are separate stages, so completed memory generation is not needlessly repeated. A persona's keeper runs under the named lock `keeper:{id}`, one at a time across processes.
 
 ## Implementation and verification
 
