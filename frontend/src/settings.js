@@ -17,7 +17,7 @@ export function aiConfigured(settings) {
 }
 
 export function createSettings({ speaker, onSettings, onMCPChange, closeAccount = null }) {
-  const view = el("div", { class: "panel-body" });
+  const view = el("div", { class: "panel-body settings-panel" });
   let settings = null;
   let revealOpenRouter = () => {};
   let setupHint = null;

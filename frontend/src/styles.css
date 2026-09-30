@@ -372,6 +372,50 @@ body.sheet-open .topbar { z-index: 21; }
 .model-picker-list button { border: 0; border-radius: 6px; padding: 8px; background: transparent; color: inherit; text-align: left; overflow-wrap: anywhere; }
 .model-picker-list button:hover, .model-picker-list button.selected { background: var(--soft); }
 .model-picker-list .hint { padding: 8px; }
+/* The settings sheet: each h3 opens a section, set off by a rule and an accent
+   label, so a long sheet reads as a few groups rather than one column. */
+.settings-panel { gap: 12px; padding-bottom: 32px; }
+.settings-panel p { margin: 0; line-height: 1.6; }
+.settings-panel h3 {
+  margin: 18px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.settings-panel h3:first-child { margin-top: 4px; padding-top: 0; border-top: 0; }
+.settings-panel > p:not(.hint) { color: var(--muted); font-size: 0.88rem; }
+.settings-panel a:not(.chip) {
+  justify-self: start;
+  color: var(--accent);
+  font-size: 0.88rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--accent-soft);
+}
+.settings-panel a:not(.chip):hover { text-decoration-color: var(--accent); }
+.settings-panel .field { gap: 6px; }
+.settings-panel .field > span:first-child { font-weight: 600; }
+.settings-panel .field.check-field > span:first-child { font-weight: 400; }
+.settings-panel .hint { margin: 0; color: var(--muted); font-size: 0.78rem; line-height: 1.55; }
+.settings-panel .hint.warn { padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); }
+.settings-panel input:focus-visible, .settings-panel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.settings-panel .chip { justify-self: start; padding: 7px 14px; }
+.settings-panel .settings-advanced { margin-top: 18px; padding-top: 18px; }
+.settings-panel .settings-advanced > summary { font-weight: 700; letter-spacing: 0.06em; font-size: 0.78rem; }
+.settings-panel .advanced-category { padding: 0; background: var(--bg); overflow: hidden; }
+.settings-panel .advanced-category > summary {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 14px; list-style: none;
+}
+.settings-panel .advanced-category > summary::-webkit-details-marker { display: none; }
+.settings-panel .advanced-category > summary::after { content: "›"; color: var(--muted); font-size: 1.2rem; transition: transform 0.15s; }
+.settings-panel .advanced-category[open] > summary::after { transform: rotate(90deg); }
+.settings-panel .advanced-category > summary:hover { color: var(--accent); }
+.settings-panel .advanced-category[open] > summary { border-bottom: 1px solid var(--line); }
+.settings-panel .advanced-category-body { padding: 14px; background: var(--card); }
 .field.check-field { display: flex; flex-direction: row; align-items: center; gap: 8px; }
 .field.check-field input { width: auto; }
 .field.check-field > span:first-child { color: inherit; font-size: inherit; }
