@@ -20,6 +20,7 @@ import { aiConfigured, createSettings } from "./settings.js";
 import { createSpeaker } from "./speak.js";
 import { createTimelinePages } from "./timeline-pages.js";
 import { createSearch } from "./search.js";
+import { createSpeaker } from "./speaker.js";
 import { getLanguage, t } from "./i18n.js";
 import { authenticationEnabled, logout, reconnectAuthentication } from "./auth.js";
 
@@ -49,11 +50,8 @@ const feed = createFeed({
   onFixReply: (args) => showReplyFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
   onOpenNote: ({ persona, path }) => void personas.showMemoryFor(persona, path),
   onSelectPersona: (persona) => { open("personas"); personas.reveal(persona.id); },
-  // A name on the timeline opens what that speaker said, in the search sheet.
-  onSpeaker: (id, name) => {
-    if (panel !== "search") open("search");
-    void searchPanel.showSpeaker(id, name);
-  },
+  // A name on the timeline opens what that speaker said.
+  onSpeaker: (id, name) => openSpeaker(id, name),
 });
 // A post made here or on the app's behalf - what was told about a person when
 // saving its persona - lands in the timeline the same way.
@@ -77,7 +75,7 @@ const personas = createPersonas({
   onChange: (rows) => {
     personaRows = rows;
     // A card over a speaker's list shows what was just changed.
-    searchPanel.redrawSpeakerCard?.();
+    speakerPanel.redrawCard();
     void localRecord("personas", rows).catch(() => {});
     feed.draw();
     room.set(rows);
@@ -115,7 +113,17 @@ const searchPanel = createSearch({
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onEntryChange: (entry) => pages.upsert(entry),
   onReply: () => { void reload(); pollAfterSending(); },
-  // The card over a speaker's list opens the same things the personas list does.
+  onSpeaker: (id, name) => openSpeaker(id, name),
+});
+
+const speakerPanel = createSpeaker({
+  getSettings: () => settings,
+  onSpeak: speakThread,
+  getPersonas: () => personaRows,
+  getPersona: (id) => personaRows.find((row) => row.id === id),
+  onEntryChange: (entry) => pages.upsert(entry),
+  onReply: () => { void reload(); pollAfterSending(); },
+  // The card over the list opens the same things the personas list does.
   onOpenPersona: (row) => { open("personas"); personas.reveal(row.id); },
   onOpenMemory: (row) => void personas.showMemoryFor(row),
   onEditPersona: (row, focus) => personas.edit(row, focus),
@@ -133,9 +141,11 @@ speaker.onState((on) => {
   if (!on) speakingThread = null;
   feed.setSpeaking(speakingThread);
   searchPanel.setSpeaking(speakingThread);
+  speakerPanel.setSpeaking(speakingThread);
 });
 speaker.onLine((line) => {
   if (panel === "search") searchPanel.reveal(line.id);
+  else if (panel === "speaker") speakerPanel.reveal(line.id);
   else feed.reveal(line.id);
   document.querySelector(`[data-id="${line.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
 });
@@ -167,11 +177,11 @@ document.body.addEventListener("click", (event) => {
 });
 
 function showPanel() {
-  const body = panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : settingsPanel.element;
+  const body = panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : panel === "speaker" ? speakerPanel.element : settingsPanel.element;
   const host = $("#sheet");
   host.classList.toggle("required", panel === "settings" && settingsRequired);
   host.replaceChildren(sheetNodes({
-    title: panel === "personas" ? "担当" : panel === "search" ? "検索" : "設定",
+    title: panel === "personas" ? "担当" : panel === "search" ? "検索" : panel === "speaker" ? "発言一覧" : "設定",
     body,
     onClose: panel === "settings" && settingsRequired ? null : close,
   }));
@@ -190,6 +200,19 @@ function open(which) {
   if (which === "personas") void personas.load();
   else if (which === "search") searchPanel.focus();
   else void settingsPanel.load();
+}
+
+// A speaker's list is a sheet of its own; a name on it opens another speaker's.
+function openSpeaker(id, name) {
+  if (panel === "search") void searchPanel.stopVoice();
+  if (panel === "settings") {
+    if (settingsRequired) return;
+    settingsPanel.stopMicCheck();
+  }
+  const opened = panel === "speaker";
+  panel = "speaker";
+  if (!opened) showPanel();
+  void speakerPanel.show(id, name);
 }
 
 function close() {
@@ -306,6 +329,7 @@ api.on((name, data) => {
   if (name === "entry") {
     pages.upsert(data);
     searchPanel.changed(data);
+    speakerPanel.changed(data);
     return;
   }
   if (name === "open") { void reload(); void outbox.flush(); }

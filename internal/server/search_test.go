@@ -63,16 +63,25 @@ func TestSpeakerListIsServed(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	get := func(path string) (int, search.Result) {
+	type page struct {
+		search.Result
+		Entries []timeline.Entry `json:"entries"`
+	}
+	get := func(path string) (int, page) {
 		recorder := httptest.NewRecorder()
 		server.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
-		var result search.Result
+		var result page
 		_ = json.Unmarshal(recorder.Body.Bytes(), &result)
 		return recorder.Code, result
 	}
 	code, result := get("/api/speaker/father?limit=1")
 	if code != http.StatusOK || result.Total != 2 || len(result.Hits) != 1 || result.Hits[0].Entry.ID != "r2" {
 		t.Fatalf("first page = %d %+v", code, result)
+	}
+	// The remark comes with its whole conversation, once, so the page needs no
+	// further request.
+	if len(result.Entries) != 3 {
+		t.Fatalf("conversation = %+v", result.Entries)
 	}
 	if _, next := get("/api/speaker/father?limit=1&offset=1"); len(next.Hits) != 1 || next.Hits[0].Entry.ID != "r1" {
 		t.Fatalf("second page = %+v", next)

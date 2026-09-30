@@ -281,10 +281,10 @@ not attached to the persona's remark as it is; only the posts the persona
 declares as its grounds are linked under it.
 
 **A name on the timeline** - a persona's, or "You" - opens everything that speaker
-said, newest first, in the search sheet. Over the list is the persona as its
+said in a sheet of its own, each remark under its post as on the timeline, newest conversation first. Over the list is the persona as its
 card in the personas list shows it: the relationship or condition, a person's
 names, keywords and basic information, and links to its settings, its editor
-and what it remembers. **Back to search** leaves the list.
+and what it remembers. Tap a name on the list to open another speaker.
 
 Enter a name such as “Pinot” or a description such as “a light red I enjoyed” in
 one search field. Short terms use keyword search without waiting for AI. Questions

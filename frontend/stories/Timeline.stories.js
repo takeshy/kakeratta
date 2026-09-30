@@ -1,8 +1,10 @@
 import { showConditionFix } from "../src/condition-fix.js";
 import { showReplyFix } from "../src/reply-fix.js";
+import { createSpeaker } from "../src/speaker.js";
+import { getLanguage } from "../src/i18n.js";
 import { serve } from "./api.js";
-import { feed, panel } from "./frame.js";
-import { conditionDraft, keywordDraft, monthSummary, person, personRouting, personTimeline, personWords, personas, replyDraft, replyPreview, routing, timeline, words } from "./fixtures.js";
+import { feed, panel, sheet } from "./frame.js";
+import { conditionDraft, keywordDraft, monthSummary, person, personRouting, personTimeline, personWords, personas, replyDraft, replyPreview, routing, settings, timeline, words } from "./fixtures.js";
 
 export default { title: "Timeline" };
 
@@ -12,6 +14,38 @@ const show = (entries) => panel(feed(entries, personas).element);
 // one starts by taking down what the previous story left.
 const clearDialogs = () => { for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove(); };
 const fixing = (args) => showConditionFix({ ...args, onSaved: () => {} });
+
+// A name on the timeline opens what that speaker said, read as the timeline is,
+// under the persona's own card from the personas list.
+function speakerPanel() {
+  const ja = getLanguage() === "ja";
+  const sato = person();
+  const entries = [
+    { id: "wine-1", kind: "post", root: "wine-1", speaker: "user", at: "2026-09-10T10:30:00Z",
+      text: ja ? "友人の家で飲んだピノ・ノワール。渋みが少なくて、するっと飲めた。" : "Pinot Noir at a friend's place. Soft tannins, so easy to drink." },
+    { id: "wine-2", kind: "post", root: "wine-2", speaker: "user", at: "2026-08-22T11:00:00Z",
+      text: ja ? "先週はごちそうになった。" : "Treated to dinner last week." },
+    { id: "wine-3", kind: "post", root: "wine-3", speaker: "user", at: "2026-08-03T09:00:00Z",
+      text: ja ? "お店で勧めてもらったピノ・ノワール。また頼みたい。" : "The Pinot Noir the restaurant recommended. I'd order it again." },
+    { id: "s-1", kind: "remark", root: "wine-1", speaker: sato.id, at: "2026-09-10T10:31:00Z",
+      text: ja ? "誕生日が近いですね。好みの赤ワインを一本、贈り物の候補にどうでしょう。" : "Her birthday is close. A red she likes could be a gift." },
+    { id: "s-2", kind: "remark", root: "wine-2", speaker: sato.id, at: "2026-08-22T11:02:00Z",
+      text: ja ? "先週のお礼をまだ伝えていなければ、一言添えると喜ばれそうです。" : "If you haven't yet thanked her for last week, a word would go down well." },
+    { id: "s-3", kind: "remark", root: "wine-3", speaker: sato.id, at: "2026-08-03T09:05:00Z",
+      text: ja ? "お店の名前を控えておきましょうか。" : "Shall I note the restaurant's name?" },
+  ];
+  serve({ settings, search: { entries, hits: [] } });
+  const view = createSpeaker({
+    getSettings: () => settings, getPersona: (id) => id === sato.id ? sato : null,
+    onOpenPersona: () => {}, onOpenMemory: () => {}, onEditPersona: () => {},
+  });
+  void view.show(sato.id, sato.name).then(() => {
+    view.element.querySelectorAll(".basic-info").forEach((details) => { details.open = true; });
+  });
+  return sheet("発言一覧", view.element);
+}
+
+export const Speaker = { name: "名前から発言一覧を開く", render: speakerPanel };
 
 export const Empty = { name: "空", render: () => show([]) };
 export const Quiet = { name: "1件・反応なし", render: () => show(timeline().quiet) };

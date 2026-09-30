@@ -43,6 +43,16 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       }
       return json({ hits: hits.slice(body.offset || 0, (body.offset || 0) + (body.limit || 20)), total: hits.length });
     }
+    const spoken = path.match(/^\/api\/speaker\/([^/]+)$/);
+    if (spoken && search) {
+      const who = decodeURIComponent(spoken[1]);
+      const rows = search.entries.filter((entry) => entry.speaker === who).sort((a, b) => b.at.localeCompare(a.at));
+      const offset = Number(url.searchParams.get("offset") || 0), limit = Number(url.searchParams.get("limit") || 20);
+      const page = rows.slice(offset, offset + limit);
+      const roots = new Set(page.map((entry) => entry.root));
+      return json({ hits: page.map((entry) => ({ entry, snippet: entry.text, passage: entry.text })), total: rows.length,
+        entries: search.entries.filter((entry) => roots.has(entry.id) || roots.has(entry.root)) });
+    }
     if (path.startsWith("/api/thread/") && search) {
       const id = decodeURIComponent(path.slice("/api/thread/".length));
       const entry = search.entries.find((entry) => entry.id === id);

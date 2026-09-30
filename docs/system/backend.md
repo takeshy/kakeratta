@@ -170,6 +170,8 @@ Lexical search derives terms from character-script runs and contiguous Han chara
 
 `GET /api/speaker/{id}?limit=&offset=` (`speakerEntries`) lists what one speaker - the user, or a persona by its id - put on the timeline, newest first, 20 by default and up to 50 a page, as the hits a search returns (`Result`: `hits`, `total`; the snippet is the first 240 characters of the entry's text). `search.BySpeaker` reads them through `Workspace.SpeakerEntries`: the file store's index of current entries carries each entry's speaker, so only the days the speaker spoke on are read; Firestore queries the timeline with an equality filter on `Speaker`, which needs no composite index. A deleted conversation takes what the speaker said in it, as everywhere.
 
+The response also carries `entries`: the whole conversation of each remark on the page, read once each, five at a time (`Server.conversations`, through `store.SearchThread`), so the list can show a remark under its post without a request per conversation. A conversation whose post has gone is left out.
+
 ## Index updates and changing records
 
 `entry` events after persistence or image analysis, and settings changes, schedule indexing: `Runner.ScheduleIndex` queues the `index` reaction, of which at most one waits, so a workspace is indexed by one worker at a time in whichever process claims it. The pass calls `IndexPending` for pending work; a failure queues another pass 30 seconds later.

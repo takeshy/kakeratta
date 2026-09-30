@@ -46,6 +46,9 @@ func TestFailedNoteJobSurvivesRestartAndRetries(t *testing.T) {
 	if snapshot.Trigger.ID == "" {
 		t.Fatalf("missing trigger: %+v", snapshot.Trigger)
 	}
+	// The first process is gone before the second one starts. Left running, it
+	// would take up the same due job from its own copy of the queue.
+	r.Stop()
 	fail = false
 	jobs[0].NextAttempt = time.Time{}
 	if err := s.SaveNoteJob(jobs[0]); err != nil {
@@ -55,8 +58,14 @@ func TestFailedNoteJobSurvivesRestartAndRetries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Today's check-in has run, as far as this test is concerned: whether it is
+	// in its window depends on the hour and on the temporary directory, and its
+	// own note phase would fail on the note this test is about.
+	if _, _, err := reopened.ClaimDailyCheckInAt("gourmet", time.Now().In(reopened.Settings().Location()).Format("2006-01-02"), time.Now()); err != nil {
+		t.Fatal(err)
+	}
 	restarted := New(reopened, r.catalogue, r.clientOf)
-	// The minute's periodic checks retry what is due.
+	// What is due is retried when the workspace wakes.
 	restarted.Due()
 	restarted.Stop()
 	if jobs, err := s.NoteJobs(); err != nil || len(jobs) != 0 {

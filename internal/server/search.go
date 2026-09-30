@@ -5,10 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/search"
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +50,8 @@ func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 // speakerEntries is what one speaker said, newest first: the list opened from a
-// name on the timeline.
+// name on the timeline. Each remark is read under its post, so the conversations
+// the page touches come with it - one request, not one per conversation.
 func (s *Server) speakerEntries(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
@@ -61,8 +64,54 @@ func (s *Server) speakerEntries(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "発言を読み込めませんでした")
 		return
 	}
+	entries, err := s.conversations(r.Context(), result.Hits)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "発言を読み込めませんでした")
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, struct {
+		search.Result
+		Entries []timeline.Entry `json:"entries"`
+	}{result, entries})
+}
+
+// conversations reads the conversation of each hit once, a few at a time. One
+// that has gone (its post was deleted) is left out, not an error.
+func (s *Server) conversations(ctx context.Context, hits []search.Hit) ([]timeline.Entry, error) {
+	var roots []string
+	seen := map[string]bool{}
+	for _, hit := range hits {
+		if root := timeline.RootOf(hit.Entry); root != "" && !seen[root] {
+			seen[root] = true
+			roots = append(roots, root)
+		}
+	}
+	threads := make([][]timeline.Entry, len(roots))
+	errs := make([]error, len(roots))
+	slots := make(chan struct{}, 5)
+	var group sync.WaitGroup
+	for i, root := range roots {
+		group.Add(1)
+		slots <- struct{}{}
+		go func() {
+			defer group.Done()
+			defer func() { <-slots }()
+			threads[i], errs[i] = store.SearchThread(ctx, s.store, root)
+		}()
+	}
+	group.Wait()
+	entries := []timeline.Entry{}
+	for i := range roots {
+		if errs[i] != nil {
+			if errors.Is(errs[i], store.ErrSearchThreadMissing) {
+				continue
+			}
+			return nil, errs[i]
+		}
+		entries = append(entries, threads[i]...)
+	}
+	return entries, nil
 }
 
 func (s *Server) getThread(w http.ResponseWriter, r *http.Request) {

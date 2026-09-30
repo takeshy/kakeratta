@@ -18,7 +18,7 @@ Panels have dedicated modules for persona creation and editing, routing checks, 
 
 ## Names and speaker lists
 
-A name on the timeline - a persona's, or the user's; not the app's monthly summary - is a button when the feed is given `onSpeaker` (the main timeline and the thread inside the search sheet both are). It opens the search sheet in speaker mode (`createSearch().showSpeaker`), which reads `api.speaker` a page at a time into the list a search is read in, with the same "load more". Over the list is a card built like the personas list's - the relationship or condition, a person's names, keywords and collapsed basic information (`basicInfoBox`) - with buttons for the persona's settings, its editor (also opened at the basic information) and what it remembers, wired in `app.js` to the personas panel (`reveal`, `showMemoryFor`, `edit`). The card is redrawn when the personas change. A search, or **Back to search**, leaves the mode; a page arriving after that is ignored. The user has no card.
+A name on the timeline - a persona's, or the user's; not the app's monthly summary - is a button when the feed is given `onSpeaker` (the main timeline, the search sheet's thread and the speaker sheet itself all are). It opens a sheet of its own, **発言一覧**, which is not a search: `app.js` `openSpeaker` makes it the open panel and `createSpeaker().show` fills it ([speaker.js](../../frontend/src/speaker.js)). It reads `api.speaker` a page at a time - one request, which returns the conversations the page touches with it - and shows them in a feed as the timeline is read - each remark under its post, remarks unfolded - with a "load more". Over the list is a card built like the personas list's - the relationship or condition, a person's names, keywords and collapsed basic information (`basicInfoBox`) - with buttons for the persona's settings, its editor (also opened at the basic information) and what it remembers, wired in `app.js` to the personas panel (`reveal`, `showMemoryFor`, `edit`). The card is redrawn when the personas change (`redrawCard`), and entries arriving on the live channel are upserted (`changed`). A page arriving after another speaker was opened is ignored. The user has no card.
 
 ## Merging data
 
@@ -43,7 +43,7 @@ A person's card shows its basic information in a collapsed **Basic information**
 - [dom.js](../../frontend/src/dom.js)
 - [person-basic-info.js](../../frontend/src/person-basic-info.js)
 - [feed.test.js](../../tests/feed.test.js): names as buttons
-- [search.test.js](../../tests/search.test.js): speaker lists and their card
+- [speaker.test.js](../../tests/speaker.test.js): speaker lists and their card
 - [Screen.stories.js](../../frontend/stories/Screen.stories.js)
 - [Personas.stories.js](../../frontend/stories/Personas.stories.js)
 - [captures.mjs](../../frontend/captures.mjs)

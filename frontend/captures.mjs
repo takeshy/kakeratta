@@ -46,6 +46,7 @@ const shots = [
   { name: "search-keyword", id: "search--keyword", clip: "#sheet" },
   { name: "search-semantic", id: "search--semantic", clip: "#sheet" },
   { name: "search-thread", id: "search--thread", clip: "#sheet" },
+  { name: "timeline-speaker", id: "timeline--speaker", clip: "#sheet", ready: ".speaker-view .thread" },
   { name: "persona-create", id: "personas--ai-create-start", clip: ".dialog" },
   { name: "persona-draft", id: "personas--ai-create-draft", clip: ".dialog" },
   { name: "timeline", id: "screen--hero" },

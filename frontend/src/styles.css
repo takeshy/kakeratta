@@ -193,7 +193,7 @@ body {
 .post-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.8rem; color: var(--muted); }
 .post-head > *, .said-head > * { white-space: nowrap; }
 .post-head .who { font-weight: 600; color: var(--ink); }
-.speaker-card { margin: 8px 0; }
+.persona.speaker-card { margin: 8px 0; opacity: 1; }
 .speaker-card-host { margin: 4px 0 8px; }
 button.who-link { background: none; border: 0; padding: 0; margin: 0; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left; }
 button.who-link:hover, button.who-link:focus-visible { text-decoration: underline; }
@@ -582,6 +582,7 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .timeline-paging { text-align: center; padding: 16px; min-height: 48px; }
 /* Search stays inside the same sheet as settings and personas. */
 .timeline-search { display: grid; gap: .75rem; padding: 1rem; }
+.speaker-view { display: grid; gap: .75rem; padding: 1rem; }
 .timeline-search-form { display: flex; flex-wrap: wrap; gap: .5rem; }
 .timeline-search-form input { flex: 1 1 12rem; min-width: 0; }
 .search-results { display: grid; gap: .75rem; }
