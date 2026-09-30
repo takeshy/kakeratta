@@ -8,10 +8,9 @@
 package persona
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -166,23 +165,44 @@ var Builtins = []Skill{
 	},
 }
 
-// Catalogue is the built-in skills plus whatever was installed.
-type Catalogue struct{ root string }
+// SkillSource is where installed definitions are kept: the workspace.
+type SkillSource interface {
+	Skills(context.Context) (map[string][]byte, error)
+	PersistSkill(id string, raw []byte) error
+	DeleteSkill(id string) error
+}
 
-func NewCatalogue(skillDir string) *Catalogue { return &Catalogue{root: skillDir} }
+// Catalogue is the built-in skills plus whatever was installed. It keeps
+// nothing itself: every look reads the definitions from the workspace, so a
+// change made by another process serving the same user is seen at once.
+//
+// A piece of work that looks several times - a reaction, a request - reads
+// once with Snapshot and asks the snapshot instead.
+type Catalogue struct{ source SkillSource }
 
-// All lists every skill, built-ins first.
-func (c *Catalogue) All() []Skill {
+func NewCatalogue(source SkillSource) *Catalogue { return &Catalogue{source: source} }
+
+// Skills is the catalogue as it stood when it was read, and does not change
+// afterwards: one piece of work sees one set of definitions throughout.
+type Skills struct{ all []Skill }
+
+// Snapshot reads the built-in and installed skills once, built-ins first.
+func (c *Catalogue) Snapshot(ctx context.Context) *Skills {
 	out := append([]Skill(nil), Builtins...)
-	entries, err := os.ReadDir(c.root)
-	if err != nil {
-		return out
+	if c == nil || c.source == nil {
+		return &Skills{all: out}
 	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		skill, err := c.read(entry.Name())
+	raws, err := c.source.Skills(ctx)
+	if err != nil {
+		return &Skills{all: out}
+	}
+	ids := make([]string, 0, len(raws))
+	for id := range raws {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		skill, err := parseInstalled(id, raws[id])
 		if err != nil {
 			continue
 		}
@@ -206,12 +226,15 @@ func (c *Catalogue) All() []Skill {
 		}
 		return out[i].Name < out[j].Name
 	})
-	return out
+	return &Skills{all: out}
 }
 
+// All lists every skill, built-ins first.
+func (s *Skills) All() []Skill { return append([]Skill(nil), s.all...) }
+
 // Find returns one skill by id.
-func (c *Catalogue) Find(id string) (Skill, bool) {
-	for _, skill := range c.All() {
+func (s *Skills) Find(id string) (Skill, bool) {
+	for _, skill := range s.all {
 		if skill.ID == id {
 			return skill, true
 		}
@@ -221,9 +244,9 @@ func (c *Catalogue) Find(id string) (Skill, bool) {
 
 // Active returns the skills currently in the room, in the order they were
 // added. Ids that no longer resolve are dropped rather than failing.
-func (c *Catalogue) Active(ids []string) []Skill {
+func (s *Skills) Active(ids []string) []Skill {
 	all := map[string]Skill{}
-	for _, skill := range c.All() {
+	for _, skill := range s.all {
 		all[skill.ID] = skill
 	}
 	var out []Skill
@@ -235,11 +258,18 @@ func (c *Catalogue) Active(ids []string) []Skill {
 	return out
 }
 
-func (c *Catalogue) read(id string) (Skill, error) {
-	raw, err := os.ReadFile(filepath.Join(c.root, id, "skill.json"))
-	if err != nil {
-		return Skill{}, err
-	}
+// All, Find and Active each read the definitions afresh. Where several are
+// needed together, take one Snapshot instead.
+func (c *Catalogue) All(ctx context.Context) []Skill { return c.Snapshot(ctx).All() }
+func (c *Catalogue) Find(ctx context.Context, id string) (Skill, bool) {
+	return c.Snapshot(ctx).Find(id)
+}
+func (c *Catalogue) Active(ctx context.Context, ids []string) []Skill {
+	return c.Snapshot(ctx).Active(ids)
+}
+
+// parseInstalled reads one installed definition, kept under its id.
+func parseInstalled(id string, raw []byte) (Skill, error) {
 	var skill Skill
 	if err := json.Unmarshal(raw, &skill); err != nil {
 		return Skill{}, err
@@ -248,7 +278,7 @@ func (c *Catalogue) read(id string) (Skill, error) {
 		return Skill{}, err
 	}
 	if skill.ID != id {
-		return Skill{}, errors.New("skill id does not match its directory")
+		return Skill{}, errors.New("skill id does not match where it is kept")
 	}
 	skill.Builtin = false
 	return skill, nil
@@ -263,12 +293,12 @@ func (c *Catalogue) Install(raw []byte, known func(tool string) bool) (Skill, er
 }
 
 // Update preserves identity, memory and activation, including for built-ins.
-func (c *Catalogue) Update(id string, raw []byte, known func(string) bool) (Skill, error) {
+func (c *Catalogue) Update(ctx context.Context, id string, raw []byte, known func(string) bool) (Skill, error) {
 	var skill Skill
 	if json.Unmarshal(raw, &skill) != nil || skill.ID != id {
 		return Skill{}, errors.New("担当のIDは変更できません")
 	}
-	if _, ok := c.Find(id); !ok {
+	if _, ok := c.Find(ctx, id); !ok {
 		return Skill{}, errors.New("担当が見つかりません")
 	}
 	return c.save(raw, known, true)
@@ -322,19 +352,11 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 		}
 	}
 
-	dir := filepath.Join(c.root, skill.ID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return Skill{}, err
-	}
 	encoded, err := json.MarshalIndent(skill, "", "  ")
 	if err != nil {
 		return Skill{}, err
 	}
-	temp := filepath.Join(dir, "skill.json.tmp")
-	if err := os.WriteFile(temp, encoded, 0o644); err != nil {
-		return Skill{}, err
-	}
-	if err := os.Rename(temp, filepath.Join(dir, "skill.json")); err != nil {
+	if err := c.source.PersistSkill(skill.ID, encoded); err != nil {
 		return Skill{}, err
 	}
 	return skill, nil
@@ -351,7 +373,7 @@ func (c *Catalogue) Uninstall(id string) error {
 			return errors.New("内蔵スキルは削除できません")
 		}
 	}
-	return os.RemoveAll(filepath.Join(c.root, id))
+	return c.source.DeleteSkill(id)
 }
 
 func validate(skill Skill) error {

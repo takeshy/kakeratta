@@ -75,7 +75,7 @@ func TestOnlyScheduleWakesReceiveTodaysTimeline(t *testing.T) {
 	if _, err := s.SaveSchedule(store.Schedule{Skill: "routine", At: now.Add(-time.Second).UTC(), Note: "朝の薬"}); err != nil {
 		t.Fatal(err)
 	}
-	r.schedulesAt(now)
+	r.schedulesAt(context.Background(), now)
 	if !strings.Contains(schedulePrompt, "## 今日のかけら") || !strings.Contains(schedulePrompt, "朝の記録") {
 		t.Fatalf("schedule wake did not receive today's timeline:\n%s", schedulePrompt)
 	}
@@ -130,7 +130,7 @@ func TestAScheduleWakesItsPersonaOnce(t *testing.T) {
 	if _, err := s.SaveSchedule(store.Schedule{Skill: "routine", At: time.Now().Add(-time.Minute).UTC(), Note: "花を買う"}); err != nil {
 		t.Fatal(err)
 	}
-	r.schedulesAt(time.Now())
+	r.schedulesAt(context.Background(), time.Now())
 	if calls != 1 {
 		t.Fatalf("calls = %d", calls)
 	}
@@ -138,7 +138,7 @@ func TestAScheduleWakesItsPersonaOnce(t *testing.T) {
 	if left, err := s.Schedules(""); err != nil || len(left) != 0 {
 		t.Fatalf("left = %+v (%v)", left, err)
 	}
-	r.schedulesAt(time.Now())
+	r.schedulesAt(context.Background(), time.Now())
 	if calls != 1 {
 		t.Fatalf("the same schedule fired twice: calls = %d", calls)
 	}
@@ -161,7 +161,7 @@ func TestAScheduleNobodyCouldRunInTimeIsDropped(t *testing.T) {
 	if _, err := s.SaveSchedule(store.Schedule{Skill: "routine", At: time.Now().Add(-2 * time.Hour).UTC(), Note: "昨日の分"}); err != nil {
 		t.Fatal(err)
 	}
-	r.schedulesAt(time.Now())
+	r.schedulesAt(context.Background(), time.Now())
 	if calls != 0 {
 		t.Fatalf("a stale schedule woke its persona: calls = %d", calls)
 	}
@@ -183,7 +183,7 @@ func TestSchedulesOfAPausedPersonaAreForgotten(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	r.schedulesAt(time.Now())
+	r.schedulesAt(context.Background(), time.Now())
 	if calls != 0 {
 		t.Fatalf("a paused persona woke: calls = %d", calls)
 	}
@@ -218,7 +218,7 @@ func TestForgottenNotesWakeThePersonaOnce(t *testing.T) {
 		t.Fatalf("paths = %v", gone.paths)
 	}
 
-	r.forgottenAt(gone)
+	r.forgottenAt(context.Background(), gone)
 	if calls != 1 {
 		t.Fatalf("calls = %d", calls)
 	}

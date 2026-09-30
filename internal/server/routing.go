@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/takeshy/kakeratta/internal/persona"
 	"net/http"
 	"sort"
 	"time"
@@ -41,9 +42,10 @@ type routingRow struct {
 	Notes []string `json:"notes,omitempty"`
 }
 
-func (s *Server) routingRow(id, reason string) routingRow {
+// rowFor is one persona as the router saw it for a post.
+func rowFor(skills *persona.Skills, id, reason string) routingRow {
 	row := routingRow{ID: id, Name: id, Reason: reason}
-	if skill, ok := s.catalogue.Find(id); ok {
+	if skill, ok := skills.Find(id); ok {
 		row.Name, row.Icon, row.Person = skill.Name, skill.Icon, skill.IsPerson()
 	}
 	return row
@@ -96,9 +98,10 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	skills := s.catalogue.Snapshot(r.Context())
 	delivered := make([]routingRow, 0, len(record.Delivered))
 	for _, id := range record.Delivered {
-		row := s.routingRow(id, "")
+		row := rowFor(skills, id, "")
 		row.Heard = record.Heard[id]
 		row.Via = record.Called[id]
 		for _, quiet := range record.Unrelated {
@@ -114,7 +117,7 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 	}
 	excluded := make([]routingRow, 0, len(record.Excluded))
 	for id, reason := range record.Excluded {
-		excluded = append(excluded, s.routingRow(id, reason))
+		excluded = append(excluded, rowFor(skills, id, reason))
 	}
 	sort.Slice(excluded, func(i, j int) bool { return excluded[i].ID < excluded[j].ID })
 	writeJSON(w, http.StatusOK, map[string]any{"recorded": true, "delivered": delivered, "excluded": excluded})

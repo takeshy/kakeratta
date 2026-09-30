@@ -97,9 +97,10 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "回答を入力してください")
 		return
 	}
+	skills := s.catalogue.Snapshot(r.Context())
 	var original *persona.Skill
 	if body.ID != "" {
-		skill, ok := s.catalogue.Find(body.ID)
+		skill, ok := skills.Find(body.ID)
 		if !ok {
 			fail(w, 404, "担当が見つかりません")
 			return
@@ -112,7 +113,7 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ids := []string{}
-	for _, skill := range s.catalogue.All() {
+	for _, skill := range skills.All() {
 		ids = append(ids, skill.ID)
 	}
 	client, settings := s.client()
@@ -214,7 +215,7 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if original == nil {
-			if _, exists := s.catalogue.Find(result.Draft.ID); exists {
+			if _, exists := s.catalogue.Find(r.Context(), result.Draft.ID); exists {
 				fail(w, 502, "同じIDの担当があります。別の名前を指定してください。")
 				return
 			}
@@ -231,7 +232,7 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	previous, exists := s.catalogue.Find(skill.ID)
+	previous, exists := s.catalogue.Find(r.Context(), skill.ID)
 	if id == "" && exists {
 		fail(w, 409, "同じIDの担当があります")
 		return
@@ -259,21 +260,10 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 	if id == "" {
 		saved, err = s.catalogue.Install(raw, s.knownTool)
 	} else {
-		saved, err = s.catalogue.Update(id, raw, s.knownTool)
+		saved, err = s.catalogue.Update(r.Context(), id, raw, s.knownTool)
 	}
 	if err != nil {
 		fail(w, 400, err.Error())
-		return
-	}
-	encoded, _ := json.Marshal(saved)
-	if err := s.store.PersistSkill(saved.ID, encoded); err != nil {
-		if exists {
-			old, _ := json.Marshal(previous)
-			_, _ = s.catalogue.Update(id, old, s.knownTool)
-		} else {
-			_ = s.catalogue.Uninstall(saved.ID)
-		}
-		fail(w, 500, "担当を保存できませんでした")
 		return
 	}
 	if calendar != nil {

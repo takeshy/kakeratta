@@ -1,6 +1,7 @@
 package persona
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -43,12 +44,12 @@ func TestMonthlySummaryIsWrittenOnceOnItsDay(t *testing.T) {
 	appendAt(t, s, "佐藤さんと釣りに行った", at.Add(-10*24*time.Hour))
 	appendAt(t, s, "去年の話", at.Add(-60*24*time.Hour))
 
-	r.dailyAt(at.Add(-time.Minute))
+	r.dailyAt(context.Background(), at.Add(-time.Minute))
 	if calls != 0 {
 		t.Fatal("written before its minute")
 	}
-	r.dailyAt(at)
-	r.dailyAt(at.Add(time.Hour))
+	r.dailyAt(context.Background(), at)
+	r.dailyAt(context.Background(), at.Add(time.Hour))
 	if calls != 1 {
 		t.Fatalf("calls = %d", calls)
 	}
@@ -62,7 +63,7 @@ func TestMonthlySummaryIsWrittenOnceOnItsDay(t *testing.T) {
 	}
 
 	// Another day of the month writes none.
-	r.dailyAt(at.AddDate(0, 0, 1))
+	r.dailyAt(context.Background(), at.AddDate(0, 0, 1))
 	if calls != 1 {
 		t.Fatal("written on another day")
 	}
@@ -101,11 +102,11 @@ func TestMonthlyPersonReadsTheSummary(t *testing.T) {
 
 	// Not on another day of the month, whatever the minute.
 	other := day.AddDate(0, 0, 1)
-	r.dailyAt(store.CheckInCloses(other).Add(-time.Minute))
+	r.dailyAt(context.Background(), store.CheckInCloses(other).Add(-time.Minute))
 	if checkIn != "" {
 		t.Fatal("a monthly person checked in on another day")
 	}
-	r.dailyAt(at)
+	r.dailyAt(context.Background(), at)
 	if !strings.Contains(checkIn, "Monthly check-in") || !strings.Contains(checkIn, "佐藤さんと釣りに行った") {
 		t.Fatalf("the summary was not handed over: %q", checkIn)
 	}

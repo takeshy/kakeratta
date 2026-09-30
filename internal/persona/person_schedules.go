@@ -139,7 +139,7 @@ func (r *Runner) ApplyPersonSchedules(plan *PersonSchedulePlan) error {
 		return err
 	}
 	defer release()
-	current, exists := r.catalogue.Find(plan.skill.ID)
+	current, exists := r.skills(ctx).Find(plan.skill.ID)
 	if !exists || !current.IsPerson() || current.BasicInfo != plan.skill.BasicInfo {
 		return errors.New("基本情報が変更されました。通知予定を再確認してください")
 	}

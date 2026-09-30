@@ -568,7 +568,7 @@ func setup(t *testing.T, reply func(system, user string) string, active ...strin
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	catalogue := NewCatalogue(s.SkillDir())
+	catalogue := NewCatalogue(s)
 	runner := New(s, catalogue, func() (*llm.Client, store.Settings) {
 		return llm.New(server.URL, "test"), s.Settings()
 	})
@@ -1139,7 +1139,7 @@ func TestAToolThatWasNotDeclaredIsRefused(t *testing.T) {
 	if problems := checkBatch(plan, turnRules{set: set}); len(problems) != 1 || !strings.Contains(problems[0], "route はあなたが使える道具ではありません") {
 		t.Fatalf("problems = %v", problems)
 	}
-	skill, _ := runner.catalogue.Find("routine")
+	skill, _ := runner.catalogue.Find(context.Background(), "routine")
 	_, steps := runner.execute(context.Background(), skill, plan, set, turnRules{set: set}, timeline.Entry{}, newProvenance())
 	if len(steps) != 1 || steps[0].Error == "" {
 		t.Fatalf("an undeclared tool ran: %+v", steps)
@@ -1289,17 +1289,17 @@ func TestNoteConsolidationCarriesReadSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	prov := newProvenance(store.NoteSource{EntryID: "current-post", Label: "Current post"})
-	runner.notesTool("routine", "notes_read", map[string]any{"paths": []any{"old.md", "context.md"}}, prov)
-	result, _ := runner.notesTool("routine", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, prov)
+	runner.notesTool(context.Background(), "routine", "notes_read", map[string]any{"paths": []any{"old.md", "context.md"}}, prov)
+	result, _ := runner.notesTool(context.Background(), "routine", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, prov)
 	if !strings.Contains(result, "書きました") {
 		t.Fatal(result)
 	}
-	runner.notesTool("routine", "notes_write", map[string]any{"path": "index.md", "text": "# Index\n* [combined](/combined.md)"}, prov)
+	runner.notesTool(context.Background(), "routine", "notes_write", map[string]any{"path": "index.md", "text": "# Index\n* [combined](/combined.md)"}, prov)
 	note, _ := s.Note("routine", "combined.md")
 	if ids := sourceIDs(note.Text); !reflect.DeepEqual(ids, []string{"current-post"}) {
 		t.Fatalf("before the forget, combined cites %v", ids)
 	}
-	runner.notesTool("routine", "notes_forget", map[string]any{"path": "old.md"}, prov)
+	runner.notesTool(context.Background(), "routine", "notes_forget", map[string]any{"path": "old.md"}, prov)
 	note, ok := s.Note("routine", "combined.md")
 	if !ok {
 		t.Fatal("combined.md is gone")
@@ -1761,7 +1761,7 @@ func TestAnUltraTurnMayReadTwentyTimes(t *testing.T) {
 	}, "gourmet")
 	entry := post(t, s, "ラーメン")
 	client, settings := runner.clientOf()
-	skill := runner.catalogue.Active(settings.Active)[0]
+	skill := runner.catalogue.Active(context.Background(), settings.Active)[0]
 	runner.run(context.Background(), skill, []timeline.Entry{entry}, entry, false, false, "", true,
 		client, settings, runner.registry(settings))
 	// Twenty reads run. On the next request, read is no longer offered and the
@@ -1822,7 +1822,7 @@ func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	set := tools.New(tools.Config{}).For([]string{"place_search"}).As("gourmet")
-	skill, _ := runner.catalogue.Find("gourmet")
+	skill, _ := runner.catalogue.Find(context.Background(), "gourmet")
 	failures := map[string]string{}
 
 	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
@@ -1849,7 +1849,7 @@ func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	set := runner.registry(s.Settings()).For([]string{"web_search"}).As("gourmet")
-	skill, _ := runner.catalogue.Find("gourmet")
+	skill, _ := runner.catalogue.Find(context.Background(), "gourmet")
 	text, _ := runner.readAll(context.Background(), skill,
 		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
 		set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(maxReads, maxSearches), map[string]string{})
@@ -1863,7 +1863,7 @@ func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
 func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
 	set := runner.registry(s.Settings()).For([]string{"place_search"}).As("gourmet")
-	skill, _ := runner.catalogue.Find("gourmet")
+	skill, _ := runner.catalogue.Find(context.Background(), "gourmet")
 	failures := map[string]string{}
 	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
 
@@ -2164,7 +2164,7 @@ func TestConcurrentTurnFinishesDoNotLoseEachOthersUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	slow := &slowReadWorkspace{Workspace: s, delay: 20 * time.Millisecond}
-	runner := New(slow, NewCatalogue(s.SkillDir()), nil)
+	runner := New(slow, NewCatalogue(s), nil)
 
 	var wg sync.WaitGroup
 	wg.Add(2)

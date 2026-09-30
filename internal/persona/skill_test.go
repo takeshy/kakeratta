@@ -1,7 +1,9 @@
 package persona
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/takeshy/kakeratta/internal/store"
 	"slices"
 	"strings"
 	"testing"
@@ -44,7 +46,7 @@ func TestTheDeclarationSaysWhatItShould(t *testing.T) {
 }
 
 func TestInstallRefusesWhatItCannotTrust(t *testing.T) {
-	catalogue := NewCatalogue(t.TempDir())
+	catalogue := NewCatalogue(skillStore(t, t.TempDir()))
 	known := func(tool string) bool { return tool == "web_search" }
 	cases := map[string]string{
 		"パス区切りを含むID": `{"id":"../evil","name":"x","domain":"y","model":"low"}`,
@@ -62,7 +64,7 @@ func TestInstallRefusesWhatItCannotTrust(t *testing.T) {
 }
 
 func TestInstalledSkillsJoinTheCatalogue(t *testing.T) {
-	catalogue := NewCatalogue(t.TempDir())
+	catalogue := NewCatalogue(skillStore(t, t.TempDir()))
 	known := func(tool string) bool { return tool == "web_search" }
 	skill, err := catalogue.Install([]byte(
 		`{"id":"wine","name":"ぶどう","icon":"🍷","domain":"ワイン","instructions":"銘柄を残す","model":"high","tools":["web_search"]}`), known)
@@ -72,20 +74,20 @@ func TestInstalledSkillsJoinTheCatalogue(t *testing.T) {
 	if skill.Builtin {
 		t.Fatal("an installed skill is not a built-in one")
 	}
-	found, ok := catalogue.Find("wine")
+	found, ok := catalogue.Find(context.Background(), "wine")
 	if !ok || found.Name != "ぶどう" {
 		t.Fatalf("not in the catalogue: %+v", found)
 	}
 	// Order is the order the user put them in, and ids that no longer resolve
 	// are dropped rather than breaking the room.
-	active := catalogue.Active([]string{"wine", "gone", "routine"})
+	active := catalogue.Active(context.Background(), []string{"wine", "gone", "routine"})
 	if len(active) != 2 || active[0].ID != "wine" || active[1].ID != "routine" {
 		t.Fatalf("active = %+v", active)
 	}
 	if err := catalogue.Uninstall("wine"); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := catalogue.Find("wine"); ok {
+	if _, ok := catalogue.Find(context.Background(), "wine"); ok {
 		t.Fatal("uninstalled skill still offered")
 	}
 	if err := catalogue.Uninstall("gourmet"); err == nil {
@@ -109,24 +111,24 @@ func TestAnsweringToAName(t *testing.T) {
 
 func TestUpdateBuiltinPreservesIdentityAcrossReload(t *testing.T) {
 	root := t.TempDir()
-	c := NewCatalogue(root)
+	c := NewCatalogue(skillStore(t, root))
 	skill := Builtins[0]
 	skill.Domain = "修正した担当領域"
 	raw, _ := json.Marshal(skill)
-	if _, err := c.Update(skill.ID, raw, nil); err != nil {
+	if _, err := c.Update(context.Background(), skill.ID, raw, nil); err != nil {
 		t.Fatal(err)
 	}
-	reloaded := NewCatalogue(root)
-	got, ok := reloaded.Find(skill.ID)
+	reloaded := NewCatalogue(skillStore(t, root))
+	got, ok := reloaded.Find(context.Background(), skill.ID)
 	if !ok || got.Domain != skill.Domain || !got.Builtin || !got.Customized {
 		t.Fatalf("updated builtin: %+v", got)
 	}
-	if len(reloaded.All()) != len(Builtins) {
+	if len(reloaded.All(context.Background())) != len(Builtins) {
 		t.Fatal("duplicate builtin")
 	}
 	skill.ID = "changed"
 	raw, _ = json.Marshal(skill)
-	if _, err := c.Update(Builtins[0].ID, raw, nil); err == nil {
+	if _, err := c.Update(context.Background(), Builtins[0].ID, raw, nil); err == nil {
 		t.Fatal("changed identity")
 	}
 }
@@ -261,4 +263,15 @@ func TestMichiPicksAPlausibleMeans(t *testing.T) {
 		return
 	}
 	t.Fatal("michi is not built in")
+}
+
+// skillStore is a workspace at root, opened afresh each time as a restart
+// would open it.
+func skillStore(t *testing.T, root string) *store.Store {
+	t.Helper()
+	s, err := store.Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
 }

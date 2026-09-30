@@ -139,11 +139,31 @@ func (r *Runner) dispatch() {
 	}
 }
 
+type skillsKey struct{}
+
+// withSkills reads the persona definitions once for a piece of work and keeps
+// them on its context; everything the work calls sees the same set.
+func (r *Runner) withSkills(ctx context.Context) context.Context {
+	if _, ok := ctx.Value(skillsKey{}).(*Skills); ok {
+		return ctx
+	}
+	return context.WithValue(ctx, skillsKey{}, r.catalogue.Snapshot(ctx))
+}
+
+// skills is the persona definitions of the work ctx belongs to, or a fresh
+// reading where the work took none.
+func (r *Runner) skills(ctx context.Context) *Skills {
+	if skills, ok := ctx.Value(skillsKey{}).(*Skills); ok {
+		return skills
+	}
+	return r.catalogue.Snapshot(ctx)
+}
+
 // handle works one claimed reaction, renewing the claim meanwhile, and lets
 // its records go. Reactions following it in its lane that ask the same thing
 // - notes deleted one after another - are folded into it.
 func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(r.withSkills(context.Background()))
 	renewed := make(chan struct{})
 	go func() {
 		defer close(renewed)
@@ -211,10 +231,10 @@ fold:
 	case item.Deliver != "":
 		r.deliver(ctx, item.Entry, item.Deliver)
 	case item.Forgotten != nil:
-		r.forgottenAt(forgotten{skill: item.Forgotten.Skill, paths: item.Forgotten.Paths, expired: item.Forgotten.Expired})
+		r.forgottenAt(ctx, forgotten{skill: item.Forgotten.Skill, paths: item.Forgotten.Paths, expired: item.Forgotten.Expired})
 	case item.Deleted != nil:
 		d := item.Deleted
-		r.deletedAt(deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: d.Notes, removed: d.Removed})
+		r.deletedAt(ctx, deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: d.Notes, removed: d.Removed})
 	case item.Entry != "":
 		r.reactEntry(ctx, item.Entry, item.Place, item.Edited)
 	}
@@ -271,9 +291,9 @@ func (r *Runner) scheduleIndex(notBefore time.Time) {
 
 func (r *Runner) tick(ctx context.Context, now time.Time) {
 	r.sweepAsks(ctx, now)
-	r.retryNoteJobs(now)
-	r.dailyAt(now)
-	r.schedulesAt(now)
+	r.retryNoteJobs(ctx, now)
+	r.dailyAt(ctx, now)
+	r.schedulesAt(ctx, now)
 }
 
 // indexPending brings the search index up to date. A failure is tried again
@@ -297,7 +317,7 @@ func (r *Runner) deliver(ctx context.Context, entryID, personaID string) {
 		return
 	}
 	client, settings := r.clientOf()
-	skills := r.catalogue.Active(settings.Active)
+	skills := r.skills(ctx).Active(settings.Active)
 	index := slices.IndexFunc(skills, func(skill Skill) bool { return skill.ID == personaID })
 	if index < 0 {
 		return

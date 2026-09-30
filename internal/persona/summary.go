@@ -38,7 +38,7 @@ const summaryPrompt = `あなたは kakeratta の本体です。ユーザーの�
 
 // summarizeAt writes the month's summary when today is its day and its
 // minute has come. It is claimed like a check-in, so it is written once.
-func (r *Runner) summarizeAt(now time.Time, client *llm.Client, settings store.Settings) {
+func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Client, settings store.Settings) {
 	loc := settings.Location()
 	local := now.In(loc)
 	root := r.store.Root()
@@ -57,7 +57,7 @@ func (r *Runner) summarizeAt(now time.Time, client *llm.Client, settings store.S
 	if since.IsZero() || now.Sub(since) > summaryLookback {
 		since = now.Add(-summaryLookback)
 	}
-	entries, err := store.SearchTimelineWindow(context.Background(), r.store, since, now)
+	entries, err := store.SearchTimelineWindow(ctx, r.store, since, now)
 	if err != nil {
 		r.emit("error", map[string]any{"where": "summary", "message": err.Error()})
 		return
@@ -73,7 +73,7 @@ func (r *Runner) summarizeAt(now time.Time, client *llm.Client, settings store.S
 		return
 	}
 	names := map[string]string{}
-	for _, skill := range r.catalogue.All() {
+	for _, skill := range r.skills(ctx).All() {
 		names[skill.ID] = skill.Name
 	}
 	record := timeline.Render(month, names, loc)
@@ -86,7 +86,7 @@ func (r *Runner) summarizeAt(now time.Time, client *llm.Client, settings store.S
 		user += "記録が多いため、期間の後半だけを渡します。まとめの最初に、前半を含まないことを一言書いてください。\n"
 	}
 	user += "\n記録（古い順）:\n" + record
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	text, err := client.Chat(ctx, llm.Request{Model: personaModel(settings), Temperature: 0.3, Messages: []llm.Message{
 		{Role: "system", Content: summaryPrompt},
@@ -113,8 +113,8 @@ func (r *Runner) summarizeAt(now time.Time, client *llm.Client, settings store.S
 // monthlyCheckIn is what a person heard from monthly is woken with: the
 // month's summary, as the user may have set it right, and the posts since its
 // previous check-in that name it, which a summary may have left out.
-func (r *Runner) monthlyCheckIn(skill Skill, since, now time.Time, loc *time.Location) string {
-	entries, err := store.SearchTimelineWindow(context.Background(), r.store, since, now)
+func (r *Runner) monthlyCheckIn(ctx context.Context, skill Skill, since, now time.Time, loc *time.Location) string {
+	entries, err := store.SearchTimelineWindow(ctx, r.store, since, now)
 	if err != nil {
 		return ""
 	}
@@ -140,7 +140,7 @@ func (r *Runner) monthlyCheckIn(skill Skill, since, now time.Time, loc *time.Loc
 		heard = heard[len(heard)-monthlyHeardLimit:]
 	}
 	names := map[string]string{}
-	for _, other := range r.catalogue.All() {
+	for _, other := range r.skills(ctx).All() {
 		names[other.ID] = other.Name
 	}
 	var b strings.Builder

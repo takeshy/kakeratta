@@ -472,7 +472,7 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 		exports = g.options.ExportTarget(userKey)
 	}
 	options := Options{
-		Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
+		Store: workspace, Catalogue: persona.NewCatalogue(workspace),
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
 	}
 	if g.shared != nil {

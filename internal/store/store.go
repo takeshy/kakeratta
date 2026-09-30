@@ -9,6 +9,7 @@
 package store
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -563,12 +564,55 @@ func notePath(path string) (string, error) {
 
 // ---- skills ----------------------------------------------------------------
 
-// SkillDir is where installed skills live, one directory each.
+// SkillDir is where installed skills live, one directory each, as
+// skills/{id}/skill.json.
 func (s *Store) SkillDir() string { return s.path("skills") }
 
-// File catalogues already write directly under SkillDir.
-func (s *Store) PersistSkill(_ string, _ []byte) error { return nil }
-func (s *Store) DeleteSkill(_ string) error            { return nil }
+// Skills reads the installed persona definitions, by id.
+func (s *Store) Skills(ctx context.Context) (map[string][]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(s.SkillDir())
+	if os.IsNotExist(err) {
+		return map[string][]byte{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]byte{}
+	for _, entry := range entries {
+		if !entry.IsDir() || !safeName(entry.Name()) {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(s.SkillDir(), entry.Name(), "skill.json"))
+		if err != nil {
+			continue
+		}
+		out[entry.Name()] = raw
+	}
+	return out, nil
+}
+
+// PersistSkill saves one definition, replacing the file whole.
+func (s *Store) PersistSkill(id string, raw []byte) error {
+	if !safeName(id) {
+		return errors.New("スキルのIDが不正です")
+	}
+	dir := filepath.Join(s.SkillDir(), id)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(dir, "skill.json"), raw, 0o644)
+}
+
+// DeleteSkill removes one definition.
+func (s *Store) DeleteSkill(id string) error {
+	if !safeName(id) {
+		return errors.New("スキルのIDが不正です")
+	}
+	return os.RemoveAll(filepath.Join(s.SkillDir(), id))
+}
 
 // ---- helpers ---------------------------------------------------------------
 

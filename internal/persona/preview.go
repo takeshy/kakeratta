@@ -33,6 +33,7 @@ type ReplyPreview struct {
 // is kept: no remark lands on the timeline, no note or schedule is written,
 // no wake is counted.
 func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (ReplyPreview, error) {
+	ctx = r.withSkills(ctx)
 	at, ok := r.store.Entry(entryID)
 	if !ok || at.Deleted {
 		return ReplyPreview{}, errors.New("投稿が見つかりません")
@@ -46,7 +47,7 @@ func (r *Runner) PreviewReply(ctx context.Context, entryID, skillID string) (Rep
 	remark := at
 	client, settings := r.clientOf()
 	var skill *Skill
-	skills := r.catalogue.Active(settings.Active)
+	skills := r.skills(ctx).Active(settings.Active)
 	for i := range skills {
 		if skills[i].ID == skillID {
 			skill = &skills[i]

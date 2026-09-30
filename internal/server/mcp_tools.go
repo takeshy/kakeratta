@@ -126,7 +126,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 	case "list_personas":
 		settings := s.store.Settings()
 		rows := []map[string]any{}
-		for _, p := range s.catalogue.All() {
+		for _, p := range s.catalogue.All(ctx) {
 			planner := "builtin"
 			if settings.PlansExternally(p.ID) {
 				planner = "external"
@@ -146,7 +146,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		entries, err := s.mcpThread(ctx, a.EntryID)
 		return map[string]any{"entries": entries}, err
 	case "list_notes", "read_note":
-		if _, ok := s.catalogue.Find(a.Persona); !ok {
+		if _, ok := s.catalogue.Find(ctx, a.Persona); !ok {
 			return nil, errors.New("担当が見つかりません")
 		}
 		if name == "list_notes" {

@@ -1,6 +1,7 @@
 package persona
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	pathpkg "path"
@@ -19,7 +20,7 @@ import (
 //
 // The host carries text without interpreting it, and retains source links
 // when a persona reads and consolidates its notes.
-func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *provenance) (string, bool) {
+func (r *Runner) notesTool(ctx context.Context, personaID, name string, args map[string]any, prov *provenance) (string, bool) {
 	switch name {
 	case "notes_list":
 		return r.listNotesPage(personaID, stringOf(args["tag"]), stringOf(args["after"])), true
@@ -52,7 +53,7 @@ func (r *Runner) notesTool(personaID, name string, args map[string]any, prov *pr
 		if why := duplicateNote(r.siblingNotes(personaID, path), path, text); why != "" {
 			return "書きませんでした: " + why, true
 		}
-		if skill, ok := r.catalogue.Find(personaID); ok {
+		if skill, ok := r.skills(ctx).Find(personaID); ok {
 			if why := typeNotAllowed(skill.forTurn().Memory, path, text); why != "" {
 				return "書きませんでした: " + why, true
 			}

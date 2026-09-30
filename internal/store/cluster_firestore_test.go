@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -144,11 +143,11 @@ func TestFirestoreEvents(t *testing.T) {
 	}
 }
 
-// A persona installed or removed through another instance appears in, or
-// leaves, this one's materialised definitions.
-func TestFirestoreSkillsFollowOtherInstances(t *testing.T) {
+// A persona installed or removed through another process is read as it now
+// stands: nothing is kept that could go stale.
+func TestFirestoreSkillsAreReadAsTheyStand(t *testing.T) {
 	client, w := firestoreWorkspace(t)
-	other, err := NewFirestoreWorkspace(context.Background(), client, filepath.Base(w.user.ID), nil)
+	other, err := NewFirestoreWorkspace(context.Background(), client, w.user.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,28 +155,15 @@ func TestFirestoreSkillsFollowOtherInstances(t *testing.T) {
 	if err := other.PersistSkill("chef", []byte(`{"id":"chef"}`)); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(w.SkillDir(), "chef", "skill.json")
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		if raw, err := os.ReadFile(path); err == nil && string(raw) == `{"id":"chef"}` {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the installed definition did not arrive")
-		}
-		time.Sleep(100 * time.Millisecond)
+	skills, err := w.Skills(context.Background())
+	if err != nil || string(skills["chef"]) != `{"id":"chef"}` {
+		t.Fatalf("skills = %v, %v", skills, err)
 	}
 	if err := other.DeleteSkill("chef"); err != nil {
 		t.Fatal(err)
 	}
-	for {
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the removed definition stayed")
-		}
-		time.Sleep(100 * time.Millisecond)
+	if skills, _ := w.Skills(context.Background()); len(skills) != 0 {
+		t.Fatalf("a removed definition is still read: %v", skills)
 	}
 }
 

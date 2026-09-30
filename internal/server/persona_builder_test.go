@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -51,7 +52,7 @@ func TestPersonaBuilderConversationAndValidation(t *testing.T) {
 	if w := send(body); w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
-	if _, ok := s.catalogue.Find("wine"); ok {
+	if _, ok := s.catalogue.Find(context.Background(), "wine"); ok {
 		t.Fatal("conversation saved without confirmation")
 	}
 	draft.Tools = []string{"unknown"}
@@ -80,7 +81,7 @@ func TestSavePersonaDraftKeepsMemoryAndActivation(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
-	got, _ := s.catalogue.Find(skill.ID)
+	got, _ := s.catalogue.Find(context.Background(), skill.ID)
 	if got.Tone != skill.Tone {
 		t.Fatal("edit not applied")
 	}
@@ -321,7 +322,7 @@ func TestPersonBasicInformationSavedAndEditableWithoutPosting(t *testing.T) {
 		if response.Code != 200 {
 			t.Fatalf("save: %d %s", response.Code, response.Body.String())
 		}
-		restored, exists := persona.NewCatalogue(workspace.SkillDir()).Find(skill.ID)
+		restored, exists := persona.NewCatalogue(workspace).Find(context.Background(), skill.ID)
 		if !exists || restored.BasicInfo != skill.BasicInfo {
 			t.Fatalf("restored=%+v, exists=%v", restored, exists)
 		}

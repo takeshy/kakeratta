@@ -565,13 +565,13 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 		switch step.Type {
 		case "notes_list":
 			args, _ := argsOf(step.Args)
-			out, _ = r.notesTool(skill.ID, "notes_list", args, prov)
+			out, _ = r.notesTool(ctx, skill.ID, "notes_list", args, prov)
 		case "notes_read":
 			var paths []any
 			for _, path := range step.Paths {
 				paths = append(paths, path)
 			}
-			out, _ = r.notesTool(skill.ID, "notes_read", map[string]any{"paths": paths}, prov)
+			out, _ = r.notesTool(ctx, skill.ID, "notes_read", map[string]any{"paths": paths}, prov)
 		case "tool":
 			name = step.Tool
 			args, err := argsOf(step.Args)
@@ -646,9 +646,9 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow operationBat
 		var out string
 		switch step.Type {
 		case "write_note":
-			out, record.Error = r.writeNote(skill, step.Path, step.Text, prov)
+			out, record.Error = r.writeNote(ctx, skill, step.Path, step.Text, prov)
 		case "forget_note":
-			out, _ = r.notesTool(skill.ID, "notes_forget", map[string]any{"path": step.Path}, prov)
+			out, _ = r.notesTool(ctx, skill.ID, "notes_forget", map[string]any{"path": step.Path}, prov)
 			if !strings.HasPrefix(out, "捨てました") {
 				record.Error = out
 			}
@@ -704,8 +704,8 @@ func citedSources(ids []string, cited map[string]string) []timeline.Source {
 	return out
 }
 
-func (r *Runner) writeNote(skill Skill, path, text string, prov *provenance) (string, string) {
-	out, _ := r.notesTool(skill.ID, "notes_write", map[string]any{"path": path, "text": text}, prov)
+func (r *Runner) writeNote(ctx context.Context, skill Skill, path, text string, prov *provenance) (string, string) {
+	out, _ := r.notesTool(ctx, skill.ID, "notes_write", map[string]any{"path": path, "text": text}, prov)
 	if !strings.HasPrefix(out, "書きました") {
 		return out, out
 	}
@@ -725,7 +725,7 @@ func (r *Runner) writeSchedule(ctx context.Context, skill Skill, step operation,
 	if err != nil {
 		return result.Text, err.Error()
 	}
-	written, failure := r.writeNote(skill, step.Path, step.Text, prov)
+	written, failure := r.writeNote(ctx, skill, step.Path, step.Text, prov)
 	if failure != "" {
 		if match := placedID.FindStringSubmatch(result.Text); match != nil {
 			_, _ = set.Run(ctx, "schedule", map[string]any{"action": "cancel", "id": match[1]}, nil)

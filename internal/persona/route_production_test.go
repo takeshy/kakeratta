@@ -79,7 +79,7 @@ func TestRouteProductionComparison(t *testing.T) {
 	if err := config.DataTo(&settings); err != nil {
 		t.Fatal(err)
 	}
-	skills := NewCatalogue(workspace.SkillDir()).Active(settings.Active)
+	skills := NewCatalogue(workspace).Active(context.Background(), settings.Active)
 	if len(skills) == 0 {
 		t.Fatal("no active personas")
 	}

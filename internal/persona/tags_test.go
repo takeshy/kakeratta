@@ -1,6 +1,7 @@
 package persona
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -41,15 +42,15 @@ func TestTagsAreReadListedAndFilteredBy(t *testing.T) {
 	if err := s.WriteNote("gourmet", "days/today.md", "雨"); err != nil {
 		t.Fatal(err)
 	}
-	all, _ := runner.notesTool("gourmet", "notes_list", nil, nil)
+	all, _ := runner.notesTool(context.Background(), "gourmet", "notes_list", nil, nil)
 	if !strings.Contains(all, "wines/altura.md") || !strings.Contains(all, "tags: 白ワイン, アルゼンチン, ブレンド") || !strings.Contains(all, "days/today.md") {
 		t.Fatalf("listing = %s", all)
 	}
-	some, _ := runner.notesTool("gourmet", "notes_list", map[string]any{"tag": "ボルドー"}, nil)
+	some, _ := runner.notesTool(context.Background(), "gourmet", "notes_list", map[string]any{"tag": "ボルドー"}, nil)
 	if !strings.Contains(some, "wines/margaux.md") || strings.Contains(some, "wines/altura.md") || strings.Contains(some, "days/today.md") {
 		t.Fatalf("narrowed listing = %s", some)
 	}
-	if none, _ := runner.notesTool("gourmet", "notes_list", map[string]any{"tag": "日本"}, nil); !strings.Contains(none, "「日本」のメモはありません") {
+	if none, _ := runner.notesTool(context.Background(), "gourmet", "notes_list", map[string]any{"tag": "日本"}, nil); !strings.Contains(none, "「日本」のメモはありません") {
 		t.Fatalf("empty listing = %s", none)
 	}
 	_ = store.Memory{}
@@ -70,7 +71,7 @@ func TestNoteListingComesInPages(t *testing.T) {
 		}
 	}
 	// The newest first: the oldest note is the one left for the next page.
-	first, _ := runner.notesTool("gourmet", "notes_list", map[string]any{"tag": "赤"}, nil)
+	first, _ := runner.notesTool(context.Background(), "gourmet", "notes_list", map[string]any{"tag": "赤"}, nil)
 	if !strings.HasPrefix(first, "- wines/100.md") || strings.Contains(first, "wines/000.md") || !strings.Contains(first, `"tag":"赤"`) {
 		t.Fatalf("first page = %s", first)
 	}
@@ -78,7 +79,7 @@ func TestNoteListingComesInPages(t *testing.T) {
 	if err := json.Unmarshal([]byte(first[strings.Index(first, "{"):strings.LastIndex(first, "}")+1]), &more); err != nil {
 		t.Fatalf("no args to continue with: %s", first)
 	}
-	rest, _ := runner.notesTool("gourmet", "notes_list", more, nil)
+	rest, _ := runner.notesTool(context.Background(), "gourmet", "notes_list", more, nil)
 	if !strings.Contains(rest, "wines/000.md") || strings.Contains(rest, "wines/001.md") || strings.Contains(rest, "続き") {
 		t.Fatalf("last page = %s", rest)
 	}
@@ -91,7 +92,7 @@ func TestDuplicatesAreLookedForBesideTheNote(t *testing.T) {
 	if err := s.WriteNote("gourmet", "wines/altura.md", "---\ntitle: ALTURA White Blend\n---\n"); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := runner.notesTool("gourmet", "notes_write", map[string]any{"path": "wines/altra.md", "text": "---\ntitle: Altura white blend\n---\n"}, newProvenance()); !strings.Contains(got, "書きませんでした") {
+	if got, _ := runner.notesTool(context.Background(), "gourmet", "notes_write", map[string]any{"path": "wines/altra.md", "text": "---\ntitle: Altura white blend\n---\n"}, newProvenance()); !strings.Contains(got, "書きませんでした") {
 		t.Fatalf("same directory = %s", got)
 	}
 	if got := runner.siblingNotes("gourmet", "shops/altura.md"); len(got) != 0 {

@@ -100,8 +100,8 @@ func (r *Runner) takeTrial(ctx context.Context, token string, expired error) (tr
 	return trial, done, nil
 }
 
-func (r *Runner) activeSkill(settings store.Settings, id string) (Skill, bool) {
-	skills := r.catalogue.Active(settings.Active)
+func (r *Runner) activeSkill(ctx context.Context, settings store.Settings, id string) (Skill, bool) {
+	skills := r.skills(ctx).Active(settings.Active)
 	index := slices.IndexFunc(skills, func(skill Skill) bool { return skill.ID == id })
 	if index < 0 {
 		return Skill{}, false
@@ -113,6 +113,7 @@ func (r *Runner) activeSkill(settings store.Settings, id string) (Skill, bool) {
 // asked again; a newly selected persona gets the post as an ordinary,
 // persistent delivery, answered like any other reaction.
 func (r *Runner) ApplyRouting(ctx context.Context, token, entryID string) (err error) {
+	ctx = r.withSkills(ctx)
 	trial, done, err := r.takeTrial(ctx, token, errors.New("振り分けの確認結果が期限切れです。もう一度確認してください"))
 	if errors.Is(err, errTrialApplied) {
 		return nil
@@ -131,7 +132,7 @@ func (r *Runner) ApplyRouting(ctx context.Context, token, entryID string) (err e
 		return errors.New("投稿が変更されました。もう一度確認してください")
 	}
 	_, settings := r.clientOf()
-	skill, ok := r.activeSkill(settings, check.PersonaID)
+	skill, ok := r.activeSkill(ctx, settings, check.PersonaID)
 	if !ok {
 		return errors.New("その担当は有効ではありません")
 	}
@@ -175,7 +176,7 @@ func (r *Runner) ApplyRouting(ctx context.Context, token, entryID string) (err e
 
 // ApplyReply keeps the exact approved draft. It never calls the model again.
 func (r *Runner) ApplyReply(token, entryID string) error {
-	ctx := context.Background()
+	ctx := r.withSkills(context.Background())
 	trialRecord, done, err := r.takeTrial(ctx, token, errors.New("試し書きが期限切れです。もう一度試してください"))
 	if errors.Is(err, errTrialApplied) {
 		return nil
@@ -197,7 +198,7 @@ func (r *Runner) ApplyReply(token, entryID string) error {
 		return errors.New("返事がない試し書きは確定できません")
 	}
 	_, settings := r.clientOf()
-	skill, ok := r.activeSkill(settings, trial.PersonaID)
+	skill, ok := r.activeSkill(ctx, settings, trial.PersonaID)
 	if !ok {
 		return errors.New("その担当は有効ではありません")
 	}

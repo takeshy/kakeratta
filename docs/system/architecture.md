@@ -94,7 +94,7 @@ The only elected role is the scheduler: the instance holding the `scheduler` lea
 
 ## State shared through the workspace
 
-External-agent asks, routing and reply trials, and the agent's last call are runtime records (`asks`, `trials`, `presence`) changed by transactions, so an MCP call, a trial, and its application may each reach a different instance. Events go through `users/{key}/events`: `publishEvent` writes them, and each instance with an open event stream subscribes while it is open. Persona definitions are materialised per instance and kept current by a Firestore change feed on `skills`. Events, asks, and trials carry `expireAt` for Firestore TTL policies.
+External-agent asks, routing and reply trials, and the agent's last call are runtime records (`asks`, `trials`, `presence`) changed by transactions, so an MCP call, a trial, and its application may each reach a different instance. Events go through `users/{key}/events`: `publishEvent` writes them, and each instance with an open event stream subscribes while it is open. Persona definitions are not kept in the process: the Catalogue reads them from the workspace on every look (see [Persona definitions and the Catalogue](./personas.md#persona-definitions-and-the-catalogue)). Events, asks, and trials carry `expireAt` for Firestore TTL policies.
 
 ## Account deletion
 
@@ -107,7 +107,7 @@ Deletion sets `workspaceClosures/{key}` through `SetClosing`. While it stands, n
 - [cluster.go](../../internal/cluster/cluster.go): `Coordinator`, `LeaseTTL`
 - [firestore.go](../../internal/cluster/firestore.go): scheduler lease
 - [events.go](../../internal/store/events.go): `Publish`, `Subscribe`
-- [firestore.go](../../internal/store/firestore.go): `watchSkills`, `Close`
+- [firestore.go](../../internal/store/firestore.go): `Skills`, `Close`
 - [cluster_firestore_test.go](../../internal/store/cluster_firestore_test.go): claims, change feed, closing, and events on the emulator
 - [cluster_test.go](../../internal/server/cluster_test.go): instances sharing a workspace without owners, taking up queued work, and deletion
 

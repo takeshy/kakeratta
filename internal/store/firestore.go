@@ -21,14 +21,12 @@ import (
 // is only a disposable materialisation directory for components that consume
 // installed skill files and browser-only OAuth helpers.
 type FirestoreWorkspace struct {
-	client  *firestore.Client
-	user    *firestore.DocumentRef
-	root    string
-	blobs   BlobStore
-	indexMu sync.Mutex
-	indexed map[string]bool
-	// stopWatch ends the skills change feed; closeOnce guards Close.
-	stopWatch context.CancelFunc
+	client    *firestore.Client
+	user      *firestore.DocumentRef
+	root      string
+	blobs     BlobStore
+	indexMu   sync.Mutex
+	indexed   map[string]bool
 	closeOnce sync.Once
 }
 
@@ -37,7 +35,7 @@ func NewFirestoreWorkspace(ctx context.Context, client *firestore.Client, userKe
 	if err != nil {
 		return nil, err
 	}
-	for _, dir := range []string{"skills", "memory", "blobs"} {
+	for _, dir := range []string{"memory", "blobs"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
 			return nil, err
 		}
@@ -46,62 +44,20 @@ func NewFirestoreWorkspace(ctx context.Context, client *firestore.Client, userKe
 	if w.blobs == nil {
 		w.blobs = fileBlobs{root: filepath.Join(root, "blobs")}
 	}
-	if err := w.materialiseSkills(ctx); err != nil {
-		return nil, err
-	}
-	watch, stop := context.WithCancel(context.Background())
-	w.stopWatch = stop
-	go w.watchSkills(watch)
 	return w, nil
 }
 
-// Close stops following the workspace and removes its local materialisation.
-// The workspace itself stays where it is kept.
+// Close removes the workspace's scratch directory. The workspace itself stays
+// where it is kept.
 func (w *FirestoreWorkspace) Close() error {
 	var err error
 	w.closeOnce.Do(func() {
-		w.stopWatch()
 		err = os.RemoveAll(w.root)
 	})
 	return err
 }
 
-// watchSkills keeps the materialised persona definitions current. Another
-// instance serving the same user may install, edit or remove one; the
-// catalogue reads this directory, so it sees the change here too.
-func (w *FirestoreWorkspace) watchSkills(ctx context.Context) {
-	for ctx.Err() == nil {
-		iter := w.user.Collection("skills").Snapshots(ctx)
-		for {
-			snapshot, err := iter.Next()
-			if err != nil {
-				break
-			}
-			for _, change := range snapshot.Changes {
-				dir := filepath.Join(w.SkillDir(), sanitise(change.Doc.Ref.ID))
-				if change.Kind == firestore.DocumentRemoved {
-					_ = os.RemoveAll(dir)
-					continue
-				}
-				raw, _ := change.Doc.Data()["raw"].(string)
-				if raw == "" {
-					continue
-				}
-				if err := os.MkdirAll(dir, 0o755); err == nil {
-					_ = writeFileAtomic(filepath.Join(dir, "skill.json"), []byte(raw), 0o600)
-				}
-			}
-		}
-		iter.Stop()
-		select {
-		case <-ctx.Done():
-		case <-time.After(5 * time.Second):
-		}
-	}
-}
-
-func (w *FirestoreWorkspace) Root() string     { return w.root }
-func (w *FirestoreWorkspace) SkillDir() string { return filepath.Join(w.root, "skills") }
+func (w *FirestoreWorkspace) Root() string { return w.root }
 
 func (w *FirestoreWorkspace) timeline() *firestore.CollectionRef {
 	return w.user.Collection("timeline")
@@ -642,29 +598,21 @@ func (w *FirestoreWorkspace) DeleteSkill(id string) error {
 	return err
 }
 
-func (w *FirestoreWorkspace) materialiseSkills(ctx context.Context) error {
-	iter := w.user.Collection("skills").Documents(ctx)
-	defer iter.Stop()
-	for {
-		doc, err := iter.Next()
-		if errors.Is(err, iterator.Done) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		raw, _ := doc.Data()["raw"].(string)
-		if raw == "" {
-			continue
-		}
-		dir := filepath.Join(w.SkillDir(), sanitise(doc.Ref.ID))
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(dir, "skill.json"), []byte(raw), 0o600); err != nil {
-			return err
+// Skills reads the installed persona definitions, by id. They are read
+// wherever they are needed rather than kept in the process: another process
+// serving the same user may change them at any moment.
+func (w *FirestoreWorkspace) Skills(ctx context.Context) (map[string][]byte, error) {
+	docs, err := w.user.Collection("skills").Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]byte{}
+	for _, doc := range docs {
+		if raw, _ := doc.Data()["raw"].(string); raw != "" {
+			out[doc.Ref.ID] = []byte(raw)
 		}
 	}
+	return out, nil
 }
 
 func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {

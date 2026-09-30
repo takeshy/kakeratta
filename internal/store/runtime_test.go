@@ -141,3 +141,20 @@ func TestFileRuntimeContract(t *testing.T) {
 		t.Fatal("a closing workspace let work be claimed")
 	}
 }
+
+// Reading the persona definitions honours the caller's context.
+func TestSkillsHonourTheContext(t *testing.T) {
+	s := open(t)
+	if err := s.PersistSkill("chef", []byte(`{"id":"chef"}`)); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := s.Skills(ctx); err == nil {
+		t.Fatal("a cancelled context still read the definitions")
+	}
+	skills, err := s.Skills(context.Background())
+	if err != nil || string(skills["chef"]) != `{"id":"chef"}` {
+		t.Fatalf("skills = %v, %v", skills, err)
+	}
+}

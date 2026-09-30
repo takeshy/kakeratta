@@ -136,7 +136,7 @@ func TestPersonCalendarNotificationPublishesAndRecurs(t *testing.T) {
 	if _, err := s.SaveSchedule(store.Schedule{Skill: skill.ID, At: now.Add(-time.Minute), TimeZone: "UTC", Note: "誕生日（1週間前）", PersonEvent: &event}); err != nil {
 		t.Fatal(err)
 	}
-	r.schedulesAt(now)
+	r.schedulesAt(context.Background(), now)
 	entries, _ := s.Timeline()
 	if len(entries) != 1 || entries[0].Speaker != skill.ID || entries[0].Kind != timeline.KindPost {
 		t.Fatalf("notification=%+v", entries)
@@ -145,7 +145,7 @@ func TestPersonCalendarNotificationPublishesAndRecurs(t *testing.T) {
 	if len(left) != 1 || !left[0].At.After(now) {
 		t.Fatalf("annual recurrence=%+v", left)
 	}
-	r.schedulesAt(now)
+	r.schedulesAt(context.Background(), now)
 	entries, _ = s.Timeline()
 	if len(entries) != 1 {
 		t.Fatalf("duplicate notification=%+v", entries)

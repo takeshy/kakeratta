@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +16,7 @@ import (
 
 func TestDailySettingsEndpoint(t *testing.T) {
 	app, s := app(t)
-	id := app.catalogue.All()[0].ID
+	id := app.catalogue.All(context.Background())[0].ID
 	for _, tc := range []struct {
 		body string
 		code int
@@ -100,7 +101,7 @@ func TestGatewayRestoresWorkspacesWithoutLogin(t *testing.T) {
 // there is nothing left for the persona to reconcile, so it is not woken.
 func TestForgettingMemoryDropsSchedules(t *testing.T) {
 	app, s := app(t)
-	id := app.catalogue.All()[0].ID
+	id := app.catalogue.All(context.Background())[0].ID
 	if _, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(time.Hour).UTC(), Note: "朝の薬"}); err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +117,7 @@ func TestForgettingMemoryDropsSchedules(t *testing.T) {
 
 func TestPausingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
 	app, s := app(t)
-	id := app.catalogue.All()[0].ID
+	id := app.catalogue.All(context.Background())[0].ID
 	settings := s.ConfiguredSettings()
 	settings.Active = []string{id}
 	if err := s.SaveSettings(settings); err != nil {
@@ -174,7 +175,7 @@ func TestRemovingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
 // schedule is not reachable through this one's path.
 func TestRemovingOneScheduleFromTheCard(t *testing.T) {
 	app, s := app(t)
-	skills := app.catalogue.All()
+	skills := app.catalogue.All(context.Background())
 	id, other := skills[0].ID, skills[1].ID
 	kept, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(2 * time.Hour).UTC(), Note: "夜の薬"})
 	if err != nil {
@@ -212,7 +213,7 @@ func TestRemovingOneScheduleFromTheCard(t *testing.T) {
 // Only a person can be heard from monthly; the card is told the day.
 func TestMonthlyCheckInIsForPeople(t *testing.T) {
 	app, s := app(t)
-	subject := app.catalogue.All()[0].ID
+	subject := app.catalogue.All(context.Background())[0].ID
 	raw, _ := json.Marshal(persona.Skill{ID: "sato", Name: "佐藤さん", Domain: "友人。", Kind: persona.KindPerson})
 	if _, err := app.catalogue.Install(raw, nil); err != nil {
 		t.Fatal(err)

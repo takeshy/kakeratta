@@ -46,7 +46,7 @@ func (r *Runner) scheduleTimeline(ctx context.Context, now time.Time, zone *time
 			text = hit.Snippet
 		}
 		speaker := hit.Entry.Speaker
-		if skill, ok := r.catalogue.Find(speaker); ok {
+		if skill, ok := r.skills(ctx).Find(speaker); ok {
 			speaker = skill.Name
 		}
 		lines = append(lines, fmt.Sprintf("%s %s:\n%s", hit.Entry.At.In(zone).Format("15:04"), speaker, strings.TrimSpace(text)))
@@ -88,12 +88,12 @@ const expirePage = 200
 // wake per persona to tidy up after them. Only active personas with a model
 // to wake are swept: deleting a note nobody can be told about would leave an
 // index pointing at nothing.
-func (r *Runner) expireNotes(now time.Time, settings store.Settings) {
+func (r *Runner) expireNotes(ctx context.Context, now time.Time, settings store.Settings) {
 	if personaModel(settings) == "" {
 		return
 	}
 	zone := settings.Location()
-	for _, skill := range r.catalogue.Active(settings.Active) {
+	for _, skill := range r.skills(ctx).Active(settings.Active) {
 		var gone []string
 		after := ""
 		for {
@@ -164,7 +164,7 @@ func (r *Runner) NoteForgotten(skill, path string) {
 // A schedule is claimed before the model is called, so a silent or failed wake
 // is not repeated, and one that nobody could run in time is dropped rather than
 // replayed.
-func (r *Runner) schedulesAt(now time.Time) {
+func (r *Runner) schedulesAt(ctx context.Context, now time.Time) {
 	defer func() {
 		if problem := recover(); problem != nil {
 			r.emit("error", map[string]any{"where": "schedule", "message": fmt.Sprint(problem)})
@@ -174,14 +174,14 @@ func (r *Runner) schedulesAt(now time.Time) {
 	if client == nil || client.BaseURL == "" {
 		return
 	}
-	r.expireNotes(now, settings)
+	r.expireNotes(ctx, now, settings)
 	schedules, err := r.store.Schedules("")
 	if err != nil {
 		r.emit("error", map[string]any{"where": "schedule", "message": err.Error()})
 		return
 	}
 	active := map[string]bool{}
-	for _, skill := range r.catalogue.Active(settings.Active) {
+	for _, skill := range r.skills(ctx).Active(settings.Active) {
 		active[skill.ID] = true
 	}
 	cleared := map[string]bool{}
@@ -189,7 +189,7 @@ func (r *Runner) schedulesAt(now time.Time) {
 		if schedule.At.After(now) {
 			continue
 		}
-		skill, known := r.catalogue.Find(schedule.Skill)
+		skill, known := r.skills(ctx).Find(schedule.Skill)
 		if !known || !active[schedule.Skill] || personaModel(settings) == "" {
 			// A persona that was paused or removed keeps its notes, not its wakes.
 			if !cleared[schedule.Skill] {
@@ -221,7 +221,7 @@ func (r *Runner) schedulesAt(now time.Time) {
 		if fired.PersonEvent != nil && fired.PersonEvent.Annual {
 			trigger.Text += fmt.Sprintf("\n対象の誕生日・記念日は毎年%02d月%02d日です（2月29日は平年には2月28日に通知）。この通知は%d日前の通知です。", fired.PersonEvent.Month, fired.PersonEvent.Day, fired.PersonEvent.LeadDays)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		today := timeline.Entry{At: now, Speaker: "system", Text: r.scheduleTimeline(ctx, now, settings.Location())}
 		instructions := scheduleInstructions
 		if fired.PersonEvent != nil {
@@ -233,7 +233,7 @@ func (r *Runner) schedulesAt(now time.Time) {
 }
 
 // forgottenAt hands the persona the paths the user deleted.
-func (r *Runner) forgottenAt(gone forgotten) {
+func (r *Runner) forgottenAt(ctx context.Context, gone forgotten) {
 	defer func() {
 		if problem := recover(); problem != nil {
 			r.emit("error", map[string]any{"where": "forgotten", "message": fmt.Sprint(problem)})
@@ -243,7 +243,7 @@ func (r *Runner) forgottenAt(gone forgotten) {
 	if client == nil || client.BaseURL == "" {
 		return
 	}
-	skill, known := r.catalogue.Find(gone.skill)
+	skill, known := r.skills(ctx).Find(gone.skill)
 	if !known || personaModel(settings) == "" {
 		return
 	}
@@ -255,7 +255,7 @@ func (r *Runner) forgottenAt(gone forgotten) {
 		instructions = expiredInstructions
 	}
 	trigger := timeline.Entry{At: now, Speaker: "system", Text: text}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	// Silent for the same reason as a deleted post: the user removed a note, or
 	// the persona had arranged for it to go, and tidying up is not an occasion

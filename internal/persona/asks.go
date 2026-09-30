@@ -483,7 +483,7 @@ var errTurnGone = errors.New("the turn's post or persona is gone")
 
 func (r *Runner) askTurnContext(ctx context.Context, record askRecord) (askTurnView, error) {
 	_, settings := r.clientOf()
-	skills := r.catalogue.Active(settings.Active)
+	skills := r.skills(ctx).Active(settings.Active)
 	index := slices.IndexFunc(skills, func(skill Skill) bool { return skill.ID == record.Turn.Persona })
 	if index < 0 {
 		return askTurnView{}, errTurnGone

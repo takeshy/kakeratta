@@ -68,7 +68,7 @@ const checkInLookback = 7 * 24 * time.Hour
 // minimal check-in speaks only for what needs the user's decision - a note
 // due for review is the one the app hands it; a sharing one may also bring
 // back something worth saying.
-func (r *Runner) dailyAt(now time.Time) {
+func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 	defer func() {
 		if problem := recover(); problem != nil {
 			r.emit("error", map[string]any{"where": "daily", "message": fmt.Sprint(problem)})
@@ -79,8 +79,8 @@ func (r *Runner) dailyAt(now time.Time) {
 		return
 	}
 	// The month's summary comes first: a person checking in monthly reads it.
-	r.summarizeAt(now, client, settings)
-	for _, skill := range r.catalogue.Active(settings.Active) {
+	r.summarizeAt(ctx, now, client, settings)
+	for _, skill := range r.skills(ctx).Active(settings.Active) {
 		schedule := settings.CheckInFor(skill.ID)
 		loc := settings.Location()
 		local := now.In(loc)
@@ -136,7 +136,7 @@ func (r *Runner) dailyAt(now time.Time) {
 		if monthly {
 			text = "Monthly check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + ")." +
 				"\nSince the previous check-in: from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\"" +
-				r.monthlyCheckIn(skill, since, now, loc)
+				r.monthlyCheckIn(ctx, skill, since, now, loc)
 			instructions = monthlyShareInstructions
 			if schedule.Minimal() {
 				instructions = monthlyInstructions
@@ -150,7 +150,7 @@ func (r *Runner) dailyAt(now time.Time) {
 			text += "\n\nNothing needs the user's decision today."
 		}
 		trigger := timeline.Entry{At: local, Speaker: "system", Text: text}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		r.run(ctx, skill, []timeline.Entry{trigger}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
 		cancel()
 	}

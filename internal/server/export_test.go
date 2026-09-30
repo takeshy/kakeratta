@@ -187,7 +187,7 @@ func exporting(t *testing.T, exports store.ExportTarget) (*Server, *store.Store)
 		t.Fatal(err)
 	}
 	server := New(Options{
-		Store: s, Catalogue: persona.NewCatalogue(s.SkillDir()),
+		Store: s, Catalogue: persona.NewCatalogue(s),
 		Version: "test", Exports: exports,
 	})
 	t.Cleanup(server.Close)

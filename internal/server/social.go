@@ -23,8 +23,9 @@ func (s *Server) socialPlan(r *http.Request, body socialBody) (social.Plan, erro
 	if err != nil {
 		return social.Plan{}, err
 	}
+	skills := s.catalogue.Snapshot(r.Context())
 	plan, err := social.PlanSelection(body.Target, body.Root, entries, body.EntryIDs, func(id string) string {
-		if p, ok := s.catalogue.Find(id); ok {
+		if p, ok := skills.Find(id); ok {
 			return strings.TrimSpace(p.Icon + " " + p.Name)
 		}
 		return "◎ " + id

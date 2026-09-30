@@ -75,6 +75,7 @@ func (r *Runner) EntryForgotten(entryID, label string) {
 // whole deletion rather than one per line. A persona that holds nothing says
 // nothing.
 func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
+	ctx := r.withSkills(context.Background())
 	root = strings.TrimSpace(root)
 	if root == "" || len(gone) == 0 {
 		return
@@ -113,7 +114,7 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 	}
 	// A persona can also cite a post it found through timeline_search without
 	// having been woken for it; the app's own link index names those.
-	for _, skill := range r.catalogue.All() {
+	for _, skill := range r.skills(ctx).All() {
 		if slices.Contains(woke, skill.ID) {
 			continue
 		}
@@ -130,7 +131,7 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 	}
 	_, settings := r.clientOf()
 	active := map[string]bool{}
-	for _, skill := range r.catalogue.Active(settings.Active) {
+	for _, skill := range r.skills(ctx).Active(settings.Active) {
 		active[skill.ID] = true
 	}
 	label := strings.Join(labels, " ／ ")
@@ -186,7 +187,7 @@ func (r *Runner) dropUnsourcedNotes(skill string, paths []string) (cited, remove
 }
 
 // deletedAt hands one persona the post that is gone.
-func (r *Runner) deletedAt(gone deletedPost) {
+func (r *Runner) deletedAt(ctx context.Context, gone deletedPost) {
 	defer func() {
 		if problem := recover(); problem != nil {
 			r.emit("error", map[string]any{"where": "deleted", "message": fmt.Sprint(problem)})
@@ -196,7 +197,7 @@ func (r *Runner) deletedAt(gone deletedPost) {
 	if client == nil || client.BaseURL == "" {
 		return
 	}
-	skill, known := r.catalogue.Find(gone.skill)
+	skill, known := r.skills(ctx).Find(gone.skill)
 	if !known || personaModel(settings) == "" {
 		return
 	}
@@ -213,7 +214,7 @@ func (r *Runner) deletedAt(gone deletedPost) {
 	trigger := timeline.Entry{At: time.Now(), Speaker: "system", Text: fmt.Sprintf(
 		"The user deleted the post you cited, and whatever was said under it: %s (/?entry=%s). Notes that still cite other posts: %s. Notes the app deleted because they rested only on it: %s. Tidy what rested on it.",
 		label, gone.entryID, list(gone.notes), list(gone.removed))}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	// It cannot speak. This wake is bookkeeping after the user deleted a post,
 	// and it has no post to answer: a remark here would become a new top-level

@@ -23,10 +23,10 @@ import (
 // under it; anything far over is not a capture.
 const maxCapture = 20 << 20
 
-func (s *Server) hasMultipleMentionedPeople(text string) bool {
+func (s *Server) hasMultipleMentionedPeople(ctx context.Context, text string) bool {
 	// Resolve mention spellings before counting: a persona may be called by
 	// either its id or its name, while an unknown @handle calls nobody here.
-	return len(persona.Named(s.catalogue.All(), text)) > 1
+	return len(persona.Named(s.catalogue.All(ctx), text)) > 1
 }
 
 func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +71,7 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body.Text = text
-	if s.hasMultipleMentionedPeople(body.Text) {
+	if s.hasMultipleMentionedPeople(r.Context(), body.Text) {
 		fail(w, http.StatusBadRequest, "@で指名できる担当は1人だけです")
 		return
 	}
@@ -203,7 +203,7 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body.Text = text
-	if s.hasMultipleMentionedPeople(body.Text) {
+	if s.hasMultipleMentionedPeople(r.Context(), body.Text) {
 		fail(w, http.StatusBadRequest, "@で指名できる担当は1人だけです")
 		return
 	}
@@ -224,7 +224,7 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "本文を入力してください")
 		return
 	}
-	if s.hasMultipleMentionedPeople(*body.Text) {
+	if s.hasMultipleMentionedPeople(r.Context(), *body.Text) {
 		fail(w, http.StatusBadRequest, "@で指名できる担当は1人だけです")
 		return
 	}

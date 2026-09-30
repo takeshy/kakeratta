@@ -23,7 +23,7 @@ func app(t *testing.T) (*Server, *store.Store) {
 	}
 	server := New(Options{
 		Store:     s,
-		Catalogue: persona.NewCatalogue(s.SkillDir()),
+		Catalogue: persona.NewCatalogue(s),
 		Version:   "test",
 	})
 	// A post queues a reaction that writes as it goes. Letting it finish before

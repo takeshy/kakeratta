@@ -232,7 +232,7 @@ func TestUserFactsCanBeRememberedWithoutReviewOrCopyingTheAnswer(t *testing.T) {
 
 func TestReadCannotExecuteActions(t *testing.T) {
 	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
-	skill, _ := r.catalogue.Find("routine")
+	skill, _ := r.catalogue.Find(context.Background(), "routine")
 	set := r.registry(s.Settings()).For([]string{"schedule"}).As("routine")
 	result, _ := r.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "schedule", Args: `{"action":"set","at":"2099-01-01T22:00:00Z"}`}}, set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(10, 2), map[string]string{})
 	if !strings.Contains(result, "予定は読むものではありません") {

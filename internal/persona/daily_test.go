@@ -26,19 +26,19 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 				}
 				return `{"action":"` + action + `","text":"Something worth sharing"}`
 			})
-			skill := r.catalogue.All()[0]
+			skill := r.catalogue.All(context.Background())[0]
 			settings := s.Settings()
 			settings.Active = []string{skill.ID}
 			if err := s.SaveSettings(settings); err != nil {
 				t.Fatal(err)
 			}
 			now := store.CheckInAt(s.Root(), skill.ID, checkInDay(s, time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), skill.ID))
-			r.dailyAt(now.Add(-time.Minute))
+			r.dailyAt(context.Background(), now.Add(-time.Minute))
 			if calls != 0 {
 				t.Fatal("ran before its minute")
 			}
-			r.dailyAt(now)
-			r.dailyAt(now.Add(time.Hour))
+			r.dailyAt(context.Background(), now)
+			r.dailyAt(context.Background(), now.Add(time.Hour))
 			if calls != 1 {
 				t.Fatalf("calls = %d", calls)
 			}
@@ -57,7 +57,7 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 			}
 			settings.Active = nil
 			_ = s.SaveSettings(settings)
-			r.dailyAt(store.CheckInCloses(checkInDay(s, now.AddDate(0, 0, 1), skill.ID)).Add(-time.Minute))
+			r.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, now.AddDate(0, 0, 1), skill.ID)).Add(-time.Minute))
 			if calls != 1 {
 				t.Fatal("inactive persona woke")
 			}
@@ -74,13 +74,13 @@ func TestDailyCanRememberWithoutPosting(t *testing.T) {
 		}
 		return `{"action":"silent"}`
 	})
-	skill := r.catalogue.All()[0]
+	skill := r.catalogue.All(context.Background())[0]
 	settings := s.Settings()
 	settings.Active = []string{skill.ID}
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	r.dailyAt(store.CheckInCloses(checkInDay(s, time.Now().UTC(), skill.ID)).Add(-time.Minute))
+	r.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, time.Now().UTC(), skill.ID)).Add(-time.Minute))
 	note, ok := s.Note(skill.ID, "daily.md")
 	if !ok || !strings.Contains(note.Text, "Remembered quietly") {
 		t.Fatal("silent wake did not retain memory")
@@ -119,7 +119,7 @@ func TestCheckInTalksAsChosen(t *testing.T) {
 			if err := s.SaveSettings(settings); err != nil {
 				t.Fatal(err)
 			}
-			r.dailyAt(store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC), "gourmet")).Add(-time.Minute))
+			r.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC), "gourmet")).Add(-time.Minute))
 			if !strings.Contains(system, tc.want) || strings.Contains(system, tc.notWant) {
 				t.Fatalf("check-in instructions:\n%s", system)
 			}
@@ -140,14 +140,14 @@ func TestASharingCheckInReadsSinceThePreviousRun(t *testing.T) {
 	day := checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC), "gourmet")
 	// The first check-in knows no previous run and reads a day.
 	first := store.CheckInCloses(day).Add(-time.Minute)
-	r.dailyAt(first)
+	r.dailyAt(context.Background(), first)
 	if want := `from "` + first.Add(-24*time.Hour).Format("2006-01-02 15:04") + `"`; !strings.Contains(user, want) {
 		t.Fatalf("want %q in:\n%s", want, user)
 	}
 	// Two days later - one day missed - it reads from that run.
 	later := checkInDay(s, day.AddDate(0, 0, 2), "gourmet")
 	at := store.CheckInCloses(later).Add(-time.Minute)
-	r.dailyAt(at)
+	r.dailyAt(context.Background(), at)
 	want := `Since the previous check-in: from "` + first.Format("2006-01-02 15:04") + `" to "` + at.Format("2006-01-02 15:04") + `"`
 	if !strings.Contains(user, want) {
 		t.Fatalf("want %q in:\n%s", want, user)

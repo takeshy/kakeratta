@@ -17,7 +17,6 @@ type Workspace interface {
 	ClaimPublication(string, Publication) (bool, error)
 	SavePublication(string, Publication) error
 	Root() string
-	SkillDir() string
 	Append(timeline.Entry) error
 	UpdateEntry(timeline.Entry) error
 	DeleteEntry(context.Context, string) ([]timeline.Entry, error)
@@ -73,6 +72,7 @@ type Workspace interface {
 	DeleteSchedule(string, string) error
 	DeleteSchedules(string) error
 	ClaimSchedule(string, time.Time, time.Time) (Schedule, bool, error)
+	Skills(context.Context) (map[string][]byte, error)
 	PersistSkill(string, []byte) error
 	DeleteSkill(string) error
 	// Export hands the whole workspace to sink as plain files in the layout a

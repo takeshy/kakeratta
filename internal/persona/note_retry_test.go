@@ -1,6 +1,7 @@
 package persona
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -83,7 +84,7 @@ func TestRetryDoesNotRestoreDeletedPost(t *testing.T) {
 		t.Fatal(err)
 	}
 	fail = false
-	r.retryNoteJobs(time.Now().Add(time.Hour))
+	r.retryNoteJobs(context.Background(), time.Now().Add(time.Hour))
 	if jobs, err := s.NoteJobs(); err != nil || len(jobs) != 0 {
 		t.Fatalf("pending jobs after deletion = %d, %v", len(jobs), err)
 	}
@@ -122,7 +123,7 @@ func TestIndexWriteFailureRetriesWithoutRewritingNote(t *testing.T) {
 		t.Fatalf("jobs = %+v, %v", jobs, err)
 	}
 	w.fail = false
-	r.retryNoteJobs(time.Now().Add(time.Hour))
+	r.retryNoteJobs(context.Background(), time.Now().Add(time.Hour))
 	if jobs, err := s.NoteJobs(); err != nil || len(jobs) != 0 {
 		t.Fatalf("jobs after index retry = %+v, %v", jobs, err)
 	}

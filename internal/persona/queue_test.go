@@ -3,6 +3,7 @@ package persona
 import (
 	"context"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/takeshy/kakeratta/internal/store"
@@ -154,4 +155,37 @@ func deletedWakes(t *testing.T, r *Runner) []deletedPost {
 		}
 	}
 	return out
+}
+
+// countingSkills counts how often the persona definitions are read.
+type countingSkills struct {
+	*store.Store
+	reads atomic.Int32
+}
+
+func (c *countingSkills) Skills(ctx context.Context) (map[string][]byte, error) {
+	c.reads.Add(1)
+	return c.Store.Skills(ctx)
+}
+
+// Everything one reaction does looks at one reading of the definitions: the
+// router, each persona's turn, the names, the note keeper.
+func TestAReactionReadsThePersonaDefinitionsOnce(t *testing.T) {
+	runner, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["gourmet","move"]}`
+		}
+		return `{"action":"speak","text":"いいね"}`
+	}, "gourmet", "move")
+	counting := &countingSkills{Store: s}
+	runner.catalogue = NewCatalogue(counting)
+	entry := post(t, s, "ラーメン食べたい")
+	runner.React(entry.ID, nil)
+	runner.Stop()
+	if got := len(remarks(t, s)); got != 2 {
+		t.Fatalf("remarks = %d", got)
+	}
+	if reads := counting.reads.Load(); reads != 1 {
+		t.Fatalf("the definitions were read %d times for one reaction", reads)
+	}
 }

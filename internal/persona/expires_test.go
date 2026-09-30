@@ -1,6 +1,7 @@
 package persona
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -63,8 +64,8 @@ func TestExpiredNotesAreDeletedAndThePersonaToldOnce(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
-	r.expireNotes(now, s.Settings())
-	r.expireNotes(now, s.Settings())
+	r.expireNotes(context.Background(), now, s.Settings())
+	r.expireNotes(context.Background(), now, s.Settings())
 
 	for _, path := range []string{"shops/soka-lunch.md", "shops/soka-dinner.md"} {
 		if _, ok := s.Note("gourmet", path); ok {
@@ -87,7 +88,7 @@ func TestExpiredNotesAreDeletedAndThePersonaToldOnce(t *testing.T) {
 		t.Fatalf("queued %d wakes: %+v", queued, gone)
 	}
 
-	r.forgottenAt(gone)
+	r.forgottenAt(context.Background(), gone)
 	if calls != 1 {
 		t.Fatalf("calls = %d", calls)
 	}
@@ -129,7 +130,7 @@ func TestNothingExpiresWithoutAModelToTidyUp(t *testing.T) {
 	}
 	settings := s.Settings()
 	settings.LowModel, settings.MiddleModel = "", ""
-	r.expireNotes(time.Now(), settings)
+	r.expireNotes(context.Background(), time.Now(), settings)
 	if _, ok := s.Note("gourmet", "shops/old.md"); !ok {
 		t.Fatal("deleted a note with nobody to tidy up after it")
 	}

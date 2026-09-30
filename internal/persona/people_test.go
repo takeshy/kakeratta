@@ -129,7 +129,7 @@ func TestCheckedKeywordReachesPersonAndIsRecorded(t *testing.T) {
 	person.Keywords = []string{"キャンプ"}
 	install := func() {
 		raw, _ := json.Marshal(person)
-		if _, err := runner.catalogue.Update(person.ID, raw, nil); err != nil {
+		if _, err := runner.catalogue.Update(context.Background(), person.ID, raw, nil); err != nil {
 			if _, err := runner.catalogue.Install(raw, nil); err != nil {
 				t.Fatal(err)
 			}

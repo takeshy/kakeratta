@@ -117,7 +117,7 @@ Memory uses files per persona. `WriteNote` validates paths and size, preserves s
 
 With GCS configured, blobs use user-specific prefixes. If Firestore is configured without a supplied blob store, images are stored as files in the temporary directory. Durable image storage, and images shared between instances, therefore require a separate BlobStore; `main` logs a warning otherwise.
 
-`FirestoreWorkspace` materialises persona definitions into its temporary directory and follows the `skills` collection so definitions changed by another instance appear locally. `Close` stops that feed and removes the directory.
+Persona definitions are read from the workspace each time they are needed (`Skills`); the file store keeps them as `skills/{id}/skill.json`, Firestore in the `skills` collection. `FirestoreWorkspace.Close` removes its scratch directory.
 
 ## Implementation and verification
 

@@ -36,7 +36,7 @@ func TestReviewsDueAreOldestFirstAndCapped(t *testing.T) {
 		"shops/expires.md": "---\ntype: Shop\nreview: 2020-01-01\nexpires: 2020-01-02\n---\n",
 		"tastes/no.md":     "---\ntype: Preference\n---\n",
 	})
-	skill, _ := r.catalogue.Find("gourmet")
+	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
 	due := r.reviewsDue(skill, time.Date(2026, 9, 25, 0, 0, 0, 0, tokyo), tokyo)
 	var paths []string
 	for _, note := range due {
@@ -74,18 +74,18 @@ func TestEveryActivePersonaChecksInOnceADay(t *testing.T) {
 
 	// It wakes at its minute with nothing due.
 	writeNotes(t, s, "gourmet", map[string]string{"tastes/keep.md": "---\ntype: Preference\n---\n豚骨"})
-	r.dailyAt(at.Add(-time.Minute))
+	r.dailyAt(context.Background(), at.Add(-time.Minute))
 	if calls != 0 {
 		t.Fatal("woke before its minute")
 	}
-	r.dailyAt(at)
+	r.dailyAt(context.Background(), at)
 	if calls != 1 || !strings.Contains(user, "Daily check-in") || !strings.Contains(user, "Nothing needs the user's decision") {
 		t.Fatalf("calls=%d trigger:\n%s", calls, user)
 	}
 	if !strings.Contains(system, "ユーザーの判断が必要なことだけ") {
 		t.Fatal("the check-in was not told to speak only when needed")
 	}
-	r.dailyAt(store.CheckInCloses(day).Add(-time.Minute))
+	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
 	if calls != 1 {
 		t.Fatal("woke twice in a day")
 	}
@@ -93,14 +93,14 @@ func TestEveryActivePersonaChecksInOnceADay(t *testing.T) {
 	// The next day, with a note due: the review rides inside.
 	writeNotes(t, s, "gourmet", map[string]string{"shops/soka.md": "---\ntype: Shop\nreview: 2026-09-20\n---\n草加の店"})
 	next := checkInDay(s, day.AddDate(0, 0, 1), "gourmet")
-	r.dailyAt(store.CheckInAt(s.Root(), "gourmet", next))
+	r.dailyAt(context.Background(), store.CheckInAt(s.Root(), "gourmet", next))
 	if calls != 2 || !strings.Contains(user, "shops/soka.md (review: 2026-09-20)") || !strings.Contains(system, "見直し時期が来たメモ") {
 		t.Fatalf("calls=%d review trigger:\n%s", calls, user)
 	}
 
 	// Missed until the window shut - the server was down - it waits for tomorrow.
 	later := next.AddDate(0, 0, 1)
-	r.dailyAt(store.CheckInCloses(later))
+	r.dailyAt(context.Background(), store.CheckInCloses(later))
 	if calls != 2 {
 		t.Fatal("a check-in ran after 21:00")
 	}
@@ -110,7 +110,7 @@ func TestEveryActivePersonaChecksInOnceADay(t *testing.T) {
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	r.dailyAt(store.CheckInCloses(checkInDay(s, later.AddDate(0, 0, 1), "gourmet")).Add(-time.Minute))
+	r.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, later.AddDate(0, 0, 1), "gourmet")).Add(-time.Minute))
 	if calls != 2 {
 		t.Fatal("an inactive persona woke")
 	}
@@ -145,7 +145,7 @@ func TestReviewPostThenReplyWakesItsAuthor(t *testing.T) {
 	writeNotes(t, s, "gourmet", map[string]string{"shops/soka.md": "---\ntype: Shop\nreview: 2026-09-20\n---\n草加の店"})
 
 	// 20:59 is past every persona's minute, so both check in.
-	r.dailyAt(store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, tokyo), "gourmet", "move")).Add(-time.Minute))
+	r.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, tokyo), "gourmet", "move")).Add(-time.Minute))
 	entries, _ := s.Timeline()
 	if len(entries) != 1 || entries[0].Speaker != "gourmet" || entries[0].Kind != timeline.KindPost || len(entries[0].Notes) != 1 || entries[0].Notes[0] != "shops/soka.md" {
 		t.Fatalf("review post: %+v", entries)

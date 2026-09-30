@@ -113,7 +113,7 @@ func (r *Runner) runKeeperJob(ctx context.Context, client *llm.Client, settings 
 	return written
 }
 
-func (r *Runner) retryNoteJobs(now time.Time) {
+func (r *Runner) retryNoteJobs(ctx context.Context, now time.Time) {
 	jobs, err := r.store.NoteJobs()
 	if err != nil {
 		r.emit("error", map[string]any{"where": "note retry", "message": err.Error()})
@@ -124,7 +124,7 @@ func (r *Runner) retryNoteJobs(now time.Time) {
 			continue
 		}
 		exists := false
-		for _, skill := range r.catalogue.All() {
+		for _, skill := range r.skills(ctx).All() {
 			if skill.ID == job.Persona {
 				exists = true
 				break

@@ -14,7 +14,7 @@ import (
 
 func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 	settings := s.store.Settings()
-	skills := s.catalogue.All()
+	skills := s.catalogue.Snapshot(r.Context()).All()
 	type row struct {
 		persona.Skill
 		DailyCheckIn store.DailyCheckIn `json:"dailyCheckIn"`
@@ -63,6 +63,7 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "読めませんでした")
 		return
 	}
+	skills := s.catalogue.Snapshot(r.Context())
 	settings := s.store.ConfiguredSettings()
 	previouslyActive := make(map[string]bool, len(settings.Active))
 	for _, id := range settings.Active {
@@ -71,7 +72,7 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 	var kept []string
 	stillActive := make(map[string]bool, len(body.Active))
 	for _, id := range body.Active {
-		if _, ok := s.catalogue.Find(id); ok {
+		if _, ok := skills.Find(id); ok {
 			kept = append(kept, id)
 			stillActive[id] = true
 		}
@@ -81,7 +82,7 @@ func (s *Server) putPersonas(w http.ResponseWriter, r *http.Request) {
 		if previouslyActive[id] {
 			continue
 		}
-		skill, _ := s.catalogue.Find(id)
+		skill, _ := skills.Find(id)
 		if skill.IsPerson() {
 			calendar, err := s.runner.PreparePersonSchedules(r.Context(), skill)
 			if err != nil {
@@ -140,12 +141,6 @@ func (s *Server) installPersona(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	encoded, err := json.Marshal(skill)
-	if err != nil || s.store.PersistSkill(skill.ID, encoded) != nil {
-		_ = s.catalogue.Uninstall(skill.ID)
-		fail(w, http.StatusInternalServerError, "担当を保存できませんでした")
-		return
-	}
 	if err := s.runner.ApplyPersonSchedules(calendar); err != nil {
 		fail(w, 500, "担当は保存しましたが、通知予定を登録できませんでした："+err.Error())
 		return
@@ -175,10 +170,6 @@ func (s *Server) activatePersona(id string) error {
 func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
 	if err := s.catalogue.Uninstall(r.PathValue("id")); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := s.store.DeleteSkill(r.PathValue("id")); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// A removed persona has no panel left to show or forget its notes from, so
@@ -214,7 +205,7 @@ func (s *Server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 // When it runs is the app's to choose, so only Talk is kept.
 func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if _, ok := s.catalogue.Find(id); !ok {
+	if _, ok := s.catalogue.Find(r.Context(), id); !ok {
 		fail(w, http.StatusNotFound, "担当が見つかりません")
 		return
 	}
@@ -235,7 +226,7 @@ func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 	switch body.Every {
 	case "":
 	case store.CheckInMonthly:
-		if skill, _ := s.catalogue.Find(id); !skill.IsPerson() {
+		if skill, _ := s.catalogue.Find(r.Context(), id); !skill.IsPerson() {
 			fail(w, http.StatusBadRequest, "月1回のチェックインは人物の担当だけです")
 			return
 		}
@@ -259,7 +250,7 @@ func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 // the external agent connected over MCP.
 func (s *Server) putPlanner(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if _, ok := s.catalogue.Find(id); !ok {
+	if _, ok := s.catalogue.Find(r.Context(), id); !ok {
 		fail(w, http.StatusNotFound, "担当が見つかりません")
 		return
 	}

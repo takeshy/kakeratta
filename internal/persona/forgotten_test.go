@@ -1,6 +1,7 @@
 package persona
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -67,7 +68,7 @@ func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 		t.Fatalf("the removed notes were not passed on: %v", items[0].removed)
 	}
 
-	r.deletedAt(items[0])
+	r.deletedAt(context.Background(), items[0])
 	if len(woken) != 1 {
 		t.Fatalf("the persona that cited the post was not told: %v", woken)
 	}
@@ -115,7 +116,7 @@ func TestADeletionWakeCanCancelTheSchedule(t *testing.T) {
 	if len(gone) != 1 {
 		t.Fatalf("queued %+v", gone)
 	}
-	r.deletedAt(gone[0])
+	r.deletedAt(context.Background(), gone[0])
 
 	if !strings.Contains(offered, "schedule") {
 		t.Fatalf("the persona was not offered its schedule tool:\n%s", offered)
@@ -148,7 +149,7 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 	if len(gone) != 1 {
 		t.Fatalf("queued %+v", gone)
 	}
-	r.deletedAt(gone[0])
+	r.deletedAt(context.Background(), gone[0])
 
 	// It asked to speak and nothing came of it, in either shape it could take:
 	// a remark under something, or a post of its own.

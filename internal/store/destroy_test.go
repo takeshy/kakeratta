@@ -88,7 +88,7 @@ func TestFirestoreWorkspaceDestroyLeavesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(root); !os.IsNotExist(err) {
-		t.Fatalf("the materialised directory remains: %v", err)
+		t.Fatalf("the scratch directory remains: %v", err)
 	}
 	user := client.Collection("users").Doc(key)
 	if snapshot, err := user.Get(ctx); err == nil && snapshot.Exists() {

@@ -348,12 +348,13 @@ func jevConfigured(settings store.Settings) bool {
 // they meant. It reads the conditions as they are now saved; nothing is woken
 // and nothing is written down.
 func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (RoutingCheck, error) {
+	ctx = r.withSkills(ctx)
 	entry, ok := r.store.Entry(entryID)
 	if !ok || entry.Deleted {
 		return RoutingCheck{}, errors.New("投稿が見つかりません")
 	}
 	client, settings := r.clientOf()
-	skills := r.catalogue.Active(settings.Active)
+	skills := r.skills(ctx).Active(settings.Active)
 	found := false
 	var words []string
 	for _, skill := range skills {
@@ -418,7 +419,7 @@ func (r *Runner) reactEntry(outer context.Context, entryID string, transientPlac
 		}
 	}
 
-	skills := r.catalogue.Active(settings.Active)
+	skills := r.skills(outer).Active(settings.Active)
 	if len(skills) == 0 {
 		return
 	}
@@ -658,7 +659,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	system += wakeInstructions
 
 	names := map[string]string{}
-	for _, other := range r.catalogue.All() {
+	for _, other := range r.skills(ctx).All() {
 		names[other.ID] = other.Name
 	}
 	post := thread[0]

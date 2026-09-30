@@ -209,7 +209,7 @@ func main() {
 			workspace.SetBlobStore(cloudBlobs.Scope("single/blobs"))
 		}
 		options := server.Options{
-			Store: workspace, Catalogue: persona.NewCatalogue(workspace.SkillDir()),
+			Store: workspace, Catalogue: persona.NewCatalogue(workspace),
 			Version: version,
 			Tools:   toolConfig,
 		}

@@ -227,7 +227,7 @@ func TestACheckInIsPlannedExternallyWithoutHoldingTheQueue(t *testing.T) {
 	}
 	done := make(chan struct{})
 	go func() {
-		runner.dailyAt(store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), "gourmet")).Add(-time.Minute))
+		runner.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), "gourmet")).Add(-time.Minute))
 		close(done)
 	}()
 	select {
@@ -349,7 +349,7 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 			entry.Link = "https://example.com/article"
 			entry.Media = &timeline.Media{Describe: "ページの題名", Text: "リンク先の全文"}
 			client, settings := runner.clientOf()
-			skill := runner.catalogue.Active(settings.Active)[0]
+			skill := runner.catalogue.Active(context.Background(), settings.Active)[0]
 			wakeNote := "このターン固有の追加指示"
 			runner.run(context.Background(), skill, []timeline.Entry{entry}, entry, tc.named, tc.listening, wakeNote, tc.deep,
 				client, settings, runner.registry(settings))

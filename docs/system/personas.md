@@ -16,9 +16,13 @@ Persona definitions, routing, research, reviewed actions, memory maintenance, sc
 
 Subject personas cover topics. Person personas use `Kind: person` and have `Aliases` and `Keywords` that can match text. The Catalogue combines built-in personas with user-installed or edited definitions. `Settings.Active` selects active personas.
 
+The Catalogue keeps nothing itself. It reads the installed definitions through `Workspace.Skills` - `skills/{id}/skill.json` files, or the Firestore `skills` collection - so a definition changed by another process serving the same user is seen at once. `Install`, `Update`, and `Uninstall` write only through `PersistSkill` and `DeleteSkill`; there is no second copy to keep in step.
+
+A piece of work reads once. `Catalogue.Snapshot` returns a read-only `Skills` (`All`, `Find`, `Active`) that does not change afterwards. A reaction takes one when a worker claims it (`Runner.withSkills`) and keeps it on its context, so the router, every persona's turn, the note keeper, and the periodic checks it runs all see one set; the entry points reached from HTTP (`CheckRouting`, `ApplyRouting`, `ApplyReply`, `PreviewReply`) take one on entry, and handlers that look up several personas take one at the top. Code without a snapshot on its context reads afresh through `Runner.skills`. A definition changed while a long turn runs takes effect from the next piece of work.
+
 ## Management
 
-Installing a definition from the frontend validates and installs it in the Catalogue, persists it through Workspace, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules. With several instances, others pick up new definitions through the Firestore `skills` change feed.
+Installing a definition from the frontend validates it, saves it through the Catalogue, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
 
 For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. Date-bearing information is separately normalized into notification schedules before saving; dates that cannot be established are omitted. The field is limited to 8,000 characters and cleared for subject personas.
 
@@ -28,7 +32,8 @@ A persona's declared tools are selected from the Registry. When its memory layou
 
 ## Implementation and verification
 
-- [skill.go](../../internal/persona/skill.go)
+- [skill.go](../../internal/persona/skill.go): `Catalogue`, `Snapshot`, `Skills`
+- [queue_test.go](../../internal/persona/queue_test.go): a reaction reads the definitions once
 - [people.go](../../internal/persona/people.go)
 - [personas.go](../../internal/server/personas.go)
 - [persona_builder.go](../../internal/server/persona_builder.go)
