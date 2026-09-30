@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/search"
@@ -40,6 +41,24 @@ func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fail(w, code, err.Error())
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, result)
+}
+
+// speakerEntries is what one speaker said, newest first: the list opened from a
+// name on the timeline.
+func (s *Server) speakerEntries(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	result, err := s.search.BySpeaker(r.Context(), r.PathValue("id"), limit, offset)
+	if err != nil {
+		if errors.Is(err, search.ErrSpeaker) {
+			fail(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		fail(w, http.StatusInternalServerError, "発言を読み込めませんでした")
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")

@@ -49,6 +49,11 @@ const feed = createFeed({
   onFixReply: (args) => showReplyFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),
   onOpenNote: ({ persona, path }) => void personas.showMemoryFor(persona, path),
   onSelectPersona: (persona) => { open("personas"); personas.reveal(persona.id); },
+  // A name on the timeline opens what that speaker said, in the search sheet.
+  onSpeaker: (id, name) => {
+    if (panel !== "search") open("search");
+    void searchPanel.showSpeaker(id, name);
+  },
 });
 // A post made here or on the app's behalf - what was told about a person when
 // saving its persona - lands in the timeline the same way.
@@ -71,6 +76,8 @@ const personas = createPersonas({
   onPosted: posted,
   onChange: (rows) => {
     personaRows = rows;
+    // A card over a speaker's list shows what was just changed.
+    searchPanel.redrawSpeakerCard?.();
     void localRecord("personas", rows).catch(() => {});
     feed.draw();
     room.set(rows);
@@ -108,6 +115,10 @@ const searchPanel = createSearch({
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onEntryChange: (entry) => pages.upsert(entry),
   onReply: () => { void reload(); pollAfterSending(); },
+  // The card over a speaker's list opens the same things the personas list does.
+  onOpenPersona: (row) => { open("personas"); personas.reveal(row.id); },
+  onOpenMemory: (row) => void personas.showMemoryFor(row),
+  onEditPersona: (row, focus) => personas.edit(row, focus),
 });
 
 function speakThread(root, lines) {

@@ -85,7 +85,7 @@ func (s *Store) indexTimelineEntry(day string, entry timeline.Entry) {
 			delete(s.timelineThreads, root)
 		}
 	}
-	metadata := timeline.Entry{ID: entry.ID, Kind: entry.Kind, At: entry.At,
+	metadata := timeline.Entry{ID: entry.ID, Kind: entry.Kind, Speaker: entry.Speaker, At: entry.At,
 		Root: entry.Root, ReplyTo: entry.ReplyTo, Deleted: entry.Deleted}
 	s.timelineRefs[entry.ID] = timelineRef{day: day, entry: metadata}
 	root := timeline.RootOf(entry)

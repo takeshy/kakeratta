@@ -23,8 +23,16 @@ export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NO
 // normalized them. Read those as lines without changing the saved entry.
 const entryText = (entry) => entry.model === "agent" ? (entry.text || "").replace(/\\n/g, "\n") : entry.text;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, showIntro = true }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true }) {
   const view = el("div", { class: "feed" });
+
+  // A name on the timeline opens what that speaker said. It is text where
+  // nothing is wired to open the list.
+  function who(entry, name, linked = true) {
+    if (!onSpeaker || !linked || !entry.speaker) return el("span", { class: "who", text: name });
+    return el("button", { class: "who who-link", type: "button", text: name, "aria-label": t("{0} の発言一覧", name),
+      onclick: (event) => { event.stopPropagation(); onSpeaker(entry.speaker, name); } });
+  }
   let entries = [];
   let speakingThread = null;
   let openReply = null;
@@ -298,7 +306,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         "div",
         { class: "post-head" },
         el("span", { class: "avatar", text: mine ? "🙂" : summary ? "🗓" : persona?.icon || "◎" }),
-        el("span", { class: "who", text: mine ? t("あなた") : summary ? t("今月のまとめ") : persona?.name || entry.speaker }),
+        who(entry, mine ? t("あなた") : summary ? t("今月のまとめ") : persona?.name || entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         el("span", { class: "spacer" }),
@@ -430,7 +438,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         "div",
         { class: "said-head" },
         el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
-        el("span", { class: "who", text: mine ? t("あなた") : persona?.name || entry.speaker }),
+        who(entry, mine ? t("あなた") : persona?.name || entry.speaker),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         drawRoutingChip(entry),

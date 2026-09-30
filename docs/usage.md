@@ -280,6 +280,12 @@ then without any words, newest first, up to 30 per call. What a search found is
 not attached to the persona's remark as it is; only the posts the persona
 declares as its grounds are linked under it.
 
+**A name on the timeline** - a persona's, or "You" - opens everything that speaker
+said, newest first, in the search sheet. Over the list is the persona as its
+card in the personas list shows it: the relationship or condition, a person's
+names, keywords and basic information, and links to its settings, its editor
+and what it remembers. **Back to search** leaves the list.
+
 Enter a name such as “Pinot” or a description such as “a light red I enjoyed” in
 one search field. Short terms use keyword search without waiting for AI. Questions
 and sentences (for example, a question mark or “find” / “tell me”) use meaning

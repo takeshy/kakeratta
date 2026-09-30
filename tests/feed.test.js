@@ -801,6 +801,38 @@ test("a person's names and keywords are edited as lists and saved with the kind"
 });
 
 
+test("a name on the timeline opens what that speaker said, when the list is wired", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const entries = [
+    { id: "p", kind: "post", speaker: "user", text: "父に送った", at: "2026-09-13T00:00:00Z" },
+    { id: "r", kind: "remark", speaker: "father", root: "p", replyTo: "p", text: "覚えました", at: "2026-09-13T00:01:00Z" },
+    { id: "s", kind: "post", speaker: "kakeratta", summary: "month", text: "まとめ", at: "2026-09-13T00:02:00Z" },
+  ];
+  const persona = { id: "father", name: "父", icon: "👴" };
+  const opened = [];
+  const linked = createFeed({ getPersona: (id) => (id === "father" ? persona : null), showIntro: false, onSpeaker: (id, name) => opened.push([id, name]) });
+  linked.set(entries);
+  linked.reveal("r"); // The reply is folded until it is opened.
+  const names = walk(linked.element).filter(node => String(node.className).split(" ").includes("who"));
+  const father = names.find(node => node.textContent === "父");
+  const you = names.find(node => node.textContent === translate("あなた"));
+  assert.equal(father.tagName, "BUTTON", "a persona's name is a button");
+  assert.equal(you.tagName, "BUTTON", "and so is the user's");
+  assert.equal(names.find(node => node.textContent === translate("今月のまとめ")).tagName, "SPAN", "the app's summary has no list");
+  father.fire("click", { stopPropagation() {} });
+  you.fire("click", { stopPropagation() {} });
+  assert.deepEqual(opened, [["father", "父"], ["user", translate("あなた")]]);
+
+  // Without the list wired, names are text as before.
+  const plain = createFeed({ getPersona: () => persona, showIntro: false });
+  plain.set(entries);
+  plain.reveal("r");
+  assert.ok(walk(plain.element).filter(node => String(node.className).split(" ").includes("who")).every(node => node.tagName === "SPAN"));
+});
+
 test("the editor opens at the basic information when asked to", async (t) => {
   const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
   const persona = { id: "sato", name: "佐藤さん", icon: "🧑", domain: "佐藤さんのこと", tone: "", instructions: "", tools: [], kind: "person", aliases: [], keywords: [], basicInfo: "誕生日は11月10日。" };

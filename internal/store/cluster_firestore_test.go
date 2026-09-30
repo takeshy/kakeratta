@@ -245,3 +245,8 @@ func TestFirestoreLockEndsWhenRenewalsFail(t *testing.T) {
 	}
 	release()
 }
+
+func TestFirestoreSpeakerEntries(t *testing.T) {
+	_, w := firestoreWorkspace(t)
+	speakerContract(t, w)
+}

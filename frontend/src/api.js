@@ -69,6 +69,8 @@ export const api = {
   post: (body) => localIdentity() ? outbox.enqueue("/api/post", body) : call("POST", "/api/post", body),
   searchTimeline: (body) => call("POST", "/api/timeline/search", body),
   thread: (id) => call("GET", `/api/thread/${encodeURIComponent(id)}`),
+  // What one speaker said, newest first: the list a name on the timeline opens.
+  speaker: (id, { limit = 20, offset = 0 } = {}) => call("GET", `/api/speaker/${encodeURIComponent(id)}?limit=${limit}&offset=${offset}`),
   reply: async (replyTo, text, speechAutoSend = false) => {
     const body = { replyTo, text, speechAutoSend };
     if (!localIdentity()) return call("POST", "/api/reply", body);

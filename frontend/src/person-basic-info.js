@@ -13,3 +13,14 @@ export function basicInfoField() {
     node.hidden = draft?.kind !== "person";
   } };
 }
+
+// basicInfoBox shows a person's basic information: what the user saved with the
+// definition, which is not a note and is never posted. It is on the card and
+// above the notes, with a way to edit it from either.
+export function basicInfoBox(row, edit, { open = false } = {}) {
+  const info = String(row.basicInfo || "").trim();
+  return el("details", { class: "basic-info", open },
+    el("summary", { label: "基本情報" }),
+    el("p", { class: "basic-info-text", text: info || t("まだ登録されていません。") }),
+    el("button", { class: "chip ghost", label: "基本情報を編集", onclick: edit }));
+}

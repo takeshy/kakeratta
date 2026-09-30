@@ -22,6 +22,8 @@ type Workspace interface {
 	DeleteEntry(context.Context, string) ([]timeline.Entry, error)
 	CreateEntry(timeline.Entry) (timeline.Entry, bool, error)
 	Timeline() ([]timeline.Entry, error)
+	// SpeakerEntries is what one speaker said, newest first.
+	SpeakerEntries(ctx context.Context, speaker string) ([]timeline.Entry, error)
 	TimelinePage(context.Context, int, string) (TimelinePage, error)
 	UpdateMedia(string, *timeline.Media) (timeline.Entry, error)
 	UpdateText(string, string) (timeline.Entry, error)

@@ -166,6 +166,10 @@ Frontend search and the persona tool `timeline_search` share the search Service.
 
 Lexical search derives terms from character-script runs and contiguous Han characters. Semantic search embeds entry text and related content and ranks by similarity. The two branches fuse ranks rather than adding scores with different meanings. Semantic search has an eight-second budget, allowing lexical results to be returned when it is unavailable.
 
+## Speaker lists
+
+`GET /api/speaker/{id}?limit=&offset=` (`speakerEntries`) lists what one speaker - the user, or a persona by its id - put on the timeline, newest first, 20 by default and up to 50 a page, as the hits a search returns (`Result`: `hits`, `total`; the snippet is the first 240 characters of the entry's text). `search.BySpeaker` reads them through `Workspace.SpeakerEntries`: the file store's index of current entries carries each entry's speaker, so only the days the speaker spoke on are read; Firestore queries the timeline with an equality filter on `Speaker`, which needs no composite index. A deleted conversation takes what the speaker said in it, as everywhere.
+
 ## Index updates and changing records
 
 `entry` events after persistence or image analysis, and settings changes, schedule indexing: `Runner.ScheduleIndex` queues the `index` reaction, of which at most one waits, so a workspace is indexed by one worker at a time in whichever process claims it. The pass calls `IndexPending` for pending work; a failure queues another pass 30 seconds later.
@@ -184,6 +188,9 @@ After slow semantic work, search rereads current entries and excludes deleted co
 - [queue.go](../../internal/persona/queue.go): `indexPending`
 - [search.go](../../internal/server/search.go)
 - [hybrid_test.go](../../internal/search/hybrid_test.go)
+- [speaker.go](../../internal/search/speaker.go): `BySpeaker`
+- [speaker.go](../../internal/store/speaker.go): `SpeakerEntries`
+- [speaker_test.go](../../internal/search/speaker_test.go)
 
 # Related chapters
 

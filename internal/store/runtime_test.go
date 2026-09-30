@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -193,3 +194,50 @@ func TestSkillsHonourTheContext(t *testing.T) {
 		t.Fatalf("skills = %v, %v", skills, err)
 	}
 }
+
+// What one speaker said, newest first, and nobody else's: the file store and
+// Firestore agree.
+func speakerContract(t *testing.T, w Workspace) {
+	t.Helper()
+	ctx := context.Background()
+	base := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	post := timeline.Entry{ID: "p1", Kind: timeline.KindPost, Speaker: timeline.User, Text: "父に送った", At: base, Root: "p1"}
+	for _, entry := range []timeline.Entry{
+		post,
+		{ID: "r1", Kind: timeline.KindRemark, Speaker: "father", Text: "一つ目", At: base.Add(time.Minute), Root: "p1", ReplyTo: "p1"},
+		{ID: "r2", Kind: timeline.KindRemark, Speaker: "mother", Text: "別の人", At: base.Add(2 * time.Minute), Root: "p1", ReplyTo: "p1"},
+		{ID: "r3", Kind: timeline.KindRemark, Speaker: "father", Text: "二つ目", At: base.Add(3 * time.Minute), Root: "p1", ReplyTo: "p1"},
+		{ID: "p2", Kind: timeline.KindPost, Speaker: timeline.User, Text: "次の日", At: base.Add(24 * time.Hour), Root: "p2"},
+		{ID: "r4", Kind: timeline.KindRemark, Speaker: "father", Text: "消える発言", At: base.Add(25 * time.Hour), Root: "p2", ReplyTo: "p2"},
+	} {
+		if err := w.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids := func(entries []timeline.Entry) []string {
+		var out []string
+		for _, entry := range entries {
+			out = append(out, entry.ID)
+		}
+		return out
+	}
+	got, err := w.SpeakerEntries(ctx, "father")
+	if err != nil || strings.Join(ids(got), ",") != "r4,r3,r1" {
+		t.Fatalf("father = %v %v", ids(got), err)
+	}
+	if got, _ := w.SpeakerEntries(ctx, timeline.User); strings.Join(ids(got), ",") != "p2,p1" {
+		t.Fatalf("user = %v", ids(got))
+	}
+	if got, _ := w.SpeakerEntries(ctx, "nobody"); len(got) != 0 {
+		t.Fatalf("nobody = %v", ids(got))
+	}
+	// A deleted conversation takes what the speaker said in it.
+	if _, err := w.DeleteEntry(ctx, "p2"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := w.SpeakerEntries(ctx, "father"); strings.Join(ids(got), ",") != "r3,r1" {
+		t.Fatalf("father after deletion = %v", ids(got))
+	}
+}
+
+func TestFileSpeakerEntries(t *testing.T) { speakerContract(t, open(t)) }

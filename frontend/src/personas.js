@@ -9,6 +9,8 @@ import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { showPersonaBuilder, addedToast } from "./persona-builder.js";
 import { showPersonaEditor } from "./persona-editor.js";
+import { basicInfoBox } from "./person-basic-info.js";
+export { basicInfoBox };
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
 import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
@@ -27,17 +29,6 @@ const remembered = (key, fallback, allowed) => {
 const remember = (key, value) => {
   try { globalThis.localStorage?.setItem(key, value); } catch { /* not kept */ }
 };
-
-// basicInfoBox shows a person's basic information: what the user saved with the
-// definition, which is not a note and is never posted. It is on the card and
-// above the notes, with a way to edit it from either.
-export function basicInfoBox(row, edit, { open = false } = {}) {
-  const info = String(row.basicInfo || "").trim();
-  return el("details", { class: "basic-info", open },
-    el("summary", { label: "基本情報" }),
-    el("p", { class: "basic-info-text", text: info || t("まだ登録されていません。") }),
-    el("button", { class: "chip ghost", label: "基本情報を編集", onclick: edit }));
-}
 
 // fold makes width, case, kana and spacing not matter, as the app does when it
 // hears a person's name in a post.
@@ -635,5 +626,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     reveal: (id) => { pending = id; revealPending(); },
     // A remark on the timeline leads to the note written with it.
     showMemoryFor: (row, path) => showMemory(row, path),
+    // Another view of a persona - the list of what it said - opens its editor.
+    edit: (row, focus = "") => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus }),
   };
 }
