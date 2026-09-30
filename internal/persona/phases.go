@@ -96,7 +96,7 @@ func phaseTool(phase string, set *tools.Set) llm.Tool {
 // phasePrompt opens the way answerSystem does, so a persona is one voice
 // across its phases and a log keyed by the opening line stays whole.
 func phasePrompt(phase string, skill Skill, set *tools.Set, layout, wake string) string {
-	s := fmt.Sprintf("あなたは「%s」。%s\n担当領域: %s\n担当の指示: %s\n", skill.Name, skill.Tone, skill.Domain, skill.Instructions)
+	s := fmt.Sprintf("%s%s\n担当領域: %s\n担当の指示: %s\n", skill.intro(), skill.Tone, skill.Domain, skill.Instructions)
 	s += "現在は " + phase + " phase。完成済みAnswerを変更せず、このフェーズのoperationsだけを提案する。他フェーズの操作を生成しない。必要な変更がなければ空配列。起きていないことを完了扱いしない。提案は本体の検証後に実行される。\n"
 	switch phase {
 	case "schedule":

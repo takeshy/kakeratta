@@ -59,7 +59,7 @@ const answerRules = `規則:
 %s`
 
 func answerSystem(skill Skill, length string) string {
-	return fmt.Sprintf("あなたは「%s」。%s\n\nあなたの担当領域:\n%s\n\nあなた自身への指示:\n%s\n\n", skill.Name, skill.Tone, skill.Domain, skill.Instructions) + fmt.Sprintf(answerRules, length)
+	return fmt.Sprintf("%s%s\n\nあなたの担当領域:\n%s\n\nあなた自身への指示:\n%s\n\n", skill.intro(), skill.Tone, skill.Domain, skill.Instructions) + fmt.Sprintf(answerRules, length)
 }
 
 // ParseAnswer refuses workflow fields instead of silently discarding them.

@@ -9,9 +9,6 @@ import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
 
-// The built-in tools a person's persona starts with.
-const PERSON_TOOLS = ["web_search", "place_search", "route", "schedule"];
-
 const fields = [
   { key: "icon", label: "アイコン", kind: "input", maxlength: 4 },
   { key: "name", label: "名前", kind: "input", maxlength: 40 },
@@ -33,7 +30,7 @@ export function joinTerms(terms) {
   return (terms || []).join(getLanguage() === "ja" ? "、" : ", ");
 }
 
-export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, getSettings = () => ({}), ai = false }) {
+export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, getSettings = () => ({}), ai = false, focus = "" }) {
   const opener = document.activeElement;
   const original = { ...persona, tools: [...(persona.tools || [])], kind: persona.kind || "", aliases: [...(persona.aliases || [])], keywords: [...(persona.keywords || [])] };
   const inputs = {};
@@ -48,15 +45,9 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
 
   // A person is reached by its names and keywords instead of the router, so
   // those replace the condition as what decides; the condition stays as what
-  // the persona is told it keeps.
-  const person = el("input", { type: "checkbox" });
-  person.checked = original.kind === "person";
-  person.disabled = ai;
-  previous.kind = el("details", { class: "previous" });
-  previous.kind.hidden = true;
-  form.append(el("div", { class: "persona-field" },
-    el("label", { class: "switch" }, person, el("span", { label: "人物の担当（投稿に呼び名かキーワードがあるときに届きます）" })),
-    previous.kind));
+  // the persona is told it keeps. Whether a persona is a person is settled
+  // when it is made and does not change, so there is nothing to switch here.
+  const person = { checked: original.kind === "person" };
   const terms = {};
   const termFields = [
     { key: "aliases", label: "呼び名（読点区切り。名前・あだ名・続柄・かな表記）", rows: 2 },
@@ -103,24 +94,8 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     // condition and a subject's instructions are paragraphs.
     inputs.domain.setAttribute("rows", person.checked ? 1 : 4);
     inputs.instructions.setAttribute("rows", person.checked ? 2 : 6);
-    labels.instructions.textContent = t(person.checked ? "この人についての指示（任意。例：健康の話は控えめに）" : "覚えること・返事をするタイミング");
+    labels.instructions.textContent = t(person.checked ? "気を配ること（任意。例：健康の話は控えめに）" : "覚えること・返事をするタイミング");
   }
-  // A person is up on the morning of a meeting only through a wake it placed,
-  // and looks up presents, places and the way there for someone, so becoming
-  // one turns those tools on; each can still be turned off by hand.
-  person.addEventListener("change", () => {
-    showKind();
-    markChanged("kind");
-    if (!person.checked) return;
-    let changed = false;
-    for (const [name, box] of Object.entries(toolBoxes)) {
-      if (PERSON_TOOLS.includes(capability(name)) && !box.checked) {
-        box.checked = true;
-        changed = true;
-      }
-    }
-    if (changed) markChanged("tools");
-  });
   showKind();
 
   const toolBoxes = {};
@@ -152,7 +127,6 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
 
   function shown(key, value) {
     if (key === "tools") return uniqueTools(value || []).map((name) => t(toolLabel(name))).join(" / ") || t("（なし）");
-    if (key === "kind") return t(value === "person" ? "人物の担当" : "人物ではない担当");
     if (Array.isArray(value)) return joinTerms(value) || t("（なし）");
     return value || "";
   }
@@ -179,7 +153,6 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     for (const field of fields) inputs[field.key].readOnly = !value;
     for (const box of Object.values(toolBoxes)) box.disabled = !value;
     for (const input of Object.values(terms)) input.readOnly = !value;
-    person.disabled = !value;
   }
 
   function apply(draft) {
@@ -193,13 +166,11 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
       for (const name of available) toolBoxes[name].checked = draft.tools.some((tool) => capability(tool) === capability(name));
     }
     markChanged("tools");
-    if (typeof draft.kind === "string") person.checked = draft.kind === "person";
     for (const field of termFields) {
       if (Array.isArray(draft[field.key])) terms[field.key].value = joinTerms(draft[field.key]);
       markChanged(field.key);
     }
     showKind();
-    markChanged("kind");
     updateSave();
   }
 
@@ -309,6 +280,10 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   updateSave();
   backdrop.append(dialog);
   mountOverlay(backdrop);
-  inputs.name.focus?.();
+  // Opened to one field - the card's "edit basic information" - the dialog
+  // scrolls to it and starts there rather than at the name.
+  const target = !ai && focus && !boxes[focus]?.hidden ? inputs[focus] : null;
+  (target || inputs.name).focus?.();
+  target?.scrollIntoView?.({ block: "center" });
   return { close };
 }

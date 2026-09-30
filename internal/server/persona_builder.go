@@ -24,7 +24,7 @@ messageは補った点を必要に応じて一言添える程度の短い説明�
 placeholderはユーザーが次に入力する回答の短い具体例です。必ずユーザーの言語で「例：」から始め、今回の質問と会話の担当分野に合わせて毎回作り直してください。質問文そのものや「回答してください」のような抽象的な案内にしないでください。
 例えばワイン担当の案への修正なら「例：飲んだワインの名前と、好きだった理由を覚えてほしい。」、担当分野の確認なら「例：読んだ本の感想を覚える担当。」のようにします。
 完成案を返すときのplaceholderは、その完成案に対する追加修正の具体例にしてください。例は選択肢の制約ではなく入力のヒントです。本文と同じく専門用語を避け、120文字程度までにしてください。
-skill: {"id":"英小文字・数字・ハイフンで40文字以内", "name":"40文字以内", "icon":"絵文字1つ", "domain":"短い担当条件、原則1〜2文・日本語40〜100文字程度、上限2000文字", "tone":"2000文字以内", "memory":"メモの分類。2000文字以内", "instructions":"8000文字以内", "tools":[]}。人物の担当の skill は {"id", "name", "icon", "kind":"person", "aliases":[], "keywords":[], "domain":"関係性", "instructions":"この人についての指示", "tools":[]} で、tone と memory はありません。
+skill: {"id":"英小文字・数字・ハイフンで40文字以内", "name":"40文字以内", "icon":"絵文字1つ", "domain":"短い担当条件、原則1〜2文・日本語40〜100文字程度、上限2000文字", "tone":"2000文字以内", "memory":"メモの分類。2000文字以内", "instructions":"8000文字以内", "tools":[]}。人物の担当の skill は {"id", "name", "icon", "kind":"person", "aliases":[], "keywords":[], "domain":"関係性", "instructions":"気を配ること", "tools":[]} で、tone と memory はありません。
 domainは振り分け用の「担当条件」です。どんな投稿が対象かを肯定形で1〜2文、日本語なら40〜100文字程度にまとめます。短さのためにユーザーが明示した条件を落としたり、担当範囲を変えたりしないでください。
 対象の話題・写真・記録を簡潔に書き、依頼や質問を前提にしません。例は必要なら1つまで。除外事項の列挙、スレッドの読み方など全担当共通の説明、返事・記憶・道具の手順は入れません。
 対象が複数ある場合は「または」で分け、同時に必要な条件は「かつ」で区別します。「判定する話」「一緒に考える相談」のような行動や依頼を条件にせず、投稿にある話題・写真そのものを書きます。
@@ -36,6 +36,7 @@ instructionsには引用と本人の意見を分けること、推測と明記�
 aliasesはその人の呼ばれ方をすべて書きます。苗字・下の名前・フルネーム・あだ名・続柄（例：母、お袋、おかん）と、そのひらがな・カタカナ・ローマ字表記です。敬称（さん・くん等）は付けません。同姓の有名人に誤って届かないよう、一般的すぎる語だけにはしないでください。
 keywordsは名前を出さなくてもその人の話だとわかる語です（例：その人の家族やペットの名前、その人の職場、その人と続けている習慣）。ユーザーが挙げた語ごとに、言い換え・表記ゆれ・近い意味の語も別々の要素として並べます（例：「釣り」なら 釣り, つり, 釣行, 海釣り, 渓流）。一般的すぎて他の話にも出る語は入れません。呼び名とキーワードは合わせて80個まで、1つ40文字以内です。
 人物の担当の checkIn は、その人の様子をどれくらいの頻度で振り返るかです。家族・恋人・親しい友人・毎日のように関わる同僚など日常的に関わる人は "daily"、たまに会う友人・親戚・昔の知り合いなどは "monthly" にします。monthly の担当は月に一度、本体が書くその月のまとめを読んで振り返ります。ユーザーが頻度を言ったらそれに従います。
+人物の担当は、その人本人ではなく、ユーザーとその人との間を見守る担当（コーディネーター）です。本人になりきって話す担当にはしません。話す相手はユーザーで、name はその人の呼び名（担当の名札）です。
 人物の担当のdomainは、ユーザーから見たその人との関係性を短く書きます（例：「恋人。」「母。」「大学時代の友人で、今は同じ会社の同僚。」）。誕生日や好みなどの事実は書きません。
 人物の担当の話し方、メモの分類、約束・貸し借り・会う予定・誕生日の扱いは、本体がすべての人物の担当に共通で渡します。instructionsは、その人に特有の扱いです（例：「母には健康の話は控えめに」「仕事の相談は結論から」）。ユーザーの依頼から読み取れることを書き、共通の扱いは書きません。人物の担当の tools には、利用可能な web_search・place_search・route・schedule をすべて入れます（贈り物や会う場所を調べ、会う日や誕生日に自分を起こすため）。
 人物の担当では、ユーザーが伝えた事実（誕生日・好み・得意なこと・家族・仕事・これまでの出来事など）を draft.basicInfo に基本情報として書きます。基本情報は担当の定義に保存され、ユーザーが編集できます。タイムラインに投稿したり、メモにする必要はありません。8000文字以内で、ユーザーの言語で簡潔に整理し、推測や補足を加えず、日付や数字は伝えられたとおりに書きます。既存の基本情報を保持して今回の追加・修正を反映し、依頼されていない情報を削除しないでください。事実がなければ basicInfo を "" にします。人物のdraftにはbasicInfoを必ず含めてください。
@@ -187,6 +188,17 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		if original != nil {
 			result.Draft.ID = original.ID
 		}
+		// Whether a persona is a person is settled when it is made: the AI
+		// revising one keeps the kind it was saved with, whatever it proposes.
+		if body.ID != "" {
+			if saved, ok := skills.Find(body.ID); ok {
+				result.Draft.Kind = saved.Kind
+				if !saved.IsPerson() {
+					result.Draft.Aliases, result.Draft.Keywords, result.Draft.BasicInfo = nil, nil, ""
+					result.CheckIn = ""
+				}
+			}
+		}
 		if existing != nil && existing.IsPerson() && result.Draft.IsPerson() {
 			var fields struct {
 				Draft map[string]json.RawMessage `json:"draft"`
@@ -239,6 +251,10 @@ func (s *Server) savePersonaDraft(w http.ResponseWriter, r *http.Request) {
 	}
 	if id != "" && (!exists || id != skill.ID) {
 		fail(w, 400, "担当のIDは変更できません")
+		return
+	}
+	if exists && previous.IsPerson() != skill.IsPerson() {
+		fail(w, 400, "人物の担当と興味の担当は入れ替えられません")
 		return
 	}
 	if err := persona.Validate(skill, s.knownTool); err != nil {

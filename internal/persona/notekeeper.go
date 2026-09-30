@@ -72,7 +72,7 @@ var chooseNotesTool = llm.Tool{
 // keeperPrompt opens the way phasePrompt does, so a persona is one voice across
 // its turn and a log keyed by the opening line stays whole.
 func keeperPrompt(skill Skill, layout, wake string) string {
-	s := fmt.Sprintf("あなたは「%s」。%s\n担当領域: %s\n担当の指示: %s\n", skill.Name, skill.Tone, skill.Domain, skill.Instructions)
+	s := fmt.Sprintf("%s%s\n担当領域: %s\n担当の指示: %s\n", skill.intro(), skill.Tone, skill.Domain, skill.Instructions)
 	s += `いまはこの担当のメモ係として、メモだけを整える。返事や予定はすでに決まっていて、ここでは変えない。提案は本体の検証後に実行される。
 このターンで何を覚えておくかを判断する。
 - **ユーザーの投稿や返信に回答したターンは、必ず記録を残す。** 書くのは、ユーザーが何を言った・聞いたか（1〜2行、ユーザーの言葉で）と、どう答えたかの要点1行（例: 「〜という見方で答えた（不確実）」「A店とB店を挙げた」）。メモには元の投稿へのリンクが付くので、詳しくはそこからたどれる。同じ話題のメモがすでにあれば、新しく作らず、全文を読んだうえで日付付きの行を書き足す。

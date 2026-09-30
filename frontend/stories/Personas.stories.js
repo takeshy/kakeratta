@@ -132,7 +132,10 @@ const personCard = (element) => element.querySelector('[data-id="sato"]');
 // else does.
 export const PersonCard = {
   name: "人物の担当がいる",
-  render: () => panelOf([personCalendar(), ...personas], null, { tab: "person" }),
+  // The basic information is open, as a person's card shows it once looked at.
+  render: () => panelOf([personCalendar(), ...personas], (element) => {
+    element.querySelectorAll(".basic-info").forEach((details) => { details.open = true; });
+  }, { tab: "person" }),
 };
 
 // People on a tab of their own, found by any of their names or keywords, and

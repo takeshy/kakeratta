@@ -393,3 +393,59 @@ func TestPersonBuilderPreservesBasicInformationUnlessExplicitlyChanged(t *testin
 		})
 	}
 }
+
+// Whether a persona is a person is settled when it is made: saving one as the
+// other is refused, and the AI revising one keeps its kind.
+func TestAPersonasKindDoesNotChange(t *testing.T) {
+	s, workspace := app(t)
+	put := func(skill persona.Skill) int {
+		raw, _ := json.Marshal(skill)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("PUT", "/api/personas/"+skill.ID, strings.NewReader(string(raw))))
+		return w.Code
+	}
+
+	// A subject cannot become a person.
+	subject := persona.Builtins[0]
+	subject.Kind = persona.KindPerson
+	subject.Aliases = []string{"たべ"}
+	if code := put(subject); code != http.StatusBadRequest {
+		t.Fatalf("a subject saved as a person = %d", code)
+	}
+
+	// A person cannot become a subject.
+	person := persona.Skill{ID: "sato", Name: "佐藤さん", Domain: "友人", Kind: persona.KindPerson, Aliases: []string{"サトウ"}}
+	raw, _ := json.Marshal(person)
+	if _, err := s.catalogue.Install(raw, s.knownTool); err != nil {
+		t.Fatal(err)
+	}
+	subjectAgain := persona.Skill{ID: "sato", Name: "佐藤さん", Domain: "友人"}
+	if code := put(subjectAgain); code != http.StatusBadRequest {
+		t.Fatalf("a person saved as a subject = %d", code)
+	}
+	if got, _ := s.catalogue.Find(context.Background(), "sato"); !got.IsPerson() {
+		t.Fatal("the refused save changed the persona")
+	}
+
+	// The AI revising a person keeps it a person, whatever it proposes.
+	proposal, _ := json.Marshal(map[string]any{"message": "直しました", "draft": map[string]any{"id": "sato", "name": "佐藤さん", "domain": "友人", "tone": "やさしく", "memory": "Fact"}})
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(proposal)}}}})
+	}))
+	defer model.Close()
+	settings := workspace.ConfiguredSettings()
+	settings.BaseURL = model.URL
+	if err := workspace.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(map[string]any{"id": "sato", "messages": []map[string]string{{"role": "user", "content": "話し方をやさしく"}}})
+	response := httptest.NewRecorder()
+	s.ServeHTTP(response, httptest.NewRequest("POST", "/api/personas/build", strings.NewReader(string(body))))
+	var result struct{ Draft persona.Skill }
+	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &result) != nil {
+		t.Fatalf("build: %d %s", response.Code, response.Body.String())
+	}
+	if !result.Draft.IsPerson() {
+		t.Fatalf("the AI turned a person into a subject: %+v", result.Draft)
+	}
+}

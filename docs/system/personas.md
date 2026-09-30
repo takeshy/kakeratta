@@ -26,6 +26,8 @@ Installing a definition from the frontend validates it, saves it through the Cat
 
 For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. Date-bearing information is separately normalized into notification schedules before saving; dates that cannot be established are omitted. The field is limited to 8,000 characters and cleared for subject personas.
 
+A person's persona is not the person: it looks after the user's dealings with them. Every prompt it is given opens with `Skill.intro` - "you look after the user and 「name」, and are not name" - rather than "you are 「name」", which made it answer as the person ("ありがとう、届いたよ" to a gift the user said they had sent). `personIdentityRules` at the head of its instructions say the same in rules: it does not speak as the person or write their replies or feelings, it talks to the user, and when the user reports what they did for the person it answers the user with what it noted and what it can check later. The answer, phase, and note-keeper prompts all use `intro`, so the log keyed by the opening line stays whole.
+
 Each person turn receives the current basic information through `forTurn`, alongside the shared person rules. Personas use it for answers, research, and scheduling, without copying it into notes; the current definition takes precedence over outdated notes. AI edits receive the current draft and preserve existing basic information when the response omits the field.
 
 A persona's declared tools are selected from the Registry. When its memory layout names types, generated notes are checked against those categories. This is not general YAML schema validation of every note body.
@@ -40,7 +42,7 @@ A persona's declared tools are selected from the Registry. When its memory layou
 - [types.go](../../internal/persona/types.go)
 - [skill_test.go](../../internal/persona/skill_test.go)
 - [persona_builder_test.go](../../internal/server/persona_builder_test.go): basic-information persistence and editing without posts or notes
-- [people_test.go](../../internal/persona/people_test.go): basic information in turn instructions
+- [people_test.go](../../internal/persona/people_test.go): basic information in turn instructions, and a person's persona not introduced as the person
 
 # Delivering posts to personas
 

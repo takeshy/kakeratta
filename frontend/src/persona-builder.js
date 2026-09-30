@@ -129,7 +129,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
         // A person's tone and kinds of note are the app's; only instructions
         // for this one person are its own, and there may be none.
         const about = draft.kind === "person"
-          ? [["関係性", draft.domain], ...(String(draft.instructions || "").trim() ? [["この人についての指示", draft.instructions]] : []),
+          ? [["関係性", draft.domain], ...(String(draft.instructions || "").trim() ? [["気を配ること", draft.instructions]] : []),
             ...(persona ? [] : [["振り返り", t(checkIn === "monthly" ? "月1回（月のまとめを読む）" : "毎日")]])]
           : [["担当条件", draft.domain], ["話し方", draft.tone], ["メモの分類", draft.memory], ["覚えること・返事をするタイミング", draft.instructions]];
         for (const [label, value] of [...words, ...about, ["できること", uniqueTools(draft.tools).map(tool => t(toolLabel(tool))).join(" / ") || t("会話と記憶")]]) {

@@ -166,7 +166,9 @@ Birthdays, preferences and other details supplied when creating a person or usin
 
 In place of a condition, a person's persona has a **relationship** (partner,
 mother, a friend from university). The persona is told it keeps the person
-and what happens with them, with the relationship alongside.
+and what happens with them, with the relationship alongside. Whether a persona is
+a person is settled when it is made and cannot be switched later; the editor has no
+switch for it.
 
 In the Personas panel, people and interests are on tabs of their own, each with
 a search over names, conditions, names of a person and keywords (kana and
@@ -193,7 +195,8 @@ How a person's persona speaks, the kinds of note it keeps (Fact and Event)
 and how it handles loans, promises, meetings, birthdays and anniversaries are
 the same for every person and held by the app, so an improvement reaches all
 of them. In the editor a person has its relationship, basic information and optional
-**instructions for this person**; tone and kinds of note are not shown.
+**what to pay attention to**; tone and kinds of note are not shown.
+A person's card also shows the basic information in a collapsed **Basic information** section, with **Edit basic information** opening the editor at that field.
 Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.
 
 A person's persona has all the built-in tools - web search, place search,

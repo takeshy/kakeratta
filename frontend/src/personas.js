@@ -28,6 +28,17 @@ const remember = (key, value) => {
   try { globalThis.localStorage?.setItem(key, value); } catch { /* not kept */ }
 };
 
+// basicInfoBox shows a person's basic information: what the user saved with the
+// definition, which is not a note and is never posted. It is on the card and
+// above the notes, with a way to edit it from either.
+export function basicInfoBox(row, edit, { open = false } = {}) {
+  const info = String(row.basicInfo || "").trim();
+  return el("details", { class: "basic-info", open },
+    el("summary", { label: "基本情報" }),
+    el("p", { class: "basic-info-text", text: info || t("まだ登録されていません。") }),
+    el("button", { class: "chip ghost", label: "基本情報を編集", onclick: edit }));
+}
+
 // fold makes width, case, kana and spacing not matter, as the app does when it
 // hears a person's name in a post.
 export function fold(text) {
@@ -319,6 +330,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       box.append(
         el("p", { class: "hint", text: t("呼び名: {0}", [row.name, ...(row.aliases || [])].join(" / ")) }),
         el("p", { class: "hint", text: t("キーワード: {0}", (row.keywords || []).join(" / ") || t("（なし）")) }));
+      box.append(basicInfoBox(row, () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus: "basicInfo" })));
     }
     const planner = drawPlanner(row);
     if (planner) box.append(planner);
@@ -530,6 +542,11 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         { class: "dialog memory-dialog", role: "dialog", "aria-modal": "true", "aria-label": t("{0} があなたについて覚えていること", gloss(row).name) },
         dialogCloseButton(close),
         el("h2", { text: t("{0} があなたについて覚えていること", gloss(row).name) }),
+        // What was saved about the person by the user is not a note: it sits
+        // above the notes, open, and is edited in the editor.
+        row.kind === "person"
+          ? basicInfoBox(row, () => { close(); showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus: "basicInfo" }); }, { open: true })
+          : null,
         el("p", { class: "hint", label: "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。" }),
         memoryHost,
         el(

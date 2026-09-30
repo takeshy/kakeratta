@@ -790,26 +790,41 @@ test("a person's names and keywords are edited as lists and saved with the kind"
   const field = (root, label) => walk(root).find(node => node.tagName === "LABEL" && node.children[0]?.textContent === translate(label));
   showPersonaEditor({ persona, toolNames: [] });
   const first = document.body.querySelectorAll(".persona-editor").at(-1);
+  // Whether a persona is a person does not change, so there is no switch for it.
+  assert.ok(!walk(first).some(node => String(node.textContent).startsWith("人物の担当（")));
   assert.equal(field(first, "話し方").hidden, true);
   assert.equal(field(first, "メモの分類（型と、それぞれに書くこと）").hidden, true);
-  assert.ok(walk(first).some(node => node.textContent === translate("この人についての指示（任意。例：健康の話は控えめに）")));
+  assert.ok(walk(first).some(node => node.textContent === translate("気を配ること（任意。例：健康の話は控えめに）")));
   walk(first).find(node => node.textContent === translate("閉じる")).fire("click");
   assert.equal(saved.tone, "");
   assert.equal(saved.memory, "");
+});
 
-  // Becoming a person turns on the built-in tools: a meeting day wakes it,
-  // and presents, places and the way there are looked up.
-  const friend = { id: "friend", name: "友人", icon: "🧑", domain: "友人のこと", tone: "", instructions: "", tools: [] };
-  showPersonaEditor({ persona: friend, toolNames: ["web_search", "place_search", "route", "schedule", "notes.extra"] });
-  const dialog = document.body.querySelectorAll(".persona-editor").at(-1);
-  const boxes = walk(dialog).filter(node => node.type === "checkbox");
-  boxes[0].checked = true;
-  boxes[0].fire("change");
-  walk(dialog).find(node => node.textContent === translate("保存")).fire("click");
-  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
-  const becoming = api.savePersonaDraft.mock.calls.at(-1).arguments[0];
-  assert.equal(becoming.kind, "person");
-  assert.deepEqual(becoming.tools, ["web_search", "place_search", "route", "schedule"]);
+
+test("the editor opens at the basic information when asked to", async (t) => {
+  const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
+  const persona = { id: "sato", name: "佐藤さん", icon: "🧑", domain: "佐藤さんのこと", tone: "", instructions: "", tools: [], kind: "person", aliases: [], keywords: [], basicInfo: "誕生日は11月10日。" };
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.cancelAnimationFrame = () => {};
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.cancelAnimationFrame; });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+
+  // Asked for the basic information, it starts there, and scrolls to it.
+  TestNode.prototype.scrollIntoView = function () { this.scrolled = true; };
+  t.after(() => { delete TestNode.prototype.scrollIntoView; });
+  showPersonaEditor({ persona, toolNames: [], focus: "basicInfo" });
+  const info = walk(document.body).find(node => node.value === "誕生日は11月10日。");
+  assert.ok(info, "the editor shows the saved basic information");
+  assert.equal(document.activeElement, info);
+  assert.equal(info.scrolled, true);
+
+  // Asked for it for a persona that is not a person, there is no such field
+  // to go to: the editor starts at the name as usual.
+  document.body.children.length = 0;
+  showPersonaEditor({ persona: { ...persona, kind: "", basicInfo: "" }, toolNames: [], focus: "basicInfo" });
+  const name = walk(document.body).find(node => node.value === "佐藤さん");
+  assert.equal(document.activeElement, name);
 });
 
 test("a person on the router's sheet shows the word it was reached by, and can be disputed either way", async (t) => {

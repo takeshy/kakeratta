@@ -116,3 +116,21 @@ test("person calendar schedules show their annual recurrence", async (t) => {
   await view.load();
   assert.ok(walk(view.element).some(node => node.className.includes("schedule") && node.textContent.includes("毎年") && node.textContent.includes("誕生日")));
 });
+
+test("a person's card shows the basic information and offers to edit it", async (t) => {
+  setup(t);
+  t.mock.method(api, "personas", async () => ({ personas: [
+    { ...rows[2], basicInfo: "誕生日は11月10日。\n釣りが好き。" },
+    { ...rows[3] },
+  ], tools: [] }));
+  const view = createPersonas({ getSettings: () => ({}) });
+  await view.load();
+  const boxes = walk(view.element).filter((node) => node.className === "basic-info");
+  assert.equal(boxes.length, 2, "every person's card has it");
+  const texts = boxes.map((box) => walk(box).find((node) => node.className === "basic-info-text").textContent);
+  assert.deepEqual(texts, ["誕生日は11月10日。\n釣りが好き。", "まだ登録されていません。"]);
+  assert.ok(boxes.every((box) => walk(box).some((node) => node.textContent === "基本情報を編集")), "and a way to edit it");
+  // A subject has none: basic information is a person's.
+  tabs(view.element)[1].listeners.click();
+  assert.equal(walk(view.element).filter((node) => node.className === "basic-info").length, 0);
+});

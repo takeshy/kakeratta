@@ -3,6 +3,7 @@ package persona
 import (
 	"context"
 	"encoding/json"
+	"github.com/takeshy/kakeratta/internal/tools"
 	"reflect"
 	"slices"
 	"strings"
@@ -207,14 +208,14 @@ func TestPersonTurnGetsTheAppsRules(t *testing.T) {
 	if got.Tone != personTone || got.Memory != personMemory {
 		t.Fatalf("tone = %q, memory = %q", got.Tone, got.Memory)
 	}
-	if !strings.HasPrefix(got.Instructions, personRules) || !strings.HasSuffix(got.Instructions, "佐藤さんについての指示：\n仕事の話は結論から。") {
+	if !strings.HasPrefix(got.Instructions, personIdentityRules("佐藤さん")+personRules) || !strings.HasSuffix(got.Instructions, "気を配ること（ユーザーが佐藤さんについて、あなたに書いた注意）：\n仕事の話は結論から。") {
 		t.Fatalf("instructions = %q", got.Instructions)
 	}
 	if !strings.Contains(got.Instructions, "誕生日") {
 		t.Fatal("a person is not told about birthdays")
 	}
 	person.Instructions = ""
-	if got := person.forTurn(); got.Instructions != personRules {
+	if got := person.forTurn(); got.Instructions != personIdentityRules("佐藤さん")+personRules {
 		t.Fatalf("instructions without its own = %q", got.Instructions)
 	}
 	if got := Builtins[0].forTurn(); !reflect.DeepEqual(got, Builtins[0]) {
@@ -244,5 +245,42 @@ func TestPersonBasicInformationIsAvailableWithoutNotes(t *testing.T) {
 	person.BasicInfo = "辛くないタイ料理が好き。"
 	if got := person.forTurn(); !strings.Contains(got.Instructions, person.BasicInfo) || strings.Contains(got.Instructions, "誕生日は11月10日。") {
 		t.Fatalf("old information survived edit: %q", got.Instructions)
+	}
+}
+
+// A person's persona is not the person. It was introduced by the person's
+// name - "あなたは「父」" - and answered a gift the user said they had sent with
+// "ありがとう、届いたよ", as the father. Every prompt it is given says who it is.
+func TestAPersonsPersonaIsNotIntroducedAsThePerson(t *testing.T) {
+	father := Skill{ID: "father", Name: "父", Domain: "父。", Kind: KindPerson}.forTurn()
+	subject := Builtins[0].forTurn()
+
+	if got := father.intro(); !strings.Contains(got, "「父」との間を見守る担当") || !strings.Contains(got, "父本人ではありません") || strings.HasPrefix(got, "あなたは「父」。") {
+		t.Fatalf("a person's intro = %q", got)
+	}
+	if got := subject.intro(); got != "あなたは「"+subject.Name+"」。" {
+		t.Fatalf("a subject's intro = %q", got)
+	}
+	for name, prompt := range map[string]string{
+		"answer": answerSystem(father, briefRule),
+		"phase":  phasePrompt("schedule", father, tools.New(tools.Config{}).For(nil), "", ""),
+		"keeper": keeperPrompt(father, "", ""),
+	} {
+		if strings.Contains(prompt, "あなたは「父」。") {
+			t.Errorf("the %s prompt introduces the persona as 父", name)
+		}
+		if !strings.Contains(prompt, "父本人ではありません") {
+			t.Errorf("the %s prompt does not say the persona is not 父", name)
+		}
+	}
+	// What it is told to do when the user reports what they did for the person.
+	rules := father.Instructions
+	for _, want := range []string{"父になりきって話しません", "話す相手は常にユーザーです", "贈った・連絡した・会った"} {
+		if !strings.Contains(rules, want) {
+			t.Errorf("the rules do not say %q", want)
+		}
+	}
+	if strings.Contains(answerSystem(subject, briefRule), "本人ではありません") {
+		t.Error("a subject was told it is not a person")
 	}
 }

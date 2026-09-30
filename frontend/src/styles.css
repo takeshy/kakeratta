@@ -564,6 +564,9 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .builder-log > summary { cursor: pointer; color: var(--muted, #666); }
 .persona-form { display: grid; gap: 12px; margin: 12px 0; }
 .persona-field { display: grid; gap: 4px; }
+.basic-info { margin: 4px 0; font-size: 0.85rem; }
+.basic-info summary { cursor: pointer; color: var(--accent); }
+.basic-info-text { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .persona-field select { width: 100%; }
 .persona-tools { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .persona-editor .previous { font-size: .85em; color: var(--muted, #666); border-left: 3px solid var(--accent-soft); padding-left: 8px; }
