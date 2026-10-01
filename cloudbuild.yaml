@@ -50,6 +50,7 @@ steps:
       - --image=${_IMAGE}
       - --region=${_RUN_REGION}
       - --project=${PROJECT_ID}
+      - --update-secrets=KAKERATTA_WEATHERAPI_KEY=${_WEATHERAPI_SECRET}:${_WEATHERAPI_SECRET_VERSION}
       - --quiet
     waitFor: [push]
 
@@ -67,6 +68,8 @@ substitutions:
   _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:${SHORT_SHA}
   _RUN_REGION: asia-east1
   _VERSION: ${COMMIT_SHA}
+  _WEATHERAPI_SECRET: kakeratta-wheatherapi-key
+  _WEATHERAPI_SECRET_VERSION: latest
 
 options:
   machineType: E2_HIGHCPU_8

@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, deployment, portable exports, and workspace deletion."
 tags: ["development", "deployment", "export", "destroy"]
-updated: "2026-09-30"
+updated: "2026-10-01"
 ---
 
 Development, validation, deployment, portable exports, and workspace deletion.
@@ -25,6 +25,14 @@ node frontend/build.mjs
 ```
 
 Go tests cover persistence, HTTP, personas, search, and integrations. Firestore tests, including the coordination and two-instance tests, run against the Firestore emulator when `FIRESTORE_EMULATOR_HOST` is set (for example `firebase emulators:start --only firestore`) and are skipped otherwise. `mise.toml` pins Go 1.26 and Node 24, matching the Dockerfile and Cloud Build. Frontend tests exercise state transitions and DOM operations under Node. Storybook provides screen examples, and `offline-check.mjs` checks offline behavior in a browser. Real model providers, OAuth, microphones, and similar integrations require checks beyond unit tests.
+
+WeatherAPI unit tests use a local mock provider. The opt-in live check consumes one provider request and loads the operator key without printing it:
+
+```sh
+KAKERATTA_WEATHERAPI_KEY_FILE="$PWD/tmp/weatherapi.key" KAKERATTA_WEATHERAPI_LIVE_TEST=1 go test ./internal/tools -run '^TestWeatherForecastLive$' -v
+```
+
+Production deployment binds `KAKERATTA_WEATHERAPI_KEY` to the existing Secret Manager secret `kakeratta-wheatherapi-key`, version `latest`, in both the Terraform Cloud Run definition (`weatherapi_secret_id` / `weatherapi_secret_version`) and Cloud Build deployment (`_WEATHERAPI_SECRET` / `_WEATHERAPI_SECRET_VERSION`). The spelling is the registered secret ID. The runtime service account already has Secret Manager accessor permission. The operator manages secret versions separately; no WeatherAPI secret payload is read or created by Terraform, and only the secret reference enters state. A new instance resolves the configured version on startup. Keep both deployment paths aligned when overriding the secret ID or version. The local `tmp/` credential is excluded from the Docker build context. See [Weather forecasts](./integrations.md#weather-forecasts).
 
 ## Deployment
 

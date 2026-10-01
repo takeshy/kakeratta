@@ -338,6 +338,17 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "KAKERATTA_HOME"
         value = "/tmp/kakeratta"
       }
+      # The operator registers this secret separately; only its reference
+      # enters Terraform state, never the WeatherAPI key itself.
+      env {
+        name = "KAKERATTA_WEATHERAPI_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.weatherapi_secret_id
+            version = var.weatherapi_secret_version
+          }
+        }
+      }
       # Wakes: the queue, where a task calls back, and the account it carries
       # a token for. The URL is the service's own, which Cloud Run names from
       # the project number.
@@ -433,4 +444,3 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
-

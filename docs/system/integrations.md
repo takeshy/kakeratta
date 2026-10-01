@@ -1,12 +1,12 @@
 ---
 type: "Integration"
 title: "External agents, tools, and sharing"
-description: "External-agent answers over MCP, permitted external tools, and selected publication to Bluesky."
-tags: ["mcp", "agent", "tools", "bluesky", "sharing"]
+description: "External-agent answers over MCP, permitted external tools, weather forecasts, and selected publication to Bluesky."
+tags: ["mcp", "agent", "tools", "bluesky", "sharing", "weather"]
 updated: "2026-10-01"
 ---
 
-External-agent answers over MCP, permitted external tools, and selected publication to Bluesky.
+External-agent answers over MCP, permitted external tools, weather forecasts, and selected publication to Bluesky.
 
 # External-agent answers
 
@@ -56,16 +56,29 @@ A tool `Declaration` carries a name, description, JSON Schema, and read-only sta
 | --- | --- |
 | `web_search` | User search key and Tavily client |
 | `place_search`, `route` | Operator map endpoints |
+| `weather_forecast` | Operator WeatherAPI key and base URL; read-only current weather and forecasts |
 | `timeline_search` | Workspace search Service |
 | `schedule`, `schedules_list` | User schedules, persona names, and time zone; only `schedules_list` is a research read |
 | `server.tool` | External MCP configured through `KAKERATTA_MCP_SERVERS` |
 
 The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. Returned external text is model input data, not an instruction to expand permissions.
 
+## Weather forecasts
+
+`weather_forecast` is a declared read-only tool available during built-in research and external-agent `read_for_ask`. It calls WeatherAPI's `forecast.json` endpoint over HTTPS by default. `query` accepts a place name or coordinates; when omitted, the post's coordinates are used. Without either, the call fails rather than looking up the server's location; `auto:ip` is refused. Days default to three and must be an integer from 1 through 14. An optional `date` selects a `YYYY-MM-DD` forecast date, `hour` selects an integer local hour from 0 through 23, and `lang` is `ja` (default) or `en`. Availability depends on the provider's subscription. A shorter returned period includes a warning; a requested date absent from the response is an error.
+
+Responses contain the matched location and timezone, current weather with its update time, and daily temperatures, rainfall/probability, wind, UV, and conditions. Hourly values are included only for a requested hour. Icons, unrelated API fields, and unrequested hourly data are omitted. Source attribution points to WeatherAPI.com without a credential-bearing API URL. Unknown fields are not passed through. HTTP, provider, transport, malformed-response, and missing-configuration failures remain errors rather than empty or invented forecasts. Requests have the shared 25-second HTTP timeout, bounded response decoding, and do not follow redirects. Provider error text and HTTP request URLs are not exposed because they may include the key.
+
+The operator configures `KAKERATTA_WEATHERAPI_KEY`, or `KAKERATTA_WEATHERAPI_KEY_FILE`; a direct key takes precedence. Without either, an existing `tmp/weatherapi.key` relative to the process working directory is used for local development. An absent default file leaves weather unconfigured; an explicitly unreadable or empty file fails configuration. `KAKERATTA_WEATHERAPI_URL` defaults to `https://api.weatherapi.com/v1`. Keys stay in server-side tool configuration, outside persona settings, tool schemas, and browser responses. `tmp/` is excluded from Git and the Docker build context. Production Terraform and Cloud Build inject the existing `kakeratta-wheatherapi-key` secret through `KAKERATTA_WEATHERAPI_KEY`; see [Deployment](./operations.md#deployment).
+
+The [WeatherAPI documentation](https://www.weatherapi.com/docs/) defines forecast parameters, response fields, and provider error codes.
+
 ## Implementation and verification
 
 - [tools.go](../../internal/tools/tools.go)
 - [config.go](../../internal/tools/config.go)
+- [weather.go](../../internal/tools/weather.go): WeatherAPI requests, validation, projection, and safe errors
+- [weather_test.go](../../internal/tools/weather_test.go): forecasts, location fallback, filtering, provider failures, credentials, and redirects; opt-in live check
 - [mcp.go](../../internal/tools/mcp.go)
 - [client.go](../../internal/mcp/client.go)
 - [catalogue.go](../../internal/mcp/catalogue.go)

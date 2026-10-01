@@ -126,6 +126,12 @@ Before updating the API, deploy the indexes in `firestore.indexes.json` and wait
 npx firebase-tools deploy --only firestore:indexes --project kakeratta
 ```
 
+## WeatherAPI
+
+Create the Secret Manager secret `kakeratta-wheatherapi-key` in the deployment project and add the API key as an enabled version. This is the registered spelling. Terraform and Cloud Build bind its `latest` version to the Cloud Run environment variable `KAKERATTA_WEATHERAPI_KEY`. The runtime account already has Secret Manager accessor permission. The key remains outside source code, Docker images, build substitutions, and Terraform state; Terraform only refers to the existing secret.
+
+To select a different secret or pin a version, set Terraform's `weatherapi_secret_id` / `weatherapi_secret_version` and Cloud Build's `_WEATHERAPI_SECRET` / `_WEATHERAPI_SECRET_VERSION` consistently. A new Cloud Run instance loads the selected version on startup; existing instances retain their loaded value.
+
 ## Bluesky connection
 
 Terraform generates the secret used for OAuth signing and connection encryption, stores it in Secret Manager, and passes it to Cloud Run as `KAKERATTA_BLUESKY_KEY`. The key also lives in Terraform state; keep that private and preserve the existing key. `KAKERATTA_PUBLIC_URL` defaults to `https://<domain>`. Set `bluesky_public_url` to use another public origin.

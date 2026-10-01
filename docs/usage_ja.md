@@ -23,6 +23,9 @@ task test       # go test ./internal/... と node --test tests/*.test.js
 | `KAKERATTA_FIREBASE_API_KEY` | 空 | Firebase Web APIキー |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | 空 | Firebase Authドメイン |
 | `KAKERATTA_MCP_SERVERS` | 空 | MCPサーバーの一覧（JSON）: `[{"name":"geo","url":"https://…/mcp","headers":{…}}]`。道具は `名前.道具名` で現れます |
+| `KAKERATTA_WEATHERAPI_KEY` | 空 | 本体のWeatherAPIキー。キーファイルより優先 |
+| `KAKERATTA_WEATHERAPI_KEY_FILE` | あれば `tmp/weatherapi.key` | WeatherAPIキーを保存したファイル |
+| `KAKERATTA_WEATHERAPI_URL` | `https://api.weatherapi.com/v1` | `weather_forecast` の接続先 |
 | `KAKERATTA_NOMINATIM_URL`・`KAKERATTA_OVERPASS_URL`・`KAKERATTA_OSRM_CAR_URL`・`KAKERATTA_OSRM_FOOT_URL`・`KAKERATTA_OSRM_BIKE_URL` | OpenStreetMapの公開サービス | `place_search` と `route` の接続先 |
 
 道具の接続先とMCPサーバーは運用者の設定で、全利用者で共通です。`web_search` のTavilyのキーは利用者自身が設定画面で入れます。

@@ -570,6 +570,7 @@
                 <tr><td><a href="#ja-tool-notes"><code>notes_*</code></a></td><td>自分のメモの一覧・読み取り・保存・削除</td><td>すべての担当</td></tr>
                 <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web 検索</td><td>道具に追加した担当。Tavily の API キー</td></tr>
                 <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>店や場所を探す</td><td>道具に追加した担当</td></tr>
+                <tr><td><a href="#ja-tool-weather_forecast"><code>weather_forecast</code></a></td><td>現在の天気と天気予報</td><td>道具に追加した担当。地域名または投稿の位置情報</td></tr>
                 <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>道のりと所要時間</td><td>道具に追加した担当。投稿の位置情報</td></tr>
                 <tr><td><a href="#ja-tool-schedule"><code>schedule</code></a></td><td>自分が起きる時刻を預ける</td><td>道具に追加した担当</td></tr>
               </tbody>
@@ -593,6 +594,10 @@
           <h3 id="ja-tool-place_search">店舗・場所検索 — place_search</h3>
           <p>投稿に位置情報があれば周りの店や場所を、なければ名前で場所を探します。地図に載っていない店は見つからず、営業中かどうかや空席は分かりません。見つからなくても「店がない」とは限りません。</p>
           <p>例：位置情報付きで「@tabe この近くのラーメン屋を探して」</p>
+
+          <h3 id="ja-tool-weather_forecast">天気予報 — weather_forecast</h3>
+          <p>WeatherAPI.comから現在の天気と日別予報を調べます。地域名を指定するか、投稿の位置情報を使います。日付や現地時刻の時間帯を指定して確認することもできます。取得できる予報の期間は接続先の契約によって異なり、取得していない日の天気は分かりません。担当の道具に「天気予報を調べる」を追加して使います。</p>
+          <p>例：「東京の明日の18時ごろ、雨は降りそう？」</p>
 
           <h3 id="ja-tool-route">経路検索 — route</h3>
           <p>投稿の位置から目的地までの、車・徒歩・自転車での道のりと所要時間の目安を調べます。電車やバス、時刻表、渋滞は含みません。位置情報のない投稿やチェックインでは使えません。本文に出発地を書いても、位置情報の代わりにはなりません。</p>
@@ -1126,6 +1131,7 @@
                 <tr><td><a href="#en-tool-notes"><code>notes_*</code></a></td><td>List, read, save and delete its own notes</td><td>Every persona</td></tr>
                 <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search the Web</td><td>Personas it is added to; Tavily API key</td></tr>
                 <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find shops and places</td><td>Personas it is added to</td></tr>
+                <tr><td><a href="#en-tool-weather_forecast"><code>weather_forecast</code></a></td><td>Current weather and forecasts</td><td>Personas it is added to; a place name or location on the post</td></tr>
                 <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Road distance and travel time</td><td>Personas it is added to; location on the post</td></tr>
                 <tr><td><a href="#en-tool-schedule"><code>schedule</code></a></td><td>Pick its own wake time</td><td>Personas it is added to</td></tr>
               </tbody>
@@ -1149,6 +1155,10 @@
           <h3 id="en-tool-place_search">Place search — place_search</h3>
           <p>With a location on the post it searches nearby shops and places; without one, it looks places up by name. Places missing from the map cannot be found, and it cannot tell whether a shop is open now or has seats. Finding nothing does not mean there is nothing.</p>
           <p>Try: with location on, “@tabe Find ramen near me.”</p>
+
+          <h3 id="en-tool-weather_forecast">Weather forecast — weather_forecast</h3>
+          <p>Looks up current weather and daily forecasts from WeatherAPI.com using a place name or the location on the post. A date and local hour can be selected. The available forecast period depends on the provider's subscription; dates outside the returned forecast are unknown. Add “Check the weather forecast” to the persona's tools to use it.</p>
+          <p>Try: “Is rain likely in Tokyo around 6 pm tomorrow?”</p>
 
           <h3 id="en-tool-route">Route search — route</h3>
           <p>Estimates road distance and time from the post's location to a destination by car, on foot, or by bicycle. No trains, buses, timetables or live traffic. It needs a location on the post, so it is unavailable in check-ins; typing a starting place in the text is not the same as a location.</p>
