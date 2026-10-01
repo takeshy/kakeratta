@@ -153,25 +153,23 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	if remark.Text != "うまそう\nまたね" || remark.Model != "agent" {
 		t.Fatalf("remark = %+v", remark)
 	}
-	// The built-in keeper records what was asked, and only that. It is
-	// written after the remark.
-	var kept []string
-	eventually(t, "the record of what was asked", func() bool {
-		kept = nil
-		for _, note := range s.Memory("gourmet").Notes {
-			if isRecordsPath(note.Path) {
-				kept = append(kept, note.Path)
-			}
-		}
-		return len(kept) >= 1
-	})
-	if len(kept) != 1 {
-		t.Fatalf("records kept for an answer: %v", kept)
-	}
+	// Wait for the keeper to finish, not for a records file that already
+	// existed before the answer. Count records across months, not files.
 	eventually(t, "the turn to finish", func() bool {
 		record, _ := s.Routing(entry.ID)
 		return record != nil && contains(record.Done, "gourmet") && contains(record.Spoke, "gourmet")
 	})
+	kept, _ := runner.findRecords("gourmet", "", "", "", 10, s.Settings().Location())
+	if len(kept) != 2 {
+		t.Fatalf("records kept for an answer: %+v, want the existing record and one new record", kept)
+	}
+	ids := map[string]bool{}
+	for _, rec := range kept {
+		ids[rec.ID] = true
+	}
+	if !ids["e_1"] || !ids[remark.ID] {
+		t.Fatalf("record IDs = %v, want e_1 and the answer %s", ids, remark.ID)
+	}
 	if !strings.Contains(strings.Join(stub.phases, "\n"), "keep_memory") {
 		t.Fatal("the builtin keeper did not run")
 	}
