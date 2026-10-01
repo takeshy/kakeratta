@@ -909,7 +909,7 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 		t.Fatalf("remarks = %+v, want the named one to have answered", said)
 	}
 	// Routing said nobody, so the persona that was not named must not have run.
-	if stub.promptFor("plana") != "" {
+	if stub.promptFor("sona") != "" {
 		t.Fatal("a persona the routing excluded was woken anyway")
 	}
 	if !strings.Contains(stub.promptFor("tabe"), "名指し") {
@@ -941,7 +941,7 @@ func TestANamedAnswerWithoutChangesIsNotReviewed(t *testing.T) {
 	f.review = func(user string) string {
 		return `{"verdict":"fail","summary":"不要","issues":[{"phase":"both","severity":"high","description":"呼ばれるべきでない"}]}`
 	}
-	r.react(post(t, s, "@plana どの言語がいい？理由も教えて").ID)
+	r.react(post(t, s, "@sona どの言語がいい？理由も教えて").ID)
 	if len(f.reviews) != 0 {
 		t.Fatalf("a named answer was reviewed %d times", len(f.reviews))
 	}
@@ -998,7 +998,7 @@ func TestRoutingKeepsThePostFromEveryoneElse(t *testing.T) {
 	if stub.promptFor("tabe") != "" || stub.promptFor("shiori") != "" {
 		t.Fatal("a post reached a persona it was not routed to")
 	}
-	if stub.promptFor("plana") == "" {
+	if stub.promptFor("sona") == "" {
 		t.Fatal("the persona it was routed to never saw it")
 	}
 	// Nothing was even written for the others: no wake, no notes.
@@ -1018,7 +1018,7 @@ func TestRoutingFailureWakesNobodyButTheNamed(t *testing.T) {
 	}, "routine", "gourmet")
 
 	runner.react(post(t, s, "何か").ID)
-	if stub.promptFor("plana") != "" || stub.promptFor("tabe") != "" {
+	if stub.promptFor("sona") != "" || stub.promptFor("tabe") != "" {
 		t.Fatal("a failed routing woke personas nobody named")
 	}
 
@@ -1026,7 +1026,7 @@ func TestRoutingFailureWakesNobodyButTheNamed(t *testing.T) {
 	if stub.promptFor("tabe") == "" {
 		t.Fatal("a named persona was lost because the routing failed")
 	}
-	if stub.promptFor("plana") != "" {
+	if stub.promptFor("sona") != "" {
 		t.Fatal("a failed routing woke a persona nobody named")
 	}
 }
@@ -1058,7 +1058,7 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	entry := post(t, s, "新しい投稿")
 	runner.react(entry.ID)
 
-	prompt := stub.promptFor("plana")
+	prompt := stub.promptFor("sona")
 	if !strings.Contains(prompt, "朝の薬は毎日飲む。") || !strings.Contains(prompt, "[e_14] 散歩した") {
 		t.Fatalf("the persona was not handed its memory:\n%s", prompt)
 	}
@@ -1228,7 +1228,7 @@ func TestThePromptCarriesTheWorkspaceZone(t *testing.T) {
 }
 
 // A schedule and the note it rests on come as one step. The failure this is
-// shaped against is having one without the other - plana wrote "予定: 22:30"
+// shaped against is having one without the other - sona wrote "予定: 22:30"
 // into a note, and nothing was set to wake at 22:30.
 func TestAPostCanPlaceASchedule(t *testing.T) {
 	at := time.Now().Add(90 * time.Minute).Format(time.RFC3339)
@@ -1299,7 +1299,7 @@ func TestAPlanTheReviewRejectsNeverRuns(t *testing.T) {
 			{"type":"speak","path":"","text":"見終わったころに聞くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 	}, "routine")
 	stub.review = func(user string) string {
-		// Only the invented line: plana's own instructions talk about 済んだ記録.
+		// Only the invented line: sona's own instructions talk about 済んだ記録.
 		if strings.Contains(user, "22:21 済") {
 			return `{"verdict":"fail","summary":"起きていないことを書いている","issues":[{"phase":"schedule","severity":"high","description":"起きていないことを事実として書いている: 済"}]}`
 		}
@@ -1478,7 +1478,7 @@ func TestAnEmptyPlanIsNotReviewed(t *testing.T) {
 // The router names a persona the way a person would. Both spellings are the
 // same persona, and neither is a reason to fall back to everyone.
 func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
-	for _, deliver := range []string{`["plana"]`, `["plana","nobody-at-all"]`} {
+	for _, deliver := range []string{`["sona"]`, `["sona","nobody-at-all"]`} {
 		t.Run(deliver, func(t *testing.T) {
 			runner, s, stub := setup(t, func(system, user string) string {
 				if strings.Contains(system, "振り分け") {
@@ -1490,7 +1490,7 @@ func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
 			entry := post(t, s, "今日の22時半からドラマを見る")
 			runner.react(entry.ID)
 
-			if stub.promptFor("plana") == "" {
+			if stub.promptFor("sona") == "" {
 				t.Fatal("the persona it named never saw the post")
 			}
 			if stub.promptFor("tabe") != "" {
@@ -1505,14 +1505,14 @@ func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
 // change.
 func TestThePhasePromptsFollowThePersonasTools(t *testing.T) {
 	registry := tools.New(tools.Config{}).WithSchedules(nil)
-	skill := Skill{ID: "plana", Name: "ぷらな", Tone: "やさしく"}
-	plana := phasePrompt("schedule", skill, registry.For([]string{"schedule"}), "")
+	skill := Skill{ID: "sona", Name: "ぷらな", Tone: "やさしく"}
+	sona := phasePrompt("schedule", skill, registry.For([]string{"schedule"}), "")
 	tabe := phasePrompt("schedule", skill, registry.For([]string{"web_search"}), "")
-	if strings.Contains(plana, "予定操作を許可されていない") || !strings.Contains(tabe, "予定操作を許可されていない") {
+	if strings.Contains(sona, "予定操作を許可されていない") || !strings.Contains(tabe, "予定操作を許可されていない") {
 		t.Fatal("schedule instructions do not follow permissions")
 	}
-	if !strings.HasPrefix(plana, "あなたは「ぷらな」。やさしく") {
-		t.Fatalf("a phase does not open as the persona: %q", plana)
+	if !strings.HasPrefix(sona, "あなたは「ぷらな」。やさしく") {
+		t.Fatalf("a phase does not open as the persona: %q", sona)
 	}
 	read := readSpec(registry.For([]string{"web_search"}), false)
 	if !strings.Contains(read, "web_search") || strings.Contains(read, "write_note") {

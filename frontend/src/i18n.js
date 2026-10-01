@@ -12,7 +12,7 @@ const EN = {
   "毎日7時〜21時のどこかで起きます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。": "Wakes once a day, somewhere between 7:00 and 21:00. It speaks only when your decision is needed, such as whether a record can be forgotten.",
   "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読みます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。": "On day {0} of each month, after the app writes the month's summary, wakes to read it and the posts that name them. It speaks only when something needs your decision, such as whether a record can be forgotten.",
  
- "毎日7時〜21時のどこかで起き、最近の記録と自分の記憶を見直して、伝える価値があることを見つけたときに話します。": "Wakes once a day, somewhere between 7:00 and 21:00, looks over recent records and its own memory, and speaks when it finds something worth sharing.",
+ "毎日7時〜21時のどこかで起き、最近の記録・これからの予定・自分の記憶を照らし合わせ、今役立つことがあるときに話します。": "Wakes once a day, somewhere between 7:00 and 21:00, compares recent records, upcoming plans and its memory, and speaks when something is useful now.",
  "OFFにすると、外部エージェントからの接続を受け付けず、外部エージェントを優先する担当も内蔵モデルで考えます。担当ごとの設定はそのまま残ります。": "When off, connections from the external agent are refused and personas that prefer it plan with the built-in model. Each persona's choice is kept.",
  "外部エージェントを使わない設定のため、接続を受け付けていません。": "The external agent is switched off, so its connections are refused.",
  "取得を待つ時間": "Wait for a claim",

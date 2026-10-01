@@ -572,7 +572,7 @@ func (r *Runner) deliverEntry(outer context.Context, entryID string, transientPl
 	}
 	// The same tool set the wake paths get. Without this a persona reacting to a
 	// post was offered schedule and then told it was not configured, which is
-	// why plana wrote its times into a note as prose instead of placing them.
+	// why sona wrote its times into a note as prose instead of placing them.
 	registry := r.registry(settings)
 	var wave []Skill
 	for _, skill := range skills {

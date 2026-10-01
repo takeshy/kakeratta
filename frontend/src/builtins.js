@@ -1,6 +1,6 @@
 // What the built-in personas are for, in the reader's language.
 //
-// They are named in romaji - tabe, michi, shiori, plana - so that @tabe can
+// They are named in romaji - tabe, michi, shiori, sona - so that @tabe can
 // be typed anywhere; the name is the same in both interfaces. Their domains are
 // written in Japanese because the router and the persona read them, so the
 // panel shows this instead.
@@ -23,9 +23,9 @@ const GLOSS = {
     domain: "Books and reading: book images, quotations, impressions and questions about the content, in any subject.",
   },
   routine: {
-    ja: "やること",
-    en: "follow-ups",
-    domain: "Plans for when to do something and records of whether it happened, once or repeatedly. Relative times such as now or the weekend also count.",
+    ja: "備え",
+    en: "preparation",
+    domain: "Upcoming plans, everyday belongings, habits and past omissions. It checks what you need before leaving, uses forecasts when weather affects your outing, and gently follows up on small chores.",
   },
 };
 

@@ -120,7 +120,7 @@ test("a subject's speaker card shows its daily check-in and localized domain", a
  await view.show(persona.id);
  const host = nodes(view.element).find(n => n.className === "speaker-card-host");
  const all = nodes(host);
- assert.ok(all.some(n => n.textContent === translate("毎日7時〜21時のどこかで起き、最近の記録と自分の記憶を見直して、伝える価値があることを見つけたときに話します。")));
+ assert.ok(all.some(n => n.textContent === translate("毎日7時〜21時のどこかで起き、最近の記録・これからの予定・自分の記憶を照らし合わせ、今役立つことがあるときに話します。")));
  assert.ok(all.some(n => n.textContent === translate("起きた回数 {0}", 0)));
  const domain = all.find(n => n.className === "domain").textContent;
  assert.equal(domain, getLanguage() === "ja" ? persona.domain : "Food, drinks, restaurants and meal photos; menus, preferences and choosing what to eat.");

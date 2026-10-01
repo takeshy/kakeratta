@@ -465,7 +465,7 @@ func TestExternalAgentReadsOtherSchedulesOnDemand(t *testing.T) {
 		t.Fatalf("other schedules passed up front: %s", brief.Schedules)
 	}
 	result, err := runner.ReadForAsk(context.Background(), ask.ID, "schedule-reader", []ReadStep{{Type: "tool", Tool: "schedules_list", Args: `{"skill":"routine"}`}})
-	if err != nil || !strings.Contains(result, other.ID) || !strings.Contains(result, "plana（routine）") || strings.Contains(result, "private.md") {
+	if err != nil || !strings.Contains(result, other.ID) || !strings.Contains(result, "sona（routine）") || strings.Contains(result, "private.md") {
 		t.Fatalf("external schedule read = %s (%v)", result, err)
 	}
 }

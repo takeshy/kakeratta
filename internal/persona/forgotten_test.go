@@ -139,7 +139,7 @@ func TestDeletingAPostWithoutRecordsWakesNobody(t *testing.T) {
 }
 
 // A deletion wake is a turn like any other: the persona's declared tools are in
-// its hands, so plana can cancel the schedule it set because of that post.
+// its hands, so sona can cancel the schedule it set because of that post.
 func TestADeletionWakeCanCancelTheSchedule(t *testing.T) {
 	var offered string
 	r, s, _ := setup(t, func(system, user string) string {

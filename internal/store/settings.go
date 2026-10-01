@@ -192,6 +192,7 @@ func defaultSettings() Settings {
 		OpenRouterHighModel:   OpenRouterHigh,
 		OpenRouterMiddleModel: OpenRouterMiddle,
 		OpenRouterLowModel:    OpenRouterLow,
+		Active:                []string{"routine"},
 		Speech: SpeechSettings{
 			Provider:       "browser",
 			Language:       "auto",

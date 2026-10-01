@@ -12,8 +12,8 @@ export const personas = [
     domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
   { id: "book", name: "shiori", icon: "📖", builtin: true, active: true, wakes: 21, planner: "builtin",
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
-  { id: "routine", name: "plana", icon: "🔁", builtin: true, active: true, wakes: 7, planner: "builtin",
-    domain: "やること。繰り返しも、一度きりの用も。", tools: ["schedule"], dailyCheckIn: { enabled: true, talk: "share" },
+  { id: "routine", name: "sona", icon: "🔁", builtin: true, active: true, wakes: 7, planner: "builtin",
+    domain: "外出前の備え。持ち物、忘れ物、予定と天気。繰り返しも、一度きりの用も。", tools: ["schedule", "weather_forecast"], dailyCheckIn: { enabled: true, talk: "share" },
     // A getter, so the sample reads in whichever language the story is showing.
     get schedules() {
       const w = words();
@@ -124,7 +124,7 @@ export function routing() {
       excluded: [
         { id: "book", name: "shiori", icon: "📖", reason: w.notBook },
         { id: "move", name: "michi", icon: "🚃", reason: w.notTravel },
-        { id: "routine", name: "plana", icon: "🔁", reason: w.notRoutine },
+        { id: "routine", name: "sona", icon: "🔁", reason: w.notRoutine },
       ],
     },
   };

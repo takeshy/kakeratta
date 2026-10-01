@@ -18,6 +18,8 @@ Panels have dedicated modules for persona creation and editing, routing checks, 
 
 Persona badges disable browser text selection and the iOS touch callout (`user-select`, `-webkit-user-select`, and `-webkit-touch-callout` in [styles.css](../../frontend/src/styles.css)), so holding a badge opens its menu without leaving native text-selection handles over the controls. Their existing pointer handlers continue to handle taps, holds, and dragging.
 
+The built-in `sona` (`routine`) is labeled **Preparation** and declares scheduling and weather forecasts. Its sharing check-in description includes upcoming plans alongside recent records and memory; its default activation is defined by the backend settings.
+
 ## Memory viewer and check-ins
 
 **View memory** ([memory.js](../../frontend/src/memory.js), opened from [personas.js](../../frontend/src/personas.js) `showMemory`) lists a persona's field summaries (`{Field}.md`) first and its months of kakera records (`records/YYYY-MM.md`) after them, newest month first. Pages come from `api.memory` newest-written first; `withFields` fetches any field not on the first page so the summaries stay on top. In a records file each line's `[id](/?entry=id)` opens the entry, a trailing `#tag` is a chip that narrows the list to the months holding a record with that tag (the server's `?tag=` filter), and `expires:`/`review:` show as **Gone on** / **Review on** chips; `asked:` is not shown. A field or a month can be edited by hand or deleted; nothing is woken for either. Notes kept the old way, with frontmatter, still render until they are folded into fields by hand (see [Folding old notes](./personas.md#folding-old-notes)).

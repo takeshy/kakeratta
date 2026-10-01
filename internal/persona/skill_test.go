@@ -133,60 +133,61 @@ func TestUpdateBuiltinPreservesIdentityAcrossReload(t *testing.T) {
 	}
 }
 
-// plana keeps small repeated chores by the part of the day. It works by the
-// clock, calls nothing outside the app, and treats medicine lightly.
-func TestPlanaShipsInPlaceOfKuda(t *testing.T) {
-	var plana *Skill
+// sona prepares for upcoming outings as well as following up on small chores.
+func TestSonaShipsWithPreparationAndWeather(t *testing.T) {
+	var sona *Skill
 	for i := range Builtins {
 		if Builtins[i].ID == "tech" || Builtins[i].Name == "kuda" {
 			t.Fatal("kuda still ships")
 		}
 		if Builtins[i].ID == "routine" {
-			plana = &Builtins[i]
+			sona = &Builtins[i]
 		}
 	}
-	if plana == nil || plana.Name != "plana" {
-		t.Fatal("plana does not ship")
+	if sona == nil || sona.Name != "sona" {
+		t.Fatal("sona does not ship")
 	}
-	// schedule is the app's own; nothing plana declares leaves the deployment.
-	if len(plana.Tools) != 1 || plana.Tools[0] != "schedule" {
-		t.Fatalf("plana's tools = %v", plana.Tools)
+	if len(sona.Tools) != 2 || sona.Tools[0] != "schedule" || sona.Tools[1] != "weather_forecast" {
+		t.Fatalf("sona's tools = %v", sona.Tools)
+	}
+	if sona.Answers("plana") || !sona.Answers("sona") || !sona.Answers("routine") {
+		t.Fatal("sona must replace plana while retaining its storage ID")
 	}
 	// The domain is what the routing reads, so both kinds have to be in it.
-	// A time on a sentence is what makes it plana's, whatever the sentence is
+	// A time on a sentence is what makes it sona's, whatever the sentence is
 	// about: "20時30分からドラマを見る" went to nobody while the domain read as a
 	// list of chores.
-	for _, kind := range []string{"繰り返し", "一度きり", "いつ何をするか", "実施したか", "今から"} {
-		if !strings.Contains(plana.Domain, kind) {
-			t.Fatalf("plana's domain lacks %q", kind)
+	for _, kind := range []string{"繰り返し", "一度きり", "いつ何をするか", "実施したか", "今から", "持ち物", "忘れ物", "天気", "外出前"} {
+		if !strings.Contains(sona.Domain, kind) {
+			t.Fatalf("sona's domain lacks %q", kind)
 		}
 	}
 	for _, rule := range []string{"schedule", "時刻は聞かない", "催促しない", "飲み忘れと判断しない", "やる前に急かさない"} {
-		if !strings.Contains(plana.Instructions, rule) {
-			t.Fatalf("plana's instructions lack %q", rule)
+		if !strings.Contains(sona.Instructions, rule) {
+			t.Fatalf("sona's instructions lack %q", rule)
 		}
 	}
 	for _, rule := range []string{
 		"本体から渡されたその日のかけらを確認する",
-		"plana 自身が同じ用について今日すでに声をかけた記録",
+		"sona 自身が同じ用について今日すでに声をかけた記録",
 		"声をかける根拠がある場合だけ一度だけ",
 	} {
-		if !strings.Contains(plana.Instructions, rule) {
-			t.Fatalf("plana's schedule wake instructions lack %q", rule)
+		if !strings.Contains(sona.Instructions, rule) {
+			t.Fatalf("sona's schedule wake instructions lack %q", rule)
 		}
 	}
 	// A schedule written into a note as prose registers nothing: the app reads
-	// the store, never the note. These three came from watching plana write
+	// the store, never the note. These three came from watching sona write
 	// "予定: 17:00" and a raw entry id into its notes and call no tool at all.
 	for _, rule := range []string{
 		"schedule 道具で登録したものだけが有効",
 		"id が無い予定の行は書かない",
-		// A schedule nobody can see is indistinguishable from none: plana says so
+		// A schedule nobody can see is indistinguishable from none: sona says so
 		// once, in reply to the post that occasioned it.
 		"登録できたら、その投稿への返事として一言だけ知らせる",
 	} {
-		if !strings.Contains(plana.Instructions, rule) {
-			t.Fatalf("plana's instructions lack %q", rule)
+		if !strings.Contains(sona.Instructions, rule) {
+			t.Fatalf("sona's instructions lack %q", rule)
 		}
 	}
 }

@@ -631,8 +631,8 @@ A persona is a `skill.json`:
 | `instructions` | What to separate and mark as a guess, when to speak. **Only the persona reads these** |
 | `tools` | Only what is declared can be called |
 
-Four ship with the app — tabe (food), michi (travel), shiori (reading), plana
-(routines). More can be
+Four ship with the app — tabe (food), michi (travel), shiori (reading), sona
+(preparation, weather and small follow-ups). sona is active by default in new workspaces; saved activation choices are preserved. More can be
 added from the UI, written by hand or drafted with the persona builder
 (Nemotron 3 Ultra).
 
@@ -880,11 +880,10 @@ Current limits are:
 
 A schedule carries a short note of what it is for; nothing is written to memory for it. Host-managed person events need nothing in memory either; birthdays and anniversaries recur annually and share the 20-schedule limit.
 
-For example, plana may hear about buying flowers and schedule a later wake to
+For example, sona may hear about buying flowers and schedule a later wake to
 ask whether they were bought.
 
-The design favors a check shortly *after* the relevant moment rather than a
-traditional calendar alarm beforehand.
+Preparation checks can run shortly before departure, using current forecasts when the outing region and date are known. Chore follow-ups run shortly after the relevant moment. Both require grounded timing and suppress repeated or completed checks.
 
 A schedule is claimed before the model executes so a failed or silent wake is
 not run repeatedly.

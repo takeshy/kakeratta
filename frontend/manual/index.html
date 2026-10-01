@@ -166,7 +166,7 @@
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
                 <tr><td><code>@michi</code></td><td>移動</td><td>行き先、経路、所要時間、待ち合わせ、旅程、チケット</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
-                <tr><td><code>@plana</code></td><td>やること</td><td>薬、金魚の餌、洗濯のような繰り返し。「仕事帰りに花を買おう」のような一度きりの用と、したかどうか</td></tr>
+                <tr><td><code>@sona</code></td><td>備え</td><td>外出前の持ち物、忘れ物、予定と天気を合わせた声かけ。繰り返す用事や一度きりの用の確認。新規利用時は有効</td></tr>
               </tbody>
             </table>
           </div>
@@ -221,7 +221,7 @@
           <p>有効な担当は、毎日1回、7時〜21時のどこかで起きます。時刻は担当ごとに本体が決め、日ごとに1時間以内で少しずつずれていくので、設定はいりません。初期状態では、最近のかけらと前の記録を見直して、伝える価値があることを見つけたときに話します。見直しの日が来た記録があれば、忘れてよいかも聞きます。<strong>チェックインでは最低限のことだけ話す</strong> をONにすると、話しかけるのはその確認など、あなたの判断が必要なときだけになります。何もなければ黙ります。</p>
           <p>話す量を変えるには、<strong>担当</strong> を開き、対象の担当の <strong>チェックインでは最低限のことだけ話す</strong> を切り替えます。変更は自動で保存されます。</p>
           <p>時刻は、この端末のタイムゾーンで数えます。ブラウザを閉じていても、サーバーが動いていれば実行されます。</p>
-          <p>チェックインとは別に、plana のように担当が自分で起きる時刻を決めることもあります。詳しくは <a href="/manual/?guide=advanced#ja-wakes" data-lang-link>担当が起きるタイミング</a> を見てください。</p>
+          <p>チェックインとは別に、sona のように担当が自分で起きる時刻を決めることもあります。詳しくは <a href="/manual/?guide=advanced#ja-wakes" data-lang-link>担当が起きるタイミング</a> を見てください。</p>
           <h3 id="ja-summary">今月のまとめと、月1回振り返る人物</h3>
           <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。話題ごとの箇条書きで、各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
           <figure>
@@ -328,7 +328,7 @@
           <h2>1. 振り分けを直す</h2>
           <p>かけらをどの担当に渡すかは本体が決めます。自分の投稿や返信の <strong>⚖</strong> を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が出ます。<code>@名前</code> で指名した担当は、あなたが選んだので出ません。</p>
           <figure>
-            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、michi・shiori・plana が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="638" />
+            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、他の担当が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="638" />
             <figcaption>呼ばれた担当と、呼ばれなかった理由（サンプル）。</figcaption>
           </figure>
           <p>呼ばれた担当には、処理が終わったか、返事をしたか、メモを残したかが出ます。黙っていた担当には <strong>返事がほしかった</strong> から <a href="#ja-reply-fix">返し方を直す</a> 流れに入れます。</p>
@@ -413,7 +413,7 @@
           </ul>
           <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を整え、何を聞くかを外部エージェントが考えます。時間内に外部エージェントが応じなければ、内蔵モデルが代わりに考えます。</p>
           <h3 id="ja-tool-schedule">担当が預けた予定（schedule）</h3>
-          <p>たとえば plana は、記録から「朝の薬は7時半ごろ」と分かったものにだけ予定を置き、その少しあとに起きます。まだ記録がなければ「そういえば朝の薬」と一言添え、済んでいれば黙ります。時刻の前に知らせるリマインダーではなく、催促もしません。あなたから「毎朝8時に知らせて」と頼む機能でもありません。</p>
+          <p>sona は、投稿や習慣から出発の時刻が分かると、少し前に起きて持ち物を点検します。以前「鍵を忘れた」と話していれば、その経験も手がかりになります。外出先と日時が分かれば最新の天気予報を調べ、今晴れていても帰りが雨なら傘を一言勧めます。地域や時刻、取得できない予報は作りません。用事をしたかの確認は少しあとに置き、済んでいたり同じことを伝えていたりすれば黙ります。催促や毎日の一般的な読み上げはしません。</p>
           <p><a href="/manual/#ja-people" data-lang-link>人物の担当</a>は、「来週土曜、佐藤さんと飲む」のような会う予定が書かれると、その日の朝に予定を置きます。起きたら前回の出来事や済んでいないこと（貸し借り、約束）を一言添えて知らせます。</p>
           <ul>
             <li>担当ごとに20件まで。未来の時刻に日数の上限はありません。道具の予定は1回きりか毎日、誕生日・記念日は毎年繰り返します。</li>
@@ -729,7 +729,7 @@
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
                 <tr><td><code>@michi</code></td><td>travel</td><td>Destinations, routes, travel time, meeting times, itineraries, tickets</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
-                <tr><td><code>@plana</code></td><td>follow-ups</td><td>Medicine, feeding the goldfish, laundry - and one-offs like buying flowers on the way home, and whether they happened</td></tr>
+                <tr><td><code>@sona</code></td><td>preparation</td><td>Belongings before leaving, past omissions, upcoming plans and forecasts. Gentle follow-ups on small chores. Active by default in new workspaces</td></tr>
               </tbody>
             </table>
           </div>
@@ -784,7 +784,7 @@
           <p>Every active persona wakes once a day, somewhere between 7:00 and 21:00. The app picks each persona's time, drifting by an hour a day at most, so there is nothing to set. By default it looks over recent kakera and older records and speaks when it finds something worth sharing, and asks whether a record that has reached its review date can be forgotten. With <strong>At check-in, speak only when needed</strong> on, it speaks only when your decision is needed, such as that question. Otherwise it stays quiet.</p>
           <p>To change how much it says, open <strong>Personas</strong> and toggle the persona's <strong>At check-in, speak only when needed</strong>. Changes save automatically.</p>
           <p>The hours are counted in this device's time zone. The browser can be closed; the server runs the check-in.</p>
-          <p>Some personas, such as plana, also pick their own wake times. See <a href="/manual/?guide=advanced#en-wakes" data-lang-link>When personas wake</a>.</p>
+          <p>Some personas, such as sona, also pick their own wake times. See <a href="/manual/?guide=advanced#en-wakes" data-lang-link>When personas wake</a>.</p>
           <h3 id="en-summary">This month's summary, and people looked back on monthly</h3>
           <p>Once a month the app reads the month's timeline and posts <strong>This month</strong>: a list by topic, each line with a <strong>→</strong> to the fragment it came from. The app picks the day for your account (somewhere from the 1st to the 28th). The summary is yours to set right with <strong>✎</strong>.</p>
           <figure>
@@ -891,7 +891,7 @@
           <h2>1. Fix who gets a post</h2>
           <p>The app decides which personas get each fragment. Tap <strong>⚖</strong> on one of your posts or replies to see who was called and, for each one that was not, a one-line reason. A persona you mentioned with <code>@name</code> is not listed: that was your call.</p>
           <figure>
-            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why michi, shiori and plana were not (sample data)" loading="lazy" width="382" height="723" />
+            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why other personas were not (sample data)" loading="lazy" width="382" height="723" />
             <figcaption>Who was called, and why the others were not (sample data).</figcaption>
           </figure>
           <p>For each persona that was called you see whether it has finished, replied, or kept a note. For one that stayed silent, <strong>A reply was wanted</strong> leads to <a href="#en-reply-fix">fixing how it replies</a>.</p>
@@ -976,7 +976,7 @@
           </ul>
           <p>For a persona that prefers the external agent, the external agent decides what to tidy and what to ask at check-in. If it does not respond in time, the built-in model plans instead.</p>
           <h3 id="en-tool-schedule">A persona's own schedule (schedule)</h3>
-          <p>plana, for example, sets one only for something its records place at a usual time - “morning medicine around 7:30” - and wakes shortly after. If nothing has been recorded yet it adds “the morning medicine, by the way”; if it has, it stays quiet. This is not an advance reminder and it does not nag. It is also not a way for you to ask “tell me every morning at 8.”</p>
+          <p>sona can wake shortly before an outing whose timing is grounded in your posts or habits, checking belongings and past omissions. When the region and date are known, it reads a fresh forecast: sunshine now can still mean taking an umbrella for rain on the way home. Unknown locations, times and unavailable forecasts are not invented. Chore follow-ups happen shortly afterwards; completed or already-mentioned items stay quiet. It does not nag or recite a generic checklist every day.</p>
           <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> sets one for the morning of a meeting you mention, such as “drinks with Sato next Saturday.” On waking it brings up what happened last time and anything still open, like a loan or a promise.</p>
           <ul>
             <li>Up to 20 per persona, at any future date. Tool-created schedules run once or daily; birthdays and anniversaries recur annually.</li>

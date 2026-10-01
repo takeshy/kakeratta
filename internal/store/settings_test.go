@@ -2,6 +2,24 @@ package store
 
 import "testing"
 
+func TestSonaIsActiveByDefaultAndSavedChoicesArePreserved(t *testing.T) {
+	s := open(t)
+	if got := s.Settings().Active; len(got) != 1 || got[0] != "routine" {
+		t.Fatalf("default active personas = %v", got)
+	}
+	for _, active := range [][]string{nil, {}, {"gourmet"}} {
+		settings := s.ConfiguredSettings()
+		settings.Active = active
+		if err := s.SaveSettings(settings); err != nil {
+			t.Fatal(err)
+		}
+		got := s.Settings().Active
+		if len(got) != len(active) || (len(active) > 0 && got[0] != active[0]) {
+			t.Fatalf("saved active personas = %v, want %v", got, active)
+		}
+	}
+}
+
 func TestNebiusDefaultModelMigration(t *testing.T) {
 	for _, vision := range []string{legacyNemotronNano, "nvidia/nvidia-nemotron-3-nano-30b-a3b", "Qwen/Qwen2.5-VL-72B-Instruct", NemotronNano, ""} {
 		t.Run(vision, func(t *testing.T) {

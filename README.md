@@ -74,7 +74,7 @@ are set by default):
 * **tabe**: Dining & food
 * **michi**: Travel & outings
 * **shiori**: Reading & books
-* **plana**: Things too small for a calendar, yet easy to forget
+* **sona**: Preparing for outings, everyday belongings, weather and small follow-ups (active by default in new workspaces)
 
 Interest personas are created in natural language too. For instance, for a
 persona focused on wine:
@@ -241,8 +241,7 @@ each line linked to the post it came from, which you can edit like your own
 post. A person looked back on monthly reads that summary and the posts that
 name them, so however many people there are, the timeline is read once a month.
 
-Personas can also create scheduled follow-ups. plana can, for example, remember
-"flowers on the way home" and later ask whether you got them.
+sona can schedule a belongings check before an outing, joining your plans to what you usually carry and things you have forgotten before. With a known region and time, it checks a fresh forecast and can suggest an umbrella for rain later, even when it is sunny now. Small chores can still get a gentle follow-up afterwards.
 
 These wakes run on the **server**, not in the browser. The browser can be
 closed.
@@ -384,7 +383,7 @@ The app decides who receives a fragment, and it keeps the reason.
 Press **⚖ (the router's call)** on a post to see the personas that were called
 and, for each one that was not, a one-line reason.
 
-<img src="docs/captures/en/routing.png" alt="The router's call on a tantanmen post: tabe was called, and why michi, shiori and plana were not (sample)" width="382">
+<img src="docs/captures/en/routing.png" alt="The router's call on a tantanmen post: tabe was called, and why other personas were not (sample)" width="382">
 
 When it got it wrong, press **Should have been called** and say why in your own
 words.

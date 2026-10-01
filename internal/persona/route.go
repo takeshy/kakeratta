@@ -122,7 +122,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	}
 	decision.Reasons, decision.Reason = parsed.Reasons, parsed.Reason
 	decision.ExcludedReasons = parsed.ExcludedReasons
-	// A router that answers "plana" when the id is "routine" has named the right
+	// A router that answers "sona" when the id is "routine" has named the right
 	// persona by the name a person sees. One that copies "book（shiori）" from the
 	// list has named it twice.
 	resolve := func(want string) string {

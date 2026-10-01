@@ -23,15 +23,15 @@ func TestScheduleTimelineUsesTheUsersLocalDayAndIncludesRemarks(t *testing.T) {
 	yesterday.Root = yesterday.ID
 	today := timeline.Entry{ID: "e_today", Kind: timeline.KindPost, Speaker: timeline.User, Text: "朝の薬飲んだ", At: now.Add(-20 * time.Minute)}
 	today.Root = today.ID
-	plana := timeline.Entry{ID: "e_plana", Kind: timeline.KindRemark, Speaker: "routine", Text: "花、買った？", At: now.Add(-10 * time.Minute), Root: today.ID}
-	for _, entry := range []timeline.Entry{yesterday, today, plana} {
+	sona := timeline.Entry{ID: "e_plana", Kind: timeline.KindRemark, Speaker: "routine", Text: "花、買った？", At: now.Add(-10 * time.Minute), Root: today.ID}
+	for _, entry := range []timeline.Entry{yesterday, today, sona} {
 		if err := s.Append(entry); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	got := r.scheduleTimeline(context.Background(), now, zone)
-	for _, want := range []string{"00:10 user:\n朝の薬飲んだ", "00:20 plana:\n花、買った？"} {
+	for _, want := range []string{"00:10 user:\n朝の薬飲んだ", "00:20 sona:\n花、買った？"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("schedule timeline lacks %q:\n%s", want, got)
 		}

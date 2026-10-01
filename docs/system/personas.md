@@ -32,6 +32,18 @@ Each person turn receives the current basic information through `forTurn`, along
 
 A persona's declared tools are selected from the Registry. A person persona's fields are always `Fact` and `Event` (`personMemory`).
 
+## sona: preparation and timely follow-ups
+
+The built-in `sona` replaces `plana`, retaining the storage ID `routine` so existing memory, schedules, and activation choices stay attached. Its default definition answers to `@sona` or `@routine`, not `@plana`. New workspaces start with `routine` active; saved active lists, including an empty list, take precedence.
+
+sona covers upcoming plans, everyday belongings, habits, forgotten items, and weather relevant to an outing. `Routine` holds user-grounded belongings, timing, places and past omissions, without turning one failure into a permanent habit; `Errand` holds one-off plans and preparation until completed. Generic suggestions are not stored as the user's habits, and forecasts are fetched when needed rather than kept in fields. Existing `Routine` and `Errand` fields remain usable.
+
+Its permitted tools are `schedule` and `weather_forecast`, alongside shared timeline and record reads. With a grounded departure time, it may schedule a preparation check shortly before leaving; chore-completion checks remain shortly afterwards. A sharing check-in can find upcoming plans in posts addressed to other personas and schedule a later preparation turn, staying silent until there is a reason to speak. The daily check-in time remains the app-selected minute between 07:00 and 21:00; the scheduled preparation turn supplies timely delivery. The system does not detect departure independently of posts, memory, or schedules.
+
+Preparation wakes compare known plans, belongings and past omissions with a fresh forecast for the relevant region and outing period, distinguishing sunshine now from rain later. Unknown locations or times and unavailable forecasts are not invented; grounded belongings checks can still proceed without weather. Completed, cancelled, departed or already-mentioned plans stay quiet. Model instructions guide these decisions; schedule claims prevent repeating the same due wake. Existing person reminders can be read to avoid proposing duplicate notifications. User-customized definitions continue to override built-in defaults.
+
+Verification: [sona_test.go](../../internal/persona/sona_test.go) exercises a scheduled weather lookup, weather failure with a belongings-only answer, and a silent sharing check-in that schedules preparation; [settings_test.go](../../internal/store/settings_test.go) checks initial activation and preservation of saved choices.
+
 ## Implementation and verification
 
 - [skill.go](../../internal/persona/skill.go): `Catalogue`, `Snapshot`, `Skills`
@@ -179,7 +191,7 @@ Past schedules are not all replayed unconditionally. Execution windows and perso
 
 ## Periodic checks
 
-Daily checks use the user's time zone and times derived from the workspace and persona. The previous actual execution time determines the lookback window, and execution is claimed first. A sharing check-in reads the timeline since the previous one and the persona's records by tag, and speaks only when it finds something worth sharing; a minimal one speaks only about what needs the user's decision - records due for review. Either is handed the records due for review (see [Record dates, extension, and review](#record-dates-extension-and-review)). Person personas can check in monthly instead.
+Daily checks use the user's time zone and times derived from the workspace and persona. The previous actual execution time determines the lookback window, and execution is claimed first. A sharing check-in reads the timeline since the previous one and the persona's records by tag, also checking upcoming plans and preparation against memory and relevant external information. A persona permitted to schedule can arrange a later wake and stay silent now, checking other personas' schedules to avoid duplicates. It speaks only when there is something useful now; a minimal one speaks only about what needs the user's decision - records due for review. Either is handed the records due for review (see [Record dates, extension, and review](#record-dates-extension-and-review)). Person personas can check in monthly instead.
 
 The app itself builds monthly summaries from the timeline as topic-based posts with source links. Person personas' monthly checks use the summary and relevant records. Both read only the lookback window through `TimelineWindow`, and summaries have an input length limit.
 
