@@ -57,7 +57,9 @@ Web Push uses [webpush-go](https://github.com/SherClockHolmes/webpush-go) for pa
 Persona memory moved from one note per thing to field summaries and kakera records, and the running app no longer reads the old notes. Fold them once after deploying that change with [cmd/migrate-memory](../../cmd/migrate-memory/main.go), which runs `Runner.MigrateMemory` for every persona of a workspace on that workspace's own model settings:
 
 - `go run ./cmd/migrate-memory` - the local workspace (`KAKERATTA_HOME` or the default); `-firestore kakeratta` - every workspace in production Firestore with application default credentials, or one with `-user KEY`; `-persona ID` limits it to one persona.
-- Without `-apply` it prints, per persona, how many old notes there are, which were left out for length, and the summaries the model would write; nothing is changed. With `-apply` it writes the summaries and deletes the old notes; running it again finds nothing to do.
+- Without `-apply` it prints, per persona, how many old notes there are, which were left out for length, and the summaries the model would write, and saves them to `-plan` (JSON, default `migration-plan.json`); nothing is changed. The plan may be edited by hand.
+- With `-apply` it writes the summaries in `-plan` as they are, without calling the model again (`Runner.ApplyMigration`), and deletes the old notes. A persona whose old notes changed since the dry run, or whose plan holds an unknown or over-long field, is refused. Running the dry run again afterwards finds nothing to do.
+- The production migration of 2026-10-01 was done this way: three dry runs while tightening the prompt (no researched figures or explanations; the user's actions kept with their dates; the notes' own language), a hand edit of the plan, then `-apply`.
 - Between the deploy and the run, personas answer without their old memory.
 
 ## Implementation and verification

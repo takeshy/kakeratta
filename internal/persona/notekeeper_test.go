@@ -210,16 +210,26 @@ func TestOldNotesAreFoldedIntoTheFields(t *testing.T) {
 	if paths, _ := s.NotePaths("gourmet"); len(paths) != 3 {
 		t.Fatalf("a dry run changed memory: %v", paths)
 	}
-	applied, err := r.MigrateMemory(context.Background(), "gourmet", true)
-	if err != nil || !applied.Applied {
-		t.Fatalf("apply = %+v, %v", applied, err)
+	// What is applied is the dry run as a person edited it, without the model.
+	dry.Fields["Shop"] = "三田の二郎に行きたい（手で直した）。"
+	stale := dry
+	stale.Legacy = append([]string{"gone.md"}, dry.Legacy[1:]...)
+	if _, err := r.ApplyMigration(context.Background(), stale); err == nil {
+		t.Fatal("a plan for other old notes was applied")
+	}
+	applied, err := r.ApplyMigration(context.Background(), dry)
+	if err != nil || !applied.Applied || len(f.keeps) != 1 {
+		t.Fatalf("apply = %+v, %v, model calls %d", applied, err, len(f.keeps))
 	}
 	paths, _ := s.NotePaths("gourmet")
 	if strings.Join(paths, ",") != "Preference.md,Shop.md" {
 		t.Fatalf("memory after = %v", paths)
 	}
-	again, err := r.MigrateMemory(context.Background(), "gourmet", true)
-	if err != nil || len(again.Legacy) != 0 || len(f.keeps) != 2 {
+	if shop, _ := s.Note("gourmet", "Shop.md"); !strings.Contains(shop.Text, "手で直した") {
+		t.Fatalf("Shop = %q", shop.Text)
+	}
+	again, err := r.MigrateMemory(context.Background(), "gourmet", false)
+	if err != nil || len(again.Legacy) != 0 || len(f.keeps) != 1 {
 		t.Fatalf("a second run = %+v, %v, model calls %d", again, err, len(f.keeps))
 	}
 }
@@ -460,5 +470,15 @@ func TestAReviewIsAskedAndSettledByTheReply(t *testing.T) {
 	r.react(reply.ID)
 	if left := r.recordsByID("gourmet", map[string]bool{"e_due": true}, zone); len(left) != 0 {
 		t.Fatalf("the record the user let go is still kept: %+v", left)
+	}
+}
+
+// A body whose line breaks the model escaped is written with real ones.
+func TestEscapedLineBreaksInAFieldAreRepaired(t *testing.T) {
+	if got := repairNewlines(`・A\n・B`); got != "・A\n・B" {
+		t.Fatalf("got %q", got)
+	}
+	if got := repairNewlines("・A\n・B は \\n と書く"); got != "・A\n・B は \\n と書く" {
+		t.Fatalf("a body with real breaks was changed: %q", got)
 	}
 }

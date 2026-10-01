@@ -44,9 +44,13 @@ func migratePrompt(skill Skill) string {
 	}
 	s += `渡された古いメモをすべて読み、keep_memory の fields で分野ごとのまとめの全文を出す。古いメモは、このあと本体が捨てる。
 - まとめは、その分野でこれまでに分かったことの要約で、` + fmt.Sprint(maxFieldRunes) + `字以内。いまのまとめがあれば、その内容も落とさない。
-- 中心はユーザーが言ったこと（事実・好み・予定・関係の変化・覚えてと頼まれたこと）。調べた事実・候補一覧・解説・期限付きの一時的なメモは移さない。
+- 移すのはユーザーが言ったこと・したことだけ（事実・好み・予定・関係の変化・行きたい／読みたいと言ったもの・覚えてと頼まれたこと）。贈った・会った・行った・買った・飲んだなど、ユーザーの行動や出来事は日付とともに必ず残す。
+- **担当が調べて答えた内容は移さない。** 数値（含有量・価格・距離・所要時間・評価など）、解説や手順、レシピの分量、商品や店の詳しい説明、候補の一覧、ニュースや技術の調査結果、担当の見立ては、古いメモに書いてあっても捨てる。必要になれば、そのときに調べ直す。
+- ユーザーが何について聞いたかは、傾向として一言にまとめてよい（例: 「プリン体をよく気にして食べ物の含有量を聞く」）。個々の質問の答えは書かない。
+- 期限付きの一時的なメモ、その場限りの相談は移さない。
 - 収まらないときは、細部より傾向を残す。
 - 引用、本人の意見、推測を区別し、推測は推測と明記する。投稿のIDやリンク、frontmatter は書かない。
+- 古いメモと同じ言語で書く（日本語のメモなら日本語）。
 - 移すことがない分野は fields に入れない。
 `
 	return s
@@ -55,7 +59,8 @@ func migratePrompt(skill Skill) string {
 // MigrateMemory folds one persona's old notes into its fields. Without apply
 // it only reports what it would write; with apply it writes the fields and
 // deletes every old note, under the persona's keeper lock. A persona with no
-// old notes is reported with none, and the model is not called.
+// old notes is reported with none, and the model is not called. To write
+// exactly what a dry run showed, pass that to ApplyMigration instead.
 func (r *Runner) MigrateMemory(ctx context.Context, personaID string, apply bool) (Migration, error) {
 	out := Migration{Persona: personaID, Fields: map[string]string{}}
 	skill, ok := r.skills(ctx).Find(personaID)
@@ -107,7 +112,7 @@ func (r *Runner) MigrateMemory(ctx context.Context, personaID string, apply bool
 		}
 		for _, write := range kept.Fields {
 			field, _ := fieldNamed(fields, write.Field)
-			out.Fields[field] = strings.TrimSpace(write.Text)
+			out.Fields[field] = repairNewlines(strings.TrimSpace(write.Text))
 		}
 		if apply {
 			if _, err := r.writeFields(held, skill, fields, kept.Fields); err != nil {
@@ -128,6 +133,61 @@ func (r *Runner) MigrateMemory(ctx context.Context, personaID string, apply bool
 	}
 	out.Applied = true
 	return out, nil
+}
+
+// ApplyMigration writes a migration a dry run made, as it is (or as a person
+// edited it), without calling the model again: the fields it holds are
+// written and its old notes deleted. It refuses when the persona's old notes
+// are no longer the ones the dry run read, or a field is unknown or too long.
+func (r *Runner) ApplyMigration(ctx context.Context, plan Migration) (Migration, error) {
+	skill, ok := r.skills(ctx).Find(plan.Persona)
+	if !ok {
+		return plan, fmt.Errorf("担当が見つかりません: %s", plan.Persona)
+	}
+	skill = skill.forTurn()
+	held, release, err := r.lockKeeper(ctx, skill.ID)
+	if err != nil {
+		return plan, err
+	}
+	defer release()
+	legacy, err := r.legacyNotes(skill)
+	if err != nil {
+		return plan, err
+	}
+	now := map[string]bool{}
+	for _, note := range legacy {
+		now[note.Path] = true
+	}
+	if len(now) != len(plan.Legacy) {
+		return plan, fmt.Errorf("%s: 古いメモが dry-run のときから変わっています（%d件 → %d件）", plan.Persona, len(plan.Legacy), len(now))
+	}
+	for _, path := range plan.Legacy {
+		if !now[path] {
+			return plan, fmt.Errorf("%s: 古いメモが dry-run のときから変わっています（%s がありません）", plan.Persona, path)
+		}
+	}
+	fields := memoryFields(skill)
+	var writes []fieldWrite
+	for field, text := range plan.Fields {
+		writes = append(writes, fieldWrite{Field: field, Text: text})
+	}
+	sort.Slice(writes, func(i, j int) bool { return writes[i].Field < writes[j].Field })
+	if problems := checkKept(keptMemory{Fields: writes}, fields, false, nil, "", time.Now(), time.UTC); len(problems) > 0 {
+		return plan, fmt.Errorf("%s: %s", plan.Persona, strings.Join(problems, "; "))
+	}
+	if _, err := r.writeFields(held, skill, fields, writes); err != nil {
+		return plan, err
+	}
+	for _, note := range legacy {
+		if err := held.Err(); err != nil {
+			return plan, err
+		}
+		if err := r.store.DeleteNote(skill.ID, note.Path); err != nil {
+			return plan, err
+		}
+	}
+	plan.Applied = true
+	return plan, nil
 }
 
 // MigrationPersonas are the ids of every persona defined, active or not: a

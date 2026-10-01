@@ -462,6 +462,15 @@ func checkKept(kept keptMemory, fields []string, recording bool, handed []record
 	return problems
 }
 
+// repairNewlines undoes a model that escaped its own line breaks: a body with
+// no real newline but "\n" in it reads as one long line.
+func repairNewlines(text string) string {
+	if strings.Contains(text, "\n") || !strings.Contains(text, `\n`) {
+		return text
+	}
+	return strings.NewReplacer(`\n`, "\n", `\t`, "\t").Replace(text)
+}
+
 // copiesAnswer reports a body that carries two or more of the answer's own
 // sentences. The answer stays in the thread; a body holding it is a cache of
 // what was researched, not what the user said.
@@ -488,7 +497,7 @@ func (r *Runner) writeFields(ctx context.Context, skill Skill, fields []string, 
 		}
 		field, _ := fieldNamed(fields, write.Field)
 		path := fieldPath(field)
-		if err := r.store.WriteNote(skill.ID, path, strings.TrimSpace(write.Text)+"\n"); err != nil {
+		if err := r.store.WriteNote(skill.ID, path, repairNewlines(strings.TrimSpace(write.Text))+"\n"); err != nil {
 			return written, err
 		}
 		written = append(written, path)
