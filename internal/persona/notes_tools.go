@@ -9,17 +9,27 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
+// maxEntryReads is how many posts one records read may open by id.
+const maxEntryReads = 10
+
 // recordsMonth is a month a records read may be narrowed to.
 var recordsMonth = regexp.MustCompile(`^\d{4}-\d{2}$`)
 
 // readRecords is a persona looking through its own records: newest first,
 // narrowed by tag, by words, and to before a month. The fields are handed over
 // whole at the start of every turn, so the records are all there is to read.
-// It also returns the ids of the records it showed, or of the one whose entry
+// It also returns the ids of the records it showed, or of those whose entries
 // it read: those records are in use.
 func (r *Runner) readRecords(personaID string, args map[string]any, zone *time.Location) (string, []string) {
-	if id := strings.TrimSpace(stringOf(args["id"])); id != "" {
-		return r.recordEntry(id, zone), []string{id}
+	if ids := entryIDs(args); len(ids) > 0 {
+		if len(ids) > maxEntryReads {
+			return fmt.Sprintf("一度に読める投稿は%d件までです（%d件指定されました）。分けて読んでください。", maxEntryReads, len(ids)), nil
+		}
+		var parts []string
+		for _, id := range ids {
+			parts = append(parts, "=== "+id+" ===\n"+r.recordEntry(id, zone))
+		}
+		return strings.Join(parts, "\n\n"), ids
 	}
 	tag, query, before := stringOf(args["tag"]), stringOf(args["query"]), strings.TrimSpace(stringOf(args["before"]))
 	if before != "" && !recordsMonth.MatchString(before) {
@@ -38,7 +48,22 @@ func (r *Runner) readRecords(personaID string, args map[string]any, zone *time.L
 		last := found[len(found)-1].At.In(zone)
 		text += fmt.Sprintf("\n（続きがあります。さらに前は before に %s を指定すると、その月より前から探せます。同じ月の残りは query や tag で絞ってください）", last.Format("2006-01"))
 	}
-	return text + "\n（[ ] の投稿そのものは、records の args に {\"id\":\"…\"} を書くと読めます）", ids
+	return text + "\n（[ ] の投稿そのものは、records の args に {\"ids\":[\"…\",\"…\"]} を書くと、10件までまとめて読めます）", ids
+}
+
+// entryIDs are the posts a records read asks to open: "ids", "id", or both,
+// each once, in the order given.
+func entryIDs(args map[string]any) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, id := range append(stringsOf(args["ids"]), stringOf(args["id"])) {
+		id = strings.TrimSpace(id)
+		if id != "" && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // recordEntry is the entry a record leads to, and the kakera it answered when

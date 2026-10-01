@@ -120,7 +120,7 @@ var readTool = llm.Tool{
 			"properties": map[string]any{
 				"type": map[string]any{"type": "string", "enum": []any{"records", "tool"}},
 				"tool": stringField("tool で呼ぶ道具の名前。records では \"\""),
-				"args": stringField("引数を JSON オブジェクトとして書いた文字列。tool なら例: {\"query\":\"赤ワイン\"}。records なら {\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"} のうち要るもの、または {\"id\":\"記録の[ ]のID\"} で投稿そのもの"),
+				"args": stringField("引数を JSON オブジェクトとして書いた文字列。tool なら例: {\"query\":\"赤ワイン\"}。records なら {\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"} のうち要るもの、または {\"ids\":[\"記録の[ ]のID\"]} で投稿そのもの（10件まで）"),
 			},
 			"required": []any{"type", "tool", "args"},
 		}},
@@ -447,9 +447,11 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 				}
 			}
 			// A post read by its record's id may be cited like one a search found.
-			if id := strings.TrimSpace(stringOf(args["id"])); id != "" {
-				if entry, ok := r.store.Entry(id); ok && !entry.Deleted {
-					cited[entry.ID] = tools.CiteLabel(entry, zone)
+			if len(entryIDs(args)) > 0 {
+				for _, id := range ids {
+					if entry, ok := r.store.Entry(id); ok && !entry.Deleted {
+						cited[entry.ID] = tools.CiteLabel(entry, zone)
+					}
 				}
 			}
 		case "tool":

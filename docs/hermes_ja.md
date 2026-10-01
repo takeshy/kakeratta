@@ -98,7 +98,7 @@ list_asks → claim_ask → コンテキスト解釈 → read_for_ask・自前�
 
 1. **`list_asks`**: 開いている ask を確認します。`status: "pending"` のものが未取得です。`claimBy` までに取得されないと内蔵モデルが引き取ります。
 2. **`claim_ask`**: `askId` と実行ごとに固有の `claimId` を渡して排他的に取得します。応答には `planBy`（回答の受理期限）と詳細な `context` が含まれます。応答が失われた場合の再試行には同じ `claimId` を使います。
-3. **調査と推論**: 必要に応じて `read_for_ask` の `records` ステップで担当の前のかけらの記録を調べます（`args` に `tag`・`query`・`before` のうち要るもの、または `id` で記録の投稿そのもの）。`tool` ステップでは、`context.tools` で `use: "read"` とされた道具（`timeline_search` など）を呼べます。この `read_for_ask` 経由の `timeline_search` が見つけた投稿と、記録の `id` で読んだ投稿だけが、`speak` の `sources` に引用できます。また、必要に応じて Web 検索等も併用します。
+3. **調査と推論**: 必要に応じて `read_for_ask` の `records` ステップで担当の前のかけらの記録を調べます（`args` に `tag`・`query`・`before` のうち要るもの、または `ids` で記録の投稿そのもの（10件までまとめて））。`tool` ステップでは、`context.tools` で `use: "read"` とされた道具（`timeline_search` など）を呼べます。この `read_for_ask` 経由の `timeline_search` が見つけた投稿と、記録の ID で読んだ投稿だけが、`speak` の `sources` に引用できます。また、必要に応じて Web 検索等も併用します。
 4. **`submit_answer`**: `askId`、`claimId`、`answer: {text, sources}` を提出します。kakeratta が確かめるのは形とこのターンの規則（名指しなら空にしない、傾聴なら空にする、`sources` はこの ask の検索結果だけ）です。`accepted: true` は受け取ったという意味で、まだ公開されていません。kakeratta が予定・操作のフェーズを進めて実行したあとに公開します（メモはそのあと、担当のメモ係が書きます）。差し戻されたら `problems` を直して再提出します。
 5. **`release_ask`**: 自力で考えられない ask は、期限切れを待たずに即座に内蔵モデルへ引き渡します。
 

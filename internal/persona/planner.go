@@ -145,7 +145,7 @@ func (r *Runner) askWaits(settings store.Settings) (time.Duration, time.Duration
 // askTools lists what the persona holds, and where each may be used.
 func askTools(set *tools.Set) []AskTool {
 	out := []AskTool{
-		{Name: "records", Description: "自分のかけらの記録を新しい順に探す。args は {\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"} のうち要るもの。{\"id\":\"…\"} で記録の投稿そのもの（返信なら返信もとも）を読む。", Use: "read"},
+		{Name: "records", Description: "自分のかけらの記録を新しい順に探す。args は {\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"} のうち要るもの。{\"ids\":[\"…\",\"…\"]} で記録の投稿そのもの（返信なら返信もとも）を10件までまとめて読む。", Use: "read"},
 	}
 	for _, d := range set.Declarations() {
 		if set.IsReadOnly(d.Name) {

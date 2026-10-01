@@ -27,7 +27,7 @@ var readStepSchema = map[string]any{
 	"properties": map[string]any{
 		"type": map[string]any{"type": "string", "enum": []any{"records", "tool"}},
 		"tool": map[string]any{"type": "string", "description": "Tool name for tool, otherwise \"\""},
-		"args": map[string]any{"type": "string", "description": "Arguments as a JSON object written as a string. For tool, e.g. {\"query\":\"red wine\"}. For records, any of {\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"}, or {\"id\":\"…\"} to read the entry a record points to"},
+		"args": map[string]any{"type": "string", "description": "Arguments as a JSON object written as a string. For tool, e.g. {\"query\":\"red wine\"}. For records, any of {\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"}, or {\"ids\":[\"…\"]} (up to 10) to read the entries records point to"},
 	},
 	"required": []any{"type"},
 }

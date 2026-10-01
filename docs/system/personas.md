@@ -105,7 +105,7 @@ If `execute` fails, the answer is not published as though its promised operation
 
 Failure in the note keeper after publication does not retract an already published answer. A turn that stays silent because it is unrelated skips memory updates.
 
-Research reads are `records` steps (older kakera records by `tag`, `query`, and `before` month, or by `id` the entry a record points to, with the kakera it answered when it is a reply - an entry read that way may be cited in `sources`) and read-use tool steps (`readAll`).
+Research reads are `records` steps (older kakera records by `tag`, `query`, and `before` month, or by `ids` - up to ten in one step, `maxEntryReads` - the entries records point to, each with the kakera it answered when it is a reply; an entry read that way may be cited in `sources`) and read-use tool steps (`readAll`).
 
 ## Implementation and verification
 
@@ -131,7 +131,7 @@ Every turn is handed the fields whole and the 15 latest records (`memoryView`, `
 The keeper dates each new record from what it is ([review.go](../../internal/persona/review.go), `keeperDates`): `expires` - the next day, say - for a kakera that served its moment ("where for lunch today?", "how do I get to Shibuya?"), and `review` - weeks for a shop the user wants to try, months for a topic - for something the user said whose lifetime is unknown; preferences and habits get neither. A day must be tomorrow or later (`checkKept`). Built-in layouts say which of their records get which.
 
 - **Expiry.** The due pass deletes records whose `expires` day has come (`expireRecords`, under the keeper lock) and returns the next such day for `nextDue`. Nobody is woken; the fields are not touched.
-- **Extension.** Records a turn answering a post reads through `records` - shown by a search, or opened by `id` - have both dates moved so the span they were given starts again today (`extendRecords`, `recordDate.extended`); a date never moves closer. Records only handed over in the latest 15, and reads during check-ins or tidy-ups, do not count. An external agent's reads are kept on the ask (`askResearch.Referenced`) and count the same way.
+- **Extension.** Records a turn answering a post reads through `records` - shown by a search, or opened by id - have both dates moved so the span they were given starts again today (`extendRecords`, `recordDate.extended`); a date never moves closer. Records only handed over in the latest 15, and reads during check-ins or tidy-ups, do not count. An external agent's reads are kept on the ask (`askResearch.Referenced`) and count the same way.
 - **Review.** A daily check-in is handed up to three records whose `review` day has passed, oldest first (`reviewsDue`; one that also expires is left to the sweep), with `reviewInstructions`: the persona asks about one in its post. The keeper is handed the same records and submits `records` decisions; it puts the asked one off a week, and the host marks it `asked:` with the check-in post. When the user replies to that post, the persona is told which records it asked about (`reviewReply`, wake `review-reply`), and the keeper - recording the reply as a kakera too - keeps the record (review cleared), moves it, or forgets it. A date restated unchanged keeps its span; a new one counts from now (`changeRecords`, `redated`).
 
 ## The note keeper after publication

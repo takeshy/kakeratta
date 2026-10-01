@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -480,5 +481,39 @@ func TestEscapedLineBreaksInAFieldAreRepaired(t *testing.T) {
 	}
 	if got := repairNewlines("・A\n・B は \\n と書く"); got != "・A\n・B は \\n と書く" {
 		t.Fatalf("a body with real breaks was changed: %q", got)
+	}
+}
+
+// Several posts are read by their records' ids in one step, a reply with the
+// kakera it answered, and each may be cited; more than ten are refused.
+func TestRecordedPostsAreReadTogether(t *testing.T) {
+	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
+	first := post(t, s, "三田の二郎に行きたい")
+	second := post(t, s, "草加のコーヒー")
+	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: second.ID, ReplyTo: second.ID, Text: "駅前の喫茶店かな", At: second.At}
+	if err := s.Append(reply); err != nil {
+		t.Fatal(err)
+	}
+	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
+	set := r.registry(s.Settings()).For(nil).As("gourmet")
+	cited := map[string]string{}
+	referenced := map[string]bool{}
+	args := `{"ids":["` + first.ID + `","` + reply.ID + `"]}`
+	text, _ := r.readAll(context.Background(), skill, []ReadStep{{Type: "records", Args: args}}, set, timeline.Entry{}, time.UTC, map[string]string{}, newLookups(maxReads, maxSearches), cited, referenced)
+	for _, want := range []string{"三田の二郎に行きたい", "草加のコーヒー", "駅前の喫茶店かな"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("%q missing:\n%s", want, text)
+		}
+	}
+	if cited[first.ID] == "" || cited[reply.ID] == "" || !referenced[first.ID] || !referenced[reply.ID] {
+		t.Fatalf("cited = %v, referenced = %v", cited, referenced)
+	}
+	var many []string
+	for i := 0; i <= maxEntryReads; i++ {
+		many = append(many, fmt.Sprintf(`"e_%d"`, i))
+	}
+	text, _ = r.readAll(context.Background(), skill, []ReadStep{{Type: "records", Args: `{"ids":[` + strings.Join(many, ",") + `]}`}}, set, timeline.Entry{}, time.UTC, map[string]string{}, newLookups(maxReads, maxSearches), map[string]string{}, nil)
+	if !strings.Contains(text, "10件まで") {
+		t.Fatalf("eleven posts were read: %s", text)
 	}
 }
