@@ -472,21 +472,25 @@ func (r *Runner) prepareEntry(outer context.Context, entryID string, transientPl
 		called[id] = "mention"
 	}
 	parent, hasParent := r.store.Entry(entry.ReplyTo)
-	// A reply to a persona is said to it: it hears it whether or not routing
-	// would have chosen it. A post that persona started on its own - a
+	// With no mention overriding the addressee, a reply to a persona is said
+	// to it. A post that persona started on its own - a
 	// check-in, a schedule, a review - is its question, and a reply under it
 	// is the answer.
 	asked := ""
 	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
-		targets[parent.Speaker] = true
-		if _, ok := called[parent.Speaker]; !ok {
+		if len(named) == 0 {
+			targets[parent.Speaker] = true
 			called[parent.Speaker] = "reply"
 		}
-		if parent.Root == parent.ID {
+		if called[parent.Speaker] != "" && parent.Root == parent.ID {
 			asked = parent.Speaker
 		}
 	}
-	routing := routeSubjects(ctx, client, settings, skills, thread, entry)
+	// A directed conversation needs no automatic subject or person matching.
+	routing := Routing{Answered: true}
+	if len(called) == 0 {
+		routing = routeSubjects(ctx, client, settings, skills, thread, entry)
+	}
 	for _, id := range routing.Deliver {
 		targets[id] = true
 	}
@@ -498,7 +502,7 @@ func (r *Runner) prepareEntry(outer context.Context, entryID string, transientPl
 		return nil, nil, err
 	}
 	plan := &store.EntryDelivery{Text: entry.Text, Active: append([]string{}, settings.Active...), Targets: keys(targets), Named: named, Previous: keys(previous), Asked: asked, Heard: routing.Heard, SkillsJSON: string(definitions)}
-	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && isActive(skills, parent.Speaker) {
+	if hasParent && !parent.Deleted && entry.Kind == timeline.KindReply && called[parent.Speaker] != "" {
 		plan.ReplySpeaker = parent.Speaker
 	}
 	return plan, routingRecord(entry, routing, called, targets), nil

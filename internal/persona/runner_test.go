@@ -628,7 +628,7 @@ func TestEveryoneAnswersTogetherOnSuper(t *testing.T) {
 
 // A reply to a persona's answer is shown to Lightning, and only one asking for
 // a better or deeper answer is answered on Ultra - by the persona it was said
-// to, whether or not routing chose it. Anyone else it reaches stays on Super.
+// to. Other personas do not receive the reply through automatic routing.
 func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 	for _, tc := range []struct {
 		reply    string
@@ -676,8 +676,8 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			if !strings.Contains(asked, "豚骨の店がある") || !strings.Contains(asked, tc.reply) {
 				t.Fatalf("Lightning was not shown the answer and the reply:\n%s", asked)
 			}
-			if got := stub.modelFor("michi"); got != store.NemotronSuper {
-				t.Fatalf("the other persona answered on %q", got)
+			if got := stub.modelFor("michi"); got != "" {
+				t.Fatalf("the other persona unexpectedly answered on %q", got)
 			}
 			// The persona replied to answers whether or not routing chose it.
 			if got := stub.lastModelFor("tabe"); got != tc.want {
@@ -687,7 +687,7 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			for _, remark := range remarks(t, s)[1:] {
 				models[remark.Speaker] = remark.Model
 			}
-			if models["gourmet"] != tc.slot || models["move"] != "super" {
+			if models["gourmet"] != tc.slot || models["move"] != "" {
 				t.Fatalf("remark models = %v", models)
 			}
 			if !tc.escalate {
@@ -697,9 +697,6 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			prompt := stub.lastPromptFor("tabe")
 			if !strings.Contains(prompt, "前の回答より良い・深い回答を求めています") || !strings.Contains(prompt, "必要な根拠・比較・具体例") || strings.Contains(prompt, "発言するときは短く") {
 				t.Fatalf("tabe was not given the deep prompt:\n%s", prompt)
-			}
-			if !strings.Contains(stub.promptFor("michi"), "発言するときは短く") {
-				t.Fatal("the other persona lost the brief prompt")
 			}
 		})
 	}
@@ -858,8 +855,8 @@ func TestAFailedJudgementIsANo(t *testing.T) {
 	for _, remark := range remarks(t, s)[1:] {
 		models[remark.Speaker] = remark.Model
 	}
-	if len(models) != 2 || models["gourmet"] != "super" || models["move"] != "super" {
-		t.Fatalf("remark models = %v, want tabe and michi, both on Super", models)
+	if len(models) != 1 || models["gourmet"] != "super" {
+		t.Fatalf("remark models = %v, want only tabe on Super", models)
 	}
 }
 
@@ -1145,8 +1142,12 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 				}
 			}
 			stub.mu.Unlock()
-			if len(prompts) != 3 {
-				t.Fatalf("got %d calls, want routing and two personas", len(prompts))
+			wantCalls, wantAnswers := 3, 2
+			if replyToQuestion {
+				wantCalls, wantAnswers = 1, 1
+			}
+			if len(prompts) != wantCalls {
+				t.Fatalf("got %d calls, want %d", len(prompts), wantCalls)
 			}
 			for i, prompt := range prompts {
 				_, context, ok := strings.Cut(prompt, "スレッド全体（古い順）:\n")
@@ -1183,8 +1184,8 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 					}
 				}
 			}
-			if answers != 2 {
-				t.Fatalf("got %d answers, want one from each routed persona", answers)
+			if answers != wantAnswers {
+				t.Fatalf("got %d answers, want %d", answers, wantAnswers)
 			}
 		})
 	}
@@ -1793,12 +1794,12 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 		{
 			name: "named persona is called, not the router's choice", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":["gourmet","move"],"excluded_reasons":{"book":"本の話ではない"}}`,
-			want:   &store.Routing{Delivered: []string{"move", "gourmet"}, Excluded: map[string]string{"book": "本の話ではない"}, Tracked: true, Done: []string{"gourmet", "move"}, Spoke: []string{"gourmet"}, Called: map[string]string{"gourmet": "mention"}},
+			want:   &store.Routing{Delivered: []string{"gourmet"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}, Called: map[string]string{"gourmet": "mention"}},
 		},
 		{
 			name: "named persona is not passed over either", text: "@tabe 今日の昼どうしよう",
 			routed: `{"deliver":[],"excluded_reasons":{"gourmet":"a","move":"b","book":"c"}}`,
-			want:   &store.Routing{Delivered: []string{"gourmet"}, Excluded: map[string]string{"move": "b", "book": "c"}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}, Called: map[string]string{"gourmet": "mention"}},
+			want:   &store.Routing{Delivered: []string{"gourmet"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}, Called: map[string]string{"gourmet": "mention"}},
 		},
 		{
 			name: "nobody is an answer", text: "今日は眠い",
@@ -1835,9 +1836,71 @@ func TestRoutingDecisionIsKeptForThePost(t *testing.T) {
 	}
 }
 
-// A reply under a persona's remark reaches that persona, and the record says
-// it was called by the reply. The persona is not among the passed-over even
-// when the router would have passed over it.
+// Directed entries bypass both subject routing and person keyword matching.
+func TestDirectedEntriesSkipAutomaticRouting(t *testing.T) {
+	for _, tc := range []struct {
+		name, text, speaker string
+		want                []string
+		called              map[string]string
+		routes              int
+	}{
+		{"mention", "@tabe 佐藤さんと釣り", "", []string{"gourmet"}, map[string]string{"gourmet": "mention"}, 0},
+		{"person mention", "@けんじ 昼食", "", []string{"sato"}, map[string]string{"sato": "mention"}, 0},
+		{"reply", "佐藤さんと釣り", "gourmet", []string{"gourmet"}, map[string]string{"gourmet": "reply"}, 0},
+		{"mention overrides reply", "@tabe 佐藤さんと釣り", "move", []string{"gourmet"}, map[string]string{"gourmet": "mention"}, 0},
+		{"same recipient", "@tabe 佐藤さんと釣り", "gourmet", []string{"gourmet"}, map[string]string{"gourmet": "mention"}, 0},
+		{"ordinary post", "佐藤さんと釣り", "", []string{"move", "sato"}, nil, 1},
+		{"user reply", "佐藤さんと釣り", timeline.User, []string{"move", "sato"}, nil, 1},
+		{"inactive reply", "佐藤さんと釣り", "book", []string{"move", "sato"}, nil, 1},
+		{"unknown mention", "@unknown 佐藤さんと釣り", "", []string{"move", "sato"}, nil, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			routes := 0
+			runner, s, _ := setup(t, func(system, user string) string {
+				if strings.Contains(system, "振り分け") {
+					routes++
+					return `{"deliver":["move"]}`
+				}
+				return `{"action":"silent","notes":""}`
+			}, "gourmet", "move", "sato")
+			raw, err := json.Marshal(sato())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := runner.catalogue.Install(raw, nil); err != nil {
+				t.Fatal(err)
+			}
+			entry := post(t, s, tc.text)
+			if tc.speaker != "" {
+				parent := entry
+				if tc.speaker != timeline.User {
+					parent = timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: tc.speaker, Root: entry.ID, ReplyTo: entry.ID, Text: "質問", At: time.Now()}
+					if err := s.Append(parent); err != nil {
+						t.Fatal(err)
+					}
+				}
+				entry = replyTo(t, s, parent, tc.text)
+			}
+			plan, record, err := runner.prepareEntry(runner.withSkills(context.Background()), entry.ID, nil, false)
+			if err != nil || plan == nil || record == nil {
+				t.Fatalf("prepare: %+v, %+v, %v", plan, record, err)
+			}
+			sort.Strings(plan.Targets)
+			if !reflect.DeepEqual(plan.Targets, tc.want) || !reflect.DeepEqual(record.Delivered, tc.want) || !reflect.DeepEqual(record.Called, tc.called) || routes != tc.routes {
+				t.Fatalf("targets=%v record=%+v routing calls=%d", plan.Targets, record, routes)
+			}
+			if tc.routes == 0 && len(plan.Heard) != 0 {
+				t.Fatalf("directed entry matched person keywords: %v", plan.Heard)
+			}
+			if tc.name == "mention overrides reply" && (plan.ReplySpeaker != "" || plan.Asked != "") {
+				t.Fatalf("overridden reply target retained: %+v", plan)
+			}
+		})
+	}
+}
+
+// A reply under a persona's remark reaches only that persona, and the record
+// says it was called by the reply without model exclusion reasons.
 func TestAReplyIsRecordedAsHowThePersonaWasCalled(t *testing.T) {
 	replied := false
 	runner, s, _ := setup(t, func(system, user string) string {
@@ -1862,10 +1925,10 @@ func TestAReplyIsRecordedAsHowThePersonaWasCalled(t *testing.T) {
 	if err != nil || got == nil {
 		t.Fatalf("routing = %+v, %v", got, err)
 	}
-	if !reflect.DeepEqual(got.Called, map[string]string{"gourmet": "reply"}) || !contains(got.Delivered, "gourmet") || !contains(got.Delivered, "move") {
+	if !reflect.DeepEqual(got.Called, map[string]string{"gourmet": "reply"}) || !reflect.DeepEqual(got.Delivered, []string{"gourmet"}) {
 		t.Fatalf("kept %+v", got)
 	}
-	if _, passed := got.Excluded["gourmet"]; passed || got.Excluded["book"] != "c" {
+	if len(got.Excluded) != 0 {
 		t.Fatalf("excluded = %v", got.Excluded)
 	}
 }

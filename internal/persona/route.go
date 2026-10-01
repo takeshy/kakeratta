@@ -310,9 +310,8 @@ func firstJSON(reply string) string {
 // Named returns the personas called out by name in the text.
 //
 // A mention skips the routing entirely: being able to choose who to ask is the
-// point of having separate domains, and a named persona that never heard the
-// question would make the choice meaningless. Routing still runs normally for
-// everyone else.
+// point of having separate domains. The HTTP API accepts at most one distinct
+// mentioned persona; other personas are not added by automatic routing.
 func Named(skills []Skill, text string) []string {
 	mentions := timeline.Mentions(text)
 	if len(mentions) == 0 {

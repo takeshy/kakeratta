@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections."
 tags: ["persona", "skill", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-01"
+updated: "2026-10-02"
 ---
 
 Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections.
@@ -49,13 +49,9 @@ A persona's declared tools are selected from the Registry. A person persona's fi
 
 ## Building the recipient set
 
-After image analysis, Runner loads active personas and the thread, then combines:
+After image analysis, Runner loads active personas and the thread. An explicit `@` mention selects its recipient; the HTTP API rejects mentions of multiple distinct personas. Without a mention, a reply to an active persona selects that persona. A mention takes precedence over a different reply target. For these directed entries, Runner skips both subject routing and person alias/keyword matching, and records the recipient as called by mention or reply. Replies to user entries or inactive/deleted personas use ordinary routing when there is no active mentioned recipient.
 
-- Personas explicitly mentioned with `@`.
-- The persona receiving a reply to its entry.
-- Personas that received the conversation before a post edit.
-- Subject personas selected by the router.
-- Person personas whose aliases or keywords match the entry's text and associated content.
+For other entries, Runner combines subject personas selected by the router and person personas whose aliases or keywords match the entry's text and associated content. Post edits also notify prior recipients to correct their existing memories, including when the edited entry has an explicit addressee.
 
 Person personas are not sent to the subject router; their matches are recorded in `Heard`. Subject routing uses the configured model or the configured Jev Decisions API.
 
@@ -73,6 +69,7 @@ Check and correction APIs distinguish a trial after changing conditions from app
 
 - [runner.go](../../internal/persona/runner.go): `prepareEntry`, `deliverEntry`, `routeSubjects`, `routingRecord`, `turnsDone`
 - [route.go](../../internal/persona/route.go)
+- [runner_test.go](../../internal/persona/runner_test.go): directed entries skip automatic routing and person matching; mention precedence and reply model escalation
 - [people.go](../../internal/persona/people.go)
 - [queue_test.go](../../internal/persona/queue_test.go): edits refresh recipients recorded after routing, including prepared delivery recovery
 - [routing.go](../../internal/server/routing.go)
