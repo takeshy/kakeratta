@@ -6,6 +6,9 @@ import { t } from "./i18n.js";
 import { api } from "./api.js";
 import { createFeed } from "./feed.js";
 import { basicInfoBox } from "./person-basic-info.js";
+import { gloss } from "./builtins.js";
+import { uniqueTools } from "./tool_labels.js";
+import { scheduleWhen, toolLink, checkInHint } from "./persona-display.js";
 
 export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryChange, onReply, onSpeak, onOpenPersona, onOpenMemory, onEditPersona }) {
   const status = el("p", { class: "hint", role: "status", "aria-live": "polite" });
@@ -31,18 +34,34 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
     const row = getPersona(id);
     if (!row) return null;
     const person = row.kind === "person";
+    const shown = gloss(row);
     const node = el("section", { class: "persona speaker-card", "data-id": row.id },
       el("div", { class: "persona-head" },
         el("span", { class: "avatar", text: row.icon || "◎" }),
-        el("span", { class: "who", text: row.name }),
-        person ? el("span", { class: "tag", label: "人物" }) : null),
-      row.domain ? el("p", { class: "domain", text: row.domain }) : null);
+        el("span", { class: "who", text: shown.name }),
+        shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
+        person ? el("span", { class: "tag", label: "人物" }) : null,
+        row.planner === "external" ? el("span", { class: "tag", label: "外部エージェント" }) : null,
+        el("span", { class: "tag", label: row.active ? "有効" : "停止中" })),
+      shown.domain ? el("p", { class: "domain", text: shown.domain }) : null);
     if (person) {
       node.append(
         el("p", { class: "hint", text: t("呼び名: {0}", [row.name, ...(row.aliases || [])].join(" / ")) }),
         el("p", { class: "hint", text: t("キーワード: {0}", (row.keywords || []).join(" / ") || t("（なし）")) }),
         basicInfoBox(row, () => onEditPersona?.(row, "basicInfo")));
     }
+    node.append(el("p", { class: "hint", text: checkInHint(row) }));
+    if (row.schedules?.length) {
+      node.append(el("div", { class: "compose-row" },
+        el("span", { class: "hint", label: "この担当の通知予定" }),
+        ...row.schedules.map((schedule) => el("span", { class: "chip ghost schedule",
+          text: `${scheduleWhen(schedule)} · ${schedule.note || ""}`.trim() }))));
+    }
+    if (row.tools?.length) {
+      node.append(el("p", { class: "tools" }, `${t("道具")}: `,
+        uniqueTools(row.tools).flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));
+    }
+    node.append(el("p", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }));
     const links = [
       onOpenPersona ? el("button", { type: "button", class: "chip ghost", label: "担当の設定", onclick: () => onOpenPersona(row) }) : null,
       onEditPersona ? el("button", { type: "button", class: "chip ghost", label: "修正", onclick: () => onEditPersona(row) }) : null,

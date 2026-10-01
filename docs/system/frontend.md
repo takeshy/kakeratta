@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push"]
-updated: "2026-10-01"
+updated: "2026-10-02"
 ---
 
 Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud.
@@ -28,7 +28,7 @@ When an OpenRouter key is entered but no model list has been loaded, settings sh
 
 ## Names and speaker lists
 
-A name on the timeline - a persona's, or the user's; not the app's monthly summary - is a button when the feed is given `onSpeaker` (the main timeline, the search sheet's thread and the speaker sheet itself all are). It opens a sheet of its own, **発言一覧**, which is not a search: `app.js` `openSpeaker` makes it the open panel and `createSpeaker().show` fills it ([speaker.js](../../frontend/src/speaker.js)). It reads `api.speaker` a page at a time - one request, which returns the conversations the page touches with it - and shows them in a feed as the timeline is read - each remark under its post, remarks unfolded - with a "load more". Over the list is a card built like the personas list's - the relationship or condition, a person's names, keywords and collapsed basic information (`basicInfoBox`) - with buttons for the persona's settings, its editor (also opened at the basic information) and what it remembers, wired in `app.js` to the personas panel (`reveal`, `showMemoryFor`, `edit`). The card is redrawn when the personas change (`redrawCard`), and entries arriving on the live channel are upserted (`changed`). A page arriving after another speaker was opened is ignored. The user has no card.
+A name on the timeline - a persona's, or the user's; not the app's monthly summary - is a button when the feed is given `onSpeaker` (the main timeline, the search sheet's thread and the speaker sheet itself all are). It opens a sheet of its own, **発言一覧**, which is not a search: `app.js` `openSpeaker` makes it the open panel and `createSpeaker().show` fills it ([speaker.js](../../frontend/src/speaker.js)). It reads `api.speaker` a page at a time - one request, which returns the conversations the page touches with it - and shows them in a feed as the timeline is read - each remark under its post, remarks unfolded - with a "load more". Over the list is a card built like the personas list's: the localized relationship or condition, active/paused and external-agent badges, a person's names, keywords and collapsed basic information (`basicInfoBox`), check-in frequency and speaking policy, notification schedules, permitted tools with manual links, and wake count. Schedule dates, time zones and annual/daily labels, check-in descriptions, and tool links use [persona-display.js](../../frontend/src/persona-display.js), shared with the persona list. Buttons for the persona's settings, its editor (also opened at the basic information) and what it remembers are wired in `app.js` to the personas panel (`reveal`, `showMemoryFor`, `edit`); settings changes and schedule deletion are performed there. The card is redrawn when the personas change (`redrawCard`), and entries arriving on the live channel are upserted (`changed`). A page arriving after another speaker was opened is ignored. The user has no card.
 
 ## Merging data
 
@@ -61,7 +61,7 @@ The persona tool picker uses [tool_labels.js](../../frontend/src/tool_labels.js)
 - [text-size.test.js](../../tests/text-size.test.js)
 - [person-basic-info.js](../../frontend/src/person-basic-info.js)
 - [feed.test.js](../../tests/feed.test.js): names as buttons and fully collapsed persona badges
-- [speaker.test.js](../../tests/speaker.test.js): speaker lists and their card
+- [speaker.test.js](../../tests/speaker.test.js): speaker lists, persona details, schedule recurrence and time zones, tool links, and card refresh
 - [Screen.stories.js](../../frontend/stories/Screen.stories.js)
 - [Personas.stories.js](../../frontend/stories/Personas.stories.js)
 - [captures.mjs](../../frontend/captures.mjs)

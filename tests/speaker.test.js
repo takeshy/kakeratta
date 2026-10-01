@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { t as translate } from "../frontend/src/i18n.js";
+import { t as translate, getLanguage } from "../frontend/src/i18n.js";
 
 globalThis.EventSource = class { close() {} };
 const { createSpeaker } = await import("../frontend/src/speaker.js");
@@ -22,7 +22,7 @@ const pageOf = (hits, total) => ({ hits, total, entries: hits.flatMap(({ entry }
  { id: entry.root, kind: "post", root: entry.root, speaker: "user", at: "2026-08-31T00:00:00Z", text: entry.root }, entry]) });
 function setup(t, options = {}) {
  globalThis.Node = TestNode;
- globalThis.document = { createElement: tag => new TestNode(tag) };
+ globalThis.document = { createElement: tag => new TestNode(tag), createTextNode: text => Object.assign(new TestNode("#text"), { textContent: text }) };
  t.after(() => { delete globalThis.Node; delete globalThis.document; });
  const view = createSpeaker({ getSettings: () => ({}), getPersona: () => null, ...options });
  return { view, status: nodes(view.element).find(n => n.role === "status"), more: nodes(view.element).find(n => n.textContent === translate("さらに読み込む")) };
@@ -56,7 +56,14 @@ test("a page that arrives after another speaker was opened is dropped", async t 
  assert.equal(more.hidden, true, "the late page did not bring back its own \"more\"");
 });
 test("over the list is the persona as its card shows it, with the same ways to open it", async t => {
- const father = { id: "father", name: "父", icon: "👴", kind: "person", domain: "父。", aliases: ["お父さん"], keywords: ["釣り"], basicInfo: "11月10日生まれ。" };
+ const father = { id: "father", name: "父", icon: "👴", kind: "person", domain: "父。", aliases: ["お父さん"], keywords: ["釣り"], basicInfo: "11月10日生まれ。",
+  active: true, planner: "external", wakes: 7, dailyCheckIn: { every: "monthly", on: 10, talk: "minimal" },
+  tools: ["weather_forecast", "weather.weather_forecast", "web_search"],
+  schedules: [
+   { id: "birthday", at: "2026-11-10T00:00:00Z", timeZone: "Asia/Tokyo", note: "父の誕生日", personEvent: { annual: true } },
+   { id: "daily", at: "2026-11-10T00:00:00Z", timeZone: "Asia/Tokyo", note: "毎朝の連絡", daily: true },
+   { id: "once", at: "2026-11-12T00:00:00Z", timeZone: "Asia/Tokyo", note: "釣りの約束" },
+  ] };
  const opened = [];
  const { view } = setup(t, { getPersona: id => id === "father" ? father : null,
   onOpenPersona: row => opened.push(["persona", row.id]), onOpenMemory: row => opened.push(["memory", row.id]), onEditPersona: (row, focus) => opened.push(["edit", row.id, focus]) });
@@ -69,6 +76,20 @@ test("over the list is the persona as its card shows it, with the same ways to o
  const card = nodes(host).find(n => n.className.includes("speaker-card"));
  const text = nodes(card).map(n => n.textContent).join("|");
  for (const want of ["父", "父。", translate("呼び名: {0}", "父 / お父さん"), translate("キーワード: {0}", "釣り"), "11月10日生まれ。"]) assert.ok(text.includes(want), `the card shows ${want}`);
+ for (const want of [translate("有効"), translate("外部エージェント"), translate("起きた回数 {0}", 7),
+  translate("この担当の通知予定"), "父の誕生日", "毎朝の連絡", "釣りの約束",
+  translate("毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読みます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。", 10)]) assert.ok(text.includes(want), `the card shows ${want}`);
+ const schedules = nodes(card).filter(n => n.className === "chip ghost schedule");
+ assert.equal(schedules.length, 3);
+ assert.ok(schedules[0].textContent.startsWith(translate("毎年")));
+ assert.ok(schedules[1].textContent.startsWith(translate("毎日")));
+ const locale = getLanguage() === "ja" ? "ja-JP" : "en-US";
+ const clock = new Intl.DateTimeFormat(locale, { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date(father.schedules[0].at));
+ assert.ok(schedules.every(n => n.textContent.includes(clock)), "schedule times use their saved time zone");
+ const tools = nodes(card).filter(n => n.tag === "a");
+ assert.equal(tools.length, 2, "qualified duplicates are folded into one tool");
+ assert.equal(tools[0].textContent, translate("天気予報を調べる"));
+ assert.equal(tools[0].href, `/manual/?lang=${getLanguage()}#${getLanguage()}-tool-weather_forecast`);
  const button = label => nodes(card).find(n => n.textContent === translate(label));
  button("担当の設定").listeners.click();
  button("修正").listeners.click();
@@ -78,10 +99,30 @@ test("over the list is the persona as its card shows it, with the same ways to o
 
  // Changed meanwhile, the card shows it when redrawn.
  father.basicInfo = "11月11日生まれ。";
+ father.schedules = [];
+ father.active = false;
+ father.wakes = 8;
  view.redrawCard();
  assert.ok(nodes(host).map(n => n.textContent).join("|").includes("11月11日生まれ。"));
+ assert.equal(nodes(host).filter(n => n.className === "chip ghost schedule").length, 0, "removed schedules disappear on refresh");
+ assert.ok(nodes(host).some(n => n.textContent === translate("停止中")));
+ assert.ok(nodes(host).some(n => n.textContent === translate("起きた回数 {0}", 8)));
 
  // The user has no card.
  await view.show("user", "");
  assert.equal(host.hidden, true);
+});
+
+test("a subject's speaker card shows its daily check-in and localized domain", async t => {
+ const persona = { id: "gourmet", name: "tabe", builtin: true, active: true, domain: "食事を考える", dailyCheckIn: { talk: "share" } };
+ const { view } = setup(t, { getPersona: () => persona });
+ t.mock.method(api, "speaker", async () => pageOf([], 0));
+ await view.show(persona.id);
+ const host = nodes(view.element).find(n => n.className === "speaker-card-host");
+ const all = nodes(host);
+ assert.ok(all.some(n => n.textContent === translate("毎日7時〜21時のどこかで起き、最近の記録と自分の記憶を見直して、伝える価値があることを見つけたときに話します。")));
+ assert.ok(all.some(n => n.textContent === translate("起きた回数 {0}", 0)));
+ const domain = all.find(n => n.className === "domain").textContent;
+ assert.equal(domain, getLanguage() === "ja" ? persona.domain : "Food, drinks, restaurants and meal photos; menus, preferences and choosing what to eat.");
+ assert.ok(!all.some(n => n.className === "chip ghost schedule"));
 });

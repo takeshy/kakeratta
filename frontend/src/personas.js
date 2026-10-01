@@ -13,7 +13,8 @@ import { basicInfoBox } from "./person-basic-info.js";
 export { basicInfoBox };
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
-import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
+import { uniqueTools } from "./tool_labels.js";
+import { scheduleWhen, toolLink, checkInHint } from "./persona-display.js";
 
 // The panel shows subjects and people apart, each with a search, and people
 // can be put in name order. Which tab and which order are the viewer's own
@@ -64,26 +65,6 @@ export function byName(rows, language = getLanguage()) {
   return [...rows].sort((a, b) => collator.compare(fold(readingOf(a)), fold(readingOf(b))) || collator.compare(a.name || "", b.name || ""));
 }
 
-const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-
-// A schedule is shown in the zone it was set in, so the card reads the way the
-// persona thinks about it.
-function scheduleWhen(schedule) {
-  const at = new Date(schedule.at);
-  if (Number.isNaN(at.getTime())) return "";
-  const locale = getLanguage() === "ja" ? "ja-JP" : "en-US";
-  const parts = (options) => {
-    try {
-      return new Intl.DateTimeFormat(locale, { timeZone: schedule.timeZone || localZone(), ...options }).format(at);
-    } catch {
-      return new Intl.DateTimeFormat(locale, options).format(at);
-    }
-  };
-  const clock = parts({ hour: "2-digit", minute: "2-digit" });
-  if (schedule.personEvent?.annual) return `${t("毎年")} ${parts({ month: "2-digit", day: "2-digit" })} ${clock}`;
-  return schedule.daily ? `${t("毎日")} ${clock}` : `${parts({ month: "2-digit", day: "2-digit" })} ${clock}`;
-}
-
 export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   const view = el("div", { class: "panel-body" });
   let rows = [];
@@ -122,15 +103,6 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     } catch (error) {
       toast(String(error.message || error), "error");
     }
-  }
-
-  function toolLink(name, label = t(toolLabel(name))) {
-    const known = ["web_search", "place_search", "route", "timeline_search", "notes", "schedule", "weather_forecast"];
-    const lang = getLanguage();
-    const base = capability(name);
-    const anchor = known.includes(base) ? `${lang}-tool-${base}` : `${lang}-tools`;
-    return el("a", { href: `/manual/?lang=${lang}#${anchor}`, target: "_blank", rel: "noopener noreferrer",
-      text: label, title: t("{0} の説明を開く（新しいタブ）", label) });
   }
 
   // A name tapped on the main screen opens this panel, which reloads as it
@@ -357,13 +329,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     }
     controls.append(el("label", { class: "switch" }, minimal, el("span", { label: "チェックインでは最低限のことだけ話す" })));
     box.append(controls);
-    box.append(el("p", { class: "hint", text: monthly
-      ? t(schedule.talk === "minimal"
-        ? "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読みます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。"
-        : "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿と自分の記憶を見直して、伝える価値があることを見つけたときに話します。", schedule.on || "")
-      : t(schedule.talk === "minimal"
-        ? "毎日7時〜21時のどこかで起きます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。"
-        : "毎日7時〜21時のどこかで起き、最近の記録と自分の記憶を見直して、伝える価値があることを見つけたときに話します。") }));
+    box.append(el("p", { class: "hint", text: checkInHint(row) }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当の通知予定" }),
