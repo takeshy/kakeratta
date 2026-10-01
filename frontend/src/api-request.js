@@ -6,7 +6,7 @@ export function createAPIRequest({ identity, verify, fetch = (...args) => global
     if (identity()?.key !== user) throw Error("Account changed");
 
     // Publishing, trials, and workspace deletion can take several minutes.
-    const slow = path === "/api/social/publish" || path.endsWith("/memory/organize") || path.endsWith("/reply/preview") || path.endsWith("/routing/apply") || path === "/api/workspace";
+    const slow = path === "/api/social/publish" || path.endsWith("/reply/preview") || path.endsWith("/routing/apply") || path === "/api/workspace";
     const options = { method, headers: {}, signal: AbortSignal.timeout(slow ? 250000 : 45000) };
     if (user) options.headers["X-Kakeratta-Workspace"] = user;
     if (body !== undefined) {

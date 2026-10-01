@@ -25,7 +25,7 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 | `routes.go` | Paths and handler registration |
 | `entries.go` | Posts, replies, edits, deletions, images, URL fetching |
 | `personas.go` | Listing, activation, installation, removal, daily and planner settings |
-| `memory.go` | Note listing, reading, editing, deletion |
+| `memory.go` | Memory files (field summaries and monthly records): listing with a record-tag filter, reading, editing, deletion |
 | `settings.go` | Settings, model lists, search connection checks, version information |
 | `routing.go`, `preview.go` | Routing and reply checks and application |
 | `social.go`, `bluesky.go` | Sharing previews, publishing, OAuth |
@@ -56,7 +56,7 @@ For a post without an image, `readLink` extracts an explicit URL or a URL in the
 
 The device outbox supplies `clientId` and `clientAt`. An existing ID with the same hash returns the existing entry; different content for the same ID receives a 409. `clientEntry` answers retries early, before formatting or fetching; `CreateEntry` in `land` makes acceptance exclusive when simultaneous requests with the same ID pass that check.
 
-Replies check that the target exists and is not deleted. Editing a post notifies its previous recipients and routes the new content. Deletion respects thread and reply relationships and also tells personas to tidy memory that cited the post. The images of deleted entries are removed from the blob store after the entries. Saving image analysis requires the entry to still exist.
+Replies check that the target exists and is not deleted. Editing a post notifies its previous recipients and routes the new content. Deletion respects thread and reply relationships, takes the deleted entries' kakera records out, and wakes the personas that had recorded them to tidy their field summaries (see [Deleted kakera](./personas.md#deleted-kakera)). The images of deleted entries are removed from the blob store after the entries. Saving image analysis requires the entry to still exist.
 
 ## Implementation and verification
 
@@ -98,18 +98,6 @@ The frontend's `createTimelinePages` merges fetched pages with live changes. Rep
 - [timeline_page_test.go](../../internal/store/timeline_page_test.go)
 - [timeline-pages.test.js](../../tests/timeline-pages.test.js)
 
-# Note organization API
-
-[organize.go](../../internal/server/organize.go) exposes authenticated persona-scoped organization endpoints:
-
-| Endpoint | Result |
-| --- | --- |
-| `POST /api/personas/{id}/memory/organize` | Accepts `request` (up to 4,000 characters) and `planner` (`builtin` or `external`); returns a token, status, policy, and proposed changes. External research initially returns `researching` and requires a configured connection. |
-| `GET /api/personas/{id}/memory/organize?token=...` | Reads the persisted preview, including research failures. |
-| `POST /api/personas/{id}/memory/organize/apply` | Accepts `token`; writes only the saved proposal after approval. Stale or inapplicable proposals return HTTP 409. |
-
-See [User-approved note organization](./personas.md#user-approved-note-organization) for persistence, validation, and partial-failure behavior.
-
 # Workspace persistence
 
 ## Persistence contract
@@ -125,7 +113,7 @@ See [User-approved note organization](./personas.md#user-approved-note-organizat
 
 The file implementation stores current entries as JSON arrays in `timeline/YYYY/MM/DD.json`, using the configured timezone when an entry is first saved. Updates replace the entry in its original daily file through a synced temporary file and atomic rename; previous versions are not retained. Deletion physically removes entries from daily files, removing empty daily files, or deletes Firestore documents and their search passages. A post includes its whole conversation; a reply includes its descendants. Late updates require an existing record, and new replies require existing parents. Deleted IDs are not retained for deduplication: explicitly resending a deleted root post creates it again. On startup, an in-memory ID/date/thread index is rebuilt from these files. Individual reads, timeline pages, conversations, and date-filtered searches read only relevant days; `TimelineWindow` (both implementations) serves date-filtered searches, monthly summaries, and monthly check-ins, and the persona builder reads only the disputed conversation. Searches without a date range still read all current entries. Locks protect consistency, and individual records have a size limit. No migration from the previous JSONL format is provided.
 
-Memory uses files per persona. `WriteNote` validates paths and size, preserves source links, and replaces content through a temporary file. A reverse index from source entries to notes is also persisted. Firestore provides corresponding operations using documents and transactions; its timeline entries are current-state documents.
+Memory uses files per persona: one summary per field and monthly records files, both written by the persona runner (see [Memory: fields and kakera records](./personas.md#memory-fields-and-kakera-records)). `WriteNote` validates paths and size, preserves any source links a note already carries, and replaces content through a temporary file. A reverse index from source entries to notes is also persisted; the current memory writes no source links, so it serves notes from before. Firestore provides corresponding operations using documents and transactions; its timeline entries are current-state documents.
 
 With GCS configured, blobs use user-specific prefixes. If Firestore is configured without a supplied blob store, images are stored as files in the temporary directory. Durable image storage, and images shared between instances, therefore require a separate BlobStore; `main` logs a warning otherwise.
 

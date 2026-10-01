@@ -1,12 +1,12 @@
 ---
 type: "Process"
 title: "Development and workspace operations"
-description: "Development, validation, deployment, portable exports, and workspace deletion."
+description: "Development, validation, deployment, memory migration, portable exports, and workspace deletion."
 tags: ["development", "deployment", "export", "destroy"]
 updated: "2026-10-01"
 ---
 
-Development, validation, deployment, portable exports, and workspace deletion.
+Development, validation, deployment, memory migration, portable exports, and workspace deletion.
 
 # Development, validation, and deployment
 
@@ -52,6 +52,14 @@ Without all three valid values, the push API reports unavailable and scheduled t
 
 Web Push uses [webpush-go](https://github.com/SherClockHolmes/webpush-go) for payload encryption and VAPID signing. Unit tests stub providers; actual device delivery, browser/OS permissions, and background behavior require a configured deployment and a real-device check. Delivery is best effort without automatic server retries; identity verification also suppresses notifications when login has expired or the API cannot be reached.
 
+## Memory migration
+
+Persona memory moved from one note per thing to field summaries and kakera records, and the running app no longer reads the old notes. Fold them once after deploying that change with [cmd/migrate-memory](../../cmd/migrate-memory/main.go), which runs `Runner.MigrateMemory` for every persona of a workspace on that workspace's own model settings:
+
+- `go run ./cmd/migrate-memory` - the local workspace (`KAKERATTA_HOME` or the default); `-firestore kakeratta` - every workspace in production Firestore with application default credentials, or one with `-user KEY`; `-persona ID` limits it to one persona.
+- Without `-apply` it prints, per persona, how many old notes there are, which were left out for length, and the summaries the model would write; nothing is changed. With `-apply` it writes the summaries and deletes the old notes; running it again finds nothing to do.
+- Between the deploy and the run, personas answer without their old memory.
+
 ## Implementation and verification
 
 - [Taskfile.yml](../../Taskfile.yml)
@@ -64,6 +72,7 @@ Web Push uses [webpush-go](https://github.com/SherClockHolmes/webpush-go) for pa
 - [variables.tf](../../infra/variables.tf): Web Push public key, contact, secret name, and version
 - [mise.toml](../../mise.toml)
 - [README.md](../../infra/README.md)
+- [migrate-memory](../../cmd/migrate-memory/main.go): one-off memory migration
 
 # Workspace export and deletion
 

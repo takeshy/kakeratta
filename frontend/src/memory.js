@@ -1,7 +1,11 @@
-// A view of the notes already saved by a persona. No inference or rewriting:
-// unfamiliar metadata and Markdown are always available in the original note.
+// A view of what a persona keeps: one summary per field ({Field}.md) and the
+// monthly records of its kakera (records/YYYY-MM.md), one line each with the
+// entry it leads to and its tags. No inference or rewriting: unfamiliar
+// metadata and Markdown are always available in the original text. Notes kept
+// the old way, one per thing with frontmatter, still read until the app has
+// folded them into the fields.
 import { el, safeLink } from "./dom.js";
-import { getLanguage, t } from "./i18n.js";
+import { t } from "./i18n.js";
 
 function scalar(value) {
   value = value.trim();
@@ -52,28 +56,14 @@ export function parseMemoryNote(note) {
   const heading = body.match(/^#\s+(.+)$/m)?.[1];
   const title = field("title") || heading || note.path.replace(/\.md$/i, "").split("/").pop();
   if (body.startsWith(`# ${title}\n`) || body === `# ${title}`) body = body.slice(title.length + 2).trim();
-  const date = (key) => { const value = field(key).trim(); return value.toLowerCase() === "never" ? "" : value; };
   return {
     ...note, title, type: field("type"), description: field("description"), resource: field("resource"), tags: tagsOf(metadata.tags), body,
-    expires: date("expires"), review: date("review"),
+    records: isRecords(note.path),
   };
 }
 
-// expiresLabel is the date a note asked to be deleted on, as the reader shows
-// it. A bare date is shown as written: passing it through Date would shift it
-// a day in zones behind UTC. A timestamp is shown in the browser's zone.
-export function expiresLabel(expires) {
-  if (!expires) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(expires)) return expires;
-  const at = new Date(expires.replace(" ", "T"));
-  if (Number.isNaN(at.getTime())) return expires;
-  const locale = getLanguage() === "ja" ? "ja-JP" : "en-US";
-  try {
-    return new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(at);
-  } catch {
-    return expires;
-  }
-}
+// isRecords says whether a path is a month of kakera records.
+export const isRecords = (path) => String(path || "").startsWith("records/");
 
 // tagsOf reads the tags however they were written: [a, b], or one per line.
 function tagsOf(value) {
@@ -110,11 +100,23 @@ export function memoryLink(value, path, paths) {
 
 function inline(text, context) {
   const out = [];
-  const pattern = /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)/g;
+  // In a records file, a trailing "#tag" is a record's tag and narrows the
+  // view; "expires:" and "review:" are the record's dates, and "asked:" the
+  // post that asked about it, which is the app's own bookkeeping.
+  const pattern = context.records
+    ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)#([^\s#]+)(?=\s|$)|(?<=\s)(expires|review):(\d{4}-\d{2}-\d{2})\/\d+d(?=\s|$)|(?<=\s)asked:\S+(?=\s|$)/g
+    : /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)/g;
   let start = 0;
   for (const match of text.matchAll(pattern)) {
     out.push(text.slice(start, match.index));
-    if (match[3]) out.push(el("strong", { text: match[3] }));
+    if (match[7]) out.push(match[7] === "expires"
+      ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", match[8]), i18nTitle: "期限が過ぎると本体が消す記録" })
+      : el("span", { class: "chip ghost memory-review", text: t("{0} に見直し", match[8]), i18nTitle: "この日を過ぎると担当が「まだ要る?」と聞く記録" }));
+    else if (match[0].startsWith("asked:")) out.push("");
+    else if (match[6]) out.push(context.onTag
+      ? el("button", { class: `chip ghost memory-tag${context.tag === match[6] ? " active" : ""}`, text: `#${match[6]}`, i18nTitle: "このタグの記録がある月だけを表示", onclick: () => context.onTag(match[6]) })
+      : el("span", { class: "memory-tag", text: `#${match[6]}` }));
+    else if (match[3]) out.push(el("strong", { text: match[3] }));
     else if (match[4]) out.push(el("code", { text: match[4] }));
     else {
       const label = match[1] || match[5];
@@ -229,7 +231,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
     else { filter = next; draw(); }
   };
   function tagChips(note) {
-    if (!note.tags?.length && !note.type && !note.expires && !note.review) return null;
+    if (!note.tags?.length && !note.type) return null;
     return el("div", { class: "memory-tags" },
       note.type ? el("button", {
         class: `chip memory-type${sameType(filter.type, note.type) ? " active" : ""}`, text: typeLabel(note.type), i18nTitle: "この種類のメモだけを表示",
@@ -238,9 +240,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       ...(note.tags || []).map((tag) => el("button", {
         class: `chip ghost memory-tag${filter.tag === tag ? " active" : ""}`, text: `#${tag}`, i18nTitle: "このタグのメモだけを表示",
         onclick: () => narrow({ tag: filter.tag === tag ? "" : tag }),
-      })),
-      note.expires ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", expiresLabel(note.expires)), i18nTitle: "期限が過ぎると本体が消すメモ" }) : null,
-      note.review ? el("span", { class: "chip ghost memory-review", text: t("{0} に見直し", expiresLabel(note.review)), i18nTitle: "この日を過ぎると担当が「まだ要る?」と聞くメモ" }) : null);
+      })));
   }
   const openNote = (path) => {
     const card = cards.get(path);
@@ -284,7 +284,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       mount([
         el("div", { class: "memory-head" }, title),
         el("p", { class: "hint", text: note.path }),
-        el("p", { class: "hint", label: "担当が書いたメモです。綴りや事実の誤りはここで直せます。下の「記憶を更新した投稿」のリンクはそのまま残ります。" }),
+        el("p", { class: "hint", label: note.records ? "担当がかけらごとにまとめた1文です。綴りや事実の誤りはここで直せます。行の形（日時・ID・タグ）は崩さないでください。" : "担当がまとめた記憶です。綴りや事実の誤りはここで直せます。" }),
         input, el("div", { class: "compose-row" }, save, cancel), error,
       ]);
       input.focus?.();
@@ -293,12 +293,15 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
   }
 
   function content(note) {
-    const context = { path: note.path, paths, openNote };
+    const context = { path: note.path, paths, openNote, records: note.records, tag: filter.tag,
+      onTag: (tag) => narrow({ tag: filter.tag === tag ? "" : tag }) };
     return [
       tagChips(note),
       note.description ? el("p", { class: "memory-description", text: note.description }) : null,
       markdown(note.body, context),
-      onSearch && !/\/\?entry=/.test(note.text)
+      // A field summary rests on many kakera, whose records lead to them;
+      // only a note from before has a post of its own to look for.
+      onSearch && note.type && !/\/\?entry=/.test(note.text)
         ? el("div", { class: "memory-source-search" },
           el("p", { class: "hint", label: "このメモには元投稿のリンクが保存されていません。" }),
           el("button", { class: "chip ghost", label: "元の投稿を探す", onclick: () => onSearch(note.title) })) : null,
@@ -322,9 +325,15 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       el("span", { class: "hint", text: narrowedTo("") }),
       el("button", { class: "chip ghost", label: "すべてのメモを表示", onclick: () => narrow({ tag: "", type: "" }) })));
   }
-  const shown = narrowed && !onFilter
-    ? parsed.filter((note) => (!filter.tag || note.tags?.some((tag) => tag === filter.tag)) && (!filter.type || sameType(note.type, filter.type)))
-    : parsed;
+  const tagged = (note) => note.tags?.some((tag) => tag === filter.tag) ||
+    (note.records && note.body.split("\n").some((line) => line.split(/\s+/).includes(`#${filter.tag}`)));
+  // The field summaries come first, then the months of records, newest first.
+  const shown = (narrowed && !onFilter
+    ? parsed.filter((note) => (!filter.tag || tagged(note)) && (!filter.type || sameType(note.type, filter.type)))
+    : parsed).map((note, order) => ({ note, order }))
+    .sort((a, b) => (a.note.records - b.note.records) ||
+      (a.note.records ? (a.note.path < b.note.path ? 1 : a.note.path > b.note.path ? -1 : 0) : a.order - b.order))
+    .map(({ note }) => note);
   const reserved = new Map();
   const list = el("div", { class: "memory-list" });
   for (const note of shown) {

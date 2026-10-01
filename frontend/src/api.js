@@ -111,9 +111,6 @@ export const api = {
   note: (id, path) => call("GET", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`),
   forgetNote: (id, path) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`),
   editNote: (id, path, text) => call("PUT", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`, { text }),
-  organizeMemory: (id, request, planner) => call("POST", `/api/personas/${encodeURIComponent(id)}/memory/organize`, { request, planner }),
-  memoryOrganization: (id, token) => call("GET", `/api/personas/${encodeURIComponent(id)}/memory/organize?${new URLSearchParams({ token })}`),
-  applyMemoryOrganization: (id, token) => call("POST", `/api/personas/${encodeURIComponent(id)}/memory/organize/apply`, { token }),
   forget: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory`),
 
   checkSearch: () => call("POST", "/api/search/check"),

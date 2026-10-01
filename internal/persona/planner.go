@@ -45,22 +45,21 @@ type AskContext struct {
 	Instructions string     `json:"instructions"`
 	Rules        string     `json:"rules"`
 	Place        string     `json:"place"`
-	NoteCount    string     `json:"noteCount"`
 	Turn         string     `json:"turn,omitempty"`
 	// Capabilities are the changes the later phases can make, so the answer
 	// promises nothing the persona cannot carry out.
 	Capabilities string `json:"capabilities"`
 
-	Wake        string         `json:"wake"`
-	WakeNote    string         `json:"wakeInstructions,omitempty"`
-	Now         string         `json:"now"`
-	Trigger     AskEntry       `json:"trigger"`
-	Thread      []AskEntry     `json:"thread"`
-	MemoryIndex string         `json:"memoryIndex"`
-	Schedules   string         `json:"schedules"`
-	Answer      map[string]any `json:"answerSchema"`
-	Tools       []AskTool      `json:"tools"`
-	Limits      AskLimits      `json:"limits"`
+	Wake      string         `json:"wake"`
+	WakeNote  string         `json:"wakeInstructions,omitempty"`
+	Now       string         `json:"now"`
+	Trigger   AskEntry       `json:"trigger"`
+	Thread    []AskEntry     `json:"thread"`
+	Memory    string         `json:"memory"`
+	Schedules string         `json:"schedules"`
+	Answer    map[string]any `json:"answerSchema"`
+	Tools     []AskTool      `json:"tools"`
+	Limits    AskLimits      `json:"limits"`
 }
 
 type AskPersona struct {
@@ -146,8 +145,7 @@ func (r *Runner) askWaits(settings store.Settings) (time.Duration, time.Duration
 // askTools lists what the persona holds, and where each may be used.
 func askTools(set *tools.Set) []AskTool {
 	out := []AskTool{
-		{Name: "notes_list", Description: "メモ一覧。argsでtagやafterを指定できます。", Use: "read"},
-		{Name: "notes_read", Description: "pathsで自分のメモを読む。", Use: "read"},
+		{Name: "records", Description: "自分のかけらの記録を新しい順に探す。args は {\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"} のうち要るもの。{\"id\":\"…\"} で記録の投稿そのもの（返信なら返信もとも）を読む。", Use: "read"},
 	}
 	for _, d := range set.Declarations() {
 		if set.IsReadOnly(d.Name) {
@@ -163,7 +161,7 @@ func askEntry(entry timeline.Entry, names map[string]string, here *time.Location
 
 // askContext gathers what the agent needs to plan this turn.
 func (r *Runner) askContext(skill Skill, set *tools.Set, rules, turn, wakeNote, wake string, thread []timeline.Entry, trigger timeline.Entry,
-	indexNote, schedules string, names map[string]string, here *time.Location, deep bool) AskContext {
+	memoryNote, schedules string, names map[string]string, here *time.Location, deep bool) AskContext {
 	entries := make([]AskEntry, 0, len(thread))
 	for _, entry := range thread {
 		entries = append(entries, askEntry(entry, names, here))
@@ -174,7 +172,6 @@ func (r *Runner) askContext(skill Skill, set *tools.Set, rules, turn, wakeNote, 
 		Instructions: skill.Instructions,
 		Rules:        rules,
 		Place:        placeLine(thread[0].Place),
-		NoteCount:    r.noteCount(skill.ID),
 		Turn:         turn,
 		Capabilities: strings.TrimSpace(capabilityLine(set)),
 		Wake:         wake,
@@ -182,7 +179,7 @@ func (r *Runner) askContext(skill Skill, set *tools.Set, rules, turn, wakeNote, 
 		Now:          time.Now().In(here).Format(time.RFC3339),
 		Trigger:      askEntry(trigger, names, here),
 		Thread:       entries,
-		MemoryIndex:  indexNote,
+		Memory:       memoryNote,
 		Schedules:    schedules,
 		Answer:       answerTool.Parameters,
 		Tools:        askTools(set),

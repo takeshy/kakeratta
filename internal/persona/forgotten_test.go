@@ -10,82 +10,131 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
+// writeRecord keeps a record of entry for persona under id, the way the keeper
+// does.
+func writeRecord(t *testing.T, s *store.Store, persona string, entry timeline.Entry, id string) {
+	t.Helper()
+	path := recordsPath(entry.At.In(time.UTC))
+	var records []record
+	if note, ok := s.Note(persona, path); ok {
+		records = parseRecords(note.Text, time.UTC)
+	}
+	records = append(records, record{At: entry.At, ID: id, Summary: entry.Text, Tags: []string{"テスト"}})
+	if err := s.WriteNote(persona, path, recordsText(entry.At.In(time.UTC).Format("2006-01"), records, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// recordIDs are the ids of a persona's records, newest first.
+func recordIDs(r *Runner, persona string) []string {
+	found, _ := r.findRecords(persona, "", "", "", 100, time.UTC)
+	var ids []string
+	for _, rec := range found {
+		ids = append(ids, rec.ID)
+	}
+	return ids
+}
+
 // Deleting a post is the user's; tidying the memory built on it is the
-// persona's. The app tells the personas it woke for that post and nobody else,
-// and it works that out from its own record rather than from a note.
-func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
-	var woken []string
-	r, s, _ := setup(t, func(system, user string) string {
+// persona's. The app takes the post's records out itself - kept under the
+// kakera, or under the remark that answered it - and wakes only the personas
+// that had one, so their fields can lose what rested on it.
+func TestDeletingAPostDropsItsRecordsAndWakesThePersonasThatKeptThem(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
 			return `{"deliver":[]}`
-		}
-		if strings.Contains(system, "根拠にしていた投稿が消されました") {
-			woken = append(woken, user)
 		}
 		return `{"action":"silent"}`
 	}, "gourmet", "book")
 
 	entry := post(t, s, "この前の担々麺、ごまが強すぎた")
-	// Only the persona the app actually woke for this post is told about it.
+	remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: entry.ID, ReplyTo: entry.ID, Text: "ごま強めだったね", At: entry.At}
+	if err := s.Append(remark); err != nil {
+		t.Fatal(err)
+	}
+	other := post(t, s, "麻婆豆腐も花椒より胡麻が勝っていた")
+	for _, persona := range []string{"gourmet", "book"} {
+		if err := s.RecordWake(entry.ID, persona); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// gourmet replied, so its record leads to the remark; book kept nothing.
+	writeRecord(t, s, "gourmet", entry, remark.ID)
+	writeRecord(t, s, "gourmet", other, other.ID)
+	if err := s.WriteNote("gourmet", "Preference.md", "ごま強めは苦手。担々麺で強すぎた。\n"); err != nil {
+		t.Fatal(err)
+	}
+
+	r.EntriesForgotten(entry.ID, []timeline.Entry{entry, remark})
+	items := deletedWakes(t, r)
+	if len(items) != 1 || items[0].skill != "gourmet" || items[0].entryID != entry.ID {
+		t.Fatalf("queued %+v, want one wake for gourmet", items)
+	}
+	if ids := recordIDs(r, "gourmet"); len(ids) != 1 || ids[0] != other.ID {
+		t.Fatalf("records left = %v, want only the other post's", ids)
+	}
+	if woke, _ := s.Woke(entry.ID); len(woke) != 0 {
+		t.Fatalf("the wake record was not spent: %v", woke)
+	}
+
+	f.keep = func(system, user string) string {
+		if !strings.Contains(system, "ユーザーが投稿を削除した") || !strings.Contains(user, "ごまが強すぎた") || !strings.Contains(user, "担々麺で強すぎた") {
+			t.Errorf("the keeper was not told what was deleted and what it keeps:\n%s\n%s", system, user)
+		}
+		return `{"fields":[{"field":"Preference","text":"ごま強めは苦手。"}]}`
+	}
+	r.deletedAt(context.Background(), items[0])
+	if note, _ := s.Note("gourmet", "Preference.md"); strings.Contains(note.Text, "担々麺") {
+		t.Fatalf("the field still rests on the deleted post: %s", note.Text)
+	}
+	// A tidy-up is not a kakera: no record is made for it.
+	if ids := recordIDs(r, "gourmet"); len(ids) != 1 {
+		t.Fatalf("records after the tidy-up = %v", ids)
+	}
+}
+
+// Deleting one of the user's lines under a post takes its record and reaches
+// the personas woken for that post, leaving the post's own record in place.
+func TestDeletingAReplyDropsOnlyItsRecord(t *testing.T) {
+	r, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":[]}`
+		}
+		return `{"action":"silent"}`
+	}, "gourmet")
+	entry := post(t, s, "この前の担々麺")
+	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User, Root: entry.ID, ReplyTo: entry.ID, Text: "辛いのは平気", At: time.Now()}
+	if err := s.Append(reply); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
 		t.Fatal(err)
 	}
+	writeRecord(t, s, "gourmet", entry, entry.ID)
+	writeRecord(t, s, "gourmet", reply, reply.ID)
+	r.EntryForgotten(reply.ID, reply.Text)
+	if queued := len(deletedWakes(t, r)); queued != 1 {
+		t.Fatalf("queued %d wakes, want one", queued)
+	}
+	if ids := recordIDs(r, "gourmet"); len(ids) != 1 || ids[0] != entry.ID {
+		t.Fatalf("records left = %v", ids)
+	}
+	if woke, _ := s.Woke(entry.ID); len(woke) != 1 {
+		t.Fatalf("the post's own record went with its reply: %v", woke)
+	}
+}
 
-	// A note that cited the post among others, so the app has a link of its
-	// own to clear, and one that rested on it alone, which goes with it.
-	other := post(t, s, "麻婆豆腐も花椒より胡麻が勝っていた")
-	if err := s.WriteNote("gourmet", "tastes/sesame.md", "ごま強めは苦手",
-		store.NoteSource{EntryID: entry.ID, Label: "担々麺の投稿"},
-		store.NoteSource{EntryID: other.ID, Label: "麻婆豆腐の投稿"}); err != nil {
+// A persona that kept no record of the post has nothing to tidy and is not
+// woken.
+func TestDeletingAPostWithoutRecordsWakesNobody(t *testing.T) {
+	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
+	entry := post(t, s, "雨")
+	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.WriteNote("gourmet", "shops/tantan.md", "担々麺の店",
-		store.NoteSource{EntryID: entry.ID, Label: "担々麺の投稿"}); err != nil {
-		t.Fatal(err)
-	}
-
 	r.EntryForgotten(entry.ID, entry.Text)
-	queued := len(wakes(t, r))
-	items := deletedWakes(t, r)
-	if queued != 1 || len(items) != 1 || items[0].skill != "gourmet" {
-		t.Fatalf("queued %d wakes: %+v", queued, items)
-	}
-
-	// The app took its own link out before waking anyone, and says where to look.
-	if note, ok := s.Note("gourmet", "tastes/sesame.md"); !ok || strings.Contains(note.Text, entry.ID) {
-		t.Fatalf("the deleted post is still cited: %v", note.Text)
-	} else if !strings.Contains(note.Text, "ごま強めは苦手") {
-		t.Fatalf("the body was rewritten: %s", note.Text)
-	}
-	if len(items[0].notes) != 1 || items[0].notes[0] != "tastes/sesame.md" {
-		t.Fatalf("the cited notes were not passed on: %v", items[0].notes)
-	}
-	// The note the post alone stood behind is gone, and the persona is told.
-	if _, ok := s.Note("gourmet", "shops/tantan.md"); ok {
-		t.Fatal("a note resting only on the deleted post survived")
-	}
-	if len(items[0].removed) != 1 || items[0].removed[0] != "shops/tantan.md" {
-		t.Fatalf("the removed notes were not passed on: %v", items[0].removed)
-	}
-
-	r.deletedAt(context.Background(), items[0])
-	if len(woken) != 1 {
-		t.Fatalf("the persona that cited the post was not told: %v", woken)
-	}
-	if !strings.Contains(woken[0], "tastes/sesame.md") || !strings.Contains(woken[0], "shops/tantan.md") {
-		t.Fatalf("the persona was not told which notes:\n%s", woken[0])
-	}
-	if !strings.Contains(woken[0], entry.ID) || !strings.Contains(woken[0], "ごま") {
-		t.Fatalf("the persona was not told which post:\n%s", woken[0])
-	}
-	// The record is spent, so the same deletion cannot queue another wake.
-	r.EntryForgotten(entry.ID, entry.Text)
-	again := len(wakes(t, r))
-	if again != 1 {
-		t.Fatalf("the same deletion queued %d wakes", again)
-	}
-	if woke, err := s.Woke(entry.ID); err != nil || len(woke) != 0 {
-		t.Fatalf("the record survived: %v (%v)", woke, err)
+	if queued := deletedWakes(t, r); len(queued) != 0 {
+		t.Fatalf("queued %+v", queued)
 	}
 }
 
@@ -94,7 +143,7 @@ func TestDeletingAPostWakesThePersonasItWokeForIt(t *testing.T) {
 func TestADeletionWakeCanCancelTheSchedule(t *testing.T) {
 	var offered string
 	r, s, _ := setup(t, func(system, user string) string {
-		if strings.Contains(system, "根拠にしていた投稿が消されました") {
+		if strings.Contains(system, "かけらが消されました") {
 			offered = system
 		}
 		return `{"action":"tool","tool":"schedule","args":{"action":"cancel","id":"s_gone"}}`
@@ -104,6 +153,7 @@ func TestADeletionWakeCanCancelTheSchedule(t *testing.T) {
 	if err := s.RecordWake(entry.ID, "routine"); err != nil {
 		t.Fatal(err)
 	}
+	writeRecord(t, s, "routine", entry, entry.ID)
 	saved, err := s.SaveSchedule(store.Schedule{
 		Skill: "routine", At: time.Now().Add(3 * time.Hour).UTC(), Note: "買い物に行ったか",
 	})
@@ -142,6 +192,7 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
 		t.Fatal(err)
 	}
+	writeRecord(t, s, "gourmet", entry, entry.ID)
 	before := len(remarks(t, s))
 
 	r.EntryForgotten(entry.ID, entry.Text)
@@ -179,106 +230,28 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 		}
 	}
 	if len(stub.phases) != 2 {
-		t.Fatalf("a deletion wake made %d calls, not the schedule and note phases", len(stub.phases))
+		t.Fatalf("a deletion wake made %d calls, not the schedule phase and the keeper", len(stub.phases))
 	}
 }
 
-// A deleted post takes the conversation under it along. The persona woken for
-// the post is told once, the notes resting only on the post and the user's
-// lines under it are deleted, and the record of who was woken is spent.
-func TestDeletingAPostForgetsTheConversationUnderIt(t *testing.T) {
-	r, s, _ := setup(t, func(system, user string) string {
-		if strings.Contains(system, "振り分け") {
-			return `{"deliver":[]}`
-		}
-		return `{"action":"silent"}`
-	}, "gourmet")
-	entry := post(t, s, "この前の担々麺")
-	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User, Root: entry.ID, ReplyTo: entry.ID, Text: "辛いのは平気", At: time.Now()}
-	remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: entry.ID, ReplyTo: entry.ID, Text: "ごま強め", At: time.Now()}
-	for _, one := range []timeline.Entry{reply, remark} {
-		if err := s.Append(one); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.WriteNote("gourmet", "tastes/sesame.md", "ごま強めは苦手", store.NoteSource{EntryID: entry.ID, Label: "担々麺"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.WriteNote("gourmet", "tastes/heat.md", "辛さは平気", store.NoteSource{EntryID: reply.ID, Label: "辛いのは平気"}); err != nil {
-		t.Fatal(err)
-	}
-
-	r.EntriesForgotten(entry.ID, []timeline.Entry{entry, reply, remark})
-	items := deletedWakes(t, r)
-	if len(items) != 1 || items[0].skill != "gourmet" || items[0].entryID != entry.ID {
-		t.Fatalf("queued %+v, want one wake for the post", items)
-	}
-	if len(items[0].removed) != 2 || !strings.Contains(items[0].label, "担々麺") || !strings.Contains(items[0].label, "辛いのは平気") {
-		t.Fatalf("the wake does not carry both lines and both notes: %+v", items[0])
-	}
-	// Each note rested on one of the deleted lines alone, so both went with them.
-	for _, path := range []string{"tastes/sesame.md", "tastes/heat.md"} {
-		if note, ok := s.Note("gourmet", path); ok {
-			t.Fatalf("%s survived its only source: %v", path, note.Text)
-		}
-	}
-	if woke, _ := s.Woke(entry.ID); len(woke) != 0 {
-		t.Fatalf("the wake record was not spent: %v", woke)
-	}
-}
-
-// Deleting one of the user's lines under a post reaches the personas woken for
-// that post, and leaves the post's own record in place.
-func TestDeletingAReplyReachesThePersonasWokenForItsPost(t *testing.T) {
-	r, s, _ := setup(t, func(system, user string) string {
-		if strings.Contains(system, "振り分け") {
-			return `{"deliver":[]}`
-		}
-		return `{"action":"silent"}`
-	}, "gourmet")
-	entry := post(t, s, "この前の担々麺")
-	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User, Root: entry.ID, ReplyTo: entry.ID, Text: "辛いのは平気", At: time.Now()}
-	if err := s.Append(reply); err != nil {
+// A reply of the persona's deleted on its own leaves the kakera it answered:
+// the record is kept under the kakera, and nobody is woken.
+func TestDeletingOnlyAReplyKeepsItsRecordUnderTheKakera(t *testing.T) {
+	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
+	entry := post(t, s, "担々麺")
+	remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: entry.ID, ReplyTo: entry.ID, Text: "いいね", At: entry.At.Add(time.Minute)}
+	if err := s.Append(remark); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.WriteNote("gourmet", "tastes/heat.md", "辛さは平気", store.NoteSource{EntryID: reply.ID, Label: "辛いのは平気"}); err != nil {
-		t.Fatal(err)
+	writeRecord(t, s, "gourmet", entry, remark.ID)
+	r.EntriesForgotten(entry.ID, []timeline.Entry{remark})
+	if queued := deletedWakes(t, r); len(queued) != 0 {
+		t.Fatalf("queued %+v", queued)
 	}
-	r.EntryForgotten(reply.ID, reply.Text)
-	queued := len(deletedWakes(t, r))
-	if queued != 1 {
-		t.Fatalf("queued %d wakes, want one", queued)
-	}
-	if note, _ := s.Note("gourmet", "tastes/heat.md"); strings.Contains(note.Text, reply.ID) {
-		t.Fatalf("the deleted reply is still cited: %s", note.Text)
-	}
-	if woke, _ := s.Woke(entry.ID); len(woke) != 1 {
-		t.Fatalf("the post's own record went with its reply: %v", woke)
-	}
-}
-
-// A persona can cite a post it found by searching, without ever being woken for
-// it. Deleting the post still takes away the note that rested on it alone.
-func TestDeletingAPostReachesNotesCitingItFromSearch(t *testing.T) {
-	r, s, _ := setup(t, func(system, user string) string {
-		return `{"action":"silent"}`
-	}, "gourmet", "book")
-	entry := post(t, s, "駅前の古本屋で買った")
-	if err := s.WriteNote("book", "shops/used.md", "駅前の古本屋", store.NoteSource{EntryID: entry.ID, Label: "古本屋"}); err != nil {
-		t.Fatal(err)
-	}
-	r.EntryForgotten(entry.ID, entry.Text)
-	if _, ok := s.Note("book", "shops/used.md"); ok {
-		t.Fatal("a note citing the deleted post from search survived")
-	}
-	queued := wakes(t, r)
-	if len(queued) != 1 || queued[0].deleted == nil || queued[0].deleted.skill != "book" {
-		t.Fatalf("the persona that cited the post was not told: %+v", queued)
+	if ids := recordIDs(r, "gourmet"); len(ids) != 1 || ids[0] != entry.ID {
+		t.Fatalf("records = %v, want the kakera's", ids)
 	}
 }

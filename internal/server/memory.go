@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -14,10 +13,11 @@ import (
 // getMemory shows what a persona has kept. It is the persona's own text, and
 // seeing it is the only way to tell what it decided was worth keeping.
 //
-// The notes only ever grow, so they come a page at a time, the most recently
-// written first: ?after= is the next cursor of the page already shown, ?tag=
-// keeps only the notes that carry that tag, and ?type= only the notes of that
-// kind.
+// They are the persona's field summaries and the monthly records of its
+// kakera. The records only ever grow, so the files come a page at a time, the
+// most recently written first: ?after= is the next cursor of the page already
+// shown, and ?tag= keeps only the records files that hold a record with that
+// tag.
 func (s *Server) getMemory(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	limit, _ := strconv.Atoi(query.Get("limit"))
@@ -25,12 +25,8 @@ func (s *Server) getMemory(w http.ResponseWriter, r *http.Request) {
 		limit = defaultMemoryPage
 	}
 	var match func(store.Note) bool
-	tag, kind := strings.TrimSpace(query.Get("tag")), strings.TrimSpace(query.Get("type"))
-	if tag != "" || kind != "" {
-		match = func(note store.Note) bool {
-			return (tag == "" || slices.ContainsFunc(persona.NoteTags(note.Text), func(have string) bool { return strings.EqualFold(have, tag) })) &&
-				(kind == "" || strings.EqualFold(persona.NoteType(note.Text), kind))
-		}
+	if tag := strings.TrimPrefix(strings.TrimSpace(query.Get("tag")), "#"); tag != "" {
+		match = func(note store.Note) bool { return persona.RecordsTagged(note.Path, note.Text, tag) }
 	}
 	page, err := s.store.MemoryPage(r.PathValue("id"), query.Get("after"), limit, match)
 	if errors.Is(err, store.ErrMemoryCursor) {
@@ -76,17 +72,15 @@ func (s *Server) forgetNote(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// The app does not edit notes or the schedules that went with them: the
-	// persona is woken and puts its own memory back in order.
-	s.runner.NoteForgotten(r.PathValue("id"), path)
+	// A field deleted starts again from the next kakera; a month of records
+	// deleted is gone. Nothing else rests on either, so nobody is woken.
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // editNote replaces the body of one note with what the user typed. A persona's
-// notes are its own, but a misread label is a misread label: when the text a
-// persona was given was wrong, the person who knows can put the note right
-// without waiting for the persona to be told. The links the app keeps from the
-// note to its posts are kept as they were; the persona is not woken.
+// summaries are its own, but a misread label is a misread label: when the text
+// a persona was given was wrong, the person who knows can put it right without
+// waiting for the persona to be told. The persona is not woken.
 func (s *Server) editNote(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if path == "" {
@@ -106,7 +100,6 @@ func (s *Server) editNote(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "メモが見つかりません")
 		return
 	}
-	defer s.runner.Rearm() // The note may carry an expires date.
 	if err := s.store.WriteNote(id, path, body.Text); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return

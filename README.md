@@ -230,7 +230,7 @@ the morning, that day is skipped rather than checking in twice within hours.
 By default the persona looks through its memory and the timeline since its
 previous check-in, so nothing between two check-ins goes unread, uses
 its tools, and brings something back only when it finds something worth
-saying; it also asks whether a note that has reached its review date can be
+saying; it also asks whether a record that has reached its review date can be
 forgotten. Turning on **At check-in, speak only when needed** limits it to what needs the
 user's decision, such as that question. A silent check-in creates no empty
 conversation.
@@ -259,7 +259,7 @@ For those, any persona can hand its research and answer to **Hermes Agent** thro
 Each persona chooses its planner: the built-in model, or the external agent.
 When a persona planned by the external agent wakes, kakeratta opens an *ask*
 carrying the persona's identity, instructions, the trigger and its thread, the
-persona's memory index, what the persona can change, and its read-only tools.
+persona's memory (field summaries and latest records), what the persona can change, and its read-only tools.
 Hermes claims the ask, researches with its own tools and skills, and submits
 only the answer. kakeratta then decides the turn's schedules, tool actions, and
 notes with its own model, one phase at a time, assembles them with the answer
@@ -349,28 +349,28 @@ you liked before", with a link to that post.
 
 ## See what a persona remembers
 
-Open **What it remembers** in the Personas panel to read its saved notes, the
-most recently updated first, each labelled with its kind: tastes, wines,
-places, books.
+Open **What it remembers** in the Personas panel. A persona keeps two things:
+for each of its fields - tastes and shops, books and themes - one summary of
+everything learned so far, rewritten as your kakera arrive; and a record of
+every kakera it received, one sentence with its tags and the post to go back
+to - its reply when it replied, your kakera when it did not.
 
-Evidence and exceptions show as written. Filter by kind or by the tags the
-persona gave them, and open the post and conversation a note came from under **Posts that
-updated this memory**.
+The summaries come first, then the records month by month. Open a record's
+post from its id, or tap a `#tag` to see only the months that hold it.
+
+Records are not kept forever by default. A record of a kakera that served its
+moment, such as "where for lunch today?", shows **Gone on** a date, the next
+day, and is deleted then. A record of something you said, such as a
+shop you wanted to try, may show **Review on** a date the persona chose; when
+that day comes, the persona asks in a short post whether to keep it. Answer
+"keep it", "later", or "forget it" and it does so. A record the persona looks
+up again while answering you gets its time afresh.
 
 <img src="docs/captures/en/memory.png" alt="What the wine persona remembers: tastes and wines, with tags, links to the posts, and ✎ to edit (sample)" width="382">
 
-Fix a misspelling or a wrong fact with **✎** on the note.
-
-Remove a wrong note with **Forget this note**, one at a time; the post and the
-other notes stay.
-
-Notes are not kept forever by default. A note the persona wrote from its own
-searching, such as a list of lunch candidates, shows **Gone on** a date, the
-next day, and is deleted then unless you reacted to it. A note about
-something you said, such as a shop you wanted to try, may show **Review on**
-a date the persona chose from what it is. When that day comes, the persona
-asks in a short post whether to keep it. Answer "keep it", "later", or
-"forget it" and it does so.
+Fix a misspelling or a wrong fact with **✎**, or delete a summary or a month
+of records. Delete a kakera and its record goes too; the persona takes out of
+its summaries what rested on it.
 
 To change how it remembers, use **Edit with AI** and say, for example, "don't
 call something a favourite after one glass".

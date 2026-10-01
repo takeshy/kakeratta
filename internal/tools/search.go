@@ -101,6 +101,12 @@ var searchTimeline = Tool{
 
 // citeLabel is the line a link to a cited post shows: when it was written,
 // and its opening words.
+// CiteLabel is the line a link to a cited post shows, for posts a persona
+// reaches other than through timeline_search.
+func CiteLabel(entry timeline.Entry, zone *time.Location) string {
+	return citeLabel(entry, zone)
+}
+
 func citeLabel(entry timeline.Entry, zone *time.Location) string {
 	words := []rune(strings.Join(strings.Fields(search.Text(entry)), " "))
 	if len(words) > 40 {

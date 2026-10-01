@@ -14,19 +14,19 @@ External-agent answers over MCP, permitted external tools, weather forecasts, an
 
 The user creates an MCP connection and selects `external` as a persona's planner. The server exposes `/api/mcp/users/{workspace}` per workspace and manages connection keys and settings. This is separate from the application's MCP client for calling external tools.
 
-The external agent researches as the persona and submits only the final answer. The host's subsequent processing decides, reviews, and executes memory, schedules, and other actions. `accepted` acknowledges receipt of the answer; it does not mean timeline publication is complete.
+The external agent researches as the persona and submits only the final answer. The host's subsequent processing decides, reviews, and executes schedules and other actions, then updates the persona's memory itself. `accepted` acknowledges receipt of the answer; it does not mean timeline publication is complete.
 
 ## Ask lifecycle
 
 1. Use `list_asks` to find pending asks with deadlines.
-2. Send the ask ID and a stable `claimId` to `claim_ask` to receive the persona, trigger, conversation, memory index, and available read tools.
-3. Research through permitted `read_for_ask` calls.
+2. Send the ask ID and a stable `claimId` to `claim_ask` to receive the persona, trigger, conversation, memory (`memory`: field summaries whole and the latest kakera records), and available read tools.
+3. Research through permitted `read_for_ask` calls: `records` steps (`tag`, `query`, `before`, or `id` to read the entry a record points to, which may then be cited) and read-use tools.
 4. Submit text and sources with `submit_answer`. Invalid submissions receive correction requests.
 5. If unable to respond, call `release_ask` to return the turn to the built-in model.
 
 Claiming and answering have separate deadlines. Unclaimed asks, answer timeouts, connection changes, explicit release, and exhausted correction attempts can trigger fallback. A connection with no recent MCP activity, or paused external-agent settings, can select the built-in model immediately.
 
-An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the turn, and claim, reads, answer, and release are transactions on the record, so the agent may reach any process serving the workspace and an ask survives a restart. The agent's reads run where they arrive, under the lock `ask:{id}` (a read stops if the lock is lost), and their results - reads used, lookups, notes read, cited posts - are kept on the record. Deadlines are enforced through the workspace's alarm: opening an ask asks to be woken at its claim wait, claiming it at its plan wait, and the due reaction closes what has run out (see [Times and wakes](./architecture.md#times-and-wakes)). A closed ask queues the reaction `ask-{id}` in the conversation's lane, which carries the turn on and deletes the ask. The agent's last call is the `presence` record, written at most every 30 seconds. An MCP request opens a workspace only if it exists.
+An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the turn, and claim, reads, answer, and release are transactions on the record, so the agent may reach any process serving the workspace and an ask survives a restart. The agent's reads run where they arrive, under the lock `ask:{id}` (a read stops if the lock is lost), and their results - reads used, lookups, cited posts - are kept on the record. Deadlines are enforced through the workspace's alarm: opening an ask asks to be woken at its claim wait, claiming it at its plan wait, and the due reaction closes what has run out (see [Times and wakes](./architecture.md#times-and-wakes)). A closed ask queues the reaction `ask-{id}` in the conversation's lane, which carries the turn on and deletes the ask. The agent's last call is the `presence` record, written at most every 30 seconds. An MCP request opens a workspace only if it exists.
 
 ## Implementation and verification
 
@@ -37,10 +37,6 @@ An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the
 - [mcp_connections.go](../../internal/server/mcp_connections.go)
 - [planner_test.go](../../internal/persona/planner_test.go)
 - [hermes.md](../hermes.md)
-
-## Note organization asks
-
-A user may select the connected external agent for an individual note-organization request regardless of the persona's ordinary planner choice. `organize_notes` asks use the same claim, read, submit, release, and timeout lifecycle. The answer is research and a proposed organization policy. The host builds a concrete change preview and waits for explicit user approval before writing notes; the policy is not published to the timeline. MCP tool descriptions and server instructions describe this distinction. The connection selected in settings handles the request.
 
 # Persona tools and external MCP
 

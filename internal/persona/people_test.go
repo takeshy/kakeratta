@@ -236,7 +236,7 @@ func TestPersonBasicInformationIsAvailableWithoutNotes(t *testing.T) {
 	person := sato()
 	person.BasicInfo = "誕生日は11月10日。タイ料理が好き。"
 	got := person.forTurn()
-	if !strings.Contains(got.Instructions, person.BasicInfo) || !strings.Contains(got.Instructions, "基本情報はメモに複製せず") {
+	if !strings.Contains(got.Instructions, person.BasicInfo) || !strings.Contains(got.Instructions, "基本情報は記憶に複製せず") {
 		t.Fatalf("instructions = %q", got.Instructions)
 	}
 	if got.Memory != personMemory || person.Instructions != "" {
@@ -263,8 +263,8 @@ func TestAPersonsPersonaIsNotIntroducedAsThePerson(t *testing.T) {
 	}
 	for name, prompt := range map[string]string{
 		"answer": answerSystem(father, briefRule),
-		"phase":  phasePrompt("schedule", father, tools.New(tools.Config{}).For(nil), "", ""),
-		"keeper": keeperPrompt(father, "", ""),
+		"phase":  phasePrompt("schedule", father, tools.New(tools.Config{}).For(nil), ""),
+		"keeper": keeperPrompt(father, true, nil),
 	} {
 		if strings.Contains(prompt, "あなたは「父」。") {
 			t.Errorf("the %s prompt introduces the persona as 父", name)

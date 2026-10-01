@@ -236,7 +236,7 @@ func (d *dryWorkspace) DeleteNoteJob(string) error             { return nil }
 func (d *dryWorkspace) WriteNote(_, path, content string, sources ...store.NoteSource) error {
 	// The index and the log are housekeeping; what a person is shown is the notes
 	// that carry what was said.
-	if d.notes != nil && !reservedNote(path) {
+	if d.notes != nil && !isRecordsPath(path) {
 		*d.notes = append(*d.notes, path)
 	}
 	d.changes = append(d.changes, noteChange{Path: path, Text: content, Sources: append([]store.NoteSource(nil), sources...)})

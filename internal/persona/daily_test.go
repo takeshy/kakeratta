@@ -19,7 +19,7 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 				if !strings.Contains(system, "Daily check-in") {
 					t.Error("daily prompt missing")
 				}
-				for _, want := range []string{"前回のチェックインから今回まで", "自分が返答していない", "最近更新されたメモ", "tags", "notes_read"} {
+				for _, want := range []string{"前回のチェックインから今回まで", "自分が返答していない", "最近の記録によく現れるタグ", "records"} {
 					if !strings.Contains(system, want) {
 						t.Errorf("daily discovery instruction missing %q", want)
 					}
@@ -65,15 +65,9 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 	}
 }
 
-func TestDailyCanRememberWithoutPosting(t *testing.T) {
-	calls := 0
-	r, s, _ := setup(t, func(system, user string) string {
-		calls++
-		if calls == 1 {
-			return `{"action":"tool","tool":"notes_write","args":{"path":"daily.md","text":"Remembered quietly"}}`
-		}
-		return `{"action":"silent"}`
-	})
+// A check-in is not a kakera: it leaves no record and no field behind.
+func TestACheckInKeepsNoMemory(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"action":"silent"}` })
 	skill := r.catalogue.All(context.Background())[0]
 	settings := s.Settings()
 	settings.Active = []string{skill.ID}
@@ -81,16 +75,11 @@ func TestDailyCanRememberWithoutPosting(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, time.Now().UTC(), skill.ID)).Add(-time.Minute))
-	note, ok := s.Note(skill.ID, "daily.md")
-	if !ok || !strings.Contains(note.Text, "Remembered quietly") {
-		t.Fatal("silent wake did not retain memory")
+	if len(f.keeps) != 0 {
+		t.Fatalf("the keeper ran for a check-in: %d", len(f.keeps))
 	}
-	if len(store.NoteSources(note.Text)) != 0 {
-		t.Fatal("synthetic event leaked as a note source")
-	}
-	entries, _ := s.Timeline()
-	if len(entries) != 0 {
-		t.Fatal("silent memory update posted")
+	if paths, _ := s.NotePaths(skill.ID); len(paths) != 0 {
+		t.Fatalf("a check-in wrote memory: %v", paths)
 	}
 }
 

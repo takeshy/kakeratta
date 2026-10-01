@@ -12,9 +12,9 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
-func TestMCPNoteListingIncludesTagsAndWrittenTime(t *testing.T) {
+func TestMCPNoteListingIncludesWrittenTime(t *testing.T) {
 	s, w := app(t)
-	if err := w.WriteNote("gourmet", "topics/go.md", "---\ntags: [Go, Cloud Run]\n---\n\nDeployment notes"); err != nil {
+	if err := w.WriteNote("gourmet", "topics/go.md", "Deployment notes"); err != nil {
 		t.Fatal(err)
 	}
 	result, err := s.callMCPTool(context.Background(), "list_notes", json.RawMessage(`{"persona":"gourmet"}`))
@@ -23,7 +23,7 @@ func TestMCPNoteListingIncludesTagsAndWrittenTime(t *testing.T) {
 	}
 	raw, _ := json.Marshal(result)
 	text := string(raw)
-	for _, want := range []string{`"path":"topics/go.md"`, `"tags":["Go","Cloud Run"]`, `"written":"`} {
+	for _, want := range []string{`"path":"topics/go.md"`, `"written":"`} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("note listing missing %s: %s", want, text)
 		}

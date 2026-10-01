@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -166,31 +167,34 @@ func TestTheWorkspaceAsksToBeWokenAgain(t *testing.T) {
 	}
 }
 
-// expireNotes reports the next expires date it did not reach.
-func TestExpiringNotesReportTheNextDate(t *testing.T) {
-	r, s, _ := setup(t, func(system, user string) string { return `{"action":"silent"}` }, "gourmet")
+// Records past their expires day are deleted by the sweep, which reports the
+// next day still to come.
+func TestExpiringRecordsReportTheNextDate(t *testing.T) {
+	r, s, _ := setup(t, answering, "gourmet")
 	settings := s.Settings()
-	settings.MiddleModel = "m"
 	settings.TimeZone = "UTC"
 	if err := s.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
-	for path, text := range map[string]string{
-		"shops/gone.md":  "---\ntype: Shop\nexpires: 2026-09-20\n---\n\nもう",
-		"shops/soon.md":  "---\ntype: Shop\nexpires: 2026-10-05\n---\n\nもうすぐ",
-		"shops/later.md": "---\ntype: Shop\nexpires: 2027-01-01\n---\n\nまだ",
-		"shops/never.md": "---\ntype: Shop\nexpires: never\n---\n\nずっと",
-	} {
-		if err := s.WriteNote("gourmet", path, text); err != nil {
-			t.Fatal(err)
-		}
+	day := func(raw string) recordDate {
+		return dateFrom(raw, time.Date(2026, 9, 19, 0, 0, 0, 0, time.UTC), time.UTC)
+	}
+	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+	records := []record{
+		{At: at, ID: "gone", Summary: "もう", Expires: day("2026-09-20")},
+		{At: at, ID: "soon", Summary: "もうすぐ", Expires: day("2026-10-05")},
+		{At: at, ID: "later", Summary: "まだ", Expires: day("2027-01-01")},
+		{At: at, ID: "kept", Summary: "ずっと", Review: day("2026-09-21")},
+	}
+	if err := s.WriteNote("gourmet", "records/2026-09.md", recordsText("2026-09", records, time.UTC)); err != nil {
+		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
-	next := r.expireNotes(context.Background(), now, s.Settings())
+	next := r.expireRecords(context.Background(), now, s.Settings())
 	if want := time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC); !next.Equal(want) {
 		t.Fatalf("next expires = %s, want %s", next, want)
 	}
-	if _, ok := s.Note("gourmet", "shops/gone.md"); ok {
-		t.Fatal("the expired note is still there")
+	if ids := recordIDs(r, "gourmet"); strings.Join(ids, ",") != "kept,later,soon" {
+		t.Fatalf("records left = %v", ids)
 	}
 }

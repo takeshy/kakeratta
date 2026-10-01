@@ -156,8 +156,8 @@ func TestAScheduleWakesItsPersonaOnce(t *testing.T) {
 	if entries, _ := s.Timeline(); len(entries) != 0 {
 		t.Fatalf("a silent wake left a post: %+v", entries)
 	}
-	if !stub.seen("notes_read") {
-		t.Fatal("the persona was not given its notes")
+	if !stub.seen("あなたの記憶") {
+		t.Fatal("the persona was not given its memory")
 	}
 }
 
@@ -203,43 +203,6 @@ func TestSchedulesOfAPausedPersonaAreForgotten(t *testing.T) {
 	}
 }
 
-// Deleting several notes in a row is one wake, and the persona is told every
-// path so it can fix its own memory and schedules.
-func TestForgottenNotesWakeThePersonaOnce(t *testing.T) {
-	calls := 0
-	var seen string
-	r, _, _ := setup(t, func(system, user string) string {
-		calls++
-		seen = system + "\n" + user
-		return `{"action":"silent"}`
-	}, "routine")
-
-	r.NoteForgotten("routine", "errands/flowers.md")
-	r.NoteForgotten("routine", "routines/medicine.md")
-	pending := wakes(t, r)
-	queued := len(pending)
-	var gone forgotten
-	if queued == 1 && pending[0].forgotten != nil {
-		gone = *pending[0].forgotten
-	}
-	if queued != 1 {
-		t.Fatalf("queued %d wakes for two deletions", queued)
-	}
-	if len(gone.paths) != 2 {
-		t.Fatalf("paths = %v", gone.paths)
-	}
-
-	r.forgottenAt(context.Background(), gone)
-	if calls != 1 {
-		t.Fatalf("calls = %d", calls)
-	}
-	for _, want := range []string{"メモが消されました", "errands/flowers.md", "routines/medicine.md"} {
-		if !strings.Contains(seen, want) {
-			t.Fatalf("the persona was not told %q:\n%s", want, seen)
-		}
-	}
-}
-
 func TestScheduleContextOnlyPassesOwnSchedulesAndReadsOthersWithTool(t *testing.T) {
 	r, workspace, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
 	own, err := workspace.SaveSchedule(store.Schedule{Skill: "routine", At: time.Now().Add(time.Hour), Note: "朝の薬", NotePath: "own.md"})
@@ -252,7 +215,7 @@ func TestScheduleContextOnlyPassesOwnSchedulesAndReadsOthersWithTool(t *testing.
 	}
 	set := tools.New(tools.Config{}).WithSchedules(workspace).WithPersonaNames(map[string]string{"routine": "プラナ", "health": "健康担当"}).For([]string{"schedule"}).As("routine")
 	listed, ids := r.scheduleListFor(Skill{ID: "routine"}, set, map[string]string{"routine": "プラナ", "health": "健康担当"})
-	for _, want := range []string{own.ID, "担当: プラナ（routine）", "朝の薬", "own.md"} {
+	for _, want := range []string{own.ID, "担当: プラナ（routine）", "朝の薬"} {
 		if !strings.Contains(listed, want) {
 			t.Fatalf("missing %q in context: %s", want, listed)
 		}
@@ -267,7 +230,7 @@ func TestScheduleContextOnlyPassesOwnSchedulesAndReadsOthersWithTool(t *testing.
 	if _, exists := ids[other.ID]; !exists || ids[other.ID] || !ids[own.ID] {
 		t.Fatalf("ownership = %+v", ids)
 	}
-	result, _ := r.readAll(context.Background(), Skill{ID: "routine"}, []ReadStep{{Type: "tool", Tool: "schedules_list", Args: `{"skill":"health"}`}}, set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(10, 2), map[string]string{})
+	result, _ := r.readAll(context.Background(), Skill{ID: "routine"}, []ReadStep{{Type: "tool", Tool: "schedules_list", Args: `{"skill":"health"}`}}, set, timeline.Entry{}, time.UTC, map[string]string{}, newLookups(10, 2), map[string]string{}, nil)
 	if !strings.Contains(result, "健康担当（health）") || !strings.Contains(result, "診察") || strings.Contains(result, "private.md") {
 		t.Fatalf("tool read = %s", result)
 	}
@@ -291,7 +254,7 @@ func TestScheduleContextOnlyPassesOwnSchedulesAndReadsOthersWithTool(t *testing.
 	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "cancel_schedule", ID: other.ID}}}, rules); len(problems) == 0 {
 		t.Fatal("other persona's cancellation accepted")
 	}
-	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "write_note", Path: "reminder.md", Text: "既存の予定 " + other.ID}}}, rules); len(problems) != 0 {
+	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "write_schedule", At: time.Now().Add(time.Hour).Format(time.RFC3339), Note: "既存の予定 " + other.ID + " の前に"}}}, rules); len(problems) != 0 {
 		t.Fatalf("visible schedule reference rejected: %v", problems)
 	}
 }

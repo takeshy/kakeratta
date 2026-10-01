@@ -152,20 +152,16 @@ func TestMemoryComesInPages(t *testing.T) {
 	if code, _ := get("/api/personas/gourmet/memory?after=wines%2F1.md"); code != http.StatusBadRequest {
 		t.Fatalf("bad cursor: %d", code)
 	}
-	_, red := get("/api/personas/gourmet/memory?tag=" + url.QueryEscape("赤"))
-	if len(red.Notes) != 3 || red.Next != "" {
-		t.Fatalf("tagged: %+v", red)
-	}
-	if err := workspace.WriteNote("gourmet", "shops/a.md", "---\ntype: Shop\ntags: [赤]\n---\n店"); err != nil {
+	// A tag finds the months of records that hold a record with it.
+	if err := workspace.WriteNote("gourmet", "records/2026-09.md", "# 2026-09 のかけら\n\n- 2026-09-30 12:00 [e_1](/?entry=e_1) 赤を飲んだ #赤 #ワイン\n"); err != nil {
 		t.Fatal(err)
 	}
-	_, shops := get("/api/personas/gourmet/memory?type=shop")
-	if len(shops.Notes) != 1 || shops.Notes[0].Path != "shops/a.md" {
-		t.Fatalf("by type: %+v", shops)
+	if err := workspace.WriteNote("gourmet", "records/2026-10.md", "# 2026-10 のかけら\n\n- 2026-10-01 12:00 [e_2](/?entry=e_2) 白を飲んだ #白\n"); err != nil {
+		t.Fatal(err)
 	}
-	_, both := get("/api/personas/gourmet/memory?type=Shop&tag=" + url.QueryEscape("白"))
-	if len(both.Notes) != 0 {
-		t.Fatalf("by type and tag: %+v", both)
+	_, red := get("/api/personas/gourmet/memory?tag=" + url.QueryEscape("#赤"))
+	if len(red.Notes) != 1 || red.Notes[0].Path != "records/2026-09.md" || red.Next != "" {
+		t.Fatalf("tagged: %+v", red)
 	}
 
 	response := httptest.NewRecorder()

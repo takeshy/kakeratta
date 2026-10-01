@@ -1,345 +1,285 @@
 package persona
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-func note(path, title, description string) store.Note {
-	return store.Note{Path: path, Text: "---\ntype: Question\ntitle: " + title + "\ndescription: " + description + "\ntags: [a]\n---\n本文"}
-}
-
-// A note the keeper cannot write costs the note, never the answer. This is the
-// failure that started it: the note phase of a turn could not finish, and the
-// user saw a persona that had stayed quiet although its answer was good.
-func TestAKeeperThatFailsCostsOnlyTheNotes(t *testing.T) {
-	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	f.phaseReply = func(system, user string, offered map[string]bool) string {
+// answeringReply answers every post with text and plans nothing else.
+func answeringReply(text string) func(system, user string, offered map[string]bool) string {
+	return func(system, user string, offered map[string]bool) string {
 		switch {
 		case offered["finish_read"]:
 			return "read_done"
 		case offered["submit_answer"]:
-			return `{"text":"駅から5分の店です。","sources":[]}`
-		case offered["submit_schedule"]:
-			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+			return `{"text":"` + text + `","sources":[]}`
 		}
-		// The keeper only ever hands in something the app cannot run.
-		return `{"operations":[{"type":"write","path":"../outside.md","text":"x"}]}`
-	}
-	r.react(post(t, s, "ラーメン屋を教えて").ID)
-
-	if got := remarks(t, s); len(got) != 1 || got[0].Text != "駅から5分の店です。" {
-		t.Fatalf("the answer was lost with the notes: %+v", got)
-	}
-	for _, kept := range s.Memory("gourmet").Notes {
-		if kept.Path != "index.md" {
-			t.Fatalf("a note the app refused was written: %+v", kept)
-		}
+		return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 	}
 }
 
-// The keeper is handed the notes the turn had already opened, without having
-// to choose them, and cannot read on its own.
-func TestTheKeeperIsHandedWhatTheTurnRead(t *testing.T) {
+// The persona's reply is what a record leads to when there is one, and the
+// fields the keeper rewrote are kept whole; the record carries the sentence
+// and the tags the keeper chose.
+func TestAnAnsweredKakeraIsRecordedUnderTheReply(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	writeNotes(t, s, "gourmet", map[string]string{"tastes/a.md": "---\ntype: Preference\ntitle: A店\n---\n前から好き"})
-	f.phaseReply = func(system, user string, offered map[string]bool) string {
-		switch {
-		case offered["finish_read"]:
-			return `{"steps":[{"type":"notes_read","paths":["tastes/a.md"],"tool":"","args":"{}"}]}`
-		case offered["submit_answer"]:
-			return `{"text":"A店、また行ったんだね。","sources":[]}`
-		case offered["submit_schedule"]:
-			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
-		}
-		if !strings.Contains(user, "=== tastes/a.md ===") || !strings.Contains(user, "前から好き") {
-			t.Errorf("the keeper was not handed the note the turn read:\n%s", user)
-		}
-		return `{"operations":[{"type":"write","path":"tastes/a.md","text":"---\ntype: Preference\ntitle: A店\n---\n前から好き。また行った。"},{"type":"write","path":"index.md","text":"# 好み\n\n* [A店](/tastes/a.md) - 前から好き"}]}`
+	if err := s.WriteNote("gourmet", "Shop.md", "A店に行きたい。\n"); err != nil {
+		t.Fatal(err)
 	}
-	r.react(post(t, s, "A店にまた行った").ID)
-	if got, ok := s.Note("gourmet", "tastes/a.md"); !ok || !strings.Contains(got.Text, "また行った") {
-		t.Fatalf("note = %+v", got)
+	f.phaseReply = answeringReply("二郎、いいね。")
+	f.keep = func(system, user string) string {
+		if !strings.Contains(user, "A店に行きたい。") || !strings.Contains(user, "三田の二郎") {
+			t.Errorf("the keeper was not shown the field and the kakera:\n%s", user)
+		}
+		if !strings.Contains(system, "Preference / Shop") {
+			t.Errorf("the keeper was not told the fields:\n%s", system)
+		}
+		return `{"summary":"三田の二郎に行きたいと言った","tags":["ラーメン","#三田"],"fields":[{"field":"shop","text":"A店に行きたい。\n三田の二郎にも行きたい。"}]}`
+	}
+	entry := post(t, s, "三田の二郎に行ってみたい")
+	r.react(entry.ID)
+
+	said := remarks(t, s)
+	if len(said) != 1 {
+		t.Fatalf("remarks = %+v", said)
+	}
+	shop, ok := s.Note("gourmet", "Shop.md")
+	if !ok || !strings.Contains(shop.Text, "三田の二郎にも行きたい") {
+		t.Fatalf("field = %+v", shop)
+	}
+	found, _ := r.findRecords("gourmet", "", "", "", 10, time.UTC)
+	if len(found) != 1 {
+		t.Fatalf("records = %+v", found)
+	}
+	got := found[0]
+	if got.ID != said[0].ID || got.Summary != "三田の二郎に行きたいと言った" || strings.Join(got.Tags, ",") != "ラーメン,三田" {
+		t.Fatalf("record = %+v, want it under the reply %s", got, said[0].ID)
+	}
+	// The reply leads back to the kakera.
+	if reply, _ := s.Entry(got.ID); reply.ReplyTo != entry.ID {
+		t.Fatalf("the reply does not lead to the kakera: %+v", reply)
+	}
+	if text := r.recordEntry(got.ID, time.UTC); !strings.Contains(text, "三田の二郎に行ってみたい") || !strings.Contains(text, "二郎、いいね。") {
+		t.Fatalf("reading the record's entry = %s", text)
+	}
+	if records, _ := s.Note("gourmet", recordsPath(entry.At.In(s.Settings().Location()))); !strings.Contains(records.Text, "(/?entry="+got.ID+")") {
+		t.Fatalf("the records file does not link the entry:\n%s", records.Text)
 	}
 }
 
-// Two notes carrying one title under different directories are the same mistake
-// as two in one directory; the keeper is shown them, and may merge them.
-func TestTheKeeperMergesNotesOfOneTitleAcrossDirectories(t *testing.T) {
+// A kakera the persona did not answer is recorded under its own id, and an
+// edit of it replaces its record rather than adding a second.
+func TestASilentKakeraIsRecordedUnderItselfOnce(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	writeNotes(t, s, "gourmet", map[string]string{
-		"question/deposit.md":  "---\ntype: Preference\ntitle: デポジットの必要性\n---\n一つ目",
-		"questions/deposit.md": "---\ntype: Preference\ntitle: デポジットの必要性\n---\n二つ目",
-	})
-	f.choose = func(user string) []string {
-		if !strings.Contains(user, "同じ・よく似た題名") {
-			t.Error("the keeper was not shown the duplicate")
-		}
-		return []string{"question/deposit.md", "questions/deposit.md"}
+	f.phaseReply = answeringReply("")
+	summary := "雨の日はうどん"
+	f.keep = func(system, user string) string {
+		return `{"summary":"` + summary + `","tags":["うどん"],"fields":[]}`
 	}
+	entry := post(t, s, "雨の日はうどんにする")
+	r.react(entry.ID)
+	found, _ := r.findRecords("gourmet", "", "", "", 10, time.UTC)
+	if len(found) != 1 || found[0].ID != entry.ID {
+		t.Fatalf("records = %+v", found)
+	}
+	summary = "雨の日は温かいそば"
+	trigger, _ := s.Entry(entry.ID)
+	if err := r.appendRecord(context.Background(), "gourmet", record{At: trigger.At, ID: trigger.ID, Summary: summary}, trigger, s.Settings().Location()); err != nil {
+		t.Fatal(err)
+	}
+	found, _ = r.findRecords("gourmet", "", "", "", 10, time.UTC)
+	if len(found) != 1 || found[0].Summary != summary {
+		t.Fatalf("records after the edit = %+v", found)
+	}
+}
+
+// A submission the app cannot keep - an unknown field, a body over the limit,
+// no sentence - is sent back with the reasons, and what passes is kept.
+func TestTheKeeperIsSentBackUntilItFits(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	f.phaseReply = answeringReply("いいね。")
 	calls := 0
-	f.phaseReply = func(system, user string, offered map[string]bool) string {
-		switch {
-		case offered["finish_read"]:
-			return "read_done"
-		case offered["submit_answer"]:
-			return `{"text":"了解です。","sources":[]}`
-		case offered["submit_schedule"]:
-			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
-		}
+	f.keep = func(system, user string) string {
 		calls++
 		if calls == 1 {
-			// Writing a third path for the same title is refused.
-			return `{"operations":[{"type":"write","path":"misc/deposit.md","text":"---\ntype: Preference\ntitle: デポジットの必要性\n---\n三つ目"},{"type":"write","path":"index.md","text":"# 質問\n\n* [デポジットの必要性](/misc/deposit.md) - x"}]}`
+			return `{"summary":"","tags":[],"fields":[{"field":"Wine","text":"x"},{"field":"Shop","text":"` + strings.Repeat("あ", maxFieldRunes+1) + `"}]}`
 		}
-		return `{"operations":[{"type":"write","path":"questions/deposit.md","text":"---\ntype: Preference\ntitle: デポジットの必要性\n---\n一つ目と二つ目をまとめた"},{"type":"forget","path":"question/deposit.md","text":""},{"type":"write","path":"index.md","text":"# 質問\n\n* [デポジットの必要性](/questions/deposit.md) - まとめた"}]}`
+		for _, want := range []string{"summary がありません", "tags は1〜", "分野「Wine」はありません", "2001字あります"} {
+			if !strings.Contains(user, want) {
+				t.Errorf("the keeper was not told %q:\n%s", want, user)
+			}
+		}
+		return `{"summary":"店の話","tags":["店"],"fields":[{"field":"Shop","text":"短く"}]}`
 	}
-	r.react(post(t, s, "デポジットは要らない気がする").ID)
-
+	r.react(post(t, s, "店の話").ID)
 	if calls != 2 {
-		t.Fatalf("keeper proposals = %d, want the first refused and the merge accepted", calls)
+		t.Fatalf("keeper calls = %d", calls)
 	}
-	if _, ok := s.Note("gourmet", "question/deposit.md"); ok {
-		t.Fatal("the merged note was left behind")
-	}
-	if merged, ok := s.Note("gourmet", "questions/deposit.md"); !ok || !strings.Contains(merged.Text, "まとめた") {
-		t.Fatalf("merged = %+v", merged)
-	}
-	if _, ok := s.Note("gourmet", "misc/deposit.md"); ok {
-		t.Fatal("a third note for the same title was written")
+	if shop, _ := s.Note("gourmet", "Shop.md"); strings.TrimSpace(shop.Text) != "短く" {
+		t.Fatalf("field = %q", shop.Text)
 	}
 }
 
-// A silent turn still gets its notes kept, and a schedule wake does not run the
-// keeper at all.
+// A memory that cannot be kept costs the memory, never the answer, and is
+// kept for a later retry.
+func TestAKeeperThatFailsCostsOnlyTheMemory(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	f.phaseReply = answeringReply("駅から5分の店です。")
+	f.keep = func(string, string) string { return `{"summary":"","tags":[],"fields":[]}` }
+	r.react(post(t, s, "ラーメン屋を教えて").ID)
+	if got := remarks(t, s); len(got) != 1 || got[0].Text != "駅から5分の店です。" {
+		t.Fatalf("the answer was lost with the memory: %+v", got)
+	}
+	if paths, _ := s.NotePaths("gourmet"); len(paths) != 0 {
+		t.Fatalf("memory refused by the app was written: %v", paths)
+	}
+	if jobs, _ := s.NoteJobs(); len(jobs) != 1 {
+		t.Fatalf("jobs = %+v", jobs)
+	}
+}
+
+// The turn is handed its fields whole and its latest records, and finds older
+// ones by tag.
+func TestATurnIsHandedItsMemory(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	if err := s.WriteNote("gourmet", "Preference.md", "豚骨に寄る。\n"); err != nil {
+		t.Fatal(err)
+	}
+	old := timeline.Entry{ID: "e_old", Text: "前の二郎", At: time.Date(2026, 1, 5, 12, 0, 0, 0, time.UTC)}
+	writeRecord(t, s, "gourmet", old, old.ID)
+	var answered string
+	f.phaseReply = func(system, user string, offered map[string]bool) string {
+		switch {
+		case offered["finish_read"]:
+			if answered == "" {
+				answered = user
+				return `{"steps":[{"type":"records","tool":"","args":"{\"tag\":\"テスト\"}"}]}`
+			}
+			return "read_done"
+		case offered["submit_answer"]:
+			if !strings.Contains(user, "前の二郎") {
+				t.Errorf("the records read did not come back:\n%s", user)
+			}
+			return `{"text":"","sources":[]}`
+		}
+		return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+	}
+	r.react(post(t, s, "今日も二郎").ID)
+	for _, want := range []string{"## Preference\n豚骨に寄る。", "## Shop\n（まだありません）", "[e_old] 前の二郎 #テスト"} {
+		if !strings.Contains(answered, want) {
+			t.Fatalf("the turn was not handed %q:\n%s", want, answered)
+		}
+	}
+}
+
+// Notes kept the old way are folded into the fields by the persona's model
+// when asked: a dry run only reports what it would write, and applying writes
+// the fields and throws every old note away. A turn reads none of them.
+func TestOldNotesAreFoldedIntoTheFields(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	for path, text := range map[string]string{
+		"index.md":           "# 好み\n\n* [豚骨](/tastes/tonkotsu.md)",
+		"tastes/tonkotsu.md": "---\ntype: Preference\ntitle: 豚骨\n---\n豚骨が好き",
+		"shops/jiro.md":      "---\ntype: Shop\ntitle: 二郎\n---\n三田の二郎に行きたい",
+	} {
+		if err := s.WriteNote("gourmet", path, text, store.NoteSource{EntryID: "e_x", Label: "x"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.keep = func(system, user string) string {
+		if !strings.Contains(system, "記憶の持ち方を切り替える") {
+			t.Errorf("not a migration: %s", system)
+		}
+		if !strings.Contains(user, "豚骨が好き") || !strings.Contains(user, "三田の二郎に行きたい") || strings.Contains(user, "kakeratta:note-sources") {
+			t.Errorf("the old notes were not handed over cleanly:\n%s", user)
+		}
+		return `{"fields":[{"field":"Preference","text":"豚骨が好き。"},{"field":"Shop","text":"三田の二郎に行きたい。"}]}`
+	}
+	if prompt := r.memoryView(Builtins[0].forTurn(), time.UTC); strings.Contains(prompt, "豚骨") {
+		t.Fatalf("a turn read an old note:\n%s", prompt)
+	}
+	dry, err := r.MigrateMemory(context.Background(), "gourmet", false)
+	if err != nil || dry.Applied || dry.Fields["Shop"] != "三田の二郎に行きたい。" || len(dry.Legacy) != 3 {
+		t.Fatalf("dry run = %+v, %v", dry, err)
+	}
+	if paths, _ := s.NotePaths("gourmet"); len(paths) != 3 {
+		t.Fatalf("a dry run changed memory: %v", paths)
+	}
+	applied, err := r.MigrateMemory(context.Background(), "gourmet", true)
+	if err != nil || !applied.Applied {
+		t.Fatalf("apply = %+v, %v", applied, err)
+	}
+	paths, _ := s.NotePaths("gourmet")
+	if strings.Join(paths, ",") != "Preference.md,Shop.md" {
+		t.Fatalf("memory after = %v", paths)
+	}
+	again, err := r.MigrateMemory(context.Background(), "gourmet", true)
+	if err != nil || len(again.Legacy) != 0 || len(f.keeps) != 2 {
+		t.Fatalf("a second run = %+v, %v, model calls %d", again, err, len(f.keeps))
+	}
+}
+
+// Only a kakera of the user's, or the tidy-up after one was deleted, leaves the
+// keeper something to do.
 func TestOnlyTurnsThatLeaveSomethingToKeepRunTheKeeper(t *testing.T) {
-	post := timeline.Entry{ID: "p"}
 	cases := []struct {
 		name         string
-		trigger      bool
+		trigger      timeline.Entry
 		instructions string
 		want         bool
 	}{
-		{"a post of the user's", true, "", true},
-		{"a deletion tidy-up", false, deletedInstructions, true},
-		{"a note that expired", false, expiredInstructions, true},
-		{"the daily check-in", false, dailyInstructions, true},
-		{"a review", false, reviewInstructions, true},
-		{"a schedule waking", false, scheduleInstructions, false},
+		{"a post of the user's", timeline.Entry{ID: "p", Speaker: timeline.User}, "", true},
+		{"a deletion tidy-up", timeline.Entry{Speaker: "system"}, deletedInstructions, true},
+		{"the daily check-in", timeline.Entry{Speaker: "system"}, dailyShareInstructions, false},
+		{"a schedule waking", timeline.Entry{Speaker: "system"}, scheduleInstructions, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			entry := post
-			if !tc.trigger {
-				entry.ID = ""
-			}
-			if got := keepsNotes(entry, tc.instructions); got != tc.want {
+			if got := keepsNotes(tc.trigger, tc.instructions); got != tc.want {
 				t.Fatalf("keepsNotes = %v, want %v", got, tc.want)
 			}
 		})
 	}
 }
 
-func TestRepairedIndexKeepsTheGroupingAndMakesItComplete(t *testing.T) {
-	notes := []store.Note{
-		note("questions/a.md", "Aについて", "Aの話"),
-		note("questions/b.md", "Bについて", "Bの話"),
-		note("tastes/c.md", "C", ""),
+// A record line reads back as it was written, tags and all, and a sentence
+// holding a "#" does not grow a tag.
+func TestRecordLinesRoundTrip(t *testing.T) {
+	at := time.Date(2026, 10, 1, 12, 34, 0, 0, time.UTC)
+	rec := record{At: at, ID: "e_1", Summary: cleanSummary("C# の 本を\n買った"), Tags: []string{"本", "C"}}
+	text := recordsText("2026-10", []record{rec}, time.UTC)
+	if !strings.Contains(text, "- 2026-10-01 12:34 [e_1](/?entry=e_1) C＃ の 本を 買った #本 #C") {
+		t.Fatalf("text = %s", text)
 	}
-	index := "# 質問\n\n* [Aについて](/questions/a.md) - Aの話\n* [消えたもの](/questions/gone.md) - もうない\n\n# 好み\n\n"
-	fixed := repairedIndex(index, notes)
-
-	if !strings.Contains(fixed, "# 質問\n\n* [Aについて](/questions/a.md) - Aの話") || !strings.Contains(fixed, "# 好み") {
-		t.Fatalf("the persona's grouping was not kept:\n%s", fixed)
+	back := parseRecords(text, time.UTC)
+	if len(back) != 1 || back[0].Summary != rec.Summary || strings.Join(back[0].Tags, ",") != "本,C" || !back[0].At.Equal(at) {
+		t.Fatalf("back = %+v", back)
 	}
-	if strings.Contains(fixed, "gone.md") {
-		t.Fatalf("a link to a note that does not exist was kept:\n%s", fixed)
+	if !RecordsTagged("records/2026-10.md", text, "#本") || RecordsTagged("Shop.md", text, "本") {
+		t.Fatal("tag filter")
 	}
-	for _, path := range []string{"/questions/b.md", "/tastes/c.md"} {
-		if !strings.Contains(fixed, path) {
-			t.Fatalf("%s is not linked:\n%s", path, fixed)
-		}
+	dated := rec
+	dated.Expires = dateFrom("2026-10-02", at, time.UTC)
+	dated.Review = recordDate{Day: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), Days: 31}
+	dated.Asked = "e_ask"
+	line := dated.fileLine(time.UTC)
+	if !strings.HasSuffix(line, "#本 #C expires:2026-10-02/1d review:2026-11-01/31d asked:e_ask") {
+		t.Fatalf("line = %s", line)
 	}
-	if !strings.Contains(fixed, "* [Bについて](/questions/b.md) - Bの話") {
-		t.Fatalf("a note was added without its title and description:\n%s", fixed)
-	}
-	if strings.Count(fixed, unsortedHeading) != 1 {
-		t.Fatalf("the unsorted heading should appear once:\n%s", fixed)
-	}
-	if again := repairedIndex(fixed, notes); again != fixed {
-		t.Fatalf("repairing is not stable:\n%s\n---\n%s", fixed, again)
-	}
-}
-
-func TestRepairedIndexOfAnEmptyMemoryStaysEmpty(t *testing.T) {
-	if got := repairedIndex("", nil); got != "" {
-		t.Fatalf("index = %q", got)
+	again := parseRecords(line, time.UTC)
+	if len(again) != 1 || again[0].Summary != rec.Summary || again[0].Expires != dated.Expires || again[0].Review != dated.Review || again[0].Asked != "e_ask" || strings.Join(again[0].Tags, ",") != "本,C" {
+		t.Fatalf("again = %+v", again)
 	}
 }
 
-func TestRepairedIndexRemovesDuplicateNoteLines(t *testing.T) {
-	notes := []store.Note{note("questions/a.md", "A", "説明")}
-	index := "# 質問\n\n* [A](/questions/a.md) - 説明\n\n# 未整理\n\n* [A](/questions/a.md)\n"
-	fixed := repairedIndex(index, notes)
-	if strings.Count(fixed, "](/questions/a.md)") != 1 {
-		t.Fatalf("note is listed more than once:\n%s", fixed)
-	}
-}
-
-func TestTidyHintsFindUnlinkedNotesAndTitlesSharedAcrossDirectories(t *testing.T) {
-	notes := []store.Note{
-		note("question/x.md", "デポジットの必要性", "a"),
-		note("questions/x.md", "デポジットの必要性", "b"),
-		note("tastes/c.md", "全く別の話", "c"),
-	}
-	unlinked, groups := tidyHints(notes, "# 質問\n\n* [別の話](/tastes/c.md)\n")
-	if len(unlinked) != 2 || len(groups) != 1 || len(groups[0]) != 2 {
-		t.Fatalf("unlinked=%v groups=%v", unlinked, groups)
-	}
-}
-
-// A note written with a section is listed under that heading, moved there from
-// any other; a new heading is made; without a section a listed note's line is
-// brought up to date where it is. The persona's other lines stay as they were.
-func TestPlaceLineListsANoteUnderItsSection(t *testing.T) {
-	index := "# 質問\n\n* [古い](/questions/old.md) - d\n\n# 好み\n\n* [A](/tastes/a.md) - a\n"
-	moved := note("tastes/a.md", "A店", "よく行く")
-
-	got := placeNoteInIndex(index, "質問", moved)
-	want := "# 質問\n\n* [古い](/questions/old.md) - d\n* [A店](/tastes/a.md) - よく行く\n\n# 好み\n"
-	if got != want {
-		t.Fatalf("moved:\n%s\nwant:\n%s", got, want)
-	}
-	got = placeNoteInIndex(index, "店", note("shops/b.md", "B店", "駅前"))
-	if !strings.HasSuffix(got, "# 好み\n\n* [A](/tastes/a.md) - a\n\n# 店\n\n* [B店](/shops/b.md) - 駅前\n") {
-		t.Fatalf("new heading:\n%s", got)
-	}
-	got = placeNoteInIndex("# 好み\n", "好み", note("tastes/c.md", "C", "c"))
-	if got != "# 好み\n\n* [C](/tastes/c.md) - c\n" {
-		t.Fatalf("under an empty heading:\n%q", got)
-	}
-	got = placeNoteInIndex(index, "", moved)
-	if !strings.Contains(got, "# 好み\n\n* [A店](/tastes/a.md) - よく行く") {
-		t.Fatalf("refreshed in place:\n%s", got)
-	}
-	if got := placeNoteInIndex(index, "", note("new/x.md", "X", "x")); got != index {
-		t.Fatalf("an unlisted note without a section was placed:\n%s", got)
-	}
-	if got := placeNoteInIndex("", "質問", note("q/x.md", "X", "")); got != "# 質問\n\n* [X](/q/x.md)\n" {
-		t.Fatalf("into an empty index:\n%q", got)
-	}
-}
-
-func TestEmptyFrontMatterTitleAndDescriptionStayEmpty(t *testing.T) {
-	note := "---\ntitle:\ndescription:\ntags: [ramen]\n---\n本文"
-	if got := noteTitle(note); got != "" {
-		t.Fatalf("title = %q", got)
-	}
-	if got := noteDescription(note); got != "" {
-		t.Fatalf("description = %q", got)
-	}
-}
-
-// The keeper lists a note by naming its heading; it does not have to rewrite
-// index.md, and what it writes is placed there by the app.
-func TestTheKeeperNamesTheHeadingAndTheAppPlacesTheNote(t *testing.T) {
-	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	writeNotes(t, s, "gourmet", map[string]string{
-		"tastes/a.md": "---\ntype: Preference\ntitle: A店\n---\n前から好き",
-		"index.md":    "# 好み\n\n* [A店](/tastes/a.md)\n",
-	})
-	f.phaseReply = func(system, user string, offered map[string]bool) string {
-		switch {
-		case offered["finish_read"]:
-			return "read_done"
-		case offered["submit_answer"]:
-			return `{"text":"いいね。","sources":[]}`
-		case offered["submit_schedule"]:
-			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
-		}
-		return `{"operations":[{"type":"write","path":"shops/b.md","text":"---\ntype: Shop\ntitle: B店\ndescription: 駅前の店\n---\n行きたい","section":"店"}]}`
-	}
-	r.react(post(t, s, "B店に行きたい").ID)
-	index, _ := s.Note("gourmet", "index.md")
-	if !strings.Contains(index.Text, "# 好み\n\n* [A店](/tastes/a.md)") || !strings.Contains(index.Text, "# 店\n\n* [B店](/shops/b.md) - 駅前の店") {
-		t.Fatalf("index.md:\n%s", index.Text)
-	}
-	if strings.Contains(index.Text, unsortedHeading) {
-		t.Fatalf("a placed note went to unsorted:\n%s", index.Text)
-	}
-}
-
-// A tidy-up hands the keeper the notes whose text still links to one that was
-// taken away, found by the app: the index does not say which they are.
-func TestATidyUpIsHandedTheNotesLinkingToOneGone(t *testing.T) {
-	r, s, _ := setup(t, func(system, user string) string { return `{"deliver":[]}` }, "gourmet")
-	writeNotes(t, s, "gourmet", map[string]string{
-		"tastes/a.md": "---\ntype: Preference\ntitle: A\n---\n[B店](/shops/b.md) と比べて好き",
-		"tastes/c.md": "---\ntype: Preference\ntitle: C\n---\n関係ない",
-		"shops/d.md":  "---\ntype: Shop\ntitle: D\n---\n残った",
-	})
-	trigger := timeline.Entry{Speaker: "system", Text: "Notes that still cite other posts: shops/d.md. Notes the app deleted because they rested only on it: shops/b.md."}
-	got := r.handedNotes("gourmet", trigger, deletedInstructions)
-	if strings.Join(got, ",") != "shops/d.md,tastes/a.md" {
-		t.Fatalf("handed = %v", got)
-	}
-}
-
-// The user's reply to a post the persona started on its own - a review
-// question - hands the keeper the notes that post was about.
-func TestAReplyToThePersonasOwnPostHandsItsNotes(t *testing.T) {
-	r, s, _ := setup(t, func(system, user string) string { return `{"deliver":[]}` }, "gourmet")
-	writeNotes(t, s, "gourmet", map[string]string{"shops/soka.md": "---\ntype: Shop\ntitle: 草加\n---\n草加の店"})
-	asked := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: "gourmet", Text: "そろそろ忘れていい？", Notes: []string{"shops/soka.md"}}
-	asked.Root = asked.ID
-	if err := s.Append(asked); err != nil {
-		t.Fatal(err)
-	}
-	reply := replyTo(t, s, asked, "もういい")
-	if got := r.handedNotes("gourmet", reply, ""); len(got) != 1 || got[0] != "shops/soka.md" {
-		t.Fatalf("handed = %v", got)
-	}
-}
-
-// What a proposal is held to in index.md is what it touches: a note it writes
-// must name its heading or already be listed. A mess it did not make is not
-// held against it.
-func TestIndexProblemsAreOnlyAboutWhatTheProposalTouches(t *testing.T) {
-	notes := []store.Note{note("questions/old.md", "古い", "d"), note("questions/other.md", "別", "d")}
-	index := "# 質問\n\n* [古い](/questions/old.md) - d\n"
-
-	if got := indexProblems(notes, index, nil); len(got) != 0 {
-		t.Fatalf("a proposal that changes nothing was asked for an index: %v", got)
-	}
-	unrelated := []NoteOperation{{Type: "write", Path: "questions/old.md", Text: "---\ntitle: 古い\n---\n更新"}}
-	if got := indexProblems(notes, index, unrelated); len(got) != 0 {
-		t.Fatalf("an unlinked note it did not touch was held against it: %v", got)
-	}
-	added := []NoteOperation{{Type: "write", Path: "questions/new.md", Text: "---\ntitle: 新しい\n---\n本文"}}
-	if got := indexProblems(notes, index, added); len(got) != 1 || !strings.Contains(got[0], "questions/new.md") {
-		t.Fatalf("a note written without a heading was accepted: %v", got)
-	}
-	placed := []NoteOperation{{Type: "write", Path: "questions/new.md", Text: "---\ntitle: 新しい\n---\n本文", Section: "質問"}}
-	if got := indexProblems(notes, index, placed); len(got) != 0 {
-		t.Fatalf("problems with a note that names its heading: %v", got)
-	}
-	linked := append(added, NoteOperation{Type: "write", Path: "index.md", Text: index + "* [新しい](/questions/new.md) - 新\n"})
-	if got := indexProblems(notes, index, linked); len(got) != 0 {
-		t.Fatalf("problems with a linked note: %v", got)
-	}
-	// The app takes a forgotten note's line out; the proposal need not.
-	forgotten := []NoteOperation{{Type: "forget", Path: "questions/old.md"}}
-	if got := indexProblems(notes, index, forgotten); len(got) != 0 {
-		t.Fatalf("a forget was asked to rewrite the index: %v", got)
-	}
-}
-
-// A persona that stays quiet because the post is not its business keeps no
-// notes, and the routing sheet records why; one that stays quiet with nothing
-// to say still has its notes kept.
+// A persona that stays quiet because the post is not its business keeps
+// nothing, and the routing sheet records why; one that stays quiet with
+// nothing to say still has the kakera recorded.
 func TestAnUnrelatedSilenceKeepsNothingAndIsRecorded(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
@@ -347,7 +287,6 @@ func TestAnUnrelatedSilenceKeepsNothingAndIsRecorded(t *testing.T) {
 	}{{"unrelated", true}, {"related", false}} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-			kept := 0
 			f.phaseReply = func(system, user string, offered map[string]bool) string {
 				switch {
 				case offered["finish_read"]:
@@ -357,11 +296,8 @@ func TestAnUnrelatedSilenceKeepsNothingAndIsRecorded(t *testing.T) {
 						return `{"text":"","sources":[],"unrelated":true}`
 					}
 					return `{"text":"","sources":[],"unrelated":false}`
-				case offered["submit_schedule"]:
-					return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 				}
-				kept++
-				return `{"operations":[]}`
+				return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 			}
 			entry := post(t, s, "明日は雨らしい")
 			r.react(entry.ID)
@@ -370,13 +306,13 @@ func TestAnUnrelatedSilenceKeepsNothingAndIsRecorded(t *testing.T) {
 				t.Fatal("no routing record")
 			}
 			if tc.unrelated {
-				if kept != 0 || !contains(record.Unrelated, "gourmet") {
-					t.Fatalf("keeper runs = %d, unrelated = %v", kept, record.Unrelated)
+				if len(f.keeps) != 0 || !contains(record.Unrelated, "gourmet") {
+					t.Fatalf("keeper runs = %d, unrelated = %v", len(f.keeps), record.Unrelated)
 				}
 				return
 			}
-			if kept == 0 || len(record.Unrelated) != 0 {
-				t.Fatalf("keeper runs = %d, unrelated = %v", kept, record.Unrelated)
+			if len(f.keeps) == 0 || len(record.Unrelated) != 0 {
+				t.Fatalf("keeper runs = %d, unrelated = %v", len(f.keeps), record.Unrelated)
 			}
 		})
 	}
@@ -399,32 +335,130 @@ func TestOnlyASilenceIsUnrelated(t *testing.T) {
 	}
 }
 
-// A model that keeps calling read after it was withdrawn is stopped: the phase
-// gives up within a bounded number of rounds instead of calling for ever with
-// the keeper's lock held, and the answer is already out.
-func TestAKeeperThatKeepsReadingIsStopped(t *testing.T) {
+// The keeper dates a record from what it is, and the dates read back.
+func TestTheKeeperDatesARecord(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	rounds := 0
+	f.phaseReply = answeringReply("")
+	review := time.Now().AddDate(0, 0, 21).Format("2006-01-02")
+	calls := 0
+	f.keep = func(system, user string) string {
+		calls++
+		if !strings.Contains(system, "review は、ユーザーから聞いたことのうち") {
+			t.Error("the keeper was not told how to date a record")
+		}
+		if calls == 1 {
+			return `{"summary":"二郎に行きたい","tags":["ラーメン"],"expires":"2020-01-01","review":"","fields":[]}`
+		}
+		return `{"summary":"二郎に行きたい","tags":["ラーメン"],"expires":"","review":"` + review + `","fields":[]}`
+	}
+	r.react(post(t, s, "二郎に行きたい").ID)
+	if calls != 2 {
+		t.Fatalf("a date in the past was not sent back: calls = %d", calls)
+	}
+	found, _ := r.findRecords("gourmet", "", "", "", 10, s.Settings().Location())
+	if len(found) != 1 || found[0].Review.Day.Format("2006-01-02") != review || found[0].Expires.set() || found[0].Review.Days < 20 {
+		t.Fatalf("records = %+v", found)
+	}
+}
+
+// A record read while answering a post gets the span it was given afresh;
+// one only handed over, or read by a check-in, does not.
+func TestARecordReadForAPostIsExtended(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	zone := s.Settings().Location()
+	at := time.Now().AddDate(0, 0, -20)
+	old := record{At: at, ID: "e_old", Summary: "草加の店に行きたい", Tags: []string{"草加"},
+		Review: recordDate{Day: time.Date(at.Year(), at.Month(), at.Day()+21, 0, 0, 0, 0, zone), Days: 21}}
+	if err := s.WriteNote("gourmet", recordsPath(at.In(zone)), recordsText(at.In(zone).Format("2006-01"), []record{old}, zone)); err != nil {
+		t.Fatal(err)
+	}
+	asked := false
+	f.phaseReply = func(system, user string, offered map[string]bool) string {
+		switch {
+		case offered["finish_read"]:
+			if !asked {
+				asked = true
+				return `{"steps":[{"type":"records","tool":"","args":"{\"tag\":\"草加\"}"}]}`
+			}
+			return "read_done"
+		case offered["submit_answer"]:
+			return `{"text":"草加の店ですね。","sources":[]}`
+		}
+		return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+	}
+	r.react(post(t, s, "草加に行く").ID)
+	found := r.recordsByID("gourmet", map[string]bool{"e_old": true}, zone)
+	today := time.Now().In(zone)
+	want := time.Date(today.Year(), today.Month(), today.Day()+21, 0, 0, 0, 0, zone)
+	if len(found) != 1 || !found[0].Review.Day.Equal(want) || found[0].Review.Days != 21 {
+		t.Fatalf("the read record was not extended: %+v, want %s", found, want)
+	}
+}
+
+// A record due for review is handed to the check-in, which asks about it; the
+// keeper puts it off a week and marks the post that asked. The user's reply
+// to that post settles it.
+func TestAReviewIsAskedAndSettledByTheReply(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	settings := s.Settings()
+	settings.DailyCheckIns = map[string]store.DailyCheckIn{"gourmet": {Talk: store.CheckInMinimal}}
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	zone := s.Settings().Location()
+	at := time.Now().AddDate(0, 0, -30)
+	due := record{At: at, ID: "e_due", Summary: "草加の店に行きたい", Tags: []string{"草加"},
+		Review: recordDate{Day: time.Date(at.Year(), at.Month(), at.Day()+21, 0, 0, 0, 0, zone), Days: 21}}
+	if err := s.WriteNote("gourmet", recordsPath(at.In(zone)), recordsText(at.In(zone).Format("2006-01"), []record{due}, zone)); err != nil {
+		t.Fatal(err)
+	}
+	week := time.Now().AddDate(0, 0, 7).In(zone).Format("2006-01-02")
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
 		case offered["finish_read"]:
 			return "read_done"
 		case offered["submit_answer"]:
-			return `{"text":"駅から5分の店です。","sources":[]}`
-		case offered["submit_schedule"]:
-			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+			if strings.Contains(user, "Review due") {
+				if !strings.Contains(user, "[e_due] 草加の店に行きたい") {
+					t.Errorf("the due record was not handed over:\n%s", user)
+				}
+				return `{"text":"そろそろ忘れていい？ 草加の店の話","sources":[]}`
+			}
+			return `{"text":"了解、忘れるね。","sources":[]}`
 		}
-		rounds++
-		if rounds > 50 {
-			t.Fatal("the keeper did not stop")
+		return `{"operations":[],"consistent":true,"reason":"約束なし"}`
+	}
+	f.keep = func(system, user string) string {
+		if strings.Contains(system, "チェックインで、見直しの日が来た記録") {
+			return `{"fields":[],"records":[{"id":"e_due","expires":"","review":"` + week + `","forget":false}]}`
 		}
-		return `force-read:{"steps":[{"type":"notes_list","paths":[],"tool":"","args":"{}"}]}`
+		if !strings.Contains(system, "そろそろ忘れていい？」と聞いた投稿への返事") || !strings.Contains(user, "[e_due]") {
+			t.Errorf("the keeper of the reply was not handed the asked record:\n%s\n%s", system, user)
+		}
+		return `{"summary":"忘れていいと言った","tags":["草加"],"expires":"","review":"","fields":[],"records":[{"id":"e_due","expires":"","review":"","forget":true}]}`
 	}
-	r.react(post(t, s, "ラーメン屋を教えて").ID)
-	if rounds > maxPhaseRounds {
-		t.Fatalf("rounds = %d, want at most %d", rounds, maxPhaseRounds)
+	r.dailyAt(context.Background(), store.CheckInCloses(checkInDay(s, time.Now().UTC(), "gourmet")).Add(-time.Minute))
+	var said []timeline.Entry
+	entries, _ := s.Timeline()
+	for _, entry := range entries {
+		if entry.Speaker == "gourmet" {
+			said = append(said, entry)
+		}
 	}
-	if got := remarks(t, s); len(got) != 1 {
-		t.Fatalf("remarks = %+v", got)
+	if len(said) != 1 {
+		t.Fatalf("the check-in did not ask: %+v", said)
+	}
+	asked := r.recordsByID("gourmet", map[string]bool{"e_due": true}, zone)
+	if len(asked) != 1 || asked[0].Asked != said[0].ID || asked[0].Review.Day.Format("2006-01-02") != week {
+		t.Fatalf("the asked record = %+v", asked)
+	}
+
+	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User, Root: said[0].Root, ReplyTo: said[0].ID, Text: "もういいよ", At: time.Now()}
+	if err := s.Append(reply); err != nil {
+		t.Fatal(err)
+	}
+	r.react(reply.ID)
+	if left := r.recordsByID("gourmet", map[string]bool{"e_due": true}, zone); len(left) != 0 {
+		t.Fatalf("the record the user let go is still kept: %+v", left)
 	}
 }

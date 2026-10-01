@@ -43,7 +43,7 @@ var scheduleTool = Tool{
 		"time_zone":  map[string]any{"type": "string", "description": "IANAのタイムゾーン。毎日繰り返すときは必須"},
 		"id":         map[string]any{"type": "string", "description": "cancel するときの s_ から始まるid"},
 	}},
-	Usage: `schedule — 自分を起こす時刻を本体に預ける。カレンダーや目覚ましではなく、あなたの担当の用のためのものです。atの代わりにin_minutesでも置けます。noteは起きたときに自分が読む「何のためか」です。メモを書いたら、同じターンのうちに schedule も置くか直してください（メモと本体の予定は別の場所にあります）。時刻はユーザーに尋ねず、書かれた言葉と過去の記録から決めます。済んだと分かったこと、やめたことは cancel してください。未来の時刻を設定できます。list は他の担当の予定も含めて返します。skill は予定を置いた担当ID、owner は担当名（ID）です。自分の予定は起動時の一覧で、他の担当の予定は調査フェーズの schedules_list で同じ用の予定を確認し、重複を避けてください。cancel できるのは自分の予定だけです。担当ごとに20件まで。発火すると1回きりのものは消え、daily:true のものは翌日の同じ時刻に進みます。鳴っても言うことがなければ silent。`,
+	Usage: `schedule — 自分を起こす時刻を本体に預ける。カレンダーや目覚ましではなく、あなたの担当の用のためのものです。atの代わりにin_minutesでも置けます。noteは起きたときに自分が読む「何のためか」です。時刻はユーザーに尋ねず、書かれた言葉と過去の記録から決めます。済んだと分かったこと、やめたことは cancel してください。未来の時刻を設定できます。list は他の担当の予定も含めて返します。skill は予定を置いた担当ID、owner は担当名（ID）です。自分の予定は起動時の一覧で、他の担当の予定は調査フェーズの schedules_list で同じ用の予定を確認し、重複を避けてください。cancel できるのは自分の予定だけです。担当ごとに20件まで。発火すると1回きりのものは消え、daily:true のものは翌日の同じ時刻に進みます。鳴っても言うことがなければ silent。`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		if r.schedules == nil {
 			return Result{}, errors.New("schedule が設定されていません")
@@ -75,7 +75,7 @@ func setSchedule(r *Registry, owner string, args Args) (Result, error) {
 	if zone == "" || zone == "Local" {
 		zone = r.zone
 	}
-	schedule := store.Schedule{Skill: owner, Note: args.str("note"), NotePath: args.str("note_path"), TimeZone: zone}
+	schedule := store.Schedule{Skill: owner, Note: args.str("note"), TimeZone: zone}
 	if daily, ok := args["daily"].(bool); ok {
 		schedule.Daily = daily
 	}
@@ -148,7 +148,7 @@ var schedulesListTool = Tool{
 		"limit": map[string]any{"type": "number", "description": "件数。1〜30、既定20"},
 		"after": map[string]any{"type": "string", "description": "続きの取得には前の結果の next_after を指定。同じ絞り込みを使う"},
 	}},
-	Usage: `schedules_list — 現在のスケジュールを閲覧する専用ツール。自分の予定は最初に渡されます。他の担当と通知が重複しそうなときは、このツールで確認してから回答してください。skill（担当ID）、query（覚書・担当名の部分一致）、from/to（通知日時）で絞れます。担当名（ID）、予定ID、日時、繰り返し、覚書を返します。背景メモは返しません。1回20件、最大30件。next_after があれば同じ条件と after で続きを確認できます。他の担当の予定は変更・取消できません。`,
+	Usage: `schedules_list — 現在のスケジュールを閲覧する専用ツール。自分の予定は最初に渡されます。他の担当と通知が重複しそうなときは、このツールで確認してから回答してください。skill（担当ID）、query（覚書・担当名の部分一致）、from/to（通知日時）で絞れます。担当名（ID）、予定ID、日時、繰り返し、覚書を返します。1回20件、最大30件。next_after があれば同じ条件と after で続きを確認できます。他の担当の予定は変更・取消できません。`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		if r.schedules == nil {
 			return Result{}, errors.New("schedule が設定されていません")

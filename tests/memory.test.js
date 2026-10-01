@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseMemoryNote, memoryLink, createMemoryView, editableBody, expiresLabel } from "../frontend/src/memory.js";
+import { parseMemoryNote, memoryLink, createMemoryView, editableBody } from "../frontend/src/memory.js";
 import { setLanguage } from "../frontend/src/i18n.js";
 
 const preference = { path: "preferences/light.md", text: `---
@@ -180,9 +180,9 @@ test("tags are shown as chips and narrow the view", (ctx) => {
   assert.deepEqual(titles(), ["Altura", "Margaux"]);
 });
 
-// A note the persona gave an expires date - a lunch candidate it searched up -
-// says so in the reader, so the day-old chip is not mistaken for memory.
-test("an expires date is shown as a chip that does not filter", (ctx) => {
+// The fields come first and the months of records after them, newest first.
+// A record's id opens the entry, and its tags narrow the view.
+test("records list after the fields, with entry links and tag chips", (ctx) => {
   globalThis.Node = Element;
   globalThis.document = {
     createElement: tag => new Element(tag),
@@ -191,50 +191,27 @@ test("an expires date is shown as a chip that does not filter", (ctx) => {
   };
   ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
   setLanguage("ja");
-  const candidate = { path: "shops/soka-lunch.md", text: "---\ntype: Shop\ntitle: 草加ランチ候補\ntags: [草加]\nexpires: 2026-09-26\n---\n候補。" };
-  const kept = { path: "shops/kept.md", text: "---\ntype: Shop\ntitle: 行きたい店\nexpires: never\n---\n本人が行きたいと言った。" };
-  assert.equal(parseMemoryNote(candidate).expires, "2026-09-26");
-  assert.equal(parseMemoryNote(kept).expires, "");
-  assert.equal(parseMemoryNote(wine).expires, "");
-  assert.equal(expiresLabel("2026-09-26"), "2026-09-26", "a bare date is shown as written");
-  assert.equal(expiresLabel("明日"), "明日", "an unreadable value is shown as written");
-  const view = createMemoryView([candidate, kept]);
-  const labels = view.all().filter(node => node.tagName === "SPAN" && String(node.textContent).endsWith("に消える"));
-  assert.deepEqual(labels.map(node => node.textContent), ["2026-09-26 に消える"]);
+  const september = { path: "records/2026-09.md", text: "# 2026-09 のかけら\n\n- 2026-09-30 12:00 [e_old](/?entry=e_old) 前の話 #ラーメン\n" };
+  const october = { path: "records/2026-10.md", text: "# 2026-10 のかけら\n\n- 2026-10-01 12:34 [e_r1](/?entry=e_r1) 三田の二郎に行きたい #ラーメン #三田\n" };
+  const shop = { path: "Shop.md", text: "三田の二郎に行きたい。\n" };
+  const asked = [];
+  const view = createMemoryView([september, shop, october], { onFilter: (filter) => asked.push(filter) });
+  const cards = view.all().filter(node => node.tagName === "ARTICLE").map(node => node.attributes["data-path"]);
+  assert.deepEqual(cards, ["Shop.md", "records/2026-10.md", "records/2026-09.md"]);
+  const link = view.all().find(node => node.tagName === "A" && node.textContent === "e_r1");
+  assert.equal(link.attributes.href, "/?entry=e_r1");
   const chips = view.all().filter(node => node.tagName === "BUTTON" && String(node.textContent).startsWith("#"));
-  assert.deepEqual(chips.map(node => node.textContent), ["#草加"], "the expiry is not a tag chip");
-  setLanguage("en");
-  ctx.after(() => setLanguage("ja"));
-  const english = createMemoryView([candidate]);
-  assert.ok(english.all().some(node => node.textContent === "Gone on 2026-09-26"));
-});
-
-// A review date the persona chose for something the user said is shown too,
-// and can sit beside an expires date without either being mistaken for a tag.
-test("a review date is shown as a chip beside the expiry", (ctx) => {
-  globalThis.Node = Element;
-  globalThis.document = {
-    createElement: tag => new Element(tag),
-    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
-    activeElement: null,
-  };
-  ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
-  setLanguage("ja");
-  const wanted = { path: "shops/soka.md", text: "---\ntype: Shop\ntitle: 草加の店\ntags: [草加]\nreview: 2026-10-15\n---\n行きたいと言っていた。" };
-  const both = { path: "shops/both.md", text: "---\ntype: Shop\ntitle: 両方\nexpires: 2026-09-26\nreview: 2026-10-15\n---\n" };
-  const forever = { path: "tastes/tonkotsu.md", text: "---\ntype: Preference\ntitle: 豚骨\nreview: never\n---\n" };
-  assert.equal(parseMemoryNote(wanted).review, "2026-10-15");
-  assert.equal(parseMemoryNote(forever).review, "");
-  assert.equal(parseMemoryNote(wine).review, "");
-  const view = createMemoryView([wanted, both, forever]);
-  const spans = view.all().filter(node => node.tagName === "SPAN" && /に(見直し|消える)$/.test(String(node.textContent)));
-  assert.deepEqual(spans.map(node => node.textContent), ["2026-10-15 に見直し", "2026-09-26 に消える", "2026-10-15 に見直し"]);
-  const chips = view.all().filter(node => node.tagName === "BUTTON" && String(node.textContent).startsWith("#"));
-  assert.deepEqual(chips.map(node => node.textContent), ["#草加"], "the review is not a tag chip");
-  setLanguage("en");
-  ctx.after(() => setLanguage("ja"));
-  const english = createMemoryView([wanted]);
-  assert.ok(english.all().some(node => node.textContent === "Review on 2026-10-15"));
+  assert.deepEqual(chips.map(node => node.textContent), ["#ラーメン", "#三田", "#ラーメン"]);
+  chips[1].events.click();
+  assert.deepEqual(asked.at(-1), { tag: "三田", type: "" });
+  // A record's dates show as chips, and the post that asked about it does not.
+  const dated = { path: "records/2026-08.md", text: "- 2026-08-01 12:00 [e_d](/?entry=e_d) 草加の店 #草加 expires:2026-08-02/1d review:2026-09-01/31d asked:e_ask\n" };
+  const datedView = createMemoryView([dated]);
+  const spans = datedView.all().filter(node => node.tagName === "SPAN" && /に(消える|見直し)$/.test(String(node.textContent)));
+  assert.deepEqual(spans.map(node => node.textContent), ["2026-08-02 に消える", "2026-09-01 に見直し"]);
+  assert.ok(!datedView.all().some(node => String(node.textContent).includes("asked:")));
+  assert.equal(parseMemoryNote(october).records, true);
+  assert.equal(parseMemoryNote(shop).records, false);
 });
 
 // One page of many: a link to a note on a later page still resolves and asks

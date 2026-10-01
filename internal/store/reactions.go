@@ -52,7 +52,7 @@ type Reaction struct {
 	// is to be carried on.
 	Ask string `json:"ask,omitempty" firestore:"ask,omitempty"`
 	// Due runs whatever has come due - asks past their waits, note retries,
-	// check-ins, schedules, expired notes - and arms the next time something
+	// expired records, check-ins, schedules - and arms the next time something
 	// will; Index brings the search index up to date.
 	Due   bool `json:"due,omitempty" firestore:"due,omitempty"`
 	Index bool `json:"index,omitempty" firestore:"index,omitempty"`
@@ -75,7 +75,8 @@ type EntryDelivery struct {
 	SkillsJSON   string            `json:"skillsJSON" firestore:"skillsJSON"`
 }
 
-// ForgottenReaction is notes a persona is to be told were deleted.
+// ForgottenReaction is notes a persona was to be told were deleted, queued
+// before memory was kept in fields. One still queued is dropped unrun.
 type ForgottenReaction struct {
 	Skill   string   `json:"skill" firestore:"skill"`
 	Paths   []string `json:"paths" firestore:"paths"`

@@ -2,11 +2,9 @@ package persona
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -20,33 +18,6 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"github.com/takeshy/kakeratta/internal/tools"
 )
-
-// okfSkill is how a persona is told to write its notes: as an Open Knowledge
-// Format bundle, one concept per file.
-//
-// It is a format, not a policy. What to keep and when to compress stay in each
-// persona's own instructions, and nothing in this app parses what it writes -
-// a persona that ignores the format still has its notes kept, and that is the
-// bargain.
-// The format is offered because one blob of prose rewritten every time loses
-// things quietly, while named concepts each led by a description can be reread,
-// and changed one at a time.
-//
-//go:embed skills/okf/SKILL.md
-var okfSkill string
-
-// okfHost is the one line of introduction the skill needs. Everything else it
-// says already fits this app, because the skill was written for it.
-const okfHost = "# メモの書き方\n\nメモを書くときは、次のスキルに従ってください。\n\n---\n\n"
-
-type forgotten struct {
-	skill string
-	paths []string
-	// expired: the app deleted these itself because their expires date had
-	// passed, rather than the user removing them. The persona is told which,
-	// since one is a choice to respect and the other its own arrangement.
-	expired bool
-}
 
 // Runner wakes personas. One runs per workspace in each process serving it.
 //
@@ -711,7 +682,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	skill = skill.forTurn()
 
 	root := timeline.RootOf(trigger)
-	daily := trigger.ID == ""
 	// deep is a reply asking for a better or deeper answer: Ultra, and a
 	// remark allowed to be as long as the answer needs.
 	model, slot := personaModel(settings), "super"
@@ -732,17 +702,13 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			r.emit("error", map[string]any{"where": "wakes", "message": err.Error()})
 		}
 	}
-	// Only what the store keeps about the persona: the notes themselves are
-	// read on demand, through index.md, which is what it is for.
+	// Only what the store keeps about the persona: its memory is handed over
+	// below, fields whole and the latest records.
 	memory := r.store.MemoryMeta(skill.ID)
 	if memory.JoinedAt.IsZero() {
 		memory.JoinedAt = time.Now()
 	}
 	set := registry.For(skill.Tools).As(skill.ID)
-	layout := strings.TrimSpace(skill.Memory)
-	if layout == "" {
-		layout = "（指示に書かれたとおり。対象の種類ごとに型を1つ決め、同じ対象は型が違っても1つのメモにします）"
-	}
 	length := briefRule
 	switch {
 	case deep:
@@ -763,12 +729,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// The clock a persona is told is the user's, not the container's.
 	here := settings.Location()
 	scheduleList, scheduleIDs := r.scheduleListFor(skill, set, names)
-	// The index is handed over every time, whole. It is the persona's own table
-	// of contents, and deciding what to read without it means reading blind.
-	indexNote := "（まだありません）"
-	if note, ok := r.store.Note(skill.ID, "index.md"); ok {
-		indexNote = note.Text
-	}
+	// The memory is handed over every time: the fields whole, being short,
+	// and the latest records. Older records are read on demand.
+	memoryNote := r.memoryView(skill, here)
 	// A tidy-up is told what it is by its own instructions; the line for a
 	// turn that reads what was said after it would only mislead it.
 	turn := turnLine(named, listening)
@@ -779,10 +742,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		placeLine(post.Place),
 		"",
-		r.noteCount(skill.ID),
-		"",
-		"あなたの index.md（最初に必ず渡します）:",
-		indexNote,
+		"あなたの記憶（最初に必ず渡します）:",
+		memoryNote,
 		"",
 		"自分の schedule（担当名（ID）付き。他の担当の予定は schedules_list で確認）:",
 		scheduleList,
@@ -799,27 +760,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
 	}
-	// referenced are the notes read this turn, for their dates to move - and
-	// for a plan that rewrites an existing note unread to be sent back. The
-	// index was handed over at the start, so it counts as read.
-	referenced := map[string]bool{"index.md": true}
-	rules := turnRules{named: named, listening: listening, noteRequired: trigger.ID != "" && !listening, set: set, schedules: scheduleIDs, notes: func(path string) []store.Note { return r.siblingNotes(skill.ID, path) }, memory: skill.Memory, cited: map[string]string{},
-		readState: func(path string) (bool, bool) {
-			note, ok := r.store.Note(skill.ID, strings.TrimPrefix(strings.TrimSpace(path), "/"))
-			if !ok {
-				return false, false
-			}
-			return true, referenced[note.Path]
-		}}
-	// The triggering entry is known by the host; no model-supplied ID is needed.
-	label := []rune(strings.Join(strings.Fields(trigger.Text), " "))
-	if len(label) > 140 {
-		label = append(label[:140], '…')
-	}
-	prov := newProvenance()
-	if !daily {
-		prov = newProvenance(store.NoteSource{EntryID: trigger.ID, Label: trigger.At.In(here).Format("2006-01-02 15:04 MST") + " — " + string(label)})
-	}
+	rules := turnRules{named: named, listening: listening, set: set, schedules: scheduleIDs, cited: map[string]string{}}
+	// referenced are the records read this turn, for their dates to move.
+	referenced := map[string]bool{}
 
 	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: reviewModel(settings)}
 	defer func() { logRun(record) }()
@@ -835,7 +778,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// What the persona read goes to the phases too: a note the turn read
 	// may be rewritten, one it did not is sent back before anything runs.
 	var readSources []timeline.Source
-	read := []string{"index.md（最初に渡したもの）:\n" + indexNote}
+	read := []string{"記憶（最初に渡したもの）:\n" + memoryNote}
 	failures := map[string]string{}
 	readLimit := turnReadLimit(deep)
 	budget := newLookups(readLimit, turnSearchLimit(deep))
@@ -848,14 +791,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			if *used >= limit {
 				return readsRefused
 			}
-			for _, step := range steps {
-				if step.Type == "notes_read" || (step.Type == "tool" && step.Tool == "notes_read") {
-					for _, path := range step.Paths {
-						referenced[strings.TrimPrefix(path, "/")] = true
-					}
-				}
-			}
-			text, sources := r.readAll(ctx, skill, steps, set, post, prov, failures, budget(), rules.cited)
+			text, sources := r.readAll(ctx, skill, steps, set, post, here, failures, budget(), rules.cited, referenced)
 			// Only what the answer was researched with goes under it.
 			if answering {
 				readSources = append(readSources, sources...)
@@ -886,7 +822,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			agentLength = deepRule
 		}
 		agentRules := fmt.Sprintf(answerRules, agentLength)
-		brief := r.askContext(skill, set, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, indexNote, scheduleList, names, here, deep)
+		brief := r.askContext(skill, set, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, memoryNote, scheduleList, names, here, deep)
 		turn := askTurn{Persona: skill.ID, Trigger: trigger, Place: post.Place, Named: named, Listening: listening, Instructions: wakeInstructions, Deep: deep}
 		if err := r.openAsk(ctx, settings, ask, brief, turn); err != nil {
 			return failed(err)
@@ -898,8 +834,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		research := resumed.Research
 		readsUsed = research.ReadsUsed
 		budget = research.Lookups.restore(readLimit, turnSearchLimit(deep))
-		for _, path := range research.Referenced {
-			referenced[path] = true
+		for _, id := range research.Referenced {
+			referenced[id] = true
 		}
 		read = append(read, research.Read...)
 		readSources = append(readSources, research.ReadSources...)
@@ -908,9 +844,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 		for id, why := range research.Failures {
 			failures[id] = why
-		}
-		for path, sources := range research.NotesRead {
-			prov.read[path] = sources
 		}
 		answer = resumed.Answer
 		record.Planner = "external"
@@ -944,7 +877,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	phaseContext := user + "\n\nこのターンに読んだ内容:\n" + strings.Join(read, "\n\n") + "\n\n完成した Answer:\n" + string(encodedAnswer)
 	// The phases run on the model the turn runs on: one turn, one voice.
 	log := turnLog{}
-	plan, err := r.planPhases(ctx, client, model, skill, *answer, phaseContext, layout, wakeInstructions, rules, phaseLookup,
+	plan, err := r.planPhases(ctx, client, model, skill, *answer, phaseContext, wakeInstructions, rules, phaseLookup,
 		func(plan Workflow) (*Review, error) {
 			return r.review(ctx, client, settings, skill, thread, trigger, *answer, plan,
 				"既存の予定:\n"+scheduleList+"\n読んだ内容:\n"+clip(strings.Join(read, "\n\n"), 20000), names, here)
@@ -959,10 +892,14 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	approved := plan.batch()
 
 	record.Ran = true
-	sources, steps := r.execute(ctx, skill, approved, set, rules, post, prov)
+	sources, steps := r.execute(ctx, skill, approved, set, rules, post)
 	record.Steps = steps
 	if trigger.ID != "" && !listening {
-		r.extendReferenced(skill.ID, referenced, steps, here)
+		// Only reading for a post counts: a check-in reading the record it is
+		// about to ask about must not put off its own question.
+		if err := r.extendRecords(ctx, skill.ID, referenced, time.Now(), here); err != nil {
+			r.emit("error", map[string]any{"where": "extend", "persona": skill.ID, "message": err.Error()})
+		}
 	}
 	if len(steps) > 0 && steps[len(steps)-1].Error != "" {
 		return failed(fmt.Errorf("stopped at %s: %s", steps[len(steps)-1].Type, steps[len(steps)-1].Error))
@@ -980,7 +917,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			remark = r.hush(skill, memory)
 		}
 	default:
-		remark = r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, notesWritten(steps), slot)
+		remark = r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, nil, slot)
 		if remark != nil && record.Wake == "schedule" {
 			r.emit("reminder", *remark)
 		}
@@ -995,12 +932,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		r.markUnrelated(trigger.ID, skill.ID)
 	}
 	if keepsNotes(trigger, wakeInstructions) && !unrelated {
-		keeper := keeperTurn{
-			skill: skill, set: set, rules: rules, thread: thread, trigger: trigger, post: post,
-			answer: spoken, wake: wakeInstructions, here: here, names: names, own: prov.own, layout: layout, schedules: plan.Schedules, preread: prereadNotes(referenced),
-			handed: r.handedNotes(skill.ID, trigger, wakeInstructions),
+		keeper := keeperTurn{skill: skill, thread: thread, trigger: trigger, answer: spoken, wake: wakeInstructions, here: here, names: names}
+		if remark != nil {
+			keeper.replyID = remark.ID
 		}
-		snapshot := snapshotKeeper(keeper, remark)
+		snapshot := snapshotKeeper(keeper)
 		if payload, err := json.Marshal(snapshot); err == nil {
 			// This turn is still running when the periodic retry pass, here or
 			// in another process, may see its job. Lease the first attempt for
@@ -1010,7 +946,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				NextAttempt: time.Now().Add(11 * time.Minute)}
 			if err := r.store.SaveNoteJob(job); err != nil {
 				r.emit("error", map[string]any{"where": "note retry", "message": err.Error()})
-				written, _, _ := r.keepNotes(ctx, client, settings, keeper)
+				written, _ := r.keepNotes(ctx, client, settings, keeper)
 				r.pointAtNotes(remark, written)
 			} else {
 				r.runKeeperJob(ctx, client, settings, job, snapshot)
@@ -1020,81 +956,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 	}
 	return remark
-}
-
-// prereadNotes are the notes a turn opened while it worked, in name order and no
-// more than the keeper takes.
-func prereadNotes(referenced map[string]bool) []string {
-	var paths []string
-	for path := range referenced {
-		if !reservedNote(path) {
-			paths = append(paths, path)
-		}
-	}
-	sort.Strings(paths)
-	if len(paths) > maxKeeperReads {
-		paths = paths[:maxKeeperReads]
-	}
-	return paths
-}
-
-// maxHanded caps the notes the app hands the keeper on its own account. A
-// tidy-up can touch more notes than a turn chooses, so it is larger than
-// maxKeeperReads.
-const maxHanded = 12
-
-// notePathMention finds note paths named in a wake's text: the notes a review
-// is due for, or the notes a deletion took away or left behind.
-var notePathMention = regexp.MustCompile(`[^\s,()（）、「」:：]+\.md`)
-
-// handedNotes are the notes the keeper must see whole without having to find
-// them: the ones the app itself named in the wake - due for review, left behind
-// or taken away by a deletion - the notes that still link to one taken away,
-// and, for the user's reply to a post of the persona's own, the notes that post
-// was about. The keeper cannot read, so a note it needs and is not handed is a
-// note it cannot fix.
-func (r *Runner) handedNotes(personaID string, trigger timeline.Entry, instructions string) []string {
-	var named []string
-	if trigger.Speaker == "system" || trigger.ID == "" {
-		named = notePathMention.FindAllString(trigger.Text, -1)
-	}
-	if parent, ok := r.store.Entry(trigger.ReplyTo); ok && trigger.Kind == timeline.KindReply && parent.Speaker == personaID && parent.Root == parent.ID {
-		named = append(named, parent.Notes...)
-	}
-	var out, gone []string
-	seen := map[string]bool{}
-	for _, path := range named {
-		path = strings.TrimPrefix(strings.TrimSpace(path), "/")
-		if path == "" || seen[path] || reservedNote(path) {
-			continue
-		}
-		seen[path] = true
-		if _, ok := r.store.Note(personaID, path); ok {
-			out = append(out, path)
-		} else {
-			gone = append(gone, path)
-		}
-	}
-	// A note that links to one that is gone has a reference to take out, and
-	// the index does not say which notes those are.
-	if len(gone) > 0 && tidiesUp(instructions) {
-		for _, note := range r.allNotes(personaID) {
-			if seen[note.Path] || reservedNote(note.Path) {
-				continue
-			}
-			for _, path := range gone {
-				if mentions(note.Text, path) {
-					seen[note.Path] = true
-					out = append(out, note.Path)
-					break
-				}
-			}
-		}
-	}
-	if len(out) > maxHanded {
-		out = out[:maxHanded]
-	}
-	return out
 }
 
 // pointAtNotes adds the notes the keeper wrote to the remark that was already
@@ -1109,7 +970,7 @@ func (r *Runner) pointAtNotes(remark *timeline.Entry, kept []string) {
 		return
 	}
 	for _, path := range kept {
-		if !reservedNote(path) && !contains(current.Notes, path) {
+		if !isRecordsPath(path) && !contains(current.Notes, path) {
 			current.Notes = append(current.Notes, path)
 		}
 	}
@@ -1121,22 +982,10 @@ func (r *Runner) pointAtNotes(remark *timeline.Entry, kept []string) {
 }
 
 // keepsNotes says whether a turn leaves the note keeper something to do: a
-// post or reply of the user's, a tidy-up after something was deleted or
-// expired, the daily check-in, where a persona may sort its memory, and a review,
-// where the note asked about has its date moved.
+// kakera of the user's to record, a tidy-up after the user deleted a post, or
+// a check-in handed records due for review, whose dates it moves.
 func keepsNotes(trigger timeline.Entry, instructions string) bool {
-	return trigger.ID != "" || tidiesUp(instructions) || strings.HasPrefix(instructions, dailyHeader) || instructions == reviewInstructions
-}
-
-// notesWritten lists the notes a turn wrote, for the remark to point at.
-func notesWritten(steps []stepRecord) []string {
-	var paths []string
-	for _, step := range steps {
-		if (step.Type == "write_note" || step.Type == "write_schedule") && step.Error == "" && step.Path != "" {
-			paths = append(paths, step.Path)
-		}
-	}
-	return paths
+	return (trigger.ID != "" && trigger.Speaker == timeline.User) || tidiesUp(instructions) || strings.Contains(instructions, reviewInstructions)
 }
 
 // wakeKind names why a persona was woken, for the log.
@@ -1150,18 +999,12 @@ func wakeKind(trigger timeline.Entry, listening bool, instructions string) strin
 		return "review-reply"
 	case trigger.ID != "":
 		return "post"
-	case instructions == reviewInstructions:
-		return "review"
 	case strings.HasPrefix(instructions, dailyHeader):
 		return "daily"
 	case strings.HasPrefix(instructions, scheduleInstructions):
 		return "schedule"
-	case instructions == forgottenInstructions:
-		return "note-deleted"
 	case instructions == deletedInstructions:
 		return "post-deleted"
-	case instructions == expiredInstructions:
-		return "note-expired"
 	}
 	return "wake"
 }

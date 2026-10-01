@@ -3,6 +3,7 @@ package persona
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -45,9 +46,11 @@ type fake struct {
 	// fail makes the endpoint answer 500 to a request whose system prompt it
 	// matches, for a test that needs a call to fail.
 	fail func(system string) bool
-	// choose scripts which existing notes the note keeper asks to see whole;
-	// unset, it asks for none.
-	choose func(user string) []string
+	// keep scripts what the note keeper hands in, as keep_memory's arguments;
+	// unset, it records the kakera in one sentence and changes no field.
+	keep func(system, user string) string
+	// keeps are the prompts the note keeper was sent.
+	keeps []string
 }
 
 func (f *fake) start(t *testing.T) *httptest.Server {
@@ -132,7 +135,7 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		names := toolNames(body.Tools)
 		key := strings.Split(system, "\n")[0]
 		phase := ""
-		for _, name := range []string{"schedule", "action", "note"} {
+		for _, name := range []string{"schedule", "action"} {
 			if names["submit_"+name] {
 				phase = name
 			}
@@ -159,16 +162,16 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		}
 		var result map[string]any
 		switch {
-		case names["choose_notes"]:
-			// The note keeper reads nothing unless a test scripts it to.
-			paths := []string{}
+		case names["keep_memory"]:
 			f.mu.Lock()
-			choose := f.choose
+			f.keeps = append(f.keeps, system+"\n----\n"+user)
+			keep := f.keep
 			f.mu.Unlock()
-			if choose != nil {
-				paths = choose(user)
+			args := `{"summary":"テストのかけら","tags":["テスト"],"fields":[]}`
+			if keep != nil {
+				args = keep(system, user)
 			}
-			result = testCall("choose_notes", map[string]any{"paths": paths})
+			result = testCall("keep_memory", json.RawMessage(args))
 		case script != nil && (names["finish_read"] || names["submit_answer"] || phase != ""):
 			result = asCall(script(system, user, names), names)
 		case names["finish_read"]:
@@ -199,19 +202,6 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 			f.mu.Unlock()
 			result = testCall("submit_answer", prepared.answer)
 		case phase != "":
-			// A scripted remark that kept no note is sent back for a record of
-			// what was asked; the fake keeps one, as a live persona must, and
-			// leaves the script alone.
-			if phase == "note" && have && prepared.done[phase] && !prepared.recorded && strings.Contains(user, "ユーザーに回答したターンです") {
-				f.mu.Lock()
-				prepared.recorded = true
-				f.records++
-				prepared.steps = append(prepared.steps, operation{Type: "write_note", Path: "records/turn-" + strconv.Itoa(f.records) + ".md", Text: "ユーザーの問いと、どう答えたか"})
-				f.prepared[key] = prepared
-				f.mu.Unlock()
-				result = testCall("submit_note", prepared.submission("note"))
-				break
-			}
 			// A phase asked a second time was sent back or blamed by a review:
 			// the script says what the persona hands in now.
 			if !have || prepared.done[phase] {
@@ -245,7 +235,21 @@ type testTurn struct {
 	recorded bool
 	done     map[string]bool
 	answer   Answer
-	steps    []operation
+	steps    []testStep
+}
+
+// testStep is one change a scripted turn makes, in the shape the fixtures
+// write it.
+type testStep struct {
+	Type  string `json:"type"`
+	Path  string `json:"path"`
+	Text  string `json:"text"`
+	Tool  string `json:"tool"`
+	Args  string `json:"args"`
+	At    string `json:"at"`
+	Daily bool   `json:"daily"`
+	Note  string `json:"note"`
+	ID    string `json:"id"`
 }
 
 // submission is what one phase of a scripted turn hands in.
@@ -258,35 +262,12 @@ func (turn testTurn) submission(phase string) map[string]any {
 			if step.Type == "cancel_schedule" {
 				kind = "cancel"
 			}
-			operations = append(operations, map[string]any{"type": kind, "at": step.At, "daily": step.Daily, "path": step.Path, "text": step.Text, "note": step.Note, "id": step.ID})
+			operations = append(operations, map[string]any{"type": kind, "at": step.At, "daily": step.Daily, "note": step.Note, "id": step.ID})
 		case phase == "action" && step.Type == "tool":
 			operations = append(operations, map[string]any{"tool": step.Tool, "args": step.Args})
-		case phase == "note" && (step.Type == "write_note" || step.Type == "forget_note"):
-			kind := "write"
-			if step.Type == "forget_note" {
-				kind = "forget"
-			}
-			operations = append(operations, map[string]any{"type": kind, "path": step.Path, "text": step.Text})
 		}
 	}
-	if phase == "note" {
-		// A live keeper writes index.md with the notes it writes, as its
-		// instructions and the app's check require: link each one.
-		var index []string
-		for _, step := range turn.steps {
-			if step.Type == "write_note" && !reservedNote(step.Path) {
-				index = append(index, "* ["+strings.TrimSuffix(step.Path, ".md")+"](/"+step.Path+")")
-			}
-		}
-		if len(index) > 0 {
-			operations = append(operations, map[string]any{"type": "write", "path": "index.md", "text": "# テスト\n\n" + strings.Join(index, "\n") + "\n"})
-		}
-	}
-	out := map[string]any{"operations": operations}
-	if phase != "note" {
-		out["consistent"], out["reason"] = true, "test"
-	}
-	return out
+	return map[string]any{"operations": operations, "consistent": true, "reason": "test"}
 }
 
 // calledName is the tool a reply calls, or "" for plain text.
@@ -321,7 +302,7 @@ func splitTestTurn(content string) testTurn {
 	json.Unmarshal(raw, &msg)
 	var wf struct {
 		Steps []struct {
-			operation
+			testStep
 			Sources []string `json:"sources"`
 		} `json:"steps"`
 	}
@@ -330,7 +311,7 @@ func splitTestTurn(content string) testTurn {
 		if step.Type == "speak" {
 			next.answer = Answer{Text: step.Text, Sources: append([]string{}, step.Sources...)}
 		} else {
-			next.steps = append(next.steps, step.operation)
+			next.steps = append(next.steps, step.testStep)
 		}
 	}
 	return next
@@ -398,8 +379,6 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		return call("submit_schedule", json.RawMessage(content))
 	case offered["submit_action"]:
 		return call("submit_action", json.RawMessage(content))
-	case offered["submit_note"]:
-		return call("submit_note", json.RawMessage(content))
 	case offered["finish_read"]:
 		if content == "read_done" {
 			return call("finish_read", map[string]any{})
@@ -462,14 +441,12 @@ func asCall(content string, offered map[string]bool) map[string]any {
 				if !offered["read"] {
 					break
 				}
-				read := map[string]any{"type": "tool", "paths": []any{}, "tool": parsed.Tool, "args": string(args)}
+				read := map[string]any{"type": "tool", "tool": parsed.Tool, "args": string(args)}
 				switch parsed.Tool {
-				case "notes_read":
-					read = map[string]any{"type": "notes_read", "paths": parsed.Args["paths"], "tool": "", "args": "{}"}
-				case "notes_list":
-					read = map[string]any{"type": "notes_list", "paths": []any{}, "tool": "", "args": "{}"}
+				case "records":
+					read = map[string]any{"type": "records", "tool": "", "args": string(args)}
 				case "image":
-					read = map[string]any{"type": "image", "paths": []any{}, "tool": "", "args": string(args)}
+					read = map[string]any{"type": "image", "tool": "", "args": string(args)}
 				}
 				return call("read", map[string]any{"steps": []any{read}})
 			}
@@ -887,16 +864,13 @@ func TestAFailedJudgementIsANo(t *testing.T) {
 }
 
 // Not speaking is an outcome, not a failure - and it is not the same as not
-// remembering.
+// remembering: the kakera is recorded under itself.
 func TestSilenceStillWritesNotes(t *testing.T) {
 	runner, s, _ := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
 			return `{"deliver":["routine"]}`
 		}
-		if strings.Contains(user, "notes_write の結果") {
-			return `{"action":"silent"}`
-		}
-		return `{"action":"tool","tool":"notes_write","args":{"path":"threads/errors.md","text":"Goのエラーハンドリングを追いかけている"}}`
+		return `{"action":"silent"}`
 	}, "routine")
 
 	entry := post(t, s, "errors.Join の話")
@@ -905,22 +879,11 @@ func TestSilenceStillWritesNotes(t *testing.T) {
 	if said := remarks(t, s); len(said) != 0 {
 		t.Fatalf("something was said when it should have been quiet: %+v", said)
 	}
-	memory := s.Memory("routine")
-	var written []store.Note
-	for _, note := range memory.Notes {
-		if note.Path != "index.md" {
-			written = append(written, note)
-		}
+	found, _ := runner.findRecords("routine", "", "", "", 10, time.UTC)
+	if len(found) != 1 || found[0].ID != entry.ID {
+		t.Fatalf("a silent kakera must be recorded under itself: %+v", found)
 	}
-	if len(written) != 1 || !strings.Contains(written[0].Text, "エラーハンドリング") {
-		t.Fatalf("notes = %+v", memory.Notes)
-	}
-	memory.Notes = written
-	provenance := store.NoteSources(memory.Notes[0].Text)
-	if len(provenance) != 1 || provenance[0].EntryID != entry.ID {
-		t.Fatalf("silent note must link to its triggering post: %+v", provenance)
-	}
-	if memory.Wakes != 1 {
+	if memory := s.Memory("routine"); memory.Wakes != 1 {
 		t.Fatalf("wakes = %d", memory.Wakes)
 	}
 }
@@ -1071,61 +1034,45 @@ func TestRoutingFailureWakesNobodyButTheNamed(t *testing.T) {
 	}
 }
 
-// A persona reads and writes its own notes. The app hands over the names and
-// nothing else - which is also why the notes of a long-lived persona do not
-// have to be paid for on every wake.
+// The first prompt hands over the persona's memory - its fields whole and its
+// latest records - and nothing else: another post is not handed over, and an
+// older record is read only when asked for.
 func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	runner, s, stub := setup(t, func(system, user string) string {
 		switch {
 		case strings.Contains(system, "振り分け"):
 			return `{"deliver":["routine"]}`
-		case strings.Contains(user, "notes_read の結果"):
-			return `{"action":"tool","tool":"notes_write","args":{"path":"threads/old.md","text":"前から追いかけていること\n* 続き"}}`
+		case strings.Contains(user, "records の結果"):
+			return `{"action":"silent"}`
 		default:
-			return `{"action":"tool","tool":"notes_read","args":{"paths":["threads/old.md"]}}`
+			return `{"action":"tool","tool":"records","args":{"query":"薬"}}`
 		}
 	}, "routine")
-
-	if err := s.WriteNote("routine", "threads/old.md", "前から追いかけていること"); err != nil {
+	if err := s.WriteNote("routine", "Routine.md", "朝の薬は毎日飲む。\n"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.WriteNote("routine", "index.md", "最初の目次"); err != nil {
-		t.Fatal(err)
+	old := timeline.Entry{ID: "e_old", Text: "薬を飲み忘れた", At: time.Date(2025, 1, 5, 8, 0, 0, 0, time.UTC)}
+	writeRecord(t, s, "routine", old, old.ID)
+	for i := 0; i < recentRecordsLimit; i++ {
+		at := time.Date(2026, 9, 1, 8, i, 0, 0, time.UTC)
+		writeRecord(t, s, "routine", timeline.Entry{ID: fmt.Sprintf("e_%02d", i), Text: "散歩した", At: at}, fmt.Sprintf("e_%02d", i))
 	}
 	_ = post(t, s, "関係のない古い投稿")
 	entry := post(t, s, "新しい投稿")
 	runner.react(entry.ID)
 
-	// The first prompt has the index and how many notes there are, not the
-	// notes: reading is the persona's own call, and a memory it does not need
-	// costs nothing - not even a listing of every name.
 	prompt := stub.promptFor("plana")
-	if !strings.Contains(prompt, "最初の目次") || !strings.Contains(prompt, "あなたのメモ: 2件") {
-		t.Fatalf("the persona was not told what it has:\n%s", prompt)
+	if !strings.Contains(prompt, "朝の薬は毎日飲む。") || !strings.Contains(prompt, "[e_14] 散歩した") {
+		t.Fatalf("the persona was not handed its memory:\n%s", prompt)
 	}
-	if strings.Contains(prompt, "threads/old.md") {
-		t.Fatalf("every note was listed unasked:\n%s", prompt)
-	}
-	if strings.Contains(prompt, "前から追いかけていること") {
-		t.Fatalf("the contents were handed over unasked:\n%s", prompt)
+	if strings.Contains(prompt, "薬を飲み忘れた") {
+		t.Fatalf("an old record was handed over unasked:\n%s", prompt)
 	}
 	if strings.Contains(prompt, "関係のない古い投稿") {
 		t.Fatalf("another post was handed over:\n%s", prompt)
 	}
-	// It read one, wrote one, and left the other alone.
-	if !stub.seen("前から追いかけていること") {
-		t.Fatal("notes_read never handed the contents back")
-	}
-	notes := map[string]string{}
-	for _, note := range s.Memory("routine").Notes {
-		notes[note.Path] = note.Text
-	}
-	if !strings.Contains(notes["threads/old.md"], "続き") {
-		t.Fatalf("the note it wrote = %q", notes["threads/old.md"])
-	}
-	// The keeper wrote the index with the note, so the note is listed in it.
-	if !strings.Contains(notes["index.md"], "/threads/old.md") {
-		t.Fatalf("index.md = %q", notes["index.md"])
+	if !stub.seen("[e_old] 薬を飲み忘れた") {
+		t.Fatal("the records read never handed the old record back")
 	}
 }
 
@@ -1140,43 +1087,9 @@ func TestAToolThatWasNotDeclaredIsRefused(t *testing.T) {
 		t.Fatalf("problems = %v", problems)
 	}
 	skill, _ := runner.catalogue.Find(context.Background(), "routine")
-	_, steps := runner.execute(context.Background(), skill, plan, set, turnRules{set: set}, timeline.Entry{}, newProvenance())
+	_, steps := runner.execute(context.Background(), skill, plan, set, turnRules{set: set}, timeline.Entry{})
 	if len(steps) != 1 || steps[0].Error == "" {
 		t.Fatalf("an undeclared tool ran: %+v", steps)
-	}
-}
-
-// The memo format is handed over as a skill, verbatim. The app does not parse
-// what comes back - so the only thing to check is that the persona was actually
-// given it, along with its own policy for what to make a concept of.
-func TestThePersonaIsHandedTheMemoSkill(t *testing.T) {
-	runner, s, stub := setup(t, func(system, user string) string {
-		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["gourmet"]}`
-		}
-		if strings.Contains(user, "notes_write の結果") {
-			return `{"action":"silent"}`
-		}
-		return `{"action":"tool","tool":"notes_write","args":{"path":"index.md","text":"# 傾向\n"}}`
-	}, "gourmet")
-
-	entry := post(t, s, "ラーメン")
-	runner.react(entry.ID)
-
-	prompt := strings.Join(stub.phases, "\n")
-	for _, want := range []string{
-		"Open Knowledge Format", // the skill itself, as it ships upstream
-		"type",                  // the one required field
-		"type: Preference",      // and this persona's own policy for using it
-	} {
-		if !strings.Contains(prompt, want) {
-			t.Fatalf("%q missing from the prompt", want)
-		}
-	}
-	// Whatever it wrote is stored as it wrote it. Nothing here inspects it.
-	notes := s.Memory("gourmet").Notes
-	if len(notes) != 1 || notes[0].Path != "index.md" {
-		t.Fatalf("notes = %+v", notes)
 	}
 }
 
@@ -1277,41 +1190,6 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 	}
 }
 
-// A note that consolidates others keeps the trail to their posts, whether the
-// old note is thrown away before or after the new one is written. A note read
-// merely for context passes nothing on, and the index never carries a post.
-func TestNoteConsolidationCarriesReadSources(t *testing.T) {
-	runner, s, _ := setup(t, func(system, user string) string { return `{"action":"silent"}` }, "routine")
-	if err := s.WriteNote("routine", "old.md", "Old knowledge.", store.NoteSource{EntryID: "old-post", Label: "Old post"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.WriteNote("routine", "context.md", "Read for context.", store.NoteSource{EntryID: "ctx-post", Label: "Context post"}); err != nil {
-		t.Fatal(err)
-	}
-	prov := newProvenance(store.NoteSource{EntryID: "current-post", Label: "Current post"})
-	runner.notesTool(context.Background(), "routine", "notes_read", map[string]any{"paths": []any{"old.md", "context.md"}}, prov)
-	result, _ := runner.notesTool(context.Background(), "routine", "notes_write", map[string]any{"path": "combined.md", "text": "Combined knowledge."}, prov)
-	if !strings.Contains(result, "書きました") {
-		t.Fatal(result)
-	}
-	runner.notesTool(context.Background(), "routine", "notes_write", map[string]any{"path": "index.md", "text": "# Index\n* [combined](/combined.md)"}, prov)
-	note, _ := s.Note("routine", "combined.md")
-	if ids := sourceIDs(note.Text); !reflect.DeepEqual(ids, []string{"current-post"}) {
-		t.Fatalf("before the forget, combined cites %v", ids)
-	}
-	runner.notesTool(context.Background(), "routine", "notes_forget", map[string]any{"path": "old.md"}, prov)
-	note, ok := s.Note("routine", "combined.md")
-	if !ok {
-		t.Fatal("combined.md is gone")
-	}
-	if ids := sourceIDs(note.Text); !reflect.DeepEqual(ids, []string{"current-post", "old-post"}) {
-		t.Fatalf("consolidation lost sources: %v", ids)
-	}
-	if index, _ := s.Note("routine", "index.md"); len(store.NoteSources(index.Text)) != 0 {
-		t.Fatalf("the index carries posts: %s", index.Text)
-	}
-}
-
 func sourceIDs(text string) []string {
 	var ids []string
 	for _, source := range store.NoteSources(text) {
@@ -1319,32 +1197,6 @@ func sourceIDs(text string) []string {
 	}
 	sort.Strings(ids)
 	return ids
-}
-
-// A model that escaped its own line breaks leaves a note that cannot be read as
-// OKF and renders as one long line. Repairing it is the only chance: the
-// persona cannot see the difference from where it sits.
-func TestEscapedLineBreaksInANoteAreRepaired(t *testing.T) {
-	escaped := `---\ntype: Errand\ntitle: 夜ご飯の買い出し\n---\n後で行く予定。`
-	want := "---\ntype: Errand\ntitle: 夜ご飯の買い出し\n---\n後で行く予定。"
-	if got := repairNewlines(escaped); got != want {
-		t.Fatalf("repairNewlines = %q", got)
-	}
-	// A note that already has real line breaks keeps every character it wrote,
-	// including a literal backslash-n inside a code fence.
-	kept := "# 手順\n\n```\nprintf \"a\\nb\"\n```\n"
-	if got := repairNewlines(kept); got != kept {
-		t.Fatalf("a readable note was rewritten: %q", got)
-	}
-	if got := repairNewlines("一行だけ"); got != "一行だけ" {
-		t.Fatalf("plain text changed: %q", got)
-	}
-	// The blank line the app leaves before its own sources block is not a line
-	// break the persona wrote, and must not make the damage above it look fine.
-	trailing := escaped + "\n\n"
-	if got := repairNewlines(trailing); got != want {
-		t.Fatalf("a note followed by the app's blank line was left broken: %q", got)
-	}
 }
 
 // The clock a persona is told is the user's. The container runs in UTC, and a
@@ -1394,11 +1246,8 @@ func TestAPostCanPlaceASchedule(t *testing.T) {
 	if err != nil || len(placed) != 1 {
 		t.Fatalf("placed = %+v (%v)", placed, err)
 	}
-	if placed[0].Note != "ドラマを見たか" || placed[0].NotePath != "errands/drama.md" {
+	if placed[0].Note != "ドラマを見たか" {
 		t.Fatalf("schedule = %+v", placed[0])
-	}
-	if _, ok := s.Note("routine", "errands/drama.md"); !ok {
-		t.Fatal("the schedule was placed without its note")
 	}
 }
 
@@ -1420,31 +1269,8 @@ func TestAPlanStopsAtTheStepThatFails(t *testing.T) {
 	if said := remarks(t, s); len(said) != 0 {
 		t.Fatalf("a remark went out after a failed step: %+v", said)
 	}
-	if _, ok := s.Note("routine", "errands/late.md"); ok {
-		t.Fatal("a note was written for a schedule that was never placed")
-	}
-}
-
-// When the note cannot be written, the schedule placed a moment before is
-// taken back: neither is left without the other.
-func TestAScheduleWhoseNoteFailsIsTakenBack(t *testing.T) {
-	at := time.Now().Add(time.Hour).Format(time.RFC3339)
-	runner, s, _ := setup(t, func(system, user string) string {
-		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["routine"]}`
-		}
-		return `{"summary":"書けないメモ","steps":[
-			{"type":"write_schedule","path":"../outside.md","text":"中身","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"外","id":""},
-			{"type":"speak","path":"","text":"置いたよ","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
-	}, "routine")
-
-	runner.react(post(t, s, "何か").ID)
-
-	if placed, err := s.Schedules("routine"); err != nil || len(placed) != 0 {
-		t.Fatalf("the schedule survived its note: %+v (%v)", placed, err)
-	}
-	if said := remarks(t, s); len(said) != 0 {
-		t.Fatalf("a remark went out after a failed step: %+v", said)
+	if placed, _ := s.Schedules("routine"); len(placed) != 0 {
+		t.Fatalf("a schedule in the past was placed: %+v", placed)
 	}
 }
 
@@ -1461,7 +1287,7 @@ func TestAPlanTheReviewRejectsNeverRuns(t *testing.T) {
 		drafts++
 		if drafts == 1 {
 			return `{"summary":"覚えて約束する","steps":[
-				{"type":"write_schedule","path":"errands/drama.md","text":"---\ntype: Errand\n---\n\n2026-09-16 22:21 済","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ドラマを見たか","id":""},
+				{"type":"write_schedule","path":"","text":"","tool":"","args":"{}","at":"` + at + `","daily":false,"note":"ドラマを見たか（2026-09-16 22:21 済）","id":""},
 				{"type":"speak","path":"","text":"22:30ごろに聞くね","tool":"","args":"{}","at":"","daily":false,"note":"","id":""}]}`
 		}
 		if !strings.Contains(user, "起きていないことを") {
@@ -1485,10 +1311,6 @@ func TestAPlanTheReviewRejectsNeverRuns(t *testing.T) {
 	if drafts != 2 || len(stub.reviews) != 2 {
 		t.Fatalf("drafts = %d, reviews = %d", drafts, len(stub.reviews))
 	}
-	note, ok := s.Note("routine", "errands/drama.md")
-	if !ok || strings.Contains(note.Text, "22:21 済") {
-		t.Fatalf("the rejected note was written: %q", note.Text)
-	}
 	said := remarks(t, s)
 	if len(said) != 1 || said[0].Text != "22:30ごろに聞くね" {
 		t.Fatalf("remarks = %+v", said)
@@ -1497,8 +1319,8 @@ func TestAPlanTheReviewRejectsNeverRuns(t *testing.T) {
 	if err != nil || len(placed) != 1 {
 		t.Fatalf("placed = %+v (%v)", placed, err)
 	}
-	if placed[0].NotePath != "errands/drama.md" {
-		t.Fatalf("the schedule does not know its note: %+v", placed[0])
+	if strings.Contains(placed[0].Note, "22:21 済") {
+		t.Fatalf("the rejected schedule was placed: %+v", placed[0])
 	}
 }
 
@@ -1683,16 +1505,13 @@ func TestRoutingAcceptsTheNameAndIgnoresOneItMadeUp(t *testing.T) {
 func TestThePhasePromptsFollowThePersonasTools(t *testing.T) {
 	registry := tools.New(tools.Config{}).WithSchedules(nil)
 	skill := Skill{ID: "plana", Name: "ぷらな", Tone: "やさしく"}
-	plana := phasePrompt("schedule", skill, registry.For([]string{"schedule"}), "Errand", "")
-	tabe := phasePrompt("schedule", skill, registry.For([]string{"web_search"}), "Errand", "")
+	plana := phasePrompt("schedule", skill, registry.For([]string{"schedule"}), "")
+	tabe := phasePrompt("schedule", skill, registry.For([]string{"web_search"}), "")
 	if strings.Contains(plana, "予定操作を許可されていない") || !strings.Contains(tabe, "予定操作を許可されていない") {
 		t.Fatal("schedule instructions do not follow permissions")
 	}
 	if !strings.HasPrefix(plana, "あなたは「ぷらな」。やさしく") {
 		t.Fatalf("a phase does not open as the persona: %q", plana)
-	}
-	if strings.Contains(phasePrompt("note", skill, registry.For(nil), "Errand", ""), "cancel") {
-		t.Fatal("the note phase was taught schedules")
 	}
 	read := readSpec(registry.For([]string{"web_search"}), false)
 	if !strings.Contains(read, "web_search") || strings.Contains(read, "write_note") {
@@ -1701,32 +1520,6 @@ func TestThePhasePromptsFollowThePersonasTools(t *testing.T) {
 	if !strings.Contains(capabilityLine(registry.For([]string{"web_search"})), "約束しないでください") ||
 		!strings.Contains(capabilityLine(registry.For([]string{"schedule"})), "schedule") {
 		t.Fatal("the answer is not told what the later phases can do")
-	}
-}
-
-// The index is handed over whole at the start of every turn.
-func TestTheIndexIsHandedOverFirst(t *testing.T) {
-	runner, s, stub := setup(t, func(system, user string) string {
-		if strings.Contains(system, "振り分け") {
-			return `{"deliver":["gourmet"]}`
-		}
-		return `{"action":"silent"}`
-	}, "gourmet")
-	if err := s.WriteNote("gourmet", "index.md", "# 傾向\n\n* [豚骨に寄る](/tastes/tonkotsu.md)"); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.WriteNote("gourmet", "tastes/tonkotsu.md", "豚骨の中身は渡さない"); err != nil {
-		t.Fatal(err)
-	}
-
-	runner.react(post(t, s, "ラーメン").ID)
-
-	prompt := stub.promptFor("tabe")
-	if !strings.Contains(prompt, "[豚骨に寄る](/tastes/tonkotsu.md)") {
-		t.Fatalf("the index was not handed over:\n%s", prompt)
-	}
-	if strings.Contains(prompt, "豚骨の中身は渡さない") {
-		t.Fatal("a note other than the index was handed over unasked")
 	}
 }
 
@@ -1777,82 +1570,45 @@ func TestAnUltraTurnMayReadTwentyTimes(t *testing.T) {
 	}
 }
 
-// A persona that writes the same note twice in one plan is sent back: the
-// second write silently replaces the first, and in a live run it carried a typo.
-func TestTheSameNoteWrittenTwiceIsSentBack(t *testing.T) {
-	registry := tools.New(tools.Config{}).WithSchedules(nil)
-	problems := checkBatch(Workflow{
-		Schedules: []ScheduleOperation{{Type: "create", Path: "errands/drama.md", Text: "b", At: "2026-09-18T22:00:00+09:00", Note: "見たか"}},
-		Notes:     []NoteOperation{{Type: "write", Path: "errands/drama.md", Text: "a"}},
-	}.batch(), turnRules{set: registry.For([]string{"schedule"}).As("routine")})
-	joined := strings.Join(problems, "\n")
-	if !strings.Contains(joined, "すでに書いています") || !strings.Contains(joined, "背景メモ") {
-		t.Fatalf("problems = %v", problems)
-	}
-}
-
-// A note written and forgotten in one plan says two things; so does a note
-// rewritten unread, which loses what it held.
-func TestConflictingAndUnreadNoteWritesAreSentBack(t *testing.T) {
-	set := tools.New(tools.Config{}).For(nil)
-	conflict := checkBatch(Workflow{Notes: []NoteOperation{{Type: "forget", Path: "a.md"}, {Type: "write", Path: "a.md", Text: "x"}}}.batch(), turnRules{set: set})
-	if len(conflict) == 0 || !strings.Contains(strings.Join(conflict, "\n"), "捨てる操作が混ざっています") {
-		t.Fatalf("conflict = %v", conflict)
-	}
-	read := map[string]bool{}
-	rules := turnRules{set: set, readState: func(path string) (bool, bool) { return path == "a.md", read[path] }}
-	plan := Workflow{Notes: []NoteOperation{{Type: "write", Path: "a.md", Text: "x"}}}.batch()
-	if problems := checkBatch(plan, rules); len(problems) != 1 || !strings.Contains(problems[0], "読んでから") {
-		t.Fatalf("unread = %v", problems)
-	}
-	read["a.md"] = true
-	if problems := checkBatch(plan, rules); len(problems) != 0 {
-		t.Fatal(problems)
-	}
-	if problems := checkBatch(Workflow{Notes: []NoteOperation{{Type: "write", Path: "../x.md", Text: "x"}}}.batch(), turnRules{set: set}); len(problems) == 0 {
-		t.Fatal("an unsafe path was accepted")
-	}
-}
-
 // A search that keeps failing the same way is called out on the second try,
 // and a note read written as a tool call is simply done.
 func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
-	if err := s.WriteNote("gourmet", "index.md", "目次"); err != nil {
+	if err := s.WriteNote("gourmet", "records/2026-09.md", "- 2026-09-30 12:00 [e_1] 目次の話 #本\n"); err != nil {
 		t.Fatal(err)
 	}
 	set := tools.New(tools.Config{}).For([]string{"place_search"}).As("gourmet")
 	skill, _ := runner.catalogue.Find(context.Background(), "gourmet")
 	failures := map[string]string{}
 
-	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"index.md"}}}, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
+	text, _ := runner.readAll(context.Background(), skill, []ReadStep{{Type: "tool", Tool: "records", Args: `{"tag":"本"}`}}, set, timeline.Entry{}, time.UTC, failures, newLookups(maxReads, maxSearches), map[string]string{}, nil)
 	if !strings.Contains(text, "目次") {
 		t.Fatalf("a note read in the wrong field was refused: %s", text)
 	}
 
 	broken := []ReadStep{{Type: "tool", Tool: "place_search", Args: `{"query":"神谷町"}`}}
-	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
+	first, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, time.UTC, failures, newLookups(maxReads, maxSearches), map[string]string{}, nil)
 	if strings.Contains(first, "前にも同じ理由で失敗") {
 		t.Fatalf("a first failure was called a repeat: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
+	second, _ := runner.readAll(context.Background(), skill, broken, set, timeline.Entry{}, time.UTC, failures, newLookups(maxReads, maxSearches), map[string]string{}, nil)
 	if !strings.Contains(second, "前にも同じ理由で失敗") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
 }
 
-// A note read written as a tool call is the same request in the wrong field,
-// and it is read rather than refused.
-func TestANoteReadWrittenAsAToolIsStillRead(t *testing.T) {
+// A records read written as a tool call is the same request in the wrong
+// field, and it is read rather than refused.
+func TestARecordsReadWrittenAsAToolIsStillRead(t *testing.T) {
 	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
-	if err := s.WriteNote("gourmet", "tastes/tonkotsu.md", "豚骨に寄る"); err != nil {
+	if err := s.WriteNote("gourmet", "records/2026-09.md", "- 2026-09-30 12:00 [e_1](/?entry=e_1) 豚骨に寄る #ラーメン\n"); err != nil {
 		t.Fatal(err)
 	}
 	set := runner.registry(s.Settings()).For([]string{"web_search"}).As("gourmet")
 	skill, _ := runner.catalogue.Find(context.Background(), "gourmet")
 	text, _ := runner.readAll(context.Background(), skill,
-		[]ReadStep{{Type: "tool", Tool: "notes_read", Paths: []string{"tastes/tonkotsu.md"}, Args: "{}"}},
-		set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(maxReads, maxSearches), map[string]string{})
+		[]ReadStep{{Type: "tool", Tool: "records", Args: `{"query":"豚骨"}`}},
+		set, timeline.Entry{}, time.UTC, map[string]string{}, newLookups(maxReads, maxSearches), map[string]string{}, nil)
 	if !strings.Contains(text, "豚骨に寄る") {
 		t.Fatalf("the note was not read: %s", text)
 	}
@@ -1867,11 +1623,11 @@ func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	failures := map[string]string{}
 	search := []ReadStep{{Type: "tool", Tool: "place_search", Paths: []string{}, Args: `{"query":"神谷町"}`}}
 
-	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
+	first, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, time.UTC, failures, newLookups(maxReads, maxSearches), map[string]string{}, nil)
 	if !strings.Contains(first, "道具が使えませんでした") || strings.Contains(first, "前にも同じ理由で") {
 		t.Fatalf("first failure: %s", first)
 	}
-	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, newProvenance(), failures, newLookups(maxReads, maxSearches), map[string]string{})
+	second, _ := runner.readAll(context.Background(), skill, search, set, timeline.Entry{}, time.UTC, failures, newLookups(maxReads, maxSearches), map[string]string{}, nil)
 	if !strings.Contains(second, "前にも同じ理由で失敗しています") {
 		t.Fatalf("a repeated failure was not called out: %s", second)
 	}
@@ -1923,11 +1679,11 @@ func TestAMalformedDraftDoesNotUseUpTheReview(t *testing.T) {
 	script, calls := scheduleTurn(func(call int) string {
 		switch call {
 		case 1:
-			return createSchedule("22時", "errands/reminder.md")
+			return createSchedule("22時")
 		case 2:
-			return createSchedule(wrong, "errands/reminder.md")
+			return createSchedule(wrong)
 		}
-		return createSchedule(right, "errands/reminder.md")
+		return createSchedule(right)
 	})
 	f.phaseReply = script
 	f.review = func(user string) string {
@@ -1959,12 +1715,8 @@ func TestThePhaseSchemasFollowThePersonasTools(t *testing.T) {
 		items := properties["operations"].(map[string]any)["items"].(map[string]any)
 		return items["properties"].(map[string]any)
 	}
-	if fields("schedule")["at"] == nil || fields("note")["at"] != nil || fields("note")["tool"] != nil {
-		t.Fatal("a phase was offered fields of another")
-	}
-	note := phaseTool("note", lookups).Parameters["properties"].(map[string]any)
-	if note["consistent"] != nil {
-		t.Fatal("the note phase has no promise to back")
+	if fields("schedule")["at"] == nil || fields("schedule")["path"] != nil || fields("schedule")["text"] != nil {
+		t.Fatal("the schedule phase was offered a note to write")
 	}
 	schedule := phaseTool("schedule", lookups).Parameters["required"].([]string)
 	if strings.Join(schedule, ",") != "operations,consistent,reason" {
@@ -2191,12 +1943,12 @@ func TestConcurrentTurnFinishesDoNotLoseEachOthersUpdate(t *testing.T) {
 // must not.
 func TestAnswerAndOperationsAreIndependent(t *testing.T) {
 	set := tools.New(tools.Config{}).For(nil)
-	for _, wf := range []operationBatch{{Steps: []operation{}}, {Steps: []operation{{Type: "write_note", Path: "a.md", Text: "x"}}}} {
-		if problems := checkBatch(wf, turnRules{set: set}); len(problems) > 0 {
+	for _, wf := range []operationBatch{{Steps: []operation{}}, {Steps: []operation{{Type: "cancel_schedule", ID: "s_1"}}}} {
+		if problems := checkBatch(wf, turnRules{set: tools.New(tools.Config{}).WithSchedules(nil).For([]string{"schedule"}), schedules: map[string]bool{"s_1": true}}); len(problems) > 0 {
 			t.Fatal(problems)
 		}
 	}
-	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "speak", Text: "hello"}}}, turnRules{set: set}); len(problems) == 0 {
+	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "speak", Note: "hello"}}}, turnRules{set: set}); len(problems) == 0 {
 		t.Fatal("an operation spoke")
 	}
 	if problems := checkAnswer(Answer{Text: "hello"}, turnRules{named: true}); len(problems) > 0 {
@@ -2252,38 +2004,19 @@ func TestThePictureIsNeverHandedOver(t *testing.T) {
 // A remark on a post leaves a note behind, and the remark says which: the
 // timeline can lead from what a persona said to what it wrote down.
 func TestARemarkPointsAtTheNotesWrittenWithIt(t *testing.T) {
-	workflow := map[string]any{"summary": "test", "steps": []any{
-		map[string]any{"type": "write_note", "path": "wines/altura.md", "text": "type: Wine\n\nNorton Altura", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""},
-		map[string]any{"type": "speak", "path": "", "text": "ノートンの白ですね", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""},
-	}}
-	scripted, _ := json.Marshal(workflow)
-	runner, s, _ := setup(t, func(system, user string) string {
+	runner, s, f := setup(t, func(system, user string) string {
 		if strings.Contains(system, "振り分け") {
 			return `{"deliver":["move"]}`
 		}
-		return string(scripted)
+		return `{"action":"speak","text":"ノートンの白ですね"}`
 	}, "move")
+	f.keep = func(string, string) string {
+		return `{"summary":"ワインのラベルを見せた","tags":["ワイン"],"fields":[{"field":"Place","text":"ワイン屋。"}]}`
+	}
 	runner.react(post(t, s, "ワインのラベル").ID)
 	said := remarks(t, s)
-	if len(said) != 1 || len(said[0].Notes) != 1 || said[0].Notes[0] != "wines/altura.md" {
+	if len(said) != 1 || len(said[0].Notes) != 1 || said[0].Notes[0] != "Place.md" {
 		t.Fatalf("remarks = %+v", said)
-	}
-}
-
-// A closing fence glued to the last value, or to the first line of the body,
-// leaves a note that never closes its front matter. Both are mended on write;
-// a block that is already right is left alone.
-func TestAGluedFrontmatterFenceIsMended(t *testing.T) {
-	for _, tc := range []struct{ name, in, want string }{
-		{"glued to the value", "---\ntype: Wine\ntimestamp: 2026-09-18T21:06:00+09:00---\n\n基本情報", "---\ntype: Wine\ntimestamp: 2026-09-18T21:06:00+09:00\n---\n\n基本情報"},
-		{"glued to the body", "---\ntype: Wine\n---基本情報\n生産者", "---\ntype: Wine\n---\n基本情報\n生産者"},
-		{"indented", "  ---\n  type: Wine\n  ---\n本文", "---\ntype: Wine\n---\n本文"},
-		{"already right", "---\ntype: Wine\n---\n本文 --- 区切り", "---\ntype: Wine\n---\n本文 --- 区切り"},
-		{"no front matter", "ただのメモ---", "ただのメモ---"},
-	} {
-		if got := repairFrontmatter(tc.in); got != tc.want {
-			t.Fatalf("%s: %q, want %q", tc.name, got, tc.want)
-		}
 	}
 }
 

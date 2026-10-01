@@ -19,10 +19,9 @@ const trialKeep = 15 * time.Minute
 // trialRecord is one trial as the workspace keeps it: a routing check or a
 // reply preview, and how far applying it has got.
 type trialRecord struct {
-	Organization *organizationTrial `json:"organization,omitempty"`
-	Routing      *routingTrial      `json:"routing,omitempty"`
-	Reply        *replyTrial        `json:"reply,omitempty"`
-	At           time.Time          `json:"at"`
+	Routing *routingTrial `json:"routing,omitempty"`
+	Reply   *replyTrial   `json:"reply,omitempty"`
+	At      time.Time     `json:"at"`
 	// Applying is set while one request applies it; Applied once it has.
 	Applying bool `json:"applying,omitempty"`
 	Applied  bool `json:"applied,omitempty"`
@@ -203,20 +202,40 @@ func (r *Runner) ApplyReply(token, entryID string) error {
 	if !ok {
 		return errors.New("その担当は有効ではありません")
 	}
+	remark := *trial.Remark
+	if entry.Kind == timeline.KindRemark {
+		remark.ID, remark.At, remark.Root, remark.ReplyTo = entry.ID, entry.At, entry.Root, entry.ReplyTo
+	}
+	zone := settings.Location()
+	var records []record
 	for _, change := range trial.Notes {
 		var err error
-		if change.Delete {
+		switch {
+		case isRecordsPath(change.Path):
+			// The month as the preview left it may be behind the one kept
+			// now; only the record the preview made is taken from it, and
+			// it is kept under the remark that is kept.
+			for _, rec := range parseRecords(change.Text, zone) {
+				if rec.ID == trial.Remark.ID {
+					rec.ID = remark.ID
+					records = append(records, rec)
+				}
+			}
+		case change.Delete:
 			err = r.store.DeleteNote(trial.PersonaID, change.Path)
-		} else {
+		default:
 			err = r.store.WriteNote(trial.PersonaID, change.Path, change.Text, change.Sources...)
 		}
 		if err != nil {
 			return err
 		}
 	}
-	remark := *trial.Remark
-	if entry.Kind == timeline.KindRemark {
-		remark.ID, remark.At, remark.Root, remark.ReplyTo = entry.ID, entry.At, entry.Root, entry.ReplyTo
+	if len(records) > 0 {
+		if trigger, ok := r.store.Entry(trial.Remark.ReplyTo); ok {
+			if err := r.keepRecord(ctx, trial.PersonaID, records[len(records)-1], trigger, zone); err != nil {
+				return err
+			}
+		}
 	}
 	if err := r.store.Append(remark); err != nil {
 		return err

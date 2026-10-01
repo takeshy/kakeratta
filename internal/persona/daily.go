@@ -18,9 +18,8 @@ const dailyHeader = `
 
 // dailyInstructions is the minimal check-in: it speaks only about what needs
 // the user's decision.
-const dailyInstructions = dailyHeader + `このチェックインで話してよいのは、ユーザーの判断が必要なことだけです。見直し時期が来たメモ（そろそろ忘れてよいかの確認）など、対象発言で本体から渡されたものがあるときだけ、それについて短く一言話してください。
+const dailyInstructions = dailyHeader + `このチェックインで話してよいのは、ユーザーの判断が必要なことだけです。見直し時期が来た記録（そろそろ忘れてよいかの確認）など、対象発言で本体から渡されたものがあるときだけ、それについて短く一言話してください。
 それ以外の発見・提案・近況の報告・挨拶はしません。伝えたいことがあっても、ユーザーが次に投稿したときに話してください。
-メモの整理（index.md の更新、同じ対象のメモの統合など）は黙って行って構いません。
 話すことがなければ Answer の text を空にします。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
@@ -28,10 +27,10 @@ const dailyInstructions = dailyHeader + `このチェックインで話してよ
 // dailyShareInstructions is the check-in that also looks for something worth
 // bringing back from the last day and the persona's older notes.
 const dailyShareInstructions = dailyHeader + `最初に timeline_search を query なし・from/to だけで1回使い、前回のチェックインから今回までの記録を読んでください。期間は対象発言の「Since the previous check-in」に書いてあるので、その from と to をそのまま渡します。特に、ユーザーや他の担当が発言したスレッドのうち、自分が返答していないものから、自分の担当分野と関係する変化やつながりを探します。
-次に notes_list で、最近更新されたメモによく現れる tags と同じ tags を持つのに、更新日時が長く前のメモがないか確認してください。候補があれば notes_read で中身を読み、前回のチェックインからの記録と今も具体的な関係があるか確かめます。古いという理由だけでは話しません。
-前回のチェックインからの未参加の話題から役立つ関係を発見した場合や、最近よく使う tag と古いメモの間に今伝える価値のあるつながりを発見した場合だけ、短く話してください。
+次に、最初に渡した最近の記録によく現れるタグで read の records を使い（args に {"tag":"…","before":"…"}）、同じタグを持つ前の記録がないか確認してください。候補があれば、前回のチェックインからのかけらと今も具体的な関係があるか確かめます。古いという理由だけでは話しません。
+前回のチェックインからの未参加の話題から役立つ関係を発見した場合や、最近のかけらと前の記録の間に今伝える価値のあるつながりを発見した場合だけ、短く話してください。
 毎日の件数合わせ、一般的なニュース一覧、同じ助言の繰り返し、挨拶だけの投稿は不要です。
-伝えることがない場合や根拠を得られない場合は Answer の text を空にします。黙ったままメモを更新しても構いません。
+伝えることがない場合や根拠を得られない場合は Answer の text を空にします。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
 
@@ -45,16 +44,16 @@ const monthlyHeader = `
 
 // monthlyInstructions is a monthly check-in that speaks only about what needs
 // the user's decision.
-const monthlyInstructions = monthlyHeader + `話してよいのは、ユーザーの判断が必要なことだけです。見直し時期が来たメモの確認など、対象発言で本体から渡されたものがあるときだけ、それについて短く一言話してください。
-まとめと投稿から分かった、その人についての事実や出来事は黙ってメモに残し、誕生日や記念日、会う予定が近ければ予定を置いてください。
+const monthlyInstructions = monthlyHeader + `話してよいのは、ユーザーの判断が必要なことだけです。見直し時期が来た記録の確認など、対象発言で本体から渡されたものがあるときだけ、それについて短く一言話してください。
+誕生日や記念日、会う予定が近ければ予定を置いてください。
 話すことがなければ Answer の text を空にします。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
 
 // monthlyShareInstructions is a monthly check-in that may also bring back
 // something worth saying.
-const monthlyShareInstructions = monthlyHeader + `まず、まとめと投稿のうち自分の担当する人に関わることを読み、メモにない事実や出来事があれば残してください。誕生日や記念日、会う予定が近ければ予定を置きます。
-次に自分のメモを見直し、済んでいない約束や貸し借り、しばらく連絡していないことなど、今伝える価値があることがあれば短く話してください。
+const monthlyShareInstructions = monthlyHeader + `まず、まとめと投稿のうち自分の担当する人に関わることを読んでください。誕生日や記念日、会う予定が近ければ予定を置きます。
+次に自分の記憶を見直し、済んでいない約束や貸し借り、しばらく連絡していないことなど、今伝える価値があることがあれば短く話してください。
 挨拶だけ、まとめの繰り返し、一般的な助言は不要です。伝えることがなければ Answer の text を空にします。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
@@ -65,7 +64,7 @@ const checkInLookback = 7 * 24 * time.Hour
 
 // dailyAt checks in every active persona once a day, at a minute of the
 // user's 07:00-21:00 the app picks for it (see store.CheckInAt). A
-// minimal check-in speaks only for what needs the user's decision - a note
+// minimal check-in speaks only for what needs the user's decision - a record
 // due for review is the one the app hands it; a sharing one may also bring
 // back something worth saying.
 func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
@@ -143,7 +142,7 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 			}
 		}
 		// Reviews ride inside the check-in, so the persona posts once.
-		if due := r.reviewsDue(skill, now, loc); len(due) > 0 {
+		if due := r.reviewsDue(skill.ID, now, loc); len(due) > 0 {
 			text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
 			instructions += reviewInstructions
 		} else if schedule.Minimal() {

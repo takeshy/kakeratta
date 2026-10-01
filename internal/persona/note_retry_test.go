@@ -10,27 +10,22 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
-func retryReply(fail *bool) func(string, string, map[string]bool) string {
-	return func(system, user string, offered map[string]bool) string {
-		switch {
-		case offered["finish_read"]:
-			return "read_done"
-		case offered["submit_answer"]:
-			return `{"text":"ラーメンの話ですね。","sources":[]}`
-		case offered["submit_schedule"]:
-			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
-		}
+// retryKeep fails the keeper while fail is set, and records the kakera once
+// it is not.
+func retryKeep(fail *bool) func(string, string) string {
+	return func(system, user string) string {
 		if *fail {
-			return `{"operations":[{"type":"write","path":"../outside.md","text":"bad"}]}`
+			return `{"summary":"","tags":[],"fields":[]}`
 		}
-		return `{"operations":[{"type":"write","path":"tastes/ramen.md","text":"---\ntype: Preference\ntitle: ラーメン\n---\nラーメンについて聞かれた。短く答えた。","section":"好み"}]}`
+		return `{"summary":"ラーメンについて聞いた","tags":["ラーメン"],"fields":[{"field":"Preference","text":"ラーメンについて聞かれた。"}]}`
 	}
 }
 
 func TestFailedNoteJobSurvivesRestartAndRetries(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	fail := true
-	f.phaseReply = retryReply(&fail)
+	f.phaseReply = answeringReply("ラーメンの話ですね。")
+	f.keep = retryKeep(&fail)
 	r.react(post(t, s, "ラーメンについて教えて").ID)
 	if got := remarks(t, s); len(got) != 1 {
 		t.Fatalf("answer was lost: %+v", got)
@@ -74,18 +69,19 @@ func TestFailedNoteJobSurvivesRestartAndRetries(t *testing.T) {
 		}
 		t.Fatalf("jobs after retry = %d, %v", len(jobs), err)
 	}
-	if note, ok := s.Note("gourmet", "tastes/ramen.md"); !ok || !strings.Contains(note.Text, "聞かれた") {
-		t.Fatalf("retried note = %+v", note)
+	if note, ok := s.Note("gourmet", "Preference.md"); !ok || !strings.Contains(note.Text, "聞かれた") {
+		t.Fatalf("retried field = %+v", note)
 	}
-	if index, ok := s.Note("gourmet", "index.md"); !ok || !strings.Contains(index.Text, "/tastes/ramen.md") {
-		t.Fatalf("index after retry = %+v", index)
+	if found, _ := restarted.findRecords("gourmet", "ラーメン", "", "", 10, time.UTC); len(found) != 1 {
+		t.Fatalf("records after retry = %+v", found)
 	}
 }
 
 func TestRetryDoesNotRestoreDeletedPost(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	fail := true
-	f.phaseReply = retryReply(&fail)
+	f.phaseReply = answeringReply("ラーメンの話ですね。")
+	f.keep = retryKeep(&fail)
 	entry := post(t, s, "ラーメンについて教えて")
 	r.react(entry.ID)
 	entry.Deleted = true
@@ -97,46 +93,7 @@ func TestRetryDoesNotRestoreDeletedPost(t *testing.T) {
 	if jobs, err := s.NoteJobs(); err != nil || len(jobs) != 0 {
 		t.Fatalf("pending jobs after deletion = %d, %v", len(jobs), err)
 	}
-	if _, ok := s.Note("gourmet", "tastes/ramen.md"); ok {
-		t.Fatal("a deleted post was written back into memory")
-	}
-}
-
-type failingIndexWorkspace struct {
-	store.Workspace
-	fail bool
-}
-
-func (w *failingIndexWorkspace) WriteNote(persona, path, text string, sources ...store.NoteSource) error {
-	if w.fail && path == "index.md" {
-		return errIndexUnavailable
-	}
-	return w.Workspace.WriteNote(persona, path, text, sources...)
-}
-
-var errIndexUnavailable = &indexUnavailable{}
-
-type indexUnavailable struct{}
-
-func (*indexUnavailable) Error() string { return "index unavailable" }
-
-func TestIndexWriteFailureRetriesWithoutRewritingNote(t *testing.T) {
-	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	failNotes := false
-	f.phaseReply = retryReply(&failNotes)
-	w := &failingIndexWorkspace{Workspace: s, fail: true}
-	r = New(w, r.catalogue, r.clientOf)
-	r.react(post(t, s, "ラーメンについて教えて").ID)
-	jobs, err := s.NoteJobs()
-	if err != nil || len(jobs) != 1 || jobs[0].Stage != "index" {
-		t.Fatalf("jobs = %+v, %v", jobs, err)
-	}
-	w.fail = false
-	r.retryNoteJobs(context.Background(), time.Now().Add(time.Hour))
-	if jobs, err := s.NoteJobs(); err != nil || len(jobs) != 0 {
-		t.Fatalf("jobs after index retry = %+v, %v", jobs, err)
-	}
-	if index, ok := s.Note("gourmet", "index.md"); !ok || !strings.Contains(index.Text, "/tastes/ramen.md") {
-		t.Fatalf("repaired index = %+v", index)
+	if paths, _ := s.NotePaths("gourmet"); len(paths) != 0 {
+		t.Fatalf("a deleted post was written back into memory: %v", paths)
 	}
 }

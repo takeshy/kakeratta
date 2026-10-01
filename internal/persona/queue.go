@@ -274,8 +274,7 @@ func (r *Runner) handleAs(item store.Reaction, rest []store.Reaction, worker str
 fold:
 	for _, next := range rest {
 		switch {
-		case item.Forgotten != nil && next.Forgotten != nil && next.Forgotten.Skill == item.Forgotten.Skill && next.Forgotten.Expired == item.Forgotten.Expired:
-			item.Forgotten.Paths = append(item.Forgotten.Paths, next.Forgotten.Paths...)
+		case item.Forgotten != nil && next.Forgotten != nil:
 		case item.Deleted != nil && next.Deleted != nil && next.Deleted.Skill == item.Deleted.Skill && next.Deleted.EntryID == item.Deleted.EntryID:
 		default:
 			break fold
@@ -284,7 +283,7 @@ fold:
 	}
 	now := time.Now()
 	if !item.Due && !item.Index && !item.Route {
-		// The work may have set a schedule, a retry, or an expires date; the
+		// The work may have set a schedule or a retry; the
 		// workspace looks at its times again soon.
 		defer r.arm(time.Now().Add(soonDue))
 	}
@@ -314,10 +313,11 @@ fold:
 	case item.Deliver != "":
 		r.deliver(ctx, item.Entry, item.Deliver)
 	case item.Forgotten != nil:
-		r.forgottenAt(ctx, forgotten{skill: item.Forgotten.Skill, paths: item.Forgotten.Paths, expired: item.Forgotten.Expired})
+		// Queued before memory was kept in fields: a note the user or its
+		// expires date took away needs nobody woken any more.
 	case item.Deleted != nil:
 		d := item.Deleted
-		r.deletedAt(ctx, deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: d.Notes, removed: d.Removed})
+		r.deletedAt(ctx, deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill})
 	case item.Route:
 		entry, exists := r.store.Entry(item.Entry)
 		if !exists || entry.Deleted || (item.EntryText != nil && entry.Text != *item.EntryText) {

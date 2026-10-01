@@ -77,7 +77,7 @@ func remarkBy(s *store.Store, speaker string) *timeline.Entry {
 // open until it has really ended.
 func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	runner, s, stub := externalSetup(t, time.Minute, time.Minute)
-	if err := s.WriteNote("gourmet", "index.md", "# tabe の索引"); err != nil {
+	if err := s.WriteNote("gourmet", "Shop.md", "tabe のまとめ\n"); err != nil {
 		t.Fatal(err)
 	}
 	entry := post(t, s, "ラーメン食べた")
@@ -105,8 +105,8 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 		t.Fatalf("identity = %+v", brief.Persona)
 	case brief.Trigger.ID != entry.ID || len(brief.Thread) != 1:
 		t.Fatalf("trigger/thread = %+v / %+v", brief.Trigger, brief.Thread)
-	case brief.MemoryIndex != "# tabe の索引":
-		t.Fatalf("index = %q", brief.MemoryIndex)
+	case !strings.Contains(brief.Memory, "tabe のまとめ"):
+		t.Fatalf("memory = %q", brief.Memory)
 	case brief.Answer == nil:
 		t.Fatal("the answer schema is missing")
 	case brief.Capabilities == "":
@@ -122,12 +122,15 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	for _, tool := range brief.Tools {
 		tools[tool.Name] = tool.Use
 	}
-	if tools["web_search"] != "read" || tools["notes_read"] != "read" || tools["timeline_search"] != "read" {
+	if tools["web_search"] != "read" || tools["records"] != "read" || tools["timeline_search"] != "read" {
 		t.Fatalf("tools = %+v", brief.Tools)
 	}
 
 	ctx := context.Background()
-	if text, err := runner.ReadForAsk(ctx, ask.ID, "exec-1", []ReadStep{{Type: "notes_read", Paths: []string{"index.md"}}}); err != nil || !strings.Contains(text, "tabe の索引") {
+	if err := s.WriteNote("gourmet", "records/2026-09.md", "- 2026-09-30 12:00 [e_1](/?entry=e_1) 豚骨の話 #ラーメン\n"); err != nil {
+		t.Fatal(err)
+	}
+	if text, err := runner.ReadForAsk(ctx, ask.ID, "exec-1", []ReadStep{{Type: "records", Args: `{"tag":"ラーメン"}`}}); err != nil || !strings.Contains(text, "豚骨の話") {
 		t.Fatalf("read = %q, %v", text, err)
 	}
 	if _, err := runner.ReadForAsk(ctx, ask.ID, "exec-2", nil); !errors.Is(err, ErrAskNotYours) {
@@ -150,27 +153,27 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	if remark.Text != "うまそう\nまたね" || remark.Model != "agent" {
 		t.Fatalf("remark = %+v", remark)
 	}
-	// The built-in note phase keeps a record of what was asked, and only that.
-	// It is written after the remark, by the note keeper.
+	// The built-in keeper records what was asked, and only that. It is
+	// written after the remark.
 	var kept []string
 	eventually(t, "the record of what was asked", func() bool {
 		kept = nil
 		for _, note := range s.Memory("gourmet").Notes {
-			if note.Path != "index.md" {
+			if isRecordsPath(note.Path) {
 				kept = append(kept, note.Path)
 			}
 		}
 		return len(kept) >= 1
 	})
 	if len(kept) != 1 {
-		t.Fatalf("notes kept for an answer: %v", kept)
+		t.Fatalf("records kept for an answer: %v", kept)
 	}
 	eventually(t, "the turn to finish", func() bool {
 		record, _ := s.Routing(entry.ID)
 		return record != nil && contains(record.Done, "gourmet") && contains(record.Spoke, "gourmet")
 	})
-	if !strings.Contains(strings.Join(stub.phases, "\n"), "submit_note") {
-		t.Fatal("the builtin note phase did not run")
+	if !strings.Contains(strings.Join(stub.phases, "\n"), "keep_memory") {
+		t.Fatal("the builtin keeper did not run")
 	}
 	if len(runner.Asks()) != 0 {
 		t.Fatal("the ask stayed open")
@@ -347,8 +350,8 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 	}{{"ordinary", false, false, false}, {"named", true, false, false}, {"listening", false, true, false}, {"deep", false, false, true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			runner, s, _ := externalSetup(t, time.Minute, time.Minute)
-			index := strings.Repeat("memory-index-unique-content\n", 500)
-			if err := s.WriteNote("gourmet", "index.md", index); err != nil {
+			index := strings.Repeat("memory-index-unique-content\n", 50)
+			if err := s.WriteNote("gourmet", "Shop.md", index); err != nil {
 				t.Fatal(err)
 			}
 			entry := post(t, s, "投稿の全文")
@@ -375,10 +378,10 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 			if brief.Turn != turnLine(tc.named, tc.listening) || brief.WakeNote != wakeNote {
 				t.Fatal("turn instructions lost")
 			}
-			if brief.Place != placeLine(entry.Place) || brief.NoteCount != runner.noteCount(skill.ID) || brief.Now == "" {
+			if brief.Place != placeLine(entry.Place) || brief.Now == "" {
 				t.Fatal("location, inventory or clock lost")
 			}
-			if brief.MemoryIndex != index || brief.Instructions != skill.Instructions {
+			if !strings.Contains(brief.Memory, strings.TrimSpace(index)) || brief.Instructions != skill.Instructions {
 				t.Fatal("persona or memory context lost")
 			}
 			if len(brief.Thread) != 1 || !strings.Contains(brief.Thread[0].Rendered, entry.Link) || !strings.Contains(brief.Thread[0].Rendered, entry.Media.Text) {
@@ -395,8 +398,8 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 			if fields["briefing"] != nil || fields["threadText"] != nil {
 				t.Fatal("duplicate prompts returned")
 			}
-			// Large note indexes used to occur in both memoryIndex and briefing.user.
-			if strings.Count(string(raw), "memory-index-unique-content") != 500 {
+			// Large memory used to occur in both the memory field and briefing.user.
+			if strings.Count(string(raw), "memory-index-unique-content") != 50 {
 				t.Fatal("index was duplicated or truncated")
 			}
 			if fields["workflow"] != nil || fields["skill"] != nil {

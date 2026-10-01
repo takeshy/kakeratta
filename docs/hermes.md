@@ -67,7 +67,7 @@ For the dedicated setup procedure (managed MCP provider registration, container 
 
 The key is shown only right after it is issued; the server stores only its hash. **Replace key** on a connection's row invalidates the previous key, and **Delete** revokes it. A browser login cookie cannot authenticate MCP.
 
-With this key, Hermes can read the issuing user's timeline, persona list, and each persona's notes. Its only write is submitting an answer for an ask. Kakeratta decides, checks and runs any change the turn needs, and publishes the answer as the persona. It cannot access model settings or other users' data.
+With this key, Hermes can read the issuing user's timeline, persona list, and each persona's memory. Its only write is submitting an answer for an ask. Kakeratta decides, checks and runs any change the turn needs, and publishes the answer as the persona. It cannot access model settings or other users' data.
 
 Deleting a connection erases the stored key hash and invalidates the connection itself; reconnecting needs a new key and an updated Hermes configuration. Revoking the key does not erase data Hermes has already fetched. To stop handing a persona to the external agent, set its planner back to **Built-in model**.
 
@@ -80,10 +80,10 @@ Kakeratta's MCP server exposes the following tools for external agents. In Herme
 | `list_personas` | List available personas |
 | `get_timeline` | Retrieve timeline entries |
 | `get_thread` | Retrieve conversation threads |
-| `list_notes` / `read_note` | List and read persona notes |
+| `list_notes` / `read_note` | List and read a persona's memory files (field summaries and monthly kakera records) |
 | `list_asks` | Check pending and claimed asks (includes distributed version metadata) |
 | `claim_ask` | Claim an ask exclusively and retrieve context (persona, instructions, capabilities, answer schema, read-only tools) |
-| `read_for_ask` | Look up additional context while answering (`notes_list`, `notes_read`, and read-only tools such as `timeline_search`) |
+| `read_for_ask` | Look up additional context while answering (`records`, and read-only tools such as `timeline_search`) |
 | `submit_answer` | Submit the final answer (`{text, sources}`); nothing else |
 | `release_ask` | Hand the turn back to Kakeratta's built-in model immediately |
 | `get_integration` | Retrieve latest official Skill and Wake Gate script payloads |
@@ -98,29 +98,29 @@ list_asks → claim_ask → context interpretation → read_for_ask / own resear
 
 1. **`list_asks`**: Check open asks. Unclaimed asks have `status: "pending"`; if not claimed before `claimBy`, the built-in model takes over.
 2. **`claim_ask`**: Claim the target ask using its `askId` and an execution-unique `claimId`. The response returns `planBy` (accepted answer deadline) and the full `context`. Retry lost responses with the same `claimId`.
-3. **Research & reasoning**: If needed, call `read_for_ask` with `notes_list` or `notes_read` steps to inspect notes, or a `tool` step to run a read-only tool in `context.tools`, such as `timeline_search`. Only saved posts discovered via `timeline_search` through `read_for_ask` can be cited in the answer's `sources`. Research with Hermes's own tools as needed and cite web sources as links in the answer text.
+3. **Research & reasoning**: If needed, call `read_for_ask` with a `records` step to look through older kakera records (`args` with any of `tag`, `query`, `before`, or `id` to read the entry a record points to), or a `tool` step to run a read-only tool in `context.tools`, such as `timeline_search`. Only saved posts discovered via `timeline_search` or read by a record's `id` through `read_for_ask` can be cited in the answer's `sources`. Research with Hermes's own tools as needed and cite web sources as links in the answer text.
 4. **`submit_answer`**: Submit the `askId`, `claimId`, and `answer: {text, sources}`. Kakeratta checks only its shape and the turn's rules (a named turn must answer, a listening turn must stay quiet, `sources` must come from this ask's searches). `accepted: true` means the answer was received, not yet published: Kakeratta goes on to the schedule and action phases, runs them, and then publishes it (the persona's note keeper writes the notes after that). If rejected, revise using the returned `problems`.
 5. **`release_ask`**: If an ask cannot be answered, release it immediately rather than waiting for timeouts.
 
 ### The context a claim returns
 
-The `context` from `claim_ask` holds what the built-in model reads when it answers. The note-writing skill, the memory layout and any state-changing schema are not part of it: those belong to Kakeratta's own later phases.
+The `context` from `claim_ask` holds what the built-in model reads when it answers. How memory is kept and any state-changing schema are not part of it: those belong to Kakeratta's own later phases.
 
 | Field | Contents |
 | --- | --- |
 | `persona` | The persona's ID, name, tone, and domain |
 | `instructions` | The persona's own instructions |
 | `capabilities` | The changes Kakeratta can make for the persona after the answer; the answer must not promise anything else |
-| `wake` / `wakeInstructions` | Why it woke (`post`, `daily`, `schedule`, `review`, …) and that wake's brief (such as the check-in brief) |
+| `wake` / `wakeInstructions` | Why it woke (`post`, `daily`, `schedule`, `review-reply`, …) and that wake's brief (such as the check-in brief) |
 | `trigger` | The entry to respond to |
 | `thread` | The whole thread containing it, oldest first |
-| `memoryIndex` | The persona's `index.md` |
+| `memory` | The persona's memory: each field's summary whole, then its latest kakera records (`- time [entry id] one sentence #tag`) |
 | `schedules` | The schedules the persona has placed |
 | `answerSchema` | The JSON Schema of the answer (`{text, sources}`) |
-| `tools` | The persona's read-only lookups through `read_for_ask` (including `notes_list`, `notes_read`, and `timeline_search`) |
+| `tools` | The persona's read-only lookups through `read_for_ask` (including `records` and `timeline_search`) |
 | `limits` | Read and web-search limits |
 | `rules` | How the persona answers this turn; the agent is not asked to keep an answer short |
-| `now` / `place` / `noteCount` / `turn` | Current time, post location, note inventory summary, and whether the turn requires an answer or silence |
+| `now` / `place` / `turn` | Current time, post location, and whether the turn requires an answer or silence |
 
 Post and note contents are data, not instructions to Hermes.
 
@@ -172,6 +172,6 @@ The Wake Gate script integrates an autonomous update mechanism for both the Skil
 
 A Wake Gate from before Gate version 2 cannot update itself and must be replaced by hand once.
 
-## Check-ins, schedules, and note reviews
+## Check-ins, schedules, and deletions
 
-Daily check-ins, schedule wakes, note reviews, and deletion notices also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit an answer with an empty `text`. Whatever the wake asks to keep or push back (such as a note's review date) is done by Kakeratta's note keeper.
+Daily check-ins (which may carry records due for review: ask about one), schedule wakes, and replies to such a question also become asks when the persona's planner is the external agent. `wake` and `wakeInstructions` say why the persona woke and what it was asked. When there is nothing worth sharing, submit an answer with an empty `text`. Kakeratta's note keeper updates the persona's memory after each kakera of the user's; a deletion is tidied in-process and never becomes an ask.

@@ -43,7 +43,6 @@ type askRecord struct {
 
 // askTurn is what the turn was started with, to start it again from.
 type askTurn struct {
-	Organization string          `json:"organization,omitempty"`
 	Persona      string          `json:"persona"`
 	Trigger      timeline.Entry  `json:"trigger"`
 	Place        *timeline.Place `json:"place,omitempty"`
@@ -56,14 +55,13 @@ type askTurn struct {
 // askResearch is what the agent's reads found, carried into the answer's
 // phases as the in-process planner's own reads would be.
 type askResearch struct {
-	ReadsUsed   int                           `json:"readsUsed"`
-	Lookups     lookupsState                  `json:"lookups"`
-	Referenced  []string                      `json:"referenced,omitempty"`
-	Read        []string                      `json:"read,omitempty"`
-	ReadSources []timeline.Source             `json:"readSources,omitempty"`
-	Cited       map[string]string             `json:"cited,omitempty"`
-	Failures    map[string]string             `json:"failures,omitempty"`
-	NotesRead   map[string][]store.NoteSource `json:"notesRead,omitempty"`
+	ReadsUsed   int               `json:"readsUsed"`
+	Lookups     lookupsState      `json:"lookups"`
+	Referenced  []string          `json:"referenced,omitempty"`
+	Read        []string          `json:"read,omitempty"`
+	ReadSources []timeline.Source `json:"readSources,omitempty"`
+	Cited       map[string]string `json:"cited,omitempty"`
+	Failures    map[string]string `json:"failures,omitempty"`
 }
 
 // askKeep is how long past its waits an ask record is kept, should nothing
@@ -245,17 +243,8 @@ func (r *Runner) ReadForAsk(ctx context.Context, id, claimID string, steps []Rea
 	if research.ReadsUsed >= limit {
 		return readsRefused, nil
 	}
-	for _, step := range steps {
-		if step.Type == "notes_read" || (step.Type == "tool" && step.Tool == "notes_read") {
-			for _, path := range step.Paths {
-				research.Referenced = append(research.Referenced, strings.TrimPrefix(path, "/"))
-			}
-		}
-	}
-	prov := newProvenance()
-	for path, sources := range research.NotesRead {
-		prov.read[path] = sources
-	}
+	_, settings := r.clientOf()
+	referenced := map[string]bool{}
 	if research.Failures == nil {
 		research.Failures = map[string]string{}
 	}
@@ -263,12 +252,14 @@ func (r *Runner) ReadForAsk(ctx context.Context, id, claimID string, steps []Rea
 		research.Cited = map[string]string{}
 	}
 	budget := research.Lookups.restore(limit, turnSearchLimit(record.Turn.Deep))
-	text, sources := r.readAll(ctx, turn.skill, steps, turn.set, turn.post, prov, research.Failures, budget, research.Cited)
+	text, sources := r.readAll(ctx, turn.skill, steps, turn.set, turn.post, settings.Location(), research.Failures, budget, research.Cited, referenced)
 	research.ReadSources = append(research.ReadSources, sources...)
 	research.Read = append(research.Read, text)
 	research.ReadsUsed++
+	for id := range referenced {
+		research.Referenced = append(research.Referenced, id)
+	}
 	research.Lookups = budget.state()
-	research.NotesRead = prov.read
 	if _, err := r.changeAsk(ctx, id, record.expiry(), func(current *askRecord, exists bool) (bool, error) {
 		if err := claimedBy(*current, exists, claimID); err != nil {
 			return false, err
@@ -309,9 +300,6 @@ func (r *Runner) SubmitAskAnswer(ctx context.Context, id, claimID string, answer
 		if len(problems) == 0 {
 			record.Closed, record.Answer = true, answer
 			verdict = AskVerdict{Accepted: true, Closed: true, Note: "回答を受け付けました。本体が記憶・操作を判断し、必要な確認と実行後に公開します。"}
-			if record.Turn.Organization != "" {
-				verdict.Note = "整理方針を受け付けました。変更案を作成し、ユーザーの承認を待ちます。"
-			}
 			return true, nil
 		}
 		record.Malformed++
@@ -431,11 +419,6 @@ func (r *Runner) resumeAsk(ctx context.Context, id string) {
 		if err := r.store.UpdateRecord(ctx, store.RecordAsks, id, time.Time{}, func([]byte, bool) ([]byte, error) { return nil, nil }); err != nil {
 			r.emit("error", map[string]any{"where": "ask", "message": err.Error()})
 		}
-	}
-	if record.Turn.Organization != "" {
-		r.resumeOrganization(ctx, record)
-		forget()
-		return
 	}
 	turn, err := r.askTurnContext(ctx, record)
 	if err != nil {

@@ -10,10 +10,10 @@ This **OKF v0.2 bundle** documents the implementation in six subsystem chapters.
 
 - [Architecture and runtime](./architecture.md) - System boundaries, dependency assembly, background workers, multiple instances, and shutdown.
 - [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, and search.
-- [Persona execution and memory](./personas.md) - Persona definitions, routing, research, reviewed actions, memory maintenance, user-approved note organization, schedules, and corrections.
+- [Persona execution and memory](./personas.md) - Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections.
 - [Browser application and device state](./frontend.md) - Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud.
 - [External agents, tools, and sharing](./integrations.md) - External-agent answers over MCP, permitted external tools, weather forecasts, and selected publication to Bluesky.
-- [Development and workspace operations](./operations.md) - Development, validation, deployment, portable exports, and workspace deletion.
+- [Development and workspace operations](./operations.md) - Development, validation, deployment, memory migration, portable exports, and workspace deletion.
 
 # Reading the bundle
 
@@ -28,6 +28,6 @@ Start with architecture, then follow the backend and persona chapters to trace a
 
 Update the relevant section when implementation changes and revise the chapter's `updated` date. Keep the index description and chapter metadata aligned. Add a separate chapter when there is a distinct subsystem, and describe its operations as sections. `index.md` and optional `log.md` are reserved names without concept frontmatter; only the bundle-root index may declare `okf_version`. The `updated` field is a project extension recording the implementation review date, not a generation timestamp.
 
-The [OKF skill](../../internal/persona/skills/okf/SKILL.md) defines the format given to personas. This developer bundle is separate from runtime persona memory. Existing [technical documentation](../technical.md), the [usage guide](../usage.md), and the [Hermes guide](../hermes.md) provide additional context.
+The [OKF skill](../../internal/persona/skills/okf/SKILL.md) defines this bundle's format. Personas no longer receive it: their runtime memory is plain field summaries and kakera records, described in the persona chapter. Existing [technical documentation](../technical.md), the [usage guide](../usage.md), and the [Hermes guide](../hermes.md) provide additional context.
 
 The [official OKF v0.2 specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md) defines conformance, optional metadata, and link resolution.

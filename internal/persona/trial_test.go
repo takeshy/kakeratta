@@ -37,8 +37,8 @@ func TestApplyRoutingUsesCheckedDecisionAndRunsPersona(t *testing.T) {
 	if routes != 1 || turns == 0 {
 		t.Fatalf("apply rerouted or skipped persona: routes=%d turns=%d", routes, turns)
 	}
-	if _, ok := workspace.Note("gourmet", "food/ramen.md"); !ok {
-		t.Fatal("ordinary turn did not write its note")
+	if found, _ := runner.findRecords("gourmet", "", "", "", 10, time.UTC); len(found) != 1 {
+		t.Fatalf("ordinary turn did not record the kakera: %+v", found)
 	}
 	entries, _ := workspace.Timeline()
 	if len(entries) != 2 || entries[1].Text != "ラーメンですね" {
@@ -63,7 +63,10 @@ func TestApplyReplyKeepsExactPreviewWithoutRunningModelAgain(t *testing.T) {
 	}}
 	scripted, _ := json.Marshal(workflow)
 	turns := 0
-	runner, workspace, _ := setup(t, func(system, user string) string { turns++; return string(scripted) }, "gourmet")
+	runner, workspace, f := setup(t, func(system, user string) string { turns++; return string(scripted) }, "gourmet")
+	f.keep = func(string, string) string {
+		return `{"summary":"ラーメンを食べた","tags":["ラーメン"],"fields":[{"field":"Preference","text":"味噌ラーメン"}]}`
+	}
 	post := post(t, workspace, "ラーメン")
 	old := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: post.ID, ReplyTo: post.ID, Text: "醤油ですね", At: post.At.Add(time.Minute)}
 	if err := workspace.Append(old); err != nil {
@@ -84,16 +87,16 @@ func TestApplyReplyKeepsExactPreviewWithoutRunningModelAgain(t *testing.T) {
 	if changed.Text != preview.Spoke || changed.ID != old.ID {
 		t.Fatalf("changed = %+v", changed)
 	}
-	if note, ok := workspace.Note("gourmet", "food/ramen.md"); !ok || !strings.HasPrefix(note.Text, "味噌ラーメン") {
+	if note, ok := workspace.Note("gourmet", "Preference.md"); !ok || !strings.HasPrefix(note.Text, "味噌ラーメン") {
 		t.Fatalf("note = %+v, %v", note, ok)
 	}
-	// The remark points at the note the keeper wrote in the trial, and the
-	// index the trial left links it - not an older index rebuilt over it.
-	if len(changed.Notes) != 1 || changed.Notes[0] != "food/ramen.md" {
-		t.Fatalf("the accepted remark lost its note: %+v", changed.Notes)
+	// The remark points at the field the keeper wrote in the trial, and the
+	// record is kept under the remark that was kept.
+	if len(changed.Notes) != 1 || changed.Notes[0] != "Preference.md" {
+		t.Fatalf("the accepted remark lost its field: %+v", changed.Notes)
 	}
-	if index, ok := workspace.Note("gourmet", "index.md"); !ok || !strings.Contains(index.Text, "/food/ramen.md") {
-		t.Fatalf("index.md = %+v, %v", index, ok)
+	if found, _ := runner.findRecords("gourmet", "", "", "", 10, time.UTC); len(found) != 1 || found[0].ID != old.ID {
+		t.Fatalf("records = %+v, want one under %s", found, old.ID)
 	}
 	if err := runner.ApplyReply(preview.Token, old.ID); err != nil {
 		t.Fatal(err)

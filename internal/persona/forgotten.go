@@ -3,7 +3,6 @@ package persona
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -13,41 +12,29 @@ import (
 
 const deletedInstructions = `
 
-## 根拠にしていた投稿が消されました
-ユーザーが、あなたがメモの根拠にしていた投稿を削除しました。どの投稿かは対象発言に入っています。
-本体はあなたのメモを書き換えません。整理するのはあなたの仕事です。
-その投稿だけが根拠だったメモは、本体がすでに削除しました。対象発言にその一覧があります。index.md や他のメモからそれらへの参照を外してください。
-対象発言には、ほかの投稿も根拠にしていて残ったメモの一覧も入っています。どちらも空なら、operations を空にして終えてください。
-残ったメモは notes_read で読み、消えた投稿に由来する記述を直すか捨ててください。
-index.md と更新履歴は捨てないでください。消えた項目への参照だけを外し、ファイルは残します。
-ほかの根拠が残っている記述は、そのまま残して構いません。出典のリンクは本体が外してあるので、触らなくてよいです。
-**予定も見直してください。** schedule を持っているなら下の一覧を見て、その投稿のために置いた予定は、その id で schedule の cancel を入れて消します。
+## かけらが消されました
+ユーザーが、あなたが記録していたかけらを削除しました。どのかけらかは対象発言に入っています。
+その記録は本体がすでに消しました。記憶のまとめのうち、そのかけらに由来する記述は、このあとメモ係が外します。
+**予定も見直してください。** schedule を持っているなら下の一覧を見て、そのかけらのために置いた予定は、その id で schedule の cancel を入れて消します。
 用そのものが残っているなら、予定はそのままで構いません。
 これはユーザーの操作の結果です。消したことを責めたり、理由を尋ねたりしないでください。
 このターンは発言できません。整理したことをわざわざ報告する必要はありません。
 `
 
-// tidiesUp reports a wake that only puts memory back in order after something
-// was deleted: a post, a note, or a note past its expires date. It cannot
-// speak and has nothing to answer, so it skips the research and the answer
-// and goes straight to the schedule phase and the note keeper, which are handed
-// or read what they need themselves. It is never handed to the external agent, which would only
-// be asked for an answer nobody will see.
+// tidiesUp reports a wake that only puts memory back in order after the user
+// deleted a post. It cannot speak and has nothing to answer, so it skips the
+// research and the answer and goes straight to the schedule phase and the
+// note keeper. It is never handed to the external agent, which would only be
+// asked for an answer nobody will see.
 func tidiesUp(instructions string) bool {
-	return instructions == deletedInstructions || instructions == forgottenInstructions || instructions == expiredInstructions
+	return instructions == deletedInstructions
 }
 
-// deletedPost is a post the user removed, and who had written it down.
+// deletedPost is a post the user removed, and who had recorded it.
 type deletedPost struct {
 	entryID string
 	label   string
 	skill   string
-	// notes are the ones that had cited the post and still stand, so the
-	// persona knows where to look rather than reading everything it has.
-	notes []string
-	// removed are the notes the app deleted because the post was all they
-	// rested on, so the persona can take them out of its index.
-	removed []string
 }
 
 // EntryForgotten tells the personas woken for a deleted entry to tidy up. A
@@ -70,41 +57,51 @@ func (r *Runner) EntryForgotten(entryID, label string) {
 // EntriesForgotten tells the personas woken for a post that some of it is
 // gone: the post itself and everything said under it, or one line of the
 // user's. Who to tell comes from the app's own records - who it woke for the
-// post, and which notes it linked to it - never from reading a note. The links the app kept from notes to the
-// deleted lines are taken out first, and each persona gets one wake for the
-// whole deletion rather than one per line. A persona that holds nothing says
-// nothing.
+// post - never from reading a body. The records kept under the deleted lines
+// (the kakera, or the remark answering it) are taken out first, and each
+// persona that had any gets one wake for the whole deletion to take out of its
+// fields what rested on them.
 func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 	ctx := r.withSkills(context.Background())
 	root = strings.TrimSpace(root)
 	if root == "" || len(gone) == 0 {
 		return
 	}
-	var ids, labels []string
+	var labels []string
 	rootGone := false
 	for _, entry := range gone {
 		if entry.ID == root {
 			rootGone = true
 		}
-		// Only the user's lines are ever cited by a note; a persona's remark
-		// going with them is nothing a persona wrote down.
 		if entry.Speaker != timeline.User {
 			continue
 		}
-		ids = append(ids, entry.ID)
 		if text := strings.TrimSpace(entry.Text); text != "" {
 			labels = append(labels, text)
 		}
 	}
-	forget := func() {
+	defer func() {
 		if rootGone {
 			if err := r.store.ForgetWakes(root); err != nil {
 				r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
 			}
 		}
-	}
-	if len(ids) == 0 {
-		forget()
+	}()
+	_, settings := r.clientOf()
+	zone := settings.Location()
+	if len(labels) == 0 {
+		// Only replies of the personas went: their records are kept under
+		// the kakera they answered, and nobody has anything to tidy.
+		seen := map[string]bool{}
+		for _, entry := range gone {
+			if entry.Speaker == timeline.User || entry.Speaker == "system" || seen[entry.Speaker] {
+				continue
+			}
+			seen[entry.Speaker] = true
+			if _, err := r.dropRecords(ctx, entry.Speaker, gone, zone); err != nil {
+				r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
+			}
+		}
 		return
 	}
 	woke, err := r.store.Woke(root)
@@ -112,78 +109,24 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 		r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
 		return
 	}
-	// A persona can also cite a post it found through timeline_search without
-	// having been woken for it; the app's own link index names those.
-	for _, skill := range r.skills(ctx).All() {
-		if slices.Contains(woke, skill.ID) {
-			continue
-		}
-		for _, id := range ids {
-			if paths, _ := r.store.NotesBySource(skill.ID, id); len(paths) > 0 {
-				woke = append(woke, skill.ID)
-				break
-			}
-		}
-	}
-	if len(woke) == 0 {
-		forget()
-		return
-	}
-	_, settings := r.clientOf()
 	active := map[string]bool{}
 	for _, skill := range r.skills(ctx).Active(settings.Active) {
 		active[skill.ID] = true
 	}
 	label := strings.Join(labels, " ／ ")
 	for _, skill := range woke {
-		// The links are the app's own, so the app takes them out before anyone
-		// is woken to look at what is left - a paused persona included.
-		var notes []string
-		seen := map[string]bool{}
-		for _, id := range ids {
-			dropped, err := r.store.DropNoteSource(skill, id)
-			if err != nil {
-				r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
-			}
-			for _, path := range dropped {
-				if !seen[path] {
-					seen[path] = true
-					notes = append(notes, path)
-				}
-			}
+		// The records are the app's own, so the app takes them out before
+		// anyone is woken to look at what is left - a paused persona included.
+		dropped, err := r.dropRecords(ctx, skill, gone, zone)
+		if err != nil {
+			r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
 		}
-		cited, removed := r.dropUnsourcedNotes(skill, notes)
-		if !active[skill] {
+		if !dropped || !active[skill] {
 			continue
 		}
 		// Queued twice for the same post, the wakes are folded into one.
-		r.accept(store.Reaction{Lane: "thread:" + root, Deleted: &store.DeletedReaction{EntryID: root, Label: label, Skill: skill, Notes: cited, Removed: removed}})
+		r.accept(store.Reaction{Lane: "thread:" + root, Deleted: &store.DeletedReaction{EntryID: root, Label: label, Skill: skill}})
 	}
-	forget()
-}
-
-// dropUnsourcedNotes deletes the notes the deleted lines were the only source
-// of. Someone who deletes a post means it gone, so a note that rested on nothing
-// else goes with it rather than waiting on the persona to agree. A note with
-// other posts behind it stays for the persona to tidy; the index and the log
-// are never about one post.
-func (r *Runner) dropUnsourcedNotes(skill string, paths []string) (cited, removed []string) {
-	for _, path := range paths {
-		note, ok := r.store.Note(skill, path)
-		if !ok || reservedNote(path) || len(store.NoteSources(note.Text)) > 0 {
-			if ok {
-				cited = append(cited, path)
-			}
-			continue
-		}
-		if err := r.store.DeleteNote(skill, path); err != nil {
-			r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
-			cited = append(cited, path)
-			continue
-		}
-		removed = append(removed, path)
-	}
-	return cited, removed
 }
 
 // deletedAt hands one persona the post that is gone.
@@ -205,15 +148,9 @@ func (r *Runner) deletedAt(ctx context.Context, gone deletedPost) {
 	if runes := []rune(label); len(runes) > 140 {
 		label = string(runes[:140]) + "…"
 	}
-	list := func(paths []string) string {
-		if len(paths) == 0 {
-			return "（なし）"
-		}
-		return strings.Join(paths, ", ")
-	}
 	trigger := timeline.Entry{At: time.Now(), Speaker: "system", Text: fmt.Sprintf(
-		"The user deleted the post you cited, and whatever was said under it: %s (/?entry=%s). Notes that still cite other posts: %s. Notes the app deleted because they rested only on it: %s. Tidy what rested on it.",
-		label, gone.entryID, list(gone.notes), list(gone.removed))}
+		"The user deleted a kakera you had recorded, and whatever was said under it: %s (%s). Its records are gone; take out of your fields what rested on it.",
+		label, gone.entryID)}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	// It cannot speak. This wake is bookkeeping after the user deleted a post,

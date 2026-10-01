@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 func answering(system, user string) string {
@@ -111,9 +112,8 @@ func TestAReactionThatKeepsFailingIsDropped(t *testing.T) {
 // wake is a queued reaction as a worker takes it up: folded with those after
 // it in its lane that ask the same thing.
 type wake struct {
-	entry     string
-	forgotten *forgotten
-	deleted   *deletedPost
+	entry   string
+	deleted *deletedPost
 }
 
 func wakes(t *testing.T, r *Runner) []wake {
@@ -126,18 +126,12 @@ func wakes(t *testing.T, r *Runner) []wake {
 	last := map[string]int{}
 	for _, item := range items {
 		next := wake{entry: item.Entry}
-		if f := item.Forgotten; f != nil {
-			next.forgotten = &forgotten{skill: f.Skill, paths: append([]string(nil), f.Paths...), expired: f.Expired}
-		}
 		if d := item.Deleted; d != nil {
-			next.deleted = &deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill, notes: d.Notes, removed: d.Removed}
+			next.deleted = &deletedPost{entryID: d.EntryID, label: d.Label, skill: d.Skill}
 		}
 		if i, ok := last[item.Lane]; ok {
 			prev := &out[i]
 			switch {
-			case prev.forgotten != nil && next.forgotten != nil && prev.forgotten.skill == next.forgotten.skill && prev.forgotten.expired == next.forgotten.expired:
-				prev.forgotten.paths = append(prev.forgotten.paths, next.forgotten.paths...)
-				continue
 			case prev.deleted != nil && next.deleted != nil && prev.deleted.skill == next.deleted.skill && prev.deleted.entryID == next.deleted.entryID:
 				continue
 			}
@@ -251,42 +245,21 @@ func TestADueThatCannotSetTheNextWakeIsTriedAgain(t *testing.T) {
 }
 
 // A keeper that lost its lock writes nothing more: its context has ended, and
-// index.md is the new holder's to write.
-func TestALostLockStopsIndexAndNoteWrites(t *testing.T) {
+// the memory is the new holder's to write.
+func TestALostLockStopsMemoryWrites(t *testing.T) {
 	r, s, _ := setup(t, answering, "gourmet")
-	if err := s.WriteNote("gourmet", "index.md", "# 目次\n"); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.WriteNote("gourmet", "shops/ramen.md", "---\ntype: Shop\ntitle: ラーメン\n---\n\n店"); err != nil {
-		t.Fatal(err)
-	}
 	lost, cancel := context.WithCancel(context.Background())
 	cancel()
-
-	before, _ := s.Note("gourmet", "index.md")
-	if _, err := r.repairIndex(lost, "gourmet"); err == nil {
-		t.Fatal("a lost lock still repaired the index")
+	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
+	if _, err := r.writeFields(lost, skill, memoryFields(skill), []fieldWrite{{Field: "Shop", Text: "店"}}); err == nil {
+		t.Fatal("a lost lock still wrote a field")
 	}
-	ops := []NoteOperation{{Type: "write", Path: "shops/ramen.md", Section: "店"}}
-	if err := r.placeInIndex(lost, "gourmet", ops, []string{"shops/ramen.md"}); err == nil {
-		t.Fatal("a lost lock still placed a note in the index")
+	trigger := timeline.Entry{ID: "e_1", Speaker: timeline.User, At: time.Now()}
+	if err := r.appendRecord(lost, "gourmet", record{At: trigger.At, ID: "e_1", Summary: "x"}, trigger, time.UTC); err == nil {
+		t.Fatal("a lost lock still appended a record")
 	}
-	if out, ok := r.notesTool(lost, "gourmet", "notes_write", map[string]any{"path": "shops/new.md", "text": "x"}, newProvenance()); ok {
-		t.Fatalf("a lost lock still wrote a note: %s", out)
-	}
-	if out, ok := r.notesTool(lost, "gourmet", "notes_forget", map[string]any{"path": "shops/ramen.md"}, newProvenance()); ok {
-		t.Fatalf("a lost lock still forgot a note: %s", out)
-	}
-	if after, _ := s.Note("gourmet", "index.md"); after.Text != before.Text {
-		t.Fatalf("the index was written: %q", after.Text)
-	}
-	if _, ok := s.Note("gourmet", "shops/new.md"); ok {
-		t.Fatal("a note was written")
-	}
-
-	// The holder repairs it as before.
-	if repaired, err := r.repairIndex(context.Background(), "gourmet"); err != nil || !repaired {
-		t.Fatalf("repair = %v, %v", repaired, err)
+	if paths, _ := s.NotePaths("gourmet"); len(paths) != 0 {
+		t.Fatalf("memory was written: %v", paths)
 	}
 }
 

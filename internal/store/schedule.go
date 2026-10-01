@@ -17,9 +17,8 @@ import (
 //
 // The app holds this the way it holds the endpoint, the active personas and the
 // check-in time: it is what the app needs in order to call anyone. The contents
-// are the persona's own - it asks for a schedule as it writes the note that
-// occasioned it, and it is the one that moves or cancels it afterwards. The app
-// never reads or writes the notes themselves.
+// are the persona's own - it asks for a schedule, with a note of what it is
+// for, and it is the one that moves or cancels it afterwards.
 type Schedule struct {
 	ID       string    `json:"id"`
 	Skill    string    `json:"skill"`
@@ -27,9 +26,9 @@ type Schedule struct {
 	At       time.Time `json:"at"`
 	TimeZone string    `json:"timeZone"`
 	Note     string    `json:"note"`
-	// NotePath is the note the persona wrote alongside the schedule. The app
-	// keeps the path so the persona can be shown which note a wake rests on; it
-	// never opens the note.
+	// NotePath is the note a persona wrote alongside the schedule when memory
+	// was one note per thing. It is kept for schedules saved then and no
+	// longer set.
 	NotePath    string       `json:"notePath,omitempty"`
 	PersonEvent *PersonEvent `json:"personEvent,omitempty"`
 }

@@ -16,15 +16,17 @@ import (
 // nothing lands on the timeline, and no wake is counted.
 func TestPreviewReplyKeepsNothing(t *testing.T) {
 	workflow := map[string]any{"summary": "test", "steps": []any{
-		map[string]any{"type": "write_note", "path": "places/shibuya.md", "text": "type: Place\n\n渋谷。", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""},
 		map[string]any{"type": "speak", "path": "", "text": "渋谷なら20時までに着けます。", "tool": "", "args": "{}", "at": "", "daily": false, "note": "", "id": ""},
 	}}
 	scripted, _ := json.Marshal(workflow)
 	var systems []string
-	runner, s, _ := setup(t, func(system, user string) string {
+	runner, s, f := setup(t, func(system, user string) string {
 		systems = append(systems, system)
 		return string(scripted)
 	}, "move", "gourmet")
+	f.keep = func(string, string) string {
+		return `{"summary":"渋谷に20時に着きたい","tags":["渋谷"],"fields":[{"field":"Place","text":"渋谷。"}]}`
+	}
 	post := post(t, s, "20時に渋谷に着きたい")
 	remark := timeline.Entry{
 		ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "move", Root: post.ID, ReplyTo: post.ID,
@@ -48,14 +50,14 @@ func TestPreviewReplyKeepsNothing(t *testing.T) {
 	if preview.Quiet || preview.Spoke != "渋谷なら20時までに着けます。" || preview.Error != "" {
 		t.Fatalf("preview = %+v", preview)
 	}
-	if len(preview.Notes) != 1 || preview.Notes[0] != "places/shibuya.md" {
+	if len(preview.Notes) != 1 || preview.Notes[0] != "Place.md" {
 		t.Fatalf("the note it would have written was not reported: %v", preview.Notes)
 	}
 	if len(systems) == 0 || !strings.Contains(systems[0], "michi") {
 		t.Fatalf("the persona was not run: %v", systems)
 	}
-	if _, ok := s.Note("move", "places/shibuya.md"); ok {
-		t.Fatal("a preview wrote a note")
+	if paths, _ := s.NotePaths("move"); len(paths) != 0 {
+		t.Fatalf("a preview wrote memory: %v", paths)
 	}
 	if after, _ := s.Timeline(); len(after) != len(before) {
 		t.Fatalf("a preview changed the timeline: %d -> %d", len(before), len(after))

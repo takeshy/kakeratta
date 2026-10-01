@@ -12,7 +12,7 @@ import (
 // A workspace asks to be woken at the next time anything of its own comes
 // due, and at no other: there is no clock going round every workspace. What
 // comes due is asks past their waits, note retries, check-ins and the month's
-// summary, schedules, and notes past their expires date. When the time comes
+// summary, schedules, and records past their expires day. When the time comes
 // a due reaction runs all of them, and ends by setting the alarm for the time
 // after that.
 //
@@ -28,7 +28,7 @@ const (
 	// in a loop.
 	minDue = 30 * time.Second
 	// soonDue is how long after a piece of work the workspace looks again:
-	// the work may have set a schedule, a retry, or an expires date.
+	// the work may have set a schedule, a retry, or an expires day.
 	soonDue = 30 * time.Second
 	// retryDue is how long the next wake is put off when what it depends on
 	// could not be read, or the wake before it gave up.
@@ -104,7 +104,7 @@ func (r *Runner) due(ctx context.Context, now time.Time) (err error) {
 	}()
 	r.sweepAsks(ctx, now)
 	r.retryNoteJobs(ctx, now)
-	expiry = r.expireNotes(ctx, now, settings)
+	expiry = r.expireRecords(ctx, now, settings)
 	r.dailyAt(ctx, now)
 	r.schedulesAt(ctx, now)
 	return nil

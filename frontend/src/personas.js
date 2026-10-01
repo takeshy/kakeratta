@@ -12,7 +12,6 @@ import { showPersonaEditor } from "./persona-editor.js";
 import { basicInfoBox } from "./person-basic-info.js";
 export { basicInfoBox };
 import { gloss } from "./builtins.js";
-import { createMemoryOrganization } from "./memory-organize.js";
 import { createMemoryView } from "./memory.js";
 import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
 
@@ -360,11 +359,11 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     box.append(controls);
     box.append(el("p", { class: "hint", text: monthly
       ? t(schedule.talk === "minimal"
-        ? "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読んでメモを整えます。話すのは、あなたの判断が必要なときだけです。"
-        : "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿と自分のメモを見直して、伝える価値があることを見つけたときに話します。", schedule.on || "")
+        ? "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読みます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。"
+        : "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿と自分の記憶を見直して、伝える価値があることを見つけたときに話します。", schedule.on || "")
       : t(schedule.talk === "minimal"
-        ? "毎日7時〜21時のどこかで起きてメモを整えます。話すのは、メモを忘れてよいかの確認など、あなたの判断が必要なときだけです。"
-        : "毎日7時〜21時のどこかで起き、最近の記録と自分のメモを見直して、伝える価値があることを見つけたときに話します。") }));
+        ? "毎日7時〜21時のどこかで起きます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。"
+        : "毎日7時〜21時のどこかで起き、最近の記録と自分の記憶を見直して、伝える価値があることを見つけたときに話します。") }));
     if (row.schedules?.length) {
       box.append(el("div", { class: "compose-row" },
         el("span", { class: "hint", label: "この担当の通知予定" }),
@@ -433,18 +432,20 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       const known = new Set(memory.notes.map(note => note.path));
       memory.notes = [...memory.notes, ...(notes || []).filter(note => !known.has(note.path))].sort(newest);
     };
-    const withOverview = async (notes, filter = {}) => {
-      if (filter.tag || filter.type || !memory.paths.includes("index.md") || notes.some(note => note.path === "index.md")) return notes;
-      const index = await api.note(row.id, "index.md").catch(() => null);
-      return index ? [...notes, index] : notes;
+    // The field summaries belong above the records even when they were
+    // written too long ago for the first page.
+    const withFields = async (notes, filter = {}) => {
+      if (filter.tag || filter.type) return notes;
+      const have = new Set(notes.map(note => note.path));
+      const missing = memory.paths.filter(path => !path.includes("/") && !have.has(path) && !["index.md", "log.md"].includes(path));
+      const fields = await Promise.all(missing.map(path => api.note(row.id, path).catch(() => null)));
+      return [...notes, ...fields.filter(Boolean)];
     };
     try {
       const page = await api.memory(row.id);
       memory.paths = page.paths || (page.notes || []).map(note => note.path);
       memory.next = page.next || "";
-      // The overview belongs above the list even when its last update is too
-      // old to be included in the first page of recently written notes.
-      memory.notes = await withOverview(page.notes || []);
+      memory.notes = await withFields(page.notes || []);
       // A note named from the timeline may sit on a later page.
       if (focusPath && !memory.notes.some(note => note.path === focusPath) && memory.paths.includes(focusPath)) {
         // A note gone since the link was drawn still opens the memory.
@@ -471,7 +472,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         const generation = ++memoryGeneration;
         try {
           const page = await api.memory(row.id, filter);
-          const notes = await withOverview(page.notes || [], filter);
+          const notes = await withFields(page.notes || [], filter);
           if (generation !== memoryGeneration) return;
           Object.assign(memory, { notes, next: page.next || "", filter });
           drawMemory();
@@ -521,7 +522,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     backdrop.addEventListener("keydown", (event) => {
       if (event.key === "Escape") { event.preventDefault(); close(); }
       if (event.key !== "Tab") return;
-      const focusable = [...backdrop.querySelectorAll("button, a[href], summary, textarea, select, input")]
+      const focusable = [...backdrop.querySelectorAll("button, a[href], summary, textarea")]
         .filter(node => !node.disabled && node.getClientRects().length);
       const first = focusable[0], last = focusable.at(-1);
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -540,16 +541,6 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
           ? basicInfoBox(row, () => { close(); showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus: "basicInfo" }); }, { open: true })
           : null,
         el("p", { class: "hint", label: "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。" }),
-        createMemoryOrganization({ api, id: row.id, externalAvailable: mcpConfigured && !agentPaused, onApplied: async () => {
-          const generation = ++memoryGeneration;
-          const page = await api.memory(row.id);
-          memory.paths = page.paths || [];
-          const notes = await withOverview(page.notes || []);
-          if (generation !== memoryGeneration) return;
-          Object.assign(memory, { notes, next: page.next || "", filter: { tag: "", type: "" } });
-          drawMemory();
-          toast(t("メモを整理しました"));
-        } }),
         memoryHost,
         el(
           "div",
