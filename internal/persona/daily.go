@@ -108,6 +108,10 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 		if !claimed {
 			continue
 		}
+		// The summaries are rewritten at the check-in, before it reads them.
+		if err := r.rewriteSummaries(ctx, client, personaModel(settings), skill.forTurn(), now, loc); err != nil {
+			r.emit("error", map[string]any{"where": "summaries", "persona": skill.ID, "message": err.Error()})
+		}
 		// What happened since the previous check-in actually ran, read as one
 		// span: the minute moves, and a day can be skipped or missed, so "the
 		// last 24 hours" would leave stretches unread. With no previous run on

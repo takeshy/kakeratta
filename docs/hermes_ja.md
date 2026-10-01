@@ -80,7 +80,7 @@ kakeratta の MCP サーバーは、外部エージェント向けに以下の�
 | `list_personas` | 利用可能な担当ペルソナ一覧 |
 | `get_timeline` | タイムラインの取得 |
 | `get_thread` | 会話スレッドの取得 |
-| `list_notes` / `read_note` | 担当の記憶のファイル（分野ごとのまとめと、月ごとのかけらの記録）の一覧・内容の取得 |
+| `list_notes` / `read_note` | 担当の記憶のファイル（分野ごとのまとめ文と事実、月ごとのかけらの記録）の一覧・内容の取得 |
 | `list_asks` | 未処理・取得済み ask の確認（配布バージョン情報を含む） |
 | `claim_ask` | ask の排他的な取得とコンテキスト（ペルソナ設定・指示・制約等）の取得 |
 | `read_for_ask` | プランニングに必要な追加情報の参照（`records` と、`timeline_search` などの読み取り用の道具） |
@@ -114,7 +114,7 @@ list_asks → claim_ask → コンテキスト解釈 → read_for_ask・自前�
 | `wake` / `wakeInstructions` | 起きた理由（`post`・`daily`・`schedule`・`review-reply` など）と、その起床の指示（チェックインの指示など） |
 | `trigger` | 今回の対象発言 |
 | `thread` | 対象発言を含むスレッド全体（古い順） |
-| `memory` | 担当の記憶。分野ごとのまとめの全文と、最近のかけらの記録（`- 日時 [投稿ID] 1文 #タグ`） |
+| `memory` | 担当の記憶。分野ごとのまとめ文と今の事実（`- [f_id] 事実`）、最近のかけらの記録（`- 日時 [投稿ID] 1文 #タグ`） |
 | `schedules` | 担当が置いている予定 |
 | `answerSchema` | 回答（`{text, sources}`）の JSON Schema |
 | `tools` | `read_for_ask` で使える読み取り専用の道具（`records`・`timeline_search` など） |

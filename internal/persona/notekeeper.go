@@ -57,13 +57,8 @@ type keptMemory struct {
 	Tags    []string       `json:"tags"`
 	Expires string         `json:"expires"`
 	Review  string         `json:"review"`
-	Fields  []fieldWrite   `json:"fields"`
+	Facts   []factOp       `json:"facts"`
 	Records []recordChange `json:"records"`
-}
-
-type fieldWrite struct {
-	Field string `json:"field"`
-	Text  string `json:"text"`
 }
 
 // recordChange is the keeper's decision on a record it was handed: its dates
@@ -83,16 +78,19 @@ func dateField(description string) map[string]any {
 // with a kakera, and decisions on records only when some were handed.
 func keepMemoryTool(fields []string, recording bool, handed []record) llm.Tool {
 	props := map[string]any{
-		"fields": map[string]any{"type": "array", "maxItems": len(fields), "description": "書き換える分野だけ。変えないなら空配列", "items": map[string]any{
+		"facts": map[string]any{"type": "array", "maxItems": 12, "description": "事実の変更だけ。変えないなら空配列", "items": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"field": map[string]any{"type": "string", "enum": fields},
-				"text":  stringField(fmt.Sprintf("その分野のまとめの新しい全文（%d字以内）", maxFieldRunes)),
+				"op":    map[string]any{"type": "string", "enum": []string{"add", "update", "invalidate", "merge"}},
+				"field": stringField("add・merge で入れる分野（" + strings.Join(fields, " / ") + "）。update で別の分野へ移すときも書く。ほかは空文字"),
+				"id":    stringField("update・invalidate する事実の id（f_...）。ほかは空文字"),
+				"ids":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "merge する事実の id を2件以上。ほかは []"},
+				"text":  stringField(fmt.Sprintf("add・update・merge の事実の文（1件、%d字以内）。invalidate は空文字", maxFactRunes)),
 			},
-			"required": []string{"field", "text"}, "additionalProperties": false,
+			"required": []string{"op", "field", "id", "ids", "text"}, "additionalProperties": false,
 		}},
 	}
-	required := []string{"fields"}
+	required := []string{"facts"}
 	if recording {
 		props["summary"] = stringField(fmt.Sprintf("今回のユーザーのかけらを1文で（%d字以内）", maxSummaryRunes))
 		props["tags"] = map[string]any{"type": "array", "minItems": 1, "maxItems": maxTags, "items": map[string]any{"type": "string"}, "description": "あとで探す手がかりの語"}
@@ -138,36 +136,34 @@ func keeperPrompt(skill Skill, recording bool, handed []record) string {
 	if memory := strings.TrimSpace(skill.forTurn().Memory); memory != "" {
 		s += "分野の分け方と残し方: " + memory + "\n"
 	}
-	switch {
-	case recording:
+	if recording {
 		s += `keep_memory で次を1回で提出する。
 - summary: 今回のユーザーのかけらを1文で。ユーザーが何を言った・聞いたかを、ユーザーの言葉に沿って書く（` + fmt.Sprint(maxSummaryRunes) + `字以内）。本体がタグと、たどれる投稿のIDを付けて記録に残す。
 - tags: そのかけらをあとで探す手がかりの語を1〜` + fmt.Sprint(maxTags) + `つ（料理の種類・場所・主題・人など）。記録で使っているタグがあれば同じ表記を使う。
 - expires / review: この記録の日付（下の規則）。
-- fields: 今回のかけらでまとめが変わる分野だけ、その分野の新しい全文を書く。変わらなければ空配列。
+- facts: 今回のかけらで分かった・変わった事実の変更だけ（下の規則）。変わらなければ空配列。
 `
-	case len(handed) > 0:
-		s += "いまはチェックインで、見直しの日が来た記録を渡された。keep_memory の records で、返事で聞いた記録の review を1週間先に書き直す。聞かなかった記録は records に入れない。まとめを変える必要がなければ fields は空配列。\n"
-	default:
-		s += `ユーザーが投稿を削除した。その投稿の記録は本体がすでに消した。keep_memory の fields で、消えた投稿に由来する記述をまとめから外した全文を出す。ほかの記録にも根拠がある内容は残す。変える必要がなければ空配列。
-`
+	} else {
+		s += "いまはチェックインで、見直しの日が来た記録を渡された。keep_memory の records で、返事で聞いた記録の review を1週間先に書き直す。聞かなかった記録は records に入れない。事実を変える必要がなければ facts は空配列。\n"
 	}
 	if recording && len(handed) > 0 {
 		s += "今回のかけらは、あなたが「そろそろ忘れていい？」と聞いた投稿への返事。keep_memory の records で、聞いた記録を返事のとおりに扱う。残すなら review を空に、延ばすなら先の日付に、もういいなら forget を true に。\n"
 	}
-	if recording || len(handed) > 0 {
-		s += keeperDates
-	}
-	s += `まとめの規則:
-- まとめは、その分野でこれまでに分かったことの要約で、` + fmt.Sprint(maxFieldRunes) + `字以内。書き換えるときは、いまの全文から保持すべき内容を落とさない。訂正されたこと・古くなったことは直す。
-- 中心はユーザーが言ったこと（事実・好み・予定・関係の変化・覚えてと頼まれたこと）。あなたや他の担当が調べた事実・候補一覧・解説の本文は書かない。どう答えたかを残すなら一言で。
-- 収まらないときは、細部より傾向を残す。個々の出来事は記録の1文が受け持つ。
-- 引用、本人の意見、推測を区別し、推測は推測と明記する。
-- Answer の文章を写さない。予定の id（s_...）を書くなら、一覧にあるものだけ。
-- 見出しや箇条書きは使ってよい。投稿のIDやリンクは書かない（記録に本体が付ける）。
-`
-	return s
+	return s + keeperDates + keeperFacts
 }
+
+// keeperFacts is how the facts are changed, as the keeper is told.
+var keeperFacts = `事実の規則:
+- 記憶は分野ごとの事実の一覧。あなたは全文を書かず、変更だけを出す。本体が今回のかけらを根拠として付けて保存する。
+  - add: 新しく分かった事実を1件足す（field と text）。
+  - update: いまの事実が変わった・詳しくなったとき、その id と新しい text。古い事実は「以前のこと」として残る。同じ文のまま別の分野へ移すなら field を書く。
+  - invalidate: もう当てはまらなくなった事実の id（「もう行った」「やめた」など）。
+  - merge: 似た事実をまとめる。ids と field と、まとめた text。
+- 1件は1つのこと、` + fmt.Sprint(maxFactRunes) + `字以内。すでにある事実と同じことを add しない。言い換えるだけの update もしない。
+- 分野ごとのいまの事実は合わせて` + fmt.Sprint(maxFieldRunes) + `字まで。収まらないときは merge で傾向にまとめ、個々の出来事は記録に任せる。
+- 中心はユーザーが言ったこと・したこと（事実・好み・予定・関係の変化・覚えてと頼まれたこと。贈った・行ったなどの出来事は日付とともに）。あなたや他の担当が調べた事実・候補一覧・解説は事実にしない。
+- 引用、本人の意見、推測を区別し、推測は推測と明記する。Answer の文章を写さない。予定の id（s_...）を書くなら、一覧にあるものだけ。
+`
 
 // lockKeeper serialises one persona's keeper: two turns finishing together -
 // here or in another process serving the workspace - must not each rewrite the
@@ -180,14 +176,15 @@ func (r *Runner) lockKeeper(ctx context.Context, personaID string) (context.Cont
 
 // keeperRecord is one keeper run, for the log.
 type keeperRecord struct {
-	Severity string      `json:"severity"`
-	Message  string      `json:"message"`
-	Persona  string      `json:"persona"`
-	Trigger  string      `json:"trigger,omitempty"`
-	Model    string      `json:"model,omitempty"`
-	Attempts int         `json:"attempts,omitempty"`
-	Kept     *keptMemory `json:"kept,omitempty"`
-	Error    string      `json:"error,omitempty"`
+	Severity  string      `json:"severity"`
+	Message   string      `json:"message"`
+	Persona   string      `json:"persona"`
+	Trigger   string      `json:"trigger,omitempty"`
+	Model     string      `json:"model,omitempty"`
+	Attempts  int         `json:"attempts,omitempty"`
+	Kept      *keptMemory `json:"kept,omitempty"`
+	Summaries []string    `json:"summaries,omitempty"`
+	Error     string      `json:"error,omitempty"`
 }
 
 func logKeeper(record keeperRecord) {
@@ -227,8 +224,7 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		logKeeper(logged)
 	}()
 
-	fields := memoryFields(k.skill)
-	bodies := r.fieldBodies(k.skill)
+	facts := r.loadFacts(k.skill, k.here)
 	recordable := k.recordable()
 	handed := r.handedRecords(k)
 	recent, _ := r.findRecords(k.skill.ID, "", "", "", recentRecordsLimit, k.here)
@@ -239,8 +235,8 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(k.here).Format("2006-01-02 15:04 MST"),
 		"",
-		"いまの分野ごとのまとめ（全文）:",
-		renderFields(k.skill, bodies),
+		"いまの事実（分野ごと）:",
+		renderFacts(facts, k.here),
 		"",
 		"最近のかけらの記録（新しい順）:",
 		listRecords(recent, k.here),
@@ -251,22 +247,33 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		"今回の対象発言:",
 		k.trigger.Render(k.names, k.here),
 		"",
-		"完成した Answer（すでに返事として出ています。まとめに写さない）:",
+		"完成した Answer（すでに返事として出ています。事実に写さない）:",
 		answer,
 	}, "\n")
 	if len(handed) > 0 {
 		user += "\n\n見直しの対象として渡された記録（records で扱えるのはこれだけ）:\n" + listRecords(handed, k.here)
 	}
 	now := time.Now()
-	kept, attempts, err := submitMemory(ctx, client, model, keeperPrompt(k.skill, recordable, handed), user, keepMemoryTool(fields, recordable, handed), func(kept keptMemory) []string {
-		return checkKept(kept, fields, recordable, handed, k.answer, now, k.here)
+	// The facts rest on the kakera itself, never on a reply to it: deleting
+	// the kakera is what takes them away.
+	from := ""
+	if recordable {
+		from = k.trigger.ID
+	}
+	var planned memoryFacts
+	var changed []string
+	kept, attempts, err := submitMemory(ctx, client, model, keeperPrompt(k.skill, recordable, handed), user, keepMemoryTool(facts.Fields, recordable, handed), func(kept keptMemory) []string {
+		problems := checkKept(kept, recordable, handed, k.answer, now, k.here)
+		var factProblems []string
+		planned, changed, factProblems = planFacts(facts, kept.Facts, from, now, k.here)
+		return append(problems, factProblems...)
 	})
 	logged.Attempts = attempts
 	if err != nil {
 		return nil, err
 	}
 	logged.Kept = &kept
-	written, err = r.writeFields(ctx, k.skill, fields, kept.Fields)
+	written, err = r.writeFacts(ctx, k.skill.ID, planned, changed, k.here)
 	if err != nil {
 		return written, err
 	}
@@ -275,7 +282,7 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		if id == "" {
 			id = k.trigger.ID
 		}
-		rec := record{At: k.trigger.At, ID: id, Summary: cleanSummary(kept.Summary),
+		rec := record{At: k.trigger.At, ID: id, Summary: cleanSummary(kept.Summary), Of: k.trigger.ID,
 			Expires: dateFrom(kept.Expires, k.trigger.At, k.here), Review: dateFrom(kept.Review, k.trigger.At, k.here)}
 		for _, tag := range kept.Tags {
 			if tag = cleanTag(tag); tag != "" {
@@ -294,7 +301,13 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		if !recordable {
 			asked = k.replyID
 		}
-		if err := r.changeRecords(ctx, k.skill.ID, kept.Records, asked, now, k.here); err != nil {
+		forgotten, err := r.changeRecords(ctx, k.skill.ID, kept.Records, asked, now, k.here)
+		if err != nil {
+			return written, err
+		}
+		// A kakera the user let go is let go of in the facts too: those that
+		// rested on it alone go with its record.
+		if _, err := r.dropFactSourcesHeld(ctx, k.skill, forgotten, k.here); err != nil {
 			return written, err
 		}
 	}
@@ -303,17 +316,19 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 
 // changeRecords applies the keeper's decisions on the records it was handed.
 // A date left as it was keeps its span; a new one is counted from now.
-func (r *Runner) changeRecords(ctx context.Context, personaID string, changes []recordChange, asked string, now time.Time, zone *time.Location) error {
+func (r *Runner) changeRecords(ctx context.Context, personaID string, changes []recordChange, asked string, now time.Time, zone *time.Location) (map[string]bool, error) {
 	byID := map[string]recordChange{}
 	for _, change := range changes {
 		byID[change.ID] = change
 	}
-	return r.eachRecord(ctx, personaID, zone, func(rec *record) (bool, bool) {
+	forgotten := map[string]bool{}
+	err := r.eachRecord(ctx, personaID, zone, func(rec *record) (bool, bool) {
 		change, ok := byID[rec.ID]
 		if !ok {
 			return true, false
 		}
 		if change.Forget {
+			forgotten[r.kakeraOf(*rec)] = true
 			return false, true
 		}
 		rec.Expires = redated(rec.Expires, change.Expires, now, zone)
@@ -321,6 +336,19 @@ func (r *Runner) changeRecords(ctx context.Context, personaID string, changes []
 		rec.Asked = asked
 		return true, true
 	})
+	return forgotten, err
+}
+
+// kakeraOf is the kakera a record is of: its own id, unless that is a reply of
+// the persona's, in which case the kakera the reply answered.
+func (r *Runner) kakeraOf(rec record) string {
+	if rec.Of != "" {
+		return rec.Of
+	}
+	if entry, ok := r.store.Entry(rec.ID); ok && entry.Speaker != timeline.User && entry.ReplyTo != "" {
+		return entry.ReplyTo
+	}
+	return rec.ID
 }
 
 // redated is a record date as the keeper wrote it: the same day keeps its
@@ -372,7 +400,7 @@ func submitMemory(ctx context.Context, client *llm.Client, model, system, user s
 }
 
 // checkKept says what is wrong with a submission.
-func checkKept(kept keptMemory, fields []string, recording bool, handed []record, answer string, now time.Time, zone *time.Location) []string {
+func checkKept(kept keptMemory, recording bool, handed []record, answer string, now time.Time, zone *time.Location) []string {
 	var problems []string
 	today := now.In(zone)
 	tomorrow := time.Date(today.Year(), today.Month(), today.Day()+1, 0, 0, 0, 0, zone)
@@ -437,38 +465,12 @@ func checkKept(kept keptMemory, fields []string, recording bool, handed []record
 			problems = append(problems, fmt.Sprintf("tags は1〜%dつにしてください", maxTags))
 		}
 	}
-	seen := map[string]bool{}
-	for _, write := range kept.Fields {
-		field, ok := fieldNamed(fields, write.Field)
-		if !ok {
-			problems = append(problems, "分野「"+write.Field+"」はありません（"+strings.Join(fields, " / ")+"）")
-			continue
-		}
-		if seen[field] {
-			problems = append(problems, "分野「"+field+"」が2回あります。1つにまとめてください")
-		}
-		seen[field] = true
-		text := strings.TrimSpace(write.Text)
-		if text == "" {
-			problems = append(problems, "分野「"+field+"」の text が空です。変えないなら fields から外してください")
-		}
-		if n := len([]rune(text)); n > maxFieldRunes {
-			problems = append(problems, fmt.Sprintf("分野「%s」が%d字あります。%d字以内にまとめ直してください", field, n, maxFieldRunes))
-		}
-		if copiesAnswer(answer, text) {
-			problems = append(problems, "分野「"+field+"」に Answer の文章をそのまま写しています。ユーザーが言ったことを中心に書いてください")
+	for i, op := range kept.Facts {
+		if copiesAnswer(answer, op.Text) {
+			problems = append(problems, fmt.Sprintf("facts[%d] に Answer の文章をそのまま写しています。ユーザーが言ったことを事実にしてください", i))
 		}
 	}
 	return problems
-}
-
-// repairNewlines undoes a model that escaped its own line breaks: a body with
-// no real newline but "\n" in it reads as one long line.
-func repairNewlines(text string) string {
-	if strings.Contains(text, "\n") || !strings.Contains(text, `\n`) {
-		return text
-	}
-	return strings.NewReplacer(`\n`, "\n", `\t`, "\t").Replace(text)
 }
 
 // copiesAnswer reports a body that carries two or more of the answer's own
@@ -486,23 +488,6 @@ func copiesAnswer(answer, text string) bool {
 		}
 	}
 	return copied >= copiedSentences
-}
-
-// writeFields writes the bodies a submission changed and returns their paths.
-func (r *Runner) writeFields(ctx context.Context, skill Skill, fields []string, writes []fieldWrite) ([]string, error) {
-	var written []string
-	for _, write := range writes {
-		if err := ctx.Err(); err != nil {
-			return written, err // The keeper lost its lock: another may be writing.
-		}
-		field, _ := fieldNamed(fields, write.Field)
-		path := fieldPath(field)
-		if err := r.store.WriteNote(skill.ID, path, repairNewlines(strings.TrimSpace(write.Text))+"\n"); err != nil {
-			return written, err
-		}
-		written = append(written, path)
-	}
-	return written, nil
 }
 
 // keepRecord appends rec under the persona's keeper lock, for a caller that

@@ -175,3 +175,31 @@ func TestMemoryComesInPages(t *testing.T) {
 		t.Fatalf("outside path: %d", response.Code)
 	}
 }
+
+// One fact is put right or forgotten over HTTP; the field comes back as it now
+// reads, and a field left empty is gone.
+func TestAFactIsChangedOverHTTP(t *testing.T) {
+	server, workspace := app(t)
+	if err := workspace.WriteNote("gourmet", "Shop.md", "# Shop\n\n- [f_a] 三田の二郎に行きたい from:e_1 since:2026-09-01\n"); err != nil {
+		t.Fatal(err)
+	}
+	send := func(method, query, body string) (int, string) {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(method, "/api/personas/gourmet/memory/fact?"+query, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		server.ServeHTTP(response, request)
+		return response.Code, response.Body.String()
+	}
+	if code, body := send(http.MethodPut, "field=Shop&fact=f_a", `{"text":"三田の二郎（本店）に行きたい"}`); code != http.StatusOK || !strings.Contains(body, "[f_a] 三田の二郎（本店）に行きたい from:e_1") {
+		t.Fatalf("edit: %d %s", code, body)
+	}
+	if code, _ := send(http.MethodPut, "field=Shop&fact=f_none", `{"text":"x"}`); code != http.StatusNotFound {
+		t.Fatalf("edit of a missing fact: %d", code)
+	}
+	if code, body := send(http.MethodDelete, "field=Shop&fact=f_a", ""); code != http.StatusOK || !strings.Contains(body, `"gone":true`) {
+		t.Fatalf("forget: %d %s", code, body)
+	}
+	if _, ok := workspace.Note("gourmet", "Shop.md"); ok {
+		t.Fatal("an empty field was kept")
+	}
+}

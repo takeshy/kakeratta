@@ -232,18 +232,19 @@ matches another word, you are told which and can remove that too. **Keep**
 closes without a change - a post that is not about the person already ends
 with no reply and no note. What the persona said on the post stays.
 
-## A persona's memory: field summaries and kakera records
+## A persona's memory: facts, summaries, and kakera records
 
-A persona keeps two things, and the app writes both.
+A persona keeps three things, and the app writes all of them.
 
-- **One summary per field** (`Shop.md` and so on): for each field named in the persona's memory setting, everything learned so far, in at most 2,000 characters. Each time you send a kakera, the persona's note keeper rewrites the summaries it changes.
+- **Facts, by field** (`Shop.md` and so on): for each field named in the persona's memory setting, one line per thing it knows - "wants to try Jiro in Mita" - with the kakera it rests on and since when it holds. Each time you send a kakera, the persona's note keeper adds, replaces, retires, or merges facts; nothing is rewritten wholesale. A fact that no longer holds moves under **以前のこと** with when it stopped and what replaced it.
+- **A summary, by field**, at the top of the same file: the persona's own reading of the facts, in prose. It is rewritten at the persona's check-in - daily, or monthly for a person looked back on monthly - from what changed among the facts since, and only for a field where something did.
 - **A record of each kakera** (`records/2026-10.md`): one line per kakera the persona received - the time, the entry to go back to, one sentence, and its tags. The entry is the persona's reply when it replied (which leads back to your kakera), and your kakera itself when it did not.
 
-Every turn reads the summaries whole and the latest records; older records are found by tag or words. In the memory view a record's id opens the entry, and a `#tag` narrows the view to the months holding it. You can edit or delete a summary or a month of records by hand; the persona is not woken. Deleting a kakera removes its record, and the persona takes out of its summaries what rested on it.
+Every turn reads the summaries, the facts that hold now, and the latest records; older records are found by tag, by words, or by meaning. In the memory view **元の投稿** on a fact or a record opens the post and its conversation in place, and a `#tag` narrows the view to the months holding it. Each fact has ✎ to put its words right and × to forget it, and a field or a month of records can be edited or deleted whole; the persona is not woken. Forgetting a record in a review, or letting it expire, also takes away the facts that rested on its kakera alone. Deleting a kakera removes its record and every fact that rested on it alone, without asking any model.
 
 A record may carry dates. `expires:2026-09-26/1d` marks a record of a kakera that served its moment - "where for lunch today?", "how do I get to Shibuya?"; the app deletes the record that day. `review:2026-10-15/21d` marks a record of something you said, dated by the persona from what it is. The app never deletes it; once the day has passed, the persona is handed up to three such records in its daily check-in and asks about one. Reply under that post: "keep it" drops the date, "later" moves it, "forget it" removes the record. When the persona reads a record again while answering you, its dates move out by the span it was given, counted from that day. The memory view shows **Gone on** and **Review on** chips.
 
-There is no longer one note per thing, and no `index.md`. Notes kept the old way are not read any more; the operator folds them into the field summaries once with `go run ./cmd/migrate-memory -apply`, which deletes them afterwards.
+Fields kept as prose before facts existed are not read as facts; the operator splits them once with `go run ./cmd/migrate-memory` (a dry run that saves a plan to check) and then `-apply`, which keeps the prose as the summary.
 
 ## Fast startup and offline posts
 
@@ -392,7 +393,7 @@ Integrations, where **Use the external agent** can pause it for a while. See [He
 <workspace>/settings.json          endpoints, models, the web search key, who is in the room
 <workspace>/timeline/YYYY/MM/DD.json posts and remarks by date
 <workspace>/blobs/<id>.png         captures
-<workspace>/memory/<id>/           each persona's memory (field summaries {Field}.md and kakera records records/YYYY-MM.md)
+<workspace>/memory/<id>/           each persona's memory (field summaries and facts {Field}.md, and kakera records records/YYYY-MM.md)
 <workspace>/memory/<id>.meta.json  how many times it woke, and so on
 <workspace>/routing.json           the router's call per post: who was chosen, who was passed over and why
 <workspace>/skills/<id>/skill.json added personas

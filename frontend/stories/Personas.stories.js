@@ -111,11 +111,11 @@ export const WineMemory = {
       domain: ja ? "飲んだワインと、好きだった理由を覚えます。" : "Remembers the wines you tried and why you liked them.", tools: [], wakes: 4 };
     const notes = [
       { path: "Preference.md", text: ja
-        ? "果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は「もう一杯」にならない。\n"
-        : "Likes lighter, fruity reds with gentle tannins; a heavy red does not make them want another glass.\n" },
+        ? "# Preference\n\n## まとめ（2026-09-14）\n\n果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は「もう一杯」にならない。\n\n## いまの事実\n\n- [f_r5d2kp] 軽めの赤が好き from:sample-pinot,sample-gamay since:2026-09-13\n\n## 以前のこと\n\n- [f_h8j3mn] しっかりした赤が好き from:sample-old since:2026-08-02 until:2026-09-13 by:f_r5d2kp\n"
+        : "# Preference\n\n## まとめ（2026-09-14）\n\nLikes lighter, fruity reds with gentle tannins; a heavy red does not make them want another glass.\n\n## いまの事実\n\n- [f_r5d2kp] Likes lighter reds from:sample-pinot,sample-gamay since:2026-09-13\n\n## 以前のこと\n\n- [f_h8j3mn] Likes full-bodied reds from:sample-old since:2026-08-02 until:2026-09-13 by:f_r5d2kp\n" },
       { path: "Wine.md", text: ja
-        ? "- Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」\n- ボージョレのガメイ：「飲みやすい」\n"
-        : "- Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.”\n- A Beaujolais Gamay: “easy to drink.”\n" },
+        ? "# Wine\n\n## いまの事実\n\n- [f_t6v9wq] Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」 from:sample-pinot since:2026-09-12\n- [f_y2z4ab] ボージョレのガメイ：「飲みやすい」 from:sample-gamay since:2026-09-13\n"
+        : "# Wine\n\n## いまの事実\n\n- [f_t6v9wq] Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.” from:sample-pinot since:2026-09-12\n- [f_y2z4ab] A Beaujolais Gamay: “easy to drink.” from:sample-gamay since:2026-09-13\n" },
       { path: "records/2026-09.md", text: ja
         ? "# 2026-09 のかけら\n\n- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) レストランで飲んだピノ・ノワールを気に入った #赤ワイン #ピノ・ノワール #ブルゴーニュ\n- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) ガメイを飲みやすいと言った #赤ワイン #ガメイ\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n"
         : "# 2026-09\n\n- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) Liked a Pinot Noir at a restaurant #red #PinotNoir #Burgundy\n- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) Found Gamay easy to drink #red #Gamay\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) Wants to try a wine bar in Ebisu #Ebisu #winebar review:2026-10-11/21d\n" },

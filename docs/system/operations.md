@@ -54,13 +54,13 @@ Web Push uses [webpush-go](https://github.com/SherClockHolmes/webpush-go) for pa
 
 ## Memory migration
 
-Persona memory moved from one note per thing to field summaries and kakera records, and the running app no longer reads the old notes. Fold them once after deploying that change with [cmd/migrate-memory](../../cmd/migrate-memory/main.go), which runs `Runner.MigrateMemory` for every persona of a workspace on that workspace's own model settings:
+Persona fields moved from prose rewritten with every kakera to a list of facts with a summary rewritten at the check-in, and the running app reads no facts from prose. Split the prose once after deploying that change with [cmd/migrate-memory](../../cmd/migrate-memory/main.go), which runs `Runner.MigrateMemory` for every persona of a workspace on that workspace's own model settings:
 
 - `go run ./cmd/migrate-memory` - the local workspace (`KAKERATTA_HOME` or the default); `-firestore kakeratta` - every workspace in production Firestore with application default credentials, or one with `-user KEY`; `-persona ID` limits it to one persona.
-- Without `-apply` it prints, per persona, how many old notes there are, which were left out for length, and the summaries the model would write, and saves them to `-plan` (JSON, default `migration-plan.json`); nothing is changed. The plan may be edited by hand.
-- With `-apply` it writes the summaries in `-plan` as they are, without calling the model again (`Runner.ApplyMigration`), and deletes the old notes. A persona whose old notes changed since the dry run, or whose plan holds an unknown or over-long field, is refused. Running the dry run again afterwards finds nothing to do.
-- The production migration of 2026-10-01 was done this way: three dry runs while tightening the prompt (no researched figures or explanations; the user's actions kept with their dates; the notes' own language), a hand edit of the plan, then `-apply`.
-- Between the deploy and the run, personas answer without their old memory.
+- Without `-apply` it prints, per persona, the prose fields, the prose each named field keeps as its summary, and the facts the model splits it into, and saves them to `-plan` (JSON, default `migration-plan.json`); nothing is changed. The plan may be edited by hand.
+- With `-apply` it writes the plan as it is, without calling the model again (`Runner.ApplyMigration`). A persona whose prose changed since the dry run, or whose plan holds an unknown field, an over-long fact or summary, or an overfull field, is refused. Running the dry run again afterwards finds nothing to do.
+- Between the deploy and the run, personas read no facts from the prose fields.
+- The earlier move from one OKF note per thing to prose fields (2026-10-01) was done the same way: three dry runs while tightening the prompt (no researched figures or explanations; the user's actions kept with their dates; the notes' own language), a hand edit of the plan, then `-apply`.
 
 ## Implementation and verification
 

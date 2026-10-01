@@ -14,7 +14,7 @@ const deletedInstructions = `
 
 ## かけらが消されました
 ユーザーが、あなたが記録していたかけらを削除しました。どのかけらかは対象発言に入っています。
-その記録は本体がすでに消しました。記憶のまとめのうち、そのかけらに由来する記述は、このあとメモ係が外します。
+その記録と、そのかけらだけを根拠にしていた事実は、本体がすでに消しました。
 **予定も見直してください。** schedule を持っているなら下の一覧を見て、そのかけらのために置いた予定は、その id で schedule の cancel を入れて消します。
 用そのものが残っているなら、予定はそのままで構いません。
 これはユーザーの操作の結果です。消したことを責めたり、理由を尋ねたりしないでください。
@@ -23,8 +23,8 @@ const deletedInstructions = `
 
 // tidiesUp reports a wake that only puts memory back in order after the user
 // deleted a post. It cannot speak and has nothing to answer, so it skips the
-// research and the answer and goes straight to the schedule phase and the
-// note keeper. It is never handed to the external agent, which would only be
+// research and the answer and goes straight to the schedule phase; the app
+// has already taken out the records and facts that rested on the post. It is never handed to the external agent, which would only be
 // asked for an answer nobody will see.
 func tidiesUp(instructions string) bool {
 	return instructions == deletedInstructions
@@ -114,12 +114,23 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 		active[skill.ID] = true
 	}
 	label := strings.Join(labels, " ／ ")
+	kakera := map[string]bool{}
+	for _, entry := range gone {
+		if entry.Speaker == timeline.User {
+			kakera[entry.ID] = true
+		}
+	}
 	for _, skill := range woke {
-		// The records are the app's own, so the app takes them out before
-		// anyone is woken to look at what is left - a paused persona included.
+		// The records and the facts' sources are the app's own, so the app
+		// takes them out before anyone is woken - a paused persona included.
 		dropped, err := r.dropRecords(ctx, skill, gone, zone)
 		if err != nil {
 			r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
+		}
+		if persona, ok := r.skills(ctx).Find(skill); ok {
+			if _, err := r.dropFactSources(ctx, persona.forTurn(), kakera, zone); err != nil {
+				r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
+			}
 		}
 		if !dropped || !active[skill] {
 			continue

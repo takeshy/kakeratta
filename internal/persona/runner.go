@@ -986,10 +986,11 @@ func (r *Runner) pointAtNotes(remark *timeline.Entry, kept []string) {
 }
 
 // keepsNotes says whether a turn leaves the note keeper something to do: a
-// kakera of the user's to record, a tidy-up after the user deleted a post, or
-// a check-in handed records due for review, whose dates it moves.
+// kakera of the user's to record, or a check-in handed records due for
+// review, whose dates it moves. After a deletion the app has already taken
+// out the records and the facts that rested on it, so a tidy-up keeps nothing.
 func keepsNotes(trigger timeline.Entry, instructions string) bool {
-	return (trigger.ID != "" && trigger.Speaker == timeline.User) || tidiesUp(instructions) || strings.Contains(instructions, reviewInstructions)
+	return (trigger.ID != "" && trigger.Speaker == timeline.User && !tidiesUp(instructions)) || strings.Contains(instructions, reviewInstructions)
 }
 
 // wakeKind names why a persona was woken, for the log.

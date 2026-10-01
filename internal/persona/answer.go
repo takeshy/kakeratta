@@ -192,7 +192,7 @@ func capabilityLine(set *tools.Set) string {
 
 // recordsReadSpec is how a persona reads further back than the records it is
 // handed.
-const recordsReadSpec = `記憶のまとめと最近の記録は最初に渡してあります。それより前のかけらの記録は {"type":"records","tool":"","args":"{\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"}"} で探します（要るものだけ）。記録の [ ] の投稿そのもの（返信なら返信もとも）は args を {\"ids\":[\"…\",\"…\"]} にして、10件までまとめて1回で読めます。
+const recordsReadSpec = `記憶（分野ごとの事実と最近の記録）は最初に渡してあります。それより前のかけらの記録は {"type":"records","tool":"","args":"{\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"}"} で探します（要るものだけ）。記録の [ ] の投稿そのもの（返信なら返信もとも）は args を {\"ids\":[\"…\",\"…\"]} にして、10件までまとめて1回で読めます。
 `
 
 func readSpec(set *tools.Set, deep bool) string {

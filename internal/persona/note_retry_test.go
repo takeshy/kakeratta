@@ -15,9 +15,9 @@ import (
 func retryKeep(fail *bool) func(string, string) string {
 	return func(system, user string) string {
 		if *fail {
-			return `{"summary":"","tags":[],"fields":[]}`
+			return `{"summary":"","tags":[],"facts":[]}`
 		}
-		return `{"summary":"ラーメンについて聞いた","tags":["ラーメン"],"fields":[{"field":"Preference","text":"ラーメンについて聞かれた。"}]}`
+		return `{"summary":"ラーメンについて聞いた","tags":["ラーメン"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"ラーメンについて聞かれた。"}]}`
 	}
 }
 

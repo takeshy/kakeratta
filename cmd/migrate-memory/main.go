@@ -1,13 +1,13 @@
-// Folds the personas' old one-note-per-thing memory into field summaries, once,
-// after the deploy that brought the fields. It runs in two steps so that what
-// is written is what was read:
+// Splits the personas' prose field summaries into facts, once, after the
+// deploy that brought the facts. It runs in two steps so that what is written
+// is what was read:
 //
-//  1. Without -apply, each persona's model writes the summaries; they are
-//     printed and saved to -plan (JSON), and nothing is changed. The plan can
-//     be edited by hand.
-//  2. With -apply, the summaries in -plan are written as they are, without
-//     calling the model, and the old notes deleted. A persona whose old notes
-//     changed since step 1 is refused.
+//  1. Without -apply, each persona's model splits its summaries into facts;
+//     they are printed and saved to -plan (JSON), and nothing is changed. The
+//     plan can be edited by hand.
+//  2. With -apply, the facts in -plan are written as they are, without calling
+//     the model, and the prose kept as each field's summary. A persona whose
+//     prose changed since step 1 is refused.
 //
 // Local workspace (KAKERATTA_HOME or the default):
 //
@@ -38,8 +38,8 @@ import (
 )
 
 func main() {
-	apply := flag.Bool("apply", false, "write the summaries saved in -plan and delete the old notes (default: make the plan)")
-	planFile := flag.String("plan", "migration-plan.json", "where the dry run saves the summaries, and -apply reads them")
+	apply := flag.Bool("apply", false, "write the facts saved in -plan in place of the prose (default: make the plan)")
+	planFile := flag.String("plan", "migration-plan.json", "where the dry run saves the facts, and -apply reads them")
 	project := flag.String("firestore", "", "Firestore project ID; empty uses the local workspace")
 	user := flag.String("user", "", "workspace key in Firestore; empty runs every workspace")
 	only := flag.String("persona", "", "one persona ID; empty runs every persona")
@@ -166,7 +166,7 @@ func migrate(ctx context.Context, workspace store.Workspace, only string, apply 
 			ids = []string{only}
 		}
 		for _, id := range ids {
-			result, err := runner.MigrateMemory(ctx, id, false)
+			result, err := runner.MigrateMemory(ctx, id)
 			if err != nil {
 				fmt.Printf("## %s: 失敗 %v\n\n", id, err)
 				failures = append(failures, id)
@@ -186,28 +186,30 @@ func migrate(ctx context.Context, workspace store.Workspace, only string, apply 
 
 func report(result persona.Migration) {
 	if len(result.Legacy) == 0 {
-		fmt.Printf("## %s: 古いメモはありません\n\n", result.Persona)
+		fmt.Printf("## %s: 文章のまとめはありません\n\n", result.Persona)
 		return
 	}
 	state := "dry-run"
 	if result.Applied {
 		state = "適用済み"
 	}
-	fmt.Printf("## %s（%s）: 古いメモ %d件", result.Persona, state, len(result.Legacy))
-	if len(result.Omitted) > 0 {
-		fmt.Printf("、うち読み切れず省いたもの %d件: %s", len(result.Omitted), strings.Join(result.Omitted, ", "))
-	}
-	fmt.Println()
+	fmt.Printf("## %s（%s）: まとめ %s\n", result.Persona, state, strings.Join(result.Legacy, ", "))
 	var fields []string
-	for field := range result.Fields {
+	for field := range result.Facts {
 		fields = append(fields, field)
 	}
 	sort.Strings(fields)
 	if len(fields) == 0 {
-		fmt.Println("\n（移すまとめはありません。古いメモは消えます）")
+		fmt.Println("\n（事実はありません。まとめは消えます）")
 	}
 	for _, field := range fields {
-		fmt.Printf("\n### %s.md（%d字）\n%s\n", field, len([]rune(result.Fields[field])), result.Fields[field])
+		fmt.Printf("\n### %s\n", field)
+		if summary := result.Summaries[field]; summary != "" {
+			fmt.Printf("まとめ文（そのまま残す）:\n%s\n\n事実:\n", summary)
+		}
+		for _, fact := range result.Facts[field] {
+			fmt.Printf("- %s\n", fact)
+		}
 	}
 	fmt.Println()
 }

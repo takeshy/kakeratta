@@ -22,7 +22,7 @@ post / reply
  ↓ routing           Nemotron Super (or optional Jev) matches it against each persona's routing condition
  ↓ a reply to a persona's remark: Nemotron 3.5 Lightning answers one question - does it ask for a better answer?
  ↓ every recipient, in parallel, one turn   (Nemotron Super; the replied-to persona on Ultra when it does)
-     read     → field summaries and latest records, older records, timeline search, web search, places, routes
+     read     → field summaries and facts, latest records, older records, timeline search, web search, places, routes
      workflow → the writes and the remark, every text final
      checked by code, then reviewed by Nemotron Super unless it only writes notes and speaks
      (and the persona cannot schedule); run in order, stopping at the first step that fails
@@ -284,6 +284,16 @@ persona's model draft the summaries, a person read the draft - the first one
 kept figures and explanations the persona had researched, and dropped a gift
 the user had sent - and only the edited draft was written. A model asked to
 fold its own old notes keeps what it wrote; a person has to look.
+
+That form did not last either. A summary rewritten whole with every
+fragment loses a detail at a time, unnoticed, and a deleted fragment had to be
+taken out of prose by a model. Fields are now facts: one line each, with the
+fragment it rests on, changed by `add`, `update`, `invalidate` and `merge`, so
+nothing goes except when the keeper says so, and the past keeps what was
+replaced. Deleting a fragment takes out the facts resting on it alone, by
+code. The prose stayed - the user wanted the persona's own reading of a field
+- but it is rewritten once a day, at the persona's check-in, from what
+changed among the facts, rather than with every fragment.
 
 ## 14. What made any of this findable
 

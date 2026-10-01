@@ -46,10 +46,10 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 		if len(remarks(t, s)) != 1 {
 			t.Error("the memory was kept before the answer was out")
 		}
-		if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "調べた事実・候補一覧・解説の本文は書かない") {
+		if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "調べた事実・候補一覧・解説は事実にしない") {
 			t.Error("the keeper lacks the finished answer or its selection policy")
 		}
-		return `{"summary":"一般的な食文化について調べてと聞いた","tags":["食文化"],"fields":[]}`
+		return `{"summary":"一般的な食文化について調べてと聞いた","tags":["食文化"],"facts":[]}`
 	}
 	r.react(post(t, s, "一般的な食文化について調べて").ID)
 	if strings.Join(phases, ",") != "read,answer,schedule,keep" {
@@ -213,7 +213,7 @@ func TestUserFactsCanBeRememberedWithoutReviewOrCopyingTheAnswer(t *testing.T) {
 		return ""
 	}
 	f.keep = func(string, string) string {
-		return `{"summary":"A店に行って良かったと言った","tags":["A店"],"fields":[{"field":"Preference","text":"本人がA店に行き、気に入った。"}]}`
+		return `{"summary":"A店に行って良かったと言った","tags":["A店"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"本人がA店に行き、気に入った。"}]}`
 	}
 	r.react(post(t, s, "A店に行ってみた。かなり良かった。").ID)
 	note, ok := s.Note("gourmet", "Preference.md")
@@ -293,12 +293,12 @@ func TestAFieldCopyingTheAnswerIsSentBack(t *testing.T) {
 	f.keep = func(system, user string) string {
 		keeps++
 		if keeps == 1 {
-			return `{"summary":"発言の意図を聞いた","tags":["政治"],"fields":[{"field":"Preference","text":"- ` + answer + `"}]}`
+			return `{"summary":"発言の意図を聞いた","tags":["政治"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"- ` + answer + `"}]}`
 		}
 		if !strings.Contains(user, "Answer の文章をそのまま写しています") {
 			t.Error("the keeper was not told why it was sent back")
 		}
-		return `{"summary":"中国同盟国発言の意図を聞いた","tags":["政治"],"fields":[{"field":"Preference","text":"- 政治の発言の意図をよく聞く。"}]}`
+		return `{"summary":"中国同盟国発言の意図を聞いた","tags":["政治"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"- 政治の発言の意図をよく聞く。"}]}`
 	}
 	r.react(post(t, s, "トランプの中国同盟国発言の意図は？").ID)
 	if keeps != 2 {

@@ -251,7 +251,8 @@ func TestALostLockStopsMemoryWrites(t *testing.T) {
 	lost, cancel := context.WithCancel(context.Background())
 	cancel()
 	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
-	if _, err := r.writeFields(lost, skill, memoryFields(skill), []fieldWrite{{Field: "Shop", Text: "店"}}); err == nil {
+	m, changed, _ := planFacts(r.loadFacts(skill, time.UTC), []factOp{{Op: "add", Field: "Shop", Text: "店"}}, "e_1", time.Now(), time.UTC)
+	if _, err := r.writeFacts(lost, skill.ID, m, changed, time.UTC); err == nil {
 		t.Fatal("a lost lock still wrote a field")
 	}
 	trigger := timeline.Entry{ID: "e_1", Speaker: timeline.User, At: time.Now()}

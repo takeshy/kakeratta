@@ -77,7 +77,7 @@ func remarkBy(s *store.Store, speaker string) *timeline.Entry {
 // open until it has really ended.
 func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	runner, s, stub := externalSetup(t, time.Minute, time.Minute)
-	if err := s.WriteNote("gourmet", "Shop.md", "tabe のまとめ\n"); err != nil {
+	if err := s.WriteNote("gourmet", "Shop.md", factsFile("Shop", [2]string{"tabe のまとめ", ""})); err != nil {
 		t.Fatal(err)
 	}
 	entry := post(t, s, "ラーメン食べた")
@@ -348,8 +348,11 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 	}{{"ordinary", false, false, false}, {"named", true, false, false}, {"listening", false, true, false}, {"deep", false, false, true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			runner, s, _ := externalSetup(t, time.Minute, time.Minute)
-			index := strings.Repeat("memory-index-unique-content\n", 50)
-			if err := s.WriteNote("gourmet", "Shop.md", index); err != nil {
+			var many [][2]string
+			for i := 0; i < 50; i++ {
+				many = append(many, [2]string{"memory-index-unique-content", ""})
+			}
+			if err := s.WriteNote("gourmet", "Shop.md", factsFile("Shop", many...)); err != nil {
 				t.Fatal(err)
 			}
 			entry := post(t, s, "投稿の全文")
@@ -379,7 +382,7 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 			if brief.Place != placeLine(entry.Place) || brief.Now == "" {
 				t.Fatal("location, inventory or clock lost")
 			}
-			if !strings.Contains(brief.Memory, strings.TrimSpace(index)) || brief.Instructions != skill.Instructions {
+			if strings.Count(brief.Memory, "memory-index-unique-content") != 50 || brief.Instructions != skill.Instructions {
 				t.Fatal("persona or memory context lost")
 			}
 			if len(brief.Thread) != 1 || !strings.Contains(brief.Thread[0].Rendered, entry.Link) || !strings.Contains(brief.Thread[0].Rendered, entry.Media.Text) {

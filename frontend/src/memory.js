@@ -59,11 +59,18 @@ export function parseMemoryNote(note) {
   return {
     ...note, title, type: field("type"), description: field("description"), resource: field("resource"), tags: tagsOf(metadata.tags), body,
     records: isRecords(note.path),
+    facts: isFacts(note.path),
   };
 }
 
+// OPEN_MONTHS is how many of the latest months of records the view shows open.
+export const OPEN_MONTHS = 3;
+
 // isRecords says whether a path is a month of kakera records.
 export const isRecords = (path) => String(path || "").startsWith("records/");
+
+// isFacts says whether a path is a field's list of facts.
+export const isFacts = (path) => /^[A-Z][A-Za-z0-9_-]{1,29}\.md$/.test(String(path || ""));
 
 // tagsOf reads the tags however they were written: [a, b], or one per line.
 function tagsOf(value) {
@@ -104,15 +111,25 @@ function inline(text, context) {
   // view; "expires:" and "review:" are the record's dates, and "asked:" the
   // post that asked about it, which is the app's own bookkeeping.
   const pattern = context.records
-    ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)#([^\s#]+)(?=\s|$)|(?<=\s)(expires|review):(\d{4}-\d{2}-\d{2})\/\d+d(?=\s|$)|(?<=\s)asked:\S+(?=\s|$)/g
-    : /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)/g;
+    ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)#([^\s#]+)(?=\s|$)|(?<=\s)(expires|review):(\d{4}-\d{2}-\d{2})\/\d+d(?=\s|$)|(?<=\s)(?:asked|of):\S+(?=\s|$)/g
+    : context.facts
+      // A fact's trailer: the kakera it rests on, since when it holds, until
+      // when it held and what replaced it.
+      ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)from:(\S+)(?=\s|$)|(?<=\s)(since|until):(\d{4}-\d{2}-\d{2})(?=\s|$)|(?<=\s)by:(\S+)(?=\s|$)/g
+      : /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)/g;
   let start = 0;
   for (const match of text.matchAll(pattern)) {
     out.push(text.slice(start, match.index));
-    if (match[7]) out.push(match[7] === "expires"
+    if (context.facts && match[6]) out.push(el("span", { class: "memory-sources" }, ...match[6].split(",").flatMap((id, index, all) => [
+      index ? " " : "",
+      entryLink(id, all.length > 1 ? t("元の投稿{0}", index + 1) : t("元の投稿"), context),
+    ])));
+    else if (context.facts && match[7]) out.push(el("span", { class: "chip ghost memory-since", text: t(match[7] === "since" ? "{0}から" : "{0}まで", match[8]) }));
+    else if (context.facts && match[9]) out.push(el("span", { class: "chip ghost memory-by", text: context.factText?.(match[9]) ? t("→「{0}」に置き換え", context.factText(match[9])) : t("→ 置き換え済み") }));
+    else if (match[7]) out.push(match[7] === "expires"
       ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", match[8]), i18nTitle: "期限が過ぎると本体が消す記録" })
       : el("span", { class: "chip ghost memory-review", text: t("{0} に見直し", match[8]), i18nTitle: "この日を過ぎると担当が「まだ要る?」と聞く記録" }));
-    else if (match[0].startsWith("asked:")) out.push("");
+    else if (/^(asked|of):/.test(match[0])) out.push("");
     else if (match[6]) out.push(context.onTag
       ? el("button", { class: `chip ghost memory-tag${context.tag === match[6] ? " active" : ""}`, text: `#${match[6]}`, i18nTitle: "このタグの記録がある月だけを表示", onclick: () => context.onTag(match[6]) })
       : el("span", { class: "memory-tag", text: `#${match[6]}` }));
@@ -121,7 +138,10 @@ function inline(text, context) {
     else {
       const label = match[1] || match[5];
       const target = memoryLink(match[2] || match[5], context.path, context.paths);
-      if (target?.note) out.push(el("button", { class: "memory-note-link", text: label,
+      if (target?.entry && context.records) {
+        // A record's id is the post to go back to, not a word to read.
+        out.push(entryLink(new URL(target.href, "https://kakeratta.invalid").searchParams.get("entry"), t("元の投稿"), context));
+      } else if (target?.note) out.push(el("button", { class: "memory-note-link", text: label,
         onclick: () => context.openNote(target.note) }));
       else if (target?.href) out.push(el("a", { href: target.href, target: "_blank", rel: "noopener noreferrer",
         ...(target.entry ? { i18nTitle: "元の投稿を開く（新しいタブ）" } : {}), text: label }));
@@ -131,6 +151,42 @@ function inline(text, context) {
   }
   out.push(text.slice(start));
   return out;
+}
+
+// factControls put one fact right, or throw it away, from where it is read.
+// Editing changes only its words; the posts it rests on and its days stay.
+function factControls(li, id, line, context) {
+  const words = line.replace(/(?:\s(?:from|since|until|by):\S+)+$/, "");
+  const error = el("span", { class: "hint warn", role: "alert", hidden: true });
+  const fail = (reason) => { error.textContent = t(reason?.message || String(reason)); error.hidden = false; };
+  const pencil = el("button", { class: "chip ghost icon memory-fact-edit", text: "✎", "aria-label": t("この事実を直す"), i18nTitle: "この事実を直す", onclick: (event) => {
+    event?.preventDefault?.();
+    const reading = [...li.childNodes || li.children || []];
+    const input = el("input", { class: "skill-input memory-fact-input", maxlength: 200, "aria-label": t("事実") });
+    input.value = words;
+    const save = el("button", { class: "button primary", label: "保存", onclick: async () => {
+      if (save.disabled) return;
+      save.disabled = true;
+      try { await context.onFactEdit(id, input.value); } catch (reason) { fail(reason); save.disabled = false; }
+    } });
+    const cancel = el("button", { class: "chip ghost", label: "キャンセル", onclick: () => li.replaceChildren(...reading) });
+    li.replaceChildren(input, save, cancel, error);
+    input.focus?.();
+  } });
+  const forget = el("button", { class: "chip ghost icon memory-fact-forget", text: "×", "aria-label": t("この事実を忘れさせる"), i18nTitle: "この事実を忘れさせる", onclick: async () => {
+    if (forget.disabled || !confirm(t("「{0}」を忘れさせますか。", words))) return;
+    forget.disabled = true;
+    try { await context.onFactForget(id); } catch (reason) { fail(reason); forget.disabled = false; }
+  } });
+  return el("span", { class: "memory-fact-controls" }, pencil, forget, error);
+}
+
+// entryLink opens the post a fact or a record rests on over the memory view
+// when the view can, and in a new tab when it cannot.
+function entryLink(id, label, context) {
+  const href = `/?entry=${encodeURIComponent(id)}`;
+  if (!context.onOpenEntry) return el("a", { href, target: "_blank", rel: "noopener noreferrer", i18nTitle: "元の投稿を開く（新しいタブ）", text: label });
+  return el("a", { href, class: "memory-entry-link", text: label, onclick: (event) => { event?.preventDefault?.(); context.onOpenEntry(id); } });
 }
 
 // Deliberately render text nodes, never model-authored HTML. Support the OKF
@@ -160,12 +216,19 @@ function markdown(body, context) {
     const heading = line.match(/^#{1,6}\s+(.+)$/);
     const item = line.match(/^\s*(?:[-*+] |\d+[.)] )(.+)$/);
     if (heading) {
-      result.append(el("h5", {}, inline(heading[1] === "記憶を更新した投稿" ? t(heading[1]) : heading[1], context)));
+      const summary = context.facts && heading[1].match(/^まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$/);
+      const label = summary ? t("まとめ（{0} 更新）", summary[1]) : heading[1] === "記憶を更新した投稿" ? t(heading[1]) : heading[1];
+      result.append(el("h5", {}, inline(label, context)));
       list = null;
     } else if (item) {
       const tag = /^\s*\d/.test(line) ? "ol" : "ul";
       if (!list || list.tagName.toLowerCase() !== tag) { list = el(tag); result.append(list); }
-      list.append(el("li", {}, inline(item[1], context)));
+      // A fact's id is how the persona names it; a reader is not shown it.
+      const factID = context.facts ? item[1].match(/^\[(f_[A-Za-z0-9]+)\]/)?.[1] : null;
+      const text = factID ? item[1].replace(/^\[f_[A-Za-z0-9]+\]\s*/, "") : item[1];
+      const li = el("li", {}, inline(text, context));
+      if (factID && context.onFactEdit) li.append(factControls(li, factID, text, context));
+      list.append(li);
     } else if (line.includes("|") && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1] || "")) {
       const cells = (row) => row.trim().replace(/^\||\|$/g, "").split("|");
       const table = el("table", {}, el("thead", {}, el("tr", {}, cells(line).map(cell => el("th", {}, inline(cell.trim(), context))))));
@@ -216,7 +279,7 @@ const sameType = (a, b) => String(a || "").toLowerCase() === String(b || "").toL
 // the notes come already narrowed to filter ({ tag, type }), and a tag or type
 // chip asks for another narrowing; without it the view narrows what it has.
 // onMore, when given, reads the next page.
-export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, filter: given = {}, onFilter, onMore, onOpenMissing } = {}) {
+export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, filter: given = {}, onFilter, onMore, onOpenMissing, onOpenEntry, onEditFact, onForgetFact } = {}) {
   const parsed = (notes || []).map(parseMemoryNote);
   const paths = new Set([...(allPaths || []), ...parsed.map(note => note.path)]);
   const cards = new Map();
@@ -284,7 +347,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       mount([
         el("div", { class: "memory-head" }, title),
         el("p", { class: "hint", text: note.path }),
-        el("p", { class: "hint", label: note.records ? "担当がかけらごとにまとめた1文です。綴りや事実の誤りはここで直せます。行の形（日時・ID・タグ）は崩さないでください。" : "担当がまとめた記憶です。綴りや事実の誤りはここで直せます。" }),
+        el("p", { class: "hint", label: note.records ? "担当がかけらごとにまとめた1文です。綴りや事実の誤りはここで直せます。行の形（日時・ID・タグ）は崩さないでください。" : note.facts ? "担当が覚えている事実の一覧です。綴りや事実の誤りはここで直せます。行の形（[id]・from:・since:）は崩さないでください。" : "担当がまとめた記憶です。綴りや事実の誤りはここで直せます。" }),
         input, el("div", { class: "compose-row" }, save, cancel), error,
       ]);
       input.focus?.();
@@ -293,7 +356,11 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
   }
 
   function content(note) {
-    const context = { path: note.path, paths, openNote, records: note.records, tag: filter.tag,
+    const factTexts = new Map([...String(note.text || "").matchAll(/^- \[(f_[A-Za-z0-9]+)\] (.*?)(?: from:\S+)?(?: since:\S+)?(?: until:\S+)?(?: by:\S+)?$/gm)].map((m) => [m[1], m[2]]));
+    const context = { path: note.path, paths, openNote, records: note.records, facts: note.facts, tag: filter.tag, onOpenEntry,
+      factText: (id) => factTexts.get(id),
+      onFactEdit: note.facts && onEditFact ? (id, text) => onEditFact(note.path, note.path.replace(/\.md$/, ""), id, text) : undefined,
+      onFactForget: note.facts && onForgetFact ? (id) => onForgetFact(note.path, note.path.replace(/\.md$/, ""), id) : undefined,
       onTag: (tag) => narrow({ tag: filter.tag === tag ? "" : tag }) };
     return [
       tagChips(note),
@@ -336,11 +403,28 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
     .map(({ note }) => note);
   const reserved = new Map();
   const list = el("div", { class: "memory-list" });
+  // The fields and the months of records are two kinds of thing: each run
+  // gets a heading, so a month is not read as one more field.
+  let section = "";
+  let months = 0;
   for (const note of shown) {
     if (["index.md", "log.md"].includes(note.path)) { reserved.set(note.path, note); continue; }
-    const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
-    const mount = (nodes) => card.replaceChildren(...nodes.filter(Boolean));
-    const reading = () => [head(note, el("h4", { text: note.title }), mount, reading), ...content(note)];
+    const kind = note.records ? "records" : note.facts ? "fields" : "";
+    if (kind && kind !== section) {
+      list.append(el("h3", { class: "memory-section", label: kind === "records" ? "かけらの記録（月ごと）" : "分野（まとめ文と事実）" }));
+    }
+    section = kind || section;
+    const month = note.records && note.path.match(/^records\/(\d{4})-(\d{2})\.md$/);
+    const title = month ? t("{0}年{1}月", month[1], Number(month[2])) : note.title;
+    // The latest months are open; older ones fold, so a year of records
+    // does not push everything else out of reach.
+    const folded = note.records && months++ >= OPEN_MONTHS;
+    const summary = folded ? el("summary", { text: title }) : null;
+    const card = folded
+      ? el("details", { class: "memory-card memory-month", tabindex: "-1", "data-path": note.path })
+      : el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
+    const mount = (nodes) => card.replaceChildren(...[summary, ...nodes].filter(Boolean));
+    const reading = () => [head(note, el("h4", { text: title }), mount, reading), ...content(note)];
     mount(reading());
     cards.set(note.path, card);
     list.append(card);

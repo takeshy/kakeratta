@@ -112,6 +112,8 @@ export const api = {
   forgetNote: (id, path) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`),
   editNote: (id, path, text) => call("PUT", `/api/personas/${encodeURIComponent(id)}/memory/note?${new URLSearchParams({ path })}`, { text }),
   forget: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory`),
+  editFact: (id, field, fact, text) => call("PUT", `/api/personas/${encodeURIComponent(id)}/memory/fact?${new URLSearchParams({ field, fact })}`, { text }),
+  forgetFact: (id, field, fact) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/memory/fact?${new URLSearchParams({ field, fact })}`),
 
   checkSearch: () => call("POST", "/api/search/check"),
   settings: () => call("GET", "/api/settings"),

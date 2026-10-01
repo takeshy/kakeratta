@@ -13,8 +13,8 @@ import (
 // getMemory shows what a persona has kept. It is the persona's own text, and
 // seeing it is the only way to tell what it decided was worth keeping.
 //
-// They are the persona's field summaries and the monthly records of its
-// kakera. The records only ever grow, so the files come a page at a time, the
+// They are the persona's fields - a summary and the facts - and the monthly
+// records of its kakera. The records only ever grow, so the files come a page at a time, the
 // most recently written first: ?after= is the next cursor of the page already
 // shown, and ?tag= keeps only the records files that hold a record with that
 // tag.
@@ -120,4 +120,51 @@ func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// editFact corrects the words of one fact in a field, as the user typed them.
+// The fact keeps its id, its posts and its day; the persona is not woken. The
+// field's file is returned as it now reads.
+func (s *Server) editFact(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := readJSON(r, &body); err != nil || strings.TrimSpace(body.Text) == "" {
+		fail(w, http.StatusBadRequest, "事実を入力してください")
+		return
+	}
+	s.changeFact(w, r, func(persona, field, id string) error {
+		return s.runner.EditFact(r.Context(), persona, field, id, body.Text)
+	})
+}
+
+// forgetFact throws one fact away. The field's file is returned as it now
+// reads; it is gone when nothing was left in it.
+func (s *Server) forgetFact(w http.ResponseWriter, r *http.Request) {
+	s.changeFact(w, r, func(persona, field, id string) error {
+		return s.runner.ForgetFact(r.Context(), persona, field, id)
+	})
+}
+
+func (s *Server) changeFact(w http.ResponseWriter, r *http.Request, change func(persona, field, id string) error) {
+	query := r.URL.Query()
+	owner, field, id := r.PathValue("id"), query.Get("field"), query.Get("fact")
+	if field == "" || id == "" {
+		fail(w, http.StatusBadRequest, "分野と事実を指定してください")
+		return
+	}
+	if err := change(owner, field, id); err != nil {
+		code := http.StatusBadRequest
+		if errors.Is(err, persona.ErrFactNotFound) {
+			code = http.StatusNotFound
+		}
+		fail(w, code, err.Error())
+		return
+	}
+	note, ok := s.store.Note(owner, field+".md")
+	if !ok {
+		writeJSON(w, http.StatusOK, map[string]any{"path": field + ".md", "gone": true})
+		return
+	}
+	writeJSON(w, http.StatusOK, note)
 }

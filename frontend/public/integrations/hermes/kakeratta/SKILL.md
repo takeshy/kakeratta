@@ -3,7 +3,7 @@ name: kakeratta
 description: >
   Research and answer turns for kakeratta personas whose planner is this external agent.
 metadata:
-  version: "15"
+  version: "16"
 ---
 
 # kakeratta
@@ -40,7 +40,7 @@ When this skill is invoked:
      - `capabilities` — the only changes kakeratta can make for this persona after your answer. Do not promise a reminder, booking, message or other change that is not listed there; kakeratta will not publish an answer whose promise nothing backs up.
      - `wake` / `wakeInstructions` — why the persona was woken: `post`, `post-edited`, `review-reply`, `daily`, `schedule`, `listening`, `post-deleted`. A daily check-in may carry records due for review: ask about one. `wakeInstructions` carries the brief for that wake (for example the daily check-in brief).
      - `trigger` — the entry to answer; `thread` — the whole conversation it belongs to, oldest first. Read each entry's `rendered` content for links, image descriptions, sources and reply context as well as its text.
-     - `memory` — the persona's memory: one summary per field, whole, then its latest kakera records, one line each (`- time [entry id] one sentence #tag`); `schedules` — what it has already placed.
+     - `memory` — the persona's memory: per field, a summary and the facts that hold now (`- [f_id] fact`), then its latest kakera records, one line each (`- time [entry id] one sentence #tag`); `schedules` — what it has already placed.
      - `answerSchema` — the exact shape of the answer: `{"text": "...", "sources": []}`.
      - `tools` — read-only lookups the persona holds, for `read_for_ask`.
      - `limits` — reads and web searches allowed for this turn.

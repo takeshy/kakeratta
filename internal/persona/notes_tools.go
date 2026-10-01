@@ -1,11 +1,13 @@
 package persona
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/search"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -20,7 +22,7 @@ var recordsMonth = regexp.MustCompile(`^\d{4}-\d{2}$`)
 // whole at the start of every turn, so the records are all there is to read.
 // It also returns the ids of the records it showed, or of those whose entries
 // it read: those records are in use.
-func (r *Runner) readRecords(personaID string, args map[string]any, zone *time.Location) (string, []string) {
+func (r *Runner) readRecords(ctx context.Context, personaID string, args map[string]any, zone *time.Location) (string, []string) {
 	if ids := entryIDs(args); len(ids) > 0 {
 		if len(ids) > maxEntryReads {
 			return fmt.Sprintf("一度に読める投稿は%d件までです（%d件指定されました）。分けて読んでください。", maxEntryReads, len(ids)), nil
@@ -35,7 +37,13 @@ func (r *Runner) readRecords(personaID string, args map[string]any, zone *time.L
 	if before != "" && !recordsMonth.MatchString(before) {
 		return "before は 2026-09 のような年月で書いてください。", nil
 	}
-	found, more := r.findRecords(personaID, tag, query, before, recordsPageSize, zone)
+	words := strings.Fields(strings.ToLower(query))
+	// Words find a record that says them; meaning finds one whose kakera is
+	// about them, however the record or its tags were worded.
+	similar := r.similarKakera(ctx, query)
+	found, more := r.findRecordsWhere(personaID, tag, before, recordsPageSize, zone, func(rec record) bool {
+		return holdsAll(rec, words) || similar[rec.ID] || (rec.Of != "" && similar[rec.Of])
+	})
 	if len(found) == 0 {
 		return "合う記録はありません。", nil
 	}
@@ -61,6 +69,26 @@ func entryIDs(args map[string]any) []string {
 		if id != "" && !seen[id] {
 			seen[id] = true
 			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// similarKakera are the posts a meaning search of the timeline finds for
+// query, by id. Without a query, or a search to ask, it is empty.
+func (r *Runner) similarKakera(ctx context.Context, query string) map[string]bool {
+	out := map[string]bool{}
+	if strings.TrimSpace(query) == "" || r.search == nil {
+		return out
+	}
+	result, err := r.search.Unified(ctx, query, search.Window{}, recordsPageSize, 0, 0.5)
+	if err != nil {
+		return out
+	}
+	for _, hit := range result.Hits {
+		out[hit.Entry.ID] = true
+		if hit.Entry.ReplyTo != "" {
+			out[hit.Entry.ReplyTo] = true
 		}
 	}
 	return out

@@ -78,20 +78,6 @@ func isRecordsPath(path string) bool {
 	return strings.HasPrefix(strings.TrimPrefix(path, "/"), recordsDir)
 }
 
-// isMemoryPath says whether path belongs to the memory as it is kept now: a
-// field of this persona or a records file. Anything else is from before.
-func isMemoryPath(skill Skill, path string) bool {
-	if isRecordsPath(path) {
-		return true
-	}
-	for _, field := range memoryFields(skill) {
-		if path == fieldPath(field) {
-			return true
-		}
-	}
-	return false
-}
-
 // record is one kakera, as the persona summed it up.
 type record struct {
 	At      time.Time
@@ -106,6 +92,9 @@ type record struct {
 	// Asked is the persona's post that asked about the record under review,
 	// so the user's reply to that post is known to be about it.
 	Asked string
+	// Of is the kakera a record kept under a reply is of, so a search that
+	// finds the kakera finds its record.
+	Of string
 }
 
 // recordDate is a day a record is set to, and the span it was given then,
@@ -158,7 +147,7 @@ var recordLine = regexp.MustCompile(`^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) \[([^\]\
 
 // recordTrailer is one trailing token of a record line: a tag, a date, or
 // the post that asked about it.
-var recordTrailer = regexp.MustCompile(`\s(?:#(\S+)|(expires|review):(\d{4}-\d{2}-\d{2})/(\d+)d|asked:(\S+))$`)
+var recordTrailer = regexp.MustCompile(`\s(?:#(\S+)|(expires|review):(\d{4}-\d{2}-\d{2})/(\d+)d|asked:(\S+)|of:(\S+))$`)
 
 // line is a record as a persona is shown it: the id bare.
 func (rec record) line(zone *time.Location) string {
@@ -179,6 +168,9 @@ func (rec record) format(zone *time.Location, id string) string {
 	line += rec.Expires.token("expires", zone) + rec.Review.token("review", zone)
 	if rec.Asked != "" {
 		line += " asked:" + rec.Asked
+	}
+	if rec.Of != "" && rec.Of != rec.ID {
+		line += " of:" + rec.Of
 	}
 	return line
 }
@@ -216,8 +208,10 @@ func parseRecords(text string, zone *time.Location) []record {
 						rec.Review = recordDate{Day: day, Days: days}
 					}
 				}
-			default:
+			case found[5] != "":
 				rec.Asked = found[5]
+			default:
+				rec.Of = found[6]
 			}
 			rest = rest[:len(rest)-len(found[0])]
 		}
@@ -267,6 +261,11 @@ func (r *Runner) recordsPaths(personaID string) []string {
 // given, and from before the month before when one is given (YYYY-MM).
 func (r *Runner) findRecords(personaID, tag, query, before string, limit int, zone *time.Location) (found []record, more bool) {
 	words := strings.Fields(strings.ToLower(query))
+	return r.findRecordsWhere(personaID, tag, before, limit, zone, func(rec record) bool { return holdsAll(rec, words) })
+}
+
+// findRecordsWhere is findRecords with any test of a record's text.
+func (r *Runner) findRecordsWhere(personaID, tag, before string, limit int, zone *time.Location, match func(record) bool) (found []record, more bool) {
 	tag = strings.ToLower(cleanTag(tag))
 	for _, path := range r.recordsPaths(personaID) {
 		month := strings.TrimSuffix(strings.TrimPrefix(path, recordsDir), ".md")
@@ -283,7 +282,7 @@ func (r *Runner) findRecords(personaID, tag, query, before string, limit int, zo
 			if tag != "" && !hasRecordTag(rec, tag) {
 				continue
 			}
-			if !holdsAll(rec, words) {
+			if !match(rec) {
 				continue
 			}
 			if len(found) == limit {
@@ -332,36 +331,11 @@ func listRecords(records []record, zone *time.Location) string {
 	return strings.Join(lines, "\n")
 }
 
-// fieldBodies are the bodies of a persona's fields, by field; an empty body is
-// a field not written yet.
-func (r *Runner) fieldBodies(skill Skill) map[string]string {
-	out := map[string]string{}
-	for _, field := range memoryFields(skill) {
-		if note, ok := r.store.Note(skill.ID, fieldPath(field)); ok {
-			out[field] = strings.TrimSpace(note.Text)
-		}
-	}
-	return out
-}
-
-// renderFields is every field, whole, in the layout's order.
-func renderFields(skill Skill, bodies map[string]string) string {
-	var parts []string
-	for _, field := range memoryFields(skill) {
-		body := bodies[field]
-		if body == "" {
-			body = "（まだありません）"
-		}
-		parts = append(parts, "## "+field+"\n"+body)
-	}
-	return strings.Join(parts, "\n\n")
-}
-
 // memoryView is what a persona is handed of its memory at the start of every
-// turn: its fields whole, and its latest records.
+// turn: its facts that hold now, and its latest records.
 func (r *Runner) memoryView(skill Skill, zone *time.Location) string {
 	recent, more := r.findRecords(skill.ID, "", "", "", recentRecordsLimit, zone)
-	text := "### 分野ごとのまとめ（全文）\n" + renderFields(skill, r.fieldBodies(skill)) +
+	text := "### 分野ごとの事実（いま当てはまるもの。[ ] は事実の id）\n" + renderFacts(r.loadFacts(skill, zone), zone) +
 		"\n\n### かけらの記録（新しい順、最新" + fmt.Sprint(recentRecordsLimit) + "件まで。[ ] はたどれる投稿のID）\n" + listRecords(recent, zone)
 	if more {
 		text += "\n（もっと前の記録は read の records で、tag・query・before を指定して探せます）"
@@ -369,23 +343,28 @@ func (r *Runner) memoryView(skill Skill, zone *time.Location) string {
 	return text
 }
 
-// legacyNotes are the notes a persona kept before its memory was fields and
-// records: anything at a path the memory does not use now.
-func (r *Runner) legacyNotes(skill Skill) ([]store.Note, error) {
+// proseFields are the field files a persona kept as prose, before fields
+// were lists of facts: a field-shaped file with text and no fact line.
+func (r *Runner) proseFields(skill Skill) ([]store.Note, error) {
 	paths, err := r.store.NotePaths(skill.ID)
 	if err != nil {
 		return nil, err
 	}
-	var legacy []string
+	var out []store.Note
 	for _, path := range paths {
-		if !isMemoryPath(skill, path) {
-			legacy = append(legacy, path)
+		if !fieldFile.MatchString(path) {
+			continue
+		}
+		note, ok := r.store.Note(skill.ID, path)
+		if !ok || strings.TrimSpace(note.Text) == "" {
+			continue
+		}
+		ff := parseFacts(note.Text, time.UTC)
+		if len(ff.Current) == 0 && len(ff.Past) == 0 {
+			out = append(out, note)
 		}
 	}
-	if len(legacy) == 0 {
-		return nil, nil
-	}
-	return r.store.Notes(skill.ID, legacy)
+	return out, nil
 }
 
 // eachRecord passes every record a persona keeps to change, month by month,

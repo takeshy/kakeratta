@@ -137,7 +137,8 @@ func (r *Runner) expireRecords(ctx context.Context, now time.Time, settings stor
 				return err
 			}
 			defer release()
-			return r.eachRecord(held, skill.ID, zone, func(rec *record) (bool, bool) {
+			kakera := map[string]bool{}
+			err = r.eachRecord(held, skill.ID, zone, func(rec *record) (bool, bool) {
 				if !rec.Expires.set() {
 					return true, false
 				}
@@ -148,8 +149,15 @@ func (r *Runner) expireRecords(ctx context.Context, now time.Time, settings stor
 					return true, false
 				}
 				gone = append(gone, rec.ID)
+				kakera[r.kakeraOf(*rec)] = true
 				return false, true
 			})
+			if err != nil {
+				return err
+			}
+			// A kakera that served its moment leaves no fact resting on it alone.
+			_, err = r.dropFactSourcesHeld(held, skill.forTurn(), kakera, zone)
+			return err
 		}()
 		if err != nil {
 			r.emit("error", map[string]any{"where": "expire", "message": err.Error()})

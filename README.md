@@ -258,7 +258,7 @@ For those, any persona can hand its research and answer to **Hermes Agent** thro
 Each persona chooses its planner: the built-in model, or the external agent.
 When a persona planned by the external agent wakes, kakeratta opens an *ask*
 carrying the persona's identity, instructions, the trigger and its thread, the
-persona's memory (field summaries and latest records), what the persona can change, and its read-only tools.
+persona's memory (field summaries and facts, and latest records), what the persona can change, and its read-only tools.
 Hermes claims the ask, researches with its own tools and skills, and submits
 only the answer. kakeratta then decides the turn's schedules, tool actions, and
 notes with its own model, one phase at a time, assembles them with the answer
@@ -348,14 +348,19 @@ you liked before", with a link to that post.
 
 ## See what a persona remembers
 
-Open **What it remembers** in the Personas panel. A persona keeps two things:
-for each of its fields - tastes and shops, books and themes - one summary of
-everything learned so far, rewritten as your kakera arrive; and a record of
-every kakera it received, one sentence with its tags and the post to go back
-to - its reply when it replied, your kakera when it did not.
+Open **What it remembers** in the Personas panel. For each of its fields -
+tastes and shops, books and themes - a persona keeps facts, one line each with
+the post it rests on, and a summary in its own words over them. A fact is
+added, replaced, or retired as your kakera arrive, and a replaced one is kept
+under **以前のこと**; the summary is rewritten at the persona's check-in from
+what changed. It also keeps a record of every kakera it received, one sentence
+with its tags and the post to go back to - its reply when it replied, your
+kakera when it did not.
 
-The summaries come first, then the records month by month. Open a record's
-post from its id, or tap a `#tag` to see only the months that hold it.
+The fields come first, then the records month by month. Open the post behind a
+fact or a record with **元の投稿**, or tap a `#tag` to see only the months that
+hold it. Delete a kakera and its record and the facts resting on it alone go
+too.
 
 Records are not kept forever by default. A record of a kakera that served its
 moment, such as "where for lunch today?", shows **Gone on** a date, the next
@@ -367,9 +372,8 @@ up again while answering you gets its time afresh.
 
 <img src="docs/captures/en/memory.png" alt="What the wine persona remembers: tastes and wines, with tags, links to the posts, and ✎ to edit (sample)" width="382">
 
-Fix a misspelling or a wrong fact with **✎**, or delete a summary or a month
-of records. Delete a kakera and its record goes too; the persona takes out of
-its summaries what rested on it.
+Fix a misspelling or a wrong fact with **✎**, or delete a field or a month of
+records.
 
 To change how it remembers, use **Edit with AI** and say, for example, "don't
 call something a favourite after one glass".

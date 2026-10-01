@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +26,20 @@ func writeRecord(t *testing.T, s *store.Store, persona string, entry timeline.En
 	}
 }
 
+// factsFile is a field file holding facts that hold now, each with the
+// kakera it rests on ("" for none).
+func factsFile(field string, facts ...[2]string) string {
+	ff := fieldFacts{}
+	for i, f := range facts {
+		one := fact{ID: fmt.Sprintf("f_t%d", i), Text: f[0]}
+		if f[1] != "" {
+			one.From = []string{f[1]}
+		}
+		ff.Current = append(ff.Current, one)
+	}
+	return factsText(field, ff, time.UTC)
+}
+
 // recordIDs are the ids of a persona's records, newest first.
 func recordIDs(r *Runner, persona string) []string {
 	found, _ := r.findRecords(persona, "", "", "", 100, time.UTC)
@@ -36,7 +51,7 @@ func recordIDs(r *Runner, persona string) []string {
 }
 
 // Deleting a post is the user's; tidying the memory built on it is the
-// persona's. The app takes the post's records out itself - kept under the
+// app's. The app takes the post's records out itself - kept under the
 // kakera, or under the remark that answered it - and wakes only the personas
 // that had one, so their fields can lose what rested on it.
 func TestDeletingAPostDropsItsRecordsAndWakesThePersonasThatKeptThem(t *testing.T) {
@@ -61,7 +76,7 @@ func TestDeletingAPostDropsItsRecordsAndWakesThePersonasThatKeptThem(t *testing.
 	// gourmet replied, so its record leads to the remark; book kept nothing.
 	writeRecord(t, s, "gourmet", entry, remark.ID)
 	writeRecord(t, s, "gourmet", other, other.ID)
-	if err := s.WriteNote("gourmet", "Preference.md", "ごま強めは苦手。担々麺で強すぎた。\n"); err != nil {
+	if err := s.WriteNote("gourmet", "Preference.md", factsFile("Preference", [2]string{"担々麺はごまが強すぎた", entry.ID}, [2]string{"麻婆豆腐も胡麻が勝っていた", other.ID}, [2]string{"ごま強めは苦手", ""})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -77,17 +92,17 @@ func TestDeletingAPostDropsItsRecordsAndWakesThePersonasThatKeptThem(t *testing.
 		t.Fatalf("the wake record was not spent: %v", woke)
 	}
 
-	f.keep = func(system, user string) string {
-		if !strings.Contains(system, "ユーザーが投稿を削除した") || !strings.Contains(user, "ごまが強すぎた") || !strings.Contains(user, "担々麺で強すぎた") {
-			t.Errorf("the keeper was not told what was deleted and what it keeps:\n%s\n%s", system, user)
-		}
-		return `{"fields":[{"field":"Preference","text":"ごま強めは苦手。"}]}`
+	// The facts that rested on the post alone went with it, by the app;
+	// one resting on another post, and one that never had a source, stay.
+	note, _ := s.Note("gourmet", "Preference.md")
+	if strings.Contains(note.Text, "担々麺") || !strings.Contains(note.Text, "麻婆豆腐") || !strings.Contains(note.Text, "ごま強めは苦手") {
+		t.Fatalf("facts after the deletion:\n%s", note.Text)
 	}
+	// The wake only reconsiders schedules: the keeper is not run.
 	r.deletedAt(context.Background(), items[0])
-	if note, _ := s.Note("gourmet", "Preference.md"); strings.Contains(note.Text, "担々麺") {
-		t.Fatalf("the field still rests on the deleted post: %s", note.Text)
+	if len(f.keeps) != 0 {
+		t.Fatalf("the keeper ran for a deletion: %d", len(f.keeps))
 	}
-	// A tidy-up is not a kakera: no record is made for it.
 	if ids := recordIDs(r, "gourmet"); len(ids) != 1 {
 		t.Fatalf("records after the tidy-up = %v", ids)
 	}
@@ -229,8 +244,8 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 			}
 		}
 	}
-	if len(stub.phases) != 2 {
-		t.Fatalf("a deletion wake made %d calls, not the schedule phase and the keeper", len(stub.phases))
+	if len(stub.phases) != 1 {
+		t.Fatalf("a deletion wake made %d calls, not the schedule phase alone", len(stub.phases))
 	}
 }
 

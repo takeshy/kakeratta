@@ -172,7 +172,7 @@
           </div>
           <p>ヘッダーの <strong>担当</strong> で一覧を開き、<strong>有効にする</strong> で受け取る担当を選びます。担当は投稿された言語で答えます。</p>
           <figure>
-            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1778" />
+            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1800" />
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
           </figure>
           <h3>AI と担当を作る</h3>
@@ -233,27 +233,28 @@
 
         <section id="ja-memory">
           <h2>5. 覚えていることを確かめる</h2>
-          <p>担当の <strong>覚えていること</strong> を開くと、担当の記憶を読めます。記憶は2つです。分野ごと（好みとお店など）に、これまでに分かったことを2000字以内にまとめた本文が1つずつ。かけらが届くたびに担当が書き換えます。もう1つは、受け取ったかけらごとの記録で、日時・たどれる投稿・1文の要約・タグが1行ずつ月ごとに残ります。たどれる投稿は、担当が返事をしたならその返事（返事から元のかけらを開けます）、しなかったならかけら自身です。</p>
+          <p>担当の <strong>覚えていること</strong> を開くと、担当の記憶を読めます。担当は分野ごと（好みとお店など）に、分かっていることを1件1行の<strong>事実</strong>として持ちます。事実には、どのかけらに基づくかと、いつから当てはまるかが付きます。かけらが届くたびに事実が足されたり置き換わったりし、当てはまらなくなった事実は <strong>以前のこと</strong> に残ります。分野の先頭には担当自身の言葉の<strong>まとめ文</strong>があり、担当のチェックインのとき（毎日。月1回振り返る人物なら月1回）に、変わった事実をもとに書き直されます。もう1つは受け取ったかけらごとの<strong>記録</strong>で、日時・たどれる投稿・1文の要約・タグが1行ずつ月ごとに残ります。たどれる投稿は、担当が返事をしたならその返事（返事から元のかけらを開けます）、しなかったならかけら自身です。</p>
           <figure>
-            <img src="/captures/ja/memory.png" alt="ワイン担当の好みとワインの記憶。タグ、元投稿へのリンク、✎ での編集、個別削除（サンプル）" loading="lazy" width="382" height="1017" />
+            <img src="/captures/ja/memory.png" alt="ワイン担当の好みとワインの記憶。タグ、元投稿へのリンク、✎ での編集、個別削除（サンプル）" loading="lazy" width="382" height="1447" />
             <figcaption>覚えた内容、タグ、元の投稿、✎ での編集、このメモだけを忘れさせる操作（サンプル）。</figcaption>
           </figure>
           <h3>記憶の見方</h3>
           <ul>
-            <li>分野ごとのまとめが先に、かけらの記録が新しい月から並びます。</li>
+            <li>分野（まとめ文・今の事実・以前のこと）が先に、かけらの記録が新しい月から並びます。事実や記録の <strong>元の投稿</strong> を押すと、もとになった投稿と会話がその場で開きます。</li>
             <li>記録のIDを押すと、その投稿を開けます。</li>
             <li>記録の <strong>#タグ</strong> を押すと、そのタグの記録がある月だけに絞り込めます。<strong>すべてのメモを表示</strong> で戻ります。</li>
             <li><strong>… に消える</strong> は、「今日のランチどこがいい？」のようなその場限りのかけらの記録で、その日に本体が消します。<strong>… に見直し</strong> は、その日を過ぎると担当がチェックインで「そろそろ忘れていい？」と聞く記録です。返事のとおりに残す・延ばす・消すをします。担当があなたへの返事のために読み返した記録は、期限が延びます。</li>
-            <li>タイムラインの担当の発言の下にある <strong>📝</strong> は、その発言のあとに書き換えた分野のまとめです。押すとそのまとめが開きます。</li>
+            <li>タイムラインの担当の発言の下にある <strong>📝</strong> は、その発言のあとに事実が変わった分野です。押すとそのまとめが開きます。</li>
           </ul>
           <h3>間違いを直す・消す</h3>
           <div class="table-scroll">
             <table>
               <thead><tr><th>したいこと</th><th>操作</th></tr></thead>
               <tbody>
-                <tr><td>まとめや記録の誤字・事実の誤りを直す</td><td>見出しの <strong>✎</strong> で原文を編集し、<strong>メモを保存</strong></td></tr>
-                <tr><td>分野のまとめや1か月分の記録を消す</td><td><strong>このメモを忘れさせる</strong></td></tr>
-                <tr><td>あるかけらの記録を消す</td><td>そのかけらを削除する（担当がまとめから関係する記述を外します）</td></tr>
+                <tr><td>事実を1件だけ直す・忘れさせる</td><td>事実の横の <strong>✎</strong>・<strong>×</strong></td></tr>
+                <tr><td>まとめ文・事実・記録の誤字や誤りを直す</td><td>見出しの <strong>✎</strong> で原文を編集し、<strong>メモを保存</strong></td></tr>
+                <tr><td>1つの分野や1か月分の記録を消す</td><td><strong>このメモを忘れさせる</strong></td></tr>
+                <tr><td>あるかけらの記録を消す</td><td>そのかけらを削除する（そのかけらだけを根拠にしていた事実も本体が消します）</td></tr>
                 <tr><td>その担当のメモを全部消す</td><td><strong>すべてのメモを忘れさせる</strong></td></tr>
                 <tr><td>今後の覚え方を変える</td><td>担当の <strong>AIで修正</strong> で頼む</td></tr>
               </tbody>
@@ -586,7 +587,7 @@
           <p>例：「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
 
           <h3 id="ja-tool-notes">かけらの記録を探す — records</h3>
-          <p>担当は毎回、分野ごとのまとめの全文と最近の記録を読んでから考えます。それより前のかけらの記録は、タグや語句で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。記憶の書き換えは返事のあとに本体のメモ係が行い、担当が直接書くことはありません。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
+          <p>担当は毎回、分野ごとのまとめ文と今の事実、最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。記憶の書き換えは返事のあとに本体のメモ係が行い、担当が直接書くことはありません。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
           <p>例：「@tabe 前に行きたいって言ってたラーメン屋、どこだっけ」</p>
 
           <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
@@ -735,7 +736,7 @@
           </div>
           <p>Open <strong>Personas</strong> in the header and turn on <strong>Enable</strong> for the ones you want. A persona answers in the language you wrote in.</p>
           <figure>
-            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="2102" />
+            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="2145" />
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
           <h3>Create a persona with AI</h3>
@@ -796,27 +797,28 @@
 
         <section id="en-memory">
           <h2>5. What a persona remembers</h2>
-          <p>Open <strong>What I remember</strong> on a persona to read its memory, which is two things. For each of its fields (tastes and shops, say), one summary of everything learned so far, at most 2,000 characters, rewritten as your kakera arrive. And a record of every kakera it received, one line each by month: the time, the post to go back to, one sentence, and its tags. The post is the persona's reply when it replied (which opens your kakera too), and your kakera when it did not.</p>
+          <p>Open <strong>What I remember</strong> on a persona to read its memory. For each of its fields (tastes and shops, say), a persona keeps <strong>facts</strong>, one line each, with the fragment each rests on and since when it holds; they are added or replaced as your fragments arrive, and those that no longer hold stay under <strong>以前のこと</strong>. Over them sits a <strong>summary</strong> in the persona's own words, rewritten at its check-in (daily, or monthly for a person looked back on monthly) from what changed. It also keeps a <strong>record</strong> of every fragment it received, one line each by month: the time, the post to go back to, one sentence, and its tags. The post is the persona's reply when it replied (which opens your fragment too), and your fragment when it did not.</p>
           <figure>
-            <img src="/captures/en/memory.png" alt="A wine persona's preferences and wines, with tags, original post links, the ✎ to edit, and individual deletion (sample data)" loading="lazy" width="382" height="1042" />
+            <img src="/captures/en/memory.png" alt="A wine persona's preferences and wines, with tags, original post links, the ✎ to edit, and individual deletion (sample data)" loading="lazy" width="382" height="1567" />
             <figcaption>What was remembered, tags, the original post, ✎ to edit, and forgetting a single note (sample data).</figcaption>
           </figure>
           <h3>Reading memory</h3>
           <ul>
-            <li>The field summaries come first, then the records, newest month first.</li>
+            <li>The fields (summary, facts that hold, past facts) come first, then the records, newest month first. <strong>Original post</strong> on a fact or a record opens the post and its conversation right there.</li>
             <li>Tap a record's id to open its post.</li>
             <li>Tap a record's <strong>#tag</strong> to see only the months holding it; <strong>Show all notes</strong> goes back.</li>
             <li><strong>Gone on</strong> marks a record of a kakera that served its moment, such as “where for lunch today?”; the app deletes it that day. <strong>Review on</strong> marks a record the persona will ask about at check-in once that day has passed; it keeps, moves, or forgets it as you answer. A record the persona reads again while answering you gets its time afresh.</li>
-            <li>The <strong>📝</strong> chips under a persona's remark are the field summaries rewritten after it. Tap one to open it.</li>
+            <li>The <strong>📝</strong> chips under a persona's remark are the fields whose facts changed after it. Tap one to open it.</li>
           </ul>
           <h3>Fixing and removing</h3>
           <div class="table-scroll">
             <table>
               <thead><tr><th>To</th><th>Do</th></tr></thead>
               <tbody>
-                <tr><td>Fix a typo or a wrong fact in a summary or a record</td><td><strong>✎</strong> on its heading, then <strong>Save note</strong></td></tr>
-                <tr><td>Remove a field's summary or a month of records</td><td><strong>Forget this note</strong></td></tr>
-                <tr><td>Remove the record of one kakera</td><td>Delete the kakera (the persona takes what rested on it out of its summaries)</td></tr>
+                <tr><td>Fix or forget a single fact</td><td><strong>✎</strong> or <strong>×</strong> beside it</td></tr>
+                <tr><td>Fix a typo or a mistake in a summary, a fact, or a record</td><td><strong>✎</strong> on its heading, then <strong>Save note</strong></td></tr>
+                <tr><td>Remove a field or a month of records</td><td><strong>Forget this note</strong></td></tr>
+                <tr><td>Remove the record of one kakera</td><td>Delete the fragment (the app also removes the facts that rested on it alone)</td></tr>
                 <tr><td>Remove all of a persona's notes</td><td><strong>Forget all notes</strong></td></tr>
                 <tr><td>Change how it remembers from now on</td><td><strong>Edit with AI</strong> on the persona</td></tr>
               </tbody>
@@ -1077,7 +1079,7 @@
         <section id="en-settings">
           <h2>6. Settings and data</h2>
           <figure>
-            <img src="/captures/en/settings.png" alt="The Settings panel" loading="lazy" width="390" height="1521" />
+            <img src="/captures/en/settings.png" alt="The Settings panel" loading="lazy" width="390" height="1502" />
             <figcaption>The Settings panel. Common items are at the top; the rest are inside Advanced options.</figcaption>
           </figure>
           <h3>Where things are</h3>
@@ -1149,7 +1151,7 @@
           <p>Try: “@tabe Find that light red wine I enjoyed before.”</p>
 
           <h3 id="en-tool-notes">Finding kakera records — records</h3>
-          <p>Every turn, a persona reads its field summaries whole and its latest records before it thinks. Older records it finds by tag or words, and it can read the post a record points to (with the kakera it answered, for a reply). The memory itself is rewritten after the reply by the app's note keeper; a persona never writes it directly. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
+          <p>Every turn, a persona reads its field summaries, the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the kakera it answered, for a reply). The memory itself is rewritten after the reply by the app's note keeper; a persona never writes it directly. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
           <p>Try: “@tabe Which ramen place did I say I wanted to try?”</p>
 
           <h3 id="en-tool-web_search">Web search — web_search</h3>

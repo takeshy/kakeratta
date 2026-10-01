@@ -4,6 +4,7 @@
 // how many: the routing is what keeps a post from waking all of them, so adding
 // a domain costs one more line in one routing call rather than one more model
 // call per post.
+import { showEntryDialog } from "./entry-dialog.js";
 import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
@@ -432,6 +433,22 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     };
     const failed = (error) => toast(String(error.message || error), "error");
     const drawMemory = () => memoryHost.replaceChildren(createMemoryView(memory.notes, {
+      onOpenEntry: (id) => showEntryDialog(id, { getSettings, getPersonas: () => rows, getPersona: (id) => rows.find((persona) => persona.id === id) }),
+      onEditFact: async (path, field, fact, text) => {
+        const updated = await api.editFact(row.id, field, fact, text);
+        memory.notes = memory.notes.map(note => note.path === path ? { ...note, ...updated } : note);
+        drawMemory();
+        toast(t("事実を直しました"));
+        reveal(path);
+      },
+      onForgetFact: async (path, field, fact) => {
+        const updated = await api.forgetFact(row.id, field, fact);
+        memory.notes = updated.gone
+          ? memory.notes.filter(note => note.path !== path)
+          : memory.notes.map(note => note.path === path ? { ...note, ...updated } : note);
+        drawMemory();
+        reveal(path);
+      },
       allPaths: memory.paths,
       filter: memory.filter,
       onFilter: async (filter) => {
@@ -506,7 +523,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         row.kind === "person"
           ? basicInfoBox(row, () => { close(); showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus: "basicInfo" }); }, { open: true })
           : null,
-        el("p", { class: "hint", label: "分野ごとのまとめと、かけらごとの記録です。記録のIDから元の投稿を開けます。" }),
+        el("p", { class: "hint", label: "分野ごとのまとめ文と事実、かけらごとの記録です。「元の投稿」から、もとになった投稿と会話を開けます。" }),
         memoryHost,
         el(
           "div",

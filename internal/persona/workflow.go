@@ -439,7 +439,7 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 				break
 			}
 			var ids []string
-			out, ids = r.readRecords(skill.ID, args, zone)
+			out, ids = r.readRecords(ctx, skill.ID, args, zone)
 			// What was read is in use; its dates move once the turn is done.
 			for _, id := range ids {
 				if referenced != nil {

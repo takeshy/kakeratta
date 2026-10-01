@@ -25,7 +25,7 @@ func TestPreviewReplyKeepsNothing(t *testing.T) {
 		return string(scripted)
 	}, "move", "gourmet")
 	f.keep = func(string, string) string {
-		return `{"summary":"渋谷に20時に着きたい","tags":["渋谷"],"fields":[{"field":"Place","text":"渋谷。"}]}`
+		return `{"summary":"渋谷に20時に着きたい","tags":["渋谷"],"facts":[{"op":"add","field":"Place","id":"","ids":[],"text":"渋谷。"}]}`
 	}
 	post := post(t, s, "20時に渋谷に着きたい")
 	remark := timeline.Entry{
