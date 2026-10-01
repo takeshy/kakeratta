@@ -166,7 +166,7 @@ const EN = {
   "記憶を更新した投稿": "Posts behind this memory",
   "覚えていること": "What I remember",
   "{0} があなたについて覚えていること": "What {0} remembers about you",
-  "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。": "Notes saved by this persona. Follow evidence links to the original posts or related memories.",
+  "分野ごとのまとめと、かけらごとの記録です。記録のIDから元の投稿を開けます。": "One summary per field, and a record of each fragment. Open a record's id to see its post.",
   "好み": "Preferences", "ワイン": "Wines", "お店": "Shops", "本": "Books", "テーマ": "Themes", "会話": "Conversations", "場所": "Places",
   "繰り返し": "Routines", "一度きりの用": "One-offs",
   "その他のメモ": "Other memories", "記憶の目次": "Memory overview", "記憶の更新履歴": "Memory history",

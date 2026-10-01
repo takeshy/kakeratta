@@ -84,7 +84,7 @@ export const AICreateDraft = {
     const draft = {
       id: "wine", name: ja ? "ぶどう" : "budou", icon: "🍷", tools: ["web_search"],
       domain: ja ? "ラベルの写真から、ワインの銘柄・産地・ブドウ品種を解説し、お店で買ったり注文したりできるようにする。" : "Identify wines from label photos and explain the producer, region, and grapes so you can buy or order them.",
-      memory: ja ? "型は Wine（銘柄。産地・品種・感想）と Preference（好みの傾向。同じ好みが3回出たら統合）の2つ。" : "Two kinds: Wine (producer, region, grapes, impressions) and Preference (a taste that has come up three times).",
+      memory: ja ? "分野は Wine（飲んだ銘柄と感想）と Preference（好みの傾向。重なったらまとめる）の2つ。記録のタグには産地・品種・色を付ける。" : "Fields: Wine (wines you tried and what you thought) and Preference (your tastes, merged as they repeat). Tag records with region, grape, and colour.",
       tone: ja ? "気軽に話せる友達のように、短く親しみやすく。" : "Friendly and relaxed, with short replies.",
       instructions: ja ? "ラベルが届いたら、ワインショップやお店で伝わる名前と、ブドウ品種・味わいを短く解説します。飲んだワインと感想も覚えます。" : "When a label arrives, give the name a shop or restaurant would recognize, with its grapes and style. Remember the wines you try and what you thought.",
     };
@@ -109,10 +109,16 @@ export const WineMemory = {
     const ja = getLanguage() === "ja";
     const wine = { id: "wine", name: ja ? "ワイン担当" : "Wine", icon: "🍷", active: true,
       domain: ja ? "飲んだワインと、好きだった理由を覚えます。" : "Remembers the wines you tried and why you liked them.", tools: [], wakes: 4 };
-    const sources = `<!-- kakeratta:note-sources -->\n# 記憶を更新した投稿\n\n* [${ja ? "9月12日 — レストランでピノ・ノワールを気に入った" : "Sep 12 — liked Pinot Noir at a restaurant"}](/?entry=sample-pinot)\n* [${ja ? "9月13日 — ガメイを「飲みやすい」と話した" : "Sep 13 — described Gamay as easy to drink"}](/?entry=sample-gamay)\n<!-- /kakeratta:note-sources -->`;
     const notes = [
-      { path: "preferences/light-reds.md", text: `---\ntype: Preference\ntitle: ${ja ? "軽めの赤ワインが好み" : "Prefers lighter red wines"}\ntags: [${ja ? "赤ワイン, ピノ・ノワール, ガメイ" : "red wine, Pinot Noir, Gamay"}]\n---\n${ja ? "果実味があり、タンニンが穏やかな赤ワインを気に入っている。" : "Enjoys fruity reds with gentle tannins."}\n\n${sources}` },
-      { path: "wines/domaine-x.md", text: `---\ntype: Wine\ntitle: Domaine X Pinot Noir\ntags: [${ja ? "赤ワイン, ピノ・ノワール, ブルゴーニュ" : "red wine, Pinot Noir, Burgundy"}]\ndescription: ${ja ? "レストランで飲んだ、軽やかな赤ワイン。" : "A light red tried at a restaurant."}\n---\n# ${ja ? "感想" : "Tasting notes"}\n- ${ja ? "「重くなくて、もう一杯飲みたくなる」" : '“Not heavy; makes me want another glass.”'}\n- [${ja ? "軽めの赤ワインが好み" : "Prefers lighter red wines"}](/preferences/light-reds.md)\n\n<!-- kakeratta:note-sources -->\n# 記憶を更新した投稿\n\n* [${ja ? "9月12日 — レストランでの記録" : "Sep 12 — restaurant note"}](/?entry=sample-pinot)\n<!-- /kakeratta:note-sources -->` },
+      { path: "Preference.md", text: ja
+        ? "果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は「もう一杯」にならない。\n"
+        : "Likes lighter, fruity reds with gentle tannins; a heavy red does not make them want another glass.\n" },
+      { path: "Wine.md", text: ja
+        ? "- Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」\n- ボージョレのガメイ：「飲みやすい」\n"
+        : "- Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.”\n- A Beaujolais Gamay: “easy to drink.”\n" },
+      { path: "records/2026-09.md", text: ja
+        ? "# 2026-09 のかけら\n\n- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) レストランで飲んだピノ・ノワールを気に入った #赤ワイン #ピノ・ノワール #ブルゴーニュ\n- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) ガメイを飲みやすいと言った #赤ワイン #ガメイ\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n"
+        : "# 2026-09\n\n- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) Liked a Pinot Noir at a restaurant #red #PinotNoir #Burgundy\n- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) Found Gamay easy to drink #red #Gamay\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) Wants to try a wine bar in Ebisu #Ebisu #winebar review:2026-10-11/21d\n" },
     ];
     serve({ personas: [wine], tools, memory: { wine: { notes } } });
     const panel = createPersonas({ onChange: () => {} });

@@ -110,7 +110,7 @@ export function replyDraft() {
 export function replyPreview() {
   // The token is what /reply/preview returns for a draft that can be kept;
   // without one the dialog offers no "これでよい".
-  return { spoke: words().trialReply, quiet: false, notes: ["tastes/sesame.md"], token: "trial_sample" };
+  return { spoke: words().trialReply, quiet: false, notes: ["Preference.md"], token: "trial_sample" };
 }
 
 // What the router decided about the sample posts, as /api/entry/{id}/routing
@@ -120,7 +120,7 @@ export function routing() {
   return {
     p1: {
       recorded: true,
-      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true, notes: ["foods/tantanmen.md"] }],
+      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true, notes: ["Preference.md"] }],
       excluded: [
         { id: "book", name: "shiori", icon: "📖", reason: w.notBook },
         { id: "move", name: "michi", icon: "🚃", reason: w.notTravel },
@@ -211,7 +211,7 @@ export function personTimeline() {
   const w = personWords();
   return [
     post("q1", minutes(90), { text: w.souvenir }),
-    said("r1", "q1", "sato", minutes(88), w.remembered, { notes: ["events/hokkaido-souvenir.md"] }),
+    said("r1", "q1", "sato", minutes(88), w.remembered, { notes: ["Event.md"] }),
     post("q2", minutes(12), { text: w.fishing }),
     post("q3", minutes(4), { text: w.campsite }),
   ];
@@ -222,7 +222,7 @@ export function personRouting() {
   const { name, icon } = person();
   return {
     q1: { recorded: true,
-      delivered: [{ id: "sato", name, icon, person: true, heard: name, done: true, spoke: true, noted: true, notes: ["events/hokkaido-souvenir.md"] }],
+      delivered: [{ id: "sato", name, icon, person: true, heard: name, done: true, spoke: true, noted: true, notes: ["Event.md"] }],
       excluded: [{ id: "gourmet", name: "tabe", icon: "🍜", reason: w.notFood }] },
     q2: { recorded: true, delivered: [],
       excluded: [{ id: "sato", name, icon, person: true, reason: w.missed }] },
@@ -245,7 +245,7 @@ export function timeline() {
   const quiet = [post("p1", minutes(6), { text: w.noodles })];
   const answered = [
     post("p1", minutes(140), { text: w.noodles }),
-    said("s1", "p1", "gourmet", minutes(128), w.sesame, { notes: ["tastes/sesame.md"] }),
+    said("s1", "p1", "gourmet", minutes(128), w.sesame, { notes: ["Preference.md"] }),
     said("s2", "p1", "user", minutes(120), w.heat),
     post("p2", minutes(52), { text: w.shibuya, place: { lat: 35.6896, lon: 139.7006, label: w.station } }),
     said("s3", "p2", "move", minutes(50), w.route, {
@@ -255,7 +255,7 @@ export function timeline() {
       text: "",
       media: { blobId: "b1", mime: "image/png", readAt: minutes(19), describe: w.pagePhoto, origin: w.origin, text: w.ocr },
     }),
-    said("s4", "p3", "book", minutes(17), w.sameChapter, { notes: ["quotes/embodiment.md"] }),
+    said("s4", "p3", "book", minutes(17), w.sameChapter, { notes: ["Book.md"] }),
   ];
   // What the README leads with: one exchange and one mention, nothing cut off.
   const hero = answered.filter((entry) => ["p1", "p2"].includes(entry.kind === "post" ? entry.id : entry.root));
@@ -272,7 +272,7 @@ export function timeline() {
   // file it read in the vault is named as the source.
   const vault = [
     post("p8", minutes(7), { text: w.agentAsk }),
-    said("a1", "p8", "book", minutes(6), w.agentSummary, { model: "agent", notes: ["books/introduction-to-agents.md"] }),
+    said("a1", "p8", "book", minutes(6), w.agentSummary, { model: "agent", notes: ["Book.md"] }),
   ];
   return { quiet, answered, hero, many, reading, unreadable, vault };
 }
@@ -322,18 +322,20 @@ export const dictatingSettings = {
   speech: { ...settings.speech, provider: "browser", formatBeforeSend: true, language: "ja" },
 };
 
-// What a persona kept, in the shape it chose. The app never reads these; the
-// panel only shows them.
+// What a persona keeps: one summary per field, and a line per fragment by
+// month, with the post to go back to and its tags.
 export const memory = {
   gourmet: {
     notes: [
-      { path: "preferences/sesame.md", text: "---\ntype: Preference\ntitle: ごま強めの担々麺は苦手\ntags: [担々麺, ごま, 傾向]\n---\n\nごまが前に出る担々麺は苦手。辛さ自体は平気。\n\n根拠:\n- 2026-09-01 「ごまが強すぎた気がする」\n- 2026-09-13 「たしかに。辛いのは平気」\n\n反例: 担々麺以外のごま（胡麻和え）には言及なし。" },
-      { path: "places/2026-09.md", text: "---\ntype: Place\ntitle: 2026年9月に出た店\ntags: [担々麺, 神保町, 東京駅]\n---\n\n- 神保町の担々麺（店名不明）。ごま強め。\n- 東京駅周辺で20時前に食べたがっていた（移動の話に混ざっていたので推測）。" },
+      { path: "Preference.md", text: "辛さは平気だが、ごまが前に出る担々麺は苦手。\n担々麺以外のごま（胡麻和え）には言及なし。\n" },
+      { path: "Shop.md", text: "- 神保町の担々麺（店名不明）：ごま強めだった。\n" },
+      { path: "records/2026-09.md", text: "# 2026-09 のかけら\n\n- 2026-09-01 20:14 [p1](/?entry=p1) 神保町の担々麺はごまが強すぎた気がすると言った #担々麺 #ごま #神保町\n- 2026-09-12 18:40 [s3](/?entry=s3) 東京駅の近くで20時前に食べられる店を聞いた #東京駅 #夕食 expires:2026-09-13/1d\n- 2026-09-13 21:05 [s2](/?entry=s2) 辛いのは平気だと言った #担々麺 #辛さ\n" },
     ],
   },
   book: {
     notes: [
-      { path: "quotes/embodiment.md", text: "---\ntype: Quote\ntitle: 身体が先、感情はあと\ntags: [身体論, 動きが心をつくる]\n---\n\n「身体の状態が先にあって、感情はあとから名前を付けられる」\n出典の手がかり: 『動きが心をつくる』\n\n同じ章に二度反応している。" },
+      { path: "Book.md", text: "- 『動きが心をつくる』：「身体の状態が先にあって、感情はあとから名前を付けられる」に線を引いた。同じ章に二度反応している。\n" },
+      { path: "records/2026-09.md", text: "# 2026-09 のかけら\n\n- 2026-09-20 22:10 [s4](/?entry=s4) 『動きが心をつくる』の身体が先という一節に線を引いた #身体論 #動きが心をつくる review:2026-12-20/91d\n" },
     ],
   },
 };

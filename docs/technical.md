@@ -26,20 +26,20 @@ match.
 
 Each selected persona then decides what to do:
 
-* read the parts of its memory that are relevant
-* inspect the current thread or older fragments
+* read its memory - a short summary per field, and its latest records
+* look further back through its records, the current thread or older fragments
 * call one of the tools allowed for that persona
-* write or update a note
 * schedule a later follow-up
 * speak in the timeline
 * or stay silent
 
-Long-term memory uses
-[OKF (Open Knowledge Format)](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf),
-split first by persona and then by topic.
+Afterwards the app keeps what the fragment leaves behind: the persona sums the
+fragment up in one sentence with tags, and rewrites the summaries the fragment
+changes. Memory is split by persona, then by the fields its skill names.
 
 A persona therefore does not receive one ever-growing personal-history prompt.
-It reads and writes the notes needed for the task at hand.
+Its summaries stay under 2,000 characters each; the details live in one-line
+records it can search, and in the timeline itself.
 
 Everything else still remains in the timeline, including fragments that no
 persona chose to remember. Keyword and embedding-based meaning search can bring
@@ -58,7 +58,7 @@ Personas can also use tools such as:
 The browser keeps recent state locally and supports offline posting, while
 server-side check-ins and schedules can continue when the browser is closed.
 
-The complexity stays below the surface. None of MCP, RAG, OKF, model selection,
+The complexity stays below the surface. None of MCP, RAG, model selection,
 or workflow validation needs to be understood by the person using the app.
 
 ## Design principles
@@ -78,7 +78,7 @@ having things explained to you, and being reacted to every time you just wanted
 to look at something is an imposition. A post nobody answers is a normal post.
 
 **Not speaking and not remembering are different things.** A post a persona
-said nothing about still goes into its notes, if it is its subject.
+said nothing about is still recorded in its memory, if it is its subject.
 
 **Name it with @ and it always answers.** Because the subjects are separate,
 there is something to choose between.
@@ -295,8 +295,9 @@ to write, and a reviewer that could not see what had been researched sent good
 answers back. When the answering was handed to an external agent, the quality
 dropped visibly.
 
-The workflow stays - `Workflow{answer, schedules, actions, notes}` is still
-what kakeratta checks, reviews and runs - but no model writes it whole any more.
+The workflow stays - `Workflow{answer, schedules, actions}` is still what
+kakeratta checks, reviews and runs - but no model writes it whole any more, and
+memory is kept apart, after the answer is out.
 A turn is split by responsibility, each phase fills one typed part, and the
 host assembles the workflow:
 
@@ -313,7 +314,7 @@ Built-in: Read → Answer        External agent: Read + Answer → submit_answer
                      ↓
             Execute → publish the answer
                      ↓
-            Note keeper    → notes, then index.md repair attempt
+            Note keeper    → record of the fragment, field summaries
 ```
 
 ### A turn, phase by phase
@@ -325,9 +326,10 @@ to it, by an external agent over MCP (see
 [External agents through MCP](#external-agents-through-mcp)); everything after
 the answer is the same either way.
 
-1. **Read.** Its `index.md` is handed over whole at the start of every turn.
-   It may then ask, up to ten times (twenty in an Ultra turn for a deeper
-   answer), to look at things: its note list, notes, a timeline search, a web
+1. **Read.** Its field summaries, whole, and its latest 15 records are handed
+   over at the start of every turn. It may then ask, up to ten times (twenty in
+   an Ultra turn for a deeper answer), to look at things: older records by tag,
+   words or month, the post a record points to, a timeline search, a web
    search, a place or route lookup. Only read-only tools run here; an MCP tool
    counts as read-only only when its server marks it `readOnlyHint`. Reading
    writes nothing, so the app just does it and hands the results back.
@@ -341,7 +343,7 @@ the answer is the same either way.
 3. **Schedule phase.** A separate call, on the same model, sees the finished
    answer and the schedules already placed, and hands in `submit_schedule`:
    create and cancel operations (a change is a cancel and a create), each
-   create with the note it rests on. It also states whether every promise the
+   create with a short note of what it is for. It also states whether every promise the
    answer makes about time is backed by an operation or an existing schedule
    (`consistent`, with a `reason`). "I cancelled it" with no cancel, or "I'll
    ask you at 22:30" with nothing placed, is sent back; if it cannot be made
@@ -349,15 +351,14 @@ the answer is the same either way.
 4. **Action phase.** Only for a persona that holds a tool that acts. It hands
    in `submit_action` — the tool calls and their arguments — with the same
    consistency statement about what the answer promised.
-5. **Notes come after the answer.** They are not a phase of the turn: a note
+5. **Memory comes after the answer.** It is not a phase of the turn: memory
    that fails to come out must not take a finished answer with it. Once the
-   remark is out, the persona's **note keeper** writes them (see
+   remark is out, the persona's **note keeper** keeps it (see
    [The note keeper](#the-note-keeper)).
 6. **Checked by code, every time.** Known operation types, declared tools and no
-   lookup used as an action, schedule ids that exist, paths that stay inside
-   the persona's bundle, a schedule's note not rewritten unread, and note types
-   from the persona's memory layout. A proposal that fails is sent back to its
-   own phase with the reasons.
+   lookup used as an action, schedule ids that exist and are the persona's own
+   to cancel, times that parse. A proposal that fails is sent back to its own
+   phase with the reasons.
 7. **Reviewed, only when it reaches further.** A plan holding a schedule or an
    action is reviewed by Nemotron 3 Super against a narrow list: the answer's
    promises and the schedules' times, creates and cancels agree; schedules and
@@ -371,73 +372,58 @@ the answer is the same either way.
    answer stays as it was. After two reviews, the turn stops.
 8. **Run, then publish.** Schedules and actions run in order; **the first step
    that fails stops the rest**, and the answer is published only when
-   everything ran. A schedule whose note cannot be written is taken back.
-   An external action is not a transaction: what already ran is recorded, and
+   everything ran. An external action is not a transaction: what already ran is recorded, and
    an answer promising success is withheld.
 
 Each turn is logged as one structured entry: what was read, the answer, each
 phase with its rounds, reads and what it had sent back and why, each review and
 which phases it regenerated, the assembled workflow, each step as it ran, and what
-was said. The note keeper logs its own entry (`notes <persona>`): the notes it
-chose to see, its proposal and what it had sent back, the steps as they ran, and
-whether the index had to be repaired.
+was said. The note keeper logs its own entry (`notes <persona>`): what it handed
+in and how many submissions it took.
 
 ### The note keeper
 
 `internal/persona/notekeeper.go`. After the remark is published, the persona
-writes down what the turn should leave behind, on the persona model (Super,
-even in an Ultra turn), in its own voice, with the OKF skill. It runs for a post
-or reply of the user's — also when the persona stayed quiet or could not speak —
-for the daily check-in, for a review, and for the tidy-ups after something was
-deleted or expired. A schedule wake does not run it.
+keeps what the turn should leave behind, on the persona model (Super, even in
+an Ultra turn), in its own voice. It runs for a fragment of the user's - a post,
+a reply, an edit, also when the persona stayed quiet or could not speak - for a
+check-in handed records due for review, and for the tidy-up after a fragment was
+deleted. A schedule wake does not run it, and neither does a persona that
+stayed quiet because the fragment was not its business.
 
-It reads in two steps that cannot loop. It is shown `index.md` whole, what needs
-tidying (notes the index does not link, and notes that carry one title under
-different paths) and the thread; it picks up to four notes from the index
-(`choose_notes`). Some notes are handed over without being chosen: the ones the
-turn itself opened, the ones a review is due for, the notes behind a post of the
-persona's own that the user replied to, and in a tidy-up the notes left behind
-and the notes whose text still links to one taken away (at most twelve). Then it
-is handed those notes whole and proposes the changes (`submit_note`: writes and
-forgets) **with no way to read more**. An existing note it was not handed cannot
-be rewritten.
+It is one call, `keep_memory`, with the current summaries, the latest records,
+the thread and the published answer in front of it, and **no way to read
+more**. It hands in:
 
-The app decides what has to be true afterwards, and sends a proposal back with
-the reasons when it is not:
+* `summary` - the fragment in one sentence, in the user's words (140 characters at most);
+* `tags` - one to five words to find it by later;
+* `expires` / `review` - the record's dates, if any (see below);
+* `fields` - only the summaries the fragment changes, each rewritten whole,
+  2,000 characters at most;
+* `records` - when it was handed records due for review, what becomes of them.
 
-* one thing, one note — a title the persona already has, or one within a slip of
-  it, is refused **whatever the directory** (a note thrown away in the same
-  proposal does not count, so merging is a write and a forget);
-* note types from the persona's memory layout, no note carrying two or more of
-  the answer's own sentences, and an answer to the user that leaves no note
-  behind (a schedule with its note counts);
-* every note it writes names the `index.md` heading it belongs under
-  (`section`), unless it is already listed (asked once; a proposal is not lost
-  to the layout of the index).
+The app checks it and sends it back with the reasons, up to three times: no
+sentence, too many tags, a date that is not after today, a field the skill
+does not name, a body too long, two or more of the answer's own sentences
+copied. Then **the app writes it**: the changed summaries (`{Field}.md`), and
+one record line in the month's file (`records/YYYY-MM.md`):
 
-**The index is the persona's, and the app repairs it after note work.** How `index.md` is
-grouped is the persona's judgement — headings that fit its subject, related notes
-together. The keeper does not rewrite the index to add a note: it names the
-heading, and the app puts the note's line there (`* [title](/path) - description`),
-moving it from any other heading and making the heading if it is new. It writes
-`index.md` itself only to rename or regroup headings. Whatever the keeper did, or
-failed to do, the app then repairs the index:
-links to notes that no longer exist are taken out, and a note it does not link is
-added under an "unsorted" heading with its title and description. The persona is
-shown that heading on its next turn and sorts it. A successful repair makes the
-index complete; a storage or cancellation failure leaves repair pending.
+```text
+- 2026-10-01 12:34 [e_x](/?entry=e_x) Wants to try Jiro in Mita #ramen #Mita review:2026-10-22/21d
+```
+
+The id is the persona's reply when it replied - which leads back to the
+fragment it answered - and the fragment itself when it did not. An edited
+fragment, or a retry, replaces its record rather than adding a second.
 
 If the keeper cannot finish, the answer is already out. Its input is saved as a
-note job before the keeper runs. Failed note work is retried after one minute,
-with backoff up to one hour, on startup and during periodic queue passes. A
-failed index write retries just the repair, without writing the note again. A
-deleted or edited post's old input is not replayed. Failures are logged; a
-permanent storage or model failure can still leave a job pending. Two turns of one persona
-finishing together take turns, so they do not rewrite the same note or index from
-what each saw. The remark is updated afterwards to point at the notes that were
-written, so a check-in that asked about a note is still found by it.
-If the job itself cannot be saved, the keeper still makes one immediate attempt;
-that attempt has no durable retry.
+note job before it runs, and failed memory work is retried after one minute,
+with backoff up to one hour, on the workspace's due passes. A deleted or edited
+fragment's old input is not replayed. Two turns of one persona finishing
+together take turns under a lock, so they do not rewrite the same summary or
+month from what each saw. The remark is updated afterwards to point at the
+summaries that were written. If the job itself cannot be saved, the keeper
+still makes one immediate attempt; that attempt has no durable retry.
 
 ## Models
 
@@ -524,135 +510,97 @@ had independently seen the original pixels.
 
 ## Memory and search
 
-Each persona owns its own memory.
+Each persona owns its own memory, and **only the app writes it**. A food
+persona cannot touch the travel persona's memory, and no persona - nor an
+external agent - writes files of its own: the persona's note keeper hands in
+what to keep, and the app checks and stores it.
 
-A food persona cannot silently rewrite the travel persona's notes, and an
-external agent cannot write notes at all: it hands in only an answer, and the
-persona's note keeper decides what to keep.
+A persona keeps two things:
 
-Notes are stored as structured Markdown under OKF-style topics rather than as
-one conversation transcript.
+* **One summary per field.** The fields are the capitalised words of its
+  skill's `memory` - `Preference` and `Shop` for the food persona, `Book` and
+  `Theme` for the reading one; a persona that names none keeps `Memo`. Each
+  summary holds what is known in that field so far, at most 2,000 characters,
+  rewritten whole as fragments change it. When it would run over, the
+  tendency is kept and the single events are left to the records.
+* **One record per fragment.** A sentence, its tags, the post to go back to,
+  and possibly a date. Records are kept by month and only grow; a persona is
+  handed the latest 15 and searches the rest.
 
-The user can inspect those notes directly from the interface.
+```text
+=== Preference.md ===
+Leans tonkotsu when there is a choice; finds strong sesame too much in tantanmen.
 
-Each note can also retain provenance back to the fragments and conversations
-that changed it. That is why the UI can show **Posts that updated this memory**
-instead of presenting long-term memory as an unexplained model state.
+=== records/2026-09.md ===
+# 2026-09 のかけら
 
-Individual notes can be edited or forgotten without deleting the source post.
+- 2026-09-01 20:14 [e_a](/?entry=e_a) Said the tantanmen had too much sesame #tantanmen #sesame
+- 2026-09-08 12:30 [e_b](/?entry=e_b) Chose tonkotsu over shoyu #ramen #tonkotsu
+- 2026-09-12 12:02 [e_c](/?entry=e_c) Asked where to eat lunch near Kanda today #lunch #Kanda expires:2026-09-13/1d
+```
 
-Deleting a source post is different.
+The user can read both directly from the interface: the summaries first, then
+the records month by month. A record's id opens the post, and a tag narrows the
+view to the months holding it. A summary or a month of records can be edited or
+deleted without deleting any post; nothing is woken for it. In local storage
+they are plain files that can be read with `cat`.
 
-When a post is deleted, kakeratta uses a reverse index to find notes that cite
-it and removes the app-managed source links. Notes left with no source are
-deleted automatically, except the index and update log. Personas that were
-woken for the post or cited it are then asked to clean up surviving notes and
-references to deleted notes. Each persona decides how to revise the meaning of
-the surviving text; the app does not rewrite that text.
+**Records are what a line of an index used to be, and some are set to go.**
+The keeper dates a record from what it is. A fragment that served its moment -
+"where for lunch today?", "how do I get to Shibuya?" - gets `expires`, the next
+day; the app deletes the record when the day comes, without waking anyone. A
+thing the user said whose lifetime nobody knows - a shop they want to try, a
+topic they are into - gets `review`, weeks or months ahead; preferences and
+habits get neither, and a record without dates is never aged out.
 
-That clean-up, like the one after a note is deleted or passes its `expires`
-date, cannot speak and has nothing to answer. It skips research and the answer,
-is never handed to the external agent, and runs only the schedule and note
-phases, which read the notes they need themselves.
+**A record in use keeps longer.** When a persona reads a record through a
+search or by its id while answering a post, both its dates move: the span it
+was given starts again from that day. Reading never brings a date closer, and
+reading at a check-in or any other wake that is not a post does not count, so
+a record read in order to ask about it is not put off again and again.
+
+**What has come up for review is asked about, and the app never deletes it.**
+When the review day has passed, the persona's next daily check-in is handed at
+most three due records, oldest first. The persona asks about one in a short
+post; its keeper puts that record off a week and marks it with the post that
+asked. A reply under that post reaches the persona with the records it asked
+about, and its keeper keeps the record for good, moves the date, or forgets it.
+
+Deleting a post is different. The app takes out the records kept under it - the
+fragment's own, or the reply that answered it - and wakes each persona that had
+one, which cannot speak and has nothing to answer: it may cancel the schedules
+it set for that fragment, and its keeper takes out of the summaries what rested
+on it. If only a persona's reply is deleted, its record is kept under the
+fragment instead.
 
 ### What a persona is given
 
 * the post it was routed, and what the app read out of its image;
-* **the remarks under that post** — other personas' and the user's replies;
-* its own `index.md` and a note count (other notes are read as needed);
+* **the remarks under that post** - other personas' and the user's replies;
+* its field summaries, whole, and its latest records;
 * its own pending schedules, if it can schedule.
 
 **Not the whole timeline.** Hand that over and every persona sees everything
 again, which is exactly what dividing by subject was for. Anything older is in
-its own notes, or found with a timeline search.
+its records, or found with a timeline search.
 
-### Notes are OKF, and the persona writes them
+**Memory comes from the user.** The keeper is told to keep what the user said
+and did - facts, preferences, plans, changes, what they asked to be remembered
+- and not what an answer researched or recommended: a list of candidates, a
+figure looked up, an explanation. Those can be looked up again when needed,
+and kept as memory they would be read back as something known about the user
+long after they went stale. How an answer went may be kept as a word or two.
 
-The [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
-skill (`internal/persona/skills/okf/SKILL.md`) is handed to each persona, and
-**it reads and writes its own notes** as a bundle in that format: one concept
-per file, YAML frontmatter and a Markdown body.
+**The format is the app's; the policy belongs to the skill.** Which fields a
+persona keeps, what each summary prefers, which records get which date - those
+are in each skill's `memory`, written in plain words. The app holds no
+threshold for when to compress; it only holds the sizes.
 
-```text
-=== index.md ===
-# Tendencies
-* [Leans tonkotsu](/tastes/tonkotsu.md) - Picks tonkotsu when there is a choice.
-
-=== tastes/tonkotsu.md ===
----
-type: Preference
-title: Leans tonkotsu
-description: Picks tonkotsu when there is a choice.
-tags: [ramen, tonkotsu]
----
-# Evidence
-* 09-08 chose tonkotsu over shoyu when both were there
-```
-
-Notes are read in the read phase (`notes_list`, which can narrow by tag, and
-`notes_read`) and written by the note keeper (`write`, `forget`) or a schedule's own note. A
-write replaces **only that file**, so a grown memory never travels in full on
-every wake, and nothing is lost by being left out of a rewrite. These need no
-declaration: a persona's own notes are not outside.
-
-A wake hands over `index.md` and how many notes there are, never a listing of
-every note. The index is the usual way in; `notes_list` finds notes beyond it,
-100 at a time, newest first, and can narrow by tag. The duplicate check reads
-every note the persona has, whatever the directory. The memory reader on the
-page loads 50 notes at a time.
-
-Which `type` values to use and when to merge them differ by subject, so they go
-in each skill's `memory` field — `Preference` and `Shop` for the food persona,
-`Book` and `Theme` for the reading one. Only the types named there may be used.
-**The format is handed over; the policy belongs to the skill.** The app holds
-no threshold for when to compress.
-
-**The app does not write the meaning of the notes or group `index.md`.** It
-parses `type`, `title`, `description` and `tags` to validate writes, detect
-duplicates, filter the reader and repair the index (every note linked
-under its title, no link to a note that is gone, when repair succeeds); it also maintains source links
-to posts. The Markdown body, and how the index is grouped, remain the persona's
-to write. In local storage the notes are plain files that can
-be read with `cat` or used as an OKF knowledge source elsewhere.
-
-**Memory comes from the user; what the persona made up has a deadline.** The note
-keeper is told to keep the user's facts and preferences, not what an answer
-researched or recommended; when a persona does keep something it produced -
-a list of lunch candidates it found by searching - that note is the persona's
-own output, not something known about the user. The note-writing skill draws the
-line: a candidate list, search result, or route the persona produced gets an
-`expires` line in its front matter, dated the next day; what the user said
-does not. The app deletes a
-note once that date has passed - the one time it removes a note on its own
-schedule - and wakes the persona to take it out of `index.md`, told plainly
-that this was its own arrangement rather than the user's deletion. A note
-without `expires` is never aged out by the app. The user's reaction is what
-promotes a candidate into memory: when they reply, choose, or go, the persona
-rewrites the note without the line. A day is long enough for that reply to
-arrive; anything the persona invented and nobody answered is gone by then,
-so a wrong guess about what to keep heals itself instead of accumulating.
-
-**A note in use keeps longer.** When a persona reads a note with `notes_read`
-while answering a post, the app moves both its `expires` and `review` dates:
-the span the persona gave it, from when it was written to the date, starts
-again from the read. A next-day candidate read again today lasts until
-tomorrow; a shop given a few weeks gets a few weeks from the read. A date
-still ahead moves too when the restarted span ends later; one that would end
-sooner is left alone, so reading never shortens a note's life. A note the
-turn itself rewrote or forgot is left as the persona left it. Reading at a
-check-in, a schedule or any other wake that is not a post does not count, so a
-note read in order to ask about it is not put off again and again.
-
-**What the user said can carry a `review` date the persona chooses, and the
-app never deletes it.** A shop they wanted to try gets a few weeks, a topic
-they were into a few months, a preference none; the persona decides from the
-content. When the day has passed, the persona's next daily check-in is
-handed at most three due notes, oldest first. The persona asks about one of them in a short post
-and moves that note's `review` a week ahead so it does not ask again
-tomorrow. A reply under that post always reaches its author, which then
-drops the line to keep the note for good, moves the date to extend it, or
-forgets it. Expiry is the last moment a thing is brought back to the user's
-attention, not merely when it is discarded.
+Memory kept the old way - one OKF note per thing with an `index.md` - is not
+read any more. It was folded into the summaries once by hand
+(`cmd/migrate-memory`): the persona's model drafts the summaries, a person
+checks and edits the draft, and only then are they written and the old notes
+deleted.
 
 ### Meaning search
 
@@ -679,8 +627,8 @@ A persona is a `skill.json`:
 | --- | --- |
 | `name`, `icon`, `tone` | How it shows up and how it talks |
 | `domain` | The routing condition: what it reacts to and remembers. **The router reads this** |
-| `memory` | Its note kinds (2–4 types such as `Wine`, `Preference`), what goes in each and when they merge. A note of any other type is sent back |
-| `instructions` | How to keep notes, when to speak. **Only the persona reads these** |
+| `memory` | Its fields (1–4 capitalised words such as `Wine`, `Preference`), what each summary keeps, which records get which date. Each field is one summary |
+| `instructions` | What to separate and mark as a guess, when to speak. **Only the persona reads these** |
 | `tools` | Only what is declared can be called |
 
 Four ship with the app — tabe (food), michi (travel), shiori (reading), plana
@@ -695,7 +643,7 @@ added from the UI, written by hand or drafted with the persona builder
   "icon": "🍷",
   "domain": "ワイン。銘柄、産地、ラベルの写真、飲んだ記録。",
   "tone": "控えめ。おすすめを押しつけない。",
-  "memory": "型は Wine（銘柄）と Preference（好み）の2つ。同じ好みが3回出たら Preference に統合する。",
+  "memory": "分野は Wine（飲んだ銘柄）と Preference（好みの傾向）の2つ。好みは重なったらまとめる。",
   "instructions": "引用と本人の意見を分け、推測は推測と書く。",
   "tools": ["web_search", "place_search"]
 }
@@ -712,7 +660,7 @@ A person's `skill.json` adds `kind`, `aliases` and `keywords`, and its
 `domain` is the relationship (恋人, 母, a friend from university) rather than a
 routing condition. It has no `tone` or `memory` of its own, and its
 `instructions` are only what is particular to this one person, if anything.
-How a person's persona speaks, its two note kinds (Fact and Event) and its
+How a person's persona speaks, its two fields (Fact and Event) and its
 rules - keep loans and promises until settled, wake on the morning of a
 meeting, wake a week before and on a birthday or an anniversary - are held by the app
 and given to every person at the start of a turn (`forTurn` in
@@ -861,13 +809,13 @@ rather than every persona of every user waking at once. A check-in not run by 21
 server was down - is skipped rather than run at night.
 
 With **At check-in, speak only when needed** on (it is off by default), the persona may speak only
-about what needs the user's decision; today that is a note that has reached its
+about what needs the user's decision; today that is a record that has reached its
 review date (whether it can be forgotten). It does not bring discoveries,
-suggestions, news or greetings. It may tidy its notes quietly. On a day with
-nothing to ask it still wakes, and ends silent.
+suggestions, news or greetings. On a day with nothing to ask it still wakes,
+and ends silent.
 
 With it off (the default), the persona also reads the timeline since the
-previous check-in actually ran - recorded with the day's claim - and older notes
+previous check-in actually ran - recorded with the day's claim - and older records
 sharing tags with recent ones, and speaks when it finds a connection worth
 bringing back. "The last 24 hours" would leave stretches unread when the minute
 moves later, or a day is skipped or missed; reading from the previous run makes
@@ -893,13 +841,13 @@ than risk duplicating it.
 
 ### Reviews ride on the same claim
 
-A note whose `review` date has passed is appended to the check-in trigger, at
+A record whose `review` date has passed is appended to the check-in trigger, at
 most three at a time, oldest first. The persona asks about one of them and
-posts once.
+posts once; its keeper puts that record off a week and marks it with the post.
 
 A reply under a post a persona started on its own - a check-in, a schedule,
 a review - always reaches that persona, whatever the router decides. The
-persona is told which notes it had asked about and which others are due.
+persona is told which records it had asked about, and its keeper settles them.
 
 ### The month's summary, and people looked back on monthly
 
@@ -930,10 +878,10 @@ Current limits are:
 * any future time, without a scheduling horizon;
 * one-time or daily recurrence.
 
-Tool-created schedules are attached to their background notes. Host-managed person events need no note; birthdays and anniversaries recur annually and share the 20-schedule limit.
+A schedule carries a short note of what it is for; nothing is written to memory for it. Host-managed person events need nothing in memory either; birthdays and anniversaries recur annually and share the 20-schedule limit.
 
-For example, plana may write a note about buying flowers and schedule a later
-wake to ask whether they were bought.
+For example, plana may hear about buying flowers and schedule a later wake to
+ask whether they were bought.
 
 The design favors a check shortly *after* the relevant moment rather than a
 traditional calendar alarm beforehand.
@@ -944,8 +892,8 @@ not run repeatedly.
 A wake more than 10 minutes late is dropped rather than replayed at an
 unexpected time.
 
-Deleting the note gives the persona a chance to revisit the schedules that
-depended on it.
+Deleting the fragment gives the persona a chance to revisit the schedules it
+set for it.
 
 Forgetting all of a persona's memory, pausing it, or removing it drops its
 pending schedules.
@@ -1009,7 +957,8 @@ Local runs:
 
 `KAKERATTA_STORE=file` stores user state under `KAKERATTA_HOME`.
 
-This includes posts, settings, persona definitions, and persona notes.
+This includes posts, settings, persona definitions, and persona memory
+(field summaries and monthly records).
 
 Images are stored locally unless a Cloud Storage bucket is configured.
 
@@ -1029,7 +978,7 @@ With:
 KAKERATTA_STORE=firestore
 ```
 
-posts, settings, persona definitions, and persona notes are stored in Firestore
+posts, settings, persona definitions, and persona memory are stored in Firestore
 under:
 
 ```text
@@ -1048,7 +997,7 @@ Settings → **Backup** creates a zip containing the user's:
 
 * posts
 * personas
-* notes
+* persona memory
 * images
 
 The layout is deliberately usable by a self-hosted kakeratta instance.
@@ -1187,14 +1136,14 @@ agent such as **Hermes Agent**. Each persona chooses its planner: the built-in m
 an authenticated **Streamable HTTP MCP server** for this.
 
 When a persona planned externally wakes — for a post, a check-in, a schedule, a
-note review — kakeratta builds the context the built-in model would get to answer
+reply to a review question — kakeratta builds the context the built-in model would get to answer
 and opens an **ask**. The agent claims it, reads the context, may look things up
-with the persona's own notes and read-only tools or with its own, and submits
+with the persona's own records and read-only tools or with its own, and submits
 only the answer. kakeratta checks its shape and the turn's rules, then plans the
 schedule and action phases on the persona's model, checks and reviews
 them as for any turn, runs them as the persona, publishes the answer, and then
-has the persona's note keeper write the notes. The
-agent never writes a note, a schedule or a remark itself, and its answer is not
+has the persona's note keeper keep the memory. The
+agent never writes memory, a schedule or a remark itself, and its answer is not
 reviewed: the app's reviewer cannot see what the agent researched.
 
 ```text
@@ -1204,7 +1153,7 @@ persona wakes
 → agent: read_for_ask / own research (optional) → submit_answer
 → kakeratta: check the answer → accepted
 → kakeratta: schedule → action phases, checks, review if needed
-→ kakeratta runs the changes, publishes the answer as the persona, then keeps notes
+→ kakeratta runs the changes, publishes the answer as the persona, then keeps memory
 ```
 
 Waiting on an agent must not stall everything else, so an externally planned
@@ -1277,12 +1226,12 @@ cannot take a claimed ask.
 
 The context a claim returns holds the persona's identity and instructions,
 what it can change (`capabilities`), why it woke, the trigger and its thread,
-the persona's `index.md`, its schedules, the answer's JSON Schema, its read-only
-tools, the turn's read limits and answering rules, current time, post
-location, note inventory summary, and whether the turn requires an answer or
-silence. Full system/user prompts and a second rendering of the thread are
-omitted to avoid repeating the same context, and the note-writing skill and
-change schemas are left out: they belong to the later phases, not the answer.
+the persona's memory (field summaries and latest records), its schedules, the
+answer's JSON Schema, its read-only tools (`records` among them), the turn's
+read limits and answering rules, current time, post location, and whether the
+turn requires an answer or silence. Full system/user prompts and a second
+rendering of the thread are omitted to avoid repeating the same context, and
+how memory is kept and the change schemas are left out: they belong to the later phases, not the answer.
 
 `list_tasks` remains as a compatibility tool returning only pending asks, for
 Wake Gate scripts installed before asks replaced tasks.
@@ -1372,16 +1321,17 @@ The system is not optimized for producing a visible AI response to every event.
 
 ### Memory is inspectable
 
-Long-term memory is represented as notes the user can read and correct.
+Long-term memory is represented as short summaries and one-line records the
+user can read and correct, each record leading back to its post.
 
 It is not only a hidden vector store or conversation summary.
 
 Embeddings help retrieve fragments, but they are not treated as the source of
 truth for what the system "remembers".
 
-A note's lifetime is visible too: the reader shows the day the app will
-delete a note the persona made up, and the day the persona will ask whether
-to keep a note about something the user said.
+A record's lifetime is visible too: the reader shows the day the app will
+delete a record of a fragment that served its moment, and the day the persona
+will ask whether to keep a record of something the user said.
 
 ### Stronger models are not used everywhere
 

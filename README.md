@@ -116,9 +116,9 @@ Birthdays, preferences and other details supplied when creating a person or usin
 
 Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.
 
-![Basic information](docs/captures/en/person-edit.png)
+<img src="docs/captures/en/person-edit.png" alt="Basic information" width="382">
 
-![Calendar notifications](docs/captures/en/person-card.png)
+<img src="docs/captures/en/person-card.png" alt="Calendar notifications" width="382">
 
 ## How it works
 
@@ -597,7 +597,7 @@ endpoint and `Authorization: Bearer <key>` in its **Kakeratta** settings; it
 checks for asks once a minute while Obsidian is open. See the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes).
 
-![shiori answering through LLM Connect Hub, citing a file in the vault](docs/captures/en/llm-connect-hub.png)
+<img src="docs/captures/en/llm-connect-hub.png" alt="shiori answering through LLM Connect Hub, citing a file in the vault" width="382">
 
 ### Running the server yourself
 
@@ -613,7 +613,7 @@ check-ins, schedules, and operator-provided tools are documented in
 
 | Document                                                                                                 | Contents                                                                                                          |
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [Under the hood](docs/technical.md)                                                                      | Design principles, the system flow, routing, which model answers, workflow phases and constraints, OKF notes, skills, storage, check-ins, tools, and deployment |
+| [Under the hood](docs/technical.md)                                                                      | Design principles, the system flow, routing, which model answers, workflow phases and constraints, memory, skills, storage, check-ins, tools, and deployment |
 | [Manual](https://kakeratta.net/manual/?lang=en)                                                          | Using personas, search, memory, speech, sharing, tools, offline posts, and settings                               |
 | [Usage and configuration](docs/usage.md)                                                                 | Android and iOS sharing, location, speech, model settings, and stored data                                        |
 | [What was hard about the AI](docs/ai-lessons.md)                                                         | What went wrong with Nemotron personas in live runs and production, and how each was fixed                        |

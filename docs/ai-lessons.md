@@ -22,7 +22,7 @@ post / reply
  ↓ routing           Nemotron Super (or optional Jev) matches it against each persona's routing condition
  ↓ a reply to a persona's remark: Nemotron 3.5 Lightning answers one question - does it ask for a better answer?
  ↓ every recipient, in parallel, one turn   (Nemotron Super; the replied-to persona on Ultra when it does)
-     read     → index.md, notes, timeline search, web search, places, routes
+     read     → field summaries and latest records, older records, timeline search, web search, places, routes
      workflow → the writes and the remark, every text final
      checked by code, then reviewed by Nemotron Super unless it only writes notes and speaks
      (and the persona cannot schedule); run in order, stopping at the first step that fails
@@ -257,7 +257,35 @@ it now always reaches the author. And "forget it" answered with `forget_note`
 and a word had failed the note-required rule, since forgetting was not
 counted as leaving something behind; it is now.
 
-## 13. What made any of this findable
+## 13. One note per thing, written by the persona, did not stay readable
+
+Memory began as an OKF bundle the persona kept itself: one note per thing,
+an `index.md` to find them by, a keeper that chose which notes to read and
+proposed writes and forgets. Much of what the app grew to check was there to
+hold that together - one title, one note; types from the layout; every note
+under an index heading; an index repaired after every turn; links carried
+over when notes were merged. It still drifted: notes split one thing across
+paths, the index grew into a second memory, and a persona read the index and
+a few notes and missed the rest.
+
+It is now two things, both written by the app. One summary per field the
+skill names, at most 2,000 characters, rewritten whole when a fragment
+changes it; and one line per fragment - a sentence, its tags, and the post to
+go back to: the persona's reply when it replied, the fragment when it did
+not. The keeper is a single call that hands in the sentence, the tags and the
+summaries that change; it cannot read more and cannot choose a path. A
+record is what a line of the index was, and the lifetimes of lesson 12
+moved onto it: `expires` for a fragment that served its moment ("where for
+lunch today?"), `review` for something the user said whose lifetime is
+unknown, both extended when the persona reads the record again for a post.
+
+The old notes were not migrated by the running app. A one-off command had the
+persona's model draft the summaries, a person read the draft - the first one
+kept figures and explanations the persona had researched, and dropped a gift
+the user had sent - and only the edited draft was written. A model asked to
+fold its own old notes keeps what it wrote; a person has to look.
+
+## 14. What made any of this findable
 
 Every routing decision and every persona turn is written as one structured log
 entry: who was woken and why, what was read, each workflow draft with its

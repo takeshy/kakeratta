@@ -98,9 +98,9 @@ Web検索のTavilyキーは、使う人が自分のものを用意します。
 
 基本情報の保存・編集や、その人物に届いたかけらから、日付の分かる誕生日・記念日・会う予定を自動で登録します。誕生日・記念日は毎年、1週間前と当日の午前9時に知らせます。会う予定は指定された通知時刻を優先し、指定がなければ当日午前9時（午前9時より早い予定は1時間前）に知らせます。通知は担当の投稿として届きます。未来の予定に日数の上限はなく、日付の分からない情報は推測で登録しません。予定の変更や中止も反映します。
 
-![Basic information](docs/captures/ja/person-edit.png)
+<img src="docs/captures/ja/person-edit.png" alt="Basic information" width="382">
 
-![Calendar notifications](docs/captures/ja/person-card.png)
+<img src="docs/captures/ja/person-card.png" alt="Calendar notifications" width="382">
 
 ## 使い方
 
@@ -490,7 +490,7 @@ LLM Connect Hub の **Kakeratta** 設定に MCP エンドポイントと `Author
 Obsidian を開いている間、1分ごとに依頼を確認します。手順は
 [マニュアル](https://kakeratta.net/manual/?lang=ja#ja-hermes)にあります。
 
-![Obsidian の LLM Connect Hub が担当として答え、Vault のファイルを出典に示した返事](docs/captures/ja/llm-connect-hub.png)
+<img src="docs/captures/ja/llm-connect-hub.png" alt="Obsidian の LLM Connect Hub が担当として答え、Vault のファイルを出典に示した返事" width="382">
 
 ### サーバーを自分で動かす
 
@@ -505,7 +505,7 @@ Obsidian を開いている間、1分ごとに依頼を確認します。手順�
 
 | 文書 | 内容 |
 | --- | --- |
-| [中で起きていること](docs/technical_ja.md) | 設計原則、全体の流れ、振り分け、どのモデルが答えるか、workflow のフェーズと制約、OKFメモ、スキル、保存先、チェックイン、道具、デプロイ |
+| [中で起きていること](docs/technical_ja.md) | 設計原則、全体の流れ、振り分け、どのモデルが答えるか、workflow のフェーズと制約、記憶、スキル、保存先、チェックイン、道具、デプロイ |
 | [マニュアル](https://kakeratta.net/manual/?lang=ja) | 担当、検索、記憶、音声、共有、道具、オフライン投稿、設定の使い方 |
 | [使い方と設定](docs/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [AIまわりで苦労したこと](docs/ai-lessons_ja.md) | Nemotron の担当が実機・本番で起こした問題と、それぞれの対処 |
