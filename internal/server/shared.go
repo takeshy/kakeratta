@@ -124,6 +124,12 @@ func (g *Gateway) setAlarm(key string, at time.Time) error {
 		return g.shared.Alarm(ctx, key, at)
 	}
 	g.alarmsMu.Lock()
+	select {
+	case <-g.stop:
+		g.alarmsMu.Unlock()
+		return nil
+	default:
+	}
 	alarm := g.alarms[key]
 	if alarm == nil {
 		alarm = newLocalAlarm(func() {

@@ -437,3 +437,34 @@ func TestSwitchingExternalConnectionFallsBackPendingAndClaimedTurns(t *testing.T
 		})
 	}
 }
+
+func TestExternalAgentReadsOtherSchedulesOnDemand(t *testing.T) {
+	runner, workspace, _ := externalSetup(t, time.Minute, time.Minute)
+	skill, _ := runner.catalogue.Find(context.Background(), "gourmet")
+	skill.Tools = append(skill.Tools, "schedule")
+	raw, err := json.Marshal(skill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.catalogue.Update(context.Background(), skill.ID, raw, nil); err != nil {
+		t.Fatal(err)
+	}
+	other, err := workspace.SaveSchedule(store.Schedule{Skill: "routine", At: time.Now().Add(time.Hour), Note: "別担当の通知", NotePath: "private.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := post(t, workspace, "ラーメン食べた")
+	runner.react(entry.ID)
+	ask := openAskOf(t, runner)
+	_, brief, err := runner.ClaimAsk(ask.ID, "schedule-reader")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(brief.Schedules, other.ID) || strings.Contains(brief.Schedules, "別担当の通知") {
+		t.Fatalf("other schedules passed up front: %s", brief.Schedules)
+	}
+	result, err := runner.ReadForAsk(context.Background(), ask.ID, "schedule-reader", []ReadStep{{Type: "tool", Tool: "schedules_list", Args: `{"skill":"routine"}`}})
+	if err != nil || !strings.Contains(result, other.ID) || !strings.Contains(result, "plana（routine）") || strings.Contains(result, "private.md") {
+		t.Fatalf("external schedule read = %s (%v)", result, err)
+	}
+}

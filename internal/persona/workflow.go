@@ -156,7 +156,8 @@ type turnRules struct {
 	// the persona's memory holds no trace that it ever came up.
 	noteRequired bool
 	set          *tools.Set
-	schedules    map[string]bool
+	// schedules contains all visible IDs; the value is whether this persona owns it.
+	schedules map[string]bool
 	// notes finds the persona's notes filed beside a path, as they stand, so
 	// a workflow filing one thing under a second path is sent back to the
 	// first. Only those are read; nil means there are none.
@@ -281,7 +282,7 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 		}
 		for _, text := range []string{step.Path, step.Text, step.Args, step.Note, step.ID} {
 			for _, id := range scheduleIDRef.FindAllString(text, -1) {
-				if !rules.schedules[id] {
+				if _, exists := rules.schedules[id]; !exists {
 					problems = append(problems, at+": "+id+" という schedule はありません。一覧にある id だけを使ってください")
 				}
 			}
@@ -349,7 +350,7 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 				problems = append(problems, at+": あなたは schedule を使えません")
 			}
 			if !rules.schedules[strings.TrimSpace(step.ID)] {
-				problems = append(problems, at+": id がありません")
+				problems = append(problems, at+": 自分が置いた schedule の id だけを取り消せます")
 			}
 		case "tool":
 			if _, err := argsOf(step.Args); err != nil {
@@ -549,7 +550,7 @@ func routingModel() string {
 }
 
 // readAll does what a persona asked to look at. Nothing here writes, so there
-// is nothing to review; a schedule is not something to read with a tool.
+// is nothing to review; schedules_list reads schedules without changing them.
 func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set *tools.Set, post timeline.Entry,
 	prov *provenance, failures map[string]string, budget *lookups, cited map[string]string) (text string, sources []timeline.Source) {
 
@@ -579,7 +580,7 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 			case err != nil:
 				out = "args を JSON オブジェクトとして読めません: " + err.Error()
 			case step.Tool == "schedule":
-				out = "予定は読むものではありません。置いている予定は最初に渡した一覧にあります。置く・消すは後の Schedule フェーズで扱います。"
+				out = "自分の予定は最初に渡した一覧にあります。他の担当の予定は閲覧専用の schedules_list で確認してください。置く・消すは後の Schedule フェーズで扱います。"
 			case !set.IsReadOnly(step.Tool):
 				out = "この道具は状態を変えるため read では実行できません。後の Action フェーズで扱います。"
 			default:
@@ -735,24 +736,24 @@ func (r *Runner) writeSchedule(ctx context.Context, skill Skill, step operation,
 	return result.Text + "\n" + written, ""
 }
 
-// scheduleListFor is the persona's own schedules, handed over up front. They
-// are the app's records, not notes, and a persona cannot plan a cancel without
-// knowing the ids it would cancel.
-func (r *Runner) scheduleListFor(skill Skill, set *tools.Set) (string, map[string]bool) {
+// scheduleListFor hands over only the persona's own schedules. Other owners
+// remain in the validation map, but their schedules are read through schedules_list.
+func (r *Runner) scheduleListFor(skill Skill, set *tools.Set, names map[string]string) (string, map[string]bool) {
 	known := map[string]bool{}
 	if !set.Allows("schedule") {
 		return "（schedule は使えません）", known
 	}
-	schedules, err := r.store.Schedules(skill.ID)
+	schedules, err := r.store.Schedules("")
 	if err != nil {
 		return "（読み出せませんでした）", known
 	}
-	if len(schedules) == 0 {
-		return "（ありません）", known
-	}
+
 	var lines []string
 	for _, schedule := range schedules {
-		known[schedule.ID] = true
+		known[schedule.ID] = schedule.Skill == skill.ID
+		if schedule.Skill != skill.ID {
+			continue
+		}
 		repeat := "1回"
 		if schedule.PersonEvent != nil && schedule.PersonEvent.Annual {
 			repeat = "毎年"
@@ -764,11 +765,18 @@ func (r *Runner) scheduleListFor(skill Skill, set *tools.Set) (string, map[strin
 		if loc, err := time.LoadLocation(schedule.TimeZone); err == nil {
 			when = when.In(loc)
 		}
-		line := fmt.Sprintf("- %s %s（%s）: %s", schedule.ID, when.Format("2006-01-02 15:04 MST"), repeat, schedule.Note)
-		if schedule.NotePath != "" {
+		owner := schedule.Skill
+		if name := names[schedule.Skill]; name != "" {
+			owner = fmt.Sprintf("%s（%s）", name, schedule.Skill)
+		}
+		line := fmt.Sprintf("- %s %s（%s・担当: %s）: %s", schedule.ID, when.Format("2006-01-02 15:04 MST"), repeat, owner, schedule.Note)
+		if schedule.Skill == skill.ID && schedule.NotePath != "" {
 			line += "（根拠のメモ: " + schedule.NotePath + "）"
 		}
 		lines = append(lines, line)
+	}
+	if len(lines) == 0 {
+		return "（ありません）", known
 	}
 	return strings.Join(lines, "\n"), known
 }

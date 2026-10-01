@@ -3,7 +3,7 @@ type: "Architecture"
 title: "Architecture and runtime"
 description: "System boundaries, dependency assembly, background workers, multiple instances, and shutdown."
 tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
-updated: "2026-09-30"
+updated: "2026-10-01"
 ---
 
 System boundaries, dependency assembly, background workers, multiple instances, and shutdown.
@@ -99,12 +99,12 @@ At start each instance asks every workspace to be woken now, once (`restoreWorks
 - [shared.go](../../internal/server/shared.go): `setAlarm`, `fire`, `serveDue`, `sweepShared`
 - [tasks.go](../../internal/alarm/tasks.go): `Tasks`, `Workspace`, `GoogleValidator`
 - [due_test.go](../../internal/persona/due_test.go): the next check-in, the next due, and asking again
-- [alarm_test.go](../../internal/server/alarm_test.go): local alarm, a task calling back, and a wake that is not kept answering 503
+- [alarm_test.go](../../internal/server/alarm_test.go): local alarm timing and shutdown waiting, gateway callback retries during shutdown, a task calling back, and a wake that is not kept answering 503
 - [tasks_test.go](../../internal/alarm/tasks_test.go): tasks and their verification
 
 # Shutdown
 
-On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes the application. The local server and the Gateway call `Halt`: the reactions in hand finish and the rest stay queued for the next start or another instance. `Server.Close` and `Runner.Stop` instead work everything claimable before returning; tests use them to wait for reactions.
+On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes the application. The local server and the Gateway call `Halt`: the reactions in hand finish and the rest stay queued for the next start or another instance. `Server.Close` and `Runner.Stop` instead work everything claimable before returning; tests use them to wait for reactions. Local alarm shutdown cancels pending timers and waits for callbacks that have already started, before stopping the Runner, so a due reaction cannot write into a workspace after shutdown returns. Gateway shutdown rejects new workspace openings and local alarm registrations, waits for its local alarm callbacks without holding the alarm registry lock, and then halts the collected tenants. This allows a callback to finish or request a retry without deadlocking or recreating a stopped alarm.
 
 ## Implementation and verification
 

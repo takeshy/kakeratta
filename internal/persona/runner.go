@@ -757,10 +757,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	for _, other := range r.skills(ctx).All() {
 		names[other.ID] = other.Name
 	}
+	registry = registry.WithPersonaNames(names)
+	set = registry.For(skill.Tools).As(skill.ID)
 	post := thread[0]
 	// The clock a persona is told is the user's, not the container's.
 	here := settings.Location()
-	scheduleList, scheduleIDs := r.scheduleListFor(skill, set)
+	scheduleList, scheduleIDs := r.scheduleListFor(skill, set, names)
 	// The index is handed over every time, whole. It is the persona's own table
 	// of contents, and deciding what to read without it means reading blind.
 	indexNote := "（まだありません）"
@@ -782,7 +784,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		"あなたの index.md（最初に必ず渡します）:",
 		indexNote,
 		"",
-		"あなたが置いている schedule:",
+		"自分の schedule（担当名（ID）付き。他の担当の予定は schedules_list で確認）:",
 		scheduleList,
 		"",
 		"スレッド全体（古い順）:",

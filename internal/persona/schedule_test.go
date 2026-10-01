@@ -9,6 +9,7 @@ import (
 
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/tools"
 )
 
 func TestScheduleTimelineUsesTheUsersLocalDayAndIncludesRemarks(t *testing.T) {
@@ -226,5 +227,61 @@ func TestForgottenNotesWakeThePersonaOnce(t *testing.T) {
 		if !strings.Contains(seen, want) {
 			t.Fatalf("the persona was not told %q:\n%s", want, seen)
 		}
+	}
+}
+
+func TestScheduleContextOnlyPassesOwnSchedulesAndReadsOthersWithTool(t *testing.T) {
+	r, workspace, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
+	own, err := workspace.SaveSchedule(store.Schedule{Skill: "routine", At: time.Now().Add(time.Hour), Note: "朝の薬", NotePath: "own.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := workspace.SaveSchedule(store.Schedule{Skill: "health", At: time.Now().Add(2 * time.Hour), Note: "診察", NotePath: "private.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := tools.New(tools.Config{}).WithSchedules(workspace).WithPersonaNames(map[string]string{"routine": "プラナ", "health": "健康担当"}).For([]string{"schedule"}).As("routine")
+	listed, ids := r.scheduleListFor(Skill{ID: "routine"}, set, map[string]string{"routine": "プラナ", "health": "健康担当"})
+	for _, want := range []string{own.ID, "担当: プラナ（routine）", "朝の薬", "own.md"} {
+		if !strings.Contains(listed, want) {
+			t.Fatalf("missing %q in context: %s", want, listed)
+		}
+	}
+	fallback, _ := r.scheduleListFor(Skill{ID: "routine"}, set, nil)
+	if !strings.Contains(fallback, "担当: routine") {
+		t.Fatalf("missing ID fallback: %s", fallback)
+	}
+	if strings.Contains(listed, "private.md") || strings.Contains(listed, other.ID) || strings.Contains(listed, "診察") {
+		t.Fatalf("other persona's memory path leaked: %s", listed)
+	}
+	if _, exists := ids[other.ID]; !exists || ids[other.ID] || !ids[own.ID] {
+		t.Fatalf("ownership = %+v", ids)
+	}
+	result, _ := r.readAll(context.Background(), Skill{ID: "routine"}, []ReadStep{{Type: "tool", Tool: "schedules_list", Args: `{"skill":"health"}`}}, set, timeline.Entry{}, newProvenance(), map[string]string{}, newLookups(10, 2), map[string]string{})
+	if !strings.Contains(result, "健康担当（health）") || !strings.Contains(result, "診察") || strings.Contains(result, "private.md") {
+		t.Fatalf("tool read = %s", result)
+	}
+	offered := false
+	for _, tool := range askTools(set) {
+		if tool.Name == "schedules_list" && tool.Use == "read" {
+			offered = true
+		}
+	}
+	if !offered {
+		t.Fatal("external agent was not offered schedules_list")
+	}
+	empty, _ := r.scheduleListFor(Skill{ID: "absent"}, set, nil)
+	if empty != "（ありません）" {
+		t.Fatalf("other schedules entered empty own list: %s", empty)
+	}
+	rules := turnRules{set: set, schedules: ids}
+	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "cancel_schedule", ID: own.ID}}}, rules); len(problems) != 0 {
+		t.Fatalf("own cancellation: %v", problems)
+	}
+	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "cancel_schedule", ID: other.ID}}}, rules); len(problems) == 0 {
+		t.Fatal("other persona's cancellation accepted")
+	}
+	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "write_note", Path: "reminder.md", Text: "既存の予定 " + other.ID}}}, rules); len(problems) != 0 {
+		t.Fatalf("visible schedule reference rejected: %v", problems)
 	}
 }

@@ -11,6 +11,7 @@ import (
 // which asks for the next.
 type localAlarm struct {
 	mu      sync.Mutex
+	working sync.WaitGroup
 	timer   *time.Timer
 	at      time.Time
 	fire    func()
@@ -42,20 +43,23 @@ func (a *localAlarm) Set(at time.Time) error {
 			return
 		}
 		a.timer, a.at = nil, time.Time{}
+		a.working.Add(1)
 		a.mu.Unlock()
+		defer a.working.Done()
 		a.fire()
 	})
 	a.timer = timer
 	return nil
 }
 
-// Stop ends the alarm for good.
+// Stop ends the alarm for good and waits for any callback already in progress.
 func (a *localAlarm) Stop() {
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	a.stopped = true
 	if a.timer != nil {
 		a.timer.Stop()
 		a.timer = nil
 	}
+	a.mu.Unlock()
+	a.working.Wait()
 }
