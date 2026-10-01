@@ -207,6 +207,16 @@ func TestProseFieldsAreSplitIntoFacts(t *testing.T) {
 	if note, _ := s.Note("gourmet", "Preference.md"); !strings.HasPrefix(note.Text, "豚骨が好き。") {
 		t.Fatalf("a dry run changed memory: %q", note.Text)
 	}
+	// Prose written again since the dry run is not overwritten by it.
+	if err := s.WriteNote("gourmet", "Taste.md", "辛さは平気。激辛も好き。\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.ApplyMigration(context.Background(), dry); err == nil || !strings.Contains(err.Error(), "書き換わっています") {
+		t.Fatalf("a plan over changed prose = %v", err)
+	}
+	if err := s.WriteNote("gourmet", "Taste.md", "辛さは平気。\n"); err != nil {
+		t.Fatal(err)
+	}
 	dry.Facts["Preference"][0] = "豚骨が好き（手で直した）"
 	stale := dry
 	stale.Legacy = []string{"Preference.md"}

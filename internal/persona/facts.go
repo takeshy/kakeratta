@@ -139,7 +139,30 @@ func parseFacts(text string, zone *time.Location) fieldFacts {
 		}
 	}
 	out.Summary = strings.TrimSpace(strings.Join(summary, "\n"))
+	if prose, ok := proseText(text); ok {
+		// A field still kept as prose reads as its summary, so a fact
+		// added before it is split keeps the prose rather than losing it.
+		out.Summary = prose
+	}
 	return out
+}
+
+// proseText is a field file kept as prose - text with no heading of a field's
+// sections and no fact line - without its title, and whether it is one.
+func proseText(text string) (string, bool) {
+	var lines []string
+	for _, raw := range strings.Split(text, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == summaryHeading || fieldSummaryDay.MatchString(line) || line == currentHeading || line == pastHeading || factLine.MatchString(line) {
+			return "", false
+		}
+		lines = append(lines, strings.TrimRight(raw, " \t"))
+	}
+	if len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[0]), "# ") {
+		lines = lines[1:]
+	}
+	prose := strings.TrimSpace(strings.Join(lines, "\n"))
+	return prose, prose != ""
 }
 
 func (f fact) line(zone *time.Location) string {
@@ -194,6 +217,10 @@ func repairNewlines(text string) string {
 // that would read back as one of the line's own tokens.
 func cleanFact(text string) string {
 	text = strings.Join(strings.Fields(repairNewlines(text)), " ")
+	// A bullet carried over from prose is the list's, not the fact's.
+	for _, mark := range []string{"- ", "・", "* ", "• "} {
+		text = strings.TrimSpace(strings.TrimPrefix(text, mark))
+	}
 	for _, key := range []string{"from", "since", "until", "by"} {
 		text = strings.ReplaceAll(text, " "+key+":", " "+key+"：")
 	}

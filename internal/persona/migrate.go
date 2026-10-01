@@ -27,7 +27,10 @@ type Migration struct {
 	// Summaries are the prose kept as each field's summary, by field; a field
 	// the layout no longer names keeps none.
 	Summaries map[string]string `json:"summaries"`
-	Applied   bool              `json:"applied"`
+	// Prose is each prose file as the dry run read it, so applying refuses
+	// one written since - the running app may have rewritten it meanwhile.
+	Prose   map[string]string `json:"prose"`
+	Applied bool              `json:"applied"`
 }
 
 func migratePrompt(skill Skill) string {
@@ -50,7 +53,7 @@ func migratePrompt(skill Skill) string {
 // nothing: to write them, pass the result to ApplyMigration. A persona with no
 // prose fields is reported with none, and the model is not called.
 func (r *Runner) MigrateMemory(ctx context.Context, personaID string) (Migration, error) {
-	out := Migration{Persona: personaID, Facts: map[string][]string{}, Summaries: map[string]string{}}
+	out := Migration{Persona: personaID, Facts: map[string][]string{}, Summaries: map[string]string{}, Prose: map[string]string{}}
 	skill, ok := r.skills(ctx).Find(personaID)
 	if !ok {
 		return out, fmt.Errorf("担当が見つかりません: %s", personaID)
@@ -64,6 +67,7 @@ func (r *Runner) MigrateMemory(ctx context.Context, personaID string) (Migration
 	fields := memoryFields(skill)
 	for _, note := range prose {
 		out.Legacy = append(out.Legacy, note.Path)
+		out.Prose[note.Path] = note.Text
 		field := strings.TrimSuffix(note.Path, ".md")
 		parts = append(parts, "=== "+field+" ===\n"+strings.TrimSpace(note.Text))
 		if contains(fields, field) {
@@ -119,6 +123,9 @@ func (r *Runner) ApplyMigration(ctx context.Context, plan Migration) (Migration,
 	now := map[string]bool{}
 	for _, note := range prose {
 		now[note.Path] = true
+		if read, ok := plan.Prose[note.Path]; ok && read != note.Text {
+			return plan, fmt.Errorf("%s: %s が dry-run のときから書き換わっています。dry-run をやり直してください", plan.Persona, note.Path)
+		}
 	}
 	if len(now) != len(plan.Legacy) {
 		return plan, fmt.Errorf("%s: まとめが dry-run のときから変わっています（%d件 → %d件）", plan.Persona, len(plan.Legacy), len(now))

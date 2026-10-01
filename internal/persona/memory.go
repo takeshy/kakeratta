@@ -356,11 +356,10 @@ func (r *Runner) proseFields(skill Skill) ([]store.Note, error) {
 			continue
 		}
 		note, ok := r.store.Note(skill.ID, path)
-		if !ok || strings.TrimSpace(note.Text) == "" {
+		if !ok {
 			continue
 		}
-		ff := parseFacts(note.Text, time.UTC)
-		if len(ff.Current) == 0 && len(ff.Past) == 0 {
+		if _, prose := proseText(note.Text); prose {
 			out = append(out, note)
 		}
 	}

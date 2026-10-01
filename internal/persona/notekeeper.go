@@ -365,7 +365,7 @@ func redated(current recordDate, raw string, now time.Time, zone *time.Location)
 // attempts run out.
 func submitMemory(ctx context.Context, client *llm.Client, model, system, user string, tool llm.Tool, check func(keptMemory) []string) (keptMemory, int, error) {
 	messages := []llm.Message{{Role: "system", Content: system}, {Role: "user", Content: user}}
-	var last string
+	var last, lastProblems string
 	for attempt := 1; attempt <= maxKeeperAttempts; attempt++ {
 		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
@@ -393,10 +393,11 @@ func submitMemory(ctx context.Context, client *llm.Client, model, system, user s
 		if len(problems) == 0 {
 			return kept, attempt, nil
 		}
+		lastProblems = strings.Join(problems, "; ")
 		messages = append(messages[:2], llm.Message{Role: "user", Content: "前の提出は本体が差し戻しました。直して " + tool.Name + " でもう一度提出してください。\n" +
 			"- " + strings.Join(problems, "\n- ") + "\n前の提出:\n" + clip(last, 12000)})
 	}
-	return keptMemory{}, maxKeeperAttempts, fmt.Errorf("memory submission rejected %d times", maxKeeperAttempts)
+	return keptMemory{}, maxKeeperAttempts, fmt.Errorf("memory submission rejected %d times: %s", maxKeeperAttempts, lastProblems)
 }
 
 // checkKept says what is wrong with a submission.

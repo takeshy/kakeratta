@@ -216,3 +216,33 @@ func TestARecordLetGoTakesItsFactsAlong(t *testing.T) {
 		t.Fatalf("facts = %+v", got)
 	}
 }
+
+// A bullet carried over from prose is not part of the fact.
+func TestAFactLosesTheBulletItCameWith(t *testing.T) {
+	for in, want := range map[string]string{"- 侍女の物語を読んだ": "侍女の物語を読んだ", "・鍵を忘れた": "鍵を忘れた", "C# を学ぶ": "C# を学ぶ"} {
+		if got := cleanFact(in); got != want {
+			t.Fatalf("cleanFact(%q) = %q", in, got)
+		}
+	}
+}
+
+// A field still kept as prose reads as its summary: a fact added before it is
+// split keeps the prose instead of writing over it.
+func TestProseReadsAsTheSummaryUntilSplit(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	if err := s.WriteNote("gourmet", "Shop.md", "白楽くり山に行きたい。\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.phaseReply = answeringReply("")
+	f.keep = func(system, user string) string {
+		if !strings.Contains(user, "白楽くり山に行きたい。") {
+			t.Errorf("the prose was not shown as the summary:\n%s", user)
+		}
+		return `{"summary":"二郎の話","tags":["ラーメン"],"expires":"","review":"","facts":[{"op":"add","field":"Shop","id":"","ids":[],"text":"三田の二郎に行きたい"}]}`
+	}
+	r.react(post(t, s, "三田の二郎も気になる").ID)
+	got := r.loadFacts(Builtins[0].forTurn(), time.UTC).ByField["Shop"]
+	if got.Summary != "白楽くり山に行きたい。" || len(got.Current) != 1 || got.Current[0].Text != "三田の二郎に行きたい" {
+		t.Fatalf("Shop = %+v", got)
+	}
+}
