@@ -229,7 +229,7 @@ const EN = {
   "上の質問に答えてください。迷うところは「おまかせ」でも大丈夫です。": "Answer the question above. If you are unsure, you can say “You decide.”",
   "担当条件": "Matching conditions", "覚えること・返事をするタイミング": "What to remember and when to reply",
   "できること": "Capabilities", "会話と記憶": "Conversation and memory",
-  "Webで調べる": "Search the web", "お店や場所を探す": "Find places and restaurants", "行き方を調べる": "Look up directions",
+  "Webで調べる": "Search the web", "お店や場所を探す": "Find places and restaurants", "行き方を調べる": "Look up directions", "天気予報を調べる": "Check the weather forecast",
   "AIと担当を作る": "Create a persona with AI", "AIで修正": "Edit with AI",
   "修正": "Edit",
   "アイコン": "Icon", "名前": "Name",

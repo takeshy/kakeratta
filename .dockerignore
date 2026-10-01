@@ -14,6 +14,7 @@ infra/*.tfstate.*
 
 # Local Token Factory credential
 token_factory.key
+tmp
 .firebase-cli
 
 # Local VAPID keys and additional checkouts

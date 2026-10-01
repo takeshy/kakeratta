@@ -6,7 +6,7 @@ import "testing"
 // prose, so every tool a persona declared has to carry the shape of its
 // arguments - and the names in that shape are the ones the tool actually reads.
 func TestDeclarationsCarryTheArgumentShapes(t *testing.T) {
-	set := New(Config{}).WithSchedules(nil).For([]string{"web_search", "route", "schedule"})
+	set := New(Config{}).WithSchedules(nil).For([]string{"web_search", "route", "schedule", "weather_forecast"})
 	declarations := map[string]Declaration{}
 	for _, declaration := range set.Declarations() {
 		if declaration.Description == "" {
@@ -18,7 +18,7 @@ func TestDeclarationsCarryTheArgumentShapes(t *testing.T) {
 		}
 		declarations[declaration.Name] = declaration
 	}
-	for _, name := range []string{"web_search", "route", "schedule"} {
+	for _, name := range []string{"web_search", "route", "schedule", "weather_forecast"} {
 		if _, ok := declarations[name]; !ok {
 			t.Fatalf("%s was not offered: %v", name, declarations)
 		}

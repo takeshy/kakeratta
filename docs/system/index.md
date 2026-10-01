@@ -12,7 +12,7 @@ This **OKF v0.2 bundle** documents the implementation in six subsystem chapters.
 - [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, and search.
 - [Persona execution and memory](./personas.md) - Persona definitions, routing, research, reviewed actions, memory maintenance, user-approved note organization, schedules, and corrections.
 - [Browser application and device state](./frontend.md) - Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud.
-- [External agents, tools, and sharing](./integrations.md) - External-agent answers over MCP, permitted external tools, and selected publication to Bluesky.
+- [External agents, tools, and sharing](./integrations.md) - External-agent answers over MCP, permitted external tools, weather forecasts, and selected publication to Bluesky.
 - [Development and workspace operations](./operations.md) - Development, validation, deployment, portable exports, and workspace deletion.
 
 # Reading the bundle

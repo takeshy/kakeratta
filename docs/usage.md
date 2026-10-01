@@ -23,6 +23,9 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 | `KAKERATTA_FIREBASE_API_KEY` | empty | Firebase Web API key |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty | Firebase Auth domain |
 | `KAKERATTA_MCP_SERVERS` | empty | JSON list of MCP servers: `[{"name":"geo","url":"https://…/mcp","headers":{…}}]`. Their tools appear as `name.tool` |
+| `KAKERATTA_WEATHERAPI_KEY` | empty | Server-side WeatherAPI key; takes precedence over a key file |
+| `KAKERATTA_WEATHERAPI_KEY_FILE` | optional `tmp/weatherapi.key` | File containing the server-side WeatherAPI key |
+| `KAKERATTA_WEATHERAPI_URL` | `https://api.weatherapi.com/v1` | WeatherAPI endpoint for `weather_forecast` |
 | `KAKERATTA_NOMINATIM_URL`, `KAKERATTA_OVERPASS_URL`, `KAKERATTA_OSRM_CAR_URL`, `KAKERATTA_OSRM_FOOT_URL`, `KAKERATTA_OSRM_BIKE_URL` | public OpenStreetMap services | Where `place_search` and `route` go |
 
 Tool endpoints and MCP servers are the operator's configuration and the same

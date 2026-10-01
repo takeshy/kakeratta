@@ -76,6 +76,18 @@ variable "bluesky_public_url" {
   }
 }
 
+variable "weatherapi_secret_id" {
+  description = "Existing Secret Manager secret containing the WeatherAPI key; Terraform does not manage its value."
+  type        = string
+  default     = "kakeratta-wheatherapi-key"
+}
+
+variable "weatherapi_secret_version" {
+  description = "WeatherAPI secret version resolved when a Cloud Run instance starts."
+  type        = string
+  default     = "latest"
+}
+
 variable "judge_token_factory_key" {
   description = "Server-side Nebius Token Factory key used only by judge accounts."
   type        = string

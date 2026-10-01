@@ -9,6 +9,7 @@ const labels = {
   web_search: "Webで調べる",
   place_search: "お店や場所を探す",
   route: "行き方を調べる",
+  weather_forecast: "天気予報を調べる",
   schedule: "自分を起こす予定を置く",
   timeline_search: "過去のかけらを探す",
 };

@@ -102,7 +102,7 @@ type Registry struct {
 func New(config Config) *Registry {
 	r := &Registry{config: config, tools: map[string]Tool{}}
 	listed := config.MCP.Tools()
-	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline, scheduleTool, schedulesListTool} {
+	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline, scheduleTool, schedulesListTool, weatherForecast} {
 		r.tools[tool.Name] = preferMCP(tool, listed)
 	}
 	for _, tool := range mcpTools(config.MCP) {

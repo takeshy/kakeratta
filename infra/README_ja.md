@@ -130,6 +130,12 @@ APIの更新前に `firestore.indexes.json` のインデックスを公開し、
 npx firebase-tools deploy --only firestore:indexes --project kakeratta
 ```
 
+## WeatherAPI
+
+デプロイ先プロジェクトのSecret Managerに `kakeratta-wheatherapi-key` を作成し、APIキーを有効なバージョンとして登録します。この綴りが登録済みの名前です。TerraformとCloud Buildは `latest` をCloud Runの環境変数 `KAKERATTA_WEATHERAPI_KEY` に紐付けます。実行用サービスアカウントには既存のSecret Manager読み取り権限があります。キーの値はソースコード・Dockerイメージ・ビルドの置換変数・Terraform stateには入りません。Terraformは登録済みシークレットへの参照だけを管理します。
+
+別のシークレットや固定バージョンを使う場合は、Terraformの `weatherapi_secret_id` / `weatherapi_secret_version` とCloud Buildの `_WEATHERAPI_SECRET` / `_WEATHERAPI_SECRET_VERSION` を揃えてください。新しいCloud Runインスタンスが起動時に読み込み、既存インスタンスは読み込み済みの値を保持します。
+
 ## Bluesky連携
 
 TerraformはOAuth署名と接続情報の暗号化に使う秘密鍵を生成し、Secret Managerから `KAKERATTA_BLUESKY_KEY` としてCloud Runへ渡します。鍵はTerraform stateにも含まれるため非公開で管理し、既存の鍵を維持してください。`KAKERATTA_PUBLIC_URL` は既定で `https://<domain>` です。別の公開オリジンを使う場合は `bluesky_public_url` を設定します。

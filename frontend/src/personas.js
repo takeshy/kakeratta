@@ -126,7 +126,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   }
 
   function toolLink(name, label = t(toolLabel(name))) {
-    const known = ["web_search", "place_search", "route", "timeline_search", "notes", "schedule"];
+    const known = ["web_search", "place_search", "route", "timeline_search", "notes", "schedule", "weather_forecast"];
     const lang = getLanguage();
     const base = capability(name);
     const anchor = known.includes(base) ? `${lang}-tool-${base}` : `${lang}-tools`;
