@@ -26,3 +26,36 @@ self.addEventListener("fetch", event => {
 self.addEventListener("message", event => {
   if (event.data === "version") event.source?.postMessage({ type: "version", version: VERSION });
 });
+
+// Check the active account before displaying or opening a reminder. A queued
+// push from a previous login must not appear in another account's session.
+async function reminderAccount(workspace) {
+  try {
+    const response = await fetch("/api/auth/identity", { cache: "no-store", signal: AbortSignal.timeout(10000) });
+    return response.ok && (await response.json()).key === workspace;
+  } catch { return false; }
+}
+self.addEventListener("push", event => {
+  event.waitUntil((async () => {
+    let data;
+    try { data = event.data?.json(); } catch { return; }
+    if (!data?.entry || !data.workspace || !await reminderAccount(data.workspace)) return;
+    await self.registration.showNotification("kakeratta", {
+      body: "Reminder / リマインダー", icon: "/icon.png", badge: "/icon.png",
+      tag: `reminder:${data.entry}`, data: { entry: data.entry, workspace: data.workspace },
+    });
+  })());
+});
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const data = event.notification.data;
+    if (!data?.entry || !await reminderAccount(data.workspace)) return;
+    const target = new URL("/", self.location.origin);
+    target.searchParams.set("entry", data.entry);
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const app = windows.find(client => new URL(client.url).origin === target.origin && new URL(client.url).pathname === "/");
+    if (app) { await app.navigate(target.href); await app.focus(); }
+    else await self.clients.openWindow(target.href);
+  })());
+});

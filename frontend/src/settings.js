@@ -3,6 +3,7 @@
 // None of the keys here ever reach the page: they are stored by the relay and
 // come back as "set or not". A page that does not have a key cannot leak one.
 import { el, clear, toast } from "./dom.js";
+import { createPushSettings } from "./push.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { createMCPConnection } from "./mcp-connection.js";
 import { api } from "./api.js";
@@ -543,6 +544,9 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       }),
       select("文字サイズ", getTextSize(), TEXT_SIZES.map(([id, label]) => [id, label]), setTextSize),
     );
+    const push = createPushSettings();
+    view.append(push.element);
+    void push.load();
     if (!about) return;
     view.append(el("p", { class: "hint", text: `kakeratta ${about.version}` }));
   }

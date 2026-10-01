@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, deployment, portable exports, and workspace deletion."
 tags: ["development", "deployment", "export", "destroy"]
-updated: "2026-09-30"
+updated: "2026-10-01"
 ---
 
 Development, validation, deployment, portable exports, and workspace deletion.
@@ -32,6 +32,18 @@ The Dockerfile builds the Go binary and runs only the API. The frontend is not e
 
 `firebase.json` forwards `/api/**` to Cloud Run and serves `frontend/dist`. `infra` holds cloud resource and environment configuration. Cloud Run keeps no instance up (`min_instance_count = 0`) and may scale to `max_instances` (default 2); the CPU stays allocated while an instance is up, since a turn runs on after its request has answered, and one cut short by an instance going away is found again at the next start or wake. Any instance takes up any work (see [Multiple instances](./architecture.md#multiple-instances)). Times are not kept by the service: a Cloud Tasks queue (`kakeratta-due`) holds the wakes, and each task calls back `POST /internal/due` on the service's own `run.app` URL with an identity token of the app's account. `KAKERATTA_TASKS_QUEUE`, `KAKERATTA_TASKS_URL`, and `KAKERATTA_TASKS_ACCOUNT` set this up; without them, timers in each process do (see [Times and wakes](./architecture.md#times-and-wakes)). Firestore TTL policies on `expireAt` sweep leftover `events`, `asks`, and `trials` documents. This document explains repository implementation; it is not a procedure that executes a deployment.
 
+## Web Push configuration
+
+Generate a VAPID pair once with `go run ./cmd/webpush-keys` ([main.go](../../cmd/webpush-keys/main.go)). Store the private value securely, and configure the same pair on every API instance:
+
+- `KAKERATTA_PUSH_PUBLIC_KEY`: base64url P-256 public key.
+- `KAKERATTA_PUSH_PRIVATE_KEY`: base64url private key; keep this in the deployment's secret configuration.
+- `KAKERATTA_PUSH_SUBJECT`: operator contact as `mailto:operator@example.com` or an HTTPS URL.
+
+Without all three valid values, the push API reports unavailable and scheduled timeline posts continue normally. Terraform supplies the public key and contact from `push_public_key` and `push_subject`, defaulting to the generated key and `mailto:takeshy.work@gmail.com`. It maps `KAKERATTA_PUSH_PRIVATE_KEY` to the existing Secret Manager secret named by `push_private_key_secret` (default `kakeratta-vapid-private`) and version `push_private_key_version` (default `latest`). The operator creates the secret and its value; Terraform references it without retrieving the private key into state. The runtime service account already has `roles/secretmanager.secretAccessor`. Apply the Terraform service change before the next image-only Cloud Build deployment; that pipeline preserves the configured environment. Keep keys stable across releases; rotation requires users to disable and re-enable notifications. Build and deploy the frontend alongside the API so the updated `/sw.js` is served. Users enable notifications under **This device** in settings; browser permission alone does not register a device. HTTPS and a supported browser are required; iOS/iPadOS users open the app from the Home Screen.
+
+Web Push uses [webpush-go](https://github.com/SherClockHolmes/webpush-go) for payload encryption and VAPID signing. Unit tests stub providers; actual device delivery, browser/OS permissions, and background behavior require a configured deployment and a real-device check. Delivery is best effort without automatic server retries; identity verification also suppresses notifications when login has expired or the API cannot be reached.
+
 ## Implementation and verification
 
 - [Taskfile.yml](../../Taskfile.yml)
@@ -40,7 +52,8 @@ The Dockerfile builds the Go binary and runs only the API. The frontend is not e
 - [Dockerfile](../../Dockerfile)
 - [cloudbuild.yaml](../../cloudbuild.yaml)
 - [firebase.json](../../firebase.json)
-- [main.tf](../../infra/main.tf): scaling, the Cloud Tasks queue and its permissions, and TTL policies
+- [main.tf](../../infra/main.tf): scaling, Cloud Tasks, VAPID secret references, permissions, and TTL policies
+- [variables.tf](../../infra/variables.tf): Web Push public key, contact, secret name, and version
 - [mise.toml](../../mise.toml)
 - [README.md](../../infra/README.md)
 

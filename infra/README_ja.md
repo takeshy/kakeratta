@@ -46,6 +46,21 @@ pushを検知し、既存のCloud RunサービスとFirebase Hostingを更新し
 Terraformを適用しないため、実行環境の設定や秘密情報は維持されます。GitHub接続にはOAuth
 によるインストールが必要なため、リポジトリ接続とトリガーはCloud Buildで一度だけ作成します。
 
+### リマインダーのWeb Push通知
+
+Terraformで生成済みのVAPID公開鍵と `mailto:takeshy.work@gmail.com` を設定し、
+既存のSecret Managerシークレット `kakeratta-vapid-private:latest` を
+`KAKERATTA_PUSH_PRIVATE_KEY` として参照します。シークレットとその値は運営者が登録し、
+Terraformは秘密鍵の内容をstateへ読み込みません。実行サービスアカウントには既存の
+Secret Manager参照権限があります。別の環境では `push_public_key`、`push_subject`、
+`push_private_key_secret`、`push_private_key_version` を変更してください。
+
+Cloud Buildによるイメージ更新の前に、現在のイメージタグを指定してTerraformの変更を
+適用してください。mainへのpushによるデプロイでは、サービスの環境設定を維持します。
+鍵はデプロイをまたいで保持し、交換するときは公開鍵と秘密鍵を同時に更新してください。
+利用者は設定の「この端末」で通知を有効にします。鍵を交換した場合は無効化してから
+再び有効化します。[運用設定](../docs/system/operations.md#web-push-configuration)も参照してください。
+
 ### 道具：MCPサーバー
 
 MCPサーバーの設定は利用者ごとではなくデプロイごとです。`infra/terraform.tfvars`（コミットしない）に書くか、

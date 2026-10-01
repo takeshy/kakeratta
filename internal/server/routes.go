@@ -7,6 +7,9 @@ import (
 )
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/push", s.guard(s.pushConfig))
+	s.mux.HandleFunc("PUT /api/push", s.guard(s.savePush))
+	s.mux.HandleFunc("DELETE /api/push", s.guard(s.deletePush))
 	s.mux.HandleFunc("GET /api/mcp/connection", s.guard(s.mcpConnection))
 	s.mux.HandleFunc("PUT /api/mcp/connection", s.guard(s.selectMCPConnection))
 	s.mux.HandleFunc("PATCH /api/mcp/connection", s.guard(s.setMCPConnectionWaits))

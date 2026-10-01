@@ -6,6 +6,10 @@ import (
 )
 
 func (s *Server) publishEvent(name string, data any) {
+	if name == "reminder" {
+		s.sendReminder(data)
+		return
+	}
 	if name == "entry" {
 		s.scheduleIndex()
 	}

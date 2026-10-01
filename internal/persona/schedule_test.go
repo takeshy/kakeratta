@@ -76,7 +76,17 @@ func TestOnlyScheduleWakesReceiveTodaysTimeline(t *testing.T) {
 	if _, err := s.SaveSchedule(store.Schedule{Skill: "routine", At: now.Add(-time.Second).UTC(), Note: "朝の薬"}); err != nil {
 		t.Fatal(err)
 	}
+	reminders := 0
+	r.OnEvent(func(name string, data any) {
+		if name == "reminder" {
+			reminders++
+		}
+	})
 	r.schedulesAt(context.Background(), now)
+	if reminders != 1 {
+		t.Fatalf("reminder events: %d", reminders)
+	}
+
 	if !strings.Contains(schedulePrompt, "## 今日のかけら") || !strings.Contains(schedulePrompt, "朝の記録") {
 		t.Fatalf("schedule wake did not receive today's timeline:\n%s", schedulePrompt)
 	}
@@ -283,5 +293,11 @@ func TestScheduleContextOnlyPassesOwnSchedulesAndReadsOthersWithTool(t *testing.
 	}
 	if problems := checkBatch(operationBatch{Steps: []operation{{Type: "write_note", Path: "reminder.md", Text: "既存の予定 " + other.ID}}}, rules); len(problems) != 0 {
 		t.Fatalf("visible schedule reference rejected: %v", problems)
+	}
+}
+
+func TestPersonReminderInstructionsRetainScheduleWakeKind(t *testing.T) {
+	if got := wakeKind(timeline.Entry{Speaker: "system"}, false, scheduleInstructions+"\nBirthday instructions"); got != "schedule" {
+		t.Fatalf("wake: %s", got)
 	}
 }

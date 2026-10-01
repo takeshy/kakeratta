@@ -166,6 +166,8 @@ Birthdays and anniversaries have two annual notifications: seven days before and
 
 Calendar reconciliation for one persona runs under the named lock `calendar:{id}`, and stops writing if the lock is lost. Due person events use the normal Runner notification path, with instructions to notify even when no memory note exists. Model or storage failures are surfaced as API errors during basic-information saving or live error events during post processing. Runner claims due schedules before executing the persona. Claiming is part of the persistence contract and prevents duplicate execution of the same schedule. Pausing or removing a persona removes its schedules.
 
+A successful scheduled utterance emits an internal `reminder` event immediately after its timeline post is persisted. The schedule instruction prefix identifies the wake even when person-event instructions are appended or an external-agent answer resumes later. Silent and failed wakes emit no reminder. Ordinary replies and daily check-ins do not use this event. See [Reminder push delivery](./backend.md#reminder-push-delivery) and [schedule_test.go](../../internal/persona/schedule_test.go).
+
 Past schedules are not all replayed unconditionally. Execution windows and persona state determine how late schedules are handled.
 
 ## Periodic checks

@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication, entry handling, timeline data, persistence, settings, and search."
-tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index"]
+description: "Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, and search."
+tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index", "push"]
 updated: "2026-10-01"
 ---
 
-Authentication, entry handling, timeline data, persistence, settings, and search.
+Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, and search.
 
 # HTTP API and authentication
 
@@ -114,7 +114,7 @@ See [User-approved note organization](./personas.md#user-approved-note-organizat
 
 ## Persistence contract
 
-`Workspace` is a per-user contract covering the timeline, memory, settings, persona definitions, schedules, routing records, note retries, the reaction queue with its claims, runtime records (asks, trials, agent presence), named locks, the closing mark, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
+`Workspace` is a per-user contract covering the timeline, memory, settings, persona definitions, schedules, routing records, note retries, the reaction queue with its claims, runtime records (asks, trials, agent presence, browser push subscriptions), named locks, the closing mark, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
 
 ## Two implementations
 
@@ -205,6 +205,16 @@ After slow semantic work, search rereads current entries and excludes deleted co
 - [speaker.go](../../internal/search/speaker.go): `BySpeaker`
 - [speaker.go](../../internal/store/speaker.go): `SpeakerEntries`
 - [speaker_test.go](../../internal/search/speaker_test.go)
+
+# Reminder push delivery
+
+[push.go](../../internal/server/push.go) exposes guarded `GET /api/push`, `PUT /api/push`, and `DELETE /api/push`. GET returns availability and the public VAPID key; an optional `endpoint` query checks whether that endpoint is registered in the current workspace. The private VAPID key never reaches the browser. PUT validates HTTPS endpoints from Google FCM, Mozilla, Apple, or Windows push services, a 16-byte authentication secret, and a P-256 public key. It saves an idempotent record keyed by the SHA-256 endpoint digest. Registration takes the `push-subscriptions` workspace lock and permits at most 20 devices. DELETE removes only the current workspace's record.
+
+Subscriptions are `push-subscriptions` runtime records: under `runtime/push-subscriptions/` in file storage and `users/{key}/push-subscriptions` in Firestore. They survive restarts, are shared across instances, are excluded from exports, and are removed with the workspace. They have no expiry until explicitly revoked or rejected by the provider.
+
+The Runner emits an internal `reminder` event after persisting a successful scheduled utterance. `Server.publishEvent` consumes that event directly on the executing instance, without relaying it over the cross-instance SSE bus. Delivery sends encrypted Web Push with VAPID credentials to the workspace's registered devices concurrently, with a ten-second HTTP timeout and a thirty-second overall deadline. A one-hour TTL and a per-entry topic limit stale pending messages; the browser notification tag also uses the entry ID. Provider 404/410 responses remove a subscription only if its stored value has not changed during delivery. Other failures are logged without endpoint credentials. This is best-effort delivery: there is no durable push queue or automatic retry, and interruption after the post is saved can lose its push. The timeline post remains available.
+
+Verification: [push_test.go](../../internal/server/push_test.go) checks registration, account/origin guards, invalid endpoints and keys, event selection, encrypted requests, and stale-subscription removal.
 
 # Related chapters
 

@@ -1,0 +1,144 @@
+package server
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	webpush "github.com/SherClockHolmes/webpush-go"
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
+)
+
+func configurePush(t *testing.T) webpush.Subscription {
+	t.Helper()
+	private, public, err := webpush.GenerateVAPIDKeys()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KAKERATTA_PUSH_PRIVATE_KEY", private)
+	t.Setenv("KAKERATTA_PUSH_PUBLIC_KEY", public)
+	t.Setenv("KAKERATTA_PUSH_SUBJECT", "mailto:operator@example.com")
+	return webpush.Subscription{Endpoint: "https://fcm.googleapis.com/fcm/send/example", Keys: webpush.Keys{P256dh: public, Auth: base64.RawURLEncoding.EncodeToString(make([]byte, 16))}}
+}
+
+func TestPushRegistrationAndAccountGuard(t *testing.T) {
+	sub := configurePush(t)
+	server, workspace := app(t)
+	request := func(method, path, body string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, httptest.NewRequest(method, path, strings.NewReader(body)))
+		return w
+	}
+	raw, _ := json.Marshal(sub)
+	if w := request("PUT", "/api/push", string(raw)); w.Code != 204 {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	if w := request("PUT", "/api/push", string(raw)); w.Code != 204 {
+		t.Fatal("registration must be idempotent")
+	}
+	records, err := workspace.Records(context.Background(), store.RecordPush)
+	if err != nil || len(records) != 1 {
+		t.Fatalf("records: %v %v", records, err)
+	}
+	w := request("GET", "/api/push?endpoint="+sub.Endpoint, "")
+	var config map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &config)
+	if config["available"] != true || config["subscribed"] != true {
+		t.Fatalf("config: %s", w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), pushOptions().VAPIDPrivateKey) {
+		t.Fatal("private key exposed")
+	}
+	r := httptest.NewRequest("PUT", "/api/push", strings.NewReader(string(raw)))
+	r.Header.Set("X-Kakeratta-Workspace", "wrong")
+	w = httptest.NewRecorder()
+	server.ServeHTTP(w, r)
+	if w.Code != 401 {
+		t.Fatalf("account guard: %d", w.Code)
+	}
+	r = httptest.NewRequest("PUT", "/api/push", strings.NewReader(string(raw)))
+	r.Header.Set("Origin", "https://attacker.example")
+	w = httptest.NewRecorder()
+	server.ServeHTTP(w, r)
+	if w.Code != 403 {
+		t.Fatalf("origin guard: %d", w.Code)
+	}
+	if w := request("DELETE", "/api/push", string(raw)); w.Code != 204 {
+		t.Fatalf("delete: %d", w.Code)
+	}
+	records, _ = workspace.Records(context.Background(), store.RecordPush)
+	if len(records) != 0 {
+		t.Fatal("subscription retained")
+	}
+}
+
+func TestPushRejectsUnsafeEndpointsAndMalformedKeys(t *testing.T) {
+	sub := configurePush(t)
+	server, _ := app(t)
+	for _, endpoint := range []string{"http://fcm.googleapis.com/x", "https://127.0.0.1/x", "https://fcm.googleapis.com.attacker.example/x", "https://user@fcm.googleapis.com/x", "https://fcm.googleapis.com:8443/x", "https://web.push.apple.com/x#bad"} {
+		sub.Endpoint = endpoint
+		raw, _ := json.Marshal(sub)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, httptest.NewRequest("PUT", "/api/push", strings.NewReader(string(raw))))
+		if w.Code != 400 {
+			t.Fatalf("endpoint %q accepted: %d", endpoint, w.Code)
+		}
+	}
+	sub.Endpoint = "https://web.push.apple.com/x"
+	sub.Keys.Auth = "bad"
+	raw, _ := json.Marshal(sub)
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, httptest.NewRequest("PUT", "/api/push", strings.NewReader(string(raw))))
+	if w.Code != 400 {
+		t.Fatal("invalid keys accepted")
+	}
+	t.Setenv("KAKERATTA_PUSH_PRIVATE_KEY", "broken")
+	if pushReady(pushOptions()) {
+		t.Fatal("invalid configuration accepted")
+	}
+}
+
+type pushTransport func(*http.Request) (*http.Response, error)
+
+func (f pushTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestPushOnlyReminderEventDeliversAndExpiredSubscriptionsAreRemoved(t *testing.T) {
+	sub := configurePush(t)
+	server, workspace := app(t)
+	raw, _ := json.Marshal(sub)
+	_ = workspace.UpdateRecord(context.Background(), store.RecordPush, pushID(sub.Endpoint), time.Time{}, func([]byte, bool) ([]byte, error) { return raw, nil })
+	previous := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = previous })
+	sends := 0
+	http.DefaultTransport = pushTransport(func(r *http.Request) (*http.Response, error) {
+		sends++
+		if r.URL.String() != sub.Endpoint || r.Header.Get("Content-Encoding") != "aes128gcm" || r.Header.Get("Authorization") == "" {
+			t.Fatalf("invalid delivery: %v", r)
+		}
+		body, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(body), "private birthday") {
+			t.Fatal("unencrypted text")
+		}
+		return &http.Response{StatusCode: 410, Body: io.NopCloser(strings.NewReader("expired")), Header: make(http.Header)}, nil
+	})
+	entry := timeline.Entry{ID: "e_reminder", Speaker: "routine", Kind: timeline.KindPost, Text: "private birthday"}
+	server.publishEvent("entry", entry)
+	if sends != 0 {
+		t.Fatal("ordinary entry sent push")
+	}
+	server.publishEvent("reminder", entry)
+	if sends != 1 {
+		t.Fatalf("sends: %d", sends)
+	}
+	records, _ := workspace.Records(context.Background(), store.RecordPush)
+	if len(records) != 0 {
+		t.Fatal("expired subscription retained")
+	}
+}

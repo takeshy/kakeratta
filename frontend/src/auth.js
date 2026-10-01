@@ -1,3 +1,4 @@
+import { revokeDevicePush } from "./push-client.js";
 import { IDENTITY_KEY, localIdentity, clearLocalUser, localList, localRecord } from "./local-store.js";
 import { clear, el } from "./dom.js";
 import { t } from "./i18n.js";
@@ -145,6 +146,7 @@ export async function logout({ confirmUnsent = true } = {}) {
     firebaseAuth = authModule.getAuth(appModule.getApps()[0] || appModule.initializeApp(authConfig));
     firebaseSignOut = authModule.signOut;
   }
+  await revokeDevicePush(localIdentity()?.key).catch(() => {});
   await localRecord("identity", null, "device");
   await clearLocalUser();
   localStorage.setItem("kakeratta.signedOut", "1");
@@ -168,6 +170,7 @@ export function verifyIdentity(force = false) {
     if (!next.key) throw Error("Invalid account identity");
     const previous = localIdentity();
     if (previous && previous.key !== next.key) {
+      await revokeDevicePush(previous.key).catch(() => {});
       await localRecord("identity", next, "device");
       localStorage.setItem(IDENTITY_KEY, JSON.stringify(next));
       location.reload();

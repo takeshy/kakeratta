@@ -50,6 +50,9 @@ function emit(name, data) {
 }
 
 export const api = {
+  pushConfig: endpoint => call("GET", "/api/push" + (endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : "")),
+  savePush: body => call("PUT", "/api/push", body),
+  deletePush: body => call("DELETE", "/api/push", body),
   mcpConnection: () => call("GET", "/api/mcp/connection"),
   issueMCPKey: (connection) => call("POST", "/api/mcp/connection", connection),
   selectMCPConnection: (id) => call("PUT", "/api/mcp/connection", { id }),

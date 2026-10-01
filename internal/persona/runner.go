@@ -981,6 +981,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 	default:
 		remark = r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, notesWritten(steps), slot)
+		if remark != nil && record.Wake == "schedule" {
+			r.emit("reminder", *remark)
+		}
 	}
 	// The remark is out. Notes come after it, so a note that cannot be written
 	// costs the note and never the answer.
@@ -1151,7 +1154,7 @@ func wakeKind(trigger timeline.Entry, listening bool, instructions string) strin
 		return "review"
 	case strings.HasPrefix(instructions, dailyHeader):
 		return "daily"
-	case instructions == scheduleInstructions:
+	case strings.HasPrefix(instructions, scheduleInstructions):
 		return "schedule"
 	case instructions == forgottenInstructions:
 		return "note-deleted"

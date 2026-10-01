@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, requests, live updates, offline delivery, speech input, and read-aloud."
-tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser"]
+description: "Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud."
+tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push"]
 updated: "2026-10-01"
 ---
 
-Frontend composition, requests, live updates, offline delivery, speech input, and read-aloud.
+Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud.
 
 # Browser application composition
 
@@ -115,6 +115,16 @@ Authentication and transient failures can be retried later. Non-retryable 4xx re
 - [build.mjs](../../frontend/build.mjs)
 - [outbox.test.js](../../tests/outbox.test.js): restart, retries, and two tabs flushing at once
 - [offline-check.mjs](../../frontend/offline-check.mjs)
+
+# Reminder push notifications
+
+The **This device** section of settings includes [push.js](../../frontend/src/push.js). It reports browser support, server configuration, and this workspace's registered subscription without requesting permission on load. Only **Enable notifications** asks for browser permission and calls `PushManager.subscribe` using the server's public VAPID key. [push-client.js](../../frontend/src/push-client.js) saves the subscription through the account-checked API; a failed initial registration revokes the newly created browser subscription. Disabling removes the server record before unsubscribing. A changed VAPID key is replaced when enabling. Browser permission can also be managed in browser settings.
+
+Only scheduled persona reminders, including birthdays, anniversaries, appointments, and persona-created schedules, trigger push. Ordinary replies, daily check-ins, monthly summaries, and post edits do not. The lock screen shows a generic bilingual reminder rather than the persona's private message. The [Service Worker](../../frontend/public/sw.js) verifies `/api/auth/identity` against the payload's workspace before displaying a notification and again before opening it. A mismatched account, failed identity check, or expired login suppresses delivery. A click focuses and navigates an existing app window, or opens `/?entry=…`, using the existing post-opening path.
+
+HTTPS (or a secure localhost context), Service Worker, PushManager, and Notifications support are required. On iPhone/iPad the app must be added to the Home Screen and opened there. Unsupported browsers retain the timeline reminders. Logout and detected account switches attempt server deregistration, revoke the browser subscription even when the deletion request fails, and close displayed notifications. There is no automatic subscription refresh after a browser-side subscription expires; enable notifications again from settings.
+
+Verification: [push.test.js](../../tests/push.test.js) covers permission refusal, failed registration rollback, disable order, offline logout, active-account filtering, and notification navigation.
 
 # Speech input and read-aloud
 

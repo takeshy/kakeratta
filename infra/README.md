@@ -50,6 +50,23 @@ Cloud Run service and Firebase Hosting; it does not apply Terraform or replace
 runtime configuration. The GitHub repository connection and trigger are created
 once in Cloud Build because connecting GitHub requires an OAuth installation.
 
+### Reminder Web Push
+
+Terraform configures the generated VAPID public key and
+`mailto:takeshy.work@gmail.com`, and references the existing Secret Manager
+secret `kakeratta-vapid-private:latest` as `KAKERATTA_PUSH_PRIVATE_KEY`.
+The operator creates the secret and stores its base64url private key; Terraform
+does not read its value into state. The runtime account already has Secret
+Manager access. Override `push_public_key`, `push_subject`,
+`push_private_key_secret`, and `push_private_key_version` for another deployment.
+
+Apply the Terraform change with the current image tag before an image-only
+Cloud Build deployment; the main branch build preserves service environment
+configuration. Keep the key pair stable across releases. For rotation, update
+both keys together and ask users to disable and re-enable notifications.
+Users enable birthday and appointment reminders under **This device** in
+settings. See [Web Push configuration](../docs/system/operations.md#web-push-configuration).
+
 ### Tools: MCP servers
 
 MCP servers are configured per deployment, not per user. Put them in

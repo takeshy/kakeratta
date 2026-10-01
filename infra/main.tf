@@ -334,6 +334,25 @@ resource "google_cloud_run_v2_service" "app" {
           }
         }
       }
+      # The operator owns the VAPID secret; Terraform references its name
+      # without reading or storing the private key in state.
+      env {
+        name  = "KAKERATTA_PUSH_PUBLIC_KEY"
+        value = var.push_public_key
+      }
+      env {
+        name  = "KAKERATTA_PUSH_SUBJECT"
+        value = var.push_subject
+      }
+      env {
+        name = "KAKERATTA_PUSH_PRIVATE_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.push_private_key_secret
+            version = var.push_private_key_version
+          }
+        }
+      }
       env {
         name  = "KAKERATTA_HOME"
         value = "/tmp/kakeratta"

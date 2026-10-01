@@ -100,3 +100,27 @@ variable "max_instances" {
   type        = number
   default     = 2
 }
+
+variable "push_public_key" {
+  description = "Base64url VAPID public key matching the operator-managed private key."
+  type        = string
+  default     = "BK6kXDIPQQhbN7d8pchRzEpzk-0nJkPPjS6G8xv5I2U86JGkI6s1x1uBVHTU9F8UTRrjgWUgVKZUs54xjcXAFLA"
+}
+
+variable "push_subject" {
+  description = "VAPID operator contact as a mailto or HTTPS URI."
+  type        = string
+  default     = "mailto:takeshy.work@gmail.com"
+}
+
+variable "push_private_key_secret" {
+  description = "Existing Secret Manager secret containing the base64url VAPID private key."
+  type        = string
+  default     = "kakeratta-vapid-private"
+}
+
+variable "push_private_key_version" {
+  description = "Secret Manager version of the VAPID private key."
+  type        = string
+  default     = "latest"
+}

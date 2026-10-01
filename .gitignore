@@ -23,3 +23,6 @@ tmp/*
 # Python
 __pycache__/
 *.py[cod]
+
+# Additional local Git worktrees
+.worktrees/
