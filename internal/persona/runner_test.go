@@ -1891,12 +1891,12 @@ func TestOnlyTheToolsAPersonaHoldsAreActions(t *testing.T) {
 func TestAReadSaysWhatIsLeftAndWhatElseThereIs(t *testing.T) {
 	set := tools.New(tools.Config{}).For([]string{"place_search", "web_search", "schedule"})
 	footer := readFooter(3, set)
-	for _, want := range []string{"残り 3 回", "place_search", "web_search"} {
+	for _, want := range []string{"残り 3 回", "place_search", "web_search", "schedules_list"} {
 		if !strings.Contains(footer, want) {
 			t.Fatalf("footer lost %q: %s", want, footer)
 		}
 	}
-	if strings.Contains(footer, "schedule") {
+	if strings.Contains(strings.ReplaceAll(footer, "schedules_list", ""), "schedule") {
 		t.Fatalf("schedule is not something to read with: %s", footer)
 	}
 	if !strings.Contains(readFooter(0, set), "現在のフェーズ") {

@@ -46,7 +46,7 @@ A user may select the connected external agent for an individual note-organizati
 
 ## Selecting capabilities
 
-`Registry` holds built-in tools and tools from operator-configured MCP servers. `For(skill.Tools).As(skill.ID)` builds the persona's permitted set. Shared timeline search and access to the persona's own memory are also available.
+`Registry` holds built-in tools and tools from operator-configured MCP servers. `For(skill.Tools).As(skill.ID)` builds the persona's permitted set. Shared timeline search and access to the persona's own memory are also available. A persona permitted to use `schedule` automatically receives the read-only `schedules_list` tool, including in external-agent asks, to inspect filtered, paginated workspace schedules on demand.
 
 A tool `Declaration` carries a name, description, JSON Schema, and read-only status. Research tools are separated from schedule and action tools. The host validates model-supplied arguments and makes the actual network requests.
 
@@ -57,7 +57,7 @@ A tool `Declaration` carries a name, description, JSON Schema, and read-only sta
 | `web_search` | User search key and Tavily client |
 | `place_search`, `route` | Operator map endpoints |
 | `timeline_search` | Workspace search Service |
-| `schedule` | User schedules and time zone |
+| `schedule`, `schedules_list` | User schedules, persona names, and time zone; only `schedules_list` is a research read |
 | `server.tool` | External MCP configured through `KAKERATTA_MCP_SERVERS` |
 
 The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. Returned external text is model input data, not an instruction to expand permissions.

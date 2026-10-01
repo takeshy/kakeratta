@@ -54,6 +54,103 @@ func TestAStoppedAlarmDoesNotFire(t *testing.T) {
 	}
 }
 
+func TestAlarmStopWaitsForTheRunningCallback(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	finished := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	var alarm *localAlarm
+	alarm = newLocalAlarm(func() {
+		close(entered)
+		<-release
+		// A callback can ask to retry while Stop waits, without deadlocking
+		// or starting another callback after shutdown.
+		_ = alarm.Set(time.Now())
+		close(finished)
+	})
+	defer alarm.Stop()
+	defer unblock()
+	_ = alarm.Set(time.Now())
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("alarm did not fire")
+	}
+	stopped := make(chan struct{})
+	go func() { alarm.Stop(); close(stopped) }()
+	eventually(t, "alarm stopping", func() bool {
+		alarm.mu.Lock()
+		defer alarm.mu.Unlock()
+		return alarm.stopped
+	})
+	select {
+	case <-stopped:
+		t.Fatal("Stop returned while the callback could still write to the workspace")
+	case <-time.After(20 * time.Millisecond):
+	}
+	unblock()
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("Stop did not return after the callback finished")
+	}
+	select {
+	case <-finished:
+	default:
+		t.Fatal("callback had not finished when Stop returned")
+	}
+}
+
+func TestGatewayCloseWaitsForLocalWakeWithoutBlockingItsRetry(t *testing.T) {
+	gateway, _ := dueGateway(t, nil, func(o *AuthOptions) { o.Shared.Alarm = nil })
+	entered, release := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+	alarm := newLocalAlarm(func() {
+		close(entered)
+		<-release
+		_ = gateway.setAlarm("retry", time.Now())
+	})
+	gateway.alarmsMu.Lock()
+	gateway.alarms["running"] = alarm
+	gateway.alarmsMu.Unlock()
+	_ = alarm.Set(time.Now())
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("local wake did not start")
+	}
+	closed := make(chan struct{})
+	go func() { gateway.Close(); close(closed) }()
+	eventually(t, "local wake stopping", func() bool {
+		alarm.mu.Lock()
+		defer alarm.mu.Unlock()
+		return alarm.stopped
+	})
+	select {
+	case <-closed:
+		t.Fatal("gateway closed before its local wake finished")
+	default:
+	}
+	unblock()
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("gateway close blocked the callback's retry")
+	}
+	gateway.alarmsMu.Lock()
+	retry := gateway.alarms["retry"]
+	gateway.alarmsMu.Unlock()
+	if retry != nil {
+		t.Fatal("retry created an alarm after shutdown")
+	}
+	if _, err := gateway.workspace("after-close"); !errors.Is(err, errStopping) {
+		t.Fatalf("closed gateway opened another workspace: %v", err)
+	}
+}
+
 // dueGateway is a gateway of a shared deployment whose alarms are recorded,
 // over file workspaces.
 func dueGateway(t *testing.T, verify func(*http.Request) (string, error), tweak ...func(*AuthOptions)) (*Gateway, *dueCalls) {

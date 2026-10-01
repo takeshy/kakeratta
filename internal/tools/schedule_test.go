@@ -2,7 +2,9 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -130,5 +132,131 @@ func TestScheduleToolFallsBackToTheWorkspaceZone(t *testing.T) {
 	if _, err := bare.Run(context.Background(), "schedule",
 		Args{"at": at, "note": "毎日", "daily": true}, nil); !errors.Is(err, store.ErrScheduleZone) {
 		t.Fatalf("a daily schedule without any zone was accepted: %v", err)
+	}
+}
+
+func TestScheduleListIncludesOtherPersonasButCannotCancelThem(t *testing.T) {
+	workspace, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	own, err := workspace.SaveSchedule(store.Schedule{Skill: "routine", At: time.Now().Add(time.Hour), Note: "朝の薬"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := workspace.SaveSchedule(store.Schedule{Skill: "health", At: time.Now().Add(2 * time.Hour), Note: "診察"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := New(Config{}).WithSchedules(workspace).WithPersonaNames(map[string]string{"routine": "プラナ", "health": "健康担当"}).For([]string{"schedule"}).As("routine")
+	result, err := set.Run(context.Background(), "schedule", Args{"action": "list"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []struct {
+		ID    string `json:"id"`
+		Skill string `json:"skill"`
+		Owner string `json:"owner"`
+		Note  string `json:"note"`
+	}
+	if err := json.Unmarshal([]byte(result.Text), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0].ID != own.ID || rows[0].Skill != "routine" || rows[1].ID != other.ID || rows[1].Skill != "health" || rows[1].Note != "診察" || rows[0].Owner != "プラナ（routine）" || rows[1].Owner != "健康担当（health）" {
+		t.Fatalf("list = %+v", rows)
+	}
+	fallback, err := scheduleSetFor("routine", workspace).Run(context.Background(), "schedule", Args{"action": "list"}, nil)
+	if err != nil || !strings.Contains(fallback.Text, `"owner":"health"`) {
+		t.Fatalf("ID fallback = %s (%v)", fallback.Text, err)
+	}
+	if _, err := set.Run(context.Background(), "schedule", Args{"action": "cancel", "id": other.ID}, nil); !errors.Is(err, store.ErrScheduleNotFound) {
+		t.Fatalf("cancel other persona: %v", err)
+	}
+	if _, err := set.Run(context.Background(), "schedule", Args{"action": "cancel", "id": own.ID}, nil); err != nil {
+		t.Fatal(err)
+	}
+	left, err := workspace.Schedules("")
+	if err != nil || len(left) != 1 || left[0].ID != other.ID {
+		t.Fatalf("remaining = %+v (%v)", left, err)
+	}
+}
+
+func TestSchedulesListFiltersPaginatesAndDoesNotModifySchedules(t *testing.T) {
+	at := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	schedules := &fakeSchedules{}
+	for i := range 35 {
+		owner := "routine"
+		if i%2 == 0 {
+			owner = "health"
+		}
+		schedules.stored = append(schedules.stored, store.Schedule{ID: fmt.Sprintf("s_%02d", i), Skill: owner, At: at.Add(time.Duration(i) * time.Hour), Note: fmt.Sprintf("薬 %02d", i), NotePath: "private.md", TimeZone: "Asia/Tokyo"})
+	}
+	registry := New(Config{}).WithSchedules(schedules).WithPersonaNames(map[string]string{"health": "健康担当"}).WithZone("Asia/Tokyo")
+	set := registry.For([]string{"schedule"}).As("routine")
+	if !set.Allows("schedules_list") || !set.IsReadOnly("schedules_list") || set.IsReadOnly("schedule") {
+		t.Fatal("read/write permissions incorrect")
+	}
+	type row struct {
+		ID    string `json:"id"`
+		Owner string `json:"owner"`
+		Note  string `json:"note"`
+	}
+	type page struct {
+		Rows  []row  `json:"schedules"`
+		Total int    `json:"total"`
+		Next  string `json:"next_after"`
+	}
+	read := func(args Args) page {
+		t.Helper()
+		result, err := set.Run(context.Background(), "schedules_list", args, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(result.Text, "private.md") {
+			t.Fatal("background memory path leaked")
+		}
+		var got page
+		if err := json.Unmarshal([]byte(result.Text), &got); err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	first := read(Args{})
+	if first.Total != 35 || len(first.Rows) != 20 || first.Next != "s_19" || first.Rows[0].Owner != "健康担当（health）" {
+		t.Fatalf("first page = %+v", first)
+	}
+	second := read(Args{"after": first.Next})
+	if second.Total != 35 || len(second.Rows) != 15 || second.Next != "" || second.Rows[0].ID != "s_20" {
+		t.Fatalf("second page = %+v", second)
+	}
+	capped := read(Args{"limit": float64(100)})
+	if len(capped.Rows) != 30 || capped.Next != "s_29" {
+		t.Fatalf("capped page = %+v", capped)
+	}
+	filtered := read(Args{"skill": "health", "query": "薬", "from": "2026-10-02 11:00", "to": "2026-10-02 15:00"})
+	if filtered.Total != 3 || len(filtered.Rows) != 3 || filtered.Rows[0].ID != "s_02" || filtered.Rows[2].ID != "s_06" {
+		t.Fatalf("filtered = %+v", filtered)
+	}
+	byName := read(Args{"query": "健康担当"})
+	if byName.Total != 18 {
+		t.Fatalf("name filter = %+v", byName)
+	}
+	absent := read(Args{"query": "一致しない"})
+	if absent.Total != 0 || len(absent.Rows) != 0 || absent.Next != "" {
+		t.Fatalf("empty = %+v", absent)
+	}
+	for _, args := range []Args{{"from": "bad"}, {"from": "2026-10-03", "to": "2026-10-02"}, {"after": "s_missing"}} {
+		if _, err := set.Run(context.Background(), "schedules_list", args, nil); err == nil {
+			t.Fatalf("invalid args accepted: %+v", args)
+		}
+	}
+	if len(schedules.stored) != 35 || len(schedules.deleted) != 0 {
+		t.Fatal("read tool modified schedules")
+	}
+	if _, err := registry.For([]string{"schedule"}).Run(context.Background(), "schedules_list", Args{}, nil); err == nil {
+		t.Fatal("unowned read accepted")
+	}
+	if _, err := registry.For(nil).As("routine").Run(context.Background(), "schedules_list", Args{}, nil); err == nil {
+		t.Fatal("unpermitted read accepted")
 	}
 }

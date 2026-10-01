@@ -156,7 +156,9 @@ Verification: [organize_test.go](../../internal/persona/organize_test.go) covers
 
 ## Scheduled wakes
 
-Creating an ordinary persona schedule stores its time, recurrence, wake note, and background memory.
+Creating an ordinary persona schedule stores its time, recurrence, wake note, and background memory. Personas with the schedule tool receive only their own schedules in the initial turn context (also handed to external agents). The same permission automatically provides the read-only `schedules_list` tool during research. It reads current workspace schedules on demand, including other personas' schedules, and accepts owner ID (`skill`), substring (`query`, matching wake notes or owner names/IDs), and notification-time (`from`/`to`, in the workspace timezone unless an offset is supplied) filters. Results are chronological, default to 20 items, and are capped at 30. The response includes `total` and a `next_after` cursor; pass it as `after` with the same filters to fetch the next page. If the cursor was removed, restart without it. Recurring schedules are matched by their stored next notification time, not expanded into future occurrences.
+
+Each item displays its owner as `Name（ID）` using the persona definitions for the turn, falling back to the ID when no name is available. Tool listings preserve `skill` as the ID and add the display label in `owner`, plus `daily` and `annual` recurrence flags. The read tool does not return background memory paths or bodies; memory remains private. Cancellation is validated and executed only for schedules owned by the requesting persona. Planning instructions ask personas to check other owners' reminders through the read tool when duplication is possible; this does not atomically prevent concurrent creations. The legacy `schedule list` internal action remains available but is not offered during research.
 
 Person calendars are also synchronized when a person is created, installed, reactivated, or its basic information is edited, and when it receives a user post or reply containing date or plan information (including analyzed image text). A dedicated model request extracts confirmed birthdays, anniversaries, meetings, appointments, and cancellations using the current time, timezone, and existing schedule keys. Basic-information synchronization replaces schedules sourced from that field; posts add or correct only the specified events. Unrelated schedules are preserved. These schedules require no memory note.
 
@@ -183,6 +185,9 @@ The app itself builds monthly summaries from the timeline as topic-based posts w
 - [person_schedule.go](../../internal/store/person_schedule.go): annual dates and recurrence
 - [person_schedules_test.go](../../internal/persona/person_schedules_test.go)
 - [person_schedule_test.go](../../internal/store/person_schedule_test.go)
+- [workflow.go](../../internal/persona/workflow.go): own schedule context and ownership validation
+- [schedule.go](../../internal/tools/schedule.go): filtered, paginated read-only listing and owner-scoped cancellation
+- [schedule_test.go](../../internal/tools/schedule_test.go): cross-persona visibility and cancellation ownership
 - [schedule.go](../../internal/store/schedule.go)
 - [schedule_test.go](../../internal/store/schedule_test.go): future dates without a horizon, ownership, caps, and claims
 - [daily.go](../../internal/persona/daily.go)

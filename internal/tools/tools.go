@@ -84,10 +84,11 @@ type Declaration struct {
 // Registry holds every tool the app knows how to run, already wired to the
 // operator's configuration. A persona is given a subset of it.
 type Registry struct {
-	config    Config
-	tools     map[string]Tool
-	search    *search.Service
-	schedules Schedules
+	config       Config
+	tools        map[string]Tool
+	search       *search.Service
+	schedules    Schedules
+	personaNames map[string]string
 	// zone is the user's own, for a schedule that did not name one.
 	zone string
 	// tavilyKey is the user's own; web_search is the one tool whose credential
@@ -101,7 +102,7 @@ type Registry struct {
 func New(config Config) *Registry {
 	r := &Registry{config: config, tools: map[string]Tool{}}
 	listed := config.MCP.Tools()
-	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline, scheduleTool} {
+	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline, scheduleTool, schedulesListTool} {
 		r.tools[tool.Name] = preferMCP(tool, listed)
 	}
 	for _, tool := range mcpTools(config.MCP) {
@@ -123,6 +124,13 @@ func (r *Registry) WithSearch(service *search.Service) *Registry {
 func (r *Registry) WithSchedules(schedules Schedules) *Registry {
 	r.schedules = schedules
 	return r
+}
+
+// WithPersonaNames supplies display names from the persona definitions for this turn.
+func (r *Registry) WithPersonaNames(names map[string]string) *Registry {
+	copy := *r
+	copy.personaNames = names
+	return &copy
 }
 
 // WithZone is the workspace's time zone, used when a persona sets a schedule
@@ -177,6 +185,9 @@ func (r *Registry) For(declared []string) *Set {
 		if _, known := r.tools[name]; known {
 			allowed[name] = true
 		}
+	}
+	if allowed["schedule"] {
+		allowed["schedules_list"] = true
 	}
 	return &Set{registry: r, allowed: allowed}
 }

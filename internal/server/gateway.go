@@ -427,6 +427,11 @@ func (g *Gateway) tenant(uid string) (*Server, error) {
 func (g *Gateway) workspace(userKey string) (*Server, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	select {
+	case <-g.stop:
+		return nil, errStopping
+	default:
+	}
 	g.used[userKey] = time.Now()
 	if existing := g.tenants[userKey]; existing != nil {
 		return existing, nil
@@ -503,6 +508,18 @@ func (g *Gateway) Close() {
 		close(g.stop)
 		g.stopWatch()
 		<-g.done
+		// Stop local wakes before collecting tenants: a callback in progress
+		// may still be opening one. Do not hold alarmsMu while waiting, since
+		// that callback may ask to set its next alarm.
+		g.alarmsMu.Lock()
+		alarms := make([]*localAlarm, 0, len(g.alarms))
+		for _, alarm := range g.alarms {
+			alarms = append(alarms, alarm)
+		}
+		g.alarmsMu.Unlock()
+		for _, alarm := range alarms {
+			alarm.Stop()
+		}
 		g.mu.Lock()
 		tenants := make([]*Server, 0, len(g.tenants))
 		for _, tenant := range g.tenants {
@@ -523,11 +540,6 @@ func (g *Gateway) Close() {
 			}(tenant)
 		}
 		wg.Wait()
-		g.alarmsMu.Lock()
-		for _, alarm := range g.alarms {
-			alarm.Stop()
-		}
-		g.alarmsMu.Unlock()
 	})
 }
 
