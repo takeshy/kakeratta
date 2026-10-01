@@ -3,11 +3,52 @@ package persona
 import (
 	"context"
 	"encoding/json"
-	"github.com/takeshy/kakeratta/internal/store"
-	"slices"
 	"strings"
 	"testing"
+
+	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/tools"
 )
+
+func TestSupportCanReadSpecificationsAndAnswerDirectMentions(t *testing.T) {
+	skill, ok := NewCatalogue(nil).Find(context.Background(), "support")
+	if !ok || !skill.Builtin || skill.IsPerson() || !skill.Answers("support") {
+		t.Fatalf("support persona = %+v, found = %t", skill, ok)
+	}
+	set := tools.New(tools.Config{}).For(skill.Tools).As(skill.ID)
+	if !set.IsReadOnly("kakeratta_help") || set.Allows("schedule") || set.Allows("web_search") {
+		t.Fatalf("support capabilities = %v", set.Declarations())
+	}
+	result, err := set.Run(context.Background(), "kakeratta_help", tools.Args{}, nil)
+	if err != nil || !strings.Contains(result.Text, `okf_version: "0.2"`) {
+		t.Fatalf("support cannot read its specification: %+v, %v", result, err)
+	}
+}
+
+func TestMichiIsRetiredAndUserTravelDefinitionsRemainAvailable(t *testing.T) {
+	ctx := context.Background()
+	catalogue := NewCatalogue(skillStore(t, t.TempDir()))
+	if _, ok := catalogue.Find(ctx, "move"); ok {
+		t.Fatal("michi still ships as a built-in persona")
+	}
+	if active := catalogue.Active(ctx, []string{"move", "support"}); len(active) != 1 || active[0].ID != "support" {
+		t.Fatalf("saved retired activation = %+v", active)
+	}
+	raw, err := json.Marshal(testTravelSkill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := catalogue.Install(raw, nil); err != nil {
+		t.Fatal(err)
+	}
+	travel, ok := catalogue.Find(ctx, "move")
+	if !ok || travel.Builtin || !travel.Answers("michi") {
+		t.Fatalf("user-installed travel definition = %+v, found = %t", travel, ok)
+	}
+	if err := catalogue.Uninstall("move"); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestTheBuiltInDomainsAreFarApart(t *testing.T) {
 	// Choosing who to ask only means something when the answer is not obvious.
@@ -208,28 +249,6 @@ func TestScheduleWakeRequiresTimelineCheckBeforeSpeaking(t *testing.T) {
 	}
 }
 
-func TestMichiCanResolveDestinationsBeforeRouting(t *testing.T) {
-	var michi *Skill
-	for i := range Builtins {
-		if Builtins[i].ID == "move" {
-			michi = &Builtins[i]
-		}
-	}
-	if michi == nil {
-		t.Fatal("michi does not ship")
-	}
-	for _, tool := range []string{"web_search", "place_search", "route"} {
-		if !slices.Contains(michi.Tools, tool) {
-			t.Fatalf("michi lacks %s: %v", tool, michi.Tools)
-		}
-	}
-	for _, rule := range []string{"正式名称・住所・地域", "座標がないことだけを理由にユーザーへ聞き返さない"} {
-		if !strings.Contains(michi.Instructions, rule) {
-			t.Fatalf("michi's instructions lack %q", rule)
-		}
-	}
-}
-
 func TestTabeAnswersRestaurantSearchRequests(t *testing.T) {
 	var tabe *Skill
 	for i := range Builtins {
@@ -245,23 +264,6 @@ func TestTabeAnswersRestaurantSearchRequests(t *testing.T) {
 			t.Fatalf("tabe's instructions lack %q", want)
 		}
 	}
-}
-
-// michi answers with the means that makes sense for the distance: walking when
-// it is close, the car when walking would be absurd, both only in between.
-func TestMichiPicksAPlausibleMeans(t *testing.T) {
-	for _, skill := range Builtins {
-		if skill.ID != "move" {
-			continue
-		}
-		for _, rule := range []string{"徒歩30分以内なら徒歩だけ", "徒歩1時間以上なら", "車だけ", "30分〜1時間のときだけ"} {
-			if !strings.Contains(skill.Instructions, rule) {
-				t.Fatalf("michi lost %q", rule)
-			}
-		}
-		return
-	}
-	t.Fatal("michi is not built in")
 }
 
 // skillStore is a workspace at root, opened afresh each time as a restart

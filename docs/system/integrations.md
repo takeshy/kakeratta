@@ -1,12 +1,12 @@
 ---
 type: "Integration"
 title: "External agents, tools, and sharing"
-description: "External-agent answers over MCP, permitted external tools, weather forecasts, and selected publication to Bluesky."
-tags: ["mcp", "agent", "tools", "bluesky", "sharing", "weather"]
-updated: "2026-10-01"
+description: "External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky."
+tags: ["mcp", "agent", "tools", "support", "bluesky", "sharing", "weather"]
+updated: "2026-10-02"
 ---
 
-External-agent answers over MCP, permitted external tools, weather forecasts, and selected publication to Bluesky.
+External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
 
 # External-agent answers
 
@@ -54,10 +54,15 @@ A tool `Declaration` carries a name, description, JSON Schema, and read-only sta
 | `place_search`, `route` | Operator map endpoints |
 | `weather_forecast` | Operator WeatherAPI key and base URL; read-only current weather and forecasts |
 | `timeline_search` | Workspace search Service |
+| `kakeratta_help` | Read-only OKF specification embedded from `docs/system/`; no credentials or external service |
 | `schedule`, `schedules_list` | User schedules, persona names, and time zone; only `schedules_list` is a research read |
 | `server.tool` | External MCP configured through `KAKERATTA_MCP_SERVERS` |
 
 The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. Returned external text is model input data, not an instruction to expand permissions.
+
+## Reading the kakeratta specification
+
+`kakeratta_help` reads the shipped OKF v0.2 bundle. An omitted `path` returns `index.md`; an explicit path must be one of the seven root Markdown files listed in its schema. The result includes the file name and the entire chapter, including frontmatter and implementation review dates. Unknown files, non-string or empty paths, absolute paths, and traversal are refused. It reads only the embedded bundle, requires no workspace or API key, and exposes neither the host filesystem nor the user's configuration. The internal built-in name is not delegated to external MCP providers. Personas must declare it to use it; research and external-agent reads use the same permission checks as other read-only tools.
 
 ## Weather forecasts
 
@@ -71,6 +76,9 @@ The [WeatherAPI documentation](https://www.weatherapi.com/docs/) defines forecas
 
 ## Implementation and verification
 
+- [kakeratta_help.go](../../internal/tools/kakeratta_help.go): reading the shipped specification
+- [kakeratta_help_test.go](../../internal/tools/kakeratta_help_test.go): chapter retrieval, bundle links, path validation, and declared permissions
+- [bundle.go](./bundle.go): embedded OKF bundle
 - [tools.go](../../internal/tools/tools.go)
 - [config.go](../../internal/tools/config.go)
 - [weather.go](../../internal/tools/weather.go): WeatherAPI requests, validation, projection, and safe errors

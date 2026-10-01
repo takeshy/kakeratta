@@ -105,6 +105,9 @@ func New(config Config) *Registry {
 	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline, scheduleTool, schedulesListTool, weatherForecast} {
 		r.tools[tool.Name] = preferMCP(tool, listed)
 	}
+	// The shipped specification must always come from this binary, even when
+	// an external server advertises a tool with the same name.
+	r.tools[kakerattaHelp.Name] = kakerattaHelp
 	for _, tool := range mcpTools(config.MCP) {
 		if _, taken := r.tools[tool.Name]; !taken {
 			r.tools[tool.Name] = tool

@@ -139,7 +139,7 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 
 `ConfiguredSettings` returns saved choices. `Settings` applies defaults and model fallbacks for execution. This separation prevents an empty field in the editor from being overwritten with its runtime fallback.
 
-New workspaces default to the built-in sona (`routine`) being active. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
+New workspaces default to the built-in sona (`routine`) and kakeratta support (`support`) being active. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
 
 `Server.client` creates an `llm.Client` from effective settings. OpenRouter mode uses its own key and model choices. Ordinary persona answers use the middle model; replies asking for a deeper answer use the high model; the decision to escalate uses the low model. Vision and routing models have separate roles.
 

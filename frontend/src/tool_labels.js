@@ -6,6 +6,7 @@
 // shows a single entry per capability, under the built-in name - the name that
 // also falls back to the built-in call when the server cannot be reached.
 const labels = {
+  kakeratta_help: "kakerattaの仕様を読む",
   web_search: "Webで調べる",
   place_search: "お店や場所を探す",
   route: "行き方を調べる",

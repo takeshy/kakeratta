@@ -1,6 +1,6 @@
 // What the built-in personas are for, in the reader's language.
 //
-// They are named in romaji - tabe, michi, shiori, sona - so that @tabe can
+// They are named in romaji - tabe, shiori, sona, support - so that @tabe can
 // be typed anywhere; the name is the same in both interfaces. Their domains are
 // written in Japanese because the router and the persona read them, so the
 // panel shows this instead.
@@ -12,10 +12,10 @@ const GLOSS = {
     en: "food",
     domain: "Food, drinks, restaurants and meal photos; menus, preferences and choosing what to eat.",
   },
-  move: {
-    ja: "移動",
-    en: "travel",
-    domain: "Plans, wishes or travel to a destination, even just a type of place. The persona researches routes, transport and travel time.",
+  support: {
+    ja: "サポート",
+    en: "support",
+    domain: "Questions and problems about kakeratta: usage, specifications, settings, personas, memory, notifications, search and integrations. Answers from the shipped specification.",
   },
   book: {
     ja: "読書",

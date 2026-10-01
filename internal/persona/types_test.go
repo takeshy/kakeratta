@@ -16,8 +16,8 @@ func TestTheLayoutNamesTheFields(t *testing.T) {
 		t.Fatalf("a persona without a layout keeps %v", got)
 	}
 	want := map[string][]string{
+		"support": {"Issue"},
 		"gourmet": {"Preference", "Shop"},
-		"move":    {"Place"},
 		"book":    {"Book", "Theme"},
 		"routine": {"Routine", "Errand"},
 	}

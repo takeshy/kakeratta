@@ -560,6 +560,18 @@ func setup(t *testing.T, reply func(system, user string) string, active ...strin
 		t.Fatal(err)
 	}
 	catalogue := NewCatalogue(s)
+	for _, id := range active {
+		if id == testTravelSkill.ID {
+			raw, err := json.Marshal(testTravelSkill)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := catalogue.Install(raw, nil); err != nil {
+				t.Fatal(err)
+			}
+			break
+		}
+	}
 	runner := New(s, catalogue, func() (*llm.Client, store.Settings) {
 		return llm.New(server.URL, "test"), s.Settings()
 	})

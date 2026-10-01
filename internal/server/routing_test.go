@@ -37,7 +37,7 @@ func TestRoutingDecisionCanBeRead(t *testing.T) {
 	}
 	if err := workspace.SaveRouting("answered", store.Routing{
 		Delivered: []string{"gourmet"},
-		Excluded:  map[string]string{"move": "移動の話ではない", "book": "本の話ではない", "gone": "消えた担当"},
+		Excluded:  map[string]string{"support": "kakerattaの質問ではない", "book": "本の話ではない", "gone": "消えた担当"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -56,10 +56,10 @@ func TestRoutingDecisionCanBeRead(t *testing.T) {
 		reasons = append(reasons, row.(map[string]any)["reason"].(string))
 		names = append(names, row.(map[string]any)["name"].(string))
 	}
-	if strings.Join(ids, ",") != "book,gone,move" {
+	if strings.Join(ids, ",") != "book,gone,support" {
 		t.Fatalf("excluded not in a fixed order: %v", ids)
 	}
-	if reasons[0] != "本の話ではない" || names[0] != "shiori" || names[1] != "gone" || names[2] != "michi" {
+	if reasons[0] != "本の話ではない" || names[0] != "shiori" || names[1] != "gone" || names[2] != "support" {
 		t.Fatalf("rows = %v %v", names, reasons)
 	}
 
@@ -119,7 +119,7 @@ func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 	if code, out := check("p", `{"persona":"book"}`); code != http.StatusOK || out["answered"] != false || out["error"] == "" {
 		t.Fatalf("no answer: %d %v", code, out)
 	}
-	if code, _ := check("p", `{"persona":"move"}`); code != http.StatusBadRequest {
+	if code, _ := check("p", `{"persona":"support"}`); code != http.StatusBadRequest {
 		t.Fatalf("inactive persona: %d", code)
 	}
 	if code, _ := check("p", `{}`); code != http.StatusBadRequest {
@@ -140,10 +140,15 @@ func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 // persona's own remark, and only signed in.
 func TestReplyPreviewIsGuarded(t *testing.T) {
 	server, workspace := app(t)
+	settings := workspace.ConfiguredSettings()
+	settings.Active = []string{"routine"}
+	if err := workspace.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now()
 	for _, entry := range []timeline.Entry{
 		{ID: "p", Kind: timeline.KindPost, Speaker: timeline.User, Text: "渋谷に行きたい", At: now},
-		{ID: "r", Kind: timeline.KindRemark, Speaker: "move", Root: "p", ReplyTo: "p", Text: "渋谷ですね", At: now.Add(time.Minute)},
+		{ID: "r", Kind: timeline.KindRemark, Speaker: "support", Root: "p", ReplyTo: "p", Text: "渋谷ですね", At: now.Add(time.Minute)},
 	} {
 		if err := workspace.Append(entry); err != nil {
 			t.Fatal(err)
@@ -155,10 +160,10 @@ func TestReplyPreviewIsGuarded(t *testing.T) {
 		return response.Code
 	}
 	for _, tc := range []struct{ id, body string }{
-		{"p", `{"persona":"move"}`},    // not a remark
+		{"p", `{"persona":"support"}`}, // not a remark
 		{"r", `{"persona":"gourmet"}`}, // somebody else's remark
 		{"r", `{}`},                    // no persona
-		{"missing", `{"persona":"move"}`},
+		{"missing", `{"persona":"support"}`},
 	} {
 		if code := preview(tc.id, tc.body); code != http.StatusBadRequest {
 			t.Fatalf("%s %s: %d", tc.id, tc.body, code)
@@ -209,8 +214,8 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 		}
 		return rows
 	}
-	// Turns under way: gourmet has spoken, move and book have not finished.
-	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}}); err != nil {
+	// Turns under way: gourmet has spoken, support and book have not finished.
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "support", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet"}, Spoke: []string{"gourmet"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := workspace.WriteNote("gourmet", "shops/ramen.md", "type: Shop\n\nラーメン", store.NoteSource{EntryID: "p", Label: "ラーメン"}); err != nil {
@@ -223,27 +228,27 @@ func TestRoutingSaysWhoFinishedAndWhoSpoke(t *testing.T) {
 	if notes, ok := rows["gourmet"]["notes"].([]any); !ok || len(notes) != 1 || notes[0] != "shops/ramen.md" {
 		t.Fatalf("gourmet note links = %v", rows["gourmet"]["notes"])
 	}
-	if rows["move"]["noted"] != false {
-		t.Fatalf("a persona without a note on this post = %v", rows["move"])
+	if rows["support"]["noted"] != false {
+		t.Fatalf("a persona without a note on this post = %v", rows["support"])
 	}
-	if rows["move"]["done"] != false || rows["move"]["spoke"] != false {
-		t.Fatalf("a persona still working reads as finished: %v", rows["move"])
+	if rows["support"]["done"] != false || rows["support"]["spoke"] != false {
+		t.Fatalf("a persona still working reads as finished: %v", rows["support"])
 	}
 	// A stored reply outcome is authoritative even when the timeline cannot
 	// identify it by timestamp (for example, both entries share the same time).
-	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet", "move"}, Spoke: []string{"gourmet", "move"}}); err != nil {
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "support", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet", "support"}, Spoke: []string{"gourmet", "support"}}); err != nil {
 		t.Fatal(err)
 	}
-	if rows = read(); rows["move"]["spoke"] != true {
-		t.Fatalf("stored speech outcome was ignored: %v", rows["move"])
+	if rows = read(); rows["support"]["spoke"] != true {
+		t.Fatalf("stored speech outcome was ignored: %v", rows["support"])
 	}
 	// move finished without a word.
-	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "move", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet", "move"}}); err != nil {
+	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"gourmet", "support", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{"gourmet", "support"}}); err != nil {
 		t.Fatal(err)
 	}
 	rows = read()
-	if rows["move"]["done"] != true || rows["move"]["spoke"] != false {
-		t.Fatalf("a quiet persona = %v", rows["move"])
+	if rows["support"]["done"] != true || rows["support"]["spoke"] != false {
+		t.Fatalf("a quiet persona = %v", rows["support"])
 	}
 	// A record from before turns were noted reads as finished.
 	if err := workspace.SaveRouting("p", store.Routing{Delivered: []string{"book"}, Excluded: map[string]string{}}); err != nil {
@@ -295,7 +300,7 @@ func TestRoutingSaysHowAPersonaWasCalled(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := workspace.SaveRouting("p", store.Routing{
-		Delivered: []string{"move", "gourmet", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{}, Spoke: []string{},
+		Delivered: []string{"support", "gourmet", "book"}, Excluded: map[string]string{}, Tracked: true, Done: []string{}, Spoke: []string{},
 		Called: map[string]string{"gourmet": "mention", "book": "reply"},
 	}); err != nil {
 		t.Fatal(err)
@@ -308,7 +313,7 @@ func TestRoutingSaysHowAPersonaWasCalled(t *testing.T) {
 	for _, row := range body.Delivered {
 		via[row["id"].(string)] = row["via"]
 	}
-	if len(body.Delivered) != 3 || via["gourmet"] != "mention" || via["book"] != "reply" || via["move"] != nil {
+	if len(body.Delivered) != 3 || via["gourmet"] != "mention" || via["book"] != "reply" || via["support"] != nil {
 		t.Fatalf("delivered = %v", body.Delivered)
 	}
 }

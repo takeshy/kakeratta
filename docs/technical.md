@@ -659,8 +659,8 @@ A persona is a `skill.json`:
 | `instructions` | What to separate and mark as a guess, when to speak. **Only the persona reads these** |
 | `tools` | Only what is declared can be called |
 
-Four ship with the app — tabe (food), michi (travel), shiori (reading), sona
-(preparation, weather and small follow-ups). sona is active by default in new workspaces; saved activation choices are preserved. More can be
+Four ship with the app — tabe (food), support (kakeratta help), shiori (reading), sona
+(preparation, weather and small follow-ups). sona and support are active by default in new workspaces; saved activation choices are preserved. More can be
 added from the UI, written by hand or drafted with the persona builder
 (Nemotron 3 Ultra).
 

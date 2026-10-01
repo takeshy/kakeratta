@@ -164,7 +164,7 @@
               <thead><tr><th>名前</th><th>分野</th><th>受け取るもの</th></tr></thead>
               <tbody>
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
-                <tr><td><code>@michi</code></td><td>移動</td><td>行き先、経路、所要時間、待ち合わせ、旅程、チケット</td></tr>
+                <tr><td><code>@support</code></td><td>サポート</td><td>kakerattaの使い方・仕様・設定・困りごと（新規利用時は有効）</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
                 <tr><td><code>@sona</code></td><td>備え</td><td>外出前の持ち物、忘れ物、予定と天気を合わせた声かけ。繰り返す用事や一度きりの用の確認。新規利用時は有効</td></tr>
               </tbody>
@@ -341,7 +341,7 @@
             <li><strong>OK</strong> で保存すると、同じ投稿で振り分けを試します。「呼んでほしかった」で狙いどおり呼ばれたら、その担当に元の投稿を渡して返事やメモを残します。違えば理由を見てやり直します。</li>
           </ol>
           <figure>
-            <img src="/captures/ja/condition-fix.png" alt="あなたの理由から AI が書いた michi の新しい判定条件。保存前に手で直せる（サンプル）" loading="lazy" width="382" height="377" />
+            <img src="/captures/ja/condition-fix.png" alt="あなたの理由から AI が書いた ユーザーが作った移動担当 michi の新しい判定条件。保存前に手で直せる（サンプル）" loading="lazy" width="382" height="377" />
             <figcaption>今の条件と、AI が書いた新しい条件（サンプル）。</figcaption>
           </figure>
           <p>変わるのは判定条件だけで、口調や覚え方は変わりません。振り分けに Jev を使っている場合（<a href="#ja-settings">設定とデータ</a>）は理由が表示されませんが、条件は同じ手順で直せます。</p>
@@ -604,7 +604,7 @@
 
           <h3 id="ja-tool-route">経路検索 — route</h3>
           <p>投稿の位置から目的地までの、車・徒歩・自転車での道のりと所要時間の目安を調べます。電車やバス、時刻表、渋滞は含みません。位置情報のない投稿やチェックインでは使えません。本文に出発地を書いても、位置情報の代わりにはなりません。</p>
-          <p>例：「@michi ここから渋谷駅まで徒歩で何分？」</p>
+          <p>移動の担当を作り、この道具を有効にして質問します。例：「@旅 ここから渋谷駅まで徒歩で何分？」</p>
         </section>
 
         <section id="ja-more">
@@ -728,7 +728,7 @@
               <thead><tr><th>Name</th><th>Subject</th><th>What it receives</th></tr></thead>
               <tbody>
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
-                <tr><td><code>@michi</code></td><td>travel</td><td>Destinations, routes, travel time, meeting times, itineraries, tickets</td></tr>
+                <tr><td><code>@support</code></td><td>support</td><td>Questions about kakeratta, its specification, settings and problems (active by default in new workspaces)</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
                 <tr><td><code>@sona</code></td><td>preparation</td><td>Belongings before leaving, past omissions, upcoming plans and forecasts. Gentle follow-ups on small chores. Active by default in new workspaces</td></tr>
               </tbody>
@@ -905,7 +905,7 @@
             <li><strong>OK</strong> saves it and tries the same post again (nobody is woken). If it lands as you meant, the dialog closes; if not, you see why and can try again.</li>
           </ol>
           <figure>
-            <img src="/captures/en/condition-fix.png" alt="A new condition for michi, written by the AI from your reason and open for editing before saving (sample data)" loading="lazy" width="382" height="406" />
+            <img src="/captures/en/condition-fix.png" alt="A new condition for the user-created travel persona michi, written by the AI from your reason and open for editing before saving (sample data)" loading="lazy" width="382" height="406" />
             <figcaption>The current condition and the AI's new one (sample data).</figcaption>
           </figure>
           <p>Only the condition changes; tone and memory rules stay. When routing uses Jev (<a href="#en-settings">Settings and data</a>), no reasons are shown, but conditions are fixed the same way.</p>
@@ -1168,7 +1168,7 @@
 
           <h3 id="en-tool-route">Route search — route</h3>
           <p>Estimates road distance and time from the post's location to a destination by car, on foot, or by bicycle. No trains, buses, timetables or live traffic. It needs a location on the post, so it is unavailable in check-ins; typing a starting place in the text is not the same as a location.</p>
-          <p>Try: “@michi How long to walk from here to Shibuya Station?”</p>
+          <p>Create a travel persona and enable this tool, then try: “@travel How long to walk from here to Shibuya Station?”</p>
         </section>
 
         <section id="en-more">

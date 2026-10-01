@@ -71,7 +71,7 @@ func TestRouteLiveComparison(t *testing.T) {
 				client.HTTP.Transport = meter
 				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 				start := time.Now()
-				got := Route(ctx, client, model.id, Builtins, thread, entry).Deliver
+				got := Route(ctx, client, model.id, append(append([]Skill(nil), Builtins...), testTravelSkill), thread, entry).Deliver
 				duration := time.Since(start)
 				cancel()
 				if meter.err != nil || meter.input == 0 {

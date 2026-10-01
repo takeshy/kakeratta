@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Persona execution and memory"
-description: "Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections."
-tags: ["persona", "skill", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
+description: "Persona definitions, built-in kakeratta support, routing, research, reviewed actions, memory maintenance, schedules, and corrections."
+tags: ["persona", "skill", "support", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
 updated: "2026-10-02"
 ---
 
-Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections.
+Persona definitions, built-in kakeratta support, routing, research, reviewed actions, memory maintenance, schedules, and corrections.
 
 # Persona definitions and the Catalogue
 
@@ -19,6 +19,22 @@ Subject personas cover topics. Person personas use `Kind: person` and have `Alia
 The Catalogue keeps nothing itself. It reads the installed definitions through `Workspace.Skills` - `skills/{id}/skill.json` files, or the Firestore `skills` collection - so a definition changed by another process serving the same user is seen at once. `Install`, `Update`, and `Uninstall` write only through `PersistSkill` and `DeleteSkill`; there is no second copy to keep in step.
 
 A piece of work reads once. `Catalogue.Snapshot` returns a read-only `Skills` (`All`, `Find`, `Active`) that does not change afterwards. A reaction takes one when a worker claims it (`Runner.withSkills`) and keeps it on its context, so the router, every persona's turn, the note keeper, and the periodic checks it runs all see one set; the entry points reached from HTTP (`CheckRouting`, `ApplyRouting`, `ApplyReply`, `PreviewReply`) take one on entry, and handlers that look up several personas take one at the top. Code without a snapshot on its context reads afresh through `Runner.skills`. Prepared entry deliveries persist the routing snapshot as `SkillsJSON`, together with the active persona order, and restore it when claimed, including after restart. A definition changed while a long turn runs takes effect from the next piece of work.
+
+## Shipped personas and retired travel persona
+
+The app ships `tabe` (`gourmet`), `shiori` (`book`), `sona` (`routine`), and `support` (`support`). The former built-in `michi` (`move`) is no longer provided. Without an installed definition, saved `move` activation IDs do not resolve in `Skills.Active`, so it is absent from the persona list and receives no new turns. Existing timeline entries and private memory are retained. A previously customized `move` definition remains available as a user-installed persona and can be paused or removed through normal management. Users can create their own travel persona and declare the existing `route` and `place_search` tools.
+
+Verification: [skill_test.go](../../internal/persona/skill_test.go) checks the retired built-in and preservation of a user-installed travel definition. Cross-persona execution tests use [travel_fixture_test.go](../../internal/persona/travel_fixture_test.go) as a custom persona.
+
+## Built-in kakeratta support
+
+The subject persona `support` (name `support`, icon 🛟) answers questions about kakeratta's usage, specifications, settings, personas, memory, notifications, search, and integrations. Its domain excludes general technical questions and posts that merely mention the app. Users can call it directly with `@support`; ordinary questions reach it through the subject router.
+
+It declares only the read-only `kakeratta_help` tool, reads the OKF bundle's index and relevant chapters before answering, and explains confirmed behavior in the user's language. The specification is the same `docs/system/` bundle developers maintain, embedded in the binary at build time; updating it takes effect in support after rebuilding. It is shared product knowledge, separate from the persona's private memory. The tool is also available to an external planner through the ordinary permitted research path.
+
+The persona keeps an `Issue` field for user-reported unresolved problems and attempted steps, retiring facts when resolved. It does not store its own explanations or guessed causes as user facts. It distinguishes documented behavior from the user's actual configuration and runtime state, asks for missing error/operation details, and never claims to have changed settings or repaired the app. Daily check-ins stay quiet unless an unresolved consultation needs a useful follow-up. New workspaces activate it alongside sona; saved activation choices remain authoritative.
+
+Implementation: [skill.go](../../internal/persona/skill.go), [kakeratta_help.go](../../internal/tools/kakeratta_help.go), [bundle.go](./bundle.go), and [settings.go](../../internal/store/settings.go). Verification: [skill_test.go](../../internal/persona/skill_test.go), [kakeratta_help_test.go](../../internal/tools/kakeratta_help_test.go), and [settings_test.go](../../internal/store/settings_test.go).
 
 ## Management
 

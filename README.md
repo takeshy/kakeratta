@@ -72,7 +72,7 @@ By default, four interest personas are included (no person-based personas
 are set by default):
 
 * **tabe**: Dining & food
-* **michi**: Travel & outings
+* **support**: Questions about kakeratta, answered from its specification (active by default in new workspaces)
 * **shiori**: Reading & books
 * **sona**: Preparing for outings, everyday belongings, weather and small follow-ups (active by default in new workspaces)
 
