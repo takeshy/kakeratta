@@ -126,3 +126,60 @@ test("a subject's speaker card shows its daily check-in and localized domain", a
  assert.equal(domain, getLanguage() === "ja" ? persona.domain : "Food, drinks, restaurants and meal photos; menus, preferences and choosing what to eat.");
  assert.ok(!all.some(n => n.className === "chip ghost schedule"));
 });
+
+test("notification schedules have a separate heading and can be cancelled from the speaker card", async t => {
+ const father = { id: "father", name: "父", schedules: [
+  { id: "first", at: "2026-11-10T00:00:00Z", note: "誕生日" },
+  { id: "second", at: "2026-11-12T00:00:00Z", note: "約束" },
+ ] };
+ const changed = [];
+ const { view } = setup(t, { getPersona: id => id === father.id ? father : null, onPersonasChange: rows => changed.push(rows) });
+ t.mock.method(api, "speaker", async () => pageOf([], 0));
+ let confirmed = false;
+ globalThis.confirm = () => confirmed;
+ t.after(() => { delete globalThis.confirm; });
+ let finish;
+ const deletion = t.mock.method(api, "deleteSchedule", async () => await new Promise(resolve => { finish = resolve; }));
+ await view.show(father.id);
+ const section = nodes(view.element).find(n => n.className === "notification-schedules");
+ assert.equal(section.children[0].textContent, translate("この担当の通知予定"));
+ assert.equal(section.children[1].className, "notification-schedules-list", "the heading is outside the schedule rows");
+ assert.equal(section.children[1].children.length, 2);
+ const button = nodes(section).find(n => n.className === "chip-remove");
+ assert.ok(button["aria-label"].includes("誕生日"));
+ await button.listeners.click({ currentTarget: button });
+ assert.equal(deletion.mock.callCount(), 0, "declining confirmation keeps the schedule");
+ confirmed = true;
+ const pending = button.listeners.click({ currentTarget: button });
+ assert.equal(button.disabled, true);
+ await button.listeners.click({ currentTarget: button });
+ assert.equal(deletion.mock.callCount(), 1, "a pending deletion cannot be submitted twice");
+ assert.deepEqual(deletion.mock.calls[0].arguments, ["father", "first"]);
+ const remaining = [{ ...father, schedules: [father.schedules[1]] }];
+ finish({ personas: remaining });
+ await pending;
+ assert.deepEqual(changed, [remaining], "the response updates the shared persona state");
+ assert.equal(nodes(view.element).filter(n => n.className === "chip ghost schedule").length, 1);
+ assert.ok(nodes(view.element).some(n => n.textContent.includes("約束")));
+});
+
+test("a failed schedule cancellation leaves the reminder visible and allows retry", async t => {
+ const father = { id: "father", name: "父", schedules: [{ id: "once", at: "2026-11-12T00:00:00Z", note: "約束" }] };
+ const { view } = setup(t, { getPersona: () => father });
+ t.mock.method(api, "speaker", async () => pageOf([], 0));
+ const toasts = new TestNode("div");
+ document.querySelector = () => toasts;
+ t.mock.method(globalThis, "setTimeout", () => 0);
+ globalThis.confirm = () => true;
+ t.after(() => { delete globalThis.confirm; });
+ const deletion = t.mock.method(api, "deleteSchedule", async () => { throw new Error("cannot delete"); });
+ await view.show(father.id);
+ const button = nodes(view.element).find(n => n.className === "chip-remove");
+ await button.listeners.click({ currentTarget: button });
+ assert.equal(button.disabled, false);
+ assert.equal(nodes(view.element).filter(n => n.className === "chip ghost schedule").length, 1);
+ assert.ok(nodes(toasts).some(n => n.textContent === "cannot delete"));
+ deletion.mock.mockImplementation(async () => ({ personas: [{ ...father, schedules: [] }] }));
+ await button.listeners.click({ currentTarget: button });
+ assert.equal(nodes(view.element).filter(n => n.className === "notification-schedules").length, 0, "the section disappears after its last schedule is removed");
+});

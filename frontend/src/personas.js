@@ -15,7 +15,7 @@ export { basicInfoBox };
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
 import { uniqueTools } from "./tool_labels.js";
-import { scheduleWhen, toolLink, checkInHint } from "./persona-display.js";
+import { notificationSchedules, toolLink, checkInHint } from "./persona-display.js";
 
 // The panel shows subjects and people apart, each with a search, and people
 // can be put in name order. Which tab and which order are the viewer's own
@@ -78,6 +78,12 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   let order = remembered("kakeratta.personas.order", "added", ["added", "name"]);
   let query = "";
   const list = el("div", { class: "persona-list" });
+
+  function updateRows(next) {
+    rows = next;
+    onChange?.(rows);
+    draw();
+  }
 
   async function load({ quiet = false } = {}) {
     try {
@@ -332,28 +338,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     box.append(controls);
     box.append(el("p", { class: "hint", text: checkInHint(row) }));
     if (row.schedules?.length) {
-      box.append(el("div", { class: "compose-row" },
-        el("span", { class: "hint", label: "この担当の通知予定" }),
-        ...row.schedules.map((schedule) => {
-          const text = `${scheduleWhen(schedule)} · ${schedule.note || ""}`.trim();
-          return el("span", { class: "chip ghost schedule", text },
-            el("button", { type: "button", class: "chip-remove", text: "×", "aria-label": t("予定「{0}」を消す", text),
-              onclick: async (event) => {
-                const button = event.currentTarget;
-                if (!confirm(t("予定「{0}」を消しますか", text))) return;
-                button.disabled = true;
-                try {
-                  const payload = await api.deleteSchedule(row.id, schedule.id);
-                  rows = payload.personas || rows;
-                  onChange?.(rows);
-                  draw();
-                } catch (error) {
-                  toast(String(error.message || error), "error");
-                  button.disabled = false;
-                }
-              } }));
-        }),
-      ));
+      box.append(notificationSchedules(row, (payload) => updateRows(payload.personas || rows)));
       box.append(el("p", { class: "hint", label: "基本情報やかけらから登録された予定と、担当が置いた予定です。不要なら × で消せます。" }));
     }
     if (row.tools?.length) {
@@ -605,6 +590,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     element: view,
     load,
     rows: () => rows,
+    updateRows,
     // The banner on the main screen can put someone in the room without
     // opening this panel at all.
     activate: (id) => setActive(id, true),

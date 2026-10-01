@@ -8,9 +8,9 @@ import { createFeed } from "./feed.js";
 import { basicInfoBox } from "./person-basic-info.js";
 import { gloss } from "./builtins.js";
 import { uniqueTools } from "./tool_labels.js";
-import { scheduleWhen, toolLink, checkInHint } from "./persona-display.js";
+import { notificationSchedules, toolLink, checkInHint } from "./persona-display.js";
 
-export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryChange, onReply, onSpeak, onOpenPersona, onOpenMemory, onEditPersona }) {
+export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryChange, onReply, onSpeak, onOpenPersona, onOpenMemory, onEditPersona, onPersonasChange }) {
   const status = el("p", { class: "hint", role: "status", "aria-live": "polite" });
   const cardHost = el("div", { class: "speaker-card-host" });
   cardHost.hidden = true;
@@ -52,10 +52,11 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
     }
     node.append(el("p", { class: "hint", text: checkInHint(row) }));
     if (row.schedules?.length) {
-      node.append(el("div", { class: "compose-row" },
-        el("span", { class: "hint", label: "この担当の通知予定" }),
-        ...row.schedules.map((schedule) => el("span", { class: "chip ghost schedule",
-          text: `${scheduleWhen(schedule)} · ${schedule.note || ""}`.trim() }))));
+      node.append(notificationSchedules(row, (payload) => {
+        row.schedules = payload.personas?.find(persona => persona.id === row.id)?.schedules || [];
+        onPersonasChange?.(payload.personas);
+        drawCard();
+      }));
     }
     if (row.tools?.length) {
       node.append(el("p", { class: "tools" }, `${t("道具")}: `,

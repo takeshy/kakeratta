@@ -122,6 +122,7 @@ const searchPanel = createSearch({
 });
 
 const speakerPanel = createSpeaker({
+  onPersonasChange: (rows) => personas.updateRows(rows),
   getSettings: () => settings,
   onSpeak: speakThread,
   getPersonas: () => personaRows,

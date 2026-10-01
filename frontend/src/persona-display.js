@@ -1,5 +1,6 @@
 // Display text shared by the persona list and the timeline's speaker card.
-import { el } from "./dom.js";
+import { el, toast } from "./dom.js";
+import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { capability, toolLabel } from "./tool_labels.js";
 
@@ -42,4 +43,28 @@ export function checkInHint(row) {
     : t(schedule.talk === "minimal"
       ? "毎日7時〜21時のどこかで起きます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。"
       : "毎日7時〜21時のどこかで起き、最近の記録・これからの予定・自分の記憶を照らし合わせ、今役立つことがあるときに話します。");
+}
+
+// Both persona views use the same layout and confirmed cancellation operation.
+export function notificationSchedules(row, onDeleted) {
+  if (!row.schedules?.length) return null;
+  return el("div", { class: "notification-schedules" },
+    el("p", { class: "hint notification-schedules-heading", label: "この担当の通知予定" }),
+    el("div", { class: "notification-schedules-list" }, ...row.schedules.map((schedule) => {
+      const text = `${scheduleWhen(schedule)} · ${schedule.note || ""}`.trim();
+      return el("span", { class: "chip ghost schedule", text },
+        el("button", { type: "button", class: "chip-remove", text: "×", "aria-label": t("予定「{0}」を消す", text),
+          onclick: async (event) => {
+            const button = event.currentTarget;
+            if (button.disabled || !confirm(t("予定「{0}」を消しますか", text))) return;
+            button.disabled = true;
+            try {
+              const payload = await api.deleteSchedule(row.id, schedule.id);
+              onDeleted(payload);
+            } catch (error) {
+              toast(String(error.message || error), "error");
+              button.disabled = false;
+            }
+          } }));
+    })));
 }
