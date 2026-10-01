@@ -19,9 +19,10 @@ const trialKeep = 15 * time.Minute
 // trialRecord is one trial as the workspace keeps it: a routing check or a
 // reply preview, and how far applying it has got.
 type trialRecord struct {
-	Routing *routingTrial `json:"routing,omitempty"`
-	Reply   *replyTrial   `json:"reply,omitempty"`
-	At      time.Time     `json:"at"`
+	Organization *organizationTrial `json:"organization,omitempty"`
+	Routing      *routingTrial      `json:"routing,omitempty"`
+	Reply        *replyTrial        `json:"reply,omitempty"`
+	At           time.Time          `json:"at"`
 	// Applying is set while one request applies it; Applied once it has.
 	Applying bool `json:"applying,omitempty"`
 	Applied  bool `json:"applied,omitempty"`

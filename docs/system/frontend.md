@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, requests, live updates, offline delivery, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser"]
-updated: "2026-09-30"
+updated: "2026-10-01"
 ---
 
 Frontend composition, requests, live updates, offline delivery, speech input, and read-aloud.
@@ -58,6 +58,12 @@ A person's card shows its basic information in a collapsed **Basic information**
 - [Personas.stories.js](../../frontend/stories/Personas.stories.js)
 - [captures.mjs](../../frontend/captures.mjs)
 
+
+# User-approved note organization
+
+Each persona's memory dialog contains **Organize notes** ([memory-organize.js](../../frontend/src/memory-organize.js), wired by [personas.js](../../frontend/src/personas.js)). The user describes the desired organization and chooses the built-in AI or, when connected and unpaused, the external agent using the currently selected connection. Research presents a policy and expandable full replacement bodies and deletion paths. Only **OK, apply this plan** calls the apply endpoint. Editing the request or changing the AI invalidates the displayed approval. External research is polled every three seconds while the dialog is attached; closing it stops polling. Successful application reloads the memory page and overview. The research endpoint uses the transport's 250-second timeout.
+
+Verification: [memory-organize.test.js](../../tests/memory-organize.test.js) checks approval, request changes, agent selection, and safe rendering of proposed bodies.
 
 # Frontend requests and account checks
 

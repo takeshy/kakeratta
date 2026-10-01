@@ -765,3 +765,9 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .persona-menu { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); padding: 16px; }
 .persona-menu[open] { display: flex; flex-direction: column; gap: 10px; min-width: 12rem; }
 .persona-menu::backdrop { background: #0005; }
+
+.memory-organization { margin: 12px 0; }
+.memory-organization > summary { cursor: pointer; font-weight: 600; }
+.memory-organization > label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.memory-organization pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; font-size: 0.84rem; }
+.memory-organization details { margin: 8px 0; }

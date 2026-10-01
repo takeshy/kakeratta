@@ -1,6 +1,19 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "メモを整理する": "Organize notes",
+ "どのように整理したいですか": "How would you like to organize the notes?",
+ "例: 同じ話題のメモをまとめ、好みとお店に分けて整理して": "e.g. Merge notes on the same topic and group them into preferences and places",
+ "調査するAI": "AI for research",
+ "内蔵AI": "Built-in AI",
+ "OK、この方針で実行": "OK, apply this plan",
+ "調べて整理方針を出す": "Research and propose a plan",
+ "メモを整理しました": "Notes organized",
+ "外部エージェントの調査を待っています。承認するまでメモは変更されません。": "Waiting for the external agent's research. Notes will change after approval.",
+ "整理方針と変更内容を確認してください。OKで実行します。": "Review the plan and changes. Press OK to apply them.",
+ "メモを調べています。承認するまでメモは変更されません。": "Researching the notes. Notes will change after approval.",
+ "整理の希望を伝えると、AIがメモを調べて方針を提案します。確認してOKを押すと実行します。": "Describe how to organize your notes. AI will research and propose a plan. Review it and press OK to apply it.",
+
  "Hermes連携の使い方（別タブで開く）": "Hermes setup guide (opens in a new tab)",
  "外部エージェント連携（Hermes）": "External agent (Hermes)",
  "担当画面で「外部エージェントを優先する」をONにした担当は、調べものと回答を接続したエージェントに任せます。記憶・予定・操作はアプリが決めて実行します。": "A persona with “Prefer the external agent” on in Personas leaves the research and the answer to the connected agent. The app decides and runs its notes, schedules and actions.",

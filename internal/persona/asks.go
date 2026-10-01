@@ -43,6 +43,7 @@ type askRecord struct {
 
 // askTurn is what the turn was started with, to start it again from.
 type askTurn struct {
+	Organization string          `json:"organization,omitempty"`
 	Persona      string          `json:"persona"`
 	Trigger      timeline.Entry  `json:"trigger"`
 	Place        *timeline.Place `json:"place,omitempty"`
@@ -308,6 +309,9 @@ func (r *Runner) SubmitAskAnswer(ctx context.Context, id, claimID string, answer
 		if len(problems) == 0 {
 			record.Closed, record.Answer = true, answer
 			verdict = AskVerdict{Accepted: true, Closed: true, Note: "回答を受け付けました。本体が記憶・操作を判断し、必要な確認と実行後に公開します。"}
+			if record.Turn.Organization != "" {
+				verdict.Note = "整理方針を受け付けました。変更案を作成し、ユーザーの承認を待ちます。"
+			}
 			return true, nil
 		}
 		record.Malformed++
@@ -427,6 +431,11 @@ func (r *Runner) resumeAsk(ctx context.Context, id string) {
 		if err := r.store.UpdateRecord(ctx, store.RecordAsks, id, time.Time{}, func([]byte, bool) ([]byte, error) { return nil, nil }); err != nil {
 			r.emit("error", map[string]any{"where": "ask", "message": err.Error()})
 		}
+	}
+	if record.Turn.Organization != "" {
+		r.resumeOrganization(ctx, record)
+		forget()
+		return
 	}
 	turn, err := r.askTurnContext(ctx, record)
 	if err != nil {

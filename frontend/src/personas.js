@@ -12,6 +12,7 @@ import { showPersonaEditor } from "./persona-editor.js";
 import { basicInfoBox } from "./person-basic-info.js";
 export { basicInfoBox };
 import { gloss } from "./builtins.js";
+import { createMemoryOrganization } from "./memory-organize.js";
 import { createMemoryView } from "./memory.js";
 import { capability, toolLabel, uniqueTools } from "./tool_labels.js";
 
@@ -520,7 +521,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     backdrop.addEventListener("keydown", (event) => {
       if (event.key === "Escape") { event.preventDefault(); close(); }
       if (event.key !== "Tab") return;
-      const focusable = [...backdrop.querySelectorAll("button, a[href], summary, textarea")]
+      const focusable = [...backdrop.querySelectorAll("button, a[href], summary, textarea, select, input")]
         .filter(node => !node.disabled && node.getClientRects().length);
       const first = focusable[0], last = focusable.at(-1);
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -539,6 +540,16 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
           ? basicInfoBox(row, () => { close(); showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus: "basicInfo" }); }, { open: true })
           : null,
         el("p", { class: "hint", label: "担当が保存したメモです。根拠のリンクから元の投稿や関連する記憶を確認できます。" }),
+        createMemoryOrganization({ api, id: row.id, externalAvailable: mcpConfigured && !agentPaused, onApplied: async () => {
+          const generation = ++memoryGeneration;
+          const page = await api.memory(row.id);
+          memory.paths = page.paths || [];
+          const notes = await withOverview(page.notes || []);
+          if (generation !== memoryGeneration) return;
+          Object.assign(memory, { notes, next: page.next || "", filter: { tag: "", type: "" } });
+          drawMemory();
+          toast(t("メモを整理しました"));
+        } }),
         memoryHost,
         el(
           "div",

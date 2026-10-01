@@ -3,7 +3,7 @@ type: "Integration"
 title: "External agents, tools, and sharing"
 description: "External-agent answers over MCP, permitted external tools, and selected publication to Bluesky."
 tags: ["mcp", "agent", "tools", "bluesky", "sharing"]
-updated: "2026-09-30"
+updated: "2026-10-01"
 ---
 
 External-agent answers over MCP, permitted external tools, and selected publication to Bluesky.
@@ -37,6 +37,10 @@ An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the
 - [mcp_connections.go](../../internal/server/mcp_connections.go)
 - [planner_test.go](../../internal/persona/planner_test.go)
 - [hermes.md](../hermes.md)
+
+## Note organization asks
+
+A user may select the connected external agent for an individual note-organization request regardless of the persona's ordinary planner choice. `organize_notes` asks use the same claim, read, submit, release, and timeout lifecycle. The answer is research and a proposed organization policy. The host builds a concrete change preview and waits for explicit user approval before writing notes; the policy is not published to the timeline. MCP tool descriptions and server instructions describe this distinction. The connection selected in settings handles the request.
 
 # Persona tools and external MCP
 

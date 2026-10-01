@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections."
 tags: ["persona", "skill", "routing", "answer", "workflow", "memory", "okf", "schedule", "daily", "preview", "trial"]
-updated: "2026-09-30"
+updated: "2026-10-01"
 ---
 
 Persona definitions, routing, research, reviewed actions, memory maintenance, schedules, and corrections.
@@ -141,6 +141,16 @@ The keeper's input is persisted as a `NoteJob`. Failures retry with increasing d
 - [note_sources.go](../../internal/store/note_sources.go)
 - [notekeeper_test.go](../../internal/persona/notekeeper_test.go)
 - [note_retry_test.go](../../internal/persona/note_retry_test.go)
+
+# User-approved note organization
+
+[organize.go](../../internal/persona/organize.go) researches one active persona's complete current notes with the user's instructions and proposes a policy and exact replacements/deletions. The full-text request is limited to 600,000 JSON bytes and fails rather than truncating notes. Proposals validate paths, body size, types, and consolidation source paths. A `dryWorkspace` collects changes without writing notes and repairs the index before the proposal is displayed. Replacements inherit their existing source posts and explicitly named consolidation sources.
+
+Organization proposals are `trials` runtime records with a one-hour lifetime, the persona definition, and a digest of all original notes including write times and provenance. Applying uses the persona's `keeper:{id}` lock, checks that the persona remains active and its definition and notes match, and saves exactly the approved changes without another model call. Destinations are written before deletions. A completed token can be retried without repeating changes. Application is not atomic across notes: a storage failure or interruption may leave partial writes; an applying or failed token cannot be replayed, and the user must research the remaining state again.
+
+Selecting the external agent opens an `organize_notes` ask with the user request, index, paginated note listing, and read-only tools. The external agent submits research and a policy through the existing ask lifecycle. Resuming the closed ask builds a host-generated change preview and waits for user approval; release and timeout also produce a built-in preview. Organization creates no timeline entry, schedule, or wake count.
+
+Verification: [organize_test.go](../../internal/persona/organize_test.go) covers approval, exact application across runners, retained provenance, stale and expired proposals, external research, and timeout fallback.
 
 # Schedules, check-ins, and monthly summaries
 

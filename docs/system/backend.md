@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication, entry handling, timeline data, persistence, settings, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index"]
-updated: "2026-09-30"
+updated: "2026-10-01"
 ---
 
 Authentication, entry handling, timeline data, persistence, settings, and search.
@@ -97,6 +97,18 @@ The frontend's `createTimelinePages` merges fetched pages with live changes. Rep
 - [timeline-pages.js](../../frontend/src/timeline-pages.js)
 - [timeline_page_test.go](../../internal/store/timeline_page_test.go)
 - [timeline-pages.test.js](../../tests/timeline-pages.test.js)
+
+# Note organization API
+
+[organize.go](../../internal/server/organize.go) exposes authenticated persona-scoped organization endpoints:
+
+| Endpoint | Result |
+| --- | --- |
+| `POST /api/personas/{id}/memory/organize` | Accepts `request` (up to 4,000 characters) and `planner` (`builtin` or `external`); returns a token, status, policy, and proposed changes. External research initially returns `researching` and requires a configured connection. |
+| `GET /api/personas/{id}/memory/organize?token=...` | Reads the persisted preview, including research failures. |
+| `POST /api/personas/{id}/memory/organize/apply` | Accepts `token`; writes only the saved proposal after approval. Stale or inapplicable proposals return HTTP 409. |
+
+See [User-approved note organization](./personas.md#user-approved-note-organization) for persistence, validation, and partial-failure behavior.
 
 # Workspace persistence
 
