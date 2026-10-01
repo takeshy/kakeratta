@@ -246,3 +246,72 @@ func TestProseReadsAsTheSummaryUntilSplit(t *testing.T) {
 		t.Fatalf("Shop = %+v", got)
 	}
 }
+
+// A fact names a day in any of the ways people write one, and has passed only
+// when every day it names has.
+func TestAFactsDaysArePastOrNot(t *testing.T) {
+	today := time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC)
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	for text, want := range map[string]bool{
+		"2026-10-03 13:00 に美容室の予約": true,
+		"10/3 に美容室":                true,
+		"10月3日に美容室":                true,
+		"2026年10月6日に会う":            false,
+		"10/3 と 10/9 に通院":          false,
+		"毎朝8:00に薬を飲む":              false,
+		"一風堂のカタ麺が好き":               false,
+	} {
+		if got := datedPast(fact{Text: text, Since: since}, today); got != want {
+			t.Errorf("datedPast(%q) = %v, want %v", text, got, want)
+		}
+	}
+}
+
+// At the check-in, a field whose facts did not change is still handed when a
+// fact in it names a day that has gone: a plan whose day passed is retired,
+// an event that happened stays, and the summary takes it in.
+func TestPastPlansAreRetiredAtTheCheckIn(t *testing.T) {
+	r, s, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
+	settings := s.Settings()
+	settings.TimeZone = "UTC"
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	day := checkInDay(s, time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC), "routine")
+	summaryDay := day.AddDate(0, 0, -1)
+	errand := fieldFacts{Summary: "10/3 に美容室。9/30 に父へ贈り物。", SummaryAt: summaryDay, Current: []fact{
+		{ID: "f_cut", Text: "2026-10-03 13:00 に美容室の予約", Since: time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)},
+		{ID: "f_gift", Text: "2026-09-30 に父へ生ハムを送った", Since: time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)},
+		{ID: "f_later", Text: "2026-12-01 に歯医者", Since: time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)},
+	}}
+	if err := s.WriteNote("routine", "Errand.md", factsText("Errand", errand, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	f.summarize = func(system, user string) string {
+		if !strings.Contains(user, "[f_cut]") || !strings.Contains(user, "[f_gift]") || strings.Contains(user, "[f_later]") || strings.Contains(user, "（まとめ文を書き直す分野）") {
+			t.Errorf("the past facts were not handed alone:\n%s", user)
+		}
+		return `{"summaries":[{"field":"Errand","text":"9/30 に父へ贈り物をした。"}],"invalidate":["f_cut"]}`
+	}
+	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
+	if len(f.summaries) != 1 {
+		t.Fatalf("rewrites = %d", len(f.summaries))
+	}
+	got := r.loadFacts(sonaSkill(t, r), time.UTC).ByField["Errand"]
+	var current []string
+	for _, f := range got.Current {
+		current = append(current, f.ID)
+	}
+	if strings.Join(current, ",") != "f_gift,f_later" || len(got.Past) != 1 || got.Past[0].ID != "f_cut" || got.Summary != "9/30 に父へ贈り物をした。" {
+		t.Fatalf("Errand = %+v", got)
+	}
+}
+
+func sonaSkill(t *testing.T, r *Runner) Skill {
+	t.Helper()
+	skill, ok := r.catalogue.Find(context.Background(), "routine")
+	if !ok {
+		t.Fatal("no routine persona")
+	}
+	return skill.forTurn()
+}

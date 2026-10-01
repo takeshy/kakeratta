@@ -426,7 +426,10 @@ fragment, or a retry, replaces its record rather than adding a second.
 daily, or monthly for a person looked back on monthly - and before it is woken
 for it, one call rewrites the summary of each field whose facts changed since
 the summary's day, handed the summary as it is, the facts added, changed and
-retired, and all that hold now. A field with nothing new costs nothing.
+retired, and all that hold now. The same call is handed the facts that name
+only days already gone, and retires those that were plans - a reservation, an
+appointment - while an event that happened stays. A field with nothing new and
+nothing past costs nothing.
 
 If the keeper cannot finish, the answer is already out. Its input is saved as a
 note job before it runs, and failed memory work is retried after one minute,

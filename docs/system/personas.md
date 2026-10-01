@@ -155,6 +155,8 @@ An id used twice, an id that does not hold now, an unknown field, an empty or ov
 
 [summaries.go](../../internal/persona/summaries.go). A field's summary is rewritten at the persona's check-in - daily, or monthly for a person looked back on monthly, minimal or sharing alike - right after `dailyAt` claims the check-in and before the persona is woken for it, so the check-in reads it fresh (`rewriteSummaries`). Only the fields with something new since the summary's day are rewritten (`staleFields`, `changedSince`: facts held since, or ended, on or after that day; a summary never written takes everything in), and a field is not rewritten twice in a day. One `write_summaries` call on the persona model is handed, per field, the summary as it is, the facts added or changed, those that stopped holding, and all that hold now, and returns the new prose (sent back up to three times if a field is unknown, empty, or over 2,000 characters). Every field handed is marked with today's day, written or not, so it is not asked about again until more changes. A failed rewrite is tried at the next check-in. Facts are dated by day, so a fact added on a summary's own day is taken in again the next time.
 
+The same call retires plans whose day has passed. A fact that holds now and names only days before today - `2026-10-03`, `2026年10月3日`, `10/3`, `10月3日`, a day without a year read in the year the fact began (`datedPast`, `pastDated`) - is handed with its id, and its field is handed even if nothing else in it changed. The model returns `invalidate` with the ids of those that are no longer ahead - a reservation, an appointment, a deadline - and leaves events that happened, which stay true; those ids move to the past (`planFacts`) before the summaries are written, and the summary may be rewritten for them. With no changed field and no past-dated fact, no model is called.
+
 ## Record dates, extension, and review
 
 The keeper dates each new record from what it is ([review.go](../../internal/persona/review.go), `keeperDates`): `expires` - the next day, say - for a kakera that served its moment ("where for lunch today?", "how do I get to Shibuya?"), and `review` - weeks for a shop the user wants to try, months for a topic - for something the user said whose lifetime is unknown; preferences and habits get neither. A day must be tomorrow or later (`checkKept`). Built-in layouts say which of their records get which.
@@ -180,14 +182,14 @@ Fields were once prose, rewritten whole by the keeper. A field-shaped file with 
 ## Implementation and verification
 
 - [facts.go](../../internal/persona/facts.go): fact lines, `planFacts`, `writeFacts`, `dropFactSources`, `renderFacts`
-- [summaries.go](../../internal/persona/summaries.go): `rewriteSummaries`, `staleFields`
+- [summaries.go](../../internal/persona/summaries.go): `rewriteSummaries`, `staleFields`, `datedPast`
 - [memory.go](../../internal/persona/memory.go): record lines, `memoryView`, `findRecords`
 - [notekeeper.go](../../internal/persona/notekeeper.go): `keepNotes`, `checkKept`, `appendRecord`, `dropRecords`
 - [notes_tools.go](../../internal/persona/notes_tools.go): `readRecords`, `similarKakera`, `recordEntry`, `RecordsTagged`
 - [migrate.go](../../internal/persona/migrate.go): `MigrateMemory`, `ApplyMigration`
 - [review.go](../../internal/persona/review.go): `reviewsDue`, `reviewReply`, `handedRecords`, `expireRecords`
 - [note_retry.go](../../internal/persona/note_retry.go)
-- [facts_test.go](../../internal/persona/facts_test.go): fact operations and their history, the field limit, records found through their kakera, summaries rewritten at the check-in, a fact put right or forgotten by the user, facts going with a record forgotten or expired
+- [facts_test.go](../../internal/persona/facts_test.go): fact operations and their history, the field limit, records found through their kakera, summaries rewritten at the check-in, past plans retired there and past events kept, a fact put right or forgotten by the user, facts going with a record forgotten or expired
 - [notekeeper_test.go](../../internal/persona/notekeeper_test.go): records under the reply or the kakera, edits replacing a record, sent-back submissions, record dates and their round trip, extension on reading, the review asked and settled, the turn's memory view, reading recorded posts together, splitting prose into facts
 - [due_test.go](../../internal/persona/due_test.go): expired records and the next expiry
 - [forgotten_test.go](../../internal/persona/forgotten_test.go): records dropped and re-keyed, facts losing their sources on deletion, the tidy-up wake

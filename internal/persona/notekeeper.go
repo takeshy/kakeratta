@@ -184,6 +184,7 @@ type keeperRecord struct {
 	Attempts  int         `json:"attempts,omitempty"`
 	Kept      *keptMemory `json:"kept,omitempty"`
 	Summaries []string    `json:"summaries,omitempty"`
+	Retired   []string    `json:"retired,omitempty"`
 	Error     string      `json:"error,omitempty"`
 }
 
