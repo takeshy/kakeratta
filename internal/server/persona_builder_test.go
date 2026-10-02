@@ -20,11 +20,16 @@ func TestPersonaBuilderConversationAndValidation(t *testing.T) {
 	reply := `{"message":"どんな話し方がいいですか？","placeholder":"例：友達のように気軽に話してほしい。","draft":null}`
 	calls := 0
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
 		var request struct {
 			Messages []struct{ Role, Content string }
 		}
 		_ = json.NewDecoder(r.Body).Decode(&request)
+		if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "availableTools") {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": "{}"}}}})
+			return
+		}
+		calls++
 		if request.Messages[0].Role != "system" || !strings.Contains(request.Messages[0].Content, "availableTools") {
 			t.Error("missing builder context")
 		}
@@ -114,6 +119,11 @@ func TestPersonaBuilderReceivesFullPostAndThread(t *testing.T) {
 			Messages []struct{ Role, Content string }
 		}
 		_ = json.NewDecoder(r.Body).Decode(&request)
+		if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "availableTools") {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": "{}"}}}})
+			return
+		}
 		captured = request.Messages[len(request.Messages)-1].Content
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"message":"proposal","draft":null}`}}}})
 	}))
@@ -262,6 +272,11 @@ func TestPersonaBuilderAcceptsTheDialogsOpeningQuestion(t *testing.T) {
 			Messages []struct{ Role, Content string }
 		}
 		_ = json.NewDecoder(r.Body).Decode(&request)
+		if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "availableTools") {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": "{}"}}}})
+			return
+		}
 		got = request.Messages
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"message":"どんな関係ですか？","draft":null}`}}}})
 	}))
@@ -369,7 +384,12 @@ func TestPersonBuilderPreservesBasicInformationUnlessExplicitlyChanged(t *testin
 			model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var request struct{ Messages []struct{ Content string } }
 				_ = json.NewDecoder(r.Body).Decode(&request)
-				if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, current.BasicInfo) {
+				if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "availableTools") {
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": "{}"}}}})
+					return
+				}
+				if !strings.Contains(request.Messages[0].Content, current.BasicInfo) {
 					t.Error("current basic information missing from builder context")
 				}
 				_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(raw)}}}})

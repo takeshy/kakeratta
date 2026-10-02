@@ -20,7 +20,7 @@
         // A link to a section opens the half of the manual that holds it, so
         // the app's links to a tool or to Hermes land on something visible.
         var hash = /^#(ja|en)-(.+)$/.exec(location.hash);
-        var advanced = /^(routing|reply-fix|wakes|bluesky|hermes|settings|tools|tool-.+|more)$/;
+        var advanced = /^(routing|people-keywords|reply-fix|wakes|daily-advanced|summary-advanced|person-events|memory-system|bluesky|hermes|settings|tools|tool-.+|more)$/;
         var guide = hash ? (advanced.test(hash[2]) ? "advanced" : "beginner")
           : params.get("guide") === "advanced" ? "advanced" : "beginner";
         document.documentElement.dataset.guide = guide;
@@ -178,91 +178,54 @@
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
           </figure>
           <h3>AI と担当を作る</h3>
-          <p><code>@</code> で指名した投稿や、有効な担当への返信は、宛先の担当だけに届きます。別の担当を指名した場合は指名が優先されます。それ以外は担当条件や人物の呼び名・キーワードで届け先を選びます。</p>
-          <p>作成・修正時に <strong>記憶する</strong> と <strong>常に熟考する</strong> を選べます。記憶をオフにすると記憶の読み取り・更新と定期チェックインが止まります。既存の記憶は保存したままで、明示的な通知予定は使えます。常に熟考をオンにすると通常の依頼もUltraで回答します。</p>
-          <p>図解したい投稿や回答に <code>@infographic これをインフォグラフィックにして</code> と返信します。別の担当の回答に返信した場合、その回答を図解します。「元の投稿を」「スレッド全体を」と明示して対象を変えることもできます。URLは展開された記事本文、画像は読み取り済みの説明や文字を材料にします。図解は依頼時の表示言語に翻訳され、画面内にHTMLで表示されます。既存の利用者は担当一覧で有効にしてください。</p>
           <ol>
             <li><strong>担当</strong> を開き、<strong>関心ごと</strong> タブで <strong>AIと担当を作る</strong> を選びます。人物を覚える担当は、<a href="#ja-people">人物タブから作ります</a>。</li>
             <li>「どんなことの担当を作りたい？」に自分の言葉で答えます。「ワイン」だけでも始められます。<br />例：<em>美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</em></li>
             <li>AI が名前、話し方、覚えることの下書きを作ります。確認して <strong>この内容で保存</strong>。</li>
             <li><strong>有効にする</strong> と、以後のかけらを受け取り始めます。</li>
           </ol>
+          <p>作成・修正時に <strong>記憶する</strong>（オフにすると記憶を持たない回答専門になり、費用削減や不要なメモ防止になります）や、<strong>常に熟考する</strong>（通常の依頼もUltraで回答）を選べます。</p>
           <figure>
             <img src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="382" height="1115" />
             <figcaption>下書きは、担当すること、話し方、メモの分類、覚えること・返事をするタイミングの順に確認できます。</figcaption>
           </figure>
           <h3 id="ja-people">人物の担当</h3>
-          <p>母や友人のように、<strong>特定の一人を覚える担当</strong>も作れます。<strong>担当</strong> の <strong>人物</strong> タブで <strong>AIと担当を作る</strong> を選ぶと、「誰のことを覚える担当を作りたい？名前や呼び名、あなたとの関係を教えてください。」と尋ねられます。入力欄の例を参考に、「大学時代の友人の佐藤さん。さっちゃんと呼んでいて、たまに一緒に食事をします。」のように答えると、人物の担当の下書きができます。今ある担当を <strong>修正</strong> で <strong>人物の担当</strong> にすることもできます。</p>
+          <p>母や友人のように、<strong>特定の一人を覚える担当</strong>も作れます。<strong>担当</strong> の <strong>人物</strong> タブで <strong>AIと担当を作る</strong> を選ぶと、「誰のことを覚える担当を作りたい？名前や呼び名、あなたとの関係を教えてください。」と尋ねられます。入力欄の例を参考に、「大学時代の友人の佐藤さん。さっちゃんと呼んでいて、たまに一緒に食事をします。」のように答えると、人物の担当の下書きができます。人物を覚える担当かどうかは作成時に決まり、あとから切り替えることはできません。</p>
           <ul>
-            <li><strong>人物の担当は、本体の振り分けを通りません。</strong> かけらに <strong>呼び名</strong> か <strong>キーワード</strong> がそのまま書かれているときだけ届きます。写真から読み取った文字も対象です。<code>@呼び名</code> で指名することもできます。</li>
-            <li>全角・半角、ひらがな・カタカナ、末尾の「さん」「くん」などは区別しません。「佐藤」を登録すれば「佐藤くん」「さとうさん」にも届きます。</li>
-            <li>名前を出さない話も拾えるよう、キーワードには言い換えや似た言葉を並べます（例：釣り、つり、釣行、海釣り）。AI で作ると、呼び名の書き方の違いとキーワードの似た言葉をまとめて入れます。</li>
-            <li>「母」で「母校」の話が届くように、文字が合っただけで届くことがあります。担当はその人の話かを確かめ、関係なければ何もしません。</li>
-            <li>人物の担当はその人について分かったこと（好み、誕生日など）と、その人との出来事（会話、贈り物、約束、貸し借り）を覚えます。貸し借りや約束は、済んだと分かるまで忘れません。</li>
-            <li>人物の作成時や「AIで修正」で伝えた誕生日・好み・出来事などは、編集できる基本情報として担当の設定に保存されます。かけらの投稿やメモへの転記は行いません。基本情報は通常の編集画面でも修正できます。</li>
-            <li><strong>会う予定を書くと、担当はその日の朝に起きて</strong>、前回の出来事や済んでいないことを一言添えて知らせます。人物の担当は、この予定を置く道具のほか、Web 検索、お店や場所の検索、行き方の検索も最初から使えます。贈り物や会う場所を調べるためです。</li>
-            <li>基本情報の保存・編集や、その人物に届いたかけらから、日付の分かる誕生日・記念日・会う予定を自動で登録します。誕生日・記念日は毎年、1週間前と当日の午前9時に知らせます。会う予定は指定された通知時刻を優先し、指定がなければ当日午前9時（午前9時より早い予定は1時間前）に知らせます。通知は担当の投稿として届きます。未来の予定に日数の上限はなく、日付の分からない情報は推測で登録しません。予定の変更や中止も反映します。</li>
-            <li>話し方、覚え方、約束や予定の扱いはすべての人物の担当で共通で、本体が決めます。担当ごとに書くのは <strong>関係性</strong>（恋人、母、大学時代の友人など）、編集できる<strong>基本情報</strong>と、必要なら <strong>気を配ること</strong>（「健康の話は控えめに」など）だけです。</li>
+            <li><strong>人物の担当は、本体の振り分けを通りません。</strong> かけらに <strong>呼び名</strong> か <strong>キーワード</strong> が書かれているときだけ届きます。写真から読み取った文字も対象です。<code>@呼び名</code> で指名することもできます。</li>
+            <li>「佐藤」を登録すれば「佐藤くん」「さとうさん」にも届きます。名前を出さない話も拾えるよう、キーワードには言い換えや似た言葉（例：釣り、つり、釣行、海釣り）を並べます。</li>
+            <li>人物の担当はその人との出来事（会話、贈り物、約束、貸し借り）を覚えます。誕生日や会う予定が近づくと声かけしてくれます（詳しい通知時刻のルールは <a href="/manual/?guide=advanced#ja-person-events" data-lang-link>上級編</a> を参照）。</li>
+            <li>伝えた誕生日・好み・出来事などは、担当の編集画面でいつでも見直し・修正できます。</li>
           </ul>
           <figure>
             <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名、キーワード、基本情報の一覧（サンプル）" loading="lazy" width="382" height="740" />
             <figcaption>人物の担当のカード。呼び名・キーワードと、毎年の誕生日や会う予定の通知が並びます（サンプル）。</figcaption>
           </figure>
-          <p><strong>担当</strong> の一覧は <strong>人物</strong> と <strong>関心ごと</strong> のタブに分かれ、どちらも名前や担当条件、呼び名、キーワードで検索できます。ひらがな・カタカナや全角・半角は区別しません。人物のタブは <strong>名前順</strong> にも並べられ、漢字の名前はかなの呼び名（「青木」なら「あおき」）の読みで並びます。</p>
-          <figure>
-            <img src="/captures/ja/people.png" alt="担当の人物のタブ。青木先生・母・佐藤さんが名前順に並ぶ（サンプル）" loading="lazy" width="390" height="1822" />
-            <figcaption>人物のタブを名前順にしたところ（サンプル）。</figcaption>
-          </figure>
-          <figure>
-            <img src="/captures/ja/person-draft.png" alt="AI が下書きした佐藤さんの担当。呼び名、キーワード、関係性、基本情報（サンプル）" loading="lazy" width="382" height="1221" />
-            <figcaption>AI の下書き。呼び名の書き方の違いと、キーワードの似た言葉も入ります。伝えた事実は編集できる基本情報になります（サンプル）。</figcaption>
-          </figure>
-          <figure><img src="/captures/ja/person-edit.png" alt="人物の基本情報を修正する画面（サンプル）" loading="lazy" width="382" height="1080" /><figcaption>基本情報は編集画面で修正できます。保存すると通知予定も更新します（サンプル）。</figcaption></figure>
           <p>届かなかったかけらがあれば <strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せ、関係のないかけらが届いたら <strong>呼んでほしくなかった</strong> から一致した語を外せます（<a href="/manual/?guide=advanced#ja-people-keywords" data-lang-link>人物の担当のキーワードを直す</a>）。</p>
           <h3>使いながら直す</h3>
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
-          <p>通知予定は担当一覧と発言一覧のカードで確認できます。各予定の <strong>×</strong> を押して確認すると、その予定を取り消します。日時やタイムゾーンも1件ずつ表示します。</p>
+          <p>通知予定は担当一覧と発言一覧のカードで確認できます。不要な予定は各予定の <strong>×</strong> で取り消せます。</p>
           <h3 id="ja-daily">担当からの声かけ</h3>
-          <p>記憶を持つ担当（「記憶する」がオンの担当）は、過去のかけらや記憶を振り返り、伝えたいことがあるときに、ときどき話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると、この振り返りによる声かけも止まります。</p>
-          <h3 id="ja-summary">今月のまとめと、月1回振り返る人物</h3>
-          <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。話題ごとの箇条書きで、各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
-          <figure>
-            <img src="/captures/ja/month-summary.png" alt="本体が投稿した今月のまとめ。人・食・これからのことの箇条書き（サンプル）" loading="lazy" width="382" height="384" />
-            <figcaption>今月のまとめ（サンプル）。</figcaption>
-          </figure>
-          <p>人物の担当は、カードで <strong>頻繁に振り返る</strong> か <strong>ときどき振り返る</strong> を選べます。月1回にした人物は、まとめが書かれた日に起き、まとめと、その人の名前やキーワードが出たかけらを読んで振り返ります。人物が増えても、タイムラインを読むのは月に1回で済みます。AI と担当を作ると、家族や親しい人は毎日、たまに会う人は月1回のように、関係性から選ばれます。関心ごとの担当は毎日です。</p>
+          <p>記憶を持つ担当は、伝えたいことがあるときや、出かける前の持ち物点検・雨予報の傘の助言（sona）など、必要なタイミングで話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると声かけも止まります。毎日の起床時刻や月次まとめの仕組みは <a href="/manual/?guide=advanced#ja-daily-advanced" data-lang-link>上級編</a> にあります。</p>
         </section>
 
         <section id="ja-memory">
           <h2>5. 覚えていることを確かめる</h2>
-          <p>担当の <strong>覚えていること</strong> を開くと、担当の記憶を読めます。担当は分野ごと（好みとお店など）に、分かっていることを1件1行の<strong>事実</strong>として持ちます。事実には、どのかけらに基づくかと、いつから当てはまるかが付きます。かけらが届くたびに事実が足されたり置き換わったりし、当てはまらなくなった事実は <strong>以前のこと</strong> に残ります。分野の先頭には担当自身の言葉の<strong>まとめ文</strong>があり、担当のチェックインのとき（毎日。月1回振り返る人物なら月1回）に、変わった事実をもとに書き直されます。もう1つは受け取ったかけらごとの<strong>記録</strong>で、日時・たどれる投稿・1文の要約・タグが1行ずつ月ごとに残ります。たどれる投稿は、担当が返事をしたならその返事（返事から元のかけらを開けます）、しなかったならかけら自身です。</p>
+          <p>担当の <strong>覚えていること</strong> を開くと、その担当が覚えている内容をいつでも確認・編集・削除できます。AIが勝手に覚えたままブラックボックスになることはありません。</p>
           <figure>
             <img src="/captures/ja/memory.png" alt="ワイン担当の好みとワインの記憶。タグ、元投稿へのリンク、✎ での編集、個別削除（サンプル）" loading="lazy" width="382" height="1447" />
             <figcaption>覚えた内容、タグ、元の投稿、✎ での編集、このメモだけを忘れさせる操作（サンプル）。</figcaption>
           </figure>
-          <h3>記憶の見方</h3>
+          <h3>できること</h3>
           <ul>
-            <li>分野（まとめ文・今の事実・以前のこと）が先に、かけらの記録が新しい月から並びます。事実や記録の <strong>元の投稿</strong> を押すと、もとになった投稿と会話がその場で開きます。</li>
-            <li>記録のIDを押すと、その投稿を開けます。</li>
-            <li>記録の <strong>#タグ</strong> を押すと、そのタグの記録がある月だけに絞り込めます。<strong>すべてのメモを表示</strong> で戻ります。</li>
-            <li><strong>… に消える</strong> は、「今日のランチどこがいい？」のようなその場限りのかけらの記録で、その日に本体が消します。<strong>… に見直し</strong> は、その日を過ぎると担当がチェックインで「そろそろ忘れていい？」と聞く記録です。返事のとおりに残す・延ばす・消すをします。担当があなたへの返事のために読み返した記録は、期限が延びます。</li>
-            <li>タイムラインの担当の発言の下にある <strong>📝</strong> は、その発言のあとに事実が変わった分野です。押すとそのまとめが開きます。</li>
+            <li><strong>読む</strong>: 分野ごとの事実や、受け取ったかけらの記録が月ごとに並びます。</li>
+            <li><strong>たどる</strong>: 各メモの <strong>元の投稿</strong> を押すと、そのメモのもとになった会話や写真がその場で開きます。記録の <strong>#タグ</strong> を押すと、その話題だけに絞り込めます。</li>
+            <li><strong>直す</strong>: 誤字や解釈の違いがあれば、横の <strong>✎</strong> でいつでも手で直せます。</li>
+            <li><strong>消す</strong>: 忘れさせたいメモは <strong>×</strong> や <strong>このメモを忘れさせる</strong> で消せます。最初からやり直すときは <strong>すべてのメモを忘れさせる</strong> を使います。元のかけらを削除すると、そのかけらだけに基づいていたメモも消えます。</li>
+            <li><strong>見直す・お別れ</strong>: その場限りのメモは自動で消え（<strong>… に消える</strong>）、古いメモはチェックインで「そろそろ忘れていい？」と担当が尋ねてきます（<strong>… に見直し</strong>）。</li>
           </ul>
-          <h3>間違いを直す・消す</h3>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>したいこと</th><th>操作</th></tr></thead>
-              <tbody>
-                <tr><td>事実を1件だけ直す・忘れさせる</td><td>事実の横の <strong>✎</strong>・<strong>×</strong></td></tr>
-                <tr><td>まとめ文・事実・記録の誤字や誤りを直す</td><td>見出しの <strong>✎</strong> で原文を編集し、<strong>メモを保存</strong></td></tr>
-                <tr><td>1つの分野や1か月分の記録を消す</td><td><strong>このメモを忘れさせる</strong></td></tr>
-                <tr><td>あるかけらの記録を消す</td><td>そのかけらを削除する（そのかけらだけを根拠にしていた事実も本体が消します）</td></tr>
-                <tr><td>その担当のメモを全部消す</td><td><strong>すべてのメモを忘れさせる</strong></td></tr>
-                <tr><td>今後の覚え方を変える</td><td>担当の <strong>AIで修正</strong> で頼む</td></tr>
-              </tbody>
-            </table>
-          </div>
+          <div class="tip"><p>事実とまとめ文の更新ルールや、過去の事実への移行など、記憶システムの詳しい仕組みは <a href="/manual/?guide=advanced#ja-memory-system" data-lang-link>上級編：記憶の仕組みと見直し</a> をご覧ください。</p></div>
           <p>削除は元に戻せません。消したことでも、残っている投稿を担当が検索して、また覚えることがあります。</p>
           <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別に消し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。AIで修正しても、すでにあるメモは書き換わりません。</p></div>
         </section>
@@ -354,6 +317,10 @@
         <section id="ja-routing">
           <h2>1. 振り分けを直す</h2>
           <p>かけらをどの担当に渡すかは本体が決めます。自分の投稿や返信の <strong>⚖</strong> を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が出ます。<code>@名前</code> で指名した担当は、あなたが選んだので出ません。</p>
+          <div class="tip">
+            <p><strong>指名と宛先の優先ルール：</strong> <code>@名前</code> で指名した投稿や、有効な担当への返信は、宛先の担当だけに届きます。別の担当を指名した場合は指名が優先されます。それ以外の投稿は、担当条件や人物の呼び名・キーワードで届け先を選びます。</p>
+            <p><strong>@infographic の対象ルール：</strong> 図解したい投稿や回答に <code>@infographic これをインフォグラフィックにして</code> と返信します。別の担当の回答に返信した場合、その回答を図解します。「元の投稿を」「スレッド全体を」と明示して対象を変えることもできます。URLは展開された記事本文、画像は読み取り済みの説明や文字を材料にします。図解は依頼時の表示言語に翻訳され、画面内にHTMLで表示されます。</p>
+          </div>
           <figure>
             <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、他の担当が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="638" />
             <figcaption>呼ばれた担当と、呼ばれなかった理由（サンプル）。</figcaption>
@@ -424,12 +391,12 @@
               <thead><tr><th>きっかけ</th><th>決める人</th><th>内容</th></tr></thead>
               <tbody>
                 <tr><td>かけらが届いたとき</td><td>本体（振り分け）</td><td><code>@名前</code> の指名や有効な担当への返信は宛先1人だけを起こし、指名を優先します。それ以外は担当条件や人物の呼び名・キーワードで選びます。</td></tr>
-                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>本体</td><td>記憶がオンの有効な担当が、7時〜21時のどこかで1日1回起きます。月1回振り返る人物は、<a href="/manual/#ja-summary" data-lang-link>今月のまとめ</a>の日に起きます。</td></tr>
+                <tr><td><a href="#ja-daily-advanced">毎日のチェックイン</a></td><td>本体</td><td>記憶がオンの有効な担当が、7時〜21時のどこかで1日1回起きます。月1回振り返る人物は、<a href="#ja-summary-advanced">今月のまとめ</a>の日に起きます。</td></tr>
                 <tr><td>担当が預けた予定</td><td>担当</td><td><code>schedule</code> を持つ担当が、自分の記録から時刻を決めて起きます。</td></tr>
               </tbody>
             </table>
           </div>
-          <h3>チェックインの細かい動き</h3>
+          <h3 id="ja-daily-advanced">毎日のチェックイン</h3>
           <ul>
             <li>サーバーは毎分確認するので、混み具合によって少し遅れることがあります。</li>
             <li>その日の時刻を過ぎてから担当を有効にした場合は、その日の分をすぐ実行します。21時を過ぎたら、その日の分は見送ります。サーバーの再起動後も当日分だけを実行し、過ぎた日の分はまとめて実行しません。</li>
@@ -439,14 +406,36 @@
             <li>チェックインでは現在地を使わないので、経路検索はできず、店舗検索は名前での検索だけになります。</li>
           </ul>
           <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を整え、何を聞くかを外部エージェントが考えます。時間内に外部エージェントが応じなければ、内蔵モデルが代わりに考えます。</p>
+          <h3 id="ja-summary-advanced">今月のまとめと、月1回振り返る人物</h3>
+          <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。話題ごとの箇条書きで、各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
+          <figure>
+            <img src="/captures/ja/month-summary.png" alt="本体が投稿した今月のまとめ。人・食・これからのことの箇条書き（サンプル）" loading="lazy" width="382" height="384" />
+            <figcaption>今月のまとめ（サンプル）。</figcaption>
+          </figure>
+          <p>人物の担当は、カードで <strong>頻繁に振り返る</strong> か <strong>ときどき振り返る</strong> を選べます。月1回にした人物は、まとめが書かれた日に起き、まとめと、その人の名前やキーワードが出たかけらを読んで振り返ります。人物が増えても、タイムラインを読むのは月に1回で済みます。AI と担当を作ると、家族や親しい人は毎日、たまに会う人は月1回のように、関係性から選ばれます。関心ごとの担当は毎日です。</p>
+          <h3 id="ja-person-events">人物の担当の予定通知ルール</h3>
+          <p>基本情報の保存・編集や、その人物に届いたかけらから、日付の分かる誕生日・記念日・会う予定を自動で登録します。</p>
+          <ul>
+            <li><strong>誕生日・記念日：</strong> 毎年、1週間前と当日の午前9時に知らせます。</li>
+            <li><strong>会う予定：</strong> 指定された通知時刻を優先し、指定がなければ当日午前9時（午前9時より早い予定は1時間前）に知らせます。</li>
+            <li>通知は担当の投稿として届きます。未来の予定に日数の上限はなく、日付の分からない情報は推測で登録しません。予定の変更や中止も反映します。</li>
+          </ul>
           <h3 id="ja-tool-schedule">担当が預けた予定（schedule）</h3>
           <p>sona は、投稿や習慣から出発の時刻が分かると、少し前に起きて持ち物を点検します。以前「鍵を忘れた」と話していれば、その経験も手がかりになります。外出先と日時が分かれば最新の天気予報を調べ、今晴れていても帰りが雨なら傘を一言勧めます。地域や時刻、取得できない予報は作りません。用事をしたかの確認は少しあとに置き、済んでいたり同じことを伝えていたりすれば黙ります。催促や毎日の一般的な読み上げはしません。</p>
-          <p><a href="/manual/#ja-people" data-lang-link>人物の担当</a>は、「来週土曜、佐藤さんと飲む」のような会う予定が書かれると、その日の朝に予定を置きます。起きたら前回の出来事や済んでいないこと（貸し借り、約束）を一言添えて知らせます。</p>
+          <p>人物の担当は、「来週土曜、佐藤さんと飲む」のような会う予定が書かれると、その日の朝に予定を置きます。起きたら前回の出来事や済んでいないこと（貸し借り、約束）を一言添えて知らせます。</p>
           <ul>
             <li>担当ごとに20件まで。未来の時刻に日数の上限はありません。道具の予定は1回きりか毎日、誕生日・記念日は毎年繰り返します。</li>
             <li>予定は担当のカードに並びます。<strong>不要な予定は × で消せます。</strong></li>
             <li>起きた回は、担当が黙っても失敗しても消費されます。予定より10分以上遅れた回は実行しません。</li>
             <li>かけらを消すと、担当がそのかけらのために置いた予定を見直します。担当を停止・削除したとき、メモを全部消したときは、その担当の予定も消えます。</li>
+          </ul>
+          <h3 id="ja-memory-system">記憶の仕組みと見直し</h3>
+          <p>担当の記憶は、以下の構造で管理されます。</p>
+          <ul>
+            <li><strong>分野ごとの事実</strong>: 「好み」や「お店」など分野ごとに、分かっていることを1件1行で持ちます。かけらが届くたびに事実が更新され、当てはまらなくなった事実は <strong>以前のこと</strong> に移ります。</li>
+            <li><strong>分野ごとのまとめ文</strong>: 事実をもとにした担当自身の見立てです。チェックイン時に、変わった事実をもとに担当が書き直します。</li>
+            <li><strong>かけらの記録</strong>: 受け取ったかけらごとに、日時・元の投稿・要約・タグが月ごとに残ります。</li>
+            <li><strong>期限とお別れ</strong>: 「今日のランチ」のような一時的な記録は <strong>… に消える</strong> として自動削除され、長く使われていない記録は <strong>… に見直し</strong> としてチェックイン時に担当から「忘れていい？」と尋ねられます。</li>
           </ul>
         </section>
 
@@ -773,15 +762,13 @@
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
           <h3>Create a persona with AI</h3>
-          <p>A direct <code>@</code> mention or reply to an active persona reaches that persona alone. A mention of a different persona takes precedence over the reply target. Other posts and replies use routing conditions and person names/keywords.</p>
-          <p>Creation and editing offer <strong>Remember</strong> and <strong>Always think deeply</strong>. Memory off stops private memory reads, updates and periodic check-ins. Existing notes remain stored and explicit reminders still work. Always thinking deeply uses Ultra for ordinary requests.</p>
-          <p>Reply to a post or answer with <code>@infographic turn this into an infographic</code>. A reply to another persona diagrams that answer; explicitly ask for the original post or whole thread to change the subject. URLs use the expanded article body; images use their interpreted descriptions and extracted text. The HTML diagram is translated into the display language at submission and displayed in the page. Existing users can enable the persona in the persona list.</p>
           <ol>
             <li>Open <strong>Personas</strong>, select the <strong>Interests</strong> tab, and choose <strong>Create a persona with AI</strong>. To remember a person, <a href="#en-people">start from the People tab</a>.</li>
             <li>Answer “What would you like your persona to help with?” in your own words. Even “wine” is enough.<br />Example: <em>When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</em></li>
             <li>The AI drafts a name, a way of talking, and what to remember. Review it and select <strong>Save this persona</strong>.</li>
             <li><strong>Enable</strong> it and it starts receiving fragments.</li>
           </ol>
+          <p>Creation and editing offer <strong>Remember</strong> (turning it off creates an answer-only persona, saving token costs and avoiding unwanted notes) and <strong>Always think deeply</strong> (uses Ultra for ordinary requests).</p>
           <figure>
             <img src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="382" height="1140" />
             <figcaption>The draft: what it helps with, how it talks, the kinds of note it keeps, what it remembers, and when it replies.</figcaption>
@@ -790,74 +777,39 @@
           <p>A persona can also <strong>keep one person</strong> in mind - your mother, a friend. In <strong>Personas</strong>, select the <strong>People</strong> tab and choose <strong>Create a persona with AI</strong>. You will be asked, “Who would you like a persona to remember? Tell me their name or nickname and how you know them.” Follow the example in the input box, such as “My friend Sato from university. I call her Sacchan, and we sometimes have meals together,” to get a draft for that person. Whether it keeps a person is fixed when you create it and cannot be switched later.</p>
           <ul>
             <li><strong>A person is never routed by the app.</strong> A fragment reaches it only when one of its <strong>names</strong> or <strong>keywords</strong> is written in it, text read from a photo included. You can also call it with <code>@name</code>.</li>
-            <li>Width, case, hiragana against katakana and a trailing さん or くん do not matter: 佐藤 also reaches 佐藤くん and さとうさん.</li>
-            <li>To catch posts that do not name them, list rewordings and near words as keywords (fishing, angling, sea fishing). The AI fills in the other spellings of the names and the near words of the keywords.</li>
-            <li>A word can match by accident, as 母 (mother) does in 母校 (alma mater). The persona checks whether the post is about the person and does nothing if it is not.</li>
-            <li>A person's persona remembers what it learns about them (tastes, birthday) and what happens with them (talks, gifts, promises, loans). Loans and promises are kept until you say they are settled.</li>
-            <li>Birthdays, preferences and other details supplied when creating a person or using Edit with AI are saved as editable Basic information in the persona definition. Saving does not post a fragment or copy them into notes. You can also change them in the regular editor.</li>
-            <li><strong>Mention meeting them and the persona wakes that morning</strong> to bring up what happened last time and anything still open. Besides placing wakes, a person's persona starts with web search, place search and routes, to look up presents and places to meet.</li>
-            <li>Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.</li>
-            <li>How a person's persona speaks, what it keeps and how it handles promises and meetings are the same for every person, set by the app. Each one has editable basic information, a <strong>relationship</strong> (partner, mother, a friend from university) and, if you like, <strong>what to pay attention to</strong> (“go easy on health topics”).</li>
+            <li>Width, case, and honorifics do not matter. To catch posts that do not name them directly, list rewordings as keywords (fishing, angling, sea fishing).</li>
+            <li>A person's persona remembers what happens with them (talks, gifts, promises, loans) and nudges you when meetings or birthdays approach (see notification schedule rules in the <a href="/manual/?guide=advanced#en-person-events" data-lang-link>Advanced Guide</a>).</li>
+            <li>Supplied details like birthdays and preferences can be reviewed and edited anytime directly in the persona settings.</li>
           </ul>
           <figure>
             <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names, keywords and basic information (sample data)" loading="lazy" width="382" height="872" />
             <figcaption>A person's card lists names, keywords, annual birthday notifications and upcoming appointments (sample data).</figcaption>
           </figure>
-          <p>The <strong>Personas</strong> panel has a <strong>People</strong> tab and an <strong>Interests</strong> tab, and each can be searched by name, condition, names or keywords; kana and width do not matter. People can also be put <strong>By name</strong>, a name in kanji going by the kana among its names.</p>
-          <figure>
-            <img src="/captures/en/people.png" alt="The People tab of the Personas panel, with Ms Aoki, Mum and Sato in name order (sample data)" loading="lazy" width="390" height="1922" />
-            <figcaption>The People tab in name order (sample data).</figcaption>
-          </figure>
-          <figure>
-            <img src="/captures/en/person-draft.png" alt="A persona for Sato drafted by the AI: names, keywords, relationship, basic information (sample data)" loading="lazy" width="382" height="1292" />
-            <figcaption>The AI's draft, with other spellings of the names and near words for the keywords. The details you supplied become editable basic information (sample data).</figcaption>
-          </figure>
-          <figure><img src="/captures/en/person-edit.png" alt="Editable basic information" loading="lazy" width="382" height="1159" /><figcaption>Edit basic information directly; saving updates calendar notifications too (sample data).</figcaption></figure>
           <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong>; if an unrelated one did, remove the matched word from <strong>Should not have been called</strong> (<a href="/manual/?guide=advanced#en-people-keywords" data-lang-link>Fix a person's keywords</a>).</p>
           <h3>Adjust as you go</h3>
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
           <p>View notification schedules on the persona card or above its speaker list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
           <h3 id="en-daily">Hearing from your personas</h3>
-          <p>Personas with <strong>Remember</strong> enabled keep memories, look back over past fragments, and speak now and then when they have something worth sharing. How much they say and their tone follow their character. Turning off <strong>Remember</strong> also stops these follow-ups.</p>
-          <h3 id="en-summary">This month's summary, and people looked back on monthly</h3>
-          <p>Once a month the app reads the month's timeline and posts <strong>This month</strong>: a list by topic, each line with a <strong>→</strong> to the fragment it came from. The app picks the day for your account (somewhere from the 1st to the 28th). The summary is yours to set right with <strong>✎</strong>.</p>
-          <figure>
-            <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app, listed under People, Food and Still open (sample data)" loading="lazy" width="382" height="450" />
-            <figcaption>This month's summary (sample data).</figcaption>
-          </figure>
-          <p>On a person's card you choose <strong>Look back often</strong> or <strong>Look back occasionally</strong>. A person looked back on monthly wakes on the summary's day and reads the summary and the fragments that mention its names or keywords, so however many people there are, the timeline is read once a month. <strong>Create a persona with AI</strong> chooses from the relationship: family and close friends daily, people you see now and then monthly. Interests check in daily.</p>
+          <p>Personas with <strong>Remember</strong> enabled keep memories and speak now and then when they have something useful or timely to share, such as sona's doorstep reminder before heading out. How much they say and their tone follow their character. Turning off <strong>Remember</strong> also stops these follow-ups. Check-in timings and monthly summary mechanics are in the <a href="/manual/?guide=advanced#en-daily-advanced" data-lang-link>Advanced Guide</a>.</p>
         </section>
 
         <section id="en-memory">
           <h2>5. What a persona remembers</h2>
-          <p>Open <strong>What I remember</strong> on a persona to read its memory. For each of its fields (tastes and shops, say), a persona keeps <strong>facts</strong>, one line each, with the fragment each rests on and since when it holds; they are added or replaced as your fragments arrive, and those that no longer hold stay under <strong>以前のこと</strong>. Over them sits a <strong>summary</strong> in the persona's own words, rewritten at its check-in (daily, or monthly for a person looked back on monthly) from what changed. It also keeps a <strong>record</strong> of every fragment it received, one line each by month: the time, the post to go back to, one sentence, and its tags. The post is the persona's reply when it replied (which opens your fragment too), and your fragment when it did not.</p>
+          <p>Open <strong>What I remember</strong> on a persona to read its memory anytime, and edit or forget notes by hand. Nothing is learned or hidden behind your back.</p>
           <figure>
             <img src="/captures/en/memory.png" alt="A wine persona's preferences and wines, with tags, original post links, the ✎ to edit, and individual deletion (sample data)" loading="lazy" width="382" height="1567" />
             <figcaption>What was remembered, tags, the original post, ✎ to edit, and forgetting a single note (sample data).</figcaption>
           </figure>
-          <h3>Reading memory</h3>
+          <h3>What you can do</h3>
           <ul>
-            <li>The fields (summary, facts that hold, past facts) come first, then the records, newest month first. <strong>Original post</strong> on a fact or a record opens the post and its conversation right there.</li>
-            <li>Tap a record's id to open its post.</li>
-            <li>Tap a record's <strong>#tag</strong> to see only the months holding it; <strong>Show all notes</strong> goes back.</li>
-            <li><strong>Gone on</strong> marks a record of a kakera that served its moment, such as “where for lunch today?”; the app deletes it that day. <strong>Review on</strong> marks a record the persona will ask about at check-in once that day has passed; it keeps, moves, or forgets it as you answer. A record the persona reads again while answering you gets its time afresh.</li>
-            <li>The <strong>📝</strong> chips under a persona's remark are the fields whose facts changed after it. Tap one to open it.</li>
+            <li><strong>Read</strong>: Facts by field and fragment records are listed clearly by month.</li>
+            <li><strong>Trace</strong>: Tap <strong>Original post</strong> on any note to open the conversation or image that produced it. Tap a <strong>#tag</strong> to filter by topic.</li>
+            <li><strong>Edit</strong>: If a fact has a typo or misinterprets something, tap <strong>✎</strong> to correct it directly.</li>
+            <li><strong>Forget</strong>: Remove unwanted notes with <strong>×</strong> or <strong>Forget this note</strong>. Use <strong>Forget all notes</strong> to start completely fresh. Deleting an original fragment also removes notes that rested solely on it.</li>
+            <li><strong>Lifespan and review</strong>: Ephemeral notes expire automatically (<strong>Gone on</strong>), and older notes are surfaced at check-in with “Can I forget this now?” (<strong>Review on</strong>).</li>
           </ul>
-          <h3>Fixing and removing</h3>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>To</th><th>Do</th></tr></thead>
-              <tbody>
-                <tr><td>Fix or forget a single fact</td><td><strong>✎</strong> or <strong>×</strong> beside it</td></tr>
-                <tr><td>Fix a typo or a mistake in a summary, a fact, or a record</td><td><strong>✎</strong> on its heading, then <strong>Save note</strong></td></tr>
-                <tr><td>Remove a field or a month of records</td><td><strong>Forget this note</strong></td></tr>
-                <tr><td>Remove the record of one kakera</td><td>Delete the fragment (the app also removes the facts that rested on it alone)</td></tr>
-                <tr><td>Remove all of a persona's notes</td><td><strong>Forget all notes</strong></td></tr>
-                <tr><td>Change how it remembers from now on</td><td><strong>Edit with AI</strong> on the persona</td></tr>
-              </tbody>
-            </table>
-          </div>
+          <div class="tip"><p>For details on factual update rules, summaries, and past facts, see <a href="/manual/?guide=advanced#en-memory-system" data-lang-link>Advanced Guide: Memory architecture and review</a>.</p></div>
           <p>Deletion cannot be undone. A persona may learn something again by searching the posts that remain.</p>
           <div class="tip"><p>For example, forget a wrong “Likes this wine” note on its own, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not rewrite notes it already has.</p></div>
         </section>
@@ -949,6 +901,10 @@
         <section id="en-routing">
           <h2>1. Fix who gets a post</h2>
           <p>The app decides which personas get each fragment. Tap <strong>⚖</strong> on one of your posts or replies to see who was called and, for each one that was not, a one-line reason. A persona you mentioned with <code>@name</code> is not listed: that was your call.</p>
+          <div class="tip">
+            <p><strong>Mention and recipient precedence:</strong> A post that mentions a persona with <code>@name</code>, or a reply to an active persona, reaches that recipient alone; mentions take precedence. Other posts reach personas whose subject conditions or person names/keywords match.</p>
+            <p><strong>@infographic targeting rules:</strong> Reply to a post or answer with <code>@infographic Turn this into an infographic</code>. When replying to another persona's answer, it visualizes that answer. You can also specify “the original post” or “the whole thread” to change the target. URLs use expanded article bodies, and images use extracted captions and text. The infographic is translated to your current display language and shown in the timeline as HTML.</p>
+          </div>
           <figure>
             <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why other personas were not (sample data)" loading="lazy" width="382" height="723" />
             <figcaption>Who was called, and why the others were not (sample data).</figcaption>
@@ -959,7 +915,7 @@
             <li>Tap <strong>Should have been called</strong> (or <strong>Should not have been called</strong>) on a row.</li>
             <li>Say why or what should change and tap <strong>Write the condition</strong>. The AI rewrites the persona's condition, and only that.</li>
             <li>Edit the new condition by hand, or use <strong>Ask the AI to change it</strong>.</li>
-            <li><strong>OK</strong> saves it and tries the same post again (nobody is woken). If it lands as you meant, the dialog closes; if not, you see why and can try again.</li>
+            <li><strong>OK</strong> saves it and tests routing on the same post. If "Should have been called" succeeds as intended, the persona is woken with the original post to reply and keep notes. If not, you see why and can try again.</li>
           </ol>
           <figure>
             <img src="/captures/en/condition-fix.png" alt="A new condition for the user-created travel persona michi, written by the AI from your reason and open for editing before saving (sample data)" loading="lazy" width="382" height="406" />
@@ -1002,7 +958,7 @@
             <li>Describe the miss and tap <strong>Write the fix</strong>.</li>
             <li>Edit the new tone and instructions by hand, or use <strong>Ask the AI to change it</strong>.</li>
             <li><strong>OK</strong> saves them, and the persona drafts a trial reply to the same post. Nothing lands on the timeline and no note or schedule is written. This can take a few minutes.</li>
-            <li><strong>That's it</strong> closes. <strong>Still not it</strong> lets you say again, with the trial reply in view.</li>
+            <li><strong>That's it</strong> applies the trial reply and its memory edits to the original thread. <strong>Still not it</strong> lets you say again, with the trial reply in view.</li>
           </ol>
           <figure>
             <img src="/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" loading="lazy" width="382" height="372" />
@@ -1019,12 +975,12 @@
               <thead><tr><th>Trigger</th><th>Decided by</th><th>What happens</th></tr></thead>
               <tbody>
                 <tr><td>A fragment arrives</td><td>The app (routing)</td><td>A direct <code>@name</code> mention or reply to an active persona selects that persona alone; a mention takes precedence. Other entries use subject conditions and person names/keywords.</td></tr>
-                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>The app</td><td>Each active persona with memory enabled wakes once a day, somewhere between 7:00 and 21:00. A person looked back on monthly wakes on the day of <a href="/manual/#en-summary" data-lang-link>this month's summary</a>.</td></tr>
+                <tr><td><a href="#en-daily-advanced">Daily check-in</a></td><td>The app</td><td>Each active persona with memory enabled wakes once a day, somewhere between 7:00 and 21:00. A person looked back on monthly wakes on the day of <a href="#en-summary-advanced">this month's summary</a>.</td></tr>
                 <tr><td>A persona's own schedule</td><td>The persona</td><td>A persona with <code>schedule</code> picks a time from its own records.</td></tr>
               </tbody>
             </table>
           </div>
-          <h3>Check-in details</h3>
+          <h3 id="en-daily-advanced">Daily check-in</h3>
           <ul>
             <li>The server checks every minute, so a busy moment can delay a wake a little.</li>
             <li>Enabling a persona after that day's time runs today's check-in right away. After 21:00 the day's check-in is skipped. After a server restart only today's is run; missed days are not replayed.</li>
@@ -1034,14 +990,36 @@
             <li>Check-ins do not use your location, so route search is unavailable and place search works by name only.</li>
           </ul>
           <p>For a persona that prefers the external agent, the external agent decides what to tidy and what to ask at check-in. If it does not respond in time, the built-in model plans instead.</p>
+          <h3 id="en-summary-advanced">This month's summary, and people looked back on monthly</h3>
+          <p>Once a month, the app reads that month's timeline and posts <strong>This month's summary</strong> to the timeline. It is bulleted by topic, and each bullet's <strong>→</strong> opens the original fragment. The app picks the date per account (somewhere between the 1st and the 28th of each month). The summary is yours to edit with <strong>✎</strong>.</p>
+          <figure>
+            <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app: bullets for people, food, and upcoming things (sample data)" loading="lazy" width="382" height="384" />
+            <figcaption>This month's summary (sample data).</figcaption>
+          </figure>
+          <p>On a person's card you can choose <strong>Look back frequently</strong> or <strong>Look back occasionally</strong>. A person set to monthly wakes on the day the summary is posted, reading the summary and the fragments where their name or keywords appeared. Even as you add more people, the timeline is read only once a month. When you create personas with the AI, the frequency is chosen from the relationship: daily for family and close friends, monthly for people you meet once in a while. An interest persona is always daily.</p>
+          <h3 id="en-person-events">Person persona notification rules</h3>
+          <p>From saved or edited basic info and from fragments that reach that person, birthdays, anniversaries, and meetings with clear dates are registered automatically.</p>
+          <ul>
+            <li><strong>Birthdays and anniversaries:</strong> Reminded every year, 1 week before and on the day at 9:00 AM.</li>
+            <li><strong>Meetings:</strong> Any specified reminder time takes precedence; otherwise reminded on the day at 9:00 AM (or 1 hour before if the meeting is earlier than 9:00 AM).</li>
+            <li>Reminders arrive as remarks posted by the persona. There is no day limit on future schedules, and unclear dates are never guessed. Schedule edits and cancellations are reflected too.</li>
+          </ul>
           <h3 id="en-tool-schedule">A persona's own schedule (schedule)</h3>
-          <p>sona can wake shortly before an outing whose timing is grounded in your posts or habits, checking belongings and past omissions. When the region and date are known, it reads a fresh forecast: sunshine now can still mean taking an umbrella for rain on the way home. Unknown locations, times and unavailable forecasts are not invented. Chore follow-ups happen shortly afterwards; completed or already-mentioned items stay quiet. It does not nag or recite a generic checklist every day.</p>
+          <p>A persona can wake shortly before an outing whose timing is grounded in your posts or habits, checking belongings and past omissions. When the region and date are known, it reads a fresh forecast: sunshine now can still mean taking an umbrella for rain on the way home. Unknown locations, times and unavailable forecasts are not invented. Chore follow-ups happen shortly afterwards; completed or already-mentioned items stay quiet. It does not nag or recite a generic checklist every day.</p>
           <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> sets one for the morning of a meeting you mention, such as “drinks with Sato next Saturday.” On waking it brings up what happened last time and anything still open, like a loan or a promise.</p>
           <ul>
             <li>Up to 20 per persona, at any future date. Tool-created schedules run once or daily; birthdays and anniversaries recur annually.</li>
             <li>Schedules are listed on the persona's card. <strong>Remove one you do not want with ×.</strong></li>
             <li>A wake is used up even if the persona stays silent or fails. One more than 10 minutes late is skipped.</li>
-            <li>Deleting a kakera makes the persona revisit the schedules it set for it. Pausing or deleting the persona, or forgetting all its notes, removes its schedules.</li>
+            <li>Deleting a fragment makes the persona revisit the schedules it set for it. Pausing or deleting the persona, or forgetting all its notes, removes its schedules.</li>
+          </ul>
+          <h3 id="en-memory-system">Memory architecture and review</h3>
+          <p>A persona's memory is structured as follows:</p>
+          <ul>
+            <li><strong>Facts by field</strong>: One line per fact known in each field (such as “preferences” or “places”). Whenever a fragment arrives, facts are updated; facts that no longer hold move to <strong>Past facts</strong>.</li>
+            <li><strong>Summary by field</strong>: The persona's own perspective grounded in those facts. The persona rewrites it during check-in based on any changed facts.</li>
+            <li><strong>Fragment records</strong>: For each fragment received, the date and time, original post, summary, and tags are kept grouped by month.</li>
+            <li><strong>Lifespan and review</strong>: Ephemeral notes such as “today's lunch” expire automatically under <strong>Gone on …</strong>, while long-unused notes are scheduled for <strong>Review on …</strong>, where the persona asks “Can I forget this now?” during check-in.</li>
           </ul>
         </section>
 
@@ -1196,7 +1174,7 @@
               <thead><tr><th>Tool</th><th>Purpose</th><th>Who / setup</th></tr></thead>
               <tbody>
                 <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search past fragments</td><td>Every persona</td></tr>
-                <tr><td><a href="#en-tool-notes"><code>records</code></a></td><td>Find older kakera records (the app keeps the memory)</td><td>Memory-enabled personas</td></tr>
+                <tr><td><a href="#en-tool-notes"><code>records</code></a></td><td>Find older fragment records (the app keeps the memory)</td><td>Memory-enabled personas</td></tr>
                 <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search the Web</td><td>Personas it is added to; Tavily API key</td></tr>
                 <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find shops and places</td><td>Personas it is added to</td></tr>
                 <tr><td><a href="#en-tool-weather_forecast"><code>weather_forecast</code></a></td><td>Current weather and forecasts</td><td>Personas it is added to; a place name or location on the post</td></tr>
@@ -1212,8 +1190,8 @@
           <p>Searches your saved posts, text read from images, and replies by words and meaning together. A period can narrow it, or alone read everything written in it. Each call returns up to 30 results. Only the posts a persona uses as its grounds are linked under its remark.</p>
           <p>Try: “@tabe Find that light red wine I enjoyed before.”</p>
 
-          <h3 id="en-tool-notes">Finding kakera records — records</h3>
-          <p>Every turn, a persona reads its field summaries, the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the kakera it answered, for a reply). The memory itself is rewritten after the reply by the app's note keeper; a persona never writes it directly. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
+          <h3 id="en-tool-notes">Finding fragment records — records</h3>
+          <p>Every turn, a persona reads its field summaries, the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The memory itself is rewritten after the reply by the app's note keeper; a persona never writes it directly. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
           <p>Try: “@tabe Which ramen place did I say I wanted to try?”</p>
 
           <h3 id="en-tool-web_search">Web search — web_search</h3>

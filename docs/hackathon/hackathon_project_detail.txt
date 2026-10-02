@@ -4,6 +4,8 @@ Smartphones made it effortless to capture notes and photos, so we now accumulate
 
 I first tried building an app that used AI to organize notes automatically. It didn't work as I hoped. It felt like having someone else clean your room: tidier, but you no longer know where anything is. When I had moved things around myself, I kept a rough sense of where they were. Yet once there is enough information, leaving it scattered means some of it is simply lost.
 
+There was also an everyday frustration. We don't bother taking notes about everyday items we always bring with us, yet we still forget them. Even when the weather forecast warns of rain later, if it is sunny outside when leaving the house, we easily forget to bring an umbrella. What if, right before stepping out, an assistant could check your routine belongings, or remind you that rain is coming later and suggest taking an umbrella? In classic television dramas, wives would often give their husbands a gentle, caring reminder by the door before they headed out. I wanted that kind of timely, thoughtful nudge in daily life.
+
 So I reframed the problem. Instead of expecting the user to search, what if the organizer itself could say "You mentioned this before" when something forgotten became relevant again? And what if, for memories unused for a long time, it could ask "Can I forget this now?"
 
 There was also a personal reason. One of my biggest regrets is losing touch with someone who had always cared about me. I was busy, forgot to send a thank-you, and by the time I noticed, too much time had passed. Relationships are made of small fragments too: "I should tell them this next time." "They might like this as a gift." "I haven't talked to them in a while." Those disappear as easily as notes.
@@ -14,7 +16,13 @@ That is how kakeratta was born.
 
 kakeratta is a personal AI timeline. You post fragments of daily life (text, photos, URLs, voice), and AI personas dedicated to specific interests or people remember only what is relevant to them.
 
-An example. On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't have time for. The travel persona, michi, quietly remembers it. Weeks later you post "Going to Shizuoka tomorrow." During its daily check-in, michi connects the new post with the old memory:
+The system is organized around four clear responsibilities:
+- **Timeline** = What happened (an objective, chronological record of your daily thoughts, activities, and media).
+- **Memory** = What you want the AI to remember (structured facts, routines, and interests curated by dedicated personas).
+- **Favorites** = AI artifacts you want to keep (infographics, summaries, news analyses, or recommendations saved with one tap).
+- **Search** = A way to dig up past Timeline entries (hybrid keyword and semantic retrieval across forgotten moments).
+
+An example. On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't have time for. A travel persona quietly remembers it. Weeks later you post "Going to Shizuoka tomorrow." During its daily check-in, the persona connects the new post with the old memory:
 
 "You didn't make it to that restaurant last time. Maybe this trip?"
 
@@ -22,11 +30,34 @@ You would never have searched for it, because you had forgotten it existed. Sear
 
 ### Fragments go only to the personas they concern
 
-kakeratta starts with four interest personas: tabe (food), michi (travel and outings), shiori (books), and plana (small things too minor for a calendar but easy to forget). Users can add personas for people who matter to them.
+kakeratta ships with built-in personas designed for everyday life: `tabe` (food and dining), `shiori` (books), `sona` (routine belongings, outing preparation, weather forecasts, and timely follow-ups), `support` (product specifications and user assistance), and `infographic` (transforming notes into visual HTML infographics). Users can also create personas for specific topics or people who matter to them.
 
 Each interest persona has an explicit, readable routing condition, and a post goes only to the personas whose conditions it matches. Person personas skip the router; they receive a post when it contains that person's name, nickname, or a registered keyword.
 
 A persona that receives a post decides whether to remember, reply, use a tool, schedule a follow-up, or do nothing. Silence is the normal case. If every AI commented on every post, the timeline would drown. You can always call a persona directly with @.
+
+### Timely preparation and doorstep reminders: sona
+
+`sona` brings that classic doorstep care into everyday life. It tracks your usual belongings, habits, and past forgotten items.
+
+When you mention an upcoming outing, `sona` schedules a timely preparation check shortly before departure. It inspects the local weather forecast via WeatherAPI—recognizing when clear skies now will turn to rain later—and sends a Web Push notification: "It's sunny right now, but rain is expected around 3 PM. Remember to bring your umbrella, and do you have your keys?"
+
+It does not nag you with rigid calendar alarms hours in advance. Instead, like a thoughtful family member seeing you off by the door, it gives you a timely, gentle nudge when it actually matters.
+
+### Answer-only personas: memory is optional
+
+Not every AI needs to remember everything. In fact, forcing every assistant to build memory creates clutter, unwanted comments, and unnecessary costs.
+
+kakeratta allows personas to be configured as **answer-only** (`memoryEnabled: false`). These personas specialize purely in on-demand analysis, explanation, and creation without saving private notes:
+- **Infographics (`infographic`)**: Generating infographics is one of the most common and effective everyday AI use cases for my peers and myself. This persona transforms lengthy articles, complex topics, or timeline fragments into clean, standalone, responsive HTML/SVG infographics (powered by Nemotron 3 Ultra). The results render safely in an isolated frame, can be saved to Favorites, or exported directly to Bluesky as images.
+- **News and Explanations**: With date-filtered web search via Tavily, personas can research breaking news and provide deep, grounded background explanations without accumulating conversational baggage.
+- **Product Support (`support`)**: Answers questions by referencing the system's OKF documentation directly, remaining strictly factual without retaining personal memory.
+
+By bypassing note-keeping, summary rewriting, and action review phases for memoryless personas, kakeratta cuts inference tokens and latency substantially—saving operational costs while eliminating the annoyance of unsolicited memory accumulation and unprompted daily check-ins.
+
+### Favorites: keeping what matters
+
+When an AI persona delivers a valuable artifact—an insightful infographic, a news breakdown, or a curated list of recommendations—you can save it directly to **Favorites** with a single click. Favorites can be filtered by persona or searched separately, ensuring your favorite AI deliverables stay organized and accessible without disappearing into the flowing daily Timeline.
 
 ### Personas are created and refined in plain language
 
@@ -42,10 +73,10 @@ From then on, Nagomi's persona collects related fragments. It can remind you bef
 
 ### Bringing things back, and letting them go
 
-- **Daily check-in.** Once a day, each active persona on a daily schedule reviews its memory alongside recent timeline activity, including posts never routed to it. That is how michi made the Shizuoka connection. A quieter mode speaks only when the user needs to decide something.
+- **Daily check-in.** Once a day, each active persona on a daily schedule reviews its memory alongside recent timeline activity, including posts never routed to it. A quieter mode speaks only when the user needs to decide something.
 - **Monthly look-back for people.** Once a month, kakeratta summarizes the timeline once into an editable This month post, with each line linked to its source. Each person persona on a monthly schedule reads that summary plus the posts mentioning its person, surfacing things like "You haven't talked in a while" or "You said you'd do this together someday."
-- **Scheduled follow-ups.** plana remembers "Buy flowers on the way home" and later asks "Did you get them?"
-- **Memories have an ending.** Notes a persona creates from its own searches, such as today's lunch candidates, expire if you don't react. Memories from something you said, such as "I want to try this place someday," get a review date, and the persona then asks whether to keep, postpone, or forget. User-derived memories are never deleted automatically.
+- **Scheduled preparation and follow-ups.** `sona` checks upcoming plans and preparation shortly before departure—comparing belongings and checking live WeatherAPI forecasts—and follows up on chores shortly after the promised moment ("Did you get the flowers?").
+- **Memories have an ending.** Notes keep what you said, summarized into concise field facts alongside dated records. Candidate lists a persona produced from searches expire automatically if you don't react. User-derived memories get review dates where the persona asks whether to keep, postpone, or forget. User-derived memories are never deleted automatically.
 
 All of this runs server-side, so the browser can be closed.
 
@@ -63,13 +94,13 @@ You judge the result.
 
 ## How we built it
 
-Unstructured human timeline → personas for interests or people → a separate structured memory for each persona
+Unstructured human timeline → personas for interests or people → separate structured memory (or pure answer generation for answer-only personas)
 
 ### NVIDIA Nemotron on Nebius Token Factory
 
 Models are assigned by task difficulty and frequency:
 
-- **Nemotron 3 Ultra:** drafting personas, and deeper answers when the user asks for one
+- **Nemotron 3 Ultra:** drafting personas, deeper answers when requested, and visual HTML infographic generation (`alwaysUltra: true`)
 - **Nemotron 3 Super:** routing, normal persona execution, and workflow review
 - **Nemotron 3.5 Lightning:** deciding whether to escalate to Ultra, and polishing dictated text
 - **GLM-5.3-Flash:** understanding photos and screenshots
@@ -89,11 +120,15 @@ Super cost about 22% as much as Ultra, while matching the post-hoc reference on 
 
 That tradeoff made Super the default router. The cost estimates use recorded token usage and the experiment's prices and cover routing only. This was a small, post-hoc replay, not a general accuracy benchmark.
 
-### Persona memory with OKF
+### Persona memory: field summaries, kakera records, and answer-only bypass
 
-Long-term memory uses OKF (Open Knowledge Format), separated by persona and then by topic, with tags and internal links. A persona reads and updates only the memories relevant to the current task, instead of an ever-growing history.
+Long-term memory uses OKF (Open Knowledge Format) principles, refined into two lightweight, inspection-friendly structures per persona:
+- **Field summaries (`{Field}.md`):** Concise, user-grounded factual summaries (capped at 2,000 characters) maintained by the background note keeper.
+- **Kakera records (`records/YYYY-MM.md`):** One dated record line per relevant post with a short sentence, tags, and review/expiration dates.
 
-The original timeline is stored separately and stays searchable by keyword and embedding, even when no persona chose to remember a post. What a persona remembers and what actually happened are deliberately kept apart.
+For personas configured as answer-only (`memoryEnabled: false`), this entire memory pipeline is bypassed. The model answers the prompt directly; note-keeper writes, summary rewrites, and post-answer review calls are omitted. This cuts inference cost and latency while eliminating unwanted memory clutter.
+
+The original timeline remains independent and searchable by keyword and embedding, even when no persona remembered a post. What a persona remembers, what artifacts you save to Favorites, and what actually happened on the Timeline are deliberately kept apart.
 
 ### Offline capture with a service worker
 
@@ -108,11 +143,13 @@ The responsibility boundary stays the same whether the planner is built in or ex
 ### Other design choices
 
 - **Images are analyzed once.** The text representation is shared with every relevant persona. The tradeoff: if the first analysis misses something, no persona can revisit the image from another angle.
-- **Tools belong to personas.** Each persona declares its own tools: web search (Tavily), place search (OpenStreetMap / Overpass / Nominatim), routes (OSRM), MCP-provided tools, and timeline/memory search. michi can remember a place and later check how long it takes to get there.
+- **Tools belong to personas.** Each persona declares its own tools: web search with publication-date filters (Tavily), weather forecasts (WeatherAPI for outing preparation), place search (OpenStreetMap / Overpass / Nominatim), routes (OSRM), MCP-provided tools, and timeline/memory search.
+- **Doorstep delivery via Web Push.** Scheduled reminders and preparation alerts arrive directly on the user's mobile device through Web Push, reaching them right before they leave.
+- **Isolated rendering and image export.** HTML infographics run in an isolated browser frame without external scripts or network access, and can be converted client-side into images to share directly to Bluesky.
 
 ### Data handling
 
-In the hosted app, timelines, persona memories, settings, and search vectors are stored in Firestore; images are stored in a private Cloud Storage bucket. Firebase Authentication identifies each user, and the Go API scopes access to that user's workspace.
+In the hosted app, timelines, persona memories, favorites, settings, and search vectors are stored in Firestore; images are stored in a private Cloud Storage bucket. Firebase Authentication identifies each user, and the Go API scopes access to that user's workspace.
 
 The backend processes the data, sending relevant text, images, and embedding inputs to the configured inference provider, and queries to the tools a persona uses. An external agent can read the user's timeline and persona notes if the user enables that connection.
 
@@ -120,21 +157,22 @@ This is server-side processing, not end-to-end encryption: authorized infrastruc
 
 ## Challenges we ran into
 
-The hardest problem was keeping internal complexity from becoming the user's problem. Under the hood are routing, model tiers, OKF, semantic search, MCP, phased planning, and scheduled execution. The user should only need two rules:
+The hardest problem was keeping internal complexity from becoming the user's problem. Under the hood are routing, model tiers, OKF, semantic search, MCP, phased planning, Web Push, and scheduled execution. The user should only need two rules:
 
 Post what's on your mind. Tell a persona what you want in plain language.
 
-So there is one search box: "Pinot" and "that light red I liked before" both start there, with keyword and semantic search combined behind it. And when routing or a reply is wrong, the user explains what they expected instead of editing rules. The inside became more complex so the outside could become simpler.
+So there is one search box: "Pinot" and "that light red I liked before" both start there, with keyword and semantic search combined behind it. We established four clear, intuitive boundaries: **Timeline** (what happened), **Memory** (what AI remembers), **Favorites** (the AI artifacts you want to keep), and **Search** (digging through past timeline entries). When routing or a reply is wrong, the user explains what they expected instead of editing rules. The inside became more complex so the outside could become simpler.
 
 ## Accomplishments that we're proud of
 
-**Raising answer quality by narrowing what each AI call carries.** Instead of one enormous memory for everything about a user, the food persona remembers food, the travel persona remembers travel, and each person in the user's life has a persona of their own. Each memory stays small enough to inspect and correct, while the timeline remains the full record of what actually happened.
+**Raising answer quality by narrowing what each AI call carries.** Instead of one enormous memory for everything about a user, the food persona remembers food, the books persona remembers reading, and each person in the user's life has a persona of their own. Each memory stays small enough to inspect and correct, while the timeline remains the full record of what actually happened.
 
 Repeated tuning showed that the biggest gains in answer quality came from changing what each model call had to carry.
 
 - **Context.** A persona is given its own index, the post, and the remarks under it, not the whole timeline, and reads further notes only when it needs them.
-- **Notes.** Notes keep what the user said, not what an answer happened to research. A candidate list a persona produced expires the next day unless the user reacts to it, so memory does not fill with the persona's own guesses.
+- **Notes.** Notes keep what the user said, not what an answer happened to research. A candidate list a persona produced expires automatically unless the user reacts to it, so memory does not fill with the persona's own guesses.
 - **Workflow.** Each turn is split into phases that build one workflow. The persona first writes only its answer, with no note format or change schema in its prompt; separate phases then add schedules, actions, and notes. When one call had to do everything, it shortened its replies to make room for the notes it was required to write. With the answer on its own, the model can spend its attention on what the user actually asked.
+- **Answer-only efficiency.** By allowing personas to be configured as memoryless (`memoryEnabled: false`), personas focused on tasks like infographics, news commentary, or technical support skip note keeping, summary rewriting, and action reviews entirely. This drastically reduces token costs and execution latency, while completely eliminating the annoyance of unwanted AI notes or unprompted check-ins.
 
 Building this changed how I think about context in personal AI. It is not only about retrieving the right information, but about deciding what belongs together, what stays separate, which AI may remember what, and who gets to correct those decisions.
 
@@ -146,9 +184,11 @@ Organizing isn't enough. People remember by organizing, such as finding an old t
 
 Memory needs an ending. An early rule required personas to save something whenever they spoke. Soon tabe's memory was full of restaurants it had recommended, and memory became a record of the AI's own answers instead of the user. Giving memories a lifespan fixed this better than stricter save rules. Expiration became not the moment of deletion, but the last chance for information to return to the user before it's forgotten.
 
+And sometimes, **not remembering is the best choice.** Not every task benefits from permanent memory. Specialized answer-only personas—like visual infographic creators and fresh-news explainers—deliver high value without the overhead or annoyance of maintaining memory.
+
 Narrow the task before scaling the model. Early routing asked a large model "Which personas is this related to?" Reframing it as "Does this post match this explicit condition?" made routing practical on a mid-size model, and made the conditions readable and correctable. The same principle shaped the whole system: separate routing from execution, personas from memory, and limit each persona's tools. Defining what the AI is allowed to decide matters as much as making it more capable.
 
-When to remind matters as much as what to remember, and so does when to forget.
+When to remind matters as much as what to remember, and so does when to forget. Timely preparation—like checking belongings and rain forecasts right before stepping out the door—turns AI from a distant database into a thoughtful daily companion.
 
 ## What's next for kakeratta
 

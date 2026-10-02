@@ -2,7 +2,7 @@
 
 By default, kakeratta uses five models through Nebius Token Factory. Models are assigned by role based on call frequency and how far the consequences of an error can propagate.
 
-Nemotron 3 Ultra (550B, 55B active) — Persona drafting and deeper follow-up answers on request. Drafting happens infrequently, but a bad routing condition can affect every later post, so I assign it to the largest model. Ultra is also used when a user explicitly asks a persona to reconsider or explore an answer in greater depth.
+Nemotron 3 Ultra (550B, 55B active) — Persona drafting, deeper follow-up answers on request, and visual HTML infographic generation (`alwaysUltra: true`). Drafting happens infrequently, but a bad routing condition can affect every later post, so I assign it to the largest model. Ultra is also used when a user explicitly asks a persona to reconsider or explore an answer in greater depth, and for generating complete, responsive HTML/SVG infographics from complex topics where high reasoning capacity and layout discipline are critical.
 
 Nemotron 3 Super (120B, 12B active) — The default Router, normal persona responses, and pre-execution review of plans that include schedules or external actions.
 
@@ -93,13 +93,15 @@ An agentic rewrite step updates that persona's routing condition from the feedba
 
 Even Ultra could not infer every user's preferred boundaries perfectly. Rather than trying to build a perfect universal Router, I designed one whose decisions users can inspect, correct, and refine over time.
 
-4. Splitting each persona turn into phases
+4. Splitting each persona turn into phases and bypassing memory for answer-only personas
 
 Personas do not change application state directly. An earlier design asked one call for the reply, notes, schedules, and tool calls as a single workflow. The model spent its attention on the schema, shortened replies to make room for required notes, and still sometimes omitted the second of a paired operation, such as promising a time without creating the schedule.
 
 Each turn is now split by responsibility. The persona reads with read-only tools and hands in only its answer. Separate schedule and action phases then see that fixed answer and fill their own typed parts. Those phases must also state whether every promise in the answer is backed by an operation; a turn that cannot be made consistent is not published. Notes are not part of the turn: once the answer is out, a note keeper on the persona model writes them, so a note that fails to come out can no longer take a good answer with it (that is how a good answer once showed up as "stayed quiet"). The application assembles the parts into a workflow.
 
 Each phase sees only the schema it needs, and a persona that cannot create schedules or take actions never sees those phases.
+
+Crucially, kakeratta also supports answer-only personas (`memoryEnabled: false`) for tasks like HTML infographics, news commentary, or technical documentation support. For these personas, the entire post-answer pipeline—note keeping, summary rewriting, scheduled check-ins, and execution review—is bypassed. The turn completes immediately after delivering the answer. This structural bypass eliminates unwanted AI memory accumulation and unsolicited check-ins, while drastically cutting token usage and inference cost.
 
 Anything that can be verified deterministically is checked in code. Only plans that include a schedule or an external action are reviewed by Super, and a failed review regenerates only the phase it blamed.
 
@@ -144,7 +146,7 @@ Native tool calling was particularly important. tool_choice: "required" allowed 
 
 Usage visibility also directly influenced the architecture. Being able to see consumption and actual cost by model helped me decide which work justified Ultra and which belonged on a cheaper tier. Those measurements were one reason I redesigned the Router instead of simply using Ultra everywhere.
 
-The application itself runs on Google Cloud Run and Firestore and calls the Token Factory public API over HTTPS. The personas' web search tool uses Tavily with each user's own key (route search is separate and uses OSRM). I did not provision GPU instances on Nebius. I chose Google Cloud for the application infrastructure because I already work fluently with Terraform on GCP and wanted to spend the hackathon building the product rather than learning a new infrastructure stack at the same time.
+The application itself runs on Google Cloud Run and Firestore and calls the Token Factory public API over HTTPS. External integrations complement the model stack: web search with date filters uses Tavily, live weather forecasts for outing preparation use WeatherAPI, route search uses OSRM, and scheduled reminders reach devices via Web Push. I did not provision GPU instances on Nebius. I chose Google Cloud for the application infrastructure because I already work fluently with Terraform on GCP and wanted to spend the hackathon building the product rather than learning a new infrastructure stack at the same time.
 
 ## How likely are you to recommend running Nemotron on Nebius to other developers? (1 = Unlikely, 10 = Highly Likely)
 
