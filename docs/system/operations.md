@@ -2,8 +2,8 @@
 type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, deployment, memory migration, portable exports, and workspace deletion."
-tags: ["development", "deployment", "export", "destroy"]
-updated: "2026-10-02"
+tags: ["development", "deployment", "switchyard", "replay", "export", "destroy"]
+updated: "2026-10-03"
 ---
 
 Development, validation, deployment, memory migration, portable exports, and workspace deletion.
@@ -33,6 +33,16 @@ KAKERATTA_WEATHERAPI_KEY_FILE="$PWD/tmp/weatherapi.key" KAKERATTA_WEATHERAPI_LIV
 ```
 
 Production deployment binds `KAKERATTA_WEATHERAPI_KEY` to the existing Secret Manager secret `kakeratta-wheatherapi-key`, version `latest`, in both the Terraform Cloud Run definition (`weatherapi_secret_id` / `weatherapi_secret_version`) and Cloud Build deployment (`_WEATHERAPI_SECRET` / `_WEATHERAPI_SECRET_VERSION`). The spelling is the registered secret ID. The runtime service account already has Secret Manager accessor permission. The operator manages secret versions separately; no WeatherAPI secret payload is read or created by Terraform, and only the secret reference enters state. A new instance resolves the configured version on startup. Keep both deployment paths aligned when overriding the secret ID or version. The local `tmp/` credential is excluded from the Docker build context. See [Weather forecasts](./integrations.md#weather-forecasts).
+
+## Switchyard comparison
+
+[examples/switchyard](../../examples/switchyard/README.md) provides a separate-server setup using Switchyard v0.3.0, a Token Factory custom-classifier route over Lightning/Super/Ultra, a fixed Ultra route, and synthetic answer-stage replay cases. Start the proxy with its own upstream credential, validate the TOML with `--dry-run`, and set `ROUTER_MODE=switchyard` on the Go process. Set `lightning` or leave the variable unset to use the existing baseline. This experiment is not included in deployment automation; the server binary is not installed by kakeratta. The sample binds to localhost and uses the upstream standalone demo server.
+
+[cmd/router-replay](../../cmd/router-replay/main.go) reads unique-ID JSONL cases containing captured answer-stage `messages`, optional `previousAnswer`/`reply`, `alwaysUltra`, and `expectedContains`. It validates the dataset before API calls and runs `lightning`, `switchyard`, or `both` (alternating arm order). The baseline uses the actual Lightning escalation on a reply; both arms use the runtime answer schema, parser, and repair loop through `ReplayAnswer`. This command runs no tools and saves no workspace state. It measures answer-stage and baseline escalation latency, not full-turn research, action, review, memory, or external-agent behavior. Real posts must be captured and supplied by the operator; shipped fixtures are synthetic. Timeline citation IDs are rejected because replay executes no timeline search.
+
+Output is JSONL with answer text, elapsed seconds, completion model IDs, reported usage/status, missing expected strings, and optional visible USD estimates. `REPLAY_API_KEY`, optional `REPLAY_BASE_URL`, and `REPLAY_LIGHTNING_MODEL`/`REPLAY_SUPER_MODEL`/`REPLAY_ULTRA_MODEL` configure the baseline; Switchyard uses the same variables as the app. `-prices` reads an operator-supplied map of model IDs to input/output USD per million tokens. Missing prices or usage yield a null estimate. The baseline includes its escalation request, but Switchyard's internal judge cost must be reconciled from its routing log and provider billing. Expected-text checks are smoke checks; paired answer review supplies quality scores. Ordinary unit tests use HTTP mocks and do not run paid provider comparisons.
+
+Verification: [answer_router_test.go](../../internal/persona/answer_router_test.go), [router replay tests](../../cmd/router-replay/main_test.go). Restart the Go process after changing operator configuration. See [persona execution](./personas.md#optional-switchyard-answer-routing) for boundaries and error behavior.
 
 ## Deployment
 

@@ -58,6 +58,10 @@ func main() {
 	var closeApp func()
 	// Where the tools go is the operator's: one set of map endpoints and one
 	// list of MCP servers for every user of this deployment.
+	answerRouter, err := persona.AnswerRouterFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
 	toolConfig, err := tools.ConfigFromEnv(version)
 	if err != nil {
 		log.Fatal(err)
@@ -105,6 +109,7 @@ func main() {
 			FirebaseAPIKey:     strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_API_KEY")),
 			FirebaseAuthDomain: strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_AUTH_DOMAIN")),
 			Tools:              toolConfig,
+			AnswerRouter:       answerRouter,
 			JudgeInviteToken:   strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_INVITE_TOKEN")),
 			JudgeAPIKey:        strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_TOKEN_FACTORY_KEY")),
 			JudgeExpiresAt:     judgeExpiresAt,
@@ -220,8 +225,9 @@ func main() {
 		}
 		options := server.Options{
 			Store: workspace, Catalogue: persona.NewCatalogue(workspace),
-			Version: version,
-			Tools:   toolConfig,
+			Version:      version,
+			Tools:        toolConfig,
+			AnswerRouter: answerRouter,
 		}
 		if cloudBlobs != nil {
 			options.Exports = cloudBlobs.Exports("exports/single")

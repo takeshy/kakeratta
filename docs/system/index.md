@@ -4,16 +4,16 @@ okf_version: "0.2"
 
 # kakeratta system implementation
 
-This **OKF v0.2 bundle** documents the implementation in six subsystem chapters. Each chapter covers a complete area of responsibility; individual functions and execution stages are sections within it. The implementation reference date is 2026-10-02.
+This **OKF v0.2 bundle** documents the implementation in six subsystem chapters. Each chapter covers a complete area of responsibility; individual functions and execution stages are sections within it. The implementation reference date is 2026-10-03.
 
 # Chapters
 
 - [Architecture and runtime](./architecture.md) - System boundaries, dependency assembly, background workers, multiple instances, and shutdown.
 - [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, favorites, and search.
-- [Persona execution and memory](./personas.md) - Persona definitions, built-in support and HTML infographics, Ultra selection, routing, research, reviewed actions, optional memory, schedules, and corrections.
+- [Persona execution and memory](./personas.md) - Persona definitions, built-in support and HTML infographics, Ultra selection, optional Switchyard answer routing, research, reviewed actions, optional memory, schedules, and corrections.
 - [Browser application and device state](./frontend.md) - Frontend composition, requests, live updates, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
 - [External agents, tools, and sharing](./integrations.md) - External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
-- [Development and workspace operations](./operations.md) - Development, validation, deployment, memory migration, portable exports, and workspace deletion.
+- [Development and workspace operations](./operations.md) - Development, validation, deployment, Switchyard comparison, memory migration, portable exports, and workspace deletion.
 
 # Reading the bundle
 

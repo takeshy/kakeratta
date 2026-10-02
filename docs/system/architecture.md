@@ -3,7 +3,7 @@ type: "Architecture"
 title: "Architecture and runtime"
 description: "System boundaries, dependency assembly, background workers, multiple instances, and shutdown."
 tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
-updated: "2026-10-01"
+updated: "2026-10-03"
 ---
 
 System boundaries, dependency assembly, background workers, multiple instances, and shutdown.
@@ -53,6 +53,8 @@ Scheduled utterances also emit an internal `reminder` event consumed by the exec
 ## Startup
 
 `main` creates the tool configuration and, when configured, GCS and Firestore clients. With `KAKERATTA_FIREBASE_PROJECT_ID`, it creates a `Gateway`; with Firestore as well, the Gateway gets a `Shared` configuration for several instances. Otherwise, it opens a file workspace and creates a `Server`.
+
+`main` also validates the optional operator-owned answer router configuration and passes it through standalone Server options or Gateway authentication options. With `ROUTER_MODE=switchyard`, persona research and answer calls reach a separately operated OpenAI-compatible server; other inference calls retain their existing provider boundary. kakeratta neither links Rust nor manages this process. See [Switchyard answer routing](./personas.md#optional-switchyard-answer-routing).
 
 `Server.New` connects the Catalogue, Runner, and search Service, registers routes, starts the Runner, queues a search-index pass, and asks to be woken now (`Runner.Rearm`), which is how a workspace looks at its times. There is no clock going round: see [Times and wakes](#times-and-wakes).
 

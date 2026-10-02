@@ -31,7 +31,8 @@ type Options struct {
 	Catalogue *persona.Catalogue
 	Version   string
 	// Tools is the operator's configuration, shared by every workspace.
-	Tools tools.Config
+	Tools        tools.Config
+	AnswerRouter persona.AnswerRouter
 	// Exports is where a finished backup is put for the user to download.
 	// Without one the backup is streamed down the response instead.
 	Exports store.ExportTarget
@@ -92,6 +93,7 @@ func New(options Options) *Server {
 	s.search = search.New(s.store)
 	s.runner.SetSearch(s.search)
 	s.runner.SetTools(s.tools)
+	s.runner.SetAnswerRouter(options.AnswerRouter)
 	s.runner.SetConnectionWaits(s.activeMCPWaits)
 	s.runner.OnEvent(s.publishEvent)
 	s.routes()
