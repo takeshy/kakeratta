@@ -13,6 +13,11 @@ function panelOf(current, info = about, extra = {}) {
 }
 
 export const Default = { name: "既定（Nebius・ブラウザ音声認識）", render: () => panelOf(settings) };
+export const ExtraLarge = {
+  name: "特大文字（スマホ幅の確認）",
+  globals: { textSize: "xlarge" },
+  render: () => panelOf(settings),
+};
 export const Dictating = { name: "Web検索あり・音声のAI整形ON", render: () => panelOf(dictatingSettings) };
 export const InitialSetup = { name: "初回設定", render: () => panelOf({ ...settings, apiKey: "" }) };
 // Once an external agent is connected, the waits before falling back show.

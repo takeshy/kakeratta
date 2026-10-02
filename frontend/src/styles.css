@@ -66,12 +66,13 @@ body {
 .brand-mark { width: 22px; height: 22px; border-radius: 6px; }
 /* Navigation stays separate from each thread’s read-aloud control. */
 .topbar .nav { font-size: 0.8rem; white-space: nowrap; }
-/* Compact navigation uses the space beside the brand on phones.
+/* Compact navigation aligns to the right of the brand on phones.
    Keep wrapping available for large text and especially narrow screens. */
 @media (max-width: 480px) {
-  .topbar { gap: 3px; flex-wrap: wrap; }
+  .topbar { gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+  .topbar .brand { margin-right: auto; }
   .topbar > .spacer { display: none; }
-  .topbar .nav { font-size: .75rem; padding: 4px; }
+  .topbar .nav { font-size: 1rem; padding: 4px; }
   .topbar .nav.help, .topbar .nav.logout { padding: 4px; }
   .brand-name { display: none; }
 }
@@ -393,7 +394,14 @@ body.sheet-open .topbar { z-index: 21; }
 .model-picker-list .hint { padding: 8px; }
 /* The settings sheet: each h3 opens a section, set off by a rule and an accent
    label, so a long sheet reads as a few groups rather than one column. */
-.settings-panel { gap: 12px; padding-bottom: 32px; }
+.settings-panel { grid-template-columns: minmax(0, 1fr); gap: 12px; padding-bottom: 32px; overflow-wrap: anywhere; }
+/* Native controls and nested grids can otherwise impose their content width,
+   especially with enlarged text or long device-specific voice names. */
+.settings-panel :is(.field, .settings-block, .advanced-body, .advanced-category-body, .openrouter-models, .mcp-connection, .mcp-connection-row, .bluesky-connection) {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.settings-panel :is(input, select, button, .chip) { min-width: 0; max-width: 100%; }
 .settings-panel p { margin: 0; line-height: 1.6; }
 .settings-panel h3 {
   margin: 18px 0 0;
