@@ -97,8 +97,8 @@
 
       <section class="section" id="daily">
         <h2><span class="ja">毎日一度、目を覚ます。自分で時刻を置くこともある。</span><span class="en">Wakes once a day, and sets its own times too.</span></h2>
-        <p class="section-intro ja">かけらを投げたときの反応に加えて、担当は毎日一度チェックインします。新しい投稿がない日も、自分の記憶や過去のかけら、使える道具を頼りに、伝えることがあるかを考えます。あなたの判断が必要なことだけを聞くよう、担当ごとに絞ることもできます。</p>
-        <p class="section-intro en">Alongside reactions to your fragments, every persona checks in once a day. Even without a new post it consults its memory, past fragments, and available tools to decide whether something is worth sharing. Each persona can also be limited to asking only what needs your decision.</p>
+        <p class="section-intro ja">かけらを投げたときの反応に加えて、記憶がオンの担当は毎日一度チェックインします（人物は月1回も選べます）。新しい投稿がない日も、自分の記憶や過去のかけら、使える道具を頼りに、伝えることがあるかを考えます。あなたの判断が必要なことだけを聞くよう、担当ごとに絞ることもできます。</p>
+        <p class="section-intro en">Alongside reactions to your fragments, personas with memory enabled check in once a day (people can look back monthly). Even without a new post, each consults its memory, past fragments, and available tools to decide whether something is worth sharing. Each persona can also be limited to asking only what needs your decision.</p>
         <p class="ja">前に行きたいと言っていた店のメモ、そろそろ忘れていい？ 朝の薬の記録がまだない。そんなときだけ、短く話しかけます。何もなければ、タイムラインも静かなまま。</p>
         <p class="en">That shop you wanted to try: okay to forget it now? Nothing recorded yet for the morning medicine. At times like these, a persona may say a few words. Otherwise, the timeline stays quiet.</p>
         <p class="ja">時刻は設定不要。端末のタイムゾーンの 7時〜21時のどこかで、担当ごとに起きます。話す量だけ担当ごとに選べます。さらに担当は、自分の記録から「いつごろか」を読み取って、自分で起きる時刻を置きます。ブラウザを閉じても、サーバーが動いていれば起きられます。</p>
@@ -257,11 +257,11 @@
 
       <section class="section" id="models">
         <h2><span class="ja">動かしているモデル</span><span class="en">The models behind it</span></h2>
-        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。ふだんは全員が Super で答え、「もっと詳しく」「違う」と返すとその返信には Ultra が答えます。</p>
-        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Every persona answers on Super; reply "tell me more" or "that's wrong" and that reply is answered on Ultra.</p>
+        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。ふだんは Super、常に熟考する担当は Ultra で答え、「もっと詳しく」「違う」と返すとその返信には Ultra が答えます。</p>
+        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Personas normally answer on Super, or Ultra with Always think deeply on; reply "tell me more" or "that's wrong" and that reply is answered on Ultra.</p>
         <ul class="models">
           <li><span class="ja">Nemotron 3.5 Lightning — 返信がより深い回答を求めているかの判定</span><span class="en">Nemotron 3.5 Lightning — noticing when a reply asks for a deeper answer</span></li>
-          <li><span class="ja">Nemotron Super — 振り分けと、すべての担当の回答</span><span class="en">Nemotron Super — routing and every persona's answers</span></li>
+          <li><span class="ja">Nemotron Super — 振り分けと、通常の担当の回答</span><span class="en">Nemotron Super — routing and ordinary persona answers</span></li>
           <li><span class="ja">Nemotron Ultra — より良い・深い回答を求められたときの推論</span><span class="en">Nemotron Ultra — deeper reasoning when you ask for a better answer</span></li>
           <li><span class="ja">GLM-5.3-Flash — 画像の読み取り（同じ基盤）</span><span class="en">GLM-5.3-Flash — image reading, on the same backend</span></li>
         </ul>

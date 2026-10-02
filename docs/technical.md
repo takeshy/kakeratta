@@ -2,6 +2,8 @@
 
 [README](../README.md) · [日本語](technical_ja.md)
 
+Implementation reference: 2026-10-02. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
+
 You do not need this document to use kakeratta.
 
 The user-facing idea is deliberately small: post what you are thinking, and
@@ -33,7 +35,7 @@ Each selected persona then decides what to do:
 * speak in the timeline
 * or stay silent
 
-Afterwards the app keeps what the fragment leaves behind: the persona sums the
+With memory enabled, the app then keeps what the fragment leaves behind: the persona sums the
 fragment up in one sentence with tags, and says which facts it adds, replaces
 or retires. Once a day, at its check-in, the persona rewrites the summary of
 each field whose facts changed. Memory is split by persona, then by the fields
@@ -80,7 +82,7 @@ having things explained to you, and being reacted to every time you just wanted
 to look at something is an imposition. A post nobody answers is a normal post.
 
 **Not speaking and not remembering are different things.** A post a persona
-said nothing about is still recorded in its memory, if it is its subject.
+said nothing about is still recorded if it is its subject and memory is enabled.
 
 **Name it with @ and it always answers.** Because the subjects are separate,
 there is something to choose between.
@@ -160,15 +162,19 @@ that reads from the real one and writes nowhere. No remark is appended, no note
 or schedule is written and no wake is counted. What it would have said comes
 back for the person to judge.
 
-**An @ mention skips the routing.** A named persona always gets the post and
-always answers. It was asked directly, so it is not told to keep it short: it
-answers at the length the question needs. Routing runs as usual for everyone
-else.
+**Direct requests select one recipient.** An explicit `@` mention of an active
+persona skips both interest routing and person name/keyword matching. Without
+a mention, a reply to an active persona selects that persona alone. A mention
+wins over a different reply target, while preserving the reply relationship.
+The HTTP API rejects mentions of multiple distinct personas. Post edits also
+notify previous recipients so they can correct their memory.
 
-**A reply goes through the same routing as a post.** It is routed against the
-whole thread. Whoever the router picks answers it, plus anyone @mentioned.
-A reply to a persona's remark or post always reaches that persona as well,
-whether or not the router picked it.
+**Other replies use ordinary routing**, with the thread as context. This
+includes replies to user posts or inactive/deleted personas with no active
+mentioned recipient. A direct recipient must answer at the length needed.
+When a reply says “summarize this” or “diagram this answer”, the replied-to
+entry is its subject, including when `@` selects a different persona; an
+explicitly chosen original post or whole thread takes precedence.
 
 The current default router is **Nemotron 3 Super through Nebius Token Factory**.
 
@@ -238,7 +244,7 @@ changed.
 
 ## Who answers, and on which model
 
-**Every persona a post reaches runs at once, on Nemotron 3 Super.** Each takes
+**Selected personas run in parallel, normally on Nemotron 3 Super.** Each takes
 one turn. On the timeline, only the user's own posts and replies wake anyone;
 a persona's remark never wakes another persona, so the timeline cannot fill
 with AI-to-AI conversation. (Check-ins and schedules wake a persona on their
@@ -254,13 +260,12 @@ correction, a rethink, more detail or a deeper look ("違う", "本当？",
 
 * If so, the persona whose remark was replied to answers on Ultra, once. Its
   prompt drops "keep it short" and asks for a thorough answer in Markdown.
-* Anyone else the reply reaches answers on Super as usual.
 * Thanks, ordinary follow-up questions and new topics stay on Super, as does a
   judgement Lightning fails to give. The persona replied to still answers.
 * A reply to the user's own post, or to a persona no longer in the room, is not
   judged at all.
 
-The judgement runs after routing, so it adds its own time to such a reply. In
+The judgement runs after recipient selection, so it adds its own time to such a reply. In
 a live measurement on 2026-09-22 (15 synthetic replies,
 `TestEscalateLiveLatency`), Lightning judged all 15 correctly in 0.67 seconds
 on average (1.52 at most, about 0.006 yen per call); Super was also 15/15 but
@@ -271,6 +276,12 @@ user said, in so many words, that they want more. That keeps the small model's
 task narrow, and it makes the difference between the models visible: Super is
 the everyday voice, Ultra is what the user reaches for.
 
+**Always think deeply** (`alwaysUltra`) selects the high model and deeper
+research budget for every wake, including ordinary requests. It does not
+change external delegation; Ultra is used when the built-in planner takes
+over. Infographic ships with this on. Other personas default to off; ordinary
+thanks and follow-ups use Super only while it is off.
+
 **Each remark records which model answered** (`model: "super"` or `"ultra"`;
 nothing for a turn that failed), and the timeline marks an Ultra answer with a
 badge beside the time.
@@ -278,9 +289,9 @@ badge beside the time.
 ```text
 post / reply
  ↓ the image is read once
- ↓ routing
+ ↓ direct recipient selection, or ordinary routing
  ↓ a reply to a persona's remark: Lightning → {"escalate": true|false}
-every recipient runs in parallel on Super — the replied-to persona on Ultra when escalated
+selected recipients run in parallel; use Ultra when escalated or alwaysUltra is on
 ```
 
 ## A workflow assembled phase by phase, not written in one call
@@ -322,7 +333,9 @@ Built-in: Read → Answer        External agent: Read + Answer → submit_answer
 
 ### A turn, phase by phase
 
-Every persona works this way, whatever tools it holds
+The following describes a memory-enabled turn; memoryless read-only turns
+skip post-answer action phases, and memory-off turns skip the note keeper.
+Personas otherwise use the same phases, whatever tools they hold
 (`internal/persona/answer.go`, `phases.go`, `workflow.go`). The reading and the
 answer can be done by the built-in model or, for a persona whose planner is set
 to it, by an external agent over MCP (see
@@ -447,8 +460,8 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | Every persona's answers and phases, routing, and workflow review      |
-| **Nemotron 3 Ultra**       | The replied-to persona, when a reply asks for a better or deeper answer; persona drafting |
+| **Nemotron 3 Super**       | Ordinary persona answers and phases, routing, and workflow review      |
+| **Nemotron 3 Ultra**       | Deeper replies, Always think deeply personas, and persona drafting |
 | **Nemotron 3.5 Lightning** | Judging whether a reply asks for a better answer; dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
 | **Qwen3-Embedding-8B**     | Meaning search over past fragments                                    |
@@ -659,8 +672,10 @@ A persona is a `skill.json`:
 | `instructions` | What to separate and mark as a guess, when to speak. **Only the persona reads these** |
 | `tools` | Only what is declared can be called |
 
-Four ship with the app — tabe (food), support (kakeratta help), shiori (reading), sona
-(preparation, weather and small follow-ups). sona and support are active by default in new workspaces; saved activation choices are preserved. More can be
+Five ship with the app — tabe (food), support (kakeratta help), shiori (reading),
+sona (preparation, weather and small follow-ups), and infographic (HTML diagrams).
+sona, support and infographic are active by default in new workspaces; saved
+activation choices are preserved. More can be
 added from the UI, written by hand or drafted with the persona builder
 (Nemotron 3 Ultra).
 
@@ -681,6 +696,30 @@ added from the UI, written by hand or drafted with the persona builder
 that matter wake for a given post, and routing runs once per post. **Without
 separate subjects, @ means nothing** — if there is nothing to choose between,
 naming someone is pointless.
+
+### Optional memory and HTML infographics
+
+`memoryEnabled` defaults to true when omitted or null. Support and infographic
+ship with it false. Memory-off turns do not receive private notes; record
+queries return no memory, but explicit timeline reads remain available. The
+host skips note keeping, summary rewrites, memory migration and daily/monthly
+check-ins. Existing notes remain stored, and explicit notification schedules
+and external-agent planning remain available. The UI hides memory and check-in
+controls. Read-only memoryless turns also skip post-answer action planning and
+review calls. See [optional persona memory](system/personas.md#optional-persona-memory).
+
+Infographic defaults to `alwaysUltra: true` and submits a complete HTML document
+with inline CSS/SVG. It uses expanded URL articles, interpreted image contents
+and the selected reply target as material. `Entry.Language`, captured at
+submission (including in the offline outbox), selects Japanese or English for
+the diagram; older entries fall back to the latest user language in the thread.
+
+The host stores HTML unchanged. The frontend recognizes whole HTML documents
+from personas and renders them in a sandboxed iframe with CSP blocking scripts,
+external resources, forms, popups and navigation. Ordinary prose and partial
+HTML remain Markdown; read-aloud extracts text without scripts or styles.
+See [HTML rendering](system/frontend.md#merging-data) and
+[infographic verification](../internal/persona/infographic_test.go).
 
 ### A person's persona
 
@@ -816,9 +855,10 @@ answer's `sources` the posts it rests on, and only those are linked.
 
 ## Check-ins and scheduled wakes
 
-Every active persona has a **Daily check-in** once a day. It cannot be turned
-off, and only how much it says can be chosen - and, for a person, whether it is
-looked back on monthly instead (see the month's summary below).
+Every active persona with memory enabled has a **Daily check-in** once a day,
+or, for a person, a monthly lookback (see the month's summary below). Users
+choose how much it says; turning memory off disables both kinds of periodic
+check-in. Explicit notification schedules still work without memory.
 
 When it runs is the app's choice: a minute between 07:00 and 21:00 in the
 user's time zone (the one the page last saved) that drifts by at most an hour
@@ -1364,7 +1404,10 @@ will ask whether to keep a record of something the user said.
 ### Stronger models are not used everywhere
 
 The most capable model is not automatically the best model for a frequent,
-narrow task.
+narrow task. Smaller models can reduce both inference cost and response time.
+Model selection therefore considers speed as well as cost and accuracy; the
+reply-escalation measurement above shows Lightning answering the narrow
+judgement faster than Super.
 
 The routing redesign is the clearest example.
 
@@ -1396,7 +1439,7 @@ the agent can read and do on its own side.
 
 | Document                                                                                     | Contents                                                                                                                          |
 | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| [README](../README.md)                                                                       | What kakeratta is, what the user can do, privacy, always-on behavior, Nemotron/Token Factory, and the tested NemoClaw integration |
+| [README](../README.md)                                                                       | Overview, built-in personas, local setup, and documentation links |
 | [Routing model comparison — 2026-09-17](routing-cost-experiment.md)                          | Controlled Lightning vs Ultra routing experiment with expected recipients, token counts, cost, and latency                        |
 | [Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md) | Read-only replay of 20 production posts across Nemotron models, Jev, and GPT Luna                                                 |
 | [Usage and configuration](usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |

@@ -43,7 +43,7 @@ reaction queue and event stream.
 ## Landing page and manual
 
 Two pages sit beside the app on the same host: `/lp/` introduces it and
-`/manual/` explains how to use it, with the README's screenshots. Both carry
+`/manual/` explains how to use it, with screenshots from `docs/captures/`. Both carry
 Japanese and English in one document and a switch in the header; the choice is
 kept under the same browser key as the app's display language, so the app, the
 landing page and the manual agree. A `?lang=ja` or `?lang=en` in the URL wins,
@@ -86,6 +86,46 @@ persona reads that off the text.
 has to work without one.
 
 When a position is available, it is kept with the post and used for reactions.
+
+## Personas and direct requests
+
+Five built-in personas are available: tabe (food), shiori (reading), sona
+(preparation and weather), support (kakeratta help), and infographic (HTML
+diagrams). New workspaces activate sona, support and infographic. Existing
+workspaces keep their saved choices; enable new personas in the Personas panel.
+The former built-in travel persona michi has been retired; a customized travel
+persona remains available, and you can create one with place and route tools.
+
+Use `@support` to ask about kakeratta. It reads the system specification and
+answers without keeping private memory by default.
+
+An `@` mention selects one active persona. Without a mention, a reply to an
+active persona reaches that persona alone. A mention of a different persona
+wins over the reply target. Other posts and replies use normal interest routing
+and person name/keyword matching. Editing a post also lets its previous
+recipients correct their memory.
+
+Creation and editing offer **Remember** and **Always think deeply**. Memory
+is enabled unless explicitly disabled; support and infographic default to off.
+Turning it off stops private memory reads and updates and daily/monthly
+check-ins. Existing notes stay stored for when you enable it again. Memory
+controls disappear, while explicit reminders and external-agent preferences
+remain available. Always thinking deeply uses the high (Ultra) model and its
+deeper research budget even for ordinary requests; an external-agent preference
+still works, with Ultra used if kakeratta takes the turn back.
+
+### Turn a post or answer into an infographic
+
+Reply to the material with `@infographic turn this into an infographic`.
+If you reply to another persona's answer, that answer is the subject; you can
+explicitly ask for the original post or the whole thread instead. URLs use the
+expanded article and images use the extracted text and description. Missing
+source material can lead to a clarification rather than a diagram.
+
+The result is a complete HTML diagram displayed within the timeline. Its labels
+and explanations use the browser display language at submission, including
+requests queued offline. Scripts and external resources are blocked. The
+infographic persona defaults to memory off and always Ultra on.
 
 ## Timeline
 
@@ -151,12 +191,12 @@ take a few minutes, since a persona's turn may be planned and reviewed.
 ### People
 
 A persona that keeps one person - your mother, a friend - can be made a
-**person's persona** (the "Keeps a person" switch in the editor, or ask the
-persona builder to "remember things about Sato"). A person is never handed to
+**person's persona** when creating it, or ask the persona builder to
+"remember things about Sato". A person is never handed to
 the router. A post reaches it only when the post - including text read from or
 described in a photo - contains one of its **names** or **keywords** as
-written. Being called with `@`, replies in a thread it was already called to,
-and the daily check-in work as for any other persona. A person reached by a
+written. Direct `@` mentions and replies to the persona take precedence over word
+matching; check-ins run while its memory is enabled. A person reached by a
 word is told that a word is all it was: a post about 母校 (alma mater) reaches
 母 (mother), and if the post is not about them the persona ends its turn
 without a reply or a note.
@@ -192,7 +232,7 @@ looked back on monthly wakes on the summary's day, after the summary, and is
 handed the summary and the posts since its previous check-in that contain its
 names or keywords (the newest 40). It does not read the whole timeline again.
 The persona builder picks the default from the relationship: family and close
-friends daily, people seen now and then monthly. Interests check in daily.
+friends daily, people seen now and then monthly. Remembering interests check in daily; memory-off personas do not check in.
 
 How a person's persona speaks, the kinds of note it keeps (Fact and Event)
 and how it handles loans, promises, meetings, birthdays and anniversaries are
@@ -204,8 +244,7 @@ Saving or editing basic information, and fragments delivered to the person, auto
 
 A person's persona has all the built-in tools - web search, place search,
 routes and wakes (schedule) - to look up presents and places to meet and to
-wake itself on the day. The persona builder always gives them, and turning on
-"Keeps a person" in the editor turns them on; each can be turned off. When a
+wake itself on the day. The persona builder supplies them at creation; each can be turned off. When a
 post mentions meeting them, the persona places a wake for that morning, and on
 the day brings up what happened last time and anything still open.
 
@@ -234,7 +273,7 @@ with no reply and no note. What the persona said on the post stays.
 
 ## A persona's memory: facts, summaries, and kakera records
 
-A persona keeps three things, and the app writes all of them.
+A persona with memory enabled keeps three things, and the app writes all of them.
 
 - **Facts, by field** (`Shop.md` and so on): for each field named in the persona's memory setting, one line per thing it knows - "wants to try Jiro in Mita" - with the kakera it rests on and since when it holds. Each time you send a kakera, the persona's note keeper adds, replaces, retires, or merges facts; nothing is rewritten wholesale. A fact that no longer holds moves under **以前のこと** with when it stopped and what replaced it.
 - **A summary, by field**, at the top of the same file: the persona's own reading of the facts, in prose. It is rewritten at the persona's check-in - daily, or monthly for a person looked back on monthly - from what changed among the facts since, and only for a field where something did. At the same time, a plan whose day has passed - "a haircut booked for 10/3" - is moved under **以前のこと**; an event that happened stays.
@@ -245,6 +284,17 @@ Every turn reads the summaries, the facts that hold now, and the latest records;
 A record may carry dates. `expires:2026-09-26/1d` marks a record of a kakera that served its moment - "where for lunch today?", "how do I get to Shibuya?"; the app deletes the record that day. `review:2026-10-15/21d` marks a record of something you said, dated by the persona from what it is. The app never deletes it; once the day has passed, the persona is handed up to three such records in its daily check-in and asks about one. Reply under that post: "keep it" drops the date, "later" moves it, "forget it" removes the record. When the persona reads a record again while answering you, its dates move out by the span it was given, counted from that day. The memory view shows **Gone on** and **Review on** chips.
 
 Fields kept as prose before facts existed are not read as facts; the operator splits them once with `go run ./cmd/migrate-memory` (a dry run that saves a plan to check) and then `-apply`, which keeps the prose as the summary.
+
+## Reminder push notifications
+
+In Settings → **This device**, enable notifications on each device you want to
+receive scheduled reminders. Permission is requested only when you enable them.
+Push is for scheduled persona reminders, not ordinary replies, check-ins or
+monthly summaries. The lock screen shows a generic reminder; opening it takes
+you to the relevant post. HTTPS and browser push support are required. On
+iPhone/iPad, add the app to the Home Screen and open it there. Without push,
+reminders still appear in the timeline. Self-hosted servers need VAPID
+configuration; see [operator setup](system/operations.md#web-push-configuration).
 
 ## Fast startup and offline posts
 
@@ -276,7 +326,10 @@ declares as its grounds are linked under it.
 said in a sheet of its own, each remark under its post as on the timeline, newest conversation first. Over the list is the persona as its
 card in the personas list shows it: the relationship or condition, a person's
 names, keywords and basic information, and links to its settings, its editor
-and what it remembers. Tap a name on the list to open another speaker.
+and what it remembers when memory is enabled. Notification schedules show
+one per row with dates and time zones; use × and confirm to cancel one from
+either the Personas panel or the speaker list. A failed cancellation leaves
+the schedule visible for retry. Tap a name on the list to open another speaker.
 
 Enter a name such as “Pinot” or a description such as “a light red I enjoyed” in
 one search field. Short terms use keyword search without waiting for AI. Questions
@@ -313,9 +366,7 @@ Where vectors live:
   Firestore vector search (`FindNearest`, cosine distance) returns the nearest
   100 passages, grouped by post. Requires the vector index in
   `firestore.indexes.json` ([deployment](../infra/README.md#firestore-indexes)).
-- `KAKERATTA_STORE=file`: in `<workspace>/social-state/          encrypted Bluesky connections and OAuth state
-<workspace>/publications/          external publication history per account and entry
-<workspace>/search-embeddings/`, with similarity computed in Go.
+- `KAKERATTA_STORE=file`: in `<workspace>/search-embeddings/`, with similarity computed in Go.
 
 ## Voice input
 
@@ -326,8 +377,8 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 - Nemotron 3.5 Lightning — judging whether a reply asks for a better answer, and optional dictation polishing
-- Nemotron Super — routing, every persona, and workflow review
-- Nemotron Ultra — the replied-to persona, when a reply asks for a better or deeper answer; persona drafting
+- Nemotron Super — routing, ordinary persona answers, and workflow review
+- Nemotron Ultra — deeper replies, personas with Always think deeply on, and persona drafting
 - Nebius Token Factory — inference backend
 
 Routing uses Nemotron Super by default. Under Advanced options → Use OpenRouter, enter an API key
@@ -345,8 +396,8 @@ Qwen3-Embedding-8B on the same backend.
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
 | Judging replies to an answer | low | Nemotron 3.5 Lightning |
-| Every persona | middle | Nemotron Super |
-| Replies asking for more | high | Nemotron Ultra |
+| Ordinary persona answers | middle | Nemotron Super |
+| Deeper replies / Always think deeply | high | Nemotron Ultra |
 | Reading images / OCR | fixed | GLM-5.3-Flash |
 | Routing | router (or Jev) | Nemotron Super |
 | Workflow review | middle | Nemotron Super |
@@ -358,12 +409,14 @@ Qwen3-Embedding-8B on the same backend.
 The page has no direct Token Factory model picker: users enter an API key and
 those slots keep their defaults.
 
-Every persona answers on Super. When
+Personas normally answer on Super; **Always think deeply** uses Ultra for
+ordinary requests too. When
 you reply to a persona's answer, Lightning checks one thing: are you explicitly
 asking for a correction, a rethink, more detail or a deeper look ("違う",
 "もっと詳しく", "深掘りして")? If so, the persona you replied to answers on
 Ultra, marked with an Ultra badge. Thanks,
-ordinary follow-up questions and new topics stay on Super.
+ordinary follow-up questions and new topics stay on Super unless Always think
+deeply is enabled.
 The persona can use `read` up to 10 times in an ordinary turn and 20 times in an Ultra turn.
 
 Once an external agent's connection key has been issued, each persona can turn on
@@ -376,7 +429,7 @@ turn's schedules, actions and notes on the persona's own model, assembles them
 with the answer into a workflow, reviews it as in the table above when it holds a
 schedule or an action, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
-15 minutes of the claim, the built-in model (Super) answers instead. The waits are under Advanced options →
+15 minutes of the claim, the built-in model (normally Super, or Ultra with Always think deeply on) answers instead. The waits are under Advanced options →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 

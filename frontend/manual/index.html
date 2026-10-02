@@ -177,8 +177,9 @@
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
           </figure>
           <h3>AI と担当を作る</h3>
-          <p>作成・修正時に <strong>記憶する</strong> と <strong>常に熟考する</strong> を選べます。記憶をオフにするとメモと定期チェックインがなくなり、常に熟考をオンにすると通常の依頼もUltraで回答します。</p>
-          <p>図解したいかけらに「インフォグラフィックにして」と返信するか、<code>@infographic</code> で依頼します。URLは展開された記事本文、画像は読み取り済みの説明や文字を材料にします。図解は依頼時の表示言語に翻訳され、画面内にHTMLで表示されます。既存の利用者は担当一覧で有効にしてください。</p>
+          <p><code>@</code> で指名した投稿や、有効な担当への返信は、宛先の担当だけに届きます。別の担当を指名した場合は指名が優先されます。それ以外は担当条件や人物の呼び名・キーワードで届け先を選びます。</p>
+          <p>作成・修正時に <strong>記憶する</strong> と <strong>常に熟考する</strong> を選べます。記憶をオフにすると記憶の読み取り・更新と定期チェックインが止まります。既存の記憶は保存したままで、明示的な通知予定は使えます。常に熟考をオンにすると通常の依頼もUltraで回答します。</p>
+          <p>図解したい投稿や回答に <code>@infographic これをインフォグラフィックにして</code> と返信します。別の担当の回答に返信した場合、その回答を図解します。「元の投稿を」「スレッド全体を」と明示して対象を変えることもできます。URLは展開された記事本文、画像は読み取り済みの説明や文字を材料にします。図解は依頼時の表示言語に翻訳され、画面内にHTMLで表示されます。既存の利用者は担当一覧で有効にしてください。</p>
           <ol>
             <li><strong>担当</strong> を開き、<strong>関心ごと</strong> タブで <strong>AIと担当を作る</strong> を選びます。人物を覚える担当は、<a href="#ja-people">人物タブから作ります</a>。</li>
             <li>「どんなことの担当を作りたい？」に自分の言葉で答えます。「ワイン」だけでも始められます。<br />例：<em>美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</em></li>
@@ -220,8 +221,9 @@
           <h3>使いながら直す</h3>
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
+          <p>通知予定は担当一覧と発言一覧のカードで確認できます。各予定の <strong>×</strong> を押して確認すると、その予定を取り消します。日時やタイムゾーンも1件ずつ表示します。</p>
           <h3 id="ja-daily">毎日のチェックイン</h3>
-          <p>有効な担当は、毎日1回、7時〜21時のどこかで起きます。時刻は担当ごとに本体が決め、日ごとに1時間以内で少しずつずれていくので、設定はいりません。初期状態では、最近のかけらと前の記録を見直して、伝える価値があることを見つけたときに話します。見直しの日が来た記録があれば、忘れてよいかも聞きます。<strong>チェックインでは最低限のことだけ話す</strong> をONにすると、話しかけるのはその確認など、あなたの判断が必要なときだけになります。何もなければ黙ります。</p>
+          <p>記憶がオンの有効な担当は、毎日1回、7時〜21時のどこかで起きます。時刻は担当ごとに本体が決め、日ごとに1時間以内で少しずつずれていくので、設定はいりません。初期状態では、最近のかけらと前の記録を見直して、伝える価値があることを見つけたときに話します。見直しの日が来た記録があれば、忘れてよいかも聞きます。<strong>チェックインでは最低限のことだけ話す</strong> をONにすると、話しかけるのはその確認など、あなたの判断が必要なときだけになります。何もなければ黙ります。</p>
           <p>話す量を変えるには、<strong>担当</strong> を開き、対象の担当の <strong>チェックインでは最低限のことだけ話す</strong> を切り替えます。変更は自動で保存されます。</p>
           <p>時刻は、この端末のタイムゾーンで数えます。ブラウザを閉じていても、サーバーが動いていれば実行されます。</p>
           <p>チェックインとは別に、sona のように担当が自分で起きる時刻を決めることもあります。詳しくは <a href="/manual/?guide=advanced#ja-wakes" data-lang-link>担当が起きるタイミング</a> を見てください。</p>
@@ -400,8 +402,8 @@
             <table>
               <thead><tr><th>きっかけ</th><th>決める人</th><th>内容</th></tr></thead>
               <tbody>
-                <tr><td>かけらが届いたとき</td><td>本体（振り分け）</td><td>分野に当たる担当と、<code>@名前</code> で指名された担当が動きます。人物の担当は、呼び名かキーワードが書かれているときに動きます。</td></tr>
-                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>本体</td><td>有効な担当が、7時〜21時のどこかで1日1回起きます。月1回振り返る人物は、<a href="/manual/#ja-summary" data-lang-link>今月のまとめ</a>の日に起きます。</td></tr>
+                <tr><td>かけらが届いたとき</td><td>本体（振り分け）</td><td><code>@名前</code> の指名や有効な担当への返信は宛先1人だけを起こし、指名を優先します。それ以外は担当条件や人物の呼び名・キーワードで選びます。</td></tr>
+                <tr><td><a href="/manual/#ja-daily" data-lang-link>毎日のチェックイン</a></td><td>本体</td><td>記憶がオンの有効な担当が、7時〜21時のどこかで1日1回起きます。月1回振り返る人物は、<a href="/manual/#ja-summary" data-lang-link>今月のまとめ</a>の日に起きます。</td></tr>
                 <tr><td>担当が預けた予定</td><td>担当</td><td><code>schedule</code> を持つ担当が、自分の記録から時刻を決めて起きます。</td></tr>
               </tbody>
             </table>
@@ -556,7 +558,7 @@
               </tbody>
             </table>
           </div>
-          <p>担当の発言に「違う」「もう少し詳しく」などと返すと、考え直しの依頼かどうかを判定し、そうであれば返信先の担当が Ultra で答え直します。お礼やふつうの追加質問はそのままです。</p>
+          <p><strong>常に熟考する</strong> がオンの担当は通常の依頼にもUltraを使います。担当の発言に「違う」「もう少し詳しく」などと返すと、考え直しの依頼かどうかを判定し、そうであれば返信先の担当が Ultra で答え直します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
@@ -573,7 +575,7 @@
               <thead><tr><th>道具</th><th>できること</th><th>使える担当・必要な設定</th></tr></thead>
               <tbody>
                 <tr><td><a href="#ja-tool-timeline_search"><code>timeline_search</code></a></td><td>過去のかけらを検索</td><td>すべての担当</td></tr>
-                <tr><td><a href="#ja-tool-notes"><code>records</code></a></td><td>前のかけらの記録を探す（記憶の保存は本体が行う）</td><td>すべての担当</td></tr>
+                <tr><td><a href="#ja-tool-notes"><code>records</code></a></td><td>前のかけらの記録を探す（記憶の保存は本体が行う）</td><td>記憶がオンの担当</td></tr>
                 <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web 検索</td><td>道具に追加した担当。Tavily の API キー</td></tr>
                 <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>店や場所を探す</td><td>道具に追加した担当</td></tr>
                 <tr><td><a href="#ja-tool-weather_forecast"><code>weather_forecast</code></a></td><td>現在の天気と天気予報</td><td>道具に追加した担当。地域名または投稿の位置情報</td></tr>
@@ -744,8 +746,9 @@
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
           <h3>Create a persona with AI</h3>
-          <p>Creation and editing offer <strong>Remember</strong> and <strong>Always think deeply</strong>. Memory off disables notes and periodic check-ins; always thinking deeply uses Ultra for ordinary requests.</p>
-          <p>Reply “turn this into an infographic” to a fragment, or ask <code>@infographic</code>. URLs use the expanded article body; images use their interpreted descriptions and extracted text. The HTML diagram is translated into the display language at submission and displayed in the page. Existing users can enable the persona in the persona list.</p>
+          <p>A direct <code>@</code> mention or reply to an active persona reaches that persona alone. A mention of a different persona takes precedence over the reply target. Other posts and replies use routing conditions and person names/keywords.</p>
+          <p>Creation and editing offer <strong>Remember</strong> and <strong>Always think deeply</strong>. Memory off stops private memory reads, updates and periodic check-ins. Existing notes remain stored and explicit reminders still work. Always thinking deeply uses Ultra for ordinary requests.</p>
+          <p>Reply to a post or answer with <code>@infographic turn this into an infographic</code>. A reply to another persona diagrams that answer; explicitly ask for the original post or whole thread to change the subject. URLs use the expanded article body; images use their interpreted descriptions and extracted text. The HTML diagram is translated into the display language at submission and displayed in the page. Existing users can enable the persona in the persona list.</p>
           <ol>
             <li>Open <strong>Personas</strong>, select the <strong>Interests</strong> tab, and choose <strong>Create a persona with AI</strong>. To remember a person, <a href="#en-people">start from the People tab</a>.</li>
             <li>Answer “What would you like your persona to help with?” in your own words. Even “wine” is enough.<br />Example: <em>When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</em></li>
@@ -757,7 +760,7 @@
             <figcaption>The draft: what it helps with, how it talks, the kinds of note it keeps, what it remembers, and when it replies.</figcaption>
           </figure>
           <h3 id="en-people">People</h3>
-          <p>A persona can also <strong>keep one person</strong> in mind - your mother, a friend. In <strong>Personas</strong>, select the <strong>People</strong> tab and choose <strong>Create a persona with AI</strong>. You will be asked, “Who would you like a persona to remember? Tell me their name or nickname and how you know them.” Follow the example in the input box, such as “My friend Sato from university. I call her Sacchan, and we sometimes have meals together,” to get a draft for that person. An existing persona can be turned into one with <strong>Edit</strong> and <strong>Keeps a person</strong>.</p>
+          <p>A persona can also <strong>keep one person</strong> in mind - your mother, a friend. In <strong>Personas</strong>, select the <strong>People</strong> tab and choose <strong>Create a persona with AI</strong>. You will be asked, “Who would you like a persona to remember? Tell me their name or nickname and how you know them.” Follow the example in the input box, such as “My friend Sato from university. I call her Sacchan, and we sometimes have meals together,” to get a draft for that person. Whether it keeps a person is fixed when you create it and cannot be switched later.</p>
           <ul>
             <li><strong>A person is never routed by the app.</strong> A fragment reaches it only when one of its <strong>names</strong> or <strong>keywords</strong> is written in it, text read from a photo included. You can also call it with <code>@name</code>.</li>
             <li>Width, case, hiragana against katakana and a trailing さん or くん do not matter: 佐藤 also reaches 佐藤くん and さとうさん.</li>
@@ -787,8 +790,9 @@
           <h3>Adjust as you go</h3>
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
+          <p>View notification schedules on the persona card or above its speaker list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
           <h3 id="en-daily">Daily check-ins</h3>
-          <p>Every active persona wakes once a day, somewhere between 7:00 and 21:00. The app picks each persona's time, drifting by an hour a day at most, so there is nothing to set. By default it looks over recent kakera and older records and speaks when it finds something worth sharing, and asks whether a record that has reached its review date can be forgotten. With <strong>At check-in, speak only when needed</strong> on, it speaks only when your decision is needed, such as that question. Otherwise it stays quiet.</p>
+          <p>Every active persona with memory enabled wakes once a day, somewhere between 7:00 and 21:00. The app picks each persona's time, drifting by an hour a day at most, so there is nothing to set. By default it looks over recent kakera and older records and speaks when it finds something worth sharing, and asks whether a record that has reached its review date can be forgotten. With <strong>At check-in, speak only when needed</strong> on, it speaks only when your decision is needed, such as that question. Otherwise it stays quiet.</p>
           <p>To change how much it says, open <strong>Personas</strong> and toggle the persona's <strong>At check-in, speak only when needed</strong>. Changes save automatically.</p>
           <p>The hours are counted in this device's time zone. The browser can be closed; the server runs the check-in.</p>
           <p>Some personas, such as sona, also pick their own wake times. See <a href="/manual/?guide=advanced#en-wakes" data-lang-link>When personas wake</a>.</p>
@@ -967,8 +971,8 @@
             <table>
               <thead><tr><th>Trigger</th><th>Decided by</th><th>What happens</th></tr></thead>
               <tbody>
-                <tr><td>A fragment arrives</td><td>The app (routing)</td><td>Personas whose subject matches, and any you mentioned with <code>@name</code>, act. A person's persona acts when one of its names or keywords is written.</td></tr>
-                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>The app</td><td>Each active persona wakes once a day, somewhere between 7:00 and 21:00. A person looked back on monthly wakes on the day of <a href="/manual/#en-summary" data-lang-link>this month's summary</a>.</td></tr>
+                <tr><td>A fragment arrives</td><td>The app (routing)</td><td>A direct <code>@name</code> mention or reply to an active persona selects that persona alone; a mention takes precedence. Other entries use subject conditions and person names/keywords.</td></tr>
+                <tr><td><a href="/manual/#en-daily" data-lang-link>Daily check-in</a></td><td>The app</td><td>Each active persona with memory enabled wakes once a day, somewhere between 7:00 and 21:00. A person looked back on monthly wakes on the day of <a href="/manual/#en-summary" data-lang-link>this month's summary</a>.</td></tr>
                 <tr><td>A persona's own schedule</td><td>The persona</td><td>A persona with <code>schedule</code> picks a time from its own records.</td></tr>
               </tbody>
             </table>
@@ -1123,7 +1127,7 @@
               </tbody>
             </table>
           </div>
-          <p>Reply to a persona with “that's wrong” or “tell me more” and the app checks whether you are asking for a rethink; if so, the persona answers again on Ultra. Thanks and ordinary follow-ups stay as they are.</p>
+          <p>Personas with <strong>Always think deeply</strong> on use Ultra for ordinary requests too. Reply to a persona with “that's wrong” or “tell me more” and the app checks whether you are asking for a rethink; if so, the persona answers again on Ultra. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>
@@ -1140,7 +1144,7 @@
               <thead><tr><th>Tool</th><th>Purpose</th><th>Who / setup</th></tr></thead>
               <tbody>
                 <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search past fragments</td><td>Every persona</td></tr>
-                <tr><td><a href="#en-tool-notes"><code>records</code></a></td><td>Find older kakera records (the app keeps the memory)</td><td>Every persona</td></tr>
+                <tr><td><a href="#en-tool-notes"><code>records</code></a></td><td>Find older kakera records (the app keeps the memory)</td><td>Memory-enabled personas</td></tr>
                 <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search the Web</td><td>Personas it is added to; Tavily API key</td></tr>
                 <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find shops and places</td><td>Personas it is added to</td></tr>
                 <tr><td><a href="#en-tool-weather_forecast"><code>weather_forecast</code></a></td><td>Current weather and forecasts</td><td>Personas it is added to; a place name or location on the post</td></tr>
