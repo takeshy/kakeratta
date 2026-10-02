@@ -206,6 +206,16 @@ func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if existing.State == "posted" {
+			// Older history predates answer-only sharing and always used the
+			// original post as its Bluesky thread root.
+			if existing.RootURI == "" {
+				legacyRoot, err := s.store.Publication(body.Target + ":" + account + ":" + body.Root)
+				if err != nil || legacyRoot.State != "posted" {
+					respond("投稿スレッドの履歴を読み込めませんでした")
+					return
+				}
+				existing.RootURI, existing.RootCID = legacyRoot.URI, legacyRoot.CID
+			}
 			refs[post.Key()] = existing
 			results = append(results, published{post.EntryID, existing})
 			continue
@@ -223,7 +233,9 @@ func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 			respond("別の投稿処理が進行中です。しばらく待ってから再確認してください。")
 			return
 		}
-		ref, err := client.Publish(ctx, post, refs[plan.Root], refs[post.Parent], attachment.data, attachment.mime)
+		parent := refs[post.Parent]
+		root := store.Publication{URI: parent.RootURI, CID: parent.RootCID}
+		ref, err := client.Publish(ctx, post, root, parent, attachment.data, attachment.mime)
 		if err != nil {
 			if ref.State == "retryable" {
 				if s.store.SavePublication(key, ref) == nil {

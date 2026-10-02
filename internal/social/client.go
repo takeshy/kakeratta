@@ -79,6 +79,10 @@ func (c *Client) Publish(ctx context.Context, post Post, root, parent store.Publ
 		return result, fmt.Errorf("投稿の識別情報を受け取れませんでした")
 	}
 	result.State = "posted"
+	result.RootURI, result.RootCID = result.URI, result.CID
+	if post.Parent != "" {
+		result.RootURI, result.RootCID = root.URI, root.CID
+	}
 	result.URL = "https://bsky.app/profile/" + c.Account() + "/post/" + result.URI[strings.LastIndex(result.URI, "/")+1:]
 	return result, nil
 }

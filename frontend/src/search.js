@@ -183,7 +183,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     el("p", { class: "hint", label: "単語や短い語句はキーワード検索。「？」「教えて」「探して」などを含む質問や文章は意味検索します。" }),
     el("p", { class: "hint", label: "キーワード検索の後は「似たような単語でも探す」で範囲を広げられます。0件でも利用でき、自動判定が合わないときも結果から切り替えられます。" }),
     status, results, more, switchMode, detail);
-  return { element, setSpeaking: thread.setSpeaking, reveal: thread.reveal, showEntry, changed, refresh, focus: () => query.focus(),
+  return { element, setSpeaking: thread.setSpeaking, reveal: thread.reveal, showEntry, changed, refresh, focus: () => query.focus({ preventScroll: true }),
     stopVoice: () => voice.discard(),
     searchFor: (text) => { query.value = text; return run(); },
   };

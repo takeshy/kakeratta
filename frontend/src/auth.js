@@ -2,6 +2,7 @@ import { revokeDevicePush } from "./push-client.js";
 import { IDENTITY_KEY, localIdentity, clearLocalUser, localList, localRecord } from "./local-store.js";
 import { clear, el } from "./dom.js";
 import { t } from "./i18n.js";
+import { createGoogleLogin, showLogin } from "./login.js";
 
 let firebaseAuth = null;
 let firebaseSignOut = null;
@@ -32,16 +33,7 @@ async function establishSession(user) {
 }
 
 function loginScreen(onLogin, error = "") {
-  const root = document.querySelector("#app");
-  clear(root);
-  root.append(
-    el("main", { class: "login" },
-      el("h1", { text: "kakeratta" }),
-      el("p", { label: "あなた専用の記憶へログインします。" }),
-      error ? el("p", { class: "error", text: error }) : null,
-      el("button", { class: "button primary", label: "Googleでログイン", onclick: onLogin }),
-    ),
-  );
+  showLogin({ onLogin, error });
 }
 
 function judgeInviteToken() {
@@ -119,16 +111,15 @@ async function authenticate() {
       show("");
       return false;
     }
-    loginScreen(async () => {
-      try {
-        const result = await authModule.signInWithPopup(firebaseAuth, new authModule.GoogleAuthProvider());
-        await establishSession(result.user);
+    const login = createGoogleLogin({
+      signIn: () => authModule.signInWithPopup(firebaseAuth, new authModule.GoogleAuthProvider()),
+      establishSession,
+      onSuccess: () => {
         localStorage.removeItem("kakeratta.signedOut");
         location.reload();
-      } catch (error) {
-        loginScreen(() => location.reload(), String(error.message || error));
-      }
+      },
     });
+    loginScreen(login);
     return false;
   } catch (error) {
     loginScreen(() => location.reload(), String(error.message || error));
@@ -190,7 +181,9 @@ export async function ensureAuthentication() {
     enabled = cached.enabled;
     return true;
   }
+  showLogin({ state: "checking" });
   if (!await authenticate()) return false;
+  showLogin({ state: "loading" });
   try { await verifyIdentity(); } catch (error) {
     loginScreen(() => location.reload(), t("一度オンラインでログインしてください。"));
     return false;

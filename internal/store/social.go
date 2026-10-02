@@ -16,11 +16,13 @@ import (
 // Publication is independent of timeline entries: saving a remote reference
 // must never overwrite a concurrent deletion or image analysis.
 type Publication struct {
-	State string `json:"state"`
-	URI   string `json:"uri,omitempty"`
-	CID   string `json:"cid,omitempty"`
-	ID    string `json:"id,omitempty"`
-	URL   string `json:"url,omitempty"`
+	State   string `json:"state"`
+	URI     string `json:"uri,omitempty"`
+	CID     string `json:"cid,omitempty"`
+	ID      string `json:"id,omitempty"`
+	URL     string `json:"url,omitempty"`
+	RootURI string `json:"rootUri,omitempty"`
+	RootCID string `json:"rootCid,omitempty"`
 }
 
 func publicationKey(key string) string {

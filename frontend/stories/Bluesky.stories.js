@@ -40,7 +40,7 @@ export const Connect = {
   },
 };
 
-function conversation(preview, posted = false, html = false) {
+function conversation(preview, posted = false, html = false, answerOnly = false) {
   document.querySelectorAll(".social-dialog").forEach((dialog) => dialog.close());
   const data = sample();
   if (html) {
@@ -57,7 +57,11 @@ function conversation(preview, posted = false, html = false) {
     const dialog = document.querySelector(".social-dialog");
     if (!dialog || !preview) return;
     const checks = dialog.querySelectorAll('.social-selection input[type="checkbox"]');
-    for (const index of [1, 3]) {
+    if (answerOnly) {
+      checks[0].checked = false;
+      checks[0].dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    for (const index of answerOnly ? [1] : [1, 3]) {
       checks[index].checked = true;
       checks[index].dispatchEvent(new Event("change", { bubbles: true }));
     }
@@ -78,3 +82,5 @@ export const Preview = { name: "公開する会話と返信先を確認", render
 
 export const Posted = { name: "投稿済み・親投稿へのリンク", render: () => conversation(true, true) };
 export const HtmlPreview = { name: "HTML回答を画像に変換・縦長を分割", render: () => conversation(true, false, true) };
+
+export const AnswerOnly = { name: "元の投稿を外して回答だけ公開", render: () => conversation(true, false, false, true) };

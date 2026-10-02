@@ -52,9 +52,10 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     }
     if (path === "/api/social/preview" && social) {
       const tails = new Map();
+      const first = social.posts.find(post => body.entryIds.includes(post.entryId))?.entryId;
       const posts = social.posts.filter(post => body.entryIds.includes(post.entryId)).flatMap(post => {
         const rendered = body.htmlImages?.[post.entryId];
-        const parent = tails.get(post.parent) || post.parent;
+        const parent = post.entryId === first ? "" : tails.get(post.parent) || tails.get(first) || "";
         if (!rendered) { tails.set(post.entryId, post.id || post.entryId); return [{ ...post, parent }]; }
         let tail = parent;
         const pages = rendered.images.map((image, i) => {
@@ -65,7 +66,7 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
         tails.set(post.entryId, tail);
         return pages;
       });
-      return json({ target: "bluesky", root: social.root, account: connection.did, handle: connection.handle,
+      return json({ target: "bluesky", root: first, account: connection.did, handle: connection.handle,
         digest: "sample-preview", posts });
     }
     if (path.startsWith("/api/thread/") && social) {

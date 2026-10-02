@@ -23,7 +23,7 @@ function fixtures() {
   return { wine, entries, hits: entries.filter((entry) => entry.kind === "post").map((entry, i) => ({ entry, snippet: entry.text, score: 0.85-i*0.1 })) };
 }
 
-function panel(mode, { empty = false, loading = false, error = false, thread = false, favoritesOnly = false } = {}) {
+function panel(mode, { empty = false, loading = false, error = false, thread = false, favoritesOnly = false, focus = false } = {}) {
   const sample = fixtures();
   const saved = sample.entries.filter(entry => entry.id === "wine-1" || entry.id === "wine-reply");
   serve({ settings, favorites: { items: saved.map(entry => ({ id: entry.id, entry, at: "2026-10-02T00:00:00Z" })) }, search: {
@@ -44,10 +44,12 @@ function panel(mode, { empty = false, loading = false, error = false, thread = f
     observer.observe(view.element, { childList: true, subtree: true });
   }
   form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  if (focus) requestAnimationFrame(() => view.focus());
   return sheet("検索", view.element);
 }
 
 export const Keyword = { name: "名前で探す", render: () => panel("keyword") };
+export const Focused = { name: "スマホで検索欄にフォーカス", render: () => panel("keyword", { focus: true }) };
 export const Semantic = { name: "覚えていることから探す", render: () => panel("semantic") };
 export const Thread = { name: "検索結果から元の会話を開く", render: () => panel("semantic", { thread: true }) };
 export const Loading = { name: "意味検索中", render: () => panel("semantic", { loading: true }) };

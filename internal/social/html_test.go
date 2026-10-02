@@ -46,6 +46,10 @@ func TestHTMLPlanUsesImagesKeepsParentsAndSealsSource(t *testing.T) {
 	if plan.Posts[1].ImageAlt != "図" {
 		t.Fatal("missing alt")
 	}
+	answerOnly, err := PlanSelectionWithImages("bluesky", "p", entries, []string{"a", "c"}, label, rendered)
+	if err != nil || answerOnly.Root != "a" || len(answerOnly.Posts) != 3 || answerOnly.Posts[0].Parent != "" || answerOnly.Posts[0].Image != "page1" || answerOnly.Posts[2].Parent != "a:image:2" {
+		t.Fatalf("answer-only image chain: %+v %v", answerOnly, err)
+	}
 	rendered["a"] = HTMLImages{SourceHash: rendered["a"].SourceHash, Images: []string{"changed", "page2"}}
 	changed, err := PlanSelectionWithImages("bluesky", "p", entries, chosen, label, rendered)
 	if err != nil || changed.Digest == plan.Digest {

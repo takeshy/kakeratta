@@ -4,12 +4,12 @@
 
 Each user connects their own Bluesky account. Open **Bluesky connection** in Settings or **Share to Bluesky** on a timeline post, enter your handle, and authorize on Bluesky. Kakeratta does not ask for your Bluesky password or an app password. See the [illustrated manual](https://kakeratta.net/manual/?lang=en#en-bluesky).
 
-Select the persona replies and your follow-ups to publish. Review the text, images, reply parents, and account in the preview, then press the publish button. Connecting or reconnecting alone never publishes anything.
+Select the persona replies and your follow-ups to publish. Review the text, images, reply parents, and account in the preview. The publish button appears only after that preview is ready; changing the selection requires another preview. Connecting or reconnecting alone never publishes anything.
 
-- Only the original post starts selected. Persona replies, including replies arriving later, are never automatically selected.
+- Only the original post starts selected, and you can deselect it. Select at least one message; replies arriving later remain unselected.
 - Persona messages receive an attribution such as `🍚 tabeからの返信:` (reply from tabe).
-- Select the parent of each selected reply too. Excluded parents are not automatically published, and replies are not reparented.
-- Independent persona replies remain separate replies to the original post.
+- You can publish an answer by itself, without the original post. The first selected message becomes the first public post. Replies keep their direct parent when it is also selected. If that parent is omitted, they are published as replies to the first selected message instead. Omitted messages are never added automatically. Review these relationships in the preview.
+- Additional independent persona replies attach to the first selected message. Previously published messages are reused in their existing Bluesky thread.
 - Publication includes the selected messages' text, links, source URLs, and attached images. It does not add location metadata or image analysis to the text, or read persona memories.
 - Select up to 100 messages. Long messages split automatically at sentence endings or line breaks into posts of up to 300 graphemes and 3,000 UTF-8 bytes, including attribution. Later parts start with `つづき:` (continued) and repeat persona attribution. An oversized sentence splits at commas or spaces, falling back to grapheme boundaries only when necessary.
 - URLs and graphemes such as emoji stay intact; an individually oversized URL raises an error. Images appear only on the first part. Images over 2 MB are resized and compressed as JPEG for sharing; saved originals remain unchanged. Transparency becomes white and GIFs become still images. Replies attach to the final part of their parent message. Review the resulting posts and count in the preview.

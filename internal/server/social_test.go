@@ -33,6 +33,27 @@ func socialRequest(s *Server, path string, body any) *httptest.ResponseRecorder 
 	return w
 }
 
+func TestSocialPreviewAllowsSelectedReplyWithoutItsParent(t *testing.T) {
+	s, workspace := socialApp(t)
+	for _, entry := range []timeline.Entry{
+		{ID: "p", Root: "p", Kind: timeline.KindPost, Speaker: "user", Text: "original", At: time.Now()},
+		{ID: "private-parent", Root: "p", ReplyTo: "p", Kind: timeline.KindRemark, Speaker: "tabe", Text: "not selected", At: time.Now()},
+		{ID: "chosen", Root: "p", ReplyTo: "private-parent", Kind: timeline.KindReply, Speaker: "user", Text: "chosen reply", At: time.Now()},
+	} {
+		if err := workspace.Append(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	preview := socialRequest(s, "/api/social/preview", socialBody{Root: "p", Target: "bluesky", EntryIDs: []string{"p", "chosen"}})
+	var plan social.Plan
+	if preview.Code != 200 || json.Unmarshal(preview.Body.Bytes(), &plan) != nil {
+		t.Fatal(preview.Body.String())
+	}
+	if len(plan.Posts) != 2 || plan.Posts[1].EntryID != "chosen" || plan.Posts[1].Parent != "p" {
+		t.Fatalf("excluded parent included or wrong reply parent: %+v", plan.Posts)
+	}
+}
+
 func TestSocialHTMLPreviewAndPublishImages(t *testing.T) {
 	s, workspace := socialApp(t)
 	source := "<html><body><h1>図</h1></body></html>"
@@ -502,5 +523,89 @@ func TestSocialLargeImagePreviewAndPublish(t *testing.T) {
 	saved, mime, err := workspace.Blob(blobID)
 	if err != nil || mime != "image/png" || !bytes.Equal(saved, original.Bytes()) {
 		t.Fatal("original changed")
+	}
+}
+
+func TestAnswerOnlyPublishAndExtendSavedThread(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		t.Run(fmt.Sprintf("legacy=%v", legacy), func(t *testing.T) {
+			s, workspace := socialApp(t)
+			for i, entry := range []timeline.Entry{
+				{ID: "p", Root: "p", Kind: timeline.KindPost, Speaker: "user", Text: "private original"},
+				{ID: "a", Root: "p", ReplyTo: "p", Kind: timeline.KindRemark, Speaker: "tabe", Text: "answer"},
+				{ID: "b", Root: "p", ReplyTo: "a", Kind: timeline.KindRemark, Speaker: "tabe", Text: "more"},
+			} {
+				entry.At = time.Now().Add(time.Duration(i) * time.Second)
+				if err := workspace.Append(entry); err != nil {
+					t.Fatal(err)
+				}
+			}
+			rootURI := "at://did:plc:one/app.bsky.feed.post/1"
+			if legacy {
+				workspace.SavePublication("bluesky:did:plc:one:p", store.Publication{State: "posted", URI: "legacy-root", CID: "legacy-cid"})
+				workspace.SavePublication("bluesky:did:plc:one:a", store.Publication{State: "posted", URI: rootURI, CID: "cid"})
+			}
+			sent := 0
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var payload struct {
+					Record map[string]any `json:"record"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Error(err)
+				}
+				sent++
+				if payload.Record["text"] == "private original" {
+					t.Error("unselected original leaked")
+				}
+				reply, hasReply := payload.Record["reply"]
+				if !legacy && sent == 1 {
+					if hasReply {
+						t.Error("answer-only first post must be standalone")
+					}
+				} else {
+					wantRoot := rootURI
+					if legacy {
+						wantRoot = "legacy-root"
+					}
+					if !hasReply {
+						t.Error("missing reply")
+					} else {
+						refs := reply.(map[string]any)
+						if refs["root"].(map[string]any)["uri"] != wantRoot || refs["parent"].(map[string]any)["uri"] != rootURI {
+							t.Errorf("wrong thread: %+v", refs)
+						}
+					}
+				}
+				fmt.Fprintf(w, `{"uri":"at://did:plc:one/app.bsky.feed.post/%d","cid":"cid"}`, sent)
+			}))
+			defer provider.Close()
+			s.socialClient = func(context.Context) (*social.Client, error) {
+				api := atclient.NewAPIClient(provider.URL)
+				did := syntax.DID("did:plc:one")
+				api.AccountDID = &did
+				return social.NewClient(api), nil
+			}
+			selections := [][]string{{"a"}, {"a", "b"}, {"a", "b"}}
+			for _, ids := range selections {
+				body := socialBody{Root: "p", Target: "bluesky", EntryIDs: ids}
+				preview := socialRequest(s, "/api/social/preview", body)
+				var plan social.Plan
+				if preview.Code != 200 || json.Unmarshal(preview.Body.Bytes(), &plan) != nil || plan.Root != "a" {
+					t.Fatal(preview.Body.String())
+				}
+				body.Digest = plan.Digest
+				result := socialRequest(s, "/api/social/publish", body)
+				if result.Code != 200 || !strings.Contains(result.Body.String(), `"error":""`) {
+					t.Fatal(result.Body.String())
+				}
+			}
+			want := 2
+			if legacy {
+				want = 1
+			}
+			if sent != want {
+				t.Fatalf("duplicate: sent=%d want=%d", sent, want)
+			}
+		})
 	}
 }

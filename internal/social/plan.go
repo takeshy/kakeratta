@@ -38,8 +38,8 @@ type Plan struct {
 	Digest  string `json:"digest"`
 }
 
-// PlanSelection requires an unbroken ancestry; it never quietly includes a
-// private parent or reattaches a reply to a different statement.
+// PlanSelection includes only explicitly selected entries. If a reply's
+// parent is omitted, its publication attaches to the first selected entry instead.
 func PlanSelection(target, root string, entries []timeline.Entry, selected []string, label func(string) string) (Plan, error) {
 	return PlanSelectionWithImages(target, root, entries, selected, label, nil)
 }
@@ -68,9 +68,6 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 		}
 		chosen[id] = true
 	}
-	if !chosen[root] {
-		return p, fmt.Errorf("元の投稿を選択してください")
-	}
 	tails := map[string]string{}
 	visiting, done := map[string]bool{}, map[string]bool{}
 	var visit func(string) error
@@ -86,14 +83,15 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 		parent := ""
 		if id != root {
 			parent = e.ReplyTo
-			if parent == "" {
-				parent = root
-			}
-			if !chosen[parent] {
-				return fmt.Errorf("返信先の発言も選択してください: %s", parent)
-			}
-			if err := visit(parent); err != nil {
-				return err
+			if chosen[parent] {
+				if err := visit(parent); err != nil {
+					return err
+				}
+			} else {
+				parent = ""
+				if len(p.Posts) > 0 {
+					parent = p.Posts[0].EntryID
+				}
 			}
 		}
 		text := e.Text
@@ -173,6 +171,7 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 			}
 		}
 	}
+	p.Root = p.Posts[0].Key()
 	p.Seal()
 	return p, nil
 }

@@ -43,6 +43,11 @@ body {
 .login input { display: block; width: 100%; margin-top: 12px; }
 .login .button { margin-top: 18px; }
 .login .error { color: var(--danger, #a33); }
+.login-progress { display: grid; justify-items: center; gap: 12px; }
+.login-progress p { margin: 0; }
+.login-spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: login-spin 1s linear infinite; }
+@keyframes login-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .login-spinner { animation: none; } }
 
 #app {
   max-width: 680px;
@@ -652,10 +657,15 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 
 .timeline-paging { text-align: center; padding: 16px; min-height: 48px; }
 /* Search stays inside the same sheet as settings and personas. */
-.timeline-search { display: grid; gap: .75rem; padding: 1rem; }
+.timeline-search { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: .75rem; padding: 1rem; }
 .speaker-view { display: grid; gap: .75rem; padding: 1rem; }
 .timeline-search-form { display: flex; flex-wrap: wrap; gap: .5rem; }
 .timeline-search-form input { flex: 1 1 12rem; min-width: 0; }
+/* Small input text triggers focus zoom on mobile Safari. Keep text scaling
+   while giving the automatically focused search field a 16px minimum. */
+@media (max-width: 600px) {
+  .timeline-search-form input[type="search"] { font-size: max(16px, 1rem); }
+}
 .search-results { display: grid; gap: .75rem; }
 .search-hit { display: grid; gap: .5rem; width: 100%; padding: 1rem; text-align: left; font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
 .search-hit:hover, .search-hit:focus-visible { border-color: var(--accent); }

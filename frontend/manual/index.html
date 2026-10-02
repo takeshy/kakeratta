@@ -99,7 +99,7 @@
         <section id="ja-start">
           <h2>1. はじめる</h2>
           <ol>
-            <li><a href="/">アプリを開きます</a>。Google アカウントでログインします。データはあなたのアカウントにだけ結びつき、ほかの人からは見えません。</li>
+            <li><a href="/">アプリを開きます</a>。Google アカウントでログインします。認証後は「ログインを完了しています…」を表示し、完了すると自動で画面が切り替わります。データはあなたのアカウントにだけ結びつき、ほかの人からは見えません。</li>
             <li>右上の <strong>設定</strong> を開き、<a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a> で発行した <strong>API キー</strong> を入力します。「接続できました」と出れば準備完了です。</li>
             <li>画面の上に「担当が誰もいません」と出ていたら、<strong>「〇〇 を呼ぶ」</strong> で 1 人以上呼びます。誰もいないと、かけらは誰にも届きません。</li>
             <li>欄に一言書いて <strong>流す</strong>。これが最初のかけらです。</li>
@@ -462,12 +462,16 @@
           <h3>会話を選んで公開する</h3>
           <ol>
             <li>元の投稿の <strong>Blueskyに投稿</strong> を押します。最初は元の投稿だけが選ばれています。</li>
-            <li>公開する発言を選びます。返信を選ぶときは、その返信先も選んでください。</li>
-            <li><strong>プレビュー</strong> で分割のされ方や返信のつながりを確かめ、<strong>選択した会話を投稿</strong> を押します。</li>
+            <li>元の投稿のチェックを外して、回答だけ公開することもできます。1件以上選んでください。返信先を選ばなかった発言は、選択した最初の発言への返信として公開します。</li>
+            <li><strong>プレビュー</strong> で、チェックされた発言・画像・返信のつながりを確かめます。確認後に表示される <strong>選択した会話を投稿</strong> を押します。</li>
           </ol>
           <figure>
-            <img src="/captures/ja/bluesky-selection.png" alt="元投稿だけが選択され、担当と自分の追加返信は未選択の公開画面（サンプル）" loading="lazy" width="382" height="799" />
+            <img src="/captures/ja/bluesky-selection.png" alt="元投稿だけが選択され、担当と自分の追加返信は未選択の公開画面（サンプル）" loading="lazy" width="382" height="836" />
             <figcaption>担当は記憶をもとに個人的なことを話す場合があります。見せたい発言だけ選んでください。</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/ja/bluesky-answer-only.png" alt="元の投稿を外し、担当の回答だけを公開するプレビュー（サンプル）。" loading="lazy" width="382" height="1014" />
+            <figcaption>元の投稿を外し、担当の回答だけを公開するプレビュー（サンプル）。</figcaption>
           </figure>
           <h3>公開されるもの・されないもの</h3>
           <ul>
@@ -690,7 +694,7 @@
         <section id="en-start">
           <h2>1. Getting started</h2>
           <ol>
-            <li><a href="/">Open the app</a>. Sign in with your Google account. Your data is tied to your account and nobody else can see it.</li>
+            <li><a href="/">Open the app</a>. Sign in with your Google account. After approval, “Completing sign-in…” stays visible until the app opens automatically. Your data is tied to your account and nobody else can see it.</li>
             <li>Open <strong>Settings</strong> at the top right and enter an <strong>API key</strong> from <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a>. “Connected” means you are ready.</li>
             <li>If the screen says “Nobody is in the room”, call in at least one persona with <strong>Call in …</strong>. With nobody in the room, a fragment reaches no one.</li>
             <li>Write a line in the box and press <strong>Post</strong>. That is your first fragment.</li>
@@ -1053,12 +1057,16 @@
           <h3>Choose and publish</h3>
           <ol>
             <li>Press <strong>Share to Bluesky</strong> on the original post. At first only that post is selected.</li>
-            <li>Select the messages to share. When you select a reply, select what it replies to as well.</li>
-            <li>Check how it splits and connects with <strong>Preview</strong>, then press <strong>Publish selected conversation</strong>.</li>
+            <li>You can deselect the original post and publish only an answer. Select at least one message. A reply whose parent is omitted will reply to the first selected message.</li>
+            <li>Review the selected messages, images and reply relationships with <strong>Preview</strong>. Then use <strong>Publish selected conversation</strong>, which appears after the preview is ready.</li>
           </ol>
           <figure>
-            <img src="/captures/en/bluesky-selection.png" alt="The sharing dialog with only the original post checked and all replies unchecked (sample data)" loading="lazy" width="382" height="930" />
+            <img src="/captures/en/bluesky-selection.png" alt="The sharing dialog with only the original post checked and all replies unchecked (sample data)" loading="lazy" width="382" height="967" />
             <figcaption>Personas may mention personal things from memory. Select only what you want others to see.</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/en/bluesky-answer-only.png" alt="Preview of sharing only a persona answer, with the original post deselected (sample data)." loading="lazy" width="382" height="1171" />
+            <figcaption>Preview of sharing only a persona answer, with the original post deselected (sample data).</figcaption>
           </figure>
           <h3>What is and is not published</h3>
           <ul>
