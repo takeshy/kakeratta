@@ -12,6 +12,8 @@ import { getLanguage, t } from "./i18n.js";
 // points at it rather than folding it into a panel.
 const HELP_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.25"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.85.8c0 1.7-2.45 2.1-2.45 3.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>';
 
+const LOGOUT_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 8l4 4-4 4M8 12h10"/></svg>';
+
 // Where the manual lives, in the reader's language. It opens in a new tab so
 // the timeline, and anything half-typed in the box, stays where it was.
 export function manualLink() {
@@ -30,7 +32,7 @@ export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
       el("button", { class: "chip ghost nav", label: "担当", onclick: () => onOpen?.("personas") }),
       el("button", { class: "chip ghost nav", label: "設定", onclick: () => onOpen?.("settings") }),
       // Only when there is an account to leave: local mode has no sign-out.
-      onLogout ? el("button", { class: "chip ghost nav", label: "ログアウト", onclick: () => onLogout() }) : null,
+      onLogout ? el("button", { class: "chip ghost nav logout", "aria-label": t("ログアウト"), i18nTitle: "ログアウト", html: LOGOUT_ICON, onclick: () => onLogout() }) : null,
       el("a", {
         class: "chip ghost nav help", href: manualLink(), target: "_blank", rel: "noopener",
         "aria-label": t("ヘルプ"), i18nTitle: "使い方（別タブで開く）", html: HELP_ICON,

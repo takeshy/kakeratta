@@ -66,17 +66,18 @@ body {
 .brand-mark { width: 22px; height: 22px; border-radius: 6px; }
 /* Navigation stays separate from each thread’s read-aloud control. */
 .topbar .nav { font-size: 0.8rem; white-space: nowrap; }
-/* Navigation can wrap on narrow phones. On a phone the mark stands for the
-   name, so the navigation stays on one line. */
+/* Compact navigation uses the space beside the brand on phones.
+   Keep wrapping available for large text and especially narrow screens. */
 @media (max-width: 480px) {
-  .topbar { gap: 4px; flex-wrap: wrap; }
-  .topbar .nav { padding: 4px 7px; }
+  .topbar { gap: 3px; flex-wrap: wrap; }
+  .topbar > .spacer { display: none; }
+  .topbar .nav { font-size: .75rem; padding: 4px; }
+  .topbar .nav.help, .topbar .nav.logout { padding: 4px; }
   .brand-name { display: none; }
 }
-/* The manual is the one thing in the header that is not a panel: a link, drawn
-   as an icon so the row stays one line on a phone. */
-.topbar .help { display: inline-flex; align-items: center; padding: 4px 6px; text-decoration: none; }
-.topbar .help svg { display: block; }
+/* Help and logout use compact icons with accessible labels. */
+.topbar .help, .topbar .logout { display: inline-flex; align-items: center; padding: 4px 6px; text-decoration: none; }
+.topbar .help svg, .topbar .logout svg { display: block; }
 
 /* Buttons */
 .button, .chip {
@@ -778,4 +779,5 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 
 .favorite[aria-pressed="true"] { color: var(--accent); }
 .favorite-item { margin-bottom: 18px; }
+.favorites-view { display: grid; gap: .75rem; padding: 1rem; }
 .favorites-view select { max-width: 100%; }
