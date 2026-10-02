@@ -137,6 +137,8 @@ func (s *Server) sendReminder(data any) {
 	if !pushReady(options) {
 		return
 	}
+	// webpush-go adds mailto: to non-HTTPS subscribers itself.
+	options.Subscriber = strings.TrimPrefix(options.Subscriber, "mailto:")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	records, err := s.store.Records(ctx, store.RecordPush)
@@ -144,8 +146,14 @@ func (s *Server) sendReminder(data any) {
 		log.Printf("push: could not read subscriptions: %v", err)
 		return
 	}
-	// Keep lock-screen content private. The notification opens the actual post.
-	payload, _ := json.Marshal(map[string]string{"title": "kakeratta", "body": "Reminder / リマインダー", "entry": entry.ID, "workspace": s.mcpWorkspace()})
+	title := []rune(strings.Join(strings.Fields(entry.Text), " "))
+	if len(title) > 120 {
+		title = append(title[:120], '…')
+	}
+	if len(title) == 0 {
+		title = []rune("Reminder / リマインダー")
+	}
+	payload, _ := json.Marshal(map[string]string{"title": string(title), "body": "kakeratta", "entry": entry.ID, "workspace": s.mcpWorkspace()})
 	options.Topic = pushID(entry.ID)[:32]
 	var deliveries sync.WaitGroup
 	for id, raw := range records {

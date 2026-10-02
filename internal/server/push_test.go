@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
@@ -110,7 +112,13 @@ type pushTransport func(*http.Request) (*http.Response, error)
 func (f pushTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestPushOnlyReminderEventDeliversAndExpiredSubscriptionsAreRemoved(t *testing.T) {
+	testPushReminderDelivery(t, "mailto:operator@example.com")
+}
+
+func testPushReminderDelivery(t *testing.T, subject string) {
+	t.Helper()
 	sub := configurePush(t)
+	t.Setenv("KAKERATTA_PUSH_SUBJECT", subject)
 	server, workspace := app(t)
 	raw, _ := json.Marshal(sub)
 	_ = workspace.UpdateRecord(context.Background(), store.RecordPush, pushID(sub.Endpoint), time.Time{}, func([]byte, bool) ([]byte, error) { return raw, nil })
@@ -121,6 +129,14 @@ func TestPushOnlyReminderEventDeliversAndExpiredSubscriptionsAreRemoved(t *testi
 		sends++
 		if r.URL.String() != sub.Endpoint || r.Header.Get("Content-Encoding") != "aes128gcm" || r.Header.Get("Authorization") == "" {
 			t.Fatalf("invalid delivery: %v", r)
+		}
+		token := strings.Split(strings.TrimPrefix(r.Header.Get("Authorization"), "vapid t="), ",")[0]
+		claims := jwt.MapClaims{}
+		if _, _, err := new(jwt.Parser).ParseUnverified(token, claims); err != nil {
+			t.Fatalf("invalid VAPID JWT: %v", err)
+		}
+		if claims["sub"] != os.Getenv("KAKERATTA_PUSH_SUBJECT") {
+			t.Fatalf("VAPID subject: %v", claims["sub"])
 		}
 		body, _ := io.ReadAll(r.Body)
 		if strings.Contains(string(body), "private birthday") {
@@ -141,4 +157,8 @@ func TestPushOnlyReminderEventDeliversAndExpiredSubscriptionsAreRemoved(t *testi
 	if len(records) != 0 {
 		t.Fatal("expired subscription retained")
 	}
+}
+
+func TestPushHTTPSSubject(t *testing.T) {
+	testPushReminderDelivery(t, "https://example.com/contact")
 }
