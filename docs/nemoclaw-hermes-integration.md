@@ -7,7 +7,9 @@
 This report documents an integration in which Hermes Agent runs inside NVIDIA NemoClaw / OpenShell, acts as an external **planner** (thinking engine) for designated kakeratta personas, uses Nebius Token Factory for inference, and safely plans turns, formulates workflows, and keeps itself updated via kakeratta's MCP server. Credentials, workspace IDs, access tokens, and internal task IDs are intentionally omitted.
 
 > [!NOTE]
-> **Protocol change after this verification.** The end-to-end run recorded here used the earlier protocol (skill v11), in which Hermes submitted a whole workflow (`submit_workflow`: the remark, notes, schedules and tool calls). Hermes now submits only the answer (`submit_answer`, skill v12); kakeratta plans the schedule and action phases with its own model, reviews them, runs them, publishes the answer, and then has its note keeper write the notes. The current protocol is covered by kakeratta's automated tests but **has not been re-verified end to end in this NemoClaw environment**. The sandbox, credential, network-policy, Gateway and Wake Gate findings below still apply. See the [Hermes Agent Setup Guide](hermes.md) for the current protocol.
+> **Current protocol and production verification (2026-10-02).** The original run below used `submit_workflow` (skill v11). Hermes now submits only an answer through `submit_answer`; kakeratta plans, reviews, and executes schedules and actions, publishes the answer, and updates memory. See the [Hermes setup guide](hermes.md).
+>
+> Production records from 2026-09-27–2026-10-02 JST confirmed **30 external-answer turns saved as thread replies**, including successful schedule review, execution, and persistence. In this single-user deployment, the only configured external planner is Hermes inside NemoClaw. Cross-checks of several replies against a user-provided Hermes session-database investigation matched answer text and timing, confirming Hermes as their source. Automated tests cover the answer, schedule, and note phases with mocked model responses.
 
 ## Architecture and responsibilities
 
