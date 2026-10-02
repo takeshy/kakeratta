@@ -24,9 +24,43 @@ const Endpoint = "https://api.tavily.com/search"
 // Result is one hit, and the link is not optional: a persona saying "this may
 // be out of date" is only useful if the reader can check.
 type Result struct {
-	Title   string `json:"title"`
-	URL     string `json:"url"`
-	Snippet string `json:"snippet"`
+	Title         string `json:"title"`
+	URL           string `json:"url"`
+	Snippet       string `json:"snippet"`
+	PublishedDate string `json:"published_date,omitempty"`
+}
+
+// SearchOptions restricts the source category and publication period.
+type SearchOptions struct {
+	Topic     string `json:"topic,omitempty"`
+	TimeRange string `json:"time_range,omitempty"`
+	StartDate string `json:"start_date,omitempty"`
+	EndDate   string `json:"end_date,omitempty"`
+}
+
+func (o SearchOptions) Validate() error {
+	if o.Topic != "" && o.Topic != "general" && o.Topic != "news" {
+		return errors.New("topic は general / news で指定してください")
+	}
+	switch o.TimeRange {
+	case "", "day", "week", "month", "year":
+	default:
+		return errors.New("time_range は day / week / month / year で指定してください")
+	}
+	for name, date := range map[string]string{"start_date": o.StartDate, "end_date": o.EndDate} {
+		if date != "" {
+			if _, err := time.Parse("2006-01-02", date); err != nil {
+				return fmt.Errorf("%s は YYYY-MM-DD で指定してください", name)
+			}
+		}
+	}
+	if o.StartDate != "" && o.EndDate != "" && o.StartDate > o.EndDate {
+		return errors.New("start_date は end_date 以前の日付を指定してください")
+	}
+	if o.TimeRange != "" && (o.StartDate != "" || o.EndDate != "") {
+		return errors.New("time_range と start_date / end_date はどちらか一方を指定してください")
+	}
+	return nil
 }
 
 // ErrNotConfigured is what every path gets when no key is set. A technical
@@ -53,6 +87,15 @@ func (c *Client) Enabled() bool {
 
 // Search returns at most limit hits.
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result, error) {
+	return c.SearchWithOptions(ctx, query, limit, SearchOptions{})
+}
+
+// SearchWithOptions keeps ordinary searches unchanged. News searches default
+// to the last day unless the caller supplies a publication period.
+func (c *Client) SearchWithOptions(ctx context.Context, query string, limit int, options SearchOptions) ([]Result, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
 	if !c.Enabled() {
 		return nil, ErrNotConfigured
 	}
@@ -62,7 +105,15 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result,
 	if limit <= 0 {
 		limit = 5
 	}
-	body, err := json.Marshal(map[string]any{"api_key": c.APIKey, "query": query, "max_results": limit})
+	if options.Topic == "news" && options.TimeRange == "" && options.StartDate == "" && options.EndDate == "" {
+		options.TimeRange = "day"
+	}
+	body, err := json.Marshal(struct {
+		APIKey     string `json:"api_key"`
+		Query      string `json:"query"`
+		MaxResults int    `json:"max_results"`
+		SearchOptions
+	}{c.APIKey, query, limit, options})
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +132,11 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result,
 	}
 	var payload struct {
 		Results []struct {
-			Title   string `json:"title"`
-			URL     string `json:"url"`
-			Content string `json:"content"`
-			Snippet string `json:"snippet"`
+			Title         string `json:"title"`
+			URL           string `json:"url"`
+			Content       string `json:"content"`
+			Snippet       string `json:"snippet"`
+			PublishedDate string `json:"published_date"`
 		} `json:"results"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
@@ -96,7 +148,7 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result,
 		if snippet == "" {
 			snippet = hit.Snippet
 		}
-		out = append(out, Result{Title: hit.Title, URL: hit.URL, Snippet: snippet})
+		out = append(out, Result{Title: hit.Title, URL: hit.URL, Snippet: snippet, PublishedDate: hit.PublishedDate})
 	}
 	if len(out) > limit {
 		out = out[:limit]
@@ -113,7 +165,11 @@ func Lines(results []Result) string {
 		if runes := []rune(snippet); len(runes) > 300 {
 			snippet = string(runes[:300])
 		}
-		lines = append(lines, fmt.Sprintf("- %s\n  %s\n  %s", result.Title, result.URL, snippet))
+		line := fmt.Sprintf("- %s\n  %s\n  %s", result.Title, result.URL, snippet)
+		if result.PublishedDate != "" {
+			line += "\n  公開日時: " + result.PublishedDate
+		}
+		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
 }

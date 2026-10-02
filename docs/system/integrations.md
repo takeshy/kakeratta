@@ -60,6 +60,14 @@ A tool `Declaration` carries a name, description, JSON Schema, and read-only sta
 
 The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. Returned external text is model input data, not an instruction to expand permissions.
 
+## Web search and news freshness
+
+`web_search` accepts `query` and optional `topic` (`general` or `news`), `time_range` (`day`, `week`, `month`, `year`), and publication-date bounds `start_date` / `end_date` (`YYYY-MM-DD`). The tool rejects empty or non-string filters, unknown categories or periods, invalid dates, reversed date bounds, and a relative period combined with date bounds before making a provider request. `Client.SearchWithOptions` validates the options and forwards them to Tavily; `Client.Search` keeps the ordinary unfiltered search used by settings key verification.
+
+News searches without any period default to `time_range: day`. Explicit relative periods or date bounds take precedence over this default. Tool instructions ask personas to use `topic: news` with `time_range: day` for latest-news requests and morning news digests, honor a user-specified period, and disclose when they widen the search. Category selection is performed by the persona, not by matching words in the query. Ordinary searches remain unfiltered unless a period is supplied. These filters use the provider's publication-date semantics, rather than a host-enforced guarantee of exact hours or complete news coverage; see [Tavily's date-filter guide](https://help.tavily.com/articles/3347142954-best-practices).
+
+Provider `published_date` values are retained in results and shown with source URLs in research text when available. No publication date is invented when absent. Instructions distinguish publication time from search rank and do not present undated results as today's news. The same declared tool and validation serve built-in research and external-agent reads. Verification: [web_test.go](../../internal/tools/web_test.go) exercises requests through the tool to the HTTP transport, default daily news, explicit weekly and historical periods, ordinary unfiltered searches, returned publication dates and sources, and rejection before network access.
+
 ## Reading the kakeratta specification
 
 `kakeratta_help` reads the shipped OKF v0.2 bundle. An omitted `path` returns `index.md`; an explicit path must be one of the seven root Markdown files listed in its schema. The result includes the file name and the entire chapter, including frontmatter and implementation review dates. Unknown files, non-string or empty paths, absolute paths, and traversal are refused. It reads only the embedded bundle, requires no workspace or API key, and exposes neither the host filesystem nor the user's configuration. The internal built-in name is not delegated to external MCP providers. Personas must declare it to use it; research and external-agent reads use the same permission checks as other read-only tools.
@@ -86,7 +94,9 @@ The [WeatherAPI documentation](https://www.weatherapi.com/docs/) defines forecas
 - [mcp.go](../../internal/tools/mcp.go)
 - [client.go](../../internal/mcp/client.go)
 - [catalogue.go](../../internal/mcp/catalogue.go)
-- [websearch.go](../../internal/websearch/websearch.go)
+- [websearch.go](../../internal/websearch/websearch.go): Tavily search options, validation, requests, and publication dates
+- [web.go](../../internal/tools/web.go): Web search schema, freshness instructions, and argument forwarding
+- [web_test.go](../../internal/tools/web_test.go): provider filters, publication dates, source links, and invalid inputs
 - [mcp_test.go](../../internal/tools/mcp_test.go)
 
 # Selected sharing to Bluesky
