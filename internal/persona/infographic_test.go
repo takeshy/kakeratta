@@ -3,12 +3,72 @@ package persona
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+func TestInfographicReplyToAnotherPersonasAnswer(t *testing.T) {
+	for _, mention := range []string{"@infographic", "@インフォグラフィック"} {
+		t.Run(mention, func(t *testing.T) {
+			r, s, f := setup(t, func(system, user string) string {
+				t.Errorf("unexpected routing or reply escalation: %s", system)
+				return `{"deliver":[]}`
+			}, "gourmet", "book", "infographic")
+			original := post(t, s, "昼食の候補を比較して")
+			answer := timeline.Entry{ID: "comparison-answer", Kind: timeline.KindRemark, Speaker: "gourmet", Root: original.ID, ReplyTo: original.ID, Text: "A店は駅から3分で予算1000円。B店は駅から10分で予算1500円。", At: time.Now()}
+			if err := s.Append(answer); err != nil {
+				t.Fatal(err)
+			}
+			other := timeline.Entry{ID: "other-answer", Kind: timeline.KindRemark, Speaker: "book", Root: original.ID, ReplyTo: original.ID, Text: "食後には読書もおすすめ。", At: time.Now()}
+			if err := s.Append(other); err != nil {
+				t.Fatal(err)
+			}
+			trigger := replyTo(t, s, answer, mention+" この回答をインフォグラフィックにして")
+			html := `<!DOCTYPE html><html lang="ja"><body><h1>昼食の比較</h1><p>A店：3分、1000円。B店：10分、1500円。</p></body></html>`
+			reads, answers := 0, 0
+			f.phaseReply = func(system, user string, offered map[string]bool) string {
+				if !strings.Contains(user, answer.Text) || !strings.Contains(user, answer.ID+" への返事") || !strings.Contains(user, trigger.Text) {
+					t.Errorf("replied-to answer or request missing: %s", user)
+				}
+				if !strings.Contains(system, "その回答の説明・比較・提案を図解する") || !strings.Contains(system, "元の投稿やスレッド内の最後の回答へ勝手に対象を置き換えず") {
+					t.Error("missing reply subject instructions")
+				}
+				switch {
+				case offered["finish_read"]:
+					reads++
+					return "read_done"
+				case offered["submit_answer"]:
+					answers++
+					raw, _ := json.Marshal(Answer{Text: html, Sources: []string{}})
+					return string(raw)
+				default:
+					t.Errorf("unexpected phase: %v", offered)
+					return ""
+				}
+			}
+			r.react(trigger.ID)
+			record, err := s.Routing(trigger.ID)
+			if err != nil || record == nil || !reflect.DeepEqual(record.Delivered, []string{"infographic"}) || !reflect.DeepEqual(record.Called, map[string]string{"infographic": "mention"}) {
+				t.Fatalf("routing = %+v, error = %v", record, err)
+			}
+			said := remarks(t, s)
+			if len(said) != 3 {
+				t.Fatalf("expected one new answer, got %d remarks", len(said))
+			}
+			result := said[2]
+			if result.Speaker != "infographic" || result.Text != html || result.Root != original.ID || result.ReplyTo != trigger.ID || result.Model != "ultra" {
+				t.Fatalf("unexpected infographic: %+v", result)
+			}
+			if reads != 1 || answers != 1 || len(f.keeps) != 0 {
+				t.Fatalf("reads=%d answers=%d memory writes=%d", reads, answers, len(f.keeps))
+			}
+		})
+	}
+}
 
 func TestInfographicUsesExpandedContentAndDisplayLanguage(t *testing.T) {
 	for _, image := range []bool{false, true} {
