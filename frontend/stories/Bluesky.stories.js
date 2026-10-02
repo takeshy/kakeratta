@@ -40,9 +40,13 @@ export const Connect = {
   },
 };
 
-function conversation(preview, posted = false) {
+function conversation(preview, posted = false, html = false) {
   document.querySelectorAll(".social-dialog").forEach((dialog) => dialog.close());
   const data = sample();
+  if (html) {
+    const ja = getLanguage() === "ja";
+    data.entries[1].text = `<html><head><style>body{margin:0;padding:32px;background:#f3f0e7;color:#183b32;font-family:sans-serif}h1{font-size:36px}section{padding:28px;margin:24px 0;background:white;border-radius:18px}p{font-size:22px;line-height:1.6}.space{height:1050px;background:linear-gradient(#f4dfbe,#cee3dc)}</style></head><body><h1>${ja ? "麻婆豆腐の楽しみ方" : "Enjoying mapo tofu"}</h1><section><h2>${ja ? "花椒の香り" : "Sichuan pepper"}</h2><p>${ja ? "香りと辛さ、ご飯との相性を楽しみましょう。" : "Enjoy the aroma, heat, and the pairing with rice."}</p></section><section class="space"><p>${ja ? "ゆっくり味わう" : "Take your time"}</p></section><section><h2>${ja ? "最後までおいしく" : "Enjoy every last bite"}</h2></section></body></html>`;
+  }
   if (posted) data.posts = data.posts.map(post => ({ ...post, publication: { state: "posted", url: "https://bsky.app/profile/reader.example.com/post/sample" } }));
   serve({ social: data, bluesky: { available: true, connected: true, did: "did:plc:sample", handle: "reader.example.com" } });
   const host = screen({ rows: data.rows, entries: data.entries });
@@ -73,3 +77,4 @@ export const Selection = { name: "元投稿だけを初期選択", render: () =>
 export const Preview = { name: "公開する会話と返信先を確認", render: () => conversation(true) };
 
 export const Posted = { name: "投稿済み・親投稿へのリンク", render: () => conversation(true, true) };
+export const HtmlPreview = { name: "HTML回答を画像に変換・縦長を分割", render: () => conversation(true, false, true) };

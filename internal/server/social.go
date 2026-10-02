@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
 	"net/http"
 	"strings"
 	"time"
@@ -12,10 +14,11 @@ import (
 )
 
 type socialBody struct {
-	Root     string   `json:"root"`
-	Target   string   `json:"target"`
-	EntryIDs []string `json:"entryIds"`
-	Digest   string   `json:"digest"`
+	Root       string                       `json:"root"`
+	Target     string                       `json:"target"`
+	EntryIDs   []string                     `json:"entryIds"`
+	Digest     string                       `json:"digest"`
+	HTMLImages map[string]social.HTMLImages `json:"htmlImages,omitempty"`
 }
 
 func (s *Server) socialPlan(r *http.Request, body socialBody) (social.Plan, error) {
@@ -24,12 +27,12 @@ func (s *Server) socialPlan(r *http.Request, body socialBody) (social.Plan, erro
 		return social.Plan{}, err
 	}
 	skills := s.catalogue.Snapshot(r.Context())
-	plan, err := social.PlanSelection(body.Target, body.Root, entries, body.EntryIDs, func(id string) string {
+	plan, err := social.PlanSelectionWithImages(body.Target, body.Root, entries, body.EntryIDs, func(id string) string {
 		if p, ok := skills.Find(id); ok {
 			return strings.TrimSpace(p.Icon + " " + p.Name)
 		}
 		return "◎ " + id
-	})
+	}, body.HTMLImages)
 	if err != nil {
 		return plan, err
 	}
@@ -49,7 +52,7 @@ func (s *Server) socialPlan(r *http.Request, body socialBody) (social.Plan, erro
 func (s *Server) previewSocial(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	var body socialBody
-	if readJSONLimit(r, &body, 64<<10) != nil {
+	if readJSONLimit(r, &body, 32<<20) != nil {
 		fail(w, 400, "選択内容を読めませんでした")
 		return
 	}
@@ -94,6 +97,22 @@ type socialImage struct {
 func (s *Server) prepareSocialMedia(plan social.Plan) (map[string]socialImage, error) {
 	images := make(map[string]socialImage)
 	for _, p := range plan.Posts {
+		if p.Image != "" {
+			data, mime, err := decodeImage(p.Image)
+			if err != nil || (mime != "image/png" && mime != "image/jpeg") {
+				return nil, fmt.Errorf("HTMLの画像を読み込めませんでした")
+			}
+			config, _, err := image.DecodeConfig(bytes.NewReader(data))
+			if err != nil || config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > 50_000_000 {
+				return nil, fmt.Errorf("HTMLの画像形式または解像度が不正です")
+			}
+			data, mime, err = social.PrepareImage(data, mime)
+			if err != nil {
+				return nil, err
+			}
+			images[p.Key()] = socialImage{data, mime}
+			continue
+		}
 		if p.BlobID == "" {
 			continue
 		}
@@ -115,7 +134,7 @@ func (s *Server) prepareSocialMedia(plan social.Plan) (map[string]socialImage, e
 func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	var body socialBody
-	if readJSONLimit(r, &body, 64<<10) != nil {
+	if readJSONLimit(r, &body, 32<<20) != nil {
 		fail(w, 400, "投稿内容を読めませんでした")
 		return
 	}
@@ -196,6 +215,9 @@ func (s *Server) publishSocial(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		attachment := images[post.BlobID]
+		if post.Image != "" {
+			attachment = images[post.Key()]
+		}
 		claimed, err := s.store.ClaimPublication(key, store.Publication{State: "pending"})
 		if err != nil || !claimed {
 			respond("別の投稿処理が進行中です。しばらく待ってから再確認してください。")

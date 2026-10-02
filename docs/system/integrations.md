@@ -93,24 +93,27 @@ The [WeatherAPI documentation](https://www.weatherapi.com/docs/) defines forecas
 
 ## Publication plan
 
-The frontend selects entries to publish and sends the root post, target, and selected IDs to `previewSocial`. The server builds `PlanSelection` from the current thread, resolving persona names, text, images, split posts, and the connected account.
+The frontend selects entries to publish and sends the root post, target, and selected IDs to `previewSocial`. The server builds `PlanSelectionWithImages` from the current thread, resolving persona names, text, images, split posts, and the connected account. Complete persona HTML documents require browser-rendered `htmlImages` pages keyed by entry ID; HTML fragments and user-authored code remain text. Each capture carries a SHA-256 hash of the original entry text. Missing captures or a source hash that differs from the current entry are rejected before publication. Raw HTML never becomes the body of a persona image post.
 
-A digest seals the plan. Publishing rebuilds it and compares the digest so changed content or accounts are not published after preview approval. Unselected replies are not added automatically.
+A digest seals the plan. Publishing rebuilds it and compares the digest so changed content or accounts are not published after preview approval. Unselected replies are not added automatically. The digest includes image data, alternative text, and the source hash, so altering a capture or its source invalidates approval. Preview and publication bodies are limited to 32 MiB. JPEG/PNG captures must decode with valid dimensions and at most 50 million pixels, then use the existing Bluesky image preparation.
 
 ## Authentication and publication state
 
 Bluesky connections use OAuth. Callback information and the browser secret are combined to complete the connection. Durable connection state is managed through Workspace social values.
 
-Publication history is keyed by target, account, and post, and each publication is claimed before sending. Already published items are not resent, supporting retries after partial progress. Images are loaded and prepared for Bluesky before publishing. Partial success is possible; publication as a whole is not atomic.
+Publication history is keyed by target, account, and post, and each publication is claimed before sending. Already published items are not resent, supporting retries after partial progress. Images are loaded and prepared for Bluesky before publishing. Partial success is possible; publication as a whole is not atomic. HTML captures travel as temporary data URLs in the preview/publication requests, are neither stored as timeline media nor written to blob storage, and do not modify the saved answer. The first image uses the entry history key; subsequent image pages use `:image:2` and so on, form a continuation chain, and the entry's replies attach to its final page. Source URLs remain text posts when they need splitting. Image uploads include the capture's alternative text.
 
 ## Implementation and verification
 
 - [social.go](../../internal/server/social.go)
 - [bluesky.go](../../internal/server/bluesky.go)
 - [plan.go](../../internal/social/plan.go)
+- [html.go](../../internal/social/html.go): complete-document detection and temporary image input
+- [html_test.go](../../internal/social/html_test.go): source binding, image digests, and reply chains
 - [oauth_store.go](../../internal/social/oauth_store.go)
 - [social.go](../../internal/store/social.go)
 - [social.js](../../frontend/src/social.js)
+- [html-image.js](../../frontend/src/html-image.js): isolated browser rendering and pagination
 - [social_test.go](../../internal/server/social_test.go)
 - [social-sharing.md](../social-sharing.md)
 

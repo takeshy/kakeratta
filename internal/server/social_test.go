@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -29,6 +31,120 @@ func socialRequest(s *Server, path string, body any) *httptest.ResponseRecorder 
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	return w
+}
+
+func TestSocialHTMLPreviewAndPublishImages(t *testing.T) {
+	s, workspace := socialApp(t)
+	source := "<html><body><h1>図</h1></body></html>"
+	for _, e := range []timeline.Entry{
+		{ID: "p", Root: "p", Kind: timeline.KindPost, Speaker: "user", Text: "hello", At: time.Now()},
+		{ID: "a", Root: "p", ReplyTo: "p", Kind: timeline.KindRemark, Speaker: "tabe", Text: source, At: time.Now()},
+		{ID: "c", Root: "p", ReplyTo: "a", Kind: timeline.KindReply, Speaker: "user", Text: "thanks", At: time.Now()},
+	} {
+		if err := workspace.Append(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var pngData bytes.Buffer
+	if err := png.Encode(&pngData, image.NewRGBA(image.Rect(0, 0, 20, 30))); err != nil {
+		t.Fatal(err)
+	}
+	dataURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData.Bytes())
+	rendered := social.HTMLImages{SourceHash: fmt.Sprintf("%x", sha256.Sum256([]byte(source))), Images: []string{dataURL, dataURL}, Alt: "図の内容"}
+	body := socialBody{Root: "p", Target: "bluesky", EntryIDs: []string{"p", "a", "c"}, HTMLImages: map[string]social.HTMLImages{"a": rendered}}
+	uploads, posts := 0, 0
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "uploadBlob") {
+			uploads++
+			data, _ := io.ReadAll(r.Body)
+			if !bytes.Equal(data, pngData.Bytes()) {
+				t.Error("preview image changed")
+			}
+			fmt.Fprint(w, `{"blob":{"$type":"blob","ref":{"$link":"cid"},"mimeType":"image/png","size":100}}`)
+			return
+		}
+		posts++
+		var sent struct {
+			Record map[string]any `json:"record"`
+		}
+		json.NewDecoder(r.Body).Decode(&sent)
+		if strings.Contains(fmt.Sprint(sent.Record["text"]), "<html>") {
+			t.Error("source leaked")
+		}
+		if posts == 2 || posts == 3 {
+			if sent.Record["embed"].(map[string]any)["images"].([]any)[0].(map[string]any)["alt"] != rendered.Alt {
+				t.Error("alt missing")
+			}
+		}
+		if posts == 4 {
+			parent := sent.Record["reply"].(map[string]any)["parent"].(map[string]any)["uri"]
+			if parent != "at://did:plc:one/app.bsky.feed.post/3" {
+				t.Error("reply missed final image")
+			}
+		}
+		fmt.Fprintf(w, `{"uri":"at://did:plc:one/app.bsky.feed.post/%d","cid":"cid"}`, posts)
+	}))
+	defer provider.Close()
+	s.socialClient = func(context.Context) (*social.Client, error) {
+		api := atclient.NewAPIClient(provider.URL)
+		did := syntax.DID("did:plc:one")
+		api.AccountDID = &did
+		return social.NewClient(api), nil
+	}
+	preview := socialRequest(s, "/api/social/preview", body)
+	var plan social.Plan
+	if preview.Code != 200 || json.Unmarshal(preview.Body.Bytes(), &plan) != nil || len(plan.Posts) != 4 {
+		t.Fatal(preview.Body.String())
+	}
+	if uploads != 0 || posts != 0 {
+		t.Fatal("preview published")
+	}
+	body.Digest = plan.Digest
+	modified := rendered
+	modified.Alt = "changed"
+	body.HTMLImages["a"] = modified
+	if result := socialRequest(s, "/api/social/publish", body); result.Code != 409 {
+		t.Fatal("image alteration accepted: ", result.Body.String())
+	}
+	body.HTMLImages["a"] = rendered
+	for i := 0; i < 2; i++ {
+		result := socialRequest(s, "/api/social/publish", body)
+		if result.Code != 200 || !strings.Contains(result.Body.String(), `"error":""`) {
+			t.Fatal(result.Body.String())
+		}
+	}
+	if uploads != 2 || posts != 4 {
+		t.Fatalf("duplicate images/posts: %d/%d", uploads, posts)
+	}
+	entry, _ := workspace.Entry("a")
+	if entry.Text != source || entry.Media != nil {
+		t.Fatal("saved HTML changed")
+	}
+}
+
+func TestSocialHTMLRejectsMissingStaleOrMalformedImages(t *testing.T) {
+	s, workspace := socialApp(t)
+	source := "<html><body>図</body></html>"
+	workspace.Append(timeline.Entry{ID: "p", Root: "p", Kind: timeline.KindPost, Speaker: "tabe", Text: source, At: time.Now()})
+	body := socialBody{Root: "p", Target: "bluesky", EntryIDs: []string{"p"}}
+	if result := socialRequest(s, "/api/social/preview", body); result.Code != 400 {
+		t.Fatal("missing conversion accepted")
+	}
+	body.HTMLImages = map[string]social.HTMLImages{"p": {SourceHash: "stale", Images: []string{"data:image/png;base64,bad"}}}
+	if result := socialRequest(s, "/api/social/preview", body); result.Code != 400 {
+		t.Fatal("stale conversion accepted")
+	}
+	rendered := body.HTMLImages["p"]
+	rendered.SourceHash = fmt.Sprintf("%x", sha256.Sum256([]byte(source)))
+	body.HTMLImages["p"] = rendered
+	if result := socialRequest(s, "/api/social/preview", body); result.Code != 400 {
+		t.Fatal("malformed image accepted")
+	}
+	rendered.Images = []string{"data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte("not PNG"))}
+	body.HTMLImages["p"] = rendered
+	if result := socialRequest(s, "/api/social/preview", body); result.Code != 400 {
+		t.Fatal("non-image accepted")
+	}
 }
 func TestSocialPreviewPublicationRetryAndAccountIsolation(t *testing.T) {
 	s, workspace := socialApp(t)

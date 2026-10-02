@@ -2,6 +2,8 @@ import { el, clear, toast, dialogCloseButton } from "./dom.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { t } from "./i18n.js";
 import { api, blobURL } from "./api.js";
+import { htmlDocument, renderHtmlDocument } from "./html-document.js";
+import { renderHtmlImages } from "./html-image.js";
 
 let socialOpen = false;
 
@@ -15,6 +17,7 @@ export async function openSocial(root, getPersona) {
   let plan = null;
   let busy = false;
   let completedSelection = null;
+  const rendered = new Map();
   const selectionKey = () => [...selected].sort().join("\n");
   const isPosted = () => completedSelection === selectionKey();
   const canPublish = () => plan && plan.posts.some(post => post.publication?.state !== "posted") && !plan.posts.some(post => post.publication?.state && !["posted", "retryable"].includes(post.publication.state));
@@ -44,6 +47,7 @@ export async function openSocial(root, getPersona) {
   for (const entry of entries) {
     if (entry.deleted) continue;
     const persona = getPersona(entry.speaker);
+    const html = entry.speaker !== "user" && htmlDocument(entry.text);
     const name = entry.speaker === "user" ? t("あなた") : t("{0}からの返信", `${persona?.icon || "◎"} ${persona?.name || entry.speaker}`);
     const checkbox = el("input", { type: "checkbox", checked: entry.id === root, disabled: entry.id === root });
     checkbox.addEventListener("change", () => {
@@ -52,13 +56,20 @@ export async function openSocial(root, getPersona) {
     });
     selection.append(el("label", { class: "social-choice" }, checkbox,
       el("span", {}, el("strong", { text: entry.id === root ? t("元の投稿 · {0}", name) : name }),
-        el("span", { class: "said", text: entry.text || t("［画像］") }))));
+        html ? el("span", { class: "said" }, renderHtmlDocument(html), el("span", { class: "hint", label: "HTMLの回答は画像として公開します。" }))
+          : el("span", { class: "said", text: entry.text || t("［画像］") }))));
   }
-  const body = () => ({ root, target: "bluesky", entryIds: [...selected] });
+  const body = () => ({ root, target: "bluesky", entryIds: [...selected],
+    htmlImages: Object.fromEntries([...rendered].filter(([id]) => selected.has(id))) });
   const previewButton = el("button", { class: "button secondary", label: "プレビュー", disabled: true, onclick: async () => {
     if (busy || isPosted()) return;
     setBusy(true); invalidate();
     try {
+      for (const entry of entries) {
+        if (!selected.has(entry.id) || entry.speaker === "user" || !htmlDocument(entry.text) || rendered.has(entry.id)) continue;
+        status.textContent = t("HTMLを画像に変換しています…");
+        rendered.set(entry.id, await renderHtmlImages(entry.text));
+      }
       plan = await api.previewSocial(body());
       const numbers = new Map(plan.posts.map((post, i) => [post.id || post.entryId, i + 1]));
       for (const [i, post] of plan.posts.entries()) {
@@ -66,7 +77,7 @@ export async function openSocial(root, getPersona) {
           el("strong", { text: post.parent ? t("{0} · {1}への返信", i + 1, numbers.get(post.parent)) : t("{0} · 元の投稿", i + 1) }),
           post.publication?.state === "posted" ? el("span", { class: "tag", label: "投稿済み" }) : null,
           el("p", { class: "said", text: post.text }),
-          post.blobId ? el("img", { src: blobURL(post.blobId), alt: t("公開する画像") }) : null));
+          post.image || post.blobId ? el("img", { src: post.image || blobURL(post.blobId), alt: post.imageAlt || t("公開する画像") }) : null));
       }
       showPublishedLink(plan.posts.find(post => !post.parent)?.publication?.url);
       const remaining = plan.posts.filter(post => post.publication?.state !== "posted").length;

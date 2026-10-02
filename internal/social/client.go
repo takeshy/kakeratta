@@ -61,7 +61,7 @@ func (c *Client) Publish(ctx context.Context, post Post, root, parent store.Publ
 		if len(uploaded.Blob) == 0 {
 			return store.Publication{State: "retryable"}, fmt.Errorf("画像のアップロード応答が不正です")
 		}
-		record["embed"] = map[string]any{"$type": "app.bsky.embed.images", "images": []any{map[string]any{"alt": "", "image": uploaded.Blob}}}
+		record["embed"] = map[string]any{"$type": "app.bsky.embed.images", "images": []any{map[string]any{"alt": post.ImageAlt, "image": uploaded.Blob}}}
 	}
 	raw, err := json.Marshal(map[string]any{"repo": c.Account(), "collection": "app.bsky.feed.post", "record": record})
 	if err != nil {

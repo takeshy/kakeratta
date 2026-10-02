@@ -12,11 +12,14 @@ import (
 )
 
 type Post struct {
-	ID      string `json:"id,omitempty"`
-	EntryID string `json:"entryId"`
-	Parent  string `json:"parent,omitempty"`
-	Text    string `json:"text"`
-	BlobID  string `json:"blobId,omitempty"`
+	ID         string `json:"id,omitempty"`
+	EntryID    string `json:"entryId"`
+	Parent     string `json:"parent,omitempty"`
+	Text       string `json:"text"`
+	BlobID     string `json:"blobId,omitempty"`
+	Image      string `json:"image,omitempty"`
+	ImageAlt   string `json:"imageAlt,omitempty"`
+	SourceHash string `json:"sourceHash,omitempty"`
 }
 
 func (p Post) Key() string {
@@ -38,6 +41,10 @@ type Plan struct {
 // PlanSelection requires an unbroken ancestry; it never quietly includes a
 // private parent or reattaches a reply to a different statement.
 func PlanSelection(target, root string, entries []timeline.Entry, selected []string, label func(string) string) (Plan, error) {
+	return PlanSelectionWithImages(target, root, entries, selected, label, nil)
+}
+
+func PlanSelectionWithImages(target, root string, entries []timeline.Entry, selected []string, label func(string) string, images map[string]HTMLImages) (Plan, error) {
 	p := Plan{Target: target, Root: root}
 	if target != "bluesky" {
 		return p, fmt.Errorf("投稿先はBlueskyを選んでください")
@@ -90,6 +97,24 @@ func PlanSelection(target, root string, entries []timeline.Entry, selected []str
 			}
 		}
 		text := e.Text
+		var rendered HTMLImages
+		if e.Speaker != timeline.User && HTMLDocument(e.Text) != "" {
+			var ok bool
+			rendered, ok = images[id]
+			if !ok || len(rendered.Images) == 0 || len(rendered.Images) > 10 {
+				return fmt.Errorf("HTMLの回答を画像に変換してからプレビューしてください")
+			}
+			for _, page := range rendered.Images {
+				if page == "" {
+					return fmt.Errorf("HTMLの画像を読み込めませんでした")
+				}
+			}
+			hash := sha256.Sum256([]byte(e.Text))
+			if rendered.SourceHash != hex.EncodeToString(hash[:]) {
+				return fmt.Errorf("HTMLの内容が変わりました。会話を開き直してプレビューしてください")
+			}
+			text = "［画像］"
+		}
 		prefix := ""
 		if e.Speaker != timeline.User {
 			prefix = label(e.Speaker) + "からの返信:\n"
@@ -117,9 +142,22 @@ func PlanSelection(target, root string, entries []timeline.Entry, selected []str
 			if i == 0 && e.Media != nil {
 				post.BlobID = e.Media.BlobID
 			}
+			if i == 0 && len(rendered.Images) > 0 {
+				post.BlobID = ""
+				post.Image = rendered.Images[0]
+				post.ImageAlt = rendered.Alt
+				post.SourceHash = rendered.SourceHash
+			}
 			if post.Text == "" && post.BlobID == "" {
 				return fmt.Errorf("空の発言は投稿できません")
 			}
+			p.Posts = append(p.Posts, post)
+			parent = post.Key()
+		}
+		for i := 1; i < len(rendered.Images); i++ {
+			post := Post{ID: fmt.Sprintf("%s:image:%d", id, i+1), EntryID: id, Parent: parent,
+				Text:  continuation + prefix + fmt.Sprintf("［画像 %d/%d］", i+1, len(rendered.Images)),
+				Image: rendered.Images[i], ImageAlt: rendered.Alt, SourceHash: rendered.SourceHash}
 			p.Posts = append(p.Posts, post)
 			parent = post.Key()
 		}

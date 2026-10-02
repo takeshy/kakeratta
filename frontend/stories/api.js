@@ -51,8 +51,22 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       return json({ error: "This sample does not connect or publish to Bluesky." }, 400);
     }
     if (path === "/api/social/preview" && social) {
+      const tails = new Map();
+      const posts = social.posts.filter(post => body.entryIds.includes(post.entryId)).flatMap(post => {
+        const rendered = body.htmlImages?.[post.entryId];
+        const parent = tails.get(post.parent) || post.parent;
+        if (!rendered) { tails.set(post.entryId, post.id || post.entryId); return [{ ...post, parent }]; }
+        let tail = parent;
+        const pages = rendered.images.map((image, i) => {
+          const id = i ? `${post.entryId}:image:${i+1}` : post.entryId;
+          const page = { entryId: post.entryId, ...(i ? { id } : {}), parent: tail, text: i ? `つづき:\n［画像 ${i+1}/${rendered.images.length}］` : "［画像］", image, imageAlt: rendered.alt };
+          tail = id; return page;
+        });
+        tails.set(post.entryId, tail);
+        return pages;
+      });
       return json({ target: "bluesky", root: social.root, account: connection.did, handle: connection.handle,
-        digest: "sample-preview", posts: social.posts.filter((post) => body.entryIds.includes(post.entryId)) });
+        digest: "sample-preview", posts });
     }
     if (path.startsWith("/api/thread/") && social) {
       return json({ entries: social.entries });
