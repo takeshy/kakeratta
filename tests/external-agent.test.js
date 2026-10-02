@@ -30,9 +30,7 @@ test("the planner choice stays hidden until an external agent is connected", asy
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
   const boxes = preferBoxes(view.element);
-  // Only the persona already handed over shows it, so it can be handed back.
-  assert.equal(boxes.length, 1);
-  assert.equal(boxes[0].checked, true);
+  assert.equal(boxes.length, 0, "hidden even for a saved external preference");
 });
 
 test("each persona chooses its planner, and Hermes is not a persona", async t => {
@@ -94,7 +92,7 @@ test("Hermes setup includes the key in one configuration and links to its manual
   assert.equal(help.rel, "noopener");
 });
 
-test("a paused external agent is said so on the persona it plans for", async t => {
+test("a paused external agent hides the planner preference and preserves it on resume", async t => {
   globalThis.Node = Element;
   globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
@@ -102,32 +100,22 @@ test("a paused external agent is said so on the persona it plans for", async t =
   t.mock.method(api, "personas", async () => ({ personas: rows, tools: [], mcpConfigured: true, externalAgentPaused: true }));
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
-  const nodes = walk(view.element);
-  assert.ok(nodes.some(n => n.textContent === translate("外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。")));
-  assert.equal(preferBoxes(view.element)[0].checked, true, "the setting is kept");
+  assert.equal(preferBoxes(view.element).length, 0);
+  t.mock.method(api, "personas", async () => ({ personas: rows, tools: [], mcpConfigured: true, externalAgentPaused: false }));
+  await view.load();
+  assert.equal(preferBoxes(view.element)[0].checked, true, "the saved setting returns when enabled");
 });
 
-test("the check-in has no time to set; the checkbox chooses how much it says", async t => {
+test("persona cards omit the check-in speaking control and explanation", async t => {
   globalThis.Node = Element;
   globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  let rows = [{ id: "gourmet", name: "tabe", icon: "🍜", builtin: true, active: true, tools: [], dailyCheckIn: { enabled: true, time: "09:00", timeZone: "Asia/Tokyo", talk: "minimal" } }];
-  t.mock.method(api, "personas", async () => ({ personas: rows, tools: [] }));
-  const saved = [];
-  t.mock.method(api, "setDailyCheckIn", async (id, body) => {
-    saved.push(body);
-    rows = [{ ...rows[0], dailyCheckIn: body }];
-    return { personas: rows };
-  });
+  t.mock.method(api, "personas", async () => ({ personas: [{ id: "gourmet", name: "tabe", builtin: true, active: true, tools: [], dailyCheckIn: { talk: "minimal" } }], tools: [] }));
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
-  const label = walk(view.element).find(n => n.tag === "label" && n.children.some(c => c.textContent === translate("チェックインでは最低限のことだけ話す")));
-  const minimal = label.children.find(c => c.tag === "input");
-  assert.equal(minimal.checked, true);
-  minimal.checked = false;
-  await minimal.listeners.change();
-  assert.equal(saved[0].talk, "share");
-  assert.deepEqual(saved[0], { talk: "share" }, "only how much it says is sent; when is the app's");
+  const text = walk(view.element).map(n => n.textContent).join("|");
+  assert.ok(!text.includes(translate("チェックインでは最低限のことだけ話す")));
+  assert.ok(!text.includes(translate("毎日7時〜21時のどこかで起きます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。")));
 });
 
 test("the connection says whether the agent is calling in", async t => {

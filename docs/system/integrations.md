@@ -12,7 +12,7 @@ External-agent answers over MCP, permitted tools, the shipped specification, wea
 
 ## Connection and role
 
-The user creates an MCP connection and selects `external` as a persona's planner. The server exposes `/api/mcp/users/{workspace}` per workspace and manages connection keys and settings. This is separate from the application's MCP client for calling external tools.
+The user creates an MCP connection, enables external-agent use in settings, and selects `external` as a persona's planner. The preference control is shown only with a configured connection and external-agent use enabled; saved preferences survive disabling use. The server exposes `/api/mcp/users/{workspace}` per workspace and manages connection keys and settings. This is separate from the application's MCP client for calling external tools.
 
 The external agent researches as the persona and submits only the final answer. The host's subsequent processing decides, reviews, and executes schedules and other actions, then updates the persona's memory itself. `accepted` acknowledges receipt of the answer; it does not mean timeline publication is complete.
 

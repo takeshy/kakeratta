@@ -45,7 +45,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   const memoryEnabled = el("input", { type: "checkbox", class: "persona-memory-enabled", checked: persona.memoryEnabled !== false, disabled: ai });
   memoryEnabled.checked = persona.memoryEnabled !== false;
   form.append(el("label", { class: "switch" }, memoryEnabled, el("span", { label: "記憶する" })),
-    el("p", { class: "hint", label: "オフにするとメモの保存と読み取り、チェックインを行いません。" }));
+    el("p", { class: "hint", label: "オフにするとメモの保存と読み取りを行いません。" }));
   memoryEnabled.addEventListener("change", () => showKind());
   const alwaysUltra = el("input", { type: "checkbox", class: "persona-always-ultra", disabled: ai });
   alwaysUltra.checked = persona.alwaysUltra === true;

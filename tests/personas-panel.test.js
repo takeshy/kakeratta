@@ -86,7 +86,7 @@ test("people and interests are on tabs of their own, each searchable, people in 
 });
 
 // A person can be looked back on monthly; a subject is not offered it.
-test("a person's card chooses daily or monthly, and says the day", async (t) => {
+test("a person's card chooses daily or monthly, without explaining check-ins", async (t) => {
   setup(t);
   const sent = [];
   let current = rows.map((row) => ({ ...row }));
@@ -105,8 +105,9 @@ test("a person's card chooses daily or monthly, and says the day", async (t) => 
   every.value = "monthly";
   await every.listeners.change();
   for (let i = 0; i < 4; i++) await new Promise(setImmediate);
-  assert.deepEqual(sent[0], ["sato", { talk: "share", every: "monthly" }]);
-  assert.ok(walk(view.element).some((node) => String(node.textContent).startsWith("毎月12日")), "the card says the day");
+  assert.deepEqual(sent[0], ["sato", { every: "monthly" }]);
+  assert.deepEqual(every.children.map(node => node.textContent), ["頻繁に振り返る", "ときどき振り返る"]);
+  assert.ok(!walk(view.element).some(node => String(node.textContent).startsWith("毎月12日")));
 });
 
 test("person calendar schedules show their annual recurrence", async (t) => {

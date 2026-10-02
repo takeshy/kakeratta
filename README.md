@@ -21,8 +21,8 @@ and bring it back when it is useful.
 - **Inspect and correct memory.** Each remembering persona keeps facts with
   source links, field summaries and monthly kakera records. Edit or forget
   individual facts; search your timeline by words or meaning.
-- **Get timely follow-ups.** Remembering personas check in daily (people can
-  look back monthly). Birthdays, appointments and preparation checks run on
+- **Get timely follow-ups.** Remembering personas speak when they have something
+  worth sharing. For people, choose “Look back often” or “Look back occasionally”. Birthdays, appointments and preparation checks run on
   the server; supported devices can receive reminder push notifications.
 - **Turn an answer into a diagram.** Reply to it with
   `@infographic turn this answer into an infographic`. The HTML diagram uses

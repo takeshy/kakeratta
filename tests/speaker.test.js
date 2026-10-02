@@ -77,8 +77,7 @@ test("over the list is the persona as its card shows it, with the same ways to o
  const text = nodes(card).map(n => n.textContent).join("|");
  for (const want of ["父", "父。", translate("呼び名: {0}", "父 / お父さん"), translate("キーワード: {0}", "釣り"), "11月10日生まれ。"]) assert.ok(text.includes(want), `the card shows ${want}`);
  for (const want of [translate("有効"), translate("外部エージェント"), translate("起きた回数 {0}", 7),
-  translate("この担当の通知予定"), "父の誕生日", "毎朝の連絡", "釣りの約束",
-  translate("毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読みます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。", 10)]) assert.ok(text.includes(want), `the card shows ${want}`);
+  translate("この担当の通知予定"), "父の誕生日", "毎朝の連絡", "釣りの約束"]) assert.ok(text.includes(want), `the card shows ${want}`);
  const schedules = nodes(card).filter(n => n.className === "chip ghost schedule");
  assert.equal(schedules.length, 3);
  assert.ok(schedules[0].textContent.startsWith(translate("毎年")));
@@ -113,14 +112,14 @@ test("over the list is the persona as its card shows it, with the same ways to o
  assert.equal(host.hidden, true);
 });
 
-test("a subject's speaker card shows its daily check-in and localized domain", async t => {
+test("a subject's speaker card shows its localized domain without a check-in explanation", async t => {
  const persona = { id: "gourmet", name: "tabe", builtin: true, active: true, domain: "食事を考える", dailyCheckIn: { talk: "share" } };
  const { view } = setup(t, { getPersona: () => persona });
  t.mock.method(api, "speaker", async () => pageOf([], 0));
  await view.show(persona.id);
  const host = nodes(view.element).find(n => n.className === "speaker-card-host");
  const all = nodes(host);
- assert.ok(all.some(n => n.textContent === translate("毎日7時〜21時のどこかで起き、最近の記録・これからの予定・自分の記憶を照らし合わせ、今役立つことがあるときに話します。")));
+ assert.ok(!all.some(n => n.textContent === translate("毎日7時〜21時のどこかで起き、最近の記録・これからの予定・自分の記憶を照らし合わせ、今役立つことがあるときに話します。")));
  assert.ok(all.some(n => n.textContent === translate("起きた回数 {0}", 0)));
  const domain = all.find(n => n.className === "domain").textContent;
  assert.equal(domain, getLanguage() === "ja" ? persona.domain : "Food, drinks, restaurants and meal photos; menus, preferences and choosing what to eat.");

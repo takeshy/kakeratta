@@ -857,7 +857,7 @@ answer's `sources` the posts it rests on, and only those are linked.
 
 Every active persona with memory enabled has a **Daily check-in** once a day,
 or, for a person, a monthly lookback (see the month's summary below). Users
-choose how much it says; turning memory off disables both kinds of periodic
+choose “Look back often” (daily) or “Look back occasionally” (monthly) for people; turning memory off disables both kinds of periodic
 check-in. Explicit notification schedules still work without memory.
 
 When it runs is the app's choice: a minute between 07:00 and 21:00 in the
@@ -876,13 +876,8 @@ minute, so a restart does not move it, and check-ins spread across the day
 rather than every persona of every user waking at once. A check-in not run by 21:00 - the
 server was down - is skipped rather than run at night.
 
-With **At check-in, speak only when needed** on (it is off by default), the persona may speak only
-about what needs the user's decision; today that is a record that has reached its
-review date (whether it can be forgotten). It does not bring discoveries,
-suggestions, news or greetings. On a day with nothing to ask it still wakes,
-and ends silent.
-
-With it off (the default), the persona also reads the timeline since the
+The amount and tone of speech follow the persona's character. Legacy
+`talk: minimal` settings no longer restrict speech. The persona reads the timeline since the
 previous check-in actually ran - recorded with the day's claim - and older records
 sharing tags with recent ones, and speaks when it finds a connection worth
 bringing back. "The last 24 hours" would leave stretches unread when the minute

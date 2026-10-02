@@ -35,7 +35,7 @@ Other agents can use the same MCP Streamable HTTP endpoint and `Authorization: B
 
 3. The key is shown only on the screen right after it is issued. Because the configuration contains the key, do not share it with anyone. If you reissue the key, replace the entry in `config.yaml` with the new configuration.
 
-4. Restart Hermes, then under **Personas** in Kakeratta turn on **Prefer the external agent** for each persona you want Hermes to plan. The checkbox and the wait settings appear only once a connection key has been issued. It is a preference: when Hermes does not answer in time, the built-in model plans.
+4. Restart Hermes, then under **Personas** in Kakeratta turn on **Prefer the external agent** for each persona you want Hermes to plan. The persona checkbox appears only while a connection key is configured and **Use the external agent** is enabled in settings. Wait settings belong to each connection. It is a preference: when Hermes does not answer in time, the built-in model plans.
 5. To plan asks automatically, install the official Kakeratta skill and its Wake Gate script, then create a cron job with the script attached. Installing only the `SKILL.md` URL does not include the script, so copy it separately.
 
     ```bash

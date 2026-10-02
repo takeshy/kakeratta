@@ -15,7 +15,7 @@ export { basicInfoBox };
 import { gloss } from "./builtins.js";
 import { createMemoryView } from "./memory.js";
 import { uniqueTools } from "./tool_labels.js";
-import { notificationSchedules, toolLink, checkInHint } from "./persona-display.js";
+import { notificationSchedules, toolLink } from "./persona-display.js";
 
 // The panel shows subjects and people apart, each with a search, and people
 // can be put in name order. Which tab and which order are the viewer's own
@@ -235,11 +235,10 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   // Whether the external agent does the thinking - reading the context,
   // looking things up and writing the answer - when it can. The app decides,
   // checks and runs the notes, schedules and actions either way.
-  // The choice only appears once an external agent is connected: most people
-  // never connect one and need not know there is anything to choose. A
-  // persona already handed over keeps it, so it can be handed back.
+  // Show the preference only while a configured external agent is enabled.
+  // Saved preferences remain available when the agent is enabled again.
   function drawPlanner(row) {
-    if (!mcpConfigured && row.planner !== "external") return null;
+    if (!mcpConfigured || agentPaused) return null;
     // "Prefer": the agent plans when it answers in time, and the built-in
     // model still takes the turn when it does not.
     const prefer = el("input", { type: "checkbox", checked: row.planner === "external" });
@@ -304,18 +303,16 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     }
     const planner = drawPlanner(row);
     if (planner) box.append(planner);
-    // Every active persona checks in, at a time of the app's choosing between
-    // 07:00 and 21:00: once a day, or - for a person seen now and then - once
-    // a month, reading the month's summary. The user chooses how often a
-    // person is looked back on, and how much any of them says.
-    if (row.memoryEnabled !== false) {
-      const schedule = row.dailyCheckIn || {};
-      const monthly = row.kind === "person" && schedule.every === "monthly";
-      const save = async (change, control) => {
-        control.disabled = true;
+    if (row.memoryEnabled !== false && row.kind === "person") {
+      const monthly = row.dailyCheckIn?.every === "monthly";
+      const every = el("select", { class: "check-in-every", "aria-label": t("振り返る頻度"), disabled: !row.active },
+        el("option", { value: "", label: "頻繁に振り返る" }),
+        el("option", { value: "monthly", label: "ときどき振り返る" }));
+      every.value = monthly ? "monthly" : "";
+      every.addEventListener("change", async () => {
+        every.disabled = true;
         try {
-          const base = { talk: schedule.talk || "share", ...(row.kind === "person" ? { every: monthly ? "monthly" : "" } : {}) };
-          const payload = await api.setDailyCheckIn(row.id, { ...base, ...change });
+          const payload = await api.setDailyCheckIn(row.id, { every: every.value });
           rows = payload.personas || rows;
           onChange?.(rows);
           draw();
@@ -323,21 +320,8 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
           toast(String(error.message || error), "error");
           draw();
         }
-      };
-      const minimal = el("input", { type: "checkbox", checked: schedule.talk === "minimal", disabled: !row.active });
-      minimal.addEventListener("change", () => void save({ talk: minimal.checked ? "minimal" : "share" }, minimal));
-      const controls = el("div", { class: "compose-row" });
-      if (row.kind === "person") {
-        const every = el("select", { class: "check-in-every", "aria-label": t("振り返る頻度"), disabled: !row.active },
-          el("option", { value: "", label: "毎日振り返る" }),
-          el("option", { value: "monthly", label: "月1回振り返る" }));
-        every.value = monthly ? "monthly" : "";
-        every.addEventListener("change", () => void save({ every: every.value }, every));
-        controls.append(every);
-      }
-      controls.append(el("label", { class: "switch" }, minimal, el("span", { label: "チェックインでは最低限のことだけ話す" })));
-      box.append(controls);
-      box.append(el("p", { class: "hint", text: checkInHint(row) }));
+      });
+      box.append(el("div", { class: "compose-row" }, every));
     }
     if (row.schedules?.length) {
       box.append(notificationSchedules(row, (payload) => updateRows(payload.personas || rows)));

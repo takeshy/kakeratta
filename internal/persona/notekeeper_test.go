@@ -250,7 +250,7 @@ func TestOnlyTurnsThatLeaveSomethingToKeepRunTheKeeper(t *testing.T) {
 	}{
 		{"a post of the user's", timeline.Entry{ID: "p", Speaker: timeline.User}, "", true},
 		{"a deletion tidy-up", timeline.Entry{Speaker: "system"}, deletedInstructions, false},
-		{"a check-in with reviews", timeline.Entry{Speaker: "system"}, dailyInstructions + reviewInstructions, true},
+		{"a check-in with reviews", timeline.Entry{Speaker: "system"}, dailyShareInstructions + reviewInstructions, true},
 		{"the daily check-in", timeline.Entry{Speaker: "system"}, dailyShareInstructions, false},
 		{"a schedule waking", timeline.Entry{Speaker: "system"}, scheduleInstructions, false},
 	}

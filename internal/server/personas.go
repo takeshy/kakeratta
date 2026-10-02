@@ -207,8 +207,8 @@ func (s *Server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	s.getPersonas(w, r)
 }
 
-// putDailyCheckIn chooses how much a persona says at its daily check-in.
-// When it runs is the app's to choose, so only Talk is kept.
+// putDailyCheckIn saves reflection frequency and accepts legacy speaking policies.
+// When it runs is the app's to choose; runtime instructions ignore Talk.
 func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if skill, ok := s.catalogue.Find(r.Context(), id); ok && !skill.Remembers() {

@@ -40,7 +40,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   let memoryChoiceChanged = false;
   const memoryOption = el("div", {},
     el("label", { class: "switch" }, memoryEnabled, el("span", { label: "記憶する" })),
-    el("p", { class: "hint", label: "オフにするとメモの保存と読み取り、チェックインを行いません。" }));
+    el("p", { class: "hint", label: "オフにするとメモの保存と読み取りを行いません。" }));
   memoryEnabled.addEventListener("change", () => {
     memoryChoiceChanged = true;
     if (draft) draft.memoryEnabled = memoryEnabled.checked;

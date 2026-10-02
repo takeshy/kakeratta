@@ -8,7 +8,7 @@ import { createFeed } from "./feed.js";
 import { basicInfoBox } from "./person-basic-info.js";
 import { gloss } from "./builtins.js";
 import { uniqueTools } from "./tool_labels.js";
-import { notificationSchedules, toolLink, checkInHint } from "./persona-display.js";
+import { notificationSchedules, toolLink } from "./persona-display.js";
 
 export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryChange, onReply, onSpeak, onOpenPersona, onOpenMemory, onEditPersona, onPersonasChange }) {
   const status = el("p", { class: "hint", role: "status", "aria-live": "polite" });
@@ -50,7 +50,6 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
         el("p", { class: "hint", text: t("キーワード: {0}", (row.keywords || []).join(" / ") || t("（なし）")) }),
         basicInfoBox(row, () => onEditPersona?.(row, "basicInfo")));
     }
-    if (row.memoryEnabled !== false) node.append(el("p", { class: "hint", text: checkInHint(row) }));
     if (row.schedules?.length) {
       node.append(notificationSchedules(row, (payload) => {
         row.schedules = payload.personas?.find(persona => persona.id === row.id)?.schedules || [];

@@ -83,8 +83,8 @@ func TestACheckInKeepsNoMemory(t *testing.T) {
 	}
 }
 
-// Every active persona checks in; the checkbox decides only how much it says.
-func TestCheckInTalksAsChosen(t *testing.T) {
+// Legacy speaking settings do not override the persona's character.
+func TestCheckInFollowsCharacterWithLegacyTalkSettings(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		saved   store.DailyCheckIn
@@ -92,7 +92,7 @@ func TestCheckInTalksAsChosen(t *testing.T) {
 		notWant string
 	}{
 		{"never set shares", store.DailyCheckIn{}, "前回のチェックインから今回まで", "ユーザーの判断が必要なことだけ"},
-		{"minimal", store.DailyCheckIn{Talk: store.CheckInMinimal}, "ユーザーの判断が必要なことだけ", "前回のチェックインから今回まで"},
+		{"legacy minimal", store.DailyCheckIn{Talk: store.CheckInMinimal}, "前回のチェックインから今回まで", "ユーザーの判断が必要なことだけ"},
 		{"share", store.DailyCheckIn{Talk: store.CheckInShare}, "前回のチェックインから今回まで", "ユーザーの判断が必要なことだけ"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

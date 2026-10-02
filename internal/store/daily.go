@@ -15,28 +15,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// How a check-in talks. CheckInMinimal speaks only about what needs the
-// user's decision; CheckInShare also looks for something worth sharing.
+// Legacy speaking-policy values retained for persisted settings and API compatibility.
+// Runtime check-ins now follow the persona's character.
 const (
 	CheckInMinimal = "minimal"
 	CheckInShare   = "share"
 )
 
-// DailyCheckIn is what the user chooses about a persona's check-in: only how
-// much it says. When it runs is the app's to choose; Time and TimeZone are
-// what earlier versions saved, and are no longer read.
+// DailyCheckIn stores a persona's reflection frequency and legacy fields.
+// When it runs is the app's to choose; Time and TimeZone are no longer read.
 type DailyCheckIn struct {
 	Enabled  bool   `json:"enabled"`
 	Time     string `json:"time,omitempty"`
 	TimeZone string `json:"timeZone,omitempty"`
-	// Talk is CheckInMinimal or CheckInShare; see CheckInFor.
+	// Talk retains the legacy speaking policy; runtime instructions ignore it.
 	Talk string `json:"talk,omitempty"`
 	// Every is how often: "" for every day, or CheckInMonthly for a person
 	// seen now and then - a room with many people in it need not hear from
 	// each every day. A monthly check-in reads the month's summary.
 	Every string `json:"every,omitempty"`
-	// On is the day of the month a monthly check-in falls on, shown on the
-	// card and never stored.
+	// On is the computed day of a monthly check-in, returned by the API
+	// and never stored.
 	On int `json:"on,omitempty"`
 }
 
@@ -44,14 +43,12 @@ type DailyCheckIn struct {
 // is written.
 const CheckInMonthly = "monthly"
 
-// Minimal reports whether the check-in speaks only about what needs the
-// user's decision.
+// Minimal reads the legacy speaking policy; runtime instructions do not use it.
 func (d DailyCheckIn) Minimal() bool { return d.Talk != CheckInShare }
 
 // CheckInFor is a persona's check-in as it runs. Every active persona checks
 // in - once a day, unless it keeps a person the user chose to hear about
-// monthly. The user also chooses how much it says; it shares unless the user
-// chose minimal.
+// monthly. Legacy speaking policies are preserved for API compatibility.
 func (s Settings) CheckInFor(personaID string) DailyCheckIn {
 	out := DailyCheckIn{Enabled: true, Talk: CheckInShare}
 	saved := s.DailyCheckIns[personaID]

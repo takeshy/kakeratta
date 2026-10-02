@@ -227,7 +227,7 @@ the account (from the 1st to the 28th) and, like a check-in, a minute between
 7:00 and 21:00. The summary can be edited with ✎ like your own post; editing
 it routes nothing.
 
-A person's card offers **Look back daily** or **Look back monthly**. A person
+A person's card offers **Look back often** (daily) or **Look back occasionally** (monthly). A person
 looked back on monthly wakes on the summary's day, after the summary, and is
 handed the summary and the posts since its previous check-in that contain its
 names or keywords (the newest 40). It does not read the whole timeline again.
@@ -419,10 +419,11 @@ ordinary follow-up questions and new topics stay on Super unless Always think
 deeply is enabled.
 The persona can use `read` up to 10 times in an ordinary turn and 20 times in an Ultra turn.
 
-Once an external agent's connection key has been issued, each persona can turn on
+Once an external agent's connection key has been issued and **Use the external agent**
+is enabled in settings, each persona can turn on
 **Prefer the external agent** to hand its research and answer to an agent such as Hermes
 or Obsidian's [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub)
-(the checkbox stays hidden until then).
+(the checkbox appears only while a connection is configured and external-agent use is enabled).
 Such a persona hands only the part that reads the context, looks things up and
 writes the answer to the agent connected over MCP. kakeratta then decides the
 turn's schedules, actions and notes on the persona's own model, assembles them

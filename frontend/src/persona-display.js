@@ -33,18 +33,6 @@ export function toolLink(name, label = t(toolLabel(name))) {
     text: label, title: t("{0} の説明を開く（新しいタブ）", label) });
 }
 
-export function checkInHint(row) {
-  const schedule = row.dailyCheckIn || {};
-  const monthly = row.kind === "person" && schedule.every === "monthly";
-  return monthly
-    ? t(schedule.talk === "minimal"
-      ? "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿を読みます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。"
-      : "毎月{0}日、本体が月のまとめを書いたあとに起き、まとめと名前が出た投稿と自分の記憶を見直して、伝える価値があることを見つけたときに話します。", schedule.on || "")
-    : t(schedule.talk === "minimal"
-      ? "毎日7時〜21時のどこかで起きます。話すのは、記録を忘れてよいかの確認など、あなたの判断が必要なときだけです。"
-      : "毎日7時〜21時のどこかで起き、最近の記録・これからの予定・自分の記憶を照らし合わせ、今役立つことがあるときに話します。");
-}
-
 // Both persona views use the same layout and confirmed cancellation operation.
 export function notificationSchedules(row, onDeleted) {
   if (!row.schedules?.length) return null;

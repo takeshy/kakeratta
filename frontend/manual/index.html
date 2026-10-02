@@ -222,18 +222,15 @@
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
           <p>通知予定は担当一覧と発言一覧のカードで確認できます。各予定の <strong>×</strong> を押して確認すると、その予定を取り消します。日時やタイムゾーンも1件ずつ表示します。</p>
-          <h3 id="ja-daily">毎日のチェックイン</h3>
-          <p>記憶がオンの有効な担当は、毎日1回、7時〜21時のどこかで起きます。時刻は担当ごとに本体が決め、日ごとに1時間以内で少しずつずれていくので、設定はいりません。初期状態では、最近のかけらと前の記録を見直して、伝える価値があることを見つけたときに話します。見直しの日が来た記録があれば、忘れてよいかも聞きます。<strong>チェックインでは最低限のことだけ話す</strong> をONにすると、話しかけるのはその確認など、あなたの判断が必要なときだけになります。何もなければ黙ります。</p>
-          <p>話す量を変えるには、<strong>担当</strong> を開き、対象の担当の <strong>チェックインでは最低限のことだけ話す</strong> を切り替えます。変更は自動で保存されます。</p>
-          <p>時刻は、この端末のタイムゾーンで数えます。ブラウザを閉じていても、サーバーが動いていれば実行されます。</p>
-          <p>チェックインとは別に、sona のように担当が自分で起きる時刻を決めることもあります。詳しくは <a href="/manual/?guide=advanced#ja-wakes" data-lang-link>担当が起きるタイミング</a> を見てください。</p>
+          <h3 id="ja-daily">担当からの声かけ</h3>
+          <p>記憶を持つ担当（「記憶する」がオンの担当）は、過去のかけらや記憶を振り返り、伝えたいことがあるときに、ときどき話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると、この振り返りによる声かけも止まります。</p>
           <h3 id="ja-summary">今月のまとめと、月1回振り返る人物</h3>
           <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。話題ごとの箇条書きで、各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
           <figure>
             <img src="/captures/ja/month-summary.png" alt="本体が投稿した今月のまとめ。人・食・これからのことの箇条書き（サンプル）" loading="lazy" width="382" height="384" />
             <figcaption>今月のまとめ（サンプル）。</figcaption>
           </figure>
-          <p>人物の担当は、カードで <strong>毎日振り返る</strong> か <strong>月1回振り返る</strong> を選べます。月1回にした人物は、まとめが書かれた日に起き、まとめと、その人の名前やキーワードが出たかけらを読んで振り返ります。人物が増えても、タイムラインを読むのは月に1回で済みます。AI と担当を作ると、家族や親しい人は毎日、たまに会う人は月1回のように、関係性から選ばれます。関心ごとの担当は毎日です。</p>
+          <p>人物の担当は、カードで <strong>頻繁に振り返る</strong> か <strong>ときどき振り返る</strong> を選べます。月1回にした人物は、まとめが書かれた日に起き、まとめと、その人の名前やキーワードが出たかけらを読んで振り返ります。人物が増えても、タイムラインを読むのは月に1回で済みます。AI と担当を作ると、家族や親しい人は毎日、たまに会う人は月1回のように、関係性から選ばれます。関心ごとの担当は毎日です。</p>
         </section>
 
         <section id="ja-memory">
@@ -465,7 +462,7 @@
 
         <section id="ja-hermes">
           <h2>5. 担当の考える役を外部エージェントに任せる</h2>
-          <p>担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。標準で対応しているのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。ほかのエージェントも、MCP Streamable HTTP で接続し、依頼の定期取得・調査・回答の提出を実装すれば使えます。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
+          <p>接続先を設定し、設定の「外部エージェントを使う」をONにすると、担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。標準で対応しているのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。ほかのエージェントも、MCP Streamable HTTP で接続し、依頼の定期取得・調査・回答の提出を実装すれば使えます。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
           <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携の外部エージェント接続とマニュアルへのヘルプアイコン" loading="lazy" width="382" height="920" /></figure>
           <h3>接続先を管理する</h3>
           <p>同時に使える接続先は1つです。外部エージェントを優先する担当は、すべて「使用する接続先」で選んだ接続先を使います。</p>
@@ -499,7 +496,7 @@
           <h3>担当を任せる</h3>
           <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="389" /></figure>
           <ol>
-            <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは接続キーを発行したあとにだけ表示されます。</li>
+            <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは、接続先を設定し、設定の「外部エージェントを使う」がONのときだけ表示されます。</li>
             <li>いつもどおり投稿します。その担当に届いた投稿は外部エージェントが考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
           <p>外部エージェントが3分以内に依頼を取りに来ない、または取ってから15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。</p>
@@ -791,18 +788,15 @@
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
           <p>View notification schedules on the persona card or above its speaker list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
-          <h3 id="en-daily">Daily check-ins</h3>
-          <p>Every active persona with memory enabled wakes once a day, somewhere between 7:00 and 21:00. The app picks each persona's time, drifting by an hour a day at most, so there is nothing to set. By default it looks over recent kakera and older records and speaks when it finds something worth sharing, and asks whether a record that has reached its review date can be forgotten. With <strong>At check-in, speak only when needed</strong> on, it speaks only when your decision is needed, such as that question. Otherwise it stays quiet.</p>
-          <p>To change how much it says, open <strong>Personas</strong> and toggle the persona's <strong>At check-in, speak only when needed</strong>. Changes save automatically.</p>
-          <p>The hours are counted in this device's time zone. The browser can be closed; the server runs the check-in.</p>
-          <p>Some personas, such as sona, also pick their own wake times. See <a href="/manual/?guide=advanced#en-wakes" data-lang-link>When personas wake</a>.</p>
+          <h3 id="en-daily">Hearing from your personas</h3>
+          <p>Personas with <strong>Remember</strong> enabled keep memories, look back over past fragments, and speak now and then when they have something worth sharing. How much they say and their tone follow their character. Turning off <strong>Remember</strong> also stops these follow-ups.</p>
           <h3 id="en-summary">This month's summary, and people looked back on monthly</h3>
           <p>Once a month the app reads the month's timeline and posts <strong>This month</strong>: a list by topic, each line with a <strong>→</strong> to the fragment it came from. The app picks the day for your account (somewhere from the 1st to the 28th). The summary is yours to set right with <strong>✎</strong>.</p>
           <figure>
             <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app, listed under People, Food and Still open (sample data)" loading="lazy" width="382" height="450" />
             <figcaption>This month's summary (sample data).</figcaption>
           </figure>
-          <p>On a person's card you choose <strong>Look back daily</strong> or <strong>Look back monthly</strong>. A person looked back on monthly wakes on the summary's day and reads the summary and the fragments that mention its names or keywords, so however many people there are, the timeline is read once a month. <strong>Create a persona with AI</strong> chooses from the relationship: family and close friends daily, people you see now and then monthly. Interests check in daily.</p>
+          <p>On a person's card you choose <strong>Look back often</strong> or <strong>Look back occasionally</strong>. A person looked back on monthly wakes on the summary's day and reads the summary and the fragments that mention its names or keywords, so however many people there are, the timeline is read once a month. <strong>Create a persona with AI</strong> chooses from the relationship: family and close friends daily, people you see now and then monthly. Interests check in daily.</p>
         </section>
 
         <section id="en-memory">
@@ -1034,7 +1028,7 @@
 
         <section id="en-hermes">
           <h2>5. Hand a persona to an external agent</h2>
-          <p>Each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in. Hermes Agent and the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> are supported out of the box; any other agent can connect over MCP Streamable HTTP if it polls for asks, does the research and submits the answer. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
+          <p>Once a connection is configured and <strong>Use the external agent</strong> is enabled in settings, each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in. Hermes Agent and the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> are supported out of the box; any other agent can connect over MCP Streamable HTTP if it polls for asks, does the research and submits the answer. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
           <figure><img src="/captures/en/hermes-settings.png" alt="External agent connections under Integrations, with the manual help icon" loading="lazy" width="382" height="958" /></figure>
           <h3>Manage connections</h3>
           <p>One connection is in use at a time. Every persona that prefers the external agent uses the one chosen under <strong>Active connection</strong>.</p>
@@ -1068,7 +1062,7 @@
           <h3>Hand a persona over</h3>
           <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="473" /></figure>
           <ol>
-            <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only after a connection key has been issued.</li>
+            <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only while a connection is configured and <strong>Use the external agent</strong> is enabled in settings.</li>
             <li>Post as usual. The external agent plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
           <p>If the external agent does not pick an ask up within 3 minutes, or does not return an answer within 15 minutes of picking it up, the built-in model answers instead.</p>
