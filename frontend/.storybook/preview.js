@@ -27,6 +27,6 @@ export default {
   ],
   parameters: {
     layout: "fullscreen",
-    options: { storySort: { order: ["Screen", "Room", "Compose", "Timeline", "Search"] } },
+    options: { storySort: { order: ["Screen", "Room", "Compose", "Timeline", "Favorites", "Search"] } },
   },
 };

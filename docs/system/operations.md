@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, deployment, memory migration, portable exports, and workspace deletion."
 tags: ["development", "deployment", "export", "destroy"]
-updated: "2026-10-01"
+updated: "2026-10-02"
 ---
 
 Development, validation, deployment, memory migration, portable exports, and workspace deletion.
@@ -81,9 +81,9 @@ Persona fields moved from prose rewritten with every kakera to a list of facts w
 
 ## Backup format
 
-`Workspace.Export` converts state into the layout a local kakeratta reads and passes files to a sink in sequence. The HTTP layer streams a zip without assembling the entire workspace in memory. It includes posts, personas, memory, images, and related data.
+`Workspace.Export` converts state into the layout a local kakeratta reads and passes files to a sink in sequence. The HTTP layer streams a zip without assembling the entire workspace in memory. It includes posts, personas, memory, images, favorites, and related data.
 
-Local timeline files and Firestore exports use `timeline/YYYY/MM/DD.json`: one JSON array of current entries per date. Firestore export streams entries in timestamp order and buffers one day at a time. Restoring the exported directory rebuilds the local timeline index on startup. Unfinished reactions, runtime records, locks, and events are runtime state and are not exported.
+Local timeline files and Firestore exports use `timeline/YYYY/MM/DD.json`: one JSON array of current entries per date. Firestore export streams entries in timestamp order and buffers one day at a time. Restoring the exported directory rebuilds the local timeline index on startup. Unfinished reactions, runtime records, locks, and events are runtime state and are not exported. Favorites are user-owned records: local exports retain `favorites/{entry-id}.json`, and Firestore exports materialize the same files for restoration.
 
 Export settings omit API credentials, and Bluesky tokens and MCP connection keys are excluded as well. Connections must be configured again after restoration. The implementation does not simply zip the entire workspace directory.
 

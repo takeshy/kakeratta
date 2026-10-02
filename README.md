@@ -21,6 +21,8 @@ and bring it back when it is useful.
 - **Inspect and correct memory.** Each remembering persona keeps facts with
   source links, field summaries and monthly kakera records. Edit or forget
   individual facts; search your timeline by words or meaning.
+- **Save answers as favorites.** Keep posts and persona replies in a list,
+  most recently added first. Filter by persona or search only your favorites.
 - **Get timely follow-ups.** Remembering personas speak when they have something
   worth sharing. For people, choose “Look back often” or “Look back occasionally”. Birthdays, appointments and preparation checks run on
   the server; supported devices can receive reminder push notifications.

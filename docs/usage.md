@@ -312,7 +312,32 @@ In Settings, open Bluesky connection, enter your handle, and authorize on Bluesk
 
 Already published messages are not sent again. Newly selected replies can be added to their existing parent posts. Publishing is disabled while sending or when all selected messages are already posted. The published conversation has a single link to its root post.
 
+## Favorites
+
+Tap **☆** on a post or persona answer to save it; the star becomes **★**.
+Your own replies can be saved too. This lets you revisit useful answers even
+when the persona did not keep them in its memory.
+
+Open **Favorites** in the header for the first 20 entries, most recently added
+first. **Filter by persona** selects a speaker; “You” selects your own posts
+and replies. **Load more** at the bottom adds the next 20, when available.
+**Original post** opens the conversation in a dialog, where you can reply.
+
+Removing a favorite with **★** in this list asks for confirmation; Cancel
+keeps it saved. On the ordinary timeline, removal is immediate. Removing a
+favorite keeps the post, so **☆** can save it again. Deleting the post or
+answer itself also removes its favorite. Favorites are available on other
+devices and included in backups.
+
+![Favorites with a persona filter and links to original conversations (sample data)](captures/en/favorites.png)
+
 ## Search
+
+Enable **Favorites only** to search saved posts and answers by words or meaning.
+A blank query lists favorites newest by post date; the Favorites list instead
+uses the date you added them. Open a result to reply or change its favorite state.
+
+![Search restricted to favorite entries (sample data)](captures/en/search-favorites.png)
 
 **Search** in the header and the personas' `timeline_search` tool share one
 implementation. It covers text, URLs, image readings, place labels, and replies;
@@ -446,6 +471,7 @@ Integrations, where **Use the external agent** can pause it for a while. See [He
 ```
 <workspace>/settings.json          endpoints, models, the web search key, who is in the room
 <workspace>/timeline/YYYY/MM/DD.json posts and remarks by date
+<workspace>/favorites/<entry-id>.json saved entry IDs and favorite timestamps
 <workspace>/blobs/<id>.png         captures
 <workspace>/memory/<id>/           each persona's memory (field summaries and facts {Field}.md, and kakera records records/YYYY-MM.md)
 <workspace>/memory/<id>.meta.json  how many times it woke, and so on

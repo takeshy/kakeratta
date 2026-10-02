@@ -287,6 +287,7 @@ func (s *Server) deleteEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, deleted := range gone {
+		_ = s.store.UpdateRecord(r.Context(), store.RecordFavorites, deleted.ID, time.Time{}, func([]byte, bool) ([]byte, error) { return nil, nil })
 		deleted.Deleted = true // Browser removal notification, never persisted.
 		s.publishEvent("entry", deleted)
 		_ = s.store.ForgetRouting(deleted.ID)

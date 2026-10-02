@@ -88,7 +88,7 @@ func (s *Service) Unified(ctx context.Context, query string, window Window, limi
 	}
 	var candidates []timeline.Entry
 	for _, e := range current {
-		if root, ok := current[timeline.RootOf(e)]; ok && root.Kind == timeline.KindPost && Text(e) != "" && window.holds(e.At) {
+		if root, ok := current[timeline.RootOf(e)]; ok && root.Kind == timeline.KindPost && Text(e) != "" && window.holds(e.At) && selectedEntry(ctx, e.ID) {
 			candidates = append(candidates, e)
 		}
 	}

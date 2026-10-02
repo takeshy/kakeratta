@@ -1,6 +1,18 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "お気に入り": "Favorites",
+ "この投稿をお気に入りから外しますか？": "Remove this post from favorites?",
+ "お気に入りを保存できませんでした": "Could not save the favorite",
+ "お気に入りを解除できませんでした": "Could not remove the favorite",
+ "お気に入りを読み込めませんでした": "Could not load favorites",
+ "お気に入りに追加": "Add to favorites",
+ "お気に入りを解除": "Remove from favorites",
+ "お気に入りのみ": "Favorites only",
+ "担当で絞り込み": "Filter by persona",
+ "すべての担当": "All speakers",
+ "お気に入りはまだありません。": "No favorites yet.",
+ "最近お気に入りに追加した順に表示します。": "Most recently added favorites first.",
  "常に熟考する": "Always think deeply",
  "通常の依頼にもUltraで回答します。": "Use Ultra for ordinary requests too.",
  "インフォグラフィック": "Infographic",

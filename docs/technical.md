@@ -643,6 +643,22 @@ once by hand (`cmd/migrate-memory`): the persona's model drafts the new form, a
 person checks and edits the draft, and only then is it written. The prose
 fields became the first summaries, split into facts.
 
+### Favorites
+
+Favorites preserve the user's choice of an entry to revisit, independently of
+persona memory. Posts, persona answers and user replies remain current timeline
+entries; a favorite stores the entry ID and when it was added, not a separate
+copy of its content. Repeated saves keep the timestamp, while removing and
+saving again gives it a new timestamp.
+
+The recent-favorites API pages by favorite timestamp and supports a speaker
+filter. Browser search can restrict lexical and semantic candidates to saved
+IDs before ranking and pagination. A blank filtered query lists favorites by
+post date. Favorite records persist in `favorites/{entry-id}.json` locally and
+in `users/{key}/favorites` in Firestore, and travel with workspace exports.
+Deleting an entry removes its favorite; merely removing a favorite keeps the
+entry. See [API and persistent state](system/backend.md#favorites).
+
 ### Meaning search
 
 A fragment does not need to have been intentionally remembered by a persona to

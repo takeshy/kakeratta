@@ -23,14 +23,16 @@ function fixtures() {
   return { wine, entries, hits: entries.filter((entry) => entry.kind === "post").map((entry, i) => ({ entry, snippet: entry.text, score: 0.85-i*0.1 })) };
 }
 
-function panel(mode, { empty = false, loading = false, error = false, thread = false } = {}) {
+function panel(mode, { empty = false, loading = false, error = false, thread = false, favoritesOnly = false } = {}) {
   const sample = fixtures();
-  serve({ settings, search: {
-    entries: sample.entries, hits: empty ? [] : sample.hits, loading,
+  const saved = sample.entries.filter(entry => entry.id === "wine-1" || entry.id === "wine-reply");
+  serve({ settings, favorites: { items: saved.map(entry => ({ id: entry.id, entry, at: "2026-10-02T00:00:00Z" })) }, search: {
+    entries: sample.entries, hits: empty ? [] : [...sample.hits, ...(favoritesOnly ? saved.filter(entry => entry.kind === "remark").map(entry => ({ entry, snippet: entry.text, score: 0.8 })) : [])], loading,
     error: error ? t("意味検索に接続できませんでした。もう一度検索してください") : null,
   } });
   const view = createSearch({ getSettings: () => settings, getPersona: (id) => id === "wine" ? sample.wine : null });
   const form = view.element.querySelector("form");
+  view.element.querySelector('input[type="checkbox"]').checked = favoritesOnly;
   form.querySelector("input").value = mode === "keyword"
     ? (getLanguage() === "ja" ? "ピノ" : "Pinot")
     : (getLanguage() === "ja" ? "軽くて飲みやすかった赤ワイン" : "A light red wine I enjoyed");
@@ -51,3 +53,6 @@ export const Thread = { name: "検索結果から元の会話を開く", render:
 export const Loading = { name: "意味検索中", render: () => panel("semantic", { loading: true }) };
 export const Empty = { name: "一致する投稿がない", render: () => panel("keyword", { empty: true }) };
 export const Error = { name: "失敗・再検索できる", render: () => panel("semantic", { error: true }) };
+
+export const FavoritesOnly = { name: "お気に入りのみ検索", render: () => panel("semantic", { favoritesOnly: true }) };
+export const FavoritesOnlyThread = { name: "お気に入りの検索結果から会話を開く", render: () => panel("semantic", { favoritesOnly: true, thread: true }) };

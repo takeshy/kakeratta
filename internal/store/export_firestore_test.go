@@ -78,6 +78,10 @@ func TestFirestoreWorkspaceExportOpensAsAFileWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	favoriteData := []byte(`{"id":"post_1","at":"2026-10-02T00:00:00Z"}`)
+	if err := w.UpdateRecord(ctx, RecordFavorites, "post_1", time.Time{}, func([]byte, bool) ([]byte, error) { return favoriteData, nil }); err != nil {
+		t.Fatal(err)
+	}
 	target := t.TempDir()
 	if err := w.Export(ctx, dirSink{root: target}); err != nil {
 		t.Fatal(err)
@@ -89,6 +93,10 @@ func TestFirestoreWorkspaceExportOpensAsAFileWorkspace(t *testing.T) {
 	}
 	if paths, err := exported.NotesBySource("cafe", "post_1"); err != nil || len(paths) != 1 || paths[0] != "shops/regular.md" {
 		t.Fatalf("exported note-source index = %v, %v", paths, err)
+	}
+	favoriteRaw, favoriteExists, favoriteErr := exported.Record(ctx, RecordFavorites, "post_1")
+	if favoriteErr != nil || !favoriteExists || !strings.Contains(string(favoriteRaw), "post_1") {
+		t.Fatalf("exported favorite: %s %v %v", favoriteRaw, favoriteExists, favoriteErr)
 	}
 	// The backup keeps the room, not the keys that reached the models.
 	read := exported.ConfiguredSettings()

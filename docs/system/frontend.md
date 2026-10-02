@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud."
-tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push"]
+description: "Frontend composition, requests, live updates, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
+tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites"]
 updated: "2026-10-02"
 ---
 
-Frontend composition, requests, live updates, reminder push notifications, offline delivery, speech input, and read-aloud.
+Frontend composition, requests, live updates, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
 
 # Browser application composition
 
@@ -43,6 +43,18 @@ When an OpenRouter key is entered but no model list has been loaded, settings sh
 ## Names and speaker lists
 
 A name on the timeline - a persona's, or the user's; not the app's monthly summary - is a button when the feed is given `onSpeaker` (the main timeline, the search sheet's thread and the speaker sheet itself all are). It opens a sheet of its own, **発言一覧**, which is not a search: `app.js` `openSpeaker` makes it the open panel and `createSpeaker().show` fills it ([speaker.js](../../frontend/src/speaker.js)). It reads `api.speaker` a page at a time - one request, which returns the conversations the page touches with it - and shows them in a feed as the timeline is read - each remark under its post, remarks unfolded - with a "load more". Over the list is a card built like the personas list's: the localized relationship or condition, active/paused and external-agent badges, a person's names, keywords and collapsed basic information (`basicInfoBox`), notification schedules, permitted tools with manual links, and wake count. Schedule dates, time zones and annual/daily labels, and tool links use [persona-display.js](../../frontend/src/persona-display.js), shared with the persona list. Buttons for the persona's settings, its editor (also opened at the basic information) and what it remembers are wired in `app.js` to the personas panel (`reveal`, `showMemoryFor`, `edit`); settings changes are performed there. Notification schedules use `notificationSchedules` in [persona-display.js](../../frontend/src/persona-display.js): the heading has its own line and each schedule appears on a separate row in both cards. Each row includes a × button with a schedule-specific accessible label. After confirmation, it calls `api.deleteSchedule`, disables the button while awaiting the response, and replaces persona state from the returned list through `personas.updateRows`. Deleting from the speaker card refreshes its schedules, the persona panel, the room badges, and the device persona cache. On failure the schedule remains visible, the error is shown, and the button is enabled for retry. The card is redrawn when the personas change (`redrawCard`), and entries arriving on the live channel are upserted (`changed`). A page arriving after another speaker was opened is ignored. The user has no card.
+
+## Favorites and saved-entry search
+
+Each post, persona answer, and user reply has a ☆/★ button with an accessible label and pressed state, including entries opened from search, speaker lists, and memory dialogs. Pending device submissions cannot be saved until delivered. [favorite-state.js](../../frontend/src/favorite-state.js) shares saved IDs across feeds, disables concurrent operations on the same entry, updates buttons after successful requests, and leaves failed changes available for retry. Startup/reconnection and cross-instance `favorite` events refresh the server state.
+
+The header's **お気に入り / Favorites** opens [favorites.js](../../frontend/src/favorites.js). It lists saved entries themselves, newest-added first, with a speaker selector and a load-more button. Each entry uses the feed's standalone rendering so HTML answers, sources, and favorite controls behave consistently; **元の投稿** opens its full conversation in the existing entry dialog. Standalone entries have no **返す** link; replies are available in the conversation dialog opened from **元の投稿**. Removing a favorite from this list asks for confirmation; cancellation leaves the entry saved and visible. Ordinary timeline buttons do not ask for confirmation. Late pages from an old filter selection are ignored. Removing a favorite refreshes the open list, and entry changes refresh affected visible favorites.
+
+The search panel includes **お気に入りのみ / Favorites only**. It sends `favoritesOnly` on every page, resets results when toggled, and allows an empty query while the filter is enabled. The server filters before pagination; an empty saved-entry search lists by post date. Opening a result shows the usual conversation with favorite buttons. Returning to filtered results refreshes them after a favorite change.
+
+[Favorites.stories.js](../../frontend/stories/Favorites.stories.js) previews recent favorites, a persona filter, empty/loading/error states, confirmed interactive removal, and 45 saved entries for scrolling and pagination (20, then 40, then all 45). [Search.stories.js](../../frontend/stories/Search.stories.js) includes saved-only results and their conversations. Both share the favorite-aware fixture API and support the Storybook language toolbar. The capture list includes `favorites` and `search-favorites` in both languages; the bilingual public manual and [usage guide](../usage.md#favorites) explain saving, confirmed removal, pagination, and saved-entry search.
+
+Verification: [feed.test.js](../../tests/feed.test.js) checks saving/removing posts, standalone answer rendering, omitting standalone reply links, confirmation and cancellation for favorite-list removal, immediate timeline removal, favorite list pagination, and stale filter responses; [search.test.js](../../tests/search.test.js) checks filtered pagination, empty queries, and toggling the filter.
 
 ## Merging data
 

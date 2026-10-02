@@ -26,6 +26,7 @@ export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
         el("span", { class: "brand-name", text: "kakeratta" })),
       el("span", { class: "spacer" }),
       el("button", { class: "chip ghost nav", label: "検索", onclick: () => onOpen?.("search") }),
+      el("button", { class: "chip ghost nav", label: "お気に入り", onclick: () => onOpen?.("favorites") }),
       el("button", { class: "chip ghost nav", label: "担当", onclick: () => onOpen?.("personas") }),
       el("button", { class: "chip ghost nav", label: "設定", onclick: () => onOpen?.("settings") }),
       // Only when there is an account to leave: local mode has no sign-out.

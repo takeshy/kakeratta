@@ -34,6 +34,9 @@ func (s *Server) routes() {
 	})
 	s.mux.HandleFunc("POST /api/auth/logout", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 
+	s.mux.HandleFunc("GET /api/favorites", s.guard(s.getFavorites))
+	s.mux.HandleFunc("PUT /api/entry/{id}/favorite", s.guard(s.saveFavorite))
+	s.mux.HandleFunc("DELETE /api/entry/{id}/favorite", s.guard(s.removeFavorite))
 	s.mux.HandleFunc("GET /api/timeline", s.guard(s.getTimeline))
 	s.mux.HandleFunc("POST /api/timeline/search", s.guard(s.searchTimeline))
 	s.mux.HandleFunc("GET /api/speaker/{id}", s.guard(s.speakerEntries))

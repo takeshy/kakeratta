@@ -51,6 +51,8 @@ function emit(name, data) {
 }
 
 export const api = {
+  favorites: ({ speaker = "", limit = 20, offset = 0 } = {}) => call("GET", `/api/favorites?${new URLSearchParams({ speaker, limit, offset })}`),
+  setFavorite: (id, saved) => call(saved ? "PUT" : "DELETE", `/api/entry/${encodeURIComponent(id)}/favorite`),
   pushConfig: endpoint => call("GET", "/api/push" + (endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : "")),
   savePush: body => call("PUT", "/api/push", body),
   deletePush: body => call("DELETE", "/api/push", body),

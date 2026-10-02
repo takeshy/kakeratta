@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, and search."
-tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index", "push"]
+description: "Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, favorites, and search."
+tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index", "push", "favorites"]
 updated: "2026-10-02"
 ---
 
-Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, and search.
+Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, favorites, and search.
 
 # HTTP API and authentication
 
@@ -24,6 +24,7 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 | --- | --- |
 | `routes.go` | Paths and handler registration |
 | `entries.go` | Posts, replies, edits, deletions, images, URL fetching |
+| `favorites.go` | Favorite entries, recent favorites, and speaker filtering |
 | `personas.go` | Listing, activation, installation, removal, daily and planner settings |
 | `memory.go` | Memory files (fields and monthly records): listing with a record-tag filter, reading, editing, deletion; one fact edited or forgotten (`editFact`, `forgetFact`) |
 | `settings.go` | Settings, model lists, search connection checks, version information |
@@ -101,11 +102,23 @@ The frontend's `createTimelinePages` merges fetched pages with live changes. Rep
 - [timeline_page_test.go](../../internal/store/timeline_page_test.go)
 - [timeline-pages.test.js](../../tests/timeline-pages.test.js)
 
+# Favorites
+
+Guarded `PUT /api/entry/{id}/favorite` saves an existing post, persona remark, or user reply. Repeating PUT retains the original saved timestamp; removing and adding it again gives it a new timestamp. `DELETE /api/entry/{id}/favorite` is idempotent. Both emit a `favorite` event so connected browsers refresh their state.
+
+`GET /api/favorites?speaker=&limit=&offset=` returns `items` containing each entry and its favorite timestamp, sorted newest-saved first with ID tie-breaking. Pages default to 20 entries and allow up to 100. `total` counts the filtered favorites; `ids` and `speakers` describe all current favorites for button state and filter choices. Missing/deleted entries are omitted, and the entry deletion handler removes favorites for every deleted descendant. This listing reads all favorite records before applying pagination.
+
+Favorites use the atomic record contract with no expiry. Files live at `favorites/{entry-id}.json`, outside the non-exported runtime directory; Firestore uses `users/{key}/favorites/{entry-id}`. They survive restarts, are included in portable exports, and are removed with the workspace. They reference current entry content and do not retain a snapshot after a post is deleted.
+
+`POST /api/timeline/search` accepts `favoritesOnly: true`. `search.SearchSelected` restricts lexical and semantic candidates before ranking, totals, and pagination. A blank query lists selected entries newest-posted first. Selected semantic searches use the common vector path rather than the native global query, keeping saved candidates eligible even when unselected entries would fill the native result limit. Persona timeline searches retain their existing scope.
+
+Verification: [favorites.go](../../internal/server/favorites.go), [favorites_test.go](../../internal/server/favorites_test.go), [search.go](../../internal/search/search.go), [hybrid.go](../../internal/search/hybrid.go), [runtime.go](../../internal/store/runtime.go), and [export_test.go](../../internal/store/export_test.go).
+
 # Workspace persistence
 
 ## Persistence contract
 
-`Workspace` is a per-user contract covering the timeline, memory, settings, persona definitions, schedules, routing records, note retries, the reaction queue with its claims, runtime records (asks, trials, agent presence, browser push subscriptions), named locks, the closing mark, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
+`Workspace` is a per-user contract covering the timeline, favorites, memory, settings, persona definitions, schedules, routing records, note retries, the reaction queue with its claims, runtime records (asks, trials, agent presence, browser push subscriptions), named locks, the closing mark, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
 
 ## Two implementations
 

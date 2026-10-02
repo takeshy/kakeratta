@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#faf8f4" />
-    <meta name="description" content="kakeratta の使い方。はじめ方、かけらの放り込み方、担当、検索、設定。How to use kakeratta: getting started, tossing in fragments, personas, search, and settings." />
+    <meta name="description" content="kakeratta の使い方。はじめ方、かけらの放り込み方、担当、お気に入り、検索、設定。How to use kakeratta: getting started, tossing in fragments, personas, favorites, search, and settings." />
     <title>kakeratta 使い方</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/icon.png" sizes="512x512" />
@@ -64,10 +64,11 @@
             <li><a href="#ja-timeline">3. 反応を読む・返す</a></li>
             <li><a href="#ja-personas">4. 担当を選ぶ・作る</a></li>
             <li><a href="#ja-memory">5. 覚えていることを確かめる</a></li>
-            <li><a href="#ja-search">6. 検索する</a></li>
-            <li><a href="#ja-voice">7. 音声入力と読み上げ</a></li>
-            <li><a href="#ja-offline">8. オフラインで使う</a></li>
-            <li><a href="#ja-faq">9. 困ったとき</a></li>
+            <li><a href="#ja-favorites">6. お気に入りに残す</a></li>
+            <li><a href="#ja-search">7. 検索する</a></li>
+            <li><a href="#ja-voice">8. 音声入力と読み上げ</a></li>
+            <li><a href="#ja-offline">9. オフラインで使う</a></li>
+            <li><a href="#ja-faq">10. 困ったとき</a></li>
           </ol>
           <p><a href="/manual/?guide=advanced" data-lang-link><strong>上級編へ →</strong></a></p>
         </div>
@@ -120,7 +121,7 @@
                 <tr><td>書く</td><td>欄に書いて <strong>流す</strong>。<kbd>Ctrl</kbd>（<kbd>⌘</kbd>）+<kbd>Enter</kbd> でも送れます。</td></tr>
                 <tr><td>画像</td><td>PC はスクリーンショットを <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼るだけ。スマホは <strong>📷 画像</strong> からスクリーンショットを選ぶか、その場でカメラで撮ります。画像の文字は読み取られ、あとから検索できます。</td></tr>
                 <tr><td>URL</td><td>URL を書いて流すと、公開ページの本文を読み込みます。</td></tr>
-                <tr><td>話す</td><td><strong>🎙 話す</strong> で音声入力します（<a href="#ja-voice">7. 音声入力と読み上げ</a>）。</td></tr>
+                <tr><td>話す</td><td><strong>🎙 話す</strong> で音声入力します（<a href="#ja-voice">8. 音声入力と読み上げ</a>）。</td></tr>
               </tbody>
             </table>
           </div>
@@ -266,8 +267,25 @@
           <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別に消し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。AIで修正しても、すでにあるメモは書き換わりません。</p></div>
         </section>
 
+        <section id="ja-favorites">
+          <h2>6. お気に入りに残す</h2>
+          <p>あとで読み返したい投稿や担当の回答の <strong>☆</strong> を押すと、<strong>★</strong> に変わり、お気に入りに保存されます。自分の投稿・返信も保存できます。担当のメモに残らない回答も、ここから読み返せます。</p>
+          <ol>
+            <li>ヘッダーの <strong>お気に入り</strong> を開きます。<strong>最近お気に入りに追加した順</strong> に、最初の20件を表示します。</li>
+            <li><strong>担当で絞り込み</strong> で発言者を選べます。「あなた」を選ぶと自分の投稿・返信だけを表示します。</li>
+            <li>下へスクロールし、続きがあれば <strong>さらに読み込む</strong> で20件ずつ表示します。</li>
+            <li><strong>元の投稿</strong> を押すと会話がモーダルで開き、そこから返信できます。</li>
+          </ol>
+          <figure>
+            <img src="/captures/ja/favorites.png" alt="お気に入り一覧。担当で絞り込み、保存した回答から元の投稿を開ける（サンプル）" loading="lazy" width="390" height="589" />
+            <figcaption>回答そのものを、お気に入りに追加した順で読み返せます（サンプル）。</figcaption>
+          </figure>
+          <p>お気に入り一覧の <strong>★</strong> を押すと、外してよいか確認します。キャンセルするとそのまま残ります。通常のタイムラインでは、<strong>★</strong> を押すと確認なしで外れます。外しても投稿は消えず、もう一度 <strong>☆</strong> で保存できます。</p>
+          <p>お気に入りはアカウントのデータとして保存され、別の端末でも見られます。元の投稿や回答を削除すると、そのお気に入りも一覧から外れます。バックアップにも含まれます。</p>
+        </section>
+
         <section id="ja-search">
-          <h2>6. 検索する</h2>
+          <h2>7. 検索する</h2>
           <p>ヘッダーの <strong>検索</strong> を開きます。「ピノ」のような名前も、「軽くて飲みやすかった赤ワイン」のような言い方も、同じ欄に入れられます。</p>
           <ul>
             <li>短い語句はキーワードで、質問や文章は意味の近さで探します。結果の画面から探し方を切り替えられます。</li>
@@ -275,14 +293,20 @@
             <li>結果を押すと、元の投稿と会話が開き、そこから返信も書けます。</li>
           </ul>
           <figure>
-            <img src="/captures/ja/search-keyword.png" alt="キーワード検索。ピノを含む投稿（サンプルデータ）" loading="lazy" width="390" height="669" />
+            <img src="/captures/ja/search-keyword.png" alt="キーワード検索。ピノを含む投稿（サンプルデータ）" loading="lazy" width="390" height="707" />
             <figcaption>名前から検索（サンプルデータ）。</figcaption>
+          </figure>
+          <h3>お気に入りだけを検索する</h3>
+          <p><strong>お気に入りのみ</strong> をオンにすると、保存した投稿・回答だけを対象に検索します。キーワードでも意味でも探せます。検索欄を空にすると、お気に入りの投稿・回答を<strong>投稿日時の新しい順</strong>に表示します（お気に入り一覧の追加順とは異なります）。</p>
+          <figure>
+            <img src="/captures/ja/search-favorites.png" alt="お気に入りのみを対象にした検索結果（サンプル）" loading="lazy" width="390" height="732" />
+            <figcaption>お気に入りだけに絞って、読み返したい回答を探せます（サンプル）。</figcaption>
           </figure>
           <p>担当も必要なときに過去のかけらを検索し、「前に気に入ったピノに近いですね」のように元の投稿へのリンク付きで答えることがあります。</p>
         </section>
 
         <section id="ja-voice">
-          <h2>7. 音声入力と読み上げ</h2>
+          <h2>8. 音声入力と読み上げ</h2>
           <ul>
             <li><strong>🎙 話す</strong> を押すと、ブラウザの音声認識で聞き取ります。無音が続くと自動で止まります。</li>
             <li><strong>送信の合図</strong>（例：「以上」）を決めておくと、文の最後にそう言った時点で投稿されます。</li>
@@ -293,7 +317,7 @@
         </section>
 
         <section id="ja-offline">
-          <h2>8. オフラインで使う</h2>
+          <h2>9. オフラインで使う</h2>
           <p>一度オンラインで開いた端末なら、電波がなくても文章・画像・URL・返信を書けます。書いたものは「端末に保存済み・送信待ち」として残り、アプリを開いている間に接続が戻ると自動で送られます。担当の反応は、サーバーに届いてから始まります。</p>
           <figure class="shot">
             <img src="/captures/ja/offline.png" alt="オフラインで保存した投稿と送信待ち件数（サンプル）" loading="lazy" width="380" height="500" />
@@ -307,7 +331,7 @@
         </section>
 
         <section id="ja-faq">
-          <h2>9. 困ったとき</h2>
+          <h2>10. 困ったとき</h2>
           <dl class="faq">
             <dt>反応が付きません。</dt>
             <dd>担当が誰も有効でないか、どの担当の分野にも当たらなかったか、担当が「覚えるだけ」にしたのかもしれません。<strong>⚖</strong> で誰に届いたかを確認できます。必ず答えてほしいときは <code>@名前</code> で指名してください。</dd>
@@ -630,10 +654,11 @@
             <li><a href="#en-timeline">3. Reading and replying</a></li>
             <li><a href="#en-personas">4. Choosing and creating personas</a></li>
             <li><a href="#en-memory">5. What a persona remembers</a></li>
-            <li><a href="#en-search">6. Search</a></li>
-            <li><a href="#en-voice">7. Voice input and read-aloud</a></li>
-            <li><a href="#en-offline">8. Using it offline</a></li>
-            <li><a href="#en-faq">9. Troubleshooting</a></li>
+            <li><a href="#en-favorites">6. Saving favorites</a></li>
+            <li><a href="#en-search">7. Search</a></li>
+            <li><a href="#en-voice">8. Voice input and read-aloud</a></li>
+            <li><a href="#en-offline">9. Using it offline</a></li>
+            <li><a href="#en-faq">10. Troubleshooting</a></li>
           </ol>
           <p><a href="/manual/?guide=advanced" data-lang-link><strong>Advanced guide →</strong></a></p>
         </div>
@@ -686,7 +711,7 @@
                 <tr><td>Write</td><td>Type and press <strong>Post</strong>, or <kbd>Ctrl</kbd> (<kbd>⌘</kbd>) + <kbd>Enter</kbd>.</td></tr>
                 <tr><td>Image</td><td>On a PC, paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd>. On a phone, pick a screenshot with <strong>📷 Image</strong> or take a photo there and then. Text in the image is read and becomes searchable.</td></tr>
                 <tr><td>URL</td><td>Post a URL and the body of the public page is read.</td></tr>
-                <tr><td>Speak</td><td><strong>🎙 Speak</strong> starts voice input (<a href="#en-voice">7. Voice input and read-aloud</a>).</td></tr>
+                <tr><td>Speak</td><td><strong>🎙 Speak</strong> starts voice input (<a href="#en-voice">8. Voice input and read-aloud</a>).</td></tr>
               </tbody>
             </table>
           </div>
@@ -696,7 +721,7 @@
         <section id="en-timeline">
           <h2>3. Reading and replying</h2>
           <figure>
-            <img src="/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said folded underneath" loading="lazy" width="390" height="794" />
+            <img src="/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said folded underneath" loading="lazy" width="390" height="772" />
             <figcaption>Your fragments with what the personas said underneath. Conversations fold under “N replies”.</figcaption>
           </figure>
           <h3>How reactions arrive</h3>
@@ -832,8 +857,25 @@
           <div class="tip"><p>For example, forget a wrong “Likes this wine” note on its own, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not rewrite notes it already has.</p></div>
         </section>
 
+        <section id="en-favorites">
+          <h2>6. Saving favorites</h2>
+          <p>Tap <strong>☆</strong> on a post or persona answer to save it; the star becomes <strong>★</strong>. You can save your own replies too. Favorites let you revisit useful answers even when the persona did not keep them in its memory.</p>
+          <ol>
+            <li>Open <strong>Favorites</strong> in the header. The first 20 entries appear in <strong>most recently added</strong> order.</li>
+            <li>Use <strong>Filter by persona</strong> to choose a speaker. Select “You” for your own posts and replies.</li>
+            <li>Scroll down and use <strong>Load more</strong> to show the next 20, when more are available.</li>
+            <li>Tap <strong>Original post</strong> to open the conversation in a dialog and reply from there.</li>
+          </ol>
+          <figure>
+            <img src="/captures/en/favorites.png" alt="Favorites with a persona filter and links to the original conversations (sample data)" loading="lazy" width="390" height="589" />
+            <figcaption>Revisit saved answers, most recently added first (sample data).</figcaption>
+          </figure>
+          <p>Tapping <strong>★</strong> in the Favorites list asks you to confirm removal. Cancel keeps the entry saved. On the ordinary timeline, <strong>★</strong> removes a favorite immediately. Removing a favorite keeps the post; tap <strong>☆</strong> to save it again.</p>
+          <p>Favorites are saved with your account and available on other devices. Deleting the original post or answer also removes it from Favorites. Favorites are included in backups.</p>
+        </section>
+
         <section id="en-search">
-          <h2>6. Search</h2>
+          <h2>7. Search</h2>
           <p>Open <strong>Search</strong> in the header. A name like “Pinot” and a description like “a light red wine that was easy to drink” go in the same box.</p>
           <ul>
             <li>Short terms search by words; questions and sentences search by meaning. You can switch from the results.</li>
@@ -841,14 +883,20 @@
             <li>Tap a result to open the post and its conversation; you can reply from there.</li>
           </ul>
           <figure>
-            <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" width="390" height="762" />
+            <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" width="390" height="800" />
             <figcaption>Search by name (sample data).</figcaption>
+          </figure>
+          <h3>Search your favorites</h3>
+          <p>Enable <strong>Favorites only</strong> to search saved posts and answers by words or meaning. Leave the query blank to list them <strong>newest by post date</strong>; the Favorites list instead orders them by when you saved them.</p>
+          <figure>
+            <img src="/captures/en/search-favorites.png" alt="Search results restricted to favorite entries (sample data)" loading="lazy" width="390" height="800" />
+            <figcaption>Find an answer among your saved favorites (sample data).</figcaption>
           </figure>
           <p>Personas search too, when it helps: a wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>
         </section>
 
         <section id="en-voice">
-          <h2>7. Voice input and read-aloud</h2>
+          <h2>8. Voice input and read-aloud</h2>
           <ul>
             <li><strong>🎙 Speak</strong> listens with the browser's speech recognition and stops after a stretch of silence.</li>
             <li>Set a <strong>send phrase</strong> (for example “done”) and the text is posted when you end with it.</li>
@@ -859,7 +907,7 @@
         </section>
 
         <section id="en-offline">
-          <h2>8. Using it offline</h2>
+          <h2>9. Using it offline</h2>
           <p>On a device that has opened the app online once, you can write text, images, URLs and replies without a connection. They wait as “Saved on this device · waiting to send” and go out automatically when the connection returns while the app is open. Personas react once the server has them.</p>
           <figure class="shot">
             <img src="/captures/en/offline.png" alt="An offline post and the number waiting to send (sample data)" loading="lazy" width="380" height="500" />
@@ -873,7 +921,7 @@
         </section>
 
         <section id="en-faq">
-          <h2>9. Troubleshooting</h2>
+          <h2>10. Troubleshooting</h2>
           <dl class="faq">
             <dt>Nothing reacts to my post.</dt>
             <dd>Perhaps no persona is enabled, the post matched no persona's subject, or a persona chose to remember without speaking. <strong>⚖</strong> shows who got the post. Mention <code>@name</code> when you need an answer.</dd>

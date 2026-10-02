@@ -19,6 +19,8 @@ import { screenNodes, sheetNodes } from "./screen.js";
 import { aiConfigured, createSettings } from "./settings.js";
 import { createSpeaker as createReader } from "./speak.js";
 import { createTimelinePages } from "./timeline-pages.js";
+import { createFavorites } from "./favorites.js";
+import { refreshFavorites } from "./favorite-state.js";
 import { createSearch } from "./search.js";
 import { createSpeaker } from "./speaker.js";
 import { getLanguage, t } from "./i18n.js";
@@ -136,6 +138,15 @@ const speakerPanel = createSpeaker({
   onEditPersona: (row, focus) => personas.edit(row, focus),
 });
 
+const favoritesPanel = createFavorites({
+  getSettings: () => settings,
+  getPersonas: () => personaRows,
+  getPersona: id => personaRows.find(row => row.id === id),
+  onEntryChange: entry => pages.upsert(entry),
+  onSpeaker: openSpeaker,
+  onReply: () => { void reload(); pollAfterSending(); },
+});
+
 function speakThread(root, lines) {
   const stopping = speakingThread === root && speaker.speaking();
   speaker.stop();
@@ -184,11 +195,11 @@ document.body.addEventListener("click", (event) => {
 });
 
 function showPanel() {
-  const body = panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : panel === "speaker" ? speakerPanel.element : settingsPanel.element;
+  const body = panel === "favorites" ? favoritesPanel.element : panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : panel === "speaker" ? speakerPanel.element : settingsPanel.element;
   const host = $("#sheet");
   host.classList.toggle("required", panel === "settings" && settingsRequired);
   host.replaceChildren(sheetNodes({
-    title: panel === "personas" ? "担当" : panel === "search" ? "検索" : panel === "speaker" ? "発言一覧" : "設定",
+    title: panel === "favorites" ? "お気に入り" : panel === "personas" ? "担当" : panel === "search" ? "検索" : panel === "speaker" ? "発言一覧" : "設定",
     body,
     onClose: panel === "settings" && settingsRequired ? null : close,
   }));
@@ -204,7 +215,8 @@ function open(which) {
   if (panel === "settings") settingsPanel.stopMicCheck();
   panel = which;
   showPanel();
-  if (which === "personas") void personas.load();
+  if (which === "favorites") void favoritesPanel.show();
+  else if (which === "personas") void personas.load();
   else if (which === "search") searchPanel.focus();
   else void settingsPanel.load();
 }
@@ -331,15 +343,17 @@ function pollAfterSending() {
 // in place and nothing else moves, except that the feed unfolds the
 // conversation it landed in so it is seen.
 api.on((name, data) => {
+  if (name === "favorite") { void refreshFavorites().catch(() => {}); return; }
   if (name === "routed" || name === "turn") { void feed.refreshRouting(data?.entryId); return; }
   if (name === "outbox") { if (data) pages.upsert(data); void drawLocal(); if (data) pollAfterSending(); return; }
   if (name === "entry") {
     pages.upsert(data);
     searchPanel.changed(data);
     speakerPanel.changed(data);
+    favoritesPanel.changed(data);
     return;
   }
-  if (name === "open") { void reload(); void outbox.flush(); }
+  if (name === "open") { void refreshFavorites().catch(() => {}); void reload(); void outbox.flush(); }
 });
 
 clear(root).append(

@@ -124,7 +124,7 @@ func (s *Service) Search(ctx context.Context, query, mode string, limit, offset 
 		offset = 0
 	}
 	if mode == "semantic" {
-		if index, ok := s.workspace.(nativeIndex); ok {
+		if index, ok := s.workspace.(nativeIndex); ok && selectedIDs(ctx) == nil {
 			return s.nativeSearch(ctx, index, query, limit, offset)
 		}
 	}
@@ -140,7 +140,7 @@ func (s *Service) Search(ctx context.Context, query, mode string, limit, offset 
 	}
 	var candidates []timeline.Entry
 	for _, entry := range entries {
-		if !entry.Deleted && roots[timeline.RootOf(entry)] && Text(entry) != "" {
+		if !entry.Deleted && roots[timeline.RootOf(entry)] && Text(entry) != "" && selectedEntry(ctx, entry.ID) {
 			candidates = append(candidates, entry)
 		}
 	}
@@ -403,4 +403,24 @@ func (s *Service) prepareLocal(ctx context.Context, entries []timeline.Entry, se
 		}
 	}
 	return passages, vectors, nil
+}
+
+type selectionKey struct{}
+
+func selectedIDs(ctx context.Context) map[string]bool {
+	ids, _ := ctx.Value(selectionKey{}).(map[string]bool)
+	return ids
+}
+func selectedEntry(ctx context.Context, id string) bool {
+	ids := selectedIDs(ctx)
+	return ids == nil || ids[id]
+}
+
+// SearchSelected restricts both lexical and semantic candidates before ranking and pagination.
+func (s *Service) SearchSelected(ctx context.Context, query, mode string, limit, offset int, ids map[string]bool) (Result, error) {
+	ctx = context.WithValue(ctx, selectionKey{}, ids)
+	if strings.TrimSpace(query) != "" {
+		return s.Search(ctx, query, mode, limit, offset)
+	}
+	return s.InWindow(ctx, Window{From: time.Unix(0, 0)}, limit, offset)
 }

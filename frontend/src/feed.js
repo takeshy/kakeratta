@@ -4,6 +4,7 @@
 // to looks exactly like one that started a conversation - there is no unread
 // count and no "3 AIs are thinking", because most posts are meant to pass
 // without anyone saying anything.
+import { favoriteButton } from "./favorite-state.js";
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
@@ -25,7 +26,7 @@ export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NO
 // normalized them. Read those as lines without changing the saved entry.
 const entryText = (entry) => entry.model === "agent" ? (entry.text || "").replace(/\\n/g, "\n") : entry.text;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false, confirmFavoriteRemoval = false }) {
   const view = el("div", { class: "feed" });
 
   // A name on the timeline opens what that speaker said. It is text where
@@ -186,7 +187,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       ? { start: active.selectionStart, end: active.selectionEnd }
       : null;
     const threads = groups();
-    if (postEditor && !threads.some((thread) => thread.some((entry) => entry.id === postEditor.id))) postEditor = null;
+    if (postEditor && !(standalone ? entries.some(entry => entry.id === postEditor.id) : threads.some((thread) => thread.some((entry) => entry.id === postEditor.id)))) postEditor = null;
     // Keep the same field and recognizer across live timeline updates.
     if (replyEditor && (replyEditor.replyTo !== openReply ||
         !threads.some((thread) => thread.some((entry) => entry.id === openReply)))) {
@@ -196,6 +197,11 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     }
     const place = holdPlace();
     clear(view);
+    if (standalone) {
+      for (const entry of entries.filter(entry => !entry.deleted)) view.append(entry.kind === "post" ? drawPost(entry) : drawSaid(entry, entry));
+      place();
+      return;
+    }
     if (!threads.length) {
       view.append(
         el("div", { class: "empty" },
@@ -314,6 +320,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         who(entry, mine ? t("あなた") : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
+        favoriteButton(entry, { confirmRemoval: confirmFavoriteRemoval }),
         el("span", { class: "spacer" }),
         mine || summary ? el("button", {
           class: "chip ghost icon edit-post", text: "✎", "aria-label": t("編集"), disabled: offline() || !!entry.pending || !!postEditor,
@@ -446,6 +453,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         who(entry, mine ? t("あなた") : persona ? gloss(persona).name : entry.speaker),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
+        favoriteButton(entry, { confirmRemoval: confirmFavoriteRemoval }),
         drawRoutingChip(entry),
         // A persona's remark can be removed too: a wrong answer left in the
         // thread is found again by searches and read back as context.
@@ -472,7 +480,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         onclick: () => onOpenNote({ persona, path }),
       }))));
     }
-    if (!mine) {
+    if (!mine && !standalone) {
       // A remark can be answered, and it can be disputed: what the persona
       // said is the one place its tone and instructions show, so that is
       // where they get corrected.

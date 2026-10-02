@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -220,5 +221,28 @@ func TestExportPullsBlobsThroughTheBlobStore(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(target, "blobs", id))
 	if err != nil || string(data) != "object" {
 		t.Fatalf("exported blob = %q, %v", data, err)
+	}
+}
+
+func TestFavoritesSurviveExportAndReopen(t *testing.T) {
+	s := open(t)
+	raw := []byte(`{"id":"saved-entry","at":"2026-10-02T00:00:00Z"}`)
+	if err := s.UpdateRecord(t.Context(), RecordFavorites, "saved-entry", time.Time{}, func([]byte, bool) ([]byte, error) { return raw, nil }); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if err := s.Export(t.Context(), dirSink{root}); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, exists, err := restored.Record(t.Context(), RecordFavorites, "saved-entry")
+	var restoredValue, originalValue map[string]any
+	json.Unmarshal(got, &restoredValue)
+	json.Unmarshal(raw, &originalValue)
+	if err != nil || !exists || restoredValue["id"] != originalValue["id"] || restoredValue["at"] != originalValue["at"] {
+		t.Fatalf("restored favorite: %s %v %v", got, exists, err)
 	}
 }

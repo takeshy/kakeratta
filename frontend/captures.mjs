@@ -38,6 +38,8 @@ const MARGIN = 12;
 // clip: the element that is the picture; without it, the whole screen. ready:
 // something that appears once the story has finished arriving.
 const shots = [
+  { name: "favorites", id: "favorites--recent", clip: "#sheet", ready: ".favorite-item" },
+  { name: "search-favorites", id: "search--favorites-only", clip: "#sheet", ready: ".search-hit" },
   { name: "bluesky-connect", id: "bluesky--connect", clip: "#sheet", ready: ".bluesky-connection" },
   { name: "bluesky-selection", id: "bluesky--selection", clip: ".social-dialog", ready: ".social-selection" },
   { name: "bluesky-preview", id: "bluesky--preview", clip: ".social-dialog", ready: ".social-preview" },

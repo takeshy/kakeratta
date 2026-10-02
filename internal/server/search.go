@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -15,10 +16,11 @@ import (
 
 func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Query  string `json:"query"`
-		Mode   string `json:"mode"`
-		Limit  int    `json:"limit"`
-		Offset int    `json:"offset"`
+		Query         string `json:"query"`
+		FavoritesOnly bool   `json:"favoritesOnly"`
+		Mode          string `json:"mode"`
+		Limit         int    `json:"limit"`
+		Offset        int    `json:"offset"`
 	}
 	if err := readJSONLimit(r, &body, 8<<10); err != nil {
 		fail(w, 400, "検索条件を読めませんでした")
@@ -26,7 +28,25 @@ func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 50*time.Second)
 	defer cancel()
-	result, err := s.search.Search(ctx, body.Query, body.Mode, body.Limit, body.Offset)
+	var result search.Result
+	var err error
+	if body.FavoritesOnly {
+		records, readErr := s.store.Records(ctx, store.RecordFavorites)
+		if readErr != nil {
+			fail(w, 500, "お気に入りを読み込めませんでした")
+			return
+		}
+		ids := map[string]bool{}
+		for id, raw := range records {
+			var f favorite
+			if json.Unmarshal(raw, &f) == nil {
+				ids[id] = true
+			}
+		}
+		result, err = s.search.SearchSelected(ctx, body.Query, body.Mode, body.Limit, body.Offset, ids)
+	} else {
+		result, err = s.search.Search(ctx, body.Query, body.Mode, body.Limit, body.Offset)
+	}
 	if err != nil {
 		code := http.StatusBadGateway
 		if errors.Is(err, search.ErrQuery) || errors.Is(err, search.ErrMode) {

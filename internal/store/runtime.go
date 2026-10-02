@@ -22,15 +22,17 @@ import (
 // the workspace, not in a process, so any instance serving the user can pick
 // it up - and a restart does not lose it.
 
-// Runtime record collections. Each holds small JSON values by id.
+// Record collections hold small JSON values by id. Favorites are user-owned
+// state; unlike runtime collections, their files are included in exports.
 const (
-	RecordAsks     = "asks"
-	RecordTrials   = "trials"
-	RecordPresence = "presence"
-	RecordPush     = "push-subscriptions"
+	RecordAsks      = "asks"
+	RecordTrials    = "trials"
+	RecordPresence  = "presence"
+	RecordPush      = "push-subscriptions"
+	RecordFavorites = "favorites"
 )
 
-var recordCollections = map[string]bool{RecordAsks: true, RecordTrials: true, RecordPresence: true, RecordPush: true}
+var recordCollections = map[string]bool{RecordAsks: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true}
 
 // ErrUnknownRecords is a collection name that is not a runtime record kind.
 var ErrUnknownRecords = errors.New("unknown runtime record collection")
@@ -57,6 +59,9 @@ func (s *Store) recordPath(collection, id string) (string, error) {
 	}
 	if !safeName(id) {
 		return "", errors.New("invalid record id")
+	}
+	if collection == RecordFavorites {
+		return s.path(collection, id+".json"), nil
 	}
 	return s.path("runtime", collection, id+".json"), nil
 }
@@ -93,7 +98,11 @@ func (s *Store) Records(_ context.Context, collection string) (map[string][]byte
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	paths, err := filepath.Glob(s.path("runtime", collection, "*.json"))
+	dir := s.path("runtime", collection)
+	if collection == RecordFavorites {
+		dir = s.path(collection)
+	}
+	paths, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
 		return nil, err
 	}

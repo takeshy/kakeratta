@@ -183,6 +183,7 @@ func (s *Store) exportFile(name string, sink ExportSink) error {
 func (w *FirestoreWorkspace) Export(ctx context.Context, sink ExportSink) error {
 	for _, export := range []func(context.Context, ExportSink) error{
 		w.exportTimeline,
+		w.exportFavorites,
 		w.exportSettings,
 		w.exportSkills,
 		w.exportPersonas,
@@ -501,4 +502,18 @@ func addJSON(sink ExportSink, name string, modified time.Time, value any) error 
 		return err
 	}
 	return addBytes(sink, name, modified, raw)
+}
+
+// Favorites are user-owned state and travel with a portable workspace.
+func (w *FirestoreWorkspace) exportFavorites(ctx context.Context, sink ExportSink) error {
+	records, err := w.Records(ctx, RecordFavorites)
+	if err != nil {
+		return err
+	}
+	for id, data := range records {
+		if err := addJSON(sink, path.Join(RecordFavorites, id+".json"), time.Time{}, fileRecord{Data: data}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -66,3 +66,25 @@ test('late meaning results cannot replace a newer keyword query',async t=>{
  await view.searchFor('ピノ');finish({hits:[hit('古い結果')],total:1});await previous;
  assert.equal(nodes(view.element).find(n=>n.className==='search-snippet').textContent,'ピノ');
 });
+
+test('favorites filter applies to every page and allows an empty query', async t => {
+  const {view} = setup(t);
+  const filter = nodes(view.element).find(n => n.type === 'checkbox');
+  const requests = [];
+  t.mock.method(api, 'searchTimeline', async request => { requests.push(request); return {hits:[hit('saved')], total:3}; });
+  filter.checked = true;
+  await filter.listeners.change();
+  assert.equal(requests[0].query, '');
+  assert.equal(requests[0].favoritesOnly, true);
+  const more = nodes(view.element).find(n => n.textContent === translate('さらに読み込む'));
+  more.listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests[1].offset, 1);
+  assert.equal(requests[1].favoritesOnly, true);
+  await view.searchFor('保存');
+  assert.equal(requests.at(-1).favoritesOnly, true);
+  filter.checked = false;
+  await filter.listeners.change();
+  assert.equal(requests.at(-1).favoritesOnly, undefined);
+  assert.equal(requests.at(-1).offset, 0);
+});

@@ -1,10 +1,15 @@
+import { adoptFavoriteIDs } from "../src/favorite-state.js";
+
 // The panels load themselves from /api. A story has no server, so it hands
 // them one: fetch answers from the fixtures, in the shapes the real routes
 // use, and writes go back into the same fixtures so a toggle looks toggled.
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, social = null, routing = {}, routingCheck = { answered: true, delivered: true }, replyPreview = { quiet: true }, bluesky = { available: true, connected: false }, mcp = { configured: false, path: "/api/mcp/users/sample" } } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, favorites = null, social = null, routing = {}, routingCheck = { answered: true, delivered: true }, replyPreview = { quiet: true }, bluesky = { available: true, connected: false }, mcp = { configured: false, path: "/api/mcp/users/sample" } } = {}) {
+  const saved = new Map((favorites?.items || []).map(item => [item.id, structuredClone(item)]));
+  adoptFavoriteIDs([...saved.keys()]);
+  const favoriteEntries = () => search?.entries || favorites?.items?.map(item => item.entry) || [];
   let rows = personas.map((row) => ({ ...row }));
   let current = { ...settings };
   let connection = { ...bluesky };
@@ -17,6 +22,25 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     const method = (init.method || "GET").toUpperCase();
     const path = url.pathname;
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
+    if (path === "/api/favorites" && method === "GET") {
+      if (favorites?.loading) return new Promise(() => {});
+      if (favorites?.error) return json({ error: favorites.error }, 500);
+      const all = [...saved.values()].sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
+      const speaker = url.searchParams.get("speaker");
+      const shown = all.filter(item => !speaker || item.entry.speaker === speaker);
+      const offset = Number(url.searchParams.get("offset") || 0), limit = Number(url.searchParams.get("limit") || 20);
+      return json({ items: shown.slice(offset, offset + limit), total: shown.length, ids: [...saved.keys()],
+        speakers: Object.fromEntries(all.map(item => [item.entry.speaker, true])) });
+    }
+    const favorite = path.match(/^\/api\/entry\/([^/]+)\/favorite$/);
+    if (favorite && method === "PUT") {
+      const id = decodeURIComponent(favorite[1]);
+      const entry = favoriteEntries().find(entry => entry.id === id);
+      if (!entry) return json({ error: "投稿が見つかりません" }, 404);
+      if (!saved.has(id)) saved.set(id, { id, at: new Date().toISOString(), entry });
+      return json(saved.get(id));
+    }
+    if (favorite && method === "DELETE") { saved.delete(decodeURIComponent(favorite[1])); return new Response(null, { status: 204 }); }
     if (path === "/api/social/bluesky/connection" && method === "GET") return json(connection);
     if (path === "/api/social/bluesky/connection" && method === "DELETE") {
       connection = { available: true, connected: false };
@@ -37,6 +61,7 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       if (search.loading) return new Promise(() => {});
       if (search.error) return json({ error: search.error }, 502);
       let hits = search.hits || [];
+      if (body.favoritesOnly) hits = hits.filter(hit => saved.has(hit.entry.id));
       if (body.mode === "keyword") {
         const terms = body.query.normalize("NFKC").toLowerCase().trim().split(/\s+/);
         hits = hits.filter(({ snippet }) => terms.every((term) => snippet.normalize("NFKC").toLowerCase().includes(term)));
@@ -53,12 +78,13 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       return json({ hits: page.map((entry) => ({ entry, snippet: entry.text, passage: entry.text })), total: rows.length,
         entries: search.entries.filter((entry) => roots.has(entry.id) || roots.has(entry.root)) });
     }
-    if (path.startsWith("/api/thread/") && search) {
+    if (path.startsWith("/api/thread/") && (search || favorites)) {
       const id = decodeURIComponent(path.slice("/api/thread/".length));
-      const entry = search.entries.find((entry) => entry.id === id);
+      const entries = favoriteEntries();
+      const entry = entries.find((entry) => entry.id === id);
       if (!entry) return json({ error: "投稿が見つかりません" }, 404);
       const root = entry.kind === "post" ? entry.id : entry.root;
-      return json({ entries: search.entries.filter((entry) => entry.id === root || entry.root === root) });
+      return json({ entries: entries.filter((entry) => entry.id === root || entry.root === root) });
     }
     if (path === "/api/personas/build" && method === "POST" && personaDraft) return json(personaDraft);
     // The router's call about a post comes from the fixtures; a post they say
