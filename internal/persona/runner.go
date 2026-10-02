@@ -328,7 +328,7 @@ func routeSubjects(ctx context.Context, client *llm.Client, settings store.Setti
 }
 
 func jevConfigured(settings store.Settings) bool {
-	return settings.JevEnabled && strings.TrimSpace(settings.OpenRouterAPIKey) != ""
+	return settings.OpenRouterMode && strings.TrimSpace(settings.OpenRouterRouterModel) == jevModel && strings.TrimSpace(settings.OpenRouterAPIKey) != ""
 }
 
 // CheckRouting routes a post again without delivering it, so a person who has

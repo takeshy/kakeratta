@@ -181,3 +181,14 @@ func TestSettingsLocation(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyJevMigratesToOpenRouterSelection(t *testing.T) {
+	got := normaliseConfiguredSettings(Settings{JevEnabled: true})
+	if got.JevEnabled || !got.OpenRouterMode || got.OpenRouterRouterModel != "~typesafe/jev-latest" {
+		t.Fatalf("legacy Jev settings were not migrated: %+v", got)
+	}
+	got.OpenRouterRouterModel = OpenRouterRouter
+	if next := normaliseConfiguredSettings(got); next.OpenRouterRouterModel != OpenRouterRouter {
+		t.Fatal("legacy Jev must not override a later router selection")
+	}
+}

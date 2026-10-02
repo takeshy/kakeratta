@@ -113,7 +113,10 @@ func TestJevRoutesEveryPersonaThroughOneDecisionsRequest(t *testing.T) {
 	}
 }
 
-func TestJevNeedsBothTheAdvancedOptionAndItsKey(t *testing.T) {
+func TestJevNeedsOpenRouterSelectionAndItsKey(t *testing.T) {
+	if jevConfigured(store.Settings{OpenRouterMode: true, OpenRouterRouterModel: store.OpenRouterRouter, OpenRouterAPIKey: "key", JevEnabled: true}) {
+		t.Fatal("a legacy toggle must not override the selected router")
+	}
 	for _, tc := range []struct {
 		enabled bool
 		key     string
@@ -124,7 +127,7 @@ func TestJevNeedsBothTheAdvancedOptionAndItsKey(t *testing.T) {
 		{false, "key", false},
 		{true, "key", true},
 	} {
-		got := jevConfigured(store.Settings{JevEnabled: tc.enabled, OpenRouterAPIKey: tc.key})
+		got := jevConfigured(store.Settings{OpenRouterMode: tc.enabled, OpenRouterRouterModel: jevModel, OpenRouterAPIKey: tc.key})
 		if got != tc.want {
 			t.Fatalf("enabled=%t key=%q: got %t", tc.enabled, tc.key, got)
 		}

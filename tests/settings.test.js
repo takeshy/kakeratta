@@ -205,17 +205,17 @@ test("the version is shown without a workspace path", async t => {
 });
 
 
-test("OpenRouter-only setup needs its own key, not a Token Factory key", () => {
+test("OpenRouter setup needs its own key, not a Token Factory key", () => {
   assert.equal(aiConfigured({ openRouterMode: true, openRouterApiKey: "********", apiKey: "" }), true);
   assert.equal(aiConfigured({ openRouterMode: true, openRouterApiKey: "  ", apiKey: "nebius", baseUrl: "https://example.com", lowModel: "low" }), false);
   assert.equal(aiConfigured({ openRouterMode: false, openRouterApiKey: "********", jevEnabled: true }), false);
 });
 
-test("saved Jev and OpenRouter-only modes can be turned off without reconnecting", async t => {
+test("OpenRouter can be toggled off and on with saved settings without reconnecting", async t => {
   globalThis.Node = Element;
   globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  let saved = { baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", openRouterApiKey: "********", jevEnabled: true, openRouterMode: true, speech: {}, search: {} };
+  let saved = { baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", openRouterApiKey: "********", openRouterRouterModel: "~typesafe/jev-latest", openRouterHighModel: "high", openRouterMiddleModel: "middle", openRouterLowModel: "low", openRouterMode: true, speech: {}, search: {} };
   t.mock.method(api, "settings", async () => saved);
   t.mock.method(api, "saveSettings", async next => { saved = next; return next; });
   t.mock.method(api, "about", async () => ({ version: "test" }));
@@ -226,19 +226,28 @@ test("saved Jev and OpenRouter-only modes can be turned off without reconnecting
   openAdvanced(view);
 
   const toggle = label => walk(view.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate(label))).children[0];
-  const jev = toggle("Jevを有効にする");
-  const openRouter = toggle("OpenRouter専用モード");
-  assert.equal(jev.disabled, false);
+  const openRouter = toggle("OpenRouterを使う");
   assert.equal(openRouter.disabled, false);
 
-  jev.checked = false;
-  jev.listeners.change();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(saved.jevEnabled, false);
   openRouter.checked = false;
   openRouter.listeners.change();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(saved.openRouterMode, false);
+  assert.equal(saved.openRouterApiKey, "********");
+  assert.equal(saved.openRouterRouterModel, "~typesafe/jev-latest");
+  assert.equal(saved.openRouterHighModel, "high");
+  assert.equal(saved.openRouterMiddleModel, "middle");
+  assert.equal(saved.openRouterLowModel, "low");
+  const reopened = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
+  await reopened.load();
+  openAdvanced(reopened);
+  const restored = walk(reopened.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate("OpenRouterを使う"))).children[0];
+  assert.equal(restored.disabled, false);
+  restored.checked = true;
+  restored.listeners.change();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(saved.openRouterMode, true);
+  assert.equal(saved.openRouterRouterModel, "~typesafe/jev-latest");
 });
 
 test("initial setup link opens and focuses the OpenRouter settings", async t => {

@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index", "push", "favorites"]
-updated: "2026-10-02"
+updated: "2026-10-03"
 ---
 
 Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, favorites, and search.
@@ -157,7 +157,7 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 
 New workspaces default to the built-in sona (`routine`) and kakeratta support (`support`) being active. Persona definitions save the optional `memoryEnabled` flag; false disables private memory and periodic check-ins (see [Optional persona memory](./personas.md#optional-persona-memory)), while external-agent preference remains an independent saved setting. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
 
-`Server.client` creates an `llm.Client` from effective settings. OpenRouter mode uses its own key and model choices. Ordinary persona answers use the middle model; replies asking for a deeper answer use the high model; the decision to escalate uses the low model. Vision and routing models have separate roles.
+`Server.client` creates an `llm.Client` from effective settings. The **Use OpenRouter** checkbox (`openRouterMode`) selects its own key and model choices. Legacy `jevEnabled` settings normalize to OpenRouter enabled with `~typesafe/jev-latest` selected as Router and the legacy flag cleared. Ordinary persona answers use the middle model; replies asking for a deeper answer use the high model; the decision to escalate uses the low model. Vision and routing models have separate roles.
 
 ## Requests and storage
 

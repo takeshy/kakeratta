@@ -577,8 +577,8 @@
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
-            <li><strong>Jevを有効にする</strong>：振り分けだけを Jev に切り替えます。担当の返事は Token Factory のままです。Jev は振り分けの理由を表示しませんが、<a href="#ja-routing">条件の直し方</a> は同じです。</li>
-            <li><strong>OpenRouter専用モード</strong>：担当の返事に使うモデルも OpenRouter に切り替えます。</li>
+            <li><strong>OpenRouterを使う</strong> にチェックすると、Router・High・Middle・Lowに OpenRouter を使います。チェックを外してもAPIキーとモデル選択は残るので、切り替えて比較できます。</li>
+            <li>振り分けに Jev を使うには、<strong>Routerモデル</strong> で <strong>~typesafe/jev-latest</strong> を選択します。Jev は判定理由を表示しません。</li>
           </ul>
         </section>
 
@@ -1161,8 +1161,8 @@
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>
-            <li><strong>Enable Jev</strong>: moves routing only to Jev; persona replies stay on Token Factory. Jev shows no routing reasons, but <a href="#en-routing">fixing conditions</a> works the same.</li>
-            <li><strong>OpenRouter-only mode</strong>: moves the models for persona replies to OpenRouter too.</li>
+            <li>Check <strong>Use OpenRouter</strong> to use OpenRouter for Router, High, Middle, and Low. Unchecking retains the API key and model choices, so you can switch providers for comparison.</li>
+            <li>For Jev routing, select <strong>~typesafe/jev-latest</strong> as the <strong>Router model</strong>. Jev does not show decision reasons.</li>
           </ul>
         </section>
 

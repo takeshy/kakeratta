@@ -165,41 +165,24 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     );
   }
 
-  // OpenRouter is the other way to run the models: Jev for routing alone, or
-  // every tier moved across. It sits under Advanced because what almost
-  // everyone runs is the default.
   function openRouterSection() {
     const jevKey = field("OpenRouter APIキー", settings.openRouterApiKey,
       (value) => patch({ openRouterApiKey: value }), {
         type: "password",
-        hint: "JevまたはOpenRouter専用モードに使います。サーバー側だけに保存します",
+        hint: "OpenRouterに使います。サーバー側だけに保存します",
       });
-    const jevEnabled = el("input", { type: "checkbox", checked: !!settings.jevEnabled });
     const openRouterMode = el("input", { type: "checkbox", checked: !!settings.openRouterMode });
-    // A new opt-in still requires a successful connection check. An existing
-    // opt-in must remain clickable so it can always be turned off after the
-    // page is reopened, when verification state starts fresh.
-    jevEnabled.disabled = !openRouterVerified && !jevEnabled.checked;
-    openRouterMode.disabled = !openRouterVerified && !openRouterMode.checked;
-    const routerPicker = modelPicker("Routerモデル", settings.openRouterRouterModel, openRouterModels, (value) => patch({ openRouterRouterModel: value }));
-    const jevRouter = el("div", { class: "field fixed-model" },
-      el("span", { label: "Routerモデル" }),
-      el("strong", { text: "Jev (jev-latest)" }),
-      el("span", { class: "hint", label: "Jevが有効な間はRouterに固定されます" }));
+    // Saved credentials allow switching providers again after reopening.
+    // A newly entered key still requires the connection check.
+    openRouterMode.disabled = !openRouterVerified && !openRouterMode.checked && settings.openRouterApiKey !== "********";
+    const routerModels = (models) => [...models, "~typesafe/jev-latest"];
+    const routerPicker = modelPicker("Routerモデル", settings.openRouterRouterModel, routerModels(openRouterModels), (value) => patch({ openRouterRouterModel: value }));
     const pickers = [
       routerPicker,
       modelPicker("Highモデル", settings.openRouterHighModel, openRouterModels, (value) => patch({ openRouterHighModel: value })),
       modelPicker("Middleモデル", settings.openRouterMiddleModel, openRouterModels, (value) => patch({ openRouterMiddleModel: value })),
       modelPicker("Lowモデル", settings.openRouterLowModel, openRouterModels, (value) => patch({ openRouterLowModel: value })),
     ];
-    const syncRouterModel = () => {
-      routerPicker.hidden = jevEnabled.checked;
-      jevRouter.hidden = !jevEnabled.checked;
-    };
-    jevEnabled.addEventListener("change", () => {
-      syncRouterModel();
-      void patch({ jevEnabled: jevEnabled.checked });
-    });
     const modelSelectionHint = el("p", {
       class: "hint",
       label: "モデルを選択するにはOpenRouterの接続確認をクリックしてください。",
@@ -211,11 +194,10 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     const refreshPickers = (models) => {
       openRouterModels = models;
       modelSelectionHint.hidden = models.length > 0 || !jevKey.querySelector("input").value.trim();
-      for (const picker of pickers) picker.setModels(models);
+      for (const picker of pickers) picker.setModels(picker === routerPicker ? routerModels(models) : models);
     };
     const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
       el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }));
-    syncRouterModel();
     pickerGroup.hidden = !openRouterMode.checked;
     openRouterMode.addEventListener("change", () => {
       pickerGroup.hidden = !openRouterMode.checked;
@@ -226,7 +208,6 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       { fetchModels: () => api.openRouterModels(), label: "OpenRouterの接続確認", onModels: (models) => {
         refreshPickers(models);
         openRouterVerified = true;
-        jevEnabled.disabled = false;
         openRouterMode.disabled = false;
       } },
     );
@@ -235,12 +216,8 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       jevKey,
       openRouterCheck,
       modelSelectionHint,
-      el("p", { class: "hint", label: "接続確認が成功すると、JevとOpenRouter専用モードを選べます。" }),
-      el("label", { class: "field check-field" }, jevEnabled, el("span", { label: "Jevを有効にする" })),
-      el("p", { class: "hint", label: "Jevは正確で速く、費用が最も安い振り分け専用モデルです。判定理由は表示されません。" }),
-      jevRouter,
-      el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouter専用モード" })),
-      el("p", { class: "hint", label: "ONにするとHigh・Middle・LowもOpenRouter経由になります。ツール呼び出しはExactoを使います。" }),
+      el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouterを使う" })),
+      el("p", { class: "hint", label: "Router・High・Middle・LowにOpenRouterを使います。JevはRouterモデルで選択できます。判定理由は表示されません。モデルを変更するにはOpenRouterの接続確認を実行する必要があります。" }),
       pickerGroup,
     );
   }

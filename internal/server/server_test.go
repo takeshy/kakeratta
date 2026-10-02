@@ -282,7 +282,7 @@ func TestKeysNeverReachThePage(t *testing.T) {
 	if after.APIKey != "real-key" {
 		t.Fatalf("the key was overwritten with the mask: %q", after.APIKey)
 	}
-	if after.OpenRouterAPIKey != "openrouter-key" || !after.JevEnabled {
+	if after.OpenRouterAPIKey != "openrouter-key" || !after.OpenRouterMode || after.OpenRouterRouterModel != "~typesafe/jev-latest" || after.JevEnabled {
 		t.Fatalf("OpenRouter settings were not preserved: %+v", after)
 	}
 	if after.LowModel != "something/else" {

@@ -60,8 +60,7 @@ type Settings struct {
 	VisionModel string `json:"visionModel"`
 	RouterModel string `json:"routerModel"`
 
-	// Jev optionally replaces the default Super router. It uses OpenRouter's
-	// Decisions API; the key is kept separately from the persona model key.
+	// JevEnabled is retained only to migrate legacy settings to a Router selection.
 	JevEnabled            bool   `json:"jevEnabled"`
 	OpenRouterAPIKey      string `json:"openRouterApiKey"`
 	OpenRouterMode        bool   `json:"openRouterMode"`
@@ -239,6 +238,11 @@ func (s *Store) ConfiguredSettings() Settings {
 }
 
 func normaliseConfiguredSettings(settings Settings) Settings {
+	if settings.JevEnabled {
+		settings.OpenRouterMode = true
+		settings.OpenRouterRouterModel = "~typesafe/jev-latest"
+		settings.JevEnabled = false
+	}
 	if strings.TrimSpace(settings.RouterModel) == "" {
 		settings.RouterModel = NemotronSuper
 	}

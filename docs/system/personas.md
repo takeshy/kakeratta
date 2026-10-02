@@ -111,7 +111,7 @@ Mention precedence changes the recipient without changing `Entry.ReplyTo`. The s
 
 For other entries, Runner combines subject personas selected by the router and person personas whose aliases or keywords match the entry's text and associated content. Post edits also notify prior recipients to correct their existing memories, including when the edited entry has an explicit addressee.
 
-Person personas are not sent to the subject router; their matches are recorded in `Heard`. Subject routing uses the configured model or the configured Jev Decisions API.
+Person personas are not sent to the subject router; their matches are recorded in `Heard`. Subject routing uses the configured model. With OpenRouter enabled and `openRouterRouterModel` set to `~typesafe/jev-latest`, it uses the Jev Decisions API with the OpenRouter key instead of chat completions. Other Router selections use chat completions; the legacy Jev flag no longer overrides the selection.
 
 Edits refresh prior recipients again when their ordered delivery starts, so a preceding turn that recorded its wake after routing still receives the correction. Existing recipients receive edit instructions; newly routed recipients receive an ordinary first delivery. Failures reading recipients or the delivery thread retain the reaction for retry.
 

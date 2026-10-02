@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, requests, live updates, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites"]
-updated: "2026-10-02"
+updated: "2026-10-03"
 ---
 
 Frontend composition, requests, live updates, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
@@ -40,7 +40,9 @@ Verification: [memory.test.js](../../tests/memory.test.js) (records after fields
 
 ## OpenRouter model selection
 
-When an OpenRouter key is entered but no model list has been loaded, settings shows a hint to click **Check OpenRouter connection** to select models. This hint remains visible even before OpenRouter-only mode can be enabled, and disappears once the connection check loads models ([settings.js](../../frontend/src/settings.js)).
+Settings offers one **Use OpenRouter** checkbox and Router/High/Middle/Low model selectors. Jev is selected as `~typesafe/jev-latest` in the Router selector, which includes this choice even when the model catalog omits it. There is no separate Jev toggle. The checkbox explanation also includes a persistent note to run **Check OpenRouter connection** before changing models. Unchecking **Use OpenRouter** retains its API key and all model selections, allowing provider comparisons. Saved credentials allow re-enabling it after reopening settings without another connection check; a newly entered key requires a connection check.
+
+When an OpenRouter key is entered but no model list has been loaded, settings shows a hint to click **Check OpenRouter connection** to select models. This hint remains visible even before **Use OpenRouter** can be checked, and disappears once the connection check loads models ([settings.js](../../frontend/src/settings.js)).
 
 ## Names and speaker lists
 
