@@ -47,9 +47,10 @@ type operation struct {
 	// output tends to fill with {}; a string it leaves alone.
 	Args string `json:"args"`
 	// write_schedule.
-	At    string `json:"at"`
-	Daily bool   `json:"daily"`
-	Note  string `json:"note"`
+	At            string `json:"at"`
+	Daily         bool   `json:"daily"`
+	UserRequested bool   `json:"user_requested"`
+	Note          string `json:"note"`
 	// cancel_schedule.
 	ID string `json:"id"`
 }
@@ -219,7 +220,7 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 				problems = append(problems, at+": at は 2026-09-17T23:30:00+09:00 のような RFC3339 で書いてください")
 			}
 			if strings.TrimSpace(step.Note) == "" {
-				problems = append(problems, at+": note（起きたときに読む一言）がありません")
+				problems = append(problems, at+": note（起きたときに実行する目的）がありません")
 			}
 		case "cancel_schedule":
 			if !rules.set.Allows("schedule") {
@@ -328,6 +329,7 @@ const reviewPrompt = `あなたはアプリ本体です。実行計画のSchedul
 Answerの品質・長さ・調査結果や記憶の更新はレビューしません。
 次の場合だけhighとしてfailにする:
 - Answerの約束と予定の日時、作成・取消・変更が一致しない。
+- user_requested:true の予定に、ユーザーによる時刻・繰り返しを伴う実行依頼または既存のユーザー依頼予定の裏付けがない。
 - 複数の予定やActionが矛盾し、または相互依存を満たさない。
 - ユーザーの依頼・担当の権限とActionの対象・引数が一致しない。
 - 状態変更を完了したというAnswerに操作または既存状態の裏付けがない。
@@ -522,7 +524,7 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow operationBat
 		switch step.Type {
 		case "write_schedule":
 			result, err := set.Run(ctx, "schedule", map[string]any{
-				"action": "set", "at": strings.TrimSpace(step.At), "daily": step.Daily, "note": step.Note,
+				"action": "set", "at": strings.TrimSpace(step.At), "daily": step.Daily, "user_requested": step.UserRequested, "note": step.Note,
 			}, nil)
 			out = result.Text
 			if err != nil {
@@ -612,6 +614,7 @@ func (r *Runner) scheduleListFor(skill Skill, set *tools.Set, names map[string]s
 			owner = fmt.Sprintf("%s（%s）", name, schedule.Skill)
 		}
 		line := fmt.Sprintf("- %s %s（%s・担当: %s）: %s", schedule.ID, when.Format("2006-01-02 15:04 MST"), repeat, owner, schedule.Note)
+		line += fmt.Sprintf("（user_requested:%t）", schedule.UserRequested)
 		lines = append(lines, line)
 	}
 	if len(lines) == 0 {

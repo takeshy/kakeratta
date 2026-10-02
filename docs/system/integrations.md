@@ -42,7 +42,7 @@ An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the
 
 ## Selecting capabilities
 
-`Registry` holds built-in tools and tools from operator-configured MCP servers. `For(skill.Tools).As(skill.ID)` builds the persona's permitted set. Shared timeline search and access to the persona's own memory are also available. A persona permitted to use `schedule` automatically receives the read-only `schedules_list` tool, including in external-agent asks, to inspect filtered, paginated workspace schedules on demand.
+`Registry` holds built-in tools and tools from operator-configured MCP servers. `For(skill.Tools).As(skill.ID)` builds the persona's permitted set. Shared timeline search and access to the persona's own memory are also available. A persona permitted to use `schedule` automatically receives the read-only `schedules_list` tool, including in external-agent asks, to inspect filtered, paginated workspace schedules on demand. The schedule creation argument `user_requested` distinguishes tasks explicitly requested at a time or recurrence from autonomous checks; listings and own-schedule context expose that flag. The host's schedule phase and review choose and check the flag, including after an external-agent answer, and scheduled wakes use it to select task or brief-reminder instructions; see [Scheduled wakes](./personas.md#scheduled-wakes).
 
 A tool `Declaration` carries a name, description, JSON Schema, and read-only status. Research tools are separated from schedule and action tools. The host validates model-supplied arguments and makes the actual network requests.
 

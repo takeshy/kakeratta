@@ -35,15 +35,16 @@ func ownerOf(ctx context.Context) (string, error) {
 var scheduleTool = Tool{
 	Name: "schedule",
 	Parameters: map[string]any{"type": "object", "properties": map[string]any{
-		"action":     map[string]any{"type": "string", "description": "set / list / cancel", "enum": []any{"set", "list", "cancel"}},
-		"at":         map[string]any{"type": "string", "description": "起こしてほしい時刻。RFC3339（2026-09-17T20:00:00+09:00）"},
-		"in_minutes": map[string]any{"type": "number", "description": "at の代わりに、いまから何分後か"},
-		"note":       map[string]any{"type": "string", "description": "起きたときに自分が読む、何のためかの覚書"},
-		"daily":      map[string]any{"type": "boolean", "description": "毎日繰り返すか"},
-		"time_zone":  map[string]any{"type": "string", "description": "IANAのタイムゾーン。毎日繰り返すときは必須"},
-		"id":         map[string]any{"type": "string", "description": "cancel するときの s_ から始まるid"},
+		"action":         map[string]any{"type": "string", "description": "set / list / cancel", "enum": []any{"set", "list", "cancel"}},
+		"at":             map[string]any{"type": "string", "description": "起こしてほしい時刻。RFC3339（2026-09-17T20:00:00+09:00）"},
+		"in_minutes":     map[string]any{"type": "number", "description": "at の代わりに、いまから何分後か"},
+		"note":           map[string]any{"type": "string", "description": "起きたときに自分が読む、何のためかの覚書"},
+		"user_requested": map[string]any{"type": "boolean", "description": "ユーザーが日時・繰り返しを指定して実行を依頼した予定ならtrue。担当が自発的に置く確認はfalse"},
+		"daily":          map[string]any{"type": "boolean", "description": "毎日繰り返すか"},
+		"time_zone":      map[string]any{"type": "string", "description": "IANAのタイムゾーン。毎日繰り返すときは必須"},
+		"id":             map[string]any{"type": "string", "description": "cancel するときの s_ から始まるid"},
 	}},
-	Usage: `schedule — 自分を起こす時刻を本体に預ける。カレンダーや目覚ましではなく、あなたの担当の用のためのものです。atの代わりにin_minutesでも置けます。noteは起きたときに自分が読む「何のためか」です。時刻はユーザーに尋ねず、書かれた言葉と過去の記録から決めます。済んだと分かったこと、やめたことは cancel してください。未来の時刻を設定できます。list は他の担当の予定も含めて返します。skill は予定を置いた担当ID、owner は担当名（ID）です。自分の予定は起動時の一覧で、他の担当の予定は調査フェーズの schedules_list で同じ用の予定を確認し、重複を避けてください。cancel できるのは自分の予定だけです。担当ごとに20件まで。発火すると1回きりのものは消え、daily:true のものは翌日の同じ時刻に進みます。鳴っても言うことがなければ silent。`,
+	Usage: `schedule — 自分を起こす時刻を本体に預ける。カレンダーや目覚ましではなく、あなたの担当の用のためのものです。atの代わりにin_minutesでも置けます。noteは起きたときに自分が読む「何のためか」です。時刻はユーザーに尋ねず、書かれた言葉と過去の記録から決めます。済んだと分かったこと、やめたことは cancel してください。未来の時刻を設定できます。list は他の担当の予定も含めて返します。skill は予定を置いた担当ID、owner は担当名（ID）です。自分の予定は起動時の一覧で、他の担当の予定は調査フェーズの schedules_list で同じ用の予定を確認し、重複を避けてください。cancel できるのは自分の予定だけです。担当ごとに20件まで。発火すると1回きりのものは消え、daily:true のものは翌日の同じ時刻に進みます。user_requested:true はユーザーが時刻や繰り返しを指定して依頼した実行です（例:毎朝ニュースをまとめる）。担当が自発的に置く用事の確認はfalse。起床時、trueなら依頼内容に必要な調査と発言を行い、一言に制限しません。falseなら従来どおり必要なときだけ軽く一言。`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		if r.schedules == nil {
 			return Result{}, errors.New("schedule が設定されていません")
@@ -76,6 +77,9 @@ func setSchedule(r *Registry, owner string, args Args) (Result, error) {
 		zone = r.zone
 	}
 	schedule := store.Schedule{Skill: owner, Note: args.str("note"), TimeZone: zone}
+	if requested, ok := args["user_requested"].(bool); ok {
+		schedule.UserRequested = requested
+	}
 	if daily, ok := args["daily"].(bool); ok {
 		schedule.Daily = daily
 	}
@@ -213,5 +217,5 @@ func scheduleRow(r *Registry, schedule store.Schedule) map[string]any {
 		owner = fmt.Sprintf("%s（%s）", name, schedule.Skill)
 	}
 	annual := schedule.PersonEvent != nil && schedule.PersonEvent.Annual
-	return map[string]any{"id": schedule.ID, "skill": schedule.Skill, "owner": owner, "at": localTime(schedule).Format(time.RFC3339), "daily": schedule.Daily, "annual": annual, "note": schedule.Note}
+	return map[string]any{"id": schedule.ID, "skill": schedule.Skill, "owner": owner, "at": localTime(schedule).Format(time.RFC3339), "daily": schedule.Daily, "user_requested": schedule.UserRequested, "annual": annual, "note": schedule.Note}
 }

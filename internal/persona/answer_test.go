@@ -93,7 +93,7 @@ func scheduleTurn(ops func(call int) string) (func(system, user string, offered 
 
 func createSchedule(at string) string {
 	raw, _ := json.Marshal(map[string]any{"consistent": true, "reason": "約束した時刻に置く", "operations": []any{map[string]any{
-		"type": "create", "at": at, "daily": false, "note": "通知する", "id": "",
+		"type": "create", "at": at, "daily": false, "user_requested": true, "note": "通知する", "id": "",
 	}}})
 	return string(raw)
 }
@@ -114,7 +114,7 @@ func TestAnswerWaitsForReviewedScheduleAndExecution(t *testing.T) {
 				return script(system, user, offered)
 			}
 			f.review = func(user string) string {
-				if !strings.Contains(user, "指定の時刻に知らせるね") || !strings.Contains(user, `"schedules"`) || !strings.Contains(user, at) {
+				if !strings.Contains(user, "指定の時刻に知らせるね") || !strings.Contains(user, `"schedules"`) || !strings.Contains(user, at) || !strings.Contains(user, `"user_requested": true`) {
 					t.Error("review did not see the answer and the schedule together")
 				}
 				if mode == "review-fail" {
@@ -127,7 +127,7 @@ func TestAnswerWaitsForReviewedScheduleAndExecution(t *testing.T) {
 			said := remarks(t, s)
 			switch mode {
 			case "success":
-				if len(schedules) != 1 || len(said) != 1 || said[0].Text != "指定の時刻に知らせるね。" {
+				if len(schedules) != 1 || !schedules[0].UserRequested || len(said) != 1 || said[0].Text != "指定の時刻に知らせるね。" {
 					t.Fatalf("schedules=%v, remarks=%v", schedules, said)
 				}
 			case "review-fail":

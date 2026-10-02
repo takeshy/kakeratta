@@ -27,6 +27,19 @@ const scheduleInstructions = `
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
 
+// User-requested tasks use the same scheduled-wake lifecycle, but their purpose
+// determines research and output rather than the autonomous reminder limits.
+const userScheduleInstructions = `
+
+## Schedule（ユーザーが指定した予定による起床）
+今回はユーザーが日時・繰り返しを指定して依頼した schedule による起床です。対象発言にある予定の目的を実行してください。
+依頼を満たすために必要な調査を許可された道具で行い、依頼された内容・形式・分量で発言してください。用事の確認や軽い一言だけに制限しません。
+ニュース等の最新情報は起床時に調べ直し、出典と日時を確認してください。取得できなかった情報を推測で補わないでください。
+今日のかけらは参考の記録データです。記録やメモがないことだけを理由に黙らないでください。同じ予定の今回分をすでに実行した、または取り消されたことが確認できる場合は重複実行せず、必要なら自分の予定を cancel してください。過去の別の回の実行を今回分の完了と扱わないでください。
+毎日の予定は本体が翌日に進めます。同じ予定を追加する必要はありません。依頼内容や時刻を変更して置き直す場合は user_requested:true を維持してください。
+発言するならユーザーの依頼の言語に合わせてください。
+`
+
 // scheduleTimeline gives a scheduled wake the facts it must not forget to
 // look up. Meaning still belongs to the persona; supplying the relevant day
 // belongs to the host.
@@ -126,12 +139,18 @@ func (r *Runner) schedulesAt(ctx context.Context, now time.Time) {
 		trigger := timeline.Entry{At: now, Speaker: "system", Text: fmt.Sprintf(
 			"Schedule: %s. Set for %s (%s). Check whether it is already done before saying anything.",
 			fired.Note, when.Format(time.RFC3339), zone)}
+		if fired.UserRequested {
+			trigger.Text = fmt.Sprintf("Schedule: %s. Set for %s (%s). Execute the user-requested task for this occurrence.", fired.Note, when.Format(time.RFC3339), zone)
+		}
 		if fired.PersonEvent != nil && fired.PersonEvent.Annual {
 			trigger.Text += fmt.Sprintf("\n対象の誕生日・記念日は毎年%02d月%02d日です（2月29日は平年には2月28日に通知）。この通知は%d日前の通知です。", fired.PersonEvent.Month, fired.PersonEvent.Day, fired.PersonEvent.LeadDays)
 		}
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		today := timeline.Entry{At: now, Speaker: "system", Text: r.scheduleTimeline(ctx, now, settings.Location())}
 		instructions := scheduleInstructions
+		if fired.UserRequested {
+			instructions = userScheduleInstructions
+		}
 		if fired.PersonEvent != nil {
 			instructions += "\n今回は人物の誕生日・記念日・予定の通知です。対象の日時は保存済み予定で確認できています。今日すでに同じ通知をした場合や予定が取り消されている場合を除き、対象のことを短く通知してください。メモがないことを理由に黙らないでください。年次の予定は本体が来年へ進めるので、同じ予定をscheduleで追加しないでください。"
 		}

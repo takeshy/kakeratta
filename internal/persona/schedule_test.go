@@ -132,6 +132,9 @@ func TestAScheduleWakesItsPersonaOnce(t *testing.T) {
 		if !strings.Contains(system, "Schedule（自分が預けた時刻") {
 			t.Error("the schedule's own instructions were missing")
 		}
+		if !strings.Contains(system, "一度だけ軽く一言") || strings.Contains(system, userScheduleInstructions) {
+			t.Error("an autonomous schedule lost its reminder restrictions")
+		}
 		if !strings.Contains(user, "花を買う") {
 			t.Errorf("the note did not reach the persona:\n%s", user)
 		}
@@ -158,6 +161,55 @@ func TestAScheduleWakesItsPersonaOnce(t *testing.T) {
 	}
 	if !stub.seen("あなたの記憶") {
 		t.Fatal("the persona was not given its memory")
+	}
+}
+
+func TestUserRequestedDailyScheduleExecutesTheTaskAndRetainsItsOrigin(t *testing.T) {
+	calls := 0
+	r, s, _ := setup(t, func(system, user string) string {
+		calls++
+		if !strings.Contains(system, userScheduleInstructions) || strings.Contains(system, "一度だけ軽く一言") {
+			t.Errorf("user task received reminder restrictions:\n%s", system)
+		}
+		if !strings.Contains(user, "最新のAIニュースを3件まとめる") || strings.Contains(user, "Check whether it is already done") {
+			t.Errorf("user task received the wrong trigger:\n%s", user)
+		}
+		return `{"action":"speak","text":"今日のAIニュースを3件お届けします。"}`
+	}, "routine")
+	skill, _ := r.catalogue.Find(context.Background(), "routine")
+	set := r.registry(s.Settings()).WithZone("UTC").For([]string{"schedule"}).As("routine")
+	at := time.Now().Add(time.Minute).UTC().Truncate(time.Second)
+	plan := Workflow{Schedules: []ScheduleOperation{{
+		Type: "create", At: at.Format(time.RFC3339), Daily: true,
+		UserRequested: true, Note: "最新のAIニュースを3件まとめる",
+	}}}
+	_, steps := r.execute(context.Background(), skill, plan.batch(), set, turnRules{set: set}, timeline.Entry{})
+	if len(steps) != 1 || steps[0].Error != "" {
+		t.Fatalf("schedule creation failed: %+v", steps)
+	}
+	reminders := 0
+	r.OnEvent(func(name string, data any) {
+		if name == "reminder" {
+			reminders++
+		}
+	})
+	for day := range 2 {
+		saved, err := s.Schedules("routine")
+		if err != nil || len(saved) != 1 || !saved[0].UserRequested || !saved[0].Daily {
+			t.Fatalf("user task origin was not persisted on day %d: %+v (%v)", day, saved, err)
+		}
+		listed, _ := r.scheduleListFor(skill, set, nil)
+		if !strings.Contains(listed, "user_requested:true") {
+			t.Fatalf("schedule context omitted its origin: %s", listed)
+		}
+		r.schedulesAt(context.Background(), saved[0].At.Add(time.Second))
+	}
+	if calls != 2 || reminders != 2 {
+		t.Fatalf("daily user tasks: calls=%d reminders=%d", calls, reminders)
+	}
+	entries, err := s.Timeline()
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("daily outputs were not published: %+v (%v)", entries, err)
 	}
 }
 
@@ -262,5 +314,8 @@ func TestScheduleContextOnlyPassesOwnSchedulesAndReadsOthersWithTool(t *testing.
 func TestPersonReminderInstructionsRetainScheduleWakeKind(t *testing.T) {
 	if got := wakeKind(timeline.Entry{Speaker: "system"}, false, scheduleInstructions+"\nBirthday instructions"); got != "schedule" {
 		t.Fatalf("wake: %s", got)
+	}
+	if got := wakeKind(timeline.Entry{Speaker: "system"}, false, userScheduleInstructions); got != "schedule" {
+		t.Fatalf("user-requested task lost its schedule wake kind: %s", got)
 	}
 }

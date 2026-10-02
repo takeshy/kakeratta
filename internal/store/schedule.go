@@ -20,12 +20,15 @@ import (
 // are the persona's own - it asks for a schedule, with a note of what it is
 // for, and it is the one that moves or cancels it afterwards.
 type Schedule struct {
-	ID       string    `json:"id"`
-	Skill    string    `json:"skill"`
-	Daily    bool      `json:"daily"`
-	At       time.Time `json:"at"`
-	TimeZone string    `json:"timeZone"`
-	Note     string    `json:"note"`
+	ID    string `json:"id"`
+	Skill string `json:"skill"`
+	Daily bool   `json:"daily"`
+	// UserRequested distinguishes an explicit scheduled task from an autonomous check.
+	// Missing values in older schedules retain the autonomous-check behavior.
+	UserRequested bool      `json:"userRequested,omitempty"`
+	At            time.Time `json:"at"`
+	TimeZone      string    `json:"timeZone"`
+	Note          string    `json:"note"`
 	// NotePath is the note a persona wrote alongside the schedule when memory
 	// was one note per thing. It is kept for schedules saved then and no
 	// longer set.

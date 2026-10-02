@@ -1016,7 +1016,7 @@ func wakeKind(trigger timeline.Entry, listening bool, instructions string) strin
 		return "post"
 	case strings.HasPrefix(instructions, dailyHeader):
 		return "daily"
-	case strings.HasPrefix(instructions, scheduleInstructions):
+	case strings.HasPrefix(instructions, scheduleInstructions), strings.HasPrefix(instructions, userScheduleInstructions):
 		return "schedule"
 	case instructions == deletedInstructions:
 		return "post-deleted"
