@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/timeline"
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
@@ -59,7 +60,30 @@ const answerRules = `規則:
 %s`
 
 func answerSystem(skill Skill, length string) string {
+	if !skill.Remembers() {
+		skill.Instructions += "\nこの担当は記憶しません。会話の文脈と調べた内容で答え、メモの保存や定期チェックインを約束しないでください。"
+	}
 	return fmt.Sprintf("%s%s\n\nあなたの担当領域:\n%s\n\nあなた自身への指示:\n%s\n\n", skill.intro(), skill.Tone, skill.Domain, skill.Instructions) + fmt.Sprintf(answerRules, length)
+}
+
+func infographicRules(trigger timeline.Entry, thread []timeline.Entry) string {
+	language := trigger.Language
+	if language == "" {
+		for i := len(thread) - 1; i >= 0; i-- {
+			if thread[i].Speaker == timeline.User && thread[i].Language != "" {
+				language = thread[i].Language
+				break
+			}
+		}
+	}
+	rules := "\n- インフォグラフィックのHTMLは短い返答の制限を受けません。図解に必要な長さで完全な文書を text に提出してください。\n"
+	switch language {
+	case "ja":
+		rules += "- 今回の表示言語は日本語 (ja) です。投稿と同じ言語という一般規則より優先し、HTMLの見出し・説明・図のラベルをすべて日本語に翻訳してください。\n"
+	case "en":
+		rules += "- 今回の表示言語は英語 (en) です。投稿と同じ言語という一般規則より優先し、HTMLの見出し・説明・図のラベルをすべて英語に翻訳してください。\n"
+	}
+	return rules
 }
 
 // ParseAnswer refuses workflow fields instead of silently discarding them.

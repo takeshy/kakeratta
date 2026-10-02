@@ -202,6 +202,9 @@ func logKeeper(record keeperRecord) {
 // keepNotes keeps what the turn leaves behind and returns the fields it wrote.
 // A failure never retracts the answer; the caller persists it for retry.
 func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings store.Settings, k keeperTurn) (written []string, failure error) {
+	if !k.skill.Remembers() {
+		return nil, nil
+	}
 	model := personaModel(settings)
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -495,6 +498,9 @@ func copiesAnswer(answer, text string) bool {
 // keepRecord appends rec under the persona's keeper lock, for a caller that
 // does not hold it.
 func (r *Runner) keepRecord(ctx context.Context, personaID string, rec record, trigger timeline.Entry, zone *time.Location) error {
+	if skill, ok := r.skills(ctx).Find(personaID); ok && !skill.Remembers() {
+		return nil
+	}
 	held, release, err := r.lockKeeper(ctx, personaID)
 	if err != nil {
 		return err

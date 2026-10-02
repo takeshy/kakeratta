@@ -183,3 +183,16 @@ test("a failed schedule cancellation leaves the reminder visible and allows retr
  await button.listeners.click({ currentTarget: button });
  assert.equal(nodes(view.element).filter(n => n.className === "notification-schedules").length, 0, "the section disappears after its last schedule is removed");
 });
+
+test("a memoryless speaker retains editing without a memory action or check-in hint", async t => {
+ const row = { id: "support", name: "support", memoryEnabled: false, active: true };
+ let edited = false;
+ const { view } = setup(t, { getPersona: () => row, onEditPersona: () => { edited = true; }, onOpenMemory: () => {} });
+ t.mock.method(api, "speaker", async () => pageOf([], 0));
+ await view.show(row.id);
+ const all = nodes(view.element);
+ all.find(n => n.textContent === translate("修正")).listeners.click();
+ assert.ok(edited);
+ assert.ok(!all.some(n => n.textContent === translate("覚えていること")));
+ assert.ok(!all.some(n => n.textContent.startsWith(translate("毎日7時〜21時のどこかで起きます。"))));
+});

@@ -16,10 +16,11 @@ func TestTheLayoutNamesTheFields(t *testing.T) {
 		t.Fatalf("a persona without a layout keeps %v", got)
 	}
 	want := map[string][]string{
-		"support": {"Issue"},
-		"gourmet": {"Preference", "Shop"},
-		"book":    {"Book", "Theme"},
-		"routine": {"Routine", "Errand"},
+		"infographic": nil,
+		"support":     nil,
+		"gourmet":     {"Preference", "Shop"},
+		"book":        {"Book", "Theme"},
+		"routine":     {"Routine", "Errand"},
 	}
 	for _, builtin := range Builtins {
 		if got := memoryFields(builtin); !reflect.DeepEqual(got, want[builtin.ID]) {

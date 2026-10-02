@@ -22,6 +22,7 @@ import { createTimelinePages } from "./timeline-pages.js";
 import { createSearch } from "./search.js";
 import { createSpeaker } from "./speaker.js";
 import { getLanguage, t } from "./i18n.js";
+import { mentionTag } from "./mention-picker.js";
 import { applyTextSize } from "./text-size.js";
 import { authenticationEnabled, logout, reconnectAuthentication } from "./auth.js";
 
@@ -88,7 +89,7 @@ const personas = createPersonas({
 const room = createRoom({
   onOpen: () => open("personas"),
   onActivate: (id) => void personas.activate(id),
-  onSelect: (row) => compose.mention(row.name),
+  onSelect: (row) => compose.mention(mentionTag(row).slice(1)),
   onSettings: (row) => { open("personas"); personas.reveal(row.id); },
   onMemory: (row) => void personas.showMemoryFor(row),
   onEdit: (row) => personas.edit(row),

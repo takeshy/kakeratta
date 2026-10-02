@@ -154,6 +154,9 @@ func fieldSummaryPrompt(skill Skill) string {
 // past. A due field the model leaves out is still marked as read today, so it
 // is not asked again until something more changes.
 func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) error {
+	if !skill.Remembers() {
+		return nil
+	}
 	held, release, err := r.lockKeeper(ctx, skill.ID)
 	if err != nil {
 		return err

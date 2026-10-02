@@ -35,7 +35,9 @@ type Skill struct {
 	// is kept apart from Instructions so the builder always writes it and the
 	// persona always sees it; and the kinds named here are the only ones the
 	// app lets a note carry, so one thing is not filed under a second kind.
-	Memory string `json:"memory,omitempty"`
+	Memory        string `json:"memory,omitempty"`
+	MemoryEnabled *bool  `json:"memoryEnabled,omitempty"`
+	AlwaysUltra   bool   `json:"alwaysUltra,omitempty"`
 	// Tools are the declared capabilities. Nothing outside this list can be
 	// called, and the app is what calls them.
 	Tools []string `json:"tools"`
@@ -57,6 +59,11 @@ type Skill struct {
 }
 
 var idPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$`)
+
+// Remembers defaults to true for definitions saved before this option existed.
+func (s Skill) Remembers() bool { return s.MemoryEnabled == nil || *s.MemoryEnabled }
+
+func memoryDisabled() *bool { enabled := false; return &enabled }
 
 // Answers reports whether this persona was the one called out by name.
 func (s Skill) Answers(mention string) bool {
@@ -145,19 +152,28 @@ var Builtins = []Skill{
 		Tools: []string{"schedule", "weather_forecast"}, Builtin: true,
 	},
 	{
-		ID: "support", Name: "support", Icon: "🛟",
+		MemoryEnabled: memoryDisabled(),
+		ID:            "support", Name: "support", Icon: "🛟",
 		Domain: "kakeratta（カケラッタ）の使い方・仕様・設定・担当・記憶・通知・検索・連携についての疑問や、操作で困ったこと。アプリの機能がどう動くかの質問と不具合の相談に答える。一般の技術相談や、kakerattaへの言及だけで質問や困りごとがない投稿は対象にしない。",
 		Tone:   "親切なサポート担当。ユーザーの言語で、結論と具体的な操作手順を短く分かりやすく伝える。",
-		Memory: "分野は Issue（本人から聞いた困りごとと確認済みの状況）の1つ。" +
-			"未解決の困りごとと本人が試した操作を短く残し、解決したら invalidate する。" +
-			"仕様や自分の回答、推測した原因を本人の事実として覚えない。仕様はその都度道具で読み直す。タグには機能名を付ける。",
 		Instructions: "kakerattaへの質問や困りごとには必ず答える。" +
 			"回答前に必ず kakeratta_help で index.md を読み、質問に関連する章を読んで、このバージョンに同梱されたOKF仕様を根拠にする。" +
 			"仕様の英語をそのまま貼らず、ユーザーの言語で要点を説明する。使い方の質問には画面の項目名と操作手順を示し、内部実装は質問に必要な場合だけ説明する。" +
 			"仕様で確認できた動作と、本人の環境に依存する状況や推測を区別する。道具は仕様を読むだけで、本人のAPIキー・接続・端末・稼働状況を確認したことにはならない。" +
 			"仕様にないことは分からないと伝え、原因を断定しない。必要なら表示されたエラーや操作を短く尋ねる。秘密のキーやパスワードは求めない。" +
-			"設定変更や修復を実行したと偽らず、ユーザーが実行できる手順を案内する。質問も困りごともない投稿や定期チェックインでは、未解決の相談に必要な確認がある場合だけ話す。",
+			"設定変更や修復を実行したと偽らず、ユーザーが実行できる手順を案内する。会話の文脈と同梱の仕様を使う。質問も困りごともない投稿では話さない。",
 		Tools: []string{"kakeratta_help"}, Builtin: true,
+	},
+	{
+		ID: "infographic", Name: "インフォグラフィック", Icon: "📊", MemoryEnabled: memoryDisabled(), AlwaysUltra: true,
+		Domain: "投稿、記事、説明、会話の内容をインフォグラフィックにしてほしいという明示的な依頼。図解、比較図、流れ図として視覚的にまとめる依頼に答える。単なるデータや画像の投稿、一般の質問には反応しない。",
+		Tone:   "情報を正確に整理するデザイナー。見出しと短い説明で、関係や違いを読みやすく伝える。",
+		Instructions: "インフォグラフィックの依頼には、スレッド内の対象の内容を図解し、submit_answer の text に <!DOCTYPE html> から始まる完全なHTML文書だけを返す。Markdownのコードフェンスや前後の説明は付けない。" +
+			"URLのかけらは、取得済みの「リンク先」のページの題名と本文を材料にする。画像のかけらは、先に読み取られた「画像」の説明と抽出文字を材料にする。返信で依頼された場合も、元のかけらの展開済み・解釈済みの内容を図解する。URLの文字列や画像ファイル名だけから内容を推測しない。取得・解釈が失敗した場合は内容を捏造せず、本文の貼り付けなど必要な材料を求める。" +
+			"HTMLには見出し、短い説明、情報の関係を表すカード・矢印・比較表などを使い、内容に適した図解を作る。事実・引用・推測を区別し、数値や出典を捏造しない。材料が不明なら通常の文章で確認する。" +
+			"CSSは文書内の style に、図形はインラインSVGにする。JavaScript、外部画像・フォント・ライブラリ、iframe、フォームは使わない。狭い画面でも読めるレスポンシブなレイアウトにし、縦にスクロールして全体を読めるようにする。" +
+			"見出し・説明・図中のラベルを含め、元の資料の言語にかかわらず今回指定される表示言語へ翻訳する。固有名詞、数値、出典の意味は保つ。html の lang もその言語に合わせる。",
+		Tools: []string{"web_search"}, Builtin: true,
 	},
 }
 
@@ -205,6 +221,9 @@ func (c *Catalogue) Snapshot(ctx context.Context) *Skills {
 		replaced := false
 		for i := range out {
 			if out[i].ID == skill.ID {
+				if skill.MemoryEnabled == nil {
+					skill.MemoryEnabled = out[i].MemoryEnabled
+				}
 				skill.Builtin = out[i].Builtin
 				skill.Customized = true
 				out[i] = skill

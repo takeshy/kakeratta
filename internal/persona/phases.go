@@ -284,6 +284,10 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 // stay as they are.
 func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model string, skill Skill, answer Answer, user, wake string, rules turnRules, lookup func([]ReadStep) string, review func(Workflow) (*Review, error), log *turnLog) (Workflow, error) {
 	plan := Workflow{Answer: answer, Schedules: []ScheduleOperation{}, Actions: []ActionOperation{}}
+	// A memoryless read-only persona has no state changes to plan or review.
+	if !skill.Remembers() && !rules.set.Allows("schedule") && len(shapeOf(rules.set).actions) == 0 {
+		return plan, nil
+	}
 	generate := func(phase, feedback string) error {
 		encoded, _ := json.Marshal(plan)
 		// A proposal is checked with the rest of the workflow in place: a

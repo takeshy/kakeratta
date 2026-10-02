@@ -10,6 +10,7 @@
 // Like the memory reader this builds DOM nodes and never touches innerHTML:
 // model-authored text is rendered, never run.
 import { el, safeLink } from "./dom.js";
+import { htmlDocument } from "./html-document.js";
 
 // Emphasis, deletion, code and links. A bare URL becomes a link; anything that
 // is not http(s) stays inert text, whatever the label says.
@@ -146,6 +147,13 @@ export function renderMarkdown(text) {
 // heading is its words, a list is its items, a link says its label, and the
 // task marks and fence lines - which a voice cannot use - drop away.
 export function spokenText(text) {
+  // Read the infographic's labels, rather than its CSS and HTML source.
+  const html = htmlDocument(text);
+  if (globalThis.DOMParser && html) {
+    const page = new DOMParser().parseFromString(html, "text/html");
+    for (const node of page.querySelectorAll("script, style, template")) node.remove();
+    return page.body.textContent.replace(/\s+/g, " ").trim();
+  }
   return String(text || "").replace(/\r\n?/g, "\n").split("\n")
     .map((line) => line
       .replace(/^\s*(?:[-*+] |\d+[.)] )\[[ xX]\]\s+/, "")

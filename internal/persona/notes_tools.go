@@ -33,6 +33,9 @@ func (r *Runner) readRecords(ctx context.Context, personaID string, args map[str
 		}
 		return strings.Join(parts, "\n\n"), ids
 	}
+	if skill, ok := r.skills(ctx).Find(personaID); ok && !skill.Remembers() {
+		return "この担当は記憶を使いません。", nil
+	}
 	tag, query, before := stringOf(args["tag"]), stringOf(args["query"]), strings.TrimSpace(stringOf(args["before"]))
 	if before != "" && !recordsMonth.MatchString(before) {
 		return "before は 2026-09 のような年月で書いてください。", nil

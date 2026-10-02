@@ -194,6 +194,9 @@ func (r *Runner) nextCheckIn(ctx context.Context, now time.Time, settings store.
 	skills := r.skills(ctx).Active(settings.Active)
 	sort.SliceStable(skills, func(i, j int) bool { return skills[i].ID < skills[j].ID })
 	for _, skill := range skills {
+		if !skill.Remembers() {
+			continue
+		}
 		schedule := settings.CheckInFor(skill.ID)
 		monthly := schedule.Every == store.CheckInMonthly && skill.IsPerson()
 		first(func(day time.Time) (time.Time, bool) {

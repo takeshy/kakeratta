@@ -48,6 +48,9 @@ const defaultField = "Memo"
 // memoryFields are the fields a persona keeps, in the order its layout names
 // them.
 func memoryFields(skill Skill) []string {
+	if !skill.Remembers() {
+		return nil
+	}
 	if fields := allowedTypes(skill.forTurn().Memory); len(fields) > 0 {
 		return fields
 	}
@@ -334,6 +337,9 @@ func listRecords(records []record, zone *time.Location) string {
 // memoryView is what a persona is handed of its memory at the start of every
 // turn: its facts that hold now, and its latest records.
 func (r *Runner) memoryView(skill Skill, zone *time.Location) string {
+	if !skill.Remembers() {
+		return ""
+	}
 	recent, more := r.findRecords(skill.ID, "", "", "", recentRecordsLimit, zone)
 	text := "### 分野ごとの事実（いま当てはまるもの。[ ] は事実の id）\n" + renderFacts(r.loadFacts(skill, zone), zone) +
 		"\n\n### かけらの記録（新しい順、最新" + fmt.Sprint(recentRecordsLimit) + "件まで。[ ] はたどれる投稿のID）\n" + listRecords(recent, zone)

@@ -684,6 +684,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	wakeInstructions string, deep bool, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 	resumed := resumedFrom(ctx)
 	skill = skill.forTurn()
+	requestedDeep := deep
+	deep = deep || skill.AlwaysUltra
 
 	root := timeline.RootOf(trigger)
 	// deep is a reply asking for a better or deeper answer: Ultra, and a
@@ -715,10 +717,15 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	set := registry.For(skill.Tools).As(skill.ID)
 	length := briefRule
 	switch {
-	case deep:
+	case requestedDeep:
 		length = deepRule
+	case skill.AlwaysUltra:
+		length = "- 常に熟考する設定です。必要な深さで十分に検討し、回答に必要な長さで書いてください。"
 	case named && !listening:
 		length = namedRule
+	}
+	if skill.ID == "infographic" {
+		length += infographicRules(trigger, thread)
 	}
 	system := answerSystem(skill, length) + readSpec(set, deep) + capabilityLine(set)
 	system += wakeInstructions
@@ -822,10 +829,13 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		ask := Ask{ID: store.NewID("ask"), Persona: skill.ID, Name: skill.Name, Wake: record.Wake, Trigger: trigger.ID}
 		// The agent is told the same as the built-in model, but not to be brief.
 		agentLength := agentRule
-		if deep {
+		if requestedDeep {
 			agentLength = deepRule
 		}
 		agentRules := fmt.Sprintf(answerRules, agentLength)
+		if skill.ID == "infographic" {
+			agentRules += infographicRules(trigger, thread)
+		}
 		brief := r.askContext(skill, set, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, memoryNote, scheduleList, names, here, deep)
 		turn := askTurn{Persona: skill.ID, Trigger: trigger, Place: post.Place, Named: named, Listening: listening, Instructions: wakeInstructions, Deep: deep}
 		if err := r.openAsk(ctx, settings, ask, brief, turn); err != nil {
@@ -935,7 +945,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if unrelated {
 		r.markUnrelated(trigger.ID, skill.ID)
 	}
-	if keepsNotes(trigger, wakeInstructions) && !unrelated {
+	if skill.Remembers() && keepsNotes(trigger, wakeInstructions) && !unrelated {
 		keeper := keeperTurn{skill: skill, thread: thread, trigger: trigger, answer: spoken, wake: wakeInstructions, here: here, names: names}
 		if remark != nil {
 			keeper.replyID = remark.ID

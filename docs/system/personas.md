@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Persona execution and memory"
-description: "Persona definitions, built-in kakeratta support, routing, research, reviewed actions, memory maintenance, schedules, and corrections."
-tags: ["persona", "skill", "support", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
+description: "Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections."
+tags: ["persona", "skill", "support", "infographic", "html", "ultra", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
 updated: "2026-10-02"
 ---
 
-Persona definitions, built-in kakeratta support, routing, research, reviewed actions, memory maintenance, schedules, and corrections.
+Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections.
 
 # Persona definitions and the Catalogue
 
@@ -22,7 +22,7 @@ A piece of work reads once. `Catalogue.Snapshot` returns a read-only `Skills` (`
 
 ## Shipped personas and retired travel persona
 
-The app ships `tabe` (`gourmet`), `shiori` (`book`), `sona` (`routine`), and `support` (`support`). The former built-in `michi` (`move`) is no longer provided. Without an installed definition, saved `move` activation IDs do not resolve in `Skills.Active`, so it is absent from the persona list and receives no new turns. Existing timeline entries and private memory are retained. A previously customized `move` definition remains available as a user-installed persona and can be paused or removed through normal management. Users can create their own travel persona and declare the existing `route` and `place_search` tools.
+The app ships `tabe` (`gourmet`), `shiori` (`book`), `sona` (`routine`), `support` (`support`), and `インフォグラフィック` (`infographic`). The former built-in `michi` (`move`) is no longer provided. Without an installed definition, saved `move` activation IDs do not resolve in `Skills.Active`, so it is absent from the persona list and receives no new turns. Existing timeline entries and private memory are retained. A previously customized `move` definition remains available as a user-installed persona and can be paused or removed through normal management. Users can create their own travel persona and declare the existing `route` and `place_search` tools.
 
 Verification: [skill_test.go](../../internal/persona/skill_test.go) checks the retired built-in and preservation of a user-installed travel definition. Cross-persona execution tests use [travel_fixture_test.go](../../internal/persona/travel_fixture_test.go) as a custom persona.
 
@@ -30,9 +30,27 @@ Verification: [skill_test.go](../../internal/persona/skill_test.go) checks the r
 
 The subject persona `support` (name `support`, icon 🛟) answers questions about kakeratta's usage, specifications, settings, personas, memory, notifications, search, and integrations. Its domain excludes general technical questions and posts that merely mention the app. Users can call it directly with `@support`; ordinary questions reach it through the subject router.
 
-It declares only the read-only `kakeratta_help` tool, reads the OKF bundle's index and relevant chapters before answering, and explains confirmed behavior in the user's language. The specification is the same `docs/system/` bundle developers maintain, embedded in the binary at build time; updating it takes effect in support after rebuilding. It is shared product knowledge, separate from the persona's private memory. The tool is also available to an external planner through the ordinary permitted research path.
+It declares only the read-only `kakeratta_help` tool, reads the OKF bundle's index and relevant chapters before answering, and explains confirmed behavior in the user's language. The specification is the same `docs/system/` bundle developers maintain, embedded in the binary at build time; updating it takes effect in support after rebuilding. It is shared product knowledge. The tool is also available to an external planner through the ordinary permitted research path.
 
-The persona keeps an `Issue` field for user-reported unresolved problems and attempted steps, retiring facts when resolved. It does not store its own explanations or guessed causes as user facts. It distinguishes documented behavior from the user's actual configuration and runtime state, asks for missing error/operation details, and never claims to have changed settings or repaired the app. Daily check-ins stay quiet unless an unresolved consultation needs a useful follow-up. New workspaces activate it alongside sona; saved activation choices remain authoritative.
+Support defaults to `memoryEnabled: false`: it answers without keeping private notes or checking in. Its definition can be edited and it uses the same optional external-agent preference as other personas, off by default. It distinguishes documented behavior from the user's actual configuration and runtime state, asks for missing error/operation details, and never claims to have changed settings or repaired the app. New workspaces activate it alongside sona; saved activation choices remain authoritative.
+
+## Built-in infographics
+
+`infographic` (name `インフォグラフィック`, icon 📊) handles explicit requests to turn a post or conversation into an infographic. Its definition defaults to `memoryEnabled: false` and `alwaysUltra: true`; it does not save notes or wake for periodic check-ins, and ordinary requests use the high (Ultra) model. Its external-agent preference follows the ordinary rules and defaults off. New workspaces activate it together with sona and support; saved activation selections remain authoritative.
+
+The persona submits a complete HTML document in `Answer.Text`, beginning with `<!DOCTYPE html>`, with inline CSS and SVG, responsive layout, and no scripts or external assets. The host persists the text unchanged; the browser displays complete HTML answers in an isolated frame. Normal prose remains available for clarification when source material is missing. URL requests use the page title and body already attached by `readLink`, and image requests use the description and extracted text already produced by `readCapture`. A reply's thread carries the original material. Failed retrieval or interpretation must not be replaced with invented content.
+
+`infographicRules` overrides the normal post-language rule with the request's `Entry.Language` (`ja` or `en`), captured from the browser display language. Headings, explanations, and diagram labels are translated while retaining facts and proper names. Older requests without this field use the latest user language in their thread, or the ordinary post-language rule if none exists. The rules reach both the built-in answer prompt and the external ask. Verification: [infographic_test.go](../../internal/persona/infographic_test.go) checks interpreted image/expanded URL context, both display languages, intact HTML persistence, and Ultra selection.
+
+## Always thinking deeply
+
+`Skill.AlwaysUltra` (`alwaysUltra`, default false) forces `Runner.run` onto `ultraModel`, the `ultra` display slot, and the deeper research budget for any wake. The high model falls back to the configured middle/low model when absent, as with an explicit deeper reply. A normal request with this setting uses a length instruction that does not claim the user requested a revision of an earlier answer. It does not enable or disable external delegation: a preferred external agent still answers, with the built-in Ultra path used on fallback. The creation and editing forms expose this option, and an AI revision that omits it retains the saved value.
+
+## Optional persona memory
+
+`Skill.MemoryEnabled` (`memoryEnabled` in JSON) is an optional boolean. Omitted or null values retain the historical default of remembering; support's built-in default is false, also inherited by saved built-in overrides that omit the option. The creation and editing forms expose **記憶する** (Remember). AI revisions preserve the existing choice when they omit the field.
+
+When false, turns receive no private memory, record queries return no memory (explicit timeline entry reads remain available), and the host skips the note keeper and its retry writes, summary rewrites, and memory migration. Neither daily/monthly check-ins nor their alarms are scheduled for that persona. A memoryless persona with only read tools also skips post-answer schedule/action planning and review model calls. The check-in settings endpoint rejects changes while memory is off. Ordinary routing, replies, persona editing, tool permissions, explicit notification schedules, and external-agent planning work as usual. Existing notes remain stored so enabling memory again can resume them; disabling does not erase user data. Cards and room menus hide memory actions and check-in controls, while retaining editing and external-agent preference.
 
 Implementation: [skill.go](../../internal/persona/skill.go), [kakeratta_help.go](../../internal/tools/kakeratta_help.go), [bundle.go](./bundle.go), and [settings.go](../../internal/store/settings.go). Verification: [skill_test.go](../../internal/persona/skill_test.go), [kakeratta_help_test.go](../../internal/tools/kakeratta_help_test.go), and [settings_test.go](../../internal/store/settings_test.go).
 

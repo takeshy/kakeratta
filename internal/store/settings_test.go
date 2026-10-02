@@ -2,9 +2,9 @@ package store
 
 import "testing"
 
-func TestSonaAndSupportAreActiveByDefaultAndSavedChoicesArePreserved(t *testing.T) {
+func TestDefaultPersonasAreActiveAndSavedChoicesArePreserved(t *testing.T) {
 	s := open(t)
-	if got := s.Settings().Active; len(got) != 2 || got[0] != "routine" || got[1] != "support" {
+	if got := s.Settings().Active; len(got) != 3 || got[0] != "routine" || got[1] != "support" || got[2] != "infographic" {
 		t.Fatalf("default active personas = %v", got)
 	}
 	for _, active := range [][]string{nil, {}, {"gourmet"}} {

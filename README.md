@@ -68,13 +68,16 @@ exchanged over time, and suggest thoughtful ideas when the time is right.
 Posts reach person personas via nicknames and keywords, and interest personas
 based on filtering rules - meaning not every fragment is broadcast to every AI.
 
-By default, four interest personas are included (no person-based personas
+By default, five interest personas are included (no person-based personas
 are set by default):
 
 * **tabe**: Dining & food
 * **support**: Questions about kakeratta, answered from its specification (active by default in new workspaces)
+* **infographic**: HTML diagrams of text, expanded articles and interpreted images, translated into the display language. No memory; always Ultra (active in new workspaces)
 * **shiori**: Reading & books
 * **sona**: Preparing for outings, everyday belongings, weather and small follow-ups (active by default in new workspaces)
+
+Creation and editing offer **Remember** and **Always think deeply**. Turning memory off disables notes and periodic check-ins. Always thinking deeply uses Ultra for ordinary requests.
 
 Interest personas are created in natural language too. For instance, for a
 persona focused on wine:

@@ -72,6 +72,23 @@ class TestNode {
   }
 }
 
+test("persona HTML renders in the feed while user HTML stays literal", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: tag => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const html = '<!DOCTYPE html><html><body><h1>図解</h1></body></html>';
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  feed.set([
+    { id: 'html-persona', kind: 'post', speaker: 'infographic', text: html, at: '2026-10-02T00:00:00Z' },
+    { id: 'html-user', kind: 'post', speaker: 'user', text: html, at: '2026-10-02T00:01:00Z' },
+  ]);
+  const frames = feed.element.querySelectorAll('.html-document');
+  assert.equal(frames.length, 1);
+  assert.equal(frames[0].sandbox, '');
+  assert.ok(frames[0].srcdoc.includes(html));
+  assert.ok(feed.element.querySelectorAll('.said').some(node => node.tagName === 'P' && node.textContent === html));
+});
+
 test("search reveals a folded reply and polling preserves a later manual fold", (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
@@ -486,6 +503,26 @@ test("person creation saves editable basic information without posting", async (
   assert.equal(posted.length, 0);
   // The AI chose to look back on her monthly; saving says so.
   assert.deepEqual(api.setDailyCheckIn.mock.calls[0].arguments, ["nagomi", { talk: "share", every: "monthly" }]);
+  // The creation checkbox overrides the generated draft and suppresses the
+  // AI's proposed monthly check-in when remembering is switched off.
+  showPersonaBuilder({ onSave: skill => { saved = skill; } });
+  const toggle = document.body.querySelectorAll(".persona-memory-enabled")[0];
+  assert.equal(toggle.checked, true);
+  toggle.checked = false;
+  toggle.fire("change");
+  const ultra = document.body.querySelectorAll(".persona-always-ultra")[0];
+  assert.equal(ultra.checked, false);
+  ultra.checked = true;
+  ultra.fire("change");
+  document.body.querySelectorAll(".skill-input").find(node => !node.className.includes("person-basic-info")).value = "記憶せずに回答だけして";
+  walk(document.body).find(node => node.listeners.submit).fire("submit", { preventDefault() {} });
+  await new Promise(setImmediate);
+  button("この担当を追加").fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  assert.equal(saved.memoryEnabled, false);
+  assert.equal(saved.alwaysUltra, true);
+  assert.equal(api.setDailyCheckIn.mock.callCount(), 1, "no check-in was saved for the memoryless draft");
+
 
 
 });
@@ -712,6 +749,13 @@ test("persona editor separates direct editing from AI editing", async (t) => {
 
   // Direct editing has no AI request mixed into it.
   assert.equal(document.body.querySelectorAll(".ai-request").length, 0);
+  const memoryToggle = document.body.querySelectorAll(".persona-memory-enabled")[0];
+  const ultraToggle = document.body.querySelectorAll(".persona-always-ultra")[0];
+  assert.equal(ultraToggle.checked, false);
+  ultraToggle.checked = true;
+  assert.equal(memoryToggle.checked, true, "existing definitions remember by default");
+  memoryToggle.checked = false;
+  memoryToggle.fire("change");
   name.value = "みち";
   name.fire("input");
   const previous = document.body.querySelectorAll(".previous");
@@ -720,6 +764,8 @@ test("persona editor separates direct editing from AI editing", async (t) => {
   button("保存").fire("click");
   for (let i = 0; i < 5; i++) await new Promise(setImmediate);
   assert.equal(api.savePersonaDraft.mock.calls[0].arguments[0].name, "みち");
+  assert.equal(api.savePersonaDraft.mock.calls[0].arguments[0].memoryEnabled, false);
+  assert.equal(api.savePersonaDraft.mock.calls[0].arguments[0].alwaysUltra, true);
   assert.ok(saved);
 
   // AI editing opens separately. Current values are reference-only until the

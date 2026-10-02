@@ -8,6 +8,7 @@
 import { el, clear } from "./dom.js";
 import { t } from "./i18n.js";
 import { gloss, named } from "./builtins.js";
+import { mentionTag } from "./mention-picker.js";
 
 // The order of the badges is the viewer's own, kept in this browser like the
 // list's sort: people who arrange them differently on a phone and a desktop are
@@ -119,9 +120,9 @@ export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory,
     const close = () => {
       menu?.close();
     };
-    menu = el("dialog", { class: "persona-menu", "aria-label": row.name },
-      el("strong", { text: row.name }),
-      ...[["設定", onSettings], ["記録を見る", onMemory], ["修正", onEdit]].map(([label, action]) =>
+    menu = el("dialog", { class: "persona-menu", "aria-label": gloss(row).name },
+      el("strong", { text: gloss(row).name }),
+      ...[["設定", onSettings], ...(row.memoryEnabled === false ? [] : [["記録を見る", onMemory]]), ["修正", onEdit]].map(([label, action]) =>
         el("button", { type: "button", class: "chip", label, onclick: () => { restoreFocus = false; close(); action?.(row); } })),
       el("button", { type: "button", class: "chip ghost", label: "閉じる", onclick: close }),
     );
@@ -189,8 +190,8 @@ export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory,
       for (const row of members) {
         const chip = el("button", {
           class: `chip persona-chip${kind === "person" ? " person-chip" : ""}`,
-          title: `${gloss(row).domain}\n${t("押すと @{0} を入力します", row.name)}\n${t("ドラッグで並べ替えできます")}`,
-          text: `${row.icon || "◎"} ${row.name}`,
+          title: `${gloss(row).domain}\n${t("押すと @{0} を入力します", mentionTag(row).slice(1))}\n${t("ドラッグで並べ替えできます")}`,
+          text: `${row.icon || "◎"} ${gloss(row).name}`,
           "data-id": row.id,
           onclick: () => onSelect?.(row),
         });

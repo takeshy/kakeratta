@@ -58,6 +58,9 @@ func (r *Runner) MigrateMemory(ctx context.Context, personaID string) (Migration
 	if !ok {
 		return out, fmt.Errorf("担当が見つかりません: %s", personaID)
 	}
+	if !skill.Remembers() {
+		return out, nil
+	}
 	skill = skill.forTurn()
 	prose, err := r.proseFields(skill)
 	if err != nil || len(prose) == 0 {
@@ -109,6 +112,9 @@ func (r *Runner) ApplyMigration(ctx context.Context, plan Migration) (Migration,
 	skill, ok := r.skills(ctx).Find(plan.Persona)
 	if !ok {
 		return plan, fmt.Errorf("担当が見つかりません: %s", plan.Persona)
+	}
+	if !skill.Remembers() {
+		return plan, fmt.Errorf("記憶しない担当には移行を適用できません")
 	}
 	skill = skill.forTurn()
 	held, release, err := r.lockKeeper(ctx, skill.ID)

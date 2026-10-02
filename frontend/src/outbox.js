@@ -1,4 +1,5 @@
 import { localIdentity, localRecord, localList } from "./local-store.js";
+import { getLanguage } from "./i18n.js";
 
 // Tabs of one browser share the outbox in IndexedDB. Only one of them sends at
 // a time, so two tabs never deliver the same queued post side by side.
@@ -9,11 +10,12 @@ export function createOutbox({ send, verify, changed = () => {}, record = localR
   let again = false;
   const entries = async () => (await list("outbox:")).sort((a,b) => a.entry.at.localeCompare(b.entry.at));
   async function enqueue(path, body, parent) {
+    body = { ...body, language: getLanguage() };
     const user = identity()?.key;
     if (!user) throw Error("一度オンラインでログインしてください。");
     const id = `local-${crypto.randomUUID()}`;
     const at = new Date().toISOString();
-    const entry = { id, at, kind: parent ? "reply" : "post", speaker: "user", text: body.text,
+    const entry = { id, at, kind: parent ? "reply" : "post", speaker: "user", text: body.text, language: body.language,
       link: body.link, place: body.place, root: parent?.root || parent?.id || id,
       replyTo: parent?.id, pending: true, localImage: body.image || "" };
     await record(`outbox:${id}`, { path, body: { ...body, clientId: id, clientAt: at }, entry }, user);

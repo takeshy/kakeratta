@@ -50,7 +50,7 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
         el("p", { class: "hint", text: t("キーワード: {0}", (row.keywords || []).join(" / ") || t("（なし）")) }),
         basicInfoBox(row, () => onEditPersona?.(row, "basicInfo")));
     }
-    node.append(el("p", { class: "hint", text: checkInHint(row) }));
+    if (row.memoryEnabled !== false) node.append(el("p", { class: "hint", text: checkInHint(row) }));
     if (row.schedules?.length) {
       node.append(notificationSchedules(row, (payload) => {
         row.schedules = payload.personas?.find(persona => persona.id === row.id)?.schedules || [];
@@ -66,7 +66,7 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
     const links = [
       onOpenPersona ? el("button", { type: "button", class: "chip ghost", label: "担当の設定", onclick: () => onOpenPersona(row) }) : null,
       onEditPersona ? el("button", { type: "button", class: "chip ghost", label: "修正", onclick: () => onEditPersona(row) }) : null,
-      onOpenMemory ? el("button", { type: "button", class: "chip ghost", label: "覚えていること", onclick: () => onOpenMemory(row) }) : null,
+      row.memoryEnabled !== false && onOpenMemory ? el("button", { type: "button", class: "chip ghost", label: "覚えていること", onclick: () => onOpenMemory(row) }) : null,
     ].filter(Boolean);
     if (links.length) node.append(el("div", { class: "compose-row" }, ...links));
     return node;

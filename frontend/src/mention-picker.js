@@ -1,5 +1,5 @@
 import { el, clear } from "./dom.js";
-import { named } from "./builtins.js";
+import { named, gloss } from "./builtins.js";
 import { t } from "./i18n.js";
 
 let sequence = 0;
@@ -12,6 +12,7 @@ export function mentionQuery(value, start, end = start) {
 
 // Names containing separators or suffixes stripped by the server use their ID.
 export function mentionTag(row) {
+  if (gloss(row).name !== row.name) return `@${row.id}`;
   return `@${/^[^\s@＠、。]+$/u.test(row.name) && !/[さん!?！？]$/u.test(row.name) ? row.name : row.id}`;
 }
 

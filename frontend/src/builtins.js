@@ -7,6 +7,12 @@
 import { getLanguage } from "./i18n.js";
 
 const GLOSS = {
+  infographic: {
+    ja: "図解",
+    en: "infographic",
+    name: "Infographic",
+    domain: "Explicit requests to turn a post, expanded article, interpreted image or conversation into an HTML infographic, in the current display language. Does not keep memory or check in.",
+  },
   gourmet: {
     ja: "食事",
     en: "food",
@@ -35,12 +41,12 @@ export function gloss(row) {
   const entry = row.builtin && !row.customized ? GLOSS[row.id] : null;
   if (!entry) return { name: row.name, note: "", domain: row.domain };
   const ja = getLanguage() === "ja";
-  return { name: row.name, note: ja ? entry.ja : entry.en, domain: ja ? row.domain : entry.domain };
+  return { name: ja ? row.name : entry.name || row.name, note: ja ? entry.ja : entry.en, domain: ja ? row.domain : entry.domain };
 }
 
 // For a sentence: "tabe (food)" / "tabe（食事）".
 export function named(row) {
-  const { note } = gloss(row);
-  if (!note) return row.name;
-  return getLanguage() === "ja" ? `${row.name}（${note}）` : `${row.name} (${note})`;
+  const { name, note } = gloss(row);
+  if (!note) return name;
+  return getLanguage() === "ja" ? `${name}（${note}）` : `${name} (${note})`;
 }

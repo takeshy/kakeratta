@@ -81,6 +81,9 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 	// The month's summary comes first: a person checking in monthly reads it.
 	r.summarizeAt(ctx, now, client, settings)
 	for _, skill := range r.skills(ctx).Active(settings.Active) {
+		if !skill.Remembers() {
+			continue
+		}
 		schedule := settings.CheckInFor(skill.ID)
 		loc := settings.Location()
 		local := now.In(loc)

@@ -7,7 +7,9 @@
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
 import { t } from "./i18n.js";
+import { gloss } from "./builtins.js";
 import { renderMarkdown, spokenText } from "./markdown.js";
+import { htmlDocument, renderHtmlDocument } from "./html-document.js";
 import { createMentionPicker } from "./mention-picker.js";
 import { openSocial } from "./social.js";
 import { showRouting } from "./routing-view.js";
@@ -284,12 +286,15 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   }
 
   // The body of anything said on the timeline. A persona's reply is model
-  // written and never edited here, so the app renders it as Markdown. Your own
+  // written and never edited here, so the app renders Markdown or a complete
+  // HTML document in an isolated frame. Your own
   // words are yours: they stay exactly as typed unless the setting asks for
   // Markdown to be honoured, and editing has always meant writing the source.
   function drawBody(entry) {
     if (!entry.text) return null;
     const mine = entry.speaker === "user";
+    const html = !mine && htmlDocument(entryText(entry));
+    if (html) return el("div", { class: "said said-html" }, renderHtmlDocument(html));
     if (mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
     return el("div", { class: "said said-markdown" }, renderMarkdown(entryText(entry)));
   }
@@ -306,7 +311,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         "div",
         { class: "post-head" },
         el("span", { class: "avatar", text: mine ? "🙂" : summary ? "🗓" : persona?.icon || "◎" }),
-        who(entry, mine ? t("あなた") : summary ? t("今月のまとめ") : persona?.name || entry.speaker, !summary),
+        who(entry, mine ? t("あなた") : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         el("span", { class: "spacer" }),
@@ -438,7 +443,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         "div",
         { class: "said-head" },
         el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
-        who(entry, mine ? t("あなた") : persona?.name || entry.speaker),
+        who(entry, mine ? t("あなた") : persona ? gloss(persona).name : entry.speaker),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         drawRoutingChip(entry),
@@ -616,7 +621,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       for (const entry of said) {
         const persona = getPersona(entry.speaker);
         const body = spokenText(entryText(entry)) || entryText(entry);
-        lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona?.name || entry.speaker}。${body}` });
+        lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona ? gloss(persona).name : entry.speaker}。${body}` });
       }
     }
     return lines;

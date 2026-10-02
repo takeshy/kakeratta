@@ -44,6 +44,7 @@ func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 type postBody struct {
+	Language       string          `json:"language"`
 	ClientID       string          `json:"clientId"`
 	ClientAt       time.Time       `json:"clientAt"`
 	SpeechAutoSend bool            `json:"speechAutoSend"`
@@ -77,7 +78,7 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	entry := timeline.Entry{
 		ID: id, RequestHash: hash, Kind: timeline.KindPost, Speaker: timeline.User,
-		Text: trimmed(body.Text), At: at, Link: trimmed(body.Link),
+		Text: trimmed(body.Text), At: at, Link: trimmed(body.Link), Language: displayLanguage(body.Language),
 	}
 	entry.Root = entry.ID
 	entry.Place = body.Place
@@ -171,6 +172,7 @@ func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace
 }
 
 type replyBody struct {
+	Language       string    `json:"language"`
 	ClientID       string    `json:"clientId"`
 	ClientAt       time.Time `json:"clientAt"`
 	SpeechAutoSend bool      `json:"speechAutoSend"`
@@ -209,11 +211,18 @@ func (s *Server) postReply(w http.ResponseWriter, r *http.Request) {
 	}
 	reply := timeline.Entry{
 		ID: id, RequestHash: hash, Kind: timeline.KindReply, Speaker: timeline.User,
-		Text: trimmed(body.Text), At: at,
+		Text: trimmed(body.Text), At: at, Language: displayLanguage(body.Language),
 		Root: timeline.RootOf(parent), ReplyTo: parent.ID,
 	}
 	readLink(r.Context(), &reply)
 	s.land(w, reply, nil)
+}
+
+func displayLanguage(value string) string {
+	if value == "ja" || value == "en" {
+		return value
+	}
+	return ""
 }
 
 func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {

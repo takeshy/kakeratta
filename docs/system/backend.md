@@ -50,6 +50,8 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 
 For a post without an image, `readLink` extracts an explicit URL or a URL in the text and attaches the fetched page content. `capture.Fetch` checks HTTP(S), connection IPs, and response size, and removes scripts and other non-content elements.
 
+Posts and replies accept optional `language` (`ja` or `en`) from the browser and persist it as `Entry.Language`; other values become empty. Infographics use it to translate their content to the display language selected at submission. Existing entries without a language remain compatible. Persona HTML answers stay in `Entry.Text` and use the usual timeline persistence and APIs; HTML is rendered only in the browser's sandboxed frame.
+
 `land` persists the entry with `CreateEntry`, emits an event, and calls `Runner.React`, which saves a durable reaction. Only the request that created the entry reacts; a concurrent duplicate returns the stored entry, or 409 for different content, and its image is removed. The HTTP response does not wait for persona answers. Runner analyzes an image once before waking personas, so they all receive the same reading.
 
 ## Retries and changes
@@ -74,6 +76,7 @@ Replies check that the target exists and is not deleted. Editing a post notifies
 | Field | Purpose |
 | --- | --- |
 | `ID` | Entry identifier |
+| `Text`, `Language` | Body (including complete HTML answers), optional submission display language |
 | `Kind` | `post`, `remark`, or `reply` |
 | `Speaker` | `user`, `kakeratta`, or a persona ID |
 | `Root` | ID of the post starting the conversation |
@@ -139,7 +142,7 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 
 `ConfiguredSettings` returns saved choices. `Settings` applies defaults and model fallbacks for execution. This separation prevents an empty field in the editor from being overwritten with its runtime fallback.
 
-New workspaces default to the built-in sona (`routine`) and kakeratta support (`support`) being active. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
+New workspaces default to the built-in sona (`routine`) and kakeratta support (`support`) being active. Persona definitions save the optional `memoryEnabled` flag; false disables private memory and periodic check-ins (see [Optional persona memory](./personas.md#optional-persona-memory)), while external-agent preference remains an independent saved setting. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
 
 `Server.client` creates an `llm.Client` from effective settings. OpenRouter mode uses its own key and model choices. Ordinary persona answers use the middle model; replies asking for a deeper answer use the high model; the decision to escalate uses the low model. Vision and routing models have separate roles.
 

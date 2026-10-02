@@ -42,6 +42,15 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   const backdrop = el("div", { class: "dialog-backdrop" });
   const form = el("div", { class: "persona-form" });
   const error = el("p", { class: "hint", role: "alert" });
+  const memoryEnabled = el("input", { type: "checkbox", class: "persona-memory-enabled", checked: persona.memoryEnabled !== false, disabled: ai });
+  memoryEnabled.checked = persona.memoryEnabled !== false;
+  form.append(el("label", { class: "switch" }, memoryEnabled, el("span", { label: "記憶する" })),
+    el("p", { class: "hint", label: "オフにするとメモの保存と読み取り、チェックインを行いません。" }));
+  memoryEnabled.addEventListener("change", () => showKind());
+  const alwaysUltra = el("input", { type: "checkbox", class: "persona-always-ultra", disabled: ai });
+  alwaysUltra.checked = persona.alwaysUltra === true;
+  form.append(el("label", { class: "switch" }, alwaysUltra, el("span", { label: "常に熟考する" })),
+    el("p", { class: "hint", label: "通常の依頼にもUltraで回答します。" }));
 
   // A person is reached by its names and keywords instead of the router, so
   // those replace the condition as what decides; the condition stays as what
@@ -88,7 +97,8 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   function showKind() {
     termBox.hidden = !person.checked;
     boxes.basicInfo.hidden = !person.checked;
-    boxes.tone.hidden = boxes.memory.hidden = person.checked;
+    boxes.tone.hidden = person.checked;
+    boxes.memory.hidden = person.checked || !memoryEnabled.checked;
     labels.domain.textContent = t(person.checked ? "関係性（例：恋人、母、大学時代の友人）" : "担当条件（振り分けに使います）");
     // A relationship is a line, and a person's own instructions a couple; a
     // condition and a subject's instructions are paragraphs.
@@ -114,7 +124,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools));
 
   function read() {
-    const draft = { ...persona };
+    const draft = { ...persona, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked };
     for (const field of fields) draft[field.key] = inputs[field.key].value.trim();
     if (person.checked) draft.tone = draft.memory = "";
     draft.tools = available.filter((name) => toolBoxes[name].checked);
@@ -150,6 +160,8 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   }
 
   function setDraftEditable(value) {
+    memoryEnabled.disabled = !value;
+    alwaysUltra.disabled = !value;
     for (const field of fields) inputs[field.key].readOnly = !value;
     for (const box of Object.values(toolBoxes)) box.disabled = !value;
     for (const input of Object.values(terms)) input.readOnly = !value;
@@ -157,6 +169,8 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
 
   function apply(draft) {
     proposalReady = true;
+    if (typeof draft.memoryEnabled === "boolean") memoryEnabled.checked = draft.memoryEnabled;
+    if (typeof draft.alwaysUltra === "boolean") alwaysUltra.checked = draft.alwaysUltra;
     setDraftEditable(true);
     for (const field of fields) {
       if (typeof draft[field.key] === "string") inputs[field.key].value = draft[field.key];

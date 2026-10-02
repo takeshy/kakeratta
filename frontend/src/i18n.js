@@ -1,6 +1,9 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "常に熟考する": "Always think deeply",
+ "通常の依頼にもUltraで回答します。": "Use Ultra for ordinary requests too.",
+ "インフォグラフィック": "Infographic",
  "Hermes連携の使い方（別タブで開く）": "Hermes setup guide (opens in a new tab)",
  "外部エージェント連携（Hermes）": "External agent (Hermes)",
  "担当画面で「外部エージェントを優先する」をONにした担当は、調べものと回答を接続したエージェントに任せます。記憶・予定・操作はアプリが決めて実行します。": "A persona with “Prefer the external agent” on in Personas leaves the research and the answer to the connected agent. The app decides and runs its notes, schedules and actions.",
@@ -153,6 +156,8 @@ const EN = {
   "通知の設定を読み込めませんでした。": "Could not load notification settings.",
   "通知の許可をブラウザの設定で確認してください。": "Check notification permission in your browser settings.",
   "通知を解除できませんでした。もう一度お試しください。": "Could not disable notifications. Please try again.",
+  "記憶する": "Remember",
+  "オフにするとメモの保存と読み取り、チェックインを行いません。": "When off, this persona neither saves nor reads memory and does not check in.",
   "この担当の通知予定": "Notifications for this persona", "毎日": "Daily",
   "基本情報やかけらから登録された予定と、担当が置いた予定です。不要なら × で消せます。": "Schedules registered from basic information or fragments, and those set by the persona. Remove unwanted ones with ×.",
   "予定「{0}」を消す": "Remove schedule “{0}”", "予定「{0}」を消しますか": "Remove schedule “{0}”?",

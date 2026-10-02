@@ -134,3 +134,13 @@ test("a person's card shows the basic information and offers to edit it", async 
   tabs(view.element)[1].listeners.click();
   assert.equal(walk(view.element).filter((node) => node.className === "basic-info").length, 0);
 });
+
+test("a memoryless persona keeps editing and planner preferences without memory or check-in controls", async t => {
+  setup(t);
+  t.mock.method(api, "personas", async () => ({ personas: [{ id: "support", name: "support", builtin: true, active: true, memoryEnabled: false, domain: "kakerattaのサポート", tools: ["kakeratta_help"] }], tools: [], mcpConfigured: true }));
+  const view = createPersonas({ getSettings: () => ({}) });
+  await view.load();
+  const all = walk(view.element);
+  for (const label of ["修正", "AIで修正", "外部エージェントを優先する"]) assert.ok(all.some(n => n.textContent === label), label);
+  for (const label of ["覚えていること", "チェックインでは最低限のことだけ話す"]) assert.ok(!all.some(n => n.textContent === label), label);
+});

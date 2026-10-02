@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOutbox } from '../frontend/src/outbox.js';
 import { recentEntries } from '../frontend/src/local-store.js';
+import { setLanguage } from '../frontend/src/i18n.js';
 function setup(send) {
   const db = new Map(); let user = 'alice', online = false;
   const record = async (key, value, owner = user) => { const k = `${owner}:${key}`; if (value === undefined) return structuredClone(db.get(k)); if (value === null) db.delete(k); else db.set(k, structuredClone(value)); };
@@ -19,6 +20,19 @@ test('offline text and image survive restart; parent is sent before its reply', 
   assert.equal(sent[1].body.replyTo,sent[0].body.clientId);
   assert.equal(sent[0].body.image,'data:image/png;base64,YQ==');
   assert.equal((await s.box.entries()).length,0);
+});
+test('display language is captured when queued and survives a language change before delivery', async t => {
+  t.after(() => setLanguage('en'));
+  const sent = [];
+  const s = setup(async (path, body) => { sent.push(body); return { id: body.clientId }; });
+  setLanguage('ja');
+  const entry = await s.box.enqueue('/api/post', { text: 'infographic please' });
+  assert.equal(entry.language, 'ja');
+  setLanguage('en');
+  await s.box.enqueue('/api/reply', { text: 'next', replyTo: entry.id }, entry);
+  s.online(true);
+  await s.restart().flush();
+  assert.deepEqual(sent.map(body => body.language), ['ja', 'en']);
 });
 test('lost response retries the identical request ID and body; another account cannot send it',async()=>{
  const sent=[];let fail=true;

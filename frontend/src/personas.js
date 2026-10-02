@@ -308,35 +308,37 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     // 07:00 and 21:00: once a day, or - for a person seen now and then - once
     // a month, reading the month's summary. The user chooses how often a
     // person is looked back on, and how much any of them says.
-    const schedule = row.dailyCheckIn || {};
-    const monthly = row.kind === "person" && schedule.every === "monthly";
-    const save = async (change, control) => {
-      control.disabled = true;
-      try {
-        const base = { talk: schedule.talk || "share", ...(row.kind === "person" ? { every: monthly ? "monthly" : "" } : {}) };
-        const payload = await api.setDailyCheckIn(row.id, { ...base, ...change });
-        rows = payload.personas || rows;
-        onChange?.(rows);
-        draw();
-      } catch (error) {
-        toast(String(error.message || error), "error");
-        draw();
+    if (row.memoryEnabled !== false) {
+      const schedule = row.dailyCheckIn || {};
+      const monthly = row.kind === "person" && schedule.every === "monthly";
+      const save = async (change, control) => {
+        control.disabled = true;
+        try {
+          const base = { talk: schedule.talk || "share", ...(row.kind === "person" ? { every: monthly ? "monthly" : "" } : {}) };
+          const payload = await api.setDailyCheckIn(row.id, { ...base, ...change });
+          rows = payload.personas || rows;
+          onChange?.(rows);
+          draw();
+        } catch (error) {
+          toast(String(error.message || error), "error");
+          draw();
+        }
+      };
+      const minimal = el("input", { type: "checkbox", checked: schedule.talk === "minimal", disabled: !row.active });
+      minimal.addEventListener("change", () => void save({ talk: minimal.checked ? "minimal" : "share" }, minimal));
+      const controls = el("div", { class: "compose-row" });
+      if (row.kind === "person") {
+        const every = el("select", { class: "check-in-every", "aria-label": t("振り返る頻度"), disabled: !row.active },
+          el("option", { value: "", label: "毎日振り返る" }),
+          el("option", { value: "monthly", label: "月1回振り返る" }));
+        every.value = monthly ? "monthly" : "";
+        every.addEventListener("change", () => void save({ every: every.value }, every));
+        controls.append(every);
       }
-    };
-    const minimal = el("input", { type: "checkbox", checked: schedule.talk === "minimal", disabled: !row.active });
-    minimal.addEventListener("change", () => void save({ talk: minimal.checked ? "minimal" : "share" }, minimal));
-    const controls = el("div", { class: "compose-row" });
-    if (row.kind === "person") {
-      const every = el("select", { class: "check-in-every", "aria-label": t("振り返る頻度"), disabled: !row.active },
-        el("option", { value: "", label: "毎日振り返る" }),
-        el("option", { value: "monthly", label: "月1回振り返る" }));
-      every.value = monthly ? "monthly" : "";
-      every.addEventListener("change", () => void save({ every: every.value }, every));
-      controls.append(every);
+      controls.append(el("label", { class: "switch" }, minimal, el("span", { label: "チェックインでは最低限のことだけ話す" })));
+      box.append(controls);
+      box.append(el("p", { class: "hint", text: checkInHint(row) }));
     }
-    controls.append(el("label", { class: "switch" }, minimal, el("span", { label: "チェックインでは最低限のことだけ話す" })));
-    box.append(controls);
-    box.append(el("p", { class: "hint", text: checkInHint(row) }));
     if (row.schedules?.length) {
       box.append(notificationSchedules(row, (payload) => updateRows(payload.personas || rows)));
       box.append(el("p", { class: "hint", label: "基本情報やかけらから登録された予定と、担当が置いた予定です。不要なら × で消せます。" }));
@@ -353,7 +355,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         el("span", { class: "spacer" }),
         el("button", { class: "chip ghost", label: "修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted }) }),
         el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, ai: true }) }),
-        el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
+        row.memoryEnabled === false ? null : el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
         row.builtin
           ? null
           : el("button", {
@@ -373,6 +375,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   // focusPath: a note to open and scroll to first - the one a remark on the
   // timeline said it wrote.
   async function showMemory(row, focusPath = "") {
+    if (row.memoryEnabled === false) return;
     // The notes only grow, so they come a page at a time, the most recently
     // written first. The first page also names every note, for links and the
     // count.

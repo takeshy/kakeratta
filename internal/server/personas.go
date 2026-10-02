@@ -47,6 +47,9 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 			planner = store.PlannerExternal
 		}
 		checkIn := settings.CheckInFor(skill.ID)
+		if !skill.Remembers() {
+			checkIn = store.DailyCheckIn{}
+		}
 		if checkIn.Every == store.CheckInMonthly {
 			checkIn.On = store.SummaryDay(s.store.Root())
 		}
@@ -208,6 +211,10 @@ func (s *Server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 // When it runs is the app's to choose, so only Talk is kept.
 func (s *Server) putDailyCheckIn(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if skill, ok := s.catalogue.Find(r.Context(), id); ok && !skill.Remembers() {
+		fail(w, http.StatusBadRequest, "記憶しない担当はチェックインしません")
+		return
+	}
 	if _, ok := s.catalogue.Find(r.Context(), id); !ok {
 		fail(w, http.StatusNotFound, "担当が見つかりません")
 		return

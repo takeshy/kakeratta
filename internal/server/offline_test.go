@@ -11,7 +11,7 @@ import (
 
 func TestOfflinePostRetryPreservesEntry(t *testing.T) {
 	s, st := app(t)
-	body := postBody{ClientID: "local-12345678-1234-1234-1234-123456789abc", ClientAt: time.Now().Add(-time.Hour).UTC(), Text: "offline"}
+	body := postBody{ClientID: "local-12345678-1234-1234-1234-123456789abc", ClientAt: time.Now().Add(-time.Hour).UTC(), Text: "offline", Language: "en"}
 	send := func(body postBody) *httptest.ResponseRecorder {
 		raw, _ := json.Marshal(body)
 		r := httptest.NewRequest("POST", "/api/post", bytes.NewReader(raw))
@@ -33,6 +33,9 @@ func TestOfflinePostRetryPreservesEntry(t *testing.T) {
 	}
 	if !entries[0].At.Equal(body.ClientAt) {
 		t.Fatal("offline creation time lost")
+	}
+	if entries[0].Language != "en" {
+		t.Fatal("display language lost")
 	}
 	body.Text = "different"
 	if send(body).Code != 409 {

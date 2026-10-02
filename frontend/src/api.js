@@ -2,6 +2,7 @@ import { verifyIdentity } from "./auth.js";
 import { localIdentity, localRecord, localList } from "./local-store.js";
 import { createAPIRequest } from "./api-request.js";
 import { createOutbox } from "./outbox.js";
+import { getLanguage } from "./i18n.js";
 // The only place that knows how to reach the relay.
 //
 // Everything goes through the relay: the keys are there, the reactions are
@@ -69,13 +70,13 @@ export const api = {
     if (before) query.set("before", before);
     return call("GET", `/api/timeline?${query}`);
   },
-  post: (body) => localIdentity() ? outbox.enqueue("/api/post", body) : call("POST", "/api/post", body),
+  post: (body) => localIdentity() ? outbox.enqueue("/api/post", body) : call("POST", "/api/post", { ...body, language: getLanguage() }),
   searchTimeline: (body) => call("POST", "/api/timeline/search", body),
   thread: (id) => call("GET", `/api/thread/${encodeURIComponent(id)}`),
   // What one speaker said, newest first: the list a name on the timeline opens.
   speaker: (id, { limit = 20, offset = 0 } = {}) => call("GET", `/api/speaker/${encodeURIComponent(id)}?limit=${limit}&offset=${offset}`),
   reply: async (replyTo, text, speechAutoSend = false) => {
-    const body = { replyTo, text, speechAutoSend };
+    const body = { replyTo, text, speechAutoSend, language: getLanguage() };
     if (!localIdentity()) return call("POST", "/api/reply", body);
     const local = [...(await localRecord("timeline").catch(() => [] ) || []), ...await localList("ack:"), ...(await outbox.entries()).map(item => item.entry)];
     const parent = local.find(e => e.id === replyTo) || (await call("GET", `/api/thread/${encodeURIComponent(replyTo)}`)).entries?.find(e => e.id === replyTo);
