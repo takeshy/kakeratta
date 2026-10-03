@@ -1306,3 +1306,26 @@ test("favorite list removal confirms, cancellation preserves the saved entry", a
   assert.equal(questions.length,4);
   assert.ok(questions.every(question=>question===translate('この投稿をお気に入りから外しますか？')));
 });
+
+test("post places show a label without a map link, credits, and coordinate fallback", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  const post = { id: "place", kind: "post", speaker: "user", text: "hello", at: "2026-10-03T00:00:00Z" };
+  feed.set([{ ...post, place: { lat: 35, lon: 139, label: "Tokyo（JP）", approximate: true, geonameId: 1850147 } }]);
+  const [place] = feed.element.querySelectorAll(".entry-place");
+  assert.equal(place.children[0].tagName, "SPAN");
+  assert.equal(place.children[0].textContent, "📍 " + translate("{0}付近", "Tokyo（JP）"));
+  assert.equal(place.children.length, 1);
+  const credits = feed.element.querySelectorAll(".place-credit");
+  assert.equal(credits.length, 1);
+  assert.equal(credits[0].tagName, "FOOTER");
+  assert.equal(credits[0].children[1].href, "https://www.geonames.org/");
+  assert.equal(credits[0].children[3].href, "https://creativecommons.org/licenses/by/4.0/");
+  feed.set([{ ...post, place: { lat: 0, lon: 0 } }]);
+  assert.equal(feed.element.querySelectorAll(".entry-place")[0].children[0].textContent, "📍 0.0000, 0.0000");
+  assert.equal(feed.element.querySelectorAll(".place-credit").length, 0);
+  feed.set([post]);
+  assert.equal(feed.element.querySelectorAll(".entry-place").length, 0);
+});

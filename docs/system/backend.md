@@ -63,6 +63,12 @@ Posts and replies accept optional `language` (`ja` or `en`) from the browser and
 
 `land` calls `CreateEntry` with the entry and its initial routing reaction. Firestore commits both in one transaction; file storage writes the reaction first under the same mutex as the entry, so routing cannot claim it between writes. A failed reaction write rejects the submission before the entry is saved. After acceptance, `land` emits an event and calls `Runner.RouteAccepted` to start the already durable request. Restart recovery works even if the process stopped before that call. Only the request that created the entry queues routing; a concurrent duplicate returns the stored entry, or 409 for different content, and its image is removed. The HTTP response does not wait for persona answers. Runner analyzes an image once before waking personas, so they all receive the same reading.
 
+## Post location labels
+
+Before accepting a new browser post, [place.go](../../internal/server/place.go) resolves valid submitted coordinates through the first configured MCP tool named `reverse_geocode` (sorted by qualified name). It sends `lat` and `lng`, with a three-second budget including initial tool discovery. A successful structured result with `found: true` and a nonempty `place.name` supplies the label and optional country code and GeoNames ID. `Place.Approximate` marks this nearest-settlement label as approximate; it does not identify administrative boundaries. Coordinates remain unchanged. Existing submitted labels are retained without lookup; absent or invalid coordinates cause no lookup, and invalid coordinates are omitted.
+
+Unavailable tools, timeouts, errors, malformed results, and no match preserve the coordinates without a new label and do not reject the post. The label is persisted with the entry and routing reaction and is available in persona context. Request hashing precedes enrichment, so retries return the already saved location without another lookup. Existing entries are not backfilled. Verification: [place_test.go](../../internal/server/place_test.go).
+
 ## Retries and changes
 
 The device outbox supplies `clientId` and `clientAt`. An existing ID with the same hash returns the existing entry; different content for the same ID receives a 409. `clientEntry` answers retries early, before formatting or fetching; `CreateEntry` in `land` makes acceptance exclusive when simultaneous requests with the same ID pass that check.

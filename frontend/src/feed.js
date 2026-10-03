@@ -199,6 +199,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     clear(view);
     if (standalone) {
       for (const entry of entries.filter(entry => !entry.deleted)) view.append(entry.kind === "post" ? drawPost(entry) : drawSaid(entry, entry));
+      appendPlaceCredit();
       place();
       return;
     }
@@ -214,6 +215,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       view.append(el("p", { class: "note", label: "反応が付かないことがあります。付くときも、遅れて届きます。" }));
     }
     for (const thread of threads) view.append(drawThread(thread));
+    appendPlaceCredit();
     place();
     if (selection && active === postEditor?.input) {
       active.focus();
@@ -305,6 +307,17 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     return el("div", { class: "said said-markdown" }, renderMarkdown(entryText(entry)));
   }
 
+  function appendPlaceCredit() {
+    if (!entries.some(entry => !entry.deleted && entry.kind === "post" && entry.place?.approximate && entry.place?.label)) return;
+    view.append(el("footer", { class: "place-credit" },
+      el("span", { label: "地名データ：" }),
+      el("a", { href: "https://www.geonames.org/", target: "_blank", rel: "noreferrer", text: "GeoNames" }),
+      el("span", { text: " · " }),
+      el("a", { href: "https://creativecommons.org/licenses/by/4.0/", target: "_blank", rel: "noreferrer", text: "CC BY 4.0" }),
+      el("span", { label: "（最寄りの町・村を抽出）" }),
+    ));
+  }
+
   function drawPost(entry) {
     const media = entry.media;
     const mine = entry.speaker === "user";
@@ -342,6 +355,13 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         }),
       ),
     );
+    const place = entry.place;
+    if (place && Number.isFinite(place.lat) && Number.isFinite(place.lon) && Math.abs(place.lat) <= 90 && Math.abs(place.lon) <= 180) {
+      const label = place.label ? (place.approximate ? t("{0}付近", place.label) : place.label) : `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`;
+      node.append(el("div", { class: "entry-place" },
+        el("span", { text: `📍 ${label}` }),
+      ));
+    }
     if (entry.pending) node.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", entry.syncError) : t("端末に保存済み・送信待ち") }));
     if (entry.localImage) node.append(el("img", { class: "local-shot", src: entry.localImage, alt: t("キャプチャ") }));
     if (media?.blobId) {

@@ -1,6 +1,9 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "地名データ：": "Place names: ",
+ "（最寄りの町・村を抽出）": " (nearest town or village extracted)",
+ "{0}付近": "Near {0}",
  "お気に入り": "Favorites",
  "この投稿をお気に入りから外しますか？": "Remove this post from favorites?",
  "お気に入りを保存できませんでした": "Could not save the favorite",

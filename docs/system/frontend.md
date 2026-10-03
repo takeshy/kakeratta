@@ -72,6 +72,10 @@ The search panel includes **お気に入りのみ / Favorites only**. It sends `
 
 Verification: [feed.test.js](../../tests/feed.test.js) checks saving/removing posts, standalone answer rendering, omitting standalone reply links, confirmation and cancellation for favorite-list removal, immediate timeline removal, favorite list pagination, and stale filter responses; [search.test.js](../../tests/search.test.js) checks filtered pagination, empty queries, and toggling the filter.
 
+## Post locations
+
+[feed.js](../../frontend/src/feed.js) displays a saved post's location below its header in all shared feed views. Resolved labels appear as “地名（国コード）付近” or “Near name（country code）”; coordinates without a label use four decimal places. Posts without valid coordinates have no location row. Location text has no map link. A common footer below each feed containing approximate labels gives GeoNames attribution, a CC BY 4.0 license link, and an extraction notice; individual posts show only location text. User and provider text uses DOM text content. Verification: [feed.test.js](../../tests/feed.test.js).
+
 ## Merging data
 
 Startup displays cached device conversations before fetching server pages. SSE `entry` events add records, while `routed` and `turn` update routing displays. Reconnection refreshes the timeline and sends the outbox.

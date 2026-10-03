@@ -100,7 +100,8 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "空の投稿です")
 		return
 	}
-	s.land(w, entry, body.Place)
+	entry.Place = s.resolvePlace(r.Context(), entry.Place)
+	s.land(w, entry, entry.Place)
 }
 
 // dropCapture removes the image a request saved for an entry that was not

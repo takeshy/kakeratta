@@ -45,9 +45,11 @@ type Source struct {
 // Place is where the user was. It is optional on purpose: a post from a desktop
 // has no meaningful position, and the app has to work without one.
 type Place struct {
-	Lat   float64 `json:"lat"`
-	Lon   float64 `json:"lon"`
-	Label string  `json:"label,omitempty"`
+	Lat         float64 `json:"lat"`
+	Lon         float64 `json:"lon"`
+	Label       string  `json:"label,omitempty"`
+	Approximate bool    `json:"approximate,omitempty"`
+	GeonameID   int64   `json:"geonameId,omitempty"`
 }
 
 // Media is an image that came in with a post, and what the app made of it.
@@ -308,6 +310,9 @@ func indent(text string) string {
 // decimal pair on its own, so the label is used when there is one.
 func (p Place) Describe() string {
 	if p.Label != "" {
+		if p.Approximate {
+			return p.Label + "付近"
+		}
 		return p.Label
 	}
 	return fmt.Sprintf("北緯%.4f 東経%.4f", p.Lat, p.Lon)

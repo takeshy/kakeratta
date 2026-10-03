@@ -833,3 +833,6 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .favorite-item { margin-bottom: 18px; }
 .favorites-view { display: grid; gap: .75rem; padding: 1rem; }
 .favorites-view select { max-width: 100%; }
+
+.entry-place { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; font-size: .85rem; margin: .4rem 0; overflow-wrap: anywhere; }
+.place-credit { font-size: .75rem; color: var(--muted); text-align: center; padding: .75rem; }

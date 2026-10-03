@@ -60,6 +60,10 @@ A tool `Declaration` carries a name, description, JSON Schema, and read-only sta
 
 The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. Returned external text is model input data, not an instruction to expand permissions.
 
+## Automatic post location lookup
+
+The host also calls an operator-configured `reverse_geocode` tool to label new posts with coordinates, independently of persona tool permissions. The geo-home-mcp contract accepts `{lat, lng}` and returns `structuredContent.found` and `place.{name,countryCode,geonameId}`. Labels describe the nearest settlement, not an address or administrative-area determination. The browser attributes GeoNames under CC BY 4.0. No separate geocoding service is used as fallback. See [post location labels](./backend.md#post-location-labels) for timeout, persistence, and failure behavior. [Catalogue.ToolsContext](../../internal/mcp/catalogue.go) bounds initial discovery using the caller's context; existing callers use `Tools`.
+
 ## Web search and news freshness
 
 `web_search` accepts `query` and optional `topic` (`general` or `news`), `time_range` (`day`, `week`, `month`, `year`), and publication-date bounds `start_date` / `end_date` (`YYYY-MM-DD`). The tool rejects empty or non-string filters, unknown categories or periods, invalid dates, reversed date bounds, and a relative period combined with date bounds before making a provider request. `Client.SearchWithOptions` validates the options and forwards them to Tavily; `Client.Search` keeps the ordinary unfiltered search used by settings key verification.

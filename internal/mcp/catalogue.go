@@ -119,6 +119,11 @@ func (c *Catalogue) fetch(ctx context.Context, client *Client) error {
 // refreshed in the background; a list that was never fetched is fetched now,
 // because a persona about to be prompted has nothing to show otherwise.
 func (c *Catalogue) Tools() []Listed {
+	return c.ToolsContext(context.Background())
+}
+
+// ToolsContext bounds initial discovery by the caller's deadline.
+func (c *Catalogue) ToolsContext(ctx context.Context) []Listed {
 	if c == nil {
 		return nil
 	}
@@ -142,7 +147,7 @@ func (c *Catalogue) Tools() []Listed {
 	}
 	c.mu.Unlock()
 	if len(wait) > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 		var wg sync.WaitGroup
 		for _, client := range wait {
