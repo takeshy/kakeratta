@@ -29,12 +29,13 @@ import (
 // one would need: asks waiting on the external agent, trials and locks are
 // kept in the workspace too.
 type Runner struct {
-	store     store.Workspace
-	catalogue *Catalogue
-	clientOf  func() (*llm.Client, store.Settings)
-	search    *search.Service
-	tools     tools.Config
-	emit      func(name string, data any)
+	store       store.Workspace
+	catalogue   *Catalogue
+	clientOf    func() (*llm.Client, store.Settings)
+	search      *search.Service
+	placeLookup func(context.Context, string) error
+	tools       tools.Config
+	emit        func(name string, data any)
 
 	// worker names this runner's claims; see queue.go for the rest.
 	worker   string
@@ -79,6 +80,9 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 
 // SetSearch shares the UI's indexing work with all personas. Set before Start.
 func (r *Runner) SetSearch(service *search.Service) { r.search = service }
+
+// SetPlaceLookup installs background location enrichment before Start.
+func (r *Runner) SetPlaceLookup(lookup func(context.Context, string) error) { r.placeLookup = lookup }
 
 // SetTools is the operator's tool configuration: search key, map endpoints and
 // MCP servers. Set before Start.

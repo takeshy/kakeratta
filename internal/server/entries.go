@@ -100,7 +100,7 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "空の投稿です")
 		return
 	}
-	entry.Place = s.resolvePlace(r.Context(), entry.Place, entry.Language)
+	entry.Place = submittedPlace(entry.Place)
 	s.land(w, entry, entry.Place)
 }
 

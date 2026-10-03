@@ -215,3 +215,31 @@ func TestUnifiedWindowNarrowsWordsAndStandsAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRegionWithinLastWeek(t *testing.T) {
+	w, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	lastWeek := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		id, region string
+		at         time.Time
+	}{
+		{"akita-last-week", "秋田県", lastWeek.Add(24 * time.Hour)},
+		{"akita-older", "秋田県", lastWeek.Add(-24 * time.Hour)},
+		{"other-last-week", "岩手県", lastWeek.Add(24 * time.Hour)},
+	} {
+		e := timeline.Entry{ID: tc.id, Kind: timeline.KindPost, Speaker: timeline.User, Text: "ここを散歩した", At: tc.at, Place: &timeline.Place{Label: "田沢湖生保内", Country: "日本", CountryCode: "JP", Region: tc.region}}
+		if err := w.Append(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := New(w).Unified(context.Background(), "秋田", Window{From: lastWeek, To: lastWeek.Add(7 * 24 * time.Hour)}, 20, 0, 0.5)
+	if err != nil || got.Total != 1 || got.Hits[0].Entry.ID != "akita-last-week" || !strings.Contains(got.Hits[0].Passage, "秋田県") {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if got.Hits[0].Entry.Place.Label != "田沢湖生保内" {
+		t.Fatal("display label changed")
+	}
+}

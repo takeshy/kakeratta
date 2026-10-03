@@ -432,3 +432,64 @@ func TestEditedDeliveryRetainsReactionWhenRecipientsCannotBeRead(t *testing.T) {
 		t.Fatalf("failed delivery was not deferred: %+v", items)
 	}
 }
+
+func TestLocationRetrySurvivesRestartAndStopsAfterThreeAttempts(t *testing.T) {
+	first, s, _ := setup(t, answering, "gourmet")
+	item := store.Reaction{ID: "place-test", Lane: "place-test", Entry: "post", Locate: true}
+	if err := s.SaveReaction(item); err != nil {
+		t.Fatal(err)
+	}
+	for attempt := 1; attempt <= 3; attempt++ {
+		r := New(s, first.catalogue, first.clientOf)
+		calls := 0
+		r.SetPlaceLookup(func(ctx context.Context, id string) error {
+			calls++
+			return errors.New("cold service")
+		})
+		r.Start()
+		r.Stop()
+		if calls != 1 {
+			t.Fatalf("attempt %d calls=%d", attempt, calls)
+		}
+		jobs := pending(t, s)
+		if attempt == 3 {
+			if len(jobs) != 0 {
+				t.Fatalf("exhausted job: %+v", jobs)
+			}
+			continue
+		}
+		if len(jobs) != 1 || jobs[0].Attempts != attempt || jobs[0].NotBefore.IsZero() {
+			t.Fatalf("retry state: %+v", jobs)
+		}
+		jobs[0].NotBefore = time.Time{}
+		if err := s.SaveReaction(jobs[0]); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestLocationRetryCanSucceedOnAnotherRunner(t *testing.T) {
+	first, s, _ := setup(t, answering, "gourmet")
+	first.SetPlaceLookup(func(context.Context, string) error { return errors.New("cold") })
+	if err := first.accept(store.Reaction{ID: "place-retry", Lane: "place-retry", Locate: true, Entry: "p"}); err != nil {
+		t.Fatal(err)
+	}
+	first.Start()
+	first.Stop()
+	jobs := pending(t, s)
+	if len(jobs) != 1 {
+		t.Fatalf("%+v", jobs)
+	}
+	jobs[0].NotBefore = time.Time{}
+	if err := s.SaveReaction(jobs[0]); err != nil {
+		t.Fatal(err)
+	}
+	next := New(s, first.catalogue, first.clientOf)
+	calls := 0
+	next.SetPlaceLookup(func(context.Context, string) error { calls++; return nil })
+	next.Start()
+	next.Stop()
+	if calls != 1 || len(pending(t, s)) != 0 {
+		t.Fatal("retry not completed")
+	}
+}

@@ -45,6 +45,9 @@ type Source struct {
 // Place is where the user was. It is optional on purpose: a post from a desktop
 // has no meaningful position, and the app has to work without one.
 type Place struct {
+	Country     string  `json:"country,omitempty"`
+	CountryCode string  `json:"countryCode,omitempty"`
+	Region      string  `json:"region,omitempty"`
 	Lat         float64 `json:"lat"`
 	Lon         float64 `json:"lon"`
 	Label       string  `json:"label,omitempty"`

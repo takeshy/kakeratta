@@ -32,9 +32,10 @@ type change struct {
 }
 
 type plan struct {
-	Project string   `json:"project"`
-	Refresh bool     `json:"refresh,omitempty"`
-	Changes []change `json:"changes"`
+	Project      string   `json:"project"`
+	Refresh      bool     `json:"refresh,omitempty"`
+	MetadataOnly bool     `json:"metadataOnly,omitempty"`
+	Changes      []change `json:"changes"`
 }
 
 func eligible(e timeline.Entry, refresh bool) bool {
@@ -60,6 +61,7 @@ func run() error {
 	planFile := flag.String("plan", "place-plan.json", "dry-run output or apply input (contains coordinates; keep private)")
 	config := flag.String("mcp-config", "", "file containing the operator MCP servers JSON array")
 	refresh := flag.Bool("refresh", false, "also refresh existing approximate geocoded labels; custom labels remain unchanged")
+	metadataOnly := flag.Bool("metadata-only", false, "refresh country and region while preserving existing display labels")
 	scan := flag.Bool("scan", false, "count eligible posts only; no MCP calls or writes")
 	apply := flag.Bool("apply", false, "apply an existing plan without MCP calls")
 	verify := flag.Bool("verify", false, "read back locations and compare with an existing plan")
@@ -87,7 +89,7 @@ func run() error {
 			return errors.New("plan project does not match target")
 		}
 		for _, c := range p.Changes {
-			if !validChange(c) || c.Before.Label != "" && !p.Refresh {
+			if !validChange(c) || c.Before.Label != "" && !p.Refresh || p.MetadataOnly && c.Before.Label != "" && c.Before.Label != c.After.Label {
 				return errors.New("invalid plan change")
 			}
 		}
@@ -130,6 +132,9 @@ func run() error {
 				{Path: "Place.Label", Value: c.After.Label},
 				{Path: "Place.Approximate", Value: c.After.Approximate},
 				{Path: "Place.GeonameID", Value: c.After.GeonameID},
+				{Path: "Place.Country", Value: c.After.Country},
+				{Path: "Place.CountryCode", Value: c.After.CountryCode},
+				{Path: "Place.Region", Value: c.After.Region},
 			}, firestore.LastUpdateTime(c.Updated))
 			if status.Code(err) == codes.FailedPrecondition || status.Code(err) == codes.NotFound {
 				skipped++
@@ -172,7 +177,7 @@ func run() error {
 		docs = client.Collection("users").Doc(*user).Collection("timeline").Documents(ctx)
 	}
 	defer docs.Stop()
-	p := plan{Project: *project, Refresh: *refresh}
+	p := plan{Project: *project, Refresh: *refresh || *metadataOnly, MetadataOnly: *metadataOnly}
 	total, candidates, noMatch := 0, 0, 0
 	for {
 		doc, err := docs.Next()
@@ -192,14 +197,14 @@ func run() error {
 			return err
 		}
 		total++
-		if !eligible(e, *refresh) {
+		if !eligible(e, *refresh || *metadataOnly) {
 			continue
 		}
 		candidates++
 		if *scan {
 			continue
 		}
-		callCtx, stop := context.WithTimeout(ctx, 10*time.Second)
+		callCtx, stop := context.WithTimeout(ctx, 60*time.Second)
 		result, err := catalogue.Call(callCtx, tool, map[string]any{"lat": e.Place.Lat, "lng": e.Place.Lon, "language": geocode.Language(e.Language)})
 		stop()
 		if err != nil {
@@ -215,6 +220,9 @@ func run() error {
 		if !found {
 			noMatch++
 			continue
+		}
+		if *metadataOnly && e.Place.Label != "" {
+			after.Label, after.Approximate, after.GeonameID = e.Place.Label, e.Place.Approximate, e.Place.GeonameID
 		}
 		if after == *e.Place {
 			continue

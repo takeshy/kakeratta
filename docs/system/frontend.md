@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites"]
-updated: "2026-10-03"
+updated: "2026-10-04"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
@@ -82,7 +82,7 @@ On screens up to 600px wide, post and reply headers reserve 36px on the right fo
 
 ## Post locations
 
-[feed.js](../../frontend/src/feed.js) displays a saved post's location below its header in all shared feed views. Resolved labels include localized municipality/district names when the geo service provides them, using the language saved when the post was submitted (Japanese for older posts without a language). Switching the current browser language does not re-geocode saved labels. Resolved labels appear as “地名付近” or “Near name”, without a country-code suffix; coordinates without a label use four decimal places. Posts without valid coordinates have no location row. Location text has no map link. A common footer below each feed containing approximate labels gives GeoNames attribution, a CC BY 4.0 license link, and an extraction notice; individual posts show only location text. User and provider text uses DOM text content. Verification: [feed.test.js](../../tests/feed.test.js).
+[feed.js](../../frontend/src/feed.js) displays a saved post's location below its header in all shared feed views. Resolved labels include localized municipality/district names when the geo service provides them, using the language saved when the post was submitted (Japanese for older posts without a language). Switching the current browser language does not re-geocode saved labels. Resolved labels appear as “地名付近” or “Near name”, without a country-code suffix; coordinates without a label use four decimal places. New posts do not wait for reverse geocoding: a later entry event replaces coordinates with the resolved label. Stored country and region fields are used for search and are not appended to this location row. Posts without valid coordinates have no location row. Location text has no map link. A common footer below each feed containing approximate labels gives GeoNames attribution, a CC BY 4.0 license link, and an extraction notice; individual posts show only location text. User and provider text uses DOM text content. Verification: [feed.test.js](../../tests/feed.test.js).
 
 ## Merging data
 

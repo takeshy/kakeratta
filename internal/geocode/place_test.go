@@ -32,3 +32,15 @@ func TestLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchHierarchyDoesNotChangeDisplay(t *testing.T) {
+	for _, tc := range []struct{ language, country, region, name string }{
+		{"ja", "日本", "秋田県", "田沢湖生保内"}, {"en", "Japan", "Akita", "Tazawako"},
+	} {
+		raw, _ := json.Marshal(map[string]any{"found": true, "place": map[string]any{"name": tc.name, "countryCode": "JP", "administrativeAreas": []any{map[string]any{"level": 1, "name": tc.region}}}})
+		got, found, err := Resolve(raw, timeline.Place{Lat: 39, Lon: 140}, tc.language)
+		if err != nil || !found || got.Label != tc.name || got.Country != tc.country || got.CountryCode != "JP" || got.Region != tc.region {
+			t.Fatalf("%+v %v", got, err)
+		}
+	}
+}

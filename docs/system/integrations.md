@@ -3,7 +3,7 @@ type: "Integration"
 title: "External agents, tools, and sharing"
 description: "External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky."
 tags: ["mcp", "agent", "tools", "support", "bluesky", "sharing", "weather"]
-updated: "2026-10-03"
+updated: "2026-10-04"
 ---
 
 External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
@@ -62,7 +62,7 @@ The external MCP Catalogue caches tool lists and refreshes them as needed. Some 
 
 ## Automatic post location lookup
 
-The host also calls an operator-configured `reverse_geocode` tool to label new posts with coordinates, independently of persona tool permissions. The geo-home-mcp contract accepts `{lat, lng, language}` (`ja` or `en`) and returns `structuredContent.found` and `place.{name,countryCode,geonameId,administrativeAreas}`. The returned country code is not appended to the saved location label. Administrative areas include `level` and localized `name`; the host combines levels 2–4 with the settlement name using the same shared parser as the backfill command. Japanese alternate names are used when available, with the source name as the geo service fallback. Labels describe the nearest settlement, not an address or administrative-area determination. The browser attributes GeoNames under CC BY 4.0. No separate geocoding service is used as fallback. See [post location labels](./backend.md#post-location-labels) for timeout, persistence, and failure behavior. [Catalogue.ToolsContext](../../internal/mcp/catalogue.go) bounds initial discovery using the caller's context; existing callers use `Tools`.
+The host asynchronously calls an operator-configured `reverse_geocode` tool to label new posts with coordinates, independently of persona tool permissions. The geo-home-mcp contract accepts `{lat, lng, language}` (`ja` or `en`) and returns `structuredContent.found` and `place.{name,countryCode,geonameId,administrativeAreas}`. The country code and its localized country name are saved for search, without being appended to the display label. Administrative areas include `level` and localized `name`; level 1 is retained separately as the search region, and the host combines levels 2–4 with the settlement name using the same shared parser as the backfill command. Japanese alternate names are used when available, with the source name as the geo service fallback. Labels describe the nearest settlement, not an address or administrative-area determination. The browser attributes GeoNames under CC BY 4.0. No separate geocoding service is used as fallback. See [post location labels](./backend.md#post-location-labels) for timeout, persistence, and failure behavior. [Catalogue.ToolsContext](../../internal/mcp/catalogue.go) bounds initial discovery using the caller's context; existing callers use `Tools`.
 
 ## Web search and news freshness
 

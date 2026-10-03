@@ -282,7 +282,7 @@ fold:
 		folded = append(folded, next.ID)
 	}
 	now := time.Now()
-	if !item.Due && !item.Index && !item.Route {
+	if !item.Due && !item.Index && !item.Route && !item.Locate {
 		// The work may have set a schedule or a retry; the
 		// workspace looks at its times again soon.
 		defer r.arm(time.Now().Add(soonDue))
@@ -302,6 +302,17 @@ fold:
 			_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
 			keep = true
 		}
+	case item.Locate:
+		if r.placeLookup != nil {
+			if err := r.placeLookup(ctx, item.Entry); err != nil {
+				log.Printf("place lookup: %v", err)
+				if item.Attempts < maxReactionAttempts {
+					_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
+					keep = true
+					r.arm(time.Now().Add(interruptedDelay))
+				}
+			}
+		}
 	case item.Ask != "":
 		r.resumeAsk(ctx, item.Ask)
 	case item.Deliver != "":
@@ -316,6 +327,14 @@ fold:
 		entry, exists := r.store.Entry(item.Entry)
 		if !exists || entry.Deleted || (item.EntryText != nil && entry.Text != *item.EntryText) {
 			return
+		}
+		if r.placeLookup != nil && entry.Kind == timeline.KindPost && entry.Place != nil && entry.Place.Label == "" {
+			id := "place-" + entry.ID
+			if err := r.accept(store.Reaction{ID: id, Lane: id, Entry: entry.ID, Locate: true}); err != nil {
+				_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
+				keep = true
+				return
+			}
 		}
 		plan, record, err := r.prepareEntry(ctx, item.Entry, item.Place, item.Edited)
 		if err != nil {
@@ -364,7 +383,7 @@ func (r *Runner) accept(item store.Reaction) error {
 	}
 	var err error
 	for attempt := 1; ; attempt++ {
-		if item.ID == store.DueReaction || item.ID == store.IndexReaction || item.Ask != "" {
+		if item.ID == store.DueReaction || item.ID == store.IndexReaction || item.Ask != "" || item.Locate {
 			// At most one waits at a time; one already waiting covers this.
 			if err = r.store.CreateReaction(item); errors.Is(err, store.ErrReactionExists) {
 				err = nil

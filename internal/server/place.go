@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
 
@@ -9,34 +10,46 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-// resolvePlace enriches the submitted coordinates without making a map outage
-// prevent a post. The request hash remains that of the original submission.
-func (s *Server) resolvePlace(ctx context.Context, place *timeline.Place, language string) *timeline.Place {
+func submittedPlace(place *timeline.Place) *timeline.Place {
 	if place == nil {
 		return nil
 	}
 	if math.IsNaN(place.Lat) || math.IsInf(place.Lat, 0) || math.Abs(place.Lat) > 90 || math.IsNaN(place.Lon) || math.IsInf(place.Lon, 0) || math.Abs(place.Lon) > 180 {
 		return nil
 	}
-	out := &timeline.Place{Lat: place.Lat, Lon: place.Lon, Label: place.Label}
-	if out.Label != "" || s.tools.MCP == nil {
-		return out
+	return &timeline.Place{Lat: place.Lat, Lon: place.Lon, Label: place.Label}
+}
+
+// enrichPlace runs in the durable location lane, independent of the HTTP request
+// and persona delivery. Discovery failures can retry after the catalogue cooldown.
+func (s *Server) enrichPlace(ctx context.Context, id string) error {
+	entry, exists := s.store.Entry(id)
+	if !exists || entry.Place == nil || entry.Place.Label != "" || s.tools.MCP == nil {
+		return nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	before := *entry.Place
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	for _, tool := range s.tools.MCP.ToolsContext(ctx) {
 		if tool.Name != "reverse_geocode" {
 			continue
 		}
-		result, err := s.tools.MCP.Call(ctx, tool.QualifiedName(), map[string]any{"lat": out.Lat, "lng": out.Lon, "language": geocode.Language(language)})
-		if err != nil || result.IsError {
-			return out
+		result, err := s.tools.MCP.Call(ctx, tool.QualifiedName(), map[string]any{"lat": before.Lat, "lng": before.Lon, "language": geocode.Language(entry.Language)})
+		if err != nil {
+			return err
 		}
-		resolved, found, err := geocode.Resolve(result.StructuredContent, *out, language)
+		if result.IsError {
+			return errors.New("reverse_geocode failed")
+		}
+		resolved, found, err := geocode.Resolve(result.StructuredContent, before, entry.Language)
 		if err != nil || !found {
-			return out
+			return err
 		}
-		return &resolved
+		current, changed, err := s.store.UpdatePlace(ctx, id, before, resolved)
+		if err == nil && changed {
+			s.publishEvent("entry", current)
+		}
+		return err
 	}
-	return out
+	return errors.New("reverse_geocode unavailable")
 }

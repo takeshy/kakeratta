@@ -54,8 +54,9 @@ type Reaction struct {
 	// Due runs whatever has come due - asks past their waits, note retries,
 	// expired records, check-ins, schedules - and arms the next time something
 	// will; Index brings the search index up to date.
-	Due   bool `json:"due,omitempty" firestore:"due,omitempty"`
-	Index bool `json:"index,omitempty" firestore:"index,omitempty"`
+	Due    bool `json:"due,omitempty" firestore:"due,omitempty"`
+	Index  bool `json:"index,omitempty" firestore:"index,omitempty"`
+	Locate bool `json:"locate,omitempty" firestore:"locate,omitempty"`
 	// IndexAgain records changes received while this pass holds its claim.
 	IndexAgain bool `json:"indexAgain,omitempty" firestore:"indexAgain,omitempty"`
 
@@ -313,7 +314,8 @@ func (s *Store) FinishReaction(_ context.Context, id, worker string, also ...str
 // notBefore, with its attempts spent afresh. It is for work that cannot be
 // done now and must not be dropped: a reaction given up on after its attempts
 // would otherwise be lost with whatever it was to set going. It reports
-// whether the reaction was worker's to defer.
+// whether the reaction was worker's to defer. Location jobs retain their attempts
+// so a permanently unavailable geocoder stops after the configured retry limit.
 func (s *Store) DeferReaction(_ context.Context, id, worker string, notBefore time.Time) (bool, error) {
 	if !safeName(id) {
 		return false, errors.New("reaction needs an id")
@@ -331,7 +333,10 @@ func (s *Store) DeferReaction(_ context.Context, id, worker string, notBefore ti
 	if item.ClaimedBy != worker {
 		return false, nil
 	}
-	item.ClaimedBy, item.ClaimUntil, item.Attempts, item.NotBefore = "", time.Time{}, 0, notBefore
+	item.ClaimedBy, item.ClaimUntil, item.NotBefore = "", time.Time{}, notBefore
+	if !item.Locate {
+		item.Attempts = 0
+	}
 	return true, writeJSON(path, item)
 }
 
@@ -585,9 +590,13 @@ func (w *FirestoreWorkspace) DeferReaction(ctx context.Context, id, worker strin
 			return err
 		}
 		deferred = true
+		attempts := 0
+		if item.Locate {
+			attempts = item.Attempts
+		}
 		return tx.Update(ref, []firestore.Update{
 			{Path: "claimedBy", Value: ""}, {Path: "claimUntil", Value: time.Time{}},
-			{Path: "attempts", Value: 0}, {Path: "notBefore", Value: notBefore},
+			{Path: "attempts", Value: attempts}, {Path: "notBefore", Value: notBefore},
 		})
 	})
 	return deferred && err == nil, err

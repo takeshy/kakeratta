@@ -4,6 +4,8 @@ package geocode
 import (
 	"encoding/json"
 	"errors"
+	lang "golang.org/x/text/language"
+	"golang.org/x/text/language/display"
 	"sort"
 	"strings"
 
@@ -25,6 +27,7 @@ func Resolve(raw json.RawMessage, before timeline.Place, language string) (timel
 		Found *bool `json:"found"`
 		Place struct {
 			Name                string `json:"name"`
+			CountryCode         string `json:"countryCode"`
 			GeonameID           int64  `json:"geonameId"`
 			AdministrativeAreas []struct {
 				Level int    `json:"level"`
@@ -73,6 +76,21 @@ func Resolve(raw json.RawMessage, before timeline.Place, language string) (timel
 	}
 	appendName(name)
 	after := before
+	after.CountryCode = strings.ToUpper(strings.TrimSpace(result.Place.CountryCode))
+	after.Country, after.Region = "", ""
+	if region, err := lang.ParseRegion(after.CountryCode); err == nil && len(after.CountryCode) == 2 {
+		names := display.Japanese
+		if Language(language) == "en" {
+			names = display.English
+		}
+		after.Country = names.Regions().Name(region)
+	}
+	for _, area := range areas {
+		if area.Level == 1 {
+			after.Region = strings.TrimSpace(area.Name)
+			break
+		}
+	}
 	after.Label, after.Approximate, after.GeonameID = label, true, result.Place.GeonameID
 	return after, true, nil
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,7 +33,15 @@ func testPostPlaceAndRetry(t *testing.T, language string) {
 		expectedLabel = "Yokohama, Kohoku, Mamedo付近"
 	}
 	s, st := app(t)
-	calls := 0
+	var calls atomic.Int32
+	release := make(chan struct{})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			ID     json.RawMessage
@@ -54,9 +63,14 @@ func testPostPlaceAndRetry(t *testing.T, language string) {
 			w.WriteHeader(202)
 			return
 		case "tools/list":
+			select {
+			case <-release:
+			case <-r.Context().Done():
+				return
+			}
 			result = map[string]any{"tools": []any{map[string]any{"name": "reverse_geocode", "inputSchema": map[string]any{"type": "object"}}}}
 		case "tools/call":
-			calls++
+			calls.Add(1)
 			if req.Params.Name != "reverse_geocode" || req.Params.Arguments["lat"] != float64(35) || req.Params.Arguments["lng"] != float64(139) || req.Params.Arguments["language"] != expectedLanguage {
 				t.Errorf("wrong call: %+v", req.Params)
 			}
@@ -69,6 +83,10 @@ func testPostPlaceAndRetry(t *testing.T, language string) {
 	s.tools.MCP = mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: backend.URL}}, "test")
 	body, _ := json.Marshal(postBody{ClientID: "local-12345678-1234-1234-1234-123456789abc", ClientAt: time.Now().UTC(), Text: "hello", Language: language, Place: &timeline.Place{Lat: 35, Lon: 139}})
 	for i := 0; i < 2; i++ {
+		if i == 1 {
+			close(release)
+			s.Close()
+		}
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, httptest.NewRequest("POST", "/api/post", bytes.NewReader(body)))
 		if w.Code != 200 {
@@ -78,7 +96,13 @@ func testPostPlaceAndRetry(t *testing.T, language string) {
 		if err := json.Unmarshal(w.Body.Bytes(), &entry); err != nil {
 			t.Fatal(err)
 		}
-		if entry.Place == nil || entry.Place.Describe() != expectedLabel || entry.Place.GeonameID != 1850147 {
+		if i == 0 {
+			if entry.Place == nil || entry.Place.Label != "" {
+				t.Fatalf("post should return before geocoding: %+v", entry.Place)
+			}
+			continue
+		}
+		if entry.Place == nil || entry.Place.CountryCode != "JP" || entry.Place.Region != "神奈川県" || entry.Place.Describe() != expectedLabel || entry.Place.GeonameID != 1850147 {
 			t.Fatalf("place: %+v", entry.Place)
 		}
 		saved, ok := st.Entry(entry.ID)
@@ -86,29 +110,34 @@ func testPostPlaceAndRetry(t *testing.T, language string) {
 			t.Fatal("place not persisted")
 		}
 	}
-	if calls != 1 {
-		t.Fatalf("retried lookup: %d", calls)
+	if calls.Load() != 1 {
+		t.Fatalf("retried lookup: %d", calls.Load())
 	}
 }
 
-func TestResolvePlaceFallback(t *testing.T) {
-	s, _ := app(t)
-	if s.resolvePlace(context.Background(), nil, "ja") != nil {
-		t.Fatal("invented place")
+func TestSubmittedPlaceValidation(t *testing.T) {
+	if submittedPlace(nil) != nil || submittedPlace(&timeline.Place{Lat: 91}) != nil {
+		t.Fatal("invalid place retained")
 	}
-	if s.resolvePlace(context.Background(), &timeline.Place{Lat: 91}, "ja") != nil {
-		t.Fatal("invalid coordinates")
+	got := submittedPlace(&timeline.Place{Lat: 0, Lon: 0})
+	if got == nil || got.Label != "" {
+		t.Fatalf("%+v", got)
 	}
-	place := &timeline.Place{Lat: 0, Lon: 0}
-	got := s.resolvePlace(context.Background(), place, "ja")
-	if got == nil || got.Lat != 0 || got.Label != "" {
-		t.Fatalf("fallback: %+v", got)
+}
+func TestEnrichPlaceOutageIsRetryable(t *testing.T) {
+	s, st := app(t)
+	entry := timeline.Entry{ID: "place-outage", Kind: timeline.KindPost, At: time.Now(), Place: &timeline.Place{Lat: 35, Lon: 139}}
+	if err := st.Append(entry); err != nil {
+		t.Fatal(err)
 	}
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) }))
 	defer backend.Close()
 	s.tools.MCP = mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: backend.URL}}, "test")
-	got = s.resolvePlace(context.Background(), place, "ja")
-	if got == nil || got.Label != "" {
-		t.Fatalf("outage fallback: %+v", got)
+	if err := s.enrichPlace(context.Background(), entry.ID); err == nil {
+		t.Fatal("outage must be retryable")
+	}
+	saved, _ := st.Entry(entry.ID)
+	if saved.Place.Label != "" || saved.Place.Lat != 35 {
+		t.Fatal("coordinates changed")
 	}
 }

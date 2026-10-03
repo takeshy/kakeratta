@@ -87,7 +87,7 @@ func Text(entry timeline.Entry) string {
 		parts = append(parts, entry.Media.Text, entry.Media.Describe, entry.Media.Origin)
 	}
 	if entry.Place != nil {
-		parts = append(parts, entry.Place.Label)
+		parts = append(parts, entry.Place.Country, entry.Place.CountryCode, entry.Place.Region, entry.Place.Label)
 	}
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }

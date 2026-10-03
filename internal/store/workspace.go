@@ -19,6 +19,7 @@ type Workspace interface {
 	Root() string
 	Append(timeline.Entry) error
 	UpdateEntry(timeline.Entry) error
+	UpdatePlace(context.Context, string, timeline.Place, timeline.Place) (timeline.Entry, bool, error)
 	DeleteEntry(context.Context, string) ([]timeline.Entry, error)
 	// CreateEntry and UpdateText optionally persist one initial routing request
 	// before the entry becomes visible. Duplicate creation never queues twice.
