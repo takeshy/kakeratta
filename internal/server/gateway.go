@@ -48,7 +48,6 @@ type AuthOptions struct {
 	ListWorkspaces func(context.Context) ([]string, error)
 	// Tools is the operator's configuration, the same for every user.
 	Tools            tools.Config
-	AnswerRouter     persona.AnswerRouter
 	OpenWorkspace    func(userKey string, blobs store.BlobStore) (store.Workspace, error)
 	JudgeInviteToken string
 	JudgeAPIKey      string
@@ -489,7 +488,6 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 	options := Options{
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace),
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
-		AnswerRouter: g.options.AnswerRouter,
 	}
 	if g.shared != nil {
 		// A workspace here may be closed when idle, so it is woken from

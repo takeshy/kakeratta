@@ -29,13 +29,12 @@ import (
 // one would need: asks waiting on the external agent, trials and locks are
 // kept in the workspace too.
 type Runner struct {
-	store        store.Workspace
-	catalogue    *Catalogue
-	clientOf     func() (*llm.Client, store.Settings)
-	search       *search.Service
-	tools        tools.Config
-	answerRouter AnswerRouter
-	emit         func(name string, data any)
+	store     store.Workspace
+	catalogue *Catalogue
+	clientOf  func() (*llm.Client, store.Settings)
+	search    *search.Service
+	tools     tools.Config
+	emit      func(name string, data any)
 
 	// worker names this runner's claims; see queue.go for the rest.
 	worker   string
@@ -573,7 +572,7 @@ func (r *Runner) deliverEntry(outer context.Context, entryID string, transientPl
 	defer cancel()
 	parent, hasParent := r.store.Entry(entry.ReplyTo)
 	deep := ""
-	if !r.answerRouter.Switchyard() && hasParent && !parent.Deleted && plan.ReplySpeaker != "" {
+	if hasParent && !parent.Deleted && plan.ReplySpeaker != "" {
 		if Escalate(ctx, client, lightningModel(settings), parent, entry) {
 			deep = parent.Speaker
 		}
@@ -702,9 +701,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if deep {
 		model, slot = ultraModel(settings), "ultra"
 	}
-	answerClient, answerModel, answerSlot := r.answerRouter.Select(client, model, slot, deep)
-	slot = answerSlot
-	if answerClient == nil || answerClient.BaseURL == "" || answerModel == "" {
+	if client == nil || client.BaseURL == "" || model == "" {
 		return nil
 	}
 	if resumed == nil {
@@ -737,8 +734,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if skill.ID == "infographic" {
 		length += infographicRules(trigger, thread)
 	}
-	researchDeep := deep || r.answerRouter.Switchyard()
-	system := answerSystem(skill, length) + readSpec(set, researchDeep) + capabilityLine(set)
+	system := answerSystem(skill, length) + readSpec(set, deep) + capabilityLine(set)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -802,8 +798,8 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	var readSources []timeline.Source
 	read := []string{"記憶（最初に渡したもの）:\n" + memoryNote}
 	failures := map[string]string{}
-	readLimit := turnReadLimit(researchDeep)
-	budget := newLookups(readLimit, turnSearchLimit(researchDeep))
+	readLimit := turnReadLimit(deep)
+	budget := newLookups(readLimit, turnSearchLimit(deep))
 	var answer *Answer
 	// reader does what a persona asked to look at, within its own count.
 	// Research and the later phases count apart: research spending every
@@ -858,7 +854,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		// What the agent read is what the answer was researched with.
 		research := resumed.Research
 		readsUsed = research.ReadsUsed
-		budget = research.Lookups.restore(readLimit, turnSearchLimit(researchDeep))
+		budget = research.Lookups.restore(readLimit, turnSearchLimit(deep))
 		for _, id := range research.Referenced {
 			referenced[id] = true
 		}
@@ -888,11 +884,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	if answer == nil {
 		var err error
-		messages, err = research(ctx, answerClient, answerModel, messages, func() bool { return readsUsed < readLimit }, lookup)
+		messages, err = research(ctx, client, model, messages, func() bool { return readsUsed < readLimit }, lookup)
 		if err != nil {
 			return failed(err)
 		}
-		answer, err = composeAnswer(ctx, answerClient, answerModel, messages, rules)
+		answer, err = composeAnswer(ctx, client, model, messages, rules)
 		if err != nil {
 			return failed(err)
 		}

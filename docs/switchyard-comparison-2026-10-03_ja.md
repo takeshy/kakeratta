@@ -1,5 +1,7 @@
 # Switchyard比較試験 2026-10-03
 
+> 状態（2026-10-03）: この比較結果を受け、Switchyard連携・比較コマンド・サンプル設定を撤去し、回答モデルの選択を従来のSuper/Ultra方式に戻しました。本レポートは検証記録として残し、試験構成のリンクは実験時のコミットを参照します。
+
 [English](./switchyard-comparison-2026-10-03.md)
 
 付属の合成5ケースを各方式1回実行。Token Factoryを両方式で使用。OpenRouterキーは未使用。回答生成と従来の熟考判定を測定し、ツール・検索・記憶・本番書き込みは実行しない。
@@ -7,9 +9,9 @@
 ## 試験構成
 
 - Switchyard server: v0.3.0。
-- 設定: [routes.toml](../examples/switchyard/routes.toml)。
-- 入力: [replay.jsonl](../examples/switchyard/replay.jsonl)。
-- 実行: [cmd/router-replay](../cmd/router-replay/main.go) の `-mode both`。ケースごとに実行順序を交替。
+- 設定: [routes.toml](https://github.com/takeshy/kakeratta/blob/d7ae56de9315118d593b46d6dc2ae04f1ab22211/examples/switchyard/routes.toml)。
+- 入力: [replay.jsonl](https://github.com/takeshy/kakeratta/blob/d7ae56de9315118d593b46d6dc2ae04f1ab22211/examples/switchyard/replay.jsonl)。
+- 実行: [cmd/router-replay](https://github.com/takeshy/kakeratta/blob/d7ae56de9315118d593b46d6dc2ae04f1ab22211/cmd/router-replay/main.go) の `-mode both`。ケースごとに実行順序を交替。
 - 従来方式: 通常はSuper。返信時にLightningが熟考の必要性を判定し、必要ならUltra。
 - Switchyard: 各要求をLightningがlight（Lightning）・standard（Super）・deep（Ultra）に分類。
 

@@ -1,5 +1,7 @@
 # Switchyard comparison — 2026-10-03
 
+> Status (2026-10-03): The Switchyard integration, replay command, and sample configuration have been removed following this comparison. Answer routing has returned to the previous Super/Ultra behavior. This report is retained as a historical record; setup links point to the experiment commit.
+
 [日本語](./switchyard-comparison-2026-10-03_ja.md)
 
 Five shipped synthetic cases were run once per method, using Token Factory for both methods. The OpenRouter key was not used. The replay measures answer generation and the baseline's Lightning escalation decision. It runs no tools, searches, memory updates, or production writes.
@@ -7,9 +9,9 @@ Five shipped synthetic cases were run once per method, using Token Factory for b
 ## Setup
 
 - Switchyard server: v0.3.0.
-- Routing configuration: [routes.toml](../examples/switchyard/routes.toml).
-- Inputs: [replay.jsonl](../examples/switchyard/replay.jsonl).
-- Replay command: [cmd/router-replay](../cmd/router-replay/main.go), using `-mode both` and alternating execution order by case.
+- Routing configuration: [routes.toml](https://github.com/takeshy/kakeratta/blob/d7ae56de9315118d593b46d6dc2ae04f1ab22211/examples/switchyard/routes.toml).
+- Inputs: [replay.jsonl](https://github.com/takeshy/kakeratta/blob/d7ae56de9315118d593b46d6dc2ae04f1ab22211/examples/switchyard/replay.jsonl).
+- Replay command: [cmd/router-replay](https://github.com/takeshy/kakeratta/blob/d7ae56de9315118d593b46d6dc2ae04f1ab22211/cmd/router-replay/main.go), using `-mode both` and alternating execution order by case.
 - Baseline: Super answers by default; a Lightning decision on replies can escalate the answer to Ultra.
 - Switchyard: Lightning classifies each request into light (Lightning), standard (Super), or deep (Ultra).
 
