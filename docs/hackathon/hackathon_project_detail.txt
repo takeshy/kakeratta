@@ -22,7 +22,7 @@ The system is organized around four clear responsibilities:
 - **Favorites** = AI artifacts you want to keep (infographics, summaries, news analyses, or recommendations saved with one tap).
 - **Search** = A way to dig up past Timeline entries (hybrid keyword and semantic retrieval across forgotten moments).
 
-An example. On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't have time for. A travel persona quietly remembers it. Weeks later you post "Going to Shizuoka tomorrow." During its daily check-in, the persona connects the new post with the old memory:
+An example. On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't have time for. A user-created travel persona quietly remembers it. Weeks later you post "Going to Shizuoka tomorrow." During its daily check-in, the persona connects the new post with the old memory:
 
 "You didn't make it to that restaurant last time. Maybe this trip?"
 
@@ -53,7 +53,7 @@ kakeratta allows personas to be configured as **answer-only** (`memoryEnabled: f
 - **News and Explanations**: With date-filtered web search via Tavily, personas can research breaking news and provide deep, grounded background explanations without accumulating conversational baggage.
 - **Product Support (`support`)**: Answers questions by referencing the system's OKF documentation directly, remaining strictly factual without retaining personal memory.
 
-By bypassing note-keeping, summary rewriting, and action review phases for memoryless personas, kakeratta cuts inference tokens and latency substantially—saving operational costs while eliminating the annoyance of unsolicited memory accumulation and unprompted daily check-ins.
+Disabling memory skips note keeping, summary rewriting, and daily or monthly check-ins. A memoryless persona with only read tools also skips schedule/action planning and review calls. Personas permitted to schedule or take actions still use those phases, even with memory off. This avoids unnecessary calls and private-memory accumulation while preserving checks on state changes.
 
 ### Favorites: keeping what matters
 
@@ -73,8 +73,9 @@ From then on, Nagomi's persona collects related fragments. It can remind you bef
 
 ### Bringing things back, and letting them go
 
-- **Daily check-in.** Once a day, each active persona on a daily schedule reviews its memory alongside recent timeline activity, including posts never routed to it. A quieter mode speaks only when the user needs to decide something.
+- **Daily check-in.** Once a day, each active persona on a daily schedule reviews its memory alongside recent timeline activity, including posts never routed to it. It speaks when it has something useful to share, with amount and tone guided by its persona instructions.
 - **Monthly look-back for people.** Once a month, kakeratta summarizes the timeline once into an editable This month post, with each line linked to its source. Each person persona on a monthly schedule reads that summary plus the posts mentioning its person, surfacing things like "You haven't talked in a while" or "You said you'd do this together someday."
+- **Tasks at a requested time.** A persona with scheduling permission can deliver a full morning news digest or another explicitly requested task, using permitted tools again when the task runs. These tasks follow the requested content and format; autonomous preparation checks remain brief reminders.
 - **Scheduled preparation and follow-ups.** `sona` checks upcoming plans and preparation shortly before departure—comparing belongings and checking live WeatherAPI forecasts—and follows up on chores shortly after the promised moment ("Did you get the flowers?").
 - **Memories have an ending.** Notes keep what you said, summarized into concise field facts alongside dated records. Candidate lists a persona produced from searches expire automatically if you don't react. User-derived memories get review dates where the persona asks whether to keep, postpone, or forget. User-derived memories are never deleted automatically.
 
@@ -86,7 +87,7 @@ After opening kakeratta online once, you can reopen it offline, see recently cac
 
 ### Nothing is learned behind your back
 
-Every memory can be inspected, traced to the post that created it, corrected, or forgotten without deleting the original post.
+Every memory can be inspected, traced to its source where recorded, corrected, or forgotten without deleting the original post. Corrections and deletions mark the field summary for rebuilding at the next check-in, even when the affected fact is old. Removing the last fact in a field removes its unsupported summary immediately.
 
 Routing and replies can be corrected too. For any post, you can see which personas were called and why others weren't. Say "This persona should have received it," and the AI rewrites that persona's routing condition and retries the same post. For person personas, it proposes new keywords, or you choose which matched keyword to remove. Say "No recommendations, just one line on how it differs from last time," and only the reply behavior changes. The retried reply stays off the timeline until you approve it.
 
@@ -120,13 +121,18 @@ Super cost about 22% as much as Ultra, while matching the post-hoc reference on 
 
 That tradeoff made Super the default router. The cost estimates use recorded token usage and the experiment's prices and cover routing only. This was a small, post-hoc replay, not a general accuracy benchmark.
 
+OpenRouter is an optional provider mode with separate Router, High, Middle, and Low model selections. Jev (`~typesafe/jev-latest`) is selected in the Router picker; it no longer has a separate enable switch. Token Factory with Super routing remains the default.
+
+I also tested Switchyard as a separate classifier for choosing the answer model. In an October 3 answer-stage replay of five synthetic cases, each run once per method, the direct baseline averaged 2.84 seconds and Switchyard averaged 9.56 seconds. Switchyard was slower in all five cases and assigned a reconsideration request to Lightning instead of Ultra. I removed the integration and retained the existing Super answers with Lightning-based escalation to Ultra. This small experiment did not measure full-turn performance or total dollar cost; the [comparison report](https://github.com/takeshy/kakeratta/blob/main/docs/switchyard-comparison-2026-10-03.md) records the setup and limits.
+
 ### Persona memory: field summaries, kakera records, and answer-only bypass
 
-Long-term memory uses OKF (Open Knowledge Format) principles, refined into two lightweight, inspection-friendly structures per persona:
-- **Field summaries (`{Field}.md`):** Concise, user-grounded factual summaries (capped at 2,000 characters) maintained by the background note keeper.
+Long-term memory uses plain Markdown field files and dated records. The system documentation is a separate OKF (Open Knowledge Format) bundle that the support persona can read. Each memory-enabled persona keeps:
+
+- **Field files (`{Field}.md`):** Source-linked current and past facts maintained by a note keeper after answer publication, plus a concise summary (capped at 2,000 characters) refreshed before the next check-in.
 - **Kakera records (`records/YYYY-MM.md`):** One dated record line per relevant post with a short sentence, tags, and review/expiration dates.
 
-For personas configured as answer-only (`memoryEnabled: false`), this entire memory pipeline is bypassed. The model answers the prompt directly; note-keeper writes, summary rewrites, and post-answer review calls are omitted. This cuts inference cost and latency while eliminating unwanted memory clutter.
+For personas configured as answer-only (`memoryEnabled: false`), the memory pipeline is bypassed. Research with permitted tools remains available. Note-keeper writes, summary rewrites, and periodic check-ins are omitted; schedule/action planning and review calls are also skipped when the persona has only read tools. Explicit scheduled tasks still work when the persona has scheduling permission.
 
 The original timeline remains independent and searchable by keyword and embedding, even when no persona remembered a post. What a persona remembers, what artifacts you save to Favorites, and what actually happened on the Timeline are deliberately kept apart.
 
@@ -136,16 +142,22 @@ A service worker caches the application shell so the app can open without a conn
 
 ### An MCP server for external planners: NemoClaw and Hermes
 
-kakeratta also acts as an MCP server, allowing a persona's research and answer to be delegated to an external agent. I ran Hermes Agent inside NVIDIA NemoClaw / OpenShell, with Nemotron inference through Nebius Token Factory, and verified the full cycle against the production app: a user post opened a planning request, Hermes claimed it, read the persona's context, performed lookups, and submitted a workflow. kakeratta validated and reviewed that workflow, then executed it as the persona, including memory updates and a reply in the original thread. Since that run, the protocol has been narrowed: Hermes now submits only the answer, and kakeratta decides the schedules, actions and notes itself, one phase at a time, and assembles them with the answer into the workflow it checks and runs before publishing it. The narrower protocol is covered by automated tests but has not yet been re-verified end to end in NemoClaw.
+kakeratta also acts as an MCP server, allowing a persona's research and answer to be delegated to an external agent. Hermes Agent runs inside NVIDIA NemoClaw / OpenShell with Nemotron inference through Nebius Token Factory. In the current protocol, Hermes claims a request, reads the persona context, performs lookups, and submits only an answer through `submit_answer`. kakeratta plans, reviews, and executes any schedules and actions, publishes the reply, and then updates memory when enabled.
 
-The responsibility boundary stays the same whether the planner is built in or external: Hermes researches and answers; kakeratta decides and controls every change. Each persona can prefer the external planner, with the built-in model taking over if the agent is away or misses its deadline. A Wake Gate script checks for pending requests every minute without invoking an LLM when there is no work. This end-to-end flow completed autonomously; the reproduction steps and operational findings are documented in the [NemoClaw / OpenShell integration report](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md).
+The October 2 production verification found 30 external-answer turns saved as thread replies between September 27 and October 2 JST, including successful schedule review, execution, and persistence. Hermes inside NemoClaw was the only configured external planner in that single-user deployment; several replies were also matched against a user-provided Hermes session-database investigation by answer text and timing. Automated tests cover the answer, schedule, and note phases with mocked model responses. The [NemoClaw / OpenShell integration report](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md) distinguishes the original workflow protocol from this current answer-only verification.
+
+The responsibility boundary stays the same whether the planner is built in or external: Hermes researches and answers; kakeratta controls every change. Each persona can prefer the external planner, with the built-in model taking over if the agent is away or misses its deadline. A Wake Gate script checks for pending requests every minute without invoking an LLM when there is no work.
 
 ### Other design choices
 
 - **Images are analyzed once.** The text representation is shared with every relevant persona. The tradeoff: if the first analysis misses something, no persona can revisit the image from another angle.
 - **Tools belong to personas.** Each persona declares its own tools: web search with publication-date filters (Tavily), weather forecasts (WeatherAPI for outing preparation), place search (OpenStreetMap / Overpass / Nominatim), routes (OSRM), MCP-provided tools, and timeline/memory search.
-- **Doorstep delivery via Web Push.** Scheduled reminders and preparation alerts arrive directly on the user's mobile device through Web Push, reaching them right before they leave.
+- **Reminders via Web Push.** On registered devices, a successful scheduled post triggers a notification whose title shows the reminder text, truncated to 120 characters. Delivery is best effort; the saved timeline post remains available if push delivery fails.
 - **Isolated rendering and image export.** HTML infographics run in an isolated browser frame without external scripts or network access, and can be converted client-side into images to share directly to Bluesky.
+
+### Durable background work
+
+A post, reply, or edit is accepted only after its routing request has been saved with it. Firestore commits both atomically; local file storage writes the request first under the same lock. Workers recover queued work after a restart. Search indexing keeps a renewable claim throughout a pass, retains failed work for retry, and records changes arriving during the pass for a follow-up. These safeguards keep accepted work recoverable across process interruptions without treating execution as exactly once.
 
 ### Data handling
 
@@ -171,8 +183,8 @@ Repeated tuning showed that the biggest gains in answer quality came from changi
 
 - **Context.** A persona is given its own index, the post, and the remarks under it, not the whole timeline, and reads further notes only when it needs them.
 - **Notes.** Notes keep what the user said, not what an answer happened to research. A candidate list a persona produced expires automatically unless the user reacts to it, so memory does not fill with the persona's own guesses.
-- **Workflow.** Each turn is split into phases that build one workflow. The persona first writes only its answer, with no note format or change schema in its prompt; separate phases then add schedules, actions, and notes. When one call had to do everything, it shortened its replies to make room for the notes it was required to write. With the answer on its own, the model can spend its attention on what the user actually asked.
-- **Answer-only efficiency.** By allowing personas to be configured as memoryless (`memoryEnabled: false`), personas focused on tasks like infographics, news commentary, or technical support skip note keeping, summary rewriting, and action reviews entirely. This drastically reduces token costs and execution latency, while completely eliminating the annoyance of unwanted AI notes or unprompted check-ins.
+- **Workflow.** Each turn is split into phases that build one workflow. The persona first writes only its answer, with no note format or change schema in its prompt; separate phases then add schedules and actions. A note keeper runs after publication for personas with memory enabled. When one call had to do everything, it shortened its replies to make room for the notes it was required to write. With the answer on its own, the model can spend its attention on what the user actually asked.
+- **Answer-only efficiency.** Memoryless personas skip note keeping, summary rewriting, and periodic check-ins. When they have only read tools, they also skip schedule/action planning and review calls. This removes unnecessary model calls for infographics and support answers while retaining review for personas allowed to make changes.
 
 Building this changed how I think about context in personal AI. It is not only about retrieving the right information, but about deciding what belongs together, what stays separate, which AI may remember what, and who gets to correct those decisions.
 

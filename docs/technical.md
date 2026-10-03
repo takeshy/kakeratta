@@ -2,7 +2,7 @@
 
 [README](../README.md) · [日本語](technical_ja.md)
 
-Implementation reference: 2026-10-02. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
+Implementation reference: 2026-10-03. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
 
 You do not need this document to use kakeratta.
 
@@ -178,9 +178,11 @@ explicitly chosen original post or whole thread takes precedence.
 
 The current default router is **Nemotron 3 Super through Nebius Token Factory**.
 
-Advanced settings can instead use **Jev** for routing alone. Jev is a
-decision-oriented model and can be faster and cheaper for that narrow task, but
-it does not provide the exclusion reasons used by the normal routing-inspection
+Advanced settings offer **Use OpenRouter**, with separate Router, High, Middle,
+and Low model choices. Selecting **Jev** (`~typesafe/jev-latest`) in the Router
+slot uses OpenRouter's Decisions API for persona selection; the other slots
+use the selected OpenRouter models. Jev can be faster and cheaper for routing,
+but does not provide the exclusion reasons used by the normal routing-inspection
 UI.
 
 ### People are matched by words, not routed
@@ -435,14 +437,21 @@ The id is the persona's reply when it replied - which leads back to the
 fragment it answered - and the fragment itself when it did not. An edited
 fragment, or a retry, replaces its record rather than adding a second.
 
-**The summary is not the keeper's.** Once a day at the persona's check-in -
-daily, or monthly for a person looked back on monthly - and before it is woken
-for it, one call rewrites the summary of each field whose facts changed since
-the summary's day, handed the summary as it is, the facts added, changed and
-retired, and all that hold now. The same call is handed the facts that name
-only days already gone, and retires those that were plans - a reservation, an
-appointment - while an event that happened stays. A field with nothing new and
-nothing past costs nothing.
+**The summary is not the keeper's.** Before a persona's daily or monthly
+check-in, one call rewrites summaries whose facts changed since the summary's
+day or whose persisted `SummaryDirty` marker requires a refresh. Fact changes,
+direct corrections, and removal of fact sources set this marker, so edits to
+old facts are picked up regardless of their original dates. A field is not
+rewritten twice in one day; a failed rewrite is retried at the next check-in.
+
+For marked fields, the model receives the surviving current and past facts
+and must explicitly replace the summary, removing unsupported prose. Omitting
+a replacement is rejected; the marker clears only after the replacement is
+saved. The internal marker is hidden in the memory viewer. The same call can
+retire past-dated plans, such as reservations or appointments, while retaining
+facts about events that happened. With no changed or marked fields and no
+past-dated facts to review, no model call is needed. See
+[Field summaries](system/personas.md#field-summaries).
 
 If the keeper cannot finish, the answer is already out. Its input is saved as a
 note job before it runs, and failed memory work is retried after one minute,
@@ -482,12 +491,14 @@ roles could be changed without rebuilding the surrounding provider integration.
 Usage data also made the cost of those choices visible while the routing design
 was being changed.
 
-Advanced settings can:
+Advanced settings can enable **Use OpenRouter** with its own API key and
+Router, High, Middle, and Low model selections. Jev is an option in the Router
+picker, rather than an independent switch. Legacy `jevEnabled` settings migrate
+to OpenRouter enabled with `~typesafe/jev-latest` selected as Router. Token
+Factory remains the default provider.
 
-* move routing alone to Jev's Decisions API;
-* move the high, middle, and low slots to OpenRouter-selected models.
-
-OpenRouter tool calls use Exacto routing.
+OpenRouter tool calls use Exacto routing. See
+[Settings and model requests](system/backend.md#settings-and-model-requests).
 
 ## Image understanding happens once per post
 
@@ -611,8 +622,11 @@ fragment's own, or the reply that answered it - and takes the fragment out of
 the facts' sources: a fact that rested on it alone goes, without asking any
 model. Each persona that had a record is woken, but cannot speak and has
 nothing to answer: it may cancel the schedules it set for that fragment. The
-summary takes the change in at the next check-in. If only a persona's reply is
-deleted, its record is kept under the fragment instead.
+surviving field is marked for summary refresh at the next check-in. Removing
+the final current or past fact deletes the field and its unsupported summary
+immediately. Direct fact corrections and deletions use the same refresh rule
+without waking the persona. If only a persona's reply is deleted, its record
+is kept under the fragment instead.
 
 ### What a persona is given
 
@@ -637,11 +651,14 @@ persona keeps, which facts each prefers, which records get which date - those
 are in each skill's `memory`, written in plain words. The app holds no
 threshold for when to compress; it only holds the sizes.
 
-Memory kept an older way is not read: one OKF note per thing with an
-`index.md`, then prose fields rewritten with every fragment. Each was moved
-once by hand (`cmd/migrate-memory`): the persona's model drafts the new form, a
-person checks and edits the draft, and only then is it written. The prose
-fields became the first summaries, split into facts.
+Earlier memory formats included individual OKF notes with an `index.md`, then
+prose field files rewritten with each fragment. The current runtime expects
+field files and monthly records, but still reads an unmigrated prose field as
+its summary. Adding a fact preserves that prose. `cmd/migrate-memory` can draft
+a split of prose fields into facts for a person to review before applying it;
+the prose is retained as the field summary. This compatibility path is distinct
+from the older individual OKF-note format. See
+[Memory migration](system/operations.md#memory-migration).
 
 ### Favorites
 
@@ -964,6 +981,15 @@ ask whether they were bought.
 
 Preparation checks can run shortly before departure, using current forecasts when the outing region and date are known. Chore follow-ups run shortly after the relevant moment. Both require grounded timing and suppress repeated or completed checks.
 
+Schedules also record whether they implement an explicit user request
+(`userRequested`, submitted by the model as `user_requested`). A requested task,
+such as a morning news digest, researches again with permitted tools at wake
+time and produces the requested content, format, and amount. Missing private
+memory alone does not suppress it. Autonomous preparation and completion checks
+retain brief reminder instructions. Review checks the flag against the user's
+request, and recurring schedules preserve it. Both kinds work with memory off
+when the persona has scheduling permission.
+
 A schedule is claimed before the model executes so a failed or silent wake is
 not run repeatedly.
 
@@ -976,19 +1002,36 @@ set for it.
 Forgetting all of a persona's memory, pausing it, or removing it drops its
 pending schedules.
 
+### Reminder delivery via Web Push
+
+After a successful scheduled post is saved, the executing server sends an
+encrypted Web Push notification to the workspace's registered devices. The
+title contains the reminder text with whitespace collapsed and a limit of
+120 Unicode characters. Silent or failed wakes, ordinary replies, and daily
+check-ins do not trigger this notification.
+
+Users enable notifications per device; browser permission alone is not a
+subscription. The operator must configure VAPID keys, and the device needs
+HTTPS and browser support. Delivery is best effort, with no durable push queue
+or automatic retry. A failed notification does not remove the saved timeline
+post. See [Reminder push delivery](system/backend.md#reminder-push-delivery)
+and [Web Push configuration](system/operations.md#web-push-configuration).
+
 ### The browser does not need to stay open
 
 Check-ins and schedules are server-side.
 
 The browser can be closed.
 
-The server itself must still be running.
-
-The provided Cloud Run deployment keeps one instance available and allocates
-CPU outside request handling so the server can perform these periodic checks.
-It may scale to more instances; checks, schedules and reactions are taken up
-by whichever instance claims them in Firestore first, and work an instance
-left when it stopped is taken up by another.
+The reference Cloud Run deployment has `min_instance_count = 0`, so it can
+scale to zero. Cloud Tasks calls the authenticated due endpoint at the next
+scheduled wake and can start an instance to handle it. CPU remains allocated
+outside requests while an instance is running. With multiple instances,
+checks, schedules and reactions are taken by whichever instance claims them
+in Firestore first; interrupted queued work can be recovered after its lease
+expires. A local deployment, or one without Cloud Tasks, relies on in-process
+timers and needs the server running to wake on time. See
+[Times and wakes](system/architecture.md#times-and-wakes).
 
 Configured workspaces are restored after a restart, including Firestore-backed
 users.
@@ -998,6 +1041,24 @@ the next time anything of its comes due - a schedule, a check-in, a retry, an
 `expires` date - through a Cloud Tasks task (a timer where there is no queue),
 and the wake uses the same execution queue as ordinary persona work, so a busy
 queue can delay it.
+
+## Durable acceptance and indexing
+
+User posts, replies, and text edits save their routing request together with
+acceptance of the entry. Firestore uses a transaction. Local file storage
+writes the request before the entry under the same mutex; a failed queue write
+rejects acceptance. A process stopped between file writes can leave an orphan
+or stale request, which routing discards. After acceptance, routing can start
+immediately, and queued work remains recoverable if the process stops first.
+This is at-least-once processing, not an exactly-once guarantee. See
+[The reaction queue](system/architecture.md#the-reaction-queue).
+
+Search-index work retains and renews its claim until the pass completes.
+Changes arriving during a pass persist an `IndexAgain` marker so completion
+releases the same record for another pass. Failures defer the retained work
+for 30 seconds. This keeps another queue worker from indexing through a live
+claim and preserves updates received while indexing. See
+[API and persistent state](system/backend.md#timeline-search-and-indexing).
 
 ## Offline posting
 
@@ -1130,7 +1191,7 @@ With [mise](https://mise.jdx.dev):
 mise install
 ```
 
-uses `mise.toml` to install Go and Task.
+uses `mise.toml` to install Go, Node.js, and Task.
 
 Otherwise install Task manually:
 
@@ -1151,10 +1212,10 @@ Open:
 http://127.0.0.1:5173
 ```
 
-A new workspace starts with no active personas and leads the user through
-adding one.
-
-<img src="captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" width="390">
+A new workspace starts with sona, support, and infographic active. Existing
+workspaces retain their saved activation choices, including an explicitly
+empty list. Other built-in personas can be activated, and custom personas can
+be created from the UI.
 
 Enter a Nebius Token Factory API key in Settings.
 
@@ -1349,9 +1410,11 @@ Inference credentials were kept outside Hermes's own configuration. Requests
 left the sandbox through the OpenShell gateway and were proxied to Nebius Token
 Factory.
 
-Hermes-4-405B and Nemotron 3.5 Lightning were tested during development. The
-final operational configuration used Nemotron 3 Super 120B after Lightning
-produced unreliable tool calls in multistep tasks.
+Hermes-4-405B, Nemotron 3.5 Lightning, and Nemotron 3 Super were tested during
+development. Super was used after Lightning produced unreliable multistep
+tool calls. The current planner model recorded in the integration report is
+Nemotron 3 Ultra; its planner performance has not been measured against the
+other models in a controlled comparison.
 
 The sandboxed Hermes instance successfully connected to:
 
@@ -1363,8 +1426,14 @@ over Streamable HTTP MCP and discovered all 11 production MCP tools of the
 earlier, task-based integration in which Hermes was a persona of its own; the
 planning tools above have since replaced them.
 
-This was an integration verification of the execution path and tool boundary.
-It does not mean kakeratta itself depends on NemoClaw.
+The current answer-only protocol has also been verified in production. The
+October 2 review found 30 external-answer turns saved as thread replies between
+September 27 and October 2 JST, including successful schedule review, execution,
+and persistence. Hermes inside NemoClaw was the only external planner configured
+in that single-user deployment. Several replies were cross-checked against a
+user-provided Hermes session-database investigation by answer text and timing.
+The [integration report](nemoclaw-hermes-integration.md) distinguishes these
+results from the earlier protocols. kakeratta itself does not depend on NemoClaw.
 
 A Hermes installation can connect directly to the same MCP interface, while
 NemoClaw/OpenShell provides the tested sandboxed configuration used for the

@@ -28,6 +28,8 @@ The same literalism appeared when I let Nemotron 3 Super run as an external plan
 
 In the same setup, Nemotron 3.5 Lightning was extremely fast (2-3 seconds) but omitted arguments, broke JSON in multi-step MCP calls, and fell into troubleshooting loops on transient tool errors, so I used Super as the planner at first. I later dropped Super after it confused two frameworks and kept the error even when I corrected it. I then tried Hermes-4-405B, the model Hermes Agent recommends, but that trial ended in the runaway bill described below. The planner now runs on Nemotron 3 Ultra, which kakeratta already uses for persona drafting and deeper answers.
 
+The current `submit_answer` protocol has now been verified in production: the October 2 review found 30 external-answer thread replies from September 27 through October 2 JST, including successful schedule execution and persistence. Hermes inside NemoClaw was the only external planner configured for that single-user deployment, and several replies were cross-checked against Hermes session records. The [integration report](https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md) records the scope of that verification.
+
 Rather than relying on prompt tuning alone, I changed the application structure: workflows are validated before execution, models see only the tools and schema relevant to their role, and deterministic checks are handled in code. The original failures are now covered by regression tests.
 
 Tool calling and Japanese-language quality were strong, but reliable multi-step execution still required application-level safeguards, so I rate the raw output quality 7 / 10.
@@ -101,9 +103,19 @@ Each turn is now split by responsibility. The persona reads with read-only tools
 
 Each phase sees only the schema it needs, and a persona that cannot create schedules or take actions never sees those phases.
 
-Crucially, kakeratta also supports answer-only personas (`memoryEnabled: false`) for tasks like HTML infographics, news commentary, or technical documentation support. For these personas, the entire post-answer pipeline—note keeping, summary rewriting, scheduled check-ins, and execution review—is bypassed. The turn completes immediately after delivering the answer. This structural bypass eliminates unwanted AI memory accumulation and unsolicited check-ins, while drastically cutting token usage and inference cost.
+kakeratta also supports answer-only personas (`memoryEnabled: false`) for tasks like HTML infographics, news commentary, or technical documentation support. They receive no private memory and skip note keeping, summary rewriting, and daily or monthly check-ins. A memoryless persona with only read tools also skips schedule/action planning and review calls. Scheduling and action permissions remain independent of memory: an explicitly requested morning news digest can still run, research fresh information, and deliver the requested full answer, with the usual review of schedule or action changes. This removes unnecessary calls without bypassing checks on state changes.
 
 Anything that can be verified deterministically is checked in code. Only plans that include a schedule or an external action are reviewed by Super, and a failed review regenerates only the phase it blamed.
+
+Recent reliability work also keeps memory summaries aligned with corrections: editing or removing a fact marks its field for summary refresh at the next check-in, even if the fact predates the last summary. Removing the final current or past fact deletes the unsupported summary immediately. Regression tests cover corrections, deletions, and required replacement summaries.
+
+5. Testing and removing an extra answer-routing layer
+
+On October 3, I compared the existing answer path with Switchyard v0.3.0, using Lightning to classify requests into Lightning, Super, or Ultra answer routes. This was separate from the persona Router: it selected the model that would answer after persona selection.
+
+Five synthetic answer-stage cases were each run once per method through Token Factory. The direct baseline averaged 2.84 seconds; Switchyard averaged 9.56 seconds and was slower in every case. Its classifier alone generated 9,746 output tokens including reasoning, and it chose Lightning for a reconsideration request intended for Ultra. I removed the integration, replay command, and sample configuration. Normal answers again use Super, replies use Lightning's narrow escalation check, and explicitly deep or `alwaysUltra` turns use Ultra.
+
+The [comparison report](https://github.com/takeshy/kakeratta/blob/main/docs/switchyard-comparison-2026-10-03.md) is retained as evidence. These were single runs without tools, search, memory updates, or production writes; they do not establish statistical performance or total cost. For this tested configuration, the extra classifier did not justify keeping another routing layer.
 
 ## How did Nemotron's performance compare to other models you've used for similar tasks?
 
@@ -140,7 +152,7 @@ After using Nemotron through Token Factory and measuring both output quality and
 
 Image understanding with GLM-5.3-Flash and embeddings with Qwen3-Embedding-8B are available through the same Token Factory API. This means the default kakeratta configuration can use text generation, vision, and embeddings through a single inference platform rather than requiring users to configure multiple providers.
 
-Advanced users can still point individual model roles elsewhere, but ordinary use does not require choosing a provider or model.
+Token Factory remains the default. Users can also enable **Use OpenRouter** and choose Router, High, Middle, and Low models with a separate API key. Jev (`~typesafe/jev-latest`) is an option in that Router picker, rather than a separate toggle. Existing Jev settings migrate to the equivalent OpenRouter selection.
 
 Native tool calling was particularly important. tool_choice: "required" allowed kakeratta to implement routing, persona workflows, and execution review as actual tool calls rather than asking models to generate JSON inside normal responses.
 
@@ -180,7 +192,7 @@ Compared with other cloud AI APIs, the most striking quality was stability.
 
 With other APIs, I have encountered 429 Too Many Requests responses during development with as few as four concurrent calls. During this project and at my usage volume, I did not encounter a single 429 response or inference timeout from Token Factory.
 
-That mattered because one kakeratta post can fan out into several concurrent and chained model calls. After routing, selected personas run in parallel, and each persona may read data, answer, run its schedule and action phases, have the plan reviewed, and retry if the review rejects it. A failure anywhere in that chain can cause that persona's turn to be lost.
+That mattered because one kakeratta post can fan out into several concurrent and chained model calls. After routing, selected personas run in parallel, and each persona may read data, answer, run its schedule and action phases, have the plan reviewed, and retry if the review rejects it. A model failure can still prevent a turn from completing successfully, so recovery also matters. Accepted posts, replies, and edits persist their routing request with the entry; queued work survives restarts. Search-index passes retain their lease through execution, preserve retries after failure, and schedule another pass for changes received while indexing. These changes improve durability without guaranteeing that every model call succeeds or that execution is exactly once.
 
 Usage visibility was another advantage. As I changed how Lightning, Super, and Ultra were allocated, I could immediately see the effect on actual spending by model.
 
@@ -227,7 +239,7 @@ The limitation is not short judgment in general: Lightning with thinking disable
 
 Late in development, I benchmarked TypeSafe's Jev on the same 20 routing cases. It averaged 0.37 s, cost about $0.00017 per post (0.026 JPY), roughly one quarter of the default Super Router, and matched my post-hoc baseline on all 20/20 posts.
 
-That profile was compelling enough that kakeratta now offers Jev as an optional Router. Super remains the default because Jev does not return exclusion reasons, while kakeratta's routing-inspection and persona-refinement features depend on them.
+That profile was compelling enough that kakeratta now offers Jev in OpenRouter's Router model picker. This selects which personas receive a post; it is separate from the removed Switchyard answer-model experiment. Super remains the default because Jev does not return exclusion reasons, while kakeratta's routing-inspection and persona-refinement features depend on them.
 
 What I want from Nemotron is therefore not simply a smaller general-purpose model. I want a model optimized for structured judgment across many conditions, without needing to generate a long reasoning trace.
 
