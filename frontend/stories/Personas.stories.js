@@ -20,7 +20,7 @@ function panelOf(rows, after, { mcp, tab } = {}) {
   serve({ personas: rows, tools, memory, ...(mcp ? { mcp } : {}) });
   const panel = createPersonas({ onChange: () => {} });
   void panel.load().then(() => {
-    if (tab) [...panel.element.querySelectorAll(".persona-tab")][tab === "person" ? 0 : 1]?.click();
+    if (tab) [...panel.element.querySelectorAll(".persona-tab")][tab === "person" ? 0 : tab === "schedules" ? 2 : 1]?.click();
     after?.(panel.element);
   });
   return sheet("担当", panel.element);
@@ -193,3 +193,20 @@ export const PersonCreateDraft = {
     dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }),
 };
+
+// Interleaved owners make the chronological ordering visible; edits stay in the fixture API.
+function scheduleRows() {
+  const at = hours => new Date(Date.now() + hours * 3600000).toISOString();
+  return [
+    { ...personas[0], schedules: [
+      { id: "dinner", at: at(30), timeZone: "Asia/Tokyo", note: "週末の夕食のお店を探す", notify: false },
+      { id: "lunch", at: at(2), timeZone: "Asia/Tokyo", note: "ランチの予約を確認する", notify: true },
+    ] },
+    { ...person(), schedules: [
+      { id: "present", at: at(5), timeZone: "Asia/Tokyo", note: "誕生日のプレゼントを選ぶ", notify: true },
+    ] },
+  ];
+}
+export const SchedulesOnly = { name: "予定だけ・日時順", render: () => panelOf(scheduleRows(), null, { tab: "schedules" }) };
+export const ScheduleEdit = { name: "予定の編集・通知ON", render: () => panelOf(scheduleRows(), element => element.querySelector(".schedule-edit-button").click(), { tab: "schedules" }) };
+export const ScheduleEditMuted = { name: "予定の編集・通知OFF", render: () => panelOf(scheduleRows(), element => [...element.querySelectorAll(".schedule-edit-button")].at(-1).click(), { tab: "schedules" }) };

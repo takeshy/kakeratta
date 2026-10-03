@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -470,5 +471,56 @@ func TestExternalAgentReadsOtherSchedulesOnDemand(t *testing.T) {
 	result, err := runner.ReadForAsk(context.Background(), ask.ID, "schedule-reader", []ReadStep{{Type: "tool", Tool: "schedules_list", Args: `{"skill":"routine"}`}})
 	if err != nil || !strings.Contains(result, other.ID) || !strings.Contains(result, "sona（routine）") || strings.Contains(result, "private.md") {
 		t.Fatalf("external schedule read = %s (%v)", result, err)
+	}
+}
+
+func TestMutedScheduleSurvivesExternalAnswerAndFallback(t *testing.T) {
+	for _, fallback := range []bool{false, true} {
+		t.Run(map[bool]string{false: "answer", true: "fallback"}[fallback], func(t *testing.T) {
+			runner, s, _ := externalSetup(t, time.Minute, time.Minute)
+			off := false
+			now := time.Now()
+			if _, err := s.SaveSchedule(store.Schedule{Skill: "gourmet", At: now.Add(-time.Second), Note: "知らせずにまとめる", Notify: &off}); err != nil {
+				t.Fatal(err)
+			}
+			var reminders atomic.Int32
+			runner.OnEvent(func(name string, _ any) {
+				if name == "reminder" {
+					reminders.Add(1)
+				}
+			})
+			runner.schedulesAt(context.Background(), now)
+			ask := openAskOf(t, runner)
+			records := runner.openAsks(context.Background())
+			if len(records) != 1 || !records[0].Turn.SuppressNotification {
+				t.Fatal("push preference was not persisted in ask")
+			}
+			if _, _, err := runner.ClaimAsk(ask.ID, "mute"); err != nil {
+				t.Fatal(err)
+			}
+			if fallback {
+				if err := runner.ReleaseAsk(context.Background(), ask.ID, "mute", "fallback"); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				verdict, err := runner.SubmitAskAnswer(context.Background(), ask.ID, "mute", &Answer{Text: "まとめです", Sources: []string{}}, nil)
+				if err != nil || !verdict.Accepted {
+					t.Fatalf("submit: %+v %v", verdict, err)
+				}
+			}
+			eventually(t, "muted scheduled answer", func() bool {
+				entries, _ := s.Timeline()
+				for _, entry := range entries {
+					if entry.Speaker == "gourmet" && entry.Text != "" {
+						return true
+					}
+				}
+				return false
+			})
+			runner.Stop()
+			if reminders.Load() != 0 {
+				t.Fatal("resumed muted schedule sent push")
+			}
+		})
 	}
 }

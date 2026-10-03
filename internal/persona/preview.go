@@ -282,6 +282,19 @@ func (d *dryWorkspace) UpdateMedia(id string, _ *timeline.Media) (timeline.Entry
 func (d *dryWorkspace) PutBlob([]byte, string) (string, error) { return "preview", nil }
 func (d *dryWorkspace) DeleteBlob(string) error                { return nil }
 
+func (d *dryWorkspace) UpdateSchedule(skill, id string, patch store.SchedulePatch) (store.Schedule, error) {
+	schedules, err := d.Schedules(skill)
+	if err != nil {
+		return store.Schedule{}, err
+	}
+	for _, schedule := range schedules {
+		if schedule.ID == id {
+			return patch.Apply(schedule, time.Now())
+		}
+	}
+	return store.Schedule{}, store.ErrScheduleNotFound
+}
+
 // SaveSchedule hands back the schedule as if placed, so a persona planning a
 // wake in a preview is told it worked and the plan runs to its remark.
 func (d *dryWorkspace) SaveSchedule(schedule store.Schedule) (store.Schedule, error) {

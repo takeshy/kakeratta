@@ -37,7 +37,7 @@ flowchart LR
 | Inference and tools | Model requests and permitted external capabilities | `internal/llm`, `internal/tools`, `internal/mcp` |
 | Search | Lexical and semantic timeline search, index updates | `internal/search` |
 
-Scheduled utterances also emit an internal `reminder` event consumed by the executing Server, which delivers encrypted Web Push to registered browser endpoints. This path works without an SSE listener and is not fanned out through the event bus. Subscription state belongs to the workspace; VAPID credentials belong to the operator and are shared across instances. See [Reminder push delivery](./backend.md#reminder-push-delivery).
+Scheduled utterances with their per-schedule notification preference enabled also emit an internal `reminder` event consumed by the executing Server, which delivers encrypted Web Push to registered browser endpoints. This path works without an SSE listener and is not fanned out through the event bus. Subscription state belongs to the workspace; VAPID credentials belong to the operator and are shared across instances. See [Reminder push delivery](./backend.md#reminder-push-delivery).
 
 `store.Workspace` defines the persistence boundary. HTTP handlers and persona execution use the same interface, allowing file storage and Firestore to be selected. A local deployment has one `Server`; with Firebase authentication, `Gateway` holds a `Server` for each user. Nothing assumes a single process: persona work in progress, asks, trials, and locks live in the workspace, so any number of API instances can serve the same users (see [Multiple instances](#multiple-instances)).
 

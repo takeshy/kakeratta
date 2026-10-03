@@ -191,6 +191,34 @@ func (s *Server) uninstallPersona(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// putSchedule edits a pending schedule without replacing its recurrence or purpose.
+func (s *Server) putSchedule(w http.ResponseWriter, r *http.Request) {
+	var patch store.SchedulePatch
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	decoder.DisallowUnknownFields()
+	defer r.Body.Close()
+	if err := decoder.Decode(&patch); err != nil || (patch.At == nil && patch.Notify == nil) {
+		fail(w, http.StatusBadRequest, "日時または通知設定を指定してください")
+		return
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		fail(w, http.StatusBadRequest, "設定を読めませんでした")
+		return
+	}
+	_, err := s.store.UpdateSchedule(r.PathValue("id"), r.PathValue("schedule"), patch)
+	switch {
+	case errors.Is(err, store.ErrScheduleNotFound):
+		fail(w, http.StatusNotFound, "予定が見つかりません")
+	case errors.Is(err, store.ErrScheduleTime):
+		fail(w, http.StatusBadRequest, "未来の日時を指定してください")
+	case err != nil:
+		fail(w, http.StatusInternalServerError, err.Error())
+	default:
+		s.runner.Rearm()
+		s.getPersonas(w, r)
+	}
+}
+
 // deleteSchedule takes one wake a persona asked for off its card. The persona
 // sets them, but the person it would wake is the one who says when it stops;
 // the persona is not woken about it.

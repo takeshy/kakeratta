@@ -844,7 +844,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			agentRules += infographicRules(trigger, thread)
 		}
 		brief := r.askContext(skill, set, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, memoryNote, scheduleList, names, here, deep)
-		turn := askTurn{Persona: skill.ID, Trigger: trigger, Place: post.Place, Named: named, Listening: listening, Instructions: wakeInstructions, Deep: deep}
+		turn := askTurn{Persona: skill.ID, Trigger: trigger, Place: post.Place, Named: named, Listening: listening, Instructions: wakeInstructions, Deep: deep, SuppressNotification: !scheduleNotify(ctx)}
 		if err := r.openAsk(ctx, settings, ask, brief, turn); err != nil {
 			return failed(err)
 		}
@@ -939,7 +939,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		}
 	default:
 		remark = r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, nil, slot)
-		if remark != nil && record.Wake == "schedule" {
+		if remark != nil && record.Wake == "schedule" && scheduleNotify(ctx) {
 			r.emit("reminder", *remark)
 		}
 	}

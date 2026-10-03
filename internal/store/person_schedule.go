@@ -34,13 +34,17 @@ func (e PersonEvent) Validate() error {
 // NextAt returns 09:00 in the user's timezone, with February 29 observed on
 // February 28 outside leap years. A newly learned imminent date can notify now.
 func (e PersonEvent) NextAt(from time.Time, zone *time.Location, imminent bool) time.Time {
+	return e.nextAtClock(from, zone, imminent, 9, 0, 0)
+}
+
+func (e PersonEvent) nextAtClock(from time.Time, zone *time.Location, imminent bool, hour, minute, second int) time.Time {
 	local := from.In(zone)
 	for year := local.Year(); ; year++ {
 		day := e.Day
 		if e.Month == 2 && day == 29 && time.Date(year, 3, 0, 0, 0, 0, 0, zone).Day() == 28 {
 			day = 28
 		}
-		event := time.Date(year, time.Month(e.Month), day, 9, 0, 0, 0, zone)
+		event := time.Date(year, time.Month(e.Month), day, hour, minute, second, 0, zone)
 		notification := event.AddDate(0, 0, -e.LeadDays)
 		if notification.After(from) {
 			return notification.UTC()

@@ -57,6 +57,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/personas", s.guard(s.getPersonas))
 	s.mux.HandleFunc("PUT /api/personas/{id}/daily", s.guard(s.putDailyCheckIn))
 	s.mux.HandleFunc("PUT /api/personas/{id}/planner", s.guard(s.putPlanner))
+	s.mux.HandleFunc("PUT /api/personas/{id}/schedules/{schedule}", s.guard(s.putSchedule))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/schedules/{schedule}", s.guard(s.deleteSchedule))
 	s.mux.HandleFunc("PUT /api/personas", s.guard(s.putPersonas))
 	s.mux.HandleFunc("POST /api/personas/build", s.guard(s.buildPersona))

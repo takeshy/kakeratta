@@ -360,7 +360,8 @@ the answer is the same either way.
    no later phase can change it.
 3. **Schedule phase.** A separate call, on the same model, sees the finished
    answer and the schedules already placed, and hands in `submit_schedule`:
-   create and cancel operations (a change is a cancel and a create), each
+   create, update, and cancel operations. Updates change time or Push preference;
+   purpose and recurrence changes use cancel/create. Each
    create with a short note of what it is for. It also states whether every promise the
    answer makes about time is backed by an operation or an existing schedule
    (`consistent`, with a `reason`). "I cancelled it" with no cancel, or "I'll
@@ -379,7 +380,7 @@ the answer is the same either way.
    phase with the reasons.
 7. **Reviewed, only when it reaches further.** A plan holding a schedule or an
    action is reviewed by Nemotron 3 Super against a narrow list: the answer's
-   promises and the schedules' times, creates and cancels agree; schedules and
+   promises and the schedules' times, Push preferences, creates, updates and cancels agree; schedules and
    actions do not contradict or depend on each other unmet; an action's target
    and arguments fit the user's request and the persona's permissions; an
    answer that says a change is done has something behind it. The answer's
@@ -1002,9 +1003,11 @@ set for it.
 Forgetting all of a persona's memory, pausing it, or removing it drops its
 pending schedules.
 
+Schedules have a `notify` preference, defaulting to ON for existing data. A persona can update its own schedule's time or Push preference without replacing its ID or recurrence. Users can make the same changes from persona/speaker cards or **Personas → Schedules only**, which lists all owners' schedules in time order. Turning notifications off preserves task execution and timeline posts. The preference is captured when claimed and survives external-agent waits and fallback. Daily and annual repeats preserve edited clock times in the schedule timezone; an annual date edit affects only the next occurrence. See [Schedule editing](system/backend.md#schedule-editing).
+
 ### Reminder delivery via Web Push
 
-After a successful scheduled post is saved, the executing server sends an
+After a successful scheduled post with notifications enabled is saved, the executing server sends an
 encrypted Web Push notification to the workspace's registered devices. The
 title contains the reminder text with whitespace collapsed and a limit of
 120 Unicode characters. Silent or failed wakes, ordinary replies, and daily

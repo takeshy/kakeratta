@@ -33,6 +33,19 @@ func (f *fakeSchedules) SaveSchedule(schedule store.Schedule) (store.Schedule, e
 	return schedule, nil
 }
 
+func (f *fakeSchedules) UpdateSchedule(skill, id string, patch store.SchedulePatch) (store.Schedule, error) {
+	for i, schedule := range f.stored {
+		if schedule.ID == id && schedule.Skill == skill {
+			updated, err := patch.Apply(schedule, time.Now())
+			if err == nil {
+				f.stored[i] = updated
+			}
+			return updated, err
+		}
+	}
+	return store.Schedule{}, store.ErrScheduleNotFound
+}
+
 func (f *fakeSchedules) DeleteSchedule(skill, id string) error {
 	f.deleted = append(f.deleted, skill+"/"+id)
 	return nil

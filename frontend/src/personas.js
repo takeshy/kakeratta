@@ -74,7 +74,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   let agentPaused = false;
   let agentAway = false;
   // With no tab chosen yet, people come first when there are any.
-  let tab = remembered("kakeratta.personas.tab", "", ["subject", "person"]);
+  let tab = remembered("kakeratta.personas.tab", "", ["subject", "person", "schedules"]);
   let order = remembered("kakeratta.personas.order", "added", ["added", "name"]);
   let query = "";
   const list = el("div", { class: "persona-list" });
@@ -153,7 +153,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
           "関心ごとの担当には本体が振り分けた投稿が届き、喋るかどうかは各担当が決めます。@名前 で呼べば必ず答えます。",
       }),
     );
-    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ kind: tab, getSettings, onSave: showAdded, onPosted }) }));
+    view.append(el("button", { class: "button primary", label: "AIと担当を作る", onclick: () => showPersonaBuilder({ kind: tab === "schedules" ? "subject" : tab, getSettings, onSave: showAdded, onPosted }) }));
     view.append(el("p", { class: "hint", label: "どの担当も、必要なときに過去のかけらを検索し、元の投稿を参照できます。" }));
     view.append(el("p", { class: "hint" },
       el("span", { label: "すべての担当が使える道具: " }),
@@ -161,18 +161,18 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       toolLink("notes", t("記憶の読み書き"))));
     view.append(drawTabs(), drawFilters(), list);
     drawList();
-    view.append(drawInstall());
+    if (tab !== "schedules") view.append(drawInstall());
     revealPending();
   }
 
   const kindOf = (row) => row.kind === "person" ? "person" : "subject";
 
   function drawTabs() {
-    const count = (kind) => rows.filter((row) => kindOf(row) === kind).length;
+    const count = (kind) => kind === "schedules" ? rows.reduce((n, row) => n + (row.schedules?.length || 0), 0) : rows.filter((row) => kindOf(row) === kind).length;
     const bar = el("div", { class: "persona-tabs", role: "tablist", "aria-label": t("担当の種類") });
     // "人物" already reads "Person" on a card; a tab holds several.
     const ja = getLanguage() === "ja";
-    for (const [kind, label] of [["person", ja ? "人物" : "People"], ["subject", ja ? "関心ごと" : "Interests"]]) {
+    for (const [kind, label] of [["person", ja ? "人物" : "People"], ["subject", ja ? "関心ごと" : "Interests"], ["schedules", t("予定だけ")]]) {
       const selected = kind === tab;
       bar.append(el("button", {
         class: "persona-tab", type: "button", role: "tab", "aria-selected": selected ? "true" : "false",
@@ -180,6 +180,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         onclick: () => {
           if (tab === kind) return;
           tab = kind;
+          query = "";
           remember("kakeratta.personas.tab", tab);
           draw();
         },
@@ -190,8 +191,8 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
 
   function drawFilters() {
     const search = el("input", {
-      type: "search", class: "persona-search", maxlength: 200, "aria-label": t("担当を検索"),
-      i18nPlaceholder: tab === "person" ? "名前・呼び名・キーワードで探す" : "名前・担当条件で探す",
+      type: "search", class: "persona-search", maxlength: 200, "aria-label": t(tab === "schedules" ? "予定を検索" : "担当を検索"),
+      i18nPlaceholder: tab === "schedules" ? "担当名・予定の内容で探す" : tab === "person" ? "名前・呼び名・キーワードで探す" : "名前・担当条件で探す",
     });
     search.value = query;
     search.addEventListener("input", () => {
@@ -216,6 +217,19 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
 
   function drawList() {
     clear(list);
+    if (tab === "schedules") {
+      const words = String(query).split(/[\s　]+/).map(fold).filter(Boolean);
+      const schedules = rows.flatMap(row => (row.schedules || []).map(schedule => ({ row, schedule })))
+        .filter(({ row, schedule }) => words.every(word => matches(row, word) || fold(schedule.note).includes(word)))
+        .sort((a, b) => new Date(a.schedule.at) - new Date(b.schedule.at) || a.schedule.id.localeCompare(b.schedule.id));
+      if (!schedules.length) list.append(el("p", { class: "hint", label: query ? "一致する予定がありません" : "予定はありません" }));
+      for (const { row, schedule } of schedules) {
+        list.append(el("div", { class: "persona-schedule-row" },
+          notificationSchedules({ ...row, schedules: [schedule] }, payload => updateRows(payload.personas || rows),
+            { owner: gloss(row).name })));
+      }
+      return;
+    }
     const ofTab = rows.filter((row) => kindOf(row) === tab);
     const found = ofTab.filter((row) => matches(row, query));
     const shown = tab === "person" && order === "name" ? byName(found) : found;

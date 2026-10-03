@@ -24,6 +24,7 @@ type ScheduleOperation struct {
 	Type          string `json:"type"`
 	At            string `json:"at"`
 	Daily         bool   `json:"daily"`
+	Notify        *bool  `json:"notify"`
 	UserRequested bool   `json:"user_requested"`
 	Note          string `json:"note"`
 	ID            string `json:"id"`
@@ -39,10 +40,13 @@ func (w Workflow) batch() operationBatch {
 	b := operationBatch{}
 	for _, o := range w.Schedules {
 		kind := "write_schedule"
+		if o.Type == "update" {
+			kind = "update_schedule"
+		}
 		if o.Type == "cancel" {
 			kind = "cancel_schedule"
 		}
-		b.Steps = append(b.Steps, operation{Type: kind, At: o.At, Daily: o.Daily, UserRequested: o.UserRequested, Note: o.Note, ID: o.ID})
+		b.Steps = append(b.Steps, operation{Type: kind, At: o.At, Daily: o.Daily, Notify: o.Notify, UserRequested: o.UserRequested, Note: o.Note, ID: o.ID})
 	}
 	for _, o := range w.Actions {
 		b.Steps = append(b.Steps, operation{Type: "tool", Tool: o.Tool, Args: o.Args})
@@ -54,7 +58,7 @@ func phaseTool(phase string, set *tools.Set) llm.Tool {
 	fields := map[string]any{}
 	switch phase {
 	case "schedule":
-		fields = map[string]any{"type": map[string]any{"type": "string", "enum": []string{"create", "cancel"}}, "at": stringField("RFC3339。cancelでは空"), "daily": map[string]any{"type": "boolean"}, "user_requested": map[string]any{"type": "boolean", "description": "ユーザーが指定した予定の実行ならtrue。自発的な確認はfalse"}, "note": stringField("起きた時に実行する目的・依頼内容"), "id": stringField("cancel対象の既存ID。createでは空")}
+		fields = map[string]any{"type": map[string]any{"type": "string", "enum": []string{"create", "update", "cancel"}}, "notify": map[string]any{"type": []string{"boolean", "null"}, "description": "Push通知ON/OFF。createのnullはON、updateのnullは維持。falseでも予定は実行する"}, "at": stringField("RFC3339。updateで変更しないときとcancelでは空"), "daily": map[string]any{"type": "boolean"}, "user_requested": map[string]any{"type": "boolean", "description": "ユーザーが指定した予定の実行ならtrue。自発的な確認はfalse"}, "note": stringField("起きた時に実行する目的・依頼内容"), "id": stringField("update/cancel対象の既存ID。createでは空")}
 	case "action":
 		fields = map[string]any{"tool": map[string]any{"type": "string", "enum": shapeOf(set).actions}, "args": stringField("引数のJSONオブジェクトを文字列で")}
 	}
@@ -77,7 +81,7 @@ func phasePrompt(phase string, skill Skill, set *tools.Set, wake string) string 
 	switch phase {
 	case "schedule":
 		s += `今回のターンで未来の予定を変える必要があるかを判断する。Answerにある作成・取消・変更の約束、日時を確認し、すべてoperationsまたは既存予定で裏付ける。約束があるのにoperationsが空で既存予定にも根拠がなければconsistent:false。取り消したという回答は実際のcancel操作を必要とする。
-変更はcancel+createで表す。createはat,daily,user_requested,noteを指定する。ユーザーが時刻・繰り返しを指定して実行を依頼した予定（毎朝ニュースをまとめる、指定時刻に通知する等）はuser_requested:true。担当が自発的に提案・登録する準備や用事の確認はfalse。ユーザー依頼の予定を置き直す場合もtrueを維持し、cancelではfalse。noteには起きたときに何のためか分かるよう具体的に書く（200字以内）。cancelは自分が置いた予定の既存id。調査フェーズで schedules_list を使って確認した他の担当の予定も踏まえ、同じ用の通知は重複させない。他の担当の予定は閲覧のみで、変更・取消はできない。他の文字列は空、dailyはfalse。明示された通知時刻を守る。それ以外の確認は用が済むころの未来の時刻。記憶は本体がメモ係を通して残すので、ここでは扱わない。
+時刻やPush通知だけの変更はupdateで既存idとat、notifyを指定する。atが空なら時刻維持、notifyがnullなら通知維持。updateは他の属性を変えずdaily,user_requestedはfalse、noteは空にする。繰り返しや目的の変更はcancel+createで表す。createはat,daily,user_requested,note,notifyを指定する。notifyはPush通知のON/OFFで、falseでも予定実行と投稿は続く。新規の既定はtrue。通知しないでと頼まれたらfalse。ユーザーが時刻・繰り返しを指定して実行を依頼した予定（毎朝ニュースをまとめる、指定時刻に通知する等）はuser_requested:true。担当が自発的に提案・登録する準備や用事の確認はfalse。ユーザー依頼の予定を置き直す場合もtrueを維持し、cancelではfalse。noteには起きたときに何のためか分かるよう具体的に書く（200字以内）。cancelは自分が置いた予定の既存id。調査フェーズで schedules_list を使って確認した他の担当の予定も踏まえ、同じ用の通知は重複させない。他の担当の予定は閲覧のみで、変更・取消はできない。他の文字列は空、dailyはfalse。明示された通知時刻を守る。それ以外の確認は用が済むころの未来の時刻。記憶は本体がメモ係を通して残すので、ここでは扱わない。
 `
 		if !set.Allows("schedule") {
 			s += "この担当は予定操作を許可されていない。operationsは空。予定操作の約束があればconsistent:false。\n"
@@ -238,7 +242,7 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 				}
 				if err == nil {
 					for _, o := range plan.Schedules {
-						if o.Type != "create" && o.Type != "cancel" {
+						if o.Type != "create" && o.Type != "cancel" && o.Type != "update" {
 							err = fmt.Errorf("unknown schedule type")
 						}
 					}

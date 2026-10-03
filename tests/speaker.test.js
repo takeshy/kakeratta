@@ -80,11 +80,11 @@ test("over the list is the persona as its card shows it, with the same ways to o
   translate("この担当の通知予定"), "父の誕生日", "毎朝の連絡", "釣りの約束"]) assert.ok(text.includes(want), `the card shows ${want}`);
  const schedules = nodes(card).filter(n => n.className === "chip ghost schedule");
  assert.equal(schedules.length, 3);
- assert.ok(schedules[0].textContent.startsWith(translate("毎年")));
- assert.ok(schedules[1].textContent.startsWith(translate("毎日")));
+ assert.ok(schedules[0].children[0].textContent.startsWith(translate("毎年")));
+ assert.ok(schedules[1].children[0].textContent.startsWith(translate("毎日")));
  const locale = getLanguage() === "ja" ? "ja-JP" : "en-US";
  const clock = new Intl.DateTimeFormat(locale, { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date(father.schedules[0].at));
- assert.ok(schedules.every(n => n.textContent.includes(clock)), "schedule times use their saved time zone");
+ assert.ok(schedules.every(n => n.children[0].textContent.includes(clock)), "schedule times use their saved time zone");
  const tools = nodes(card).filter(n => n.tag === "a");
  assert.equal(tools.length, 2, "qualified duplicates are folded into one tool");
  assert.equal(tools[0].textContent, translate("天気予報を調べる"));

@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, requests, live updates, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
+description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites"]
 updated: "2026-10-03"
 ---
 
-Frontend composition, requests, live updates, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
+Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
 
 # Browser application composition
 
@@ -43,6 +43,16 @@ Verification: [memory.test.js](../../tests/memory.test.js) (records after fields
 Settings offers one **Use OpenRouter** checkbox and Router/High/Middle/Low model selectors. Jev is selected as `~typesafe/jev-latest` in the Router selector, which includes this choice even when the model catalog omits it. There is no separate Jev toggle. The checkbox explanation also includes a persistent note to run **Check OpenRouter connection** before changing models. Unchecking **Use OpenRouter** retains its API key and all model selections, allowing provider comparisons. Saved credentials allow re-enabling it after reopening settings without another connection check; a newly entered key requires a connection check.
 
 When an OpenRouter key is entered but no model list has been loaded, settings shows a hint to click **Check OpenRouter connection** to select models. This hint remains visible even before **Use OpenRouter** can be checked, and disappears once the connection check loads models ([settings.js](../../frontend/src/settings.js)).
+
+## Schedule overview and editing
+
+The Personas panel has a **Schedules only** tab alongside People and Interests. It combines all returned personas' pending schedules, ordered by next execution time, with the owner name at the start of each compact row, followed by a prominent next-occurrence date/time and the note. Owners are not grouped into separate cards. Search matches persona names/aliases and schedule notes. The tab selection is remembered on the device; opening a particular persona switches back to its kind. Counts and rows refresh after edits and cancellations.
+
+`notificationSchedules` in [persona-display.js](../../frontend/src/persona-display.js) provides the same controls in this overview, persona cards, and speaker cards. Each row shows Push ON/OFF and a pencil button opening the **Edit time and notifications** modal. The modal uses a labelled date/time field and keyboard-accessible Push switch, traps Tab focus, closes with Escape or Cancel, and retains failed saves for retry. The date/time input uses the device timezone, shown below the input, and converts changes to an RFC3339 instant. Unchanged times are omitted to preserve seconds; recurring schedules keep their stored timezone. Saving calls `api.updateSchedule`, disables form inputs while pending, and refreshes shared persona state from the response. Failures retain input for retry. Push OFF leaves execution and timeline publication enabled. Cancellation remains a separately confirmed × action.
+
+Storybook [Personas.stories.js](../../frontend/stories/Personas.stories.js) includes the chronological overview and edit modals with notifications on/off; the fixture API supports edits and cancellation.
+
+Verification: [personas-panel.test.js](../../tests/personas-panel.test.js) checks cross-persona chronological listing, filtering, notification states, empty results, partial edits, shared-state refresh, and failed saves. [speaker.test.js](../../tests/speaker.test.js) covers the shared card and cancellation behavior.
 
 ## Names and speaker lists
 
@@ -158,7 +168,7 @@ Authentication and transient failures can be retried later. Non-retryable 4xx re
 
 The **This device** section of settings includes [push.js](../../frontend/src/push.js). It reports browser support, server configuration, and this workspace's registered subscription without requesting permission on load. Only **Enable notifications** asks for browser permission and calls `PushManager.subscribe` using the server's public VAPID key. [push-client.js](../../frontend/src/push-client.js) saves the subscription through the account-checked API; a failed initial registration revokes the newly created browser subscription. Disabling removes the server record before unsubscribing. A changed VAPID key is replaced when enabling. Browser permission can also be managed in browser settings.
 
-Only scheduled persona reminders, including birthdays, anniversaries, appointments, and persona-created schedules, trigger push. Ordinary replies, daily check-ins, monthly summaries, and post edits do not. The notification title shows the reminder message, with whitespace collapsed and at most 120 Unicode characters followed by an ellipsis when truncated; its body identifies kakeratta. Reminder content therefore appears on the lock screen according to the device's notification settings. The [Service Worker](../../frontend/public/sw.js) verifies `/api/auth/identity` against the payload's workspace before displaying a notification and again before opening it. A mismatched account, failed identity check, or expired login suppresses delivery. A click focuses and navigates an existing app window, or opens `/?entry=…`, using the existing post-opening path.
+Only scheduled persona reminders with notifications enabled, including birthdays, anniversaries, appointments, and persona-created schedules, trigger push. The per-schedule switch is separate from registering each device in settings. Ordinary replies, daily check-ins, monthly summaries, and post edits do not. The notification title shows the reminder message, with whitespace collapsed and at most 120 Unicode characters followed by an ellipsis when truncated; its body identifies kakeratta. Reminder content therefore appears on the lock screen according to the device's notification settings. The [Service Worker](../../frontend/public/sw.js) verifies `/api/auth/identity` against the payload's workspace before displaying a notification and again before opening it. A mismatched account, failed identity check, or expired login suppresses delivery. A click focuses and navigates an existing app window, or opens `/?entry=…`, using the existing post-opening path.
 
 HTTPS (or a secure localhost context), Service Worker, PushManager, and Notifications support are required. On iPhone/iPad the app must be added to the Home Screen and opened there. Unsupported browsers retain the timeline reminders. Logout and detected account switches attempt server deregistration, revoke the browser subscription even when the deletion request fails, and close displayed notifications. There is no automatic subscription refresh after a browser-side subscription expires; enable notifications again from settings.
 

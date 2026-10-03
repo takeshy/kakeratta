@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, favorites, and search."
+description: "Authentication, entry handling, timeline data, persistence, settings, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index", "push", "favorites"]
 updated: "2026-10-03"
 ---
 
-Authentication, entry handling, timeline data, persistence, settings, reminder push delivery, favorites, and search.
+Authentication, entry handling, timeline data, persistence, settings, schedule editing, reminder push delivery, favorites, and search.
 
 # HTTP API and authentication
 
@@ -25,7 +25,7 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 | `routes.go` | Paths and handler registration |
 | `entries.go` | Posts, replies, edits, deletions, images, URL fetching |
 | `favorites.go` | Favorite entries, recent favorites, and speaker filtering |
-| `personas.go` | Listing, activation, installation, removal, daily and planner settings |
+| `personas.go` | Listing, activation, installation, removal, schedule editing, daily and planner settings |
 | `memory.go` | Memory files (fields and monthly records): listing with a record-tag filter, reading, editing, deletion; one fact edited or forgotten (`editFact`, `forgetFact`) |
 | `settings.go` | Settings, model lists, search connection checks, version information |
 | `routing.go`, `preview.go` | Routing and reply checks and application |
@@ -33,6 +33,14 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 | `mcp_server.go`, `mcp_tools.go` | MCP for external agents |
 
 `readJSONLimit` uses `http.MaxBytesReader` to bound input. `fail` produces JSON errors and `writeJSON` produces responses. The API server does not serve the frontend; unknown paths receive a JSON 404.
+
+## Schedule editing
+
+Guarded `PUT /api/personas/{id}/schedules/{schedule}` accepts a partial update with `at` (a future RFC3339 instant) and/or `notify` (boolean). Unknown fields, invalid values, empty updates, and trailing JSON are rejected with 400. Missing schedules and schedules owned by another persona return 404. The store applies the patch under its file mutex or a Firestore transaction, preserving ID, owner, recurrence, timezone, task origin, note, and person-event metadata. A claimed one-off cannot be recreated by editing it. A successful edit rearms the workspace and returns the refreshed persona list. The existing DELETE endpoint still cancels a schedule.
+
+`Schedule.Notify` is optional: missing/null means notifications enabled for older data. `false` suppresses Push only; the scheduled turn still runs and can publish its answer. The preference is read at claim time; edits after an occurrence has been claimed affect remaining occurrences. `TimeEdited` records an explicitly chosen time. Daily recurrences retain the chosen wall-clock time in the schedule timezone. Annual recurrences retain the event's calendar date and chosen clock time; changing the next occurrence's date does not change the birthday/anniversary itself. Calendar synchronization merges saved notification preferences and, for the same event and timezone, explicit time edits and already-advanced annual occurrences at the storage write.
+
+Verification: [schedule_edit_test.go](../../internal/server/schedule_edit_test.go), [schedule_edit_test.go](../../internal/store/schedule_edit_test.go) (file and optional Firestore emulator contracts).
 
 ## Implementation and verification
 
@@ -220,7 +228,7 @@ After slow semantic work, search rereads current entries and excludes deleted co
 
 Subscriptions are `push-subscriptions` runtime records: under `runtime/push-subscriptions/` in file storage and `users/{key}/push-subscriptions` in Firestore. They survive restarts, are shared across instances, are excluded from exports, and are removed with the workspace. They have no expiry until explicitly revoked or rejected by the provider.
 
-The Runner emits an internal `reminder` event after persisting a successful scheduled utterance. `Server.publishEvent` consumes that event directly on the executing instance, without relaying it over the cross-instance SSE bus. Before signing, delivery removes the `mailto:` prefix from the configured contact because webpush-go adds that prefix itself; HTTPS contacts pass through unchanged. Delivery sends encrypted Web Push with VAPID credentials to the workspace's registered devices concurrently, with a ten-second HTTP timeout and a thirty-second overall deadline. The encrypted payload carries a title derived from the reminder text (collapsed whitespace, truncated after 120 Unicode characters), the kakeratta app name as its body, and the entry and workspace IDs. A one-hour TTL and a per-entry topic limit stale pending messages; the browser notification tag also uses the entry ID. Provider 404/410 responses remove a subscription only if its stored value has not changed during delivery. Other failures are logged without endpoint credentials. This is best-effort delivery: there is no durable push queue or automatic retry, and interruption after the post is saved can lose its push. The timeline post remains available.
+The Runner emits an internal `reminder` event after persisting a successful scheduled utterance only when that occurrence has notifications enabled. `Server.publishEvent` consumes that event directly on the executing instance, without relaying it over the cross-instance SSE bus. Before signing, delivery removes the `mailto:` prefix from the configured contact because webpush-go adds that prefix itself; HTTPS contacts pass through unchanged. Delivery sends encrypted Web Push with VAPID credentials to the workspace's registered devices concurrently, with a ten-second HTTP timeout and a thirty-second overall deadline. The encrypted payload carries a title derived from the reminder text (collapsed whitespace, truncated after 120 Unicode characters), the kakeratta app name as its body, and the entry and workspace IDs. A one-hour TTL and a per-entry topic limit stale pending messages; the browser notification tag also uses the entry ID. Provider 404/410 responses remove a subscription only if its stored value has not changed during delivery. Other failures are logged without endpoint credentials. This is best-effort delivery: there is no durable push queue or automatic retry, and interruption after the post is saved can lose its push. The timeline post remains available.
 
 Verification: [push_test.go](../../internal/server/push_test.go) checks registration, account/origin guards, invalid endpoints and keys, event selection, encrypted requests, VAPID JWT subjects for mailto and HTTPS contacts, and stale-subscription removal.
 

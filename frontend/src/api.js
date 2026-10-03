@@ -101,6 +101,7 @@ export const api = {
   setPlanner: (id, planner) => call("PUT", `/api/personas/${encodeURIComponent(id)}/planner`, { planner }),
   setActive: (active) => call("PUT", "/api/personas", { active }),
   installPersona: (definition) => call("POST", "/api/personas/install", definition, { raw: true }),
+  updateSchedule: (id, schedule, patch) => call("PUT", `/api/personas/${encodeURIComponent(id)}/schedules/${encodeURIComponent(schedule)}`, patch),
   deleteSchedule: (id, schedule) => call("DELETE", `/api/personas/${encodeURIComponent(id)}/schedules/${encodeURIComponent(schedule)}`),
   uninstallPersona: (id) => call("DELETE", `/api/personas/${encodeURIComponent(id)}`),
   // One page of notes, the most recently written first; `next` continues.

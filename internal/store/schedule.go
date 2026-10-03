@@ -23,6 +23,10 @@ type Schedule struct {
 	ID    string `json:"id"`
 	Skill string `json:"skill"`
 	Daily bool   `json:"daily"`
+	// Nil preserves notification-on behavior for existing schedules.
+	Notify *bool `json:"notify,omitempty"`
+	// TimeEdited preserves an explicitly chosen reminder time during calendar sync.
+	TimeEdited bool `json:"timeEdited,omitempty"`
 	// UserRequested distinguishes an explicit scheduled task from an autonomous check.
 	// Missing values in older schedules retain the autonomous-check behavior.
 	UserRequested bool      `json:"userRequested,omitempty"`
@@ -34,6 +38,30 @@ type Schedule struct {
 	// longer set.
 	NotePath    string       `json:"notePath,omitempty"`
 	PersonEvent *PersonEvent `json:"personEvent,omitempty"`
+}
+
+// NotificationsEnabled applies the legacy default without rewriting saved data.
+func (s Schedule) NotificationsEnabled() bool { return s.Notify == nil || *s.Notify }
+
+// SchedulePatch updates only the next time and push preference, retaining identity and recurrence.
+type SchedulePatch struct {
+	At     *time.Time `json:"at,omitempty"`
+	Notify *bool      `json:"notify,omitempty"`
+}
+
+func (p SchedulePatch) Apply(s Schedule, now time.Time) (Schedule, error) {
+	if p.At != nil {
+		if !p.At.After(now) {
+			return Schedule{}, ErrScheduleTime
+		}
+		s.At = p.At.UTC()
+		s.TimeEdited = true
+	}
+	if p.Notify != nil {
+		value := *p.Notify
+		s.Notify = &value
+	}
+	return s, nil
 }
 
 // MaxSchedulesPerSkill caps what one persona can queue: every wake is a model
@@ -90,6 +118,10 @@ func (s Schedule) Next(from time.Time) (time.Time, bool) {
 		zone, err := time.LoadLocation(s.TimeZone)
 		if err != nil {
 			zone = time.UTC
+		}
+		if s.TimeEdited {
+			clock := s.At.In(zone)
+			return s.PersonEvent.nextAtClock(from, zone, false, clock.Hour(), clock.Minute(), clock.Second()), true
 		}
 		return s.PersonEvent.NextAt(from, zone, false), true
 	}
@@ -166,6 +198,7 @@ func (s *Store) SaveSchedule(schedule Schedule) (Schedule, error) {
 	if count >= MaxSchedulesPerSkill {
 		return Schedule{}, ErrScheduleTooMany
 	}
+	schedule = preservePersonSchedule(schedule, schedules[schedule.ID])
 	schedules[schedule.ID] = schedule
 	if err := writeJSON(schedulesPath(s.root), schedules); err != nil {
 		return Schedule{}, err
@@ -273,10 +306,24 @@ func (w *FirestoreWorkspace) SaveSchedule(schedule Schedule) (Schedule, error) {
 	if count >= MaxSchedulesPerSkill {
 		return Schedule{}, ErrScheduleTooMany
 	}
-	if _, err := w.user.Collection("schedules").Doc(sanitise(schedule.ID)).Set(context.Background(), schedule); err != nil {
-		return Schedule{}, err
-	}
-	return schedule, nil
+	ref := w.user.Collection("schedules").Doc(sanitise(schedule.ID))
+	proposed := schedule
+	err = w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		schedule = proposed
+		doc, err := tx.Get(ref)
+		if err != nil && status.Code(err) != codes.NotFound {
+			return err
+		}
+		if err == nil {
+			var current Schedule
+			if err := doc.DataTo(&current); err != nil {
+				return err
+			}
+			schedule = preservePersonSchedule(schedule, current)
+		}
+		return tx.Set(ref, schedule)
+	})
+	return schedule, err
 }
 
 func (w *FirestoreWorkspace) DeleteSchedule(skill, id string) error {
@@ -344,4 +391,73 @@ func (w *FirestoreWorkspace) ClaimSchedule(id string, at time.Time, now time.Tim
 		return nil
 	})
 	return claimed, taken, err
+}
+
+// UpdateSchedule is atomic with claims: a fired one-off cannot be recreated by an edit.
+func (s *Store) UpdateSchedule(skill, id string, patch SchedulePatch) (Schedule, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	schedules, err := readSchedules(s.root)
+	if err != nil {
+		return Schedule{}, err
+	}
+	current, ok := schedules[id]
+	if !ok || current.Skill != skill {
+		return Schedule{}, ErrScheduleNotFound
+	}
+	updated, err := patch.Apply(current, time.Now())
+	if err != nil {
+		return Schedule{}, err
+	}
+	updated.ID = id
+	schedules[id] = updated
+	if err := writeJSON(schedulesPath(s.root), schedules); err != nil {
+		return Schedule{}, err
+	}
+	return updated, nil
+}
+
+func (w *FirestoreWorkspace) UpdateSchedule(skill, id string, patch SchedulePatch) (Schedule, error) {
+	var updated Schedule
+	ref := w.user.Collection("schedules").Doc(sanitise(id))
+	err := w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(ref)
+		if status.Code(err) == codes.NotFound {
+			return ErrScheduleNotFound
+		}
+		if err != nil {
+			return err
+		}
+		var current Schedule
+		if err := doc.DataTo(&current); err != nil {
+			return err
+		}
+		if current.Skill != skill {
+			return ErrScheduleNotFound
+		}
+		updated, err = patch.Apply(current, time.Now())
+		if err != nil {
+			return err
+		}
+		updated.ID = id
+		return tx.Set(ref, updated)
+	})
+	return updated, err
+}
+
+// Calendar extraction may run alongside an edit. Merge user preferences at the write,
+// and retain an annual occurrence already advanced by a claim.
+func preservePersonSchedule(next, current Schedule) Schedule {
+	if next.PersonEvent == nil || current.PersonEvent == nil || next.Skill != current.Skill {
+		return next
+	}
+	next.Notify = current.Notify
+	a, b := next.PersonEvent, current.PersonEvent
+	if next.TimeZone == current.TimeZone && a.Annual == b.Annual && a.Month == b.Month && a.Day == b.Day && a.LeadDays == b.LeadDays {
+		if a.Annual || current.TimeEdited {
+			next.At = current.At
+		}
+		next.TimeEdited = current.TimeEdited
+	}
+	return next
 }

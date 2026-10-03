@@ -21,6 +21,7 @@ class Element {
     return walk(this).find((node) => node !== this && node["data-id"] === id) || null;
   }
 }
+const content = node => node.textContent + node.children.map(content).join("");
 const walk = (node) => [node, ...node.children.flatMap(walk)];
 const cards = (root) => walk(root).filter((node) => node.tag === "section" && node["data-id"]).map((node) => node["data-id"]);
 const tabs = (root) => walk(root).filter((node) => node.role === "tab");
@@ -61,7 +62,7 @@ test("people and interests are on tabs of their own, each searchable, people in 
   setup(t);
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
-  assert.deepEqual(tabs(view.element).map((tab) => tab.textContent), ["人物 3", "関心ごと 2"]);
+  assert.deepEqual(tabs(view.element).map((tab) => tab.textContent), ["人物 3", "関心ごと 2", "予定だけ 0"]);
   assert.deepEqual(cards(view.element), ["sato", "aoki", "nagomi"], "people come first, as added");
   const order = walk(view.element).find((node) => node.className === "persona-order");
   order.value = "name";
@@ -115,7 +116,7 @@ test("person calendar schedules show their annual recurrence", async (t) => {
   t.mock.method(api, "personas", async () => ({ personas: [{ ...rows[2], schedules: [{ id: "birthday", at: "2027-11-10T00:00:00Z", timeZone: "Asia/Tokyo", note: "誕生日（当日の通知）", personEvent: { annual: true } }] }], tools: [] }));
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
-  assert.ok(walk(view.element).some(node => node.className.includes("schedule") && node.textContent.includes("毎年") && node.textContent.includes("誕生日")));
+  assert.ok(walk(view.element).some(node => node.className.includes("schedule") && content(node).includes("毎年") && content(node).includes("誕生日")));
 });
 
 test("a person's card shows the basic information and offers to edit it", async (t) => {
@@ -144,4 +145,57 @@ test("a memoryless persona keeps editing and planner preferences without memory 
   const all = walk(view.element);
   for (const label of ["修正", "AIで修正", "外部エージェントを優先する"]) assert.ok(all.some(n => n.textContent === label), label);
   for (const label of ["覚えていること", "チェックインでは最低限のことだけ話す"]) assert.ok(!all.some(n => n.textContent === label), label);
+});
+
+
+test("schedules tab combines owners by next time and filters without persona cards", async t => {
+ setup(t);
+ const scheduled = [
+  { ...rows[0], schedules: [{ id: "s_later", at: "2099-11-12T00:00:00Z", note: "夕食", notify: false }, { id: "s_first", at: "2099-11-09T00:00:00Z", note: "朝食" }] },
+  { ...rows[2], schedules: [{ id: "s_early", at: "2099-11-10T00:00:00Z", note: "誕生日" }] },
+ ];
+ t.mock.method(api, "personas", async () => ({ personas: scheduled, tools: [] }));
+ const view = createPersonas({ getSettings: () => ({}) });
+ await view.load();
+ tabs(view.element)[2].listeners.click();
+ assert.deepEqual(cards(view.element), []);
+ const chips = () => walk(view.element).filter(n => n.className === "chip ghost schedule");
+ assert.ok(content(chips()[0]).includes("朝食"));
+ assert.ok(content(chips()[1]).includes("誕生日"));
+ assert.ok(content(chips()[2]).includes("夕食"));
+ assert.deepEqual(chips().map(chip => chip.children[0].className), ["schedule-owner", "schedule-owner", "schedule-owner"]);
+ assert.ok(!walk(view.element).some(n => n.className === "notification-schedules-heading"));
+ assert.ok(walk(view.element).some(n => n.textContent === "通知OFF"));
+ const search = walk(view.element).find(n => n.className === "persona-search");
+ search.value = "夕食"; search.listeners.input();
+ assert.equal(chips().length, 1);
+ search.value = "さとう"; search.listeners.input();
+ assert.equal(chips().length, 1);
+ search.value = "missing"; search.listeners.input();
+ assert.ok(walk(view.element).some(n => n.textContent === "一致する予定がありません"));
+ view.updateRows(scheduled.map(row => ({ ...row, schedules: [] })));
+ assert.equal(chips().length, 0);
+});
+
+test("a schedule edit saves only changed fields and keeps input after failure", async t => {
+ setup(t);
+ const toasts = new Element("div"); document.querySelector = () => toasts;
+ const scheduled = [{ ...rows[0], schedules: [{ id: "s_edit", at: "2099-11-12T00:00:31Z", note: "夕食" }] }];
+ t.mock.method(api, "personas", async () => ({ personas: scheduled, tools: [] }));
+ const update = t.mock.method(api, "updateSchedule", async () => { throw new Error("retry me"); });
+ const view = createPersonas({ getSettings: () => ({}) }); await view.load();
+ document.body = new Element("body");
+ walk(view.element).find(n => n.className === "schedule-edit-button").listeners.click();
+ const form = walk(document.body).find(n => n.className === "schedule-edit-form");
+ const checkbox = walk(form).find(n => n.type === "checkbox");
+ checkbox.checked = false;
+ await form.listeners.submit({ preventDefault() {} });
+ assert.deepEqual(update.mock.calls[0].arguments, ["gourmet", "s_edit", { notify: false }]);
+ assert.equal(checkbox.checked, false);
+ assert.ok(walk(toasts).some(n => n.textContent === "retry me"));
+ const input = walk(form).find(n => n.type === "datetime-local"); input.value = "2099-11-13T09:30";
+ update.mock.mockImplementation(async () => ({ personas: [{ ...scheduled[0], schedules: [] }] }));
+ await form.listeners.submit({ preventDefault() {} });
+ assert.equal(update.mock.calls[1].arguments[2].at, new Date("2099-11-13T09:30").toISOString());
+ assert.ok(!walk(document.body).some(n => n.className === "schedule-edit-form"));
 });

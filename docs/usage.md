@@ -285,13 +285,20 @@ A record may carry dates. `expires:2026-09-26/1d` marks a record of a kakera tha
 
 Fields kept as prose before facts existed are not read as facts; the operator splits them once with `go run ./cmd/migrate-memory` (a dry run that saves a plan to check) and then `-apply`, which keeps the prose as the summary.
 
+## View and edit all schedules
+
+Open **Personas → Schedules only** to see every persona's schedules ordered by next run. Search by persona name or schedule text. Use the pencil button to open **Edit time and notifications**, change the next run and/or **Push notifications**, then save. The date/time input identifies the device timezone. The same controls are available on individual persona and speaker cards.
+
+Turning Push off keeps execution and timeline posts enabled. You can also ask a persona to turn a schedule's notifications on or off. The × button cancels the schedule itself. Daily repeats keep the edited clock time in the schedule's timezone. Annual reminders also keep the edited time, but date changes apply only to the next occurrence, leaving the birthday or anniversary unchanged. Edits may be too late for an occurrence already running. A failed save retains your input for retry.
+
 ## Reminder push notifications
 
 In Settings → **This device**, enable notifications on each device you want to
 receive scheduled reminders. Permission is requested only when you enable them.
 Push is for scheduled persona reminders, not ordinary replies, check-ins or
-monthly summaries. The lock screen shows a generic reminder; opening it takes
-you to the relevant post. HTTPS and browser push support are required. On
+monthly summaries. Notifications show the reminder text, up to 120 characters
+with an ellipsis when shortened; opening one takes you to the relevant post.
+Lock-screen visibility follows your device notification settings. HTTPS and browser push support are required. On
 iPhone/iPad, add the app to the Home Screen and open it there. Without push,
 reminders still appear in the timeline. Self-hosted servers need VAPID
 configuration; see [operator setup](system/operations.md#web-push-configuration).

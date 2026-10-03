@@ -122,6 +122,15 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       rows = rows.map((row) => ({ ...row, active: body.active.includes(row.id) }));
       return json({ personas: rows, tools });
     }
+    const schedule = path.match(/^\/api\/personas\/([^/]+)\/schedules\/([^/]+)$/);
+    if (schedule && ["PUT", "DELETE"].includes(method)) {
+      const owner = decodeURIComponent(schedule[1]), id = decodeURIComponent(schedule[2]);
+      if (!rows.some(row => row.id === owner && row.schedules?.some(item => item.id === id))) return json({ error: "Schedule not found." }, 404);
+      rows = rows.map(row => row.id !== owner ? row : { ...row, schedules: method === "DELETE"
+        ? row.schedules.filter(item => item.id !== id)
+        : row.schedules.map(item => item.id === id ? { ...item, ...body } : item) });
+      return json({ personas: rows, tools });
+    }
     const daily = path.match(/^\/api\/personas\/([^/]+)\/daily$/);
     if (daily && method === "PUT") {
       rows = rows.map(row => row.id === decodeURIComponent(daily[1]) ? { ...row, dailyCheckIn: body } : row);

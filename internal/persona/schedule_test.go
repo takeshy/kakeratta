@@ -319,3 +319,82 @@ func TestPersonReminderInstructionsRetainScheduleWakeKind(t *testing.T) {
 		t.Fatalf("user-requested task lost its schedule wake kind: %s", got)
 	}
 }
+
+func TestSilentPushScheduleStillPublishesAndCanBeUpdatedByPersona(t *testing.T) {
+	r, s, _ := setup(t, func(string, string) string { return `{"action":"speak","text":"今日のニュースです"}` }, "routine")
+	off := false
+	skill, _ := r.catalogue.Find(context.Background(), "routine")
+	set := r.registry(s.Settings()).WithZone("UTC").For([]string{"schedule"}).As("routine")
+	at := time.Now().Add(time.Minute).UTC().Truncate(time.Second)
+	plan := Workflow{Schedules: []ScheduleOperation{{Type: "create", At: at.Format(time.RFC3339), Daily: true, Notify: &off, UserRequested: true, Note: "朝のニュース"}}}
+	_, steps := r.execute(context.Background(), skill, plan.batch(), set, turnRules{set: set}, timeline.Entry{})
+	if len(steps) != 1 || steps[0].Error != "" {
+		t.Fatalf("create: %+v", steps)
+	}
+	reminders := 0
+	r.OnEvent(func(name string, _ any) {
+		if name == "reminder" {
+			reminders++
+		}
+	})
+	saved, _ := s.Schedules("routine")
+	r.schedulesAt(context.Background(), saved[0].At.Add(time.Second))
+	entries, _ := s.Timeline()
+	if len(entries) != 1 || reminders != 0 {
+		t.Fatalf("muted schedule: entries=%d reminders=%d", len(entries), reminders)
+	}
+	saved, _ = s.Schedules("routine")
+	if saved[0].NotificationsEnabled() {
+		t.Fatal("repeat lost notify:false")
+	}
+	on := true
+	plan = Workflow{Schedules: []ScheduleOperation{{Type: "update", ID: saved[0].ID, Notify: &on}}}
+	rules := turnRules{set: set, schedules: map[string]bool{saved[0].ID: true}}
+	if problems := checkBatch(plan.batch(), rules); len(problems) != 0 {
+		t.Fatal(problems)
+	}
+	_, steps = r.execute(context.Background(), skill, plan.batch(), set, rules, timeline.Entry{})
+	if steps[0].Error != "" {
+		t.Fatal(steps)
+	}
+	updated, _ := s.Schedules("routine")
+	if len(updated) != 1 || updated[0].ID != saved[0].ID || !updated[0].At.Equal(saved[0].At) || !updated[0].UserRequested {
+		t.Fatal("update replaced recurrence or identity")
+	}
+	r.schedulesAt(context.Background(), updated[0].At.Add(time.Second))
+	if reminders != 1 {
+		t.Fatalf("enabled schedule reminders=%d", reminders)
+	}
+	rules.schedules[saved[0].ID] = false
+	if len(checkBatch(plan.batch(), rules)) == 0 {
+		t.Fatal("another owner's update accepted")
+	}
+}
+
+func TestScheduleUpdatePhaseAndPreviewKeepTheSameSchedule(t *testing.T) {
+	at := time.Now().Add(3 * time.Hour).UTC().Truncate(time.Second)
+	r, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "振り分け") {
+			return `{"deliver":["routine"]}`
+		}
+		return `{"summary":"通知を止める","steps":[{"type":"update_schedule","id":"s_edit","at":"` + at.Format(time.RFC3339) + `","notify":false},{"type":"speak","text":"予定の時刻を変更し、Push通知をOFFにしました。"}]}`
+	}, "routine")
+	original := store.Schedule{ID: "s_edit", Skill: "routine", At: at.Add(-time.Hour), Note: "予定", Daily: true, UserRequested: true, TimeZone: "UTC"}
+	if _, err := s.SaveSchedule(original); err != nil {
+		t.Fatal(err)
+	}
+	entry := post(t, s, "@sona この予定を3時間後に変更して、通知しないで")
+	preview, err := r.PreviewReply(context.Background(), entry.ID, "routine")
+	if err != nil || preview.Error != "" || preview.Spoke == "" {
+		t.Fatalf("preview: %+v %v", preview, err)
+	}
+	unchanged, _ := s.Schedules("routine")
+	if len(unchanged) != 1 || !unchanged[0].At.Equal(original.At) || !unchanged[0].NotificationsEnabled() {
+		t.Fatal("preview mutated schedule")
+	}
+	r.react(entry.ID)
+	saved, _ := s.Schedules("routine")
+	if len(saved) != 1 || saved[0].ID != "s_edit" || !saved[0].At.Equal(at) || saved[0].NotificationsEnabled() || !saved[0].Daily || !saved[0].UserRequested {
+		t.Fatalf("phase update failed: %+v", saved)
+	}
+}

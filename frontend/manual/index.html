@@ -207,7 +207,19 @@
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
           <p>通知予定は担当一覧と発言一覧のカードで確認できます。不要な予定は各予定の <strong>×</strong> で取り消せます。</p>
           <h3 id="ja-daily">担当からの声かけ</h3>
-          <p>記憶を持つ担当は、伝えたいことがあるときや、出かける前の持ち物点検・雨予報の傘の助言（sona）など、必要なタイミングで話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると声かけも止まります。毎日の起床時刻や月次まとめの仕組みは <a href="/manual/?guide=advanced#ja-daily-advanced" data-lang-link>上級編</a> にあります。</p>
+          <p>記憶を持つ担当は、伝えたいことがあるときや、出かける前の持ち物点検・雨予報の傘の助言（sona）など、必要なタイミングで話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると定期的なチェックインは止まりますが、明示的な通知予定は引き続き実行します。毎日の起床時刻や月次まとめの仕組みは <a href="/manual/?guide=advanced#ja-daily-advanced" data-lang-link>上級編</a> にあります。</p>
+          <h3 id="ja-push">リマインダーのPush通知</h3>
+          <ol>
+            <li>iPhone・iPadでは、kakerattaをホーム画面に追加し、そこから開きます。</li>
+            <li><strong>設定 → この端末 → リマインダーのpush通知</strong> を開き、<strong>通知を有効にする</strong> を押してブラウザの通知を許可します。受け取りたい端末ごとに設定してください。</li>
+            <li>誕生日や予定のリマインダーを、ブラウザを閉じていても受け取れます。通知を開くと該当の投稿に移動します。同じ場所の <strong>通知を無効にする</strong> で、その端末への配信を止められます。</li>
+          </ol>
+          <p>通知にはリマインダー本文が最大120文字で表示されます（省略時は末尾に「…」）。ロック画面での表示は端末の設定に従います。通常の返事・チェックイン・今月のまとめは通知しません。HTTPSと対応ブラウザが必要です。配信に失敗しても投稿はタイムラインに残ります。</p>
+          <p>通知が届かないときは、この端末での有効化、ブラウザの通知許可、ログイン状態、予定ごとの通知設定を確認してください。「サーバーで設定されていません」と表示される場合は運用者の設定が必要です。</p>
+          <h3 id="ja-schedules">予定だけをまとめて見る・編集する</h3>
+          <p><strong>担当 → 予定だけ</strong> で、すべての担当の予定を次の実行日時順に確認できます。担当名や予定の内容で検索できます。各予定の鉛筆マークから <strong>日時・通知を編集</strong> モーダルを開き、次の実行日時と <strong>Push通知</strong> を変更して保存してください。入力欄の日時は、表示されたこの端末のタイムゾーンです。</p>
+          <p>担当ごとのカードや発言一覧でも編集できます。通知OFFでも予定の実行とタイムラインへの投稿は続きます。「この予定は通知しないで」のように担当に頼むこともできます。予定自体を止める場合は <strong>×</strong> で取り消してください。</p>
+          <p>毎日の予定は、予定のタイムゾーンで変更後の時刻を引き継ぎます。年次予定も時刻は引き継ぎますが、日付変更は次回だけです。実行を始めた回には変更が間に合わないことがあります。保存に失敗した場合は入力を残して再試行できます。</p>
         </section>
 
         <section id="ja-memory">
@@ -545,7 +557,7 @@
               <tbody>
                 <tr><td>モデル</td><td>AI の API キー</td></tr>
                 <tr><td>Web検索</td><td>Tavily の API キー（<a href="#ja-tool-web_search">Web検索</a>を使う場合）</td></tr>
-                <tr><td>この端末</td><td>表示言語、kakeratta の版</td></tr>
+                <tr><td>この端末</td><td>表示言語、<a href="/manual/#ja-push" data-lang-link>リマインダーのPush通知</a>、kakeratta の版</td></tr>
                 <tr><td>上級オプション → モデル</td><td>OpenRouter を使う</td></tr>
                 <tr><td>上級オプション → 入力</td><td>入力をマークダウンとして扱う</td></tr>
                 <tr><td>上級オプション → 音声</td><td>音声入力（送信の合図、無音で停止など）、読み上げの声と速さ</td></tr>
@@ -791,7 +803,19 @@
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
           <p>View notification schedules on the persona card or above its speaker list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
           <h3 id="en-daily">Hearing from your personas</h3>
-          <p>Personas with <strong>Remember</strong> enabled keep memories and speak now and then when they have something useful or timely to share, such as sona's doorstep reminder before heading out. How much they say and their tone follow their character. Turning off <strong>Remember</strong> also stops these follow-ups. Check-in timings and monthly summary mechanics are in the <a href="/manual/?guide=advanced#en-daily-advanced" data-lang-link>Advanced Guide</a>.</p>
+          <p>Personas with <strong>Remember</strong> enabled keep memories and speak now and then when they have something useful or timely to share, such as sona's doorstep reminder before heading out. How much they say and their tone follow their character. Turning off <strong>Remember</strong> stops periodic check-ins; explicit schedules still run. Check-in timings and monthly summary mechanics are in the <a href="/manual/?guide=advanced#en-daily-advanced" data-lang-link>Advanced Guide</a>.</p>
+          <h3 id="en-push">Push reminders</h3>
+          <ol>
+            <li>On iPhone/iPad, add kakeratta to the Home Screen and open it there.</li>
+            <li>Open <strong>Settings → This device → Push reminders</strong>, press <strong>Enable notifications</strong>, and allow browser notifications. Enable them on each device where you want reminders.</li>
+            <li>Birthday and scheduled reminders can arrive while the browser is closed. Open a notification to view its post. Use <strong>Disable notifications</strong> in the same place to stop delivery to that device.</li>
+          </ol>
+          <p>Notifications show up to 120 characters of reminder text, with an ellipsis when shortened. Lock-screen visibility follows your device settings. Ordinary replies, check-ins and monthly summaries do not trigger Push. HTTPS and a supported browser are required. The timeline post remains available if delivery fails.</p>
+          <p>If notifications do not arrive, check device enablement, browser permission, login status, and the schedule's notification setting. A message saying Push is not configured on the server requires operator setup.</p>
+          <h3 id="en-schedules">View and edit all schedules</h3>
+          <p>Open <strong>Personas → Schedules only</strong> to see all personas' schedules ordered by next run. Search by persona name or schedule text. Use the pencil button to open the <strong>Edit time and notifications</strong> dialog, change the next run and/or <strong>Push notifications</strong>, then save. The date/time input uses the device timezone shown below it.</p>
+          <p>The same controls are available on individual persona and speaker cards. Turning Push off keeps the task and its timeline post. You can also ask a persona to turn notifications off for a schedule. Use <strong>×</strong> to cancel the schedule itself.</p>
+          <p>Daily repeats keep the edited time in the schedule's timezone. Annual reminders keep the time too, but date changes apply only to the next occurrence. Edits may be too late for an occurrence already running. A failed save retains your input for retry.</p>
         </section>
 
         <section id="en-memory">
@@ -1129,7 +1153,7 @@
               <tbody>
                 <tr><td>Models</td><td>The AI API key</td></tr>
                 <tr><td>Web search</td><td>Tavily API key (for <a href="#en-tool-web_search">web search</a>)</td></tr>
-                <tr><td>This device</td><td>Display language, kakeratta version</td></tr>
+                <tr><td>This device</td><td>Display language, <a href="/manual/#en-push" data-lang-link>Push reminders</a>, kakeratta version</td></tr>
                 <tr><td>Advanced options → Models</td><td>Use OpenRouter</td></tr>
                 <tr><td>Advanced options → Input</td><td>Treat what I write as Markdown</td></tr>
                 <tr><td>Advanced options → Voice</td><td>Voice input (send phrase, silence stop, …), read-aloud voice and speed</td></tr>

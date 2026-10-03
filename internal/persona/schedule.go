@@ -13,6 +13,13 @@ import (
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
+type scheduleNotifyKey struct{}
+
+func scheduleNotify(ctx context.Context) bool {
+	enabled, ok := ctx.Value(scheduleNotifyKey{}).(bool)
+	return !ok || enabled
+}
+
 const scheduleInstructions = `
 
 ## Schedule（自分が預けた時刻による起床）
@@ -145,7 +152,7 @@ func (r *Runner) schedulesAt(ctx context.Context, now time.Time) {
 		if fired.PersonEvent != nil && fired.PersonEvent.Annual {
 			trigger.Text += fmt.Sprintf("\n対象の誕生日・記念日は毎年%02d月%02d日です（2月29日は平年には2月28日に通知）。この通知は%d日前の通知です。", fired.PersonEvent.Month, fired.PersonEvent.Day, fired.PersonEvent.LeadDays)
 		}
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		ctx, cancel := context.WithTimeout(context.WithValue(ctx, scheduleNotifyKey{}, fired.NotificationsEnabled()), 10*time.Minute)
 		today := timeline.Entry{At: now, Speaker: "system", Text: r.scheduleTimeline(ctx, now, settings.Location())}
 		instructions := scheduleInstructions
 		if fired.UserRequested {

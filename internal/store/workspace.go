@@ -82,6 +82,7 @@ type Workspace interface {
 	ForgetRouting(string) error
 	Schedules(string) ([]Schedule, error)
 	SaveSchedule(Schedule) (Schedule, error)
+	UpdateSchedule(string, string, SchedulePatch) (Schedule, error)
 	DeleteSchedule(string, string) error
 	DeleteSchedules(string) error
 	ClaimSchedule(string, time.Time, time.Time) (Schedule, bool, error)

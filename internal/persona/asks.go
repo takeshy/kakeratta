@@ -43,13 +43,14 @@ type askRecord struct {
 
 // askTurn is what the turn was started with, to start it again from.
 type askTurn struct {
-	Persona      string          `json:"persona"`
-	Trigger      timeline.Entry  `json:"trigger"`
-	Place        *timeline.Place `json:"place,omitempty"`
-	Named        bool            `json:"named"`
-	Listening    bool            `json:"listening"`
-	Instructions string          `json:"instructions"`
-	Deep         bool            `json:"deep"`
+	Persona              string          `json:"persona"`
+	Trigger              timeline.Entry  `json:"trigger"`
+	Place                *timeline.Place `json:"place,omitempty"`
+	Named                bool            `json:"named"`
+	Listening            bool            `json:"listening"`
+	Instructions         string          `json:"instructions"`
+	Deep                 bool            `json:"deep"`
+	SuppressNotification bool            `json:"suppressNotification,omitempty"`
 }
 
 // askResearch is what the agent's reads found, carried into the answer's
@@ -429,6 +430,7 @@ func (r *Runner) resumeAsk(ctx context.Context, id string) {
 		return
 	}
 	client, settings := r.clientOf()
+	ctx = context.WithValue(ctx, scheduleNotifyKey{}, !record.Turn.SuppressNotification)
 	remark := r.run(context.WithValue(ctx, resumeKey{}, &record), turn.skill, turn.thread, turn.trigger,
 		record.Turn.Named, record.Turn.Listening, record.Turn.Instructions, record.Turn.Deep, client, settings, r.registry(settings))
 	forget()

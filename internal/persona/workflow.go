@@ -49,6 +49,7 @@ type operation struct {
 	// write_schedule.
 	At            string `json:"at"`
 	Daily         bool   `json:"daily"`
+	Notify        *bool  `json:"notify,omitempty"`
 	UserRequested bool   `json:"user_requested"`
 	Note          string `json:"note"`
 	// cancel_schedule.
@@ -222,6 +223,18 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 			if strings.TrimSpace(step.Note) == "" {
 				problems = append(problems, at+": note（起きたときに実行する目的）がありません")
 			}
+		case "update_schedule":
+			if !rules.set.Allows("schedule") || !rules.schedules[strings.TrimSpace(step.ID)] {
+				problems = append(problems, at+": 自分の schedule だけを更新できます")
+			}
+			if step.At == "" && step.Notify == nil {
+				problems = append(problems, at+": at または notify が必要です")
+			}
+			if step.At != "" {
+				if parsed, err := time.Parse(time.RFC3339, step.At); err != nil || !parsed.After(time.Now()) {
+					problems = append(problems, at+": at は未来のRFC3339時刻で指定してください")
+				}
+			}
 		case "cancel_schedule":
 			if !rules.set.Allows("schedule") {
 				problems = append(problems, at+": あなたは schedule を使えません")
@@ -235,7 +248,7 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 			}
 			switch {
 			case step.Tool == "schedule":
-				problems = append(problems, at+": 予定は tool ではなく write_schedule / cancel_schedule で扱います")
+				problems = append(problems, at+": 予定は tool ではなく write_schedule / update_schedule / cancel_schedule で扱います")
 			case strings.HasPrefix(step.Tool, "notes_") || step.Tool == "records":
 				problems = append(problems, at+": 記憶は本体がメモ係を通して保存します。Action では扱いません")
 			case !rules.set.Allows(step.Tool):
@@ -328,6 +341,7 @@ var reviewTool = llm.Tool{
 const reviewPrompt = `あなたはアプリ本体です。実行計画のScheduleとActionのみを実行前に確認します。
 Answerの品質・長さ・調査結果や記憶の更新はレビューしません。
 次の場合だけhighとしてfailにする:
+Push通知のON/OFFや予定の時刻変更がユーザーの依頼と矛盾する。notify:falseはPushのみ停止し、予定実行は続く。updateは既存予定の時刻・通知だけを変える。
 - Answerの約束と予定の日時、作成・取消・変更が一致しない。
 - user_requested:true の予定に、ユーザーによる時刻・繰り返しを伴う実行依頼または既存のユーザー依頼予定の裏付けがない。
 - 複数の予定やActionが矛盾し、または相互依存を満たさない。
@@ -463,7 +477,7 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 			case err != nil:
 				out = "args を JSON オブジェクトとして読めません: " + err.Error()
 			case step.Tool == "schedule":
-				out = "自分の予定は最初に渡した一覧にあります。他の担当の予定は閲覧専用の schedules_list で確認してください。置く・消すは後の Schedule フェーズで扱います。"
+				out = "自分の予定は最初に渡した一覧にあります。他の担当の予定は閲覧専用の schedules_list で確認してください。作成・更新・取消は後の Schedule フェーズで扱います。"
 			case !set.IsReadOnly(step.Tool):
 				out = "この道具は状態を変えるため read では実行できません。後の Action フェーズで扱います。"
 			default:
@@ -524,8 +538,18 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow operationBat
 		switch step.Type {
 		case "write_schedule":
 			result, err := set.Run(ctx, "schedule", map[string]any{
-				"action": "set", "at": strings.TrimSpace(step.At), "daily": step.Daily, "user_requested": step.UserRequested, "note": step.Note,
+				"action": "set", "at": strings.TrimSpace(step.At), "notify": notificationValue(step.Notify), "daily": step.Daily, "user_requested": step.UserRequested, "note": step.Note,
 			}, nil)
+			out = result.Text
+			if err != nil {
+				record.Error = err.Error()
+			}
+		case "update_schedule":
+			args := map[string]any{"action": "update", "id": step.ID, "at": step.At}
+			if step.Notify != nil {
+				args["notify"] = *step.Notify
+			}
+			result, err := set.Run(ctx, "schedule", args, nil)
 			out = result.Text
 			if err != nil {
 				record.Error = err.Error()
@@ -539,7 +563,7 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow operationBat
 		case "tool":
 			// Checked again here: the review is advice, the declaration is the rule.
 			if step.Tool == "schedule" {
-				record.Error = "予定は write_schedule / cancel_schedule で扱います"
+				record.Error = "予定は write_schedule / update_schedule / cancel_schedule で扱います"
 				break
 			}
 			args, err := argsOf(step.Args)
@@ -614,7 +638,7 @@ func (r *Runner) scheduleListFor(skill Skill, set *tools.Set, names map[string]s
 			owner = fmt.Sprintf("%s（%s）", name, schedule.Skill)
 		}
 		line := fmt.Sprintf("- %s %s（%s・担当: %s）: %s", schedule.ID, when.Format("2006-01-02 15:04 MST"), repeat, owner, schedule.Note)
-		line += fmt.Sprintf("（user_requested:%t）", schedule.UserRequested)
+		line += fmt.Sprintf("（user_requested:%t, notify:%t）", schedule.UserRequested, schedule.NotificationsEnabled())
 		lines = append(lines, line)
 	}
 	if len(lines) == 0 {
@@ -701,3 +725,5 @@ func clip(text string, limit int) string {
 	}
 	return text
 }
+
+func notificationValue(value *bool) bool { return value == nil || *value }

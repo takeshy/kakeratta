@@ -187,15 +187,6 @@ func (r *Runner) ApplyPersonSchedules(plan *PersonSchedulePlan) error {
 			if err := schedule.Validate(plan.now); err != nil {
 				return err
 			}
-			for _, old := range existing {
-				if old.ID != id || old.PersonEvent == nil || old.TimeZone != schedule.TimeZone {
-					continue
-				}
-				previous := old.PersonEvent
-				if metadata.Annual && previous.Annual && metadata.Month == previous.Month && metadata.Day == previous.Day && metadata.LeadDays == previous.LeadDays {
-					schedule.At = old.At // Preserve the next year after a completed notification.
-				}
-			}
 			desired[id] = schedule
 		}
 	}

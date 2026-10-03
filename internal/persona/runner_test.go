@@ -255,15 +255,16 @@ type testTurn struct {
 // testStep is one change a scripted turn makes, in the shape the fixtures
 // write it.
 type testStep struct {
-	Type  string `json:"type"`
-	Path  string `json:"path"`
-	Text  string `json:"text"`
-	Tool  string `json:"tool"`
-	Args  string `json:"args"`
-	At    string `json:"at"`
-	Daily bool   `json:"daily"`
-	Note  string `json:"note"`
-	ID    string `json:"id"`
+	Type   string `json:"type"`
+	Path   string `json:"path"`
+	Text   string `json:"text"`
+	Tool   string `json:"tool"`
+	Args   string `json:"args"`
+	At     string `json:"at"`
+	Daily  bool   `json:"daily"`
+	Notify *bool  `json:"notify"`
+	Note   string `json:"note"`
+	ID     string `json:"id"`
 }
 
 // submission is what one phase of a scripted turn hands in.
@@ -271,12 +272,15 @@ func (turn testTurn) submission(phase string) map[string]any {
 	operations := []any{}
 	for _, step := range turn.steps {
 		switch {
-		case phase == "schedule" && (step.Type == "write_schedule" || step.Type == "cancel_schedule"):
+		case phase == "schedule" && (step.Type == "write_schedule" || step.Type == "cancel_schedule" || step.Type == "update_schedule"):
 			kind := "create"
+			if step.Type == "update_schedule" {
+				kind = "update"
+			}
 			if step.Type == "cancel_schedule" {
 				kind = "cancel"
 			}
-			operations = append(operations, map[string]any{"type": kind, "at": step.At, "daily": step.Daily, "note": step.Note, "id": step.ID})
+			operations = append(operations, map[string]any{"type": kind, "at": step.At, "daily": step.Daily, "notify": step.Notify, "note": step.Note, "id": step.ID})
 		case phase == "action" && step.Type == "tool":
 			operations = append(operations, map[string]any{"tool": step.Tool, "args": step.Args})
 		}
