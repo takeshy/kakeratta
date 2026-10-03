@@ -80,15 +80,45 @@ test("the header links to the manual in a new tab, in the reader's language", as
   assert.equal(manualLink(), "/manual/?lang=en");
   const room = { banner: new Stub(), bar: new Stub() };
   const [header] = screenNodes({ compose: new Stub(), room, feed: new Stub(), onOpen: () => {}, onLogout: null });
+  const ownStyles = header.find(node => node.tag === "style");
+  assert.ok(ownStyles.textContent.includes(".nav-more-items { position: absolute;"), "popup layout ships with the component");
   const help = header.find((node) => node.className.includes("help"));
   assert.ok(help, "the header has a help link");
   assert.equal(help.tag, "a");
   assert.equal(help.attributes.href, "/manual/?lang=en");
   assert.equal(help.attributes.target, "_blank");
   assert.equal(help.attributes.rel, "noopener");
-  assert.equal(help.attributes["aria-label"], "Help");
-  assert.equal(help.attributes.title, "Manual (opens in a new tab)");
-  assert.match(help.innerHTML, /<svg/);
+  assert.equal(help.textContent, "User guide");
+  assert.equal(header.find(node => node.className === "nav-more"), null, "desktop has no overflow menu");
+  assert.ok(header.find(node => node.className === "nav-secondary").find(node => node === help));
+  assert.ok(header.find(node => node.attributes["aria-label"] === "Schedules"));
+
+  const primary = node => node.className === "chip ghost nav nav-search";
+  const desktopSearch = header.find(primary);
+  assert.equal(desktopSearch.children.length, 1);
+  assert.equal(desktopSearch.children[0].className, "nav-label");
+  const previousWidth = globalThis.innerWidth;
+  t.after(() => {
+    if (previousWidth === undefined) delete globalThis.innerWidth;
+    else globalThis.innerWidth = previousWidth;
+  });
+  globalThis.innerWidth = 280;
+  const [mobile] = screenNodes({ compose: new Stub(), room, feed: new Stub() });
+  const mobileSearch = mobile.find(primary);
+  assert.equal(mobileSearch.children.length, 1, "icon and text are never rendered together");
+  assert.equal(mobileSearch.children[0].className, "nav-icon");
+  assert.match(mobile.className, /compact narrow/);
+  assert.equal(mobile.find(node => node.className === "chip ghost nav nav-settings"), null);
+  assert.equal(mobile.find(node => node.className === "chip ghost nav nav-personas"), null);
+  const mobileMore = mobile.find(node => node.className === "nav-more");
+  const toggle = mobileMore.find(node => node.className.includes("more-toggle"));
+  assert.equal(toggle.tag, "button");
+  assert.equal(toggle.attributes["aria-expanded"], "false");
+  assert.equal(toggle.attributes["aria-label"], "More options");
+  assert.equal((toggle.innerHTML.match(/<circle/g) || []).length, 3);
+  assert.ok(mobileMore.find(node => node.className === "nav-more-settings"));
+  assert.ok(mobileMore.find(node => node.className === "nav-more-personas"));
+  assert.equal(mobileSearch.attributes["aria-label"], "Search");
 
   setLanguage("ja");
   assert.equal(manualLink(), "/manual/?lang=ja");

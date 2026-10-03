@@ -4,6 +4,7 @@ import { setLanguage, getLanguage } from "../frontend/src/i18n.js";
 
 globalThis.EventSource = class { close() {} };
 const { createPersonas, fold, matches, byName, readingOf } = await import("../frontend/src/personas.js");
+const { createSchedules } = await import("../frontend/src/schedules.js");
 const { api } = await import("../frontend/src/api.js");
 
 class Element {
@@ -62,7 +63,7 @@ test("people and interests are on tabs of their own, each searchable, people in 
   setup(t);
   const view = createPersonas({ getSettings: () => ({}) });
   await view.load();
-  assert.deepEqual(tabs(view.element).map((tab) => tab.textContent), ["人物 3", "関心ごと 2", "予定だけ 0"]);
+  assert.deepEqual(tabs(view.element).map((tab) => tab.textContent), ["人物 3", "関心ごと 2"]);
   assert.deepEqual(cards(view.element), ["sato", "aoki", "nagomi"], "people come first, as added");
   const order = walk(view.element).find((node) => node.className === "persona-order");
   order.value = "name";
@@ -148,16 +149,16 @@ test("a memoryless persona keeps editing and planner preferences without memory 
 });
 
 
-test("schedules tab combines owners by next time and filters without persona cards", async t => {
+test("the separate schedules panel combines owners by next time and filters without persona cards", async t => {
  setup(t);
  const scheduled = [
   { ...rows[0], schedules: [{ id: "s_later", at: "2099-11-12T00:00:00Z", note: "夕食", notify: false }, { id: "s_first", at: "2099-11-09T00:00:00Z", note: "朝食" }] },
   { ...rows[2], schedules: [{ id: "s_early", at: "2099-11-10T00:00:00Z", note: "誕生日" }] },
  ];
  t.mock.method(api, "personas", async () => ({ personas: scheduled, tools: [] }));
- const view = createPersonas({ getSettings: () => ({}) });
+ const view = createSchedules();
  await view.load();
- tabs(view.element)[2].listeners.click();
+ assert.deepEqual(tabs(view.element), []);
  assert.deepEqual(cards(view.element), []);
  const chips = () => walk(view.element).filter(n => n.className === "chip ghost schedule");
  assert.ok(content(chips()[0]).includes("朝食"));
@@ -183,7 +184,8 @@ test("a schedule edit saves only changed fields and keeps input after failure", 
  const scheduled = [{ ...rows[0], schedules: [{ id: "s_edit", at: "2099-11-12T00:00:31Z", note: "夕食" }] }];
  t.mock.method(api, "personas", async () => ({ personas: scheduled, tools: [] }));
  const update = t.mock.method(api, "updateSchedule", async () => { throw new Error("retry me"); });
- const view = createPersonas({ getSettings: () => ({}) }); await view.load();
+ let changed;
+ const view = createSchedules({ onChange: rows => { changed = rows; } }); await view.load();
  document.body = new Element("body");
  walk(view.element).find(n => n.className === "schedule-edit-button").listeners.click();
  const form = walk(document.body).find(n => n.className === "schedule-edit-form");
@@ -198,4 +200,29 @@ test("a schedule edit saves only changed fields and keeps input after failure", 
  await form.listeners.submit({ preventDefault() {} });
  assert.equal(update.mock.calls[1].arguments[2].at, new Date("2099-11-13T09:30").toISOString());
  assert.ok(!walk(document.body).some(n => n.className === "schedule-edit-form"));
+ assert.deepEqual(changed[0].schedules, []);
+ assert.ok(content(view.element).includes("予定はありません"));
+});
+
+test("the schedules panel reports load failures and can retry", async t => {
+ setup(t);
+ const request = t.mock.method(api, "personas", async () => { throw new Error("offline"); });
+ const view = createSchedules();
+ await view.load();
+ const status = walk(view.element).find(n => n.role === "status");
+ assert.equal(status.textContent, "offline");
+ assert.equal(status.hidden, false);
+ request.mock.mockImplementation(async () => ({ personas: [] }));
+ await view.load();
+ assert.equal(status.hidden, true);
+ assert.ok(content(view.element).includes("予定はありません"));
+});
+
+test("a remembered old schedules tab falls back to a persona kind", async t => {
+ setup(t);
+ globalThis.localStorage = { getItem: key => key === "kakeratta.personas.tab" ? "schedules" : null };
+ t.after(() => { delete globalThis.localStorage; });
+ const view = createPersonas({}); await view.load();
+ assert.equal(tabs(view.element).length, 2);
+ assert.deepEqual(cards(view.element), ["sato", "aoki", "nagomi"]);
 });

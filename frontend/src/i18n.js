@@ -1,6 +1,10 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "予定": "Schedules",
+ "予定一覧": "Schedules",
+ "その他のメニュー": "More options",
+ "使い方": "User guide",
  "地名データ：": "Place names: ",
  "（最寄りの町・村を抽出）": " (nearest town or village extracted)",
  "{0}付近": "Near {0}",

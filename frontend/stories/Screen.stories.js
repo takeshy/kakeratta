@@ -47,3 +47,13 @@ export const ReadingAloud = {
   name: "読み上げ中",
   render: () => screen({ rows: personas, entries: timeline().answered, speaking: true }),
 };
+
+export const MoreOptions = {
+  name: "スマホのその他メニュー",
+  globals: { viewport: { value: "mobile1", isRotated: false } },
+  render: () => {
+    const host = screen({ rows: personas, entries: timeline().answered, signedIn: true });
+    host.querySelector(".more-toggle")?.click();
+    return host;
+  },
+};

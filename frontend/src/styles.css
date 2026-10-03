@@ -57,34 +57,6 @@ body {
 
 .spacer { margin-left: auto; }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 0 8px;
-  position: sticky;
-  top: 0;
-  background: linear-gradient(var(--bg) 70%, transparent);
-  z-index: 5;
-}
-.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: 0.02em; }
-.brand-mark { width: 22px; height: 22px; border-radius: 6px; }
-/* Navigation stays separate from each thread’s read-aloud control. */
-.topbar .nav { font-size: 0.8rem; white-space: nowrap; }
-/* Compact navigation aligns to the right of the brand on phones.
-   Keep wrapping available for large text and especially narrow screens. */
-@media (max-width: 480px) {
-  .topbar { gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
-  .topbar .brand { margin-right: auto; }
-  .topbar > .spacer { display: none; }
-  .topbar .nav { font-size: 1rem; padding: 4px; }
-  .topbar .nav.help, .topbar .nav.logout { padding: 4px; }
-  .brand-name { display: none; }
-}
-/* Help and logout use compact icons with accessible labels. */
-.topbar .help, .topbar .logout { display: inline-flex; align-items: center; padding: 4px 6px; text-decoration: none; }
-.topbar .help svg, .topbar .logout svg { display: block; }
-
 /* Buttons */
 .button, .chip {
   font: inherit;
@@ -441,6 +413,12 @@ body.sheet-open .topbar { z-index: 21; }
 /* The settings sheet: each h3 opens a section, set off by a rule and an accent
    label, so a long sheet reads as a few groups rather than one column. */
 .settings-panel { grid-template-columns: minmax(0, 1fr); gap: 12px; padding-bottom: 32px; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .settings-panel, #sheet:has(.settings-panel) .sheet-head {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
 /* Native controls and nested grids can otherwise impose their content width,
    especially with enlarged text or long device-specific voice names. */
 .settings-panel :is(.field, .settings-block, .advanced-body, .advanced-category-body, .openrouter-models, .mcp-connection, .mcp-connection-row, .bluesky-connection) {

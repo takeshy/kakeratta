@@ -47,8 +47,14 @@ Two pages sit beside the app on the same host: `/lp/` introduces it and
 Japanese and English in one document and a switch in the header; the choice is
 kept under the same browser key as the app's display language, so the app, the
 landing page and the manual agree. A `?lang=ja` or `?lang=en` in the URL wins,
-so a link can carry a language. The **?** icon in the app header opens the
-manual in a new tab, in the app's current language.
+so a link can carry a language. **User guide** opens the manual in a new tab,
+in the app's current language. On wide screens, it and Logout appear directly
+in the header. On phones, they appear in a floating list opened by the
+three-dot button.
+
+Phone navigation uses labelled icons on one row. Settings stays in the header
+as a gear when there is room; otherwise it moves into the three-dot menu.
+At still narrower widths, Personas moves into that menu too.
 
 The pages are plain HTML in `frontend/lp/`, `frontend/manual/` and
 `frontend/site/` (shared stylesheet and language switch). `node build.mjs`
@@ -287,7 +293,7 @@ Fields kept as prose before facts existed are not read as facts; the operator sp
 
 ## View and edit all schedules
 
-Open **Personas → Schedules only** to see every persona's schedules ordered by next run. Search by persona name or schedule text. Use the pencil button to open **Edit time and notifications**, change the next run and/or **Push notifications**, then save. The date/time input identifies the device timezone. The same controls are available on individual persona and speaker cards.
+Open **Schedules** in the header (the calendar icon on phones) to see every persona's schedules ordered by next run. Search by persona name or schedule text. Use the pencil button to open **Edit time and notifications**, change the next run and/or **Push notifications**, then save. The date/time input identifies the device timezone. The same controls are available on individual persona and speaker cards.
 
 Turning Push off keeps execution and timeline posts enabled. You can also ask a persona to turn a schedule's notifications on or off. The × button cancels the schedule itself. Daily repeats keep the edited clock time in the schedule's timezone. Annual reminders also keep the edited time, but date changes apply only to the next occurrence, leaving the birthday or anniversary unchanged. Edits may be too late for an occurrence already running. A failed save retains your input for retry.
 

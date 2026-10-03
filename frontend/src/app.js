@@ -14,6 +14,7 @@ import { createFeed } from "./feed.js";
 import { showConditionFix } from "./condition-fix.js";
 import { showReplyFix } from "./reply-fix.js";
 import { createPersonas } from "./personas.js";
+import { createSchedules } from "./schedules.js";
 import { createRoom } from "./room.js";
 import { screenNodes, sheetNodes } from "./screen.js";
 import { aiConfigured, createSettings } from "./settings.js";
@@ -81,6 +82,7 @@ const personas = createPersonas({
     personaRows = rows;
     // A card over a speaker's list shows what was just changed.
     speakerPanel.redrawCard();
+    schedulesPanel.updateRows(rows);
     void localRecord("personas", rows).catch(() => {});
     feed.draw();
     room.set(rows);
@@ -96,6 +98,7 @@ const room = createRoom({
   onMemory: (row) => void personas.showMemoryFor(row),
   onEdit: (row) => personas.edit(row),
 });
+const schedulesPanel = createSchedules({ onChange: (rows) => personas.updateRows(rows) });
 const settingsPanel = createSettings({
   speaker,
   onMCPChange: () => void personas.load({ quiet: true }),
@@ -195,11 +198,11 @@ document.body.addEventListener("click", (event) => {
 });
 
 function showPanel() {
-  const body = panel === "favorites" ? favoritesPanel.element : panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : panel === "speaker" ? speakerPanel.element : settingsPanel.element;
+  const body = panel === "schedules" ? schedulesPanel.element : panel === "favorites" ? favoritesPanel.element : panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : panel === "speaker" ? speakerPanel.element : settingsPanel.element;
   const host = $("#sheet");
   host.classList.toggle("required", panel === "settings" && settingsRequired);
   host.replaceChildren(sheetNodes({
-    title: panel === "favorites" ? "お気に入り" : panel === "personas" ? "担当" : panel === "search" ? "検索" : panel === "speaker" ? "発言一覧" : "設定",
+    title: panel === "schedules" ? "予定一覧" : panel === "favorites" ? "お気に入り" : panel === "personas" ? "担当" : panel === "search" ? "検索" : panel === "speaker" ? "発言一覧" : "設定",
     body,
     onClose: panel === "settings" && settingsRequired ? null : close,
   }));
@@ -216,6 +219,7 @@ function open(which) {
   panel = which;
   showPanel();
   if (which === "favorites") void favoritesPanel.show();
+  else if (which === "schedules") void schedulesPanel.load();
   else if (which === "personas") void personas.load();
   else if (which === "search") searchPanel.focus();
   else void settingsPanel.load();
@@ -377,7 +381,7 @@ async function boot() {
   if (cached) pages.restore(cached);
   await drawLocal();
   const cachedPersonas = await localRecord("personas").catch(() => null);
-  if (cachedPersonas) { personaRows = cachedPersonas; room.set(personaRows); feed.draw(); }
+  if (cachedPersonas) { personaRows = cachedPersonas; room.set(personaRows); schedulesPanel.updateRows(personaRows); feed.draw(); }
   if (navigator.onLine === false) { compose.focus(); return; }
   const loading = reload();
   const loadingPersonas = personas.load({ quiet: true });
