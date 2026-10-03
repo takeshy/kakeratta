@@ -25,11 +25,11 @@ func testPostPlaceAndRetry(t *testing.T, language string) {
 		expectedLanguage = "ja"
 	}
 
-	expectedLabel := "横浜市港北区大豆戸町（JP）付近"
+	expectedLabel := "横浜市港北区大豆戸町付近"
 	name, city, district := "大豆戸町", "横浜市", "港北区"
 	if expectedLanguage == "en" {
 		name, city, district = "Mamedo", "Yokohama", "Kohoku"
-		expectedLabel = "Yokohama, Kohoku, Mamedo（JP）付近"
+		expectedLabel = "Yokohama, Kohoku, Mamedo付近"
 	}
 	s, st := app(t)
 	calls := 0

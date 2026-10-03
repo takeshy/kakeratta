@@ -33,12 +33,13 @@ type change struct {
 
 type plan struct {
 	Project string   `json:"project"`
+	Refresh bool     `json:"refresh,omitempty"`
 	Changes []change `json:"changes"`
 }
 
-func eligible(e timeline.Entry) bool {
+func eligible(e timeline.Entry, refresh bool) bool {
 	p := e.Place
-	return !e.Deleted && e.Kind == timeline.KindPost && e.Speaker == timeline.User && p != nil && p.Label == "" &&
+	return !e.Deleted && e.Kind == timeline.KindPost && e.Speaker == timeline.User && p != nil && (p.Label == "" || refresh && p.Approximate) &&
 		!math.IsNaN(p.Lat) && !math.IsNaN(p.Lon) && math.Abs(p.Lat) <= 90 && math.Abs(p.Lon) <= 180
 }
 
@@ -49,7 +50,7 @@ func resolved(raw json.RawMessage, before timeline.Place, language string) (time
 func validChange(c change) bool {
 	parts := strings.Split(c.Path, "/")
 	return len(parts) == 4 && parts[0] == "users" && parts[1] != "" && parts[2] == "timeline" && parts[3] != "" &&
-		!c.Updated.IsZero() && c.Before.Label == "" && c.After.Label != "" && c.After.Approximate &&
+		!c.Updated.IsZero() && (c.Before.Label == "" || c.Before.Approximate) && c.After.Label != "" && c.After.Approximate &&
 		c.Before.Lat == c.After.Lat && c.Before.Lon == c.After.Lon
 }
 
@@ -58,6 +59,7 @@ func run() error {
 	user := flag.String("user", "", "workspace key; empty scans all workspaces")
 	planFile := flag.String("plan", "place-plan.json", "dry-run output or apply input (contains coordinates; keep private)")
 	config := flag.String("mcp-config", "", "file containing the operator MCP servers JSON array")
+	refresh := flag.Bool("refresh", false, "also refresh existing approximate geocoded labels; custom labels remain unchanged")
 	scan := flag.Bool("scan", false, "count eligible posts only; no MCP calls or writes")
 	apply := flag.Bool("apply", false, "apply an existing plan without MCP calls")
 	verify := flag.Bool("verify", false, "read back locations and compare with an existing plan")
@@ -85,7 +87,7 @@ func run() error {
 			return errors.New("plan project does not match target")
 		}
 		for _, c := range p.Changes {
-			if !validChange(c) {
+			if !validChange(c) || c.Before.Label != "" && !p.Refresh {
 				return errors.New("invalid plan change")
 			}
 		}
@@ -170,7 +172,7 @@ func run() error {
 		docs = client.Collection("users").Doc(*user).Collection("timeline").Documents(ctx)
 	}
 	defer docs.Stop()
-	p := plan{Project: *project}
+	p := plan{Project: *project, Refresh: *refresh}
 	total, candidates, noMatch := 0, 0, 0
 	for {
 		doc, err := docs.Next()
@@ -190,7 +192,7 @@ func run() error {
 			return err
 		}
 		total++
-		if !eligible(e) {
+		if !eligible(e, *refresh) {
 			continue
 		}
 		candidates++
@@ -212,6 +214,9 @@ func run() error {
 		}
 		if !found {
 			noMatch++
+			continue
+		}
+		if after == *e.Place {
 			continue
 		}
 		p.Changes = append(p.Changes, change{Path: path, Updated: doc.UpdateTime, Before: *e.Place, After: after})

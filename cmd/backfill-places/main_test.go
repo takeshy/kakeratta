@@ -11,7 +11,7 @@ import (
 
 func TestEligible(t *testing.T) {
 	base := timeline.Entry{Kind: timeline.KindPost, Speaker: timeline.User, Place: &timeline.Place{Lat: 0, Lon: 0}}
-	if !eligible(base) {
+	if !eligible(base, false) {
 		t.Fatal("zero coordinates must be eligible")
 	}
 	for _, modify := range []func(*timeline.Entry){
@@ -26,7 +26,7 @@ func TestEligible(t *testing.T) {
 	} {
 		e := base
 		modify(&e)
-		if eligible(e) {
+		if eligible(e, false) {
 			t.Fatalf("unexpected candidate: %+v", e)
 		}
 	}
@@ -35,7 +35,7 @@ func TestEligible(t *testing.T) {
 func TestResolved(t *testing.T) {
 	before := timeline.Place{Lat: 35, Lon: 139}
 	after, found, err := resolved(json.RawMessage(`{"found":true,"place":{"name":"Tokyo","countryCode":"JP","geonameId":1850147}}`), before, "ja")
-	if err != nil || !found || after.Label != "Tokyo（JP）" || !after.Approximate || after.GeonameID != 1850147 || after.Lat != before.Lat || after.Lon != before.Lon {
+	if err != nil || !found || after.Label != "Tokyo" || !after.Approximate || after.GeonameID != 1850147 || after.Lat != before.Lat || after.Lon != before.Lon {
 		t.Fatalf("%+v %v %v", after, found, err)
 	}
 	unchanged, found, err := resolved(json.RawMessage(`{"found":false}`), before, "ja")
@@ -67,5 +67,24 @@ func TestPlanValidation(t *testing.T) {
 		if validChange(c) {
 			t.Fatalf("accepted unsafe change: %+v", c)
 		}
+	}
+}
+
+func TestRefreshEligibilityAndPlan(t *testing.T) {
+	e := timeline.Entry{Kind: timeline.KindPost, Speaker: timeline.User, Place: &timeline.Place{Lat: 35, Lon: 139, Label: "old", Approximate: true}}
+	if eligible(e, false) || !eligible(e, true) {
+		t.Fatal("refresh must explicitly include geocoded labels")
+	}
+	e.Place.Approximate = false
+	if eligible(e, true) {
+		t.Fatal("custom labels must remain unchanged")
+	}
+	c := change{Path: "users/u/timeline/p", Updated: time.Now(), Before: timeline.Place{Lat: 35, Lon: 139, Label: "old", Approximate: true}, After: timeline.Place{Lat: 35, Lon: 139, Label: "new", Approximate: true}}
+	if !validChange(c) {
+		t.Fatal("geocoded label refresh refused")
+	}
+	c.Before.Approximate = false
+	if validChange(c) {
+		t.Fatal("custom label refresh accepted")
 	}
 }

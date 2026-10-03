@@ -12,7 +12,7 @@ func TestAdministrativeLabels(t *testing.T) {
 		{"parent already included", "ja", `{"found":true,"place":{"name":"横浜市港北区","administrativeAreas":[{"level":2,"name":"横浜市"},{"level":3,"name":"横浜市港北区"}]}}`, "横浜市港北区"},
 		{"settlement equals district", "ja", `{"found":true,"place":{"name":"港北区","administrativeAreas":[{"level":2,"name":"横浜市"},{"level":3,"name":"港北区"}]}}`, "横浜市港北区"},
 		{"English hierarchy", "en", `{"found":true,"place":{"name":"Mamedo","administrativeAreas":[{"level":2,"name":"Yokohama"},{"level":3,"name":"Kohoku"}]}}`, "Yokohama, Kohoku, Mamedo"},
-		{"old response", "ja", `{"found":true,"place":{"name":"Tokyo","countryCode":"JP"}}`, "Tokyo（JP）"},
+		{"old response", "ja", `{"found":true,"place":{"name":"Tokyo","countryCode":"JP"}}`, "Tokyo"},
 		{"missing area names", "ja", `{"found":true,"place":{"name":"村","administrativeAreas":[{"level":2,"name":" "},{"level":4,"name":"地区"}]}}`, "地区村"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

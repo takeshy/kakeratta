@@ -25,7 +25,6 @@ func Resolve(raw json.RawMessage, before timeline.Place, language string) (timel
 		Found *bool `json:"found"`
 		Place struct {
 			Name                string `json:"name"`
-			CountryCode         string `json:"countryCode"`
 			GeonameID           int64  `json:"geonameId"`
 			AdministrativeAreas []struct {
 				Level int    `json:"level"`
@@ -73,9 +72,6 @@ func Resolve(raw json.RawMessage, before timeline.Place, language string) (timel
 		}
 	}
 	appendName(name)
-	if country := strings.TrimSpace(result.Place.CountryCode); country != "" {
-		label += "（" + country + "）"
-	}
 	after := before
 	after.Label, after.Approximate, after.GeonameID = label, true, result.Place.GeonameID
 	return after, true, nil
