@@ -34,16 +34,16 @@ func TestEligible(t *testing.T) {
 
 func TestResolved(t *testing.T) {
 	before := timeline.Place{Lat: 35, Lon: 139}
-	after, found, err := resolved(json.RawMessage(`{"found":true,"place":{"name":"Tokyo","countryCode":"JP","geonameId":1850147}}`), before)
+	after, found, err := resolved(json.RawMessage(`{"found":true,"place":{"name":"Tokyo","countryCode":"JP","geonameId":1850147}}`), before, "ja")
 	if err != nil || !found || after.Label != "Tokyo（JP）" || !after.Approximate || after.GeonameID != 1850147 || after.Lat != before.Lat || after.Lon != before.Lon {
 		t.Fatalf("%+v %v %v", after, found, err)
 	}
-	unchanged, found, err := resolved(json.RawMessage(`{"found":false}`), before)
+	unchanged, found, err := resolved(json.RawMessage(`{"found":false}`), before, "ja")
 	if err != nil || found || unchanged != before {
 		t.Fatal("no-match must retain coordinates")
 	}
 	for _, raw := range []string{`{`, `{}`, `null`, `{"found":true}`, `{"found":true,"place":{"name":" "}}`} {
-		if _, _, err := resolved(json.RawMessage(raw), before); err == nil {
+		if _, _, err := resolved(json.RawMessage(raw), before, "ja"); err == nil {
 			t.Fatalf("accepted malformed result: %s", raw)
 		}
 	}

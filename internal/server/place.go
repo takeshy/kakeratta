@@ -2,17 +2,16 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"math"
-	"strings"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/geocode"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // resolvePlace enriches the submitted coordinates without making a map outage
 // prevent a post. The request hash remains that of the original submission.
-func (s *Server) resolvePlace(ctx context.Context, place *timeline.Place) *timeline.Place {
+func (s *Server) resolvePlace(ctx context.Context, place *timeline.Place, language string) *timeline.Place {
 	if place == nil {
 		return nil
 	}
@@ -29,32 +28,15 @@ func (s *Server) resolvePlace(ctx context.Context, place *timeline.Place) *timel
 		if tool.Name != "reverse_geocode" {
 			continue
 		}
-		result, err := s.tools.MCP.Call(ctx, tool.QualifiedName(), map[string]any{"lat": out.Lat, "lng": out.Lon})
+		result, err := s.tools.MCP.Call(ctx, tool.QualifiedName(), map[string]any{"lat": out.Lat, "lng": out.Lon, "language": geocode.Language(language)})
 		if err != nil || result.IsError {
 			return out
 		}
-		var data struct {
-			Found bool `json:"found"`
-			Place struct {
-				Name        string `json:"name"`
-				CountryCode string `json:"countryCode"`
-				GeonameID   int64  `json:"geonameId"`
-			} `json:"place"`
-		}
-		if json.Unmarshal(result.StructuredContent, &data) != nil || !data.Found {
+		resolved, found, err := geocode.Resolve(result.StructuredContent, *out, language)
+		if err != nil || !found {
 			return out
 		}
-		name := strings.TrimSpace(data.Place.Name)
-		if name == "" {
-			return out
-		}
-		out.Label = name
-		if country := strings.TrimSpace(data.Place.CountryCode); country != "" {
-			out.Label += "（" + country + "）"
-		}
-		out.Approximate = true
-		out.GeonameID = data.Place.GeonameID
-		return out
+		return &resolved
 	}
 	return out
 }

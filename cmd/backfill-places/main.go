@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/takeshy/kakeratta/internal/geocode"
 	"github.com/takeshy/kakeratta/internal/mcp"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -41,34 +42,8 @@ func eligible(e timeline.Entry) bool {
 		!math.IsNaN(p.Lat) && !math.IsNaN(p.Lon) && math.Abs(p.Lat) <= 90 && math.Abs(p.Lon) <= 180
 }
 
-func resolved(raw json.RawMessage, before timeline.Place) (timeline.Place, bool, error) {
-	var result struct {
-		Found *bool `json:"found"`
-		Place struct {
-			Name        string `json:"name"`
-			CountryCode string `json:"countryCode"`
-			GeonameID   int64  `json:"geonameId"`
-		} `json:"place"`
-	}
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return before, false, err
-	}
-	if result.Found == nil {
-		return before, false, errors.New("missing found in reverse_geocode response")
-	}
-	if !*result.Found {
-		return before, false, nil
-	}
-	name := strings.TrimSpace(result.Place.Name)
-	if name == "" {
-		return before, false, errors.New("empty place name")
-	}
-	if country := strings.TrimSpace(result.Place.CountryCode); country != "" {
-		name += "（" + country + "）"
-	}
-	after := before
-	after.Label, after.Approximate, after.GeonameID = name, true, result.Place.GeonameID
-	return after, true, nil
+func resolved(raw json.RawMessage, before timeline.Place, language string) (timeline.Place, bool, error) {
+	return geocode.Resolve(raw, before, language)
 }
 
 func validChange(c change) bool {
@@ -223,7 +198,7 @@ func run() error {
 			continue
 		}
 		callCtx, stop := context.WithTimeout(ctx, 10*time.Second)
-		result, err := catalogue.Call(callCtx, tool, map[string]any{"lat": e.Place.Lat, "lng": e.Place.Lon})
+		result, err := catalogue.Call(callCtx, tool, map[string]any{"lat": e.Place.Lat, "lng": e.Place.Lon, "language": geocode.Language(e.Language)})
 		stop()
 		if err != nil {
 			return fmt.Errorf("lookup %d failed: %w", candidates, err)
@@ -231,7 +206,7 @@ func run() error {
 		if result.IsError {
 			return fmt.Errorf("lookup %d returned an MCP error", candidates)
 		}
-		after, found, err := resolved(result.StructuredContent, *e.Place)
+		after, found, err := resolved(result.StructuredContent, *e.Place, e.Language)
 		if err != nil {
 			return err
 		}
