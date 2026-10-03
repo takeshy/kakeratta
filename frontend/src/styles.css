@@ -261,6 +261,13 @@ button.who-link:hover, button.who-link:focus-visible { text-decoration: underlin
 .remove { opacity: 0; transition: opacity 120ms ease; }
 .thread:hover .remove, .remove:focus-visible { opacity: 1; }
 @media (hover: none) { .remove { opacity: 1; } }
+@media (max-width: 600px) {
+  .post-head, .said-head { position: relative; padding-right: 36px; min-height: 36px; }
+  .post-head > .remove, .said-head > .remove {
+    position: absolute; top: 0; right: 0;
+    width: 36px; height: 36px; padding: 0;
+  }
+}
 .at { color: var(--muted); font-size: 0.76rem; }
 .said { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
