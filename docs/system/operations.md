@@ -1,12 +1,12 @@
 ---
 type: "Process"
 title: "Development and workspace operations"
-description: "Development, validation, deployment, memory migration, portable exports, and workspace deletion."
-tags: ["development", "deployment", "export", "destroy"]
+description: "Development, validation, deployment, memory migration, location backfill, portable exports, and workspace deletion."
+tags: ["development", "deployment", "migration", "location", "export", "destroy"]
 updated: "2026-10-03"
 ---
 
-Development, validation, deployment, memory migration, portable exports, and workspace deletion.
+Development, validation, deployment, memory migration, location backfill, portable exports, and workspace deletion.
 
 # Development, validation, and deployment
 
@@ -63,6 +63,17 @@ Persona fields moved from prose rewritten with every kakera to a list of facts w
 - The production split of 2026-10-02 was done this way: two dry runs (the first showed a submission rejected without its reasons, and bullets carried into facts, both since fixed), a hand edit of the plan for a field the model split short, then `-apply`.
 - The earlier move from one OKF note per thing to prose fields (2026-10-01) was done the same way: three dry runs while tightening the prompt (no researched figures or explanations; the user's actions kept with their dates; the notes' own language), a hand edit of the plan, then `-apply`.
 
+## Backfilling post locations
+
+[cmd/backfill-places](../../cmd/backfill-places/main.go) adds missing labels to existing Firestore posts using the configured `reverse_geocode` MCP tool. It requires application default credentials and an explicit `-firestore PROJECT`; optional `-user KEY` limits the workspace, otherwise it scans all `users/{key}/timeline` collections in the default database. Only undeleted user posts with valid coordinates and an empty location label are eligible. It does not infer coordinates from text or change existing labels.
+
+1. `go run ./cmd/backfill-places -firestore PROJECT -scan` counts entries and eligible posts without MCP calls or writes.
+2. `go run ./cmd/backfill-places -firestore PROJECT -mcp-config PRIVATE.json -plan PLAN.json` reads an operator MCP server array in the same format as `KAKERATTA_MCP_SERVERS`, resolves locations sequentially with a ten-second timeout per call, and saves a plan without modifying Firestore. The plan includes document paths, update times, and before/after location metadata. It is created with mode `0600` and must not already exist; keep both files outside version control because they contain credentials or coordinates. A no-match result is counted and omitted; lookup errors abort without applying changes.
+3. `go run ./cmd/backfill-places -firestore PROJECT -plan PLAN.json -apply` applies the saved labels without further MCP calls. It checks the plan's project and paths, forbids coordinate changes, and updates only `Place.Label`, `Place.Approximate`, and `Place.GeonameID`, conditioned on the document's exact dry-run update time. Changed or deleted documents are skipped. An interrupted apply can be rerun: already updated documents fail the original precondition and are skipped. Generate a new plan for remaining eligible posts when needed.
+4. `go run ./cmd/backfill-places -firestore PROJECT -plan PLAN.json -verify` reads each planned document back and compares its location with the plan. Missing or different locations produce a nonzero exit. Repeat `-scan` to count remaining eligible posts.
+
+The command does not reroute posts, wake personas, rewrite text or timestamps, or emit live events. Reload the timeline to read the saved labels. New posts continue using the normal three-second lookup; see [post location labels](./backend.md#post-location-labels). Verification: [main_test.go](../../cmd/backfill-places/main_test.go) covers candidate selection, malformed/no-match responses, and plan validation.
+
 ## Implementation and verification
 
 - [Taskfile.yml](../../Taskfile.yml)
@@ -111,4 +122,3 @@ For hosted workspace deletion, Gateway accepts a confirmed request, takes the us
 - [Architecture and runtime](./architecture.md)
 - [API and persistent state](./backend.md)
 - [Browser application and device state](./frontend.md)
-
