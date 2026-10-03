@@ -112,7 +112,7 @@ function draggable(chip, bar, onDrop, onMenu) {
   chip.addEventListener("pointercancel", finish);
 }
 
-export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory, onEdit }) {
+export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory, onEdit, onSpeaker }) {
   let menu = null;
   function showMenu(row, chip) {
     if (menu) return;
@@ -122,7 +122,7 @@ export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory,
     };
     menu = el("dialog", { class: "persona-menu", "aria-label": gloss(row).name },
       el("strong", { text: gloss(row).name }),
-      ...[["設定", onSettings], ...(row.memoryEnabled === false ? [] : [["記録を見る", onMemory]]), ["修正", onEdit]].map(([label, action]) =>
+      ...[["発言一覧", onSpeaker], ["設定", onSettings], ...(row.memoryEnabled === false ? [] : [["記録を見る", onMemory]]), ["修正", onEdit]].map(([label, action]) =>
         el("button", { type: "button", class: "chip", label, onclick: () => { restoreFocus = false; close(); action?.(row); } })),
       el("button", { type: "button", class: "chip ghost", label: "閉じる", onclick: close }),
     );

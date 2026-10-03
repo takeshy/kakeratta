@@ -20,8 +20,8 @@ import { screenNodes, sheetNodes } from "./screen.js";
 import { aiConfigured, createSettings } from "./settings.js";
 import { createSpeaker as createReader } from "./speak.js";
 import { createTimelinePages } from "./timeline-pages.js";
-import { createFavorites } from "./favorites.js";
-import { refreshFavorites } from "./favorite-state.js";
+import { createEntryFilters, filterConversations, entryMatches } from "./entry-filters.js";
+import { refreshFavorites, watchFavorites } from "./favorite-state.js";
 import { createSearch } from "./search.js";
 import { createSpeaker } from "./speaker.js";
 import { getLanguage, t } from "./i18n.js";
@@ -97,6 +97,7 @@ const room = createRoom({
   onSettings: (row) => { open("personas"); personas.reveal(row.id); },
   onMemory: (row) => void personas.showMemoryFor(row),
   onEdit: (row) => personas.edit(row),
+  onSpeaker: (row) => openSpeaker(row.id, row.name),
 });
 const schedulesPanel = createSchedules({ onChange: (rows) => personas.updateRows(rows) });
 const settingsPanel = createSettings({
@@ -139,15 +140,6 @@ const speakerPanel = createSpeaker({
   onOpenPersona: (row) => { open("personas"); personas.reveal(row.id); },
   onOpenMemory: (row) => void personas.showMemoryFor(row),
   onEditPersona: (row, focus) => personas.edit(row, focus),
-});
-
-const favoritesPanel = createFavorites({
-  getSettings: () => settings,
-  getPersonas: () => personaRows,
-  getPersona: id => personaRows.find(row => row.id === id),
-  onEntryChange: entry => pages.upsert(entry),
-  onSpeaker: openSpeaker,
-  onReply: () => { void reload(); pollAfterSending(); },
 });
 
 function speakThread(root, lines) {
@@ -198,11 +190,11 @@ document.body.addEventListener("click", (event) => {
 });
 
 function showPanel() {
-  const body = panel === "schedules" ? schedulesPanel.element : panel === "favorites" ? favoritesPanel.element : panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : panel === "speaker" ? speakerPanel.element : settingsPanel.element;
+  const body = panel === "schedules" ? schedulesPanel.element : panel === "personas" ? personas.element : panel === "search" ? searchPanel.element : panel === "speaker" ? speakerPanel.element : settingsPanel.element;
   const host = $("#sheet");
   host.classList.toggle("required", panel === "settings" && settingsRequired);
   host.replaceChildren(sheetNodes({
-    title: panel === "schedules" ? "予定一覧" : panel === "favorites" ? "お気に入り" : panel === "personas" ? "担当" : panel === "search" ? "検索" : panel === "speaker" ? "発言一覧" : "設定",
+    title: panel === "schedules" ? "予定一覧" : panel === "personas" ? "担当" : panel === "search" ? "検索" : panel === "speaker" ? "発言一覧" : "設定",
     body,
     onClose: panel === "settings" && settingsRequired ? null : close,
   }));
@@ -218,8 +210,7 @@ function open(which) {
   if (panel === "settings") settingsPanel.stopMicCheck();
   panel = which;
   showPanel();
-  if (which === "favorites") void favoritesPanel.show();
-  else if (which === "schedules") void schedulesPanel.load();
+  if (which === "schedules") void schedulesPanel.load();
   else if (which === "personas") void personas.load();
   else if (which === "search") searchPanel.focus();
   else void settingsPanel.load();
@@ -264,7 +255,11 @@ async function drawLocal() {
     if (!merged.has(entry.id) || entry.pending) merged.set(entry.id, entry);
     else void localRecord(`ack:${entry.id}`, null).catch(() => {});
   }
-  feed.set([...merged.values()]);
+  const visible = filterConversations([...merged.values()], timelineFilter);
+  feed.set(visible);
+  if (timelineFilter.favoritesOnly) for (const entry of visible) {
+    if (entry.kind !== "post" && entryMatches(entry, timelineFilter)) feed.reveal(entry.id);
+  }
   const count = pending.filter(e => e.pending).length;
   syncStatus.textContent = count ? t("端末に保存済み・送信待ち {0}件", count) : navigator.onLine === false ? t("オフライン・保存済みの会話を表示しています") : connectionFailed ? t("接続とログインを確認してください。") : "";
   syncRetry.hidden = !count && navigator.onLine !== false && !connectionFailed;
@@ -296,12 +291,20 @@ const pagingFooter = el("div", { class: "timeline-paging" }, pagingStatus, more)
 let loadFailedInitially = false;
 let autoLoad = false;
 let pagingObserver = null;
+let timelineFilter = {};
+const timelineFilters = createEntryFilters(next => {
+  timelineFilter = next;
+  return navigator.onLine === false ? drawLocal() : pages.setFilters(next);
+});
+watchFavorites(() => {
+  if (timelineFilter.favoritesOnly) { void drawLocal(); if (navigator.onLine !== false) void pages.refresh(); }
+});
 const pages = createTimelinePages({
-  fetchPage: (query) => api.timeline(query),
-  onChange: (entries) => {
+  fetchPage: (query) => api.timeline({ ...query, ...timelineFilter }),
+  onChange: (entries, { reset = false } = {}) => {
     serverEntries = entries;
     void drawLocal();
-    void localRecord("timeline", recentEntries(entries)).catch(() => {});
+    if (!reset && !Object.keys(timelineFilter).length) void localRecord("timeline", recentEntries(entries)).catch(() => {});
   },
   onState: ({ loading, hasMore, error, initial }) => {
     autoLoad = !loading && hasMore && !error;
@@ -354,7 +357,6 @@ api.on((name, data) => {
     pages.upsert(data);
     searchPanel.changed(data);
     speakerPanel.changed(data);
-    favoritesPanel.changed(data);
     return;
   }
   if (name === "open") { void refreshFavorites().catch(() => {}); void reload(); void outbox.flush(); }
@@ -362,7 +364,7 @@ api.on((name, data) => {
 
 clear(root).append(
   ...screenNodes({
-    compose: compose.element, room, feed: el("div", {}, syncBar, feed.element, pagingFooter), onOpen: open,
+    compose: compose.element, room, feed: el("div", {}, syncBar, timelineFilters.element, feed.element, pagingFooter), onOpen: open,
     onLogout: authenticationEnabled() ? () => void logout() : null,
   }),
 );

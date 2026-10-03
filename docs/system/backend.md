@@ -248,3 +248,8 @@ Verification: [push_test.go](../../internal/server/push_test.go) checks registra
 - [Browser application and device state](./frontend.md)
 - [External agents, tools, and sharing](./integrations.md)
 - [Development and workspace operations](./operations.md)
+## Listing filters
+
+`GET /api/timeline` and `GET /api/speaker/{id}` accept optional `favoritesOnly=true`, `from`, and `to`; `POST /api/timeline/search` accepts the same fields in JSON. Dates are inclusive RFC3339 timestamps. Invalid timestamps or reversed bounds return 400. Conditions apply before ranking, totals, and pagination, including blank-query period searches. Unfiltered timeline requests retain the indexed cursor path. Filtered timeline requests use [FilteredTimelinePage](../../internal/store/timeline_filter.go): date-only matches parent posts, while favorites-only matches saved entries by their own dates and returns their full conversations, ordered and paged by parent post date with the existing cursor. Speaker filters match the utterance itself and preserve conversation context. Search restricts candidate IDs before lexical or semantic ranking, so out-of-range results cannot crowd out eligible hits. The favorites persistence/API remains available although the separate browser Favorites panel is removed.
+
+Verification: [list_filters_test.go](../../internal/server/list_filters_test.go) checks combined conditions, saved replies with older parents, date-only results, search without a query, and invalid dates.

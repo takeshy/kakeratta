@@ -1215,8 +1215,8 @@ test("favorites toggle on posts and standalone persona answers", async t => {
   await state.refreshFavorites();
   const calls = [];
   const oldConfirm = globalThis.confirm;
-  let confirmations = 0;
-  globalThis.confirm = () => { confirmations++; return true; };
+  let confirmations = 0, accepted = false;
+  globalThis.confirm = () => { confirmations++; return accepted; };
   t.after(() => { if (oldConfirm) globalThis.confirm = oldConfirm; else delete globalThis.confirm; });
   t.mock.method(api,'setFavorite',async (id, saved) => calls.push([id,saved]));
   const feed = createFeed({getPersona:()=>null, showIntro:false}); roots.push(feed.element);
@@ -1225,86 +1225,24 @@ test("favorites toggle on posts and standalone persona answers", async t => {
   await button.listeners.click[0]();
   assert.equal(button['aria-pressed'],'true');
   await button.listeners.click[0]();
+  assert.equal(button['aria-pressed'],'true', 'cancel keeps the favorite');
+  assert.equal(calls.length,1);
+  accepted = true;
+  await button.listeners.click[0]();
   assert.equal(button['aria-pressed'],'false');
   assert.deepEqual(calls,[['favorite-post',true],['favorite-post',false]]);
-  assert.equal(confirmations, 0, 'timeline removal needs no confirmation');
+  assert.equal(confirmations, 2, 'timeline removal always confirms');
   const answer = createFeed({getPersona:()=>null,showIntro:false,standalone:true}); roots.push(answer.element);
   answer.set([{id:'favorite-answer',kind:'remark',speaker:'cafe',root:'old-post',text:'answer',at:'2026-10-02T00:00:00Z'}]);
   assert.equal(answer.element.querySelectorAll('.said-row').length,1);
   const [star] = answer.element.querySelectorAll('.favorite');
   await star.listeners.click[0]();
   assert.equal(star['aria-pressed'],'true');
+  await star.listeners.click[0]();
+  assert.equal(star['aria-pressed'],'false');
+  assert.equal(confirmations, 3, 'persona answers also confirm removal');
   const reply = answer.element.querySelectorAll('.chip').find(node=>node.textContent===translate('返す'));
   assert.equal(reply, undefined, 'favorite previews have no reply link');
-});
-
-test("favorites list pages saved entries and ignores a late persona filter response", async t => {
-  const {createFavorites} = await import('../frontend/src/favorites.js');
-  globalThis.Node = TestNode;
-  globalThis.document = {createElement:tag=>new TestNode(tag),createTextNode:value=>Object.assign(new TestNode(),{textContent:value}),activeElement:null,querySelectorAll:()=>[]};
-  t.after(()=>{delete globalThis.Node;delete globalThis.document;});
-  const all = node => [node,...node.children.flatMap(all)];
-  const item = (id,speaker='cafe')=>({id,at:'2026-10-02T00:00:00Z',entry:{id,speaker,kind:'remark',root:'p',text:id,at:'2026-10-01T00:00:00Z'}});
-  const requests=[];
-  let finishOld;
-  t.mock.method(api,'favorites',async request=>{
-    requests.push(request);
-    if(request.speaker==='old') return await new Promise(resolve=>{finishOld=resolve;});
-    return {items:[item(request.speaker || (request.offset ? 'older' : 'newest'))],total:request.speaker?1:2,ids:['newest','older','cafe','old'],speakers:{cafe:true,old:true}};
-  });
-  const view=createFavorites({getPersona:()=>null});
-  await view.show();
-  assert.equal(view.element.querySelectorAll('.favorite-item').length,1, all(view.element).find(node => node.role === 'status')?.textContent);
-  const more=all(view.element).find(node=>node.textContent===translate('さらに読み込む'));
-  await more.listeners.click[0]();
-  assert.equal(requests.at(-1).offset,1);
-  assert.equal(view.element.querySelectorAll('.favorite-item').length,2);
-  const filter=all(view.element).find(node=>node.tagName==='SELECT');
-  filter.value='old';const old=filter.listeners.change[0]();
-  filter.value='cafe';await filter.listeners.change[0]();
-  finishOld({items:[item('stale','old')],total:1,ids:['stale'],speakers:{old:true}});await old;
-  assert.equal(filter.value,'cafe');
-  assert.equal(view.element.querySelectorAll('.favorite-item').length,1, all(view.element).find(node => node.role === 'status')?.textContent);
-  assert.equal(view.element.querySelectorAll('.said-row')[0]['data-id'],'cafe');
-});
-
-
-test("favorite list removal confirms, cancellation preserves the saved entry", async t => {
-  const {createFavorites} = await import('../frontend/src/favorites.js');
-  globalThis.Node = TestNode;
-  const oldConfirm = globalThis.confirm;
-  const roots = [];
-  globalThis.document = {createElement:tag=>new TestNode(tag),createTextNode:value=>Object.assign(new TestNode(),{textContent:value}),activeElement:null,
-    querySelectorAll:()=>roots.flatMap(root=>root.querySelectorAll('.favorite'))};
-  t.after(()=>{delete globalThis.Node;delete globalThis.document;if (oldConfirm) globalThis.confirm=oldConfirm;else delete globalThis.confirm;});
-  const entries = [
-    {id:'confirm-post',kind:'post',speaker:'user',root:'confirm-post',text:'post',at:'2026-10-02T00:00:00Z'},
-    {id:'confirm-answer',kind:'remark',speaker:'cafe',root:'confirm-post',text:'answer',at:'2026-10-02T00:01:00Z'}
-  ];
-  t.mock.method(api,'favorites',async()=>({items:entries.map(entry=>({id:entry.id,entry,at:entry.at})),ids:entries.map(entry=>entry.id),speakers:{user:true,cafe:true},total:2}));
-  const calls=[];
-  t.mock.method(api,'setFavorite',async(id,saved)=>calls.push([id,saved]));
-  const view=createFavorites({getPersona:()=>null});roots.push(view.element);
-  await view.show();
-  let accepted=false;
-  const questions=[];
-  globalThis.confirm=question=>{questions.push(question);return accepted;};
-  const stars=view.element.querySelectorAll('.favorite');
-  for (const star of stars) {
-    accepted=false;
-    await star.listeners.click[0]();
-    assert.equal(star['aria-pressed'],'true');
-    assert.equal(Boolean(star.disabled),false);
-    const previous=calls.length;
-    accepted=true;
-    await star.listeners.click[0]();
-    assert.equal(calls.length,previous+1);
-    assert.equal(star['aria-pressed'],'false');
-  }
-  assert.equal(calls.length,2);
-  assert.ok(calls.every(([,saved])=>saved===false));
-  assert.equal(questions.length,4);
-  assert.ok(questions.every(question=>question===translate('この投稿をお気に入りから外しますか？')));
 });
 
 test("post places show a label without a map link, credits, and coordinate fallback", (t) => {

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -18,6 +17,8 @@ func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Query         string `json:"query"`
 		FavoritesOnly bool   `json:"favoritesOnly"`
+		From          string `json:"from"`
+		To            string `json:"to"`
 		Mode          string `json:"mode"`
 		Limit         int    `json:"limit"`
 		Offset        int    `json:"offset"`
@@ -28,25 +29,37 @@ func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 50*time.Second)
 	defer cancel()
-	var result search.Result
-	var err error
-	if body.FavoritesOnly {
-		records, readErr := s.store.Records(ctx, store.RecordFavorites)
+	from, to, err := listWindow(body.From, body.To)
+	if err != nil {
+		fail(w, 400, err.Error())
+		return
+	}
+	ids, err := s.favoriteSelection(r, body.FavoritesOnly)
+	if err != nil {
+		fail(w, 500, "お気に入りを読み込めませんでした")
+		return
+	}
+	if !from.IsZero() || !to.IsZero() {
+		entries, readErr := store.SearchTimelineWindow(ctx, s.store, from, to)
 		if readErr != nil {
-			fail(w, 500, "お気に入りを読み込めませんでした")
+			fail(w, 500, "投稿を読み込めませんでした")
 			return
 		}
-		ids := map[string]bool{}
-		for id, raw := range records {
-			var f favorite
-			if json.Unmarshal(raw, &f) == nil {
-				ids[id] = true
+		kept := map[string]bool{}
+		for _, e := range entries {
+			if !e.Deleted && (from.IsZero() || !e.At.Before(from)) && (to.IsZero() || !e.At.After(to)) && (ids == nil || ids[e.ID]) {
+				kept[e.ID] = true
 			}
 		}
+		ids = kept
+	}
+	var result search.Result
+	if ids != nil {
 		result, err = s.search.SearchSelected(ctx, body.Query, body.Mode, body.Limit, body.Offset, ids)
 	} else {
 		result, err = s.search.Search(ctx, body.Query, body.Mode, body.Limit, body.Offset)
 	}
+
 	if err != nil {
 		code := http.StatusBadGateway
 		if errors.Is(err, search.ErrQuery) || errors.Is(err, search.ErrMode) {
@@ -75,7 +88,19 @@ func (s *Server) searchTimeline(w http.ResponseWriter, r *http.Request) {
 func (s *Server) speakerEntries(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	result, err := s.search.BySpeaker(r.Context(), r.PathValue("id"), limit, offset)
+	from, to, err := listWindow(r.URL.Query().Get("from"), r.URL.Query().Get("to"))
+	if err != nil {
+		fail(w, 400, err.Error())
+		return
+	}
+	ids, err := s.favoriteSelection(r, r.URL.Query().Get("favoritesOnly") == "true")
+	if err != nil {
+		fail(w, 500, "お気に入りを読み込めませんでした")
+		return
+	}
+	result, err := s.search.BySpeaker(r.Context(), r.PathValue("id"), limit, offset, func(id string, at time.Time) bool {
+		return (ids == nil || ids[id]) && (from.IsZero() || !at.Before(from)) && (to.IsZero() || !at.After(to))
+	})
 	if err != nil {
 		if errors.Is(err, search.ErrSpeaker) {
 			fail(w, http.StatusBadRequest, err.Error())

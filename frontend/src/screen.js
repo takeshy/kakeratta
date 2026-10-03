@@ -12,7 +12,6 @@ import { navigationStyles } from "./navigation-styles.js";
 const MORE_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
 const NAV_ICONS = {
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
-  favorites: '<path d="m12 3 2.8 5.7 6.3.9-4.5 4.4 1 6.2-5.6-3-5.6 3 1-6.2L3 9.6l6.2-.9Z"/>',
   schedules: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h3m3 0h3"/>',
   settings: '<path d="m9 3-1 3-3 1 1 3-2 2 2 2-1 3 3 1 1 3h6l1-3 3-1-1-3 2-2-2-2 1-3-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/>',
   personas: '<circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5v2"/>',
@@ -86,8 +85,8 @@ function moreNavigation(onLogout, onOpen, compact, showSettings, narrow) {
 export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
   let compact = (globalThis.innerWidth ?? 1024) <= 600;
   // 22px brand + 44px per action + 4px gaps; reserve Personas before Settings.
-  let narrow = (globalThis.innerWidth ?? 1024) - 32 < 262;
-  let showSettings = (globalThis.innerWidth ?? 1024) - 32 >= 310;
+  let narrow = (globalThis.innerWidth ?? 1024) - 32 < 214;
+  let showSettings = (globalThis.innerWidth ?? 1024) - 32 >= 262;
   let more;
   const navigation = () => {
     more = moreNavigation(onLogout, onOpen, compact, showSettings, narrow);
@@ -98,7 +97,6 @@ export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
         compact ? null : el("span", { class: "brand-name", text: "kakeratta" })),
       el("span", { class: "spacer" }),
       navigationButton("search", "検索", onOpen, compact),
-      navigationButton("favorites", "お気に入り", onOpen, compact),
       navigationButton("schedules", "予定", onOpen, compact, "予定一覧"),
       ...(!narrow ? [navigationButton("personas", "担当", onOpen, compact)] : []),
       ...(showSettings ? [navigationButton("settings", "設定", onOpen, compact)] : []),
@@ -113,8 +111,8 @@ export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
       const width = entry.contentRect.width;
       if (!width) return;
       const nextCompact = width <= 568;
-      const nextNarrow = width < 262;
-      const nextShowSettings = width >= 310;
+      const nextNarrow = width < 214;
+      const nextShowSettings = width >= 262;
       if (compact === nextCompact && narrow === nextNarrow && showSettings === nextShowSettings) return;
       more.close();
       compact = nextCompact;

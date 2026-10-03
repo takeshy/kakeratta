@@ -1,3 +1,5 @@
+import { createEntryFilters, filterConversations } from "../src/entry-filters.js";
+import { adoptFavoriteIDs, watchFavorites } from "../src/favorite-state.js";
 import { showConditionFix } from "../src/condition-fix.js";
 import { showReplyFix } from "../src/reply-fix.js";
 import { createSpeaker } from "../src/speaker.js";
@@ -8,7 +10,21 @@ import { conditionDraft, keywordDraft, monthSummary, person, personRouting, pers
 
 export default { title: "Timeline" };
 
-const show = (entries) => panel(feed(entries, personas).element);
+const show = (entries, selected = []) => {
+  serve({ settings, search: { entries, hits: [] }, favorites: { items: entries.filter(e => selected.includes(e.id)).map(entry => ({ id: entry.id, entry, at: entry.at })) } });
+  adoptFavoriteIDs(selected);
+  const view = feed(entries, personas);
+  let filters = {};
+  const draw = () => {
+    const shown = filterConversations(entries, filters);
+    view.set(shown);
+    for (const id of selected) view.reveal(id);
+  };
+  const controls = createEntryFilters(next => { filters = next; draw(); });
+  const host = document.createElement("div"); host.append(controls.element, view.element);
+  watchFavorites(() => { if (host.isConnected) draw(); });
+  return panel(host);
+};
 
 // The dialogs live on <body>, outside the story root, so a story that opens
 // one starts by taking down what the previous story left.
@@ -235,3 +251,25 @@ export const PersonWordsRemove = {
 
 // The app's summary of the month, which the user can edit.
 export const MonthSummary = { name: "今月のまとめ", render: () => show(monthSummary()) };
+
+export const Filters = { name: "お気に入り・期間で絞り込む", render: () => {
+  const entries = timeline().answered;
+  const host = show(entries, entries.filter(e => e.kind !== "post").slice(0, 1).map(e => e.id));
+  host.querySelector(".entry-filters").open = true;
+  return host;
+} };
+
+export const FavoritesOnly = { name: "タイムラインのお気に入りのみ", render: () => {
+ const entries = timeline().answered;
+ const host = show(entries, entries.filter(e => e.kind !== "post").slice(0,1).map(e => e.id));
+ const toggle = host.querySelector('input[type="checkbox"]');
+ toggle.checked = true; toggle.dispatchEvent(new Event("change"));
+ return host;
+} };
+export const SpeakerFilters = { name: "発言一覧の期間フィルター", render: () => {
+ const host = speakerPanel();
+ host.querySelector("#sheet .entry-filters").open = true;
+ const from = host.querySelector('#sheet input[type="date"]');
+ from.value = "2026-08-01"; from.dispatchEvent(new Event("change"));
+ return host;
+} };

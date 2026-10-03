@@ -1,3 +1,4 @@
+import { createEntryFilters } from "./entry-filters.js";
 import { watchFavorites } from "./favorite-state.js";
 import { initialSearchMode } from "./search-intent.js";
 import { el, when } from "./dom.js";
@@ -9,7 +10,8 @@ import { createVoiceInput } from "./voice_input.js";
 export function createSearch({ getSettings, getPersona, getPersonas, onEntryChange, onReply, onSpeak, onSpeaker }) {
   const query = el("input", { type: "search", maxlength: 500,
     i18nPlaceholder: "かけらを検索", "aria-label": t("かけらを検索") });
-  const favoritesOnly = el("input", { type: "checkbox", onchange: () => run() });
+  let filters = {};
+  const filterControls = createEntryFilters(next => { filters = next; return run(); });
   const submit = el("button", { type: "submit", class: "button", label: "検索" });
   const status = el("p", { class: "hint", role: "status", "aria-live": "polite" });
   const results = el("div", { class: "search-results" });
@@ -40,7 +42,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     detail.hidden = true;
     results.hidden = false;
     controls();
-    if (favoritesOnly.checked) void run();
+    if (filters.favoritesOnly) void run();
   } });
   detail.append(back, thread.element);
 
@@ -69,7 +71,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
       completed = false;
       draw();
     }
-    if (!searchQuery && !favoritesOnly.checked) {
+    if (!searchQuery && !Object.keys(filters).length) {
       busy = false;
       submit.disabled = false;
       status.textContent = "";
@@ -85,7 +87,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     controls();
     status.textContent = t(requestedMode === "keyword" ? "キーワードで検索中…" : "意味をもとに検索中…");
     try {
-      const found = await api.searchTimeline({ query: searchQuery, ...(favoritesOnly.checked ? { favoritesOnly: true } : {}), mode: requestedMode, limit: 20, offset: append ? hits.length : 0 });
+      const found = await api.searchTimeline({ query: searchQuery, ...filters, mode: requestedMode, limit: 20, offset: append ? hits.length : 0 });
       if (current !== generation) return;
       hits = append ? [...hits, ...found.hits] : found.hits;
       total = found.total;
@@ -174,12 +176,12 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
     return run();
   }
 
-  watchFavorites(() => { if (favoritesOnly.checked && results.isConnected && !selected && completed) void run(); });
+  watchFavorites(() => { if (filters.favoritesOnly && results.isConnected && !selected && completed) void run(); });
   query.addEventListener("input", controls);
   const form = el("form", { class: "timeline-search-form", role: "search", onsubmit: (event) => {
     event.preventDefault(); void submitQuery();
   } }, query, voice.button, submit);
-  const element = el("div", { class: "timeline-search" }, form, el("label", { class: "compose-row" }, favoritesOnly, el("span", { label: "お気に入りのみ" })), voice.activity,
+  const element = el("div", { class: "timeline-search" }, form, filterControls.element, voice.activity,
     el("p", { class: "hint", label: "単語や短い語句はキーワード検索。「？」「教えて」「探して」などを含む質問や文章は意味検索します。" }),
     el("p", { class: "hint", label: "キーワード検索の後は「似たような単語でも探す」で範囲を広げられます。0件でも利用でき、自動判定が合わないときも結果から切り替えられます。" }),
     status, results, more, switchMode, detail);

@@ -76,3 +76,30 @@ test("cached conversations render before a slow refresh and survive offline fail
   request.reject(Error('offline'));await loading;
   assert.equal(rendered[0].id,'cached');
 });
+
+test("changing filters discards an older request and keeps filters on later pages", async () => {
+ const old = deferred(), queries = [], changes = [];
+ const pager = createTimelinePages({ fetchPage: q => {
+   queries.push(q);
+   return queries.length === 1 ? old.promise : Promise.resolve({ entries:[{id:q.before || "selected",kind:"post"}],next:q.before ? null:"older" });
+ },onChange:e=>changes.push(e)});
+ const loading = pager.refresh();
+ await Promise.resolve();
+ await pager.setFilters({favoritesOnly:true,from:"2026-10-01T00:00:00Z"});
+ old.resolve({entries:[{id:"stale"}],next:"stale-cursor"});
+ await loading;
+ await pager.more();
+ assert.deepEqual(changes.at(-1).map(e=>e.id),["selected","older"]);
+ assert.equal(queries.at(-1).favoritesOnly,true);
+ assert.equal(queries.at(-1).from,"2026-10-01T00:00:00Z");
+ pager.upsert({id:"unselected",kind:"post"});
+ assert.equal(changes.at(-1).some(e=>e.id==="unselected"),false);
+});
+
+test("filter reset is marked separately from saved page data for offline caching",async()=>{
+ const changes=[];
+ const pager=createTimelinePages({fetchPage:async()=>({entries:[]}),onChange:(entries,state)=>changes.push({entries,state})});
+ await pager.setFilters({});
+ assert.equal(changes[0].state.reset,true);
+ assert.equal(changes[1].state,undefined);
+});

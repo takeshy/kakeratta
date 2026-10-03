@@ -77,6 +77,7 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       if (search.error) return json({ error: search.error }, 502);
       let hits = search.hits || [];
       if (body.favoritesOnly) hits = hits.filter(hit => saved.has(hit.entry.id));
+      hits = hits.filter(({entry}) => (!body.from || Date.parse(entry.at) >= Date.parse(body.from)) && (!body.to || Date.parse(entry.at) <= Date.parse(body.to)));
       if (body.mode === "keyword") {
         const terms = body.query.normalize("NFKC").toLowerCase().trim().split(/\s+/);
         hits = hits.filter(({ snippet }) => terms.every((term) => snippet.normalize("NFKC").toLowerCase().includes(term)));
@@ -86,7 +87,10 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     const spoken = path.match(/^\/api\/speaker\/([^/]+)$/);
     if (spoken && search) {
       const who = decodeURIComponent(spoken[1]);
-      const rows = search.entries.filter((entry) => entry.speaker === who).sort((a, b) => b.at.localeCompare(a.at));
+      const rows = search.entries.filter((entry) => entry.speaker === who &&
+        (url.searchParams.get("favoritesOnly") !== "true" || saved.has(entry.id)) &&
+        (!url.searchParams.get("from") || Date.parse(entry.at) >= Date.parse(url.searchParams.get("from"))) &&
+        (!url.searchParams.get("to") || Date.parse(entry.at) <= Date.parse(url.searchParams.get("to")))).sort((a, b) => b.at.localeCompare(a.at));
       const offset = Number(url.searchParams.get("offset") || 0), limit = Number(url.searchParams.get("limit") || 20);
       const page = rows.slice(offset, offset + limit);
       const roots = new Set(page.map((entry) => entry.root));

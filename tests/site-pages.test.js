@@ -102,7 +102,7 @@ test("the header links to the manual in a new tab, in the reader's language", as
     if (previousWidth === undefined) delete globalThis.innerWidth;
     else globalThis.innerWidth = previousWidth;
   });
-  globalThis.innerWidth = 280;
+  globalThis.innerWidth = 240;
   const [mobile] = screenNodes({ compose: new Stub(), room, feed: new Stub() });
   const mobileSearch = mobile.find(primary);
   assert.equal(mobileSearch.children.length, 1, "icon and text are never rendered together");

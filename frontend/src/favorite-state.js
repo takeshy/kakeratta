@@ -3,6 +3,7 @@ import { el, toast } from "./dom.js";
 import { t } from "./i18n.js";
 
 let ids = new Set();
+export function isFavorite(id) { return ids.has(id); }
 let revision = 0;
 const pending = new Set();
 const listeners = new Set();
@@ -17,14 +18,14 @@ export async function refreshFavorites() {
   changed();
   return found;
 }
-export function favoriteButton(entry, { confirmRemoval = false } = {}) {
+export function favoriteButton(entry) {
   const button = el("button", { class: "chip ghost favorite", disabled: !!entry.pending || pending.has(entry.id),
     text: ids.has(entry.id) ? "★" : "☆", "aria-pressed": String(ids.has(entry.id)),
     "aria-label": t(ids.has(entry.id) ? "お気に入りを解除" : "お気に入りに追加"),
     onclick: async () => {
       if (pending.has(entry.id)) return;
       const remove = ids.has(entry.id);
-      if (remove && confirmRemoval && !confirm(t("この投稿をお気に入りから外しますか？"))) return;
+      if (remove && !confirm(t("この投稿をお気に入りから外しますか？"))) return;
       pending.add(entry.id);
       button.disabled = true;
       try {

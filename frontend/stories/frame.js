@@ -1,3 +1,5 @@
+import { createEntryFilters, filterConversations } from "../src/entry-filters.js";
+import { watchFavorites } from "../src/favorite-state.js";
 // Builds the real pieces into the real container, so a story is the app with
 // fixtures instead of a server behind it.
 import { createCompose } from "../src/compose.js";
@@ -69,10 +71,16 @@ export function compose({ text = "", settings = {} } = {}) {
 export function screen({ rows = [], entries = [], text = "", speaking = false, signedIn = false } = {}) {
   const host = document.createElement("div");
   host.id = "app";
+  const timeline = feed(entries, rows);
+  let filters = {};
+  const controls = createEntryFilters(next => { filters = next; timeline.set(filterConversations(entries, filters)); });
+  const content = document.createElement("div");
+  content.append(controls.element, timeline.element);
+  watchFavorites(() => { if (host.isConnected) timeline.set(filterConversations(entries, filters)); });
   host.append(...screenNodes({
     compose: compose({ text }).element,
     room: room(rows, { speaking }),
-    feed: feed(entries, rows).element,
+    feed: content,
     onOpen: () => {},
     onLogout: signedIn ? () => {} : null,
   }));

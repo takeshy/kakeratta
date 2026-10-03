@@ -331,24 +331,27 @@ Tap **☆** on a post or persona answer to save it; the star becomes **★**.
 Your own replies can be saved too. This lets you revisit useful answers even
 when the persona did not keep them in its memory.
 
-Open **Favorites** in the header for the first 20 entries, most recently added
-first. **Filter by persona** selects a speaker; “You” selects your own posts
-and replies. **Load more** at the bottom adds the next 20, when available.
-**Original post** opens the conversation in a dialog, where you can reply.
+Enable **Favorites only** above the timeline to revisit saved posts and answers.
+Open **Filters** to access the controls. Collapsing them keeps the conditions
+and shows **Filters active**. Use **From** and **To** to narrow the posting dates; the final day is included.
+Saved replies retain their original conversation. The same filters are available
+in speaker lists. Clear filters to return to the full list.
 
-Removing a favorite with **★** in this list asks for confirmation; Cancel
-keeps it saved. On the ordinary timeline, removal is immediate. Removing a
-favorite keeps the post, so **☆** can save it again. Deleting the post or
-answer itself also removes its favorite. Favorites are available on other
-devices and included in backups.
+Every **★** removal asks for confirmation. Cancel keeps the entry saved and
+visible. Removing a favorite does not delete the post. Favorites remain available
+on other devices and are included in backups.
 
-![Favorites with a persona filter and links to original conversations (sample data)](captures/en/favorites.png)
+![Favorites shown within the timeline (sample data)](captures/en/favorites.png)
+
+![Speaker entries filtered by date (sample data)](captures/en/speaker-period.png)
 
 ## Search
 
 Enable **Favorites only** to search saved posts and answers by words or meaning.
-A blank query lists favorites newest by post date; the Favorites list instead
-uses the date you added them. Open a result to reply or change its favorite state.
+Combine **From** and **To** with the query or favorites. A blank query with
+a date range or Favorites only lists matching entries newest by post date. Open a result to reply or change its favorite state.
+
+![Search filtered by date (sample data)](captures/en/search-period.png)
 
 ![Search restricted to favorite entries (sample data)](captures/en/search-favorites.png)
 
@@ -359,6 +362,9 @@ a period with a start and end time, and a period alone reads everything written
 then without any words, newest first, up to 30 per call. What a search found is
 not attached to the persona's remark as it is; only the posts the persona
 declares as its grounds are linked under it.
+
+Right-click a persona beneath the text box (long-press on a phone) and choose
+**Speaker entries** to open its list.
 
 **A name on the timeline** - a persona's, or "You" - opens everything that speaker
 said in a sheet of its own, each remark under its post as on the timeline, newest conversation first. Over the list is the persona as its

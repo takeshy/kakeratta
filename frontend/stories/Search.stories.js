@@ -32,7 +32,9 @@ function panel(mode, { empty = false, loading = false, error = false, thread = f
   } });
   const view = createSearch({ getSettings: () => settings, getPersona: (id) => id === "wine" ? sample.wine : null });
   const form = view.element.querySelector("form");
-  view.element.querySelector('input[type="checkbox"]').checked = favoritesOnly;
+  const savedToggle = view.element.querySelector('input[type="checkbox"]');
+  savedToggle.checked = favoritesOnly;
+  savedToggle.dispatchEvent(new Event("change"));
   form.querySelector("input").value = mode === "keyword"
     ? (getLanguage() === "ja" ? "ピノ" : "Pinot")
     : (getLanguage() === "ja" ? "軽くて飲みやすかった赤ワイン" : "A light red wine I enjoyed");
@@ -58,3 +60,11 @@ export const Error = { name: "失敗・再検索できる", render: () => panel(
 
 export const FavoritesOnly = { name: "お気に入りのみ検索", render: () => panel("semantic", { favoritesOnly: true }) };
 export const FavoritesOnlyThread = { name: "お気に入りの検索結果から会話を開く", render: () => panel("semantic", { favoritesOnly: true, thread: true }) };
+
+export const DateRange = { name: "期間で絞り込む", render: () => {
+ const host = panel("keyword");
+ host.querySelector("#sheet .entry-filters").open = true;
+ const from = host.querySelector('#sheet input[type="date"]');
+ from.value = "2026-09-01"; from.dispatchEvent(new Event("change"));
+ return host;
+} };

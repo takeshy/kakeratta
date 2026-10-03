@@ -88,3 +88,16 @@ test('favorites filter applies to every page and allows an empty query', async t
   assert.equal(requests.at(-1).favoritesOnly, undefined);
   assert.equal(requests.at(-1).offset, 0);
 });
+test("date-only search and subsequent pages retain local date bounds",async t=>{
+ const {view}=setup(t);const queries=[];
+ t.mock.method(api,"searchTimeline",async q=>{queries.push(q);return {hits:[hit(String(q.offset))],total:2};});
+ const [from,to]=nodes(view.element).filter(n=>n.type==="date");
+ from.value="2026-10-01";to.value="2026-10-02";
+ await to.listeners.change();
+ assert.equal(queries[0].query,"");
+ const more=nodes(view.element).find(n=>n.textContent===translate("さらに読み込む"));
+ more.listeners.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(queries.at(-1).offset,1);
+ assert.equal(queries.at(-1).from,queries[0].from);
+ assert.equal(queries.at(-1).to,queries[0].to);
+});

@@ -26,7 +26,7 @@ export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NO
 // normalized them. Read those as lines without changing the saved entry.
 const entryText = (entry) => entry.model === "agent" ? (entry.text || "").replace(/\\n/g, "\n") : entry.text;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false, confirmFavoriteRemoval = false }) {
+export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false }) {
   const view = el("div", { class: "feed" });
 
   // A name on the timeline opens what that speaker said. It is text where
@@ -333,7 +333,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         who(entry, mine ? t("あなた") : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
-        favoriteButton(entry, { confirmRemoval: confirmFavoriteRemoval }),
+        favoriteButton(entry),
         el("span", { class: "spacer" }),
         mine || summary ? el("button", {
           class: "chip ghost icon edit-post", text: "✎", "aria-label": t("編集"), disabled: offline() || !!entry.pending || !!postEditor,
@@ -473,7 +473,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         who(entry, mine ? t("あなた") : persona ? gloss(persona).name : entry.speaker),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
-        favoriteButton(entry, { confirmRemoval: confirmFavoriteRemoval }),
+        favoriteButton(entry),
         drawRoutingChip(entry),
         // A persona's remark can be removed too: a wrong answer left in the
         // thread is found again by searches and read back as context.

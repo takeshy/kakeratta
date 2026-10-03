@@ -67,8 +67,8 @@ export const api = {
   disconnectBluesky: () => call("DELETE", "/api/social/bluesky/connection"),
   previewSocial: (body) => call("POST", "/api/social/preview", body),
   publishSocial: (body) => call("POST", "/api/social/publish", body),
-  timeline: ({ limit = 20, before } = {}) => {
-    const query = new URLSearchParams({ limit: String(limit) });
+  timeline: ({ limit = 20, before, ...filters } = {}) => {
+    const query = new URLSearchParams({ limit: String(limit), ...filters });
     if (before) query.set("before", before);
     return call("GET", `/api/timeline?${query}`);
   },
@@ -76,7 +76,7 @@ export const api = {
   searchTimeline: (body) => call("POST", "/api/timeline/search", body),
   thread: (id) => call("GET", `/api/thread/${encodeURIComponent(id)}`),
   // What one speaker said, newest first: the list a name on the timeline opens.
-  speaker: (id, { limit = 20, offset = 0 } = {}) => call("GET", `/api/speaker/${encodeURIComponent(id)}?limit=${limit}&offset=${offset}`),
+  speaker: (id, { limit = 20, offset = 0, ...filters } = {}) => call("GET", `/api/speaker/${encodeURIComponent(id)}?${new URLSearchParams({ limit, offset, ...filters })}`),
   reply: async (replyTo, text, speechAutoSend = false) => {
     const body = { replyTo, text, speechAutoSend, language: getLanguage() };
     if (!localIdentity()) return call("POST", "/api/reply", body);

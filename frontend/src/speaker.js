@@ -1,6 +1,8 @@
 // What one speaker said, read as the timeline is: each remark under its post,
 // newest conversation first, under the persona as its card in the personas list
 // shows it. Opened from a name on the timeline; it is not a search.
+import { createEntryFilters } from "./entry-filters.js";
+import { watchFavorites } from "./favorite-state.js";
 import { el } from "./dom.js";
 import { t } from "./i18n.js";
 import { api } from "./api.js";
@@ -20,6 +22,14 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
     onReply: () => { onReply?.(); return Promise.resolve(); },
     onEntryChange: (entry) => { onEntryChange?.(entry); changed(entry); },
   });
+  let filters = {};
+  const filterControls = createEntryFilters(next => { filters = next; return refresh(); });
+  function refresh() {
+    if (!speaker) return;
+    entries = new Map(); count = 0; total = 0; feed.set([]);
+    return load(false, ++generation);
+  }
+  watchFavorites(() => { if (filters.favoritesOnly && element.isConnected) void refresh(); });
   let speaker = null;
   let generation = 0;
   let busy = false;
@@ -94,7 +104,7 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
     more.hidden = true;
     status.textContent = t("読み込んでいます…");
     try {
-      const found = await api.speaker(asked.id, { limit: 20, offset: append ? count : 0 });
+      const found = await api.speaker(asked.id, { limit: 20, offset: append ? count : 0, ...filters });
       if (current !== generation || speaker !== asked) return;
       // The page comes with the conversations its remarks belong to.
       for (const entry of found.entries || []) entries.set(entry.id, entry);
@@ -117,11 +127,13 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
   }
 
   function changed(entry) {
-    if (!speaker || !entries.has(entry.id)) return;
+    if (!speaker) return;
+    if (Object.keys(filters).length && element.isConnected) { void refresh(); return; }
+    if (!entries.has(entry.id)) return;
     entries.set(entry.id, entry);
     feed.upsert(entry);
   }
 
-  const element = el("div", { class: "speaker-view" }, cardHost, status, feed.element, more);
+  const element = el("div", { class: "speaker-view" }, cardHost, filterControls.element, status, feed.element, more);
   return { element, show, redrawCard: drawCard, changed, setSpeaking: feed.setSpeaking, reveal: feed.reveal };
 }

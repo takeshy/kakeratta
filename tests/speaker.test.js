@@ -195,3 +195,17 @@ test("a memoryless speaker retains editing without a memory action or check-in h
  assert.ok(!all.some(n => n.textContent === translate("覚えていること")));
  assert.ok(!all.some(n => n.textContent.startsWith(translate("毎日7時〜21時のどこかで起きます。"))));
 });
+
+test("speaker filters restart paging and preserve date and favorite conditions", async t => {
+ const {view}=setup(t);const requests=[];
+ t.mock.method(api,"speaker",async(id,opts)=>{requests.push(opts);return pageOf([],0);});
+ await view.show("father");
+ const inputs=nodes(view.element).filter(n=>n.tag==="input");
+ const saved=inputs.find(n=>n.type==="checkbox");
+ saved.checked=true;await saved.listeners.change();
+ const from=inputs.find(n=>n.type==="date");
+ from.value="2026-10-01";await from.listeners.change();
+ assert.equal(requests.at(-1).favoritesOnly,true);
+ assert.equal(requests.at(-1).offset,0);
+ assert.equal(requests.at(-1).from,new Date("2026-10-01T00:00:00").toISOString());
+});

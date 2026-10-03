@@ -31,7 +31,23 @@ func (s *Server) hasMultipleMentionedPeople(ctx context.Context, text string) bo
 
 func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	page, err := s.store.TimelinePage(r.Context(), limit, r.URL.Query().Get("before"))
+	q := r.URL.Query()
+	from, to, err := listWindow(q.Get("from"), q.Get("to"))
+	if err != nil {
+		fail(w, 400, err.Error())
+		return
+	}
+	ids, err := s.favoriteSelection(r, q.Get("favoritesOnly") == "true")
+	if err != nil {
+		fail(w, 500, "お気に入りを読み込めませんでした")
+		return
+	}
+	var page store.TimelinePage
+	if ids != nil || !from.IsZero() || !to.IsZero() {
+		page, err = store.FilteredTimelinePage(r.Context(), s.store, limit, q.Get("before"), from, to, ids)
+	} else {
+		page, err = s.store.TimelinePage(r.Context(), limit, q.Get("before"))
+	}
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, store.ErrTimelineCursor) {

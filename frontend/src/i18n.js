@@ -1,6 +1,12 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+ "絞り込み": "Filters",
+ "絞り込み中": "Filters active",
+ "開始日": "From",
+ "終了日": "To",
+ "絞り込みを解除": "Clear filters",
+ "終了日は開始日以降にしてください": "End date must be on or after start date",
  "予定": "Schedules",
  "予定一覧": "Schedules",
  "その他のメニュー": "More options",
