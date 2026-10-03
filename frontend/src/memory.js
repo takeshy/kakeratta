@@ -196,7 +196,7 @@ function entryLink(id, label, context) {
 function plain(line) {
   return Boolean(line.trim()) && !/^```/.test(line) && !/^#{1,6}\s+/.test(line) &&
     !/^\s*(?:[-*+] |\d+[.)] )/.test(line) && !line.startsWith("> ") && !line.includes("|") &&
-    !/^<!-- \/?kakeratta:note-sources -->$/.test(line);
+    !/^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty) -->$/.test(line);
 }
 
 function markdown(body, context) {
@@ -205,7 +205,7 @@ function markdown(body, context) {
   let list = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.trim() || /^<!-- \/?kakeratta:note-sources -->$/.test(line)) { list = null; continue; }
+    if (!line.trim() || /^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty) -->$/.test(line)) { list = null; continue; }
     if (/^```/.test(line)) {
       const code = [];
       while (++i < lines.length && !/^```/.test(lines[i])) code.push(lines[i]);

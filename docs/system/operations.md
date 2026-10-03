@@ -24,7 +24,7 @@ node --test tests/*.test.js
 node frontend/build.mjs
 ```
 
-Go tests cover persistence, HTTP, personas, search, and integrations. Firestore tests, including the coordination and two-instance tests, run against the Firestore emulator when `FIRESTORE_EMULATOR_HOST` is set (for example `firebase emulators:start --only firestore`) and are skipped otherwise. `mise.toml` pins Go 1.26 and Node 24, matching the Dockerfile and Cloud Build. Frontend tests exercise state transitions and DOM operations under Node. Storybook provides screen examples, and `offline-check.mjs` checks offline behavior in a browser. Real model providers, OAuth, microphones, and similar integrations require checks beyond unit tests.
+Go tests cover persistence, HTTP, personas, search, and integrations. Firestore tests, including the coordination and two-instance tests, run against the Firestore emulator when `FIRESTORE_EMULATOR_HOST` is set (for example `firebase emulators:start --only firestore`) and are skipped otherwise. `mise.toml` pins Go 1.26 and Node 24, matching the Dockerfile and Cloud Build. Frontend tests exercise state transitions and DOM operations under Node. Storybook provides screen examples, and `offline-check.mjs` checks offline behavior in a browser. `npm --prefix frontend run test:html` runs [html-check.mjs](../../frontend/html-check.mjs) against a local fixture server and headless Chromium to verify HTML isolation and image pagination; `CHROMIUM` selects the executable. Its temporary profile is created under the home cache by default for Snap compatibility and removed after the check. Real model providers, OAuth, microphones, and similar integrations require checks beyond unit tests.
 
 WeatherAPI unit tests use a local mock provider. The opt-in live check consumes one provider request and loads the operator key without printing it:
 
@@ -99,7 +99,7 @@ Export settings omit API credentials, and Bluesky tokens and MCP connection keys
 
 ## Delivery paths
 
-With an external ExportTarget, `POST /api/export` starts asynchronous work. Completion sends the download location over SSE. The GCS target creates an expiring URL. Without an export target, `GET /api/export` streams the download directly. Concurrent exports are limited, and one export has a 30-minute deadline.
+With an external ExportTarget, `POST /api/export` starts asynchronous work. Completion sends the download location over SSE. The GCS target creates an expiring URL. Without an export target, `GET /api/export` streams the download directly. The asynchronous POST path allows one export per Server instance and sets a 30-minute deadline. This is an in-process limit, not a workspace-wide distributed lock: different instances can each start an export. The direct GET path uses the request context and has neither this concurrency gate nor an explicit 30-minute export deadline.
 
 ## Deletion
 

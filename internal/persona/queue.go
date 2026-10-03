@@ -297,17 +297,11 @@ fold:
 			keep = true
 		}
 	case item.Index:
-		// Let go at once: what is saved while this pass runs asks for the
-		// next one, rather than finding this one still waiting.
-		ok, err := r.store.FinishReaction(context.Background(), item.ID, worker)
-		if err != nil {
-			r.emit("error", map[string]any{"where": "queue", "message": err.Error()})
+		if err := r.indexPending(ctx); err != nil {
+			log.Printf("search indexing: %v", err)
+			_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
+			keep = true
 		}
-		finished = true
-		if !ok {
-			return // Not ours any more: whoever has it does the pass.
-		}
-		r.indexPending(ctx)
 	case item.Ask != "":
 		r.resumeAsk(ctx, item.Ask)
 	case item.Deliver != "":
@@ -404,16 +398,13 @@ func (r *Runner) scheduleIndex(notBefore time.Time) {
 
 // indexPending brings the search index up to date. A failure is tried again
 // half a minute later.
-func (r *Runner) indexPending(ctx context.Context) {
+func (r *Runner) indexPending(ctx context.Context) error {
 	if r.search == nil {
-		return
+		return nil
 	}
 	work, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	if err := r.search.IndexPending(work); err != nil && ctx.Err() == nil {
-		log.Printf("search indexing: %v", err)
-		r.scheduleIndex(time.Now().Add(30 * time.Second))
-	}
+	return r.search.IndexPending(work)
 }
 
 // deliver gives a post to one persona a person approved in a routing check.

@@ -56,6 +56,8 @@ type Reaction struct {
 	// will; Index brings the search index up to date.
 	Due   bool `json:"due,omitempty" firestore:"due,omitempty"`
 	Index bool `json:"index,omitempty" firestore:"index,omitempty"`
+	// IndexAgain records changes received while this pass holds its claim.
+	IndexAgain bool `json:"indexAgain,omitempty" firestore:"indexAgain,omitempty"`
 
 	Forgotten *ForgottenReaction `json:"forgotten,omitempty" firestore:"forgotten,omitempty"`
 	Deleted   *DeletedReaction   `json:"deleted,omitempty" firestore:"deleted,omitempty"`
@@ -156,7 +158,8 @@ func (s *Store) SaveReaction(item Reaction) error {
 }
 
 // CreateReaction keeps a reaction unless one with its ID is waiting already,
-// which it reports as ErrReactionExists.
+// which it reports as ErrReactionExists. Index requests instead mark a
+// follow-up pass without releasing or replacing the current claim.
 func (s *Store) CreateReaction(item Reaction) error {
 	if item.ID == "" || !safeName(item.ID) {
 		return errors.New("reaction needs an id")
@@ -164,8 +167,15 @@ func (s *Store) CreateReaction(item Reaction) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	path := s.path(reactionsDir, item.ID+".json")
-	if _, err := os.Stat(path); err == nil {
+	var existing Reaction
+	if err := readJSON(path, &existing); err == nil {
+		if item.Index && existing.Index {
+			existing.IndexAgain = true
+			return writeJSON(path, existing)
+		}
 		return ErrReactionExists
+	} else if !os.IsNotExist(err) {
+		return err
 	}
 	return writeJSON(path, item)
 }
@@ -217,6 +227,7 @@ func (s *Store) ClaimReaction(_ context.Context, worker string, ttl time.Duratio
 	item := items[i]
 	item.ClaimedBy, item.ClaimUntil = worker, now.Add(ttl)
 	item.Attempts++
+	item.IndexAgain = false
 	if err := writeJSON(s.path(reactionsDir, item.ID+".json"), item); err != nil {
 		return Reaction{}, nil, false, err
 	}
@@ -286,6 +297,10 @@ func (s *Store) FinishReaction(_ context.Context, id, worker string, also ...str
 	if head.ClaimedBy != worker {
 		return false, nil
 	}
+	if head.Index && head.IndexAgain {
+		head.ClaimedBy, head.ClaimUntil, head.Attempts, head.NotBefore = "", time.Time{}, 0, time.Time{}
+		return true, writeJSON(s.path(reactionsDir, id+".json"), head)
+	}
 	for _, name := range append(append([]string(nil), also...), id) {
 		if err := os.Remove(s.path(reactionsDir, name+".json")); err != nil && !os.IsNotExist(err) {
 			return false, err
@@ -344,7 +359,27 @@ func createReaction(ctx context.Context, client *firestore.Client, key string, i
 	if item.ID == "" || !safeName(item.ID) {
 		return errors.New("reaction needs an id")
 	}
-	_, err := reactionsOf(client, key).Doc(item.ID).Create(ctx, item)
+	ref := reactionsOf(client, key).Doc(item.ID)
+	if item.Index {
+		return client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+			doc, err := tx.Get(ref)
+			if status.Code(err) == codes.NotFound {
+				return tx.Create(ref, item)
+			}
+			if err != nil {
+				return err
+			}
+			var existing Reaction
+			if err := doc.DataTo(&existing); err != nil {
+				return err
+			}
+			if !existing.Index {
+				return ErrReactionExists
+			}
+			return tx.Update(ref, []firestore.Update{{Path: "indexAgain", Value: true}})
+		})
+	}
+	_, err := ref.Create(ctx, item)
 	if status.Code(err) == codes.AlreadyExists {
 		return ErrReactionExists
 	}
@@ -421,6 +456,7 @@ func (w *FirestoreWorkspace) ClaimReaction(ctx context.Context, worker string, t
 			}
 			claimed.ClaimedBy, claimed.ClaimUntil = worker, now.Add(ttl)
 			claimed.Attempts++
+			claimed.IndexAgain = false
 			taken = true
 			return tx.Set(ref, claimed)
 		})
@@ -512,6 +548,11 @@ func (w *FirestoreWorkspace) FinishReaction(ctx context.Context, id, worker stri
 		}
 		if head.ClaimedBy != worker {
 			return nil
+		}
+		if head.Index && head.IndexAgain {
+			finished = true
+			head.ClaimedBy, head.ClaimUntil, head.Attempts, head.NotBefore = "", time.Time{}, 0, time.Time{}
+			return tx.Set(w.reactions().Doc(id), head)
 		}
 		for _, name := range also {
 			if err := tx.Delete(w.reactions().Doc(name)); err != nil {
@@ -655,4 +696,24 @@ func WorkspaceExists(ctx context.Context, client *firestore.Client, key string) 
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// EntryReaction is the routing request stored alongside an accepted user entry.
+func EntryReaction(entry timeline.Entry) Reaction {
+	text := entry.Text
+	return Reaction{ID: NewID("r"), At: time.Now(), Lane: "thread:" + timeline.RootOf(entry), Entry: entry.ID, EntryText: &text, Place: entry.Place, Route: true}
+}
+
+func validateInitialReaction(entry timeline.Entry, initial []Reaction) error {
+	if len(initial) == 0 {
+		return nil
+	}
+	if len(initial) != 1 {
+		return errors.New("entry accepts one initial reaction")
+	}
+	r := initial[0]
+	if !safeName(r.ID) || r.ID == DueReaction || r.ID == IndexReaction || !r.Route || r.Entry != entry.ID || r.Lane != "thread:"+timeline.RootOf(entry) || r.EntryText == nil || *r.EntryText != entry.Text || r.ClaimedBy != "" || r.Delivery != nil || r.Index || r.Due || r.Ask != "" || r.Deliver != "" || r.Deleted != nil || r.Forgotten != nil {
+		return errors.New("invalid initial entry reaction")
+	}
+	return nil
 }

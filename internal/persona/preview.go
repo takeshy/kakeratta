@@ -268,10 +268,10 @@ func (d *dryWorkspace) ClaimSchedule(string, time.Time, time.Time) (store.Schedu
 func (d *dryWorkspace) SwapSocialValue(context.Context, string, string, store.SocialValue) (bool, error) {
 	return false, nil
 }
-func (d *dryWorkspace) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {
+func (d *dryWorkspace) CreateEntry(entry timeline.Entry, _ ...store.Reaction) (timeline.Entry, bool, error) {
 	return entry, false, nil
 }
-func (d *dryWorkspace) UpdateText(id, _ string) (timeline.Entry, error) {
+func (d *dryWorkspace) UpdateText(id, _ string, _ ...store.Reaction) (timeline.Entry, error) {
 	entry, _ := d.Workspace.Entry(id)
 	return entry, nil
 }

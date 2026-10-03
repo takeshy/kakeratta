@@ -339,3 +339,15 @@ test("memory overview appears closed before notes, with history after them", (ct
   assert.equal(Object.hasOwn(view.children[0].attributes, "open"), false);
   assert.equal(Object.hasOwn(view.children[2].attributes, "open"), false);
 });
+
+
+test("summary refresh metadata is hidden in the memory reader", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+  };
+  ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
+  const view = createMemoryView([{ path: "Preference.md", text: "# Preference\n\n<!-- kakeratta:summary-dirty -->\n\n## まとめ（2026-10-01 更新）\n\n好きなもの。\n\n## いまの事実\n- [f_a] 塩が好き since:2026-09-01\n" }]);
+  assert.equal(view.all().some(node => String(node.textContent).includes("summary-dirty")), false);
+});

@@ -39,10 +39,10 @@ func changedSince(ff fieldFacts) (added, gone []fact) {
 // staleFields are the fields whose summaries have something to take in, and
 // whether each was already written today: one is not rewritten twice a day.
 func staleFields(m memoryFacts, today time.Time) (due []string, later bool) {
-	for _, field := range m.Fields {
+	for _, field := range m.all() {
 		ff := m.ByField[field]
 		added, gone := changedSince(ff)
-		if len(added) == 0 && len(gone) == 0 {
+		if !ff.SummaryDirty && len(added) == 0 && len(gone) == 0 {
 			continue
 		}
 		if !ff.SummaryAt.IsZero() && !ff.SummaryAt.Before(today) {
@@ -185,6 +185,12 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 		} else {
 			lines = append(lines, ff.Summary)
 		}
+		if ff.SummaryDirty {
+			lines = append(lines, "", "事実が訂正・統合・削除されています。日付が古い事実も含め、いま渡した事実だけを根拠にまとめ文を照合し直し、必ずこの分野の新しいまとめ文を提出してください。削除・訂正前の内容をまとめ文から引き継がないでください。", "以前の事実（現在保存されているすべて）:")
+			for _, f := range ff.Past {
+				lines = append(lines, "- "+f.Text)
+			}
+		}
 		if contains(due, field) {
 			added, gone := changedSince(ff)
 			lines = append(lines, "", "（まとめ文を書き直す分野）", "前回のまとめ以降に増えた・変わった事実:")
@@ -255,6 +261,20 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 				problems = append(problems, fmt.Sprintf("分野「%s」のまとめ文が%d字です。1〜%d字にしてください", write.Field, n, maxFieldRunes))
 			}
 		}
+		for _, field := range due {
+			if !m.ByField[field].SummaryDirty {
+				continue
+			}
+			found := false
+			for _, write := range submitted.Summaries {
+				if name, ok := fieldNamed(handed, write.Field); ok && name == field {
+					found = true
+				}
+			}
+			if !found {
+				problems = append(problems, "分野「"+field+"」は訂正・削除を反映したまとめ文が必要です")
+			}
+		}
 		for _, id := range submitted.Invalidate {
 			if !contains(passedIDs, id) {
 				problems = append(problems, id+" は日付の過ぎた事実として渡していません")
@@ -288,6 +308,7 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 		field, _ := fieldNamed(handed, write.Field)
 		ff := m.ByField[field]
 		ff.Summary, ff.SummaryAt = strings.TrimSpace(repairNewlines(write.Text)), today
+		ff.SummaryDirty = false
 		m.ByField[field] = ff
 		changed[field] = true
 	}

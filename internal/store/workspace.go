@@ -20,13 +20,15 @@ type Workspace interface {
 	Append(timeline.Entry) error
 	UpdateEntry(timeline.Entry) error
 	DeleteEntry(context.Context, string) ([]timeline.Entry, error)
-	CreateEntry(timeline.Entry) (timeline.Entry, bool, error)
+	// CreateEntry and UpdateText optionally persist one initial routing request
+	// before the entry becomes visible. Duplicate creation never queues twice.
+	CreateEntry(timeline.Entry, ...Reaction) (timeline.Entry, bool, error)
 	Timeline() ([]timeline.Entry, error)
 	// SpeakerEntries is what one speaker said, newest first.
 	SpeakerEntries(ctx context.Context, speaker string) ([]timeline.Entry, error)
 	TimelinePage(context.Context, int, string) (TimelinePage, error)
 	UpdateMedia(string, *timeline.Media) (timeline.Entry, error)
-	UpdateText(string, string) (timeline.Entry, error)
+	UpdateText(string, string, ...Reaction) (timeline.Entry, error)
 	Entry(string) (timeline.Entry, bool)
 	PutBlob([]byte, string) (string, error)
 	Blob(string) ([]byte, string, error)

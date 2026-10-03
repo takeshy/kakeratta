@@ -147,7 +147,9 @@ func readLink(ctx context.Context, entry *timeline.Entry) {
 // clientEntry check; here the second one finds the first and answers with it
 // instead of waking every persona again.
 func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace *timeline.Place) {
-	stored, created, err := s.store.CreateEntry(entry)
+	reaction := store.EntryReaction(entry)
+	reaction.Place = reactionPlace
+	stored, created, err := s.store.CreateEntry(entry, reaction)
 	if err != nil {
 		s.dropCapture(entry)
 		status := http.StatusInternalServerError
@@ -167,7 +169,7 @@ func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace
 		return
 	}
 	s.publishEvent("entry", entry)
-	s.runner.React(entry.ID, reactionPlace)
+	s.runner.RouteAccepted(reaction.ID)
 	writeJSON(w, http.StatusOK, entry)
 }
 
@@ -243,7 +245,15 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, store.ErrNotEditable.Error())
 		return
 	}
-	entry, err := s.store.UpdateText(entry.ID, *body.Text)
+	var initial []store.Reaction
+	if !summary {
+		updated := entry
+		updated.Text = trimmed(*body.Text)
+		reaction := store.EntryReaction(updated)
+		reaction.Edited = true
+		initial = append(initial, reaction)
+	}
+	entry, err := s.store.UpdateText(entry.ID, *body.Text, initial...)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, store.ErrNotEditable) {
@@ -260,11 +270,9 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, entry)
 		return
 	}
-	// New records also carry the routed text, so a late result or failed
-	// deletion cannot make the old decision apply to the edited post.
-	_ = s.store.ForgetRouting(entry.ID)
+	// UpdateText cleared the old decision before releasing the routing request.
 	s.publishEvent("entry", entry)
-	s.runner.EntryEdited(entry.ID)
+	s.runner.RouteAccepted(initial[0].ID)
 	writeJSON(w, http.StatusOK, entry)
 }
 

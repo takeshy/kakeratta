@@ -169,6 +169,7 @@ func (r *Runner) ApplyMigration(ctx context.Context, plan Migration) (Migration,
 		}
 		ff := next.ByField[field]
 		ff.Summary, ff.SummaryAt = summary, today
+		ff.SummaryDirty = false // The reviewed migration plan supplies this summary.
 		next.ByField[field] = ff
 		if !contains(changed, field) {
 			changed = append(changed, field)

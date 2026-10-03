@@ -111,6 +111,13 @@ func (r *Runner) enqueueEntry(entryID string, place *timeline.Place, edited bool
 	if err := r.accept(item); err != nil {
 		return
 	}
+	r.RouteAccepted(item.ID)
+}
+
+// RouteAccepted starts a routing request already persisted with an entry.
+// A stopped runner leaves it for recovery instead of creating another request.
+func (r *Runner) RouteAccepted(id string) {
+	r.Poke()
 	// Routing runs directly, outside the delivery slots. The durable claim
 	// still makes recovery and competing instances use exactly this phase.
 	r.stopMu.Lock()
@@ -124,7 +131,7 @@ func (r *Runner) enqueueEntry(entryID string, place *timeline.Place, edited bool
 	go func() {
 		defer r.working.Done()
 		defer func() { r.inFlight.Add(-1); r.Poke() }()
-		claimed, ok, err := r.store.ClaimRoutingReaction(context.Background(), item.ID, store.NewID("route"), claimTTL)
+		claimed, ok, err := r.store.ClaimRoutingReaction(context.Background(), id, store.NewID("route"), claimTTL)
 		if err != nil {
 			r.emit("error", map[string]any{"where": "routing", "message": err.Error()})
 			return

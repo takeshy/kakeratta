@@ -266,15 +266,60 @@ func (s *Store) Entry(id string) (timeline.Entry, bool) {
 }
 
 // CreateEntry preserves the first accepted entry atomically.
-func (s *Store) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {
+func (s *Store) CreateEntry(entry timeline.Entry, initial ...Reaction) (timeline.Entry, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	old, exists, err := s.entryLocked(entry.ID)
 	if err != nil || exists {
 		return old, false, err
 	}
-	err = s.appendLocked(entry)
+	err = s.appendWithReactionLocked(entry, initial)
 	return entry, err == nil, err
+}
+
+// appendWithReactionLocked keeps routing before making the entry visible.
+func (s *Store) appendWithReactionLocked(entry timeline.Entry, initial []Reaction) (err error) {
+	if err := validateInitialReaction(entry, initial); err != nil {
+		return err
+	}
+	// Keep the request first, under the same mutex as the entry. A process
+	// that stops here leaves only an orphan request, which routing discards.
+	// Once the entry exists, its request is already recoverable on restart.
+	for _, reaction := range initial {
+		path := s.path(reactionsDir, reaction.ID+".json")
+		if _, err := os.Stat(path); err == nil {
+			return ErrReactionExists
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		if err := writeJSON(path, reaction); err != nil {
+			return err
+		}
+	}
+	defer func() {
+		if err != nil {
+			for _, reaction := range initial {
+				_ = os.Remove(s.path(reactionsDir, reaction.ID+".json"))
+			}
+		}
+	}()
+	for _, reaction := range initial {
+		if !reaction.Edited {
+			continue
+		}
+		// Clear the old routing before the edited entry and its request can
+		// be claimed. Clearing it from HTTP afterwards could erase a result
+		// already prepared by another worker.
+		records, readErr := s.readRouting()
+		if readErr != nil {
+			return readErr
+		}
+		delete(records, entry.ID)
+		if err := writeJSON(routingPath(s.root), records); err != nil {
+			return err
+		}
+	}
+	return s.appendLocked(entry)
 }
 
 func (s *Store) UpdateMedia(id string, media *timeline.Media) (timeline.Entry, error) {
@@ -310,7 +355,7 @@ func editText(entry *timeline.Entry, text string) error {
 	return nil
 }
 
-func (s *Store) UpdateText(id, text string) (timeline.Entry, error) {
+func (s *Store) UpdateText(id, text string, initial ...Reaction) (timeline.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, exists, err := s.entryLocked(id)
@@ -323,7 +368,7 @@ func (s *Store) UpdateText(id, text string) (timeline.Entry, error) {
 	if err := editText(&entry, text); err != nil {
 		return timeline.Entry{}, err
 	}
-	return entry, s.appendLocked(entry)
+	return entry, s.appendWithReactionLocked(entry, initial)
 }
 
 // SearchThread reads only the days containing the requested conversation.

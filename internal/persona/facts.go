@@ -70,15 +70,18 @@ type fact struct {
 type fieldFacts struct {
 	// Summary is the persona's prose over the field, and SummaryAt the day it
 	// was last written; zero when it never was.
-	Summary   string
-	SummaryAt time.Time
-	Current   []fact
-	Past      []fact
+	Summary      string
+	SummaryAt    time.Time
+	SummaryDirty bool
+	Current      []fact
+	Past         []fact
 }
 
 func (ff fieldFacts) empty() bool {
 	return ff.Summary == "" && len(ff.Current) == 0 && len(ff.Past) == 0
 }
+
+const summaryDirtyMarker = "<!-- kakeratta:summary-dirty -->"
 
 var factLine = regexp.MustCompile(`^- \[(f_[A-Za-z0-9]+)\] (.*)$`)
 var factTrailer = regexp.MustCompile(`\s(from|since|until|by):(\S+)$`)
@@ -91,6 +94,9 @@ func parseFacts(text string, zone *time.Location) fieldFacts {
 	for _, raw := range strings.Split(text, "\n") {
 		line := strings.TrimSpace(raw)
 		switch {
+		case line == summaryDirtyMarker:
+			out.SummaryDirty = true
+			continue
 		case line == summaryHeading || fieldSummaryDay.MatchString(line):
 			section = "summary"
 			if match := fieldSummaryDay.FindStringSubmatch(line); match != nil {
@@ -185,6 +191,9 @@ func (f fact) line(zone *time.Location) string {
 // factsText is a field file holding these facts.
 func factsText(field string, ff fieldFacts, zone *time.Location) string {
 	lines := []string{"# " + field, ""}
+	if ff.SummaryDirty {
+		lines = append(lines, summaryDirtyMarker, "")
+	}
 	if ff.Summary != "" {
 		head := summaryHeading
 		if !ff.SummaryAt.IsZero() {
@@ -355,7 +364,7 @@ type factOp struct {
 func planFacts(m memoryFacts, ops []factOp, from string, now time.Time, zone *time.Location) (memoryFacts, []string, []string) {
 	next := memoryFacts{Fields: m.Fields, Orphans: m.Orphans, ByField: map[string]fieldFacts{}}
 	for field, ff := range m.ByField {
-		next.ByField[field] = fieldFacts{Summary: ff.Summary, SummaryAt: ff.SummaryAt, Current: append([]fact{}, ff.Current...), Past: append([]fact{}, ff.Past...)}
+		next.ByField[field] = fieldFacts{Summary: ff.Summary, SummaryAt: ff.SummaryAt, SummaryDirty: ff.SummaryDirty, Current: append([]fact{}, ff.Current...), Past: append([]fact{}, ff.Past...)}
 	}
 	var problems []string
 	changed := map[string]bool{}
@@ -519,6 +528,7 @@ func planFacts(m memoryFacts, ops []factOp, from string, now time.Time, zone *ti
 	}
 	var fields []string
 	for field := range changed {
+		next.ByField[field] = dirtySummary(next.ByField[field])
 		fields = append(fields, field)
 	}
 	sort.Strings(fields)
@@ -600,7 +610,7 @@ func (r *Runner) dropFactSourcesHeld(held context.Context, skill Skill, gone map
 		current, a := keep(ff.Current)
 		past, b := keep(ff.Past)
 		if a || b {
-			m.ByField[field] = fieldFacts{Summary: ff.Summary, SummaryAt: ff.SummaryAt, Current: current, Past: past}
+			m.ByField[field] = dirtySummary(fieldFacts{Summary: ff.Summary, SummaryAt: ff.SummaryAt, Current: current, Past: past})
 			fields = append(fields, field)
 		}
 	}
@@ -673,7 +683,18 @@ func (r *Runner) changeFact(ctx context.Context, personaID, field, id string, ch
 	if n := currentRunes(ff); n > maxFieldRunes {
 		return fmt.Errorf("分野「%s」のいまの事実が合わせて%d字になります（%d字まで）", field, n, maxFieldRunes)
 	}
-	m.ByField[field] = ff
+	m.ByField[field] = dirtySummary(ff)
 	_, err = r.writeFacts(held, skill.ID, m, []string{field}, zone)
 	return err
+}
+
+// Corrections, merges and removals need a new summary even when the facts'
+// historical dates do not change. Removing the last fact also removes prose
+// that no longer has any evidence, without asking a model to preserve it.
+func dirtySummary(ff fieldFacts) fieldFacts {
+	if len(ff.Current) == 0 && len(ff.Past) == 0 {
+		return fieldFacts{}
+	}
+	ff.SummaryDirty = true
+	return ff
 }

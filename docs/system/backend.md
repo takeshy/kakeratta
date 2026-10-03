@@ -53,13 +53,13 @@ For a post without an image, `readLink` extracts an explicit URL or a URL in the
 
 Posts and replies accept optional `language` (`ja` or `en`) from the browser and persist it as `Entry.Language`; other values become empty. Infographics use it to translate their content to the display language selected at submission. Existing entries without a language remain compatible. Persona HTML answers stay in `Entry.Text` and use the usual timeline persistence and APIs; HTML is rendered only in the browser's sandboxed frame. Bluesky sharing accepts temporary browser-generated image pages bound to the current HTML source hash; it preserves the saved answer and rejects raw persona HTML publication without a capture (see [sharing](./integrations.md#selected-sharing-to-bluesky)).
 
-`land` persists the entry with `CreateEntry`, emits an event, and calls `Runner.React`, which saves a durable reaction. Only the request that created the entry reacts; a concurrent duplicate returns the stored entry, or 409 for different content, and its image is removed. The HTTP response does not wait for persona answers. Runner analyzes an image once before waking personas, so they all receive the same reading.
+`land` calls `CreateEntry` with the entry and its initial routing reaction. Firestore commits both in one transaction; file storage writes the reaction first under the same mutex as the entry, so routing cannot claim it between writes. A failed reaction write rejects the submission before the entry is saved. After acceptance, `land` emits an event and calls `Runner.RouteAccepted` to start the already durable request. Restart recovery works even if the process stopped before that call. Only the request that created the entry queues routing; a concurrent duplicate returns the stored entry, or 409 for different content, and its image is removed. The HTTP response does not wait for persona answers. Runner analyzes an image once before waking personas, so they all receive the same reading.
 
 ## Retries and changes
 
 The device outbox supplies `clientId` and `clientAt`. An existing ID with the same hash returns the existing entry; different content for the same ID receives a 409. `clientEntry` answers retries early, before formatting or fetching; `CreateEntry` in `land` makes acceptance exclusive when simultaneous requests with the same ID pass that check.
 
-Replies check that the target exists and is not deleted. Editing a post notifies its previous recipients and routes the new content. Deletion respects thread and reply relationships, takes the deleted entries' kakera records out, and wakes the personas that had recorded them to tidy their field summaries (see [Deleted kakera](./personas.md#deleted-kakera)). The images of deleted entries are removed from the blob store after the entries. Saving image analysis requires the entry to still exist.
+Replies check that the target exists and is not deleted. Editing a post saves its routing request with `UpdateText` using the same persistence ordering, clearing the old routing result before the request can be claimed, then notifies its previous recipients and routes the new content. Monthly app summaries are edited without routing. Deletion respects thread and reply relationships, takes the deleted entries' kakera records out, and wakes the personas that had recorded them to tidy their field summaries (see [Deleted kakera](./personas.md#deleted-kakera)). The images of deleted entries are removed from the blob store after the entries. Saving image analysis requires the entry to still exist.
 
 ## Implementation and verification
 
@@ -67,6 +67,8 @@ Replies check that the target exists and is not deleted. Editing a post notifies
 - [fetch.go](../../internal/capture/fetch.go): `Fetch`
 - [runner.go](../../internal/persona/runner.go): `readCapture`
 - [offline_test.go](../../internal/server/offline_test.go)
+- [acceptance_test.go](../../internal/server/acceptance_test.go): queue-write failure rejects acceptance and the same client ID can retry
+- [acceptance_test.go](../../internal/store/acceptance_test.go): posts, replies, edits, duplicate acceptance, and restart
 - [delete_test.go](../../internal/server/delete_test.go)
 - [hardening_test.go](../../internal/server/hardening_test.go): concurrent resends, image types, image removal
 
@@ -155,7 +157,7 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 
 `ConfiguredSettings` returns saved choices. `Settings` applies defaults and model fallbacks for execution. This separation prevents an empty field in the editor from being overwritten with its runtime fallback.
 
-New workspaces default to the built-in sona (`routine`) and kakeratta support (`support`) being active. Persona definitions save the optional `memoryEnabled` flag; false disables private memory and periodic check-ins (see [Optional persona memory](./personas.md#optional-persona-memory)), while external-agent preference remains an independent saved setting. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
+New workspaces default to the built-in sona (`routine`), kakeratta support (`support`), and infographics (`infographic`) being active. Persona definitions save the optional `memoryEnabled` flag; false disables private memory and periodic check-ins (see [Optional persona memory](./personas.md#optional-persona-memory)), while external-agent preference remains an independent saved setting. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
 
 `Server.client` creates an `llm.Client` from effective settings. The **Use OpenRouter** checkbox (`openRouterMode`) selects its own key and model choices. Legacy `jevEnabled` settings normalize to OpenRouter enabled with `~typesafe/jev-latest` selected as Router and the legacy flag cleared. Ordinary persona answers use the middle model; replies asking for a deeper answer use the high model; the decision to escalate uses the low model. Vision and routing models have separate roles.
 
@@ -192,7 +194,7 @@ The response also carries `entries`: the whole conversation of each remark on th
 
 ## Index updates and changing records
 
-`entry` events after persistence or image analysis, and settings changes, schedule indexing: `Runner.ScheduleIndex` queues the `index` reaction, of which at most one waits, so a workspace is indexed by one worker at a time in whichever process claims it. The pass calls `IndexPending` for pending work; a failure queues another pass 30 seconds later.
+`entry` events after persistence or image analysis, and settings changes, schedule indexing: `Runner.ScheduleIndex` queues the `index` reaction, of which at most one waits, so a workspace is indexed by one worker at a time in whichever process claims it. The pass keeps renewing its claim while `IndexPending` runs. Changes during the pass set a durable `IndexAgain` marker; finishing preserves one follow-up pass if marked. A failure defers the retained reaction for 30 seconds rather than dropping it.
 
 Where the workspace implements the native indexing contract, search uses that implementation; otherwise, it uses the local index path. Persisted vectors and dirty state allow updates to continue at startup or during searches.
 

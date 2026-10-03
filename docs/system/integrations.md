@@ -3,7 +3,7 @@ type: "Integration"
 title: "External agents, tools, and sharing"
 description: "External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky."
 tags: ["mcp", "agent", "tools", "support", "bluesky", "sharing", "weather"]
-updated: "2026-10-02"
+updated: "2026-10-03"
 ---
 
 External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
@@ -44,7 +44,7 @@ An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the
 
 `Registry` holds built-in tools and tools from operator-configured MCP servers. `For(skill.Tools).As(skill.ID)` builds the persona's permitted set. Shared timeline search and access to the persona's own memory are also available. A persona permitted to use `schedule` automatically receives the read-only `schedules_list` tool, including in external-agent asks, to inspect filtered, paginated workspace schedules on demand. The schedule creation argument `user_requested` distinguishes tasks explicitly requested at a time or recurrence from autonomous checks; listings and own-schedule context expose that flag. The host's schedule phase and review choose and check the flag, including after an external-agent answer, and scheduled wakes use it to select task or brief-reminder instructions; see [Scheduled wakes](./personas.md#scheduled-wakes).
 
-A tool `Declaration` carries a name, description, JSON Schema, and read-only status. Research tools are separated from schedule and action tools. The host validates model-supplied arguments and makes the actual network requests.
+A tool `Declaration` carries a name, description, JSON Schema, and read-only status. Research tools are separated from schedule and action tools. The host validates model-supplied arguments and makes the actual network requests. Built-in tools apply their own argument checks. For external MCP tools, `checkArgs` checks required top-level keys and the basic types of non-null top-level values only; it is not a complete JSON Schema validator. Enum values, ranges, nested constraints, additional properties, and nullability remain the external server's responsibility. Tool schemas are passed to the model unchanged.
 
 ## Connections
 

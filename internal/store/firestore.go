@@ -137,7 +137,7 @@ func (w *FirestoreWorkspace) UpdateMedia(id string, media *timeline.Media) (time
 	return result, err
 }
 
-func (w *FirestoreWorkspace) UpdateText(id, text string) (timeline.Entry, error) {
+func (w *FirestoreWorkspace) UpdateText(id, text string, initial ...Reaction) (timeline.Entry, error) {
 	var result timeline.Entry
 	err := w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(w.timeline().Doc(id))
@@ -149,6 +149,19 @@ func (w *FirestoreWorkspace) UpdateText(id, text string) (timeline.Entry, error)
 		}
 		if err := editText(&result, text); err != nil {
 			return err
+		}
+		if err := validateInitialReaction(result, initial); err != nil {
+			return err
+		}
+		for _, reaction := range initial {
+			if err := tx.Create(w.reactions().Doc(reaction.ID), reaction); err != nil {
+				return err
+			}
+			if reaction.Edited {
+				if err := tx.Delete(w.user.Collection("routing").Doc(sanitise(id))); err != nil {
+					return err
+				}
+			}
 		}
 		return tx.Set(w.timeline().Doc(id), result)
 	})
@@ -615,9 +628,12 @@ func (w *FirestoreWorkspace) Skills(ctx context.Context) (map[string][]byte, err
 	return out, nil
 }
 
-func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry) (timeline.Entry, bool, error) {
+func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry, initial ...Reaction) (timeline.Entry, bool, error) {
 	if entry.Deleted {
 		return timeline.Entry{}, false, errors.New("deletion notifications cannot be stored")
+	}
+	if err := validateInitialReaction(entry, initial); err != nil {
+		return timeline.Entry{}, false, err
 	}
 	entry.SearchDirty = true
 	var result timeline.Entry
@@ -633,6 +649,11 @@ func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry) (timeline.Entry, 
 		}
 		if err := w.checkEntryParents(tx, entry); err != nil {
 			return err
+		}
+		for _, reaction := range initial {
+			if err := tx.Create(w.reactions().Doc(reaction.ID), reaction); err != nil {
+				return err
+			}
 		}
 		result, created = entry, true
 		return tx.Create(w.timeline().Doc(entry.ID), entry)
