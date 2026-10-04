@@ -70,6 +70,43 @@ listens on loopback. See [usage and configuration](docs/usage.md) for commands
 and [self-hosting](docs/technical.md#running-it) for environment variables and
 hosted storage. Use `task test` to run the Go and browser tests.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser[Browser] --> Hosting[Firebase Hosting]
+  Hosting --> Web[Cloud Run: Go Web API]
+  Tasks[Cloud Tasks: scheduled wakes] --> Web
+  Web -->|Save posts and jobs| State[(Firestore: per-account state)]
+  Web -->|Publish saved jobs| Queue[Pub/Sub]
+  Queue --> Workers[Cloud Run: Go workers]
+  Workers -->|Read jobs and save replies| State
+  Workers --> AI[Nebius Token Factory: NVIDIA Nemotron]
+  Workers -->|Set next wake| Tasks
+  State -->|Account events| Web
+  Web -->|Live updates| Browser
+  Scheduler[Cloud Scheduler] --> Repair[Web: retry unpublished jobs]
+  State --> Repair
+  Repair --> Queue
+```
+
+In production, Web saves a post and its processing request together, then
+publishes the job to Pub/Sub. An available worker processes it using the user's
+AI settings and credentials, persists the result, and acknowledges completion.
+Cloud Tasks triggers scheduled work through the same path. Unpublished requests
+remain in Firestore for retry; Pub/Sub redelivers unacknowledged jobs.
+
+Data, execution claims and conversation ordering belong to each account.
+Web and worker instances can be added independently: accounts need no assigned
+server, and independent accounts and conversations can run in parallel while
+each conversation keeps its processing order. Workers can scale to zero when
+idle. Capacity grows through additional instances and measured tuning of shared
+infrastructure; worker sizes are deployment settings. Local development uses
+the same persona engine with file storage and an in-process dispatcher.
+
+See [architecture and scaling](docs/system/architecture.md) for the full
+execution model and [deployment](infra/README.md) for infrastructure settings.
+
 ## Design and integrations
 
 The backend is Go and the browser app is JavaScript. NVIDIA Nemotron models

@@ -67,6 +67,41 @@ Firebaseアカウントも外部データベースも不要で、データはデ
 環境変数や公開環境の保存先は[自分で動かす](docs/technical_ja.md#動かす)を参照してください。
 `task test` でGoとブラウザ側のテストを実行できます。
 
+## システム構成
+
+```mermaid
+flowchart LR
+  Browser[ブラウザ] --> Hosting[Firebase Hosting]
+  Hosting --> Web[Cloud Run: Go Web API]
+  Tasks[Cloud Tasks: 予約時刻に通知] --> Web
+  Web -->|投稿と処理要求を保存| State[(Firestore: アカウント別データ)]
+  Web -->|保存済み要求を配信| Queue[Pub/Sub]
+  Queue --> Workers[Cloud Run: Go workers]
+  Workers -->|要求を取得・返信を保存| State
+  Workers --> AI[Nebius Token Factory: NVIDIA Nemotron]
+  Workers -->|次の予約を登録| Tasks
+  State -->|アカウント別の更新通知| Web
+  Web -->|返信をリアルタイムに表示| Browser
+  Scheduler[Cloud Scheduler] --> Repair[Web: 未送信要求の再送]
+  State --> Repair
+  Repair --> Queue
+```
+
+本番では、Webが投稿と処理要求を一緒に保存してからPub/Subへ登録します。
+空いているworkerがユーザーごとのAI設定とAPIキーで処理し、結果を保存してから
+完了を通知します。予約処理はCloud Tasksが指定時刻に同じ経路へ登録します。
+未送信要求はFirestoreに残して再送し、未完了のジョブはPub/Subが再配信します。
+
+データ・実行権・会話内の処理順序はアカウントごとに管理します。
+Webとworkerは別々に増やせるため、アカウントの担当サーバーを固定せず、
+別アカウントや別会話の処理を並列に進められます。同じ会話の処理順序は維持します。
+仕事がないときはworkerをゼロ台にできます。台数を増やし、共有基盤の負荷を測って
+調整することで処理量の増加に対応します。workerのサイズは運用設定として管理します。
+ローカル開発では、同じ担当の処理エンジンをファイル保存とプロセス内の実行方式で動かします。
+
+詳細は[構成とスケールの説明](docs/system/architecture.md)（英語）と
+[デプロイ手順](infra/README_ja.md)を参照してください。
+
 ## 設計と連携
 
 バックエンドはGo、ブラウザ側はJavaScriptです。Nebius Token Factory経由の
