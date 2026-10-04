@@ -61,17 +61,17 @@ A persona that receives a post decides whether to reply, use a tool, schedule a 
 
 ### How memory works
 
-A persona with memory keeps its related fragments in chronological order. It periodically rewrites them into per-field summaries, and the recent fragments plus those summaries are what let it understand your tendencies.
+A persona with memory keeps facts by field, a summary of those facts, and chronological records of related fragments grouped by month. At check-ins, it refreshes summaries for fields whose facts have changed. The current facts, summaries, and recent records together help it understand your tendencies.
 
 - **Daily check-in:** each persona reviews its memory alongside recent activity, and speaks only when it has something useful to say.
 - **Monthly look-back:** person personas read a summary of the month and surface things like "You haven't talked in a while."
-- **Memories have an ending:** memory is built only from what you said, not from what personas said. Each memory gets a review date, and on that date the persona asks whether to keep, postpone, or forget it. Nothing is deleted automatically.
+- **Memories have an ending:** memory is built from what you said, rather than the personas' recommendations. Short-lived records can expire automatically. Records whose useful lifetime is unclear can instead get a review date; at a later check-in, the persona asks whether to keep, postpone, or forget them. Preferences and habits normally have neither date. Expiry also removes facts supported only by the expired records, but leaves the original timeline posts intact.
 
 Not every persona needs memory. Answer-only personas, such as news research or infographics, work on demand without accumulating private notes or extra cost.
 
 ### Nothing is learned behind your back
 
-You can inspect, trace, correct, or forget any memory without deleting the original post. For any post, you can see which personas were called and why the others weren't. If you say "This persona should have received it," the AI rewrites that persona's routing condition and retries the post. The retried reply stays off the timeline until you approve it.
+You can inspect, trace, correct, or forget any memory without deleting the original post. For any post, you can see which personas were called and why the others weren't. If you say "This persona should have received it," the AI proposes a revised routing condition. When you save it, the app checks the same post again and calls the persona if it now matches. Separately, correcting a persona's reply lets you preview a revised answer before applying it to the timeline.
 
 ## How we built it
 
@@ -92,7 +92,7 @@ kakeratta also runs locally as a single-user app, storing everything as plain fi
 | **5. Answer** | The persona finalizes its answer from the research. No schedule or action runs yet, and the persona may also choose to stay silent. |
 | **6. Plan schedules** | The persona decides whether a reminder or other schedule needs to be created, updated, or cancelled, and drafts the plan. |
 | **7. Plan actions** | If a permitted state-changing action is needed, the persona drafts it. This is a separate phase from schedules. |
-| **8. Check and review** | Code validates arguments and permissions. Then an AI checks that the plan matches the user's request and the answer's promises. A failed check regenerates only the planning phase at fault. |
+| **8. Check and review** | Code validates arguments and permissions. If the plan contains schedules or actions, an AI also checks that it matches the user's request and the answer's promises; an answer-only plan skips that review. A failed check regenerates only the planning phase at fault. |
 | **9. Execute** | The approved schedules and actions run. If one fails, an answer that implies success is not published. |
 | **10. Publish** | The answer is saved to the timeline and shown. If it is a scheduled notification, the push is sent here. |
 | **11. Update memory** | The note keeper picks which facts and records to keep from the user's fragment and saves them. If this fails, the published answer stands and the memory update is retried later. |
@@ -141,9 +141,9 @@ OKF works well for organizing information that already exists. But new records k
 
 Recording the AI's answers made it worse. Answers far outnumbered what I had said, so my own information, the part that actually mattered, got diluted.
 
-So I gave up on OKF. What matters is what the user says, because that is information you can't find online. Each fragment is now recorded one by one as history in its category memo. When the user wants to keep an AI answer, they save it themselves as a Favorite. This keeps the two from mixing.
+So I gave up on OKF. What matters is what the user says, because that is information you can't find online. Each fragment is now recorded one by one as history. When the user wants to keep an AI answer, they save it themselves as a Favorite. This keeps the two from mixing.
 
-Context size was the next problem. Passing everything the user ever said uses too many tokens, which raises the cost and lowers accuracy. Passing only recent fragments means the AI knows only recent things and loses the larger context. So each category memo also keeps a summary of everything the user has said so far, and the summary is refreshed periodically. The AI receives both the summaries and the recent fragments. That gives it the user's overall thinking together with what is on their mind right now.
+Context size was the next problem. Passing everything the user ever said uses too many tokens, which raises the cost and lowers accuracy. Passing only recent fragments means the AI knows only recent things and loses the larger context. So each memory field keeps structured facts and a summary of those facts, refreshed at check-ins when the facts change. Related fragments are recorded separately by month. The AI receives the current facts, summaries, and recent records. That gives it the user's overall thinking together with what is on their mind right now.
 
 ### Making routing cheap enough to post freely
 
