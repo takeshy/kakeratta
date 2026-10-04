@@ -56,6 +56,14 @@ Scheduled utterances with their per-schedule notification preference enabled als
 
 `Server.New` connects the Catalogue, Runner, and search Service, registers routes, starts the Runner, queues a search-index pass, and asks to be woken now (`Runner.Rearm`), which is how a workspace looks at its times. There is no clock going round: see [Times and wakes](#times-and-wakes).
 
+## Workspace access and locking
+
+Gateway serializes workspace access by account key. The shared closing-state check and workspace initialization hold only that account's mutex, so slow storage calls for one account do not delay cached access or initialization for other accounts. Concurrent opens of the same account reuse one Server. The gateway-wide mutex protects only in-memory registry state; account mutex entries are released when no operation holds or waits for them.
+
+Account deletion marks the account closing before waiting for its in-progress workspace access, then removes and destroys that same Server. Idle eviction skips accounts whose mutex is busy and holds the account mutex through shutdown and storage release, preventing a replacement from opening during teardown. Gateway shutdown stops admission and waits for admitted workspace accesses before collecting tenants to halt.
+
+Verification: [gateway_concurrency_test.go](../../internal/server/gateway_concurrency_test.go) covers independent accounts during slow opening and shared closing checks, same-account reuse, deletion during opening, shutdown during opening, bounded startup and background wake workers, and skipping busy accounts during idle eviction. Implementation: [gateway.go](../../internal/server/gateway.go) (`workspaceLock`, `workspace`, `closeAccount`, `Close`) and [shared.go](../../internal/server/shared.go) (`closeIdle`).
+
 ## The reaction queue
 
 Persona work and background enrichment are kept in the workspace as `store.Reaction` records (files under `reactions/`, or `users/{key}/reactions`) until it is done. A reaction belongs to a lane:
@@ -94,7 +102,7 @@ The alarm is `Runner.SetAlarm`, and does nothing but make sure a due reaction is
 | A shared deployment with `KAKERATTA_TASKS_QUEUE` | A Cloud Tasks task scheduled for the time (`alarm.Tasks.Set`), named `due-{workspace}-{time bucket of 30 seconds}` so setting one twice sets one. The task calls `POST /internal/due` with an identity token of the app's service account; `alarm.Workspace` refuses anything not issued to that account for that URL, and the gateway opens the workspace, if this instance has it closed, and queues its due reaction. Anything that stops the wake from being kept - the existence check, opening the workspace, saving the reaction - answers 503, so Cloud Tasks tries the task again; a workspace that is gone or being deleted answers 204. |
 | A shared deployment without a queue | One `localAlarm` per workspace in the gateway; when it fires, the workspace is opened and woken. |
 
-At start each instance asks every workspace to be woken now, once (`restoreWorkspaces`), so workspaces from before this design set their own next time; tasks are named, so instances starting together set one. After that nothing lists the workspaces again. A minute's sweep (`sweepShared`) only takes up work whose claim lapsed and closes what is idle. A workspace that is deleted has no reason to wake: the wake finds no workspace and ends.
+At start each instance asks every workspace to be woken now, once (`restoreWorkspaces`), so workspaces from before this design set their own next time; tasks are named, so instances starting together set one. Startup alarm registration and local workspace restoration use up to eight workers per batch, so one slow account does not serialize the whole batch. Shutdown stops admitting new keys and waits for work already admitted. After that nothing lists the workspaces again. A minute's sweep (`sweepShared`) only takes up work whose claim lapsed and closes what is idle. A workspace that is deleted has no reason to wake: the wake finds no workspace and ends.
 
 ## Implementation and verification
 
@@ -131,6 +139,8 @@ On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes t
 ## No owners
 
 With `Shared`, every instance answers every request it receives, and no instance owns a workspace. Work queued anywhere is claimed by whichever runner gets it first. `store.WatchReactions` follows the `reactions` collection group: an instance with the workspace open pokes its runner; one without waits about two seconds, so an instance that has the workspace open claims first, and opens the workspace only if work is still claimable. Every minute each instance also scans `ClaimableWorkspaces`, catching lapsed claims and missed events, and closes workspaces idle for 10 minutes with no open event stream, running export, or reaction in hand.
+
+Background wakes coalesce by account and limit claimability checks and workspace opening to eight concurrent operations per instance. Foreground requests do not use these slots. Idle eviction also uses up to eight workers, keeping slow teardown from serializing all idle accounts.
 
 Nothing is elected. Times are not kept by an instance: a workspace's alarm brings its due reaction, which any instance may work; check-ins and schedules are claimed transactionally, so a second due reaction cannot repeat them.
 

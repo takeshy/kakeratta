@@ -86,6 +86,17 @@ func (g *Gateway) wake(key string) {
 			return
 		case <-time.After(affinity + rand.N(time.Second)):
 		}
+		select {
+		case <-g.stop:
+			return
+		case g.wakeSlots <- struct{}{}:
+		}
+		defer func() { <-g.wakeSlots }()
+		select {
+		case <-g.stop:
+			return
+		default:
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		claimable, err := g.shared.Claimable(ctx, key)
 		cancel()
@@ -205,21 +216,40 @@ func (g *Gateway) serveDue(w http.ResponseWriter, r *http.Request) {
 
 // closeIdle closes the workspaces open here with nothing to do.
 func (g *Gateway) closeIdle() {
-	now := time.Now()
 	g.mu.Lock()
-	var idle []*Server
-	for key, tenant := range g.tenants {
-		if now.Sub(g.used[key]) > idleTenant && tenant.Idle() {
-			idle = append(idle, tenant)
-			delete(g.tenants, key)
-			delete(g.used, key)
-		}
+	keys := make([]string, 0, len(g.tenants))
+	for key := range g.tenants {
+		keys = append(keys, key)
 	}
 	g.mu.Unlock()
-	for _, tenant := range idle {
-		tenant.Halt()
-		closeWorkspace(tenant)
-	}
+	g.eachWorkspace(keys, func(key string) {
+		lock, release := g.workspaceLock(key)
+		// A request or deletion already using this account takes precedence.
+		if !lock.mu.TryLock() {
+			release()
+			return
+		}
+		g.mu.Lock()
+		tenant := g.tenants[key]
+		idle := tenant != nil && !g.closing[key] && time.Since(g.used[key]) > idleTenant
+		g.mu.Unlock()
+		if idle && tenant.Idle() {
+			g.mu.Lock()
+			// A queued-work notification may have refreshed the last-use time.
+			idle = !g.closing[key] && time.Since(g.used[key]) > idleTenant
+			if idle {
+				delete(g.tenants, key)
+				delete(g.used, key)
+			}
+			g.mu.Unlock()
+			if idle {
+				tenant.Halt()
+				closeWorkspace(tenant)
+			}
+		}
+		lock.mu.Unlock()
+		release()
+	})
 }
 
 // closeWorkspace lets go of what a closed tenant's workspace holds open in

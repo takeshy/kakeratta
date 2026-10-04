@@ -67,8 +67,10 @@ type Gateway struct {
 	options  AuthOptions
 	verifier tokenVerifier
 
-	mu      sync.Mutex
+	mu      sync.Mutex // Protects registry state only; never held across workspace I/O.
 	tenants map[string]*Server
+	locks   map[string]*workspaceLock
+	opening sync.WaitGroup
 	// closing names the workspaces being deleted right now, so neither a
 	// request nor the restore worker opens one again halfway through.
 	closing   map[string]bool
@@ -81,9 +83,38 @@ type Gateway struct {
 	shared    *Shared
 	used      map[string]time.Time
 	waking    map[string]bool
+	wakeSlots chan struct{}
 	stopWatch context.CancelFunc
 	alarmsMu  sync.Mutex
 	alarms    map[string]*localAlarm
+}
+
+// workspaceLock is retained while an operation holds or waits for its mutex.
+type workspaceLock struct {
+	mu   sync.Mutex
+	refs int
+}
+
+func (g *Gateway) workspaceLock(key string) (*workspaceLock, func()) {
+	g.mu.Lock()
+	if g.locks == nil {
+		g.locks = make(map[string]*workspaceLock)
+	}
+	lock := g.locks[key]
+	if lock == nil {
+		lock = &workspaceLock{}
+		g.locks[key] = lock
+	}
+	lock.refs++
+	g.mu.Unlock()
+	return lock, func() {
+		g.mu.Lock()
+		lock.refs--
+		if lock.refs == 0 {
+			delete(g.locks, key)
+		}
+		g.mu.Unlock()
+	}
 }
 
 func NewGateway(ctx context.Context, options AuthOptions) (*Gateway, error) {
@@ -109,6 +140,7 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 		shared: options.Shared,
 		used:   map[string]time.Time{}, waking: map[string]bool{}, alarms: map[string]*localAlarm{},
 		stopWatch: func() {},
+		wakeSlots: make(chan struct{}, workspaceWorkers),
 	}
 	if g.shared != nil {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -315,6 +347,11 @@ func (g *Gateway) closeAccount(w http.ResponseWriter, r *http.Request, uid strin
 		g.mu.Unlock()
 	}()
 
+	lock, release := g.workspaceLock(key)
+	defer release()
+	lock.mu.Lock()
+	defer lock.mu.Unlock()
+
 	ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
 	defer cancel()
 	g.mu.Lock()
@@ -427,16 +464,40 @@ func (g *Gateway) tenant(uid string) (*Server, error) {
 }
 
 func (g *Gateway) workspace(userKey string) (*Server, error) {
+	// Refuse deletion/shutdown immediately rather than queueing behind teardown.
 	g.mu.Lock()
-	defer g.mu.Unlock()
 	select {
 	case <-g.stop:
+		g.mu.Unlock()
+		return nil, errStopping
+	default:
+	}
+	closing := g.closing[userKey]
+	g.mu.Unlock()
+	if closing {
+		return nil, errWorkspaceClosing
+	}
+
+	lock, release := g.workspaceLock(userKey)
+	defer release()
+	lock.mu.Lock()
+	defer lock.mu.Unlock()
+
+	g.mu.Lock()
+	select {
+	case <-g.stop:
+		g.mu.Unlock()
 		return nil, errStopping
 	default:
 	}
 	if g.closing[userKey] {
+		g.mu.Unlock()
 		return nil, errWorkspaceClosing
 	}
+	// Admission and shutdown use the same mutex, so Wait cannot race Add.
+	g.opening.Add(1)
+	g.mu.Unlock()
+	defer g.opening.Done()
 	if g.shared != nil {
 		// Another instance may be deleting it, even if it is open here.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -449,15 +510,20 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 			return nil, errWorkspaceClosing
 		}
 	}
+	g.mu.Lock()
 	g.used[userKey] = time.Now()
-	if existing := g.tenants[userKey]; existing != nil {
+	existing := g.tenants[userKey]
+	g.mu.Unlock()
+	if existing != nil {
 		return existing, nil
 	}
 	tenant, err := g.open(userKey)
 	if err != nil {
 		return nil, err
 	}
+	g.mu.Lock()
 	g.tenants[userKey] = tenant
+	g.mu.Unlock()
 	return tenant, nil
 }
 
@@ -507,7 +573,10 @@ func requestIsHTTPS(r *http.Request) bool {
 
 func (g *Gateway) Close() {
 	g.closeOnce.Do(func() {
+		g.mu.Lock()
 		close(g.stop)
+		g.mu.Unlock()
+		g.opening.Wait()
 		g.stopWatch()
 		<-g.done
 		// Stop local wakes before collecting tenants: a callback in progress
@@ -590,36 +659,57 @@ func (g *Gateway) restoreWorkspaces() {
 			}
 		}
 		keys = valid
-		if g.shared != nil {
-			// Once, at start: every workspace asks to be woken now, which
-			// sets its own next time. Tasks are named, so instances starting
-			// together set one.
-			for _, key := range keys {
+		g.eachWorkspace(keys, func(key string) {
+			if g.shared != nil {
+				// Named tasks coalesce concurrent startup wakes across instances.
 				if err := g.setAlarm(key, time.Now()); err != nil {
 					log.Printf("wake %s: %v", key, err)
 				}
-			}
-			g.sweepShared()
-			keys = nil
-		}
-		for _, key := range keys {
-			select {
-			case <-g.stop:
-				return
-			default:
-			}
-			// Workspace keys are SHA-256 hashes, never paths supplied by users.
-			if raw, err := hex.DecodeString(key); err != nil || len(raw) != sha256.Size {
-				continue
-			}
-			if _, err := g.workspace(key); err != nil {
+			} else if _, err := g.workspace(key); err != nil {
 				log.Printf("daily workspace restore: %v", err)
 			}
+		})
+		if g.shared != nil {
+			g.sweepShared()
 		}
+
 		select {
 		case <-g.stop:
 			return
 		case <-ticker.C:
+		}
+	}
+}
+
+// Bound background storage fan-out independently of foreground requests.
+const workspaceWorkers = 8
+
+// eachWorkspace runs a batch with bounded workers and waits for admitted work.
+// Shutdown stops taking new keys; callers retain responsibility for in-flight I/O.
+func (g *Gateway) eachWorkspace(keys []string, work func(string)) {
+	jobs := make(chan string)
+	var workers sync.WaitGroup
+	for i := 0; i < min(workspaceWorkers, len(keys)); i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for key := range jobs {
+				select {
+				case <-g.stop:
+					return
+				default:
+				}
+				work(key)
+			}
+		}()
+	}
+	defer workers.Wait()
+	defer close(jobs)
+	for _, key := range keys {
+		select {
+		case <-g.stop:
+			return
+		case jobs <- key:
 		}
 	}
 }
