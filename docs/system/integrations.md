@@ -58,7 +58,7 @@ A tool `Declaration` carries a name, description, JSON Schema, and read-only sta
 | `schedule`, `schedules_list` | User schedules, persona names, and time zone; only `schedules_list` is a research read |
 | `server.tool` | External MCP configured through `KAKERATTA_MCP_SERVERS` |
 
-The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. Returned external text is model input data, not an instruction to expand permissions.
+The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. The `route` tool supports only driving (`car`/`driving`) and walking (`foot`/`walking`); its declarations, MCP forwarding, and built-in OSRM fallback do not support cycling. Driving and walking use separate endpoints (`KAKERATTA_OSRM_CAR_URL` and `KAKERATTA_OSRM_FOOT_URL`). Returned external text is model input data, not an instruction to expand permissions.
 
 ## Automatic post location lookup
 

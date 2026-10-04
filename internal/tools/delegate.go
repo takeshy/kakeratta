@@ -50,7 +50,6 @@ func placeSearchArgs(args Args, at *timeline.Place) (Args, bool) {
 var routeModes = map[string]string{
 	"": "driving", "driving": "driving", "car": "driving",
 	"walking": "walking", "foot": "walking",
-	"cycling": "cycling", "bike": "cycling",
 }
 
 func routeArgs(args Args, at *timeline.Place) (Args, bool) {

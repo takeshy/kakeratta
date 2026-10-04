@@ -33,7 +33,6 @@ type PlaceEndpoints struct {
 	Overpass     string
 	Route        string
 	WalkingRoute string
-	CyclingRoute string
 }
 
 func DefaultPlaces() PlaceEndpoints {
@@ -42,7 +41,6 @@ func DefaultPlaces() PlaceEndpoints {
 		Overpass:     "https://overpass-api.de/api/interpreter",
 		Route:        "https://router.project-osrm.org",
 		WalkingRoute: "https://routing.openstreetmap.de/routed-foot",
-		CyclingRoute: "https://routing.openstreetmap.de/routed-bike",
 	}
 }
 
@@ -54,7 +52,6 @@ func DefaultPlaces() PlaceEndpoints {
 //	KAKERATTA_OVERPASS_URL     nearby search
 //	KAKERATTA_OSRM_CAR_URL     driving routes
 //	KAKERATTA_OSRM_FOOT_URL    walking routes
-//	KAKERATTA_OSRM_BIKE_URL    cycling routes
 //	KAKERATTA_MCP_SERVERS      JSON: [{"name":"geo","url":"https://…/mcp","headers":{…}}]
 //	KAKERATTA_WEATHERAPI_KEY   WeatherAPI key, taking precedence over the key file
 //	KAKERATTA_WEATHERAPI_KEY_FILE key file (optional local default: tmp/weatherapi.key)
@@ -69,7 +66,6 @@ func ConfigFromEnv(version string) (Config, error) {
 		{"KAKERATTA_OVERPASS_URL", &places.Overpass},
 		{"KAKERATTA_OSRM_CAR_URL", &places.Route},
 		{"KAKERATTA_OSRM_FOOT_URL", &places.WalkingRoute},
-		{"KAKERATTA_OSRM_BIKE_URL", &places.CyclingRoute},
 	} {
 		if value := strings.TrimSpace(os.Getenv(binding.name)); value != "" {
 			*binding.field = value

@@ -19,7 +19,7 @@ var routeTo = Tool{
 	Name: "route",
 	Parameters: map[string]any{"type": "object", "properties": map[string]any{
 		"to":   map[string]any{"type": "string", "description": "行き先の名前や住所"},
-		"mode": map[string]any{"type": "string", "description": "car / foot / bike のいずれか", "enum": []any{"car", "foot", "bike"}},
+		"mode": map[string]any{"type": "string", "description": "car / foot のいずれか", "enum": []any{"car", "foot"}},
 	}, "required": []any{"to"}},
 	Usage: `route — 投稿に付いた位置から目的地までの道路の所要時間。位置がなければ使えません。公共交通・リアルタイムの渋滞は非対応。`,
 	run: func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error) {
@@ -35,12 +35,10 @@ var routeTo = Tool{
 		switch mode {
 		case "walking", "foot":
 			mode, base = "foot", r.config.Places.WalkingRoute
-		case "cycling", "bike":
-			mode, base = "bike", r.config.Places.CyclingRoute
 		case "", "driving", "car":
 			mode = "driving"
 		default:
-			return Result{}, errors.New("対応する移動手段は車・徒歩・自転車だけです。公共交通の所要時間は取得できません")
+			return Result{}, errors.New("対応する移動手段は車・徒歩だけです。公共交通の所要時間は取得できません")
 		}
 		base = strings.TrimRight(strings.TrimSpace(base), "/")
 		if base == "" {
@@ -53,7 +51,7 @@ var routeTo = Tool{
 			return Result{}, err
 		}
 		if mode != "driving" && strings.EqualFold(endpoint.Hostname(), "router.project-osrm.org") {
-			return Result{}, errors.New("この接続先は車用です。徒歩・自転車に対応した接続先を設定してください")
+			return Result{}, errors.New("この接続先は車用です。徒歩に対応した接続先を設定してください")
 		}
 		found, err := lookup(ctx, r, destination)
 		if err != nil {
@@ -101,13 +99,13 @@ var routeTo = Tool{
 		// The public routing service knows roads, not timetables. Saying which
 		// question was answered is the difference between a useful number and a
 		// wrong one.
-		label := map[string]string{"driving": "車", "foot": "徒歩", "bike": "自転車"}[mode]
+		label := map[string]string{"driving": "車", "foot": "徒歩"}[mode]
 		return Result{
 			Text: fmt.Sprintf("%s まで %s で約%d分（%.1fkm）。公共交通・リアルタイムの渋滞は含みません。",
 				found[0].DisplayName, label, minutes, route.Distance/1000),
 			Sources: []timeline.Source{{
 				Label: "OSRM",
-				URL:   fmt.Sprintf("https://www.openstreetmap.org/directions?engine=fossgis_osrm_%s&from=%f,%f&to=%f,%f", map[string]string{"driving": "car", "foot": "foot", "bike": "bike"}[mode], at.Lat, at.Lon, lat, lon),
+				URL:   fmt.Sprintf("https://www.openstreetmap.org/directions?engine=fossgis_osrm_%s&from=%f,%f&to=%f,%f", map[string]string{"driving": "car", "foot": "foot"}[mode], at.Lat, at.Lon, lat, lon),
 			}},
 		}, nil
 	},

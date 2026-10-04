@@ -58,7 +58,7 @@ Personas can also use tools such as:
 
 * Tavily web search
 * place lookup
-* walking, cycling, and driving routes
+* walking and driving routes
 * remote MCP servers
 
 The browser keeps recent state locally and supports offline posting, while
@@ -338,6 +338,37 @@ Built-in: Read → Answer        External agent: Read + Answer → submit_answer
             (at the check-in: summaries rewritten from what changed)
 ```
 
+### From accepting a fragment to keeping memory
+
+Processing has two levels: acceptance and recipient selection happen once for the fragment; research and the later stages run separately for each selected persona.
+
+```mermaid
+flowchart TD
+  A[Save entry and work record] --> B[Analyze attached image]
+  B --> C[Select recipients and save the decision]
+  C --> D[Research for each persona]
+  D --> E[Finalize answer]
+  E --> F[Plan schedules]
+  F --> G[Plan actions]
+  G --> H[Code validation and AI review]
+  H --> I[Execute schedules and actions]
+  I --> J[Publish answer]
+  J --> K[Update memory]
+```
+
+| Stage | Responsibility |
+| --- | --- |
+| Acceptance | Save the post, reply, or edit together with its routing work record. Production uses a Firestore transaction, so acceptance requires both writes to succeed. |
+| Image analysis | Analyze an attached image once and share the result with the recipient personas. |
+| Recipient selection | Match interest-persona conditions and person-persona names/keywords. An explicit @ mention or reply to an active persona selects that recipient directly. Persist the selected recipients and persona-definition snapshot for delivery. |
+| Per-persona processing | Research, finalize the answer, plan schedules and actions, validate/review, execute, publish, then keep memory. The detailed stages below follow this execution order. |
+
+Different recipients can run concurrently, while delivery order within the same conversation is preserved. Persisted work records allow pending work to resume after a restart; they do not preserve an AI request's in-progress reasoning, and interrupted steps may run again.
+
+Memoryless personas with only read tools skip schedule/action planning and review, as well as memory updates. Review is needed only when a plan contains schedules or actions. External agents provide research and an answer; kakeratta retains control of all subsequent stages. A memory-update failure after publication leaves the answer available and is retried separately through a persisted note job.
+
+See [persona execution](./system/personas.md#from-research-to-answer-publication) and [background work](./system/architecture.md) for the implementation details.
+
 ### A turn, phase by phase
 
 The following describes a memory-enabled turn; memoryless read-only turns
@@ -375,15 +406,11 @@ the answer is the same either way.
 4. **Action phase.** Only for a persona that holds a tool that acts. It hands
    in `submit_action` — the tool calls and their arguments — with the same
    consistency statement about what the answer promised.
-5. **Memory comes after the answer.** It is not a phase of the turn: memory
-   that fails to come out must not take a finished answer with it. Once the
-   remark is out, the persona's **note keeper** keeps it (see
-   [The note keeper](#the-note-keeper)).
-6. **Checked by code, every time.** Known operation types, declared tools and no
+5. **Checked by code, every time.** Known operation types, declared tools and no
    lookup used as an action, schedule ids that exist and are the persona's own
    to cancel, times that parse. A proposal that fails is sent back to its own
    phase with the reasons.
-7. **Reviewed, only when it reaches further.** A plan holding a schedule or an
+6. **Reviewed, only when it reaches further.** A plan holding a schedule or an
    action is reviewed by Nemotron 3 Super against a narrow list: the answer's
    promises and the schedules' times, Push preferences, creates, updates and cancels agree; schedules and
    actions do not contradict or depend on each other unmet; an action's target
@@ -394,10 +421,15 @@ the answer is the same either way.
    answer costs no review. A failed review
    regenerates only the phases it blamed (`schedule`, `action` or `both`); the
    answer stays as it was. After two reviews, the turn stops.
-8. **Run, then publish.** Schedules and actions run in order; **the first step
+7. **Run, then publish.** Schedules and actions run in order; **the first step
    that fails stops the rest**, and the answer is published only when
    everything ran. An external action is not a transaction: what already ran is recorded, and
    an answer promising success is withheld.
+
+8. **Memory comes after the answer.** It is not a phase of the turn: memory
+   that fails to come out must not take a finished answer with it. Once the
+   remark is out, the persona's **note keeper** keeps it (see
+   [The note keeper](#the-note-keeper)).
 
 Each turn is logged as one structured entry: what was read, the answer, each
 phase with its rounds, reads and what it had sent back and why, each review and
@@ -899,11 +931,10 @@ rather than being converted into a false "no places found" result.
 
 `route` requires a position attached to the post.
 
-Driving, walking, and cycling use separate OSRM-compatible endpoints:
+Driving and walking use separate OSRM-compatible endpoints:
 
 * `KAKERATTA_OSRM_CAR_URL`
 * `KAKERATTA_OSRM_FOOT_URL`
-* `KAKERATTA_OSRM_BIKE_URL`
 
 The defaults use public OpenStreetMap-based routing services.
 
@@ -1338,7 +1369,6 @@ afterward to include the refreshed images.
 | `KAKERATTA_OVERPASS_URL`         | public service                                                  | Overpass endpoint                                                       |
 | `KAKERATTA_OSRM_CAR_URL`         | public service                                                  | Driving route endpoint                                                  |
 | `KAKERATTA_OSRM_FOOT_URL`        | public service                                                  | Walking route endpoint                                                  |
-| `KAKERATTA_OSRM_BIKE_URL`        | public service                                                  | Cycling route endpoint                                                  |
 | `KAKERATTA_WEATHERAPI_KEY` | empty | Server-side WeatherAPI key |
 | `KAKERATTA_WEATHERAPI_KEY_FILE` | optional `tmp/weatherapi.key` | Fallback WeatherAPI key file |
 | `KAKERATTA_WEATHERAPI_URL` | `https://api.weatherapi.com/v1` | WeatherAPI endpoint |

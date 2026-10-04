@@ -16,7 +16,7 @@ func TestRouteUsesModeSpecificBackend(t *testing.T) {
 		mode, endpoint, label string
 		seconds               int
 	}{
-		{"driving", "car", "車", 448}, {"walking", "foot", "徒歩", 3281}, {"cycling", "bike", "自転車", 1345},
+		{"driving", "car", "車", 448}, {"walking", "foot", "徒歩", 3281},
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
 			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +30,7 @@ func TestRouteUsesModeSpecificBackend(t *testing.T) {
 				fmt.Fprintf(w, `{"code":"Ok","routes":[{"duration":%d,"distance":4101}]}`, tc.seconds)
 			}))
 			defer backend.Close()
-			registry := New(Config{Places: PlaceEndpoints{Nominatim: backend.URL, Route: backend.URL + "/car", WalkingRoute: backend.URL + "/foot", CyclingRoute: backend.URL + "/bike"}})
+			registry := New(Config{Places: PlaceEndpoints{Nominatim: backend.URL, Route: backend.URL + "/car", WalkingRoute: backend.URL + "/foot"}})
 			result, err := registry.For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅", "mode": tc.mode}, &timeline.Place{Lat: 35.6896, Lon: 139.7006})
 			if err != nil {
 				t.Fatal(err)
@@ -47,7 +47,7 @@ func TestRouteUsesModeSpecificBackend(t *testing.T) {
 
 func TestRouteRejectsUnsupportedOrMissingModeEndpoint(t *testing.T) {
 	for _, tc := range []struct{ mode, walkingURL string }{
-		{"walking", ""}, {"walking", "https://router.project-osrm.org"}, {"transit", ""},
+		{"walking", ""}, {"walking", "https://router.project-osrm.org"}, {"transit", ""}, {"cycling", ""}, {"bike", ""},
 	} {
 		registry := New(Config{Places: PlaceEndpoints{Route: "https://router.project-osrm.org", WalkingRoute: tc.walkingURL}})
 		_, err := registry.For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅", "mode": tc.mode}, &timeline.Place{Lat: 35, Lon: 139})
@@ -115,5 +115,13 @@ func TestPlaceWithoutLocationUsesNameLookup(t *testing.T) {
 	result, err := New(Config{Places: PlaceEndpoints{Nominatim: backend.URL}}).For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "渋谷駅"}, nil)
 	if err != nil || !strings.Contains(result.Text, "位置が分からない") {
 		t.Fatalf("%+v %v", result, err)
+	}
+}
+
+func TestRemovedCyclingIsNotDelegated(t *testing.T) {
+	for _, mode := range []string{"cycling", "bike"} {
+		if _, ok := routeArgs(Args{"to": "渋谷駅", "mode": mode}, &timeline.Place{Lat: 35, Lon: 139}); ok {
+			t.Fatalf("removed mode forwarded: %s", mode)
+		}
 	}
 }
