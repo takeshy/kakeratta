@@ -23,9 +23,11 @@ post / reply
  ↓ a reply to a persona's remark: Nemotron 3.5 Lightning answers one question - does it ask for a better answer?
  ↓ every recipient, in parallel, one turn   (Nemotron Super; the replied-to persona on Ultra when it does)
      read     → field summaries and facts, latest records, older records, timeline search, web search, places, routes
-     workflow → the writes and the remark, every text final
-     checked by code, then reviewed by Nemotron Super unless it only writes notes and speaks
-     (and the persona cannot schedule); run in order, stopping at the first step that fails
+     answer   → final text and sources
+     plan     → propose schedules and actions; validate structure, permissions, and arguments in code
+     review   → Nemotron Super checks the plan only when it contains schedules or actions
+     execute  → stop at the first failed action; publish the answer after successful execution
+     memory   → the note keeper runs separately after publication when eligible
  ↓ one structured log line per routing decision and per persona turn; the routing decision is kept per post
 ```
 
@@ -148,26 +150,22 @@ mistake a live run actually made.
 
 ## 8. The review needs to be narrow, and checked
 
-A review that judges taste becomes a second persona. The review here only looks
-for things that go wrong: something stated that did not happen or was not in
-what the persona read, a promised time with no schedule, a remark in a
-different language from the post, a note overwritten without being read, the
-persona's own instructions broken, a remark that describes work instead of
-answering. An invented schedule id used to be on this
-list; the app now catches it before the review, by matching every id in the
-workflow against the persona's own schedules.
+A review that judges taste becomes a second persona. Earlier versions also
+asked the reviewer to judge answer content, language, and memory writes. In one
+live run, a persona's remark was its own plan — "search the web for lunch near
+Kamiyacho", word for word its summary — and the review passed it by describing
+a remark that listed shops. At that stage, the fix rejected equal summary and
+remark text in code and asked the reviewer to quote the remark before judging it.
 
-It still made mistakes. In one live run a persona's remark was its own plan -
-"search the web for lunch near Kamiyacho", word for word its summary - and the
-review passed it by describing a remark that listed shops. Now a remark equal
-to the summary is rejected by code, and the review is told to quote the remark
-before judging it.
-
-What gets reviewed depends on the kinds of step, not how many there are. A
-workflow with anything beyond `write_note` and `speak` - schedules,
-forgetting, tools - is always reviewed. One that only writes notes and speaks
-is reviewed only when the persona holds `schedule`, because a time promised
-with nothing set to wake has exactly that shape.
+The current pipeline separates the final answer, schedule/action planning,
+execution, publication, and note keeping. Code checks types, counts,
+permissions, arguments, and references to existing schedules first. Model
+review runs only if the plan contains schedules or actions, even when the
+persona has scheduling permission. It checks that changes match the user's
+request and promises in the answer, and that operations do not conflict or
+leave dependencies unmet. It does not review answer quality, length, research
+results, or memory updates. The note keeper runs separately after publication.
+See [the current turn sequence](system/personas.md#from-research-to-answer-publication).
 
 **Lesson:** anything code can check, code checks first. The model reviews only
 what code cannot.
@@ -192,15 +190,18 @@ full workflow on Super and Ultra. That meant two ways of running a turn, a
 rule refusing tools on a low persona, and the person writing a persona having
 to guess how hard its posts would be.
 
-Now every persona a post reaches runs once, in parallel, on Super, always
-through the reviewed workflow. Ultra is used when the user asks for it: when
+Built-in personas normally answer on Super, with recipients running in parallel.
+**Always think deeply** selects Ultra for ordinary requests too. Plans with
+schedules or actions pass through model review; plans without either skip it.
+Ultra is also used when the user asks for a better answer: when
 someone replies to a persona's remark, Lightning is shown the remark and the
 reply and answers only whether the reply explicitly asks for a correction, a
 rethink, more detail or a deeper look ("違う", "本当？", "もっと詳しく"). If it
-does, the persona that was replied to - which a reply always reaches - answers
+does, the replied-to persona selected as the recipient answers
 on Ultra, with "keep it short" replaced by a request for a thorough Markdown
-answer. Anyone else the reply reaches stays on Super, and so
-does a judgement that fails.
+answer. Without an explicit mention, a reply to an active persona reaches that persona
+alone; mentioning another persona selects that one instead. If classification
+fails, the persona uses its ordinary model choice.
 
 Lightning is not asked whether Super would be good enough; only whether the
 user said, in so many words, that they want more. On 15 synthetic replies

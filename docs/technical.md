@@ -2,7 +2,9 @@
 
 [README](../README.md) · [日本語](technical_ja.md)
 
-Implementation reference: 2026-10-03. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
+Implementation reference: 2026-10-04. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
+
+The English and Japanese editions cover the same implementation, in the same section order. Update both when changing a behavior, limit, example, or source reference.
 
 You do not need this document to use kakeratta.
 
@@ -16,12 +18,12 @@ server.
 
 ## The flow
 
-A post moves through three main layers:
+The main flow is:
 
 **fragments of the day → personas for people and interests → a separate memory for each → recall when it matters**
 
 In code both kinds are personas (`skill.json`); the user sees them as **People**
-and **Interests**. When a fragment arrives, a person's persona is reached if
+and **Interests**. For a fragment without a direct addressee, a person's persona is reached if
 the fragment contains one of their names or keywords, and the router checks it
 against each interest persona's routing condition and wakes only the ones that
 match.
@@ -85,7 +87,8 @@ to look at something is an imposition. A post nobody answers is a normal post.
 said nothing about is still recorded if it is its subject and memory is enabled.
 
 **Name it with @ and it always answers.** Because the subjects are separate,
-there is something to choose between.
+there is something to choose between. A direct request is answered at the
+length needed, without an instruction to keep it short.
 
 **Asynchronous by default.** A post is stored and shown immediately; reactions
 arrive afterwards.
@@ -238,7 +241,7 @@ That replay did **not** have a pre-established human ground-truth label for all
 
 See
 [Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md)
-*(Japanese)* for the complete measurements and limitations.
+for the complete measurements and limitations.
 
 The architecture described in this document remains the source of truth for the
 current configuration; the experiment documents explain why that configuration
@@ -260,12 +263,13 @@ remark and the reply and answers one question
 correction, a rethink, more detail or a deeper look ("違う", "本当？",
 "もう一度考えて", "もっと詳しく", "深掘りして")?
 
-* If so, the persona whose remark was replied to answers on Ultra, once. Its
+* If so, and that persona is among the selected recipients, it answers on Ultra, once. Its
   prompt drops "keep it short" and asks for a thorough answer in Markdown.
-* Thanks, ordinary follow-up questions and new topics stay on Super, as does a
-  judgement Lightning fails to give. The persona replied to still answers.
-* A reply to the user's own post, or to a persona no longer in the room, is not
-  judged at all.
+* Thanks, ordinary follow-up questions, new topics, and failed classification use
+  the ordinary model choice (Super by default, Ultra when Always think deeply is on).
+* A reply to the user's own post, or to an inactive/deleted persona, is not
+  judged. Mentioning another persona selects that one instead of the reply author;
+  escalation does not add the original author back to the recipients.
 
 The judgement runs after recipient selection, so it adds its own time to such a reply. In
 a live measurement on 2026-09-22 (15 synthetic replies,
@@ -284,9 +288,10 @@ change external delegation; Ultra is used when the built-in planner takes
 over. Infographic ships with this on. Other personas default to off; ordinary
 thanks and follow-ups use Super only while it is off.
 
-**Each remark records which model answered** (`model: "super"` or `"ultra"`;
-nothing for a turn that failed), and the timeline marks an Ultra answer with a
-badge beside the time.
+**Each remark records its model slot** (`model: "super"`, `"ultra"`, or `"agent"`
+for an external answer; nothing for a turn that failed). These are role labels,
+not provider model IDs. The timeline marks an Ultra answer with a badge beside
+the time.
 
 ```text
 post / reply
@@ -403,14 +408,15 @@ in and how many submissions it took.
 ### The note keeper
 
 `internal/persona/notekeeper.go`. After the remark is published, the persona
-keeps what the turn should leave behind, on the persona model (Super, even in
-an Ultra turn), in its own voice. It runs for a fragment of the user's - a post,
+keeps what the turn should leave behind, on the middle model (Super by default,
+even in an Ultra turn), in its own voice. It runs for a fragment of the user's - a post,
 a reply, an edit, also when the persona stayed quiet or could not speak - for a
-check-in handed records due for review, and for the tidy-up after a fragment was
-deleted. A schedule wake does not run it, and neither does a persona that
-stayed quiet because the fragment was not its business.
+check-in handed records due for review. Schedule wakes, deletion tidy-ups, and
+out-of-domain silence do not run it. On deletion, the host removes the records
+and their unsupported facts directly; the persona can revisit its schedules.
+See [keepsNotes](../internal/persona/runner.go) and [the note keeper](../internal/persona/notekeeper.go).
 
-It is one call, `keep_memory`, with the current summaries and facts, the latest
+It uses `keep_memory`, with the current summaries and facts, the latest
 records, the thread and the published answer in front of it, and **no way to
 read more**. It hands in:
 
@@ -423,7 +429,7 @@ read more**. It hands in:
 * `records` - when it was handed records due for review, what becomes of them.
 
 The app applies the changes in memory first and sends the submission back with
-the reasons, up to three times: no sentence, too many tags, a date that is not
+the reasons, with at most three submissions in total: no sentence, too many tags, a date that is not
 after today, a fact id that does not hold now, a field the skill does not name,
 a fact over 200 characters, a field whose facts would run over 2,000, two or
 more of the answer's own sentences copied. Then **the app writes it**: the
@@ -566,7 +572,7 @@ A persona keeps three things:
 * **A summary, by field,** at the top of the same file - the persona's own
   reading of the facts, rewritten at its check-in from what changed.
 * **One record per fragment.** A sentence, its tags, the post to go back to,
-  and possibly a date. Records are kept by month and only grow; a persona is
+  and possibly a date. Records are grouped by month and may be updated or removed; a persona is
   handed the latest 15 and searches the rest, by tag, words, or the meaning
   of the fragment they came from.
 
@@ -677,6 +683,29 @@ in `users/{key}/favorites` in Firestore, and travel with workspace exports.
 Deleting an entry removes its favorite; merely removing a favorite keeps the
 entry. See [API and persistent state](system/backend.md#favorites).
 
+### Timeline, speaker, and search filters
+
+The browser has no separate Favorites panel. Timeline, speaker lists, and search
+share a **Filters** disclosure, initially closed, with **Favorites only**, **From**,
+**To**, and **Clear filters**. Closing it preserves conditions and shows **Filters active**
+when conditions are applied. Every favorite removal asks for confirmation.
+The persona badges below the composer also offer a speaker list from their
+right-click or long-press menu.
+
+Date inputs use the device timezone and include the whole final day. The HTTP
+APIs accept inclusive RFC3339 `from`/`to` timestamps and reject invalid or reversed
+ranges. Ordinary timeline filtering tests the parent post's date; favorites-only
+tests each saved entry's date and retains its parent conversation, ordered by
+parent-post date. Speaker lists test the utterance's own date and saved state,
+then include the conversation for context. Search applies date and saved-ID
+conditions before ranking and pagination; a date range or favorites-only permits
+an empty query, listing entries newest first.
+
+Changing conditions resets paging and ignores stale responses. Only unfiltered
+timeline data is written to the offline cache; offline filtering uses cached
+entries and known favorite IDs. See [listing filters](system/backend.md#listing-filters)
+and [browser behavior](system/frontend.md#favorites-and-saved-entry-search).
+
 ### Meaning search
 
 A fragment does not need to have been intentionally remembered by a persona to
@@ -693,6 +722,32 @@ This is deliberately separate from long-term persona memory:
 
 * memory is what a persona chose to retain;
 * search can recover what remained only in the timeline.
+
+### Post locations and regional search
+
+Valid coordinates are stored immediately with a browser post; reverse geocoding
+does not delay acceptance or persona delivery. Routing queues a durable
+`place-{entryID}` job, which calls the operator-configured `reverse_geocode` MCP
+tool with `lat`, `lng`, and the post's `language`. Each attempt has a 60-second
+budget, with initial tool discovery limited to 15 seconds. Retryable failures
+wait 30 seconds, with at most three claimed attempts; a valid no-match ends the job.
+Custom labels are retained. A conditional location-only write preserves concurrent
+text edits and does not recreate deleted posts. Success emits an entry event to
+update browsers and reindex the search text.
+
+The display uses administrative levels 2–4 and the nearest settlement, omitting
+country and level 1. Localized `Country`, `CountryCode`, and level-1 `Region` are
+stored separately and included in keyword text and RAG embeddings. They describe
+the nearest settlement, not guaranteed coordinate containment. A region term
+such as Akita can be combined with a last-week time window through search filters
+or `timeline_search`. Coordinates remain the fallback when lookup cannot produce
+a label. The UI adds no map link; GeoNames attribution appears in the feed footer.
+
+Existing Firestore posts can be enriched with `cmd/backfill-places -metadata-only`,
+preserving existing display labels. It uses a reviewable plan and separate apply
+and verify steps; see [backfilling locations](system/operations.md#backfilling-post-locations).
+Implementation: [location jobs](../internal/server/place.go),
+[location formatting](../internal/geocode/place.go), and [search text](../internal/search/search.go).
 
 ## Skills
 
@@ -784,6 +839,8 @@ The server operator determines where those tool names actually point.
 Built-in integrations include:
 
 * `web_search`
+* `weather_forecast`
+* `kakeratta_help`
 * `place_search`
 * `route`
 
@@ -792,6 +849,12 @@ Built-in integrations include:
 
 Every persona also gets `timeline_search` — keyword and meaning search over the
 user's own timeline — without declaring it.
+
+The `schedule` permission also grants read-only `schedules_list`. It can read
+other personas' schedules to avoid duplicates, filter by owner, text, and time,
+and paginate 20 at a time (maximum 30). Updates and cancellations remain limited
+to the caller's own schedules. `kakeratta_help` reads the embedded system bundle;
+support declares it, while other personas need the same declaration to use it.
 
 Remote MCP servers can extend the tool list.
 
@@ -806,6 +869,15 @@ the application.
 
 A persona receives web search only when its configured skill declares that
 tool.
+
+### Weather forecasts
+
+`weather_forecast` uses the operator's WeatherAPI key and accepts a region or
+coordinates, defaulting to the post's coordinates when omitted. It distinguishes
+current conditions from forecasts and supports 1–14 days (default 3), a date,
+and an optional local hour; provider plans may limit the available days. Results
+include the actual location, dates, update time, and WeatherAPI attribution.
+Unavailable forecasts are not invented. See [weather forecasts](system/integrations.md#weather-forecasts).
 
 ### Place search
 
@@ -943,8 +1015,9 @@ most three at a time, oldest first. The persona asks about one of them and
 posts once; its keeper puts that record off a week and marks it with the post.
 
 A reply under a post a persona started on its own - a check-in, a schedule,
-a review - always reaches that persona, whatever the router decides. The
-persona is told which records it had asked about, and its keeper settles them.
+a review - selects that active persona alone when there is no explicit mention.
+Mentioning another persona takes precedence. When the original persona receives
+the reply, it is told which records it asked about, and its keeper settles them.
 
 ### The month's summary, and people looked back on monthly
 
@@ -1003,7 +1076,7 @@ set for it.
 Forgetting all of a persona's memory, pausing it, or removing it drops its
 pending schedules.
 
-Schedules have a `notify` preference, defaulting to ON for existing data. A persona can update its own schedule's time or Push preference without replacing its ID or recurrence. Users can make the same changes from persona/speaker cards or **Personas → Schedules only**, which lists all owners' schedules in time order. Turning notifications off preserves task execution and timeline posts. The preference is captured when claimed and survives external-agent waits and fallback. Daily and annual repeats preserve edited clock times in the schedule timezone; an annual date edit affects only the next occurrence. See [Schedule editing](system/backend.md#schedule-editing).
+Schedules have a `notify` preference, defaulting to ON for existing data. A persona can update its own schedule's time or Push preference without replacing its ID or recurrence. Users can make the same changes from persona/speaker cards or **Schedules** in the header, which lists all owners' schedules in time order. Turning notifications off preserves task execution and timeline posts. The preference is captured when claimed and survives external-agent waits and fallback. Daily and annual repeats preserve edited clock times in the schedule timezone; an annual date edit affects only the next occurrence. See [Schedule editing](system/backend.md#schedule-editing).
 
 ### Reminder delivery via Web Push
 
@@ -1140,6 +1213,7 @@ Settings → **Backup** creates a zip containing the user's:
 * posts
 * personas
 * persona memory
+* favorites
 * images
 
 The layout is deliberately usable by a self-hosted kakeratta instance.
@@ -1265,6 +1339,15 @@ afterward to include the refreshed images.
 | `KAKERATTA_OSRM_CAR_URL`         | public service                                                  | Driving route endpoint                                                  |
 | `KAKERATTA_OSRM_FOOT_URL`        | public service                                                  | Walking route endpoint                                                  |
 | `KAKERATTA_OSRM_BIKE_URL`        | public service                                                  | Cycling route endpoint                                                  |
+| `KAKERATTA_WEATHERAPI_KEY` | empty | Server-side WeatherAPI key |
+| `KAKERATTA_WEATHERAPI_KEY_FILE` | optional `tmp/weatherapi.key` | Fallback WeatherAPI key file |
+| `KAKERATTA_WEATHERAPI_URL` | `https://api.weatherapi.com/v1` | WeatherAPI endpoint |
+| `KAKERATTA_PUSH_PUBLIC_KEY` | empty | Web Push public VAPID key |
+| `KAKERATTA_PUSH_PRIVATE_KEY` | empty | Web Push private VAPID key |
+| `KAKERATTA_PUSH_SUBJECT` | empty | Operator contact for VAPID |
+| `KAKERATTA_TASKS_QUEUE` | empty | Cloud Tasks queue resource name |
+| `KAKERATTA_TASKS_URL` | empty | Authenticated due callback URL |
+| `KAKERATTA_TASKS_ACCOUNT` | empty | Service account for task identity tokens |
 
 For Bluesky operator setup, see
 [social-sharing.md](social-sharing.md).
@@ -1299,8 +1382,10 @@ persona wakes
 ```
 
 Waiting on an agent must not stall everything else, so an externally planned
-turn runs apart from the reaction queue and reports to the routing sheet when it
-has really ended.
+turn releases its reaction while the ask waits in storage. Closing the ask
+queues a continuation in the conversation lane; completion then updates the
+routing sheet. Waiting does not occupy a queue worker. See
+[the ask lifecycle](system/integrations.md#ask-lifecycle).
 
 ### Fall-through
 
@@ -1311,8 +1396,9 @@ The built-in model takes the turn back when:
   default);
 * the agent's answer is sent back more than the allowed number of times;
 * the agent calls `release_ask`;
-* the agent has made no MCP call at all for the claim wait (away). No ask is
-  opened then, and the agent comes back by itself on its next call.
+* the agent has made no MCP call for the claim wait and holds no unfinished
+  claimed ask (away). No ask is opened then, and the agent comes back on its
+  next call. A claimed ask uses its own answer deadline instead.
 
 Both waits are set under Settings → Advanced options → Integrations. An ask
 is kept in the workspace and survives a restart; the turn that opened it ends
@@ -1340,8 +1426,10 @@ It can read:
 * persona definitions;
 * persona memories.
 
-Its only write is an answer submitted for a claimed ask. kakeratta decides,
-checks and runs any change itself before publishing it as that persona.
+It can claim, research, answer, and release asks, which update ask lifecycle
+state. It cannot directly edit timeline entries, persona definitions, or memory.
+kakeratta decides, checks, and executes changes before publishing an accepted
+answer as that persona.
 
 Revoking the key cannot erase data the agent already retrieved into its own
 external memory. That boundary is made explicit rather than pretending an
@@ -1360,6 +1448,8 @@ claim_ask
 read_for_ask
 submit_answer
 release_ask
+get_integration
+list_tasks
 ```
 
 `claim_ask` takes an `askId` and a caller-generated `claimId`. Repeated calls
@@ -1374,6 +1464,9 @@ read limits and answering rules, current time, post location, and whether the
 turn requires an answer or silence. Full system/user prompts and a second
 rendering of the thread are omitted to avoid repeating the same context, and
 how memory is kept and the change schemas are left out: they belong to the later phases, not the answer.
+
+`get_integration` returns the distributed skill and Wake Gate script with their versions;
+`list_asks` advertises the current versions for updates.
 
 `list_tasks` remains as a compatibility tool returning only pending asks, for
 Wake Gate scripts installed before asks replaced tasks.
