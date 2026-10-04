@@ -2,12 +2,23 @@
 
 [日本語](README_ja.md)
 
-The deployed app is two independent pieces. **Firebase Hosting** serves the
+The deployed app separates the browser, Web API and job worker. **Firebase Hosting** serves the
 page — `frontend/dist`, which nothing else serves — and rewrites
 `/api/**` to **Cloud Run**, which runs the Go binary with Firestore for the
 timeline, settings and notes, and a private Cloud Storage bucket for captures.
 Nothing is kept on an instance disk, so the page is a static site in front of a
 stateless service, and a change to the page ships without rebuilding the image.
+
+## Push worker
+
+Pub/Sub push processing is enabled by default through `queue_worker_enabled`.
+It uses a separate scale-to-zero Cloud Run worker. CPU, memory and instance
+limits are configurable in Terraform. Deploy the queue-aware image;
+`worker_max_instances` can be increased later. See the
+[operating procedure](../docs/system/operations.md#push-worker-operations).
+Finish existing pending work before switching; no queue migration is included
+for the current single-user deployment. Set `queue_worker_enabled = false`
+to run the combined service instead.
 
 ## Multi-user authentication
 

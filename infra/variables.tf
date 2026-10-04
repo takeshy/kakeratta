@@ -136,3 +136,18 @@ variable "push_private_key_version" {
   type        = string
   default     = "latest"
 }
+
+variable "queue_worker_enabled" {
+  description = "Enable the scale-to-zero Pub/Sub push worker."
+  type        = bool
+  default     = true
+}
+variable "worker_max_instances" {
+  description = "Maximum concurrent push worker instances; each processes one job."
+  type        = number
+  default     = 1
+  validation {
+    condition     = var.worker_max_instances >= 1 && floor(var.worker_max_instances) == var.worker_max_instances
+    error_message = "worker_max_instances must be a positive integer."
+  }
+}

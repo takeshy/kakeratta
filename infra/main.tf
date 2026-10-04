@@ -8,6 +8,8 @@ locals {
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "cloudtasks.googleapis.com",
+    "pubsub.googleapis.com",
+    "cloudscheduler.googleapis.com",
     "compute.googleapis.com",
     "dns.googleapis.com",
     "firestore.googleapis.com",
@@ -317,6 +319,17 @@ resource "google_cloud_run_v2_service" "app" {
         }
       }
 
+      env {
+        name  = "KAKERATTA_MODE"
+        value = var.queue_worker_enabled ? "web" : "combined"
+      }
+      dynamic "env" {
+        for_each = var.queue_worker_enabled ? local.queue_env : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       env {
         name  = "KAKERATTA_ADDR"
         value = ":8080"

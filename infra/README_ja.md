@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-公開時のkakerattaは、独立した2つで動きます。画面は **Firebase Hosting** が配信し
+公開時のkakerattaは、画面・Web API・workerを分けて動きます。画面は **Firebase Hosting** が配信し
 （`frontend/dist`。バイナリは画面を持ちません）、`/api/**` だけを
 **Cloud Run** へrewriteします。Cloud Run側ではGoのバイナリが動き、タイムライン・
 設定・メモはFirestore、キャプチャは非公開のCloud Storageバケットに入ります。
@@ -10,6 +10,14 @@
 置いた静的サイトであり、画面だけの変更はイメージを作り直さずに反映できます。
 
 ## マルチユーザー認証
+
+本番のジョブ処理は、Web APIが保存した要求をPub/Subが別のCloud Run workerへ配信します。
+workerのCPU・メモリ・台数はTerraformで管理し、利用に合わせて調整します。仕事がないときはゼロ台にできます。
+`queue_worker_enabled` は標準で `true`。必要に応じて `worker_max_instances` を増やせます。
+未送信要求はCloud Schedulerが毎分再送します。現在のユーザー1名の構成では専用の移行処理は
+設けず、切り替え前に既存処理を完了させます。詳細は
+[運用手順](../docs/system/operations.md#push-worker-operations)を参照してください。
+`queue_worker_enabled = false` にすると従来のcombined方式になります。
 
 同じGoogle Cloudプロジェクトに Firebase Web アプリを作り、**Firebase Authentication >
 Sign-in method** でGoogleを有効にします。デプロイスクリプトが有効なWebアプリの設定を
@@ -25,7 +33,7 @@ Cookieをすべて剥がすため、別名だとログイン直後から `login 
 
 必要なもの: 認証済みの `gcloud` CLI、Terraform 1.7以降、Node.js、`jq`、課金を有効に
 したGCPプロジェクト。実行アカウントには、API、Cloud Run、Firestore、Cloud Storage、
-Firebase Hosting、Cloud DNS、Cloud Tasks、IAM、Artifact Registry、Secret Managerを管理する権限が
+Firebase Hosting、Cloud DNS、Cloud Tasks、Pub/Sub、Cloud Scheduler、IAM、Artifact Registry、Secret Managerを管理する権限が
 必要です。
 
 ```sh

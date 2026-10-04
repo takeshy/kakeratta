@@ -38,6 +38,8 @@ type Options struct {
 	// Alarm wakes the workspace at a time: it makes sure a due reaction is
 	// queued then. Without one the server sets a timer in its own process.
 	Alarm func(at time.Time) error
+	// Passive assembles API/worker dependencies without starting background work.
+	Passive bool
 }
 
 // EventBus carries one workspace's events to every process serving it. A
@@ -89,6 +91,9 @@ func New(options Options) *Server {
 		s.bus = bus
 	}
 	s.runner = persona.New(s.store, s.catalogue, s.client)
+	if options.Passive {
+		s.runner.SetQueuedOnly()
+	}
 	s.search = search.New(s.store)
 	s.runner.SetSearch(s.search)
 	s.runner.SetTools(s.tools)
@@ -109,9 +114,11 @@ func New(options Options) *Server {
 	}
 	// Whatever was queued and not finished - here before a restart, or by
 	// another process - is taken up now, and the workspace looks at its times.
-	s.runner.Start()
-	s.scheduleIndex()
-	s.runner.Rearm()
+	if !options.Passive {
+		s.runner.Start()
+		s.scheduleIndex()
+		s.runner.Rearm()
+	}
 	return s
 }
 

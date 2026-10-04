@@ -25,6 +25,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/takeshy/kakeratta/internal/alarm"
+	"github.com/takeshy/kakeratta/internal/dispatch"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/server"
 	"github.com/takeshy/kakeratta/internal/store"
@@ -62,7 +63,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if servers := toolConfig.MCP.Servers(); len(servers) > 0 {
+	if servers := toolConfig.MCP.Servers(); len(servers) > 0 && strings.TrimSpace(os.Getenv("KAKERATTA_MODE")) != "worker" {
 		log.Printf("MCPサーバー: %s", strings.Join(servers, ", "))
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -73,6 +74,28 @@ func main() {
 		}()
 	}
 	firebaseProjectID := strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_PROJECT_ID"))
+	mode := strings.TrimSpace(os.Getenv("KAKERATTA_MODE"))
+	if mode == "" {
+		mode = "combined"
+	}
+	if mode != "combined" && mode != "web" && mode != "worker" {
+		log.Fatal("KAKERATTA_MODE must be combined, web, or worker")
+	}
+	if mode != "combined" && (firebaseProjectID == "" || !strings.EqualFold(os.Getenv("KAKERATTA_STORE"), "firestore")) {
+		log.Fatal("split web/worker mode requires Firebase and Firestore")
+	}
+	var publisher *dispatch.Publisher
+	if mode != "combined" {
+		publisher, err = dispatch.New(context.Background(), os.Getenv("KAKERATTA_JOB_TOPIC"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, name := range []string{"KAKERATTA_TASKS_QUEUE", "KAKERATTA_TASKS_URL", "KAKERATTA_TASKS_ACCOUNT", "KAKERATTA_GCS_BUCKET"} {
+			if strings.TrimSpace(os.Getenv(name)) == "" {
+				log.Fatalf("%s is required in split mode", name)
+			}
+		}
+	}
 	var cloudBlobs *store.GCSBlobs
 	if bucket := strings.TrimSpace(os.Getenv("KAKERATTA_GCS_BUCKET")); bucket != "" {
 		cloudBlobs, err = store.NewGCSBlobs(context.Background(), bucket)
@@ -100,6 +123,7 @@ func main() {
 		judgeExpiresAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_EXPIRES_AT")))
 		judgeMaxUses, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_MAX_USES")))
 		authOptions := server.AuthOptions{
+			Mode: mode,
 			Root: root, Version: version,
 			FirebaseProjectID:  firebaseProjectID,
 			FirebaseAPIKey:     strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_API_KEY")),
@@ -165,7 +189,11 @@ func main() {
 				}
 			}
 			authOptions.OpenWorkspace = func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
-				return store.NewFirestoreWorkspace(context.Background(), firestoreClient, userKey, blobs)
+				workspace, err := store.NewFirestoreWorkspace(context.Background(), firestoreClient, userKey, blobs)
+				if err == nil && publisher != nil {
+					workspace.SetJobPublisher(publisher.Publish)
+				}
+				return workspace, err
 			}
 			// Instances share the users through Firestore: any of them
 			// answers any request, and each workspace's persona work is
@@ -203,6 +231,21 @@ func main() {
 				authOptions.Shared.Verify = func(r *http.Request) (string, error) {
 					return alarm.Workspace(r, alarm.GoogleValidator, dueURL, account)
 				}
+			}
+			if publisher != nil {
+				workerURL := strings.TrimSpace(os.Getenv("KAKERATTA_WORKER_URL"))
+				subscription := strings.TrimSpace(os.Getenv("KAKERATTA_JOB_SUBSCRIPTION"))
+				repairURL := strings.TrimSpace(os.Getenv("KAKERATTA_DISPATCH_URL"))
+				if workerURL == "" || subscription == "" || repairURL == "" {
+					log.Fatal("worker URL, job subscription, and dispatch URL are required")
+				}
+				authOptions.VerifyJob = func(r *http.Request) (store.Job, error) {
+					return dispatch.ReadPush(r, alarm.GoogleValidator, workerURL, account, subscription)
+				}
+				authOptions.VerifyRepair = func(r *http.Request) error {
+					return dispatch.Authenticate(r, alarm.GoogleValidator, repairURL, account)
+				}
+				authOptions.RepairDispatch = func(ctx context.Context) error { return store.RepairDispatch(ctx, firestoreClient, publisher.Publish) }
 			}
 		}
 		app, err := server.NewGateway(context.Background(), authOptions)

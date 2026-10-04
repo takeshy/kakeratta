@@ -21,13 +21,14 @@ import (
 // is only a disposable materialisation directory for components that consume
 // installed skill files and browser-only OAuth helpers.
 type FirestoreWorkspace struct {
-	client    *firestore.Client
-	user      *firestore.DocumentRef
-	root      string
-	blobs     BlobStore
-	indexMu   sync.Mutex
-	indexed   map[string]bool
-	closeOnce sync.Once
+	client     *firestore.Client
+	user       *firestore.DocumentRef
+	root       string
+	blobs      BlobStore
+	indexMu    sync.Mutex
+	indexed    map[string]bool
+	closeOnce  sync.Once
+	publishJob func(context.Context, Job) error
 }
 
 func NewFirestoreWorkspace(ctx context.Context, client *firestore.Client, userKey string, blobs BlobStore) (*FirestoreWorkspace, error) {
@@ -138,6 +139,7 @@ func (w *FirestoreWorkspace) UpdateMedia(id string, media *timeline.Media) (time
 }
 
 func (w *FirestoreWorkspace) UpdateText(id, text string, initial ...Reaction) (timeline.Entry, error) {
+	defer w.flushDispatch()
 	var result timeline.Entry
 	err := w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(w.timeline().Doc(id))
@@ -154,6 +156,9 @@ func (w *FirestoreWorkspace) UpdateText(id, text string, initial ...Reaction) (t
 			return err
 		}
 		for _, reaction := range initial {
+			if err := w.queueDispatch(tx, &reaction); err != nil {
+				return err
+			}
 			if err := tx.Create(w.reactions().Doc(reaction.ID), reaction); err != nil {
 				return err
 			}
@@ -629,6 +634,7 @@ func (w *FirestoreWorkspace) Skills(ctx context.Context) (map[string][]byte, err
 }
 
 func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry, initial ...Reaction) (timeline.Entry, bool, error) {
+	defer w.flushDispatch()
 	if entry.Deleted {
 		return timeline.Entry{}, false, errors.New("deletion notifications cannot be stored")
 	}
@@ -651,6 +657,9 @@ func (w *FirestoreWorkspace) CreateEntry(entry timeline.Entry, initial ...Reacti
 			return err
 		}
 		for _, reaction := range initial {
+			if err := w.queueDispatch(tx, &reaction); err != nil {
+				return err
+			}
 			if err := tx.Create(w.reactions().Doc(reaction.ID), reaction); err != nil {
 				return err
 			}

@@ -10,6 +10,10 @@ Persona definitions, built-in support and infographics, routing, research, revie
 
 # Persona definitions and the Catalogue
 
+## Execution host
+
+Production runs reactions on the separate Pub/Sub push worker. Web persists requests without direct routing or a background dispatcher. `Runner.WorkJob` claims one dispatch generation, calls the existing reaction handler within the request's eight-minute context, and verifies durable completion or a saved successor before acknowledgment. Prepared delivery restores its persisted definition snapshot. Routing, scheduled work, memory updates and retries retain their existing business semantics; long workflows are subject to the enclosing request budget. Combined/local mode retains the background dispatcher. See [push deployment](./architecture.md#pubsub-push-deployment), [worker.go](../../internal/persona/worker.go), [queue.go](../../internal/persona/queue.go), and [HTTP verification](../../internal/server/worker_test.go).
+
 ## Skill structure
 
 `Skill` contains an ID, name, icon, tone, `Domain`, `Instructions`, `Memory`, and `Tools`. `Domain` informs routing, `Instructions` describe the persona's behavior, and `Memory` names its memory fields (分野) - the capitalised words in it, such as `Preference` and `Shop` (`allowedTypes`) - and says what each field's summary keeps. A persona whose `Memory` names none keeps one field, `Memo`.

@@ -30,6 +30,7 @@ type Reaction struct {
 	At       time.Time `json:"at" firestore:"at"`
 	Lane     string    `json:"lane" firestore:"lane"`
 	Attempts int       `json:"attempts" firestore:"attempts"`
+	Dispatch string    `json:"dispatch,omitempty" firestore:"dispatch,omitempty"`
 	// NotBefore holds a reaction back until then, as a retry after a failure.
 	NotBefore time.Time `json:"notBefore,omitempty" firestore:"notBefore,omitempty"`
 	// ClaimedBy and ClaimUntil are the worker working it, while it renews.
@@ -352,23 +353,33 @@ func (w *FirestoreWorkspace) SaveReaction(item Reaction) error {
 	if item.ID == "" || !safeName(item.ID) {
 		return errors.New("reaction needs an id")
 	}
-	_, err := w.reactions().Doc(item.ID).Set(context.Background(), item)
-	return err
+	defer w.flushDispatch()
+	return w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		if err := w.queueDispatch(tx, &item); err != nil {
+			return err
+		}
+		return tx.Set(w.reactions().Doc(item.ID), item)
+	})
 }
 
 func (w *FirestoreWorkspace) CreateReaction(item Reaction) error {
-	return createReaction(context.Background(), w.client, w.user.ID, item)
+	defer w.flushDispatch()
+	return w.createReaction(context.Background(), item)
 }
 
-func createReaction(ctx context.Context, client *firestore.Client, key string, item Reaction) error {
+func (w *FirestoreWorkspace) createReaction(ctx context.Context, item Reaction) error {
 	if item.ID == "" || !safeName(item.ID) {
 		return errors.New("reaction needs an id")
 	}
-	ref := reactionsOf(client, key).Doc(item.ID)
+	client := w.client
+	ref := w.reactions().Doc(item.ID)
 	if item.Index {
 		return client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 			doc, err := tx.Get(ref)
 			if status.Code(err) == codes.NotFound {
+				if err := w.queueDispatch(tx, &item); err != nil {
+					return err
+				}
 				return tx.Create(ref, item)
 			}
 			if err != nil {
@@ -384,7 +395,12 @@ func createReaction(ctx context.Context, client *firestore.Client, key string, i
 			return tx.Update(ref, []firestore.Update{{Path: "indexAgain", Value: true}})
 		})
 	}
-	_, err := ref.Create(ctx, item)
+	err := client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		if err := w.queueDispatch(tx, &item); err != nil {
+			return err
+		}
+		return tx.Create(ref, item)
+	})
 	if status.Code(err) == codes.AlreadyExists {
 		return ErrReactionExists
 	}
@@ -532,6 +548,7 @@ func (w *FirestoreWorkspace) ReleaseReaction(ctx context.Context, id, worker str
 }
 
 func (w *FirestoreWorkspace) FinishReaction(ctx context.Context, id, worker string, also ...string) (bool, error) {
+	defer w.flushDispatch()
 	for _, name := range append([]string{id}, also...) {
 		if !safeName(name) {
 			return false, errors.New("reaction needs an id")
@@ -557,6 +574,9 @@ func (w *FirestoreWorkspace) FinishReaction(ctx context.Context, id, worker stri
 		if head.Index && head.IndexAgain {
 			finished = true
 			head.ClaimedBy, head.ClaimUntil, head.Attempts, head.NotBefore = "", time.Time{}, 0, time.Time{}
+			if err := w.queueDispatch(tx, &head); err != nil {
+				return err
+			}
 			return tx.Set(w.reactions().Doc(id), head)
 		}
 		for _, name := range also {
@@ -571,6 +591,7 @@ func (w *FirestoreWorkspace) FinishReaction(ctx context.Context, id, worker stri
 }
 
 func (w *FirestoreWorkspace) DeferReaction(ctx context.Context, id, worker string, notBefore time.Time) (bool, error) {
+	defer w.flushDispatch()
 	if !safeName(id) {
 		return false, errors.New("reaction needs an id")
 	}
@@ -594,10 +615,11 @@ func (w *FirestoreWorkspace) DeferReaction(ctx context.Context, id, worker strin
 		if item.Locate {
 			attempts = item.Attempts
 		}
-		return tx.Update(ref, []firestore.Update{
-			{Path: "claimedBy", Value: ""}, {Path: "claimUntil", Value: time.Time{}},
-			{Path: "attempts", Value: attempts}, {Path: "notBefore", Value: notBefore},
-		})
+		item.ClaimedBy, item.ClaimUntil, item.Attempts, item.NotBefore = "", time.Time{}, attempts, notBefore
+		if err := w.queueDispatch(tx, &item); err != nil {
+			return err
+		}
+		return tx.Set(ref, item)
 	})
 	return deferred && err == nil, err
 }

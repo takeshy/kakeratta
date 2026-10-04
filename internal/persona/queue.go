@@ -175,7 +175,10 @@ func (r *Runner) handle(item store.Reaction, rest []store.Reaction) {
 }
 
 func (r *Runner) handleAs(item store.Reaction, rest []store.Reaction, worker string) {
-	base := context.Background()
+	r.handleAsContext(context.Background(), item, rest, worker)
+}
+
+func (r *Runner) handleAsContext(base context.Context, item store.Reaction, rest []store.Reaction, worker string) {
 	if item.Delivery != nil {
 		var definitions []Skill
 		if err := json.Unmarshal([]byte(item.Delivery.SkillsJSON), &definitions); err != nil {

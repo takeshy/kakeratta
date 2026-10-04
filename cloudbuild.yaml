@@ -40,6 +40,18 @@ steps:
       - ${_IMAGE}
     waitFor: [image]
 
+  - id: deploy-worker
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        worker=$$(gcloud run services list --region=${_RUN_REGION} --project=${PROJECT_ID} --filter='metadata.name=${_WORKER_SERVICE}' --format='value(metadata.name)')
+        if [ -n "$$worker" ]; then
+          gcloud run deploy ${_WORKER_SERVICE} --image=${_IMAGE} --region=${_RUN_REGION} --project=${PROJECT_ID} --quiet
+        fi
+    waitFor: [push]
+
   - id: deploy-run
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
@@ -52,7 +64,7 @@ steps:
       - --project=${PROJECT_ID}
       - --update-secrets=KAKERATTA_WEATHERAPI_KEY=${_WEATHERAPI_SECRET}:${_WEATHERAPI_SECRET_VERSION}
       - --quiet
-    waitFor: [push]
+    waitFor: [deploy-worker]
 
   - id: deploy-hosting
     name: node:24-bookworm
@@ -67,6 +79,7 @@ steps:
 substitutions:
   _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:${SHORT_SHA}
   _RUN_REGION: asia-east1
+  _WORKER_SERVICE: kakeratta-worker
   _VERSION: ${COMMIT_SHA}
   _WEATHERAPI_SECRET: kakeratta-wheatherapi-key
   _WEATHERAPI_SECRET_VERSION: latest

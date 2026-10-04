@@ -38,17 +38,18 @@ type Runner struct {
 	emit        func(name string, data any)
 
 	// worker names this runner's claims; see queue.go for the rest.
-	worker   string
-	nudge    chan struct{}
-	slots    chan struct{}
-	done     chan struct{}
-	once     sync.Once
-	stopMu   sync.Mutex
-	started  bool
-	stopping bool
-	halting  bool
-	inFlight atomic.Int32
-	working  sync.WaitGroup
+	worker     string
+	nudge      chan struct{}
+	slots      chan struct{}
+	done       chan struct{}
+	once       sync.Once
+	stopMu     sync.Mutex
+	started    bool
+	stopping   bool
+	halting    bool
+	inFlight   atomic.Int32
+	working    sync.WaitGroup
+	queuedOnly bool
 
 	// alarm wakes the workspace at a time: it makes sure a due reaction is
 	// queued then, through Cloud Tasks or a timer in this process.
@@ -121,6 +122,9 @@ func (r *Runner) enqueueEntry(entryID string, place *timeline.Place, edited bool
 // A stopped runner leaves it for recovery instead of creating another request.
 func (r *Runner) RouteAccepted(id string) {
 	r.Poke()
+	if r.queuedOnly {
+		return
+	}
 	// Routing runs directly, outside the delivery slots. The durable claim
 	// still makes recovery and competing instances use exactly this phase.
 	r.stopMu.Lock()

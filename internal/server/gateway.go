@@ -58,6 +58,11 @@ type AuthOptions struct {
 	// Without it this process is the only one: it keeps every workspace open
 	// and each queues its own periodic checks.
 	Shared *Shared
+	// Mode is combined (default), web, or worker. Split modes require Firestore.
+	Mode           string
+	VerifyJob      func(*http.Request) (store.Job, error)
+	VerifyRepair   func(*http.Request) error
+	RepairDispatch func(context.Context) error
 }
 
 // Gateway authenticates a request and dispatches it to a completely separate
@@ -87,6 +92,7 @@ type Gateway struct {
 	stopWatch context.CancelFunc
 	alarmsMu  sync.Mutex
 	alarms    map[string]*localAlarm
+	jobSlot   chan struct{}
 }
 
 // workspaceLock is retained while an operation holds or waits for its mutex.
@@ -141,17 +147,34 @@ func newGateway(options AuthOptions, verifier tokenVerifier) *Gateway {
 		used:   map[string]time.Time{}, waking: map[string]bool{}, alarms: map[string]*localAlarm{},
 		stopWatch: func() {},
 		wakeSlots: make(chan struct{}, workspaceWorkers),
+		jobSlot:   make(chan struct{}, 1),
 	}
-	if g.shared != nil {
+	if g.shared != nil && !g.passive() {
 		ctx, cancel := context.WithCancel(context.Background())
 		g.stopWatch = cancel
 		g.shared.Watch(ctx, g.wake)
 	}
-	go g.restoreWorkspaces()
+	if g.passive() {
+		close(g.done)
+	} else {
+		go g.restoreWorkspaces()
+	}
 	return g
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/internal/work" && r.Method == http.MethodPost {
+		g.serveJob(w, r)
+		return
+	}
+	if r.URL.Path == "/internal/dispatch" && r.Method == http.MethodPost {
+		g.serveDispatchRepair(w, r)
+		return
+	}
+	if g.options.Mode == "worker" {
+		notFound(w, r)
+		return
+	}
 	if r.URL.Path == "/internal/due" && r.Method == http.MethodPost {
 		g.serveDue(w, r)
 		return
@@ -556,6 +579,7 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 	options := Options{
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace),
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
+		Passive: g.passive(),
 	}
 	if g.shared != nil {
 		// A workspace here may be closed when idle, so it is woken from

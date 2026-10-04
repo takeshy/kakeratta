@@ -111,6 +111,7 @@ func (w *FirestoreWorkspace) ClaimRoutingReaction(ctx context.Context, id, worke
 }
 
 func (w *FirestoreWorkspace) PrepareReaction(ctx context.Context, id, worker string, delivery EntryDelivery, routing *Routing) (bool, error) {
+	defer w.flushDispatch()
 	prepared := false
 	err := w.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		prepared = false
@@ -144,6 +145,9 @@ func (w *FirestoreWorkspace) PrepareReaction(ctx context.Context, id, worker str
 		item.Route, item.Delivery = false, &delivery
 		item.ClaimedBy, item.ClaimUntil, item.Attempts, item.NotBefore = "", time.Time{}, 0, time.Time{}
 		prepared = true
+		if err := w.queueDispatch(tx, &item); err != nil {
+			return err
+		}
 		return tx.Set(ref, item)
 	})
 	return prepared && err == nil, err

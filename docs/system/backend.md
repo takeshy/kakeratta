@@ -12,7 +12,7 @@ Authentication, entry handling, timeline data, persistence, settings, schedule e
 
 ## Resolving the user
 
-In a hosted deployment, `Gateway` verifies Firebase sessions. The browser sends an ID token to `/api/auth/session`, and the server issues a `__session` cookie. It derives a workspace key from the user's UID and forwards requests to that user's `Server`. Startup also includes a worker that opens workspaces to be restored.
+In a hosted deployment, `Gateway` verifies Firebase sessions. The browser sends an ID token to `/api/auth/session`, and the server issues a `__session` cookie. It derives a workspace key from the user's UID and forwards requests to that user's `Server`. Combined mode restores pending workspaces on startup. Split web/worker mode opens workspaces on demand and executes queued jobs through authenticated push requests; it does not run the restoration worker.
 
 `Server.guard` compares `X-Kakeratta-Workspace` with the current workspace. For SSE, it uses the `workspace` query parameter. This key detects account mixups; `Gateway` verifies Firebase sessions. `guard` itself does not authenticate requests that omit the key. For every method other than GET, HEAD, and OPTIONS it also refuses a request whose `Origin` is not the page's own (`sameOrigin`, which honours `X-Forwarded-Host` and `KAKERATTA_PUBLIC_URL`), so another site cannot post into or reconfigure a local app that has no login. Requests without `Origin`, such as tools and tests, pass.
 
@@ -135,6 +135,12 @@ Favorites use the atomic record contract with no expiry. Files live at `favorite
 Verification: [favorites.go](../../internal/server/favorites.go), [favorites_test.go](../../internal/server/favorites_test.go), [search.go](../../internal/search/search.go), [hybrid.go](../../internal/search/hybrid.go), [runtime.go](../../internal/store/runtime.go), and [export_test.go](../../internal/store/export_test.go).
 
 # Workspace persistence
+
+## Push dispatch persistence
+
+Split web/worker mode adds the `dispatch` generation to Firestore reactions and `users/{key}/dispatchOutbox/{generation}` records containing `job` (workspace/reaction/dispatch IDs) and `readyAt`. Creation and phase changes atomically save the reaction and its outbox request. Publishing removes the request only after broker acceptance; interrupted publishing can duplicate a message, and workers check the generation and live claim. Push workers process reactions with dispatch generations; legacy pending reactions are outside this queue and must finish before switching. Combined/file operation creates no outbox records. Existing recursive workspace destruction removes the new subcollection.
+
+`POST /internal/work` is available only in worker mode; `POST /internal/dispatch` repairs outbox records only in web mode. Both verify a Google identity token with the configured endpoint audience and runtime service-account email. Push also checks the full subscription name, limits the envelope to 16 KiB, and validates IDs. Busy/failure responses use 503; completed/stale jobs use 204. Sources and tests: [dispatch.go](../../internal/store/dispatch.go), [dispatch_test.go](../../internal/store/dispatch_test.go), [pubsub.go](../../internal/dispatch/pubsub.go), [worker.go](../../internal/server/worker.go).
 
 ## Persistence contract
 

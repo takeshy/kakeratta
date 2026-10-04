@@ -1,12 +1,12 @@
 ---
 type: "Architecture"
 title: "Architecture and runtime"
-description: "System boundaries, dependency assembly, background workers, multiple instances, and shutdown."
+description: "System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown."
 tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
 updated: "2026-10-04"
 ---
 
-System boundaries, dependency assembly, background workers, multiple instances, and shutdown.
+System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown.
 
 # System boundaries
 
@@ -16,15 +16,31 @@ kakeratta stores posts, persona remarks, and user replies in a single timeline. 
 
 ```mermaid
 flowchart LR
-  Browser[Browser frontend] --> HTTP[Gateway / Server]
-  HTTP --> Workspace[store.Workspace]
-  HTTP --> Runner[persona.Runner]
-  Runner --> Workspace
-  Runner --> LLM[llm.Client]
-  Runner --> Tools[tools.Registry]
-  Runner --> Events[SSE hub]
-  Events --> Browser
+  Browser[Browser] --> Hosting[Firebase Hosting]
+  Hosting --> Web[Cloud Run: Web API]
+  Tasks[Cloud Tasks: scheduled wake] --> Web
+  Web -->|Save entry and job atomically| State[(Firestore: per-account state)]
+  Web -->|Publish saved request| Queue[Pub/Sub: shared delivery queue]
+  Queue -->|Dispatch to available instance| Workers[Cloud Run: workers]
+  Workers -->|Read target and persist results| State
+  Workers -->|Publish next phase| Queue
+  Workers --> AI[User-specific AI configuration]
+  Workers --> Tools[External tools]
+  Workers -->|Set next alarm| Tasks
+  State -->|Account events| Web
+  Web -->|SSE| Browser
+  Scheduler[Cloud Scheduler] --> Repair[Web: outbox repair]
+  State -->|Due unpublished requests| Repair
+  Repair --> Queue
 ```
+
+## Scaling by adding instances
+
+Web and workers scale independently. Any Web instance can serve an account using its durable workspace; no account-to-server assignment is required. Pub/Sub delivers jobs to available worker instances. Adding workers increases parallel processing across independent accounts and conversation lanes, while Firestore preserves ordering within a lane. Business data, claims and locks belong to an account rather than one global mutable business record. AI configuration and credentials are user-specific.
+
+Cloud Tasks holds scheduled wake times, and Pub/Sub handles delivery and redelivery. Workers need neither a server-membership registry nor a full-account scan to obtain ordinary jobs, and can scale to zero when idle. Firestore retains execution state and transactional outbox requests; Pub/Sub transports those requests. Shared infrastructure still includes indexes, the subscription and outbox repair, so throughput and backlog must be measured as usage grows.
+
+The architecture supports a path toward one million daily active users through additional instances and measured improvements. This is a scaling design, not a tested capacity result. CPU, memory and instance limits are deployment settings maintained in [worker.tf](../../infra/worker.tf) and [variables.tf](../../infra/variables.tf).
 
 ## Responsibilities
 
@@ -54,7 +70,7 @@ Scheduled utterances with their per-schedule notification preference enabled als
 
 `main` creates the tool configuration and, when configured, GCS and Firestore clients. With `KAKERATTA_FIREBASE_PROJECT_ID`, it creates a `Gateway`; with Firestore as well, the Gateway gets a `Shared` configuration for several instances. Otherwise, it opens a file workspace and creates a `Server`.
 
-`Server.New` connects the Catalogue, Runner, and search Service, registers routes, starts the Runner, queues a search-index pass, and asks to be woken now (`Runner.Rearm`), which is how a workspace looks at its times. There is no clock going round: see [Times and wakes](#times-and-wakes).
+`Server.New` connects the Catalogue, Runner, and search Service and registers routes. Combined mode additionally starts the Runner, queues a search-index pass, and asks to be woken now (`Runner.Rearm`). Split web/worker mode sets `Options.Passive`, so dependency assembly starts no dispatcher or initial index/alarm work; push requests invoke one claimed job explicitly. There is no clock going round: see [Times and wakes](#times-and-wakes) and [Pub/Sub push deployment](#pubsub-push-deployment).
 
 ## Workspace access and locking
 
@@ -65,6 +81,8 @@ Account deletion marks the account closing before waiting for its in-progress wo
 Verification: [gateway_concurrency_test.go](../../internal/server/gateway_concurrency_test.go) covers independent accounts during slow opening and shared closing checks, same-account reuse, deletion during opening, shutdown during opening, bounded startup and background wake workers, and skipping busy accounts during idle eviction. Implementation: [gateway.go](../../internal/server/gateway.go) (`workspaceLock`, `workspace`, `closeAccount`, `Close`) and [shared.go](../../internal/server/shared.go) (`closeIdle`).
 
 ## The reaction queue
+
+The dispatcher and direct-routing behavior below describes combined mode. Production uses the push worker described in [Pub/Sub push deployment](#pubsub-push-deployment), retaining reactions, lanes, renewable claims and prepared delivery, with execution inside the push request instead of background dispatch slots.
 
 Persona work and background enrichment are kept in the workspace as `store.Reaction` records (files under `reactions/`, or `users/{key}/reactions`) until it is done. A reaction belongs to a lane:
 
@@ -135,6 +153,18 @@ On SIGINT or SIGTERM, the program calls HTTP server `Shutdown` and then closes t
 - [runner_test.go](../../internal/persona/runner_test.go)
 
 # Multiple instances
+
+## Pub/Sub push deployment
+
+`KAKERATTA_MODE` defaults to `combined`, preserving the dispatcher described in this chapter. Optional `web` and `worker` modes require Firebase authentication, Firestore, GCS, Cloud Tasks, and a Pub/Sub topic. Split gateways do not restore pending workspaces, watch the reactions collection group, or run the periodic claimability sweep; tenant runners do not start their dispatcher, automatically index on opening, or rearm on opening. Web still saves reactions, queues indexing on entry changes, and requests alarms when schedules/settings change. Direct routing is disabled: a saved routing request is processed by a worker. The following subsections describe combined mode unless otherwise stated.
+
+Firestore persists a new dispatch generation and `users/{key}/dispatchOutbox/{generation}` in the same transaction as reaction creation, deferred retries, prepared delivery, and a follow-up index pass. A broker message contains only workspace, reaction, and dispatch IDs. A best-effort publisher removes the outbox record only after Pub/Sub accepts the message. Authenticated `POST /internal/dispatch` repairs up to 100 due unpublished requests using an indexed collection-group query; failed publications are held back one minute. Deferred work remains in the outbox until `readyAt`. Repair does not scan users or reactions.
+
+Pub/Sub calls authenticated `POST /internal/work` on the separate worker service. A worker admits one job at a time, opens an ephemeral workspace, checks existence/deletion, and transactionally claims the requested generation. Routing may bypass earlier delivery; other jobs must be first in their lane. A duplicate live claim or blocked lane returns 503 for broker retry. Deleted workspaces and obsolete generations return 204. Execution uses an eight-minute context and the existing renewable claim watchdog. Success requires durable completion or a saved successor generation. The workspace closes before responding. Delivery remains at least once. Combined mode exposes neither endpoint; worker mode exposes no user API.
+
+Worker resources and instance limits are configurable deployment settings. Work runs within the authenticated push request and retains the execution timeout and renewable claim watchdog. Long workflows and real-provider latency need measurement as capacity grows; independent lanes can be processed by additional instances without account ownership. See [push worker operations](./operations.md#push-worker-operations).
+
+Sources and verification: [dispatch persistence](../../internal/store/dispatch.go), [transport](../../internal/dispatch/pubsub.go), [worker runner](../../internal/persona/worker.go), [HTTP worker](../../internal/server/worker.go), [infrastructure](../../infra/worker.tf), [store tests](../../internal/store/dispatch_test.go), [transport tests](../../internal/dispatch/pubsub_test.go), [HTTP tests](../../internal/server/worker_test.go).
 
 ## No owners
 
