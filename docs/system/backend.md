@@ -183,7 +183,7 @@ New workspaces default to the built-in sona (`routine`), kakeratta support (`sup
 
 `llm.Client` handles OpenAI-compatible chat completions, tool calls, JSON responses, and attachments. Model credentials are not sent directly from the browser to model providers. Model names and defaults are defined in `store/settings.go`, which is the place to check when changing defaults.
 
-The settings API masks keys as `********`. When that value returns in a save request, the current key is retained, but only for the same endpoint: changing the model endpoint (`Settings.Endpoint`) with a masked key is refused, so a stored key is never sent to an address it was not entered for. A judge account's settings are reset to Token Factory with the operator's judge key whenever its key, provider, endpoint, or OpenRouter mode differ. Daily and planner settings have dedicated endpoints and are protected from stale general settings forms. This separation alone does not eliminate all concurrent update conflicts.
+The settings API masks keys as `********`. When that value returns in a save request, the current key is retained. An omitted or null `apiKey` also retains the current model key. Changing the model endpoint (`Settings.Endpoint`) while retaining a nonempty key is refused: the request must explicitly supply the key for the new endpoint or clear it with an empty string. A judge account's settings are reset to Token Factory with the operator's judge key whenever its key, provider, endpoint, or OpenRouter mode differ. Daily and planner settings have dedicated endpoints and are protected from stale general settings forms. This separation alone does not eliminate all concurrent update conflicts.
 
 Map endpoints and external MCP server lists come from operator environment variables, separately from user settings.
 
@@ -194,7 +194,7 @@ Map endpoints and external MCP server lists come from operator environment varia
 - [server.go](../../internal/server/server.go): `client`
 - [llm.go](../../internal/llm/llm.go)
 - [settings_test.go](../../internal/store/settings_test.go)
-- [hardening_test.go](../../internal/server/hardening_test.go): endpoint-bound keys and the pinned judge endpoint
+- [hardening_test.go](../../internal/server/hardening_test.go): endpoint-bound keys, including omitted/null keys and explicit clearing, and the pinned judge endpoint
 
 # Timeline search and indexing
 

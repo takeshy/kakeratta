@@ -137,7 +137,9 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.mu.Lock()
 		tenant := g.tenants[key]
 		g.mu.Unlock()
-		if tenant == nil && g.shared != nil {
+		if tenant != nil {
+			tenant, _ = g.workspace(key)
+		} else if g.shared != nil {
 			if exists, err := g.shared.Exists(r.Context(), key); err == nil && exists {
 				tenant, _ = g.workspace(key)
 			}
@@ -432,15 +434,11 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 		return nil, errStopping
 	default:
 	}
-	g.used[userKey] = time.Now()
-	if existing := g.tenants[userKey]; existing != nil {
-		return existing, nil
-	}
 	if g.closing[userKey] {
 		return nil, errWorkspaceClosing
 	}
 	if g.shared != nil {
-		// Another instance may be deleting it.
+		// Another instance may be deleting it, even if it is open here.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		closing, err := g.shared.Closing(ctx, userKey)
 		cancel()
@@ -450,6 +448,10 @@ func (g *Gateway) workspace(userKey string) (*Server, error) {
 		if closing {
 			return nil, errWorkspaceClosing
 		}
+	}
+	g.used[userKey] = time.Now()
+	if existing := g.tenants[userKey]; existing != nil {
+		return existing, nil
 	}
 	tenant, err := g.open(userKey)
 	if err != nil {

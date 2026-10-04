@@ -68,6 +68,7 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 		return
 	}
 	var labels []string
+	kakera := map[string]bool{}
 	rootGone := false
 	for _, entry := range gone {
 		if entry.ID == root {
@@ -76,6 +77,7 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 		if entry.Speaker != timeline.User {
 			continue
 		}
+		kakera[entry.ID] = true
 		if text := strings.TrimSpace(entry.Text); text != "" {
 			labels = append(labels, text)
 		}
@@ -89,7 +91,7 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 	}()
 	_, settings := r.clientOf()
 	zone := settings.Location()
-	if len(labels) == 0 {
+	if len(kakera) == 0 {
 		// Only replies of the personas went: their records are kept under
 		// the kakera they answered, and nobody has anything to tidy.
 		seen := map[string]bool{}
@@ -114,12 +116,6 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 		active[skill.ID] = true
 	}
 	label := strings.Join(labels, " ／ ")
-	kakera := map[string]bool{}
-	for _, entry := range gone {
-		if entry.Speaker == timeline.User {
-			kakera[entry.ID] = true
-		}
-	}
 	for _, skill := range woke {
 		// The records and the facts' sources are the app's own, so the app
 		// takes them out before anyone is woken - a paused persona included.

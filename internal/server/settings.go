@@ -27,7 +27,13 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	current := s.store.ConfiguredSettings()
 	next := current
-	if err := readJSON(r, &next); err != nil {
+	// Track an explicit key separately: omitted and null values reuse the
+	// saved key, and cannot authorize sending it to a different endpoint.
+	body := struct {
+		*store.Settings
+		APIKey *string `json:"apiKey"`
+	}{Settings: &next}
+	if err := readJSON(r, &body); err != nil {
 		fail(w, http.StatusBadRequest, "設定を読めませんでした")
 		return
 	}
@@ -36,7 +42,10 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	next.DailyCheckIns = current.DailyCheckIns
 	next.Planners = current.Planners
 	// A masked key coming back means "unchanged", not "set it to asterisks".
-	reusedKey := next.APIKey == "********" && current.APIKey != ""
+	if body.APIKey != nil {
+		next.APIKey = *body.APIKey
+	}
+	reusedKey := (body.APIKey == nil || next.APIKey == "********") && current.APIKey != ""
 	next.APIKey = unmask(next.APIKey, current.APIKey)
 	// A saved key belongs to the endpoint it was entered for. Moving it to
 	// another address takes the key typed again, so a changed URL can never

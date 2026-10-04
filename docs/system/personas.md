@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "html", "ultra", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-03"
+updated: "2026-10-04"
 ---
 
 Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections.
@@ -209,6 +209,8 @@ The keeper runs under the named lock `keeper:{id}`, one at a time across process
 
 ## Deleted kakera
 
+Deletion identifies user kakera by their speaker and ID, even when their text is empty. Image-only and link-only posts therefore remove their records and fact sources just like text posts, including records kept by personas that did not reply.
+
 `EntriesForgotten` ([forgotten.go](../../internal/persona/forgotten.go)) takes the deleted entries out of the memory of the personas woken for the post before anyone is woken - a paused persona included: their records (`dropRecords`, in the months of the deleted entries), and the deleted kakera from the facts' sources (`dropFactSources`), so a fact that rested on nothing else goes, now or in the past, while one that rests on another kakera, or that never had a source, stays. No model is asked. A persona that had a record removed and is active gets one `deletedInstructions` wake for the whole deletion: it cannot speak and may cancel the schedules it set for that kakera; its keeper does not run. A persona's reply deleted on its own leaves the kakera it answered: its record is re-keyed to the kakera and nobody is woken. A surviving field is marked for summary refresh at the next check-in. If no current or past facts remain, its unsupported summary and field are deleted immediately. Deleting a field or a month of records from the memory viewer wakes nobody.
 
 ## Splitting prose into facts
@@ -229,7 +231,7 @@ Fields were once prose, rewritten whole by the keeper. A field-shaped file with 
 - [facts_test.go](../../internal/persona/facts_test.go): fact operations and their history, the field limit, records found through their kakera, summaries rewritten at the check-in, past plans retired there and past events kept, a fact put right or forgotten by the user, facts going with a record forgotten or expired
 - [notekeeper_test.go](../../internal/persona/notekeeper_test.go): records under the reply or the kakera, edits replacing a record, sent-back submissions, record dates and their round trip, extension on reading, the review asked and settled, the turn's memory view, reading recorded posts together, splitting prose into facts
 - [due_test.go](../../internal/persona/due_test.go): expired records and the next expiry
-- [forgotten_test.go](../../internal/persona/forgotten_test.go): records dropped and re-keyed, facts losing their sources on deletion, the tidy-up wake
+- [forgotten_test.go](../../internal/persona/forgotten_test.go): records dropped and re-keyed, facts losing their sources on deletion (including image-only and link-only posts), the tidy-up wake
 - [note_retry_test.go](../../internal/persona/note_retry_test.go)
 - [answer_test.go](../../internal/persona/answer_test.go): an answer copied into a fact is sent back
 

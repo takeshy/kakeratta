@@ -140,7 +140,7 @@ External-agent asks, routing and reply trials, and the agent's last call are run
 
 ## Account deletion
 
-Deletion sets `workspaceClosures/{key}` through `SetClosing`. While it stands, no reaction is claimed and no claim is renewed, so work in hand elsewhere is cancelled at its next renewal; instances also refuse to open the workspace. The deleting instance halts its own runner, waits up to two minutes for other claims to end, destroys the data, and deletes it again after 90 seconds and after 11 minutes - after requests and the longest turn that may still have been running elsewhere - before lifting the mark. A mark older than 20 minutes is ignored.
+Deletion sets `workspaceClosures/{key}` through `SetClosing`. While it stands, no reaction is claimed and no claim is renewed, so work in hand elsewhere is cancelled at its next renewal. Gateway checks local and shared closing state before returning even an already-open workspace, for both ordinary tenant API requests and MCP requests. Requests are refused if shared closing state cannot be read. The deleting instance halts its own runner, waits up to two minutes for other claims to end, destroys the data, and deletes it again after 90 seconds and after 11 minutes - after requests and the longest turn that may still have been running elsewhere - before lifting the mark. A mark older than 20 minutes is ignored.
 
 ## Implementation and verification
 
@@ -150,6 +150,7 @@ Deletion sets `workspaceClosures/{key}` through `SetClosing`. While it stands, n
 - [firestore.go](../../internal/store/firestore.go): `Skills`, `Close`
 - [cluster_firestore_test.go](../../internal/store/cluster_firestore_test.go): claims, change feed, closing, events, and a lost lock ending its holder's context or its renewals failing, on the emulator
 - [cluster_test.go](../../internal/server/cluster_test.go): instances sharing a workspace without owners, taking up queued work, and deletion
+- [hardening_test.go](../../internal/server/hardening_test.go): cached workspaces refuse ordinary API and MCP requests when closing locally or elsewhere, or when the shared closing check fails
 
 # Related chapters
 

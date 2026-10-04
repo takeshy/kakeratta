@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +18,85 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+func TestSettingsEndpointRequiresExplicitKey(t *testing.T) {
+	for _, tc := range []struct {
+		name, body    string
+		want          int
+		endpoint, key string
+	}{
+		{"omitted", `{"baseUrl":"https://custom.example/v1"}`, 400, store.NebiusBaseURL, "secret"},
+		{"null", `{"baseUrl":"https://custom.example/v1","apiKey":null}`, 400, store.NebiusBaseURL, "secret"},
+		{"masked", `{"baseUrl":"https://custom.example/v1","apiKey":"********"}`, 400, store.NebiusBaseURL, "secret"},
+		{"explicit", `{"baseUrl":"https://custom.example/v1","apiKey":"secret"}`, 200, "https://custom.example/v1", "secret"},
+		{"cleared", `{"baseUrl":"https://custom.example/v1","apiKey":""}`, 200, "https://custom.example/v1", ""},
+		{"unchanged omitted", `{"middleModel":"other"}`, 200, store.NebiusBaseURL, "secret"},
+		{"unchanged null", `{"apiKey":null}`, 200, store.NebiusBaseURL, "secret"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server, s := app(t)
+			settings := s.ConfiguredSettings()
+			settings.APIKey = "secret"
+			if err := s.SaveSettings(settings); err != nil {
+				t.Fatal(err)
+			}
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(tc.body)))
+			if response.Code != tc.want {
+				t.Fatalf("status = %d, want %d: %s", response.Code, tc.want, response.Body.String())
+			}
+			got := s.ConfiguredSettings()
+			if got.Endpoint() != tc.endpoint || got.APIKey != tc.key {
+				t.Fatal("endpoint or saved key changed unexpectedly")
+			}
+		})
+	}
+}
+
+func TestCachedWorkspaceChecksClosingOnEveryRequest(t *testing.T) {
+	for _, mode := range []string{"local", "shared", "unavailable"} {
+		t.Run(mode, func(t *testing.T) {
+			key := workspaceKey("alice")
+			called := 0
+			mux := http.NewServeMux()
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { called++; w.WriteHeader(http.StatusNoContent) })
+			g := &Gateway{verifier: fakeVerifier{}, stop: make(chan struct{}), tenants: map[string]*Server{key: {mux: mux}}, used: map[string]time.Time{}, closing: map[string]bool{}}
+			blocked := false
+			if mode != "local" {
+				g.shared = &Shared{Closing: func(context.Context, string) (bool, error) {
+					if blocked && mode == "unavailable" {
+						return false, errors.New("closing state unavailable")
+					}
+					return blocked, nil
+				}}
+			}
+			request := func(path string) int {
+				r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"text":"test"}`))
+				r.AddCookie(&http.Cookie{Name: authCookieName, Value: "session:alice"})
+				r.Header.Set("Authorization", "Bearer "+strings.Repeat("a", 64))
+				w := httptest.NewRecorder()
+				g.ServeHTTP(w, r)
+				return w.Code
+			}
+			paths := []string{"/api/post", "/api/mcp/users/" + key}
+			for _, path := range paths {
+				if status := request(path); status != 204 {
+					t.Fatalf("open workspace: %s = %d", path, status)
+				}
+			}
+			blocked = true
+			g.closing[key] = mode == "local"
+			for _, path := range paths {
+				if status := request(path); status < 400 {
+					t.Fatalf("closing workspace accepted: %s = %d", path, status)
+				}
+			}
+			if called != len(paths) {
+				t.Fatalf("blocked requests reached tenant: calls = %d", called)
+			}
+		})
+	}
+}
 
 // A masked key never follows a changed endpoint: whoever moves the address
 // types the key again.

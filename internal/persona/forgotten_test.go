@@ -108,6 +108,62 @@ func TestDeletingAPostDropsItsRecordsAndWakesThePersonasThatKeptThem(t *testing.
 	}
 }
 
+func TestDeletingTextlessPostDropsRecordsAndFacts(t *testing.T) {
+	for _, kind := range []string{"image", "link"} {
+		t.Run(kind, func(t *testing.T) {
+			r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet", "book")
+			entry := post(t, s, "")
+			if kind == "image" {
+				entry.Media = &timeline.Media{Text: "food preference from image"}
+			} else {
+				entry.Link = "https://example.com/food"
+			}
+			if err := s.Append(entry); err != nil {
+				t.Fatal(err)
+			}
+			remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: entry.ID, ReplyTo: entry.ID, Text: "A reply", At: entry.At}
+			if err := s.Append(remark); err != nil {
+				t.Fatal(err)
+			}
+			other := post(t, s, "keep this")
+			for _, id := range []string{"gourmet", "book"} {
+				if err := s.RecordWake(entry.ID, id); err != nil {
+					t.Fatal(err)
+				}
+				recordID := entry.ID
+				if id == "gourmet" {
+					recordID = remark.ID
+				}
+				writeRecord(t, s, id, entry, recordID)
+				writeRecord(t, s, id, other, other.ID)
+				if err := s.WriteNote(id, "Preference.md", factsFile("Preference", [2]string{"textless-fact", entry.ID}, [2]string{"surviving-fact", other.ID})); err != nil {
+					t.Fatal(err)
+				}
+			}
+			gone, err := s.DeleteEntry(context.Background(), entry.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.EntriesForgotten(entry.ID, gone)
+			for _, id := range []string{"gourmet", "book"} {
+				if ids := recordIDs(r, id); len(ids) != 1 || ids[0] != other.ID {
+					t.Fatalf("%s records = %v", id, ids)
+				}
+				note, _ := s.Note(id, "Preference.md")
+				if strings.Contains(note.Text, "textless-fact") || !strings.Contains(note.Text, "surviving-fact") {
+					t.Fatalf("%s facts = %s", id, note.Text)
+				}
+			}
+			if wakes := deletedWakes(t, r); len(wakes) != 2 {
+				t.Fatalf("tidy-up wakes = %v", wakes)
+			}
+			if woke, err := s.Woke(entry.ID); err != nil || len(woke) != 0 {
+				t.Fatalf("wake records = %v, %v", woke, err)
+			}
+		})
+	}
+}
+
 // Deleting one of the user's lines under a post takes its record and reaches
 // the personas woken for that post, leaving the post's own record in place.
 func TestDeletingAReplyDropsOnlyItsRecord(t *testing.T) {
