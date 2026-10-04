@@ -45,7 +45,7 @@ func Read(ctx context.Context, client *llm.Client, model string, image []byte, m
 		return media
 	}
 	reply, err := client.Chat(ctx, llm.Request{
-		Model: model, JSON: true,
+		Purpose: "image_read", Model: model, JSON: true,
 		Files: []llm.Attachment{{Name: "capture" + extension(mime), MIME: mime, Data: image}},
 		Messages: []llm.Message{
 			{Role: "system", Content: readPrompt},

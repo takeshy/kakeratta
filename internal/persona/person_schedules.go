@@ -69,7 +69,8 @@ func (r *Runner) preparePersonSchedules(ctx context.Context, skill Skill, text, 
 	input, _ := json.Marshal(map[string]any{"person": skill.Name, "relationship": skill.Domain, "source": source, "text": text, "now": now.In(plan.zone).Format(time.RFC3339), "timeZone": plan.zone.String(), "existingSchedules": existing})
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	reply, err := client.Chat(ctx, llm.Request{Model: personaModel(settings), JSON: true, Temperature: 0, Messages: []llm.Message{{Role: "system", Content: personEventsPrompt}, {Role: "user", Content: string(input)}}})
+	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID})
+	reply, err := client.Chat(ctx, llm.Request{Purpose: "person_schedules", Model: personaModel(settings), JSON: true, Temperature: 0, Messages: []llm.Message{{Role: "system", Content: personEventsPrompt}, {Role: "user", Content: string(input)}}})
 	if err != nil {
 		return nil, err
 	}

@@ -135,13 +135,15 @@ func checkAnswer(answer Answer, rules turnRules) []string {
 // research completes before the answer tool is offered: no state-changing
 // schemas or note-writing skill consume the answer model's context.
 func research(ctx context.Context, client *llm.Client, model string, messages []llm.Message, remaining func() bool, lookup func([]ReadStep) string) ([]llm.Message, error) {
+	retries := 0
 	for round := 0; round < ultraReads+maxMalformed+2 && remaining(); round++ {
-		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: []llm.Tool{readTool, finishReadTool}, ToolChoice: "required"})
+		reply, err := client.Complete(ctx, llm.Request{Purpose: "research", Attempt: retries + 1, Round: round + 1, Model: model, Messages: messages, Tools: []llm.Tool{readTool, finishReadTool}, ToolChoice: "required"})
 		if err != nil {
 			return nil, err
 		}
 		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
 		done := false
+		invalid := len(reply.Calls) == 0
 		for _, call := range reply.Calls {
 			result := "read または finish_read を呼んでください。"
 			switch call.Name {
@@ -153,15 +155,21 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 					Steps []ReadStep `json:"steps"`
 				}
 				if err := json.Unmarshal([]byte(call.Args), &request); err != nil {
+					invalid = true
 					result = "read の形式が不正です: " + err.Error()
 				} else {
 					result = lookup(request.Steps)
 				}
+			default:
+				invalid = true
 			}
 			messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: result})
 		}
 		if done {
 			return messages, nil
+		}
+		if invalid {
+			retries++
 		}
 		if len(reply.Calls) == 0 {
 			messages = append(messages, llm.Message{Role: "user", Content: "read または finish_read を呼んでください。"})
@@ -173,7 +181,7 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 func composeAnswer(ctx context.Context, client *llm.Client, model string, messages []llm.Message, rules turnRules) (*Answer, error) {
 	messages = append(messages, llm.Message{Role: "user", Content: "調査フェーズは終了しました。今回どう答えるかだけに集中し、submit_answer で最終回答を提出してください。状態変更・noteは生成しません。"})
 	for attempt := 0; attempt <= maxMalformed; attempt++ {
-		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: []llm.Tool{answerTool}, ToolChoice: "required"})
+		reply, err := client.Complete(ctx, llm.Request{Purpose: "answer", Attempt: attempt + 1, Model: model, Messages: messages, Tools: []llm.Tool{answerTool}, ToolChoice: "required"})
 		if err != nil {
 			return nil, err
 		}

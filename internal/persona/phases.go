@@ -177,6 +177,7 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 	// submit that asks to read again would otherwise spend its remaining
 	// rounds on refusals and never hand the phase in, losing the whole turn.
 	outOfReads := lookup == nil
+	retries := 0
 	// Rounds are capped outright as well: once read is withdrawn, the read count
 	// no longer ends the loop, and a model that keeps calling it anyway must not
 	// keep a phase - or the keeper's lock - for ever.
@@ -185,7 +186,9 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 		if outOfReads {
 			offered = []llm.Tool{tool}
 		}
-		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: offered, ToolChoice: "required"})
+		rejectedBefore := rec.SentBack + rec.Stalls
+		invalidRead := false
+		reply, err := client.Complete(ctx, llm.Request{Purpose: "plan_" + phase, Attempt: retries + 1, Round: rec.Rounds + 1, Model: model, Messages: messages, Tools: offered, ToolChoice: "required"})
 		if err != nil {
 			return Workflow{}, &rec, err
 		}
@@ -193,6 +196,7 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
 		if len(reply.Calls) == 0 {
 			rec.Stalls++
+			retries++
 			messages = append(messages, llm.Message{Role: "user", Content: "このフェーズの提出toolを呼んでください。文章だけの返事は誰にも届きません。"})
 			continue
 		}
@@ -211,6 +215,7 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 					Steps []ReadStep `json:"steps"`
 				}
 				if err := strictPhase(call.Args, &req); err != nil {
+					invalidRead = true
 					result = err.Error()
 				} else {
 					result = lookup(req.Steps)
@@ -277,6 +282,9 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 			rec.Consistent, rec.Reason = consistent, reason
 			return *candidate, &rec, nil
 		}
+		if invalidRead || rec.SentBack+rec.Stalls > rejectedBefore {
+			retries++
+		}
 	}
 	rec.Problems = append(rec.Problems, phase+" phase: 提案が承認されませんでした")
 	return Workflow{}, &rec, fmt.Errorf("%s phase retry limit reached", phase)
@@ -293,7 +301,10 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 	if !skill.Remembers() && !rules.set.Allows("schedule") && len(shapeOf(rules.set).actions) == 0 {
 		return plan, nil
 	}
+	generations := map[string]int{}
 	generate := func(phase, feedback string) error {
+		generations[phase]++
+		phaseCtx := llm.WithTrace(ctx, llm.Trace{PlanAttempt: generations[phase]})
 		encoded, _ := json.Marshal(plan)
 		// A proposal is checked with the rest of the workflow in place: a
 		// note on a schedule's own path, a path written twice, or too many
@@ -309,7 +320,7 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 			}
 			return whole
 		}
-		next, rec, err := proposePhase(ctx, client, model, phase, phasePrompt(phase, skill, rules.set, wake), user+"\n現在の workflow（他フェーズを変更しない）:\n"+string(encoded)+"\n修正指示:\n"+feedback, rules.set, lookup, func(candidate Workflow) []string {
+		next, rec, err := proposePhase(phaseCtx, client, model, phase, phasePrompt(phase, skill, rules.set, wake), user+"\n現在の workflow（他フェーズを変更しない）:\n"+string(encoded)+"\n修正指示:\n"+feedback, rules.set, lookup, func(candidate Workflow) []string {
 			return checkBatch(merged(candidate).batch(), rules)
 		})
 		if rec != nil {

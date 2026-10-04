@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"google.golang.org/grpc/codes"
@@ -179,6 +180,7 @@ func (r *Runner) handleAs(item store.Reaction, rest []store.Reaction, worker str
 }
 
 func (r *Runner) handleAsContext(base context.Context, item store.Reaction, rest []store.Reaction, worker string) {
+	base = llm.WithTrace(base, llm.Trace{Job: item.ID, JobAttempt: item.Attempts})
 	if item.Delivery != nil {
 		var definitions []Skill
 		if err := json.Unmarshal([]byte(item.Delivery.SkillsJSON), &definitions); err != nil {

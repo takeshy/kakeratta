@@ -202,6 +202,7 @@ func logKeeper(record keeperRecord) {
 // keepNotes keeps what the turn leaves behind and returns the fields it wrote.
 // A failure never retracts the answer; the caller persists it for retry.
 func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings store.Settings, k keeperTurn) (written []string, failure error) {
+	ctx = llm.WithTrace(ctx, llm.Trace{Persona: k.skill.ID, Trigger: k.trigger.ID, Wake: wakeKind(k.trigger, false, k.wake)})
 	if !k.skill.Remembers() {
 		return nil, nil
 	}
@@ -371,7 +372,7 @@ func submitMemory(ctx context.Context, client *llm.Client, model, system, user s
 	messages := []llm.Message{{Role: "system", Content: system}, {Role: "user", Content: user}}
 	var last, lastProblems string
 	for attempt := 1; attempt <= maxKeeperAttempts; attempt++ {
-		reply, err := client.Complete(ctx, llm.Request{Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
+		reply, err := client.Complete(ctx, llm.Request{Purpose: "memory_update", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
 			return keptMemory{}, attempt, err
 		}

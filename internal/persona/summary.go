@@ -88,7 +88,7 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 	user += "\n記録（古い順）:\n" + record
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	text, err := client.Chat(ctx, llm.Request{Model: personaModel(settings), Temperature: 0.3, Messages: []llm.Message{
+	text, err := client.Chat(ctx, llm.Request{Purpose: "monthly_summary", Model: personaModel(settings), Temperature: 0.3, Messages: []llm.Message{
 		{Role: "system", Content: summaryPrompt},
 		{Role: "user", Content: user},
 	}})

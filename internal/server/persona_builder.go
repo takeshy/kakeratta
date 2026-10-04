@@ -164,7 +164,7 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 			"\n\n今回の対象発言:\n" + entry.Render(nil, nil)
 	}
 	model := settings.HighModel
-	reply, err := client.Chat(r.Context(), llm.Request{Model: model, JSON: true, Temperature: 0.4, Messages: messages})
+	reply, err := client.Chat(r.Context(), llm.Request{Purpose: "persona_builder", Model: model, JSON: true, Temperature: 0.4, Messages: messages})
 	if err != nil {
 		fail(w, 502, err.Error())
 		return

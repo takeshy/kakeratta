@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication, entry handling, timeline data, persistence, settings, schedule editing, reminder push delivery, favorites, and search."
-tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "search", "index", "push", "favorites"]
-updated: "2026-10-04"
+description: "Authentication, entry handling, timeline data, persistence, settings, model usage logging, schedule editing, reminder push delivery, favorites, and search."
+tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites"]
+updated: "2026-10-05"
 ---
 
-Authentication, entry handling, timeline data, persistence, settings, schedule editing, reminder push delivery, favorites, and search.
+Authentication, entry handling, timeline data, persistence, settings, model usage logging, schedule editing, reminder push delivery, favorites, and search.
 
 # HTTP API and authentication
 
@@ -192,6 +192,18 @@ New workspaces default to the built-in sona (`routine`), kakeratta support (`sup
 The settings API masks keys as `********`. When that value returns in a save request, the current key is retained. An omitted or null `apiKey` also retains the current model key. Changing the model endpoint (`Settings.Endpoint`) while retaining a nonempty key is refused: the request must explicitly supply the key for the new endpoint or clear it with an empty string. A judge account's settings are reset to Token Factory with the operator's judge key whenever its key, provider, endpoint, or OpenRouter mode differ. Daily and planner settings have dedicated endpoints and are protected from stale general settings forms. This separation alone does not eliminate all concurrent update conflicts.
 
 Map endpoints and external MCP server lists come from operator environment variables, separately from user settings.
+
+## Model usage logging
+
+Every outbound chat completion emits one structured stdout record with `path: "model-usage"` and `message: "model usage"`, including transport, HTTP, decoding, provider, and empty-choice failures. Calls rejected before sending (for example an unconfigured model) do not produce an API-call record. `llm.Reply.Usage` retains provider-reported `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional reasoning/cache token details. Missing usage or individual counts remain null rather than estimated from text length or silently treated as zero. Usage is recorded before caller validation, so a subsequently rejected tool response remains accounted for.
+
+Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing, escalation, research, answer, schedule/action planning, review, memory update/summary, monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
+
+`attempt` starts at one and `retryCount` at zero for format/validation corrections within a stage. `round` separately counts normal multi-round research or tool use. `jobAttempt`/`jobRetryCount` describe durable reaction claims; `noteAttempt`/`noteRetryCount` describe durable note attempts; `planAttempt`/`planRetryCount` describe phase regeneration after review. These counters describe different scopes and must not be summed as independent billed requests. Counting records gives the outbound calls observed by this service, including failures. The instrumentation adds no retry policy and changes no retry limits.
+
+Embedding requests use the same format with `purpose: "embedding"` and retain returned input/total counts; invalid vectors can still have reported usage. Jev Decisions API routing also emits a `routing` usage record, with null usage when the provider omits counts. Records exclude API keys, request/response text, tool arguments, provider error messages, and endpoint URLs, including userinfo, paths, queries and custom hostnames. The runtime embeds no price table or USD estimate; apply the appropriate model rates and reconcile against provider billing separately. Records go to operational logs, not additional Firestore state.
+
+Implementation and verification: [usage.go](../../internal/llm/usage.go), [llm.go](../../internal/llm/llm.go), [search.go](../../internal/search/search.go), [usage_test.go](../../internal/llm/usage_test.go) (reported/missing/zero usage, failed calls, context and privacy), and [persona usage tests](../../internal/persona/usage_test.go) (research rounds versus retries and rejected-answer accounting).
 
 ## Implementation and verification
 

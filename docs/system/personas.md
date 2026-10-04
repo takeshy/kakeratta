@@ -3,12 +3,14 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "html", "ultra", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-04"
+updated: "2026-10-05"
 ---
 
 Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections.
 
 # Persona definitions and the Catalogue
+
+Persona inference calls emit per-request usage records tagged by execution stage and, where available, persona, trigger, wake category and durable job. Ordinary research/tool rounds are distinguished from correction retries, phase regeneration and durable note retries. See [Model usage logging](./backend.md#model-usage-logging), [usage.go](../../internal/llm/usage.go), and [persona usage tests](../../internal/persona/usage_test.go). Workflow/routing/keeper records still describe semantic outcomes; they do not substitute for token or model-call counts.
 
 ## Execution host
 

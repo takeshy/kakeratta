@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"golang.org/x/text/unicode/norm"
@@ -312,26 +313,35 @@ func embed(ctx context.Context, settings store.Settings, texts []string) ([][]fl
 	req.Header.Set("Authorization", "Bearer "+settings.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{Timeout: 60 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
+	record := llm.NewCallRecord(ctx, settings.BaseURL, Model, "embedding", 1, 1)
+	defer record.Log()
 	resp, err := client.Do(req)
 	if err != nil {
+		record.Outcome = "transport_error"
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 		return nil, errors.New("意味検索に接続できませんでした。もう一度検索してください")
 	}
 	defer resp.Body.Close()
+	record.Status = resp.StatusCode
 	if resp.StatusCode != http.StatusOK {
+		record.Outcome = "http_error"
 		return nil, fmt.Errorf("意味検索のモデル呼び出しに失敗しました (%d)。接続先とAPIキーを確認してください", resp.StatusCode)
 	}
 	var payload struct {
-		Data []struct {
+		Usage *llm.Usage `json:"usage"`
+		Data  []struct {
 			Index     int       `json:"index"`
 			Embedding []float64 `json:"embedding"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&payload); err != nil {
+		record.Outcome = "decode_error"
 		return nil, errors.New("意味検索の応答を読めませんでした")
 	}
+	record.Usage = payload.Usage
+	record.Outcome = "invalid_vectors"
 	if len(payload.Data) != len(texts) {
 		return nil, errors.New("意味検索のベクトル数が不正です")
 	}
@@ -342,6 +352,7 @@ func embed(ctx context.Context, settings store.Settings, texts []string) ([][]fl
 		}
 		result[row.Index] = row.Embedding
 	}
+	record.Outcome = "success"
 	return result, nil
 }
 

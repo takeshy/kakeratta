@@ -154,6 +154,7 @@ func fieldSummaryPrompt(skill Skill) string {
 // past. A due field the model leaves out is still marked as read today, so it
 // is not asked again until something more changes.
 func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) error {
+	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Wake: "daily"})
 	if !skill.Remembers() {
 		return nil
 	}
@@ -231,7 +232,7 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 	var written []summaryWrite
 	var retire []string
 	for attempt := 1; ; attempt++ {
-		reply, err := client.Complete(held, llm.Request{Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
+		reply, err := client.Complete(held, llm.Request{Purpose: "memory_summary", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
 			return err
 		}

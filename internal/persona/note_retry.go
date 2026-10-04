@@ -71,6 +71,7 @@ func (r *Runner) finishNoteJob(job store.NoteJob, failure error) {
 }
 
 func (r *Runner) runKeeperJob(ctx context.Context, client *llm.Client, settings store.Settings, job store.NoteJob, snapshot keeperSnapshot) []string {
+	ctx = llm.WithTrace(ctx, llm.Trace{NoteAttempt: job.Attempts})
 	written, err := r.keepNotes(ctx, client, settings, snapshot.turn(settings))
 	if snapshot.RemarkID != "" {
 		if remark, ok := r.store.Entry(snapshot.RemarkID); ok {

@@ -434,7 +434,7 @@ func (r *Runner) prepareEntry(outer context.Context, entryID string, transientPl
 	// The picture is read once, here, before anyone is woken. Everyone gets the
 	// same text out of it.
 	if entry.Kind == timeline.KindPost && entry.Media != nil && !entry.Media.Ready() {
-		entry = r.readCapture(entry, client, settings)
+		entry = r.readCapture(outer, entry, client, settings)
 		if entry.Deleted {
 			return nil, nil, nil
 		}
@@ -648,13 +648,14 @@ func isActive(skills []Skill, id string) bool {
 
 // readCapture does the one pass over the image and writes the result back onto
 // the post, which is a new line in the log rather than an edit.
-func (r *Runner) readCapture(entry timeline.Entry, client *llm.Client, settings store.Settings) timeline.Entry {
+func (r *Runner) readCapture(outer context.Context, entry timeline.Entry, client *llm.Client, settings store.Settings) timeline.Entry {
 	data, mime, err := r.store.Blob(entry.Media.BlobID)
 	if err != nil {
 		entry.Media.Error = err.Error()
 	} else {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(outer), 3*time.Minute)
 		defer cancel()
+		ctx = llm.WithTrace(ctx, llm.Trace{Trigger: entry.ID, Wake: "post"})
 		read := capture.Read(ctx, client, settings.VisionModel, data, mime)
 		read.BlobID = entry.Media.BlobID
 		read.MIME = mime
@@ -697,6 +698,7 @@ const deepRule = `- **今回ユーザーは、前の回答より良い・深い�
 // the app has the workflow checked, and only then does anything happen.
 func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, trigger timeline.Entry, named, listening bool,
 	wakeInstructions string, deep bool, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
+	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions)})
 	resumed := resumedFrom(ctx)
 	skill = skill.forTurn()
 	requestedDeep := deep

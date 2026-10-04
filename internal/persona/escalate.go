@@ -46,8 +46,9 @@ func Escalate(ctx context.Context, client *llm.Client, model string, answer, rep
 		return false
 	}
 	thinking := false
+	ctx = llm.WithTrace(ctx, llm.Trace{Trigger: reply.ID, Wake: "post"})
 	result, err := client.Complete(ctx, llm.Request{
-		Model: model, Tools: []llm.Tool{escalateTool}, ToolChoice: "required", Thinking: &thinking,
+		Purpose: "escalation", Model: model, Tools: []llm.Tool{escalateTool}, ToolChoice: "required", Thinking: &thinking,
 		Messages: []llm.Message{
 			{Role: "system", Content: escalatePrompt},
 			{Role: "user", Content: "前の回答:\n" + answer.Text + "\n\nユーザーの返信:\n" + reply.Text},

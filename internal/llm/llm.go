@@ -25,6 +25,7 @@ type Client struct {
 	APIKey     string
 	HTTP       *http.Client
 	OpenRouter bool
+	Observe    func(CallRecord)
 }
 
 func NewOpenRouter(baseURL, apiKey string) *Client {
@@ -51,6 +52,9 @@ type Message struct {
 }
 
 type Request struct {
+	Purpose     string    `json:"-"`
+	Attempt     int       `json:"-"`
+	Round       int       `json:"-"`
 	Model       string    `json:"model"`
 	Messages    []Message `json:"messages"`
 	Temperature float64   `json:"temperature"`
@@ -89,6 +93,7 @@ type ToolCall struct {
 type Reply struct {
 	Content string
 	Calls   []ToolCall
+	Usage   *Usage
 }
 
 // Attachment is a file handed to the model.
@@ -215,16 +220,35 @@ func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 	if c.APIKey != "" {
 		httpRequest.Header.Set("Authorization", "Bearer "+c.APIKey)
 	}
+	record := NewCallRecord(ctx, c.BaseURL, request.Model, request.Purpose, request.Attempt, request.Round)
+	defer func() {
+		if c.Observe != nil {
+			record.Finish()
+			c.Observe(*record)
+		} else {
+			record.Log()
+		}
+	}()
 	response, err := c.HTTP.Do(httpRequest)
 	if err != nil {
+		record.Outcome = "transport_error"
 		return Reply{}, err
 	}
+	record.Status = response.StatusCode
 	defer response.Body.Close()
 	payload, err := io.ReadAll(io.LimitReader(response.Body, 8<<20))
 	if err != nil {
+		record.Outcome = "read_error"
 		return Reply{}, err
 	}
+	var reported struct {
+		Usage *Usage `json:"usage"`
+	}
+	if json.Unmarshal(payload, &reported) == nil {
+		record.Usage = reported.Usage
+	}
 	if response.StatusCode >= 300 {
+		record.Outcome = "http_error"
 		return Reply{}, fmt.Errorf("%s: %s", response.Status, firstLine(payload))
 	}
 	var parsed struct {
@@ -245,21 +269,25 @@ func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(payload, &parsed); err != nil {
+		record.Outcome = "decode_error"
 		return Reply{}, fmt.Errorf("応答を解釈できません: %w", err)
 	}
 	if parsed.Error.Message != "" {
+		record.Outcome = "provider_error"
 		return Reply{}, errors.New(parsed.Error.Message)
 	}
 	if len(parsed.Choices) == 0 {
+		record.Outcome = "empty_choices"
 		return Reply{}, errors.New("応答が空です")
 	}
 	message := parsed.Choices[0].Message
-	reply := Reply{Content: message.Content}
+	reply := Reply{Content: message.Content, Usage: record.Usage}
 	for _, call := range message.ToolCalls {
 		reply.Calls = append(reply.Calls, ToolCall{
 			ID: call.ID, Name: call.Function.Name, Args: call.Function.Arguments,
 		})
 	}
+	record.Outcome = "success"
 	return reply, nil
 }
 

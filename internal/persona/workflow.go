@@ -386,7 +386,7 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 	messages := []llm.Message{{Role: "system", Content: system}, {Role: "user", Content: user}}
 	for attempt := 0; attempt < 3; attempt++ {
 		reply, err := client.Complete(ctx, llm.Request{
-			Model: model, Tools: []llm.Tool{reviewTool}, ToolChoice: "required", Messages: messages,
+			Purpose: "review", Attempt: attempt + 1, Model: model, Tools: []llm.Tool{reviewTool}, ToolChoice: "required", Messages: messages,
 		})
 		if err != nil {
 			return nil, err

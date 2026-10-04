@@ -1,12 +1,12 @@
 ---
 type: "Process"
 title: "Development and workspace operations"
-description: "Development, validation, deployment, memory migration, location backfill, portable exports, and workspace deletion."
-tags: ["development", "deployment", "migration", "location", "export", "destroy"]
-updated: "2026-10-04"
+description: "Development, validation, model usage inspection, deployment, memory migration, location backfill, portable exports, and workspace deletion."
+tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
+updated: "2026-10-05"
 ---
 
-Development, validation, deployment, memory migration, location backfill, portable exports, and workspace deletion.
+Development, validation, model usage inspection, deployment, memory migration, location backfill, portable exports, and workspace deletion.
 
 # Development, validation, and deployment
 
@@ -45,6 +45,16 @@ No legacy queue migration is included for the current single-user deployment. Fi
 Worker CPU, memory and instance limits are managed in `infra/worker.tf` and `infra/variables.tf`; increase Web and worker capacity independently as measured demand grows. It requires no waiting instance, but actual requests, Pub/Sub, Firestore and Scheduler can add charges. The minute repair request/query occurs even when idle. Web retains its existing CPU/memory configuration because other handlers can start background tasks. Cloud Build updates an existing worker to the same image before Web; Terraform creates its initial revision.
 
 Monitor memory exits, eight-minute cancellations, redelivery, oldest unacknowledged message age, due outbox growth, and scheduler failures. Check resource sizing against real provider workflows. Unacknowledged messages are retained seven days; this initial configuration has no dead-letter subscription. After retention expires, inspect pending reactions and explicitly reissue dispatch requests: unpublished-only repair cannot recover expired published messages. Real-provider latency, long workflows and Firestore load need measurement before claiming large-user capacity. Split modes require `KAKERATTA_JOB_TOPIC`, `KAKERATTA_JOB_SUBSCRIPTION`, `KAKERATTA_WORKER_URL`, and `KAKERATTA_DISPATCH_URL` in addition to the existing Firestore, GCS and Cloud Tasks settings.
+
+## Inspecting model usage
+
+After deploying the usage instrumentation, read structured inference records from both Web and worker services:
+
+```sh
+gcloud logging read 'resource.type="cloud_run_revision" AND jsonPayload.path="model-usage"' --project=kakeratta --freshness=1d --limit=10000 --format=json
+```
+
+Fix the date range and timezone when reconciling provider billing, and check that the result limit was not reached. Group by `purpose`, `model`, and `wake` to distinguish post-triggered work from autonomous check-ins. Sum `usage.prompt_tokens` and `usage.completion_tokens` only when reported; count missing values separately. Count records for observed requests and use retry fields to identify correction, phase, note-job and reaction-job scopes. Reported reasoning/cache details are breakdowns, not extra counts to add to the totals. External agents and development traffic billed directly to the same provider account require separate reconciliation. The [backend logging specification](./backend.md#model-usage-logging) defines fields and failure semantics; records begin with the deployment and cannot reconstruct earlier usage.
 
 ## Deployment
 

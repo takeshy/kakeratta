@@ -71,6 +71,7 @@ type Routing struct {
 // routing, so the one case where a post must not be lost does not depend on
 // this.
 func Route(ctx context.Context, client *llm.Client, model string, skills []Skill, thread []Entryish, trigger Entryish) Routing {
+	ctx = llm.WithTrace(ctx, llm.Trace{Trigger: trigger.ID, Wake: "post"})
 	if len(skills) == 0 || client == nil || client.BaseURL == "" || model == "" {
 		return Routing{Error: "routing is not configured"}
 	}
@@ -87,7 +88,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 	}
 	thinking := true
 	reply, err := client.Complete(ctx, llm.Request{
-		Model: model, Tools: []llm.Tool{deliverTool}, ToolChoice: "required",
+		Purpose: "routing", Model: model, Tools: []llm.Tool{deliverTool}, ToolChoice: "required",
 		Thinking: &thinking, Exacto: true,
 		Messages: []llm.Message{
 			{Role: "system", Content: routePrompt},
@@ -215,16 +216,29 @@ func RouteJev(ctx context.Context, endpoint, key string, skills []Skill, thread 
 	}
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(key))
 	req.Header.Set("Content-Type", "application/json")
+	ctx = llm.WithTrace(ctx, llm.Trace{Trigger: trigger.ID, Wake: "post"})
+	record := llm.NewCallRecord(ctx, endpoint, jevModel, "routing", 1, 1)
+	defer record.Log()
 	res, err := jevHTTPClient.Do(req)
 	if err != nil {
+		record.Outcome = "transport_error"
 		return nobody("the routing call failed: " + err.Error())
 	}
+	record.Status = res.StatusCode
 	defer res.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 8<<20))
 	if err != nil {
+		record.Outcome = "read_error"
 		return nobody("the routing response could not be read: " + err.Error())
 	}
+	var reported struct {
+		Usage *llm.Usage `json:"usage"`
+	}
+	if json.Unmarshal(raw, &reported) == nil {
+		record.Usage = reported.Usage
+	}
 	if res.StatusCode >= 300 {
+		record.Outcome = "http_error"
 		return nobody(fmt.Sprintf("the routing call failed: HTTP %d", res.StatusCode))
 	}
 	var parsed struct {
@@ -233,8 +247,10 @@ func RouteJev(ctx context.Context, endpoint, key string, skills []Skill, thread 
 		} `json:"answers"`
 	}
 	if err := json.Unmarshal(raw, &parsed); err != nil {
+		record.Outcome = "decode_error"
 		return nobody("the routing response made no sense: " + err.Error())
 	}
+	record.Outcome = "invalid_routing"
 	excluded := map[string]string{}
 	for _, skill := range skills {
 		answer, ok := parsed.Answers[skill.ID]
@@ -250,6 +266,7 @@ func RouteJev(ctx context.Context, endpoint, key string, skills []Skill, thread 
 		}
 	}
 	decision.ExcludedReasons = excluded
+	record.Outcome = "success"
 	return Routing{Deliver: decision.Deliver, Excluded: excluded, Answered: true}
 }
 
