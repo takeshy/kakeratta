@@ -49,9 +49,9 @@ Five personas ship with the app:
 
 Creation and editing offer **Remember** and **Always think deeply**. Memory
 is on by default; support and infographic default to off. Turning it off stops
-memory updates and periodic check-ins while retaining existing notes. Always
+memory updates and periodic check-ins. Always
 thinking deeply uses the high (Ultra) model for ordinary requests; infographic
-defaults to on. Existing workspaces keep their saved activation choices.
+defaults to on.
 
 ## Run locally
 
@@ -110,7 +110,15 @@ execution model and [deployment](infra/README.md) for infrastructure settings.
 ## Design and integrations
 
 The backend is Go and the browser app is JavaScript. NVIDIA Nemotron models
-through Nebius Token Factory provide routing, answers and workflow checks;
+through Nebius Token Factory provide routing, answers and workflow checks.
+The default model configuration is:
+
+| Model | Role |
+| --- | --- |
+| **Nemotron 3.5 Lightning** | Detect whether a reply asks for a better or deeper answer |
+| **Nemotron 3 Super 120B A12B** | Persona routing, ordinary answers and workflow checks |
+| **Nemotron 3 Ultra 550B A55B** | Answers to requests for deeper replies and for personas with Always think deeply enabled |
+
 OpenRouter is an optional alternative. Models are chosen by task to benefit
 from smaller models' lower cost and faster responses, using stronger models
 where deeper reasoning is needed. Each persona has its own memory and
