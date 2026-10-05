@@ -55,6 +55,12 @@ func (l *lookups) keep(name, args, out string) {
 
 func (l *lookups) left() int { return l.limit - l.used }
 
+// SearchRemaining uses the same counters as take, including the shared lookup
+// ceiling. Cached results do not spend either counter.
+func (l *lookups) SearchRemaining() int {
+	return max(0, min(l.searches-l.searched, l.left()))
+}
+
 // lookupsState is a budget as an ask keeps it between the agent's reads.
 type lookupsState struct {
 	Used     int               `json:"used"`

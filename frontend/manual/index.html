@@ -166,7 +166,7 @@
               <tbody>
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
                 <tr><td><code>@support</code></td><td>サポート</td><td>kakerattaの使い方・仕様・設定・困りごと（新規利用時は有効）</td></tr>
-                <tr><td><code>@infographic</code></td><td>図解</td><td>文章・展開済みURL記事・解釈済み画像を表示言語でHTMLの図解に。記憶なし・常にUltra（新規利用時は有効）</td></tr>
+                <tr><td><code>@infographic</code></td><td>図解</td><td>文章・展開済みURL記事・解釈済み画像を表示言語でHTMLの図解に。記憶なし・最終回答は常にUltra（新規利用時は有効）</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
                 <tr><td><code>@sona</code></td><td>備え</td><td>外出前の持ち物、忘れ物、予定と天気を合わせた声かけ。繰り返す用事や一度きりの用の確認。新規利用時は有効</td></tr>
               </tbody>
@@ -184,7 +184,7 @@
             <li>AI が名前、話し方、覚えることの下書きを作ります。確認して <strong>この内容で保存</strong>。</li>
             <li><strong>有効にする</strong> と、以後のかけらを受け取り始めます。</li>
           </ol>
-          <p>作成・修正時に <strong>記憶する</strong>（オフにすると記憶を持たない回答専門になり、費用削減や不要なメモ防止になります）や、<strong>常に熟考する</strong>（通常の依頼もUltraで回答）を選べます。</p>
+          <p>作成・修正時に <strong>記憶する</strong>（オフにすると記憶を持たない回答専門になり、費用削減や不要なメモ防止になります）や、<strong>常に熟考する</strong>（通常の依頼も最終回答をUltraで生成）を選べます。</p>
           <figure>
             <img src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="382" height="1216" />
             <figcaption>下書きは、担当すること、話し方、メモの分類、覚えること・返事をするタイミングの順に確認できます。</figcaption>
@@ -584,14 +584,15 @@
             <table>
               <thead><tr><th>用途</th><th>モデル</th></tr></thead>
               <tbody>
-                <tr><td>振り分け、担当のふだんの返事、担当が出した操作の確認</td><td>Nemotron Super</td></tr>
-                <tr><td>「違う」「もっと詳しく」と返されたときの返事</td><td>Nemotron Ultra</td></tr>
+                <tr><td>振り分け、内蔵の全調査、ふだんの返事、予定・操作の計画と確認</td><td>Nemotron Super</td></tr>
+                <tr><td>深掘り返信・常に熟考する担当の最終回答</td><td>Nemotron Ultra</td></tr>
                 <tr><td>返信が「考え直して」という依頼かの判定</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>画像の読み取り</td><td>GLM-5.3-Flash</td></tr>
               </tbody>
             </table>
           </div>
-          <p><strong>常に熟考する</strong> がオンの担当は通常の依頼にもUltraを使います。担当の発言に「違う」「もう少し詳しく」などと返すと、考え直しの依頼かどうかを判定し、そうであれば返信先の担当が Ultra で答え直します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
+          <p><strong>常に熟考する</strong> がオンの担当は通常の依頼でも最終回答をUltraで生成します。担当の発言に「違う」「もう少し詳しく」などと返すと、考え直しの依頼かどうかを判定し、そうであれば返信先の担当が Ultra で答え直します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
+          <p>内蔵の調査と予定・操作の計画は、深掘り返信や「常に熟考する」の場合もSuperで行います。調査は通常read 10回・Web検索2回、深掘り返信と「常に熟考する」ではread 20回・Web検索4回までです。各調査roundで検索残数を伝え、0回になるとWeb検索を選択肢から外します。その後も別の利用可能なreadを使うか、調査を終えられます。未設定の道具や、記憶無効担当の記憶検索は提示しません。</p>
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
@@ -768,7 +769,7 @@
               <tbody>
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
                 <tr><td><code>@support</code></td><td>support</td><td>Questions about kakeratta, its specification, settings and problems (active by default in new workspaces)</td></tr>
-                <tr><td><code>@infographic</code></td><td>infographic</td><td>HTML diagrams of text, expanded articles and interpreted images, in the display language. No memory; always Ultra (active in new workspaces)</td></tr>
+                <tr><td><code>@infographic</code></td><td>infographic</td><td>HTML diagrams of text, expanded articles and interpreted images, in the display language. No memory; final answers always use Ultra (active in new workspaces)</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
                 <tr><td><code>@sona</code></td><td>preparation</td><td>Belongings before leaving, past omissions, upcoming plans and forecasts. Gentle follow-ups on small chores. Active by default in new workspaces</td></tr>
               </tbody>
@@ -786,7 +787,7 @@
             <li>The AI drafts a name, a way of talking, and what to remember. Review it and select <strong>Save this persona</strong>.</li>
             <li><strong>Enable</strong> it and it starts receiving fragments.</li>
           </ol>
-          <p>Creation and editing offer <strong>Remember</strong> (turning it off creates an answer-only persona, saving token costs and avoiding unwanted notes) and <strong>Always think deeply</strong> (uses Ultra for ordinary requests).</p>
+          <p>Creation and editing offer <strong>Remember</strong> (turning it off creates an answer-only persona, saving token costs and avoiding unwanted notes) and <strong>Always think deeply</strong> (uses Ultra for final answers to ordinary requests).</p>
           <figure>
             <img src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="382" height="1236" />
             <figcaption>The draft: what it helps with, how it talks, the kinds of note it keeps, what it remembers, and when it replies.</figcaption>
@@ -1186,14 +1187,15 @@
             <table>
               <thead><tr><th>Job</th><th>Model</th></tr></thead>
               <tbody>
-                <tr><td>Routing, ordinary persona replies, reviewing what a persona proposes</td><td>Nemotron Super</td></tr>
-                <tr><td>Replying again after “that's wrong” or “tell me more”</td><td>Nemotron Ultra</td></tr>
+                <tr><td>Routing, all built-in research, ordinary replies, schedule/action planning and review</td><td>Nemotron Super</td></tr>
+                <tr><td>Final answers for deeper replies and Always think deeply</td><td>Nemotron Ultra</td></tr>
                 <tr><td>Deciding whether a reply asks for a rethink</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>Reading images</td><td>GLM-5.3-Flash</td></tr>
               </tbody>
             </table>
           </div>
-          <p>Personas with <strong>Always think deeply</strong> on use Ultra for ordinary requests too. Reply to a persona with “that's wrong” or “tell me more” and the app checks whether you are asking for a rethink; if so, the persona answers again on Ultra. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
+          <p>Personas with <strong>Always think deeply</strong> on use Ultra for final answers to ordinary requests too. Reply to a persona with “that's wrong” or “tell me more” and the app checks whether you are asking for a rethink; if so, the persona answers again on Ultra. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
+          <p>Built-in research and schedule/action planning use Super, including deep replies and Always think deeply. Research allows 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep replies and Always think deeply. Each research round receives the remaining search count. At zero, Web search is removed from the choices; other available reads and finishing research remain possible. Unconfigured tools and memory queries for memoryless personas are not offered.</p>
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>

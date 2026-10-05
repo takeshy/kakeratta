@@ -11,15 +11,17 @@ import (
 )
 
 func TestResearchRoundsDoNotCountAsRetries(t *testing.T) {
-	for _, invalid := range []bool{false, true} {
-		t.Run(fmt.Sprint(invalid), func(t *testing.T) {
+	for _, mode := range []string{"valid", "no-tool", "malformed-read"} {
+		t.Run(mode, func(t *testing.T) {
 			calls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				calls++
 				switch calls {
 				case 1:
-					if invalid {
+					if mode == "no-tool" {
 						fmt.Fprint(w, `{"choices":[{"message":{"content":"no tool"}}]}`)
+					} else if mode == "malformed-read" {
+						fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r1","function":{"name":"read","arguments":"bad json"}}]}}]}`)
 					} else {
 						fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r1","function":{"name":"read","arguments":"{\"steps\":[]}"}}]}}]}`)
 					}
@@ -31,13 +33,20 @@ func TestResearchRoundsDoNotCountAsRetries(t *testing.T) {
 			client := llm.New(server.URL, "")
 			var records []llm.CallRecord
 			client.Observe = func(r llm.CallRecord) { records = append(records, r) }
-			_, err := research(context.Background(), client, "test", nil, func() bool { return true }, func([]ReadStep) string { return "read result" })
+			lookups := 0
+			_, err := research(context.Background(), client, "test", nil, func() readCapabilities { return readCapabilities{records: true, readsRemaining: maxReads} }, func([]ReadStep) string {
+				lookups++
+				return "read result"
+			})
 			if err != nil || len(records) != 2 {
 				t.Fatalf("records=%+v error=%v", records, err)
 			}
 			wantRetry := 0
-			if invalid {
+			if mode != "valid" {
 				wantRetry = 1
+			}
+			if lookups != 1-wantRetry {
+				t.Fatalf("invalid research consumed a read: %d", lookups)
 			}
 			if records[0].Round != 1 || records[0].RetryCount != 0 || records[1].Round != 2 || records[1].RetryCount != wantRetry || records[1].Purpose != "research" {
 				t.Fatalf("records=%+v", records)

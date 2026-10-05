@@ -134,10 +134,22 @@ func checkAnswer(answer Answer, rules turnRules) []string {
 
 // research completes before the answer tool is offered: no state-changing
 // schemas or note-writing skill consume the answer model's context.
-func research(ctx context.Context, client *llm.Client, model string, messages []llm.Message, remaining func() bool, lookup func([]ReadStep) string) ([]llm.Message, error) {
+func research(ctx context.Context, client *llm.Client, model string, messages []llm.Message, capabilities func() readCapabilities, lookup func([]ReadStep) string) ([]llm.Message, error) {
+	// Replace the live instruction instead of accumulating stale capability
+	// lists. Keep all conversation and tool-result messages for the answer.
+	messages = append([]llm.Message(nil), messages...)
+	if len(messages) == 0 || messages[0].Role != "system" {
+		messages = append([]llm.Message{{Role: "system"}}, messages...)
+	}
+	baseSystem := messages[0].Content
 	retries := 0
-	for round := 0; round < ultraReads+maxMalformed+2 && remaining(); round++ {
-		reply, err := client.Complete(ctx, llm.Request{Purpose: "research", Attempt: retries + 1, Round: round + 1, Model: model, Messages: messages, Tools: []llm.Tool{readTool, finishReadTool}, ToolChoice: "required"})
+	for round := 0; round < ultraReads+maxMalformed+2; round++ {
+		current := capabilities()
+		if current.readsRemaining <= 0 {
+			break
+		}
+		messages[0].Content = baseSystem + current.instruction()
+		reply, err := client.Complete(ctx, llm.Request{Purpose: "research", Attempt: retries + 1, Round: round + 1, Model: model, Messages: messages, Tools: []llm.Tool{current.tool(), finishReadTool}, ToolChoice: "required"})
 		if err != nil {
 			return nil, err
 		}
@@ -227,14 +239,3 @@ func capabilityLine(set *tools.Set) string {
 // handed.
 const recordsReadSpec = `記憶（分野ごとの事実と最近の記録）は最初に渡してあります。それより前のかけらの記録は {"type":"records","tool":"","args":"{\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"}"} で探します（要るものだけ）。記録の [ ] の投稿そのもの（返信なら返信もとも）は args を {\"ids\":[\"…\",\"…\"]} にして、10件までまとめて1回で読めます。
 `
-
-func readSpec(set *tools.Set, deep bool) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "\n# Read\n必要なら read を最大%d回使い、finish_read で終えます。%s\n"+recordsReadSpec, turnReadLimit(deep), searchLimitLine(set, deep))
-	for _, d := range set.Declarations() {
-		if set.IsReadOnly(d.Name) {
-			fmt.Fprintf(&b, "\n%s: %s\n%s\n例: {\"type\":\"tool\",\"tool\":%q,\"args\":%s}\n", d.Name, d.Description, argsTable(d), d.Name, jsonString(sampleArgs(d)))
-		}
-	}
-	return b.String()
-}

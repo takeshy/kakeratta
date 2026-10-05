@@ -263,7 +263,7 @@ remark and the reply and answers one question
 correction, a rethink, more detail or a deeper look ("違う", "本当？",
 "もう一度考えて", "もっと詳しく", "深掘りして")?
 
-* If so, and that persona is among the selected recipients, it answers on Ultra, once. Its
+* If so, and that persona is among the selected recipients, it researches on Super and composes the final answer on Ultra. Its
   prompt drops "keep it short" and asks for a thorough answer in Markdown.
 * Thanks, ordinary follow-up questions, new topics, and failed classification use
   the ordinary model choice (Super by default, Ultra when Always think deeply is on).
@@ -282,8 +282,7 @@ user said, in so many words, that they want more. That keeps the small model's
 task narrow, and it makes the difference between the models visible: Super is
 the everyday voice, Ultra is what the user reaches for.
 
-**Always think deeply** (`alwaysUltra`) selects the high model and deeper
-research budget for every wake, including ordinary requests. It does not
+**Always think deeply** (`alwaysUltra`) selects the high model only for final-answer composition, and keeps the deeper research budget for every wake, including ordinary requests. Research and schedule/action planning, including regeneration, use Super. It does not
 change external delegation; Ultra is used when the built-in planner takes
 over. Infographic ships with this on. Other personas default to off; ordinary
 thanks and follow-ups use Super only while it is off.
@@ -298,7 +297,10 @@ post / reply
  ↓ the image is read once
  ↓ direct recipient selection, or ordinary routing
  ↓ a reply to a persona's remark: Lightning → {"escalate": true|false}
-selected recipients run in parallel; use Ultra when escalated or alwaysUltra is on
+selected recipients run in parallel
+ ↓ research on Super, choosing read or finish_read each round
+ ↓ final answer on Ultra when escalated or alwaysUltra is on; otherwise Super
+ ↓ schedule/action planning on Super
 ```
 
 ## A workflow assembled phase by phase, not written in one call
@@ -369,6 +371,14 @@ Memoryless personas with only read tools skip schedule/action planning and revie
 
 See [persona execution](./system/personas.md#from-research-to-answer-publication) and [background work](./system/architecture.md) for the implementation details.
 
+### Research budgets and available reads
+
+Built-in research uses up to 10 read calls and 2 Web searches normally, or 20 reads and 4 Web searches for deep replies and AlwaysUltra. At each round, the host rebuilds the read schema and current instruction from the execution budget. It reports the remaining Web searches, highlights the last slot, and removes `web_search` from the permitted tool enum and usage instructions at zero. Each step is budget-checked, including several searches in one read or several read calls in one reply.
+
+Zero Web searches does not stop research: available timeline, memory, and other reads can continue, and `finish_read` remains offered. Unknown, undeclared, unconfigured, and otherwise unavailable reads are filtered out. Memoryless personas receive no `records` branch or instructions; `entries` preserves direct post reads by known IDs. The host replaces the live instruction each round and keeps all tool results for the answer. External-agent interfaces and phase budgets remain separate.
+
+See [Research budgets and available reads](./system/personas.md#research-budgets-and-available-reads) for execution details and tests. The [production usage report](./production-model-usage-2026-10-05_ja.md) records the earlier Ultra loop and estimates the effect of model separation; it is not a post-deployment measurement.
+
 ### A turn, phase by phase
 
 The following describes a memory-enabled turn; memoryless read-only turns
@@ -382,19 +392,19 @@ the answer is the same either way.
 
 1. **Read.** Its field summaries, the facts that hold now, and its latest 15
    records are handed over at the start of every turn. It may then ask, up to ten times (twenty in
-   an Ultra turn for a deeper answer), to look at things: older records by tag,
+   a deep or AlwaysUltra turn), to look at things: older records by tag,
    words, meaning or month, the posts records point to (up to ten at once), a timeline search, a web
    search, a place or route lookup. Only read-only tools run here; an MCP tool
    counts as read-only only when its server marks it `readOnlyHint`. Reading
    writes nothing, so the app just does it and hands the results back.
-2. **Answer.** With the reading done, the persona hands in only
+2. **Answer.** With the reading done, the complete conversation and tool results pass directly to answer composition: Super normally, Ultra for deep replies or AlwaysUltra. Only `submit_answer` is offered, so Ultra does not run research. A valid submission needs one composition call; existing correction retries remain. The persona hands in only
    `{text, sources}`. Its prompt holds no note format, memory layout or
    change schema, and it is not told to keep notes. It is told what the later
    phases can do for it (`capabilities`), so it does not promise a reminder or
    an action the persona cannot make. An empty text is silence; a named turn
    must answer, a listening turn must not. The answer is fixed from here on:
    no later phase can change it.
-3. **Schedule phase.** A separate call, on the same model, sees the finished
+3. **Schedule phase.** A separate call on Super sees the finished
    answer and the schedules already placed, and hands in `submit_schedule`:
    create, update, and cancel operations. Updates change time or Push preference;
    purpose and recurrence changes use cancel/create. Each
@@ -403,7 +413,7 @@ the answer is the same either way.
    (`consistent`, with a `reason`). "I cancelled it" with no cancel, or "I'll
    ask you at 22:30" with nothing placed, is sent back; if it cannot be made
    consistent, the turn stops and the answer is not published.
-4. **Action phase.** Only for a persona that holds a tool that acts. It hands
+4. **Action phase.** Only for a persona that holds a tool that acts. Super hands
    in `submit_action` — the tool calls and their arguments — with the same
    consistency statement about what the answer promised.
 5. **Checked by code, every time.** Known operation types, declared tools and no
@@ -441,7 +451,7 @@ in and how many submissions it took.
 
 `internal/persona/notekeeper.go`. After the remark is published, the persona
 keeps what the turn should leave behind, on the middle model (Super by default,
-even in an Ultra turn), in its own voice. It runs for a fragment of the user's - a post,
+even when Ultra composes the answer), in its own voice. It runs for a fragment of the user's - a post,
 a reply, an edit, also when the persona stayed quiet or could not speak - for a
 check-in handed records due for review. Schedule wakes, deletion tidy-ups, and
 out-of-domain silence do not run it. On deletion, the host removes the records
@@ -508,8 +518,8 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | Ordinary persona answers and phases, routing, and workflow review      |
-| **Nemotron 3 Ultra**       | Deeper replies, Always think deeply personas, and persona drafting |
+| **Nemotron 3 Super**       | All built-in research, ordinary answers, schedule/action phases, routing, and workflow review      |
+| **Nemotron 3 Ultra**       | Final answers for deep replies and AlwaysUltra, plus persona drafting |
 | **Nemotron 3.5 Lightning** | Judging whether a reply asks for a better answer; dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
 | **Qwen3-Embedding-8B**     | Meaning search over past fragments                                    |

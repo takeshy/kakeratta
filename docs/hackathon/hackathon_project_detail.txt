@@ -97,7 +97,7 @@ kakeratta also runs locally as a single-user app, storing everything as plain fi
 | **10. Publish** | The answer is saved to the timeline and shown. If it is a scheduled notification, the push is sent here. |
 | **11. Update memory** | The note keeper picks which facts and records to keep from the user's fragment and saves them. If this fails, the published answer stands and the memory update is retried later. |
 
-Selected personas run in parallel, while delivery order within a conversation is preserved.
+Selected personas run in parallel, while delivery order within a conversation is preserved. In the built-in path, Super controls every research round and plans schedules/actions. Deep replies and AlwaysUltra use Ultra only to compose the final answer from the complete research transcript. Each research round receives its remaining Web-search allowance; exhausted or unavailable reads are removed from the schema. Other reads and finishing research remain available after Web search runs out.
 
 The turn is split so that **the AI writing the answer is never asked to produce schedules, actions, and memory in the same breath**. It focuses on the answer first. State changes are planned and checked separately, and memory is updated only after the answer is published.
 
@@ -107,8 +107,8 @@ Not every turn goes through every stage. A persona without memory and without pe
 
 | Model | Role |
 | --- | --- |
-| Nemotron 3 Ultra | Drafting personas, deeper answers on request, HTML infographics (`alwaysUltra: true`) |
-| Nemotron 3 Super | Routing, normal persona turns, workflow review |
+| Nemotron 3 Ultra | Drafting personas; final answers for deep replies and AlwaysUltra, including HTML infographics |
+| Nemotron 3 Super | Routing, all built-in research, ordinary final answers, schedule/action planning, workflow review |
 | Nemotron 3.5 Lightning | Judging whether a reply asks for escalation to Ultra; polishing dictated text |
 | GLM-5.3-Flash | Understanding photos and screenshots |
 | Qwen3-Embedding-8B | Meaning search over past fragments |

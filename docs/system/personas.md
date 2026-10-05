@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Persona execution and memory"
-description: "Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections."
-tags: ["persona", "skill", "support", "infographic", "html", "ultra", "routing", "answer", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
+description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections."
+tags: ["persona", "skill", "support", "infographic", "html", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
 updated: "2026-10-05"
 ---
 
-Persona definitions, built-in support and infographics, routing, research, reviewed actions, optional memory, schedules, and corrections.
+Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections.
 
 # Persona definitions and the Catalogue
 
@@ -42,7 +42,7 @@ Support defaults to `memoryEnabled: false`: it answers without keeping private n
 
 ## Built-in infographics
 
-`infographic` (name `インフォグラフィック`, icon 📊) handles explicit requests to turn a post or conversation into an infographic. Its definition defaults to `memoryEnabled: false` and `alwaysUltra: true`; it does not save notes or wake for periodic check-ins, and ordinary requests use the high (Ultra) model. Its external-agent preference follows the ordinary rules and defaults off. New workspaces activate it together with sona and support; saved activation selections remain authoritative.
+`infographic` (name `インフォグラフィック`, icon 📊) handles explicit requests to turn a post or conversation into an infographic. Its definition defaults to `memoryEnabled: false` and `alwaysUltra: true`; it does not save notes or wake for periodic check-ins, and ordinary requests generate their final answer with the high (Ultra) model after Super research. Its external-agent preference follows the ordinary rules and defaults off. New workspaces activate it together with sona and support; saved activation selections remain authoritative.
 
 The persona submits a complete HTML document in `Answer.Text`, beginning with `<!DOCTYPE html>`, with inline CSS and SVG, responsive layout, and no scripts or external assets. The host persists the text unchanged; the browser displays complete HTML answers in an isolated frame. Normal prose remains available for clarification when source material is missing. URL requests use the page title and body already attached by `readLink`, and image requests use the description and extracted text already produced by `readCapture`. A reply's thread carries the original material. When a user replies to another persona's answer with `@infographic`, the replied-to answer is the diagram's subject, with original material used as background or evidence. An explicitly requested different subject, such as the original post or whole thread, takes precedence. Failed retrieval or interpretation must not be replaced with invented content.
 
@@ -50,7 +50,7 @@ The persona submits a complete HTML document in `Answer.Text`, beginning with `<
 
 ## Always thinking deeply
 
-`Skill.AlwaysUltra` (`alwaysUltra`, default false) forces `Runner.run` onto `ultraModel`, the `ultra` display slot, and the deeper research budget for any wake. The high model falls back to the configured middle/low model when absent, as with an explicit deeper reply. A normal request with this setting uses a length instruction that does not claim the user requested a revision of an earlier answer. It does not enable or disable external delegation: a preferred external agent still answers, with the built-in Ultra path used on fallback. The creation and editing forms expose this option, and an AI revision that omits it retains the saved value.
+`Skill.AlwaysUltra` (`alwaysUltra`, default false) selects `ultraModel` only for final-answer composition in `Runner.run`, the `ultra` display slot, and the existing deeper research budget for any wake. Research and schedule/action planning use `personaModel` (Super), including phase regeneration. The high model falls back to the configured middle/low model when absent, as with an explicit deeper reply. A normal request with this setting uses a length instruction that does not claim the user requested a revision of an earlier answer. It does not enable or disable external delegation: a preferred external agent still answers, with the built-in Ultra path used on fallback. The creation and editing forms expose this option, and an AI revision that omits it retains the saved value.
 
 ## Optional persona memory
 
@@ -144,9 +144,36 @@ flowchart TD
   Publish --> Keeper[Keep the record and fields with the note keeper]
 ```
 
-The built-in model researches through `research`, calls `finish_read` to move to answering, and submits an `Answer` with `submit_answer`. When the answer is asked of the external agent, the turn opens an ask and ends; once the ask closes, a reaction carries the turn on with the agent's answer and research, which enter the same subsequent processing, or with the built-in planner from the start.
+The built-in path separates research, answer, and phase models. Super runs every research round and chooses between `read` (continue) and `finish_read` (finish). `research` passes its messages, including the original conversation, assistant tool calls and tool results, directly to `composeAnswer`; no summarization replaces that context. Only `submit_answer` is offered during final-answer composition, so Ultra cannot run another research loop.
+
+| Turn | Research | Final answer | Schedule/action phases |
+| --- | --- | --- | --- |
+| Ordinary | Super | Super | Super |
+| Deep reply | Super | Ultra | Super |
+| AlwaysUltra | Super | Ultra | Super |
+| Deep reply and AlwaysUltra | Super | Ultra | Super |
+
+Lightning still classifies eligible replies as deep. Deep and AlwaysUltra retain 20 research reads and 4 Web searches; ordinary turns retain 10 reads and 2 Web searches. Phase read budgets remain separate. Super falls back from the configured middle model to low; Ultra falls back from high to middle to low. The remark's model slot and workflow log model describe the answer; per-call usage records identify each stage's actual model.
+
+A valid answer takes one composition call after research. Existing bounded correction retries for malformed or invalid answers remain in the answer stage and do not reopen research. When the answer is asked of the external agent, the turn opens an ask and ends; once the ask closes, a reaction carries the turn on with the agent's answer and research, which enter the same subsequent processing, or with the built-in planner from the start.
 
 `Answer` contains text and source entry IDs. Sources must be IDs found through timeline search in this turn. Web evidence is linked in the answer body. Silence uses empty text, with `Unrelated` distinguishing an out-of-domain turn.
+
+## Research budgets and available reads
+
+At the start of each built-in research round, `currentReadCapabilities` rebuilds the offered `read` schema and the current system instruction from the persona, permitted tools, post location, remaining read calls, and the existing `lookups` budget. `SearchRemaining` derives the effective allowance from the search and shared lookup counters; there is no independent display counter. The model sees `Web検索: 残り N 回` both in the instruction and the tool description. One remaining search is explicitly identified as the last slot. At zero, the instruction says Web search is unavailable and asks the model to use other available reads or `finish_read`.
+
+The `read` schema uses separate operation branches and enumerates only currently available tool names. Once Web search runs out, `web_search` disappears from that enum and its usage instructions are removed. The current instruction replaces its previous version instead of appending stale capability lists. Read-result footers also report the latest remaining allowance and available operations. Historical tool results stay in the conversation for answer composition.
+
+Read availability also follows known configuration and capabilities: missing search/weather keys, missing search or schedule services, missing map endpoints, unavailable route origin, unknown or undeclared tools, and state-changing tools are not advertised as research reads. Map tools backed by an MCP delegate remain available when their local fallback endpoints are absent. Argument-dependent errors and transient provider failures can still occur; these checks do not probe remote service health.
+
+A memoryless persona is offered neither the `records` schema branch nor its instructions. The separate `entries` operation preserves direct timeline-post reads by known IDs, without querying memory: its JSON-string `args` must identify posts, with the existing limit of ten per read. A remembering persona retains `records` queries and may also use `entries`. Existing `records` requests by explicit IDs remain supported for compatibility.
+
+Web search exhaustion does not end research. Timeline search and other configured read-only tools remain available while the shared lookup allowance lasts; memory records and direct entry reads do not consume that lookup allowance. `finish_read` remains offered on every research request. The existing 10/20 read-call ceiling still ends research when exhausted.
+
+The execution path continues to enforce budgets for each individual tool step, including multiple steps in a single `read` and multiple calls in one model reply. Excess searches are refused before network execution. Repeated cached lookups do not spend another search; admitted failed lookups still spend their allowance. Schema-violating requests retain execution-time refusals and the next round rebuilds the latest capabilities. Malformed-response retry accounting and the bounded round loop are unchanged.
+
+This dynamic schema belongs to built-in answer research. External-agent asks and schedule/action phase schemas retain their existing interfaces and separate budgets. Model usage logging is unchanged; usage rounds and workflow read results remain the evidence for production checks after deployment.
 
 ## Conditions for publication
 
@@ -156,15 +183,21 @@ If `execute` fails, the answer is not published as though its promised operation
 
 Failure in the note keeper after publication does not retract an already published answer. A turn that stays silent because it is unrelated skips memory updates.
 
-Research reads are `records` steps (older kakera records by `tag`, `query`, and `before` month, or by `ids` - up to ten in one step, `maxEntryReads` - the entries records point to, each with the kakera it answered when it is a reply; an entry read that way may be cited in `sources`) and read-use tool steps (`readAll`).
+Research reads include `entries` steps for direct timeline posts by ID, `records` steps (older kakera records by `tag`, `query`, and `before` month, or by `ids` - up to ten in one step, `maxEntryReads` - the entries records point to, each with the kakera it answered when it is a reply; an entry read that way may be cited in `sources`) and read-use tool steps (`readAll`).
 
 ## Implementation and verification
 
 - [runner.go](../../internal/persona/runner.go): `run`
 - [answer.go](../../internal/persona/answer.go): `research`, `composeAnswer`
+- [research_reads.go](../../internal/persona/research_reads.go): current capability schema, instructions, and footers
+- [lookups.go](../../internal/persona/lookups.go): execution counters and `SearchRemaining`
+- [research_reads_test.go](../../internal/persona/research_reads_test.go): live remaining counts, schema removal, multi-step/multi-call budget enforcement, memoryless and continued timeline reads
+- [lookups_test.go](../../internal/persona/lookups_test.go): cache, shared budget, and restoration
+- [usage_test.go](../../internal/persona/usage_test.go): malformed research requests and retry accounting
 - [phases.go](../../internal/persona/phases.go): `planPhases`
 - [workflow.go](../../internal/persona/workflow.go)
 - [answer_test.go](../../internal/persona/answer_test.go)
+- [model_selection_test.go](../../internal/persona/model_selection_test.go): stage models, preserved research context and budgets, and fallback selection
 
 # Memory: facts, summaries, and kakera records
 

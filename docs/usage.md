@@ -116,8 +116,7 @@ is enabled unless explicitly disabled; support and infographic default to off.
 Turning it off stops private memory reads and updates and daily/monthly
 check-ins. Existing notes stay stored for when you enable it again. Memory
 controls disappear, while explicit reminders and external-agent preferences
-remain available. Always thinking deeply uses the high (Ultra) model and its
-deeper research budget even for ordinary requests; an external-agent preference
+remain available. Always thinking deeply uses the high (Ultra) model for final answers and the deeper research budget even for ordinary requests. Built-in research and schedule/action planning stay on Super; an external-agent preference
 still works, with Ultra used if kakeratta takes the turn back.
 
 ### Turn a post or answer into an infographic
@@ -421,8 +420,8 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 - Nemotron 3.5 Lightning — judging whether a reply asks for a better answer, and optional dictation polishing
-- Nemotron Super — routing, ordinary persona answers, and workflow review
-- Nemotron Ultra — deeper replies, personas with Always think deeply on, and persona drafting
+- Nemotron Super — routing, all built-in research, ordinary answers, schedule/action planning, and workflow review
+- Nemotron Ultra — final answers for deeper replies and Always think deeply, plus persona drafting
 - Nebius Token Factory — inference backend
 
 Routing uses Nemotron Super by default. Under Advanced options → Use OpenRouter, enter an API key
@@ -440,8 +439,9 @@ Qwen3-Embedding-8B on the same backend.
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
 | Judging replies to an answer | low | Nemotron 3.5 Lightning |
-| Ordinary persona answers | middle | Nemotron Super |
-| Deeper replies / Always think deeply | high | Nemotron Ultra |
+| Research and schedule/action planning, including deep and AlwaysUltra | middle | Nemotron Super |
+| Ordinary final answers | middle | Nemotron Super |
+| Final answers for deeper replies / Always think deeply | high | Nemotron Ultra |
 | Reading images / OCR | fixed | GLM-5.3-Flash |
 | Routing | router (or Jev) | Nemotron Super |
 | Workflow review | middle | Nemotron Super |
@@ -461,7 +461,7 @@ asking for a correction, a rethink, more detail or a deeper look ("違う",
 Ultra, marked with an Ultra badge. Thanks,
 ordinary follow-up questions and new topics stay on Super unless Always think
 deeply is enabled.
-The persona can use `read` up to 10 times in an ordinary turn and 20 times in an Ultra turn.
+Built-in research always uses Super; deep replies and Always think deeply switch only final-answer generation to Ultra. Research permits up to 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep replies and Always think deeply. Each round receives the remaining search count. At zero, Web search is removed from the choices, while other available reads and finishing research remain possible. Unconfigured tools and memory reads for memoryless personas are not offered.
 
 Once an external agent's connection key has been issued and **Use the external agent**
 is enabled in settings, each persona can turn on
@@ -470,11 +470,11 @@ or Obsidian's [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-
 (the checkbox appears only while a connection is configured and external-agent use is enabled).
 Such a persona hands only the part that reads the context, looks things up and
 writes the answer to the agent connected over MCP. kakeratta then decides the
-turn's schedules, actions and notes on the persona's own model, assembles them
+turn's schedules, actions and notes on Super, assembles them
 with the answer into a workflow, reviews it as in the table above when it holds a
 schedule or an action, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
-15 minutes of the claim, the built-in model (normally Super, or Ultra with Always think deeply on) answers instead. The waits are under Advanced options →
+15 minutes of the claim, the built-in path researches on Super and answers on Super, or Ultra for deep replies or Always think deeply. The waits are under Advanced options →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 

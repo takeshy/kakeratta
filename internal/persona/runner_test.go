@@ -32,8 +32,9 @@ type fake struct {
 	mu         sync.Mutex
 	prompts    []string
 	// models are the model each prompt was sent to, by the same index.
-	models []string
-	reply  func(system, user string) string
+	models       []string
+	answerModels map[string][]string
+	reply        func(system, user string) string
 	// reviews are the app's own checks, kept apart from what the personas were
 	// asked so a test counting persona calls is not counting those. review
 	// scripts a verdict; unset, every workflow passes.
@@ -137,6 +138,15 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 			return
 		}
 		names := toolNames(body.Tools)
+		if names["submit_answer"] {
+			f.mu.Lock()
+			if f.answerModels == nil {
+				f.answerModels = map[string][]string{}
+			}
+			answerKey := strings.Split(system, "\n")[0]
+			f.answerModels[answerKey] = append(f.answerModels[answerKey], body.Model)
+			f.mu.Unlock()
+		}
 		key := strings.Split(system, "\n")[0]
 		phase := ""
 		for _, name := range []string{"schedule", "action"} {
@@ -512,13 +522,13 @@ func (f *fake) modelFor(name string) string {
 	return ""
 }
 
-// lastModelFor returns the model the persona with this name was last asked on.
+// lastModelFor returns the final-answer model for the persona with this name.
 func (f *fake) lastModelFor(name string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for i := len(f.prompts) - 1; i >= 0; i-- {
-		if strings.HasPrefix(f.prompts[i], "あなたは「"+name+"」") {
-			return f.models[i]
+	for prompt, models := range f.answerModels {
+		if strings.HasPrefix(prompt, "あなたは「"+name+"」") {
+			return models[len(models)-1]
 		}
 	}
 	return ""
@@ -748,7 +758,7 @@ func replyTo(t *testing.T, s *store.Store, parent timeline.Entry, text string) t
 }
 
 // The persona replied to may already be a recipient - routed, or @mentioned.
-// It still takes one turn, and that turn is on Ultra.
+// It still takes one turn, with Super research and one Ultra answer.
 func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 	for _, tc := range []struct{ name, reply, routed string }{
 		{"routed", "もっと詳しく", `{"deliver":["gourmet"]}`},
@@ -790,8 +800,8 @@ func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 				t.Fatal("tabe was not asked")
 			}
 			for _, model := range models {
-				if model != store.NemotronUltra {
-					t.Fatalf("tabe was asked on %v, want Ultra only", models)
+				if model != store.NemotronSuper {
+					t.Fatalf("tabe researched on %v, want Super only", models)
 				}
 			}
 			if said := remarks(t, s); len(said) != 2 || said[1].Model != "ultra" {
@@ -1544,7 +1554,7 @@ func TestThePhasePromptsFollowThePersonasTools(t *testing.T) {
 	if !strings.HasPrefix(sona, "あなたは「ぷらな」。やさしく") {
 		t.Fatalf("a phase does not open as the persona: %q", sona)
 	}
-	read := readSpec(registry.For([]string{"web_search"}), false)
+	read := currentReadCapabilities(skill, registry.WithTavilyKey("test-key").For([]string{"web_search"}), newLookups(maxReads, maxSearches), nil, maxReads).instruction()
 	if !strings.Contains(read, "web_search") || strings.Contains(read, "write_note") {
 		t.Fatal("research spec contains memory actions or omits search")
 	}

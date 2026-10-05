@@ -705,13 +705,16 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	deep = deep || skill.AlwaysUltra
 
 	root := timeline.RootOf(trigger)
-	// deep is a reply asking for a better or deeper answer: Ultra, and a
-	// remark allowed to be as long as the answer needs.
-	model, slot := personaModel(settings), "super"
+	// Research and state-changing phases always use Super. Only the final
+	// answer switches to Ultra; the deeper lookup budget remains independent.
+	researchModel := personaModel(settings)
+	answerModel := personaModel(settings)
+	phaseModel := personaModel(settings)
+	slot := "super"
 	if deep {
-		model, slot = ultraModel(settings), "ultra"
+		answerModel, slot = ultraModel(settings), "ultra"
 	}
-	if client == nil || client.BaseURL == "" || model == "" {
+	if client == nil || client.BaseURL == "" || researchModel == "" || answerModel == "" || phaseModel == "" {
 		return nil
 	}
 	if resumed == nil {
@@ -744,7 +747,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if skill.ID == "infographic" {
 		length += infographicRules(trigger, thread)
 	}
-	system := answerSystem(skill, length) + readSpec(set, deep) + capabilityLine(set)
+	system := answerSystem(skill, length) + fmt.Sprintf("\n# Read\n必要なら read を最大%d回使い、finish_read で終えます。\n", turnReadLimit(deep)) + capabilityLine(set)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -792,7 +795,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// referenced are the records read this turn, for their dates to move.
 	referenced := map[string]bool{}
 
-	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: model, Reviewer: reviewModel(settings)}
+	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: answerModel, Reviewer: reviewModel(settings)}
 	defer func() { logRun(record) }()
 	failed := func(err error) *timeline.Entry {
 		record.Error = err.Error()
@@ -827,6 +830,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			read = append(read, text)
 			record.Reads = append(record.Reads, readRecord{Steps: steps, Output: preview(text)})
 			*used++
+			if answering {
+				return text + currentReadCapabilities(skill, set, budget(), post.Place, limit-*used).footer()
+			}
 			return text + readFooter(limit-*used, set)
 		}
 	}
@@ -894,11 +900,13 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	if answer == nil {
 		var err error
-		messages, err = research(ctx, client, model, messages, func() bool { return readsUsed < readLimit }, lookup)
+		messages, err = research(ctx, client, researchModel, messages, func() readCapabilities {
+			return currentReadCapabilities(skill, set, budget, post.Place, readLimit-readsUsed)
+		}, lookup)
 		if err != nil {
 			return failed(err)
 		}
-		answer, err = composeAnswer(ctx, client, model, messages, rules)
+		answer, err = composeAnswer(ctx, client, answerModel, messages, rules)
 		if err != nil {
 			return failed(err)
 		}
@@ -906,9 +914,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	record.Answer = answer
 	encodedAnswer, _ := json.Marshal(answer)
 	phaseContext := user + "\n\nこのターンに読んだ内容:\n" + strings.Join(read, "\n\n") + "\n\n完成した Answer:\n" + string(encodedAnswer)
-	// The phases run on the model the turn runs on: one turn, one voice.
+	// Schedule and action planning stay on Super, including regeneration.
 	log := turnLog{}
-	plan, err := r.planPhases(ctx, client, model, skill, *answer, phaseContext, wakeInstructions, rules, phaseLookup,
+	plan, err := r.planPhases(ctx, client, phaseModel, skill, *answer, phaseContext, wakeInstructions, rules, phaseLookup,
 		func(plan Workflow) (*Review, error) {
 			return r.review(ctx, client, settings, skill, thread, trigger, *answer, plan,
 				"既存の予定:\n"+scheduleList+"\n読んだ内容:\n"+clip(strings.Join(read, "\n\n"), 20000), names, here)
@@ -1096,14 +1104,14 @@ func turnLine(named, listening bool) string {
 	return ""
 }
 
-// personaModel is the model every persona answers on: Super, or whatever sits
+// personaModel handles research, phases and ordinary answers: Super, or whatever sits
 // in the middle slot. An unset slot falls back to the light one so a
 // single-model setup still works.
 func personaModel(settings store.Settings) string {
 	return firstSet(settings.MiddleModel, settings.LowModel)
 }
 
-// ultraModel answers a reply that asked for a better or deeper answer.
+// ultraModel composes final answers for deep replies and AlwaysUltra personas.
 func ultraModel(settings store.Settings) string {
 	return firstSet(settings.HighModel, settings.MiddleModel, settings.LowModel)
 }

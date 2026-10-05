@@ -291,7 +291,7 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 }
 
 // planPhases assembles the state-changing plan one phase at a time, on the
-// model the turn runs on. The plan is code-checked every time it is touched;
+// persona model (Super), independently of the answer model. The plan is code-checked every time it is touched;
 // a review runs only when it holds a schedule or an action, and a failed
 // review regenerates only the phases it blamed - the answer and the notes
 // stay as they are.

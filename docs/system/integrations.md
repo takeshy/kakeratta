@@ -3,7 +3,7 @@ type: "Integration"
 title: "External agents, tools, and sharing"
 description: "External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky."
 tags: ["mcp", "agent", "tools", "support", "bluesky", "sharing", "weather"]
-updated: "2026-10-04"
+updated: "2026-10-05"
 ---
 
 External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
@@ -45,6 +45,8 @@ An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the
 `Registry` holds built-in tools and tools from operator-configured MCP servers. `For(skill.Tools).As(skill.ID)` builds the persona's permitted set. Shared timeline search and access to the persona's own memory are also available. A persona permitted to use `schedule` automatically receives the read-only `schedules_list` tool, including in external-agent asks, to inspect filtered, paginated workspace schedules on demand. The schedule creation argument `user_requested` distinguishes tasks explicitly requested at a time or recurrence from autonomous checks; listings and own-schedule context expose that flag and the effective `notify` preference. The host schedule phase can update an owned schedule's time or Push preference without replacing its identity; external agents still submit answers only. The notification preference is persisted with an external ask and restored when its answer or fallback resumes. The host's schedule phase and review choose and check the flag, including after an external-agent answer, and scheduled wakes use it to select task or brief-reminder instructions; see [Scheduled wakes](./personas.md#scheduled-wakes).
 
 A tool `Declaration` carries a name, description, JSON Schema, and read-only status. Research tools are separated from schedule and action tools. The host validates model-supplied arguments and makes the actual network requests. Built-in tools apply their own argument checks. For external MCP tools, `checkArgs` checks required top-level keys and the basic types of non-null top-level values only; it is not a complete JSON Schema validator. Enum values, ranges, nested constraints, additional properties, and nullability remain the external server's responsibility. Tool schemas are passed to the model unchanged.
+
+For built-in answer research, `Set.ReadAvailable` additionally filters out tools known to be unusable from their configuration or the current post: missing keys/services, unavailable map endpoints, or a route without an origin. A delegated MCP map tool does not require its built-in fallback endpoints to be configured. This availability check does not execute the tool or change the persona's permissions. The research host combines it with live search/lookup budgets to generate the per-round read schema and instructions; see [Research budgets and available reads](./personas.md#research-budgets-and-available-reads). External-agent tool declarations and execution-time argument validation retain their existing behavior.
 
 ## Connections
 
@@ -91,7 +93,8 @@ The [WeatherAPI documentation](https://www.weatherapi.com/docs/) defines forecas
 - [kakeratta_help.go](../../internal/tools/kakeratta_help.go): reading the shipped specification
 - [kakeratta_help_test.go](../../internal/tools/kakeratta_help_test.go): chapter retrieval, bundle links, path validation, and declared permissions
 - [bundle.go](./bundle.go): embedded OKF bundle
-- [tools.go](../../internal/tools/tools.go)
+- [tools.go](../../internal/tools/tools.go): permissions, declarations, and `ReadAvailable`
+- [read_availability_test.go](../../internal/tools/read_availability_test.go): configuration, location, permissions, and MCP delegation
 - [config.go](../../internal/tools/config.go)
 - [weather.go](../../internal/tools/weather.go): WeatherAPI requests, validation, projection, and safe errors
 - [weather_test.go](../../internal/tools/weather_test.go): forecasts, location fallback, filtering, provider failures, credentials, and redirects; opt-in live check

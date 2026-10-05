@@ -63,9 +63,10 @@ func (a Args) num(name string, fallback float64) float64 {
 
 // Tool is one capability, with the line that tells a persona how to ask for it.
 type Tool struct {
-	ReadOnly bool
-	Name     string
-	Usage    string
+	ReadOnly  bool
+	delegated bool
+	Name      string
+	Usage     string
 	// Parameters is the JSON Schema for the arguments, so the model is given
 	// the shape rather than asked to copy an example out of prose.
 	Parameters map[string]any
@@ -209,6 +210,39 @@ func (s *Set) IsReadOnly(name string) bool {
 		return true
 	}
 	return s.registry.tools[name].ReadOnly
+}
+
+// ReadAvailable excludes capabilities known to be unusable before arguments
+// are supplied. Permissions and execution-time validation still apply.
+func (s *Set) ReadAvailable(name string, at *timeline.Place) bool {
+	if !s.IsReadOnly(name) {
+		return false
+	}
+	r := s.registry
+	switch name {
+	case "web_search":
+		return strings.TrimSpace(r.tavilyKey) != ""
+	case "timeline_search":
+		return r.search != nil
+	case "weather_forecast":
+		return strings.TrimSpace(r.config.Weather.APIKey) != ""
+	case "schedules_list":
+		return r.schedules != nil
+	case "place_search":
+		if r.tools[name].delegated {
+			return true
+		}
+		if at != nil {
+			return strings.TrimSpace(r.config.Places.Overpass) != ""
+		}
+		return strings.TrimSpace(r.config.Places.Nominatim) != ""
+	case "route":
+		return at != nil && (r.tools[name].delegated ||
+			(strings.TrimSpace(r.config.Places.Nominatim) != "" &&
+				(strings.TrimSpace(r.config.Places.Route) != "" || strings.TrimSpace(r.config.Places.WalkingRoute) != "")))
+	default:
+		return true
+	}
 }
 
 // Declarations lists what this persona may call, for a request that carries

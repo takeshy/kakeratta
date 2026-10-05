@@ -73,6 +73,7 @@ func preferMCP(tool Tool, listed []mcp.Listed) Tool {
 			continue
 		}
 		name, qualified, builtin := tool.Name, candidate.QualifiedName(), tool.run
+		tool.delegated = true
 		tool.run = func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error) {
 			forwarded, ok := d.args(args, at)
 			if !ok {

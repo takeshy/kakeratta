@@ -21,7 +21,7 @@ post / reply
  ↓ the image is read once                  (GLM-5.3-Flash)
  ↓ routing           Nemotron Super (or optional Jev) matches it against each persona's routing condition
  ↓ a reply to a persona's remark: Nemotron 3.5 Lightning answers one question - does it ask for a better answer?
- ↓ every recipient, in parallel, one turn   (Nemotron Super; the replied-to persona on Ultra when it does)
+ ↓ every recipient, in parallel, one turn   (Super research; Ultra final answer for deep replies or AlwaysUltra)
      read     → field summaries and facts, latest records, older records, timeline search, web search, places, routes
      answer   → final text and sources
      plan     → propose schedules and actions; validate structure, permissions, and arguments in code
@@ -191,7 +191,7 @@ rule refusing tools on a low persona, and the person writing a persona having
 to guess how hard its posts would be.
 
 Built-in personas normally answer on Super, with recipients running in parallel.
-**Always think deeply** selects Ultra for ordinary requests too. Plans with
+**Always think deeply** selects Ultra for final answers to ordinary requests too. All built-in research and schedule/action planning use Super. Research reports its live Web-search allowance each round and removes exhausted or unavailable reads from the schema; Web exhaustion still permits other reads or `finish_read`. Plans with
 schedules or actions pass through model review; plans without either skip it.
 Ultra is also used when the user asks for a better answer: when
 someone replies to a persona's remark, Lightning is shown the remark and the

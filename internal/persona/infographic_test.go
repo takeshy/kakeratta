@@ -120,10 +120,8 @@ func TestInfographicUsesExpandedContentAndDisplayLanguage(t *testing.T) {
 				if !ok || stored.Text != html || len(f.keeps) != 0 {
 					t.Fatal("HTML persistence or memory behavior failed")
 				}
-				for _, model := range f.models {
-					if model != "ultra-test" {
-						t.Fatalf("model = %q, expected Ultra", model)
-					}
+				if model := f.lastModelFor("インフォグラフィック"); model != "ultra-test" {
+					t.Fatalf("answer model = %q, expected Ultra", model)
 				}
 			})
 		}
@@ -172,10 +170,8 @@ func TestAlwaysUltraIsOptionalForOrdinaryPersonas(t *testing.T) {
 			if entry == nil || entry.Model != wantSlot {
 				t.Fatalf("entry = %+v", entry)
 			}
-			for _, model := range f.models {
-				if model != wantModel {
-					t.Fatalf("model = %s, want %s", model, wantModel)
-				}
+			if model := f.lastModelFor("support"); model != wantModel {
+				t.Fatalf("answer model = %s, want %s", model, wantModel)
 			}
 		})
 	}

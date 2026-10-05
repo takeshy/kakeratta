@@ -448,10 +448,18 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 		var out string
 		name := step.Type
 		switch step.Type {
-		case "records":
+		case "records", "entries":
 			args, err := argsOf(step.Args)
 			if err != nil {
 				out = "args を JSON オブジェクトとして読めません: " + err.Error()
+				break
+			}
+			if step.Type == "entries" && len(entryIDs(args)) == 0 {
+				out = "entries には投稿IDを ids で指定してください。"
+				break
+			}
+			if !skill.Remembers() && len(entryIDs(args)) == 0 {
+				out = "この担当は記憶を使いません。"
 				break
 			}
 			var ids []string

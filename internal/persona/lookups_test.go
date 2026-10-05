@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestSearchRemainingTracksSharedBudgetCacheAndRestoration(t *testing.T) {
+	budget := newLookups(3, 2)
+	if budget.SearchRemaining() != 2 {
+		t.Fatal("wrong initial search allowance")
+	}
+	budget.take("web_search", "first")
+	budget.keep("web_search", "first", "result")
+	budget.take("web_search", "first")
+	if budget.SearchRemaining() != 1 {
+		t.Fatal("cache hit spent another search")
+	}
+	budget = budget.state().restore(3, 2)
+	if budget.SearchRemaining() != 1 {
+		t.Fatal("restored allowance changed")
+	}
+	budget.take("kakeratta_help", "index")
+	budget.take("kakeratta_help", "chapter")
+	if budget.SearchRemaining() != 0 {
+		t.Fatal("shared lookup exhaustion left searches available")
+	}
+}
+
 // A turn may look things up only so many times, and never the same thing
 // twice: the second identical call is answered from the first.
 func TestLookupsAreBudgetedAndNotRepeated(t *testing.T) {
