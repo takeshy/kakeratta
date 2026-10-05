@@ -262,8 +262,8 @@ button.who-link:hover, button.who-link:focus-visible { text-decoration: underlin
 .said-markdown .token-number { color: #16736b; }
 .markdown-mermaid { overflow-x: auto; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
 .markdown-mermaid svg { display: block; width: 100%; min-width: 320px; max-height: 520px; }
-.mermaid-node { fill: var(--panel); stroke: var(--accent); stroke-width: 1.5; }
-.mermaid-node-label, .mermaid-edge-label { fill: var(--text); font: 14px system-ui, sans-serif; }
+.mermaid-node { fill: var(--card); stroke: var(--accent); stroke-width: 1.5; }
+.mermaid-node-label, .mermaid-edge-label { fill: var(--ink); font: 14px system-ui, sans-serif; }
 .mermaid-edge, .mermaid-lifeline { stroke: var(--muted); stroke-width: 1.5; }
 .mermaid-lifeline { stroke-dasharray: 5 4; }
 .mermaid-arrow { fill: var(--muted); }

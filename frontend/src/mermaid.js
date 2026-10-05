@@ -27,22 +27,30 @@ function flowchart(source) {
     const match = line.match(/^(.+?)\s*(?:--\s*([^>-]+?)\s*)?(-->|---|-.->|==>)\s*(.+?)\s*;?$/);
     if (match) {
       const from = remember(match[1]), to = remember(match[4]);
-      if (from && to) edges.push({ from, to, label: clean(match[2] || "") });
-    } else remember(line.replace(/;$/, ""));
+      if (!from || !to || from === to) return null;
+      edges.push({ from, to, label: clean(match[2] || ""), directed: match[3] !== "---" });
+    } else if (!remember(line.replace(/;$/, ""))) return null;
   }
   if (!nodes.size) return null;
   const width = direction === "horizontal" ? Math.max(320, nodes.size * 180) : 560;
   const height = direction === "horizontal" ? 180 : Math.max(180, nodes.size * 110);
   const root = svg("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Mermaid flowchart" });
   const markerId = `arrow-${Math.random().toString(36).slice(2)}`;
-  const defs = svg("defs"), marker = svg("marker", { id: markerId, viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
+  const defs = svg("defs"), marker = svg("marker", { id: markerId, viewBox: "0 0 10 10", refX: "10", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
   marker.append(svg("path", { d: "M 0 0 L 10 5 L 0 10 z", class: "mermaid-arrow" })); defs.append(marker); root.append(defs);
   const positions = new Map();
   [...nodes.values()].forEach((node, index) => positions.set(node.id, direction === "horizontal"
     ? { x: 90 + index * 180, y: 90 } : { x: width / 2, y: 60 + index * 110 }));
+  const boxWidth = id => Math.min(160, Math.max(90, nodes.get(id).label.length * 9 + 28));
+  const boundary = (center, other, id) => {
+    const dx = other.x - center.x, dy = other.y - center.y;
+    const scale = 1 / Math.max(Math.abs(dx) / (boxWidth(id) / 2 + 1), Math.abs(dy) / 25);
+    return { x: center.x + dx * scale, y: center.y + dy * scale };
+  };
   for (const edge of edges) {
     const a = positions.get(edge.from), b = positions.get(edge.to);
-    root.append(svg("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: "mermaid-edge", "marker-end": `url(#${markerId})` }));
+    const start = boundary(a, b, edge.from), end = boundary(b, a, edge.to);
+    root.append(svg("line", { x1: start.x, y1: start.y, x2: end.x, y2: end.y, class: "mermaid-edge", ...(edge.directed ? { "marker-end": `url(#${markerId})` } : {}) }));
     if (edge.label) root.append(svg("text", { x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 - 7, class: "mermaid-edge-label" }, edge.label));
   }
   for (const node of nodes.values()) {
@@ -55,11 +63,15 @@ function flowchart(source) {
 
 function sequence(source) {
   const lines = source.split("\n").map(line => line.trim()).filter(line => line && !/^(?:sequenceDiagram|%%)/i.test(line));
-  const actors = [], messages = [];
+  const actors = [], labels = new Map(), messages = [];
   const actor = id => { if (!actors.includes(id)) actors.push(id); };
   for (const line of lines) {
     const participant = line.match(/^(?:participant|actor)\s+(\S+)(?:\s+as\s+(.+))?$/i);
-    if (participant) { actor(participant[1]); continue; }
+    if (participant) {
+      actor(participant[1]);
+      labels.set(participant[1], clean(participant[2] || participant[1]));
+      continue;
+    }
     const message = line.match(/^(\S+?)\s*(-{1,2}>+|-->>|->>)\s*(\S+?)\s*:\s*(.+)$/);
     if (message) { actor(message[1]); actor(message[3]); messages.push({ from: message[1], to: message[3], label: clean(message[4]) }); }
   }
@@ -70,7 +82,7 @@ function sequence(source) {
   for (const id of actors) {
     const x = positions.get(id);
     root.append(svg("rect", { x: x - 65, y: 15, width: 130, height: 38, rx: "7", class: "mermaid-node" }));
-    root.append(svg("text", { x, y: 40, class: "mermaid-node-label", "text-anchor": "middle" }, id));
+    root.append(svg("text", { x, y: 40, class: "mermaid-node-label", "text-anchor": "middle" }, labels.get(id) || id));
     root.append(svg("line", { x1: x, y1: 53, x2: x, y2: height - 15, class: "mermaid-lifeline" }));
   }
   messages.forEach((message, index) => {

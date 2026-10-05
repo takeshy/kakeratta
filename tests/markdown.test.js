@@ -112,3 +112,46 @@ test("reading aloud says the words, not the markdown punctuation", () => {
     "Heading\ndone\nitem\nfirst\nquoted\nbold gone code ok\nlet x = 1\nPlain");
   assert.equal(spokenText("何もない"), "何もない");
 });
+
+test("unsupported flowchart statements preserve the entire source instead of a partial diagram", withDOM(() => {
+  document.createElementNS = (_namespace, tag) => new Element(tag);
+  for (const statement of ["A -->|label| B", "A --> B --> C", "subgraph group", "A --> A", "A --> B & C"]) {
+    const source = `flowchart LR\nX[Existing] --> Y[Valid]\n${statement}`;
+    const view = renderMarkdown(`\`\`\`mermaid\n${source}\n\`\`\``);
+    assert.equal(tags(view, "SVG").length, 0, statement);
+    assert.equal(text(tags(view, "PRE")[0]), source, statement);
+  }
+}));
+
+test("flowchart arrow tips stop outside node boundaries in both axes and edge directions", withDOM(() => {
+  document.createElementNS = (_namespace, tag) => new Element(tag);
+  for (const direction of ["LR", "TD"]) {
+    for (const edge of ["A --> B", "B --> A"]) {
+      const view = renderMarkdown(`\`\`\`mermaid\nflowchart ${direction}\nA[Short]\nB[A longer label]\n${edge}\n\`\`\``);
+      const [line] = tags(view, "LINE");
+      const boxes = tags(view, "RECT");
+      const target = boxes[edge.startsWith("A") ? 1 : 0].attributes;
+      const x = Number(line.attributes.x2), y = Number(line.attributes.y2);
+      const horizontal = direction === "LR";
+      const start = Number(target[horizontal ? "x" : "y"]);
+      const end = start + Number(target[horizontal ? "width" : "height"]);
+      const tip = horizontal ? x : y;
+      assert.ok(tip < start || tip > end, `${direction}: ${edge} arrowhead must be outside target`);
+      assert.equal(Math.min(Math.abs(tip - start), Math.abs(tip - end)), 1);
+      assert.match(line.attributes["marker-end"], /^url\(#arrow-/);
+      assert.equal(tags(view, "MARKER")[0].attributes.refX, "10", "marker tip is aligned with the endpoint");
+    }
+  }
+  const undirected = renderMarkdown("```mermaid\nflowchart LR\nA --- B\n```");
+  assert.equal(tags(undirected, "LINE")[0].attributes["marker-end"], undefined);
+}));
+
+test("sequence aliases are displayed while message endpoints retain participant IDs", withDOM(() => {
+  document.createElementNS = (_namespace, tag) => new Element(tag);
+  const view = renderMarkdown("```mermaid\nsequenceDiagram\nparticipant A as Alice\nactor B as Bob\nA->>B: Hello\nB->>C: Forward\n```");
+  assert.equal(tags(view, "SVG").length, 1);
+  const labels = tags(view, "TEXT").filter(node => node.attributes.class === "mermaid-node-label");
+  assert.deepEqual(labels.map(node => node.textContent), ["Alice", "Bob", "C"]);
+  const edges = tags(view, "LINE").filter(node => node.attributes.class === "mermaid-edge");
+  assert.deepEqual(edges.map(node => [node.attributes.x1, node.attributes.x2]), [[90, 270], [270, 450]]);
+}));
