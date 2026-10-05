@@ -11,6 +11,26 @@
 // model-authored text is rendered, never run.
 import { el, safeLink } from "./dom.js";
 import { htmlDocument } from "./html-document.js";
+import { renderMermaid } from "./mermaid.js";
+
+const LANGUAGES = new Set(["bash", "css", "go", "html", "javascript", "js", "json", "python", "sh", "sql", "typescript", "ts"]);
+
+function highlightedCode(source, language) {
+  const code = el("code", { class: language ? `language-${language}` : "" });
+  if (!LANGUAGES.has(language)) { code.textContent = source; return code; }
+  // A conservative lexer: matching tokens become text-only spans, so code
+  // supplied by a model can never turn into markup.
+  const token = /(\/\/[^\n]*|#[^\n]*|--[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(\b(?:const|let|var|function|return|if|else|for|while|class|import|export|from|async|await|def|True|False|None|package|func|type|struct|SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|true|false|null)\b)|(\b\d+(?:\.\d+)?\b)/g;
+  let start = 0;
+  for (const match of source.matchAll(token)) {
+    code.append(document.createTextNode(source.slice(start, match.index)));
+    const kind = match[1] ? "comment" : match[2] ? "string" : match[3] ? "keyword" : "number";
+    code.append(el("span", { class: `token-${kind}`, text: match[0] }));
+    start = match.index + match[0].length;
+  }
+  code.append(document.createTextNode(source.slice(start)));
+  return code;
+}
 
 // Emphasis, deletion, code and links. A bare URL becomes a link; anything that
 // is not http(s) stays inert text, whatever the label says.
@@ -79,9 +99,17 @@ export function renderMarkdown(text) {
     const line = lines[i];
     if (!line.trim()) { list = null; continue; }
     if (/^```/.test(line)) {
+      const language = line.slice(3).trim().toLowerCase().split(/\s+/)[0];
       const code = [];
       while (++i < lines.length && !/^```/.test(lines[i])) code.push(lines[i]);
-      result.append(el("pre", {}, el("code", { text: code.join("\n") })));
+      const source = code.join("\n");
+      if (language === "mermaid") {
+        const diagram = renderMermaid(source);
+        result.append(diagram
+          ? el("div", { class: "markdown-mermaid" }, diagram)
+          : el("div", { class: "markdown-mermaid markdown-mermaid-unsupported" },
+            el("p", { text: "Mermaid diagram" }), el("pre", {}, highlightedCode(source, ""))));
+      } else result.append(el("pre", { class: language ? "markdown-code" : "" }, highlightedCode(source, language)));
       list = null;
       continue;
     }

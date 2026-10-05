@@ -75,6 +75,17 @@ test("inline markdown renders and never runs: links, bare URLs, inert schemes", 
   assert.equal(tags(view, "A").length, 2, "the javascript: link is not a link");
 }));
 
+test("labelled code fences highlight safely and Mermaid fences become diagrams", withDOM(() => {
+  document.createElementNS = (_namespace, tag) => new Element(tag);
+  const view = renderMarkdown("```js\nconst answer = 42; // safe\n```\n```mermaid\nflowchart LR\nA[Question] --> B[Answer]\n```");
+  const [code] = tags(view, "CODE");
+  assert.equal(code.className, "language-js");
+  assert.deepEqual(tags(code, "SPAN").map(part => part.className), ["token-keyword", "token-number", "token-comment"]);
+  assert.equal(tags(view, "SVG").length, 1, "the Mermaid source is replaced by an SVG");
+  assert.ok(tags(view, "TEXT").some(node => node.textContent === "Question"));
+  assert.equal(tags(view, "SCRIPT").length, 0, "labels can never create executable markup");
+}));
+
 test("a quoted [!type] first line reads as a callout, with gemihub's aliases and folding", withDOM(() => {
   const view = renderMarkdown("> [!warning] Watch out\n> body line");
   const [callout] = tags(view, "DIV").filter((node) => node.classList.contains("markdown-callout"));
