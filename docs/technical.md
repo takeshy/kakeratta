@@ -377,7 +377,7 @@ Built-in research uses up to 10 read calls and 2 Web searches normally, or 20 re
 
 Zero Web searches does not stop research: available timeline, memory, and other reads can continue, and `finish_read` remains offered. Unknown, undeclared, unconfigured, and otherwise unavailable reads are filtered out. Memoryless personas receive no `records` branch or instructions; `entries` preserves direct post reads by known IDs. The host replaces the live instruction each round and keeps all tool results for the answer. External-agent interfaces and phase budgets remain separate.
 
-See [Research budgets and available reads](./system/personas.md#research-budgets-and-available-reads) for execution details and tests. The [production usage report](./production-model-usage-2026-10-05_ja.md) records the earlier Ultra loop and estimates the effect of model separation; it is not a post-deployment measurement.
+See [Research budgets and available reads](./system/personas.md#research-budgets-and-available-reads) for execution details and tests. The [production usage report](./production-model-usage-2026-10-05.md) records the earlier Ultra loop and estimates the effect of model separation; it is not a post-deployment measurement.
 
 ### A turn, phase by phase
 
