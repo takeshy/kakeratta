@@ -1,6 +1,6 @@
 locals {
-  worker_url   = "https://${local.name}-worker-${data.google_project.current.number}.${var.run_region}.run.app/internal/work"
-  dispatch_url = "https://${local.name}-${data.google_project.current.number}.${var.run_region}.run.app/internal/dispatch"
+  worker_url   = var.shared_vm_ip != "" ? "https://kakeratta.net/internal/work" : "https://${local.name}-worker-${data.google_project.current.number}.${var.run_region}.run.app/internal/work"
+  dispatch_url = var.shared_vm_ip != "" ? "https://kakeratta.net/internal/dispatch" : "https://${local.name}-${data.google_project.current.number}.${var.run_region}.run.app/internal/dispatch"
   queue_env = {
     KAKERATTA_JOB_TOPIC        = "projects/${var.project_id}/topics/${local.name}-jobs"
     KAKERATTA_JOB_SUBSCRIPTION = "projects/${var.project_id}/subscriptions/${local.name}-jobs"

@@ -1,0 +1,11 @@
+[Unit]
+Description=Isolate shared application credentials before Docker startup
+Before=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/shared-apps/firewall.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

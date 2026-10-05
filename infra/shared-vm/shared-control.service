@@ -1,0 +1,19 @@
+[Unit]
+Description=Shared application credential broker and health checks
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/shared-apps
+ExecStart=/usr/bin/python3 /opt/shared-apps/control.py
+Restart=always
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/shared-apps
+
+[Install]
+WantedBy=multi-user.target

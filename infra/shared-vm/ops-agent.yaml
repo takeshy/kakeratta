@@ -1,0 +1,22 @@
+logging:
+  receivers:
+    run_googleapis_com_stdout:
+      type: files
+      include_paths: [/var/lib/docker/containers/*/*-json.log]
+  processors:
+    envelope:
+      type: parse_json
+    unwrap:
+      type: modify_fields
+      fields:
+        labels.service_name:
+          copy_from: jsonPayload.attrs.app
+        jsonPayload.message:
+          move_from: jsonPayload.log
+    application:
+      type: parse_json
+  service:
+    pipelines:
+      containers:
+        receivers: [run_googleapis_com_stdout]
+        processors: [envelope, unwrap, application]

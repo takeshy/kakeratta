@@ -1,81 +1,57 @@
 steps:
-  # The image build is the long pole, so the frontend copy and the firebase CLI
-  # install run beside it, and nothing waits on them until the hosting deploy.
-  - id: frontend
-    name: node:24-bookworm
-    entrypoint: node
-    args:
-      - frontend/build.mjs
-    waitFor: ["-"]
+- id: frontend
+  name: node:24-bookworm
+  entrypoint: node
+  args:
+  - frontend/build.mjs
+  waitFor:
+  - '-'
+- id: image
+  name: gcr.io/cloud-builders/docker
+  args:
+  - build
+  - --build-arg
+  - VERSION=${_VERSION}
+  - --tag
+  - ${_IMAGE}
+  - .
+  waitFor:
+  - '-'
+- id: push
+  name: gcr.io/cloud-builders/docker
+  args:
+  - push
+  - ${_IMAGE}
+  waitFor:
+  - image
+- id: frontend-upload
+  name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  entrypoint: bash
+  args:
+  - -ceu
+  - 'tar -C frontend/dist -czf /tmp/frontend.tar.gz .
 
-  - id: firebase-cli
-    name: node:24-bookworm
-    entrypoint: npm
-    args:
-      - install
-      - --no-audit
-      - --no-fund
-      - --prefix=/workspace/.firebase-cli
-      - firebase-tools
-    waitFor: ["-"]
-
-  # A fresh worker has no Go build cache, so the compile is the whole cost and
-  # it parallelises: the larger machine is what makes this step short. (A
-  # registry layer cache was tried and cost more to pull and push than it saved.)
-  - id: image
-    name: gcr.io/cloud-builders/docker
-    args:
-      - build
-      - --build-arg
-      - VERSION=${_VERSION}
-      - --tag
-      - ${_IMAGE}
-      - .
-    waitFor: ["-"]
-
-  - id: push
-    name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_IMAGE}
-    waitFor: [image]
-
-  - id: deploy-worker
-    name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    entrypoint: bash
-    args:
-      - -ceu
-      - |
-        worker=$$(gcloud run services list --region=${_RUN_REGION} --project=${PROJECT_ID} --filter='metadata.name=${_WORKER_SERVICE}' --format='value(metadata.name)')
-        if [ -n "$$worker" ]; then
-          gcloud run deploy ${_WORKER_SERVICE} --image=${_IMAGE} --region=${_RUN_REGION} --project=${PROJECT_ID} --quiet
-        fi
-    waitFor: [push]
-
-  - id: deploy-run
-    name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    entrypoint: gcloud
-    args:
-      - run
-      - deploy
-      - kakeratta
-      - --image=${_IMAGE}
-      - --region=${_RUN_REGION}
-      - --project=${PROJECT_ID}
-      - --update-secrets=KAKERATTA_WEATHERAPI_KEY=${_WEATHERAPI_SECRET}:${_WEATHERAPI_SECRET_VERSION}
-      - --quiet
-    waitFor: [deploy-worker]
-
-  - id: deploy-hosting
-    name: node:24-bookworm
-    entrypoint: /workspace/.firebase-cli/node_modules/.bin/firebase
-    args:
-      - deploy
-      - --only=hosting
-      - --project=${PROJECT_ID}
-      - --non-interactive
-    waitFor: [deploy-run, frontend, firebase-cli]
-
+    gcloud storage cp /tmp/frontend.tar.gz gs://geminihub-486523-shared-apps/frontend/${BUILD_ID}.tar.gz'
+  waitFor:
+  - frontend
+- id: deploy-vm
+  name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  entrypoint: gcloud
+  args:
+  - compute
+  - ssh
+  - shared-apps
+  - --project=geminihub-486523
+  - --zone=asia-northeast1-b
+  - --tunnel-through-iap
+  - --ssh-key-file=/tmp/build-ssh
+  - --quiet
+  - --command
+  - sudo python3 /opt/shared-apps/deploy.py --app kakeratta --image ${_IMAGE} --frontend
+    gs://geminihub-486523-shared-apps/frontend/${BUILD_ID}.tar.gz
+  waitFor:
+  - push
+  - frontend-upload
 substitutions:
   _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:${SHORT_SHA}
   _RUN_REGION: asia-east1
@@ -83,7 +59,6 @@ substitutions:
   _VERSION: ${COMMIT_SHA}
   _WEATHERAPI_SECRET: kakeratta-wheatherapi-key
   _WEATHERAPI_SECRET_VERSION: latest
-
 options:
   machineType: E2_HIGHCPU_8
   dynamicSubstitutions: true

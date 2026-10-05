@@ -3,7 +3,7 @@ type: "Architecture"
 title: "Architecture and runtime"
 description: "System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown."
 tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
-updated: "2026-10-04"
+updated: "2026-10-06"
 ---
 
 System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown.
@@ -16,12 +16,13 @@ kakeratta stores posts, persona remarks, and user replies in a single timeline. 
 
 ```mermaid
 flowchart LR
-  Browser[Browser] --> Hosting[Firebase Hosting]
-  Hosting --> Web[Cloud Run: Web API]
+  Browser[Browser] --> Hosting[HTTPS load balancer and Nginx]
+  Hosting --> Static[VM: static frontend]
+  Hosting --> Web[VM container: Web API]
   Tasks[Cloud Tasks: scheduled wake] --> Web
   Web -->|Save entry and job atomically| State[(Firestore: per-account state)]
   Web -->|Publish saved request| Queue[Pub/Sub: shared delivery queue]
-  Queue -->|Dispatch to available instance| Workers[Cloud Run: workers]
+  Queue -->|Dispatch to available instance| Workers[VM container: worker]
   Workers -->|Read target and persist results| State
   Workers -->|Publish next phase| Queue
   Workers --> AI[User-specific AI configuration]
@@ -34,13 +35,15 @@ flowchart LR
   Repair --> Queue
 ```
 
+Production currently runs separate web and worker containers on the 4 GiB `shared-apps` VM alongside GemiHub and Geo MCP. Firestore and GCS remain in project `kakeratta`; the load balancer forwards authenticated internal pushes through Nginx. The shared host has fixed capacity and no automatic failover. Separate Docker networks obtain only their original runtime identity through a host metadata broker; service-account keys are not copied. See [shared VM operations](../../infra/shared-vm/README.md).
+
 ## Scaling by adding instances
 
 Web and workers scale independently. Any Web instance can serve an account using its durable workspace; no account-to-server assignment is required. Pub/Sub delivers jobs to available worker instances. Adding workers increases parallel processing across independent accounts and conversation lanes, while Firestore preserves ordering within a lane. Business data, claims and locks belong to an account rather than one global mutable business record. AI configuration and credentials are user-specific.
 
-Cloud Tasks holds scheduled wake times, and Pub/Sub handles delivery and redelivery. Workers need neither a server-membership registry nor a full-account scan to obtain ordinary jobs, and can scale to zero when idle. Firestore retains execution state and transactional outbox requests; Pub/Sub transports those requests. Shared infrastructure still includes indexes, the subscription and outbox repair, so throughput and backlog must be measured as usage grows.
+Cloud Tasks holds scheduled wake times, and Pub/Sub handles delivery and redelivery. Workers need neither a server-membership registry nor a full-account scan to obtain ordinary jobs. The Cloud Run deployment can scale to zero; the shared VM production worker stays running. Firestore retains execution state and transactional outbox requests; Pub/Sub transports those requests. Shared infrastructure still includes indexes, the subscription and outbox repair, so throughput and backlog must be measured as usage grows.
 
-The architecture supports a path toward one million daily active users through additional instances and measured improvements. This is a scaling design, not a tested capacity result. CPU, memory and instance limits are deployment settings maintained in [worker.tf](../../infra/worker.tf) and [variables.tf](../../infra/variables.tf).
+The architecture supports a path toward one million daily active users through additional instances and measured improvements. This is a scaling design, not a tested capacity result. The shared VM and fixed container limits are maintained in [shared-vm](../../infra/shared-vm/README.md); [worker.tf](../../infra/worker.tf) and [variables.tf](../../infra/variables.tf) retain the Cloud Run deployment configuration.
 
 ## Responsibilities
 

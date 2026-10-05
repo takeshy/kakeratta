@@ -37,7 +37,7 @@ resource "google_dns_record_set" "apex" {
   managed_zone = google_dns_managed_zone.app.name
   type         = "A"
   ttl          = 300
-  rrdatas      = ["199.36.158.100"]
+  rrdatas      = [var.shared_vm_ip != "" ? var.shared_vm_ip : "199.36.158.100"]
 }
 
 resource "google_dns_record_set" "firebase_hosting_verification" {
@@ -53,7 +53,7 @@ resource "google_dns_record_set" "www" {
   managed_zone = google_dns_managed_zone.app.name
   type         = "CNAME"
   ttl          = 300
-  rrdatas      = ["kakeratta.web.app."]
+  rrdatas      = [var.shared_vm_ip != "" ? "kakeratta.net." : "kakeratta.web.app."]
 }
 
 data "google_project" "current" {
@@ -386,11 +386,11 @@ resource "google_cloud_run_v2_service" "app" {
       # the project number.
       env {
         name  = "KAKERATTA_TASKS_QUEUE"
-        value = google_cloud_tasks_queue.due.id
+        value = var.shared_vm_ip != "" ? "projects/${var.project_id}/locations/${var.run_region}/queues/kakeratta-vm-due" : google_cloud_tasks_queue.due.id
       }
       env {
         name  = "KAKERATTA_TASKS_URL"
-        value = "https://${local.name}-${data.google_project.current.number}.${var.run_region}.run.app/internal/due"
+        value = var.shared_vm_ip != "" ? "https://kakeratta.net/internal/due" : "https://${local.name}-${data.google_project.current.number}.${var.run_region}.run.app/internal/due"
       }
       env {
         name  = "KAKERATTA_TASKS_ACCOUNT"

@@ -142,6 +142,11 @@ variable "queue_worker_enabled" {
   type        = bool
   default     = true
 }
+variable "shared_vm_ip" {
+  description = "Shared HTTPS load balancer IP; empty retains Firebase/Cloud Run routing."
+  type        = string
+  default     = ""
+}
 variable "worker_max_instances" {
   description = "Maximum concurrent push worker instances; each processes one job."
   type        = number
