@@ -28,9 +28,15 @@ func TestInfographicReplyToAnotherPersonasAnswer(t *testing.T) {
 				t.Fatal(err)
 			}
 			trigger := replyTo(t, s, answer, mention+" この回答をインフォグラフィックにして")
-			html := `<!DOCTYPE html><html lang="ja"><body><h1>昼食の比較</h1><p>A店：3分、1000円。B店：10分、1500円。</p></body></html>`
+			markdown := "## 🍽️ 昼食の比較\n\n| 店 | 駅から | 予算 |\n| --- | --- | --- |\n| A店 | 3分 | 1000円 |\n| B店 | 10分 | 1500円 |\n\n```mermaid\nflowchart TD\nA[昼食] --> B[A店]\nA --> C[B店]\n```"
 			reads, answers := 0, 0
 			f.phaseReply = func(system, user string, offered map[string]bool) string {
+				if strings.Contains(system, "web_search:") {
+					t.Fatal("infographic must not offer Web search")
+				}
+				if !strings.Contains(system, "HTMLは出力しない") || !strings.Contains(system, "mermaid のコードフェンス") {
+					t.Fatal("missing Markdown infographic instructions")
+				}
 				if !strings.Contains(user, answer.Text) || !strings.Contains(user, answer.ID+" への返事") || !strings.Contains(user, trigger.Text) {
 					t.Errorf("replied-to answer or request missing: %s", user)
 				}
@@ -43,7 +49,7 @@ func TestInfographicReplyToAnotherPersonasAnswer(t *testing.T) {
 					return "read_done"
 				case offered["submit_answer"]:
 					answers++
-					raw, _ := json.Marshal(Answer{Text: html, Sources: []string{}})
+					raw, _ := json.Marshal(Answer{Text: markdown, Sources: []string{}})
 					return string(raw)
 				default:
 					t.Errorf("unexpected phase: %v", offered)
@@ -60,7 +66,7 @@ func TestInfographicReplyToAnotherPersonasAnswer(t *testing.T) {
 				t.Fatalf("expected one new answer, got %d remarks", len(said))
 			}
 			result := said[2]
-			if result.Speaker != "infographic" || result.Text != html || result.Root != original.ID || result.ReplyTo != trigger.ID || result.Model != "ultra" {
+			if result.Speaker != "infographic" || result.Text != markdown || result.Root != original.ID || result.ReplyTo != trigger.ID || result.Model != "ultra" {
 				t.Fatalf("unexpected infographic: %+v", result)
 			}
 			if reads != 1 || answers != 1 || len(f.keeps) != 0 {
@@ -91,8 +97,17 @@ func TestInfographicUsesExpandedContentAndDisplayLanguage(t *testing.T) {
 				if _, _, err := s.CreateEntry(trigger); err != nil {
 					t.Fatal(err)
 				}
-				html := `<!DOCTYPE html><html lang="` + language + `"><body><h1>図解</h1></body></html>`
+				markdown := "## 📊 売上\n\n売上は昨年の2倍。\n\n```mermaid\nflowchart TD\nA[昨年] --> B[今年: 2倍]\n```"
+				if language == "en" {
+					markdown = "## 📊 Sales\n\nSales doubled from last year.\n\n```mermaid\nflowchart TD\nA[Last year] --> B[This year: 2x]\n```"
+				}
 				f.phaseReply = func(system, user string, offered map[string]bool) string {
+					if strings.Contains(system, "web_search:") {
+						t.Fatal("infographic must not offer Web search")
+					}
+					if !strings.Contains(system, "HTMLは出力しない") || !strings.Contains(system, "mermaid のコードフェンス") {
+						t.Fatal("missing Markdown infographic instructions")
+					}
 					if !strings.Contains(user, original.Media.Text) || !strings.Contains(user, original.Media.Describe) {
 						t.Fatalf("expanded content missing: %s", user)
 					}
@@ -103,22 +118,25 @@ func TestInfographicUsesExpandedContentAndDisplayLanguage(t *testing.T) {
 					case offered["finish_read"]:
 						return "read_done"
 					case offered["submit_answer"]:
-						raw, _ := json.Marshal(Answer{Text: html, Sources: []string{}})
+						raw, _ := json.Marshal(Answer{Text: markdown, Sources: []string{}})
 						return string(raw)
 					}
 					t.Fatalf("unexpected phase: %v", offered)
 					return ""
 				}
 				skill, _ := r.catalogue.Find(context.Background(), "infographic")
+				if len(skill.Tools) != 0 {
+					t.Fatalf("infographic declares tools: %v", skill.Tools)
+				}
 				client, settings := r.clientOf()
 				settings.HighModel = "ultra-test"
 				entry := r.run(context.Background(), skill, []timeline.Entry{original, trigger}, trigger, true, false, "", false, client, settings, r.registry(settings))
-				if entry == nil || entry.Text != html || entry.Model != "ultra" {
-					t.Fatalf("HTML was not published intact: %+v", entry)
+				if entry == nil || entry.Text != markdown || entry.Model != "ultra" {
+					t.Fatalf("Markdown was not published intact: %+v", entry)
 				}
 				stored, ok := s.Entry(entry.ID)
-				if !ok || stored.Text != html || len(f.keeps) != 0 {
-					t.Fatal("HTML persistence or memory behavior failed")
+				if !ok || stored.Text != markdown || len(f.keeps) != 0 {
+					t.Fatal("Markdown persistence or memory behavior failed")
 				}
 				if model := f.lastModelFor("インフォグラフィック"); model != "ultra-test" {
 					t.Fatalf("answer model = %q, expected Ultra", model)

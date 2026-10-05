@@ -804,7 +804,7 @@ A persona is a `skill.json`:
 | `tools` | Only what is declared can be called |
 
 Five ship with the app — tabe (food), support (kakeratta help), shiori (reading),
-sona (preparation, weather and small follow-ups), and infographic (HTML diagrams).
+sona (preparation, weather and small follow-ups), and infographic (Markdown diagrams with emoji and Mermaid).
 sona, support and infographic are active by default in new workspaces; saved
 activation choices are preserved. More can be
 added from the UI, written by hand or drafted with the persona builder
@@ -828,7 +828,7 @@ that matter wake for a given post, and routing runs once per post. **Without
 separate subjects, @ means nothing** — if there is nothing to choose between,
 naming someone is pointless.
 
-### Optional memory and HTML infographics
+### Optional memory and Markdown infographics
 
 `memoryEnabled` defaults to true when omitted or null. Support and infographic
 ship with it false. Memory-off turns do not receive private notes; record
@@ -839,17 +839,17 @@ and external-agent planning remain available. The UI hides memory and check-in
 controls. Read-only memoryless turns also skip post-answer action planning and
 review calls. See [optional persona memory](system/personas.md#optional-persona-memory).
 
-Infographic defaults to `alwaysUltra: true` and submits a complete HTML document
-with inline CSS/SVG. It uses expanded URL articles, interpreted image contents
+Infographic defaults to `alwaysUltra: true` and submits Markdown with emoji,
+headings, lists, tables and Mermaid flowcharts or sequence diagrams. It declares
+no Web search tool and does not generate HTML, CSS or SVG. It uses expanded URL articles, interpreted image contents
 and the selected reply target as material. `Entry.Language`, captured at
 submission (including in the offline outbox), selects Japanese or English for
 the diagram; older entries fall back to the latest user language in the thread.
 
-The host stores HTML unchanged. The frontend recognizes whole HTML documents
-from personas and renders them in a sandboxed iframe with CSP blocking scripts,
-external resources, forms, popups and navigation. Ordinary prose and partial
-HTML remain Markdown; read-aloud extracts text without scripts or styles.
-See [HTML rendering](system/frontend.md#merging-data) and
+The host stores Markdown unchanged. The frontend renders Markdown and supported
+Mermaid fences using the existing timeline renderer. Older complete HTML answers
+retain their sandboxed display and image export support.
+See [Markdown and legacy HTML rendering](system/frontend.md#merging-data) and
 [infographic verification](../internal/persona/infographic_test.go).
 
 ### A person's persona

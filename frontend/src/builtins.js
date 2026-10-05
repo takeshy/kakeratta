@@ -11,7 +11,7 @@ const GLOSS = {
     ja: "図解",
     en: "infographic",
     name: "Infographic",
-    domain: "Explicit requests to turn a post, expanded article, interpreted image or conversation into an HTML infographic, in the current display language. Does not keep memory or check in.",
+    domain: "Explicit requests to turn a post, expanded article, interpreted image or conversation into a Markdown infographic with emoji and Mermaid diagrams, in the current display language. Uses existing material without Web search. Does not keep memory or check in.",
   },
   gourmet: {
     ja: "食事",

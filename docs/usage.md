@@ -96,8 +96,8 @@ When a position is available, it is kept with the post and used for reactions.
 ## Personas and direct requests
 
 Five built-in personas are available: tabe (food), shiori (reading), sona
-(preparation and weather), support (kakeratta help), and infographic (HTML
-diagrams). New workspaces activate sona, support and infographic. Existing
+(preparation and weather), support (kakeratta help), and infographic (Markdown
+diagrams with emoji and Mermaid). New workspaces activate sona, support and infographic. Existing
 workspaces keep their saved choices; enable new personas in the Personas panel.
 The former built-in travel persona michi has been retired; a customized travel
 persona remains available, and you can create one with place and route tools.
@@ -127,9 +127,9 @@ explicitly ask for the original post or the whole thread instead. URLs use the
 expanded article and images use the extracted text and description. Missing
 source material can lead to a clarification rather than a diagram.
 
-The result is a complete HTML diagram displayed within the timeline. Its labels
+The result is Markdown with emoji and Mermaid diagrams, displayed within the timeline. Its labels
 and explanations use the browser display language at submission, including
-requests queued offline. Scripts and external resources are blocked. The
+requests queued offline. It uses existing material without Web search. The
 infographic persona defaults to memory off and always Ultra on.
 
 ## Timeline

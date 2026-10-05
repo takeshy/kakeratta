@@ -607,7 +607,7 @@ Firestore は `users/{key}/favorites` に保存し、エクスポートにも含
 | `instructions` | 何を区別し推測と明記するか、いつ発言するか。**担当本人だけが読む** |
 | `tools` | 宣言したものだけが呼べる |
 
-内蔵は5人（tabe 食事 / support サポート / shiori 読書 / sona 備え・天気・小さな用事 / infographic HTML図解）です。新規利用時は sona・support・infographic が有効で、保存済みの有効・停止の選択は維持します。
+内蔵は5人（tabe 食事 / support サポート / shiori 読書 / sona 備え・天気・小さな用事 / infographic 絵文字・Mermaidを使ったMarkdown図解）です。新規利用時は sona・support・infographic が有効で、保存済みの有効・停止の選択は維持します。
 画面から追加でき、手で書くことも、担当を作る AI（Nemotron 3 Ultra）に下書きさせることもできます。
 
 ```json
@@ -626,7 +626,7 @@ Firestore は `users/{key}/favorites` に保存し、エクスポートにも含
 **人数に上限はありません。** 振り分けが中央にあるので、投稿ごとに動くのは関係する数人だけで、
 振り分けは投稿ごとに一度です。**領域が分かれていなければ @ に意味はありません。** 誰を呼ぶか迷えなければ、指名は要りません。
 
-### 記憶のオン・オフとHTML図解
+### 記憶のオン・オフとMarkdown図解
 
 `memoryEnabled` は未指定・nullならオンです。supportと図解担当は初期状態でオフです。
 オフの担当には個人の記憶を渡さず、記録の検索でも返しませんが、投稿をIDで読むことはできます。
@@ -635,14 +635,14 @@ Firestore は `users/{key}/favorites` に保存し、エクスポートにも含
 読み取りだけの記憶なし担当は、回答後の操作計画と確認も省きます。
 詳しくは[記憶の選択](system/personas.md#optional-persona-memory)を参照してください。
 
-図解担当は `alwaysUltra: true` で、インラインCSS・SVGを持つ完全なHTML文書を回答として出します。
+図解担当は `alwaysUltra: true` で、絵文字・見出し・箇条書き・表とMermaidのフローチャートやシーケンス図を使ったMarkdownを回答として出します。
+Web検索ツールは持たず、HTML・CSS・SVGは生成しません。
 展開済みURL本文・読み取り済み画像・返信先の回答を材料にします。投稿の `Entry.Language` に
 送信時の表示言語を保存し、図解の見出しや説明を日本語・英語に揃えます。オフラインの送信待ちもその言語を保持します。
 古い投稿ではスレッド内の最新のユーザー言語を使います。
 
-本体はHTMLをそのまま保存し、画面は担当の完全なHTML文書をsandbox付きiframeで表示します。
-CSPによりスクリプト・外部リソース・フォーム・ポップアップ・画面遷移を禁止します。
-通常の文章やHTML断片はMarkdown表示のままで、読み上げはスクリプトやスタイルを除いた文字を使います。
+本体はMarkdownをそのまま保存し、画面は既存のMarkdown表示と対応するMermaidのコードフェンスで図解を表示します。
+過去の完全なHTML回答は引き続きsandbox付きiframeで表示でき、画像への変換にも対応します。
 [表示の仕様](system/frontend.md#merging-data)と[図解の検証](../internal/persona/infographic_test.go)も参照してください。
 
 ### 人物の担当

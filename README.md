@@ -27,8 +27,8 @@ and bring it back when it is useful.
   worth sharing. For people, choose “Look back often” or “Look back occasionally”. Birthdays, appointments and preparation checks run on
   the server; supported devices can receive reminder push notifications.
 - **Turn an answer into a diagram.** Reply to it with
-  `@infographic turn this answer into an infographic`. The HTML diagram uses
-  the display language selected when you send the request.
+  `@infographic turn this answer into an infographic`. The Markdown diagram uses emoji
+  and Mermaid in the display language selected when you send the request.
 - **Keep posting offline.** Pending posts and replies send when the app is
   open and connectivity returns. Preview and share selected conversations to
   your own Bluesky account.
@@ -45,7 +45,7 @@ Five personas ship with the app:
 | **shiori** | Reading and books | No |
 | **sona** | Preparation, belongings, weather and small follow-ups | Yes |
 | **support** | kakeratta questions, answered from the system specification | Yes |
-| **infographic** | HTML diagrams of text, expanded articles, interpreted images and answers | Yes |
+| **infographic** | Markdown diagrams with emoji and Mermaid for text, expanded articles, interpreted images and answers | Yes |
 
 Creation and editing offer **Remember** and **Always think deeply**. Memory
 is on by default; support and infographic default to off. Turning it off stops

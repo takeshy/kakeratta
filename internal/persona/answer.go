@@ -77,12 +77,12 @@ func infographicRules(trigger timeline.Entry, thread []timeline.Entry) string {
 			}
 		}
 	}
-	rules := "\n- インフォグラフィックのHTMLは短い返答の制限を受けません。図解に必要な長さで完全な文書を text に提出してください。\n"
+	rules := "\n- インフォグラフィックのMarkdownは短い返答の制限を受けません。絵文字と必要に応じたMermaidの図解を使い、図解に必要な長さで text に提出してください。HTMLは出力しないでください。\n"
 	switch language {
 	case "ja":
-		rules += "- 今回の表示言語は日本語 (ja) です。投稿と同じ言語という一般規則より優先し、HTMLの見出し・説明・図のラベルをすべて日本語に翻訳してください。\n"
+		rules += "- 今回の表示言語は日本語 (ja) です。投稿と同じ言語という一般規則より優先し、Markdownの見出し・説明・Mermaidの図のラベルをすべて日本語に翻訳してください。\n"
 	case "en":
-		rules += "- 今回の表示言語は英語 (en) です。投稿と同じ言語という一般規則より優先し、HTMLの見出し・説明・図のラベルをすべて英語に翻訳してください。\n"
+		rules += "- 今回の表示言語は英語 (en) です。投稿と同じ言語という一般規則より優先し、Markdownの見出し・説明・Mermaidの図のラベルをすべて英語に翻訳してください。\n"
 	}
 	return rules
 }

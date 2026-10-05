@@ -166,7 +166,7 @@
               <tbody>
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
                 <tr><td><code>@support</code></td><td>サポート</td><td>kakerattaの使い方・仕様・設定・困りごと（新規利用時は有効）</td></tr>
-                <tr><td><code>@infographic</code></td><td>図解</td><td>文章・展開済みURL記事・解釈済み画像を表示言語でHTMLの図解に。記憶なし・最終回答は常にUltra（新規利用時は有効）</td></tr>
+                <tr><td><code>@infographic</code></td><td>図解</td><td>文章・展開済みURL記事・解釈済み画像を表示言語で絵文字・Mermaidを使ったMarkdown図解に。Web検索なし。記憶なし・最終回答は常にUltra（新規利用時は有効）</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
                 <tr><td><code>@sona</code></td><td>備え</td><td>外出前の持ち物、忘れ物、予定と天気を合わせた声かけ。繰り返す用事や一度きりの用の確認。新規利用時は有効</td></tr>
               </tbody>
@@ -337,7 +337,7 @@
           <p>かけらをどの担当に渡すかは本体が決めます。自分の投稿や返信の <strong>⚖</strong> を押すと、呼ばれた担当と、呼ばれなかった担当ごとの一行の理由が出ます。<code>@名前</code> で指名した担当は、あなたが選んだので出ません。</p>
           <div class="tip">
             <p><strong>指名と宛先の優先ルール：</strong> <code>@名前</code> で指名した投稿や、有効な担当への返信は、宛先の担当だけに届きます。別の担当を指名した場合は指名が優先されます。それ以外の投稿は、担当条件や人物の呼び名・キーワードで届け先を選びます。</p>
-            <p><strong>@infographic の対象ルール：</strong> 図解したい投稿や回答に <code>@infographic これをインフォグラフィックにして</code> と返信します。別の担当の回答に返信した場合、その回答を図解します。「元の投稿を」「スレッド全体を」と明示して対象を変えることもできます。URLは展開された記事本文、画像は読み取り済みの説明や文字を材料にします。図解は依頼時の表示言語に翻訳され、画面内にHTMLで表示されます。</p>
+            <p><strong>@infographic の対象ルール：</strong> 図解したい投稿や回答に <code>@infographic これをインフォグラフィックにして</code> と返信します。別の担当の回答に返信した場合、その回答を図解します。「元の投稿を」「スレッド全体を」と明示して対象を変えることもできます。URLは展開された記事本文、画像は読み取り済みの説明や文字を材料にします。図解は依頼時の表示言語に翻訳され、絵文字やMermaidを使ったMarkdownで画面内に表示されます。Web検索は行いません。</p>
           </div>
           <figure>
             <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、他の担当が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="638" />
@@ -769,7 +769,7 @@
               <tbody>
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
                 <tr><td><code>@support</code></td><td>support</td><td>Questions about kakeratta, its specification, settings and problems (active by default in new workspaces)</td></tr>
-                <tr><td><code>@infographic</code></td><td>infographic</td><td>HTML diagrams of text, expanded articles and interpreted images, in the display language. No memory; final answers always use Ultra (active in new workspaces)</td></tr>
+                <tr><td><code>@infographic</code></td><td>infographic</td><td>Markdown diagrams with emoji and Mermaid for text, expanded articles and interpreted images, without Web search, in the display language. No memory; final answers always use Ultra (active in new workspaces)</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
                 <tr><td><code>@sona</code></td><td>preparation</td><td>Belongings before leaving, past omissions, upcoming plans and forecasts. Gentle follow-ups on small chores. Active by default in new workspaces</td></tr>
               </tbody>
@@ -940,7 +940,7 @@
           <p>The app decides which personas get each fragment. Tap <strong>⚖</strong> on one of your posts or replies to see who was called and, for each one that was not, a one-line reason. A persona you mentioned with <code>@name</code> is not listed: that was your call.</p>
           <div class="tip">
             <p><strong>Mention and recipient precedence:</strong> A post that mentions a persona with <code>@name</code>, or a reply to an active persona, reaches that recipient alone; mentions take precedence. Other posts reach personas whose subject conditions or person names/keywords match.</p>
-            <p><strong>@infographic targeting rules:</strong> Reply to a post or answer with <code>@infographic Turn this into an infographic</code>. When replying to another persona's answer, it visualizes that answer. You can also specify “the original post” or “the whole thread” to change the target. URLs use expanded article bodies, and images use extracted captions and text. The infographic is translated to your current display language and shown in the timeline as HTML.</p>
+            <p><strong>@infographic targeting rules:</strong> Reply to a post or answer with <code>@infographic Turn this into an infographic</code>. When replying to another persona's answer, it visualizes that answer. You can also specify “the original post” or “the whole thread” to change the target. URLs use expanded article bodies, and images use extracted captions and text. The infographic is translated to your current display language and shown in the timeline as Markdown with emoji and Mermaid diagrams. It does not use Web search.</p>
           </div>
           <figure>
             <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why other personas were not (sample data)" loading="lazy" width="382" height="703" />
