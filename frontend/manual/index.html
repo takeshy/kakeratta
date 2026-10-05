@@ -585,14 +585,14 @@
               <thead><tr><th>用途</th><th>モデル</th></tr></thead>
               <tbody>
                 <tr><td>振り分け、内蔵の全調査、ふだんの返事、予定・操作の計画と確認</td><td>Nemotron Super</td></tr>
-                <tr><td>深掘り返信・常に熟考する担当の最終回答</td><td>Nemotron Ultra</td></tr>
-                <tr><td>返信が「考え直して」という依頼かの判定</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>深い回答が必要な依頼・常に熟考する担当の最終回答</td><td>Nemotron Ultra</td></tr>
+                <tr><td>任意の音声入力整形</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>画像の読み取り</td><td>GLM-5.3-Flash</td></tr>
               </tbody>
             </table>
           </div>
-          <p><strong>常に熟考する</strong> がオンの担当は通常の依頼でも最終回答をUltraで生成します。担当の発言に「違う」「もう少し詳しく」などと返すと、考え直しの依頼かどうかを判定し、そうであれば返信先の担当が Ultra で答え直します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
-          <p>内蔵の調査と予定・操作の計画は、深掘り返信や「常に熟考する」の場合もSuperで行います。調査は通常read 10回・Web検索2回、深掘り返信と「常に熟考する」ではread 20回・Web検索4回までです。各調査roundで検索残数を伝え、0回になるとWeb検索を選択肢から外します。その後も別の利用可能なreadを使うか、調査を終えられます。未設定の道具や、記憶無効担当の記憶検索は提示しません。</p>
+          <p><strong>常に熟考する</strong> がオンの担当は通常の依頼でも最終回答をUltraで生成します。初回Superの調査で文脈と必要な回答品質から深さを判断します。「詳しく」という短い返信や、比較・慎重な検証が必要な依頼は、最終回答をUltraで生成します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
+          <p>内蔵の調査と予定・操作の計画は、深い回答が必要な依頼や「常に熟考する」の場合もSuperで行います。初回調査で短い調査計画とdeep判定を作り、そのまま最初のreadを要求します。独立したLightning判定はありません。通常はread 10回・Web検索2回で開始し、deep=trueなら使用済み回数を保ったまま上限を20回・4回へ拡張します。「常に熟考する」では最初から20回・4回です。後続調査は計画を参考に進めます。各調査roundで検索残数を伝え、0回になるとWeb検索を選択肢から外します。その後も別の利用可能なreadを使うか、調査を終えられます。未設定の道具や、記憶無効担当の記憶検索は提示しません。</p>
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
@@ -1188,14 +1188,14 @@
               <thead><tr><th>Job</th><th>Model</th></tr></thead>
               <tbody>
                 <tr><td>Routing, all built-in research, ordinary replies, schedule/action planning and review</td><td>Nemotron Super</td></tr>
-                <tr><td>Final answers for deeper replies and Always think deeply</td><td>Nemotron Ultra</td></tr>
-                <tr><td>Deciding whether a reply asks for a rethink</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>Final answers for deep requests and Always think deeply</td><td>Nemotron Ultra</td></tr>
+                <tr><td>Optional dictation polishing</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>Reading images</td><td>GLM-5.3-Flash</td></tr>
               </tbody>
             </table>
           </div>
-          <p>Personas with <strong>Always think deeply</strong> on use Ultra for final answers to ordinary requests too. Reply to a persona with “that's wrong” or “tell me more” and the app checks whether you are asking for a rethink; if so, the persona answers again on Ultra. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
-          <p>Built-in research and schedule/action planning use Super, including deep replies and Always think deeply. Research allows 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep replies and Always think deeply. Each research round receives the remaining search count. At zero, Web search is removed from the choices; other available reads and finishing research remain possible. Unconfigured tools and memory queries for memoryless personas are not offered.</p>
+          <p>Personas with <strong>Always think deeply</strong> on use Ultra for final answers to ordinary requests too. The first Super research call decides the depth from context and the quality the answer requires. A short “tell me more” reply, comparison or careful verification can select an Ultra final answer. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
+          <p>Built-in research and schedule/action planning use Super, including deep requests and Always think deeply. The first research call creates a short plan and deep decision alongside its first read; there is no separate Lightning classification. Ordinary turns start with 10 reads and 2 Web searches. Deep=true raises only the limits to 20 and 4, preserving spent counts; Always think deeply starts with these larger limits. Later research uses the plan as a guide. Each research round receives the remaining search count. At zero, Web search is removed from the choices; other available reads and finishing research remain possible. Unconfigured tools and memory queries for memoryless personas are not offered.</p>
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>

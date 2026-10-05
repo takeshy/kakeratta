@@ -578,13 +578,7 @@ func (r *Runner) deliverEntry(outer context.Context, entryID string, transientPl
 	}
 	ctx, cancel := context.WithTimeout(outer, 10*time.Minute)
 	defer cancel()
-	parent, hasParent := r.store.Entry(entry.ReplyTo)
-	deep := ""
-	if hasParent && !parent.Deleted && plan.ReplySpeaker != "" {
-		if Escalate(ctx, client, lightningModel(settings), parent, entry) {
-			deep = parent.Speaker
-		}
-	}
+	parent, _ := r.store.Entry(entry.ReplyTo)
 	// The same tool set the wake paths get. Without this a persona reacting to a
 	// post was offered schedule and then told it was not configured, which is
 	// why sona wrote its times into a note as prose instead of placing them.
@@ -618,7 +612,7 @@ func (r *Runner) deliverEntry(outer context.Context, entryID string, transientPl
 				instructions += heardInstructions(skill, term)
 			}
 			pending[i] = r.detaches(ctx, skill, settings)
-			remarks[i] = r.run(ctx, skill, thread, entry, contains(plan.Named, skill.ID), false, instructions, skill.ID == deep, client, settings, registry)
+			remarks[i] = r.run(ctx, skill, thread, entry, contains(plan.Named, skill.ID), false, instructions, false, client, settings, registry)
 		}(i, skill)
 	}
 	group.Wait()
@@ -685,10 +679,9 @@ const namedRule = "- 名指しで聞かれています。短くまとめる必�
 // short remark: what it found is worth saying in full - or nothing at all.
 const agentRule = "- 短くまとめる必要はありません。調べて分かったこと、根拠、前に自分が覚えていたこととの結びつきを添えて、伝えるのに必要な長さで書いてください。発言は読みやすい Markdown で書いてください。言うことがなければ黙ってください。"
 
-// deepRule replaces it when the user replied asking for a better or deeper
-// answer than the one they got.
-const deepRule = `- **今回ユーザーは、前の回答より良い・深い回答を求めています。** 短くまとめる必要はありません。
-  前の回答を見直し、誤りや不足があれば認めて正してください。必要なら調べ直してください。
+// deepRule applies when the request needs a deeper answer.
+const deepRule = `- **今回の依頼には深い回答が必要です。** 短くまとめる必要はありません。
+  前の回答がある場合は見直し、誤りや不足があれば認めて正してください。必要なら調べ直してください。
   必要な根拠・比較・具体例を添え、質問に答えるのに必要な長さで書いてください。口調はそのままで構いません。
   発言は読みやすい Markdown で書いてください。見出しや箇条書きは内容に役立つときに使ってください。
   前に自分が覚えていたことと結びつくなら、それも言ってください。`
@@ -747,7 +740,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if skill.ID == "infographic" {
 		length += infographicRules(trigger, thread)
 	}
-	system := answerSystem(skill, length) + fmt.Sprintf("\n# Read\n必要なら read を最大%d回使い、finish_read で終えます。\n", turnReadLimit(deep)) + capabilityLine(set)
+	system := answerSystem(skill, length) + "\n# Read\n必要なら現在の残数内でreadを使い、finish_readで終えます。\n" + capabilityLine(set)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -817,9 +810,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// reader does what a persona asked to look at, within its own count.
 	// Research and the later phases count apart: research spending every
 	// read must not leave a phase unable to read the note it has to rewrite.
-	reader := func(used *int, limit int, budget func() *lookups, answering bool) func([]ReadStep) string {
+	reader := func(used *int, limit func() int, budget func() *lookups, answering bool) func([]ReadStep) string {
 		return func(steps []ReadStep) string {
-			if *used >= limit {
+			if *used >= limit() {
 				return readsRefused
 			}
 			text, sources := r.readAll(ctx, skill, steps, set, post, here, failures, budget(), rules.cited, referenced)
@@ -831,18 +824,18 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			record.Reads = append(record.Reads, readRecord{Steps: steps, Output: preview(text)})
 			*used++
 			if answering {
-				return text + currentReadCapabilities(skill, set, budget(), post.Place, limit-*used).footer()
+				return text + currentReadCapabilities(skill, set, budget(), post.Place, limit()-*used).footer()
 			}
-			return text + readFooter(limit-*used, set)
+			return text + readFooter(limit()-*used, set)
 		}
 	}
 	readsUsed := 0
-	lookup := reader(&readsUsed, readLimit, func() *lookups { return budget }, true)
+	lookup := reader(&readsUsed, func() int { return readLimit }, func() *lookups { return budget }, true)
 	// The phases decide changes, not research: they read notes and may look
 	// again, but do not search the web.
 	phaseReads := 0
 	phaseBudget := newLookups(maxReads, 0)
-	phaseLookup := reader(&phaseReads, maxReads, func() *lookups { return phaseBudget }, false)
+	phaseLookup := reader(&phaseReads, func() int { return maxReads }, func() *lookups { return phaseBudget }, false)
 
 	switch {
 	case r.plansExternally(ctx, skill, settings):
@@ -902,10 +895,27 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		var err error
 		messages, err = research(ctx, client, researchModel, messages, func() readCapabilities {
 			return currentReadCapabilities(skill, set, budget, post.Place, readLimit-readsUsed)
-		}, lookup)
+		}, lookup, func(decision researchDecision) {
+			deep = deep || decision.Deep
+			record.Deep = &deep
+			if deep {
+				readLimit = turnReadLimit(true)
+				budget.limit = max(budget.limit, readLimit)
+				budget.searches = max(budget.searches, turnSearchLimit(true))
+				answerModel, slot = ultraModel(settings), "ultra"
+				length = deepRule
+				if skill.ID == "infographic" {
+					length += infographicRules(trigger, thread)
+				}
+			}
+			record.Model = answerModel
+		})
 		if err != nil {
 			return failed(err)
 		}
+		// Research decides the depth; replace the original length/read ceiling
+		// before composing so brief instructions cannot override that decision.
+		messages[0].Content = answerSystem(skill, length) + capabilityLine(set) + wakeInstructions
 		answer, err = composeAnswer(ctx, client, answerModel, messages, rules)
 		if err != nil {
 			return failed(err)
@@ -1111,14 +1121,9 @@ func personaModel(settings store.Settings) string {
 	return firstSet(settings.MiddleModel, settings.LowModel)
 }
 
-// ultraModel composes final answers for deep replies and AlwaysUltra personas.
+// ultraModel composes final answers for deep requests and AlwaysUltra personas.
 func ultraModel(settings store.Settings) string {
 	return firstSet(settings.HighModel, settings.MiddleModel, settings.LowModel)
-}
-
-// lightningModel only decides whether a reply asks for Ultra.
-func lightningModel(settings store.Settings) string {
-	return strings.TrimSpace(settings.LowModel)
 }
 
 func firstSet(values ...string) string {

@@ -107,9 +107,9 @@ Not every turn goes through every stage. A persona without memory and without pe
 
 | Model | Role |
 | --- | --- |
-| Nemotron 3 Ultra | Drafting personas; final answers for deep replies and AlwaysUltra, including Markdown infographics |
-| Nemotron 3 Super | Routing, all built-in research, ordinary final answers, schedule/action planning, workflow review |
-| Nemotron 3.5 Lightning | Judging whether a reply asks for escalation to Ultra; polishing dictated text |
+| Nemotron 3 Ultra | Drafting personas; final answers for deep requests and AlwaysUltra, including Markdown infographics |
+| Nemotron 3 Super | Routing, initial research planning and depth selection, all built-in research, ordinary final answers, schedule/action planning, workflow review |
+| Nemotron 3.5 Lightning | Optional dictation polishing |
 | GLM-5.3-Flash | Understanding photos and screenshots |
 | Qwen3-Embedding-8B | Meaning search over past fragments |
 

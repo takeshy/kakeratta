@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -35,6 +34,7 @@ type fake struct {
 	models       []string
 	answerModels map[string][]string
 	reply        func(system, user string) string
+	researchDeep func(system, user string) bool
 	// reviews are the app's own checks, kept apart from what the personas were
 	// asked so a test counting persona calls is not counting those. review
 	// scripts a verdict; unset, every workflow passes.
@@ -76,8 +76,9 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 			} `json:"messages"`
 			Tools []struct {
 				Function struct {
-					Name        string `json:"name"`
-					Description string `json:"description"`
+					Name        string         `json:"name"`
+					Description string         `json:"description"`
+					Parameters  map[string]any `json:"parameters"`
 				} `json:"function"`
 			} `json:"tools"`
 		}
@@ -245,6 +246,33 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 			f.models = append(f.models, body.Model)
 			f.mu.Unlock()
 			result = asCall(f.reply(system, user), names)
+		}
+		// Existing scenario fixtures provide read steps or an answer. Supply
+		// the initial planning envelope only when the offered schema asks for it.
+		if names["finish_read"] {
+			properties, _ := body.Tools[0].Function.Parameters["properties"].(map[string]any)
+			if _, initial := properties["deep"]; initial {
+				calls, _ := result["tool_calls"].([]any)
+				for _, value := range calls {
+					call := value.(map[string]any)
+					function := call["function"].(map[string]any)
+					if function["name"] != "read" && function["name"] != "finish_read" {
+						continue
+					}
+					var args map[string]any
+					if json.Unmarshal([]byte(function["arguments"].(string)), &args) != nil {
+						continue
+					}
+					if _, ok := args["deep"]; !ok {
+						args["deep"] = f.researchDeep != nil && f.researchDeep(system, user)
+					}
+					if _, ok := args["research_plan"]; !ok {
+						args["research_plan"] = []string{"必要な情報を確認"}
+					}
+					raw, _ := json.Marshal(args)
+					function["arguments"] = string(raw)
+				}
+			}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": result}}})
 	}))
@@ -666,7 +694,7 @@ func TestEveryoneAnswersTogetherOnSuper(t *testing.T) {
 	}
 }
 
-// A reply to a persona's answer is shown to Lightning, and only one asking for
+// The first Super research reads the parent answer and decides whether
 // a better or deeper answer is answered on Ultra - by the persona it was said
 // to. Other personas do not receive the reply through automatic routing.
 func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
@@ -676,7 +704,7 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 		want     string
 		slot     string
 	}{
-		{"もっと詳しく", true, store.NemotronUltra, "ultra"},
+		{"詳しく", true, store.NemotronUltra, "ultra"},
 		{"ありがとう", false, store.NemotronSuper, "super"},
 	} {
 		t.Run(tc.reply, func(t *testing.T) {
@@ -684,9 +712,6 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			replied := false
 			runner, s, stub := setup(t, func(system, user string) string {
 				switch {
-				case strings.Contains(system, "明示的に求めているか"):
-					asked = user
-					return `{"escalate":` + strconv.FormatBool(tc.escalate) + `}`
 				case strings.Contains(system, "振り分け") && !replied:
 					return `{"deliver":["gourmet"]}`
 				case strings.Contains(system, "振り分け"):
@@ -699,6 +724,12 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 				}
 			}, "gourmet", "move")
 
+			stub.researchDeep = func(system, user string) bool {
+				if replied {
+					asked = user
+				}
+				return replied && tc.escalate
+			}
 			first := post(t, s, "ラーメン食べたい")
 			runner.react(first.ID)
 			said := remarks(t, s)
@@ -714,7 +745,7 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 			runner.react(reply.ID)
 
 			if !strings.Contains(asked, "豚骨の店がある") || !strings.Contains(asked, tc.reply) {
-				t.Fatalf("Lightning was not shown the answer and the reply:\n%s", asked)
+				t.Fatalf("Super was not shown the answer and the reply:\n%s", asked)
 			}
 			if got := stub.modelFor("michi"); got != "" {
 				t.Fatalf("the other persona unexpectedly answered on %q", got)
@@ -734,8 +765,13 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 				return
 			}
 			// Ultra is not told to keep it short; Super is.
-			prompt := stub.lastPromptFor("tabe")
-			if !strings.Contains(prompt, "前の回答より良い・深い回答を求めています") || !strings.Contains(prompt, "必要な根拠・比較・具体例") || strings.Contains(prompt, "発言するときは短く") {
+			prompt := ""
+			for _, phase := range stub.phases {
+				if strings.Contains(phase, "submit_answer") && strings.Contains(phase, "今回の依頼には深い回答が必要です") {
+					prompt = phase
+				}
+			}
+			if !strings.Contains(prompt, "今回の依頼には深い回答が必要です") || !strings.Contains(prompt, "必要な根拠・比較・具体例") || strings.Contains(prompt, "発言するときは短く") {
 				t.Fatalf("tabe was not given the deep prompt:\n%s", prompt)
 			}
 		})
@@ -768,8 +804,6 @@ func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 			replied := false
 			runner, s, stub := setup(t, func(system, user string) string {
 				switch {
-				case strings.Contains(system, "明示的に求めているか"):
-					return `{"escalate":true}`
 				case strings.Contains(system, "振り分け") && !replied:
 					return `{"deliver":["gourmet"]}`
 				case strings.Contains(system, "振り分け"):
@@ -778,6 +812,7 @@ func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 					return `{"action":"speak","text":"豚骨の店がある"}`
 				}
 			}, "gourmet")
+			stub.researchDeep = func(system, user string) bool { return replied }
 			first := post(t, s, "ラーメン食べたい")
 			runner.react(first.ID)
 			answer := remarks(t, s)[0]
@@ -811,10 +846,8 @@ func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 	}
 }
 
-// Lightning is asked only about a reply to an active persona's remark. A
-// post, a reply to the user's own post and a reply to a persona no longer in
-// the room are never shown to it.
-func TestLightningIsAskedOnlyAboutAReplyToAnActivePersona(t *testing.T) {
+// Standalone Lightning classification is absent for every entry kind.
+func TestNoStandaloneLightningClassification(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		speaker string // who the replied-to entry is from; "" means no reply
@@ -855,48 +888,6 @@ func TestLightningIsAskedOnlyAboutAReplyToAnActivePersona(t *testing.T) {
 				t.Fatalf("Lightning was asked %d times", asked)
 			}
 		})
-	}
-}
-
-// A judgement that fails is a no: the reply is answered on Super, by the
-// persona replied to as well as by whoever routing chose.
-func TestAFailedJudgementIsANo(t *testing.T) {
-	replied := false
-	runner, s, stub := setup(t, func(system, user string) string {
-		switch {
-		case strings.Contains(system, "振り分け") && !replied:
-			return `{"deliver":["gourmet"]}`
-		case strings.Contains(system, "振り分け"):
-			return `{"deliver":["move"]}`
-		case strings.Contains(system, "あなたは「michi」"):
-			return `{"action":"speak","text":"駅から5分"}`
-		default:
-			return `{"action":"speak","text":"豚骨の店がある"}`
-		}
-	}, "gourmet", "move")
-	tried := 0
-	stub.fail = func(system string) bool {
-		if strings.Contains(system, "明示的に求めているか") {
-			tried++
-			return true
-		}
-		return false
-	}
-	first := post(t, s, "ラーメン食べたい")
-	runner.react(first.ID)
-	answer := remarks(t, s)[0]
-	replied = true
-	runner.react(replyTo(t, s, answer, "もっと詳しく").ID)
-
-	if tried != 1 {
-		t.Fatalf("Lightning was tried %d times, want once", tried)
-	}
-	models := map[string]string{}
-	for _, remark := range remarks(t, s)[1:] {
-		models[remark.Speaker] = remark.Model
-	}
-	if len(models) != 1 || models["gourmet"] != "super" {
-		t.Fatalf("remark models = %v, want only tabe on Super", models)
 	}
 }
 
@@ -1593,21 +1584,25 @@ func TestAnUltraTurnMayReadTwentyTimes(t *testing.T) {
 		reads++
 		return `{"action":"tool","tool":"notes_list","args":{}}`
 	}, "gourmet")
+	stub.researchDeep = func(system, user string) bool { return true }
 	entry := post(t, s, "ラーメン")
 	client, settings := runner.clientOf()
 	skill := runner.catalogue.Active(context.Background(), settings.Active)[0]
-	runner.run(context.Background(), skill, []timeline.Entry{entry}, entry, false, false, "", true,
+	runner.run(context.Background(), skill, []timeline.Entry{entry}, entry, false, false, "", false,
 		client, settings, runner.registry(settings))
 	// Twenty reads run. On the next request, read is no longer offered and the
 	// fake submits a quiet workflow, ending the turn.
 	if reads != ultraReads+1 || ultraReads != 20 {
 		t.Fatalf("Ultra requests = %d (ultraReads %d)", reads, ultraReads)
 	}
+	if len(stub.prompts) < 2 || !strings.Contains(stub.prompts[1], "read は残り 19 回") {
+		t.Fatal("deep budget did not retain the spent first read")
+	}
 	if got := stub.lastModelFor("tabe"); got != store.NemotronUltra {
 		t.Fatalf("model = %q, want Ultra", got)
 	}
-	if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, "最大20回") {
-		t.Fatalf("Ultra was not told its read limit: %s", prompt)
+	if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, "read は残り 10 回") {
+		t.Fatalf("initial research did not start with normal budget: %s", prompt)
 	}
 }
 

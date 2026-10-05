@@ -302,9 +302,9 @@ HTTPSとブラウザのプッシュ対応が必要です。iPhone・iPadはホ�
 
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
-- Nemotron 3.5 Lightning — 返信がより良い回答を求めているかの判定、任意の音声入力整形
+- Nemotron 3.5 Lightning — 任意の音声入力整形
 - Nemotron Super — 振り分け、内蔵の全調査、通常の回答、予定・操作の計画、workflow の確認
-- Nemotron Ultra — 深掘り返信・常に熟考する担当の最終回答、担当案の作成
+- Nemotron Ultra — 深い回答が必要な依頼・常に熟考する担当の最終回答、担当案の作成
 - Nebius Token Factory — 推論基盤
 
 画像の読み取りにはGLM-5.3-Flash、意味検索にはQwen3-Embedding-8Bを同じ基盤で使用します。
@@ -315,10 +315,10 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 | 用途 | OpenRouter 使用時に選ぶ枠 | 既定 |
 | --- | --- | --- |
-| 担当の発言への返信の判定 | low | Nemotron 3.5 Lightning |
+| 任意の音声入力整形 | low | Nemotron 3.5 Lightning |
 | 調査と予定・操作の計画（deep・常に熟考する場合も） | middle | Nemotron Super |
 | 通常の最終回答 | middle | Nemotron Super |
-| 深掘り返信・常に熟考する担当の最終回答 | high | Nemotron Ultra |
+| 深い回答が必要な依頼・常に熟考する担当の最終回答 | high | Nemotron Ultra |
 | 画像解析・OCR | 固定 | GLM-5.3-Flash |
 | 振り分け | router（Jevへの切り替えも可） | Nemotron Super |
 | workflow の確認 | middle | Nemotron Super |
@@ -329,14 +329,13 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 画面には Token Factory のモデルを直接選ぶ欄はありません。利用者がAPIキーを入れると、3つの枠は上の既定値を使います。
 
-担当は通常 Super で答え、**常に熟考する** がオンなら通常の依頼も Ultra で答えます。担当の発言に「違う」「もっと詳しく」「深掘りして」のように、訂正・再検討・詳細化を
-求めて返信すると、Lightning がそれを判定し、返信先の担当が Ultra で答えます。その発言には Ultra のバッジが付きます。
-お礼や普通の追加質問、別の話題は、常に熟考がオフなら Super のままです。
-内蔵の調査は常にSuperで行い、deep返信・常に熟考する場合に最終回答だけをUltraへ切り替えます。通常はread最大10回・Web検索2回、deep返信・常に熟考する場合はread最大20回・Web検索4回です。各調査roundで検索残数を伝え、0回になるとWeb検索を選択肢から外します。その後も利用可能な別のreadを使うか、調査を終えられます。未設定の道具や、記憶無効担当の記憶検索は提示しません。
+担当は通常Superで答え、**常に熟考する**がオンなら最終回答にUltraを使います。内蔵処理の初回Super調査は、親回答を含む文脈からdeepと短い調査計画を決め、そのまま最初のreadを要求します。「詳しく」などの詳細化や再検討、慎重な比較・検証が必要な依頼はUltraの最終回答にできます。お礼や簡単な追加確認だけならSuperです。Ultraの発言にはバッジが付きます。独立したLightning判定はありません。
+通常担当はread 10回・Web検索2回で開始し、deep=trueになった時点で上限を20回・4回に拡張します。使用済み回数は保持し、後続調査には実際の残数と計画を引き継ぎます。
+内蔵の調査は常にSuperで行い、deepな依頼・常に熟考する場合に最終回答だけをUltraへ切り替えます。通常はread最大10回・Web検索2回、deepな依頼・常に熟考する場合はread最大20回・Web検索4回です。各調査roundで検索残数を伝え、0回になるとWeb検索を選択肢から外します。その後も利用可能な別のreadを使うか、調査を終えられます。未設定の道具や、記憶無効担当の記憶検索は提示しません。
 
 外部エージェントの接続キーを発行し、設定の「外部エージェントを使う」をONにすると、担当ごとに「外部エージェントを優先する」をONにして、調べものと回答を外部エージェント（Hermes や Obsidian の [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub) など）に任せられます（接続先の設定があり、外部エージェントの利用が有効なときだけ、このチェックを表示します）。その担当は、文脈を読んで調べ、回答を書く部分だけを
 MCP でつないだ外部エージェントに任せます。予定・操作・メモはSuperで kakeratta が決めて回答とあわせた workflow を組み立て、予定か操作があれば上の表のとおり確認してから実行し、回答を公開します。
-3分以内に取得されない、または取得後15分以内に回答が受理されないと、内蔵モデルがSuperで調査し、通常はSuper、deep返信・常に熟考する場合はUltraで最終回答を生成します。
+3分以内に取得されない、または取得後15分以内に回答が受理されないと、内蔵モデルがSuperで調査し、通常はSuper、deepな依頼・常に熟考する場合はUltraで最終回答を生成します。
 待ち時間は上級オプションの「外部連携」で変えられ、「外部エージェントを使う」をOFFにすると一時的に全員が内蔵モデルで考えます。詳しくは [Hermes Agent の設定](hermes_ja.md) を見てください。
 
 ![担当画面。担当ごとに「外部エージェントを優先する」を選ぶ](captures/ja/persona-planner.png)

@@ -63,11 +63,11 @@ const (
 	// it has to decide - searches included. Reading changes nothing, so the
 	// limit is only there to end a turn that would otherwise go on looking.
 	maxReads = 10
-	// An Ultra answer may look further before committing its answer.
+	// Super research for deep/AlwaysUltra turns may look further.
 	ultraReads = 20
 	// maxSearches is how many of those reads may be web searches.
 	maxSearches = 2
-	// An Ultra answer may search a little more, not as much as it reads.
+	// Deep/AlwaysUltra research may also search a little more.
 	ultraSearches = 4
 	// maxDrafts is how many workflows the review may see in one turn: the first,
 	// and one more after the blamed phases were regenerated.
@@ -682,6 +682,7 @@ type runRecord struct {
 	Path     string `json:"path"`
 	Model    string `json:"model"`
 	Reviewer string `json:"reviewer"`
+	Deep     *bool  `json:"deep,omitempty"`
 	// Planner is "external" when an external agent planned the turn, or
 	// "external→builtin" when it fell through, with the reason in Fallback.
 	Planner  string `json:"planner,omitempty"`

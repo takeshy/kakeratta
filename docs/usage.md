@@ -419,9 +419,9 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron 3.5 Lightning — judging whether a reply asks for a better answer, and optional dictation polishing
+- Nemotron 3.5 Lightning — optional dictation polishing
 - Nemotron Super — routing, all built-in research, ordinary answers, schedule/action planning, and workflow review
-- Nemotron Ultra — final answers for deeper replies and Always think deeply, plus persona drafting
+- Nemotron Ultra — final answers for deep requests and Always think deeply, plus persona drafting
 - Nebius Token Factory — inference backend
 
 Routing uses Nemotron Super by default. Under Advanced options → Use OpenRouter, enter an API key
@@ -438,10 +438,10 @@ Qwen3-Embedding-8B on the same backend.
 
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
-| Judging replies to an answer | low | Nemotron 3.5 Lightning |
+| Optional dictation polishing | low | Nemotron 3.5 Lightning |
 | Research and schedule/action planning, including deep and AlwaysUltra | middle | Nemotron Super |
 | Ordinary final answers | middle | Nemotron Super |
-| Final answers for deeper replies / Always think deeply | high | Nemotron Ultra |
+| Final answers for deep requests / Always think deeply | high | Nemotron Ultra |
 | Reading images / OCR | fixed | GLM-5.3-Flash |
 | Routing | router (or Jev) | Nemotron Super |
 | Workflow review | middle | Nemotron Super |
@@ -453,15 +453,9 @@ Qwen3-Embedding-8B on the same backend.
 The page has no direct Token Factory model picker: users enter an API key and
 those slots keep their defaults.
 
-Personas normally answer on Super; **Always think deeply** uses Ultra for
-ordinary requests too. When
-you reply to a persona's answer, Lightning checks one thing: are you explicitly
-asking for a correction, a rethink, more detail or a deeper look ("違う",
-"もっと詳しく", "深掘りして")? If so, the persona you replied to answers on
-Ultra, marked with an Ultra badge. Thanks,
-ordinary follow-up questions and new topics stay on Super unless Always think
-deeply is enabled.
-Built-in research always uses Super; deep replies and Always think deeply switch only final-answer generation to Ultra. Research permits up to 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep replies and Always think deeply. Each round receives the remaining search count. At zero, Web search is removed from the choices, while other available reads and finishing research remain possible. Unconfigured tools and memory reads for memoryless personas are not offered.
+Personas normally answer on Super; **Always think deeply** selects Ultra for the final answer. The first built-in Super research call reads the parent-answer context, chooses deep and a short research plan, and requests the first read in that same call. "詳しく" requests detail about the parent answer; reconsideration, comparison and careful verification can also select an Ultra final answer. Thanks and simple follow-ups remain on Super. Ultra answers carry a badge. There is no separate Lightning classification.
+Ordinary turns start with 10 reads and 2 Web searches; deep=true expands only the ceilings to 20 and 4, preserving spent counts. Later research receives the plan and actual remaining counts.
+Built-in research always uses Super; deep requests and Always think deeply switch only final-answer generation to Ultra. Research permits up to 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep requests and Always think deeply. Each round receives the remaining search count. At zero, Web search is removed from the choices, while other available reads and finishing research remain possible. Unconfigured tools and memory reads for memoryless personas are not offered.
 
 Once an external agent's connection key has been issued and **Use the external agent**
 is enabled in settings, each persona can turn on
@@ -474,7 +468,7 @@ turn's schedules, actions and notes on Super, assembles them
 with the answer into a workflow, reviews it as in the table above when it holds a
 schedule or an action, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
-15 minutes of the claim, the built-in path researches on Super and answers on Super, or Ultra for deep replies or Always think deeply. The waits are under Advanced options →
+15 minutes of the claim, the built-in path researches on Super and answers on Super, or Ultra for deep requests or Always think deeply. The waits are under Advanced options →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 

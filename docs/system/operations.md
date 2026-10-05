@@ -112,6 +112,10 @@ The command does not reroute posts, wake personas, rewrite text or timestamps, o
 - [README.md](../../infra/README.md)
 - [migrate-memory](../../cmd/migrate-memory/main.go): one-off memory migration
 
+## Initial research planning model checks
+
+Ordinary `go test ./internal/persona` covers planning schemas, model selection, budget expansion without resetting counters, plan retention, and bounded malformed-plan corrections using local fake completions. To check actual Super judgement, opt in with `KAKERATTA_RESEARCH_PLAN_LIVE=1 KAKERATTA_ROUTE_KEY_FILE="$PWD/tmp/token_factory.key" go test ./internal/persona -run TestInitialSuperPlanningLive -count=1 -v`. The [live test](../../internal/persona/research_plan_live_test.go) sends one Super research request per synthetic scenario (detail request, thanks, simple forecast question/follow-up, and complex comparison), consumes API credits, and performs no production reads or writes. These model checks are skipped unless explicitly enabled. On 2026-10-05, the five scenarios passed three runs each (15 first-round Super requests) with Web-search schemas offered and tool execution stubbed. Contextual detail and complex comparison selected deep; thanks and simple weather questions/follow-ups did not.
+
 # Workspace export and deletion
 
 ## Backup format

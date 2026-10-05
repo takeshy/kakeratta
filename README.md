@@ -115,9 +115,9 @@ The default model configuration is:
 
 | Model | Role |
 | --- | --- |
-| **Nemotron 3.5 Lightning** | Detect whether a reply asks for a better or deeper answer |
-| **Nemotron 3 Super 120B A12B** | Persona routing, all built-in research, ordinary answers, schedule/action planning and workflow checks |
-| **Nemotron 3 Ultra 550B A55B** | Final answers for deeper replies and for personas with Always think deeply enabled |
+| **Nemotron 3.5 Lightning** | Optional dictation polishing |
+| **Nemotron 3 Super 120B A12B** | Persona routing, all built-in research including initial planning and depth selection, ordinary answers, schedule/action planning and workflow checks |
+| **Nemotron 3 Ultra 550B A55B** | Final answers for deep requests and for personas with Always think deeply enabled |
 
 OpenRouter is an optional alternative. Models are chosen by task to benefit
 from smaller models' lower cost and faster responses, using stronger models

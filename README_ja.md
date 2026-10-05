@@ -109,9 +109,9 @@ NVIDIA Nemotronで振り分け・回答・workflowの確認を行います。標
 
 | モデル | 用途 |
 | --- | --- |
-| **Nemotron 3.5 Lightning** | 回答への返信が、より良い・深い回答を求めているかを判定 |
-| **Nemotron 3 Super 120B A12B** | 担当への振り分け、内蔵の全調査、通常の回答、予定・操作の計画、workflowの確認 |
-| **Nemotron 3 Ultra 550B A55B** | 深掘り返信や「常に熟考する」担当の最終回答 |
+| **Nemotron 3.5 Lightning** | 任意の音声入力整形 |
+| **Nemotron 3 Super 120B A12B** | 担当への振り分け、内蔵の全調査（初回の方針・deep判定を含む）、通常の回答、予定・操作の計画、workflowの確認 |
+| **Nemotron 3 Ultra 550B A55B** | 深い回答が必要な依頼や「常に熟考する」担当の最終回答 |
 
 OpenRouterも選べます。
 処理ごとにモデルを選び、小さいモデルの低コストと回答の速さを活かしながら、

@@ -70,6 +70,11 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 						return
 					}
 					respond := func(name string, args any) {
+						if researchCalls == 1 {
+							if fields, ok := args.(map[string]any); ok {
+								fields["deep"], fields["research_plan"] = tc.deep, []string{"根拠を確認"}
+							}
+						}
 						_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": testCall(name, args)}}})
 					}
 					if len(body.Tools) == 1 && body.Tools[0].Function.Name == submitAnswer {
@@ -93,6 +98,9 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 						t.Errorf("research model = %s", body.Model)
 					}
 					remaining := tc.searches - searchCalls
+					if researchCalls == 1 && !tc.always {
+						remaining = turnSearchLimit(false)
+					}
 					seenRemaining = append(seenRemaining, remaining)
 					tool := body.Tools[0].Function
 					system := body.Messages[0].Content
@@ -133,7 +141,7 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 						}
 						if batch {
 							// A second call in the same round must see the spent budget too.
-							first := testCall("read", map[string]any{"steps": steps})
+							first := testCall("read", map[string]any{"steps": steps, "deep": tc.deep, "research_plan": []string{"根拠を確認"}})
 							second := testCall("read", map[string]any{"steps": []ReadStep{{Type: "tool", Tool: "web_search", Args: `{"query":"extra-call"}`}}})
 							first["tool_calls"] = append(first["tool_calls"].([]any), second["tool_calls"].([]any)...)
 							_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": first}}})
@@ -153,7 +161,7 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 				settings.MiddleModel, settings.HighModel = "super", "ultra"
 				settings.Search.APIKey = "test-key"
 				registry := r.registry(settings).WithSearch(search.New(s))
-				entry := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, true, false, "", tc.deep, llm.New(server.URL, ""), settings, registry)
+				entry := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, true, false, "", false, llm.New(server.URL, ""), settings, registry)
 				if entry == nil || entry.Text != "調査結果" || searchCalls != tc.searches || answerCalls != 1 {
 					t.Fatalf("entry=%+v searches=%d answers=%d", entry, searchCalls, answerCalls)
 				}
@@ -165,6 +173,9 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 						want = append(want, i)
 					}
 					want = append(want, 0, 0, 0)
+				}
+				if !tc.always {
+					want[0] = turnSearchLimit(false)
 				}
 				if !reflect.DeepEqual(seenRemaining, want) {
 					t.Fatalf("remaining per round=%v, want %v", seenRemaining, want)

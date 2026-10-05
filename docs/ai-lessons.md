@@ -20,8 +20,8 @@ to see it happen.
 post / reply
  ↓ the image is read once                  (GLM-5.3-Flash)
  ↓ routing           Nemotron Super (or optional Jev) matches it against each persona's routing condition
- ↓ a reply to a persona's remark: Nemotron 3.5 Lightning answers one question - does it ask for a better answer?
- ↓ every recipient, in parallel, one turn   (Super research; Ultra final answer for deep replies or AlwaysUltra)
+ ↓ every recipient, in parallel, one turn   (Super research; Ultra final answer for deep requests or AlwaysUltra)
+     initial  → short research_plan, deep decision and first read
      read     → field summaries and facts, latest records, older records, timeline search, web search, places, routes
      answer   → final text and sources
      plan     → propose schedules and actions; validate structure, permissions, and arguments in code
@@ -181,7 +181,7 @@ what code cannot.
   is said outright. The next live run switched to web search after two
   failures.
 
-## 10. Model tiers per persona gave way to one model and a narrow question
+## 10. Model tiers gave way to research planning and final-answer depth
 
 Personas used to carry a tier. Low ran on Nemotron 3.5 Lightning with notes,
 web search and a remark called directly, because the read-then-workflow
@@ -193,24 +193,11 @@ to guess how hard its posts would be.
 Built-in personas normally answer on Super, with recipients running in parallel.
 **Always think deeply** selects Ultra for final answers to ordinary requests too. All built-in research and schedule/action planning use Super. Research reports its live Web-search allowance each round and removes exhausted or unavailable reads from the schema; Web exhaustion still permits other reads or `finish_read`. Plans with
 schedules or actions pass through model review; plans without either skip it.
-Ultra is also used when the user asks for a better answer: when
-someone replies to a persona's remark, Lightning is shown the remark and the
-reply and answers only whether the reply explicitly asks for a correction, a
-rethink, more detail or a deeper look ("違う", "本当？", "もっと詳しく"). If it
-does, the replied-to persona selected as the recipient answers
-on Ultra, with "keep it short" replaced by a request for a thorough Markdown
-answer. Without an explicit mention, a reply to an active persona reaches that persona
-alone; mentioning another persona selects that one instead. If classification
-fails, the persona uses its ordinary model choice.
+The first Super research call now decides deep and a short research plan from the user's request and required answer quality, alongside the first read. A short "詳しく" reply requests detail about its parent answer; comparison, synthesis or careful verification can also select deep without explicit depth words. Thanks and simple follow-ups stay ordinary. Only final-answer composition uses Ultra for deep or AlwaysUltra. Expanding the normal 10-read/2-search allowance to 20/4 preserves spent counts; later research receives the plan and actual remaining allowance.
 
-Lightning is not asked whether Super would be good enough; only whether the
-user said, in so many words, that they want more. On 15 synthetic replies
-(2026-09-22) it judged all 15 correctly in 0.67 seconds on average; Super also
-got 15/15 but took 1.30 seconds at about five times the cost. Each remark
-records which model answered, and the timeline marks an Ultra answer.
+The former standalone Lightning check judged 15 synthetic replies correctly in 0.67 seconds on average on 2026-09-22; Super also got 15/15 but took 1.30 seconds at about five times the cost. Real use later exposed a false result for a short "詳しく" reply. The separate check has been removed. Each remark still records the final-answer model slot, and the timeline marks Ultra answers.
 
-**Lesson:** the smallest model did badly at a whole turn and well at one
-narrow yes/no question. Give it the question.
+**Lesson:** depth selection depends on context and required answer quality. Combining it with the first Super research plan removes a classification-only call.
 
 ## 11. Small things that broke real data
 

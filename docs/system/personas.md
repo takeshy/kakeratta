@@ -123,7 +123,7 @@ Check and correction APIs distinguish a trial after changing conditions from app
 
 - [runner.go](../../internal/persona/runner.go): `prepareEntry`, `deliverEntry`, `routeSubjects`, `routingRecord`, `turnsDone`
 - [route.go](../../internal/persona/route.go)
-- [runner_test.go](../../internal/persona/runner_test.go): directed entries skip automatic routing and person matching; mention precedence and reply model escalation
+- [runner_test.go](../../internal/persona/runner_test.go): directed entries skip automatic routing and person matching; mention precedence and contextual reply depth selection
 - [people.go](../../internal/persona/people.go)
 - [queue_test.go](../../internal/persona/queue_test.go): edits refresh recipients recorded after routing, including prepared delivery recovery
 - [routing.go](../../internal/server/routing.go)
@@ -135,7 +135,7 @@ Check and correction APIs distinguish a trial after changing conditions from app
 
 ```mermaid
 flowchart TD
-  Input[Entry, thread, fields and latest records] --> Read[Research with permitted reads]
+  Input[Entry, thread, fields and latest records] --> Read[Initial Super planning and research with permitted reads]
   Read --> Answer[Finalize Answer]
   Answer --> Phases[Propose schedules and actions]
   Phases --> Review[Validate structure, permissions, consistency]
@@ -144,16 +144,20 @@ flowchart TD
   Publish --> Keeper[Keep the record and fields with the note keeper]
 ```
 
-The built-in path separates research, answer, and phase models. Super runs every research round and chooses between `read` (continue) and `finish_read` (finish). `research` passes its messages, including the original conversation, assistant tool calls and tool results, directly to `composeAnswer`; no summarization replaces that context. Only `submit_answer` is offered during final-answer composition, so Ultra cannot run another research loop.
+The built-in path separates research, answer, and phase models. Super runs every research round and chooses between `read` (continue) and `finish_read` (finish). `research` passes its messages, including the original conversation, assistant tool calls and tool results, directly to `composeAnswer`; no summarization replaces that context. Final-answer length instructions and model selection are updated after research decides the depth. Only `submit_answer` is offered during final-answer composition, so Ultra cannot run another research loop.
 
 | Turn | Research | Final answer | Schedule/action phases |
 | --- | --- | --- | --- |
 | Ordinary | Super | Super | Super |
-| Deep reply | Super | Ultra | Super |
+| Deep request | Super | Ultra | Super |
 | AlwaysUltra | Super | Ultra | Super |
-| Deep reply and AlwaysUltra | Super | Ultra | Super |
+| Deep request and AlwaysUltra | Super | Ultra | Super |
 
-Lightning still classifies eligible replies as deep. Deep and AlwaysUltra retain 20 research reads and 4 Web searches; ordinary turns retain 10 reads and 2 Web searches. Phase read budgets remain separate. Super falls back from the configured middle model to low; Ultra falls back from high to middle to low. The remark's model slot and workflow log model describe the answer; per-call usage records identify each stage's actual model.
+The first Super research call analyzes the request and parent-answer context, emits `deep`, a short `research_plan` (up to five one-sentence items, each at most 120 characters), and the first `read.steps` in the same call. `finish_read` also accepts the initial decision and plan when no lookup is necessary. These fields are required only until a valid initial response is accepted; missing or malformed planning fields use bounded correction retries before reads execute. There is no separate Lightning escalation call and no extra Super classification call.
+
+Depth reflects explicit requests such as a short "詳しく" reply, and the research, verification or synthesis needed for a sufficient answer even without explicit depth words. Thanks and simple follow-ups need not select deep. Subsequent rounds retain the plan in their context and ordinary read/finish_read schemas; the plan is a guide, not an immutable sequence or a chain-of-thought transcript. It is not shown in the user interface.
+
+Ordinary turns start with 10 research reads and 2 Web searches. Accepting deep=true expands only the existing ceilings to 20 reads and 4 searches, without resetting used reads, lookup/search counters or cached results. The accepted decision is applied before the first read executes. The next round and read-result footer derive remaining counts from the expanded live budget (one spent Web search leaves three). AlwaysUltra starts with the deep budget and forces the final-answer model to Ultra regardless of the emitted flag. Phase read budgets remain separate. Super falls back from the configured middle model to low; Ultra falls back from high to middle to low. The remark's model slot and workflow log model describe the answer; per-call usage records identify each stage's actual model. Initial planning remains `purpose=research`, `round=1`; the workflow record stores the effective `deep` flag. No escalation usage record is created.
 
 A valid answer takes one composition call after research. Existing bounded correction retries for malformed or invalid answers remain in the answer stage and do not reopen research. When the answer is asked of the external agent, the turn opens an ask and ends; once the ask closes, a reaction carries the turn on with the agent's answer and research, which enter the same subsequent processing, or with the built-in planner from the start.
 
@@ -189,6 +193,10 @@ Research reads include `entries` steps for direct timeline posts by ID, `records
 
 - [runner.go](../../internal/persona/runner.go): `run`
 - [answer.go](../../internal/persona/answer.go): `research`, `composeAnswer`
+- [research_plan.go](../../internal/persona/research_plan.go): initial schema, concise plan validation and depth instructions
+- [research_plan_live_test.go](../../internal/persona/research_plan_live_test.go): opt-in paid Super judgement checks for contextual detail requests, simple follow-ups and complex questions
+- [research_plan_test.go](../../internal/persona/research_plan_test.go): planning persistence, budget preservation and malformed-plan retries
+- [model_selection_test.go](../../internal/persona/model_selection_test.go): initial Super planning, final-answer switch and AlwaysUltra
 - [research_reads.go](../../internal/persona/research_reads.go): current capability schema, instructions, and footers
 - [lookups.go](../../internal/persona/lookups.go): execution counters and `SearchRemaining`
 - [research_reads_test.go](../../internal/persona/research_reads_test.go): live remaining counts, schema removal, multi-step/multi-call budget enforcement, memoryless and continued timeline reads

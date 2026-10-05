@@ -31,12 +31,13 @@ func TestTurnModelsSeparateResearchFromAnswer(t *testing.T) {
 			skill.AlwaysUltra = tc.always
 			skill.Tools = []string{"kakeratta_help", "schedule", "web_search"}
 			trigger := post(t, s, "調査した根拠で答えて")
+			f.researchDeep = func(system, user string) bool { return tc.deep }
 			reads := 0
 			f.phaseReply = func(system, user string, offered map[string]bool) string {
 				switch {
 				case offered["finish_read"]:
-					if !strings.Contains(system, fmt.Sprintf("最大%d回", turnReadLimit(tc.deep || tc.always))) ||
-						!strings.Contains(system, fmt.Sprintf("Web検索: 残り %d 回", turnSearchLimit(tc.deep || tc.always))) {
+					if !strings.Contains(system, fmt.Sprintf("read は残り %d 回", turnReadLimit(tc.always || (tc.deep && reads > 0))-reads)) ||
+						!strings.Contains(system, fmt.Sprintf("Web検索: 残り %d 回", turnSearchLimit(tc.always || (tc.deep && reads > 0)))) {
 						t.Error("research budget instructions changed")
 					}
 					reads++
@@ -74,7 +75,7 @@ func TestTurnModelsSeparateResearchFromAnswer(t *testing.T) {
 			client.Observe = func(call llm.CallRecord) {
 				calls = append(calls, call.Purpose+":"+call.Model)
 			}
-			entry := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, true, false, "", tc.deep, client, settings, r.registry(settings))
+			entry := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, true, false, "", false, client, settings, r.registry(settings))
 			if entry == nil || entry.Text != "根拠を踏まえた回答" {
 				t.Fatalf("answer = %+v", entry)
 			}

@@ -134,7 +134,7 @@ func checkAnswer(answer Answer, rules turnRules) []string {
 
 // research completes before the answer tool is offered: no state-changing
 // schemas or note-writing skill consume the answer model's context.
-func research(ctx context.Context, client *llm.Client, model string, messages []llm.Message, capabilities func() readCapabilities, lookup func([]ReadStep) string) ([]llm.Message, error) {
+func research(ctx context.Context, client *llm.Client, model string, messages []llm.Message, capabilities func() readCapabilities, lookup func([]ReadStep) string, initialize func(researchDecision)) ([]llm.Message, error) {
 	// Replace the live instruction instead of accumulating stale capability
 	// lists. Keep all conversation and tool-result messages for the answer.
 	messages = append([]llm.Message(nil), messages...)
@@ -143,13 +143,25 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 	}
 	baseSystem := messages[0].Content
 	retries := 0
+	planning := true
+	var decision researchDecision
 	for round := 0; round < ultraReads+maxMalformed+2; round++ {
 		current := capabilities()
 		if current.readsRemaining <= 0 {
 			break
 		}
 		messages[0].Content = baseSystem + current.instruction()
-		reply, err := client.Complete(ctx, llm.Request{Purpose: "research", Attempt: retries + 1, Round: round + 1, Model: model, Messages: messages, Tools: []llm.Tool{current.tool(), finishReadTool}, ToolChoice: "required"})
+		tools := []llm.Tool{current.tool(), finishReadTool}
+		if planning {
+			messages[0].Content += researchPlanningInstruction
+			for i := range tools {
+				tools[i] = withResearchPlanning(tools[i])
+			}
+		} else if len(decision.Plan) > 0 {
+			plan, _ := json.Marshal(decision.Plan)
+			messages[0].Content += "\n# 調査計画\n" + string(plan) + "\n計画は目安です。結果に応じて不要な項目を飛ばし、必要なreadを追加してよく、十分ならfinish_readしてください。"
+		}
+		reply, err := client.Complete(ctx, llm.Request{Purpose: "research", Attempt: retries + 1, Round: round + 1, Model: model, Messages: messages, Tools: tools, ToolChoice: "required"})
 		if err != nil {
 			return nil, err
 		}
@@ -157,6 +169,19 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 		done := false
 		invalid := len(reply.Calls) == 0
 		for _, call := range reply.Calls {
+			if planning && (call.Name == readTool.Name || call.Name == finishReadTool.Name) {
+				var err error
+				decision, err = parseResearchDecision(call.Args, call.Name == readTool.Name)
+				if err != nil {
+					invalid = true
+					messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: err.Error()})
+					continue
+				}
+				planning = false
+				if initialize != nil {
+					initialize(decision)
+				}
+			}
 			result := "read または finish_read を呼んでください。"
 			switch call.Name {
 			case finishReadTool.Name:
@@ -182,6 +207,9 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 		}
 		if invalid {
 			retries++
+			if planning && retries > maxMalformed {
+				return nil, fmt.Errorf("initial research plan was not provided after %d attempts", retries)
+			}
 		}
 		if len(reply.Calls) == 0 {
 			messages = append(messages, llm.Message{Role: "user", Content: "read または finish_read を呼んでください。"})
