@@ -11,56 +11,6 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-func TestRouteUsesModeSpecificBackend(t *testing.T) {
-	for _, tc := range []struct {
-		mode, endpoint, label string
-		seconds               int
-	}{
-		{"driving", "car", "車", 448}, {"walking", "foot", "徒歩", 3281},
-	} {
-		t.Run(tc.mode, func(t *testing.T) {
-			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/search" {
-					fmt.Fprint(w, `[{"lat":"35.6580","lon":"139.7016","display_name":"渋谷駅"}]`)
-					return
-				}
-				if !strings.HasPrefix(r.URL.Path, "/"+tc.endpoint+"/route/v1/driving/") {
-					t.Errorf("wrong backend: %s", r.URL.Path)
-				}
-				fmt.Fprintf(w, `{"code":"Ok","routes":[{"duration":%d,"distance":4101}]}`, tc.seconds)
-			}))
-			defer backend.Close()
-			registry := New(Config{Places: PlaceEndpoints{Nominatim: backend.URL, Route: backend.URL + "/car", WalkingRoute: backend.URL + "/foot"}})
-			result, err := registry.For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅", "mode": tc.mode}, &timeline.Place{Lat: 35.6896, Lon: 139.7006})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(result.Text, fmt.Sprintf("%s で約%d分", tc.label, (tc.seconds+59)/60)) {
-				t.Fatal(result.Text)
-			}
-			if !strings.Contains(result.Sources[0].URL, "fossgis_osrm_"+tc.endpoint) {
-				t.Fatal(result.Sources)
-			}
-		})
-	}
-}
-
-func TestRouteRejectsUnsupportedOrMissingModeEndpoint(t *testing.T) {
-	for _, tc := range []struct{ mode, walkingURL string }{
-		{"walking", ""}, {"walking", "https://router.project-osrm.org"}, {"transit", ""}, {"cycling", ""}, {"bike", ""},
-	} {
-		registry := New(Config{Places: PlaceEndpoints{Route: "https://router.project-osrm.org", WalkingRoute: tc.walkingURL}})
-		_, err := registry.For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅", "mode": tc.mode}, &timeline.Place{Lat: 35, Lon: 139})
-		if err == nil {
-			t.Fatalf("accepted %+v", tc)
-		}
-	}
-	_, err := New(Config{}).For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅"}, nil)
-	if err != ErrNoPlace {
-		t.Fatalf("no location: %v", err)
-	}
-}
-
 func TestNearbyRetriesOverloadAndSearchesRamenTag(t *testing.T) {
 	calls := 0
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -115,13 +65,5 @@ func TestPlaceWithoutLocationUsesNameLookup(t *testing.T) {
 	result, err := New(Config{Places: PlaceEndpoints{Nominatim: backend.URL}}).For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "渋谷駅"}, nil)
 	if err != nil || !strings.Contains(result.Text, "位置が分からない") {
 		t.Fatalf("%+v %v", result, err)
-	}
-}
-
-func TestRemovedCyclingIsNotDelegated(t *testing.T) {
-	for _, mode := range []string{"cycling", "bike"} {
-		if _, ok := routeArgs(Args{"to": "渋谷駅", "mode": mode}, &timeline.Place{Lat: 35, Lon: 139}); ok {
-			t.Fatalf("removed mode forwarded: %s", mode)
-		}
 	}
 }

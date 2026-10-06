@@ -211,6 +211,9 @@ func TestNewPersonDraftCanPlaceWakes(t *testing.T) {
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
+	if slices.Contains(result.Draft.Tools, "route") {
+		t.Fatalf("new people should not receive legacy routing by default: %v", result.Draft.Tools)
+	}
 	for _, name := range personTools {
 		if !slices.Contains(result.Draft.Tools, name) {
 			t.Fatalf("a new person lacks %s: %v", name, result.Draft.Tools)

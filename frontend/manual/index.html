@@ -421,7 +421,7 @@
             <li>担当が黙った場合や失敗した場合も、その日の1回に数えます。メモを消しても、同じ日にもう一度は起きません。</li>
             <li>時刻が夜から朝へ回り込む日（前の日 20時台 → その日 7時台など）は、数時間おきに2回起きないよう、その日を休みにします。</li>
             <li>最近の記録は、前回のチェックインから今までの分を読みます。休んだ日や見送った日があっても、その間の記録を取りこぼしません。</li>
-            <li>チェックインでは現在地を使わないので、経路検索はできず、店舗検索は名前での検索だけになります。</li>
+            <li>チェックインでは現在地を使わないので、店舗検索は名前での検索だけになります。</li>
           </ul>
           <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を整え、何を聞くかを外部エージェントが考えます。時間内に外部エージェントが応じなければ、内蔵モデルが代わりに考えます。</p>
           <h3 id="ja-summary-advanced">今月のまとめと、月1回振り返る人物</h3>
@@ -613,13 +613,12 @@
                 <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web 検索</td><td>道具に追加した担当。Tavily の API キー</td></tr>
                 <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>店や場所を探す</td><td>道具に追加した担当</td></tr>
                 <tr><td><a href="#ja-tool-weather_forecast"><code>weather_forecast</code></a></td><td>現在の天気と天気予報</td><td>道具に追加した担当。地域名または投稿の位置情報</td></tr>
-                <tr><td><a href="#ja-tool-route"><code>route</code></a></td><td>道のりと所要時間</td><td>道具に追加した担当。投稿の位置情報</td></tr>
                 <tr><td><a href="#ja-tool-schedule"><code>schedule</code></a></td><td>自分が起きる時刻を預ける</td><td>道具に追加した担当</td></tr>
               </tbody>
             </table>
           </div>
           <p>担当が使える道具は、担当パネルの <strong>道具</strong> に出ます。増やしたいときは <strong>AIで修正</strong> で「Web検索も使えるようにして」のように頼み、変更案を確かめて保存します。</p>
-          <div class="tip"><p>道具は kakeratta のサーバーで動きます。位置情報を許可すると、座標がサーバーへ送られ、店や経路を探すときに外部の地図サービスへ渡ります。担当が読んだメモや検索結果は、AI モデルへの入力にも含まれます。</p></div>
+          <div class="tip"><p>道具は kakeratta のサーバーで動きます。位置情報を許可すると、座標がサーバーへ送られ、店や場所を探すときに外部の地図サービスへ渡ります。担当が読んだメモや検索結果は、AI モデルへの入力にも含まれます。</p></div>
 
           <h3 id="ja-tool-timeline_search">過去のかけら検索 — timeline_search</h3>
           <p>保存した投稿、画像から読み取った文字、返信を、語句と意味の両方で探します。期間を指定して、その間の記録をまとめて読むこともできます。一度に返るのは30件までです。検索で見つかった投稿のうち、担当が根拠にしたものだけが発言の下にリンクされます。</p>
@@ -641,9 +640,6 @@
           <p>WeatherAPI.comから現在の天気と日別予報を調べます。地域名を指定するか、投稿の位置情報を使います。日付や現地時刻の時間帯を指定して確認することもできます。取得できる予報の期間は接続先の契約によって異なり、取得していない日の天気は分かりません。担当の道具に「天気予報を調べる」を追加して使います。</p>
           <p>例：「東京の明日の18時ごろ、雨は降りそう？」</p>
 
-          <h3 id="ja-tool-route">経路検索 — route</h3>
-          <p>投稿の位置から目的地までの、車・徒歩での道のりと所要時間の目安を調べます。電車やバス、時刻表、渋滞は含みません。位置情報のない投稿やチェックインでは使えません。本文に出発地を書いても、位置情報の代わりにはなりません。</p>
-          <p>移動の担当を作り、この道具を有効にして質問します。例：「@旅 ここから渋谷駅まで徒歩で何分？」</p>
         </section>
 
         <section id="ja-more">
@@ -1024,7 +1020,7 @@
             <li>A silent or failed wake still counts as the day's. Deleting notes does not cause a second wake that day.</li>
             <li>On a day the time would wrap from the evening round to the morning (the 20s one day, the 7s the next), that day is skipped, so a persona does not wake twice within hours.</li>
             <li>Recent records are read from the previous check-in onward, so a skipped or missed day leaves nothing unread.</li>
-            <li>Check-ins do not use your location, so route search is unavailable and place search works by name only.</li>
+            <li>Check-ins do not use your location, so place search works by name only.</li>
           </ul>
           <p>For a persona that prefers the external agent, the external agent decides what to tidy and what to ask at check-in. If it does not respond in time, the built-in model plans instead.</p>
           <h3 id="en-summary-advanced">This month's summary, and people looked back on monthly</h3>
@@ -1216,13 +1212,12 @@
                 <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search the Web</td><td>Personas it is added to; Tavily API key</td></tr>
                 <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find shops and places</td><td>Personas it is added to</td></tr>
                 <tr><td><a href="#en-tool-weather_forecast"><code>weather_forecast</code></a></td><td>Current weather and forecasts</td><td>Personas it is added to; a place name or location on the post</td></tr>
-                <tr><td><a href="#en-tool-route"><code>route</code></a></td><td>Road distance and travel time</td><td>Personas it is added to; location on the post</td></tr>
                 <tr><td><a href="#en-tool-schedule"><code>schedule</code></a></td><td>Pick its own wake time</td><td>Personas it is added to</td></tr>
               </tbody>
             </table>
           </div>
           <p>A persona's tools are listed under <strong>Tools</strong> in the Personas panel. To add one, use <strong>Edit with AI</strong> (“let it search the Web too”), review the change and save.</p>
-          <div class="tip"><p>Tools run on the kakeratta server. If you allow location, coordinates go to the server and, for place and route search, to an external map service. Notes and search results a persona reads also go to the AI model as input.</p></div>
+          <div class="tip"><p>Tools run on the kakeratta server. If you allow location, coordinates go to the server and, for place search, to an external map service. Notes and search results a persona reads also go to the AI model as input.</p></div>
 
           <h3 id="en-tool-timeline_search">Search past fragments — timeline_search</h3>
           <p>Searches your saved posts, text read from images, and replies by words and meaning together. A period can narrow it, or alone read everything written in it. Each call returns up to 30 results. Only the posts a persona uses as its grounds are linked under its remark.</p>
@@ -1244,9 +1239,6 @@
           <p>Looks up current weather and daily forecasts from WeatherAPI.com using a place name or the location on the post. A date and local hour can be selected. The available forecast period depends on the provider's subscription; dates outside the returned forecast are unknown. Add “Check the weather forecast” to the persona's tools to use it.</p>
           <p>Try: “Is rain likely in Tokyo around 6 pm tomorrow?”</p>
 
-          <h3 id="en-tool-route">Route search — route</h3>
-          <p>Estimates road distance and time from the post's location to a destination by car or on foot. No trains, buses, timetables or live traffic. It needs a location on the post, so it is unavailable in check-ins; typing a starting place in the text is not the same as a location.</p>
-          <p>Create a travel persona and enable this tool, then try: “@travel How long to walk from here to Shibuya Station?”</p>
         </section>
 
         <section id="en-more">

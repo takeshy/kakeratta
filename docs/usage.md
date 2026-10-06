@@ -26,7 +26,7 @@ task test       # go test ./internal/... and node --test tests/*.test.js
 | `KAKERATTA_WEATHERAPI_KEY` | empty | Server-side WeatherAPI key; takes precedence over a key file |
 | `KAKERATTA_WEATHERAPI_KEY_FILE` | optional `tmp/weatherapi.key` | File containing the server-side WeatherAPI key |
 | `KAKERATTA_WEATHERAPI_URL` | `https://api.weatherapi.com/v1` | WeatherAPI endpoint for `weather_forecast` |
-| `KAKERATTA_NOMINATIM_URL`, `KAKERATTA_OVERPASS_URL`, `KAKERATTA_OSRM_CAR_URL`, `KAKERATTA_OSRM_FOOT_URL` | public OpenStreetMap services | Where `place_search` and `route` go |
+| `KAKERATTA_NOMINATIM_URL`, `KAKERATTA_OVERPASS_URL` | public OpenStreetMap services | Where `place_search` goes |
 
 Tool endpoints and MCP servers are the operator's configuration and the same
 for every user. The Tavily key for `web_search` is the user's own, in Settings.
@@ -100,7 +100,7 @@ Five built-in personas are available: tabe (food), shiori (reading), sona
 diagrams with emoji and Mermaid). New workspaces activate sona, support and infographic. Existing
 workspaces keep their saved choices; enable new personas in the Personas panel.
 The former built-in travel persona michi has been retired; a customized travel
-persona remains available, and you can create one with place and route tools.
+persona remains available, and you can create one with place-search tools.
 
 Use `@support` to ask about kakeratta. It reads the system specification and
 answers without keeping private memory by default.
@@ -247,8 +247,8 @@ of them. In the editor a person has its relationship, basic information and opti
 A person's card also shows the basic information in a collapsed **Basic information** section, with **Edit basic information** opening the editor at that field.
 Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.
 
-A person's persona has all the built-in tools - web search, place search,
-routes and wakes (schedule) - to look up presents and places to meet and to
+A person's persona starts with web search, place search,
+and wakes (schedule) - to look up presents and places to meet and to
 wake itself on the day. The persona builder supplies them at creation; each can be turned off. When a
 post mentions meeting them, the persona places a wake for that morning, and on
 the day brings up what happened last time and anything still open.

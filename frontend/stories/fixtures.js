@@ -12,7 +12,7 @@ export const personas = [
     domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"],
     tone: "丁寧で、少し長め。おすすめを添える。", instructions: "食べた店と味の感想を覚える。似た店を三つまで勧める。" },
   { id: "move", name: "michi", icon: "🚃", builtin: false, active: true, wakes: 3, planner: "builtin",
-    domain: "移動。経路、所要時間、行き先。", tools: ["route", "place_search"] },
+    domain: "移動や外出先の場所。周辺の店や施設、行き先。", tools: ["place_search"] },
   { id: "book", name: "shiori", icon: "📖", builtin: true, active: true, wakes: 21, planner: "builtin",
     domain: "読書。本、引用、気になった一節。", tools: ["web_search"] },
   { id: "routine", name: "sona", icon: "🔁", builtin: true, active: true, wakes: 7, planner: "builtin",
@@ -46,10 +46,10 @@ const WORDS = {
     noodles: "この前の担々麺、ごまが強すぎた気がする",
     sesame: "ごま強めは前も一度そう言っていました。辛さより先にごまが来る店が苦手なのかもしれません。",
     heat: "たしかに。辛いのは平気",
-    shibuya: "@michi 20時に渋谷に着きたい",
+    shibuya: "@michi 渋谷駅の近くで待ち合わせできるカフェを探したい",
     station: "新宿駅",
-    route: "車の経路は約4.5km・8分が目安です。渋滞や公共交通は含まないので、到着時刻には余裕を見てください。",
-    routeSource: "経路 (OSRM)",
+    placeSuggestion: "渋谷駅の近くに、待ち合わせに使えそうなカフェが見つかりました。営業時間や住所を確認して選べます。",
+    placeSource: "場所検索 (OpenStreetMap)",
     pagePhoto: "本のページの写真",
     origin: "『動きが心をつくる』らしい",
     ocr: "身体の状態が先にあって、感情はあとから名前を付けられる。\n——という主張の節。",
@@ -75,10 +75,10 @@ const WORDS = {
     noodles: "That dan dan noodle place from the other day - too much sesame, I think",
     sesame: "You said the same about heavy sesame once before. It may be places where the sesame lands before the heat that don't suit you.",
     heat: "True. The heat itself is fine.",
-    shibuya: "@michi I want to be in Shibuya by 8pm",
+    shibuya: "@michi Find a cafe near Shibuya Station where we can meet",
     station: "Shinjuku Station",
-    route: "The driving route is about 4.5 km and 8 minutes. This excludes live traffic and public transport, so allow extra time.",
-    routeSource: "Route (OSRM)",
+    placeSuggestion: "There are cafes near Shibuya Station that could work for meeting up. Check their opening hours and addresses before choosing.",
+    placeSource: "Place search (OpenStreetMap)",
     pagePhoto: "A photo of a book page",
     origin: "Looks like \"How the Body Shapes the Mind\"",
     ocr: "The body's state comes first; the feeling gets its name afterwards.\n- the section making that claim.",
@@ -193,7 +193,7 @@ export function person() {
   const w = personWords();
   return { id: "sato", name: w.name, icon: "🧑", builtin: false, active: true, wakes: 5, planner: "builtin", kind: "person",
     aliases: w.aliases, keywords: w.keywords, domain: w.domain, tone: w.tone, memory: w.memory, instructions: w.instructions, basicInfo: w.basicInfo,
-    tools: ["web_search", "place_search", "route", "schedule"], dailyCheckIn: { enabled: true, talk: "share" } };
+    tools: ["web_search", "place_search", "schedule"], dailyCheckIn: { enabled: true, talk: "share" } };
 }
 
 // Confirmed dates shown on the person's card, independent of memory notes.
@@ -251,8 +251,8 @@ export function timeline() {
     said("s1", "p1", "gourmet", minutes(128), w.sesame, { notes: ["Preference.md"] }),
     said("s2", "p1", "user", minutes(120), w.heat),
     post("p2", minutes(52), { text: w.shibuya, place: { lat: 35.6896, lon: 139.7006, label: w.station } }),
-    said("s3", "p2", "move", minutes(50), w.route, {
-      sources: [{ label: w.routeSource, url: "https://example.invalid/route" }],
+    said("s3", "p2", "move", minutes(50), w.placeSuggestion, {
+      sources: [{ label: w.placeSource, url: "https://example.invalid/place" }],
     }),
     post("p3", minutes(20), {
       text: "",
@@ -282,7 +282,7 @@ export function timeline() {
 
 // ---- what the panels read ---------------------------------------------------
 
-export const tools = ["web_search", "place_search", "route"];
+export const tools = ["web_search", "place_search"];
 
 export const about = {
   version: "story",

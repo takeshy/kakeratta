@@ -8,5 +8,5 @@ var testTravelSkill = Skill{
 	Tone:         "短く要点だけ言う。",
 	Memory:       "分野は Place（よく行く場所）の1つ。場所とそこまでの手段を短く残す。",
 	Instructions: "行き先と経路を確認して答える。推測は推測と明記する。",
-	Tools:        []string{"route", "place_search", "web_search"},
+	Tools:        []string{"place_search", "web_search"},
 }

@@ -1,12 +1,12 @@
 ---
 type: "Integration"
 title: "External agents, tools, and sharing"
-description: "External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky."
+description: "External-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
 tags: ["mcp", "agent", "tools", "support", "bluesky", "sharing", "weather"]
-updated: "2026-10-05"
+updated: "2026-10-06"
 ---
 
-External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
+External-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
 
 # External-agent answers
 
@@ -46,21 +46,23 @@ An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the
 
 A tool `Declaration` carries a name, description, JSON Schema, and read-only status. Research tools are separated from schedule and action tools. The host validates model-supplied arguments and makes the actual network requests. Built-in tools apply their own argument checks. For external MCP tools, `checkArgs` checks required top-level keys and the basic types of non-null top-level values only; it is not a complete JSON Schema validator. Enum values, ranges, nested constraints, additional properties, and nullability remain the external server's responsibility. Tool schemas are passed to the model unchanged.
 
-For built-in answer research, `Set.ReadAvailable` additionally filters out tools known to be unusable from their configuration or the current post: missing keys/services, unavailable map endpoints, or a route without an origin. A delegated MCP map tool does not require its built-in fallback endpoints to be configured. This availability check does not execute the tool or change the persona's permissions. The research host combines it with live search/lookup budgets to generate the per-round read schema and instructions; see [Research budgets and available reads](./personas.md#research-budgets-and-available-reads). External-agent tool declarations and execution-time argument validation retain their existing behavior.
+For built-in answer research, `Set.ReadAvailable` additionally filters out tools known to be unusable from their configuration or the current post: missing keys/services, unavailable place-search endpoints. A delegated MCP map tool does not require its built-in fallback endpoints to be configured. This availability check does not execute the tool or change the persona's permissions. The research host combines it with live search/lookup budgets to generate the per-round read schema and instructions; see [Research budgets and available reads](./personas.md#research-budgets-and-available-reads). External-agent tool declarations and execution-time argument validation retain their existing behavior.
 
 ## Connections
 
 | Tool or path | Configuration and implementation |
 | --- | --- |
 | `web_search` | User search key and Tavily client |
-| `place_search`, `route` | Operator map endpoints |
+| `place_search` | Operator name/nearby search endpoints |
 | `weather_forecast` | Operator WeatherAPI key and base URL; read-only current weather and forecasts |
 | `timeline_search` | Workspace search Service |
 | `kakeratta_help` | Read-only OKF specification embedded from `docs/system/`; no credentials or external service |
 | `schedule`, `schedules_list` | User schedules, persona names, and time zone; only `schedules_list` is a research read |
 | `server.tool` | External MCP configured through `KAKERATTA_MCP_SERVERS` |
 
-The external MCP Catalogue caches tool lists and refreshes them as needed. Some built-in map names prefer corresponding MCP tools when configured. The `route` tool supports only driving (`car`/`driving`) and walking (`foot`/`walking`); its declarations, MCP forwarding, and built-in OSRM fallback do not support cycling. Driving and walking use separate endpoints (`KAKERATTA_OSRM_CAR_URL` and `KAKERATTA_OSRM_FOOT_URL`). Returned external text is model input data, not an instruction to expand permissions.
+The external MCP Catalogue caches tool lists and refreshes them as needed. The current Geo MCP production service exposes `place_search` and `reverse_geocode` with routing disabled. kakeratta has no built-in `route` tool, public OSRM client, route-specific MCP forwarding, or OSRM endpoint configuration. `place_search` prefers a compatible MCP tool when configured and retains its existing place-search fallback. Generic external MCP tools still use their server-qualified names and schemas. Returned external text is model input data, not an instruction to expand permissions.
+
+Verification: [removed_route_test.go](../../internal/tools/removed_route_test.go) confirms route is absent from the registry, cannot be executed, and makes no map-service request; [delegate_test.go](../../internal/tools/delegate_test.go) covers the retained place-search delegation and fallback.
 
 ## Automatic post location lookup
 

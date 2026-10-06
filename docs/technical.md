@@ -374,7 +374,7 @@ the answer is the same either way.
    records are handed over at the start of every turn. It may then ask, up to ten times (twenty in
    a deep or AlwaysUltra turn), to look at things: older records by tag,
    words, meaning or month, the posts records point to (up to ten at once), a timeline search, a web
-   search, a place or route lookup. Only read-only tools run here; an MCP tool
+   search or a place lookup. Only read-only tools run here; an MCP tool
    counts as read-only only when its server marks it `readOnlyHint`. Reading
    writes nothing, so the app just does it and hands the results back.
 2. **Answer.** With the reading done, the complete conversation and tool results pass directly to answer composition: Super normally, Ultra for deep requests or AlwaysUltra. Only `submit_answer` is offered, so Ultra does not run research. A valid submission needs one composition call; existing correction retries remain. The persona hands in only
@@ -864,7 +864,6 @@ Built-in integrations include:
 * `weather_forecast`
 * `kakeratta_help`
 * `place_search`
-* `route`
 
 * `schedule` — wake times a persona asks the app for; nothing leaves the app
   (`schedules.json` / Firestore)
@@ -917,24 +916,6 @@ live guarantee that a business is open now.
 Temporary Overpass failure is retried once and then reported as unavailable
 rather than being converted into a false "no places found" result.
 
-### Routes
-
-`route` requires a position attached to the post.
-
-Driving and walking use separate OSRM-compatible endpoints:
-
-* `KAKERATTA_OSRM_CAR_URL`
-* `KAKERATTA_OSRM_FOOT_URL`
-
-The defaults use public OpenStreetMap-based routing services.
-
-These are road-network estimates. They do not contain live traffic or public
-transport timetables.
-
-Changing only an OSRM URL's profile token is not sufficient to change travel
-mode; a custom routing server must be built with the corresponding routing
-data.
-
 ### MCP tools
 
 `KAKERATTA_MCP_SERVERS` is a JSON array of remote Streamable HTTP MCP servers.
@@ -965,7 +946,7 @@ Tool discovery is cached for a few minutes. If a remote server temporarily
 stops answering, its last known tool list can remain available, while an actual
 tool call failure is surfaced to the persona instead of silently disappearing.
 
-When an MCP server provides `route` or `place_search`-equivalent functionality
+When an MCP server provides `place_search`-equivalent functionality
 that accepts `lat` and `lng`, kakeratta can route those operations through that
 server and fill in the post's position automatically.
 
@@ -1367,8 +1348,6 @@ afterward to include the refreshed images.
 | `KAKERATTA_MCP_SERVERS`          | empty                                                           | Remote MCP servers whose tools may be assigned to personas              |
 | `KAKERATTA_NOMINATIM_URL`        | public service                                                  | Nominatim endpoint                                                      |
 | `KAKERATTA_OVERPASS_URL`         | public service                                                  | Overpass endpoint                                                       |
-| `KAKERATTA_OSRM_CAR_URL`         | public service                                                  | Driving route endpoint                                                  |
-| `KAKERATTA_OSRM_FOOT_URL`        | public service                                                  | Walking route endpoint                                                  |
 | `KAKERATTA_WEATHERAPI_KEY` | empty | Server-side WeatherAPI key |
 | `KAKERATTA_WEATHERAPI_KEY_FILE` | optional `tmp/weatherapi.key` | Fallback WeatherAPI key file |
 | `KAKERATTA_WEATHERAPI_URL` | `https://api.weatherapi.com/v1` | WeatherAPI endpoint |

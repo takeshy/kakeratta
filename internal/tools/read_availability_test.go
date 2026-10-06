@@ -24,8 +24,8 @@ func TestReadAvailabilityUsesConfigurationAndTurnContext(t *testing.T) {
 			t.Errorf("configured read %s missing", name)
 		}
 	}
-	if configured.ReadAvailable("route", nil) || !configured.ReadAvailable("route", &timeline.Place{}) {
-		t.Error("route availability must follow the post's location")
+	if configured.ReadAvailable("route", nil) || configured.ReadAvailable("route", &timeline.Place{}) {
+		t.Error("removed route must not be available")
 	}
 	if configured.ReadAvailable("schedule", nil) || r.For(nil).ReadAvailable("web_search", nil) {
 		t.Error("actions or undeclared tools were advertised as reads")
@@ -39,7 +39,7 @@ func TestReadAvailabilityPreservesMCPDelegationWithoutBuiltinEndpoints(t *testin
 	})
 	defer backend.Close()
 	set := New(Config{MCP: mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: backend.URL}}, "test")}).For([]string{"place_search", "route"})
-	if !set.ReadAvailable("place_search", nil) || !set.ReadAvailable("route", &timeline.Place{}) || set.ReadAvailable("route", nil) {
-		t.Error("MCP map delegation or location requirement was lost")
+	if !set.ReadAvailable("place_search", nil) || set.ReadAvailable("route", &timeline.Place{}) || set.ReadAvailable("route", nil) {
+		t.Error("MCP place delegation was lost or removed route was advertised")
 	}
 }

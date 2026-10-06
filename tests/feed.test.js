@@ -752,7 +752,7 @@ test("editing is disabled offline and an open draft can be saved after reconnect
 
 test("persona editor separates direct editing from AI editing", async (t) => {
   const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
-  const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動", tone: "短く", instructions: "場所を覚える", tools: ["route", "place_search"] };
+  const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動", tone: "短く", instructions: "場所を覚える", tools: ["place_search"] };
   t.mock.method(api, "buildPersona", async (body) => ({ message: "短くしました", draft: { ...body.current, tone: "一言だけ" } }));
   t.mock.method(api, "savePersonaDraft", async (skill) => skill);
   globalThis.Node = TestNode;
@@ -761,7 +761,7 @@ test("persona editor separates direct editing from AI editing", async (t) => {
   t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.cancelAnimationFrame; });
 
   let saved = false;
-  showPersonaEditor({ persona, toolNames: ["web_search", "place_search", "route", "schedule"], onSave: () => { saved = true; } });
+  showPersonaEditor({ persona, toolNames: ["web_search", "place_search", "schedule"], onSave: () => { saved = true; } });
   const walk = node => [node, ...node.children.flatMap(walk)];
   const button = label => walk(document.body).find(node => node.textContent === translate(label));
   const inputs = document.body.querySelectorAll(".skill-input");
@@ -791,7 +791,7 @@ test("persona editor separates direct editing from AI editing", async (t) => {
 
   // AI editing opens separately. Current values are reference-only until the
   // proposal arrives, then the proposal can be adjusted before saving.
-  showPersonaEditor({ persona, toolNames: ["web_search", "place_search", "route", "schedule"], ai: true });
+  showPersonaEditor({ persona, toolNames: ["web_search", "place_search", "schedule"], ai: true });
   const aiDialog = document.body.querySelectorAll(".persona-editor").at(-1);
   const aiInputs = aiDialog.querySelectorAll(".skill-input");
   const aiName = aiInputs.find(node => node.value === "michi");

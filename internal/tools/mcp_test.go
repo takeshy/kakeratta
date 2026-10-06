@@ -71,10 +71,10 @@ func TestMCPToolsAreListedDescribedAndRun(t *testing.T) {
 	config := Config{MCP: mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: backend.URL}}, "test")}
 	registry := New(config)
 	names := registry.Names()
-	if strings.Join(names, ",") != "geo.compute_commute,geo.list_layers,kakeratta_help,place_search,route,schedule,schedules_list,timeline_search,weather_forecast,web_search" {
+	if strings.Join(names, ",") != "geo.compute_commute,geo.list_layers,kakeratta_help,place_search,schedule,schedules_list,timeline_search,weather_forecast,web_search" {
 		t.Fatalf("names: %v", names)
 	}
-	set := registry.For([]string{"geo.compute_commute", "route"})
+	set := registry.For([]string{"geo.compute_commute", "place_search"})
 	if usage := set.Describe(); !strings.Contains(usage, "geo.compute_commute — Compute travel time from bundled profiles.") {
 		t.Fatalf("usage: %s", usage)
 	}
@@ -142,7 +142,7 @@ func TestMCPToolErrorsAndStructuredResults(t *testing.T) {
 }
 
 func TestBuiltinNamesWinOverMCPAndNoCatalogueIsFine(t *testing.T) {
-	if names := New(Config{}).Names(); fmt.Sprint(names) != "[kakeratta_help place_search route schedule schedules_list timeline_search weather_forecast web_search]" {
+	if names := New(Config{}).Names(); fmt.Sprint(names) != "[kakeratta_help place_search schedule schedules_list timeline_search weather_forecast web_search]" {
 		t.Fatalf("names: %v", names)
 	}
 	usage := describeMCP("geo.list_layers", mcp.Tool{Name: "list_layers", Title: "Layers"})

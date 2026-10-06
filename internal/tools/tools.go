@@ -103,7 +103,7 @@ type Registry struct {
 func New(config Config) *Registry {
 	r := &Registry{config: config, tools: map[string]Tool{}}
 	listed := config.MCP.Tools()
-	for _, tool := range []Tool{webSearch, placeSearch, routeTo, searchTimeline, scheduleTool, schedulesListTool, weatherForecast} {
+	for _, tool := range []Tool{webSearch, placeSearch, searchTimeline, scheduleTool, schedulesListTool, weatherForecast} {
 		r.tools[tool.Name] = preferMCP(tool, listed)
 	}
 	// The shipped specification must always come from this binary, even when
@@ -206,7 +206,7 @@ func (s *Set) IsReadOnly(name string) bool {
 		return false
 	}
 	switch name {
-	case "web_search", "place_search", "route", "timeline_search":
+	case "web_search", "place_search", "timeline_search":
 		return true
 	}
 	return s.registry.tools[name].ReadOnly
@@ -236,10 +236,6 @@ func (s *Set) ReadAvailable(name string, at *timeline.Place) bool {
 			return strings.TrimSpace(r.config.Places.Overpass) != ""
 		}
 		return strings.TrimSpace(r.config.Places.Nominatim) != ""
-	case "route":
-		return at != nil && (r.tools[name].delegated ||
-			(strings.TrimSpace(r.config.Places.Nominatim) != "" &&
-				(strings.TrimSpace(r.config.Places.Route) != "" || strings.TrimSpace(r.config.Places.WalkingRoute) != "")))
 	default:
 		return true
 	}

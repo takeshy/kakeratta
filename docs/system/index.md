@@ -12,7 +12,7 @@ This **OKF v0.2 bundle** documents the implementation in six subsystem chapters.
 - [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, model usage logging and completion finish reasons, schedule editing, reminder push delivery, profile and avatar validation, favorites, and search.
 - [Persona execution and memory](./personas.md) - Persona definitions, built-in support and Markdown infographics with emoji and Mermaid, initial research planning, depth selection, research/answer model separation, routing, live research budgets and read capabilities, output truncation recovery, reviewed actions, optional memory, schedules, and corrections.
 - [Browser application and device state](./frontend.md) - Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
-- [External agents, tools, and sharing](./integrations.md) - External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
+- [External agents, tools, and sharing](./integrations.md) - External-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
 - [Development and workspace operations](./operations.md) - Development, validation, model usage inspection, remote Terraform state and variables, temporary shared VM deployment, memory migration, location backfill, portable exports, and workspace deletion.
 
 # Reading the bundle

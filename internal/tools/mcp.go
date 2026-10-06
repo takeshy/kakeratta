@@ -10,8 +10,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-// mcpTools turns the catalogue into Tools. A persona sees "geo.route" next to
-// "route" and asks for either the same way; only Run knows where each goes.
+// mcpTools exposes the configured catalogue under server-qualified tool names.
 func mcpTools(catalogue *mcp.Catalogue) []Tool {
 	var out []Tool
 	for _, listed := range catalogue.Tools() {

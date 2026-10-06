@@ -1110,8 +1110,8 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 func TestAToolThatWasNotDeclaredIsRefused(t *testing.T) {
 	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
 	set := runner.registry(s.Settings()).For([]string{"schedule"}).As("routine")
-	plan := Workflow{Actions: []ActionOperation{{Tool: "route", Args: `{"to":"渋谷"}`}}}.batch()
-	if problems := checkBatch(plan, turnRules{set: set}); len(problems) != 1 || !strings.Contains(problems[0], "route はあなたが使える道具ではありません") {
+	plan := Workflow{Actions: []ActionOperation{{Tool: "place_search", Args: `{"query":"渋谷"}`}}}.batch()
+	if problems := checkBatch(plan, turnRules{set: set}); len(problems) != 1 || !strings.Contains(problems[0], "place_search はあなたが使える道具ではありません") {
 		t.Fatalf("problems = %v", problems)
 	}
 	skill, _ := runner.catalogue.Find(context.Background(), "routine")
@@ -1742,7 +1742,7 @@ func TestAMalformedDraftDoesNotUseUpTheReview(t *testing.T) {
 // has no action phase at all.
 func TestThePhaseSchemasFollowThePersonasTools(t *testing.T) {
 	registry := tools.New(tools.Config{}).WithSchedules(nil)
-	lookups := registry.For([]string{"web_search", "place_search", "route"})
+	lookups := registry.For([]string{"web_search", "place_search"})
 	if actions := shapeOf(lookups).actions; len(actions) != 0 {
 		t.Fatalf("a persona that only looks things up has actions: %v", actions)
 	}

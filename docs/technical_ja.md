@@ -662,7 +662,6 @@ Web検索ツールは持たず、HTML・CSS・SVGは生成しません。
 * `weather_forecast`
 * `kakeratta_help`
 * `place_search`
-* `route`
 
 * `schedule` — 担当が自分を起こす時刻を本体に預ける。外には出ない（`schedules.json` / Firestore）
 
@@ -704,22 +703,6 @@ Tavily の API キーはアプリに埋め込まず、ユーザーが設定画�
 Overpass の一時的な障害は一度再試行し、そのうえで取得不能として伝えます。
 「店が見つからない」という誤った結果には変えません。
 
-### 経路
-
-`route` は、投稿に付いた位置情報を必要とします。
-
-車・徒歩は、OSRM 互換の別々の接続先を使います。
-
-* `KAKERATTA_OSRM_CAR_URL`
-* `KAKERATTA_OSRM_FOOT_URL`
-
-既定は OpenStreetMap ベースの公開経路サービスです。
-
-これらは道路網から出した目安です。リアルタイムの渋滞も、公共交通の時刻表も含みません。
-
-OSRM の URL の移動手段名を書き換えるだけでは移動手段は変わりません。
-自前の経路サーバーを、対応する経路データで構築する必要があります。
-
 ### MCP の道具
 
 `KAKERATTA_MCP_SERVERS` は、リモートの Streamable HTTP MCP サーバーを並べた JSON の配列です。
@@ -749,7 +732,7 @@ geo.compute_commute
 道具の一覧は数分キャッシュします。リモートのサーバーが一時的に応答しなくなっても、
 最後に取得した一覧は残ります。一方、実際の呼び出しの失敗は黙って消さず、担当にそのまま伝えます。
 
-MCP サーバーが `lat` と `lng` を受け取る `route` や `place_search` 相当の機能を持つ場合、
+MCP サーバーが `lat` と `lng` を受け取る `place_search` 相当の機能を持つ場合、
 kakeratta はその操作をそのサーバーに回し、投稿の位置を自動で補えます。
 
 リモートのサーバー自体に繋がらないときは、内蔵の OpenStreetMap 実装をフォールバックとして使えます。
@@ -1091,8 +1074,6 @@ Storybook から `docs/captures/` に保存されます。表示サイズが変�
 | `KAKERATTA_MCP_SERVERS`          | 空                                                  | 担当に割り当てられるリモートMCPサーバー                    |
 | `KAKERATTA_NOMINATIM_URL`        | 公開サービス                                        | Nominatimの接続先                                          |
 | `KAKERATTA_OVERPASS_URL`         | 公開サービス                                        | Overpassの接続先                                           |
-| `KAKERATTA_OSRM_CAR_URL`         | 公開サービス                                        | 車の経路の接続先                                           |
-| `KAKERATTA_OSRM_FOOT_URL`        | 公開サービス                                        | 徒歩の経路の接続先                                         |
 | `KAKERATTA_WEATHERAPI_KEY` | 空 | 本体のWeatherAPIキー |
 | `KAKERATTA_WEATHERAPI_KEY_FILE` | あれば `tmp/weatherapi.key` | 環境変数のキーがない場合に使うファイル |
 | `KAKERATTA_WEATHERAPI_URL` | `https://api.weatherapi.com/v1` | WeatherAPIの接続先 |

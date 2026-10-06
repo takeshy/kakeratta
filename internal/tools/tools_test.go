@@ -6,7 +6,7 @@ import "testing"
 // prose, so every tool a persona declared has to carry the shape of its
 // arguments - and the names in that shape are the ones the tool actually reads.
 func TestDeclarationsCarryTheArgumentShapes(t *testing.T) {
-	set := New(Config{}).WithSchedules(nil).For([]string{"web_search", "route", "schedule", "weather_forecast", "kakeratta_help"})
+	set := New(Config{}).WithSchedules(nil).For([]string{"web_search", "place_search", "schedule", "weather_forecast", "kakeratta_help"})
 	declarations := map[string]Declaration{}
 	for _, declaration := range set.Declarations() {
 		if declaration.Description == "" {
@@ -18,7 +18,7 @@ func TestDeclarationsCarryTheArgumentShapes(t *testing.T) {
 		}
 		declarations[declaration.Name] = declaration
 	}
-	for _, name := range []string{"web_search", "route", "schedule", "weather_forecast", "kakeratta_help"} {
+	for _, name := range []string{"web_search", "place_search", "schedule", "weather_forecast", "kakeratta_help"} {
 		if _, ok := declarations[name]; !ok {
 			t.Fatalf("%s was not offered: %v", name, declarations)
 		}
@@ -29,7 +29,7 @@ func TestDeclarationsCarryTheArgumentShapes(t *testing.T) {
 			t.Errorf("schedule's schema lacks %q", argument)
 		}
 	}
-	if route, _ := declarations["route"].Parameters["properties"].(map[string]any); route["to"] == nil {
-		t.Errorf("route's schema lacks \"to\": %v", route)
+	if places, _ := declarations["place_search"].Parameters["properties"].(map[string]any); places["query"] == nil {
+		t.Errorf("place search schema lacks query: %v", places)
 	}
 }

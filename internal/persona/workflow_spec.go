@@ -17,11 +17,8 @@ import (
 // toolSamples are argument objects for the built-in tools, written out the way
 // a step carries them.
 var toolSamples = map[string]string{
-	"web_search":   `{"query":"神谷町 ランチ 営業時間"}`,
-	"place_search": `{"query":"ラーメン","radius":800}`,
-	// No mode: a live michi copied "foot" from here into every route it asked
-	// for. The means belongs to the post, and the args table lists the choices.
-	"route":           `{"to":"東京タワー"}`,
+	"web_search":      `{"query":"神谷町 ランチ 営業時間"}`,
+	"place_search":    `{"query":"ラーメン","radius":800}`,
 	"timeline_search": `{"query":"尿酸値の薬","limit":5}`,
 }
 

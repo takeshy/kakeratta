@@ -30,7 +30,7 @@ A piece of work reads once. `Catalogue.Snapshot` returns a read-only `Skills` (`
 
 ## Shipped personas and retired travel persona
 
-The app ships `tabe` (`gourmet`), `shiori` (`book`), `sona` (`routine`), `support` (`support`), and `インフォグラフィック` (`infographic`). The former built-in `michi` (`move`) is no longer provided. Without an installed definition, saved `move` activation IDs do not resolve in `Skills.Active`, so it is absent from the persona list and receives no new turns. Existing timeline entries and private memory are retained. A previously customized `move` definition remains available as a user-installed persona and can be paused or removed through normal management. Users can create their own travel persona and declare the existing `route` and `place_search` tools.
+The app ships `tabe` (`gourmet`), `shiori` (`book`), `sona` (`routine`), `support` (`support`), and `インフォグラフィック` (`infographic`). The former built-in `michi` (`move`) is no longer provided. Without an installed definition, saved `move` activation IDs do not resolve in `Skills.Active`, so it is absent from the persona list and receives no new turns. Existing timeline entries and private memory are retained. A previously customized `move` definition remains available as a user-installed persona and can be paused or removed through normal management. Users can create their own travel persona and declare the existing `place_search` tool.
 
 Verification: [skill_test.go](../../internal/persona/skill_test.go) checks the retired built-in and preservation of a user-installed travel definition. Cross-persona execution tests use [travel_fixture_test.go](../../internal/persona/travel_fixture_test.go) as a custom persona.
 
@@ -64,7 +64,7 @@ Implementation: [skill.go](../../internal/persona/skill.go), [kakeratta_help.go]
 
 ## Management
 
-Installing a definition from the frontend validates it, saves it through the Catalogue, and activates the new persona. AI-assisted definition creation is handled by the persona builder. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
+Installing a definition from the frontend validates it, saves it through the Catalogue, and activates the new persona. AI-assisted definition creation is handled by the persona builder. New person personas receive `web_search`, `place_search`, and `schedule` when available; built-in `route` has been removed. Verification: [persona_builder_test.go](../../internal/server/persona_builder_test.go) checks the new-person default tools without route. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
 
 For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. Date-bearing information is separately normalized into notification schedules before saving; dates that cannot be established are omitted. The field is limited to 8,000 characters and cleared for subject personas.
 
@@ -175,7 +175,7 @@ At the start of each built-in research round, `currentReadCapabilities` rebuilds
 
 The `read` schema uses separate operation branches and enumerates only currently available tool names. Once Web search runs out, `web_search` disappears from that enum and its usage instructions are removed. The current instruction replaces its previous version instead of appending stale capability lists. Read-result footers also report the latest remaining allowance and available operations. Historical tool results stay in the conversation for answer composition.
 
-Read availability also follows known configuration and capabilities: missing search/weather keys, missing search or schedule services, missing map endpoints, unavailable route origin, unknown or undeclared tools, and state-changing tools are not advertised as research reads. Map tools backed by an MCP delegate remain available when their local fallback endpoints are absent. Argument-dependent errors and transient provider failures can still occur; these checks do not probe remote service health.
+Read availability also follows known configuration and capabilities: missing search/weather keys, missing search or schedule services, missing place-search endpoints, unknown or undeclared tools, and state-changing tools are not advertised as research reads. Map tools backed by an MCP delegate remain available when their local fallback endpoints are absent. Argument-dependent errors and transient provider failures can still occur; these checks do not probe remote service health.
 
 A memoryless persona is offered neither the `records` schema branch nor its instructions. The separate `entries` operation preserves direct timeline-post reads by known IDs, without querying memory: its JSON-string `args` must identify posts, with the existing limit of ten per read. A remembering persona retains `records` queries and may also use `entries`. Existing `records` requests by explicit IDs remain supported for compatibility.
 

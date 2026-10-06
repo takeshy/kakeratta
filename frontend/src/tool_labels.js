@@ -9,7 +9,6 @@ const labels = {
   kakeratta_help: "kakerattaの仕様を読む",
   web_search: "Webで調べる",
   place_search: "お店や場所を探す",
-  route: "行き方を調べる",
   weather_forecast: "天気予報を調べる",
   schedule: "自分を起こす予定を置く",
   timeline_search: "過去のかけらを探す",
@@ -28,11 +27,11 @@ export function toolLabel(name) {
   return labels[capability(name)] || name;
 }
 
-// uniqueTools folds a server-qualified twin into the built-in name beside it,
+// uniqueTools omits removed built-in tools and folds a server-qualified twin into the built-in name beside it,
 // so "geo.place_search" never appears next to "place_search". A tool that only
 // a server offers stays under its qualified name.
 export function uniqueTools(names) {
-  const list = names || [];
+  const list = (names || []).filter(name => name !== "route");
   const plain = new Set(list.filter((name) => capability(name) === name));
   const out = [];
   for (const name of list) {

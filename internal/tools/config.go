@@ -26,21 +26,17 @@ type WeatherAPIConfig struct {
 	URL    string
 }
 
-// PlaceEndpoints are where place_search and route go. Defaults are the public
+// PlaceEndpoints are where place_search goes. Defaults are the public
 // OpenStreetMap services, which need no key and allow one request per second.
 type PlaceEndpoints struct {
-	Nominatim    string
-	Overpass     string
-	Route        string
-	WalkingRoute string
+	Nominatim string
+	Overpass  string
 }
 
 func DefaultPlaces() PlaceEndpoints {
 	return PlaceEndpoints{
-		Nominatim:    "https://nominatim.openstreetmap.org",
-		Overpass:     "https://overpass-api.de/api/interpreter",
-		Route:        "https://router.project-osrm.org",
-		WalkingRoute: "https://routing.openstreetmap.de/routed-foot",
+		Nominatim: "https://nominatim.openstreetmap.org",
+		Overpass:  "https://overpass-api.de/api/interpreter",
 	}
 }
 
@@ -50,8 +46,6 @@ func DefaultPlaces() PlaceEndpoints {
 //
 //	KAKERATTA_NOMINATIM_URL    name lookup
 //	KAKERATTA_OVERPASS_URL     nearby search
-//	KAKERATTA_OSRM_CAR_URL     driving routes
-//	KAKERATTA_OSRM_FOOT_URL    walking routes
 //	KAKERATTA_MCP_SERVERS      JSON: [{"name":"geo","url":"https://…/mcp","headers":{…}}]
 //	KAKERATTA_WEATHERAPI_KEY   WeatherAPI key, taking precedence over the key file
 //	KAKERATTA_WEATHERAPI_KEY_FILE key file (optional local default: tmp/weatherapi.key)
@@ -64,8 +58,6 @@ func ConfigFromEnv(version string) (Config, error) {
 	}{
 		{"KAKERATTA_NOMINATIM_URL", &places.Nominatim},
 		{"KAKERATTA_OVERPASS_URL", &places.Overpass},
-		{"KAKERATTA_OSRM_CAR_URL", &places.Route},
-		{"KAKERATTA_OSRM_FOOT_URL", &places.WalkingRoute},
 	} {
 		if value := strings.TrimSpace(os.Getenv(binding.name)); value != "" {
 			*binding.field = value

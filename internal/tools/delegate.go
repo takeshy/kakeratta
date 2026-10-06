@@ -11,7 +11,7 @@ import (
 
 // A built-in tool whose name an MCP server also offers goes to that server,
 // with the post's position written into the arguments: the persona asks for
-// "route" the same way either way. The built-in implementation stays as the
+// "place_search" the same way either way. The built-in implementation stays as the
 // fallback for when the server cannot be reached, so a deployment without the
 // server, or with it down, answers as it did before.
 //
@@ -29,7 +29,6 @@ type delegate struct {
 
 var delegates = map[string]delegate{
 	"place_search": {params: []string{"query", "lat", "lng", "radius"}, args: placeSearchArgs},
-	"route":        {params: []string{"to", "lat", "lng", "mode"}, args: routeArgs},
 }
 
 func placeSearchArgs(args Args, at *timeline.Place) (Args, bool) {
@@ -45,20 +44,6 @@ func placeSearchArgs(args Args, at *timeline.Place) (Args, bool) {
 		forwarded["radius"] = radius
 	}
 	return forwarded, true
-}
-
-var routeModes = map[string]string{
-	"": "driving", "driving": "driving", "car": "driving",
-	"walking": "walking", "foot": "walking",
-}
-
-func routeArgs(args Args, at *timeline.Place) (Args, bool) {
-	to := args.str("to")
-	mode, known := routeModes[args.str("mode")]
-	if to == "" || at == nil || !known {
-		return nil, false
-	}
-	return Args{"to": to, "lat": at.Lat, "lng": at.Lon, "mode": mode}, true
 }
 
 // preferMCP returns tool, sent to the first listed server tool that can take

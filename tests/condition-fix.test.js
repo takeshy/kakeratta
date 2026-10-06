@@ -58,7 +58,7 @@ function setup(t) {
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
 }
 
-const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動や場所の話。", tone: "短く", instructions: "場所を覚える", tools: ["route"] };
+const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動や場所の話。", tone: "短く", instructions: "場所を覚える", tools: ["place_search"] };
 const entry = { id: "p", kind: "post", speaker: "user", text: "駅前のラーメン屋まで歩いた" };
 
 // The person says why; the AI writes the condition; the person can correct it
@@ -118,7 +118,7 @@ test("a condition is written from the reason, corrected by hand or by the AI, sa
   assert.equal(saved.domain, "飲食店への行き方を含む、移動や場所の話。手直し。", "what is in the box is what is saved");
   assert.equal(saved.tone, "短く");
   assert.equal(saved.instructions, "場所を覚える");
-  assert.deepEqual(saved.tools, ["route"]);
+  assert.deepEqual(saved.tools, ["place_search"]);
   assert.equal(api.savePersonaDraft.mock.calls[0].arguments[1], "move");
   assert.equal(reloaded, 1);
   assert.deepEqual(api.checkRouting.mock.calls[0].arguments, ["p", "move"]);

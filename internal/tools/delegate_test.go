@@ -22,7 +22,6 @@ func geoPlaceTools() []map[string]any {
 	}
 	return []map[string]any{
 		{"name": "place_search", "inputSchema": schema("query", "lat", "lng", "radius")},
-		{"name": "route", "inputSchema": schema("to", "lat", "lng", "mode")},
 	}
 }
 
@@ -38,15 +37,15 @@ func TestBuiltinPlaceToolsGoToMCPWithThePosition(t *testing.T) {
 		}}
 	})
 	defer backend.Close()
-	set := New(Config{MCP: mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: backend.URL}}, "test")}).For([]string{"route", "place_search"})
+	set := New(Config{MCP: mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: backend.URL}}, "test")}).For([]string{"place_search"})
 	at := &timeline.Place{Lat: 35.69, Lon: 139.70}
 
-	result, err := set.Run(context.Background(), "route", Args{"to": "渋谷駅", "mode": "foot"}, at)
+	result, err := set.Run(context.Background(), "place_search", Args{"query": "カフェ", "radius": 800.0}, at)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(last) != "map[lat:35.69 lng:139.7 mode:walking to:渋谷駅]" {
-		t.Fatalf("route args: %v", last)
+	if fmt.Sprint(last) != "map[lat:35.69 lng:139.7 query:カフェ radius:800]" {
+		t.Fatalf("place args: %v", last)
 	}
 	if result.Text != "geoの答え\n- OpenStreetMap: https://www.openstreetmap.org/x" || len(result.Sources) != 1 {
 		t.Fatalf("result: %+v", result)
@@ -59,10 +58,7 @@ func TestBuiltinPlaceToolsGoToMCPWithThePosition(t *testing.T) {
 		t.Fatalf("place_search without a position: %v", last)
 	}
 
-	if _, err := set.Run(context.Background(), "route", Args{"to": "渋谷駅"}, nil); err != ErrNoPlace {
-		t.Fatalf("no position: %v", err)
-	}
-	if strings.Join(calls, ",") != "route,place_search" {
+	if strings.Join(calls, ",") != "place_search,place_search" {
 		t.Fatalf("calls: %v", calls)
 	}
 }
@@ -73,7 +69,7 @@ func TestBuiltinPlaceToolsFallBackWhenMCPIsUnreachable(t *testing.T) {
 			fmt.Fprint(w, `[{"lat":"35.6580","lon":"139.7016","display_name":"渋谷駅"}]`)
 			return
 		}
-		fmt.Fprint(w, `{"code":"Ok","routes":[{"duration":448,"distance":4101}]}`)
+		t.Errorf("unexpected fallback endpoint: %s", r.URL.Path)
 	}))
 	defer osm.Close()
 	geo := fakeMCPWith(t, geoPlaceTools(), func(string, map[string]any) any {
@@ -81,16 +77,16 @@ func TestBuiltinPlaceToolsFallBackWhenMCPIsUnreachable(t *testing.T) {
 		return nil
 	})
 	registry := New(Config{
-		Places: PlaceEndpoints{Nominatim: osm.URL, Route: osm.URL + "/car"},
+		Places: PlaceEndpoints{Nominatim: osm.URL},
 		MCP:    mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: geo.URL}}, "test"),
 	})
 	geo.Close()
 
-	result, err := registry.For([]string{"route"}).Run(context.Background(), "route", Args{"to": "渋谷駅"}, &timeline.Place{Lat: 35.69, Lon: 139.70})
+	result, err := registry.For([]string{"place_search"}).Run(context.Background(), "place_search", Args{"query": "渋谷駅"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(result.Text, "車 で約8分") {
+	if !strings.Contains(result.Text, "渋谷駅") {
 		t.Fatalf("built-in did not answer: %s", result.Text)
 	}
 }
@@ -116,8 +112,8 @@ func TestMCPErrorResultIsReportedNotRetriedBuiltin(t *testing.T) {
 }
 
 func TestSameNamedToolWithOtherArgumentsIsNotUsed(t *testing.T) {
-	tool := preferMCP(routeTo, []mcp.Listed{{Server: "other", Tool: mcp.Tool{Name: "route", InputSchema: []byte(`{"properties":{"from":{},"to":{}}}`)}}})
-	if fmt.Sprintf("%p", tool.run) != fmt.Sprintf("%p", routeTo.run) {
-		t.Fatal("a route tool without lat/lng replaced the built-in")
+	tool := preferMCP(placeSearch, []mcp.Listed{{Server: "other", Tool: mcp.Tool{Name: "place_search", InputSchema: []byte(`{"properties":{"from":{},"to":{}}}`)}}})
+	if fmt.Sprintf("%p", tool.run) != fmt.Sprintf("%p", placeSearch.run) {
+		t.Fatal("a place tool with incompatible parameters replaced the built-in")
 	}
 }
