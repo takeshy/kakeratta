@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -2163,21 +2164,28 @@ func TestARemarkLinksOnlyThePostsItsSpeakNames(t *testing.T) {
 	}
 }
 
-// The check itself: a speak may cite what this turn's searches found and
-// nothing else, and a persona with nothing found cites nothing.
+// A speak may cite what this turn's searches found and nothing else. A stray
+// id, such as the post being answered, is dropped rather than refused, so a
+// long answer is not regenerated for metadata.
 func TestSpeakSourcesMustComeFromThisTurnsSearches(t *testing.T) {
 	set := tools.New(tools.Config{}).For(nil)
 	speak := func(ids ...string) Answer {
 		return Answer{Text: "ひとこと", Sources: ids}
 	}
-	if problems := checkAnswer(speak("old"), turnRules{set: set, cited: map[string]string{"old": "2026-09-12 ピノ"}}); len(problems) != 0 {
-		t.Fatalf("a found post was refused: %v", problems)
+	found := turnRules{set: set, cited: map[string]string{"old": "2026-09-12 ピノ", "a": "a", "b": "b", "c": "c"}}
+	for _, answer := range []Answer{speak("old"), speak("old", "made-up"), speak("old", "old", "a", "b", "c")} {
+		if problems := checkAnswer(answer, found); len(problems) != 0 {
+			t.Fatalf("sources refused the answer: %v", problems)
+		}
 	}
-	if problems := checkAnswer(speak("old", "made-up"), turnRules{set: set, cited: map[string]string{"old": "2026-09-12 ピノ"}}); len(problems) != 1 || !strings.Contains(problems[0], "made-up") {
-		t.Fatalf("problems = %v", problems)
+	if kept := citedOnly(speak(" old ", "made-up", "old"), found).Sources; !slices.Equal(kept, []string{"old"}) {
+		t.Fatalf("kept = %v", kept)
 	}
-	if problems := checkAnswer(speak("old"), turnRules{set: set}); len(problems) != 1 {
-		t.Fatalf("a citation with no search behind it passed: %v", problems)
+	if kept := citedOnly(speak("old", "a", "b", "c"), found).Sources; len(kept) != maxReplySources {
+		t.Fatalf("kept beyond the limit: %v", kept)
+	}
+	if kept := citedOnly(speak("old"), turnRules{set: set}).Sources; kept == nil || len(kept) != 0 {
+		t.Fatalf("a citation with no search behind it was kept: %v", kept)
 	}
 	if sources := citedSources([]string{" old ", "made-up"}, map[string]string{"old": "2026-09-12 ピノ"}); len(sources) != 1 || sources[0].URL != "/?entry=old" || sources[0].Label != "2026-09-12 ピノ" {
 		t.Fatalf("sources = %+v", sources)

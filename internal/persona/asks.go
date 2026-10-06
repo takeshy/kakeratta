@@ -296,7 +296,10 @@ func (r *Runner) SubmitAskAnswer(ctx context.Context, id, claimID string, answer
 		case answer == nil:
 			problems = []string{"Answer の形式が不正です"}
 		default:
-			problems = checkAnswer(*answer, turnRules{named: record.Turn.Named, listening: record.Turn.Listening, cited: record.Research.Cited})
+			rules := turnRules{named: record.Turn.Named, listening: record.Turn.Listening, cited: record.Research.Cited}
+			if problems = checkAnswer(*answer, rules); len(problems) == 0 {
+				*answer = citedOnly(*answer, rules)
+			}
 		}
 		if len(problems) == 0 {
 			record.Closed, record.Answer = true, answer

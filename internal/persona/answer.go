@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/takeshy/kakeratta/internal/llm"
@@ -123,15 +124,23 @@ func checkAnswer(answer Answer, rules turnRules) []string {
 	if strings.TrimSpace(answer.Text) != "" && rules.listening {
 		problems = append(problems, "このターンは発言できません。Answer の text は空にしてください")
 	}
-	if len(answer.Sources) > maxReplySources {
-		problems = append(problems, "sources は3件以内にしてください")
-	}
+	return problems
+}
+
+// citedOnly keeps the sources this turn's timeline_search returned, up to the
+// limit. A stray id (often the post being answered) is dropped rather than
+// refused: refusing would make the model regenerate a whole, possibly long,
+// answer for metadata the remark never shows unverified anyway.
+func citedOnly(answer Answer, rules turnRules) Answer {
+	kept := []string{}
 	for _, id := range answer.Sources {
-		if _, ok := rules.cited[strings.TrimSpace(id)]; !ok {
-			problems = append(problems, "sources の "+id+" は、このターンの timeline_search の結果にない id です")
+		id = strings.TrimSpace(id)
+		if _, ok := rules.cited[id]; ok && len(kept) < maxReplySources && !slices.Contains(kept, id) {
+			kept = append(kept, id)
 		}
 	}
-	return problems
+	answer.Sources = kept
+	return answer
 }
 
 // research completes before the answer tool is offered: no state-changing
@@ -226,6 +235,8 @@ func composeAnswer(ctx context.Context, client *llm.Client, model string, messag
 	// original research context, without accumulating incomplete answers.
 	baseMessages := append([]llm.Message(nil), messages...)
 	truncated := false
+	// The last refusal goes into the error, so a failed turn's log says why.
+	refused := ""
 	for attempt := 0; attempt <= maxMalformed; attempt++ {
 		reply, err := client.Complete(ctx, llm.Request{Purpose: "answer", Attempt: attempt + 1, Model: model, MaxTokens: maxAnswerTokens, Messages: messages, Tools: []llm.Tool{answerTool}, ToolChoice: "required"})
 		if err != nil {
@@ -246,19 +257,24 @@ func composeAnswer(ctx context.Context, client *llm.Client, model string, messag
 				} else if problems := checkAnswer(answer, rules); len(problems) > 0 {
 					result = strings.Join(problems, "\n")
 				} else {
+					answer = citedOnly(answer, rules)
 					return &answer, nil
 				}
 			}
+			refused = fmt.Sprintf("attempt %d: %s", attempt+1, clip(result, 300))
 			messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: result})
 		}
 		if len(reply.Calls) == 0 {
 			messages = append(messages, llm.Message{Role: "user", Content: "submit_answer を呼んでください。"})
 		}
 	}
-	if truncated {
-		return nil, fmt.Errorf("回答が出力上限で途中で切れ、再試行でも有効な Answer を生成できませんでした")
+	if refused != "" {
+		refused = "（" + refused + "）"
 	}
-	return nil, fmt.Errorf("有効な Answer がありません")
+	if truncated {
+		return nil, fmt.Errorf("回答が出力上限で途中で切れ、再試行でも有効な Answer を生成できませんでした%s", refused)
+	}
+	return nil, fmt.Errorf("有効な Answer がありません%s", refused)
 }
 
 // capabilityLine tells the answer what the later phases can carry out, so it

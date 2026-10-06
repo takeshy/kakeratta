@@ -69,3 +69,32 @@ func TestComposeAnswerRetriesTruncationWithoutAccumulatingDrafts(t *testing.T) {
 		})
 	}
 }
+
+// A long answer citing the post it diagrams is kept on the first draft, with
+// the stray id dropped; a turn that still fails says why in its error.
+func TestComposeAnswerKeepsDraftsWithStraySourcesAndReportsRefusals(t *testing.T) {
+	reply := func(arguments string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			body, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"finish_reason": "tool_calls", "message": map[string]any{
+				"tool_calls": []any{map[string]any{"id": "a", "function": map[string]any{"name": "submit_answer", "arguments": arguments}}}}}}})
+			_, _ = w.Write(body)
+		}
+	}
+	compose := func(handler http.HandlerFunc) (*Answer, error, int) {
+		calls := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; handler(w, r) }))
+		defer server.Close()
+		client := llm.New(server.URL, "")
+		client.Observe = func(llm.CallRecord) {}
+		answer, err := composeAnswer(context.Background(), client, "test", []llm.Message{{Role: "system", Content: "s"}, {Role: "user", Content: "u"}}, turnRules{named: true, cited: map[string]string{}})
+		return answer, err, calls
+	}
+	answer, err, calls := compose(reply(`{"text":"# 📊 図解","sources":["e_replied_to"],"unrelated":false}`))
+	if err != nil || calls != 1 || answer.Text != "# 📊 図解" || answer.Sources == nil || len(answer.Sources) != 0 {
+		t.Fatalf("answer = %+v, error = %v, calls = %d", answer, err, calls)
+	}
+	answer, err, calls = compose(reply(`{"text":"","sources":[]}`))
+	if answer != nil || calls != maxMalformed+1 || err == nil || !strings.Contains(err.Error(), "attempt 3") || !strings.Contains(err.Error(), "名指し") {
+		t.Fatalf("answer = %+v, error = %v, calls = %d", answer, err, calls)
+	}
+}
