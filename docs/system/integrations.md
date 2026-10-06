@@ -122,7 +122,7 @@ Bluesky has no markup; a post's rich text is facets over UTF-8 byte ranges. Othe
 - Ordered items keep their numbers, and tasks become ☑/☐.
 - A table becomes its header row, then one `・` row per line, with cells joined by ` ｜ `.
 - A quotation becomes a `＞` line, and a callout becomes its title.
-- Supported Mermaid flowcharts and sequence diagrams become `・A → B（label）` / `・A → B: message` lines; other diagram types are omitted. Other code fences keep their lines.
+- Mermaid flowcharts and sequence diagrams become `・A → B（label）` / `・A → B: message` lines; notes become `・📝 note`. They read the same syntax as the timeline renderer: multi-line and `<br>` labels joined with spaces, pipe labels, chains, `&` fan-out, skipped subgraph/style lines, continued message lines, and skipped control blocks. Other diagram types are omitted. Other code fences keep their lines.
 - Emphasis, deletion and inline-code markers are removed.
 - `[label](http…)` keeps only the label, with a link facet to the URL; other schemes stay plain text.
 

@@ -157,3 +157,38 @@ func TestPublishSendsLinkFacets(t *testing.T) {
 		t.Fatalf("facets = %s", raw)
 	}
 }
+
+func TestMermaidArrowsReadTheSyntaxModelsWrite(t *testing.T) {
+	flow := mermaidArrows(strings.Split(strings.Join([]string{
+		"flowchart TD",
+		"  subgraph Morning[朝]",
+		"    A[🔬 Research",
+		"    Cursor+Hex] -->|旧| B{判断}",
+		"  end",
+		"  B -- 新 --> C[完了<br>送信] --> D(終わり)",
+		"  C & D -.->|連携| E",
+		"  E --- F",
+	}, "\n"), "\n"))
+	want := []string{
+		"・🔬 Research Cursor+Hex → 判断（旧）",
+		"・判断 → 完了 送信（新）",
+		"・完了 送信 → 終わり",
+		"・完了 送信 → E（連携）",
+		"・終わり → E（連携）",
+		"・E ― F",
+	}
+	if strings.Join(flow, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("flowchart =\n%s", strings.Join(flow, "\n"))
+	}
+	sequence := mermaidArrows([]string{
+		"sequenceDiagram", "participant H as 👤 Human", "Note over H: 夜間に準備", "loop 毎朝",
+		"H->>B: 全件を", "3システム照合", "B-->>H: 結果", "H->>H: 判断", "end", "B->>🔗 John Ford: 送信",
+	})
+	want = []string{"・📝 夜間に準備", "・👤 Human → B: 全件を 3システム照合", "・B → 👤 Human: 結果", "・👤 Human → 👤 Human: 判断", "・B → 🔗 John Ford: 送信"}
+	if strings.Join(sequence, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("sequence =\n%s", strings.Join(sequence, "\n"))
+	}
+	if mermaidArrows([]string{"pie title 割合", `"A" : 1`}) != nil {
+		t.Fatal("an unsupported diagram was read")
+	}
+}

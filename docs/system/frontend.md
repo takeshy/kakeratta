@@ -106,7 +106,23 @@ Startup displays cached device conversations before fetching server pages. SSE `
 
 Polling runs for a limited period after posting to cover missed SSE events. Returning to a visible tab also checks pages and routing. Pending device entries and server records are merged so posts appear in the same conversation before and after delivery.
 
-Dedicated code renders Markdown and creates links. User text and persona Markdown have different display handling. Links are restricted to supported protocols. Fenced code with a recognized language gets lightweight syntax coloring using text-only DOM nodes. Fences labelled `mermaid` render flowcharts (`flowchart`/`graph`) and sequence diagrams as responsive SVG; unsupported Mermaid diagram families or flowchart statements retain the entire source in a clearly labelled code block rather than displaying a partial diagram. This includes currently unsupported pipe-labelled edges and chained edges. Directed flowchart edges terminate outside node boundaries so their arrowheads remain visible; undirected edges have no arrowheads. Sequence participant aliases are displayed while message endpoints still use participant IDs. Node and label fills use the defined `--card` and `--ink` theme variables. Diagram labels are assigned as text and cannot inject markup. Implementation: [mermaid.js](../../frontend/src/mermaid.js) and [styles.css](../../frontend/src/styles.css). Verification: [markdown.test.js](../../tests/markdown.test.js).
+Dedicated code renders Markdown and creates links. User text and persona Markdown have different display handling. Links are restricted to supported protocols. Fenced code with a recognized language gets lightweight syntax coloring using text-only DOM nodes. Fences labelled `mermaid` render flowcharts (`flowchart`/`graph`) and sequence diagrams as SVG at their natural size, scaled down to fit narrow screens.
+
+Flowcharts read the syntax models actually write:
+- Labels that run over several lines or use `<br>` become wrapped multi-line labels.
+- Edges may be labelled `-- label -->` or `-->|label|`, chained (`A --> B --> C`), or fanned out (`A & B --> C`). Dotted `-.->` and thick `==>` edges are drawn distinctly, and undirected `---` edges have no arrowheads.
+- Node shapes `[ ]`, `( )`, `(( ))`, `[( )]`, `{ }` (decision, dashed), and others are read for their labels.
+- `subgraph`/`end`, `direction`, `style`, `classDef`, `class`, `linkStyle`, and `click` lines are skipped.
+- Nodes are laid out in layers by longest path, ignoring edges that close a cycle. Each layer is ordered by its predecessors' positions.
+- A top-down layer wider than 600px wraps onto further rows, and a left-to-right chart wider than 640px is drawn top-down.
+- Directed edges terminate one pixel outside node boundaries so their arrowheads remain visible. Edge labels sit on plates drawn above lines and nodes.
+
+Sequence diagrams:
+- Participant aliases are displayed, and message endpoints may contain spaces.
+- `Note over/left of/right of` becomes a note box, a self message becomes a loop, and dashed replies are dashed.
+- A line that matches nothing continues the preceding message or note, and `loop/alt/else/opt/par/end/activate` control lines are skipped.
+
+A self-loop, an unknown statement, or a diagram family other than these keeps the entire source in a clearly labelled code block rather than displaying a partial diagram. Fills use the theme variables. Labels are assigned as text and cannot inject markup. Implementation: [mermaid.js](../../frontend/src/mermaid.js) and [styles.css](../../frontend/src/styles.css). Verification: [markdown.test.js](../../tests/markdown.test.js).
 
 External-agent answers (`model: agent`) normalize literal escaped newlines for Markdown display and read-aloud, without rewriting the stored entry.
 

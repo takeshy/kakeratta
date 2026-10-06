@@ -115,7 +115,7 @@ test("reading aloud says the words, not the markdown punctuation", () => {
 
 test("unsupported flowchart statements preserve the entire source instead of a partial diagram", withDOM(() => {
   document.createElementNS = (_namespace, tag) => new Element(tag);
-  for (const statement of ["A -->|label| B", "A --> B --> C", "subgraph group", "A --> A", "A --> B & C"]) {
+  for (const statement of ["A --> A", "A ~~> B", "A[unclosed --> B"]) {
     const source = `flowchart LR\nX[Existing] --> Y[Valid]\n${statement}`;
     const view = renderMarkdown(`\`\`\`mermaid\n${source}\n\`\`\``);
     assert.equal(tags(view, "SVG").length, 0, statement);
@@ -154,4 +154,70 @@ test("sequence aliases are displayed while message endpoints retain participant 
   assert.deepEqual(labels.map(node => node.textContent), ["Alice", "Bob", "C"]);
   const edges = tags(view, "LINE").filter(node => node.attributes.class === "mermaid-edge");
   assert.deepEqual(edges.map(node => [node.attributes.x1, node.attributes.x2]), [[90, 270], [270, 450]]);
+}));
+
+test("flowcharts read the syntax models write: multi-line labels, pipe labels, chains, fan-out and subgraphs", withDOM(() => {
+  document.createElementNS = (_namespace, tag) => new Element(tag);
+  const source = [
+    "flowchart TD",
+    "  subgraph Morning[朝]",
+    "    A[🔬 Research",
+    "    Cursor+Hex] -->|旧| B{判断}",
+    "  end",
+    "  B -- 新 --> C[完了<br>送信] --> D(終わり)",
+    "  C & D -.->|連携| E[(記録)]",
+    "  E ==> F",
+    "  style A fill:#f9f",
+  ].join("\n");
+  const view = renderMarkdown(`\`\`\`mermaid\n${source}\n\`\`\``);
+  assert.equal(tags(view, "SVG").length, 1);
+  const nodeLabels = tags(view, "TEXT").filter(node => node.attributes.class === "mermaid-node-label");
+  assert.deepEqual(nodeLabels.map(text), ["🔬 ResearchCursor+Hex", "判断", "完了送信", "終わり", "記録", "F"]);
+  assert.deepEqual(tags(nodeLabels[0], "TSPAN").map(node => node.textContent), ["🔬 Research", "Cursor+Hex"]);
+  const edges = tags(view, "LINE").filter(node => /mermaid-edge/.test(node.attributes.class));
+  assert.equal(edges.length, 6);
+  assert.equal(edges.filter(node => /dotted/.test(node.attributes.class)).length, 2);
+  assert.equal(edges.filter(node => /thick/.test(node.attributes.class)).length, 1);
+  const edgeLabels = tags(view, "TEXT").filter(node => node.attributes.class === "mermaid-edge-label").map(text);
+  assert.deepEqual(edgeLabels.sort(), ["新", "旧", "連携", "連携"].sort());
+  assert.equal(tags(view, "RECT").filter(node => /mermaid-decision/.test(node.attributes.class)).length, 1);
+}));
+
+test("flowcharts are layered, wide layers wrap and wide left-to-right charts turn top-down", withDOM(() => {
+  document.createElementNS = (_namespace, tag) => new Element(tag);
+  const centers = (view) => Object.fromEntries(tags(view, "TEXT").filter(node => node.attributes.class === "mermaid-node-label")
+    .map(node => [text(node), Number(node.attributes.y)]));
+  const branch = renderMarkdown("```mermaid\nflowchart TD\nA --> B\nA --> C\nB --> D\nC --> D\n```");
+  const y = centers(branch);
+  assert.ok(y.A < y.B && y.B === y.C && y.C < y.D, "siblings share a layer");
+  const fan = renderMarkdown("```mermaid\nflowchart TD\nR --> A1[一番目の項目]\nR --> A2[二番目の項目]\nR --> A3[三番目の項目]\nR --> A4[四番目の項目]\nR --> A5[五番目の項目]\n```");
+  const [svgNode] = tags(fan, "SVG");
+  assert.ok(Number(svgNode.attributes.width) <= 640, "a wide layer wraps");
+  const chain = renderMarkdown("```mermaid\nflowchart LR\nA[一] --> B[二] --> C[三] --> D[四] --> E[五]\n```");
+  const yc = centers(chain);
+  assert.ok(yc.一 < yc.二 && yc.二 < yc.五, "a long left-to-right chain is drawn top-down");
+}));
+
+test("sequence diagrams read notes, self messages, continued lines, spaced ids and control blocks", withDOM(() => {
+  document.createElementNS = (_namespace, tag) => new Element(tag);
+  const source = [
+    "sequenceDiagram",
+    "participant H as 👤 Human",
+    "Note over H: 夜間に準備",
+    "loop 毎朝",
+    "H->>B: 全件を",
+    "3システム照合",
+    "B-->>H: 結果",
+    "H->>H: 判断",
+    "end",
+    "B->>🔗 John Ford: 送信",
+  ].join("\n");
+  const view = renderMarkdown(`\`\`\`mermaid\n${source}\n\`\`\``);
+  assert.equal(tags(view, "SVG").length, 1);
+  const actors = tags(view, "TEXT").filter(node => node.attributes.class === "mermaid-node-label").map(text);
+  assert.deepEqual(actors, ["👤 Human", "B", "🔗 John Ford"]);
+  const labels = tags(view, "TEXT").filter(node => node.attributes.class === "mermaid-edge-label");
+  assert.deepEqual(labels.map(text), ["夜間に準備", "全件を3システム照合", "結果", "判断", "送信"]);
+  assert.equal(tags(view, "RECT").filter(node => node.attributes.class === "mermaid-note").length, 1);
+  assert.equal(tags(view, "LINE").filter(node => /dotted/.test(node.attributes.class)).length, 1);
 }));

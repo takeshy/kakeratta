@@ -164,88 +164,193 @@ func tableRow(row string) string {
 }
 
 var (
-	mermaidNode     = regexp.MustCompile(`^([\w.-]+)(?:\(\((.*?)\)\)|\[(.*?)\]|\((.*?)\)|\{(.*?)\})?$`)
-	mermaidEdge     = regexp.MustCompile(`^(.+?)\s*(?:--\s*([^>-]+?)\s*)?(-->|---|-\.->|==>)\s*(.+?)\s*;?$`)
-	mermaidActor    = regexp.MustCompile(`(?i)^(?:participant|actor)\s+(\S+)(?:\s+as\s+(.+))?$`)
-	mermaidMessage  = regexp.MustCompile(`^(\S+?)\s*(-{1,2}>+|-->>|->>)\s*(\S+?)\s*:\s*(.+)$`)
-	mermaidMarkup   = regexp.MustCompile(`<[^>]*>`)
-	mermaidQuoted   = regexp.MustCompile(`^['"]|['"]$`)
-	mermaidPipeEdge = regexp.MustCompile(`\s*(-->|---|-\.->|==>)\s*\|([^|]*)\|\s*`)
+	mermaidNode = regexp.MustCompile(`^([\p{L}\p{N}_.]+(?:-[\p{L}\p{N}_][\p{L}\p{N}_.]*)*)\s*(?:\(\(([\s\S]*?)\)\)|\[\[([\s\S]*?)\]\]|\[\(([\s\S]*?)\)\]|\(\[([\s\S]*?)\]\)|\[([\s\S]*?)\]|\(([\s\S]*?)\)|\{\{([\s\S]*?)\}\}|\{([\s\S]*?)\}|>([\s\S]*?)\])?\s*`)
+	mermaidArrow   = regexp.MustCompile(`^(?:(--|==|-\.)\s+([^|\n]+?)\s+)?(-{2,}>|\.-+>|-\.+->|-{3,}|\.-+|-\.+-|={2,}>|={3,})\s*(?:\|([^|]*)\|)?\s*`)
+	mermaidAnd     = regexp.MustCompile(`^&\s*`)
+	mermaidIgnored = regexp.MustCompile(`(?i)^(?:subgraph\b|end$|direction\s|style\s|classDef\s|class\s|linkStyle\s|click\s)`)
+	mermaidActor   = regexp.MustCompile(`(?i)^(?:participant|actor)\s+(.+?)(?:\s+as\s+(.+))?$`)
+	mermaidMessage = regexp.MustCompile(`^(.+?)\s*(-->>|->>|-->|->|--x|-x|--\)|-\))\s*[+-]?\s*(.+?)\s*:\s*(.*)$`)
+	mermaidNote    = regexp.MustCompile(`(?i)^note\s+(?:over|left of|right of)\s+[^:]+?\s*:\s*(.*)$`)
+	mermaidControl = regexp.MustCompile(`(?i)^(?:loop|alt|else|opt|par|and|critical|break|end|rect|activate|deactivate|autonumber|box)\b`)
+	mermaidBreak   = regexp.MustCompile(`(?i)<br\s*/?>`)
+	mermaidMarkup  = regexp.MustCompile(`<[^>]*>`)
+	mermaidQuoted  = regexp.MustCompile(`^['"]|['"]$`)
 )
+
+// mermaidLabel is a label on one line: quotes, markup and breaks go.
+func mermaidLabel(value string) string {
+	value = mermaidBreak.ReplaceAllString(strings.TrimSpace(value), " ")
+	value = mermaidQuoted.ReplaceAllString(mermaidMarkup.ReplaceAllString(value, ""), "")
+	return strings.Join(strings.Fields(value), " ")
+}
+
+// mermaidStatements joins a label that runs over several lines into its
+// statement, as the timeline's renderer does.
+func mermaidStatements(code []string) []string {
+	var out []string
+	pending, depth := "", 0
+	for _, raw := range code {
+		line := strings.TrimSpace(raw)
+		if pending == "" && (line == "" || strings.HasPrefix(line, "%%")) {
+			continue
+		}
+		if pending != "" {
+			pending += "\n" + line
+		} else {
+			pending = line
+		}
+		for _, char := range line {
+			switch char {
+			case '[', '(', '{':
+				depth++
+			case ']', ')', '}':
+				depth = max(0, depth-1)
+			}
+		}
+		if depth > 0 && strings.Count(pending, "\n") < 5 {
+			continue
+		}
+		out = append(out, strings.TrimSuffix(strings.TrimSpace(pending), ";"))
+		pending, depth = "", 0
+	}
+	if pending != "" {
+		out = append(out, pending)
+	}
+	return out
+}
 
 // mermaidArrows reads a flowchart or sequence diagram as "A → B" lines, the
 // way the timeline's renderer reads them. Anything else yields nothing.
 func mermaidArrows(code []string) []string {
-	var lines []string
-	for _, line := range code {
-		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "%%") {
-			lines = append(lines, line)
-		}
-	}
-	if len(lines) == 0 {
+	statements := mermaidStatements(code)
+	if len(statements) == 0 {
 		return nil
 	}
-	clean := func(value string) string {
-		return strings.TrimSpace(mermaidQuoted.ReplaceAllString(mermaidMarkup.ReplaceAllString(strings.TrimSpace(value), ""), ""))
-	}
-	head := strings.ToLower(lines[0])
-	var out []string
+	head := strings.ToLower(statements[0])
 	switch {
 	case strings.HasPrefix(head, "flowchart") || strings.HasPrefix(head, "graph"):
-		labels := map[string]string{}
-		name := func(raw string) string {
-			match := mermaidNode.FindStringSubmatch(strings.TrimSpace(raw))
-			if match == nil {
-				return clean(raw)
-			}
-			for _, label := range match[2:] {
-				if label != "" {
-					labels[match[1]] = clean(label)
-				}
-			}
-			if label, ok := labels[match[1]]; ok {
-				return label
-			}
-			return match[1]
-		}
-		for _, line := range lines[1:] {
-			// A pipe-labelled edge reads like a "-- label -->" one.
-			line = mermaidPipeEdge.ReplaceAllString(line, " -- $2 $1 ")
-			match := mermaidEdge.FindStringSubmatch(line)
-			if match == nil {
-				name(strings.TrimSuffix(line, ";"))
-				continue
-			}
-			arrow := " → "
-			if match[3] == "---" {
-				arrow = " ― "
-			}
-			edge := name(match[1]) + arrow + name(match[4])
-			if label := clean(match[2]); label != "" {
-				edge += "（" + label + "）"
-			}
-			out = append(out, "・"+edge)
-		}
+		return flowchartArrows(statements[1:])
 	case strings.HasPrefix(head, "sequencediagram"):
-		labels := map[string]string{}
-		for _, line := range lines[1:] {
-			if actor := mermaidActor.FindStringSubmatch(line); actor != nil {
-				labels[actor[1]] = clean(actor[1])
-				if actor[2] != "" {
-					labels[actor[1]] = clean(actor[2])
-				}
-				continue
+		return sequenceArrows(statements[1:])
+	}
+	return nil
+}
+
+func flowchartArrows(statements []string) []string {
+	labels := map[string]string{}
+	// group reads one node, or several joined by "&", from the front of text.
+	group := func(text string) ([]string, string, bool) {
+		var ids []string
+		for {
+			match := mermaidNode.FindStringSubmatch(text)
+			if match == nil {
+				return nil, text, false
 			}
-			if message := mermaidMessage.FindStringSubmatch(line); message != nil {
-				from, to := message[1], message[3]
-				if label, ok := labels[from]; ok {
-					from = label
+			for _, given := range match[2:] {
+				if given != "" {
+					labels[match[1]] = mermaidLabel(given)
 				}
-				if label, ok := labels[to]; ok {
-					to = label
-				}
-				out = append(out, "・"+from+" → "+to+": "+clean(message[4]))
 			}
+			ids = append(ids, match[1])
+			text = text[len(match[0]):]
+			and := mermaidAnd.FindString(text)
+			if and == "" {
+				return ids, text, true
+			}
+			text = text[len(and):]
+		}
+	}
+	name := func(id string) string {
+		if label := labels[id]; label != "" {
+			return label
+		}
+		return id
+	}
+	type edge struct {
+		from, to, label string
+		directed        bool
+	}
+	var edges []edge
+	for _, statement := range statements {
+		if mermaidIgnored.MatchString(statement) {
+			continue
+		}
+		from, text, ok := group(statement)
+		if !ok {
+			return nil
+		}
+		for text != "" {
+			arrow := mermaidArrow.FindStringSubmatch(text)
+			if arrow == nil {
+				return nil
+			}
+			to, rest, ok := group(text[len(arrow[0]):])
+			if !ok {
+				return nil
+			}
+			label := arrow[2]
+			if label == "" {
+				label = arrow[4]
+			}
+			for _, a := range from {
+				for _, b := range to {
+					edges = append(edges, edge{a, b, mermaidLabel(label), strings.HasSuffix(arrow[3], ">")})
+				}
+			}
+			from, text = to, rest
+		}
+	}
+	// Labels may be given after an id is first used, so names come last.
+	var out []string
+	for _, e := range edges {
+		arrow := " → "
+		if !e.directed {
+			arrow = " ― "
+		}
+		line := "・" + name(e.from) + arrow + name(e.to)
+		if e.label != "" {
+			line += "（" + e.label + "）"
+		}
+		out = append(out, line)
+	}
+	return out
+}
+
+func sequenceArrows(statements []string) []string {
+	labels := map[string]string{}
+	name := func(id string) string {
+		if label, ok := labels[id]; ok {
+			return label
+		}
+		return id
+	}
+	var out []string
+	continues := false
+	for _, line := range statements {
+		if actor := mermaidActor.FindStringSubmatch(line); actor != nil {
+			labels[actor[1]] = mermaidLabel(actor[1])
+			if actor[2] != "" {
+				labels[actor[1]] = mermaidLabel(actor[2])
+			}
+			continues = false
+			continue
+		}
+		if note := mermaidNote.FindStringSubmatch(line); note != nil {
+			out = append(out, "・📝 "+mermaidLabel(note[1]))
+			continues = true
+			continue
+		}
+		if message := mermaidMessage.FindStringSubmatch(line); message != nil {
+			out = append(out, "・"+name(message[1])+" → "+name(message[3])+": "+mermaidLabel(message[4]))
+			continues = true
+			continue
+		}
+		if mermaidControl.MatchString(line) {
+			continue
+		}
+		// A line that is none of these continues the message or note above.
+		if continues && len(out) > 0 {
+			out[len(out)-1] += " " + mermaidLabel(line)
 		}
 	}
 	return out
