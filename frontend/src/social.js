@@ -3,7 +3,8 @@ import { el, clear, toast, dialogCloseButton } from "./dom.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { t } from "./i18n.js";
 import { api, blobURL } from "./api.js";
-import { htmlDocument, renderHtmlDocument } from "./html-document.js";
+import { renderHtmlDocument } from "./html-document.js";
+import { imageSource } from "./infographic-document.js";
 import { renderHtmlImages } from "./html-image.js";
 
 let socialOpen = false;
@@ -69,7 +70,8 @@ export async function openSocial(root, getPersona, getSettings = () => ({})) {
   for (const entry of entries) {
     if (entry.deleted) continue;
     const persona = getPersona(entry.speaker);
-    const html = entry.speaker !== "user" && htmlDocument(entry.text);
+    // HTML answers and laid-out infographics are published as pictures.
+    const html = imageSource(entry);
     const name = entry.speaker === "user" ? userProfile(getSettings?.()).name : t("{0}からの返信", `${persona?.icon || "◎"} ${persona?.name || entry.speaker}`);
     const checkbox = el("input", { type: "checkbox", checked: entry.id === root });
     checkboxes.set(entry.id, checkbox);
@@ -79,7 +81,7 @@ export async function openSocial(root, getPersona, getSettings = () => ({})) {
     });
     selection.append(el("label", { class: "social-choice" }, checkbox,
       el("span", {}, el("strong", { text: entry.id === root ? t("元の投稿 · {0}", name) : name }),
-        html ? el("span", { class: "said" }, renderHtmlDocument(html), el("span", { class: "hint", label: "HTMLの回答は画像として公開します。" }))
+        html ? el("span", { class: "said" }, renderHtmlDocument(html), el("span", { class: "hint", label: "この回答は画像として公開します。" }))
           : el("span", { class: "said", text: entry.text || t("［画像］") }))));
   }
   const body = () => ({ root, target: "bluesky", entryIds: [...selected],
@@ -89,9 +91,10 @@ export async function openSocial(root, getPersona, getSettings = () => ({})) {
     setBusy(true); invalidate();
     try {
       for (const entry of entries) {
-        if (!selected.has(entry.id) || entry.speaker === "user" || !htmlDocument(entry.text) || rendered.has(entry.id)) continue;
-        status.textContent = t("HTMLを画像に変換しています…");
-        rendered.set(entry.id, await renderHtmlImages(entry.text));
+        const source = selected.has(entry.id) && !rendered.has(entry.id) && imageSource(entry);
+        if (!source) continue;
+        status.textContent = t("回答を画像に変換しています…");
+        rendered.set(entry.id, await renderHtmlImages(entry.text, source));
       }
       plan = await api.previewSocial(body());
       const numbers = new Map(plan.posts.map((post, i) => [post.id || post.entryId, i + 1]));

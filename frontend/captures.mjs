@@ -62,6 +62,8 @@ const shots = [
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
   { name: "persona-planner", id: "personas--external-planner", clip: '.persona[data-id="book"]', ready: '.persona[data-id="book"] .switch input[type="checkbox"]' },
   { name: "settings", id: "settings--default", clip: "#sheet", open: ".settings-advanced" },
+  { name: "profile-emoji", id: "settings--default", clip: ".avatar-field", ready: ".avatar-emoji-grid .avatar-emoji", open: ".avatar-emoji-picker" },
+  { name: "profile-photo", id: "settings--profile-photo", clip: ".avatar-field", ready: ".avatar-preview .avatar-photo img" },
   { name: "hermes-settings", id: "settings--external-agent", clip: '[data-category="外部連携"]', ready: "#sheet", open: [".settings-advanced", '[data-category="外部連携"]'] },
   { name: "routing", id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },

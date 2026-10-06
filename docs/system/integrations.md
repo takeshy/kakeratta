@@ -112,11 +112,11 @@ The [WeatherAPI documentation](https://www.weatherapi.com/docs/) defines forecas
 
 ## Publication plan
 
-The frontend selects entries to publish and sends the root post, target, and selected IDs to `previewSocial`. The server builds `PlanSelectionWithImages` from the current thread, resolving persona names, text, images, split posts, and the connected account. Complete persona HTML documents require browser-rendered `htmlImages` pages keyed by entry ID; HTML fragments and user-authored code remain text. Each capture carries a SHA-256 hash of the original entry text. Missing captures or a source hash that differs from the current entry are rejected before publication. Raw HTML never becomes the body of a persona image post.
+The frontend selects entries to publish and sends the root post, target, and selected IDs to `previewSocial`. The server builds `PlanSelectionWithImages` from the current thread, resolving persona names, text, images, split posts, and the connected account. Image answers (`ImageAnswer` in [html.go](../../internal/social/html.go)) require browser-rendered `htmlImages` pages keyed by entry ID. An image answer is either a complete persona HTML document, or the `infographic` persona's Markdown with a heading outside code fences (`InfographicMarkdown`, the same rule the timeline uses to lay it out). The browser's `imageSource` ([infographic-document.js](../../frontend/src/infographic-document.js)) builds the matching document: HTML as it stands, or the infographic laid out by `renderInfographic` with its Mermaid SVG, inside a standalone document carrying the app's same-origin CSS rules without `prefers-color-scheme: dark` rules or `@import` (light theme always). The existing isolated capture then renders it. HTML fragments, user-authored code, and the infographic's prose without headings remain text. Each capture carries a SHA-256 hash of the original entry text. Missing captures or a source hash that differs from the current entry are rejected before publication. Raw HTML never becomes the body of a persona image post.
 
 ## Rich text
 
-Bluesky has no markup; a post's rich text is facets over UTF-8 byte ranges. Other persona answers (Markdown) go through `FromMarkdown` ([richtext.go](../../internal/social/richtext.go)), which converts them to plain text that reads as the answer:
+Bluesky has no markup; a post's rich text is facets over UTF-8 byte ranges. Persona answers that are not image answers (Markdown) go through `FromMarkdown` ([richtext.go](../../internal/social/richtext.go)), which converts them to plain text that reads as the answer:
 
 - Headings become their own line after a blank line, and unordered items become `・` (nested items are indented with ideographic spaces).
 - Ordered items keep their numbers, and tasks become ☑/☐.
@@ -145,7 +145,8 @@ Publication history is keyed by target, account, and post, and each publication 
 - [plan.go](../../internal/social/plan.go)
 - [richtext.go](../../internal/social/richtext.go), [split.go](../../internal/social/split.go): Markdown-to-text conversion, link facets, and facet-aware splitting
 - [richtext_test.go](../../internal/social/richtext_test.go): conversion, split offsets, plan facets, and published facet records
-- [html.go](../../internal/social/html.go): complete-document detection and temporary image input
+- [html.go](../../internal/social/html.go): complete-document and infographic detection (`ImageAnswer`), and temporary image input
+- [infographic-document.js](../../frontend/src/infographic-document.js), [infographic-document.test.js](../../tests/infographic-document.test.js): standalone infographic documents for capture
 - [html_test.go](../../internal/social/html_test.go): source binding, image digests, and reply chains
 - [oauth_store.go](../../internal/social/oauth_store.go)
 - [social.go](../../internal/store/social.go)

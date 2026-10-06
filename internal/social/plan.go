@@ -99,25 +99,27 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 		text := e.Text
 		var links []Link
 		var rendered HTMLImages
-		if e.Speaker != timeline.User && HTMLDocument(e.Text) == "" {
+		image := ImageAnswer(e)
+		if e.Speaker != timeline.User && !image {
 			// A persona's Markdown answer is posted as the text it reads as,
-			// its labelled links as link facets. HTML answers become images.
+			// its labelled links as link facets. HTML answers and laid-out
+			// infographics become images.
 			text, links = FromMarkdown(e.Text)
 		}
-		if e.Speaker != timeline.User && HTMLDocument(e.Text) != "" {
+		if image {
 			var ok bool
 			rendered, ok = images[id]
 			if !ok || len(rendered.Images) == 0 || len(rendered.Images) > 10 {
-				return fmt.Errorf("HTMLの回答を画像に変換してからプレビューしてください")
+				return fmt.Errorf("画像にする回答を変換してからプレビューしてください")
 			}
 			for _, page := range rendered.Images {
 				if page == "" {
-					return fmt.Errorf("HTMLの画像を読み込めませんでした")
+					return fmt.Errorf("回答の画像を読み込めませんでした")
 				}
 			}
 			hash := sha256.Sum256([]byte(e.Text))
 			if rendered.SourceHash != hex.EncodeToString(hash[:]) {
-				return fmt.Errorf("HTMLの内容が変わりました。会話を開き直してプレビューしてください")
+				return fmt.Errorf("回答の内容が変わりました。会話を開き直してプレビューしてください")
 			}
 			text = "［画像］"
 		}

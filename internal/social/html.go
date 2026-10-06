@@ -3,6 +3,8 @@ package social
 import (
 	"regexp"
 	"strings"
+
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // HTMLImages are temporary browser-rendered pages, never timeline attachments.
@@ -27,4 +29,32 @@ func HTMLDocument(text string) string {
 		return source
 	}
 	return ""
+}
+
+var markdownHeadingLine = regexp.MustCompile(`^#{1,6}\s+\S`)
+
+// InfographicMarkdown matches the browser's rule for laying the infographic
+// persona's Markdown out as an infographic: a heading outside code fences.
+func InfographicMarkdown(text string) bool {
+	fenced := false
+	for _, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
+		if strings.HasPrefix(line, "```") {
+			fenced = !fenced
+			continue
+		}
+		if !fenced && markdownHeadingLine.MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
+
+// ImageAnswer is a persona answer that is published as browser-rendered
+// pages: a complete HTML document, or the infographic persona's Markdown
+// laid out as an infographic, whose diagrams do not survive as text.
+func ImageAnswer(e timeline.Entry) bool {
+	if e.Speaker == timeline.User {
+		return false
+	}
+	return HTMLDocument(e.Text) != "" || (e.Speaker == "infographic" && InfographicMarkdown(e.Text))
 }

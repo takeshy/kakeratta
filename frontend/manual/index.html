@@ -206,6 +206,21 @@
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
           <p>通知予定は担当一覧と発言一覧のカードで確認できます。不要な予定は各予定の <strong>×</strong> で取り消せます。</p>
+          <h3 id="ja-avatar">アイコンを変える（絵文字・写真）</h3>
+          <p>担当のアイコンは、作るとき（<strong>AIと担当を作る</strong>）や、カードの <strong>修正</strong>・<strong>AIで修正</strong> で変えられます。自分のアイコンは <a href="/manual/?guide=advanced#ja-profile" data-lang-link>設定のプロフィール</a> で同じように変えられます。</p>
+          <ul>
+            <li><strong>絵文字を選ぶ</strong> を開くと、顔・人・手・体・動物・自然・食べ物・趣味・乗り物・場所・もの・記号・旗のグループごとに絵文字が並びます。押すだけで決まります。一覧にない絵文字は <strong>その他の絵文字を入力</strong> から入力できます。</li>
+            <li><strong>写真を選ぶ</strong> で、手元の画像をアイコンにできます。写真は端末の中で正方形に切り抜き、小さく圧縮してから保存します。元の画像はアップロードしません。</li>
+            <li>写真があるときは写真が優先して表示されます。<strong>写真を外す</strong> と絵文字に戻ります。絵文字を選び直したときも写真は外れます。</li>
+          </ul>
+          <figure>
+            <img src="/captures/ja/profile-emoji.png" alt="絵文字を選ぶを開いたアイコン設定。グループ切り替えと絵文字の一覧" loading="lazy" width="366" height="587" />
+            <figcaption>絵文字を選ぶを開き、グループから好きなアイコンを選びます。</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/ja/profile-photo.png" alt="写真を設定したアイコン。丸いプレビューと写真を外すボタン（サンプル画像）" loading="lazy" width="366" height="243" />
+            <figcaption>写真を選ぶと、丸いアイコンで表示されます。写真を外すと絵文字に戻ります。</figcaption>
+          </figure>
           <h3 id="ja-daily">担当からの声かけ</h3>
           <p>記憶を持つ担当は、伝えたいことがあるときや、出かける前の持ち物点検・雨予報の傘の助言（sona）など、必要なタイミングで話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると定期的なチェックインは止まりますが、明示的な通知予定は引き続き実行します。毎日の起床時刻や月次まとめの仕組みは <a href="/manual/?guide=advanced#ja-daily-advanced" data-lang-link>上級編</a> にあります。</p>
           <h3 id="ja-push">リマインダーのPush通知</h3>
@@ -484,7 +499,8 @@
           <ul>
             <li>公開されるのは、選んだ発言の本文・リンク・出典URL・画像です。位置情報、画像の読み取り結果、担当のメモは公開されません。</li>
             <li>長い発言は、文の切れ目で300文字程度ずつに分け、2つ目以降に「つづき:」を付けます。画像は最初の1つにだけ付きます。</li>
-            <li>担当のHTML回答は表示結果を画像にして公開します。縦長の回答は複数枚に分けるので、プレビューですべて確認してください。変換できない場合は投稿を止めます。元のHTMLはそのまま残ります。</li>
+            <li>担当の回答の見出し・箇条書き・表は、Blueskyで読みやすい文章に直して公開します（Blueskyには太字や見出しがないため）。<code>[文字](URL)</code> のリンクは文字がそのままリンクになり、本文中のURLもリンクになります。</li>
+            <li>担当のHTML回答と、インフォグラフィックの担当が作った図解は、画面の表示結果を画像にして公開します。縦長の回答は複数枚に分けるので、プレビューですべて確認してください。変換できない場合は投稿を止めます。元の回答はそのまま残ります。</li>
             <li>2 MB を超える画像は送信用に縮小されます（元の画像はそのまま）。透明部分は白に、GIF は静止画になります。</li>
             <li>一度に選べるのは100発言までです。</li>
           </ul>
@@ -561,6 +577,7 @@
             <table>
               <thead><tr><th>場所</th><th>項目</th></tr></thead>
               <tbody>
+                <tr><td>プロフィール</td><td>表示名、自分のアイコン（絵文字・写真）</td></tr>
                 <tr><td>モデル</td><td>AI の API キー</td></tr>
                 <tr><td>Web検索</td><td>Tavily の API キー（<a href="#ja-tool-web_search">Web検索</a>を使う場合）</td></tr>
                 <tr><td>この端末</td><td>表示言語、<a href="/manual/#ja-push" data-lang-link>リマインダーのPush通知</a>、kakeratta の版</td></tr>
@@ -573,6 +590,8 @@
               </tbody>
             </table>
           </div>
+          <h3 id="ja-profile">プロフィール（表示名とアイコン）</h3>
+          <p>設定のいちばん上の <strong>プロフィール</strong> で、タイムラインなどに出る自分の <strong>表示名</strong> と <strong>アイコン</strong> を変えられます。アイコンは絵文字をグループから選ぶか、写真を選びます（選び方は <a href="/manual/#ja-avatar" data-lang-link>アイコンを変える</a> と同じです）。設定はアカウントに保存されるので、ほかの端末でも同じ表示になります。表示名が空なら「あなた」、アイコンが空なら 🙂 になります。ログインするアカウントの名前は変わりません。</p>
           <h3>バックアップ</h3>
           <p><strong>zipに書き出す</strong> で、投稿、担当とメモ、担当の並び、画像をひとつの zip にまとめます。準備ができるとダウンロードが始まり、<strong>ダウンロード</strong> のリンクも表示されます。リンクは1時間有効です。個人的な内容を含むので、他人に渡さないでください。</p>
           <p>API キーや Bluesky・外部エージェントの接続は入りません。</p>
@@ -805,6 +824,21 @@
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
           <p>View notification schedules on the persona card or above its speaker list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
+          <h3 id="en-avatar">Change an icon (emoji or photo)</h3>
+          <p>Change a persona's icon when you create it (<strong>Create a persona with AI</strong>) or with <strong>Edit</strong> or <strong>Edit with AI</strong> on its card. Your own icon works the same way in <a href="/manual/?guide=advanced#en-profile" data-lang-link>Profile in Settings</a>.</p>
+          <ul>
+            <li>Open <strong>Choose emoji</strong> to see emoji grouped as faces, people, hands and body, animals, nature, food, hobbies, travel and places, objects, symbols, and flags. One tap picks it. For an emoji not listed, use <strong>Type another emoji</strong>.</li>
+            <li><strong>Choose photo</strong> uses one of your images. It is cropped square and compressed on your device before saving; the original is never uploaded.</li>
+            <li>While a photo is set, it is shown instead of the emoji. <strong>Remove photo</strong> brings the emoji back, and picking an emoji again also removes the photo.</li>
+          </ul>
+          <figure>
+            <img src="/captures/en/profile-emoji.png" alt="Icon settings with Choose emoji expanded, showing emoji groups and the selection grid" loading="lazy" width="366" height="587" />
+            <figcaption>Open Choose emoji and pick an icon from the groups.</figcaption>
+          </figure>
+          <figure>
+            <img src="/captures/en/profile-photo.png" alt="A photo icon with its circular preview and Remove photo button (sample image)" loading="lazy" width="366" height="288" />
+            <figcaption>A chosen photo appears as a circular icon. Remove photo brings the emoji back.</figcaption>
+          </figure>
           <h3 id="en-daily">Hearing from your personas</h3>
           <p>Personas with <strong>Remember</strong> enabled keep memories and speak now and then when they have something useful or timely to share, such as sona's doorstep reminder before heading out. How much they say and their tone follow their character. Turning off <strong>Remember</strong> stops periodic check-ins; explicit schedules still run. Check-in timings and monthly summary mechanics are in the <a href="/manual/?guide=advanced#en-daily-advanced" data-lang-link>Advanced Guide</a>.</p>
           <h3 id="en-push">Push reminders</h3>
@@ -1083,7 +1117,8 @@
           <ul>
             <li>The selected messages' text, links, source URLs and images are published. Location, image reading results and persona notes are not.</li>
             <li>Long messages split at sentence breaks into posts of about 300 characters; later parts start with “つづき:” (continued). Images go on the first part only.</li>
-            <li>HTML persona answers are shared as images of the rendered document. Long answers split into multiple image posts; review every page in the preview. If conversion fails, publishing stops. The original HTML stays unchanged.</li>
+            <li>Headings, lists and tables in persona answers are rewritten as text that reads well on Bluesky, which has no bold or headings. A <code>[text](URL)</code> link keeps its text as the link, and URLs in the text become links too.</li>
+            <li>HTML persona answers and the infographic persona's diagrams are shared as images of what the screen shows. Long answers split into multiple image posts; review every page in the preview. If conversion fails, publishing stops. The original answer stays unchanged.</li>
             <li>Images over 2 MB are shrunk for sending (the original stays as it is). Transparency becomes white and GIFs become still.</li>
             <li>Up to 100 messages at a time.</li>
           </ul>
@@ -1160,6 +1195,7 @@
             <table>
               <thead><tr><th>Place</th><th>Items</th></tr></thead>
               <tbody>
+                <tr><td>Profile</td><td>Display name, your icon (emoji or photo)</td></tr>
                 <tr><td>Models</td><td>The AI API key</td></tr>
                 <tr><td>Web search</td><td>Tavily API key (for <a href="#en-tool-web_search">web search</a>)</td></tr>
                 <tr><td>This device</td><td>Display language, <a href="/manual/#en-push" data-lang-link>Push reminders</a>, kakeratta version</td></tr>
@@ -1172,6 +1208,8 @@
               </tbody>
             </table>
           </div>
+          <h3 id="en-profile">Profile (display name and icon)</h3>
+          <p><strong>Profile</strong> at the top of Settings changes the <strong>Display name</strong> and <strong>Icon</strong> shown for you on the timeline and elsewhere. Pick an emoji from the groups or choose a photo, the same way as for <a href="/manual/#en-avatar" data-lang-link>persona icons</a>. It is saved with your account, so other devices show the same. An empty name shows as “You” and an empty icon as 🙂. Your sign-in account name does not change.</p>
           <h3>Backup</h3>
           <p><strong>Export as zip</strong> puts your posts, personas and their notes, persona order, and images into one zip. The download starts when it is ready, and a <strong>Download</strong> link also appears. The link is valid for an hour. The zip holds personal content, so keep it to yourself.</p>
           <p>API keys and the Bluesky and external agent connections are not included.</p>

@@ -36,8 +36,9 @@ function loadImage(src) {
   });
 }
 
-export async function renderHtmlImages(text) {
-  const source = htmlDocument(text);
+// text is the saved answer, which the capture is bound to by hash; source
+// is the document to draw, the answer itself unless it was laid out first.
+export async function renderHtmlImages(text, source = htmlDocument(text)) {
   if (!source) throw Error("HTMLの回答が見つかりません");
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   const sourceHash = [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, "0")).join("");

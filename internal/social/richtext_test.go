@@ -105,7 +105,7 @@ func TestSplitKeepsLinksWholeAndShiftsFacetsIntoEachPart(t *testing.T) {
 func TestPlanPostsMarkdownAnswersAsRichTextAndHTMLStaysAnImage(t *testing.T) {
 	entries := []timeline.Entry{
 		{ID: "p", Kind: timeline.KindPost, Speaker: "user", Text: "**そのまま** https://example.com/u"},
-		{ID: "a", Root: "p", ReplyTo: "p", Speaker: "infographic", Text: "# 📊 図解\n- [出典](https://example.com/s)"},
+		{ID: "a", Root: "p", ReplyTo: "p", Speaker: "gourmet", Text: "# 📊 図解\n- [出典](https://example.com/s)"},
 	}
 	p, err := PlanSelection("bluesky", "p", entries, []string{"p", "a"}, func(string) string { return "📊 図" })
 	if err != nil {
@@ -130,10 +130,20 @@ func TestPlanPostsMarkdownAnswersAsRichTextAndHTMLStaysAnImage(t *testing.T) {
 	if p.Digest == before {
 		t.Fatal("digest ignored the links")
 	}
-	html := "<!DOCTYPE html><html><body><h1>図解</h1></body></html>"
-	entries[1].Text = html
-	if _, err := PlanSelection("bluesky", "p", entries, []string{"a"}, func(string) string { return "図" }); err == nil {
-		t.Fatal("an HTML answer was planned as text without its image")
+	// HTML answers and the infographic laid out from Markdown are images;
+	// the infographic's plain prose (a question back) stays text.
+	for _, answer := range []timeline.Entry{
+		{ID: "a", Root: "p", ReplyTo: "p", Speaker: "gourmet", Text: "<!DOCTYPE html><html><body><h1>図解</h1></body></html>"},
+		{ID: "a", Root: "p", ReplyTo: "p", Speaker: "infographic", Text: "# 📊 図解\n```mermaid\nflowchart TD\nA --> B\n```"},
+	} {
+		entries[1] = answer
+		if _, err := PlanSelection("bluesky", "p", entries, []string{"a"}, func(string) string { return "図" }); err == nil {
+			t.Fatalf("%q was planned as text without its image", answer.Text)
+		}
+	}
+	entries[1] = timeline.Entry{ID: "a", Root: "p", ReplyTo: "p", Speaker: "infographic", Text: "本文を貼ってください。\n```\n# コードの見出しではない\n```"}
+	if p, err := PlanSelection("bluesky", "p", entries, []string{"a"}, func(string) string { return "図" }); err != nil || !strings.Contains(p.Posts[0].Text, "本文を貼ってください。") {
+		t.Fatalf("infographic prose = %+v, %v", p, err)
 	}
 }
 
