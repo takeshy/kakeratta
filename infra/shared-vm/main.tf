@@ -52,6 +52,17 @@ resource "google_storage_bucket_iam_member" "frontend_upload" {
   member = "serviceAccount:523840037797-compute@developer.gserviceaccount.com"
 }
 
+resource "google_storage_bucket_iam_member" "frontend_upload_read" {
+  bucket = google_storage_bucket.config.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:523840037797-compute@developer.gserviceaccount.com"
+  condition {
+    title       = "kakeratta_frontend_upload_read"
+    description = "Allow gcloud storage cp to inspect frontend upload destinations"
+    expression  = "resource.type == 'storage.googleapis.com/Object' && resource.name.startsWith('projects/_/buckets/${google_storage_bucket.config.name}/objects/frontend/')"
+  }
+}
+
 resource "google_service_account" "bootstrap" {
   account_id   = local.name
   display_name = "Shared VM bootstrap and scoped runtime impersonation"
