@@ -48,6 +48,9 @@ func (c *Client) request(ctx context.Context, endpoint, mime string, data []byte
 }
 func (c *Client) Publish(ctx context.Context, post Post, root, parent store.Publication, data []byte, mime string) (store.Publication, error) {
 	record := map[string]any{"$type": "app.bsky.feed.post", "text": post.Text, "createdAt": time.Now().UTC().Format(time.RFC3339Nano)}
+	if facets := linkFacets(post); len(facets) > 0 {
+		record["facets"] = facets
+	}
 	if post.Parent != "" {
 		record["reply"] = map[string]any{"root": map[string]string{"uri": root.URI, "cid": root.CID}, "parent": map[string]string{"uri": parent.URI, "cid": parent.CID}}
 	}
@@ -85,4 +88,20 @@ func (c *Client) Publish(ctx context.Context, post Post, root, parent store.Publ
 	}
 	result.URL = "https://bsky.app/profile/" + c.Account() + "/post/" + result.URI[strings.LastIndex(result.URI, "/")+1:]
 	return result, nil
+}
+
+// linkFacets are the post's links as app.bsky.richtext.facet records; byte
+// ranges are UTF-8 offsets into the text, end exclusive.
+func linkFacets(post Post) []any {
+	var facets []any
+	for _, link := range post.Links {
+		if link.Start < 0 || link.End <= link.Start || link.End > len(post.Text) || !safeURI(link.URI) {
+			continue
+		}
+		facets = append(facets, map[string]any{
+			"index":    map[string]int{"byteStart": link.Start, "byteEnd": link.End},
+			"features": []any{map[string]string{"$type": "app.bsky.richtext.facet#link", "uri": link.URI}},
+		})
+	}
+	return facets
 }

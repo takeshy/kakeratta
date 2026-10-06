@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -20,6 +21,7 @@ type Post struct {
 	Image      string `json:"image,omitempty"`
 	ImageAlt   string `json:"imageAlt,omitempty"`
 	SourceHash string `json:"sourceHash,omitempty"`
+	Links      []Link `json:"links,omitempty"`
 }
 
 func (p Post) Key() string {
@@ -95,7 +97,13 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 			}
 		}
 		text := e.Text
+		var links []Link
 		var rendered HTMLImages
+		if e.Speaker != timeline.User && HTMLDocument(e.Text) == "" {
+			// A persona's Markdown answer is posted as the text it reads as,
+			// its labelled links as link facets. HTML answers become images.
+			text, links = FromMarkdown(e.Text)
+		}
 		if e.Speaker != timeline.User && HTMLDocument(e.Text) != "" {
 			var ok bool
 			rendered, ok = images[id]
@@ -125,7 +133,13 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 				text += "\n" + source.URL
 			}
 		}
-		parts, err := SplitText(strings.TrimSpace(text), prefix)
+		// Link facets point into the converted text, which FromMarkdown has
+		// already trimmed at the front; trimming the end cannot move them.
+		body := strings.TrimSpace(text)
+		if links != nil {
+			body = strings.TrimRightFunc(text, unicode.IsSpace)
+		}
+		parts, err := SplitRich(body, prefix, links)
 		if err != nil {
 			return fmt.Errorf("%s: %w", id, err)
 		}
@@ -133,7 +147,7 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 			parent = tails[parent]
 		}
 		for i, part := range parts {
-			post := Post{EntryID: id, Parent: parent, Text: part}
+			post := Post{EntryID: id, Parent: parent, Text: part.Text, Links: part.Links}
 			if i > 0 {
 				post.ID = fmt.Sprintf("%s:part:%d", id, i+1)
 			}

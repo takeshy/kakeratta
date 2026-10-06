@@ -9,6 +9,25 @@ import { renderHtmlImages } from "./html-image.js";
 let socialOpen = false;
 
 // Selection is a snapshot: late persona responses never become public by default.
+// The preview shows a post's link facets as they will read on Bluesky. Facet
+// ranges are UTF-8 byte offsets, so the text is sliced as bytes.
+export function richText(post) {
+  const links = (post.links || []).filter(link => link.start >= 0 && link.end > link.start);
+  if (!links.length) return [post.text];
+  const bytes = new TextEncoder().encode(post.text);
+  const decode = (start, end) => new TextDecoder().decode(bytes.slice(start, end));
+  const out = [];
+  let offset = 0;
+  for (const link of links) {
+    if (link.start < offset || link.end > bytes.length) continue;
+    out.push(decode(offset, link.start));
+    out.push(el("a", { href: link.uri, target: "_blank", rel: "noopener noreferrer", text: decode(link.start, link.end) }));
+    offset = link.end;
+  }
+  out.push(decode(offset, bytes.length));
+  return out;
+}
+
 export async function openSocial(root, getPersona, getSettings = () => ({})) {
   if (socialOpen) return;
   socialOpen = true;
@@ -80,7 +99,7 @@ export async function openSocial(root, getPersona, getSettings = () => ({})) {
         preview.append(el("article", { class: "social-preview-post" },
           el("strong", { text: post.parent ? t("{0} · {1}への返信", i + 1, numbers.get(post.parent)) : t(post.entryId === root ? "{0} · 元の投稿" : "{0} · 最初の投稿", i + 1) }),
           post.publication?.state === "posted" ? el("span", { class: "tag", label: "投稿済み" }) : null,
-          el("p", { class: "said", text: post.text }),
+          el("p", { class: "said" }, richText(post)),
           post.image || post.blobId ? el("img", { src: post.image || blobURL(post.blobId), alt: post.imageAlt || t("公開する画像") }) : null));
       }
       showPublishedLink(plan.posts.find(post => !post.parent)?.publication?.url);

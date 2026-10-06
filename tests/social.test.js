@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { setLanguage } from "../frontend/src/i18n.js";
 import { api } from "../frontend/src/api.js";
-import { openSocial } from "../frontend/src/social.js";
+import { openSocial, richText } from "../frontend/src/social.js";
 
 class Element {
   children = []; listeners = {}; textContent = ""; value = ""; disabled = false; checked = false;
@@ -119,4 +119,18 @@ test("only chosen replies reach preview and publish; changing selection invalida
   assert.equal(only.querySelector("a").href, "https://bsky.app/profile/example/post/answer");
   assert.equal(choices[0].disabled, false);
   only.close();
+});
+
+test("the preview shows link facets on their UTF-8 byte ranges", () => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  try {
+    const text = "📊 図からの返信:\n・出典 と https://example.com/x";
+    const bytes = value => new TextEncoder().encode(value).length;
+    const start = bytes("📊 図からの返信:\n・"), url = bytes("📊 図からの返信:\n・出典 と ");
+    const parts = richText({ text, links: [{ start, end: start + bytes("出典"), uri: "https://example.com/s" }, { start: url, end: url + bytes("https://example.com/x"), uri: "https://example.com/x" }] });
+    assert.deepEqual(parts.map(part => typeof part === "string" ? part : `<${part.textContent}|${part.href}>`),
+      ["📊 図からの返信:\n・", "<出典|https://example.com/s>", " と ", "<https://example.com/x|https://example.com/x>", ""]);
+    assert.deepEqual(richText({ text: "plain" }), ["plain"]);
+  } finally { delete globalThis.Node; delete globalThis.document; }
 });

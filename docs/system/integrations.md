@@ -114,6 +114,22 @@ The [WeatherAPI documentation](https://www.weatherapi.com/docs/) defines forecas
 
 The frontend selects entries to publish and sends the root post, target, and selected IDs to `previewSocial`. The server builds `PlanSelectionWithImages` from the current thread, resolving persona names, text, images, split posts, and the connected account. Complete persona HTML documents require browser-rendered `htmlImages` pages keyed by entry ID; HTML fragments and user-authored code remain text. Each capture carries a SHA-256 hash of the original entry text. Missing captures or a source hash that differs from the current entry are rejected before publication. Raw HTML never becomes the body of a persona image post.
 
+## Rich text
+
+Bluesky has no markup; a post's rich text is facets over UTF-8 byte ranges. Other persona answers (Markdown) go through `FromMarkdown` ([richtext.go](../../internal/social/richtext.go)), which converts them to plain text that reads as the answer:
+
+- Headings become their own line after a blank line, and unordered items become `・` (nested items are indented with ideographic spaces).
+- Ordered items keep their numbers, and tasks become ☑/☐.
+- A table becomes its header row, then one `・` row per line, with cells joined by ` ｜ `.
+- A quotation becomes a `＞` line, and a callout becomes its title.
+- Supported Mermaid flowcharts and sequence diagrams become `・A → B（label）` / `・A → B: message` lines; other diagram types are omitted. Other code fences keep their lines.
+- Emphasis, deletion and inline-code markers are removed.
+- `[label](http…)` keeps only the label, with a link facet to the URL; other schemes stay plain text.
+
+User posts keep their text exactly. In every post, bare URLs (including appended links and sources) also become link facets.
+
+`SplitRich` ([split.go](../../internal/social/split.go)) treats each link label and URL as one unbreakable unit, which is never a sentence boundary. It returns each part's links as offsets into that part's text, prefix included. Out-of-order or out-of-range input facets are left as plain text. `Post.Links` (`start`, `end`, `uri`) is part of the sealed plan digest. `Publish` sends them as `app.bsky.richtext.facet#link` facets (`byteStart`, `byteEnd`), skipping any outside the text or not http(s). The preview dialog renders the same ranges as links (`richText` in [social.js](../../frontend/src/social.js)). Verification: [richtext_test.go](../../internal/social/richtext_test.go) and [social.test.js](../../tests/social.test.js).
+
 A digest seals the plan. Publishing rebuilds it and compares the digest so changed content or accounts are not published after preview approval. The selection initially contains only the original post, but every entry can be deselected; at least one entry is required. Answers can be published without the original post. No other entry is selected automatically. The first selected entry in timeline/parent order becomes the publication plan root and is standalone. If a selected reply's direct parent is also selected, it stays attached to that parent's final part; otherwise it attaches to the first selected entry's final part. Omitted parents are never published, and the preview shows the resulting reply relationships. The publish action stays hidden until a successful preview is ready, and changing the selection hides it again. The digest includes image data, alternative text, and the source hash, so altering a capture or its source invalidates approval. Preview and publication bodies are limited to 32 MiB. JPEG/PNG captures must decode with valid dimensions and at most 50 million pixels, then use the existing Bluesky image preparation.
 
 ## Authentication and publication state
@@ -127,6 +143,8 @@ Publication history is keyed by target, account, and post, and each publication 
 - [social.go](../../internal/server/social.go)
 - [bluesky.go](../../internal/server/bluesky.go)
 - [plan.go](../../internal/social/plan.go)
+- [richtext.go](../../internal/social/richtext.go), [split.go](../../internal/social/split.go): Markdown-to-text conversion, link facets, and facet-aware splitting
+- [richtext_test.go](../../internal/social/richtext_test.go): conversion, split offsets, plan facets, and published facet records
 - [html.go](../../internal/social/html.go): complete-document detection and temporary image input
 - [html_test.go](../../internal/social/html_test.go): source binding, image digests, and reply chains
 - [oauth_store.go](../../internal/social/oauth_store.go)
