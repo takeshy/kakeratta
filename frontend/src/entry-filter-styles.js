@@ -91,11 +91,36 @@ export const entryFilterStyles = `
   color: var(--ink, #39352f);
   font: inherit;
   font-size: 16px;
+  /* iOS Safari draws its own centred field; keep it the same as elsewhere. */
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  line-height: 26px;
+  text-align: left;
+}
+.entry-filters input[type="date"]::-webkit-date-and-time-value { margin: 0; text-align: left; }
+.entry-filters input[type="date"]::-webkit-datetime-edit { padding: 0; }
+.entry-filters .entry-filter-date { position: relative; display: block; min-width: 0; max-width: 100%; }
+/* Only iOS leaves an empty date field blank; other browsers show their own hint. */
+@supports (-webkit-touch-callout: none) {
+  .entry-filters .entry-filter-date[data-empty]::after {
+    content: attr(data-hint);
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted, #807a70);
+    font-size: 16px;
+    pointer-events: none;
+  }
 }
 .entry-filters :is(input, button, summary):focus-visible { outline: 2px solid var(--accent, #a46730); outline-offset: 2px; }
 .entry-filters [role="alert"] { display: block; margin-top: 8px; font-size: .85rem; }
 .entry-filters [role="alert"]:empty { display: none; }
-@container (max-width: 300px) {
+/* A phone's filter is about 310-330px wide, narrower than two iOS date fields
+   side by side (Safari will not shrink one below its date text), so they
+   stack there rather than run into each other. */
+@container (max-width: 360px) {
   .entry-filters .entry-filter-dates { grid-template-columns: minmax(0, 1fr); }
 }
 `;

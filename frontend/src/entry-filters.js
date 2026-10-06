@@ -3,6 +3,12 @@ import { t } from "./i18n.js";
 import { entryFilterStyles } from "./entry-filter-styles.js";
 import { isFavorite } from "./favorite-state.js";
 
+// iOS Safari shows an empty date field as a blank box; the wrapper carries a
+// hint for it (drawn only there) while the field is empty.
+function dateField(input) {
+  return el("span", { class: "entry-filter-date", "data-hint": t("年/月/日"), "data-empty": true }, input);
+}
+
 export function createEntryFilters(onChange) {
   const favorite = el("input", { type: "checkbox" });
   const from = el("input", { type: "date", "aria-label": t("開始日") });
@@ -21,6 +27,7 @@ export function createEntryFilters(onChange) {
     return query;
   }
   function changed() {
+    for (const input of [from, to]) input.parentElement?.toggleAttribute?.("data-empty", !input.value);
     if (from.value && to.value && from.value > to.value) {
       error.textContent = t("終了日は開始日以降にしてください");
       return;
@@ -41,8 +48,8 @@ export function createEntryFilters(onChange) {
           favorite.checked = false; from.value = ""; to.value = ""; return changed();
         } })),
       el("div", { class: "entry-filter-dates" },
-        el("label", {}, el("span", { label: "開始日" }), from),
-        el("label", {}, el("span", { label: "終了日" }), to)), error));
+        el("label", {}, el("span", { label: "開始日" }), dateField(from)),
+        el("label", {}, el("span", { label: "終了日" }), dateField(to))), error));
   return { element, value };
 }
 

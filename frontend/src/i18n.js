@@ -16,6 +16,7 @@ const EN = {
  "開始日": "From",
  "終了日": "To",
  "絞り込みを解除": "Clear filters",
+ "年/月/日": "yyyy/mm/dd",
  "終了日は開始日以降にしてください": "End date must be on or after start date",
  "予定": "Schedules",
  "予定一覧": "Schedules",
