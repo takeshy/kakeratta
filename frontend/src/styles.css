@@ -375,9 +375,38 @@ button.who-link:hover, button.who-link:focus-visible { text-decoration: underlin
 .avatar-photo { width: 2rem; height: 2rem; overflow: hidden; border-radius: 50%; }
 .avatar-photo img { width: 100%; height: 100%; object-fit: cover; }
 .avatar-inline.avatar-photo { width: 1.5rem; height: 1.5rem; }
-.avatar-field { display: grid; gap: 8px; min-width: 0; }
-.avatar-field .avatar-icon-input { width: 6rem; max-width: 100%; }
-.avatar-preview .avatar { width: 3rem; height: 3rem; font-size: 2rem; }
+/* The icon setting: a large preview beside the photo actions, then an emoji
+   picker with one tab per group. */
+.avatar-field { display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.avatar-field-title { font-size: 0.9rem; }
+.avatar-summary { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.avatar-summary-body { display: grid; gap: 6px; min-width: 0; }
+.avatar-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.avatar-status { font-weight: 600; color: var(--ink); }
+.avatar-preview { display: inline-grid; place-items: center; flex: none; width: 4.5rem; height: 4.5rem; border-radius: 50%; background: var(--accent-soft); border: 2px solid color-mix(in srgb, var(--accent) 35%, var(--line)); overflow: hidden; }
+.avatar-preview .avatar { width: 100%; height: 100%; font-size: 2.6rem; line-height: 1; }
+.avatar-preview .avatar-photo { border-radius: 50%; }
+.avatar-emoji-picker { display: grid; gap: 8px; min-width: 0; }
+.avatar-emoji-tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.avatar-emoji-tab {
+  display: inline-flex; align-items: center; gap: 4px; flex: none; min-height: 36px; padding: 4px 10px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); font: inherit; font-size: 0.8rem; cursor: pointer;
+}
+.avatar-emoji-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.avatar-emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr)); gap: 4px; padding: 6px; border-radius: 10px; background: var(--bg); }
+.avatar-emoji {
+  display: grid; place-items: center; aspect-ratio: 1; min-height: 2.75rem; padding: 0;
+  border: 2px solid transparent; border-radius: 10px; background: transparent; font-size: 1.5rem; line-height: 1; cursor: pointer;
+}
+.avatar-emoji:hover:not(:disabled) { background: var(--card); }
+.avatar-emoji.selected { border-color: var(--accent); background: var(--accent-soft); }
+.avatar-emoji:disabled, .avatar-emoji-tab:disabled { opacity: 0.5; cursor: default; }
+.avatar-emoji-other summary { cursor: pointer; color: var(--muted); font-size: 0.82rem; }
+.avatar-emoji-other .avatar-icon-input { margin-top: 6px; width: 8rem; max-width: 100%; font-size: 1.2rem; }
+@media (max-width: 600px) {
+  .avatar-emoji-tab-label { display: none; }
+  .avatar-emoji-tab { padding: 4px 8px; font-size: 1.1rem; }
+}
 .source {
   color: var(--accent);
   font-size: 0.78rem;

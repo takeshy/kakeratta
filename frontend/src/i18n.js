@@ -2,6 +2,11 @@ const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
   "プロフィール": "Profile", "表示名": "Display name", "写真を選ぶ": "Choose photo", "写真を外す": "Remove photo",
+  "写真を変更": "Change photo", "写真を表示中": "Showing photo", "絵文字を表示中": "Showing emoji",
+  "写真を選ぶと絵文字より優先して表示します。": "A photo is shown instead of the emoji while one is set.",
+  "絵文字のグループ": "Emoji groups", "その他の絵文字を入力": "Type another emoji", "絵文字を直接入力": "Type an emoji",
+  "顔": "Faces", "人": "People", "動物": "Animals", "自然": "Nature", "食べ物": "Food", "趣味": "Hobbies",
+  "乗り物・場所": "Travel & places", "もの": "Objects", "記号": "Symbols",
   "写真は20MB以下の画像を選んでください。": "Choose an image smaller than 20 MB.",
   "写真を読み込めませんでした。JPEGやPNGの画像を選んでください。": "Could not read the photo. Choose a JPEG or PNG image.",
   "保存できませんでした。もう一度お試しください。": "Could not save. Please try again.",

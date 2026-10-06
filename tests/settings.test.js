@@ -29,7 +29,7 @@ class Element {
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
 function openAdvanced(view) {
-  const section = walk(view.element).find(node => node.tag === "details");
+  const section = walk(view.element).find(node => node.tag === "details" && node.className === "settings-advanced");
   section.open = true;
   section.listeners.toggle();
 }

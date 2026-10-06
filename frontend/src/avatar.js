@@ -45,20 +45,74 @@ export async function compressAvatar(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 
+// Emoji are picked from groups rather than typed: most keyboards make them
+// hard to reach. The text box stays, folded under the groups, for anything
+// the groups do not have.
+const split = text => text.match(/(?:\p{Extended_Pictographic}|◎)\uFE0F?/gu);
+export const EMOJI_GROUPS = [
+  { label: "顔", icon: "🙂", emoji: split("🙂😀😄😊😉😍🥰😎🤓🧐🤔😌😴🥳🤗😇🙃😺🤖👻👽🎃🦸🧙") },
+  { label: "人", icon: "🧑", emoji: ["🧑", "👩", "👨", "🧒", "👧", "👦", "👵", "👴", "🧑‍🍳", "🧑‍🏫", "🧑‍⚕️", "🧑‍💻", "🧑‍🎨", "🧑‍🔬", "🧑‍🌾", "🧑‍🚀", "🕵️", "💁", "🙋", "🧘", "🏃", "👋", "👍", "🙌"] },
+  { label: "動物", icon: "🐶", emoji: split("🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🦉🦄🐝🦋🐢🐬") },
+  { label: "自然", icon: "🌸", emoji: split("🌸🌻🌷🌹🍀🌿🌱🌲🍁🍄🌵🌙⭐🌞🌈☁️⛄🔥💧🌊⚡🌍🪐🌋") },
+  { label: "食べ物", icon: "🍙", emoji: split("🍙🍣🍜🍛🍱🍔🍕🍞🥐🍰🍩🍪🍫🍎🍓🍑🍌🍇🍉☕🍵🍺🍷🥗") },
+  { label: "趣味", icon: "⚽", emoji: split("⚽⚾🏀🎾🏓🎯🎮🎲🧩🎨🎵🎸🎹🎤🎬📷📚✏️🧶🏕️🎣🚴🏊🎭") },
+  { label: "乗り物・場所", icon: "🚃", emoji: split("🚃🚄🚗🚌🚲✈️🚀⛵🗺️🧭🏠🏢🏫🏥🏯⛩️🗼🗻🏝️🏖️🎡⛲🌃🏞️") },
+  { label: "もの", icon: "💡", emoji: split("💡📱💻⌚📖📝📌📎🔑🔍🧪💊🩺💰🎁🛒🧳☂️🕯️🔔📅⏰📊🧸") },
+  { label: "記号", icon: "❤️", emoji: split("❤️🧡💛💚💙💜🤍✨💫🌟✅❗❓💬💭♻️⚙️🔆💯🏳️🚩🆗🔰◎") },
+];
+
 // The selected photo is always compressed before a draft or save sees it.
 export function createAvatarField({ icon = "", avatar = "", onChange = () => {}, onBusy = () => {}, disabled = false } = {}) {
-  let value = { icon, avatar }, pending = false, locked = disabled;
-  const input = el("input", { class: "avatar-icon-input", type: "text", maxlength: 8, "aria-label": t("アイコン") });
+  let value = { icon, avatar }, pending = false, locked = disabled, group = 0;
+  const input = el("input", { class: "avatar-icon-input", type: "text", maxlength: 8, "aria-label": t("絵文字を直接入力") });
   input.value = icon;
   const photo = el("input", { type: "file", accept: "image/*", hidden: true, "aria-label": t("写真を選ぶ") });
   const preview = el("span", { class: "avatar-preview" });
+  const status = el("span", { class: "hint avatar-status" });
   const error = el("p", { class: "hint", role: "alert", hidden: true });
-  const choose = el("button", { class: "chip", type: "button", label: "写真を選ぶ", onclick: () => photo.click() });
-  const remove = el("button", { class: "chip", type: "button", label: "写真を外す", onclick: () => change({ ...value, avatar: "" }) });
+  const choose = el("button", { class: "chip", type: "button", onclick: () => photo.click() });
+  const remove = el("button", { class: "chip ghost", type: "button", label: "写真を外す", onclick: () => change({ ...value, avatar: "" }) });
+  const tabs = el("div", { class: "avatar-emoji-tabs", role: "tablist", "aria-label": t("絵文字のグループ") });
+  const grid = el("div", { class: "avatar-emoji-grid", role: "group" });
+  const other = el("details", { class: "avatar-emoji-other" },
+    el("summary", { label: "その他の絵文字を入力" }), input);
+  const picker = el("div", { class: "avatar-emoji-picker" }, tabs, grid, other);
+  let buttons = [], tabButtons = [];
+  // Picking an emoji is the same as typing it: the photo gives way to it.
+  function pick(emoji) {
+    if (pending || locked) return;
+    input.value = emoji;
+    if (input.dispatchEvent && typeof Event === "function") input.dispatchEvent(new Event("input", { bubbles: true }));
+    change({ icon: emoji, avatar: "" });
+  }
+  function drawGrid() {
+    clear(grid);
+    grid.setAttribute("aria-label", t(EMOJI_GROUPS[group].label));
+    buttons = EMOJI_GROUPS[group].emoji.map(emoji => el("button", {
+      class: "avatar-emoji", type: "button", "aria-label": emoji, text: emoji, onclick: () => pick(emoji),
+    }));
+    grid.append(...buttons);
+    tabButtons.forEach((tab, index) => {
+      tab.setAttribute("aria-selected", String(index === group));
+      tab.className = `avatar-emoji-tab${index === group ? " active" : ""}`;
+    });
+  }
+  tabButtons = EMOJI_GROUPS.map((entry, index) => el("button", {
+    class: "avatar-emoji-tab", type: "button", role: "tab", title: t(entry.label), "aria-label": t(entry.label),
+    onclick: () => { group = index; drawGrid(); render(); },
+  }, el("span", { "aria-hidden": "true", text: entry.icon }), el("span", { class: "avatar-emoji-tab-label", label: entry.label })));
+  tabs.append(...tabButtons);
   const render = () => {
-    clear(preview).append(avatarNode(value));
+    clear(preview).append(avatarNode(value, { fallback: "🙂" }));
     remove.hidden = !value.avatar;
-    for (const node of [input, photo, choose, remove]) node.disabled = locked || pending;
+    choose.textContent = t(value.avatar ? "写真を変更" : "写真を選ぶ");
+    status.textContent = t(value.avatar ? "写真を表示中" : "絵文字を表示中");
+    for (const node of [input, photo, choose, remove, ...buttons, ...tabButtons]) node.disabled = locked || pending;
+    for (const button of buttons) {
+      const current = !value.avatar && button.textContent === value.icon;
+      button.setAttribute("aria-pressed", String(current));
+      button.className = `avatar-emoji${current ? " selected" : ""}`;
+    }
   };
   async function change(next) {
     if (pending || locked) return;
@@ -82,9 +136,17 @@ export function createAvatarField({ icon = "", avatar = "", onChange = () => {},
     } catch (problem) { error.textContent = problem.message; error.hidden = false; }
     finally { pending = false; input.value = value.icon; photo.value = ""; onBusy(false); render(); }
   });
+  // Open on the group that holds the current emoji, if any does.
+  const found = EMOJI_GROUPS.findIndex(entry => entry.emoji.includes(icon));
+  if (found >= 0) group = found;
   const element = el("div", { class: "avatar-field" },
-    el("label", { class: "field" }, el("span", { label: "アイコン" }), input),
-    el("div", { class: "compose-row" }, preview, choose, remove, photo), error);
+    el("strong", { class: "avatar-field-title", label: "アイコン" }),
+    el("div", { class: "avatar-summary" }, preview,
+      el("div", { class: "avatar-summary-body" }, status,
+        el("div", { class: "avatar-actions" }, choose, remove, photo),
+        el("span", { class: "hint", label: "写真を選ぶと絵文字より優先して表示します。" }))),
+    picker, error);
+  drawGrid();
   render();
   return { element, input, value: () => ({ ...value }), busy: () => pending,
     set: next => { value = { ...value, ...next }; input.value = value.icon; render(); },

@@ -78,3 +78,26 @@ test("photo selection saves the compressed result, and a failed removal keeps th
   await field.input.listeners.change();
   assert.deepEqual(field.value(), { icon: "🙂", avatar: "" });
 });
+
+test("emoji are picked from groups, replace the photo, and open on the current emoji's group", async t => {
+  dom(t);
+  const { EMOJI_GROUPS } = await import("../frontend/src/avatar.js");
+  const saved = [];
+  const field = createAvatarField({ icon: "🐶", avatar: photo, onChange: next => { saved.push(next); } });
+  const tabs = walk(field.element).filter(node => node.role === "tab");
+  assert.equal(tabs.length, EMOJI_GROUPS.length);
+  const animals = EMOJI_GROUPS.findIndex(group => group.emoji.includes("🐶"));
+  assert.equal(tabs[animals]["aria-selected"], "true");
+  const emojiButtons = () => walk(field.element).filter(node => node.className?.startsWith("avatar-emoji ") || node.className === "avatar-emoji");
+  assert.equal(emojiButtons().some(node => node["aria-pressed"] === "true"), false, "a photo is shown, so no emoji is current");
+  const food = EMOJI_GROUPS.findIndex(group => group.emoji.includes("🍙"));
+  tabs[food].listeners.click();
+  assert.equal(tabs[food]["aria-selected"], "true");
+  assert.deepEqual(emojiButtons().map(node => node.textContent), EMOJI_GROUPS[food].emoji);
+  await emojiButtons().find(node => node.textContent === "🍙").listeners.click();
+  assert.deepEqual(saved, [{ icon: "🍙", avatar: "" }]);
+  assert.equal(field.input.value, "🍙");
+  assert.equal(emojiButtons().find(node => node.textContent === "🍙")["aria-pressed"], "true");
+  field.setDisabled(true);
+  assert.ok(emojiButtons().every(node => node.disabled) && tabs.every(node => node.disabled));
+});
