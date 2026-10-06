@@ -1,3 +1,4 @@
+import { userProfile } from "./avatar.js";
 import { el, clear, toast, dialogCloseButton } from "./dom.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { t } from "./i18n.js";
@@ -8,7 +9,7 @@ import { renderHtmlImages } from "./html-image.js";
 let socialOpen = false;
 
 // Selection is a snapshot: late persona responses never become public by default.
-export async function openSocial(root, getPersona) {
+export async function openSocial(root, getPersona, getSettings = () => ({})) {
   if (socialOpen) return;
   socialOpen = true;
   let entries;
@@ -50,7 +51,7 @@ export async function openSocial(root, getPersona) {
     if (entry.deleted) continue;
     const persona = getPersona(entry.speaker);
     const html = entry.speaker !== "user" && htmlDocument(entry.text);
-    const name = entry.speaker === "user" ? t("あなた") : t("{0}からの返信", `${persona?.icon || "◎"} ${persona?.name || entry.speaker}`);
+    const name = entry.speaker === "user" ? userProfile(getSettings?.()).name : t("{0}からの返信", `${persona?.icon || "◎"} ${persona?.name || entry.speaker}`);
     const checkbox = el("input", { type: "checkbox", checked: entry.id === root });
     checkboxes.set(entry.id, checkbox);
     checkbox.addEventListener("change", () => {

@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
-tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites"]
+description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
+tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
 updated: "2026-10-06"
 ---
 
-Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
+Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
 
 # Browser application composition
 
@@ -25,6 +25,14 @@ The built-in `sona` (`routine`) is labeled **Preparation** and declares scheduli
 The settings panel uses a shrinkable single-column grid, including nested fields and advanced groups. Switch-related content updates preserve scrolling ancestors through `dom.js` `preserveScroll`, including OpenRouter model visibility and the editor's memory fields. MCP connection refreshes rebuild a separate body while leaving the external-agent switch container mounted. Verification: [dom-scroll.test.js](../../tests/dom-scroll.test.js), [settings.test.js](../../tests/settings.test.js), and [external-agent.test.js](../../tests/external-agent.test.js). On phones up to 600px, its body and sheet heading have matching 1.5-rem left/right padding (at least the safe-area inset), giving 24 pixels at the standard text size. Native controls have zero minimum width and a maximum width of their container, and long text can wrap anywhere; enlarged text and device-specific option names therefore do not force horizontal scrolling. Storybook provides a text-size toolbar and an **ExtraLarge** settings story using the same `text-size.js` scaling as the application.
 
 Settings and persona feature toggles (activation, memory, always Ultra, provider choice, Markdown input, and external-agent use) use the same ON/OFF switch as scheduled push notifications. [dom.js](../../frontend/src/dom.js) `switchControl` wraps a native checkbox with `role="switch"`, a visible ON/OFF track, keyboard focus styling, and a disabled state. The standard switch measures 4.625 × 2.5 rem (74 × 40px at the standard text size), scales with text preferences, and uses the theme accent color when enabled. The activation switch on each persona card displays **有効 / Active** or **無効 / Inactive** inside its track, with no adjacent label; its accessible name identifies the persona. Changing activation saves the active ID list and updates existing switches, card styling, and check-in availability in place, preserving the panel DOM and scroll position. Activation switches are disabled while saving; a failed request restores their saved state. Planner preference switches also update their existing card controls, badge, and hint in place, restoring the saved preference on failure. Verification: [personas-panel.test.js](../../tests/personas-panel.test.js). Checkboxes for selecting entries or terms retain their selection appearance.
+
+## Profile names and photo avatars
+
+The **Profile** section of settings changes the user's display name and emoji icon or photo. It saves `Settings.Profile` (`profile.name`, `profile.icon`, `profile.avatar`) with account settings, so the choices follow the workspace across devices. Empty names use localized **あなた / You**, and an empty emoji uses 🙂. The timeline, user replies, speaker list, search results, read-aloud speaker labels, AI form conversations, and sharing selection use the current display name; entry speaker IDs remain `user`. This is a display preference and does not change the sign-in identity.
+
+Creation and direct/AI editing of personas also offer an emoji field, **Choose photo**, a preview, and **Remove photo** through [avatar.js](../../frontend/src/avatar.js). Choosing an emoji clears the photo; removing a photo restores the emoji. A selected photo is center-cropped to a square in the browser, flattened onto white, resized to 128 × 128 pixels, and JPEG-encoded at quality 0.82, lowering quality if needed to fit 32 KiB of image bytes. Original files over 20 MiB or images the browser cannot decode are rejected. The original file is never uploaded. Only the compressed JPEG data URL is stored in `Profile.Avatar` or `Skill.Avatar`; avatars travel with normal settings/persona persistence and exports rather than the entry blob store. Photos do not enter AI builder text context or conversation history, and existing photos survive AI-generated revisions. Saving and photo conversion disable the related controls; a failed save retains the previous avatar.
+
+`avatarNode` renders bounded JPEG data URLs as circular images and otherwise uses the emoji fallback. Photos appear on timeline authors, persona and speaker cards, room badges, mention suggestions, and routing details. [Settings](../../frontend/stories/Settings.stories.js), [Personas](../../frontend/stories/Personas.stories.js), and [Timeline](../../frontend/stories/Timeline.stories.js) include photo-avatar stories. Verification: [avatar.test.js](../../tests/avatar.test.js) covers source restrictions, crop/resize/compression, and failed changes; [settings.test.js](../../tests/settings.test.js) and [feed.test.js](../../tests/feed.test.js) cover profile saves and author rendering. Server-side limits and validation are described in [Settings](./backend.md#settings-and-model-requests).
 
 ## Choosing whether a persona remembers
 

@@ -1,4 +1,5 @@
 import { switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
+import { createAvatarField, avatarNode, userProfile, personaTextDraft } from "./avatar.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
@@ -53,6 +54,16 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     if (draft) draft.alwaysUltra = alwaysUltra.checked;
   });
 
+  let iconChoiceChanged = false;
+  let draftHeading = null;
+  const avatar = createAvatarField({ icon: persona?.icon || "", avatar: persona?.avatar || "", onBusy: value => setBusy(value), onChange: next => {
+    if (next.icon !== avatar.value().icon) iconChoiceChanged = true;
+    if (draft) {
+      draft.icon = next.icon;
+      draft.avatar = next.avatar;
+      if (draftHeading) clear(draftHeading).append(avatarNode(next), " ", draft.name);
+    }
+  } });
   const error = el("p", { class: "hint", role: "alert" });
   const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : person ? "例：大学時代の友人の佐藤さん。さっちゃんと呼んでいて、たまに一緒に食事をします。" : "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。" });
   const send = el("button", { class: "button primary", label: "送る", type: "button", onclick: () => void submit() });
@@ -70,7 +81,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     try {
       await voice.discard();
       if (closed) return;
-      const saved = await api.savePersonaDraft({ ...draft, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked, basicInfo: draft.kind === "person" ? basicInfo.box.value.trim() : "" }, persona?.id);
+      const saved = await api.savePersonaDraft({ ...draft, ...avatar.value(), memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked, basicInfo: draft.kind === "person" ? basicInfo.box.value.trim() : "" }, persona?.id);
       if (memoryEnabled.checked && !persona && saved.kind === "person" && checkIn === "monthly") {
         try { await api.setDailyCheckIn(saved.id, { talk: "share", every: "monthly" }); }
         catch (e) { toast(String(e.message || e), "error"); }
@@ -96,6 +107,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   }
   function setBusy(value) {
     busy = value;
+    avatar.setDisabled(value);
     input.disabled = value;
     send.disabled = value;
     save.disabled = value;
@@ -107,7 +119,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     send.textContent = t(value ? "考えています…" : "送る");
   }
   function bubble(role, text) {
-    conversation.append(el("div", { class: `builder-message ${role}` }, el("strong", { text: role === "user" ? t("あなた") : "AI" }), el("p", { text })));
+    conversation.append(el("div", { class: `builder-message ${role}` }, el("strong", { text: role === "user" ? userProfile(getSettings()).name : "AI" }), el("p", { text })));
     conversation.scrollTop = conversation.scrollHeight;
   }
   if (persona) bubble("assistant", opening);
@@ -121,15 +133,17 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     try {
       await voice.discard();
       if (closed) return;
-      const result = await api.buildPersona({ id: persona?.id, language: getLanguage(), messages: next, current: draft ? { ...draft, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked, basicInfo: basicInfo.box.value.trim() } : persona ? { ...persona, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked } : undefined });
+      const result = await api.buildPersona({ id: persona?.id, language: getLanguage(), messages: next, current: draft ? { ...draft, ...avatar.value(), memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked, basicInfo: basicInfo.box.value.trim() } : persona ? { ...persona, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked } : undefined });
       if (!backdrop.isConnected) return;
-      messages.push(next.at(-1), { role: "assistant", content: JSON.stringify(result) });
+      messages.push(next.at(-1), { role: "assistant", content: JSON.stringify({ ...result, draft: personaTextDraft(result.draft) }) });
       log.hidden = false;
       bubble("user", answer);
       bubble("assistant", result.message);
       input.value = "";
       draft = result.draft;
       if (draft) {
+        avatar.set({ icon: iconChoiceChanged ? avatar.value().icon : draft.icon || "◎" });
+        draft.avatar = avatar.value().avatar;
         if (!memoryChoiceChanged && typeof draft.memoryEnabled === "boolean") memoryEnabled.checked = draft.memoryEnabled;
         draft.memoryEnabled = memoryEnabled.checked;
         if (!ultraChoiceChanged && typeof draft.alwaysUltra === "boolean") alwaysUltra.checked = draft.alwaysUltra;
@@ -145,13 +159,15 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
             : "例：もう少し親しみやすい話し方にしてほしい。"
           : "上の質問に答えてください。迷うところは「おまかせ」でも大丈夫です。");
       clear(preview);
+      draftHeading = null;
       save.hidden = notice.hidden = revise.hidden = !draft;
       form.hidden = !!draft;
       send.hidden = voice.button.hidden = !!draft;
       log.open = !draft;
       log.querySelector("summary").hidden = !draft;
       if (draft) {
-        preview.append(el("h4", { text: `${draft.icon || "◎"} ${draft.name}` }));
+        draftHeading = el("h4", {}, avatarNode({ ...draft, ...avatar.value() }), " ", draft.name);
+        preview.append(draftHeading);
         const words = draft.kind === "person"
           ? [["呼び名", [draft.name, ...(draft.aliases || [])].join(" / ")], ["キーワード", (draft.keywords || []).join(" / ") || t("（なし）")]]
           : [];
@@ -179,7 +195,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   const dialog = el("div", { class: "dialog persona-builder", role: "dialog", "aria-modal": "true", "aria-label": t(persona ? "AIで修正" : "AIと担当を作る") },
     dialogCloseButton(close),
     el("h3", { text: persona ? t("{0} を修正", persona.name) : t("AIと担当を作る") }),
-    notice, preview, basicInfo.node, memoryOption, log, error, form,
+    notice, preview, basicInfo.node, memoryOption, avatar.element, log, error, form,
     el("div", { class: "compose-row builder-actions" }, voice.button, send, el("span", { class: "spacer" }), revise, save));
   dialog.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }

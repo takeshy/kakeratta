@@ -1284,3 +1284,41 @@ test("post places show a label without a map link, credits, and coordinate fallb
   feed.set([post]);
   assert.equal(feed.element.querySelectorAll(".entry-place").length, 0);
 });
+
+
+test("profile names and photos appear on user posts and replies alongside persona photos", t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: tag => new TestNode(tag), createTextNode: text => Object.assign(new TestNode(), { textContent: text }) };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const photo = "data:image/jpeg;base64,YWJj";
+  const settings = { profile: { name: "佐藤", icon: "🌸", avatar: photo } };
+  const feed = createFeed({ getSettings: () => settings, getPersona: () => ({ id: "gourmet", name: "tabe", avatar: photo }), showIntro: false });
+  feed.set([
+    { id: "p-profile", kind: "post", speaker: "user", text: "朝ごはん", at: "2026-10-06T09:00:00Z" },
+    { id: "r-profile", kind: "remark", root: "p-profile", replyTo: "p-profile", speaker: "gourmet", text: "いいですね", at: "2026-10-06T09:01:00Z" },
+    { id: "u-profile", kind: "reply", root: "p-profile", replyTo: "r-profile", speaker: "user", text: "ありがとう", at: "2026-10-06T09:02:00Z" },
+  ]);
+  feed.reveal("u-profile");
+  assert.equal(feed.element.querySelectorAll(".who").filter(node => node.textContent === "佐藤").length, 2);
+  const photos = feed.element.querySelectorAll(".avatar-photo");
+  assert.equal(photos.length, 3);
+  assert.ok(photos.every(node => node.children[0].src === photo));
+  settings.profile.avatar = "";
+  feed.draw();
+  assert.ok(feed.element.querySelectorAll(".avatar").some(node => node.textContent === "🌸"));
+});
+
+test("persona editor keeps the photo field's emoji input mounted when DOM append moves nodes", async t => {
+  const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
+  class MovingNode extends TestNode {
+    append(...nodes) { for (const node of nodes) { if (node.parent) node.remove(); super.append(node); } }
+  }
+  globalThis.Node = MovingNode;
+  globalThis.document = { createElement: tag => new MovingNode(tag), createTextNode: text => Object.assign(new MovingNode(), { textContent: text }), body: new MovingNode() };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  showPersonaEditor({ persona: { id: "wine", name: "ぶどう", icon: "🍷", domain: "ワイン", tools: [] } });
+  const inputs = document.body.querySelectorAll(".avatar-icon-input");
+  assert.equal(inputs.length, 1);
+  assert.equal(inputs[0].value, "🍷");
+  assert.equal(inputs[0].isConnected, true);
+});

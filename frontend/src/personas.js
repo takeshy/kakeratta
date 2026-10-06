@@ -4,6 +4,7 @@
 // how many: the routing is what keeps a post from waking all of them, so adding
 // a domain costs one more line in one routing call rather than one more model
 // call per post.
+import { avatarNode } from "./avatar.js";
 import { showEntryDialog } from "./entry-dialog.js";
 import { preserveScroll, switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
@@ -329,7 +330,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       el(
         "div",
         { class: "persona-head" },
-        el("span", { class: "avatar", text: row.icon || "◎" }),
+        avatarNode(row),
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
         row.kind === "person" ? el("span", { class: "tag", label: "人物" }) : null,

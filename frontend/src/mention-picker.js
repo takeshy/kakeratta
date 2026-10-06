@@ -1,3 +1,4 @@
+import { avatarNode } from "./avatar.js";
 import { el, clear } from "./dom.js";
 import { named, gloss } from "./builtins.js";
 import { t } from "./i18n.js";
@@ -77,10 +78,10 @@ export function createMentionPicker({ input, getPersonas = () => [], onChange = 
     if (!rows.length) { hide(); return; }
     rows.forEach((row, index) => list.append(el("button", {
       type: "button", class: "mention-option", role: "option", id: `${id}-${index}`, tabindex: "-1",
-      text: `${row.icon || "◎"} ${named(row)}`, title: row.domain,
+      title: row.domain,
       onmousedown: event => event.preventDefault(),
       onclick: () => choose(row),
-    })));
+    }, avatarNode(row, { className: "avatar avatar-inline" }), el("span", { text: named(row) }))));
     list.hidden = false;
     highlight();
   }

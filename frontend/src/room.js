@@ -1,3 +1,4 @@
+import { avatarNode } from "./avatar.js";
 // Who is in the room.
 //
 // The app does one thing with a kakera: it hands it to whoever covers that
@@ -152,9 +153,9 @@ export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory,
         el("button", {
           class: "chip add",
           title: gloss(row).domain,
-          text: t("{0} を呼ぶ", `${row.icon || "◎"} ${named(row)}`),
+          "aria-label": t("{0} を呼ぶ", named(row)),
           onclick: () => onActivate?.(row.id),
-        }),
+        }, avatarNode(row, { className: "avatar avatar-inline" }), " ", t("{0} を呼ぶ", named(row))),
       );
     }
     if (quick.children.length) banner.append(quick);
@@ -191,10 +192,10 @@ export function createRoom({ onOpen, onActivate, onSelect, onSettings, onMemory,
         const chip = el("button", {
           class: `chip persona-chip${kind === "person" ? " person-chip" : ""}`,
           title: `${gloss(row).domain}\n${t("押すと @{0} を入力します", mentionTag(row).slice(1))}\n${t("ドラッグで並べ替えできます")}`,
-          text: `${row.icon || "◎"} ${gloss(row).name}`,
+          "aria-label": gloss(row).name,
           "data-id": row.id,
           onclick: () => onSelect?.(row),
-        });
+        }, avatarNode(row, { className: "avatar avatar-inline" }), " ", gloss(row).name);
         draggable(chip, bar, () => {
           const shown = [...bar.querySelectorAll(".persona-chip")].map((node) => node.getAttribute("data-id"));
           saveOrder([...shown, ...savedOrder().filter((id) => !shown.includes(id))]);

@@ -87,6 +87,18 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i, m := range body.Messages {
+		if m.Role == "assistant" {
+			var result map[string]json.RawMessage
+			if json.Unmarshal([]byte(m.Content), &result) == nil {
+				var draft map[string]json.RawMessage
+				if json.Unmarshal(result["draft"], &draft) == nil && draft["avatar"] != nil {
+					delete(draft, "avatar")
+					result["draft"], _ = json.Marshal(draft)
+					clean, _ := json.Marshal(result)
+					body.Messages[i].Content = string(clean)
+				}
+			}
+		}
 		expected := "user"
 		if i%2 == 1 {
 			expected = "assistant"
@@ -124,7 +136,13 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 	if existing == nil {
 		existing = body.Current
 	}
-	context, _ := json.Marshal(map[string]any{"existing": existing, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
+	var promptPersona *persona.Skill
+	if existing != nil {
+		copy := *existing
+		copy.Avatar = ""
+		promptPersona = &copy
+	}
+	context, _ := json.Marshal(map[string]any{"existing": promptPersona, "usedIDs": ids, "availableTools": tools.New(s.tools).Names(), "language": body.Language})
 	system := builderPrompt + "\n設定データ:\n" + string(context)
 	if opening != "" {
 		system += "\n\nこの会話は、画面がユーザーに最初にこう尋ねて始まりました（ユーザーの最初の発言はその答えです）:\n" + opening
@@ -223,6 +241,10 @@ func (s *Server) buildPersona(w http.ResponseWriter, r *http.Request) {
 					result.Draft.AlwaysUltra = existing.AlwaysUltra
 				}
 			}
+		}
+		result.Draft.Avatar = ""
+		if existing != nil {
+			result.Draft.Avatar = existing.Avatar
 		}
 		result.Draft.Builtin = false
 		result.Draft.Customized = false

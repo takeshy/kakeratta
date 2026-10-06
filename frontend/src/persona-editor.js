@@ -4,6 +4,7 @@
 // saved persona is initially reference-only; once an AI proposal arrives it
 // becomes an editable draft, and nothing is saved until the user saves it.
 import { preserveScroll, switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
+import { createAvatarField, userProfile, personaTextDraft } from "./avatar.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
@@ -73,10 +74,11 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     termBox.append(el("label", { class: "persona-field" }, el("strong", { label: field.label }), input, previous[field.key]));
   }
 
+  const avatar = createAvatarField({ icon: persona.icon, avatar: persona.avatar, disabled: ai, onBusy: value => setBusy(value) });
   const labels = {};
   const boxes = {};
   for (const field of fields) {
-    const input = field.kind === "textarea"
+    const input = field.key === "icon" ? avatar.input : field.kind === "textarea"
       ? el("textarea", { class: "skill-input", rows: field.rows, maxlength: field.maxlength })
       : el("input", { class: "skill-input", maxlength: field.maxlength });
     input.value = original[field.key] || "";
@@ -86,8 +88,9 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     previous[field.key] = el("details", { class: "previous" });
     previous[field.key].hidden = true;
     labels[field.key] = el("strong", { label: field.label });
-    boxes[field.key] = el("label", { class: "persona-field" }, labels[field.key], input, previous[field.key]);
-    form.append(boxes[field.key]);
+    boxes[field.key] = field.key === "icon" ? avatar.element : el("label", { class: "persona-field" }, labels[field.key], input, previous[field.key]);
+    if (field.key === "icon") { form.append(avatar.element, previous.icon); }
+    else form.append(boxes[field.key]);
     if (field.key === "name") form.append(termBox);
   }
 
@@ -123,7 +126,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   form.append(el("div", { class: "persona-field" }, el("strong", { label: "使える道具" }), toolList, previous.tools));
 
   function read() {
-    const draft = { ...persona, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked };
+    const draft = { ...persona, avatar: avatar.value().avatar, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked };
     for (const field of fields) draft[field.key] = inputs[field.key].value.trim();
     if (person.checked) draft.tone = draft.memory = "";
     draft.tools = available.filter((name) => toolBoxes[name].checked);
@@ -159,6 +162,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   }
 
   function setDraftEditable(value) {
+    avatar.setDisabled(!value);
     memoryEnabled.disabled = !value;
     alwaysUltra.disabled = !value;
     for (const field of fields) inputs[field.key].readOnly = !value;
@@ -183,6 +187,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
       if (Array.isArray(draft[field.key])) terms[field.key].value = joinTerms(draft[field.key]);
       markChanged(field.key);
     }
+    avatar.set({ icon: inputs.icon.value, avatar: draft.avatar ?? avatar.value().avatar });
     showKind();
     updateSave();
   }
@@ -225,7 +230,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
 
   function bubble(role, text) {
     conversation.append(el("div", { class: `builder-message ${role}` },
-      el("strong", { text: role === "user" ? t("あなた") : "AI" }), el("p", { text })));
+      el("strong", { text: role === "user" ? userProfile(getSettings()).name : "AI" }), el("p", { text })));
     conversation.scrollTop = conversation.scrollHeight;
   }
 
@@ -241,7 +246,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
       if (closed) return;
       const result = await api.buildPersona({ id: persona.id, language: getLanguage(), messages: next, current: read() });
       if (closed) return;
-      messages.push(next.at(-1), { role: "assistant", content: JSON.stringify(result) });
+      messages.push(next.at(-1), { role: "assistant", content: JSON.stringify({ ...result, draft: personaTextDraft(result.draft) }) });
       bubble("user", text);
       bubble("assistant", result.message);
       request.value = "";
@@ -262,6 +267,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
 
   function setBusy(value) {
     busy = value;
+    avatar.setDisabled(value || (ai && !proposalReady));
     request.disabled = value;
     send.disabled = value;
     voice.button.disabled = value;

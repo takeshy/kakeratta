@@ -1,3 +1,4 @@
+import { sampleAvatar } from "./avatar.js";
 import { createSettings } from "../src/settings.js";
 import { serve, speaker } from "./api.js";
 import { sheet } from "./frame.js";
@@ -34,3 +35,5 @@ export const MultipleExternalAgents = {
     agent: { away: false, lastSeen: new Date().toISOString() },
   } }),
 };
+
+export const ProfilePhoto = { name: "名前・写真のプロフィール", render: () => panelOf({ ...settings, profile: { name: "佐藤", icon: "🌸", avatar: sampleAvatar("S") } }) };

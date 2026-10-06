@@ -1,3 +1,4 @@
+import { sampleAvatar } from "./avatar.js";
 import { showPersonaBuilder } from "../src/persona-builder.js";
 import { getLanguage } from "../src/i18n.js";
 import { createPersonas } from "../src/personas.js";
@@ -193,3 +194,5 @@ export const PersonCreateDraft = {
     dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }),
 };
+
+export const Photos = { name: "写真の担当", render: () => panelOf(personas.map((row, index) => ({ ...row, avatar: sampleAvatar(row.name.slice(0, 1).toUpperCase(), index % 2 ? "#a88766" : "#7999a8") }))) };

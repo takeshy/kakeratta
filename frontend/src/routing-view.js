@@ -1,3 +1,4 @@
+import { avatarNode } from "./avatar.js";
 // The router's call about one post, in a sheet of its own.
 //
 // Who the app chose for a post, whom it passed over and why, are shown apart
@@ -64,9 +65,9 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
       const persona = getPersona?.(item.id);
       return el("div", { class: "routing-row" },
         persona && onSelectPersona ? el("button", {
-          class: "routing-persona", text: `${persona.icon || item.icon || "◎"} ${persona.name || item.name || item.id}`,
+          class: "routing-persona",
           onclick: () => { close(); onSelectPersona(persona); },
-        }) : el("span", { class: "who", text: `${persona?.icon || item.icon || "◎"} ${persona?.name || item.name || item.id}` }),
+        }, avatarNode(persona, { className: "avatar avatar-inline" }), " ", persona.name || item.name || item.id) : el("span", { class: "who" }, avatarNode(persona || item, { className: "avatar avatar-inline" }), " ", persona?.name || item.name || item.id),
         el("span", { class: "routing-verdict", label: verdict }),
         item.reason ? el("span", { class: "routing-reason", text: item.reason }) : null,
         item.heard ? el("span", { class: "routing-reason", text: t("「{0}」に一致", item.heard) }) : null,

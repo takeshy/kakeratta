@@ -4,6 +4,7 @@
 // to looks exactly like one that started a conversation - there is no unread
 // count and no "3 AIs are thinking", because most posts are meant to pass
 // without anyone saying anything.
+import { avatarNode, userProfile } from "./avatar.js";
 import { favoriteButton } from "./favorite-state.js";
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
@@ -266,7 +267,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         onclick: () => onSpeak(post.id, spoken(post.id)),
       }) : null,
       rest.length ? drawToggle(thread, post, rest.length, open) : null,
-      el("button", { class: "chip ghost", label: "Blueskyに投稿", disabled: !!post.pending, onclick: () => void openSocial(post.id, getPersona) }),
+      el("button", { class: "chip ghost", label: "Blueskyに投稿", disabled: !!post.pending, onclick: () => void openSocial(post.id, getPersona, getSettings) }),
       openReply === post.id ? null : drawReplyOpen(post)));
     if (open) for (const entry of rest) {
       box.append(drawSaid(entry, post));
@@ -334,8 +335,8 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       el(
         "div",
         { class: "post-head" },
-        el("span", { class: "avatar", text: mine ? "🙂" : summary ? "🗓" : persona?.icon || "◎" }),
-        who(entry, mine ? t("あなた") : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
+        avatarNode(mine ? userProfile(getSettings()) : summary ? { icon: "🗓" } : persona || {}),
+        who(entry, mine ? userProfile(getSettings()).name : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         favoriteButton(entry),
@@ -474,8 +475,8 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       el(
         "div",
         { class: "said-head" },
-        el("span", { class: "avatar", text: mine ? "🙂" : persona?.icon || "◎" }),
-        who(entry, mine ? t("あなた") : persona ? gloss(persona).name : entry.speaker),
+        avatarNode(mine ? userProfile(getSettings()) : persona || {}),
+        who(entry, mine ? userProfile(getSettings()).name : persona ? gloss(persona).name : entry.speaker),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
         favoriteButton(entry),
@@ -654,7 +655,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
       for (const entry of said) {
         const persona = getPersona(entry.speaker);
         const body = spokenText(entryText(entry)) || entryText(entry);
-        lines.push({ id: entry.id, text: `${entry.speaker === "user" ? t("あなた") : persona ? gloss(persona).name : entry.speaker}。${body}` });
+        lines.push({ id: entry.id, text: `${entry.speaker === "user" ? userProfile(getSettings()).name : persona ? gloss(persona).name : entry.speaker}。${body}` });
       }
     }
     return lines;

@@ -38,10 +38,17 @@ const (
 	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
 )
 
-// Settings are the endpoints, the models and the user's own web search key.
-// Where the tools go is not here: the map endpoints and the MCP servers are the
-// operator's configuration (see tools.Config), the same for everyone.
+// Profile holds display preferences independently of authentication.
+type Profile struct {
+	Name   string `json:"name,omitempty"`
+	Icon   string `json:"icon,omitempty"`
+	Avatar string `json:"avatar,omitempty"`
+}
+
+// Settings are profile preferences, model configuration and the user's search key.
+// Map endpoints and MCP servers belong to the operator's tools.Config.
 type Settings struct {
+	Profile  Profile  `json:"profile"`
 	Provider Provider `json:"provider"`
 	BaseURL  string   `json:"baseUrl"`
 	APIKey   string   `json:"apiKey"`

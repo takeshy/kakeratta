@@ -14,14 +14,17 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/takeshy/kakeratta/internal/avatar"
 )
 
 // Skill is everything a persona declares.
 type Skill struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Icon string `json:"icon"`
-	Tone string `json:"tone"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Icon   string `json:"icon"`
+	Avatar string `json:"avatar,omitempty"`
+	Tone   string `json:"tone"`
 	// Domain is what this persona is responsible for. The app reads it to route
 	// posts, so it has to say what the persona reacts to and remembers in words
 	// another model can judge a post against.
@@ -395,6 +398,9 @@ func (c *Catalogue) Uninstall(id string) error {
 }
 
 func validate(skill Skill) error {
+	if err := avatar.Validate(skill.Avatar); err != nil {
+		return err
+	}
 	if !idPattern.MatchString(skill.ID) {
 		return errors.New("スキルのIDは英小文字・数字・ハイフンだけで書いてください")
 	}

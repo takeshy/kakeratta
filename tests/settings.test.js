@@ -292,3 +292,27 @@ test("external agent refresh keeps its settings switch mounted", async t => {
   assert.equal(panel.element.scrollTop, 600);
   assert.equal(current.externalAgent.paused, true);
 });
+
+
+test("profile settings save a display name and icon without changing model configuration", async t => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  let current = { baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "********", speech: {}, search: {}, profile: { name: "以前の名前", icon: "🙂" } };
+  t.mock.method(api, "settings", async () => current);
+  t.mock.method(api, "about", async () => ({}));
+  t.mock.method(api, "saveSettings", async next => { current = next; return next; });
+  const view = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] } });
+  await view.load();
+  const name = walk(view.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate("表示名"))).querySelector("input");
+  name.value = "佐藤";
+  await name.listeners.change();
+  await new Promise(setImmediate);
+  assert.equal(current.profile.name, "佐藤");
+  const icon = walk(view.element).find(node => node.className === "avatar-icon-input");
+  icon.value = "🌸";
+  await icon.listeners.change();
+  assert.deepEqual(current.profile, { name: "佐藤", icon: "🌸", avatar: "" });
+  assert.equal(current.apiKey, "********");
+  assert.equal(current.baseUrl, "https://api.example/v1");
+});

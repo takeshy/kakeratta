@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/avatar"
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
@@ -35,6 +36,16 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	}{Settings: &next}
 	if err := readJSON(r, &body); err != nil {
 		fail(w, http.StatusBadRequest, "設定を読めませんでした")
+		return
+	}
+	next.Profile.Name = strings.TrimSpace(next.Profile.Name)
+	next.Profile.Icon = strings.TrimSpace(next.Profile.Icon)
+	if len([]rune(next.Profile.Name)) > 40 || len([]rune(next.Profile.Icon)) > 4 {
+		fail(w, http.StatusBadRequest, "名前は40文字以内、アイコンは絵文字1つにしてください")
+		return
+	}
+	if err := avatar.Validate(next.Profile.Avatar); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	// Persona schedules and planners have their own endpoints; a stale

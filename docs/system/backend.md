@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication, entry handling, timeline data, persistence, settings, model usage logging, schedule editing, reminder push delivery, favorites, and search."
-tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites"]
+description: "Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search."
+tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
 updated: "2026-10-06"
 ---
 
-Authentication, entry handling, timeline data, persistence, settings, model usage logging, schedule editing, reminder push delivery, favorites, and search.
+Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search.
 
 # HTTP API and authentication
 
@@ -178,6 +178,8 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 # Settings and model requests
 
 ## Reading settings
+
+`Settings.Profile` stores the workspace user's display name, emoji icon, and optional photo data URL separately from authentication and timeline speaker IDs. The settings API trims names/icons, limits names to 40 Unicode characters and emoji icons to four, and accepts an empty profile value for UI defaults. `Skill.Avatar` carries the same optional photo for persona definitions. [avatar.go](../../internal/avatar/avatar.go) validates photos at settings and persona save boundaries: only Base64 JPEG data URLs are accepted, decoded bytes are limited to 32 KiB, dimensions are positive and at most 128 × 128, and a full JPEG decode must succeed. URLs, SVG and other formats, oversized or malformed photos are rejected before persistence. Photos are embedded in settings/definition JSON and Firestore fields, so exports include them without separate blobs. The AI builder strips avatars from existing-definition context and prior assistant draft messages, then preserves the user's avatar on the returned draft. Verification: [avatar_test.go](../../internal/avatar/avatar_test.go) and [profile_test.go](../../internal/server/profile_test.go).
 
 `ConfiguredSettings` returns saved choices. `Settings` applies defaults and model fallbacks for execution. This separation prevents an empty field in the editor from being overwritten with its runtime fallback.
 

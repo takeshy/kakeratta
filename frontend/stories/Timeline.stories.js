@@ -1,3 +1,4 @@
+import { sampleAvatar } from "./avatar.js";
 import { createEntryFilters, filterConversations } from "../src/entry-filters.js";
 import { adoptFavoriteIDs, watchFavorites } from "../src/favorite-state.js";
 import { showConditionFix } from "../src/condition-fix.js";
@@ -273,3 +274,13 @@ export const SpeakerFilters = { name: "発言一覧の期間フィルター", re
  from.value = "2026-08-01"; from.dispatchEvent(new Event("change"));
  return host;
 } };
+
+export const ProfilePhotos = {
+  name: "表示名と写真アイコン",
+  render: () => {
+    const current = { ...settings, profile: { name: "佐藤", icon: "🌸", avatar: sampleAvatar("S") } };
+    const rows = personas.map(row => ({ ...row, avatar: sampleAvatar(row.name.slice(0, 1).toUpperCase(), "#a88766") }));
+    serve({ settings: current });
+    return panel(feed(timeline, rows, { getSettings: () => current }).element);
+  },
+};

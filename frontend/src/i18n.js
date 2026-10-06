@@ -1,6 +1,11 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "プロフィール": "Profile", "表示名": "Display name", "写真を選ぶ": "Choose photo", "写真を外す": "Remove photo",
+  "写真は20MB以下の画像を選んでください。": "Choose an image smaller than 20 MB.",
+  "写真を読み込めませんでした。JPEGやPNGの画像を選んでください。": "Could not read the photo. Choose a JPEG or PNG image.",
+  "保存できませんでした。もう一度お試しください。": "Could not save. Please try again.",
+
  "絞り込み": "Filters",
  "絞り込み中": "Filters active",
  "開始日": "From",

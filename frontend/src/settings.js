@@ -3,6 +3,7 @@
 // None of the keys here ever reach the page: they are stored by the relay and
 // come back as "set or not". A page that does not have a key cannot leak one.
 import { preserveScroll, switchControl, el, clear, toast } from "./dom.js";
+import { createAvatarField, userProfile } from "./avatar.js";
 import { createPushSettings } from "./push.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { createMCPConnection } from "./mcp-connection.js";
@@ -516,6 +517,19 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     drawClosingRow();
   }
 
+  function drawProfile() {
+    const name = field("表示名", settings.profile?.name || "", async value => {
+      await patch({ profile: { ...(settings.profile || {}), name: value } });
+    });
+    const input = name.querySelector("input");
+    input.maxLength = 40;
+    input.placeholder = t("あなた");
+    const avatar = createAvatarField({ ...userProfile(settings),
+      onChange: next => patch({ profile: { ...(settings.profile || {}), ...next } }),
+    });
+    view.append(el("h3", { label: "プロフィール" }), name, avatar.element);
+  }
+
   // Show the deployed version alongside device preferences.
   function drawDevice() {
     view.append(
@@ -599,6 +613,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     bluesky?.dispose();
     bluesky = null;
     clear(view);
+    drawProfile();
     drawAI();
     drawTools();
     drawDevice();

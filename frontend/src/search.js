@@ -1,3 +1,4 @@
+import { userProfile } from "./avatar.js";
 import { createEntryFilters } from "./entry-filters.js";
 import { watchFavorites } from "./favorite-state.js";
 import { initialSearchMode } from "./search-intent.js";
@@ -49,7 +50,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
   function draw() {
     results.replaceChildren(...hits.map(({ entry, snippet }) => el("button", {
       class: "search-hit", onclick: () => void showEntry(entry.id),
-    }, el("span", { class: "hint", text: `${when(entry.at)} · ${entry.speaker === "user" ? t("あなた") : getPersona(entry.speaker)?.name || entry.speaker}` }),
+    }, el("span", { class: "hint", text: `${when(entry.at)} · ${entry.speaker === "user" ? userProfile(getSettings?.()).name : getPersona(entry.speaker)?.name || entry.speaker}` }),
     el("span", { class: "search-snippet", text: snippet }),
     el("span", { class: "hint", label: "投稿を開く" }))));
   }

@@ -41,8 +41,9 @@ export function room(rows) {
   return view;
 }
 
-export function feed(entries, rows = [], { onFixCondition, onFixReply, onOpenNote = () => {}, onSpeaker } = {}) {
+export function feed(entries, rows = [], { onFixCondition, onFixReply, onOpenNote = () => {}, onSpeaker, getSettings } = {}) {
   const view = createFeed({
+    getSettings,
     getPersona: (id) => rows.find((row) => row.id === id),
     onReply: () => {},
     onSpeak: () => {},

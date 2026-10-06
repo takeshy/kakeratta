@@ -18,7 +18,9 @@ Production runs reactions on the separate Pub/Sub push worker. Web persists requ
 
 ## Skill structure
 
-`Skill` contains an ID, name, icon, tone, `Domain`, `Instructions`, `Memory`, and `Tools`. `Domain` informs routing, `Instructions` describe the persona's behavior, and `Memory` names its memory fields (分野) - the capitalised words in it, such as `Preference` and `Shop` (`allowedTypes`) - and says what each field's summary keeps. A persona whose `Memory` names none keeps one field, `Memo`.
+`Skill` contains an ID, name, emoji icon, optional `Avatar` photo, tone, `Domain`, `Instructions`, `Memory`, and `Tools`. `Domain` informs routing, `Instructions` describe the persona's behavior, and `Memory` names its memory fields (分野) - the capitalised words in it, such as `Preference` and `Shop` (`allowedTypes`) - and says what each field's summary keeps. A persona whose `Memory` names none keeps one field, `Memo`.
+
+`Avatar` is presentation metadata: a compressed JPEG data URL validated at save time, kept in file/Firestore definitions and exports, and preserved by AI edits without entering model text context. It is separate from the emoji `Icon` used in persona descriptions and external-agent briefs. See [Profile names and photo avatars](./frontend.md#profile-names-and-photo-avatars).
 
 Subject personas cover topics. Person personas use `Kind: person` and have `Aliases` and `Keywords` that can match text. The Catalogue combines built-in personas with user-installed or edited definitions. `Settings.Active` selects active personas.
 

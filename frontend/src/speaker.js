@@ -1,6 +1,7 @@
 // What one speaker said, read as the timeline is: each remark under its post,
 // newest conversation first, under the persona as its card in the personas list
 // shows it. Opened from a name on the timeline; it is not a search.
+import { avatarNode, userProfile } from "./avatar.js";
 import { createEntryFilters } from "./entry-filters.js";
 import { watchFavorites } from "./favorite-state.js";
 import { el } from "./dom.js";
@@ -47,7 +48,7 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
     const shown = gloss(row);
     const node = el("section", { class: "persona speaker-card", "data-id": row.id },
       el("div", { class: "persona-head" },
-        el("span", { class: "avatar", text: row.icon || "◎" }),
+        avatarNode(row),
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
         person ? el("span", { class: "tag", label: "人物" }) : null,
@@ -89,7 +90,7 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
 
   async function show(id, name) {
     const current = ++generation;
-    speaker = { id, name: name || (id === "user" ? t("あなた") : getPersona(id)?.name || id) };
+    speaker = { id, name: name || (id === "user" ? userProfile(getSettings?.()).name : getPersona(id)?.name || id) };
     drawCard();
     entries = new Map();
     count = 0;
