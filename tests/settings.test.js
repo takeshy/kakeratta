@@ -225,7 +225,7 @@ test("OpenRouter can be toggled off and on with saved settings without reconnect
   await view.load();
   openAdvanced(view);
 
-  const toggle = label => walk(view.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate(label))).children[0];
+  const toggle = label => walk(view.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate(label))).querySelector("input");
   const openRouter = toggle("OpenRouterを使う");
   assert.equal(openRouter.disabled, false);
 
@@ -241,7 +241,7 @@ test("OpenRouter can be toggled off and on with saved settings without reconnect
   const reopened = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
   await reopened.load();
   openAdvanced(reopened);
-  const restored = walk(reopened.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate("OpenRouterを使う"))).children[0];
+  const restored = walk(reopened.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate("OpenRouterを使う"))).querySelector("input");
   assert.equal(restored.disabled, false);
   restored.checked = true;
   restored.listeners.change();

@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites"]
-updated: "2026-10-05"
+updated: "2026-10-06"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
@@ -23,6 +23,8 @@ Persona badges disable browser text selection and the iOS touch callout (`user-s
 The built-in `sona` (`routine`) is labeled **Preparation** and declares scheduling and weather forecasts. Its sharing check-in description includes upcoming plans alongside recent records and memory; its default activation is defined by the backend settings.
 
 The settings panel uses a shrinkable single-column grid, including nested fields and advanced groups. On phones up to 600px, its body and sheet heading have matching 1.5-rem left/right padding (at least the safe-area inset), giving 24 pixels at the standard text size. Native controls have zero minimum width and a maximum width of their container, and long text can wrap anywhere; enlarged text and device-specific option names therefore do not force horizontal scrolling. Storybook provides a text-size toolbar and an **ExtraLarge** settings story using the same `text-size.js` scaling as the application.
+
+Settings and persona feature toggles (activation, memory, always Ultra, provider choice, Markdown input, and external-agent use) use the same ON/OFF switch as scheduled push notifications. [dom.js](../../frontend/src/dom.js) `switchControl` wraps a native checkbox with `role="switch"`, a visible ON/OFF track, keyboard focus styling, and a disabled state. Checkboxes for selecting entries or terms retain their selection appearance.
 
 ## Choosing whether a persona remembers
 
@@ -180,13 +182,13 @@ Authentication and transient failures can be retried later. Non-retryable 4xx re
 
 # Reminder push notifications
 
-The **This device** section of settings includes [push.js](../../frontend/src/push.js). It reports browser support, server configuration, and this workspace's registered subscription without requesting permission on load. Only **Enable notifications** asks for browser permission and calls `PushManager.subscribe` using the server's public VAPID key. [push-client.js](../../frontend/src/push-client.js) saves the subscription through the account-checked API; a failed initial registration revokes the newly created browser subscription. Disabling removes the server record before unsubscribing. A changed VAPID key is replaced when enabling. Browser permission can also be managed in browser settings.
+The **This device** section of settings includes [push.js](../../frontend/src/push.js). It reports browser support, server configuration, and this workspace's registered subscription without requesting permission on load. The device notification control uses the same ON/OFF switch; it stays disabled while loading or saving and restores the confirmed state if a change fails. Only switching it ON asks for browser permission and calls `PushManager.subscribe` using the server's public VAPID key. [push-client.js](../../frontend/src/push-client.js) saves the subscription through the account-checked API; a failed initial registration revokes the newly created browser subscription. Disabling removes the server record before unsubscribing. A changed VAPID key is replaced when enabling. Browser permission can also be managed in browser settings.
 
 Only scheduled persona reminders with notifications enabled, including birthdays, anniversaries, appointments, and persona-created schedules, trigger push. The per-schedule switch is separate from registering each device in settings. Ordinary replies, daily check-ins, monthly summaries, and post edits do not. The notification title shows the reminder message, with whitespace collapsed and at most 120 Unicode characters followed by an ellipsis when truncated; its body identifies kakeratta. Reminder content therefore appears on the lock screen according to the device's notification settings. The [Service Worker](../../frontend/public/sw.js) verifies `/api/auth/identity` against the payload's workspace before displaying a notification and again before opening it. A mismatched account, failed identity check, or expired login suppresses delivery. A click focuses and navigates an existing app window, or opens `/?entry=…`, using the existing post-opening path.
 
-HTTPS (or a secure localhost context), Service Worker, PushManager, and Notifications support are required. On iPhone/iPad the app must be added to the Home Screen and opened there. Unsupported browsers retain the timeline reminders. Logout and detected account switches attempt server deregistration, revoke the browser subscription even when the deletion request fails, and close displayed notifications. There is no automatic subscription refresh after a browser-side subscription expires; enable notifications again from settings.
+HTTPS (or a secure localhost context), Service Worker, PushManager, and Notifications support are required. On iPhone/iPad the app must be added to the Home Screen and opened there. Unsupported browsers retain the timeline reminders. Logout and detected account switches attempt server deregistration, revoke the browser subscription even when the deletion request fails, and close displayed notifications. There is no automatic subscription refresh after a browser-side subscription expires; switch notifications ON again from settings.
 
-Verification: [push.test.js](../../tests/push.test.js) covers permission refusal, failed registration rollback, disable order, offline logout, active-account filtering, reminder message titles, and notification navigation.
+Verification: [push.test.js](../../tests/push.test.js) covers permission refusal, failed registration rollback, device switch initialization and failed-change state restoration, disable order, offline logout, active-account filtering, reminder message titles, and notification navigation.
 
 # Speech input and read-aloud
 

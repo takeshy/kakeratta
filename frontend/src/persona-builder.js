@@ -1,4 +1,4 @@
-import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
+import { switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
@@ -39,7 +39,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   memoryEnabled.checked = persona?.memoryEnabled !== false;
   let memoryChoiceChanged = false;
   const memoryOption = el("div", {},
-    el("label", { class: "switch" }, memoryEnabled, el("span", { label: "記憶する" })),
+    el("label", { class: "switch" }, switchControl(memoryEnabled), el("span", { label: "記憶する" })),
     el("p", { class: "hint", label: "オフにするとメモの保存と読み取りを行いません。" }));
   memoryEnabled.addEventListener("change", () => {
     memoryChoiceChanged = true;
@@ -48,7 +48,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   const alwaysUltra = el("input", { type: "checkbox", class: "persona-always-ultra" });
   alwaysUltra.checked = persona?.alwaysUltra === true;
   let ultraChoiceChanged = false;
-  memoryOption.append(el("label", { class: "switch" }, alwaysUltra, el("span", { label: "常に熟考する" })),
+  memoryOption.append(el("label", { class: "switch" }, switchControl(alwaysUltra), el("span", { label: "常に熟考する" })),
     el("p", { class: "hint", label: "通常の依頼にもUltraで回答します。" }));
   alwaysUltra.addEventListener("change", () => {
     ultraChoiceChanged = true;

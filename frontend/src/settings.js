@@ -2,7 +2,7 @@
 //
 // None of the keys here ever reach the page: they are stored by the relay and
 // come back as "set or not". A page that does not have a key cannot leak one.
-import { el, clear, toast } from "./dom.js";
+import { switchControl, el, clear, toast } from "./dom.js";
 import { createPushSettings } from "./push.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { createMCPConnection } from "./mcp-connection.js";
@@ -217,7 +217,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       jevKey,
       openRouterCheck,
       modelSelectionHint,
-      el("label", { class: "field check-field" }, openRouterMode, el("span", { label: "OpenRouterを使う" })),
+      el("label", { class: "field check-field" }, switchControl(openRouterMode), el("span", { label: "OpenRouterを使う" })),
       el("p", { class: "hint", label: "Router・High・Middle・LowにOpenRouterを使います。JevはRouterモデルで選択できます。判定理由は表示されません。モデルを変更するにはOpenRouterの接続確認を実行する必要があります。" }),
       pickerGroup,
     );
@@ -269,7 +269,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     const markdown = el("input", { type: "checkbox", checked: !!settings.markdownInput });
     markdown.addEventListener("change", () => void patch({ markdownInput: markdown.checked }));
     into.append(
-      el("label", { class: "field check-field" }, markdown, el("span", { label: "入力内容をマークダウンとして扱う" })),
+      el("label", { class: "field check-field" }, switchControl(markdown), el("span", { label: "入力内容をマークダウンとして扱う" })),
       el("p", {
         class: "hint",
         label: "ONにすると、あなたの投稿と返信もマークダウンとして表示します。編集はマークダウンをそのまま書きます。担当の返事は常にマークダウンで表示します。",
@@ -295,7 +295,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       enabled.disabled = false;
     });
     into.append(
-      el("label", { class: "field check-field" }, enabled, el("span", { label: "外部エージェントを使う" })),
+      el("label", { class: "field check-field" }, switchControl(enabled), el("span", { label: "外部エージェントを使う" })),
       el("p", { class: "hint", label: "OFFにすると、外部エージェントからの接続を受け付けず、外部エージェントを優先する担当も内蔵モデルで考えます。担当ごとの設定はそのまま残ります。" }),
     );
   }

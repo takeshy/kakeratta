@@ -36,6 +36,15 @@ export function safeLink(value) {
 
 export const $ = (selector, scope = document) => scope.querySelector(selector);
 
+// Keep the native input for labels, keyboard interaction, and checked state.
+export function switchControl(input) {
+  input.setAttribute("role", "switch");
+  return el("span", { class: "schedule-toggle" }, input,
+    el("span", { class: "schedule-toggle-track", "aria-hidden": "true" },
+      el("span", { class: "schedule-toggle-on", text: "ON" }),
+      el("span", { class: "schedule-toggle-off", text: "OFF" })));
+}
+
 export function clear(node) {
   while (node.firstChild) node.firstChild.remove();
   return node;

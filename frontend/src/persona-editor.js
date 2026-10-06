@@ -3,7 +3,7 @@
 // Direct editing and asking the AI are separate entrances. In AI mode the
 // saved persona is initially reference-only; once an AI proposal arrives it
 // becomes an editable draft, and nothing is saved until the user saves it.
-import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
+import { switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { createVoiceInput } from "./voice_input.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
@@ -44,12 +44,12 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   const error = el("p", { class: "hint", role: "alert" });
   const memoryEnabled = el("input", { type: "checkbox", class: "persona-memory-enabled", checked: persona.memoryEnabled !== false, disabled: ai });
   memoryEnabled.checked = persona.memoryEnabled !== false;
-  form.append(el("label", { class: "switch" }, memoryEnabled, el("span", { label: "記憶する" })),
+  form.append(el("label", { class: "switch" }, switchControl(memoryEnabled), el("span", { label: "記憶する" })),
     el("p", { class: "hint", label: "オフにするとメモの保存と読み取りを行いません。" }));
   memoryEnabled.addEventListener("change", () => showKind());
   const alwaysUltra = el("input", { type: "checkbox", class: "persona-always-ultra", disabled: ai });
   alwaysUltra.checked = persona.alwaysUltra === true;
-  form.append(el("label", { class: "switch" }, alwaysUltra, el("span", { label: "常に熟考する" })),
+  form.append(el("label", { class: "switch" }, switchControl(alwaysUltra), el("span", { label: "常に熟考する" })),
     el("p", { class: "hint", label: "通常の依頼にもUltraで回答します。" }));
 
   // A person is reached by its names and keywords instead of the router, so

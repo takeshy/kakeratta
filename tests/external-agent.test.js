@@ -16,7 +16,7 @@ class Element {
 const walk = node => [node, ...node.children.flatMap(walk)];
 // The "prefer the external agent" checkbox of each persona card.
 const preferBoxes = root => walk(root).filter(n => n.tag === "label" && n.children.some(c => c.textContent === translate("外部エージェントを優先する")))
-  .map(label => label.children.find(c => c.tag === "input"));
+  .map(label => walk(label).find(c => c.tag === "input"));
 
 test("the planner choice stays hidden until an external agent is connected", async t => {
   globalThis.Node = Element;

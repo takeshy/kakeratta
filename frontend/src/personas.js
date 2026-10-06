@@ -5,7 +5,7 @@
 // a domain costs one more line in one routing call rather than one more model
 // call per post.
 import { showEntryDialog } from "./entry-dialog.js";
-import { el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
+import { switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { showPersonaBuilder, addedToast } from "./persona-builder.js";
@@ -258,7 +258,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       }
     });
     const box = el("div", {}, el("div", { class: "compose-row" },
-      el("label", { class: "switch" }, prefer, el("span", { label: "外部エージェントを優先する" }))));
+      el("label", { class: "switch" }, switchControl(prefer), el("span", { label: "外部エージェントを優先する" }))));
     if (row.planner === "external") {
       box.append(el("p", { class: "hint", label: !mcpConfigured
         ? "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。"
@@ -285,11 +285,11 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         row.planner === "external" ? el("span", { class: "tag", label: "外部エージェント" }) : null,
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
-          el("input", {
+          switchControl(el("input", {
             type: "checkbox",
             checked: row.active,
             onchange: (event) => void setActive(row.id, event.target.checked),
-          }),
+          })),
           el("span", { text: t("有効にする") })),
       ),
       el("p", { class: "domain", text: shown.domain }),

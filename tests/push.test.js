@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { createPushSettings } from "../frontend/src/push.js";
+import { api } from "../frontend/src/api.js";
 import { enablePush, disablePush, revokeDevicePush } from "../frontend/src/push-client.js";
 
 function browser(t, { saved = null, permission = "granted" } = {}) {
@@ -74,4 +76,41 @@ test("clicking an old account's notification does not open a post", async () => 
   const w = worker("bob");
   await w.dispatch("notificationclick", { notification: { data: { entry: "e_old", workspace: "alice" }, close() {} } });
   assert.equal(w.opened.length,0);
+});
+
+class Element {
+  children = []; listeners = {}; checked = false; disabled = false;
+  constructor(tag) { this.tag = tag; }
+  append(...nodes) { this.children.push(...nodes); }
+  setAttribute(key, value) { this[key] = value === "" ? true : value; }
+  addEventListener(key, listener) { this.listeners[key] = listener; }
+}
+const walk = node => [node, ...node.children.flatMap(walk)];
+
+test("device switch loads ON and keeps it ON if disabling fails", async t => {
+  browser(t, { saved: { endpoint: "saved", unsubscribe: async () => true } });
+  for (const [key, value] of Object.entries({ Node: Element, document: { createElement: tag => new Element(tag), querySelector: () => new Element("div") }, isSecureContext: true, PushManager: class {} })) {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, value });
+    t.after(() => descriptor ? Object.defineProperty(globalThis, key, descriptor) : delete globalThis[key]);
+  }
+  Notification.permission = "granted";
+  t.mock.method(api, "pushConfig", async () => ({ available: true, subscribed: true }));
+  t.mock.method(api, "deletePush", async () => { throw Error("offline"); });
+  t.mock.method(globalThis, "setTimeout", () => 0);
+  const view = createPushSettings();
+  const toggle = walk(view.element).find(node => node.tag === "input");
+  assert.equal(toggle.role, "switch");
+  assert.equal(toggle.disabled, true);
+  await view.load();
+  assert.equal(toggle.checked, true);
+  assert.equal(toggle.disabled, false);
+  toggle.checked = false;
+  await toggle.listeners.change();
+  assert.equal(toggle.checked, true);
+  assert.equal(toggle.disabled, false);
+  t.mock.method(api, "deletePush", async () => {});
+  toggle.checked = false;
+  await toggle.listeners.change();
+  assert.equal(toggle.checked, false);
 });

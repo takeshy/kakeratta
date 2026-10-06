@@ -1,5 +1,5 @@
 // Display text shared by the persona list and the timeline's speaker card.
-import { el, toast, mountOverlay, unmountOverlay, dialogCloseButton } from "./dom.js";
+import { switchControl, el, toast, mountOverlay, unmountOverlay, dialogCloseButton } from "./dom.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
 import { capability, toolLabel } from "./tool_labels.js";
@@ -79,8 +79,7 @@ function scheduleEditor(row, schedule, onChanged) {
  el("label", { class: "schedule-push-field" },
   el("span", { class: "schedule-push-copy" }, el("strong", { label: "Push通知" }),
    el("span", { class: "schedule-push-hint", label: "通知をOFFにしても予定は実行し、タイムラインに投稿します。" })),
-  el("span", { class: "schedule-toggle" }, notify, el("span", { class: "schedule-toggle-track", "aria-hidden": "true" },
-   el("span", { class: "schedule-toggle-on", text: "ON" }), el("span", { class: "schedule-toggle-off", text: "OFF" })))),
+  switchControl(notify)),
  schedule.daily || schedule.personEvent?.annual
   ? el("p", { class: "hint", label: "繰り返しの時刻は予定のタイムゾーンで引き継ぎます。年次予定の日付変更は次回だけです。" }) : null,
  el("div", { class: "compose-row" }, save, el("button", { type: "button", class: "button", label: "キャンセル", onclick: close })));
