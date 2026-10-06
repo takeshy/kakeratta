@@ -37,17 +37,34 @@ export function safeLink(value) {
 export const $ = (selector, scope = document) => scope.querySelector(selector);
 
 // Keep the native input for labels, keyboard interaction, and checked state.
-export function switchControl(input) {
+export function switchControl(input, { on = "ON", off = "OFF", className = "" } = {}) {
   input.setAttribute("role", "switch");
-  return el("span", { class: "schedule-toggle" }, input,
+  return el("span", { class: `schedule-toggle${className ? ` ${className}` : ""}` }, input,
     el("span", { class: "schedule-toggle-track", "aria-hidden": "true" },
-      el("span", { class: "schedule-toggle-on", text: "ON" }),
-      el("span", { class: "schedule-toggle-off", text: "OFF" })));
+      el("span", { class: "schedule-toggle-on", text: on }),
+      el("span", { class: "schedule-toggle-off", text: off })));
 }
 
 export function clear(node) {
   while (node.firstChild) node.firstChild.remove();
   return node;
+}
+
+// Rebuilding or collapsing content can clamp a scrolling ancestor immediately.
+export function preserveScroll(node, update) {
+  const positions = new Map();
+  for (let parent = node; parent; parent = parent.parentElement || parent.parentNode) {
+    if (typeof parent.scrollTop === "number") positions.set(parent, [parent.scrollTop, parent.scrollLeft]);
+  }
+  const root = document.scrollingElement;
+  if (root && !positions.has(root)) positions.set(root, [root.scrollTop, root.scrollLeft]);
+  try { return update(); }
+  finally {
+    for (const [parent, [top, left]] of positions) {
+      if (parent.scrollTop !== top) parent.scrollTop = top;
+      if (parent.scrollLeft !== left) parent.scrollLeft = left;
+    }
+  }
 }
 
 // Overlays can open over the timeline or over an already fixed sheet. A small
@@ -76,7 +93,7 @@ export function unmountOverlay(node) {
 }
 
 export function dialogCloseButton(close) {
-  return el("button", { class: "chip ghost dialog-close", text: "×", type: "button", "aria-label": t("閉じる"), onclick: close });
+  return el("button", { class: "button close-button dialog-close", label: "閉じる", type: "button", onclick: close });
 }
 
 // when reads as how long ago, because that is how a timeline is read. Older

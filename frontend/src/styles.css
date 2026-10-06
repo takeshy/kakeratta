@@ -71,6 +71,7 @@ body {
 .button:hover, .chip:hover { border-color: var(--accent); color: var(--accent); }
 .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .button.primary:hover { color: #fff; filter: brightness(1.05); }
+.close-button { min-height: 44px; padding: 8px 14px; border-color: var(--muted); background: var(--accent-soft); color: var(--ink); font-size: 0.84rem; font-weight: 600; }
 .chip.ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .chip.danger { border-color: var(--danger, #a33); color: var(--danger, #a33); }
 .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
@@ -98,19 +99,21 @@ body {
 .schedule-edit-form .schedule-push-field { display: flex; align-items: center; gap: 16px; cursor: pointer; }
 .schedule-push-copy { display: grid; gap: 4px; flex: 1; min-width: 0; }
 .schedule-push-hint { font-size: 0.8125rem; }
-.schedule-toggle { display: inline-block; position: relative; flex: 0 0 66px; width: 66px; height: 36px; }
+.schedule-toggle { display: inline-block; position: relative; flex: 0 0 4.625rem; width: 4.625rem; height: 2.5rem; }
 .schedule-toggle input[type="checkbox"][role="switch"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; z-index: 1; cursor: pointer; }
 .schedule-toggle-track { display: block; height: 100%; border-radius: 999px; background: var(--line); color: var(--ink); box-shadow: inset 0 0 0 1px var(--muted); }
-.schedule-toggle-track::after { content: ""; position: absolute; top: 4px; left: 4px; width: 28px; height: 28px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 3px #0003; }
-.schedule-toggle-on, .schedule-toggle-off { position: absolute; top: 8px; font-size: 11px; font-weight: 700; line-height: 20px; }
-.schedule-toggle-on { left: 9px; display: none; }
-.schedule-toggle-off { right: 7px; }
-.schedule-toggle input:checked + .schedule-toggle-track { background: var(--ink); color: var(--card); box-shadow: none; }
-.schedule-toggle input:checked + .schedule-toggle-track::after { transform: translateX(30px); }
+.schedule-toggle-track::after { content: ""; position: absolute; top: 0.25rem; left: 0.25rem; width: 2rem; height: 2rem; border-radius: 50%; background: var(--card); box-shadow: 0 1px 3px #0003; }
+.schedule-toggle-on, .schedule-toggle-off { position: absolute; top: 0.625rem; font-size: 0.75rem; font-weight: 700; line-height: 1.25rem; }
+.schedule-toggle-on { left: 0.5625rem; display: none; }
+.schedule-toggle-off { right: 0.4375rem; }
+.schedule-toggle input:checked + .schedule-toggle-track { background: var(--accent); color: var(--card); box-shadow: none; }
+.schedule-toggle input:checked + .schedule-toggle-track::after { transform: translateX(2.125rem); }
 .schedule-toggle input:checked + .schedule-toggle-track .schedule-toggle-on { display: block; }
 .schedule-toggle input:checked + .schedule-toggle-track .schedule-toggle-off { display: none; }
 .schedule-toggle input:focus-visible + .schedule-toggle-track { outline: 2px solid var(--accent); outline-offset: 3px; }
 .schedule-toggle input:disabled + .schedule-toggle-track { opacity: 0.5; }
+.persona-active-toggle { width: 6rem; flex-basis: 6rem; }
+.persona-active-toggle input:checked + .schedule-toggle-track::after { transform: translateX(3.5rem); }
 .persona-schedule-row { border-bottom: 1px solid var(--line); padding: 8px 0; min-width: 0; }
 .chip-remove { border: 0; background: transparent; color: var(--muted); padding: 0 2px; font: inherit; cursor: pointer; }
 .chip-remove:hover { color: var(--danger, #a33); }
@@ -420,7 +423,7 @@ body.sheet-open .topbar { z-index: 21; }
   top: 0;
   background: var(--card);
 }
-.sheet-close { min-width: 36px; min-height: 36px; border-radius: 999px; font-size: 1.35rem; line-height: 1; }
+.sheet-close { flex-shrink: 0; white-space: nowrap; }
 .panel-body { padding: 0 16px 24px; display: grid; gap: 14px; align-content: start; }
 .panel-body h3 { margin: 8px 0 0; font-size: 0.9rem; }
 .field { display: grid; gap: 4px; }
@@ -594,6 +597,8 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .tools { margin: 0; font-size: 0.76rem; color: var(--muted); }
 .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; }
 .switch input { width: auto; }
+.persona-options { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.persona-options > .switch { flex: none; white-space: nowrap; }
 .install summary { cursor: pointer; font-size: 0.86rem; color: var(--accent); }
 .install { display: grid; gap: 8px; }
 .notes { display: grid; gap: 4px; max-height: 46vh; overflow: auto; }
@@ -640,13 +645,13 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
   top: 0;
   z-index: 2;
   justify-self: end;
+  grid-column: 1;
+  grid-row: 1;
   min-width: 36px;
-  min-height: 36px;
-  margin-bottom: -46px;
   border-radius: 999px;
-  background: var(--card);
-  font-size: 1.35rem;
-  line-height: 1;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 /* A grid child defaults to its content's minimum width, so one long line can
    push the sheet wider than the screen. */
@@ -654,7 +659,7 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .dialog h3 { margin: 0; }
 /* The close button floats over the dialog's first line; a long title wraps
    before it instead of running under it. */
-.dialog-close + h2, .dialog-close + h3 { padding-right: 44px; }
+.dialog-close + h2, .dialog-close + h3 { grid-column: 1; grid-row: 1; align-self: center; margin: 0; padding-right: 6rem; }
 #toasts {
   position: fixed;
   left: 50%;
@@ -724,7 +729,7 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .builder-log { margin: 12px 0; }
 .builder-actions { flex-wrap: wrap; }
 /* Adding is the one thing the draft asks for, so it leads, full width. */
-.builder-actions > .button.primary { order: -1; flex-basis: 100%; }
+.builder-actions > .builder-save { order: -1; flex-basis: 100%; }
 .builder-log > summary { cursor: pointer; color: var(--muted, #666); }
 .persona-form { display: grid; gap: 12px; margin: 12px 0; }
 .persona-field { display: grid; gap: 4px; }

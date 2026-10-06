@@ -2,7 +2,7 @@
 //
 // None of the keys here ever reach the page: they are stored by the relay and
 // come back as "set or not". A page that does not have a key cannot leak one.
-import { switchControl, el, clear, toast } from "./dom.js";
+import { preserveScroll, switchControl, el, clear, toast } from "./dom.js";
 import { createPushSettings } from "./push.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { createMCPConnection } from "./mcp-connection.js";
@@ -45,7 +45,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     try {
       settings = await api.saveSettings(next);
       if (setupHint) setupHint.hidden = aiConfigured(settings);
-      onSettings?.(settings);
+      preserveScroll(view, () => onSettings?.(settings));
       return true;
     } catch (error) {
       toast(String(error.message || error), "error");
@@ -200,9 +200,11 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
       el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }));
     pickerGroup.hidden = !openRouterMode.checked;
-    openRouterMode.addEventListener("change", () => {
-      pickerGroup.hidden = !openRouterMode.checked;
-      void patch({ openRouterMode: openRouterMode.checked });
+    openRouterMode.addEventListener("change", async () => {
+      openRouterMode.disabled = true;
+      if (!await patch({ openRouterMode: openRouterMode.checked })) openRouterMode.checked = !openRouterMode.checked;
+      preserveScroll(view, () => { pickerGroup.hidden = !openRouterMode.checked; });
+      openRouterMode.disabled = false;
     });
     const openRouterCheck = connectionCheck(
       () => patch({ openRouterApiKey: jevKey.querySelector("input").value.trim() }),

@@ -20,6 +20,7 @@ class Element {
   replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
   remove() { if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1); }
   get firstChild() { return this.children[0]; }
+  get parentElement() { return this.parent; }
   setAttribute(key, value) { this[key] = key === "disabled" || key === "checked" ? true : value; }
   addEventListener(key, fn) { this.listeners[key] = fn; }
   focus() { this.focused = true; }
@@ -261,4 +262,33 @@ test("initial setup link opens and focuses the OpenRouter settings", async t => 
   assert.ok(section.scrolled);
   assert.ok(section.querySelector("input").focused);
   assert.ok(heading(view, "バックアップ"));
+});
+
+
+test("external agent refresh keeps its settings switch mounted", async t => {
+  globalThis.Node = Element;
+  globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  globalThis.location = { origin: "https://kakeratta.net" };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.location; });
+  let current = { baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", speech: {}, search: {}, externalAgent: { paused: false } };
+  t.mock.method(api, "settings", async () => current);
+  t.mock.method(api, "saveSettings", async next => { current = next; return next; });
+  t.mock.method(api, "about", async () => ({}));
+  t.mock.method(api, "blueskyConnection", async () => ({ available: false }));
+  t.mock.method(api, "mcpConnection", async () => ({ configured: true, path: "/api/mcp", connections: [], agent: { paused: current.externalAgent.paused } }));
+  const panel = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] } });
+  await panel.load();
+  openAdvanced(panel);
+  await new Promise(setImmediate);
+  const controls = walk(panel.element).find(node => node.className === "settings-block external-agent");
+  const parent = controls.parent;
+  const toggle = controls.querySelector("input");
+  panel.element.scrollTop = 600;
+  toggle.checked = false;
+  await toggle.listeners.change();
+  await new Promise(setImmediate);
+  assert.equal(controls.parent, parent, "refresh must not detach the switch's container");
+  assert.equal(controls.querySelector("input"), toggle);
+  assert.equal(panel.element.scrollTop, 600);
+  assert.equal(current.externalAgent.paused, true);
 });

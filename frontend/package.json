@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node build.mjs",
-    "storybook": "storybook dev -p 6006 --no-open",
+    "storybook": "storybook dev -p 6106 --no-open",
     "build-storybook": "storybook build",
     "captures": "node captures.mjs",
     "test:offline": "node offline-check.mjs",

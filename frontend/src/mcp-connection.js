@@ -1,4 +1,4 @@
-import { el, clear } from "./dom.js";
+import { el, clear, preserveScroll } from "./dom.js";
 import { api } from "./api.js";
 import { getLanguage, t } from "./i18n.js";
 
@@ -137,33 +137,40 @@ export function createMCPConnection({ onChange, onState, controls = null } = {})
         rows.length ? el("button", { class: "chip ghost", disabled: busy, label: "キャンセル", onclick: () => { adding = false; newName = ""; draw(); } }) : null));
   }
 
+  const errorView = el("p", { role: "alert" });
+  const body = el("div");
+  view.append(
+    el("div", { class: "compose-row" },
+      el("h3", { label: "外部エージェント接続" }),
+      el("a", { class: "chip ghost help", href: `/manual/?lang=${getLanguage()}#${getLanguage()}-hermes`, target: "_blank", rel: "noopener",
+        "aria-label": t("Hermes連携の使い方（別タブで開く）"), i18nTitle: "Hermes連携の使い方（別タブで開く）",
+        html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 16v1"/></svg>',
+      })),
+    el("p", { class: "hint", label: "担当画面で「外部エージェントを優先する」をONにした担当は、調べものと回答を接続したエージェントに任せます。記憶・予定・操作はアプリが決めて実行します。" }),
+    errorView,
+  );
+  if (controls) view.append(controls);
+  view.append(body);
+
   function draw() {
-    clear(view);
-    view.append(
-      el("div", { class: "compose-row" },
-        el("h3", { label: "外部エージェント接続" }),
-        el("a", { class: "chip ghost help", href: `/manual/?lang=${getLanguage()}#${getLanguage()}-hermes`, target: "_blank", rel: "noopener",
-          "aria-label": t("Hermes連携の使い方（別タブで開く）"), i18nTitle: "Hermes連携の使い方（別タブで開く）",
-          html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><path d="M12 16v1"/></svg>',
-        })),
-      el("p", { class: "hint", label: "担当画面で「外部エージェントを優先する」をONにした担当は、調べものと回答を接続したエージェントに任せます。記憶・予定・操作はアプリが決めて実行します。" }),
-      el("p", { role: "alert", text: error }),
-    );
-    if (controls) view.append(controls);
-    if (!connection) { view.append(el("p", { label: "読み込み中…" })); return; }
-    const rows = connection.connections || (connection.configured ? [{ id: "default", name: "Hermes", active: true }] : []);
-    if (!rows.length) {
-      // The first connection is most likely Hermes, so the name is filled in.
-      if (!adding) { adding = true; newName = "Hermes"; }
-      view.append(el("p", { class: "hint", label: "まだ接続先がありません。名前を付けて追加すると、接続キーと設定方法が表示されます。" }));
-    } else {
-      view.append(el("fieldset", { class: "mcp-connections" },
-        el("legend", { label: "使用する接続先" }),
-        el("p", { class: "hint", label: "外部エージェントを優先する担当すべてに、選んだ接続先を使います。" }),
-        ...rows.map(connectionRow)));
-    }
-    if (adding) view.append(addForm(rows));
-    else view.append(el("button", { class: "chip", disabled: busy, label: "＋ 接続先を追加", onclick: () => { adding = true; draw(); } }));
+    preserveScroll(view, () => {
+      errorView.textContent = error;
+      clear(body);
+      if (!connection) { body.append(el("p", { label: "読み込み中…" })); return; }
+      const rows = connection.connections || (connection.configured ? [{ id: "default", name: "Hermes", active: true }] : []);
+      if (!rows.length) {
+        // The first connection is most likely Hermes, so the name is filled in.
+        if (!adding) { adding = true; newName = "Hermes"; }
+        body.append(el("p", { class: "hint", label: "まだ接続先がありません。名前を付けて追加すると、接続キーと設定方法が表示されます。" }));
+      } else {
+        body.append(el("fieldset", { class: "mcp-connections" },
+          el("legend", { label: "使用する接続先" }),
+          el("p", { class: "hint", label: "外部エージェントを優先する担当すべてに、選んだ接続先を使います。" }),
+          ...rows.map(connectionRow)));
+      }
+      if (adding) body.append(addForm(rows));
+      else body.append(el("button", { class: "chip", disabled: busy, label: "＋ 接続先を追加", onclick: () => { adding = true; draw(); } }));
+    });
   }
 
   async function load() {

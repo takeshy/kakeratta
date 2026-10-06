@@ -5,10 +5,10 @@
 // a domain costs one more line in one routing call rather than one more model
 // call per post.
 import { showEntryDialog } from "./entry-dialog.js";
-import { switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
+import { preserveScroll, switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { t, getLanguage } from "./i18n.js";
-import { showPersonaBuilder, addedToast } from "./persona-builder.js";
+import { showPersonaBuilder } from "./persona-builder.js";
 import { showPersonaEditor } from "./persona-editor.js";
 import { basicInfoBox } from "./person-basic-info.js";
 export { basicInfoBox };
@@ -78,6 +78,9 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   let order = remembered("kakeratta.personas.order", "added", ["added", "name"]);
   let query = "";
   const list = el("div", { class: "persona-list" });
+  const activeControls = new Map();
+  const plannerControls = new Map();
+  let savingActive = false;
 
   function updateRows(next) {
     rows = next;
@@ -101,14 +104,27 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   }
 
   async function setActive(id, on) {
+    if (savingActive) return;
+    savingActive = true;
+    for (const control of activeControls.values()) control.toggle.disabled = true;
     const active = rows.filter((row) => (row.id === id ? on : row.active)).map((row) => row.id);
     try {
       const payload = await api.setActive(active);
-      rows = payload.personas || rows;
+      rows = payload.personas || rows.map(row => ({ ...row, active: active.includes(row.id) }));
       onChange?.(rows);
-      draw();
     } catch (error) {
       toast(String(error.message || error), "error");
+    } finally {
+      savingActive = false;
+      for (const row of rows) {
+        const control = activeControls.get(row.id);
+        if (!control) continue;
+        control.toggle.checked = !!row.active;
+        control.toggle.disabled = false;
+        control.box.className = `persona ${row.active ? "on" : ""}`;
+        if (control.every) control.every.disabled = !row.active;
+        Object.assign(control.row, row);
+      }
     }
   }
 
@@ -161,7 +177,6 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       toolLink("notes", t("記憶の読み書き"))));
     view.append(drawTabs(), drawFilters(), list);
     drawList();
-    view.append(drawInstall());
     revealPending();
   }
 
@@ -216,6 +231,8 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   }
 
   function drawList() {
+    activeControls.clear();
+    plannerControls.clear();
     clear(list);
     const ofTab = rows.filter((row) => kindOf(row) === tab);
     const found = ofTab.filter((row) => matches(row, query));
@@ -243,37 +260,71 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     // "Prefer": the agent plans when it answers in time, and the built-in
     // model still takes the turn when it does not.
     const prefer = el("input", { type: "checkbox", checked: row.planner === "external" });
-    prefer.addEventListener("change", async () => {
-      prefer.disabled = true;
-      try {
-        const payload = await api.setPlanner(row.id, prefer.checked ? "external" : "builtin");
-        rows = payload.personas || rows;
-        mcpConfigured = payload.mcpConfigured ?? mcpConfigured;
-        agentPaused = payload.externalAgentPaused ?? agentPaused;
-        onChange?.(rows);
-        draw();
-      } catch (error) {
-        toast(String(error.message || error), "error");
-        draw();
-      }
-    });
+    const hint = el("p", { class: "hint", hidden: row.planner !== "external" });
     const box = el("div", {}, el("div", { class: "compose-row" },
-      el("label", { class: "switch" }, switchControl(prefer), el("span", { label: "外部エージェントを優先する" }))));
-    if (row.planner === "external") {
-      box.append(el("p", { class: "hint", label: !mcpConfigured
+      el("label", { class: "switch" }, switchControl(prefer), el("span", { label: "外部エージェントを優先する" }))), hint);
+    const renderHint = () => {
+      hint.hidden = row.planner !== "external";
+      hint.textContent = t(!mcpConfigured
         ? "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。"
         : agentPaused
         ? "外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。"
         : agentAway
         ? "外部エージェントから応答がありません。接続があるまで内蔵モデルが考えます。"
-        : "外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定・操作はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。" }));
-    }
+        : "外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定・操作はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。");
+    };
+    renderHint();
+    plannerControls.set(row.id, { prefer, box, renderHint });
+    prefer.addEventListener("change", async () => {
+      prefer.disabled = true;
+      try {
+        const planner = prefer.checked ? "external" : "builtin";
+        const payload = await api.setPlanner(row.id, planner);
+        rows = payload.personas || rows.map(current => current.id === row.id ? { ...current, planner } : current);
+        mcpConfigured = payload.mcpConfigured ?? mcpConfigured;
+        agentPaused = payload.externalAgentPaused ?? agentPaused;
+        preserveScroll(view, () => {
+          for (const current of rows) {
+            const card = activeControls.get(current.id);
+            if (!card) continue;
+            Object.assign(card.row, current);
+            const control = plannerControls.get(current.id);
+            if (control) {
+              control.prefer.checked = current.planner === "external";
+              control.box.hidden = !mcpConfigured || agentPaused;
+              control.renderHint();
+            }
+            if (current.planner === "external" && !card.plannerBadge) {
+              card.plannerBadge = el("span", { class: "tag", label: "外部エージェント" });
+              card.head.append(card.plannerBadge);
+            } else if (current.planner !== "external" && card.plannerBadge) {
+              card.plannerBadge.remove();
+              card.plannerBadge = null;
+            }
+          }
+          onChange?.(rows);
+        });
+      } catch (error) {
+        toast(String(error.message || error), "error");
+      } finally {
+        prefer.checked = row.planner === "external";
+        prefer.disabled = false;
+      }
+    });
     return box;
   }
 
   function drawRow(row) {
     const shown = gloss(row);
     const box = el("section", { class: `persona ${row.active ? "on" : ""}`, "data-id": row.id });
+    const toggle = el("input", {
+      type: "checkbox", checked: row.active, disabled: savingActive,
+      "aria-label": t("{0} の有効・無効", shown.name),
+      onchange: (event) => setActive(row.id, event.target.checked),
+    });
+    const plannerBadge = row.planner === "external" ? el("span", { class: "tag", label: "外部エージェント" }) : null;
+    const control = { box, toggle, row, plannerBadge };
+    activeControls.set(row.id, control);
     box.append(
       el(
         "div",
@@ -282,18 +333,14 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
         row.kind === "person" ? el("span", { class: "tag", label: "人物" }) : null,
-        row.planner === "external" ? el("span", { class: "tag", label: "外部エージェント" }) : null,
+        plannerBadge,
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
-          switchControl(el("input", {
-            type: "checkbox",
-            checked: row.active,
-            onchange: (event) => void setActive(row.id, event.target.checked),
-          })),
-          el("span", { text: t("有効にする") })),
+          switchControl(toggle, { on: t("有効"), off: t("無効"), className: getLanguage() === "en" ? "persona-active-toggle" : "" })),
       ),
       el("p", { class: "domain", text: shown.domain }),
     );
+    control.head = box.firstChild;
     // A person is reached by these words and nothing else, so they are what
     // the card has to show.
     if (row.kind === "person") {
@@ -310,6 +357,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         el("option", { value: "", label: "頻繁に振り返る" }),
         el("option", { value: "monthly", label: "ときどき振り返る" }));
       every.value = monthly ? "monthly" : "";
+      control.every = every;
       every.addEventListener("change", async () => {
         every.disabled = true;
         try {
@@ -522,56 +570,6 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     backdrop.querySelector(".memory-dialog").setAttribute("tabindex", "-1");
     backdrop.querySelector(".memory-dialog").focus();
     if (focusPath) reveal(focusPath);
-  }
-
-  function drawInstall() {
-    const area = el("textarea", {
-      class: "skill-input",
-      rows: "6",
-      placeholder: JSON.stringify(
-        {
-          id: "wine",
-          name: "ぶどう",
-          icon: "🍷",
-          domain: "ワイン。銘柄、産地、ラベルの写真、飲んだ記録。食事全般や技術の話には反応しない。",
-          tone: "控えめ。おすすめを押しつけない。",
-          memory: "型は Wine（銘柄。産地・品種・感想）と Preference（好みの傾向）の2つ。同じ好みが3回出たら Preference に統合する。",
-          instructions: "引用と本人の意見を分け、推測は明記し、統合後も代表例と反例を残す。",
-          tools: uniqueTools(toolNames).slice(0, 2),
-        },
-        null,
-        2,
-      ),
-    });
-    return el(
-      "details",
-      { class: "install" },
-      el("summary", { label: "担当を追加する（skill.json）" }),
-      el("p", {
-        class: "hint",
-        text: `${t("担当領域は本体が読んで振り分けに使います。指示は本人だけが読みます。メモの形式（OKF）は全員に渡るので、指示には「どんな type を使い、いつ統合するか」を書いてください。")} ` +
-          `${t("使える道具")}: ${uniqueTools(toolNames).join(" / ") || t("（なし）")}`,
-      }),
-      area,
-      el(
-        "div",
-        { class: "compose-row" },
-        el("button", {
-          class: "button primary",
-          label: "この担当を追加",
-          onclick: async () => {
-            try {
-              const skill = await api.installPersona(area.value);
-              addedToast(skill);
-              area.value = "";
-              await showAdded(skill);
-            } catch (error) {
-              toast(String(error.message || error), "error");
-            }
-          },
-        }),
-      ),
-    );
   }
 
   return {

@@ -43,7 +43,7 @@ tasks:
     deps: [run, web]
 
   stories:
-    desc: Storybook（http://127.0.0.1:6006）
+    desc: Storybook（http://127.0.0.1:6106）
     dir: frontend
     cmds:
       - npm run storybook

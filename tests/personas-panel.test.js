@@ -226,3 +226,43 @@ test("a remembered old schedules tab falls back to a persona kind", async t => {
  assert.equal(tabs(view.element).length, 2);
  assert.deepEqual(cards(view.element), ["sato", "aoki", "nagomi"]);
 });
+
+
+test("activation keeps existing cards, scroll position and focus, and restores state on failure", async t => {
+  setup(t);
+  document.querySelector = () => new Element("div");
+  let current = rows.map(row => ({ ...row }));
+  t.mock.method(api, "personas", async () => ({ personas: current }));
+  const save = t.mock.method(api, "setActive", async active => {
+    current = current.map(row => ({ ...row, active: active.includes(row.id) }));
+    return { personas: current };
+  });
+  const view = createPersonas({});
+  await view.load();
+  const card = walk(view.element).find(node => node["data-id"] === "sato");
+  const toggle = walk(card).find(node => node.role === "switch");
+  const every = walk(card).find(node => node.className === "check-in-every");
+  const search = walk(view.element).find(node => node.className === "persona-search");
+  view.element.scrollTop = 450;
+  document.activeElement = toggle;
+  toggle.checked = false;
+  const work = toggle.listeners.change({ target: toggle });
+  assert.equal(toggle.disabled, true);
+  await work;
+  assert.equal(walk(view.element).find(node => node["data-id"] === "sato"), card);
+  assert.equal(walk(view.element).find(node => node.className === "persona-search"), search);
+  assert.equal(view.element.scrollTop, 450);
+  assert.equal(document.activeElement, toggle);
+  assert.equal(toggle.checked, false);
+  assert.equal(toggle.disabled, false);
+  assert.equal(every.disabled, true);
+  assert.equal(card.className, "persona ");
+  assert.equal(view.rows().find(row => row.id === "sato").active, false);
+  save.mock.mockImplementation(async () => { throw Error("offline"); });
+  toggle.checked = true;
+  await toggle.listeners.change({ target: toggle });
+  assert.equal(toggle.checked, false);
+  assert.equal(toggle.disabled, false);
+  assert.equal(every.disabled, true);
+  assert.equal(walk(view.element).find(node => node["data-id"] === "sato"), card);
+});

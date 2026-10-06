@@ -10,6 +10,7 @@ class Element {
   append(...nodes) { for (const node of nodes) { node.parent = this; this.children.push(node); } }
   remove() { if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1); }
   get firstChild() { return this.children[0]; }
+  get parentElement() { return this.parent; }
   setAttribute(key, value) { this[key] = key === "disabled" || key === "checked" ? true : value; }
   addEventListener(key, fn) { this.listeners[key] = fn; }
 }
@@ -53,12 +54,26 @@ test("each persona chooses its planner, and Hermes is not a persona", async t =>
   const [prefer] = preferBoxes(view.element);
   assert.ok(prefer);
   assert.ok(!prefer.checked);
+  const card = nodes.find(n => n["data-id"] === "gourmet");
+  view.element.scrollTop = 380;
   prefer.checked = true;
   await prefer.listeners.change();
+  assert.equal(preferBoxes(view.element)[0], prefer, "keeps the same switch");
+  assert.equal(walk(view.element).find(n => n["data-id"] === "gourmet"), card);
+  assert.equal(view.element.scrollTop, 380);
   assert.deepEqual(chosen, [["gourmet", "external"]]);
   nodes = walk(view.element);
   assert.ok(nodes.some(n => n.textContent === translate("外部エージェント")));
   assert.ok(nodes.some(n => n.textContent === translate("外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定・操作はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。")));
+  document.querySelector = () => new Element("div");
+  t.mock.method(globalThis, "setTimeout", () => 0);
+  api.setPlanner.mock.mockImplementation(async () => { throw Error("offline"); });
+  prefer.checked = false;
+  await prefer.listeners.change();
+  assert.equal(prefer.checked, true, "failed change restores the saved preference");
+  assert.equal(prefer.disabled, false);
+  assert.equal(preferBoxes(view.element)[0], prefer);
+
 });
 
 test("Hermes setup includes the key in one configuration and links to its manual", async t => {

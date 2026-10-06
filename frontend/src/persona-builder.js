@@ -9,7 +9,7 @@ import { basicInfoField } from "./person-basic-info.js";
 // thinking it was made while it still waits for a switch.
 export function addedToast(saved) {
   if (saved.active) toast(t("✓ 「{0}」を追加しました。この担当は現在有効です", saved.name));
-  else toast(t("「{0}」を追加しましたが、有効にできませんでした。カードの「有効にする」をオンにしてください", saved.name), "error");
+  else toast(t("「{0}」を追加しましたが、有効にできませんでした。カードのスイッチをオンにしてください", saved.name), "error");
 }
 
 export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted, getSettings = () => ({}) }) {
@@ -29,7 +29,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   // Once there is a draft, the draft is what to read: the exchange that led to
   // it folds away and the box for more changes waits behind a button, so the
   // screen asks one thing - add this or not.
-  const log = el("details", { class: "builder-log", open: true }, el("summary", { label: "AIとのやりとり", hidden: true }), conversation);
+  const log = el("details", { class: "builder-log", open: true, hidden: !persona }, el("summary", { label: "AIとのやりとり", hidden: true }), conversation);
   const notice = el("p", { class: "builder-notice", role: "status", hidden: true, label: persona
     ? "まだ保存されていません。下記の内容で問題なければ「この内容で保存」を押してください。"
     : "まだ追加されていません。下記の内容で問題なければ「この担当を追加」を押してください。追加するとすぐに有効になります。" });
@@ -38,9 +38,8 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   const memoryEnabled = el("input", { type: "checkbox", class: "persona-memory-enabled", checked: persona?.memoryEnabled !== false });
   memoryEnabled.checked = persona?.memoryEnabled !== false;
   let memoryChoiceChanged = false;
-  const memoryOption = el("div", {},
-    el("label", { class: "switch" }, switchControl(memoryEnabled), el("span", { label: "記憶する" })),
-    el("p", { class: "hint", label: "オフにするとメモの保存と読み取りを行いません。" }));
+  const memoryOption = el("div", { class: "persona-options" },
+    el("label", { class: "switch" }, switchControl(memoryEnabled), el("span", { label: "記憶する" })));
   memoryEnabled.addEventListener("change", () => {
     memoryChoiceChanged = true;
     if (draft) draft.memoryEnabled = memoryEnabled.checked;
@@ -48,8 +47,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
   const alwaysUltra = el("input", { type: "checkbox", class: "persona-always-ultra" });
   alwaysUltra.checked = persona?.alwaysUltra === true;
   let ultraChoiceChanged = false;
-  memoryOption.append(el("label", { class: "switch" }, switchControl(alwaysUltra), el("span", { label: "常に熟考する" })),
-    el("p", { class: "hint", label: "通常の依頼にもUltraで回答します。" }));
+  memoryOption.append(el("label", { class: "switch" }, switchControl(alwaysUltra), el("span", { label: "常に熟考する" })));
   alwaysUltra.addEventListener("change", () => {
     ultraChoiceChanged = true;
     if (draft) draft.alwaysUltra = alwaysUltra.checked;
@@ -57,14 +55,15 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
 
   const error = el("p", { class: "hint", role: "alert" });
   const input = el("textarea", { class: "skill-input", rows: 3, maxlength: 12000, "aria-label": t("回答や変更したいこと"), i18nPlaceholder: persona ? "例：もっと短く返事してほしい。おすすめより、記録を中心にしてほしい。" : person ? "例：大学時代の友人の佐藤さん。さっちゃんと呼んでいて、たまに一緒に食事をします。" : "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。" });
-  const send = el("button", { class: "button primary", label: "送る", type: "submit" });
+  const send = el("button", { class: "button primary", label: "送る", type: "button", onclick: () => void submit() });
   const revise = el("button", { class: "button ghost", label: "さらに修正する", hidden: true, onclick: () => {
     form.hidden = false;
+    send.hidden = voice.button.hidden = false;
     revise.hidden = true;
     input.focus();
   }});
   // Creating says what the button does: nothing exists until it is pressed.
-  const save = el("button", { class: "button primary", label: persona ? "この内容で保存" : "この担当を追加", hidden: true, onclick: async () => {
+  const save = el("button", { class: "button primary builder-save", label: persona ? "この内容で保存" : "この担当を追加", hidden: true, onclick: async () => {
     if (busy || !draft) return;
     setBusy(true);
     error.textContent = "";
@@ -111,7 +110,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     conversation.append(el("div", { class: `builder-message ${role}` }, el("strong", { text: role === "user" ? t("あなた") : "AI" }), el("p", { text })));
     conversation.scrollTop = conversation.scrollHeight;
   }
-  bubble("assistant", opening);
+  if (persona) bubble("assistant", opening);
   async function submit(event) {
     event?.preventDefault();
     const answer = input.value.trim();
@@ -125,6 +124,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
       const result = await api.buildPersona({ id: persona?.id, language: getLanguage(), messages: next, current: draft ? { ...draft, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked, basicInfo: basicInfo.box.value.trim() } : persona ? { ...persona, memoryEnabled: memoryEnabled.checked, alwaysUltra: alwaysUltra.checked } : undefined });
       if (!backdrop.isConnected) return;
       messages.push(next.at(-1), { role: "assistant", content: JSON.stringify(result) });
+      log.hidden = false;
       bubble("user", answer);
       bubble("assistant", result.message);
       input.value = "";
@@ -147,6 +147,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
       clear(preview);
       save.hidden = notice.hidden = revise.hidden = !draft;
       form.hidden = !!draft;
+      send.hidden = voice.button.hidden = !!draft;
       log.open = !draft;
       log.querySelector("summary").hidden = !draft;
       if (draft) {
@@ -171,7 +172,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
       if (backdrop.isConnected) (draft ? save : input).focus();
     }
   }
-  const form = el("form", { onsubmit: submit }, input, el("div", { class: "compose-row" }, voice.button, send), voice.activity);
+  const form = el("form", { onsubmit: submit }, input, voice.activity);
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) void submit(event);
   });
@@ -179,7 +180,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
     dialogCloseButton(close),
     el("h3", { text: persona ? t("{0} を修正", persona.name) : t("AIと担当を作る") }),
     notice, preview, basicInfo.node, memoryOption, log, error, form,
-    el("div", { class: "compose-row builder-actions" }, el("button", { class: "button ghost", label: "閉じる", onclick: close }), el("span", { class: "spacer" }), revise, save));
+    el("div", { class: "compose-row builder-actions" }, voice.button, send, el("span", { class: "spacer" }), revise, save));
   dialog.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); }
     if (event.key === "Tab") {

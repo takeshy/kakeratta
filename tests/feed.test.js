@@ -484,7 +484,7 @@ test("persona builder dictates with saved settings, sends, and stops on close", 
   ]);
   assert.equal(recognizers[0].stopped, true);
   button("🎙 話す").fire("click");
-  button("閉じる").fire("click");
+  walk(document.body).find(node => node.className.includes("dialog-close")).fire("click");
   assert.equal(recognizers[1].stopped, true);
   assert.equal(document.body.children.length, 0);
 });
