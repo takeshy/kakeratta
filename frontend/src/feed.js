@@ -11,6 +11,7 @@ import { t } from "./i18n.js";
 import { gloss } from "./builtins.js";
 import { renderMarkdown, spokenText } from "./markdown.js";
 import { htmlDocument, renderHtmlDocument } from "./html-document.js";
+import { isInfographic, renderInfographic } from "./infographic.js";
 import { createMentionPicker } from "./mention-picker.js";
 import { openSocial } from "./social.js";
 import { showRouting } from "./routing-view.js";
@@ -295,7 +296,8 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
 
   // The body of anything said on the timeline. A persona's reply is model
   // written and never edited here, so the app renders Markdown or a complete
-  // HTML document in an isolated frame. Your own
+  // HTML document in an isolated frame; the infographic persona's Markdown is
+  // laid out as an infographic. Your own
   // words are yours: they stay exactly as typed unless the setting asks for
   // Markdown to be honoured, and editing has always meant writing the source.
   function drawBody(entry) {
@@ -304,6 +306,9 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     const html = !mine && htmlDocument(entryText(entry));
     if (html) return el("div", { class: "said said-html" }, renderHtmlDocument(html));
     if (mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
+    if (entry.speaker === "infographic" && isInfographic(entryText(entry))) {
+      return el("div", { class: "said said-markdown said-infographic" }, renderInfographic(entryText(entry)));
+    }
     return el("div", { class: "said said-markdown" }, renderMarkdown(entryText(entry)));
   }
 

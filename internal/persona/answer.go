@@ -79,7 +79,7 @@ func infographicRules(trigger timeline.Entry, thread []timeline.Entry) string {
 			}
 		}
 	}
-	rules := "\n- インフォグラフィックのMarkdownは短い返答の制限を受けません。絵文字と必要に応じたMermaidの図解を使い、図解に必要な長さで text に提出してください。HTMLは出力しないでください。\n"
+	rules := "\n- インフォグラフィックのMarkdownは短い返答の制限を受けません。「# 絵文字 タイトル」と「## 絵文字 見出し」のセクションで構成し、見出しと箇条書きに絵文字を使い、流れ・関係・構成にはMermaidの図解を入れて、図解に必要な長さで text に提出してください。HTMLは出力しないでください。\n"
 	switch language {
 	case "ja":
 		rules += "- 今回の表示言語は日本語 (ja) です。投稿と同じ言語という一般規則より優先し、Markdownの見出し・説明・Mermaidの図のラベルをすべて日本語に翻訳してください。\n"

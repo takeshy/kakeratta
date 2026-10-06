@@ -93,6 +93,23 @@ test("persona HTML renders in the feed while user HTML stays literal", (t) => {
   assert.ok(feed.element.querySelectorAll('.said').some(node => node.tagName === 'P' && node.textContent === html));
 });
 
+test("infographic Markdown is laid out as an infographic; its prose and other personas stay Markdown", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: tag => new TestNode(tag), createElementNS: (_, tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const markdown = '# 📊 売上\n昨年の2倍。\n\n## 📈 推移\n- 🗓️ 昨年\n- 🚀 今年';
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  feed.set([
+    { id: 'graphic', kind: 'post', speaker: 'infographic', text: markdown, at: '2026-10-02T00:00:00Z' },
+    { id: 'question', kind: 'post', speaker: 'infographic', text: '本文を貼ってください。', at: '2026-10-02T00:01:00Z' },
+    { id: 'other', kind: 'post', speaker: 'gourmet', text: markdown, at: '2026-10-02T00:02:00Z' },
+  ]);
+  assert.equal(feed.element.querySelectorAll('.said-infographic').length, 1);
+  assert.equal(feed.element.querySelectorAll('.infographic-hero').length, 1);
+  assert.equal(feed.element.querySelectorAll('.infographic-section').length, 1);
+  assert.equal(feed.element.querySelectorAll('.said-markdown').length, 3);
+});
+
 test("search reveals a folded reply and polling preserves a later manual fold", (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };

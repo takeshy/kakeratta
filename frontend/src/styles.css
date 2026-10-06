@@ -278,6 +278,58 @@ button.who-link:hover, button.who-link:focus-visible { text-decoration: underlin
 .markdown-callout[data-type="question"], .markdown-callout[data-type="warning"] { border-left-color: var(--warn); }
 .markdown-callout[data-type="danger"], .markdown-callout[data-type="failure"], .markdown-callout[data-type="bug"] { border-left-color: var(--warn); }
 .markdown-callout[data-type="quote"] { border-left-color: var(--muted); }
+
+/* The infographic persona's Markdown, laid out mechanically: a title banner,
+   then one tinted card per section. Lists inside a card become tiles and
+   numbered lists become steps. Colours come from the theme plus a fixed hue
+   per card, mixed so they read in both light and dark. */
+.said-infographic .infographic { display: grid; gap: 12px; white-space: normal; }
+.infographic-hero {
+  display: grid; gap: 6px; padding: 16px 18px; border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--card)), color-mix(in srgb, #3b82c4 16%, var(--card)));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.infographic-hero .markdown-body, .infographic-section .markdown-body { display: grid; gap: 8px; }
+.infographic-title { margin: 0; font-size: 1.3rem; line-height: 1.35; display: flex; gap: 10px; align-items: center; }
+.infographic-title .infographic-emoji { font-size: 2rem; }
+.infographic-section {
+  --tone: #a4622f;
+  display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--tone) 7%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tone) 28%, var(--line));
+  border-top: 4px solid var(--tone);
+  min-width: 0;
+}
+.infographic-section[data-tone="1"] { --tone: #2f7fb8; }
+.infographic-section[data-tone="2"] { --tone: #3a9a5b; }
+.infographic-section[data-tone="3"] { --tone: #8a5cc2; }
+.infographic-section[data-tone="4"] { --tone: #c99a1e; }
+.infographic-section[data-tone="5"] { --tone: #c4506a; }
+.infographic-heading { margin: 0; font-size: 1.05rem; display: flex; gap: 8px; align-items: center; }
+.infographic-heading .infographic-emoji {
+  display: inline-grid; place-items: center; width: 2rem; height: 2rem; flex: none; font-size: 1.15rem;
+  border-radius: 50%; background: color-mix(in srgb, var(--tone) 18%, var(--card));
+}
+.said-infographic .infographic-section ul {
+  list-style: none; padding: 0; display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+.said-infographic .infographic-section ul > li {
+  margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--tone) 22%, var(--line));
+}
+.said-infographic .infographic-section li.task { margin-left: 0; }
+.said-infographic .infographic-section ol { list-style: none; padding: 0; display: grid; gap: 6px; counter-reset: step; }
+.said-infographic .infographic-section ol > li { counter-increment: step; position: relative; min-height: 1.6rem; padding-left: 2.3rem; margin: 0; }
+.said-infographic .infographic-section ol > li::before {
+  content: counter(step); position: absolute; left: 0; top: 0.05rem; display: grid; place-items: center; width: 1.6rem; height: 1.6rem;
+  border-radius: 50%; background: var(--tone); color: #fff; font-weight: 700; font-size: 0.82rem;
+}
+.said-infographic .markdown-table table { width: 100%; }
+.said-infographic th { background: color-mix(in srgb, var(--tone, var(--accent)) 14%, var(--card)); }
+.said-infographic .markdown-mermaid { background: var(--card); border-color: color-mix(in srgb, var(--tone, var(--accent)) 25%, var(--line)); }
+.said-infographic .infographic-section .mermaid-node { stroke: var(--tone); fill: color-mix(in srgb, var(--tone) 10%, var(--card)); }
+.said-infographic blockquote, .said-infographic .markdown-callout { border-left-color: var(--tone, var(--accent)); }
 .shot img {
   width: 100%;
   border-radius: 12px;
