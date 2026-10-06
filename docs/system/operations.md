@@ -84,6 +84,8 @@ Cloud Run remains the preferred hosted configuration. The shared VM is a tempora
 
 Cloud Tasks now calls `https://kakeratta.net/internal/due` using the original app account; Pub/Sub calls `/internal/work`, and Scheduler calls `/internal/dispatch`. `KAKERATTA_TASKS_QUEUE`, `KAKERATTA_TASKS_URL`, `KAKERATTA_TASKS_ACCOUNT`, worker URL and dispatch URL must agree with those callers' token audiences. Durable work remains in Firestore and execution/claim semantics are unchanged. The old timer queue is paused, and retained Cloud Run services use the new endpoints for remaining fallback traffic. `firebase.json` still defines the legacy Firebase Hosting fallback. `shared_vm_ip` preserves migrated DNS and push endpoints in the original Terraform module. Firestore TTL policies on `expireAt` remain unchanged.
 
+Both retained Cloud Run services select the same alarm destination from `shared_vm_ip`: a nonempty value selects `kakeratta-vm-due` and `https://kakeratta.net/internal/due`; an empty value selects the original `kakeratta-due` queue and Cloud Run Web due URL. The worker's `custom_audiences` follows `local.worker_url`, matching the Pub/Sub token audience. Updating the retained services with Terraform therefore preserves the active VM alarm path rather than restoring the paused legacy queue. Implementation: [Web configuration](../../infra/main.tf) and [worker configuration](../../infra/worker.tf).
+
 ## Web Push configuration
 
 Generate a VAPID pair once with `go run ./cmd/webpush-keys` ([main.go](../../cmd/webpush-keys/main.go)). Store the private value securely, and configure the same pair on every API instance:

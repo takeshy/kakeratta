@@ -190,16 +190,14 @@ resource "google_cloud_run_v2_service" "worker" {
           }
         }
       }
-      # Wakes: the queue, where a task calls back, and the account it carries
-      # a token for. The URL is the service's own, which Cloud Run names from
-      # the project number.
+      # Match Web's alarm destination, including the shared VM migration.
       env {
         name  = "KAKERATTA_TASKS_QUEUE"
-        value = google_cloud_tasks_queue.due.id
+        value = var.shared_vm_ip != "" ? "projects/${var.project_id}/locations/${var.run_region}/queues/kakeratta-vm-due" : google_cloud_tasks_queue.due.id
       }
       env {
         name  = "KAKERATTA_TASKS_URL"
-        value = "https://${local.name}-${data.google_project.current.number}.${var.run_region}.run.app/internal/due"
+        value = var.shared_vm_ip != "" ? "https://kakeratta.net/internal/due" : "https://${local.name}-${data.google_project.current.number}.${var.run_region}.run.app/internal/due"
       }
       env {
         name  = "KAKERATTA_TASKS_ACCOUNT"
