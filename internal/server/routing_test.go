@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -78,15 +79,27 @@ func TestRoutingDecisionCanBeRead(t *testing.T) {
 // delivered and nothing is written down.
 func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 	server, workspace := app(t)
+	// Background persona wakes share this model server, so only the router's
+	// own request is recorded, and the shared values are guarded.
+	var mu sync.Mutex
 	var reply string
 	var conditions string
+	setReply := func(value string) { mu.Lock(); reply = value; mu.Unlock() }
+	routed := func() string { mu.Lock(); defer mu.Unlock(); return conditions }
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
 			Messages []struct{ Role, Content string }
 		}
 		_ = json.NewDecoder(r.Body).Decode(&request)
-		conditions = request.Messages[len(request.Messages)-1].Content
-		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": reply}}}})
+		mu.Lock()
+		if len(request.Messages) > 0 {
+			if last := request.Messages[len(request.Messages)-1].Content; strings.HasPrefix(last, "担当条件:") {
+				conditions = last
+			}
+		}
+		content := reply
+		mu.Unlock()
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": content}}}})
 	}))
 	defer model.Close()
 	settings := workspace.ConfiguredSettings()
@@ -105,17 +118,17 @@ func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 		_ = json.Unmarshal(response.Body.Bytes(), &out)
 		return response.Code, out
 	}
-	reply = `{"deliver":["gourmet"],"excluded_reasons":{"book":"本の感想ではない"}}`
+	setReply(`{"deliver":["gourmet"],"excluded_reasons":{"book":"本の感想ではない"}}`)
 	if code, out := check("p", `{"persona":"gourmet"}`); code != http.StatusOK || out["answered"] != true || out["delivered"] != true {
 		t.Fatalf("delivered: %d %v", code, out)
 	}
-	if !strings.Contains(conditions, "ラーメンの本を読んだ") || !strings.Contains(conditions, "shiori") {
+	if conditions := routed(); !strings.Contains(conditions, "ラーメンの本を読んだ") || !strings.Contains(conditions, "shiori") {
 		t.Fatalf("the router was not given the post and the active conditions: %s", conditions)
 	}
 	if code, out := check("p", `{"persona":"book"}`); code != http.StatusOK || out["delivered"] != false || out["reason"] != "本の感想ではない" {
 		t.Fatalf("passed over: %d %v", code, out)
 	}
-	reply = `壊れた返事`
+	setReply(`壊れた返事`)
 	if code, out := check("p", `{"persona":"book"}`); code != http.StatusOK || out["answered"] != false || out["error"] == "" {
 		t.Fatalf("no answer: %d %v", code, out)
 	}

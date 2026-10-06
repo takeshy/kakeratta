@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -124,34 +125,48 @@ func testPushReminderDelivery(t *testing.T, subject string) {
 	_ = workspace.UpdateRecord(context.Background(), store.RecordPush, pushID(sub.Endpoint), time.Time{}, func([]byte, bool) ([]byte, error) { return raw, nil })
 	previous := http.DefaultTransport
 	t.Cleanup(func() { http.DefaultTransport = previous })
+	// The default transport is shared with background work that outlives
+	// other tests (model calls from persona wakes), so only the push endpoint
+	// is intercepted and counted; anything else goes where it was going.
+	// Problems are recorded rather than failed here, since this may run off
+	// the test goroutine.
+	var mu sync.Mutex
 	sends := 0
+	var problems []string
+	count := func() (int, []string) { mu.Lock(); defer mu.Unlock(); return sends, append([]string(nil), problems...) }
 	http.DefaultTransport = pushTransport(func(r *http.Request) (*http.Response, error) {
-		sends++
-		if r.URL.String() != sub.Endpoint || r.Header.Get("Content-Encoding") != "aes128gcm" || r.Header.Get("Authorization") == "" {
-			t.Fatalf("invalid delivery: %v", r)
+		if r.URL.String() != sub.Endpoint {
+			return previous.RoundTrip(r)
 		}
+		var problem string
 		token := strings.Split(strings.TrimPrefix(r.Header.Get("Authorization"), "vapid t="), ",")[0]
 		claims := jwt.MapClaims{}
-		if _, _, err := new(jwt.Parser).ParseUnverified(token, claims); err != nil {
-			t.Fatalf("invalid VAPID JWT: %v", err)
-		}
-		if claims["sub"] != os.Getenv("KAKERATTA_PUSH_SUBJECT") {
-			t.Fatalf("VAPID subject: %v", claims["sub"])
-		}
 		body, _ := io.ReadAll(r.Body)
-		if strings.Contains(string(body), "private birthday") {
-			t.Fatal("unencrypted text")
+		if r.Header.Get("Content-Encoding") != "aes128gcm" || r.Header.Get("Authorization") == "" {
+			problem = fmt.Sprintf("invalid delivery: %v", r)
+		} else if _, _, err := new(jwt.Parser).ParseUnverified(token, claims); err != nil {
+			problem = fmt.Sprintf("invalid VAPID JWT: %v", err)
+		} else if claims["sub"] != subject {
+			problem = fmt.Sprintf("VAPID subject: %v", claims["sub"])
+		} else if strings.Contains(string(body), "private birthday") {
+			problem = "unencrypted text"
 		}
+		mu.Lock()
+		sends++
+		if problem != "" {
+			problems = append(problems, problem)
+		}
+		mu.Unlock()
 		return &http.Response{StatusCode: 410, Body: io.NopCloser(strings.NewReader("expired")), Header: make(http.Header)}, nil
 	})
 	entry := timeline.Entry{ID: "e_reminder", Speaker: "routine", Kind: timeline.KindPost, Text: "private birthday"}
 	server.publishEvent("entry", entry)
-	if sends != 0 {
+	if sent, _ := count(); sent != 0 {
 		t.Fatal("ordinary entry sent push")
 	}
 	server.publishEvent("reminder", entry)
-	if sends != 1 {
-		t.Fatalf("sends: %d", sends)
+	if sent, problems := count(); sent != 1 || len(problems) != 0 {
+		t.Fatalf("sends: %d %v", sent, problems)
 	}
 	records, _ := workspace.Records(context.Background(), store.RecordPush)
 	if len(records) != 0 {
