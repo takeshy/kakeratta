@@ -48,17 +48,20 @@ export async function compressAvatar(file) {
 // Emoji are picked from groups rather than typed: most keyboards make them
 // hard to reach. The text box stays, folded under the groups, for anything
 // the groups do not have.
-const split = text => text.match(/(?:\p{Extended_Pictographic}|◎)\uFE0F?/gu);
+// One emoji per grapheme, so joined sequences and flags stay whole.
+const split = text => [...new Intl.Segmenter().segment(text)].map(part => part.segment);
 export const EMOJI_GROUPS = [
-  { label: "顔", icon: "🙂", emoji: split("🙂😀😄😊😉😍🥰😎🤓🧐🤔😌😴🥳🤗😇🙃😺🤖👻👽🎃🦸🧙") },
-  { label: "人", icon: "🧑", emoji: ["🧑", "👩", "👨", "🧒", "👧", "👦", "👵", "👴", "🧑‍🍳", "🧑‍🏫", "🧑‍⚕️", "🧑‍💻", "🧑‍🎨", "🧑‍🔬", "🧑‍🌾", "🧑‍🚀", "🕵️", "💁", "🙋", "🧘", "🏃", "👋", "👍", "🙌"] },
-  { label: "動物", icon: "🐶", emoji: split("🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🦉🦄🐝🦋🐢🐬") },
-  { label: "自然", icon: "🌸", emoji: split("🌸🌻🌷🌹🍀🌿🌱🌲🍁🍄🌵🌙⭐🌞🌈☁️⛄🔥💧🌊⚡🌍🪐🌋") },
-  { label: "食べ物", icon: "🍙", emoji: split("🍙🍣🍜🍛🍱🍔🍕🍞🥐🍰🍩🍪🍫🍎🍓🍑🍌🍇🍉☕🍵🍺🍷🥗") },
-  { label: "趣味", icon: "⚽", emoji: split("⚽⚾🏀🎾🏓🎯🎮🎲🧩🎨🎵🎸🎹🎤🎬📷📚✏️🧶🏕️🎣🚴🏊🎭") },
-  { label: "乗り物・場所", icon: "🚃", emoji: split("🚃🚄🚗🚌🚲✈️🚀⛵🗺️🧭🏠🏢🏫🏥🏯⛩️🗼🗻🏝️🏖️🎡⛲🌃🏞️") },
-  { label: "もの", icon: "💡", emoji: split("💡📱💻⌚📖📝📌📎🔑🔍🧪💊🩺💰🎁🛒🧳☂️🕯️🔔📅⏰📊🧸") },
-  { label: "記号", icon: "❤️", emoji: split("❤️🧡💛💚💙💜🤍✨💫🌟✅❗❓💬💭♻️⚙️🔆💯🏳️🚩🆗🔰◎") },
+  { label: "顔", icon: "🙂", emoji: split("😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀👻👽👾🤖🤡👹👺💩😺😸😹😻😼😽🙀😿😾🙈🙉🙊") },
+  { label: "人", icon: "🧑", emoji: split("👶🧒👦👧🧑👱👨🧔👩🧓👴👵🙍🙎🙅🙆💁🙋🧏🙇🤦🤷🧑‍⚕️🧑‍🎓🧑‍🏫🧑‍⚖️🧑‍🌾🧑‍🍳🧑‍🔧🧑‍🏭🧑‍💼🧑‍🔬🧑‍💻🧑‍🎤🧑‍🎨🧑‍✈️🧑‍🚀🧑‍🚒👮🕵️💂🥷👷🤴👸👳👲🧕🤵👰🤰🤱👼🎅🤶🦸🦹🧙🧚🧛🧜🧝🧞🧟💆💇🚶🧍🧎🏃💃🕺👯🧖🧗🤺🏇⛷️🏂🏌️🏄🚣🏊⛹️🏋️🚴🚵🤸🤽🤾🤹🧘🛀🛌👭👫👬💏💑👪") },
+  { label: "手・体", icon: "👋", emoji: split("👋🤚🖐️✋🖖👌🤌🤏✌️🤞🤟🤘🤙👈👉👆👇☝️👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍️💅🤳💪🦾🦿🦵🦶👂🦻👃🧠🦷🦴👀👁️👅👄💋") },
+  { label: "動物", icon: "🐶", emoji: split("🐶🐱🐭🐹🐰🦊🐻🐼🐻‍❄️🐨🐯🦁🐮🐷🐽🐸🐵🐒🐔🐧🐦🐤🐣🐥🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🦗🕷️🦂🐢🐍🦎🦖🦕🐙🦑🦐🦞🦀🐡🐠🐟🐬🐳🐋🦈🦭🐊🐅🐆🦓🦍🦧🦣🐘🦛🦏🐪🐫🦒🦘🦬🐃🐂🐄🐎🐖🐏🐑🦙🐐🦌🐕🐩🦮🐕‍🦺🐈🐈‍⬛🐓🦃🦚🦜🦢🦩🕊️🐇🦝🦨🦡🦫🦦🦥🐁🐀🐿️🦔🐾") },
+  { label: "自然", icon: "🌸", emoji: split("🌸💮🏵️🌹🥀🌺🌻🌼🌷🌱🪴🌲🌳🌴🌵🌾🌿☘️🍀🍁🍂🍃🍄🌰🪨🌍🌎🌏🌕🌖🌗🌘🌑🌒🌓🌔🌙🌚🌝🌛🌜☀️🌞🌠☁️⛅⛈️🌤️🌥️🌦️🌧️🌨️🌩️🌪️🌫️🌬️🌈☂️☔⚡❄️☃️⛄☄️🔥💧🌊🌋🏔️⛰️🗻") },
+  { label: "食べ物", icon: "🍙", emoji: split("🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥬🥒🌶️🌽🥕🧄🧅🥔🍠🥐🥯🍞🥖🥨🧀🥚🍳🧈🥞🧇🥓🥩🍗🍖🌭🍔🍟🍕🥪🥙🧆🌮🌯🥗🥘🍝🍜🍲🍛🍣🍱🥟🍤🍙🍚🍘🍥🥠🥮🍢🍡🍧🍨🍦🥧🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪🥜🍯🥛🍼☕🍵🧃🥤🧋🍶🍺🍻🥂🍷🥃🍸🍹🧉🍾🧊🥢🍽️🍴🥄") },
+  { label: "趣味", icon: "⚽", emoji: split("⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🪀🏓🏸🏒🏑🥍🏏🪃🥅⛳🪁🏹🎣🤿🥊🥋🎽🛹🛼🛷⛸️🥌🎿🎯🎮🕹️🎰🎲🧩♟️🃏🀄🎴🎭🖼️🎨🧵🪡🧶🪢🎤🎧🎼🎵🎶🎷🪗🎸🎹🎺🎻🪕🥁🪘🎬🎥📷📸📹🎞️📚✏️🖌️🖍️🏕️⛺🎪🎢🎠🎟️🎫🏆🥇🥈🥉🏅🎖️") },
+  { label: "乗り物・場所", icon: "🚃", emoji: split("🚗🚕🚙🚌🚎🏎️🚓🚑🚒🚐🛻🚚🚛🚜🛵🏍️🛺🚲🛴🚏🛣️🛤️⛽🚨🚥🚦🚧⚓⛵🛶🚤🛳️⛴️🚢✈️🛩️🛫🛬🪂💺🚁🚟🚠🚡🛰️🚀🛸🚂🚃🚄🚅🚆🚇🚈🚉🚊🚝🚞🚋🗺️🗾🧭🏠🏡🏘️🏚️🏗️🏭🏢🏬🏣🏤🏥🏦🏨🏪🏫🏩💒🏛️⛪🕌🛕🕍⛩️🕋🏯🏰🗼🗽🗿⛲⛱️🏖️🏝️🏜️🏞️🎡🌅🌄🌇🌆🌃🌉🌌🎑") },
+  { label: "もの", icon: "💡", emoji: split("⌚📱📲💻⌨️🖥️🖨️🖱️💽💾💿📀📼☎️📞📟📠📺📻🎙️⏰⏱️⏲️🕰️⌛⏳📡🔋🔌💡🔦🕯️🧯💸💵💴💶💷🪙💰💳💎⚖️🧰🔧🔨⚒️🛠️⛏️🔩🧱⛓️🧲🛡️🔮🧿💈⚗️🔭🔬🩹🩺💊💉🩸🧬🦠🧫🧪🌡️🧹🧺🧻🚽🚰🚿🛁🧼🪥🧽🧴🛎️🔑🗝️🚪🪑🛋️🛏️🧸🛍️🛒🎁🎈🎏🎀🪄🎊🎉🎎🏮🎐🧧✉️📩📨📧💌📥📤📦🏷️📪📫📬📭📮📯📜📃📄📑🧾📊📈📉🗒️🗓️📆📅🗑️📇🗃️🗳️🗄️📋📁📂🗂️🗞️📰📓📔📒📕📗📘📙📖🔖🧷🔗📎🖇️📐📏🧮📌📍✂️🖊️🖋️✒️📝🔍🔎🔏🔐🔒🔓🧳") },
+  { label: "記号", icon: "❤️", emoji: split("❤️🧡💛💚💙💜🖤🤍🤎💔❣️💕💞💓💗💖💘💝💟⭐🌟✨💫✅☑️✔️❌❎➕➖➗✖️♾️‼️⁉️❓❔❕❗〽️⚠️🚸🔱⚜️🔰♻️✳️❇️✴️💠Ⓜ️🌀💤💢💥💦💨🕳️💬💭🗯️🗨️💯🔆🔅🆗🆕🆓🆙🆒🆖🆎🆑🅰️🅱️🅾️🆘⛔🚫📛⭕🛑🔴🟠🟡🟢🔵🟣🟤⚫⚪🟥🟧🟨🟩🟦🟪🟫⬛⬜🔶🔷🔸🔹🔺🔻◎▶️⏸️⏹️⏺️⏭️⏮️⏩⏪🔀🔁🔂➡️⬅️⬆️⬇️↗️↘️↙️↖️↕️↔️🔄") },
+  { label: "旗", icon: "🏁", emoji: split("🏁🚩🎌🏴🏳️🏳️‍🌈🇯🇵🇺🇸🇬🇧🇫🇷🇩🇪🇮🇹🇪🇸🇨🇦🇧🇷🇦🇺🇨🇳🇰🇷🇹🇼🇭🇰🇮🇳🇹🇭🇻🇳🇮🇩🇵🇭🇸🇬🇲🇾🇲🇽🇳🇿🇺🇳") },
 ];
 
 // The selected photo is always compressed before a draft or save sees it.
@@ -76,7 +79,10 @@ export function createAvatarField({ icon = "", avatar = "", onChange = () => {},
   const grid = el("div", { class: "avatar-emoji-grid", role: "group" });
   const other = el("details", { class: "avatar-emoji-other" },
     el("summary", { label: "その他の絵文字を入力" }), input);
-  const picker = el("div", { class: "avatar-emoji-picker" }, tabs, grid, other);
+  // Folded by default: the groups take room most visits to settings do not need.
+  const picker = el("details", { class: "avatar-emoji-picker" },
+    el("summary", { class: "chip", label: "絵文字を選ぶ" }),
+    el("div", { class: "avatar-emoji-panel" }, tabs, grid, other));
   let buttons = [], tabButtons = [];
   // Picking an emoji is the same as typing it: the photo gives way to it.
   function pick(emoji) {

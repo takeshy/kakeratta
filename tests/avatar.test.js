@@ -84,6 +84,9 @@ test("emoji are picked from groups, replace the photo, and open on the current e
   const { EMOJI_GROUPS } = await import("../frontend/src/avatar.js");
   const saved = [];
   const field = createAvatarField({ icon: "🐶", avatar: photo, onChange: next => { saved.push(next); } });
+  const picker = walk(field.element).find(node => node.className === "avatar-emoji-picker");
+  assert.equal(picker.tag, "details");
+  assert.ok(!picker.open, "the picker starts folded");
   const tabs = walk(field.element).filter(node => node.role === "tab");
   assert.equal(tabs.length, EMOJI_GROUPS.length);
   const animals = EMOJI_GROUPS.findIndex(group => group.emoji.includes("🐶"));
@@ -100,4 +103,16 @@ test("emoji are picked from groups, replace the photo, and open on the current e
   assert.equal(emojiButtons().find(node => node.textContent === "🍙")["aria-pressed"], "true");
   field.setDisabled(true);
   assert.ok(emojiButtons().every(node => node.disabled) && tabs.every(node => node.disabled));
+});
+
+test("every offered emoji is one distinct grapheme the server accepts as an icon", async () => {
+  const { EMOJI_GROUPS } = await import("../frontend/src/avatar.js");
+  const all = EMOJI_GROUPS.flatMap(group => group.emoji);
+  assert.ok(all.length > 1000);
+  assert.equal(new Set(all).size, all.length, "an emoji is offered twice");
+  const segmenter = new Intl.Segmenter();
+  for (const emoji of all) {
+    assert.equal([...segmenter.segment(emoji)].length, 1, emoji);
+    assert.ok([...emoji].length <= 4, `${emoji} exceeds the server's four-rune icon limit`);
+  }
 });
