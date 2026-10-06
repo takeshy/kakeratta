@@ -27,6 +27,8 @@ type Answer struct {
 
 const submitAnswer = "submit_answer"
 
+const maxAnswerTokens = 26000
+
 var answerTool = llm.Tool{
 	Name:        submitAnswer,
 	Description: "ユーザーへの最終回答だけを提出します。記憶の更新や操作は別フェーズが扱います。何も言うことがない場合の text は空です。",
@@ -220,10 +222,19 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 
 func composeAnswer(ctx context.Context, client *llm.Client, model string, messages []llm.Message, rules turnRules) (*Answer, error) {
 	messages = append(messages, llm.Message{Role: "user", Content: "調査フェーズは終了しました。今回どう答えるかだけに集中し、submit_answer で最終回答を提出してください。状態変更・noteは生成しません。"})
+	// A cut-off draft is not a tool exchange we can correct. Retain the
+	// original research context, without accumulating incomplete answers.
+	baseMessages := append([]llm.Message(nil), messages...)
+	truncated := false
 	for attempt := 0; attempt <= maxMalformed; attempt++ {
-		reply, err := client.Complete(ctx, llm.Request{Purpose: "answer", Attempt: attempt + 1, Model: model, Messages: messages, Tools: []llm.Tool{answerTool}, ToolChoice: "required"})
+		reply, err := client.Complete(ctx, llm.Request{Purpose: "answer", Attempt: attempt + 1, Model: model, MaxTokens: maxAnswerTokens, Messages: messages, Tools: []llm.Tool{answerTool}, ToolChoice: "required"})
 		if err != nil {
 			return nil, err
+		}
+		if reply.FinishReason == "length" {
+			truncated = true
+			messages = append(append([]llm.Message(nil), baseMessages...), llm.Message{Role: "user", Content: "前の回答は出力上限で途中で切れました。要点・重要な数値・出典を保ちながら、説明と図の重複を削り、前より短い完全な回答をsubmit_answerで提出してください。途中の文章を続けず最初から作り直し、textの文字列とJSONを必ず閉じてください。"})
+			continue
 		}
 		messages = append(messages, llm.Message{Role: "assistant", Content: reply.Content, Calls: reply.Calls})
 		for _, call := range reply.Calls {
@@ -243,6 +254,9 @@ func composeAnswer(ctx context.Context, client *llm.Client, model string, messag
 		if len(reply.Calls) == 0 {
 			messages = append(messages, llm.Message{Role: "user", Content: "submit_answer を呼んでください。"})
 		}
+	}
+	if truncated {
+		return nil, fmt.Errorf("回答が出力上限で途中で切れ、再試行でも有効な Answer を生成できませんでした")
 	}
 	return nil, fmt.Errorf("有効な Answer がありません")
 }

@@ -1120,7 +1120,10 @@ Check-ins and schedules are server-side.
 
 The browser can be closed.
 
-The reference Cloud Run deployment has `min_instance_count = 0`, so it can
+Production Web and worker containers stay running on the shared VM. Cloud Tasks
+calls `https://kakeratta.net/internal/due` at the scheduled time; the saved job
+is delivered through Pub/Sub to `/internal/work`. The retained Cloud Run
+configuration has `min_instance_count = 0`, so it can
 scale to zero. Cloud Tasks calls the authenticated due endpoint at the next
 scheduled wake and can start an instance to handle it. CPU remains allocated
 outside requests while an instance is running. With multiple instances,
@@ -1130,8 +1133,9 @@ expires. A local deployment, or one without Cloud Tasks, relies on in-process
 timers and needs the server running to wake on time. See
 [Times and wakes](system/architecture.md#times-and-wakes).
 
-Configured workspaces are restored after a restart, including Firestore-backed
-users.
+Combined mode restores configured workspaces after a restart, including
+Firestore-backed users. Split Web/worker mode opens workspaces on demand for
+API requests and authenticated pushes, without a startup restoration scan.
 
 There is no clock going round every workspace. A workspace asks to be woken at
 the next time anything of its comes due - a schedule, a check-in, a retry, an
@@ -1271,8 +1275,14 @@ kakeratta is a browser application in two pieces:
 
 During development, Vite serves the page.
 
-The deployed reference setup uses Firebase Hosting for the static site and
-Cloud Run for the Go API.
+Cloud Run is the preferred hosted configuration. To reduce hosting costs while
+keeping production unchanged through the roughly one-month judging wait after
+the 2026-10-31 submission deadline,
+production has temporarily used the shared Compute Engine VM since 2026-10-06.
+The HTTPS load balancer and Nginx serve the static frontend and proxy separate Go Web API
+and Pub/Sub worker containers. Firestore and GCS remain in the original project.
+The host has fixed capacity and no automatic failover. Firebase Hosting and
+Cloud Run remain as fallback resources. See [shared VM deployment](../infra/shared-vm/README.md).
 
 The Go binary itself is only the API and can also run on a user's own machine.
 
@@ -1346,13 +1356,13 @@ afterward to include the refreshed images.
 | -------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `KAKERATTA_PUBLIC_URL`           | empty                                                           | Public HTTPS origin used by features such as Bluesky OAuth              |
 | `KAKERATTA_BLUESKY_KEY`          | empty                                                           | Secret used for Bluesky signing and encryption                          |
-| `KAKERATTA_ADDR`                 | `127.0.0.1:8787` (`:8787` in the reference Firebase deployment) | API listen address                                                      |
+| `KAKERATTA_ADDR`                 | `127.0.0.1:8787` (`:8787` in the retained Firebase deployment) | API listen address                                                      |
 | `KAKERATTA_HOME`                 | OS config directory                                             | Base directory for local state                                          |
 | `KAKERATTA_FIREBASE_PROJECT_ID`  | empty                                                           | Enables multi-user Firebase Authentication                              |
 | `KAKERATTA_FIREBASE_API_KEY`     | empty                                                           | Firebase Web API key                                                    |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | empty                                                           | Firebase Auth domain                                                    |
 | `KAKERATTA_GCS_BUCKET`           | empty                                                           | Private Cloud Storage bucket for images                                 |
-| `KAKERATTA_STORE`                | `file`                                                          | Storage backend; use `firestore` for the reference Cloud Run deployment |
+| `KAKERATTA_STORE`                | `file`                                                          | Storage backend; use `firestore` for hosted VM or Cloud Run deployments |
 | `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebase project                                                | Firestore project                                                       |
 | `KAKERATTA_MCP_SERVERS`          | empty                                                           | Remote MCP servers whose tools may be assigned to personas              |
 | `KAKERATTA_NOMINATIM_URL`        | public service                                                  | Nominatim endpoint                                                      |
@@ -1639,6 +1649,6 @@ the agent can read and do on its own side.
 | [Usage and configuration](usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |
 | [What was hard about the AI](ai-lessons.md)                                                  | Failures seen with Nemotron personas and what changed to make them dependable                                                     |
 | [Hermes Agent](hermes.md) ([日本語](hermes_ja.md))                                              | MCP authentication, the ask lifecycle, the planning context, and fall-through                                                     |
-| [Google Cloud deployment](../infra/README.md)                                                | Terraform deployment with Firebase Hosting, Cloud Run, Firestore, and related infrastructure                                      |
+| [Google Cloud deployment](../infra/README.md)                                                | Cloud Run configuration and temporary shared VM operations                                      |
 
 [MIT licensed](../LICENSE).

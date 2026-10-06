@@ -8,12 +8,12 @@ This **OKF v0.2 bundle** documents the implementation in six subsystem chapters.
 
 # Chapters
 
-- [Architecture and runtime](./architecture.md) - System composition diagram, separate Web/worker processes, shared VM production, dependency assembly, Pub/Sub push workers, multiple instances, and shutdown.
-- [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, model usage logging, schedule editing, reminder push delivery, favorites, and search.
-- [Persona execution and memory](./personas.md) - Persona definitions, built-in support and Markdown infographics with emoji and Mermaid, initial research planning, depth selection, research/answer model separation, routing, live research budgets and read capabilities, reviewed actions, optional memory, schedules, and corrections.
+- [Architecture and runtime](./architecture.md) - System composition diagram, separate Web/worker processes, temporary shared VM production, dependency assembly, Pub/Sub push workers, multiple instances, and shutdown.
+- [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, model usage logging and completion finish reasons, schedule editing, reminder push delivery, favorites, and search.
+- [Persona execution and memory](./personas.md) - Persona definitions, built-in support and Markdown infographics with emoji and Mermaid, initial research planning, depth selection, research/answer model separation, routing, live research budgets and read capabilities, output truncation recovery, reviewed actions, optional memory, schedules, and corrections.
 - [Browser application and device state](./frontend.md) - Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
 - [External agents, tools, and sharing](./integrations.md) - External-agent answers over MCP, permitted tools, the shipped specification, weather forecasts, and selected publication to Bluesky.
-- [Development and workspace operations](./operations.md) - Development, validation, model usage inspection, shared VM deployment, memory migration, location backfill, portable exports, and workspace deletion.
+- [Development and workspace operations](./operations.md) - Development, validation, model usage inspection, temporary shared VM deployment, memory migration, location backfill, portable exports, and workspace deletion.
 
 # Reading the bundle
 

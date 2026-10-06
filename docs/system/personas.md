@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-05"
+updated: "2026-10-06"
 ---
 
 Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections.
@@ -158,6 +158,10 @@ The first Super research call analyzes the request and parent-answer context, em
 Depth reflects explicit requests such as a short "詳しく" reply, and the research, verification or synthesis needed for a sufficient answer even without explicit depth words. Thanks and simple follow-ups need not select deep. Subsequent rounds retain the plan in their context and ordinary read/finish_read schemas; the plan is a guide, not an immutable sequence or a chain-of-thought transcript. It is not shown in the user interface.
 
 Ordinary turns start with 10 research reads and 2 Web searches. Accepting deep=true expands only the existing ceilings to 20 reads and 4 searches, without resetting used reads, lookup/search counters or cached results. The accepted decision is applied before the first read executes. The next round and read-result footer derive remaining counts from the expanded live budget (one spent Web search leaves three). AlwaysUltra starts with the deep budget and forces the final-answer model to Ultra regardless of the emitted flag. Phase read budgets remain separate. Super falls back from the configured middle model to low; Ultra falls back from high to middle to low. The remark's model slot and workflow log model describe the answer; per-call usage records identify each stage's actual model. Initial planning remains `purpose=research`, `round=1`; the workflow record stores the effective `deep` flag. No escalation usage record is created.
+
+When the provider reports `finish_reason: "length"`, answer composition rejects the incomplete response and retries from the original research context with an instruction to preserve key facts and sources while removing repetition. Truncated drafts and their tool calls do not accumulate in retry context. These retries use the existing three-attempt limit and do not increase the provider output allowance or reopen research. Exhaustion reports an output-limit failure instead of the generic missing-answer error. Verification: [answer_truncation_test.go](../../internal/persona/answer_truncation_test.go).
+
+Final-answer composition explicitly requests `max_tokens: 26000`, for both ordinary and deep/AlwaysUltra answers, instead of relying on a provider default. Existing answer-length instructions still apply; the value is an output ceiling, not a target. Research and schedule/action phases keep their existing output settings.
 
 A valid answer takes one composition call after research. Existing bounded correction retries for malformed or invalid answers remain in the answer stage and do not reopen research. When the answer is asked of the external agent, the turn opens an ask and ends; once the ask closes, a reaction carries the turn on with the agent's answer and research, which enter the same subsequent processing, or with the built-in planner from the start.
 

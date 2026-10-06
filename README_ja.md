@@ -69,6 +69,11 @@ Firebaseアカウントも外部データベースも不要で、データはデ
 
 ## システム構成
 
+図は推奨するCloud Run構成です。10/31の締め切り後、審査まで約1か月間、本番を変更せず
+維持することを見越して、ホスティング費用を抑える暫定措置として共有Compute Engine VMで
+稼働させています。Web・workerの分離と永続キューは同じです。
+[現在の運用手順](infra/shared-vm/README.md)（英語）を参照してください。
+
 ```mermaid
 flowchart LR
   Browser[ブラウザ] --> Hosting[Firebase Hosting]
@@ -95,8 +100,9 @@ flowchart LR
 データ・実行権・会話内の処理順序はアカウントごとに管理します。
 Webとworkerは別々に増やせるため、アカウントの担当サーバーを固定せず、
 別アカウントや別会話の処理を並列に進められます。同じ会話の処理順序は維持します。
-仕事がないときはworkerをゼロ台にできます。台数を増やし、共有基盤の負荷を測って
-調整することで処理量の増加に対応します。workerのサイズは運用設定として管理します。
+Cloud Run構成では仕事がないときはworkerをゼロ台にできます。台数を増やし、共有基盤の負荷を
+測って調整することで処理量の増加に対応します。workerのサイズは運用設定として管理します。
+暫定運用の共有VMは固定容量で、workerは常時稼働します。
 ローカル開発では、同じ担当の処理エンジンをファイル保存とプロセス内の実行方式で動かします。
 
 詳細は[構成とスケールの説明](docs/system/architecture.md)（英語）と
@@ -137,6 +143,6 @@ NemoClaw/OpenShellのサンドボックスで検証した構成は、下の連�
 | [AIで難しかったこと](docs/ai-lessons_ja.md) | 開発や運用で起きた失敗と対処 |
 | [外部エージェント](docs/hermes_ja.md) | Hermes・LLM Connect Hubの接続、MCP権限、代替実行 |
 | [NemoClaw連携レポート](docs/nemoclaw-hermes-integration_ja.md) | サンドボックス構成と検証。当時のプロトコルも明記 |
-| [Google Cloudへのデプロイ](infra/README_ja.md) | Terraform・Firebase Hosting・Cloud Run |
+| [Google Cloudへのデプロイ](infra/README_ja.md) | Cloud Run構成と暫定運用の共有VM |
 
 [MITライセンス](LICENSE)です。

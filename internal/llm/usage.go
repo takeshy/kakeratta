@@ -78,6 +78,7 @@ type CallRecord struct {
 	PlanRetryCount int    `json:"planRetryCount"`
 	Status         int    `json:"status,omitempty"`
 	Outcome        string `json:"outcome"`
+	FinishReason   string `json:"finishReason,omitempty"`
 	Usage          *Usage `json:"usage"`
 	DurationMS     int64  `json:"durationMs"`
 	started        time.Time

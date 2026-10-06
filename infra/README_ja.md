@@ -2,6 +2,33 @@
 
 [English](README.md)
 
+## 現在の本番：共有VMでの暫定運用
+
+公開環境ではCloud Run構成を推奨します。10/31の締め切り後、審査まで約1か月間、本番を変更せず
+維持する費用を抑えるため、2026-10-06に共有Compute Engine VMへ移しました。
+Webとworkerは別コンテナのまま、Firestore・GCS・Firebase認証・永続キューを使います。
+
+HTTPSロードバランサーとNginxが静的な画面を配信し、API/SSEと認証付き内部pushを
+転送します。GemiHub・Geo MCPと同居するVMは固定容量で、自動フェイルオーバーはなく、
+workerは常時稼働します。
+
+構築・実行アカウント・デプロイ・ロールバックは[共有VMの運用手順](shared-vm/README.md)
+（英語）を参照してください。現在の `cloudbuild.yaml` はイメージと画面をビルドし、
+画面のアーカイブをアップロードして、IAP/OS Login経由で両コンテナを更新します。
+本番ログは `geminihub-486523` にあります。
+
+```sh
+gcloud logging read 'resource.type="gce_instance" AND labels.service_name:"kakeratta"' --project=geminihub-486523 --freshness=1d --limit=100 --format=json
+```
+
+以下は保持しているFirebase Hosting・Cloud Run構成と `infra/deploy.sh` の説明です。
+現在の本番リリース手順とは異なり、Firebase Hostingの更新ではVMの画面は更新されません。
+元のTerraformモジュールは `shared_vm_ip` が設定されていれば移行済みのDNSと
+Pub/Sub・Schedulerのエンドポイントを維持します。本番設定やタイマーキューの切り替えは
+共有VMの運用手順を確認してから行います。
+
+## Cloud Run構成
+
 公開時のkakerattaは、画面・Web API・workerを分けて動きます。画面は **Firebase Hosting** が配信し
 （`frontend/dist`。バイナリは画面を持ちません）、`/api/**` だけを
 **Cloud Run** へrewriteします。Cloud Run側ではGoのバイナリが動き、タイムライン・
@@ -49,10 +76,10 @@ gcloud auth application-default login
 スクリプトは、バージョン付きイメージのビルド、Terraformの適用、`node frontend/build.mjs`、
 Firebase Hostingへのデプロイ、`https://PROJECT_ID.web.app` のHTTPS応答確認まで行います。
 
-初回のインフラ構築後は、Cloud Build の `kakeratta-main-deploy` トリガーが `main` への
-pushを検知し、既存のCloud RunサービスとFirebase Hostingを更新します。この自動処理は
-Terraformを適用しないため、実行環境の設定や秘密情報は維持されます。GitHub接続にはOAuth
-によるインストールが必要なため、リポジトリ接続とトリガーはCloud Buildで一度だけ作成します。
+現在の `kakeratta-main-deploy` トリガーは共有VMを更新します。移行中は
+`cloudbuild.yaml` と同じ内容のインライン設定を使うため、リポジトリのビルド定義を
+変えるときはトリガーも更新するか、公開済みのファイルを参照する設定へ切り替えます。
+[共有VMのデプロイ手順](shared-vm/README.md#deployment-and-recovery)を参照してください。
 
 ### リマインダーのWeb Push通知
 
@@ -140,9 +167,9 @@ npx firebase-tools deploy --only firestore:indexes --project kakeratta
 
 ## WeatherAPI
 
-デプロイ先プロジェクトのSecret Managerに `kakeratta-wheatherapi-key` を作成し、APIキーを有効なバージョンとして登録します。この綴りが登録済みの名前です。TerraformとCloud Buildは `latest` をCloud Runの環境変数 `KAKERATTA_WEATHERAPI_KEY` に紐付けます。実行用サービスアカウントには既存のSecret Manager読み取り権限があります。キーの値はソースコード・Dockerイメージ・ビルドの置換変数・Terraform stateには入りません。Terraformは登録済みシークレットへの参照だけを管理します。
+デプロイ先プロジェクトのSecret Managerに `kakeratta-wheatherapi-key` を作成し、APIキーを有効なバージョンとして登録します。この綴りが登録済みの名前です。保持しているCloud Run用Terraform構成は `latest` をCloud Runの環境変数 `KAKERATTA_WEATHERAPI_KEY` に紐付けます。実行用サービスアカウントには既存のSecret Manager読み取り権限があります。キーの値はソースコード・Dockerイメージ・ビルドの置換変数・Terraform stateには入りません。Terraformは登録済みシークレットへの参照だけを管理します。
 
-別のシークレットや固定バージョンを使う場合は、Terraformの `weatherapi_secret_id` / `weatherapi_secret_version` とCloud Buildの `_WEATHERAPI_SECRET` / `_WEATHERAPI_SECRET_VERSION` を揃えてください。新しいCloud Runインスタンスが起動時に読み込み、既存インスタンスは読み込み済みの値を保持します。
+別のシークレットや固定バージョンを使う場合は、Cloud Run構成ではTerraformの `weatherapi_secret_id` / `weatherapi_secret_version` を設定します。VMでは実行マニフェストのシークレット参照を更新します。新しいCloud Runインスタンスが起動時に読み込み、既存インスタンスは読み込み済みの値を保持します。
 
 ## Bluesky連携
 

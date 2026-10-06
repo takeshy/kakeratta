@@ -2,6 +2,36 @@
 
 [日本語](README_ja.md)
 
+## Current production: temporary shared VM
+
+Cloud Run remains the preferred hosted configuration. To reduce the cost
+of keeping production unchanged through the roughly one-month judging wait
+after the 2026-10-31 submission deadline, production moved to a shared Compute
+Engine VM on 2026-10-06. Web and worker remain separate containers; Firestore,
+GCS, Firebase authentication and durable queue semantics remain in use.
+
+The HTTPS load balancer and Nginx serve the static frontend and proxy API/SSE
+and authenticated internal pushes. The VM also hosts GemiHub and Geo MCP and
+has fixed capacity without automatic failover. Its worker stays running.
+
+[Shared VM operations](shared-vm/README.md) covers provisioning, runtime
+identities, deployment and rollback. The current `cloudbuild.yaml` builds the
+image and frontend, uploads the frontend archive, and deploys both containers
+through IAP/OS Login. Production logs are in `geminihub-486523`:
+
+```sh
+gcloud logging read 'resource.type="gce_instance" AND labels.service_name:"kakeratta"' --project=geminihub-486523 --freshness=1d --limit=100 --format=json
+```
+
+The following sections describe the retained Firebase Hosting/Cloud Run
+configuration and `infra/deploy.sh`. They are not the current production
+release procedure; Firebase Hosting updates do not update the VM frontend.
+With `shared_vm_ip` set, the original Terraform module preserves the migrated
+DNS and Pub/Sub/Scheduler endpoints. See the shared VM guide before changing
+production configuration or switching timer queues.
+
+## Cloud Run configuration
+
 The deployed app separates the browser, Web API and job worker. **Firebase Hosting** serves the
 page — `frontend/dist`, which nothing else serves — and rewrites
 `/api/**` to **Cloud Run**, which runs the Go binary with Firestore for the
@@ -55,11 +85,11 @@ The script builds a versioned image, applies the Terraform configuration, runs
 `node frontend/build.mjs`, deploys Firebase Hosting, and waits for a valid HTTPS
 response at `https://PROJECT_ID.web.app`.
 
-After the initial infrastructure deployment, pushes to `main` are deployed by
-the `kakeratta-main-deploy` Cloud Build trigger. The build updates the existing
-Cloud Run service and Firebase Hosting; it does not apply Terraform or replace
-runtime configuration. The GitHub repository connection and trigger are created
-once in Cloud Build because connecting GitHub requires an OAuth installation.
+The current `kakeratta-main-deploy` trigger targets the shared VM rather than
+these Cloud Run/Firebase Hosting resources. During migration it uses an inline
+configuration matching `cloudbuild.yaml`; changing the repository build file
+also requires updating the inline trigger, or switching it to the published
+file. See [shared VM deployment](shared-vm/README.md#deployment-and-recovery).
 
 ### Reminder Web Push
 
@@ -156,9 +186,9 @@ npx firebase-tools deploy --only firestore:indexes --project kakeratta
 
 ## WeatherAPI
 
-Create the Secret Manager secret `kakeratta-wheatherapi-key` in the deployment project and add the API key as an enabled version. This is the registered spelling. Terraform and Cloud Build bind its `latest` version to the Cloud Run environment variable `KAKERATTA_WEATHERAPI_KEY`. The runtime account already has Secret Manager accessor permission. The key remains outside source code, Docker images, build substitutions, and Terraform state; Terraform only refers to the existing secret.
+Create the Secret Manager secret `kakeratta-wheatherapi-key` in the deployment project and add the API key as an enabled version. This is the registered spelling. The retained Cloud Run Terraform configuration binds its `latest` version to the Cloud Run environment variable `KAKERATTA_WEATHERAPI_KEY`. The runtime account already has Secret Manager accessor permission. The key remains outside source code, Docker images, build substitutions, and Terraform state; Terraform only refers to the existing secret.
 
-To select a different secret or pin a version, set Terraform's `weatherapi_secret_id` / `weatherapi_secret_version` and Cloud Build's `_WEATHERAPI_SECRET` / `_WEATHERAPI_SECRET_VERSION` consistently. A new Cloud Run instance loads the selected version on startup; existing instances retain their loaded value.
+To select a different secret or pin a version, set Terraform's `weatherapi_secret_id` / `weatherapi_secret_version` for that Cloud Run deployment. For the VM, update the runtime manifest secret reference. A new Cloud Run instance loads the selected version on startup; existing instances retain their loaded value.
 
 ## Bluesky connection
 

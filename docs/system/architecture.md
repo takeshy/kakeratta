@@ -35,7 +35,7 @@ flowchart LR
   Repair --> Queue
 ```
 
-Production currently runs separate web and worker containers on the 4 GiB `shared-apps` VM alongside GemiHub and Geo MCP. Firestore and GCS remain in project `kakeratta`; the load balancer forwards authenticated internal pushes through Nginx. The shared host has fixed capacity and no automatic failover. Separate Docker networks obtain only their original runtime identity through a host metadata broker; service-account keys are not copied. See [shared VM operations](../../infra/shared-vm/README.md).
+Cloud Run remains the preferred hosted deployment. Production currently runs on a shared VM to reduce the cost of keeping it unchanged through the roughly one-month judging wait after the 2026-10-31 submission deadline. This is a temporary operating arrangement. Production currently runs separate web and worker containers on the 4 GiB `shared-apps` VM alongside GemiHub and Geo MCP. Firestore and GCS remain in project `kakeratta`; the load balancer forwards authenticated internal pushes through Nginx. The shared host has fixed capacity and no automatic failover. Separate Docker networks obtain only their original runtime identity through a host metadata broker; service-account keys are not copied. See [shared VM operations](../../infra/shared-vm/README.md).
 
 ## Scaling by adding instances
 

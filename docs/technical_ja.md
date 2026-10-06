@@ -870,14 +870,18 @@ Firestore の実行権は、複数のサーバーインスタンスをまたい�
 
 ブラウザは閉じて構いません。
 
-同梱の Cloud Run 構成は `min_instance_count = 0` で、インスタンス数をゼロまで減らせます。
+本番のWebとworkerコンテナは共有VMで常時稼働します。Cloud Tasksが指定時刻に
+`https://kakeratta.net/internal/due` を呼び、保存された処理要求はPub/Sub経由で
+`/internal/work` へ配信します。保持しているCloud Run構成では `min_instance_count = 0` で、
+インスタンス数をゼロまで減らせます。
 Cloud Tasks が次の起動時刻に認証付きの due エンドポイントを呼び出し、必要ならインスタンスを起動します。
 稼働中のインスタンスには、リクエスト処理の外でもCPUを割り当てます。複数台ある場合は、確認・予定・反応の実行権を
 Firestore で先に取得したインスタンスが処理します。中断されたキュー内の仕事は、リース失効後に回復できます。
 ローカル環境や Cloud Tasks のない構成はプロセス内のタイマーを使うため、予定時刻に起こすにはサーバーが動いている必要があります。
 詳しくは[時刻と起動](system/architecture.md#times-and-wakes)を参照してください。
 
-設定済みのワークスペースは、Firestore を使うユーザーも含め、再起動後に復元されます。
+combined方式では、Firestoreを使うユーザーも含め、設定済みのワークスペースを再起動後に復元します。
+Web/worker分離方式では起動時の復元走査を行わず、APIリクエストと認証付きpushに応じて開きます。
 
 全ワークスペースを見回る時計はありません。ワークスペースは、自分の予定・チェックイン・再試行・`expires` の日付のうち最も早い時刻に起こしてもらうよう、Cloud Tasks のタスク（キューがなければプロセス内のタイマー）に頼みます。起こされたあとの仕事は、通常の担当の仕事と同じ実行キューを使うので、キューが混んでいると起動は遅れます。
 
@@ -1002,7 +1006,11 @@ kakeratta は、2つに分かれたブラウザ用のアプリです。
 
 開発中は、画面を Vite が配信します。
 
-参照構成のデプロイでは、静的なサイトを Firebase Hosting が、Go の API を Cloud Run が受け持ちます。
+公開環境ではCloud Run構成を推奨します。10/31の締め切り後、審査まで約1か月間、本番を変更せず
+維持する費用を抑えるため、2026-10-06以降は暫定的に共有Compute Engine VMで動かしています。HTTPSロードバランサーとNginxが
+静的な画面を配信し、別々のGo Web API・Pub/Sub workerコンテナへ転送します。FirestoreとGCSは
+元のプロジェクトに残ります。VMは固定容量で、自動フェイルオーバーはありません。Firebase Hostingと
+Cloud Runはフォールバック用に保持しています。[共有VMの運用手順](../infra/shared-vm/README.md)（英語）を参照してください。
 
 Go のバイナリ自体は API だけで、ユーザー自身のマシンでも動きます。
 
@@ -1078,7 +1086,7 @@ Storybook から `docs/captures/` に保存されます。表示サイズが変�
 | `KAKERATTA_FIREBASE_API_KEY`     | 空                                                  | Firebase Web APIキー                                       |
 | `KAKERATTA_FIREBASE_AUTH_DOMAIN` | 空                                                  | Firebase Authドメイン                                      |
 | `KAKERATTA_GCS_BUCKET`           | 空                                                  | 画像を保存する非公開Cloud Storageバケット                  |
-| `KAKERATTA_STORE`                | `file`                                              | 保存先。参照構成のCloud Runでは `firestore`                |
+| `KAKERATTA_STORE`                | `file`                                              | 保存先。本番VM・Cloud Runでは `firestore`                |
 | `KAKERATTA_FIRESTORE_PROJECT_ID` | Firebaseプロジェクト                                | Firestoreのプロジェクト                                    |
 | `KAKERATTA_MCP_SERVERS`          | 空                                                  | 担当に割り当てられるリモートMCPサーバー                    |
 | `KAKERATTA_NOMINATIM_URL`        | 公開サービス                                        | Nominatimの接続先                                          |
@@ -1319,6 +1327,6 @@ embedding はかけらを取り出す助けにはなりますが、
 | [使い方と設定](usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [AIまわりで苦労したこと](ai-lessons_ja.md) | Nemotron の担当で起きた失敗と、頼れるようにするために変えたこと |
 | [Hermes Agent](hermes_ja.md)（[English](hermes.md)） | MCPの認証、ask のライフサイクル、計画に渡す文脈、フォールスルー |
-| [Google Cloudへのデプロイ](../infra/README_ja.md) | Terraformでの構築。Firebase Hosting、Cloud Run、Firestore ほか |
+| [Google Cloudへのデプロイ](../infra/README_ja.md) | Cloud Run構成と暫定運用の共有VM |
 
 [MITライセンス](../LICENSE)。

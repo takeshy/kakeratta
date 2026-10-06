@@ -72,6 +72,12 @@ hosted storage. Use `task test` to run the Go and browser tests.
 
 ## Architecture
 
+The diagram shows the preferred Cloud Run deployment. Production currently
+runs on a shared Compute Engine VM to reduce the cost of keeping it unchanged
+through the roughly one-month judging wait after the 2026-10-31 submission
+deadline. This temporary arrangement keeps the same Web/worker separation
+and durable queues; see [current operations](infra/shared-vm/README.md).
+
 ```mermaid
 flowchart LR
   Browser[Browser] --> Hosting[Firebase Hosting]
@@ -99,10 +105,11 @@ remain in Firestore for retry; Pub/Sub redelivers unacknowledged jobs.
 Data, execution claims and conversation ordering belong to each account.
 Web and worker instances can be added independently: accounts need no assigned
 server, and independent accounts and conversations can run in parallel while
-each conversation keeps its processing order. Workers can scale to zero when
-idle. Capacity grows through additional instances and measured tuning of shared
-infrastructure; worker sizes are deployment settings. Local development uses
-the same persona engine with file storage and an in-process dispatcher.
+each conversation keeps its processing order. In the Cloud Run configuration,
+workers can scale to zero when idle. Capacity grows through additional instances
+and measured tuning of shared infrastructure; worker sizes are deployment
+settings. The temporary shared VM has fixed capacity and a running worker.
+Local development uses the same persona engine with file storage and an in-process dispatcher.
 
 See [architecture and scaling](docs/system/architecture.md) for the full
 execution model and [deployment](infra/README.md) for infrastructure settings.
@@ -145,6 +152,6 @@ bringing something back at the right time.
 | [AI lessons](docs/ai-lessons.md) | Failures observed in development and how they were addressed |
 | [External agents](docs/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions and fallback |
 | [NemoClaw integration report](docs/nemoclaw-hermes-integration.md) | Sandbox setup and verification, with protocol-version context |
-| [Google Cloud deployment](infra/README.md) | Terraform, Firebase Hosting and Cloud Run |
+| [Google Cloud deployment](infra/README.md) | Cloud Run configuration and temporary shared VM operations |
 
 [MIT licensed](LICENSE).

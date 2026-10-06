@@ -1,5 +1,7 @@
 # Shared application VM
 
+Cloud Run remains the preferred hosted configuration. This shared VM is a temporary arrangement to reduce the cost of keeping production unchanged through the roughly one-month judging wait after the 2026-10-31 submission deadline.
+
 Production runs GemiHub, Kakeratta web/worker, and Geo MCP in separate Docker containers on `shared-apps` (`geminihub-486523`, `asia-northeast1-b`, `e2-medium`, 4 GiB). The existing global HTTPS load balancer, IP and certificate map remain in use. Nginx selects applications by Host; GemiHub remains the default for its custom domains. Firestore, GCS, OAuth/session/VAPID secrets, Pub/Sub stay in their original projects.
 
 `main.tf` owns only the new VM, private configuration bucket, bootstrap account, scoped IAM, instance group, backend services, health checks, certificate authorization records and the `kakeratta-vm-due` queue. GemiHub's existing Terraform module continues to own the URL map and front end. Its `shared_vm_backends` setting selects these backends. Kakeratta's original module uses `shared_vm_ip` to retain the migrated DNS and Pub/Sub/Scheduler endpoints. Inspect both modules' plans before applying: the retained Cloud Run services are fallback resources, not the production deployment target.

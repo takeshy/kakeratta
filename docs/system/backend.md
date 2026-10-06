@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication, entry handling, timeline data, persistence, settings, model usage logging, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites"]
-updated: "2026-10-05"
+updated: "2026-10-06"
 ---
 
 Authentication, entry handling, timeline data, persistence, settings, model usage logging, schedule editing, reminder push delivery, favorites, and search.
@@ -196,6 +196,8 @@ Map endpoints and external MCP server lists come from operator environment varia
 ## Model usage logging
 
 Every outbound chat completion emits one structured stdout record with `path: "model-usage"` and `message: "model usage"`, including transport, HTTP, decoding, provider, and empty-choice failures. Calls rejected before sending (for example an unconfigured model) do not produce an API-call record. `llm.Reply.Usage` retains provider-reported `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional reasoning/cache token details. Missing usage or individual counts remain null rather than estimated from text length or silently treated as zero. Usage is recorded before caller validation, so a subsequently rejected tool response remains accounted for.
+
+The provider's first-choice `finish_reason` is retained as `llm.Reply.FinishReason` and logged as optional `finishReason`. A value of `length` identifies provider output truncation; API `outcome: "success"` still describes the successful response, not acceptance of the answer. Missing finish reasons remain omitted.
 
 Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing, research (including initial planning/deep selection), answer, schedule/action planning, review, memory update/summary, monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
 

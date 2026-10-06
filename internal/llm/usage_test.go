@@ -18,6 +18,7 @@ func TestUsageRecordedForEveryRequestOutcome(t *testing.T) {
 	}{
 		{"success", `{"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19,"completion_tokens_details":{"reasoning_tokens":4},"prompt_tokens_details":{"cached_tokens":3}},"choices":[{"message":{"content":"private answer"}}]}`, "success", 200, true},
 		{"missing", `{"choices":[{"message":{"content":"ok"}}]}`, "success", 200, false},
+		{"truncated", `{"choices":[{"finish_reason":"length","message":{"content":"private incomplete answer"}}]}`, "success", 200, false},
 		{"zero", `{"usage":{"prompt_tokens":0,"completion_tokens":0},"choices":[{"message":{"content":"ok"}}]}`, "success", 200, true},
 		{"empty", `{"usage":{"prompt_tokens":12},"choices":[]}`, "empty_choices", 200, true},
 		{"provider", `{"usage":{"prompt_tokens":12},"error":{"message":"private provider error"}}`, "provider_error", 200, true},
@@ -56,6 +57,9 @@ func TestUsageRecordedForEveryRequestOutcome(t *testing.T) {
 			}
 			if tc.name == "zero" && (r.Usage.Input == nil || *r.Usage.Input != 0 || r.Usage.Total != nil) {
 				t.Fatal("zero and unknown were conflated")
+			}
+			if tc.name == "truncated" && (reply.FinishReason != "length" || r.FinishReason != "length") {
+				t.Fatal("completion finish reason was lost")
 			}
 			if _, ok := sent["purpose"]; ok {
 				t.Fatal("logging metadata was sent to provider")

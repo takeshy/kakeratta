@@ -91,9 +91,10 @@ type ToolCall struct {
 
 // Reply is what came back: prose, tool calls, or both.
 type Reply struct {
-	Content string
-	Calls   []ToolCall
-	Usage   *Usage
+	Content      string
+	Calls        []ToolCall
+	Usage        *Usage
+	FinishReason string
 }
 
 // Attachment is a file handed to the model.
@@ -253,7 +254,8 @@ func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 	}
 	var parsed struct {
 		Choices []struct {
-			Message struct {
+			FinishReason string `json:"finish_reason"`
+			Message      struct {
 				Content   string `json:"content"`
 				ToolCalls []struct {
 					ID       string `json:"id"`
@@ -281,7 +283,8 @@ func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 		return Reply{}, errors.New("応答が空です")
 	}
 	message := parsed.Choices[0].Message
-	reply := Reply{Content: message.Content, Usage: record.Usage}
+	record.FinishReason = parsed.Choices[0].FinishReason
+	reply := Reply{Content: message.Content, Usage: record.Usage, FinishReason: record.FinishReason}
 	for _, call := range message.ToolCalls {
 		reply.Calls = append(reply.Calls, ToolCall{
 			ID: call.ID, Name: call.Function.Name, Args: call.Function.Arguments,
