@@ -1,3 +1,4 @@
+import { getLanguage } from "../src/i18n.js";
 import { screen } from "./frame.js";
 import { nobody, personas, timeline, words } from "./fixtures.js";
 
@@ -55,5 +56,19 @@ export const MoreOptions = {
     const host = screen({ rows: personas, entries: timeline().answered, signedIn: true });
     host.querySelector(".more-toggle")?.click();
     return host;
+  },
+};
+
+export const Offline = {
+  name: "オフライン・送信待ち",
+  render: () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    const ja = getLanguage() === "ja";
+    return screen({ rows: personas, pending: 1, entries: [
+      { id: "offline-cached", root: "offline-cached", kind: "post", speaker: "user", at: new Date(Date.now() - 600000).toISOString(),
+        text: ja ? "今日の散歩で、気になる喫茶店を見つけた。" : "Found a cafe that caught my eye on today's walk." },
+      { id: "local-offline-pending", root: "local-offline-pending", kind: "post", speaker: "user", pending: true, at: new Date(Date.now() - 60000).toISOString(),
+        text: ja ? "帰り道に寄ってみたい。電波がなくてもメモできた。" : "I'd like to stop by on my way home. Saved this note even without a connection." },
+    ] });
   },
 };

@@ -3,6 +3,8 @@ import { adoptFavoriteIDs } from "../src/favorite-state.js";
 // The panels load themselves from /api. A story has no server, so it hands
 // them one: fetch answers from the fixtures, in the shapes the real routes
 // use, and writes go back into the same fixtures so a toggle looks toggled.
+const fetchAsset = globalThis.fetch.bind(globalThis);
+
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -19,6 +21,8 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
   memory = structuredClone(memory);
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === "string" ? input : input.url, location.origin);
+    // Storybook loads its own preview modules through fetch between stories.
+    if (!url.pathname.startsWith("/api/")) return fetchAsset(input, init);
     const method = (init.method || "GET").toUpperCase();
     const path = url.pathname;
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;

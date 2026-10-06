@@ -33,6 +33,7 @@ export default {
   initialGlobals: { lang: "ja", textSize: "standard" },
   decorators: [
     (story, context) => {
+      if (Object.hasOwn(navigator, "onLine")) delete navigator.onLine;
       setLanguage(context.globals.lang || "ja");
       document.documentElement.lang = context.globals.lang || "ja";
       setTextSize(context.globals.textSize || "standard");

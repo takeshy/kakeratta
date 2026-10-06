@@ -12,9 +12,11 @@
 // element, so the picture is the thing and not the space around it. Chromium is
 // driven over its DevTools protocol, which is what makes both possible.
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -55,6 +57,7 @@ const shots = [
   { name: "persona-create", id: "personas--ai-create-start", clip: ".dialog" },
   { name: "persona-draft", id: "personas--ai-create-draft", clip: ".dialog" },
   { name: "timeline", id: "screen--hero" },
+  { name: "offline", id: "screen--offline", ready: ".sync-status" },
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
   { name: "persona-planner", id: "personas--external-planner", clip: '.persona[data-id="book"]', ready: '.persona[data-id="book"] .switch input[type="checkbox"]' },
@@ -96,7 +99,8 @@ class Devtools {
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(event.data);
       if (message.id && this.pending.has(message.id)) {
-        const { resolve, reject } = this.pending.get(message.id);
+        const { resolve, reject, timer } = this.pending.get(message.id);
+        clearTimeout(timer);
         this.pending.delete(message.id);
         if (message.error) reject(new Error(message.error.message));
         else resolve(message.result);
@@ -113,7 +117,10 @@ class Devtools {
   send(method, params = {}, sessionId) {
     const id = this.next++;
     this.socket.send(JSON.stringify({ id, method, params, sessionId }));
-    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} timed out`)); }, 30000);
+      this.pending.set(id, { resolve, reject, timer });
+    });
   }
   on(method, listener) {
     if (!this.listeners.has(method)) this.listeners.set(method, []);
@@ -124,74 +131,115 @@ class Devtools {
 
 async function main() {
   const wanted = process.env.CAPTURE_ONLY ? process.env.CAPTURE_ONLY.split(",") : null;
-  const storybook = spawn(join(here, "node_modules", ".bin", "storybook"),
-    ["dev", "-p", String(port), "--ci", "--no-open"], { cwd: here, stdio: "ignore" });
-  mkdirSync(profile, { recursive: true });
-  const chromium = spawn(browser, [
-    "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
-    `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, "about:blank",
-  ], { stdio: "ignore" });
+  const buildDir = mkdtempSync(join(tmpdir(), "kakeratta-storybook-captures-"));
+  const storybook = createServer(async (request, response) => {
+    const pathname = new URL(request.url, "http://127.0.0.1").pathname;
+    const file = resolve(buildDir, pathname === "/" ? "index.html" : decodeURIComponent(pathname).slice(1));
+    if (!file.startsWith(buildDir + sep)) { response.writeHead(404); response.end(); return; }
+    try {
+      const data = await readFile(file);
+      const type = file.endsWith(".js") ? "text/javascript" : file.endsWith(".css") ? "text/css" : file.endsWith(".json") ? "application/json" : file.endsWith(".png") ? "image/png" : file.endsWith(".svg") ? "image/svg+xml" : "text/html";
+      response.setHeader("Content-Type", type);
+      response.end(data);
+    } catch { response.writeHead(404); response.end(); }
+  });
+  let chromium;
   let devtools;
   try {
+    const build = spawn(join(here, "node_modules", ".bin", "storybook"),
+      ["build", "--output-dir", buildDir, "--disable-telemetry"], { cwd: here, stdio: "ignore" });
+    await new Promise((resolve, reject) => {
+      build.once("error", reject);
+      build.once("exit", code => code === 0 ? resolve() : reject(new Error(`Storybook build failed (${code})`)));
+    });
+    await new Promise((resolve, reject) => { storybook.once("error", reject); storybook.listen(port, "127.0.0.1", resolve); });
+    mkdirSync(profile, { recursive: true });
+    chromium = spawn(browser, [
+      "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--hide-scrollbars",
+      `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, "about:blank",
+    ], { stdio: "ignore" });
     await waitFor(() => fetch(`http://127.0.0.1:${port}/index.json`).then((r) => r.ok), "Storybook", 60000);
     let version;
     await waitFor(async () => { version = await (await fetch(`http://127.0.0.1:${debugPort}/json/version`)).json(); return true; }, "Chromium");
     devtools = await Devtools.connect(version.webSocketDebuggerUrl);
-    const { targetId } = await devtools.send("Target.createTarget", { url: "about:blank" });
-    const { sessionId } = await devtools.send("Target.attachToTarget", { targetId, flatten: true });
-    const page = (method, params) => devtools.send(method, params, sessionId);
-    const evaluate = async (expression) => (await page("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result.value;
-    await page("Page.enable");
-    await page("Runtime.enable");
-    let loaded = null;
-    devtools.on("Page.loadEventFired", (_, session) => { if (session === sessionId) loaded?.(); });
-
     for (const lang of ["ja", "en"]) {
       mkdirSync(join(out, lang), { recursive: true });
       for (const shot of shots.filter((shot) => !wanted || wanted.includes(shot.name))) {
-        await page("Emulation.setDeviceMetricsOverride", {
-          width: WIDTH, height: shot.clip ? TALL : 844, deviceScaleFactor: SCALE, mobile: true,
-        });
-        const arrived = new Promise((resolve) => { loaded = resolve; });
-        await page("Page.navigate", { url: `http://127.0.0.1:${port}/iframe.html?id=${shot.id}&viewMode=story&globals=lang:${lang}` });
-        await arrived;
-        const ready = shot.ready || shot.clip || "#app";
-        await waitFor(() => evaluate(`!!document.querySelector(${JSON.stringify(ready)})`), `${shot.name}: ${ready}`, 15000);
-        await evaluate("document.fonts.ready.then(() => true)");
-        // Fixtures arrive over a stubbed fetch and images decode; a beat for both.
-        await sleep(700);
-        if (shot.open) {
-          for (const selector of [shot.open].flat()) {
-            await evaluate(`document.querySelector(${JSON.stringify(selector)})?.setAttribute("open", "")`);
+        // A fresh tab avoids stale lifecycle state between stories and languages.
+        const { targetId } = await devtools.send("Target.createTarget", { url: "about:blank" });
+        const { sessionId } = await devtools.send("Target.attachToTarget", { targetId, flatten: true });
+        const page = (method, params) => devtools.send(method, params, sessionId);
+        const evaluate = async (expression) => (await page("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result.value;
+        await page("Page.enable");
+        await page("Runtime.enable");
+        await page("Page.bringToFront");
+        try {
+          await page("Emulation.setDeviceMetricsOverride", {
+            width: WIDTH, height: shot.clip ? TALL : 844, deviceScaleFactor: SCALE, mobile: true,
+          });
+          await page("Page.navigate", { url: `http://127.0.0.1:${port}/iframe.html?id=${shot.id}&viewMode=story&globals=lang:${lang}` });
+          const ready = shot.ready || shot.clip || "#app";
+          try { await waitFor(() => evaluate(`!!document.querySelector(${JSON.stringify(ready)})`), `${shot.name}: ${ready}`, 15000); }
+          catch (error) {
+            const text = await evaluate("document.body.innerText.slice(0, 3000)").catch(() => "Page did not respond");
+            throw new Error(`${lang}/${shot.name}: ${error.message}; ${text}`, { cause: error });
+          }
+          await evaluate("document.fonts.ready.then(() => true)");
+          // Fixtures arrive over a stubbed fetch and images decode; a beat for both.
+          await sleep(700);
+          if (shot.open) {
+            for (const selector of [shot.open].flat()) {
+              await evaluate(`document.querySelector(${JSON.stringify(selector)})?.setAttribute("open", "")`);
+              await sleep(100);
+            }
+            // A section that grows can carry the page with it, and the clip is
+            // measured against the viewport: start from the top either way.
+            await evaluate("window.scrollTo(0, 0)");
             await sleep(100);
           }
-          // A section that grows can carry the page with it, and the clip is
-          // measured against the viewport: start from the top either way.
-          await evaluate("window.scrollTo(0, 0)");
-          await sleep(100);
-        }
-        let clip;
-        if (shot.clip) {
-          const rect = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(shot.clip)}).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })()`);
-          clip = {
-            x: Math.max(0, rect.x - MARGIN), y: Math.max(0, rect.y - MARGIN),
-            width: Math.min(WIDTH, rect.width + 2 * MARGIN), height: rect.height + 2 * MARGIN, scale: 1,
-          };
-        } else {
-          // The screen ends where #app ends - its own bottom padding included -
-          // rather than at the bottom of a viewport it did not fill.
-          const height = await evaluate("Math.ceil(Math.max(document.querySelector('#app')?.getBoundingClientRect().bottom || 0, ...[...document.querySelectorAll('#app > *')].map((n) => n.getBoundingClientRect().bottom)) + 24)");
-          clip = { x: 0, y: 0, width: WIDTH, height: Math.min(height, MAX_PAGE), scale: 1 };
-        }
-        const { data } = await page("Page.captureScreenshot", { format: "png", clip, captureBeyondViewport: true });
-        writeFileSync(join(out, lang, `${shot.name}.png`), Buffer.from(data, "base64"));
-        console.log(`${lang}/${shot.name}.png ${Math.round(clip.width)}x${Math.round(clip.height)}`);
+          let clip;
+          if (shot.clip) {
+            // Bottom-anchored sheets can extend a screenshot past the viewport.
+            // Move only their capture container; the shipped content keeps its layout.
+            await evaluate(`(() => {
+              const sheet = document.querySelector(${JSON.stringify(shot.clip)})?.closest("#sheet");
+              if (sheet) { sheet.style.top = "12px"; sheet.style.bottom = "auto"; }
+              return true;
+            })()`);
+            await sleep(150);
+            const rect = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(shot.clip)}).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })()`);
+            const x = Math.max(0, Math.floor(rect.x - MARGIN));
+            const y = Math.max(0, Math.floor(rect.y - MARGIN));
+            clip = {
+              x, y, width: Math.min(WIDTH - x, Math.ceil(rect.width + 2 * MARGIN)),
+              height: Math.min(TALL - y, Math.ceil(rect.height + 2 * MARGIN)), scale: 1,
+            };
+          } else {
+            // The screen ends where #app ends - its own bottom padding included -
+            // rather than at the bottom of a viewport it did not fill.
+            const height = await evaluate("Math.ceil(Math.max(document.querySelector('#app')?.getBoundingClientRect().bottom || 0, ...[...document.querySelectorAll('#app > *')].map((n) => n.getBoundingClientRect().bottom)) + 24)");
+            clip = { x: 0, y: 0, width: WIDTH, height: Math.min(height, MAX_PAGE), scale: 1 };
+          }
+          let data;
+          if (!shot.clip) {
+            await page("Emulation.setDeviceMetricsOverride", {
+              width: WIDTH, height: clip.height, deviceScaleFactor: SCALE, mobile: true,
+            });
+            await sleep(150);
+          }
+          try { ({ data } = await page("Page.captureScreenshot", { format: "png", clip, captureBeyondViewport: false })); }
+          catch (error) { throw new Error(`${lang}/${shot.name}: ${error.message}; clip=${JSON.stringify(clip)}`, { cause: error }); }
+          writeFileSync(join(out, lang, `${shot.name}.png`), Buffer.from(data, "base64"));
+          console.log(`${lang}/${shot.name}.png ${Math.round(clip.width)}x${Math.round(clip.height)}`);
+        } finally { await devtools.send("Target.closeTarget", { targetId }); }
       }
     }
   } finally {
     devtools?.close();
-    chromium.kill("SIGTERM");
-    storybook.kill("SIGTERM");
+    chromium?.kill("SIGTERM");
+    storybook.closeAllConnections();
+    await new Promise(resolve => storybook.close(resolve));
+    rmSync(buildDir, { recursive: true, force: true });
   }
 }
 

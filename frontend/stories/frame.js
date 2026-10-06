@@ -1,3 +1,5 @@
+import { el } from "../src/dom.js";
+import { t } from "../src/i18n.js";
 import { createEntryFilters, filterConversations } from "../src/entry-filters.js";
 import { watchFavorites } from "../src/favorite-state.js";
 // Builds the real pieces into the real container, so a story is the app with
@@ -69,13 +71,16 @@ export function compose({ text = "", settings = {} } = {}) {
 }
 
 // One story, one screen. Everything below `#app` is what app.js assembles.
-export function screen({ rows = [], entries = [], text = "", speaking = false, signedIn = false } = {}) {
+export function screen({ rows = [], entries = [], text = "", speaking = false, signedIn = false, pending = 0 } = {}) {
   const host = document.createElement("div");
   host.id = "app";
   const timeline = feed(entries, rows);
   let filters = {};
   const controls = createEntryFilters(next => { filters = next; timeline.set(filterConversations(entries, filters)); });
   const content = document.createElement("div");
+  if (pending) content.append(el("div", { class: "sync-status" },
+    el("span", { class: "hint", role: "status", text: t("端末に保存済み・送信待ち {0}件", pending) }),
+    el("button", { class: "chip", type: "button", label: "接続して再送" })));
   content.append(controls.element, timeline.element);
   watchFavorites(() => { if (host.isConnected) timeline.set(filterConversations(entries, filters)); });
   host.append(...screenNodes({

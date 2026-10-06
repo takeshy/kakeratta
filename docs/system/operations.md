@@ -16,6 +16,10 @@ Development, validation, model usage inspection, remote Terraform state and vari
 
 `frontend/build.mjs` creates distribution files by copying into `frontend/dist`. The browser loads ES modules directly; the application is not bundled. The build also assembles public assets, the landing page, manual, screenshots, and the Service Worker cache manifest.
 
+`mise exec -- npm --prefix frontend run captures` retakes the Japanese and English documentation screenshots from a fresh static Storybook build in a temporary directory. It requires Chromium (`CHROMIUM` can select the executable); `CAPTURE_SCRATCH` selects its profile directory, `CAPTURE_PORT` and `CAPTURE_DEBUG_PORT` select temporary local ports, and `CAPTURE_ONLY` selects comma-separated screenshot names. The capture server explicitly binds to `127.0.0.1`, and story API mocks pass non-API asset requests through to Storybook. Each shot uses a fresh browser tab and waits for its story content instead of a page-load notification, with bounded DevTools requests to avoid an indefinite capture run. Images are written to `docs/captures/{ja,en}/` at a 390px viewport and 2× scale, including the Storybook offline/pending fixture. Review the images and refresh referenced dimensions when they change.
+
+Implementation: [captures.mjs](../../frontend/captures.mjs), [Screen.stories.js](../../frontend/stories/Screen.stories.js), and [story API fixtures](../../frontend/stories/api.js). Verification: [storybook-api.test.js](../../tests/storybook-api.test.js) checks that preview asset requests survive repeated fixture setup; [site-pages.test.js](../../tests/site-pages.test.js) checks that screenshot references and dimensions match the generated PNGs.
+
 ## Validation
 
 ```sh
