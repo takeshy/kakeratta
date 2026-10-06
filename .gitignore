@@ -19,6 +19,7 @@ tmp/*
 
 # Operator tool configuration for infra/ (MCP servers and their headers)
 *.tfvars
+*.tfvars.json
 
 # Python
 __pycache__/

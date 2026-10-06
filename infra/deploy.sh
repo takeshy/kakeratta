@@ -58,10 +58,10 @@ if [[ -n "${KAKERATTA_MCP_SERVERS:-}" ]]; then
   TF_ARGS+=(-var="mcp_servers=$KAKERATTA_MCP_SERVERS")
 fi
 
-terraform init
+python3 ./terraform.py app init
 
 # The registry and APIs must exist before Cloud Build can publish the image.
-terraform apply -auto-approve \
+python3 ./terraform.py app apply -auto-approve \
   -target='google_project_service.required' \
   -target='google_artifact_registry_repository.app' \
   -target='google_project_iam_member.cloud_build' \
@@ -71,7 +71,7 @@ IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/kakeratta/kakeratta:$IMAGE_TAG"
 gcloud builds submit .. --project="$PROJECT_ID" --config=../cloudbuild.yaml \
   --substitutions="_IMAGE=$IMAGE,_VERSION=$COMMIT_ID"
 
-terraform apply -auto-approve "${TF_ARGS[@]}"
+python3 ./terraform.py app apply -auto-approve "${TF_ARGS[@]}"
 
 cd ..
 node frontend/build.mjs
@@ -92,8 +92,8 @@ done
 printf '\nkakeratta: %s\n' "$URL"
 printf 'Commit: %s\n' "$COMMIT_ID"
 printf 'Cloud Run: '
-terraform -chdir=infra output -raw cloud_run_url
+python3 infra/terraform.py app output -raw cloud_run_url
 printf '\n'
 printf 'Judge URL: '
-terraform -chdir=infra output -raw judge_url
+python3 infra/terraform.py app output -raw judge_url
 printf '\n'

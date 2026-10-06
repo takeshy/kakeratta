@@ -30,6 +30,36 @@ With `shared_vm_ip` set, the original Terraform module preserves the migrated
 DNS and Pub/Sub/Scheduler endpoints. See the shared VM guide before changing
 production configuration or switching timer queues.
 
+## Terraform state and variables
+
+Both modules use the private, versioned `takeshy-work-kakeratta-terraform`
+bucket in project `takeshy-work`. The GCS backend stores state under `state/app`
+and `state/shared-vm`; private variable files live under `vars/app` and
+`vars/shared-vm`. The bucket was bootstrapped separately with uniform access,
+public access prevention and object versioning. It is outside the app/VM
+projects to avoid inheriting their build accounts' Storage permissions.
+
+Use the wrapper with Terraform on your PATH (for example through `mise exec
+terraform@1.13.4 -- python3 ...`):
+
+```sh
+python3 infra/terraform.py shared-vm init
+python3 infra/terraform.py shared-vm plan -out=/tmp/shared-vm.tfplan
+python3 infra/terraform.py shared-vm apply /tmp/shared-vm.tfplan
+```
+
+Use `app` for the original infrastructure module. The wrapper downloads GCS
+variables to private temporary files for plan or unsaved apply and removes them
+afterwards. Applying a saved plan uses that plan's captured variables. It uses
+configured Google credentials or the logged-in gcloud account's short-lived
+token without writing it to backend configuration. To fetch editable local copies, run `python3 infra/terraform.py app fetch-vars`
+(or `shared-vm`); add `--force` only when deliberately replacing existing local
+files. After editing local ignored variable files, `python3 infra/terraform.py app upload-vars` or `... shared-vm
+upload-vars` publishes them to GCS. State and variable contents must not be
+printed or committed. Legacy local state files are recovery snapshots, not the
+active backend. See [operations](../docs/system/operations.md#terraform-state-and-variables)
+for migration and recovery details.
+
 ## Cloud Run configuration
 
 The deployed app separates the browser, Web API and job worker. **Firebase Hosting** serves the

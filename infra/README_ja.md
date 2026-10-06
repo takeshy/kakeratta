@@ -27,6 +27,34 @@ gcloud logging read 'resource.type="gce_instance" AND labels.service_name:"kaker
 Pub/Sub・Schedulerのエンドポイントを維持します。本番設定やタイマーキューの切り替えは
 共有VMの運用手順を確認してから行います。
 
+## Terraformのstateとtfvars
+
+アプリ用と共有VM用のstateは、`takeshy-work` プロジェクトの非公開バケット
+`takeshy-work-kakeratta-terraform` で管理します。保存先はそれぞれ `state/app` と
+`state/shared-vm`、tfvarsは `vars/app` と `vars/shared-vm` です。バケットは別途作成し、
+均一アクセス・公開禁止・世代管理を有効にしています。アプリとVMのプロジェクトから
+分けることで、ビルドアカウントのStorage権限を継承しないようにしています。
+
+TerraformをPATHに用意して、次のラッパーを使います。miseなら各コマンドの前に
+`mise exec terraform@1.13.4 --` を付けられます。
+
+```sh
+python3 infra/terraform.py shared-vm init
+python3 infra/terraform.py shared-vm plan -out=/tmp/shared-vm.tfplan
+python3 infra/terraform.py shared-vm apply /tmp/shared-vm.tfplan
+```
+
+元のアプリ基盤には `shared-vm` の代わりに `app` を指定します。planと保存済みplanを
+使わないapplyでは、GCSのtfvarsを非公開の一時ファイルに取得し、終了時に削除します。
+保存済みplanのapplyには、そのplanに含まれる変数を使います。認証は既存の認証用環境変数、
+またはログイン済みgcloudの短期トークンを使い、backend設定にトークンは保存しません。
+編集用のtfvarsは `python3 infra/terraform.py app fetch-vars`（または `shared-vm`）で
+取得します。既存のローカルファイルを意図して置き換える場合だけ `--force` を付けます。
+ローカルの無視対象tfvarsを編集した後は `python3 infra/terraform.py app upload-vars`
+または `... shared-vm upload-vars` でGCSへ保存します。state・tfvarsの内容は表示・コミット
+しません。古いローカルstateは復旧用であり、現在の保存先はGCSです。
+[移行と復旧の説明](../docs/system/operations.md#terraform-state-and-variables)も参照してください。
+
 ## Cloud Run構成
 
 公開時のkakerattaは、画面・Web API・workerを分けて動きます。画面は **Firebase Hosting** が配信し

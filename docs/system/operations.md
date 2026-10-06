@@ -1,12 +1,12 @@
 ---
 type: "Process"
 title: "Development and workspace operations"
-description: "Development, validation, model usage inspection, deployment, memory migration, location backfill, portable exports, and workspace deletion."
+description: "Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
 updated: "2026-10-06"
 ---
 
-Development, validation, model usage inspection, deployment, memory migration, location backfill, portable exports, and workspace deletion.
+Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion.
 
 # Development, validation, and deployment
 
@@ -60,11 +60,23 @@ Fix the date range and timezone when reconciling provider billing, and check tha
 
 After deploying research model separation and dynamic read capabilities, compare a deep or AlwaysUltra turn by its `trigger`: `purpose=research` and schedule/action planning should use the persona model, while `purpose=answer` uses the high model. Inspect workflow `reads` for requests made after Web search was exhausted, and compare research-round counts and token usage. API `outcome=success` does not mean a requested tool ran: a read may have received a host refusal. Keep before/after measurements separate; the [2026-10-05 production usage report](../production-model-usage-2026-10-05.md) describes the earlier behavior and a fixed-token cost estimate, not a post-deployment result.
 
+## Terraform state and variables
+
+The app module (`infra/`) and shared VM module (`infra/shared-vm/`) use a GCS backend in the private `takeshy-work-kakeratta-terraform` bucket in project `takeshy-work`. Their state prefixes are `state/app` and `state/shared-vm`, each with `default.tfstate`. The bucket has uniform access, enforced public access prevention and object versioning. It is bootstrapped separately from these modules so state storage does not depend on applying the resources it tracks. Terraform provides state locking. The bucket is outside the app/VM projects so their project-level build permissions do not automatically grant state access; operators use their existing authorized Google identity.
+
+Private variables are versioned objects under `vars/app/terraform.tfvars`, `vars/app/shared-vm.auto.tfvars` and `vars/shared-vm/terraform.tfvars`. [terraform.py](../../infra/terraform.py) runs a selected module: `python3 infra/terraform.py shared-vm init`, `... shared-vm plan -out=/absolute/path/change.tfplan`, then `... shared-vm apply /absolute/path/change.tfplan`. Replace `shared-vm` with `app` for the original module. Plan and unsaved apply download the module's variables into a private temporary directory, pass them with `-var-file`, and clean them up on completion or failure. Saved-plan apply uses the variables already captured in that plan. Explicit CLI variable options still take precedence. `fetch-vars` retrieves editable local copies and refuses to overwrite existing files unless `--force` is explicit. `upload-vars` publishes the module's local ignored tfvars after an operator edits them; ordinary plan/apply never upload variables. The retained deployment script uses the same wrapper.
+
+The wrapper uses existing credential environment variables when provided; otherwise it obtains the logged-in gcloud account's short-lived token and passes it only through `GOOGLE_OAUTH_ACCESS_TOKEN`. Credentials are absent from backend blocks and command arguments. State, tfvars and saved plans may contain secrets; they remain outside version control. Runtime Cloud Build does not run Terraform or download these variables.
+
+Git ignores local state, plans and HCL/JSON tfvars. `.gcloudignore` includes those Git exclusions for source uploads, and `.dockerignore` excludes Terraform working directories, state, plans and variables recursively from image build contexts. Verification: [test_terraform.py](../../infra/test_terraform.py) covers private temporary variable cleanup after a failed plan, saved-plan application without fetching variables, and preserving local files after a failed variable fetch.
+
+The 2026-10-06 migration backed up both local states and all three variable files, copied variables to GCS, and ran `init -migrate-state -force-copy` separately for each module. Verification compares the original state lineage, resource data and outputs, and checks variable files byte for byte. The app's private variables also retain Firebase browser configuration, the retained Cloud Run image tag and the judge model key previously supplied through deployment CLI options, so standalone plans do not silently clear those values. Existing local state/backup files are recovery snapshots; GCS is the active backend. Restore an inspected historical state through Terraform's state tooling rather than overwriting an active state object. See the [GCS backend specification](https://developer.hashicorp.com/terraform/language/backend/gcs).
+
 ## Deployment
 
 The Dockerfile builds the Go binary and runs the API or push worker according to `KAKERATTA_MODE`; the frontend is a separate static artifact. `cloudbuild.yaml` builds and pushes an immutable image, builds the frontend beside it, uploads a frontend archive to the private shared bucket, then updates both containers through IAP/OS Login. The larger build worker still keeps fresh Go compilation short. The host serializes deployments, drains existing processes, checks startup and restores the previous images on failure. Nginx serves the static files and proxies API/SSE and authenticated internal pushes. See [deployment and rollback](../../infra/shared-vm/README.md).
 
-The Kakeratta build account has object creation on the shared configuration bucket plus conditional object viewing restricted to `frontend/`. `gcloud storage cp` needs `storage.objects.get` for its destination check as well as creation for the upload; creation alone fails with 403. Terraform manages these bindings in `frontend_upload` and `frontend_upload_read`. The host bootstrap account separately reads the bucket's bootstrap bundles and frontend archives. See [shared VM Terraform](../../infra/shared-vm/main.tf).
+The Kakeratta build account has object creation on the shared configuration bucket plus bucket listing and conditional object viewing restricted to `frontend/`. `gcloud storage cp` needs destination checking (`storage.objects.get`) and bucket listing (`storage.objects.list`) as well as creation for the upload; creation alone fails with 403. Terraform manages these bindings in `frontend_upload` and `frontend_upload_read`. Bootstrap bundle contents remain outside the build account's read condition. The host bootstrap account separately reads the bucket's bootstrap bundles and frontend archives. See [shared VM Terraform](../../infra/shared-vm/main.tf).
 
 Cloud Run remains the preferred hosted configuration. The shared VM is a temporary arrangement to reduce the cost of keeping production unchanged through the roughly one-month judging wait after the 2026-10-31 submission deadline.
 

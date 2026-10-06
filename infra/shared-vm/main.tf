@@ -1,5 +1,9 @@
 terraform {
   required_version = ">= 1.7"
+  backend "gcs" {
+    bucket = "takeshy-work-kakeratta-terraform"
+    prefix = "state/shared-vm"
+  }
   required_providers {
     google = { source = "hashicorp/google", version = ">= 6.0, < 8.0" }
   }
@@ -58,8 +62,8 @@ resource "google_storage_bucket_iam_member" "frontend_upload_read" {
   member = "serviceAccount:523840037797-compute@developer.gserviceaccount.com"
   condition {
     title       = "kakeratta_frontend_upload_read"
-    description = "Allow gcloud storage cp to inspect frontend upload destinations"
-    expression  = "resource.type == 'storage.googleapis.com/Object' && resource.name.startsWith('projects/_/buckets/${google_storage_bucket.config.name}/objects/frontend/')"
+    description = "Allow gcloud storage cp to inspect and list upload destinations"
+    expression  = "(resource.type == 'storage.googleapis.com/Bucket' && resource.name == 'projects/_/buckets/${google_storage_bucket.config.name}') || (resource.type == 'storage.googleapis.com/Object' && resource.name.startsWith('projects/_/buckets/${google_storage_bucket.config.name}/objects/frontend/'))"
   }
 }
 
