@@ -272,6 +272,16 @@ func TestAPersonsPersonaIsNotIntroducedAsThePerson(t *testing.T) {
 		if !strings.Contains(prompt, "父本人ではありません") {
 			t.Errorf("the %s prompt does not say the persona is not 父", name)
 		}
+		// The same follow-up lifecycle must reach answering, schedule planning,
+		// and memory keeping, including already installed person definitions.
+		for _, want := range []string{"その確認を終了します", "update または invalidate", "ユーザーの約束や確認依頼ではありません", "前回のチェックイン以前", "一度確認した話題は", "確認状況が分からない場合も黙ります"} {
+			if !strings.Contains(prompt, want) {
+				t.Errorf("the %s prompt lacks follow-up rule %q", name, want)
+			}
+		}
+		if strings.Contains(prompt, "届いた頃に様子を聞く") {
+			t.Errorf("the %s prompt still encourages unsolicited delivery checks", name)
+		}
 	}
 	// What it is told to do when the user reports what they did for the person.
 	rules := father.Instructions
