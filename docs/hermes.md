@@ -86,7 +86,7 @@ Kakeratta's MCP server exposes the following tools for external agents. In Herme
 | `list_asks` | Check pending and claimed asks (includes distributed version metadata) |
 | `claim_ask` | Claim an ask exclusively and retrieve context (persona, instructions, capabilities, answer schema, read-only tools) |
 | `read_for_ask` | Look up additional context while answering (`records`, and read-only tools such as `timeline_search`) |
-| `submit_answer` | Submit the final answer (`{text, sources}`); nothing else |
+| `submit_answer` | Submit the final answer (`{text, sources}`, optionally with `remember`, `schedule` and `unrelated`); nothing else |
 | `release_ask` | Hand the turn back to Kakeratta's built-in model immediately |
 | `get_integration` | Retrieve latest official Skill and Wake Gate script payloads |
 
@@ -101,7 +101,7 @@ list_asks → claim_ask → context interpretation → read_for_ask / own resear
 1. **`list_asks`**: Check open asks. Unclaimed asks have `status: "pending"`; if not claimed before `claimBy`, the built-in model takes over.
 2. **`claim_ask`**: Claim the target ask using its `askId` and an execution-unique `claimId`. The response returns `planBy` (accepted answer deadline) and the full `context`. Retry lost responses with the same `claimId`.
 3. **Research & reasoning**: If needed, call `read_for_ask` with a `records` step to look through older kakera records (`args` with any of `tag`, `query`, `before`, or `ids` - up to 10 - to read the entries records point to), or a `tool` step to run a read-only tool in `context.tools`, such as `timeline_search`. Only saved posts discovered via `timeline_search` or read by a record's id through `read_for_ask` can be cited in the answer's `sources`. Research with Hermes's own tools as needed and cite web sources as links in the answer text.
-4. **`submit_answer`**: Submit the `askId`, `claimId`, and `answer: {text, sources}`. Kakeratta checks only its shape and the turn's rules (a named turn must answer, a listening turn must stay quiet, `sources` must come from this ask's searches). `accepted: true` means the answer was received, not yet published: Kakeratta goes on to the schedule and action phases, runs them, and then publishes it (the persona's note keeper writes the notes after that). If rejected, revise using the returned `problems`.
+4. **`submit_answer`**: Submit the `askId`, `claimId`, and `answer: {text, sources, remember, schedule, unrelated}`. `remember` says whether the user's post is worth keeping (Kakeratta's note keeper runs only then), `schedule` whether a schedule must be created, changed or cancelled (the schedule phase runs only then), and `unrelated` marks a silence outside the persona's domain. The three are optional; an answer without them keeps the note keeper and the schedule phase as before. Kakeratta checks only its shape and the turn's rules (a named turn must answer, a listening turn must stay quiet, `sources` must come from this ask's searches). `accepted: true` means the answer was received, not yet published: Kakeratta goes on to the schedule and action phases, runs them, and then publishes it (the persona's note keeper writes the notes after that, when `remember` is not false). If rejected, revise using the returned `problems`.
 5. **`release_ask`**: If an ask cannot be answered, release it immediately rather than waiting for timeouts.
 
 ### The context a claim returns

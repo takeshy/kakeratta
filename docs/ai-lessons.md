@@ -20,14 +20,14 @@ to see it happen.
 post / reply
  ↓ the image is read once                  (GLM-5.3-Flash)
  ↓ routing           Nemotron Super (or optional Jev) matches it against each persona's routing condition
- ↓ every recipient, in parallel, one turn   (Super research; Ultra final answer for deep requests or AlwaysUltra)
-     initial  → short research_plan, deep decision and first read
+ ↓ every recipient, in parallel, one turn   (depth from explicit phrases; Super reads, Ultra answers deep requests or AlwaysUltra)
      read     → field summaries and facts, latest records, older records, timeline search, web search, places, routes
-     answer   → final text and sources
+     answer   → final text and sources, plus whether to remember the post and whether a schedule is needed
      plan     → propose schedules and actions; validate structure, permissions, and arguments in code
      review   → Nemotron Super checks the plan only when it contains schedules or actions
      execute  → stop at the first failed action; publish the answer after successful execution
-     memory   → the note keeper runs separately after publication when eligible
+     memory   → the note keeper runs separately after publication when the answer asked to remember
+ ↓ once a day: the app summarises the day's posts, then every remembering persona checks in reading that summary
  ↓ one structured log line per routing decision and per persona turn; the routing decision is kept per post
 ```
 

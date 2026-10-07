@@ -51,7 +51,7 @@ Creation and editing offer **Remember** and **Always think deeply**. Memory
 is on by default; support and infographic default to off. Turning it off stops
 memory updates and periodic check-ins. Always
 thinking deeply uses the high (Ultra) model for final answers even on ordinary requests; infographic
-defaults to on. Built-in research and schedule/action planning use Super.
+defaults to on. Reads of personas with lookup tools and schedule/action planning use Super.
 
 ## Run locally
 
@@ -123,8 +123,8 @@ The default model configuration is:
 | Model | Role |
 | --- | --- |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
-| **Nemotron 3 Super 120B A12B** | Persona routing, all built-in research including initial planning and depth selection, ordinary answers, schedule/action planning and workflow checks |
-| **Nemotron 3 Ultra 550B A55B** | Final answers for deep requests and for personas with Always think deeply enabled |
+| **Nemotron 3 Super 120B A12B** | Persona routing, reads, ordinary answers, schedule/action planning, workflow checks, the note keeper, and the day's and month's summaries |
+| **Nemotron 3 Ultra 550B A55B** | Answers for deep requests (such as "in detail") and for personas with Always think deeply enabled |
 
 OpenRouter is an optional alternative. Models are chosen by task to benefit
 from smaller models' lower cost and faster responses, using stronger models

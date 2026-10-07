@@ -353,8 +353,8 @@ To permanently resolve Phase: Error deadlocks caused by Docker shutdown race con
 
 > [!TIP]
 > **Source Code Management in Repository**:
-> All scripts and systemd unit files are tracked in the repository under [`scripts/nemoclaw/`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/).
-> Running [`scripts/nemoclaw/install.sh`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/install.sh) symlinks them directly into `~/.local/bin` and `~/.config/systemd/user`, maintaining immediate alignment between git versioning and the running host environment.
+> All scripts and systemd unit files are tracked in the repository under [`scripts/nemoclaw/`](../scripts/nemoclaw/).
+> Running [`scripts/nemoclaw/install.sh`](../scripts/nemoclaw/install.sh) symlinks them directly into `~/.local/bin` and `~/.config/systemd/user`, maintaining immediate alignment between git versioning and the running host environment.
 
 ## End-to-end verification
 

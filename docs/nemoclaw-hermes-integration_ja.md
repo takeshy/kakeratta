@@ -354,8 +354,8 @@ PC シャットダウン時の Docker 停止順序競合や強制終了などに
 
 > [!TIP]
 > **リポジトリ内でのソースコード管理**:
-> これらの一連のスクリプト群および systemd ユニットファイルは、リポジトリ内の [`scripts/nemoclaw/`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/) ディレクトリに集約・バージョン管理されています。
-> 新しい環境へのセットアップやリンク作成は [`scripts/nemoclaw/install.sh`](file:///home/takeshy/pkg/kakeratta/scripts/nemoclaw/install.sh) を実行することで、`~/.local/bin` および `~/.config/systemd/user` へシンボリックリンクとして一括配備できます。
+> これらの一連のスクリプト群および systemd ユニットファイルは、リポジトリ内の [`scripts/nemoclaw/`](../scripts/nemoclaw/) ディレクトリに集約・バージョン管理されています。
+> 新しい環境へのセットアップやリンク作成は [`scripts/nemoclaw/install.sh`](../scripts/nemoclaw/install.sh) を実行することで、`~/.local/bin` および `~/.config/systemd/user` へシンボリックリンクとして一括配備できます。
 
 ## エンドツーエンド検証
 

@@ -37,7 +37,8 @@ Each selected persona then decides what to do:
 * speak in the timeline
 * or stay silent
 
-With memory enabled, the app then keeps what the fragment leaves behind: the persona sums the
+With memory enabled, and when the answer says the fragment is worth
+remembering, the app then keeps what it leaves behind: the persona sums the
 fragment up in one sentence with tags, and says which facts it adds, replaces
 or retires. Once a day, at its check-in, the persona rewrites the summary of
 each field whose facts changed. Memory is split by persona, then by the fields
@@ -256,16 +257,32 @@ with AI-to-AI conversation. (Check-ins and schedules wake a persona on their
 own clock, described below.) The remarks already under a post are part of what each persona
 is given, so a later reply can pick up on them.
 
-**The first Super research call decides the required depth.** It reads the post/reply and parent-answer context, supplies `deep` and a short `research_plan` (at most five items), and requests the first `read` in the same call. If no research is needed, `finish_read` carries the decision and plan. There is no standalone Lightning classification or extra Super classification call.
+**Depth is a plain string match, decided before any model call.** The current
+post (not older thread messages) is lowercased and checked for explicit
+phrases such as `詳しく`, `深掘り`, `ちゃんと調べて`, `それって本当`, `in detail` or
+`deep dive` (`wantsDeep`). A match - or an internal deep request - makes the
+turn deep; a complex request without such a phrase stays ordinary. There is no
+model-based depth judgment and no research plan. Ordinary turns may read 10
+times with 2 Web searches; deep and AlwaysUltra turns 20 times with 4.
 
-A short "詳しく" reply requests more detail about its parent answer. Explicit detail/reconsideration requests and the quality needed for comparison, synthesis or careful verification can select deep=true; thanks and simple follow-ups remain false. Ordinary turns start with 10 reads and 2 Web searches. A deep decision raises only the ceilings to 20 and 4, preserving spent counts and cached lookups. Later rounds receive actual remaining counts and the short plan, without being asked to resubmit the decision or plan. The plan can adapt to findings.
+**Ordinary turns read and answer in one loop on Super.** The answer model is
+offered `submit_answer` from the first request, alongside the available
+`read`. When the thread and memory are enough, a spoken or silent answer is a
+single call; otherwise it reads and then answers in the same loop.
 
-All research uses Super; the final answer uses Ultra for deep requests and Super otherwise. Recipient-selection rules are unchanged.
+**Deep and AlwaysUltra turns read on Super and answer on Ultra** - for a
+persona with lookup tools of its own (Web search, weather, the bundled
+specification and the like). Super is offered only `read` and `finish_read`;
+after it finishes, or reaches the read ceiling, Ultra is offered only
+`submit_answer`. A persona without lookup tools - the infographic, which works
+from what the thread already holds - keeps the single loop on Ultra, so a turn
+that needs no reads is one Ultra call rather than a Super call that would only
+finish reading. Schedule and action phases always use Super.
 
-**Always think deeply** (`alwaysUltra`) selects the high model only for final-answer composition, and keeps the deeper research budget for every wake, including ordinary requests. Research and schedule/action planning, including regeneration, use Super. It does not
-change external delegation; Ultra is used when the built-in planner takes
-over. Infographic ships with this on. Other personas default to off; ordinary
-thanks and follow-ups use Super only while it is off.
+**Always think deeply** (`alwaysUltra`) makes every turn deep: the deeper read
+budget and an Ultra answer. It does not change external delegation; Ultra is
+used when the built-in planner takes over. Infographic ships with this on.
+Other personas default to off.
 
 **Each remark records its model slot** (`model: "super"`, `"ultra"`, or `"agent"`
 for an external answer; nothing for a turn that failed). These are role labels,
@@ -277,10 +294,13 @@ post / reply
  ↓ the image is read once
  ↓ direct recipient selection, or ordinary routing
 selected recipients run in parallel
- ↓ first Super research: deep, research_plan and first read (or finish_read)
- ↓ later Super research: read or finish_read guided by the plan
- ↓ final answer on Ultra when deep or alwaysUltra is on; otherwise Super
- ↓ schedule/action planning on Super
+ ↓ depth from explicit phrases in the post (no model call)
+ ↓ ordinary: Super reads and submits the answer in one loop
+ ↓ deep/alwaysUltra: Super reads → finish_read → Ultra submits the answer
+   (a persona without lookup tools reads and answers on Ultra)
+ ↓ schedule phase on Super only when the answer asks for one
+ ↓ action phase on Super for personas that hold an action
+ ↓ note keeper only when the answer says the post is worth remembering
 ```
 
 ## A workflow assembled phase by phase, not written in one call
@@ -328,8 +348,8 @@ Processing has two levels: acceptance and recipient selection happen once for th
 flowchart TD
   A[Save entry and work record] --> B[Analyze attached image]
   B --> C[Select recipients and save the decision]
-  C --> D[Research for each persona]
-  D --> E[Finalize answer]
+  C --> D[Read and answer for each persona]
+  D --> E[Answer with remember and schedule decisions]
   E --> F[Plan schedules]
   F --> G[Plan actions]
   G --> H[Code validation and AI review]
@@ -355,9 +375,9 @@ See [persona execution](./system/personas.md#from-research-to-answer-publication
 
 Built-in research uses up to 10 read calls and 2 Web searches normally, or 20 reads and 4 Web searches for deep requests and AlwaysUltra. At each round, the host rebuilds the read schema and current instruction from the execution budget. It reports the remaining Web searches, highlights the last slot, and removes `web_search` from the permitted tool enum and usage instructions at zero. Each step is budget-checked, including several searches in one read or several read calls in one reply.
 
-Zero Web searches does not stop research: available timeline, memory, and other reads can continue, and `finish_read` remains offered. Unknown, undeclared, unconfigured, and otherwise unavailable reads are filtered out. Memoryless personas receive no `records` branch or instructions; `entries` preserves direct post reads by known IDs. The host replaces the live instruction each round and keeps all tool results for the answer. External-agent interfaces and phase budgets remain separate.
+Zero Web searches does not stop research: available timeline, memory, and other reads can continue, and `submit_answer` (or, while a deep turn reads on Super, `finish_read`) remains offered. At the read ceiling the host withdraws `read` and asks for the answer. Unknown, undeclared, unconfigured, and otherwise unavailable reads are filtered out. Memoryless personas receive no `records` branch or instructions; `entries` preserves direct post reads by known IDs. The host replaces the live instruction each round and keeps all tool results for the answer. External-agent interfaces and phase budgets remain separate.
 
-See [Research budgets and available reads](./system/personas.md#research-budgets-and-available-reads) for execution details and tests. The [production usage report](./production-model-usage-2026-10-05.md) records the earlier Ultra loop and estimates the effect of model separation; it is not a post-deployment measurement.
+See [Research budgets and available reads](./system/personas.md#research-budgets-and-available-reads) for execution details and tests. The [production usage report](./production-model-usage-2026-10-05.md) records an earlier Ultra research loop; it describes that implementation, not the current one.
 
 ### A turn, phase by phase
 
@@ -377,14 +397,21 @@ the answer is the same either way.
    search or a place lookup. Only read-only tools run here; an MCP tool
    counts as read-only only when its server marks it `readOnlyHint`. Reading
    writes nothing, so the app just does it and hands the results back.
-2. **Answer.** With the reading done, the complete conversation and tool results pass directly to answer composition: Super normally, Ultra for deep requests or AlwaysUltra. Only `submit_answer` is offered, so Ultra does not run research. A valid submission needs one composition call; existing correction retries remain. The persona hands in only
-   `{text, sources}`. Its prompt holds no note format, memory layout or
+2. **Answer.** Ordinary turns read and answer in the same loop on Super; a
+   deep or AlwaysUltra turn of a persona with lookup tools hands its reads,
+   with the whole conversation and tool results, to Ultra, which is offered
+   only `submit_answer`. The persona hands in `{text, sources, unrelated,
+   remember, schedule}`: `remember` says whether the user's post is worth
+   keeping (greetings, general questions and system wakes are not), and
+   `schedule` whether a schedule must be created, changed or cancelled. Its prompt holds no note format, memory layout or
    change schema, and it is not told to keep notes. It is told what the later
    phases can do for it (`capabilities`), so it does not promise a reminder or
    an action the persona cannot make. An empty text is silence; a named turn
    must answer, a listening turn must not. The answer is fixed from here on:
    no later phase can change it.
-3. **Schedule phase.** A separate call on Super sees the finished
+3. **Schedule phase.** Only when the persona may schedule and the answer
+   said `schedule: true` (or said nothing, as older external clients do), a
+   separate call on Super sees the finished
    answer and the schedules already placed, and hands in `submit_schedule`:
    create, update, and cancel operations. Updates change time or Push preference;
    purpose and recurrence changes use cancel/create. Each
@@ -418,8 +445,8 @@ the answer is the same either way.
 
 8. **Memory comes after the answer.** It is not a phase of the turn: memory
    that fails to come out must not take a finished answer with it. Once the
-   remark is out, the persona's **note keeper** keeps it (see
-   [The note keeper](#the-note-keeper)).
+   remark is out, the persona's **note keeper** keeps it - unless the answer
+   said `remember: false` (see [The note keeper](#the-note-keeper)).
 
 Each turn is logged as one structured entry: what was read, the answer, each
 phase with its rounds, reads and what it had sent back and why, each review and
@@ -432,9 +459,11 @@ in and how many submissions it took.
 `internal/persona/notekeeper.go`. After the remark is published, the persona
 keeps what the turn should leave behind, on the middle model (Super by default,
 even when Ultra composes the answer), in its own voice. It runs for a fragment of the user's - a post,
-a reply, an edit, also when the persona stayed quiet or could not speak - for a
-check-in handed records due for review. Schedule wakes, deletion tidy-ups, and
-out-of-domain silence do not run it. On deletion, the host removes the records
+a reply, an edit, also when the persona stayed quiet or could not speak - when
+the answer did not say `remember: false`, and for a check-in handed records due
+for review, whatever the answer said. Schedule wakes, deletion tidy-ups, and
+out-of-domain silence do not run it. An edited post answered with
+`remember: false` has its records and fact sources taken out without a model. On deletion, the host removes the records
 and their unsupported facts directly; the persona can revisit its schedules.
 See [keepsNotes](../internal/persona/runner.go) and [the note keeper](../internal/persona/notekeeper.go).
 
@@ -498,8 +527,8 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | All built-in research, ordinary answers, schedule/action phases, routing, and workflow review      |
-| **Nemotron 3 Ultra**       | Final answers for deep requests and AlwaysUltra, plus persona drafting |
+| **Nemotron 3 Super**       | Reads and ordinary answers, reads of deep turns, schedule/action phases, routing, workflow review, the note keeper, and the day's and month's summaries |
+| **Nemotron 3 Ultra**       | Answers for deep requests and AlwaysUltra (reads too, for a persona without lookup tools such as the infographic), plus persona drafting |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
 | **Qwen3-Embedding-8B**     | Meaning search over past fragments                                    |
@@ -968,35 +997,41 @@ or, for a person, a monthly lookback (see the month's summary below). Users
 choose “Look back often” (daily) or “Look back occasionally” (monthly) for people; turning memory off disables both kinds of periodic
 check-in. Explicit notification schedules still work without memory.
 
-When it runs is the app's choice: a minute between 07:00 and 21:00 in the
-user's time zone (the one the page last saved) that drifts by at most an hour
-from one day to the next. The window is a ring - after 21:00 comes 07:00. Every 7
-days a fixed point is chosen by a hash of the workspace, the persona and the
-point, and the days between move the shorter way round from one point to the
-next in equal steps; two points are at most half the ring (7 hours) apart, so
-that is at most 60 minutes a day. Walking straight between points would crowd
-the minutes toward midday; the ring uses the edges of the window as much as the
-middle. A day on which the minute moves forward past 21:00 and wraps to
-the morning (20:50 yesterday, 07:10 today) has no check-in, so that two do not
-come about ten hours apart; the day after a skip never wraps again, so no two
-days in a row are skipped. The minute is computed, not remembered: the same day always gives the same
-minute, so a restart does not move it, and check-ins spread across the day
-rather than every persona of every user waking at once. A check-in not run by 21:00 - the
-server was down - is skipped rather than run at night.
+**The account's day runs once** (`internal/persona/daily.go`). At one time a
+day the app writes an internal **day's summary** of the posts since the
+previous run (`daily_summary.go`; none on a day without posts), writes the
+month's summary on its day, and then runs the check-in of every remembering
+persona, one after another. Every persona reads the same summary instead of
+the raw posts, so each post is summarised once. A persona with no new user
+posts, no record due for review and no dated fact within the next seven days is
+skipped without a model call. A summary that fails is not kept, and deleting or
+editing a post drops the summaries holding it; the posts then reach the
+check-ins in full.
+
+The time is set under **Settings > Daily check-in**: **Set a time** runs it at
+that time every day (`dailyTime`, in the saved time zone); **Automatic** lets
+the app pick a minute between 07:00 and 21:00 that drifts by at most an hour
+from one day to the next. The automatic minute walks a ring - after 21:00 comes
+07:00 - between fixed points chosen every 7 days by a hash of the workspace, so
+workspaces spread across the day rather than waking at once; a day on which it
+wraps forward to the morning is skipped (except the month's summary day), and
+a run not started by 21:00 is skipped rather than run at night. A set time can
+still start that day until midnight. Because the run starts when the
+workspace's alarm wakes it, it can start later than the set time at popular
+times.
 
 The amount and tone of speech follow the persona's character. Legacy
-`talk: minimal` settings no longer restrict speech. The persona reads the timeline since the
-previous check-in actually ran - recorded with the day's claim - and older records
-sharing tags with recent ones, and speaks when it finds a connection worth
-bringing back. "The last 24 hours" would leave stretches unread when the minute
-moves later, or a day is skipped or missed; reading from the previous run makes
-the spans meet end to end. With no previous run on record it reads a day, and
-it reads a week at most.
+`talk: minimal` settings no longer restrict speech. Each persona reads from its
+previous check-in - recorded with the day's claim - and looks at older records
+sharing tags with recent ones when there is a concrete connection worth
+bringing back. With no previous run on record it reads a day, and a week at
+most.
 
 Silence produces no empty system post and no empty conversation thread.
 
-A persisted claim limits a persona to one check-in attempt per local calendar
-day, including silent or failed attempts.
+Persisted claims limit the account's day, and each persona's check-in within
+it, to one attempt per local calendar day, including silent or failed attempts;
+a run interrupted part way through the personas resumes with the rest.
 
 Firestore claims are transactional across server instances.
 
@@ -1023,13 +1058,17 @@ the reply, it is told which records it asked about, and its keeper settles them.
 
 ### The month's summary, and people looked back on monthly
 
-Once a month the app reads the timeline since its previous summary (32 days at
-most, the newest 120,000 characters of it) and posts **This month** under its
+Once a month the app reads the month since its previous summary (32 days at
+most) from the day's summaries, reading in full only the posts none of them
+holds, with persona answers and link/image text clipped (60,000 characters at
+most, the newest kept), and posts **This month** under its
 own name (`timeline.App`, `internal/persona/summary.go`): headings by topic,
 one line per item, each ending in a link to the post it came from. People's
 events, plans and anything still open are always kept. The day is picked by a
-hash of the workspace (1st to 28th, so every month has it) and the minute like
-a check-in's; the run is claimed like one, so it is written once. A month with
+hash of the workspace (1st to 28th, so every month has it); it is written
+during that day's run, before the personas check in, and claimed so it is
+written once. Its output allowance is stated, and a summary cut off anyway is
+posted with a note saying so. A month with
 no posts gets no summary. The user can edit the summary like their own post;
 editing it routes nothing.
 
@@ -1590,7 +1629,7 @@ will ask whether to keep a record of something the user said.
 
 The most capable model is not automatically the best model for a frequent,
 narrow task. Smaller models can reduce both inference cost and response time.
-Model selection therefore considers speed as well as cost and accuracy. The first Super research call now integrates depth selection and planning, avoiding a separate classification request.
+Model selection therefore considers speed as well as cost and accuracy. Depth is chosen by explicit phrases rather than a classification request, and even a deep turn reads on Super and spends Ultra only on the answer.
 
 The routing redesign is the clearest example.
 
