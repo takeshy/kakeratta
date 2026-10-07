@@ -118,13 +118,14 @@ func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 		_ = json.Unmarshal(response.Body.Bytes(), &out)
 		return response.Code, out
 	}
-	setReply(`{"deliver":["gourmet"],"excluded_reasons":{"book":"本の感想ではない"}}`)
+	setReply(`{"match":true,"reason":"食べ物の話"}`)
 	if code, out := check("p", `{"persona":"gourmet"}`); code != http.StatusOK || out["answered"] != true || out["delivered"] != true {
 		t.Fatalf("delivered: %d %v", code, out)
 	}
-	if conditions := routed(); !strings.Contains(conditions, "ラーメンの本を読んだ") || !strings.Contains(conditions, "shiori") {
+	if conditions := routed(); !strings.Contains(conditions, "ラーメンの本を読んだ") || strings.Contains(conditions, "shiori") {
 		t.Fatalf("the router was not given the post and the active conditions: %s", conditions)
 	}
+	setReply(`{"match":false,"reason":"本の感想ではない"}`)
 	if code, out := check("p", `{"persona":"book"}`); code != http.StatusOK || out["delivered"] != false || out["reason"] != "本の感想ではない" {
 		t.Fatalf("passed over: %d %v", code, out)
 	}

@@ -465,11 +465,9 @@ func reviewModel(settings store.Settings) string {
 	return personaModel(settings)
 }
 
-// routingModel matches a post against short persona conditions. Production
-// replay showed Super to be much faster than Lightning with better handling
-// of overlapping conditions. Jev can replace it through advanced settings.
+// routingModel evaluates one persona condition per parallel request.
 func routingModel() string {
-	return store.NemotronSuper
+	return store.NemotronLightning
 }
 
 // readAll does what a persona asked to look at. Nothing here writes, so there

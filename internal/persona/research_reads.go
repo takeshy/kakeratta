@@ -36,7 +36,7 @@ func (c readCapabilities) searchStatus() string {
 	text := fmt.Sprintf("Web検索: 残り %d 回\n", c.searchRemaining)
 	switch c.searchRemaining {
 	case 0:
-		text += "これ以上Web検索は利用できません。現在得られている情報や、その他の利用可能なreadで十分なら finish_read してください。\n"
+		text += "これ以上Web検索は利用できません。現在得られている情報や、その他の利用可能なreadで十分なら submit_answer してください。\n"
 	case 1:
 		text += "最後のWeb検索枠です。必要な場合だけ使用してください。\n"
 	}
@@ -90,7 +90,7 @@ func validateEntryReads(steps []ReadStep, c readCapabilities) error {
 
 func (c readCapabilities) instruction() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "\n# 現在のRead\nread は残り %d 回。過去の説明より、この利用可能なreadと残数を優先してください。追加調査が不要なら finish_read してください。\n%s\n%s\n", c.readsRemaining, c.searchStatus(), entriesReadSpec)
+	fmt.Fprintf(&b, "\n# 現在のRead\nread は残り %d 回。過去の説明より、この利用可能なreadと残数を優先してください。追加調査が不要なら submit_answer してください。\n%s\n%s\n", c.readsRemaining, c.searchStatus(), entriesReadSpec)
 	if c.records {
 		b.WriteString(recordsReadSpec)
 	}

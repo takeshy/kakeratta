@@ -54,10 +54,18 @@ func TestComposeAnswerRetriesTruncationWithoutAccumulatingDrafts(t *testing.T) {
 			}))
 			defer server.Close()
 			client := llm.New(server.URL, "")
-			client.Observe = func(llm.CallRecord) {}
+			var records []llm.CallRecord
+			client.Observe = func(record llm.CallRecord) { records = append(records, record) }
 			answer, err := composeAnswer(context.Background(), client, "test", []llm.Message{{Role: "system", Content: "instructions"}, {Role: "user", Content: "original research"}}, turnRules{named: true})
 			if calls != maxMalformed+1 {
 				t.Fatalf("calls = %d", calls)
+			}
+			// A request retried after truncation is a retry of the same
+			// round, not a new read/answer round.
+			for i, record := range records {
+				if record.Round != 1 || record.Attempt != i+1 {
+					t.Errorf("call %d: round=%d attempt=%d, want round 1 attempt %d", i+1, record.Round, record.Attempt, i+1)
+				}
 			}
 			if recover {
 				if err != nil || answer == nil || answer.Text != "complete diagram" {

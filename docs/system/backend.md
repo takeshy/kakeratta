@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-06"
+updated: "2026-10-07"
 ---
 
 Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search.
@@ -185,7 +185,7 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 
 New workspaces default to the built-in sona (`routine`), kakeratta support (`support`), and infographics (`infographic`) being active. Persona definitions save the optional `memoryEnabled` flag; false disables private memory and periodic check-ins (see [Optional persona memory](./personas.md#optional-persona-memory)), while external-agent preference remains an independent saved setting. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
 
-`Server.client` creates an `llm.Client` from effective settings. The **Use OpenRouter** checkbox (`openRouterMode`) selects its own key and model choices. Legacy `jevEnabled` settings normalize to OpenRouter enabled with `~typesafe/jev-latest` selected as Router and the legacy flag cleared. The first built-in research call uses the middle model to decide depth and plan reads. Ordinary final answers use middle; deep requests and AlwaysUltra use high for final-answer composition. The low model retains optional dictation polishing; standalone reply escalation is removed. Vision and routing models have separate roles.
+`Server.client` creates an `llm.Client` from effective settings. The **Use OpenRouter** checkbox (`openRouterMode`) selects its own key and model choices. Legacy `jevEnabled` settings normalize to OpenRouter enabled with `~typesafe/jev-latest` selected as Router and the legacy flag cleared. Built-in turns select depth with explicit substrings in the current post, without a model judgment or preliminary planning call. Ordinary reads and answers use middle. Explicit deep requests and AlwaysUltra use high for the final answer; their reads stay on middle when the persona has lookup tools of its own, and run on high with the answer when it has none (the infographic). The Router default is Lightning; existing saved Router choices are retained. Each subject gets an independent routing request, with up to eight running concurrently. The low model retains optional dictation polishing; standalone reply escalation is removed. Vision and routing models have separate roles.
 
 ## Requests and storage
 
@@ -201,13 +201,13 @@ Every outbound chat completion emits one structured stdout record with `path: "m
 
 The provider's first-choice `finish_reason` is retained as `llm.Reply.FinishReason` and logged as optional `finishReason`. A value of `length` identifies provider output truncation; API `outcome: "success"` still describes the successful response, not acceptance of the answer. Missing finish reasons remain omitted.
 
-Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing, research (including initial planning/deep selection), answer, schedule/action planning, review, memory update/summary, monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
+Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing (one record per subject persona), answer (including read/tool rounds), schedule/action planning, review, memory update/summary, monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
 
 `attempt` starts at one and `retryCount` at zero for format/validation corrections within a stage. `round` separately counts normal multi-round research or tool use. `jobAttempt`/`jobRetryCount` describe durable reaction claims; `noteAttempt`/`noteRetryCount` describe durable note attempts; `planAttempt`/`planRetryCount` describe phase regeneration after review. These counters describe different scopes and must not be summed as independent billed requests. Counting records gives the outbound calls observed by this service, including failures. The instrumentation adds no retry policy and changes no retry limits.
 
 Embedding requests use the same format with `purpose: "embedding"` and retain returned input/total counts; invalid vectors can still have reported usage. Jev Decisions API routing also emits a `routing` usage record, with null usage when the provider omits counts. Records exclude API keys, request/response text, tool arguments, provider error messages, and endpoint URLs, including userinfo, paths, queries and custom hostnames. The runtime embeds no price table or USD estimate; apply the appropriate model rates and reconcile against provider billing separately. Records go to operational logs, not additional Firestore state.
 
-Implementation and verification: [usage.go](../../internal/llm/usage.go), [llm.go](../../internal/llm/llm.go), [search.go](../../internal/search/search.go), [usage_test.go](../../internal/llm/usage_test.go) (reported/missing/zero usage, failed calls, context and privacy), and [persona usage tests](../../internal/persona/usage_test.go) (research rounds versus retries and rejected-answer accounting).
+Implementation and verification: [usage.go](../../internal/llm/usage.go), [llm.go](../../internal/llm/llm.go), [search.go](../../internal/search/search.go), [usage_test.go](../../internal/llm/usage_test.go) (reported/missing/zero usage, failed calls, context and privacy), and [persona usage tests](../../internal/persona/usage_test.go) (research read/answer rounds versus retries and rejected-answer accounting).
 
 ## Implementation and verification
 

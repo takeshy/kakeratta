@@ -24,8 +24,6 @@ func TestMemoryDisabledTurnsAnswerWithoutNotesOrCheckIns(t *testing.T) {
 			}
 			f.phaseReply = func(_, _ string, offered map[string]bool) string {
 				switch {
-				case offered["finish_read"]:
-					return "read_done"
 				case offered["submit_answer"]:
 					return `{"text":"回答です。","sources":[]}`
 				}

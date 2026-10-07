@@ -57,13 +57,13 @@ func TestStructuredReadArgumentsReachTimeline(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		if body.Tools[0].Function.Name == submitAnswer {
+		if researchCalls == 2 {
 			answerCalls++
 			writeResearchReply(w, submitAnswer, map[string]any{"text": "投稿を確認しました。", "sources": []string{trigger.ID}, "unrelated": false})
 			return
 		}
 		researchCalls++
-		raw := body.Tools[0].Function.Parameters
+		raw := body.Tools[1].Function.Parameters
 		entries := readArgsSchema(t, raw, "entries", "")
 		if entries["type"] != "object" || entries["additionalProperties"] != false || !reflect.DeepEqual(entries["required"], []any{"ids"}) {
 			t.Errorf("entries does not require structured IDs: %v", entries)
@@ -109,7 +109,7 @@ func TestStructuredReadArgumentsReachTimeline(t *testing.T) {
 	settings.Search.APIKey = "test-key"
 	registry := r.registry(settings).WithSearch(search.New(s))
 	entry := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, true, false, "", false, llm.New(server.URL, ""), settings, registry)
-	if entry == nil || entry.Text != "投稿を確認しました。" || researchCalls != 3 || answerCalls != 1 {
+	if entry == nil || entry.Text != "投稿を確認しました。" || researchCalls != 2 || answerCalls != 1 {
 		t.Fatalf("entry=%+v research=%d answers=%d", entry, researchCalls, answerCalls)
 	}
 }

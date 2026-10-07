@@ -14,14 +14,14 @@ External-agent answers over MCP, permitted tools and Geo MCP availability, the s
 
 The user creates an MCP connection, enables external-agent use in settings, and selects `external` as a persona's planner. The preference control is shown only with a configured connection and external-agent use enabled; saved preferences survive disabling use. The server exposes `/api/mcp/users/{workspace}` per workspace and manages connection keys and settings. This is separate from the application's MCP client for calling external tools.
 
-The external agent researches as the persona and submits only the final answer. The host's subsequent processing decides, reviews, and executes schedules and other actions, then updates the persona's memory itself. `accepted` acknowledges receipt of the answer; it does not mean timeline publication is complete.
+The external agent researches as the persona and submits the final answer with `remember` and `schedule` decisions. The host's subsequent processing plans needed schedules, reviews and executes actions, then updates the persona's memory itself through the note keeper when `remember` is true or omitted. `accepted` acknowledges receipt of the answer; it does not mean timeline publication is complete.
 
 ## Ask lifecycle
 
 1. Use `list_asks` to find pending asks with deadlines.
 2. Send the ask ID and a stable `claimId` to `claim_ask` to receive the persona, trigger, conversation, memory (`memory`: field summaries whole and the latest kakera records), and available read tools.
 3. Research through permitted `read_for_ask` calls: `records` steps (`tag`, `query`, `before`, or `ids` - up to 10 - to read the entries records point to, which may then be cited) and read-use tools.
-4. Submit text and sources with `submit_answer`. Invalid submissions receive correction requests; source IDs not found by this ask's research are dropped rather than refused.
+4. Submit text, sources, and boolean `remember`/`schedule` decisions with `submit_answer`; `unrelated` identifies a silence outside the domain. The decisions are optional for old external clients, which retain legacy behavior. New clients decide remembering and scheduling in the answer; `remember=false` skips the note keeper's model call. Invalid submissions receive correction requests; source IDs not found by this ask's research are dropped rather than refused.
 5. If unable to respond, call `release_ask` to return the turn to the built-in model.
 
 Claiming and answering have separate deadlines. Unclaimed asks, answer timeouts, connection changes, explicit release, and exhausted correction attempts can trigger fallback. A connection with no recent MCP activity, or paused external-agent settings, can select the built-in model immediately.

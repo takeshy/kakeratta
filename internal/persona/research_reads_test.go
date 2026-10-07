@@ -77,7 +77,28 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 						}
 						_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": testCall(name, args)}}})
 					}
-					if len(body.Tools) == 1 && body.Tools[0].Function.Name == submitAnswer {
+					searchRounds := tc.searches
+					if batch {
+						searchRounds = 1
+					}
+					// A deep or always-ultra turn reads on Super and hands only
+					// the answer to Ultra; an ordinary one reads and answers together.
+					split := tc.deep || tc.always
+					names := []string{}
+					for _, tool := range body.Tools {
+						names = append(names, tool.Function.Name)
+					}
+					if split && researchCalls == searchRounds+2 && len(names) == 2 && names[1] == "finish_read" {
+						respond("finish_read", map[string]any{})
+						return
+					}
+					if researchCalls == searchRounds+2 {
+						if want := map[bool]string{false: "super", true: "ultra"}[split]; body.Model != want {
+							t.Errorf("answer model = %s, want %s", body.Model, want)
+						}
+						if split && (len(names) != 1 || names[0] != submitAnswer) {
+							t.Errorf("answer may still read: %v", names)
+						}
 						answerCalls++
 						transcript, _ := json.Marshal(body.Messages)
 						for _, want := range []string{"search result", trigger.Text, "entries の結果", "timeline_search の結果"} {
@@ -88,8 +109,13 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 						respond(submitAnswer, Answer{Text: "調査結果", Sources: []string{}})
 						return
 					}
-					if len(body.Tools) != 2 || body.Tools[0].Function.Name != "read" || body.Tools[1].Function.Name != "finish_read" {
-						t.Errorf("unexpected tools: %+v", body.Tools)
+					readAt := 1
+					want := []string{submitAnswer, "read"}
+					if split {
+						readAt, want = 0, []string{"read", "finish_read"}
+					}
+					if strings.Join(names, ",") != strings.Join(want, ",") {
+						t.Errorf("unexpected tools: %v, want %v", names, want)
 						respond("finish_read", map[string]any{})
 						return
 					}
@@ -98,11 +124,11 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 						t.Errorf("research model = %s", body.Model)
 					}
 					remaining := tc.searches - searchCalls
-					if researchCalls == 1 && !tc.always {
+					if researchCalls == 1 && !tc.always && !tc.deep {
 						remaining = turnSearchLimit(false)
 					}
 					seenRemaining = append(seenRemaining, remaining)
-					tool := body.Tools[0].Function
+					tool := body.Tools[readAt].Function
 					system := body.Messages[0].Content
 					status := fmt.Sprintf("Web検索: 残り %d 回", remaining)
 					if !strings.Contains(system, status) || !strings.Contains(tool.Description, status) || strings.Count(system, "Web検索: 残り") != 1 {
@@ -125,7 +151,7 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 					if !hasReadOption(t, tool.Parameters, "tool", "timeline_search") || !hasReadOption(t, tool.Parameters, "entries", "") {
 						t.Error("other reads were removed with web search")
 					}
-					searchRounds := tc.searches
+					searchRounds = tc.searches
 					if batch {
 						searchRounds = 1
 					}
@@ -161,20 +187,20 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 				settings.MiddleModel, settings.HighModel = "super", "ultra"
 				settings.Search.APIKey = "test-key"
 				registry := r.registry(settings).WithSearch(search.New(s))
-				entry := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, true, false, "", false, llm.New(server.URL, ""), settings, registry)
+				entry := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, true, false, "", tc.deep, llm.New(server.URL, ""), settings, registry)
 				if entry == nil || entry.Text != "調査結果" || searchCalls != tc.searches || answerCalls != 1 {
 					t.Fatalf("entry=%+v searches=%d answers=%d", entry, searchCalls, answerCalls)
 				}
 				var want []int
 				if batch {
-					want = []int{tc.searches, 0, 0, 0}
+					want = []int{tc.searches, 0, 0}
 				} else {
 					for i := tc.searches; i > 0; i-- {
 						want = append(want, i)
 					}
-					want = append(want, 0, 0, 0)
+					want = append(want, 0, 0)
 				}
-				if !tc.always {
+				if !tc.always && !tc.deep {
 					want[0] = turnSearchLimit(false)
 				}
 				if !reflect.DeepEqual(seenRemaining, want) {

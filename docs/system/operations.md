@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
-updated: "2026-10-06"
+updated: "2026-10-07"
 ---
 
 Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion.
@@ -62,7 +62,7 @@ gcloud logging read 'resource.type="gce_instance" AND labels.service_name:"kaker
 
 Fix the date range and timezone when reconciling provider billing, and check that the result limit was not reached. Group by `purpose`, `model`, and `wake` to distinguish post-triggered work from autonomous check-ins. Sum `usage.prompt_tokens` and `usage.completion_tokens` only when reported; count missing values separately. Count records for observed requests and use retry fields to identify correction, phase, note-job and reaction-job scopes. Reported reasoning/cache details are breakdowns, not extra counts to add to the totals. External agents and development traffic billed directly to the same provider account require separate reconciliation. The [backend logging specification](./backend.md#model-usage-logging) defines fields and failure semantics; records begin with the deployment and cannot reconstruct earlier usage.
 
-After deploying research model separation and dynamic read capabilities, compare a deep or AlwaysUltra turn by its `trigger`: `purpose=research` and schedule/action planning should use the persona model, while `purpose=answer` uses the high model. Inspect workflow `reads` for requests made after Web search was exhausted, and compare research-round counts and token usage. API `outcome=success` does not mean a requested tool ran: a read may have received a host refusal. Keep before/after measurements separate; the [2026-10-05 production usage report](../production-model-usage-2026-10-05.md) describes the earlier behavior and a fixed-token cost estimate, not a post-deployment result.
+After deploying parallel routing and combined answers, group `purpose=routing` by trigger and persona: each automatically considered subject has one request, while mentions and active-persona replies bypass routing. Routing call counts therefore cannot serve as post counts. Count user entries from the saved timeline, including silent/no-recipient posts. Compare normal/deep/AlwaysUltra turns by trigger: ordinary turns record reads and the answer as `purpose=answer` on middle; deep/AlwaysUltra turns of personas with lookup tools record Super reads and `finish_read` as `purpose=research` and one Ultra `purpose=answer`; the infographic records reads and the answer as Ultra `purpose=answer`. Schedule/action planning remains on the middle model. Inspect workflow reads for host refusals and remaining budgets. Keep periodic check-ins and monthly summaries separate when measuring cost per user post, and treat infographics as a separate workload. API success does not prove successful tool execution or publication. Compare measured token totals and model rates, without assuming cache discounts; historical reports describe their original implementation and window.
 
 ## Terraform state and variables
 
@@ -142,9 +142,9 @@ The command does not reroute posts, wake personas, rewrite text or timestamps, o
 - [README.md](../../infra/README.md)
 - [migrate-memory](../../cmd/migrate-memory/main.go): one-off memory migration
 
-## Initial research planning model checks
+## Routing and answer verification
 
-Ordinary `go test ./internal/persona` covers planning schemas, model selection, budget expansion without resetting counters, plan retention, and bounded malformed-plan corrections using local fake completions. To check actual Super judgement, opt in with `KAKERATTA_RESEARCH_PLAN_LIVE=1 KAKERATTA_ROUTE_KEY_FILE="$PWD/tmp/token_factory.key" go test ./internal/persona -run TestInitialSuperPlanningLive -count=1 -v`. The [live test](../../internal/persona/research_plan_live_test.go) sends one Super research request per synthetic scenario (detail request, thanks, simple forecast question/follow-up, and complex comparison), consumes API credits, and performs no production reads or writes. These model checks are skipped unless explicitly enabled. On 2026-10-05, the five scenarios passed three runs each (15 first-round Super requests) with Web-search schemas offered and tool execution stubbed. Contextual detail and complex comparison selected deep; thanks and simple weather questions/follow-ups did not.
+Ordinary `go test ./internal/persona` covers independent parallel routing, fixed keyword depth, combined read/answer calls, Super reads with Ultra answers for deep turns, actual lookup budgets and bounded corrections with local fake completions. [parallel_route_test.go](../../internal/persona/parallel_route_test.go) verifies eight concurrent requests, isolated conditions, deterministic aggregation, per-persona usage and incomplete/canceled decisions. [research_plan_test.go](../../internal/persona/research_plan_test.go) now covers the local string rule; the former paid Super planning test was removed with the model-based planner. These tests do not establish real-model classification quality or production savings.
 
 # Workspace export and deletion
 

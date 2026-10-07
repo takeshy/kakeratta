@@ -69,7 +69,7 @@ func TestInfographicReplyToAnotherPersonasAnswer(t *testing.T) {
 			if result.Speaker != "infographic" || result.Text != markdown || result.Root != original.ID || result.ReplyTo != trigger.ID || result.Model != "ultra" {
 				t.Fatalf("unexpected infographic: %+v", result)
 			}
-			if reads != 1 || answers != 1 || len(f.keeps) != 0 {
+			if reads != 0 || answers != 1 || len(f.keeps) != 0 {
 				t.Fatalf("reads=%d answers=%d memory writes=%d", reads, answers, len(f.keeps))
 			}
 		})
@@ -115,8 +115,6 @@ func TestInfographicUsesExpandedContentAndDisplayLanguage(t *testing.T) {
 						t.Fatal("display language not prioritized")
 					}
 					switch {
-					case offered["finish_read"]:
-						return "read_done"
 					case offered["submit_answer"]:
 						raw, _ := json.Marshal(Answer{Text: markdown, Sources: []string{}})
 						return string(raw)

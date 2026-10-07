@@ -35,7 +35,6 @@ type fake struct {
 	models       []string
 	answerModels map[string][]string
 	reply        func(system, user string) string
-	researchDeep func(system, user string) bool
 	// reviews are the app's own checks, kept apart from what the personas were
 	// asked so a test counting persona calls is not counting those. review
 	// scripts a verdict; unset, every workflow passes.
@@ -201,32 +200,30 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		case script != nil && (names["finish_read"] || names["submit_answer"] || phase != ""):
 			result = asCall(script(system, user, names), names)
 		case names["finish_read"]:
+			// A deep turn reading on Super: read when the scripted turn reads,
+			// otherwise finish so the answer model submits it.
+			f.mu.Lock()
+			f.prompts = append(f.prompts, system+"\n----\n"+user+"\n----\n"+offered)
+			f.models = append(f.models, body.Model)
+			f.mu.Unlock()
+			result = asCall(f.reply(system, user), map[string]bool{"read": true, "finish_read": true})
+		case names["submit_answer"]:
 			f.mu.Lock()
 			f.prompts = append(f.prompts, system+"\n----\n"+user+"\n----\n"+offered)
 			f.models = append(f.models, body.Model)
 			f.mu.Unlock()
 			content := f.reply(system, user)
-			result = asCall(content, map[string]bool{"read": true, "legacy_turn": true})
-			if calledName(result) == "legacy_turn" {
-				// The scripted turn is decided: remember it for the answer and
-				// the phases, and end the reading.
-				next := splitTestTurn(content)
+			candidate := asCall(content, map[string]bool{"read": true, "legacy_turn": true})
+			if calledName(candidate) == "read" && names["read"] {
+				result = candidate
+			} else {
+				prepared = splitTestTurn(content)
+				prepared.answered = true
 				f.mu.Lock()
-				f.prepared[key] = next
+				f.prepared[key] = prepared
 				f.mu.Unlock()
-				result = testCall("finish_read", map[string]any{})
-			} else if calledName(result) == "" {
-				result = map[string]any{"content": content}
+				result = testCall("submit_answer", prepared.answer)
 			}
-		case names["submit_answer"]:
-			if !have || prepared.answered {
-				prepared = ask()
-			}
-			f.mu.Lock()
-			prepared.answered = true
-			f.prepared[key] = prepared
-			f.mu.Unlock()
-			result = testCall("submit_answer", prepared.answer)
 		case phase != "":
 			// A phase asked a second time was sent back or blamed by a review:
 			// the script says what the persona hands in now.
@@ -246,33 +243,35 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 			f.prompts = append(f.prompts, system+"\n----\n"+user+"\n----\n"+offered)
 			f.models = append(f.models, body.Model)
 			f.mu.Unlock()
-			result = asCall(f.reply(system, user), names)
+			if f.reply == nil {
+				result = map[string]any{"content": ""}
+			} else {
+				result = asCall(f.reply(system, user), names)
+			}
 		}
-		// Existing scenario fixtures provide read steps or an answer. Supply
-		// the initial planning envelope only when the offered schema asks for it.
-		if names["finish_read"] {
-			properties, _ := body.Tools[0].Function.Parameters["properties"].(map[string]any)
-			if _, initial := properties["deep"]; initial {
-				calls, _ := result["tool_calls"].([]any)
-				for _, value := range calls {
-					call := value.(map[string]any)
-					function := call["function"].(map[string]any)
-					if function["name"] != "read" && function["name"] != "finish_read" && function["name"] != "finish_silent" {
-						continue
+		// Old aggregate fixtures are adapted at the fake endpoint only; production
+		// routing accepts a boolean for the one condition in this request.
+		if names["submit_match"] {
+			content, _ := result["content"].(string)
+			var aggregate struct {
+				Deliver  []string          `json:"deliver"`
+				Excluded map[string]string `json:"excluded_reasons"`
+			}
+			if json.Unmarshal([]byte(content), &aggregate) == nil && aggregate.Deliver != nil {
+				_, rest, _ := strings.Cut(user, "担当条件:\n")
+				line := strings.Split(rest, "\n")[0]
+				id, _, _ := strings.Cut(line, "（")
+				matched := false
+				for _, named := range aggregate.Deliver {
+					if named == id || strings.Contains(line, "（"+named+"）") || strings.HasPrefix(named, id+"（") || strings.HasPrefix(named, id+" (") {
+						matched = true
 					}
-					var args map[string]any
-					if json.Unmarshal([]byte(function["arguments"].(string)), &args) != nil {
-						continue
-					}
-					if _, ok := args["deep"]; !ok {
-						args["deep"] = f.researchDeep != nil && f.researchDeep(system, user)
-					}
-					if _, ok := args["research_plan"]; !ok {
-						args["research_plan"] = []string{"必要な情報を確認"}
-					}
-					raw, _ := json.Marshal(args)
-					function["arguments"] = string(raw)
 				}
+				reason := aggregate.Excluded[id]
+				if reason == "" {
+					reason = "test condition"
+				}
+				result = testCall("submit_match", map[string]any{"match": matched, "reason": reason})
 			}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": result}}})
@@ -430,19 +429,17 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		return call("read", json.RawMessage(rest))
 	}
 	switch {
-	case offered["finish_silent"] && content == "silent_done":
-		return call("finish_silent", map[string]any{"unrelated": false})
+	case offered["read"] && scripted && parsed.Steps != nil && !offered["legacy_turn"]:
+		return call("read", json.RawMessage(content))
 	case offered["submit_answer"]:
 		return call("submit_answer", json.RawMessage(content))
+	case offered["finish_read"]:
+		// Anything but read steps ends the reading; "read_done" says so.
+		return call("finish_read", map[string]any{})
 	case offered["submit_schedule"]:
 		return call("submit_schedule", json.RawMessage(content))
 	case offered["submit_action"]:
 		return call("submit_action", json.RawMessage(content))
-	case offered["finish_read"]:
-		if content == "read_done" {
-			return call("finish_read", map[string]any{})
-		}
-		return call("read", json.RawMessage(content))
 	case offered["deliver"]:
 		if scripted && parsed.Deliver != nil {
 			// The scripted reply is the call as written, reasons included.
@@ -697,8 +694,7 @@ func TestEveryoneAnswersTogetherOnSuper(t *testing.T) {
 	}
 }
 
-// The first Super research reads the parent answer and decides whether
-// a better or deeper answer is answered on Ultra - by the persona it was said
+// Explicit detail strings select Ultra before answering with the parent context - by the persona it was said
 // to. Other personas do not receive the reply through automatic routing.
 func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 	for _, tc := range []struct {
@@ -723,16 +719,13 @@ func TestAReplyAskingForMoreIsAnsweredOnUltra(t *testing.T) {
 				case strings.Contains(system, "あなたは「michi」"):
 					return `{"action":"speak","text":"駅から5分"}`
 				default:
+					if replied {
+						asked = user
+					}
 					return `{"action":"speak","text":"豚骨の店がある"}`
 				}
 			}, "gourmet", "move")
 
-			stub.researchDeep = func(system, user string) bool {
-				if replied {
-					asked = user
-				}
-				return replied && tc.escalate
-			}
 			first := post(t, s, "ラーメン食べたい")
 			runner.react(first.ID)
 			said := remarks(t, s)
@@ -797,7 +790,7 @@ func replyTo(t *testing.T, s *store.Store, parent timeline.Entry, text string) t
 }
 
 // The persona replied to may already be a recipient - routed, or @mentioned.
-// It still takes one turn, with Super research and one Ultra answer.
+// It still takes one turn, with one Ultra answer when no read is needed.
 func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 	for _, tc := range []struct{ name, reply, routed string }{
 		{"routed", "もっと詳しく", `{"deliver":["gourmet"]}`},
@@ -815,7 +808,6 @@ func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 					return `{"action":"speak","text":"豚骨の店がある"}`
 				}
 			}, "gourmet")
-			stub.researchDeep = func(system, user string) bool { return replied }
 			first := post(t, s, "ラーメン食べたい")
 			runner.react(first.ID)
 			answer := remarks(t, s)[0]
@@ -838,8 +830,8 @@ func TestAnUltraReplyRunsThePersonaOnce(t *testing.T) {
 				t.Fatal("tabe was not asked")
 			}
 			for _, model := range models {
-				if model != store.NemotronSuper {
-					t.Fatalf("tabe researched on %v, want Super only", models)
+				if model != store.NemotronUltra {
+					t.Fatalf("tabe answered on %v, want Ultra only", models)
 				}
 			}
 			if said := remarks(t, s); len(said) != 2 || said[1].Model != "ultra" {
@@ -963,8 +955,6 @@ func TestANamedAnswerWithoutChangesIsNotReviewed(t *testing.T) {
 	r, s, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
-			return "read_done"
 		case offered["submit_answer"]:
 			return `{"text":"Goがおすすめです。理由は配布が楽だからです。","sources":[]}`
 		case offered["submit_schedule"]:
@@ -1093,7 +1083,7 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	runner.react(entry.ID)
 
 	prompt := stub.promptFor("sona")
-	if !strings.Contains(prompt, "[f_t0] 朝の薬は毎日飲む") || !strings.Contains(prompt, "[e_14] 散歩した") {
+	if !strings.Contains(prompt, "[f_t0] 朝の薬は毎日飲む") || !strings.Contains(prompt, fmt.Sprintf("[e_%02d] 散歩した", recentRecordsLimit-1)) {
 		t.Fatalf("the persona was not handed its memory:\n%s", prompt)
 	}
 	if strings.Contains(prompt, "薬を飲み忘れた") {
@@ -1176,7 +1166,7 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 				}
 			}
 			stub.mu.Unlock()
-			wantCalls, wantAnswers := 3, 2
+			wantCalls, wantAnswers := 4, 2
 			if replyToQuestion {
 				wantCalls, wantAnswers = 1, 1
 			}
@@ -1587,8 +1577,7 @@ func TestAnUltraTurnMayReadTwentyTimes(t *testing.T) {
 		reads++
 		return `{"action":"tool","tool":"notes_list","args":{}}`
 	}, "gourmet")
-	stub.researchDeep = func(system, user string) bool { return true }
-	entry := post(t, s, "ラーメン")
+	entry := post(t, s, "ラーメンを詳しく")
 	client, settings := runner.clientOf()
 	skill := runner.catalogue.Active(context.Background(), settings.Active)[0]
 	runner.run(context.Background(), skill, []timeline.Entry{entry}, entry, false, false, "", false,
@@ -1604,8 +1593,8 @@ func TestAnUltraTurnMayReadTwentyTimes(t *testing.T) {
 	if got := stub.lastModelFor("tabe"); got != store.NemotronUltra {
 		t.Fatalf("model = %q, want Ultra", got)
 	}
-	if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, "read は残り 10 回") {
-		t.Fatalf("initial research did not start with normal budget: %s", prompt)
+	if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, "read は残り 20 回") {
+		t.Fatalf("deep answer did not start with expanded budget: %s", prompt)
 	}
 }
 
@@ -1887,10 +1876,10 @@ func TestDirectedEntriesSkipAutomaticRouting(t *testing.T) {
 		{"reply", "佐藤さんと釣り", "gourmet", []string{"gourmet"}, map[string]string{"gourmet": "reply"}, 0},
 		{"mention overrides reply", "@tabe 佐藤さんと釣り", "move", []string{"gourmet"}, map[string]string{"gourmet": "mention"}, 0},
 		{"same recipient", "@tabe 佐藤さんと釣り", "gourmet", []string{"gourmet"}, map[string]string{"gourmet": "mention"}, 0},
-		{"ordinary post", "佐藤さんと釣り", "", []string{"move", "sato"}, nil, 1},
-		{"user reply", "佐藤さんと釣り", timeline.User, []string{"move", "sato"}, nil, 1},
-		{"inactive reply", "佐藤さんと釣り", "book", []string{"move", "sato"}, nil, 1},
-		{"unknown mention", "@unknown 佐藤さんと釣り", "", []string{"move", "sato"}, nil, 1},
+		{"ordinary post", "佐藤さんと釣り", "", []string{"move", "sato"}, nil, 2},
+		{"user reply", "佐藤さんと釣り", timeline.User, []string{"move", "sato"}, nil, 2},
+		{"inactive reply", "佐藤さんと釣り", "book", []string{"move", "sato"}, nil, 2},
+		{"unknown mention", "@unknown 佐藤さんと釣り", "", []string{"move", "sato"}, nil, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			routes := 0

@@ -50,7 +50,7 @@ func TestSonaScheduledPreparationReadsFreshWeather(t *testing.T) {
 			read := false
 			f.phaseReply = func(system, user string, offered map[string]bool) string {
 				switch {
-				case offered["finish_read"]:
+				case offered["read"] && !read:
 					if !strings.Contains(system, "出発前の準備") || !strings.Contains(system, "この起床時に確認し直して") || !strings.Contains(user, "鍵を忘れたことがある") {
 						t.Error("preparation wake lost its purpose or belongings memory")
 					}
@@ -116,7 +116,7 @@ func TestSonaCheckInSchedulesPreparationWithoutSpeakingEarly(t *testing.T) {
 	read := false
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
+		case offered["read"] && !read:
 			if !strings.Contains(system, "これからの予定や準備が必要な場面") || !strings.Contains(system, "今は黙ります") {
 				t.Error("check-in did not receive prospective preparation instructions")
 			}

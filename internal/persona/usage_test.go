@@ -10,7 +10,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/llm"
 )
 
-func TestResearchRoundsDoNotCountAsRetries(t *testing.T) {
+func TestAnswerReadRoundsDoNotCountAsRetries(t *testing.T) {
 	for _, mode := range []string{"valid", "no-tool", "malformed-read"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := 0
@@ -26,7 +26,7 @@ func TestResearchRoundsDoNotCountAsRetries(t *testing.T) {
 						fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r1","function":{"name":"read","arguments":"{\"deep\":false,\"research_plan\":[],\"steps\":[{\"type\":\"entries\",\"args\":\"{\\\"ids\\\":[\\\"e_test\\\"]}\"}]}"}}]}}]}`)
 					}
 				case 2:
-					fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r2","function":{"name":"finish_read","arguments":"{\"deep\":false,\"research_plan\":[]}"}}]}}]}`)
+					fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r2","function":{"name":"submit_answer","arguments":"{\"text\":\"answer\",\"sources\":[]}"}}]}}]}`)
 				}
 			}))
 			defer server.Close()
@@ -34,10 +34,10 @@ func TestResearchRoundsDoNotCountAsRetries(t *testing.T) {
 			var records []llm.CallRecord
 			client.Observe = func(r llm.CallRecord) { records = append(records, r) }
 			lookups := 0
-			_, err := research(context.Background(), client, "test", nil, func() readCapabilities { return readCapabilities{records: true, readsRemaining: maxReads} }, func([]ReadStep) string {
-				lookups++
-				return "read result"
-			}, nil)
+			_, err := composeAnswer(context.Background(), client, "test", nil, turnRules{}, answerReads{
+				capabilities: func() readCapabilities { return readCapabilities{records: true, readsRemaining: maxReads} },
+				lookup:       func([]ReadStep) string { lookups++; return "read result" },
+			})
 			if err != nil || len(records) != 2 {
 				t.Fatalf("records=%+v error=%v", records, err)
 			}
@@ -48,7 +48,7 @@ func TestResearchRoundsDoNotCountAsRetries(t *testing.T) {
 			if lookups != 1-wantRetry {
 				t.Fatalf("invalid research consumed a read: %d", lookups)
 			}
-			if records[0].Round != 1 || records[0].RetryCount != 0 || records[1].Round != 2 || records[1].RetryCount != wantRetry || records[1].Purpose != "research" {
+			if records[0].Round != 1 || records[0].RetryCount != 0 || records[1].Round != 2 || records[1].RetryCount != wantRetry || records[1].Purpose != "answer" {
 				t.Fatalf("records=%+v", records)
 			}
 		})

@@ -13,63 +13,36 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
-// A routing answer that cannot be used delivers to nobody. Waking everyone was
-// the old fallback, and it is exactly the noise routing exists to prevent.
-func TestRoutingThatCannotBeUsedDeliversToNobody(t *testing.T) {
+func TestRoutingRequiresBooleanAndReason(t *testing.T) {
 	for _, tc := range []struct {
-		reply string
-		want  []string
+		reply           string
+		answered, match bool
 	}{
-		{`{}`, nil},
-		{`null`, nil},
-		{`{"deliver":null}`, nil},
-		{`{"deliver":["unknown"]}`, nil},
-		{`{"deliver":[]}`, nil},
-		{`{"deliver":["food","food"]}`, []string{"food"}},
-		{`{"deliver":["food","unknown"]}`, []string{"food"}},
-		{`{"deliver":["food（tabe）","tech (gijutsu)"]}`, []string{"food", "tech"}},
+		{`{}`, false, false}, {`null`, false, false}, {`{"match":"yes","reason":"x"}`, false, false},
+		{`{"match":true}`, false, false}, {`{"match":true,"reason":" "}`, false, false},
+		{`{"match":true,"reason":"一致"}`, true, true}, {`{"match":false,"reason":"対象外"}`, true, false},
 	} {
 		t.Run(tc.reply, func(t *testing.T) {
 			f := &fake{reply: func(string, string) string { return tc.reply }}
 			server := f.start(t)
-			got := Route(context.Background(), llm.New(server.URL, ""), "route", []Skill{{ID: "food"}, {ID: "tech"}}, nil, Entryish{}).Deliver
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Fatalf("got %v, want %v", got, tc.want)
+			got := Route(context.Background(), llm.New(server.URL, ""), "route", []Skill{{ID: "food"}}, nil, Entryish{})
+			if got.Answered != tc.answered || (len(got.Deliver) > 0) != tc.match {
+				t.Fatalf("routing = %+v", got)
+			}
+			if tc.answered && !tc.match && got.Excluded["food"] != "対象外" {
+				t.Fatalf("reason = %+v", got)
 			}
 		})
 	}
-}
-
-// The reasons come back under whatever name the router used for a persona and
-// are kept under its id; a name that is nobody's is dropped. A reply that made
-// no sense is not an answer, and neither is a router that is not configured.
-func TestRoutingKeepsExclusionReasonsByID(t *testing.T) {
-	skills := []Skill{{ID: "food", Name: "tabe"}, {ID: "tech"}}
-	f := &fake{reply: func(string, string) string {
-		return `{"deliver":[],"excluded_reasons":{"food（tabe）":"x","unknown":"y","tech":"z"}}`
-	}}
-	server := f.start(t)
-	got := Route(context.Background(), llm.New(server.URL, ""), "route", skills, nil, Entryish{})
-	if !got.Answered || got.Error != "" {
-		t.Fatalf("expected an answer, got %+v", got)
-	}
-	if want := map[string]string{"food": "x", "tech": "z"}; !reflect.DeepEqual(got.Excluded, want) {
-		t.Fatalf("excluded %v, want %v", got.Excluded, want)
-	}
-
-	f.reply = func(string, string) string { return `{}` }
-	if got := Route(context.Background(), llm.New(server.URL, ""), "route", skills, nil, Entryish{}); got.Answered || got.Error == "" {
-		t.Fatalf("a reply without deliver is not an answer: %+v", got)
-	}
-	if got := Route(context.Background(), nil, "route", skills, nil, Entryish{}); got.Answered || got.Error == "" {
-		t.Fatalf("no client is not an answer: %+v", got)
+	if got := Route(context.Background(), nil, "route", []Skill{{ID: "food"}}, nil, Entryish{}); got.Answered || got.Error == "" {
+		t.Fatalf("routing = %+v", got)
 	}
 }
 
-// Routing uses Super unless Jev is enabled. Workflow review uses the middle
+// Routing defaults to Lightning unless a Router model is selected. Workflow review uses the middle
 // slot, so it is Super by default and follows the Middle model on OpenRouter.
-func TestRoutingAndReviewUseSuper(t *testing.T) {
-	if got := routingModel(); got != store.NemotronSuper {
+func TestRoutingUsesLightningAndReviewUsesSuper(t *testing.T) {
+	if got := routingModel(); got != store.NemotronLightning {
 		t.Fatalf("routing model = %q", got)
 	}
 	if got := reviewModel(store.Settings{MiddleModel: store.NemotronSuper, LowModel: store.NemotronLightning}); got != store.NemotronSuper {

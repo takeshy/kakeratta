@@ -15,8 +15,6 @@ import (
 func answeringReply(text string) func(system, user string, offered map[string]bool) string {
 	return func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
-			return "read_done"
 		case offered["submit_answer"]:
 			return `{"text":"` + text + `","sources":[]}`
 		}
@@ -158,7 +156,7 @@ func TestATurnIsHandedItsMemory(t *testing.T) {
 	var answered string
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
+		case offered["read"] && answered == "":
 			if answered == "" {
 				answered = user
 				return `{"steps":[{"type":"records","tool":"","args":"{\"tag\":\"テスト\"}"}]}`
@@ -305,8 +303,6 @@ func TestAnUnrelatedSilenceKeepsNothingAndIsRecorded(t *testing.T) {
 			r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 			f.phaseReply = func(system, user string, offered map[string]bool) string {
 				switch {
-				case offered["finish_read"]:
-					return "read_done"
 				case offered["submit_answer"]:
 					if tc.unrelated {
 						return `{"text":"","sources":[],"unrelated":true}`
@@ -391,7 +387,7 @@ func TestARecordReadForAPostIsExtended(t *testing.T) {
 	asked := false
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
+		case offered["read"] && !asked:
 			if !asked {
 				asked = true
 				return `{"steps":[{"type":"records","tool":"","args":"{\"tag\":\"草加\"}"}]}`
@@ -431,8 +427,6 @@ func TestAReviewIsAskedAndSettledByTheReply(t *testing.T) {
 	week := time.Now().AddDate(0, 0, 7).In(zone).Format("2006-01-02")
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
-			return "read_done"
 		case offered["submit_answer"]:
 			if strings.Contains(user, "Review due") {
 				if !strings.Contains(user, "[e_due] 草加の店に行きたい") {

@@ -362,9 +362,9 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 	for _, skill := range skills {
 		if skill.ID == skillID {
 			found = true
+			skills = []Skill{skill}
 			// A person is decided by its own words; the router has no say.
 			if skill.IsPerson() {
-				skills = []Skill{skill}
 				words = HeardTerms(skill, search.Text(entry))
 			}
 			break
@@ -694,20 +694,20 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions)})
 	resumed := resumedFrom(ctx)
 	skill = skill.forTurn()
+	deep = deep || wantsDeep(trigger.Text)
 	requestedDeep := deep
 	deep = deep || skill.AlwaysUltra
 
 	root := timeline.RootOf(trigger)
-	// Research and state-changing phases always use Super. Only the final
-	// answer switches to Ultra; the deeper lookup budget remains independent.
-	researchModel := personaModel(settings)
+	// Depth is fixed before the read/answer loop. Reads and state-changing
+	// phases stay on Super; only a deep/AlwaysUltra answer uses Ultra.
 	answerModel := personaModel(settings)
 	phaseModel := personaModel(settings)
 	slot := "super"
 	if deep {
 		answerModel, slot = ultraModel(settings), "ultra"
 	}
-	if client == nil || client.BaseURL == "" || researchModel == "" || answerModel == "" || phaseModel == "" {
+	if client == nil || client.BaseURL == "" || answerModel == "" || phaseModel == "" {
 		return nil
 	}
 	if resumed == nil {
@@ -740,7 +740,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if skill.ID == "infographic" {
 		length += infographicRules(trigger, thread)
 	}
-	system := answerSystem(skill, length) + "\n# Read\n必要なら現在の残数内でreadを使い、finish_readで終えます。\n" + capabilityLine(set)
+	system := answerSystem(skill, length) + capabilityLine(set)
 	system += wakeInstructions
 
 	names := map[string]string{}
@@ -893,41 +893,19 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	if answer == nil {
 		var err error
-		var silent []func(Answer)
-		if trigger.Speaker == "system" && !named && !listening &&
-			(strings.HasPrefix(wakeInstructions, dailyHeader) || strings.HasPrefix(wakeInstructions, monthlyHeader)) && !strings.Contains(wakeInstructions, reviewInstructions) {
-			silent = append(silent, func(quiet Answer) { answer = &quiet })
-		}
-		messages, err = research(ctx, client, researchModel, messages, func() readCapabilities {
-			return currentReadCapabilities(skill, set, budget, post.Place, readLimit-readsUsed)
-		}, lookup, func(decision researchDecision) {
-			deep = deep || decision.Deep
-			record.Deep = &deep
-			if deep {
-				readLimit = turnReadLimit(true)
-				budget.limit = max(budget.limit, readLimit)
-				budget.searches = max(budget.searches, turnSearchLimit(true))
-				answerModel, slot = ultraModel(settings), "ultra"
-				length = deepRule
-				if skill.ID == "infographic" {
-					length += infographicRules(trigger, thread)
-				}
-			}
-			record.Model = answerModel
-		}, silent...)
+		record.Deep = &deep
+		answer, err = composeAnswer(ctx, client, answerModel, messages, rules, answerReads{
+			capabilities: func() readCapabilities {
+				return currentReadCapabilities(skill, set, budget, post.Place, readLimit-readsUsed)
+			},
+			lookup: lookup,
+			model:  readModel(settings, answerModel, set, post.Place),
+		})
 		if err != nil {
 			return failed(err)
 		}
-		// Research decides the depth; replace the original length/read ceiling
-		// before composing so brief instructions cannot override that decision.
-		messages[0].Content = answerSystem(skill, length) + capabilityLine(set) + wakeInstructions
-		if answer == nil {
-			answer, err = composeAnswer(ctx, client, answerModel, messages, rules)
-			if err != nil {
-				return failed(err)
-			}
-		}
 	}
+
 	record.Answer = answer
 	encodedAnswer, _ := json.Marshal(answer)
 	phaseContext := user + "\n\nこのターンに読んだ内容:\n" + strings.Join(read, "\n\n") + "\n\n完成した Answer:\n" + string(encodedAnswer)
@@ -987,7 +965,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if unrelated {
 		r.markUnrelated(trigger.ID, skill.ID)
 	}
-	if skill.Remembers() && keepsNotes(trigger, wakeInstructions) && !unrelated {
+	// Records due for review are kept by the keeper whatever the answer said
+	// about remembering the check-in itself, or the same review comes back.
+	// Otherwise the answer's remember=false spares the keeper's model call.
+	remember := answer.Remember == nil || *answer.Remember || strings.Contains(wakeInstructions, reviewInstructions)
+	if skill.Remembers() && keepsNotes(trigger, wakeInstructions) && !unrelated && remember {
 		keeper := keeperTurn{skill: skill, thread: thread, trigger: trigger, answer: spoken, wake: wakeInstructions, here: here, names: names}
 		if remark != nil {
 			keeper.replyID = remark.ID
@@ -1009,6 +991,16 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			}
 		} else {
 			r.emit("error", map[string]any{"where": "note retry", "message": err.Error()})
+		}
+	} else if skill.Remembers() && !remember && strings.HasPrefix(wakeInstructions, editedInstructions) {
+		// An edit no longer worth remembering must not leave what was kept of
+		// the post before it. Taken out without a model, as for a deletion.
+		zone := settings.Location()
+		if _, err := r.dropRecords(ctx, skill.ID, []timeline.Entry{trigger}, zone); err != nil {
+			r.emit("error", map[string]any{"where": "memory", "message": err.Error()})
+		}
+		if _, err := r.dropFactSources(ctx, skill, map[string]bool{trigger.ID: true}, zone); err != nil {
+			r.emit("error", map[string]any{"where": "memory", "message": err.Error()})
 		}
 	}
 	return remark
@@ -1114,7 +1106,7 @@ func turnLine(named, listening bool) string {
 	switch {
 	case listening:
 		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
-			"覚えておくことがあれば、あとでメモ係が書きます。Answer の text は空にしてください。"
+			"覚えておくことがあればremember=trueで答えてください。あとでメモ係が書きます。Answer の text は空にしてください。"
 	case named:
 		return "\n※ あなたは名指しで呼ばれています。Answer の text を空にはできません。必ず何か答えてください。"
 	}
@@ -1126,6 +1118,20 @@ func turnLine(named, listening bool) string {
 // single-model setup still works.
 func personaModel(settings store.Settings) string {
 	return firstSet(settings.MiddleModel, settings.LowModel)
+}
+
+// readModel is the model that gathers evidence for an answer on answerModel.
+// A persona with its own lookup tools reads on Super and leaves only the
+// answer to Ultra; one without them (the infographic, working from what the
+// thread already holds) seldom reads, so its Ultra answer reads too rather than
+// paying for a Super call that would only finish reading.
+func readModel(settings store.Settings, answerModel string, set *tools.Set, at *timeline.Place) string {
+	for _, d := range set.Declarations() {
+		if d.Name != "timeline_search" && d.Name != "schedules_list" && set.ReadAvailable(d.Name, at) {
+			return personaModel(settings)
+		}
+	}
+	return answerModel
 }
 
 // ultraModel composes final answers for deep requests and AlwaysUltra personas.

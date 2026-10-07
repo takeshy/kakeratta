@@ -297,8 +297,9 @@ func proposePhase(ctx context.Context, client *llm.Client, model, phase, system,
 // stay as they are.
 func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model string, skill Skill, answer Answer, user, wake string, rules turnRules, lookup func([]ReadStep) string, review func(Workflow) (*Review, error), log *turnLog) (Workflow, error) {
 	plan := Workflow{Answer: answer, Schedules: []ScheduleOperation{}, Actions: []ActionOperation{}}
-	// Memory is kept after publication, independently of side-effect phases.
-	if !rules.set.Allows("schedule") && len(shapeOf(rules.set).actions) == 0 {
+	scheduleNeeded := rules.set.Allows("schedule") && (answer.Schedule == nil || *answer.Schedule || tidiesUp(wake))
+	// The answer already decided whether scheduling is needed.
+	if !scheduleNeeded && len(shapeOf(rules.set).actions) == 0 {
 		return plan, nil
 	}
 	generations := map[string]int{}
@@ -341,7 +342,7 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 	// take a finished answer with it, so they are kept by the note keeper once
 	// the turn has run and the remark is out (notekeeper.go).
 	for _, phase := range []string{"schedule", "action"} {
-		if phase == "schedule" && !rules.set.Allows("schedule") {
+		if phase == "schedule" && !scheduleNeeded {
 			continue
 		}
 		// Tidying up after a deletion changes memory and schedules only.
@@ -395,7 +396,7 @@ func (r *Runner) planPhases(ctx context.Context, client *llm.Client, model strin
 			scheduleFix, actionFix = true, true
 		}
 		var fixed []string
-		if scheduleFix && rules.set.Allows("schedule") {
+		if scheduleFix && scheduleNeeded {
 			if err := generate("schedule", string(feedback)); err != nil {
 				return plan, err
 			}

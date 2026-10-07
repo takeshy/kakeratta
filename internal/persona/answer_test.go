@@ -22,15 +22,9 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 			t.Error("answer published before phases completed")
 		}
 		switch {
-		case offered["finish_read"]:
-			phases = append(phases, "read")
-			if strings.Contains(system, "keep_memory") || offered["keep_memory"] {
-				t.Error("research was asked to write memory")
-			}
-			return "read_done"
 		case offered["submit_answer"]:
 			phases = append(phases, "answer")
-			if offered["read"] || offered["keep_memory"] {
+			if offered["keep_memory"] || offered["submit_schedule"] {
 				t.Error("answer phase mixes responsibilities")
 			}
 			return `{"text":"一般的な調査の詳しい回答。保存は不要。","sources":[]}`
@@ -52,7 +46,7 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 		return `{"summary":"一般的な食文化について調べてと聞いた","tags":["食文化"],"facts":[]}`
 	}
 	r.react(post(t, s, "一般的な食文化について調べて").ID)
-	if strings.Join(phases, ",") != "read,answer,keep" {
+	if strings.Join(phases, ",") != "answer,keep" {
 		t.Fatal(phases)
 	}
 	notes := s.Memory("gourmet").Notes
@@ -201,8 +195,6 @@ func TestUserFactsCanBeRememberedWithoutReviewOrCopyingTheAnswer(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
-			return "read_done"
 		case offered["submit_answer"]:
 			return `{"text":"A店に行けたんだね。詳しい返信は記憶へ複写しません。","sources":[]}`
 		case offered["submit_schedule"]:
@@ -282,8 +274,6 @@ func TestAFieldCopyingTheAnswerIsSentBack(t *testing.T) {
 	answer := "トランプ大統領の発言は、米中対立を続けながらも協調の余地を示したものと考えられます。輸出規制の緩和を示す合図だという見方もありますが、現時点では不確実です。"
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
-			return "read_done"
 		case offered["submit_answer"]:
 			return `{"text":"` + answer + `","sources":[]}`
 		}
@@ -341,8 +331,6 @@ func TestAPhaseOutOfReadsIsMadeToSubmit(t *testing.T) {
 	reads := 0
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {
-		case offered["finish_read"]:
-			return "read_done"
 		case offered["submit_answer"]:
 			return `{"text":"駅から5分の店です。","sources":[]}`
 		case offered["submit_schedule"] && offered["read"]:
