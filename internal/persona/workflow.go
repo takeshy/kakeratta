@@ -29,6 +29,45 @@ type ReadStep struct {
 	Args  string   `json:"args"`
 }
 
+// Research offers structured arguments. Keep the internal/persisted string
+// form and accept legacy callers so saved asks and workflows still resume.
+func (s *ReadStep) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		Type  string          `json:"type"`
+		Paths []string        `json:"paths"`
+		Tool  string          `json:"tool"`
+		Args  json.RawMessage `json:"args"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	args := strings.TrimSpace(string(wire.Args))
+	switch {
+	case args == "" || args == "null":
+		args = ""
+	case strings.HasPrefix(args, `"`):
+		if err := json.Unmarshal(wire.Args, &args); err != nil {
+			return err
+		}
+	case strings.HasPrefix(args, "{"):
+		// Give structured calls a stable internal representation; existing
+		// string arguments retain their historical representation.
+		var object map[string]any
+		if err := json.Unmarshal(wire.Args, &object); err != nil {
+			return err
+		}
+		encoded, err := json.Marshal(object)
+		if err != nil {
+			return err
+		}
+		args = string(encoded)
+	default:
+		return fmt.Errorf("read の args は JSON オブジェクトで指定してください。")
+	}
+	*s = ReadStep{Type: wire.Type, Paths: wire.Paths, Tool: wire.Tool, Args: args}
+	return nil
+}
+
 // operationBatch is a Workflow flattened into the order it runs in:
 // schedules, then actions. It is the host's own adapter to the checks
 // and the executor, never a shape a model is shown.

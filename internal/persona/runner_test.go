@@ -257,7 +257,7 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 				for _, value := range calls {
 					call := value.(map[string]any)
 					function := call["function"].(map[string]any)
-					if function["name"] != "read" && function["name"] != "finish_read" {
+					if function["name"] != "read" && function["name"] != "finish_read" && function["name"] != "finish_silent" {
 						continue
 					}
 					var args map[string]any
@@ -430,6 +430,8 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		return call("read", json.RawMessage(rest))
 	}
 	switch {
+	case offered["finish_silent"] && content == "silent_done":
+		return call("finish_silent", map[string]any{"unrelated": false})
 	case offered["submit_answer"]:
 		return call("submit_answer", json.RawMessage(content))
 	case offered["submit_schedule"]:

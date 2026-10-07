@@ -45,6 +45,15 @@ var finishReadTool = llm.Tool{
 	Parameters: map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false},
 }
 
+// Check-ins may finish silently during research without composing an empty
+// answer. Side-effect planning and record reviews still run afterwards.
+var finishSilentTool = llm.Tool{
+	Name: "finish_silent", Description: "定期チェックインの必要な確認を終え、今伝えることがないと判断した場合だけ、発言せず調査を終了します。記憶や予定の処理は本体が続けます。",
+	Parameters: map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"unrelated": map[string]any{"type": "boolean", "description": "対象が担当分野と無関係ならtrue。関係はあるが今伝えることがないならfalse。"},
+	}, "required": []string{"unrelated"}},
+}
+
 const answerRules = `規則:
 - **黙ってよい。** 全部に反応する必要はありません。ただ眺めていたいだけの投稿もあります。押し付けないでください。
 - 今回の対象発言にスレッド全体の文脈を踏まえて答えてください。ユーザーの追加発言は、元の投稿や担当の質問への補足・訂正・回答として読みます。
@@ -145,7 +154,7 @@ func citedOnly(answer Answer, rules turnRules) Answer {
 
 // research completes before the answer tool is offered: no state-changing
 // schemas or note-writing skill consume the answer model's context.
-func research(ctx context.Context, client *llm.Client, model string, messages []llm.Message, capabilities func() readCapabilities, lookup func([]ReadStep) string, initialize func(researchDecision)) ([]llm.Message, error) {
+func research(ctx context.Context, client *llm.Client, model string, messages []llm.Message, capabilities func() readCapabilities, lookup func([]ReadStep) string, initialize func(researchDecision), silent ...func(Answer)) ([]llm.Message, error) {
 	// Replace the live instruction instead of accumulating stale capability
 	// lists. Keep all conversation and tool-result messages for the answer.
 	messages = append([]llm.Message(nil), messages...)
@@ -163,8 +172,15 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 		}
 		messages[0].Content = baseSystem + current.instruction()
 		tools := []llm.Tool{current.tool(), finishReadTool}
+		if len(silent) > 0 {
+			tools = append(tools, finishSilentTool)
+			messages[0].Content += "\n必要な確認を済ませても今伝える具体的な新情報・準備・見直しの質問がなければ finish_silent で黙って終了してください。未確認を完了と推測せず、声をかける価値がある場合は finish_read で回答へ進みます。\n"
+		}
 		if planning {
 			messages[0].Content += researchPlanningInstruction
+			if len(silent) > 0 {
+				messages[0].Content += "\n初回の finish_silent にも deep と research_plan を含めます。\n"
+			}
 			for i := range tools {
 				tools[i] = withResearchPlanning(tools[i])
 			}
@@ -180,7 +196,35 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 		done := false
 		invalid := len(reply.Calls) == 0
 		for _, call := range reply.Calls {
-			if planning && (call.Name == readTool.Name || call.Name == finishReadTool.Name) {
+			var reading struct {
+				Steps []ReadStep `json:"steps"`
+			}
+			if call.Name == readTool.Name {
+				err := json.Unmarshal([]byte(call.Args), &reading)
+				if err == nil {
+					if len(reading.Steps) == 0 {
+						err = fmt.Errorf("read には空でない steps が必要です。調査不要なら finish_read してください。")
+					} else {
+						err = validateEntryReads(reading.Steps, current)
+					}
+				}
+				if err != nil {
+					invalid = true
+					messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: "read の形式が不正です: " + err.Error()})
+					continue
+				}
+			}
+			var quiet struct {
+				Unrelated *bool `json:"unrelated"`
+			}
+			if call.Name == finishSilentTool.Name {
+				if len(silent) == 0 || len(reply.Calls) != 1 || json.Unmarshal([]byte(call.Args), &quiet) != nil || quiet.Unrelated == nil {
+					invalid = true
+					messages = append(messages, llm.Message{Role: "tool", CallID: call.ID, Content: "finish_silent は許可された定期チェックインでのみ単独で呼び出し、unrelated の真偽値が必要です。read の結果を確認してから終了してください。"})
+					continue
+				}
+			}
+			if planning && (call.Name == readTool.Name || call.Name == finishReadTool.Name || call.Name == finishSilentTool.Name) {
 				var err error
 				decision, err = parseResearchDecision(call.Args, call.Name == readTool.Name)
 				if err != nil {
@@ -195,19 +239,15 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 			}
 			result := "read または finish_read を呼んでください。"
 			switch call.Name {
+			case finishSilentTool.Name:
+				silent[0](Answer{Sources: []string{}, Unrelated: *quiet.Unrelated})
+				done = true
+				result = "調査を終えました。このチェックインでは発言しません。"
 			case finishReadTool.Name:
 				done = true
 				result = "調査を終えました。次は回答だけを生成します。"
 			case readTool.Name:
-				var request struct {
-					Steps []ReadStep `json:"steps"`
-				}
-				if err := json.Unmarshal([]byte(call.Args), &request); err != nil {
-					invalid = true
-					result = "read の形式が不正です: " + err.Error()
-				} else {
-					result = lookup(request.Steps)
-				}
+				result = lookup(reading.Steps)
 			default:
 				invalid = true
 			}
@@ -220,6 +260,9 @@ func research(ctx context.Context, client *llm.Client, model string, messages []
 			retries++
 			if planning && retries > maxMalformed {
 				return nil, fmt.Errorf("initial research plan was not provided after %d attempts", retries)
+			}
+			if retries > maxMalformed {
+				return nil, fmt.Errorf("research requests remained malformed after %d attempts", retries)
 			}
 		}
 		if len(reply.Calls) == 0 {
@@ -295,5 +338,5 @@ func capabilityLine(set *tools.Set) string {
 
 // recordsReadSpec is how a persona reads further back than the records it is
 // handed.
-const recordsReadSpec = `記憶（分野ごとの事実と最近の記録）は最初に渡してあります。それより前のかけらの記録は {"type":"records","tool":"","args":"{\"tag\":\"…\",\"query\":\"…\",\"before\":\"2026-09\"}"} で探します（要るものだけ）。記録の [ ] の投稿そのもの（返信なら返信もとも）は args を {\"ids\":[\"…\",\"…\"]} にして、10件までまとめて1回で読めます。
+const recordsReadSpec = `記憶（分野ごとの事実と最近の記録）は最初に渡してあります。それより前のかけらの記録は {"type":"records","tool":"","args":{"tag":"…","query":"…","before":"2026-09"}} で探します（要るものだけ）。記録の [ ] の投稿そのもの（返信なら返信もとも）は args を {"ids":["…","…"]} にして、10件までまとめて1回で読めます。
 `

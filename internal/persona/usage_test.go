@@ -23,7 +23,7 @@ func TestResearchRoundsDoNotCountAsRetries(t *testing.T) {
 					} else if mode == "malformed-read" {
 						fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r1","function":{"name":"read","arguments":"bad json"}}]}}]}`)
 					} else {
-						fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r1","function":{"name":"read","arguments":"{\"deep\":false,\"research_plan\":[],\"steps\":[{\"type\":\"entries\",\"args\":\"{}\"}]}"}}]}}]}`)
+						fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r1","function":{"name":"read","arguments":"{\"deep\":false,\"research_plan\":[],\"steps\":[{\"type\":\"entries\",\"args\":\"{\\\"ids\\\":[\\\"e_test\\\"]}\"}]}"}}]}}]}`)
 					}
 				case 2:
 					fmt.Fprint(w, `{"choices":[{"message":{"tool_calls":[{"id":"r2","function":{"name":"finish_read","arguments":"{\"deep\":false,\"research_plan\":[]}"}}]}}]}`)

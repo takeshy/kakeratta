@@ -52,7 +52,7 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 		return `{"summary":"一般的な食文化について調べてと聞いた","tags":["食文化"],"facts":[]}`
 	}
 	r.react(post(t, s, "一般的な食文化について調べて").ID)
-	if strings.Join(phases, ",") != "read,answer,schedule,keep" {
+	if strings.Join(phases, ",") != "read,answer,keep" {
 		t.Fatal(phases)
 	}
 	notes := s.Memory("gourmet").Notes
@@ -331,6 +331,13 @@ func TestCopiesAnswerSparesWhatTheUserSaid(t *testing.T) {
 // having stayed quiet.
 func TestAPhaseOutOfReadsIsMadeToSubmit(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	// This fixture exercises schedule planning, which requires permission.
+	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
+	skill.Tools = append(skill.Tools, "schedule")
+	raw, _ := json.Marshal(skill)
+	if _, err := r.catalogue.Update(context.Background(), skill.ID, raw, nil); err != nil {
+		t.Fatal(err)
+	}
 	reads := 0
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
 		switch {

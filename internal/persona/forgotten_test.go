@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -258,6 +259,14 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 	r, s, stub := setup(t, func(system, user string) string {
 		return `{"action":"speak","text":"ドラマ、見てる？"}`
 	}, "gourmet")
+	// Keep a permitted phase in this fixture so its no-speech restriction is
+	// exercised; read-only deletion wakes no longer need a model call.
+	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
+	skill.Tools = append(skill.Tools, "schedule")
+	raw, _ := json.Marshal(skill)
+	if _, err := r.catalogue.Update(context.Background(), skill.ID, raw, nil); err != nil {
+		t.Fatal(err)
+	}
 
 	entry := post(t, s, "22:00からドラマを見る")
 	if err := s.RecordWake(entry.ID, "gourmet"); err != nil {

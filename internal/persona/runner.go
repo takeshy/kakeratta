@@ -893,6 +893,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	if answer == nil {
 		var err error
+		var silent []func(Answer)
+		if trigger.Speaker == "system" && !named && !listening &&
+			(strings.HasPrefix(wakeInstructions, dailyHeader) || strings.HasPrefix(wakeInstructions, monthlyHeader)) && !strings.Contains(wakeInstructions, reviewInstructions) {
+			silent = append(silent, func(quiet Answer) { answer = &quiet })
+		}
 		messages, err = research(ctx, client, researchModel, messages, func() readCapabilities {
 			return currentReadCapabilities(skill, set, budget, post.Place, readLimit-readsUsed)
 		}, lookup, func(decision researchDecision) {
@@ -909,16 +914,18 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				}
 			}
 			record.Model = answerModel
-		})
+		}, silent...)
 		if err != nil {
 			return failed(err)
 		}
 		// Research decides the depth; replace the original length/read ceiling
 		// before composing so brief instructions cannot override that decision.
 		messages[0].Content = answerSystem(skill, length) + capabilityLine(set) + wakeInstructions
-		answer, err = composeAnswer(ctx, client, answerModel, messages, rules)
-		if err != nil {
-			return failed(err)
+		if answer == nil {
+			answer, err = composeAnswer(ctx, client, answerModel, messages, rules)
+			if err != nil {
+				return failed(err)
+			}
 		}
 	}
 	record.Answer = answer
