@@ -19,6 +19,8 @@ type socialBody struct {
 	EntryIDs   []string                     `json:"entryIds"`
 	Digest     string                       `json:"digest"`
 	HTMLImages map[string]social.HTMLImages `json:"htmlImages,omitempty"`
+	// Language is the display language the words the plan adds use.
+	Language string `json:"language,omitempty"`
 }
 
 func (s *Server) socialPlan(r *http.Request, body socialBody) (social.Plan, error) {
@@ -27,7 +29,7 @@ func (s *Server) socialPlan(r *http.Request, body socialBody) (social.Plan, erro
 		return social.Plan{}, err
 	}
 	skills := s.catalogue.Snapshot(r.Context())
-	plan, err := social.PlanSelectionWithImages(body.Target, body.Root, entries, body.EntryIDs, func(id string) string {
+	plan, err := social.PlanSelectionIn(body.Language, body.Target, body.Root, entries, body.EntryIDs, func(id string) string {
 		if p, ok := skills.Find(id); ok {
 			return strings.TrimSpace(p.Icon + " " + p.Name)
 		}

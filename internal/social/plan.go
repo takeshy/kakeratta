@@ -32,12 +32,13 @@ func (p Post) Key() string {
 }
 
 type Plan struct {
-	Account string `json:"account"`
-	Handle  string `json:"handle"`
-	Target  string `json:"target"`
-	Root    string `json:"root"`
-	Posts   []Post `json:"posts"`
-	Digest  string `json:"digest"`
+	Account  string `json:"account"`
+	Handle   string `json:"handle"`
+	Target   string `json:"target"`
+	Root     string `json:"root"`
+	Language string `json:"language,omitempty"`
+	Posts    []Post `json:"posts"`
+	Digest   string `json:"digest"`
 }
 
 // PlanSelection includes only explicitly selected entries. If a reply's
@@ -47,7 +48,41 @@ func PlanSelection(target, root string, entries []timeline.Entry, selected []str
 }
 
 func PlanSelectionWithImages(target, root string, entries []timeline.Entry, selected []string, label func(string) string, images map[string]HTMLImages) (Plan, error) {
-	p := Plan{Target: target, Root: root}
+	return PlanSelectionIn("ja", target, root, entries, selected, label, images)
+}
+
+// planWords are the few words the plan itself adds to posts: who a persona's
+// reply is from, the head of a continued part, and image placeholders. They
+// follow the display language the sharing was started in.
+type planWords struct {
+	reply            func(name string) string
+	continued, image string
+	imagePage        func(n, of int) string
+}
+
+func wordsFor(language string) planWords {
+	if language == "en" {
+		return planWords{
+			reply:     func(name string) string { return "Reply from " + name + ":\n" },
+			continued: "Continued:\n", image: "[Image]",
+			imagePage: func(n, of int) string { return fmt.Sprintf("[Image %d/%d]", n, of) },
+		}
+	}
+	return planWords{
+		reply:     func(name string) string { return name + "からの返信:\n" },
+		continued: continuation, image: "［画像］",
+		imagePage: func(n, of int) string { return fmt.Sprintf("［画像 %d/%d］", n, of) },
+	}
+}
+
+// PlanSelectionIn plans in a display language ("en"; anything else is
+// Japanese). The language is sealed into the plan with everything else.
+func PlanSelectionIn(language, target, root string, entries []timeline.Entry, selected []string, label func(string) string, images map[string]HTMLImages) (Plan, error) {
+	if language != "en" {
+		language = ""
+	}
+	words := wordsFor(language)
+	p := Plan{Target: target, Root: root, Language: language}
 	if target != "bluesky" {
 		return p, fmt.Errorf("投稿先はBlueskyを選んでください")
 	}
@@ -121,11 +156,11 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 			if rendered.SourceHash != hex.EncodeToString(hash[:]) {
 				return fmt.Errorf("回答の内容が変わりました。会話を開き直してプレビューしてください")
 			}
-			text = "［画像］"
+			text = words.image
 		}
 		prefix := ""
 		if e.Speaker != timeline.User {
-			prefix = label(e.Speaker) + "からの返信:\n"
+			prefix = words.reply(label(e.Speaker))
 		}
 		if e.Link != "" {
 			text += "\n" + e.Link
@@ -141,7 +176,7 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 		if links != nil {
 			body = strings.TrimRightFunc(text, unicode.IsSpace)
 		}
-		parts, err := SplitRich(body, prefix, links)
+		parts, err := splitRich(body, prefix, words.continued, links)
 		if err != nil {
 			return fmt.Errorf("%s: %w", id, err)
 		}
@@ -170,7 +205,7 @@ func PlanSelectionWithImages(target, root string, entries []timeline.Entry, sele
 		}
 		for i := 1; i < len(rendered.Images); i++ {
 			post := Post{ID: fmt.Sprintf("%s:image:%d", id, i+1), EntryID: id, Parent: parent,
-				Text:  continuation + prefix + fmt.Sprintf("［画像 %d/%d］", i+1, len(rendered.Images)),
+				Text:  words.continued + prefix + words.imagePage(i+1, len(rendered.Images)),
 				Image: rendered.Images[i], ImageAlt: rendered.Alt, SourceHash: rendered.SourceHash}
 			p.Posts = append(p.Posts, post)
 			parent = post.Key()

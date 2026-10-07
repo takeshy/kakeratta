@@ -2,6 +2,8 @@ package social
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -200,5 +202,33 @@ func TestMermaidArrowsReadTheSyntaxModelsWrite(t *testing.T) {
 	}
 	if mermaidArrows([]string{"pie title 割合", `"A" : 1`}) != nil {
 		t.Fatal("an unsupported diagram was read")
+	}
+}
+
+func TestPlanWordsFollowTheDisplayLanguage(t *testing.T) {
+	long := strings.Repeat("word ", 80)
+	entries := []timeline.Entry{
+		{ID: "p", Kind: timeline.KindPost, Speaker: "user", Text: "hi"},
+		{ID: "a", Root: "p", ReplyTo: "p", Speaker: "tabe", Text: long},
+	}
+	label := func(string) string { return "🍚 tabe" }
+	en, err := PlanSelectionIn("en", "bluesky", "p", entries, []string{"a"}, label, nil)
+	if err != nil || len(en.Posts) < 2 {
+		t.Fatalf("%+v %v", en, err)
+	}
+	if !strings.HasPrefix(en.Posts[0].Text, "Reply from 🍚 tabe:\n") || !strings.HasPrefix(en.Posts[1].Text, "Continued:\nReply from 🍚 tabe:\n") {
+		t.Fatalf("english posts = %q / %q", en.Posts[0].Text, en.Posts[1].Text)
+	}
+	ja, _ := PlanSelectionIn("", "bluesky", "p", entries, []string{"a"}, label, nil)
+	if !strings.HasPrefix(ja.Posts[0].Text, "🍚 tabeからの返信:\n") || !strings.HasPrefix(ja.Posts[1].Text, "つづき:\n") || ja.Digest == en.Digest {
+		t.Fatalf("japanese posts = %q / %q", ja.Posts[0].Text, ja.Posts[1].Text)
+	}
+	html := "<!DOCTYPE html><html><body>図</body></html>"
+	entries[1].Text = html
+	hash := sha256.Sum256([]byte(html))
+	images := map[string]HTMLImages{"a": {SourceHash: hex.EncodeToString(hash[:]), Images: []string{"data:image/jpeg;base64,AA==", "data:image/jpeg;base64,AA=="}}}
+	pages, err := PlanSelectionIn("en", "bluesky", "p", entries, []string{"a"}, label, images)
+	if err != nil || pages.Posts[0].Text != "Reply from 🍚 tabe:\n[Image]" || pages.Posts[1].Text != "Continued:\nReply from 🍚 tabe:\n[Image 2/2]" {
+		t.Fatalf("image pages = %+v %v", pages.Posts, err)
 	}
 }

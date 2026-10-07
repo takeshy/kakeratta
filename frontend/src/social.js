@@ -1,7 +1,7 @@
 import { userProfile } from "./avatar.js";
 import { el, clear, toast, dialogCloseButton } from "./dom.js";
 import { createBlueskyConnection } from "./bluesky.js";
-import { t } from "./i18n.js";
+import { getLanguage, t } from "./i18n.js";
 import { api, blobURL } from "./api.js";
 import { renderHtmlDocument } from "./html-document.js";
 import { imageSource } from "./infographic-document.js";
@@ -84,7 +84,8 @@ export async function openSocial(root, getPersona, getSettings = () => ({})) {
         html ? el("span", { class: "said" }, renderHtmlDocument(html), el("span", { class: "hint", label: "この回答は画像として公開します。" }))
           : el("span", { class: "said", text: entry.text || t("［画像］") }))));
   }
-  const body = () => ({ root, target: "bluesky", entryIds: [...selected],
+  // The words the plan adds (whose reply, "continued") follow the display language.
+  const body = () => ({ root, target: "bluesky", language: getLanguage(), entryIds: [...selected],
     htmlImages: Object.fromEntries([...rendered].filter(([id]) => selected.has(id))) });
   const previewButton = el("button", { class: "button secondary", label: "プレビュー", disabled: true, onclick: async () => {
     if (busy || isPosted() || !selected.size) return;

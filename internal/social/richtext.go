@@ -164,7 +164,7 @@ func tableRow(row string) string {
 }
 
 var (
-	mermaidNode = regexp.MustCompile(`^([\p{L}\p{N}_.]+(?:-[\p{L}\p{N}_][\p{L}\p{N}_.]*)*)\s*(?:\(\(([\s\S]*?)\)\)|\[\[([\s\S]*?)\]\]|\[\(([\s\S]*?)\)\]|\(\[([\s\S]*?)\]\)|\[([\s\S]*?)\]|\(([\s\S]*?)\)|\{\{([\s\S]*?)\}\}|\{([\s\S]*?)\}|>([\s\S]*?)\])?\s*`)
+	mermaidNode    = regexp.MustCompile(`^([\p{L}\p{N}_.]+(?:-[\p{L}\p{N}_][\p{L}\p{N}_.]*)*)\s*(?:\(\(([\s\S]*?)\)\)|\[\[([\s\S]*?)\]\]|\[\(([\s\S]*?)\)\]|\(\[([\s\S]*?)\]\)|\[([\s\S]*?)\]|\(([\s\S]*?)\)|\{\{([\s\S]*?)\}\}|\{([\s\S]*?)\}|>([\s\S]*?)\])?\s*`)
 	mermaidArrow   = regexp.MustCompile(`^(?:(--|==|-\.)\s+([^|\n]+?)\s+)?(-{2,}>|\.-+>|-\.+->|-{3,}|\.-+|-\.+-|={2,}>|={3,})\s*(?:\|([^|]*)\|)?\s*`)
 	mermaidAnd     = regexp.MustCompile(`^&\s*`)
 	mermaidIgnored = regexp.MustCompile(`(?i)^(?:subgraph\b|end$|direction\s|style\s|classDef\s|class\s|linkStyle\s|click\s)`)

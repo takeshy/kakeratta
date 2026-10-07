@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	webpush "github.com/SherClockHolmes/webpush-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )

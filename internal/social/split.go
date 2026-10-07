@@ -41,6 +41,11 @@ func SplitText(text, prefix string) ([]string, error) {
 // bare URLs outside them become links too. Each part's links are offsets
 // into that part's text, prefix included.
 func SplitRich(text, prefix string, links []Link) ([]Part, error) {
+	return splitRich(text, prefix, continuation, links)
+}
+
+// splitRich is SplitRich with the line that heads every later part.
+func splitRich(text, prefix, continued string, links []Link) ([]Part, error) {
 	var units []textUnit
 	appendGraphemes := func(text string) {
 		g := uniseg.NewGraphemes(text)
@@ -81,7 +86,7 @@ func SplitRich(text, prefix string, links []Link) ([]Part, error) {
 	for start := 0; start < len(units); {
 		heading := prefix
 		if len(parts) > 0 {
-			heading = continuation + prefix
+			heading = continued + prefix
 		}
 		count, size := uniseg.GraphemeClusterCount(heading), len(heading)
 		end, sentence, soft := start, start, start

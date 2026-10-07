@@ -101,12 +101,12 @@
           <ol>
             <li><a href="/">アプリを開きます</a>。Google アカウントでログインします。認証後は「ログインを完了しています…」を表示し、完了すると自動で画面が切り替わります。データはあなたのアカウントにだけ結びつき、ほかの人からは見えません。</li>
             <li>右上の <strong>設定</strong> を開き、<a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a> で発行した <strong>API キー</strong> を入力します。「接続できました」と出れば準備完了です。</li>
-            <li>画面の上に「担当が誰もいません」と出ていたら、<strong>「〇〇 を呼ぶ」</strong> で 1 人以上呼びます。誰もいないと、かけらは誰にも届きません。</li>
+            <li>新しいアカウントでは、sona・support・インフォグラフィックの 3 人が最初から有効です。すべての担当を無効にすると画面の上に「担当が誰もいません」と出るので、<strong>「〇〇 を呼ぶ」</strong> で 1 人以上呼んでください。誰もいないと、かけらは誰にも届きません。</li>
             <li>欄に一言書いて <strong>流す</strong>。これが最初のかけらです。</li>
           </ol>
           <figure>
             <img src="/captures/ja/nobody.png" alt="担当が誰もいない状態。ワンタップで組み込みの担当を呼べる" loading="lazy" width="390" height="862" />
-            <figcaption>担当が誰もいない状態。ここから 1 人呼ぶと、以後のかけらを受け取ります。</figcaption>
+            <figcaption>すべての担当を無効にしたときの表示。ここから 1 人呼ぶと、以後のかけらを受け取ります。</figcaption>
           </figure>
           <p>API キーはサーバー側にだけ保存され、設定した接続先以外へは送られません。</p>
         </section>
@@ -166,7 +166,7 @@
               <tbody>
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
                 <tr><td><code>@support</code></td><td>サポート</td><td>kakerattaの使い方・仕様・設定・困りごと（新規利用時は有効）</td></tr>
-                <tr><td><code>@infographic</code></td><td>図解</td><td>文章・展開済みURL記事・解釈済み画像を表示言語で絵文字・Mermaidを使ったMarkdown図解に。Web検索なし。記憶なし・最終回答は常にUltra（新規利用時は有効）</td></tr>
+                <tr><td><code>@infographic</code></td><td>図解</td><td>投稿・記事・画像・会話を図解にしてほしいという依頼。表示言語の図解（見出し・表・Mermaid の図）で返します。Web検索なし・記憶なし・最終回答は常にUltra（新規利用時は有効）</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
                 <tr><td><code>@sona</code></td><td>備え</td><td>外出前の持ち物、忘れ物、予定と天気を合わせた声かけ。繰り返す用事や一度きりの用の確認。新規利用時は有効</td></tr>
               </tbody>
@@ -193,7 +193,7 @@
           <p>母や友人のように、<strong>特定の一人を覚える担当</strong>も作れます。<strong>担当</strong> の <strong>人物</strong> タブで <strong>AIと担当を作る</strong> を選ぶと、「誰のことを覚える担当を作りたい？名前や呼び名、あなたとの関係を教えてください。」と尋ねられます。入力欄の例を参考に、「大学時代の友人の佐藤さん。さっちゃんと呼んでいて、たまに一緒に食事をします。」のように答えると、人物の担当の下書きができます。人物を覚える担当かどうかは作成時に決まり、あとから切り替えることはできません。</p>
           <ul>
             <li><strong>人物の担当は、本体の振り分けを通りません。</strong> かけらに <strong>呼び名</strong> か <strong>キーワード</strong> が書かれているときだけ届きます。写真から読み取った文字も対象です。<code>@呼び名</code> で指名することもできます。</li>
-            <li>「佐藤」を登録すれば「佐藤くん」「さとうさん」にも届きます。名前を出さない話も拾えるよう、キーワードには言い換えや似た言葉（例：釣り、つり、釣行、海釣り）を並べます。</li>
+            <li>「サトウ」を登録すれば「サトウくん」「さとうさん」にも届きます。全角・半角、大文字・小文字、ひらがな・カタカナ、末尾の敬称（さん・くん など）の違いは区別しません。漢字の「佐藤」とかな書きは別の語として扱うので、両方使うなら両方を呼び名に入れてください。名前を出さない話も拾えるよう、キーワードには言い換えや似た言葉（例：釣り、つり、釣行、海釣り）を並べます。</li>
             <li>人物の担当はその人との出来事（会話、贈り物、約束、貸し借り）を覚えます。誕生日や会う予定が近づくと声かけしてくれます（詳しい通知時刻のルールは <a href="/manual/?guide=advanced#ja-person-events" data-lang-link>上級編</a> を参照）。</li>
             <li>伝えた誕生日・好み・出来事などは、担当の編集画面でいつでも見直し・修正できます。</li>
           </ul>
@@ -438,7 +438,7 @@
             <li>最近の記録は、前回のチェックインから今までの分を読みます。休んだ日や見送った日があっても、その間の記録を取りこぼしません。</li>
             <li>チェックインでは現在地を使わないので、店舗検索は名前での検索だけになります。</li>
           </ul>
-          <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を整え、何を聞くかを外部エージェントが考えます。時間内に外部エージェントが応じなければ、内蔵モデルが代わりに考えます。</p>
+          <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を話すか（聞くことや伝えること）を外部エージェントが書きます。記憶をどう整えるかは、ふだんどおり kakeratta が決めます。時間内に外部エージェントが応じなければ、内蔵モデルが代わりに書きます。</p>
           <h3 id="ja-summary-advanced">今月のまとめと、月1回振り返る人物</h3>
           <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。話題ごとの箇条書きで、各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
           <figure>
@@ -544,15 +544,15 @@
             <li>回答に使うモデル、読んでよい Vault のフォルダ、RAG、スキルを決めます。担当ごとに変えることもできます。</li>
             <li><strong>Check periodically</strong> をONにして <strong>Enabled</strong> をONにし、<strong>Save and reconnect</strong> を押します。</li>
           </ol>
-          <p>LLM Connect Hub は Obsidian を開いている間、1分ごとに依頼を確認します。依頼がないときにモデルのトークンは使いません。確認の間隔が1分なので、取得の待ち時間は1分より長くしておいてください。Obsidian を閉じて取得の待ち時間が過ぎると不在とみなされ（下の「担当を任せる」を参照）、それ以降の依頼は待たずに内蔵モデルが答えます。閉じた直後に届いた依頼は、待ち時間が過ぎてから内蔵モデルが答えます。詳しい設定は <a href="https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md" rel="noopener">LLM Connect Hub の説明</a> を見てください。</p>
+          <p>LLM Connect Hub は Obsidian を開いている間、1分ごとに依頼を確認します。依頼がないときにモデルのトークンは使いません。確認の間隔が1分なので、<strong>取得を待つ時間</strong>（外部エージェントが依頼を受け取るまで kakeratta が待つ時間）は1分より長くしておいてください。Obsidian を閉じて取得を待つ時間が過ぎると不在とみなされ（下の「担当を任せる」を参照）、それ以降の依頼は待たずに内蔵モデルが答えます。閉じた直後に届いた依頼は、待ち時間が過ぎてから内蔵モデルが答えます。詳しい設定は <a href="https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md" rel="noopener">LLM Connect Hub の説明</a> を見てください。</p>
           <h3>担当を任せる</h3>
           <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="327" /></figure>
           <ol>
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは、接続先を設定し、設定の「外部エージェントを使う」がONのときだけ表示されます。</li>
-            <li>いつもどおり投稿します。その担当に届いた投稿は外部エージェントが考え、返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
+            <li>いつもどおり投稿します。その担当に届いた投稿は、外部エージェントが調べて回答を書きます。記憶・予定・操作は kakeratta が決めます。返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
           <p>外部エージェントが3分以内に依頼を取りに来ない、または取ってから15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。</p>
-          <p>最後の接続から取得の待ち時間（3分）が過ぎても接続がなければ、外部エージェントは不在とみなされます。不在のあいだは、以後の依頼を待たずに内蔵モデルが答えます。再び接続されると、次の依頼から外部エージェントに戻ります。依頼に取り組んでいる最中は不在になりません。</p>
+          <p>最後の接続から <strong>取得を待つ時間</strong>（既定は3分）が過ぎても接続がなければ、外部エージェントは不在とみなされます。不在のあいだは、以後の依頼を待たずに内蔵モデルが答えます。再び接続されると、次の依頼から外部エージェントに戻ります。依頼に取り組んでいる最中は不在になりません。</p>
           <p>待ち時間は <strong>外部連携</strong> の接続先ごとの <strong>接続情報と待ち時間</strong> で、エージェントごとに変えられます。同じ画面の <strong>外部エージェントを使う</strong> をOFFにすると、外部エージェントからの接続を受け付けず、担当ごとの設定を残したまま内蔵モデルで考えます。<a href="#ja-reply-fix">返し方を直す</a> ときの試し書きは、常に内蔵モデルで行います。</p>
           <h3>外部エージェントが読めるもの</h3>
           <p>外部エージェントは、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、外部エージェントが渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。接続先を<strong>削除</strong>すると接続キーが無効になります。</p>
@@ -586,7 +586,7 @@
                 <tr><td>上級オプション → 音声</td><td>音声入力（送信の合図、無音で停止など）、読み上げの声と速さ</td></tr>
                 <tr><td>上級オプション → 外部連携</td><td><a href="#ja-hermes">外部エージェント</a>、<a href="#ja-bluesky">Bluesky</a></td></tr>
                 <tr><td>上級オプション → バックアップ</td><td>zip に書き出す</td></tr>
-                <tr><td>上級オプション → 利用停止</td><td>すべて削除して退会する</td></tr>
+                <tr><td>上級オプション → 利用停止</td><td>すべて削除して利用を停止する</td></tr>
               </tbody>
             </table>
           </div>
@@ -611,7 +611,7 @@
             </table>
           </div>
           <p><strong>常に熟考する</strong> がオンの担当は通常の依頼でも最終回答をUltraで生成します。初回Superの調査で文脈と必要な回答品質から深さを判断します。「詳しく」という短い返信や、比較・慎重な検証が必要な依頼は、最終回答をUltraで生成します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
-          <p>内蔵の調査と予定・操作の計画は、深い回答が必要な依頼や「常に熟考する」の場合もSuperで行います。初回調査で短い調査計画とdeep判定を作り、そのまま最初のreadを要求します。独立したLightning判定はありません。通常はread 10回・Web検索2回で開始し、deep=trueなら使用済み回数を保ったまま上限を20回・4回へ拡張します。「常に熟考する」では最初から20回・4回です。後続調査は計画を参考に進めます。各調査roundで検索残数を伝え、0回になるとWeb検索を選択肢から外します。その後も別の利用可能なreadを使うか、調査を終えられます。未設定の道具や、記憶無効担当の記憶検索は提示しません。</p>
+          <p>調べものや予定・操作の計画には、どの依頼でも Super を使います。1 回の回答で調べられる回数（読む・Web検索する）には上限があり、深い回答が必要な依頼や「常に熟考する」の担当では上限が広がります。設定されていない道具や、記憶を持たない担当の記憶検索は使いません。</p>
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
@@ -628,7 +628,7 @@
               <thead><tr><th>道具</th><th>できること</th><th>使える担当・必要な設定</th></tr></thead>
               <tbody>
                 <tr><td><a href="#ja-tool-timeline_search"><code>timeline_search</code></a></td><td>過去のかけらを検索</td><td>すべての担当</td></tr>
-                <tr><td><a href="#ja-tool-notes"><code>records</code></a></td><td>前のかけらの記録を探す（記憶の保存は本体が行う）</td><td>記憶がオンの担当</td></tr>
+                <tr><td><a href="#ja-tool-records"><code>records</code></a></td><td>前のかけらの記録を探す（記憶の保存は本体が行う）</td><td>記憶がオンの担当</td></tr>
                 <tr><td><a href="#ja-tool-web_search"><code>web_search</code></a></td><td>Web 検索</td><td>道具に追加した担当。Tavily の API キー</td></tr>
                 <tr><td><a href="#ja-tool-place_search"><code>place_search</code></a></td><td>店や場所を探す</td><td>道具に追加した担当</td></tr>
                 <tr><td><a href="#ja-tool-weather_forecast"><code>weather_forecast</code></a></td><td>現在の天気と天気予報</td><td>道具に追加した担当。地域名または投稿の位置情報</td></tr>
@@ -643,7 +643,7 @@
           <p>保存した投稿、画像から読み取った文字、返信を、語句と意味の両方で探します。期間を指定して、その間の記録をまとめて読むこともできます。一度に返るのは30件までです。検索で見つかった投稿のうち、担当が根拠にしたものだけが発言の下にリンクされます。</p>
           <p>例：「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
 
-          <h3 id="ja-tool-notes">かけらの記録を探す — records</h3>
+          <h3 id="ja-tool-records">かけらの記録を探す — records</h3>
           <p>担当は毎回、分野ごとのまとめ文と今の事実、最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。記憶の書き換えは返事のあとに本体のメモ係が行い、担当が直接書くことはありません。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
           <p>例：「@tabe 前に行きたいって言ってたラーメン屋、どこだっけ」</p>
 
@@ -657,7 +657,7 @@
 
           <h3 id="ja-tool-weather_forecast">天気予報 — weather_forecast</h3>
           <p>WeatherAPI.comから現在の天気と日別予報を調べます。地域名を指定するか、投稿の位置情報を使います。日付や現地時刻の時間帯を指定して確認することもできます。取得できる予報の期間は接続先の契約によって異なり、取得していない日の天気は分かりません。担当の道具に「天気予報を調べる」を追加して使います。</p>
-          <p>例：「東京の明日の18時ごろ、雨は降りそう？」</p>
+          <p>例：「@sona 東京の明日の18時ごろ、雨は降りそう？」</p>
 
         </section>
 
@@ -709,7 +709,7 @@
       <article class="doc">
         <div class="beginner-guide">
           <h1>Using kakeratta</h1>
-          <p class="lede">Toss fragments of your day into one timeline. AIs you keep for the people and interests in your life, each with a memory separate from yours, called <strong>personas</strong>, react only when they have something to say and bring things back when they matter.</p>
+          <p class="lede">Toss fragments of your day into one timeline. AI <strong>personas</strong>, one for each person or interest you choose and each with its own memory, speak up only when they have something to say and bring things back when they matter.</p>
           <div class="tip">
             <p>This page covers what you use every day. Fixing routing and replies, Bluesky and external agents (Hermes, Obsidian), and settings in detail are in the <a href="/manual/?guide=advanced" data-lang-link>advanced guide</a>.</p>
           </div>
@@ -719,12 +719,12 @@
           <ol>
             <li><a href="/">Open the app</a>. Sign in with your Google account. After approval, “Completing sign-in…” stays visible until the app opens automatically. Your data is tied to your account and nobody else can see it.</li>
             <li>Open <strong>Settings</strong> at the top right and enter an <strong>API key</strong> from <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a>. “Connected” means you are ready.</li>
-            <li>If the screen says “Nobody is in the room”, call in at least one persona with <strong>Call in …</strong>. With nobody in the room, a fragment reaches no one.</li>
+            <li>New accounts start with three personas active: sona, support and the infographic persona. If you turn every persona off, the screen says “Nobody is in the room”; call in at least one with <strong>Call in …</strong>. With nobody in the room, a fragment reaches no one.</li>
             <li>Write a line in the box and press <strong>Post</strong>. That is your first fragment.</li>
           </ol>
           <figure>
             <img src="/captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" loading="lazy" width="390" height="902" />
-            <figcaption>Nobody in the room yet. Call one in and it starts receiving your fragments.</figcaption>
+            <figcaption>What you see after turning every persona off. Call one in and it starts receiving your fragments.</figcaption>
           </figure>
           <p>The API key is stored only on the server and sent only to the configured endpoint.</p>
         </section>
@@ -755,7 +755,7 @@
           <h3>How reactions arrive</h3>
           <ul>
             <li>Reactions arrive a little later. <strong>Some posts get no reaction</strong>: a persona can remember something without speaking.</li>
-            <li><strong>For a guaranteed answer, mention a persona with <code>@name</code></strong> (for example <code>@tabe</code>). A persona you mention always replies. Tapping a name in the persona bar writes the mention for you.</li>
+            <li><strong>For a guaranteed answer, mention a persona with <code>@name</code></strong> (for example <code>@tabe</code>). A persona you mention always replies. Tapping a name in the persona bar (the personas listed below the text box) writes the mention for you.</li>
             <li>Persona remarks and your replies fold under <strong>N replies</strong>. A remark that arrives while you are looking opens its thread by itself.</li>
           </ul>
           <h3>Reply, fix, delete</h3>
@@ -783,10 +783,10 @@
               <thead><tr><th>Name</th><th>Subject</th><th>What it receives</th></tr></thead>
               <tbody>
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
-                <tr><td><code>@support</code></td><td>support</td><td>Questions about kakeratta, its specification, settings and problems (active by default in new workspaces)</td></tr>
-                <tr><td><code>@infographic</code></td><td>infographic</td><td>Markdown diagrams with emoji and Mermaid for text, expanded articles and interpreted images, without Web search, in the display language. No memory; final answers always use Ultra (active in new workspaces)</td></tr>
+                <tr><td><code>@support</code></td><td>support</td><td>Questions about kakeratta, its specification, settings and problems (active by default for new accounts)</td></tr>
+                <tr><td><code>@infographic</code></td><td>infographic</td><td>Requests to turn a post, article, image or conversation into a diagram. It answers with a diagram in the display language (headings, tables and Mermaid charts). No Web search, no memory; final answers always use Ultra. Active by default for new accounts</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
-                <tr><td><code>@sona</code></td><td>preparation</td><td>Belongings before leaving, past omissions, upcoming plans and forecasts. Gentle follow-ups on small chores. Active by default in new workspaces</td></tr>
+                <tr><td><code>@sona</code></td><td>preparation</td><td>Belongings before leaving, past omissions, upcoming plans and forecasts. Gentle follow-ups on small chores. Active by default for new accounts</td></tr>
               </tbody>
             </table>
           </div>
@@ -811,7 +811,7 @@
           <p>A persona can also <strong>keep one person</strong> in mind - your mother, a friend. In <strong>Personas</strong>, select the <strong>People</strong> tab and choose <strong>Create a persona with AI</strong>. You will be asked, “Who would you like a persona to remember? Tell me their name or nickname and how you know them.” Follow the example in the input box, such as “My friend Sato from university. I call her Sacchan, and we sometimes have meals together,” to get a draft for that person. Whether it keeps a person is fixed when you create it and cannot be switched later.</p>
           <ul>
             <li><strong>A person is never routed by the app.</strong> A fragment reaches it only when one of its <strong>names</strong> or <strong>keywords</strong> is written in it, text read from a photo included. You can also call it with <code>@name</code>.</li>
-            <li>Width, case, and honorifics do not matter. To catch posts that do not name them directly, list rewordings as keywords (fishing, angling, sea fishing).</li>
+            <li>Registering “サトウ” also reaches “サトウくん” and “さとうさん”: full-width/half-width characters, upper and lower case, hiragana/katakana and a trailing honorific (-san, -kun) do not matter. Kanji (佐藤) and kana spellings are different words, so list both if you use both. To catch posts that do not name them directly, list rewordings and similar words as keywords (fishing, angling, sea fishing).</li>
             <li>A person's persona remembers what happens with them (talks, gifts, promises, loans) and nudges you when meetings or birthdays approach (see notification schedule rules in the <a href="/manual/?guide=advanced#en-person-events" data-lang-link>Advanced Guide</a>).</li>
             <li>Supplied details like birthdays and preferences can be reviewed and edited anytime directly in the persona settings.</li>
           </ul>
@@ -823,7 +823,7 @@
           <h3>Adjust as you go</h3>
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
-          <p>View notification schedules on the persona card or above its speaker list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
+          <p>View notification schedules on the persona card or at the top of its <strong>Remarks</strong> list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
           <h3 id="en-avatar">Change an icon (emoji or photo)</h3>
           <p>Change a persona's icon when you create it (<strong>Create a persona with AI</strong>) or with <strong>Edit</strong> or <strong>Edit with AI</strong> on its card. Your own icon works the same way in <a href="/manual/?guide=advanced#en-profile" data-lang-link>Profile in Settings</a>.</p>
           <ul>
@@ -851,7 +851,7 @@
           <p>If notifications do not arrive, check device enablement, browser permission, login status, and the schedule's notification setting. A message saying Push is not configured on the server requires operator setup.</p>
           <h3 id="en-schedules">View and edit all schedules</h3>
           <p>Open <strong>Schedules in the header (the calendar icon on phones)</strong> to see all personas' schedules ordered by next run. Search by persona name or schedule text. Use the pencil button to open the <strong>Edit time and notifications</strong> dialog, change the next run and/or <strong>Push notifications</strong>, then save. The date/time input uses the device timezone shown below it.</p>
-          <p>The same controls are available on individual persona and speaker cards. Turning Push off keeps the task and its timeline post. You can also ask a persona to turn notifications off for a schedule. Use <strong>×</strong> to cancel the schedule itself.</p>
+          <p>The same controls are available on each persona card and at the top of its <strong>Remarks</strong> list. Turning Push off keeps the task and its timeline post. You can also ask a persona to turn notifications off for a schedule. Use <strong>×</strong> to cancel the schedule itself.</p>
           <p>Daily repeats keep the edited time in the schedule's timezone. Annual reminders keep the time too, but date changes apply only to the next occurrence. Edits may be too late for an occurrence already running. A failed save retains your input for retry.</p>
         </section>
 
@@ -885,7 +885,7 @@
             <figcaption>Favorite answers shown with their conversations on the timeline (sample data).</figcaption>
           </figure>
           <p>Removing a favorite with <strong>★</strong> always asks for confirmation. Cancel keeps it saved and visible. Removing a favorite does not delete the entry.</p>
-          <p>Right-click a persona below the text box (long-press on phones) and choose <strong>Speaker entries</strong> to open its list.</p>
+          <p>Right-click a persona in the persona bar (long-press on phones) and choose <strong>Remarks</strong> to open its list.</p>
 
           <figure>
             <img src="/captures/en/speaker-period.png" alt="Filter a speaker’s entries by date range (sample data)." loading="lazy" width="390" height="1796" />
@@ -1052,11 +1052,11 @@
             <li>The server checks every minute, so a busy moment can delay a wake a little.</li>
             <li>Enabling a persona after that day's time runs today's check-in right away. After 21:00 the day's check-in is skipped. After a server restart only today's is run; missed days are not replayed.</li>
             <li>A silent or failed wake still counts as the day's. Deleting notes does not cause a second wake that day.</li>
-            <li>On a day the time would wrap from the evening round to the morning (the 20s one day, the 7s the next), that day is skipped, so a persona does not wake twice within hours.</li>
+            <li>If the previous day's check-in fell in the 20:00 hour and today's would fall in the 7:00 hour, today's is skipped, so a persona does not wake twice within a few hours.</li>
             <li>Recent records are read from the previous check-in onward, so a skipped or missed day leaves nothing unread.</li>
             <li>Check-ins do not use your location, so place search works by name only.</li>
           </ul>
-          <p>For a persona that prefers the external agent, the external agent decides what to tidy and what to ask at check-in. If it does not respond in time, the built-in model plans instead.</p>
+          <p>For a persona that prefers the external agent, the external agent writes what to say at check-in (what to ask or tell you). How the memory is tidied is still decided by kakeratta, as always. If the agent does not respond in time, the built-in model writes it instead.</p>
           <h3 id="en-summary-advanced">This month's summary, and people looked back on monthly</h3>
           <p>Once a month, the app reads that month's timeline and posts <strong>This month's summary</strong> to the timeline. It is bulleted by topic, and each bullet's <strong>→</strong> opens the original fragment. The app picks the date per account (somewhere between the 1st and the 28th of each month). The summary is yours to edit with <strong>✎</strong>.</p>
           <figure>
@@ -1162,15 +1162,15 @@
             <li>Choose the answer model, the Vault folders it may read, the RAG index and the skills. Each persona can override them.</li>
             <li>Turn on <strong>Check periodically</strong> and <strong>Enabled</strong>, then press <strong>Save and reconnect</strong>.</li>
           </ol>
-          <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. Because it checks once a minute, keep the claim wait longer than a minute. Once Obsidian has been closed for longer than the claim wait, the agent is taken to be away (see <em>Hand a persona over</em> below) and later asks go to the built-in model without waiting. An ask that arrives just after Obsidian closes is answered by the built-in model when its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
+          <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. Because it checks once a minute, keep <strong>Wait for a claim</strong> (how long kakeratta waits for the agent to pick up an ask) longer than a minute. Once Obsidian has been closed for longer than that wait, the agent is taken to be away (see <em>Hand a persona over</em> below) and later asks go to the built-in model without waiting. An ask that arrives just after Obsidian closes is answered by the built-in model when its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
           <h3>Hand a persona over</h3>
           <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="392" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only while a connection is configured and <strong>Use the external agent</strong> is enabled in settings.</li>
-            <li>Post as usual. The external agent plans what that persona does with it; the reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
+            <li>Post as usual. For posts that reach that persona, the external agent researches and writes the answer; kakeratta decides memory, schedules and actions. The reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
           <p>If the external agent does not pick an ask up within 3 minutes, or does not return an answer within 15 minutes of picking it up, the built-in model answers instead.</p>
-          <p>If the agent has not connected for longer than the claim wait (3 minutes), it is taken to be away. While it is away, later asks go straight to the built-in model instead of waiting. As soon as it connects again, the next ask goes to it. An agent is never away while it is working on an ask.</p>
+          <p>If the agent has not connected for longer than <strong>Wait for a claim</strong> (3 minutes by default), it is taken to be away. While it is away, later asks go straight to the built-in model instead of waiting. As soon as it connects again, the next ask goes to it. An agent is never away while it is working on an ask.</p>
           <p>Change the waits per agent under each connection's <strong>Connection details and waits</strong> in <strong>Integrations</strong>. Turning off <strong>Use the external agent</strong> there refuses its connections and plans with the built-in model while keeping each persona's choice. The trial reply when you <a href="#en-reply-fix">fix how a persona replies</a> always uses the built-in model.</p>
           <h3>What an external agent can read</h3>
           <p>An external agent can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. Deleting the connection invalidates the key.</p>
@@ -1204,7 +1204,7 @@
                 <tr><td>Advanced options → Voice</td><td>Voice input (send phrase, silence stop, …), read-aloud voice and speed</td></tr>
                 <tr><td>Advanced options → Integrations</td><td><a href="#en-hermes">External agents</a>, <a href="#en-bluesky">Bluesky</a></td></tr>
                 <tr><td>Advanced options → Backup</td><td>Export as zip</td></tr>
-                <tr><td>Advanced options → Close account</td><td>Delete everything and leave</td></tr>
+                <tr><td>Advanced options → Close account</td><td>Delete everything and close the account</td></tr>
               </tbody>
             </table>
           </div>
@@ -1229,7 +1229,7 @@
             </table>
           </div>
           <p>Personas with <strong>Always think deeply</strong> on use Ultra for final answers to ordinary requests too. The first Super research call decides the depth from context and the quality the answer requires. A short “tell me more” reply, comparison or careful verification can select an Ultra final answer. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
-          <p>Built-in research and schedule/action planning use Super, including deep requests and Always think deeply. The first research call creates a short plan and deep decision alongside its first read; there is no separate Lightning classification. Ordinary turns start with 10 reads and 2 Web searches. Deep=true raises only the limits to 20 and 4, preserving spent counts; Always think deeply starts with these larger limits. Later research uses the plan as a guide. Each research round receives the remaining search count. At zero, Web search is removed from the choices; other available reads and finishing research remain possible. Unconfigured tools and memory queries for memoryless personas are not offered.</p>
+          <p>Research and schedule/action planning always use Super. Each answer can only look things up (read or search the Web) a limited number of times; deep requests and personas with Always think deeply get a higher limit. Tools that are not set up, and memory searches for personas without memory, are not used.</p>
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>
@@ -1246,7 +1246,7 @@
               <thead><tr><th>Tool</th><th>Purpose</th><th>Who / setup</th></tr></thead>
               <tbody>
                 <tr><td><a href="#en-tool-timeline_search"><code>timeline_search</code></a></td><td>Search past fragments</td><td>Every persona</td></tr>
-                <tr><td><a href="#en-tool-notes"><code>records</code></a></td><td>Find older fragment records (the app keeps the memory)</td><td>Memory-enabled personas</td></tr>
+                <tr><td><a href="#en-tool-records"><code>records</code></a></td><td>Find older fragment records (the app keeps the memory)</td><td>Memory-enabled personas</td></tr>
                 <tr><td><a href="#en-tool-web_search"><code>web_search</code></a></td><td>Search the Web</td><td>Personas it is added to; Tavily API key</td></tr>
                 <tr><td><a href="#en-tool-place_search"><code>place_search</code></a></td><td>Find shops and places</td><td>Personas it is added to</td></tr>
                 <tr><td><a href="#en-tool-weather_forecast"><code>weather_forecast</code></a></td><td>Current weather and forecasts</td><td>Personas it is added to; a place name or location on the post</td></tr>
@@ -1261,7 +1261,7 @@
           <p>Searches your saved posts, text read from images, and replies by words and meaning together. A period can narrow it, or alone read everything written in it. Each call returns up to 30 results. Only the posts a persona uses as its grounds are linked under its remark.</p>
           <p>Try: “@tabe Find that light red wine I enjoyed before.”</p>
 
-          <h3 id="en-tool-notes">Finding fragment records — records</h3>
+          <h3 id="en-tool-records">Finding fragment records — records</h3>
           <p>Every turn, a persona reads its field summaries, the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The memory itself is rewritten after the reply by the app's note keeper; a persona never writes it directly. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
           <p>Try: “@tabe Which ramen place did I say I wanted to try?”</p>
 
@@ -1275,7 +1275,7 @@
 
           <h3 id="en-tool-weather_forecast">Weather forecast — weather_forecast</h3>
           <p>Looks up current weather and daily forecasts from WeatherAPI.com using a place name or the location on the post. A date and local hour can be selected. The available forecast period depends on the provider's subscription; dates outside the returned forecast are unknown. Add “Check the weather forecast” to the persona's tools to use it.</p>
-          <p>Try: “Is rain likely in Tokyo around 6 pm tomorrow?”</p>
+          <p>Try: “@sona Is rain likely in Tokyo around 6 pm tomorrow?”</p>
 
         </section>
 
