@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 			if err := s.SaveSettings(settings); err != nil {
 				t.Fatal(err)
 			}
-			now := store.CheckInAt(s.Root(), skill.ID, checkInDay(s, time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), skill.ID))
+			now := store.CheckInAt(s.Root(), store.DailyID, checkInDay(s, time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), skill.ID))
 			r.dailyAt(context.Background(), now.Add(-time.Minute))
 			if calls != 0 {
 				t.Fatal("ran before its minute")
@@ -133,12 +134,77 @@ func TestASharingCheckInReadsSinceThePreviousRun(t *testing.T) {
 	if want := `from "` + first.Add(-24*time.Hour).Format("2006-01-02 15:04") + `"`; !strings.Contains(user, want) {
 		t.Fatalf("want %q in:\n%s", want, user)
 	}
-	// Two days later - one day missed - it reads from that run.
+	// Two days later - one day missed - it reads from that run, and is
+	// handed what the user posted in between.
 	later := checkInDay(s, day.AddDate(0, 0, 2), "gourmet")
 	at := store.CheckInCloses(later).Add(-time.Minute)
+	between := appendAt(t, s, "新しい店に行った", first.Add(time.Hour))
 	r.dailyAt(context.Background(), at)
+	if !strings.Contains(user, "Records since the previous check-in") || !strings.Contains(user, between.ID) {
+		t.Fatalf("the span was not handed over:\n%s", user)
+	}
 	want := `Since the previous check-in: from "` + first.Format("2006-01-02 15:04") + `" to "` + at.Format("2006-01-02 15:04") + `"`
 	if !strings.Contains(user, want) {
 		t.Fatalf("want %q in:\n%s", want, user)
+	}
+}
+
+// A day with nothing new from the user, no record due and no dated plan
+// coming up costs no model call; a plan within the week still wakes it.
+func TestAQuietCheckInIsSkippedUnlessAPlanIsNear(t *testing.T) {
+	for _, plan := range []bool{false, true} {
+		t.Run(fmt.Sprintf("plan=%t", plan), func(t *testing.T) {
+			calls := 0
+			r, s, _ := setup(t, func(sys, usr string) string {
+				if strings.HasPrefix(sys, "あなたは「tabe」") {
+					calls++
+				}
+				return `{"action":"silent"}`
+			}, "gourmet")
+			day := checkInDay(s, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC), "gourmet")
+			first := store.CheckInCloses(day).Add(-time.Minute)
+			r.dailyAt(context.Background(), first)
+			if calls == 0 {
+				t.Fatal("the first check-in, with no previous run, was skipped")
+			}
+			if plan {
+				soon := first.AddDate(0, 0, 3).Format("2006-01-02")
+				if err := s.WriteNote("gourmet", "Shop.md", factsText("Shop", fieldFacts{Current: []fact{{ID: "f_a", Text: soon + " にA店を予約", Since: first}}}, time.UTC)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			calls = 0
+			next := checkInDay(s, day.AddDate(0, 0, 1), "gourmet")
+			r.dailyAt(context.Background(), store.CheckInCloses(next).Add(-time.Minute))
+			if (calls > 0) != plan {
+				t.Fatalf("calls=%d with plan=%t", calls, plan)
+			}
+		})
+	}
+}
+
+// The account's day runs at the time the user set, even before the app's
+// own window opens, and not a minute earlier.
+func TestTheDailyRunFollowsTheSetTime(t *testing.T) {
+	calls := 0
+	r, s, _ := setup(t, func(sys, usr string) string {
+		if strings.HasPrefix(sys, "あなたは「tabe」") {
+			calls++
+		}
+		return `{"action":"silent"}`
+	}, "gourmet")
+	settings := s.Settings()
+	settings.DailyTime = "06:30"
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 9, 25, 6, 30, 0, 0, time.UTC)
+	r.dailyAt(context.Background(), at.Add(-time.Minute))
+	if calls != 0 {
+		t.Fatal("ran before the set time")
+	}
+	r.dailyAt(context.Background(), at)
+	if calls != 1 {
+		t.Fatalf("calls = %d at the set time", calls)
 	}
 }

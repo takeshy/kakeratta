@@ -102,10 +102,10 @@ func TestSonaScheduledPreparationReadsFreshWeather(t *testing.T) {
 // prepare a future wake without publishing a premature reminder.
 func TestSonaCheckInSchedulesPreparationWithoutSpeakingEarly(t *testing.T) {
 	r, s, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
-	now := store.CheckInAt(s.Root(), "routine", checkInDay(s, time.Now().UTC().AddDate(0, 0, 1), "routine"))
+	now := store.CheckInAt(s.Root(), store.DailyID, checkInDay(s, time.Now().UTC().AddDate(0, 0, 1), "routine"))
 	// This test covers sona's check-in, independently of monthly summaries.
 	if now.Day() == store.SummaryDay(s.Root()) {
-		now = store.CheckInAt(s.Root(), "routine", checkInDay(s, now.AddDate(0, 0, 1), "routine"))
+		now = store.CheckInAt(s.Root(), store.DailyID, checkInDay(s, now.AddDate(0, 0, 1), "routine"))
 	}
 	departure := now.Add(75 * time.Minute)
 	outing := timeline.Entry{ID: "outing", Kind: timeline.KindPost, Speaker: timeline.User, Root: "outing", At: now.Add(-time.Hour), Text: fmt.Sprintf("@michi %s に東京へ出かける。鍵を忘れたことがある。", departure.Format("2006-01-02 15:04"))}

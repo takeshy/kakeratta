@@ -600,13 +600,9 @@ func setup(t *testing.T, reply func(system, user string) string, active ...strin
 // workspace is a new temporary directory each run.
 func checkInDay(s *store.Store, day time.Time, personas ...string) time.Time {
 	for {
-		skipped := false
-		for _, persona := range personas {
-			if store.CheckInSkipped(s.Root(), persona, day) {
-				skipped = true
-			}
-		}
-		if !skipped {
+		// The account checks in once a day; personas no longer have minutes
+		// of their own, so only the account's skipped days matter.
+		if !store.CheckInSkipped(s.Root(), store.DailyID, day) {
 			return day
 		}
 		day = day.AddDate(0, 0, 1)

@@ -44,6 +44,11 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "名前は40文字以内、アイコンは絵文字1つにしてください")
 		return
 	}
+	next.DailyTime = strings.TrimSpace(next.DailyTime)
+	if !store.ValidDailyTime(next.DailyTime) {
+		fail(w, http.StatusBadRequest, "毎日の時刻は 00:00〜23:59 の形で指定してください")
+		return
+	}
 	if err := avatar.Validate(next.Profile.Avatar); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return

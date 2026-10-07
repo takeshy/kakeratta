@@ -530,6 +530,29 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     view.append(el("h3", { label: "プロフィール" }), name, avatar.element);
   }
 
+  // When the account's day runs: the day's summary, then the check-ins of the
+  // personas with memory. Left to the app, it picks a minute between 07:00
+  // and 21:00 that moves a little from day to day; set, it is that time.
+  function drawDaily() {
+    const set = !!settings.dailyTime;
+    const choose = (label, active, onClick) =>
+      el("button", { type: "button", class: `chip${active ? " active" : ""}`, label, "aria-pressed": String(active), onclick: onClick });
+    const time = el("input", { type: "time", class: "daily-time-input", value: settings.dailyTime || "08:00", "aria-label": t("毎日の振り返りの時刻") });
+    time.addEventListener("change", async () => {
+      if (!time.value) return;
+      if (!await patch({ dailyTime: time.value })) time.value = settings.dailyTime || "08:00";
+    });
+    view.append(
+      el("h3", { label: "毎日の振り返り" }),
+      el("div", { class: "settings-block daily-time" },
+        el("div", { class: "daily-time-modes", role: "group", "aria-label": t("毎日の振り返りの時刻") },
+          choose("おまかせ", !set, () => { if (set) void patch({ dailyTime: "" }).then(draw); }),
+          choose("時刻を指定", set, () => { if (!set) void patch({ dailyTime: time.value || "08:00" }).then(draw); })),
+        set ? time : el("p", { class: "daily-time-auto", label: "7時〜21時のどこかで本体が決めます（日によって少しずつ動きます）。" }),
+        el("p", { class: "hint", label: "記憶のある担当が、その日の出来事のまとめを読んで、何かあれば声をかけます。利用者の多い時間帯は混み合うため、遅れることがあります。" })),
+    );
+  }
+
   // Show the deployed version alongside device preferences.
   function drawDevice() {
     view.append(
@@ -614,6 +637,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     bluesky = null;
     clear(view);
     drawProfile();
+    drawDaily();
     drawAI();
     drawTools();
     drawDevice();

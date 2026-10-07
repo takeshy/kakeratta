@@ -67,6 +67,12 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 	if root == "" || len(gone) == 0 {
 		return
 	}
+	// The day's summaries may hold what was deleted; they go first.
+	var at []time.Time
+	for _, entry := range gone {
+		at = append(at, entry.At)
+	}
+	r.forgetDailySummaries(at...)
 	var labels []string
 	kakera := map[string]bool{}
 	rootGone := false

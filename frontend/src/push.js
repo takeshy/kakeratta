@@ -7,7 +7,7 @@ export function createPushSettings() {
   const hint = el("p", { class: "hint" });
   const toggle = el("input", { type: "checkbox", disabled: true });
   const control = el("label", { class: "field check-field" }, switchControl(toggle), el("span", { label: "Push通知" }));
-  const view = el("div", {}, el("h3", { label: "リマインダーのpush通知" }), hint, control);
+  const view = el("div", { class: "push-settings" }, el("h3", { label: "リマインダーのpush通知" }), hint, control);
   let config;
   let enabled = false;
   const render = () => {

@@ -3,7 +3,6 @@ package persona
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
@@ -167,8 +166,8 @@ func (r *Runner) nextDue(ctx context.Context, now time.Time, settings store.Sett
 // monthly one lands on its day of the month, which every month has.
 const checkInSearch = 33
 
-// nextCheckIn is the next time a check-in, or the month's summary, will run:
-// the earliest of what dailyAt and summarizeAt would do after now.
+// nextCheckIn is the next time the account's day will run (dailyAt): its
+// summaries and every persona's check-in.
 func (r *Runner) nextCheckIn(ctx context.Context, now time.Time, settings store.Settings) time.Time {
 	loc := settings.Location()
 	local := now.In(loc)
@@ -176,11 +175,11 @@ func (r *Runner) nextCheckIn(ctx context.Context, now time.Time, settings store.
 	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
 	var next time.Time
 	// first is the first day's time after now that falls inside the window.
-	first := func(at func(day time.Time) (time.Time, bool)) {
+	first := func(at func(day time.Time) (time.Time, time.Time, bool)) {
 		for d := 0; d <= checkInSearch; d++ {
 			day := today.AddDate(0, 0, d)
-			t, ok := at(day)
-			if ok && t.After(now) && t.Before(store.CheckInCloses(day)) {
+			t, closes, ok := at(day)
+			if ok && t.After(now) && t.Before(closes) {
 				if next.IsZero() || t.Before(next) {
 					next = t
 				}
@@ -188,28 +187,10 @@ func (r *Runner) nextCheckIn(ctx context.Context, now time.Time, settings store.
 			}
 		}
 	}
-	first(func(day time.Time) (time.Time, bool) {
-		return store.CheckInAt(root, store.SummaryID, day), day.Day() == store.SummaryDay(root)
+	// One minute a day for the account: the day's summary, the month's on its
+	// day, and every persona's check-in after them.
+	first(func(day time.Time) (time.Time, time.Time, bool) {
+		return settings.DailyAt(root, day)
 	})
-	skills := r.skills(ctx).Active(settings.Active)
-	sort.SliceStable(skills, func(i, j int) bool { return skills[i].ID < skills[j].ID })
-	for _, skill := range skills {
-		if !skill.Remembers() {
-			continue
-		}
-		schedule := settings.CheckInFor(skill.ID)
-		monthly := schedule.Every == store.CheckInMonthly && skill.IsPerson()
-		first(func(day time.Time) (time.Time, bool) {
-			at := store.CheckInAt(root, skill.ID, day)
-			if monthly {
-				// After the summary is written, on its day.
-				if summary := store.CheckInAt(root, store.SummaryID, day); summary.After(at) {
-					at = summary
-				}
-				return at, day.Day() == store.SummaryDay(root)
-			}
-			return at, !store.CheckInSkipped(root, skill.ID, day)
-		})
-	}
 	return next
 }

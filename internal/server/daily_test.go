@@ -280,3 +280,24 @@ func TestSummaryCanBeEdited(t *testing.T) {
 		t.Fatal("a persona's post was edited")
 	}
 }
+
+// The account's daily time is saved through the settings, and anything but
+// "HH:MM" or empty is refused.
+func TestDailyTimeSetting(t *testing.T) {
+	app, s := app(t)
+	for _, tc := range []struct {
+		body string
+		code int
+		want string
+	}{
+		{`{"dailyTime":"06:30"}`, 200, "06:30"},
+		{`{"dailyTime":"25:00"}`, 400, "06:30"},
+		{`{"dailyTime":" "}`, 200, ""},
+	} {
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(tc.body)))
+		if response.Code != tc.code || s.Settings().DailyTime != tc.want {
+			t.Fatalf("%s: %d %q (%s)", tc.body, response.Code, s.Settings().DailyTime, response.Body.String())
+		}
+	}
+}

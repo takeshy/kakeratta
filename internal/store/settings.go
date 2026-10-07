@@ -101,6 +101,11 @@ type Settings struct {
 	// means nothing to the person reading the timeline.
 	TimeZone string `json:"timeZone"`
 
+	// DailyTime is when the account's day runs - the day's summary and the
+	// check-ins of the personas with memory - as "HH:MM" in TimeZone. Empty
+	// leaves it to the app (see DailyAt).
+	DailyTime string `json:"dailyTime,omitempty"`
+
 	// MarkdownInput renders the user's own posts and replies as Markdown. A
 	// persona's reply is always rendered; only the user's own words depend on
 	// this switch, because only they are edited by hand.

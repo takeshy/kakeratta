@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-06"
+updated: "2026-10-08"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
@@ -56,7 +56,7 @@ Verification: [memory.test.js](../../tests/memory.test.js) (records after fields
 
 ## API key setup
 
-Settings links to Token Factory to obtain the inference API key. Beside this link, it displays an observed personal-use cost reference of US$0.06–0.60 per day from October 1–4, 2026, with the daily average extrapolated to about US$10 over 30 days. This reference uses the operator-provided daily charges of US$0.45, US$0.60, US$0.26 and US$0.06 (US$1.37 total); it is not a fixed quote for a particular number of posts or answers. The hint explains that post count, persona count, models and periodic check-ins affect costs. The Web Search section links to Tavily's key registration page and explains its 1,000 free credits per month with no credit card required, in Japanese and English. The search key remains separate from the inference key and is optional when web search is unused. See [settings.js](../../frontend/src/settings.js), [i18n.js](../../frontend/src/i18n.js), and [Tavily credits and pricing](https://docs.tavily.com/documentation/api-credits).
+Settings links to Token Factory to obtain the inference API key. Beside this link, it displays an observed personal-use cost reference of US$0.06–0.60 per day from October 1–4, 2026, with the daily average extrapolated to about US$10 over 30 days. This reference uses the operator-provided daily charges of US$0.45, US$0.60, US$0.26 and US$0.06 (US$1.37 total); it is not a fixed quote for a particular number of posts or answers. The hint explains that post count, persona count, models and periodic check-ins affect costs. The Web Search section links to Tavily's key registration page and explains its 1,000 free credits per month with no credit card required, in Japanese and English. The search key remains separate from the inference key and is optional when web search is unused. The **毎日の振り返り / Daily check-in** section offers **おまかせ / Automatic** (empty `dailyTime`, the app's own minute) and **時刻を指定 / Set a time**, which shows a large time input (08:00 when first chosen) saved as `dailyTime`; its hint says personas with memory speak up only if there is something worth saying, and that a run can start late at popular times. The `settings--daily-time` story shows the set state. The server accepts only `HH:MM` or empty. See [settings.js](../../frontend/src/settings.js), [i18n.js](../../frontend/src/i18n.js), and [Tavily credits and pricing](https://docs.tavily.com/documentation/api-credits).
 
 ## OpenRouter model selection
 

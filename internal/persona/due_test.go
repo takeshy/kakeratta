@@ -46,12 +46,11 @@ func TestTheNextCheckInIsTheEarliestOneAfterNow(t *testing.T) {
 		var want time.Time
 		for d := 0; d < 40 && want.IsZero(); d++ {
 			day := time.Date(now.Year(), now.Month(), now.Day()+d, 0, 0, 0, 0, time.UTC)
+			// One minute a day for the account; a wrapped day is skipped
+			// unless it is the month's summary day.
 			var candidates []time.Time
-			if !store.CheckInSkipped(root, "gourmet", day) {
-				candidates = append(candidates, store.CheckInAt(root, "gourmet", day))
-			}
-			if summary(day) {
-				candidates = append(candidates, store.CheckInAt(root, store.SummaryID, day))
+			if !store.CheckInSkipped(root, store.DailyID, day) || summary(day) {
+				candidates = append(candidates, store.CheckInAt(root, store.DailyID, day))
 			}
 			for _, at := range candidates {
 				if at.After(now) && (want.IsZero() || at.Before(want)) {

@@ -104,6 +104,9 @@ func (r *Runner) React(entryID string, place *timeline.Place) {
 
 // EntryEdited notifies previous recipients and routes the current content anew.
 func (r *Runner) EntryEdited(entryID string) {
+	if entry, ok := r.store.Entry(entryID); ok {
+		r.forgetDailySummaries(entry.At)
+	}
 	r.enqueueEntry(entryID, nil, true)
 }
 

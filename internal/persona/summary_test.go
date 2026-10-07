@@ -3,9 +3,13 @@ package persona
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/takeshy/kakeratta/internal/llm"
 
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
@@ -40,7 +44,7 @@ func TestMonthlySummaryIsWrittenOnceOnItsDay(t *testing.T) {
 		return `{"action":"silent"}`
 	})
 	day := summaryDay(s)
-	at := store.CheckInAt(s.Root(), store.SummaryID, day)
+	at := store.CheckInAt(s.Root(), store.DailyID, day)
 	appendAt(t, s, "佐藤さんと釣りに行った", at.Add(-10*24*time.Hour))
 	appendAt(t, s, "去年の話", at.Add(-60*24*time.Hour))
 
@@ -93,10 +97,7 @@ func TestMonthlyPersonReadsTheSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	day := summaryDay(s)
-	at := store.CheckInAt(s.Root(), store.SummaryID, day)
-	if own := store.CheckInAt(s.Root(), "sato", day); own.After(at) {
-		at = own
-	}
+	at := store.CheckInAt(s.Root(), store.DailyID, day)
 	appendAt(t, s, "サトウと釣行の相談", at.Add(-5*24*time.Hour))
 	appendAt(t, s, "ラーメンを食べた", at.Add(-4*24*time.Hour))
 
@@ -112,5 +113,46 @@ func TestMonthlyPersonReadsTheSummary(t *testing.T) {
 	}
 	if !strings.Contains(checkIn, "サトウと釣行の相談") || strings.Contains(checkIn, "ラーメンを食べた") {
 		t.Fatalf("the posts naming the person were not picked: %q", checkIn)
+	}
+}
+
+// The summary reads the user's posts whole and the personas' long answers
+// clipped, asks for its output allowance explicitly, and says so when it was
+// cut off instead of posting a summary that silently stops.
+func TestMonthlySummaryClipsAnswersAndMarksTruncation(t *testing.T) {
+	r, s, _ := setup(t, nil)
+	day := summaryDay(s)
+	at := store.CheckInAt(s.Root(), store.DailyID, day)
+	post := appendAt(t, s, "佐藤さんと釣りに行った", at.Add(-10*24*time.Hour))
+	long := strings.Repeat("長い回答。", 200)
+	remark := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Text: long, At: at.Add(-10*24*time.Hour + time.Minute), ReplyTo: post.ID, Root: post.ID}
+	if err := s.Append(remark); err != nil {
+		t.Fatal(err)
+	}
+	var request struct {
+		MaxTokens int `json:"max_tokens"`
+		Messages  []struct {
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		_ = json.NewDecoder(req.Body).Decode(&request)
+		_, _ = w.Write([]byte(`{"choices":[{"finish_reason":"length","message":{"content":"### 人\n- 佐藤さんと釣り"}}]}`))
+	}))
+	defer server.Close()
+	client := llm.New(server.URL, "")
+	client.Observe = func(llm.CallRecord) {}
+	r.summarizeAt(context.Background(), at, client, s.Settings())
+	if request.MaxTokens != summaryOutputTokens {
+		t.Errorf("max_tokens = %d", request.MaxTokens)
+	}
+	read := request.Messages[len(request.Messages)-1].Content
+	if !strings.Contains(read, "佐藤さんと釣りに行った") || strings.Contains(read, long) || !strings.Contains(read, "（省略）") {
+		t.Errorf("the month read was %q", read)
+	}
+	entries, _ := s.Timeline()
+	summary := entries[len(entries)-1]
+	if summary.Summary != timeline.SummaryMonth || !strings.Contains(summary.Text, "途切れています") {
+		t.Fatalf("summary = %q", summary.Text)
 	}
 }

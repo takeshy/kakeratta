@@ -20,14 +20,14 @@ export const entryFilterStyles = `
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  font-size: .875rem;
+  font-size: 1rem;
   cursor: pointer;
   list-style: none;
 }
 .entry-filters > summary::-webkit-details-marker { display: none; }
-.entry-filters > summary::before { content: "›"; font-size: 1.25rem; transition: transform .15s; }
+.entry-filters > summary::before { content: "›"; font-size: 1.4375rem; transition: transform .15s; }
 .entry-filters[open] > summary::before { transform: rotate(90deg); }
-.entry-filters .entry-filter-status { margin-left: auto; color: var(--accent, #a46730); font-size: .8rem; }
+.entry-filters .entry-filter-status { margin-left: auto; color: var(--accent, #a46730); font-size: 0.9375rem; }
 .entry-filters .entry-filter-status:empty { display: none; }
 .entry-filters .entry-filter-body { padding-bottom: 16px; }
 .entry-filters .entry-filters-head {
@@ -43,7 +43,7 @@ export const entryFilterStyles = `
   align-items: center;
   gap: 8px;
   min-height: 40px;
-  font-size: .875rem;
+  font-size: 1rem;
   cursor: pointer;
 }
 .entry-filters input[type="checkbox"] {
@@ -62,7 +62,7 @@ export const entryFilterStyles = `
   background: transparent;
   color: var(--muted, #807a70);
   font: inherit;
-  font-size: .8rem;
+  font-size: 0.9375rem;
   cursor: pointer;
 }
 .entry-filters .entry-filter-clear:hover { color: var(--ink, #39352f); text-decoration: underline; }
@@ -76,7 +76,7 @@ export const entryFilterStyles = `
   gap: 6px;
   min-width: 0;
   color: var(--muted, #807a70);
-  font-size: .8rem;
+  font-size: 0.9375rem;
 }
 .entry-filters input[type="date"] {
   box-sizing: border-box;
@@ -115,7 +115,7 @@ export const entryFilterStyles = `
   }
 }
 .entry-filters :is(input, button, summary):focus-visible { outline: 2px solid var(--accent, #a46730); outline-offset: 2px; }
-.entry-filters [role="alert"] { display: block; margin-top: 8px; font-size: .85rem; }
+.entry-filters [role="alert"] { display: block; margin-top: 8px; font-size: 1rem; }
 .entry-filters [role="alert"]:empty { display: none; }
 /* A phone's filter is about 310-330px wide, narrower than two iOS date fields
    side by side (Safari will not shrink one below its date text), so they

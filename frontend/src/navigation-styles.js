@@ -13,7 +13,7 @@ export const navigationStyles = `
 .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: 0.02em; }
 .brand-mark { width: 22px; height: 22px; border-radius: 6px; }
 /* Navigation stays separate from each thread’s read-aloud control. */
-.topbar .nav { display: inline-flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 6px; font-size: 0.8rem; white-space: nowrap; }
+.topbar .nav { display: inline-flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 6px; font-size: 0.9375rem; white-space: nowrap; }
 .topbar:not(.compact) { gap: 6px; }
 .topbar:not(.compact) .nav { padding: 4px 6px; }
 .topbar .nav > .nav-icon { display: inline-flex; flex: 0 0 auto; }

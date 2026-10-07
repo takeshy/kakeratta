@@ -94,6 +94,35 @@ func datedPast(f fact, today time.Time) bool {
 	return found
 }
 
+// upcomingDated says whether a fact that holds now names a day from today to
+// horizon days ahead: a plan the persona may need to prepare for.
+func upcomingDated(m memoryFacts, today time.Time, horizon int) bool {
+	until := today.AddDate(0, 0, horizon)
+	for _, field := range m.all() {
+		for _, f := range m.ByField[field].Current {
+			for _, match := range factDates.FindAllStringSubmatch(f.Text, -1) {
+				year := today.Year()
+				if !f.Since.IsZero() {
+					year = f.Since.Year()
+				}
+				if match[1] != "" {
+					year, _ = strconv.Atoi(match[1])
+				}
+				month, _ := strconv.Atoi(match[2])
+				day, _ := strconv.Atoi(match[3])
+				if month < 1 || month > 12 || day < 1 || day > 31 {
+					continue
+				}
+				at := time.Date(year, time.Month(month), day, 0, 0, 0, 0, today.Location())
+				if !at.Before(today) && !at.After(until) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // pastDated are the facts that hold now and name only days that have gone.
 func pastDated(m memoryFacts, today time.Time) map[string][]fact {
 	out := map[string][]fact{}

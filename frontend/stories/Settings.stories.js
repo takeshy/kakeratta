@@ -19,6 +19,7 @@ export const ExtraLarge = {
   globals: { textSize: "xlarge" },
   render: () => panelOf(settings),
 };
+export const DailyTime = { name: "毎日の振り返りの時刻を指定", render: () => panelOf({ ...settings, dailyTime: "07:30" }) };
 export const Dictating = { name: "Web検索あり・音声のAI整形ON", render: () => panelOf(dictatingSettings) };
 export const InitialSetup = { name: "初回設定", render: () => panelOf({ ...settings, apiKey: "" }) };
 // Once an external agent is connected, the waits before falling back show.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 	_ "time/tzdata"
 
@@ -66,6 +67,35 @@ func (s Settings) CheckInFor(personaID string) DailyCheckIn {
 // persona id can start with an underscore.
 const SummaryID = "_summary"
 
+// DailyID stands for the account's day where a persona id would go: the
+// minute the day's summary is written and every persona checks in after it.
+const DailyID = "_daily"
+
+// ValidDailyTime reports whether value is a time of day the account's day may
+// be set to: "HH:MM" from 00:00 to 23:59, or empty for the app's own minute.
+func ValidDailyTime(value string) bool {
+	if value == "" {
+		return true
+	}
+	_, err := time.Parse("15:04", value)
+	return err == nil && len(value) == 5
+}
+
+// DailyAt is when the account's day runs on the local day of day, and until
+// when it may still start that day if the workspace was not awake at the
+// minute. A time the user set holds every day, until midnight. Otherwise it
+// is the app's drifting minute in 07:00-21:00 (CheckInAt), and a day on which
+// that minute wraps past the end of the window is skipped - except the
+// month's summary day, which must not be lost.
+func (s Settings) DailyAt(workspace string, day time.Time) (at, closes time.Time, ok bool) {
+	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	if set, err := time.Parse("15:04", strings.TrimSpace(s.DailyTime)); err == nil {
+		return start.Add(time.Duration(set.Hour())*time.Hour + time.Duration(set.Minute())*time.Minute), start.AddDate(0, 0, 1), true
+	}
+	ok = !CheckInSkipped(workspace, DailyID, day) || day.Day() == SummaryDay(workspace)
+	return CheckInAt(workspace, DailyID, day), CheckInCloses(day), ok
+}
+
 // SummaryDay is the day of the month, 1 to 28 so that every month has it, the
 // month's summary is written on - and a monthly check-in runs, after it. It is
 // picked by a hash of the workspace, as a check-in's minute is: nothing is
@@ -75,8 +105,8 @@ func SummaryDay(workspace string) int {
 	return int(binary.BigEndian.Uint64(sum[:8])%28) + 1
 }
 
-// Check-ins run between these hours of the user's day, each persona at its
-// own time, so that neither one user's personas nor every user's wake at once.
+// Check-ins run between these hours of the user's day, at the account's own
+// minute, so that every user's personas do not wake at once.
 const (
 	checkInOpens  = 7 * time.Hour
 	checkInCloses = 21 * time.Hour

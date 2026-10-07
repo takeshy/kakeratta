@@ -223,13 +223,18 @@ a search over names, conditions, names of a person and keywords (kana and
 width do not matter). The People tab can be put in name order; a name in kanji
 sorts by the kana among its names.
 
+### The daily check-in
+
+Once a day the app reads the posts since the previous day and writes a summary of them (it is not shown), and then each persona with memory in turn reads that summary and its own memory and speaks if it has something worth saying. A persona with no new posts, no record due for review and no plan coming up stays quiet that day without waking.
+Choose the time under **Daily check-in** in Settings: **Set a time** runs it at that time; **Automatic** lets the app pick a time between 7:00 and 21:00 for the account, moving a little from day to day. At popular times the run may start later than the time you set.
+
 ### This month's summary, and people looked back on monthly
 
 Once a month the app reads the month's timeline (since the previous summary,
 32 days at most) and posts **This month** under its own name: a list by topic,
 each line ending in a link to the post it came from. The app picks the day for
-the account (from the 1st to the 28th) and, like a check-in, a minute between
-7:00 and 21:00. The summary can be edited with ✎ like your own post; editing
+the account (from the 1st to the 28th); it is written during that day's
+check-in, before the personas wake. The summary can be edited with ✎ like your own post; editing
 it routes nothing.
 
 A person's card offers **Look back often** (daily) or **Look back occasionally** (monthly). A person

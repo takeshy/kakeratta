@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-07"
+updated: "2026-10-08"
 ---
 
 Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search.
@@ -181,6 +181,8 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 
 `Settings.Profile` stores the workspace user's display name, emoji icon, and optional photo data URL separately from authentication and timeline speaker IDs. The settings API trims names/icons, limits names to 40 Unicode characters and emoji icons to four, and accepts an empty profile value for UI defaults. `Skill.Avatar` carries the same optional photo for persona definitions. [avatar.go](../../internal/avatar/avatar.go) validates photos at settings and persona save boundaries: only Base64 JPEG data URLs are accepted, decoded bytes are limited to 32 KiB, dimensions are positive and at most 128 × 128, and a full JPEG decode must succeed. URLs, SVG and other formats, oversized or malformed photos are rejected before persistence. Photos are embedded in settings/definition JSON and Firestore fields, so exports include them without separate blobs. The AI builder strips avatars from existing-definition context and prior assistant draft messages, then preserves the user's avatar on the returned draft. Verification: [avatar_test.go](../../internal/avatar/avatar_test.go) and [profile_test.go](../../internal/server/profile_test.go).
 
+`Settings.DailyTime` (`dailyTime`) is the account's daily check-in time as `HH:MM` in the saved time zone; the settings API trims it and refuses anything but `HH:MM` or empty, and saving settings re-arms the workspace's alarm (see [Periodic checks](./personas.md#periodic-checks)).
+
 `ConfiguredSettings` returns saved choices. `Settings` applies defaults and model fallbacks for execution. This separation prevents an empty field in the editor from being overwritten with its runtime fallback.
 
 New workspaces default to the built-in sona (`routine`), kakeratta support (`support`), and infographics (`infographic`) being active. Persona definitions save the optional `memoryEnabled` flag; false disables private memory and periodic check-ins (see [Optional persona memory](./personas.md#optional-persona-memory)), while external-agent preference remains an independent saved setting. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
@@ -201,7 +203,7 @@ Every outbound chat completion emits one structured stdout record with `path: "m
 
 The provider's first-choice `finish_reason` is retained as `llm.Reply.FinishReason` and logged as optional `finishReason`. A value of `length` identifies provider output truncation; API `outcome: "success"` still describes the successful response, not acceptance of the answer. Missing finish reasons remain omitted.
 
-Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing (one record per subject persona), answer (including read/tool rounds), schedule/action planning, review, memory update/summary, monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
+Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing (one record per subject persona), answer (including read/tool rounds), schedule/action planning, review, memory update/summary, the internal day's summary (`daily_summary`), monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
 
 `attempt` starts at one and `retryCount` at zero for format/validation corrections within a stage. `round` separately counts normal multi-round research or tool use. `jobAttempt`/`jobRetryCount` describe durable reaction claims; `noteAttempt`/`noteRetryCount` describe durable note attempts; `planAttempt`/`planRetryCount` describe phase regeneration after review. These counters describe different scopes and must not be summed as independent billed requests. Counting records gives the outbound calls observed by this service, including failures. The instrumentation adds no retry policy and changes no retry limits.
 

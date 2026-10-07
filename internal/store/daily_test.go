@@ -148,3 +148,26 @@ func TestTheClaimRemembersWhenTheLastCheckInRan(t *testing.T) {
 		t.Fatalf("next claim: %v %s %v", ok, previous, err)
 	}
 }
+
+// A time the user set is the account's every day, inside or outside the
+// app's window, never skipped, and open until midnight; without one the
+// app's drifting minute holds.
+func TestDailyAtUsesTheSetTime(t *testing.T) {
+	day := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 60; i++ {
+		d := day.AddDate(0, 0, i)
+		at, closes, ok := Settings{DailyTime: "06:30"}.DailyAt("ws", d)
+		if !ok || !at.Equal(d.Add(6*time.Hour+30*time.Minute)) || !closes.Equal(d.AddDate(0, 0, 1)) {
+			t.Fatalf("%s: at=%s closes=%s ok=%v", d, at, closes, ok)
+		}
+		at, closes, ok = Settings{}.DailyAt("ws", d)
+		if !at.Equal(CheckInAt("ws", DailyID, d)) || !closes.Equal(CheckInCloses(d)) || ok != (!CheckInSkipped("ws", DailyID, d) || d.Day() == SummaryDay("ws")) {
+			t.Fatalf("%s: automatic at=%s closes=%s ok=%v", d, at, closes, ok)
+		}
+	}
+	for value, valid := range map[string]bool{"": true, "00:00": true, "23:59": true, "7:30": false, "24:00": false, "12:60": false, "noon": false} {
+		if ValidDailyTime(value) != valid {
+			t.Errorf("ValidDailyTime(%q) = %v", value, !valid)
+		}
+	}
+}

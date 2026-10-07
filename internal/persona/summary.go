@@ -26,23 +26,58 @@ const summaryLookback = 32 * 24 * time.Hour
 
 // summaryInputLimit bounds the month handed to the model. A busy month keeps
 // its newest part; the summary says it is partial rather than the call failing.
-const summaryInputLimit = 120000
+const summaryInputLimit = 60000
 
-const summaryPrompt = `あなたは kakeratta の本体です。ユーザーのタイムライン（ユーザーの投稿と返信、担当たちの発言）のひと月分を読み、「今月のまとめ」を書きます。ユーザーが後から読み返し、人物の担当たちが月に一度参照します。
+// A summary is about what the user did and said. The personas' answers and
+// the pages and pictures behind posts are clipped to what places them, which
+// keeps a month's input - and the summary written from it - inside one call.
+const (
+	summaryRemarkRunes = 300
+	summaryMediaRunes  = 600
+)
+
+// summaryOutputTokens is the summary's output allowance, stated rather than
+// left to the provider's default, which cut summaries off.
+const summaryOutputTokens = 16000
+
+func clipRunes(text string, n int) string {
+	if runes := []rune(text); len(runes) > n {
+		return string(runes[:n]) + "…（省略）"
+	}
+	return text
+}
+
+// summaryEntry is an entry as the month's summary reads it.
+func summaryEntry(entry timeline.Entry) timeline.Entry {
+	if entry.Speaker != timeline.User {
+		entry.Text = clipRunes(entry.Text, summaryRemarkRunes)
+		entry.Sources = nil
+	}
+	if entry.Media != nil {
+		media := *entry.Media
+		media.Text = clipRunes(media.Text, summaryMediaRunes)
+		entry.Media = &media
+	}
+	return entry
+}
+
+const summaryPrompt = `あなたは kakeratta の本体です。ユーザーのタイムライン（ユーザーの投稿と返信、担当たちの発言）のひと月分を、日ごとのまとめを中心に読み、「今月のまとめ」を書きます。ユーザーが後から読み返し、人物の担当たちが月に一度参照します。
 - ユーザーの記録の言語で書きます。
 - 話題ごとに「### 見出し」で分け、各項目は1行の箇条書きにします。
 - 人（家族・友人・同僚など）ごとの出来事（会った、話した、贈った・もらった、約束した、貸し借り）、これからの予定、済んでいないことは必ず残します。人の名前は記録に書かれたとおりに書きます。
-- 各項目の末尾に、根拠にした投稿へのリンクを [→](/?entry=ID) の形で付けます。ID は記録の先頭の角括弧の中のものです。
+- 各項目の末尾に、根拠にした投稿へのリンクを [→](/?entry=ID) の形で付けます。ID は記録の先頭の角括弧の中のもの、または日ごとのまとめの各項目末尾の [e_...] のものです。
+- 記録は、本体が日ごとに書いた内部向けのまとめと、それに入っていない投稿です。日ごとのまとめを合わせ、同じ話題は1つにまとめます。
 - 記録にないことは書きません。推測、助言、感想、挨拶は書きません。
 - まとめの本文だけを返します。`
 
-// summarizeAt writes the month's summary when today is its day and its
-// minute has come. It is claimed like a check-in, so it is written once.
+// summarizeAt writes the month's summary when today is its day; dailyAt calls
+// it at the account's minute, after the day's summary. It is claimed like a
+// check-in, so it is written once.
 func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Client, settings store.Settings) {
 	loc := settings.Location()
 	local := now.In(loc)
 	root := r.store.Root()
-	if local.Day() != store.SummaryDay(root) || local.Before(store.CheckInAt(root, store.SummaryID, local)) || !local.Before(store.CheckInCloses(local)) {
+	if local.Day() != store.SummaryDay(root) {
 		return
 	}
 	claimed, previous, err := r.store.ClaimDailyCheckInAt(store.SummaryID, local.Format("2006-01-02"), now)
@@ -67,7 +102,7 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 		if entry.Deleted || entry.Speaker == timeline.App || !entry.At.After(since) || entry.At.After(now) {
 			continue
 		}
-		month = append(month, entry)
+		month = append(month, summaryEntry(entry))
 	}
 	if len(month) == 0 {
 		return
@@ -76,7 +111,9 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 	for _, skill := range r.skills(ctx).All() {
 		names[skill.ID] = skill.Name
 	}
-	record := timeline.Render(month, names, loc)
+	// The month is read from the day's summaries, with only the posts none of
+	// them holds read in full.
+	record := r.monthFromDays(ctx, month, since, now, loc)
 	partial := false
 	if runes := []rune(record); len(runes) > summaryInputLimit {
 		record, partial = string(runes[len(runes)-summaryInputLimit:]), true
@@ -88,11 +125,15 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 	user += "\n記録（古い順）:\n" + record
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	text, err := client.Chat(ctx, llm.Request{Purpose: "monthly_summary", Model: personaModel(settings), Temperature: 0.3, Messages: []llm.Message{
+	reply, err := client.Complete(ctx, llm.Request{Purpose: "monthly_summary", Model: personaModel(settings), Temperature: 0.3, MaxTokens: summaryOutputTokens, Messages: []llm.Message{
 		{Role: "system", Content: summaryPrompt},
 		{Role: "user", Content: user},
 	}})
-	text = strings.TrimSpace(text)
+	text := strings.TrimSpace(reply.Content)
+	if err == nil && text != "" && reply.FinishReason == "length" {
+		// Kept rather than thrown away, but the reader is told it stops short.
+		text += "\n\n（まとめが長くなりすぎたため、ここで途切れています）"
+	}
 	if err != nil || text == "" {
 		message := "empty summary"
 		if err != nil {
