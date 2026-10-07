@@ -193,7 +193,7 @@ func defaultSettings() Settings {
 		MiddleModel:           NemotronSuper,
 		HighModel:             NemotronUltra,
 		VisionModel:           NebiusVision,
-		RouterModel:           NemotronLightning,
+		RouterModel:           NemotronSuper,
 		OpenRouterRouterModel: OpenRouterRouter,
 		OpenRouterHighModel:   OpenRouterHigh,
 		OpenRouterMiddleModel: OpenRouterMiddle,
@@ -251,7 +251,7 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 		settings.JevEnabled = false
 	}
 	if strings.TrimSpace(settings.RouterModel) == "" {
-		settings.RouterModel = NemotronLightning
+		settings.RouterModel = NemotronSuper
 	}
 	if strings.TrimSpace(settings.OpenRouterRouterModel) == "" {
 		settings.OpenRouterRouterModel = OpenRouterRouter

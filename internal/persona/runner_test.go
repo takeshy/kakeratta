@@ -249,31 +249,6 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 				result = asCall(f.reply(system, user), names)
 			}
 		}
-		// Old aggregate fixtures are adapted at the fake endpoint only; production
-		// routing accepts a boolean for the one condition in this request.
-		if names["submit_match"] {
-			content, _ := result["content"].(string)
-			var aggregate struct {
-				Deliver  []string          `json:"deliver"`
-				Excluded map[string]string `json:"excluded_reasons"`
-			}
-			if json.Unmarshal([]byte(content), &aggregate) == nil && aggregate.Deliver != nil {
-				_, rest, _ := strings.Cut(user, "担当条件:\n")
-				line := strings.Split(rest, "\n")[0]
-				id, _, _ := strings.Cut(line, "（")
-				matched := false
-				for _, named := range aggregate.Deliver {
-					if named == id || strings.Contains(line, "（"+named+"）") || strings.HasPrefix(named, id+"（") || strings.HasPrefix(named, id+" (") {
-						matched = true
-					}
-				}
-				reason := aggregate.Excluded[id]
-				if reason == "" {
-					reason = "test condition"
-				}
-				result = testCall("submit_match", map[string]any{"match": matched, "reason": reason})
-			}
-		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": result}}})
 	}))
 	t.Cleanup(server.Close)
@@ -1166,7 +1141,7 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 				}
 			}
 			stub.mu.Unlock()
-			wantCalls, wantAnswers := 4, 2
+			wantCalls, wantAnswers := 3, 2
 			if replyToQuestion {
 				wantCalls, wantAnswers = 1, 1
 			}
@@ -1876,10 +1851,10 @@ func TestDirectedEntriesSkipAutomaticRouting(t *testing.T) {
 		{"reply", "佐藤さんと釣り", "gourmet", []string{"gourmet"}, map[string]string{"gourmet": "reply"}, 0},
 		{"mention overrides reply", "@tabe 佐藤さんと釣り", "move", []string{"gourmet"}, map[string]string{"gourmet": "mention"}, 0},
 		{"same recipient", "@tabe 佐藤さんと釣り", "gourmet", []string{"gourmet"}, map[string]string{"gourmet": "mention"}, 0},
-		{"ordinary post", "佐藤さんと釣り", "", []string{"move", "sato"}, nil, 2},
-		{"user reply", "佐藤さんと釣り", timeline.User, []string{"move", "sato"}, nil, 2},
-		{"inactive reply", "佐藤さんと釣り", "book", []string{"move", "sato"}, nil, 2},
-		{"unknown mention", "@unknown 佐藤さんと釣り", "", []string{"move", "sato"}, nil, 2},
+		{"ordinary post", "佐藤さんと釣り", "", []string{"move", "sato"}, nil, 1},
+		{"user reply", "佐藤さんと釣り", timeline.User, []string{"move", "sato"}, nil, 1},
+		{"inactive reply", "佐藤さんと釣り", "book", []string{"move", "sato"}, nil, 1},
+		{"unknown mention", "@unknown 佐藤さんと釣り", "", []string{"move", "sato"}, nil, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			routes := 0

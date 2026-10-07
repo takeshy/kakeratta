@@ -362,9 +362,9 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 	for _, skill := range skills {
 		if skill.ID == skillID {
 			found = true
-			skills = []Skill{skill}
 			// A person is decided by its own words; the router has no say.
 			if skill.IsPerson() {
+				skills = []Skill{skill}
 				words = HeardTerms(skill, search.Text(entry))
 			}
 			break

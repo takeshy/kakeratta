@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/llm"
@@ -23,7 +22,7 @@ var jevHTTPClient = &http.Client{Timeout: 4 * time.Minute}
 
 // Routing is what the app decides, and the only thing it decides about a post.
 //
-// It is made by Lightning so every post can be classified quickly, and it
+// It is made by Super so every post can be classified quickly, and it
 // errs the other way from how it used to. Delivering by default made
 // sense when a cheap model made the call and a wrong "no" swallowed a post;
 // in practice it meant "明日9:10に神谷町に着きたい" reached the wine persona,
@@ -34,20 +33,6 @@ const routePrompt = `投稿内容と担当条件を照合して振り分けま�
 各条件に当てはまる担当をすべて選びます。質問や依頼の有無、回答済みかは問いません。単語だけで判定せず、条件にない前提を足しません。列挙された対象はいずれか1つに当てはまれば一致です（条件が同時成立を指定する場合を除く）。例示は限定列挙ではなく、担当が調べる情報が投稿に揃っている必要もありません。
 deliver に一致する担当id、excluded_reasons に不一致の担当idと短い理由を入れてツールを呼んでください。担当idは「担当条件」の各行の先頭にあるidで、発言のidではありません。表示名を付けず、全担当idをどちらか一方に含めます。一致なしなら deliver は空です。
 理由は本人が読みます。今回の対象発言と同じ言語で書き、発言に文章がない（画像だけなど）ときは担当条件が書かれている言語で書いてください。`
-
-const individualRoutePrompt = `投稿内容と1人の担当条件を照合して振り分けます。
-本人と担当の発言を含むスレッド全体で今回の発言を解釈し、補足・訂正を反映してください。画像の説明・文字・出典も投稿内容です。
-単語だけで判定せず、条件にない前提を足しません。列挙された対象はいずれか1つに当てはまれば一致です（条件が同時成立を指定する場合を除く）。例示は限定列挙ではなく、担当が調べる情報が投稿に揃っている必要もありません。質問や依頼の有無、回答済みかは問いません。
-この担当条件に一致すればmatch=true、一致しなければmatch=false。一致の有無と短い理由だけをsubmit_matchで返してください。他の担当は判断しません。
-理由は本人が読みます。今回の対象発言と同じ言語で書き、発言に文章がない（画像だけなど）ときは担当条件が書かれている言語で書いてください。`
-
-var matchTool = llm.Tool{
-	Name: "submit_match", Description: "1人の担当条件への一致（はい・いいえ）と短い理由だけを提出する。",
-	Parameters: map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
-		"match":  map[string]any{"type": "boolean", "description": "この担当条件に一致すればtrue、しなければfalse"},
-		"reason": map[string]any{"type": "string", "minLength": 1, "description": "一致・不一致の短い理由"},
-	}, "required": []string{"match", "reason"}},
-}
 
 // deliverTool returns condition matches and non-match explanations. The latter
 // are logged for diagnosing omissions; only matched IDs control delivery.
@@ -86,93 +71,108 @@ type Routing struct {
 // routing, so the one case where a post must not be lost does not depend on
 // this.
 func Route(ctx context.Context, client *llm.Client, model string, skills []Skill, thread []Entryish, trigger Entryish) Routing {
-	if len(skills) == 0 {
-		return Routing{Answered: true, Excluded: map[string]string{}}
-	}
-	if client == nil || client.BaseURL == "" || model == "" {
+	ctx = llm.WithTrace(ctx, llm.Trace{Trigger: trigger.ID, Wake: "post"})
+	if len(skills) == 0 || client == nil || client.BaseURL == "" || model == "" {
 		return Routing{Error: "routing is not configured"}
 	}
 	decision := routeRecord{Severity: "INFO", Message: "routing", Trigger: trigger.ID, Model: model}
 	defer func() { logRouting(decision) }()
-	type result struct {
-		match  bool
-		reason string
-		err    error
+	nobody := func(reason string) Routing {
+		decision.Severity = "WARNING"
+		decision.Error = reason
+		return Routing{Error: reason}
 	}
-	results := make([]result, len(skills))
-	// Limit concurrent outbound requests while evaluating each condition independently.
-	limit := make(chan struct{}, 8)
-	var wg sync.WaitGroup
-	for i, skill := range skills {
-		wg.Add(1)
-		go func(i int, skill Skill) {
-			defer wg.Done()
-			select {
-			case limit <- struct{}{}:
-				defer func() { <-limit }()
-			case <-ctx.Done():
-				results[i].err = ctx.Err()
-				return
-			}
-			callCtx := llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Trigger: trigger.ID, Wake: "post"})
-			thinking := false
-			reply, err := client.Complete(callCtx, llm.Request{
-				Purpose: "routing", Model: model, Tools: []llm.Tool{matchTool}, ToolChoice: "required",
-				Thinking: &thinking, Exacto: true, MaxTokens: 512,
-				Messages: []llm.Message{
-					{Role: "system", Content: individualRoutePrompt},
-					{Role: "user", Content: strings.Join([]string{
-						"担当条件:", skill.ID + "（" + skill.Name + "）: " + skill.Domain, "",
-						"スレッド全体（古い順）:", renderAll(thread), "",
-						"今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
-					}, "\n")},
-				},
-			})
-			if err != nil {
-				results[i].err = err
-				return
-			}
-			if reply.FinishReason == "length" {
-				results[i].err = fmt.Errorf("routing output was truncated")
-				return
-			}
-			chosen := ""
-			if len(reply.Calls) == 1 && reply.Calls[0].Name == matchTool.Name {
-				chosen = reply.Calls[0].Args
-			} else if len(reply.Calls) == 0 {
-				chosen = firstJSON(reply.Content)
-			}
-			var parsed struct {
-				Match  *bool  `json:"match"`
-				Reason string `json:"reason"`
-			}
-			if err := json.Unmarshal([]byte(chosen), &parsed); err != nil || parsed.Match == nil || strings.TrimSpace(parsed.Reason) == "" {
-				results[i].err = fmt.Errorf("routing response needs a boolean match and a reason")
-				return
-			}
-			results[i].match, results[i].reason = *parsed.Match, strings.TrimSpace(parsed.Reason)
-		}(i, skill)
+	var domains []string
+	for _, skill := range skills {
+		domains = append(domains, fmt.Sprintf("- %s（%s）: %s", skill.ID, skill.Name, skill.Domain))
 	}
-	wg.Wait()
-	// A partial decision is not persisted as a completed recipient set.
-	for i, result := range results {
-		if result.err != nil {
-			decision.Severity, decision.Error = "WARNING", fmt.Sprintf("routing %s failed: %v", skills[i].ID, result.err)
-			return Routing{Error: decision.Error}
+	thinking := true
+	reply, err := client.Complete(ctx, llm.Request{
+		Purpose: "routing", Model: model, Tools: []llm.Tool{deliverTool}, ToolChoice: "required",
+		Thinking: &thinking, Exacto: true,
+		Messages: []llm.Message{
+			{Role: "system", Content: routePrompt},
+			{Role: "user", Content: strings.Join([]string{
+				"担当条件:", strings.Join(domains, "\n"), "", "スレッド全体（古い順）:", renderAll(thread),
+				"", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
+			}, "\n")},
+		},
+	})
+	if err != nil {
+		return nobody("the routing call failed: " + err.Error())
+	}
+	var parsed struct {
+		Deliver         []string          `json:"deliver"`
+		Reasons         map[string]string `json:"reasons"`
+		ExcludedReasons map[string]string `json:"excluded_reasons"`
+		Reason          string            `json:"reason"`
+	}
+	// The call is what this asks for, but a model that answered in prose has
+	// still answered.
+	chosen := ""
+	for _, call := range reply.Calls {
+		if call.Name == deliverTool.Name {
+			chosen = call.Args
 		}
 	}
-	decision.Reasons = map[string]string{}
-	decision.ExcludedReasons = map[string]string{}
-	for i, result := range results {
-		id := skills[i].ID
-		decision.Reasons[id] = result.reason
-		if result.match {
+	if chosen == "" {
+		chosen = firstJSON(reply.Content)
+	}
+	if err := json.Unmarshal([]byte(chosen), &parsed); err != nil || parsed.Deliver == nil {
+		return nobody(fmt.Sprintf("the reply made no sense: %q", chosen))
+	}
+	decision.Reasons, decision.Reason = parsed.Reasons, parsed.Reason
+	decision.ExcludedReasons = parsed.ExcludedReasons
+	// A router that answers "sona" when the id is "routine" has named the right
+	// persona by the name a person sees. One that copies "book（shiori）" from the
+	// list has named it twice.
+	resolve := func(want string) string {
+		want = strings.TrimSpace(want)
+		if open := strings.IndexAny(want, "（("); open > 0 {
+			want = strings.TrimSpace(want[:open])
+		}
+		if want == "" {
+			return ""
+		}
+		for _, skill := range skills {
+			if skill.ID == want {
+				return skill.ID
+			}
+		}
+		for _, skill := range skills {
+			if skill.Answers(want) {
+				return skill.ID
+			}
+		}
+		return ""
+	}
+	seen := map[string]bool{}
+	for _, named := range parsed.Deliver {
+		id := resolve(named)
+		if id == "" {
+			// A name that matches nobody is ignored, not a reason to guess.
+			decision.Unknown = append(decision.Unknown, named)
+			continue
+		}
+		if !seen[id] {
+			seen[id] = true
 			decision.Deliver = append(decision.Deliver, id)
-		} else {
-			decision.ExcludedReasons[id] = result.reason
 		}
 	}
-	return Routing{Deliver: decision.Deliver, Excluded: decision.ExcludedReasons, Answered: true}
+	// The reasons are keyed however the router chose to name each persona;
+	// they are kept under the id so a reader can find them again. The first
+	// reason given for a persona stands when it was named twice.
+	excluded := map[string]string{}
+	for named, reason := range parsed.ExcludedReasons {
+		id := resolve(named)
+		if id == "" {
+			continue
+		}
+		if _, ok := excluded[id]; !ok {
+			excluded[id] = reason
+		}
+	}
+	return Routing{Deliver: decision.Deliver, Excluded: excluded, Answered: true}
 }
 
 // RouteJev uses OpenRouter's Decisions API, which is deliberately separate

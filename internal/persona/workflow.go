@@ -465,9 +465,9 @@ func reviewModel(settings store.Settings) string {
 	return personaModel(settings)
 }
 
-// routingModel evaluates one persona condition per parallel request.
+// routingModel evaluates all persona conditions in one request.
 func routingModel() string {
-	return store.NemotronLightning
+	return store.NemotronSuper
 }
 
 // readAll does what a persona asked to look at. Nothing here writes, so there

@@ -23,7 +23,7 @@ func TestDepthUsesOnlyExplicitStringMatches(t *testing.T) {
 			t.Errorf("%q depth=%t want=%t", tc.text, got, tc.want)
 		}
 	}
-	if strings.Contains(individualRoutePrompt, "deep") {
+	if strings.Contains(routePrompt, "deep") {
 		t.Error("router should not select answer depth")
 	}
 }
