@@ -257,7 +257,7 @@ with AI-to-AI conversation. (Check-ins and schedules wake a persona on their
 own clock, described below.) The remarks already under a post are part of what each persona
 is given, so a later reply can pick up on them.
 
-**Depth is a plain string match, decided before any model call.** The current
+**Depth is a plain string match, decided before any model call.** Daily and monthly check-ins skip this substring check because their input includes historical material; AlwaysUltra still applies. The current
 post (not older thread messages) is lowercased and checked for explicit
 phrases such as `詳しく`, `深掘り`, `ちゃんと調べて`, `それって本当`, `in detail` or
 `deep dive` (`wantsDeep`). A match - or an internal deep request - makes the

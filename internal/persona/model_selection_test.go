@@ -133,3 +133,39 @@ func TestUltraPersonaWithoutLookupToolsAnswersInOneCall(t *testing.T) {
 		t.Fatalf("calls = %v, want %v", calls, want)
 	}
 }
+
+func TestCheckInsIgnoreHistoricalDepthPhrases(t *testing.T) {
+	for _, tc := range []struct {
+		name, instructions  string
+		always              bool
+		wantModel, wantSlot string
+	}{
+		{"daily", dailyShareInstructions, false, "super-test", "super"},
+		{"monthly", monthlyShareInstructions, false, "super-test", "super"},
+		{"daily-always", dailyShareInstructions, true, "ultra-test", "ultra"},
+		{"monthly-always", monthlyShareInstructions, true, "ultra-test", "ultra"},
+		{"user-request", "", false, "ultra-test", "ultra"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, s, f := setup(t, nil, "infographic")
+			skill, _ := r.catalogue.Find(context.Background(), "infographic")
+			skill.AlwaysUltra = tc.always
+			trigger := timeline.Entry{Speaker: "system", Text: "過去の発言: 詳しく教えて。実装の深掘りと活用"}
+			if tc.instructions == "" {
+				trigger = post(t, s, trigger.Text)
+			}
+			f.phaseReply = func(_, _ string, offered map[string]bool) string {
+				if !offered["submit_answer"] {
+					t.Fatalf("unexpected phase: %v", offered)
+				}
+				return `{"text":"回答","sources":[],"remember":false,"schedule":false}`
+			}
+			client, settings := r.clientOf()
+			settings.MiddleModel, settings.HighModel = "super-test", "ultra-test"
+			result := r.run(context.Background(), skill, []timeline.Entry{trigger}, trigger, false, false, tc.instructions, false, client, settings, r.registry(settings))
+			if result == nil || result.Model != tc.wantSlot || f.lastModelFor("インフォグラフィック") != tc.wantModel {
+				t.Fatalf("result=%+v model=%s", result, f.lastModelFor("インフォグラフィック"))
+			}
+		})
+	}
+}

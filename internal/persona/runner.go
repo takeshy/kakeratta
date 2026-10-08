@@ -697,7 +697,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions)})
 	resumed := resumedFrom(ctx)
 	skill = skill.forTurn()
-	deep = deep || wantsDeep(trigger.Text)
+	// Check-in text contains summaries and historical posts, not a new
+	// request to think deeply. AlwaysUltra remains an independent setting.
+	if !strings.HasPrefix(wakeInstructions, dailyHeader) && !strings.HasPrefix(wakeInstructions, monthlyHeader) {
+		deep = deep || wantsDeep(trigger.Text)
+	}
 	requestedDeep := deep
 	deep = deep || skill.AlwaysUltra
 
