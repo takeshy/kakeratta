@@ -128,7 +128,7 @@ func pastDated(m memoryFacts, today time.Time) map[string][]fact {
 	out := map[string][]fact{}
 	for _, field := range m.Fields {
 		for _, f := range m.ByField[field].Current {
-			if datedPast(f, today) {
+			if datedPast(f, today) && f.PastReviewed != f.reviewFingerprint(today.Location()) {
 				out[field] = append(out[field], f)
 			}
 		}
@@ -151,7 +151,8 @@ func summaryTool(fields []string, passed []string) llm.Tool {
 	if len(passed) > 0 {
 		props["invalidate"] = map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": passed},
 			"description": "日付が過ぎてもう当てはまらない予定・予約・約束の事実の id。過去の出来事は入れない。なければ []"}
-		required = append(required, "invalidate")
+		props["retain"] = map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": passed}, "description": "日付が過ぎても保持する過去の出来事だと確認できた id。迷うものは入れない。なければ []"}
+		required = append(required, "invalidate", "retain")
 	}
 	return llm.Tool{Name: "write_summaries", Description: "分野ごとのまとめ文と、日付の過ぎた事実の扱いを本体に渡す。本体が検証して保存する。",
 		Parameters: map[string]any{"type": "object", "properties": props, "required": required, "additionalProperties": false}}
@@ -165,6 +166,7 @@ func fieldSummaryPrompt(skill Skill) string {
 	}
 	s += `write_summaries で出す。
 - invalidate: 「日付の過ぎた事実」として渡したもののうち、予定・予約・約束・期限のように、その日が過ぎてもう先のことではなくなったものの id。贈った・行った・言ったなどの過去の出来事は、日付が過ぎても事実のまま残すので入れない。迷うものも入れない。
+- retain: 「日付の過ぎた事実」のうち、過去の出来事として今後も保持すると確認できた id。これらは本文や開始日が変わるまで日付による再審査をしない。迷うものは invalidate にも retain にも入れない。
 - summaries: 「まとめ文を書き直す分野」として渡した分野それぞれのまとめ文の新しい全文。invalidate した事実がある分野も、その分を外して書き直してよい。
 - まとめ文は、その分野の事実を読んだあなたの見立て。傾向、移り変わり、まだ済んでいないことが分かるように書く（` + fmt.Sprint(maxFieldRunes) + `字以内）。
 - いまのまとめ文を土台に、前回から増えた・変わった・当てはまらなくなった事実を取り込む。変わらない部分は残す。
@@ -216,42 +218,60 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 			lines = append(lines, ff.Summary)
 		}
 		if ff.SummaryDirty {
-			lines = append(lines, "", "事実が訂正・統合・削除されています。日付が古い事実も含め、いま渡した事実だけを根拠にまとめ文を照合し直し、必ずこの分野の新しいまとめ文を提出してください。削除・訂正前の内容をまとめ文から引き継がないでください。", "以前の事実（現在保存されているすべて）:")
-			for _, f := range ff.Past {
-				lines = append(lines, "- "+f.Text)
-			}
+			lines = append(lines, "", "事実が訂正・統合・削除されています。日付が古い事実も含め、いま渡した事実だけを根拠にまとめ文を照合し直し、必ずこの分野の新しいまとめ文を提出してください。削除・訂正前の内容をまとめ文から引き継がないでください。")
 		}
+		added, gone := changedSince(ff)
+		addedIDs, goneIDs, expiredIDs := map[string]bool{}, map[string]bool{}, map[string]bool{}
 		if contains(due, field) {
-			added, gone := changedSince(ff)
-			lines = append(lines, "", "（まとめ文を書き直す分野）", "前回のまとめ以降に増えた・変わった事実:")
+			lines = append(lines, "", "（まとめ文を書き直す分野）")
 			for _, f := range added {
-				lines = append(lines, "- "+f.Text)
+				addedIDs[f.ID] = true
 			}
-			if len(added) == 0 {
-				lines = append(lines, "（なし）")
-			}
-			lines = append(lines, "", "前回のまとめ以降に当てはまらなくなった事実:")
 			for _, f := range gone {
-				line := "- " + f.Text
-				if f.By != "" {
-					line += "（新しい事実に置き換わった）"
-				}
-				lines = append(lines, line)
-			}
-			if len(gone) == 0 {
-				lines = append(lines, "（なし）")
+				goneIDs[f.ID] = true
 			}
 		}
-		if len(passed[field]) > 0 {
-			lines = append(lines, "", "日付の過ぎた事実（[ ] は id）:")
-			for _, f := range passed[field] {
-				lines = append(lines, "- ["+f.ID+"] "+f.Text)
-				passedIDs = append(passedIDs, f.ID)
+		for _, f := range passed[field] {
+			expiredIDs[f.ID] = true
+			passedIDs = append(passedIDs, f.ID)
+		}
+		// Only a fact under date review, or one a past fact names as its
+		// replacement, carries its id: the others are not to be answered by id.
+		named := map[string]bool{}
+		for _, f := range ff.Past {
+			if (ff.SummaryDirty || goneIDs[f.ID]) && f.By != "" {
+				named[f.By] = true
 			}
 		}
-		lines = append(lines, "", "いまの事実（すべて）:")
+		item := func(id string, attrs []string, text string) string {
+			if expiredIDs[id] || named[id] {
+				return "- [" + id + "]（" + strings.Join(attrs, "、") + "） " + text
+			}
+			return "- （" + strings.Join(attrs, "、") + "） " + text
+		}
+		lines = append(lines, "", "事実一覧（本文は各1回。[ ] は日付の審査対象と置換先の id、属性は前回のまとめからの変化と日付の審査対象）:")
 		for _, f := range ff.Current {
-			lines = append(lines, "- "+f.Text)
+			attrs := []string{"現在"}
+			if addedIDs[f.ID] {
+				attrs = append(attrs, "追加・変更")
+			}
+			if expiredIDs[f.ID] {
+				attrs = append(attrs, "日付の過ぎた事実")
+			}
+			lines = append(lines, item(f.ID, attrs, f.Text))
+		}
+		for _, f := range ff.Past {
+			if !ff.SummaryDirty && !goneIDs[f.ID] {
+				continue
+			}
+			attrs := []string{"以前の事実"}
+			if goneIDs[f.ID] {
+				attrs = append(attrs, "当てはまらなくなった")
+			}
+			if f.By != "" {
+				attrs = append(attrs, "置換先:"+f.By)
+			}
+			lines = append(lines, item(f.ID, attrs, f.Text))
 		}
 		parts = append(parts, strings.Join(lines, "\n"))
 	}
@@ -259,7 +279,7 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 	tool := summaryTool(handed, passedIDs)
 	messages := []llm.Message{{Role: "system", Content: fieldSummaryPrompt(skill)}, {Role: "user", Content: user}}
 	var written []summaryWrite
-	var retire []string
+	var retire, retain []string
 	for attempt := 1; ; attempt++ {
 		reply, err := client.Complete(held, llm.Request{Purpose: "memory_summary", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
@@ -268,6 +288,7 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 		var submitted struct {
 			Summaries  []summaryWrite `json:"summaries"`
 			Invalidate []string       `json:"invalidate"`
+			Retain     []string       `json:"retain"`
 		}
 		var problems []string
 		raw := ""
@@ -310,8 +331,13 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 				problems = append(problems, id+" は日付の過ぎた事実として渡していません")
 			}
 		}
+		for _, id := range submitted.Retain {
+			if !contains(passedIDs, id) || contains(submitted.Invalidate, id) {
+				problems = append(problems, id+" は保持できる審査対象ではありません")
+			}
+		}
 		if len(problems) == 0 {
-			written, retire = submitted.Summaries, submitted.Invalidate
+			written, retire, retain = submitted.Summaries, submitted.Invalidate, submitted.Retain
 			break
 		}
 		if attempt == maxKeeperAttempts {
@@ -333,6 +359,16 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 		for _, field := range fields {
 			changed[field] = true
 		}
+	}
+	for _, field := range handed {
+		ff := m.ByField[field]
+		for i := range ff.Current {
+			if contains(retain, ff.Current[i].ID) {
+				ff.Current[i].PastReviewed = ff.Current[i].reviewFingerprint(zone)
+				changed[field] = true
+			}
+		}
+		m.ByField[field] = ff
 	}
 	for _, write := range written {
 		field, _ := fieldNamed(handed, write.Field)

@@ -226,6 +226,8 @@ sorts by the kana among its names.
 ### The daily check-in
 
 Once a day the app reads the posts since the previous day and writes a summary of them (it is not shown), and then each persona with memory in turn reads that summary and its own memory and speaks if it has something worth saying. A persona with no new posts, no record due for review and no plan coming up stays quiet that day without waking.
+The shared summary includes posts that were not originally sent to that persona. It looks for useful connections with its own interests and memory, and may suggest something or help you prepare.
+
 Choose the time under **Daily check-in** in Settings: **Set a time** runs it at that time; **Automatic** lets the app pick a time between 7:00 and 21:00 for the account, moving a little from day to day. At popular times the run may start later than the time you set.
 
 ### This month's summary, and people looked back on monthly

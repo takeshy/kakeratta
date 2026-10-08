@@ -1150,7 +1150,7 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 					t.Fatalf("call %d did not receive the thread", i)
 				}
 				history, target, ok := strings.Cut(context, "今回の対象発言（この発言をスレッド全体の文脈で解釈）:\n")
-				if !ok || !strings.HasPrefix(target, "[follow-up] ") || !strings.Contains(target, "1時間後。") || !strings.Contains(target, trigger.At.UTC().Format("2006-01-02 15:04")) {
+				if !ok || !strings.HasPrefix(target, "[follow-up] ") || strings.Count(history, "1時間後。") != 1 || !strings.Contains(target, "「1時間後。」") || !strings.Contains(history, trigger.At.UTC().Format("2006-01-02 15:04")) {
 					t.Fatalf("call %d lost the target or its timestamp: %s", i, target)
 				}
 				previous := -1
@@ -1161,7 +1161,7 @@ func TestFollowUpSharesTheWholeThreadAndIdentifiesTheTarget(t *testing.T) {
 					}
 					previous = index
 				}
-				if !strings.Contains(target, trigger.ReplyTo+" への返事") {
+				if !strings.Contains(history, trigger.ReplyTo+" への返事") {
 					t.Fatalf("call %d lost which entry the user answered", i)
 				}
 				for _, excluded := range []string{"別スレッドの秘密の予定", "削除済みの条件"} {

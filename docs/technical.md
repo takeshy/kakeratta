@@ -390,6 +390,12 @@ to it, by an external agent over MCP (see
 [External agents through MCP](#external-agents-through-mcp)); everything after
 the answer is the same either way.
 
+Routing, built-in answers and the note keeper retain the full conversation,
+including reply relationships and interpreted attachments. `threadContext`
+identifies the current post by ID instead of repeating its body; ID-less
+system wakes use their position in the thread. A current post absent from the
+thread is included in full.
+
 1. **Read.** Its field summaries, the facts that hold now, and its latest 15
    records are handed over at the start of every turn. It may then ask, up to ten times (twenty in
    a deep or AlwaysUltra turn), to look at things: older records by tag,
@@ -507,8 +513,15 @@ and must explicitly replace the summary, removing unsupported prose. Omitting
 a replacement is rejected; the marker clears only after the replacement is
 saved. The internal marker is hidden in the memory viewer. The same call can
 retire past-dated plans, such as reservations or appointments, while retaining
-facts about events that happened. With no changed or marked fields and no
-past-dated facts to review, no model call is needed. See
+facts about events that happened. An explicit `retain` decision records a
+fingerprint of the historical fact's text and start date; unchanged
+retained events are not reviewed again just because their dates have passed.
+Edits make them eligible again; a new source on the same fact does not. Ambiguous decisions are not
+cached, and conflicting retain/invalidate IDs are rejected. The host stores
+this decision as a hidden `reviewed:` trailer on the fact's line.
+Each fact body is sent once, with attributes identifying changes and date-review
+candidates. With no changed or marked fields and no unreviewed
+past-dated facts, no model call is needed. See
 [Field summaries](system/personas.md#field-summaries).
 
 If the keeper cannot finish, the answer is already out. Its input is saved as a
@@ -1024,7 +1037,10 @@ The amount and tone of speech follow the persona's character. Legacy
 `talk: minimal` settings no longer restrict speech. Each persona reads from its
 previous check-in - recorded with the day's claim - and looks at older records
 sharing tags with recent ones when there is a concrete connection worth
-bringing back. With no previous run on record it reads a day, and a week at
+bringing back. The shared digest is not filtered by routing recipients: personas
+look especially at threads they did not answer and may connect those posts
+with their own memory to suggest useful preparation or advice. Details can be
+read from the source post IDs in the digest. With no previous run on record it reads a day, and a week at
 most.
 
 Silence produces no empty system post and no empty conversation thread.

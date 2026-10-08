@@ -119,7 +119,7 @@ func TestSummariesAreRewrittenAtTheCheckIn(t *testing.T) {
 		}
 	}
 	f.summarize = func(system, user string) string {
-		if !strings.Contains(user, "## Preference") || strings.Contains(user, "## Shop") || !strings.Contains(user, "- 最近は塩に寄る") || !strings.Contains(user, "豚骨派。") {
+		if !strings.Contains(user, "## Preference") || strings.Contains(user, "## Shop") || !strings.Contains(factLineOf(user, "最近は塩に寄る"), "追加・変更") || !strings.Contains(user, "豚骨派。") {
 			t.Errorf("the rewrite was not handed the changed field alone:\n%s", user)
 		}
 		return `{"summaries":[{"field":"Preference","text":"豚骨派だったが、最近は塩に寄っている。"}]}`
@@ -288,7 +288,7 @@ func TestPastPlansAreRetiredAtTheCheckIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.summarize = func(system, user string) string {
-		if !strings.Contains(user, "[f_cut]") || !strings.Contains(user, "[f_gift]") || strings.Contains(user, "[f_later]") || strings.Contains(user, "（まとめ文を書き直す分野）") {
+		if !strings.Contains(user, "[f_cut]") || !strings.Contains(user, "[f_gift]") || strings.Contains(factLineOf(user, "2026-12-01 に歯医者"), "日付の過ぎた事実") || strings.Contains(user, "（まとめ文を書き直す分野）") {
 			t.Errorf("the past facts were not handed alone:\n%s", user)
 		}
 		return `{"summaries":[{"field":"Errand","text":"9/30 に父へ贈り物をした。"}],"invalidate":["f_cut"]}`
@@ -314,4 +314,14 @@ func sonaSkill(t *testing.T, r *Runner) Skill {
 		t.Fatal("no routine persona")
 	}
 	return skill.forTurn()
+}
+
+// factLineOf is the line of a summary request that hands the fact with text.
+func factLineOf(user, text string) string {
+	for _, line := range strings.Split(user, "\n") {
+		if strings.HasPrefix(line, "- ") && strings.HasSuffix(line, "） "+text) {
+			return line
+		}
+	}
+	return ""
 }

@@ -351,3 +351,17 @@ test("summary refresh metadata is hidden in the memory reader", (ctx) => {
   const view = createMemoryView([{ path: "Preference.md", text: "# Preference\n\n<!-- kakeratta:summary-dirty -->\n\n## まとめ（2026-10-01 更新）\n\n好きなもの。\n\n## いまの事実\n- [f_a] 塩が好き since:2026-09-01\n" }]);
   assert.equal(view.all().some(node => String(node.textContent).includes("summary-dirty")), false);
 });
+
+test("a kept past event's review mark is hidden in the memory reader", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+  };
+  ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
+  const view = createMemoryView([{ path: "Preference.md", text: "# Preference\n\n## いまの事実\n- [f_a] 2026-10-01 にA店で食事した since:2026-10-01 reviewed:0123456789abcdef\n" }]);
+  const text = view.all().map(node => String(node.textContent)).join("\n");
+  assert.equal(text.includes("reviewed"), false);
+  assert.equal(text.includes("0123456789abcdef"), false);
+  assert.equal(text.includes("A店で食事した"), true);
+});

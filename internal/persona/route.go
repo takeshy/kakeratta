@@ -93,8 +93,7 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		Messages: []llm.Message{
 			{Role: "system", Content: routePrompt},
 			{Role: "user", Content: strings.Join([]string{
-				"担当条件:", strings.Join(domains, "\n"), "", "スレッド全体（古い順）:", renderAll(thread),
-				"", "今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
+				"担当条件:", strings.Join(domains, "\n"), "", threadContext(thread, trigger, nil, nil),
 			}, "\n")},
 		},
 	})
@@ -200,11 +199,8 @@ func RouteJev(ctx context.Context, endpoint, key string, skills []Skill, thread 
 		}
 	}
 	body, err := json.Marshal(map[string]any{
-		"model": jevModel,
-		"state": strings.Join([]string{
-			"スレッド全体（古い順）:", renderAll(thread), "",
-			"今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
-		}, "\n"),
+		"model":     jevModel,
+		"state":     threadContext(thread, trigger, nil, nil),
 		"questions": questions,
 	})
 	if err != nil {
@@ -298,10 +294,6 @@ func logRouting(decision routeRecord) {
 // Entryish is the little of an entry that routing needs. It keeps this function
 // testable without a store and without a timeline.
 type Entryish = timeline.Entry
-
-func renderAll(entries []Entryish) string {
-	return timeline.Render(entries, nil, nil)
-}
 
 // firstJSON pulls the object out of a reply that came wrapped in prose or a
 // fenced block.

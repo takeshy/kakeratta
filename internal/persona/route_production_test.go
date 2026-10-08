@@ -333,11 +333,8 @@ func routeWithJev(ctx context.Context, key, model string, skills []Skill, thread
 		}
 	}
 	body, err := json.Marshal(map[string]any{
-		"model": model,
-		"state": strings.Join([]string{
-			"スレッド全体（古い順）:", renderAll(thread), "",
-			"今回の対象発言（この発言をスレッド全体の文脈で解釈）:", trigger.Render(nil, nil),
-		}, "\n"),
+		"model":     model,
+		"state":     threadContext(thread, trigger, nil, nil),
 		"questions": questions,
 	})
 	if err != nil {

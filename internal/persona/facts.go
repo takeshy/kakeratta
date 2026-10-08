@@ -3,6 +3,7 @@ package persona
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"regexp"
 	"sort"
@@ -61,6 +62,8 @@ type fact struct {
 	Text  string
 	From  []string
 	Since time.Time
+	// PastReviewed fingerprints a dated fact explicitly retained as a past event.
+	PastReviewed string
 	// Until and By are set once the fact no longer holds: when, and the fact
 	// that replaced it, if one did.
 	Until time.Time
@@ -83,8 +86,16 @@ func (ff fieldFacts) empty() bool {
 
 const summaryDirtyMarker = "<!-- kakeratta:summary-dirty -->"
 
+// reviewFingerprint is what a retained past event was reviewed as: its words
+// and the day it began, as written on its line. A new source or another time
+// zone leaves it as it was; new words or another start day do not.
+func (f fact) reviewFingerprint(zone *time.Location) string {
+	sum := sha256.Sum256([]byte(f.Text + "\n" + f.Since.In(zone).Format("2006-01-02")))
+	return fmt.Sprintf("%x", sum[:8])
+}
+
 var factLine = regexp.MustCompile(`^- \[(f_[A-Za-z0-9]+)\] (.*)$`)
-var factTrailer = regexp.MustCompile(`\s(from|since|until|by):(\S+)$`)
+var factTrailer = regexp.MustCompile(`\s(from|since|until|by|reviewed):(\S+)$`)
 
 // parseFacts reads a field file. A line that is not a fact is left out.
 func parseFacts(text string, zone *time.Location) fieldFacts {
@@ -134,6 +145,8 @@ func parseFacts(text string, zone *time.Location) fieldFacts {
 				f.Until, _ = time.ParseInLocation("2006-01-02", found[2], zone)
 			case "by":
 				f.By = found[2]
+			case "reviewed":
+				f.PastReviewed = found[2]
 			}
 			rest = rest[:len(rest)-len(found[0])]
 		}
@@ -184,6 +197,9 @@ func (f fact) line(zone *time.Location) string {
 	}
 	if f.By != "" {
 		line += " by:" + f.By
+	}
+	if f.PastReviewed != "" && f.Until.IsZero() && f.PastReviewed == f.reviewFingerprint(zone) {
+		line += " reviewed:" + f.PastReviewed
 	}
 	return line
 }
@@ -476,7 +492,7 @@ func planFacts(m memoryFacts, ops []factOp, from string, now time.Time, zone *ti
 			f := fact{ID: newFactID(taken), Text: t, From: sources(old.From, []string{from}), Since: day}
 			if t == old.Text {
 				// Only moved, or confirmed again: the same fact, kept as it was.
-				f.ID, f.Since = old.ID, old.Since
+				f.ID, f.Since, f.PastReviewed = old.ID, old.Since, old.PastReviewed
 			} else {
 				retire(field, old, f.ID)
 			}

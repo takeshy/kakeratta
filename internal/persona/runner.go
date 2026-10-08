@@ -775,11 +775,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		"自分の schedule（担当名（ID）付き。他の担当の予定は schedules_list で確認）:",
 		scheduleList,
 		"",
-		"スレッド全体（古い順）:",
-		timeline.Render(thread, names, here),
-		"",
-		"今回の対象発言（この発言をスレッド全体の文脈で解釈）:",
-		trigger.Render(names, here),
+		threadContext(thread, trigger, names, here),
 		turn,
 	}, "\n")
 

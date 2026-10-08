@@ -114,8 +114,9 @@ function inline(text, context) {
     ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)#([^\s#]+)(?=\s|$)|(?<=\s)(expires|review):(\d{4}-\d{2}-\d{2})\/\d+d(?=\s|$)|(?<=\s)(?:asked|of):\S+(?=\s|$)/g
     : context.facts
       // A fact's trailer: the kakera it rests on, since when it holds, until
-      // when it held and what replaced it.
-      ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)from:(\S+)(?=\s|$)|(?<=\s)(since|until):(\d{4}-\d{2}-\d{2})(?=\s|$)|(?<=\s)by:(\S+)(?=\s|$)/g
+      // when it held and what replaced it. "reviewed:" is the app's own
+      // bookkeeping of a past event it has kept.
+      ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)from:(\S+)(?=\s|$)|(?<=\s)(since|until):(\d{4}-\d{2}-\d{2})(?=\s|$)|(?<=\s)by:(\S+)(?=\s|$)|(?<=\s)reviewed:\S+(?=\s|$)/g
       : /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)/g;
   let start = 0;
   for (const match of text.matchAll(pattern)) {
@@ -125,6 +126,7 @@ function inline(text, context) {
       entryLink(id, all.length > 1 ? t("元の投稿{0}", index + 1) : t("元の投稿"), context),
     ])));
     else if (context.facts && match[7]) out.push(el("span", { class: "chip ghost memory-since", text: t(match[7] === "since" ? "{0}から" : "{0}まで", match[8]) }));
+    else if (context.facts && match[0].startsWith("reviewed:")) out.push("");
     else if (context.facts && match[9]) out.push(el("span", { class: "chip ghost memory-by", text: context.factText?.(match[9]) ? t("→「{0}」に置き換え", context.factText(match[9])) : t("→ 置き換え済み") }));
     else if (match[7]) out.push(match[7] === "expires"
       ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", match[8]), i18nTitle: "期限が過ぎると本体が消す記録" })
@@ -156,7 +158,7 @@ function inline(text, context) {
 // factControls put one fact right, or throw it away, from where it is read.
 // Editing changes only its words; the posts it rests on and its days stay.
 function factControls(li, id, line, context) {
-  const words = line.replace(/(?:\s(?:from|since|until|by):\S+)+$/, "");
+  const words = line.replace(/(?:\s(?:from|since|until|by|reviewed):\S+)+$/, "");
   const error = el("span", { class: "hint warn", role: "alert", hidden: true });
   const fail = (reason) => { error.textContent = t(reason?.message || String(reason)); error.hidden = false; };
   const pencil = el("button", { class: "chip ghost icon memory-fact-edit", text: "✎", "aria-label": t("この事実を直す"), i18nTitle: "この事実を直す", onclick: (event) => {
@@ -356,7 +358,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
   }
 
   function content(note) {
-    const factTexts = new Map([...String(note.text || "").matchAll(/^- \[(f_[A-Za-z0-9]+)\] (.*?)(?: from:\S+)?(?: since:\S+)?(?: until:\S+)?(?: by:\S+)?$/gm)].map((m) => [m[1], m[2]]));
+    const factTexts = new Map([...String(note.text || "").matchAll(/^- \[(f_[A-Za-z0-9]+)\] (.*?)(?: from:\S+)?(?: since:\S+)?(?: until:\S+)?(?: by:\S+)?(?: reviewed:\S+)?$/gm)].map((m) => [m[1], m[2]]));
     const context = { path: note.path, paths, openNote, records: note.records, facts: note.facts, tag: filter.tag, onOpenEntry,
       factText: (id) => factTexts.get(id),
       onFactEdit: note.facts && onEditFact ? (id, text) => onEditFact(note.path, note.path.replace(/\.md$/, ""), id, text) : undefined,
