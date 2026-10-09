@@ -285,7 +285,10 @@ func TestAPersonsPersonaIsNotIntroducedAsThePerson(t *testing.T) {
 	}
 	// What it is told to do when the user reports what they did for the person.
 	rules := father.Instructions
-	for _, want := range []string{"父になりきって話しません", "話す相手は常にユーザーです", "贈った・連絡した・会った"} {
+	// And when the person did something for the user: "佳奈ちゃんのパパから
+	// タラの芽をいただいた" was answered "ありがとうございます。佳奈ちゃんのパパも
+	// 喜んでいるでしょう", thanking as the recipient and giving the joy to the giver.
+	for _, want := range []string{"父になりきって話しません", "話す相手は常にユーザーです", "贈った・連絡した・会った", "出来事の向き", "受け取ったのはユーザーです", "父が喜んでいると書いたりせず"} {
 		if !strings.Contains(rules, want) {
 			t.Errorf("the rules do not say %q", want)
 		}
