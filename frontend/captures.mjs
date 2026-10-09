@@ -61,7 +61,7 @@ const shots = [
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },
   { name: "persona-usage", id: "personas--with-usage", clip: '.persona[data-id="book"]', ready: ".usage-table" },
-  { name: "persona-planner", id: "personas--external-planner", clip: '.persona[data-id="book"]', ready: '.persona[data-id="book"] .switch input[type="checkbox"]' },
+  { name: "persona-planner", id: "personas--external-planner", clip: '.persona[data-id="book"]', ready: '.persona[data-id="book"] .planner-option input[type="checkbox"]' },
   { name: "settings", id: "settings--default", clip: "#sheet", open: ".settings-advanced" },
   { name: "settings-usage", id: "settings--with-usage", clip: ".settings-usage", ready: ".usage-table" },
   { name: "profile-emoji", id: "settings--default", clip: ".avatar-field", ready: ".avatar-emoji-grid .avatar-emoji", open: ".avatar-emoji-picker" },

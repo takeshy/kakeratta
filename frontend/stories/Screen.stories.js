@@ -28,10 +28,18 @@ export const Settled = {
   render: () => screen({ rows: personas, entries: timeline().many }),
 };
 
-// The capture the README opens with. Short enough to fit in one image.
+// The shared README/manual capture: a complete exchange with a current built-in
+// persona, opened so both its answer and the user's reply are visible.
 export const Hero = {
-  name: "README 用",
-  render: () => screen({ rows: personas, entries: timeline().hero }),
+  name: "README・manual 用（返信を開く）",
+  render: () => {
+    const host = screen({
+      rows: personas.filter((row) => row.builtin),
+      entries: timeline().hero.filter((entry) => (entry.root || entry.id) === "p1"),
+    });
+    host.querySelector('.thread-toggle[aria-expanded="false"]')?.click();
+    return host;
+  },
 };
 
 export const Mentioning = {

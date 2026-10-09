@@ -101,13 +101,9 @@
           <ol>
             <li><a href="/">アプリを開きます</a>。Google アカウントでログインします。認証後は「ログインを完了しています…」を表示し、完了すると自動で画面が切り替わります。データはあなたのアカウントにだけ結びつき、ほかの人からは見えません。</li>
             <li>右上の <strong>設定</strong> を開き、<a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a> で発行した <strong>API キー</strong> を入力します。「接続できました」と出れば準備完了です。</li>
-            <li>新しいアカウントでは、sona・support・インフォグラフィックの 3 人が最初から有効です。すべての担当を無効にすると画面の上に「担当が誰もいません」と出るので、<strong>「〇〇 を呼ぶ」</strong> で 1 人以上呼んでください。誰もいないと、かけらは誰にも届きません。</li>
+            <li>新しいアカウントでは、sona・support・インフォグラフィックの 3 人が最初から有効です。</li>
             <li>欄に一言書いて <strong>流す</strong>。これが最初のかけらです。</li>
           </ol>
-          <figure>
-            <img src="/captures/ja/nobody.png" alt="担当が誰もいない状態。ワンタップで組み込みの担当を呼べる" loading="lazy" width="390" height="862" />
-            <figcaption>すべての担当を無効にしたときの表示。ここから 1 人呼ぶと、以後のかけらを受け取ります。</figcaption>
-          </figure>
           <p>API キーはサーバー側にだけ保存され、設定した接続先以外へは送られません。</p>
         </section>
 
@@ -131,8 +127,8 @@
         <section id="ja-timeline">
           <h2>3. 反応を読む・返す</h2>
           <figure>
-            <img src="/captures/ja/timeline.png" alt="タイムライン。自分のかけらの下に、担当の発言が折りたたまれて並ぶ" loading="lazy" width="390" height="919" />
-            <figcaption>自分のかけらと、その下の担当の発言。会話は「返信 N件」の下にたたまれます。</figcaption>
+            <img src="/captures/ja/timeline.png" alt="返信を開いたタイムライン。自分のかけら、tabeの回答、それへの返信が並ぶ" loading="lazy" width="390" height="981" />
+            <figcaption>「返信 N件」を押して会話を開いた状態。担当の回答の「返す」から返信できます。</figcaption>
           </figure>
           <h3>反応の届き方</h3>
           <ul>
@@ -174,7 +170,7 @@
           </div>
           <p>ヘッダーの <strong>担当</strong> で一覧を開き、<strong>有効にする</strong> で受け取る担当を選びます。担当は投稿された言語で答えます。</p>
           <figure>
-            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1801" />
+            <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="2186" />
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
           </figure>
           <h3>AI と担当を作る</h3>
@@ -198,7 +194,7 @@
             <li>伝えた誕生日・好み・出来事などは、担当の編集画面でいつでも見直し・修正できます。</li>
           </ul>
           <figure>
-            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名、キーワード、基本情報の一覧（サンプル）" loading="lazy" width="382" height="839" />
+            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名、キーワード、基本情報の一覧（サンプル）" loading="lazy" width="382" height="1041" />
             <figcaption>人物の担当のカード。呼び名・キーワードと、毎年の誕生日や会う予定の通知が並びます（サンプル）。</figcaption>
           </figure>
           <p>届かなかったかけらがあれば <strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せ、関係のないかけらが届いたら <strong>呼んでほしくなかった</strong> から一致した語を外せます（<a href="/manual/?guide=advanced#ja-people-keywords" data-lang-link>人物の担当のキーワードを直す</a>）。</p>
@@ -546,7 +542,7 @@
           </ol>
           <p>LLM Connect Hub は Obsidian を開いている間、1分ごとに依頼を確認します。依頼がないときにモデルのトークンは使いません。確認の間隔が1分なので、<strong>取得を待つ時間</strong>（外部エージェントが依頼を受け取るまで kakeratta が待つ時間）は1分より長くしておいてください。Obsidian を閉じて取得を待つ時間が過ぎると不在とみなされ（下の「担当を任せる」を参照）、それ以降の依頼は待たずに内蔵モデルが答えます。閉じた直後に届いた依頼は、待ち時間が過ぎてから内蔵モデルが答えます。詳しい設定は <a href="https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md" rel="noopener">LLM Connect Hub の説明</a> を見てください。</p>
           <h3>担当を任せる</h3>
-          <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="327" /></figure>
+          <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="401" /></figure>
           <ol>
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは、接続先を設定し、設定の「外部エージェントを使う」がONのときだけ表示されます。</li>
             <li>いつもどおり投稿します。その担当に届いた投稿は、外部エージェントが調べて回答を書きます。記憶・予定・操作は kakeratta が決めます。返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
@@ -594,7 +590,7 @@
           <p><strong>設定 → AI利用状況</strong> を開くと、月の合計金額とWeb検索回数が見られます。<strong>集計月</strong> で月を選び、最新の記録を見るときは <strong>更新</strong> を押します。内訳は <strong>振り分け・担当合計・その他</strong> です。「その他」には意味検索のEmbeddingや日まとめ・月まとめなどの共通処理を含みます。</p>
           <figure><img src="/captures/ja/settings-usage.png" alt="設定のAI利用状況。合計と振り分け・担当合計・その他の金額（サンプル）" loading="lazy" width="366" height="637" /><figcaption>全体の利用状況。金額と回数はサンプルです。</figcaption></figure>
           <p>担当別に見るには、<strong>担当</strong> を開き、各カードの <strong>AI利用状況</strong> を開きます。<strong>返答・定期実行・その他</strong> に分かれ、返答や定期実行に伴う調査・記憶更新・再試行も含みます。定期実行はチェックインとリマインダーです。振り分けなどの共通費用は担当別の金額には含めません。</p>
-          <figure><img src="/captures/ja/persona-usage.png" alt="担当のAI利用状況。返答・定期実行・その他の金額とWeb検索回数（サンプル）" loading="lazy" width="382" height="806" /><figcaption>担当ごとの内訳。金額と回数はサンプルです。</figcaption></figure>
+          <figure><img src="/captures/ja/persona-usage.png" alt="担当のAI利用状況。返答・定期実行・その他の金額とWeb検索回数（サンプル）" loading="lazy" width="382" height="813" /><figcaption>担当ごとの内訳。金額と回数はサンプルです。</figcaption></figure>
           <p>金額は米ドルの概算です。OpenRouterはAPIが返した料金、Nebiusは記録時の公開単価を使い、Nebiusの割引・無料枠は反映しません。料金が分からない呼び出しは <strong>未算出</strong> と表示します。Web検索は失敗を含む実際のAPIリクエスト数で、検索料金や外部エージェント側のAI料金は含みません。記録開始後の利用だけが対象で、過去のログは取り込みません。記録がない月には、その旨を表示します。</p>
           <h3 id="ja-profile">プロフィール（表示名とアイコン）</h3>
           <p>設定のいちばん上の <strong>プロフィール</strong> で、タイムラインなどに出る自分の <strong>表示名</strong> と <strong>アイコン</strong> を変えられます。アイコンは絵文字をグループから選ぶか、写真を選びます（選び方は <a href="/manual/#ja-avatar" data-lang-link>アイコンを変える</a> と同じです）。設定はアカウントに保存されるので、ほかの端末でも同じ表示になります。表示名が空なら「あなた」、アイコンが空なら 🙂 になります。ログインするアカウントの名前は変わりません。</p>
@@ -725,13 +721,9 @@
           <ol>
             <li><a href="/">Open the app</a>. Sign in with your Google account. After approval, “Completing sign-in…” stays visible until the app opens automatically. Your data is tied to your account and nobody else can see it.</li>
             <li>Open <strong>Settings</strong> at the top right and enter an <strong>API key</strong> from <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a>. “Connected” means you are ready.</li>
-            <li>New accounts start with three personas active: sona, support and the infographic persona. If you turn every persona off, the screen says “Nobody is in the room”; call in at least one with <strong>Call in …</strong>. With nobody in the room, a fragment reaches no one.</li>
+            <li>New accounts start with three personas active: sona, support and the infographic persona.</li>
             <li>Write a line in the box and press <strong>Post</strong>. That is your first fragment.</li>
           </ol>
-          <figure>
-            <img src="/captures/en/nobody.png" alt="Nobody in the room yet: call in a built-in persona with one tap" loading="lazy" width="390" height="902" />
-            <figcaption>What you see after turning every persona off. Call one in and it starts receiving your fragments.</figcaption>
-          </figure>
           <p>The API key is stored only on the server and sent only to the configured endpoint.</p>
         </section>
 
@@ -755,8 +747,8 @@
         <section id="en-timeline">
           <h2>3. Reading and replying</h2>
           <figure>
-            <img src="/captures/en/timeline.png" alt="The timeline: your fragments, with what the personas said folded underneath" loading="lazy" width="390" height="922" />
-            <figcaption>Your fragments with what the personas said underneath. Conversations fold under “N replies”.</figcaption>
+            <img src="/captures/en/timeline.png" alt="An expanded conversation: your fragment, tabe's answer, and your reply" loading="lazy" width="390" height="1039" />
+            <figcaption>A conversation opened with “N replies”. Use “Reply” under the persona's answer to respond.</figcaption>
           </figure>
           <h3>How reactions arrive</h3>
           <ul>
@@ -798,7 +790,7 @@
           </div>
           <p>Open <strong>Personas</strong> in the header and turn on <strong>Enable</strong> for the ones you want. A persona answers in the language you wrote in.</p>
           <figure>
-            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="1999" />
+            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="2811" />
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
           <h3>Create a persona with AI</h3>
@@ -822,7 +814,7 @@
             <li>Supplied details like birthdays and preferences can be reviewed and edited anytime directly in the persona settings.</li>
           </ul>
           <figure>
-            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names, keywords and basic information (sample data)" loading="lazy" width="382" height="930" />
+            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names, keywords and basic information (sample data)" loading="lazy" width="382" height="1128" />
             <figcaption>A person's card lists names, keywords, annual birthday notifications and upcoming appointments (sample data).</figcaption>
           </figure>
           <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong>; if an unrelated one did, remove the matched word from <strong>Should not have been called</strong> (<a href="/manual/?guide=advanced#en-people-keywords" data-lang-link>Fix a person's keywords</a>).</p>
@@ -1170,7 +1162,7 @@
           </ol>
           <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. Because it checks once a minute, keep <strong>Wait for a claim</strong> (how long kakeratta waits for the agent to pick up an ask) longer than a minute. Once Obsidian has been closed for longer than that wait, the agent is taken to be away (see <em>Hand a persona over</em> below) and later asks go to the built-in model without waiting. An ask that arrives just after Obsidian closes is answered by the built-in model when its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
           <h3>Hand a persona over</h3>
-          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="392" /></figure>
+          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="522" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only while a connection is configured and <strong>Use the external agent</strong> is enabled in settings.</li>
             <li>Post as usual. For posts that reach that persona, the external agent researches and writes the answer; kakeratta decides memory, schedules and actions. The reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
@@ -1218,7 +1210,7 @@
           <p>Open <strong>Settings → AI usage</strong> to see the month's total cost and Web search count. Choose a month and press <strong>Refresh</strong> for the latest records. The breakdown shows <strong>Routing, All personas, and Other</strong>. Other includes shared work such as meaning-search embeddings and daily/monthly summaries.</p>
           <figure><img src="/captures/en/settings-usage.png" alt="Settings AI usage with total, routing, all personas, and other costs (sample)" loading="lazy" width="366" height="702" /><figcaption>Overall usage. Amounts and counts are sample data.</figcaption></figure>
           <p>For an individual breakdown, open <strong>Personas → AI usage</strong> on a persona's card. It separates <strong>Replies, Scheduled runs, and Other</strong>, including related research, memory updates, and retries. Scheduled runs cover check-ins and reminders. Shared costs such as routing are not allocated to personas.</p>
-          <figure><img src="/captures/en/persona-usage.png" alt="Persona AI usage with reply, scheduled, and other costs and Web search counts (sample)" loading="lazy" width="382" height="924" /><figcaption>One persona's breakdown. Amounts and counts are sample data.</figcaption></figure>
+          <figure><img src="/captures/en/persona-usage.png" alt="Persona AI usage with reply, scheduled, and other costs and Web search counts (sample)" loading="lazy" width="382" height="975" /><figcaption>One persona's breakdown. Amounts and counts are sample data.</figcaption></figure>
           <p>Costs are estimates in USD. OpenRouter uses API-reported costs; Nebius uses public rates at recording time, excluding discounts and free allowances. Calls without known pricing appear as <strong>Unpriced</strong>. Web searches count actual API requests, including failures; search charges and the external agent's own AI costs are excluded. Only usage since recording began is included, without importing historical logs. Months without records display an empty-state message.</p>
           <h3 id="en-profile">Profile (display name and icon)</h3>
           <p><strong>Profile</strong> at the top of Settings changes the <strong>Display name</strong> and <strong>Icon</strong> shown for you on the timeline and elsewhere. Pick an emoji from the groups or choose a photo, the same way as for <a href="/manual/#en-avatar" data-lang-link>persona icons</a>. It is saved with your account, so other devices show the same. An empty name shows as “You” and an empty icon as 🙂. Your sign-in account name does not change.</p>

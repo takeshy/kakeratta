@@ -114,6 +114,9 @@ body {
 .schedule-toggle input:disabled + .schedule-toggle-track { opacity: 0.5; }
 .persona-active-toggle { width: 6rem; flex-basis: 6rem; }
 .persona-active-toggle input:checked + .schedule-toggle-track::after { transform: translateX(3.5rem); }
+.persona-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.persona-actions .delete { margin-left: auto; }
+.persona-actions .delete:hover { border-color: var(--danger, #a33); color: var(--danger, #a33); }
 .persona-schedule-row { border-bottom: 1px solid var(--line); padding: 8px 0; min-width: 0; }
 .chip-remove { border: 0; background: transparent; color: var(--muted); padding: 0 2px; font: inherit; cursor: pointer; }
 .chip-remove:hover { color: var(--danger, #a33); }
@@ -222,10 +225,12 @@ body {
   gap: 10px;
 }
 .post { display: grid; gap: 8px; }
-/* On a narrow screen the head wraps as a whole; a name or a chip never breaks
-   in the middle of a word. */
-.post-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.9375rem; color: var(--muted); }
-.post-head > *, .said-head > * { white-space: nowrap; }
+/* The head stays on one line, so its buttons never drop below it on a phone:
+   the name (and a badge) gives way with an ellipsis, the time and the buttons
+   keep their size. */
+.post-head { display: flex; align-items: center; min-width: 0; gap: 4px 8px; font-size: 0.9375rem; color: var(--muted); }
+.post-head > *, .said-head > * { white-space: nowrap; flex: none; }
+.post-head > .who, .said-head > .who, .post-head > .model-badge, .said-head > .model-badge { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .post-head .who { font-weight: 600; color: var(--ink); }
 .persona.speaker-card { margin: 8px 0; opacity: 1; }
 .speaker-card-host { margin: 4px 0 8px; }
@@ -237,7 +242,8 @@ button.who-link:hover, button.who-link:focus-visible { text-decoration: underlin
 .thread:hover .remove, .remove:focus-visible { opacity: 1; }
 @media (hover: none) { .remove { opacity: 1; } }
 @media (max-width: 600px) {
-  .post-head, .said-head { position: relative; padding-right: 36px; min-height: 36px; }
+  .post-head, .said-head { position: relative; padding-right: 36px; min-height: 36px; gap: 4px; }
+  .post-head > .chip, .said-head > .chip { padding-inline: 6px; }
   .post-head > .remove, .said-head > .remove {
     position: absolute; top: 0; right: 0;
     width: 36px; height: 36px; padding: 0;
@@ -374,7 +380,7 @@ button.who-link:hover, button.who-link:focus-visible { text-decoration: underlin
 }
 .said-row.mine { border-left-color: var(--line); }
 .said-row > .chip { justify-self: start; }
-.said-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 0.9375rem; color: var(--muted); }
+.said-head { display: flex; align-items: center; min-width: 0; gap: 4px 6px; font-size: 0.9375rem; color: var(--muted); }
 .said-head .who { font-weight: 600; color: var(--ink); }
 .model-badge { font-size: 0.8125rem; line-height: 1; padding: 2px 6px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-weight: 600; }
 .avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 1rem; vertical-align: middle; }
@@ -652,6 +658,10 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .note-tag { font-size: 0.875rem; color: var(--muted); }
 .domain { margin: 0; font-size: 0.9375rem; color: var(--muted); }
 .tools { margin: 0; font-size: 0.875rem; color: var(--muted); }
+/* A sub-option of the persona, kept quieter than its active toggle so it is
+   not mistaken for it. */
+.planner-option { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9375rem; color: var(--muted); cursor: pointer; }
+.planner-option input { width: auto; margin: 0; accent-color: var(--accent); }
 .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9375rem; cursor: pointer; }
 .switch input { width: auto; }
 .persona-options { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }

@@ -264,7 +264,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     const prefer = el("input", { type: "checkbox", checked: row.planner === "external" });
     const hint = el("p", { class: "hint", hidden: row.planner !== "external" });
     const box = el("div", {}, el("div", { class: "compose-row" },
-      el("label", { class: "switch" }, switchControl(prefer), el("span", { label: "外部エージェントを優先する" }))), hint);
+      el("label", { class: "planner-option" }, prefer, el("span", { label: "外部エージェントを優先する" }))), hint);
     const renderHint = () => {
       hint.hidden = row.planner !== "external";
       hint.textContent = t(!mcpConfigured
@@ -383,18 +383,17 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         uniqueTools(row.tools).flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));
     }
     box.append(
+      el("p", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
       el(
         "div",
-        { class: "compose-row" },
-        el("span", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
-        el("span", { class: "spacer" }),
-        el("button", { class: "chip ghost", label: "修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted }) }),
-        el("button", { class: "chip ghost", label: "AIで修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, ai: true }) }),
-        row.memoryEnabled === false ? null : el("button", { class: "chip ghost", label: "覚えていること", onclick: () => void showMemory(row) }),
+        { class: "persona-actions" },
+        el("button", { class: "chip", label: "修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted }) }),
+        el("button", { class: "chip", label: "AIで修正", onclick: () => showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, ai: true }) }),
+        row.memoryEnabled === false ? null : el("button", { class: "chip", label: "覚えていること", onclick: () => void showMemory(row) }),
         row.builtin
           ? null
           : el("button", {
-            class: "chip ghost",
+            class: "chip ghost delete",
             label: "削除",
             onclick: async () => {
               if (!confirm(t("{0} を削除しますか。メモも消え、元に戻せません。", row.name))) return;
