@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"sort"
@@ -18,6 +19,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/usage"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -254,7 +256,7 @@ func (s *Service) semantic(ctx context.Context, entries []timeline.Entry, query 
 	if err != nil {
 		return nil, err
 	}
-	queryVectors, err := embed(ctx, settings, []string{"Instruct: Retrieve saved personal posts relevant to the search query.\nQuery: " + query})
+	queryVectors, err := s.embed(ctx, settings, []string{"Instruct: Retrieve saved personal posts relevant to the search query.\nQuery: " + query})
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +403,7 @@ func (s *Service) prepareLocal(ctx context.Context, entries []timeline.Entry, se
 		for i, p := range batch {
 			texts[i] = p.text
 		}
-		generated, err := embed(ctx, settings, texts)
+		generated, err := s.embed(ctx, settings, texts)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -434,4 +436,14 @@ func (s *Service) SearchSelected(ctx context.Context, query, mode string, limit,
 		return s.Search(ctx, query, mode, limit, offset)
 	}
 	return s.InWindow(ctx, Window{From: time.Unix(0, 0)}, limit, offset)
+}
+
+func (s *Service) embed(ctx context.Context, settings store.Settings, texts []string) ([][]float64, error) {
+	ctx = llm.WithUsageObserver(ctx, func(r llm.CallRecord) {
+		r.Log()
+		if err := usage.Record(s.workspace, r); err != nil {
+			log.Print("usage embedding persistence failed")
+		}
+	})
+	return embed(ctx, settings, texts)
 }

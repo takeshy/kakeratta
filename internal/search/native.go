@@ -35,7 +35,7 @@ func (s *Service) nativeSearch(ctx context.Context, index nativeIndex, query str
 	}
 	// Check the index before paying for backfill. Firestore returns the same
 	// missing-index error even when there are no passages yet.
-	queryVector, err := embed(ctx, settings, []string{"Instruct: Retrieve saved personal posts relevant to the search query.\nQuery: " + query})
+	queryVector, err := s.embed(ctx, settings, []string{"Instruct: Retrieve saved personal posts relevant to the search query.\nQuery: " + query})
 	if err != nil {
 		return Result{}, err
 	}
@@ -157,7 +157,7 @@ func (s *Service) indexNative(ctx context.Context, index nativeIndex, settings s
 			for _, part := range parts {
 				vector := cached[part]
 				if vector == nil {
-					generated, err := embed(ctx, settings, []string{part})
+					generated, err := s.embed(ctx, settings, []string{part})
 					if err != nil {
 						return err
 					}

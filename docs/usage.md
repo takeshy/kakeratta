@@ -422,6 +422,18 @@ Where vectors live:
 
 Dictation uses browser speech recognition. “Polish text with AI before auto-send”, under Advanced options, is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron 3.5 Lightning by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
 
+## Monthly AI usage
+
+Open **Settings → AI usage** for the total monthly cost and Web search count. Choose a month and press **Refresh** for current records. The breakdown is **Routing, All personas, and Other**. Other includes embeddings and shared daily/monthly summaries.
+
+![Settings AI usage (sample amounts)](captures/en/settings-usage.png)
+
+For an individual breakdown, open **AI usage** on a card in **Personas**. **Replies, Scheduled runs, and Other** include related research, memory updates, and retries. Scheduled runs cover check-ins and reminders. Shared costs are not allocated to personas.
+
+![Persona AI usage (sample amounts)](captures/en/persona-usage.png)
+
+Amounts are estimates in USD: OpenRouter uses API-reported costs, while Nebius uses public rates at recording time without discounts or free allowances. Calls without known pricing appear as **Unpriced**. Web searches count actual API requests, including failures. Search charges and the external agent's own AI costs are excluded. Only usage since recording began is included; historical logs are not imported. Months without records show an empty-state message. Screenshot amounts and counts are sample data.
+
 ## Models and deployment
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.

@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -14,8 +15,9 @@ import (
 // the MCP servers are what the operator chose to expose to every persona in
 // the deployment. The one key a user holds, for web search, is not here.
 type Config struct {
-	Places  PlaceEndpoints
-	Weather WeatherAPIConfig
+	ObserveWebSearch func(context.Context, bool)
+	Places           PlaceEndpoints
+	Weather          WeatherAPIConfig
 	// MCP is the shared tool catalogue, or nil when no server is configured.
 	MCP *mcp.Catalogue
 }

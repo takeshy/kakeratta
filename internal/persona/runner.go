@@ -304,6 +304,9 @@ type RoutingCheck struct {
 
 func routeConfigured(ctx context.Context, client *llm.Client, settings store.Settings, skills []Skill, thread []Entryish, trigger Entryish) Routing {
 	if jevConfigured(settings) {
+		if client != nil && client.Observe != nil {
+			ctx = llm.WithUsageObserver(ctx, client.Observe)
+		}
 		return RouteJev(ctx, openRouterDecisionsURL, settings.OpenRouterAPIKey, skills, thread, trigger)
 	}
 	model := strings.TrimSpace(settings.RouterModel)

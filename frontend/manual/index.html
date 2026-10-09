@@ -590,6 +590,12 @@
               </tbody>
             </table>
           </div>
+          <h3 id="ja-usage">月ごとのAI利用状況</h3>
+          <p><strong>設定 → AI利用状況</strong> を開くと、月の合計金額とWeb検索回数が見られます。<strong>集計月</strong> で月を選び、最新の記録を見るときは <strong>更新</strong> を押します。内訳は <strong>振り分け・担当合計・その他</strong> です。「その他」には意味検索のEmbeddingや日まとめ・月まとめなどの共通処理を含みます。</p>
+          <figure><img src="/captures/ja/settings-usage.png" alt="設定のAI利用状況。合計と振り分け・担当合計・その他の金額（サンプル）" loading="lazy" width="366" height="637" /><figcaption>全体の利用状況。金額と回数はサンプルです。</figcaption></figure>
+          <p>担当別に見るには、<strong>担当</strong> を開き、各カードの <strong>AI利用状況</strong> を開きます。<strong>返答・定期実行・その他</strong> に分かれ、返答や定期実行に伴う調査・記憶更新・再試行も含みます。定期実行はチェックインとリマインダーです。振り分けなどの共通費用は担当別の金額には含めません。</p>
+          <figure><img src="/captures/ja/persona-usage.png" alt="担当のAI利用状況。返答・定期実行・その他の金額とWeb検索回数（サンプル）" loading="lazy" width="382" height="806" /><figcaption>担当ごとの内訳。金額と回数はサンプルです。</figcaption></figure>
+          <p>金額は米ドルの概算です。OpenRouterはAPIが返した料金、Nebiusは記録時の公開単価を使い、Nebiusの割引・無料枠は反映しません。料金が分からない呼び出しは <strong>未算出</strong> と表示します。Web検索は失敗を含む実際のAPIリクエスト数で、検索料金や外部エージェント側のAI料金は含みません。記録開始後の利用だけが対象で、過去のログは取り込みません。記録がない月には、その旨を表示します。</p>
           <h3 id="ja-profile">プロフィール（表示名とアイコン）</h3>
           <p>設定のいちばん上の <strong>プロフィール</strong> で、タイムラインなどに出る自分の <strong>表示名</strong> と <strong>アイコン</strong> を変えられます。アイコンは絵文字をグループから選ぶか、写真を選びます（選び方は <a href="/manual/#ja-avatar" data-lang-link>アイコンを変える</a> と同じです）。設定はアカウントに保存されるので、ほかの端末でも同じ表示になります。表示名が空なら「あなた」、アイコンが空なら 🙂 になります。ログインするアカウントの名前は変わりません。</p>
           <h3>バックアップ</h3>
@@ -1208,6 +1214,12 @@
               </tbody>
             </table>
           </div>
+          <h3 id="en-usage">Monthly AI usage</h3>
+          <p>Open <strong>Settings → AI usage</strong> to see the month's total cost and Web search count. Choose a month and press <strong>Refresh</strong> for the latest records. The breakdown shows <strong>Routing, All personas, and Other</strong>. Other includes shared work such as meaning-search embeddings and daily/monthly summaries.</p>
+          <figure><img src="/captures/en/settings-usage.png" alt="Settings AI usage with total, routing, all personas, and other costs (sample)" loading="lazy" width="366" height="702" /><figcaption>Overall usage. Amounts and counts are sample data.</figcaption></figure>
+          <p>For an individual breakdown, open <strong>Personas → AI usage</strong> on a persona's card. It separates <strong>Replies, Scheduled runs, and Other</strong>, including related research, memory updates, and retries. Scheduled runs cover check-ins and reminders. Shared costs such as routing are not allocated to personas.</p>
+          <figure><img src="/captures/en/persona-usage.png" alt="Persona AI usage with reply, scheduled, and other costs and Web search counts (sample)" loading="lazy" width="382" height="924" /><figcaption>One persona's breakdown. Amounts and counts are sample data.</figcaption></figure>
+          <p>Costs are estimates in USD. OpenRouter uses API-reported costs; Nebius uses public rates at recording time, excluding discounts and free allowances. Calls without known pricing appear as <strong>Unpriced</strong>. Web searches count actual API requests, including failures; search charges and the external agent's own AI costs are excluded. Only usage since recording began is included, without importing historical logs. Months without records display an empty-state message.</p>
           <h3 id="en-profile">Profile (display name and icon)</h3>
           <p><strong>Profile</strong> at the top of Settings changes the <strong>Display name</strong> and <strong>Icon</strong> shown for you on the timeline and elsewhere. Pick an emoji from the groups or choose a photo, the same way as for <a href="/manual/#en-avatar" data-lang-link>persona icons</a>. It is saved with your account, so other devices show the same. An empty name shows as “You” and an empty icon as 🙂. Your sign-in account name does not change.</p>
           <h3>Backup</h3>

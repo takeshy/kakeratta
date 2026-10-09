@@ -1,6 +1,15 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "AI利用状況": "AI usage", "集計月": "Month", "更新": "Refresh", "用途": "Purpose", "AI料金": "AI cost",
+  "返答": "Replies", "定期実行": "Scheduled runs", "その他": "Other", "担当合計": "All personas", "その他の共通処理": "Other shared processing",
+  "未算出（{0}件）": "Unpriced ({0} calls)", "合計：{0} · Web検索 {1}回": "Total: {0} · Web searches: {1}",
+  "この月の利用記録はありません": "No usage recorded for this month",
+  "失敗したリクエスト：AI {0}件、Web検索 {1}件": "Failed requests: AI {0}, Web search {1}",
+  "この月の記録開始：{0}": "Recording for this month began: {0}",
+  "全体の合計は振り分け・各担当の利用分・その他の処理を含みます。その他にはEmbeddingや日まとめ・月まとめなどを含みます。担当ごとの内訳は担当画面をご覧ください。": "The overall total includes routing, all personas, and other processing. Other includes embeddings and daily/monthly summaries. See each persona's card for its breakdown.",
+  "AI料金は米ドルの概算です。OpenRouterはAPIが返した料金、Nebiusは記録時の公開単価で集計します。Nebiusの割引・無料枠は反映しません。Web検索料金・外部エージェント側のAI料金は含みません。": "AI costs are estimates in USD. OpenRouter uses API-reported costs; Nebius uses public rates at recording time. Nebius discounts and free allowances are not reflected. Web search charges and AI costs incurred by external agents are excluded.",
+  "返答・定期実行には調査、記憶更新、再試行も含みます。定期実行はチェックインとリマインダーです。Web検索は実際のAPIリクエスト数（失敗を含む）です。過去のログは集計対象に含みません。": "Replies and scheduled runs include research, memory updates, and retries. Scheduled runs include check-ins and reminders. Web searches count actual API requests, including failures. Historical logs are excluded.",
   "プロフィール": "Profile", "表示名": "Display name", "写真を選ぶ": "Choose photo", "写真を外す": "Remove photo",
   "写真を変更": "Change photo", "写真を表示中": "Showing photo", "絵文字を表示中": "Showing emoji",
   "写真を選ぶと絵文字より優先して表示します。": "A photo is shown instead of the emoji while one is set.",

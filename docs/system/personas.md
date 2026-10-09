@@ -3,14 +3,14 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-08"
+updated: "2026-10-09"
 ---
 
 Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections.
 
 # Persona definitions and the Catalogue
 
-Persona inference calls emit per-request usage records tagged by execution stage and, where available, persona, trigger, wake category and durable job. Ordinary research/tool rounds are distinguished from correction retries, phase regeneration and durable note retries. See [Model usage logging](./backend.md#model-usage-logging), [usage.go](../../internal/llm/usage.go), and [persona usage tests](../../internal/persona/usage_test.go). Workflow/routing/keeper records still describe semantic outcomes; they do not substitute for token or model-call counts.
+Persona inference calls emit per-request usage records tagged by execution stage and, where available, persona, trigger, wake category and durable job. Ordinary research/tool rounds are distinguished from correction retries, phase regeneration and durable note retries. See [Model usage logging](./backend.md#model-usage-logging), [usage.go](../../internal/llm/usage.go), and [persona usage tests](../../internal/persona/usage_test.go). Workspace monthly accounting additionally groups observed costs and Web search requests by persona and reply/scheduled/other wake category, including external-agent reads through the application. Routing and embedding costs remain shared; external-agent inference itself is outside application accounting. See [monthly accounting](./backend.md#monthly-usage-accounting). Workflow/routing/keeper records still describe semantic outcomes; they do not substitute for token or model-call counts.
 
 ## Execution host
 
@@ -192,7 +192,7 @@ Web search exhaustion does not end research. Timeline search and other configure
 
 The execution path continues to enforce budgets for each individual tool step, including multiple steps in a single `read` and multiple calls in one model reply. Excess searches are refused before network execution. Repeated cached lookups do not spend another search; admitted failed lookups still spend their allowance. Schema-violating requests retain execution-time refusals and the next round rebuilds the latest capabilities. Malformed-response usage records retain the existing correction counter; its bound applies to every read/answer round. The overall round ceiling remains in place.
 
-This dynamic schema belongs to built-in answer research. External-agent asks and schedule/action phase schemas retain their existing interfaces and separate budgets. Model usage logging is unchanged; usage rounds and workflow read results remain the evidence for production checks after deployment.
+This dynamic schema belongs to built-in answer research. External-agent asks and schedule/action phase schemas retain their existing interfaces and separate budgets. Model request logging retains its format, with optional provider cost and monthly aggregation; usage rounds and workflow read results remain the evidence for production checks after deployment.
 
 ## Conditions for publication
 

@@ -4,6 +4,7 @@
 // come back as "set or not". A page that does not have a key cannot leak one.
 import { preserveScroll, switchControl, el, clear, toast } from "./dom.js";
 import { createAvatarField, userProfile } from "./avatar.js";
+import { createUsage } from "./usage.js";
 import { createPushSettings } from "./push.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { createMCPConnection } from "./mcp-connection.js";
@@ -640,6 +641,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     drawDaily();
     drawAI();
     drawTools();
+    view.append(createUsage().element);
     drawDevice();
     drawAdvanced();
   }

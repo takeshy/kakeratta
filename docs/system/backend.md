@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search."
+description: "Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-08"
+updated: "2026-10-09"
 ---
 
-Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging, schedule editing, reminder push delivery, favorites, and search.
+Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
 
 # HTTP API and authentication
 
@@ -207,9 +207,23 @@ Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `pur
 
 `attempt` starts at one and `retryCount` at zero for format/validation corrections within a stage. `round` separately counts normal multi-round research or tool use. `jobAttempt`/`jobRetryCount` describe durable reaction claims; `noteAttempt`/`noteRetryCount` describe durable note attempts; `planAttempt`/`planRetryCount` describe phase regeneration after review. These counters describe different scopes and must not be summed as independent billed requests. Counting records gives the outbound calls observed by this service, including failures. The instrumentation adds no retry policy and changes no retry limits.
 
-Embedding requests use the same format with `purpose: "embedding"` and retain returned input/total counts; invalid vectors can still have reported usage. Jev Decisions API routing also emits a `routing` usage record, with null usage when the provider omits counts. Records exclude API keys, request/response text, tool arguments, provider error messages, and endpoint URLs, including userinfo, paths, queries and custom hostnames. The runtime embeds no price table or USD estimate; apply the appropriate model rates and reconcile against provider billing separately. Records go to operational logs, not additional Firestore state.
+Embedding requests use the same format with `purpose: "embedding"` and retain returned input/total counts; invalid vectors can still have reported usage. Jev Decisions API routing also emits a `routing` usage record, with null usage when the provider omits counts. Records exclude API keys, request/response text, tool arguments, provider error messages, and endpoint URLs, including userinfo, paths, queries and custom hostnames. Operational records continue to go to stdout. Workspace monthly aggregates additionally retain request counts and known costs; see the following section.
 
 Implementation and verification: [usage.go](../../internal/llm/usage.go), [llm.go](../../internal/llm/llm.go), [search.go](../../internal/search/search.go), [usage_test.go](../../internal/llm/usage_test.go) (reported/missing/zero usage, failed calls, context and privacy), and [persona usage tests](../../internal/persona/usage_test.go) (research read/answer rounds versus retries and rejected-answer accounting).
+
+## Monthly usage accounting
+
+Guarded `GET /api/usage?month=YYYY-MM&persona={id}` returns a workspace's monthly aggregates and the rate review date. The month defaults to the current month in the saved workspace timezone. Invalid months return 400; storage failures return 500. An optional persona filter selects its rows. Responses use `Cache-Control: no-store`. Empty months return an empty row list. No historical operational logs are imported.
+
+One atomic `usage` record per workspace/calendar month retains first/last recording times and aggregate rows by persona, wake category, and component. Files use `runtime/usage/YYYY-MM.json`; Firestore uses the existing record collection contract under `users/{key}/usage/{month}`. Aggregates survive restarts and persona removal, have no expiry, are excluded from portable exports, and are removed with the workspace. Concurrent instance updates use the existing file mutex or Firestore transaction. Each completed observed API attempt adds once, including rejected answers and retries; an interrupted or failed aggregate write can leave the totals incomplete. Persistence uses a separate ten-second context and logs a fixed warning on failure, without breaking the answer workflow or exposing private request data.
+
+Reply categories cover `post`, `listening`, `post-edited`, and `review-reply`; scheduled work covers `daily` and `schedule`; remaining wakes are Other. Research, memory updates, and retries keep their turn's attribution. Routing and embeddings are separate shared components even when their context names a persona. Unattributed calls (including application summaries, image reading, dictation, and persona building) remain shared Other. The browser groups embeddings into Other alongside shared summaries rather than allocating shared costs across personas.
+
+OpenRouter uses the API's optional `usage.cost`, including a reported zero. Nebius estimates use recorded input/output tokens and a fixed, reviewed USD-per-million-token table for Nemotron Lightning/Nano/Super/Ultra, GLM-5.3-Flash, and Qwen3-Embedding-8B; embedding requires only input counts. Rates were reviewed on 2026-10-09 against [Nemotron pricing](https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference), [GLM pricing](https://nebius.com/services/token-factory/models/glm-models-inference), and [Qwen pricing](https://nebius.com/services/token-factory/models/qwen-models-inference). Amounts are computed when recorded, so later rate changes do not reprice saved totals. Missing counts/cost, invalid amounts, custom providers, and unsupported models increment `unpriced` rather than implying zero. Reasoning/cache counts are not charged again. The UI presents the combined known costs as estimates; provider billing remains the reconciliation source. Nebius estimates do not apply discounts or free allowances; OpenRouter retains the reported billed cost. Search charges and inference billed directly to external agents are outside these totals. See [OpenRouter usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting).
+
+Web search counts actual Tavily HTTP attempts, including failures, through the workspace's tool configuration callback. Invalid arguments, missing credentials, empty queries, cached results, and exhausted read budgets do not add requests. The settings connection check adds a shared Other search. External-agent reads through the application retain their persona/wake attribution; the external agent's own inference is not observed.
+
+Implementation and verification: [usage.go](../../internal/usage/usage.go), [usage_test.go](../../internal/usage/usage_test.go) (unknown/zero pricing, OpenRouter cost, concurrent aggregation, restart, timezone boundaries), [usage API](../../internal/server/usage.go), [usage API tests](../../internal/server/usage_test.go), [runtime.go](../../internal/store/runtime.go), [websearch.go](../../internal/websearch/websearch.go), [Web search accounting tests](../../internal/websearch/usage_test.go), and [search.go](../../internal/search/search.go).
 
 ## Implementation and verification
 

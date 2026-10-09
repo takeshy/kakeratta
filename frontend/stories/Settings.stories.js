@@ -6,14 +6,33 @@ import { about, dictatingSettings, settings } from "./fixtures.js";
 
 export default { title: "Settings", parameters: { layout: "fullscreen" } };
 
-function panelOf(current, info = about, extra = {}) {
+function panelOf(current, info = about, extra = {}, after) {
   serve({ settings: current, about: info, models: [settings.lowModel, settings.middleModel, settings.highModel, settings.visionModel], ...extra });
   const panel = createSettings({ speaker, onSettings: () => {} });
-  void panel.load();
+  void panel.load().then(() => after?.(panel.element));
   return sheet("設定", panel.element);
 }
 
 export const Default = { name: "既定（Nebius・ブラウザ音声認識）", render: () => panelOf(settings) };
+export const WithUsage = {
+  name: "API利用・金額あり（サンプル）",
+  render: () => panelOf(settings, about, { usage: {
+    month: "2026-10", first: "2026-10-01T09:00:00Z",
+    rows: [
+      { component: "routing", category: "other", calls: 60, estimatedUsd: 0.0324, searches: 0 },
+      { component: "persona", persona: "book", category: "reply", calls: 42, estimatedUsd: 0.3248, reportedUsd: 0.12, searches: 18 },
+      { component: "persona", persona: "book", category: "scheduled", calls: 16, estimatedUsd: 0.0862, searches: 3 },
+      { component: "persona", persona: "book", category: "other", calls: 4, estimatedUsd: 0.0126, searches: 0 },
+      { component: "other", category: "other", calls: 8, estimatedUsd: 0.024, searches: 0 },
+      { component: "embedding", category: "other", calls: 60, estimatedUsd: 0.0012, searches: 0 },
+    ],
+  } }, element => {
+    const section = element.querySelector(".settings-usage");
+    section.querySelector('input[type="month"]').value = "2026-10";
+    section.open = true;
+    section.scrollIntoView({ block: "start" });
+  }),
+};
 export const ExtraLarge = {
   name: "特大文字（スマホ幅の確認）",
   globals: { textSize: "xlarge" },

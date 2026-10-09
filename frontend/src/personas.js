@@ -14,6 +14,7 @@ import { showPersonaEditor } from "./persona-editor.js";
 import { basicInfoBox } from "./person-basic-info.js";
 export { basicInfoBox };
 import { gloss } from "./builtins.js";
+import { createUsage } from "./usage.js";
 import { createMemoryView } from "./memory.js";
 import { uniqueTools } from "./tool_labels.js";
 import { notificationSchedules, toolLink } from "./persona-display.js";
@@ -403,6 +404,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
           }),
       ),
     );
+    box.append(createUsage({ persona: row.id }).element);
     return box;
   }
 

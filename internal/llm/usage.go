@@ -11,9 +11,10 @@ import (
 
 // Usage contains provider-reported counts. Missing counts remain null, not zero.
 type Usage struct {
-	Input         *int `json:"prompt_tokens"`
-	Output        *int `json:"completion_tokens"`
-	Total         *int `json:"total_tokens"`
+	Cost          *float64 `json:"cost,omitempty"`
+	Input         *int     `json:"prompt_tokens"`
+	Output        *int     `json:"completion_tokens"`
+	Total         *int     `json:"total_tokens"`
 	OutputDetails *struct {
 		Reasoning *int `json:"reasoning_tokens"`
 	} `json:"completion_tokens_details,omitempty"`
@@ -33,6 +34,17 @@ type Trace struct {
 }
 
 type traceKey struct{}
+
+func TraceFrom(ctx context.Context) Trace {
+	trace, _ := ctx.Value(traceKey{}).(Trace)
+	return trace
+}
+
+type observerKey struct{}
+
+func WithUsageObserver(ctx context.Context, observer func(CallRecord)) context.Context {
+	return context.WithValue(ctx, observerKey{}, observer)
+}
 
 // WithTrace adds identifiers without retaining prompts or credentials.
 func WithTrace(ctx context.Context, trace Trace) context.Context {
@@ -81,6 +93,7 @@ type CallRecord struct {
 	FinishReason   string `json:"finishReason,omitempty"`
 	Usage          *Usage `json:"usage"`
 	DurationMS     int64  `json:"durationMs"`
+	observe        func(CallRecord)
 	started        time.Time
 }
 
@@ -105,7 +118,8 @@ func NewCallRecord(ctx context.Context, endpoint, model, purpose string, attempt
 	if round < 1 {
 		round = 1
 	}
-	return &CallRecord{Trace: trace, Severity: "INFO", Message: "model usage", Path: "model-usage",
+	observer, _ := ctx.Value(observerKey{}).(func(CallRecord))
+	return &CallRecord{observe: observer, Trace: trace, Severity: "INFO", Message: "model usage", Path: "model-usage",
 		Provider: provider, Model: model, Purpose: purpose, Attempt: attempt, RetryCount: attempt - 1,
 		Round: round, JobRetryCount: max(0, trace.JobAttempt-1), NoteRetryCount: max(0, trace.NoteAttempt-1), PlanRetryCount: max(0, trace.PlanAttempt-1), Outcome: "request_error", started: time.Now()}
 }
@@ -119,6 +133,12 @@ func (record *CallRecord) Finish() {
 
 func (record *CallRecord) Log() {
 	record.Finish()
+	if record.observe != nil {
+		copy := *record
+		copy.observe = nil
+		record.observe(copy)
+		return
+	}
 	if encoded, err := json.Marshal(record); err == nil {
 		fmt.Fprintln(os.Stdout, string(encoded))
 	}

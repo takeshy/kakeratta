@@ -12,13 +12,13 @@ export default { title: "Personas", parameters: { layout: "fullscreen" } };
 // story starts by taking down the one the previous story left.
 // The tab and the order a viewer chose are kept in the browser; a story starts
 // from the defaults, or from the tab it names.
-function panelOf(rows, after, { mcp, tab } = {}) {
+function panelOf(rows, after, { mcp, tab, usage } = {}) {
   for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove();
   try {
     localStorage.removeItem("kakeratta.personas.tab");
     localStorage.removeItem("kakeratta.personas.order");
   } catch { /* nothing kept */ }
-  serve({ personas: rows, tools, memory, ...(mcp ? { mcp } : {}) });
+  serve({ personas: rows, tools, memory, usage, ...(mcp ? { mcp } : {}) });
   const panel = createPersonas({ onChange: () => {} });
   void panel.load().then(() => {
     if (tab) [...panel.element.querySelectorAll(".persona-tab")][tab === "person" ? 0 : 1]?.click();
@@ -28,6 +28,22 @@ function panelOf(rows, after, { mcp, tab } = {}) {
 }
 
 export const AllPresent = { name: "4体とも有効", render: () => panelOf(personas) };
+
+export const WithUsage = {
+  name: "API利用・金額あり（サンプル）",
+  render: () => panelOf(personas.filter(row => row.id === "book"), element => {
+    const section = element.querySelector(".settings-usage");
+    section.querySelector('input[type="month"]').value = "2026-10";
+    section.open = true;
+  }, { usage: {
+    month: "2026-10", first: "2026-10-01T09:00:00Z",
+    rows: [
+      { component: "persona", persona: "book", category: "reply", calls: 42, estimatedUsd: 0.3248, reportedUsd: 0.12, searches: 18 },
+      { component: "persona", persona: "book", category: "scheduled", calls: 16, estimatedUsd: 0.0862, searches: 3 },
+      { component: "persona", persona: "book", category: "other", calls: 4, estimatedUsd: 0.0126, searches: 0 },
+    ],
+  } }),
+};
 
 export const OneOn = {
   name: "1体だけ有効",

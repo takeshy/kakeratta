@@ -16,7 +16,7 @@ func TestUsageRecordedForEveryRequestOutcome(t *testing.T) {
 		status              int
 		reported            bool
 	}{
-		{"success", `{"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19,"completion_tokens_details":{"reasoning_tokens":4},"prompt_tokens_details":{"cached_tokens":3}},"choices":[{"message":{"content":"private answer"}}]}`, "success", 200, true},
+		{"success", `{"usage":{"cost":0.0123,"prompt_tokens":12,"completion_tokens":7,"total_tokens":19,"completion_tokens_details":{"reasoning_tokens":4},"prompt_tokens_details":{"cached_tokens":3}},"choices":[{"message":{"content":"private answer"}}]}`, "success", 200, true},
 		{"missing", `{"choices":[{"message":{"content":"ok"}}]}`, "success", 200, false},
 		{"truncated", `{"choices":[{"finish_reason":"length","message":{"content":"private incomplete answer"}}]}`, "success", 200, false},
 		{"zero", `{"usage":{"prompt_tokens":0,"completion_tokens":0},"choices":[{"message":{"content":"ok"}}]}`, "success", 200, true},
@@ -52,7 +52,7 @@ func TestUsageRecordedForEveryRequestOutcome(t *testing.T) {
 			if r.Purpose != "answer" || r.Attempt != 2 || r.RetryCount != 1 || r.Round != 4 || r.JobRetryCount != 2 || r.NoteRetryCount != 1 || r.PlanRetryCount != 1 || r.Persona != "persona-1" || r.Trigger != "post-1" || r.Job != "job-1" || r.Wake != "daily" {
 				t.Fatalf("trace = %+v", r)
 			}
-			if tc.name == "success" && (*r.Usage.Input != 12 || *r.Usage.Output != 7 || *r.Usage.Total != 19 || *r.Usage.OutputDetails.Reasoning != 4 || *r.Usage.InputDetails.Cached != 3 || reply.Usage != r.Usage) {
+			if tc.name == "success" && (r.Usage.Cost == nil || *r.Usage.Cost != 0.0123 || *r.Usage.Input != 12 || *r.Usage.Output != 7 || *r.Usage.Total != 19 || *r.Usage.OutputDetails.Reasoning != 4 || *r.Usage.InputDetails.Cached != 3 || reply.Usage != r.Usage) {
 				t.Fatal("usage was lost")
 			}
 			if tc.name == "zero" && (r.Usage.Input == nil || *r.Usage.Input != 0 || r.Usage.Total != nil) {

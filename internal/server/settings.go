@@ -135,6 +135,7 @@ func (s *Server) getOpenRouterModels(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) checkSearch(w http.ResponseWriter, r *http.Request) {
 	client := websearch.New(s.store.Settings().Search.APIKey)
+	client.Observe = s.tools.ObserveWebSearch
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	if _, err := client.Search(ctx, "kakeratta", 1); err != nil {

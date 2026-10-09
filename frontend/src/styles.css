@@ -948,3 +948,15 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 
 .entry-place { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; font-size: 1rem; margin: .4rem 0; overflow-wrap: anywhere; }
 .place-credit { font-size: 0.875rem; color: var(--muted); text-align: center; padding: .75rem; }
+
+.settings-usage { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.settings-usage > summary { cursor: pointer; color: var(--accent); }
+.usage-body { margin-top: 12px; }
+.usage-controls { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 12px; }
+.usage-controls .field { flex: 0 1 12rem; min-width: 0; }
+.usage-controls input[type="month"] { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: inherit; width: 100%; min-width: 0; min-height: 36px; box-sizing: border-box; }
+.usage-controls .chip { min-height: 36px; }
+.usage-table-scroll { overflow-x: auto; }
+.usage-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.usage-table th, .usage-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.usage-table td { font-variant-numeric: tabular-nums; }

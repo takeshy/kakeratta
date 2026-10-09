@@ -35,6 +35,7 @@ var webSearch = Tool{
 			}
 		}
 		client := websearch.New(r.tavilyKey)
+		client.Observe = r.config.ObserveWebSearch
 		results, err := client.SearchWithOptions(ctx, query, int(args.num("limit", 5)), options)
 		if err != nil {
 			return Result{}, err

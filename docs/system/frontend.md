@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
+description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-08"
+updated: "2026-10-09"
 ---
 
-Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
+Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
 
 # Browser application composition
 
@@ -57,6 +57,18 @@ Verification: [memory.test.js](../../tests/memory.test.js) (records after fields
 ## API key setup
 
 Settings links to Token Factory to obtain the inference API key. Beside this link, it displays an observed personal-use cost reference of US$0.06–0.60 per day from October 1–4, 2026, with the daily average extrapolated to about US$10 over 30 days. This reference uses the operator-provided daily charges of US$0.45, US$0.60, US$0.26 and US$0.06 (US$1.37 total); it is not a fixed quote for a particular number of posts or answers. The hint explains that post count, persona count, models and periodic check-ins affect costs. The Web Search section links to Tavily's key registration page and explains its 1,000 free credits per month with no credit card required, in Japanese and English. The search key remains separate from the inference key and is optional when web search is unused. The **毎日の振り返り / Daily check-in** section offers **おまかせ / Automatic** (empty `dailyTime`, the app's own minute) and **時刻を指定 / Set a time**, which shows a large time input (08:00 when first chosen) saved as `dailyTime`; its hint says personas with memory speak up only if there is something worth saying, and that a run can start late at popular times. The `settings--daily-time` story shows the set state. The server accepts only `HH:MM` or empty. See [settings.js](../../frontend/src/settings.js), [i18n.js](../../frontend/src/i18n.js), and [Tavily credits and pricing](https://docs.tavily.com/documentation/api-credits).
+
+## Monthly AI usage
+
+Each persona card has a collapsed **AI usage** section, built by [usage.js](../../frontend/src/usage.js). Opening it fetches only that persona's monthly rows; a month selector and Refresh button allow another period or an updated snapshot. Its table separates Replies, Scheduled runs (check-ins/reminders and their memory processing), and Other, displaying known AI costs in USD and actual Web search requests. Missing pricing is shown as Unpriced, including alongside a partial known amount. Failure counts and the month's recording start time appear below the table. Closed cards do not fetch accounting data.
+
+Settings has the overall monthly total, grouped into Routing, All personas, and Other. Other includes embeddings and shared daily/monthly summaries, alongside other shared model work. The explanation points to the persona screen for individual breakdowns and clarifies that shared costs are not allocated to personas. Amounts are estimates, using API-reported OpenRouter costs or recorded Nebius public rates; exclusions and the recording-only time range are stated in Japanese and English. Errors remain visible with Refresh available; superseded requests cannot overwrite a newer month selection.
+
+The **API利用・金額あり（サンプル）** story in [Personas.stories.js](../../frontend/stories/Personas.stories.js) opens a persona's usage section with synthetic October 2026 costs totaling US$0.5436 and 21 Web searches. The story API filters these sample rows by month and persona; other months are empty. [captures.mjs](../../frontend/captures.mjs) captures this state as `persona-usage` in Japanese and English. These are preview fixtures, not production billing records.
+
+The same-named story in [Settings.stories.js](../../frontend/stories/Settings.stories.js) opens and scrolls to the overall usage section. Its synthetic October 2026 total is US$0.6012 with 21 Web searches: US$0.0324 for Routing, US$0.5436 for All personas, and US$0.0252 for Other (including embeddings). The `settings-usage` capture shows this section in Japanese and English.
+
+Verification: [usage.test.js](../../tests/usage.test.js) checks unknown/free/partial costs, lazy persona requests, and embedding grouping; [personas-panel.test.js](../../tests/personas-panel.test.js) and [settings.test.js](../../tests/settings.test.js) cover the surrounding panels. See [backend accounting](./backend.md#monthly-usage-accounting) for persistence and attribution.
 
 ## OpenRouter model selection
 

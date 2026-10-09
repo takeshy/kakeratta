@@ -73,6 +73,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /api/personas/{id}/memory/fact", s.guard(s.editFact))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/memory/fact", s.guard(s.forgetFact))
 
+	s.mux.HandleFunc("GET /api/usage", s.guard(s.getUsage))
 	s.mux.HandleFunc("GET /api/settings", s.guard(s.getSettings))
 	s.mux.HandleFunc("PUT /api/settings", s.guard(s.putSettings))
 	s.mux.HandleFunc("GET /api/export", s.guard(s.exportWorkspace))

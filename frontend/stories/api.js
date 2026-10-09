@@ -8,7 +8,7 @@ const fetchAsset = globalThis.fetch.bind(globalThis);
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], personaDraft = null, search = null, favorites = null, social = null, routing = {}, routingCheck = { answered: true, delivered: true }, replyPreview = { quiet: true }, bluesky = { available: true, connected: false }, mcp = { configured: false, path: "/api/mcp/users/sample" } } = {}) {
+export function serve({ personas = [], tools = [], settings = {}, about = null, memory = {}, models = [], usage = null, personaDraft = null, search = null, favorites = null, social = null, routing = {}, routingCheck = { answered: true, delivered: true }, replyPreview = { quiet: true }, bluesky = { available: true, connected: false }, mcp = { configured: false, path: "/api/mcp/users/sample" } } = {}) {
   const saved = new Map((favorites?.items || []).map(item => [item.id, structuredClone(item)]));
   adoptFavoriteIDs([...saved.keys()]);
   const favoriteEntries = () => search?.entries || favorites?.items?.map(item => item.entry) || [];
@@ -26,6 +26,13 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
     const method = (init.method || "GET").toUpperCase();
     const path = url.pathname;
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
+    if (path === "/api/usage" && method === "GET") {
+      const month = url.searchParams.get("month");
+      const persona = url.searchParams.get("persona");
+      const matching = usage?.month === month;
+      return json({ usage: { month, first: matching ? usage.first : null,
+        rows: matching ? usage.rows.filter(row => !persona || row.persona === persona) : [] } });
+    }
     if (path === "/api/favorites" && method === "GET") {
       if (favorites?.loading) return new Promise(() => {});
       if (favorites?.error) return json({ error: favorites.error }, 500);

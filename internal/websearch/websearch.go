@@ -71,6 +71,7 @@ type Client struct {
 	BaseURL string
 	APIKey  string
 	HTTP    *http.Client
+	Observe func(context.Context, bool)
 }
 
 func New(apiKey string) *Client {
@@ -122,6 +123,10 @@ func (c *Client) SearchWithOptions(ctx context.Context, query string, limit int,
 		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	succeeded := false
+	if c.Observe != nil {
+		defer func() { c.Observe(ctx, !succeeded) }()
+	}
 	response, err := c.HTTP.Do(request)
 	if err != nil {
 		return nil, err
@@ -142,6 +147,7 @@ func (c *Client) SearchWithOptions(ctx context.Context, query string, limit int,
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	succeeded = true
 	var out []Result
 	for _, hit := range payload.Results {
 		snippet := hit.Content

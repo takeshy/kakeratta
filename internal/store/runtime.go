@@ -30,9 +30,10 @@ const (
 	RecordPresence  = "presence"
 	RecordPush      = "push-subscriptions"
 	RecordFavorites = "favorites"
+	RecordUsage     = "usage"
 )
 
-var recordCollections = map[string]bool{RecordAsks: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true}
+var recordCollections = map[string]bool{RecordAsks: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true, RecordUsage: true}
 
 // ErrUnknownRecords is a collection name that is not a runtime record kind.
 var ErrUnknownRecords = errors.New("unknown runtime record collection")

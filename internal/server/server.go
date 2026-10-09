@@ -9,6 +9,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/social"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
+	"github.com/takeshy/kakeratta/internal/usage"
 )
 
 // Options is everything the server is handed.
@@ -89,6 +91,11 @@ func New(options Options) *Server {
 	}
 	if bus, ok := options.Store.(EventBus); ok {
 		s.bus = bus
+	}
+	s.tools.ObserveWebSearch = func(ctx context.Context, failed bool) {
+		if err := usage.RecordSearch(s.store, llm.TraceFrom(ctx), failed); err != nil {
+			log.Print("usage search persistence failed")
+		}
 	}
 	s.runner = persona.New(s.store, s.catalogue, s.client)
 	if options.Passive {
@@ -194,9 +201,12 @@ func (s *Server) client() (*llm.Client, store.Settings) {
 		settings.MiddleModel = settings.OpenRouterMiddleModel
 		settings.LowModel = settings.OpenRouterLowModel
 		settings.VisionModel = store.OpenRouterVision
-		return llm.NewOpenRouter(store.OpenRouterBaseURL, settings.OpenRouterAPIKey), settings
+		client := llm.NewOpenRouter(store.OpenRouterBaseURL, settings.OpenRouterAPIKey)
+		client.Observe = s.observeUsage
+		return client, settings
 	}
 	client := llm.New(settings.BaseURL, settings.APIKey)
+	client.Observe = s.observeUsage
 	return client, settings
 }
 
@@ -323,3 +333,10 @@ func (s *Server) events2(w http.ResponseWriter, r *http.Request) {
 }
 
 func trimmed(value string) string { return strings.TrimSpace(value) }
+
+func (s *Server) observeUsage(record llm.CallRecord) {
+	record.Log()
+	if err := usage.Record(s.store, record); err != nil {
+		log.Print("usage model persistence failed")
+	}
+}

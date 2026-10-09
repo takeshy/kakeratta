@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/search"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -288,6 +289,7 @@ func (s *Set) Run(ctx context.Context, name string, args Args, at *timeline.Plac
 	if !ok {
 		return Result{}, errors.New("知らない道具です")
 	}
+	ctx = llm.WithTrace(ctx, llm.Trace{Persona: s.owner})
 	return tool.run(context.WithValue(ctx, ownerKey{}, s.owner), s.registry, args, at)
 }
 

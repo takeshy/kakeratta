@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 	"github.com/takeshy/kakeratta/internal/tools"
@@ -253,6 +254,7 @@ func (r *Runner) ReadForAsk(ctx context.Context, id, claimID string, steps []Rea
 		research.Cited = map[string]string{}
 	}
 	budget := research.Lookups.restore(limit, turnSearchLimit(record.Turn.Deep))
+	ctx = llm.WithTrace(ctx, llm.Trace{Persona: record.Turn.Persona, Wake: wakeKind(record.Turn.Trigger, record.Turn.Listening, record.Turn.Instructions)})
 	text, sources := r.readAll(ctx, turn.skill, steps, turn.set, turn.post, settings.Location(), research.Failures, budget, research.Cited, referenced)
 	research.ReadSources = append(research.ReadSources, sources...)
 	research.Read = append(research.Read, text)
