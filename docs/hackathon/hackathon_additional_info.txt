@@ -51,11 +51,22 @@ Jev is a specialized decision model. On the five posts where the models disagree
 
 ### How did Nemotron's performance compare to other models you've used for similar tasks?
 
-In my development experience, Nemotron was competitive with models such as Gemini for Japanese responses and tool calling. This is a practical impression, not a controlled comparison of complete agent workflows. The difficulties described above, such as missing a promised operation or copying an example too literally, were the main reasons I added application-level checks.
+In everyday development, Nemotron was competitive with models such as Gemini for Japanese responses and tool calling. That is a practical impression, so I also ran two direct comparisons with OpenAI models through OpenRouter.
 
-For a more direct comparison, I ran the same 20 routing posts through OpenAI GPT Luna via OpenRouter's Exacto provider, using required tool calling. With reasoning on, Luna averaged 3.65 seconds per post at an estimated $0.00042 and agreed with Jev on 19 of 20 posts. With reasoning off, it averaged 2.02 seconds at $0.00037 and still agreed on 19 of 20. Unlike Lightning and Nano, Luna kept the same agreement score with reasoning disabled, although the specific disagreement changed. On this small dataset, whether disabling reasoning hurt the results depended on the model, not just on the task.
+**Routing.** I ran the same 20 routing posts through GPT Luna with required tool calling. With reasoning on, Luna averaged 3.65 seconds at an estimated $0.00042 per post and agreed with Jev on 19 of 20. With reasoning off, it averaged 2.02 seconds at $0.00037 and still agreed on 19 of 20. Super, the default, averaged 1.91 seconds at $0.00065 and agreed on 17, with its disagreements on borderline cases. Unlike Lightning and Nano, Luna did not lose agreement without reasoning, so whether reasoning can be turned off depended on the model, not just the task.
 
-That comparison reinforced why I measure each model on the work I actually want it to do. Parameter count, token price, and the presence of a reasoning mode do not tell me enough on their own. These costs use the same token-based estimation approach as the Router comparison above.
+**A real conversation.** I replayed a three-turn production thread on Luna (Router and middle model) and GPT Sol (high model), with the same Web search tool that production had. The user asked about "Grok Bot," a new xAI product separate from the ordinary Grok app, then asked for details, then for a diagram.
+
+| | Super / Ultra (production) | Luna / Sol |
+| --- | ---: | ---: |
+| LLM calls | 9 | 10 |
+| Web searches | 0 | 6 |
+| LLM cost | $0.039 | $0.058 |
+| Total API time | 35.2 s | 64.8 s |
+
+Nemotron never searched. It described the ordinary Grok app, and Ultra added a detailed timeline, plan prices, and storage rules it could not verify. Luna also took Grok Bot for ordinary Grok in the first turn, even after two searches, but on the follow-up Luna's searches found xAI's announcement, and Sol used it to explain what Grok Bot is and who can use it. That cost about 50% more and took nearly twice as long.
+
+This is one thread replayed with the current code, not a controlled benchmark. Nemotron was competitive on routing and cost; where it fell short was knowing when to look something up. That is why I measure each model on the work I actually want it to do.
 
 ### Which Nebius platform capabilities were most valuable to your project and how?
 
