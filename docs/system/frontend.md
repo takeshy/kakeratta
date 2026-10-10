@@ -62,6 +62,8 @@ Settings links to Token Factory to obtain the inference API key. Beside this lin
 
 ## Monthly AI usage
 
+The month selector and Refresh button share a two-column grid with an 8px gap. The month field and its native input can shrink within the first column, while the button retains its text width, preventing overlap on narrow screens or with enlarged text. This layout is shared by settings and persona cards in [styles.css](../../frontend/src/styles.css).
+
 Each persona card has a collapsed **AI usage** section, built by [usage.js](../../frontend/src/usage.js). Opening it fetches only that persona's monthly rows; a month selector and Refresh button allow another period or an updated snapshot. Its table separates Replies, Scheduled runs (check-ins/reminders and their memory processing), and Other, displaying known AI costs in USD and actual Web search requests. Missing pricing is shown as Unpriced, including alongside a partial known amount. Failure counts and the month's recording start time appear below the table. Closed cards do not fetch accounting data.
 
 Settings has the overall monthly total, grouped into Routing, All personas, and Other. Other includes embeddings and shared daily/monthly summaries, alongside other shared model work. The explanation points to the persona screen for individual breakdowns and clarifies that shared costs are not allocated to personas. Amounts are estimates, using API-reported OpenRouter costs or recorded Nebius public rates; exclusions and the recording-only time range are stated in Japanese and English. Errors remain visible with Refresh available; superseded requests cannot overwrite a newer month selection.
