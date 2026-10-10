@@ -80,25 +80,33 @@ When hosting open-weight models, tool calling often falls back to prompt-wrapped
 
 ### How likely are you to recommend running Nemotron on Nebius to other developers?
 
-7/10
+8/10
 
-I would recommend it for products like kakeratta, where frequent inference makes cost and latency part of the user experience. Having Lightning, Super, and Ultra behind one API made experimentation easy. Super was the standout: capable enough for everyday agentic work, fast, and affordable, with Ultra available for more demanding tasks.
+I strongly recommend it for products that rely heavily on LLMs inside the application. For architectures like kakeratta—where an interactive timeline triggers multiple parallel personas, each running multi-turn loops of research, routing, planning, and memory—inference cost, latency, and reliability directly define the user experience.
 
-I stop at 7 because my choice changes with the workload. For business material that goes directly to customers, I often prioritize the highest output quality over inference cost and choose closed frontier models. Nebius fits my frequent, cost-sensitive inference well, but I would still use other providers for some work.
+Three factors make it compelling:
 
-My familiarity with GCP's infrastructure tooling also influenced where I hosted the application. I would recommend Token Factory regardless of whether a developer decides to move the rest of an application to Nebius.
+- **Consistent stability across all model sizes.** Whether running Nemotron 3.5 Lightning, Super, or Ultra, inference was dependable under bursty multi-agent workloads with zero rate-limit errors or timeouts.
+- **Model customization and control.** Token Factory allows fine-tuning model behavior, from direct template control (such as managing reasoning traces via `chat_template_kwargs`) to platform customization options, rather than treating models as rigid black boxes.
+- **Affordable pricing for heavy usage.** At $0.30 per million input tokens for Super and $1.00 for Ultra, the pricing makes frequent, multi-stage agentic loops economically practical in production where closed frontier models would be cost-prohibitive.
+
+I stop at 8 only because developers building straightforward, low-frequency workflows that need occasional customer-facing polish might still default to standard closed frontier APIs. But for products with heavy in-app LLM usage, Nebius and Nemotron are an excellent fit.
 
 ### How would you rate your experience running Nemotron inference on Nebius compared to previous cloud or local development environments?
 
 8/10
 
-The biggest advantage over local development was immediate access to different model sizes. I could compare models without loading and unloading them or finding hardware capable of running Ultra. Those experiments would not have been practical on my own machine.
+Local development was simply out of the question—running 120B or 550B frontier MoE models is impossible on personal hardware. Compared to other cloud APIs, Nebius provided a fast, stable, and transparent developer experience.
 
-The cloud API was also stable at my usage volume. Other APIs have returned 429 errors during development with as few as four concurrent calls. During this project, I encountered no 429 responses or inference timeouts from Token Factory. That mattered because one post can start several personas in parallel, and each persona makes a sequence of model calls. The application still needs its own retry and recovery mechanisms, but the inference service worked well in this setup.
+Three aspects stood out:
+- **Fast response times.** Inference latency was consistently low, which was critical for keeping interactive persona replies responsive.
+- **Rock-solid stability under concurrency.** While other cloud APIs often return 429 rate limits or timeouts with just a few parallel calls, Token Factory handled bursts of concurrent multi-agent turns without a single 429 or timeout.
+- **Rapid, model-by-model usage visibility.** Being able to quickly check usage and spending broken down by model in the console made it effortless to monitor costs and verify the financial impact of shifting tasks between Lightning, Super, and Ultra.
 
-Usage visibility made it easy to see how moving work between Lightning, Super, and Ultra affected spending.
-
-The main limitation was image handling. The Token Factory public API I used did not offer multimodal Nemotron inference, so GLM analyzes each image once and personas receive the result as text. This works, but a persona cannot go back to the image to inspect a detail that the first analysis missed. Direct image input would improve that experience.
+The main limitations were model inflexibility when corrected, lightweight routing quality, and image handling:
+- **Reluctance to accept corrections.** Nemotron models could be stubborn. When told that an answer was incorrect and asked to look it up, the model frequently rationalized its earlier error or invented explanations rather than acknowledging the mistake and conducting fresh research.
+- **Underwhelming routing quality from Lightning and Switchyard.** Options touted for fast routing fell short of expectations. With reasoning enabled, Nemotron 3.5 Lightning generated far more output tokens and ran much slower than Super (6.55 s vs. 1.91 s), while disabling reasoning caused categorization accuracy to drop sharply. Similarly, Switchyard tripled routing latency and generated thousands of extra tokens without reliably improving model choices, prompting me to drop both in favor of direct routing on Super.
+- **No direct multimodal input.** The Token Factory public API did not offer multimodal Nemotron inference, so GLM analyzes each image once and personas receive the result as text rather than inspecting images directly.
 
 ### What additional features or improvements would have made the Nemotron on Nebius experience more effective for your project?
 
