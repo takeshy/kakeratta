@@ -219,7 +219,9 @@ function markdown(body, context) {
     const item = line.match(/^\s*(?:[-*+] |\d+[.)] )(.+)$/);
     if (heading) {
       const summary = context.facts && heading[1].match(/^まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$/);
-      const label = summary ? t("まとめ（{0} 更新）", summary[1]) : heading[1] === "記憶を更新した投稿" ? t(heading[1]) : heading[1];
+      const localized = heading[1] === "記憶を更新した投稿" ||
+        (context.facts && ["いまの事実", "以前のこと"].includes(heading[1]));
+      const label = summary ? t("まとめ（{0} 更新）", summary[1]) : localized ? t(heading[1]) : heading[1];
       result.append(el("h5", {}, inline(label, context)));
       list = null;
     } else if (item) {

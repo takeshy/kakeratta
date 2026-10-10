@@ -245,6 +245,7 @@ const EN = {
   "このタグの記録がある月だけを表示": "Show only months with a record tagged this",
   "分野（まとめ文と事実）": "Fields (summary and facts)", "かけらの記録（月ごと）": "Fragment records (by month)", "{0}年{1}月": "{0}/{1}",
   "この事実を直す": "Fix this fact", "この事実を忘れさせる": "Forget this fact", "事実": "Fact",
+  "いまの事実": "Current facts", "以前のこと": "Past facts",
   "「{0}」を忘れさせますか。": "Forget \"{0}\"?", "事実を直しました": "Fact updated",
   "元の投稿": "Original post", "元の投稿{0}": "Original post {0}", "{0}から": "since {0}", "{0}まで": "until {0}",
   "→「{0}」に置き換え": "→ replaced by \"{0}\"", "→ 置き換え済み": "→ replaced", "まとめ（{0} 更新）": "Summary (updated {0})",

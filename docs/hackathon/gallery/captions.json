@@ -1,0 +1,122 @@
+[
+  {
+    "file": "images/01-remember-what-matters.png",
+    "title": "A personal AI timeline that remembers what matters",
+    "caption": "Post fragments of your day as text, photos, URLs or speech. Dedicated personas connect them with what you shared before.",
+    "sources": [
+      "../../captures/en/timeline.png"
+    ]
+  },
+  {
+    "file": "images/02-the-right-moment.png",
+    "title": "Bring back a forgotten plan at the right moment",
+    "caption": "A missed restaurant visit becomes useful again when you mention another trip. Personas can surface relevant memories during check-ins.",
+    "sources": [
+      "../../captures/en/travel-memory.png"
+    ]
+  },
+  {
+    "file": "images/03-personas-for-your-life.png",
+    "title": "Create personas for the people and interests in your life",
+    "caption": "Describe a persona in plain language. Each person or interest can have its own memory, instructions and tools.",
+    "sources": [
+      "../../captures/en/persona-create.png",
+      "../../captures/en/people.png"
+    ]
+  },
+  {
+    "file": "images/04-memory-you-control.png",
+    "title": "Inspect, trace and correct what your AI remembers",
+    "caption": "Open a persona’s memory, follow facts back to their original posts, edit them or forget them. Original timeline posts stay intact.",
+    "sources": [
+      "../../captures/en/memory.png"
+    ]
+  },
+  {
+    "file": "images/05-routing-and-feedback.png",
+    "title": "Understand who responds and refine the behavior",
+    "caption": "Inspect which personas received a post and why others did not. Adjust routing conditions or preview a revised reply before applying it.",
+    "sources": [
+      "../../captures/en/routing.png",
+      "../../captures/en/reply-trial.png"
+    ]
+  },
+  {
+    "file": "images/06-find-the-fragment.png",
+    "title": "Find saved fragments by words or meaning",
+    "caption": "Search your timeline by keyword, meaning, date or persona, and keep useful posts and replies in favorites.",
+    "sources": [
+      "../../captures/en/search-semantic.png"
+    ]
+  },
+  {
+    "file": "images/07-connected-agents.png",
+    "title": "Connect external agents to your personal timeline",
+    "caption": "Hermes or Obsidian’s LLM Connect Hub can research and answer through MCP. kakeratta keeps the timeline, schedules, actions and memory updates.",
+    "sources": [
+      "../../captures/en/llm-connect-hub.png"
+    ]
+  },
+  {
+    "file": "images/08-powered-by-nemotron.png",
+    "title": "NVIDIA Nemotron on Nebius Token Factory",
+    "caption": "Nemotron Super handles routing, everyday reasoning and workflow planning. Ultra composes deep answers. Memory is updated after the reply is published.",
+    "sources": []
+  },
+  {
+    "file": "images/09-monthly-reflection.png",
+    "title": "A month of fragments, connected",
+    "caption": "Monthly summaries bring people, food and unfinished plans together with links back to the original posts.",
+    "sources": [
+      "../../captures/en/month-summary.png"
+    ]
+  },
+  {
+    "file": "images/10-save-useful-answers.png",
+    "title": "Keep useful posts and answers in favorites",
+    "caption": "Favorite both your own posts and persona replies, then return to them from the saved-entry view.",
+    "sources": [
+      "../../captures/en/favorites.png"
+    ]
+  },
+  {
+    "file": "images/11-offline-fragments.png",
+    "title": "Capture a thought even while offline",
+    "caption": "Write while disconnected. Posts stay in this browser’s outbox until the connection returns and delivery can resume.",
+    "sources": [
+      "../../captures/en/offline.png"
+    ]
+  },
+  {
+    "file": "images/12-share-your-selection.png",
+    "title": "Preview exactly what you share to Bluesky",
+    "caption": "Select individual posts and replies, review their order and text, then publish the selected conversation to Bluesky.",
+    "sources": [
+      "../../captures/en/bluesky-preview.png"
+    ]
+  },
+  {
+    "file": "images/13-understand-ai-usage.png",
+    "title": "See monthly AI costs and web search counts",
+    "caption": "Inspect monthly AI costs and web search counts, including persona activity and the shared processing that supports it.",
+    "sources": [
+      "../../captures/en/settings-usage.png"
+    ]
+  },
+  {
+    "file": "images/14-choose-your-agent.png",
+    "title": "Choose an external agent for a persona",
+    "caption": "Enable an external-agent preference for a persona. When connected, the agent reads the relevant context, researches and writes its answer.",
+    "sources": [
+      "../../captures/en/persona-planner.png"
+    ]
+  },
+  {
+    "file": "images/15-remember-your-people.png",
+    "title": "Keep the small details about your people",
+    "caption": "A person’s timeline connects shared meals, preferences and upcoming occasions, helping small details stay useful.",
+    "sources": [
+      "../../captures/en/timeline-speaker.png"
+    ]
+  }
+]

@@ -94,6 +94,27 @@ test("reader shows wine preferences, evidence links and raw fallback without exe
   assert.match(createMemoryView([]).all().map(node => node.textContent).join(""), /Nothing remembered yet/);
 });
 
+test("fact section headings follow the display language while stored text stays intact", (ctx) => {
+  globalThis.Node = Element;
+  globalThis.document = {
+    createElement: tag => new Element(tag),
+    createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
+  };
+  ctx.after(() => { delete globalThis.document; delete globalThis.Node; setLanguage("ja"); });
+  const text = "# Preference\n\n## いまの事実\n- [f_a] Likes lighter reds\n\n## 以前のこと\n- [f_b] Likes heavy reds\n\n## 自由な見出し\nCustom content\n";
+  const note = { path: "Preference.md", text };
+  for (const [language, expected] of [
+    ["en", ["Current facts", "Past facts", "自由な見出し"]],
+    ["ja", ["いまの事実", "以前のこと", "自由な見出し"]],
+  ]) {
+    setLanguage(language);
+    const view = createMemoryView([note]);
+    assert.deepEqual(view.all().filter(node => node.tagName === "H5").map(node => node.all().map(child => child.textContent).join("")), expected);
+    assert.equal(note.text, text);
+    assert.equal(parseMemoryNote(note).text, text);
+  }
+});
+
 test("individual forget confirms the selected title, handles cancellation and permits retry after failure", async (ctx) => {
   globalThis.Node = Element;
   globalThis.document = {
