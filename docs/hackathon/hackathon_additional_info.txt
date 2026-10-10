@@ -70,13 +70,13 @@ This is one thread replayed with the current code, not a controlled benchmark. N
 
 ### Which Nebius platform capabilities were most valuable to your project and how?
 
-Token Factory's single API for text, vision, and embeddings was the most valuable capability. I could use Nemotron for the three text-generation roles, GLM for images, and Qwen for search embeddings without asking users to configure several providers.
+Two platform capabilities were particularly valuable to kakeratta:
 
-Native tool calling let me express routing decisions and planned operations as tool calls. Usage visibility helped me see which tasks justified Ultra and which needed a cheaper model. kakeratta also logs the token usage that Token Factory returns for every call, tagged with its purpose and retry scope, so I can attribute cost to routing, research, answers, planning, and memory. That feedback led me to redesign routing instead of simply sending every post to the largest model.
+**1. Direct template and reasoning control via `chat_template_kwargs`.**
+Standard API aggregators often abstract away or normalize engine-level parameters. Token Factory exposes direct passthrough to the underlying Jinja chat template arguments. In kakeratta's routing experiments, the smallest models (Nemotron 3.5 Lightning and Nano) spent 6–9 seconds generating long reasoning traces for simple categorization tasks. Passing a top-level flag did not disable thinking on Token Factory; it required passing `chat_template_kwargs: {"enable_thinking": false}`. Having direct control over template arguments allowed me to measure the exact latency, cost, and accuracy trade-offs of reasoning tokens on real production posts and tune the routing pipeline directly in code.
 
-Token Factory is the default provider, while OpenRouter remains an option for users who want other models, including Jev for routing.
-
-The application itself runs on Google Cloud and calls Token Factory over HTTPS. The Web API saves each post and its job in Firestore and publishes the job to Pub/Sub, and separate workers run the personas. In the Cloud Run configuration, idle workers scale to zero. To keep production unchanged at low cost through the judging period, it currently runs on a shared Compute Engine VM with the same Web/worker split. I did not provision Nebius GPU instances. I kept the application infrastructure on GCP because I already knew its Terraform tooling and wanted to spend the hackathon building the product.
+**2. Robust native tool calling with strict enforcement (`tool_choice: "required"`).**
+When hosting open-weight models, tool calling often falls back to prompt-wrapped simulations that easily break—emitting calls as plain text or corrupting argument schemas. Early versions of kakeratta asked models to emit JSON actions in prose, but personas frequently wrote actions into their text notes (such as recording a reminder as raw text instead of calling the `schedule` tool) while the tool database stayed empty. Migrating to Token Factory's native tool calling and enforcing `tool_choice: "required"` completely resolved this. Nemotron Super and Ultra reliably returned valid `tool_calls` payloads matching the declared schemas. This dependable execution made speaking vs. remaining silent an explicit tool choice and allowed the host application to enforce deterministic validation, permission checks, and multi-stage planning entirely with open models.
 
 ### How likely are you to recommend running Nemotron on Nebius to other developers?
 
