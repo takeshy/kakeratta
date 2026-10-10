@@ -57,6 +57,7 @@ const shots = [
   { name: "persona-create", id: "personas--ai-create-start", clip: ".dialog" },
   { name: "persona-draft", id: "personas--ai-create-draft", clip: ".dialog" },
   { name: "timeline", id: "screen--hero" },
+  { name: "travel-memory", id: "screen--travel-memory" },
   { name: "offline", id: "screen--offline", ready: ".sync-status" },
   { name: "nobody", id: "screen--nobody-in-the-room" },
   { name: "personas", id: "personas--all-present", clip: "#sheet" },

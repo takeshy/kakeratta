@@ -42,6 +42,29 @@ export const Hero = {
   },
 };
 
+// The landing-page example: a missed restaurant and a later daily check-in.
+// Daily check-ins are independent persona posts, rather than direct replies.
+export const TravelMemory = {
+  name: "LP 用（静岡の店を daily で思い出す）",
+  render: () => {
+    const ja = getLanguage() === "ja";
+    const at = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
+    return screen({
+      rows: personas.filter((row) => row.builtin),
+      entries: [
+        { id: "trip-missed", kind: "post", speaker: "user", at: at(21 * 24 * 60),
+          text: ja ? "静岡旅行、さわやかに行ってみたかったけど、時間がなくて寄れなかった。"
+            : "On my Shizuoka trip, I wanted to try Sawayaka, but ran out of time." },
+        { id: "trip-return", kind: "post", speaker: "user", at: at(120),
+          text: ja ? "明日静岡に行く" : "I'm going to Shizuoka tomorrow." },
+        { id: "trip-daily", kind: "post", speaker: "gourmet", at: at(5),
+          text: ja ? "明日静岡に行くなら、さわやかはいかが？以前行きたかったけど時間がなくて行けなかったみたいだから、今度こそぜひ。"
+            : "If you're going to Shizuoka tomorrow, how about Sawayaka? You wanted to go last time but ran out of time. Maybe this trip is your chance." },
+      ],
+    });
+  },
+};
+
 export const Mentioning = {
   name: "担当を指名して書いている途中",
   render: () => screen({ rows: personas, entries: timeline().answered, text: words().mentioning }),

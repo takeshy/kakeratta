@@ -86,7 +86,7 @@ kakeratta の MCP サーバーは、外部エージェント向けに以下の�
 | `list_asks` | 未処理・取得済み ask の確認（配布バージョン情報を含む） |
 | `claim_ask` | ask の排他的な取得とコンテキスト（ペルソナ設定・指示・制約等）の取得 |
 | `read_for_ask` | プランニングに必要な追加情報の参照（`records` と、`timeline_search` などの読み取り用の道具） |
-| `submit_answer` | 最終回答（`{text, sources}`。任意で `remember`・`schedule`・`unrelated`）だけを提出 |
+| `submit_answer` | 最終回答（`{text, sources}`。任意で `schedule`・`unrelated`）だけを提出 |
 | `release_ask` | 自力でのプランニングを断念し、kakeratta 内蔵モデルへ即時返却 |
 | `get_integration` | 最新の Skill および Wake Gate スクリプト本文の取得 |
 
@@ -101,7 +101,7 @@ list_asks → claim_ask → コンテキスト解釈 → read_for_ask・自前�
 1. **`list_asks`**: 開いている ask を確認します。`status: "pending"` のものが未取得です。`claimBy` までに取得されないと内蔵モデルが引き取ります。
 2. **`claim_ask`**: `askId` と実行ごとに固有の `claimId` を渡して排他的に取得します。応答には `planBy`（回答の受理期限）と詳細な `context` が含まれます。応答が失われた場合の再試行には同じ `claimId` を使います。
 3. **調査と推論**: 必要に応じて `read_for_ask` の `records` ステップで担当の前のかけらの記録を調べます（`args` に `tag`・`query`・`before` のうち要るもの、または `ids` で記録の投稿そのもの（10件までまとめて））。`tool` ステップでは、`context.tools` で `use: "read"` とされた道具（`timeline_search` など）を呼べます。この `read_for_ask` 経由の `timeline_search` が見つけた投稿と、記録の ID で読んだ投稿だけが、`speak` の `sources` に引用できます。また、必要に応じて Web 検索等も併用します。
-4. **`submit_answer`**: `askId`、`claimId`、`answer: {text, sources, remember, schedule, unrelated}` を提出します。`remember` はユーザーの投稿を覚えておく価値があるか（true のときだけ kakeratta のメモ係が動きます）、`schedule` は予定の作成・変更・取消が必要か（true のときだけ予定のフェーズが動きます）、`unrelated` は担当の領域外として黙ったことを表します。3つとも省略でき、省略した回答ではメモ係と予定のフェーズは従来どおり動きます。kakeratta が確かめるのは形とこのターンの規則（名指しなら空にしない、傾聴なら空にする、`sources` はこの ask の検索結果だけ）です。`accepted: true` は受け取ったという意味で、まだ公開されていません。kakeratta が予定・操作のフェーズを進めて実行したあとに公開します（メモはそのあと、`remember` が false でなければ担当のメモ係が書きます）。差し戻されたら `problems` を直して再提出します。
+4. **`submit_answer`**: `askId`、`claimId`、`answer: {text, sources, schedule, unrelated}` を提出します。任意の `schedule` は予定の作成・変更・取消が必要か、`unrelated` は領域外として黙ったかを表します。`schedule` を省略すると予定処理は従来どおり動きます。kakeratta は形、ターンの規則、出典IDを確認します。`accepted: true` は受領であり、まだ公開されていません。予定・操作のフェーズを実行してから公開します。その後、記憶する担当のメモ係が、関係のあるユーザー投稿（発言せず聞くだけの場合も）について記憶するかと内容を判断します。編集も以前の記憶を訂正するためメモ係に渡します。旧形式の `remember` は受け付けますが値は無視します。差し戻されたら `problems` を直して再提出します。
 5. **`release_ask`**: 自力で考えられない ask は、期限切れを待たずに即座に内蔵モデルへ引き渡します。
 
 ### claim で渡す Context

@@ -300,7 +300,7 @@ selected recipients run in parallel
    (a persona without lookup tools reads and answers on Ultra)
  ↓ schedule phase on Super only when the answer asks for one
  ↓ action phase on Super for personas that hold an action
- ↓ note keeper only when the answer says the post is worth remembering
+ ↓ note keeper for memory-enabled related user turns
 ```
 
 ## A workflow assembled phase by phase, not written in one call
@@ -349,7 +349,7 @@ flowchart TD
   A[Save entry and work record] --> B[Analyze attached image]
   B --> C[Select recipients and save the decision]
   C --> D[Read and answer for each persona]
-  D --> E[Answer with remember and schedule decisions]
+  D --> E[Answer with schedule decision]
   E --> F[Plan schedules]
   F --> G[Plan actions]
   G --> H[Code validation and AI review]
@@ -407,9 +407,7 @@ thread is included in full.
    deep or AlwaysUltra turn of a persona with lookup tools hands its reads,
    with the whole conversation and tool results, to Ultra, which is offered
    only `submit_answer`. The persona hands in `{text, sources, unrelated,
-   remember, schedule}`: `remember` says whether the user's post is worth
-   keeping (greetings, general questions and system wakes are not), and
-   `schedule` whether a schedule must be created, changed or cancelled. Its prompt holds no note format, memory layout or
+   schedule}`: `schedule` says whether a schedule must be created, changed or cancelled. Its prompt holds no note format, memory layout or
    change schema, and it is not told to keep notes. It is told what the later
    phases can do for it (`capabilities`), so it does not promise a reminder or
    an action the persona cannot make. An empty text is silence; a named turn
@@ -451,8 +449,7 @@ thread is included in full.
 
 8. **Memory comes after the answer.** It is not a phase of the turn: memory
    that fails to come out must not take a finished answer with it. Once the
-   remark is out, the persona's **note keeper** keeps it - unless the answer
-   said `remember: false` (see [The note keeper](#the-note-keeper)).
+   remark is out, a memory-enabled persona's **note keeper** judges what to retain from a related user turn (see [The note keeper](#the-note-keeper)).
 
 Each turn is logged as one structured entry: what was read, the answer, each
 phase with its rounds, reads and what it had sent back and why, each review and
@@ -465,11 +462,8 @@ in and how many submissions it took.
 `internal/persona/notekeeper.go`. After the remark is published, the persona
 keeps what the turn should leave behind, on the middle model (Super by default,
 even when Ultra composes the answer), in its own voice. It runs for a fragment of the user's - a post,
-a reply, an edit, also when the persona stayed quiet or could not speak - when
-the answer did not say `remember: false`, and for a check-in handed records due
-for review, whatever the answer said. Schedule wakes, deletion tidy-ups, and
-out-of-domain silence do not run it. An edited post answered with
-`remember: false` has its records and fact sources taken out without a model. On deletion, the host removes the records
+a reply, or an edit, including related silence - when memory is enabled, and for a check-in handed records due
+for review. Schedule wakes, deletion tidy-ups, and out-of-domain silence do not run it. Edits always reach the keeper when memory is enabled, even when unrelated, so earlier facts can be corrected through the durable keeper job. Legacy answer `remember` values are ignored. On deletion, the host removes the records
 and their unsupported facts directly; the persona can revisit its schedules.
 See [keepsNotes](../internal/persona/runner.go) and [the note keeper](../internal/persona/notekeeper.go).
 

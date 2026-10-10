@@ -971,11 +971,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if unrelated {
 		r.markUnrelated(trigger.ID, skill.ID)
 	}
-	// Records due for review are kept by the keeper whatever the answer said
-	// about remembering the check-in itself, or the same review comes back.
-	// Otherwise the answer's remember=false spares the keeper's model call.
-	remember := answer.Remember == nil || *answer.Remember || strings.Contains(wakeInstructions, reviewInstructions)
-	if skill.Remembers() && keepsNotes(trigger, wakeInstructions) && !unrelated && remember {
+	// Speaking and keeping memory are separate decisions. The keeper applies
+	// the persona's memory rules to every related user turn, including silence.
+	// An edit still needs its earlier facts corrected even when its new text
+	// is outside the domain. The durable keeper job handles that correction.
+	edited := strings.HasPrefix(wakeInstructions, editedInstructions)
+	if skill.Remembers() && keepsNotes(trigger, wakeInstructions) && (!unrelated || edited) {
 		keeper := keeperTurn{skill: skill, thread: thread, trigger: trigger, answer: spoken, wake: wakeInstructions, here: here, names: names}
 		if remark != nil {
 			keeper.replyID = remark.ID
@@ -997,16 +998,6 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			}
 		} else {
 			r.emit("error", map[string]any{"where": "note retry", "message": err.Error()})
-		}
-	} else if skill.Remembers() && !remember && strings.HasPrefix(wakeInstructions, editedInstructions) {
-		// An edit no longer worth remembering must not leave what was kept of
-		// the post before it. Taken out without a model, as for a deletion.
-		zone := settings.Location()
-		if _, err := r.dropRecords(ctx, skill.ID, []timeline.Entry{trigger}, zone); err != nil {
-			r.emit("error", map[string]any{"where": "memory", "message": err.Error()})
-		}
-		if _, err := r.dropFactSources(ctx, skill, map[string]bool{trigger.ID: true}, zone); err != nil {
-			r.emit("error", map[string]any{"where": "memory", "message": err.Error()})
 		}
 	}
 	return remark
@@ -1112,7 +1103,7 @@ func turnLine(named, listening bool) string {
 	switch {
 	case listening:
 		return "\n※ **このターンは発言できません。** あなたの後に出た発言を読むだけです。" +
-			"覚えておくことがあればremember=trueで答えてください。あとでメモ係が書きます。Answer の text は空にしてください。"
+			"覚える内容はあとでメモ係が判断して書きます。Answer の text は空にしてください。"
 	case named:
 		return "\n※ あなたは名指しで呼ばれています。Answer の text を空にはできません。必ず何か答えてください。"
 	}

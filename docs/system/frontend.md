@@ -150,7 +150,9 @@ The persona tool picker uses [tool_labels.js](../../frontend/src/tool_labels.js)
 
 [Personas.stories.js](../../frontend/stories/Personas.stories.js) supplies localized sample data for creation, editing, and notification cards. [captures.mjs](../../frontend/captures.mjs) captures the actual UI into `docs/captures/ja/` and `docs/captures/en/`; the manual and landing page reference these files with their current dimensions.
 
-The `screen--hero` story in [Screen.stories.js](../../frontend/stories/Screen.stories.js) supplies the shared `timeline` capture for the README, landing page, and manual. It shows only current built-in personas and a complete conversation with tabe, opening the reply toggle so the persona's answer and the user's reply are visible.
+The `screen--hero` story in [Screen.stories.js](../../frontend/stories/Screen.stories.js) supplies the shared `timeline` capture for the README and manual. It shows only current built-in personas and a complete conversation with tabe, opening the reply toggle so the persona's answer and the user's reply are visible.
+
+The landing page uses the separate `screen--travel-memory` story and `travel-memory` capture in Japanese and English. Its sample timeline shows a restaurant missed during a Shizuoka trip, a return-trip post three weeks later, and tabe's daily suggestion. The daily suggestion is an independent persona post, matching the check-in delivery shape.
 
 ## Implementation and verification
 

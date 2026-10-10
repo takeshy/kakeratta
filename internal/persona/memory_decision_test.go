@@ -12,9 +12,9 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-// The answer decides whether the post is worth remembering. Without it the
-// keeper's model is not called; with it the keeper keeps facts as before.
-func TestAnswerDecisionsSkipUnneededFollowupCalls(t *testing.T) {
+// The keeper decides what to retain, even when an old client submits a false
+// remember flag. Related silence and speech both reach the keeper.
+func TestRelatedAnswersRunKeeperRegardlessOfLegacyRemember(t *testing.T) {
 	for _, remember := range []bool{false, true} {
 		for _, text := range []string{"", "了解です"} {
 			t.Run(fmt.Sprintf("remember=%t spoken=%t", remember, text != ""), func(t *testing.T) {
@@ -30,10 +30,7 @@ func TestAnswerDecisionsSkipUnneededFollowupCalls(t *testing.T) {
 				}
 				entry := post(t, s, "前は朝の散歩。最近は夕方に歩いています。")
 				r.react(entry.ID)
-				want := 0
-				if remember {
-					want = 1
-				}
+				want := 1
 				if calls != 1 || len(f.keeps) != want || len(f.reviews) != 0 {
 					t.Fatalf("answer=%d keeper=%d (want %d) review=%d", calls, len(f.keeps), want, len(f.reviews))
 				}
@@ -42,10 +39,53 @@ func TestAnswerDecisionsSkipUnneededFollowupCalls(t *testing.T) {
 	}
 }
 
+func TestMemoryKeeperUsesRelatednessInsteadOfAnAnswerDecision(t *testing.T) {
+	for _, tc := range []struct {
+		name, text string
+		unrelated  bool
+		want       int
+	}{
+		{"related silence", "", false, 1},
+		{"unrelated silence", "", true, 0},
+		{"spoken answer", "今回は行ってみては？", false, 1},
+		{"spoken answer cannot be unrelated", "今回は行ってみては？", true, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, s, f := setup(t, func(string, string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+			f.phaseReply = func(_, _ string, offered map[string]bool) string {
+				if !offered[submitAnswer] {
+					t.Fatalf("unexpected phase: %v", offered)
+				}
+				raw, _ := json.Marshal(map[string]any{"text": tc.text, "sources": []string{}, "unrelated": tc.unrelated, "schedule": false})
+				return string(raw)
+			}
+			post := post(t, s, "静岡のA店に行きたかったが時間がなく寄れなかった")
+			r.react(post.ID)
+			if len(f.keeps) != tc.want {
+				t.Fatalf("keeper calls=%d want=%d", len(f.keeps), tc.want)
+			}
+		})
+	}
+}
+
+func TestRememberIsNotAdvertisedAndLegacyFalseIsIgnored(t *testing.T) {
+	raw, _ := json.Marshal(answerTool.Parameters)
+	if strings.Contains(string(raw), `"remember"`) {
+		t.Fatal("answer schema still asks for remember")
+	}
+	answer, err := ParseAnswer([]byte(`{"text":"回答","sources":[],"remember":false,"schedule":false}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = json.Marshal(answer)
+	if strings.Contains(string(raw), `"remember"`) {
+		t.Fatal("legacy decision survived into the execution answer")
+	}
+}
+
 // A check-in handed records due for review keeps them through the keeper even
-// when the answer says the check-in itself is not worth remembering, or the
-// same review comes back the next day.
-func TestCheckInReviewRunsKeeperWhateverRememberSays(t *testing.T) {
+// when an old client says not to remember it, or the same review comes back.
+func TestCheckInReviewRunsKeeperWithLegacyRememberFalse(t *testing.T) {
 	r, _, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
 	f.phaseReply = func(_, _ string, offered map[string]bool) string {
 		if !offered[submitAnswer] {
@@ -62,14 +102,14 @@ func TestCheckInReviewRunsKeeperWhateverRememberSays(t *testing.T) {
 	}
 }
 
-// An edited post that is no longer worth remembering leaves nothing of what
-// was kept of it before, without asking the keeper's model.
-func TestEditNotWorthRememberingDropsWhatWasKept(t *testing.T) {
+// Edits use the durable keeper to correct the prior memory, including when
+// the edited text is now outside the persona's domain.
+func TestUnrelatedEditRunsKeeperToCorrectPriorFacts(t *testing.T) {
 	r, s, f := setup(t, func(string, string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	remember := true
+	unrelated := false
 	f.phaseReply = func(_, _ string, offered map[string]bool) string {
 		if offered[submitAnswer] {
-			raw, _ := json.Marshal(map[string]any{"text": "", "sources": []string{}, "remember": remember, "schedule": false, "unrelated": false})
+			raw, _ := json.Marshal(map[string]any{"text": "", "sources": []string{}, "remember": false, "schedule": false, "unrelated": unrelated})
 			return string(raw)
 		}
 		return `{"operations":[],"consistent":true,"reason":"なし"}`
@@ -86,22 +126,27 @@ func TestEditNotWorthRememberingDropsWhatWasKept(t *testing.T) {
 		t.Fatalf("fact not kept from the post: %+v", note)
 	}
 
-	remember = false
+	unrelated = true
+	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
+	prior := r.loadFacts(skill, s.Settings().Location()).ByField["Preference"].Current[0]
+	f.keep = func(string, string) string {
+		raw, _ := json.Marshal(map[string]any{"summary": "A店の感想を取り消した", "tags": []string{"訂正"}, "facts": []map[string]any{{"op": "invalidate", "id": prior.ID}}})
+		return string(raw)
+	}
 	entry.Text = "テスト"
 	if err := s.UpdateEntry(entry); err != nil {
 		t.Fatal(err)
 	}
 	client, settings := r.clientOf()
-	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
 	r.run(context.Background(), skill, []timeline.Entry{entry}, entry, false, false, editedInstructions, false, client, settings, r.registry(settings))
-	if len(f.keeps) != 1 {
-		t.Fatalf("keeper model called for an edit not worth remembering: %d", len(f.keeps))
+	if len(f.keeps) != 2 {
+		t.Fatalf("keeper did not process the edit: %d", len(f.keeps))
 	}
-	if ids := recordIDs(r, "gourmet"); len(ids) != 0 {
-		t.Fatalf("record of the earlier text survived: %v", ids)
+	if ids := recordIDs(r, "gourmet"); len(ids) != 1 {
+		t.Fatalf("edit did not replace the prior record: %v", ids)
 	}
-	if note, ok := s.Note("gourmet", "Preference.md"); ok && strings.Contains(note.Text, entry.ID) {
-		t.Fatalf("fact resting on the earlier text survived:\n%s", note.Text)
+	if facts := r.loadFacts(skill, s.Settings().Location()).ByField["Preference"]; len(facts.Current) != 0 || len(facts.Past) != 1 {
+		t.Fatalf("keeper did not invalidate the old fact: %+v", facts)
 	}
 }
 
