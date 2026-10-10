@@ -114,7 +114,7 @@ Not every turn goes through every stage. A persona without memory and without pe
 | Model | Role |
 | --- | --- |
 | Nemotron 3 Ultra | Drafting personas; final answers for deep requests and AlwaysUltra, including Markdown infographics |
-| Nemotron 3 Super | Routing, initial research planning and depth selection, all built-in research, ordinary final answers, schedule/action planning, workflow review |
+| Nemotron 3 Super | Routing, all built-in research, ordinary final answers, schedule/action planning, workflow review |
 | Nemotron 3.5 Lightning | Optional dictation polishing |
 | GLM-5.3-Flash | Understanding photos and screenshots |
 | Qwen3-Embedding-8B | Meaning search over past fragments |
@@ -134,9 +134,7 @@ You choose in kakeratta which personas use the external agent. Because Hermes ca
 - **Meaning search for users and personas.** Posts are embedded with Qwen3-Embedding-8B and stored in Firestore. Personas get the same search as a tool, which helps their answers match what the user actually meant.
 - **Tools belong to personas.** Each persona declares its own tools. These include web search with publication-date filters (Tavily), weather forecasts for outing preparation (WeatherAPI), place and route lookup provided over MCP with a built-in OpenStreetMap fallback, and timeline and memory search.
 - **Reminders via Web Push.** On registered devices, a successful scheduled post triggers a notification titled with the reminder text, truncated to 120 characters. Delivery is best effort; the timeline post is kept even if push fails.
-- **Markdown diagrams and legacy HTML export.** Infographics use emoji and Mermaid diagrams in Markdown. Previously generated HTML answers still render in an isolated iframe with no scripts or external network access and can be converted to images in the browser for Bluesky sharing.
-- **Recovery after a failure.** The work records saved in stage 1 outlive any single server. A job that was saved but never published is republished by a periodic repair, and Pub/Sub redelivers any job a worker did not finish. If routing results were already saved, they are reused. What is saved is the work to be done, not the AI's in-progress reasoning, so an interrupted stage may run again. Search-index updates are retried if they fail.
-- **Recovering from cut-off answers.** Final answers have an output limit. If one is cut off at that limit, the persona does not continue the broken text; it is asked to rewrite a shorter, complete answer from the start, keeping the key points, numbers, and sources.
+- **Markdown diagrams.** Infographics use emoji and Mermaid diagrams in Markdown.
 - **Measuring cost by purpose.** Every model call is logged with its purpose (routing, research, final answer, planning, review, memory, embedding) and its retry scope, so I can see which stage drives cost and where to change models.
 
 ## Challenges we ran into
@@ -159,7 +157,7 @@ The router is the heart of the app. Every fragment passes through it, and it has
 
 I started with Nemotron 3.5 Lightning, which NVIDIA promotes for routing. But posts sometimes missed the persona I meant, or reached one I didn't. Switching to Nemotron 3 Ultra and tuning the prompt fixed the routing.
 
-Token Factory shows cost per model, and that is where the next problem appeared. Routing on Ultra accounted for about half of all AI spend. That was not expensive by itself, but together with the replies, one fragment cost about 1 yen. For business use that is cheap. For a consumer app where you're meant to jot down small thoughts, it is enough to make you hesitate before posting. Keeping Ultra as the router was not an option.
+Token Factory shows cost per model, and that is where the next problem appeared. Routing on Ultra accounted for about half of all AI spend. That was not expensive by itself, but together with the replies, one fragment cost more than 1 yen. For business use that is cheap. For a consumer app where you're meant to jot down small thoughts, it is enough to make you hesitate before posting. Keeping Ultra as the router was not an option.
 
 I concluded that if Ultra succeeds where smaller models fail, the task itself is too ambiguous. The router had been given each persona's role along with its trigger conditions, which was too much information. I made two changes:
 
