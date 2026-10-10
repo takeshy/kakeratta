@@ -3,6 +3,7 @@ const STORAGE_KEY = "kakeratta.language";
 const EN = {
   "AI利用状況": "AI usage", "集計月": "Month", "更新": "Refresh", "用途": "Purpose", "AI料金": "AI cost",
   "返答": "Replies", "定期実行": "Scheduled runs", "その他": "Other", "担当合計": "All personas", "その他の共通処理": "Other shared processing",
+  "振り分け": "Routing", "{0}回": "{0}",
   "未算出（{0}件）": "Unpriced ({0} calls)", "合計：{0} · Web検索 {1}回": "Total: {0} · Web searches: {1}",
   "この月の利用記録はありません": "No usage recorded for this month",
   "失敗したリクエスト：AI {0}件、Web検索 {1}件": "Failed requests: AI {0}, Web search {1}",

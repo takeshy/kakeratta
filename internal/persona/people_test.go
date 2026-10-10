@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
@@ -47,6 +48,72 @@ func TestHeardTermsListsEveryWordInThePost(t *testing.T) {
 	}
 	if got := HeardTerms(sato(), "石破さんのニュース"); len(got) != 0 {
 		t.Fatalf("heard %v", got)
+	}
+}
+
+func TestHeardKeepsQualifiedCallNamesAndSharedTopics(t *testing.T) {
+	skills := []Skill{
+		{ID: "father", Name: "自分の父", Kind: KindPerson, Aliases: []string{"パパ"}, Keywords: []string{"釣り"}},
+		{ID: "friend-father", Name: "子供の友人のパパ", Kind: KindPerson, Aliases: []string{"子供の友人のお父さん"}, Keywords: []string{"釣り"}},
+		{ID: "daughter-father", Name: "義理の娘のパパ", Kind: KindPerson, Aliases: []string{"義理の娘のお父さん"}, Keywords: []string{"ピアノ"}},
+		{ID: "teacher", Name: "子供の先生", Kind: KindPerson},
+	}
+	for _, tc := range []struct {
+		text string
+		want []string
+	}{
+		{"パパと話した", []string{"father"}},
+		{"子供の友人のパパと話した", []string{"friend-father"}},
+		{"義理の娘のパパと話した", []string{"daughter-father"}},
+		{"義理の娘のパパと話した後、パパに電話した", []string{"daughter-father", "father"}},
+		{"パパに電話した後、義理の娘のパパと話した", []string{"daughter-father", "father"}},
+		{"義理の娘のお父さんと話した", []string{"daughter-father"}},
+		{"友人のお父さんと話した", nil},
+		{"先生と話した", nil},
+		{"子供の先生と話した", []string{"teacher"}},
+		{"釣りに行く", []string{"father", "friend-father"}},
+		{"義理の娘のパパと釣りに行く", []string{"daughter-father", "father", "friend-father"}},
+	} {
+		t.Run(tc.text, func(t *testing.T) {
+			got := Heard(skills, tc.text)
+			if len(got) != len(tc.want) {
+				t.Fatalf("heard %v, want %v", got, tc.want)
+			}
+			for _, id := range tc.want {
+				if got[id] == "" {
+					t.Errorf("did not hear %s: %v", id, got)
+				}
+			}
+		})
+	}
+}
+
+func TestQualifiedCallNameUsedByRoutingChecksAndMonthlyHistory(t *testing.T) {
+	runner, workspace, _ := setup(t, func(system, user string) string {
+		t.Error("person routing unexpectedly called the model")
+		return `{}`
+	}, "father", "kana-father")
+	father := Skill{ID: "father", Name: "自分の父", Domain: "父", Kind: KindPerson, Aliases: []string{"パパ"}}
+	kanaFather := Skill{ID: "kana-father", Name: "加奈ちゃんのパパ", Domain: "子供の友人の父", Kind: KindPerson}
+	for _, skill := range []Skill{father, kanaFather} {
+		raw, _ := json.Marshal(skill)
+		if _, err := runner.catalogue.Install(raw, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entry := post(t, workspace, "加奈ちゃんのパパと話した")
+	for _, tc := range []struct {
+		skill Skill
+		want  bool
+	}{{father, false}, {kanaFather, true}} {
+		check, err := runner.CheckRouting(context.Background(), entry.ID, tc.skill.ID)
+		if err != nil || !check.Answered || check.Delivered != tc.want || (len(check.Words) > 0) != tc.want {
+			t.Fatalf("%s routing check: %+v, %v", tc.skill.ID, check, err)
+		}
+		history := runner.monthlyCheckIn(context.Background(), tc.skill, entry.At.Add(-time.Hour), entry.At.Add(time.Hour), time.UTC)
+		if strings.Contains(history, entry.Text) != tc.want {
+			t.Fatalf("%s monthly history: %s", tc.skill.ID, history)
+		}
 	}
 }
 

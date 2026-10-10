@@ -339,7 +339,7 @@ func routeSubjects(ctx context.Context, client *llm.Client, settings store.Setti
 			routing.Deliver = append(routing.Deliver, skill.ID)
 			continue
 		}
-		routing.Excluded[skill.ID] = "呼び名・キーワードが投稿にありませんでした"
+		routing.Excluded[skill.ID] = "この人物に一致する呼び名・キーワードがありませんでした"
 	}
 	// The people are decided even when the router could not be: a post about
 	// someone is not lost because the subjects' model was down. The record of
@@ -368,10 +368,11 @@ func (r *Runner) CheckRouting(ctx context.Context, entryID, skillID string) (Rou
 	for _, skill := range skills {
 		if skill.ID == skillID {
 			found = true
-			// A person is decided by its own words; the router has no say.
+			// Other people's call names are needed to suppress shorter names
+			// within them. Subject routing still has no say in a person check.
 			if skill.IsPerson() {
-				skills = []Skill{skill}
-				words = HeardTerms(skill, search.Text(entry))
+				words = HeardTerms(skill, search.Text(entry), skills...)
+				skills = People(skills)
 			}
 			break
 		}

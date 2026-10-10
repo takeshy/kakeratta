@@ -97,9 +97,10 @@
   },
   {
     "file": "images/13-understand-ai-usage.png",
-    "title": "See monthly AI costs and web search counts",
-    "caption": "Inspect monthly AI costs and web search counts, including persona activity and the shared processing that supports it.",
+    "title": "See what each persona costs and what drives it",
+    "caption": "Inspect each persona’s monthly AI costs and web search counts, split into replies, scheduled runs and other work. Compare them with the overall total, including shared processing.",
     "sources": [
+      "../../captures/en/persona-usage.png",
       "../../captures/en/settings-usage.png"
     ]
   },

@@ -52,8 +52,10 @@ func Heard(skills []Skill, text string) map[string]string {
 		return nil
 	}
 	out := map[string]string{}
-	for _, skill := range People(skills) {
-		if terms := heardIn(skill, folded, true); len(terms) > 0 {
+	people := People(skills)
+	names := callNameMatches(people, folded)
+	for _, skill := range people {
+		if terms := heardIn(skill, folded, names, true); len(terms) > 0 {
 			out[skill.ID] = terms[0]
 		}
 	}
@@ -63,18 +65,75 @@ func Heard(skills []Skill, text string) map[string]string {
 // HeardTerms are all of a person's words found in the text, in the order of
 // Terms. A post that should not have reached a person can be in it by more
 // than one word, and each is one the person may want to remove.
-func HeardTerms(skill Skill, text string) []string {
+func HeardTerms(skill Skill, text string, others ...Skill) []string {
 	folded := foldText(text)
 	if folded == "" {
 		return nil
 	}
-	return heardIn(skill, folded, false)
+	names := callNameMatches(append([]Skill{skill}, People(others)...), folded)
+	return heardIn(skill, folded, names, false)
 }
 
-func heardIn(skill Skill, folded string, first bool) []string {
+type callNameMatch struct {
+	key        string
+	start, end int
+}
+
+// Names compete at each occurrence, so パパ inside 加奈ちゃんのパパ does
+// not name the user's father. A separate パパ elsewhere still can. Equal
+// names remain ambiguous; shared topic keywords never compete here.
+func callNameMatches(skills []Skill, folded string) []callNameMatch {
+	var out []callNameMatch
+	seen := map[string]bool{}
+	for _, skill := range skills {
+		for _, name := range append([]string{skill.Name}, skill.Aliases...) {
+			key := foldTerm(name)
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			for offset := 0; offset < len(folded); {
+				at := strings.Index(folded[offset:], key)
+				if at < 0 {
+					break
+				}
+				start := offset + at
+				out = append(out, callNameMatch{key: key, start: start, end: start + len(key)})
+				offset = start + 1
+			}
+		}
+	}
+	return out
+}
+
+func nameHeard(key string, names []callNameMatch) bool {
+	for _, match := range names {
+		if match.key != key {
+			continue
+		}
+		covered := false
+		for _, other := range names {
+			if len(other.key) > len(key) && other.start <= match.start && other.end >= match.end {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			return true
+		}
+	}
+	return false
+}
+
+func heardIn(skill Skill, folded string, names []callNameMatch, first bool) []string {
 	var out []string
-	for _, term := range skill.Terms() {
-		if key := foldTerm(term); key != "" && strings.Contains(folded, key) {
+	for i, term := range skill.Terms() {
+		key := foldTerm(term)
+		matched := key != "" && strings.Contains(folded, key)
+		if i <= len(skill.Aliases) {
+			matched = nameHeard(key, names)
+		}
+		if matched {
 			out = append(out, term)
 			if first {
 				break

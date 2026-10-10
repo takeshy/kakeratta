@@ -161,6 +161,7 @@ func (r *Runner) monthlyCheckIn(ctx context.Context, skill Skill, since, now tim
 	}
 	var summary *timeline.Entry
 	var heard []timeline.Entry
+	people := People(r.skills(ctx).Active(r.store.Settings().Active))
 	for i := range entries {
 		entry := entries[i]
 		if entry.Deleted || !entry.At.After(since) || entry.At.After(now) {
@@ -172,7 +173,7 @@ func (r *Runner) monthlyCheckIn(ctx context.Context, skill Skill, since, now tim
 			}
 			continue
 		}
-		if len(HeardTerms(skill, search.Text(entry))) > 0 {
+		if len(HeardTerms(skill, search.Text(entry), people...)) > 0 {
 			heard = append(heard, entry)
 		}
 	}

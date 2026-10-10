@@ -111,6 +111,69 @@ func TestPersonaBuilderUsesUltra(t *testing.T) {
 	}
 }
 
+func TestPersonBuilderReceivesOtherCallNamesWithoutPrivateFacts(t *testing.T) {
+	s, workspace := app(t)
+	person := persona.Skill{ID: "father", Name: "自分の父", Domain: "ユーザーの父", Kind: persona.KindPerson,
+		Aliases: []string{"パパ"}, Keywords: []string{"釣り"}, BasicInfo: "非公開の基本情報", Instructions: "非公開の気配り"}
+	raw, _ := json.Marshal(person)
+	if _, err := s.catalogue.Install(raw, nil); err != nil {
+		t.Fatal(err)
+	}
+	var prompts []string
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Messages []struct{ Role, Content string }
+		}
+		_ = json.NewDecoder(r.Body).Decode(&request)
+		if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "availableTools") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": "{}"}}}})
+			return
+		}
+		prompts = append(prompts, request.Messages[0].Content)
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"message":"呼び名を確認します","draft":null}`}}}})
+	}))
+	defer model.Close()
+	settings := workspace.ConfiguredSettings()
+	settings.BaseURL = model.URL
+	if err := workspace.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"", person.ID} {
+		body, _ := json.Marshal(map[string]any{"id": id, "messages": []map[string]string{{"role": "user", "content": "義理の娘のパパの担当を作りたい"}}})
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest("POST", "/api/personas/build", strings.NewReader(string(body))))
+		if w.Code != 200 {
+			t.Fatalf("%d %s", w.Code, w.Body.String())
+		}
+	}
+	if len(prompts) != 2 {
+		t.Fatalf("got %d builder requests", len(prompts))
+	}
+	readContext := func(prompt string) map[string]json.RawMessage {
+		t.Helper()
+		_, data, ok := strings.Cut(prompt, "\n設定データ:\n")
+		var result map[string]json.RawMessage
+		if !ok || json.Unmarshal([]byte(data), &result) != nil {
+			t.Fatal("missing builder context")
+		}
+		return result
+	}
+	otherPeople := string(readContext(prompts[0])["otherPeopleCallNames"])
+	for _, want := range []string{`"id":"father"`, `"name":"自分の父"`, `"aliases":["パパ"]`} {
+		if !strings.Contains(otherPeople, want) {
+			t.Errorf("missing %s: %s", want, otherPeople)
+		}
+	}
+	for _, unwanted := range []string{"非公開の基本情報", "非公開の気配り", "keywords", "釣り"} {
+		if strings.Contains(otherPeople, unwanted) {
+			t.Errorf("other people's call names contain %s", unwanted)
+		}
+	}
+	if got := string(readContext(prompts[1])["otherPeopleCallNames"]); got != "[]" {
+		t.Fatalf("editing included itself among other people: %s", got)
+	}
+}
+
 func TestPersonaBuilderReceivesFullPostAndThread(t *testing.T) {
 	server, workspace := app(t)
 	var captured string

@@ -25,7 +25,7 @@ The ZIP contains only the fifteen upload images.
 | 10 | `10-save-useful-answers.png` | Keep useful posts and answers in favorites |
 | 11 | `11-offline-fragments.png` | Capture a thought even while offline |
 | 12 | `12-share-your-selection.png` | Preview exactly what you share to Bluesky |
-| 13 | `13-understand-ai-usage.png` | See monthly AI costs and web search counts |
+| 13 | `13-understand-ai-usage.png` | Persona costs and activity, alongside the overall total |
 | 14 | `14-turn-notes-into-infographics.png` | Turn notes and conversations into infographics |
 | 15 | `15-remember-your-people.png` | Keep the small details about your people |
 

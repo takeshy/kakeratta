@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-10"
+updated: "2026-10-11"
 ---
 
 Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections.
@@ -23,6 +23,8 @@ Production runs reactions on the separate Pub/Sub push worker. Web persists requ
 `Avatar` is presentation metadata: a compressed JPEG data URL validated at save time, kept in file/Firestore definitions and exports, and preserved by AI edits without entering model text context. It is separate from the emoji `Icon` used in persona descriptions and external-agent briefs. See [Profile names and photo avatars](./frontend.md#profile-names-and-photo-avatars).
 
 Subject personas cover topics. Person personas use `Kind: person` and have `Aliases` and `Keywords` that can match text. The Catalogue combines built-in personas with user-installed or edited definitions. `Settings.Active` selects active personas.
+
+The AI persona builder distinguishes identifying call names from shared topic keywords. Its instructions preserve the complete relationship in `Name`, `Aliases`, and any relationship-based keyword: for example, `義理の娘のパパ` must not be shortened to `パパ`, `父`, or `お父さん`. Direct relationships may use a bare call name such as `パパ` for the user's own father. The builder receives the IDs, names, and aliases of other registered people, including paused people, to avoid overlapping call names; it excludes the person being edited and does not include other people's basic information, instructions, or topic keywords. Hobbies, preferences, and skills may be standalone shared keywords, with variants, so the same post can reach multiple people. AI revisions are instructed to correct shortened relationship call names while retaining shared topics. These generation instructions do not enforce uniqueness at save time or migrate saved definitions. See [persona_builder.go](../../internal/server/persona_builder.go) and [persona_builder_test.go](../../internal/server/persona_builder_test.go).
 
 The Catalogue keeps nothing itself. It reads the installed definitions through `Workspace.Skills` - `skills/{id}/skill.json` files, or the Firestore `skills` collection - so a definition changed by another process serving the same user is seen at once. `Install`, `Update`, and `Uninstall` write only through `PersistSkill` and `DeleteSkill`; there is no second copy to keep in step.
 
@@ -112,6 +114,8 @@ Mention precedence changes the recipient without changing `Entry.ReplyTo`. The s
 For other entries, Runner combines subject personas selected by the router and person personas whose aliases or keywords match the entry's text and associated content. Post edits also notify prior recipients to correct their existing memories, including when the edited entry has an explicit addressee.
 
 Person personas are not sent to the subject router; their matches are recorded in `Heard`. Chat-completion subject routing sends all active subject conditions, the thread and the current post in one request to the configured Router model, defaulting to Super. Reasoning is enabled and the request has no routing-specific output-token ceiling. The aggregate `deliver` response lists matching IDs and `excluded_reasons` gives non-match explanations. Saved Router model choices are respected. With OpenRouter enabled and `openRouterRouterModel` set to `~typesafe/jev-latest`, it uses the Jev Decisions API with the OpenRouter key instead of chat completions. Other Router selections use the same aggregate chat-completion path; the legacy Jev flag no longer overrides the selection.
+
+Folded person call names (`Name` and `Aliases`) are matched by occurrence. A shorter name wholly inside a longer registered active person's call name does not count at that occurrence: `加奈ちゃんのパパ` reaches that person, without reaching the user's father by the embedded `パパ`. A separate `パパ` in the same post can still reach the father. Equal call names remain ambiguous. Topic keywords retain independent substring matching and may deliver to several people, even when names overlap. Routing checks use all active people for this comparison, without invoking the subject router, and monthly person history uses the same comparison. Unregistered or paused longer names do not suppress a shorter name; explicit addressees retain their existing precedence. See [people.go](../../internal/persona/people.go), [people_test.go](../../internal/persona/people_test.go), [runner.go](../../internal/persona/runner.go), and [summary.go](../../internal/persona/summary.go).
 
 Edits refresh prior recipients again when their ordered delivery starts, so a preceding turn that recorded its wake after routing still receives the correction. Existing recipients receive edit instructions; newly routed recipients receive an ordinary first delivery. Failures reading recipients or the delivery thread retain the reaction for retry.
 
