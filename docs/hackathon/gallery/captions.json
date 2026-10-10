@@ -104,11 +104,13 @@
     ]
   },
   {
-    "file": "images/14-choose-your-agent.png",
-    "title": "Choose an external agent for a persona",
-    "caption": "Enable an external-agent preference for a persona. When connected, the agent reads the relevant context, researches and writes its answer.",
+    "file": "images/14-turn-notes-into-infographics.png",
+    "title": "Turn notes and conversations into infographics",
+    "caption": "Ask the infographic persona to turn existing notes, articles or conversations into visual cards with emoji and Mermaid diagrams. Powered by Nemotron Ultra.",
     "sources": [
-      "../../captures/en/persona-planner.png"
+      "infographic-example.html",
+      "infographic-example.png",
+      "../../../frontend/src/infographic.js"
     ]
   },
   {

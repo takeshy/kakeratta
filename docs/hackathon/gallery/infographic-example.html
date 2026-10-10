@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>English infographic example</title>
+<link rel="stylesheet" href="../../../frontend/src/styles.css">
+<style>
+html { font-size: 20px; }
+body { margin: 0; padding: 24px; background: #f6f3ed; }
+.said-infographic { width: 952px; }
+.markdown-body p, .markdown-body ul { margin: 6px 0; }
+.markdown-mermaid svg { max-height: 220px; }
+</style>
+<div class="said-infographic" id="example"></div>
+<script type="module">
+import { renderInfographic } from '../../../frontend/src/infographic.js';
+const markdown = `# 🧭 A weekend in Shizuoka
+Turn a missed restaurant visit into a plan for your next trip.
+
+## 💭 What you remembered
+- 🍽️ You wanted to try Sawayaka last time.
+- ⏳ The wait was too long, so you missed it.
+
+## 🔗 Connect the fragments
+The old note becomes relevant when you mention another trip.
+
+\`\`\`mermaid
+flowchart LR
+  A[Missed visit] --> B[New trip]
+  B --> C[Plan a stop]
+\`\`\`
+
+## ✅ Before you go
+- 📍 Choose a branch that fits your plans.
+- 🕒 Check opening hours and current wait information.
+`;
+document.getElementById('example').append(renderInfographic(markdown));
+</script>
+</html>

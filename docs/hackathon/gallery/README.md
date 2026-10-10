@@ -26,13 +26,17 @@ The ZIP contains only the fifteen upload images.
 | 11 | `11-offline-fragments.png` | Capture a thought even while offline |
 | 12 | `12-share-your-selection.png` | Preview exactly what you share to Bluesky |
 | 13 | `13-understand-ai-usage.png` | See monthly AI costs and web search counts |
-| 14 | `14-choose-your-agent.png` | Choose an external agent for a persona |
+| 14 | `14-turn-notes-into-infographics.png` | Turn notes and conversations into infographics |
 | 15 | `15-remember-your-people.png` | Keep the small details about your people |
 
 ## Sources and regeneration
 
 The layouts use existing English UI captures from `docs/captures/en/`, produced
 by the app's Storybook stories. Source images are listed in `captions.json`.
+Image 14 uses a curated English travel example rendered by the application’s actual
+`renderInfographic` and Markdown/Mermaid renderer; its reproducible source is
+`infographic-example.html`. It is illustrative content, not a captured production
+AI response.
 CSS crops and scales those images without changing their UI text. The memory
 section headings follow the English display language.
 All added titles and explanatory copy are English. No demo-data label appears
