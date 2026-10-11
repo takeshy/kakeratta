@@ -54,11 +54,7 @@ steps:
   - frontend-upload
 substitutions:
   _IMAGE: asia-northeast1-docker.pkg.dev/kakeratta/kakeratta/kakeratta:${SHORT_SHA}
-  _RUN_REGION: asia-east1
-  _WORKER_SERVICE: kakeratta-worker
   _VERSION: ${COMMIT_SHA}
-  _WEATHERAPI_SECRET: kakeratta-wheatherapi-key
-  _WEATHERAPI_SECRET_VERSION: latest
 options:
   machineType: E2_HIGHCPU_8
   dynamicSubstitutions: true
