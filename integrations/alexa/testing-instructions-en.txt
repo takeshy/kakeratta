@@ -1,0 +1,42 @@
+TEST ACCOUNT
+Email: [REVIEW EMAIL]
+Password: [REVIEW PASSWORD]
+No Google account is required.
+
+ACCOUNT LINKING
+Enable the skill and start account linking in the Alexa app.
+Select “Review access / 審査用ログイン” on the Kakeratta login screen.
+Sign in with the supplied credentials and approve linking.
+
+LAUNCH AND HELP
+Say “Alexa, open Kakeratta Notes” for a short greeting.
+Say “Help” for instructions about notes, replies and schedules.
+
+READ AND RESPOND TO A REPLY
+Say “Read my replies.” The latest reply is read aloud. An English sample reply is provided.
+Say “Reply”, then “Thank you. I will try that” when prompted.
+Alexa reads back the text. Say “Yes” to save it in the same conversation.
+
+CREATE AND CORRECT A NOTE
+Say “Take a note”, then “I want to go for a walk tomorrow” when prompted.
+Alexa reads back the text without saving it yet.
+Say “No”, then “I want to go for a walk on Saturday” when prompted.
+After the new read-back, say “Yes”. Only the confirmed text is saved.
+You can also say “Let me try again” to replace the draft.
+
+CANCEL BEFORE POSTING
+Say “Take a note”, then “This is a cancellation test” when prompted.
+At the confirmation question, say “Cancel”. The session ends without saving the draft.
+
+CHECK SCHEDULES
+Reopen the skill and say “Read my schedule”. Upcoming plans saved in Kakeratta are read aloud.
+An English example plan is provided. If its date has passed, the skill may report no upcoming plans.
+The skill does not use the Alexa Reminders API, fetch external calendars, or automatically notify you through Alexa at the scheduled time.
+
+EXIT AND VERIFY SAVED CONTENT
+Say “Stop” to end the session.
+Open https://kakeratta.net/?login=1&review=1&lang=en and sign in with the same credentials to inspect saved notes, replies and cancellation results.
+
+Replies to new notes are asynchronous and may take time to arrive.
+Within the same voice session, “Read my replies” refers to the conversation you last posted or replied to.
+If a session ends between tests, reopen the skill before continuing.

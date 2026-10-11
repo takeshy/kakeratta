@@ -102,3 +102,7 @@ mise exec -- npm --prefix frontend run build
 ## 対話モデルの更新
 
 投稿確認・言い直し・返信には、新しいJSONを対象ロケールのJSON Editorへ貼り付け、Save Model / Build Modelを実行してください。サーバーの更新だけではYes/No・返信インテントとスロット聞き取り用ダイアログは追加されません。
+
+## 審査提出用のテスト手順
+
+[日本語](../integrations/alexa/testing-instructions-ja.txt)・[英語](../integrations/alexa/testing-instructions-en.txt)を用意しています。メールアドレスとパスワードのプレースホルダーを審査用の値に置き換え、非公開のテスト手順欄に入力してください。ヘルプ・確認前のキャンセル・自動リマインダーを使用しない説明を含みます。[提出チェックと確認記録](judge-access.md#submission-instructions-and-final-checks)も参照してください。
