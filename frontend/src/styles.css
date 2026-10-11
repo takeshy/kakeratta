@@ -25,6 +25,12 @@
 
 * { box-sizing: border-box; }
 
+.install-prompt { padding: 1rem; margin-block: 1rem; border: 1px solid var(--line); border-radius: 16px; background: var(--accent-soft); overflow-wrap: anywhere; }
+.install-prompt[hidden] { display: none; }
+.install-prompt p { margin: .5rem 0; }
+.install-prompt-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.install-prompt-actions button { min-height: 44px; }
+
 body {
   margin: 0;
   background: var(--bg);

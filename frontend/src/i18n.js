@@ -1,6 +1,14 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "ホーム画面に追加しませんか？": "Add kakeratta to your Home Screen?",
+  "ホーム画面から、すぐにkakerattaを開けます。": "Open kakeratta quickly from your Home Screen.",
+  "iPhoneで予定の通知を受け取るには、ホーム画面への追加が必要です。": "On iPhone, add kakeratta to your Home Screen to receive scheduled reminders.",
+  "追加したアイコンから開き、設定の「この端末」で「Push通知」をオンにして、通知を許可してください。": "Open kakeratta from the new icon, turn on Push notifications under This device in Settings, and allow notifications when prompted.",
+  "予定の通知を受け取るには、設定の「この端末」で「Push通知」をオンにして、通知を許可してください。": "To receive scheduled reminders, turn on Push notifications under This device in Settings and allow notifications when prompted.",
+  "Safariでこのページを開き、共有メニューから「ホーム画面に追加」を選んでください。「Webアプリとして開く」が表示されたらオンにして追加します。": "Open this page in Safari, then choose Add to Home Screen from the Share menu. If Open as Web App appears, turn it on before adding.",
+  "ホーム画面に追加": "Add to Home Screen",
+  "あとで": "Later",
   "AI利用状況": "AI usage", "集計月": "Month", "更新": "Refresh", "用途": "Purpose", "AI料金": "AI cost",
   "返答": "Replies", "定期実行": "Scheduled runs", "その他": "Other", "担当合計": "All personas", "その他の共通処理": "Other shared processing",
   "振り分け": "Routing", "{0}回": "{0}",

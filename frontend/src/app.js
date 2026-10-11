@@ -1,4 +1,5 @@
 import { localRecord, localIdentity, recentEntries } from "./local-store.js";
+import { installPromptNode } from "./install-prompt.js";
 // Wiring. One screen: a passage to drop something through, and the timeline
 // under it.
 //
@@ -368,6 +369,7 @@ clear(root).append(
     onLogout: authenticationEnabled() ? () => void logout() : null,
   }),
 );
+root.insertBefore(installPromptNode(), root.children[1]);
 
 // The button also provides a retry and works when IntersectionObserver is absent.
 if ("IntersectionObserver" in window) {

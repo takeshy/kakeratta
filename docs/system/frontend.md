@@ -1,7 +1,7 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
+description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
 updated: "2026-10-11"
 ---
@@ -205,6 +205,18 @@ SSE uses `EventSource` and sends the workspace key as a query parameter. Connect
 - [api-request.test.js](../../tests/api-request.test.js)
 
 # Device storage and the outbox
+
+## Smartphone installation prompt
+
+[install-prompt.js](../../frontend/src/install-prompt.js) registers installation listeners during bootstrap, before authentication completes, and mounts a localized, nonmodal Home Screen invitation below the application header. It targets smartphones using the browser's mobile client hint where available, otherwise iPhone/iPod or Android Mobile user agents; desktop and tablet user agents are excluded. A secure context is required. Standalone display mode, iOS `navigator.standalone`, or an `appinstalled` event suppresses the invitation.
+
+On browsers emitting `beforeinstallprompt`, the module retains the single-use event and offers **ホーム画面に追加 / Add to Home Screen**. Only a button click invokes the native prompt; repeated clicks cannot invoke it again. On iPhone, a fallback explains Safari's Share menu, **Add to Home Screen**, and **Open as Web App** when offered. Other browsers without an installation event show no invitation. **あとで / Later**, native dismissal, or a failed prompt suppresses the invitation for seven days using device-local `localStorage` key `kakeratta.install.dismissedUntil`. Storage failures still allow dismissal for the current page lifetime. Acceptance hides the invitation for the current page; standalone detection handles subsequent app launches. An already installed app opened in a regular browser tab may still show iPhone instructions because that context cannot reliably detect installation elsewhere.
+
+Verification: [install-prompt.test.js](../../tests/install-prompt.test.js) covers mobile eligibility, early events, single-use prompts, dismissal persistence and expiry, blocked storage writes, failed prompts, and installation/display-mode changes.
+
+The iPhone instructions explain that Home Screen installation is required for reminder notifications and ask the user to open the added icon. Both invitation variants then direct users to **Settings → This device → Push notifications** and browser permission approval. The native-install variant does not describe installation as a prerequisite for notifications; installation itself never enables push delivery.
+
+[InstallPrompt.stories.js](../../frontend/stories/InstallPrompt.stories.js) renders the actual controller and banner within the application screen at smartphone width: Android installation, iPhone instructions, extra-large text, standalone mode, a previously dismissed invitation, and desktop suppression. Browser events and storage are isolated per story; clicking the installation button simulates acceptance, and **Later** hides the banner without changing real device preferences. The shared language toolbar supports Japanese and English.
 
 ## Device persistence
 
