@@ -42,6 +42,19 @@ func (v alexaVoice) dateTime(at time.Time) string {
 }
 
 var alexaEnglish = map[string]string{
+	"どうぞ。": "Go ahead.",
+	"かけらったです。どうしますか。":                      "Kakeratta. What would you like to do?",
+	"もう一度お願いします。":                          "Please try again.",
+	"聞き取れませんでした。もう一度お願いします。":               "I didn't catch that. Please try again.",
+	"投稿してよければ『はい』、言い直すなら『いいえ』と言ってください。":    "Say yes to post, or no to try again.",
+	"メモの内容をどうぞ。":                           "What would you like to save?",
+	"返信の内容をどうぞ。":                           "What would you like to reply?",
+	"先に『返事を聞いて』で、返信する返事を聞いてください。":          "First say, read my replies, to hear the reply you want to respond to.",
+	"『%s』。この内容で投稿しますか。はい、または、いいえで答えてください。": "I heard: %s. Shall I post it? Say yes or no.",
+	"確認待ちの投稿はありません。『メモして』か『返信して』と言ってください。": "There is no note waiting for confirmation. Say, take a note, or, reply.",
+	"返信先が見つかりません。もう一度『返事を聞いて』と言ってください。":    "That reply is no longer available. Say, read my replies, again.",
+	"投稿しました。": "Posted.",
+	"『返信して』で、この返事に返信できます。": "Say, reply, to respond to this reply.",
 	alexaHelp: "Welcome to Kakeratta. Say, take a note, followed by what you want to save. You can also say, read my replies, or what's on my schedule.",
 	"『メモして』に続けて内容を話すか、『返事を聞いて』『予定を教えて』と言ってください。": "Say, take a note, followed by your message, read my replies, or what's on my schedule.",
 	"またいつでも話しかけてください。":                             "Talk to you again soon.",

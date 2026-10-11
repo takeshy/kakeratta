@@ -254,9 +254,8 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusForbidden, "judge access has expired")
 		return
 	}
-	if isJudge(identity) && r.URL.Path == "/api/alexa/authorize" {
-		fail(w, http.StatusForbidden, "Alexa linking requires a regular account")
-		return
+	if isJudge(identity) {
+		r = r.WithContext(context.WithValue(r.Context(), alexaJudgeIdentityKey{}, uid))
 	}
 	if r.URL.Path == "/api/auth/identity" && r.Method == http.MethodGet {
 		digest := sha256.Sum256([]byte(uid))
@@ -601,6 +600,7 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 	}
 	tenant := New(options)
 	tenant.workspaceKey = userKey
+	tenant.alexaJudge = g.checkAlexaJudge
 	return tenant, nil
 }
 

@@ -4,6 +4,8 @@ import { clear, el } from "./dom.js";
 import { t } from "./i18n.js";
 import { createGoogleLogin, guestLandingPage, showLogin } from "./login.js";
 
+import { reviewLoginURL, showReviewLogin } from "./review-login.js";
+
 let firebaseAuth = null;
 let firebaseSignOut = null;
 let enabled = false;
@@ -88,7 +90,7 @@ async function authenticate() {
       if (result?.user) localStorage.removeItem("kakeratta.signedOut");
     }
     const user = await waitForUser(firebaseAuth, authModule.onAuthStateChanged);
-    if (user && !judgeInviteToken() && localStorage.getItem("kakeratta.signedOut") !== "1") {
+    if (user && new URLSearchParams(location.search).get("review") !== "1" && !judgeInviteToken() && localStorage.getItem("kakeratta.signedOut") !== "1") {
       await establishSession(user);
       return true;
     }
@@ -116,6 +118,21 @@ async function authenticate() {
       show("");
       return false;
     }
+    if (new URLSearchParams(location.search).get("review") === "1") {
+      showReviewLogin({
+        signIn: (email, password) => authModule.signInWithEmailAndPassword(firebaseAuth, email, password),
+        establishSession: async user => {
+          try { await establishSession(user); }
+          catch (error) { await authModule.signOut(firebaseAuth); throw error; }
+        },
+        onSuccess: () => {
+          localStorage.removeItem("kakeratta.signedOut");
+          location.replace(reviewLoginURL(location.pathname, location.search, false));
+        },
+        back: reviewLoginURL(location.pathname, location.search, false),
+      });
+      return false;
+    }
     const landing = guestLandingPage(location.pathname, location.search);
     if (landing) {
       location.replace(landing);
@@ -134,6 +151,12 @@ async function authenticate() {
       },
     });
     loginScreen(login);
+    if (location.pathname === "/alexa") {
+      document.querySelector("#app").append(el("a", {
+        href: reviewLoginURL(location.pathname, location.search),
+        text: "Review access / 審査用ログイン",
+      }));
+    }
     return false;
   } catch (error) {
     loginScreen(() => location.reload(), String(error.message || error));
@@ -191,7 +214,7 @@ export function verifyIdentity(force = false) {
 }
 export async function ensureAuthentication() {
   const cached = localIdentity();
-  if (cached) {
+  if (cached && new URLSearchParams(location.search).get("review") !== "1") {
     enabled = cached.enabled;
     return true;
   }

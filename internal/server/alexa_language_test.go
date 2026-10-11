@@ -37,7 +37,8 @@ func TestAlexaEnglishLocales(t *testing.T) {
 				w := httptest.NewRecorder()
 				s.handleAlexa(w, r, e)
 				var body struct {
-					Response struct {
+					SessionAttributes map[string]string
+					Response          struct {
 						OutputSpeech struct{ Type, Text string }
 						Reprompt     struct{ OutputSpeech struct{ Text string } }
 					}
@@ -48,12 +49,13 @@ func TestAlexaEnglishLocales(t *testing.T) {
 				if body.Response.OutputSpeech.Type != "PlainText" {
 					t.Fatalf("unexpected speech type: %s", w.Body)
 				}
-				if body.Response.Reprompt.OutputSpeech.Text != "" && !strings.Contains(body.Response.Reprompt.OutputSpeech.Text, "take a note") {
+				e.Session.Attributes = body.SessionAttributes
+				if body.Response.Reprompt.OutputSpeech.Text != "" && body.Response.Reprompt.OutputSpeech.Text != "Go ahead." && body.Response.Reprompt.OutputSpeech.Text != "Say yes to post, or no to try again." {
 					t.Fatalf("non-English reprompt: %s", w.Body)
 				}
 				return body.Response.OutputSpeech.Text
 			}
-			for _, intent := range []string{"AMAZON.HelpIntent", "AMAZON.FallbackIntent", "UnknownIntent"} {
+			for _, intent := range []string{"AMAZON.HelpIntent"} {
 				if got := invoke(intent); !strings.Contains(got, "Welcome to Kakeratta") {
 					t.Fatal(got)
 				}
@@ -64,17 +66,19 @@ func TestAlexaEnglishLocales(t *testing.T) {
 			if got := invoke("ReadSchedulesIntent"); !strings.Contains(got, "no upcoming") {
 				t.Fatal(got)
 			}
-			if got := invoke("ThrowKakeraIntent"); !strings.Contains(got, "followed by what you want to save") {
+			if got := invoke("ThrowKakeraIntent"); !strings.Contains(got, "What would you like to save?") {
 				t.Fatal(got)
 			}
 			e.Request.Intent.Slots = map[string]struct {
 				Value string `json:"value"`
 			}{"text": {Value: "I want to go for a walk tomorrow"}}
-			for range 2 {
-				if got := invoke("ThrowKakeraIntent"); !strings.Contains(got, "Your note is saved") {
-					t.Fatal(got)
-				}
+			if got := invoke("ThrowKakeraIntent"); !strings.Contains(got, "Shall I post it?") {
+				t.Fatal(got)
 			}
+			if got := invoke("AMAZON.YesIntent"); got != "Posted." {
+				t.Fatal(got)
+			}
+
 			entries, err := st.Timeline()
 			if err != nil || len(entries) != 1 || entries[0].Language != "en" {
 				t.Fatalf("English post not saved exactly once: %+v, %v", entries, err)

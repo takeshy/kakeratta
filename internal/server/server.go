@@ -57,6 +57,7 @@ type EventBus interface {
 // Server is the app.
 type Server struct {
 	alexa        *alexa.Config
+	alexaJudge   func(context.Context, *Server, string, bool) error
 	workspaceKey string
 	socialClient func(context.Context) (*social.Client, error)
 	oauthClient  func(*oauth.ClientApp)

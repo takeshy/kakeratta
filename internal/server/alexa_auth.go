@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,6 +23,7 @@ const alexaCredential = "alexa-credential"
 // One revocable Alexa connection per workspace. Only credential hashes persist.
 type alexaCredentials struct {
 	Code, Access, Refresh                string
+	JudgeUID                             string `json:",omitempty"`
 	Redirect                             string
 	CodeUntil, AccessUntil, RefreshUntil time.Time
 }
@@ -111,6 +114,9 @@ func (s *Server) authorizeAlexa(w http.ResponseWriter, r *http.Request) {
 	}
 	code := s.newAlexaToken()
 	saved.Code, saved.CodeUntil, saved.Redirect = alexaHash(code), time.Now().Add(5*time.Minute), body.Redirect
+	if uid, _ := r.Context().Value(alexaJudgeIdentityKey{}).(string); uid != "" {
+		saved.JudgeUID = uid
+	}
 	data, _ := json.Marshal(saved)
 	ok, err := s.store.SwapSocialValue(r.Context(), alexaCredential, v.Version, store.SocialValue{Data: data})
 	if err != nil || !ok {
@@ -146,7 +152,7 @@ func (s *Server) exchangeAlexa(w http.ResponseWriter, r *http.Request) {
 	case "refresh_token":
 		valid = alexaMatches(r.Form.Get("refresh_token"), saved.Refresh) && now.Before(saved.RefreshUntil)
 	}
-	if !valid {
+	if !valid || s.checkAlexaJudge(r.Context(), saved.JudgeUID, false) != nil {
 		writeJSON(w, 400, map[string]string{"error": "invalid_grant"})
 		return
 	}
@@ -236,4 +242,41 @@ func (g *Gateway) alexaToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tenant.exchangeAlexa(w, r)
+}
+
+// Judge identity comes from a verified Firebase session, never OAuth input.
+type alexaJudgeIdentityKey struct{}
+
+func (s *Server) checkAlexaJudge(ctx context.Context, uid string, charge bool) error {
+	if uid == "" {
+		return nil
+	}
+	if s.alexaJudge == nil || workspaceKey(uid) != s.mcpWorkspace() {
+		return errors.New("review access unavailable")
+	}
+	return s.alexaJudge(ctx, s, uid, charge)
+}
+
+func (g *Gateway) checkAlexaJudge(ctx context.Context, s *Server, uid string, charge bool) error {
+	if !g.judgeActive() || g.options.ClaimJudgeUse == nil {
+		return errors.New("review access unavailable")
+	}
+	settings := s.store.ConfiguredSettings()
+	if settings.APIKey != g.options.JudgeAPIKey || settings.OpenRouterMode || settings.Provider != store.ProviderNebius || settings.Endpoint() != store.NebiusBaseURL {
+		settings.Provider, settings.BaseURL, settings.APIKey = store.ProviderNebius, store.NebiusBaseURL, g.options.JudgeAPIKey
+		settings.OpenRouterMode = false
+		if err := s.store.SaveSettings(settings); err != nil {
+			return err
+		}
+	}
+	if charge {
+		_, allowed, err := g.options.ClaimJudgeUse(ctx, uid, g.options.JudgeMaxUses)
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			return errors.New("review usage limit reached")
+		}
+	}
+	return nil
 }

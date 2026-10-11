@@ -16,13 +16,20 @@ import (
 
 const alexaHelp = "かけらったです。『メモして、明日は散歩に行きたい』でかけらを投げられます。『返事を聞いて』『予定を教えて』とも言えます。"
 
-func (v alexaVoice) say(w http.ResponseWriter, text string, end bool, attrs map[string]string, link bool) {
+func (v alexaVoice) say(w http.ResponseWriter, text string, end bool, attrs map[string]string, link bool, directives ...map[string]any) {
 	response := map[string]any{"shouldEndSession": end}
 	if text != "" {
 		response["outputSpeech"] = map[string]string{"type": "PlainText", "text": v.text(text)}
 	}
 	if !end {
-		response["reprompt"] = map[string]any{"outputSpeech": map[string]string{"type": "PlainText", "text": v.text("『メモして』に続けて内容を話すか、『返事を聞いて』『予定を教えて』と言ってください。")}}
+		prompt := "どうぞ。"
+		if attrs["draftText"] != "" {
+			prompt = "投稿してよければ『はい』、言い直すなら『いいえ』と言ってください。"
+		}
+		response["reprompt"] = map[string]any{"outputSpeech": map[string]string{"type": "PlainText", "text": v.text(prompt)}}
+	}
+	if len(directives) > 0 {
+		response["directives"] = directives
 	}
 	if link {
 		response["card"] = map[string]string{"type": "LinkAccount"}
@@ -76,47 +83,145 @@ func (s *Server) handleAlexa(w http.ResponseWriter, r *http.Request, e alexa.Env
 		voice.say(w, "Alexaアプリで、かけらったのアカウントを連携し直してください。", true, nil, true)
 		return
 	}
+	if err := s.checkAlexaJudge(r.Context(), credentials.JudgeUID, false); err != nil {
+		voice.say(w, "Review access is unavailable or has expired. Please contact the developer.", true, nil, false)
+		return
+	}
 	attrs := map[string]string{}
-	// Session attributes are signed by Alexa, but never authorize other workspaces.
-	if id := e.Session.Attributes["postId"]; id != "" {
-		attrs["postId"] = id
+	// Signed session attributes carry a draft, never authority over another workspace.
+	for _, key := range []string{"postId", "replyId", "draftText", "draftId", "draftReply", "collectIntent"} {
+		if value := e.Session.Attributes[key]; value != "" {
+			attrs[key] = value
+		}
 	}
 	if e.Request.Type == "LaunchRequest" {
-		voice.say(w, alexaHelp, false, attrs, false)
+		voice.say(w, "かけらったです。どうしますか。", false, nil, false)
 		return
 	}
 	if e.Request.Type != "IntentRequest" {
-		voice.say(w, alexaHelp, false, attrs, false)
+		voice.say(w, "もう一度お願いします。", false, attrs, false)
 		return
 	}
 	switch e.Request.Intent.Name {
-	case "ThrowKakeraIntent":
+	case "ThrowKakeraIntent", "ReplyKakeraIntent":
+		intent := e.Request.Intent.Name
+		clearAlexaDraft(attrs)
+		attrs["collectIntent"] = intent
+		if intent == "ReplyKakeraIntent" {
+			if _, ok := s.alexaReplyTarget(attrs["replyId"]); !ok {
+				delete(attrs, "collectIntent")
+				voice.say(w, "先に『返事を聞いて』で、返信する返事を聞いてください。", false, attrs, false)
+				return
+			}
+		}
 		text := strings.TrimSpace(e.Request.Intent.Slots["text"].Value)
 		if text == "" {
-			voice.say(w, "『メモして』に続けて、かけらの内容を話してください。", false, attrs, false)
+			voice.elicit(w, intent, attrs)
 			return
 		}
 		if len([]rune(text)) > 2000 || s.hasMultipleMentionedPeople(r.Context(), text) {
 			voice.say(w, "短いかけらを一つずつ話してください。担当の指名は一人までです。", false, attrs, false)
 			return
 		}
-		// A stable request ID makes retries across processes use CreateEntry's
-		// existing atomic entry + routing acceptance, without fetching spoken URLs.
-		id := "alexa-" + alexaHash(e.Request.ID)
-		entry := timeline.Entry{ID: id, Root: id, Text: text, Kind: timeline.KindPost, Speaker: timeline.User, At: e.Request.Timestamp, Language: voice.language(), RequestHash: alexaHash(text)}
-		if _, _, err := s.acceptEntry(entry, nil); err != nil {
-			voice.say(w, "受け付けを確認できませんでした。アプリで確認してください。", true, attrs, false)
-			return
+		attrs["draftText"], attrs["draftId"] = text, "alexa-"+alexaHash(e.Request.ID)
+		if intent == "ReplyKakeraIntent" {
+			attrs["draftReply"] = attrs["replyId"]
 		}
-		attrs["postId"] = id
-		voice.say(w, "かけらを受け付けました。担当から返事が届いたら、『返事を聞いて』で聞けます。", false, attrs, false)
+		delete(attrs, "collectIntent")
+		voice.confirmDraft(w, attrs)
+	case "AMAZON.YesIntent":
+		s.confirmAlexaPost(w, r, e, attrs, credentials.JudgeUID, voice)
+	case "AMAZON.NoIntent", "ReviseKakeraIntent":
+		intent := "ThrowKakeraIntent"
+		if attrs["draftReply"] != "" || attrs["collectIntent"] == "ReplyKakeraIntent" {
+			intent = "ReplyKakeraIntent"
+		}
+		clearAlexaDraft(attrs)
+		attrs["collectIntent"] = intent
+		voice.elicit(w, intent, attrs)
 	case "ReadRepliesIntent":
+		clearAlexaDraft(attrs)
 		s.alexaReplies(w, r, attrs, voice)
 	case "ReadSchedulesIntent":
+		clearAlexaDraft(attrs)
 		s.alexaSchedules(w, r, attrs, voice)
-	default:
+	case "AMAZON.HelpIntent":
 		voice.say(w, alexaHelp, false, attrs, false)
+	default:
+		if attrs["draftText"] != "" {
+			voice.confirmDraft(w, attrs)
+		} else if attrs["collectIntent"] != "" {
+			voice.elicit(w, attrs["collectIntent"], attrs)
+		} else {
+			voice.say(w, "聞き取れませんでした。もう一度お願いします。", false, attrs, false)
+		}
 	}
+}
+
+func clearAlexaDraft(attrs map[string]string) {
+	for _, key := range []string{"draftText", "draftId", "draftReply", "collectIntent"} {
+		delete(attrs, key)
+	}
+}
+
+func (v alexaVoice) elicit(w http.ResponseWriter, intent string, attrs map[string]string) {
+	prompt := "メモの内容をどうぞ。"
+	if intent == "ReplyKakeraIntent" {
+		prompt = "返信の内容をどうぞ。"
+	}
+	v.say(w, prompt, false, attrs, false, map[string]any{
+		"type": "Dialog.ElicitSlot", "slotToElicit": "text",
+		"updatedIntent": map[string]any{"name": intent, "confirmationStatus": "NONE", "slots": map[string]any{
+			"text": map[string]string{"name": "text", "confirmationStatus": "NONE"},
+		}},
+	})
+}
+
+func (v alexaVoice) confirmDraft(w http.ResponseWriter, attrs map[string]string) {
+	v.say(w, fmt.Sprintf(v.text("『%s』。この内容で投稿しますか。はい、または、いいえで答えてください。"), attrs["draftText"]), false, attrs, false)
+}
+
+func (s *Server) alexaReplyTarget(id string) (timeline.Entry, bool) {
+	parent, ok := s.store.Entry(id)
+	if !ok || parent.Deleted || parent.Speaker == timeline.User || parent.Speaker == timeline.App {
+		return timeline.Entry{}, false
+	}
+	root, ok := s.store.Entry(timeline.RootOf(parent))
+	return parent, ok && !root.Deleted
+}
+
+func (s *Server) confirmAlexaPost(w http.ResponseWriter, r *http.Request, e alexa.Envelope, attrs map[string]string, judgeUID string, voice alexaVoice) {
+	text, id := attrs["draftText"], attrs["draftId"]
+	if strings.TrimSpace(text) == "" || len([]rune(text)) > 2000 || !strings.HasPrefix(id, "alexa-") || len(id) != 70 {
+		clearAlexaDraft(attrs)
+		voice.say(w, "確認待ちの投稿はありません。『メモして』か『返信して』と言ってください。", false, attrs, false)
+		return
+	}
+	entry := timeline.Entry{ID: id, Root: id, Text: text, Kind: timeline.KindPost, Speaker: timeline.User, At: e.Request.Timestamp, Language: voice.language(), RequestHash: alexaHash(text + "\x00" + attrs["draftReply"])}
+	if target := attrs["draftReply"]; target != "" {
+		parent, ok := s.alexaReplyTarget(target)
+		if !ok {
+			clearAlexaDraft(attrs)
+			voice.say(w, "返信先が見つかりません。もう一度『返事を聞いて』と言ってください。", false, attrs, false)
+			return
+		}
+		entry.Kind, entry.Root, entry.ReplyTo = timeline.KindReply, timeline.RootOf(parent), parent.ID
+	}
+	// A retried confirmation can acknowledge an already accepted draft without charging again.
+	if _, exists := s.store.Entry(id); !exists {
+		if err := s.checkAlexaJudge(r.Context(), judgeUID, true); err != nil {
+			voice.say(w, "Review access is unavailable or its usage limit has been reached. Please contact the developer.", true, nil, false)
+			return
+		}
+	}
+	if _, _, err := s.acceptEntry(entry, nil); err != nil {
+		voice.say(w, "受け付けを確認できませんでした。アプリで確認してください。", true, nil, false)
+		return
+	}
+	clearAlexaDraft(attrs)
+	attrs["postId"] = entry.Root
+	delete(attrs, "replyId")
+	voice.say(w, "投稿しました。", false, attrs, false)
 }
 
 func (v alexaVoice) speechText(text string, limit int) string {
@@ -163,23 +268,17 @@ func (s *Server) alexaReplies(w http.ResponseWriter, r *http.Request, attrs map[
 		return entries[i].At.After(entries[j].At)
 	})
 	if len(entries) == 0 {
+		delete(attrs, "replyId")
 		voice.say(w, "最近のかけらには、まだ担当からの返事がありません。少し待ってからもう一度聞いてください。", false, attrs, false)
 		return
 	}
-	names := s.alexaNames(r.Context())
-	lines := []string{voice.text("最近のかけらに届いた返事です。")}
-	for i, entry := range entries {
-		if i == 3 {
-			lines = append(lines, voice.text("ほかの返事はアプリで確認できます。"))
-			break
-		}
-		name := names[entry.Speaker]
-		if name == "" {
-			name = voice.text("担当")
-		}
-		lines = append(lines, fmt.Sprintf(voice.text("%sから。%s"), voice.speechText(name, 80), voice.speechText(entry.Text, 700)))
+	entry := entries[0]
+	name := s.alexaNames(r.Context())[entry.Speaker]
+	if name == "" {
+		name = voice.text("担当")
 	}
-	voice.say(w, strings.Join(lines, " "), false, attrs, false)
+	attrs["replyId"] = entry.ID
+	voice.say(w, fmt.Sprintf(voice.text("%sから。%s"), voice.speechText(name, 80), voice.speechText(entry.Text, 700))+" "+voice.text("『返信して』で、この返事に返信できます。"), false, attrs, false)
 }
 
 func (s *Server) alexaSchedules(w http.ResponseWriter, r *http.Request, attrs map[string]string, voice alexaVoice) {

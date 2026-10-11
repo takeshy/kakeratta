@@ -5,25 +5,149 @@
       "intents": [
         {
           "name": "ThrowKakeraIntent",
-          "slots": [{ "name": "text", "type": "AMAZON.SearchQuery" }],
-          "samples": ["メモして {text}", "かけらを投げて {text}", "記録して {text}"]
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "メモして {text}",
+            "かけらを投げて {text}",
+            "記録して {text}",
+            "メモして",
+            "かけらを投げて",
+            "記録して"
+          ]
         },
         {
           "name": "ReadRepliesIntent",
           "slots": [],
-          "samples": ["返事を聞いて", "返事を教えて", "担当の返事を読んで", "返事は来た", "返事を聞かせて"]
+          "samples": [
+            "返事を聞いて",
+            "返事を教えて",
+            "担当の返事を読んで",
+            "返事は来た",
+            "返事を聞かせて"
+          ]
         },
         {
           "name": "ReadSchedulesIntent",
           "slots": [],
-          "samples": ["予定を教えて", "予定を聞かせて", "次の予定は", "これからの予定は"]
+          "samples": [
+            "予定を教えて",
+            "予定を聞かせて",
+            "次の予定は",
+            "これからの予定は"
+          ]
         },
-        { "name": "AMAZON.HelpIntent", "samples": [] },
-        { "name": "AMAZON.StopIntent", "samples": [] },
-        { "name": "AMAZON.CancelIntent", "samples": [] },
-        { "name": "AMAZON.FallbackIntent", "samples": [] }
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "ReplyKakeraIntent",
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "返信して",
+            "返信して {text}",
+            "返事を書いて",
+            "返事を書いて {text}"
+          ]
+        },
+        {
+          "name": "ReviseKakeraIntent",
+          "samples": [
+            "言い直す",
+            "言い直して",
+            "やり直す",
+            "やり直して"
+          ]
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": []
+        }
       ],
       "types": []
-    }
+    },
+    "dialog": {
+      "delegationStrategy": "SKILL_RESPONSE",
+      "intents": [
+        {
+          "name": "ThrowKakeraIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery",
+              "elicitationRequired": true,
+              "confirmationRequired": false,
+              "prompts": {
+                "elicitation": "Elicit.ThrowKakeraIntent.text"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ReplyKakeraIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery",
+              "elicitationRequired": true,
+              "confirmationRequired": false,
+              "prompts": {
+                "elicitation": "Elicit.ReplyKakeraIntent.text"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "prompts": [
+      {
+        "id": "Elicit.ThrowKakeraIntent.text",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "メモの内容をどうぞ。"
+          }
+        ]
+      },
+      {
+        "id": "Elicit.ReplyKakeraIntent.text",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "返信の内容をどうぞ。"
+          }
+        ]
+      }
+    ]
   }
 }

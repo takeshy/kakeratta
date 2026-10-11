@@ -192,3 +192,7 @@ For hosted workspace deletion, Gateway accepts a confirmed request, takes the us
 - [Architecture and runtime](./architecture.md)
 - [API and persistent state](./backend.md)
 - [Browser application and device state](./frontend.md)
+
+## Alexa certification account
+
+[provision-alexa-review](../../cmd/provision-alexa-review/main.go) creates a new Firebase email/password account with the `judge` claim and an isolated Firestore workspace in the specified project. It refuses existing email accounts and existing output files. A randomly generated password is written only to a mode-0600 credentials file before creating the remote account, so partial failures retain the login information. It seeds a clearly labelled English example note/reply and a future example schedule (default 30 days ahead, overridable with `-schedule-at`), without routing the sample note to AI. The tool uses ADC or an operator access-token file and sets the quota project explicitly. Provisioning does not deploy the app, change runtime judge expiry/quota/key settings, or reset counters. Check those settings and sample schedule dates before submission; inspect any partial failure before retrying. See [review setup](../judge-access.md#alexa-certification).

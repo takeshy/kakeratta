@@ -138,9 +138,21 @@ func TestAlexaPostsRepliesSchedulesAndIsolation(t *testing.T) {
 	}{"text": {Value: "明日は散歩に行きたい"}}
 	r := httptest.NewRequest("POST", "/api/alexa", nil)
 	invoke := func() *httptest.ResponseRecorder { w := httptest.NewRecorder(); s.handleAlexa(w, r, e); return w }
+	w := invoke()
+	if !strings.Contains(w.Body.String(), "この内容で投稿") {
+		t.Fatal(w.Body)
+	}
+	before, _ := st.Timeline()
+	if len(before) != 0 {
+		t.Fatal("saved before confirmation")
+	}
+	var draft struct{ SessionAttributes map[string]string }
+	json.Unmarshal(w.Body.Bytes(), &draft)
+	e.Session.Attributes = draft.SessionAttributes
+	e.Request.Intent.Name = "AMAZON.YesIntent"
 	for range 2 {
 		w := invoke()
-		if !strings.Contains(w.Body.String(), "受け付けました") {
+		if !strings.Contains(w.Body.String(), "投稿しました") {
 			t.Fatalf("post: %s", w.Body)
 		}
 	}
@@ -160,7 +172,7 @@ func TestAlexaPostsRepliesSchedulesAndIsolation(t *testing.T) {
 	}
 	e.Request.Intent.Name = "ReadRepliesIntent"
 	e.Session.Attributes = map[string]string{"postId": root}
-	w := invoke()
+	w = invoke()
 	if !strings.Contains(w.Body.String(), "散歩を楽しんで") || strings.Contains(w.Body.String(), "別の返事") || strings.Contains(w.Body.String(), "**") {
 		t.Fatalf("replies: %s", w.Body)
 	}
@@ -189,5 +201,123 @@ func TestAlexaPostsRepliesSchedulesAndIsolation(t *testing.T) {
 	}
 	if text := alexaVoice("ja-JP").speechText("<html><body>secret<script>script</script></body></html>", 700); strings.Contains(text, "secret") || strings.Contains(text, "script") {
 		t.Fatal("HTML read as speech")
+	}
+}
+
+func TestAlexaJudgeLinkLifetimeAndQuota(t *testing.T) {
+	g := testGateway(t)
+	g.options.Mode = "web"
+	g.options.Alexa = &alexa.Config{SkillID: "skill", ClientID: "client", ClientSecret: "secret", RedirectURLs: []string{"https://alexa.amazon.co.jp/callback"}}
+	g.options.JudgeInviteToken, g.options.JudgeAPIKey = "invite", "review-key"
+	g.options.JudgeExpiresAt, g.options.JudgeMaxUses = time.Now().Add(time.Hour), 1
+	uses := 0
+	g.options.ClaimJudgeUse = func(_ context.Context, uid string, limit int) (int, bool, error) {
+		if uid != "reviewer" {
+			t.Fatalf("wrong quota identity %q", uid)
+		}
+		if uses >= limit {
+			return uses, false, nil
+		}
+		uses++
+		return uses, true, nil
+	}
+	cookie := sessionCookie(t, g, "judge:reviewer")
+	r := httptest.NewRequest("POST", "/api/alexa/authorize", strings.NewReader(`{"client_id":"client","response_type":"code","redirect_uri":"https://alexa.amazon.co.jp/callback","state":"keep-me","JudgeUID":"attacker"}`))
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	g.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Fatalf("authorize: %d %s", w.Code, w.Body)
+	}
+	var result map[string]string
+	json.Unmarshal(w.Body.Bytes(), &result)
+	redirect, _ := url.Parse(result["redirect"])
+	form := url.Values{"grant_type": {"authorization_code"}, "code": {redirect.Query().Get("code")}, "redirect_uri": {"https://alexa.amazon.co.jp/callback"}}
+	exchange := func() *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "/api/alexa/token", strings.NewReader(form.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.SetBasicAuth("client", "secret")
+		w := httptest.NewRecorder()
+		g.ServeHTTP(w, r)
+		return w
+	}
+	w = exchange()
+	if w.Code != 200 {
+		t.Fatalf("exchange: %s", w.Body)
+	}
+	var tokens map[string]any
+	json.Unmarshal(w.Body.Bytes(), &tokens)
+	s, _ := g.tenant("reviewer")
+	v, _ := s.store.SocialValue(context.Background(), alexaCredential)
+	var saved alexaCredentials
+	json.Unmarshal(v.Data, &saved)
+	if saved.JudgeUID != "reviewer" {
+		t.Fatalf("identity: %q", saved.JudgeUID)
+	}
+	e := alexa.Envelope{}
+	e.Context.System.User.AccessToken = tokens["access_token"].(string)
+	e.Request.Type = "IntentRequest"
+	e.Request.Locale = "en-US"
+	e.Request.ID = "review-post"
+	e.Request.Timestamp = time.Now()
+	e.Request.Intent.Name = "ThrowKakeraIntent"
+	e.Request.Intent.Slots = map[string]struct {
+		Value string `json:"value"`
+	}{"text": {Value: "A review note"}}
+	invoke := func() string {
+		w := httptest.NewRecorder()
+		s.handleAlexa(w, httptest.NewRequest("POST", "/api/alexa", nil), e)
+		return w.Body.String()
+	}
+	if body := invoke(); strings.Contains(body, "unavailable") {
+		t.Fatal(body)
+	}
+	if uses != 0 {
+		t.Fatal("charged before confirmation")
+	}
+	var draft struct{ SessionAttributes map[string]string }
+	json.Unmarshal([]byte(invoke()), &draft)
+	e.Session.Attributes = draft.SessionAttributes
+	e.Request.Intent.Name = "AMAZON.YesIntent"
+	if body := invoke(); !strings.Contains(body, "Posted.") {
+		t.Fatal(body)
+	}
+	if uses != 1 {
+		t.Fatalf("uses=%d", uses)
+	}
+	if body := invoke(); !strings.Contains(body, "Posted.") {
+		t.Fatal("confirmation retry failed", body)
+	}
+	e.Request.ID = "second-post"
+	e.Request.Intent.Name = "ThrowKakeraIntent"
+	json.Unmarshal([]byte(invoke()), &draft)
+	e.Session.Attributes = draft.SessionAttributes
+	e.Request.Intent.Name = "AMAZON.YesIntent"
+	if body := invoke(); !strings.Contains(body, "usage limit") {
+		t.Fatal(body)
+	}
+	entries, _ := s.store.Timeline()
+	if len(entries) != 1 {
+		t.Fatalf("entries=%d", len(entries))
+	}
+	e.Request.Intent.Name = "ReadRepliesIntent"
+	if body := invoke(); strings.Contains(body, "usage limit") {
+		t.Fatal(body)
+	}
+	g.options.JudgeExpiresAt = time.Now().Add(-time.Second)
+	if body := invoke(); !strings.Contains(body, "expired") {
+		t.Fatal(body)
+	}
+	form = url.Values{"grant_type": {"refresh_token"}, "refresh_token": {tokens["refresh_token"].(string)}}
+	if w := exchange(); w.Code != 400 {
+		t.Fatalf("expired refresh: %d", w.Code)
+	}
+	g.options.JudgeExpiresAt = time.Now().Add(time.Hour)
+	g.options.ClaimJudgeUse = nil
+	if w := exchange(); w.Code != 400 {
+		t.Fatalf("missing quota accepted: %d", w.Code)
+	}
+	if s.store.Settings().APIKey != "review-key" || s.store.Settings().Endpoint() != store.NebiusBaseURL {
+		t.Fatal("review provider not pinned")
 	}
 }

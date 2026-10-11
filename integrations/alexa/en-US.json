@@ -15,7 +15,9 @@
             "take a note {text}",
             "save a note {text}",
             "remember that {text}",
-            "save this {text}"
+            "save this {text}",
+            "take a note",
+            "save a note"
           ]
         },
         {
@@ -55,9 +57,97 @@
         {
           "name": "AMAZON.FallbackIntent",
           "samples": []
+        },
+        {
+          "name": "ReplyKakeraIntent",
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "reply",
+            "reply with {text}",
+            "send a reply",
+            "send a reply {text}"
+          ]
+        },
+        {
+          "name": "ReviseKakeraIntent",
+          "samples": [
+            "try again",
+            "let me try again",
+            "change my note"
+          ]
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": []
         }
       ],
       "types": []
-    }
+    },
+    "dialog": {
+      "delegationStrategy": "SKILL_RESPONSE",
+      "intents": [
+        {
+          "name": "ThrowKakeraIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery",
+              "elicitationRequired": true,
+              "confirmationRequired": false,
+              "prompts": {
+                "elicitation": "Elicit.ThrowKakeraIntent.text"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ReplyKakeraIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery",
+              "elicitationRequired": true,
+              "confirmationRequired": false,
+              "prompts": {
+                "elicitation": "Elicit.ReplyKakeraIntent.text"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "prompts": [
+      {
+        "id": "Elicit.ThrowKakeraIntent.text",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "What would you like to save?"
+          }
+        ]
+      },
+      {
+        "id": "Elicit.ReplyKakeraIntent.text",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "What would you like to reply?"
+          }
+        ]
+      }
+    ]
   }
 }

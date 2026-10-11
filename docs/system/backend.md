@@ -35,7 +35,7 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 
 `readJSONLimit` uses `http.MaxBytesReader` to bound input. `fail` produces JSON errors and `writeJSON` produces responses. The API server does not serve the frontend; unknown paths receive a JSON 404.
 
-Alexa has a separate public Gateway boundary at `POST /api/alexa` and `POST /api/alexa/token`; it verifies Alexa signatures or OAuth client credentials, then resolves only an existing workspace. Browser-authenticated `POST /api/alexa/authorize` and `GET`/`DELETE /api/alexa/connection` grant, inspect and revoke this access. These credentials do not replace Firebase sessions. See [Alexa custom skill](./integrations.md#alexa-custom-skill) for token storage and verification. Both browser `land` and Alexa submissions use `acceptEntry` for atomic entry/routing acceptance and duplicate detection.
+Alexa has a separate public Gateway boundary at `POST /api/alexa` and `POST /api/alexa/token`; it verifies Alexa signatures or OAuth client credentials, then resolves only an existing workspace. Browser-authenticated `POST /api/alexa/authorize` and `GET`/`DELETE /api/alexa/connection` grant, inspect and revoke this access. These credentials do not replace Firebase sessions. A verified judge session can authorize a review link; its UID is retained internally for the existing judge expiry and per-user quota checks on subsequent Alexa access. Password accounts without the judge claim remain rejected. See [Alexa custom skill](./integrations.md#alexa-custom-skill) for token storage and verification. Both browser `land` and Alexa submissions use `acceptEntry` for atomic entry/routing acceptance and duplicate detection.
 
 ## Schedule editing
 
