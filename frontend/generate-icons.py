@@ -28,4 +28,16 @@ if not wordmark:
 (public / "wordmark.svg").write_text(
     wordmark[1].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ', 1) + "\n"
 )
-print("Generated web icons and the application wordmark.")
+# A complete, self-contained brand lockup for both READMEs. The light backing
+# keeps the outlined letters readable in GitHub's light and dark themes.
+paths = re.search(r"<svg[^>]*>(.*)</svg>", wordmark[1])[1]
+(public / "logo.svg").write_text(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 304 80" role="img" aria-label="kakeratta">\n'
+    '  <rect width="304" height="80" rx="12" fill="#f6f3ed" />\n'
+    '  <defs><clipPath id="icon"><rect x="8" y="8" width="64" height="64" rx="12" /></clipPath></defs>\n'
+    f'  <image x="8" y="8" width="64" height="64" clip-path="url(#icon)" href="data:image/png;base64,{encoded}" />\n'
+    '  <g transform="translate(88 20) scale(1.8)" fill="none" stroke="#23201c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">\n'
+    f'    {paths}\n'
+    '  </g>\n</svg>\n'
+)
+print("Generated web icons, application wordmark, and README logo.")
