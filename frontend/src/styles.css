@@ -25,11 +25,16 @@
 
 * { box-sizing: border-box; }
 
-.install-prompt { padding: 1rem; margin-block: 1rem; border: 1px solid var(--line); border-radius: 16px; background: var(--accent-soft); overflow-wrap: anywhere; }
+.install-prompt { padding: 1rem; margin: 12px 0 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--accent-soft); overflow-wrap: anywhere; }
 .install-prompt[hidden] { display: none; }
-.install-prompt p { margin: .5rem 0; }
+.install-prompt p, .install-settings p { margin: .5rem 0; }
+.install-note { color: var(--muted); font-size: .875em; }
+.install-steps { margin: .5rem 0; padding-left: 1.5rem; }
+.install-steps li { margin: .375rem 0; }
+.install-share-icon { display: inline-flex; vertical-align: -3px; margin-right: .25rem; color: var(--accent); }
+.install-settings[hidden] { display: none; }
 .install-prompt-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
-.install-prompt-actions button { min-height: 44px; }
+.install-prompt-actions .button { min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
 
 body {
   margin: 0;

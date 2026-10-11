@@ -6,6 +6,7 @@ import { preserveScroll, switchControl, el, clear, toast } from "./dom.js";
 import { createAvatarField, userProfile } from "./avatar.js";
 import { createUsage } from "./usage.js";
 import { createPushSettings } from "./push.js";
+import { installSettingsNode } from "./install-prompt.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { createMCPConnection } from "./mcp-connection.js";
 import { api } from "./api.js";
@@ -20,7 +21,7 @@ export function aiConfigured(settings) {
   return Boolean(settings.baseUrl?.trim() && settings.lowModel?.trim() && settings.apiKey?.trim());
 }
 
-export function createSettings({ speaker, onSettings, onMCPChange, closeAccount = null }) {
+export function createSettings({ speaker, onSettings, onMCPChange, closeAccount = null, installPrompt }) {
   const view = el("div", { class: "panel-body settings-panel" });
   let settings = null;
   let revealOpenRouter = () => {};
@@ -564,6 +565,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       }),
       select("文字サイズ", getTextSize(), TEXT_SIZES.map(([id, label]) => [id, label]), setTextSize),
     );
+    view.append(installSettingsNode(installPrompt));
     const push = createPushSettings();
     view.append(push.element);
     void push.load();

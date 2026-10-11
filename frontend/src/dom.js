@@ -117,6 +117,8 @@ export function when(value) {
 export function toast(message, kind = "info") {
   const host = $("#toasts");
   const node = el("div", { class: `toast toast-${kind}`, text: t(message) });
+  // Storybook renders views without the application shell.
+  if (!host) return;
   host.append(node);
   setTimeout(() => node.remove(), 4200);
 }
