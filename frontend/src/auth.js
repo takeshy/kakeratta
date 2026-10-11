@@ -2,7 +2,7 @@ import { revokeDevicePush } from "./push-client.js";
 import { IDENTITY_KEY, localIdentity, clearLocalUser, localList, localRecord } from "./local-store.js";
 import { clear, el } from "./dom.js";
 import { t } from "./i18n.js";
-import { createGoogleLogin, showLogin } from "./login.js";
+import { createGoogleLogin, guestLandingPage, showLogin } from "./login.js";
 
 let firebaseAuth = null;
 let firebaseSignOut = null;
@@ -111,12 +111,19 @@ async function authenticate() {
       show("");
       return false;
     }
+    const landing = guestLandingPage(location.pathname, location.search);
+    if (landing) {
+      location.replace(landing);
+      return false;
+    }
     const login = createGoogleLogin({
       signIn: () => authModule.signInWithPopup(firebaseAuth, new authModule.GoogleAuthProvider()),
       establishSession,
       onSuccess: () => {
         localStorage.removeItem("kakeratta.signedOut");
-        location.reload();
+        const query = new URLSearchParams(location.search);
+        query.delete("login");
+        location.replace(location.pathname + (query.size ? `?${query}` : "") + location.hash);
       },
     });
     loginScreen(login);

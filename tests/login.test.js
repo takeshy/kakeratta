@@ -1,7 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createGoogleLogin, loginView } from "../frontend/src/login.js";
+import { createGoogleLogin, guestLandingPage, loginView } from "../frontend/src/login.js";
 import { setLanguage } from "../frontend/src/i18n.js";
+import { readFileSync } from "node:fs";
+
+test("guest top-page visits go to the localized landing page", () => {
+  assert.equal(guestLandingPage("/"), "/lp/");
+  assert.equal(guestLandingPage("/index.html", "?lang=en"), "/lp/?lang=en");
+  assert.equal(guestLandingPage("/", "?lang=ja&unrelated=value"), "/lp/?lang=ja");
+  assert.equal(guestLandingPage("/", "?lang=invalid"), "/lp/");
+  assert.equal(guestLandingPage("/judge/invitation"), "");
+});
+
+test("every LP and manual app link reaches sign-in without a redirect loop", () => {
+  for (const page of ["lp", "manual"]) {
+    const html = readFileSync(new URL(`../frontend/${page}/index.html`, import.meta.url), "utf8");
+    const links = [...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>/g)]
+      .map(match => new URL(match[1], `https://kakeratta.net/${page}/`))
+      .filter(url => url.origin === "https://kakeratta.net" && url.pathname === "/");
+    assert.ok(links.length, `${page} needs an app link`);
+    for (const url of links) {
+      assert.equal(guestLandingPage(url.pathname, url.search), "");
+      url.searchParams.set("lang", "en");
+      assert.equal(guestLandingPage(url.pathname, url.search), "");
+    }
+  }
+});
 
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 

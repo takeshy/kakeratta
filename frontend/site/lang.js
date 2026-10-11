@@ -30,8 +30,7 @@ export function applyLanguage(lang) {
   for (const button of document.querySelectorAll("[data-set-lang]")) {
     button.setAttribute("aria-pressed", String(button.dataset.setLang === lang));
   }
-  // Links between these pages carry the language along. The app reads the
-  // stored key itself, so its links stay clean.
+  // Links carry the language along, retaining the app's explicit login flag.
   for (const link of document.querySelectorAll("a[data-lang-link]")) {
     const url = new URL(link.getAttribute("href"), location.href);
     url.searchParams.set("lang", lang);

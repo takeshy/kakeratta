@@ -1,5 +1,14 @@
 import { clear, el } from "./dom.js";
 
+// An explicit app link must reach sign-in instead of looping back to the LP.
+export function guestLandingPage(pathname, search = "") {
+  if (pathname !== "/" && pathname !== "/index.html") return "";
+  const query = new URLSearchParams(search);
+  if (query.get("login") === "1") return "";
+  const language = query.get("lang");
+  return language === "ja" || language === "en" ? `/lp/?lang=${language}` : "/lp/";
+}
+
 const messages = {
   checking: "ログイン状態を確認しています…",
   authorizing: "Googleの認証を待っています…",
