@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
-updated: "2026-10-08"
+updated: "2026-10-11"
 ---
 
 Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion.
@@ -85,6 +85,8 @@ The Kakeratta build account has object creation on the shared configuration buck
 Cloud Run remains the preferred hosted configuration. The shared VM is a temporary arrangement to reduce the cost of keeping production unchanged through the roughly one-month judging wait after the 2026-10-31 submission deadline.
 
 `infra/shared-vm` defines the 4 GiB VM and its backends; GemiHub's existing Terraform module owns the retained HTTPS front end and URL map. Each application uses its original runtime service account, Firestore and storage. The VM has fixed capacity; it does not scale to zero or fail over to another instance. Geo MCP exposes place search and reverse geocoding directly at `https://geo.mcp.takeshy.work/mcp` with the existing API key; routing and API Gateway are removed.
+
+The Kakeratta server in [nginx.conf](../../infra/shared-vm/nginx.conf) uses `absolute_redirect off`. Directory redirects such as `/lp` to `/lp/` and `/manual` to `/manual/` therefore return relative locations, preserving the browser's public HTTPS origin rather than exposing the internal HTTP listener on port 8080. When updating this host configuration, preserve both `/opt/shared-apps/nginx.conf` (used on bootstrap) and `/etc/nginx/nginx.conf` (active), back up the current files, run `nginx -t`, then reload Nginx. Verify the public redirect locations and final 200 responses after applying.
 
 Cloud Tasks now calls `https://kakeratta.net/internal/due` using the original app account; Pub/Sub calls `/internal/work`, and Scheduler calls `/internal/dispatch`. `KAKERATTA_TASKS_QUEUE`, `KAKERATTA_TASKS_URL`, `KAKERATTA_TASKS_ACCOUNT`, worker URL and dispatch URL must agree with those callers' token audiences. Durable work remains in Firestore and execution/claim semantics are unchanged. The old timer queue is paused, and retained Cloud Run services use the new endpoints for remaining fallback traffic. `firebase.json` still defines the legacy Firebase Hosting fallback. `shared_vm_ip` preserves migrated DNS and push endpoints in the original Terraform module. Firestore TTL policies on `expireAt` remain unchanged.
 
