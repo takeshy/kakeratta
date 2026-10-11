@@ -17,15 +17,21 @@ const NAV_ICONS = {
   personas: '<circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5v2"/>',
 };
 
-function navigationContent(which, label, compact) {
-  return compact
-    ? el("span", { class: "nav-icon", "aria-hidden": "true", html: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false">${NAV_ICONS[which]}</svg>` })
-    : el("span", { class: "nav-label", label });
+// Phones show the icon alone; wider headers pair it with the label when it fits.
+// The wordmark is drawn rather than set in a font, so every device shows the
+// same letters; rounded strokes soften the angular fragment logo beside it.
+const WORDMARK = '<svg viewBox="0 0 106 22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path transform="translate(0 0)" d="M3 2V20M11 8.5L3.5 15M6.2 12.8L11.4 20"/><path transform="translate(12 0)" d="M3 8H8.6L10 9.4V20M10 13.2H4.6L3 14.8V18.4L4.6 20H10"/><path transform="translate(24 0)" d="M3 2V20M11 8.5L3.5 15M6.2 12.8L11.4 20"/><path transform="translate(36 0)" d="M3 14H10.4V9.6L8.8 8H4.6L3 9.6V18.4L4.6 20H10.4"/><path transform="translate(48 0)" d="M3 8V20M3 11.4L6.4 8H9.6"/><path transform="translate(58 0)" d="M3 8H8.6L10 9.4V20M10 13.2H4.6L3 14.8V18.4L4.6 20H10"/><path transform="translate(70 0)" d="M5 3V18.4L6.6 20H9.4M2 8H9.4"/><path transform="translate(80 0)" d="M5 3V18.4L6.6 20H9.4M2 8H9.4"/><path transform="translate(90 0)" d="M3 8H8.6L10 9.4V20M10 13.2H4.6L3 14.8V18.4L4.6 20H10"/></svg>';
+
+function navigationContent(which, label, compact, labelIcons) {
+  const size = compact ? 22 : 18;
+  const icon = el("span", { class: "nav-icon", "aria-hidden": "true", html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${NAV_ICONS[which]}</svg>` });
+  const text = el("span", { class: "nav-label", label });
+  return compact ? icon : labelIcons ? [icon, text] : text;
 }
 
-function navigationButton(which, label, onOpen, compact, accessible = label) {
+function navigationButton(which, label, onOpen, compact, labelIcons, accessible = label) {
   return el("button", { class: `chip ghost nav nav-${which}`, "aria-label": t(accessible), i18nTitle: accessible, onclick: () => onOpen?.(which) },
-    navigationContent(which, label, compact));
+    navigationContent(which, label, compact, labelIcons));
 }
 
 // Where the manual lives, in the reader's language. It opens in a new tab so
@@ -88,39 +94,59 @@ export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
   let narrow = (globalThis.innerWidth ?? 1024) - 32 < 214;
   let showSettings = (globalThis.innerWidth ?? 1024) - 32 >= 262;
   let more;
+  // Labels vary with language and text size. A labelled header that overflows
+  // gives up the brand name, then the icons beside labels, then the labels.
+  // Each step keeps the width it needed, so widening the window restores it.
+  const LABELLED = [{ brandName: true, labelIcons: true }, { brandName: false, labelIcons: true }, { brandName: false, labelIcons: false }];
+  const needs = LABELLED.map(() => 0);
+  let step = 0;
   const navigation = () => {
     more = moreNavigation(onLogout, onOpen, compact, showSettings, narrow);
+    const { brandName, labelIcons } = LABELLED[step];
     return [
       el("style", { text: navigationStyles, "data-navigation-styles": "" }),
       el("span", { class: "brand" },
         el("img", { class: "brand-mark", src: "/icon.svg", alt: "", width: "22", height: "22" }),
-        compact ? null : el("span", { class: "brand-name", text: "kakeratta" })),
+        compact || !brandName ? null : el("span", { class: "brand-name", role: "img", "aria-label": "kakeratta", html: WORDMARK })),
       el("span", { class: "spacer" }),
-      navigationButton("search", "検索", onOpen, compact),
-      navigationButton("schedules", "予定", onOpen, compact, "予定一覧"),
-      ...(!narrow ? [navigationButton("personas", "担当", onOpen, compact)] : []),
-      ...(showSettings ? [navigationButton("settings", "設定", onOpen, compact)] : []),
+      navigationButton("search", "検索", onOpen, compact, labelIcons),
+      navigationButton("schedules", "予定", onOpen, compact, labelIcons, "予定一覧"),
+      ...(!narrow ? [navigationButton("personas", "担当", onOpen, compact, labelIcons)] : []),
+      ...(showSettings ? [navigationButton("settings", "設定", onOpen, compact, labelIcons)] : []),
       more.menu,
     ];
   };
   const header = el("header", { class: `topbar${compact ? " compact" : ""}${narrow ? " narrow" : ""}` }, ...navigation());
+  const rebuild = () => {
+    more.close();
+    header.classList.toggle("compact", compact);
+    header.classList.toggle("narrow", narrow);
+    header.replaceChildren(...navigation());
+  };
   // Measure the embedded canvas too. Each action exists in only one location.
   if (globalThis.ResizeObserver) {
     const observer = new ResizeObserver(([entry]) => {
       if (!header.isConnected) { more.close(); observer.disconnect(); return; }
       const width = entry.contentRect.width;
       if (!width) return;
-      const nextCompact = width <= 568;
+      let nextStep = needs.findIndex(need => width >= need);
+      const nextCompact = width <= 568 || nextStep < 0;
+      if (nextStep < 0) nextStep = LABELLED.length - 1;
       const nextNarrow = width < 214;
       const nextShowSettings = width >= 262;
-      if (compact === nextCompact && narrow === nextNarrow && showSettings === nextShowSettings) return;
-      more.close();
-      compact = nextCompact;
-      narrow = nextNarrow;
-      showSettings = nextShowSettings;
-      header.classList.toggle("compact", compact);
-      header.classList.toggle("narrow", narrow);
-      header.replaceChildren(...navigation());
+      if (compact !== nextCompact || step !== nextStep || narrow !== nextNarrow || showSettings !== nextShowSettings) {
+        compact = nextCompact;
+        step = nextStep;
+        narrow = nextNarrow;
+        showSettings = nextShowSettings;
+        rebuild();
+      }
+      while (!compact && header.scrollWidth > header.clientWidth + 1) {
+        needs[step] = header.scrollWidth;
+        if (step < LABELLED.length - 1) step++;
+        else compact = true;
+        rebuild();
+      }
     });
     observer.observe(header);
   }

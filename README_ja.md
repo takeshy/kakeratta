@@ -1,3 +1,5 @@
+<img src="frontend/public/icon.png" alt="kakeratta ロゴ" width="96" height="96">
+
 # kakeratta
 
 [English](README.md) | 日本語

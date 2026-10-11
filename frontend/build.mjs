@@ -42,7 +42,7 @@ walk(distDir);
 console.log(`Copied frontend to ${distDir} (${totalBytes} bytes)`);
 
 // Precache one complete, content-versioned application shell for offline starts.
-const assets = ["/", "/manifest.webmanifest", "/icon.svg", "/icon.png", ...readdirSync(join(distDir, "src")).filter(name => /\.(js|css)$/.test(name)).map(name => `/src/${name}`)];
+const assets = ["/", "/manifest.webmanifest", "/icon.svg", "/icon.png", "/icon-maskable.png", ...readdirSync(join(distDir, "src")).filter(name => /\.(js|css)$/.test(name)).map(name => `/src/${name}`)];
 const digest = createHash("sha256");
 for (const asset of assets) digest.update(readFileSync(join(distDir, asset === "/" ? "index.html" : asset.slice(1))));
 const workerPath = join(distDir, "sw.js");

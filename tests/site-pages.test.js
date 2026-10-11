@@ -95,8 +95,7 @@ test("the header links to the manual in a new tab, in the reader's language", as
 
   const primary = node => node.className === "chip ghost nav nav-search";
   const desktopSearch = header.find(primary);
-  assert.equal(desktopSearch.children.length, 1);
-  assert.equal(desktopSearch.children[0].className, "nav-label");
+  assert.deepEqual(desktopSearch.children.map(node => node.className), ["nav-icon", "nav-label"]);
   const previousWidth = globalThis.innerWidth;
   t.after(() => {
     if (previousWidth === undefined) delete globalThis.innerWidth;
@@ -105,7 +104,7 @@ test("the header links to the manual in a new tab, in the reader's language", as
   globalThis.innerWidth = 240;
   const [mobile] = screenNodes({ compose: new Stub(), room, feed: new Stub() });
   const mobileSearch = mobile.find(primary);
-  assert.equal(mobileSearch.children.length, 1, "icon and text are never rendered together");
+  assert.equal(mobileSearch.children.length, 1, "phones show the icon alone");
   assert.equal(mobileSearch.children[0].className, "nav-icon");
   assert.match(mobile.className, /compact narrow/);
   assert.equal(mobile.find(node => node.className === "chip ghost nav nav-settings"), null);
