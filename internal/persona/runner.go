@@ -657,7 +657,7 @@ func (r *Runner) readCapture(outer context.Context, entry timeline.Entry, client
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(outer), 3*time.Minute)
 		defer cancel()
 		ctx = llm.WithTrace(ctx, llm.Trace{Trigger: entry.ID, Wake: "post"})
-		read := capture.Read(ctx, client, settings.VisionModel, data, mime)
+		read := capture.Read(ctx, client, settings.VisionModel, data, mime, entry.Language)
 		read.BlobID = entry.Media.BlobID
 		read.MIME = mime
 		read.Width, read.Height = entry.Media.Width, entry.Media.Height

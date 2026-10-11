@@ -38,18 +38,24 @@ const readPrompt = `画面のキャプチャや写真を読み取ります。次
 // A failure is recorded on the media rather than raised: a capture the model
 // could not read is still a post, and the personas can still see the line the
 // user wrote under it.
-func Read(ctx context.Context, client *llm.Client, model string, image []byte, mime string) timeline.Media {
+func Read(ctx context.Context, client *llm.Client, model string, image []byte, mime string, language ...string) timeline.Media {
 	media := timeline.Media{MIME: mime}
 	if client == nil || client.BaseURL == "" || model == "" {
 		media.Error = "画像を読むモデルが設定されていません"
 		return media
 	}
+	prompt := readPrompt
+	request := "この画像を読み取ってください。"
+	if len(language) > 0 && language[0] == "en" {
+		prompt += "\nWrite describe and origin in English. Keep text in its original language exactly as visible; do not translate the OCR text."
+		request = "Read this image. Describe it in English, preserving the original visible text."
+	}
 	reply, err := client.Chat(ctx, llm.Request{
 		Purpose: "image_read", Model: model, JSON: true,
 		Files: []llm.Attachment{{Name: "capture" + extension(mime), MIME: mime, Data: image}},
 		Messages: []llm.Message{
-			{Role: "system", Content: readPrompt},
-			{Role: "user", Content: "この画像を読み取ってください。"},
+			{Role: "system", Content: prompt},
+			{Role: "user", Content: request},
 		},
 	})
 	if err != nil {
