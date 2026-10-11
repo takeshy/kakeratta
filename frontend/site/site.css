@@ -321,3 +321,9 @@ kbd {
   .cards { grid-template-columns: 1fr; }
   .site-nav a { padding: 4px 7px; font-size: 0.86rem; }
 }
+
+/* Public legal pages remain readable without authentication or JavaScript. */
+.legal main { max-width: 800px; margin: 0 auto; padding: 40px 20px 64px; overflow-wrap: anywhere; }
+.legal section { margin-top: 32px; }
+.legal h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); }
+.legal h2 { font-size: 1.25rem; }

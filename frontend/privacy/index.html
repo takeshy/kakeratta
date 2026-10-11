@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja" data-title-ja="プライバシーポリシー — kakeratta" data-title-en="Privacy Policy — kakeratta">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#faf8f4" />
+    <meta name="description" content="かけらったのプライバシーポリシー。Privacy Policy for the kakeratta web service and Alexa skill." />
+    <title>プライバシーポリシー — kakeratta</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon.png" sizes="512x512" />
+    <link rel="stylesheet" href="/site/site.css" />
+    <script>
+      // Settle the language before the first paint, so the page never shows both.
+      (function () {
+        var q = new URLSearchParams(location.search).get("lang"), s = null;
+        try { s = localStorage.getItem("kakeratta.language"); } catch (e) {}
+        var b = String((navigator.languages || [])[0] || navigator.language || "").toLowerCase().split("-")[0] === "ja" ? "ja" : "en";
+        var lang = q === "ja" || q === "en" ? q : s === "ja" || s === "en" ? s : b;
+        document.documentElement.lang = lang;
+        document.documentElement.dataset.lang = lang;
+      })();
+    </script>
+    <script type="module" src="/site/lang.js"></script>
+  </head>
+  <body class="legal">
+    <header class="site-head"><div class="site-head-row">
+      <a class="brand" href="/lp/" data-lang-link>kakeratta</a><span class="spacer"></span>
+      <div class="lang-switch" role="group" aria-label="Language / 言語"><button type="button" data-set-lang="ja" lang="ja">日本語</button><button type="button" data-set-lang="en" lang="en">EN</button></div>
+    </div></header>
+    <main>
+      <h1><span class="ja">プライバシーポリシー</span><span class="en">Privacy Policy</span></h1>
+      <p class="muted"><span class="ja">最終更新日：2026年10月11日</span><span class="en">Last updated: October 11, 2026</span></p>
+      <section><h2><span class="ja">1. 対象と運営者</span><span class="en">1. Scope and operator</span></h2>
+        <p class="ja">takeshy.work（屋号、運営者：森田 剛志）は、かけらった（kakeratta）のウェブサービスおよびAlexaスキルにおいて、以下のとおり情報を取り扱います。</p>
+        <p class="en">takeshy.work, operated by Takeshi Morita, handles information in the kakeratta web service and Alexa skill as described below.</p>
+      </section>
+      <section><h2><span class="ja">2. 取得する情報</span><span class="en">2. Information we collect</span></h2>
+        <p class="ja">Google・Firebase認証に伴うアカウント識別情報、メールアドレス等の認証情報、ユーザーが入力したプロフィール、投稿、画像、URL、担当の設定、AIの返事や記憶、予定、連携設定を取り扱います。位置情報を付ける機能では、ユーザーの許可に基づく位置情報も取り扱います。サービスの運用に必要なアクセス日時、IPアドレス、端末・ブラウザー情報、エラー、処理状況、AI利用量等のログを取得します。</p>
+        <p class="en">We process account identifiers and authentication information, such as email addresses, supplied through Google and Firebase authentication; profiles, posts, images, URLs, persona settings, AI replies and memories, schedules, and integration settings. Location features process location information with your permission. Operational logs may include access times, IP addresses, device and browser information, errors, processing status, and AI usage.</p>
+      </section>
+      <section><h2><span class="ja">3. 利用目的</span><span class="en">3. How we use information</span></h2>
+        <p class="ja">本人認証、投稿の保存と検索、AIによる返事・記憶の作成、予定や通知の提供、指定された外部連携の実行、お問い合わせへの対応、不正利用防止、障害調査およびサービスの維持・改善のために利用します。</p>
+        <p class="en">We use information to authenticate users, store and search posts, generate AI replies and memories, provide schedules and notifications, perform requested integrations, respond to inquiries, prevent abuse, investigate failures, and maintain and improve the service.</p>
+      </section>
+      <section><h2><span class="ja">4. 保存場所と端末内の情報</span><span class="en">4. Storage and browser data</span></h2>
+        <p class="ja">公開サービスの投稿・担当の記憶・予定・設定等は、運営者が管理するGoogle Cloudのデータベースやストレージに保存します。ユーザー自身のGoogle Driveに保存するサービスではありません。ブラウザーには、認証用Cookie、言語等の設定、オフライン表示用データや未送信の投稿等を保存します。共有端末ではログアウトし、必要に応じてブラウザーのサイトデータも削除してください。</p>
+        <p class="en">The hosted service stores posts, persona memories, schedules, settings, and related data in Google Cloud databases and storage managed by the operator, rather than in your Google Drive. Your browser stores authentication cookies, preferences such as language, offline data, and pending posts. On shared devices, sign out and clear site data as needed.</p>
+      </section>
+      <section><h2><span class="ja">5. AIサービスと外部連携への送信</span><span class="en">5. AI providers and external integrations</span></h2>
+        <p class="ja">返事の生成、画像の読み取り、検索等に必要な範囲で、投稿や画像、関連する過去の内容、担当の記憶等を、Nebius Token Factory、OpenRouterその他設定されたAIサービスへ送信します。検索・天気・地図・外部エージェント等を利用する際は、その処理に必要な検索語、場所、投稿等を連携先へ送信します。Blueskyへの公開機能では、選択した内容を公開先へ送信します。連携先には各社の規約・プライバシーポリシーが適用され、情報が日本国外で処理される場合があります。APIキー等の接続情報は、選択されたサービスへの接続に使用します。</p>
+        <p class="en">To generate replies, interpret images, and search, we send necessary posts, images, relevant history, and persona memories to Nebius Token Factory, OpenRouter, or other configured AI providers. Search, weather, maps, and external agents receive the queries, locations, posts, or other data needed for the requested operation. Bluesky publishing sends the selected content for publication. Providers apply their own terms and privacy policies and may process information outside Japan. Connection credentials, such as API keys, are used to connect to the selected services.</p>
+      </section>
+      <section><h2><span class="ja">6. Alexaスキルでの取り扱い</span><span class="en">6. Alexa skill</span></h2>
+        <p class="ja">Alexaで話した音声はAmazon側で処理され、かけらったは認識された発話内容、リクエスト識別情報、言語、日時、連携用トークン等を受け取ります。スキルは音声録音データそのものを受け取ったり保存したりしません。投稿する内容は通常のかけらとして保存し、読み上げる返事・予定のテキストをAmazonへ返します。Alexaの端末住所・氏名・メールアドレスを取得するAPIは使用しません。連携はかけらったのアカウント単位であり、話者の声で本人を識別しません。同じAlexaを使う方も投稿や返事・予定の読み上げを利用できます。Amazon側の音声履歴等はAmazonの設定とポリシーに従って管理してください。</p>
+        <p class="en">Amazon processes speech spoken to Alexa. Kakeratta receives recognized text, request identifiers, language, timestamps, linking tokens, and related request metadata. The skill does not receive or store the audio recordings themselves. Dictated posts are stored as ordinary fragments; reply and schedule text is returned to Amazon for speech output. We do not use Alexa APIs to retrieve device addresses, customer names, or email addresses. Linking identifies a kakeratta account, not the individual speaker by voice. Others using the same Alexa can post and hear replies or schedules. Manage Amazon-held voice history through Amazon settings and policies.</p>
+      </section>
+      <section><h2><span class="ja">7. 情報の提供と安全管理</span><span class="en">7. Disclosure and security</span></h2>
+        <p class="ja">サービス提供に必要な委託・外部連携、ユーザーの同意がある場合、または法令に基づく場合等を除き、個人情報を第三者に提供しません。通信の暗号化、アカウントごとのアクセス制御、認証情報の管理等の対策を講じます。Alexa連携用の認可コード・アクセス／リフレッシュトークンは、サーバーには照合用のハッシュ値として保存します。</p>
+        <p class="en">We disclose personal information as needed for service providers and integrations, with your consent, or where legally required or permitted. We use encrypted transport, account-based access controls, and credential management. Alexa authorization codes and access and refresh tokens are persisted on our server as hashes for verification.</p>
+      </section>
+      <section><h2><span class="ja">8. 保存期間・連携解除・削除</span><span class="en">8. Retention, unlinking, and deletion</span></h2>
+        <p class="ja">投稿、記憶、予定、設定等は、サービス提供のため、削除されるまで保持します。設定からデータを書き出したり、「すべて削除して利用を停止する」を実行したりできます。投稿の削除だけでは、その内容から作られた担当の記憶等がすべて削除されるとは限りません。Alexa連携は「設定 → 外部連携 → Alexa連携を解除」で解除でき、解除すると連携トークンが無効になります。連携解除だけでは既存の投稿やアカウントは削除されません。アカウント削除ではサービスが管理するワークスペースと書き出しデータ等を削除しますが、処理の完了まで時間がかかる場合があります。運用ログや外部サービスが保持する情報は各保存設定・ポリシーに従い、同時に削除されない場合があります。</p>
+        <p class="en">Posts, memories, schedules, and settings are retained to provide the service until deleted. Settings provide data export and a “Delete everything and stop using” option. Deleting a post alone does not necessarily erase all persona memories derived from it. Use Settings → External integrations → Disconnect Alexa to invalidate linking credentials. Unlinking alone does not delete existing posts or your account. Account deletion removes the service-managed workspace and exports; completion may take time. Operational logs and information held by external providers follow their respective retention settings and policies and may not be deleted at the same time.</p>
+      </section>
+      <section><h2><span class="ja">9. お問い合わせと変更</span><span class="en">9. Requests and changes</span></h2>
+        <p class="ja">情報の開示・訂正・削除その他のお問い合わせは、下記窓口へご連絡ください。本人確認を行ったうえで、適用法令に従って対応します。本ポリシーを変更する場合は本ページに掲載し、重要な変更はサービス上等でお知らせします。</p>
+        <p class="en">Contact us below for access, correction, deletion, or other inquiries. We respond in accordance with applicable law after verifying identity. Changes to this policy are posted here, and material changes are announced through the service or another appropriate channel.</p>
+      </section>
+      <section><h2><span class="ja">お問い合わせ窓口</span><span class="en">Contact</span></h2>
+        <p><a href="https://takeshy.work">takeshy.work</a> — <span class="ja">運営者：森田 剛志</span><span class="en">Operator: Takeshi Morita</span><br /><a href="mailto:takeshy.work@gmail.com">takeshy.work@gmail.com</a></p>
+        <p class="ja">電話：050-1792-0976（平日10:00〜18:00、日本時間）</p>
+        <p class="en">Phone: +81-50-1792-0976 (weekdays 10:00–18:00, Japan time)</p>
+      </section>
+    </main>
+    <footer class="site-foot"><nav class="site-foot-row" aria-label="Site">
+      <a href="/lp/" data-lang-link><span class="ja">ホーム</span><span class="en">Home</span></a>
+      <a href="/privacy/" data-lang-link><span class="ja">プライバシーポリシー</span><span class="en">Privacy Policy</span></a>
+      <a href="/terms/" data-lang-link><span class="ja">利用規約</span><span class="en">Terms of Service</span></a>
+    </nav></footer>
+  </body>
+</html>

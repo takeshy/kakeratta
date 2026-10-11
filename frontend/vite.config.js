@@ -17,7 +17,7 @@ function sitePages() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = new URL(req.url, "http://localhost");
-        if (url.pathname === "/lp" || url.pathname === "/manual") {
+        if (["/lp", "/manual", "/privacy", "/terms"].includes(url.pathname)) {
           res.statusCode = 301;
           res.setHeader("Location", `${url.pathname}/${url.search}`);
           res.end();

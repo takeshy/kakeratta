@@ -68,7 +68,7 @@ FirebaseログインのあるWeb/combinedサーバーをHTTPSで公開し、次�
 
 連携ページは既存のFirebaseログインを使い、ポップアップではなくリダイレクトでGoogle認証します。公開ホストをFirebaseの認証許可ドメインに設定してください。本番では `authDomain` を `kakeratta.net` にし、Nginxで `/__/auth/` を `https://kakeratta.firebaseapp.com` に透過転送します。Google OAuthのウェブクライアントにも `https://kakeratta.net/__/auth/handler` を承認済みリダイレクトURIとして追加します（既存URIは残します）。別ドメインの `authDomain` のままだと、サードパーティーストレージを制限するブラウザーでログイン画面に戻ることがあります。Alexaアプリ内ブラウザーと端末で、この往復が成功することを確認してください。
 
-公開する場合は別途スキルの公開情報、プライバシーポリシー、Amazonの審査が必要です。このリポジトリの変更はAmazon上の登録・公開・本番配備を行いません。
+公開する場合は別途スキルの公開情報、プライバシーポリシー、Amazonの審査が必要です。規約ページを配備後、Privacy Policy URLには `https://kakeratta.net/privacy/`、Terms of Use URLには `https://kakeratta.net/terms/` を設定できます。このリポジトリの変更はAmazon上の登録・公開・本番配備を行いません。
 
 ## 連携解除と確認
 

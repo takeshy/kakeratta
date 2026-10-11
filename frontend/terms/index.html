@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ja" data-title-ja="利用規約 — kakeratta" data-title-en="Terms of Service — kakeratta">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#faf8f4" />
+    <meta name="description" content="かけらったの利用規約。Terms of Service for the kakeratta web service and Alexa skill." />
+    <title>利用規約 — kakeratta</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon.png" sizes="512x512" />
+    <link rel="stylesheet" href="/site/site.css" />
+    <script>
+      // Settle the language before the first paint, so the page never shows both.
+      (function () {
+        var q = new URLSearchParams(location.search).get("lang"), s = null;
+        try { s = localStorage.getItem("kakeratta.language"); } catch (e) {}
+        var b = String((navigator.languages || [])[0] || navigator.language || "").toLowerCase().split("-")[0] === "ja" ? "ja" : "en";
+        var lang = q === "ja" || q === "en" ? q : s === "ja" || s === "en" ? s : b;
+        document.documentElement.lang = lang;
+        document.documentElement.dataset.lang = lang;
+      })();
+    </script>
+    <script type="module" src="/site/lang.js"></script>
+  </head>
+  <body class="legal">
+    <header class="site-head"><div class="site-head-row">
+      <a class="brand" href="/lp/" data-lang-link>kakeratta</a><span class="spacer"></span>
+      <div class="lang-switch" role="group" aria-label="Language / 言語"><button type="button" data-set-lang="ja" lang="ja">日本語</button><button type="button" data-set-lang="en" lang="en">EN</button></div>
+    </div></header>
+    <main>
+      <h1><span class="ja">利用規約</span><span class="en">Terms of Service</span></h1>
+      <p class="muted"><span class="ja">最終更新日：2026年10月11日</span><span class="en">Last updated: October 11, 2026</span></p>
+      <section><h2><span class="ja">1. 適用とサービス</span><span class="en">1. Scope and service</span></h2>
+        <p class="ja">本規約は、takeshy.work（屋号、運営者：森田 剛志）が提供する、かけらった（kakeratta）のウェブサービスおよびAlexaスキルの利用条件を定めます。利用にあたっては本規約とプライバシーポリシーをご確認ください。</p>
+        <p class="en">These terms govern the kakeratta web service and Alexa skill provided by takeshy.work, operated by Takeshi Morita. Please review these terms and the Privacy Policy before using the service.</p>
+      </section>
+      <section><h2><span class="ja">2. アカウントと連携</span><span class="en">2. Accounts and integrations</span></h2>
+        <p class="ja">ユーザーはGoogleアカウント等の認証情報やAPIキー、連携先アカウントを適切に管理してください。Alexaスキルの利用にはアカウントリンクが必要です。同じAlexa端末の利用者は、連携したアカウントへの投稿や返事・予定の読み上げを利用できるため、共有する情報と端末の管理にご注意ください。</p>
+        <p class="en">You are responsible for managing your Google account or other authentication credentials, API keys, and linked accounts. The Alexa skill requires account linking. Other users of the same Alexa device can post to the linked account and hear replies or schedules, so manage shared information and device access appropriately.</p>
+      </section>
+      <section><h2><span class="ja">3. 料金と外部サービス</span><span class="en">3. Charges and third-party services</span></h2>
+        <p class="ja">AI API等の外部サービスには、その提供元の利用条件や料金が適用されます。ユーザーが登録するAPIキーによる利用料金、通信料金等はユーザーの負担となります。本サービスが表示するAI利用額は概算であり、提供元の請求額とは異なる場合があります。本サービスの有料機能を提供する場合は、その条件を別途提示します。</p>
+        <p class="en">External services, including AI APIs, apply their own terms and pricing. You are responsible for charges incurred through your API keys and for connectivity costs. AI usage costs shown by the service are estimates and may differ from provider billing. Any paid service features will have separately disclosed terms.</p>
+      </section>
+      <section><h2><span class="ja">4. 投稿と権利</span><span class="en">4. Content and rights</span></h2>
+        <p class="ja">投稿する文章・画像等について、必要な権利や許可を得てください。ユーザーまたは従来の権利者が保有する権利は、その権利者に帰属します。ユーザーは、保存、検索、AI処理、通知および指定した連携等、本サービスの提供に必要な範囲で、投稿内容を取り扱うことを運営者に許諾するものとします。</p>
+        <p class="en">Ensure you have the rights and permissions needed for submitted text, images, and other content. Existing rights remain with you or the relevant rights holder. You authorize the operator to process content as necessary to provide storage, search, AI processing, notifications, and integrations you request.</p>
+      </section>
+      <section><h2><span class="ja">5. 禁止事項</span><span class="en">5. Prohibited use</span></h2>
+        <p class="ja">法令違反、第三者の権利侵害、不正アクセス、なりすまし、認証情報の不正利用、サービスや外部連携先への攻撃・過剰な負荷、その他サービスの運営を妨げる行為を禁止します。違反または安全上の必要がある場合、運営者は利用を制限・停止することがあります。</p>
+        <p class="en">Do not violate laws or third-party rights, gain unauthorized access, impersonate others, misuse credentials, attack or overload this service or its integrations, or otherwise disrupt operation. The operator may restrict or suspend access for violations or security needs.</p>
+      </section>
+      <section><h2><span class="ja">6. AIの出力と予定・通知</span><span class="en">6. AI output, schedules, and notifications</span></h2>
+        <p class="ja">AIの返事や記憶には誤りや不完全な内容が含まれる場合があります。重要な情報はユーザー自身で確認してください。医療・法律・金融等の専門的判断や緊急対応を代替するものではありません。予定や通知、音声認識、外部連携は、通信状態や提供元の都合等で遅延・失敗する場合があります。重要な予定は別の手段でも管理してください。</p>
+        <p class="en">AI replies and memories may be incorrect or incomplete. Verify important information yourself. The service is not a substitute for professional medical, legal, or financial judgment or emergency services. Schedules, notifications, speech recognition, and integrations may be delayed or fail due to connectivity or provider conditions. Maintain another means of tracking important commitments.</p>
+      </section>
+      <section><h2><span class="ja">7. データの管理と利用終了</span><span class="en">7. Data management and ending use</span></h2>
+        <p class="ja">投稿や記憶等は運営者が管理するサーバーとユーザーの端末に保存されます。詳しくはプライバシーポリシーをご確認ください。必要なデータは書き出して保管してください。設定からアカウントのデータを削除して利用を終了できます。削除済みデータの復元は保証しません。Alexaの連携解除だけではアカウントや投稿は削除されません。</p>
+        <p class="en">Posts, memories, and related data are stored on operator-managed servers and your device, as described in the Privacy Policy. Export and keep copies of important data. You can end use and delete account data through Settings. Recovery of deleted data is not guaranteed. Disconnecting Alexa alone does not delete your account or posts.</p>
+      </section>
+      <section><h2><span class="ja">8. サービスの変更・中断</span><span class="en">8. Changes and interruptions</span></h2>
+        <p class="ja">保守、障害、災害、外部サービスの変更等により、サービスを変更・中断・終了する場合があります。予定された重要な変更や終了については、可能な限り事前にサービス上等でお知らせします。</p>
+        <p class="en">The service may change, be interrupted, or end due to maintenance, failures, disasters, or changes to external services. We will provide advance notice of planned material changes or closure through the service or another appropriate channel where practicable.</p>
+      </section>
+      <section><h2><span class="ja">9. 保証と責任</span><span class="en">9. Warranties and liability</span></h2>
+        <p class="ja">運営者は、本サービスの正確性、完全性、特定目的への適合性、継続的な利用可能性を保証しません。運営者の責任は適用法令に従います。本規約は、運営者の故意・重過失による責任や、消費者保護法その他の法令により制限できない責任を免除・制限するものではありません。</p>
+        <p class="en">The operator does not guarantee accuracy, completeness, fitness for a particular purpose, or continuous availability. Liability is governed by applicable law. These terms do not exclude or limit liability for intentional misconduct or gross negligence, or liability that cannot be excluded or limited under consumer protection or other applicable laws.</p>
+      </section>
+      <section><h2><span class="ja">10. 規約の変更とお問い合わせ</span><span class="en">10. Changes to terms and contact</span></h2>
+        <p class="ja">適用法令に従い本規約を変更する場合があります。変更内容と適用開始日を、必要な事前期間を設けてサービス上等でお知らせします。本規約やサービスに関するお問い合わせは下記窓口へご連絡ください。</p>
+        <p class="en">We may amend these terms in accordance with applicable law. Changes and their effective date will be announced through the service or another appropriate channel with any required advance notice. Contact us below with questions about these terms or the service.</p>
+      </section>
+      <section><h2><span class="ja">お問い合わせ窓口</span><span class="en">Contact</span></h2>
+        <p><a href="https://takeshy.work">takeshy.work</a> — <span class="ja">運営者：森田 剛志</span><span class="en">Operator: Takeshi Morita</span><br /><a href="mailto:takeshy.work@gmail.com">takeshy.work@gmail.com</a></p>
+        <p class="ja">電話：050-1792-0976（平日10:00〜18:00、日本時間）</p>
+        <p class="en">Phone: +81-50-1792-0976 (weekdays 10:00–18:00, Japan time)</p>
+      </section>
+    </main>
+    <footer class="site-foot"><nav class="site-foot-row" aria-label="Site">
+      <a href="/lp/" data-lang-link><span class="ja">ホーム</span><span class="en">Home</span></a>
+      <a href="/privacy/" data-lang-link><span class="ja">プライバシーポリシー</span><span class="en">Privacy Policy</span></a>
+      <a href="/terms/" data-lang-link><span class="ja">利用規約</span><span class="en">Terms of Service</span></a>
+    </nav></footer>
+  </body>
+</html>

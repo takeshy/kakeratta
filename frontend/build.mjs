@@ -25,7 +25,7 @@ cpSync(join(frontendDir, "src"), join(distDir, "src"), { recursive: true });
 // plain HTML at /lp/ and /manual/, sharing one stylesheet and the language
 // switch under /site/. Their screenshots are the README's, so they are copied
 // from docs/ rather than kept twice.
-for (const dir of ["lp", "manual", "site"]) {
+for (const dir of ["lp", "manual", "privacy", "terms", "site"]) {
   cpSync(join(frontendDir, dir), join(distDir, dir), { recursive: true });
 }
 cpSync(join(frontendDir, "..", "docs", "captures"), join(distDir, "captures"), { recursive: true });
