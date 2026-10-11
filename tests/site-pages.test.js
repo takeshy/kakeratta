@@ -15,14 +15,15 @@ function captureSize(source) {
 }
 
 // The landing page leads to the manual and the app; the manual leads back to
-// both. Both pages carry both languages.
+// both. App links explicitly request sign-in to avoid the guest landing-page
+// redirect. Both pages carry both languages.
 test("the landing page and the manual point at each other and at the app", () => {
   const lp = read("lp/index.html");
   const manual = read("manual/index.html");
   assert.match(lp, /href="\/manual\/"/);
-  assert.match(lp, /href="\/"/);
+  assert.match(lp, /href="\/\?login=1"/);
   assert.match(manual, /href="\/lp\/"/);
-  assert.match(manual, /href="\/"/);
+  assert.match(manual, /href="\/\?login=1"/);
   for (const page of [lp, manual]) {
     assert.match(page, /class="ja"/);
     assert.match(page, /class="en"/);
