@@ -145,13 +145,6 @@ resource "google_certificate_manager_certificate" "apps" {
   depends_on = [google_dns_record_set.validation]
 }
 
-resource "google_certificate_manager_certificate_map_entry" "primary" {
-  name         = "shared-apps-primary"
-  map          = "gemihub-map"
-  matcher      = "PRIMARY"
-  certificates = [google_certificate_manager_certificate.apps["kakeratta"].id]
-}
-
 resource "google_certificate_manager_certificate_map_entry" "apps" {
   for_each     = { kakeratta = "kakeratta.net", kakeratta_wildcard = "*.kakeratta.net", geo = "geo.mcp.takeshy.work" }
   name         = "shared-apps-${replace(each.key, "_", "-")}"

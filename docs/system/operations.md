@@ -10,10 +10,6 @@ Development, validation, model usage inspection, remote Terraform state and vari
 
 # Development, validation, and deployment
 
-## HTTPS certificate fallback
-
-The shared load balancer certificate map includes `shared-apps-primary`, a `PRIMARY` entry using the existing `shared-apps-kakeratta` certificate. Exact and wildcard SNI hostname entries retain priority. Connections without SNI, or with unmatched SNI, receive the Kakeratta certificate; hostname verification still limits its validity to `kakeratta.net` and `*.kakeratta.net`. Without a primary entry, a TLS handshake without SNI was closed before reaching Nginx. This compatibility fix was investigated during Alexa endpoint failures; it does not establish that Alexa omitted SNI or that account-linked skill execution succeeds. Verify both SNI and non-SNI TLS handshakes, an HTTP request with `Host: kakeratta.net`, and the other shared hosts after changes. Resource: [shared VM Terraform](../../infra/shared-vm/main.tf), `google_certificate_manager_certificate_map_entry.primary`.
-
 ## Firebase redirect authentication
 
 Production Web sets `KAKERATTA_FIREBASE_AUTH_DOMAIN=kakeratta.net`. [Nginx](../../infra/shared-vm/nginx.conf) transparently proxies `/__/auth/` GET/POST requests to `https://kakeratta.firebaseapp.com`, preserving paths and query strings, setting the upstream Host and TLS SNI, and verifying the upstream certificate. Helper responses are not cached and auth callback access logging is disabled. This avoids the cross-origin storage failure that returns Alexa users to login after Google authentication. The Firebase authorized domains must include `kakeratta.net`, and the Google OAuth web client must allow `https://kakeratta.net/__/auth/handler`; retain existing redirect URIs for older clients. See [Firebase redirect guidance](https://firebase.google.com/docs/auth/web/redirect-best-practices).
