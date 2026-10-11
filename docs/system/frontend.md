@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-10"
+updated: "2026-10-11"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
@@ -155,6 +155,8 @@ The persona tool picker uses [tool_labels.js](../../frontend/src/tool_labels.js)
 The `screen--hero` story in [Screen.stories.js](../../frontend/stories/Screen.stories.js) supplies the shared `timeline` capture for the README and manual. It shows only current built-in personas and a complete conversation with tabe, opening the reply toggle so the persona's answer and the user's reply are visible.
 
 The landing page uses the separate `screen--travel-memory` story and `travel-memory` capture in Japanese and English. Its sample timeline shows a restaurant missed during a Shizuoka trip, a return-trip post three weeks later, and tabe's daily suggestion. The daily suggestion is an independent persona post, matching the check-in delivery shape.
+
+The landing page's separate-memory feature uses the `memory` capture from `personas--wine-memory`, cropped from the top to show the persona name, preference facts, original-post links and correction controls. Its screenshot-input feature uses `book-capture` and `book-response` captures in Japanese and English. These are excerpts of the actual local application's book-image post and generated infographic response, rather than search results or prepared Storybook replies. Switching browser language changes the UI labels; the saved book content and response keep their original language. The page labels this pair as an actual local run.
 
 ## Implementation and verification
 

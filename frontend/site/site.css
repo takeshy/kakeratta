@@ -158,6 +158,10 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .shot.crop-top img, .shot.crop-bottom img { max-height: 560px; object-fit: cover; }
 .shot.crop-top img { object-position: top; }
 .shot.crop-bottom img { object-position: bottom; }
+.book-capture-example { overflow: hidden; }
+.book-capture-example img { border-radius: 0; }
+.book-capture-example img:nth-of-type(3), .book-capture-example img:nth-of-type(4) { border-top: 1px solid var(--line); }
+.book-capture-example figcaption { padding: 14px 18px; font-size: 0.85rem; color: var(--muted); }
 .section { padding: 40px 0; border-top: 1px solid var(--line); }
 .section-intro { color: var(--muted); max-width: 640px; }
 /* Why it was made: a short story, read at column width, with one line held up. */
