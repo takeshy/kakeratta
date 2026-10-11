@@ -152,7 +152,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     view.append(
       el("p", { label: "Nebius Token FactoryのNVIDIA Nemotronモデルを使います。Token FactoryのAPIキーを入力してください。" }),
       el("a", { href: "https://tokenfactory.nebius.com", target: "_blank", rel: "noopener noreferrer", text: t("APIキーを取得") }),
-      el("p", { class: "hint", label: "個人利用の実績：1日0.06〜0.60米ドル、平均を30日換算すると月約10米ドル（2026年10月1〜4日）。費用は投稿数、担当数、モデルや定期チェックインの利用で変わります。" }),
+      el("p", { class: "hint", label: "最近の本番利用例：1日0.03〜0.46米ドル、平均を30日換算すると約5米ドル（2026年10月7〜10日・日本時間のログからの概算）。費用は投稿数、担当数、モデルや定期チェックインの利用で変わります。Web検索・外部エージェントの料金は含みません。" }),
     );
     setupHint = el("p", { class: "hint warn", hidden: aiConfigured(settings) },
       el("span", { label: "最初にAI接続を設定してください。設定が完了するまでこの画面は閉じられません。" }),

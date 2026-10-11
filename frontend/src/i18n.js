@@ -308,7 +308,7 @@ const EN = {
   "終了フレーズで送信するときだけ、lowモデルが意味を変えずに句読点や言いよどみを整えます": "Only when a send phrase triggers posting, the low model tidies punctuation and hesitations while preserving meaning.",
   "文章を整えて送っています…": "Polishing and sending…",
   "Nebius Token FactoryのNVIDIA Nemotronモデルを使います。Token FactoryのAPIキーを入力してください。": "Kakeratta runs on NVIDIA Nemotron models from Nebius Token Factory. Enter your Token Factory API key.",
-  "個人利用の実績：1日0.06〜0.60米ドル、平均を30日換算すると月約10米ドル（2026年10月1〜4日）。費用は投稿数、担当数、モデルや定期チェックインの利用で変わります。": "Observed personal usage: US$0.06–0.60 per day; the daily average over 30 days would be about US$10 per month (October 1–4, 2026). Costs vary with post count, persona count, models and periodic check-ins.",
+  "最近の本番利用例：1日0.03〜0.46米ドル、平均を30日換算すると約5米ドル（2026年10月7〜10日・日本時間のログからの概算）。費用は投稿数、担当数、モデルや定期チェックインの利用で変わります。Web検索・外部エージェントの料金は含みません。": "Recent production usage: US$0.03–0.46 per day, or about US$5 over 30 days at the observed daily average (estimated from logs for October 7–10, 2026, Japan time). Costs vary with post count, persona count, models and periodic check-ins. Web search and external-agent charges are excluded.",
   "さらに20件読み込む": "Load 20 more posts", "もう一度読み込む": "Try loading again",
   "読み込んでいます…": "Loading…", "読み込めませんでした。もう一度お試しください。": "Could not load posts. Please try again.",
     "例：美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。": "Example: When I send a photo of a wine label I liked, tell me the wine and its grape varieties.",
