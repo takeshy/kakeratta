@@ -25,6 +25,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/takeshy/kakeratta/internal/alarm"
+	"github.com/takeshy/kakeratta/internal/alexa"
 	"github.com/takeshy/kakeratta/internal/dispatch"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/server"
@@ -74,6 +75,22 @@ func main() {
 		}()
 	}
 	firebaseProjectID := strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_PROJECT_ID"))
+	alexaConfig := &alexa.Config{
+		SkillID:      strings.TrimSpace(os.Getenv("KAKERATTA_ALEXA_SKILL_ID")),
+		ClientID:     strings.TrimSpace(os.Getenv("KAKERATTA_ALEXA_CLIENT_ID")),
+		ClientSecret: strings.TrimSpace(os.Getenv("KAKERATTA_ALEXA_CLIENT_SECRET")),
+		RedirectURLs: strings.Fields(os.Getenv("KAKERATTA_ALEXA_REDIRECT_URLS")),
+	}
+	if alexaConfig.SkillID != "" || alexaConfig.ClientID != "" || alexaConfig.ClientSecret != "" || len(alexaConfig.RedirectURLs) > 0 {
+		if !alexaConfig.Enabled() || firebaseProjectID == "" {
+			log.Fatal("Alexa requires Firebase authentication and all KAKERATTA_ALEXA_* settings")
+		}
+		for _, redirect := range alexaConfig.RedirectURLs {
+			if !alexaConfig.AllowsRedirect(redirect) {
+				log.Fatal("invalid Alexa redirect URL")
+			}
+		}
+	}
 	mode := strings.TrimSpace(os.Getenv("KAKERATTA_MODE"))
 	if mode == "" {
 		mode = "combined"
@@ -123,8 +140,9 @@ func main() {
 		judgeExpiresAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_EXPIRES_AT")))
 		judgeMaxUses, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_MAX_USES")))
 		authOptions := server.AuthOptions{
-			Mode: mode,
-			Root: root, Version: version,
+			Alexa: alexaConfig,
+			Mode:  mode,
+			Root:  root, Version: version,
 			FirebaseProjectID:  firebaseProjectID,
 			FirebaseAPIKey:     strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_API_KEY")),
 			FirebaseAuthDomain: strings.TrimSpace(os.Getenv("KAKERATTA_FIREBASE_AUTH_DOMAIN")),

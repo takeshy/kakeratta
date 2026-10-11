@@ -7,6 +7,9 @@ import (
 )
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /api/alexa/connection", s.guard(s.alexaConnection))
+	s.mux.HandleFunc("DELETE /api/alexa/connection", s.guard(s.alexaConnection))
+	s.mux.HandleFunc("POST /api/alexa/authorize", s.guard(s.authorizeAlexa))
 	s.mux.HandleFunc("GET /api/push", s.guard(s.pushConfig))
 	s.mux.HandleFunc("PUT /api/push", s.guard(s.savePush))
 	s.mux.HandleFunc("DELETE /api/push", s.guard(s.deletePush))

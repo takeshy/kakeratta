@@ -1,7 +1,7 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
+description: "Frontend composition, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
 updated: "2026-10-11"
 ---
@@ -9,6 +9,8 @@ updated: "2026-10-11"
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
 
 # Browser application composition
+
+After the cached/offline authentication check, `bootstrap.js` calls `startAlexaLink` for `/alexa` instead of loading the timeline. This path forces `reconnectAuthentication` to verify the live session and restore an expired Firebase session before rendering consent. A required sign-in keeps the authentication screen visible; other connection failures offer a reload retry. The current URL, including OAuth query parameters, is retained throughout this flow. Google authentication on that path uses Firebase redirect sign-in, since Alexa's linking browser does not support popups; other login paths retain popup sign-in. The page sends OAuth parameters to the guarded authorization endpoint only after the user presses the consent button, and follows the server-validated redirect. Settings' external integrations section shows Alexa status and revocation when enabled or previously linked. Consent, status, controls and known API errors use the existing Japanese/English UI dictionary, following the application/browser language; voice locale remains separate. See [alexa.js](../../frontend/src/alexa.js), [auth.js](../../frontend/src/auth.js), [consent/revocation tests](../../tests/alexa.test.js), and the [setup guide](../alexa.md). Real browser redirect behavior depends on the deployed Firebase auth domain configuration.
 
 ## Initialization and components
 

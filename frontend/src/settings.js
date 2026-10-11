@@ -9,6 +9,7 @@ import { createPushSettings } from "./push.js";
 import { installSettingsNode } from "./install-prompt.js";
 import { createBlueskyConnection } from "./bluesky.js";
 import { createMCPConnection } from "./mcp-connection.js";
+import { createAlexaConnection } from "./alexa.js";
 import { api } from "./api.js";
 import { speechLanguageOptions } from "./speech_languages.js";
 import { createAudioMeter } from "./meter.js";
@@ -616,6 +617,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       bluesky?.dispose();
       bluesky = createBlueskyConnection();
       integrations.content.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
+      integrations.content.append(createAlexaConnection());
       drawBackup(category("バックアップ").content);
       if (closeAccount) drawClosing(category("利用停止").content);
     };

@@ -1,7 +1,7 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
+description: "Authentication including Alexa account linking, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
 updated: "2026-10-11"
 ---
@@ -31,8 +31,11 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 | `routing.go`, `preview.go` | Routing and reply checks and application |
 | `social.go`, `bluesky.go` | Sharing previews, publishing, OAuth |
 | `mcp_server.go`, `mcp_tools.go` | MCP for external agents |
+| `alexa.go`, `alexa_auth.go` | Signed Alexa requests, dedicated OAuth linking, voice posts and read-aloud |
 
 `readJSONLimit` uses `http.MaxBytesReader` to bound input. `fail` produces JSON errors and `writeJSON` produces responses. The API server does not serve the frontend; unknown paths receive a JSON 404.
+
+Alexa has a separate public Gateway boundary at `POST /api/alexa` and `POST /api/alexa/token`; it verifies Alexa signatures or OAuth client credentials, then resolves only an existing workspace. Browser-authenticated `POST /api/alexa/authorize` and `GET`/`DELETE /api/alexa/connection` grant, inspect and revoke this access. These credentials do not replace Firebase sessions. See [Alexa custom skill](./integrations.md#alexa-custom-skill) for token storage and verification. Both browser `land` and Alexa submissions use `acceptEntry` for atomic entry/routing acceptance and duplicate detection.
 
 ## Schedule editing
 

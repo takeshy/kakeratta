@@ -1,7 +1,7 @@
 ---
 type: "Process"
 title: "Development and workspace operations"
-description: "Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
+description: "Development, validation, Alexa skill setup, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
 updated: "2026-10-11"
 ---
@@ -11,6 +11,8 @@ Development, validation, model usage inspection, remote Terraform state and vari
 # Development, validation, and deployment
 
 ## Development units
+
+Alexa custom-skill setup is described in [alexa.md](../alexa.md), including separate interaction models for Japanese and English in the US, UK, Canada, Australia and India. All locales share the endpoint and OAuth client, with every regional Console redirect URL allowlisted. Publication additionally requires locale descriptions and distribution settings. A Firebase-authenticated Web/combined process requires `KAKERATTA_ALEXA_SKILL_ID`, `KAKERATTA_ALEXA_CLIENT_ID`, `KAKERATTA_ALEXA_CLIENT_SECRET`, and whitespace-separated exact `KAKERATTA_ALEXA_REDIRECT_URLS`. Partial configuration or enabling Alexa without Firebase fails startup. With all values absent Alexa is disabled. Deployment environment/secret definitions and the Amazon Console must be configured separately; this implementation does not automatically register or deploy a skill. Signature, OAuth and speech tests use local fixtures; model-build and real account-linking/device checks remain deployment validation.
 
 `Taskfile.yml` groups API build and startup, Vite, Storybook, frontend builds, and tests. The default API address is `127.0.0.1:8787`. Vite serves the frontend and proxies development `/api` requests to the API. Storybook starts on port 6106 with `mise exec -- npm --prefix frontend run storybook`.
 

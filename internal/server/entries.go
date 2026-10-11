@@ -164,6 +164,15 @@ func readLink(ctx context.Context, entry *timeline.Entry) {
 // clientEntry check; here the second one finds the first and answers with it
 // instead of waking every persona again.
 func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace *timeline.Place) {
+	stored, status, err := s.acceptEntry(entry, reactionPlace)
+	if err != nil {
+		fail(w, status, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, stored)
+}
+
+func (s *Server) acceptEntry(entry timeline.Entry, reactionPlace *timeline.Place) (timeline.Entry, int, error) {
 	reaction := store.EntryReaction(entry)
 	reaction.Place = reactionPlace
 	stored, created, err := s.store.CreateEntry(entry, reaction)
@@ -173,21 +182,18 @@ func (s *Server) land(w http.ResponseWriter, entry timeline.Entry, reactionPlace
 		if errors.Is(err, store.ErrEntryMissing) {
 			status = http.StatusNotFound
 		}
-		fail(w, status, err.Error())
-		return
+		return timeline.Entry{}, status, err
 	}
 	if !created {
 		s.dropCapture(entry)
 		if stored.RequestHash != entry.RequestHash {
-			fail(w, http.StatusConflict, "投稿IDが別の内容に使われています")
-			return
+			return timeline.Entry{}, http.StatusConflict, errors.New("投稿IDが別の内容に使われています")
 		}
-		writeJSON(w, http.StatusOK, stored)
-		return
+		return stored, http.StatusOK, nil
 	}
 	s.publishEvent("entry", entry)
 	s.runner.RouteAccepted(reaction.ID)
-	writeJSON(w, http.StatusOK, entry)
+	return entry, http.StatusOK, nil
 }
 
 type replyBody struct {

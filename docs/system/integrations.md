@@ -1,12 +1,26 @@
 ---
 type: "Integration"
 title: "External agents, tools, and sharing"
-description: "External-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
-tags: ["mcp", "agent", "tools", "support", "bluesky", "sharing", "weather"]
-updated: "2026-10-10"
+description: "Japanese and English Alexa voice posts and read-aloud, external-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
+tags: ["alexa", "mcp", "agent", "tools", "support", "bluesky", "sharing", "weather"]
+updated: "2026-10-11"
 ---
 
-External-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
+Alexa voice posts and read-aloud, external-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
+
+# Alexa custom skill
+
+The Japanese and English HTTPS skill exposes `POST /api/alexa` through the Gateway's public integration boundary, enabled only with complete operator configuration and Firebase authentication. Before resolving an account it verifies the SHA-256 signature, a trusted certificate chain with the exact `echo-api.amazon.com` SAN, the skill ID, and a timestamp within 150 seconds in either direction. Certificate downloads accept only HTTPS `s3.amazonaws.com/echo.api/` URLs on port 443, with no redirects, a three-second timeout and a 64 KiB bound. A bounded process-local cache retains verified certificates, checking them again on use. Envelopes are capped at 256 KiB; invalid requests receive HTTP 400. There is no unsigned development bypass.
+
+Account linking uses OAuth authorization code grant. The signed-in `/alexa` browser page requires explicit consent and posts to guarded `/api/alexa/authorize`. Client ID, response type, scope and an exact operator-configured HTTPS redirect are checked. A five-minute single-use code is exchanged at `/api/alexa/token`, authenticated by the client secret (HTTP Basic or form fields). Access tokens last one hour; the stable refresh token expires 365 days after linking. Expiry is enforced by application checks. Only SHA-256 credential hashes, expiry instants and the pending redirect are persisted in a versioned `SocialValue` under `alexa-credential`; compare-and-swap makes code consumption and rotation exclusive across instances. A completed new link replaces the previous one. The browser connection endpoint reports status or revokes all credentials, including pending codes. Judge accounts cannot authorize linking.
+
+Tokens contain a workspace locator and random secret; the locator alone is never authorization. Requests open only existing workspaces and honor closing state. Every data intent verifies the current access-token hash and expiry. Alexa credentials do not authorize ordinary browser or MCP requests. Missing, invalid or expired access tokens produce a `LinkAccount` card. Stop/cancel and session-ended requests require a valid signature but no account data.
+
+`ThrowKakeraIntent` accepts an `AMAZON.SearchQuery` slot of at most 2,000 characters and stores a user post with `Language: ja` for Japanese or `en` for the five English locales through the same `acceptEntry` transaction and routing path as browser submissions. Its entry ID derives from Alexa's request ID to deduplicate retries. It does not fetch spoken URLs or wait for persona inference. The response acknowledges acceptance. Same-session `postId` attributes narrow replies to the most recently submitted fragment, always within the token's workspace.
+
+`ReadRepliesIntent` reads the most recent 100 conversation roots and their replies, selecting up to three persona entries newest first, excluding user/app entries. Markdown becomes plain speech, capped at 700 characters per answer; complete HTML answers direct the user to the app. This is recent-conversation retrieval, not unread tracking or an exhaustive latest-reply query over historical threads. `ReadSchedulesIntent` reads up to five future saved schedules in time order using the account timezone (missing, invalid or `Local` zones fall back to Asia/Tokyo in Japanese and UTC in English), including autonomous and user-requested schedules. It does not fetch external calendars. The signed request locale selects Japanese or English prompts, reprompts, errors and read-aloud notices. `en-US`, `en-GB`, `en-CA`, `en-AU` and `en-IN` have separate shipped models with the shared invocation name `kakeratta notes`; `ja-JP` retains its Japanese model. Missing or unsupported locales retain the legacy Japanese fallback. English dates include a year and AM/PM; US English uses month/day order, other English locales day/month. Locale does not imply a timezone. Stored reply bodies, persona names and schedule notes are read as saved, without a translation call; persona generation already follows the language of the user post. Output uses Alexa `PlainText`, preventing saved text from injecting SSML. Proactive announcements are not implemented.
+
+Implementation: [verification](../../internal/alexa/alexa.go), [intents](../../internal/server/alexa.go), [speech localization](../../internal/server/alexa_language.go), [OAuth](../../internal/server/alexa_auth.go), [Japanese model](../../integrations/alexa/ja-JP.json), [locale models](../../integrations/alexa/), [setup guide](../alexa.md). Verification: [signature tests](../../internal/alexa/alexa_test.go) and [OAuth, idempotency and speech tests](../../internal/server/alexa_test.go), and [English locale tests](../../internal/server/alexa_language_test.go). Console model validation, Google/Firebase linking and device invocation require deployment testing.
 
 # External-agent answers
 

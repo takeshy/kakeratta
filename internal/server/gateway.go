@@ -17,6 +17,7 @@ import (
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
 
+	"github.com/takeshy/kakeratta/internal/alexa"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/tools"
@@ -37,6 +38,7 @@ type tokenVerifier interface {
 }
 
 type AuthOptions struct {
+	Alexa              *alexa.Config
 	Root               string
 	Version            string
 	FirebaseProjectID  string
@@ -207,6 +209,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case r.URL.Path == "/api/alexa" && r.Method == http.MethodPost:
+		g.serveAlexa(w, r)
+		return
+	case r.URL.Path == "/api/alexa/token" && r.Method == http.MethodPost:
+		g.alexaToken(w, r)
+		return
 	case r.URL.Path == "/api/social/bluesky/client-metadata.json" && r.Method == http.MethodGet:
 		blueskyMetadata(w, r)
 		return
@@ -244,6 +252,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if isJudge(identity) && !g.judgeActive() {
 		fail(w, http.StatusForbidden, "judge access has expired")
+		return
+	}
+	if isJudge(identity) && r.URL.Path == "/api/alexa/authorize" {
+		fail(w, http.StatusForbidden, "Alexa linking requires a regular account")
 		return
 	}
 	if r.URL.Path == "/api/auth/identity" && r.Method == http.MethodGet {
@@ -577,6 +589,7 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 		exports = g.options.ExportTarget(userKey)
 	}
 	options := Options{
+		Alexa: g.options.Alexa,
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace),
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
 		Passive: g.passive(),

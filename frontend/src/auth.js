@@ -82,6 +82,11 @@ async function authenticate() {
     });
     firebaseAuth = authModule.getAuth(app);
     firebaseSignOut = authModule.signOut;
+    // Alexa's linking browser does not support authentication popups.
+    if (location.pathname === "/alexa") {
+      const result = await authModule.getRedirectResult(firebaseAuth);
+      if (result?.user) localStorage.removeItem("kakeratta.signedOut");
+    }
     const user = await waitForUser(firebaseAuth, authModule.onAuthStateChanged);
     if (user && !judgeInviteToken() && localStorage.getItem("kakeratta.signedOut") !== "1") {
       await establishSession(user);
@@ -117,7 +122,9 @@ async function authenticate() {
       return false;
     }
     const login = createGoogleLogin({
-      signIn: () => authModule.signInWithPopup(firebaseAuth, new authModule.GoogleAuthProvider()),
+      signIn: () => location.pathname === "/alexa"
+        ? authModule.signInWithRedirect(firebaseAuth, new authModule.GoogleAuthProvider())
+        : authModule.signInWithPopup(firebaseAuth, new authModule.GoogleAuthProvider()),
       establishSession,
       onSuccess: () => {
         localStorage.removeItem("kakeratta.signedOut");

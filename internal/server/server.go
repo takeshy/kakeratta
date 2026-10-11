@@ -18,6 +18,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
 
+	"github.com/takeshy/kakeratta/internal/alexa"
 	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/search"
@@ -29,6 +30,7 @@ import (
 
 // Options is everything the server is handed.
 type Options struct {
+	Alexa     *alexa.Config
 	Store     store.Workspace
 	Catalogue *persona.Catalogue
 	Version   string
@@ -54,6 +56,7 @@ type EventBus interface {
 
 // Server is the app.
 type Server struct {
+	alexa        *alexa.Config
 	workspaceKey string
 	socialClient func(context.Context) (*social.Client, error)
 	oauthClient  func(*oauth.ClientApp)
@@ -81,6 +84,7 @@ type Server struct {
 
 func New(options Options) *Server {
 	s := &Server{
+		alexa:     options.Alexa,
 		store:     options.Store,
 		catalogue: options.Catalogue,
 		version:   options.Version,

@@ -1,0 +1,63 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "kakeratta notes",
+      "intents": [
+        {
+          "name": "ThrowKakeraIntent",
+          "slots": [
+            {
+              "name": "text",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "take a note {text}",
+            "save a note {text}",
+            "remember that {text}",
+            "save this {text}"
+          ]
+        },
+        {
+          "name": "ReadRepliesIntent",
+          "slots": [],
+          "samples": [
+            "read my replies",
+            "check my replies",
+            "read the replies",
+            "what are the latest replies",
+            "have any personas replied"
+          ]
+        },
+        {
+          "name": "ReadSchedulesIntent",
+          "slots": [],
+          "samples": [
+            "what is on my schedule",
+            "what's on my schedule",
+            "read my schedule",
+            "what is coming up",
+            "tell me my next scheduled items"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "かけらった",
+      "intents": [
+        {
+          "name": "ThrowKakeraIntent",
+          "slots": [{ "name": "text", "type": "AMAZON.SearchQuery" }],
+          "samples": ["メモして {text}", "かけらを投げて {text}", "記録して {text}"]
+        },
+        {
+          "name": "ReadRepliesIntent",
+          "slots": [],
+          "samples": ["返事を聞いて", "返事を教えて", "担当の返事を読んで", "返事は来た", "返事を聞かせて"]
+        },
+        {
+          "name": "ReadSchedulesIntent",
+          "slots": [],
+          "samples": ["予定を教えて", "予定を聞かせて", "次の予定は", "これからの予定は"]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}

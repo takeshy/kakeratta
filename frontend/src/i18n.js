@@ -1,6 +1,21 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "Alexaと連携する": "Link with Alexa",
+  "Alexaと連携": "Link with Alexa",
+  "このアカウントに声でかけらを投稿し、担当の返事と予定をAlexaで読み上げます。": "Use Alexa to add notes to this account and hear your personas' replies and upcoming schedule.",
+  "同じAlexaを使う人にも返事や予定が聞こえます。連携は設定の外部連携から解除できます。": "Other people using this Alexa can hear your replies and schedule. You can unlink it under Integrations in Settings.",
+  "連携せずに戻る": "Go back without linking",
+  "Alexa連携": "Alexa connection",
+  "Alexa連携を解除": "Unlink Alexa",
+  "Alexaと連携しています。『返事を聞いて』『予定を教えて』と話しかけられます。": "Alexa is linked. Say, read my replies, or what's on my schedule.",
+  "Alexaアプリで「かけらった」スキルのアカウント連携を開始してください。": "Start account linking for the Kakeratta skill in the Alexa app.",
+  "Alexaアプリから連携を開始してください": "Please start account linking from the Alexa app.",
+  "Alexa連携は設定されていません": "Alexa linking is not configured.",
+  "Alexa連携を保存できませんでした": "Could not save the Alexa connection.",
+  "Alexa連携を解除できませんでした。再試行してください": "Could not unlink Alexa. Please try again.",
+  "Alexa連携を読み込めませんでした": "Could not load the Alexa connection.",
+  "連携が更新されています。再試行してください": "The connection has changed. Please try again.",
   "ホーム画面に追加しませんか？": "Add kakeratta to your Home Screen?",
   "ホーム画面から、すぐにkakerattaを開けます。": "Open kakeratta quickly from your Home Screen.",
   "予定の通知を受け取るには、ホーム画面への追加が必要です。": "Add kakeratta to your Home Screen to receive scheduled reminders.",
