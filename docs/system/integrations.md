@@ -1,12 +1,12 @@
 ---
 type: "Integration"
 title: "External agents, tools, and sharing"
-description: "Japanese and English Alexa voice posts and read-aloud, external-agent answers and direct requests over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
-tags: ["alexa", "mcp", "agent", "direct-request", "tools", "support", "bluesky", "sharing", "weather"]
+description: "Japanese and English Alexa voice posts and read-aloud, external-agent answers, direct requests and connected Timeline synchronization over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
+tags: ["alexa", "mcp", "agent", "direct-request", "timeline-sync", "tools", "support", "bluesky", "sharing", "weather"]
 updated: "2026-10-12"
 ---
 
-Alexa voice posts and read-aloud, external-agent answers and direct requests over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
+Alexa voice posts and read-aloud, external-agent answers, direct requests and connected Timeline synchronization over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
 
 # Alexa custom skill
 
@@ -216,3 +216,13 @@ Publication history is keyed by target, account, and post, and each publication 
 - [API and persistent state](./backend.md)
 - [Persona execution and memory](./personas.md)
 - [Browser application and device state](./frontend.md)
+
+# Connected Timeline synchronization
+
+The authenticated MCP `sync_timeline` tool is intended for application synchronization, not model planning or direct-request actions. It accepts at most 50 human-authored changes and 200 explicitly checked IDs, alongside the usual Timeline cursor and a page size up to 50. Responses include full entries, opaque content and subtree-deletion revisions, resolved user/persona/agent display names, explicit missing IDs, per-change outcomes, and the next cursor. Checking a known old post also reads its complete conversation, so later replies and old edits remain discoverable. Absence from a page never means deletion.
+
+New GemiHub entries use stable `gh-` IDs and their original timestamps. A non-expiring `timeline-sync` receipt is reserved under a per-entry workspace lock before `CreateEntry`; a retry cannot recreate a deleted entry or an uncertain first submission. The receipt and request hash deduplicate retries; an ID collision leaves existing content intact. New replies resolve a parent in the authenticated workspace. Updates require the last acknowledged revision and can change only user-authored text. Deletions require the last acknowledged subtree revision and use existing favorite, routing, event and memory cleanup. Conflicts leave Kakeratta authoritative; the client preserves its conflicting content locally. Clients must not offer this tool to their model.
+
+Clients mark historical imports `react=false` so initial synchronization does not wake personas for old posts. New human posts and edits can set `react=true`, which saves the routing request atomically and publishes through the existing runner. Duplicate submissions do not queue another reaction. The application controls its own paid-plan entitlement and synchronization preferences; the MCP key remains scoped to one workspace.
+
+Implementation: [sync tool](../../internal/server/mcp_timeline_sync.go), [MCP schema](../../internal/server/mcp_tools.go). Verification: [retry, conflict, old-thread and missing-ID tests](../../internal/server/mcp_timeline_sync_test.go).

@@ -139,6 +139,14 @@ func (w *FirestoreWorkspace) UpdateMedia(id string, media *timeline.Media) (time
 }
 
 func (w *FirestoreWorkspace) UpdateText(id, text string, initial ...Reaction) (timeline.Entry, error) {
+	return w.updateTextChecked(id, text, "", initial...)
+}
+
+func (w *FirestoreWorkspace) UpdateTextChecked(id, text, expected string, initial ...Reaction) (timeline.Entry, error) {
+	return w.updateTextChecked(id, text, expected, initial...)
+}
+
+func (w *FirestoreWorkspace) updateTextChecked(id, text, expected string, initial ...Reaction) (timeline.Entry, error) {
 	defer w.flushDispatch()
 	var result timeline.Entry
 	err := w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
@@ -148,6 +156,9 @@ func (w *FirestoreWorkspace) UpdateText(id, text string, initial ...Reaction) (t
 		}
 		if err := doc.DataTo(&result); err != nil {
 			return err
+		}
+		if expected != "" && EntryRevision(result) != expected {
+			return ErrEntryConflict
 		}
 		if err := editText(&result, text); err != nil {
 			return err

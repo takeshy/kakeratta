@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication including Alexa account linking, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
-tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-11"
+description: "Authentication including Alexa account linking, entry handling, timeline data and conditional synchronization writes, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
+tags: ["http", "auth", "entry", "capture", "timeline", "timeline-sync", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
+updated: "2026-10-12"
 ---
 
-Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
+Authentication, entry handling, timeline data and conditional synchronization writes, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
 
 # HTTP API and authentication
 
@@ -294,3 +294,9 @@ Verification: [push_test.go](../../internal/server/push_test.go) checks registra
 `GET /api/timeline` and `GET /api/speaker/{id}` accept optional `favoritesOnly=true`, `from`, and `to`; `POST /api/timeline/search` accepts the same fields in JSON. Dates are inclusive RFC3339 timestamps. Invalid timestamps or reversed bounds return 400. Conditions apply before ranking, totals, and pagination, including blank-query period searches. Unfiltered timeline requests retain the indexed cursor path. Filtered timeline requests use [FilteredTimelinePage](../../internal/store/timeline_filter.go): date-only matches parent posts, while favorites-only matches saved entries by their own dates and returns their full conversations, ordered and paged by parent post date with the existing cursor. Speaker filters match the utterance itself and preserve conversation context. Search restricts candidate IDs before lexical or semantic ranking, so out-of-range results cannot crowd out eligible hits. The favorites persistence/API remains available although the separate browser Favorites panel is removed.
 
 Verification: [list_filters_test.go](../../internal/server/list_filters_test.go) checks combined conditions, saved replies with older parents, date-only results, search without a query, and invalid dates.
+
+# Conditional Timeline synchronization
+
+Connected applications can update human-authored posts and replies with `UpdateTextChecked`, which verifies an opaque content revision under the local mutex or a Firestore transaction. Normal browser updates retain their existing method. Revisions include displayed fields and omit request/indexing bookkeeping. `DeleteEntryChecked` verifies a sorted revision of the entire selected subtree inside the deletion transaction; a newly added or edited descendant prevents deletion. A conflict leaves Kakeratta state unchanged.
+
+Implementation: [entry revisions](../../internal/store/entry_revision.go), [local updates](../../internal/store/timeline_files.go), [Firestore updates](../../internal/store/firestore.go), [conditional deletions](../../internal/store/delete_entry.go). Verification: [concurrent edit and new-reply protection](../../internal/store/entry_revision_test.go).

@@ -26,16 +26,17 @@ import (
 // Record collections hold small JSON values by id. Favorites are user-owned
 // state; unlike runtime collections, their files are included in exports.
 const (
-	RecordAsks      = "asks"
-	RecordRequests  = "requests"
-	RecordTrials    = "trials"
-	RecordPresence  = "presence"
-	RecordPush      = "push-subscriptions"
-	RecordFavorites = "favorites"
-	RecordUsage     = "usage"
+	RecordAsks         = "asks"
+	RecordRequests     = "requests"
+	RecordTrials       = "trials"
+	RecordPresence     = "presence"
+	RecordPush         = "push-subscriptions"
+	RecordFavorites    = "favorites"
+	RecordUsage        = "usage"
+	RecordTimelineSync = "timeline-sync"
 )
 
-var recordCollections = map[string]bool{RecordAsks: true, RecordRequests: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true, RecordUsage: true}
+var recordCollections = map[string]bool{RecordAsks: true, RecordRequests: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true, RecordUsage: true, RecordTimelineSync: true}
 
 // ErrUnknownRecords is a collection name that is not a runtime record kind.
 var ErrUnknownRecords = errors.New("unknown runtime record collection")

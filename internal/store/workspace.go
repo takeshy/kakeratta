@@ -30,6 +30,8 @@ type Workspace interface {
 	TimelinePage(context.Context, int, string) (TimelinePage, error)
 	UpdateMedia(string, *timeline.Media) (timeline.Entry, error)
 	UpdateText(string, string, ...Reaction) (timeline.Entry, error)
+	UpdateTextChecked(string, string, string, ...Reaction) (timeline.Entry, error)
+	DeleteEntryChecked(context.Context, string, string) ([]timeline.Entry, error)
 	Entry(string) (timeline.Entry, bool)
 	PutBlob([]byte, string) (string, error)
 	Blob(string) ([]byte, string, error)

@@ -40,7 +40,7 @@ func kakerattaMCPTools() []mcpTool {
 		if required == nil {
 			required = []string{}
 		}
-		return mcpTool{Name: name, Description: description, InputSchema: map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false}, Annotations: map[string]bool{"readOnlyHint": readOnly, "destructiveHint": false, "idempotentHint": name != "submit_answer" && name != "read_for_ask" && name != "reply_request" && name != "comment_on_entry", "openWorldHint": false}}
+		return mcpTool{Name: name, Description: description, InputSchema: map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false}, Annotations: map[string]bool{"readOnlyHint": readOnly, "destructiveHint": name == "sync_timeline", "applicationOnlyHint": name == "sync_timeline", "idempotentHint": name != "submit_answer" && name != "read_for_ask" && name != "reply_request" && name != "comment_on_entry", "openWorldHint": false}}
 	}
 	ask := func() map[string]any {
 		return map[string]any{"askId": str("Ask ID"), "claimId": str("The claimId used in claim_ask")}
@@ -49,7 +49,20 @@ func kakerattaMCPTools() []mcpTool {
 		base[key] = value
 		return base
 	}
+	syncChange := map[string]any{"type": "object", "additionalProperties": false, "required": []string{"id"}, "properties": map[string]any{
+		"id":   str("Stable gh- ID for a new GemiHub entry, or the existing Kakeratta ID"),
+		"text": str("Human-authored text"), "at": str("Original RFC3339 creation time for a new entry"),
+		"replyTo": str("Existing parent entry ID"), "revision": str("Expected revision for an edit"),
+		"deleteRevision": str("Expected full-subtree revision for deletion"), "deleted": map[string]any{"type": "boolean"},
+		"react":    map[string]any{"type": "boolean", "description": "Wake personas for a new human post or edit; false for historical imports"},
+		"language": str("ja or en"),
+	}}
 	return []mcpTool{
+		tool("sync_timeline", "Synchronize human-authored Timeline posts for a connected application, with atomic expected revisions. Read pages and explicitly recheck known IDs (including old conversations). Returns author names and subtree deletion revisions. Clients must not expose this tool to their model. Historical imports must set react=false. Conflicts preserve Kakeratta data.", false, map[string]any{
+			"limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 50}, "before": str("Pagination cursor"),
+			"ids":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": 200},
+			"entries": map[string]any{"type": "array", "items": syncChange, "maxItems": 50},
+		}),
 		tool("list_personas", "List this user's personas, their domains and which of them plan through an external agent.", true, map[string]any{}),
 		tool("get_timeline", "Read a page of this user's timeline: posts newest first, each with its whole conversation. Use next as before to continue.", true, map[string]any{"limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 50}, "before": str("Pagination cursor")}),
 		tool("search_timeline", "Search this user's whole timeline - posts, image readings and replies, the personas' and yours included - by words and meaning, and/or by period. Returns entry IDs, speakers, times and matching text; read a conversation with get_thread.", true, map[string]any{"query": str("Words or phrasing to look for; may be omitted with from or to"), "from": str("Start of the period, e.g. \"2026-09-20 05:00\" in the user's time zone; a date alone is its start"), "to": str("End of the period, same form; a date alone is its end"), "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 30}, "min_score": map[string]any{"type": "number", "minimum": 0, "maximum": 1, "description": "Lower bound for the meaning side, default 0.5"}}),
@@ -74,19 +87,21 @@ func kakerattaMCPTools() []mcpTool {
 }
 
 type mcpArgs struct {
-	Limit   int                `json:"limit"`
-	Before  string             `json:"before"`
-	After   string             `json:"after"`
-	EntryID string             `json:"entryId"`
-	Persona string             `json:"persona"`
-	Path    string             `json:"path"`
-	AskID   string             `json:"askId"`
-	ClaimID string             `json:"claimId"`
-	Steps   []persona.ReadStep `json:"steps"`
-	Answer  json.RawMessage    `json:"answer"`
-	Reason  string             `json:"reason"`
-	Request string             `json:"requestId"`
-	Text    string             `json:"text"`
+	SyncIDs     []string             `json:"ids"`
+	SyncEntries []timelineSyncChange `json:"entries"`
+	Limit       int                  `json:"limit"`
+	Before      string               `json:"before"`
+	After       string               `json:"after"`
+	EntryID     string               `json:"entryId"`
+	Persona     string               `json:"persona"`
+	Path        string               `json:"path"`
+	AskID       string               `json:"askId"`
+	ClaimID     string               `json:"claimId"`
+	Steps       []persona.ReadStep   `json:"steps"`
+	Answer      json.RawMessage      `json:"answer"`
+	Reason      string               `json:"reason"`
+	Request     string               `json:"requestId"`
+	Text        string               `json:"text"`
 
 	Query    string   `json:"query"`
 	From     string   `json:"from"`
@@ -137,6 +152,8 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 		}
 	}
 	switch name {
+	case "sync_timeline":
+		return s.syncTimeline(ctx, a)
 	case "list_personas":
 		settings := s.store.Settings()
 		rows := []map[string]any{}
