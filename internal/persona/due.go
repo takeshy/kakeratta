@@ -102,6 +102,7 @@ func (r *Runner) due(ctx context.Context, now time.Time) (err error) {
 		err = r.armAgain(ctx, r.nextDue(ctx, time.Now(), settings, expiry))
 	}()
 	r.sweepAsks(ctx, now)
+	r.sweepRequests(ctx, now)
 	r.retryNoteJobs(ctx, now)
 	expiry = r.expireRecords(ctx, now, settings)
 	r.dailyAt(ctx, now)
@@ -151,6 +152,14 @@ func (r *Runner) nextDue(ctx context.Context, now time.Time, settings store.Sett
 		default:
 			consider(record.Ask.ClaimBy)
 		}
+	}
+	deadlines, err := r.requestDeadlines(ctx)
+	if err != nil {
+		r.emit("error", map[string]any{"where": "due", "message": err.Error()})
+		failed = true
+	}
+	for _, at := range deadlines {
+		consider(at)
 	}
 	consider(r.nextCheckIn(ctx, now, settings))
 	if failed {

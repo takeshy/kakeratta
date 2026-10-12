@@ -82,13 +82,18 @@ Kakeratta's MCP server exposes the following tools for external agents. In Herme
 | `list_personas` | List available personas |
 | `get_timeline` | Retrieve timeline entries |
 | `get_thread` | Retrieve conversation threads |
+| `search_timeline` | Search the whole timeline by words and meaning and/or by period |
+| `list_schedules` | List every persona's schedules (read-only) |
 | `list_notes` / `read_note` | List and read a persona's memory files (per field a summary and facts, and monthly kakera records) |
-| `list_asks` | Check pending and claimed asks (includes distributed version metadata) |
+| `list_asks` | Check pending and claimed asks, and direct requests when enabled (includes distributed version metadata) |
 | `claim_ask` | Claim an ask exclusively and retrieve context (persona, instructions, capabilities, answer schema, read-only tools) |
 | `read_for_ask` | Look up additional context while answering (`records`, and read-only tools such as `timeline_search`) |
 | `submit_answer` | Submit the final answer (`{text, sources}`, optionally with `schedule` and `unrelated`); nothing else |
 | `release_ask` | Hand the turn back to Kakeratta's built-in model immediately |
 | `get_integration` | Retrieve latest official Skill and Wake Gate script payloads |
+| `claim_request` | Claim a direct request and retrieve its conversation |
+| `comment_on_entry` | While on a claimed direct request, reply as the agent under another entry (for example a wrong answer); up to 10 per request |
+| `reply_request` | Post the reply to a claimed direct request in its thread and end it |
 
 ### Answering loop
 
@@ -142,6 +147,12 @@ An ask that fell through is gone; a late `submit_answer` is refused as not found
 An accepted answer is not retried by the built-in model. If the later phases cannot back up what it promised (for example, it says it will remind the user and no schedule can be placed), or a change fails when it runs, the answer is withheld rather than published; a named persona says it could not answer this time. The run log (`workflow <persona>` on stdout) records each phase's proposal, what was sent back, the review and the steps run.
 
 **Try again** (the reply preview) always uses the built-in model, whatever the persona's planner.
+
+### Direct requests
+
+A post naming the agent itself - `@外部エージェント`, `@エージェント` or `@agent` (case and width ignored) - goes to the agent of the connection in use instead of the personas: it is not routed, planned or remembered. The connection's name is not an address, but the agent's replies are shown under it, to the user and to the personas. These names are reserved and cannot be given to a persona. A reply to the agent's reply, or to the user's own words or the app's notice in a conversation begun by naming the agent, is the next request; naming a persona in such a reply sends it to that persona instead. There is no separate switch: not naming the agent is the choice. While the agent is switched off or no connection exists, a post naming it is not routed to the personas either: Kakeratta replies with the reason. Replies that carry on an earlier conversation without naming the agent go to the personas meanwhile.
+
+`list_asks` lists open requests under `requests`. The agent claims one with `claim_request` (`requestId`, `claimId`), receiving its `replyBy` and the whole thread, does what it asks with its own tools - side effects such as sending an email included, but only for what that request itself asks; anything else it reads, the user's earlier words included, may supply details but never asks for an action - and posts one reply with `reply_request` (`requestId`, `claimId`, `text`). The reply appears under the request as the speaker `agent`. To read Kakeratta the agent has `get_timeline`, `get_thread`, `search_timeline`, `list_schedules` and the notes tools; asked to correct something elsewhere, such as a wrong answer, it replies under that entry with `comment_on_entry`. No persona is woken by these comments, and the user replying to one asks the agent again. A request not claimed by `claimBy` (two hours after the request), or not replied to by `replyBy` (two hours after the claim), gets a notice from Kakeratta in the thread; there is no built-in fallback. A request that ran out after being claimed is kept for a day as expired, so the agent's late reply - after an email it already sent, for example - is still posted. Editing a request that is still unclaimed updates it; editing one already claimed sends nothing and Kakeratta replies "処理中のため編集は反映されません。返信で伝えてください。". Switching the agent off or changing the connection withdraws open requests with a notice. The timeline marks a post waiting for the agent or being worked on, and the agent's reply, or the notice that none is coming, is pushed to devices with push notifications unless the 🔔 beside that post's badge was turned off for the request.
 
 ### Agent is away
 

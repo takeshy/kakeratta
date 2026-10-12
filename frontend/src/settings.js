@@ -303,6 +303,8 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     into.append(
       el("label", { class: "field check-field" }, switchControl(enabled), el("span", { label: "外部エージェントを使う" })),
       el("p", { class: "hint", label: "OFFにすると、外部エージェントからの接続を受け付けず、外部エージェントを優先する担当も内蔵モデルで考えます。担当ごとの設定はそのまま残ります。" }),
+      // Nothing switches direct requests on: naming the agent is the choice.
+      el("p", { class: "hint", label: "@外部エージェント・@エージェント・@agent で呼びかけた投稿は、担当を通さず外部エージェントに直接届き、返信でそのままやりとりできます。メール送信のような操作も外部エージェントが自分の道具で行います。依頼中の投稿の🔔で、その依頼の返信をプッシュ通知するか選べます。" }),
     );
   }
 

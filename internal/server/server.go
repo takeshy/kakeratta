@@ -111,6 +111,7 @@ func New(options Options) *Server {
 	s.runner.SetTools(s.tools)
 	s.runner.SetPlaceLookup(s.enrichPlace)
 	s.runner.SetConnectionWaits(s.activeMCPWaits)
+	s.runner.SetAgentName(s.activeMCPName)
 	s.runner.OnEvent(s.publishEvent)
 	s.routes()
 	if options.Alarm != nil {

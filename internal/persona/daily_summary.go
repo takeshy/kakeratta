@@ -208,11 +208,7 @@ func (r *Runner) forgetDailySummaries(at ...time.Time) {
 }
 
 func (r *Runner) personaNames(ctx context.Context) map[string]string {
-	names := map[string]string{}
-	for _, skill := range r.skills(ctx).All() {
-		names[skill.ID] = skill.Name
-	}
-	return names
+	return r.speakerNames(ctx)
 }
 
 // monthFromDays is the month as the month's summary reads it: the day's

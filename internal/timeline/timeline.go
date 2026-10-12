@@ -26,12 +26,16 @@ const (
 	KindReply Kind = "reply"
 )
 
-// Speaker is who an entry came from. Anything that is not User or App is a
-// persona id.
+// Speaker is who an entry came from. Anything that is not User, App or Agent
+// is a persona id.
 const User = "user"
 
 // App is the speaker of what the app itself posts: the month's summary.
 const App = "kakeratta"
+
+// Agent is the speaker of the external agent's replies to a request made to it
+// directly, outside the personas.
+const Agent = "agent"
 
 // SummaryMonth marks the app's summary of a month.
 const SummaryMonth = "month"

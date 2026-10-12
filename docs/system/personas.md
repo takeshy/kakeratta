@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-11"
+updated: "2026-10-12"
 ---
 
 Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections.
@@ -66,7 +66,7 @@ Implementation: [skill.go](../../internal/persona/skill.go), [kakeratta_help.go]
 
 ## Management
 
-Installing a definition from the frontend validates it, saves it through the Catalogue, and activates the new persona. AI-assisted definition creation is handled by the persona builder. New person personas receive `web_search`, `place_search`, and `schedule` when available; built-in `route` has been removed. Verification: [persona_builder_test.go](../../internal/server/persona_builder_test.go) checks the new-person default tools without route. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
+Installing a definition from the frontend validates it, saves it through the Catalogue, and activates the new persona. The names the external agent answers to are reserved: `reservedNames` refuses an ID, name or alias that folds (case, width, kana and honorifics ignored) to `agent`, `エージェント` or `外部エージェント` when a definition or draft is written, so `@agent` always addresses the agent (see [Direct requests to the external agent](./integrations.md#addressing-the-agent)). Definitions already saved under such a name are still read; the check is not applied on load. Verification: `TestInstallRefusesWhatItCannotTrust` and `TestReservedNamesAreCheckedOnlyWhenWritten` in [skill_test.go](../../internal/persona/skill_test.go). AI-assisted definition creation is handled by the persona builder. New person personas receive `web_search`, `place_search`, and `schedule` when available; built-in `route` has been removed. Verification: [persona_builder_test.go](../../internal/server/persona_builder_test.go) checks the new-person default tools without route. Pausing a persona retains memory and removes schedules. Removing a persona removes its definition, memory, and schedules.
 
 For person personas, `Skill.BasicInfo` (`basicInfo` in JSON) stores initial personal information, such as birthdays and preferences, with the definition. The builder returns it in the draft, and users can edit or clear it in the creation and editing forms. Saving never posts this information to the timeline or creates memory notes. Date-bearing information is separately normalized into notification schedules before saving; dates that cannot be established are omitted. The field is limited to 8,000 characters and cleared for subject personas.
 
@@ -107,7 +107,7 @@ Verification: [sona_test.go](../../internal/persona/sona_test.go) exercises a sc
 
 ## Building the recipient set
 
-After image analysis, Runner loads active personas and the thread. An explicit `@` mention selects its recipient; the HTTP API rejects mentions of multiple distinct personas. Without a mention, a reply to an active persona selects that persona. A mention takes precedence over a different reply target. For these directed entries, Runner skips both subject routing and person alias/keyword matching, and records the recipient as called by mention or reply. Replies to user entries or inactive/deleted personas use ordinary routing when there is no active mentioned recipient.
+After image analysis, Runner loads active personas and the thread. A direct request to the external agent - or one naming it while it is unavailable, answered with the reason - leaves here before any persona is considered; see [Direct requests to the external agent](./integrations.md#direct-requests-to-the-external-agent). An explicit `@` mention selects its recipient; the HTTP API rejects mentions of multiple distinct personas. Without a mention, a reply to an active persona selects that persona. A mention takes precedence over a different reply target. For these directed entries, Runner skips both subject routing and person alias/keyword matching, and records the recipient as called by mention or reply. Replies to user entries or inactive/deleted personas use ordinary routing when there is no active mentioned recipient.
 
 Mention precedence changes the recipient without changing `Entry.ReplyTo`. The selected persona receives the full thread and the exact reply relationship. Shared answer rules, also sent to external agents, interpret requests such as “summarize this” or “diagram this answer” as transformations of the replied-to entry, unless the user explicitly selects another subject; they do not replace it with the root post or the latest answer in the thread.
 

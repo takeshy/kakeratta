@@ -88,6 +88,12 @@ const EN = {
  "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。": "No external agent is connected. Connect one in Settings → Advanced options → Integrations. Until then the built-in model plans instead.",
  "外部エージェントを使う": "Use the external agent",
  "外部エージェントを優先する": "Prefer the external agent",
+ "外部エージェントに依頼中": "Waiting for the external agent",
+ "外部エージェントが処理中": "External agent working",
+ "@外部エージェント・@エージェント・@agent で呼びかけた投稿は、担当を通さず外部エージェントに直接届き、返信でそのままやりとりできます。メール送信のような操作も外部エージェントが自分の道具で行います。依頼中の投稿の🔔で、その依頼の返信をプッシュ通知するか選べます。": "A post addressed to @外部エージェント, @エージェント or @agent goes straight to the external agent instead of the personas, and you can carry on with it by replying. The agent performs actions such as sending an email with its own tools. The 🔔 on a waiting post chooses whether that request's reply is pushed.",
+ "返信をプッシュ通知する（タップでOFF）": "Push the reply (tap to turn off)",
+ "返信をプッシュ通知しない（タップでON）": "Do not push the reply (tap to turn on)",
+ "通知の設定を変えられませんでした": "Could not change the notification",
  
  "OFFにすると、外部エージェントからの接続を受け付けず、外部エージェントを優先する担当も内蔵モデルで考えます。担当ごとの設定はそのまま残ります。": "When off, connections from the external agent are refused and personas that prefer it plan with the built-in model. Each persona's choice is kept.",
  "外部エージェントを使わない設定のため、接続を受け付けていません。": "The external agent is switched off, so its connections are refused.",

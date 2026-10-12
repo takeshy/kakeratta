@@ -129,6 +129,18 @@ func (s *Server) deletePush(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) sendReminder(data any) {
+	s.pushEntry(data, "Reminder / リマインダー", "kakeratta")
+}
+
+// sendAgentReply pushes what ended a direct request - the agent's reply or the
+// app's notice. A request the user muted emits nothing to push.
+func (s *Server) sendAgentReply(data any) {
+	s.pushEntry(data, "外部エージェント / External agent", "外部エージェント / External agent · kakeratta")
+}
+
+// pushEntry sends one entry to every subscribed device: its words as the
+// title, or fallback when it has none.
+func (s *Server) pushEntry(data any, fallback, body string) {
 	entry, ok := data.(timeline.Entry)
 	if !ok || entry.Deleted || entry.Speaker == timeline.User || entry.ID == "" {
 		return
@@ -151,9 +163,9 @@ func (s *Server) sendReminder(data any) {
 		title = append(title[:120], '…')
 	}
 	if len(title) == 0 {
-		title = []rune("Reminder / リマインダー")
+		title = []rune(fallback)
 	}
-	payload, _ := json.Marshal(map[string]string{"title": string(title), "body": "kakeratta", "entry": entry.ID, "workspace": s.mcpWorkspace()})
+	payload, _ := json.Marshal(map[string]string{"title": string(title), "body": body, "entry": entry.ID, "workspace": s.mcpWorkspace()})
 	options.Topic = pushID(entry.ID)[:32]
 	var deliveries sync.WaitGroup
 	for id, raw := range records {

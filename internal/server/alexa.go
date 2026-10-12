@@ -274,6 +274,11 @@ func (s *Server) alexaReplies(w http.ResponseWriter, r *http.Request, attrs map[
 	}
 	entry := entries[0]
 	name := s.alexaNames(r.Context())[entry.Speaker]
+	if entry.Speaker == timeline.Agent {
+		if name = s.activeMCPName(); name == "" {
+			name = voice.text("外部エージェント")
+		}
+	}
 	if name == "" {
 		name = voice.text("担当")
 	}

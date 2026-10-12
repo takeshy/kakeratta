@@ -107,10 +107,6 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 	if len(month) == 0 {
 		return
 	}
-	names := map[string]string{}
-	for _, skill := range r.skills(ctx).All() {
-		names[skill.ID] = skill.Name
-	}
 	// The month is read from the day's summaries, with only the posts none of
 	// them holds read in full.
 	record := r.monthFromDays(ctx, month, since, now, loc)
@@ -181,10 +177,7 @@ func (r *Runner) monthlyCheckIn(ctx context.Context, skill Skill, since, now tim
 	if len(heard) > monthlyHeardLimit {
 		heard = heard[len(heard)-monthlyHeardLimit:]
 	}
-	names := map[string]string{}
-	for _, other := range r.skills(ctx).All() {
-		names[other.ID] = other.Name
-	}
+	names := r.speakerNames(ctx)
 	var b strings.Builder
 	if summary != nil {
 		b.WriteString("\n\nThis month's summary, written by the app (the user may have edited it):\n[" + summary.ID + "]\n" + summary.Text)

@@ -15,6 +15,7 @@ import (
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
@@ -176,4 +177,32 @@ func testPushReminderDelivery(t *testing.T, subject string) {
 
 func TestPushHTTPSSubject(t *testing.T) {
 	testPushReminderDelivery(t, "https://example.com/contact")
+}
+
+// How a direct request ended is pushed; a muted request never emits it.
+func TestAgentRepliesArePushed(t *testing.T) {
+	sub := configurePush(t)
+	t.Setenv("KAKERATTA_PUSH_SUBJECT", "mailto:operator@example.com")
+	server, workspace := app(t)
+	raw, _ := json.Marshal(sub)
+	_ = workspace.UpdateRecord(context.Background(), store.RecordPush, pushID(sub.Endpoint), time.Time{}, func([]byte, bool) ([]byte, error) { return raw, nil })
+	previous := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = previous })
+	var mu sync.Mutex
+	sends := 0
+	http.DefaultTransport = pushTransport(func(r *http.Request) (*http.Response, error) {
+		if r.URL.String() != sub.Endpoint {
+			return previous.RoundTrip(r)
+		}
+		mu.Lock()
+		sends++
+		mu.Unlock()
+		return &http.Response{StatusCode: 201, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}, nil
+	})
+	count := func() int { mu.Lock(); defer mu.Unlock(); return sends }
+	reply := timeline.Entry{ID: "e_agent", Speaker: timeline.Agent, Kind: timeline.KindReply, Text: "送信しました"}
+	server.publishEvent(persona.AgentReplyEvent, reply)
+	if count() != 1 {
+		t.Fatalf("sends = %d", count())
+	}
 }

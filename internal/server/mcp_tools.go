@@ -40,7 +40,7 @@ func kakerattaMCPTools() []mcpTool {
 		if required == nil {
 			required = []string{}
 		}
-		return mcpTool{Name: name, Description: description, InputSchema: map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false}, Annotations: map[string]bool{"readOnlyHint": readOnly, "destructiveHint": false, "idempotentHint": name != "submit_answer" && name != "read_for_ask", "openWorldHint": false}}
+		return mcpTool{Name: name, Description: description, InputSchema: map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false}, Annotations: map[string]bool{"readOnlyHint": readOnly, "destructiveHint": false, "idempotentHint": name != "submit_answer" && name != "read_for_ask" && name != "reply_request" && name != "comment_on_entry", "openWorldHint": false}}
 	}
 	ask := func() map[string]any {
 		return map[string]any{"askId": str("Ask ID"), "claimId": str("The claimId used in claim_ask")}
@@ -51,7 +51,9 @@ func kakerattaMCPTools() []mcpTool {
 	}
 	return []mcpTool{
 		tool("list_personas", "List this user's personas, their domains and which of them plan through an external agent.", true, map[string]any{}),
-		tool("get_timeline", "Read a page of this user's timeline. Use next as before to continue.", true, map[string]any{"limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 50}, "before": str("Pagination cursor")}),
+		tool("get_timeline", "Read a page of this user's timeline: posts newest first, each with its whole conversation. Use next as before to continue.", true, map[string]any{"limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 50}, "before": str("Pagination cursor")}),
+		tool("search_timeline", "Search this user's whole timeline - posts, image readings and replies, the personas' and yours included - by words and meaning, and/or by period. Returns entry IDs, speakers, times and matching text; read a conversation with get_thread.", true, map[string]any{"query": str("Words or phrasing to look for; may be omitted with from or to"), "from": str("Start of the period, e.g. \"2026-09-20 05:00\" in the user's time zone; a date alone is its start"), "to": str("End of the period, same form; a date alone is its end"), "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 30}, "min_score": map[string]any{"type": "number", "minimum": 0, "maximum": 1, "description": "Lower bound for the meaning side, default 0.5"}}),
+		tool("list_schedules", "List the schedules every persona has placed, in time order: owner, ID, time, repetition, whether the user asked for it, notification and note. Read-only; schedules are changed only by the personas.", true, map[string]any{"skill": str("Persona ID; all when omitted"), "query": str("Words in the note or the persona's name"), "from": str("Start of the period"), "to": str("End of the period"), "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 30}, "after": str("next_after of the previous page, with the same filters")}),
 		tool("get_thread", "Read the conversation containing an entry in this user's timeline.", true, map[string]any{"entryId": str("Entry ID")}, "entryId"),
 		tool("list_notes", "List a page of memory files for one of this user's personas, most recently written first: one file per field ({Field}.md: its summary, the facts that hold now and those that no longer do) and monthly kakera records (records/YYYY-MM.md). Use next as after to continue.", true, map[string]any{"persona": str("Persona ID"), "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": 200}, "after": str("Pagination cursor")}, "persona"),
 		tool("read_note", "Read one of a persona's memory files by path.", true, map[string]any{"persona": str("Persona ID"), "path": str("Bundle-relative note path")}, "persona", "path"),
@@ -65,6 +67,9 @@ func kakerattaMCPTools() []mcpTool {
 		tool("submit_answer", "Submit the final answer and schedule decision for a claimed ask. Kakeratta plans needed schedules, reviews and executes actions, then publishes. For memory-enabled personas, its note keeper decides what to retain from related user turns after publication. Do not submit workflows or write notes. accepted means the answer was received, not yet published.", false, with(ask(), "answer", map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"text": str("Final answer in the user's language; empty for silence"), "schedule": map[string]any{"type": "boolean", "description": "Schedule creation, update or cancellation is needed"}, "unrelated": map[string]any{"type": "boolean", "description": "Silent because outside the persona domain"}, "sources": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": 3}}, "required": []any{"text", "sources"}}), "askId", "claimId", "answer"),
 		tool("get_integration", "Fetch the distributed kakeratta skill (SKILL.md) and Wake Gate script with their versions. list_asks reports the versions; call this when yours differ.", true, map[string]any{}),
 		tool("release_ask", "Give a claimed ask back: the persona plans in-process at once instead of waiting out planBy. Use when you cannot plan it.", false, with(ask(), "reason", str("Optional short reason")), "askId", "claimId"),
+		tool("claim_request", "Claim a pending direct request: a post or reply the user addressed to you yourself (for example @外部エージェント), outside the personas. Returns the request with its replyBy (two hours after the claim) and the whole conversation. Do what it asks with your own tools - side effects such as sending an email included - then call reply_request. Choose a unique claimId per execution and reuse it when retrying this call.", false, with(with(map[string]any{}, "requestId", str("Request ID")), "claimId", str("Stable client-generated execution ID, max 200 characters")), "requestId", "claimId"),
+		tool("comment_on_entry", "While working on a claimed direct request, post your own reply under another entry of the timeline, as the external agent: such as what is wrong with a persona's answer and why. Up to 10 per request. Nobody else is woken; the user may reply to it, which asks you again. Finish the request with reply_request.", false, map[string]any{"requestId": str("Request ID"), "claimId": str("The claimId used in claim_request"), "entryId": str("Entry to reply under"), "text": str("Reply in the user's language; Markdown, with sources")}, "requestId", "claimId", "entryId", "text"),
+		tool("reply_request", "Post your reply to a claimed direct request in its thread, as the external agent, and end the request. Say what you did and its result, or why you could not. The user continues by replying, which arrives as a new request.", false, map[string]any{"requestId": str("Request ID"), "claimId": str("The claimId used in claim_request"), "text": str("Reply in the user's language; Markdown")}, "requestId", "claimId", "text"),
 	}
 }
 
@@ -80,6 +85,14 @@ type mcpArgs struct {
 	Steps   []persona.ReadStep `json:"steps"`
 	Answer  json.RawMessage    `json:"answer"`
 	Reason  string             `json:"reason"`
+	Request string             `json:"requestId"`
+	Text    string             `json:"text"`
+
+	Query    string   `json:"query"`
+	From     string   `json:"from"`
+	To       string   `json:"to"`
+	Skill    string   `json:"skill"`
+	MinScore *float64 `json:"min_score"`
 }
 
 // mcpPlanContext is longer than a plain read: a lookup may search the web,
@@ -91,6 +104,8 @@ func mcpPlanContext(ctx context.Context) (context.Context, context.CancelFunc) {
 func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessage) (any, error) {
 	var cancel context.CancelFunc
 	if name == "read_for_ask" || name == "submit_answer" || name == "release_ask" {
+		ctx, cancel = mcpPlanContext(ctx)
+	} else if name == "reply_request" || name == "claim_request" || name == "comment_on_entry" || name == "search_timeline" {
 		ctx, cancel = mcpPlanContext(ctx)
 	} else {
 		ctx, cancel = mcpContext(ctx)
@@ -180,7 +195,7 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 	}
 	switch name {
 	case "list_asks":
-		result := map[string]any{"asks": s.runner.Asks()}
+		result := map[string]any{"asks": s.runner.Asks(), "requests": s.runner.Requests()}
 		if versions := integrationVersions(); versions != nil {
 			result["integration"] = versions
 		}
@@ -222,6 +237,37 @@ func (s *Server) callMCPTool(ctx context.Context, name string, raw json.RawMessa
 			return nil, err
 		}
 		return map[string]bool{"released": true}, nil
+	case "claim_request":
+		if strings.TrimSpace(a.ClaimID) == "" || len(a.ClaimID) > 200 {
+			return nil, errors.New("claimIdは1〜200文字です")
+		}
+		request, context, err := s.runner.ClaimRequest(ctx, a.Request, a.ClaimID)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"request": request, "context": context, "next": "Do what the trigger asks, then call the reply_request tool before replyBy. If you miss it, kakeratta tells the user, but still posts your late reply: always send it. Never deliver the reply as your own text output: only a reply_request call reaches the user. End with [SILENT] after it succeeds."}, nil
+	case "search_timeline", "list_schedules":
+		var args map[string]any
+		if err := json.Unmarshal(raw, &args); err != nil {
+			return nil, errors.New("引数が不正です")
+		}
+		text, err := s.runner.AgentLookup(ctx, name, args)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"result": text}, nil
+	case "comment_on_entry":
+		entry, err := s.runner.CommentOnEntry(ctx, a.Request, a.ClaimID, a.EntryID, a.Text)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"posted": true, "entryId": entry.ID}, nil
+	case "reply_request":
+		entry, err := s.runner.ReplyRequest(ctx, a.Request, a.ClaimID, a.Text)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"replied": true, "entryId": entry.ID}, nil
 	}
 	return nil, errors.New("Unknown tool")
 }

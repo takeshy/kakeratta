@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/takeshy/kakeratta/internal/avatar"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 // Skill is everything a persona declares.
@@ -330,6 +331,9 @@ func Validate(skill Skill, known func(string) bool) error {
 	if err := validate(skill); err != nil {
 		return err
 	}
+	if err := reservedNames(skill); err != nil {
+		return err
+	}
 	for _, tool := range skill.Tools {
 		if known != nil && !known(tool) {
 			return errors.New("知らない道具が宣言されています: " + tool)
@@ -348,6 +352,9 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 	}
 	skill.TidyTerms()
 	if err := validate(skill); err != nil {
+		return Skill{}, err
+	}
+	if err := reservedNames(skill); err != nil {
 		return Skill{}, err
 	}
 	for _, builtin := range Builtins {
@@ -395,6 +402,21 @@ func (c *Catalogue) Uninstall(id string) error {
 		}
 	}
 	return c.source.DeleteSkill(id)
+}
+
+// reservedNames refuses a persona that could be called by a name the external
+// agent answers to, or whose id is the agent's speaker: @agent must always mean
+// the agent. It is checked when a definition is written, not when one already
+// saved is read, so a persona named that before stays in the room.
+func reservedNames(skill Skill) error {
+	for _, term := range append([]string{skill.ID, skill.Name}, skill.Aliases...) {
+		for _, name := range append([]string{timeline.Agent}, agentAliases...) {
+			if foldTerm(term) == foldTerm(name) {
+				return errors.New("「" + strings.TrimSpace(term) + "」は外部エージェントの呼び名として予約されているため、担当のID・名前・呼び名には使えません")
+			}
+		}
+	}
+	return nil
 }
 
 func validate(skill Skill) error {

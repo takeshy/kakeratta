@@ -65,6 +65,9 @@ type Runner struct {
 	// connectionWaits are the waits of the connection in use; a zero one
 	// falls back to the settings.
 	connectionWaits func() (time.Duration, time.Duration)
+	// agentConnection is the name of the agent connection in use, "" with
+	// none; a post may address that agent directly. See requests.go.
+	agentConnection func() string
 }
 
 func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, store.Settings)) *Runner {
@@ -448,6 +451,14 @@ func (r *Runner) prepareEntry(outer context.Context, entryID string, transientPl
 	}
 
 	skills := r.skills(outer).Active(settings.Active)
+	// A request to the external agent itself passes every persona by, and
+	// so does one it cannot take now: it is answered with the reason.
+	if direct, refused := r.directRequest(entry, settings, skills); refused != "" {
+		r.requestNotice(entry, refused)
+		return nil, nil, nil
+	} else if direct {
+		return nil, nil, r.openRequest(outer, entry, edited)
+	}
 	if len(skills) == 0 {
 		return nil, nil, nil
 	}
@@ -754,10 +765,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	system := answerSystem(skill, length) + capabilityLine(set)
 	system += wakeInstructions
 
-	names := map[string]string{}
-	for _, other := range r.skills(ctx).All() {
-		names[other.ID] = other.Name
-	}
+	names := r.speakerNames(ctx)
 	registry = registry.WithPersonaNames(names)
 	set = registry.For(skill.Tools).As(skill.ID)
 	post := thread[0]

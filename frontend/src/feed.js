@@ -28,8 +28,15 @@ export const showsSilenceNote = (threads) => threads > 0 && threads < SILENCE_NO
 // normalized them. Read those as lines without changing the saved entry.
 const entryText = (entry) => entry.model === "agent" ? (entry.text || "").replace(/\\n/g, "\n") : entry.text;
 
-export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false }) {
+// The external agent speaks only in reply to a request made to it directly.
+// It has no persona row; it is drawn as one of its own, under its connection's
+// name when the server has said it.
+const agentRow = (name) => ({ id: "agent", name: name || t("外部エージェント"), icon: "🤖" });
+
+export function createFeed({ getPersona: findPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false }) {
   const view = el("div", { class: "feed" });
+  let agentName = "";
+  const getPersona = (id) => findPersona(id) || (id === "agent" ? agentRow(agentName) : undefined);
 
   // A name on the timeline opens what that speaker said. It is text where
   // nothing is wired to open the list.
@@ -339,6 +346,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         who(entry, mine ? userProfile(getSettings()).name : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
+        drawRequest(entry),
         favoriteButton(entry),
         el("span", { class: "spacer" }),
         mine || summary ? el("button", {
@@ -461,6 +469,54 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
   // user should be able to see that it did. Super is the default and goes
   // unmarked.
   // A remark planned by an external agent is marked too.
+  // A post or reply the external agent was asked directly says whether it is
+  // still waiting to be taken up or being worked on, until the agent replies,
+  // with a bell choosing whether its end - the reply, or the notice that none
+  // came - is pushed.
+  let requests = new Map();
+  function drawRequest(entry) {
+    const open = requests.get(entry.id);
+    if (!open || (open.status !== "pending" && open.status !== "claimed")) return null;
+    const badge = open.status === "pending"
+      ? el("span", { class: "model-badge request-badge", "data-request": "pending", label: "外部エージェントに依頼中" })
+      : el("span", { class: "model-badge request-badge", "data-request": "claimed", label: "外部エージェントが処理中" });
+    const bell = el("button", {
+      class: "chip ghost icon request-notify", type: "button", text: open.notify ? "🔔" : "🔕",
+      "aria-pressed": String(!!open.notify),
+      "aria-label": t(open.notify ? "返信をプッシュ通知する（タップでOFF）" : "返信をプッシュ通知しない（タップでON）"),
+      disabled: offline(),
+      onclick: async (event) => {
+        event.stopPropagation();
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+          const saved = await api.setRequestNotify(open.id, !open.notify);
+          request({ id: saved.id, entryId: saved.entryId, state: saved.status, notify: saved.notify });
+        } catch (error) {
+          toast(error.message || t("通知の設定を変えられませんでした"));
+          button.disabled = false;
+        }
+      },
+    });
+    return el("span", { class: "request-state" }, badge, bell);
+  }
+  // setRequests replaces what is known - each open request as
+  // { id, entryId, status, notify } - and the name the agent's replies are
+  // shown under.
+  function setRequests(next, name = agentName) {
+    requests = new Map(next.map((row) => [row.entryId, row]));
+    agentName = name || "";
+    draw();
+  }
+  // request applies one change heard live: { id, entryId, state, notify }.
+  function request(change) {
+    if (!change?.entryId) return;
+    if (change.state === "pending" || change.state === "claimed") {
+      requests.set(change.entryId, { id: change.id, entryId: change.entryId, status: change.state, notify: change.notify !== false });
+    } else requests.delete(change.entryId);
+    draw();
+  }
+
   function drawModel(entry) {
     if (entry.model === "agent") return el("span", { class: "model-badge", label: "外部エージェント", i18nTitle: "外部エージェントが書いた回答です" });
     if (entry.model !== "ultra") return null;
@@ -479,6 +535,7 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
         who(entry, mine ? userProfile(getSettings()).name : persona ? gloss(persona).name : entry.speaker),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
+        drawRequest(entry),
         favoriteButton(entry),
         drawRoutingChip(entry),
         // A persona's remark can be removed too: a wrong answer left in the
@@ -679,5 +736,5 @@ export function createFeed({ getPersona, getPersonas, getSettings = () => ({}), 
     }
   }
 
-  return { element: view, set, upsert, draw, spoken, reveal, setSpeaking, refreshRouting, entries: () => entries };
+  return { element: view, set, upsert, draw, spoken, reveal, setSpeaking, refreshRouting, setRequests, request, entries: () => entries };
 }

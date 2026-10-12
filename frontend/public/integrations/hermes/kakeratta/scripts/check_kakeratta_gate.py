@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Wake gate pre-check script for kakeratta Hermes integration.
 
-Checks kakeratta for pending planning asks via MCP list_asks.
-If no ask is pending or on any error/missing config, outputs {"wakeAgent": false}
+Checks kakeratta for pending planning asks and direct requests via MCP list_asks.
+If nothing is pending or on any error/missing config, outputs {"wakeAgent": false}
 to skip LLM execution entirely (fail-closed, zero token spend).
-If an unclaimed ask is pending, outputs {"wakeAgent": true} to wake Hermes Agent.
+If an unclaimed ask or direct request is pending, outputs {"wakeAgent": true} to
+wake Hermes Agent.
 
 It also keeps the integration current. list_asks carries the versions of the
 distributed skill and of this script; when either differs from what is
@@ -24,7 +25,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "3"
+GATE_VERSION = "4"
 
 
 def get_hermes_home() -> Path:
@@ -146,9 +147,15 @@ def main():
             except Exception as e:
                 print(f"kakeratta integration update failed: {e}", file=sys.stderr)
 
-        # A claimed ask is already being planned by a running agent; only an
-        # unclaimed one needs a new wake.
-        pending = [a for a in asks if isinstance(a, dict) and a.get("status") == "pending"]
+        # Direct requests are listed only when the user turned them on; an
+        # older kakeratta leaves the key out.
+        requests = result.get("requests") or []
+        if not isinstance(requests, list):
+            raise ValueError("list_asks.requests is not a list")
+
+        # A claimed ask or request is already being handled by a running
+        # agent; only an unclaimed one needs a new wake.
+        pending = [a for a in asks + requests if isinstance(a, dict) and a.get("status") == "pending"]
         if len(pending) == 0:
             print(json.dumps({"wakeAgent": False}))
         else:

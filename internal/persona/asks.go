@@ -480,10 +480,7 @@ func (r *Runner) askTurnContext(ctx context.Context, record askRecord) (askTurnV
 	if record.Turn.Place != nil {
 		thread[0].Place = record.Turn.Place
 	}
-	names := map[string]string{}
-	for _, other := range r.skills(ctx).All() {
-		names[other.ID] = other.Name
-	}
+	names := r.speakerNames(ctx)
 	set := r.registry(settings).WithPersonaNames(names).For(skill.Tools).As(skill.ID)
 	return askTurnView{skill: skill, thread: thread, trigger: trigger, post: thread[0], set: set}, nil
 }
@@ -531,7 +528,8 @@ func (r *Runner) AgentLastSeen() time.Time {
 }
 
 // ResetExternalAgent prevents a newly selected connection from inheriting the
-// old connection's presence or in-flight claims. Waiting turns fall back.
+// old connection's presence or in-flight claims. Waiting turns fall back, and
+// open direct requests are withdrawn with a notice.
 func (r *Runner) ResetExternalAgent() {
 	r.agentSeen.Store(0)
 	r.agentWritten.Store(0)
@@ -547,6 +545,7 @@ func (r *Runner) ResetExternalAgent() {
 			r.closeAsk(ctx, record.Ask.ID, "connection changed", nil)
 		}
 	}
+	r.closeRequests(ctx)
 }
 
 // SetConnectionWaits gives the claim and plan waits of the connection in use.
@@ -555,7 +554,9 @@ func (r *Runner) SetConnectionWaits(waits func() (time.Duration, time.Duration))
 	r.connectionWaits = waits
 }
 
-// agentWorking reports whether the agent holds a claimed ask it has not finished.
+// agentWorking reports whether the agent holds a claimed ask it has not
+// finished. A claimed direct request does not count: it has no deadline, and
+// one the agent dropped must not keep it from ever being taken to be away.
 func (r *Runner) agentWorking() bool {
 	for _, record := range r.openAsks(context.Background()) {
 		if !record.Closed && record.Ask.State == "claimed" {

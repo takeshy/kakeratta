@@ -3,11 +3,17 @@ package server
 import (
 	"encoding/json"
 	"log"
+
+	"github.com/takeshy/kakeratta/internal/persona"
 )
 
 func (s *Server) publishEvent(name string, data any) {
 	if name == "reminder" {
 		s.sendReminder(data)
+		return
+	}
+	if name == persona.AgentReplyEvent {
+		s.sendAgentReply(data)
 		return
 	}
 	if name == "entry" {

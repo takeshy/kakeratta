@@ -8,8 +8,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 func TestMCPNoteListingIncludesWrittenTime(t *testing.T) {
@@ -37,7 +40,7 @@ func TestMCPOffersPlanningToolsAndNoWrites(t *testing.T) {
 	for _, tool := range kakerattaMCPTools() {
 		names[tool.Name] = true
 	}
-	for _, want := range []string{"list_asks", "claim_ask", "read_for_ask", "submit_answer", "release_ask", "read_note", "get_thread"} {
+	for _, want := range []string{"list_asks", "claim_ask", "read_for_ask", "submit_answer", "release_ask", "read_note", "get_thread", "claim_request", "reply_request", "comment_on_entry", "search_timeline", "list_schedules"} {
 		if !names[want] {
 			t.Fatalf("missing %s", want)
 		}
@@ -66,7 +69,7 @@ func TestMCPAskToolsCheckArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(result)
-	if string(raw) != `{"asks":[]}` {
+	if string(raw) != `{"asks":[],"requests":[]}` {
 		t.Fatalf("asks = %s", raw)
 	}
 }
@@ -158,5 +161,88 @@ func TestIntegrationIsServedOverMCP(t *testing.T) {
 	var got struct{ Skill, Gate integrationFile }
 	if json.Unmarshal(raw, &got) != nil || got.Skill.Text != string(skill) || got.Gate.Text != string(gate) {
 		t.Fatalf("bundle = %.200s", raw)
+	}
+}
+
+// A post naming the agent is listed for it, claimed
+// and answered over MCP, and the reply lands in the thread as the agent's.
+func TestDirectRequestsAreAnsweredOverMCP(t *testing.T) {
+	s, w := app(t)
+	ctx := context.Background()
+	if err := s.changeMCPConnection(ctx, "default", "Hermes", []byte("digest"), true); err != nil {
+		t.Fatal(err)
+	}
+	entry := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.User, Text: "@agent 請求書をメールで送って", At: time.Now()}
+	entry.Root = entry.ID
+	if err := w.Append(entry); err != nil {
+		t.Fatal(err)
+	}
+	s.runner.React(entry.ID, nil)
+	var requests []persona.DirectRequest
+	deadline := time.Now().Add(5 * time.Second)
+	for requests = s.runner.Requests(); len(requests) == 0; requests = s.runner.Requests() {
+		if time.Now().After(deadline) {
+			t.Fatal("no request was opened")
+		}
+		s.runner.Poke()
+		time.Sleep(10 * time.Millisecond)
+	}
+	listed, err := s.callMCPTool(ctx, "list_asks", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(listed)
+	if !strings.Contains(string(raw), `"entryId":"`+entry.ID+`"`) {
+		t.Fatalf("list_asks = %s", raw)
+	}
+	id := requests[0].ID
+	open := httptest.NewRecorder()
+	s.ServeHTTP(open, httptest.NewRequest(http.MethodGet, "/api/requests", nil))
+	if open.Code != http.StatusOK || !strings.Contains(open.Body.String(), `"entryId":"`+entry.ID+`","id":"`+id+`","notify":true,"status":"pending"`) || !strings.Contains(open.Body.String(), `"agentName":"Hermes"`) {
+		t.Fatalf("open requests = %d %s", open.Code, open.Body.String())
+	}
+	muted := httptest.NewRecorder()
+	s.ServeHTTP(muted, httptest.NewRequest(http.MethodPut, "/api/requests/"+id+"/notify", strings.NewReader(`{"notify":false}`)))
+	if muted.Code != http.StatusOK || !strings.Contains(muted.Body.String(), `"notify":false`) || !s.runner.Requests()[0].Mute {
+		t.Fatalf("mute = %d %s", muted.Code, muted.Body.String())
+	}
+	missing := httptest.NewRecorder()
+	s.ServeHTTP(missing, httptest.NewRequest(http.MethodPut, "/api/requests/q_missing/notify", strings.NewReader(`{"notify":false}`)))
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing request = %d", missing.Code)
+	}
+	claimed, err := s.callMCPTool(ctx, "claim_request", json.RawMessage(`{"requestId":"`+id+`","claimId":"c1"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = json.Marshal(claimed)
+	if !strings.Contains(string(raw), "請求書をメールで送って") {
+		t.Fatalf("claim = %s", raw)
+	}
+	if _, err := s.callMCPTool(ctx, "reply_request", json.RawMessage(`{"requestId":"`+id+`","claimId":"c1"}`)); err == nil {
+		t.Fatal("a reply without text passed")
+	}
+	searched, err := s.callMCPTool(ctx, "search_timeline", json.RawMessage(`{"from":"`+time.Now().In(w.Settings().Location()).Format("2006-01-02")+`"}`))
+	if raw, _ := json.Marshal(searched); err != nil || !strings.Contains(string(raw), "請求書") {
+		t.Fatalf("search = %s, %v", raw, err)
+	}
+	if _, err := s.callMCPTool(ctx, "list_schedules", json.RawMessage(`{"limit":5}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.callMCPTool(ctx, "comment_on_entry", json.RawMessage(`{"requestId":"`+id+`","claimId":"c1","entryId":"`+entry.ID+`","text":"補足です"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.callMCPTool(ctx, "reply_request", json.RawMessage(`{"requestId":"`+id+`","claimId":"c1","text":"送信しました"}`)); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := w.Timeline()
+	found := false
+	for _, e := range entries {
+		if e.Speaker == timeline.Agent && e.ReplyTo == entry.ID && e.Text == "送信しました" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("the agent's reply is not in the timeline: %+v", entries)
 	}
 }

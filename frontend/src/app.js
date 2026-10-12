@@ -319,7 +319,21 @@ const pages = createTimelinePages({
   },
 });
 
-function reload() { return navigator.onLine === false ? Promise.resolve() : pages.refresh(); }
+function reload() {
+  if (navigator.onLine === false) return Promise.resolve();
+  void loadRequests();
+  return pages.refresh();
+}
+
+// Which posts are waiting on the external agent, as the server keeps them.
+async function loadRequests() {
+  try {
+    const { requests = [], agentName = "" } = await api.requests();
+    feed.setRequests(requests, agentName);
+  } catch {
+    /* the badges are a courtesy; the timeline does not depend on them */
+  }
+}
 
 // The live channel can drop a reaction without noticing (a proxy cutting the
 // stream, a reconnect in the wrong moment). Only you and the personas write to
@@ -353,6 +367,7 @@ function pollAfterSending() {
 api.on((name, data) => {
   if (name === "favorite") { void refreshFavorites().catch(() => {}); return; }
   if (name === "routed" || name === "turn") { void feed.refreshRouting(data?.entryId); return; }
+  if (name === "request") { feed.request(data); return; }
   if (name === "outbox") { if (data) pages.upsert(data); void drawLocal(); if (data) pollAfterSending(); return; }
   if (name === "entry") {
     pages.upsert(data);

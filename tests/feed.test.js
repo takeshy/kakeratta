@@ -183,6 +183,61 @@ test("only a remark answered on Ultra carries the Ultra badge", (t) => {
   }
 });
 
+// A reply from the external agent to a request made to it directly has no
+// persona row: it is drawn under the agent's own name, rendered as Markdown.
+test("the external agent's direct reply is drawn under its own name", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => undefined, showIntro: false });
+  const at = "2026-09-14T00:00:00Z";
+  feed.set([
+    { id: "p", kind: "post", speaker: "user", text: "@外部エージェント メールして", at },
+    { id: "a", kind: "reply", root: "p", replyTo: "p", speaker: "agent", text: "**送信しました**", at },
+  ]);
+  feed.reveal("a");
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const row = walk(feed.element).find((node) => node["data-id"] === "a" || node.dataset?.id === "a");
+  assert.ok(row, "the reply is drawn");
+  const nodes = walk(row);
+  assert.ok(nodes.some((node) => node.textContent === translate("外部エージェント")), "named as the external agent");
+  assert.ok(!nodes.some((node) => node.textContent === "agent"), "not by its speaker id");
+  assert.ok(nodes.some((node) => String(node.className).includes("said-markdown")));
+  feed.setRequests([], "Hermes");
+  const named = walk(walk(feed.element).find((node) => node["data-id"] === "a" || node.dataset?.id === "a"));
+  assert.ok(named.some((node) => node.textContent === "Hermes"), "named by its connection");
+});
+
+// A post asked of the external agent says whether it waits or is being worked
+// on, until the request ends, and its bell chooses whether its end is pushed.
+test("a direct request shows whether the agent has it", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const feed = createFeed({ getPersona: () => undefined, showIntro: false });
+  const at = "2026-09-14T00:00:00Z";
+  feed.set([{ id: "p", kind: "post", speaker: "user", text: "@agent メールして", at }]);
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const badge = () => walk(feed.element).find((node) => String(node.className).includes("request-badge"));
+  assert.equal(badge(), undefined);
+  const bell = () => walk(feed.element).find((node) => String(node.className).includes("request-notify"));
+  feed.setRequests([{ id: "q1", entryId: "p", status: "pending", notify: true }]);
+  assert.equal(badge()?.textContent, translate("外部エージェントに依頼中"));
+  assert.equal(bell()?.textContent, "🔔");
+  const saved = [];
+  t.mock.method(api, "setRequestNotify", async (id, notify) => { saved.push([id, notify]); return { id, entryId: "p", status: "pending", notify }; });
+  const button = bell();
+  await button.listeners.click[0]({ stopPropagation() {}, currentTarget: button });
+  assert.deepEqual(saved, [["q1", false]]);
+  assert.equal(bell()?.textContent, "🔕");
+  feed.request({ id: "q1", entryId: "p", state: "claimed", notify: false });
+  assert.equal(badge()?.textContent, translate("外部エージェントが処理中"));
+  assert.equal(bell()?.textContent, "🔕");
+  feed.request({ id: "q1", entryId: "p", state: "replied" });
+  assert.equal(badge(), undefined);
+  assert.equal(bell(), undefined);
+});
+
 // A persona's reply is rendered, because nobody edits it: emphasis, deletion,
 // code and links read as themselves, and a javascript: link stays inert. Your
 // own words stay exactly as typed until the setting asks for Markdown.

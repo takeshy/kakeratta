@@ -17,7 +17,8 @@ import (
 )
 
 // Runtime state is what persona work has in hand rather than what the user
-// keeps: an ask waiting on the external agent, a trial a person may apply, when
+// keeps: an ask waiting on the external agent, a request made
+// to it directly, a trial a person may apply, when
 // the agent last called in, who is rewriting a persona's notes. It lives in
 // the workspace, not in a process, so any instance serving the user can pick
 // it up - and a restart does not lose it.
@@ -26,6 +27,7 @@ import (
 // state; unlike runtime collections, their files are included in exports.
 const (
 	RecordAsks      = "asks"
+	RecordRequests  = "requests"
 	RecordTrials    = "trials"
 	RecordPresence  = "presence"
 	RecordPush      = "push-subscriptions"
@@ -33,7 +35,7 @@ const (
 	RecordUsage     = "usage"
 )
 
-var recordCollections = map[string]bool{RecordAsks: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true, RecordUsage: true}
+var recordCollections = map[string]bool{RecordAsks: true, RecordRequests: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true, RecordUsage: true}
 
 // ErrUnknownRecords is a collection name that is not a runtime record kind.
 var ErrUnknownRecords = errors.New("unknown runtime record collection")

@@ -4,7 +4,7 @@ okf_version: "0.2"
 
 # kakeratta system implementation
 
-This **OKF v0.2 bundle** documents the implementation in six subsystem chapters. Each chapter covers a complete area of responsibility; individual functions and execution stages are sections within it. The implementation reference date is 2026-10-11.
+This **OKF v0.2 bundle** documents the implementation in six subsystem chapters. Each chapter covers a complete area of responsibility; individual functions and execution stages are sections within it. The implementation reference date is 2026-10-12.
 
 # Chapters
 
@@ -12,7 +12,7 @@ This **OKF v0.2 bundle** documents the implementation in six subsystem chapters.
 - [API and persistent state](./backend.md) - Authentication, entry handling, timeline data, persistence, settings, model usage logging, monthly persona costs and Web search counts, and completion finish reasons, schedule editing, reminder push delivery, profile and avatar validation, favorites, and search.
 - [Persona execution and memory](./personas.md) - Persona definitions, identifying person call names and shared topic keywords, built-in support and Markdown infographics with emoji and Mermaid, explicit depth string matching, combined reads and answers, aggregate Super routing, live research budgets and read capabilities, output truncation recovery, reviewed actions, optional memory judged by the post-publication note keeper, retained past-event review decisions and deduplicated prompt context, conditional schedules, the account's daily run with a shared internal day's summary, and corrections.
 - [Browser application and device state](./frontend.md) - Frontend composition, requests, live updates, monthly AI usage on persona cards and settings, the schedule overview and editing, reminder push notifications, smartphone Home Screen installation prompts, profile names and photo avatars, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
-- [External agents, tools, and sharing](./integrations.md) - Japanese and English Alexa confirmed voice posts and threaded replies, reviewer account linking and read-aloud, external-agent answers over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
+- [External agents, tools, and sharing](./integrations.md) - Japanese and English Alexa confirmed voice posts and threaded replies, reviewer account linking and read-aloud, external-agent answers and direct requests over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
 - [Development and workspace operations](./operations.md) - Development, validation, model usage inspection, remote Terraform state and variables, temporary shared VM deployment, memory migration, location backfill, portable exports, and workspace deletion.
 
 # Reading the bundle

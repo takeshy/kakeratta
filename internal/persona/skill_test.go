@@ -94,6 +94,12 @@ func TestInstallRefusesWhatItCannotTrust(t *testing.T) {
 		"担当領域が無い":    `{"id":"ok","name":"x","domain":"","model":"low"}`,
 		"内蔵と同じID":    `{"id":"gourmet","name":"x","domain":"y","model":"low"}`,
 		"知らない道具":     `{"id":"ok","name":"x","domain":"y","model":"low","tools":["nuke"]}`,
+		// The names the external agent answers to are reserved.
+		"予約されたID":          `{"id":"agent","name":"x","domain":"y","model":"low"}`,
+		"予約された名前 agent":    `{"id":"ok","name":"Agent","domain":"y","model":"low"}`,
+		"予約された名前 エージェント":   `{"id":"ok","name":"エージェント","domain":"y","model":"low"}`,
+		"予約された名前 外部エージェント": `{"id":"ok","name":"外部エージェント","domain":"y","model":"low"}`,
+		"予約された呼び名":         `{"id":"ok","name":"x","kind":"person","aliases":["ｅｒｒ","エージェントさん"],"domain":"y","model":"low"}`,
 	}
 	for name, definition := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -275,4 +281,14 @@ func skillStore(t *testing.T, root string) *store.Store {
 		t.Fatal(err)
 	}
 	return s
+}
+
+// A persona saved under a reserved name before the reservation stays readable.
+func TestReservedNamesAreCheckedOnlyWhenWritten(t *testing.T) {
+	if _, err := parseInstalled("agent", []byte(`{"id":"agent","name":"agent","domain":"y","model":"low"}`)); err != nil {
+		t.Fatalf("an existing definition was refused: %v", err)
+	}
+	if err := Validate(Skill{ID: "ok", Name: "AGENT", Domain: "y"}, nil); err == nil || !strings.Contains(err.Error(), "予約") {
+		t.Fatalf("a draft took a reserved name: %v", err)
+	}
 }

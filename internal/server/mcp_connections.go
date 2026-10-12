@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
@@ -195,6 +197,65 @@ func (s *Server) activeMCPWaits() (time.Duration, time.Duration) {
 		}
 	}
 	return 0, 0
+}
+
+// getRequests lists the open direct requests to the external agent, so the
+// page can show which posts are waiting for it or being worked on, and the
+// name the agent's replies are shown under.
+func (s *Server) getRequests(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	rows := []map[string]any{}
+	if s.runner != nil {
+		for _, request := range s.runner.Requests() {
+			rows = append(rows, map[string]any{"id": request.ID, "entryId": request.Entry, "status": request.State, "notify": !request.Mute})
+		}
+	}
+	// The agent's replies are shown under its connection's name.
+	writeJSON(w, http.StatusOK, map[string]any{"requests": rows, "agentName": s.activeMCPName()})
+}
+
+// setRequestNotify chooses whether how one open direct request ends is pushed.
+func (s *Server) setRequestNotify(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		fail(w, 403, "invalid origin")
+		return
+	}
+	var body struct {
+		Notify *bool `json:"notify"`
+	}
+	if err := readJSON(r, &body); err != nil || body.Notify == nil {
+		fail(w, http.StatusBadRequest, "notify を指定してください")
+		return
+	}
+	if s.runner == nil {
+		fail(w, http.StatusNotFound, persona.ErrRequestOver.Error())
+		return
+	}
+	request, err := s.runner.SetRequestNotify(r.Context(), r.PathValue("id"), *body.Notify)
+	if errors.Is(err, persona.ErrRequestOver) {
+		fail(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": request.ID, "entryId": request.Entry, "status": request.State, "notify": !request.Mute})
+}
+
+// activeMCPName is the name of the connection in use, "" when there is none.
+// A post may address its agent directly, and its words are shown under it.
+func (s *Server) activeMCPName() string {
+	rows, err := s.mcpConnections(context.Background())
+	if err != nil {
+		return ""
+	}
+	for _, row := range rows {
+		if row.Active {
+			return row.Name
+		}
+	}
+	return ""
 }
 
 // setMCPConnectionWaits changes how long asks wait for one connection's agent.

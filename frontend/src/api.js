@@ -122,6 +122,8 @@ export const api = {
 
   checkSearch: () => call("POST", "/api/search/check"),
   settings: () => call("GET", "/api/settings"),
+  requests: () => call("GET", "/api/requests"),
+  setRequestNotify: (id, notify) => call("PUT", `/api/requests/${encodeURIComponent(id)}/notify`, { notify }),
   startExport: () => call("POST", "/api/export"),
   closeAccount: () => call("DELETE", "/api/workspace", { confirm: true }),
   saveSettings: (settings) => call("PUT", "/api/settings", settings),
