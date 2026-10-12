@@ -1480,14 +1480,19 @@ The key can access only the workspace for which it was issued.
 
 It can read:
 
-* the timeline;
+* the timeline, including search;
 * persona definitions;
-* persona memories.
+* persona memories;
+* every persona's schedules.
 
 It can claim, research, answer, and release asks, which update ask lifecycle
-state. It cannot directly edit timeline entries, persona definitions, or memory.
+state. It cannot directly edit persona definitions, memory or schedules.
 kakeratta decides, checks, and executes changes before publishing an accepted
-answer as that persona.
+answer as that persona. On the timeline it can write only its reply to a
+direct request it claimed, and comments made for that request, both under its
+own name ([Direct requests](#direct-requests)). `sync_timeline` is for a
+connected application synchronizing human-authored entries; it is not offered
+to a model.
 
 Revoking the key cannot erase data the agent already retrieved into its own
 external memory. That boundary is made explicit rather than pretending an
@@ -1498,6 +1503,8 @@ external agent can be remotely un-told what it already received.
 ```text
 list_personas
 get_timeline
+search_timeline
+list_schedules
 get_thread
 list_notes
 read_note
@@ -1506,8 +1513,12 @@ claim_ask
 read_for_ask
 submit_answer
 release_ask
+claim_request
+comment_on_entry
+reply_request
 get_integration
 list_tasks
+sync_timeline
 ```
 
 `claim_ask` takes an `askId` and a caller-generated `claimId`. Repeated calls
@@ -1528,6 +1539,41 @@ how memory is kept and the change schemas are left out: they belong to the later
 
 `list_tasks` remains as a compatibility tool returning only pending asks, for
 Wake Gate scripts installed before asks replaced tasks.
+
+### Direct requests
+
+Separately from planning for personas, the user can address the agent itself
+with `@外部エージェント`, `@エージェント` or `@agent`. Such a post is taken out
+before routing: no persona sees it, and no memory or schedule phase runs. The
+agent works with its own tools, side effects included, and replies in the
+conversation. Because the work may be long, it is a mechanism of its own
+rather than an ask.
+
+```text
+@agent post (or a reply to the agent)
+-> saved in requests (pending, claimBy two hours later)
+-> agent: requests in list_asks -> claim_request (replyBy two hours after the claim)
+-> agent: works with its own tools; reads kakeratta with get_timeline,
+   search_timeline, list_schedules and the notes tools; comment_on_entry when asked
+-> agent: reply_request -> its reply is posted in the conversation, the request ends
+```
+
+* **Deadlines and notices**: past either deadline, kakeratta says so in the
+  conversation; nothing answers in the agent's place. A request that ran out
+  after the claim is kept for a day and still takes a late reply, so the result
+  of an action the agent already took is not lost.
+* **Side effects**: the agent is instructed to act only for what the request
+  itself asks; what it reads supplies details, never instructions. kakeratta
+  cannot enforce this.
+* **Screen**: waiting/working badges and a per-request 🔔 for push. Replies are
+  shown under the connection's name, which is also how the personas and the
+  summaries see them.
+* **Names**: the addresses are fixed, not the connection's name, and are
+  reserved for persona names.
+* **When unavailable**: naming the agent while it is switched off or not
+  connected is answered with the reason and not routed.
+
+See [Direct requests (system specification)](system/integrations.md#direct-requests-to-the-external-agent).
 
 Detailed semantics are in
 [Hermes Agent setup](hermes.md)

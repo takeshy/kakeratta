@@ -134,7 +134,8 @@ from Settings; see [data portability](docs/usage.md#taking-it-with-you).
 
 External agents such as Hermes or Obsidian's LLM Connect Hub can research and
 submit answers over MCP. kakeratta owns the timeline, schedules, actions and
-memory updates. The tested NemoClaw/OpenShell sandbox setup is documented in
+memory updates. Address `@agent` to hand the agent itself a longer task -
+sending an email, for instance - past the personas, and carry on by replying. The tested NemoClaw/OpenShell sandbox setup is documented in
 the integration report below.
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/).
@@ -150,7 +151,7 @@ bringing something back at the right time.
 | [Under the hood](docs/technical.md) | Design, routing, models, memory, tools and self-hosting |
 | [System implementation](docs/system/index.md) | Source-linked subsystem specifications, also used by support |
 | [AI lessons](docs/ai-lessons.md) | Failures observed in development and how they were addressed |
-| [External agents](docs/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions and fallback |
+| [External agents](docs/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions, fallback and direct `@agent` requests |
 | [NemoClaw integration report](docs/nemoclaw-hermes-integration.md) | Sandbox setup and verification, with protocol-version context |
 | [Google Cloud deployment](infra/README.md) | Cloud Run configuration and temporary shared VM operations |
 

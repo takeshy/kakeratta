@@ -127,6 +127,7 @@ OpenRouterも選べます。
 
 HermesやObsidianのLLM Connect Hubに、MCP経由で調査と回答を任せられます。
 タイムライン・予定・操作・記憶の更新はkakerattaが管理します。
+`@agent` で呼びかければ、担当を通さず外部エージェント自身にメール送信のような長い作業も直接依頼でき、返信でやりとりできます。
 NemoClaw/OpenShellのサンドボックスで検証した構成は、下の連携レポートにまとめています。
 
 [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/) に出展した作品です。
@@ -141,7 +142,7 @@ NemoClaw/OpenShellのサンドボックスで検証した構成は、下の連�
 | [中で起きていること](docs/technical_ja.md) | 設計・振り分け・モデル・記憶・道具・サーバー運用 |
 | [システム実装仕様](docs/system/index.md)（英語） | ソース参照付きのサブシステム仕様。supportも参照 |
 | [AIで難しかったこと](docs/ai-lessons_ja.md) | 開発や運用で起きた失敗と対処 |
-| [外部エージェント](docs/hermes_ja.md) | Hermes・LLM Connect Hubの接続、MCP権限、代替実行 |
+| [外部エージェント](docs/hermes_ja.md) | Hermes・LLM Connect Hubの接続、MCP権限、代替実行、`@agent` での直接依頼 |
 | [NemoClaw連携レポート](docs/nemoclaw-hermes-integration_ja.md) | サンドボックス構成と検証。当時のプロトコルも明記 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Cloud Run構成と暫定運用の共有VM |
 

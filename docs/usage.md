@@ -492,6 +492,21 @@ Integrations, where **Use the external agent** can pause it for a while. See [He
 
 ![Personas: preferring the external agent for a persona](captures/en/persona-planner.png)
 
+### Direct requests to the external agent
+
+Address `@外部エージェント`, `@エージェント` or `@agent` to ask the connected external agent itself, past the personas. There is no switch: if you do not name it, it is not used. You can hand it long tasks - research, organizing files, actions with side effects such as sending an email. The agent does the work with its own tools; kakeratta only hands over the request and shows the reply. No persona routing, memory or schedule is involved.
+
+- **Talk through replies**: the agent's reply appears in the conversation under the connection's name (for example Hermes). Replying to it is the next request, without `@`. Naming a persona with `@` in such a reply sends it to that persona instead.
+- **Point at a conversation**: reply `@agent is this right?` under a persona's answer and it reads the whole conversation. Ask with a range - "point out wrong answers from yesterday" - and it comments under those answers, then sums up under your request.
+- **Status**: the request shows **Waiting for the external agent**, then **External agent working** once claimed. The 🔔 beside it chooses whether that request's reply is pushed (on by default).
+- **Waits**: if the request is not claimed within two hours, or not answered within two hours of the claim, kakeratta says so in the conversation. A reply the agent sends after that still appears.
+- **Side effects**: the agent is instructed to act - send an email, for instance - only for what the request itself asks. Earlier messages and anything it reads may supply details such as an address, never an instruction. This is an instruction to the agent; kakeratta cannot enforce it.
+- **Edits**: editing a request before it is claimed updates it. After the claim the edit is not sent; kakeratta replies "処理中のため編集は反映されません。返信で伝えてください。" (it is in progress; reply instead).
+- **When unavailable**: naming the agent while it is switched off or not connected is answered with the reason and not routed to the personas.
+- `外部エージェント`, `エージェント` and `agent` are reserved and cannot be a persona's name, alias or ID.
+
+The agent must support the new MCP tools. For Hermes, see [Hermes Agent setup](hermes.md#direct-requests).
+
 - Nebius Token Factory provides Nemotron inference, GLM image reading, and Qwen embeddings.
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.
 - In production, Cloud Run hosts the API, Firebase Hosting serves the page, and Firestore and Cloud Storage persist user data. Local mode stores data on disk.
