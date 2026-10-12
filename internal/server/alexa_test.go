@@ -321,3 +321,116 @@ func TestAlexaJudgeLinkLifetimeAndQuota(t *testing.T) {
 		t.Fatal("review provider not pinned")
 	}
 }
+
+func TestAlexaRelinkingKeepsActiveJudgeIdentityUntilExchange(t *testing.T) {
+	for _, tc := range []struct{ name, activeUID, pendingUID string }{
+		{"judge to regular", "alice", ""},
+		{"regular to judge", "", "alice"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := testGateway(t)
+			g.options.Mode = "web"
+			g.options.Alexa = &alexa.Config{SkillID: "skill", ClientID: "client", ClientSecret: "secret", RedirectURLs: []string{"https://alexa.amazon.co.jp/callback"}}
+			g.options.JudgeInviteToken, g.options.JudgeAPIKey = "invite", "key"
+			g.options.JudgeExpiresAt, g.options.JudgeMaxUses = time.Now().Add(time.Hour), 200
+			g.options.ClaimJudgeUse = func(context.Context, string, int) (int, bool, error) { return 0, true, nil }
+			s, err := g.tenant("alice")
+			if err != nil {
+				t.Fatal(err)
+			}
+			access, refresh := s.newAlexaToken(), s.newAlexaToken()
+			initial := alexaCredentials{Access: alexaHash(access), Refresh: alexaHash(refresh), AccessUntil: time.Now().Add(time.Hour), RefreshUntil: time.Now().Add(24 * time.Hour), JudgeUID: tc.activeUID}
+			data, _ := json.Marshal(initial)
+			if _, err := s.store.SwapSocialValue(context.Background(), alexaCredential, "", store.SocialValue{Data: data}); err != nil {
+				t.Fatal(err)
+			}
+			identity := "alice"
+			if tc.pendingUID != "" {
+				identity = "judge:alice"
+			}
+			cookie := sessionCookie(t, g, identity)
+			r := httptest.NewRequest("POST", "/api/alexa/authorize", strings.NewReader(`{"client_id":"client","response_type":"code","redirect_uri":"https://alexa.amazon.co.jp/callback","state":"state"}`))
+			r.AddCookie(cookie)
+			w := httptest.NewRecorder()
+			g.ServeHTTP(w, r)
+			if w.Code != 200 {
+				t.Fatalf("authorize: %d %s", w.Code, w.Body)
+			}
+			var result map[string]string
+			json.Unmarshal(w.Body.Bytes(), &result)
+			redirect, _ := url.Parse(result["redirect"])
+			code := redirect.Query().Get("code")
+			read := func() alexaCredentials {
+				t.Helper()
+				v, err := s.store.SocialValue(context.Background(), alexaCredential)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var saved alexaCredentials
+				if err := json.Unmarshal(v.Data, &saved); err != nil {
+					t.Fatal(err)
+				}
+				return saved
+			}
+			pending := read()
+			if pending.JudgeUID != tc.activeUID || pending.Access != initial.Access || pending.Refresh != initial.Refresh {
+				t.Fatal("authorization changed active connection")
+			}
+			if pending.CodeJudgeUID == nil || *pending.CodeJudgeUID != tc.pendingUID {
+				t.Fatalf("pending identity: %+v", pending)
+			}
+			exchange := func(form url.Values) *httptest.ResponseRecorder {
+				r := httptest.NewRequest("POST", "/api/alexa/token", strings.NewReader(form.Encode()))
+				r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				r.SetBasicAuth("client", "secret")
+				w := httptest.NewRecorder()
+				g.ServeHTTP(w, r)
+				return w
+			}
+			refreshForm := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}}
+			// Expiration must follow the identity of the grant being exchanged.
+			g.options.JudgeExpiresAt = time.Now().Add(-time.Second)
+			wantRefresh := 200
+			if tc.activeUID != "" {
+				wantRefresh = 400
+			}
+			if w := exchange(refreshForm); w.Code != wantRefresh {
+				t.Fatalf("active refresh: %d, want %d", w.Code, wantRefresh)
+			}
+			if saved := read(); saved.JudgeUID != tc.activeUID || saved.CodeJudgeUID == nil || *saved.CodeJudgeUID != tc.pendingUID {
+				t.Fatal("refresh changed pending or active identity")
+			}
+			form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {"https://wrong.example"}}
+			if w := exchange(form); w.Code != 400 {
+				t.Fatal("bad redirect accepted")
+			}
+			if saved := read(); saved.JudgeUID != tc.activeUID || saved.Code == "" {
+				t.Fatal("failed exchange changed active identity or consumed code")
+			}
+			form.Set("redirect_uri", "https://alexa.amazon.co.jp/callback")
+			if tc.pendingUID != "" {
+				if w := exchange(form); w.Code != 400 {
+					t.Fatal("expired pending judge accepted")
+				}
+				if saved := read(); saved.JudgeUID != tc.activeUID || saved.Code == "" {
+					t.Fatal("rejected judge exchange changed connection")
+				}
+				g.options.JudgeExpiresAt = time.Now().Add(time.Hour)
+			}
+			w = exchange(form)
+			if w.Code != 200 {
+				t.Fatalf("exchange: %d %s", w.Code, w.Body)
+			}
+			saved := read()
+			if saved.JudgeUID != tc.pendingUID || saved.CodeJudgeUID != nil || saved.Code != "" || saved.Refresh == initial.Refresh {
+				t.Fatalf("bad identity promotion: %+v", saved)
+			}
+			if w := exchange(refreshForm); w.Code != 400 {
+				t.Fatal("previous refresh remained valid")
+			}
+			if w := exchange(form); w.Code != 400 {
+				t.Fatal("authorization code reused")
+			}
+		})
+	}
+}

@@ -23,7 +23,8 @@ const alexaCredential = "alexa-credential"
 // One revocable Alexa connection per workspace. Only credential hashes persist.
 type alexaCredentials struct {
 	Code, Access, Refresh                string
-	JudgeUID                             string `json:",omitempty"`
+	JudgeUID                             string  `json:",omitempty"`
+	CodeJudgeUID                         *string `json:",omitempty"`
 	Redirect                             string
 	CodeUntil, AccessUntil, RefreshUntil time.Time
 }
@@ -114,9 +115,9 @@ func (s *Server) authorizeAlexa(w http.ResponseWriter, r *http.Request) {
 	}
 	code := s.newAlexaToken()
 	saved.Code, saved.CodeUntil, saved.Redirect = alexaHash(code), time.Now().Add(5*time.Minute), body.Redirect
-	if uid, _ := r.Context().Value(alexaJudgeIdentityKey{}).(string); uid != "" {
-		saved.JudgeUID = uid
-	}
+	uid, _ := r.Context().Value(alexaJudgeIdentityKey{}).(string)
+	// Keep an explicit empty UID for a pending regular-account authorization.
+	saved.CodeJudgeUID = &uid
 	data, _ := json.Marshal(saved)
 	ok, err := s.store.SwapSocialValue(r.Context(), alexaCredential, v.Version, store.SocialValue{Data: data})
 	if err != nil || !ok {
@@ -146,19 +147,25 @@ func (s *Server) exchangeAlexa(w http.ResponseWriter, r *http.Request) {
 	}
 	now := time.Now()
 	valid := false
+	judgeUID := saved.JudgeUID
 	switch r.Form.Get("grant_type") {
 	case "authorization_code":
-		valid = alexaMatches(r.Form.Get("code"), saved.Code) && now.Before(saved.CodeUntil) && r.Form.Get("redirect_uri") == saved.Redirect
+		valid = saved.CodeJudgeUID != nil && alexaMatches(r.Form.Get("code"), saved.Code) && now.Before(saved.CodeUntil) && r.Form.Get("redirect_uri") == saved.Redirect
+		if saved.CodeJudgeUID != nil {
+			judgeUID = *saved.CodeJudgeUID
+		}
 	case "refresh_token":
 		valid = alexaMatches(r.Form.Get("refresh_token"), saved.Refresh) && now.Before(saved.RefreshUntil)
 	}
-	if !valid || s.checkAlexaJudge(r.Context(), saved.JudgeUID, false) != nil {
+	if !valid || s.checkAlexaJudge(r.Context(), judgeUID, false) != nil {
 		writeJSON(w, 400, map[string]string{"error": "invalid_grant"})
 		return
 	}
 	access := s.newAlexaToken()
 	refresh := r.Form.Get("refresh_token")
 	if r.Form.Get("grant_type") == "authorization_code" {
+		saved.JudgeUID = judgeUID
+		saved.CodeJudgeUID = nil
 		refresh = s.newAlexaToken()
 		saved.Refresh, saved.RefreshUntil = alexaHash(refresh), now.Add(365*24*time.Hour)
 		saved.Code, saved.Redirect = "", ""
