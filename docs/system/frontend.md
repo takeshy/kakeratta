@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-11"
+updated: "2026-10-12"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
@@ -34,7 +34,7 @@ The settings panel uses a shrinkable single-column grid, including nested fields
 
 Settings and persona feature toggles (activation, memory, always Ultra, provider choice, Markdown input, and external-agent use) use the same ON/OFF switch as scheduled push notifications. [dom.js](../../frontend/src/dom.js) `switchControl` wraps a native checkbox with `role="switch"`, a visible ON/OFF track, keyboard focus styling, and a disabled state. The standard switch measures 4.625 × 2.5 rem (74 × 40px at the standard text size), scales with text preferences, and uses the theme accent color when enabled. The activation switch on each persona card displays **有効 / Active** or **無効 / Inactive** inside its track, with no adjacent label; its accessible name identifies the persona. Changing activation saves the active ID list and updates existing switches, card styling, and check-in availability in place, preserving the panel DOM and scroll position. Activation switches are disabled while saving; a failed request restores their saved state. Planner preference switches also update their existing card controls, badge, and hint in place, restoring the saved preference on failure. Verification: [personas-panel.test.js](../../tests/personas-panel.test.js). Checkboxes for selecting entries or terms retain their selection appearance.
 
-The manual and Storybook examples describe place search without route-search instructions. The removed built-in `route` tool is omitted from displayed tool lists and editor choices by `uniqueTools` in [tool_labels.js](../../frontend/src/tool_labels.js).
+The manual and Storybook examples describe place search without route-search instructions. The removed built-in `route` tool is omitted from displayed tool lists and editor choices by `uniqueTools` in [tool_labels.js](../../frontend/src/tool_labels.js). Shared tool labels in the persona editor, AI draft preview, and persona cards describe `reverse_geocode` (including `geo.reverse_geocode`) as **Look up place names from coordinates** (Japanese: **座標から地名を調べる**) and `schedules_list` as **Check personas' schedules** (Japanese: **担当の予定を確認する**), with English translations in [i18n.js](../../frontend/src/i18n.js).
 
 ## Profile names and photo avatars
 

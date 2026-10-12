@@ -397,6 +397,8 @@ const EN = {
   "「{0}」を外しました。この投稿はもう {1} に届きません": "Removed \"{0}\". This post no longer reaches {1}.",
   "「{0}」を外しましたが、「{1}」でも一致します。": "Removed \"{0}\", but the post also matches \"{1}\".",
   "自分を起こす予定を置く": "Set its own wake-ups",
+  "座標から地名を調べる": "Look up place names from coordinates",
+  "担当の予定を確認する": "Check personas' schedules",
   "変更前の内容": "Before the change",
   "より深い回答を求められたので Ultra で答えました": "Answered on Ultra because a better or deeper answer was asked for",
   "AIへの依頼": "Request to the AI",

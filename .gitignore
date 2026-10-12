@@ -8,6 +8,7 @@ node_modules/
 /build/windows/msix/store.json
 .terraform/
 .firebase/
+demo
 *.tfstate
 *.tfstate.*
 *.tfplan

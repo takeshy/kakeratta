@@ -9,8 +9,10 @@ const labels = {
   kakeratta_help: "kakerattaの仕様を読む",
   web_search: "Webで調べる",
   place_search: "お店や場所を探す",
+  reverse_geocode: "座標から地名を調べる",
   weather_forecast: "天気予報を調べる",
   schedule: "自分を起こす予定を置く",
+  schedules_list: "担当の予定を確認する",
   timeline_search: "過去のかけらを探す",
 };
 
