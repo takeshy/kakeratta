@@ -7,7 +7,7 @@ Integration: kakeratta MCP (`list_asks`, `claim_ask`, `read_for_ask`, `submit_an
 
 [Integration report](nemoclaw-hermes-integration.md) · [Runaway loop incident](nemoclaw-hermes-runaway-incident.md)
 
-This report records what was observed with three models used as the planner for Hermes Agent, and why the sandbox now runs `nvidia/Nemotron-3-Ultra-550b-a55b`. It is not a controlled benchmark: each observation below comes from a different prompt, and no model was given the same task as another.
+This report records what was observed with three models used as the planner for Hermes Agent, and why the sandbox moved to `nvidia/Nemotron-3-Ultra-550b-a55b` and then back to `nvidia/nemotron-3-super-120b-a12b`, the current planner. It is not a controlled benchmark: each observation below comes from a different prompt, and no model was given the same task as another.
 
 ## Models
 
@@ -87,11 +87,17 @@ Ultra is not cheaper than 405B: both are priced at $1.00 per million input token
 
 Beyond the single answer above, Ultra's behavior as the Hermes planner has not yet been measured against the other two models. A fair comparison would give all three the same asks, including a correction like the Super case above, and record turns, tokens, and latency per ask.
 
+## Back to Super
+
+Ultra did not last as the planner. When Hermes sent its reasoning parameters (`reasoning_effort` or `extra_body: {'think': ...}`) to Token Factory, Ultra wrote its tool calls as plain text instead of structured `tool_calls`. Hermes did not recognize them, and the model looped until Hermes's repetition guard stopped it at the 8,192-token limit. Those asks fell through to kakeratta's built-in model after the claim wait. The [integration report](nemoclaw-hermes-integration.md#key-operational-issues-resolved) records the issue.
+
+The sandbox therefore went back to `nvidia/nemotron-3-super-120b-a12b` with the reasoning configuration unset. `nemoclaw inference get` reports `nvidia/nemotron-3-super-120b-a12b` through `compatible-endpoint` (`https://api.tokenfactory.nebius.com/v1`), and the OpenShell inference log for recent runs shows `Success nvidia/nemotron-3-super-120b-a12b`. In those runs Super called `read_file`, `terminal` and `reply_request` and finished each request. Super's earlier problems are still on record above: the missed submission was addressed by Skill v13, while the correction case is a known limitation.
+
 ## Switching the model
 
 ```bash
 # 1. Point the OpenShell inference route at the new model
-nemoclaw inference set --provider compatible-endpoint --model "nvidia/Nemotron-3-Ultra-550b-a55b" --sandbox hermes-sandbox
+nemoclaw inference set --provider compatible-endpoint --model "nvidia/nemotron-3-super-120b-a12b" --sandbox hermes-sandbox
 
 # 2. Find the main model setting in config.yaml
 nemoclaw hermes-sandbox exec -- grep -n "model" /sandbox/.hermes/config.yaml

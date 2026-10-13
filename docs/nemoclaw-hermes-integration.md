@@ -35,7 +35,7 @@ flowchart TD
 | kakeratta | Manages conversations, asks, MCP authentication, workflow validation and execution |
 | Hermes Agent (Planner) | Interprets asks according to Skill, performs lookups, and returns persona workflows |
 | NemoClaw / OpenShell | Isolates the sandbox, manages Gateway lifecycle, network policy, and inference proxy |
-| Nebius Token Factory | Provides model inference (`nvidia/Nemotron-3-Ultra-550b-a55b`) |
+| Nebius Token Factory | Provides model inference (`nvidia/nemotron-3-super-120b-a12b`) |
 
 kakeratta does not start the Hermes process, and Hermes does not access kakeratta's database directly. MCP (Model Context Protocol) is the boundary between them. Model inference routes through OpenShell's proxy, keeping credentials completely hidden. The recurring Wake Gate also serves as a heartbeat: if no MCP calls arrive within the claim wait window (3 minutes by default), kakeratta's built-in model answers instead.
 
@@ -375,8 +375,8 @@ The entire cycle completed autonomously with zero human intervention.
 Multiple models were evaluated during development:
 - **`NousResearch/Hermes-4-405B`**: Highly capable, but simple prompts took ~45 seconds, adding unacceptable latency to a 1-minute scheduling cadence.
 - **`nvidia/Nemotron-3_5-Lightning`**: Extremely fast (2–3 seconds), but prone to argument omission, JSON structure syntax errors during multi-step MCP operations, and getting caught in troubleshooting loops (attempting unwanted configuration changes and shell commands) upon transient network or tool hiccups.
-- **`nvidia/nemotron-3-super-120b-a12b`**: Balanced response speed and tool judgment, and was the planner model for the end-to-end run above. In one session it held on to an earlier error when the user corrected it, and in another it wrote an answer without submitting it.
-- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: The current planner model. Its behavior as the Hermes planner has not yet been measured against the other models; see the [model comparison](nemoclaw-hermes-model-comparison.md).
+- **`nvidia/nemotron-3-super-120b-a12b`**: The current planner model. Balanced response speed and tool judgment, and was the planner model for the end-to-end run above. In one session it held on to an earlier error when the user corrected it, and in another it wrote an answer without submitting it; Skill v13 addressed the missed submission.
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Tried as the planner after Super's correction failure. With Hermes's reasoning parameters, it wrote tool calls as plain text and looped until Hermes's repetition guard stopped it (see the issue table above), so the sandbox went back to Super. See the [model comparison](nemoclaw-hermes-model-comparison.md).
 
 Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex, nested workflow structures as pure native JSON objects without double-escaping, structurally eliminating parse failures.
 
