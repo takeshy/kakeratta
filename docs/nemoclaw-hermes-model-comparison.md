@@ -93,6 +93,12 @@ Ultra did not last as the planner. When Hermes sent its reasoning parameters (`r
 
 The sandbox therefore went back to `nvidia/nemotron-3-super-120b-a12b` with the reasoning configuration unset. `nemoclaw inference get` reports `nvidia/nemotron-3-super-120b-a12b` through `compatible-endpoint` (`https://api.tokenfactory.nebius.com/v1`), and the OpenShell inference log for recent runs shows `Success nvidia/nemotron-3-super-120b-a12b`. In those runs Super called `read_file`, `terminal` and `reply_request` and finished each request. Super's earlier problems are still on record above: the missed submission was addressed by Skill v13, while the correction case is a known limitation.
 
+## One model per sandbox
+
+OpenShell's inference route serves one model for the whole sandbox. `openshell inference set --model` is documented as the "model identifier to force for generation calls", and a direct request from inside the sandbox to `https://inference.local/v1/chat/completions` with `model: "nvidia/Nemotron-3-Ultra-550b-a55b"` came back with `model: "nvidia/nemotron-3-super-120b-a12b"` while the route was set to Super. A model name set inside the sandbox, in `config.yaml`, a cron job or Hermes's `delegation.model`, therefore does not choose the model.
+
+This was checked with Hermes delegation enabled. On direct request `q_17918858473053104673a91a9b6` (2026-10-13 19:04 JST), the parent agent called `delegate_task`, and the subagent read the files, wrote the corrected HTML and returned in 23.88 seconds. The parent then sent it with `reply_request`. Hermes was configured to run the subagent on Ultra, but every inference event in the OpenShell log from 19:04:42 to 19:05:57 JST was `Success nvidia/nemotron-3-super-120b-a12b`: parent and subagent both ran on Super. Running two models in one sandbox would need a second inference route, which this setup does not have.
+
 ## Switching the model
 
 ```bash
