@@ -184,6 +184,22 @@ func TestRouteSubjectsDecidesPeopleWithoutTheRouter(t *testing.T) {
 	}
 }
 
+func TestUnmatchedPersonReasonFollowsPostLanguage(t *testing.T) {
+	for _, tc := range []struct{ language, want string }{
+		{"en", "No name or keyword for this person matched this post."},
+		{"ja", "この人物に一致する呼び名・キーワードがありませんでした"},
+		{"", "この人物に一致する呼び名・キーワードがありませんでした"},
+	} {
+		t.Run(tc.language, func(t *testing.T) {
+			trigger := timeline.Entry{ID: "shoes", Text: "New running shoes today.", Language: tc.language}
+			routing := routeSubjects(context.Background(), nil, store.Settings{}, []Skill{sato()}, []timeline.Entry{trigger}, trigger)
+			if len(routing.Deliver) != 0 || routing.Excluded["sato"] != tc.want {
+				t.Fatalf("routing = %+v", routing)
+			}
+		})
+	}
+}
+
 func TestCheckedKeywordReachesPersonAndIsRecorded(t *testing.T) {
 	routes := 0
 	runner, workspace, _ := setup(t, func(system, user string) string {

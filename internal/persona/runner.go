@@ -343,6 +343,9 @@ func routeSubjects(ctx context.Context, client *llm.Client, settings store.Setti
 			continue
 		}
 		routing.Excluded[skill.ID] = "この人物に一致する呼び名・キーワードがありませんでした"
+		if trigger.Language == "en" {
+			routing.Excluded[skill.ID] = "No name or keyword for this person matched this post."
+		}
 	}
 	// The people are decided even when the router could not be: a post about
 	// someone is not lost because the subjects' model was down. The record of

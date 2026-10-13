@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-12"
+updated: "2026-10-13"
 ---
 
 Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections.
@@ -122,6 +122,8 @@ Edits refresh prior recipients again when their ordered delivery starts, so a pr
 ## Failures and records
 
 Missing configuration, request failure, or malformed output leaves the router with no subject recipients and `Answered: false` plus an error. A valid explicit empty array means a completed decision with no recipients. Unknown IDs are ignored; recognized persona names and decorated IDs are normalized to IDs and deduplicated. Explicit mentions, reply targets, person matching, and other recipient paths operate separately from that model decision.
+
+For posts saved with `language: "en"`, chat-completion routing explicitly requests English exclusion reasons even when its instructions, earlier thread posts, or persona conditions are Japanese. Unmatched person names and keywords also receive an English host-generated explanation. This affects explanations only; recipient matching is unchanged. Other posts retain the existing language inference, and saved reasons are not translated retroactively. Verification: `TestRouteEnglishExplanationsWithJapaneseContext` in [route_test.go](../../internal/persona/route_test.go) and `TestUnmatchedPersonReasonFollowsPostLanguage` in [people_test.go](../../internal/persona/people_test.go).
 
 Routing records retain recipients, exclusion reasons, explicit-call reasons, completed personas, and personas that spoke. Completions change them through `UpdateRouting` transactions, so turns finishing at the same time - in one process or several - do not drop each other's state. The frontend receives `routed` and `turn` events.
 

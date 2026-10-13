@@ -158,3 +158,18 @@ func TestTheRoutingPromptDeliversOnlyWhereAPostBelongs(t *testing.T) {
 		}
 	}
 }
+
+func TestRouteEnglishExplanationsWithJapaneseContext(t *testing.T) {
+	f := &fake{reply: func(system, user string) string {
+		if !strings.Contains(system, "Write every excluded_reasons explanation in English") {
+			t.Error("English display language was not prioritized over Japanese context")
+		}
+		return `{"deliver":[],"excluded_reasons":{"food":"The post is about running shoes, not food."}}`
+	}}
+	server := f.start(t)
+	trigger := Entryish{ID: "english-shoes", Text: "New running shoes today.", Language: "en"}
+	got := Route(context.Background(), llm.New(server.URL, ""), "route", []Skill{{ID: "food", Domain: "食べ物の話"}}, []Entryish{{ID: "past", Text: "昨日の夕食"}, trigger}, trigger)
+	if !got.Answered || len(got.Deliver) != 0 || got.Excluded["food"] != "The post is about running shoes, not food." {
+		t.Fatalf("routing = %+v", got)
+	}
+}

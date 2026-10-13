@@ -87,11 +87,15 @@ func Route(ctx context.Context, client *llm.Client, model string, skills []Skill
 		domains = append(domains, fmt.Sprintf("- %s（%s）: %s", skill.ID, skill.Name, skill.Domain))
 	}
 	thinking := true
+	prompt := routePrompt
+	if trigger.Language == "en" {
+		prompt += "\nThe current post's display language is English (en). Write every excluded_reasons explanation in English, even if the routing instructions, earlier posts, or persona conditions are in Japanese. This changes only the explanation language, not which conditions match."
+	}
 	reply, err := client.Complete(ctx, llm.Request{
 		Purpose: "routing", Model: model, Tools: []llm.Tool{deliverTool}, ToolChoice: "required",
 		Thinking: &thinking, Exacto: true,
 		Messages: []llm.Message{
-			{Role: "system", Content: routePrompt},
+			{Role: "system", Content: prompt},
 			{Role: "user", Content: strings.Join([]string{
 				"担当条件:", strings.Join(domains, "\n"), "", threadContext(thread, trigger, nil, nil),
 			}, "\n")},
