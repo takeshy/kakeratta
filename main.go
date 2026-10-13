@@ -49,8 +49,11 @@ var hermesSkill string
 //go:embed frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py
 var hermesGate string
 
+//go:embed frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py
+var hermesWorker string
+
 func main() {
-	server.SetIntegration(hermesSkill, hermesGate)
+	server.SetIntegration(hermesSkill, hermesGate, hermesWorker)
 	root := os.Getenv("KAKERATTA_HOME")
 	if root == "" {
 		root = store.DefaultRoot()

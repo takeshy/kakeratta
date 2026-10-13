@@ -4,15 +4,19 @@
 Checks kakeratta for pending planning asks and direct requests via MCP list_asks.
 If nothing is pending or on any error/missing config, outputs {"wakeAgent": false}
 to skip LLM execution entirely (fail-closed, zero token spend).
-If an unclaimed ask or direct request is pending, outputs {"wakeAgent": true} to
-wake Hermes Agent.
+
+Pending direct requests are handled here, in code, by the distributed
+direct-request worker (direct_request_worker.py): claim, generate, review,
+correct, execute and reply, without ever waking the Super parent. Only a
+pending persona ask wakes Hermes Agent, so a tick with direct requests alone
+makes zero parent-model calls.
 
 It also keeps the integration current. list_asks carries the versions of the
-distributed skill and of this script; when either differs from what is
-installed, the script fetches both through the same MCP endpoint
-(get_integration) and replaces ~/.hermes/skills/kakeratta/SKILL.md and itself.
-No other host or path is needed, so a sandbox that allows only the MCP
-endpoint can still update. Updates and failures are written to stderr; a
+distributed skill, this script and the worker; when any differs from what is
+installed, the script fetches all three through the same MCP endpoint
+(get_integration) and replaces ~/.hermes/skills/kakeratta/SKILL.md, itself and
+the worker. No other host or path is needed, so a sandbox that allows only the
+MCP endpoint can still update. Updates and failures are written to stderr; a
 failure never changes the wake decision.
 """
 
@@ -25,7 +29,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "5"
+GATE_VERSION = "6"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -62,6 +66,14 @@ def installed_skill() -> Path:
     return get_hermes_home() / "skills" / "kakeratta" / "SKILL.md"
 
 
+def scripts_dir() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def installed_worker() -> Path:
+    return scripts_dir() / "direct_request_worker.py"
+
+
 def extract_version(text: str) -> str | None:
     m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
     if not m:
@@ -70,16 +82,21 @@ def extract_version(text: str) -> str | None:
     return vm.group(1).strip() if vm else None
 
 
-def call_tool(url: str, headers: dict, name: str) -> dict:
-    """Call one kakeratta MCP tool and return its structured result."""
+def extract_worker_version(text: str) -> str | None:
+    m = re.search(r"^WORKER_VERSION\s*=\s*[\"']([^\"']+)[\"']", text, re.MULTILINE)
+    return m.group(1).strip() if m else None
+
+
+def call_tool(url: str, headers: dict, name: str, arguments: dict = None, timeout: float = 5) -> dict:
+    """Call one kakeratta MCP tool with arguments and return its structured result."""
     payload = json.dumps({
         "jsonrpc": "2.0",
         "id": 1,
         "method": "tools/call",
-        "params": {"name": name, "arguments": {}},
+        "params": {"name": name, "arguments": arguments or {}},
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=5) as response:
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         data = json.loads(response.read().decode("utf-8"))
     if "error" in data:
         raise ValueError(f"{name}: {data['error'].get('message')}")
@@ -108,13 +125,21 @@ def replace_file(path: Path, text: str) -> None:
 
 
 def update_integration(url: str, headers: dict, versions: dict) -> None:
-    """Bring the skill and this script up to the versions kakeratta reports."""
+    """Bring the skill, this script and the worker to the versions kakeratta reports."""
     skill_path = installed_skill()
     installed = None
     if skill_path.exists():
         installed = extract_version(skill_path.read_text(encoding="utf-8"))
+    worker_path = installed_worker()
+    worker_installed = None
+    if worker_path.exists():
+        try:
+            worker_installed = extract_worker_version(worker_path.read_text(encoding="utf-8"))
+        except Exception:
+            worker_installed = None
     want_skill = versions.get("skill")
     want_gate = versions.get("gate")
+    want_worker = versions.get("worker")
     def is_newer(remote_v: str | None, local_v: str | None) -> bool:
         if not remote_v or remote_v == local_v:
             return False
@@ -125,7 +150,8 @@ def update_integration(url: str, headers: dict, versions: dict) -> None:
 
     skill_newer = is_newer(want_skill, installed)
     gate_newer = is_newer(want_gate, GATE_VERSION)
-    if not skill_newer and not gate_newer:
+    worker_newer = is_newer(want_worker, worker_installed)
+    if not skill_newer and not gate_newer and not worker_newer:
         return
 
     bundle = call_tool(url, headers, "get_integration")
@@ -143,6 +169,13 @@ def update_integration(url: str, headers: dict, versions: dict) -> None:
             print(f"kakeratta wake gate updated: {GATE_VERSION} -> {gate.get('version')}", file=sys.stderr)
         except Exception as e:
             print(f"kakeratta wake gate update failed: {e}", file=sys.stderr)
+    worker = bundle.get("worker") or {}
+    if worker_newer and worker.get("text"):
+        try:
+            replace_file(worker_path, worker["text"])
+            print(f"kakeratta direct-request worker updated: {worker_installed} -> {worker.get('version')}", file=sys.stderr)
+        except Exception as e:
+            print(f"kakeratta direct-request worker update failed: {e}", file=sys.stderr)
 
 
 def main():
@@ -187,20 +220,36 @@ def main():
             raise ValueError("list_asks.requests is not a list")
 
         pending_asks = [a for a in asks if isinstance(a, dict) and a.get("status") == "pending"]
-        pending_requests = [r for r in requests if isinstance(r, dict) and r.get("status") == "pending"]
+        # Claimed requests go to the worker too: it resumes the ones it
+        # claimed and left unfinished (a crash, a provider failure, a failed
+        # reply) from its own records, and ignores the rest.
+        open_requests = [r for r in requests if isinstance(r, dict) and r.get("status") in ("pending", "claimed")]
 
-        # Adapt agent.max_turns: expand to 40 for long-running direct requests,
-        # otherwise preserve the safe 15 boundary for ordinary persona asks or idle standby.
-        target_turns = 40 if len(pending_requests) > 0 else 15
-        if not adjust_max_turns(config_path, target_turns):
+        # Direct requests are handled in code by the distributed worker, not
+        # by waking the Super parent. Run it only after the integration
+        # (including the worker) has been brought current above.
+        if open_requests:
+            try:
+                sys.path.insert(0, str(scripts_dir()))
+                import direct_request_worker
+                direct_request_worker.process(url, headers, open_requests)
+            except Exception as e:
+                # Fail-closed: a worker failure never wakes Super for a direct
+                # request. The request stays pending or claimed and is
+                # retried next tick.
+                print(f"kakeratta direct-request worker failed: {e}", file=sys.stderr)
+
+        # The 15-turn boundary covers persona asks; direct requests no longer
+        # need the expanded 40 turns because Super is not woken for them.
+        if not adjust_max_turns(config_path, 15):
             print("Pre-check warning: agent.max_turns line missing or invalid in config; skipping wake", file=sys.stderr)
             print(json.dumps({"wakeAgent": False}))
             return
 
-        # A claimed ask or request is already being handled by a running
-        # agent; only an unclaimed one needs a new wake.
-        pending = pending_asks + pending_requests
-        if len(pending) == 0:
+        # Only a pending persona ask needs a wake: direct requests are handled
+        # by the worker above, and a claimed ask or request is already being
+        # handled by a running agent.
+        if len(pending_asks) == 0:
             print(json.dumps({"wakeAgent": False}))
         else:
             print(json.dumps({"wakeAgent": True}))

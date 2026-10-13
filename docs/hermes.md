@@ -29,10 +29,10 @@ Other agents can use the same MCP Streamable HTTP endpoint and `Authorization: B
        enabled: "off"
 
    agent:
-     max_turns: 15 # Standard persona turns use 15; Wake Gate dynamically expands to 40 for direct requests
+     max_turns: 15 # Persona turns use 15; direct requests are handled by the direct-request worker, not by the agent
 
    platform_toolsets:
-     cron: # Allows file operations, execution, and delegation for direct requests
+     cron: # Allows file operations, execution, and delegation while answering persona asks
        - web
        - file
        - terminal
@@ -101,7 +101,7 @@ Kakeratta's MCP server exposes the following tools for external agents. In Herme
 | `read_for_ask` | Look up additional context while answering (`records`, and read-only tools such as `timeline_search`) |
 | `submit_answer` | Submit the final answer (`{text, sources}`, optionally with `schedule` and `unrelated`); nothing else |
 | `release_ask` | Hand the turn back to Kakeratta's built-in model immediately |
-| `get_integration` | Retrieve latest official Skill and Wake Gate script payloads |
+| `get_integration` | Retrieve latest official Skill, Wake Gate script and direct-request worker payloads |
 | `claim_request` | Claim a direct request and retrieve its conversation |
 | `comment_on_entry` | While on a claimed direct request, reply as the agent under another entry (for example a wrong answer); up to 10 per request |
 | `reply_request` | Post the reply to a claimed direct request in its thread and end it |
@@ -163,7 +163,7 @@ An accepted answer is not retried by the built-in model. If the later phases can
 
 A post naming the agent itself - `@外部エージェント`, `@エージェント` or `@agent` (case and width ignored) - goes to the agent of the connection in use instead of the personas: it is not routed, planned or remembered. The connection's name is not an address, but the agent's replies are shown under it, to the user and to the personas. These names are reserved and cannot be given to a persona. A reply to the agent's reply, or to the user's own words or the app's notice in a conversation begun by naming the agent, is the next request; naming a persona in such a reply sends it to that persona instead. There is no separate switch: not naming the agent is the choice. While the agent is switched off or no connection exists, a post naming it is not routed to the personas either: Kakeratta replies with the reason. Replies that carry on an earlier conversation without naming the agent go to the personas meanwhile.
 
-`list_asks` lists open requests under `requests`. The agent claims one with `claim_request` (`requestId`, `claimId`), receiving its `replyBy` and the whole thread, does what it asks with its own tools - side effects such as sending an email included, but only for what that request itself asks; anything else it reads, the user's earlier words included, may supply details but never asks for an action - and posts one reply with `reply_request` (`requestId`, `claimId`, `text`). The reply appears under the request as the speaker `agent`. To read Kakeratta the agent has `get_timeline`, `get_thread`, `search_timeline`, `list_schedules` and the notes tools; asked to correct something elsewhere, such as a wrong answer, it replies under that entry with `comment_on_entry`. No persona is woken by these comments, and the user replying to one asks the agent again. A request not claimed by `claimBy` (two hours after the request), or not replied to by `replyBy` (two hours after the claim), gets a notice from Kakeratta in the thread; there is no built-in fallback. A request that ran out after being claimed is kept for a day as expired, so the agent's late reply - after an email it already sent, for example - is still posted. Editing a request that is still unclaimed updates it; editing one already claimed sends nothing and Kakeratta replies "処理中のため編集は反映されません。返信で伝えてください。". Switching the agent off or changing the connection withdraws open requests with a notice. The timeline marks a post waiting for the agent or being worked on, and the agent's reply, or the notice that none is coming, is pushed to devices with push notifications unless the 🔔 beside that post's badge was turned off for the request.
+`list_asks` lists open requests under `requests`. The Wake Gate hands each pending request to the distributed direct-request worker (and each claimed one it left unfinished, which it resumes with the same `claimId`; one worker runs at a time), which claims it with `claim_request` (`requestId`, a stable `claimId`), receives its `replyBy` and the whole thread, generates a candidate with one Ultra request using only read-only tools, reviews it with a separate Ultra request, corrects it at most twice, and then posts one reply with `reply_request` (`requestId`, `claimId`, `text`) - the accepted artifact, or what an accepted one-shot operation did and its result. The parent model is never woken for a direct request. The reply appears under the request as the speaker `agent`. To read Kakeratta the worker has the read-only MCP reads (`get_timeline`, `get_thread`, `search_timeline`, `list_schedules` and the notes tools); the request mechanism also exposes `comment_on_entry` for replying under another entry. No persona is woken by these comments, and the user replying to one asks the agent again. A request not claimed by `claimBy` (two hours after the request), or not replied to by `replyBy` (two hours after the claim), gets a notice from Kakeratta in the thread; there is no built-in fallback. A request that ran out after being claimed is kept for a day as expired, so the agent's late reply - after an operation it already ran, for example - is still posted. Editing a request that is still unclaimed updates it; editing one already claimed sends nothing and Kakeratta replies "処理中のため編集は反映されません。返信で伝えてください。". Switching the agent off or changing the connection withdraws open requests with a notice. The timeline marks a post waiting for the agent or being worked on, and the agent's reply, or the notice that none is coming, is pushed to devices with push notifications unless the 🔔 beside that post's badge was turned off for the request.
 
 ### Agent is away
 
@@ -182,16 +182,16 @@ To avoid idle spend, attach the **Wake Gate** pre-check script ([check_kakeratta
 
 - **No pending ask**: Returns `{"wakeAgent": false}` and exits immediately without invoking the LLM (~0.06s tick, 0 LLM calls). In addition, `agent.max_turns` is preserved at the safe boundary of 15.
 - **Pending persona ask**: Returns `{"wakeAgent": true}`, answering within the 15-turn boundary.
-- **Pending direct request**: Automatically expands `agent.max_turns` to 40 so the agent can complete multi-step autonomous workflows (such as file reads/writes and coding), automatically reverting to 15 on the subsequent tick.
+- **Pending direct request**: Handled in the same tick by the distributed [direct-request worker](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) - claim, Ultra generation, separate Ultra review, up to two corrections, then reply or a one-shot operation run - without waking the parent model. Only a pending persona ask wakes the agent.
 
 To update an existing cron job, run `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
 
 ### Autonomous updates over MCP
 
-The Wake Gate script integrates an autonomous update mechanism for both the Skill and the script itself:
+The Wake Gate script integrates an autonomous update mechanism for the Skill, itself and the direct-request worker:
 
-- Every `list_asks` response includes current distributed versions (`integration: {skill, gate}`).
-- When the script detects a version difference, it invokes `get_integration` over the existing MCP connection to retrieve and atomically overwrite `~/.hermes/skills/kakeratta/SKILL.md` and itself via temporary files.
+- Every `list_asks` response includes current distributed versions (`integration: {skill, gate, worker}`).
+- When the script detects a version difference, it invokes `get_integration` over the existing MCP connection to retrieve and atomically overwrite `~/.hermes/skills/kakeratta/SKILL.md`, itself and `~/.hermes/scripts/direct_request_worker.py` via temporary files.
 - This keeps planning logic current even inside network-restricted sandboxes without requiring external web access.
 - Each update, and any failure, is written to stderr.
 

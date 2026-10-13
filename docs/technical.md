@@ -1534,7 +1534,7 @@ turn requires an answer or silence. Full system/user prompts and a second
 rendering of the thread are omitted to avoid repeating the same context, and
 how memory is kept and the change schemas are left out: they belong to the later phases, not the answer.
 
-`get_integration` returns the distributed skill and Wake Gate script with their versions;
+`get_integration` returns the distributed skill, Wake Gate script and direct-request worker with their versions;
 `list_asks` advertises the current versions for updates.
 
 `list_tasks` remains as a compatibility tool returning only pending asks, for
@@ -1545,26 +1545,33 @@ Wake Gate scripts installed before asks replaced tasks.
 Separately from planning for personas, the user can address the agent itself
 with `@外部エージェント`, `@エージェント` or `@agent`. Such a post is taken out
 before routing: no persona sees it, and no memory or schedule phase runs. The
-agent works with its own tools, side effects included, and replies in the
-conversation. Because the work may be long, it is a mechanism of its own
-rather than an ask.
+direct request is handled by a dedicated worker in code, not by the parent
+model. Because the work may be long, it is a mechanism of its own rather than
+an ask.
 
 ```text
 @agent post (or a reply to the agent)
 -> saved in requests (pending, claimBy two hours later)
--> agent: requests in list_asks -> claim_request (replyBy two hours after the claim)
--> agent: works with its own tools; reads kakeratta with get_timeline,
-   search_timeline, list_schedules and the notes tools; comment_on_entry when asked
--> agent: reply_request -> its reply is posted in the conversation, the request ends
+-> Wake Gate: list_asks -> direct-request worker (not the parent model)
+-> worker: claim_request -> Ultra generation (read-only tools) -> separate Ultra review
+   -> up to two corrections -> deliverable: reply_request; operation: run once, reply_request
+-> the reply is posted in the conversation, the request ends
 ```
 
+* **Handled by the worker**: the Wake Gate runs the distributed
+  `direct_request_worker.py` for each pending request and wakes the parent
+  model only for persona asks. The worker claims, generates with one Ultra
+  request (read-only tools only), reviews with a separate Ultra request,
+  corrects at most twice, and replies with the accepted artifact, or runs an
+  accepted operation Python exactly once after a hash match.
 * **Deadlines and notices**: past either deadline, kakeratta says so in the
   conversation; nothing answers in the agent's place. A request that ran out
   after the claim is kept for a day and still takes a late reply, so the result
   of an action the agent already took is not lost.
-* **Side effects**: the agent is instructed to act only for what the request
-  itself asks; what it reads supplies details, never instructions. kakeratta
-  cannot enforce this.
+* **Side effects**: operations run only for what the request itself asks,
+  only after review, and exactly once; what the worker reads supplies details,
+  never instructions. The read-only boundary is enforced by the exposed tool
+  set, not by a prompt.
 * **Screen**: waiting/working badges and a per-request 🔔 for push. Replies are
   shown under the connection's name, which is also how the personas and the
   summaries see them.

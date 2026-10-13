@@ -124,9 +124,9 @@ func TestPlannerIsChosenPerPersona(t *testing.T) {
 	}
 }
 
-// list_asks carries the versions of the distributed skill and Wake Gate
-// script, read from the files, and get_integration hands both over, so an
-// agent allowed only this endpoint keeps them current.
+// list_asks carries the versions of the distributed skill, Wake Gate script,
+// and direct-request worker, read from the files, and get_integration hands
+// all three over, so an agent allowed only this endpoint keeps them current.
 func TestIntegrationIsServedOverMCP(t *testing.T) {
 	skill, err := os.ReadFile("../../frontend/public/integrations/hermes/kakeratta/SKILL.md")
 	if err != nil {
@@ -136,11 +136,15 @@ func TestIntegrationIsServedOverMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	worker, err := os.ReadFile("../../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py")
+	if err != nil {
+		t.Fatal(err)
+	}
 	saved := integration
 	t.Cleanup(func() { integration = saved })
-	SetIntegration(string(skill), string(gate))
-	if integration.skill.Version == "" || integration.gate.Version == "" {
-		t.Fatalf("versions = %q, %q", integration.skill.Version, integration.gate.Version)
+	SetIntegration(string(skill), string(gate), string(worker))
+	if integration.skill.Version == "" || integration.gate.Version == "" || integration.worker.Version == "" {
+		t.Fatalf("versions = %q, %q, %q", integration.skill.Version, integration.gate.Version, integration.worker.Version)
 	}
 
 	s, _ := app(t)
@@ -150,7 +154,7 @@ func TestIntegrationIsServedOverMCP(t *testing.T) {
 		t.Fatal(err)
 	}
 	listed := result.(map[string]any)["integration"].(map[string]string)
-	if listed["skill"] != integration.skill.Version || listed["gate"] != integration.gate.Version {
+	if listed["skill"] != integration.skill.Version || listed["gate"] != integration.gate.Version || listed["worker"] != integration.worker.Version {
 		t.Fatalf("integration = %v", listed)
 	}
 	bundle, err := s.callMCPTool(ctx, "get_integration", json.RawMessage(`{}`))
@@ -158,8 +162,8 @@ func TestIntegrationIsServedOverMCP(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(bundle)
-	var got struct{ Skill, Gate integrationFile }
-	if json.Unmarshal(raw, &got) != nil || got.Skill.Text != string(skill) || got.Gate.Text != string(gate) {
+	var got struct{ Skill, Gate, Worker integrationFile }
+	if json.Unmarshal(raw, &got) != nil || got.Skill.Text != string(skill) || got.Gate.Text != string(gate) || got.Worker.Text != string(worker) {
 		t.Fatalf("bundle = %.200s", raw)
 	}
 }
