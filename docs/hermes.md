@@ -71,9 +71,9 @@ For the configuration format, see the [official Hermes MCP guide](https://hermes
 
 ### Using with NemoClaw / OpenShell
 
-When running Hermes under the governance of an NVIDIA NemoClaw / OpenShell sandbox, configuration management, policy composition, and process lifecycles involve container-specific requirements.
+When running Hermes under the governance of an NVIDIA NemoClaw / OpenShell sandbox, configuration management, policy composition, and process lifecycles involve container-specific requirements. To use Nemotron 3 Super for the parent and Nemotron 3 Ultra for delegated children, connect to Token Factory through Provider v2, which preserves model names, rather than OpenShell 0.0.116's shared `inference.local` route. The parent handles intake and routing, delegating high-complexity work to the child.
 
-For the dedicated setup procedure (managed MCP provider registration, container script provisioning, search egress policies, and `Phase: Error` deadlock prevention), refer to the [**NemoClaw / OpenShell Integration and Verification Report**](nemoclaw-hermes-integration.md).
+For the dedicated setup procedure ([Provider v2 migration](nemoclaw-hermes-integration.md#migration-to-openshell-provider-v2-2026-10-13), managed MCP provider registration, container script provisioning, search egress policies, and `Phase: Error` deadlock prevention), refer to the [**NemoClaw / OpenShell Integration and Verification Report**](nemoclaw-hermes-integration.md).
 
 ## The key and its scope
 

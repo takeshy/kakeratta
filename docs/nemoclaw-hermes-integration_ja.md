@@ -18,7 +18,7 @@ flowchart TD
     U["ユーザー"] -->|"会話・メンション"| K["kakeratta 本番 Web アプリ / MCP"]
     subgraph H["NemoClaw / OpenShell ホスト"]
       M["Managed MCP / ネットワークポリシー"]
-      P["Secure Inference Proxy"]
+      P["Provider v2 / 資格情報・Egressポリシー"]
     end
     subgraph S["OpenShell サンドボックス"]
       G["Hermes Gateway"]
@@ -26,18 +26,106 @@ flowchart TD
       A["Hermes Agent + kakeratta Skill"]
       G --> C --> A
     end
-    A -->|"list_asks / claim_ask / read_for_ask / submit_workflow"| M -->|"MCP over HTTPS"| K
-    A -->|"推論"| P --> N["Nebius Token Factory / Nemotron 3 Ultra 550B"]
+    A -->|"list_asks / claim_ask / read_for_ask / submit_answer"| M -->|"MCP over HTTPS"| K
+    A -->|"OpenAI互換API・モデル名を維持"| P --> N["Nebius Token Factory"]
 ```
 
 | コンポーネント | 役割 |
 | --- | --- |
 | kakeratta | ユーザーの会話、依頼（ask）、MCP の認証、ワークフローの検証と実行を管理する |
 | Hermes Agent (Planner) | Skill に従って ask を解釈し、必要な調査を行ってペルソナのワークフロー（思考結果）を返す |
-| NemoClaw / OpenShell | サンドボックス、Gateway のライフサイクル、ネットワークおよび推論経路を隔離・管理する |
-| Nebius Token Factory | モデル推論（`nvidia/Nemotron-3-Ultra-550b-a55b`）を提供する |
+| NemoClaw / OpenShell | サンドボックスとGatewayのライフサイクルを管理し、Provider v2で資格情報と送信先ポリシーを合成する |
+| Nebius Token Factory | 親のSuperと子のUltraを、Hermesが指定したモデル名のままOpenAI互換APIで提供する |
 
-kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP（Model Context Protocol）です。モデル推論は OpenShell のプロキシを通し、クレデンシャルは安全に秘匿されます。毎分の Wake Gate は、Hermes が正常に接続していることを kakeratta に伝えるハートビートも兼ねており、取得待ち時間（既定3分）の間に MCP 呼び出しがなければ、次回接続まで kakeratta の内蔵モデルが自動で代替します。
+kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP（Model Context Protocol）です。推論はProvider v2が許可したToken FactoryのAPIへHermesから直接送信され、OpenShellが資格情報とEgressを管理します。毎分の Wake Gate は、Hermes が正常に接続していることを kakeratta に伝えるハートビートも兼ねており、取得待ち時間（既定3分）の間に MCP 呼び出しがなければ、次回接続まで kakeratta の内蔵モデルが自動で代替します。
+
+## OpenShell Provider v2への移行（2026-10-13）
+
+### 移行理由と最終構成
+
+OpenShell 0.0.116の `inference.local` は、Hermesがリクエストに指定したモデル名をGateway側のモデルへ置き換えます。また同じGateway配下のサンドボックスが1つの推論設定を共有するため、Hermesの親と委譲した子を別モデルにする用途には適しません。Provider v2でToken FactoryをHermesのOpenAI互換エンドポイントとして直接使うと、Hermesが選んだモデル名を維持したまま、OpenShellに資格情報と通信先の管理を残せます。
+
+検証後の役割分担は次のとおりです。
+
+| 実行主体 | モデル | 用途 |
+| --- | --- | --- |
+| Hermes親・kakeratta cron | `nvidia/nemotron-3-super-120b-a12b` | 依頼の受付、振り分け、通常処理、最終回答 |
+| Hermes子（delegation） | `nvidia/Nemotron-3-Ultra-550b-a55b` | 委譲された高難度の調査・推論・実行 |
+| OpenShell Provider v2 | `tokenfactory-v2` | `TOKENFACTORY_API_KEY`の注入とToken FactoryへのEgress合成 |
+| Token Factory | `https://api.tokenfactory.nebius.com/v1` | OpenAI互換の推論API |
+
+Hermes設定の要点は次のとおりです。APIキーの実値は書かず、Providerが注入する環境変数を参照します。
+
+```yaml
+model:
+  provider: custom
+  base_url: https://api.tokenfactory.nebius.com/v1
+  api_key: ${TOKENFACTORY_API_KEY}
+  default: nvidia/nemotron-3-super-120b-a12b
+
+delegation:
+  provider: custom
+  base_url: https://api.tokenfactory.nebius.com/v1
+  api_key: ${TOKENFACTORY_API_KEY}
+  model: nvidia/Nemotron-3-Ultra-550b-a55b
+```
+
+ProviderはGatewayに作成してサンドボックスへattachします。プロファイル名や作成方法はOpenShellのインストールに依存するため、利用可能な型を先に確認します。
+
+```bash
+openshell provider list-profiles -g <gateway>
+openshell provider create -g <gateway> \
+  --name tokenfactory-v2 --type tokenfactory \
+  --credential TOKENFACTORY_API_KEY
+openshell sandbox provider attach -g <gateway> <sandbox> tokenfactory-v2
+```
+
+値なしの `--credential TOKENFACTORY_API_KEY` は、コマンドを実行するホスト環境から値を読みます。シェル履歴や文書へキーを直書きしません。attach後は `openshell policy get --full` で `_provider_tokenfactory_v2` が存在し、`api.tokenfactory.nebius.com:443` がHermesの実行バイナリにだけ許可されていることを確認します。旧 `compatible-endpoint` / `inference.local` はロールバック用に残せますが、通常のHermes推論には使いません。
+
+cronジョブは作成時のモデルを保持します。グローバルの `model.default` をSuperへ変えただけでは、既存のkakerattaジョブが別モデルに固定されたままになることがあります。次のように明示して確認します。
+
+```bash
+hermes cron edit <job-id> \
+  --model nvidia/nemotron-3-super-120b-a12b \
+  --provider custom
+hermes cron list
+```
+
+### 検証
+
+移行時には次を別々に確認しました。
+
+1. Hermes APIの通常ターンがSuperで完了する。
+2. `delegate_task` で起動した子がUltraを使う。
+3. OpenShell監査ログにToken Factoryの `/v1/chat/completions` が `_provider_tokenfactory_v2` で許可されたと記録される。
+4. kakerattaの直接依頼が `list_asks` → `claim_request` → 推論 → `reply_request` を完走し、依頼一覧から消える。
+5. 待機中の次tickが `wakeAgent=false` になり、不要なモデル呼び出しをしない。
+
+切り替え後は、親ログにSuper、`platform=subagent` の子ログにUltraが記録されることを確認します。kakeratta cronの明示モデルもSuperへ更新します。この構成では、親を軽量な受付・振り分け役として動かし、高難度の処理だけをUltraへ委譲します。
+
+### ローカルデモ環境へ一時接続する場合
+
+`0.0.0.0` はサーバーの待受指定であり、Hermesの接続先には使えません。ホストのLANアドレスなど、サンドボックスから到達できるアドレスを指定します。
+
+```yaml
+mcp_servers:
+  kakeratta:
+    url: http://<reachable-host>:8811/api/mcp/users/<workspace-id>
+    headers:
+      Authorization: Bearer ${KAKERATTA_MCP_TOKEN}
+```
+
+OpenShell側では、既存の `mcp_bridge_kakeratta` を同じホスト、ポート、完全一致のMCPパスへ変更し、`credential_binding.provider` は管理対象kakeratta Providerのまま維持します。同じ `host:port` に汎用 `access: full` 規則とMCP規則を重ねるとendpoint ambiguityになるため、汎用規則を削除してMCP規則へ置き換えます。ポリシー変更前には必ず `--base` と `--full` を保存し、Token Factory、MCP、検索用の既存規則を落とさないようにします。
+
+OpenShell 0.0.116では `provider update` 後も、既に動いているサンドボックスプロセスが古い環境変数を保持する場合がありました。症状はMCP初期化と `tools/list` が成功する一方、Wake Gateの `list_asks` だけが401となることです。値を表示せず、長さとSHA-256で注入値を比較してから、正式な `openshell sandbox stop` → `start` でProvider環境を再取得します。一時的にトークンを `config.yaml` へ直接書いた場合は、デモ後に環境変数参照へ戻してトークンをローテーションします。
+
+### 移行中の復旧ポイント
+
+- `hermes gateway restart` とコンテナ再起動が競合すると、OpenShell 0.0.116が停止済みコンテナを `Phase: Error` に残すことがあります。DBをバックアップして既知のphase修復を行い、Gateway再起動後に正式な `stop` → `start` と `nemoclaw <sandbox> recover` で状態とホスト転送を揃えます。詳細は[手動復旧手順](#phase-error-デッドロックの発生メカニズムと手動復旧手順)を参照してください。
+- cron実行中に再起動すると、`jobs.json` の `fire_claim` が残り、履歴に `Fire claim lost; execution was not started.` が毎分増えることがあります。まず `hermes cron pause <job-id>` を実行します。所有プロセスが存在しないことを確認して古い `fire_claim` だけを `null` にし、`hermes cron resume <job-id>`、`hermes cron run <job-id>` の順に再開します。ジョブ全体や実行履歴は削除しません。
+- Wake Gateは認証・通信・設定エラーで必ずfail-closedします。`wakeAgent=false` は「依頼なし」だけでなくエラー時にも出るため、pendingが見えているのに起動しない場合は、同じスクリプトをOpenShellの属性付きexecで実行して標準エラーを確認します。`docker exec` で開始した通信はOpenShellに帰属されず、許可済み接続でも403になり得るため疎通判定には使いません。
+
+ローカルデモ終了後は、MCP URL、Providerのトークン、`mcp_bridge_kakeratta` のhost・port・path・`allowed_ips`を本番へ戻し、`list_asks`、`tools/list`、Token Factory推論、サンドボックス `Ready`、ホストのAPI/ダッシュボード転送を再確認します。
 
 ## MCP と自律プランニング
 

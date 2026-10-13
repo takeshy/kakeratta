@@ -28,18 +28,27 @@ import urllib.error
 GATE_VERSION = "5"
 
 
-def adjust_max_turns(config_path: Path, target_turns: int) -> None:
-    """Adjust agent.max_turns in config.yaml without altering other formatting."""
+def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
+    """Adjust agent.max_turns in config.yaml under the agent: section.
+
+    Returns True if agent.max_turns was found and set/verified.
+    Returns False if config_path doesn't exist, agent.max_turns line is missing, or an error occurs.
+    """
     try:
         if not config_path.exists():
-            return
+            return False
         text = config_path.read_text(encoding="utf-8")
-        pattern = r"(max_turns\s*:\s*)[\"']?\d+[\"']?"
-        new_text, count = re.subn(pattern, rf"\g<1>{target_turns}", text)
+        pattern = r"(^[ \t]*agent\s*:(?:(?!\n\S)\n[\s\S])*?\n[ \t]+max_turns\s*:\s*)[\x22\x27]?\d+[\x22\x27]?"
+        if not re.search(pattern, text, re.MULTILINE):
+            print(f"Pre-check error: 'agent.max_turns' not found in {config_path}", file=sys.stderr)
+            return False
+        new_text, count = re.subn(pattern, rf"\g<1>{target_turns}", text, count=1, flags=re.MULTILINE)
         if count > 0 and new_text != text:
             replace_file(config_path, new_text)
+        return True
     except Exception as e:
-        print(f"Pre-check warning: failed to adjust max_turns to {target_turns}: {e}", file=sys.stderr)
+        print(f"Pre-check error: failed to adjust max_turns to {target_turns}: {e}", file=sys.stderr)
+        return False
 
 
 def get_hermes_home() -> Path:
@@ -106,19 +115,29 @@ def update_integration(url: str, headers: dict, versions: dict) -> None:
         installed = extract_version(skill_path.read_text(encoding="utf-8"))
     want_skill = versions.get("skill")
     want_gate = versions.get("gate")
-    if (not want_skill or want_skill == installed) and (not want_gate or want_gate == GATE_VERSION):
+    def is_newer(remote_v: str | None, local_v: str | None) -> bool:
+        if not remote_v or remote_v == local_v:
+            return False
+        try:
+            return int(remote_v) > int(local_v)
+        except (ValueError, TypeError):
+            return remote_v != local_v
+
+    skill_newer = is_newer(want_skill, installed)
+    gate_newer = is_newer(want_gate, GATE_VERSION)
+    if not skill_newer and not gate_newer:
         return
 
     bundle = call_tool(url, headers, "get_integration")
     skill = bundle.get("skill") or {}
-    if want_skill and want_skill != installed and skill.get("text"):
+    if skill_newer and skill.get("text"):
         try:
             replace_file(skill_path, skill["text"])
             print(f"kakeratta skill updated: {installed} -> {skill.get('version')}", file=sys.stderr)
         except Exception as e:
             print(f"kakeratta skill update failed: {e}", file=sys.stderr)
     gate = bundle.get("gate") or {}
-    if want_gate and want_gate != GATE_VERSION and gate.get("text"):
+    if gate_newer and gate.get("text"):
         try:
             replace_file(Path(__file__).resolve(), gate["text"])
             print(f"kakeratta wake gate updated: {GATE_VERSION} -> {gate.get('version')}", file=sys.stderr)
@@ -173,7 +192,10 @@ def main():
         # Adapt agent.max_turns: expand to 40 for long-running direct requests,
         # otherwise preserve the safe 15 boundary for ordinary persona asks or idle standby.
         target_turns = 40 if len(pending_requests) > 0 else 15
-        adjust_max_turns(config_path, target_turns)
+        if not adjust_max_turns(config_path, target_turns):
+            print("Pre-check warning: agent.max_turns line missing or invalid in config; skipping wake", file=sys.stderr)
+            print(json.dumps({"wakeAgent": False}))
+            return
 
         # A claimed ask or request is already being handled by a running
         # agent; only an unclaimed one needs a new wake.

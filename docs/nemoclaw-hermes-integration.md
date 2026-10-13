@@ -18,7 +18,7 @@ flowchart TD
     U["User"] -->|"Conversation / Mention"| K["kakeratta production web app / MCP"]
     subgraph H["NemoClaw / OpenShell host"]
       M["Managed MCP / network policy"]
-      P["Secure Inference Proxy"]
+      P["Provider v2 / credentials and egress policy"]
     end
     subgraph S["OpenShell sandbox"]
       G["Hermes Gateway"]
@@ -26,18 +26,98 @@ flowchart TD
       A["Hermes Agent + kakeratta Skill"]
       G --> C --> A
     end
-    A -->|"list_asks / claim_ask / read_for_ask / submit_workflow"| M -->|"MCP over HTTPS"| K
-    A -->|"inference"| P --> N["Nebius Token Factory / Nemotron 3 Ultra 550B"]
+    A -->|"list_asks / claim_ask / read_for_ask / submit_answer"| M -->|"MCP over HTTPS"| K
+    A -->|"OpenAI-compatible API; model name preserved"| P --> N["Nebius Token Factory"]
 ```
 
 | Component | Responsibility |
 | --- | --- |
 | kakeratta | Manages conversations, asks, MCP authentication, workflow validation and execution |
 | Hermes Agent (Planner) | Interprets asks according to Skill, performs lookups, and returns persona workflows |
-| NemoClaw / OpenShell | Isolates the sandbox, manages Gateway lifecycle, network policy, and inference proxy |
-| Nebius Token Factory | Provides model inference (`nvidia/Nemotron-3-Ultra-550b-a55b`) |
+| NemoClaw / OpenShell | Manages the sandbox and Gateway lifecycle and composes Provider v2 credentials and destination policy |
+| Nebius Token Factory | Serves the Super parent and Ultra child through an OpenAI-compatible endpoint while preserving Hermes's model choice |
 
-kakeratta does not start the Hermes process, and Hermes does not access kakeratta's database directly. MCP (Model Context Protocol) is the boundary between them. Model inference routes through OpenShell's proxy, keeping credentials completely hidden. The recurring Wake Gate also serves as a heartbeat: if no MCP calls arrive within the claim wait window (3 minutes by default), kakeratta's built-in model answers instead.
+kakeratta does not start the Hermes process, and Hermes does not access kakeratta's database directly. MCP (Model Context Protocol) is the boundary between them. Hermes sends inference directly to the Token Factory endpoint allowed by Provider v2, while OpenShell manages credentials and egress. The recurring Wake Gate also serves as a heartbeat: if no MCP calls arrive within the claim wait window (3 minutes by default), kakeratta's built-in model answers instead.
+
+## Migration to OpenShell Provider v2 (2026-10-13)
+
+### Why the migration was necessary
+
+In OpenShell 0.0.116, `inference.local` replaces the model name requested by Hermes with the Gateway's configured model. Sandboxes under one Gateway also share that inference setting. It therefore cannot reliably use one model for the parent and another for delegated children. Provider v2 keeps OpenShell in charge of credentials and egress while Hermes calls Token Factory's OpenAI-compatible endpoint with its selected model name intact.
+
+The verified target split is:
+
+| Executor | Model | Role |
+| --- | --- | --- |
+| Hermes parent and kakeratta cron | `nvidia/nemotron-3-super-120b-a12b` | intake, routing, routine work, and final response |
+| Delegated Hermes child | `nvidia/Nemotron-3-Ultra-550b-a55b` | delegated high-complexity research, reasoning, and execution |
+| OpenShell Provider v2 | `tokenfactory-v2` | injects `TOKENFACTORY_API_KEY` and composes Token Factory egress |
+| Token Factory | `https://api.tokenfactory.nebius.com/v1` | OpenAI-compatible inference endpoint |
+
+Hermes references the injected variable rather than storing the key:
+
+```yaml
+model:
+  provider: custom
+  base_url: https://api.tokenfactory.nebius.com/v1
+  api_key: ${TOKENFACTORY_API_KEY}
+  default: nvidia/nemotron-3-super-120b-a12b
+
+delegation:
+  provider: custom
+  base_url: https://api.tokenfactory.nebius.com/v1
+  api_key: ${TOKENFACTORY_API_KEY}
+  model: nvidia/Nemotron-3-Ultra-550b-a55b
+```
+
+Create and attach the provider after checking the profiles supported by the installed OpenShell build:
+
+```bash
+openshell provider list-profiles -g <gateway>
+openshell provider create -g <gateway> \
+  --name tokenfactory-v2 --type tokenfactory \
+  --credential TOKENFACTORY_API_KEY
+openshell sandbox provider attach -g <gateway> <sandbox> tokenfactory-v2
+```
+
+With no value after `--credential`, OpenShell reads the value from the host environment. Do not put it in shell history or documentation. Confirm `_provider_tokenfactory_v2` and the narrowly scoped `api.tokenfactory.nebius.com:443` rule in `openshell policy get --full`. The old `compatible-endpoint` / `inference.local` provider may remain attached for rollback, but normal Hermes inference does not use it.
+
+Existing cron jobs retain their model pin. Changing global `model.default` to Super does not necessarily update a kakeratta job pinned to another model:
+
+```bash
+hermes cron edit <job-id> \
+  --model nvidia/nemotron-3-super-120b-a12b \
+  --provider custom
+hermes cron list
+```
+
+### Verification
+
+Verify the paths independently: a normal Hermes API turn on Super; one `delegate_task` child on Ultra; an OpenShell audit entry allowing Token Factory `/v1/chat/completions` through `_provider_tokenfactory_v2`; and a real kakeratta direct request completing `list_asks` → `claim_request` → inference → `reply_request`. The following idle tick must return `wakeAgent=false`. After switching, confirm Super in the parent log and Ultra in the `platform=subagent` log, and explicitly pin the kakeratta cron job to Super. In this arrangement, the parent is the lightweight intake and routing layer, while high-complexity work is delegated to Ultra.
+
+### Temporarily connecting to a local demo server
+
+`0.0.0.0` is a server bind address, not a client destination. Configure a LAN address or another address reachable from the sandbox:
+
+```yaml
+mcp_servers:
+  kakeratta:
+    url: http://<reachable-host>:8811/api/mcp/users/<workspace-id>
+    headers:
+      Authorization: Bearer ${KAKERATTA_MCP_TOKEN}
+```
+
+Change the existing `mcp_bridge_kakeratta` endpoint to the same host, port, and exact MCP path while retaining its managed credential binding. Do not overlap a generic `access: full` endpoint with an MCP endpoint on the same `host:port`; remove the generic rule and replace it with the MCP rule. Export both base and full policy before changing it so the Token Factory, MCP, and search policies are not lost.
+
+On OpenShell 0.0.116, `provider update` may leave an already-running sandbox process with its old environment value. The observed signature was successful MCP initialization and `tools/list`, followed by a 401 from Wake Gate's `list_asks`. Compare only token length and SHA-256, never the value, then use a formal `openshell sandbox stop` followed by `start` so the provider environment is fetched again. If a demo token is temporarily written directly into `config.yaml`, restore the environment reference and rotate the token afterward.
+
+### Recovery notes from the migration
+
+- A `hermes gateway restart` racing a container restart can leave a stopped container in `Phase: Error` on OpenShell 0.0.116. Back up the DB, perform the documented phase repair, restart the Gateway, then use a formal `stop` → `start` and `nemoclaw <sandbox> recover`. See the [manual recovery procedure](#phase-error-deadlock-mechanism-and-manual-recovery-procedure).
+- Restarting during a cron execution may leave `jobs.json.fire_claim` behind and produce `Fire claim lost; execution was not started.` every minute. Pause the job first, prove the owner process is gone, clear only the stale `fire_claim`, then run `hermes cron resume <job-id>` and `hermes cron run <job-id>`. Preserve the job and its execution history.
+- Wake Gate fails closed on authentication, transport, and configuration errors. Therefore `wakeAgent=false` can mean either idle or failure. When kakeratta shows a pending request, run the same gate through an OpenShell-attributed exec path and inspect stderr. Network calls started by `docker exec` are unattributed and can receive 403 even for an allowed destination, so they are not a valid egress test.
+
+After the demo, restore the production MCP URL, provider token, and `mcp_bridge_kakeratta` host, port, path, and `allowed_ips`; then recheck `list_asks`, `tools/list`, Token Factory inference, sandbox `Ready`, and the API/dashboard host forwards.
 
 ## MCP and autonomous planning
 
