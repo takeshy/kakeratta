@@ -95,3 +95,25 @@ curl -I http://127.0.0.1:18789/
 # 手動での自律修復・強制解除テスト
 python3 ~/.local/bin/nemoclaw-reconcile-sandbox.py
 ```
+
+---
+
+## 6. Hermes 推奨設定 (`/sandbox/.hermes/config.yaml`)
+
+直接依頼（Direct Request）でファイル操作や自律タスクを安定遂行させるための推奨設定です：
+
+```yaml
+tools:
+  tool_search:
+    enabled: "off" # Direct disclosure（JSONエスケープ破損防止）
+
+agent:
+  max_turns: 15 # 通常のペルソナ回答は15ターン（Wake Gateが直接依頼時に自動で40に一時拡張）
+
+platform_toolsets:
+  cron: # 直接依頼でファイル操作や自律作業をさせる場合に許可
+    - web
+    - file
+    - terminal
+    - code_execution
+```

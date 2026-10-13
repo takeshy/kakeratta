@@ -3,7 +3,7 @@ type: "Integration"
 title: "External agents, tools, and sharing"
 description: "Japanese and English Alexa voice posts and read-aloud, external-agent answers, direct requests and connected Timeline synchronization over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
 tags: ["alexa", "mcp", "agent", "direct-request", "timeline-sync", "tools", "support", "bluesky", "sharing", "weather"]
-updated: "2026-10-12"
+updated: "2026-10-13"
 ---
 
 Alexa voice posts and read-aloud, external-agent answers, direct requests and connected Timeline synchronization over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
@@ -83,7 +83,7 @@ The runner emits `request` events (`id`, `entryId`, `state`: `pending`, `claimed
 - [runner.go](../../internal/persona/runner.go): `prepareEntry` hands direct requests past routing
 - [mcp_tools.go](../../internal/server/mcp_tools.go), [mcp_connections.go](../../internal/server/mcp_connections.go): `claim_request`, `comment_on_entry`, `reply_request`, `search_timeline`, `list_schedules`, `getRequests`, `activeMCPName`
 - [push.go](../../internal/server/push.go), [index.go](../../internal/server/index.go): `sendAgentReply`, `pushEntry`, `AgentReplyEvent` handling
-- [SKILL.md](../../frontend/public/integrations/hermes/kakeratta/SKILL.md) and [check_kakeratta_gate.py](../../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py): the agent's procedure and the wake on pending requests
+- [SKILL.md](../../frontend/public/integrations/hermes/kakeratta/SKILL.md) and [check_kakeratta_gate.py](../../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py): the agent's procedure, the wake on pending requests, and dynamic agent.max_turns expansion (15 turns for standard asks, 40 turns for direct requests)
 - [requests_test.go](../../internal/persona/requests_test.go): no persona is asked, the fixed names in any width addressing the agent and the connection's name not, claim and reply ownership, follow-up replies, a named persona taking a reply, the reason given without routing when the agent is paused or unconnected, claim timeout notices, the two-hour claim and reply deadlines, expired requests taking one late reply and nothing else, deleted entries forgotten, edits before and after a claim, withdrawal on reset, comments on other entries with their bound and follow-ups, schedule and timeline lookups, the agent named by its connection, and the per-request push choice
 - [mcp_tools_test.go](../../internal/server/mcp_tools_test.go): listing, `/api/requests` and its notify switch, claiming, looking up, commenting and replying over MCP
 - [push_test.go](../../internal/server/push_test.go): agent replies pushed

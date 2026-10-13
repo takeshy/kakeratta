@@ -28,6 +28,16 @@ Hermes以外も、MCP Streamable HTTPのエンドポイントと `Authorization:
      tool_search:
        enabled: "off"
 
+   agent:
+     max_turns: 15 # 通常のペルソナ回答は15ターン（Wake Gateが直接依頼時に自動で40に一時拡張）
+
+   platform_toolsets:
+     cron: # 直接依頼でファイル操作や自律作業をさせる場合に許可
+       - web
+       - file
+       - terminal
+       - code_execution
+
    mcp_servers:
      kakeratta:
        url: "https://kakeratta.net/api/mcp/users/xxx"
@@ -169,8 +179,9 @@ ask を出す前に、外部エージェントの接続状態を確認します�
 1分周期の Cron で毎回エージェント（LLM）を起動すると、アイドル時にも毎分トークン消費と推論コストが発生します。
 これを防ぐため、Cron の事前実行スクリプトである **Wake Gate**（[check_kakeratta_gate.py](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)）を Cron ジョブに指定します。
 
-- **未処理 ask がない場合**: `{"wakeAgent": false}` を返し、LLM を一切起動せずに即時終了します（アイドル tick 約 0.06 秒、LLM 呼び出し 0 回）。
-- **未処理 ask がある場合（または通信エラー時）**: `{"wakeAgent": true}` を返し、Hermes Agent を起動してプランニングを実行します。
+- **未処理 ask がない場合**: `{"wakeAgent": false}` を返し、LLM を一切起動せずに即時終了します（アイドル tick 約 0.06 秒、LLM 呼び出し 0 回）。また、`agent.max_turns` は安全な 15 に維持されます。
+- **通常の未処理 ask がある場合**: `{"wakeAgent": true}` を返し、15 ターンの安全境界を保ったままペルソナ回答を実行します。
+- **直接依頼（direct request）がある場合**: `agent.max_turns` を自動的に 40 に一時拡張し、複数ファイルの読み書きやコーディング等の重い自律タスクを完遂できるようにします（完了後の次回 tick で自動的に 15 に復元されます）。
 
 既存ジョブへ追加・変更する場合は `hermes cron edit <job_id> --script check_kakeratta_gate.py` を使います。
 

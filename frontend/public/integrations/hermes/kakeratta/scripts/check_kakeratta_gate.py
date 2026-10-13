@@ -25,7 +25,21 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "4"
+GATE_VERSION = "5"
+
+
+def adjust_max_turns(config_path: Path, target_turns: int) -> None:
+    """Adjust agent.max_turns in config.yaml without altering other formatting."""
+    try:
+        if not config_path.exists():
+            return
+        text = config_path.read_text(encoding="utf-8")
+        pattern = r"(max_turns\s*:\s*)[\"']?\d+[\"']?"
+        new_text, count = re.subn(pattern, rf"\g<1>{target_turns}", text)
+        if count > 0 and new_text != text:
+            replace_file(config_path, new_text)
+    except Exception as e:
+        print(f"Pre-check warning: failed to adjust max_turns to {target_turns}: {e}", file=sys.stderr)
 
 
 def get_hermes_home() -> Path:
@@ -153,9 +167,17 @@ def main():
         if not isinstance(requests, list):
             raise ValueError("list_asks.requests is not a list")
 
+        pending_asks = [a for a in asks if isinstance(a, dict) and a.get("status") == "pending"]
+        pending_requests = [r for r in requests if isinstance(r, dict) and r.get("status") == "pending"]
+
+        # Adapt agent.max_turns: expand to 40 for long-running direct requests,
+        # otherwise preserve the safe 15 boundary for ordinary persona asks or idle standby.
+        target_turns = 40 if len(pending_requests) > 0 else 15
+        adjust_max_turns(config_path, target_turns)
+
         # A claimed ask or request is already being handled by a running
         # agent; only an unclaimed one needs a new wake.
-        pending = [a for a in asks + requests if isinstance(a, dict) and a.get("status") == "pending"]
+        pending = pending_asks + pending_requests
         if len(pending) == 0:
             print(json.dumps({"wakeAgent": False}))
         else:

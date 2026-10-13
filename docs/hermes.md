@@ -28,6 +28,16 @@ Other agents can use the same MCP Streamable HTTP endpoint and `Authorization: B
      tool_search:
        enabled: "off"
 
+   agent:
+     max_turns: 15 # Standard persona turns use 15; Wake Gate dynamically expands to 40 for direct requests
+
+   platform_toolsets:
+     cron: # Allows file operations and execution for direct requests
+       - web
+       - file
+       - terminal
+       - code_execution
+
    mcp_servers:
      kakeratta:
        url: "https://kakeratta.net/api/mcp/users/xxx"
@@ -169,8 +179,9 @@ The state, with the time of the last call, is shown under **Settings → Advance
 Running an agent (LLM invocation) on a 1-minute cron check wastes tokens and inference budget when no asks are pending.
 To avoid idle spend, attach the **Wake Gate** pre-check script ([check_kakeratta_gate.py](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)) to the cron job.
 
-- **No pending ask**: Returns `{"wakeAgent": false}` and exits immediately without invoking the LLM (~0.06s tick, 0 LLM calls).
-- **Pending ask exists (or connection error)**: Returns `{"wakeAgent": true}`, waking Hermes Agent to claim and plan.
+- **No pending ask**: Returns `{"wakeAgent": false}` and exits immediately without invoking the LLM (~0.06s tick, 0 LLM calls). In addition, `agent.max_turns` is preserved at the safe boundary of 15.
+- **Pending persona ask**: Returns `{"wakeAgent": true}`, answering within the 15-turn boundary.
+- **Pending direct request**: Automatically expands `agent.max_turns` to 40 so the agent can complete multi-step autonomous workflows (such as file reads/writes and coding), automatically reverting to 15 on the subsequent tick.
 
 To update an existing cron job, run `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
 
