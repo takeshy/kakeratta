@@ -97,6 +97,7 @@ const directInstructions = "The user addressed you directly, outside kakeratta's
 	"The thread is the whole conversation, oldest first: earlier replies from you (speaker \"agent\") are what you said before. " +
 	"To look at the user's kakeratta, use get_timeline, get_thread, search_timeline, list_schedules, list_personas and list_notes/read_note. " +
 	"When asked to answer or correct something elsewhere in the timeline - for example a persona's wrong answer - post under that entry with comment_on_entry: say what you answer or what is wrong and why, with sources. " +
+	"When the request involves deep reasoning, document or visual design (such as HTML or code), creative writing, or complex analysis, delegate the core task to the configured child agent (delegate_task) before delivering the result. " +
 	"Then post your reply with reply_request; it appears in the thread under the trigger, and the user continues by replying to it. Summarise there what you did, including the comments you posted, unless the user explicitly requested specific content or raw output (such as complete HTML or code) in reply_request.text. " +
 	"Reply in the user's language with what you did and its result, or why you could not, or the requested content itself. Never claim an action you did not perform. " +
 	"edited means the user changed the request after first sending it."
