@@ -32,11 +32,12 @@ Other agents can use the same MCP Streamable HTTP endpoint and `Authorization: B
      max_turns: 15 # Standard persona turns use 15; Wake Gate dynamically expands to 40 for direct requests
 
    platform_toolsets:
-     cron: # Allows file operations and execution for direct requests
+     cron: # Allows file operations, execution, and delegation for direct requests
        - web
        - file
        - terminal
        - code_execution
+       - delegation
 
    mcp_servers:
      kakeratta:

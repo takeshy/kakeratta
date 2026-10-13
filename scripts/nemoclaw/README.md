@@ -111,9 +111,10 @@ agent:
   max_turns: 15 # 通常のペルソナ回答は15ターン（Wake Gateが直接依頼時に自動で40に一時拡張）
 
 platform_toolsets:
-  cron: # 直接依頼でファイル操作や自律作業をさせる場合に許可
+  cron: # 直接依頼でファイル操作や自律作業、委譲をさせる場合に許可
     - web
     - file
     - terminal
     - code_execution
+    - delegation
 ```
