@@ -8,18 +8,18 @@
 
 | 言語・地域 | 発話定義 | 呼び出し名 |
 | --- | --- | --- |
-| 日本語・日本 | [ja-JP.json](../integrations/alexa/ja-JP.json) | かけらった |
+| 日本語・日本 | [ja-JP.json](../integrations/alexa/ja-JP.json) | かけらったメモ |
 | 英語・米国 | [en-US.json](../integrations/alexa/en-US.json) | kakeratta notes |
 | 英語・英国 | [en-GB.json](../integrations/alexa/en-GB.json) | kakeratta notes |
 | 英語・カナダ | [en-CA.json](../integrations/alexa/en-CA.json) | kakeratta notes |
 | 英語・豪州 | [en-AU.json](../integrations/alexa/en-AU.json) | kakeratta notes |
 | 英語・インド | [en-IN.json](../integrations/alexa/en-IN.json) | kakeratta notes |
 
-英語版は2語の呼び出し名を使用します。各地域での認識精度とモデルビルドはConsole・実機で確認してください。公開時はDistributionの対象地域と各ロケールのスキル説明も設定します。端末の言語とアカウントのマーケットプレイスに対応する言語版が必要で、全地域に配信する設定だけでは言語対応になりません。[Amazonの多言語対応仕様](https://developer.amazon.com/en-US/docs/alexa/custom-skills/develop-skills-in-multiple-languages.html)
+日本語版・英語版とも、2語以上の呼び出し名を使用します。各地域での認識精度とモデルビルドはConsole・実機で確認してください。公開時はDistributionの対象地域と各ロケールのスキル説明も設定します。端末の言語とアカウントのマーケットプレイスに対応する言語版が必要で、全地域に配信する設定だけでは言語対応になりません。[Amazonの多言語対応仕様](https://developer.amazon.com/en-US/docs/alexa/custom-skills/develop-skills-in-multiple-languages.html)
 
 ## 話しかけ方
 
-- 「アレクサ、かけらったを開いて」
+- 「アレクサ、かけらったメモを開いて」
 - 「メモして、明日は散歩に行きたい」
 - 「返事を聞いて」
 - 「予定を教えて」

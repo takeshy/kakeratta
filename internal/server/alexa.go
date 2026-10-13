@@ -14,7 +14,7 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-const alexaHelp = "かけらったです。『メモして、明日は散歩に行きたい』でかけらを投げられます。『返事を聞いて』『予定を教えて』とも言えます。"
+const alexaHelp = "かけらったメモです。『メモして、明日は散歩に行きたい』でかけらを投げられます。『返事を聞いて』『予定を教えて』とも言えます。"
 
 func (v alexaVoice) say(w http.ResponseWriter, text string, end bool, attrs map[string]string, link bool, directives ...map[string]any) {
 	response := map[string]any{"shouldEndSession": end}
@@ -95,7 +95,7 @@ func (s *Server) handleAlexa(w http.ResponseWriter, r *http.Request, e alexa.Env
 		}
 	}
 	if e.Request.Type == "LaunchRequest" {
-		voice.say(w, "かけらったです。どうしますか。", false, nil, false)
+		voice.say(w, "かけらったメモです。どうしますか。", false, nil, false)
 		return
 	}
 	if e.Request.Type != "IntentRequest" {

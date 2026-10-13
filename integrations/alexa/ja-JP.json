@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "かけらった",
+      "invocationName": "かけらったメモ",
       "intents": [
         {
           "name": "ThrowKakeraIntent",

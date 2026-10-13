@@ -67,7 +67,7 @@ func TestAlexaConfirmationCorrectionAndReply(t *testing.T) {
 			t.Fatalf("entries=%d, want=%d, err=%v", len(entries), want, err)
 		}
 	}
-	if got := invoke("AMAZON.FallbackIntent", ""); strings.Contains(got, "かけらったです") {
+	if got := invoke("AMAZON.FallbackIntent", ""); strings.Contains(got, "かけらったメモです") {
 		t.Fatal(got)
 	}
 	if got := invoke("AMAZON.YesIntent", ""); !strings.Contains(got, "ありません") {

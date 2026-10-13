@@ -43,7 +43,7 @@ func (v alexaVoice) dateTime(at time.Time) string {
 
 var alexaEnglish = map[string]string{
 	"どうぞ。": "Go ahead.",
-	"かけらったです。どうしますか。":                      "Kakeratta. What would you like to do?",
+	"かけらったメモです。どうしますか。":                    "Kakeratta. What would you like to do?",
 	"もう一度お願いします。":                          "Please try again.",
 	"聞き取れませんでした。もう一度お願いします。":               "I didn't catch that. Please try again.",
 	"投稿してよければ『はい』、言い直すなら『いいえ』と言ってください。":    "Say yes to post, or no to try again.",
