@@ -127,6 +127,12 @@ type Entry struct {
 	// user can edit it like their own post.
 	Summary string `json:"summary,omitempty"`
 
+	// Scheduled marks what a persona said when a schedule it had set woke it.
+	// Only such an entry can be marked done: it is a reminder of something to
+	// do, and DoneAt is when the user said it was done.
+	Scheduled bool       `json:"scheduled,omitempty"`
+	DoneAt    *time.Time `json:"doneAt,omitempty"`
+
 	// Deleted is a transient browser removal notification; stores remove records.
 	Deleted bool `json:"deleted,omitempty"`
 
@@ -247,6 +253,9 @@ func (e Entry) Render(names map[string]string, in *time.Location) string {
 	}
 	if e.ReplyTo != "" {
 		head += fmt.Sprintf("（%s への返事）", e.ReplyTo)
+	}
+	if e.DoneAt != nil {
+		head += fmt.Sprintf("（ユーザーが %s に済みの印をつけた）", e.DoneAt.In(in).Format("2006-01-02 15:04 MST"))
 	}
 	body := []string{head}
 	if text := strings.TrimSpace(e.Text); text != "" {

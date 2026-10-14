@@ -138,6 +138,28 @@ func (w *FirestoreWorkspace) UpdateMedia(id string, media *timeline.Media) (time
 	return result, err
 }
 
+func (w *FirestoreWorkspace) MarkDone(id string, done bool, at time.Time) (timeline.Entry, error) {
+	var result timeline.Entry
+	err := w.client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(w.timeline().Doc(id))
+		if status.Code(err) == codes.NotFound {
+			return ErrNotDoneable
+		}
+		if err != nil {
+			return err
+		}
+		result = timeline.Entry{}
+		if err := doc.DataTo(&result); err != nil {
+			return err
+		}
+		if err := markDone(&result, done, at); err != nil {
+			return err
+		}
+		return tx.Set(w.timeline().Doc(id), result)
+	})
+	return result, err
+}
+
 func (w *FirestoreWorkspace) UpdateText(id, text string, initial ...Reaction) (timeline.Entry, error) {
 	defer w.flushDispatch()
 	var result timeline.Entry

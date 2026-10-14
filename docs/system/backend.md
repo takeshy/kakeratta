@@ -23,7 +23,7 @@ Any instance of a shared deployment answers any request; nothing is routed to a 
 | File | Main APIs |
 | --- | --- |
 | `routes.go` | Paths and handler registration |
-| `entries.go` | Posts, replies, edits, deletions, images, URL fetching |
+| `entries.go` | Posts, replies, edits, done marks on scheduled reminders, deletions, images, URL fetching |
 | `favorites.go` | Favorite entries, recent favorites, and speaker filtering |
 | `personas.go` | Listing, activation, installation, removal, schedule editing, daily and planner settings |
 | `memory.go` | Memory files (fields and monthly records): listing with a record-tag filter, reading, editing, deletion; one fact edited or forgotten (`editFact`, `forgetFact`) |
@@ -107,7 +107,10 @@ Replies check that the target exists and is not deleted. Editing a post saves it
 | `ReplyTo` | Direct reply target |
 | `Media`, `Link`, `Place` | Image and analysis, URL, location |
 | `Sources`, `Notes` | Source links and related memory paths |
+| `Scheduled`, `DoneAt` | Set on what a persona said when its schedule woke it; `DoneAt` is when the user marked that reminder done |
 | `Deleted` | Transient removal notification for the browser; never persisted |
+
+Guarded `PUT /api/entry/{id}/done` marks a scheduled entry done and `DELETE` clears the mark; both return the updated entry and publish it as an `entry` event. `MarkDone` applies the change under the file mutex or a Firestore transaction. A repeated PUT keeps the first `DoneAt`. Entries that are missing, deleted, or not `Scheduled` return 404 (`ErrNotDoneable`). Scheduled posts written before the flag existed carry no `Scheduled` and cannot be marked. `Render` adds the done time to the entry's heading, so personas see the mark wherever they read the thread or timeline. Verification: [done_test.go](../../internal/server/done_test.go).
 
 Persona check-ins can also start conversations as `post` entries. Monthly summaries are authored by the app. `RootOf` and `Thread` resolve a conversation and exclude deleted parents and their descendants from display and model input.
 
@@ -186,11 +189,11 @@ Persona definitions are read from the workspace each time they are needed (`Skil
 
 `Settings.DailyTime` (`dailyTime`) is the account's daily check-in time as `HH:MM` in the saved time zone; the settings API trims it and refuses anything but `HH:MM` or empty, and saving settings re-arms the workspace's alarm (see [Periodic checks](./personas.md#periodic-checks)).
 
+`Settings.HomeScreenLaunched` (`homeScreenLaunched`) records that the page once ran from a Home Screen icon. The settings API keeps it once set, ignoring a later `false`, so a stale form cannot clear it (see [Smartphone installation prompt](./frontend.md#smartphone-installation-prompt)).
+
 `ConfiguredSettings` returns saved choices. `Settings` applies defaults and model fallbacks for execution. This separation prevents an empty field in the editor from being overwritten with its runtime fallback.
 
 New workspaces default to the built-in sona (`routine`), kakeratta support (`support`), and infographics (`infographic`) being active. Persona definitions save the optional `memoryEnabled` flag; false disables private memory and periodic check-ins (see [Optional persona memory](./personas.md#optional-persona-memory)), while external-agent preference remains an independent saved setting. Saved active lists, including an explicitly empty or null list, override that initial default in both file storage and Firestore.
-`Settings.HomeScreenLaunched` (`homeScreenLaunched`) records that the page once ran from a Home Screen icon. The settings API keeps it once set, ignoring a later `false`, so a stale form cannot clear it (see [Smartphone installation prompt](./frontend.md#smartphone-installation-prompt)).
-
 
 `Server.client` creates an `llm.Client` from effective settings. The **Use OpenRouter** checkbox (`openRouterMode`) selects its own key and model choices. Legacy `jevEnabled` settings normalize to OpenRouter enabled with `~typesafe/jev-latest` selected as Router and the legacy flag cleared. Built-in turns select depth with explicit substrings in the current post, without a model judgment or preliminary planning call. Daily and monthly check-ins skip this substring check because their input includes historical material; AlwaysUltra still applies. Ordinary reads and answers use middle. Explicit deep requests and AlwaysUltra use high for the final answer; their reads stay on middle when the persona has lookup tools of its own, and run on high with the answer when it has none (the infographic). The Router default is Super; existing saved Router choices are retained. All subject conditions are evaluated together in one routing request. The low model retains optional dictation polishing; standalone reply escalation is removed. Vision and routing models have separate roles.
 

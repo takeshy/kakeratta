@@ -29,6 +29,8 @@ type Workspace interface {
 	SpeakerEntries(ctx context.Context, speaker string) ([]timeline.Entry, error)
 	TimelinePage(context.Context, int, string) (TimelinePage, error)
 	UpdateMedia(string, *timeline.Media) (timeline.Entry, error)
+	// MarkDone sets or clears a scheduled entry's done mark.
+	MarkDone(id string, done bool, at time.Time) (timeline.Entry, error)
 	UpdateText(string, string, ...Reaction) (timeline.Entry, error)
 	Entry(string) (timeline.Entry, bool)
 	PutBlob([]byte, string) (string, error)

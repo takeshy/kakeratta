@@ -1317,6 +1317,31 @@ test("favorites toggle on posts and standalone persona answers", async t => {
   assert.equal(reply, undefined, 'favorite previews have no reply link');
 });
 
+test("scheduled persona posts can be marked done and undone", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const calls = [];
+  t.mock.method(api, "setDone", async (id, done) => {
+    calls.push([id, done]);
+    return { ...reminder, doneAt: done ? "2026-10-04T01:00:00Z" : undefined };
+  });
+  const reminder = { id: "reminder", kind: "post", speaker: "routine", root: "reminder", text: "花、買った?", at: "2026-10-04T00:00:00Z", scheduled: true };
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  feed.set([reminder, { id: "plain", kind: "post", speaker: "routine", root: "plain", text: "ふつう", at: "2026-10-04T00:01:00Z" }]);
+  let marks = feed.element.querySelectorAll(".done-mark");
+  assert.equal(marks.length, 1, "only the scheduled post offers a done mark");
+  assert.equal(marks[0]["aria-pressed"], "false");
+  await marks[0].listeners.click[0]({ currentTarget: marks[0] });
+  [marks] = [feed.element.querySelectorAll(".done-mark")];
+  assert.equal(marks[0]["aria-pressed"], "true");
+  assert.equal(marks[0].textContent, translate("✓ 済み"));
+  assert.ok(feed.element.querySelectorAll(".post").some((node) => node.classList.contains("done")));
+  await marks[0].listeners.click[0]({ currentTarget: marks[0] });
+  assert.equal(feed.element.querySelectorAll(".done-mark")[0]["aria-pressed"], "false");
+  assert.deepEqual(calls, [["reminder", true], ["reminder", false]]);
+});
+
 test("post places show a label without a map link, credits, and coordinate fallback", (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };

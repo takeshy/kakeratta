@@ -107,6 +107,10 @@ func TestOnlyScheduleWakesReceiveTodaysTimeline(t *testing.T) {
 	if len(said) != 1 || said[0].Text != "そういえば朝の薬" {
 		t.Fatalf("direct workflow was not executed: %+v", said)
 	}
+	// It is a reminder, which the user can mark done.
+	if !said[0].Scheduled {
+		t.Fatal("scheduled post was not marked as scheduled")
+	}
 
 	var ordinaryPrompt string
 	ordinaryRunner, ordinaryStore, _ := setup(t, func(system, user string) string {

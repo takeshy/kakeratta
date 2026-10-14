@@ -299,6 +299,23 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, entry)
 }
 
+// markDone sets (PUT) or clears (DELETE) the done mark on a persona's
+// scheduled reminder. The mark is the user's record that it was done; the
+// persona reads it with the thread.
+func (s *Server) markDone(w http.ResponseWriter, r *http.Request) {
+	entry, err := s.store.MarkDone(r.PathValue("id"), r.Method == http.MethodPut, time.Now())
+	if errors.Is(err, store.ErrNotDoneable) {
+		fail(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "済みの印を保存できませんでした")
+		return
+	}
+	s.publishEvent("entry", entry)
+	writeJSON(w, http.StatusOK, entry)
+}
+
 // deleteEntry removes an entry. A post takes the conversation under it along
 // - the remarks and the user's own lines - since a reply without its post is
 // nothing, and a note that cited such a reply would otherwise keep pointing at

@@ -48,6 +48,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/reply", s.guard(s.postReply))
 	s.mux.HandleFunc("DELETE /api/entry/{id}", s.guard(s.deleteEntry))
 	s.mux.HandleFunc("PATCH /api/entry/{id}", s.guard(s.editEntry))
+	s.mux.HandleFunc("PUT /api/entry/{id}/done", s.guard(s.markDone))
+	s.mux.HandleFunc("DELETE /api/entry/{id}/done", s.guard(s.markDone))
 	s.mux.HandleFunc("GET /api/entry/{id}/routing", s.guard(s.getRouting))
 	s.mux.HandleFunc("POST /api/entry/{id}/routing/check", s.guard(s.checkRouting))
 	s.mux.HandleFunc("POST /api/entry/{id}/routing/apply", s.guard(s.applyRouting))

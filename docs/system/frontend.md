@@ -120,6 +120,10 @@ The search panel combines query, favorites, and dates on every page and when swi
 
 [Timeline.stories.js](../../frontend/stories/Timeline.stories.js) covers interactive timeline filters, favorites-only, and speaker date filtering. [Search.stories.js](../../frontend/stories/Search.stories.js) covers date and saved-only results using the same fixture filtering as the controls. [entry-filters.test.js](../../tests/entry-filters.test.js), [timeline-pages.test.js](../../tests/timeline-pages.test.js), [speaker.test.js](../../tests/speaker.test.js), [search.test.js](../../tests/search.test.js), and [feed.test.js](../../tests/feed.test.js) check date boundaries, stale responses, paging, and confirmed removal.
 
+## Done marks on scheduled reminders
+
+A persona post or remark carrying `scheduled` shows a **済みにする / Mark done** chip in its header, built by `drawDone` in [feed.js](../../frontend/src/feed.js). It shows **✓ 済み / ✓ Done** with `aria-pressed="true"` once `doneAt` is set, and the entry's body is dimmed. Pressing it calls `api.setDone`, which uses PUT or DELETE on `/api/entry/{id}/done`; the returned entry goes through `onEntryChange` (or the feed's own upsert), and other devices receive it as an `entry` event. The chip is disabled offline, for pending entries, and while its own request is in flight; failures appear as a toast and leave the mark unchanged. Storybook [Timeline.stories.js](../../frontend/stories/Timeline.stories.js) **予定の投稿を済みにする** shows an open and a done reminder, and its fixture API toggles the mark. Verification: [feed.test.js](../../tests/feed.test.js).
+
 ## Mobile entry headers
 
 On screens up to 600px wide, post and reply headers reserve 36px on the right for their delete button. The button stays at the top right when names, timestamps, or other controls wrap, rather than moving to a second row. Both header types have a minimum height of 36px ([styles.css](../../frontend/src/styles.css)).

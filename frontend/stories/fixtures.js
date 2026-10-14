@@ -343,6 +343,17 @@ export const memory = {
   },
 };
 
+// sona's scheduled reminders: one already marked done, one still open.
+export function reminders() {
+  const ja = getLanguage() === "ja";
+  return [
+    post("r1", minutes(300), { speaker: "routine", root: "r1", scheduled: true, doneAt: minutes(280),
+      text: ja ? "そういえば朝の薬。" : "By the way, your morning medicine." }),
+    post("r2", minutes(15), { speaker: "routine", root: "r2", scheduled: true,
+      text: ja ? "仕事帰りに花、買えそう?" : "Can you pick up flowers on the way home?" }),
+  ];
+}
+
 // The month's summary the app posts, in the reader's language.
 export function monthSummary() {
   const ja = getLanguage() === "ja";

@@ -339,6 +339,41 @@ func (s *Store) UpdateMedia(id string, media *timeline.Media) (timeline.Entry, e
 	return entry, s.appendLocked(entry)
 }
 
+// ErrNotDoneable is returned for an entry that is not a scheduled reminder.
+var ErrNotDoneable = errors.New("済みの印をつけられる投稿が見つかりません")
+
+// markDone keeps the first time an entry was marked done when it is marked
+// again, so a repeated request does not move it.
+func markDone(entry *timeline.Entry, done bool, at time.Time) error {
+	if entry.Deleted || !entry.Scheduled {
+		return ErrNotDoneable
+	}
+	switch {
+	case !done:
+		entry.DoneAt = nil
+	case entry.DoneAt == nil:
+		at = at.UTC()
+		entry.DoneAt = &at
+	}
+	return nil
+}
+
+func (s *Store) MarkDone(id string, done bool, at time.Time) (timeline.Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, exists, err := s.entryLocked(id)
+	if err != nil {
+		return timeline.Entry{}, err
+	}
+	if !exists {
+		return timeline.Entry{}, ErrNotDoneable
+	}
+	if err := markDone(&entry, done, at); err != nil {
+		return timeline.Entry{}, err
+	}
+	return entry, s.appendLocked(entry)
+}
+
 var ErrNotEditable = errors.New("編集できる投稿が見つかりません")
 var ErrEmptyText = errors.New("本文を入力してください")
 

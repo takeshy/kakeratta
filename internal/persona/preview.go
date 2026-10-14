@@ -279,6 +279,10 @@ func (d *dryWorkspace) UpdateMedia(id string, _ *timeline.Media) (timeline.Entry
 	entry, _ := d.Workspace.Entry(id)
 	return entry, nil
 }
+func (d *dryWorkspace) MarkDone(id string, _ bool, _ time.Time) (timeline.Entry, error) {
+	entry, _ := d.Workspace.Entry(id)
+	return entry, nil
+}
 func (d *dryWorkspace) PutBlob([]byte, string) (string, error) { return "preview", nil }
 func (d *dryWorkspace) DeleteBlob(string) error                { return nil }
 

@@ -52,6 +52,14 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       return json(saved.get(id));
     }
     if (favorite && method === "DELETE") { saved.delete(decodeURIComponent(favorite[1])); return new Response(null, { status: 204 }); }
+    const done = path.match(/^\/api\/entry\/([^/]+)\/done$/);
+    if (done && (method === "PUT" || method === "DELETE")) {
+      const entry = favoriteEntries().find(entry => entry.id === decodeURIComponent(done[1]));
+      if (!entry?.scheduled) return json({ error: "済みの印をつけられる投稿が見つかりません" }, 404);
+      if (method === "DELETE") delete entry.doneAt;
+      else entry.doneAt ||= new Date().toISOString();
+      return json({ ...entry });
+    }
     if (path === "/api/social/bluesky/connection" && method === "GET") return json(connection);
     if (path === "/api/social/bluesky/connection" && method === "DELETE") {
       connection = { available: true, connected: false };

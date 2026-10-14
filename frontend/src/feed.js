@@ -337,7 +337,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     // The month's summary is the app's, but the user's to set right.
     const summary = entry.speaker === "kakeratta" && !!entry.summary;
     const persona = getPersona(entry.speaker);
-    const node = el("div", { class: `post${summary ? " summary" : ""}` });
+    const node = el("div", { class: `post${summary ? " summary" : ""}${entry.doneAt ? " done" : ""}` });
     node.append(
       el(
         "div",
@@ -348,6 +348,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
         drawModel(entry),
         drawRequest(entry),
         favoriteButton(entry),
+        drawDone(entry),
         el("span", { class: "spacer" }),
         mine || summary ? el("button", {
           class: "chip ghost icon edit-post", text: "✎", "aria-label": t("編集"), disabled: offline() || !!entry.pending || !!postEditor,
@@ -517,6 +518,30 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     draw();
   }
 
+  // A persona's scheduled reminder can be marked done: the user's record that
+  // it was taken care of, which the persona reads with the thread.
+  const doneSaving = new Set();
+  function drawDone(entry) {
+    if (!entry.scheduled || entry.deleted) return null;
+    const done = !!entry.doneAt;
+    return el("button", {
+      class: "chip ghost done-mark", type: "button", text: done ? t("✓ 済み") : t("済みにする"),
+      "aria-pressed": String(done), "aria-label": t(done ? "済みの印を外す" : "済みの印をつける"),
+      disabled: offline() || !!entry.pending || doneSaving.has(entry.id),
+      onclick: async (event) => {
+        if (offline() || doneSaving.has(entry.id)) return;
+        doneSaving.add(entry.id);
+        event.currentTarget.disabled = true;
+        try {
+          const updated = await api.setDone(entry.id, !done);
+          if (onEntryChange) onEntryChange(updated);
+          else upsert(updated);
+        } catch (error) { toast(t(error.message)); }
+        finally { doneSaving.delete(entry.id); draw(); }
+      },
+    });
+  }
+
   function drawModel(entry) {
     if (entry.model === "agent") return el("span", { class: "model-badge", label: "外部エージェント", i18nTitle: entry.kind === "post" ? "外部エージェントが書いた投稿です" : "外部エージェントが書いた回答です" });
     if (entry.model !== "ultra") return null;
@@ -526,7 +551,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
   function drawSaid(entry, post) {
     const persona = getPersona(entry.speaker);
     const mine = entry.speaker === "user";
-    const node = el("div", { class: `said-row ${mine ? "mine" : ""}`, "data-id": entry.id });
+    const node = el("div", { class: `said-row ${mine ? "mine" : ""}${entry.doneAt ? " done" : ""}`, "data-id": entry.id });
     node.append(
       el(
         "div",
@@ -537,6 +562,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
         drawModel(entry),
         drawRequest(entry),
         favoriteButton(entry),
+        drawDone(entry),
         drawRoutingChip(entry),
         // A persona's remark can be removed too: a wrong answer left in the
         // thread is found again by searches and read back as context.

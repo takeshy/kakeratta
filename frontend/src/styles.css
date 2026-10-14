@@ -964,6 +964,9 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .html-document { display: block; width: 100%; height: 70vh; min-height: 28rem; border: 1px solid var(--line, #ddd); border-radius: .75rem; background: white; }
 
 .favorite[aria-pressed="true"] { color: var(--accent); }
+.done-mark[aria-pressed="true"] { color: var(--accent); }
+/* A done reminder stays readable but steps back. */
+.post.done > .said, .said-row.done > .said { opacity: .6; }
 .favorite-item { margin-bottom: 18px; }
 .favorites-view { display: grid; gap: .75rem; padding: 1rem; }
 .favorites-view select { max-width: 100%; }
