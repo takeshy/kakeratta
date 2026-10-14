@@ -57,6 +57,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	// settings form must not undo them.
 	next.DailyCheckIns = current.DailyCheckIns
 	next.Planners = current.Planners
+	// Once launched from the Home Screen stays so; a form loaded before then
+	// must not clear it.
+	next.HomeScreenLaunched = next.HomeScreenLaunched || current.HomeScreenLaunched
 	// A masked key coming back means "unchanged", not "set it to asterisks".
 	if body.APIKey != nil {
 		next.APIKey = *body.APIKey

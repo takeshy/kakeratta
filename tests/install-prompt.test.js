@@ -113,3 +113,24 @@ test("Settings keeps the mode after Later, and listeners can leave", () => {
   app.browser.navigator.standalone = true;
   assert.equal(app.controller.mode(), null);
 });
+
+test("a Home Screen launch keeps later browser visits quiet", () => {
+  const storage = new Map();
+  const icon = setup({ ua: "Android Mobile", standalone: true, storage });
+  assert.equal(icon.controller.standalone(), true);
+  const tab = setup({ ua: "Android Mobile", storage });
+  tab.offer();
+  assert.equal(tab.state(), null);
+  assert.equal(tab.controller.mode(), null);
+});
+
+test("the account's Home Screen launch hides the iPhone invitation", () => {
+  const storage = new Map();
+  const app = setup({ ua: "iPhone", storage });
+  assert.equal(app.state(), "ios");
+  assert.equal(app.controller.standalone(), false);
+  app.controller.markInstalled();
+  assert.equal(app.state(), null);
+  assert.equal(app.controller.mode(), null);
+  assert.equal(setup({ ua: "iPhone", storage }).state(), null);
+});

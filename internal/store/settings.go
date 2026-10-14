@@ -101,6 +101,11 @@ type Settings struct {
 	// means nothing to the person reading the timeline.
 	TimeZone string `json:"timeZone"`
 
+	// HomeScreenLaunched records that the page once ran from a Home Screen
+	// icon. iPhone keeps the icon's storage apart from the browser's, so the
+	// browser learns of the installation only through the account.
+	HomeScreenLaunched bool `json:"homeScreenLaunched,omitempty"`
+
 	// DailyTime is when the account's day runs - the day's summary and the
 	// check-ins of the personas with memory - as "HH:MM" in TimeZone. Empty
 	// leaves it to the app (see DailyAt).

@@ -2,6 +2,7 @@ import { el, toast } from "./dom.js";
 import { t } from "./i18n.js";
 
 const DISMISSED_KEY = "kakeratta.install.dismissedUntil";
+const LAUNCHED_KEY = "kakeratta.install.launched";
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 // Links shared through messengers and social apps open in their own WebView,
 // where neither the native prompt nor Add to Home Screen is available.
@@ -20,7 +21,13 @@ export function createInstallPromptController(browser = window, now = Date.now) 
   const listeners = new Set();
   let dismissedUntil = 0;
   try { dismissedUntil = Number(browser.localStorage.getItem(DISMISSED_KEY)) || 0; } catch {}
-  const eligible = () => mobile && browser.isSecureContext && !installed && !display.matches && !nav.standalone;
+  const standalone = () => Boolean(display.matches || nav.standalone);
+  // A launch from the icon means the browser tab need not ask again. Android
+  // shares this storage with the browser; iPhone learns it from the account.
+  const remember = () => { try { browser.localStorage.setItem(LAUNCHED_KEY, "1"); } catch {} };
+  try { installed = browser.localStorage.getItem(LAUNCHED_KEY) === "1"; } catch {}
+  if (standalone()) remember();
+  const eligible = () => mobile && browser.isSecureContext && !installed && !standalone();
   // The mode ignores "Later", so Settings can still offer installation.
   const mode = () => {
     if (!eligible()) return null;
@@ -42,9 +49,18 @@ export function createInstallPromptController(browser = window, now = Date.now) 
     changed();
   });
   browser.addEventListener("appinstalled", () => { installed = true; pending = null; changed(); });
-  display.addEventListener?.("change", changed);
+  display.addEventListener?.("change", () => { if (standalone()) remember(); changed(); });
   return {
     mode,
+    standalone,
+    // Called once the account says the app was launched from the Home Screen.
+    markInstalled() {
+      if (installed) return;
+      installed = true;
+      pending = null;
+      remember();
+      changed();
+    },
     subscribe(callback) {
       listeners.add(callback);
       callback(banner());

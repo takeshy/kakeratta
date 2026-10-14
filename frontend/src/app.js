@@ -1,5 +1,5 @@
 import { localRecord, localIdentity, recentEntries } from "./local-store.js";
-import { installPromptNode } from "./install-prompt.js";
+import { installPrompt, installPromptNode } from "./install-prompt.js";
 // Wiring. One screen: a passage to drop something through, and the timeline
 // under it.
 //
@@ -411,6 +411,10 @@ async function boot() {
     if (zone && settings.timeZone !== zone) {
       settings = await api.saveSettings({ ...settings, timeZone: zone }).catch(() => settings);
     }
+    if (installPrompt?.standalone() && !settings.homeScreenLaunched) {
+      settings = await api.saveSettings({ ...settings, homeScreenLaunched: true }).catch(() => settings);
+    }
+    if (settings.homeScreenLaunched) installPrompt?.markInstalled();
     settingsRequired = !aiConfigured(settings);
     speaker.setRate(settings.readAloudRate || 1.2);
     speaker.setVoice(settings.readAloudVoice || "");
