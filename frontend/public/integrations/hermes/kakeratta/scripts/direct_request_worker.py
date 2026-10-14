@@ -48,6 +48,13 @@ Safety:
   resumes the claimed request with the same claimId (at most MAX_RESUMES
   times), resends a saved reply, and never repeats an executed operation.
   There is no fallback to the parent model.
+* Cost boundary: generation and correction runs may take at most
+  GENERATION_MAX_TURNS tool-calling iterations, a review REVIEW_MAX_TURNS.
+  After every run the worker reads the session's token counts from the
+  worker home's Hermes state.db and audits them. Before and after each run it
+  checks the request's totals (kept across resumes) against MAX_API_CALLS and
+  MAX_REQUEST_TOKENS; past either limit, or when a run's usage cannot be read,
+  it stops without executing anything and replies with the reason.
 
 The worker's Hermes config reuses the existing Provider v2 setup: the model,
 provider, endpoint and `${VAR}` API-key reference come from Hermes's
@@ -68,14 +75,17 @@ from pathlib import Path
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "2"
+WORKER_VERSION = "3"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
 DEFAULT_REASONING = "high"
 MAX_CORRECTIONS = 2          # correction attempts after the initial generation
 MAX_RESUMES = 2              # later ticks that may resume an interrupted claimed request
-MAX_TOOL_ROUNDS = 30         # tool-calling iterations per Hermes run
+GENERATION_MAX_TURNS = 10    # tool-calling iterations per generation/correction run
+REVIEW_MAX_TURNS = 4         # tool-calling iterations per review run
+MAX_API_CALLS = 40           # model calls per request, across runs and resumes
+MAX_REQUEST_TOKENS = 1_500_000  # input + cache read/write + output tokens per request
 MAX_REPLY = 20000            # reply_request rejects longer text
 DEFAULT_MAX_TOKENS = 64000   # output cap per model call, reasoning included
 RUN_BUDGET = 1200            # wall-clock budget per Hermes run, seconds
@@ -160,6 +170,10 @@ def model_config(cfg):
         "max_tokens": int(section.get("max_tokens") or DEFAULT_MAX_TOKENS),
         "run_budget": int(section.get("run_budget") or RUN_BUDGET),
         "exec_timeout": int(section.get("exec_timeout") or EXEC_TIMEOUT),
+        "generation_max_turns": int(section.get("generation_max_turns") or GENERATION_MAX_TURNS),
+        "review_max_turns": int(section.get("review_max_turns") or REVIEW_MAX_TURNS),
+        "max_api_calls": int(section.get("max_api_calls") or MAX_API_CALLS),
+        "max_request_tokens": int(section.get("max_request_tokens") or MAX_REQUEST_TOKENS),
         "file_roots": [str(Path(r).expanduser()) for r in (section.get("file_roots") or [Path.home()])],
         "hermes_bin": section.get("hermes_bin") or shutil.which("hermes") or "/usr/local/bin/hermes",
     }
@@ -201,7 +215,8 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
                 + [a for root in cfg["file_roots"] for a in ("--root", root)],
         "tools": {"prompts": False, "resources": False},
     }
-    worker_cfg = {"model": model, "agent": {"max_turns": MAX_TOOL_ROUNDS},
+    max_turns = max(cfg["generation_max_turns"], cfg["review_max_turns"])
+    worker_cfg = {"model": model, "agent": {"max_turns": max_turns},
                   "mcp_servers": {"kakeratta": mcp, "files": files}}
     if isinstance(main_cfg.get("providers"), dict):
         worker_cfg["providers"] = main_cfg["providers"]
@@ -317,6 +332,10 @@ def save_state(home: Path, request_id: str, state) -> None:
     _atomic_write(_state_path(home, request_id), json.dumps(state, ensure_ascii=False))
 
 
+def _usage_path(home: Path, request_id: str) -> Path:
+    return _work_root(home) / "state" / "usage" / f"{request_id}.json"
+
+
 def load_executed(home: Path, request_id: str):
     try:
         raw = _executed_path(home, request_id).read_text(encoding="utf-8")
@@ -368,15 +387,95 @@ class InvalidOutput(ValueError):
     correction, unlike a Hermes, provider or network failure."""
 
 
-def hermes_run(cfg, prompt, toolsets):
+class BudgetExceeded(RuntimeError):
+    """The request reached its model-call or token limit, or a run's usage
+    could not be measured. Nothing more runs; the request is answered."""
+
+
+# Token and call counters of Hermes's `sessions` table. input_tokens excludes
+# cache reads; reasoning_tokens is a breakdown of output_tokens.
+USAGE_COLUMNS = ("api_call_count", "input_tokens", "cache_read_tokens",
+                 "cache_write_tokens", "output_tokens", "reasoning_tokens")
+BILLED_COLUMNS = ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens")
+
+
+def session_usage(worker_home: Path, session):
+    """The usage Hermes recorded for one finished session, or None when the
+    session, the database or its counters cannot be read."""
+    path = Path(worker_home) / "state.db"
+    if not session or not path.exists():
+        return None
+    import sqlite3
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
+        try:
+            columns = {row[1] for row in con.execute("PRAGMA table_info(sessions)")}
+            if not {"api_call_count", "input_tokens", "output_tokens"} <= columns:
+                return None
+            wanted = [c for c in USAGE_COLUMNS if c in columns]
+            row = con.execute(f"SELECT {', '.join(wanted)} FROM sessions WHERE id = ?",
+                              (session,)).fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+    if row is None:
+        return None
+    return {c: int(v or 0) for c, v in zip(wanted, row)}
+
+
+class Meter:
+    """One request's model usage, saved so the limits hold across resumes."""
+
+    def __init__(self, cfg, home: Path, request_id: str):
+        self.cfg, self.home, self.request_id = cfg, home, request_id
+        try:
+            self.totals = json.loads(_usage_path(home, request_id).read_text(encoding="utf-8"))
+        except Exception:
+            self.totals = {}
+        for key in ("runs", "unmeasured", "tokens") + USAGE_COLUMNS:
+            self.totals.setdefault(key, 0)
+
+    def check(self):
+        t, cfg = self.totals, self.cfg
+        if t["unmeasured"]:
+            raise BudgetExceeded("a model run's token usage could not be read")
+        if t["api_call_count"] >= cfg["max_api_calls"]:
+            raise BudgetExceeded(f"{t['api_call_count']} model calls reached the limit of {cfg['max_api_calls']}")
+        if t["tokens"] >= cfg["max_request_tokens"]:
+            raise BudgetExceeded(f"{t['tokens']} tokens reached the limit of {cfg['max_request_tokens']}")
+
+    def record(self, stage, session, usage):
+        t = self.totals
+        t["runs"] += 1
+        if usage is None:
+            t["unmeasured"] += 1
+        else:
+            for key, value in usage.items():
+                t[key] += value
+            t["tokens"] += sum(usage.get(c, 0) for c in BILLED_COLUMNS)
+        _atomic_write(_usage_path(self.home, self.request_id), json.dumps(t))
+        audit(self.home, self.request_id, "model_usage", {
+            "stage": stage, "session": session, "model": self.cfg["model"],
+            "reasoning": self.cfg["reasoning"] or None, "usage": usage,
+            "request_api_calls": t["api_call_count"], "request_tokens": t["tokens"],
+        })
+
+
+def hermes_run(cfg, prompt, toolsets, max_turns, stage):
     """One fresh, single-query Hermes CLI session with the worker's home.
 
     Returns (final response text, session id). Each call is its own session,
-    so generation and review never share one. A failed run raises.
+    so generation and review never share one. A failed run raises. The run's
+    usage is recorded on the request's meter whatever the outcome, and a run
+    that leaves the request past its limits raises BudgetExceeded, discarding
+    its result.
     """
+    meter = cfg["meter"]
+    meter.check()
     cmd = [cfg["hermes_bin"], "chat", "-Q", "--ignore-rules",
            "--provider", cfg["provider"], "-m", cfg["model"], "-t", toolsets,
-           "--max-turns", str(MAX_TOOL_ROUNDS), "--run-budget", str(cfg["run_budget"]),
+           "--max-turns", str(max_turns), "--run-budget", str(cfg["run_budget"]),
            "--query-file", "-"]
     if cfg.get("reasoning"):
         cmd += ["--reasoning", cfg["reasoning"]]
@@ -385,11 +484,14 @@ def hermes_run(cfg, prompt, toolsets):
         proc = subprocess.run(cmd, input=prompt, env=env, cwd=str(cfg["worker_home"]),
                               capture_output=True, text=True, timeout=cfg["run_budget"] + 120)
     except subprocess.TimeoutExpired:
+        meter.record(stage, None, None)
         raise RuntimeError(f"hermes chat exceeded {cfg['run_budget'] + 120} seconds")
     m = re.search(r"session_id:\s*(\S+)", proc.stderr + "\n" + proc.stdout)
     session = m.group(1) if m else None
+    meter.record(stage, session, session_usage(cfg["worker_home"], session))
     if proc.returncode != 0:
         raise RuntimeError(f"hermes chat exited with {proc.returncode}: {proc.stderr.strip()[-300:]}")
+    meter.check()
     return proc.stdout, session
 
 
@@ -543,12 +645,13 @@ def sha256_of(text):
 
 # --- generation and review ----------------------------------------------
 
-def generate(cfg, context, problems, previous):
+def generate(cfg, context, problems, previous, stage="generation"):
     """A fresh generation (or correction) session; returns (envelope, session).
 
     A Hermes failure raises as it is; a response the worker cannot use raises
     InvalidOutput."""
-    text, session = hermes_run(cfg, _generation_prompt(context, problems, previous), GENERATION_TOOLSETS)
+    text, session = hermes_run(cfg, _generation_prompt(context, problems, previous), GENERATION_TOOLSETS,
+                               cfg["generation_max_turns"], stage)
     try:
         return _answer(text), session
     except InvalidOutput as e:
@@ -559,7 +662,8 @@ def generate(cfg, context, problems, previous):
 def review(cfg, context, envelope, sha):
     """A separate review session; an unusable verdict is a rejection."""
     candidate, _ = candidate_of(envelope)
-    text, session = hermes_run(cfg, _review_prompt(context, candidate, sha), REVIEW_TOOLSETS)
+    text, session = hermes_run(cfg, _review_prompt(context, candidate, sha), REVIEW_TOOLSETS,
+                               cfg["review_max_turns"], "review")
     try:
         verdict = _answer(text)
     except InvalidOutput as e:
@@ -729,8 +833,20 @@ def process_one(url, headers, request, cfg, home):
                     "処理が繰り返し中断されたため、依頼を完了できませんでした。", home)
         return
 
+    cfg["meter"] = Meter(cfg, home, request_id)
     try:
         _run_generate_review_loop(cfg, url, headers, context, request_id, home, claim_id)
+    except BudgetExceeded as e:
+        # Fail-closed: no further model call, nothing executed, and no resume.
+        t = cfg["meter"].totals
+        audit(home, request_id, "budget_exceeded", {
+            "reason": str(e), "request_api_calls": t["api_call_count"], "request_tokens": t["tokens"],
+        })
+        _send_reply(cfg, url, headers, request_id, claim_id,
+                    "1件の依頼で使えるモデル呼び出しの上限"
+                    f"（{cfg['max_api_calls']}回・{cfg['max_request_tokens']:,}トークン）に達したか、"
+                    "使用量を確認できなかったため、処理を止めました。操作は実行していません。\n\n"
+                    f"理由: {e}", home)
     except Exception as e:
         # A provider, network or tool failure: the request stays claimed and a
         # later tick resumes it, until the resume limit; then report it.
@@ -750,7 +866,7 @@ def _run_generate_review_loop(cfg, url, headers, context, request_id, home, clai
         stage = "generation" if corrections == 0 else "correction"
         session = None
         try:
-            envelope, session = generate(cfg, context, problems, previous)
+            envelope, session = generate(cfg, context, problems, previous, stage)
             candidate, kind = candidate_of(envelope)
         except InvalidOutput as e:
             # An unusable answer is a rejection, corrected like any other.
