@@ -47,7 +47,7 @@ Superは直接依頼の取得、プロンプト作成、Review、実行、返却
 - モデル: `nvidia/Nemotron-3-Ultra-550b-a55b`
 - Provider: Nebius Token Factory Provider v2
 - reasoning: `high`
-- 許可能力: kakerattaのread-only MCP、ローカルread-onlyファイル操作、Web検索・Web取得
+- 許可能力: kakerattaのread-only MCP、Web検索・Web取得（実装ではローカルファイル読取は提供しない。Hermesの `file` toolsetは書込みを含むため）
 - 禁止能力: ファイル変更、terminal、コード実行、メール・投稿・設定変更などの副作用
 - 元のtrigger、thread、DirectContext、ユーザー制約を省略せず渡す。
 - HTML・文章・コードなどの成果物依頼は完全な候補を返す。
@@ -146,6 +146,7 @@ Reviewerは機械可読なJSONを返す。
 - Gateの配布バージョンを更新し、`get_integration`でSkill、Gate、Workerを同期できるようサーバーのintegration bundleを拡張する。
 - 監査状態と実行済み記録はHermes home配下へアトミック保存する。
 - Token Factory呼び出しは既存のProvider v2認証を使い、キーを設定ファイルやログへ展開しない。
+  - 実装: ワーカーはProviderへ直接リクエストせず、専用Hermes home（`kakeratta/hermes-home`）で単発の `hermes chat` を起動する。そのconfigはkakeratta MCPを読み取り専用ツールに限定（`tools.include`）し、`max_tokens` は64000。
 
 ## 受入条件
 

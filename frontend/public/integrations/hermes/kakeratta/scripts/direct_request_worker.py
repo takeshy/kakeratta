@@ -19,12 +19,13 @@ Flow, one request at a time, oldest first:
 
 Safety:
 
-* The generation model is given only read-only tools: kakeratta's read-only
-  MCP tools, local file reads under HERMES_HOME, and web search/fetch. There is
-  no write, terminal, code-execution or side-effect tool, so the read-only
-  boundary is enforced by the exposed tool set, not by a prompt. Secret files
-  (config.yaml, .env, keys, tokens) are not readable, and known secret values
-  are masked in every tool result and in the reply.
+* Every model call is a fresh single-query `hermes chat` session run with
+  the worker's own Hermes home (kakeratta/hermes-home), never a direct
+  provider request. That home loads only kakeratta's read-only MCP tools, and
+  each run enables only the `web` toolset besides them, so there is no write,
+  file, terminal, code-execution or side-effect tool: the read-only boundary
+  is enforced by Hermes's tool configuration, not by a prompt. Known secret
+  values are masked in the reply and the audit log.
 * Review runs as a separate model request that never shares the generation
   session. It returns machine-readable JSON; only `accepted: true` with a
   matching candidate SHA-256 passes.
@@ -43,10 +44,10 @@ Safety:
   times), resends a saved reply, and never repeats an executed operation.
   There is no fallback to the parent model.
 
-The Token Factory call reuses the existing Provider v2 setup: the endpoint,
-model and `${VAR}` API-key reference are read from Hermes's config.yaml
-(`kakeratta_worker`, then `delegation`; never the parent's `model`), and the key is resolved
-from the environment at run time, never written to a file or a log.
+The worker's Hermes config reuses the existing Provider v2 setup: the model,
+provider, endpoint and `${VAR}` API-key reference come from Hermes's
+config.yaml (`kakeratta_worker`, then `delegation`; never the parent's
+`model`), and the key stays an unexpanded reference that Hermes resolves.
 """
 
 import fcntl
@@ -54,6 +55,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -65,34 +67,26 @@ WORKER_VERSION = "1"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
-DEFAULT_BASE_URL = "https://api.tokenfactory.nebius.com/v1"
 DEFAULT_REASONING = "high"
 MAX_CORRECTIONS = 2          # correction attempts after the initial generation
 MAX_RESUMES = 2              # later ticks that may resume an interrupted claimed request
-MAX_TOOL_ROUNDS = 12         # bounded tool-calling loop
+MAX_TOOL_ROUNDS = 12         # tool-calling iterations per Hermes run
 MAX_REPLY = 20000            # reply_request rejects longer text
 DEFAULT_MAX_TOKENS = 64000   # output cap per model call, reasoning included
-HTTP_TIMEOUT = 300           # model and MCP long-running calls
+RUN_BUDGET = 1200            # wall-clock budget per Hermes run, seconds
 MCP_TIMEOUT = 300
-WEB_TIMEOUT = 20
-WEB_MAX_BYTES = 1_000_000    # cap for a fetched page
-WEB_TEXT_CAP = 20000         # cap for text returned to the model
 MAX_STREAM = 10000           # cap for retained stdout/stderr
 EXEC_TIMEOUT = 60            # operation python timeout, seconds
 AUDIT_MAX_BYTES = 1_000_000  # rotate a request's audit file past this
+RESPONSE_TAIL = 300          # end of an unusable response kept in the audit log
 
-# Read-only kakeratta MCP tools the generation model may call, mapped to the
-# tool names kakeratta exposes. Writes (claim_request, reply_request,
-# comment_on_entry, submit_answer, ...) are never exposed.
-READONLY_MCP_TOOLS = {
-    "get_timeline": ["limit", "before"],
-    "get_thread": ["entryId"],
-    "search_timeline": ["query", "from", "to", "limit", "min_score"],
-    "list_schedules": ["skill", "query", "from", "to", "limit", "after"],
-    "list_personas": [],
-    "list_notes": ["persona", "limit", "after"],
-    "read_note": ["persona", "path"],
-}
+# The only kakeratta MCP tools the worker's Hermes home loads. Writes
+# (claim_request, reply_request, comment_on_entry, submit_answer, ...) are not
+# loaded at all, so a model cannot call them.
+READONLY_MCP_TOOLS = ["get_timeline", "get_thread", "search_timeline", "list_schedules",
+                      "list_personas", "list_notes", "read_note"]
+GENERATION_TOOLSETS = "web,kakeratta"   # web search/extract and the read-only MCP tools
+REVIEW_TOOLSETS = "web"                 # fact checks only
 
 # --- config and environment ----------------------------------------------
 
@@ -119,8 +113,8 @@ def read_config(home: Path):
 def resolve_env(value):
     """Resolve a `${VAR}` or `env:VAR` reference to its environment value.
 
-    A plain string is returned as-is; this is how the Provider v2 setup keeps
-    the Token Factory key out of files and logs.
+    Used only to know the provider key's value so it can be masked; the key
+    itself is passed to Hermes as the unexpanded reference.
     """
     if not isinstance(value, str):
         return value
@@ -133,7 +127,7 @@ def resolve_env(value):
 
 
 def model_config(cfg):
-    """Endpoint, model and key for Token Factory, from config.yaml.
+    """The Ultra run settings, from config.yaml.
 
     Prefers a dedicated `kakeratta_worker` section, then Hermes's `delegation`
     section (already pinned to Ultra over Provider v2). The parent's `model`
@@ -148,20 +142,60 @@ def model_config(cfg):
                 break
     if section is None:
         section = {}
-    base_url = section.get("base_url") or DEFAULT_BASE_URL
-    model = section.get("model") or DEFAULT_MODEL
-    api_key = resolve_env(section.get("api_key") or "${TOKENFACTORY_API_KEY}")
     reasoning = section.get("reasoning_effort", section.get("reasoning", DEFAULT_REASONING))
-    max_tokens = int(section.get("max_tokens") or DEFAULT_MAX_TOKENS)
     return {
-        "base_url": base_url.rstrip("/"),
-        "model": model,
-        "api_key": api_key,
+        "model": section.get("model") or DEFAULT_MODEL,
+        "provider": section.get("provider") or "custom",
+        "base_url": section.get("base_url"),
+        "api_key_ref": section.get("api_key"),
+        "api_key": resolve_env(section.get("api_key") or "${TOKENFACTORY_API_KEY}"),
         "reasoning": "" if reasoning in (None, "none", "off") else reasoning,
-        "max_tokens": max_tokens,
+        "max_tokens": int(section.get("max_tokens") or DEFAULT_MAX_TOKENS),
+        "run_budget": int(section.get("run_budget") or RUN_BUDGET),
         "exec_timeout": int(section.get("exec_timeout") or EXEC_TIMEOUT),
-        "file_root": str((get_hermes_home() / (section.get("file_root") or ".")).resolve()),
+        "hermes_bin": section.get("hermes_bin") or shutil.which("hermes") or "/usr/local/bin/hermes",
     }
+
+
+def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
+    """Write the worker's own Hermes home and return it.
+
+    Model calls go through the Hermes CLI with this home, never straight to
+    the provider. Its config.yaml carries Ultra with the output cap, the
+    parent's provider settings (credentials stay `${VAR}` references), and
+    the kakeratta MCP server restricted to READONLY_MCP_TOOLS. The parent's
+    skills, memory, cron jobs and sessions are not shared.
+    """
+    import yaml
+    main_cfg = main_cfg if isinstance(main_cfg, dict) else {}
+    whome = _work_root(home) / "hermes-home"
+    whome.mkdir(parents=True, exist_ok=True)
+    os.chmod(whome, 0o700)
+
+    model = dict(main_cfg["model"]) if isinstance(main_cfg.get("model"), dict) else {}
+    model.update({"default": cfg["model"], "provider": cfg["provider"], "max_tokens": cfg["max_tokens"]})
+    if cfg.get("base_url"):
+        model["base_url"] = cfg["base_url"]
+    if cfg.get("api_key_ref"):
+        model["api_key"] = cfg["api_key_ref"]
+
+    servers = main_cfg.get("mcp_servers") if isinstance(main_cfg.get("mcp_servers"), dict) else {}
+    mcp = dict(servers.get("kakeratta") or {
+        "url": url,
+        "headers": {k: v for k, v in (headers or {}).items() if k.lower() not in ("content-type", "accept")},
+    })
+    mcp["tools"] = {"include": list(READONLY_MCP_TOOLS), "prompts": False, "resources": False}
+
+    worker_cfg = {"model": model, "agent": {"max_turns": MAX_TOOL_ROUNDS}, "mcp_servers": {"kakeratta": mcp}}
+    if isinstance(main_cfg.get("providers"), dict):
+        worker_cfg["providers"] = main_cfg["providers"]
+    _atomic_write(whome / "config.yaml", yaml.safe_dump(worker_cfg, allow_unicode=True), mode=0o600)
+
+    # Credentials Hermes loads from .env stay in the parent's file.
+    env_file, link = home / ".env", whome / ".env"
+    if env_file.exists() and not link.is_symlink():
+        link.symlink_to(env_file)
+    return whome
 
 
 # --- MCP -----------------------------------------------------------------
@@ -226,10 +260,12 @@ def acquire_lock(home: Path):
     return f
 
 
-def _atomic_write(path: Path, text: str) -> None:
+def _atomic_write(path: Path, text: str, mode=None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")
+    if mode is not None:
+        os.chmod(tmp, mode)
     os.replace(tmp, path)
 
 
@@ -308,234 +344,37 @@ def redact(text, secrets=()):
     return out
 
 
-# --- read-only tools the generation model may call ----------------------
-
-def run_readonly_tool(name, arguments, ctx):
-    """Execute one read-only tool for the generation model and return its text,
-    with every known secret value masked."""
-    return redact(_run_readonly_tool(name, arguments, ctx), ctx.get("secrets") or ())
-
-
-def _run_readonly_tool(name, arguments, ctx):
-    url = ctx["url"]
-    headers = ctx["headers"]
-    if name in READONLY_MCP_TOOLS:
-        allowed = READONLY_MCP_TOOLS[name]
-        filtered = {k: v for k, v in (arguments or {}).items() if k in allowed}
-        try:
-            result = mcp_call(url, headers, name, filtered, timeout=MCP_TIMEOUT)
-            return json.dumps(result, ensure_ascii=False)
-        except Exception as e:
-            return json.dumps({"error": str(e)}, ensure_ascii=False)
-    if name == "read_local_file":
-        return read_local_file(arguments or {}, ctx)
-    if name == "web_search":
-        return web_search(arguments or {}, ctx)
-    if name == "web_fetch":
-        return web_fetch(arguments or {}, ctx)
-    return json.dumps({"error": f"unknown or forbidden tool: {name}"}, ensure_ascii=False)
-
-
-# Files the model may not read even under the allowed root: credentials,
-# provider and MCP configuration, keys, and the worker's own records.
-_DENY_PART = re.compile(
-    r"(?i)^(\.env(\..*)?|.*\.env|config\.ya?ml|\.ssh|\.gnupg|\.netrc|id_(rsa|dsa|ecdsa|ed25519).*|"
-    r".*\.(pem|key|p12|pfx)|.*(secret|token|credential|password|auth).*)$")
-
-
-def read_local_file(args, ctx):
-    path = args.get("path")
-    if not isinstance(path, str) or not path:
-        return json.dumps({"error": "path is required"}, ensure_ascii=False)
-    root = Path(ctx.get("file_root") or get_hermes_home()).resolve()
-    try:
-        target = (root / path).resolve()
-    except Exception:
-        return json.dumps({"error": "invalid path"}, ensure_ascii=False)
-    if target != root and root not in target.parents:
-        return json.dumps({"error": "path escapes the allowed root"}, ensure_ascii=False)
-    rel = target.relative_to(root).parts
-    if any(_DENY_PART.match(part) for part in rel) or (rel and rel[0] == "kakeratta"):
-        return json.dumps({"error": "this file may not be read"}, ensure_ascii=False)
-    if not target.is_file():
-        return json.dumps({"error": "not a file"}, ensure_ascii=False)
-    try:
-        data = target.read_bytes()
-    except Exception as e:
-        return json.dumps({"error": f"read failed: {e}"}, ensure_ascii=False)
-    if len(data) > WEB_MAX_BYTES:
-        return json.dumps({"error": "file too large"}, ensure_ascii=False)
-    try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError:
-        text = data.decode("utf-8", errors="replace")
-    return text[:WEB_TEXT_CAP]
-
-
-def web_search(args, ctx):
-    query = (args.get("query") or "").strip()
-    if not query:
-        return json.dumps({"error": "query is required"}, ensure_ascii=False)
-    tavily = os.environ.get("TAVILY_API_KEY")
-    if tavily:
-        return _tavily_search(query, tavily)
-    return _duckduckgo_search(query)
-
-
-def _tavily_search(query, key):
-    import urllib.parse
-    url = "https://api.tavily.com/search"
-    payload = json.dumps({
-        "query": query, "max_results": 6,
-        "search_depth": "basic", "include_answer": True,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=payload,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=WEB_TIMEOUT) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    rows = []
-    if data.get("answer"):
-        rows.append({"title": "answer", "snippet": data["answer"], "url": ""})
-    for r in data.get("results", []):
-        rows.append({"title": r.get("title", ""), "url": r.get("url", ""),
-                     "snippet": r.get("content", "")[:500]})
-    return json.dumps(rows, ensure_ascii=False)
-
-
-def _duckduckgo_search(query):
-    import urllib.parse
-    import html as htmlmod
-    url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(query)
-    req = urllib.request.Request(url, headers={"User-Agent": "kakeratta-direct-request-worker/1.0"})
-    with urllib.request.urlopen(req, timeout=WEB_TIMEOUT) as resp:
-        page = resp.read(WEB_MAX_BYTES).decode("utf-8", errors="replace")
-    results = []
-    for m in re.finditer(
-            r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', page, re.DOTALL):
-        link = htmlmod.unescape(m.group(1))
-        title = htmlmod.unescape(re.sub(r"<[^>]+>", "", m.group(2))).strip()
-        results.append({"title": title, "url": link, "snippet": ""})
-        if len(results) >= 6:
-            break
-    snippets = [
-        htmlmod.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()
-        for m in re.finditer(r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>', page, re.DOTALL)
-    ]
-    for i, snippet in enumerate(snippets):
-        if i < len(results):
-            results[i]["snippet"] = snippet[:500]
-    if not results:
-        return json.dumps({"error": "no search results"}, ensure_ascii=False)
-    return json.dumps(results[:6], ensure_ascii=False)
-
-
-def web_fetch(args, ctx):
-    url = (args.get("url") or "").strip()
-    if not re.match(r"^https?://", url):
-        return json.dumps({"error": "only http(s) URLs are allowed"}, ensure_ascii=False)
-    req = urllib.request.Request(url, headers={"User-Agent": "kakeratta-direct-request-worker/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=WEB_TIMEOUT) as resp:
-            raw = resp.read(WEB_MAX_BYTES)
-    except Exception as e:
-        return json.dumps({"error": f"fetch failed: {redact(e)}"}, ensure_ascii=False)
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        text = raw.decode("utf-8", errors="replace")
-    # Crude tag stripping to give the model readable text.
-    text = re.sub(r"(?is)<script.*?</script>|<style.*?</style>", " ", text)
-    text = re.sub(r"(?s)<[^>]+>", " ", text)
-    import html as htmlmod
-    text = htmlmod.unescape(re.sub(r"\s+", " ", text)).strip()
-    return text[:WEB_TEXT_CAP]
-
-
-# --- Token Factory chat --------------------------------------------------
+# --- Hermes runs ---------------------------------------------------------
 
 class InvalidOutput(ValueError):
     """The model answered, but not with a usable result: unparsable or
-    truncated JSON, a wrong envelope, or too many tool rounds. It counts as a
-    rejection and goes to correction, unlike a provider or network failure."""
+    truncated JSON, or a wrong envelope. It counts as a rejection and goes to
+    correction, unlike a Hermes, provider or network failure."""
 
 
-def chat(cfg, messages, tools=None, temperature=0.2):
-    """One chat-completions call; returns the first choice (message and finish_reason)."""
-    api_key = cfg.get("api_key") or ""
-    if not api_key:
-        raise RuntimeError("Token Factory API key is not available")
-    body = {
-        "model": cfg["model"],
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": cfg.get("max_tokens", DEFAULT_MAX_TOKENS),
-    }
-    if tools:
-        body["tools"] = tools
+def hermes_run(cfg, prompt, toolsets):
+    """One fresh, single-query Hermes CLI session with the worker's home.
+
+    Returns (final response text, session id). Each call is its own session,
+    so generation and review never share one. A failed run raises.
+    """
+    cmd = [cfg["hermes_bin"], "chat", "-Q", "--ignore-rules",
+           "--provider", cfg["provider"], "-m", cfg["model"], "-t", toolsets,
+           "--max-turns", str(MAX_TOOL_ROUNDS), "--run-budget", str(cfg["run_budget"]),
+           "--query-file", "-"]
     if cfg.get("reasoning"):
-        body["reasoning_effort"] = cfg["reasoning"]
-    url = cfg["base_url"] + "/chat/completions"
-    req = urllib.request.Request(
-        url, data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    if "error" in data:
-        raise RuntimeError(data["error"].get("message", "provider error"))
-    choices = data.get("choices") or []
-    if not choices:
-        raise RuntimeError("provider returned no choices")
-    return choices[0]
-
-
-def _tool_schemas():
-    """OpenAI-style tool definitions exposed to the generation model (read-only)."""
-    tools = []
-    for name, props in READONLY_MCP_TOOLS.items():
-        properties = {p: {"type": "string"} for p in props}
-        if name == "list_personas":
-            properties = {}
-        tools.append({
-            "type": "function",
-            "function": {
-                "name": name,
-                "description": f"Read-only kakeratta lookup: {name}.",
-                "parameters": {"type": "object", "properties": properties},
-            },
-        })
-    tools.append({
-        "type": "function",
-        "function": {
-            "name": "read_local_file",
-            "description": "Read a file under the agent's home directory (read-only).",
-            "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
-                           "required": ["path"]},
-        },
-    })
-    tools.append({
-        "type": "function",
-        "function": {
-            "name": "web_search",
-            "description": "Search the web for current information.",
-            "parameters": {"type": "object", "properties": {"query": {"type": "string"}},
-                           "required": ["query"]},
-        },
-    })
-    tools.append({
-        "type": "function",
-        "function": {
-            "name": "web_fetch",
-            "description": "Fetch a web page and return its text.",
-            "parameters": {"type": "object", "properties": {"url": {"type": "string"}},
-                           "required": ["url"]},
-        },
-    })
-    return tools
+        cmd += ["--reasoning", cfg["reasoning"]]
+    env = dict(os.environ, HERMES_HOME=str(cfg["worker_home"]))
+    try:
+        proc = subprocess.run(cmd, input=prompt, env=env, cwd=str(cfg["worker_home"]),
+                              capture_output=True, text=True, timeout=cfg["run_budget"] + 120)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"hermes chat exceeded {cfg['run_budget'] + 120} seconds")
+    m = re.search(r"session_id:\s*(\S+)", proc.stderr + "\n" + proc.stdout)
+    session = m.group(1) if m else None
+    if proc.returncode != 0:
+        raise RuntimeError(f"hermes chat exited with {proc.returncode}: {proc.stderr.strip()[-300:]}")
+    return proc.stdout, session
 
 
 # --- prompts -------------------------------------------------------------
@@ -559,7 +398,7 @@ def _context_text(context):
     return "\n\n".join(parts)
 
 
-GENERATION_SYSTEM = """You answer a request a user addressed directly to an external agent. You may use only the read-only tools provided (kakeratta lookups, local file reads, web search and web fetch). You cannot write files, run commands, run code, send anything, post, or change any state.
+GENERATION_SYSTEM = """You answer a request a user addressed directly to an external agent. You may use only the read-only tools this session provides: web search and web extract, and kakeratta lookups (find them with tool_search and call them with tool_call: get_timeline, get_thread, search_timeline, list_schedules, list_personas, list_notes, read_note). You cannot write files, run commands, run code, send anything, post, or change any state.
 
 Return ONLY a JSON object (no Markdown, no commentary) of exactly this shape:
 
@@ -577,8 +416,8 @@ Rules:
 """
 
 
-def _generation_user(context, problems, previous):
-    text = _context_text(context)
+def _generation_prompt(context, problems, previous):
+    text = GENERATION_SYSTEM + "\n\n" + _context_text(context)
     if problems:
         if previous:
             text += "\n\nYour previous candidate, in full:\n" + previous
@@ -588,7 +427,7 @@ def _generation_user(context, problems, previous):
     return text
 
 
-REVIEW_SYSTEM = """You independently review a candidate produced for a user's direct request. You did not create it. Judge it against the original request and every constraint.
+REVIEW_SYSTEM = """You independently review a candidate produced for a user's direct request. You did not create it. Judge it against the original request and every constraint. You may use web search to check facts; you cannot change anything.
 
 Check:
 1. It satisfies the request and every constraint.
@@ -607,36 +446,34 @@ Return ONLY a JSON object of exactly this shape:
 """
 
 
-def _review_user(context, candidate, sha):
-    return ("Original request context:\n" + _context_text(context)
+def _review_prompt(context, candidate, sha):
+    return (REVIEW_SYSTEM + "\n\nOriginal request context:\n" + _context_text(context)
             + "\n\nCandidate under review:\n" + candidate
             + "\n\ncandidate_sha256 (copy exactly): " + sha)
 
 
 # --- JSON envelope helpers ----------------------------------------------
 
-def _parse_json(text):
-    if not text:
+def _answer(text):
+    """The JSON object in a run's final response, or InvalidOutput.
+
+    Hermes may print notices before the response; the object is taken from
+    the first `{` to the last `}`. A response cut off at the output limit is
+    not valid JSON and so is rejected here."""
+    cleaned = (text or "").strip()
+    if not cleaned:
         raise InvalidOutput("empty model response")
-    cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned)
     try:
-        return json.loads(cleaned)
+        value = json.loads(cleaned)
     except json.JSONDecodeError:
         m = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if not m:
-            raise InvalidOutput("the response was not JSON")
+            raise InvalidOutput("the response was not JSON (it may have been cut off)")
         try:
-            return json.loads(m.group(0))
+            value = json.loads(m.group(0))
         except json.JSONDecodeError as e:
-            raise InvalidOutput(f"the response was not valid JSON: {e}")
-
-
-def _answer(choice):
-    """The final JSON object of a choice, or InvalidOutput."""
-    if choice.get("finish_reason") == "length":
-        raise InvalidOutput("the response was cut off at the output token limit")
-    value = _parse_json((choice.get("message") or {}).get("content") or "")
+            raise InvalidOutput(f"the response was not valid JSON (it may have been cut off): {e}")
     if not isinstance(value, dict):
         raise InvalidOutput("the response was not a JSON object")
     return value
@@ -666,59 +503,36 @@ def sha256_of(text):
 
 # --- generation and review ----------------------------------------------
 
-def generate(cfg, ctx, context, problems, previous):
-    """A fresh generation (or correction) request; returns the JSON envelope.
+def generate(cfg, context, problems, previous):
+    """A fresh generation (or correction) session; returns (envelope, session).
 
-    Provider and network failures raise as they are; a response the worker
-    cannot use raises InvalidOutput."""
-    messages = [
-        {"role": "system", "content": GENERATION_SYSTEM},
-        {"role": "user", "content": _generation_user(context, problems, previous)},
-    ]
-    tools = _tool_schemas()
-    for _ in range(MAX_TOOL_ROUNDS):
-        choice = chat(cfg, messages, tools=tools)
-        msg = choice.get("message") or {}
-        tool_calls = msg.get("tool_calls") or []
-        if not tool_calls:
-            return _answer(choice)
-        messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": tool_calls})
-        for call in tool_calls:
-            fn = call.get("function") or {}
-            name = fn.get("name", "")
-            try:
-                args = json.loads(fn.get("arguments") or "{}")
-            except json.JSONDecodeError:
-                args = {}
-            result = run_readonly_tool(name, args, ctx)
-            messages.append({
-                "role": "tool",
-                "tool_call_id": call.get("id", ""),
-                "content": result,
-            })
-    raise InvalidOutput(f"more than {MAX_TOOL_ROUNDS} tool-call rounds without a final answer")
+    A Hermes failure raises as it is; a response the worker cannot use raises
+    InvalidOutput."""
+    text, session = hermes_run(cfg, _generation_prompt(context, problems, previous), GENERATION_TOOLSETS)
+    try:
+        return _answer(text), session
+    except InvalidOutput as e:
+        e.session, e.tail = session, text[-RESPONSE_TAIL:]
+        raise
 
 
 def review(cfg, context, envelope, sha):
+    """A separate review session; an unusable verdict is a rejection."""
     candidate, _ = candidate_of(envelope)
-    messages = [
-        {"role": "system", "content": REVIEW_SYSTEM},
-        {"role": "user", "content": _review_user(context, candidate, sha)},
-    ]
+    text, session = hermes_run(cfg, _review_prompt(context, candidate, sha), REVIEW_TOOLSETS)
     try:
-        verdict = _answer(chat(cfg, messages, tools=None, temperature=0.0))
+        verdict = _answer(text)
     except InvalidOutput as e:
-        # An unusable verdict is a rejection, never an acceptance.
-        return {"accepted": False, "problems": [f"the reviewer's verdict was unusable: {e}"], "echoed_sha": None}
-    accepted = verdict.get("accepted") is True
+        return {"accepted": False, "problems": [f"the reviewer's verdict was unusable: {e}"],
+                "echoed_sha": None, "session": session, "tail": text[-RESPONSE_TAIL:]}
     problems = verdict.get("problems")
     if not isinstance(problems, list):
         problems = []
-    problems = [str(p) for p in problems]
     return {
-        "accepted": accepted and verdict.get("candidate_sha256") == sha,
-        "problems": problems,
+        "accepted": verdict.get("accepted") is True and verdict.get("candidate_sha256") == sha,
+        "problems": [str(p) for p in problems],
         "echoed_sha": verdict.get("candidate_sha256"),
+        "session": session,
     }
 
 
@@ -848,7 +662,7 @@ def process_one(url, headers, request, cfg, home):
     save_state(home, request_id, {"stage": "claimed", "resumes": resumes})
     context = claimed.get("context") or {}
     audit(home, request_id, "resumed" if resuming else "claimed", {
-        "claim_id": claim_id, "model": cfg["model"], "provider": cfg["base_url"],
+        "claim_id": claim_id, "model": cfg["model"], "provider": "hermes-cli/" + cfg["provider"],
         "reasoning": cfg["reasoning"] or None, "resume": resumes,
     })
 
@@ -881,33 +695,36 @@ def process_one(url, headers, request, cfg, home):
 
 
 def _run_generate_review_loop(cfg, url, headers, context, request_id, home, claim_id):
-    ctx = {"url": url, "headers": headers, "secrets": cfg["secrets"],
-           "file_root": cfg.get("file_root")}
     problems = []
     previous = None
     corrections = 0
     while True:
         attempt = corrections + 1
         stage = "generation" if corrections == 0 else "correction"
+        session = None
         try:
-            envelope = generate(cfg, ctx, context, problems, previous)
+            envelope, session = generate(cfg, context, problems, previous)
             candidate, kind = candidate_of(envelope)
         except InvalidOutput as e:
             # An unusable answer is a rejection, corrected like any other.
             problems = [str(e)]
-            audit(home, request_id, stage + "_invalid",
-                  {"attempt": attempt, "error": redact(e, cfg["secrets"])})
+            audit(home, request_id, stage + "_invalid", {
+                "attempt": attempt, "session": getattr(e, "session", session),
+                "error": redact(e, cfg["secrets"]),
+                "response_tail": redact(getattr(e, "tail", ""), cfg["secrets"]),
+            })
         else:
             previous = json.dumps(envelope, ensure_ascii=False)
             sha = sha256_of(candidate)
             audit(home, request_id, stage, {
-                "attempt": attempt, "kind": kind,
+                "attempt": attempt, "session": session, "kind": kind,
                 "candidate_sha256": sha, "candidate_chars": len(candidate),
             })
             verdict = review(cfg, context, envelope, sha)
             audit(home, request_id, "review", {
-                "attempt": attempt, "accepted": verdict["accepted"],
-                "problems": verdict["problems"],
+                "attempt": attempt, "session": verdict.get("session"),
+                "accepted": verdict["accepted"], "problems": verdict["problems"],
+                **({"response_tail": redact(verdict["tail"], cfg["secrets"])} if verdict.get("tail") else {}),
             })
             if verdict["accepted"]:
                 break
@@ -954,13 +771,15 @@ def process(url, headers, requests, cfg=None, home=None):
     independently and errors are audited, never raised. Only one worker runs
     at a time; an overlapping tick returns at once."""
     home = home or get_hermes_home()
-    cfg = cfg or model_config(read_config(home))
+    main_cfg = read_config(home)
+    cfg = cfg or model_config(main_cfg)
     cfg["secrets"] = secret_values(cfg, headers)
     lock = acquire_lock(home)
     if lock is None:
         print("kakeratta direct-request worker: another run is in progress; skipping", file=sys.stderr)
         return
     try:
+        cfg["worker_home"] = prepare_worker_home(home, main_cfg, cfg, url, headers)
         for request in sorted(requests, key=lambda r: r.get("id", "")):
             rid = request.get("id")
             if not rid or request.get("status") not in ("pending", "claimed"):
