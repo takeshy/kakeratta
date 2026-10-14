@@ -522,7 +522,7 @@ const EN = {
     "種別": "Type", "なし": "None",
   "Web検索の接続確認": "Check web search connection", "Web検索に接続できました": "Web search connected",
   "Tavily APIキー": "Tavily API key",
-  "Tavilyは毎月1,000クレジットまで無料で使えます。クレジットカードの登録は不要です。": "Tavily offers 1,000 free credits each month. No credit card required.",
+  "Tavilyは毎月1,000クレジットまで無料で使えます。登録にはクレジットカードが必要です。": "Tavily offers 1,000 free credits each month. A credit card is required to sign up.",
   "Web検索に使います。AIモデルのAPIキーとは別です。Web検索を使用しない場合は空欄にしてください": "Used for web search. This is separate from the AI model API key. Leave it blank if you do not use web search.",
   "最初にAI接続を設定してください。設定が完了するまでこの画面は閉じられません。": "Set up an AI connection first. This screen cannot be closed until setup is complete.",
   "実行場所": "Provider", "サーバー": "Server", "エンドポイント": "Endpoint", "APIキー": "API key",

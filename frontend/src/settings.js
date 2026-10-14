@@ -260,7 +260,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     });
     view.append(
       el("h3", { label: "Web検索" }),
-      el("p", { class: "hint", label: "Tavilyは毎月1,000クレジットまで無料で使えます。クレジットカードの登録は不要です。" }),
+      el("p", { class: "hint", label: "Tavilyは毎月1,000クレジットまで無料で使えます。登録にはクレジットカードが必要です。" }),
       el("a", { href: "https://app.tavily.com", target: "_blank", rel: "noopener noreferrer", text: t("APIキーを取得") }),
       apiKey,
       el("div", { class: "compose-row" }, check),
