@@ -1553,17 +1553,17 @@ an ask.
 @agent post (or a reply to the agent)
 -> saved in requests (pending, claimBy two hours later)
 -> Wake Gate: list_asks -> direct-request worker (not the parent model)
--> worker: claim_request -> Ultra generation (read-only tools) -> separate Ultra review
-   -> up to two corrections -> deliverable: reply_request; operation: run once, reply_request
+-> worker: claim_request -> one Ultra Hermes agent run with the worker's tools
+   -> reply_request with the run's final response
 -> the reply is posted in the conversation, the request ends
 ```
 
 * **Handled by the worker**: the Wake Gate runs the distributed
   `direct_request_worker.py` for each pending request and wakes the parent
-  model only for persona asks. The worker claims, generates with one Ultra
-  request (read-only tools only), reviews with a separate Ultra request,
-  corrects at most twice, and replies with the accepted artifact, or runs an
-  accepted operation Python exactly once after a hash match.
+  model only for persona asks. The worker claims in code, runs Ultra once
+  as an ordinary Hermes agent with the worker's tools (read-only by default;
+  action tools are added through Hermes configuration), and replies with the
+  agent's final response. There is no review step.
 * **Deadlines and notices**: past either deadline, kakeratta says so in the
   conversation; nothing answers in the agent's place. A request that ran out
   after the claim is kept for a day and still takes a late reply, so the result

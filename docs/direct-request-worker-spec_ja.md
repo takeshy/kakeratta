@@ -162,7 +162,7 @@ Reviewerは機械可読なJSONを返す。
 
 2026-10-13の費用分析を受け、1依頼あたりの費用をコードで制限する。
 
-- 1回の `hermes chat` 内のツール反復は、生成・修正で最大10回、Reviewで最大4回とする（`generation_max_turns`、`review_max_turns` で変更可）。
+- 1回の `hermes chat` 内のツール反復は最大15回とする（`max_turns` で変更可）。
 - 各実行の終了後、ワーカー用Hermes homeの `state.db`（`sessions` テーブル）からそのセッションの使用量を読み、監査履歴と `kakeratta/state/usage/{requestId}.json` へ累計する。累計は再開をまたいで引き継ぐ。
 - 実行の前後で累計を上限と比べる。既定はAPI呼出し40回、トークン1,500,000（通常入力＋キャッシュ読取り・書込み＋出力。reasoningは出力の内訳なので加算しない）。`max_api_calls`、`max_request_tokens` で変更可。
 - 上限に達した場合、または使用量を読めない場合（セッションID不明、タイムアウト、行やテーブルの欠落）はfail-closedする。その実行の結果は捨て、以後のモデル呼出しと操作の実行を行わず、再開もせず、上限と理由を `reply_request` で返す。
@@ -185,7 +185,9 @@ Reviewerは機械可読なJSONを返す。
 - 監査状態と実行済み記録はHermes home配下へアトミック保存する。
 - Token Factory呼び出しは既存のProvider v2認証を使い、キーを設定ファイルやログへ展開しない。
   - 実装: ワーカーはProviderへ直接リクエストせず、専用Hermes home（`kakeratta/hermes-home`）で単発の `hermes chat` を起動する。そのconfigはkakeratta MCPを読み取り専用ツールに限定（`tools.include`）し、ワーカー自身の読み取り専用ファイルMCPを加え、`max_tokens` は16000（推論込み。コスト抑制のため。超えた出力は途中で切れ、修正に回る）。
-  - 成果物と、その保存などの副作用を同時に求める依頼は、`deliverable` に `program` を添える。programはReview合格後に1回だけ実行し、成果物は環境変数 `KAKERATTA_DELIVERABLE` のファイルから読む。返信は成果物そのもの。
+  - **Review・修正・Python実行は採用しない**（実地試験の結果、方針を変更）。ワーカーはコードで取得し、Ultraを通常のHermesエージェントとして1回実行して、その最終応答をそのまま返信する。操作はエージェントが道具を使ってその場で行うため、Review前の承認はない。
+  - 道具は既定で読み取り専用（`web,kakeratta,files`）。操作の道具は `kakeratta_worker.toolsets` と、親の設定から名前で取り込む `kakeratta_worker.mcp_servers` で、Hermesの通常の方法で追加する。
+  - 操作の道具を設定している場合、失敗・中断した実行は操作済みの可能性があるため再実行せず、その旨を返信する。読み取り専用の場合だけ最大2回再実行する。
 
 ## 受入条件
 
