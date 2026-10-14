@@ -165,6 +165,27 @@ A post naming the agent itself - `@外部エージェント`, `@エージェン�
 
 `list_asks` lists open requests under `requests`. The Wake Gate hands each pending request to the distributed direct-request worker (and each claimed one it left unfinished, which it resumes with the same `claimId`; one worker runs at a time), which claims it with `claim_request` (`requestId`, a stable `claimId`), receives its `replyBy` and the whole thread, runs Ultra once as an ordinary Hermes agent with the worker's tools (read-only by default), and then posts one reply with `reply_request` (`requestId`, `claimId`, `text`) - the agent's final response. The parent model is never woken for a direct request. The reply appears under the request as the speaker `agent`. To read Kakeratta the worker has the read-only MCP reads (`get_timeline`, `get_thread`, `search_timeline`, `list_schedules` and the notes tools); the request mechanism also exposes `comment_on_entry` for replying under another entry. No persona is woken by these comments, and the user replying to one asks the agent again. A request not claimed by `claimBy` (two hours after the request), or not replied to by `replyBy` (two hours after the claim), gets a notice from Kakeratta in the thread; there is no built-in fallback. A request that ran out after being claimed is kept for a day as expired, so the agent's late reply - after an operation it already ran, for example - is still posted. Editing a request that is still unclaimed updates it; editing one already claimed sends nothing and Kakeratta replies "処理中のため編集は反映されません。返信で伝えてください。". Switching the agent off or changing the connection withdraws open requests with a notice. The timeline marks a post waiting for the agent or being worked on, and the agent's reply, or the notice that none is coming, is pushed to devices with push notifications unless the 🔔 beside that post's badge was turned off for the request.
 
+#### Direct-request worker settings
+
+The worker runs Ultra in its own Hermes home (`~/.hermes/kakeratta/hermes-home`), which it rewrites from your `config.yaml` before each batch. The model, provider, endpoint and key reference come from a `kakeratta_worker` section if present, otherwise from `delegation`; the parent's `model` (Super) is never used. Without any extra settings the agent has read-only tools: web search/extract, Kakeratta's read-only MCP reads and read-only local file reads under your home (dotfiles and secret-looking names refused).
+
+```yaml
+kakeratta_worker:            # optional; falls back to delegation
+  model: nvidia/Nemotron-3-Ultra-550b-a55b
+  provider: custom
+  base_url: https://api.tokenfactory.nebius.com/v1
+  api_key: ${TOKENFACTORY_API_KEY}
+  reasoning_effort: high
+  max_tokens: 16000          # output cap per model call, reasoning included
+  max_turns: 15              # tool-calling iterations in the run
+  toolsets: "web,kakeratta,files"
+  mcp_servers: []            # names of servers from mcp_servers above to give the agent
+  max_api_calls: 40          # per request
+  max_request_tokens: 1500000
+```
+
+To let the agent act (send mail, for example), name the MCP server that provides the action in `mcp_servers`, or add a toolset to `toolsets`. There is no review step: the agent uses those tools during the run. With action tools configured, a run that fails or is interrupted is reported and never repeated, since it may already have acted. The audit log of each request is in `~/.hermes/kakeratta/audit/<requestId>.jsonl`.
+
 ### Agent is away
 
 Before opening an ask, Kakeratta checks whether the agent is present. This uses the same duration as the claim wait, measured from the last authenticated MCP call, rather than from an ask opening. If the agent is away, no ask is opened and the built-in model plans immediately.

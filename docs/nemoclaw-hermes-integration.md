@@ -95,6 +95,8 @@ hermes cron list
 
 Verify the paths independently: a normal Hermes API turn on Super; one `delegate_task` child on Ultra; an OpenShell audit entry allowing Token Factory `/v1/chat/completions` through `_provider_tokenfactory_v2`; and a real kakeratta direct request completing `list_asks` → `claim_request` → inference → `reply_request`. The following idle tick must return `wakeAgent=false`. After switching, confirm Super in the parent log and Ultra in the `platform=subagent` log, and explicitly pin the kakeratta cron job to Super. In this arrangement, the parent is the lightweight intake and routing layer, while high-complexity work is delegated to Ultra.
 
+> **Since 2026-10-14**, direct requests no longer go through the parent: the Wake Gate runs the distributed direct-request worker, which claims in code, runs Ultra once as a Hermes agent in its own Hermes home (model settings from `kakeratta_worker`, else `delegation`), and replies in code. The parent Super handles persona asks only. See [Direct requests](hermes.md#direct-requests).
+
 ### Temporarily connecting to a local demo server
 
 `0.0.0.0` is a server bind address, not a client destination. Configure a LAN address or another address reachable from the sandbox:

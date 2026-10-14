@@ -148,6 +148,27 @@ list_asks → claim_ask → コンテキスト解釈 → read_for_ask・自前�
 
 `list_asks` は開いている依頼を `requests` に載せます。Wake Gate は保留中の直接依頼を配布済みの直接依頼ワーカーに渡します（ワーカーが取得したまま終えられなかった依頼も渡し、同じ `claimId` で再開します。ワーカーは同時に1つだけ動きます）。ワーカーは `claim_request`（`requestId`・安定した `claimId`）で取得して `replyBy`（取得から2時間）とスレッド全体を受け取り、ワーカーの道具（既定は読み取り専用）を持つ通常の Hermes エージェントとして Ultra を1回実行し、その最終応答を `reply_request`（`requestId`・`claimId`・`text`）で1回返信します。親モデルは直接依頼では起動しません。返信は話者 `agent` として依頼の下に表示されます。ワーカーは `get_timeline`・`get_thread`・`search_timeline`・`list_schedules`・記憶の参照ツール（いずれも読み取り専用）で kakeratta を読めます。依頼の仕組みには `comment_on_entry`（ほかの投稿の下への返信）もあります。この返信で担当は起きません。ユーザーがそれに返信すると、外部エージェントへの次の依頼になります。`claimBy`（依頼から2時間）までに取得されない、または `replyBy`（取得から2時間）までに返信がない依頼は、kakeratta の通知をスレッドに残します。内蔵モデルへのフォールスルーはありません。取得後に期限を過ぎた依頼は1日のあいだ期限切れとして残し、操作実行などのあとで遅れて届いた返信も投稿します。未取得の依頼を編集すると、その依頼が更新されます。取得済みの依頼を編集した場合は新しい依頼を作らず、「処理中のため編集は反映されません。返信で伝えてください。」と返信します。外部エージェントをOFFにするか接続を変えると、開いている依頼は通知付きで取り下げます。タイムラインでは依頼中・処理中の投稿に表示が付きます。エージェントの返信と、依頼が受け取られなかった通知はプッシュ通知します。依頼ごとに、表示の横の🔔で通知しないように切り替えられます。
 
+#### 直接依頼ワーカーの設定
+
+ワーカーは専用の Hermes home（`~/.hermes/kakeratta/hermes-home`）で Ultra を動かします。この home は、処理のたびに `config.yaml` から作り直されます。モデル・プロバイダー・接続先・キーの参照は `kakeratta_worker` セクションがあればそこから、なければ `delegation` から取ります。親の `model`（Super）は使いません。追加の設定がなければ、エージェントの道具は読み取り専用です（Web 検索・取得、kakeratta の読み取り専用 MCP、ホーム配下のローカルファイルの読み取り。ドットファイルや秘密情報らしい名前は読めません）。
+
+```yaml
+kakeratta_worker:            # 省略可。なければ delegation を使う
+  model: nvidia/Nemotron-3-Ultra-550b-a55b
+  provider: custom
+  base_url: https://api.tokenfactory.nebius.com/v1
+  api_key: ${TOKENFACTORY_API_KEY}
+  reasoning_effort: high
+  max_tokens: 16000          # 1回のモデル呼び出しの出力上限（推論込み）
+  max_turns: 15              # 1回の実行でのツール呼び出しの上限
+  toolsets: "web,kakeratta,files"
+  mcp_servers: []            # エージェントに渡す MCP サーバー（上の mcp_servers の名前）
+  max_api_calls: 40          # 1依頼あたり
+  max_request_tokens: 1500000
+```
+
+エージェントに操作（メール送信など）をさせるには、その操作を提供する MCP サーバーの名前を `mcp_servers` に書くか、`toolsets` にツールセットを足します。Review の段階はなく、エージェントは実行中にその道具を使います。操作の道具を設定している場合、失敗・中断した実行はすでに操作した可能性があるため、再実行せずにその旨を返信します。依頼ごとの監査ログは `~/.hermes/kakeratta/audit/<依頼ID>.jsonl` にあります。
+
 ### 待ち時間とフォールスルー
 
 ask を出したあとは、次の条件で内蔵モデルがそのターンを引き取ります。
