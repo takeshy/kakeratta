@@ -19,6 +19,33 @@ kakerattaの直接依頼を、親モデルの判断に依存せずコードで�
 
 自然言語のSkillとrole指定だけでは役割分離を強制できない。
 
+## 2026-10-13 Token Factory費用分析
+
+2026-10-13の検証では、Token Factoryの日次表示が約10 USDまで増加した。これはUltraを選択したこと単独ではなく、コードで役割分離する前のHermes cronが、1件の依頼中に親Superと子モデルを反復して呼び出し、増え続ける会話・tool結果を毎回再送したことが主因である。
+
+Token Factoryの日次境界に合わせた2026-10-13 00:00–24:00 UTCのHermes `session_model_usage` 集計は次のとおりだった。`input_tokens`はキャッシュ読取りを含まないため、`cache_read_tokens`を別列にした。`reasoning_tokens`も別の内訳として記録される。
+
+| モデル | API呼出し | 通常入力 | キャッシュ読取り | 出力 | Reasoning |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Nemotron 3 Super | 410 | 11,570,430 | 552,704 | 259,191 | 137,997 |
+| Nemotron 3 Ultra | 172 | 1,111,321 | 2,968,064 | 202,158 | 19,507 |
+| Hermes 4 405B | 12 | 45,441 | 177,376 | 1,735 | 0 |
+| **合計** | **594** | **12,727,192** | **3,698,144** | **463,084** | **157,504** |
+
+当時のToken Factory単価を各内訳へ適用した概算は約9 USDであり、Provider表示の「10 USD近く」と整合する。Hermes DBの `estimated_cost_usd` と `actual_cost_usd` はこのProviderについて0、`cost_status=unknown`だったため、USD値はDBの費用列ではなくモデル別token集計とProvider単価から復元した概算である。税、丸め、Provider側の集計規則により請求表示とは差が生じ得る。
+
+日本時間の「昨日」（2026-10-13 00:00–24:00 JST）では462呼出しだった。一方、Providerの日次表示と同じUTC範囲では594呼出しになった。日次費用を照合するときは、必ずProviderのタイムゾーンを確認する。
+
+費用の大きかった単一Superセッションは34回・31回・28回のAPI呼出しを行い、それぞれ通常入力約1.43M・1.35M・1.27M tokensを消費した。Reasoningの追加分は全体の一部にすぎず、主要因は多数回の推論と、各回で拡大した入力contextの再送だった。
+
+この結果から、直接依頼では次を実装上の費用境界とする。
+
+- Superを起動せず、取得、claim、生成、Review、実行、replyをコードの状態機械で進める。
+- 生成1回、Review最大3回、修正最大2回という有限回数をコードで強制し、LLM自身にloop継続を判断させない。
+- 各LLM呼出しについてモデル、段階、入出力、cache、reasoning token、依頼IDを監査履歴へ記録する。
+- 1依頼の呼出し数またはtoken量が設定上限を超えたらfail-closedし、未実行のまま理由を返す。
+- idle tickではWake Gateだけを実行し、LLMを呼ばない。
+
 ## 適用範囲
 
 - `list_asks.requests` の `status: "pending"` にだけ適用する。
@@ -157,7 +184,7 @@ Reviewerは機械可読なJSONを返す。
 - Gateの配布バージョンを更新し、`get_integration`でSkill、Gate、Workerを同期できるようサーバーのintegration bundleを拡張する。
 - 監査状態と実行済み記録はHermes home配下へアトミック保存する。
 - Token Factory呼び出しは既存のProvider v2認証を使い、キーを設定ファイルやログへ展開しない。
-  - 実装: ワーカーはProviderへ直接リクエストせず、専用Hermes home（`kakeratta/hermes-home`）で単発の `hermes chat` を起動する。そのconfigはkakeratta MCPを読み取り専用ツールに限定（`tools.include`）し、ワーカー自身の読み取り専用ファイルMCPを加え、`max_tokens` は64000。
+  - 実装: ワーカーはProviderへ直接リクエストせず、専用Hermes home（`kakeratta/hermes-home`）で単発の `hermes chat` を起動する。そのconfigはkakeratta MCPを読み取り専用ツールに限定（`tools.include`）し、ワーカー自身の読み取り専用ファイルMCPを加え、`max_tokens` は16000（推論込み。コスト抑制のため。超えた出力は途中で切れ、修正に回る）。
   - 成果物と、その保存などの副作用を同時に求める依頼は、`deliverable` に `program` を添える。programはReview合格後に1回だけ実行し、成果物は環境変数 `KAKERATTA_DELIVERABLE` のファイルから読む。返信は成果物そのもの。
 
 ## 受入条件
