@@ -21,11 +21,16 @@ Safety:
 
 * Every model call is a fresh single-query `hermes chat` session run with
   the worker's own Hermes home (kakeratta/hermes-home), never a direct
-  provider request. That home loads only kakeratta's read-only MCP tools, and
-  each run enables only the `web` toolset besides them, so there is no write,
-  file, terminal, code-execution or side-effect tool: the read-only boundary
-  is enforced by Hermes's tool configuration, not by a prompt. Known secret
-  values are masked in the reply and the audit log.
+  provider request. That home loads only kakeratta's read-only MCP tools and
+  this script's own read-only file server (--fs-mcp), and each run enables
+  only the `web` toolset besides them, so there is no write, terminal,
+  code-execution or side-effect tool: the read-only boundary is enforced by
+  Hermes's tool configuration and this code, not by a prompt. Known secret
+  values are masked in file reads, the reply and the audit log.
+* A deliverable may come with a program for a side effect on it (saving it,
+  for example). The program runs under the same rules as an operation and
+  reads the accepted deliverable from $KAKERATTA_DELIVERABLE; the reply is
+  the deliverable itself.
 * Review runs as a separate model request that never shares the generation
   session. It returns machine-readable JSON; only `accepted: true` with a
   matching candidate SHA-256 passes.
@@ -63,14 +68,14 @@ from pathlib import Path
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "1"
+WORKER_VERSION = "2"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
 DEFAULT_REASONING = "high"
 MAX_CORRECTIONS = 2          # correction attempts after the initial generation
 MAX_RESUMES = 2              # later ticks that may resume an interrupted claimed request
-MAX_TOOL_ROUNDS = 12         # tool-calling iterations per Hermes run
+MAX_TOOL_ROUNDS = 30         # tool-calling iterations per Hermes run
 MAX_REPLY = 20000            # reply_request rejects longer text
 DEFAULT_MAX_TOKENS = 64000   # output cap per model call, reasoning included
 RUN_BUDGET = 1200            # wall-clock budget per Hermes run, seconds
@@ -85,8 +90,10 @@ RESPONSE_TAIL = 300          # end of an unusable response kept in the audit log
 # loaded at all, so a model cannot call them.
 READONLY_MCP_TOOLS = ["get_timeline", "get_thread", "search_timeline", "list_schedules",
                       "list_personas", "list_notes", "read_note"]
-GENERATION_TOOLSETS = "web,kakeratta"   # web search/extract and the read-only MCP tools
-REVIEW_TOOLSETS = "web"                 # fact checks only
+# Web search/extract, the read-only kakeratta tools and the worker's own
+# read-only file server; review uses the same reads to check facts.
+GENERATION_TOOLSETS = "web,kakeratta,files"
+REVIEW_TOOLSETS = "web,files"
 
 # --- config and environment ----------------------------------------------
 
@@ -153,6 +160,7 @@ def model_config(cfg):
         "max_tokens": int(section.get("max_tokens") or DEFAULT_MAX_TOKENS),
         "run_budget": int(section.get("run_budget") or RUN_BUDGET),
         "exec_timeout": int(section.get("exec_timeout") or EXEC_TIMEOUT),
+        "file_roots": [str(Path(r).expanduser()) for r in (section.get("file_roots") or [Path.home()])],
         "hermes_bin": section.get("hermes_bin") or shutil.which("hermes") or "/usr/local/bin/hermes",
     }
 
@@ -163,7 +171,8 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
     Model calls go through the Hermes CLI with this home, never straight to
     the provider. Its config.yaml carries Ultra with the output cap, the
     parent's provider settings (credentials stay `${VAR}` references), and
-    the kakeratta MCP server restricted to READONLY_MCP_TOOLS. The parent's
+    the kakeratta MCP server restricted to READONLY_MCP_TOOLS, and this
+    script's read-only file server (`files`) over the readable roots. The parent's
     skills, memory, cron jobs and sessions are not shared.
     """
     import yaml
@@ -186,7 +195,14 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
     })
     mcp["tools"] = {"include": list(READONLY_MCP_TOOLS), "prompts": False, "resources": False}
 
-    worker_cfg = {"model": model, "agent": {"max_turns": MAX_TOOL_ROUNDS}, "mcp_servers": {"kakeratta": mcp}}
+    files = {
+        "command": sys.executable,
+        "args": [str(Path(__file__).resolve()), "--fs-mcp", "--home", str(home)]
+                + [a for root in cfg["file_roots"] for a in ("--root", root)],
+        "tools": {"prompts": False, "resources": False},
+    }
+    worker_cfg = {"model": model, "agent": {"max_turns": MAX_TOOL_ROUNDS},
+                  "mcp_servers": {"kakeratta": mcp, "files": files}}
     if isinstance(main_cfg.get("providers"), dict):
         worker_cfg["providers"] = main_cfg["providers"]
     _atomic_write(whome / "config.yaml", yaml.safe_dump(worker_cfg, allow_unicode=True), mode=0o600)
@@ -398,22 +414,30 @@ def _context_text(context):
     return "\n\n".join(parts)
 
 
-GENERATION_SYSTEM = """You answer a request a user addressed directly to an external agent. You may use only the read-only tools this session provides: web search and web extract, and kakeratta lookups (find them with tool_search and call them with tool_call: get_timeline, get_thread, search_timeline, list_schedules, list_personas, list_notes, read_note). You cannot write files, run commands, run code, send anything, post, or change any state.
+GENERATION_SYSTEM = """You answer a request a user addressed directly to an external agent. You may use only the read-only tools this session provides: web search and web extract; local file reads (read_file, list_directory); and kakeratta lookups (get_timeline, get_thread, search_timeline, list_schedules, list_personas, list_notes, read_note). Find tools you do not see with tool_search and call them with tool_call. You cannot write files, run commands, run code, send anything, post, or change any state; when the user asks for that, it goes into a program as described below, and a request to use a particular tool means the matching read here.
 
 Return ONLY a JSON object (no Markdown, no commentary) of exactly this shape:
 
 {"kind": "deliverable" | "operation",
  "deliverable": "<complete content, required when kind=deliverable>",
- "program": "<complete Python source, required when kind=operation>",
+ "program": "<complete Python source, required when kind=operation; optional with a deliverable>",
  "result_format": "<how to report the result, required when kind=operation>",
  "include_program": <true|false>}
 
 Rules:
 - kind=deliverable for content the user wants to receive (HTML, an article, an answer, a report, code they asked to see). Put the complete, final content in "deliverable" - never a summary or a fragment.
 - kind=operation only for an action with side effects the user clearly asked for (for example sending an email, or changing files). Put a complete, self-contained, runnable Python program in "program" that does exactly what was asked and nothing more, and "result_format" describing what the program did and how to report it. Do not run the program yourself.
+- When the user wants a deliverable and also asks for a side effect on it (for example saving it to a path), use kind=deliverable and add "program" and "result_format" for that side effect. The program runs once after review; it must read the deliverable, byte for byte, from the file named by the environment variable KAKERATTA_DELIVERABLE instead of embedding another copy. The reply is still the deliverable itself.
 - Set include_program true only when the user explicitly asked to see the code.
 - Satisfy every constraint the user stated (format, casing, exact names, lengths, viewport, overflow, readability, character budgets). Facts and names must be correct. Write the deliverable in the user's language.
 """
+
+
+# Repeated after the request, which can be long: models follow the last
+# instructions they read.
+GENERATION_REMINDER = """
+
+Before you answer: you never perform a side effect yourself and never need a tool for one. Anything the user wants done (saving or writing a file, sending, posting) goes into "program", which runs after review. Do not inspect or prepare the destination. A program for a deliverable reads it with open(os.environ["KAKERATTA_DELIVERABLE"], encoding="utf-8").read() and never pastes the deliverable into its source. Your final message must be only the JSON object described above."""
 
 
 def _generation_prompt(context, problems, previous):
@@ -424,10 +448,10 @@ def _generation_prompt(context, problems, previous):
         text += ("\n\nIt was rejected with these problems:\n"
                  + "\n".join("- " + p for p in problems)
                  + "\nCorrect exactly these issues and return a new complete candidate.")
-    return text
+    return text + GENERATION_REMINDER
 
 
-REVIEW_SYSTEM = """You independently review a candidate produced for a user's direct request. You did not create it. Judge it against the original request and every constraint. You may use web search to check facts; you cannot change anything.
+REVIEW_SYSTEM = """You independently review a candidate produced for a user's direct request. You did not create it. Judge it against the original request and every constraint. You may use web search and local file reads to check facts; you cannot change anything. A deliverable may come with a program section: a program that runs once after acceptance, reading the deliverable from the file named by KAKERATTA_DELIVERABLE; review both.
 
 Check:
 1. It satisfies the request and every constraint.
@@ -488,13 +512,29 @@ def candidate_of(envelope):
             raise InvalidOutput("deliverable is empty")
         if len(text.strip()) > MAX_REPLY:
             raise InvalidOutput(f"deliverable has {len(text.strip())} characters; the reply limit is {MAX_REPLY}")
-        return text, "deliverable"
+        program = envelope.get("program")
+        if program is None or program == "":
+            return text, "deliverable"
+        if not isinstance(program, str) or not program.strip():
+            raise InvalidOutput("program is empty")
+        # Review and the accepted hash cover the deliverable and its program.
+        return (text + "\n\n----- program (runs once after acceptance; reads the deliverable "
+                "from $KAKERATTA_DELIVERABLE) -----\n" + program), "deliverable+operation"
     if kind == "operation":
         program = envelope.get("program")
         if not isinstance(program, str) or not program.strip():
             raise InvalidOutput("program is empty")
         return program, "operation"
     raise InvalidOutput("kind must be deliverable or operation")
+
+
+def deliverable_reply(record):
+    """The reply for a deliverable whose program ran (or was meant to): the
+    deliverable itself, unchanged, when the program succeeded; otherwise the
+    operation's result first, so truncation cannot cut it off."""
+    if record.get("state") == "done" and record.get("exit_code") == 0:
+        return record["deliverable"]
+    return _operation_reply(record) + "\n\n" + record["deliverable"]
 
 
 def sha256_of(text):
@@ -542,7 +582,7 @@ _EXEC_ENV_ALLOWLIST = ("PATH", "LANG", "LC_ALL", "TZ", "HOME", "TMPDIR", "PYTHON
 AUDIT_STREAM = 2000          # stdout/stderr kept in an audit line
 
 
-def run_program(cfg, home, request_id, program, accepted_sha, envelope):
+def run_program(cfg, home, request_id, program, accepted_sha, envelope, deliverable=None):
     """Run the accepted Python exactly once, guarded by an executed record.
 
     The program is written to disk first and the bytes there must hash to the
@@ -557,7 +597,8 @@ def run_program(cfg, home, request_id, program, accepted_sha, envelope):
     if on_disk != accepted_sha:
         audit(home, request_id, "execution_hash_mismatch",
               {"code_sha256": on_disk, "accepted_sha256": accepted_sha})
-        return {"state": "not_run", "code_sha256": on_disk}
+        return {"state": "not_run", "code_sha256": on_disk,
+                **({"deliverable": deliverable} if deliverable is not None else {})}
 
     # What the reply needs, kept with the record so a resumed run can report
     # an execution without regenerating anything.
@@ -565,11 +606,16 @@ def run_program(cfg, home, request_id, program, accepted_sha, envelope):
               "include_program": envelope.get("include_program") is True}
     if report["include_program"]:
         report["program"] = program
+    if deliverable is not None:
+        report["deliverable"] = deliverable
+        (workdir / "deliverable.txt").write_text(deliverable, encoding="utf-8")
     save_executed(home, request_id, dict(report, state="running", code_sha256=accepted_sha, at=time.time()))
     audit(home, request_id, "execution_start", {"code_sha256": accepted_sha})
 
     env = {k: v for k, v in os.environ.items() if k in _EXEC_ENV_ALLOWLIST}
     env["PYTHONUNBUFFERED"] = "1"
+    if deliverable is not None:
+        env["KAKERATTA_DELIVERABLE"] = str(workdir / "deliverable.txt")
     start = time.time()
     try:
         proc = subprocess.run(
@@ -673,7 +719,8 @@ def process_one(url, headers, request, cfg, home):
             "reason": "already executed" if executed.get("state") == "done" else "interrupted",
             "code_sha256": executed.get("code_sha256"),
         })
-        _send_reply(cfg, url, headers, request_id, claim_id, _operation_reply(executed), home)
+        text = deliverable_reply(executed) if "deliverable" in executed else _operation_reply(executed)
+        _send_reply(cfg, url, headers, request_id, claim_id, text, home)
         return
 
     if resumes > MAX_RESUMES:
@@ -740,6 +787,14 @@ def _run_generate_review_loop(cfg, url, headers, context, request_id, home, clai
         # The accepted artifact itself, unchanged.
         _send_reply(cfg, url, headers, request_id, claim_id, candidate, home)
         return
+    if kind == "deliverable+operation":
+        # The accepted hash covers deliverable and program together; the
+        # program's own bytes are checked on disk against its accepted text.
+        program = envelope["program"]
+        record = run_program(cfg, home, request_id, program, sha256_of(program), envelope,
+                             deliverable=envelope["deliverable"])
+        _send_reply(cfg, url, headers, request_id, claim_id, deliverable_reply(record), home)
+        return
     record = run_program(cfg, home, request_id, candidate, sha, envelope)
     _send_reply(cfg, url, headers, request_id, claim_id, _operation_reply(record), home)
 
@@ -761,6 +816,126 @@ def _send_reply(cfg, url, headers, request_id, claim_id, text, home):
         save_state(home, request_id, {"stage": "done"})
     except Exception as e:
         audit(home, request_id, "reply_error", {"error": redact(e, cfg["secrets"])})
+
+
+# --- read-only file MCP server ------------------------------------------
+#
+# The worker's Hermes home starts this script with --fs-mcp as a stdio MCP
+# server, so the model can read local files without Hermes's `file` toolset,
+# which also writes. Reading is all it can do: paths must resolve inside the
+# configured roots, and hidden entries (dotfiles such as .hermes, .env, .ssh)
+# and secret-looking names are refused. Known secret values are masked.
+
+_DENY_PART = re.compile(
+    r"(?i)^(\..*|config\.ya?ml|id_(rsa|dsa|ecdsa|ed25519).*|.*\.(pem|key|p12|pfx)|"
+    r".*(secret|token|credential|password|auth).*)$")
+FILE_TEXT_CAP = 200_000      # characters returned per read_file call
+FILE_MAX_BYTES = 5_000_000   # larger files are refused
+
+FS_TOOLS = [
+    {"name": "read_file",
+     "description": "Read a local text file (read-only). Long files come in parts: pass the offset the previous part reports.",
+     "inputSchema": {"type": "object", "properties": {
+         "path": {"type": "string", "description": "Absolute path, or relative to the first readable root"},
+         "offset": {"type": "integer", "description": "Character offset to start from"}},
+         "required": ["path"]}},
+    {"name": "list_directory",
+     "description": "List a local directory (read-only).",
+     "inputSchema": {"type": "object", "properties": {
+         "path": {"type": "string", "description": "Absolute path, or relative to the first readable root"}}}},
+]
+
+
+def _fs_resolve(roots, path):
+    p = Path(str(path or ".")).expanduser()
+    candidates = [p] if p.is_absolute() else [Path(r) / p for r in roots]
+    for candidate in candidates:
+        target = candidate.resolve()
+        for root in roots:
+            root = Path(root).resolve()
+            if target == root or root in target.parents:
+                if any(_DENY_PART.match(part) for part in target.relative_to(root).parts):
+                    raise PermissionError("this path may not be read")
+                return target
+    raise PermissionError("the path is outside the readable roots: " + ", ".join(roots))
+
+
+def fs_read_file(roots, args, secrets):
+    target = _fs_resolve(roots, args.get("path"))
+    if not target.is_file():
+        raise FileNotFoundError("not a file")
+    if target.stat().st_size > FILE_MAX_BYTES:
+        raise ValueError("the file is too large")
+    text = target.read_bytes().decode("utf-8", errors="replace")
+    offset = max(0, int(args.get("offset") or 0))
+    part = text[offset:offset + FILE_TEXT_CAP]
+    out = redact(part, secrets)
+    if offset + len(part) < len(text):
+        out += f"\n\n[part of {len(text)} characters; continue with offset={offset + len(part)}]"
+    return out
+
+
+def fs_list_directory(roots, args, secrets):
+    target = _fs_resolve(roots, args.get("path") or roots[0])
+    if not target.is_dir():
+        raise NotADirectoryError("not a directory")
+    names = [c.name + ("/" if c.is_dir() else "") for c in sorted(target.iterdir())
+             if not _DENY_PART.match(c.name)]
+    return "\n".join(names[:500])
+
+
+def serve_fs_mcp(roots, secrets):
+    """Answer MCP JSON-RPC over stdin/stdout, one message per line."""
+    def send(message):
+        sys.stdout.write(json.dumps(message, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+    tools = {"read_file": fs_read_file, "list_directory": fs_list_directory}
+    for line in sys.stdin:
+        try:
+            message = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        mid, method = message.get("id"), message.get("method")
+        if mid is None:
+            continue  # notifications need no answer
+        params = message.get("params") or {}
+        if method == "initialize":
+            result = {"protocolVersion": params.get("protocolVersion") or "2024-11-05",
+                      "capabilities": {"tools": {}},
+                      "serverInfo": {"name": "kakeratta-readonly-files", "version": WORKER_VERSION}}
+        elif method == "ping":
+            result = {}
+        elif method == "tools/list":
+            result = {"tools": FS_TOOLS}
+        elif method == "tools/call":
+            try:
+                fn = tools.get(params.get("name"))
+                if fn is None:
+                    raise ValueError("unknown tool")
+                text = fn(roots, params.get("arguments") or {}, secrets)
+                result = {"content": [{"type": "text", "text": text}]}
+            except Exception as e:
+                result = {"content": [{"type": "text", "text": redact(str(e), secrets)}], "isError": True}
+        else:
+            send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": "method not found"}})
+            continue
+        send({"jsonrpc": "2.0", "id": mid, "result": result})
+
+
+def fs_mcp_main(argv):
+    """Entry for --fs-mcp: --home names the parent Hermes home (for the
+    secrets to mask), each --root a readable directory."""
+    home, roots = None, []
+    for i, arg in enumerate(argv):
+        if arg == "--home" and i + 1 < len(argv):
+            home = Path(argv[i + 1])
+        if arg == "--root" and i + 1 < len(argv):
+            roots.append(argv[i + 1])
+    main_cfg = read_config(home) if home else None
+    servers = (main_cfg or {}).get("mcp_servers") or {}
+    headers = {k: resolve_env(v) for k, v in ((servers.get("kakeratta") or {}).get("headers") or {}).items()}
+    serve_fs_mcp(roots or [str(Path.home())], secret_values(model_config(main_cfg), headers))
+    return 0
 
 
 # --- entry points --------------------------------------------------------
@@ -821,4 +996,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--fs-mcp" in sys.argv:
+        sys.exit(fs_mcp_main(sys.argv[1:]))
     sys.exit(main())
