@@ -768,7 +768,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	system := answerSystem(skill, length) + capabilityLine(set)
 	system += wakeInstructions
 
-	names := r.speakerNames(ctx)
+	names := r.SpeakerNames(ctx)
 	registry = registry.WithPersonaNames(names)
 	set = registry.For(skill.Tools).As(skill.ID)
 	post := thread[0]

@@ -25,18 +25,14 @@ func deletionEntries(entry timeline.Entry, entries []timeline.Entry) []timeline.
 // DeleteEntry removes the selected entry and descendants from durable storage,
 // with the captures they carried.
 func (s *Store) DeleteEntry(ctx context.Context, id string) ([]timeline.Entry, error) {
-	return s.DeleteEntryChecked(ctx, id, "")
-}
-
-func (s *Store) DeleteEntryChecked(ctx context.Context, id, expected string) ([]timeline.Entry, error) {
-	gone, err := s.deleteEntryLocked(ctx, id, expected)
+	gone, err := s.deleteEntryLocked(ctx, id)
 	if err == nil {
 		dropBlobs(s.DeleteBlob, gone)
 	}
 	return gone, err
 }
 
-func (s *Store) deleteEntryLocked(ctx context.Context, id, expected string) ([]timeline.Entry, error) {
+func (s *Store) deleteEntryLocked(ctx context.Context, id string) ([]timeline.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, exists, err := s.entryLocked(id)
@@ -55,9 +51,6 @@ func (s *Store) deleteEntryLocked(ctx context.Context, id, expected string) ([]t
 		return nil, err
 	}
 	gone := deletionEntries(entry, entries)
-	if expected != "" && DeletionRevision(gone) != expected {
-		return nil, ErrEntryConflict
-	}
 	ids, affected := map[string]bool{}, map[string]bool{}
 	for _, entry := range gone {
 		ids[entry.ID] = true
@@ -121,10 +114,6 @@ func (w *FirestoreWorkspace) UpdateEntry(entry timeline.Entry) error {
 }
 
 func (w *FirestoreWorkspace) DeleteEntry(ctx context.Context, id string) ([]timeline.Entry, error) {
-	return w.DeleteEntryChecked(ctx, id, "")
-}
-
-func (w *FirestoreWorkspace) DeleteEntryChecked(ctx context.Context, id, expected string) ([]timeline.Entry, error) {
 	var gone []timeline.Entry
 	err := w.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(w.timeline().Doc(id))
@@ -162,9 +151,6 @@ func (w *FirestoreWorkspace) DeleteEntryChecked(ctx context.Context, id, expecte
 			}
 		}
 		gone = deletionEntries(entry, entries)
-		if expected != "" && DeletionRevision(gone) != expected {
-			return ErrEntryConflict
-		}
 		// Read passages before any writes. Their source document gates new indexing.
 		passages := []*firestore.DocumentSnapshot{}
 		for _, deleted := range gone {

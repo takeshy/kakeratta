@@ -3,7 +3,7 @@ type: "Architecture"
 title: "Architecture and runtime"
 description: "System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown."
 tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
-updated: "2026-10-12"
+updated: "2026-10-14"
 ---
 
 System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown.
@@ -179,7 +179,7 @@ Nothing is elected. Times are not kept by an instance: a workspace's alarm bring
 
 ## State shared through the workspace
 
-External-agent asks and direct requests, routing and reply trials, and the agent's last call are runtime records (`asks`, `requests`, `trials`, `presence`) changed by transactions, so an MCP call, a trial, and its application may each reach a different instance. Events go through `users/{key}/events`: `publishEvent` writes them, and each instance with an open event stream subscribes while it is open. Persona definitions are not kept in the process: the Catalogue reads them from the workspace on every look (see [Persona definitions and the Catalogue](./personas.md#persona-definitions-and-the-catalogue)). Events, asks, requests, and trials carry `expireAt` for Firestore TTL policies.
+External-agent asks and direct requests, routing and reply trials, the agent's last call and its daily post counts as personas are runtime records (`asks`, `requests`, `trials`, `presence`, `agent-posts`) changed by transactions, so an MCP call, a trial, and its application may each reach a different instance. Events go through `users/{key}/events`: `publishEvent` writes them, and each instance with an open event stream subscribes while it is open. Persona definitions are not kept in the process: the Catalogue reads them from the workspace on every look (see [Persona definitions and the Catalogue](./personas.md#persona-definitions-and-the-catalogue)). Events, asks, requests, trials, and agent post counts carry `expireAt`; Terraform defines Firestore TTL policies for `events`, `asks`, `trials`, and `agent-posts`.
 
 ## Account deletion
 

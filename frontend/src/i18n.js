@@ -107,6 +107,7 @@ const EN = {
  "外部エージェント接続中（最終接続 {0}）": "External agent connected (last connected {0})",
  "外部エージェントから応答がありません。接続があるまで内蔵モデルが考えます。": "The external agent is not responding. The built-in model plans until it connects again.",
  "外部エージェントが書いた回答です": "Answer written by the external agent",
+ "外部エージェントが書いた投稿です": "Post written by the external agent",
  "接続キーを含む設定です。第三者に共有しないでください。再発行すると以前のキーは無効になります。": "This configuration contains your connection key. Keep it private. Replacing the key invalidates the old one.",
  "外部エージェント接続": "External agent connections",
  "使用する接続先": "Active connection",

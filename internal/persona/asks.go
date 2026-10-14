@@ -480,7 +480,7 @@ func (r *Runner) askTurnContext(ctx context.Context, record askRecord) (askTurnV
 	if record.Turn.Place != nil {
 		thread[0].Place = record.Turn.Place
 	}
-	names := r.speakerNames(ctx)
+	names := r.SpeakerNames(ctx)
 	set := r.registry(settings).WithPersonaNames(names).For(skill.Tools).As(skill.ID)
 	return askTurnView{skill: skill, thread: thread, trigger: trigger, post: thread[0], set: set}, nil
 }

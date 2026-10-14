@@ -1,12 +1,12 @@
 ---
 type: "Integration"
 title: "External agents, tools, and sharing"
-description: "Japanese and English Alexa voice posts and read-aloud, external-agent answers, direct requests and connected Timeline synchronization over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
-tags: ["alexa", "mcp", "agent", "direct-request", "timeline-sync", "tools", "support", "bluesky", "sharing", "weather"]
+description: "Japanese and English Alexa voice posts and read-aloud, external-agent answers, direct requests, posts as a persona and the connected Timeline import over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky."
+tags: ["alexa", "mcp", "agent", "direct-request", "persona-post", "timeline-import", "tools", "support", "bluesky", "sharing", "weather"]
 updated: "2026-10-14"
 ---
 
-Alexa voice posts and read-aloud, external-agent answers, direct requests and connected Timeline synchronization over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
+Alexa voice posts and read-aloud, external-agent answers, direct requests, posts as a persona and the connected Timeline import over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, and selected publication to Bluesky.
 
 # Alexa custom skill
 
@@ -71,7 +71,7 @@ A pending request must be claimed within `directClaimWait` (two hours, `claimBy`
 
 Editing an entry whose request is still pending refreshes it (`edited: true`, claim wait renewed). Editing one whose request is claimed or expired opens nothing - the agent could act twice - and appends the app's reply `処理中のため編集は反映されません。返信で伝えてください。` (`editedWhileClaimed`). An edit after the reply opens a new request.
 
-The agent's entries are attributed to the active connection's name (`agentName`, `speakerNames`) wherever the personas, the note keeper, external-agent asks and the daily and monthly summaries read the timeline, and to 外部エージェント without a connection; the agent's own context marks them as its own. The name is attribution only, not an address.
+The agent's entries are attributed to the active connection's name (`agentName`, `SpeakerNames`) wherever the personas, the note keeper, external-agent asks and the daily and monthly summaries read the timeline, and to 外部エージェント without a connection; the agent's own context marks them as its own. The name is attribution only, not an address.
 
 ## Request status and notifications
 
@@ -98,6 +98,22 @@ The Wake Gate does not wake the Super parent for a direct request: after `list_a
 - [requests_test.go](../../internal/persona/requests_test.go): no persona is asked, the fixed names in any width addressing the agent and the connection's name not, claim and reply ownership, follow-up replies, a named persona taking a reply, the reason given without routing when the agent is paused or unconnected, claim timeout notices, the two-hour claim and reply deadlines, expired requests taking one late reply and nothing else, deleted entries forgotten, edits before and after a claim, withdrawal on reset, comments on other entries with their bound and follow-ups, schedule and timeline lookups, the agent named by its connection, and the per-request push choice
 - [mcp_tools_test.go](../../internal/server/mcp_tools_test.go): listing, `/api/requests` and its notify switch, claiming, looking up, commenting and replying over MCP
 - [push_test.go](../../internal/server/push_test.go): agent replies pushed
+
+# Posts as a persona by the external agent
+
+Outside asks and direct requests, the agent may post as a persona with the MCP tool `post_as_persona` (`persona`, `text`), for example when the user or its operator has the agent share what it found in that persona's domain. Only an active persona that uses the external agent may be posted as: it must be in `Settings.Active`, since a persona switched off keeps its planner choice, and `Settings.PlansExternally` must hold, so its planner is `external` and the agent is not paused; otherwise the call is refused (`ErrNotAgentPersona`), as is an unknown persona.
+
+`Runner.PostAsPersona` normalizes escaped newlines and refuses empty or over-20,000-character text, then appends one `KindPost` (its own root) with the persona as speaker and `Model: "agent"`, and emits `entry`. Nothing else runs: there is no ask, planning, schedule, action, review or note keeper, and the persona's memory and wake count are unchanged. No reaction is queued except search indexing, so no persona is woken and nothing is pushed; the user replying to the post is routed as usual and wakes that persona.
+
+Each persona may be posted as at most `MaxAgentPostsPerDay` (5) times per day in the user's time zone. The count is an `agent-posts` runtime record keyed by the date (`YYYY-MM-DD`) holding a count per persona, incremented in the record's transaction before the post is appended - so concurrent calls on any instance cannot pass the limit - and decremented again if the append fails. Past the limit the call fails with `ErrAgentPostsExhausted`. The record expires 72 hours after its last change; reads ignore an expired record, and the Firestore TTL policy on `agent-posts` ([main.tf](../../infra/main.tf)) deletes it. The result carries `entryId` and `remaining`, the posts left for that persona today. The call is not idempotent; the distributed skill tells the agent not to retry a call that succeeded.
+
+## Implementation and verification
+
+- [agent_posts.go](../../internal/persona/agent_posts.go): `PostAsPersona`, `countAgentPost`, `MaxAgentPostsPerDay`
+- [mcp_tools.go](../../internal/server/mcp_tools.go): the `post_as_persona` schema and call
+- [runtime.go](../../internal/store/runtime.go): `RecordAgentPosts`
+- [SKILL.md](../../frontend/public/integrations/hermes/kakeratta/SKILL.md): when the agent may post as a persona
+- [mcp_post_test.go](../../internal/server/mcp_post_test.go): refusal for built-in, inactive, unknown and paused personas and empty text, the stored post, no persona woken, and the daily limit with `remaining`
 
 # Persona tools and external MCP
 
@@ -228,12 +244,8 @@ Publication history is keyed by target, account, and post, and each publication 
 - [Persona execution and memory](./personas.md)
 - [Browser application and device state](./frontend.md)
 
-# Connected Timeline synchronization
+# Connected Timeline import
 
-The authenticated MCP `sync_timeline` tool is intended for application synchronization, not model planning or direct-request actions. It accepts at most 50 human-authored changes and 200 explicitly checked IDs, alongside the usual Timeline cursor and a page size up to 50. Responses include full entries, opaque content and subtree-deletion revisions, resolved user/persona/agent display names, explicit missing IDs, per-change outcomes, and the next cursor. Checking a known old post also reads its complete conversation, so later replies and old edits remain discoverable. Absence from a page never means deletion.
+Connected applications import the Timeline with the read-only MCP `get_timeline` tool; there is no write path for them. Besides a page (up to 50 posts with their whole conversations and the next cursor), it takes up to 200 `ids` to recheck: each returns the whole conversation containing it, wherever it is, so later replies and edits on old posts remain discoverable, and IDs that no longer exist are listed under `missing`. Rechecks of IDs not on the page are read at most 8 at a time (`recheckParallel`) and merged in the order given. An ID no entry could have (`validEntryID`: empty, over 200 bytes, or containing a path separator, NUL or line break, or `.`/`..`) is not read from the store and is listed as missing, so it cannot fail the whole call. `authors` maps every speaker in the response to its display name: `Runner.SpeakerNames` (the personas' names and the connected agent's name, or 外部エージェント) plus the user's profile name; the Alexa replies and schedules read the same names. Absence from a page never means deletion; only `missing` does. Imported posts are read-only in the application and are edited or deleted in Kakeratta.
 
-New GemiHub entries use stable `gh-` IDs and their original timestamps. A non-expiring `timeline-sync` receipt is reserved under a per-entry workspace lock before `CreateEntry`; a retry cannot recreate a deleted entry or an uncertain first submission. The receipt and request hash deduplicate retries; an ID collision leaves existing content intact. New replies resolve a parent in the authenticated workspace. Updates require the last acknowledged revision and can change only user-authored text. Deletions require the last acknowledged subtree revision and use existing favorite, routing, event and memory cleanup. Conflicts leave Kakeratta authoritative; the client preserves its conflicting content locally. Clients must not offer this tool to their model.
-
-Clients mark historical imports `react=false` so initial synchronization does not wake personas for old posts. New human posts and edits can set `react=true`, which saves the routing request atomically and publishes through the existing runner. Duplicate submissions do not queue another reaction. The application controls its own paid-plan entitlement and synchronization preferences; the MCP key remains scoped to one workspace.
-
-Implementation: [sync tool](../../internal/server/mcp_timeline_sync.go), [MCP schema](../../internal/server/mcp_tools.go). Verification: [retry, conflict, old-thread and missing-ID tests](../../internal/server/mcp_timeline_sync_test.go).
+Implementation: [timeline read](../../internal/server/mcp_timeline.go), [MCP schema](../../internal/server/mcp_tools.go), [speaker names](../../internal/persona/requests.go). Verification: [old-thread, missing-ID, malformed-ID and author tests](../../internal/server/mcp_timeline_test.go).

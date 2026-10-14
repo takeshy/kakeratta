@@ -177,7 +177,7 @@ func (r *Runner) monthlyCheckIn(ctx context.Context, skill Skill, since, now tim
 	if len(heard) > monthlyHeardLimit {
 		heard = heard[len(heard)-monthlyHeardLimit:]
 	}
-	names := r.speakerNames(ctx)
+	names := r.SpeakerNames(ctx)
 	var b strings.Builder
 	if summary != nil {
 		b.WriteString("\n\nThis month's summary, written by the app (the user may have edited it):\n[" + summary.ID + "]\n" + summary.Text)

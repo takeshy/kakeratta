@@ -404,7 +404,7 @@ func TestTheAgentLooksUpSchedulesAndTheTimeline(t *testing.T) {
 func TestTheAgentIsNamedByItsConnection(t *testing.T) {
 	runner, _, _ := directSetup(t, time.Minute, time.Minute)
 	ctx := runner.withSkills(context.Background())
-	names := runner.speakerNames(ctx)
+	names := runner.SpeakerNames(ctx)
 	if names[timeline.Agent] != "Hermes" || names["gourmet"] != "tabe" {
 		t.Fatalf("names = %v", names)
 	}
@@ -413,7 +413,7 @@ func TestTheAgentIsNamedByItsConnection(t *testing.T) {
 		t.Fatalf("rendered = %q", rendered)
 	}
 	runner.SetAgentName(func() string { return "" })
-	if name := runner.speakerNames(ctx)[timeline.Agent]; name != "外部エージェント" {
+	if name := runner.SpeakerNames(ctx)[timeline.Agent]; name != "外部エージェント" {
 		t.Fatalf("name without a connection = %q", name)
 	}
 }

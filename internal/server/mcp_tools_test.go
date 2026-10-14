@@ -40,7 +40,7 @@ func TestMCPOffersPlanningToolsAndNoWrites(t *testing.T) {
 	for _, tool := range kakerattaMCPTools() {
 		names[tool.Name] = true
 	}
-	for _, want := range []string{"list_asks", "claim_ask", "read_for_ask", "submit_answer", "release_ask", "read_note", "get_thread", "claim_request", "reply_request", "comment_on_entry", "search_timeline", "list_schedules"} {
+	for _, want := range []string{"list_asks", "claim_ask", "read_for_ask", "submit_answer", "release_ask", "read_note", "get_thread", "claim_request", "reply_request", "comment_on_entry", "post_as_persona", "search_timeline", "list_schedules"} {
 		if !names[want] {
 			t.Fatalf("missing %s", want)
 		}

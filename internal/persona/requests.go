@@ -122,9 +122,9 @@ func (r *Runner) agentName() string {
 	return "外部エージェント"
 }
 
-// speakerNames are the display names of everyone besides the user who speaks
+// SpeakerNames are the display names of everyone besides the user who speaks
 // in the timeline: the personas, and the external agent.
-func (r *Runner) speakerNames(ctx context.Context) map[string]string {
+func (r *Runner) SpeakerNames(ctx context.Context) map[string]string {
 	names := map[string]string{timeline.Agent: r.agentName()}
 	for _, skill := range r.skills(ctx).All() {
 		names[skill.ID] = skill.Name
@@ -368,7 +368,7 @@ func (r *Runner) requestContext(ctx context.Context, request DirectRequest) (Dir
 	}
 	_, settings := r.clientOf()
 	here := settings.Location()
-	names := r.speakerNames(ctx)
+	names := r.SpeakerNames(ctx)
 	names[timeline.Agent] = r.agentName() + "（あなた）"
 	names[timeline.App] = "kakeratta"
 	out := DirectContext{
@@ -624,7 +624,7 @@ func (r *Runner) AgentLookup(ctx context.Context, name string, args map[string]a
 		return "", errors.New("Unknown tool")
 	}
 	_, settings := r.clientOf()
-	names := r.speakerNames(r.withSkills(ctx))
+	names := r.SpeakerNames(r.withSkills(ctx))
 	// schedules_list comes with the schedule tool; only the list is run here.
 	set := r.registry(settings).WithPersonaNames(names).For([]string{"schedule"}).As(timeline.Agent)
 	result, err := set.Run(ctx, tool, args, nil)

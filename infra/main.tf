@@ -145,6 +145,16 @@ resource "google_firestore_field" "events_ttl" {
   ttl_config {}
 }
 
+# The external agent's daily post counts as personas matter only for their day.
+resource "google_firestore_field" "agent_posts_ttl" {
+  project    = var.project_id
+  database   = google_firestore_database.app.name
+  collection = "agent-posts"
+  field      = "expireAt"
+
+  ttl_config {}
+}
+
 # Shared across revisions: OAuth client signing and encrypted user sessions.
 resource "random_id" "bluesky_key" {
   byte_length = 32

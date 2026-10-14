@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication including Alexa account linking, entry handling, timeline data and conditional synchronization writes, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
-tags: ["http", "auth", "entry", "capture", "timeline", "timeline-sync", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-12"
+description: "Authentication including Alexa account linking, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
+tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
+updated: "2026-10-14"
 ---
 
-Authentication, entry handling, timeline data and conditional synchronization writes, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
+Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
 
 # HTTP API and authentication
 
@@ -147,7 +147,7 @@ Split web/worker mode adds the `dispatch` generation to Firestore reactions and 
 
 ## Persistence contract
 
-`Workspace` is a per-user contract covering the timeline, favorites, memory, settings, persona definitions, schedules, routing records, note retries, the reaction queue with its claims, runtime records (asks, trials, agent presence, browser push subscriptions), named locks, the closing mark, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
+`Workspace` is a per-user contract covering the timeline, favorites, memory, settings, persona definitions, schedules, routing records, note retries, the reaction queue with its claims, runtime records (asks, trials, agent presence, daily agent post counts, browser push subscriptions), named locks, the closing mark, publication history, exports, and deletion. `BlobStore` handles image storage separately, including deletion of single blobs.
 
 ## Two implementations
 
@@ -295,8 +295,3 @@ Verification: [push_test.go](../../internal/server/push_test.go) checks registra
 
 Verification: [list_filters_test.go](../../internal/server/list_filters_test.go) checks combined conditions, saved replies with older parents, date-only results, search without a query, and invalid dates.
 
-# Conditional Timeline synchronization
-
-Connected applications can update human-authored posts and replies with `UpdateTextChecked`, which verifies an opaque content revision under the local mutex or a Firestore transaction. Normal browser updates retain their existing method. Revisions include displayed fields and omit request/indexing bookkeeping. `DeleteEntryChecked` verifies a sorted revision of the entire selected subtree inside the deletion transaction; a newly added or edited descendant prevents deletion. A conflict leaves Kakeratta state unchanged.
-
-Implementation: [entry revisions](../../internal/store/entry_revision.go), [local updates](../../internal/store/timeline_files.go), [Firestore updates](../../internal/store/firestore.go), [conditional deletions](../../internal/store/delete_entry.go). Verification: [concurrent edit and new-reply protection](../../internal/store/entry_revision_test.go).

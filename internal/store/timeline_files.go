@@ -356,14 +356,6 @@ func editText(entry *timeline.Entry, text string) error {
 }
 
 func (s *Store) UpdateText(id, text string, initial ...Reaction) (timeline.Entry, error) {
-	return s.updateTextChecked(id, text, "", initial...)
-}
-
-func (s *Store) UpdateTextChecked(id, text, expected string, initial ...Reaction) (timeline.Entry, error) {
-	return s.updateTextChecked(id, text, expected, initial...)
-}
-
-func (s *Store) updateTextChecked(id, text, expected string, initial ...Reaction) (timeline.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, exists, err := s.entryLocked(id)
@@ -372,9 +364,6 @@ func (s *Store) updateTextChecked(id, text, expected string, initial ...Reaction
 	}
 	if !exists {
 		return timeline.Entry{}, ErrNotEditable
-	}
-	if expected != "" && EntryRevision(entry) != expected {
-		return timeline.Entry{}, ErrEntryConflict
 	}
 	if err := editText(&entry, text); err != nil {
 		return timeline.Entry{}, err

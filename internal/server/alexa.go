@@ -237,14 +237,6 @@ func (v alexaVoice) speechText(text string, limit int) string {
 	return text
 }
 
-func (s *Server) alexaNames(ctx context.Context) map[string]string {
-	names := map[string]string{}
-	for _, skill := range s.catalogue.All(ctx) {
-		names[skill.ID] = skill.Name
-	}
-	return names
-}
-
 func (s *Server) alexaReplies(w http.ResponseWriter, r *http.Request, attrs map[string]string, voice alexaVoice) {
 	page, err := s.store.TimelinePage(r.Context(), 100, "")
 	if err != nil {
@@ -273,11 +265,10 @@ func (s *Server) alexaReplies(w http.ResponseWriter, r *http.Request, attrs map[
 		return
 	}
 	entry := entries[0]
-	name := s.alexaNames(r.Context())[entry.Speaker]
-	if entry.Speaker == timeline.Agent {
-		if name = s.activeMCPName(); name == "" {
-			name = voice.text("外部エージェント")
-		}
+	name := s.runner.SpeakerNames(r.Context())[entry.Speaker]
+	if entry.Speaker == timeline.Agent && s.activeMCPName() == "" {
+		// Without a connection the agent's generic name is said in the voice's language.
+		name = voice.text("外部エージェント")
 	}
 	if name == "" {
 		name = voice.text("担当")
@@ -298,7 +289,7 @@ func (s *Server) alexaSchedules(w http.ResponseWriter, r *http.Request, attrs ma
 		zone = voice.defaultZone()
 		loc, _ = time.LoadLocation(zone)
 	}
-	names := s.alexaNames(r.Context())
+	names := s.runner.SpeakerNames(r.Context())
 	lines := []string{}
 	now := time.Now()
 	sort.Slice(rows, func(i, j int) bool { return rows[i].At.Before(rows[j].At) })
