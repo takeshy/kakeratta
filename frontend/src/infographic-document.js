@@ -1,16 +1,16 @@
 // What a persona answer is published as when it is published as pictures: a
-// complete HTML answer as it stands, or the infographic persona's Markdown as
-// the infographic the timeline lays out, with its diagrams. Text cannot carry
+// complete HTML answer as it stands, or the infographic persona's or external
+// agent's Markdown as the infographic the timeline lays out, with its diagrams. Text cannot carry
 // a laid-out infographic, so it becomes a standalone document for capture.
 import { el } from "./dom.js";
 import { htmlDocument } from "./html-document.js";
-import { isInfographic, renderInfographic } from "./infographic.js";
+import { laidOutAsInfographic, renderInfographic } from "./infographic.js";
 
 export function imageSource(entry) {
   if (!entry || entry.speaker === "user") return null;
   const html = htmlDocument(entry.text);
   if (html) return html;
-  return entry.speaker === "infographic" && isInfographic(entry.text) ? infographicDocument(entry.text) : null;
+  return laidOutAsInfographic(entry.speaker, entry.text) ? infographicDocument(entry.text) : null;
 }
 
 // The app's own rules, without the dark theme: a published picture always

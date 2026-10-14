@@ -50,11 +50,11 @@ func InfographicMarkdown(text string) bool {
 }
 
 // ImageAnswer is a persona answer that is published as browser-rendered
-// pages: a complete HTML document, or the infographic persona's Markdown
-// laid out as an infographic, whose diagrams do not survive as text.
+// pages: a complete HTML document, or the infographic persona's or the
+// external agent's Markdown laid out as an infographic, whose diagrams do not survive as text.
 func ImageAnswer(e timeline.Entry) bool {
 	if e.Speaker == timeline.User {
 		return false
 	}
-	return HTMLDocument(e.Text) != "" || (e.Speaker == "infographic" && InfographicMarkdown(e.Text))
+	return HTMLDocument(e.Text) != "" || ((e.Speaker == "infographic" || e.Speaker == timeline.Agent) && InfographicMarkdown(e.Text))
 }

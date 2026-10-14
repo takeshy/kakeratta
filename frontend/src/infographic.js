@@ -1,5 +1,5 @@
-// The infographic persona writes Markdown; this lays it out as an
-// infographic. The conversion is mechanical: the first top-level heading and
+// The infographic persona and the external agent write Markdown; this lays it
+// out as an infographic. The conversion is mechanical: the first top-level heading and
 // the prose under it become the title banner, each heading at the shallowest
 // remaining level opens a coloured section card, and everything inside a card
 // (deeper headings, lists, tables, quotations, Mermaid fences) is drawn by the
@@ -30,6 +30,12 @@ function outline(text) {
 // A clarifying question in plain prose stays an ordinary reply.
 export function isInfographic(text) {
   return outline(text).headings.length > 0;
+}
+
+// The infographic persona and the connected external agent both have their
+// headed Markdown laid out this way.
+export function laidOutAsInfographic(speaker, text) {
+  return (speaker === "infographic" || speaker === "agent") && isInfographic(text);
 }
 
 function title(tag, className, text) {

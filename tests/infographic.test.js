@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isInfographic, renderInfographic } from "../frontend/src/infographic.js";
+import { isInfographic, laidOutAsInfographic, renderInfographic } from "../frontend/src/infographic.js";
 
 // The minimal DOM the other view tests use.
 class Element {
@@ -80,4 +80,12 @@ test("plain prose is not laid out as an infographic", () => {
   assert.equal(isInfographic("元の記事の本文を貼ってください。"), false);
   assert.equal(isInfographic("```\n# code\n```"), false);
   assert.equal(isInfographic(answer), true);
+});
+
+test("the infographic persona and the external agent are laid out; other speakers are not", () => {
+  assert.equal(laidOutAsInfographic("infographic", answer), true);
+  assert.equal(laidOutAsInfographic("agent", answer), true);
+  assert.equal(laidOutAsInfographic("agent", "確認させてください。"), false);
+  assert.equal(laidOutAsInfographic("gourmet", answer), false);
+  assert.equal(laidOutAsInfographic("user", answer), false);
 });

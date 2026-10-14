@@ -52,10 +52,12 @@ test("a laid-out infographic becomes a standalone light-theme document", withDOM
   assert.match(infographicDocument("# x", "a{}</style><script>"), /a\{\}<\\\/style><script>/, "CSS cannot close its style element");
 }));
 
-test("only HTML answers and the infographic's laid-out Markdown are published as pictures", withDOM([], () => {
+test("only HTML answers and the infographic's or agent's laid-out Markdown are published as pictures", withDOM([], () => {
   const html = "<!DOCTYPE html><html><body>図</body></html>";
   assert.equal(imageSource({ speaker: "gourmet", text: html }), html);
   assert.equal(imageSource({ speaker: "user", text: html }), null);
   assert.equal(imageSource({ speaker: "gourmet", text: "# 見出し\n本文" }), null);
   assert.equal(imageSource({ speaker: "infographic", text: "本文を貼ってください。" }), null);
+  assert.match(imageSource({ speaker: "agent", text: "# 🔗 連携\n## 📨 依頼\n- 返信" }), /class="infographic-hero"/);
+  assert.equal(imageSource({ speaker: "agent", text: "確認させてください。" }), null);
 }));

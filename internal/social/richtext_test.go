@@ -132,11 +132,13 @@ func TestPlanPostsMarkdownAnswersAsRichTextAndHTMLStaysAnImage(t *testing.T) {
 	if p.Digest == before {
 		t.Fatal("digest ignored the links")
 	}
-	// HTML answers and the infographic laid out from Markdown are images;
-	// the infographic's plain prose (a question back) stays text.
+	// HTML answers and the infographic or agent Markdown laid out from
+	// headings are images; the infographic's plain prose (a question back)
+	// stays text.
 	for _, answer := range []timeline.Entry{
 		{ID: "a", Root: "p", ReplyTo: "p", Speaker: "gourmet", Text: "<!DOCTYPE html><html><body><h1>図解</h1></body></html>"},
 		{ID: "a", Root: "p", ReplyTo: "p", Speaker: "infographic", Text: "# 📊 図解\n```mermaid\nflowchart TD\nA --> B\n```"},
+		{ID: "a", Root: "p", ReplyTo: "p", Speaker: timeline.Agent, Text: "# 🔗 連携\n## 📨 依頼\n- 返信"},
 	} {
 		entries[1] = answer
 		if _, err := PlanSelection("bluesky", "p", entries, []string{"a"}, func(string) string { return "図" }); err == nil {
