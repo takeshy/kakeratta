@@ -76,6 +76,7 @@ type Settings struct {
 	OpenRouterHighModel   string `json:"openRouterHighModel"`
 	OpenRouterMiddleModel string `json:"openRouterMiddleModel"`
 	OpenRouterLowModel    string `json:"openRouterLowModel"`
+	OpenRouterVisionModel string `json:"openRouterVisionModel"`
 
 	// Active is which personas are in the room, in order.
 	//
@@ -209,6 +210,7 @@ func defaultSettings() Settings {
 		OpenRouterHighModel:   OpenRouterHigh,
 		OpenRouterMiddleModel: OpenRouterMiddle,
 		OpenRouterLowModel:    OpenRouterLow,
+		OpenRouterVisionModel: OpenRouterVision,
 		Active:                []string{"routine", "support", "infographic"},
 		Speech: SpeechSettings{
 			Provider:       "browser",
@@ -281,6 +283,9 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 	}
 	if strings.TrimSpace(settings.OpenRouterLowModel) == "" {
 		settings.OpenRouterLowModel = OpenRouterLow
+	}
+	if strings.TrimSpace(settings.OpenRouterVisionModel) == "" {
+		settings.OpenRouterVisionModel = OpenRouterVision
 	}
 	settings.Speech.Provider = "browser"
 	settings.ExternalAgent.ClaimMinutes = WaitMinutesOr(settings.ExternalAgent.ClaimMinutes, DefaultClaimMinutes)

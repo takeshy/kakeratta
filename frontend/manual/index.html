@@ -617,7 +617,8 @@
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
-            <li><strong>OpenRouterを使う</strong> にチェックすると、Router・High・Middle・Lowに OpenRouter を使います。チェックを外してもAPIキーとモデル選択は残るので、切り替えて比較できます。</li>
+            <li><strong>OpenRouterを使う</strong> にチェックすると、Router・High・Middle・Low・画像解析に OpenRouter を使います。チェックを外してもAPIキーとモデル選択は残るので、切り替えて比較できます。</li>
+            <li>接続確認後、<strong>画像解析モデル</strong> で画像入力に対応したモデルを検索・選択できます。未設定時は従来どおり <strong>GLM-5.3-Flash</strong> を使います。選択は OpenRouter をオフにしても保持します。</li>
             <li>振り分けに Jev を使うには、<strong>Routerモデル</strong> で <strong>~typesafe/jev-latest</strong> を選択します。Jev は判定理由を表示しません。</li>
           </ul>
         </section>
@@ -1237,7 +1238,8 @@
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>
-            <li>Check <strong>Use OpenRouter</strong> to use OpenRouter for Router, High, Middle, and Low. Unchecking retains the API key and model choices, so you can switch providers for comparison.</li>
+            <li>Check <strong>Use OpenRouter</strong> to use OpenRouter for Router, High, Middle, Low, and image analysis. Unchecking retains the API key and model choices, so you can switch providers for comparison.</li>
+            <li>After checking the connection, use <strong>Image analysis model</strong> to search for and select a model that supports image input. Unset selections use <strong>GLM-5.3-Flash</strong>, as before. Turning OpenRouter off retains your selection.</li>
             <li>For Jev routing, select <strong>~typesafe/jev-latest</strong> as the <strong>Router model</strong>. Jev does not show decision reasons.</li>
           </ul>
         </section>

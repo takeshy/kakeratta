@@ -443,15 +443,17 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 - Nemotron Ultra — answers for deep requests and Always think deeply, plus persona drafting
 - Nebius Token Factory — inference backend
 
-Routing uses Nemotron 3.5 Super VL by default. Under Advanced options → Use OpenRouter, enter an API key
+Routing uses Nemotron 3.5 Super VL by default. Under Advanced options → Models → Use OpenRouter, enter an API key
 and check the connection to fetch available models and pick one for each slot.
-Enabling Jev moves only routing to Jev. In the 20-production-item comparison,
+Selecting `~typesafe/jev-latest` in the Router model picker moves only routing to Jev. In the 20-production-item comparison,
 Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026
-per route, but it does not show decision reasons. OpenRouter-only mode also
-moves high, middle, and low to their selected OpenRouter models.
+per route, but it does not show decision reasons. Checking **Use OpenRouter** uses the selected OpenRouter models for Router, high, middle, low, and image analysis. Turning it off retains the API key and all model choices.
 
-Image reading uses GLM-5.3-Flash and meaning search uses
-Qwen3-Embedding-8B on the same backend.
+Image reading defaults to GLM-5.3-Flash. After checking the OpenRouter connection,
+use **Image analysis model** to search for and select a model that supports image input.
+An unset selection retains the GLM-5.3-Flash default. This choice is independent of
+the main provider's image model and survives turning OpenRouter off. Meaning search
+continues to use Qwen3-Embedding-8B on the main backend.
 
 ![Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky](captures/en/settings.png)
 
@@ -461,7 +463,7 @@ Qwen3-Embedding-8B on the same backend.
 | Reads (deep and AlwaysUltra included), schedule planning, the note keeper, the day's and month's summaries | middle | Nemotron 3.5 Super VL |
 | Ordinary final answers | middle | Nemotron 3.5 Super VL |
 | Answers for deep requests / Always think deeply (reads too for the infographic, which has no lookup tools) | high | Nemotron Ultra |
-| Reading images / OCR | fixed | GLM-5.3-Flash |
+| Reading images / OCR | Image analysis model | GLM-5.3-Flash |
 | Routing | router (or Jev) | Nemotron 3.5 Super VL |
 | Workflow review | middle | Nemotron 3.5 Super VL |
 | Persona drafting and editing | high | Nemotron Ultra |

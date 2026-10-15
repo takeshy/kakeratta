@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-14"
+updated: "2026-10-16"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
@@ -82,7 +82,7 @@ Verification: [usage.test.js](../../tests/usage.test.js) checks unknown/free/par
 
 ## OpenRouter model selection
 
-Settings offers one **Use OpenRouter** checkbox and Router/High/Middle/Low model selectors. Jev is selected as `~typesafe/jev-latest` in the Router selector, which includes this choice even when the model catalog omits it. There is no separate Jev toggle. The checkbox explanation also includes a persistent note to run **Check OpenRouter connection** before changing models. Unchecking **Use OpenRouter** retains its API key and all model selections, allowing provider comparisons. Saved credentials allow re-enabling it after reopening settings without another connection check; a newly entered key requires a connection check.
+Settings offers one **Use OpenRouter** checkbox and Router/High/Middle/Low and **Image analysis model** selectors. The image selector saves `openRouterVisionModel`, uses the same searchable model catalog populated by the connection check, and initially displays `z-ai/glm-5.3-flash` for older settings. Its hint asks the user to choose an image-input-capable model; the catalog remains the unfiltered model ID list, so image support is not validated by the picker. The selection is independent of the main provider's image model and is retained when OpenRouter is disabled or the panel reopened. Verification: [settings interaction tests](../../tests/settings.test.js) and [vision settings tests](../../internal/server/vision_settings_test.go). Jev is selected as `~typesafe/jev-latest` in the Router selector, which includes this choice even when the model catalog omits it. There is no separate Jev toggle. The checkbox explanation also includes a persistent note to run **Check OpenRouter connection** before changing models. Unchecking **Use OpenRouter** retains its API key and all model selections, allowing provider comparisons. Saved credentials allow re-enabling it after reopening settings without another connection check; a newly entered key requires a connection check.
 
 When an OpenRouter key is entered but no model list has been loaded, settings shows a hint to click **Check OpenRouter connection** to select models. This hint remains visible even before **Use OpenRouter** can be checked, and disappears once the connection check loads models ([settings.js](../../frontend/src/settings.js)).
 

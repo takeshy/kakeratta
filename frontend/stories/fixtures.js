@@ -309,6 +309,7 @@ export const settings = {
   openRouterHighModel: "nvidia/nemotron-3-ultra-550b-a55b",
   openRouterMiddleModel: "nvidia/nemotron-3.5-super-vl",
   openRouterLowModel: "nvidia/nemotron-3.5-lightning",
+  openRouterVisionModel: "z-ai/glm-5.3-flash",
   active: personas.map((row) => row.id),
   search: { apiKey: "" },
   speech: {

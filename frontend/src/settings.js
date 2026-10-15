@@ -187,6 +187,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       modelPicker("Highモデル", settings.openRouterHighModel, openRouterModels, (value) => patch({ openRouterHighModel: value })),
       modelPicker("Middleモデル", settings.openRouterMiddleModel, openRouterModels, (value) => patch({ openRouterMiddleModel: value })),
       modelPicker("Lowモデル", settings.openRouterLowModel, openRouterModels, (value) => patch({ openRouterLowModel: value })),
+      modelPicker("画像解析モデル", settings.openRouterVisionModel || "z-ai/glm-5.3-flash", openRouterModels, (value) => patch({ openRouterVisionModel: value })),
     ];
     const modelSelectionHint = el("p", {
       class: "hint",
@@ -202,7 +203,8 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       for (const picker of pickers) picker.setModels(picker === routerPicker ? routerModels(models) : models);
     };
     const pickerGroup = el("div", { class: "openrouter-models" }, ...pickers,
-      el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }));
+      el("p", { class: "hint", label: "Lowはthinking無効、最大1,024トークン、temperature 0.1で呼び出します" }),
+      el("p", { class: "hint", label: "画像解析モデルには画像入力に対応したモデルを選んでください。" }));
     pickerGroup.hidden = !openRouterMode.checked;
     openRouterMode.addEventListener("change", async () => {
       openRouterMode.disabled = true;
@@ -224,7 +226,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       openRouterCheck,
       modelSelectionHint,
       el("label", { class: "field check-field" }, switchControl(openRouterMode), el("span", { label: "OpenRouterを使う" })),
-      el("p", { class: "hint", label: "Router・High・Middle・LowにOpenRouterを使います。JevはRouterモデルで選択できます。判定理由は表示されません。モデルを変更するにはOpenRouterの接続確認を実行する必要があります。" }),
+      el("p", { class: "hint", label: "Router・High・Middle・Low・画像解析にOpenRouterを使います。JevはRouterモデルで選択できます。判定理由は表示されません。モデルを変更するにはOpenRouterの接続確認を実行する必要があります。" }),
       pickerGroup,
     );
   }

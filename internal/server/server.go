@@ -215,7 +215,7 @@ func (s *Server) client() (*llm.Client, store.Settings) {
 		settings.HighModel = settings.OpenRouterHighModel
 		settings.MiddleModel = settings.OpenRouterMiddleModel
 		settings.LowModel = settings.OpenRouterLowModel
-		settings.VisionModel = store.OpenRouterVision
+		settings.VisionModel = settings.OpenRouterVisionModel
 		client := llm.NewOpenRouter(store.OpenRouterBaseURL, settings.OpenRouterAPIKey)
 		client.Observe = s.observeUsage
 		return client, settings

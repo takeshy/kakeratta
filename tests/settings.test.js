@@ -316,3 +316,34 @@ test("profile settings save a display name and icon without changing model confi
   assert.equal(current.apiKey, "********");
   assert.equal(current.baseUrl, "https://api.example/v1");
 });
+
+test("OpenRouter image analysis model loads, saves, and survives provider toggles", async t => {
+  let view = panel(t);
+  document.querySelector = () => null;
+  let saved = { baseUrl: "https://api.example/v1", lowModel: "low", apiKey: "key", visionModel: "main-vision", openRouterApiKey: "********", openRouterMode: true, speech: {}, search: {} };
+  t.mock.method(api, "settings", async () => saved);
+  t.mock.method(api, "saveSettings", async next => { saved = next; return next; });
+  t.mock.method(api, "openRouterModels", async () => ({ models: ["provider/vision-a", "provider/vision-b"] }));
+  await view.load();
+  openAdvanced(view);
+  const visionPicker = () => walk(view.element).find(node => node.className === "field" && node.children.some(child => child.textContent === translate("画像解析モデル")));
+  assert.ok(walk(visionPicker()).some(node => node.textContent === "z-ai/glm-5.3-flash"));
+  const check = walk(view.element).find(node => node.tag === "button" && node.textContent === translate("OpenRouterの接続確認"));
+  await check.listeners.click();
+  const selected = walk(visionPicker()).find(node => node.tag === "button" && node.textContent === "provider/vision-b");
+  assert.ok(selected, "connection check must populate the image model picker");
+  selected.listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(saved.openRouterVisionModel, "provider/vision-b");
+  assert.equal(saved.visionModel, "main-vision");
+  const toggle = walk(view.element).find(node => node.tag === "label" && node.children.some(child => child.textContent === translate("OpenRouterを使う"))).querySelector("input");
+  for (const enabled of [false, true]) {
+    toggle.checked = enabled;
+    await toggle.listeners.change();
+    assert.equal(saved.openRouterVisionModel, "provider/vision-b");
+  }
+  view = createSettings({ speaker: { setRate() {}, setVoice() {}, voices: () => [] }, onSettings() {} });
+  await view.load();
+  openAdvanced(view);
+  assert.ok(walk(visionPicker()).some(node => node.textContent === "provider/vision-b"));
+});

@@ -233,3 +233,28 @@ func TestLegacyJevMigratesToOpenRouterSelection(t *testing.T) {
 		t.Fatal("legacy Jev must not override a later router selection")
 	}
 }
+
+func TestOpenRouterVisionDefaultAndPersistence(t *testing.T) {
+	s := open(t)
+	for _, selection := range []string{"", " ", "provider/vision-model"} {
+		settings := s.ConfiguredSettings()
+		settings.OpenRouterVisionModel = selection
+		settings.VisionModel = "main-provider-vision"
+		if err := s.SaveSettings(settings); err != nil {
+			t.Fatal(err)
+		}
+		reopened, err := Open(s.Root())
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := selection
+		if selection == "" || selection == " " {
+			want = OpenRouterVision
+		}
+		for _, got := range []Settings{reopened.ConfiguredSettings(), reopened.Settings()} {
+			if got.OpenRouterVisionModel != want || got.VisionModel != "main-provider-vision" {
+				t.Fatalf("vision selections = %q / %q", got.OpenRouterVisionModel, got.VisionModel)
+			}
+		}
+	}
+}

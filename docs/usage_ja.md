@@ -326,9 +326,9 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 - Nemotron Ultra — 深い回答が必要な依頼・常に熟考する担当の最終回答、担当案の作成
 - Nebius Token Factory — 推論基盤
 
-画像の読み取りにはGLM-5.3-Flash、意味検索にはQwen3-Embedding-8Bを同じ基盤で使用します。
+画像の読み取りは既定でGLM-5.3-Flashを使います。OpenRouterの接続確認後、「画像解析モデル」で画像入力に対応したモデルを検索・選択できます。未設定時は従来のGLM-5.3-Flashを使います。通常の接続先の画像モデルとは別に保存され、OpenRouterをオフにしても選択は残ります。意味検索には引き続き通常の接続先でQwen3-Embedding-8Bを使います。
 
-振り分けは既定でNemotron 3.5 Super VLを使います。設定の上級オプションにある「OpenRouterを使う」でAPIキーを入力し、接続確認すると利用可能なモデルを取得してrouter/high/middle/lowごとに選べます。Jevを有効にすると振り分けだけをJevへ切り替えます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。OpenRouter専用モードをONにすると、high/middle/lowも選択したOpenRouterモデルを使います。
+振り分けは既定でNemotron 3.5 Super VLを使います。設定の「上級オプション → モデル → OpenRouterを使う」でAPIキーを入力し、接続確認すると利用可能なモデルを取得してRouter・High・Middle・Low・画像解析ごとに選べます。「Routerモデル」で `~typesafe/jev-latest` を選ぶと振り分けだけをJevへ切り替えます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。「OpenRouterを使う」をONにすると、Router・High・Middle・Low・画像解析に選択したOpenRouterモデルを使います。OFFにしてもAPIキーとモデル選択は残ります。
 
 ![設定。モデル、Web検索、この端末、上級オプション（モデル・音声・外部連携・バックアップ）](captures/ja/settings.png)
 
@@ -338,7 +338,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | 読み取り（deep・常に熟考する場合も）と予定の計画、メモ係、今日のまとめ・今月のまとめ | middle | Nemotron 3.5 Super VL |
 | 通常の最終回答 | middle | Nemotron 3.5 Super VL |
 | 深い回答が必要な依頼・常に熟考する担当の回答（調べる道具を持たない図解担当は読み取りも） | high | Nemotron Ultra |
-| 画像解析・OCR | 固定 | GLM-5.3-Flash |
+| 画像解析・OCR | 画像解析モデル | GLM-5.3-Flash |
 | 振り分け | router（Jevへの切り替えも可） | Nemotron 3.5 Super VL |
 | workflow の確認 | middle | Nemotron 3.5 Super VL |
 | 担当案の作成・修正 | high | Nemotron Ultra |
