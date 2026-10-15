@@ -30,6 +30,47 @@ func summaryDay(s *store.Store) time.Time {
 	return time.Date(2026, 10, store.SummaryDay(s.Root()), 0, 0, 0, 0, time.UTC)
 }
 
+// Firestore keeps its state when a process replaces its disposable root.
+type scratchWorkspace struct {
+	store.Workspace
+	root string
+}
+
+func (s scratchWorkspace) Root() string { return s.root }
+
+func TestCheckInScheduleSurvivesScratchDirectoryChanges(t *testing.T) {
+	calls := 0
+	r, s, _ := setup(t, func(system, user string) string {
+		if strings.Contains(system, "今月のまとめ") {
+			calls++
+			return "### 記録\n- 釣りに行った"
+		}
+		return `{"action":"silent"}`
+	})
+	day := summaryDay(s)
+	at, _, _ := s.Settings().DailyAt(s.ID(), day)
+	appendAt(t, s, "釣りに行った", at.Add(-24*time.Hour))
+	now := day.Add(-time.Minute)
+	wantNext := r.nextCheckIn(context.Background(), now, s.Settings())
+	for _, root := range []string{"/tmp/kakeratta-user-first", "/tmp/kakeratta-user-reopened"} {
+		r.store = scratchWorkspace{Workspace: s, root: root}
+		if got := r.nextCheckIn(context.Background(), now, s.Settings()); !got.Equal(wantNext) {
+			t.Fatalf("scratch root %q moved the next check-in: %s, want %s", root, got, wantNext)
+		}
+		r.dailyAt(context.Background(), at)
+	}
+	if calls != 1 {
+		t.Fatalf("monthly summary calls after reopening = %d, want 1", calls)
+	}
+	nextMonth := day.AddDate(0, 1, 0)
+	nextAt, _, _ := s.Settings().DailyAt(s.ID(), nextMonth)
+	appendAt(t, s, "また釣りに行った", nextAt.Add(-24*time.Hour))
+	r.dailyAt(context.Background(), nextAt)
+	if calls != 2 {
+		t.Fatalf("monthly summary calls after the next month = %d, want 2", calls)
+	}
+}
+
 // The month's summary is written once, on its day at its minute, from the
 // month's timeline, and posted by the app.
 func TestMonthlySummaryIsWrittenOnceOnItsDay(t *testing.T) {

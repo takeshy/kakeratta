@@ -17,7 +17,7 @@ This **OKF v0.2 bundle** documents the implementation in six subsystem chapters.
 
 # Reading the bundle
 
-Start with architecture, then follow the backend and persona chapters to trace a post from input to storage, routing, an answer, and memory. The frontend chapter explains browser state and delivery. Integrations and operations cover external boundaries and running the application.
+Start with architecture, then follow the backend and persona chapters to trace a post from input to storage, routing, an answer, and memory. Backend also defines stable workspace identity; personas explains how it fixes monthly summary days and check-in times across process restarts. The frontend chapter explains browser state and delivery. Integrations and operations cover external boundaries and running the application.
 
 - The bundle root is `docs/system/`; its index declares `okf_version: "0.2"`.
 - OKF supports both bundle-relative links beginning with `/` and ordinary file-relative links. This developer bundle uses file-relative links such as `./personas.md` and `../../main.go` so they can be followed on GitHub.

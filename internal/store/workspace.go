@@ -16,6 +16,8 @@ type Workspace interface {
 	Publication(string) (Publication, error)
 	ClaimPublication(string, Publication) (bool, error)
 	SavePublication(string, Publication) error
+	// ID is stable across reopenings; Root may be disposable scratch space.
+	ID() string
 	Root() string
 	Append(timeline.Entry) error
 	UpdateEntry(timeline.Entry) error

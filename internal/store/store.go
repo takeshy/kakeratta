@@ -82,6 +82,7 @@ func DefaultRoot() string {
 	return filepath.Join(home, ".kakeratta")
 }
 
+func (s *Store) ID() string   { return s.root }
 func (s *Store) Root() string { return s.root }
 
 func (s *Store) path(parts ...string) string {

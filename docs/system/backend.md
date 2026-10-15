@@ -144,6 +144,8 @@ Verification: [favorites.go](../../internal/server/favorites.go), [favorites_tes
 
 # Workspace persistence
 
+The storage interface exposes a stable `Workspace.ID()` separately from `Root()`. File workspaces use their root as the ID; Firestore workspaces use the persisted user document ID and reserve `Root()` for disposable local materialisation. Account check-in scheduling uses the stable ID, as described in [Schedules, check-ins, and monthly summaries](./personas.md#schedules-check-ins-and-monthly-summaries). Verification: [workspace_id_test.go](../../internal/store/workspace_id_test.go).
+
 ## Push dispatch persistence
 
 Split web/worker mode adds the `dispatch` generation to Firestore reactions and `users/{key}/dispatchOutbox/{generation}` records containing `job` (workspace/reaction/dispatch IDs) and `readyAt`. Creation and phase changes atomically save the reaction and its outbox request. Publishing removes the request only after broker acceptance; interrupted publishing can duplicate a message, and workers check the generation and live claim. Push workers process reactions with dispatch generations; legacy pending reactions are outside this queue and must finish before switching. Combined/file operation creates no outbox records. Existing recursive workspace destruction removes the new subcollection.

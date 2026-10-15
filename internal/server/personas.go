@@ -51,7 +51,7 @@ func (s *Server) getPersonas(w http.ResponseWriter, r *http.Request) {
 			checkIn = store.DailyCheckIn{}
 		}
 		if checkIn.Every == store.CheckInMonthly {
-			checkIn.On = store.SummaryDay(s.store.Root())
+			checkIn.On = store.SummaryDay(s.store.ID())
 		}
 		out = append(out, row{Skill: skill, DailyCheckIn: checkIn, Schedules: schedules, Active: active[skill.ID], Wakes: memory.Wakes, Planner: planner})
 	}

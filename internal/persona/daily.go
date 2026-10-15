@@ -25,6 +25,7 @@ const dailyShareInstructions = dailyHeader + `前回のチェックインから�
 最近の投稿と自分の記憶から、これからの予定や準備が必要な場面も確認してください。schedule を使える担当は schedules_list で他の担当の予定も確認し、同じ通知を重ねません。必要な場面だけ担当分野の外部情報を調べ、予定・習慣・過去の経験と照合して、今声をかける理由があるか判断します。まだ声をかける時刻でなければ、根拠のある時刻に schedule を置き、今は黙ります。
 前回のチェックインからの未参加の話題から役立つ関係を発見した場合や、最近のかけらと前の記録の間に今伝える価値のあるつながり、またはこれからの予定に向けて今役立つ準備を発見した場合だけ、短く話してください。
 話す量や口調は、自分の担当のキャラクターに合わせてください。
+報告はユーザーの出来事と今伝える価値のある変化を中心に短くまとめます。同じ話題の似た記録や相談は1項目に統合し、前に自分が答えた説明や助言を並べ直しません。原則1〜3項目を目安にし、別の約束・期限や重要な変化は省略しないでください。
 毎日の件数合わせ、一般的なニュース一覧、同じ助言の繰り返し、挨拶だけの投稿は不要です。
 伝えることがない場合や根拠を得られない場合は Answer の text を空にします。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
@@ -43,6 +44,7 @@ const monthlyHeader = `
 const monthlyShareInstructions = monthlyHeader + `まず、まとめと投稿のうち自分の担当する人に関わることを読んでください。誕生日や記念日、会う予定が近ければ予定を置きます。
 次に自分の記憶を見直し、済んでいない約束や貸し借り、しばらく連絡していないことなど、今伝える価値があることがあれば短く話してください。
 話す量や口調は、自分の担当のキャラクターに合わせてください。
+ユーザーに関わる変化や予定を原則1〜3項目に絞り、同じ話題の似た記録は1項目に統合します。自分の過去の回答の説明や助言は並べ直さず、別の約束・期限や重要な変化は省略しないでください。
 挨拶だけ、まとめの繰り返し、一般的な助言は不要です。伝えることがなければ Answer の text を空にします。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
@@ -70,11 +72,11 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 	}
 	loc := settings.Location()
 	local := now.In(loc)
-	root := r.store.Root()
+	workspace := r.store.ID()
 	day := local.Format("2006-01-02")
-	summaryDay := local.Day() == store.SummaryDay(root)
+	summaryDay := local.Day() == store.SummaryDay(workspace)
 	// At the time the user set, or the app's own minute (store.DailyAt).
-	at, closes, ok := settings.DailyAt(root, local)
+	at, closes, ok := settings.DailyAt(workspace, local)
 	if !ok || local.Before(at) || !local.Before(closes) {
 		return
 	}

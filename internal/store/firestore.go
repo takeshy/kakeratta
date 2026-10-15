@@ -58,6 +58,7 @@ func (w *FirestoreWorkspace) Close() error {
 	return err
 }
 
+func (w *FirestoreWorkspace) ID() string   { return w.user.ID }
 func (w *FirestoreWorkspace) Root() string { return w.root }
 
 func (w *FirestoreWorkspace) timeline() *firestore.CollectionRef {

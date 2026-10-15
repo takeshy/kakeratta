@@ -180,7 +180,7 @@ const checkInSearch = 33
 func (r *Runner) nextCheckIn(ctx context.Context, now time.Time, settings store.Settings) time.Time {
 	loc := settings.Location()
 	local := now.In(loc)
-	root := r.store.Root()
+	workspace := r.store.ID()
 	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
 	var next time.Time
 	// first is the first day's time after now that falls inside the window.
@@ -199,7 +199,7 @@ func (r *Runner) nextCheckIn(ctx context.Context, now time.Time, settings store.
 	// One minute a day for the account: the day's summary, the month's on its
 	// day, and every persona's check-in after them.
 	first(func(day time.Time) (time.Time, time.Time, bool) {
-		return settings.DailyAt(root, day)
+		return settings.DailyAt(workspace, day)
 	})
 	return next
 }
