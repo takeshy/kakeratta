@@ -123,7 +123,7 @@ The default model configuration is:
 | Model | Role |
 | --- | --- |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
-| **Nemotron 3 Super 120B A12B** | Persona routing, reads, ordinary answers, schedule planning, workflow checks, the note keeper, and the day's and month's summaries |
+| **Nemotron 3.5 Super VL 120B A12B** | Persona routing, reads, ordinary answers, schedule planning, workflow checks, the note keeper, and the day's and month's summaries |
 | **Nemotron 3 Ultra 550B A55B** | Answers for deep requests (such as "in detail") and for personas with Always think deeply enabled |
 
 OpenRouter is an optional alternative. Models are chosen by task to benefit

@@ -439,11 +439,11 @@ Amounts are estimates in USD: OpenRouter uses API-reported costs, while Nebius u
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 - Nemotron 3.5 Lightning — optional dictation polishing
-- Nemotron Super — routing, reads, ordinary answers, schedule planning, workflow review, the note keeper, and the day's and month's summaries
+- Nemotron 3.5 Super VL — routing, reads, ordinary answers, schedule planning, workflow review, the note keeper, and the day's and month's summaries
 - Nemotron Ultra — answers for deep requests and Always think deeply, plus persona drafting
 - Nebius Token Factory — inference backend
 
-Routing uses Nemotron Super by default. Under Advanced options → Use OpenRouter, enter an API key
+Routing uses Nemotron 3.5 Super VL by default. Under Advanced options → Use OpenRouter, enter an API key
 and check the connection to fetch available models and pick one for each slot.
 Enabling Jev moves only routing to Jev. In the 20-production-item comparison,
 Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026
@@ -458,12 +458,12 @@ Qwen3-Embedding-8B on the same backend.
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
 | Optional dictation polishing | low | Nemotron 3.5 Lightning |
-| Reads (deep and AlwaysUltra included), schedule planning, the note keeper, the day's and month's summaries | middle | Nemotron Super |
-| Ordinary final answers | middle | Nemotron Super |
+| Reads (deep and AlwaysUltra included), schedule planning, the note keeper, the day's and month's summaries | middle | Nemotron 3.5 Super VL |
+| Ordinary final answers | middle | Nemotron 3.5 Super VL |
 | Answers for deep requests / Always think deeply (reads too for the infographic, which has no lookup tools) | high | Nemotron Ultra |
 | Reading images / OCR | fixed | GLM-5.3-Flash |
-| Routing | router (or Jev) | Nemotron Super |
-| Workflow review | middle | Nemotron Super |
+| Routing | router (or Jev) | Nemotron 3.5 Super VL |
+| Workflow review | middle | Nemotron 3.5 Super VL |
 | Persona drafting and editing | high | Nemotron Ultra |
 | Meaning-search embeddings | fixed | Qwen3-Embedding-8B |
 | Speech recognition | dictation settings | Browser speech recognition |

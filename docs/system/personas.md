@@ -3,10 +3,12 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-15"
+updated: "2026-10-16"
 ---
 
 Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory, schedules, and corrections.
+
+Throughout this chapter, Super refers to the current middle/Router default, Nemotron 3.5 Super VL. Existing legacy Super settings migrate as described in [Reading settings](./backend.md#reading-settings). The aggregate routing and research/answer stages remain the same.
 
 # Persona definitions and the Catalogue
 

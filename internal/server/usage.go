@@ -38,5 +38,5 @@ func (s *Server) getUsage(w http.ResponseWriter, r *http.Request) {
 		return data.Rows[i].Category < data.Rows[j].Category
 	})
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, map[string]any{"usage": data, "ratesUpdated": "2026-10-09"})
+	writeJSON(w, http.StatusOK, map[string]any{"usage": data, "ratesUpdated": "2026-10-16"})
 }

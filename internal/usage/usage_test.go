@@ -24,6 +24,7 @@ func TestCostPreservesUnknownAndZeroAndUsesReportedOpenRouterCost(t *testing.T) 
 		{"partial", llm.CallRecord{Provider: "nebius", Model: store.NemotronSuper, Usage: &llm.Usage{Input: integer(100)}}, 0, false, false},
 		{"zero", llm.CallRecord{Provider: "nebius", Model: store.NemotronSuper, Usage: &llm.Usage{Input: integer(0), Output: integer(0)}}, 0, true, false},
 		{"nebius", llm.CallRecord{Provider: "nebius", Model: store.NemotronSuper, Usage: &llm.Usage{Input: integer(1000), Output: integer(100)}}, 0.00039, true, false},
+		{"legacy-super", llm.CallRecord{Provider: "nebius", Model: "nvidia/nemotron-3-super-120b-a12b", Usage: &llm.Usage{Input: integer(1000), Output: integer(100)}}, 0.00039, true, false},
 		{"embedding", llm.CallRecord{Provider: "nebius", Model: "Qwen/Qwen3-Embedding-8B", Usage: &llm.Usage{Input: integer(1000)}}, 0.00001, true, false},
 		{"custom", llm.CallRecord{Provider: "custom", Model: store.NemotronSuper, Usage: &llm.Usage{Input: integer(100), Output: integer(10), Cost: decimal(1)}}, 0, false, false},
 		{"openrouter", llm.CallRecord{Provider: "openrouter", Model: "auto", Usage: &llm.Usage{Cost: decimal(0.123)}}, 0.123, true, true},

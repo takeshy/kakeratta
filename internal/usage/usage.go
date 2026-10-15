@@ -17,10 +17,12 @@ import (
 // https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference
 // https://nebius.com/services/token-factory/models/qwen-models-inference
 // https://nebius.com/services/token-factory/models/glm-models-inference
+// Super VL was added at the same Super rate, verified 2026-10-16.
 var nebiusRates = map[string][2]float64{
 	strings.ToLower(store.NemotronLightning): {0.06, 0.24},
 	strings.ToLower(store.NemotronNano):      {0.06, 0.24},
 	strings.ToLower(store.NemotronSuper):     {0.30, 0.90},
+	"nvidia/nemotron-3-super-120b-a12b":      {0.30, 0.90},
 	strings.ToLower(store.NemotronUltra):     {1, 3},
 	strings.ToLower(store.NebiusVision):      {0.15, 0.50},
 	"qwen/qwen3-embedding-8b":                {0.01, 0},

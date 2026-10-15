@@ -322,25 +322,25 @@ HTTPSとブラウザのプッシュ対応が必要です。iPhone・iPadはホ�
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
 - Nemotron 3.5 Lightning — 任意の音声入力整形
-- Nemotron Super — 振り分け、内蔵の全調査、通常の回答、予定の計画、workflow の確認
+- Nemotron 3.5 Super VL — 振り分け、内蔵の全調査、通常の回答、予定の計画、workflow の確認
 - Nemotron Ultra — 深い回答が必要な依頼・常に熟考する担当の最終回答、担当案の作成
 - Nebius Token Factory — 推論基盤
 
 画像の読み取りにはGLM-5.3-Flash、意味検索にはQwen3-Embedding-8Bを同じ基盤で使用します。
 
-振り分けは既定でNemotron Superを使います。設定の上級オプションにある「OpenRouterを使う」でAPIキーを入力し、接続確認すると利用可能なモデルを取得してrouter/high/middle/lowごとに選べます。Jevを有効にすると振り分けだけをJevへ切り替えます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。OpenRouter専用モードをONにすると、high/middle/lowも選択したOpenRouterモデルを使います。
+振り分けは既定でNemotron 3.5 Super VLを使います。設定の上級オプションにある「OpenRouterを使う」でAPIキーを入力し、接続確認すると利用可能なモデルを取得してrouter/high/middle/lowごとに選べます。Jevを有効にすると振り分けだけをJevへ切り替えます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。OpenRouter専用モードをONにすると、high/middle/lowも選択したOpenRouterモデルを使います。
 
 ![設定。モデル、Web検索、この端末、上級オプション（モデル・音声・外部連携・バックアップ）](captures/ja/settings.png)
 
 | 用途 | OpenRouter 使用時に選ぶ枠 | 既定 |
 | --- | --- | --- |
 | 任意の音声入力整形 | low | Nemotron 3.5 Lightning |
-| 読み取り（deep・常に熟考する場合も）と予定の計画、メモ係、今日のまとめ・今月のまとめ | middle | Nemotron Super |
-| 通常の最終回答 | middle | Nemotron Super |
+| 読み取り（deep・常に熟考する場合も）と予定の計画、メモ係、今日のまとめ・今月のまとめ | middle | Nemotron 3.5 Super VL |
+| 通常の最終回答 | middle | Nemotron 3.5 Super VL |
 | 深い回答が必要な依頼・常に熟考する担当の回答（調べる道具を持たない図解担当は読み取りも） | high | Nemotron Ultra |
 | 画像解析・OCR | 固定 | GLM-5.3-Flash |
-| 振り分け | router（Jevへの切り替えも可） | Nemotron Super |
-| workflow の確認 | middle | Nemotron Super |
+| 振り分け | router（Jevへの切り替えも可） | Nemotron 3.5 Super VL |
+| workflow の確認 | middle | Nemotron 3.5 Super VL |
 | 担当案の作成・修正 | high | Nemotron Ultra |
 | 意味検索の embedding | 固定 | Qwen3-Embedding-8B |
 | 音声認識 | 音声入力の設定 | ブラウザ音声認識 |

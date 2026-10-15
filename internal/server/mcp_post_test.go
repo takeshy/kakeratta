@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/takeshy/kakeratta/internal/persona"
 	"github.com/takeshy/kakeratta/internal/store"
@@ -14,7 +15,19 @@ import (
 // The agent posts as an active persona that uses it, as written, without waking
 // anybody, and only so many times a day.
 func TestPostAsPersonaPublishesForExternalPersonasWithinTheDailyLimit(t *testing.T) {
-	s, w := app(t)
+	w, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{
+		Store:     w,
+		Catalogue: persona.NewCatalogue(w),
+		Version:   "test",
+		// Keep the posting worker active, but prevent unrelated daily jobs
+		// from entering the queue inspected below.
+		Alarm: func(time.Time) error { return nil },
+	})
+	t.Cleanup(s.Close)
 	ctx := context.Background()
 	if _, err := s.callMCPTool(ctx, "post_as_persona", json.RawMessage(`{"persona":"gourmet","text":"今日のおすすめ"}`)); err == nil || !strings.Contains(err.Error(), "外部エージェント") {
 		t.Fatalf("a builtin persona's post = %v", err)

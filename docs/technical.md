@@ -179,7 +179,7 @@ When a reply says “summarize this” or “diagram this answer”, the replied
 entry is its subject, including when `@` selects a different persona; an
 explicitly chosen original post or whole thread takes precedence.
 
-The current default router is **Nemotron 3 Super through Nebius Token Factory**.
+The current default router is **Nemotron 3.5 Super VL through Nebius Token Factory**.
 
 Advanced settings offer **Use OpenRouter**, with separate Router, High, Middle,
 and Low model choices. Selecting **Jev** (`~typesafe/jev-latest`) in the Router
@@ -249,7 +249,7 @@ changed.
 
 ## Who answers, and on which model
 
-**Selected personas run in parallel, normally on Nemotron 3 Super.** Each takes
+**Selected personas run in parallel, normally on Nemotron 3.5 Super VL.** Each takes
 one turn. On the timeline, only the user's own posts and replies wake anyone;
 a persona's remark never wakes another persona, so the timeline cannot fill
 with AI-to-AI conversation. (Check-ins and schedules wake a persona on their
@@ -426,7 +426,7 @@ thread is included in full.
    exist and are the persona's own to cancel, times that parse. A proposal that fails is sent back to its own
    phase with the reasons.
 5. **Reviewed, only when it reaches further.** A plan holding a schedule is
-   reviewed by Nemotron 3 Super against a narrow list: the answer's
+   reviewed by Nemotron 3.5 Super VL against a narrow list: the answer's
    promises and the schedules' times, Push preferences, creates, updates and cancels agree; schedules
    do not contradict or depend on each other unmet; an answer that says a
    change is done has something behind it. The answer's
@@ -527,7 +527,7 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | Reads and ordinary answers, reads of deep turns, the schedule phase, routing, workflow review, the note keeper, and the day's and month's summaries |
+| **Nemotron 3.5 Super VL**       | Reads and ordinary answers, reads of deep turns, the schedule phase, routing, workflow review, the note keeper, and the day's and month's summaries |
 | **Nemotron 3 Ultra**       | Answers for deep requests and AlwaysUltra (reads too, for a persona without lookup tools such as the infographic), plus persona drafting |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
