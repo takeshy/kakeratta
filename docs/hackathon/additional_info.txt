@@ -1,10 +1,16 @@
 ### Which model(s) did you use, and why did you choose that size/variant?
 
-kakeratta uses five models through Nebius Token Factory. I choose each model based on how often a task runs and how much a mistake would affect later work.
+kakeratta uses five models through Nebius Token Factory, chosen by how often each task runs and how much a mistake affects later work:
 
-Nemotron 3 Ultra (550B, 55B active) handles persona drafting and final-answer composition for deep requests and AlwaysUltra personas, including Markdown infographics with emoji and Mermaid. Persona drafting happens rarely, but a poorly written routing condition can affect every later post, so these tasks justify the largest model. Ultra also runs direct requests to the external agent inside Hermes, where one run may search, read files, and write a long deliverable. Nemotron 3 Super (120B, 12B active) is the default Router. It also handles all research, writes everyday answers, plans schedules, and reviews plans that contain schedules, because it offered the best balance for work that runs frequently. Nemotron 3.5 Lightning (30B, 3B active) handles optional voice-input cleanup. GLM-5.3-Flash handles image understanding. Each image is analyzed once per post, and the result is shared with the relevant personas. Qwen3-Embedding-8B powers semantic search over past fragments, with vectors stored in Firestore.
+- Nemotron 3 Super (120B, 12B active) is the everyday workhorse. It is the default Router, runs all built-in research, writes ordinary answers, plans schedules, reviews schedule plans, and updates memory, offering the best balance of speed, quality, and cost for work that runs frequently.
+- Nemotron 3 Ultra (550B, 55B active) handles rare or high-impact tasks: drafting personas and composing final answers for deep requests and AlwaysUltra personas (including Markdown infographics with emoji and Mermaid). Because a poorly written routing condition affects every later post, persona drafting justifies the largest model. In my Hermes environment, Ultra also handles direct @agent requests.
+- Nemotron 3.5 Lightning (30B, 3B active) handles optional voice-input cleanup.
+- GLM-5.3-Flash analyzes each attached photo or screenshot once per post, sharing the text description with the relevant personas.
+- Qwen3-Embedding-8B powers semantic search over past fragments, with vectors stored in Firestore.
 
 I arrived at this allocation by testing the actual tasks. A smaller model was not always faster, and a larger model was not always necessary.
+
+The Super measurements below used Nemotron 3 Super. The app's current default for the Router and middle-model roles is Nemotron 3.5 Super VL; those earlier measurements do not evaluate the new model.
 
 ### How would you rate Nemotron's output quality for your use case?
 
@@ -12,57 +18,51 @@ I arrived at this allocation by testing the actual tasks. A smaller model was no
 
 Native tool calling and Japanese-language quality were strong. Super and Ultra reliably returned tool calls when required, and their Japanese answers felt natural, which matters for an app built around casual personal notes.
 
-The weakness was consistency when several instructions had to be followed together. Three patterns kept appearing:
+The weakness was consistency when several instructions had to be followed together. Three patterns kept appearing across Super and Ultra:
 
-- **Incomplete follow-through.** A persona promised a reminder without creating its schedule, or recorded a future event as already done.
-- **Copying examples literally.** A route-search sample with "mode": "foot" led to "about 259 minutes on foot" for a trip that called for driving.
-- **Weak recovery and perspective.** One check-in repeated the same rejected lookup ten times instead of switching to the search it was offered. When I noted that a friend's father had given me taranome sprouts, his persona reversed giver and receiver—thanking me and saying he must be pleased, as if I had given the gift to him.
+- Incomplete follow-through: A persona promised a reminder without creating its schedule, or recorded a future event as already done.
+- Copying examples literally: A route-search sample with "mode": "foot" led to "about 259 minutes on foot" for a trip that called for driving.
+- Weak recovery and perspective: One check-in repeated the same rejected lookup ten times instead of switching to the search it was offered. When I noted that a friend's father had given me taranome sprouts, his persona reversed giver and receiver—thanking me and saying he must be pleased, as if I had given the gift to him.
 
-The first two appeared with Ultra as well as Super.
+The same pattern appeared in Hermes Agent, running in an NVIDIA NemoClaw sandbox and connected through MCP. When answering for a persona, Super wrote a good answer but printed it to the console instead of calling submit_answer, because Hermes's own prompt said final responses were delivered automatically. After I clarified the submission rules in the skill and tool responses, Hermes reliably delivered 30 persona replies in production from September 27 to October 2 (https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md).
 
-Hermes Agent, running in an NVIDIA NemoClaw sandbox and connected through MCP, showed the same pattern. Super wrote a good answer but printed it instead of submitting it, because Hermes's own prompt said final responses were delivered automatically. With Hermes's reasoning parameters, Ultra wrote its tool calls as plain text and looped until it timed out, so the planner went back to Super. After I clarified the delivery rules, the integration report (https://github.com/takeshy/kakeratta/blob/main/docs/nemoclaw-hermes-integration.md) records 30 external-answer replies from September 27 to October 2, including successful schedule execution. Direct requests to the agent showed the same limit again: told in the skill to delegate to an Ultra subagent and have its work reviewed, the Super parent did the work itself, dropped the review steps, and ran dozens of rounds (https://github.com/takeshy/kakeratta/blob/main/docs/direct-request-worker-spec_ja.md, in Japanese). I also built a review-and-retry loop in code, but it rarely improved the output and wasted tokens. So I dropped the loop, had a worker script invoke Ultra directly in a single Hermes session with a call and token cap, and replaced complex HTML generation with Markdown that the app renders.
+Direct @agent requests to Hermes showed a similar limit with multi-step instructions. When the skill told the Super parent to delegate the job to an Ultra subagent and review the result, the parent did the work itself, dropped the review steps, and ran dozens of rounds. I tried a review-and-retry loop in code, but it rarely improved the output and wasted tokens. Instead, a worker script now invokes Ultra once in a single Hermes session with a call and token cap, and the agent returns Markdown that the app renders rather than generating complex HTML (https://github.com/takeshy/kakeratta/blob/main/docs/direct-request-worker-spec_ja.md, in Japanese).
 
-These experiences shaped the application: small phases, tool lists built from the tools each persona actually holds, validation in code, a cap on repeated malformed reads, and a check that promised reminders were actually planned. Nemotron was capable enough to build on, but reliable execution required more than good prompts.
+These experiences shaped kakeratta: small single-purpose phases, tool lists built from the tools each persona actually holds, validation in code, a cap on repeated malformed reads, and a check that promised reminders were actually planned. Nemotron was capable enough to build on, but reliable execution required enforcing boundaries in code rather than relying on prompts alone.
 
 ### Did you fine-tune, prompt-engineer, or use Nemotron out of the box? What was your approach?
 
 I did not fine-tune. I used Nemotron out of the box with prompt and context design, native tool calling, and checks in code, and I chose each change by measuring real posts in production. Six changes mattered most.
 
-**1. Routing became condition matching.** At first a lightweight Router read each persona's full purpose and decided who should receive a post. It missed posts that seemed clearly relevant. Ultra did better, but routing runs on every post. Instead of keeping the larger model, I simplified the task: Ultra helps write a short routing condition for each persona when it is created, and the Router only checks the post against those conditions. It must also give a reason for every persona it excludes. Those reasons let users see why a persona was not called and ask the AI to revise its condition.
+1. Routing became condition matching. At first a lightweight Router read each persona's full purpose and decided who should receive a post. It missed posts that seemed clearly relevant. Ultra did better, but routing runs on every post. Instead of keeping the larger model, I simplified the task: Ultra helps write a short routing condition for each persona when it is created, and the Router only checks the post against those conditions. It must also give a reason for every persona it excludes. Those reasons let users see why a persona was not called and ask the AI to revise its condition.
 
-**2. The Router was chosen by replaying real posts.** I replayed 20 posts from my production timeline, giving every model the same conditions and thread context, with thinking enabled:
+2. The Router was chosen by replaying real posts. I replayed 20 posts from my production timeline, giving every model the same conditions and thread context, with thinking enabled:
 
-| Model | Mean latency | Est. cost / post | Agreement with Jev |
-| --- | ---: | ---: | ---: |
-| Nemotron 3 Super | 1.91 s | $0.00065 | 17/20 |
-| Nemotron 3 Ultra | 2.28 s | $0.00300 | 19/20 |
-| Nemotron 3.5 Lightning | 6.55 s | $0.00047 | 17/20 |
-| Nemotron 3 Nano | 9.26 s | $0.00046 | 19/20 |
+- Nemotron 3 Super: 1.91 s mean latency, $0.00065 est. cost/post, 17/20 agreement with Jev
+- Nemotron 3 Ultra: 2.28 s mean latency, $0.00300 est. cost/post, 19/20 agreement with Jev
+- Nemotron 3.5 Lightning: 6.55 s mean latency, $0.00047 est. cost/post, 17/20 agreement with Jev
+- Nemotron 3 Nano: 9.26 s mean latency, $0.00046 est. cost/post, 19/20 agreement with Jev
 
 Jev is a specialized decision model. On the five posts where the models disagreed, a manual check found that it followed the conditions each time. This is a comparison, not an accuracy benchmark. The surprise was that the smallest models were the slowest: Lightning and Nano generated about seven times as many output tokens as Super. With thinking off they became fast but fell to 11 of 20. Super's three disagreements all concerned whether an activity, such as a weekend visit to a hair salon, should also go to the daily-routine persona. A person could read those cases either way, so Super became the default Router. The full report (https://github.com/takeshy/kakeratta/blob/main/docs/routing-model-comparison-2026-09-19.md) describes the method.
 
-**3. Answering, planning, and memory became separate steps.** When one response had to contain the answer, notes, schedules, and actions, answers got shorter and promised operations were still missing. Now the persona first researches and writes its answer. A separate phase then plans schedules against that fixed answer, only for personas permitted to schedule. Code validates the plan, and Super reviews any plan with schedules against the request and the answer's promises; a failed review regenerates the schedule plan. After publication, a note keeper decides what to remember from the user's own words, so a memory failure never hides a good answer.
+3. Answering, planning, and memory became separate steps. When one response had to contain the answer, notes, schedules, and actions, answers got shorter and promised operations were still missing. Now the persona first researches and writes its answer. A separate phase then plans schedules against that fixed answer, only for personas permitted to schedule. Code validates the plan, and Super reviews any plan with schedules against the request and the answer's promises; a failed review regenerates the schedule plan. After publication, a note keeper decides what to remember from the user's own words, so a memory failure never hides a good answer.
 
-**4. Each stage got the model it needs.** Super handles research and ordinary answers. For a deep request or an AlwaysUltra persona, Super does the reading and Ultra only composes the final answer from the full transcript. A deep request is recognized by explicit phrases such as "詳しく", with no extra model call. Each round, the host also tells the model its remaining Web-search allowance and removes reads that are no longer available. In production, a deep reply before this split used 17 calls, 14 of them Ultra research rounds, for about $0.274; one after it used six calls for about $0.027. The questions differed, but repricing the new reply's tokens under the old assignment gives $0.052, so the model split alone accounts for a 48% difference. The usage report (https://github.com/takeshy/kakeratta/blob/main/docs/production-model-usage-after-improvements-2026-10-05.md) records the method.
+4. Each stage got the model it needs. Super handles research and ordinary answers. For a deep request or an AlwaysUltra persona, Super does the reading and Ultra only composes the final answer from the full transcript. A deep request is recognized by explicit phrases such as "詳しく", with no extra model call. Each round, the host also tells the model its remaining Web-search allowance and removes reads that are no longer available. In production, a deep reply before this split used 17 calls, 14 of them Ultra research rounds, for about $0.274; one after it used six calls for about $0.027. The questions differed, but repricing the new reply's tokens under the old assignment gives $0.052, so the model split alone accounts for a 48% difference. The usage report (https://github.com/takeshy/kakeratta/blob/main/docs/production-model-usage-after-improvements-2026-10-05.md) records the method.
 
-**5. Production logs drove the cost work.** An October 7 review of 112 calls found that silent daily check-ins were still paying for reads, empty answers, and schedule plans. One persona sent an invalid period lookup ten times in one check-in and eight times in the next. I gave each read tool its own argument schema with a correct period-search example, ended research after three malformed responses, and ran schedule planning only for personas allowed to schedule. The cost report (https://github.com/takeshy/kakeratta/blob/main/docs/production-ai-cost-2026-10-07.md) has the details. I then restructured the daily check-in: the app summarizes the day's posts once and every persona reads that shared summary, and a persona with no new posts, no record due for review, and no plan within a week is skipped without a model call.
+5. Production logs drove the cost work. An October 7 review of 112 calls found that silent daily check-ins were still paying for reads, empty answers, and schedule plans. One persona sent an invalid period lookup ten times in one check-in and eight times in the next. I gave each read tool its own argument schema with a correct period-search example, ended research after three malformed responses, and ran schedule planning only for personas allowed to schedule. The cost report (https://github.com/takeshy/kakeratta/blob/main/docs/production-ai-cost-2026-10-07.md) has the details. I then restructured the daily check-in: the app summarizes the day's posts once and every persona reads that shared summary, and a persona with no new posts, no record due for review, and no plan within a week is skipped without a model call.
 
-**6. Extra layers that did not help were removed.** I tested Switchyard v0.3.0 as a second routing layer that picked which model would answer. In five synthetic cases, the direct path averaged 2.84 seconds and Switchyard 9.56 seconds. Its classifier produced 9,746 output tokens and sent a reconsideration request to Lightning instead of Ultra. These were single runs, not a full benchmark, but they did not justify the extra layer, so I removed it. The comparison report (https://github.com/takeshy/kakeratta/blob/main/docs/switchyard-comparison-2026-10-03.md) records the experiment.
+6. Extra layers that did not help were removed. I tested Switchyard v0.3.0 as a second routing layer that picked which model would answer. In five synthetic cases, the direct path averaged 2.84 seconds and Switchyard 9.56 seconds. Its classifier produced 9,746 output tokens and sent a reconsideration request to Lightning instead of Ultra. These were single runs, not a full benchmark, but they did not justify the extra layer, so I removed it. The comparison report (https://github.com/takeshy/kakeratta/blob/main/docs/switchyard-comparison-2026-10-03.md) records the experiment.
 
 ### How did Nemotron's performance compare to other models you've used for similar tasks?
 
 In everyday development, Nemotron was competitive with models such as Gemini for Japanese responses and tool calling. That is a practical impression, so I also ran two direct comparisons with OpenAI models through OpenRouter.
 
-**Routing.** I ran the same 20 routing posts through GPT Luna with required tool calling. With reasoning on, Luna averaged 3.65 seconds at an estimated $0.00042 per post and agreed with Jev on 19 of 20. With reasoning off, it averaged 2.02 seconds at $0.00037 and still agreed on 19 of 20. Super, the default, averaged 1.91 seconds at $0.00065 and agreed on 17, with its disagreements on borderline cases. Unlike Lightning and Nano, Luna did not lose agreement without reasoning, so whether reasoning can be turned off depended on the model, not just the task.
+Routing: I ran the same 20 routing posts through GPT Luna with required tool calling. With reasoning on, Luna averaged 3.65 seconds at an estimated $0.00042 per post and agreed with Jev on 19 of 20. With reasoning off, it averaged 2.02 seconds at $0.00037 and still agreed on 19 of 20. Super, the default, averaged 1.91 seconds at $0.00065 and agreed on 17, with its disagreements on borderline cases. Unlike Lightning and Nano, Luna did not lose agreement without reasoning, so whether reasoning can be turned off depended on the model, not just the task.
 
-**A real conversation.** I replayed a three-turn production thread on Luna (Router and middle model) and GPT Sol (high model), with the same Web search tool that production had. The user asked about "Grok Bot," a new xAI product separate from the ordinary Grok app, then asked for details, then for a diagram.
+A real conversation: I replayed a three-turn production thread on Luna (Router and middle model) and GPT Sol (high model), with the same Web search tool that production had. The user asked about "Grok Bot," a new xAI product separate from the ordinary Grok app, then asked for details, then for a diagram.
 
-| | Super / Ultra (production) | Luna / Sol |
-| --- | ---: | ---: |
-| LLM calls | 9 | 10 |
-| Web searches | 0 | 6 |
-| LLM cost | $0.039 | $0.058 |
-| Total API time | 35.2 s | 64.8 s |
+- Super / Ultra (production): 9 LLM calls, 0 Web searches, $0.039 LLM cost, 35.2 s total API time
+- Luna / Sol: 10 LLM calls, 6 Web searches, $0.058 LLM cost, 64.8 s total API time
 
 Nemotron never searched. It described the ordinary Grok app, and Ultra added a detailed timeline, plan prices, and storage rules it could not verify. Luna also took Grok Bot for ordinary Grok in the first turn, even after two searches, but on the follow-up Luna's searches found xAI's announcement, and Sol used it to explain what Grok Bot is and who can use it. That cost about 50% more and took nearly twice as long.
 
@@ -72,11 +72,11 @@ This is one thread replayed with the current code, not a controlled benchmark. N
 
 Two platform capabilities were particularly valuable to kakeratta:
 
-**1. Direct template and reasoning control via `chat_template_kwargs`.**
-Standard API aggregators often abstract away or normalize engine-level parameters. Token Factory exposes direct passthrough to the underlying Jinja chat template arguments. In kakeratta's routing experiments, the smallest models (Nemotron 3.5 Lightning and Nano) spent 6–9 seconds generating long reasoning traces for simple categorization tasks. Passing a top-level flag did not disable thinking on Token Factory; it required passing `chat_template_kwargs: {"enable_thinking": false}`. Having direct control over template arguments allowed me to measure the exact latency, cost, and accuracy trade-offs of reasoning tokens on real production posts and tune the routing pipeline directly in code.
+1. Direct template and reasoning control via chat_template_kwargs.
+Standard API aggregators often abstract away or normalize engine-level parameters. Token Factory exposes direct passthrough to the underlying Jinja chat template arguments. In kakeratta's routing experiments, the smallest models (Nemotron 3.5 Lightning and Nano) spent 6–9 seconds generating long reasoning traces for simple categorization tasks. Passing a top-level flag did not disable thinking on Token Factory; it required passing chat_template_kwargs: {"enable_thinking": false}. Having direct control over template arguments allowed me to measure the exact latency, cost, and accuracy trade-offs of reasoning tokens on real production posts and tune the routing pipeline directly in code.
 
-**2. Robust native tool calling with strict enforcement (`tool_choice: "required"`).**
-When hosting open-weight models, tool calling often falls back to prompt-wrapped simulations that easily break—emitting calls as plain text or corrupting argument schemas. Early versions of kakeratta asked models to emit JSON actions in prose, but personas frequently wrote actions into their text notes (such as recording a reminder as raw text instead of calling the `schedule` tool) while the tool database stayed empty. Migrating to Token Factory's native tool calling and enforcing `tool_choice: "required"` completely resolved this. Nemotron Super and Ultra reliably returned valid `tool_calls` payloads matching the declared schemas. This dependable execution made speaking vs. remaining silent an explicit tool choice and allowed the host application to enforce deterministic validation, permission checks, and multi-stage planning entirely with open models.
+2. Robust native tool calling with strict enforcement (tool_choice: "required").
+When hosting open-weight models, tool calling often falls back to prompt-wrapped simulations that easily break—emitting calls as plain text or corrupting argument schemas. Early versions of kakeratta asked models to emit JSON actions in prose, but personas frequently wrote actions into their text notes (such as recording a reminder as raw text instead of calling the schedule tool) while the tool database stayed empty. Migrating to Token Factory's native tool calling and enforcing tool_choice: "required" completely resolved this. Nemotron Super and Ultra reliably returned valid tool_calls payloads matching the declared schemas. This dependable execution made speaking vs. remaining silent an explicit tool choice and allowed the host application to enforce deterministic validation, permission checks, and multi-stage planning entirely with open models.
 
 ### How likely are you to recommend running Nemotron on Nebius to other developers?
 
@@ -86,9 +86,9 @@ I strongly recommend it for products that rely heavily on LLMs inside the applic
 
 Three factors make it compelling:
 
-- **Consistent stability across all model sizes.** Whether running Nemotron 3.5 Lightning, Super, or Ultra, inference was dependable under bursty multi-agent workloads with zero rate-limit errors or timeouts.
-- **Model customization and control.** Token Factory allows fine-tuning model behavior, from direct template control (such as managing reasoning traces via `chat_template_kwargs`) to platform customization options, rather than treating models as rigid black boxes.
-- **Affordable pricing for heavy usage.** At $0.30 per million input tokens for Super and $1.00 for Ultra, the pricing makes frequent, multi-stage agentic loops economically practical in production where closed frontier models would be cost-prohibitive.
+- Consistent stability across all model sizes: Whether running Nemotron 3.5 Lightning, Super, or Ultra, inference was dependable under bursty multi-agent workloads with zero rate-limit errors or timeouts.
+- Model customization and control: Token Factory allows fine-tuning model behavior, from direct template control (such as managing reasoning traces via chat_template_kwargs) to platform customization options, rather than treating models as rigid black boxes.
+- Affordable pricing for heavy usage: At $0.30 per million input tokens for Super and $1.00 for Ultra, the pricing makes frequent, multi-stage agentic loops economically practical in production where closed frontier models would be cost-prohibitive.
 
 I stop at 8 only because developers building straightforward, low-frequency workflows that need occasional customer-facing polish might still default to standard closed frontier APIs. But for products with heavy in-app LLM usage, Nebius and Nemotron are an excellent fit.
 
@@ -99,14 +99,13 @@ I stop at 8 only because developers building straightforward, low-frequency work
 Local development was simply out of the question—running 120B or 550B frontier MoE models is impossible on personal hardware. Compared to other cloud APIs, Nebius provided a fast, stable, and transparent developer experience.
 
 Three aspects stood out:
-- **Fast response times.** Inference latency was consistently low, which was critical for keeping interactive persona replies responsive.
-- **Rock-solid stability under concurrency.** While other cloud APIs often return 429 rate limits or timeouts with just a few parallel calls, Token Factory handled bursts of concurrent multi-agent turns without a single 429 or timeout.
-- **Rapid, model-by-model usage visibility.** Being able to quickly check usage and spending broken down by model in the console made it effortless to monitor costs and verify the financial impact of shifting tasks between Lightning, Super, and Ultra.
+- Fast response times: Inference latency was consistently low, which was critical for keeping interactive persona replies responsive.
+- Rock-solid stability under concurrency: While other cloud APIs often return 429 rate limits or timeouts with just a few parallel calls, Token Factory handled bursts of concurrent multi-agent turns without a single 429 or timeout.
+- Rapid, model-by-model usage visibility: Being able to quickly check usage and spending broken down by model in the console made it effortless to monitor costs and verify the financial impact of shifting tasks between Lightning, Super, and Ultra.
 
-The main limitations were model inflexibility when corrected, lightweight routing quality, and image handling:
-- **Reluctance to accept corrections.** Nemotron models could be stubborn. When told that an answer was incorrect and asked to look it up, the model frequently rationalized its earlier error or invented explanations rather than acknowledging the mistake and conducting fresh research.
-- **Underwhelming routing quality from Lightning and Switchyard.** Options touted for fast routing fell short of expectations. With reasoning enabled, Nemotron 3.5 Lightning generated far more output tokens and ran much slower than Super (6.55 s vs. 1.91 s), while disabling reasoning caused categorization accuracy to drop sharply. Similarly, Switchyard tripled routing latency and generated thousands of extra tokens without reliably improving model choices, prompting me to drop both in favor of direct routing on Super.
-- **No direct multimodal input.** The Token Factory public API did not offer multimodal Nemotron inference, so GLM analyzes each image once and personas receive the result as text rather than inspecting images directly.
+The main limitations were model inflexibility when corrected and lightweight routing quality:
+- Reluctance to accept corrections: Nemotron models could be stubborn. When told that an answer was incorrect and asked to look it up, the model frequently rationalized its earlier error or invented explanations rather than acknowledging the mistake and conducting fresh research.
+- Underwhelming routing quality from Lightning and Switchyard: Options touted for fast routing fell short of expectations. With reasoning enabled, Nemotron 3.5 Lightning generated far more output tokens and ran much slower than Super (6.55 s vs. 1.91 s), while disabling reasoning caused categorization accuracy to drop sharply. Similarly, Switchyard tripled routing latency and generated thousands of extra tokens without reliably improving model choices, prompting me to drop both in favor of direct routing on Super.
 
 ### What additional features or improvements would have made the Nemotron on Nebius experience more effective for your project?
 
