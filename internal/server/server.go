@@ -44,6 +44,10 @@ type Options struct {
 	Alarm func(at time.Time) error
 	// Passive assembles API/worker dependencies without starting background work.
 	Passive bool
+	// JudgeMCPKey and JudgeActive constrain the operator-managed shared
+	// connection. Ordinary user-created MCP connections do not use them.
+	JudgeMCPKey string
+	JudgeActive func() bool
 }
 
 // EventBus carries one workspace's events to every process serving it. A
@@ -66,6 +70,8 @@ type Server struct {
 	runner       *persona.Runner
 	tools        tools.Config
 	version      string
+	judgeMCPKey  string
+	judgeActive  func() bool
 	search       *search.Service
 	exports      store.ExportTarget
 	exporting    atomic.Bool
@@ -85,14 +91,16 @@ type Server struct {
 
 func New(options Options) *Server {
 	s := &Server{
-		alexa:     options.Alexa,
-		store:     options.Store,
-		catalogue: options.Catalogue,
-		version:   options.Version,
-		tools:     options.Tools,
-		exports:   options.Exports,
-		mux:       http.NewServeMux(),
-		events:    newHub(),
+		alexa:       options.Alexa,
+		store:       options.Store,
+		catalogue:   options.Catalogue,
+		version:     options.Version,
+		judgeMCPKey: options.JudgeMCPKey,
+		judgeActive: options.JudgeActive,
+		tools:       options.Tools,
+		exports:     options.Exports,
+		mux:         http.NewServeMux(),
+		events:      newHub(),
 	}
 	if bus, ok := options.Store.(EventBus); ok {
 		s.bus = bus

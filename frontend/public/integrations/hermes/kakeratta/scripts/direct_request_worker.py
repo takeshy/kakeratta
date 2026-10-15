@@ -48,6 +48,7 @@ config.yaml (`kakeratta_worker`, then `delegation`; never the parent's
 """
 
 import fcntl
+import copy
 import hashlib
 import json
 import os
@@ -60,7 +61,7 @@ from pathlib import Path
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "4"
+WORKER_VERSION = "5"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -161,7 +162,7 @@ def model_config(cfg):
     }
 
 
-def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
+def prepare_worker_home(home: Path, main_cfg, cfg, url, headers, parent: Path = None) -> Path:
     """Write the worker's own Hermes home and return it.
 
     Model calls go through the Hermes CLI with this home, never straight to
@@ -171,8 +172,13 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
     script's read-only file server (`files`) over the readable roots, plus the
     parent MCP servers named in `kakeratta_worker.mcp_servers`. The parent's
     skills, memory, cron jobs and sessions are not shared.
+
+    ``home`` holds the worker's own files; ``parent`` is the Hermes home whose
+    .env and config the worker borrows (the same unless a judge workspace
+    keeps its files apart).
     """
     import yaml
+    parent = parent or home
     main_cfg = main_cfg if isinstance(main_cfg, dict) else {}
     whome = _work_root(home) / "hermes-home"
     whome.mkdir(parents=True, exist_ok=True)
@@ -186,15 +192,16 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
         model["api_key"] = cfg["api_key_ref"]
 
     servers = main_cfg.get("mcp_servers") if isinstance(main_cfg.get("mcp_servers"), dict) else {}
-    mcp = dict(servers.get("kakeratta") or {
-        "url": url,
-        "headers": {k: v for k, v in (headers or {}).items() if k.lower() not in ("content-type", "accept")},
-    })
+    # A shared judge run selects its workspace at execution time. Never retain
+    # the parent's configured per-user URL in the generated worker home.
+    mcp = dict(servers.get("kakeratta") or {})
+    mcp["url"] = url
+    mcp["headers"] = {k: v for k, v in (headers or {}).items() if k.lower() not in ("content-type", "accept")}
     mcp["tools"] = {"include": list(READONLY_MCP_TOOLS), "prompts": False, "resources": False}
 
     files = {
         "command": sys.executable,
-        "args": [str(Path(__file__).resolve()), "--fs-mcp", "--home", str(home)]
+        "args": [str(Path(__file__).resolve()), "--fs-mcp", "--home", str(parent)]
                 + [a for root in cfg["file_roots"] for a in ("--root", root)],
         "tools": {"prompts": False, "resources": False},
     }
@@ -208,7 +215,7 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers) -> Path:
     _atomic_write(whome / "config.yaml", yaml.safe_dump(worker_cfg, allow_unicode=True), mode=0o600)
 
     # Credentials Hermes loads from .env stay in the parent's file.
-    env_file, link = home / ".env", whome / ".env"
+    env_file, link = parent / ".env", whome / ".env"
     if env_file.exists() and not link.is_symlink():
         link.symlink_to(env_file)
     return whome
@@ -746,13 +753,18 @@ def fs_mcp_main(argv):
 
 # --- entry points --------------------------------------------------------
 
-def process(url, headers, requests, cfg=None, home=None):
+def process(url, headers, requests, cfg=None, home=None, workspace_id=None):
     """Process open direct requests, oldest first: pending ones, and claimed
     ones this worker left unfinished. Returns nothing; each request is handled
     independently and errors are audited, never raised. Only one worker runs
     at a time; an overlapping tick returns at once."""
-    home = home or get_hermes_home()
-    main_cfg = read_config(home)
+    parent = home or get_hermes_home()
+    main_cfg = read_config(parent)
+    # State, audit, usage and locks must not collide when identical request IDs
+    # occur in two judge workspaces. Keep the ordinary layout for legacy calls.
+    home = parent
+    if workspace_id and workspace_id != "configured":
+        home = _judge_root(parent, workspace_id)
     cfg = cfg or model_config(main_cfg)
     cfg["secrets"] = secret_values(cfg, headers)
     lock = acquire_lock(home)
@@ -760,7 +772,7 @@ def process(url, headers, requests, cfg=None, home=None):
         print("kakeratta direct-request worker: another run is in progress; skipping", file=sys.stderr)
         return
     try:
-        cfg["worker_home"] = prepare_worker_home(home, main_cfg, cfg, url, headers)
+        cfg["worker_home"] = prepare_worker_home(home, main_cfg, cfg, url, headers, parent=parent)
         for request in sorted(requests, key=lambda r: r.get("id", "")):
             rid = request.get("id")
             if not rid or request.get("status") not in ("pending", "claimed"):
@@ -771,6 +783,104 @@ def process(url, headers, requests, cfg=None, home=None):
                 audit(home, rid, "worker_error", {"error": redact(e, cfg["secrets"])})
     finally:
         lock.close()
+
+
+def _judge_root(parent: Path, workspace_id: str) -> Path:
+    safe = re.sub(r"[^A-Za-z0-9_.-]", "_", workspace_id)
+    return parent / "kakeratta-judge-workspaces" / safe
+
+
+def spawn_persona_asks(url, headers, workspace_id, home=None):
+    """Start process_persona_asks for one judge workspace in a detached
+    process and return at once, so the Wake Gate is never held by a Hermes
+    run. The MCP credential goes over stdin, never on the command line."""
+    parent = home or get_hermes_home()
+    root = _judge_root(parent, workspace_id)
+    root.mkdir(parents=True, exist_ok=True)
+    log = open(root / "persona.log", "a", encoding="utf-8")
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "--persona-asks"],
+            stdin=subprocess.PIPE, stdout=log, stderr=log, text=True,
+            env=dict(os.environ, HERMES_HOME=str(parent)), start_new_session=True)
+        proc.stdin.write(json.dumps({"url": url, "headers": headers, "workspaceId": workspace_id}))
+        proc.stdin.close()
+    finally:
+        log.close()
+
+
+def persona_asks_main():
+    """Entry for --persona-asks: the arguments arrive as JSON on stdin."""
+    args = json.loads(sys.stdin.read())
+    try:
+        process_persona_asks(args["url"], args["headers"], args["workspaceId"])
+    except Exception as e:
+        secrets = secret_values(model_config(read_config(get_hermes_home())), args.get("headers"))
+        print(f"kakeratta persona worker failed for {args.get('workspaceId')}: {redact(e, secrets)}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def process_persona_asks(url, headers, workspace_id, home=None):
+    """Run the normal kakeratta skill against one discovered judge workspace.
+
+    A fresh workspace-scoped Hermes home carries a generated config whose
+    kakeratta MCP server points only at ``url``. The parent config is never
+    edited and Hermes does not need a restart. This is invoked only after the
+    gate has proved that this workspace has a pending persona ask. Only one
+    run per workspace at a time: an overlapping tick returns at once.
+    """
+    parent = home or get_hermes_home()
+    main_cfg = read_config(parent)
+    if not isinstance(main_cfg, dict):
+        raise RuntimeError("config.yaml not found")
+    root = _judge_root(parent, workspace_id)
+    root.mkdir(parents=True, exist_ok=True)
+    lock = open(root / "persona.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        lock.close()
+        return
+    try:
+        _run_persona_asks(parent, main_cfg, root, url, headers)
+    finally:
+        lock.close()
+
+
+def _run_persona_asks(parent, main_cfg, root, url, headers):
+    run_home = root / "persona-hermes-home"
+    run_home.mkdir(parents=True, exist_ok=True)
+    os.chmod(run_home, 0o700)
+
+    cfg = copy.deepcopy(main_cfg)
+    servers = cfg.setdefault("mcp_servers", {})
+    server = dict(servers.get("kakeratta") or {})
+    server["url"] = url
+    server["headers"] = {k: v for k, v in headers.items()
+                         if k.lower() not in ("content-type", "accept")}
+    server.pop("tools", None)  # persona asks need claim/read/submit as well as reads
+    servers["kakeratta"] = server
+    _atomic_write(run_home / "config.yaml", __import__("yaml").safe_dump(cfg, allow_unicode=True), mode=0o600)
+    for name in (".env", "skills"):
+        source, link = parent / name, run_home / name
+        if source.exists() and not link.exists():
+            link.symlink_to(source, target_is_directory=source.is_dir())
+
+    skill_path = parent / "skills" / "kakeratta" / "SKILL.md"
+    if not skill_path.exists():
+        raise RuntimeError("kakeratta skill is not installed")
+    prompt = (skill_path.read_text(encoding="utf-8") +
+              "\n\nThe Wake Gate has confirmed pending persona asks in this MCP workspace. "
+              "Follow the skill now for every pending ask. End only after each answer is accepted.")
+    model = model_config(main_cfg)
+    cmd = [model["hermes_bin"], "chat", "-Q", "--ignore-rules", "--max-turns", "15",
+           "--run-budget", str(model["run_budget"]), "--query-file", "-"]
+    proc = subprocess.run(cmd, input=prompt, env=dict(os.environ, HERMES_HOME=str(run_home)),
+                          cwd=str(run_home), capture_output=True, text=True,
+                          timeout=model["run_budget"] + 120)
+    if proc.returncode != 0:
+        raise RuntimeError(f"persona Hermes exited with {proc.returncode}: {proc.stderr.strip()[-300:]}")
 
 
 def main():
@@ -804,4 +914,6 @@ def main():
 if __name__ == "__main__":
     if "--fs-mcp" in sys.argv:
         sys.exit(fs_mcp_main(sys.argv[1:]))
+    if "--persona-asks" in sys.argv:
+        sys.exit(persona_asks_main())
     sys.exit(main())

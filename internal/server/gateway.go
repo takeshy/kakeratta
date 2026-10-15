@@ -53,9 +53,17 @@ type AuthOptions struct {
 	OpenWorkspace    func(userKey string, blobs store.BlobStore) (store.Workspace, error)
 	JudgeInviteToken string
 	JudgeAPIKey      string
-	JudgeExpiresAt   time.Time
-	JudgeMaxUses     int
-	ClaimJudgeUse    func(context.Context, string, int) (int, bool, error)
+	// JudgeMCPKey is the shared external-agent credential installed into each
+	// judge workspace. It is never returned to a browser or stored in plain text.
+	JudgeMCPKey string
+	// RecordJudgeWorkspace and JudgeWorkspaces keep the list of workspaces
+	// set up for the shared judge Hermes, so discovering them never opens
+	// every user's workspace. Without them, ListWorkspaces is searched.
+	RecordJudgeWorkspace func(ctx context.Context, key string) error
+	JudgeWorkspaces      func(ctx context.Context) ([]string, error)
+	JudgeExpiresAt       time.Time
+	JudgeMaxUses         int
+	ClaimJudgeUse        func(context.Context, string, int) (int, bool, error)
 	// Shared lets several instances serve the same users (see Shared).
 	// Without it this process is the only one: it keeps every workspace open
 	// and each queues its own periodic checks.
@@ -175,6 +183,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if g.options.Mode == "worker" {
 		notFound(w, r)
+		return
+	}
+	if r.URL.Path == "/internal/judge-workspaces" && r.Method == http.MethodGet {
+		g.judgeWorkspaces(w, r)
 		return
 	}
 	if r.URL.Path == "/internal/due" && r.Method == http.MethodPost {
@@ -316,6 +328,16 @@ func (g *Gateway) registerJudge(w http.ResponseWriter, r *http.Request) {
 	if err != nil || verified.UID == "" || !isPassword(verified) {
 		fail(w, http.StatusUnauthorized, "password account required")
 		return
+	}
+	// The shared connection is set up before the claim, so a failure leaves
+	// nothing granted and the judge simply registers again. Without an
+	// operator key, registration works as it did before the shared Hermes.
+	if g.judgeSharedMCP() {
+		if err := g.setUpJudgeWorkspace(r.Context(), verified.UID); err != nil {
+			log.Printf("judge workspace %s: %v", workspaceKey(verified.UID), err)
+			fail(w, http.StatusInternalServerError, "judge workspace initialization failed")
+			return
+		}
 	}
 	if err := g.verifier.SetCustomUserClaims(r.Context(), verified.UID, map[string]interface{}{"judge": true}); err != nil {
 		fail(w, http.StatusInternalServerError, "judge registration failed")
@@ -591,7 +613,7 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 		Alexa: g.options.Alexa,
 		Store: workspace, Catalogue: persona.NewCatalogue(workspace),
 		Version: g.options.Version, Tools: g.options.Tools, Exports: exports,
-		Passive: g.passive(),
+		Passive: g.passive(), JudgeMCPKey: g.options.JudgeMCPKey, JudgeActive: g.judgeActive,
 	}
 	if g.shared != nil {
 		// A workspace here may be closed when idle, so it is woken from
@@ -668,34 +690,11 @@ func (g *Gateway) restoreWorkspaces() {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		var keys []string
-		var err error
-		if g.options.ListWorkspaces != nil {
-			keys, err = g.options.ListWorkspaces(ctx)
-		} else if g.options.OpenWorkspace == nil {
-			var dirs []os.DirEntry
-			dirs, err = os.ReadDir(filepath.Join(g.options.Root, "users"))
-			if os.IsNotExist(err) {
-				err = nil
-			}
-			for _, dir := range dirs {
-				if dir.IsDir() {
-					keys = append(keys, dir.Name())
-				}
-			}
-		}
+		keys, err := g.listWorkspaces(ctx)
 		cancel()
 		if err != nil {
 			log.Printf("daily workspace discovery: %v", err)
 		}
-		valid := keys[:0]
-		for _, key := range keys {
-			// Workspace keys are SHA-256 hashes, never paths supplied by users.
-			if raw, err := hex.DecodeString(key); err == nil && len(raw) == sha256.Size {
-				valid = append(valid, key)
-			}
-		}
-		keys = valid
 		g.eachWorkspace(keys, func(key string) {
 			if g.shared != nil {
 				// Named tasks coalesce concurrent startup wakes across instances.
@@ -716,6 +715,40 @@ func (g *Gateway) restoreWorkspaces() {
 		case <-ticker.C:
 		}
 	}
+}
+
+// listWorkspaces names every workspace kept here: through ListWorkspaces, or
+// the users directory of a local store. Only well-formed keys are returned.
+func (g *Gateway) listWorkspaces(ctx context.Context) ([]string, error) {
+	var keys []string
+	var err error
+	if g.options.ListWorkspaces != nil {
+		keys, err = g.options.ListWorkspaces(ctx)
+	} else if g.options.OpenWorkspace == nil {
+		var dirs []os.DirEntry
+		dirs, err = os.ReadDir(filepath.Join(g.options.Root, "users"))
+		if os.IsNotExist(err) {
+			err = nil
+		}
+		for _, dir := range dirs {
+			if dir.IsDir() {
+				keys = append(keys, dir.Name())
+			}
+		}
+	}
+	valid := keys[:0]
+	for _, key := range keys {
+		// Workspace keys are SHA-256 hashes, never paths supplied by users.
+		if validWorkspaceKey(key) {
+			valid = append(valid, key)
+		}
+	}
+	return valid, err
+}
+
+func validWorkspaceKey(key string) bool {
+	raw, err := hex.DecodeString(key)
+	return err == nil && len(raw) == sha256.Size
 }
 
 // Bound background storage fan-out independently of foreground requests.

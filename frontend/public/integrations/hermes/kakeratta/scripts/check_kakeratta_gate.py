@@ -29,7 +29,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "6"
+GATE_VERSION = "7"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -110,6 +110,32 @@ def call_tool(url: str, headers: dict, name: str, arguments: dict = None, timeou
     if not content:
         raise ValueError(f"{name} returned no data")
     return json.loads(content[0]["text"])
+
+
+def judge_workspaces(url: str, headers: dict) -> list[dict]:
+    """Discover shared-key judge endpoints from the configured kakeratta host.
+
+    Each MCP URL is joined to the host this gate was configured with, never
+    taken from the response, so the shared key only goes where it already does.
+    """
+    marker = "/api/mcp/users/"
+    if marker not in url:
+        return []
+    base = url.split(marker, 1)[0]
+    endpoint = base + "/internal/judge-workspaces"
+    req_headers = {k: v for k, v in headers.items() if k.lower() not in ("content-type", "accept")}
+    req = urllib.request.Request(endpoint, headers=req_headers, method="GET")
+    with urllib.request.urlopen(req, timeout=5) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    rows = data.get("workspaces")
+    if not isinstance(rows, list):
+        raise ValueError("judge-workspaces.workspaces is not a list")
+    targets = []
+    for row in rows:
+        workspace = row.get("workspaceId") if isinstance(row, dict) else None
+        if isinstance(workspace, str) and re.fullmatch(r"[0-9a-f]{64}", workspace):
+            targets.append({"workspaceId": workspace, "mcpUrl": base + marker + workspace})
+    return targets
 
 
 def replace_file(path: Path, text: str) -> None:
@@ -201,43 +227,96 @@ def main():
         headers["Content-Type"] = "application/json"
         headers["Accept"] = "application/json, text/event-stream"
 
-        result = call_tool(url, headers, "list_asks")
-        asks = result.get("asks")
-        if not isinstance(asks, list):
-            raise ValueError("list_asks.asks is not a list")
+        targets = [{"workspaceId": "configured", "mcpUrl": url}]
+        try:
+            discovered = judge_workspaces(url, headers)
+            targets = discovered
+        except Exception as e:
+            # A normal per-user key cannot call the judge endpoint. Preserve
+            # the existing single-workspace behavior in that case.
+            print(f"kakeratta judge discovery unavailable: {e}", file=sys.stderr)
+
+        # Each workspace is read on its own: one that fails (being deleted,
+        # say) is skipped this tick and never holds up the others.
+        pending_asks = []
+        batches = []
+        result, result_url = None, url
+        for target in targets:
+            try:
+                listed = call_tool(target["mcpUrl"], headers, "list_asks")
+                asks = listed.get("asks")
+                if not isinstance(asks, list):
+                    raise ValueError("list_asks.asks is not a list")
+                # Direct requests are listed only when the user turned them
+                # on; an older kakeratta leaves the key out.
+                requests = listed.get("requests") or []
+                if not isinstance(requests, list):
+                    raise ValueError("list_asks.requests is not a list")
+            except Exception as e:
+                print(f"kakeratta list_asks failed for {target['workspaceId']}: {e}", file=sys.stderr)
+                continue
+            pending_asks.extend((target, a) for a in asks if isinstance(a, dict) and a.get("status") == "pending")
+            batches.append((target, requests))
+            if result is None:
+                # The integration is fetched from a workspace this key can
+                # read, which for the shared judge key is not the configured one.
+                result, result_url = listed, target["mcpUrl"]
+
+        if result is None:
+            adjust_max_turns(config_path, 15)
+            print(json.dumps({"wakeAgent": False}))
+            return
 
         versions = result.get("integration")
         if isinstance(versions, dict):
             try:
-                update_integration(url, headers, versions)
+                update_integration(result_url, headers, versions)
             except Exception as e:
                 print(f"kakeratta integration update failed: {e}", file=sys.stderr)
 
-        # Direct requests are listed only when the user turned them on; an
-        # older kakeratta leaves the key out.
-        requests = result.get("requests") or []
-        if not isinstance(requests, list):
-            raise ValueError("list_asks.requests is not a list")
-
-        pending_asks = [a for a in asks if isinstance(a, dict) and a.get("status") == "pending"]
-        # Claimed requests go to the worker too: it resumes the ones it
-        # claimed and left unfinished (a crash, a provider failure, a failed
-        # reply) from its own records, and ignores the rest.
-        open_requests = [r for r in requests if isinstance(r, dict) and r.get("status") in ("pending", "claimed")]
-
         # Direct requests are handled in code by the distributed worker, not
-        # by waking the Super parent. Run it only after the integration
-        # (including the worker) has been brought current above.
-        if open_requests:
+        # by waking the Super parent. It is imported only now, after the
+        # integration (including the worker) has been brought current above,
+        # and a missing or broken worker never stops persona asks.
+        worker = None
+        try:
+            sys.path.insert(0, str(scripts_dir()))
+            import direct_request_worker as worker
+        except Exception as e:
+            print(f"kakeratta direct-request worker unavailable: {e}", file=sys.stderr)
+
+        for target, requests in batches:
+            # Claimed requests go to the worker too: it resumes the ones it
+            # claimed and left unfinished from its own records.
+            open_requests = [r for r in requests if isinstance(r, dict) and r.get("status") in ("pending", "claimed")]
+            if not open_requests or worker is None:
+                continue
             try:
-                sys.path.insert(0, str(scripts_dir()))
-                import direct_request_worker
-                direct_request_worker.process(url, headers, open_requests)
+                worker.process(target["mcpUrl"], headers, open_requests,
+                               workspace_id=target["workspaceId"])
             except Exception as e:
                 # Fail-closed: a worker failure never wakes Super for a direct
                 # request. The request stays pending or claimed and is
                 # retried next tick.
                 print(f"kakeratta direct-request worker failed: {e}", file=sys.stderr)
+
+        # A shared judge target cannot be handed to the cron parent through
+        # Wake Gate's boolean result. The same installed skill runs in a
+        # detached, workspace-scoped Hermes home whose generated MCP config is
+        # bound to that target, so the gate returns at once; a per-workspace
+        # lock keeps an overlapping tick from answering the same ask twice.
+        shared = targets and targets[0].get("workspaceId") != "configured"
+        if shared:
+            for target in {item[0]["workspaceId"]: item[0] for item in pending_asks}.values():
+                try:
+                    if worker is None:
+                        raise RuntimeError("direct_request_worker is not available")
+                    worker.spawn_persona_asks(target["mcpUrl"], headers, target["workspaceId"])
+                except Exception as e:
+                    print(f"kakeratta persona worker failed for {target['workspaceId']}: {e}", file=sys.stderr)
+            # Each failed ask remains pending and falls back on kakeratta's
+            # existing deadline. Never wake the parent against its stale URL.
+            pending_asks = []
 
         # The 15-turn boundary covers persona asks; direct requests no longer
         # need the expanded 40 turns because Super is not woken for them.

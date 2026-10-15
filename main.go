@@ -152,6 +152,7 @@ func main() {
 			Tools:              toolConfig,
 			JudgeInviteToken:   strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_INVITE_TOKEN")),
 			JudgeAPIKey:        strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_TOKEN_FACTORY_KEY")),
+			JudgeMCPKey:        strings.TrimSpace(os.Getenv("KAKERATTA_JUDGE_MCP_KEY")),
 			JudgeExpiresAt:     judgeExpiresAt,
 			JudgeMaxUses:       judgeMaxUses,
 			BlobStore: func(userKey string) store.BlobStore {
@@ -169,6 +170,9 @@ func main() {
 				}
 				return cloudBlobs.Exports("exports/" + userKey)
 			},
+		}
+		if key := authOptions.JudgeMCPKey; key != "" && len(key) != 64 {
+			log.Print("KAKERATTA_JUDGE_MCP_KEY must be 64 characters; the shared judge Hermes is disabled")
 		}
 		if firestoreClient != nil {
 			authOptions.ClaimJudgeUse = func(ctx context.Context, uid string, limit int) (int, bool, error) {
@@ -208,6 +212,23 @@ func main() {
 					}
 					keys = append(keys, doc.Ref.ID)
 				}
+			}
+			// Judges given the shared Hermes are recorded apart, so the gate's
+			// discovery reads this short list rather than every workspace.
+			authOptions.RecordJudgeWorkspace = func(ctx context.Context, key string) error {
+				_, err := firestoreClient.Collection("judgeWorkspaces").Doc(key).Set(ctx, map[string]any{"updatedAt": firestore.ServerTimestamp})
+				return err
+			}
+			authOptions.JudgeWorkspaces = func(ctx context.Context) ([]string, error) {
+				refs, err := firestoreClient.Collection("judgeWorkspaces").DocumentRefs(ctx).GetAll()
+				if err != nil {
+					return nil, err
+				}
+				keys := make([]string, 0, len(refs))
+				for _, ref := range refs {
+					keys = append(keys, ref.ID)
+				}
+				return keys, nil
 			}
 			authOptions.OpenWorkspace = func(userKey string, blobs store.BlobStore) (store.Workspace, error) {
 				workspace, err := store.NewFirestoreWorkspace(context.Background(), firestoreClient, userKey, blobs)

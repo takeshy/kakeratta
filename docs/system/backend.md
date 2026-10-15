@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication including Alexa account linking, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-14"
+updated: "2026-10-15"
 ---
 
 Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
@@ -11,6 +11,8 @@ Authentication, entry handling, timeline data, persistence, settings, profile an
 # HTTP API and authentication
 
 ## Resolving the user
+
+Invitation registration first sets up the judge's shared external-agent connection, idempotently, and only then sets the Firebase `judge` claim, so a failed setup grants nothing and the judge simply registers again. `KAKERATTA_JUDGE_MCP_KEY` is separate from both the invitation token and the Token Factory key and must be 64 characters to satisfy the existing MCP bearer format; when it is unset or malformed (logged at startup), registration works as before without the shared connection. See [Shared judge Hermes connection](./integrations.md#shared-judge-hermes-connection).
 
 In a hosted deployment, `Gateway` verifies Firebase sessions. The browser sends an ID token to `/api/auth/session`, and the server issues a `__session` cookie. It derives a workspace key from the user's UID and forwards requests to that user's `Server`. Combined mode restores pending workspaces on startup. Split web/worker mode opens workspaces on demand and executes queued jobs through authenticated push requests; it does not run the restoration worker.
 

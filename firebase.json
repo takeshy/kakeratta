@@ -18,6 +18,10 @@
     ],
     "rewrites": [
       {
+        "source": "/internal/judge-workspaces",
+        "run": { "serviceId": "kakeratta", "region": "asia-east1" }
+      },
+      {
         "source": "/api/**",
         "run": { "serviceId": "kakeratta", "region": "asia-east1" }
       },

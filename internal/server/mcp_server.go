@@ -203,6 +203,10 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 			connectionID = row.ID
 		}
 	}
+	if connectionID == judgeConnectionID && (s.judgeActive == nil || !s.judgeActive() ||
+		len(s.judgeMCPKey) != 64 || !same(key, s.judgeMCPKey)) {
+		connectionID = ""
+	}
 	if r.PathValue("workspace") != s.mcpWorkspace() || connectionID == "" {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="kakeratta-mcp"`)
 		fail(w, 401, "invalid MCP credential")
