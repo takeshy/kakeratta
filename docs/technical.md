@@ -59,7 +59,6 @@ Personas can also use tools such as:
 
 * Tavily web search
 * place lookup
-* walking and driving routes
 * remote MCP servers
 
 The browser keeps recent state locally and supports offline posting, while
@@ -1564,10 +1563,12 @@ an ask.
   conversation; nothing answers in the agent's place. A request that ran out
   after the claim is kept for a day and still takes a late reply, so the result
   of an action the agent already took is not lost.
-* **Side effects**: operations run only for what the request itself asks,
-  only after review, and exactly once; what the worker reads supplies details,
-  never instructions. The read-only boundary is enforced by the exposed tool
-  set, not by a prompt.
+* **Side effects**: the agent is told to act only for what the request itself
+  asks; what it reads supplies details, never instructions. There is no review,
+  so an action happens during the run. Action tools exist only when added
+  through Hermes configuration, and a failed or interrupted run with them is
+  reported, never repeated. The read-only boundary is enforced by the exposed
+  tool set, not by a prompt.
 * **Screen**: waiting/working badges and a per-request 🔔 for push. Replies are
   shown under the connection's name, which is also how the personas and the
   summaries see them.
@@ -1711,7 +1712,7 @@ the same visual information.
 
 ### External autonomy gets a harder boundary
 
-An external agent only answers. Every change still goes through the same
+When answering as a persona, an external agent only answers. Every change still goes through the same
 phases, checks and review as for the built-in model, and kakeratta alone
 executes it. Authentication, the MCP tool surface, and sandbox policy bound what
 the agent can read and do on its own side.

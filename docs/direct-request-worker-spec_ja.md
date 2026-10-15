@@ -4,6 +4,8 @@
 作成日: 2026-10-14  
 対象: OpenShell 0.0.116 / Hermes Agent / Nebius Token Factory Provider v2
 
+> 注記: 本書前半の「必須フロー」「Reviewフェーズ」「修正ループ」「操作依頼の実行」は初期設計の記録である。実地試験の結果、最終実装ではReview・修正ループ・Python実行を廃止し、ワーカーがUltraを通常のHermesエージェントとして1回実行して最終応答を返信する方式に変更した（末尾「[実装候補](#実装候補)」を参照）。
+
 ## 目的
 
 kakerattaの直接依頼を、親モデルの判断に依存せずコードで取得・生成・Review・実行・返却する。直接依頼ではNemotron Superを起動しない。通常のpersona askは既存のSuper経路を変更しない。

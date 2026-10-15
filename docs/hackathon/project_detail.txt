@@ -73,6 +73,10 @@ Not every persona needs memory. Answer-only personas, such as news research or i
 
 You can inspect, trace, correct, or forget any memory without deleting the original post. For any post, you can see which personas were called and why the others weren't. If you say "This persona should have received it," the AI proposes a revised routing condition. When you save it, the app checks the same post again and calls the persona if it now matches. Separately, correcting a persona's reply lets you preview a revised answer before applying it to the timeline.
 
+### Hand bigger jobs to your own agent
+
+Some requests are too big for a persona: research that takes many searches, reading files on your computer, or work your own agent has tools for. Write `@agent` in a post and it skips the personas and goes to the external agent you connected, such as Hermes. Its reply appears in the same conversation, and replying to it continues the request. The post shows whether the agent is waiting or working, and you choose whether its reply is pushed to your phone.
+
 ## How we built it
 
 ### Data management
@@ -104,9 +108,11 @@ Data, execution claims, and conversation order all belong to each account, so no
 
 Selected personas run in parallel, while delivery order within a conversation is preserved. In the built-in path, Super controls every research round and plans schedules. Deep replies and AlwaysUltra use Ultra only to compose the final answer from the complete research transcript. Each research round receives its remaining Web-search allowance; exhausted or unavailable reads are removed from the schema. Other reads and finishing research remain available after Web search runs out.
 
+A direct request to `@agent` skips this table entirely: it is handed to the external agent without routing, planning, or memory.
+
 The turn is split so that **the AI writing the answer is never asked to produce schedules and memory in the same breath**. It focuses on the answer first. State changes are planned and checked separately, and memory is updated only after the answer is published.
 
-Not every turn goes through every stage. A persona without memory and without permission to schedule skips schedule planning, review, and the memory update. Schedules are the only state a persona changes; tools from connected MCP servers are offered only when marked read-only. When an external agent is used, it handles only research and the answer. Planning, review, execution, publishing, and memory stay with kakeratta.
+Not every turn goes through every stage. A persona without memory and without permission to schedule skips schedule planning, review, and the memory update. Schedules are the only state a persona changes; tools from connected MCP servers are offered only when marked read-only. When an external agent answers for a persona, it handles only research and the answer. Planning, review, execution, publishing, and memory stay with kakeratta.
 
 ### NVIDIA Nemotron on Nebius Token Factory
 
@@ -122,17 +128,20 @@ Token Factory offers large, medium, and lightweight models, plus vision and embe
 
 ### External agents over MCP: NemoClaw and Hermes
 
-kakeratta also works as an MCP server, so a persona's research and answer can be delegated to an external agent. Hermes Agent runs inside NVIDIA NemoClaw / OpenShell and uses Nemotron through Nebius Token Factory.
+kakeratta also works as an MCP server, so an external agent can work with it in three ways. Hermes Agent runs inside NVIDIA NemoClaw / OpenShell and uses Nemotron through Nebius Token Factory.
 
-Hermes claims a request, reads the persona's context, does its research, and submits only the answer through `submit_answer`. kakeratta itself plans, reviews, and runs any schedule changes, then keeps the memory.
+- **Answering as a persona.** You choose in kakeratta which personas use the external agent. Hermes claims the turn, reads the persona's context, does its research, and submits only the answer through `submit_answer`. kakeratta itself plans, reviews, and runs any schedule changes, then keeps the memory. If the agent is away or misses its deadline, the built-in model takes the turn back.
+- **Direct requests.** A post addressed to `@agent` goes to the agent itself. The Hermes skill I distribute handles it in a worker written in code: the worker claims the request, runs an ordinary Hermes agent once, and posts the agent's final response as the reply. By default its tools are read-only: kakeratta's reads, Web search, and local files with hidden files and secrets kept out. Each request has a hard cap on model calls and tokens; when it is reached, the worker stops and says why.
+- **Posting as a persona.** The agent can post what it found in a persona's domain as that persona, at most five times per persona per day. Such a post wakes no persona and changes no memory.
 
-You choose in kakeratta which personas use the external agent. Because Hermes can bring its own tools and documents, it can produce answers only Hermes could give. If the agent is away or misses its deadline, the built-in model takes the turn back.
+Because Hermes can bring its own tools and documents, it can produce answers only Hermes could give.
 
 ### Other design choices
 
 - **Meaning search for users and personas.** Posts are embedded with Qwen3-Embedding-8B and stored in Firestore. Personas get the same search as a tool, which helps their answers match what the user actually meant.
-- **Tools belong to personas.** Each persona declares its own tools. These include web search with publication-date filters (Tavily), weather forecasts for outing preparation (WeatherAPI), place and route lookup provided over MCP with a built-in OpenStreetMap fallback, and timeline and memory search.
-- **Reminders via Web Push.** On registered devices, a successful scheduled post triggers a notification titled with the reminder text, truncated to 120 characters. Delivery is best effort; the timeline post is kept even if push fails.
+- **Tools belong to personas.** Each persona declares its own tools. These include web search with publication-date filters (Tavily), weather forecasts for outing preparation (WeatherAPI), place lookup provided over MCP with a built-in OpenStreetMap fallback, and timeline and memory search.
+- **Reminders via Web Push.** On registered devices, a successful scheduled post triggers a notification titled with the reminder text, truncated to 120 characters. The external agent's reply to a direct request is pushed the same way unless you turn it off for that request. Delivery is best effort; the timeline post is kept even if push fails.
+- **Voice through Alexa.** A Japanese and English Alexa skill reads back what it heard and posts only after you say yes. It can also read the latest reply and your schedule, and take a spoken reply.
 - **Markdown diagrams.** Infographics use emoji and Mermaid diagrams in Markdown.
 - **Measuring cost by purpose.** Every model call is logged with its purpose (routing, research, final answer, planning, review, memory, embedding) and its retry scope, so I can see which stage drives cost and where to change models.
 
@@ -175,6 +184,14 @@ Then I compared the models on speed, accuracy, and cost together. In a September
 
 Super cost about 22% as much as Ultra. All three of its mismatches concerned a single persona, plana (now sona). Lightning was cheaper still, but much slower with thinking enabled. With thinking disabled, it made many more mistakes. Super became the default router. This was a small replay without pre-established ground truth, not an accuracy benchmark.
 
+### Keeping an agent's long tasks within budget
+
+Direct requests let the external agent work for minutes, so my first version simply woke Hermes's parent model (Super), and the skill told it to delegate the work to an Ultra subagent and have the result reviewed. The instructions did not hold. In a live test, the parent did file and terminal work itself, the review steps fell out of the goal it delegated, the Ultra subagent wrote the result without calling its helpers, and the parent then ran 31 inference rounds reworking it.
+
+That day, October 13, Token Factory showed nearly $10. Hermes's own records held 594 model calls and 12.7 million uncached input tokens. Ultra's price was not the main cause. Three long sessions made 34, 31, and 28 calls and used about 1.3 to 1.4 million input tokens each, because every call resent the growing conversation and tool results.
+
+So I moved the control into code. The Wake Gate now hands a direct request to a worker script that claims it, runs the model, and replies; the parent model never sees it. My first worker generated, reviewed, and corrected the result in separate Ultra calls, but in live tests Ultra struggled with the worker's own output formats and review loop. The final version runs an ordinary Hermes agent once with a turn limit, read-only tools by default, and a cap of 40 model calls or 1.5 million tokens per request, read from Hermes's own usage records. A failed read-only run is retried up to twice. A run with action tools is never repeated, because it may already have acted. A rule the model cannot be trusted to keep has to be kept by code.
+
 ## Accomplishments that we're proud of
 
 What I'm proudest of is that a simple app covers every role I need notes to play. You just jot down fragments and describe each persona's purpose in plain language.
@@ -183,7 +200,7 @@ What I'm proudest of is that a simple app covers every role I need notes to play
 
 With paper, I relied on three things. A notebook and pen let me write anywhere. A planner let me see by date and time when to act. Sticky notes made the important pages easy to find. kakeratta covers all three:
 
-* **Write anytime.** It is a web app, so a PC or phone is all you need. It also works offline, so you can write without a signal.
+* **Write anytime.** It is a web app, so a PC or phone is all you need, and it can be added to the phone's Home Screen like an app. It also works offline, so you can write without a signal. With Alexa, you can also say a fragment out loud.
 * **Find it when you need it.** Search combines keywords with meaning. Ask "what was that movie someone said I had to see?" and it also finds the one described as "highly recommended." Schedules remind you at a set time, and you can create a persona that tells you each morning what is planned for the day.
 * **Make it easy to notice.** Tap Favorite on anything important, or on a persona's answer you want to revisit, and see your favorites listed by persona.
 
@@ -193,7 +210,7 @@ I kept notes for five purposes, and each one now has a persona behind it:
 
 * **Looking things up.** The persona for that interest researches the topic for you.
 * **Staying connected to the people who matter.** Register a birthday and you are reminded before it. If you still have something you borrowed, that person's persona tells you. When a topic comes up that a friend loves, it reminds you that they mentioned it too.
-* **Keeping plans and following through.** Schedule reminders arrive as push notifications, and you can create a persona that tells you the day's plans. Before you head out, sona checks the weather and reminds you to take an umbrella.
+* **Keeping plans and following through.** Schedule reminders arrive as push notifications; tap **Mark done** on its post once it is finished, and the personas see that too. You can create a persona that tells you the day's plans. Before you head out, sona checks the weather and reminds you to take an umbrella.
 * **Keeping a record of where you've been.** Each fragment records a rough location, so you can see where you were or ask "when did I last go to Tokyo?"
 * **Writing down impressions.** Capture a page of the book you're reading, and an LLM reads the text. Add your thoughts, and later, when you ask the AI about the book, it tells you which scene you were reading and what you thought of it.
 
