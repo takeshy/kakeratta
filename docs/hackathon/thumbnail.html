@@ -8,7 +8,7 @@
   body { background: #f6f3ed; color: #282b27; font-family: Lato, Arial, sans-serif; }
   .wash { position: absolute; width: 1080px; height: 1500px; left: 940px; top: -150px; border-radius: 50%; background: #e5eadc; }
   .brand { position: absolute; left: 100px; top: 104px; font-size: 88px; font-weight: 900; letter-spacing: -4px; }
-  .brand img { width: 424px; height: 88px; }
+  .brand img { display: block; width: 418px; height: 110px; margin-left: -11px; }
   .eyebrow { position: absolute; left: 105px; top: 302px; font-size: 26px; letter-spacing: 5px; font-weight: 800; color: #94623b; }
   h1 { position: absolute; left: 94px; top: 372px; margin: 0; font-size: 132px; font-weight: 900; line-height: 1.08; letter-spacing: -6px; }
   h1 span { color: #566e51; }
@@ -16,9 +16,10 @@
   .footer { position: absolute; left: 105px; bottom: 93px; font-size: 27px; color: #7a7e70; }
   .ring { position: absolute; left: 1090px; top: 282px; width: 590px; height: 590px; border: 2px solid #c6d1ba; border-radius: 50%; }
   .ring:after { content: ''; position: absolute; inset: 56px; border: 1px dashed #becaaf; border-radius: 50%; }
-  .logo { position: absolute; left: 1207px; top: 401px; width: 356px; height: 356px; transform: rotate(-6deg); filter: drop-shadow(0 28px 30px #566e5125); }
-  .persona { position: absolute; display: flex; align-items: center; gap: 20px; padding: 24px 30px; border: 1px solid #d1d6c7; border-radius: 26px; background: #fffdfa; box-shadow: 0 16px 32px #53644a0c; font-size: 33px; font-weight: 800; }
-  .persona span { display: grid; place-items: center; width: 66px; height: 66px; border-radius: 18px; font-size: 38px; background: #f0e6d9; }
+  .logo { position: absolute; left: 1207px; top: 401px; width: 356px; height: 356px; border-radius: 67px; transform: rotate(-6deg); filter: drop-shadow(0 28px 30px #566e5125); }
+  .persona { position: absolute; display: flex; align-items: center; gap: 20px; padding: 20px 34px 20px 24px; border: 1px solid #d1d6c7; border-radius: 26px; background: #fffdfa; box-shadow: 0 16px 32px #53644a0c; font-size: 33px; font-weight: 800; }
+  .persona small { display: block; margin-top: 2px; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; color: #7a7e70; }
+  .persona span { font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; display: grid; place-items: center; width: 66px; height: 66px; border-radius: 18px; font-size: 38px; background: #f0e6d9; }
   .food { left: 1015px; top: 227px; transform: rotate(-5deg); }
   .books { left: 1452px; top: 300px; transform: rotate(5deg); }
   .people { left: 1257px; top: 831px; transform: rotate(-3deg); }
@@ -30,15 +31,15 @@
   .three { left: 1370px; top: 221px; width: 14px; height: 14px; }
 </style>
 <div class="wash"></div>
-<div class="brand"><img src="../../frontend/public/wordmark.svg" alt="kakeratta"></div>
-<div class="eyebrow">YOUR DAY, IN FRAGMENTS</div>
+<div class="brand"><img src="../../frontend/public/logo.svg" alt="kakeratta"></div>
+<div class="eyebrow">AI PERSONAS FOR YOUR LIFE FRAGMENTS</div>
 <h1>Your life,<br><span>remembered.</span></h1>
-<p class="description">A personal AI timeline.<br>Memories that return when they matter.</p>
+<p class="description">Search can't find what you've forgotten exists.<br>kakeratta brings it back when it matters.</p>
 <div class="ring"></div>
 <img class="logo" src="../../frontend/public/icon.png" alt="kakeratta logo">
-<div class="persona food"><span>🍜</span>Food</div>
-<div class="persona books"><span>📖</span>Books</div>
-<div class="persona people"><span>🙂</span>People</div>
+<div class="persona food"><span>🍜</span><div>tabe<small>Food</small></div></div>
+<div class="persona books"><span>📖</span><div>shiori<small>Books</small></div></div>
+<div class="persona people"><span>🙂</span><div>Mei<small>A friend</small></div></div>
 <div class="dot one"></div><div class="dot two"></div><div class="dot three"></div>
-<div class="footer">kakeratta.net</div>
+<div class="footer">kakeratta.net · Built with NVIDIA Nemotron</div>
 </html>

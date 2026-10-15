@@ -65,7 +65,7 @@ A persona with memory keeps facts by field, a summary of those facts, and chrono
 
 - **Daily check-in:** each persona reviews its memory alongside recent activity, and speaks only when it has something useful to say.
 - **Monthly look-back:** person personas read a summary of the month and surface things like "You haven't talked in a while."
-- **Memories have an ending:** memory is built from what you said, rather than the personas' recommendations. Short-lived records can expire automatically. Records whose useful lifetime is unclear can instead get a review date; at a later check-in, the persona asks whether to keep, postpone, or forget them. Preferences and habits normally have neither date. Expiry also removes facts supported only by the expired records, but leaves the original timeline posts intact.
+- **Memories have an ending:** memory is built from what you said, rather than the personas' recommendations. Short-lived records can expire automatically. For records whose useful lifetime is unclear, the memory keeper sets a review date automatically; once it passes, the persona asks at a check-in whether to keep, postpone, or forget the record, and your reply decides. Preferences and habits normally have neither date. Expiry also removes facts supported only by the expired records, but leaves the original timeline posts intact.
 
 Not every persona needs memory. Answer-only personas, such as news research or infographics, work on demand without accumulating private notes or extra cost.
 
@@ -85,7 +85,7 @@ kakeratta also runs locally as a single-user app, storing everything as plain fi
 
 The hosted app separates the Web API from the workers that run personas. When you post, the Web API saves the post and its processing job in one Firestore transaction, then publishes the job to Pub/Sub. Any available worker picks it up, runs it with that user's AI settings and credentials, saves the result, and acknowledges it. Scheduled wakes from Cloud Tasks go through the same path.
 
-Data, execution claims, and conversation order all belong to each account, so no account is assigned to a particular server. Independent accounts and conversations run in parallel, while each conversation keeps its order. Web and worker instances can be added independently, and in the Cloud Run configuration idle workers scale to zero. To keep production unchanged at low cost through the judging period after submission, it currently runs on a shared Compute Engine VM with the same Web/worker split and durable queues.
+Data, execution claims, and conversation order all belong to each account, so no account is assigned to a particular server. Independent accounts and conversations run in parallel, while each conversation keeps its order. Web and worker instances can be added independently, and in the Cloud Run configuration idle workers scale to zero. To keep production unchanged at low cost through the judging period after submission, it currently runs the same Web and worker processes on a shared Compute Engine VM, while the durable queue stays on managed Google Cloud services (Firestore, Pub/Sub, Cloud Tasks).
 
 ### From post to reply
 
