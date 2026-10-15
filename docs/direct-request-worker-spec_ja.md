@@ -4,7 +4,7 @@
 作成日: 2026-10-14  
 対象: OpenShell 0.0.116 / Hermes Agent / Nebius Token Factory Provider v2
 
-> 注記: 本書前半の「必須フロー」「Reviewフェーズ」「修正ループ」「操作依頼の実行」は初期設計の記録である。実地試験の結果、最終実装ではReview・修正ループ・Python実行を廃止し、ワーカーがUltraを通常のHermesエージェントとして1回実行して最終応答を返信する方式に変更した（末尾「[実装候補](#実装候補)」を参照）。
+> 注記: 本書前半の「必須フロー」「Reviewフェーズ」「修正ループ」「操作依頼の実行」は初期設計の記録である。実地試験ではReview・やり直しのループを回しても出力が改善されないことが多く、コストの無駄になるためループを廃止し、ワーカーから通常のHermesエージェントとして1回直接呼び出す方式に変更した。あわせてHTML生成のような複雑な出力は求めず、Markdownを返させてアプリ側でレンダリングする形にした（末尾「[実装候補](#実装候補)」を参照）。
 
 ## 目的
 
@@ -186,8 +186,8 @@ Reviewerは機械可読なJSONを返す。
 - Gateの配布バージョンを更新し、`get_integration`でSkill、Gate、Workerを同期できるようサーバーのintegration bundleを拡張する。
 - 監査状態と実行済み記録はHermes home配下へアトミック保存する。
 - Token Factory呼び出しは既存のProvider v2認証を使い、キーを設定ファイルやログへ展開しない。
-  - 実装: ワーカーはProviderへ直接リクエストせず、専用Hermes home（`kakeratta/hermes-home`）で単発の `hermes chat` を起動する。そのconfigはkakeratta MCPを読み取り専用ツールに限定（`tools.include`）し、ワーカー自身の読み取り専用ファイルMCPを加え、`max_tokens` は16000（推論込み。コスト抑制のため。超えた出力は途中で切れ、修正に回る）。
-  - **Review・修正・Python実行は採用しない**（実地試験の結果、方針を変更）。ワーカーはコードで取得し、Ultraを通常のHermesエージェントとして1回実行して、その最終応答をそのまま返信する。操作はエージェントが道具を使ってその場で行うため、Review前の承認はない。
+  - 実装: ワーカーはProviderへ直接リクエストせず、専用Hermes home（`kakeratta/hermes-home`）で単発の `hermes chat` を起動する。そのconfigはkakeratta MCPを読み取り専用ツールに限定（`tools.include`）し、ワーカー自身の読み取り専用ファイルMCPを加え、`max_tokens` は16000（推論込み。コスト抑制のため）。
+  - **Review・修正・Python実行は採用しない**（実地試験ではReview・やり直しのループを回しても改善されないことが多く、コストも無駄になるため廃止）。ワーカーはコードで取得し、Ultraを通常のHermesエージェントとして1回直接呼び出して、その最終応答をそのまま返信する。HTML生成のような複雑な出力は求めず、Markdownを返させてアプリ側でレンダリングする。操作はエージェントが道具を使ってその場で行うため、Review前の承認はない。
   - 道具は既定で読み取り専用（`web,kakeratta,files`）。操作の道具は `kakeratta_worker.toolsets` と、親の設定から名前で取り込む `kakeratta_worker.mcp_servers` で、Hermesの通常の方法で追加する。
   - 操作の道具を設定している場合、失敗・中断した実行は操作済みの可能性があるため再実行せず、その旨を返信する。読み取り専用の場合だけ最大2回再実行する。
 

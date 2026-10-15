@@ -184,14 +184,6 @@ Then I compared the models on speed, accuracy, and cost together. In a September
 
 Super cost about 22% as much as Ultra. All three of its mismatches concerned a single persona, plana (now sona). Lightning was cheaper still, but much slower with thinking enabled. With thinking disabled, it made many more mistakes. Super became the default router. This was a small replay without pre-established ground truth, not an accuracy benchmark.
 
-### Keeping an agent's long tasks within budget
-
-Direct requests let the external agent work for minutes, so my first version simply woke Hermes's parent model (Super), and the skill told it to delegate the work to an Ultra subagent and have the result reviewed. The instructions did not hold. In a live test, the parent did file and terminal work itself, the review steps fell out of the goal it delegated, the Ultra subagent wrote the result without calling its helpers, and the parent then ran 31 inference rounds reworking it.
-
-That day, October 13, Token Factory showed nearly $10. Hermes's own records held 594 model calls and 12.7 million uncached input tokens. Ultra's price was not the main cause. Three long sessions made 34, 31, and 28 calls and used about 1.3 to 1.4 million input tokens each, because every call resent the growing conversation and tool results.
-
-So I moved the control into code. The Wake Gate now hands a direct request to a worker script that claims it, runs the model, and replies; the parent model never sees it. My first worker generated, reviewed, and corrected the result in separate Ultra calls, but in live tests Ultra struggled with the worker's own output formats and review loop. The final version runs an ordinary Hermes agent once with a turn limit, read-only tools by default, and a cap of 40 model calls or 1.5 million tokens per request, read from Hermes's own usage records. A failed read-only run is retried up to twice. A run with action tools is never repeated, because it may already have acted. A rule the model cannot be trusted to keep has to be kept by code.
-
 ## Accomplishments that we're proud of
 
 What I'm proudest of is that a simple app covers every role I need notes to play. You just jot down fragments and describe each persona's purpose in plain language.
