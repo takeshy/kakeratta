@@ -246,6 +246,15 @@ resource "google_cloud_run_v2_service" "worker" {
         }
       }
       env {
+        name = "KAKERATTA_JUDGE_MCP_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.judge_mcp_key_secret_id
+            version = var.judge_mcp_key_secret_version
+          }
+        }
+      }
+      env {
         name  = "KAKERATTA_JUDGE_EXPIRES_AT"
         value = var.judge_expires_at
       }

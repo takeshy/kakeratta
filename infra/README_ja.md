@@ -193,6 +193,12 @@ APIの更新前に `firestore.indexes.json` のインデックスを公開し、
 npx firebase-tools deploy --only firestore:indexes --project kakeratta
 ```
 
+## judge 共用 MCP キー
+
+Cloud Run の Web と worker は、既存の Secret Manager シークレット `kakeratta-judge-mcp-key` の `latest` を `KAKERATTA_JUDGE_MCP_KEY` として読み込みます。値は64文字が必要です。Terraform は参照だけを保持し、キーの生成や取得は行いません。参照先やバージョンを変更する場合は `judge_mcp_key_secret_id` / `judge_mcp_key_secret_version` を設定します。実行用サービスアカウントには既存の Secret Manager 読み取り権限があります。
+
+共有 VM では `/opt/shared-apps/runtime.json` の Kakeratta 両アプリの `secrets.KAKERATTA_JUDGE_MCP_KEY` に `{"project":"kakeratta","name":"kakeratta-judge-mcp-key","version":"latest"}` を設定し、`env.KAKERATTA_JUDGE_MCP_KEY` の直接指定を削除します。両コンテナのデプロイで参照を解決し、復旧用に更新した manifest を `shared-apps-runtime` に保存してください。Terraform の変更だけでは稼働中の VM manifest は更新されません。
+
 ## WeatherAPI
 
 デプロイ先プロジェクトのSecret Managerに `kakeratta-wheatherapi-key` を作成し、APIキーを有効なバージョンとして登録します。この綴りが登録済みの名前です。保持しているCloud Run用Terraform構成は `latest` をCloud Runの環境変数 `KAKERATTA_WEATHERAPI_KEY` に紐付けます。実行用サービスアカウントには既存のSecret Manager読み取り権限があります。キーの値はソースコード・Dockerイメージ・ビルドの置換変数・Terraform stateには入りません。Terraformは登録済みシークレットへの参照だけを管理します。

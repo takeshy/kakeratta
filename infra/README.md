@@ -214,6 +214,12 @@ Before updating the API, deploy the indexes in `firestore.indexes.json` and wait
 npx firebase-tools deploy --only firestore:indexes --project kakeratta
 ```
 
+## Shared judge MCP key
+
+The Web and worker Cloud Run services load `KAKERATTA_JUDGE_MCP_KEY` from the existing Secret Manager secret `kakeratta-judge-mcp-key`, version `latest`. The value must be 64 characters. Terraform only stores the reference; it does not create or retrieve the key. Override `judge_mcp_key_secret_id` / `judge_mcp_key_secret_version` to select another secret or pin a version. The runtime service account already has Secret Manager accessor permission.
+
+On the shared VM, add the same reference to both Kakeratta apps in `/opt/shared-apps/runtime.json` under `secrets.KAKERATTA_JUDGE_MCP_KEY`: `{"project":"kakeratta","name":"kakeratta-judge-mcp-key","version":"latest"}`. Remove any literal `env.KAKERATTA_JUDGE_MCP_KEY`. Deploy both containers to resolve the reference, and persist the updated manifest to `shared-apps-runtime` for recovery. Terraform changes alone do not update the active VM manifest.
+
 ## WeatherAPI
 
 Create the Secret Manager secret `kakeratta-wheatherapi-key` in the deployment project and add the API key as an enabled version. This is the registered spelling. The retained Cloud Run Terraform configuration binds its `latest` version to the Cloud Run environment variable `KAKERATTA_WEATHERAPI_KEY`. The runtime account already has Secret Manager accessor permission. The key remains outside source code, Docker images, build substitutions, and Terraform state; Terraform only refers to the existing secret.

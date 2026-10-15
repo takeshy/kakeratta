@@ -88,6 +88,18 @@ variable "weatherapi_secret_version" {
   default     = "latest"
 }
 
+variable "judge_mcp_key_secret_id" {
+  description = "Existing Secret Manager secret containing the 64-character shared judge MCP key; Terraform does not manage its value."
+  type        = string
+  default     = "kakeratta-judge-mcp-key"
+}
+
+variable "judge_mcp_key_secret_version" {
+  description = "Shared judge MCP key secret version resolved when a Cloud Run instance starts."
+  type        = string
+  default     = "latest"
+}
+
 variable "judge_token_factory_key" {
   description = "Server-side Nebius Token Factory key used only by judge accounts."
   type        = string
