@@ -60,7 +60,7 @@ const slides = [
   },
   {
     name: '07-connected-agents', title: 'Connect external agents to your personal timeline',
-    caption: 'Hermes or Obsidian’s LLM Connect Hub can research and answer through MCP. kakeratta keeps the timeline, schedules, actions and memory updates.',
+    caption: 'Hermes or Obsidian’s LLM Connect Hub can research and answer through MCP. kakeratta keeps the timeline, schedules and memory updates.',
     sources: ['llm-connect-hub'],
     body: `${header('06 / CONNECTED AGENTS', 'Bring your agents.<br><em>Keep the conversation.</em>')}<div class="left-notes integrations">${note('Obsidian LLM Connect Hub', 'Bring relevant Vault knowledge<br>into a persona’s response.')}${note('Hermes via MCP', 'Let an external agent research and answer<br>through the same timeline.')}<div class="tags">${tag('MCP')}${tag('Obsidian')}${tag('Hermes')}</div></div>${placed(945, 310, shot('llm-connect-hub', 28, 28, 708, 780, 640, 'AN EXTERNAL AGENT, IN THE SAME THREAD'))}`,
   },
@@ -68,7 +68,7 @@ const slides = [
     name: '08-powered-by-nemotron', title: 'NVIDIA Nemotron on Nebius Token Factory',
     caption: 'Nemotron Super handles routing, everyday reasoning and workflow planning. Ultra composes deep answers. Memory is updated after the reply is published.',
     sources: [],
-    body: `${header('07 / UNDER THE HOOD', 'Personal memory.<br><em>Purposeful AI.</em>', 'Powered by NVIDIA Nemotron on Nebius Token Factory.')}<div class="engine"><div class="model"><div class="model-kicker">EVERYDAY REASONING</div><h2>Nemotron Super</h2><p>Routing · ordinary replies<br>Research · plans · memory</p></div><div class="model ultra"><div class="model-kicker">DEEP ANSWERS</div><h2>Nemotron Ultra</h2><p>Final answers for deep requests<br>and personas set to think deeply</p></div></div><div class="pipeline">${['Save fragment', 'Route & research', 'Compose answer', 'Plan & check', 'Execute & publish', 'Update memory'].map((s,i)=>`<div class="stage"><span>0${i+1}</span>${s}</div>`).join('<b>→</b>')}</div><div class="engine-notes">${note('Durable work', 'Saved jobs and retries keep processing recoverable.')}${note('Separate memories', 'Each persona keeps context for its own domain.')}${note('Reviewed actions', 'Schedules and actions are checked before execution.')}</div>`,
+    body: `${header('07 / UNDER THE HOOD', 'Personal memory.<br><em>Purposeful AI.</em>', 'Powered by NVIDIA Nemotron on Nebius Token Factory.')}<div class="engine"><div class="model"><div class="model-kicker">EVERYDAY REASONING</div><h2>Nemotron Super</h2><p>Routing · ordinary replies<br>Research · plans · memory</p></div><div class="model ultra"><div class="model-kicker">DEEP ANSWERS</div><h2>Nemotron Ultra</h2><p>Final answers for deep requests<br>and personas set to think deeply</p></div></div><div class="pipeline">${['Save fragment', 'Route & research', 'Compose answer', 'Plan & check', 'Execute & publish', 'Update memory'].map((s,i)=>`<div class="stage"><span>0${i+1}</span>${s}</div>`).join('<b>→</b>')}</div><div class="engine-notes">${note('Durable work', 'Saved jobs and retries keep processing recoverable.')}${note('Separate memories', 'Each persona keeps context for its own domain.')}${note('Reviewed schedules', 'Schedule changes are checked before execution.')}</div>`,
   },
   {
     name: '09-monthly-reflection', title: 'A month of fragments, connected',

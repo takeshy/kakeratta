@@ -927,7 +927,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	record.Answer = answer
 	encodedAnswer, _ := json.Marshal(answer)
 	phaseContext := user + "\n\nこのターンに読んだ内容:\n" + strings.Join(read, "\n\n") + "\n\n完成した Answer:\n" + string(encodedAnswer)
-	// Schedule and action planning stay on Super, including regeneration.
+	// Schedule planning stays on Super, including regeneration.
 	log := turnLog{}
 	plan, err := r.planPhases(ctx, client, phaseModel, skill, *answer, phaseContext, wakeInstructions, rules, phaseLookup,
 		func(plan Workflow) (*Review, error) {
@@ -944,7 +944,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	approved := plan.batch()
 
 	record.Ran = true
-	sources, steps := r.execute(ctx, skill, approved, set, rules, post)
+	steps := r.execute(ctx, approved, set)
 	record.Steps = steps
 	if trigger.ID != "" && !listening {
 		// Only reading for a post counts: a check-in reading the record it is
@@ -958,7 +958,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	spoken := strings.TrimSpace(answer.Text)
 	record.Spoke = spoken
-	sources = append(sources, citedSources(answer.Sources, rules.cited)...)
+	sources := citedSources(answer.Sources, rules.cited)
 	var remark *timeline.Entry
 	switch {
 	case listening || spoken == "":

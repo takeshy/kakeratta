@@ -11,14 +11,19 @@ import (
 )
 
 // mcpTools exposes the configured catalogue under server-qualified tool names.
+// Only tools the server marks readOnlyHint are offered: personas look things
+// up with them and have no phase that would run a side effect.
 func mcpTools(catalogue *mcp.Catalogue) []Tool {
 	var out []Tool
 	for _, listed := range catalogue.Tools() {
 		listed := listed
+		if !listed.Annotations.ReadOnlyHint {
+			continue
+		}
 		name := listed.QualifiedName()
 		out = append(out, Tool{
 			Name:       name,
-			ReadOnly:   listed.Annotations.ReadOnlyHint,
+			ReadOnly:   true,
 			Usage:      describeMCP(name, listed.Tool),
 			Parameters: parametersOf(listed.InputSchema),
 			run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {

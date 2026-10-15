@@ -16,6 +16,7 @@ import (
 func fakeMCP(t *testing.T, onCall func(name string, args map[string]any) any) *httptest.Server {
 	return fakeMCPWith(t, []map[string]any{{
 		"name":        "compute_commute",
+		"annotations": map[string]any{"readOnlyHint": true},
 		"description": "Compute travel time\n  from bundled profiles.",
 		"inputSchema": map[string]any{
 			"type": "object",
@@ -71,8 +72,15 @@ func TestMCPToolsAreListedDescribedAndRun(t *testing.T) {
 	config := Config{MCP: mcp.NewCatalogue([]mcp.Server{{Name: "geo", URL: backend.URL}}, "test")}
 	registry := New(config)
 	names := registry.Names()
-	if strings.Join(names, ",") != "geo.compute_commute,geo.list_layers,kakeratta_help,place_search,schedule,schedules_list,timeline_search,weather_forecast,web_search" {
+	// list_layers is not marked readOnlyHint, so no persona can be given it.
+	if strings.Join(names, ",") != "geo.compute_commute,kakeratta_help,place_search,schedule,schedules_list,timeline_search,weather_forecast,web_search" {
 		t.Fatalf("names: %v", names)
+	}
+	if set := registry.For([]string{"geo.list_layers"}); set.Allows("geo.list_layers") || set.IsReadOnly("geo.list_layers") {
+		t.Fatal("a tool the server did not mark read-only was offered")
+	}
+	if !registry.For([]string{"geo.compute_commute"}).IsReadOnly("geo.compute_commute") {
+		t.Fatal("a read-only MCP tool cannot be read with")
 	}
 	set := registry.For([]string{"geo.compute_commute", "place_search"})
 	if usage := set.Describe(); !strings.Contains(usage, "geo.compute_commute — Compute travel time from bundled profiles.") {

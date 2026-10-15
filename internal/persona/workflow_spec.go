@@ -3,16 +3,13 @@ package persona
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
-// Sample arguments and argument tables are how a tool is shown to a model:
-// a call it can copy rather than a description it has to interpret. They are
-// assembled for the tools a persona holds, in the read spec and in each
-// phase's own prompt.
+// Sample arguments are how a tool is shown to a model: a call it can copy
+// rather than a description it has to interpret. They are assembled for the
+// tools a persona holds, in the read spec.
 
 // toolSamples are argument objects for the built-in tools, written out the way
 // a step carries them.
@@ -62,51 +59,6 @@ func sampleArgs(declared tools.Declaration) string {
 	}
 	encoded, _ := json.Marshal(sample)
 	return string(encoded)
-}
-
-// argsTable lists a tool's arguments from its schema.
-func argsTable(declared tools.Declaration) string {
-	properties, _ := declared.Parameters["properties"].(map[string]any)
-	if len(properties) == 0 {
-		return "  引数はありません。args は \"{}\"。"
-	}
-	required := map[string]bool{}
-	if list, ok := declared.Parameters["required"].([]any); ok {
-		for _, name := range list {
-			if text, ok := name.(string); ok {
-				required[text] = true
-			}
-		}
-	}
-	var names []string
-	for name := range properties {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	var lines []string
-	for _, name := range names {
-		property, _ := properties[name].(map[string]any)
-		kind, _ := property["type"].(string)
-		line := "  - **" + name + "**"
-		if required[name] {
-			line += "（必須）"
-		}
-		if kind != "" {
-			line += " " + kind
-		}
-		if description, ok := property["description"].(string); ok && description != "" {
-			line += " — " + description
-		}
-		if enum, ok := property["enum"].([]any); ok && len(enum) > 0 {
-			var values []string
-			for _, value := range enum {
-				values = append(values, fmt.Sprint(value))
-			}
-			line += "（" + strings.Join(values, " / ") + "）"
-		}
-		lines = append(lines, line)
-	}
-	return strings.Join(lines, "\n")
 }
 
 // jsonString writes a JSON object as the string a step's args field holds.

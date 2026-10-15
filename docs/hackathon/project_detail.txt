@@ -95,26 +95,25 @@ Data, execution claims, and conversation order all belong to each account, so no
 | **2. Read the content** | Any image is analyzed once. The result is shared with every persona, so no persona repeats the analysis. |
 | **3. Choose personas** | Interest personas are chosen by their routing conditions, and person personas by name or keyword. An `@` mention or a reply to a persona goes straight to that persona. The selection and persona settings are saved. |
 | **4. Research** | Each persona gathers what it needs from the conversation, its own memory, past fragments, and the search tools it is allowed to use. |
-| **5. Answer** | The persona finalizes its answer from the research. No schedule or action runs yet, and the persona may also choose to stay silent. |
+| **5. Answer** | The persona finalizes its answer from the research. No schedule change runs yet, and the persona may also choose to stay silent. |
 | **6. Plan schedules** | The persona decides whether a reminder or other schedule needs to be created, updated, or cancelled, and drafts the plan. |
-| **7. Plan actions** | If a permitted state-changing action is needed, the persona drafts it. This is a separate phase from schedules. |
-| **8. Check and review** | Code validates arguments and permissions. If the plan contains schedules or actions, an AI also checks that it matches the user's request and the answer's promises; an answer-only plan skips that review. A failed check regenerates only the planning phase at fault. |
-| **9. Execute** | The approved schedules and actions run. If one fails, an answer that implies success is not published. |
-| **10. Publish** | The answer is saved to the timeline and shown. If it is a scheduled notification, the push is sent here. |
-| **11. Update memory** | The note keeper picks which facts and records to keep from the user's fragment and saves them. If this fails, the published answer stands and the memory update is retried later. |
+| **7. Check and review** | Code validates the plan and the persona's ownership of the schedules it changes. If the plan contains schedules, an AI also checks that it matches the user's request and the answer's promises; an answer-only plan skips that review. A failed check regenerates the schedule plan. |
+| **8. Execute** | The approved schedule changes run. If one fails, an answer that implies success is not published. |
+| **9. Publish** | The answer is saved to the timeline and shown. If it is a scheduled notification, the push is sent here. |
+| **10. Update memory** | The note keeper picks which facts and records to keep from the user's fragment and saves them. If this fails, the published answer stands and the memory update is retried later. |
 
-Selected personas run in parallel, while delivery order within a conversation is preserved. In the built-in path, Super controls every research round and plans schedules/actions. Deep replies and AlwaysUltra use Ultra only to compose the final answer from the complete research transcript. Each research round receives its remaining Web-search allowance; exhausted or unavailable reads are removed from the schema. Other reads and finishing research remain available after Web search runs out.
+Selected personas run in parallel, while delivery order within a conversation is preserved. In the built-in path, Super controls every research round and plans schedules. Deep replies and AlwaysUltra use Ultra only to compose the final answer from the complete research transcript. Each research round receives its remaining Web-search allowance; exhausted or unavailable reads are removed from the schema. Other reads and finishing research remain available after Web search runs out.
 
-The turn is split so that **the AI writing the answer is never asked to produce schedules, actions, and memory in the same breath**. It focuses on the answer first. State changes are planned and checked separately, and memory is updated only after the answer is published.
+The turn is split so that **the AI writing the answer is never asked to produce schedules and memory in the same breath**. It focuses on the answer first. State changes are planned and checked separately, and memory is updated only after the answer is published.
 
-Not every turn goes through every stage. A persona without memory and without permission to change anything skips schedule and action planning, review, and the memory update. When an external agent is used, it handles only research and the answer. Planning, review, execution, publishing, and memory stay with kakeratta.
+Not every turn goes through every stage. A persona without memory and without permission to schedule skips schedule planning, review, and the memory update. Schedules are the only state a persona changes; tools from connected MCP servers are offered only when marked read-only. When an external agent is used, it handles only research and the answer. Planning, review, execution, publishing, and memory stay with kakeratta.
 
 ### NVIDIA Nemotron on Nebius Token Factory
 
 | Model | Role |
 | --- | --- |
 | Nemotron 3 Ultra | Drafting personas; final answers for deep requests and AlwaysUltra, including Markdown infographics |
-| Nemotron 3 Super | Routing, all built-in research, ordinary final answers, schedule/action planning, workflow review |
+| Nemotron 3 Super | Routing, all built-in research, ordinary final answers, schedule planning, workflow review |
 | Nemotron 3.5 Lightning | Optional dictation polishing |
 | GLM-5.3-Flash | Understanding photos and screenshots |
 | Qwen3-Embedding-8B | Meaning search over past fragments |
@@ -125,7 +124,7 @@ Token Factory offers large, medium, and lightweight models, plus vision and embe
 
 kakeratta also works as an MCP server, so a persona's research and answer can be delegated to an external agent. Hermes Agent runs inside NVIDIA NemoClaw / OpenShell and uses Nemotron through Nebius Token Factory.
 
-Hermes claims a request, reads the persona's context, does its research, and submits only the answer through `submit_answer`. kakeratta itself plans, reviews, and runs any schedules or actions, then keeps the memory.
+Hermes claims a request, reads the persona's context, does its research, and submits only the answer through `submit_answer`. kakeratta itself plans, reviews, and runs any schedule changes, then keeps the memory.
 
 You choose in kakeratta which personas use the external agent. Because Hermes can bring its own tools and documents, it can produce answers only Hermes could give. If the agent is away or misses its deadline, the built-in model takes the turn back.
 
@@ -210,7 +209,7 @@ Coding agents don't have this problem because they don't pass the request straig
 
 The obvious answer is to bring a harness into kakeratta, but it isn't that simple. Coding agents assume a capable model. Point a coding agent at a weaker model and the results are terrible. kakeratta is meant to be cheap enough to use casually, so it can't rely on capable models everywhere.
 
-So I split each turn into phases: the persona writes only the answer, while schedules, actions, and memory are planned, checked, and saved separately. Beyond that, I run the app, watch the results and the cost, and work on whatever fails most often. Sometimes I cover it with logic, sometimes with adjusted prompts or context. I use a capable model only for parts that are rarely called but important. Where the system can't fix something, the user adjusts it.
+So I split each turn into phases: the persona writes only the answer, while schedules and memory are planned, checked, and saved separately. Beyond that, I run the app, watch the results and the cost, and work on whatever fails most often. Sometimes I cover it with logic, sometimes with adjusted prompts or context. I use a capable model only for parts that are rarely called but important. Where the system can't fix something, the user adjusts it.
 
 As models and coding agents improve, features alone no longer set an app apart. What will, I think, is ease of use through UI/UX, and a harness built to balance quality against cost.
 

@@ -116,7 +116,7 @@ is enabled unless explicitly disabled; support and infographic default to off.
 Turning it off stops private memory reads and updates and daily/monthly
 check-ins. Existing notes stay stored for when you enable it again. Memory
 controls disappear, while explicit reminders and external-agent preferences
-remain available. Always thinking deeply uses the high (Ultra) model for answers and the deeper research budget even for ordinary requests. Reads of personas with lookup tools and schedule/action planning stay on Super; an external-agent preference
+remain available. Always thinking deeply uses the high (Ultra) model for answers and the deeper research budget even for ordinary requests. Reads of personas with lookup tools and schedule planning stay on Super; an external-agent preference
 still works, with Ultra used if kakeratta takes the turn back.
 
 ### Turn a post or answer into an infographic
@@ -439,7 +439,7 @@ Amounts are estimates in USD: OpenRouter uses API-reported costs, while Nebius u
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 - Nemotron 3.5 Lightning — optional dictation polishing
-- Nemotron Super — routing, reads, ordinary answers, schedule/action planning, workflow review, the note keeper, and the day's and month's summaries
+- Nemotron Super — routing, reads, ordinary answers, schedule planning, workflow review, the note keeper, and the day's and month's summaries
 - Nemotron Ultra — answers for deep requests and Always think deeply, plus persona drafting
 - Nebius Token Factory — inference backend
 
@@ -458,7 +458,7 @@ Qwen3-Embedding-8B on the same backend.
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
 | Optional dictation polishing | low | Nemotron 3.5 Lightning |
-| Reads (deep and AlwaysUltra included), schedule/action planning, the note keeper, the day's and month's summaries | middle | Nemotron Super |
+| Reads (deep and AlwaysUltra included), schedule planning, the note keeper, the day's and month's summaries | middle | Nemotron Super |
 | Ordinary final answers | middle | Nemotron Super |
 | Answers for deep requests / Always think deeply (reads too for the infographic, which has no lookup tools) | high | Nemotron Ultra |
 | Reading images / OCR | fixed | GLM-5.3-Flash |
@@ -482,9 +482,9 @@ or Obsidian's [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-
 (the checkbox appears only while a connection is configured and external-agent use is enabled).
 Such a persona hands only the part that reads the context, looks things up and
 writes the answer to the agent connected over MCP. kakeratta then decides the
-turn's schedules, actions and notes on Super, assembles them
+turn's schedules and notes on Super, assembles them
 with the answer into a workflow, reviews it as in the table above when it holds a
-schedule or an action, runs it, and publishes the answer. If the
+schedule, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
 15 minutes of the claim, the built-in path takes the turn back and answers on Super, or Ultra for deep requests or Always think deeply. The waits are under Advanced options →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the

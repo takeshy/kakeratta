@@ -277,7 +277,7 @@ after it finishes, or reaches the read ceiling, Ultra is offered only
 `submit_answer`. A persona without lookup tools - the infographic, which works
 from what the thread already holds - keeps the single loop on Ultra, so a turn
 that needs no reads is one Ultra call rather than a Super call that would only
-finish reading. Schedule and action phases always use Super.
+finish reading. The schedule phase always uses Super.
 
 **Always think deeply** (`alwaysUltra`) makes every turn deep: the deeper read
 budget and an Ultra answer. It does not change external delegation; Ultra is
@@ -299,7 +299,6 @@ selected recipients run in parallel
  ↓ deep/alwaysUltra: Super reads → finish_read → Ultra submits the answer
    (a persona without lookup tools reads and answers on Ultra)
  ↓ schedule phase on Super only when the answer asks for one
- ↓ action phase on Super for personas that hold an action
  ↓ note keeper for memory-enabled related user turns
 ```
 
@@ -310,14 +309,14 @@ model happens to produce, and it does not write its answer and its changes in
 one breath either.
 
 An earlier shape asked one model call for everything at once: the remark, the
-notes to keep, the schedules and the tool calls, as one workflow. It carried a
+notes to keep and the schedules, as one workflow. It carried a
 cost the answer paid for. The model spent its attention on the note format and
 the step schema, shortened the remark to leave room for a note it was required
 to write, and a reviewer that could not see what had been researched sent good
 answers back. When the answering was handed to an external agent, the quality
 dropped visibly.
 
-The workflow stays - `Workflow{answer, schedules, actions}` is still what
+The workflow stays - `Workflow{answer, schedules}` is still what
 kakeratta checks, reviews and runs - but no model writes it whole any more, and
 memory is kept apart, after the answer is out.
 A turn is split by responsibility, each phase fills one typed part, and the
@@ -328,11 +327,9 @@ Built-in: Read → Answer        External agent: Read + Answer → submit_answer
                      ↓
             Schedule phase → schedules
                      ↓
-            Action phase   → actions      (only if the persona holds one)
-                     ↓
             Code checks (every time)
                      ↓
-            Review (only when there is a schedule or an action)
+            Review (only when there is a schedule)
                      ↓
             Execute → publish the answer
                      ↓
@@ -351,9 +348,8 @@ flowchart TD
   C --> D[Read and answer for each persona]
   D --> E[Answer with schedule decision]
   E --> F[Plan schedules]
-  F --> G[Plan actions]
-  G --> H[Code validation and AI review]
-  H --> I[Execute schedules and actions]
+  F --> H[Code validation and AI review]
+  H --> I[Execute schedules]
   I --> J[Publish answer]
   J --> K[Update memory]
 ```
@@ -363,11 +359,11 @@ flowchart TD
 | Acceptance | Save the post, reply, or edit together with its routing work record. Production uses a Firestore transaction, so acceptance requires both writes to succeed. |
 | Image analysis | Analyze an attached image once and share the result with the recipient personas. |
 | Recipient selection | Match interest-persona conditions and person-persona names/keywords. An explicit @ mention or reply to an active persona selects that recipient directly. Persist the selected recipients and persona-definition snapshot for delivery. |
-| Per-persona processing | Research, finalize the answer, plan schedules and actions, validate/review, execute, publish, then keep memory. The detailed stages below follow this execution order. |
+| Per-persona processing | Research, finalize the answer, plan schedules, validate/review, execute, publish, then keep memory. The detailed stages below follow this execution order. |
 
 Different recipients can run concurrently, while delivery order within the same conversation is preserved. Persisted work records allow pending work to resume after a restart; they do not preserve an AI request's in-progress reasoning, and interrupted steps may run again.
 
-Memoryless personas with only read tools skip schedule/action planning and review, as well as memory updates. Review is needed only when a plan contains schedules or actions. External agents provide research and an answer; kakeratta retains control of all subsequent stages. A memory-update failure after publication leaves the answer available and is retried separately through a persisted note job.
+Memoryless personas with only read tools skip schedule planning and review, as well as memory updates. Review is needed only when a plan contains schedules. External agents provide research and an answer; kakeratta retains control of all subsequent stages. A memory-update failure after publication leaves the answer available and is retried separately through a persisted note job.
 
 See [persona execution](./system/personas.md#from-research-to-answer-publication) and [background work](./system/architecture.md) for the implementation details.
 
@@ -381,8 +377,8 @@ See [Research budgets and available reads](./system/personas.md#research-budgets
 
 ### A turn, phase by phase
 
-The following describes a memory-enabled turn; memoryless read-only turns
-skip post-answer action phases, and memory-off turns skip the note keeper.
+The following describes a memory-enabled turn; read-only turns skip the
+schedule phase, and memory-off turns skip the note keeper.
 Personas otherwise use the same phases, whatever tools they hold
 (`internal/persona/answer.go`, `phases.go`, `workflow.go`). The reading and the
 answer can be done by the built-in model or, for a persona whose planner is set
@@ -401,7 +397,7 @@ thread is included in full.
    a deep or AlwaysUltra turn), to look at things: older records by tag,
    words, meaning or month, the posts records point to (up to ten at once), a timeline search, a web
    search or a place lookup. Only read-only tools run here; an MCP tool
-   counts as read-only only when its server marks it `readOnlyHint`. Reading
+   is offered to a persona only when its server marks it `readOnlyHint`. Reading
    writes nothing, so the app just does it and hands the results back.
 2. **Answer.** Ordinary turns read and answer in the same loop on Super; a
    deep or AlwaysUltra turn of a persona with lookup tools hands its reads,
@@ -410,7 +406,7 @@ thread is included in full.
    schedule}`: `schedule` says whether a schedule must be created, changed or cancelled. Its prompt holds no note format, memory layout or
    change schema, and it is not told to keep notes. It is told what the later
    phases can do for it (`capabilities`), so it does not promise a reminder or
-   an action the persona cannot make. An empty text is silence; a named turn
+   another operation the persona cannot make. An empty text is silence; a named turn
    must answer, a listening turn must not. The answer is fixed from here on:
    no later phase can change it.
 3. **Schedule phase.** Only when the persona may schedule and the answer
@@ -424,30 +420,28 @@ thread is included in full.
    (`consistent`, with a `reason`). "I cancelled it" with no cancel, or "I'll
    ask you at 22:30" with nothing placed, is sent back; if it cannot be made
    consistent, the turn stops and the answer is not published.
-4. **Action phase.** Only for a persona that holds a tool that acts. Super hands
-   in `submit_action` — the tool calls and their arguments — with the same
-   consistency statement about what the answer promised.
-5. **Checked by code, every time.** Known operation types, declared tools and no
-   lookup used as an action, schedule ids that exist and are the persona's own
-   to cancel, times that parse. A proposal that fails is sent back to its own
+   Schedules are the only state a persona changes: there is no phase for other
+   tools, and MCP tools are offered only when their server marks them
+   read-only.
+4. **Checked by code, every time.** Known operation types, schedule ids that
+   exist and are the persona's own to cancel, times that parse. A proposal that fails is sent back to its own
    phase with the reasons.
-6. **Reviewed, only when it reaches further.** A plan holding a schedule or an
-   action is reviewed by Nemotron 3 Super against a narrow list: the answer's
-   promises and the schedules' times, Push preferences, creates, updates and cancels agree; schedules and
-   actions do not contradict or depend on each other unmet; an action's target
-   and arguments fit the user's request and the persona's permissions; an
-   answer that says a change is done has something behind it. The answer's
+5. **Reviewed, only when it reaches further.** A plan holding a schedule is
+   reviewed by Nemotron 3 Super against a narrow list: the answer's
+   promises and the schedules' times, Push preferences, creates, updates and cancels agree; schedules
+   do not contradict or depend on each other unmet; an answer that says a
+   change is done has something behind it. The answer's
    quality, its length and its research are not reviewed, and a missing
    internal read is never a reason to reject research done elsewhere. A plain
    answer costs no review. A failed review
-   regenerates only the phases it blamed (`schedule`, `action` or `both`); the
+   regenerates the schedule phase with the verdict as feedback; the
    answer stays as it was. After two reviews, the turn stops.
-7. **Run, then publish.** Schedules and actions run in order; **the first step
+6. **Run, then publish.** Schedule changes run in order; **the first step
    that fails stops the rest**, and the answer is published only when
-   everything ran. An external action is not a transaction: what already ran is recorded, and
-   an answer promising success is withheld.
+   everything ran. Several changes are not a transaction: what already ran is
+   recorded, and an answer promising success is withheld.
 
-8. **Memory comes after the answer.** It is not a phase of the turn: memory
+7. **Memory comes after the answer.** It is not a phase of the turn: memory
    that fails to come out must not take a finished answer with it. Once the
    remark is out, a memory-enabled persona's **note keeper** judges what to retain from a related user turn (see [The note keeper](#the-note-keeper)).
 
@@ -534,7 +528,7 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | Reads and ordinary answers, reads of deep turns, schedule/action phases, routing, workflow review, the note keeper, and the day's and month's summaries |
+| **Nemotron 3 Super**       | Reads and ordinary answers, reads of deep turns, the schedule phase, routing, workflow review, the note keeper, and the day's and month's summaries |
 | **Nemotron 3 Ultra**       | Answers for deep requests and AlwaysUltra (reads too, for a persona without lookup tools such as the infographic), plus persona drafting |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
@@ -852,8 +846,8 @@ queries return no memory, but explicit timeline reads remain available. The
 host skips note keeping, summary rewrites, memory migration and daily/monthly
 check-ins. Existing notes remain stored, and explicit notification schedules
 and external-agent planning remain available. The UI hides memory and check-in
-controls. Read-only memoryless turns also skip post-answer action planning and
-review calls. See [optional persona memory](system/personas.md#optional-persona-memory).
+controls. Read-only memoryless turns also skip post-answer schedule planning
+and review calls. See [optional persona memory](system/personas.md#optional-persona-memory).
 
 Infographic defaults to `alwaysUltra: true` and submits Markdown with emoji,
 headings, lists, tables and Mermaid flowcharts or sequence diagrams. It declares
@@ -1423,7 +1417,7 @@ reply to a review question — kakeratta builds the context the built-in model w
 and opens an **ask**. The agent claims it, reads the context, may look things up
 with the persona's own records and read-only tools or with its own, and submits
 only the answer. kakeratta checks its shape and the turn's rules, then plans the
-schedule and action phases on the persona's model, checks and reviews
+schedule phase on the persona's model, checks and reviews
 them as for any turn, runs them as the persona, publishes the answer, and then
 has the persona's note keeper keep the memory. The
 agent never writes memory, a schedule or a remark itself, and its answer is not
@@ -1435,7 +1429,7 @@ persona wakes
 → agent: claim_ask → context
 → agent: read_for_ask / own research (optional) → submit_answer
 → kakeratta: check the answer → accepted
-→ kakeratta: schedule → action phases, checks, review if needed
+→ kakeratta: schedule phase, checks, review if needed
 → kakeratta runs the changes, publishes the answer as the persona, then keeps memory
 ```
 

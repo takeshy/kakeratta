@@ -52,7 +52,7 @@
   {
     "file": "images/07-connected-agents.png",
     "title": "Connect external agents to your personal timeline",
-    "caption": "Hermes or Obsidian’s LLM Connect Hub can research and answer through MCP. kakeratta keeps the timeline, schedules, actions and memory updates.",
+    "caption": "Hermes or Obsidian’s LLM Connect Hub can research and answer through MCP. kakeratta keeps the timeline, schedules and memory updates.",
     "sources": [
       "../../captures/en/llm-connect-hub.png"
     ]

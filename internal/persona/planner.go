@@ -12,7 +12,7 @@ import (
 )
 
 // The external agent owns Read + Answer only. After accepting its answer,
-// Kakeratta's own model plans the schedule and action phases, reviews
+// Kakeratta's own model plans the schedule phase, reviews
 // and executes the changes, then publishes the answer; its note keeper writes
 // the notes after that. Timeouts return research and answering to the
 // built-in model, without giving the agent write privileges.

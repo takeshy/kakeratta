@@ -23,9 +23,9 @@ post / reply
  ↓ every recipient, in parallel, one turn   (depth from explicit phrases; Super reads, Ultra answers deep requests or AlwaysUltra)
      read     → field summaries and facts, latest records, older records, timeline search, web search, places, routes
      answer   → final text and sources, plus whether to remember the post and whether a schedule is needed
-     plan     → propose schedules and actions; validate structure, permissions, and arguments in code
-     review   → Nemotron Super checks the plan only when it contains schedules or actions
-     execute  → stop at the first failed action; publish the answer after successful execution
+     plan     → propose schedule changes; validate structure, ownership, and times in code
+     review   → Nemotron Super checks the plan only when it contains schedules
+     execute  → stop at the first failed change; publish the answer after successful execution
      memory   → the note keeper runs separately after publication when the answer asked to remember
  ↓ once a day: the app summarises the day's posts, then every remembering persona checks in reading that summary
  ↓ one structured log line per routing decision and per persona turn; the routing decision is kept per post
@@ -157,10 +157,10 @@ Kamiyacho", word for word its summary — and the review passed it by describing
 a remark that listed shops. At that stage, the fix rejected equal summary and
 remark text in code and asked the reviewer to quote the remark before judging it.
 
-The current pipeline separates the final answer, schedule/action planning,
+The current pipeline separates the final answer, schedule planning,
 execution, publication, and note keeping. Code checks types, counts,
 permissions, arguments, and references to existing schedules first. Model
-review runs only if the plan contains schedules or actions, even when the
+review runs only if the plan contains schedules, even when the
 persona has scheduling permission. It checks that changes match the user's
 request and promises in the answer, and that operations do not conflict or
 leave dependencies unmet. It does not review answer quality, length, research
@@ -191,7 +191,7 @@ rule refusing tools on a low persona, and the person writing a persona having
 to guess how hard its posts would be.
 
 Built-in personas normally answer on Super, with recipients running in parallel.
-**Always think deeply** selects Ultra for final answers to ordinary requests too. All built-in research and schedule/action planning use Super. Research reports its live Web-search allowance each round and removes exhausted or unavailable reads from the schema; Web exhaustion still permits other reads or `finish_read`. Plans with
+**Always think deeply** selects Ultra for final answers to ordinary requests too. All built-in research and schedule planning use Super. Research reports its live Web-search allowance each round and removes exhausted or unavailable reads from the schema; Web exhaustion still permits other reads or `finish_read`. Plans with
 schedules or actions pass through model review; plans without either skip it.
 The first Super research call now decides deep and a short research plan from the user's request and required answer quality, alongside the first read. A short "詳しく" reply requests detail about its parent answer; comparison, synthesis or careful verification can also select deep without explicit depth words. Thanks and simple follow-ups stay ordinary. Only final-answer composition uses Ultra for deep or AlwaysUltra. Expanding the normal 10-read/2-search allowance to 20/4 preserves spent counts; later research receives the plan and actual remaining allowance.
 

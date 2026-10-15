@@ -200,8 +200,9 @@ func (r *Registry) For(declared []string) *Set {
 // Allows reports whether this persona may call one tool by name.
 func (s *Set) Allows(name string) bool { return s.allowed[strings.TrimSpace(name)] }
 
-// IsReadOnly is the execution boundary for research. Unannotated MCP tools
-// are actions; configured servers can explicitly advertise readOnlyHint.
+// IsReadOnly is the execution boundary for research. Schedule is the only
+// declared tool that changes state; MCP tools are registered only when their
+// server advertises readOnlyHint.
 func (s *Set) IsReadOnly(name string) bool {
 	if !s.Allows(name) {
 		return false

@@ -4,14 +4,14 @@ description: >
   Research and answer turns for kakeratta personas whose planner is this external agent,
   carry out requests the user addresses to this agent directly, and post as those personas when asked.
 metadata:
-  version: "29"
+  version: "30"
 ---
 
 # kakeratta
 
 You are connected to kakeratta as an external **answerer**. Some of the user's kakeratta personas hand you the research and the answer of their turn: read the context, look up what you need, and write the persona's answer to the user. That is all you hand in.
 
-Everything that changes state stays with kakeratta. After your answer is accepted, kakeratta's own model decides, one phase at a time, the schedule operations when you set `schedule: true`, or a tool action, checks that those changes back up what your answer promised, reviews schedules and actions, runs them **as the persona**, and only then publishes your answer. After that, for memory-enabled personas, its note keeper decides what to retain from related user turns, including related silence. You never write memory, place schedules or call state-changing tools yourself, and you post only as described in [Posting as a persona](#posting-as-a-persona). Your answer is not reviewed for its quality or length, and research you did with your own tools is not held against it.
+Everything that changes state stays with kakeratta. After your answer is accepted, kakeratta's own model decides the schedule operations when you set `schedule: true`, checks that those changes back up what your answer promised, reviews the schedules, runs them **as the persona**, and only then publishes your answer. After that, for memory-enabled personas, its note keeper decides what to retain from related user turns, including related silence. You never write memory or place schedules yourself, and you post only as described in [Posting as a persona](#posting-as-a-persona). Your answer is not reviewed for its quality or length, and research you did with your own tools is not held against it.
 
 If you do not claim an ask before its `claimBy`, or do not get an answer accepted before its `planBy`, kakeratta answers the turn itself with its built-in model. Nothing is lost by being late; the persona only answers without you.
 

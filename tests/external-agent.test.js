@@ -64,7 +64,7 @@ test("each persona chooses its planner, and Hermes is not a persona", async t =>
   assert.deepEqual(chosen, [["gourmet", "external"]]);
   nodes = walk(view.element);
   assert.ok(nodes.some(n => n.textContent === translate("外部エージェント")));
-  assert.ok(nodes.some(n => n.textContent === translate("外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定・操作はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。")));
+  assert.ok(nodes.some(n => n.textContent === translate("外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。")));
   document.querySelector = () => new Element("div");
   t.mock.method(globalThis, "setTimeout", () => 0);
   api.setPlanner.mock.mockImplementation(async () => { throw Error("offline"); });

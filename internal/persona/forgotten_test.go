@@ -298,12 +298,12 @@ func TestADeletionWakeCannotPost(t *testing.T) {
 	}
 	// It was told so up front, and it was never asked for an answer at all:
 	// there is nothing to research or say, so the wake goes straight to the
-	// schedule and the notes - and never to an action.
+	// schedule and the notes.
 	if !stub.seen("このターンは発言できません") {
 		t.Fatal("the wake was not told it cannot speak")
 	}
 	for _, call := range stub.phases {
-		for _, tool := range []string{"finish_read —", "submit_answer —", "submit_action —"} {
+		for _, tool := range []string{"finish_read —", "submit_answer —"} {
 			if strings.Contains(call, tool) {
 				t.Fatalf("a deletion wake was offered %s:\n%s", strings.TrimSuffix(tool, " —"), call)
 			}

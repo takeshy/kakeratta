@@ -17,7 +17,7 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	var phases []string
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
-		// The answer waits for the schedule and action phases.
+		// The answer waits for the schedule phase.
 		if len(remarks(t, s)) != 0 {
 			t.Error("answer published before phases completed")
 		}
@@ -76,9 +76,6 @@ func scheduleTurn(ops func(call int) string) (func(system, user string, offered 
 		case offered["submit_schedule"]:
 			calls["schedule"]++
 			return ops(calls["schedule"])
-		case offered["submit_action"]:
-			calls["action"]++
-			return `{"operations":[],"consistent":true,"reason":"なし"}`
 		}
 		calls["note"]++
 		return `{"operations":[]}`
@@ -199,8 +196,6 @@ func TestUserFactsCanBeRememberedWithoutReviewOrCopyingTheAnswer(t *testing.T) {
 			return `{"text":"A店に行けたんだね。詳しい返信は記憶へ複写しません。","sources":[]}`
 		case offered["submit_schedule"]:
 			return `{"operations":[],"consistent":true,"reason":"約束なし"}`
-		case offered["submit_action"]:
-			return `{"operations":[],"consistent":true,"reason":"なし"}`
 		}
 		return ""
 	}
@@ -220,7 +215,7 @@ func TestUserFactsCanBeRememberedWithoutReviewOrCopyingTheAnswer(t *testing.T) {
 	}
 }
 
-func TestReadCannotExecuteActions(t *testing.T) {
+func TestReadCannotChangeSchedules(t *testing.T) {
 	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
 	skill, _ := r.catalogue.Find(context.Background(), "routine")
 	set := r.registry(s.Settings()).For([]string{"schedule"}).As("routine")
@@ -231,11 +226,8 @@ func TestReadCannotExecuteActions(t *testing.T) {
 	if items, _ := s.Schedules("routine"); len(items) != 0 {
 		t.Fatal(items)
 	}
-	for _, phase := range []string{"schedule", "action"} {
-		raw, _ := json.Marshal(phaseTool(phase, set).Parameters)
-		if strings.Contains(string(raw), "speak") || strings.Contains(string(raw), "sources") {
-			t.Fatalf("the answer leaked into the %s phase schema", phase)
-		}
+	if raw, _ := json.Marshal(phaseTool("schedule").Parameters); strings.Contains(string(raw), "speak") || strings.Contains(string(raw), "sources") {
+		t.Fatal("the answer leaked into the schedule phase schema")
 	}
 	raw, _ := json.Marshal(answerTool.Parameters)
 	if strings.Contains(string(raw), "operations") || strings.Contains(string(raw), "steps") {

@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Persona execution and memory"
-description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections."
+description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory, schedules, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-14"
+updated: "2026-10-15"
 ---
 
-Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed actions, optional memory, schedules, and corrections.
+Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory, schedules, and corrections.
 
 # Persona definitions and the Catalogue
 
@@ -54,13 +54,13 @@ The persona declares no Web search tool and uses existing material and conversat
 
 ## Always thinking deeply
 
-`Skill.AlwaysUltra` (`alwaysUltra`, default false) selects `ultraModel` only for final-answer composition in `Runner.run`, the `ultra` display slot, and the existing deeper research budget for any wake. Research and schedule/action planning use `personaModel` (Super), including phase regeneration. The high model falls back to the configured middle/low model when absent, as with an explicit deeper reply. A normal request with this setting uses a length instruction that does not claim the user requested a revision of an earlier answer. It does not enable or disable external delegation: a preferred external agent still answers, with the built-in Ultra path used on fallback. The creation and editing forms expose this option, and an AI revision that omits it retains the saved value.
+`Skill.AlwaysUltra` (`alwaysUltra`, default false) selects `ultraModel` only for final-answer composition in `Runner.run`, the `ultra` display slot, and the existing deeper research budget for any wake. Research and schedule planning use `personaModel` (Super), including phase regeneration. The high model falls back to the configured middle/low model when absent, as with an explicit deeper reply. A normal request with this setting uses a length instruction that does not claim the user requested a revision of an earlier answer. It does not enable or disable external delegation: a preferred external agent still answers, with the built-in Ultra path used on fallback. The creation and editing forms expose this option, and an AI revision that omits it retains the saved value.
 
 ## Optional persona memory
 
 `Skill.MemoryEnabled` (`memoryEnabled` in JSON) is an optional boolean. Omitted or null values retain the historical default of remembering; support's built-in default is false, also inherited by saved built-in overrides that omit the option. The creation and editing forms expose **記憶する** (Remember). AI revisions preserve the existing choice when they omit the field.
 
-When false, turns receive no private memory, record queries return no memory (explicit timeline entry reads remain available), and the host skips the note keeper and its retry writes, summary rewrites, and memory migration. Neither daily/monthly check-ins nor their alarms are scheduled for that persona. A memoryless persona with only read tools also skips post-answer schedule/action planning and review model calls. The check-in settings endpoint rejects changes while memory is off. Ordinary routing, replies, persona editing, tool permissions, explicit notification schedules, and external-agent planning work as usual. Existing notes remain stored so enabling memory again can resume them; disabling does not erase user data. Cards and room menus hide memory actions and check-in controls, while retaining editing and external-agent preference.
+When false, turns receive no private memory, record queries return no memory (explicit timeline entry reads remain available), and the host skips the note keeper and its retry writes, summary rewrites, and memory migration. Neither daily/monthly check-ins nor their alarms are scheduled for that persona. A memoryless persona with only read tools also skips post-answer schedule planning and review model calls. The check-in settings endpoint rejects changes while memory is off. Ordinary routing, replies, persona editing, tool permissions, explicit notification schedules, and external-agent planning work as usual. Existing notes remain stored so enabling memory again can resume them; disabling does not erase user data. Cards and room menus hide memory actions and check-in controls, while retaining editing and external-agent preference.
 
 Implementation: [skill.go](../../internal/persona/skill.go), [kakeratta_help.go](../../internal/tools/kakeratta_help.go), [bundle.go](./bundle.go), and [settings.go](../../internal/store/settings.go). Verification: [skill_test.go](../../internal/persona/skill_test.go), [kakeratta_help_test.go](../../internal/tools/kakeratta_help_test.go), and [settings_test.go](../../internal/store/settings_test.go).
 
@@ -153,18 +153,18 @@ flowchart TD
   Read -->|read| Read
   Read --> Final[Ultra: submit Answer only]
   Final --> Phases
-  Answer --> Phases[Propose schedules and actions]
+  Answer --> Phases[Propose schedule changes]
   Phases --> Review[Validate structure, permissions, consistency]
-  Review --> Execute[Execute schedules and actions]
+  Review --> Execute[Execute schedule changes]
   Execute --> Publish[Publish answer to timeline]
   Publish --> Keeper[Keep the record and fields with the note keeper]
 ```
 
 `composeAnswer` gathers evidence and composes the answer. When reads and the answer use the same model, it combines them: `submit_answer` is offered from the first request, alongside the dynamically available `read` tool. If the supplied thread and memory are sufficient, a spoken or silent answer needs one call; otherwise the same model reads evidence and then submits its answer.
 
-A deep or AlwaysUltra turn of a persona with lookup tools of its own (any read-only tool besides `timeline_search` and `schedules_list`, such as Web search, weather or the bundled specification) splits the two (`readModel`, `answerReads.model`). Super is offered only `read` and `finish_read`; after `finish_read`, or when the read ceiling is reached, Ultra is offered only `submit_answer`. A response mixing reads with `finish_read` or an answer is refused. The answer stage gets its own correction allowance. A persona without lookup tools - the infographic, which works from the thread's already-read material - keeps the combined loop on Ultra, so a turn that reads nothing is one Ultra call rather than a Super call that would only finish reading. Both paths preserve the original messages and actual tool results. There is no `research_plan`, model-based depth judgment, or `finish_silent`. Schedule/action planning and memory remain separate.
+A deep or AlwaysUltra turn of a persona with lookup tools of its own (any read-only tool besides `timeline_search` and `schedules_list`, such as Web search, weather or the bundled specification) splits the two (`readModel`, `answerReads.model`). Super is offered only `read` and `finish_read`; after `finish_read`, or when the read ceiling is reached, Ultra is offered only `submit_answer`. A response mixing reads with `finish_read` or an answer is refused. The answer stage gets its own correction allowance. A persona without lookup tools - the infographic, which works from the thread's already-read material - keeps the combined loop on Ultra, so a turn that reads nothing is one Ultra call rather than a Super call that would only finish reading. Both paths preserve the original messages and actual tool results. There is no `research_plan`, model-based depth judgment, or `finish_silent`. Schedule planning and memory remain separate.
 
-| Turn | Reads | Final answer | Schedule/action phases |
+| Turn | Reads | Final answer | Schedule phase |
 | --- | --- | --- | --- |
 | Ordinary | Super | Super | Super |
 | Deep request or AlwaysUltra, with lookup tools | Super | Ultra | Super |
@@ -198,13 +198,13 @@ Web search exhaustion does not end research. Timeline search and other configure
 
 The execution path continues to enforce budgets for each individual tool step, including multiple steps in a single `read` and multiple calls in one model reply. Excess searches are refused before network execution. Repeated cached lookups do not spend another search; admitted failed lookups still spend their allowance. Schema-violating requests retain execution-time refusals and the next round rebuilds the latest capabilities. Malformed-response usage records retain the existing correction counter; its bound applies to every read/answer round. The overall round ceiling remains in place.
 
-This dynamic schema belongs to built-in answer research. External-agent asks and schedule/action phase schemas retain their existing interfaces and separate budgets. Model request logging retains its format, with optional provider cost and monthly aggregation; usage rounds and workflow read results remain the evidence for production checks after deployment.
+This dynamic schema belongs to built-in answer research. External-agent asks and the schedule phase schema retain their existing interfaces and separate budgets. Model request logging retains its format, with optional provider cost and monthly aggregation; usage rounds and workflow read results remain the evidence for production checks after deployment.
 
 ## Conditions for publication
 
-`planPhases` proposes schedules and actions without changing the answer. It generates the schedule phase only when the persona has the schedule tool and the answer's `schedule` decision is true or missing (deletion tidy-ups always may), and the action phase only when it has permitted actions (except deletion cleanup). Personas with neither permission skip both planning and review, whether or not they remember; the post-publication keeper remains independent. Review retries also regenerate only permitted phases. A schedule carries only its time, recurrence, and a note of what it is for; it no longer writes a background memory note. Deterministic checks cover types, counts, permissions, and arguments; a review checks consistency with promises in the answer. `Workflow.batch` converts to an internal validation and execution form. It is not a submission format for external agents.
+`planPhases` proposes schedule changes without changing the answer. It generates the schedule phase only when the persona has the schedule tool and the answer's `schedule` decision is true or missing (deletion tidy-ups always may). Personas without that permission skip planning and review, whether or not they remember; the post-publication keeper remains independent. A failed review regenerates the schedule phase with the verdict as feedback. There is no other state-changing phase: `schedule` is the only tool that changes state, and MCP tools are offered only when their server marks them read-only (see [Tools and MCP](./integrations.md)). A schedule carries only its time, recurrence, and a note of what it is for; it no longer writes a background memory note. Deterministic checks cover step types, counts, schedule ownership, and times; a review checks consistency with promises in the answer. `Workflow.batch` converts to an internal validation and execution form. It is not a submission format for external agents.
 
-If `execute` fails, the answer is not published as though its promised operations succeeded. Execution of all side effects is not a transaction with rollback, however. Reading and planning have limits to prevent indefinite generation loops.
+If `execute` fails, the answer is not published as though its promised schedule changes succeeded. Execution of several changes is not a transaction with rollback, however. Reading and planning have limits to prevent indefinite generation loops.
 
 Failure in the note keeper after publication does not retract an already published answer. A turn that stays silent because it is unrelated skips memory updates.
 
@@ -221,9 +221,10 @@ Research reads include `entries` steps for direct timeline posts by ID, `records
 - [research_reads_test.go](../../internal/persona/research_reads_test.go): live remaining counts, schema removal, multi-step/multi-call budget enforcement, memoryless and continued timeline reads
 - [lookups_test.go](../../internal/persona/lookups_test.go): cache, shared budget, and restoration
 - [usage_test.go](../../internal/persona/usage_test.go): malformed research requests and retry accounting
-- [phases.go](../../internal/persona/phases.go): `planPhases`
-- [workflow.go](../../internal/persona/workflow.go)
-- [answer_test.go](../../internal/persona/answer_test.go)
+- [phases.go](../../internal/persona/phases.go): `planPhases`, `proposePhase`
+- [workflow.go](../../internal/persona/workflow.go): `checkBatch`, `review`, `execute`
+- [answer_test.go](../../internal/persona/answer_test.go): reads cannot change schedules; the phase schema holds no answer
+- [runner_test.go](../../internal/persona/runner_test.go): `TestAPlanCannotCarryAToolCall`, `TestThePhaseSchemaHoldsSchedulesOnly`, `TestOnlyPlansWithSchedulesAreReviewed`
 - [model_selection_test.go](../../internal/persona/model_selection_test.go): stage models, preserved research context and budgets, and fallback selection
 
 # Memory: facts, summaries, and kakera records
@@ -332,7 +333,7 @@ Personas no longer have check-in minutes of their own. Once a day, at the accoun
 
 The app itself builds monthly summaries from the timeline as topic-based posts with source links. Person personas' monthly checks use the summary and relevant records. Both read only the lookback window through `TimelineWindow`. The monthly summary reads the month from the day's summaries (`monthFromDays`) and reads in full only the posts none of them holds - before the first, after the last, or in the span of one dropped by a deletion or edit. Those posts are read with the user's text whole, but clips persona remarks to 300 characters without their sources and link/image text to 600 (`summaryEntry`), keeps at most 60,000 characters (newest first, marked partial), and requests `max_tokens: 16000`. A summary the provider cuts off is still posted, ending with a note that it stops short.
 
-Built-in check-ins use the same combined read/answer loop as ordinary posts. After any necessary reads, `submit_answer` with empty text ends the turn without another composition call. This retains due-review instructions and the normal answer validation; silence does not override an explicit question obligation. Silent turns still run schedule planning when requested by the answer, permitted action planning, execution, wake bookkeeping and opted-in memory work; for example, sona can arrange a later preparation wake without publishing now. External-agent answers retain their existing protocol. Daily instructions request older tag records only for a concrete connection to relevant new activity; with no relevant change, approaching plan or due review, they stop exploring unchanged history. Retrieval failure is not evidence of no change. Read/search ceilings and infographic Markdown instructions remain unchanged. Verification: [cost_test.go](../../internal/persona/cost_test.go) and [answer_loop_test.go](../../internal/persona/answer_loop_test.go).
+Built-in check-ins use the same combined read/answer loop as ordinary posts. After any necessary reads, `submit_answer` with empty text ends the turn without another composition call. This retains due-review instructions and the normal answer validation; silence does not override an explicit question obligation. Silent turns still run schedule planning when requested by the answer, execution, wake bookkeeping and opted-in memory work; for example, sona can arrange a later preparation wake without publishing now. External-agent answers retain their existing protocol. Daily instructions request older tag records only for a concrete connection to relevant new activity; with no relevant change, approaching plan or due review, they stop exploring unchanged history. Retrieval failure is not evidence of no change. Read/search ceilings and infographic Markdown instructions remain unchanged. Verification: [cost_test.go](../../internal/persona/cost_test.go) and [answer_loop_test.go](../../internal/persona/answer_loop_test.go).
 
 
 ## The day's summary

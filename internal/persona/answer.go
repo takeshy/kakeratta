@@ -15,7 +15,8 @@ import (
 )
 
 // Answer is the immutable user-facing result of research. It is never a
-// workflow step. The host publishes it only after reviewed actions succeed.
+// workflow step. The host publishes it only after reviewed schedule changes
+// succeed.
 type Answer struct {
 	Text    string   `json:"text"`
 	Sources []string `json:"sources"`
@@ -329,17 +330,10 @@ func wantsDeep(text string) bool {
 // capabilityLine tells the answer what the later phases can carry out, so it
 // does not promise a reminder or an operation the persona cannot make.
 func capabilityLine(set *tools.Set) string {
-	var can []string
-	if set.Allows("schedule") {
-		can = append(can, "予定を置く・取り消す（schedule）")
-	}
-	for _, name := range shapeOf(set).actions {
-		can = append(can, name)
-	}
-	if len(can) == 0 {
+	if !set.Allows("schedule") {
 		return "\n# できること\n記憶を残すほかに状態を変える操作はできません。通知・予約・送信などを約束しないでください。\n"
 	}
-	return "\n# できること\n記憶を残すほか、次の操作だけを後のフェーズで実行できます: " + strings.Join(can, " / ") + "\n"
+	return "\n# できること\n記憶を残すほか、予定を置く・取り消す（schedule）ことだけを後のフェーズで実行できます。送信などそれ以外の操作は約束しないでください。\n"
 }
 
 // recordsReadSpec is how a persona reads further back than the records it is

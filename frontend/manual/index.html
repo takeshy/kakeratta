@@ -545,7 +545,7 @@
           <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="401" /></figure>
           <ol>
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは、接続先を設定し、設定の「外部エージェントを使う」がONのときだけ表示されます。</li>
-            <li>いつもどおり投稿します。その担当に届いた投稿は、外部エージェントが調べて回答を書きます。記憶・予定・操作は kakeratta が決めます。返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
+            <li>いつもどおり投稿します。その担当に届いた投稿は、外部エージェントが調べて回答を書きます。記憶・予定は kakeratta が決めます。返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
           </ol>
           <p>外部エージェントが3分以内に依頼を取りに来ない、または取ってから15分以内に回答を返さないときは、内蔵モデルが代わりに答えます。</p>
           <p>最後の接続から <strong>取得を待つ時間</strong>（既定は3分）が過ぎても接続がなければ、外部エージェントは不在とみなされます。不在のあいだは、以後の依頼を待たずに内蔵モデルが答えます。再び接続されると、次の依頼から外部エージェントに戻ります。依頼に取り組んでいる最中は不在になりません。</p>
@@ -605,7 +605,7 @@
             <table>
               <thead><tr><th>用途</th><th>モデル</th></tr></thead>
               <tbody>
-                <tr><td>振り分け、内蔵の全調査、ふだんの返事、予定・操作の計画と確認</td><td>Nemotron Super</td></tr>
+                <tr><td>振り分け、内蔵の全調査、ふだんの返事、予定の計画と確認</td><td>Nemotron Super</td></tr>
                 <tr><td>深い回答が必要な依頼・常に熟考する担当の最終回答</td><td>Nemotron Ultra</td></tr>
                 <tr><td>任意の音声入力整形</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>画像の読み取り</td><td>GLM-5.3-Flash</td></tr>
@@ -613,7 +613,7 @@
             </table>
           </div>
           <p><strong>常に熟考する</strong> がオンの担当は通常の依頼でも最終回答をUltraで生成します。初回Superの調査で文脈と必要な回答品質から深さを判断します。「詳しく」という短い返信や、比較・慎重な検証が必要な依頼は、最終回答をUltraで生成します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
-          <p>調べものや予定・操作の計画には、どの依頼でも Super を使います。1 回の回答で調べられる回数（読む・Web検索する）には上限があり、深い回答が必要な依頼や「常に熟考する」の担当では上限が広がります。設定されていない道具や、記憶を持たない担当の記憶検索は使いません。</p>
+          <p>調べものや予定の計画には、どの依頼でも Super を使います。1 回の回答で調べられる回数（読む・Web検索する）には上限があり、深い回答が必要な依頼や「常に熟考する」の担当では上限が広がります。設定されていない道具や、記憶を持たない担当の記憶検索は使いません。</p>
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
@@ -1165,7 +1165,7 @@
           <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="522" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only while a connection is configured and <strong>Use the external agent</strong> is enabled in settings.</li>
-            <li>Post as usual. For posts that reach that persona, the external agent researches and writes the answer; kakeratta decides memory, schedules and actions. The reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
+            <li>Post as usual. For posts that reach that persona, the external agent researches and writes the answer; kakeratta decides memory and schedules. The reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
           </ol>
           <p>If the external agent does not pick an ask up within 3 minutes, or does not return an answer within 15 minutes of picking it up, the built-in model answers instead.</p>
           <p>If the agent has not connected for longer than <strong>Wait for a claim</strong> (3 minutes by default), it is taken to be away. While it is away, later asks go straight to the built-in model instead of waiting. As soon as it connects again, the next ask goes to it. An agent is never away while it is working on an ask.</p>
@@ -1225,7 +1225,7 @@
             <table>
               <thead><tr><th>Job</th><th>Model</th></tr></thead>
               <tbody>
-                <tr><td>Routing, all built-in research, ordinary replies, schedule/action planning and review</td><td>Nemotron Super</td></tr>
+                <tr><td>Routing, all built-in research, ordinary replies, schedule planning and review</td><td>Nemotron Super</td></tr>
                 <tr><td>Final answers for deep requests and Always think deeply</td><td>Nemotron Ultra</td></tr>
                 <tr><td>Optional dictation polishing</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>Reading images</td><td>GLM-5.3-Flash</td></tr>
@@ -1233,7 +1233,7 @@
             </table>
           </div>
           <p>Personas with <strong>Always think deeply</strong> on use Ultra for final answers to ordinary requests too. The first Super research call decides the depth from context and the quality the answer requires. A short “tell me more” reply, comparison or careful verification can select an Ultra final answer. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
-          <p>Research and schedule/action planning always use Super. Each answer can only look things up (read or search the Web) a limited number of times; deep requests and personas with Always think deeply get a higher limit. Tools that are not set up, and memory searches for personas without memory, are not used.</p>
+          <p>Research and schedule planning always use Super. Each answer can only look things up (read or search the Web) a limited number of times; deep requests and personas with Always think deeply get a higher limit. Tools that are not set up, and memory searches for personas without memory, are not used.</p>
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>

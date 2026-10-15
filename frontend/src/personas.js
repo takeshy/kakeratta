@@ -254,7 +254,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
 
   // Whether the external agent does the thinking - reading the context,
   // looking things up and writing the answer - when it can. The app decides,
-  // checks and runs the notes, schedules and actions either way.
+  // checks and runs the notes and schedules either way.
   // Show the preference only while a configured external agent is enabled.
   // Saved preferences remain available when the agent is enabled again.
   function drawPlanner(row) {
@@ -273,7 +273,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         ? "外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。"
         : agentAway
         ? "外部エージェントから応答がありません。接続があるまで内蔵モデルが考えます。"
-        : "外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定・操作はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。");
+        : "外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。");
     };
     renderHint();
     plannerControls.set(row.id, { prefer, box, renderHint });

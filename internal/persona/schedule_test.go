@@ -187,7 +187,7 @@ func TestUserRequestedDailyScheduleExecutesTheTaskAndRetainsItsOrigin(t *testing
 		Type: "create", At: at.Format(time.RFC3339), Daily: true,
 		UserRequested: true, Note: "最新のAIニュースを3件まとめる",
 	}}}
-	_, steps := r.execute(context.Background(), skill, plan.batch(), set, turnRules{set: set}, timeline.Entry{})
+	steps := r.execute(context.Background(), plan.batch(), set)
 	if len(steps) != 1 || steps[0].Error != "" {
 		t.Fatalf("schedule creation failed: %+v", steps)
 	}
@@ -327,11 +327,10 @@ func TestPersonReminderInstructionsRetainScheduleWakeKind(t *testing.T) {
 func TestSilentPushScheduleStillPublishesAndCanBeUpdatedByPersona(t *testing.T) {
 	r, s, _ := setup(t, func(string, string) string { return `{"action":"speak","text":"今日のニュースです"}` }, "routine")
 	off := false
-	skill, _ := r.catalogue.Find(context.Background(), "routine")
 	set := r.registry(s.Settings()).WithZone("UTC").For([]string{"schedule"}).As("routine")
 	at := time.Now().Add(time.Minute).UTC().Truncate(time.Second)
 	plan := Workflow{Schedules: []ScheduleOperation{{Type: "create", At: at.Format(time.RFC3339), Daily: true, Notify: &off, UserRequested: true, Note: "朝のニュース"}}}
-	_, steps := r.execute(context.Background(), skill, plan.batch(), set, turnRules{set: set}, timeline.Entry{})
+	steps := r.execute(context.Background(), plan.batch(), set)
 	if len(steps) != 1 || steps[0].Error != "" {
 		t.Fatalf("create: %+v", steps)
 	}
@@ -357,7 +356,7 @@ func TestSilentPushScheduleStillPublishesAndCanBeUpdatedByPersona(t *testing.T) 
 	if problems := checkBatch(plan.batch(), rules); len(problems) != 0 {
 		t.Fatal(problems)
 	}
-	_, steps = r.execute(context.Background(), skill, plan.batch(), set, rules, timeline.Entry{})
+	steps = r.execute(context.Background(), plan.batch(), set)
 	if steps[0].Error != "" {
 		t.Fatal(steps)
 	}

@@ -16,10 +16,9 @@ import (
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
-// A turn reads, drafts an Answer, then assembles a state-changing plan one
-// phase at a time. Review sees the side-effect phases only. Actions execute
-// before the answer is published; a failure never publishes a promise whose
-// action did not succeed.
+// A turn reads, drafts an Answer, then plans any schedule changes. Review sees
+// the schedules only. They run before the answer is published; a failure
+// never publishes a promise whose schedule change did not succeed.
 
 // ReadStep is something a persona wants to look at before deciding.
 type ReadStep struct {
@@ -68,9 +67,9 @@ func (s *ReadStep) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// operationBatch is a Workflow flattened into the order it runs in:
-// schedules, then actions. It is the host's own adapter to the checks
-// and the executor, never a shape a model is shown.
+// operationBatch is a Workflow flattened into the order it runs in. It is the
+// host's own adapter to the checks and the executor, never a shape a model is
+// shown.
 type operationBatch struct {
 	Steps []operation
 }
@@ -79,12 +78,6 @@ type operationBatch struct {
 // are empty.
 type operation struct {
 	Type string `json:"type"`
-	// tool.
-	Tool string `json:"tool"`
-	// Args is the tool's arguments as a JSON object written out as a string. A
-	// free-form object in a schema is something a provider that constrains its
-	// output tends to fill with {}; a string it leaves alone.
-	Args string `json:"args"`
 	// write_schedule.
 	At            string `json:"at"`
 	Daily         bool   `json:"daily"`
@@ -168,24 +161,6 @@ var readTool = llm.Tool{
 	}, "required": []any{"steps"}},
 }
 
-// stepShape is which kinds of change a persona's plan can hold, following what
-// the persona holds: a persona that cannot schedule is offered no schedule
-// fields, and one whose tools only look things up has no action phase at all.
-type stepShape struct {
-	schedules bool
-	actions   []string
-}
-
-func shapeOf(set *tools.Set) stepShape {
-	shape := stepShape{schedules: set.Allows("schedule")}
-	for _, declared := range set.Declarations() {
-		if declared.Name != "schedule" && !set.IsReadOnly(declared.Name) {
-			shape.actions = append(shape.actions, declared.Name)
-		}
-	}
-	return shape
-}
-
 // turnRules are what the app enforces on a workflow regardless of review.
 type turnRules struct {
 	named, listening bool
@@ -244,7 +219,7 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 	}
 	for i, step := range workflow.Steps {
 		at := fmt.Sprintf("%d番目（%s）", i+1, step.Type)
-		for _, text := range []string{step.Args, step.Note, step.ID} {
+		for _, text := range []string{step.Note, step.ID} {
 			for _, id := range scheduleIDRef.FindAllString(text, -1) {
 				if _, exists := rules.schedules[id]; !exists {
 					problems = append(problems, at+": "+id+" という schedule はありません。一覧にある id だけを使ってください")
@@ -281,21 +256,6 @@ func checkBatch(workflow operationBatch, rules turnRules) []string {
 			if !rules.schedules[strings.TrimSpace(step.ID)] {
 				problems = append(problems, at+": 自分が置いた schedule の id だけを取り消せます")
 			}
-		case "tool":
-			if _, err := argsOf(step.Args); err != nil {
-				problems = append(problems, at+": args を JSON オブジェクトとして読めません")
-			}
-			switch {
-			case step.Tool == "schedule":
-				problems = append(problems, at+": 予定は tool ではなく write_schedule / update_schedule / cancel_schedule で扱います")
-			case strings.HasPrefix(step.Tool, "notes_") || step.Tool == "records":
-				problems = append(problems, at+": 記憶は本体がメモ係を通して保存します。Action では扱いません")
-			case !rules.set.Allows(step.Tool):
-				problems = append(problems, at+": "+step.Tool+" はあなたが使える道具ではありません")
-			case rules.set.IsReadOnly(step.Tool):
-				problems = append(problems, at+": "+step.Tool+" は調べるための道具です。Action ではなく read で使ってください")
-			}
-
 		default:
 			problems = append(problems, at+": 知らないステップです")
 		}
@@ -311,7 +271,6 @@ type Review struct {
 }
 
 type Issue struct {
-	Phase       string `json:"phase,omitempty"`
 	Severity    string `json:"severity"`
 	Description string `json:"description"`
 }
@@ -327,11 +286,6 @@ func (v Review) validate() error {
 		return fmt.Errorf("issues は配列で提出してください")
 	}
 	for i, issue := range v.Issues {
-		switch issue.Phase {
-		case "schedule", "action", "both":
-		default:
-			return fmt.Errorf("issues[%d] の phase は schedule / action / both で指定してください", i)
-		}
 		if issue.Severity != "high" && issue.Severity != "medium" && issue.Severity != "low" {
 			return fmt.Errorf("issues[%d] の severity が不正です", i)
 		}
@@ -363,11 +317,10 @@ var reviewTool = llm.Tool{
 		"issues": map[string]any{"type": "array", "items": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"phase":       map[string]any{"type": "string", "enum": []string{"schedule", "action", "both"}},
 				"severity":    map[string]any{"type": "string", "enum": []any{"high", "medium", "low"}},
 				"description": map[string]any{"type": "string"},
 			},
-			"required": []any{"phase", "severity", "description"},
+			"required": []any{"severity", "description"},
 		}},
 	}, "required": []any{"verdict", "summary", "issues"}},
 }
@@ -377,17 +330,16 @@ var reviewTool = llm.Tool{
 // persona's, and a reviewer with opinions about them would be a second persona
 // wearing the app's name. What the app checks is whether the workflow says
 // things that are not true and promises things it did not arrange.
-const reviewPrompt = `あなたはアプリ本体です。実行計画のScheduleとActionのみを実行前に確認します。
+const reviewPrompt = `あなたはアプリ本体です。実行計画のScheduleのみを実行前に確認します。
 Answerの品質・長さ・調査結果や記憶の更新はレビューしません。
 次の場合だけhighとしてfailにする:
 Push通知のON/OFFや予定の時刻変更がユーザーの依頼と矛盾する。notify:falseはPushのみ停止し、予定実行は続く。updateは既存予定の時刻・通知だけを変える。
 - Answerの約束と予定の日時、作成・取消・変更が一致しない。
 - user_requested:true の予定に、ユーザーによる時刻・繰り返しを伴う実行依頼または既存のユーザー依頼予定の裏付けがない。
-- 複数の予定やActionが矛盾し、または相互依存を満たさない。
-- ユーザーの依頼・担当の権限とActionの対象・引数が一致しない。
+- 複数の予定が矛盾し、または相互依存を満たさない。
 - 状態変更を完了したというAnswerに操作または既存状態の裏付けがない。
 外部調査の出典が内部readにないという理由でAnswerを却下しない。
-問題にはphaseをschedule/action/bothのどれかで指定する。Answerは再生成しない。
+Answerは再生成しない。
 highがなければpass。submit_reviewで提出する。`
 
 // review asks the app's own model about one assembled plan. A malformed verdict is
@@ -399,8 +351,7 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 	model := reviewModel(settings)
 	encoded, _ := json.MarshalIndent(struct {
 		Schedules []ScheduleOperation `json:"schedules"`
-		Actions   []ActionOperation   `json:"actions"`
-	}{plan.Schedules, plan.Actions}, "", "  ")
+	}{plan.Schedules}, "", "  ")
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		"",
@@ -418,7 +369,7 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 		"",
 		"完成した Answer（調査の出典は本文中のリンクも参照。これはメモへの保存指示ではありません）:",
 		answer.Text,
-		"担当が提出した状態変更計画（schedules / actions）:",
+		"担当が提出した状態変更計画（schedules）:",
 		string(encoded),
 	}, "\n")
 	system := reviewPrompt
@@ -458,7 +409,7 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 	return nil, fmt.Errorf("確認結果を3回読めませんでした")
 }
 
-// reviewModel checks plans for unsafe or inconsistent actions. It uses the
+// reviewModel checks plans for inconsistent schedules. It uses the
 // middle slot - Super by default, or the Middle model chosen for OpenRouter -
 // and stays there even when a persona answers on Ultra.
 func reviewModel(settings store.Settings) string {
@@ -524,7 +475,7 @@ func (r *Runner) readAll(ctx context.Context, skill Skill, steps []ReadStep, set
 			case step.Tool == "schedule":
 				out = "自分の予定は最初に渡した一覧にあります。他の担当の予定は閲覧専用の schedules_list で確認してください。作成・更新・取消は後の Schedule フェーズで扱います。"
 			case !set.IsReadOnly(step.Tool):
-				out = "この道具は状態を変えるため read では実行できません。後の Action フェーズで扱います。"
+				out = step.Tool + " はあなたが使える調べる道具ではありません。"
 			default:
 				// The same call failing the same way again is worth saying
 				// outright: a live run spent six of its reads on one broken
@@ -574,11 +525,9 @@ var placedID = regexp.MustCompile(`schedule (s_[A-Za-z0-9]+) を置きました`
 // execute runs an approved workflow in order and stops at the first step that
 // fails, so a remark at the end never goes out when what it rests on did not
 // happen.
-func (r *Runner) execute(ctx context.Context, skill Skill, workflow operationBatch, set *tools.Set, rules turnRules, post timeline.Entry,
-) (sources []timeline.Source, records []stepRecord) {
-
+func (r *Runner) execute(ctx context.Context, workflow operationBatch, set *tools.Set) (records []stepRecord) {
 	for _, step := range workflow.Steps {
-		record := stepRecord{Type: step.Type, Tool: step.Tool}
+		record := stepRecord{Type: step.Type}
 		var out string
 		switch step.Type {
 		case "write_schedule":
@@ -605,34 +554,16 @@ func (r *Runner) execute(ctx context.Context, skill Skill, workflow operationBat
 			if err != nil {
 				record.Error = err.Error()
 			}
-		case "tool":
-			// Checked again here: the review is advice, the declaration is the rule.
-			if step.Tool == "schedule" {
-				record.Error = "予定は write_schedule / update_schedule / cancel_schedule で扱います"
-				break
-			}
-			args, err := argsOf(step.Args)
-			if err != nil {
-				record.Error = err.Error()
-				break
-			}
-			result, err := set.Run(ctx, step.Tool, args, post.Place)
-			out = result.Text
-			if err != nil {
-				record.Error = err.Error()
-			}
-			sources = append(sources, result.Sources...)
-
 		default:
 			record.Error = "知らないステップです"
 		}
 		record.Output = preview(out)
 		records = append(records, record)
 		if record.Error != "" {
-			return sources, records
+			return records
 		}
 	}
-	return sources, records
+	return records
 }
 
 // citedSources are the links a speak's sources become: the posts it named,
@@ -695,7 +626,6 @@ func (r *Runner) scheduleListFor(skill Skill, set *tools.Set, names map[string]s
 // stepRecord is one step as it ran, for the log.
 type stepRecord struct {
 	Type   string `json:"type"`
-	Tool   string `json:"tool,omitempty"`
 	Path   string `json:"path,omitempty"`
 	Error  string `json:"error,omitempty"`
 	Output string `json:"output,omitempty"`

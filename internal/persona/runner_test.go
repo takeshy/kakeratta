@@ -413,8 +413,6 @@ func asCall(content string, offered map[string]bool) map[string]any {
 		return call("finish_read", map[string]any{})
 	case offered["submit_schedule"]:
 		return call("submit_schedule", json.RawMessage(content))
-	case offered["submit_action"]:
-		return call("submit_action", json.RawMessage(content))
 	case offered["deliver"]:
 		if scripted && parsed.Deliver != nil {
 			// The scripted reply is the call as written, reasons included.
@@ -921,7 +919,7 @@ func TestBeingNamedSkipsRoutingAndForcesAnAnswer(t *testing.T) {
 // A direct question is answered as the persona wrote it. Whether the answer
 // meets the request is the persona's to judge: a reviewer on the app's model
 // cannot see what an external agent found, and sent good answers back for it.
-// Only schedules and actions are reviewed.
+// Only schedules are reviewed.
 func TestANamedAnswerWithoutChangesIsNotReviewed(t *testing.T) {
 	r, s, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
@@ -1065,23 +1063,6 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 	}
 	if !stub.seen("[e_old] 薬を飲み忘れた") {
 		t.Fatal("the records read never handed the old record back")
-	}
-}
-
-// Tools are the declared ones and nothing else. A plan reaching for another is
-// sent back before anything runs, and the call is refused again at run time
-// whatever the review said.
-func TestAToolThatWasNotDeclaredIsRefused(t *testing.T) {
-	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
-	set := runner.registry(s.Settings()).For([]string{"schedule"}).As("routine")
-	plan := Workflow{Actions: []ActionOperation{{Tool: "place_search", Args: `{"query":"渋谷"}`}}}.batch()
-	if problems := checkBatch(plan, turnRules{set: set}); len(problems) != 1 || !strings.Contains(problems[0], "place_search はあなたが使える道具ではありません") {
-		t.Fatalf("problems = %v", problems)
-	}
-	skill, _ := runner.catalogue.Find(context.Background(), "routine")
-	_, steps := runner.execute(context.Background(), skill, plan, set, turnRules{set: set}, timeline.Entry{})
-	if len(steps) != 1 || steps[0].Error == "" {
-		t.Fatalf("an undeclared tool ran: %+v", steps)
 	}
 }
 
@@ -1427,7 +1408,7 @@ func TestReviewFailureLeavesThePlanUnexecuted(t *testing.T) {
 // review, even for a persona that can schedule: a promised time with nothing
 // set to wake is the schedule phase's to catch, as an inconsistency. A
 // schedule reaches further and is still checked.
-func TestOnlyPlansWithSchedulesOrActionsAreReviewed(t *testing.T) {
+func TestOnlyPlansWithSchedulesAreReviewed(t *testing.T) {
 	at := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
 	for _, tc := range []struct {
 		skill   string
@@ -1632,16 +1613,6 @@ func TestARepeatedFailingCallIsCalledOut(t *testing.T) {
 	}
 }
 
-// Only a tool the persona holds, and one that changes something, is an action.
-func TestOnlyTheToolsAPersonaHoldsAreActions(t *testing.T) {
-	set := tools.New(tools.Config{}).For(nil)
-	for _, tool := range []string{"speak", "notes_forget", "schedule"} {
-		if problems := checkBatch(Workflow{Actions: []ActionOperation{{Tool: tool, Args: "{}"}}}.batch(), turnRules{set: set}); len(problems) == 0 {
-			t.Fatalf("%s was smuggled in as an action", tool)
-		}
-	}
-}
-
 // Every read ends with how many are left and which other tools there are.
 func TestAReadSaysWhatIsLeftAndWhatElseThereIs(t *testing.T) {
 	set := tools.New(tools.Config{}).For([]string{"place_search", "web_search", "schedule"})
@@ -1659,11 +1630,11 @@ func TestAReadSaysWhatIsLeftAndWhatElseThereIs(t *testing.T) {
 	}
 }
 
-// Web search is used in the read, like reading a note, and never as an action.
-func TestWebSearchIsNotAnAction(t *testing.T) {
+// A plan holds schedule changes and nothing else: a tool call is not a step.
+func TestAPlanCannotCarryAToolCall(t *testing.T) {
 	set := tools.New(tools.Config{}).For([]string{"web_search"})
-	problems := checkBatch(operationBatch{Steps: []operation{{Type: "tool", Tool: "web_search", Args: `{"query":"x"}`}}}, turnRules{set: set})
-	if len(problems) != 1 || !strings.Contains(problems[0], "read で使ってください") {
+	problems := checkBatch(operationBatch{Steps: []operation{{Type: "tool"}}}, turnRules{set: set})
+	if len(problems) != 1 || !strings.Contains(problems[0], "知らないステップです") {
 		t.Fatalf("problems = %v", problems)
 	}
 }
@@ -1700,30 +1671,23 @@ func TestAMalformedDraftDoesNotUseUpTheReview(t *testing.T) {
 	}
 }
 
-// Each phase's submit tool is offered in the shape of what the persona holds.
-// Lookups are never an action, so a persona whose tools only look things up
-// has no action phase at all.
-func TestThePhaseSchemasFollowThePersonasTools(t *testing.T) {
-	registry := tools.New(tools.Config{}).WithSchedules(nil)
-	lookups := registry.For([]string{"web_search", "place_search"})
-	if actions := shapeOf(lookups).actions; len(actions) != 0 {
-		t.Fatalf("a persona that only looks things up has actions: %v", actions)
-	}
+// The schedule phase's submit tool carries schedule changes and nothing else.
+func TestThePhaseSchemaHoldsSchedulesOnly(t *testing.T) {
 	fields := func(phase string) map[string]any {
-		properties := phaseTool(phase, lookups).Parameters["properties"].(map[string]any)
+		properties := phaseTool(phase).Parameters["properties"].(map[string]any)
 		items := properties["operations"].(map[string]any)["items"].(map[string]any)
 		return items["properties"].(map[string]any)
 	}
 	if fields("schedule")["at"] == nil || fields("schedule")["path"] != nil || fields("schedule")["text"] != nil {
 		t.Fatal("the schedule phase was offered a note to write")
 	}
-	schedule := phaseTool("schedule", lookups).Parameters["required"].([]string)
+	schedule := phaseTool("schedule").Parameters["required"].([]string)
 	if strings.Join(schedule, ",") != "operations,consistent,reason" {
 		t.Fatalf("schedule phase required = %v", schedule)
 	}
 }
 
-// The review looks at schedules and actions only: the answer's research and
+// The review looks at schedules only: the answer's research and
 // its length are not the app's to judge.
 func TestTheReviewLeavesTheAnswerAlone(t *testing.T) {
 	if !strings.Contains(reviewPrompt, "Answerの品質") || !strings.Contains(reviewPrompt, "外部調査の出典") {

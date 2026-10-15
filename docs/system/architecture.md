@@ -3,7 +3,7 @@ type: "Architecture"
 title: "Architecture and runtime"
 description: "System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown."
 tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
-updated: "2026-10-14"
+updated: "2026-10-15"
 ---
 
 System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown.
@@ -51,7 +51,7 @@ The architecture supports a path toward one million daily active users through a
 | --- | --- | --- |
 | Frontend | Input, conversations, device storage, speech controls | `frontend/src` |
 | HTTP | Authentication, input validation, persistence, event delivery | `internal/server` |
-| Personas | Routing, research, answers, schedules, actions, memory | `internal/persona` |
+| Personas | Routing, research, answers, schedules, memory | `internal/persona` |
 | Persistence | Durable user state and images | `internal/store` |
 | Inference and tools | Model requests and permitted external capabilities | `internal/llm`, `internal/tools`, `internal/mcp` |
 | Search | Lexical and semantic timeline search, index updates | `internal/search` |

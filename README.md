@@ -51,7 +51,7 @@ Creation and editing offer **Remember** and **Always think deeply**. Memory
 is on by default; support and infographic default to off. Turning it off stops
 memory updates and periodic check-ins. Always
 thinking deeply uses the high (Ultra) model for final answers even on ordinary requests; infographic
-defaults to on. Reads of personas with lookup tools and schedule/action planning use Super.
+defaults to on. Reads of personas with lookup tools and schedule planning use Super.
 
 ## Run locally
 
@@ -123,7 +123,7 @@ The default model configuration is:
 | Model | Role |
 | --- | --- |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
-| **Nemotron 3 Super 120B A12B** | Persona routing, reads, ordinary answers, schedule/action planning, workflow checks, the note keeper, and the day's and month's summaries |
+| **Nemotron 3 Super 120B A12B** | Persona routing, reads, ordinary answers, schedule planning, workflow checks, the note keeper, and the day's and month's summaries |
 | **Nemotron 3 Ultra 550B A55B** | Answers for deep requests (such as "in detail") and for personas with Always think deeply enabled |
 
 OpenRouter is an optional alternative. Models are chosen by task to benefit
@@ -133,7 +133,7 @@ permitted tools. Export your timeline, images, settings, personas and memory
 from Settings; see [data portability](docs/usage.md#taking-it-with-you).
 
 External agents such as Hermes or Obsidian's LLM Connect Hub can research and
-submit answers over MCP. kakeratta owns the timeline, schedules, actions and
+submit answers over MCP. kakeratta owns the timeline, schedules and
 memory updates. Address `@agent` to hand the agent itself a longer task -
 sending an email, for instance - past the personas, and carry on by replying. The tested NemoClaw/OpenShell sandbox setup is documented in
 the integration report below.
