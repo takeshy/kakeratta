@@ -204,8 +204,147 @@ def update_integration(url: str, headers: dict, versions: dict) -> None:
             print(f"kakeratta direct-request worker update failed: {e}", file=sys.stderr)
 
 
+def judge_headers():
+    key = os.environ.get("JUDGE_MCP_KEY", "")
+    if len(key) != 64:
+        raise ValueError("JUDGE_MCP_KEY must have 64 characters")
+    return {"Authorization": "Bearer " + key, "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream"}
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("judge discovery redirect refused")
+
+
+def discover_judges(endpoint, headers):
+    from urllib.parse import urlsplit
+    origin = urlsplit(endpoint)
+    if origin.scheme != "https" or not origin.netloc or origin.username or origin.password or origin.query or origin.fragment or origin.path != "/internal/judge-workspaces":
+        raise ValueError("invalid judge discovery URL")
+    req = urllib.request.Request(endpoint, headers=headers)
+    with urllib.request.build_opener(NoRedirect()).open(req, timeout=10) as response:
+        rows = json.loads(response.read(1_000_001))["workspaces"]
+    if not isinstance(rows, list):
+        raise ValueError("invalid workspace list")
+    result = {}
+    for row in rows:
+        wid = row.get("workspaceId", "")
+        if not re.fullmatch(r"[a-f0-9]{64}", wid):
+            raise ValueError("invalid workspace ID")
+        url = f"https://{origin.netloc}/api/mcp/users/{wid}"
+        if row.get("mcpUrl") != url:
+            raise ValueError("workspace URL differs from trusted origin")
+        result[wid] = url
+    return result
+
+
+def judge_home(wid, url, headers, cfg):
+    """Never change the parent's configuration or share another judge's state."""
+    import yaml
+    home = get_hermes_home() / "judge-workspaces" / wid
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(home, 0o700)
+    isolated = {k: cfg[k] for k in ("model", "providers", "delegation") if k in cfg}
+    worker = next((dict(cfg[key]) for key in ("kakeratta_worker", "delegation")
+                   if isinstance(cfg.get(key), dict)), {})
+    worker.update(toolsets="web,kakeratta", mcp_servers=[], file_roots=[str(home / "files")])
+    isolated["kakeratta_worker"] = worker
+    isolated["agent"] = {"max_turns": 15}
+    isolated["mcp_servers"] = {"kakeratta": {"url": url, "headers": headers}}
+    path = home / "config.yaml"
+    # The credential file is private even when replacing an earlier version.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as out:
+        yaml.safe_dump(isolated, out)
+    env_file = get_hermes_home() / ".env"
+    if env_file.exists() and not (home / ".env").exists():
+        (home / ".env").symlink_to(env_file)
+    return home
+
+
+def process_judge(wid, url, headers, result, cfg):
+    import direct_request_worker as worker
+    import subprocess
+    import yaml
+    home = judge_home(wid, url, headers, cfg)
+    # Separate locks and journals for requests, and one Hermes session per ask.
+    requests = [r for r in result.get("requests", []) if r.get("status") in ("pending", "claimed")]
+    asks = [a for a in result.get("asks", []) if a.get("status") == "pending"]
+    for ask in asks:
+        aid = ask.get("id", "")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", aid):
+            continue
+        ahome = home / "asks" / aid
+        ahome.mkdir(parents=True, exist_ok=True, mode=0o700)
+        lock = worker.acquire_lock(ahome)
+        if lock is None:
+            continue
+        try:
+            acfg = yaml.safe_load((home / "config.yaml").read_text())
+            acfg.pop("kakeratta_worker", None)
+            acfg.pop("delegation", None)
+            # Only the current workspace's MCP tools are available.
+            worker._atomic_write(ahome / "config.yaml", yaml.safe_dump(acfg), mode=0o600)
+            if (home / ".env").exists() and not (ahome / ".env").exists():
+                (ahome / ".env").symlink_to(home / ".env")
+            skill = installed_skill().read_text()
+            prompt = (skill + "\nProcess only persona ask " + aid +
+                      ". Claim it using a stable claimId, research and submit_answer through the configured kakeratta MCP. "
+                      "If it is no longer pending, stop. Do not process direct requests or other asks.")
+            subprocess.run([worker.model_config(cfg)["hermes_bin"], "chat", "-Q", "--ignore-rules",
+                            "-t", "kakeratta", "--max-turns", "15", "--run-budget", "600", "--query-file", "-"],
+                           input=prompt, text=True, capture_output=True, timeout=720,
+                           cwd=ahome, env=dict(os.environ, HERMES_HOME=str(ahome)))
+        except Exception:
+            print(f"judge ask failed: {wid}/{aid}", file=sys.stderr)
+        finally:
+            lock.close()
+    if requests:
+        worker.process(url, headers, requests, home=home)
+
+
+def judge_tick():
+    sys.path.insert(0, str(scripts_dir()))
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import direct_request_worker as worker
+    headers = judge_headers()
+    cfg = worker.read_config(get_hermes_home())
+    if not cfg:
+        raise ValueError("Hermes configuration unavailable")
+    targets = discover_judges(os.environ["JUDGE_WORKSPACES_URL"], headers)
+    ready = []
+    # Poll everyone before doing inference so presence stays current.
+    for wid, url in targets.items():
+        try:
+            result = call_tool(url, headers, "list_asks")
+            if not isinstance(result.get("asks"), list) or not isinstance(result.get("requests", []), list):
+                raise ValueError("invalid list_asks result")
+            ready.append((wid, url, result))
+        except Exception:
+            print(f"judge poll failed: {wid}", file=sys.stderr)
+    # Updates use the trusted origin and the existing authenticated MCP bundle.
+    if ready:
+        try:
+            update_integration(ready[0][1], headers, ready[0][2].get("integration") or {})
+        except Exception:
+            print("judge integration update failed", file=sys.stderr)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        jobs = [pool.submit(process_judge, wid, url, headers, result, cfg)
+                for wid, url, result in ready if result.get("asks") or result.get("requests")]
+        for job in as_completed(jobs):
+            try:
+                job.result()
+            except Exception:
+                print("judge workspace processing failed", file=sys.stderr)
+
+
 def main():
     try:
+        if os.environ.get("JUDGE_WORKSPACES_URL"):
+            judge_tick()
+            print(json.dumps({"wakeAgent": False}))
+            return
         config_path = get_hermes_home() / "config.yaml"
         if not config_path.exists():
             print("Pre-check warning: config.yaml not found; skipping wake", file=sys.stderr)
@@ -337,7 +476,7 @@ def main():
         # Fail-closed: on error (e.g. network timeout or 401/403/500), do NOT wake
         # the agent to prevent token runaway. Kakeratta's built-in model will
         # automatically answer if the external agent does not claim the turn.
-        print(f"Pre-check error: {e}; skipping wake to protect tokens", file=sys.stderr)
+        print("Pre-check error; skipping wake to protect tokens", file=sys.stderr)
         print(json.dumps({"wakeAgent": False}))
 
 
