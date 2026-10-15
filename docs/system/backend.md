@@ -20,6 +20,8 @@ In a hosted deployment, `Gateway` verifies Firebase sessions. The browser sends 
 
 Any instance of a shared deployment answers any request; nothing is routed to a particular instance (see [Multiple instances](./architecture.md#multiple-instances)).
 
+The shared judge MCP connection and discovery API additionally check the current Firebase account, disabled flag and judge claim on each access. Registration records the verified UID in the workspace marker; see [Shared judge Hermes connection](./integrations.md#shared-judge-hermes-connection).
+
 ## Handler organization
 
 | File | Main APIs |

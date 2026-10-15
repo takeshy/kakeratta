@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
+	"firebase.google.com/go/v4/auth"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -144,5 +146,114 @@ func TestJudgeWorkspacesIsNotServedByWorkers(t *testing.T) {
 	g.ServeHTTP(res, req)
 	if res.Code != http.StatusNotFound {
 		t.Fatalf("worker judge-workspaces = %d", res.Code)
+	}
+}
+
+// Lifecycle checks use live Firebase state, not just the persisted marker.
+type lifecycleJudgeVerifier struct {
+	judgeVerifier
+	users       map[string]*auth.UserRecord
+	unavailable bool
+}
+
+func (v *lifecycleJudgeVerifier) GetUser(_ context.Context, uid string) (*auth.UserRecord, error) {
+	if v.unavailable {
+		return nil, errors.New("unavailable")
+	}
+	u := v.users[uid]
+	if u == nil {
+		return nil, errors.New("deleted")
+	}
+	return u, nil
+}
+func TestSharedJudgeMCPHonorsFirebaseLifecycle(t *testing.T) {
+	key := strings.Repeat("j", 64)
+	verifier := &lifecycleJudgeVerifier{users: map[string]*auth.UserRecord{}}
+	g := newGateway(AuthOptions{Root: t.TempDir(), Mode: "web",
+		JudgeInviteToken: "invite", JudgeAPIKey: "model", JudgeMCPKey: key,
+		JudgeExpiresAt: time.Now().Add(time.Hour), JudgeMaxUses: 10}, verifier)
+	t.Cleanup(g.Close)
+	t.Setenv("KAKERATTA_PUBLIC_URL", "https://kakeratta.example")
+	for _, uid := range []string{"alice", "bob"} {
+		verifier.users[uid] = &auth.UserRecord{UserInfo: &auth.UserInfo{UID: uid}, CustomClaims: map[string]interface{}{"judge": true}}
+		if err := g.setUpJudgeWorkspace(context.Background(), uid); err != nil {
+			t.Fatal(err)
+		}
+	}
+	request := func(path, token string) *httptest.ResponseRecorder {
+		method := http.MethodGet
+		if strings.HasPrefix(path, "/api/mcp/") {
+			method = http.MethodPost
+		}
+		r := httptest.NewRequest(method, path, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+		r.Header.Set("Authorization", "Bearer "+token)
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Accept", "application/json, text/event-stream")
+		w := httptest.NewRecorder()
+		g.ServeHTTP(w, r)
+		return w
+	}
+	for _, state := range []string{"active", "disabled", "claim removed", "deleted", "auth unavailable", "rotated", "revoked", "paused"} {
+		t.Run(state, func(t *testing.T) {
+			user := &auth.UserRecord{UserInfo: &auth.UserInfo{UID: "alice"}, CustomClaims: map[string]interface{}{"judge": true}}
+			verifier.users["alice"] = user
+			verifier.unavailable = false
+			g.options.JudgeMCPKey = key
+			alice, _ := g.tenant("alice")
+			alice.judgeMCPKey = key
+			settings := alice.store.ConfiguredSettings()
+			settings.ExternalAgent.Paused = state == "paused"
+			if err := alice.store.SaveSettings(settings); err != nil {
+				t.Fatal(err)
+			}
+			switch state {
+			case "disabled":
+				user.Disabled = true
+			case "claim removed":
+				user.CustomClaims = nil
+			case "deleted":
+				delete(verifier.users, "alice")
+			case "auth unavailable":
+				verifier.unavailable = true
+			case "rotated":
+				g.options.JudgeMCPKey = strings.Repeat("r", 64)
+				alice.judgeMCPKey = g.options.JudgeMCPKey
+			case "revoked":
+				g.options.JudgeMCPKey = ""
+				alice.judgeMCPKey = ""
+			}
+			res := request("/api/mcp/users/"+workspaceKey("alice"), key)
+			if state == "active" && res.Code != 200 {
+				t.Fatalf("active MCP: %d %s", res.Code, res.Body.String())
+			}
+			if state != "active" && res.Code < 400 {
+				t.Fatalf("inactive MCP accepted: %s", state)
+			}
+			discoveryKey := g.options.JudgeMCPKey
+			res = request("/internal/judge-workspaces", discoveryKey)
+			if state == "revoked" {
+				if res.Code != 401 {
+					t.Fatalf("revoked discovery: %d", res.Code)
+				}
+				return
+			}
+			if res.Code != 200 {
+				t.Fatalf("discovery: %d %s", res.Code, res.Body.String())
+			}
+			var body struct {
+				Workspaces []map[string]string `json:"workspaces"`
+			}
+			if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range body.Workspaces {
+				if state != "active" && row["workspaceId"] == workspaceKey("alice") {
+					t.Fatalf("inactive judge listed: %s", state)
+				}
+			}
+			if state == "active" && len(body.Workspaces) != 2 {
+				t.Fatalf("expected two judges: %s", res.Body.String())
+			}
+		})
 	}
 }

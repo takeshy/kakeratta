@@ -204,7 +204,7 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if connectionID == judgeConnectionID && (s.judgeActive == nil || !s.judgeActive() ||
-		len(s.judgeMCPKey) != 64 || !same(key, s.judgeMCPKey)) {
+		len(s.judgeMCPKey) != 64 || !same(key, s.judgeMCPKey) || !s.isConfiguredJudge(r.Context(), digest)) {
 		connectionID = ""
 	}
 	if r.PathValue("workspace") != s.mcpWorkspace() || connectionID == "" {

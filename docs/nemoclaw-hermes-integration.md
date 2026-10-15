@@ -45,11 +45,11 @@ kakeratta does not start the Hermes process, and Hermes does not access kakeratt
 
 In OpenShell 0.0.116, `inference.local` replaces the model name requested by Hermes with the Gateway's configured model. Sandboxes under one Gateway also share that inference setting. It therefore cannot reliably use one model for the parent and another for delegated children. Provider v2 keeps OpenShell in charge of credentials and egress while Hermes calls Token Factory's OpenAI-compatible endpoint with its selected model name intact.
 
-The verified target split is:
+The current configured target split is (the original 2026-10-13 verification used Nemotron 3 Super 120B):
 
 | Executor | Model | Role |
 | --- | --- | --- |
-| Hermes parent and kakeratta cron | `nvidia/nemotron-3-super-120b-a12b` | intake, routing, routine work, and final response |
+| Hermes parent and kakeratta cron | `nvidia/Nemotron-3.5-Super-VL` | intake, routing, routine work, and final response |
 | Delegated Hermes child | `nvidia/Nemotron-3-Ultra-550b-a55b` | delegated high-complexity research, reasoning, and execution |
 | OpenShell Provider v2 | `tokenfactory-v2` | injects `TOKENFACTORY_API_KEY` and composes Token Factory egress |
 | Token Factory | `https://api.tokenfactory.nebius.com/v1` | OpenAI-compatible inference endpoint |
@@ -61,7 +61,7 @@ model:
   provider: custom
   base_url: https://api.tokenfactory.nebius.com/v1
   api_key: ${TOKENFACTORY_API_KEY}
-  default: nvidia/nemotron-3-super-120b-a12b
+  default: nvidia/Nemotron-3.5-Super-VL
 
 delegation:
   provider: custom
@@ -86,10 +86,12 @@ Existing cron jobs retain their model pin. Changing global `model.default` to Su
 
 ```bash
 hermes cron edit <job-id> \
-  --model nvidia/nemotron-3-super-120b-a12b \
+  --model nvidia/Nemotron-3.5-Super-VL \
   --provider custom
 hermes cron list
 ```
+
+For an existing sandbox, use the [parent/Cron migration helper](../scripts/nemoclaw/README.md#7-親モデルを35-super-vlへ切り替える) to update both pins while preserving the Ultra worker configuration. The checked-in configuration now targets 3.5 Super VL; deployment and real model/MCP verification are separate steps.
 
 ### Verification
 
@@ -457,7 +459,7 @@ The entire cycle completed autonomously with zero human intervention.
 Multiple models were evaluated during development:
 - **`NousResearch/Hermes-4-405B`**: Highly capable, but simple prompts took ~45 seconds, adding unacceptable latency to a 1-minute scheduling cadence.
 - **`nvidia/Nemotron-3_5-Lightning`**: Extremely fast (2–3 seconds), but prone to argument omission, JSON structure syntax errors during multi-step MCP operations, and getting caught in troubleshooting loops (attempting unwanted configuration changes and shell commands) upon transient network or tool hiccups.
-- **`nvidia/nemotron-3-super-120b-a12b`**: Balanced response speed and tool judgment, and is the current planner model for persona asks (as well as the end-to-end run above). In one session it held on to an earlier error when the user corrected it, and in another it wrote an answer without submitting it (resolved in Skill v13).
+- **`nvidia/nemotron-3-super-120b-a12b`**: Balanced response speed and tool judgment, and was the planner model in the historical end-to-end run above. Current configuration targets `nvidia/Nemotron-3.5-Super-VL`; the older run does not verify that model. In one session it held on to an earlier error when the user corrected it, and in another it wrote an answer without submitting it (resolved in Skill v13).
 - **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Used for direct `@agent` requests through the isolated direct-request worker over Provider v2. When tested earlier as the parent cron planner with reasoning parameters enabled, it emitted tool calls as plain text and hit the repetition guard; see the [model comparison](nemoclaw-hermes-model-comparison.md).
 
 Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex, nested workflow structures as pure native JSON objects without double-escaping, structurally eliminating parse failures.

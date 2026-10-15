@@ -623,6 +623,7 @@ func (g *Gateway) open(userKey string) (*Server, error) {
 	tenant := New(options)
 	tenant.workspaceKey = userKey
 	tenant.alexaJudge = g.checkAlexaJudge
+	tenant.judgeAccount = g.judgeAccountActive
 	return tenant, nil
 }
 

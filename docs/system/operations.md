@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, Alexa skill setup, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
-updated: "2026-10-15"
+updated: "2026-10-16"
 ---
 
 Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion.
@@ -28,6 +28,10 @@ Alexa custom-skill setup is described in [alexa.md](../alexa.md), including sepa
 
 Implementation: [captures.mjs](../../frontend/captures.mjs), [Screen.stories.js](../../frontend/stories/Screen.stories.js), and [story API fixtures](../../frontend/stories/api.js). Verification: [storybook-api.test.js](../../tests/storybook-api.test.js) checks that preview asset requests survive repeated fixture setup; [site-pages.test.js](../../tests/site-pages.test.js) checks that screenshot references and dimensions match the generated PNGs.
 
+## Hermes model migration
+
+Run [nemoclaw-hermes-upgrade-super.py](../../scripts/nemoclaw/bin/nemoclaw-hermes-upgrade-super.py) in the real Hermes sandbox using its Python environment and `--home /sandbox/.hermes --job-id <kakeratta-job-id>`. Preview first; `--apply` uses the installed Hermes CLI to pin each selected job to Super VL/custom, then atomically updates the parent config with a private backup. Repeated job IDs are accepted through repeated flags. CLI failures leave the parent unchanged but earlier job updates may persist; retry the same intended pins after resolving the error. The helper validates the existing Token Factory route and never exposes credentials in its output. It does not restart the Gateway, install Hermes, or migrate sessions already running. A new parent session and the next Cron run require live verification. See [the operator procedure](../../scripts/nemoclaw/README.md#7-親モデルを35-super-vlへ切り替える).
+
 ## Validation
 
 ```sh
@@ -35,6 +39,8 @@ go test ./...
 node --test tests/*.test.js
 node frontend/build.mjs
 ```
+
+Hermes shared-judge isolation tests run with `python3 -m unittest discover -s tests -p 'test_hermes_*.py'` (requires PyYAML). They mock inference and verify runtime MCP URLs, per-workspace state/locks, restricted tools, idle polling, and discovery validation; they do not establish a real Hermes CLI/provider run. See [judge setup](../judge-access.md#shared-hermes-for-judges).
 
 Go tests cover persistence, HTTP, personas, search, and integrations. Firestore tests, including the coordination and two-instance tests, run against the Firestore emulator when `FIRESTORE_EMULATOR_HOST` is set (for example `firebase emulators:start --only firestore`) and are skipped otherwise. `mise.toml` pins Go 1.26 and Node 24, matching the Dockerfile and Cloud Build. Frontend tests exercise state transitions and DOM operations under Node. Storybook provides screen examples, and `offline-check.mjs` checks offline behavior in a browser. `npm --prefix frontend run test:html` runs [html-check.mjs](../../frontend/html-check.mjs) against a local fixture server and headless Chromium to verify HTML isolation and image pagination; `CHROMIUM` selects the executable. Its temporary profile is created under the home cache by default for Snap compatibility and removed after the check. Real model providers, OAuth, microphones, and similar integrations require checks beyond unit tests.
 

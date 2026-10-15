@@ -29,7 +29,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "7"
+GATE_VERSION = "8"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -96,7 +96,7 @@ def call_tool(url: str, headers: dict, name: str, arguments: dict = None, timeou
         "params": {"name": name, "arguments": arguments or {}},
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    with urllib.request.build_opener(NoRedirect()).open(req, timeout=timeout) as response:
         data = json.loads(response.read().decode("utf-8"))
     if "error" in data:
         raise ValueError(f"{name}: {data['error'].get('message')}")
@@ -125,7 +125,7 @@ def judge_workspaces(url: str, headers: dict) -> list[dict]:
     endpoint = base + "/internal/judge-workspaces"
     req_headers = {k: v for k, v in headers.items() if k.lower() not in ("content-type", "accept")}
     req = urllib.request.Request(endpoint, headers=req_headers, method="GET")
-    with urllib.request.urlopen(req, timeout=5) as response:
+    with urllib.request.build_opener(NoRedirect()).open(req, timeout=5) as response:
         data = json.loads(response.read().decode("utf-8"))
     rows = data.get("workspaces")
     if not isinstance(rows, list):
@@ -239,74 +239,8 @@ def discover_judges(endpoint, headers):
     return result
 
 
-def judge_home(wid, url, headers, cfg):
-    """Never change the parent's configuration or share another judge's state."""
-    import yaml
-    home = get_hermes_home() / "judge-workspaces" / wid
-    home.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(home, 0o700)
-    isolated = {k: cfg[k] for k in ("model", "providers", "delegation") if k in cfg}
-    worker = next((dict(cfg[key]) for key in ("kakeratta_worker", "delegation")
-                   if isinstance(cfg.get(key), dict)), {})
-    worker.update(toolsets="web,kakeratta", mcp_servers=[], file_roots=[str(home / "files")])
-    isolated["kakeratta_worker"] = worker
-    isolated["agent"] = {"max_turns": 15}
-    isolated["mcp_servers"] = {"kakeratta": {"url": url, "headers": headers}}
-    path = home / "config.yaml"
-    # The credential file is private even when replacing an earlier version.
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as out:
-        yaml.safe_dump(isolated, out)
-    env_file = get_hermes_home() / ".env"
-    if env_file.exists() and not (home / ".env").exists():
-        (home / ".env").symlink_to(env_file)
-    return home
-
-
-def process_judge(wid, url, headers, result, cfg):
-    import direct_request_worker as worker
-    import subprocess
-    import yaml
-    home = judge_home(wid, url, headers, cfg)
-    # Separate locks and journals for requests, and one Hermes session per ask.
-    requests = [r for r in result.get("requests", []) if r.get("status") in ("pending", "claimed")]
-    asks = [a for a in result.get("asks", []) if a.get("status") == "pending"]
-    for ask in asks:
-        aid = ask.get("id", "")
-        if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", aid):
-            continue
-        ahome = home / "asks" / aid
-        ahome.mkdir(parents=True, exist_ok=True, mode=0o700)
-        lock = worker.acquire_lock(ahome)
-        if lock is None:
-            continue
-        try:
-            acfg = yaml.safe_load((home / "config.yaml").read_text())
-            acfg.pop("kakeratta_worker", None)
-            acfg.pop("delegation", None)
-            # Only the current workspace's MCP tools are available.
-            worker._atomic_write(ahome / "config.yaml", yaml.safe_dump(acfg), mode=0o600)
-            if (home / ".env").exists() and not (ahome / ".env").exists():
-                (ahome / ".env").symlink_to(home / ".env")
-            skill = installed_skill().read_text()
-            prompt = (skill + "\nProcess only persona ask " + aid +
-                      ". Claim it using a stable claimId, research and submit_answer through the configured kakeratta MCP. "
-                      "If it is no longer pending, stop. Do not process direct requests or other asks.")
-            subprocess.run([worker.model_config(cfg)["hermes_bin"], "chat", "-Q", "--ignore-rules",
-                            "-t", "kakeratta", "--max-turns", "15", "--run-budget", "600", "--query-file", "-"],
-                           input=prompt, text=True, capture_output=True, timeout=720,
-                           cwd=ahome, env=dict(os.environ, HERMES_HOME=str(ahome)))
-        except Exception:
-            print(f"judge ask failed: {wid}/{aid}", file=sys.stderr)
-        finally:
-            lock.close()
-    if requests:
-        worker.process(url, headers, requests, home=home)
-
-
 def judge_tick():
     sys.path.insert(0, str(scripts_dir()))
-    from concurrent.futures import ThreadPoolExecutor, as_completed
     import direct_request_worker as worker
     headers = judge_headers()
     cfg = worker.read_config(get_hermes_home())
@@ -329,14 +263,12 @@ def judge_tick():
             update_integration(ready[0][1], headers, ready[0][2].get("integration") or {})
         except Exception:
             print("judge integration update failed", file=sys.stderr)
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        jobs = [pool.submit(process_judge, wid, url, headers, result, cfg)
-                for wid, url, result in ready if result.get("asks") or result.get("requests")]
-        for job in as_completed(jobs):
-            try:
-                job.result()
-            except Exception:
-                print("judge workspace processing failed", file=sys.stderr)
+    for wid, url, result in ready:
+        requests = [r for r in result.get("requests", []) if isinstance(r, dict) and r.get("status") in ("pending", "claimed")]
+        if requests:
+            worker.spawn_judge_requests(url, headers, wid, requests)
+        if any(isinstance(a, dict) and a.get("status") == "pending" for a in result["asks"]):
+            worker.spawn_persona_asks(url, headers, wid)
 
 
 def main():
@@ -431,8 +363,10 @@ def main():
             if not open_requests or worker is None:
                 continue
             try:
-                worker.process(target["mcpUrl"], headers, open_requests,
-                               workspace_id=target["workspaceId"])
+                if target["workspaceId"] == "configured":
+                    worker.process(target["mcpUrl"], headers, open_requests)
+                else:
+                    worker.spawn_judge_requests(target["mcpUrl"], headers, target["workspaceId"], open_requests)
             except Exception as e:
                 # Fail-closed: a worker failure never wakes Super for a direct
                 # request. The request stays pending or claimed and is
@@ -459,7 +393,7 @@ def main():
 
         # The 15-turn boundary covers persona asks; direct requests no longer
         # need the expanded 40 turns because Super is not woken for them.
-        if not adjust_max_turns(config_path, 15):
+        if not shared and not adjust_max_turns(config_path, 15):
             print("Pre-check warning: agent.max_turns line missing or invalid in config; skipping wake", file=sys.stderr)
             print(json.dumps({"wakeAgent": False}))
             return

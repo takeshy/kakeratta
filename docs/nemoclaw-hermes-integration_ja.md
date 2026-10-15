@@ -45,11 +45,11 @@ kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta
 
 OpenShell 0.0.116の `inference.local` は、Hermesがリクエストに指定したモデル名をGateway側のモデルへ置き換えます。また同じGateway配下のサンドボックスが1つの推論設定を共有するため、Hermesの親と委譲した子を別モデルにする用途には適しません。Provider v2でToken FactoryをHermesのOpenAI互換エンドポイントとして直接使うと、Hermesが選んだモデル名を維持したまま、OpenShellに資格情報と通信先の管理を残せます。
 
-検証後の役割分担は次のとおりです。
+現在の設定対象は次のとおりです。2026-10-13の実動作検証は旧Nemotron 3 Super 120Bによるもので、3.5 Super VLへの変更後は別途実機検証が必要です。
 
 | 実行主体 | モデル | 用途 |
 | --- | --- | --- |
-| Hermes親・kakeratta cron | `nvidia/nemotron-3-super-120b-a12b` | 依頼の受付、振り分け、通常処理、最終回答 |
+| Hermes親・kakeratta cron | `nvidia/Nemotron-3.5-Super-VL` | 依頼の受付、振り分け、通常処理、最終回答 |
 | Hermes子（delegation） | `nvidia/Nemotron-3-Ultra-550b-a55b` | 委譲された高難度の調査・推論・実行 |
 | OpenShell Provider v2 | `tokenfactory-v2` | `TOKENFACTORY_API_KEY`の注入とToken FactoryへのEgress合成 |
 | Token Factory | `https://api.tokenfactory.nebius.com/v1` | OpenAI互換の推論API |
@@ -61,7 +61,7 @@ model:
   provider: custom
   base_url: https://api.tokenfactory.nebius.com/v1
   api_key: ${TOKENFACTORY_API_KEY}
-  default: nvidia/nemotron-3-super-120b-a12b
+  default: nvidia/Nemotron-3.5-Super-VL
 
 delegation:
   provider: custom
@@ -86,10 +86,12 @@ cronジョブは作成時のモデルを保持します。グローバルの `mo
 
 ```bash
 hermes cron edit <job-id> \
-  --model nvidia/nemotron-3-super-120b-a12b \
+  --model nvidia/Nemotron-3.5-Super-VL \
   --provider custom
 hermes cron list
 ```
+
+既存サンドボックスは[親・Cron移行スクリプト](../scripts/nemoclaw/README.md#7-親モデルを35-super-vlへ切り替える)で両方を更新できます。Ultra Worker設定は保持します。リポジトリの設定対象は3.5 Super VLですが、実環境への適用とモデル・MCPの実動作検証は別途必要です。
 
 ### 検証
 
@@ -466,7 +468,7 @@ Hermes の CLI や管理画面を人が直接操作することなく、未処�
 モデル選定にあたっては、複数のモデルを検証しました：
 - **`NousResearch/Hermes-4-405B`**: 推論精度は高いものの、単純なプロンプトでも応答に約 45 秒を要し、毎分の自律プランニング運用には応答遅延が大きすぎる課題がありました。
 - **`nvidia/Nemotron-3_5-Lightning`**: 応答は約 2〜3 秒と極めて高速でしたが、多段 MCP 操作での引数誤りや JSON 構造破損が発生しやすく、ツールエラーや一時的なネットワーク不達時に不要な設定変更・シェル調査ループに陥って実行が長引くケースが確認されました。
-- **`nvidia/nemotron-3-super-120b-a12b`**: 応答速度とツール判断のバランスがよく、現在の persona ask 用プランナーモデルです（上記のエンドツーエンド検証でも使用）。ユーザーに誤りを指摘されても前の主張を維持したセッションや、回答を書いたのに提出しなかったセッション（Skill v13 で解消）がありました。
+- **`nvidia/nemotron-3-super-120b-a12b`**: 応答速度とツール判断のバランスがよく、当時の persona ask 用プランナーモデルです（上記のエンドツーエンド検証でも使用）。現在の設定対象は `nvidia/Nemotron-3.5-Super-VL` です。旧モデルでの検証結果は新モデルの動作確認を意味しません。ユーザーに誤りを指摘されても前の主張を維持したセッションや、回答を書いたのに提出しなかったセッション（Skill v13 で解消）がありました。
 - **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Provider v2 経由で直接依頼（`@agent`）ワーカーから使用しています。以前に親 Cron のプランナーとして思考設定付きで試した際は、ツール呼び出しをプレーンテキストで出力して Repetition Guard に達する問題がありました。[モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) を参照してください。
 
 さらに Hermes 側で `tools.tool_search.enabled: "off"`（Direct disclosure）を適用することで、モデルはネストの深い複雑なワークフロー構造を純粋なネイティブ JSON オブジェクトとして引数に渡すことができ、文字列エスケープ破損による失敗を起こすことなく、一貫して安定したワークフロー提出が行えることを実証しました。

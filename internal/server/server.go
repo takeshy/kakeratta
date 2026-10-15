@@ -70,6 +70,7 @@ type Server struct {
 	runner       *persona.Runner
 	tools        tools.Config
 	version      string
+	judgeAccount func(context.Context, string) bool
 	judgeMCPKey  string
 	judgeActive  func() bool
 	search       *search.Service

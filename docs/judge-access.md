@@ -56,3 +56,22 @@ Before submission, follow the [Amazon submission checklist](https://developer.am
 Cloud Build `18e7682e-8894-4aa3-92b6-7d7a8f44aea5` deployed revision `8b605c1` successfully. Public Japanese/English privacy and terms URLs returned HTTP 200. The deployed review login module, Firebase password login, browser session, sample reply, OAuth authorization/single-use code exchange/refresh/revocation, and rejection of unsigned Alexa requests were verified against production. The temporary OAuth test connection was revoked afterwards; reviewers must link from Alexa themselves.
 
 The production judge expiry is `2026-12-15T20:00:00Z` and the per-account cap is 200 AI actions. The review account had used zero actions at verification; its example schedule was present at `2026-11-10T22:04:09Z`. The operator reported successful Console model rebuilds and all three unused permissions disabled. Real device speech and end-to-end Alexa account linking remain separate manual checks; HTTP checks do not certify them.
+
+## Shared Hermes for judges
+
+The server's `KAKERATTA_JUDGE_MCP_KEY` is a separate 64-character random secret from the invitation and model API keys. Use the existing Secret Manager reference (`judge_mcp_key_secret_id` / `judge_mcp_key_secret_version`); never put its value in browser configuration, testing instructions, or committed files. New invitation registrations automatically install its hash into the isolated workspace, prefer the external agent for initially active personas, and record the workspace for discovery. Repeating registration repairs the same connection and preserves an existing user-selected connection. Accounts registered before the UID-bearing marker change must register through the invitation again to bind their identity. This preserves their existing workspace data.
+
+On the shared Hermes host, install the current `check_kakeratta_gate.py`, `direct_request_worker.py`, and kakeratta `SKILL.md`. Keep the existing parent model/provider and dedicated `kakeratta_worker` (or `delegation`) settings. Provide these variables to the actual Cron service environment using a private environment file or secret injection:
+
+```text
+JUDGE_WORKSPACES_URL=https://kakeratta.net/internal/judge-workspaces
+JUDGE_MCP_KEY=<the same secret as KAKERATTA_JUDGE_MCP_KEY>
+```
+
+Attach the gate to the existing one-minute Hermes Cron job. Explicit discovery needs no seed judge workspace in `mcp_servers.kakeratta`; it discovers registrations at each tick. The existing alternative, a configured kakeratta MCP URL with the shared key, also discovers judges from that origin automatically. Ordinary per-user keys keep the single-workspace behavior.
+
+Judge requests and persona asks run in detached Hermes processes with separate workspace state, audit logs, sessions and locks under `HERMES_HOME/kakeratta-judge-workspaces/{workspaceId}`. The parent configuration is unchanged. Shared judge runs expose only the selected kakeratta MCP; direct requests additionally have the `web` toolset. They do not inherit the host's local filesystem server, terminal/action toolsets or other MCP connections. The operator's parent `.env` remains available to Hermes for provider authentication. This is application-level separation within one trusted Hermes process environment, not a separate OS sandbox for each judge.
+
+Discovery and shared MCP calls check the current Firebase account, enabled state, judge claim, active connection, operator key and judge period. Delete/disable an account or remove its claim to exclude it. Removing the server key or ending the judge period revokes the shared connection; restart processes after changing environment secrets. Key rotation refuses old credentials immediately after restart; existing connections must be repaired through registration with the new key. Never print the key while checking the API. Keep the shared VM's `/internal/judge-workspaces` proxy route (or the Firebase Hosting rewrite) deployed alongside the server.
+
+Deployment acceptance still requires two new judge accounts and the real Hermes host: confirm next-tick discovery, one persona ask and one `@agent` request per account, separate replies/notes/schedules/Push destinations, and built-in persona fallback with the host stopped. Direct requests retain their existing expiry notice and have no built-in-model fallback. Local fixture tests do not establish those live results.

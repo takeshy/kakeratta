@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"firebase.google.com/go/v4/auth"
+
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
@@ -32,7 +34,7 @@ func (g *Gateway) setUpJudgeWorkspace(ctx context.Context, uid string) error {
 	if err != nil {
 		return err
 	}
-	if err := tenant.configureJudge(ctx, g.options.JudgeMCPKey); err != nil {
+	if err := tenant.configureJudge(ctx, g.options.JudgeMCPKey, uid); err != nil {
 		return err
 	}
 	if g.options.RecordJudgeWorkspace != nil {
@@ -46,7 +48,7 @@ func (g *Gateway) setUpJudgeWorkspace(ctx context.Context, uid string) error {
 // A connection the judge made themselves is kept as it is: the shared one is
 // put in use only when no other is, and a repeat registration does not
 // change which connection the judge has chosen.
-func (s *Server) configureJudge(ctx context.Context, key string) error {
+func (s *Server) configureJudge(ctx context.Context, key, uid string) error {
 	digest := sha256.Sum256([]byte(key))
 	for attempts := 0; ; attempts++ {
 		v, err := s.store.SocialValue(ctx, mcpCredential)
@@ -98,7 +100,7 @@ func (s *Server) configureJudge(ctx context.Context, key string) error {
 		if err != nil {
 			return err
 		}
-		ok, err := s.store.SwapSocialValue(ctx, judgeWorkspaceMarker, v.Version, store.SocialValue{Data: []byte{1}})
+		ok, err := s.store.SwapSocialValue(ctx, judgeWorkspaceMarker, v.Version, store.SocialValue{Data: []byte(uid)})
 		if err != nil {
 			return err
 		}
@@ -111,7 +113,8 @@ func (s *Server) configureJudge(ctx context.Context, key string) error {
 
 func (s *Server) isConfiguredJudge(ctx context.Context, digest [32]byte) bool {
 	marker, err := s.store.SocialValue(ctx, judgeWorkspaceMarker)
-	if err != nil || len(marker.Data) == 0 {
+	if err != nil || s.store.Settings().ExternalAgent.Paused || len(marker.Data) == 0 || workspaceKey(string(marker.Data)) != s.mcpWorkspace() ||
+		s.judgeAccount == nil || !s.judgeAccount(ctx, string(marker.Data)) {
 		return false
 	}
 	rows, err := s.mcpConnections(ctx)
@@ -176,4 +179,19 @@ func (g *Gateway) judgeWorkspaces(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"workspaces": workspaces})
+}
+
+// Firebase remains authoritative after registration: deleting, disabling, or
+// removing the judge claim also revokes the shared MCP connection.
+type judgeUserGetter interface {
+	GetUser(context.Context, string) (*auth.UserRecord, error)
+}
+
+func (g *Gateway) judgeAccountActive(ctx context.Context, uid string) bool {
+	getter, ok := g.verifier.(judgeUserGetter)
+	if !ok {
+		return false
+	}
+	user, err := getter.GetUser(ctx, uid)
+	return err == nil && user != nil && !user.Disabled && user.CustomClaims["judge"] == true
 }

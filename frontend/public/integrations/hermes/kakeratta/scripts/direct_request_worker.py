@@ -61,7 +61,7 @@ from pathlib import Path
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "5"
+WORKER_VERSION = "7"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -205,7 +205,9 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers, parent: Path = 
                 + [a for root in cfg["file_roots"] for a in ("--root", root)],
         "tools": {"prompts": False, "resources": False},
     }
-    worker_servers = {"kakeratta": mcp, "files": files}
+    worker_servers = {"kakeratta": mcp}
+    if not cfg.get("judge_isolated"):
+        worker_servers["files"] = files
     for name in cfg["mcp_servers"]:
         if isinstance(servers.get(name), dict):
             worker_servers[name] = servers[name]
@@ -223,6 +225,11 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers, parent: Path = 
 
 # --- MCP -----------------------------------------------------------------
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("MCP redirect refused")
+
+
 def mcp_call(url, headers, name, arguments=None, timeout=MCP_TIMEOUT):
     """Call one kakeratta MCP tool with arguments and return structured data."""
     payload = json.dumps({
@@ -232,7 +239,7 @@ def mcp_call(url, headers, name, arguments=None, timeout=MCP_TIMEOUT):
         "params": {"name": name, "arguments": arguments or {}},
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    with urllib.request.build_opener(NoRedirect()).open(req, timeout=timeout) as response:
         data = json.loads(response.read().decode("utf-8"))
     if "error" in data:
         raise ValueError(f"{name}: {data['error'].get('message')}")
@@ -766,6 +773,8 @@ def process(url, headers, requests, cfg=None, home=None, workspace_id=None):
     if workspace_id and workspace_id != "configured":
         home = _judge_root(parent, workspace_id)
     cfg = cfg or model_config(main_cfg)
+    if workspace_id and workspace_id != "configured":
+        cfg = dict(cfg, toolsets="web,kakeratta", mcp_servers=[], file_roots=[], judge_isolated=True)
     cfg["secrets"] = secret_values(cfg, headers)
     lock = acquire_lock(home)
     if lock is None:
@@ -786,8 +795,9 @@ def process(url, headers, requests, cfg=None, home=None, workspace_id=None):
 
 
 def _judge_root(parent: Path, workspace_id: str) -> Path:
-    safe = re.sub(r"[^A-Za-z0-9_.-]", "_", workspace_id)
-    return parent / "kakeratta-judge-workspaces" / safe
+    if not re.fullmatch(r"[a-f0-9]{64}", workspace_id):
+        raise ValueError("invalid judge workspace ID")
+    return parent / "kakeratta-judge-workspaces" / workspace_id
 
 
 def spawn_persona_asks(url, headers, workspace_id, home=None):
@@ -796,7 +806,8 @@ def spawn_persona_asks(url, headers, workspace_id, home=None):
     run. The MCP credential goes over stdin, never on the command line."""
     parent = home or get_hermes_home()
     root = _judge_root(parent, workspace_id)
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(root, 0o700)
     log = open(root / "persona.log", "a", encoding="utf-8")
     try:
         proc = subprocess.Popen(
@@ -807,6 +818,31 @@ def spawn_persona_asks(url, headers, workspace_id, home=None):
         proc.stdin.close()
     finally:
         log.close()
+
+
+def spawn_judge_requests(url, headers, workspace_id, requests, home=None):
+    parent = home or get_hermes_home()
+    root = _judge_root(parent, workspace_id)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(root, 0o700)
+    fd = os.open(root / "requests.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(fd, "a") as log:
+        proc = subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "--judge-requests"],
+            stdin=subprocess.PIPE, stdout=log, stderr=log, text=True,
+            env=dict(os.environ, HERMES_HOME=str(parent)), start_new_session=True)
+        proc.stdin.write(json.dumps({"url": url, "headers": headers, "workspaceId": workspace_id, "requests": requests}))
+        proc.stdin.close()
+
+
+def judge_requests_main():
+    args = json.loads(sys.stdin.read())
+    try:
+        process(args["url"], args["headers"], args["requests"], workspace_id=args["workspaceId"])
+    except Exception:
+        print("judge direct-request worker failed", file=sys.stderr)
+        return 1
+    return 0
 
 
 def persona_asks_main():
@@ -835,7 +871,8 @@ def process_persona_asks(url, headers, workspace_id, home=None):
     if not isinstance(main_cfg, dict):
         raise RuntimeError("config.yaml not found")
     root = _judge_root(parent, workspace_id)
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(root, 0o700)
     lock = open(root / "persona.lock", "w")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -848,12 +885,32 @@ def process_persona_asks(url, headers, workspace_id, home=None):
         lock.close()
 
 
+PARENT_SUPER_VL = "nvidia/Nemotron-3.5-Super-VL"
+LEGACY_PARENT_SUPER = "nvidia/nemotron-3-super-120b-a12b"
+
+
+def persona_model_config(main_cfg):
+    """Upgrade the legacy Token Factory Super in generated judge homes only.
+
+    Respect deliberate model/provider choices; Ultra direct requests use the
+    separate model_config path and are unaffected.
+    """
+    model = copy.deepcopy(main_cfg.get("model") or {})
+    if (model.get("provider") == "custom"
+            and str(model.get("base_url", "")).rstrip("/") == "https://api.tokenfactory.nebius.com/v1"
+            and str(model.get("default", "")).lower() == LEGACY_PARENT_SUPER):
+        model["default"] = PARENT_SUPER_VL
+    return model
+
+
 def _run_persona_asks(parent, main_cfg, root, url, headers):
     run_home = root / "persona-hermes-home"
     run_home.mkdir(parents=True, exist_ok=True)
     os.chmod(run_home, 0o700)
 
-    cfg = copy.deepcopy(main_cfg)
+    cfg = {k: copy.deepcopy(main_cfg[k]) for k in ("model", "providers") if k in main_cfg}
+    cfg["model"] = persona_model_config(main_cfg)
+    cfg["agent"] = {"max_turns": 15}
     servers = cfg.setdefault("mcp_servers", {})
     server = dict(servers.get("kakeratta") or {})
     server["url"] = url
@@ -862,7 +919,12 @@ def _run_persona_asks(parent, main_cfg, root, url, headers):
     server.pop("tools", None)  # persona asks need claim/read/submit as well as reads
     servers["kakeratta"] = server
     _atomic_write(run_home / "config.yaml", __import__("yaml").safe_dump(cfg, allow_unicode=True), mode=0o600)
-    for name in (".env", "skills"):
+    # Earlier shared homes linked all parent skills. Retire that link so
+    # an existing installation gets the same restriction as a new one.
+    skills_link = run_home / "skills"
+    if skills_link.is_symlink():
+        skills_link.unlink()
+    for name in (".env",):
         source, link = parent / name, run_home / name
         if source.exists() and not link.exists():
             link.symlink_to(source, target_is_directory=source.is_dir())
@@ -874,7 +936,7 @@ def _run_persona_asks(parent, main_cfg, root, url, headers):
               "\n\nThe Wake Gate has confirmed pending persona asks in this MCP workspace. "
               "Follow the skill now for every pending ask. End only after each answer is accepted.")
     model = model_config(main_cfg)
-    cmd = [model["hermes_bin"], "chat", "-Q", "--ignore-rules", "--max-turns", "15",
+    cmd = [model["hermes_bin"], "chat", "-Q", "--ignore-rules", "-t", "kakeratta", "--max-turns", "15",
            "--run-budget", str(model["run_budget"]), "--query-file", "-"]
     proc = subprocess.run(cmd, input=prompt, env=dict(os.environ, HERMES_HOME=str(run_home)),
                           cwd=str(run_home), capture_output=True, text=True,
@@ -914,6 +976,8 @@ def main():
 if __name__ == "__main__":
     if "--fs-mcp" in sys.argv:
         sys.exit(fs_mcp_main(sys.argv[1:]))
+    if "--judge-requests" in sys.argv:
+        sys.exit(judge_requests_main())
     if "--persona-asks" in sys.argv:
         sys.exit(persona_asks_main())
     sys.exit(main())

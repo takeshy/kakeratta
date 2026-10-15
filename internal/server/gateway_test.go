@@ -101,6 +101,10 @@ type judgeVerifier struct {
 	claimed string
 }
 
+func (v *judgeVerifier) GetUser(_ context.Context, uid string) (*auth.UserRecord, error) {
+	return &auth.UserRecord{UserInfo: &auth.UserInfo{UID: uid}, CustomClaims: map[string]interface{}{"judge": v.claimed == uid}}, nil
+}
+
 func (v *judgeVerifier) SetCustomUserClaims(_ context.Context, uid string, claims map[string]interface{}) error {
 	if claims["judge"] == true {
 		v.claimed = uid
