@@ -186,7 +186,7 @@ Super cost about 22% as much as Ultra. All three of its mismatches concerned a s
 
 ## Accomplishments that we're proud of
 
-What I'm proudest of is that a simple app covers every role I need notes to play. You just jot down fragments and describe each persona's purpose in plain language.
+What I'm proudest of is that a simple app covers every role I need notes to play—and that it achieves this with an affordable model. You just jot down fragments and describe each persona's purpose in plain language. Nemotron 3 Super handles almost all of the routing, research, answering, planning, and memory, proving that AI does not have to be a costly frontier model to be genuinely useful in everyday life.
 
 ### What notes need to do
 
