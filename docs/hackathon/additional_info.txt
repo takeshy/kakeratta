@@ -10,7 +10,7 @@ kakeratta uses five models through Nebius Token Factory, chosen by how often eac
 
 I arrived at this allocation by testing the actual tasks. A smaller model was not always faster, and a larger model was not always necessary.
 
-The Super measurements and production observations below used Nemotron 3 Super (120B, 12B active), before the default changed to Nemotron 3.5 Super VL. They do not evaluate the new model.
+Unless stated otherwise, the Super measurements and production observations below used Nemotron 3 Super (120B, 12B active), before the default changed to Nemotron 3.5 Super VL. They do not evaluate the new model.
 
 ### How would you rate Nemotron's output quality for your use case?
 
@@ -67,6 +67,8 @@ A real conversation: I replayed a three-turn production thread on Luna (Router a
 Nemotron never searched. It described the ordinary Grok app, and Ultra added a detailed timeline, plan prices, and storage rules it could not verify. Luna also took Grok Bot for ordinary Grok in the first turn, even after two searches, but on the follow-up Luna's searches found xAI's announcement, and Sol used it to explain what Grok Bot is and who can use it. That cost about 50% more and took nearly twice as long.
 
 This is one thread replayed with the current code, not a controlled benchmark. Nemotron was competitive on routing and cost; where it fell short was knowing when to look something up. That is why I measure each model on the work I actually want it to do.
+
+For image analysis, I compared GLM-5.3-Flash with Nemotron 3.5 Super VL. In my photo-description tests, quality was similar while Super VL cost nearly twice as much, so I kept GLM-5.3-Flash.
 
 ### Which Nebius platform capabilities were most valuable to your project and how?
 
