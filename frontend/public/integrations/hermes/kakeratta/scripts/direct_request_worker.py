@@ -21,15 +21,17 @@ import hashlib
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
+from datetime import datetime, timezone
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "9"
+WORKER_VERSION = "10"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -41,6 +43,8 @@ MAX_REQUEST_TOKENS = 1_500_000  # input + cache read/write + output tokens per d
 PERSONA_MAX_TURNS = 6        # tool-calling iterations in a persona-ask run (read_for_ask / web + answer)
 PERSONA_MAX_API_CALLS = 8    # model calls per persona ask
 PERSONA_MAX_TOKENS = 250_000 # input + cache read/write + output tokens per persona ask
+PERSONA_SUBMIT_MARGIN = 30  # seconds reserved for submission and process cleanup
+PERSONA_POLL_SECONDS = 1
 MAX_REPLY = 20000            # reply_request rejects longer text
 DEFAULT_MAX_TOKENS = 16000   # output cap per model call, reasoning included; bounds cost
 RUN_BUDGET = 1200            # wall-clock budget per Hermes run, seconds
@@ -352,15 +356,15 @@ USAGE_COLUMNS = ("api_call_count", "input_tokens", "cache_read_tokens",
 BILLED_COLUMNS = ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens")
 
 
-def session_usage(worker_home: Path, session):
-    """The usage Hermes recorded for one finished session, or None when the
+def session_usage(worker_home: Path, session, timeout=10):
+    """The usage Hermes recorded for one session, or None when the
     session, the database or its counters cannot be read."""
     path = Path(worker_home) / "state.db"
     if not session or not path.exists():
         return None
     import sqlite3
     try:
-        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=timeout)
         try:
             columns = {row[1] for row in con.execute("PRAGMA table_info(sessions)")}
             if not {"api_call_count", "input_tokens", "output_tokens"} <= columns:
@@ -377,6 +381,26 @@ def session_usage(worker_home: Path, session):
     return {c: int(v or 0) for c, v in zip(wanted, row)}
 
 
+def session_ids(worker_home):
+    """Snapshot the isolated home's sessions, without waiting on SQLite locks.
+
+    None means unreadable; an absent database is a new home with no sessions.
+    Never guess which session is ours when a snapshot failed.
+    """
+    import sqlite3
+    path = Path(worker_home) / "state.db"
+    if not path.exists():
+        return set()
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=0.1)
+        try:
+            return {row[0] for row in con.execute("SELECT id FROM sessions")}
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+
+
 class Meter:
     """One request's model usage, saved so the limits hold across resumes."""
 
@@ -389,8 +413,11 @@ class Meter:
         for key in ("runs", "unmeasured", "tokens") + USAGE_COLUMNS:
             self.totals.setdefault(key, 0)
 
-    def check(self):
-        t, cfg = self.totals, self.cfg
+    def check(self, usage=None):
+        t, cfg = dict(self.totals), self.cfg
+        if usage is not None:
+            t["api_call_count"] += usage.get("api_call_count", 0)
+            t["tokens"] += sum(usage.get(c, 0) for c in BILLED_COLUMNS)
         if t["unmeasured"]:
             raise BudgetExceeded("a model run's token usage could not be read")
         if t["api_call_count"] >= cfg["max_api_calls"]:
@@ -415,13 +442,77 @@ class Meter:
         })
 
 
+def _stop_persona_process(proc):
+    """Reap the CLI and stop its tools, including after the CLI has exited."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        return proc.communicate(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    return proc.communicate()
+
+
+def _run_persona_cli(cmd, prompt, env, cfg):
+    """Watch live persisted usage and the deadline; never parse partial output.
+
+    Counters are observed after Hermes saves them, so an in-flight provider
+    call can exceed the token limit. A normally completed answer is retained.
+    """
+    home = cfg["worker_home"]
+    before = session_ids(home)
+    if before is None:
+        raise BudgetExceeded("persona session usage database is unreadable")
+    deadline = cfg["persona_deadline"]
+    if time.monotonic() >= deadline:
+        raise BudgetExceeded("persona answer deadline reached")
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True, env=env, cwd=str(home),
+                            start_new_session=True)
+    session, usage = None, None
+    try:
+        first = True
+        while True:
+            if proc.poll() is not None:
+                stdout, stderr = proc.communicate(timeout=1)
+                return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise BudgetExceeded("persona answer deadline reached")
+            try:
+                stdout, stderr = proc.communicate(input=prompt if first else None,
+                                                  timeout=min(PERSONA_POLL_SECONDS, remaining))
+                return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+            except subprocess.TimeoutExpired:
+                first = False
+            if before is not None and session is None:
+                current = session_ids(home)
+                new = current - before if current is not None else set()
+                if len(new) == 1:
+                    session = new.pop()
+            if session:
+                usage = session_usage(home, session, timeout=0.1)
+                cfg["meter"].check(usage)
+    except BaseException:
+        _stop_persona_process(proc)
+        cfg["meter"].record("persona", session, session_usage(home, session, timeout=0.1) or usage)
+        raise
+
+
 def hermes_run(cfg, prompt, toolsets, max_turns, stage):
     """One fresh, single-query Hermes CLI session with the worker's home.
 
     Returns (final response text, session id). A failed run raises. The run's
-    usage is recorded on the request's meter whatever the outcome, and a run
-    that leaves the request past its limits raises BudgetExceeded, discarding
-    its result.
+    usage is recorded on the request's meter whatever the outcome. Persona
+    runs monitor live usage and their deadline, but keep a completed answer
+    even if its final usage exceeds the limit; no further run is allowed.
     """
     meter = cfg["meter"]
     meter.check()
@@ -433,17 +524,22 @@ def hermes_run(cfg, prompt, toolsets, max_turns, stage):
         cmd += ["--reasoning", cfg["reasoning"]]
     env = dict(os.environ, HERMES_HOME=str(cfg["worker_home"]))
     try:
-        proc = subprocess.run(cmd, input=prompt, env=env, cwd=str(cfg["worker_home"]),
-                              capture_output=True, text=True, timeout=cfg["run_budget"] + 120)
+        if stage == "persona":
+            proc = _run_persona_cli(cmd, prompt, env, cfg)
+        else:
+            proc = subprocess.run(cmd, input=prompt, env=env, cwd=str(cfg["worker_home"]),
+                                  capture_output=True, text=True, timeout=cfg["run_budget"] + 120)
     except subprocess.TimeoutExpired:
         meter.record(stage, None, None)
         raise RuntimeError(f"hermes chat exceeded {cfg['run_budget'] + 120} seconds")
     m = re.search(r"session_id:\s*(\S+)", proc.stderr + "\n" + proc.stdout)
     session = m.group(1) if m else None
-    meter.record(stage, session, session_usage(cfg["worker_home"], session))
+    meter.record(stage, session, session_usage(cfg["worker_home"], session,
+                                              timeout=0.1 if stage == "persona" else 10))
     if proc.returncode != 0:
         raise RuntimeError(f"hermes chat exited with {proc.returncode}: {proc.stderr.strip()[-300:]}")
-    meter.check()
+    if stage != "persona":
+        meter.check()
     return proc.stdout, session
 
 
@@ -1103,6 +1199,22 @@ def _release_ask(cfg, url, headers, ask_id, claim_id, reason, home, state_key):
         audit(home, state_key, "release_error", {"error": redact(e, cfg["secrets"])})
 
 
+def _persona_deadline_config(cfg, claimed):
+    """Use the server's original deadline, including when resuming a claim."""
+    plan_by = (claimed.get("ask") or {}).get("planBy")
+    try:
+        end = datetime.fromisoformat(plan_by.replace("Z", "+00:00"))
+        if end.tzinfo is None:
+            raise ValueError("planBy needs a timezone")
+    except (AttributeError, TypeError, ValueError) as e:
+        raise BudgetExceeded("missing or invalid persona planBy") from e
+    remaining = (end - datetime.now(timezone.utc)).total_seconds() - PERSONA_SUBMIT_MARGIN
+    budget = min(int(remaining), int(cfg["run_budget"]))
+    if budget < 1:
+        raise BudgetExceeded("insufficient time before persona planBy")
+    return dict(cfg, run_budget=budget, persona_deadline=time.monotonic() + budget)
+
+
 def process_one_ask(url, headers, ask, cfg, home):
     ask_id = ask["id"]
     claim_id = "hermes-" + ask_id
@@ -1150,9 +1262,10 @@ def process_one_ask(url, headers, ask, cfg, home):
         _release_ask(cfg, url, headers, ask_id, claim_id, "resume limit reached", home, state_key)
         return
 
-    cfg["meter"] = Meter(cfg, home, state_key)
     toolsets = _persona_toolsets(context)
     try:
+        cfg = _persona_deadline_config(cfg, claimed)
+        cfg["meter"] = Meter(cfg, home, state_key)
         text, session = hermes_run(cfg, _persona_prompt(context, ask_id=ask_id, claim_id=claim_id),
                                    toolsets, cfg["max_turns"], "persona")
     except Exception as e:

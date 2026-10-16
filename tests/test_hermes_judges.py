@@ -3,6 +3,10 @@ import importlib.util
 import io
 import json
 import os
+import sqlite3
+import subprocess
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 import tempfile
@@ -15,6 +19,10 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "frontend/public/integrations/he
 sys.path.insert(0, str(SCRIPTS))
 import check_kakeratta_gate as gate
 import direct_request_worker as worker
+
+
+def future_plan_by():
+    return (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
 
 
 class JudgeIsolationTest(unittest.TestCase):
@@ -75,7 +83,7 @@ class JudgeIsolationTest(unittest.TestCase):
             if name == "list_asks":
                 return {"asks": [{"id": "ask-1", "status": "pending", "persona": "gourmet", "wake": "post"}]}
             if name == "claim_ask":
-                return {"ask": {"id": "ask-1"}, "context": {
+                return {"ask": {"id": "ask-1", "planBy": future_plan_by()}, "context": {
                     "persona": {"id": "gourmet", "name": "tabe", "tone": "丁寧", "domain": "食"},
                     "instructions": "食の相談に乗る", "rules": "規則", "turn": "※ あなたは名指しで呼ばれています。",
                     "wake": "post", "trigger": {"text": "おすすめは？", "rendered": "おすすめは？"},
@@ -85,8 +93,8 @@ class JudgeIsolationTest(unittest.TestCase):
             if name == "submit_answer":
                 return {"accepted": True, "closed": True}
             raise AssertionError(f"unexpected MCP call {name}")
-        def run(cmd, **kwargs):
-            home = Path(kwargs["env"]["HERMES_HOME"])
+        def run(cmd, prompt, env, runtime_cfg):
+            home = Path(env["HERMES_HOME"])
             cfg = yaml.safe_load((home / "config.yaml").read_text())
             self.assertEqual(set(cfg["mcp_servers"]), {"kakeratta"})
             self.assertEqual(cfg["mcp_servers"]["kakeratta"]["url"], self.url(self.wids[0]))
@@ -97,7 +105,7 @@ class JudgeIsolationTest(unittest.TestCase):
             return type("Result", (), {"returncode": 0, "stdout": "[SOURCES: e_abc123]\n美味しいお店をご紹介します。\nsession_id: s1\n", "stderr": ""})()
         with patch.object(worker, "mcp_call", side_effect=mcp_call), \
              patch.object(worker, "session_usage", return_value={"api_call_count": 1, "input_tokens": 1000, "output_tokens": 200}), \
-             patch.object(worker.subprocess, "run", side_effect=run):
+             patch.object(worker, "_run_persona_cli", side_effect=run):
             worker.process_persona_asks(self.url(self.wids[0]), self.headers, self.wids[0], home=self.home)
         self.assertEqual([c[1] for c in calls], ["list_asks", "claim_ask", "submit_answer"])
         self.assertEqual(calls[2][2]["answer"], {"text": "美味しいお店をご紹介します。", "sources": ["e_abc123"], "schedule": False, "unrelated": False})
@@ -116,7 +124,7 @@ class JudgeIsolationTest(unittest.TestCase):
                 return {"accepted": True, "closed": True}
             raise AssertionError(f"unexpected MCP call {name}")
         with patch.object(worker, "mcp_call", side_effect=mcp_call), \
-             patch.object(worker.subprocess, "run") as run:
+             patch.object(worker, "_run_persona_cli") as run:
             worker.process_asks(self.url(self.wids[0]), self.headers,
                                 [{"id": "ask-listen", "status": "pending"}], home=self.home)
             run.assert_not_called()
@@ -128,7 +136,7 @@ class JudgeIsolationTest(unittest.TestCase):
         def mcp_call(url, headers, name, arguments=None, timeout=None):
             calls.append((name, arguments))
             if name == "claim_ask":
-                return {"ask": {"id": "ask-fail"}, "context": {
+                return {"ask": {"id": "ask-fail", "planBy": future_plan_by()}, "context": {
                     "persona": {"id": "gourmet", "name": "tabe"},
                     "wake": "post", "turn": "※ あなたは名指しで呼ばれています。",
                 }}
@@ -137,7 +145,7 @@ class JudgeIsolationTest(unittest.TestCase):
             raise AssertionError(f"unexpected MCP call {name}")
         with patch.object(worker, "mcp_call", side_effect=mcp_call), \
              patch.object(worker, "session_usage", return_value={"api_call_count": 1, "input_tokens": 500, "output_tokens": 0}), \
-             patch.object(worker.subprocess, "run", return_value=type("Result", (), {"returncode": 1, "stdout": "", "stderr": "provider error"})()):
+             patch.object(worker, "_run_persona_cli", return_value=type("Result", (), {"returncode": 1, "stdout": "", "stderr": "provider error"})()):
             worker.process_asks(self.url(self.wids[0]), self.headers,
                                 [{"id": "ask-fail", "status": "pending"}], home=self.home)
         self.assertEqual([c[0] for c in calls], ["claim_ask", "release_ask"])
@@ -150,17 +158,17 @@ class JudgeIsolationTest(unittest.TestCase):
         (self.home / "config.yaml").write_text(yaml.safe_dump(self.cfg))
         def mcp_call(url, headers, name, arguments=None, timeout=None):
             if name == "claim_ask":
-                return {"ask": {"id": "ask-vl"}, "context": {"persona": {"id": "gourmet", "name": "tabe"}, "wake": "post"}}
+                return {"ask": {"id": "ask-vl", "planBy": future_plan_by()}, "context": {"persona": {"id": "gourmet", "name": "tabe"}, "wake": "post"}}
             return {"accepted": True, "closed": True}
-        def run(cmd, **kwargs):
-            generated = yaml.safe_load((Path(kwargs["env"]["HERMES_HOME"]) / "config.yaml").read_text())
+        def run(cmd, prompt, env, runtime_cfg):
+            generated = yaml.safe_load((Path(env["HERMES_HOME"]) / "config.yaml").read_text())
             self.assertEqual(generated["model"]["default"], worker.PARENT_SUPER_VL)
             self.assertEqual(generated["model"]["api_key"], "${MODEL_KEY}")
             self.assertEqual(generated["mcp_servers"]["kakeratta"]["tools"]["include"], ["read_for_ask"])
             return type("Result", (), {"returncode": 0, "stdout": "回答です\nsession_id: s1\n", "stderr": ""})()
         with patch.object(worker, "mcp_call", side_effect=mcp_call), \
              patch.object(worker, "session_usage", return_value={"api_call_count": 1, "input_tokens": 500, "output_tokens": 100}), \
-             patch.object(worker.subprocess, "run", side_effect=run):
+             patch.object(worker, "_run_persona_cli", side_effect=run):
             worker.process_persona_asks(self.url(self.wids[0]), self.headers, self.wids[0],
                                         home=self.home, asks=[{"id": "ask-vl", "status": "pending"}])
         self.assertEqual(worker.model_config(self.cfg)["model"], "worker-model")
@@ -215,6 +223,146 @@ class JudgeIsolationTest(unittest.TestCase):
             first.close()
         with self.assertRaises(ValueError):
             worker._judge_root(self.home, "../other")
+
+
+class PersonaBudgetTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name)
+        self.cfg = worker.persona_run_config({})
+        self.cfg.update(worker_home=self.home, secrets=[])
+        self.cfg["meter"] = worker.Meter(self.cfg, self.home, "ask-budget")
+
+    def test_completed_over_budget_answer_is_submitted_and_retry_does_not_regenerate(self):
+        for usage in ({"api_call_count": 6, "input_tokens": 260000, "output_tokens": 1000},
+                      {"api_call_count": 8, "input_tokens": 100, "output_tokens": 10}, None):
+            with self.subTest(usage=usage), tempfile.TemporaryDirectory() as td:
+                calls = []
+                def mcp(url, headers, name, arguments=None, timeout=None):
+                    calls.append(name)
+                    if name == "claim_ask":
+                        return {"ask": {"planBy": future_plan_by()}, "context": {"wake": "post"}}
+                    if calls.count("submit_answer") == 1:
+                        raise OSError("submission transport failure")
+                    self.assertEqual(arguments["answer"]["text"], "完成した回答")
+                    return {"accepted": True}
+                result = subprocess.CompletedProcess([], 0, "完成した回答\nsession_id: s1", "")
+                with patch.object(worker, "mcp_call", side_effect=mcp), \
+                     patch.object(worker, "session_usage", return_value=usage), \
+                     patch.object(worker, "_run_persona_cli", return_value=result) as run:
+                    worker.process_one_ask("url", {}, {"id": "a", "status": "pending"}, self.cfg, Path(td))
+                    worker.process_one_ask("url", {}, {"id": "a", "status": "claimed"}, self.cfg, Path(td))
+                    self.assertEqual(run.call_count, 1)
+                self.assertEqual(calls, ["claim_ask", "submit_answer", "submit_answer"])
+
+    def test_deadline_caps_budget_and_does_not_mutate_next_ask(self):
+        self.cfg["run_budget"] = 1200
+        before = time.monotonic()
+        bounded = worker._persona_deadline_config(self.cfg, {"ask": {"planBy": future_plan_by()}})
+        self.assertGreaterEqual(bounded["run_budget"], 868)
+        self.assertLessEqual(bounded["run_budget"], 870)
+        self.assertLessEqual(bounded["persona_deadline"], before + 871)
+        self.assertEqual(self.cfg["run_budget"], 1200)
+        self.cfg["run_budget"] = 10
+        self.assertEqual(worker._persona_deadline_config(self.cfg, {"ask": {"planBy": future_plan_by()}})["run_budget"], 10)
+
+    def test_expired_missing_and_invalid_deadlines_release_without_inference(self):
+        expired = (datetime.now(timezone.utc) + timedelta(seconds=20)).isoformat()
+        for deadline in (expired, None, "invalid", "2026-10-16T10:00:00"):
+            with self.subTest(deadline=deadline), tempfile.TemporaryDirectory() as td:
+                calls = []
+                def mcp(url, headers, name, arguments=None, timeout=None):
+                    calls.append(name)
+                    return {"ask": {"planBy": deadline}, "context": {"wake": "post"}}
+                with patch.object(worker, "mcp_call", side_effect=mcp), \
+                     patch.object(worker, "_run_persona_cli") as run:
+                    worker.process_one_ask("url", {}, {"id": "a", "status": "pending"}, self.cfg, Path(td))
+                    run.assert_not_called()
+                self.assertEqual(calls, ["claim_ask", "release_ask"])
+
+    def run_cli(self, script, budget=5):
+        self.cfg["persona_deadline"] = time.monotonic() + budget
+        real_popen = subprocess.Popen
+        children = []
+        def popen(*args, **kwargs):
+            proc = real_popen(*args, **kwargs)
+            children.append(proc)
+            return proc
+        try:
+            with patch.object(worker.subprocess, "Popen", side_effect=popen), \
+                 patch.object(worker, "PERSONA_POLL_SECONDS", 0.05):
+                return worker._run_persona_cli([sys.executable, "-c", script], "test prompt", dict(os.environ), self.cfg)
+        finally:
+            for proc in children:
+                self.assertIsNotNone(proc.poll(), "CLI must be reaped")
+
+    def test_live_sqlite_budget_stops_unfinished_cli_and_accounts_usage(self):
+        # Write a previous session that must not count against this run.
+        with sqlite3.connect(self.home / "state.db") as con:
+            con.execute("CREATE TABLE sessions (id TEXT, api_call_count INTEGER, input_tokens INTEGER, output_tokens INTEGER)")
+            con.execute("INSERT INTO sessions VALUES ('old', 100, 900000, 0)")
+        script = """
+import sqlite3, time, sys
+assert sys.stdin.read() == 'test prompt'
+with sqlite3.connect('state.db') as con:
+    con.execute("INSERT INTO sessions VALUES ('new', 3, 260000, 1000)")
+print('unfinished output', flush=True)
+time.sleep(30)
+"""
+        with self.assertRaisesRegex(worker.BudgetExceeded, "261000 tokens"):
+            self.run_cli(script)
+        usage = json.loads(worker._usage_path(self.home, "ask-budget").read_text())
+        self.assertEqual(usage["tokens"], 261000)
+        self.assertEqual(usage["runs"], 1)
+
+    def test_deadline_stops_cli_and_its_tool_process(self):
+        script = """
+import subprocess, sys, time
+subprocess.Popen([sys.executable, '-c', "import time; from pathlib import Path; time.sleep(0.7); Path('tool-ran').touch()"])
+print('unfinished output', flush=True)
+time.sleep(30)
+"""
+        with self.assertRaisesRegex(worker.BudgetExceeded, "deadline"):
+            self.run_cli(script, budget=0.2)
+        time.sleep(0.8)
+        self.assertFalse((self.home / "tool-ran").exists())
+
+    def test_completed_cli_keeps_output_and_ignores_old_session_usage(self):
+        with sqlite3.connect(self.home / "state.db") as con:
+            con.execute("CREATE TABLE sessions (id TEXT, api_call_count INTEGER, input_tokens INTEGER, output_tokens INTEGER)")
+            con.execute("INSERT INTO sessions VALUES ('old', 100, 900000, 0)")
+        result = self.run_cli("import sys, time; assert sys.stdin.read() == 'test prompt'; time.sleep(0.15); print('complete answer')")
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "complete answer")
+
+    def test_live_limits_include_previous_runs_without_accumulating_each_poll(self):
+        meter = self.cfg["meter"]
+        meter.record("persona", "previous", {"api_call_count": 5, "input_tokens": 200000})
+        meter.check({"api_call_count": 2, "input_tokens": 40000})
+        meter.check({"api_call_count": 2, "input_tokens": 40000})
+        self.assertEqual(meter.totals["tokens"], 200000)
+        with self.assertRaisesRegex(worker.BudgetExceeded, "8 model calls"):
+            meter.check({"api_call_count": 3, "input_tokens": 100})
+        with self.assertRaisesRegex(worker.BudgetExceeded, "250000 tokens"):
+            meter.check({"api_call_count": 1, "input_tokens": 50000})
+
+    def test_unreadable_usage_database_prevents_inference(self):
+        (self.home / "state.db").write_text("broken sqlite database")
+        self.cfg["persona_deadline"] = time.monotonic() + 5
+        with patch.object(worker.subprocess, "Popen") as popen:
+            with self.assertRaisesRegex(worker.BudgetExceeded, "unreadable"):
+                worker._run_persona_cli([], "prompt", {}, self.cfg)
+            popen.assert_not_called()
+
+    def test_direct_request_budget_behavior_is_preserved(self):
+        result = subprocess.CompletedProcess([], 0, "direct reply\nsession_id: s1", "")
+        with patch.object(worker.subprocess, "run", return_value=result), \
+             patch.object(worker, "session_usage", return_value={"api_call_count": 8, "input_tokens": 100}), \
+             patch.object(worker, "_run_persona_cli") as persona:
+            with self.assertRaises(worker.BudgetExceeded):
+                worker.hermes_run(self.cfg, "prompt", "web", 6, "agent")
+            persona.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -208,6 +208,8 @@ To avoid idle spend, attach the **Wake Gate** pre-check script ([check_kakeratta
 
 To update an existing cron job, run `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
 
+Persona workers reserve 30 seconds before `planBy` for cleanup and submission, and limit inference to the smaller of that remaining time and `run_budget`. They poll persisted Hermes session usage during inference and stop unfinished runs at the call/token limit. Recording delays and an in-flight API call can overshoot that limit. A normally completed answer is submitted even when its final usage exceeds the limit or cannot be read; submission retries reuse the saved answer without another model call.
+
 ### Autonomous updates over MCP
 
 The Wake Gate script integrates an autonomous update mechanism for the Skill, itself and the direct-request worker:
