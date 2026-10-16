@@ -338,6 +338,8 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     const summary = entry.speaker === "kakeratta" && !!entry.summary;
     const persona = getPersona(entry.speaker);
     const node = el("div", { class: `post${summary ? " summary" : ""}${entry.doneAt ? " done" : ""}` });
+    const requestState = drawRequest(entry);
+    if (requestState) node.append(requestState);
     node.append(
       el(
         "div",
@@ -346,7 +348,6 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
         who(entry, mine ? userProfile(getSettings()).name : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
-        drawRequest(entry),
         favoriteButton(entry),
         drawDone(entry),
         el("span", { class: "spacer" }),
@@ -552,6 +553,8 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     const persona = getPersona(entry.speaker);
     const mine = entry.speaker === "user";
     const node = el("div", { class: `said-row ${mine ? "mine" : ""}${entry.doneAt ? " done" : ""}`, "data-id": entry.id });
+    const requestState = drawRequest(entry);
+    if (requestState) node.append(requestState);
     node.append(
       el(
         "div",
@@ -560,7 +563,6 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
         who(entry, mine ? userProfile(getSettings()).name : persona ? gloss(persona).name : entry.speaker),
         el("span", { class: "at", text: when(entry.at) }),
         drawModel(entry),
-        drawRequest(entry),
         favoriteButton(entry),
         drawDone(entry),
         drawRoutingChip(entry),
@@ -638,7 +640,25 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       "data-reply-to": replyTo,
     });
     input.value = drafts.get(replyTo) || "";
-    input.addEventListener("input", () => drafts.set(replyTo, input.value));
+    function grow() {
+      input.style.height = "auto";
+      // scrollHeight includes padding; include the two one-pixel borders too.
+      input.style.height = `${input.scrollHeight + 2}px`;
+    }
+    function changed() {
+      drafts.set(replyTo, input.value);
+      grow();
+    }
+    // Reflow wrapped text when the field is attached or its width changes.
+    let width = 0;
+    const observer = globalThis.ResizeObserver ? new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0 && entry.contentRect.width !== width) {
+        width = entry.contentRect.width;
+        grow();
+      }
+    }) : null;
+    observer?.observe(input);
+    input.addEventListener("input", changed);
     input.addEventListener("compositionstart", () => { composing = true; });
     input.addEventListener("compositionend", () => {
       composing = false;
@@ -683,11 +703,11 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       setText: (value) => {
         if (disposed) return;
         input.value = value;
-        drafts.set(replyTo, value);
+        changed();
       },
       onSend: () => void send(true),
     });
-    const mentions = createMentionPicker({ input, getPersonas, onChange: () => drafts.set(replyTo, input.value) });
+    const mentions = createMentionPicker({ input, getPersonas, onChange: changed });
     const submit = el("button", { class: "button send", label: "送る", onclick: () => void send() });
     const box = el(
       "div",
@@ -715,10 +735,11 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       replyTo, box,
       dispose() {
         disposed = true;
+        observer?.disconnect();
         return voice.discard();
       },
     };
-    setTimeout(() => { if (!disposed) input.focus(); }, 0);
+    setTimeout(() => { if (!disposed) { grow(); input.focus(); } }, 0);
     return box;
   }
 
