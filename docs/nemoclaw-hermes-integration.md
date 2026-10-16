@@ -95,9 +95,9 @@ Following the [recommended Hermes configuration](../scripts/nemoclaw/README.md#6
 
 ### Verification
 
-The paths were verified during the initial migration and again after switching the parent/cron pin to `nvidia/Nemotron-3.5-Super-VL` on 2026-10-16: a persona-ask turn on `nvidia/Nemotron-3.5-Super-VL` (`list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer`); a `delegate_task` child and the direct-request worker (`direct_request_worker.py`) on `nvidia/Nemotron-3-Ultra-550b-a55b` (`reasoning_effort: high`); an OpenShell audit entry allowing Token Factory `/v1/chat/completions` through `_provider_tokenfactory_v2`; and a real kakeratta direct request completing `list_asks` → `claim_request` → Ultra inference → `reply_request` without waking the parent. The following idle tick returned `wakeAgent=false`. After switching, confirm Super in the parent log and Ultra in the worker or `platform=subagent` log, and explicitly pin the kakeratta cron job to Super. In this arrangement, the parent is the lightweight intake and routing layer, while high-complexity work is handled by Ultra.
+The paths were verified during the initial migration and again after switching the parent/cron pin to `nvidia/Nemotron-3.5-Super-VL` on 2026-10-16: a persona-ask turn on `nvidia/Nemotron-3.5-Super-VL`; a `delegate_task` child and the direct-request worker (`direct_request_worker.py`) on `nvidia/Nemotron-3-Ultra-550b-a55b` (`reasoning_effort: high`); an OpenShell audit entry allowing Token Factory `/v1/chat/completions` through `_provider_tokenfactory_v2`; and a real kakeratta direct request completing `list_asks` → `claim_request` → Ultra inference → `reply_request` without waking the parent. The following idle tick returned `wakeAgent=false`. After switching, confirm Super in the worker/parent log and Ultra in the direct-request worker or `platform=subagent` log, and explicitly pin the kakeratta cron job to Super.
 
-> **Since 2026-10-14**, direct requests no longer go through the parent: the Wake Gate runs the distributed direct-request worker, which claims in code, runs Ultra once as a Hermes agent in its own Hermes home (model settings from `kakeratta_worker`, else `delegation`), and replies in code. The parent Super handles persona asks only. See [Direct requests](hermes.md#direct-requests).
+> **Since 2026-10-14 (direct requests) and 2026-10-16 (persona asks)**, neither direct requests nor persona asks wake the Cron parent: the Wake Gate runs `direct_request_worker.py` in code and returns `{"wakeAgent": false}`. For direct requests, it runs Ultra once in `hermes-home`; for persona asks, it calls `claim_ask` in Python, runs `nvidia/Nemotron-3.5-Super-VL` once in `persona-hermes-home` with only `read_for_ask` and `web` tools (all lifecycle MCP tools excluded), and calls `submit_answer` in Python. See [Direct requests](hermes.md#direct-requests) and [End-to-end verification](#end-to-end-verification).
 
 ### Temporarily connecting to a local demo server
 
@@ -445,24 +445,41 @@ To permanently resolve Phase: Error deadlocks caused by Docker shutdown race con
 Verified in production on `https://kakeratta.net` with personas configured for external planning:
 
 ```text
-User post → Cron (every 1m with Wake Gate) → list_asks (detects pending ask)
-          → claim_ask (fetches context)
-          → Nemotron-3-Super-120B reasoning & lookups (read_for_ask / Web search)
-          → submit_workflow (submits speak, write_note steps)
-          → kakeratta review, execution, and thread posting
+User post → Cron (every 1m with Wake Gate) → list_asks (detects pending ask in Python)
+          → direct_request_worker.py: claim_ask (fetches context in Python)
+          → Nemotron-3.5-Super-VL single session in persona-hermes-home (only read_for_ask + web tools)
+          → direct_request_worker.py: submit_answer (submits structured answer in Python)
+          → kakeratta schedule phase / review and thread posting
 ```
 
-The entire cycle completed autonomously with zero human intervention.
+The entire cycle completed autonomously with zero human intervention and without waking the Cron parent session (`{"wakeAgent": false}`).
+
+### Code-driven persona ask optimization (verified 2026-10-16)
+
+Previously, waking the Cron parent session for a persona ask loaded all 17 kakeratta MCP tools plus Hermes's full platform toolsets (`terminal`, `cronjob`, `memory`, `session_search`, `skills`, `delegation`, etc.) on every turn, and required 4–6 model calls (`list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer`). Moving `list_asks`, `claim_ask`, `submit_answer`, and `release_ask` into Python in `direct_request_worker.py` (`WORKER_VERSION = "9"`) and isolating the model in `persona-hermes-home` with `tools.include: ["read_for_ask"]` and `-t kakeratta,web` reduced input tokens by **~75%** in production:
+
+| Metric | Old Cron Parent Flow (`20261016_052950_f3fc2b`) | New Code-Driven Worker Flow (`20261016_085734_838364`) |
+| --- | --- | --- |
+| **Model** | `nvidia/Nemotron-3.5-Super-VL` | `nvidia/Nemotron-3.5-Super-VL` |
+| **Loaded MCP tools** | All 17 kakeratta tools + all Hermes toolsets | Only `read_for_ask` + `web` |
+| **Lifecycle calls (`claim_ask`, `submit_answer`)** | LLM tool calls | Python (`direct_request_worker.py`) |
+| **LLM API calls (with Web search)** | 4 calls | **2 calls** (1 search turn + 1 answer turn) |
+| **Cumulative input tokens** | 62,847 tokens | **15,774 tokens (~75% reduction)** |
+| **Output tokens** | 1,663 tokens | **1,435 tokens** (761 reasoning) |
+| **End-to-end wall time** | ~45–60s | **~23s** |
+| **Estimated cost per ask (with Web search)** | ~\$0.0205 (~¥3.2) | **~\$0.0062 (~¥0.96)** |
+
+When a persona ask does not require `read_for_ask` or `web_search`, it completes in a **single LLM API call** (~6,000–7,000 input tokens, ~\$0.0025 / ~¥0.4).
 
 ### Model selection and reliability (Direct Disclosure)
 
 Multiple models were evaluated during development:
 - **`NousResearch/Hermes-4-405B`**: Highly capable, but simple prompts took ~45 seconds, adding unacceptable latency to a 1-minute scheduling cadence.
 - **`nvidia/Nemotron-3_5-Lightning`**: Extremely fast (2–3 seconds), but prone to argument omission, JSON structure syntax errors during multi-step MCP operations, and getting caught in troubleshooting loops (attempting unwanted configuration changes and shell commands) upon transient network or tool hiccups.
-- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: Balanced response speed and tool judgment for persona-ask planning (the historical end-to-end run above used `nvidia/nemotron-3-super-120b-a12b`, and production now runs and is verified on `nvidia/Nemotron-3.5-Super-VL`). In earlier runs on 120B, one session held on to an earlier error when the user corrected it, and another wrote an answer without submitting it (resolved in Skill v13).
-- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Used for direct `@agent` requests through the isolated direct-request worker over Provider v2. When tested earlier as the parent cron planner with reasoning parameters enabled, it emitted tool calls as plain text and hit the repetition guard; see the [model comparison](nemoclaw-hermes-model-comparison.md).
+- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: Balanced response speed and tool judgment for persona-ask planning (initial verification used `nvidia/nemotron-3-super-120b-a12b`, and production now runs and is verified on `nvidia/Nemotron-3.5-Super-VL`). In earlier runs on 120B, one session held on to an earlier error when the user corrected it, and another wrote an answer without submitting it (resolved in Skill v13 and eliminated structurally by code-driven submission in Worker v9).
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Used for direct `@agent` requests through the isolated direct-request worker over Provider v2 (verified in production on `q_1792128562756350474a4600c8c`: 1 API call, 8,125 input / 2,762 output tokens, ~\$0.018). When tested earlier as the parent cron planner with reasoning parameters enabled, it emitted tool calls as plain text and hit the repetition guard; see the [model comparison](nemoclaw-hermes-model-comparison.md).
 
-Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex, nested workflow structures as pure native JSON objects without double-escaping, structurally eliminating parse failures.
+Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex arguments as native JSON objects without double-escaping.
 
 ## Summary
 

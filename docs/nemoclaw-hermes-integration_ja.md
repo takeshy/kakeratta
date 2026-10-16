@@ -97,15 +97,15 @@ hermes cron list
 
 移行時および `nvidia/Nemotron-3.5-Super-VL` への更新後（2026-10-16）に次を確認しました。
 
-1. Hermes親・kakeratta cronのpersona askターンが `nvidia/Nemotron-3.5-Super-VL` で `list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer` を完走する。
+1. persona ask ターンが `direct_request_worker.py` により `nvidia/Nemotron-3.5-Super-VL`（`persona-hermes-home`：`read_for_ask` と `web` ツールのみ）で `claim_ask` → `web_search` / `read_for_ask` → `submit_answer` を完走する。
 2. `delegate_task` で起動した子、および直接依頼ワーカー（`direct_request_worker.py`）が `nvidia/Nemotron-3-Ultra-550b-a55b`（`reasoning_effort: high`）を使う。
 3. OpenShell監査ログにToken Factoryの `/v1/chat/completions` が `_provider_tokenfactory_v2` で許可されたと記録される。
 4. kakerattaの直接依頼が親を起こさずに `list_asks` → `claim_request` → Ultra推論 → `reply_request` を完走し、依頼一覧から消える。
 5. 待機中の次tickが `wakeAgent=false` になり、不要なモデル呼び出しをしない。
 
-切り替え後は、親ログにSuper、`platform=subagent` の子ログにUltraが記録されることを確認します。kakeratta cronの明示モデルもSuperへ更新します。この構成では、親を軽量な受付・振り分け役として動かし、高難度の処理だけをUltraへ委譲します。
+切り替え後は、persona ask ワーカーおよび親ログにSuper、直接依頼ワーカーおよび `platform=subagent` の子ログにUltraが記録されることを確認します。kakeratta cronの明示モデルもSuperへ更新します。
 
-> **2026-10-14 以降**、直接依頼は親を通りません。Wake Gate が配布済みの直接依頼ワーカーを実行し、ワーカーがコードで取得して、専用の Hermes home で Ultra を Hermes エージェントとして1回実行し（モデル設定は `kakeratta_worker`、なければ `delegation`）、コードで返信します。親の Super は persona ask だけを担当します。詳しくは [直接依頼](hermes_ja.md#直接依頼) を参照してください。
+> **2026-10-14（直接依頼）および 2026-10-16（persona ask）以降**、直接依頼も persona ask も親 Cron セッションを起こしません。Wake Gate が配布済みの `direct_request_worker.py` をコードで実行して `{"wakeAgent": false}` を返します。直接依頼は `hermes-home` で Ultra を1回実行して返信し、persona ask は Python で `claim_ask` を呼んだあと、`persona-hermes-home`（MCP ツールは `read_for_ask` のみ＋`web`）で `nvidia/Nemotron-3.5-Super-VL` を1回実行して Python で `submit_answer` を提出します。詳しくは [直接依頼](hermes_ja.md#直接依頼) および [エンドツーエンド検証](#エンドツーエンド検証) を参照してください。
 
 ### ローカルデモ環境へ一時接続する場合
 
@@ -454,24 +454,43 @@ PC シャットダウン時の Docker 停止順序競合や強制終了などに
 本番環境（`https://kakeratta.net`）にて、プランナーを外部エージェントに設定したペルソナへの投稿を行い、自律プランニングサイクルを検証しました。
 
 ```text
-ユーザー投稿 → 1分周期 Cron (Wake Gate) → list_asks (未処理 ask 検知)
-            → claim_ask (コンテキスト取得)
-            → Nemotron-3-Super-120B による推論・追加調査 (read_for_ask / Web 検索)
-            → submit_workflow (ワークフロー提出: speak, write_note 等)
-            → kakeratta 側でのレビュー・受理・ペルソナとしての発言投稿
+ユーザー投稿 → 1分周期 Cron (Wake Gate) → list_asks (Python で未処理 ask 検知)
+            → direct_request_worker.py: claim_ask (Python でコンテキスト取得)
+            → Nemotron-3.5-Super-VL 単発セッション実行 (persona-hermes-home: read_for_ask + web のみ)
+            → direct_request_worker.py: submit_answer (Python で回答提出)
+            → kakeratta 側での予定フェーズ・レビュー・ペルソナとしての発言投稿
 ```
 
-Hermes の CLI や管理画面を人が直接操作することなく、未処理依頼の検知から会話スレッドへの自然な発言投稿、記憶ノートの更新までが完全に自律して完了することを確認しました。
+Hermes の CLI や管理画面を人が直接操作することなく、また Cron 親セッションを起動することなく（`{"wakeAgent": false}`）、未処理依頼の検知から会話スレッドへの自然な発言投稿、記憶ノートの更新までが完全に自律して完了することを確認しました。
+
+### コード主導の Persona Ask 最適化と実機ベンチマーク（2026-10-16 検証）
+
+従来の Cron 親セッション起動方式では、毎ターン kakeratta の全 17 MCP ツールと Hermes の全標準ツールセット（`terminal`, `cronjob`, `memory`, `session_search`, `skills`, `delegation` 等）のスキーマが入力に乗るうえ、LLM 自身が `list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer` と 4〜6 回モデル呼び出しを重ねていました。
+
+`direct_request_worker.py`（`WORKER_VERSION = "9"`）で `list_asks`・`claim_ask`・`submit_answer`・`release_ask` を Python コード側へ移し、ペルソナ実行用の `persona-hermes-home` に読み込むツールを `tools.include: ["read_for_ask"]` と `-t kakeratta,web` だけに絞ったことで、本番環境での入力トークン数が **約 75% 削減**されました：
+
+| 指標 | 旧 Cron 親セッション方式 (`20261016_052950_f3fc2b`) | 新コード主導ワーカー方式 (`20261016_085734_838364`) |
+| --- | --- | --- |
+| **使用モデル** | `nvidia/Nemotron-3.5-Super-VL` | `nvidia/Nemotron-3.5-Super-VL` |
+| **読み込まれるツール定義** | 全 17 MCP ツール＋Hermes 全標準ツールセット | **`read_for_ask` のみ＋`web`** |
+| **取得・提出 (`claim_ask`, `submit_answer`)** | LLM のツール呼び出し | **Python コード (`direct_request_worker.py`)** |
+| **LLM API 呼び出し回数（Web 検索あり）** | 4回 | **2回**（検索1ターン＋回答1ターン） |
+| **累積入力トークン数** | 62,847 tokens | **15,774 tokens（約75%削減）** |
+| **出力トークン数** | 1,663 tokens | **1,435 tokens**（うち推論 761） |
+| **処理時間（取得〜提出完了）** | 約 45〜60 秒 | **約 23 秒** |
+| **1回あたり推定コスト（Web 検索あり）** | 約 \$0.0205（約 3.2円） | **約 \$0.0062（約 0.96円）** |
+
+また、`read_for_ask` や `web_search` を使わずにスレッドと初期記憶だけで答えられるターンでは **LLM API 呼び出し 1 回**（入力約 6,000〜7,000 tokens、**約 \$0.0025 / 約 0.4円**）で完結します。
 
 ### モデル選定と安定性（Direct Disclosure）
 
 モデル選定にあたっては、複数のモデルを検証しました：
 - **`NousResearch/Hermes-4-405B`**: 推論精度は高いものの、単純なプロンプトでも応答に約 45 秒を要し、毎分の自律プランニング運用には応答遅延が大きすぎる課題がありました。
 - **`nvidia/Nemotron-3_5-Lightning`**: 応答は約 2〜3 秒と極めて高速でしたが、多段 MCP 操作での引数誤りや JSON 構造破損が発生しやすく、ツールエラーや一時的なネットワーク不達時に不要な設定変更・シェル調査ループに陥って実行が長引くケースが確認されました。
-- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: 応答速度とツール判断のバランスがよく、persona ask 用のプランナーモデルとして使用しています（上記の当初エンドツーエンド検証は旧 `nvidia/nemotron-3-super-120b-a12b` で実施し、現在は後継の `nvidia/Nemotron-3.5-Super-VL` で本番稼働・実機検証済み）。旧モデルではユーザーに誤りを指摘されても前の主張を維持したセッションや、回答を書いたのに提出しなかったセッション（Skill v13 で解消）がありました。
-- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Provider v2 経由で直接依頼（`@agent`）ワーカーから使用しています。以前に親 Cron のプランナーとして思考設定付きで試した際は、ツール呼び出しをプレーンテキストで出力して Repetition Guard に達する問題がありました。[モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) を参照してください。
+- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: 応答速度とツール判断のバランスがよく、persona ask 用のプランナーモデルとして使用しています（当初検証は旧 `nvidia/nemotron-3-super-120b-a12b` で実施し、現在は後継の `nvidia/Nemotron-3.5-Super-VL` で本番稼働・実機検証済み）。旧モデルではユーザーに誤りを指摘されても前の主張を維持したセッションや、回答を書いたのに提出しなかったセッション（Skill v13 で改善、さらに Worker v9 のコード主導提出により構造的に解消）がありました。
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Provider v2 経由で直接依頼（`@agent`）ワーカーから使用しています（本番実機検証 `q_1792128562756350474a4600c8c`：API 呼び出し 1 回、入力 8,125 / 出力 2,762 tokens、約 \$0.018）。以前に親 Cron のプランナーとして思考設定付きで試した際は、ツール呼び出しをプレーンテキストで出力して Repetition Guard に達する問題がありました。[モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) を参照してください。
 
-さらに Hermes 側で `tools.tool_search.enabled: "off"`（Direct disclosure）を適用することで、モデルはネストの深い複雑なワークフロー構造を純粋なネイティブ JSON オブジェクトとして引数に渡すことができ、文字列エスケープ破損による失敗を起こすことなく、一貫して安定したワークフロー提出が行えることを実証しました。
+さらに Hermes 側で `tools.tool_search.enabled: "off"`（Direct disclosure）を適用することで、モデルは引数をネイティブ JSON オブジェクトとして渡すことができ、文字列エスケープ破損による失敗を構造的に防いでいます。
 
 ## まとめ
 
