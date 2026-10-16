@@ -74,7 +74,6 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
   let toolNames = [];
   let mcpConfigured = false;
   let agentPaused = false;
-  let agentAway = false;
   // With no tab chosen yet, people come first when there are any.
   let tab = remembered("kakeratta.personas.tab", "", ["subject", "person"]);
   let order = remembered("kakeratta.personas.order", "added", ["added", "name"]);
@@ -97,7 +96,6 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       toolNames = payload.tools || [];
       mcpConfigured = !!payload.mcpConfigured;
       agentPaused = !!payload.externalAgentPaused;
-      agentAway = !!payload.externalAgentAway;
       onChange?.(rows);
       draw();
     } catch (error) {
@@ -262,21 +260,9 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     // "Prefer": the agent plans when it answers in time, and the built-in
     // model still takes the turn when it does not.
     const prefer = el("input", { type: "checkbox", checked: row.planner === "external" });
-    const hint = el("p", { class: "hint", hidden: row.planner !== "external" });
     const box = el("div", {}, el("div", { class: "compose-row" },
-      el("label", { class: "planner-option" }, prefer, el("span", { label: "外部エージェントを優先する" }))), hint);
-    const renderHint = () => {
-      hint.hidden = row.planner !== "external";
-      hint.textContent = t(!mcpConfigured
-        ? "外部エージェントが未接続です。設定 → 上級オプション → 外部連携 で接続してください。それまでは内蔵モデルが代わりに考えます。"
-        : agentPaused
-        ? "外部エージェントは一時停止中です。再開するまで内蔵モデルが考えます。"
-        : agentAway
-        ? "外部エージェントから応答がありません。接続があるまで内蔵モデルが考えます。"
-        : "外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。");
-    };
-    renderHint();
-    plannerControls.set(row.id, { prefer, box, renderHint });
+      el("label", { class: "planner-option" }, prefer, el("span", { label: "外部エージェントを優先する" }))));
+    plannerControls.set(row.id, { prefer, box });
     prefer.addEventListener("change", async () => {
       prefer.disabled = true;
       try {
@@ -294,14 +280,6 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
             if (control) {
               control.prefer.checked = current.planner === "external";
               control.box.hidden = !mcpConfigured || agentPaused;
-              control.renderHint();
-            }
-            if (current.planner === "external" && !card.plannerBadge) {
-              card.plannerBadge = el("span", { class: "tag", label: "外部エージェント" });
-              card.head.append(card.plannerBadge);
-            } else if (current.planner !== "external" && card.plannerBadge) {
-              card.plannerBadge.remove();
-              card.plannerBadge = null;
             }
           }
           onChange?.(rows);
@@ -324,8 +302,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       "aria-label": t("{0} の有効・無効", shown.name),
       onchange: (event) => setActive(row.id, event.target.checked),
     });
-    const plannerBadge = row.planner === "external" ? el("span", { class: "tag", label: "外部エージェント" }) : null;
-    const control = { box, toggle, row, plannerBadge };
+    const control = { box, toggle, row };
     activeControls.set(row.id, control);
     box.append(
       el(
@@ -335,14 +312,12 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         el("span", { class: "who", text: shown.name }),
         shown.note ? el("span", { class: "note-tag", text: shown.note }) : null,
         row.kind === "person" ? el("span", { class: "tag", label: "人物" }) : null,
-        plannerBadge,
         el("span", { class: "spacer" }),
         el("label", { class: "switch" },
           switchControl(toggle, { on: t("有効"), off: t("無効"), className: getLanguage() === "en" ? "persona-active-toggle" : "" })),
       ),
       el("p", { class: "domain", text: shown.domain }),
     );
-    control.head = box.firstChild;
     // A person is reached by these words and nothing else, so they are what
     // the card has to show.
     if (row.kind === "person") {

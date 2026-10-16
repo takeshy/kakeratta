@@ -542,7 +542,7 @@
           </ol>
           <p>LLM Connect Hub は Obsidian を開いている間、1分ごとに依頼を確認します。依頼がないときにモデルのトークンは使いません。確認の間隔が1分なので、<strong>取得を待つ時間</strong>（外部エージェントが依頼を受け取るまで kakeratta が待つ時間）は1分より長くしておいてください。Obsidian を閉じて取得を待つ時間が過ぎると不在とみなされ（下の「担当を任せる」を参照）、それ以降の依頼は待たずに内蔵モデルが答えます。閉じた直後に届いた依頼は、待ち時間が過ぎてから内蔵モデルが答えます。詳しい設定は <a href="https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md" rel="noopener">LLM Connect Hub の説明</a> を見てください。</p>
           <h3>担当を任せる</h3>
-          <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="401" /></figure>
+          <figure><img src="/captures/ja/persona-planner.png" alt="担当カードで外部エージェントを優先するをONにしたところ" loading="lazy" width="382" height="327" /></figure>
           <ol>
             <li><strong>担当</strong> 画面で、任せたい担当の <strong>外部エージェントを優先する</strong> をONにします。このチェックは、接続先を設定し、設定の「外部エージェントを使う」がONのときだけ表示されます。</li>
             <li>いつもどおり投稿します。その担当に届いた投稿は、外部エージェントが調べて回答を書きます。記憶・予定は kakeratta が決めます。返事は担当の名前で「外部エージェント」の印付きで届きます。</li>
@@ -1163,7 +1163,7 @@
           </ol>
           <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. Because it checks once a minute, keep <strong>Wait for a claim</strong> (how long kakeratta waits for the agent to pick up an ask) longer than a minute. Once Obsidian has been closed for longer than that wait, the agent is taken to be away (see <em>Hand a persona over</em> below) and later asks go to the built-in model without waiting. An ask that arrives just after Obsidian closes is answered by the built-in model when its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
           <h3>Hand a persona over</h3>
-          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="522" /></figure>
+          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="422" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only while a connection is configured and <strong>Use the external agent</strong> is enabled in settings.</li>
             <li>Post as usual. For posts that reach that persona, the external agent researches and writes the answer; kakeratta decides memory and schedules. The reply arrives under the persona's name, marked <strong>External agent</strong>.</li>

@@ -7,6 +7,7 @@
   --accent: #a4622f;
   --accent-soft: #f4e7dc;
   --warn: #b3502f;
+  --planner-label: #176b43;
   color-scheme: light dark;
 }
 
@@ -20,6 +21,7 @@
     --accent: #d79a68;
     --accent-soft: #302722;
     --warn: #e0866a;
+    --planner-label: #85dfa9;
   }
 }
 
@@ -670,9 +672,8 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .note-tag { font-size: 0.875rem; color: var(--muted); }
 .domain { margin: 0; font-size: 0.9375rem; color: var(--muted); }
 .tools { margin: 0; font-size: 0.875rem; color: var(--muted); }
-/* A sub-option of the persona, kept quieter than its active toggle so it is
-   not mistaken for it. */
-.planner-option { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9375rem; color: var(--muted); cursor: pointer; }
+/* Keep the labeled planner checkbox separate from persona activation. */
+.planner-option { display: inline-flex; align-items: center; gap: 6px; margin-block: 0.5rem; font-size: 0.9375rem; color: var(--planner-label); cursor: pointer; }
 .planner-option input { width: auto; margin: 0; accent-color: var(--accent); }
 .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9375rem; cursor: pointer; }
 .switch input { width: auto; }
