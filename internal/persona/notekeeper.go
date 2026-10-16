@@ -18,11 +18,13 @@ import (
 // remark is out, so a memory that fails to come out costs the memory and never
 // the answer.
 //
-// It is one model call, in the persona's own voice, that hands back what the
-// app is to keep: the kakera in one sentence with its tags, and the new body
-// of every field the kakera changes. The app checks the sizes, writes the
-// fields, and appends the record with the entry to go back to - the remark
-// when the persona replied, the kakera when it did not.
+// Ordinary posts first select one memory field using a bounded excerpt and
+// the stable layout, without reading existing notes. Only that field's memory
+// is then handed to the update, in the persona's own voice. A selection of no
+// memory ends without another call. Edits and due-record reviews retain their
+// full-memory correction path. The app checks the returned fact operations,
+// writes the fields, and appends the record with the entry to go back to - the
+// remark when the persona replied, the kakera when it did not.
 //
 // After the user deletes a post, the keeper is woken to tidy: the app has
 // taken the post's records out, and the keeper takes out of the fields what
@@ -176,16 +178,19 @@ func (r *Runner) lockKeeper(ctx context.Context, personaID string) (context.Cont
 
 // keeperRecord is one keeper run, for the log.
 type keeperRecord struct {
-	Severity  string      `json:"severity"`
-	Message   string      `json:"message"`
-	Persona   string      `json:"persona"`
-	Trigger   string      `json:"trigger,omitempty"`
-	Model     string      `json:"model,omitempty"`
-	Attempts  int         `json:"attempts,omitempty"`
-	Kept      *keptMemory `json:"kept,omitempty"`
-	Summaries []string    `json:"summaries,omitempty"`
-	Retired   []string    `json:"retired,omitempty"`
-	Error     string      `json:"error,omitempty"`
+	Severity          string      `json:"severity"`
+	Message           string      `json:"message"`
+	Persona           string      `json:"persona"`
+	Trigger           string      `json:"trigger,omitempty"`
+	Model             string      `json:"model,omitempty"`
+	Attempts          int         `json:"attempts,omitempty"`
+	Field             string      `json:"field,omitempty"`
+	SelectionAttempts int         `json:"selectionAttempts,omitempty"`
+	Skipped           bool        `json:"skipped,omitempty"`
+	Kept              *keptMemory `json:"kept,omitempty"`
+	Summaries         []string    `json:"summaries,omitempty"`
+	Retired           []string    `json:"retired,omitempty"`
+	Error             string      `json:"error,omitempty"`
 }
 
 func logKeeper(record keeperRecord) {
@@ -229,13 +234,26 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		logKeeper(logged)
 	}()
 
-	facts := r.loadFacts(k.skill, k.here)
 	recordable := k.recordable()
 	handed := r.handedRecords(k)
-	recent, _ := r.findRecords(k.skill.ID, "", "", "", recentRecordsLimit, k.here)
-	answer := strings.TrimSpace(k.answer)
-	if answer == "" {
-		answer = "（返事はしていません）"
+	var facts memoryFacts
+	selected := ""
+	if recordable && len(handed) == 0 && !strings.Contains(k.wake, editedInstructions) {
+		field, attempts, err := chooseMemoryField(ctx, client, model, k)
+		logged.SelectionAttempts = attempts
+		if err != nil {
+			return nil, err
+		}
+		if field == "" {
+			logged.Skipped = true
+			return nil, nil
+		}
+		selected, logged.Field = field, field
+		facts = r.loadSelectedMemory(k, field)
+	} else {
+		// A correction can invalidate facts in a former field, and a due
+		// review settles the specific records supplied by the host.
+		facts = r.loadFacts(k.skill, k.here)
 	}
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(k.here).Format("2006-01-02 15:04 MST"),
@@ -243,16 +261,15 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		"いまの事実（分野ごと）:",
 		renderFacts(facts, k.here),
 		"",
-		"最近のかけらの記録（新しい順）:",
-		listRecords(recent, k.here),
-		"",
 		threadContext(k.thread, k.trigger, k.names, k.here),
-		"",
-		"完成した Answer（すでに返事として出ています。事実に写さない）:",
-		answer,
 	}, "\n")
 	if len(handed) > 0 {
 		user += "\n\n見直しの対象として渡された記録（records で扱えるのはこれだけ）:\n" + listRecords(handed, k.here)
+		if !recordable {
+			// The review keeper must know which record the check-in actually
+			// asked about before moving its review date.
+			user += "\n\n今回の見直しの質問:\n" + k.answer
+		}
 	}
 	now := time.Now()
 	// The facts rest on the kakera itself, never on a reply to it: deleting
@@ -263,7 +280,11 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 	}
 	var planned memoryFacts
 	var changed []string
-	kept, attempts, err := submitMemory(ctx, client, model, keeperPrompt(k.skill, recordable, handed), user, keepMemoryTool(facts.Fields, recordable, handed), func(kept keptMemory) []string {
+	system := keeperPrompt(k.skill, recordable, handed)
+	if selected != "" {
+		system += "\n今回選ばれた分野: " + selected + "。事実の追加・更新・無効化・統合はこの分野の中だけで行う。他分野への移動や記憶全体の整理は行わない。\n"
+	}
+	kept, attempts, err := submitMemory(ctx, client, model, system, user, keepMemoryTool(facts.Fields, recordable, handed), func(kept keptMemory) []string {
 		problems := checkKept(kept, recordable, handed, k.answer, now, k.here)
 		var factProblems []string
 		planned, changed, factProblems = planFacts(facts, kept.Facts, from, now, k.here)

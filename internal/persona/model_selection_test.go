@@ -89,10 +89,10 @@ func TestAnswerReadsUseSelectedDepthAndPhasesUseSuper(t *testing.T) {
 			if entry == nil || entry.Text != "根拠を踏まえた回答" {
 				t.Fatalf("answer = %+v", entry)
 			}
-			want := []string{"answer:" + tc.wantAnswer, "answer:" + tc.wantAnswer, "answer:" + tc.wantAnswer, "plan_schedule:" + tc.wantSuper, "memory_update:" + tc.wantSuper}
+			want := []string{"answer:" + tc.wantAnswer, "answer:" + tc.wantAnswer, "answer:" + tc.wantAnswer, "plan_schedule:" + tc.wantSuper, "memory_select:" + tc.wantSuper, "memory_update:" + tc.wantSuper}
 			if tc.split {
 				// Two reads and finish_read on Super, then one Ultra answer.
-				want = []string{"research:" + tc.wantSuper, "research:" + tc.wantSuper, "research:" + tc.wantSuper, "answer:" + tc.wantAnswer, "plan_schedule:" + tc.wantSuper, "memory_update:" + tc.wantSuper}
+				want = []string{"research:" + tc.wantSuper, "research:" + tc.wantSuper, "research:" + tc.wantSuper, "answer:" + tc.wantAnswer, "plan_schedule:" + tc.wantSuper, "memory_select:" + tc.wantSuper, "memory_update:" + tc.wantSuper}
 			}
 			if !reflect.DeepEqual(calls, want) {
 				t.Fatalf("calls = %v, want %v", calls, want)

@@ -27,6 +27,7 @@ func answeringReply(text string) func(system, user string, offered map[string]bo
 // and the tags the keeper chose.
 func TestAnAnsweredKakeraIsRecordedUnderTheReply(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	f.selectMemory = func(string, string) string { return "Shop" }
 	if err := s.WriteNote("gourmet", "Shop.md", factsFile("Shop", [2]string{"A店に行きたい", ""})); err != nil {
 		t.Fatal(err)
 	}
@@ -101,6 +102,7 @@ func TestASilentKakeraIsRecordedUnderItselfOnce(t *testing.T) {
 // no sentence - is sent back with the reasons, and what passes is kept.
 func TestTheKeeperIsSentBackUntilItFits(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	f.selectMemory = func(string, string) string { return "Shop" }
 	f.phaseReply = answeringReply("いいね。")
 	calls := 0
 	f.keep = func(system, user string) string {

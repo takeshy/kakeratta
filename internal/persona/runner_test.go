@@ -51,7 +51,9 @@ type fake struct {
 	// unset, it records the kakera in one sentence and changes no field.
 	keep func(system, user string) string
 	// keeps are the prompts the note keeper was sent.
-	keeps []string
+	keeps        []string
+	selectMemory func(system, user string) string
+	selections   []string
 	// summarize scripts write_summaries; summaries are the prompts it was
 	// sent. Unset, it rewrites nothing.
 	summarize func(system, user string) string
@@ -177,6 +179,25 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		}
 		var result map[string]any
 		switch {
+		case names["choose_memory_field"]:
+			f.mu.Lock()
+			f.selections = append(f.selections, system+"\n----\n"+user)
+			selectMemory := f.selectMemory
+			f.mu.Unlock()
+			field := ""
+			for _, tool := range body.Tools {
+				if tool.Function.Name == "choose_memory_field" {
+					props := tool.Function.Parameters["properties"].(map[string]any)
+					values := props["field"].(map[string]any)["enum"].([]any)
+					if len(values) > 1 {
+						field, _ = values[1].(string)
+					}
+				}
+			}
+			if selectMemory != nil {
+				field = selectMemory(system, user)
+			}
+			result = testCall("choose_memory_field", map[string]any{"field": field})
 		case names["write_summaries"]:
 			f.mu.Lock()
 			f.summaries = append(f.summaries, system+"\n----\n"+user)

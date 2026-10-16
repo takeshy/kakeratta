@@ -40,8 +40,8 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 		if len(remarks(t, s)) != 1 {
 			t.Error("the memory was kept before the answer was out")
 		}
-		if !strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(system, "調べた事実・候補一覧・解説は事実にしない") {
-			t.Error("the keeper lacks the finished answer or its selection policy")
+		if strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(user, "一般的な食文化について調べて") || !strings.Contains(system, "調べた事実・候補一覧・解説は事実にしない") {
+			t.Error("the keeper must receive the user's request and its selection policy, without the finished answer")
 		}
 		return `{"summary":"一般的な食文化について調べてと聞いた","tags":["食文化"],"facts":[]}`
 	}

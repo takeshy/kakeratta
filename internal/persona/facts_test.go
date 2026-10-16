@@ -230,6 +230,7 @@ func TestAFactLosesTheBulletItCameWith(t *testing.T) {
 // split keeps the prose instead of writing over it.
 func TestProseReadsAsTheSummaryUntilSplit(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
+	f.selectMemory = func(string, string) string { return "Shop" }
 	if err := s.WriteNote("gourmet", "Shop.md", "白楽くり山に行きたい。\n"); err != nil {
 		t.Fatal(err)
 	}

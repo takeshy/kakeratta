@@ -100,6 +100,9 @@ func TestCheckInReviewRunsKeeperWithLegacyRememberFalse(t *testing.T) {
 	if len(f.keeps) != 1 {
 		t.Fatalf("keeper ran %d times for a review check-in, want 1", len(f.keeps))
 	}
+	if len(f.selections) != 0 {
+		t.Fatal("due-record check-in must retain its correction path without classification")
+	}
 }
 
 // Edits use the durable keeper to correct the prior memory, including when
@@ -141,6 +144,9 @@ func TestUnrelatedEditRunsKeeperToCorrectPriorFacts(t *testing.T) {
 	r.run(context.Background(), skill, []timeline.Entry{entry}, entry, false, false, editedInstructions, false, client, settings, r.registry(settings))
 	if len(f.keeps) != 2 {
 		t.Fatalf("keeper did not process the edit: %d", len(f.keeps))
+	}
+	if len(f.selections) != 1 {
+		t.Fatal("the edit must correct prior facts without reclassifying the post")
 	}
 	if ids := recordIDs(r, "gourmet"); len(ids) != 1 {
 		t.Fatalf("edit did not replace the prior record: %v", ids)
