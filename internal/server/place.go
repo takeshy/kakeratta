@@ -20,8 +20,8 @@ func submittedPlace(place *timeline.Place) *timeline.Place {
 	return &timeline.Place{Lat: place.Lat, Lon: place.Lon, Label: place.Label}
 }
 
-// enrichPlace runs in the durable location lane, independent of the HTTP request
-// and persona delivery. Discovery failures can retry after the catalogue cooldown.
+// enrichPlace runs before routing, independent of the HTTP request. Failures
+// retry in the durable location lane after the catalogue cooldown.
 func (s *Server) enrichPlace(ctx context.Context, id string) error {
 	entry, exists := s.store.Entry(id)
 	if !exists || entry.Place == nil || entry.Place.Label != "" || s.tools.MCP == nil {

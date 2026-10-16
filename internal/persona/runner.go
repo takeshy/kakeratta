@@ -85,7 +85,7 @@ func New(s store.Workspace, catalogue *Catalogue, clientOf func() (*llm.Client, 
 // SetSearch shares the UI's indexing work with all personas. Set before Start.
 func (r *Runner) SetSearch(service *search.Service) { r.search = service }
 
-// SetPlaceLookup installs background location enrichment before Start.
+// SetPlaceLookup installs pre-routing location enrichment and background retries before Start.
 func (r *Runner) SetPlaceLookup(lookup func(context.Context, string) error) { r.placeLookup = lookup }
 
 // SetTools is the operator's tool configuration: search key, map endpoints and

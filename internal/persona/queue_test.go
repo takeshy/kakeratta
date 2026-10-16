@@ -433,6 +433,71 @@ func TestEditedDeliveryRetainsReactionWhenRecipientsCannotBeRead(t *testing.T) {
 	}
 }
 
+func TestRoutingResolvesLocationBeforeDelivery(t *testing.T) {
+	for _, outcome := range []string{"resolved", "no match", "unavailable", "custom label", "no coordinates"} {
+		t.Run(outcome, func(t *testing.T) {
+			r, s, stub := setup(t, answering, "gourmet")
+			entry := timeline.Entry{
+				ID: "located-post", Root: "located-post", Kind: timeline.KindPost,
+				Speaker: timeline.User, Text: "ラーメン食べたい", At: time.Now(),
+				Place: &timeline.Place{Lat: 35, Lon: 139},
+			}
+			if outcome == "custom label" {
+				entry.Place.Label = "自宅"
+			} else if outcome == "no coordinates" {
+				entry.Place = nil
+			}
+			if err := s.Append(entry); err != nil {
+				t.Fatal(err)
+			}
+			var calls atomic.Int32
+			r.SetPlaceLookup(func(ctx context.Context, id string) error {
+				calls.Add(1)
+				if outcome == "unavailable" {
+					return errors.New("geo offline")
+				}
+				if outcome == "no match" {
+					return nil
+				}
+				resolved := *entry.Place
+				resolved.Label = "横浜市"
+				_, _, err := s.UpdatePlace(ctx, id, *entry.Place, resolved)
+				return err
+			})
+			if err := s.SaveReaction(store.Reaction{ID: "route-place", Lane: "thread:" + entry.ID, Entry: entry.ID, Route: true}); err != nil {
+				t.Fatal(err)
+			}
+			item, rest, ok, err := s.ClaimReaction(context.Background(), r.worker, claimTTL)
+			if err != nil || !ok {
+				t.Fatalf("claim: %v, %v", ok, err)
+			}
+			r.handle(item, rest)
+			wantCalls := int32(1)
+			if outcome == "custom label" || outcome == "no coordinates" {
+				wantCalls = 0
+			}
+			if calls.Load() != wantCalls {
+				t.Fatalf("lookup must finish within routing: calls=%d, want %d", calls.Load(), wantCalls)
+			}
+			var retry bool
+			for _, job := range pending(t, s) {
+				retry = retry || job.Locate
+			}
+			if retry != (outcome == "unavailable") {
+				t.Fatalf("background retry=%v for %s", retry, outcome)
+			}
+			r.Stop()
+			saved, _ := s.Entry(entry.ID)
+			if outcome == "resolved" && saved.Place.Label != "横浜市" {
+				t.Fatal("location was not saved")
+			}
+			if prompt := stub.promptFor("tabe"); !strings.Contains(prompt, placeLine(saved.Place)) {
+				t.Fatalf("recipient missed location %q: %s", placeLine(saved.Place), prompt)
+			}
+		})
+	}
+}
+
 func TestLocationRetrySurvivesRestartAndStopsAfterThreeAttempts(t *testing.T) {
 	first, s, _ := setup(t, answering, "gourmet")
 	item := store.Reaction{ID: "place-test", Lane: "place-test", Entry: "post", Locate: true}

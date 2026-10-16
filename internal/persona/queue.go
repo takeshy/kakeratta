@@ -334,11 +334,17 @@ fold:
 			return
 		}
 		if r.placeLookup != nil && entry.Kind == timeline.KindPost && entry.Place != nil && entry.Place.Label == "" {
-			id := "place-" + entry.ID
-			if err := r.accept(store.Reaction{ID: id, Lane: id, Entry: entry.ID, Locate: true}); err != nil {
-				_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
-				keep = true
-				return
+			// Resolve before preparing routing or external requests so every
+			// recipient reads the enriched post. An outage must not lose the
+			// answer: keep coordinates and retry the label in its own lane.
+			if err := r.placeLookup(ctx, entry.ID); err != nil {
+				log.Printf("place lookup before routing: %v", err)
+				id := "place-" + entry.ID
+				if err := r.accept(store.Reaction{ID: id, Lane: id, Entry: entry.ID, Locate: true}); err != nil {
+					_, _ = r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay))
+					keep = true
+					return
+				}
 			}
 		}
 		plan, record, err := r.prepareEntry(ctx, item.Entry, item.Place, item.Edited)
