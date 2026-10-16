@@ -4,13 +4,13 @@ People say I'm a genius at forgetting things.
 
 Even things I tell myself I must remember slip away. I tried keeping notes, but then I forgot the notebook. When I got a smartphone, I tried one note app after another. (Of course, I sometimes forget the phone itself.)
 
-I even built an app that used AI to organize my notes automatically. It didn't work as I had hoped. It felt like having someone else clean your room: everything was tidier, but I no longer knew where anything was. When I had put things away myself, I kept a rough sense of where they were. Yet once there is enough information, leaving it scattered means some of it is simply lost.
+I even built an app that used AI to organize my notes automatically. It didn't work as I had hoped. It felt like having someone else clean your room: everything was tidier, but I no longer knew where anything was. When I had put things away myself, I kept a rough sense of where they were. But leaving notes scattered doesn't scale either: past a certain volume, things simply get lost.
 
 And nobody writes notes about the things they carry every day. Writing "don't forget your phone" in your phone feels absurd.
 
 In old Japanese family dramas, there was a scene I always envied: as the husband heads out, his wife asks him at the door, "Do you have your handkerchief?" Today's AI is capable enough. Couldn't it do the same thing?
 
-One of my biggest regrets is also a kind of forgetting. I lost touch with someone important who had always looked out for me. I was busy, I lost the note with their contact details, and I never thanked them before a long time had passed. If I had noticed sooner, I could have called their workplace and asked for their contact again.
+One of my biggest regrets is also a kind of forgetting. I lost touch with someone important who had always looked out for me. I was busy, I lost the note with their contact details, and by the time I thought to thank them, years had passed. If I had noticed sooner, I could have called their workplace and asked for their contact again.
 
 If I stopped forgetting things, my life would be a great deal better.
 
@@ -18,13 +18,7 @@ That is why I built kakeratta.
 
 ## What it does
 
-kakeratta is a collection of life fragments, each looked after by dedicated AI personas.
-
-### Why dedicated personas
-
-A computer can store nearly unlimited records, but an AI can only hold a limited context. The usual fix is to store everything and let the AI retrieve what it needs. With one shared memory, though, everything mixes together: a friend's tastes blur into yours, and every call has to read through a growing pile of files, which gets slower and less accurate.
-
-kakeratta assigns a dedicated persona to each person or interest that matters to you. Each persona keeps only its own memory. The point of this separation is not hiding things from each other. The point is keeping each memory dense enough to be useful.
+kakeratta is a personal timeline where dedicated AI personas connect fragments of your day and bring them back when they matter.
 
 ### Bringing back what you forgot
 
@@ -33,6 +27,10 @@ On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't hav
 > "You didn't make it to that restaurant last time. Maybe this trip?"
 
 You would never have searched for it, because you had forgotten it existed. Search can't find what you've forgotten exists. kakeratta brings it back.
+
+### Why dedicated personas
+
+A friend's tastes, your own preferences, and an unfinished plan all need different context. kakeratta assigns a dedicated persona to each person or interest that matters to you. Each persona keeps its own memory, so it can focus on the relevant fragments when deciding what to remember or bring up. This also keeps the context each persona needs to read smaller as the timeline grows.
 
 ### Personas are created in plain language
 
@@ -80,7 +78,7 @@ In the hosted app, timelines, persona memories, favorites, settings, and search 
 
 kakeratta also runs locally as a single-user app, storing everything as plain files. The hosted service exports the same file layout, so users can download their data and continue locally.
 
-The hosted architecture separates the Web API from persona workers. Posts and pending jobs are saved in one Firestore transaction, then dispatched through Pub/Sub. Scheduled wakes use Cloud Tasks. Workers process independent accounts and conversations in parallel while preserving order within each conversation. Web and worker instances can scale independently, including to zero on Cloud Run. During judging, both processes run on a shared Compute Engine VM to reduce costs, while Firestore, Pub/Sub, and Cloud Tasks remain managed services.
+The hosted architecture separates the Web API from persona workers. Posts and pending jobs are saved in one Firestore transaction, then dispatched through Pub/Sub. Scheduled wakes use Cloud Tasks. Workers process independent accounts and conversations in parallel while preserving order within each conversation. The architecture lets Web and worker instances scale independently, including to zero on Cloud Run. During judging, both processes run on a shared Compute Engine VM to reduce costs, while Firestore, Pub/Sub, and Cloud Tasks remain managed services.
 
 ### From post to reply
 
@@ -92,14 +90,16 @@ The hosted architecture separates the Web API from persona workers. Posts and pe
 | **4. Research** | Read the conversation, persona memory, past fragments, and permitted search tools. |
 | **5. Answer** | Compose the answer or choose silence, without changing schedules. |
 | **6. Plan schedules** | Separately draft any reminder or schedule changes. |
-| **7. Check and review** | Validate permissions and schedule ownership in code. Super reviews plans containing schedules; failed checks regenerate the plan. |
+| **7. Check and review** | Validate permissions and schedule ownership in code. Nemotron 3.5 Super VL (Super) reviews plans containing schedules; failed checks regenerate the plan. |
 | **8. Execute** | Apply approved changes. Do not publish an answer implying success if execution fails. |
 | **9. Publish** | Save the answer to the timeline and send push notifications when applicable. |
 | **10. Update memory** | Save facts from the user's fragments after publication. Failed updates are retried independently. |
 
 Selected personas run in parallel, while replies within each conversation remain ordered.
 
-**The AI writing an answer is never asked to produce schedules and memory in the same breath.** Super handles research and ordinary answers; deep requests and AlwaysUltra use Ultra only for final composition. Planning, validation, execution, and memory remain separate.
+**The AI writing an answer is never asked to produce schedules and memory in the same breath.** Super handles research and ordinary answers; deep requests and personas set to always use Ultra use it only for final composition. Planning, validation, execution, and memory remain separate.
+
+For ordinary memory updates, the keeper first picks one memory field, or decides nothing needs keeping, and only then reads that field's contents.
 
 Personas without scheduling or memory skip those phases. Connected MCP tools are read-only, and schedule changes are validated by kakeratta. When an external agent answers for a persona, it handles only research and answering; the remaining phases stay with kakeratta.
 
@@ -107,42 +107,27 @@ Personas without scheduling or memory skip those phases. Connected MCP tools are
 
 kakeratta also acts as an MCP server. Hermes Agent runs inside NVIDIA NemoClaw / OpenShell using Nemotron through Nebius Token Factory, and can interact with kakeratta in three ways:
 
-- **Answering as a persona.** Hermes reads the persona's context, researches, and submits its answer. kakeratta handles scheduling and memory. If Hermes is unavailable or misses its deadline, the built-in model takes over.
-- **Direct requests.** `@agent` bypasses persona routing and hands the request to Hermes. A code-based worker invokes the agent once and returns its final response. Tools are read-only by default, and each request has model-call and token limits.
+- **Answering as a persona.** A worker claims the request and submits the result in code. Hermes receives the persona's context and permitted research tools, then returns its answer. kakeratta handles scheduling and memory. If Hermes is unavailable or misses its deadline, the built-in model takes over.
+- **Direct requests.** `@agent` bypasses persona routing and hands the request to Hermes. A worker runs a Hermes session and returns its final response. Tools are read-only by default. Each run has iteration, time, and usage limits.
 - **Posting as a persona.** Hermes can share findings as a persona, up to five posts per persona per day, without triggering other personas or changing memory.
 
 Personal Hermes connections can use their own tools and local documents, extending the built-in personas' capabilities.
 
-### Other capabilities
+### Supporting everyday use
 
-- **Search:** Qwen3-Embedding-8B powers semantic search over past fragments, alongside keyword search.
-- **Persona tools:** Tavily Web search, WeatherAPI forecasts, place lookup through MCP with an OpenStreetMap fallback, and timeline and memory search. Each persona receives only its permitted tools.
-- **Notifications:** Scheduled posts and optional direct-agent replies use Web Push. Notifications are best effort; timeline posts remain even if delivery fails.
-- **Voice:** A Japanese and English Alexa skill confirms spoken input before posting, and can read replies and schedules.
-- **Infographics:** Markdown with emoji and Mermaid diagrams replaces costly, error-prone HTML generation.
-- **Cost visibility:** Model calls are logged by purpose and retry scope, making it possible to identify expensive stages and adjust model assignments.
+Keyword search and Qwen3-Embedding-8B semantic search help users find fragments they remember enough to look for. Personas can also use permitted tools such as Tavily Web search, WeatherAPI forecasts, and place lookup to connect those fragments with current information.
+
+A Japanese and English Alexa skill confirms spoken input before posting. Web Push delivers scheduled reminders and optional direct-agent replies on a best-effort basis. Markdown infographics with emoji and Mermaid make longer answers easier to follow, and users can preview selected posts and replies before sharing them to Bluesky.
+
+Model calls are logged by purpose and retry scope, so I can identify which stages make everyday use expensive and adjust them.
 
 ## Accomplishments that we're proud of
 
-What I'm proudest of is that I was able to build the notebook I've always wanted using AI, at a cost that could make it accessible to everyone. A place where I can jot down fragments without organizing them, and have them brought back when they matter. By making Nemotron 3.5 Super VL do most of the work, I demonstrated that even an affordable AI model can be capable enough to support everyday life.
-
-### What notes need to do
+What I'm proudest of is building the notebook I've always wanted: a place where I can jot down fragments without organizing them, and have them brought back when they matter. Nemotron 3.5 Super VL does most of the work, making this practical enough for me to use every day.
 
 With paper, I relied on three things: a notebook to write anywhere, a planner to know when to act, and sticky notes to find what mattered. kakeratta brings all three together.
 
-- **Capture anywhere.** Write from a PC or phone, even offline, or speak through Alexa.
-- **Find and follow through.** Search by keyword or meaning, receive scheduled reminders, and mark tasks done so personas know what you've completed.
-- **Keep important things visible.** Mark posts or AI answers as Favorites and find them again with favorites filters.
-
-### Beyond ordinary notes
-
-Some fragments become useful in ways a conventional notebook cannot offer.
-
-Posts can include a rough location, so I can ask "When did I last go to Tokyo?" I can photograph a page from a book, add my thoughts, and later ask what I was reading and how I felt about it.
-
-And fragments about people don't just sit in a notebook. A persona can remember what someone likes, notice an unfinished promise, or remind me when it's been too long since we last spoke.
-
-The achievement isn't any single feature. It's making these everyday uses work together through simple posts and personas, at a cost low enough that I don't have to hesitate before writing something down.
+I can capture a thought offline, find a useful answer again, and receive a reminder about a plan. A persona can remember what someone likes, notice an unfinished promise, or remind me when it's been too long since we last spoke. I can also inspect where a memory came from and correct it. That combination makes me more willing to rely on it.
 
 ## What we learned
 
@@ -150,15 +135,13 @@ The achievement isn't any single feature. It's making these everyday uses work t
 
 With coding agents, I can describe what I want and get a working implementation of a complex feature without explaining how to build it. So it seems like an LLM should easily be able to answer a question and take a note of it at the same time.
 
-In practice, when I asked an LLM to reply and write a note in one call, even a capable model often did only one of the two. And even when the reply and the note say nearly the same thing, each costs its own tokens, so the reply gets shallower. The model might say it doesn't know something a quick search would answer, hallucinate, or answer correctly, and which of these happens changes from call to call.
+In my early implementation, asking for an answer, notes, and schedules together produced shorter answers and missed operations. A persona could promise a reminder without creating it. More instructions did not reliably fix that.
 
-Coding agents don't have this problem because they don't pass the request straight to the LLM. They analyze the request internally, split it into separate LLM calls, and add review phases. This framework, called a harness, manages the process so the desired result comes out.
+I split each turn into phases: the persona writes the answer, while schedules and memory are planned, checked, and saved separately. Code checks permissions and whether the schedule plan supports the answer's promises. A memory failure can be retried after the answer has reached the user.
 
-The obvious answer is to bring a harness into kakeratta, but it isn't that simple. Coding agents assume a capable model. Point a coding agent at a weaker model and the results are terrible. kakeratta is meant to be cheap enough to use casually, so it can't rely on capable models everywhere.
+I also learned to give each call a smaller job. The memory keeper selects a field before reading its contents. The Hermes worker handles request intake and submission in code, leaving the model to research and answer. Adding review calls was not always helpful: in my direct-request experiments, review-and-retry loops often added cost without improving the result.
 
-So I split each turn into phases: the persona writes only the answer, while schedules and memory are planned, checked, and saved separately. Beyond that, I run the app, watch the results and the cost, and work on whatever fails most often. Sometimes I cover it with logic, sometimes with adjusted prompts or context. I use a capable model only for parts that are rarely called but important. Where the system can't fix something, the user adjusts it.
-
-As models and coding agents improve, features alone no longer set an app apart. What will, I think, is ease of use through UI/UX, and a harness built to balance quality against cost.
+I now watch real posts, failures, and usage together. I use Ultra for persona drafting and deep final answers, and test whether simpler tasks can stay on Super. Users can inspect routing decisions and correct memories or replies when the system gets them wrong. For this app, ease of use depends on those recovery paths as much as on the first answer.
 
 ## What's next for kakeratta
 
