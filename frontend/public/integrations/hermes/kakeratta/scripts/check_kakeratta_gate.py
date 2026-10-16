@@ -5,11 +5,13 @@ Checks kakeratta for pending planning asks and direct requests via MCP list_asks
 If nothing is pending or on any error/missing config, outputs {"wakeAgent": false}
 to skip LLM execution entirely (fail-closed, zero token spend).
 
-Pending direct requests are handled here, in code, by the distributed
-direct-request worker (direct_request_worker.py): claim, generate, review,
-correct, execute and reply, without ever waking the Super parent. Only a
-pending persona ask wakes Hermes Agent, so a tick with direct requests alone
-makes zero parent-model calls.
+Both pending direct requests and pending persona asks are handled here, in code,
+by the distributed worker (direct_request_worker.py):
+- Direct requests (`@agent`): claim_request -> one Ultra session -> reply_request.
+- Persona asks: claim_ask -> one Super VL session with only `read_for_ask` and `web` tools -> submit_answer.
+Because the worker claims, runs and submits in code without waking the Cron
+parent, normal ticks always return {"wakeAgent": false} with zero parent-model
+overhead.
 
 It also keeps the integration current. list_asks carries the versions of the
 distributed skill, this script and the worker; when any differs from what is
@@ -29,7 +31,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "8"
+GATE_VERSION = "9"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -267,8 +269,9 @@ def judge_tick():
         requests = [r for r in result.get("requests", []) if isinstance(r, dict) and r.get("status") in ("pending", "claimed")]
         if requests:
             worker.spawn_judge_requests(url, headers, wid, requests)
-        if any(isinstance(a, dict) and a.get("status") == "pending" for a in result["asks"]):
-            worker.spawn_persona_asks(url, headers, wid)
+        asks = [a for a in result.get("asks", []) if isinstance(a, dict) and a.get("status") in ("pending", "claimed")]
+        if asks:
+            worker.spawn_persona_asks(url, headers, wid, asks)
 
 
 def main():
@@ -310,6 +313,7 @@ def main():
         # Each workspace is read on its own: one that fails (being deleted,
         # say) is skipped this tick and never holds up the others.
         pending_asks = []
+        ask_batches = []
         batches = []
         result, result_url = None, url
         for target in targets:
@@ -327,6 +331,7 @@ def main():
                 print(f"kakeratta list_asks failed for {target['workspaceId']}: {e}", file=sys.stderr)
                 continue
             pending_asks.extend((target, a) for a in asks if isinstance(a, dict) and a.get("status") == "pending")
+            ask_batches.append((target, asks))
             batches.append((target, requests))
             if result is None:
                 # The integration is fetched from a workspace this key can
@@ -345,10 +350,10 @@ def main():
             except Exception as e:
                 print(f"kakeratta integration update failed: {e}", file=sys.stderr)
 
-        # Direct requests are handled in code by the distributed worker, not
-        # by waking the Super parent. It is imported only now, after the
-        # integration (including the worker) has been brought current above,
-        # and a missing or broken worker never stops persona asks.
+        # Both direct requests and persona asks are handled in code by the
+        # distributed worker, not by waking the Cron parent. It is imported
+        # only now, after the integration (including the worker) has been
+        # brought current above.
         worker = None
         try:
             sys.path.insert(0, str(scripts_dir()))
@@ -373,34 +378,32 @@ def main():
                 # retried next tick.
                 print(f"kakeratta direct-request worker failed: {e}", file=sys.stderr)
 
-        # A shared judge target cannot be handed to the cron parent through
-        # Wake Gate's boolean result. The same installed skill runs in a
-        # detached, workspace-scoped Hermes home whose generated MCP config is
-        # bound to that target, so the gate returns at once; a per-workspace
-        # lock keeps an overlapping tick from answering the same ask twice.
         shared = targets and targets[0].get("workspaceId") != "configured"
-        if shared:
-            for target in {item[0]["workspaceId"]: item[0] for item in pending_asks}.values():
+        if worker is not None:
+            for target, asks in ask_batches:
+                open_asks = [a for a in asks if isinstance(a, dict) and a.get("status") in ("pending", "claimed")]
+                if not open_asks:
+                    continue
                 try:
-                    if worker is None:
-                        raise RuntimeError("direct_request_worker is not available")
-                    worker.spawn_persona_asks(target["mcpUrl"], headers, target["workspaceId"])
+                    if target["workspaceId"] == "configured":
+                        worker.process_asks(target["mcpUrl"], headers, open_asks)
+                    else:
+                        worker.spawn_persona_asks(target["mcpUrl"], headers, target["workspaceId"], open_asks)
                 except Exception as e:
                     print(f"kakeratta persona worker failed for {target['workspaceId']}: {e}", file=sys.stderr)
-            # Each failed ask remains pending and falls back on kakeratta's
-            # existing deadline. Never wake the parent against its stale URL.
+            # Persona asks are handled by the worker above (or fall back on
+            # kakeratta's deadline on failure); never wake the Cron parent.
+            pending_asks = []
+        elif shared:
             pending_asks = []
 
-        # The 15-turn boundary covers persona asks; direct requests no longer
-        # need the expanded 40 turns because Super is not woken for them.
+        # The 15-turn boundary covers fallback parent runs if the worker script
+        # is missing.
         if not shared and not adjust_max_turns(config_path, 15):
             print("Pre-check warning: agent.max_turns line missing or invalid in config; skipping wake", file=sys.stderr)
             print(json.dumps({"wakeAgent": False}))
             return
 
-        # Only a pending persona ask needs a wake: direct requests are handled
-        # by the worker above, and a claimed ask or request is already being
-        # handled by a running agent.
         if len(pending_asks) == 0:
             print(json.dumps({"wakeAgent": False}))
         else:

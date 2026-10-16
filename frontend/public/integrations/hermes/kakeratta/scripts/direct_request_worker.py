@@ -1,50 +1,18 @@
 #!/usr/bin/env python3
-"""Direct-request worker for the kakeratta Hermes integration.
+"""Direct-request and persona-ask worker for the kakeratta Hermes integration.
 
 The Wake Gate (check_kakeratta_gate.py) hands open direct requests
-(`list_asks.requests` with `status` `pending`, or `claimed` by an earlier run
-of this worker) to it instead of waking the Nemotron Super parent. The worker
-claims and replies in code and runs Ultra as an ordinary Hermes agent for the
-work in between, so the parent model is never involved in a direct request.
+(`list_asks.requests`) and open persona asks (`list_asks.asks`) to this worker
+instead of waking the Nemotron Super cron parent.
 
-Flow, one request at a time, oldest first:
-
-    claim_request (code)
-      -> one Ultra `hermes chat` session with the worker's tools does the work
-      -> reply_request (code) with that session's final response
-
-Safety:
-
-* The run is a fresh single-query `hermes chat` session with the worker's
-  own Hermes home (kakeratta/hermes-home), never a direct provider request.
-  By default that home loads only kakeratta's read-only MCP tools, this
-  script's own read-only file server (--fs-mcp) and the `web` toolset. More
-  tools are added the usual Hermes way: toolsets in `kakeratta_worker.toolsets`
-  and parent MCP servers named in `kakeratta_worker.mcp_servers`. Known secret
-  values are masked in file reads, the reply and the audit log.
-* Every event is appended as one JSON line per request ID under Hermes home
-  and flushed at each stage, so progress survives a crash. Secrets are never
-  recorded.
-* One worker at a time: a non-blocking lock under Hermes home makes an
-  overlapping tick skip instead of processing the same request twice.
-* Fail-closed: any error before a claim leaves the request pending for the
-  next tick. After a claim the worker records its stage, so a later tick
-  resumes the claimed request with the same claimId and resends a saved
-  reply. A run that failed or was interrupted is retried (at most MAX_RESUMES
-  times) only when the worker's tools are read-only; once action tools are
-  configured it may already have acted, so it is reported, never repeated.
-  There is no fallback to the parent model.
-* Cost boundary: the run may take at most MAX_TURNS tool-calling iterations.
-  Afterwards the worker reads the session's token counts from the worker
-  home's Hermes state.db and audits them. Before and after the run it checks
-  the request's totals (kept across resumes) against MAX_API_CALLS and
-  MAX_REQUEST_TOKENS; past either limit, or when a run's usage cannot be
-  read, it stops and replies with the reason.
-
-The worker's Hermes config reuses the existing Provider v2 setup: the model,
-provider, endpoint and `${VAR}` API-key reference come from Hermes's
-config.yaml (`kakeratta_worker`, then `delegation`; never the parent's
-`model`), and the key stays an unexpanded reference that Hermes resolves.
+* Direct requests (`@agent`): claims in code (`claim_request`), runs one Ultra
+  `hermes chat` session with the worker's read-only/configured tools, and posts
+  the final response in code (`reply_request`).
+* Persona asks: claims in code (`claim_ask`), runs one Super VL `hermes chat`
+  session with only `read_for_ask` from kakeratta MCP (plus `web` when web
+  search is permitted), and submits the structured answer in code
+  (`submit_answer`), or releases the ask (`release_ask`) immediately to
+  kakeratta's built-in planner on failure.
 """
 
 import fcntl
@@ -61,15 +29,18 @@ from pathlib import Path
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "7"
+WORKER_VERSION = "9"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
 DEFAULT_REASONING = "high"
 MAX_RESUMES = 2              # later ticks that may resume an interrupted claimed request
-MAX_TURNS = 15               # tool-calling iterations in the run
-MAX_API_CALLS = 40           # model calls per request, across runs and resumes
-MAX_REQUEST_TOKENS = 1_500_000  # input + cache read/write + output tokens per request
+MAX_TURNS = 15               # tool-calling iterations in the direct-request run
+MAX_API_CALLS = 40           # model calls per direct request, across runs and resumes
+MAX_REQUEST_TOKENS = 1_500_000  # input + cache read/write + output tokens per direct request
+PERSONA_MAX_TURNS = 6        # tool-calling iterations in a persona-ask run (read_for_ask / web + answer)
+PERSONA_MAX_API_CALLS = 8    # model calls per persona ask
+PERSONA_MAX_TOKENS = 250_000 # input + cache read/write + output tokens per persona ask
 MAX_REPLY = 20000            # reply_request rejects longer text
 DEFAULT_MAX_TOKENS = 16000   # output cap per model call, reasoning included; bounds cost
 RUN_BUDGET = 1200            # wall-clock budget per Hermes run, seconds
@@ -81,11 +52,16 @@ RESPONSE_TAIL = 300          # end of an unusable response kept in the audit log
 DEFAULT_TOOLSETS = "web,kakeratta,files"
 READ_ONLY_TOOLSETS = {"web", "kakeratta", "files"}
 
-# The only kakeratta MCP tools the worker's Hermes home loads. Writes
-# (claim_request, reply_request, comment_on_entry, submit_answer, ...) are not
-# loaded at all, so a model cannot call them.
+# The only kakeratta MCP tools the direct-request worker's Hermes home loads.
+# Writes (claim_request, reply_request, comment_on_entry, submit_answer, ...)
+# are not loaded at all, so a model cannot call them.
 READONLY_MCP_TOOLS = ["get_timeline", "get_thread", "search_timeline", "list_schedules",
                       "list_personas", "list_notes", "read_note"]
+
+# The only kakeratta MCP tool the persona-ask worker's Hermes home loads.
+# claim_ask, submit_answer and release_ask are called by Python code, so the
+# persona model only ever sees read_for_ask for kakera records and persona tools.
+PERSONA_MCP_TOOLS = ["read_for_ask"]
 
 # --- config and environment ----------------------------------------------
 
@@ -504,6 +480,7 @@ def _agent_prompt(context):
 
 # Lines Hermes prints before the response in quiet mode.
 _NOTICE = re.compile(r"^\s*(⚠|'[^']*' for \w+\.$)")
+_SESSION_LINE = re.compile(r"^\s*session_id:\s*\S+\s*$")
 # What Hermes answers when the run ends at its turn limit.
 _TURN_LIMIT = re.compile(r"(?i)reached the (maximum number of tool-calling iterations|iteration limit)")
 
@@ -513,6 +490,8 @@ def clean_response(text):
     lines = (text or "").strip().splitlines()
     while lines and _NOTICE.match(lines[0]):
         lines.pop(0)
+    while lines and _SESSION_LINE.match(lines[-1]):
+        lines.pop()
     return "\n".join(lines).strip()
 
 
@@ -800,7 +779,7 @@ def _judge_root(parent: Path, workspace_id: str) -> Path:
     return parent / "kakeratta-judge-workspaces" / workspace_id
 
 
-def spawn_persona_asks(url, headers, workspace_id, home=None):
+def spawn_persona_asks(url, headers, workspace_id, asks=None, home=None):
     """Start process_persona_asks for one judge workspace in a detached
     process and return at once, so the Wake Gate is never held by a Hermes
     run. The MCP credential goes over stdin, never on the command line."""
@@ -814,7 +793,10 @@ def spawn_persona_asks(url, headers, workspace_id, home=None):
             [sys.executable, str(Path(__file__).resolve()), "--persona-asks"],
             stdin=subprocess.PIPE, stdout=log, stderr=log, text=True,
             env=dict(os.environ, HERMES_HOME=str(parent)), start_new_session=True)
-        proc.stdin.write(json.dumps({"url": url, "headers": headers, "workspaceId": workspace_id}))
+        payload = {"url": url, "headers": headers, "workspaceId": workspace_id}
+        if asks is not None:
+            payload["asks"] = asks
+        proc.stdin.write(json.dumps(payload))
         proc.stdin.close()
     finally:
         log.close()
@@ -849,7 +831,7 @@ def persona_asks_main():
     """Entry for --persona-asks: the arguments arrive as JSON on stdin."""
     args = json.loads(sys.stdin.read())
     try:
-        process_persona_asks(args["url"], args["headers"], args["workspaceId"])
+        process_persona_asks(args["url"], args["headers"], args["workspaceId"], asks=args.get("asks"))
     except Exception as e:
         secrets = secret_values(model_config(read_config(get_hermes_home())), args.get("headers"))
         print(f"kakeratta persona worker failed for {args.get('workspaceId')}: {redact(e, secrets)}", file=sys.stderr)
@@ -857,45 +839,17 @@ def persona_asks_main():
     return 0
 
 
-def process_persona_asks(url, headers, workspace_id, home=None):
-    """Run the normal kakeratta skill against one discovered judge workspace.
-
-    A fresh workspace-scoped Hermes home carries a generated config whose
-    kakeratta MCP server points only at ``url``. The parent config is never
-    edited and Hermes does not need a restart. This is invoked only after the
-    gate has proved that this workspace has a pending persona ask. Only one
-    run per workspace at a time: an overlapping tick returns at once.
-    """
-    parent = home or get_hermes_home()
-    main_cfg = read_config(parent)
-    if not isinstance(main_cfg, dict):
-        raise RuntimeError("config.yaml not found")
-    root = _judge_root(parent, workspace_id)
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(root, 0o700)
-    lock = open(root / "persona.lock", "w")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        lock.close()
-        return
-    try:
-        _run_persona_asks(parent, main_cfg, root, url, headers)
-    finally:
-        lock.close()
-
-
 PARENT_SUPER_VL = "nvidia/Nemotron-3.5-Super-VL"
 LEGACY_PARENT_SUPER = "nvidia/nemotron-3-super-120b-a12b"
 
 
 def persona_model_config(main_cfg):
-    """Upgrade the legacy Token Factory Super in generated judge homes only.
+    """Upgrade the legacy Token Factory Super in generated persona homes.
 
     Respect deliberate model/provider choices; Ultra direct requests use the
     separate model_config path and are unaffected.
     """
-    model = copy.deepcopy(main_cfg.get("model") or {})
+    model = copy.deepcopy((main_cfg or {}).get("model") or {})
     if (model.get("provider") == "custom"
             and str(model.get("base_url", "")).rstrip("/") == "https://api.tokenfactory.nebius.com/v1"
             and str(model.get("default", "")).lower() == LEGACY_PARENT_SUPER):
@@ -903,46 +857,375 @@ def persona_model_config(main_cfg):
     return model
 
 
-def _run_persona_asks(parent, main_cfg, root, url, headers):
-    run_home = root / "persona-hermes-home"
+def persona_run_config(main_cfg):
+    """Build the runtime config for code-driven persona-ask runs on Super VL."""
+    model = persona_model_config(main_cfg)
+    base = model_config(main_cfg)
+    api_key_ref = model.get("api_key") or base.get("api_key_ref")
+    reasoning = model.get("reasoning_effort", model.get("reasoning", ""))
+    return {
+        "model": model.get("default") or model.get("model") or PARENT_SUPER_VL,
+        "provider": model.get("provider") or base.get("provider") or "custom",
+        "base_url": model.get("base_url") or base.get("base_url"),
+        "api_key_ref": api_key_ref,
+        "api_key": resolve_env(api_key_ref or "${TOKENFACTORY_API_KEY}"),
+        "reasoning": "" if reasoning in (None, "none", "off", "") else str(reasoning),
+        "max_tokens": int(model.get("max_tokens") or DEFAULT_MAX_TOKENS),
+        "run_budget": int(model.get("run_budget") or base["run_budget"]),
+        "max_turns": int(model.get("max_turns") or PERSONA_MAX_TURNS),
+        "max_api_calls": int(model.get("max_api_calls") or PERSONA_MAX_API_CALLS),
+        "max_request_tokens": int(model.get("max_request_tokens") or PERSONA_MAX_TOKENS),
+        "hermes_bin": base["hermes_bin"],
+    }
+
+
+def prepare_persona_home(home: Path, main_cfg, cfg, url, headers, parent: Path = None, judge_isolated: bool = False) -> Path:
+    """Write the persona worker's isolated Hermes home and return it.
+
+    Persona asks claim and submit in Python code, so the generated home loads
+    only `read_for_ask` from the kakeratta MCP server (`PERSONA_MCP_TOOLS`) and
+    zero skills. `list_asks`, `claim_ask`, `submit_answer` and `release_ask`
+    are not loaded at all.
+    """
+    import yaml
+    parent = parent or home
+    main_cfg = main_cfg if isinstance(main_cfg, dict) else {}
+    run_home = (home if judge_isolated else _work_root(home)) / "persona-hermes-home"
     run_home.mkdir(parents=True, exist_ok=True)
     os.chmod(run_home, 0o700)
 
-    cfg = {k: copy.deepcopy(main_cfg[k]) for k in ("model", "providers") if k in main_cfg}
-    cfg["model"] = persona_model_config(main_cfg)
-    cfg["agent"] = {"max_turns": 15}
-    servers = cfg.setdefault("mcp_servers", {})
-    server = dict(servers.get("kakeratta") or {})
-    server["url"] = url
-    server["headers"] = {k: v for k, v in headers.items()
-                         if k.lower() not in ("content-type", "accept")}
-    server.pop("tools", None)  # persona asks need claim/read/submit as well as reads
-    servers["kakeratta"] = server
-    _atomic_write(run_home / "config.yaml", __import__("yaml").safe_dump(cfg, allow_unicode=True), mode=0o600)
-    # Earlier shared homes linked all parent skills. Retire that link so
-    # an existing installation gets the same restriction as a new one.
+    model = persona_model_config(main_cfg)
+    model.update({"default": cfg["model"], "provider": cfg["provider"], "max_tokens": cfg["max_tokens"]})
+    if cfg.get("base_url"):
+        model["base_url"] = cfg["base_url"]
+    if cfg.get("api_key_ref"):
+        model["api_key"] = cfg["api_key_ref"]
+
+    servers = main_cfg.get("mcp_servers") if isinstance(main_cfg.get("mcp_servers"), dict) else {}
+    mcp = dict(servers.get("kakeratta") or {})
+    mcp["url"] = url
+    mcp["headers"] = {k: v for k, v in (headers or {}).items() if k.lower() not in ("content-type", "accept")}
+    mcp["tools"] = {"include": list(PERSONA_MCP_TOOLS), "prompts": False, "resources": False}
+
+    persona_cfg = {
+        "model": model,
+        "agent": {"max_turns": cfg["max_turns"]},
+        "tools": {"tool_search": {"enabled": "off"}},
+        "mcp_servers": {"kakeratta": mcp},
+    }
+    if isinstance(main_cfg.get("providers"), dict):
+        persona_cfg["providers"] = copy.deepcopy(main_cfg["providers"])
+    _atomic_write(run_home / "config.yaml", yaml.safe_dump(persona_cfg, allow_unicode=True), mode=0o600)
+
     skills_link = run_home / "skills"
     if skills_link.is_symlink():
         skills_link.unlink()
-    for name in (".env",):
-        source, link = parent / name, run_home / name
-        if source.exists() and not link.exists():
-            link.symlink_to(source, target_is_directory=source.is_dir())
+    env_file, link = parent / ".env", run_home / ".env"
+    if env_file.exists() and not link.exists():
+        link.symlink_to(env_file)
+    return run_home
 
-    skill_path = parent / "skills" / "kakeratta" / "SKILL.md"
-    if not skill_path.exists():
-        raise RuntimeError("kakeratta skill is not installed")
-    prompt = (skill_path.read_text(encoding="utf-8") +
-              "\n\nThe Wake Gate has confirmed pending persona asks in this MCP workspace. "
-              "Follow the skill now for every pending ask. End only after each answer is accepted.")
-    model = model_config(main_cfg)
-    cmd = [model["hermes_bin"], "chat", "-Q", "--ignore-rules", "-t", "kakeratta", "--max-turns", "15",
-           "--run-budget", str(model["run_budget"]), "--query-file", "-"]
-    proc = subprocess.run(cmd, input=prompt, env=dict(os.environ, HERMES_HOME=str(run_home)),
-                          cwd=str(run_home), capture_output=True, text=True,
-                          timeout=model["run_budget"] + 120)
-    if proc.returncode != 0:
-        raise RuntimeError(f"persona Hermes exited with {proc.returncode}: {proc.stderr.strip()[-300:]}")
+
+PERSONA_SYSTEM = """あなたは kakeratta の担当ペルソナとして、今回のターンの最終回答を作成します。
+claim_ask や submit_answer などの取得・提出操作は外側のワーカーが自動で処理するため、呼び出さないでください。
+
+調査ツールについて:
+- スレッドと「記憶（最初に渡したもの）」だけで答えられる場合は、ツールを呼ばずにすぐ回答してください。
+- 過去のかけら記録（`records`）や、下に列挙された担当固有の読み取りツール（`timeline_search`, `weather_forecast`, `place_search`, `schedules_list`, `kakeratta_help` 等）で調べる必要がある場合は、`mcp__kakeratta__read_for_ask` を直接呼び出してください（`askId` と `claimId` は下に示された値をそのまま渡し、`steps` に `[{"type": "records" または "tool", "tool": "ツール名（recordsなら空文字）", "args": "{...JSON文字列...}"}]` を指定します）。
+- 外部Webの最新情報が必要な場合は `web_search`（または `read_for_ask` の `web_search`）を使えます。
+
+出力形式:
+- 発言する場合は、ユーザーに表示する最終回答の本文（Markdown）だけをそのまま出力してください（JSON で包まないでください）。
+- `read_for_ask` の `timeline_search` で見つけた過去の投稿IDを出典（sources）として引用する場合は、回答末尾の行に `[SOURCES: e_xxx, e_yyy]`（最大3件）と添えてください。
+- 回答の中で予定の作成・変更・取消を約束した場合（または予定操作が必要な場合）のみ、回答の最終行に `[SCHEDULE]` と1行だけ添えてください。
+- 名指しされておらず、対象発言があなたの担当領域と無関係で黙る場合は `[UNRELATED]` とだけ出力してください。
+- 名指しされておらず、担当領域には関係あるが今回は言うことがなく黙る場合は `[SILENT]` とだけ出力してください。
+"""
+
+
+def _persona_context_text(context, ask_id="", claim_id=""):
+    persona = context.get("persona") or {}
+    parts = [
+        f"あなたは{persona.get('name', '')}（ID: {persona.get('id', '')}）です。{persona.get('tone', '')}",
+        f"askId: {ask_id}\nclaimId: {claim_id}",
+        "あなたの担当領域:\n" + str(persona.get("domain", "")),
+        "あなた自身への指示:\n" + str(context.get("instructions", "")),
+        str(context.get("rules", "")),
+        "いまの日時: " + str(context.get("now", "")),
+        str(context.get("place", "")),
+        "できること:\n" + str(context.get("capabilities", "")),
+    ]
+    if context.get("turn"):
+        parts.append(str(context["turn"]).strip())
+    if context.get("tools"):
+        parts.append("利用可能な read_for_ask ツール:\n" + json.dumps(context.get("tools"), ensure_ascii=False))
+    if context.get("limits"):
+        parts.append("調査上限 (limits): " + json.dumps(context.get("limits"), ensure_ascii=False))
+    parts.append(f"今回の起動理由 ({context.get('wake', '')}):\n{context.get('wakeInstructions', '')}")
+    parts.append("記憶（最初に渡したもの）:\n" + str(context.get("memory", "")))
+    parts.append("既存の予定:\n" + str(context.get("schedules", "")))
+    trigger = context.get("trigger") or {}
+    parts.append("対象発言 (Trigger):\n" + str(trigger.get("rendered") or trigger.get("text") or ""))
+    thread = context.get("thread") or []
+    lines = []
+    for entry in thread:
+        if isinstance(entry, dict):
+            lines.append(entry.get("rendered") or f"[{entry.get('speaker', '')}] {entry.get('text', '')}")
+    parts.append("スレッド全体の流れ (古い順):\n" + "\n\n".join(lines))
+    return "\n\n".join(parts)
+
+
+def _persona_prompt(context, ask_id="", claim_id=""):
+    return PERSONA_SYSTEM + "\n" + _persona_context_text(context, ask_id=ask_id, claim_id=claim_id)
+
+
+def _persona_toolsets(context):
+    limits = context.get("limits") if isinstance(context.get("limits"), dict) else {}
+    searches = limits.get("searches")
+    if isinstance(searches, int) and searches <= 0:
+        return "kakeratta"
+    tools = context.get("tools")
+    if isinstance(tools, list) and tools:
+        if any(isinstance(t, dict) and t.get("name") == "web_search" for t in tools):
+            return "kakeratta,web"
+        return "kakeratta"
+    return "kakeratta,web"
+
+
+_SCHEDULE_MARKER = re.compile(r"(?:^\s*\[SCHEDULE\]\s*(?:\r?\n|$)|(?:\r?\n|\s)*\[SCHEDULE\]\s*$)", re.IGNORECASE)
+_SOURCES_MARKER = re.compile(r"(?:^\s*\[SOURCES:\s*([^\]]*)\]\s*(?:\r?\n|$)|(?:\r?\n|\s)*\[SOURCES:\s*([^\]]*)\]\s*$)", re.IGNORECASE)
+_FENCED_JSON = re.compile(r"^```(?:json)?\s*\n([\s\S]*?)\n```\s*$")
+
+
+def parse_persona_answer(raw_text, context):
+    """Turn the persona model's response into a kakeratta Answer dict, or None
+    when the response is unusable and the ask should be released to the
+    built-in planner."""
+    turn = str((context or {}).get("turn") or "")
+    wake = str((context or {}).get("wake") or "")
+    listening = wake == "listening" or "このターンは発言できません" in turn
+    named = "あなたは名指しで呼ばれています" in turn and not listening
+
+    if listening or wake == "post-deleted":
+        return {"text": "", "sources": [], "schedule": False, "unrelated": False}
+
+    cleaned = clean_response(raw_text)
+    if not cleaned or (_TURN_LIMIT.search(cleaned) and len(cleaned) < 300):
+        return None
+
+    candidate = cleaned
+    m = _FENCED_JSON.match(cleaned)
+    if m:
+        candidate = m.group(1).strip()
+    if candidate.startswith("{") and candidate.endswith("}"):
+        try:
+            obj = json.loads(candidate)
+            if isinstance(obj, dict) and isinstance(obj.get("text"), str):
+                text = obj["text"].replace("\\n", "\n").strip()
+                if named and not text:
+                    return None
+                raw_sources = obj.get("sources") if isinstance(obj.get("sources"), list) else []
+                sources = [str(s).strip() for s in raw_sources if str(s).strip()][:3]
+                unrelated = bool(obj.get("unrelated")) and not text and not named
+                return {
+                    "text": text,
+                    "sources": sources,
+                    "schedule": bool(obj.get("schedule")),
+                    "unrelated": unrelated,
+                }
+        except Exception:
+            pass
+
+    schedule = False
+    sources = []
+    # Strip leading or trailing [SCHEDULE] and [SOURCES: ...] markers in either order.
+    for _ in range(2):
+        if _SCHEDULE_MARKER.search(cleaned):
+            schedule = True
+            cleaned = _SCHEDULE_MARKER.sub("", cleaned).strip()
+        sm = _SOURCES_MARKER.search(cleaned)
+        if sm:
+            raw_list = sm.group(1) if sm.group(1) is not None else (sm.group(2) or "")
+            sources = [s.strip() for s in raw_list.split(",") if s.strip()][:3]
+            cleaned = _SOURCES_MARKER.sub("", cleaned).strip()
+
+    upper = cleaned.strip().upper()
+    if upper == "[UNRELATED]":
+        if named:
+            return None
+        return {"text": "", "sources": [], "schedule": False, "unrelated": True}
+    if upper == "[SILENT]":
+        if named:
+            return None
+        return {"text": "", "sources": [], "schedule": schedule, "unrelated": False}
+    if named and not cleaned.strip():
+        return None
+    return {"text": cleaned, "sources": sources, "schedule": schedule, "unrelated": False}
+
+
+def _submit_ask_answer(cfg, url, headers, ask_id, claim_id, answer, home, state_key):
+    cleaned = dict(answer)
+    cleaned["text"] = redact(cleaned.get("text", ""), cfg["secrets"]).strip()
+    cleaned["sources"] = list(cleaned.get("sources") or [])[:3]
+    cleaned["schedule"] = bool(cleaned.get("schedule"))
+    cleaned["unrelated"] = bool(cleaned.get("unrelated")) and not cleaned["text"]
+    save_state(home, state_key, {"stage": "submit", "answer": cleaned})
+    try:
+        verdict = mcp_call(url, headers, "submit_answer",
+                           {"askId": ask_id, "claimId": claim_id, "answer": cleaned},
+                           timeout=MCP_TIMEOUT)
+    except Exception as e:
+        audit(home, state_key, "submit_error", {"error": redact(e, cfg["secrets"])})
+        return
+    if verdict.get("accepted") or verdict.get("closed"):
+        audit(home, state_key, "answer_submitted", {
+            "accepted": bool(verdict.get("accepted")),
+            "closed": bool(verdict.get("closed")),
+            "schedule": cleaned["schedule"],
+            "unrelated": cleaned["unrelated"],
+            "chars": len(cleaned["text"]),
+        })
+        save_state(home, state_key, {"stage": "done"})
+        return
+    problems = "; ".join(str(p) for p in (verdict.get("problems") or [])) or "rejected"
+    _release_ask(cfg, url, headers, ask_id, claim_id, problems, home, state_key)
+
+
+def _release_ask(cfg, url, headers, ask_id, claim_id, reason, home, state_key):
+    reason = redact(reason or "released", cfg["secrets"])[:200]
+    try:
+        mcp_call(url, headers, "release_ask",
+                 {"askId": ask_id, "claimId": claim_id, "reason": reason},
+                 timeout=MCP_TIMEOUT)
+        audit(home, state_key, "ask_released", {"reason": reason})
+        save_state(home, state_key, {"stage": "done"})
+    except Exception as e:
+        audit(home, state_key, "release_error", {"error": redact(e, cfg["secrets"])})
+
+
+def process_one_ask(url, headers, ask, cfg, home):
+    ask_id = ask["id"]
+    claim_id = "hermes-" + ask_id
+    state_key = "ask-" + ask_id
+    secrets = cfg["secrets"]
+    state = load_state(home, state_key)
+    stage = state.get("stage")
+    if stage == "done":
+        return
+
+    if stage == "submit" and isinstance(state.get("answer"), dict):
+        audit(home, state_key, "submit_retry")
+        _submit_ask_answer(cfg, url, headers, ask_id, claim_id, state["answer"], home, state_key)
+        return
+
+    resuming = stage in ("claimed", "submit")
+    if ask.get("status") != "pending" and not resuming:
+        return
+    resumes = int(state.get("resumes", -1)) + 1 if resuming else 0
+
+    try:
+        claimed = mcp_call(url, headers, "claim_ask",
+                           {"askId": ask_id, "claimId": claim_id}, timeout=MCP_TIMEOUT)
+    except Exception as e:
+        audit(home, state_key, "claim_error", {"error": redact(e, secrets)})
+        return
+    save_state(home, state_key, {"stage": "claimed", "resumes": resumes})
+    context = claimed.get("context") or {}
+    wake = str(context.get("wake") or ask.get("wake") or "")
+    turn = str(context.get("turn") or "")
+    audit(home, state_key, "resumed" if resuming else "claimed", {
+        "claim_id": claim_id, "persona": (context.get("persona") or {}).get("id") or ask.get("persona"),
+        "wake": wake, "model": cfg["model"], "resume": resumes,
+    })
+
+    # Listening and post-deleted turns require an empty answer text; submit
+    # immediately in code without spending any model tokens.
+    if wake in ("listening", "post-deleted") or "このターンは発言できません" in turn:
+        _submit_ask_answer(cfg, url, headers, ask_id, claim_id,
+                           {"text": "", "sources": [], "schedule": False, "unrelated": False},
+                           home, state_key)
+        return
+
+    if resumes > MAX_RESUMES:
+        _release_ask(cfg, url, headers, ask_id, claim_id, "resume limit reached", home, state_key)
+        return
+
+    cfg["meter"] = Meter(cfg, home, state_key)
+    toolsets = _persona_toolsets(context)
+    try:
+        text, session = hermes_run(cfg, _persona_prompt(context, ask_id=ask_id, claim_id=claim_id),
+                                   toolsets, cfg["max_turns"], "persona")
+    except Exception as e:
+        error = redact(e, secrets)
+        audit(home, state_key, "failed", {"error": error, "resume": resumes})
+        _release_ask(cfg, url, headers, ask_id, claim_id, error, home, state_key)
+        return
+
+    answer = parse_persona_answer(text, context)
+    audit(home, state_key, "persona_run", {
+        "session": session, "toolsets": toolsets,
+        "accepted_shape": answer is not None,
+        "reply_chars": len(answer["text"]) if answer else 0,
+    })
+    if answer is None:
+        _release_ask(cfg, url, headers, ask_id, claim_id, "unusable persona response", home, state_key)
+        return
+    _submit_ask_answer(cfg, url, headers, ask_id, claim_id, answer, home, state_key)
+
+
+def acquire_persona_lock(home: Path, judge_isolated: bool = False):
+    path = (home if judge_isolated else _work_root(home)) / "persona.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    f = open(path, "w")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        return None
+    return f
+
+
+def process_asks(url, headers, asks=None, cfg=None, home=None, workspace_id=None):
+    """Process open persona asks in code, oldest first: claim_ask in Python,
+    one Super VL `hermes chat -Q` session with only `read_for_ask` from
+    kakeratta MCP (plus `web` when permitted), and submit_answer (or
+    release_ask on error) in Python."""
+    parent = home or get_hermes_home()
+    main_cfg = read_config(parent)
+    if not isinstance(main_cfg, dict):
+        raise RuntimeError("config.yaml not found")
+    judge_isolated = bool(workspace_id and workspace_id != "configured")
+    home = _judge_root(parent, workspace_id) if judge_isolated else parent
+    if judge_isolated:
+        home.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(home, 0o700)
+    cfg = cfg or persona_run_config(main_cfg)
+    cfg["secrets"] = secret_values(cfg, headers)
+    lock = acquire_persona_lock(home, judge_isolated=judge_isolated)
+    if lock is None:
+        print("kakeratta persona worker: another run is in progress; skipping", file=sys.stderr)
+        return
+    try:
+        cfg["worker_home"] = prepare_persona_home(home, main_cfg, cfg, url, headers, parent=parent, judge_isolated=judge_isolated)
+        if asks is None:
+            listed = mcp_call(url, headers, "list_asks", timeout=MCP_TIMEOUT)
+            asks = listed.get("asks") if isinstance(listed, dict) else []
+        open_asks = [a for a in (asks or []) if isinstance(a, dict) and a.get("status") in ("pending", "claimed")]
+        for ask in sorted(open_asks, key=lambda a: a.get("id", "")):
+            aid = ask.get("id")
+            if not aid:
+                continue
+            try:
+                process_one_ask(url, headers, ask, cfg, home)
+            except Exception as e:
+                audit(home, "ask-" + aid, "worker_error", {"error": redact(e, cfg["secrets"])})
+    finally:
+        lock.close()
+
+
+def process_persona_asks(url, headers, workspace_id, home=None, asks=None):
+    """Run code-driven persona-ask handling against one workspace."""
+    process_asks(url, headers, asks=asks, home=home, workspace_id=workspace_id)
 
 
 def main():
@@ -963,13 +1246,16 @@ def main():
     try:
         result = mcp_call(url, headers, "list_asks")
         requests = result.get("requests") or []
+        asks = result.get("asks") or []
     except Exception as e:
         print(f"direct_request_worker: list_asks failed: {redact(e, secret_values(cfg, headers))}", file=sys.stderr)
         return 1
     open_requests = [r for r in requests if isinstance(r, dict) and r.get("status") in ("pending", "claimed")]
-    if not open_requests:
-        return 0
-    process(url, headers, open_requests, cfg=cfg, home=home)
+    if open_requests:
+        process(url, headers, open_requests, cfg=cfg, home=home)
+    open_asks = [a for a in asks if isinstance(a, dict) and a.get("status") in ("pending", "claimed")]
+    if open_asks:
+        process_asks(url, headers, open_asks, home=home)
     return 0
 
 

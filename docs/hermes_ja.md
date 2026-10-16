@@ -203,8 +203,8 @@ ask を出す前に、外部エージェントの接続状態を確認します�
 これを防ぐため、Cron の事前実行スクリプトである **Wake Gate**（[check_kakeratta_gate.py](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)）を Cron ジョブに指定します。
 
 - **未処理 ask がない場合**: `{"wakeAgent": false}` を返し、LLM を一切起動せずに即時終了します（アイドル tick 約 0.06 秒、LLM 呼び出し 0 回）。また、`agent.max_turns` は安全な 15 に維持されます。
-- **通常の未処理 ask がある場合**: `{"wakeAgent": true}` を返し、15 ターンの安全境界を保ったままペルソナ回答を実行します。
-- **直接依頼（direct request）がある場合**: 同じ tick で配布済みの [直接依頼ワーカー](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) が処理します（取得 → ワーカーの道具を持つ Ultra を1回実行 → 最終応答を返信）。親モデルは起動しません。エージェントが起動するのは persona ask がある場合だけです。
+- **通常の未処理 ask（persona ask）がある場合**: 同じ tick で配布済みのワーカー（[direct_request_worker.py](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py)）がコードで処理します（`claim_ask` → `read_for_ask` と `web` ツールセットのみ（`claim_ask` や `submit_answer` 等のライフサイクル MCP ツールは除外）で `nvidia/Nemotron-3.5-Super-VL` を1回実行 → `submit_answer`、失敗時は即座に `release_ask`）。Cron 親セッションは起動せず `{"wakeAgent": false}` で終了します。
+- **直接依頼（direct request）がある場合**: 同じ tick で配布済みの [直接依頼ワーカー](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) が処理します（取得 → ワーカーの道具を持つ Ultra を1回実行 → 最終応答を返信）。親モデルは起動せず `{"wakeAgent": false}` で終了します。
 
 既存ジョブへ追加・変更する場合は `hermes cron edit <job_id> --script check_kakeratta_gate.py` を使います。
 

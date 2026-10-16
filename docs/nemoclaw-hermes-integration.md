@@ -45,12 +45,12 @@ kakeratta does not start the Hermes process, and Hermes does not access kakeratt
 
 In OpenShell 0.0.116, `inference.local` replaces the model name requested by Hermes with the Gateway's configured model. Sandboxes under one Gateway also share that inference setting. It therefore cannot reliably use one model for the parent and another for delegated children. Provider v2 keeps OpenShell in charge of credentials and egress while Hermes calls Token Factory's OpenAI-compatible endpoint with its selected model name intact.
 
-The current configured target split is (the original 2026-10-13 verification used Nemotron 3 Super 120B):
+The current configuration is (originally verified on 2026-10-13 with Nemotron 3 Super 120B, and verified live in production on 2026-10-16 with both `nvidia/Nemotron-3.5-Super-VL` and `nvidia/Nemotron-3-Ultra-550b-a55b`):
 
 | Executor | Model | Role |
 | --- | --- | --- |
 | Hermes parent and kakeratta cron | `nvidia/Nemotron-3.5-Super-VL` | intake, routing, routine work, and final response |
-| Delegated Hermes child | `nvidia/Nemotron-3-Ultra-550b-a55b` | delegated high-complexity research, reasoning, and execution |
+| Delegated Hermes child / direct-request worker | `nvidia/Nemotron-3-Ultra-550b-a55b` | direct `@agent` requests and delegated high-complexity research, reasoning, and execution |
 | OpenShell Provider v2 | `tokenfactory-v2` | injects `TOKENFACTORY_API_KEY` and composes Token Factory egress |
 | Token Factory | `https://api.tokenfactory.nebius.com/v1` | OpenAI-compatible inference endpoint |
 
@@ -91,11 +91,11 @@ hermes cron edit <job-id> \
 hermes cron list
 ```
 
-For an existing sandbox, use the [parent/Cron migration helper](../scripts/nemoclaw/README.md#7-親モデルを35-super-vlへ切り替える) to update both pins while preserving the Ultra worker configuration. The checked-in configuration now targets 3.5 Super VL; deployment and real model/MCP verification are separate steps.
+Following the [recommended Hermes configuration](../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml), align both the parent model and the kakeratta cron job to `nvidia/Nemotron-3.5-Super-VL` while preserving `nvidia/Nemotron-3-Ultra-550b-a55b` for the direct-request worker and delegation (both live inference and MCP submission were verified in production on 2026-10-16).
 
 ### Verification
 
-Verify the paths independently: a normal Hermes API turn on Super; one `delegate_task` child on Ultra; an OpenShell audit entry allowing Token Factory `/v1/chat/completions` through `_provider_tokenfactory_v2`; and a real kakeratta direct request completing `list_asks` → `claim_request` → inference → `reply_request`. The following idle tick must return `wakeAgent=false`. After switching, confirm Super in the parent log and Ultra in the `platform=subagent` log, and explicitly pin the kakeratta cron job to Super. In this arrangement, the parent is the lightweight intake and routing layer, while high-complexity work is delegated to Ultra.
+The paths were verified during the initial migration and again after switching the parent/cron pin to `nvidia/Nemotron-3.5-Super-VL` on 2026-10-16: a persona-ask turn on `nvidia/Nemotron-3.5-Super-VL` (`list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer`); a `delegate_task` child and the direct-request worker (`direct_request_worker.py`) on `nvidia/Nemotron-3-Ultra-550b-a55b` (`reasoning_effort: high`); an OpenShell audit entry allowing Token Factory `/v1/chat/completions` through `_provider_tokenfactory_v2`; and a real kakeratta direct request completing `list_asks` → `claim_request` → Ultra inference → `reply_request` without waking the parent. The following idle tick returned `wakeAgent=false`. After switching, confirm Super in the parent log and Ultra in the worker or `platform=subagent` log, and explicitly pin the kakeratta cron job to Super. In this arrangement, the parent is the lightweight intake and routing layer, while high-complexity work is handled by Ultra.
 
 > **Since 2026-10-14**, direct requests no longer go through the parent: the Wake Gate runs the distributed direct-request worker, which claims in code, runs Ultra once as a Hermes agent in its own Hermes home (model settings from `kakeratta_worker`, else `delegation`), and replies in code. The parent Super handles persona asks only. See [Direct requests](hermes.md#direct-requests).
 
@@ -459,7 +459,7 @@ The entire cycle completed autonomously with zero human intervention.
 Multiple models were evaluated during development:
 - **`NousResearch/Hermes-4-405B`**: Highly capable, but simple prompts took ~45 seconds, adding unacceptable latency to a 1-minute scheduling cadence.
 - **`nvidia/Nemotron-3_5-Lightning`**: Extremely fast (2–3 seconds), but prone to argument omission, JSON structure syntax errors during multi-step MCP operations, and getting caught in troubleshooting loops (attempting unwanted configuration changes and shell commands) upon transient network or tool hiccups.
-- **`nvidia/nemotron-3-super-120b-a12b`**: Balanced response speed and tool judgment, and was the planner model in the historical end-to-end run above. Current configuration targets `nvidia/Nemotron-3.5-Super-VL`; the older run does not verify that model. In one session it held on to an earlier error when the user corrected it, and in another it wrote an answer without submitting it (resolved in Skill v13).
+- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: Balanced response speed and tool judgment for persona-ask planning (the historical end-to-end run above used `nvidia/nemotron-3-super-120b-a12b`, and production now runs and is verified on `nvidia/Nemotron-3.5-Super-VL`). In earlier runs on 120B, one session held on to an earlier error when the user corrected it, and another wrote an answer without submitting it (resolved in Skill v13).
 - **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Used for direct `@agent` requests through the isolated direct-request worker over Provider v2. When tested earlier as the parent cron planner with reasoning parameters enabled, it emitted tool calls as plain text and hit the repetition guard; see the [model comparison](nemoclaw-hermes-model-comparison.md).
 
 Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex, nested workflow structures as pure native JSON objects without double-escaping, structurally eliminating parse failures.

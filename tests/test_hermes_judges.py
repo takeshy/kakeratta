@@ -69,17 +69,78 @@ class JudgeIsolationTest(unittest.TestCase):
         self.assertEqual(set(generated["mcp_servers"]), {"kakeratta", "files", "private"})
 
     def test_persona_cli_uses_only_target_workspace(self):
+        calls = []
+        def mcp_call(url, headers, name, arguments=None, timeout=None):
+            calls.append((url, name, arguments))
+            if name == "list_asks":
+                return {"asks": [{"id": "ask-1", "status": "pending", "persona": "gourmet", "wake": "post"}]}
+            if name == "claim_ask":
+                return {"ask": {"id": "ask-1"}, "context": {
+                    "persona": {"id": "gourmet", "name": "tabe", "tone": "丁寧", "domain": "食"},
+                    "instructions": "食の相談に乗る", "rules": "規則", "turn": "※ あなたは名指しで呼ばれています。",
+                    "wake": "post", "trigger": {"text": "おすすめは？", "rendered": "おすすめは？"},
+                    "thread": [{"speaker": "user", "text": "おすすめは？", "rendered": "おすすめは？"}],
+                    "tools": [{"name": "web_search", "use": "read"}], "limits": {"reads": 5, "searches": 5},
+                }}
+            if name == "submit_answer":
+                return {"accepted": True, "closed": True}
+            raise AssertionError(f"unexpected MCP call {name}")
         def run(cmd, **kwargs):
             home = Path(kwargs["env"]["HERMES_HOME"])
             cfg = yaml.safe_load((home / "config.yaml").read_text())
             self.assertEqual(set(cfg["mcp_servers"]), {"kakeratta"})
             self.assertEqual(cfg["mcp_servers"]["kakeratta"]["url"], self.url(self.wids[0]))
-            self.assertEqual(cmd[cmd.index("-t") + 1], "kakeratta")
+            self.assertEqual(cfg["mcp_servers"]["kakeratta"]["headers"], self.headers)
+            self.assertEqual(cfg["mcp_servers"]["kakeratta"]["tools"]["include"], ["read_for_ask"])
+            self.assertEqual(cmd[cmd.index("-t") + 1], "kakeratta,web")
             self.assertFalse((home / "skills").exists())
-            return type("Result", (), {"returncode": 0})()
-        with patch.object(worker.subprocess, "run", side_effect=run):
+            return type("Result", (), {"returncode": 0, "stdout": "[SOURCES: e_abc123]\n美味しいお店をご紹介します。\nsession_id: s1\n", "stderr": ""})()
+        with patch.object(worker, "mcp_call", side_effect=mcp_call), \
+             patch.object(worker, "session_usage", return_value={"api_call_count": 1, "input_tokens": 1000, "output_tokens": 200}), \
+             patch.object(worker.subprocess, "run", side_effect=run):
             worker.process_persona_asks(self.url(self.wids[0]), self.headers, self.wids[0], home=self.home)
+        self.assertEqual([c[1] for c in calls], ["list_asks", "claim_ask", "submit_answer"])
+        self.assertEqual(calls[2][2]["answer"], {"text": "美味しいお店をご紹介します。", "sources": ["e_abc123"], "schedule": False, "unrelated": False})
         self.assertEqual((self.home / "config.yaml").read_bytes(), self.before)
+
+    def test_persona_listening_turn_submits_without_model_call(self):
+        calls = []
+        def mcp_call(url, headers, name, arguments=None, timeout=None):
+            calls.append((name, arguments))
+            if name == "claim_ask":
+                return {"ask": {"id": "ask-listen"}, "context": {
+                    "persona": {"id": "gourmet", "name": "tabe"},
+                    "wake": "listening", "turn": "※ **このターンは発言できません。**",
+                }}
+            if name == "submit_answer":
+                return {"accepted": True, "closed": True}
+            raise AssertionError(f"unexpected MCP call {name}")
+        with patch.object(worker, "mcp_call", side_effect=mcp_call), \
+             patch.object(worker.subprocess, "run") as run:
+            worker.process_asks(self.url(self.wids[0]), self.headers,
+                                [{"id": "ask-listen", "status": "pending"}], home=self.home)
+            run.assert_not_called()
+        self.assertEqual([c[0] for c in calls], ["claim_ask", "submit_answer"])
+        self.assertEqual(calls[1][1]["answer"]["text"], "")
+
+    def test_persona_failure_releases_ask_immediately(self):
+        calls = []
+        def mcp_call(url, headers, name, arguments=None, timeout=None):
+            calls.append((name, arguments))
+            if name == "claim_ask":
+                return {"ask": {"id": "ask-fail"}, "context": {
+                    "persona": {"id": "gourmet", "name": "tabe"},
+                    "wake": "post", "turn": "※ あなたは名指しで呼ばれています。",
+                }}
+            if name == "release_ask":
+                return {"released": True}
+            raise AssertionError(f"unexpected MCP call {name}")
+        with patch.object(worker, "mcp_call", side_effect=mcp_call), \
+             patch.object(worker, "session_usage", return_value={"api_call_count": 1, "input_tokens": 500, "output_tokens": 0}), \
+             patch.object(worker.subprocess, "run", return_value=type("Result", (), {"returncode": 1, "stdout": "", "stderr": "provider error"})()):
+            worker.process_asks(self.url(self.wids[0]), self.headers,
+                                [{"id": "ask-fail", "status": "pending"}], home=self.home)
+        self.assertEqual([c[0] for c in calls], ["claim_ask", "release_ask"])
 
     def test_legacy_super_persona_uses_super_vl_and_keeps_ultra_separate(self):
         self.cfg["model"] = {"default": worker.LEGACY_PARENT_SUPER,
@@ -87,13 +148,21 @@ class JudgeIsolationTest(unittest.TestCase):
                              "api_key": "${MODEL_KEY}"}
         self.cfg.pop("kakeratta_worker")
         (self.home / "config.yaml").write_text(yaml.safe_dump(self.cfg))
+        def mcp_call(url, headers, name, arguments=None, timeout=None):
+            if name == "claim_ask":
+                return {"ask": {"id": "ask-vl"}, "context": {"persona": {"id": "gourmet", "name": "tabe"}, "wake": "post"}}
+            return {"accepted": True, "closed": True}
         def run(cmd, **kwargs):
             generated = yaml.safe_load((Path(kwargs["env"]["HERMES_HOME"]) / "config.yaml").read_text())
             self.assertEqual(generated["model"]["default"], worker.PARENT_SUPER_VL)
             self.assertEqual(generated["model"]["api_key"], "${MODEL_KEY}")
-            return type("Result", (), {"returncode": 0})()
-        with patch.object(worker.subprocess, "run", side_effect=run):
-            worker.process_persona_asks(self.url(self.wids[0]), self.headers, self.wids[0], home=self.home)
+            self.assertEqual(generated["mcp_servers"]["kakeratta"]["tools"]["include"], ["read_for_ask"])
+            return type("Result", (), {"returncode": 0, "stdout": "回答です\nsession_id: s1\n", "stderr": ""})()
+        with patch.object(worker, "mcp_call", side_effect=mcp_call), \
+             patch.object(worker, "session_usage", return_value={"api_call_count": 1, "input_tokens": 500, "output_tokens": 100}), \
+             patch.object(worker.subprocess, "run", side_effect=run):
+            worker.process_persona_asks(self.url(self.wids[0]), self.headers, self.wids[0],
+                                        home=self.home, asks=[{"id": "ask-vl", "status": "pending"}])
         self.assertEqual(worker.model_config(self.cfg)["model"], "worker-model")
         self.assertEqual(yaml.safe_load((self.home / "config.yaml").read_text())["model"]["default"], worker.LEGACY_PARENT_SUPER)
         self.cfg["model"]["default"] = "custom-model"

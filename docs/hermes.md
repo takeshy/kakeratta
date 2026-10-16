@@ -203,8 +203,8 @@ Running an agent (LLM invocation) on a 1-minute cron check wastes tokens and inf
 To avoid idle spend, attach the **Wake Gate** pre-check script ([check_kakeratta_gate.py](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)) to the cron job.
 
 - **No pending ask**: Returns `{"wakeAgent": false}` and exits immediately without invoking the LLM (~0.06s tick, 0 LLM calls). In addition, `agent.max_turns` is preserved at the safe boundary of 15.
-- **Pending persona ask**: Returns `{"wakeAgent": true}`, answering within the 15-turn boundary.
-- **Pending direct request**: Handled in the same tick by the distributed [direct-request worker](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) - claim, one Ultra agent run with the worker's tools, then a reply with its final response - without waking the parent model. Only a pending persona ask wakes the agent.
+- **Pending persona ask**: Handled in the same tick by the distributed worker ([direct_request_worker.py](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py)) in code - `claim_ask`, one `nvidia/Nemotron-3.5-Super-VL` run with only `read_for_ask` and `web` tools (all lifecycle MCP tools excluded), then `submit_answer` (or `release_ask` on failure) - returning `{"wakeAgent": false}` without waking the cron parent.
+- **Pending direct request**: Handled in the same tick by the distributed [direct-request worker](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) - claim, one Ultra agent run with the worker's tools, then a reply with its final response - without waking the parent model (`{"wakeAgent": false}`).
 
 To update an existing cron job, run `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
 
