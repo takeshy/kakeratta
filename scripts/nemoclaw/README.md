@@ -13,7 +13,6 @@ scripts/nemoclaw/
 ├── bin/                                   # 実行スクリプト群
 │   ├── nemoclaw-wait-docker.sh            # Docker デーモン起動待機
 │   ├── nemoclaw-reconcile-sandbox.py      # Phase: Error デッドロックの自律修復・強制解除
-│   ├── nemoclaw-hermes-upgrade-super.py # 親・指定Cronを3.5 Super VLへ移行（sandbox内で実行）
 │   ├── nemoclaw-hermes-autostart.sh       # 自己修復型自動起動ラッパー
 │   ├── nemoclaw-hermes-autostop.sh        # 排他ロック付き先行安全停止ラッパー
 │   └── nemoclaw-hermes-shutdown-monitor.sh # systemd-inhibit 事前シャットダウン監視
@@ -132,22 +131,3 @@ platform_toolsets:
     - code_execution
     - delegation
 ```
-
-
-## 7. 親モデルを3.5 Super VLへ切り替える
-
-親とpersona askは `nvidia/Nemotron-3.5-Super-VL`、直接依頼と委譲先はUltraを使用します。親の `model.default` だけでなく、kakeratta Cronの個別モデル固定も更新します。[Hermes公式のCron設定](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron/)では、個別固定が `cron.model` や親モデルより優先されます。
-
-`bin/nemoclaw-hermes-upgrade-super.py` をHermesサンドボックスへコピーし、そのPython環境（PyYAMLとHermes CLIが必要）で実行してください。ホストへの `install.sh` だけではサンドボックス内の設定は変わりません。
-
-```sh
-hermes cron list
-python3 nemoclaw-hermes-upgrade-super.py --home /sandbox/.hermes --job-id KAKERATTA_JOB_ID
-python3 nemoclaw-hermes-upgrade-super.py --home /sandbox/.hermes --job-id KAKERATTA_JOB_ID --apply
-```
-
-`--job-id` は複数指定できます。`--apply` なしのPythonコマンドは変更内容のプレビューです。`--apply` は指定ジョブをHermes CLI経由で更新し、親設定を0600のバックアップ付きで置き換えます。旧Superの `cron.model` があれば併せて移行します。`delegation`、`kakeratta_worker`、APIキー参照、MCP設定は保持します。途中で失敗した場合、先に更新済みのCron固定が残ることがあるため、ジョブIDを確認して同じコマンドを再実行してください。
-
-共有審査員のpersona Workerは、Token Factoryの旧Super設定を検出したときだけ、生成する専用ホームで3.5 Super VLへ移行します。別モデル・別プロバイダの明示設定は保持します。直接依頼WorkerのUltra選択は独立しています。通常のHermes親とCronの切り替えには上記の移行操作が必要です。
-
-適用後は新しいHermesセッションとCron実行で実モデル名を確認し、実際のpersona askが `claim_ask` → `submit_answer` の `accepted` まで進むこと、直接依頼がUltraを使うこと、依頼なしの次回tickが `wakeAgent=false` になることを確認します。テストは `python3 -m unittest discover -s tests -p 'test_hermes_*.py'` で実行できます。ローカルテストはHermes CLIと推論を代替しており、実機の推論成功を意味しません。

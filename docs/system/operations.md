@@ -28,10 +28,6 @@ Alexa custom-skill setup is described in [alexa.md](../alexa.md), including sepa
 
 Implementation: [captures.mjs](../../frontend/captures.mjs), [Screen.stories.js](../../frontend/stories/Screen.stories.js), and [story API fixtures](../../frontend/stories/api.js). Verification: [storybook-api.test.js](../../tests/storybook-api.test.js) checks that preview asset requests survive repeated fixture setup; [site-pages.test.js](../../tests/site-pages.test.js) checks that screenshot references and dimensions match the generated PNGs.
 
-## Hermes model migration
-
-Run [nemoclaw-hermes-upgrade-super.py](../../scripts/nemoclaw/bin/nemoclaw-hermes-upgrade-super.py) in the real Hermes sandbox using its Python environment and `--home /sandbox/.hermes --job-id <kakeratta-job-id>`. Preview first; `--apply` uses the installed Hermes CLI to pin each selected job to Super VL/custom, then atomically updates the parent config with a private backup. Repeated job IDs are accepted through repeated flags. CLI failures leave the parent unchanged but earlier job updates may persist; retry the same intended pins after resolving the error. The helper validates the existing Token Factory route and never exposes credentials in its output. It does not restart the Gateway, install Hermes, or migrate sessions already running. A new parent session and the next Cron run require live verification. See [the operator procedure](../../scripts/nemoclaw/README.md#7-親モデルを35-super-vlへ切り替える).
-
 ## Validation
 
 ```sh
