@@ -213,15 +213,15 @@ test("memory file lists its facts and records, with entry links and tag chips", 
   };
   ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
   setLanguage("ja");
-  const memo = { path: "Memo.md", text: "# Memo\n\n## まとめ（2026-10-02 更新）\n\n塩に寄ってきた。\n\n## いまの事実\n\n- [f_ab] 塩に寄る from:e_1,e_9 since:2026-10-02\n- [f_cd] 豚骨も好き from:e_1 since:2026-09-01\n\n## かけらの記録\n\n- 2026-09-30 12:00 [e_old](/?entry=e_old) 前の話 #ラーメン\n- 2026-10-01 12:34 [e_r1](/?entry=e_r1) 三田の二郎に行きたい #ラーメン #三田 expires:2026-10-02/1d review:2026-11-01/31d asked:e_ask\n" };
+  const memo = { path: "Memo.md", text: "# Memo\n\n## いまの事実\n\n- [f_ab] 塩に寄る from:e_1,e_9 since:2026-10-02\n- [f_cd] 豚骨も好き from:e_1 since:2026-09-01\n\n## かけらの記録\n\n- 2026-09-30 12:00 [e_old](/?entry=e_old) 前の話 #ラーメン\n- 2026-10-01 12:34 [e_r1](/?entry=e_r1) 三田の二郎に行きたい #ラーメン #三田 expires:2026-10-02/1d review:2026-11-01/31d asked:e_ask\n" };
   const other = { path: "notes.md", text: "# notes\n\nその他。\n" };
   const asked = [], opened = [];
   const view = createMemoryView([other, memo], { onFilter: (filter) => asked.push(filter), onOpenEntry: (id) => opened.push(id) });
   const cards = view.all().filter(node => node.tagName === "ARTICLE").map(node => node.attributes["data-path"]);
   assert.deepEqual(cards, ["Memo.md", "notes.md"]);
   const all = view.all();
-  assert.ok(all.some(node => node.tagName === "H4" && node.textContent === "まとめと記録"));
-  assert.deepEqual(all.filter(node => node.tagName === "H5").map(node => node.textContent || node.all().map(child => child.textContent).join("")), ["まとめ（2026-10-02 更新）", "いまの事実", "かけらの記録"]);
+  assert.ok(all.some(node => node.tagName === "H4" && node.textContent === "事実と記録"));
+  assert.deepEqual(all.filter(node => node.tagName === "H5").map(node => node.textContent || node.all().map(child => child.textContent).join("")), ["いまの事実", "かけらの記録"]);
   assert.ok(!all.some(node => String(node.textContent).includes("f_ab")), "a fact id was shown");
   const links = all.filter(node => node.tagName === "A").map(node => node.textContent);
   assert.deepEqual(links, ["元の投稿1", "元の投稿2", "元の投稿", "元の投稿", "元の投稿"]);
@@ -336,15 +336,15 @@ test("memory overview appears closed before notes, with history after them", (ct
 });
 
 
-test("summary refresh metadata is hidden in the memory reader", (ctx) => {
+test("memory tidy metadata is hidden in the memory reader", (ctx) => {
   globalThis.Node = Element;
   globalThis.document = {
     createElement: tag => new Element(tag),
     createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
   };
   ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
-  const view = createMemoryView([{ path: "Memo.md", text: "# Memo\n\n<!-- kakeratta:checked 2026-10-01T07:00:00+09:00 -->\n\n<!-- kakeratta:persona-suggested 2026-10-01 -->\n\n<!-- kakeratta:summary-dirty -->\n\n## まとめ（2026-10-01 更新）\n\n好きなもの。\n\n## いまの事実\n- [f_a] 塩が好き since:2026-09-01\n" }]);
-  assert.equal(view.all().some(node => /summary-dirty|kakeratta:checked|persona-suggested/.test(String(node.textContent))), false);
+  const view = createMemoryView([{ path: "Memo.md", text: "# Memo\n\n<!-- kakeratta:checked 2026-10-01T07:00:00+09:00 -->\n\n<!-- kakeratta:persona-suggested 2026-10-01 -->\n\n<!-- kakeratta:memory-dirty -->\n\n## いまの事実\n- [f_a] 塩が好き since:2026-09-01\n" }]);
+  assert.equal(view.all().some(node => /memory-dirty|kakeratta:checked|persona-suggested/.test(String(node.textContent))), false);
 });
 
 test("a kept past event's review mark is hidden in the memory reader", (ctx) => {

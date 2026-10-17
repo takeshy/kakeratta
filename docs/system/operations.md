@@ -122,6 +122,8 @@ Web Push uses [webpush-go](https://github.com/SherClockHolmes/webpush-go) for pa
 
 ## Memory consolidation
 
+The facts-and-records format removes the per-persona prose summary. There is no in-app migration: deploy the facts-only reader/writer first, then update the existing `Memo.md` documents directly in Firestore. Back up the documents and exact proposed text, preserve fact and record lines, replace `kakeratta:summary-dirty` with `kakeratta:memory-dirty`, and remove only the summary section. Commit the text-field updates atomically with each document's original update-time precondition, so concurrent edits abort the operation rather than being overwritten. Read back to verify the result; leave daily/monthly timeline summaries untouched.
+
 On 2026-10-17 each persona's memory was folded into one `Memo.md` (see [Memory layout](./personas.md#memory-layout)) directly in production Firestore, with a one-off script kept outside the repository: per persona, the field files' summaries joined as the summary marked for rewrite, their facts that held, and the records from the field files and monthly `records/YYYY-MM.md` files, oldest first; facts under the old `## 以前のこと` section were dropped. A dry run saved the exact plan with each source document's update time; applying created `Memo.md` only where absent and deleted the sources with update-time preconditions. The earlier prose-to-facts tool, `cmd/migrate-memory`, was removed with it.
 
 ## Backfilling post locations

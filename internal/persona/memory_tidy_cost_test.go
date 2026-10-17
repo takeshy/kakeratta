@@ -11,7 +11,7 @@ func TestRetainedPastEventSkipsRecheckUntilEdited(t *testing.T) {
 	r, s, f := setup(t, answering, "gourmet")
 	day := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
 	event := fact{ID: "f_event", Text: "2026-10-01 にA店で食事した", Since: day.AddDate(0, 0, -7), From: []string{"e_a"}}
-	ff := memo{Summary: "以前のまとめ", SummaryAt: day.AddDate(0, 0, -1), Facts: []fact{event}}
+	ff := memo{Facts: []fact{event}}
 	if err := s.WriteNote("gourmet", MemoPath, memoText(ff, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
@@ -21,13 +21,13 @@ func TestRetainedPastEventSkipsRecheckUntilEdited(t *testing.T) {
 		if strings.Count(user, event.Text) != 1 {
 			t.Errorf("event should appear once: %s", user)
 		}
-		return `{"summary":null,"invalidate":[],"retain":["f_event"]}`
+		return `{"invalidate":[],"retain":["f_event"]}`
 	}
 	client, settings := r.clientOf()
 	skill := Builtins[0].forTurn()
 	rewrite := func(at time.Time) {
 		t.Helper()
-		if _, err := r.rewriteSummaries(context.Background(), client, settings.MiddleModel, skill, at, time.UTC); err != nil {
+		if _, err := r.tidyMemory(context.Background(), client, settings.MiddleModel, skill, at, time.UTC); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -49,7 +49,7 @@ func TestRetainedPastEventSkipsRecheckUntilEdited(t *testing.T) {
 		if strings.Count(user, event.Text) != 1 || !strings.Contains(user, "日付の審査対象") {
 			t.Errorf("edited event missing: %s", user)
 		}
-		return `{"summary":"B店で食事した","invalidate":[],"retain":["f_event"]}`
+		return `{"invalidate":[],"retain":["f_event"]}`
 	}
 	rewrite(day.AddDate(0, 0, 2))
 	rewrite(day.AddDate(0, 0, 3))
@@ -60,14 +60,14 @@ func TestRetainedPastEventSkipsRecheckUntilEdited(t *testing.T) {
 
 func TestUncertainOrInvalidPastEventDecisionIsNotCached(t *testing.T) {
 	for _, response := range []string{
-		`{"summary":null,"invalidate":[],"retain":[]}`,
-		`{"summary":null,"invalidate":["f_event"],"retain":["f_event"]}`,
-		`{"summary":null,"invalidate":[],"retain":["f_unknown"]}`,
+		`{"invalidate":[],"retain":[]}`,
+		`{"invalidate":["f_event"],"retain":["f_event"]}`,
+		`{"invalidate":[],"retain":["f_unknown"]}`,
 	} {
 		t.Run(response, func(t *testing.T) {
 			r, s, f := setup(t, answering, "gourmet")
 			day := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
-			ff := memo{Summary: "保留", SummaryAt: day.AddDate(0, 0, -1), Facts: []fact{{ID: "f_event", Text: "2026-10-01 の件", Since: day.AddDate(0, 0, -7)}}}
+			ff := memo{Facts: []fact{{ID: "f_event", Text: "2026-10-01 の件", Since: day.AddDate(0, 0, -7)}}}
 			if err := s.WriteNote("gourmet", MemoPath, memoText(ff, time.UTC)); err != nil {
 				t.Fatal(err)
 			}
@@ -75,7 +75,7 @@ func TestUncertainOrInvalidPastEventDecisionIsNotCached(t *testing.T) {
 			f.summarize = func(_, _ string) string { calls++; return response }
 			client, settings := r.clientOf()
 			for i := 0; i < 2; i++ {
-				_, err := r.rewriteSummaries(context.Background(), client, settings.MiddleModel, Builtins[0].forTurn(), day.AddDate(0, 0, i), time.UTC)
+				_, err := r.tidyMemory(context.Background(), client, settings.MiddleModel, Builtins[0].forTurn(), day.AddDate(0, 0, i), time.UTC)
 				if (err != nil) != strings.Contains(response, `"retain":["f_`) {
 					t.Fatalf("unexpected result: %v", err)
 				}
@@ -88,10 +88,10 @@ func TestUncertainOrInvalidPastEventDecisionIsNotCached(t *testing.T) {
 	}
 }
 
-func TestSummaryFactsAreSentOnceWithChangeAttributes(t *testing.T) {
+func TestTidyFactsAreSentOnceWithChangeAttributes(t *testing.T) {
 	r, s, f := setup(t, answering, "gourmet")
 	day := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
-	ff := memo{Summary: "古いまとめ", SummaryAt: day.AddDate(0, 0, -2), SummaryDirty: true,
+	ff := memo{TidyDirty: true,
 		Facts: []fact{{ID: "f_new", Text: "2026-10-07 にA店で食事", Since: day.AddDate(0, 0, -1)}},
 	}
 	if err := s.WriteNote("gourmet", MemoPath, memoText(ff, time.UTC)); err != nil {
@@ -101,15 +101,15 @@ func TestSummaryFactsAreSentOnceWithChangeAttributes(t *testing.T) {
 		if strings.Count(user, ff.Facts[0].Text) != 1 {
 			t.Errorf("duplicated fact: %s", user)
 		}
-		for _, attr := range []string{"必ず書き直す", "日付の審査対象"} {
+		for _, attr := range []string{"事実や記録が変更されています", "日付の審査対象"} {
 			if !strings.Contains(user, attr) {
 				t.Errorf("missing attribute %s", attr)
 			}
 		}
-		return `{"facts":[],"summary":"A店で食事した","invalidate":[],"retain":["f_new"]}`
+		return `{"facts":[],"invalidate":[],"retain":["f_new"]}`
 	}
 	client, settings := r.clientOf()
-	if _, err := r.rewriteSummaries(context.Background(), client, settings.MiddleModel, Builtins[0].forTurn(), day, time.UTC); err != nil {
+	if _, err := r.tidyMemory(context.Background(), client, settings.MiddleModel, Builtins[0].forTurn(), day, time.UTC); err != nil {
 		t.Fatal(err)
 	}
 }

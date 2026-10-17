@@ -519,7 +519,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         row.kind === "person"
           ? basicInfoBox(row, () => { close(); showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus: "basicInfo" }); }, { open: true })
           : null,
-        el("p", { class: "hint", label: "まとめ文と事実、かけらごとの記録です。「元の投稿」から、もとになった投稿と会話を開けます。" }),
+        el("p", { class: "hint", label: "事実とかけらごとの記録です。「元の投稿」から、もとになった投稿と会話を開けます。" }),
         memoryHost,
         el(
           "div",

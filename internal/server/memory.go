@@ -13,7 +13,7 @@ import (
 // getMemory shows what a persona has kept. It is the persona's own text, and
 // seeing it is the only way to tell what it decided was worth keeping.
 //
-// It is the persona's memory file - a summary, the facts, and the records of
+// It is the persona's memory file - the facts and the records of
 // its kakera - and any other note it keeps. The notes come a page at a time,
 // the most recently written first: ?after= is the next cursor of the page
 // already shown, and ?tag= keeps only the memory file when it holds a record
@@ -78,7 +78,7 @@ func (s *Server) forgetNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // editNote replaces the body of one note with what the user typed. A persona's
-// summaries are its own, but a misread label is a misread label: when the text
+// notes are its own, but a misread label is a misread label: when the text
 // a persona was given was wrong, the person who knows can put it right without
 // waiting for the persona to be told. The persona is not woken.
 func (s *Server) editNote(w http.ResponseWriter, r *http.Request) {

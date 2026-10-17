@@ -188,7 +188,7 @@ function entryLink(id, label, context) {
 function plain(line) {
   return Boolean(line.trim()) && !/^```/.test(line) && !/^#{1,6}\s+/.test(line) &&
     !/^\s*(?:[-*+] |\d+[.)] )/.test(line) && !line.startsWith("> ") && !line.includes("|") &&
-    !/^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty|kakeratta:(?:checked|persona-suggested) \S+) -->$/.test(line);
+    !/^<!-- (?:\/?kakeratta:note-sources|kakeratta:memory-dirty|kakeratta:(?:checked|persona-suggested) \S+) -->$/.test(line);
 }
 
 function markdown(body, context) {
@@ -197,7 +197,7 @@ function markdown(body, context) {
   let list = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.trim() || /^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty|kakeratta:(?:checked|persona-suggested) \S+) -->$/.test(line)) { list = null; continue; }
+    if (!line.trim() || /^<!-- (?:\/?kakeratta:note-sources|kakeratta:memory-dirty|kakeratta:(?:checked|persona-suggested) \S+) -->$/.test(line)) { list = null; continue; }
     if (/^```/.test(line)) {
       const code = [];
       while (++i < lines.length && !/^```/.test(lines[i])) code.push(lines[i]);
@@ -208,12 +208,11 @@ function markdown(body, context) {
     const heading = line.match(/^#{1,6}\s+(.+)$/);
     const item = line.match(/^\s*(?:[-*+] |\d+[.)] )(.+)$/);
     if (heading) {
-      const summary = context.facts && heading[1].match(/^まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$/);
       // The facts the daily pass made, and the records it has not folded yet,
       // are told apart by their own headings.
       const localized = heading[1] === "記憶を更新した投稿" ||
         (context.facts && ["いまの事実", "かけらの記録"].includes(heading[1]));
-      const label = summary ? t("まとめ（{0} 更新）", summary[1]) : localized ? t(heading[1]) : heading[1];
+      const label = localized ? t(heading[1]) : heading[1];
       result.append(el("h5", {}, inline(label, context)));
       list = null;
     } else if (item) {
@@ -343,7 +342,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       mount([
         el("div", { class: "memory-head" }, title),
         el("p", { class: "hint", text: note.path }),
-        el("p", { class: "hint", label: note.facts ? "担当が覚えているまとめと記録です。綴りや事実の誤りはここで直せます。記録の日時・ID・タグや、事実の[id]・from:・since:は崩さないでください。" : "担当がまとめた記憶です。綴りや事実の誤りはここで直せます。" }),
+        el("p", { class: "hint", label: note.facts ? "担当が覚えている事実と記録です。綴りや事実の誤りはここで直せます。記録の日時・ID・タグや、事実の[id]・from:・since:は崩さないでください。" : "担当がまとめた記憶です。綴りや事実の誤りはここで直せます。" }),
         input, el("div", { class: "compose-row" }, save, cancel), error,
       ]);
       input.focus?.();
@@ -360,7 +359,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       tagChips(note),
       note.description ? el("p", { class: "memory-description", text: note.description }) : null,
       markdown(note.body, context),
-      // The summary rests on many kakera, whose records lead to them; only a
+      // The facts rest on kakera, whose records lead to them; only a
       // note from before has a post of its own to look for.
       onSearch && note.type && !/\/\?entry=/.test(note.text)
         ? el("div", { class: "memory-source-search" },
@@ -398,7 +397,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
   const list = el("div", { class: "memory-list" });
   for (const note of shown) {
     if (["index.md", "log.md"].includes(note.path)) { reserved.set(note.path, note); continue; }
-    const title = note.facts ? t("まとめと記録") : note.title;
+    const title = note.facts ? t("事実と記録") : note.title;
     const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
     const mount = (nodes) => card.replaceChildren(...nodes.filter(Boolean));
     const reading = () => [head(note, el("h4", { text: title }), mount, reading), ...content(note)];

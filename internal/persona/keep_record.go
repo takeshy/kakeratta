@@ -12,8 +12,8 @@ import (
 
 // A turn keeps one record of the user's kakera and nothing more: a sentence,
 // tags to find it by, and its dates, appended to the persona's memory file.
-// It reads none of the facts. Folding records into facts, and the summary,
-// wait for the daily pass (summaries.go), which reads only what changed.
+// It reads none of the facts. Folding records into facts
+// wait for the daily pass (memory_tidy.go), which reads only what changed.
 
 // maxTagsShown bounds the tags in use a turn is shown, most used first.
 const maxTagsShown = 60

@@ -16,7 +16,7 @@ import (
 func TestFactsChangeOnlyAsAsked(t *testing.T) {
 	zone := time.UTC
 	day := time.Date(2026, 10, 2, 9, 0, 0, 0, zone)
-	m := memo{Summary: "まとめ", Facts: []fact{
+	m := memo{Facts: []fact{
 		{ID: "f_a", Text: "豚骨に寄る", From: []string{"e_1"}},
 		{ID: "f_b", Text: "辛いのは平気", From: []string{"e_2"}},
 		{ID: "f_c", Text: "辛さは控えめが好き", From: []string{"e_3"}},
@@ -32,7 +32,7 @@ func TestFactsChangeOnlyAsAsked(t *testing.T) {
 	if len(problems) != 1 || !strings.Contains(problems[0], "f_x はいまの事実にありません") {
 		t.Fatalf("problems = %v", problems)
 	}
-	if !changed || !next.SummaryDirty || next.Summary != "まとめ" {
+	if !changed || !next.TidyDirty {
 		t.Fatalf("changed = %v, %+v", changed, next)
 	}
 	texts := map[string]fact{}
@@ -55,7 +55,7 @@ func TestFactsChangeOnlyAsAsked(t *testing.T) {
 
 	// What is written reads back as it was.
 	again := parseMemo(memoText(next, zone), zone)
-	if len(again.Facts) != len(next.Facts) || again.Facts[0].Text != next.Facts[0].Text || again.Summary != "まとめ" || !again.SummaryDirty {
+	if len(again.Facts) != len(next.Facts) || again.Facts[0].Text != next.Facts[0].Text || !again.TidyDirty {
 		t.Fatalf("round trip = %+v", again)
 	}
 
@@ -91,8 +91,8 @@ func TestRecordsAreFoundByTheirKakera(t *testing.T) {
 
 // At the persona's check-in, before the turn reads its memory, the daily
 // pass folds the records kept since it last looked into facts, deletes the
-// records it folded, hands a stale one to the user's review, and rewrites the
-// summary. With nothing new, it costs no call.
+// records it folded, and hands a stale one to the user's review.
+// With nothing new, it costs no call.
 func TestMemoryIsTidiedAtTheCheckIn(t *testing.T) {
 	var checkIn string
 	r, s, f := setup(t, func(system, user string) string {
@@ -108,7 +108,7 @@ func TestMemoryIsTidiedAtTheCheckIn(t *testing.T) {
 	}
 	day := checkInDay(s, time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC), "gourmet")
 	old := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-	m := memo{Summary: "豚骨派。", SummaryAt: old, CheckedAt: old.Add(time.Hour),
+	m := memo{CheckedAt: old.Add(time.Hour),
 		Facts: []fact{{ID: "f_a", Text: "豚骨に寄る", From: []string{"e_1"}, Since: old}},
 		Records: []record{
 			{At: old, ID: "e_old", Summary: "白楽くり山に行きたい"},
@@ -126,28 +126,28 @@ func TestMemoryIsTidiedAtTheCheckIn(t *testing.T) {
 		if strings.Contains(system, "suggest_persona") == false {
 			t.Errorf("no new persona could be suggested:\n%s", system)
 		}
-		return `{"facts":[{"op":"update","id":"f_a","ids":[],"text":"最近は塩に寄る","records":["e_r"]}],` +
-			`"summary":"豚骨派だったが、最近は塩に寄っている。","drop_records":["e_r"],"review_records":["e_old"],"suggest_persona":null}`
+		return `{"facts":[{"op":"update","id":"f_a","ids":[],"text":"以前は豚骨に寄っていたが、最近は塩に寄る","records":["e_r"]}],` +
+			`"drop_records":["e_r"],"review_records":["e_old"],"suggest_persona":null}`
 	}
 	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
 	if len(f.summaries) != 1 {
 		t.Fatalf("passes = %d", len(f.summaries))
 	}
 	got := r.loadMemo("gourmet", time.UTC)
-	if got.Summary != "豚骨派だったが、最近は塩に寄っている。" || !got.SummaryAt.Equal(day) || got.SummaryDirty || got.CheckedAt.IsZero() {
+	if got.TidyDirty || got.CheckedAt.IsZero() {
 		t.Fatalf("Memo = %+v", got)
 	}
-	if len(got.Facts) != 1 || got.Facts[0].ID != "f_a" || got.Facts[0].Text != "最近は塩に寄る" || strings.Join(got.Facts[0].From, ",") != "e_1,e_k" {
+	if len(got.Facts) != 1 || got.Facts[0].ID != "f_a" || got.Facts[0].Text != "以前は豚骨に寄っていたが、最近は塩に寄る" || strings.Join(got.Facts[0].From, ",") != "e_1,e_k" {
 		t.Fatalf("facts = %+v", got.Facts)
 	}
 	if len(got.Records) != 2 || got.Records[0].ID != "e_old" || !got.Records[0].Review.Day.Equal(day) || got.Records[1].ID != "e_x" {
 		t.Fatalf("records = %+v", got.Records)
 	}
-	if !strings.Contains(checkIn, "最近は塩に寄っている") {
-		t.Fatalf("the check-in did not read the new summary:\n%s", checkIn)
+	if !strings.Contains(checkIn, "以前は豚骨に寄っていたが、最近は塩に寄る") {
+		t.Fatalf("the check-in did not read the enriched fact:\n%s", checkIn)
 	}
 	// With nothing kept since, nothing is asked again.
-	if _, err := r.rewriteSummaries(context.Background(), nil, "", Builtins[0].forTurn(), store.CheckInCloses(day).Add(-time.Second), time.UTC); err != nil || len(f.summaries) != 1 {
+	if _, err := r.tidyMemory(context.Background(), nil, "", Builtins[0].forTurn(), store.CheckInCloses(day).Add(-time.Second), time.UTC); err != nil || len(f.summaries) != 1 {
 		t.Fatalf("tidied twice: %v, %d", err, len(f.summaries))
 	}
 }
@@ -175,12 +175,12 @@ func TestTidyingKeepsUnfoldedRecordsAndSuggestsAPersona(t *testing.T) {
 	}
 	f.summarize = func(system, user string) string {
 		if len(f.summaries) == 1 {
-			return `{"facts":[],"summary":null,"drop_records":["e_r"],"review_records":[],"suggest_persona":null}`
+			return `{"facts":[],"drop_records":["e_r"],"review_records":[],"suggest_persona":null}`
 		}
 		if !strings.Contains(user, "記録 e_r はどの事実の根拠") {
 			t.Errorf("the drop was not sent back:\n%s", user)
 		}
-		return `{"facts":[],"summary":null,"drop_records":[],"review_records":[],"suggest_persona":{"topic":"発酵食づくり","reason":"ぬか床の記録が続いている"}}`
+		return `{"facts":[],"drop_records":[],"review_records":[],"suggest_persona":{"topic":"発酵食づくり","reason":"ぬか床の記録が続いている"}}`
 	}
 	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
 	got := r.loadMemo("gourmet", time.UTC)
@@ -198,10 +198,10 @@ func TestTidyingKeepsUnfoldedRecordsAndSuggestsAPersona(t *testing.T) {
 		if strings.Contains(system, "suggest_persona") {
 			t.Errorf("a new persona was offered again within a month")
 		}
-		return `{"facts":[],"summary":null,"drop_records":[],"review_records":[]}`
+		return `{"facts":[],"drop_records":[],"review_records":[]}`
 	}
 	client, current := r.clientOf()
-	if _, err := r.rewriteSummaries(context.Background(), client, personaModel(current), Builtins[0].forTurn(), got.CheckedAt.Add(time.Hour), time.UTC); err != nil || len(f.summaries) != 3 {
+	if _, err := r.tidyMemory(context.Background(), client, personaModel(current), Builtins[0].forTurn(), got.CheckedAt.Add(time.Hour), time.UTC); err != nil || len(f.summaries) != 3 {
 		t.Fatalf("the next pass = %v, %d", err, len(f.summaries))
 	}
 }
@@ -302,7 +302,7 @@ func TestAFactsDaysArePastOrNot(t *testing.T) {
 
 // At the check-in, a field with nothing new is still handed when a fact in it
 // names a day that has gone: a plan whose day passed is deleted, an event that
-// happened stays, and the summary takes it in.
+// happened stays.
 func TestPastPlansAreRetiredAtTheCheckIn(t *testing.T) {
 	r, s, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "routine")
 	settings := s.Settings()
@@ -311,8 +311,7 @@ func TestPastPlansAreRetiredAtTheCheckIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	day := checkInDay(s, time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC), "routine")
-	summaryDay := day.AddDate(0, 0, -1)
-	errand := memo{Summary: "10/3 に美容室。9/30 に父へ贈り物。", SummaryAt: summaryDay, Facts: []fact{
+	errand := memo{Facts: []fact{
 		{ID: "f_cut", Text: "2026-10-03 13:00 に美容室の予約", Since: time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)},
 		{ID: "f_gift", Text: "2026-09-30 に父へ生ハムを送った", Since: time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)},
 		{ID: "f_later", Text: "2026-12-01 に歯医者", Since: time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)},
@@ -324,7 +323,7 @@ func TestPastPlansAreRetiredAtTheCheckIn(t *testing.T) {
 		if !strings.Contains(factLineOf(user, "2026-10-03 13:00 に美容室の予約"), "日付の審査対象") || !strings.Contains(factLineOf(user, "2026-09-30 に父へ生ハムを送った"), "日付の審査対象") || strings.Contains(factLineOf(user, "2026-12-01 に歯医者"), "日付の審査対象") || !strings.Contains(user, "（ありません）") {
 			t.Errorf("the past facts were not handed alone:\n%s", user)
 		}
-		return `{"facts":[],"summary":"9/30 に父へ贈り物をした。","invalidate":["f_cut"],"retain":["f_gift"]}`
+		return `{"facts":[],"invalidate":["f_cut"],"retain":["f_gift"]}`
 	}
 	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
 	if len(f.summaries) != 1 {
@@ -335,7 +334,7 @@ func TestPastPlansAreRetiredAtTheCheckIn(t *testing.T) {
 	for _, f := range got.Facts {
 		current = append(current, f.ID)
 	}
-	if strings.Join(current, ",") != "f_gift,f_later" || got.Facts[0].PastReviewed == "" || got.Summary != "9/30 に父へ贈り物をした。" {
+	if strings.Join(current, ",") != "f_gift,f_later" || got.Facts[0].PastReviewed == "" {
 		t.Fatalf("Errand = %+v", got)
 	}
 }
@@ -357,4 +356,71 @@ func factLineOf(user, text string) string {
 		}
 	}
 	return ""
+}
+
+func TestTidyRejectsUnsupportedFactAndKeepsRecordUntilGrounded(t *testing.T) {
+	r, s, f := setup(t, answering, "gourmet")
+	day := time.Date(2026, 10, 17, 0, 0, 0, 0, time.UTC)
+	m := memo{Records: []record{{ID: "e_reply", Of: "e_post", At: day.Add(-time.Hour), Summary: "夜はカフェインを避ける"}}}
+	before := memoText(m, time.UTC)
+	if err := s.WriteNote("gourmet", MemoPath, before); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	f.summarize = func(system, user string) string {
+		calls++
+		if strings.Contains(system, "- summary:") || strings.Contains(user, "いまのまとめ文") {
+			t.Fatal("daily pass still uses a prose summary")
+		}
+		if calls == 1 {
+			return `{"facts":[{"op":"add","text":"夜はカフェインを避ける","records":[]}],"drop_records":["e_reply"]}`
+		}
+		if !strings.Contains(user, "add には根拠の記録") {
+			t.Error("missing explanation for unsupported fact")
+		}
+		note, _ := s.Note("gourmet", MemoPath)
+		if note.Text != before {
+			t.Error("rejected submission changed stored memory")
+		}
+		return `{"facts":[{"op":"add","text":"夜はカフェインを避ける","records":["e_reply"]}],"drop_records":["e_reply"]}`
+	}
+	client, settings := r.clientOf()
+	if _, err := r.tidyMemory(context.Background(), client, personaModel(settings), Builtins[0].forTurn(), day, time.UTC); err != nil {
+		t.Fatal(err)
+	}
+	got := r.loadMemo("gourmet", time.UTC)
+	if calls != 2 || len(got.Records) != 0 || len(got.Facts) != 1 || strings.Join(got.Facts[0].From, ",") != "e_post" {
+		t.Fatalf("grounded memory = %+v, calls = %d", got, calls)
+	}
+	note, _ := s.Note("gourmet", MemoPath)
+	if strings.Contains(note.Text, "まとめ") || strings.Contains(note.Text, "summary") {
+		t.Fatalf("summary persisted: %s", note.Text)
+	}
+}
+
+func TestFactsUseTheFormerSummaryBudget(t *testing.T) {
+	var ops []factOp
+	for i := 0; i < 20; i++ {
+		ops = append(ops, factOp{Op: "add", Text: strings.Repeat("あ", 200)})
+	}
+	m, _, problems := planFacts(memo{}, ops, "e_source", time.Now(), time.UTC)
+	if len(problems) != 0 || factsRunes(m.Facts) != 4000 {
+		t.Fatalf("facts cannot use the 4000-character budget: %v", problems)
+	}
+	if _, _, problems := planFacts(m, []factOp{{Op: "add", Text: "一字でも超える"}}, "e_source", time.Now(), time.UTC); len(problems) == 0 {
+		t.Fatal("facts grew past 4000 characters")
+	}
+}
+
+func TestTidyToolDoesNotRequestSummary(t *testing.T) {
+	tool := tidyTool([]string{"e_record"}, []string{"f_past"}, true)
+	props := tool.Parameters["properties"].(map[string]any)
+	if _, exists := props["summary"]; exists {
+		t.Fatal("daily pass still offers summary generation")
+	}
+	for _, key := range tool.Parameters["required"].([]string) {
+		if key == "summary" {
+			t.Fatal("daily pass still requires a summary")
+		}
+	}
 }

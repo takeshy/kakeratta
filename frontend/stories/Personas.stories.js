@@ -134,7 +134,7 @@ function wineMemory(ja, en) {
 }
 
 // Before the daily pass: each conversation has only added a record. There is
-// no summary and no fact yet.
+// no fact yet.
 export const WineMemoryBeforeTidy = {
   name: "ワイン担当の記憶：事実に取り込む前",
   render: () => wineMemory(
@@ -154,20 +154,20 @@ export const WineMemoryBeforeTidy = {
 };
 
 // After the daily pass: the records about what they liked became facts, each
-// leading back to its posts, and were deleted; a summary was written. The
+// leading back to its posts, and were deleted. The
 // one-off lunch question expired on its own, and the wine bar stays a record
 // until the persona asks whether it is still wanted.
 export const WineMemory = {
   name: "ワイン担当の記憶：事実に取り込んだあと",
   render: () => wineMemory(
-    "# Memo\n\n## まとめ（2026-09-21 更新）\n\n果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は一杯で十分で、「もう一杯」にはならない。恵比寿のワインバーが気になっている。\n\n" +
+    "# Memo\n\n" +
     "## いまの事実\n\n" +
     "- [f_r5d2kp] 軽めの赤が好き。重いカベルネは一杯でいい from:sample-pinot,sample-gamay,sample-heavy since:2026-09-21\n" +
     "- [f_t6v9wq] Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」 from:sample-pinot since:2026-09-21\n" +
     "- [f_y2z4ab] ボージョレのガメイ：「飲みやすい」 from:sample-gamay since:2026-09-21\n\n" +
     "## かけらの記録\n\n" +
     "- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n",
-    "# Memo\n\n## まとめ（2026-09-21 更新）\n\nLikes lighter, fruity reds with gentle tannins; one glass of a heavy red is enough. Curious about a wine bar in Ebisu.\n\n" +
+    "# Memo\n\n" +
     "## いまの事実\n\n" +
     "- [f_r5d2kp] Likes lighter reds; one glass of a heavy Cabernet is enough from:sample-pinot,sample-gamay,sample-heavy since:2026-09-21\n" +
     "- [f_t6v9wq] Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.” from:sample-pinot since:2026-09-21\n" +

@@ -45,7 +45,7 @@ func TestAnAnsweredKakeraIsRecordedUnderTheReply(t *testing.T) {
 	if len(said) != 1 {
 		t.Fatalf("remarks = %+v", said)
 	}
-	if m := r.loadMemo("gourmet", time.UTC); len(m.Facts) != 1 || m.Facts[0].Text != "A店に行きたい" || m.SummaryDirty {
+	if m := r.loadMemo("gourmet", time.UTC); len(m.Facts) != 1 || m.Facts[0].Text != "A店に行きたい" || m.TidyDirty {
 		t.Fatalf("the facts were touched: %+v", m)
 	}
 	found, _ := r.findRecords("gourmet", "", "", "", 10, time.UTC)
@@ -118,7 +118,7 @@ func TestTheKeeperIsSentBackUntilItFits(t *testing.T) {
 	}
 	memo, _ := s.Note("gourmet", MemoPath)
 	ff := parseMemo(memo.Text, time.UTC)
-	if len(ff.Facts) != 0 || len(ff.Records) != 1 || ff.Summary != "" {
+	if len(ff.Facts) != 0 || len(ff.Records) != 1 {
 		t.Fatalf("field = %q", memo.Text)
 	}
 }

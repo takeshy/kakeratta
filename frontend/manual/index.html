@@ -239,18 +239,18 @@
           <h2>5. 覚えていることを確かめる</h2>
           <p>担当の <strong>覚えていること</strong> を開くと、その担当が覚えている内容をいつでも確認・編集・削除できます。AIが勝手に覚えたままブラックボックスになることはありません。</p>
           <figure>
-            <img src="/captures/ja/memory.png" alt="ワイン担当の記憶。まとめ、いまの事実と元の投稿へのリンク、修正・忘却の操作、まだ取り込んでいないかけらの記録（サンプル）" loading="lazy" width="382" height="1031" />
+            <img src="/captures/ja/memory.png" alt="ワイン担当の記憶。いまの事実と元の投稿へのリンク、修正・忘却の操作、まだ取り込んでいないかけらの記録（サンプル）" loading="lazy" width="382" height="866" />
             <figcaption>覚えた内容、タグ、元の投稿、✎ での編集、このメモだけを忘れさせる操作（サンプル）。</figcaption>
           </figure>
           <h3>できること</h3>
           <ul>
-            <li><strong>読む</strong>: 「まとめと記録」に、まとめ文・いまの事実・かけらの記録が並びます。担当ごとに1つの記憶として持っています。</li>
+            <li><strong>読む</strong>: 「事実と記録」に、いまの事実・かけらの記録が並びます。担当ごとに1つの記憶として持っています。</li>
             <li><strong>たどる</strong>: 各メモの <strong>元の投稿</strong> を押すと、そのメモのもとになった会話や写真がその場で開きます。記録の <strong>#タグ</strong> を押すと、その話題だけに絞り込めます。</li>
             <li><strong>直す</strong>: 誤字や解釈の違いがあれば、横の <strong>✎</strong> でいつでも手で直せます。</li>
             <li><strong>消す</strong>: 忘れさせたいメモは <strong>×</strong> や <strong>このメモを忘れさせる</strong> で消せます。削除前に確認が出ます。記憶を一括削除する専用ボタンはありません。元のかけらを削除すると、そのかけらだけに基づいていたメモも消えます。</li>
             <li><strong>見直す・お別れ</strong>: その場限りのメモは自動で消え（<strong>… に消える</strong>）、古いメモはチェックインで「そろそろ忘れていい？」と担当が尋ねてきます（<strong>… に見直し</strong>）。投稿の下の <strong>はい</strong> で記録を削除、<strong>もうちょっと覚えてて</strong> で見直しを延期、<strong>忘れないで</strong> で以後の見直しを止められます。回答後は選んだ結果が表示されます。言葉で返事をすることもできます。</li>
           </ul>
-          <div class="tip"><p>事実とまとめ文の更新ルールや、記録を事実へ取り込む流れなど、記憶システムの詳しい仕組みは <a href="/manual/?guide=advanced#ja-memory-system" data-lang-link>上級編：記憶の仕組みと見直し</a> をご覧ください。</p></div>
+          <div class="tip"><p>事実の更新ルールや、記録を事実へ取り込む流れなど、記憶システムの詳しい仕組みは <a href="/manual/?guide=advanced#ja-memory-system" data-lang-link>上級編：記憶の仕組みと見直し</a> をご覧ください。</p></div>
           <p>削除は元に戻せません。消したことでも、残っている投稿を担当が検索して、また覚えることがあります。</p>
           <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別に消し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。AIで修正しても、すでにあるメモは書き換わりません。</p></div>
         </section>
@@ -465,7 +465,6 @@
           <ul>
             <li><strong>かけらの記録</strong>: 受け取ったかけらごとに、日時・元の投稿・要約・タグを1行残します。会話のたびに行うのはこれだけです。</li>
             <li><strong>今の事実</strong>: 分かっていることを1件1行で持ちます。チェックイン（通常は毎日、月1回振り返る人物は月1回）で、新しい記録を事実に取り込み（足す・書き換える・消す・まとめる）、取り込んだ記録は消えます。当てはまらなくなった事実も消えます。</li>
-            <li><strong>まとめ文</strong>: 事実と記録をもとにした担当自身の見立てです。同じチェックインで書き直します。</li>
             <li><strong>新しい担当の提案</strong>: 記憶は話題ごとに分けません。別の話題がたまってきたら、担当が「新しく担当を作って分けませんか？」と提案します。</li>
             <li><strong>期限とお別れ</strong>: 「今日のランチ」のような一時的な記録は <strong>… に消える</strong> として自動削除され、長く使われていない記録は <strong>… に見直し</strong> としてチェックイン時に担当から「忘れていい？」と尋ねられます。</li>
           </ul>
@@ -654,7 +653,7 @@
           <p>例：「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
 
           <h3 id="ja-tool-records">かけらの記録を探す — records</h3>
-          <p>担当は毎回、まとめ文と今の事実、最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。返事のあとには本体が記録を追加し、チェックインで新しい記録を事実に取り込み、まとめ文を書き直します。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
+          <p>担当は毎回、今の事実と最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。返事のあとには本体が記録を追加し、チェックインで新しい記録を事実に取り込みます。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
           <p>例：「@tabe 前に行きたいって言ってたラーメン屋、どこだっけ」</p>
 
           <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
@@ -867,18 +866,18 @@
           <h2>5. What a persona remembers</h2>
           <p>Open <strong>What I remember</strong> on a persona to read its memory anytime, and edit or forget notes by hand. Nothing is learned or hidden behind your back.</p>
           <figure>
-            <img src="/captures/en/memory.png" alt="A wine persona’s memory: the summary, current facts with original post links and controls to edit or forget, and a fragment record not yet folded in (sample)" loading="lazy" width="382" height="1115" />
+            <img src="/captures/en/memory.png" alt="A wine persona’s memory: current facts with original post links and controls to edit or forget, and a fragment record not yet folded in (sample)" loading="lazy" width="382" height="950" />
             <figcaption>What was remembered, tags, the original post, ✎ to edit, and forgetting a single note (sample data).</figcaption>
           </figure>
           <h3>What you can do</h3>
           <ul>
-            <li><strong>Read</strong>: Each persona keeps one memory, shown as a summary, current facts, and fragment records under “Summary and records”.</li>
+            <li><strong>Read</strong>: Each persona keeps one memory, shown as current facts and fragment records under “Facts and records”.</li>
             <li><strong>Trace</strong>: Tap <strong>Original post</strong> on any note to open the conversation or image that produced it. Tap a <strong>#tag</strong> to filter by topic.</li>
             <li><strong>Edit</strong>: If a fact has a typo or misinterprets something, tap <strong>✎</strong> to correct it directly.</li>
             <li><strong>Forget</strong>: Remove unwanted notes with <strong>×</strong> or <strong>Forget this note</strong>. You are asked to confirm deletion. There is no separate button to clear all memory. Deleting an original fragment also removes notes that rested solely on it.</li>
             <li><strong>Lifespan and review</strong>: Ephemeral notes expire automatically (<strong>Gone on</strong>), and older notes are surfaced at check-in with “Can I forget this now?” (<strong>Review on</strong>). Choose <strong>Yes</strong> to delete the record, <strong>Keep it a while longer</strong> to postpone review, or <strong>Don't forget it</strong> to stop future reviews. Your choice is shown after answering. You can also reply in words.</li>
           </ul>
-          <div class="tip"><p>For details on how records become facts and how the summary is updated, see <a href="/manual/?guide=advanced#en-memory-system" data-lang-link>Advanced Guide: Memory architecture and review</a>.</p></div>
+          <div class="tip"><p>For details on how records become facts, see <a href="/manual/?guide=advanced#en-memory-system" data-lang-link>Advanced Guide: Memory architecture and review</a>.</p></div>
           <p>Deletion cannot be undone. A persona may learn something again by searching the posts that remain.</p>
           <div class="tip"><p>For example, forget a wrong “Likes this wine” note on its own, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not rewrite notes it already has.</p></div>
         </section>
@@ -1092,8 +1091,7 @@
           <p>A persona's memory is structured as follows:</p>
           <ul>
             <li><strong>Fragment records</strong>: For each fragment received, one line with the date and time, original post, summary, and tags. That is all a conversation adds.</li>
-            <li><strong>Current facts</strong>: One line per fact known. At check-in (daily, or monthly for people set to monthly), new records are folded into facts (added, rewritten, deleted or merged) and the folded records go; facts that no longer hold are deleted.</li>
-            <li><strong>Summary</strong>: The persona's own perspective grounded in its facts and records, rewritten at the same check-in.</li>
+            <li><strong>Current facts</strong>: One line per fact known, including grounded tendencies, conditions, exceptions and changes over time. At check-in (daily, or monthly for people set to monthly), new records are folded into facts (added, rewritten, deleted or merged) and the folded records go; facts that no longer hold are deleted.</li>
             <li><strong>New persona suggestions</strong>: Memory is not split by subject. When a subject of its own builds up, the persona suggests making a new persona for it.</li>
             <li><strong>Lifespan and review</strong>: Ephemeral notes such as “today's lunch” expire automatically under <strong>Gone on …</strong>, while long-unused notes are scheduled for <strong>Review on …</strong>, where the persona asks “Can I forget this now?” during check-in.</li>
           </ul>
@@ -1282,7 +1280,7 @@
           <p>Try: “@tabe Find that light red wine I enjoyed before.”</p>
 
           <h3 id="en-tool-records">Finding fragment records — records</h3>
-          <p>Every turn, a persona reads its summary, the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The app adds a record after a reply, then folds new records into facts and rewrites the summary at check-in. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
+          <p>Every turn, a persona reads the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The app adds a record after a reply, then folds new records into facts at check-in. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
           <p>Try: “@tabe Which ramen place did I say I wanted to try?”</p>
 
           <h3 id="en-tool-web_search">Web search — web_search</h3>

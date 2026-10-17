@@ -30,7 +30,7 @@ match.
 
 Each selected persona then decides what to do:
 
-* read its memory - a short summary, the facts that hold, and its latest records
+* read its memory - the facts that hold, and its latest records
 * look further back through its records, the current thread or older fragments
 * call one of the tools allowed for that persona
 * schedule a later follow-up
@@ -41,12 +41,12 @@ With memory enabled, the app then keeps a record of the fragment: the persona
 sums it up in one sentence with tags, or says there is nothing to keep. Once a
 day, at its check-in, the persona folds the records kept since into the facts
 that hold - adding, rewriting, deleting or merging them - deletes the records
-it folded, and rewrites its summary. Memory is one file per persona; when a
+it folded. Memory is one file per persona; when a
 subject of its own builds up, the persona suggests making a new persona rather
 than splitting it.
 
 A persona therefore does not receive one ever-growing personal-history prompt.
-Its summary and facts stay under 2,000 characters each; the details live in
+Its facts stay under 4,000 characters in total; the details live in
 one-line records it can search, and in the timeline itself.
 
 Everything else still remains in the timeline, including fragments that no
@@ -334,7 +334,7 @@ Built-in: Read → Answer        External agent: Read + Answer → submit_answer
             Execute → publish the answer
                      ↓
             Note keeper    → record of the fragment, fact changes
-            (at the check-in: summaries rewritten from what changed)
+            (at the check-in: records folded into grounded facts)
 ```
 
 ### From accepting a fragment to keeping memory
@@ -392,7 +392,7 @@ identifies the current post by ID instead of repeating its body; ID-less
 system wakes use their position in the thread. A current post absent from the
 thread is included in full.
 
-1. **Read.** Its summary, the facts that hold now, and its latest 15
+1. **Read.** The facts that hold now, and its latest 15
    records are handed over at the start of every turn. It may then ask, up to ten times (twenty in
    a deep or AlwaysUltra turn), to look at things: older records by tag,
    words, meaning or month, the posts records point to (up to ten at once), a timeline search, a web
@@ -462,7 +462,7 @@ and their unsupported facts directly; the persona can revisit its schedules.
 See [keepsNotes](../internal/persona/runner.go) and [the note keeper](../internal/persona/notekeeper.go).
 
 For an ordinary post it uses `keep_record`, with the thread and the tags its
-records already use in front of it - no facts, no summary, no older records,
+records already use in front of it - no facts, no older records,
 no published answer - and hands in:
 
 * `remember` - false for a greeting, a backchannel or general knowledge only,
@@ -472,7 +472,7 @@ no published answer - and hands in:
 * `expires` / `review` - the record's dates, if any (see below).
 
 An edit of a fragment, and a check-in handed records due for review, use
-`keep_memory` instead, with the summary and facts in front of it, adding
+`keep_memory` instead, with the facts in front of it, adding
 `facts` - changes to the facts: `add`, `update` one that changed, `invalidate`
 one that no longer holds, `merge` several into one - and `records`, what
 becomes of the records it was handed.
@@ -480,7 +480,7 @@ becomes of the records it was handed.
 The app checks the submission and sends it back with the reasons, with at most
 three submissions in total: no sentence, too many tags, a date that is not
 after today, a fact id that does not hold now, a fact over 200 characters,
-facts that would grow past 2,000, two or more of the answer's own sentences
+facts that would grow past 4,000, two or more of the answer's own sentences
 copied. Then **the app writes it** into the persona's memory file, `Memo.md`,
 as one record line:
 
@@ -492,14 +492,14 @@ The id is the persona's reply when it replied - which leads back to the
 fragment it answered - and the fragment itself when it did not. An edited
 fragment, or a retry, replaces its record rather than adding a second.
 
-**Facts and the summary are the daily pass's.** Before a persona's daily or
+**Facts are consolidated by the daily pass.** Before a persona's daily or
 monthly check-in, when records were kept since the last pass, facts were
 corrected, or a fact names only days that have gone, one `tidy_memory` call
-is handed the summary, the facts and the records. It returns fact changes,
+is handed the facts and the records. It returns fact changes,
 each naming the records it rests on; the records it folded away, which the app
 deletes only once a remaining fact rests on them; up to five stale records to
-ask the user about; past-dated plans to delete and past events to keep; the
-new summary; and, rarely, a subject that could be a persona of its own, which
+ask the user about; past-dated plans to delete and past events to keep;
+and, rarely, a subject that could be a persona of its own, which
 the check-in then suggests to the user. A fact that no longer holds is deleted,
 not kept as history. A failed pass is retried at the next check-in; with
 nothing new, no model is called.
@@ -516,9 +516,8 @@ If the keeper cannot finish, the answer is already out. Its input is saved as a
 note job before it runs, and failed memory work is retried after one minute,
 with backoff up to one hour, on the workspace's due passes. A deleted or edited
 fragment's old input is not replayed. Two turns of one persona finishing
-together take turns under a lock, so they do not rewrite the same summary or
-month from what each saw. The remark is updated afterwards to point at the
-summaries that were written. If the job itself cannot be saved, the keeper
+together take turns under a lock, so they do not overwrite the same memory from what each saw. The remark is updated
+afterwards to point at the memory that was written. If the job itself cannot be saved, the keeper
 still makes one immediate attempt; that attempt has no durable retry.
 
 ## Models
@@ -613,7 +612,7 @@ persona cannot touch the travel persona's memory, and no persona - nor an
 external agent - writes files of its own: the persona's note keeper hands in
 what to keep, and the app checks and stores it.
 
-A persona keeps one file, `Memo.md`, holding three things:
+A persona keeps one file, `Memo.md`, holding two things:
 
 * **One record per fragment.** A sentence, its tags, the post to go back to,
   and possibly a date. A turn adds one; a persona is handed the latest 15 and
@@ -623,8 +622,10 @@ A persona keeps one file, `Memo.md`, holding three things:
   rests on, and since when it holds. Once a day the persona folds the new
   records into facts one change at a time, so nothing is lost to a rewrite; a
   fact that no longer holds is deleted, and the records folded into a fact go.
-* **A summary** at the top of the file - the persona's own reading of its facts
-  and records, rewritten on the same daily pass.
+
+Facts also retain grounded tendencies, conditions, exceptions and useful changes
+over time, up to 200 characters each and 4,000 together. There is no separate
+prose summary.
 
 Memory is not split by subject: when a subject of its own builds up, the
 persona suggests a new persona for it instead.
@@ -632,10 +633,6 @@ persona suggests a new persona for it instead.
 ```text
 === Memo.md ===
 # Memo
-
-## まとめ（2026-09-20 更新）
-
-Picks tonkotsu when there is a choice; strong sesame puts them off.
 
 ## いまの事実
 
@@ -678,8 +675,7 @@ Deleting a post is different. The app takes out the records kept under it - the
 fragment's own, or the reply that answered it - and takes the fragment out of
 the facts' sources: a fact that rested on it alone goes, without asking any
 model. Each persona that had a record is woken, but cannot speak and has
-nothing to answer: it may cancel the schedules it set for that fragment. The
-summary is rewritten at the next check-in. Removing the last fact and record
+nothing to answer: it may cancel the schedules it set for that fragment. Remaining memory is reconsidered at the next check-in. Removing the last fact and record
 deletes the memory file immediately. Direct fact corrections and deletions use the same refresh rule
 without waking the persona. If only a persona's reply is deleted, its record
 is kept under the fragment instead.
@@ -688,7 +684,7 @@ is kept under the fragment instead.
 
 * the post it was routed, and what the app read out of its image;
 * **the remarks under that post** - other personas' and the user's replies;
-* its summary, the facts that hold now, and its latest records;
+* the facts that hold now, and its latest records;
 * its own pending schedules, if it can schedule.
 
 **Not the whole timeline.** Hand that over and every persona sees everything
@@ -836,7 +832,7 @@ naming someone is pointless.
 `memoryEnabled` defaults to true when omitted or null. Support and infographic
 ship with it false. Memory-off turns do not receive private notes; record
 queries return no memory, but explicit timeline reads remain available. The
-host skips note keeping, summary rewrites, memory migration and daily/monthly
+host skips note keeping, memory tidying and daily/monthly
 check-ins. Existing notes remain stored, and explicit notification schedules
 and external-agent planning remain available. The UI hides memory and check-in
 controls. Read-only memoryless turns also skip post-answer schedule planning
@@ -1215,7 +1211,7 @@ Local runs:
 `KAKERATTA_STORE=file` stores user state under `KAKERATTA_HOME`.
 
 This includes posts, settings, persona definitions, and persona memory
-(a summary, facts, and kakera records).
+(facts and kakera records).
 
 Images are stored locally unless a Cloud Storage bucket is configured.
 
@@ -1516,7 +1512,7 @@ cannot take a claimed ask.
 
 The context a claim returns holds the persona's identity and instructions,
 what it can change (`capabilities`), why it woke, the trigger and its thread,
-the persona's memory (summary, facts, and latest records), its schedules, the
+the persona's memory (facts and latest records), its schedules, the
 answer's JSON Schema, its read-only tools (`records` among them), the turn's
 read limits and answering rules, current time, post location, and whether the
 turn requires an answer or silence. Full system/user prompts and a second
@@ -1666,7 +1662,7 @@ The system is not optimized for producing a visible AI response to every event.
 
 ### Memory is inspectable
 
-Long-term memory is represented as facts, short summaries over them and
+Long-term memory is represented as facts and
 one-line records the user can read and correct, each fact and record leading
 back to its post.
 

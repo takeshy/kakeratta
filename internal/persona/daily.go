@@ -123,9 +123,9 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 			continue
 		}
 		// Memory is tidied at the check-in, before it reads it.
-		suggestion, err := r.rewriteSummaries(ctx, client, personaModel(settings), skill.forTurn(), now, loc)
+		suggestion, err := r.tidyMemory(ctx, client, personaModel(settings), skill.forTurn(), now, loc)
 		if err != nil {
-			r.emit("error", map[string]any{"where": "summaries", "persona": skill.ID, "message": err.Error()})
+			r.emit("error", map[string]any{"where": "memory tidy", "persona": skill.ID, "message": err.Error()})
 		}
 		// What happened since the previous check-in actually ran, read as one
 		// span. With no previous run on record, or one long ago, it reads a

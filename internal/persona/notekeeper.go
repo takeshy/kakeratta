@@ -516,8 +516,8 @@ func copiesAnswer(answer, text string) bool {
 
 // appendRecord adds rec to the memory file. A kakera has one record: one
 // already kept for it - from before the user edited it, or a retry that got
-// this far - is replaced, and one that said otherwise has the daily pass write
-// the summary again.
+// this far - is replaced, and one that said otherwise requests another
+// daily pass even when its original timestamp predates the last pass.
 func (r *Runner) appendRecord(ctx context.Context, personaID string, rec record, trigger timeline.Entry, zone *time.Location) error {
 	m := r.loadMemo(personaID, zone)
 	var kept []record
@@ -525,7 +525,7 @@ func (r *Runner) appendRecord(ctx context.Context, personaID string, rec record,
 		if !r.recordOf(old, trigger, personaID) {
 			kept = append(kept, old)
 		} else if old.Summary != rec.Summary {
-			m.SummaryDirty = true
+			m.TidyDirty = true
 		}
 	}
 	m.Records = append(kept, rec)

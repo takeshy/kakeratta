@@ -19,7 +19,7 @@ import (
 // one call, folds the records kept since the pass last read them into facts,
 // merges facts that say the same, drops facts that no longer hold, deletes the
 // records it folded away, hands records that look done to the user's review,
-// and rewrites the summary. With nothing new it costs no model call. A pass
+// and enriches the facts. With nothing new it costs no model call. A pass
 // that fails is tried at the next check-in.
 //
 // Memory is not split by subject. When what a persona keeps plainly falls
@@ -32,9 +32,6 @@ const maxTidyRecords = 150
 
 // maxReviewRecords is how many records one pass may hand to the user's review.
 const maxReviewRecords = 5
-
-// maxSummaryTextRunes is the most the summary may say.
-const maxSummaryTextRunes = 2000
 
 // suggestEvery is how long after one suggestion of a new persona the next may
 // come.
@@ -60,7 +57,7 @@ func (m memo) isNew(rec record) bool {
 // tidyDue says whether the daily pass has something to read: records kept
 // since it last read them, or facts corrected, merged or removed since.
 func tidyDue(m memo) bool {
-	if m.SummaryDirty {
+	if m.TidyDirty {
 		return true
 	}
 	for _, rec := range tidyRecords(m) {
@@ -123,9 +120,6 @@ func upcomingDated(m memo, today time.Time, horizon int) bool {
 	for _, rec := range m.Records {
 		evidence = append(evidence, fact{Text: rec.Summary, Since: rec.At})
 	}
-	if m.Summary != "" {
-		evidence = append(evidence, fact{Text: m.Summary, Since: m.SummaryAt})
-	}
 	for _, f := range evidence {
 		for _, day := range factDays(f.Text, f.Since, today) {
 			if !day.Before(today) && !day.After(until) {
@@ -178,9 +172,8 @@ func tidyTool(recordIDs, passed []string, suggest bool) llm.Tool {
 			},
 			"required": []string{"op", "id", "ids", "text", "records"}, "additionalProperties": false,
 		}},
-		"summary": map[string]any{"type": []string{"string", "null"}, "description": fmt.Sprintf("まとめ文の新しい全文（%d字以内）。変えないなら null", maxSummaryTextRunes)},
 	}
-	required := []string{"facts", "summary"}
+	required := []string{"facts"}
 	if len(recordIDs) > 0 {
 		props["drop_records"] = map[string]any{"type": "array", "items": ids, "description": "事実に取り込んだので要らなくなった記録の id。なければ []"}
 		props["review_records"] = map[string]any{"type": "array", "maxItems": maxReviewRecords, "items": ids, "description": "事実にはしないが、もう要らなさそうな記録の id。ユーザーに聞く。なければ []"}
@@ -211,7 +204,7 @@ func tidyPrompt(skill Skill, suggest bool) string {
 	if memory := strings.TrimSpace(skill.forTurn().Memory); memory != "" {
 		s += "残し方: " + memory + "\n"
 	}
-	s += `記憶は「まとめ文」「いまの事実」「かけらの記録」。記録は会話のたびに本体が1行ずつ足したもの。事実はいま当てはまることだけを持ち、当てはまらなくなった事実は消す（前の文は残らない。元の投稿はタイムラインに残る）。
+	s += `記憶は「いまの事実」「かけらの記録」。記録は会話のたびに本体が1行ずつ足したもの。事実はいま当てはまることだけを持ち、当てはまらなくなった事実は消す（前の文は残らない。元の投稿はタイムラインに残る）。
 tidy_memory で1回で出す。
 - facts: 記録から分かった・変わった事実の変更。根拠にした記録の id を records に書く。
   - add: 新しい事実を1件（text）。
@@ -221,11 +214,14 @@ tidy_memory で1回で出す。
   - 1件は1つのこと、` + fmt.Sprint(maxFactRunes) + `字以内。すでにある事実と同じことを add しない。事実は合わせて` + fmt.Sprint(maxFactsRunes) + `字まで。収まらないときは merge で傾向にまとめる。
   - 事実にするのはユーザーが言ったこと・したこと（好み・習慣・予定・関係・頼まれたこと。贈った・行ったなどの出来事は日付とともに）。担当が調べたこと・提案したことは事実にしない。推測は推測と明記する。
   - その場限りの相談や一度きりの質問は事実にしない。
+  - 事実だけを読んで、その人の状況を理解できるようにする。好み・習慣の傾向、理由、条件や例外、関係、未完了の予定を、根拠がある範囲で具体的に残す。単に短くするために大切な違いを落とさない。
+  - 好みや状況の変化自体が今後も役立つなら、以前と現在、分かる時期を1件の事実に含める（例: 「以前は豚骨を好んだが、10月からは塩を選ぶことが多い」）。日付・理由・因果関係を推測で補わない。以前の好みを現在の好みとして別に残さない。
+  - 傾向は反復した記録や既存の事実を根拠にする。1回の出来事から習慣を断定しない。訂正・削除された内容を変化の履歴として復活させない。
+  - add には根拠の記録の id が必須。既存の事実を詳しくするなら update、複数の事実を結び付けるなら merge を使い、元の投稿への根拠を引き継ぐ。
 - drop_records: 事実に取り込んだので要らなくなった記録の id。本体は、残る事実の根拠（records）になった記録だけを消す。
 - review_records: 事実にはしないが、もう要らなさそうな古い記録の id（最大` + fmt.Sprint(maxReviewRecords) + `件）。本体は消さず、ユーザーに「忘れていい？」と聞く対象にする。迷うものは入れない。
 - invalidate: 「日付の審査対象」の事実のうち、予定・予約・約束・期限のように、その日が過ぎてもう先のことではなくなったものの id。贈った・行った・言ったなどの過去の出来事は入れない。
 - retain: 「日付の審査対象」のうち、過去の出来事として今後も保持すると確認できた id。迷うものはどちらにも入れない。
-- summary: まとめ文の新しい全文。事実を変えたときと「必ず書き直す」とあるときは必須。変えないなら null。まとめ文は事実と記録を読んだあなたの見立てで、傾向、移り変わり、まだ済んでいないことが分かるように書く（` + fmt.Sprint(maxSummaryTextRunes) + `字以内）。いまのまとめ文を土台に、変わらない部分は残す。事実にないことを足さない。id は書かない。事実と同じ言語で書く。
 `
 	if suggest {
 		s += `- suggest_persona: 記憶の中に、この担当の領域から外れる、またははっきり別の主題がまとまってたまっているとき（例: 食べもの担当に料理の作り方の記録が何度も続く）だけ、その主題と理由。記憶を分ける代わりに、ユーザーに新しい担当を作ることを提案する。ふだんは null。
@@ -234,11 +230,11 @@ tidy_memory で1回で出す。
 	return s
 }
 
-// rewriteSummaries is the daily pass over one persona's memory, under its
+// tidyMemory is the daily pass over one persona's memory, under its
 // keeper lock, in one call. It runs when records were kept since the last
 // pass, facts were changed since, or a fact names only days that have gone.
 // It returns what the pass suggests could be a persona of its own, or "".
-func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) (string, error) {
+func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) (string, error) {
 	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Wake: "daily"})
 	if !skill.Remembers() {
 		return "", nil
@@ -262,14 +258,9 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 		expired[f.ID] = true
 		passedIDs = append(passedIDs, f.ID)
 	}
-	lines := []string{"いまの日時: " + now.In(zone).Format("2006-01-02 15:04 MST"), "", "いまのまとめ文:"}
-	if m.Summary == "" {
-		lines = append(lines, "（まだありません）")
-	} else {
-		lines = append(lines, m.Summary)
-	}
-	if m.SummaryDirty {
-		lines = append(lines, "", "（必ず書き直す: 事実や記録が訂正・削除されています。いま渡した事実と記録だけを根拠にまとめ文を照合し直し、削除・訂正前の内容を引き継がないでください）")
+	lines := []string{"いまの日時: " + now.In(zone).Format("2006-01-02 15:04 MST")}
+	if m.TidyDirty {
+		lines = append(lines, "", "（事実や記録が変更されています。いま渡した内容だけを根拠に整理し、削除・訂正前の内容を復活させないでください）")
 	}
 	lines = append(lines, "", "いまの事実:")
 	if len(m.Facts) == 0 {
@@ -306,7 +297,6 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 
 	type submission struct {
 		Facts      []tidyOp           `json:"facts"`
-		Summary    *string            `json:"summary"`
 		Drop       []string           `json:"drop_records"`
 		Review     []string           `json:"review_records"`
 		Invalidate []string           `json:"invalidate"`
@@ -316,7 +306,7 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 	var sub submission
 	var next memo
 	for attempt := 1; ; attempt++ {
-		reply, err := client.Complete(held, llm.Request{Purpose: "memory_summary", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
+		reply, err := client.Complete(held, llm.Request{Purpose: "memory_tidy", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
 			return "", err
 		}
@@ -336,6 +326,9 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 		}
 		var ops []factOp
 		for i, op := range sub.Facts {
+			if op.Op == "add" && len(op.Records) == 0 {
+				problems = append(problems, fmt.Sprintf("facts[%d]: add には根拠の記録の id を records に書いてください", i))
+			}
 			for _, id := range op.Records {
 				rec, ok := records[id]
 				if !ok {
@@ -385,13 +378,6 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 				problems = append(problems, "記録 "+id+" は見直しに回せません")
 			}
 		}
-		if sub.Summary != nil {
-			if n := len([]rune(strings.TrimSpace(repairNewlines(*sub.Summary)))); n == 0 || n > maxSummaryTextRunes {
-				problems = append(problems, fmt.Sprintf("summary が%d字です。1〜%d字にするか、変えないなら null にしてください", n, maxSummaryTextRunes))
-			}
-		} else if next.SummaryDirty && (len(next.Facts) > 0 || len(next.Records) > 0) {
-			problems = append(problems, "事実が変わったので、まとめ文（summary）を書き直してください")
-		}
 		if sub.Suggest != nil && (strings.TrimSpace(sub.Suggest.Topic) == "" || strings.TrimSpace(sub.Suggest.Reason) == "") {
 			problems = append(problems, "suggest_persona は topic と reason を書くか、null にしてください")
 		}
@@ -420,9 +406,7 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 			next.Facts[i].PastReviewed = next.Facts[i].reviewFingerprint(zone)
 		}
 	}
-	if sub.Summary != nil {
-		next.Summary, next.SummaryAt, next.SummaryDirty = strings.TrimSpace(repairNewlines(*sub.Summary)), today, false
-	}
+	next.TidyDirty = false
 	next.CheckedAt = now
 	suggestion := ""
 	if suggest && sub.Suggest != nil {

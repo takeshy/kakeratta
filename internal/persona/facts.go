@@ -10,14 +10,13 @@ import (
 	"time"
 )
 
-// A persona's memory is one file, "Memo.md", kept by the app: a summary in
-// prose, the facts that hold now, and the records of the kakera not yet folded
-// into them.
+// A persona's memory is one file, "Memo.md", kept by the app: the facts
+// that hold now and the records of the kakera not yet folded into them.
 //
-// A turn only adds a record of its kakera (field_records.go). Once a day the
+// A turn only adds a record of its kakera (keep_record.go). Once a day the
 // persona folds the new records into facts - it adds a fact, rewrites one that
 // changed, drops one that no longer holds, or merges several into one - and
-// the app applies exactly that (summaries.go). A fact that no longer holds is
+// the app applies exactly that (memory_tidy.go). A fact that no longer holds is
 // deleted, not kept as history: the kakera it rested on stay in the timeline.
 // Every fact carries the kakera it rests on, which is how the app takes out
 // what a deleted kakera left behind without asking a model.
@@ -28,10 +27,6 @@ import (
 //	# Memo
 //
 //	<!-- kakeratta:checked 2026-10-02T07:12:00+09:00 -->
-//
-//	## まとめ（2026-10-02 更新）
-//
-//	三田の二郎がずっと気になっている。…
 //
 //	## いまの事実
 //
@@ -48,16 +43,13 @@ const MemoPath = "Memo.md"
 const maxFactRunes = 200
 
 // maxFactsRunes is the most the facts that hold may say together.
-const maxFactsRunes = 2000
+const maxFactsRunes = 4000
 
 // The headings of the memory file.
 const (
-	summaryHeading = "## まとめ"
 	factsHeading   = "## いまの事実"
 	recordsHeading = "## かけらの記録"
 )
-
-var summaryHeadingDay = regexp.MustCompile(`^## まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$`)
 
 type fact struct {
 	ID    string
@@ -70,12 +62,8 @@ type fact struct {
 
 // memo is a persona's memory file.
 type memo struct {
-	// Summary is the persona's prose over its memory, and SummaryAt the day
-	// it was last written; zero when it never was. SummaryDirty is set when
-	// facts or records went since, so the daily pass writes it again.
-	Summary      string
-	SummaryAt    time.Time
-	SummaryDirty bool
+	// TidyDirty requests another daily pass after a correction or removal.
+	TidyDirty bool
 	// CheckedAt is when the daily pass last read the records: those kept
 	// after it are new to it.
 	CheckedAt time.Time
@@ -86,11 +74,11 @@ type memo struct {
 }
 
 func (m memo) empty() bool {
-	return m.Summary == "" && len(m.Facts) == 0 && len(m.Records) == 0
+	return len(m.Facts) == 0 && len(m.Records) == 0
 }
 
 // The app's own markers in the memory file; the memory view hides them.
-const summaryDirtyMarker = "<!-- kakeratta:summary-dirty -->"
+const memoryDirtyMarker = "<!-- kakeratta:memory-dirty -->"
 
 var (
 	checkedMarker   = regexp.MustCompile(`^<!-- kakeratta:checked (\S+) -->$`)
@@ -113,24 +101,17 @@ var factTrailer = regexp.MustCompile(`\s(from|since|reviewed):(\S+)$`)
 func parseMemo(text string, zone *time.Location) memo {
 	var out memo
 	section := ""
-	var summary []string
 	for _, raw := range strings.Split(text, "\n") {
 		line := strings.TrimSpace(raw)
 		switch {
-		case line == summaryDirtyMarker:
-			out.SummaryDirty = true
+		case line == memoryDirtyMarker:
+			out.TidyDirty = true
 			continue
 		case checkedMarker.MatchString(line):
 			out.CheckedAt, _ = time.Parse(time.RFC3339, checkedMarker.FindStringSubmatch(line)[1])
 			continue
 		case suggestedMarker.MatchString(line):
 			out.SuggestedAt, _ = time.ParseInLocation("2006-01-02", suggestedMarker.FindStringSubmatch(line)[1], zone)
-			continue
-		case line == summaryHeading || summaryHeadingDay.MatchString(line):
-			section = "summary"
-			if match := summaryHeadingDay.FindStringSubmatch(line); match != nil {
-				out.SummaryAt, _ = time.ParseInLocation("2006-01-02", match[1], zone)
-			}
 			continue
 		case line == factsHeading:
 			section = "facts"
@@ -141,8 +122,8 @@ func parseMemo(text string, zone *time.Location) memo {
 		case section == "records":
 			out.Records = append(out.Records, parseRecords(line, zone)...)
 			continue
-		case section == "summary":
-			summary = append(summary, strings.TrimRight(raw, " \t"))
+		}
+		if section != "facts" {
 			continue
 		}
 		match := factLine.FindStringSubmatch(line)
@@ -169,7 +150,6 @@ func parseMemo(text string, zone *time.Location) memo {
 		f.Text = strings.TrimSpace(rest)
 		out.Facts = append(out.Facts, f)
 	}
-	out.Summary = strings.TrimSpace(strings.Join(summary, "\n"))
 	return out
 }
 
@@ -196,15 +176,8 @@ func memoText(m memo, zone *time.Location) string {
 	if !m.SuggestedAt.IsZero() {
 		lines = append(lines, "<!-- kakeratta:persona-suggested "+m.SuggestedAt.In(zone).Format("2006-01-02")+" -->", "")
 	}
-	if m.SummaryDirty {
-		lines = append(lines, summaryDirtyMarker, "")
-	}
-	if m.Summary != "" {
-		head := summaryHeading
-		if !m.SummaryAt.IsZero() {
-			head += "（" + m.SummaryAt.In(zone).Format("2006-01-02") + " 更新）"
-		}
-		lines = append(lines, head, "", m.Summary, "")
+	if m.TidyDirty {
+		lines = append(lines, memoryDirtyMarker, "")
 	}
 	if len(m.Facts) > 0 {
 		lines = append(lines, factsHeading, "")
@@ -288,13 +261,9 @@ func newFactID(taken func(string) bool) string {
 	}
 }
 
-// renderFacts is the summary and the facts that hold now, as a turn is shown
-// them.
+// renderFacts is the facts that hold now, as a turn is shown them.
 func renderFacts(m memo, zone *time.Location) string {
 	var lines []string
-	if m.Summary != "" {
-		lines = append(lines, "まとめ:", m.Summary, "", "事実:")
-	}
 	for _, f := range m.Facts {
 		line := "- [" + f.ID + "] " + f.Text
 		if !f.Since.IsZero() {
@@ -322,7 +291,7 @@ type factOp struct {
 
 // planFacts applies ops to m's facts in memory, and says what is wrong with
 // them. The kakera they rest on is from (empty for none). It reports whether
-// the facts changed; a change marks the summary dirty.
+// the facts changed; a change requests another daily pass.
 func planFacts(m memo, ops []factOp, from string, now time.Time, zone *time.Location) (memo, bool, []string) {
 	facts := append([]fact{}, m.Facts...)
 	var problems []string
@@ -439,7 +408,7 @@ func planFacts(m memo, ops []factOp, from string, now time.Time, zone *time.Loca
 	}
 	m.Facts = facts
 	if changed {
-		m = dirtySummary(m)
+		m = dirtyMemory(m)
 	}
 	return m, changed, problems
 }
@@ -490,7 +459,7 @@ func (r *Runner) dropFactSourcesHeld(held context.Context, personaID string, gon
 		return false, nil
 	}
 	m.Facts = kept
-	return true, r.saveMemo(held, personaID, dirtySummary(m), zone)
+	return true, r.saveMemo(held, personaID, dirtyMemory(m), zone)
 }
 
 // ErrFactNotFound is a fact the user asked to change that memory does not
@@ -541,16 +510,15 @@ func (r *Runner) changeFact(ctx context.Context, personaID, id string, change fu
 		return fmt.Errorf("いまの事実が合わせて%d字になります（%d字まで）", n, maxFactsRunes)
 	}
 	m.Facts = facts
-	return r.saveMemo(held, personaID, dirtySummary(m), zone)
+	return r.saveMemo(held, personaID, dirtyMemory(m), zone)
 }
 
-// dirtySummary marks the summary to be written again: corrections, merges
-// and removals need a new one even when no record is new. With no fact and no
-// record left, the summary has nothing to rest on and goes too.
-func dirtySummary(m memo) memo {
+// dirtyMemory requests another daily pass after corrections, merges and
+// removals, even when no record is new.
+func dirtyMemory(m memo) memo {
 	if len(m.Facts) == 0 && len(m.Records) == 0 {
 		return memo{CheckedAt: m.CheckedAt, SuggestedAt: m.SuggestedAt}
 	}
-	m.SummaryDirty = true
+	m.TidyDirty = true
 	return m
 }

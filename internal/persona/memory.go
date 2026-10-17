@@ -268,8 +268,8 @@ func (r *Runner) memoryView(skill Skill, zone *time.Location) string {
 
 // eachRecord passes every record a persona keeps to change, and writes the
 // memory file back if any changed. change reports whether to keep the record
-// and whether it changed it. A record let go of other than by expiry marks
-// the summary to be written again, since it may say what the record did. The
+// and whether it changed it. A record let go of other than by expiry requests
+// a daily pass to reconsider the remaining memory. The
 // caller holds the persona's keeper lock; writes stop if ctx ends.
 func (r *Runner) eachRecord(ctx context.Context, personaID string, zone *time.Location, change func(rec *record) (keep, changed bool)) error {
 	m := r.loadMemo(personaID, zone)
@@ -283,7 +283,7 @@ func (r *Runner) eachRecord(ctx context.Context, personaID string, zone *time.Lo
 		if keep {
 			kept = append(kept, rec)
 		} else if !rec.Expires.set() {
-			// A record that expires never reaches the summary.
+			// An expiring record is never folded into facts.
 			forgotten = true
 		}
 	}
@@ -292,7 +292,7 @@ func (r *Runner) eachRecord(ctx context.Context, personaID string, zone *time.Lo
 	}
 	m.Records = kept
 	if forgotten {
-		m = dirtySummary(m)
+		m = dirtyMemory(m)
 	}
 	return r.saveMemo(ctx, personaID, m, zone)
 }

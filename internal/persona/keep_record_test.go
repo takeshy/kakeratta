@@ -11,14 +11,14 @@ import (
 
 // A turn keeps one record in the default field, reading none of the facts or
 // older records - only the tags in use. A retry replaces its record, the
-// summary and facts are left for the daily pass, and a kakera with nothing to
+// facts are left for the daily pass, and a kakera with nothing to
 // look back on is not kept.
 func TestATurnKeepsOnlyARecord(t *testing.T) {
 	r, s, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
 	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
 	zone := time.UTC
 	old := record{At: time.Now().Add(-24 * time.Hour), ID: "older", Summary: "OLD_RECORD_NOT_IN_PROMPT", Tags: []string{"旧タグ"}}
-	original := memo{Summary: "辛い料理が好き", SummaryAt: localDay(time.Now().Add(-24*time.Hour), zone), Facts: []fact{{ID: "f_old", Text: "FACT_NOT_IN_PROMPT"}}, Records: []record{old}}
+	original := memo{Facts: []fact{{ID: "f_old", Text: "FACT_NOT_IN_PROMPT"}}, Records: []record{old}}
 	if err := s.WriteNote(skill.ID, MemoPath, memoText(original, zone)); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestATurnKeepsOnlyARecord(t *testing.T) {
 	keep(entry) // durable retry must replace the record, not append again
 	note, _ := s.Note(skill.ID, MemoPath)
 	ff := parseMemo(note.Text, zone)
-	if ff.Summary != original.Summary || !ff.SummaryAt.Equal(original.SummaryAt) || ff.SummaryDirty || len(ff.Facts) != 1 || len(ff.Records) != 2 {
+	if ff.TidyDirty || len(ff.Facts) != 1 || len(ff.Records) != 2 {
 		t.Fatalf("record-only changed other memory: %+v", ff)
 	}
 	if found, _ := r.findRecords(skill.ID, "リメイク", "", "", 10, zone); len(found) != 1 || found[0].ID != entry.ID {
@@ -63,9 +63,9 @@ func TestATurnKeepsOnlyARecord(t *testing.T) {
 	}
 }
 
-// A deleted kakera takes its record along and has the summary written again,
+// A deleted kakera takes its record along and requests another daily pass,
 // and memory with nothing left is gone.
-func TestRecordDeletionKeepsTheSummaryForTheDailyPass(t *testing.T) {
+func TestRecordDeletionRequestsTheDailyPass(t *testing.T) {
 	r, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
 	now := time.Now().UTC()
 	entry := post(t, s, "A店に行きたい")
@@ -74,7 +74,7 @@ func TestRecordDeletionKeepsTheSummaryForTheDailyPass(t *testing.T) {
 		{At: entry.At, ID: entry.ID, Of: entry.ID, Summary: entry.Text, Tags: []string{"A店"}, Review: recordDate{Day: localDay(now, time.UTC), Days: 7}},
 		{At: other.At, ID: other.ID, Of: other.ID, Summary: other.Text, Tags: []string{"B店"}},
 	}
-	ff := memo{Summary: "A店とB店に行きたい", Records: recs}
+	ff := memo{Records: recs}
 	if err := s.WriteNote("gourmet", MemoPath, memoText(ff, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestRecordDeletionKeepsTheSummaryForTheDailyPass(t *testing.T) {
 	if err != nil || !dropped {
 		t.Fatalf("drop=%v err=%v", dropped, err)
 	}
-	if ff = r.loadMemo("gourmet", time.UTC); len(ff.Records) != 1 || ff.Records[0].ID != other.ID || ff.Summary != "A店とB店に行きたい" || !ff.SummaryDirty {
+	if ff = r.loadMemo("gourmet", time.UTC); len(ff.Records) != 1 || ff.Records[0].ID != other.ID || !ff.TidyDirty {
 		t.Fatalf("memory after the deletion: %+v", ff)
 	}
 	if _, err := r.dropRecords(context.Background(), "gourmet", []timeline.Entry{other}, time.UTC); err != nil {
