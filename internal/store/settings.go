@@ -28,18 +28,16 @@ const (
 	NemotronLightning = "nvidia/Nemotron-3_5-Lightning"
 	NemotronNano      = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
 	NemotronSuper     = "nvidia/nemotron-3-super-120b-a12b"
-	// NemotronSuperVL takes Super's place in the day's and the month's work on
-	// Nebius. It reasons far longer than Super, which pays off once a day but
-	// not on every post.
-	NemotronSuperVL    = "nvidia/Nemotron-3.5-Super-VL"
-	NemotronUltra      = "nvidia/Nemotron-3-Ultra-550b-a55b"
-	NebiusVision       = "zai-org/GLM-5.3-Flash"
-	OpenRouterRouter   = "nvidia/nemotron-3-super-120b-a12b"
-	OpenRouterHigh     = "nvidia/nemotron-3-ultra-550b-a55b"
-	OpenRouterMiddle   = "nvidia/nemotron-3-super-120b-a12b"
-	OpenRouterLow      = "nvidia/nemotron-3.5-lightning"
-	OpenRouterVision   = "z-ai/glm-5.3-flash"
-	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
+	// NemotronSuperVL reasons far longer than Super. On Nebius it takes the
+	// jobs that pay for that; the persona package says which.
+	NemotronSuperVL  = "nvidia/Nemotron-3.5-Super-VL"
+	NemotronUltra    = "nvidia/Nemotron-3-Ultra-550b-a55b"
+	NebiusVision     = "zai-org/GLM-5.3-Flash"
+	OpenRouterRouter = "nvidia/nemotron-3-super-120b-a12b"
+	OpenRouterHigh   = "nvidia/nemotron-3-ultra-550b-a55b"
+	OpenRouterMiddle = "nvidia/nemotron-3-super-120b-a12b"
+	OpenRouterLow    = "nvidia/nemotron-3.5-lightning"
+	OpenRouterVision = "z-ai/glm-5.3-flash"
 )
 
 // Profile holds display preferences independently of authentication.
@@ -308,24 +306,26 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 	if strings.TrimSpace(settings.BaseURL) == "" {
 		settings.BaseURL = EndpointFor(settings.Provider)
 	}
-	// Repair only the defaults shipped for Nebius. Custom endpoints and model
-	// selections belong to the user, even when their names resemble ours.
+	// Nebius' own endpoint runs the models the app ships with: nobody picks
+	// them, and whatever an older version saved there is not a choice.
+	// Custom endpoints and providers keep their models.
 	if usesNebiusEndpoint(settings) {
-		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel} {
-			if name := strings.TrimSpace(*model); name == legacyNemotronNano || name == "nvidia/nvidia-nemotron-3-nano-30b-a3b" {
-				*model = NemotronNano
-			}
-		}
-		// Upgrade the shipped light model while preserving explicit middle/high
-		// choices and models served by other providers.
-		for _, model := range []*string{&settings.LowModel} {
-			if strings.TrimSpace(*model) == NemotronNano {
-				*model = NemotronLightning
-			}
-		}
-		if model := strings.TrimSpace(settings.VisionModel); model == legacyNemotronNano || model == NemotronNano || model == "nvidia/nvidia-nemotron-3-nano-30b-a3b" || model == "Qwen/Qwen2.5-VL-72B-Instruct" {
-			settings.VisionModel = NebiusVision
-		}
+		settings = nebiusModels(settings)
+	}
+	return settings
+}
+
+func nebiusModels(settings Settings) Settings {
+	settings.LowModel, settings.MiddleModel, settings.HighModel = NemotronLightning, NemotronSuper, NemotronUltra
+	settings.VisionModel, settings.RouterModel = NebiusVision, NemotronSuper
+	return settings
+}
+
+// stored leaves Nebius' models out of what is saved, so a later version's
+// defaults are not held back by an earlier one's.
+func stored(settings Settings) Settings {
+	if usesNebiusEndpoint(settings) {
+		settings.LowModel, settings.MiddleModel, settings.HighModel, settings.VisionModel, settings.RouterModel = "", "", "", "", ""
 	}
 	return settings
 }
@@ -374,5 +374,5 @@ func effectiveSettings(settings Settings) Settings {
 func (s *Store) SaveSettings(settings Settings) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return writeJSON(filepath.Join(s.root, "settings.json"), settings)
+	return writeJSON(filepath.Join(s.root, "settings.json"), stored(settings))
 }

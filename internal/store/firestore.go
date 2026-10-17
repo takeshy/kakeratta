@@ -625,7 +625,7 @@ func (w *FirestoreWorkspace) SaveSettings(settings Settings) error {
 	if _, err := w.user.Set(context.Background(), map[string]any{"configured": true}, firestore.MergeAll); err != nil {
 		return err
 	}
-	_, err := w.user.Collection("config").Doc("settings").Set(context.Background(), settings)
+	_, err := w.user.Collection("config").Doc("settings").Set(context.Background(), stored(settings))
 	return err
 }
 

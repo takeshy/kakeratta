@@ -13,7 +13,6 @@ func TestOpenRouterVisionModelIsSavedAndSelectedIndependently(t *testing.T) {
 	s, workspace := app(t)
 	initial := workspace.ConfiguredSettings()
 	initial.APIKey = "nebius-key"
-	initial.VisionModel = "nebius-vision"
 	if err := workspace.SaveSettings(initial); err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +31,7 @@ func TestOpenRouterVisionModelIsSavedAndSelectedIndependently(t *testing.T) {
 		if err := json.Unmarshal(saved.Body.Bytes(), &editable); err != nil {
 			t.Fatal(err)
 		}
-		if editable.OpenRouterVisionModel != want || editable.VisionModel != "nebius-vision" || editable.OpenRouterAPIKey != "********" {
+		if editable.OpenRouterVisionModel != want || editable.VisionModel != store.NebiusVision || editable.OpenRouterAPIKey != "********" {
 			t.Fatalf("saved settings = %+v", editable)
 		}
 		client, effective := s.client()
@@ -47,7 +46,7 @@ func TestOpenRouterVisionModelIsSavedAndSelectedIndependently(t *testing.T) {
 				t.Fatal(err)
 			}
 			client, effective = s.client()
-			expected := "nebius-vision"
+			expected := store.NebiusVision
 			if enabled {
 				expected = want
 			}

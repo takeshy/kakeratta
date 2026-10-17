@@ -20,52 +20,48 @@ func TestDefaultPersonasAreActiveAndSavedChoicesArePreserved(t *testing.T) {
 	}
 }
 
-func TestNebiusDefaultModelMigration(t *testing.T) {
-	for _, vision := range []string{legacyNemotronNano, "nvidia/nvidia-nemotron-3-nano-30b-a3b", "Qwen/Qwen2.5-VL-72B-Instruct", NemotronNano, ""} {
-		t.Run(vision, func(t *testing.T) {
-			s := open(t)
-			settings := defaultSettings()
-			settings.LowModel, settings.MiddleModel, settings.HighModel = legacyNemotronNano, legacyNemotronNano, legacyNemotronNano
-			settings.VisionModel = vision
-			if err := s.SaveSettings(settings); err != nil {
-				t.Fatal(err)
-			}
-			got := s.Settings()
-			if got.LowModel != NemotronLightning {
-				t.Fatal("light models not upgraded")
-			}
-			for _, model := range []string{got.MiddleModel, got.HighModel} {
-				if model != NemotronNano {
-					t.Fatalf("old text model not migrated: %s", model)
-				}
-			}
-			if got.VisionModel != NebiusVision {
-				t.Fatalf("vision model = %s", got.VisionModel)
-			}
-			if vision == "" && s.ConfiguredSettings().VisionModel != "" {
-				t.Fatal("empty selection became explicit")
-			}
-		})
+// Nebius' own endpoint runs the shipped models whatever an older version
+// saved, and saves none of them, so a later version's defaults apply at once.
+// Custom endpoints and providers keep their models.
+func TestNebiusModelsAreShippedAndNotStored(t *testing.T) {
+	s := open(t)
+	settings := defaultSettings()
+	settings.LowModel, settings.MiddleModel, settings.HighModel = "old-low", NemotronSuperVL, ""
+	settings.VisionModel, settings.RouterModel = "old-vision", NemotronSuperVL
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestModelMigrationPreservesCustomSettings(t *testing.T) {
+	var raw map[string]any
+	if err := readJSON(s.Root()+"/settings.json", &raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"lowModel", "middleModel", "highModel", "visionModel", "routerModel"} {
+		if raw[key] != "" {
+			t.Fatalf("%s was stored: %v", key, raw[key])
+		}
+	}
+	if err := writeJSON(s.Root()+"/settings.json", settings); err != nil {
+		t.Fatal(err)
+	}
+	for _, got := range []Settings{s.ConfiguredSettings(), s.Settings()} {
+		if got.LowModel != NemotronLightning || got.MiddleModel != NemotronSuper || got.HighModel != NemotronUltra ||
+			got.VisionModel != NebiusVision || got.RouterModel != NemotronSuper {
+			t.Fatalf("Nebius models = %+v", got)
+		}
+	}
 	for _, endpoint := range []string{NebiusBaseURL, "https://custom.example/v1"} {
 		for _, provider := range []Provider{ProviderNebius, ProviderOpenAI} {
-			settings := defaultSettings()
-			settings.Provider, settings.BaseURL = provider, endpoint
-			settings.LowModel = "my-text-model"
-			settings.VisionModel = "my-vision-model"
-			got := normaliseConfiguredSettings(settings)
-			if got.LowModel != settings.LowModel || got.VisionModel != settings.VisionModel {
-				t.Fatal("custom model changed")
+			if provider == ProviderNebius && endpoint == NebiusBaseURL {
+				continue
 			}
-			if provider != ProviderNebius || endpoint != NebiusBaseURL {
-				settings.LowModel, settings.VisionModel = legacyNemotronNano, legacyNemotronNano
-				got = normaliseConfiguredSettings(settings)
-				if got.LowModel != legacyNemotronNano || got.VisionModel != legacyNemotronNano {
-					t.Fatal("custom provider/endpoint changed")
-				}
+			custom := defaultSettings()
+			custom.Provider, custom.BaseURL = provider, endpoint
+			custom.LowModel, custom.MiddleModel, custom.VisionModel = "my-low", "my-middle", "my-vision"
+			if err := s.SaveSettings(custom); err != nil {
+				t.Fatal(err)
+			}
+			if got := s.ConfiguredSettings(); got.LowModel != "my-low" || got.MiddleModel != "my-middle" || got.VisionModel != "my-vision" {
+				t.Fatalf("%s %s: custom models changed: %+v", provider, endpoint, got)
 			}
 		}
 	}
@@ -78,35 +74,19 @@ func TestNewWorkspaceUsesVisionModel(t *testing.T) {
 	}
 }
 
-func TestIntermediateNanoDefaultIsMigrated(t *testing.T) {
-	settings := defaultSettings()
-	settings.LowModel = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
-	got := normaliseConfiguredSettings(settings)
-	if got.LowModel != NemotronLightning {
-		t.Fatal("intermediate default was not migrated")
+// On a custom endpoint an empty high model falls back to the middle one.
+func TestHighTierFallsBackOnCustomEndpoints(t *testing.T) {
+	s := open(t)
+	settings := s.ConfiguredSettings()
+	settings.BaseURL, settings.HighModel, settings.MiddleModel = "https://custom.example/v1", "", "chosen-middle"
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestHighTierDefaultsAndOverrides(t *testing.T) {
-	for _, tc := range []struct{ name, endpoint, high, want string }{
-		{"existing empty Nebius", NebiusBaseURL, "", NemotronUltra},
-		{"explicit selection", NebiusBaseURL, "chosen-model", "chosen-model"},
-		{"custom endpoint fallback", "https://custom.example/v1", "", "chosen-middle"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			s := open(t)
-			settings := s.ConfiguredSettings()
-			settings.BaseURL, settings.HighModel, settings.MiddleModel = tc.endpoint, tc.high, "chosen-middle"
-			if err := s.SaveSettings(settings); err != nil {
-				t.Fatal(err)
-			}
-			if got := s.Settings().HighModel; got != tc.want {
-				t.Fatalf("high = %q, want %q", got, tc.want)
-			}
-			if got := s.ConfiguredSettings().HighModel; got != tc.high {
-				t.Fatalf("editable high changed to %q", got)
-			}
-		})
+	if got := s.Settings().HighModel; got != "chosen-middle" {
+		t.Fatalf("high = %q", got)
+	}
+	if got := s.ConfiguredSettings().HighModel; got != "" {
+		t.Fatalf("editable high changed to %q", got)
 	}
 }
 
@@ -116,7 +96,7 @@ func TestToolSettingsInOldDocumentsAreIgnored(t *testing.T) {
 	if err := writeJSON(s.Root()+"/settings.json", map[string]any{"lowModel": "x", "search": map[string]any{"provider": "brave", "apiKey": "k"}, "places": map[string]any{"routeUrl": "https://custom.example/car"}}); err != nil {
 		t.Fatal(err)
 	}
-	if settings := s.Settings(); settings.LowModel != "x" || settings.Search.APIKey != "" {
+	if settings := s.Settings(); settings.Search.APIKey != "" {
 		t.Fatalf("a Brave key survived as a Tavily key: %+v", settings)
 	}
 	if err := writeJSON(s.Root()+"/settings.json", map[string]any{"search": map[string]any{"provider": "tavily", "baseUrl": "https://api.tavily.com/search", "apiKey": "tvly"}}); err != nil {
@@ -137,33 +117,6 @@ func TestToolSettingsInOldDocumentsAreIgnored(t *testing.T) {
 	}
 	if _, ok := raw["places"]; ok {
 		t.Fatal("the old places key was written back")
-	}
-}
-
-func TestLightningDefaultsAndNanoMigration(t *testing.T) {
-	s := open(t)
-	if got := s.Settings(); got.LowModel != NemotronLightning {
-		t.Fatal("wrong defaults")
-	}
-	for _, old := range []string{NemotronNano, legacyNemotronNano, "nvidia/nvidia-nemotron-3-nano-30b-a3b"} {
-		settings := defaultSettings()
-		settings.LowModel = old
-		if err := writeJSON(s.Root()+"/settings.json", settings); err != nil {
-			t.Fatal(err)
-		}
-		got := s.ConfiguredSettings()
-		if got.LowModel != NemotronLightning {
-			t.Fatal("stored Nano was not upgraded")
-		}
-		if got.MiddleModel != NemotronSuper || got.HighModel != NemotronUltra || got.VisionModel != NebiusVision {
-			t.Fatal("unrelated model changed")
-		}
-	}
-	settings := defaultSettings()
-	settings.LowModel = "custom-low"
-	got := normaliseConfiguredSettings(settings)
-	if got.LowModel != "custom-low" {
-		t.Fatal("custom models changed")
 	}
 }
 
@@ -198,7 +151,7 @@ func TestOpenRouterVisionDefaultAndPersistence(t *testing.T) {
 	for _, selection := range []string{"", " ", "provider/vision-model"} {
 		settings := s.ConfiguredSettings()
 		settings.OpenRouterVisionModel = selection
-		settings.VisionModel = "main-provider-vision"
+		settings.BaseURL, settings.VisionModel = "https://custom.example/v1", "main-provider-vision"
 		if err := s.SaveSettings(settings); err != nil {
 			t.Fatal(err)
 		}

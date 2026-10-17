@@ -271,7 +271,7 @@ func TestKeysNeverReachThePage(t *testing.T) {
 		t.Fatalf("OpenRouter key was exposed or lost: %q", out.OpenRouterAPIKey)
 	}
 
-	out.LowModel = "something/else"
+	out.ReadAloudRate = 1.5
 	body, _ := json.Marshal(out)
 	saved := httptest.NewRecorder()
 	server.ServeHTTP(saved, httptest.NewRequest(http.MethodPut, "/api/settings", bytes.NewReader(body)))
@@ -285,7 +285,7 @@ func TestKeysNeverReachThePage(t *testing.T) {
 	if after.OpenRouterAPIKey != "openrouter-key" || !after.OpenRouterMode || after.OpenRouterRouterModel != "~typesafe/jev-latest" || after.JevEnabled {
 		t.Fatalf("OpenRouter settings were not preserved: %+v", after)
 	}
-	if after.LowModel != "something/else" {
+	if after.ReadAloudRate != 1.5 {
 		t.Fatal("the change that was made did not save")
 	}
 }

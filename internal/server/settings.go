@@ -154,7 +154,7 @@ func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
 		"providers": []map[string]string{
 			{"id": string(store.ProviderNebius), "label": "Nebius Token Factory", "endpoint": store.NebiusBaseURL},
 		},
-		"nemotron": map[string]string{"low": store.NemotronNano, "middle": store.NemotronSuper, "high": store.NemotronUltra},
+		"nemotron": map[string]string{"low": store.NemotronLightning, "middle": store.NemotronSuper, "high": store.NemotronUltra},
 		// What the operator wired up, so the page can say what personas can reach.
 		"tools":      tools.New(s.tools).Names(),
 		"mcpServers": s.tools.MCP.Servers(),
