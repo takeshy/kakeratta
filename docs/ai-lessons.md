@@ -191,9 +191,9 @@ rule refusing tools on a low persona, and the person writing a persona having
 to guess how hard its posts would be.
 
 Built-in personas normally answer on Super, with recipients running in parallel.
-**Always think deeply** selects Ultra for final answers to ordinary requests too. Depth is fixed before the first model call by explicit phrases in the current post, such as "詳しく" or "in detail", or by AlwaysUltra. Models no longer choose depth or write a preliminary research plan. Ordinary turns have 10 reads and 2 Web searches; deep and AlwaysUltra turns have 20 and 4 from the start.
+**Always think deeply** selects a considered final answer for ordinary requests too - Super VL on Nebius, Ultra elsewhere. Depth is fixed before the first model call by explicit phrases in the current post, such as "詳しく" or "in detail", or by AlwaysUltra. Models no longer choose depth or write a preliminary research plan. Ordinary turns have 10 reads and 2 Web searches; deep and AlwaysUltra turns have 20 and 4 from the start.
 
-Ordinary turns combine reading and answering on Super. Deep turns with lookup tools use Super for reads and Ultra for the final answer; personas without lookup tools of their own, such as the infographic, keep the combined loop on Ultra. Research reports the remaining Web-search allowance each round and removes exhausted or unavailable reads from the schema. Web exhaustion still permits other reads or a final answer (`finish_read` during split research). Schedule planning stays on Super; only plans containing schedules receive model review.
+Ordinary turns combine reading and answering on Super. On Nebius, deep turns with lookup tools read on Super VL and answer on Ultra, and AlwaysUltra turns read and answer on Super VL in one loop; personas without lookup tools of their own, such as the infographic, keep the combined loop on their answer model. Research reports the remaining Web-search allowance each round and removes exhausted or unavailable reads from the schema. Web exhaustion still permits other reads or a final answer (`finish_read` during split research). Schedule planning and its review run on Super VL on Nebius (see section 14); only plans containing schedules receive model review.
 
 The former standalone Lightning check judged 15 synthetic replies correctly in 0.67 seconds on average on 2026-09-22; Super also got 15/15 but took 1.30 seconds at about five times the cost. Real use later exposed a false result for a short "詳しく" reply. The separate check has been removed. Each remark still records the final-answer model slot, and the timeline marks Ultra answers.
 
@@ -284,7 +284,35 @@ changed among the facts, rather than with every fragment.
 
 On October 17, the separate prose summary was removed. Each persona now keeps one `Memo.md` containing current facts and kakera records. Facts have a 4,000-character total budget (200 per fact), including grounded tendencies, conditions, exceptions and useful changes over time. Ordinary turns append a short tagged record; at check-in, the daily pass folds new records into facts and deletes folded records. Edits and record reviews keep the fuller correction path. This avoids repeatedly condensing the same prose while preserving the posts behind each fact.
 
-## 14. What made any of this findable
+## 14. A newer model thought far more, and a smaller one never stopped
+
+On October 16 the default moved from Nemotron 3 Super to Nemotron 3.5 Super
+VL, at the same price per token. The prompts did not change; the reasoning did.
+Across production routing calls, Super VL's median reasoning was about 1,430
+tokens against Super's 70, and the same post took 1,080 reasoning tokens one
+time and 3,105 the next. A note keeper spent 1,905 reasoning tokens to write a
+one-line record. Routing went from about 0.12 yen to about 0.30 yen at the
+median, and a post answered by one persona cost about 1.3 to 1.4 yen.
+
+Ordinary answers and notes were then moved to Nemotron 3.5 Lightning, which is
+cheap and quick on simple turns. Its reasoning overflowed instead: on an
+ordinary reply from a person persona (about 5,900 input tokens) it ran into the
+26,000-token output ceiling three times running, about 80 seconds each, and
+handed in no answer, so an edited post sat unanswered for four minutes. A book
+persona's answer did the same, and another turn timed out after 240 seconds.
+
+Routing, ordinary answers and notes went back to Super. Super VL keeps the work
+that is rare or carries forward: reads for deep and AlwaysUltra turns,
+AlwaysUltra answers, schedule planning and review, and the daily run. The first
+posts after the change cost about 0.4 to 0.55 yen each, routing included, and
+finished in six to seven seconds.
+
+**Lesson:** the same price per token is not the same price per answer. A model
+change needs its reasoning tokens and latency watched on real posts, per
+purpose, before it becomes the default - and a small model's failure can be not
+a wrong answer but no answer at all.
+
+## 15. What made any of this findable
 
 Every routing decision and every persona turn is written as one structured log
 entry: who was woken and why, what was read, each workflow draft with its

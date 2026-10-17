@@ -538,8 +538,20 @@ sending all work to one large model.
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
 | **Qwen3-Embedding-8B**     | Meaning search over past fragments                                    |
 
+Super VL briefly replaced Super as the default for everything. At the same
+token price it reasoned far more - a median of about 1,430 reasoning tokens per
+routing call against Super's 70 - so routing cost rose from about 0.12 yen to
+0.30 yen and a single-persona post to about 1.3-1.4 yen. Per-post work went back
+to Super. Lightning was tried for ordinary answers and notes, but its reasoning
+overflowed: an ordinary person reply hit the 26,000-token output ceiling three
+times running, about 80 seconds each, without an answer. With the current
+split, a post answered by one persona costs about 0.4-0.55 yen. See
+[What was hard about the AI](ai-lessons.md#14-a-newer-model-thought-far-more-and-a-smaller-one-never-stopped).
+
 The settings keep three slots — `lowModel` (Lightning), `middleModel` (Super)
-and `highModel` (Ultra) — and any OpenAI-compatible model name can go in each.
+and `highModel` (Ultra). On Nebius' own endpoint they are always the shipped
+models and are not saved; on other endpoints any OpenAI-compatible model name
+can go in each.
 
 Persona execution, routing, and workflow review use native tool calling where
 appropriate.
