@@ -13,11 +13,11 @@ import (
 // getMemory shows what a persona has kept. It is the persona's own text, and
 // seeing it is the only way to tell what it decided was worth keeping.
 //
-// They are the persona's fields - a summary and the facts - and the monthly
-// records of its kakera. The records only ever grow, so the files come a page at a time, the
-// most recently written first: ?after= is the next cursor of the page already
-// shown, and ?tag= keeps only the records files that hold a record with that
-// tag.
+// It is the persona's memory file - a summary, the facts, and the records of
+// its kakera - and any other note it keeps. The notes come a page at a time,
+// the most recently written first: ?after= is the next cursor of the page
+// already shown, and ?tag= keeps only the memory file when it holds a record
+// with that tag.
 func (s *Server) getMemory(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	limit, _ := strconv.Atoi(query.Get("limit"))
@@ -72,8 +72,8 @@ func (s *Server) forgetNote(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// A field deleted starts again from the next kakera; a month of records
-	// deleted is gone. Nothing else rests on either, so nobody is woken.
+	// Memory deleted starts again from the next kakera. Nothing else rests on
+	// it, so nobody is woken.
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -122,9 +122,9 @@ func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// editFact corrects the words of one fact in a field, as the user typed them.
-// The fact keeps its id, its posts and its day; the persona is not woken. The
-// field's file is returned as it now reads.
+// editFact corrects the words of one fact, as the user typed them. The fact
+// keeps its id, its posts and its day; the persona is not woken. The memory
+// file is returned as it now reads.
 func (s *Server) editFact(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Text string `json:"text"`
@@ -133,27 +133,26 @@ func (s *Server) editFact(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "事実を入力してください")
 		return
 	}
-	s.changeFact(w, r, func(persona, field, id string) error {
-		return s.runner.EditFact(r.Context(), persona, field, id, body.Text)
+	s.changeFact(w, r, func(persona, id string) error {
+		return s.runner.EditFact(r.Context(), persona, id, body.Text)
 	})
 }
 
-// forgetFact throws one fact away. The field's file is returned as it now
+// forgetFact throws one fact away. The memory file is returned as it now
 // reads; it is gone when nothing was left in it.
 func (s *Server) forgetFact(w http.ResponseWriter, r *http.Request) {
-	s.changeFact(w, r, func(persona, field, id string) error {
-		return s.runner.ForgetFact(r.Context(), persona, field, id)
+	s.changeFact(w, r, func(persona, id string) error {
+		return s.runner.ForgetFact(r.Context(), persona, id)
 	})
 }
 
-func (s *Server) changeFact(w http.ResponseWriter, r *http.Request, change func(persona, field, id string) error) {
-	query := r.URL.Query()
-	owner, field, id := r.PathValue("id"), query.Get("field"), query.Get("fact")
-	if field == "" || id == "" {
-		fail(w, http.StatusBadRequest, "分野と事実を指定してください")
+func (s *Server) changeFact(w http.ResponseWriter, r *http.Request, change func(persona, id string) error) {
+	owner, id := r.PathValue("id"), r.URL.Query().Get("fact")
+	if id == "" {
+		fail(w, http.StatusBadRequest, "事実を指定してください")
 		return
 	}
-	if err := change(owner, field, id); err != nil {
+	if err := change(owner, id); err != nil {
 		code := http.StatusBadRequest
 		if errors.Is(err, persona.ErrFactNotFound) {
 			code = http.StatusNotFound
@@ -161,9 +160,9 @@ func (s *Server) changeFact(w http.ResponseWriter, r *http.Request, change func(
 		fail(w, code, err.Error())
 		return
 	}
-	note, ok := s.store.Note(owner, field+".md")
+	note, ok := s.store.Note(owner, persona.MemoPath)
 	if !ok {
-		writeJSON(w, http.StatusOK, map[string]any{"path": field + ".md", "gone": true})
+		writeJSON(w, http.StatusOK, map[string]any{"path": persona.MemoPath, "gone": true})
 		return
 	}
 	writeJSON(w, http.StatusOK, note)

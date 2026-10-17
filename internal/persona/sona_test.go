@@ -41,7 +41,7 @@ func TestSonaScheduledPreparationReadsFreshWeather(t *testing.T) {
 			}))
 			defer backend.Close()
 			r.tools.Weather = tools.WeatherAPIConfig{APIKey: "test-weather", URL: backend.URL}
-			if err := s.WriteNote("routine", "Routine.md", factsFile("Routine", [2]string{"いつもの持ち物は鍵と財布", ""}, [2]string{"鍵を忘れたことがある", ""}, [2]string{"外出する地域は東京", ""})); err != nil {
+			if err := s.WriteNote("routine", MemoPath, memoFile([2]string{"いつもの持ち物は鍵と財布", ""}, [2]string{"鍵を忘れたことがある", ""}, [2]string{"外出する地域は東京", ""})); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := s.SaveSchedule(store.Schedule{Skill: "routine", At: now.Add(-time.Second).UTC(), Note: "出発前の準備。東京へ外出、18時ごろ帰る。鍵と財布を点検し、帰りの雨を調べる。"}); err != nil {

@@ -22,24 +22,20 @@ func answeringReply(text string) func(system, user string, offered map[string]bo
 	}
 }
 
-// The persona's reply is what a record leads to when there is one, and the
-// fields the keeper rewrote are kept whole; the record carries the sentence
-// and the tags the keeper chose.
+// The persona's reply is what a record leads to when there is one; the record
+// carries the sentence and the tags the keeper chose, and the facts are left
+// for the daily pass.
 func TestAnAnsweredKakeraIsRecordedUnderTheReply(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	f.selectMemory = func(string, string) string { return "Shop" }
-	if err := s.WriteNote("gourmet", "Shop.md", factsFile("Shop", [2]string{"A店に行きたい", ""})); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoFile([2]string{"A店に行きたい", ""})); err != nil {
 		t.Fatal(err)
 	}
 	f.phaseReply = answeringReply("二郎、いいね。")
 	f.keep = func(system, user string) string {
-		if !strings.Contains(user, "[f_t0] A店に行きたい") || !strings.Contains(user, "三田の二郎") {
-			t.Errorf("the keeper was not shown the field and the kakera:\n%s", user)
+		if strings.Contains(user, "A店に行きたい") || !strings.Contains(user, "三田の二郎") {
+			t.Errorf("the keeper was shown the facts, or not the kakera:\n%s", user)
 		}
-		if !strings.Contains(system, "Preference / Shop") {
-			t.Errorf("the keeper was not told the fields:\n%s", system)
-		}
-		return `{"summary":"三田の二郎に行きたいと言った","tags":["ラーメン","#三田"],"facts":[{"op":"add","field":"shop","id":"","ids":[],"text":"A店に行きたい。\n三田の二郎にも行きたい。"}]}`
+		return `{"remember":true,"summary":"三田の二郎に行きたいと言った","tags":["ラーメン","#三田"],"expires":"","review":""}`
 	}
 	entry := post(t, s, "三田の二郎に行ってみたい")
 	r.react(entry.ID)
@@ -48,9 +44,8 @@ func TestAnAnsweredKakeraIsRecordedUnderTheReply(t *testing.T) {
 	if len(said) != 1 {
 		t.Fatalf("remarks = %+v", said)
 	}
-	shop, ok := s.Note("gourmet", "Shop.md")
-	if !ok || !strings.Contains(shop.Text, "三田の二郎にも行きたい") {
-		t.Fatalf("field = %+v", shop)
+	if m := r.loadMemo("gourmet", time.UTC); len(m.Facts) != 1 || m.Facts[0].Text != "A店に行きたい" || m.SummaryDirty {
+		t.Fatalf("the facts were touched: %+v", m)
 	}
 	found, _ := r.findRecords("gourmet", "", "", "", 10, time.UTC)
 	if len(found) != 1 {
@@ -67,7 +62,7 @@ func TestAnAnsweredKakeraIsRecordedUnderTheReply(t *testing.T) {
 	if text := r.recordEntry(got.ID, time.UTC); !strings.Contains(text, "三田の二郎に行ってみたい") || !strings.Contains(text, "二郎、いいね。") {
 		t.Fatalf("reading the record's entry = %s", text)
 	}
-	if records, _ := s.Note("gourmet", recordsPath(entry.At.In(s.Settings().Location()))); !strings.Contains(records.Text, "(/?entry="+got.ID+")") {
+	if records, _ := s.Note("gourmet", MemoPath); !strings.Contains(records.Text, "(/?entry="+got.ID+")") {
 		t.Fatalf("the records file does not link the entry:\n%s", records.Text)
 	}
 }
@@ -79,7 +74,7 @@ func TestASilentKakeraIsRecordedUnderItselfOnce(t *testing.T) {
 	f.phaseReply = answeringReply("")
 	summary := "雨の日はうどん"
 	f.keep = func(system, user string) string {
-		return `{"summary":"` + summary + `","tags":["うどん"],"facts":[]}`
+		return `{"remember":true,"summary":"` + summary + `","tags":["うどん"],"expires":"","review":""}`
 	}
 	entry := post(t, s, "雨の日はうどんにする")
 	r.react(entry.ID)
@@ -98,33 +93,32 @@ func TestASilentKakeraIsRecordedUnderItselfOnce(t *testing.T) {
 	}
 }
 
-// A submission the app cannot keep - an unknown field, a fact over the limit,
-// no sentence - is sent back with the reasons, and what passes is kept.
+// A record the app cannot keep - no sentence, no tags, a date gone by - is
+// sent back with the reasons, and what passes is kept.
 func TestTheKeeperIsSentBackUntilItFits(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	f.selectMemory = func(string, string) string { return "Shop" }
 	f.phaseReply = answeringReply("いいね。")
 	calls := 0
 	f.keep = func(system, user string) string {
 		calls++
 		if calls == 1 {
-			return `{"summary":"","tags":[],"facts":[{"op":"add","field":"Wine","id":"","ids":[],"text":"x"},{"op":"add","field":"Shop","id":"","ids":[],"text":"` + strings.Repeat("あ", maxFactRunes+1) + `"},{"op":"update","field":"","id":"f_none","ids":[],"text":"y"}]}`
+			return `{"remember":true,"summary":"","tags":[],"expires":"2020-01-01","review":""}`
 		}
-		for _, want := range []string{"summary がありません", "tags は1〜", "分野「Wine」はありません", "201字あります", "f_none はいまの事実にありません"} {
+		for _, want := range []string{"summary がありません", "tags は1〜", "expires は明日以降"} {
 			if !strings.Contains(user, want) {
 				t.Errorf("the keeper was not told %q:\n%s", want, user)
 			}
 		}
-		return `{"summary":"店の話","tags":["店"],"facts":[{"op":"add","field":"Shop","id":"","ids":[],"text":"短く"}]}`
+		return `{"remember":true,"summary":"店の話","tags":["店"],"expires":"","review":""}`
 	}
 	r.react(post(t, s, "店の話").ID)
 	if calls != 2 {
 		t.Fatalf("keeper calls = %d", calls)
 	}
-	shop, _ := s.Note("gourmet", "Shop.md")
-	ff := parseFacts(shop.Text, time.UTC)
-	if len(ff.Current) != 1 || ff.Current[0].Text != "短く" {
-		t.Fatalf("field = %q", shop.Text)
+	memo, _ := s.Note("gourmet", MemoPath)
+	ff := parseMemo(memo.Text, time.UTC)
+	if len(ff.Facts) != 0 || len(ff.Records) != 1 || ff.Summary != "" {
+		t.Fatalf("field = %q", memo.Text)
 	}
 }
 
@@ -150,7 +144,7 @@ func TestAKeeperThatFailsCostsOnlyTheMemory(t *testing.T) {
 // ones by tag.
 func TestATurnIsHandedItsMemory(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	if err := s.WriteNote("gourmet", "Preference.md", factsFile("Preference", [2]string{"豚骨に寄る", ""})); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoFile([2]string{"豚骨に寄る", ""})); err != nil {
 		t.Fatal(err)
 	}
 	old := timeline.Entry{ID: "e_old", Text: "前の二郎", At: time.Date(2026, 1, 5, 12, 0, 0, 0, time.UTC)}
@@ -173,69 +167,10 @@ func TestATurnIsHandedItsMemory(t *testing.T) {
 		return `{"operations":[],"consistent":true,"reason":"約束なし"}`
 	}
 	r.react(post(t, s, "今日も二郎").ID)
-	for _, want := range []string{"## Preference\n- [f_t0] 豚骨に寄る", "## Shop\n（まだありません）", "[e_old] 前の二郎 #テスト"} {
+	for _, want := range []string{"- [f_t0] 豚骨に寄る", "[e_old] 前の二郎 #テスト"} {
 		if !strings.Contains(answered, want) {
 			t.Fatalf("the turn was not handed %q:\n%s", want, answered)
 		}
-	}
-}
-
-// Fields kept as prose are split into facts by the persona's model when
-// asked: a dry run only reports them, and applying writes the plan - as a
-// person edited it - without the model. A field the layout no longer names
-// has its prose folded into one that it does, and its file goes.
-func TestProseFieldsAreSplitIntoFacts(t *testing.T) {
-	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
-	for path, text := range map[string]string{
-		"Preference.md": "豚骨が好き。担々麺のごま強めは苦手。\n",
-		"Taste.md":      "辛さは平気。\n",
-	} {
-		if err := s.WriteNote("gourmet", path, text); err != nil {
-			t.Fatal(err)
-		}
-	}
-	f.keep = func(system, user string) string {
-		if !strings.Contains(system, "記憶の持ち方を切り替える") || !strings.Contains(user, "担々麺のごま強めは苦手") || !strings.Contains(user, "辛さは平気") {
-			t.Errorf("the prose was not handed over:\n%s\n%s", system, user)
-		}
-		return `{"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"豚骨が好き"},{"op":"add","field":"Preference","id":"","ids":[],"text":"担々麺のごま強めは苦手"},{"op":"add","field":"Preference","id":"","ids":[],"text":"辛さは平気"}]}`
-	}
-	dry, err := r.MigrateMemory(context.Background(), "gourmet")
-	if err != nil || dry.Applied || len(dry.Facts["Preference"]) != 3 || strings.Join(dry.Legacy, ",") != "Preference.md,Taste.md" {
-		t.Fatalf("dry run = %+v, %v", dry, err)
-	}
-	if note, _ := s.Note("gourmet", "Preference.md"); !strings.HasPrefix(note.Text, "豚骨が好き。") {
-		t.Fatalf("a dry run changed memory: %q", note.Text)
-	}
-	// Prose written again since the dry run is not overwritten by it.
-	if err := s.WriteNote("gourmet", "Taste.md", "辛さは平気。激辛も好き。\n"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := r.ApplyMigration(context.Background(), dry); err == nil || !strings.Contains(err.Error(), "書き換わっています") {
-		t.Fatalf("a plan over changed prose = %v", err)
-	}
-	if err := s.WriteNote("gourmet", "Taste.md", "辛さは平気。\n"); err != nil {
-		t.Fatal(err)
-	}
-	dry.Facts["Preference"][0] = "豚骨が好き（手で直した）"
-	stale := dry
-	stale.Legacy = []string{"Preference.md"}
-	if _, err := r.ApplyMigration(context.Background(), stale); err == nil {
-		t.Fatal("a plan for other prose was applied")
-	}
-	applied, err := r.ApplyMigration(context.Background(), dry)
-	if err != nil || !applied.Applied || len(f.keeps) != 1 {
-		t.Fatalf("apply = %+v, %v, model calls %d", applied, err, len(f.keeps))
-	}
-	if paths, _ := s.NotePaths("gourmet"); strings.Join(paths, ",") != "Preference.md" {
-		t.Fatalf("memory after = %v", paths)
-	}
-	m := r.loadFacts(Builtins[0].forTurn(), time.UTC)
-	if ff := m.ByField["Preference"]; len(ff.Current) != 3 || ff.Current[0].Text != "豚骨が好き（手で直した）" || len(ff.Current[0].From) != 0 || !strings.HasPrefix(ff.Summary, "豚骨が好き。担々麺") || ff.SummaryAt.IsZero() {
-		t.Fatalf("facts = %+v", ff)
-	}
-	if again, err := r.MigrateMemory(context.Background(), "gourmet"); err != nil || len(again.Legacy) != 0 || len(f.keeps) != 1 {
-		t.Fatalf("a second run = %+v, %v", again, err)
 	}
 }
 
@@ -268,7 +203,7 @@ func TestOnlyTurnsThatLeaveSomethingToKeepRunTheKeeper(t *testing.T) {
 func TestRecordLinesRoundTrip(t *testing.T) {
 	at := time.Date(2026, 10, 1, 12, 34, 0, 0, time.UTC)
 	rec := record{At: at, ID: "e_1", Summary: cleanSummary("C# の 本を\n買った"), Tags: []string{"本", "C"}}
-	text := recordsText("2026-10", []record{rec}, time.UTC)
+	text := memoText(memo{Records: []record{rec}}, time.UTC)
 	if !strings.Contains(text, "- 2026-10-01 12:34 [e_1](/?entry=e_1) C＃ の 本を 買った #本 #C") {
 		t.Fatalf("text = %s", text)
 	}
@@ -276,7 +211,7 @@ func TestRecordLinesRoundTrip(t *testing.T) {
 	if len(back) != 1 || back[0].Summary != rec.Summary || strings.Join(back[0].Tags, ",") != "本,C" || !back[0].At.Equal(at) {
 		t.Fatalf("back = %+v", back)
 	}
-	if !RecordsTagged("records/2026-10.md", text, "#本") || RecordsTagged("Shop.md", text, "本") {
+	if !RecordsTagged(MemoPath, text, "#本") || RecordsTagged("index.md", text, "本") {
 		t.Fatal("tag filter")
 	}
 	dated := rec
@@ -383,7 +318,7 @@ func TestARecordReadForAPostIsExtended(t *testing.T) {
 	at := time.Now().AddDate(0, 0, -20)
 	old := record{At: at, ID: "e_old", Summary: "草加の店に行きたい", Tags: []string{"草加"},
 		Review: recordDate{Day: time.Date(at.Year(), at.Month(), at.Day()+21, 0, 0, 0, 0, zone), Days: 21}}
-	if err := s.WriteNote("gourmet", recordsPath(at.In(zone)), recordsText(at.In(zone).Format("2006-01"), []record{old}, zone)); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoText(memo{Records: []record{old}}, zone)); err != nil {
 		t.Fatal(err)
 	}
 	asked := false
@@ -423,7 +358,7 @@ func TestAReviewIsAskedAndSettledByTheReply(t *testing.T) {
 	at := time.Now().AddDate(0, 0, -30)
 	due := record{At: at, ID: "e_due", Summary: "草加の店に行きたい", Tags: []string{"草加"},
 		Review: recordDate{Day: time.Date(at.Year(), at.Month(), at.Day()+21, 0, 0, 0, 0, zone), Days: 21}}
-	if err := s.WriteNote("gourmet", recordsPath(at.In(zone)), recordsText(at.In(zone).Format("2006-01"), []record{due}, zone)); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoText(memo{Records: []record{due}}, zone)); err != nil {
 		t.Fatal(err)
 	}
 	week := time.Now().AddDate(0, 0, 7).In(zone).Format("2006-01-02")

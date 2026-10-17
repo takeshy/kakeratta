@@ -40,17 +40,17 @@ func TestResearchAnswerAndPhasesAreSeparateAndGeneralResearchKeepsOnlyARecord(t 
 		if len(remarks(t, s)) != 1 {
 			t.Error("the memory was kept before the answer was out")
 		}
-		if strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(user, "一般的な食文化について調べて") || !strings.Contains(system, "調べた事実・候補一覧・解説は事実にしない") {
+		if strings.Contains(user, "一般的な調査の詳しい回答") || !strings.Contains(user, "一般的な食文化について調べて") || !strings.Contains(system, "事実への整理は本体が1日1回") {
 			t.Error("the keeper must receive the user's request and its selection policy, without the finished answer")
 		}
-		return `{"summary":"一般的な食文化について調べてと聞いた","tags":["食文化"],"facts":[]}`
+		return `{"remember":true,"summary":"一般的な食文化について調べてと聞いた","tags":["食文化"],"expires":"","review":""}`
 	}
 	r.react(post(t, s, "一般的な食文化について調べて").ID)
 	if strings.Join(phases, ",") != "answer,keep" {
 		t.Fatal(phases)
 	}
 	notes := s.Memory("gourmet").Notes
-	if len(notes) != 1 || !isRecordsPath(notes[0].Path) || strings.Contains(notes[0].Text, "一般的な調査の詳しい回答") {
+	if len(notes) != 1 || notes[0].Path != MemoPath || strings.Contains(notes[0].Text, "一般的な調査の詳しい回答") {
 		t.Fatalf("notes = %+v", notes)
 	}
 	if len(f.reviews) != 0 {
@@ -200,10 +200,10 @@ func TestUserFactsCanBeRememberedWithoutReviewOrCopyingTheAnswer(t *testing.T) {
 		return ""
 	}
 	f.keep = func(string, string) string {
-		return `{"summary":"A店に行って良かったと言った","tags":["A店"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"本人がA店に行き、気に入った。"}]}`
+		return `{"remember":true,"summary":"A店に行って良かったと言った","tags":["A店"],"expires":"","review":""}`
 	}
 	r.react(post(t, s, "A店に行ってみた。かなり良かった。").ID)
-	note, ok := s.Note("gourmet", "Preference.md")
+	note, ok := s.Note("gourmet", MemoPath)
 	if !ok || strings.Contains(note.Text, "詳しい返信") {
 		t.Fatal(note)
 	}
@@ -259,9 +259,9 @@ func TestAFailingReviewWithoutIssuesRegenerates(t *testing.T) {
 	}
 }
 
-// A field holding the answer's own sentences is a cache of what was
+// A record holding the answer's own sentences is a cache of what was
 // researched. It is sent back, and the keeper keeps what the user said instead.
-func TestAFieldCopyingTheAnswerIsSentBack(t *testing.T) {
+func TestARecordCopyingTheAnswerIsSentBack(t *testing.T) {
 	r, s, f := setup(t, func(system, user string) string { return `{"deliver":["gourmet"]}` }, "gourmet")
 	answer := "トランプ大統領の発言は、米中対立を続けながらも協調の余地を示したものと考えられます。輸出規制の緩和を示す合図だという見方もありますが、現時点では不確実です。"
 	f.phaseReply = func(system, user string, offered map[string]bool) string {
@@ -275,20 +275,20 @@ func TestAFieldCopyingTheAnswerIsSentBack(t *testing.T) {
 	f.keep = func(system, user string) string {
 		keeps++
 		if keeps == 1 {
-			return `{"summary":"発言の意図を聞いた","tags":["政治"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"- ` + answer + `"}]}`
+			return `{"remember":true,"summary":"` + answer + `","tags":["政治"],"expires":"","review":""}`
 		}
 		if !strings.Contains(user, "Answer の文章をそのまま写しています") {
 			t.Error("the keeper was not told why it was sent back")
 		}
-		return `{"summary":"中国同盟国発言の意図を聞いた","tags":["政治"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"- 政治の発言の意図をよく聞く。"}]}`
+		return `{"remember":true,"summary":"中国同盟国発言の意図を聞いた","tags":["政治"],"expires":"","review":""}`
 	}
 	r.react(post(t, s, "トランプの中国同盟国発言の意図は？").ID)
 	if keeps != 2 {
 		t.Fatalf("keeper calls = %d", keeps)
 	}
-	note, ok := s.Note("gourmet", "Preference.md")
+	note, ok := s.Note("gourmet", MemoPath)
 	if !ok || strings.Contains(note.Text, "輸出規制の緩和を示す合図") {
-		t.Fatalf("the field is missing or holds the answer: %+v", note)
+		t.Fatalf("the record is missing or holds the answer: %+v", note)
 	}
 	if said := remarks(t, s); len(said) != 1 {
 		t.Fatalf("remarks: %v", said)

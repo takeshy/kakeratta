@@ -25,7 +25,7 @@ func TestPreviewReplyKeepsNothing(t *testing.T) {
 		return string(scripted)
 	}, "move", "gourmet")
 	f.keep = func(string, string) string {
-		return `{"summary":"渋谷に20時に着きたい","tags":["渋谷"],"facts":[{"op":"add","field":"Place","id":"","ids":[],"text":"渋谷。"}]}`
+		return `{"remember":true,"summary":"渋谷に20時に着きたい","tags":["渋谷"],"expires":"","review":""}`
 	}
 	post := post(t, s, "20時に渋谷に着きたい")
 	remark := timeline.Entry{
@@ -50,7 +50,7 @@ func TestPreviewReplyKeepsNothing(t *testing.T) {
 	if preview.Quiet || preview.Spoke != "渋谷なら20時までに着けます。" || preview.Error != "" {
 		t.Fatalf("preview = %+v", preview)
 	}
-	if len(preview.Notes) != 1 || preview.Notes[0] != "Place.md" {
+	if len(preview.Notes) != 1 || preview.Notes[0] != MemoPath {
 		t.Fatalf("the note it would have written was not reported: %v", preview.Notes)
 	}
 	if len(systems) == 0 || !strings.Contains(systems[0], "michi") {

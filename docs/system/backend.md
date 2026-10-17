@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication including Alexa account linking, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-16"
+updated: "2026-10-17"
 ---
 
 Authentication, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
@@ -217,7 +217,7 @@ Every outbound chat completion emits one structured stdout record with `path: "m
 
 The provider's first-choice `finish_reason` is retained as `llm.Reply.FinishReason` and logged as optional `finishReason`. A value of `length` identifies provider output truncation; API `outcome: "success"` still describes the successful response, not acceptance of the answer. Missing finish reasons remain omitted.
 
-Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing (one record per subject persona), answer (including read/tool rounds), schedule/action planning, review, memory field selection (`memory_select`), memory update/summary, the internal day's summary (`daily_summary`), monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
+Records identify `provider` (`nebius`, `openrouter`, or `custom`), `model`, `purpose`, HTTP `status`, a fixed `outcome` category, and `durationMs`. Purpose tags cover routing (one record per subject persona), answer (including read/tool rounds), schedule/action planning, review, memory record/update (`memory_update`) and the daily memory pass (`memory_summary`), the internal day's summary (`daily_summary`), monthly summary, person schedules, persona building, dictation, image reading, and embeddings. Context carries available persona, trigger, wake category, and durable job ID; standalone calls may lack these identifiers. Model-list requests and external-agent inference outside this service are not recorded as completions.
 
 `attempt` starts at one and `retryCount` at zero for format/validation corrections within a stage. `round` separately counts normal multi-round research or tool use. `jobAttempt`/`jobRetryCount` describe durable reaction claims; `noteAttempt`/`noteRetryCount` describe durable note attempts; `planAttempt`/`planRetryCount` describe phase regeneration after review. These counters describe different scopes and must not be summed as independent billed requests. Counting records gives the outbound calls observed by this service, including failures. The instrumentation adds no retry policy and changes no retry limits.
 

@@ -18,13 +18,12 @@ import (
 // remark is out, so a memory that fails to come out costs the memory and never
 // the answer.
 //
-// Ordinary posts first select one memory field using a bounded excerpt and
-// the stable layout, without reading existing notes. Only that field's memory
-// is then handed to the update, in the persona's own voice. A selection of no
-// memory ends without another call. Edits and due-record reviews retain their
-// full-memory correction path. The app checks the returned fact operations,
-// writes the fields, and appends the record with the entry to go back to - the
-// remark when the persona replied, the kakera when it did not.
+// An ordinary post keeps only its record (keep_record.go); facts wait for the
+// daily pass. An edit of a kakera, and a check-in handed records due for
+// review, are handed the whole memory, so facts that rested on the kakera can
+// be put right and the records settled. The app checks the returned fact
+// operations, writes the memory file, and appends the record with the entry to
+// go back to - the remark when the persona replied, the kakera when it did not.
 //
 // After the user deletes a post, the keeper is woken to tidy: the app has
 // taken the post's records out, and the keeper takes out of the fields what
@@ -55,12 +54,15 @@ func (k keeperTurn) recordable() bool {
 
 // keptMemory is what the keeper hands back.
 type keptMemory struct {
-	Summary string         `json:"summary"`
-	Tags    []string       `json:"tags"`
-	Expires string         `json:"expires"`
-	Review  string         `json:"review"`
-	Facts   []factOp       `json:"facts"`
-	Records []recordChange `json:"records"`
+	// Remember is a turn's own record only: false when the kakera holds
+	// nothing to look back on.
+	Remember *bool          `json:"remember,omitempty"`
+	Summary  string         `json:"summary"`
+	Tags     []string       `json:"tags"`
+	Expires  string         `json:"expires"`
+	Review   string         `json:"review"`
+	Facts    []factOp       `json:"facts,omitempty"`
+	Records  []recordChange `json:"records,omitempty"`
 }
 
 // recordChange is the keeper's decision on a record it was handed: its dates
@@ -78,18 +80,17 @@ func dateField(description string) map[string]any {
 
 // keepMemoryTool is keep_memory for this turn: a record is asked for only
 // with a kakera, and decisions on records only when some were handed.
-func keepMemoryTool(fields []string, recording bool, handed []record) llm.Tool {
+func keepMemoryTool(recording bool, handed []record) llm.Tool {
 	props := map[string]any{
 		"facts": map[string]any{"type": "array", "maxItems": 12, "description": "事実の変更だけ。変えないなら空配列", "items": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"op":    map[string]any{"type": "string", "enum": []string{"add", "update", "invalidate", "merge"}},
-				"field": stringField("add・merge で入れる分野（" + strings.Join(fields, " / ") + "）。update で別の分野へ移すときも書く。ほかは空文字"),
-				"id":    stringField("update・invalidate する事実の id（f_...）。ほかは空文字"),
-				"ids":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "merge する事実の id を2件以上。ほかは []"},
-				"text":  stringField(fmt.Sprintf("add・update・merge の事実の文（1件、%d字以内）。invalidate は空文字", maxFactRunes)),
+				"op":   map[string]any{"type": "string", "enum": []string{"add", "update", "invalidate", "merge"}},
+				"id":   stringField("update・invalidate する事実の id（f_...）。ほかは空文字"),
+				"ids":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "merge する事実の id を2件以上。ほかは []"},
+				"text": stringField(fmt.Sprintf("add・update・merge の事実の文（1件、%d字以内）。invalidate は空文字", maxFactRunes)),
 			},
-			"required": []string{"op", "field", "id", "ids", "text"}, "additionalProperties": false,
+			"required": []string{"op", "id", "ids", "text"}, "additionalProperties": false,
 		}},
 	}
 	required := []string{"facts"}
@@ -134,9 +135,8 @@ const keeperDates = `記録の日付（expires / review）の規則:
 func keeperPrompt(skill Skill, recording bool, handed []record) string {
 	s := fmt.Sprintf("%s%s\n担当領域: %s\n担当の指示: %s\n", skill.intro(), skill.Tone, skill.Domain, skill.Instructions)
 	s += "いまはこの担当のメモ係として、記憶だけを整える。返事や予定はすでに決まっていて、ここでは変えない。保存は本体が行う。\n"
-	s += "分野: " + strings.Join(memoryFields(skill), " / ") + "\n"
 	if memory := strings.TrimSpace(skill.forTurn().Memory); memory != "" {
-		s += "分野の分け方と残し方: " + memory + "\n"
+		s += "残し方: " + memory + "\n"
 	}
 	if recording {
 		s += `keep_memory で次を1回で提出する。
@@ -156,20 +156,20 @@ func keeperPrompt(skill Skill, recording bool, handed []record) string {
 
 // keeperFacts is how the facts are changed, as the keeper is told.
 var keeperFacts = `事実の規則:
-- 記憶は分野ごとの事実の一覧。あなたは全文を書かず、変更だけを出す。本体が今回のかけらを根拠として付けて保存する。
-  - add: 新しく分かった事実を1件足す（field と text）。
-  - update: いまの事実が変わった・詳しくなったとき、その id と新しい text。古い事実は「以前のこと」として残る。同じ文のまま別の分野へ移すなら field を書く。
-  - invalidate: もう当てはまらなくなった事実の id（「もう行った」「やめた」など）。
-  - merge: 似た事実をまとめる。ids と field と、まとめた text。
+- 記憶は事実の一覧。あなたは全文を書かず、変更だけを出す。本体が今回のかけらを根拠として付けて保存する。
+  - add: 新しく分かった事実を1件足す（text）。
+  - update: いまの事実が変わった・詳しくなったとき、その id と新しい text。前の文は残らない。
+  - invalidate: もう当てはまらなくなった事実の id（「もう行った」「やめた」など）。事実は消える。
+  - merge: 似た事実をまとめる。ids と、まとめた text。
 - 1件は1つのこと、` + fmt.Sprint(maxFactRunes) + `字以内。すでにある事実と同じことを add しない。言い換えるだけの update もしない。
-- 分野ごとのいまの事実は合わせて` + fmt.Sprint(maxFieldRunes) + `字まで。収まらないときは merge で傾向にまとめ、個々の出来事は記録に任せる。
+- いまの事実は合わせて` + fmt.Sprint(maxFactsRunes) + `字まで。収まらないときは merge で傾向にまとめ、個々の出来事は記録に任せる。
 - 中心はユーザーが言ったこと・したこと（事実・好み・予定・関係の変化・覚えてと頼まれたこと。贈った・行ったなどの出来事は日付とともに）。あなたや他の担当が調べた事実・候補一覧・解説は事実にしない。
 - 引用、本人の意見、推測を区別し、推測は推測と明記する。Answer の文章を写さない。予定の id（s_...）を書くなら、一覧にあるものだけ。
 `
 
 // lockKeeper serialises one persona's keeper: two turns finishing together -
 // here or in another process serving the workspace - must not each rewrite the
-// same field, or the same month of records, from what they saw.
+// memory file from what they saw.
 //
 // The context it returns ends if the lock is lost; the keeper works under it.
 func (r *Runner) lockKeeper(ctx context.Context, personaID string) (context.Context, func(), error) {
@@ -178,19 +178,20 @@ func (r *Runner) lockKeeper(ctx context.Context, personaID string) (context.Cont
 
 // keeperRecord is one keeper run, for the log.
 type keeperRecord struct {
-	Severity          string      `json:"severity"`
-	Message           string      `json:"message"`
-	Persona           string      `json:"persona"`
-	Trigger           string      `json:"trigger,omitempty"`
-	Model             string      `json:"model,omitempty"`
-	Attempts          int         `json:"attempts,omitempty"`
-	Field             string      `json:"field,omitempty"`
-	SelectionAttempts int         `json:"selectionAttempts,omitempty"`
-	Skipped           bool        `json:"skipped,omitempty"`
-	Kept              *keptMemory `json:"kept,omitempty"`
-	Summaries         []string    `json:"summaries,omitempty"`
-	Retired           []string    `json:"retired,omitempty"`
-	Error             string      `json:"error,omitempty"`
+	Severity  string      `json:"severity"`
+	Message   string      `json:"message"`
+	Persona   string      `json:"persona"`
+	Trigger   string      `json:"trigger,omitempty"`
+	Model     string      `json:"model,omitempty"`
+	Attempts  int         `json:"attempts,omitempty"`
+	Skipped   bool        `json:"skipped,omitempty"`
+	Kept      *keptMemory `json:"kept,omitempty"`
+	Summaries []string    `json:"summaries,omitempty"`
+	Retired   []string    `json:"retired,omitempty"`
+	Dropped   []string    `json:"dropped,omitempty"`
+	Reviewed  []string    `json:"reviewed,omitempty"`
+	Suggested string      `json:"suggested,omitempty"`
+	Error     string      `json:"error,omitempty"`
 }
 
 func logKeeper(record keeperRecord) {
@@ -236,30 +237,23 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 
 	recordable := k.recordable()
 	handed := r.handedRecords(k)
-	var facts memoryFacts
-	selected := ""
 	if recordable && len(handed) == 0 && !strings.Contains(k.wake, editedInstructions) {
-		field, attempts, err := chooseMemoryField(ctx, client, model, k)
-		logged.SelectionAttempts = attempts
-		if err != nil {
-			return nil, err
+		var kept keptMemory
+		kept, logged.Attempts, written, err = r.keepRecord(ctx, client, model, k)
+		if err == nil {
+			logged.Kept = &kept
+			logged.Skipped = kept.Remember != nil && !*kept.Remember
 		}
-		if field == "" {
-			logged.Skipped = true
-			return nil, nil
-		}
-		selected, logged.Field = field, field
-		facts = r.loadSelectedMemory(k, field)
-	} else {
-		// A correction can invalidate facts in a former field, and a due
-		// review settles the specific records supplied by the host.
-		facts = r.loadFacts(k.skill, k.here)
+		return written, err
 	}
+	// An edit can correct facts that rested on the kakera, and a due review
+	// settles the specific records supplied by the host.
+	memory := r.loadMemo(k.skill.ID, k.here)
 	user := strings.Join([]string{
 		"いまの日時: " + time.Now().In(k.here).Format("2006-01-02 15:04 MST"),
 		"",
-		"いまの事実（分野ごと）:",
-		renderFacts(facts, k.here),
+		"いまの記憶:",
+		renderFacts(memory, k.here),
 		"",
 		threadContext(k.thread, k.trigger, k.names, k.here),
 	}, "\n")
@@ -278,16 +272,13 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 	if recordable {
 		from = k.trigger.ID
 	}
-	var planned memoryFacts
-	var changed []string
+	var planned memo
+	var changed bool
 	system := keeperPrompt(k.skill, recordable, handed)
-	if selected != "" {
-		system += "\n今回選ばれた分野: " + selected + "。事実の追加・更新・無効化・統合はこの分野の中だけで行う。他分野への移動や記憶全体の整理は行わない。\n"
-	}
-	kept, attempts, err := submitMemory(ctx, client, model, system, user, keepMemoryTool(facts.Fields, recordable, handed), func(kept keptMemory) []string {
+	kept, attempts, err := submitMemory(ctx, client, model, system, user, keepMemoryTool(recordable, handed), func(kept keptMemory) []string {
 		problems := checkKept(kept, recordable, handed, k.answer, now, k.here)
 		var factProblems []string
-		planned, changed, factProblems = planFacts(facts, kept.Facts, from, now, k.here)
+		planned, changed, factProblems = planFacts(memory, kept.Facts, from, now, k.here)
 		return append(problems, factProblems...)
 	})
 	logged.Attempts = attempts
@@ -295,9 +286,11 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		return nil, err
 	}
 	logged.Kept = &kept
-	written, err = r.writeFacts(ctx, k.skill.ID, planned, changed, k.here)
-	if err != nil {
-		return written, err
+	if changed {
+		if err := r.saveMemo(ctx, k.skill.ID, planned, k.here); err != nil {
+			return nil, err
+		}
+		written = []string{MemoPath}
 	}
 	if recordable {
 		id := k.replyID
@@ -314,6 +307,7 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		if err := r.appendRecord(ctx, k.skill.ID, rec, k.trigger, k.here); err != nil {
 			return written, err
 		}
+		written = []string{MemoPath}
 	}
 	if len(kept.Records) > 0 {
 		// A check-in that asked about a record marks it with the post that
@@ -329,7 +323,7 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		}
 		// A kakera the user let go is let go of in the facts too: those that
 		// rested on it alone go with its record.
-		if _, err := r.dropFactSourcesHeld(ctx, k.skill, forgotten, k.here); err != nil {
+		if _, err := r.dropFactSourcesHeld(ctx, k.skill.ID, forgotten, k.here); err != nil {
 			return written, err
 		}
 	}
@@ -513,47 +507,29 @@ func copiesAnswer(answer, text string) bool {
 	return copied >= copiedSentences
 }
 
-// keepRecord appends rec under the persona's keeper lock, for a caller that
-// does not hold it.
-func (r *Runner) keepRecord(ctx context.Context, personaID string, rec record, trigger timeline.Entry, zone *time.Location) error {
-	if skill, ok := r.skills(ctx).Find(personaID); ok && !skill.Remembers() {
-		return nil
-	}
-	held, release, err := r.lockKeeper(ctx, personaID)
-	if err != nil {
-		return err
-	}
-	defer release()
-	return r.appendRecord(held, personaID, rec, trigger, zone)
-}
-
-// appendRecord adds rec to its month. A kakera has one record: one already
-// kept for it - from before the user edited it, or a retry that got this far -
-// is replaced.
+// appendRecord adds rec to the memory file. A kakera has one record: one
+// already kept for it - from before the user edited it, or a retry that got
+// this far - is replaced, and one that said otherwise has the daily pass write
+// the summary again.
 func (r *Runner) appendRecord(ctx context.Context, personaID string, rec record, trigger timeline.Entry, zone *time.Location) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	path := recordsPath(rec.At.In(zone))
-	var records []record
-	if note, ok := r.store.Note(personaID, path); ok {
-		records = parseRecords(note.Text, zone)
-	}
-	kept := records[:0]
-	for _, old := range records {
+	m := r.loadMemo(personaID, zone)
+	var kept []record
+	for _, old := range m.Records {
 		if !r.recordOf(old, trigger, personaID) {
 			kept = append(kept, old)
+		} else if old.Summary != rec.Summary {
+			m.SummaryDirty = true
 		}
 	}
-	kept = append(kept, rec)
-	month := rec.At.In(zone).Format("2006-01")
-	return r.store.WriteNote(personaID, path, recordsText(month, kept, zone))
+	m.Records = append(kept, rec)
+	sort.SliceStable(m.Records, func(i, j int) bool { return m.Records[i].At.Before(m.Records[j].At) })
+	return r.saveMemo(ctx, personaID, m, zone)
 }
 
 // recordOf says whether old is a record of trigger: kept under the kakera's
 // own ID, or under a remark of the persona's on it.
 func (r *Runner) recordOf(old record, trigger timeline.Entry, personaID string) bool {
-	if old.ID == trigger.ID {
+	if old.ID == trigger.ID || old.Of == trigger.ID {
 		return true
 	}
 	if old.At.Before(trigger.At.Truncate(time.Minute)) || old.At.After(trigger.At) {
@@ -578,57 +554,23 @@ func (r *Runner) dropRecords(ctx context.Context, personaID string, gone []timel
 		ids[entry.ID] = true
 	}
 	rekey := map[string]string{}
-	months := map[string]bool{}
 	for _, entry := range gone {
-		at := entry.At.In(zone)
-		months[recordsPath(at)] = true
 		if entry.Speaker != timeline.User && entry.ReplyTo != "" && !ids[entry.ReplyTo] {
 			rekey[entry.ID] = entry.ReplyTo
 			delete(ids, entry.ID)
-			// The record is kept at the kakera's time, which can be the
-			// month before the reply's.
-			months[recordsPath(time.Date(at.Year(), at.Month(), 1, 0, 0, 0, 0, zone).AddDate(0, 0, -1))] = true
 		}
 	}
-	var paths []string
-	for path := range months {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
 	dropped := false
-	for _, path := range paths {
-		note, ok := r.store.Note(personaID, path)
-		if !ok {
-			continue
+	err = r.eachRecord(ctx, personaID, zone, func(rec *record) (bool, bool) {
+		if ids[rec.ID] || ids[rec.Of] {
+			dropped = true
+			return false, true
 		}
-		records := parseRecords(note.Text, zone)
-		kept := records[:0]
-		changed := false
-		for _, rec := range records {
-			switch {
-			case ids[rec.ID]:
-				dropped, changed = true, true
-			case rekey[rec.ID] != "":
-				rec.ID, changed = rekey[rec.ID], true
-				kept = append(kept, rec)
-			default:
-				kept = append(kept, rec)
-			}
+		if id := rekey[rec.ID]; id != "" {
+			rec.ID = id
+			return true, true
 		}
-		if !changed {
-			continue
-		}
-		if err := ctx.Err(); err != nil {
-			return dropped, err
-		}
-		if len(kept) == 0 {
-			err = r.store.DeleteNote(personaID, path)
-		} else {
-			err = r.store.WriteNote(personaID, path, recordsText(strings.TrimSuffix(strings.TrimPrefix(path, recordsDir), ".md"), kept, zone))
-		}
-		if err != nil {
-			return dropped, err
-		}
-	}
-	return dropped, nil
+		return true, false
+	})
+	return dropped, err
 }

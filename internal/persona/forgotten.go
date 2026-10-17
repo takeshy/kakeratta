@@ -130,7 +130,7 @@ func (r *Runner) EntriesForgotten(root string, gone []timeline.Entry) {
 			r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
 		}
 		if persona, ok := r.skills(ctx).Find(skill); ok {
-			if _, err := r.dropFactSources(ctx, persona.forTurn(), kakera, zone); err != nil {
+			if _, err := r.dropFactSources(ctx, persona.ID, kakera, zone); err != nil {
 				r.emit("error", map[string]any{"where": "deleted", "message": err.Error()})
 			}
 		}

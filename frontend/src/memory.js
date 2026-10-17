@@ -1,9 +1,8 @@
-// A view of what a persona keeps: one summary per field ({Field}.md) and the
-// monthly records of its kakera (records/YYYY-MM.md), one line each with the
-// entry it leads to and its tags. No inference or rewriting: unfamiliar
-// metadata and Markdown are always available in the original text. Notes kept
-// the old way, one per thing with frontmatter, still read until the app has
-// folded them into the fields.
+// A view of what a persona keeps: its memory file (Memo.md) - a summary, the
+// facts that hold now, and a line per kakera with the entry it leads to and
+// its tags. No inference or rewriting: unfamiliar metadata and Markdown are
+// always available in the original text. Notes kept the old way, one per
+// thing with frontmatter, still read.
 import { el, safeLink } from "./dom.js";
 import { t } from "./i18n.js";
 
@@ -58,19 +57,12 @@ export function parseMemoryNote(note) {
   if (body.startsWith(`# ${title}\n`) || body === `# ${title}`) body = body.slice(title.length + 2).trim();
   return {
     ...note, title, type: field("type"), description: field("description"), resource: field("resource"), tags: tagsOf(metadata.tags), body,
-    records: isRecords(note.path),
-    facts: isFacts(note.path),
+    facts: isMemo(note.path),
   };
 }
 
-// OPEN_MONTHS is how many of the latest months of records the view shows open.
-export const OPEN_MONTHS = 3;
-
-// isRecords says whether a path is a month of kakera records.
-export const isRecords = (path) => String(path || "").startsWith("records/");
-
-// isFacts says whether a path is a field's list of facts.
-export const isFacts = (path) => /^[A-Z][A-Za-z0-9_-]{1,29}\.md$/.test(String(path || ""));
+// isMemo says whether a path is a persona's memory file.
+export const isMemo = (path) => path === "Memo.md";
 
 // tagsOf reads the tags however they were written: [a, b], or one per line.
 function tagsOf(value) {
@@ -107,16 +99,15 @@ export function memoryLink(value, path, paths) {
 
 function inline(text, context) {
   const out = [];
-  // In a records file, a trailing "#tag" is a record's tag and narrows the
+  // In a record, a trailing "#tag" is a record's tag and narrows the
   // view; "expires:" and "review:" are the record's dates, and "asked:" the
   // post that asked about it, which is the app's own bookkeeping.
   const pattern = context.records
     ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)#([^\s#]+)(?=\s|$)|(?<=\s)(expires|review):(\d{4}-\d{2}-\d{2})\/\d+d(?=\s|$)|(?<=\s)(?:asked|of):\S+(?=\s|$)/g
     : context.facts
-      // A fact's trailer: the kakera it rests on, since when it holds, until
-      // when it held and what replaced it. "reviewed:" is the app's own
-      // bookkeeping of a past event it has kept.
-      ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)from:(\S+)(?=\s|$)|(?<=\s)(since|until):(\d{4}-\d{2}-\d{2})(?=\s|$)|(?<=\s)by:(\S+)(?=\s|$)|(?<=\s)reviewed:\S+(?=\s|$)/g
+      // A fact's trailer: the kakera it rests on, and since when it holds.
+      // "reviewed:" is the app's own bookkeeping of a past event it has kept.
+      ? /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)|(?<=\s)from:(\S+)(?=\s|$)|(?<=\s)(since):(\d{4}-\d{2}-\d{2})(?=\s|$)|(?<=\s)reviewed:\S+(?=\s|$)/g
       : /\[([^\]\n]+)\]\(([^\s)]+)\)|\*\*([^*\n]+)\*\*|`([^`\n]+)`|(https?:\/\/[^\s<>]+|\/\?entry=[^\s<>]+)/g;
   let start = 0;
   for (const match of text.matchAll(pattern)) {
@@ -125,15 +116,14 @@ function inline(text, context) {
       index ? " " : "",
       entryLink(id, all.length > 1 ? t("元の投稿{0}", index + 1) : t("元の投稿"), context),
     ])));
-    else if (context.facts && match[7]) out.push(el("span", { class: "chip ghost memory-since", text: t(match[7] === "since" ? "{0}から" : "{0}まで", match[8]) }));
+    else if (context.facts && match[7]) out.push(el("span", { class: "chip ghost memory-since", text: t("{0}から", match[8]) }));
     else if (context.facts && match[0].startsWith("reviewed:")) out.push("");
-    else if (context.facts && match[9]) out.push(el("span", { class: "chip ghost memory-by", text: context.factText?.(match[9]) ? t("→「{0}」に置き換え", context.factText(match[9])) : t("→ 置き換え済み") }));
     else if (match[7]) out.push(match[7] === "expires"
       ? el("span", { class: "chip ghost memory-expires", text: t("{0} に消える", match[8]), i18nTitle: "期限が過ぎると本体が消す記録" })
       : el("span", { class: "chip ghost memory-review", text: t("{0} に見直し", match[8]), i18nTitle: "この日を過ぎると担当が「まだ要る?」と聞く記録" }));
     else if (/^(asked|of):/.test(match[0])) out.push("");
     else if (match[6]) out.push(context.onTag
-      ? el("button", { class: `chip ghost memory-tag${context.tag === match[6] ? " active" : ""}`, text: `#${match[6]}`, i18nTitle: "このタグの記録がある月だけを表示", onclick: () => context.onTag(match[6]) })
+      ? el("button", { class: `chip ghost memory-tag${context.tag === match[6] ? " active" : ""}`, text: `#${match[6]}`, i18nTitle: "このタグの記録があるメモだけを表示", onclick: () => context.onTag(match[6]) })
       : el("span", { class: "memory-tag", text: `#${match[6]}` }));
     else if (match[3]) out.push(el("strong", { text: match[3] }));
     else if (match[4]) out.push(el("code", { text: match[4] }));
@@ -198,16 +188,17 @@ function entryLink(id, label, context) {
 function plain(line) {
   return Boolean(line.trim()) && !/^```/.test(line) && !/^#{1,6}\s+/.test(line) &&
     !/^\s*(?:[-*+] |\d+[.)] )/.test(line) && !line.startsWith("> ") && !line.includes("|") &&
-    !/^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty) -->$/.test(line);
+    !/^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty|kakeratta:(?:checked|persona-suggested) \S+) -->$/.test(line);
 }
 
 function markdown(body, context) {
   const result = el("div", { class: "memory-body" });
   const lines = body.split("\n");
   let list = null;
+  let recordsHeadingShown = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.trim() || /^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty) -->$/.test(line)) { list = null; continue; }
+    if (!line.trim() || /^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty|kakeratta:(?:checked|persona-suggested) \S+) -->$/.test(line)) { list = null; continue; }
     if (/^```/.test(line)) {
       const code = [];
       while (++i < lines.length && !/^```/.test(lines[i])) code.push(lines[i]);
@@ -218,9 +209,16 @@ function markdown(body, context) {
     const heading = line.match(/^#{1,6}\s+(.+)$/);
     const item = line.match(/^\s*(?:[-*+] |\d+[.)] )(.+)$/);
     if (heading) {
+      // Facts keep their dates and source links, but share one heading with
+      // the records. Current understanding belongs in the summary.
+      if (context.facts && ["いまの事実", "かけらの記録"].includes(heading[1])) {
+        if (!recordsHeadingShown) result.append(el("h5", { text: t("かけらの記録") }));
+        recordsHeadingShown = true;
+        list = null;
+        continue;
+      }
       const summary = context.facts && heading[1].match(/^まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$/);
-      const localized = heading[1] === "記憶を更新した投稿" ||
-        (context.facts && ["いまの事実", "以前のこと"].includes(heading[1]));
+      const localized = heading[1] === "記憶を更新した投稿";
       const label = summary ? t("まとめ（{0} 更新）", summary[1]) : localized ? t(heading[1]) : heading[1];
       result.append(el("h5", {}, inline(label, context)));
       list = null;
@@ -230,7 +228,8 @@ function markdown(body, context) {
       // A fact's id is how the persona names it; a reader is not shown it.
       const factID = context.facts ? item[1].match(/^\[(f_[A-Za-z0-9]+)\]/)?.[1] : null;
       const text = factID ? item[1].replace(/^\[f_[A-Za-z0-9]+\]\s*/, "") : item[1];
-      const li = el("li", {}, inline(text, context));
+      const record = context.facts && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2} \[/.test(text);
+      const li = el("li", {}, inline(text, record ? { ...context, records: true, facts: false } : context));
       if (factID && context.onFactEdit) li.append(factControls(li, factID, text, context));
       list.append(li);
     } else if (line.includes("|") && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1] || "")) {
@@ -266,8 +265,7 @@ const typeLabels = { feedback: "感想", preference: "好み", wine: "ワイン"
 // the app's own and stays out of the editor.
 const SOURCES_MARKER = "<!-- kakeratta:note-sources -->";
 export const editableBody = (text) => {
-  const marker = String(text || "").indexOf(SOURCES_MARKER);
-  return (marker < 0 ? String(text || "") : String(text || "").slice(0, marker)).trimEnd();
+  return String(text || "").split(SOURCES_MARKER)[0].trimEnd();
 };
 
 // typeLabel is how a note's type reads: the word for a known one, else the
@@ -351,7 +349,7 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       mount([
         el("div", { class: "memory-head" }, title),
         el("p", { class: "hint", text: note.path }),
-        el("p", { class: "hint", label: note.records ? "担当がかけらごとにまとめた1文です。綴りや事実の誤りはここで直せます。行の形（日時・ID・タグ）は崩さないでください。" : note.facts ? "担当が覚えている事実の一覧です。綴りや事実の誤りはここで直せます。行の形（[id]・from:・since:）は崩さないでください。" : "担当がまとめた記憶です。綴りや事実の誤りはここで直せます。" }),
+        el("p", { class: "hint", label: note.facts ? "担当が覚えているまとめと記録です。綴りや事実の誤りはここで直せます。記録の日時・ID・タグや、事実の[id]・from:・since:は崩さないでください。" : "担当がまとめた記憶です。綴りや事実の誤りはここで直せます。" }),
         input, el("div", { class: "compose-row" }, save, cancel), error,
       ]);
       input.focus?.();
@@ -360,18 +358,16 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
   }
 
   function content(note) {
-    const factTexts = new Map([...String(note.text || "").matchAll(/^- \[(f_[A-Za-z0-9]+)\] (.*?)(?: from:\S+)?(?: since:\S+)?(?: until:\S+)?(?: by:\S+)?(?: reviewed:\S+)?$/gm)].map((m) => [m[1], m[2]]));
-    const context = { path: note.path, paths, openNote, records: note.records, facts: note.facts, tag: filter.tag, onOpenEntry,
-      factText: (id) => factTexts.get(id),
-      onFactEdit: note.facts && onEditFact ? (id, text) => onEditFact(note.path, note.path.replace(/\.md$/, ""), id, text) : undefined,
-      onFactForget: note.facts && onForgetFact ? (id) => onForgetFact(note.path, note.path.replace(/\.md$/, ""), id) : undefined,
+    const context = { path: note.path, paths, openNote, facts: note.facts, tag: filter.tag, onOpenEntry,
+      onFactEdit: note.facts && onEditFact ? (id, text) => onEditFact(note.path, id, text) : undefined,
+      onFactForget: note.facts && onForgetFact ? (id) => onForgetFact(note.path, id) : undefined,
       onTag: (tag) => narrow({ tag: filter.tag === tag ? "" : tag }) };
     return [
       tagChips(note),
       note.description ? el("p", { class: "memory-description", text: note.description }) : null,
       markdown(note.body, context),
-      // A field summary rests on many kakera, whose records lead to them;
-      // only a note from before has a post of its own to look for.
+      // The summary rests on many kakera, whose records lead to them; only a
+      // note from before has a post of its own to look for.
       onSearch && note.type && !/\/\?entry=/.test(note.text)
         ? el("div", { class: "memory-source-search" },
           el("p", { class: "hint", label: "このメモには元投稿のリンクが保存されていません。" }),
@@ -397,37 +393,20 @@ export function createMemoryView(notes, { onSearch, onForget, onEdit, allPaths, 
       el("button", { class: "chip ghost", label: "すべてのメモを表示", onclick: () => narrow({ tag: "", type: "" }) })));
   }
   const tagged = (note) => note.tags?.some((tag) => tag === filter.tag) ||
-    (note.records && note.body.split("\n").some((line) => line.split(/\s+/).includes(`#${filter.tag}`)));
-  // The field summaries come first, then the months of records, newest first.
+    (note.facts && note.body.split("\n").some((line) => line.split(/\s+/).includes(`#${filter.tag}`)));
+  // The memory file comes first, then any other notes.
   const shown = (narrowed && !onFilter
     ? parsed.filter((note) => (!filter.tag || tagged(note)) && (!filter.type || sameType(note.type, filter.type)))
     : parsed).map((note, order) => ({ note, order }))
-    .sort((a, b) => (a.note.records - b.note.records) ||
-      (a.note.records ? (a.note.path < b.note.path ? 1 : a.note.path > b.note.path ? -1 : 0) : a.order - b.order))
+    .sort((a, b) => (b.note.facts - a.note.facts) || a.order - b.order)
     .map(({ note }) => note);
   const reserved = new Map();
   const list = el("div", { class: "memory-list" });
-  // The fields and the months of records are two kinds of thing: each run
-  // gets a heading, so a month is not read as one more field.
-  let section = "";
-  let months = 0;
   for (const note of shown) {
     if (["index.md", "log.md"].includes(note.path)) { reserved.set(note.path, note); continue; }
-    const kind = note.records ? "records" : note.facts ? "fields" : "";
-    if (kind && kind !== section) {
-      list.append(el("h3", { class: "memory-section", label: kind === "records" ? "かけらの記録（月ごと）" : "分野（まとめ文と事実）" }));
-    }
-    section = kind || section;
-    const month = note.records && note.path.match(/^records\/(\d{4})-(\d{2})\.md$/);
-    const title = month ? t("{0}年{1}月", month[1], Number(month[2])) : note.title;
-    // The latest months are open; older ones fold, so a year of records
-    // does not push everything else out of reach.
-    const folded = note.records && months++ >= OPEN_MONTHS;
-    const summary = folded ? el("summary", { text: title }) : null;
-    const card = folded
-      ? el("details", { class: "memory-card memory-month", tabindex: "-1", "data-path": note.path })
-      : el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
-    const mount = (nodes) => card.replaceChildren(...[summary, ...nodes].filter(Boolean));
+    const title = note.facts ? t("まとめと記録") : note.title;
+    const card = el("article", { class: "memory-card", tabindex: "-1", "data-path": note.path });
+    const mount = (nodes) => card.replaceChildren(...nodes.filter(Boolean));
     const reading = () => [head(note, el("h4", { text: title }), mount, reading), ...content(note)];
     mount(reading());
     cards.set(note.path, card);

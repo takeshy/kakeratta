@@ -12,46 +12,63 @@ import (
 	"github.com/takeshy/kakeratta/internal/llm"
 )
 
-// A field's summary is the persona's prose over its facts. It is rewritten at
-// the persona's check-in - daily, or monthly for a person looked back on
-// monthly - right after the check-in is claimed and before the persona is
-// woken for it, so the check-in reads it fresh. Only the fields whose facts
-// changed since the summary was written are rewritten; a persona with nothing
-// new costs no model call. A rewrite that fails is tried at the next check-in.
+// The daily pass tidies a persona's memory at its check-in - daily, or
+// monthly for a person looked back on monthly - right after the check-in is
+// claimed and before the persona is woken for it, so the check-in reads it
+// fresh. A turn only appends a record (keep_record.go); here the persona, in
+// one call, folds the records kept since the pass last read them into facts,
+// merges facts that say the same, drops facts that no longer hold, deletes the
+// records it folded away, hands records that look done to the user's review,
+// and rewrites the summary. With nothing new it costs no model call. A pass
+// that fails is tried at the next check-in.
+//
+// Memory is not split by subject. When what a persona keeps plainly falls
+// apart into a subject of its own, the pass suggests a new persona, and the
+// check-in asks the user (personaSuggestInstructions).
 
-// changedSince are a field's facts that came, went or were replaced on or
-// after its summary's day: what the summary has not taken in yet. A summary
-// never written has everything to take in.
-func changedSince(ff fieldFacts) (added, gone []fact) {
-	for _, f := range ff.Current {
-		if ff.SummaryAt.IsZero() || f.Since.IsZero() || !f.Since.Before(ff.SummaryAt) {
-			added = append(added, f)
+// maxTidyRecords is how many records a pass is handed, newest first. Older
+// ones wait for a later pass.
+const maxTidyRecords = 150
+
+// maxReviewRecords is how many records one pass may hand to the user's review.
+const maxReviewRecords = 5
+
+// maxSummaryTextRunes is the most the summary may say.
+const maxSummaryTextRunes = 2000
+
+// suggestEvery is how long after one suggestion of a new persona the next may
+// come.
+const suggestEvery = 30 * 24 * time.Hour
+
+// tidyRecords are the records the daily pass may fold or drop: those not set
+// to expire, which the sweep deletes, newest first.
+func tidyRecords(m memo) []record {
+	var out []record
+	for i := len(m.Records) - 1; i >= 0 && len(out) < maxTidyRecords; i-- {
+		if !m.Records[i].Expires.set() {
+			out = append(out, m.Records[i])
 		}
 	}
-	for _, f := range ff.Past {
-		if !ff.SummaryAt.IsZero() && !f.Until.Before(ff.SummaryAt) {
-			gone = append(gone, f)
-		}
-	}
-	return added, gone
+	return out
 }
 
-// staleFields are the fields whose summaries have something to take in, and
-// whether each was already written today: one is not rewritten twice a day.
-func staleFields(m memoryFacts, today time.Time) (due []string, later bool) {
-	for _, field := range m.all() {
-		ff := m.ByField[field]
-		added, gone := changedSince(ff)
-		if !ff.SummaryDirty && len(added) == 0 && len(gone) == 0 {
-			continue
-		}
-		if !ff.SummaryAt.IsZero() && !ff.SummaryAt.Before(today) {
-			later = true
-			continue
-		}
-		due = append(due, field)
+// isNew says whether a record was kept since the daily pass last read them.
+func (m memo) isNew(rec record) bool {
+	return m.CheckedAt.IsZero() || rec.At.After(m.CheckedAt)
+}
+
+// tidyDue says whether the daily pass has something to read: records kept
+// since it last read them, or facts corrected, merged or removed since.
+func tidyDue(m memo) bool {
+	if m.SummaryDirty {
+		return true
 	}
-	return due, later
+	for _, rec := range tidyRecords(m) {
+		if m.isNew(rec) {
+			return true
+		}
+	}
+	return false
 }
 
 func localDay(t time.Time, zone *time.Location) time.Time {
@@ -59,24 +76,19 @@ func localDay(t time.Time, zone *time.Location) time.Time {
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, zone)
 }
 
-type summaryWrite struct {
-	Field string `json:"field"`
-	Text  string `json:"text"`
-}
-
 // factDates are the days a fact's words name: 2026-10-03, 2026年10月3日,
 // 10/3, 10月3日. A day without a year is taken in the year the fact began to
 // hold, or this year.
 var factDates = regexp.MustCompile(`(?:(\d{4})[-/年])?(\d{1,2})[-/月](\d{1,2})日?`)
 
-// datedPast says whether a fact names a day, and every day it names is before
-// today: an appointment or a plan that may no longer be ahead.
-func datedPast(f fact, today time.Time) bool {
-	found := false
-	for _, match := range factDates.FindAllStringSubmatch(f.Text, -1) {
+// factDays are the days a text names, read in the year since began, or this
+// year.
+func factDays(text string, since, today time.Time) []time.Time {
+	var out []time.Time
+	for _, match := range factDates.FindAllStringSubmatch(text, -1) {
 		year := today.Year()
-		if !f.Since.IsZero() {
-			year = f.Since.Year()
+		if !since.IsZero() {
+			year = since.Year()
 		}
 		if match[1] != "" {
 			year, _ = strconv.Atoi(match[1])
@@ -86,216 +98,235 @@ func datedPast(f fact, today time.Time) bool {
 		if month < 1 || month > 12 || day < 1 || day > 31 {
 			continue
 		}
-		found = true
-		if !time.Date(year, time.Month(month), day, 0, 0, 0, 0, today.Location()).Before(today) {
+		out = append(out, time.Date(year, time.Month(month), day, 0, 0, 0, 0, today.Location()))
+	}
+	return out
+}
+
+// datedPast says whether a fact names a day, and every day it names is before
+// today: an appointment or a plan that may no longer be ahead.
+func datedPast(f fact, today time.Time) bool {
+	days := factDays(f.Text, f.Since, today)
+	for _, day := range days {
+		if !day.Before(today) {
 			return false
 		}
 	}
-	return found
+	return len(days) > 0
 }
 
-// upcomingDated says whether a fact that holds now names a day from today to
-// horizon days ahead: a plan the persona may need to prepare for.
-func upcomingDated(m memoryFacts, today time.Time, horizon int) bool {
+// upcomingDated says whether memory names a day from today to horizon days
+// ahead: a plan the persona may need to prepare for.
+func upcomingDated(m memo, today time.Time, horizon int) bool {
 	until := today.AddDate(0, 0, horizon)
-	for _, field := range m.all() {
-		for _, f := range m.ByField[field].Current {
-			for _, match := range factDates.FindAllStringSubmatch(f.Text, -1) {
-				year := today.Year()
-				if !f.Since.IsZero() {
-					year = f.Since.Year()
-				}
-				if match[1] != "" {
-					year, _ = strconv.Atoi(match[1])
-				}
-				month, _ := strconv.Atoi(match[2])
-				day, _ := strconv.Atoi(match[3])
-				if month < 1 || month > 12 || day < 1 || day > 31 {
-					continue
-				}
-				at := time.Date(year, time.Month(month), day, 0, 0, 0, 0, today.Location())
-				if !at.Before(today) && !at.After(until) {
-					return true
-				}
+	evidence := append([]fact(nil), m.Facts...)
+	for _, rec := range m.Records {
+		evidence = append(evidence, fact{Text: rec.Summary, Since: rec.At})
+	}
+	if m.Summary != "" {
+		evidence = append(evidence, fact{Text: m.Summary, Since: m.SummaryAt})
+	}
+	for _, f := range evidence {
+		for _, day := range factDays(f.Text, f.Since, today) {
+			if !day.Before(today) && !day.After(until) {
+				return true
 			}
 		}
 	}
 	return false
 }
 
-// pastDated are the facts that hold now and name only days that have gone.
-func pastDated(m memoryFacts, today time.Time) map[string][]fact {
-	out := map[string][]fact{}
-	for _, field := range m.Fields {
-		for _, f := range m.ByField[field].Current {
-			if datedPast(f, today) && f.PastReviewed != f.reviewFingerprint(today.Location()) {
-				out[field] = append(out[field], f)
-			}
+// pastDated are the facts that name only days that have gone, and were not
+// already kept as past events.
+func pastDated(m memo, today time.Time) []fact {
+	var out []fact
+	for _, f := range m.Facts {
+		if datedPast(f, today) && f.PastReviewed != f.reviewFingerprint(today.Location()) {
+			out = append(out, f)
 		}
 	}
 	return out
 }
 
-func summaryTool(fields []string, passed []string) llm.Tool {
+// tidyOp is a fact change on the daily pass, with the records it rests on.
+type tidyOp struct {
+	factOp
+	Records []string `json:"records"`
+}
+
+// personaSuggestion is what the daily pass found could be a persona of its
+// own.
+type personaSuggestion struct {
+	Topic  string `json:"topic"`
+	Reason string `json:"reason"`
+}
+
+func tidyTool(recordIDs, passed []string, suggest bool) llm.Tool {
+	ids := map[string]any{"type": "string"}
+	if len(recordIDs) > 0 {
+		ids = map[string]any{"type": "string", "enum": recordIDs}
+	}
 	props := map[string]any{
-		"summaries": map[string]any{"type": "array", "maxItems": len(fields), "items": map[string]any{
+		"facts": map[string]any{"type": "array", "maxItems": 30, "description": "事実の変更だけ。変えないなら []", "items": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"field": map[string]any{"type": "string", "enum": fields},
-				"text":  stringField(fmt.Sprintf("その分野のまとめ文の新しい全文（%d字以内）", maxFieldRunes)),
+				"op":      map[string]any{"type": "string", "enum": []string{"add", "update", "invalidate", "merge"}},
+				"id":      stringField("update・invalidate する事実の id（f_...）。ほかは空文字"),
+				"ids":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "merge する事実の id を2件以上。ほかは []"},
+				"text":    stringField(fmt.Sprintf("add・update・merge の事実の文（1件、%d字以内）。invalidate は空文字", maxFactRunes)),
+				"records": map[string]any{"type": "array", "items": ids, "description": "この事実の根拠にした記録の id。なければ []"},
 			},
-			"required": []string{"field", "text"}, "additionalProperties": false,
+			"required": []string{"op", "id", "ids", "text", "records"}, "additionalProperties": false,
 		}},
+		"summary": map[string]any{"type": []string{"string", "null"}, "description": fmt.Sprintf("まとめ文の新しい全文（%d字以内）。変えないなら null", maxSummaryTextRunes)},
 	}
-	required := []string{"summaries"}
+	required := []string{"facts", "summary"}
+	if len(recordIDs) > 0 {
+		props["drop_records"] = map[string]any{"type": "array", "items": ids, "description": "事実に取り込んだので要らなくなった記録の id。なければ []"}
+		props["review_records"] = map[string]any{"type": "array", "maxItems": maxReviewRecords, "items": ids, "description": "事実にはしないが、もう要らなさそうな記録の id。ユーザーに聞く。なければ []"}
+		required = append(required, "drop_records", "review_records")
+	}
 	if len(passed) > 0 {
 		props["invalidate"] = map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": passed},
 			"description": "日付が過ぎてもう当てはまらない予定・予約・約束の事実の id。過去の出来事は入れない。なければ []"}
 		props["retain"] = map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": passed}, "description": "日付が過ぎても保持する過去の出来事だと確認できた id。迷うものは入れない。なければ []"}
 		required = append(required, "invalidate", "retain")
 	}
-	return llm.Tool{Name: "write_summaries", Description: "分野ごとのまとめ文と、日付の過ぎた事実の扱いを本体に渡す。本体が検証して保存する。",
+	if suggest {
+		props["suggest_persona"] = map[string]any{"type": []string{"object", "null"}, "description": "新しい担当に分けるとよい主題。ふだんは null",
+			"properties": map[string]any{
+				"topic":  stringField("新しい担当に任せるとよい主題（短く）"),
+				"reason": stringField("そう考えた理由（記録や事実の傾向、1文）"),
+			},
+			"required": []string{"topic", "reason"}, "additionalProperties": false}
+		required = append(required, "suggest_persona")
+	}
+	return llm.Tool{Name: "tidy_memory", Description: "記憶の整理を本体に渡す。本体が検証して保存する。",
 		Parameters: map[string]any{"type": "object", "properties": props, "required": required, "additionalProperties": false}}
 }
 
-func fieldSummaryPrompt(skill Skill) string {
+func tidyPrompt(skill Skill, suggest bool) string {
 	s := fmt.Sprintf("%s%s\n担当領域: %s\n担当の指示: %s\n", skill.intro(), skill.Tone, skill.Domain, skill.Instructions)
-	s += "いまはこの担当のメモ係として、1日1回、分野ごとのまとめ文を書き直し、日付の過ぎた事実を見直す。\n"
+	s += "いまはこの担当のメモ係として、1日1回、記憶を整理する。\n"
 	if memory := strings.TrimSpace(skill.forTurn().Memory); memory != "" {
-		s += "分野の分け方と残し方: " + memory + "\n"
+		s += "残し方: " + memory + "\n"
 	}
-	s += `write_summaries で出す。
-- invalidate: 「日付の過ぎた事実」として渡したもののうち、予定・予約・約束・期限のように、その日が過ぎてもう先のことではなくなったものの id。贈った・行った・言ったなどの過去の出来事は、日付が過ぎても事実のまま残すので入れない。迷うものも入れない。
-- retain: 「日付の過ぎた事実」のうち、過去の出来事として今後も保持すると確認できた id。これらは本文や開始日が変わるまで日付による再審査をしない。迷うものは invalidate にも retain にも入れない。
-- summaries: 「まとめ文を書き直す分野」として渡した分野それぞれのまとめ文の新しい全文。invalidate した事実がある分野も、その分を外して書き直してよい。
-- まとめ文は、その分野の事実を読んだあなたの見立て。傾向、移り変わり、まだ済んでいないことが分かるように書く（` + fmt.Sprint(maxFieldRunes) + `字以内）。
-- いまのまとめ文を土台に、前回から増えた・変わった・当てはまらなくなった事実を取り込む。変わらない部分は残す。
-- 事実にないことを足さない。推測は推測と明記する。事実の id はまとめ文に書かない。
-- 事実と同じ言語で書く。
+	s += `記憶は「まとめ文」「いまの事実」「かけらの記録」。記録は会話のたびに本体が1行ずつ足したもの。事実はいま当てはまることだけを持ち、当てはまらなくなった事実は消す（前の文は残らない。元の投稿はタイムラインに残る）。
+tidy_memory で1回で出す。
+- facts: 記録から分かった・変わった事実の変更。根拠にした記録の id を records に書く。
+  - add: 新しい事実を1件（text）。
+  - update: 事実が変わった・詳しくなった（id と新しい text）。
+  - invalidate: もう当てはまらない事実の id（「もう行った」「やめた」など）。
+  - merge: 似た・重なる事実をまとめる（ids と、まとめた text）。
+  - 1件は1つのこと、` + fmt.Sprint(maxFactRunes) + `字以内。すでにある事実と同じことを add しない。事実は合わせて` + fmt.Sprint(maxFactsRunes) + `字まで。収まらないときは merge で傾向にまとめる。
+  - 事実にするのはユーザーが言ったこと・したこと（好み・習慣・予定・関係・頼まれたこと。贈った・行ったなどの出来事は日付とともに）。担当が調べたこと・提案したことは事実にしない。推測は推測と明記する。
+  - その場限りの相談や一度きりの質問は事実にしない。
+- drop_records: 事実に取り込んだので要らなくなった記録の id。本体は、残る事実の根拠（records）になった記録だけを消す。
+- review_records: 事実にはしないが、もう要らなさそうな古い記録の id（最大` + fmt.Sprint(maxReviewRecords) + `件）。本体は消さず、ユーザーに「忘れていい？」と聞く対象にする。迷うものは入れない。
+- invalidate: 「日付の審査対象」の事実のうち、予定・予約・約束・期限のように、その日が過ぎてもう先のことではなくなったものの id。贈った・行った・言ったなどの過去の出来事は入れない。
+- retain: 「日付の審査対象」のうち、過去の出来事として今後も保持すると確認できた id。迷うものはどちらにも入れない。
+- summary: まとめ文の新しい全文。事実を変えたときと「必ず書き直す」とあるときは必須。変えないなら null。まとめ文は事実と記録を読んだあなたの見立てで、傾向、移り変わり、まだ済んでいないことが分かるように書く（` + fmt.Sprint(maxSummaryTextRunes) + `字以内）。いまのまとめ文を土台に、変わらない部分は残す。事実にないことを足さない。id は書かない。事実と同じ言語で書く。
 `
+	if suggest {
+		s += `- suggest_persona: 記憶の中に、この担当の領域から外れる、またははっきり別の主題がまとまってたまっているとき（例: 食べもの担当に料理の作り方の記録が何度も続く）だけ、その主題と理由。記憶を分ける代わりに、ユーザーに新しい担当を作ることを提案する。ふだんは null。
+`
+	}
 	return s
 }
 
-// rewriteSummaries rewrites the summaries of a persona's fields that are due,
-// and retires the facts whose day has passed, under its keeper lock, in one
-// call. A field is handed when its facts changed since its summary, or when a
-// fact in it names only days that have gone; with neither, nothing is asked.
-// The model decides which dated facts no longer hold - a plan whose day has
-// passed does not; an event that happened still does - and they move to the
-// past. A due field the model leaves out is still marked as read today, so it
-// is not asked again until something more changes.
-func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) error {
+// rewriteSummaries is the daily pass over one persona's memory, under its
+// keeper lock, in one call. It runs when records were kept since the last
+// pass, facts were changed since, or a fact names only days that have gone.
+// It returns what the pass suggests could be a persona of its own, or "".
+func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) (string, error) {
 	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Wake: "daily"})
 	if !skill.Remembers() {
-		return nil
+		return "", nil
 	}
 	held, release, err := r.lockKeeper(ctx, skill.ID)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer release()
 	today := localDay(now, zone)
-	m := r.loadFacts(skill, zone)
-	due, _ := staleFields(m, today)
+	m := r.loadMemo(skill.ID, zone)
 	passed := pastDated(m, today)
-	if len(due) == 0 && len(passed) == 0 {
-		return nil
+	if !tidyDue(m) && len(passed) == 0 {
+		return "", nil
 	}
-	handed := append([]string{}, due...)
-	for _, field := range m.Fields {
-		if len(passed[field]) > 0 && !contains(handed, field) {
-			handed = append(handed, field)
-		}
-	}
+	suggest := !skill.IsPerson() && (m.SuggestedAt.IsZero() || now.Sub(m.SuggestedAt) >= suggestEvery)
+
+	expired := map[string]bool{}
 	var passedIDs []string
-	var parts []string
-	for _, field := range handed {
-		ff := m.ByField[field]
-		lines := []string{"## " + field, "いまのまとめ文:"}
-		if ff.Summary == "" {
-			lines = append(lines, "（まだありません）")
-		} else {
-			lines = append(lines, ff.Summary)
-		}
-		if ff.SummaryDirty {
-			lines = append(lines, "", "事実が訂正・統合・削除されています。日付が古い事実も含め、いま渡した事実だけを根拠にまとめ文を照合し直し、必ずこの分野の新しいまとめ文を提出してください。削除・訂正前の内容をまとめ文から引き継がないでください。")
-		}
-		added, gone := changedSince(ff)
-		addedIDs, goneIDs, expiredIDs := map[string]bool{}, map[string]bool{}, map[string]bool{}
-		if contains(due, field) {
-			lines = append(lines, "", "（まとめ文を書き直す分野）")
-			for _, f := range added {
-				addedIDs[f.ID] = true
-			}
-			for _, f := range gone {
-				goneIDs[f.ID] = true
-			}
-		}
-		for _, f := range passed[field] {
-			expiredIDs[f.ID] = true
-			passedIDs = append(passedIDs, f.ID)
-		}
-		// Only a fact under date review, or one a past fact names as its
-		// replacement, carries its id: the others are not to be answered by id.
-		named := map[string]bool{}
-		for _, f := range ff.Past {
-			if (ff.SummaryDirty || goneIDs[f.ID]) && f.By != "" {
-				named[f.By] = true
-			}
-		}
-		item := func(id string, attrs []string, text string) string {
-			if expiredIDs[id] || named[id] {
-				return "- [" + id + "]（" + strings.Join(attrs, "、") + "） " + text
-			}
-			return "- （" + strings.Join(attrs, "、") + "） " + text
-		}
-		lines = append(lines, "", "事実一覧（本文は各1回。[ ] は日付の審査対象と置換先の id、属性は前回のまとめからの変化と日付の審査対象）:")
-		for _, f := range ff.Current {
-			attrs := []string{"現在"}
-			if addedIDs[f.ID] {
-				attrs = append(attrs, "追加・変更")
-			}
-			if expiredIDs[f.ID] {
-				attrs = append(attrs, "日付の過ぎた事実")
-			}
-			lines = append(lines, item(f.ID, attrs, f.Text))
-		}
-		for _, f := range ff.Past {
-			if !ff.SummaryDirty && !goneIDs[f.ID] {
-				continue
-			}
-			attrs := []string{"以前の事実"}
-			if goneIDs[f.ID] {
-				attrs = append(attrs, "当てはまらなくなった")
-			}
-			if f.By != "" {
-				attrs = append(attrs, "置換先:"+f.By)
-			}
-			lines = append(lines, item(f.ID, attrs, f.Text))
-		}
-		parts = append(parts, strings.Join(lines, "\n"))
+	for _, f := range passed {
+		expired[f.ID] = true
+		passedIDs = append(passedIDs, f.ID)
 	}
-	user := "いまの日時: " + now.In(zone).Format("2006-01-02 15:04 MST") + "\n\n" + strings.Join(parts, "\n\n")
-	tool := summaryTool(handed, passedIDs)
-	messages := []llm.Message{{Role: "system", Content: fieldSummaryPrompt(skill)}, {Role: "user", Content: user}}
-	var written []summaryWrite
-	var retire, retain []string
+	lines := []string{"いまの日時: " + now.In(zone).Format("2006-01-02 15:04 MST"), "", "いまのまとめ文:"}
+	if m.Summary == "" {
+		lines = append(lines, "（まだありません）")
+	} else {
+		lines = append(lines, m.Summary)
+	}
+	if m.SummaryDirty {
+		lines = append(lines, "", "（必ず書き直す: 事実や記録が訂正・削除されています。いま渡した事実と記録だけを根拠にまとめ文を照合し直し、削除・訂正前の内容を引き継がないでください）")
+	}
+	lines = append(lines, "", "いまの事実:")
+	if len(m.Facts) == 0 {
+		lines = append(lines, "（まだありません）")
+	}
+	for _, f := range m.Facts {
+		line := "- [" + f.ID + "] " + f.Text
+		if !f.Since.IsZero() {
+			line += "（" + f.Since.In(zone).Format("2006-01-02") + "〜）"
+		}
+		if expired[f.ID] {
+			line += "（日付の審査対象）"
+		}
+		lines = append(lines, line)
+	}
+	records := map[string]record{}
+	var recordIDs []string
+	lines = append(lines, "", "かけらの記録（新しい順。（新規）は前回の整理のあとの記録）:")
+	list := tidyRecords(m)
+	if len(list) == 0 {
+		lines = append(lines, "（ありません）")
+	}
+	for _, rec := range list {
+		records[rec.ID] = rec
+		recordIDs = append(recordIDs, rec.ID)
+		line := rec.line(zone)
+		if m.isNew(rec) {
+			line += "（新規）"
+		}
+		lines = append(lines, line)
+	}
+	tool := tidyTool(recordIDs, passedIDs, suggest)
+	messages := []llm.Message{{Role: "system", Content: tidyPrompt(skill, suggest)}, {Role: "user", Content: strings.Join(lines, "\n")}}
+
+	type submission struct {
+		Facts      []tidyOp           `json:"facts"`
+		Summary    *string            `json:"summary"`
+		Drop       []string           `json:"drop_records"`
+		Review     []string           `json:"review_records"`
+		Invalidate []string           `json:"invalidate"`
+		Retain     []string           `json:"retain"`
+		Suggest    *personaSuggestion `json:"suggest_persona"`
+	}
+	var sub submission
+	var next memo
 	for attempt := 1; ; attempt++ {
 		reply, err := client.Complete(held, llm.Request{Purpose: "memory_summary", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
-			return err
+			return "", err
 		}
-		var submitted struct {
-			Summaries  []summaryWrite `json:"summaries"`
-			Invalidate []string       `json:"invalidate"`
-			Retain     []string       `json:"retain"`
-		}
+		sub = submission{}
 		var problems []string
 		raw := ""
 		for _, call := range reply.Calls {
 			if call.Name == tool.Name {
 				raw = call.Args
-				if err := json.Unmarshal([]byte(call.Args), &submitted); err != nil {
+				if err := json.Unmarshal([]byte(call.Args), &sub); err != nil {
 					problems = append(problems, "引数を JSON として読めません: "+err.Error())
 				}
 			}
@@ -303,100 +334,107 @@ func (r *Runner) rewriteSummaries(ctx context.Context, client *llm.Client, model
 		if raw == "" {
 			problems = append(problems, tool.Name+" で提出してください")
 		}
-		for _, write := range submitted.Summaries {
-			text := strings.TrimSpace(repairNewlines(write.Text))
-			if _, ok := fieldNamed(handed, write.Field); !ok {
-				problems = append(problems, "分野「"+write.Field+"」は渡していません")
+		var ops []factOp
+		for i, op := range sub.Facts {
+			for _, id := range op.Records {
+				rec, ok := records[id]
+				if !ok {
+					problems = append(problems, fmt.Sprintf("facts[%d]: 記録 %s は渡していません", i, id))
+					continue
+				}
+				op.From = append(op.From, r.kakeraOf(rec))
 			}
-			if n := len([]rune(text)); n == 0 || n > maxFieldRunes {
-				problems = append(problems, fmt.Sprintf("分野「%s」のまとめ文が%d字です。1〜%d字にしてください", write.Field, n, maxFieldRunes))
-			}
+			ops = append(ops, op.factOp)
 		}
-		for _, field := range due {
-			if !m.ByField[field].SummaryDirty {
+		for _, id := range sub.Invalidate {
+			if !contains(passedIDs, id) {
+				problems = append(problems, id+" は日付の審査対象として渡していません")
 				continue
 			}
-			found := false
-			for _, write := range submitted.Summaries {
-				if name, ok := fieldNamed(handed, write.Field); ok && name == field {
-					found = true
-				}
-			}
-			if !found {
-				problems = append(problems, "分野「"+field+"」は訂正・削除を反映したまとめ文が必要です")
-			}
+			ops = append(ops, factOp{Op: "invalidate", ID: id})
 		}
-		for _, id := range submitted.Invalidate {
-			if !contains(passedIDs, id) {
-				problems = append(problems, id+" は日付の過ぎた事実として渡していません")
-			}
-		}
-		for _, id := range submitted.Retain {
-			if !contains(passedIDs, id) || contains(submitted.Invalidate, id) {
+		for _, id := range sub.Retain {
+			if !contains(passedIDs, id) || contains(sub.Invalidate, id) {
 				problems = append(problems, id+" は保持できる審査対象ではありません")
 			}
 		}
+		var factProblems []string
+		next, _, factProblems = planFacts(m, ops, "", now, zone)
+		problems = append(problems, factProblems...)
+		// A record goes only once a fact rests on what it was of.
+		resting := map[string]bool{}
+		for _, f := range next.Facts {
+			for _, id := range f.From {
+				resting[id] = true
+			}
+		}
+		for _, id := range sub.Drop {
+			rec, ok := records[id]
+			switch {
+			case !ok:
+				problems = append(problems, "記録 "+id+" は渡していません")
+			case !resting[r.kakeraOf(rec)]:
+				problems = append(problems, "記録 "+id+" はどの事実の根拠（records）にもなっていません。事実に取り込むか、drop_records から外してください")
+			}
+		}
+		if len(sub.Review) > maxReviewRecords {
+			problems = append(problems, fmt.Sprintf("review_records は%d件までにしてください", maxReviewRecords))
+		}
+		for _, id := range sub.Review {
+			if _, ok := records[id]; !ok || contains(sub.Drop, id) {
+				problems = append(problems, "記録 "+id+" は見直しに回せません")
+			}
+		}
+		if sub.Summary != nil {
+			if n := len([]rune(strings.TrimSpace(repairNewlines(*sub.Summary)))); n == 0 || n > maxSummaryTextRunes {
+				problems = append(problems, fmt.Sprintf("summary が%d字です。1〜%d字にするか、変えないなら null にしてください", n, maxSummaryTextRunes))
+			}
+		} else if next.SummaryDirty && (len(next.Facts) > 0 || len(next.Records) > 0) {
+			problems = append(problems, "事実が変わったので、まとめ文（summary）を書き直してください")
+		}
+		if sub.Suggest != nil && (strings.TrimSpace(sub.Suggest.Topic) == "" || strings.TrimSpace(sub.Suggest.Reason) == "") {
+			problems = append(problems, "suggest_persona は topic と reason を書くか、null にしてください")
+		}
 		if len(problems) == 0 {
-			written, retire, retain = submitted.Summaries, submitted.Invalidate, submitted.Retain
 			break
 		}
 		if attempt == maxKeeperAttempts {
-			return fmt.Errorf("summaries rejected %d times: %s", attempt, strings.Join(problems, "; "))
+			return "", fmt.Errorf("memory tidy rejected %d times: %s", attempt, strings.Join(problems, "; "))
 		}
 		messages = append(messages[:2], llm.Message{Role: "user", Content: "前の提出は本体が差し戻しました。直して " + tool.Name + " でもう一度提出してください。\n- " + strings.Join(problems, "\n- ") + "\n前の提出:\n" + clip(raw, 12000)})
 	}
-	changed := map[string]bool{}
-	if len(retire) > 0 {
-		var ops []factOp
-		for _, id := range retire {
-			ops = append(ops, factOp{Op: "invalidate", ID: id})
-		}
-		next, fields, problems := planFacts(m, ops, "", now, zone)
-		if len(problems) > 0 {
-			return fmt.Errorf("retiring past facts: %s", strings.Join(problems, "; "))
-		}
-		m = next
-		for _, field := range fields {
-			changed[field] = true
-		}
-	}
-	for _, field := range handed {
-		ff := m.ByField[field]
-		for i := range ff.Current {
-			if contains(retain, ff.Current[i].ID) {
-				ff.Current[i].PastReviewed = ff.Current[i].reviewFingerprint(zone)
-				changed[field] = true
-			}
-		}
-		m.ByField[field] = ff
-	}
-	for _, write := range written {
-		field, _ := fieldNamed(handed, write.Field)
-		ff := m.ByField[field]
-		ff.Summary, ff.SummaryAt = strings.TrimSpace(repairNewlines(write.Text)), today
-		ff.SummaryDirty = false
-		m.ByField[field] = ff
-		changed[field] = true
-	}
-	for _, field := range due {
-		ff := m.ByField[field]
-		if ff.Summary == "" {
-			// Nothing to say over facts yet is still a reading of them.
+
+	var kept []record
+	for _, rec := range next.Records {
+		if contains(sub.Drop, rec.ID) {
 			continue
 		}
-		ff.SummaryAt = today
-		m.ByField[field] = ff
-		changed[field] = true
+		if contains(sub.Review, rec.ID) {
+			rec.Review = recordDate{Day: today, Days: 7}
+		}
+		kept = append(kept, rec)
 	}
-	var fields []string
-	for _, field := range m.all() {
-		if changed[field] {
-			fields = append(fields, field)
+	next.Records = kept
+	for i := range next.Facts {
+		if contains(sub.Retain, next.Facts[i].ID) {
+			next.Facts[i].PastReviewed = next.Facts[i].reviewFingerprint(zone)
 		}
 	}
-	_, err = r.writeFacts(held, skill.ID, m, fields, zone)
-	logKeeper(keeperRecord{Persona: skill.ID, Model: model, Summaries: fields, Retired: retire, Error: errorText(err)})
-	return err
+	if sub.Summary != nil {
+		next.Summary, next.SummaryAt, next.SummaryDirty = strings.TrimSpace(repairNewlines(*sub.Summary)), today, false
+	}
+	next.CheckedAt = now
+	suggestion := ""
+	if suggest && sub.Suggest != nil {
+		suggestion = strings.TrimSpace(sub.Suggest.Topic) + "（" + strings.TrimSpace(sub.Suggest.Reason) + "）"
+		next.SuggestedAt = today
+	}
+	err = r.saveMemo(held, skill.ID, next, zone)
+	logKeeper(keeperRecord{Persona: skill.ID, Model: model, Retired: sub.Invalidate, Dropped: sub.Drop, Reviewed: sub.Review, Suggested: suggestion, Error: errorText(err)})
+	if err != nil {
+		return "", err
+	}
+	return suggestion, nil
 }
 
 func errorText(err error) string {

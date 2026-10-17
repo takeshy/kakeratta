@@ -16,29 +16,26 @@ import (
 // does.
 func writeRecord(t *testing.T, s *store.Store, persona string, entry timeline.Entry, id string) {
 	t.Helper()
-	path := recordsPath(entry.At.In(time.UTC))
-	var records []record
-	if note, ok := s.Note(persona, path); ok {
-		records = parseRecords(note.Text, time.UTC)
-	}
-	records = append(records, record{At: entry.At, ID: id, Summary: entry.Text, Tags: []string{"テスト"}})
-	if err := s.WriteNote(persona, path, recordsText(entry.At.In(time.UTC).Format("2006-01"), records, time.UTC)); err != nil {
+	note, _ := s.Note(persona, MemoPath)
+	m := parseMemo(note.Text, time.UTC)
+	m.Records = append(m.Records, record{At: entry.At, ID: id, Summary: entry.Text, Tags: []string{"テスト"}})
+	if err := s.WriteNote(persona, MemoPath, memoText(m, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// factsFile is a field file holding facts that hold now, each with the
-// kakera it rests on ("" for none).
-func factsFile(field string, facts ...[2]string) string {
-	ff := fieldFacts{}
+// memoFile is a memory file holding facts, each with the kakera it rests on
+// ("" for none).
+func memoFile(facts ...[2]string) string {
+	ff := memo{}
 	for i, f := range facts {
 		one := fact{ID: fmt.Sprintf("f_t%d", i), Text: f[0]}
 		if f[1] != "" {
 			one.From = []string{f[1]}
 		}
-		ff.Current = append(ff.Current, one)
+		ff.Facts = append(ff.Facts, one)
 	}
-	return factsText(field, ff, time.UTC)
+	return memoText(ff, time.UTC)
 }
 
 // recordIDs are the ids of a persona's records, newest first.
@@ -75,11 +72,11 @@ func TestDeletingAPostDropsItsRecordsAndWakesThePersonasThatKeptThem(t *testing.
 		}
 	}
 	// gourmet replied, so its record leads to the remark; book kept nothing.
-	writeRecord(t, s, "gourmet", entry, remark.ID)
-	writeRecord(t, s, "gourmet", other, other.ID)
-	if err := s.WriteNote("gourmet", "Preference.md", factsFile("Preference", [2]string{"担々麺はごまが強すぎた", entry.ID}, [2]string{"麻婆豆腐も胡麻が勝っていた", other.ID}, [2]string{"ごま強めは苦手", ""})); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoFile([2]string{"担々麺はごまが強すぎた", entry.ID}, [2]string{"麻婆豆腐も胡麻が勝っていた", other.ID}, [2]string{"ごま強めは苦手", ""})); err != nil {
 		t.Fatal(err)
 	}
+	writeRecord(t, s, "gourmet", entry, remark.ID)
+	writeRecord(t, s, "gourmet", other, other.ID)
 
 	r.EntriesForgotten(entry.ID, []timeline.Entry{entry, remark})
 	items := deletedWakes(t, r)
@@ -95,7 +92,7 @@ func TestDeletingAPostDropsItsRecordsAndWakesThePersonasThatKeptThem(t *testing.
 
 	// The facts that rested on the post alone went with it, by the app;
 	// one resting on another post, and one that never had a source, stay.
-	note, _ := s.Note("gourmet", "Preference.md")
+	note, _ := s.Note("gourmet", MemoPath)
 	if strings.Contains(note.Text, "担々麺") || !strings.Contains(note.Text, "麻婆豆腐") || !strings.Contains(note.Text, "ごま強めは苦手") {
 		t.Fatalf("facts after the deletion:\n%s", note.Text)
 	}
@@ -135,11 +132,11 @@ func TestDeletingTextlessPostDropsRecordsAndFacts(t *testing.T) {
 				if id == "gourmet" {
 					recordID = remark.ID
 				}
-				writeRecord(t, s, id, entry, recordID)
-				writeRecord(t, s, id, other, other.ID)
-				if err := s.WriteNote(id, "Preference.md", factsFile("Preference", [2]string{"textless-fact", entry.ID}, [2]string{"surviving-fact", other.ID})); err != nil {
+				if err := s.WriteNote(id, MemoPath, memoFile([2]string{"textless-fact", entry.ID}, [2]string{"surviving-fact", other.ID})); err != nil {
 					t.Fatal(err)
 				}
+				writeRecord(t, s, id, entry, recordID)
+				writeRecord(t, s, id, other, other.ID)
 			}
 			gone, err := s.DeleteEntry(context.Background(), entry.ID)
 			if err != nil {
@@ -150,7 +147,7 @@ func TestDeletingTextlessPostDropsRecordsAndFacts(t *testing.T) {
 				if ids := recordIDs(r, id); len(ids) != 1 || ids[0] != other.ID {
 					t.Fatalf("%s records = %v", id, ids)
 				}
-				note, _ := s.Note(id, "Preference.md")
+				note, _ := s.Note(id, MemoPath)
 				if strings.Contains(note.Text, "textless-fact") || !strings.Contains(note.Text, "surviving-fact") {
 					t.Fatalf("%s facts = %s", id, note.Text)
 				}

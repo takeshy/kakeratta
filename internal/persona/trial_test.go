@@ -65,7 +65,7 @@ func TestApplyReplyKeepsExactPreviewWithoutRunningModelAgain(t *testing.T) {
 	turns := 0
 	runner, workspace, f := setup(t, func(system, user string) string { turns++; return string(scripted) }, "gourmet")
 	f.keep = func(string, string) string {
-		return `{"summary":"ラーメンを食べた","tags":["ラーメン"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"味噌ラーメン"}]}`
+		return `{"remember":true,"summary":"ラーメンを食べた","tags":["ラーメン"],"expires":"","review":""}`
 	}
 	post := post(t, workspace, "ラーメン")
 	old := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: "gourmet", Root: post.ID, ReplyTo: post.ID, Text: "醤油ですね", At: post.At.Add(time.Minute)}
@@ -87,12 +87,12 @@ func TestApplyReplyKeepsExactPreviewWithoutRunningModelAgain(t *testing.T) {
 	if changed.Text != preview.Spoke || changed.ID != old.ID {
 		t.Fatalf("changed = %+v", changed)
 	}
-	if note, ok := workspace.Note("gourmet", "Preference.md"); !ok || !strings.Contains(note.Text, "] 味噌ラーメン from:") {
+	if note, ok := workspace.Note("gourmet", MemoPath); !ok || !strings.Contains(note.Text, "ラーメンを食べた") {
 		t.Fatalf("note = %+v, %v", note, ok)
 	}
 	// The remark points at the field the keeper wrote in the trial, and the
 	// record is kept under the remark that was kept.
-	if len(changed.Notes) != 1 || changed.Notes[0] != "Preference.md" {
+	if len(changed.Notes) != 1 || changed.Notes[0] != MemoPath {
 		t.Fatalf("the accepted remark lost its field: %+v", changed.Notes)
 	}
 	if found, _ := runner.findRecords("gourmet", "", "", "", 10, time.UTC); len(found) != 1 || found[0].ID != old.ID {

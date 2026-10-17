@@ -17,7 +17,7 @@ func retryKeep(fail *bool) func(string, string) string {
 		if *fail {
 			return `{"summary":"","tags":[],"facts":[]}`
 		}
-		return `{"summary":"ラーメンについて聞いた","tags":["ラーメン"],"facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"ラーメンについて聞かれた。"}]}`
+		return `{"remember":true,"summary":"ラーメンについて聞いた","tags":["ラーメン"],"expires":"","review":""}`
 	}
 }
 
@@ -69,7 +69,7 @@ func TestFailedNoteJobSurvivesRestartAndRetries(t *testing.T) {
 		}
 		t.Fatalf("jobs after retry = %d, %v", len(jobs), err)
 	}
-	if note, ok := s.Note("gourmet", "Preference.md"); !ok || !strings.Contains(note.Text, "聞かれた") {
+	if note, ok := s.Note("gourmet", MemoPath); !ok || !strings.Contains(note.Text, "ラーメンについて聞いた") {
 		t.Fatalf("retried field = %+v", note)
 	}
 	if found, _ := restarted.findRecords("gourmet", "ラーメン", "", "", 10, time.UTC); len(found) != 1 {

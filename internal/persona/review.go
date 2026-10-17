@@ -55,15 +55,9 @@ const reviewLimit = 3
 // sweep deletes it, and asking about it would be noise.
 func (r *Runner) reviewsDue(personaID string, now time.Time, zone *time.Location) []record {
 	var due []record
-	for _, path := range r.recordsPaths(personaID) {
-		note, ok := r.store.Note(personaID, path)
-		if !ok {
-			continue
-		}
-		for _, rec := range parseRecords(note.Text, zone) {
-			if rec.Review.set() && !rec.Expires.set() && !rec.Review.Day.After(now) {
-				due = append(due, rec)
-			}
+	for _, rec := range r.records(personaID, zone) {
+		if rec.Review.set() && !rec.Expires.set() && !rec.Review.Day.After(now) {
+			due = append(due, rec)
 		}
 	}
 	sort.SliceStable(due, func(i, j int) bool {
@@ -84,15 +78,9 @@ func (r *Runner) askedRecords(personaID, postID string, zone *time.Location) []r
 		return nil
 	}
 	var out []record
-	for _, path := range r.recordsPaths(personaID) {
-		note, ok := r.store.Note(personaID, path)
-		if !ok {
-			continue
-		}
-		for _, rec := range parseRecords(note.Text, zone) {
-			if rec.Asked == postID {
-				out = append(out, rec)
-			}
+	for _, rec := range r.records(personaID, zone) {
+		if rec.Asked == postID {
+			out = append(out, rec)
 		}
 	}
 	return out
@@ -156,7 +144,7 @@ func (r *Runner) expireRecords(ctx context.Context, now time.Time, settings stor
 				return err
 			}
 			// A kakera that served its moment leaves no fact resting on it alone.
-			_, err = r.dropFactSourcesHeld(held, skill.forTurn(), kakera, zone)
+			_, err = r.dropFactSourcesHeld(held, skill.ID, kakera, zone)
 			return err
 		}()
 		if err != nil {

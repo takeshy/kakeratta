@@ -100,9 +100,6 @@ func TestCheckInReviewRunsKeeperWithLegacyRememberFalse(t *testing.T) {
 	if len(f.keeps) != 1 {
 		t.Fatalf("keeper ran %d times for a review check-in, want 1", len(f.keeps))
 	}
-	if len(f.selections) != 0 {
-		t.Fatal("due-record check-in must retain its correction path without classification")
-	}
 }
 
 // Edits use the durable keeper to correct the prior memory, including when
@@ -118,20 +115,26 @@ func TestUnrelatedEditRunsKeeperToCorrectPriorFacts(t *testing.T) {
 		return `{"operations":[],"consistent":true,"reason":"なし"}`
 	}
 	f.keep = func(string, string) string {
-		return `{"summary":"A店が気に入った","tags":["A店"],"expires":"","review":"","facts":[{"op":"add","field":"Preference","id":"","ids":[],"text":"本人はA店が気に入った。"}]}`
+		return `{"remember":true,"summary":"A店が気に入った","tags":["A店"],"expires":"","review":""}`
 	}
 	entry := post(t, s, "A店が気に入った")
 	r.react(entry.ID)
 	if ids := recordIDs(r, "gourmet"); len(ids) != 1 || len(f.keeps) != 1 {
 		t.Fatalf("records=%v keeps=%d", ids, len(f.keeps))
 	}
-	if note, ok := s.Note("gourmet", "Preference.md"); !ok || !strings.Contains(note.Text, entry.ID) {
-		t.Fatalf("fact not kept from the post: %+v", note)
+	if note, ok := s.Note("gourmet", MemoPath); !ok || !strings.Contains(note.Text, entry.ID) {
+		t.Fatalf("record not kept from the post: %+v", note)
 	}
 
+	// A fact the daily pass made from the post must still be corrected.
+	ff := r.loadMemo("gourmet", s.Settings().Location())
+	ff.Facts = []fact{{ID: "f_legacy", Text: "本人はA店が気に入った。", From: []string{entry.ID}}}
+	if err := s.WriteNote("gourmet", MemoPath, memoText(ff, s.Settings().Location())); err != nil {
+		t.Fatal(err)
+	}
 	unrelated = true
 	skill, _ := r.catalogue.Find(context.Background(), "gourmet")
-	prior := r.loadFacts(skill, s.Settings().Location()).ByField["Preference"].Current[0]
+	prior := r.loadMemo("gourmet", s.Settings().Location()).Facts[0]
 	f.keep = func(string, string) string {
 		raw, _ := json.Marshal(map[string]any{"summary": "A店の感想を取り消した", "tags": []string{"訂正"}, "facts": []map[string]any{{"op": "invalidate", "id": prior.ID}}})
 		return string(raw)
@@ -145,20 +148,17 @@ func TestUnrelatedEditRunsKeeperToCorrectPriorFacts(t *testing.T) {
 	if len(f.keeps) != 2 {
 		t.Fatalf("keeper did not process the edit: %d", len(f.keeps))
 	}
-	if len(f.selections) != 1 {
-		t.Fatal("the edit must correct prior facts without reclassifying the post")
-	}
 	if ids := recordIDs(r, "gourmet"); len(ids) != 1 {
 		t.Fatalf("edit did not replace the prior record: %v", ids)
 	}
-	if facts := r.loadFacts(skill, s.Settings().Location()).ByField["Preference"]; len(facts.Current) != 0 || len(facts.Past) != 1 {
+	if facts := r.loadMemo("gourmet", s.Settings().Location()); len(facts.Facts) != 0 {
 		t.Fatalf("keeper did not invalidate the old fact: %+v", facts)
 	}
 }
 
-func TestCheckInRewritesFieldSummaries(t *testing.T) {
+func TestCheckInTidiesNewRecords(t *testing.T) {
 	r, s, f := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
-	if err := s.WriteNote("gourmet", "Preference.md", factsText("Preference", fieldFacts{Current: []fact{{ID: "f_a", Text: "散歩が好き", Since: time.Now()}}}, time.UTC)); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoText(memo{Records: []record{{At: time.Now().Add(-time.Hour), ID: "e_a", Summary: "散歩が好き"}}}, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
 	day := checkInDay(s, time.Now().UTC(), "gourmet")

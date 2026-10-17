@@ -397,20 +397,18 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
       const known = new Set(memory.notes.map(note => note.path));
       memory.notes = [...memory.notes, ...(notes || []).filter(note => !known.has(note.path))].sort(newest);
     };
-    // The field summaries belong above the records even when they were
-    // written too long ago for the first page.
-    const withFields = async (notes, filter = {}) => {
-      if (filter.tag || filter.type) return notes;
-      const have = new Set(notes.map(note => note.path));
-      const missing = memory.paths.filter(path => !path.includes("/") && !have.has(path) && !["index.md", "log.md"].includes(path));
-      const fields = await Promise.all(missing.map(path => api.note(row.id, path).catch(() => null)));
-      return [...notes, ...fields.filter(Boolean)];
+    // The memory file belongs on top even when it was written too long ago
+    // for the first page.
+    const withMemo = async (notes, filter = {}) => {
+      if (filter.tag || filter.type || notes.some(note => note.path === "Memo.md") || !memory.paths.includes("Memo.md")) return notes;
+      const memo = await api.note(row.id, "Memo.md").catch(() => null);
+      return memo ? [...notes, memo] : notes;
     };
     try {
       const page = await api.memory(row.id);
       memory.paths = page.paths || (page.notes || []).map(note => note.path);
       memory.next = page.next || "";
-      memory.notes = await withFields(page.notes || []);
+      memory.notes = await withMemo(page.notes || []);
       // A note named from the timeline may sit on a later page.
       if (focusPath && !memory.notes.some(note => note.path === focusPath) && memory.paths.includes(focusPath)) {
         // A note gone since the link was drawn still opens the memory.
@@ -432,15 +430,15 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     const failed = (error) => toast(String(error.message || error), "error");
     const drawMemory = () => memoryHost.replaceChildren(createMemoryView(memory.notes, {
       onOpenEntry: (id) => showEntryDialog(id, { getSettings, getPersonas: () => rows, getPersona: (id) => rows.find((persona) => persona.id === id) }),
-      onEditFact: async (path, field, fact, text) => {
-        const updated = await api.editFact(row.id, field, fact, text);
+      onEditFact: async (path, fact, text) => {
+        const updated = await api.editFact(row.id, fact, text);
         memory.notes = memory.notes.map(note => note.path === path ? { ...note, ...updated } : note);
         drawMemory();
         toast(t("事実を直しました"));
         reveal(path);
       },
-      onForgetFact: async (path, field, fact) => {
-        const updated = await api.forgetFact(row.id, field, fact);
+      onForgetFact: async (path, fact) => {
+        const updated = await api.forgetFact(row.id, fact);
         memory.notes = updated.gone
           ? memory.notes.filter(note => note.path !== path)
           : memory.notes.map(note => note.path === path ? { ...note, ...updated } : note);
@@ -453,7 +451,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         const generation = ++memoryGeneration;
         try {
           const page = await api.memory(row.id, filter);
-          const notes = await withFields(page.notes || [], filter);
+          const notes = await withMemo(page.notes || [], filter);
           if (generation !== memoryGeneration) return;
           Object.assign(memory, { notes, next: page.next || "", filter });
           drawMemory();

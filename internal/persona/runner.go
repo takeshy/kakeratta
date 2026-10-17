@@ -1027,7 +1027,7 @@ func (r *Runner) pointAtNotes(remark *timeline.Entry, kept []string) {
 		return
 	}
 	for _, path := range kept {
-		if !isRecordsPath(path) && !contains(current.Notes, path) {
+		if !contains(current.Notes, path) {
 			current.Notes = append(current.Notes, path)
 		}
 	}

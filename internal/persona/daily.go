@@ -31,6 +31,17 @@ const dailyShareInstructions = dailyHeader + `前回のチェックインから�
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
 `
 
+// personaSuggestInstructions ride a check-in when tidying memory found a
+// subject that could be a persona of its own: memory is not split into
+// fields, so the user is asked whether to make one.
+const personaSuggestInstructions = `
+
+## 新しい担当の提案
+記憶の整理で、あなたの記憶のなかに別の担当に任せたほうがよさそうな主題がたまっていると分かりました（対象発言の Suggested new persona）。
+今回の発言で、ユーザーに一言だけ「〇〇の担当を新しく作って分けませんか？」と提案してください。理由は短く添えます。作るかどうかはユーザーが決めます。担当はユーザーが担当の画面から作ります。
+ほかに共有することがあれば同じ発言にまとめます。発言するならユーザーの記録やメモの言語に合わせてください。
+`
+
 // monthlyHeader opens the check-in of a person heard from once a month.
 const monthlyHeader = `
 
@@ -111,8 +122,9 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 		if !claimed {
 			continue
 		}
-		// The summaries are rewritten at the check-in, before it reads them.
-		if err := r.rewriteSummaries(ctx, client, personaModel(settings), skill.forTurn(), now, loc); err != nil {
+		// Memory is tidied at the check-in, before it reads it.
+		suggestion, err := r.rewriteSummaries(ctx, client, personaModel(settings), skill.forTurn(), now, loc)
+		if err != nil {
 			r.emit("error", map[string]any{"where": "summaries", "persona": skill.ID, "message": err.Error()})
 		}
 		// What happened since the previous check-in actually ran, read as one
@@ -137,7 +149,7 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 			// a round reading the span; with nothing new from the user, no
 			// record due and no dated plan coming up, the check-in costs no call.
 			window, fresh := r.checkInDigest(ctx, since, now, loc)
-			if !previous.IsZero() && fresh == 0 && len(due) == 0 && !upcomingDated(r.loadFacts(skill.forTurn(), loc), localDay(now, loc), checkInHorizon) {
+			if !previous.IsZero() && fresh == 0 && len(due) == 0 && suggestion == "" && !upcomingDated(r.loadMemo(skill.ID, loc), localDay(now, loc), checkInHorizon) {
 				logCheckInSkipped(skill.ID, since, now)
 				continue
 			}
@@ -147,6 +159,10 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 		if len(due) > 0 {
 			text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
 			instructions += reviewInstructions
+		}
+		if suggestion != "" {
+			text += "\n\nSuggested new persona: " + suggestion
+			instructions += personaSuggestInstructions
 		}
 		trigger := timeline.Entry{At: local, Speaker: "system", Text: text}
 		turn, cancel := context.WithTimeout(ctx, 10*time.Minute)

@@ -207,23 +207,29 @@ func (r *Runner) ApplyReply(token, entryID string) error {
 		remark.ID, remark.At, remark.Root, remark.ReplyTo = entry.ID, entry.At, entry.Root, entry.ReplyTo
 	}
 	zone := settings.Location()
+	ctx, release, err := r.lockKeeper(ctx, trial.PersonaID)
+	if err != nil {
+		return err
+	}
+	defer release()
 	var records []record
 	for _, change := range trial.Notes {
-		var err error
-		switch {
-		case isRecordsPath(change.Path):
-			// The month as the preview left it may be behind the one kept
-			// now; only the record the preview made is taken from it, and
-			// it is kept under the remark that is kept.
-			for _, rec := range parseRecords(change.Text, zone) {
+		if change.Path == MemoPath {
+			// Memory may have moved on since the preview; only the record
+			// the preview made is taken from it, kept under the remark that
+			// is kept.
+			for _, rec := range parseMemo(change.Text, zone).Records {
 				if rec.ID == trial.Remark.ID {
 					rec.ID = remark.ID
 					records = append(records, rec)
 				}
 			}
-		case change.Delete:
+			continue
+		}
+		var err error
+		if change.Delete {
 			err = r.store.DeleteNote(trial.PersonaID, change.Path)
-		default:
+		} else {
 			err = r.store.WriteNote(trial.PersonaID, change.Path, change.Text, change.Sources...)
 		}
 		if err != nil {
@@ -232,7 +238,7 @@ func (r *Runner) ApplyReply(token, entryID string) error {
 	}
 	if len(records) > 0 {
 		if trigger, ok := r.store.Entry(trial.Remark.ReplyTo); ok {
-			if err := r.keepRecord(ctx, trial.PersonaID, records[len(records)-1], trigger, zone); err != nil {
+			if err := r.appendRecord(ctx, trial.PersonaID, records[len(records)-1], trigger, zone); err != nil {
 				return err
 			}
 		}

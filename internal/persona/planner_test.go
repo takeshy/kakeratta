@@ -78,7 +78,7 @@ func remarkBy(s *store.Store, speaker string) *timeline.Entry {
 // open until it has really ended.
 func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	runner, s, stub := externalSetup(t, time.Minute, time.Minute)
-	if err := s.WriteNote("gourmet", "Shop.md", factsFile("Shop", [2]string{"tabe のまとめ", ""})); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoFile([2]string{"tabe のまとめ", ""})); err != nil {
 		t.Fatal(err)
 	}
 	entry := post(t, s, "ラーメン食べた")
@@ -128,7 +128,7 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := s.WriteNote("gourmet", "records/2026-09.md", "- 2026-09-30 12:00 [e_1](/?entry=e_1) 豚骨の話 #ラーメン\n"); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, "## かけらの記録\n\n- 2026-09-30 12:00 [e_1](/?entry=e_1) 豚骨の話 #ラーメン\n"); err != nil {
 		t.Fatal(err)
 	}
 	if text, err := runner.ReadForAsk(ctx, ask.ID, "exec-1", []ReadStep{{Type: "records", Args: `{"tag":"ラーメン"}`}}); err != nil || !strings.Contains(text, "豚骨の話") {
@@ -171,7 +171,7 @@ func TestAnExternalAnswerRunsThroughTheBuiltinPhases(t *testing.T) {
 	if !ids["e_1"] || !ids[remark.ID] {
 		t.Fatalf("record IDs = %v, want e_1 and the answer %s", ids, remark.ID)
 	}
-	if !strings.Contains(strings.Join(stub.phases, "\n"), "keep_memory") {
+	if !strings.Contains(strings.Join(stub.phases, "\n"), "keep_record") {
 		t.Fatal("the builtin keeper did not run")
 	}
 	if len(runner.Asks()) != 0 {
@@ -353,7 +353,7 @@ func TestCompactAskContextPreservesTurnContext(t *testing.T) {
 			for i := 0; i < 50; i++ {
 				many = append(many, [2]string{"memory-index-unique-content", ""})
 			}
-			if err := s.WriteNote("gourmet", "Shop.md", factsFile("Shop", many...)); err != nil {
+			if err := s.WriteNote("gourmet", MemoPath, memoFile(many...)); err != nil {
 				t.Fatal(err)
 			}
 			entry := post(t, s, "投稿の全文")

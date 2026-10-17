@@ -113,7 +113,7 @@ export function replyDraft() {
 export function replyPreview() {
   // The token is what /reply/preview returns for a draft that can be kept;
   // without one the dialog offers no "これでよい".
-  return { spoke: words().trialReply, quiet: false, notes: ["Preference.md"], token: "trial_sample" };
+  return { spoke: words().trialReply, quiet: false, notes: ["Memo.md"], token: "trial_sample" };
 }
 
 // What the router decided about the sample posts, as /api/entry/{id}/routing
@@ -123,7 +123,7 @@ export function routing() {
   return {
     p1: {
       recorded: true,
-      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true, notes: ["Preference.md"] }],
+      delivered: [{ id: "gourmet", name: "tabe", icon: "🍜", done: true, spoke: true, noted: true, notes: ["Memo.md"] }],
       excluded: [
         { id: "book", name: "shiori", icon: "📖", reason: w.notBook },
         { id: "move", name: "michi", icon: "🚃", reason: w.notTravel },
@@ -214,7 +214,7 @@ export function personTimeline() {
   const w = personWords();
   return [
     post("q1", minutes(90), { text: w.souvenir }),
-    said("r1", "q1", "sato", minutes(88), w.remembered, { notes: ["Event.md"] }),
+    said("r1", "q1", "sato", minutes(88), w.remembered, { notes: ["Memo.md"] }),
     post("q2", minutes(12), { text: w.fishing }),
     post("q3", minutes(4), { text: w.campsite }),
   ];
@@ -225,7 +225,7 @@ export function personRouting() {
   const { name, icon } = person();
   return {
     q1: { recorded: true,
-      delivered: [{ id: "sato", name, icon, person: true, heard: name, done: true, spoke: true, noted: true, notes: ["Event.md"] }],
+      delivered: [{ id: "sato", name, icon, person: true, heard: name, done: true, spoke: true, noted: true, notes: ["Memo.md"] }],
       excluded: [{ id: "gourmet", name: "tabe", icon: "🍜", reason: w.notFood }] },
     q2: { recorded: true, delivered: [],
       excluded: [{ id: "sato", name, icon, person: true, reason: w.missed }] },
@@ -248,7 +248,7 @@ export function timeline() {
   const quiet = [post("p1", minutes(6), { text: w.noodles })];
   const answered = [
     post("p1", minutes(140), { text: w.noodles }),
-    said("s1", "p1", "gourmet", minutes(128), w.sesame, { notes: ["Preference.md"] }),
+    said("s1", "p1", "gourmet", minutes(128), w.sesame, { notes: ["Memo.md"] }),
     said("s2", "p1", "user", minutes(120), w.heat),
     post("p2", minutes(52), { text: w.shibuya, place: { lat: 35.6896, lon: 139.7006, label: w.station } }),
     said("s3", "p2", "move", minutes(50), w.placeSuggestion, {
@@ -258,7 +258,7 @@ export function timeline() {
       text: "",
       media: { blobId: "b1", mime: "image/png", readAt: minutes(19), describe: w.pagePhoto, origin: w.origin, text: w.ocr },
     }),
-    said("s4", "p3", "book", minutes(17), w.sameChapter, { notes: ["Book.md"] }),
+    said("s4", "p3", "book", minutes(17), w.sameChapter, { notes: ["Memo.md"] }),
   ];
   // What the README leads with: one exchange and one mention, nothing cut off.
   const hero = answered.filter((entry) => ["p1", "p2"].includes(entry.kind === "post" ? entry.id : entry.root));
@@ -275,7 +275,7 @@ export function timeline() {
   // file it read in the vault is named as the source.
   const vault = [
     post("p8", minutes(7), { text: w.agentAsk }),
-    said("a1", "p8", "book", minutes(6), w.agentSummary, { model: "agent", notes: ["Book.md"] }),
+    said("a1", "p8", "book", minutes(6), w.agentSummary, { model: "agent", notes: ["Memo.md"] }),
   ];
   return { quiet, answered, hero, many, reading, unreadable, vault };
 }
@@ -326,20 +326,17 @@ export const dictatingSettings = {
   speech: { ...settings.speech, provider: "browser", formatBeforeSend: true, language: "ja" },
 };
 
-// What a persona keeps: one summary per field, and a line per fragment by
-// month, with the post to go back to and its tags.
+// What a persona keeps: its memory file - a summary, the facts that hold now,
+// and a line per fragment with the post to go back to and its tags.
 export const memory = {
   gourmet: {
     notes: [
-      { path: "Preference.md", text: "# Preference\n\n## まとめ（2026-09-14）\n\n辛さは平気だが、ごまが前に出る担々麺は苦手。胡麻和えなど、担々麺以外のごまには触れていない。\n\n## いまの事実\n\n- [f_k2m9qa] 辛いのは平気 from:s2 since:2026-09-13\n- [f_p4r8tz] 担々麺のごまが強すぎると苦手 from:p1 since:2026-09-01\n\n## 以前のこと\n\n- [f_c1d5ew] 辛いのは苦手 from:p0 since:2026-08-20 until:2026-09-13 by:f_k2m9qa\n" },
-      { path: "Shop.md", text: "# Shop\n\n## いまの事実\n\n- [f_w7x1bc] 神保町の担々麺（店名不明）はごま強めだった from:p1 since:2026-09-01\n\n## 以前のこと\n\n- [f_g9h2kr] 神保町の担々麺に行ってみたい from:p0 since:2026-08-25 until:2026-09-01\n" },
-      { path: "records/2026-09.md", text: "# 2026-09 のかけら\n\n- 2026-09-01 20:14 [p1](/?entry=p1) 神保町の担々麺はごまが強すぎた気がすると言った #担々麺 #ごま #神保町\n- 2026-09-12 18:40 [s3](/?entry=s3) 東京駅の近くで20時前に食べられる店を聞いた #東京駅 #夕食 expires:2026-09-13/1d\n- 2026-09-13 21:05 [s2](/?entry=s2) 辛いのは平気だと言った #担々麺 #辛さ\n" },
+      { path: "Memo.md", text: "# Memo\n\n## まとめ（2026-09-14 更新）\n\n辛さは平気だが、ごまが前に出る担々麺は苦手。神保町の担々麺はごま強めだった。\n\n## いまの事実\n\n- [f_k2m9qa] 辛いのは平気 from:s2 since:2026-09-13\n- [f_p4r8tz] 担々麺のごまが強すぎると苦手 from:p1 since:2026-09-01\n- [f_w7x1bc] 神保町の担々麺（店名不明）はごま強めだった from:p1 since:2026-09-01\n\n## かけらの記録\n\n- 2026-09-12 18:40 [s3](/?entry=s3) 東京駅の近くで20時前に食べられる店を聞いた #東京駅 #夕食 expires:2026-09-13/1d\n" },
     ],
   },
   book: {
     notes: [
-      { path: "Book.md", text: "# Book\n\n## まとめ（2026-09-21）\n\n『動きが心をつくる』の、身体が先で感情はあとという一節に引かれている。\n\n## いまの事実\n\n- [f_b3n6yd] 『動きが心をつくる』の「身体の状態が先にあって、感情はあとから名前を付けられる」に線を引いた。同じ章に二度反応している from:s4 since:2026-09-20\n\n## 以前のこと\n\n- [f_m3q7vs] 『動きが心をつくる』を読みたい from:s0 since:2026-09-05 until:2026-09-20 by:f_b3n6yd\n" },
-      { path: "records/2026-09.md", text: "# 2026-09 のかけら\n\n- 2026-09-20 22:10 [s4](/?entry=s4) 『動きが心をつくる』の身体が先という一節に線を引いた #身体論 #動きが心をつくる review:2026-12-20/91d\n" },
+      { path: "Memo.md", text: "# Memo\n\n## まとめ（2026-09-21 更新）\n\n『動きが心をつくる』の、身体が先で感情はあとという一節に引かれている。\n\n## いまの事実\n\n- [f_b3n6yd] 『動きが心をつくる』の「身体の状態が先にあって、感情はあとから名前を付けられる」に線を引いた。同じ章に二度反応している from:s4 since:2026-09-20\n\n## かけらの記録\n\n- 2026-09-20 22:10 [s4](/?entry=s4) 『動きが心をつくる』の身体が先という一節に線を引いた #身体論 #動きが心をつくる review:2026-12-20/91d\n" },
     ],
   },
 };

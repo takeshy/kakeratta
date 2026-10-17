@@ -6,28 +6,28 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 )
 
-// A field is kept as a list of facts, not as prose. The keeper never rewrites
-// a field: it adds a fact, replaces one with a newer one, says one no longer
-// holds, or merges several into one, and the app applies exactly that. So a
-// fact goes only when the keeper says so - nothing is lost to a rewrite - and
-// every fact carries the kakera it rests on, which is how the app takes out
+// A persona's memory is one file, "Memo.md", kept by the app: a summary in
+// prose, the facts that hold now, and the records of the kakera not yet folded
+// into them.
+//
+// A turn only adds a record of its kakera (field_records.go). Once a day the
+// persona folds the new records into facts - it adds a fact, rewrites one that
+// changed, drops one that no longer holds, or merges several into one - and
+// the app applies exactly that (summaries.go). A fact that no longer holds is
+// deleted, not kept as history: the kakera it rested on stay in the timeline.
+// Every fact carries the kakera it rests on, which is how the app takes out
 // what a deleted kakera left behind without asking a model.
 //
-// Over the facts sits a summary in prose, the persona's own reading of the
-// field. It is not rewritten with every kakera: once a day, on the due pass,
-// the persona rewrites it from what changed among the facts since it was last
-// written (summaries.go).
+// Memory is not split by subject. When what a persona keeps plainly falls
+// apart into a subject of its own, the daily pass suggests a new persona.
 //
-// A field file, "{Field}.md", holds the summary with the day it was written,
-// the facts that hold now, then those that no longer do, with when they
-// stopped and what replaced them:
+//	# Memo
 //
-//	# Shop
+//	<!-- kakeratta:checked 2026-10-02T07:12:00+09:00 -->
 //
 //	## まとめ（2026-10-02 更新）
 //
@@ -37,25 +37,27 @@ import (
 //
 //	- [f_ab12cd] 三田の二郎に行きたい from:e_a,e_d since:2026-09-08
 //
-//	## 以前のこと
+//	## かけらの記録
 //
-//	- [f_9x8y7z] 豚骨に寄る from:e_c since:2026-09-01 until:2026-09-20 by:f_ab12cd
+//	- 2026-10-02 12:30 [e_f](/?entry=e_f) 三田の二郎の行列を見た #ラーメン
+
+// MemoPath is a persona's memory file.
+const MemoPath = "Memo.md"
 
 // maxFactRunes is the most one fact may say.
 const maxFactRunes = 200
 
-// maxPastFacts is how many facts that no longer hold a field keeps; the oldest
-// go first.
-const maxPastFacts = 50
+// maxFactsRunes is the most the facts that hold may say together.
+const maxFactsRunes = 2000
 
-// The headings of a field file.
+// The headings of the memory file.
 const (
 	summaryHeading = "## まとめ"
-	currentHeading = "## いまの事実"
-	pastHeading    = "## 以前のこと"
+	factsHeading   = "## いまの事実"
+	recordsHeading = "## かけらの記録"
 )
 
-var fieldSummaryDay = regexp.MustCompile(`^## まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$`)
+var summaryHeadingDay = regexp.MustCompile(`^## まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$`)
 
 type fact struct {
 	ID    string
@@ -64,27 +66,36 @@ type fact struct {
 	Since time.Time
 	// PastReviewed fingerprints a dated fact explicitly retained as a past event.
 	PastReviewed string
-	// Until and By are set once the fact no longer holds: when, and the fact
-	// that replaced it, if one did.
-	Until time.Time
-	By    string
 }
 
-type fieldFacts struct {
-	// Summary is the persona's prose over the field, and SummaryAt the day it
-	// was last written; zero when it never was.
+// memo is a persona's memory file.
+type memo struct {
+	// Summary is the persona's prose over its memory, and SummaryAt the day
+	// it was last written; zero when it never was. SummaryDirty is set when
+	// facts or records went since, so the daily pass writes it again.
 	Summary      string
 	SummaryAt    time.Time
 	SummaryDirty bool
-	Current      []fact
-	Past         []fact
+	// CheckedAt is when the daily pass last read the records: those kept
+	// after it are new to it.
+	CheckedAt time.Time
+	// SuggestedAt is the day the daily pass last suggested a new persona.
+	SuggestedAt time.Time
+	Facts       []fact
+	Records     []record
 }
 
-func (ff fieldFacts) empty() bool {
-	return ff.Summary == "" && len(ff.Current) == 0 && len(ff.Past) == 0
+func (m memo) empty() bool {
+	return m.Summary == "" && len(m.Facts) == 0 && len(m.Records) == 0
 }
 
+// The app's own markers in the memory file; the memory view hides them.
 const summaryDirtyMarker = "<!-- kakeratta:summary-dirty -->"
+
+var (
+	checkedMarker   = regexp.MustCompile(`^<!-- kakeratta:checked (\S+) -->$`)
+	suggestedMarker = regexp.MustCompile(`^<!-- kakeratta:persona-suggested (\d{4}-\d{2}-\d{2}) -->$`)
+)
 
 // reviewFingerprint is what a retained past event was reviewed as: its words
 // and the day it began, as written on its line. A new source or another time
@@ -95,11 +106,12 @@ func (f fact) reviewFingerprint(zone *time.Location) string {
 }
 
 var factLine = regexp.MustCompile(`^- \[(f_[A-Za-z0-9]+)\] (.*)$`)
-var factTrailer = regexp.MustCompile(`\s(from|since|until|by|reviewed):(\S+)$`)
+var factTrailer = regexp.MustCompile(`\s(from|since|reviewed):(\S+)$`)
 
-// parseFacts reads a field file. A line that is not a fact is left out.
-func parseFacts(text string, zone *time.Location) fieldFacts {
-	var out fieldFacts
+// parseMemo reads the memory file. A line that is none of its parts is left
+// out.
+func parseMemo(text string, zone *time.Location) memo {
+	var out memo
 	section := ""
 	var summary []string
 	for _, raw := range strings.Split(text, "\n") {
@@ -108,23 +120,31 @@ func parseFacts(text string, zone *time.Location) fieldFacts {
 		case line == summaryDirtyMarker:
 			out.SummaryDirty = true
 			continue
-		case line == summaryHeading || fieldSummaryDay.MatchString(line):
+		case checkedMarker.MatchString(line):
+			out.CheckedAt, _ = time.Parse(time.RFC3339, checkedMarker.FindStringSubmatch(line)[1])
+			continue
+		case suggestedMarker.MatchString(line):
+			out.SuggestedAt, _ = time.ParseInLocation("2006-01-02", suggestedMarker.FindStringSubmatch(line)[1], zone)
+			continue
+		case line == summaryHeading || summaryHeadingDay.MatchString(line):
 			section = "summary"
-			if match := fieldSummaryDay.FindStringSubmatch(line); match != nil {
+			if match := summaryHeadingDay.FindStringSubmatch(line); match != nil {
 				out.SummaryAt, _ = time.ParseInLocation("2006-01-02", match[1], zone)
 			}
 			continue
-		case line == currentHeading:
-			section = "current"
+		case line == factsHeading:
+			section = "facts"
 			continue
-		case line == pastHeading:
-			section = "past"
+		case line == recordsHeading:
+			section = "records"
+			continue
+		case section == "records":
+			out.Records = append(out.Records, parseRecords(line, zone)...)
 			continue
 		case section == "summary":
 			summary = append(summary, strings.TrimRight(raw, " \t"))
 			continue
 		}
-		past := section == "past"
 		match := factLine.FindStringSubmatch(line)
 		if match == nil {
 			continue
@@ -141,47 +161,16 @@ func parseFacts(text string, zone *time.Location) fieldFacts {
 				f.From = strings.Split(found[2], ",")
 			case "since":
 				f.Since, _ = time.ParseInLocation("2006-01-02", found[2], zone)
-			case "until":
-				f.Until, _ = time.ParseInLocation("2006-01-02", found[2], zone)
-			case "by":
-				f.By = found[2]
 			case "reviewed":
 				f.PastReviewed = found[2]
 			}
 			rest = rest[:len(rest)-len(found[0])]
 		}
 		f.Text = strings.TrimSpace(rest)
-		if past {
-			out.Past = append(out.Past, f)
-		} else {
-			out.Current = append(out.Current, f)
-		}
+		out.Facts = append(out.Facts, f)
 	}
 	out.Summary = strings.TrimSpace(strings.Join(summary, "\n"))
-	if prose, ok := proseText(text); ok {
-		// A field still kept as prose reads as its summary, so a fact
-		// added before it is split keeps the prose rather than losing it.
-		out.Summary = prose
-	}
 	return out
-}
-
-// proseText is a field file kept as prose - text with no heading of a field's
-// sections and no fact line - without its title, and whether it is one.
-func proseText(text string) (string, bool) {
-	var lines []string
-	for _, raw := range strings.Split(text, "\n") {
-		line := strings.TrimSpace(raw)
-		if line == summaryHeading || fieldSummaryDay.MatchString(line) || line == currentHeading || line == pastHeading || factLine.MatchString(line) {
-			return "", false
-		}
-		lines = append(lines, strings.TrimRight(raw, " \t"))
-	}
-	if len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[0]), "# ") {
-		lines = lines[1:]
-	}
-	prose := strings.TrimSpace(strings.Join(lines, "\n"))
-	return prose, prose != ""
 }
 
 func (f fact) line(zone *time.Location) string {
@@ -192,41 +181,64 @@ func (f fact) line(zone *time.Location) string {
 	if !f.Since.IsZero() {
 		line += " since:" + f.Since.In(zone).Format("2006-01-02")
 	}
-	if !f.Until.IsZero() {
-		line += " until:" + f.Until.In(zone).Format("2006-01-02")
-	}
-	if f.By != "" {
-		line += " by:" + f.By
-	}
-	if f.PastReviewed != "" && f.Until.IsZero() && f.PastReviewed == f.reviewFingerprint(zone) {
+	if f.PastReviewed != "" && f.PastReviewed == f.reviewFingerprint(zone) {
 		line += " reviewed:" + f.PastReviewed
 	}
 	return line
 }
 
-// factsText is a field file holding these facts.
-func factsText(field string, ff fieldFacts, zone *time.Location) string {
-	lines := []string{"# " + field, ""}
-	if ff.SummaryDirty {
+// memoText is the memory file holding m.
+func memoText(m memo, zone *time.Location) string {
+	lines := []string{"# Memo", ""}
+	if !m.CheckedAt.IsZero() {
+		lines = append(lines, "<!-- kakeratta:checked "+m.CheckedAt.In(zone).Format(time.RFC3339)+" -->", "")
+	}
+	if !m.SuggestedAt.IsZero() {
+		lines = append(lines, "<!-- kakeratta:persona-suggested "+m.SuggestedAt.In(zone).Format("2006-01-02")+" -->", "")
+	}
+	if m.SummaryDirty {
 		lines = append(lines, summaryDirtyMarker, "")
 	}
-	if ff.Summary != "" {
+	if m.Summary != "" {
 		head := summaryHeading
-		if !ff.SummaryAt.IsZero() {
-			head += "（" + ff.SummaryAt.In(zone).Format("2006-01-02") + " 更新）"
+		if !m.SummaryAt.IsZero() {
+			head += "（" + m.SummaryAt.In(zone).Format("2006-01-02") + " 更新）"
 		}
-		lines = append(lines, head, "", ff.Summary, "", currentHeading, "")
+		lines = append(lines, head, "", m.Summary, "")
 	}
-	for _, f := range ff.Current {
-		lines = append(lines, f.line(zone))
-	}
-	if len(ff.Past) > 0 {
-		lines = append(lines, "", pastHeading, "")
-		for _, f := range ff.Past {
+	if len(m.Facts) > 0 {
+		lines = append(lines, factsHeading, "")
+		for _, f := range m.Facts {
 			lines = append(lines, f.line(zone))
 		}
+		lines = append(lines, "")
 	}
-	return strings.Join(lines, "\n") + "\n"
+	if len(m.Records) > 0 {
+		lines = append(lines, recordsHeading, "")
+		for _, rec := range m.Records {
+			lines = append(lines, rec.fileLine(zone))
+		}
+	}
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n") + "\n"
+}
+
+// loadMemo reads a persona's memory file; none reads as empty.
+func (r *Runner) loadMemo(personaID string, zone *time.Location) memo {
+	note, _ := r.store.Note(personaID, MemoPath)
+	return parseMemo(note.Text, zone)
+}
+
+// saveMemo writes a persona's memory file, or deletes it once nothing is
+// left. The caller holds the persona's keeper lock; nothing is written once
+// ctx has ended, since another keeper may be writing.
+func (r *Runner) saveMemo(ctx context.Context, personaID string, m memo, zone *time.Location) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if m.empty() {
+		return r.store.DeleteNote(personaID, MemoPath)
+	}
+	return r.store.WriteNote(personaID, MemoPath, memoText(m, zone))
 }
 
 // repairNewlines undoes a model that escaped its own line breaks: text with no
@@ -242,21 +254,20 @@ func repairNewlines(text string) string {
 // that would read back as one of the line's own tokens.
 func cleanFact(text string) string {
 	text = strings.Join(strings.Fields(repairNewlines(text)), " ")
-	// A bullet carried over from prose is the list's, not the fact's.
 	for _, mark := range []string{"- ", "・", "* ", "• "} {
 		text = strings.TrimSpace(strings.TrimPrefix(text, mark))
 	}
-	for _, key := range []string{"from", "since", "until", "by"} {
+	for _, key := range []string{"from", "since", "reviewed"} {
 		text = strings.ReplaceAll(text, " "+key+":", " "+key+"：")
 	}
 	return text
 }
 
-// currentRunes is how much the facts that hold say, which is what a turn is
-// handed and what the field's size limit counts.
-func currentRunes(ff fieldFacts) int {
+// factsRunes is how much the facts say together, which is what a turn is
+// handed and what the size limit counts.
+func factsRunes(facts []fact) int {
 	n := 0
-	for _, f := range ff.Current {
+	for _, f := range facts {
 		n += len([]rune(f.Text))
 	}
 	return n
@@ -277,117 +288,56 @@ func newFactID(taken func(string) bool) string {
 	}
 }
 
-// fieldFile is a top-level "{Field}.md": the shape of a field's file, whether
-// or not the persona's layout names the field now.
-var fieldFile = regexp.MustCompile(`^([A-Z][A-Za-z0-9_-]{1,29})\.md$`)
-
-// memoryFacts is everything a persona keeps as facts: the fields its layout
-// names, in order, then fields kept from before the layout changed.
-type memoryFacts struct {
-	Fields []string
-	// Orphans are fields with a file that the layout no longer names. Their
-	// facts are still shown and may be moved into a field.
-	Orphans []string
-	ByField map[string]fieldFacts
-}
-
-func (m memoryFacts) all() []string { return append(append([]string{}, m.Fields...), m.Orphans...) }
-
-// find is the field holding the fact with this id, and whether it holds now.
-func (m memoryFacts) find(id string) (field string, current, ok bool) {
-	for name, ff := range m.ByField {
-		for _, f := range ff.Current {
-			if f.ID == id {
-				return name, true, true
-			}
-		}
-		for _, f := range ff.Past {
-			if f.ID == id {
-				return name, false, true
-			}
-		}
+// renderFacts is the summary and the facts that hold now, as a turn is shown
+// them.
+func renderFacts(m memo, zone *time.Location) string {
+	var lines []string
+	if m.Summary != "" {
+		lines = append(lines, "まとめ:", m.Summary, "", "事実:")
 	}
-	return "", false, false
-}
-
-func (r *Runner) loadFacts(skill Skill, zone *time.Location) memoryFacts {
-	m := memoryFacts{Fields: memoryFields(skill), ByField: map[string]fieldFacts{}}
-	named := map[string]bool{}
-	for _, field := range m.Fields {
-		named[field] = true
-		if note, ok := r.store.Note(skill.ID, fieldPath(field)); ok {
-			m.ByField[field] = parseFacts(note.Text, zone)
+	for _, f := range m.Facts {
+		line := "- [" + f.ID + "] " + f.Text
+		if !f.Since.IsZero() {
+			line += "（" + f.Since.In(zone).Format("2006-01-02") + "〜）"
 		}
+		lines = append(lines, line)
 	}
-	paths, _ := r.store.NotePaths(skill.ID)
-	for _, path := range paths {
-		match := fieldFile.FindStringSubmatch(path)
-		if match == nil || named[match[1]] {
-			continue
-		}
-		if note, ok := r.store.Note(skill.ID, path); ok {
-			ff := parseFacts(note.Text, zone)
-			if !ff.empty() {
-				m.Orphans = append(m.Orphans, match[1])
-				m.ByField[match[1]] = ff
-			}
-		}
+	if len(lines) == 0 {
+		return "（まだありません）"
 	}
-	sort.Strings(m.Orphans)
-	return m
-}
-
-// renderFacts is the facts that hold now, by field, as a turn is shown them.
-func renderFacts(m memoryFacts, zone *time.Location) string {
-	var parts []string
-	for _, field := range m.all() {
-		ff := m.ByField[field]
-		head := "## " + field
-		if contains(m.Orphans, field) {
-			head += "（分野の設定から外れた分野。事実は update で今の分野へ移せる）"
-		}
-		var lines []string
-		if ff.Summary != "" {
-			lines = append(lines, "まとめ:", ff.Summary, "", "事実:")
-		}
-		for _, f := range ff.Current {
-			line := "- [" + f.ID + "] " + f.Text
-			if !f.Since.IsZero() {
-				line += "（" + f.Since.In(zone).Format("2006-01-02") + "〜）"
-			}
-			lines = append(lines, line)
-		}
-		if len(lines) == 0 {
-			lines = []string{"（まだありません）"}
-		}
-		parts = append(parts, head+"\n"+strings.Join(lines, "\n"))
-	}
-	return strings.Join(parts, "\n\n")
+	return strings.Join(lines, "\n")
 }
 
 // factOp is one change the keeper asks for.
 type factOp struct {
 	// Op is add, update, invalidate, or merge.
-	Op    string   `json:"op"`
-	Field string   `json:"field"`
-	ID    string   `json:"id"`
-	IDs   []string `json:"ids"`
-	Text  string   `json:"text"`
+	Op   string   `json:"op"`
+	ID   string   `json:"id"`
+	IDs  []string `json:"ids"`
+	Text string   `json:"text"`
+	// From are more kakera the fact rests on: on the daily pass, those of
+	// the records the persona folded into it. Set by the host, not the model.
+	From []string `json:"-"`
 }
 
-// planFacts applies ops to m in memory, and says what is wrong with them. The
-// kakera they rest on is from (empty for none). It returns the fields changed.
-func planFacts(m memoryFacts, ops []factOp, from string, now time.Time, zone *time.Location) (memoryFacts, []string, []string) {
-	next := memoryFacts{Fields: m.Fields, Orphans: m.Orphans, ByField: map[string]fieldFacts{}}
-	for field, ff := range m.ByField {
-		next.ByField[field] = fieldFacts{Summary: ff.Summary, SummaryAt: ff.SummaryAt, SummaryDirty: ff.SummaryDirty, Current: append([]fact{}, ff.Current...), Past: append([]fact{}, ff.Past...)}
-	}
+// planFacts applies ops to m's facts in memory, and says what is wrong with
+// them. The kakera they rest on is from (empty for none). It reports whether
+// the facts changed; a change marks the summary dirty.
+func planFacts(m memo, ops []factOp, from string, now time.Time, zone *time.Location) (memo, bool, []string) {
+	facts := append([]fact{}, m.Facts...)
 	var problems []string
-	changed := map[string]bool{}
+	changed := false
 	used := map[string]bool{}
 	today := now.In(zone)
 	day := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, zone)
-	taken := func(id string) bool { _, _, ok := next.find(id); return ok }
+	taken := func(id string) bool {
+		for _, f := range facts {
+			if f.ID == id {
+				return true
+			}
+		}
+		return false
+	}
 	sources := func(ids ...[]string) []string {
 		seen := map[string]bool{}
 		var out []string
@@ -401,37 +351,22 @@ func planFacts(m memoryFacts, ops []factOp, from string, now time.Time, zone *ti
 		}
 		return out
 	}
-	// take removes a fact that holds now from its field and returns it.
-	take := func(id string) (fact, string, bool) {
-		field, current, ok := next.find(id)
-		if !ok || !current {
-			return fact{}, "", false
+	// take removes a fact and returns it.
+	take := func(at, id string) (fact, bool) {
+		if used[id] {
+			problems = append(problems, at+": "+id+" はこの提出ですでに扱っています")
+			return fact{}, false
 		}
-		ff := next.ByField[field]
-		for i, f := range ff.Current {
+		used[id] = true
+		for i, f := range facts {
 			if f.ID == id {
-				ff.Current = append(ff.Current[:i:i], ff.Current[i+1:]...)
-				next.ByField[field] = ff
-				changed[field] = true
-				return f, field, true
+				facts = append(facts[:i:i], facts[i+1:]...)
+				changed = true
+				return f, true
 			}
 		}
-		return fact{}, "", false
-	}
-	retire := func(field string, f fact, by string) {
-		f.Until, f.By = day, by
-		ff := next.ByField[field]
-		ff.Past = append(ff.Past, f)
-		if len(ff.Past) > maxPastFacts {
-			ff.Past = ff.Past[len(ff.Past)-maxPastFacts:]
-		}
-		next.ByField[field] = ff
-	}
-	put := func(field string, f fact) {
-		ff := next.ByField[field]
-		ff.Current = append(ff.Current, f)
-		next.ByField[field] = ff
-		changed[field] = true
+		problems = append(problems, at+": "+id+" はいまの事実にありません")
+		return fact{}, false
 	}
 	text := func(at string, raw string) (string, bool) {
 		t := cleanFact(raw)
@@ -445,84 +380,44 @@ func planFacts(m memoryFacts, ops []factOp, from string, now time.Time, zone *ti
 		}
 		return t, true
 	}
-	target := func(at, name string) (string, bool) {
-		field, ok := fieldNamed(m.Fields, name)
-		if !ok {
-			problems = append(problems, at+": 分野「"+name+"」はありません（"+strings.Join(m.Fields, " / ")+"）")
-		}
-		return field, ok
-	}
-	once := func(at, id string) bool {
-		if used[id] {
-			problems = append(problems, at+": "+id+" はこの提出ですでに扱っています")
-			return false
-		}
-		used[id] = true
-		return true
-	}
 	for i, op := range ops {
 		at := fmt.Sprintf("facts[%d]（%s）", i, op.Op)
 		switch op.Op {
 		case "add":
-			field, ok := target(at, op.Field)
-			t, good := text(at, op.Text)
-			if ok && good {
-				put(field, fact{ID: newFactID(taken), Text: t, From: sources([]string{from}), Since: day})
+			if t, ok := text(at, op.Text); ok {
+				facts = append(facts, fact{ID: newFactID(taken), Text: t, From: sources(op.From, []string{from}), Since: day})
+				changed = true
 			}
 		case "update":
-			if !once(at, op.ID) {
-				continue
-			}
-			old, field, ok := take(op.ID)
+			old, ok := take(at, op.ID)
 			if !ok {
-				problems = append(problems, at+": "+op.ID+" はいまの事実にありません")
 				continue
-			}
-			if op.Field != "" {
-				if moved, good := target(at, op.Field); good {
-					field = moved
-				}
-			} else if contains(m.Orphans, field) {
-				problems = append(problems, at+": 分野の設定から外れた分野の事実を直すときは、移す先の field を書いてください")
 			}
 			t, good := text(at, op.Text)
 			if !good {
+				facts = append(facts, old)
 				continue
 			}
-			f := fact{ID: newFactID(taken), Text: t, From: sources(old.From, []string{from}), Since: day}
+			// The fact keeps its id; what it said before is not kept.
+			f := fact{ID: old.ID, Text: t, From: sources(old.From, op.From, []string{from}), Since: day}
 			if t == old.Text {
-				// Only moved, or confirmed again: the same fact, kept as it was.
-				f.ID, f.Since, f.PastReviewed = old.ID, old.Since, old.PastReviewed
-			} else {
-				retire(field, old, f.ID)
+				// Confirmed again: kept as it was.
+				f.Since, f.PastReviewed = old.Since, old.PastReviewed
 			}
-			put(field, f)
+			facts = append(facts, f)
 		case "invalidate":
-			if !once(at, op.ID) {
-				continue
-			}
-			old, field, ok := take(op.ID)
-			if !ok {
-				problems = append(problems, at+": "+op.ID+" はいまの事実にありません")
-				continue
-			}
-			retire(field, old, "")
+			take(at, op.ID)
 		case "merge":
 			if len(op.IDs) < 2 {
 				problems = append(problems, at+": ids に2件以上を書いてください")
 				continue
 			}
-			field, ok := target(at, op.Field)
 			t, good := text(at, op.Text)
-			var from []string
+			from := op.From
 			var since time.Time
 			for _, id := range op.IDs {
-				if !once(at, id) {
-					continue
-				}
-				old, _, found := take(id)
+				old, found := take(at, id)
 				if !found {
-					problems = append(problems, at+": "+id+" はいまの事実にありません")
 					continue
 				}
 				from = sources(from, old.From)
@@ -530,187 +425,132 @@ func planFacts(m memoryFacts, ops []factOp, from string, now time.Time, zone *ti
 					since = old.Since
 				}
 			}
-			if ok && good {
-				put(field, fact{ID: newFactID(taken), Text: t, From: from, Since: since})
+			if good {
+				facts = append(facts, fact{ID: newFactID(taken), Text: t, From: from, Since: since})
 			}
 		default:
 			problems = append(problems, at+": op は add / update / invalidate / merge のどれかです")
 		}
 	}
-	for _, field := range next.all() {
-		if n := currentRunes(next.ByField[field]); n > maxFieldRunes && changed[field] {
-			problems = append(problems, fmt.Sprintf("分野「%s」のいまの事実が合わせて%d字になります。%d字以内になるよう、似た事実を merge でまとめてください", field, n, maxFieldRunes))
-		}
+	// Facts over the limit already are not made to shrink at once, only not
+	// to grow.
+	if n := factsRunes(facts); changed && n > maxFactsRunes && n > factsRunes(m.Facts) {
+		problems = append(problems, fmt.Sprintf("いまの事実が合わせて%d字になります。%d字以内になるよう、似た事実を merge でまとめてください", n, maxFactsRunes))
 	}
-	var fields []string
-	for field := range changed {
-		next.ByField[field] = dirtySummary(next.ByField[field])
-		fields = append(fields, field)
+	m.Facts = facts
+	if changed {
+		m = dirtySummary(m)
 	}
-	sort.Strings(fields)
-	return next, fields, problems
-}
-
-// writeFacts writes the fields that changed and returns their paths. A field
-// left with no facts at all is deleted.
-func (r *Runner) writeFacts(ctx context.Context, personaID string, m memoryFacts, fields []string, zone *time.Location) ([]string, error) {
-	var written []string
-	for _, field := range fields {
-		if err := ctx.Err(); err != nil {
-			return written, err // The keeper lost its lock: another may be writing.
-		}
-		ff := m.ByField[field]
-		path := fieldPath(field)
-		if ff.empty() {
-			if err := r.store.DeleteNote(personaID, path); err != nil {
-				return written, err
-			}
-			continue
-		}
-		if err := r.store.WriteNote(personaID, path, factsText(field, ff, zone)); err != nil {
-			return written, err
-		}
-		written = append(written, path)
-	}
-	return written, nil
+	return m, changed, problems
 }
 
 // dropFactSources takes deleted kakera out of the facts that rest on them. A
 // fact left resting on nothing goes; one that rests on another kakera stays.
-// Facts that never had a source - folded in from before - are left alone. It
-// reports whether anything changed.
-func (r *Runner) dropFactSources(ctx context.Context, skill Skill, gone map[string]bool, zone *time.Location) (bool, error) {
-	held, release, err := r.lockKeeper(ctx, skill.ID)
+// Facts that never had a source are left alone. It reports whether anything
+// changed.
+func (r *Runner) dropFactSources(ctx context.Context, personaID string, gone map[string]bool, zone *time.Location) (bool, error) {
+	held, release, err := r.lockKeeper(ctx, personaID)
 	if err != nil {
 		return false, err
 	}
 	defer release()
-	return r.dropFactSourcesHeld(held, skill, gone, zone)
+	return r.dropFactSourcesHeld(held, personaID, gone, zone)
 }
 
 // dropFactSourcesHeld is dropFactSources for a caller holding the persona's
 // keeper lock.
-func (r *Runner) dropFactSourcesHeld(held context.Context, skill Skill, gone map[string]bool, zone *time.Location) (bool, error) {
+func (r *Runner) dropFactSourcesHeld(held context.Context, personaID string, gone map[string]bool, zone *time.Location) (bool, error) {
 	if len(gone) == 0 {
 		return false, nil
 	}
-	m := r.loadFacts(skill, zone)
-	var fields []string
-	keep := func(list []fact) ([]fact, bool) {
-		var out []fact
-		touched := false
-		for _, f := range list {
-			if len(f.From) == 0 {
-				out = append(out, f)
-				continue
-			}
-			var from []string
-			for _, id := range f.From {
-				if !gone[id] {
-					from = append(from, id)
-				}
-			}
-			if len(from) != len(f.From) {
-				touched = true
-			}
-			if len(from) == 0 {
-				continue
-			}
-			f.From = from
-			out = append(out, f)
+	m := r.loadMemo(personaID, zone)
+	var kept []fact
+	touched := false
+	for _, f := range m.Facts {
+		if len(f.From) == 0 {
+			kept = append(kept, f)
+			continue
 		}
-		return out, touched
-	}
-	for _, field := range m.all() {
-		ff := m.ByField[field]
-		current, a := keep(ff.Current)
-		past, b := keep(ff.Past)
-		if a || b {
-			m.ByField[field] = dirtySummary(fieldFacts{Summary: ff.Summary, SummaryAt: ff.SummaryAt, Current: current, Past: past})
-			fields = append(fields, field)
+		var from []string
+		for _, id := range f.From {
+			if !gone[id] {
+				from = append(from, id)
+			}
 		}
+		if len(from) != len(f.From) {
+			touched = true
+		}
+		if len(from) == 0 {
+			continue
+		}
+		f.From = from
+		kept = append(kept, f)
 	}
-	if len(fields) == 0 {
+	if !touched {
 		return false, nil
 	}
-	_, err := r.writeFacts(held, skill.ID, m, fields, zone)
-	return true, err
+	m.Facts = kept
+	return true, r.saveMemo(held, personaID, dirtySummary(m), zone)
 }
 
-// ErrFactNotFound is a fact the user asked to change that the field does not
+// ErrFactNotFound is a fact the user asked to change that memory does not
 // hold.
 var ErrFactNotFound = fmt.Errorf("その事実は見つかりません")
 
 // EditFact puts right the words of one fact, as the user typed them. It is a
 // correction, not a change in what holds: the fact keeps its id, its kakera
-// and its day, and nothing moves to the past. The persona is not woken.
-func (r *Runner) EditFact(ctx context.Context, personaID, field, id, text string) error {
+// and its day. The persona is not woken.
+func (r *Runner) EditFact(ctx context.Context, personaID, id, text string) error {
 	text = cleanFact(text)
 	if text == "" || len([]rune(text)) > maxFactRunes {
 		return fmt.Errorf("事実は1〜%d字で書いてください", maxFactRunes)
 	}
-	return r.changeFact(ctx, personaID, field, id, func(f *fact) bool { f.Text = text; return true })
+	return r.changeFact(ctx, personaID, id, func(f *fact) bool { f.Text = text; return true })
 }
 
-// ForgetFact throws one fact away, whether it holds now or no longer does.
-// The user means it gone, so it does not move to the past.
-func (r *Runner) ForgetFact(ctx context.Context, personaID, field, id string) error {
-	return r.changeFact(ctx, personaID, field, id, func(*fact) bool { return false })
+// ForgetFact throws one fact away.
+func (r *Runner) ForgetFact(ctx context.Context, personaID, id string) error {
+	return r.changeFact(ctx, personaID, id, func(*fact) bool { return false })
 }
 
-// changeFact finds one fact in a field and keeps it changed, or drops it.
-func (r *Runner) changeFact(ctx context.Context, personaID, field, id string, change func(*fact) bool) error {
-	ctx = r.withSkills(ctx)
-	skill, ok := r.skills(ctx).Find(personaID)
-	if !ok {
-		return fmt.Errorf("担当が見つかりません: %s", personaID)
-	}
-	skill = skill.forTurn()
-	held, release, err := r.lockKeeper(ctx, skill.ID)
+// changeFact finds one fact and keeps it changed, or drops it.
+func (r *Runner) changeFact(ctx context.Context, personaID, id string, change func(*fact) bool) error {
+	held, release, err := r.lockKeeper(ctx, personaID)
 	if err != nil {
 		return err
 	}
 	defer release()
 	_, settings := r.clientOf()
 	zone := settings.Location()
-	m := r.loadFacts(skill, zone)
-	ff, ok := m.ByField[field]
-	if !ok {
-		return ErrFactNotFound
-	}
+	m := r.loadMemo(personaID, zone)
 	found := false
-	apply := func(list []fact) []fact {
-		var out []fact
-		for _, f := range list {
-			if f.ID == id {
-				found = true
-				if !change(&f) {
-					continue
-				}
+	var facts []fact
+	for _, f := range m.Facts {
+		if f.ID == id {
+			found = true
+			if !change(&f) {
+				continue
 			}
-			out = append(out, f)
 		}
-		return out
+		facts = append(facts, f)
 	}
-	ff.Current, ff.Past = apply(ff.Current), apply(ff.Past)
 	if !found {
 		return ErrFactNotFound
 	}
-	if n := currentRunes(ff); n > maxFieldRunes {
-		return fmt.Errorf("分野「%s」のいまの事実が合わせて%d字になります（%d字まで）", field, n, maxFieldRunes)
+	if n := factsRunes(facts); n > maxFactsRunes && n > factsRunes(m.Facts) {
+		return fmt.Errorf("いまの事実が合わせて%d字になります（%d字まで）", n, maxFactsRunes)
 	}
-	m.ByField[field] = dirtySummary(ff)
-	_, err = r.writeFacts(held, skill.ID, m, []string{field}, zone)
-	return err
+	m.Facts = facts
+	return r.saveMemo(held, personaID, dirtySummary(m), zone)
 }
 
-// Corrections, merges and removals need a new summary even when the facts'
-// historical dates do not change. Removing the last fact also removes prose
-// that no longer has any evidence, without asking a model to preserve it.
-func dirtySummary(ff fieldFacts) fieldFacts {
-	if len(ff.Current) == 0 && len(ff.Past) == 0 {
-		return fieldFacts{}
+// dirtySummary marks the summary to be written again: corrections, merges
+// and removals need a new one even when no record is new. With no fact and no
+// record left, the summary has nothing to rest on and goes too.
+func dirtySummary(m memo) memo {
+	if len(m.Facts) == 0 && len(m.Records) == 0 {
+		return memo{CheckedAt: m.CheckedAt, SuggestedAt: m.SuggestedAt}
 	}
-	ff.SummaryDirty = true
-	return ff
+	m.SummaryDirty = true
+	return m
 }

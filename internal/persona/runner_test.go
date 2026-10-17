@@ -47,15 +47,14 @@ type fake struct {
 	// fail makes the endpoint answer 500 to a request whose system prompt it
 	// matches, for a test that needs a call to fail.
 	fail func(system string) bool
-	// keep scripts what the note keeper hands in, as keep_memory's arguments;
-	// unset, it records the kakera in one sentence and changes no field.
+	// keep scripts what the note keeper hands in, as keep_record's or
+	// keep_memory's arguments; unset, it records the kakera in one sentence
+	// and changes no fact.
 	keep func(system, user string) string
 	// keeps are the prompts the note keeper was sent.
-	keeps        []string
-	selectMemory func(system, user string) string
-	selections   []string
-	// summarize scripts write_summaries; summaries are the prompts it was
-	// sent. Unset, it rewrites nothing.
+	keeps []string
+	// summarize scripts tidy_memory; summaries are the prompts it was sent.
+	// Unset, it changes nothing.
 	summarize func(system, user string) string
 	summaries []string
 }
@@ -179,35 +178,26 @@ func (f *fake) start(t *testing.T) *httptest.Server {
 		}
 		var result map[string]any
 		switch {
-		case names["choose_memory_field"]:
-			f.mu.Lock()
-			f.selections = append(f.selections, system+"\n----\n"+user)
-			selectMemory := f.selectMemory
-			f.mu.Unlock()
-			field := ""
-			for _, tool := range body.Tools {
-				if tool.Function.Name == "choose_memory_field" {
-					props := tool.Function.Parameters["properties"].(map[string]any)
-					values := props["field"].(map[string]any)["enum"].([]any)
-					if len(values) > 1 {
-						field, _ = values[1].(string)
-					}
-				}
-			}
-			if selectMemory != nil {
-				field = selectMemory(system, user)
-			}
-			result = testCall("choose_memory_field", map[string]any{"field": field})
-		case names["write_summaries"]:
+		case names["tidy_memory"]:
 			f.mu.Lock()
 			f.summaries = append(f.summaries, system+"\n----\n"+user)
 			summarize := f.summarize
 			f.mu.Unlock()
-			args := `{"summaries":[]}`
+			args := `{"facts":[],"summaries":[]}`
 			if summarize != nil {
 				args = summarize(system, user)
 			}
-			result = testCall("write_summaries", json.RawMessage(args))
+			result = testCall("tidy_memory", json.RawMessage(args))
+		case names["keep_record"]:
+			f.mu.Lock()
+			f.keeps = append(f.keeps, system+"\n----\n"+user)
+			keep := f.keep
+			f.mu.Unlock()
+			args := `{"remember":true,"summary":"テストのかけら","tags":["テスト"],"expires":"","review":""}`
+			if keep != nil {
+				args = keep(system, user)
+			}
+			result = testCall("keep_record", json.RawMessage(args))
 		case names["keep_memory"]:
 			f.mu.Lock()
 			f.keeps = append(f.keeps, system+"\n----\n"+user)
@@ -1059,7 +1049,7 @@ func TestAPersonaReadsAndWritesItsOwnNotes(t *testing.T) {
 			return `{"action":"tool","tool":"records","args":{"query":"薬"}}`
 		}
 	}, "routine")
-	if err := s.WriteNote("routine", "Routine.md", factsFile("Routine", [2]string{"朝の薬は毎日飲む", ""})); err != nil {
+	if err := s.WriteNote("routine", MemoPath, memoFile([2]string{"朝の薬は毎日飲む", ""})); err != nil {
 		t.Fatal(err)
 	}
 	old := timeline.Entry{ID: "e_old", Text: "薬を飲み忘れた", At: time.Date(2025, 1, 5, 8, 0, 0, 0, time.UTC)}
@@ -1575,7 +1565,7 @@ func TestAnUltraTurnMayReadTwentyTimes(t *testing.T) {
 // and a note read written as a tool call is simply done.
 func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
-	if err := s.WriteNote("gourmet", "records/2026-09.md", "- 2026-09-30 12:00 [e_1] 目次の話 #本\n"); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, "## かけらの記録\n\n- 2026-09-30 12:00 [e_1] 目次の話 #本\n"); err != nil {
 		t.Fatal(err)
 	}
 	set := tools.New(tools.Config{}).For([]string{"place_search"}).As("gourmet")
@@ -1602,7 +1592,7 @@ func TestReadingForgivesTheWrongFieldAndCallsOutARepeatedFailure(t *testing.T) {
 // field, and it is read rather than refused.
 func TestARecordsReadWrittenAsAToolIsStillRead(t *testing.T) {
 	runner, s, _ := setup(t, func(string, string) string { return `{"action":"silent"}` }, "gourmet")
-	if err := s.WriteNote("gourmet", "records/2026-09.md", "- 2026-09-30 12:00 [e_1](/?entry=e_1) 豚骨に寄る #ラーメン\n"); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, "## かけらの記録\n\n- 2026-09-30 12:00 [e_1](/?entry=e_1) 豚骨に寄る #ラーメン\n"); err != nil {
 		t.Fatal(err)
 	}
 	set := runner.registry(s.Settings()).For([]string{"web_search"}).As("gourmet")
@@ -2057,11 +2047,11 @@ func TestARemarkPointsAtTheNotesWrittenWithIt(t *testing.T) {
 		return `{"action":"speak","text":"ノートンの白ですね"}`
 	}, "move")
 	f.keep = func(string, string) string {
-		return `{"summary":"ワインのラベルを見せた","tags":["ワイン"],"facts":[{"op":"add","field":"Place","id":"","ids":[],"text":"ワイン屋。"}]}`
+		return `{"remember":true,"summary":"ワインのラベルを見せた","tags":["ワイン"],"expires":"","review":""}`
 	}
 	runner.react(post(t, s, "ワインのラベル").ID)
 	said := remarks(t, s)
-	if len(said) != 1 || len(said[0].Notes) != 1 || said[0].Notes[0] != "Place.md" {
+	if len(said) != 1 || len(said[0].Notes) != 1 || said[0].Notes[0] != MemoPath {
 		t.Fatalf("remarks = %+v", said)
 	}
 }

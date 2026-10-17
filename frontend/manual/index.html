@@ -461,9 +461,10 @@
           <h3 id="ja-memory-system">記憶の仕組みと見直し</h3>
           <p>担当の記憶は、以下の構造で管理されます。</p>
           <ul>
-            <li><strong>分野ごとの事実</strong>: 「好み」や「お店」など分野ごとに、分かっていることを1件1行で持ちます。かけらが届くたびに事実が更新され、当てはまらなくなった事実は <strong>以前のこと</strong> に移ります。</li>
-            <li><strong>分野ごとのまとめ文</strong>: 事実をもとにした担当自身の見立てです。チェックイン時に、変わった事実をもとに担当が書き直します。</li>
-            <li><strong>かけらの記録</strong>: 受け取ったかけらごとに、日時・元の投稿・要約・タグが月ごとに残ります。</li>
+            <li><strong>かけらの記録</strong>: 受け取ったかけらごとに、日時・元の投稿・要約・タグを1行残します。会話のたびに行うのはこれだけです。</li>
+            <li><strong>今の事実</strong>: 分かっていることを1件1行で持ちます。1日1回のチェックインで、新しい記録を事実に取り込み（足す・書き換える・消す・まとめる）、取り込んだ記録は消えます。当てはまらなくなった事実も消えます。</li>
+            <li><strong>まとめ文</strong>: 事実と記録をもとにした担当自身の見立てです。同じチェックインで書き直します。</li>
+            <li><strong>新しい担当の提案</strong>: 記憶は話題ごとに分けません。別の話題がたまってきたら、担当が「新しく担当を作って分けませんか？」と提案します。</li>
             <li><strong>期限とお別れ</strong>: 「今日のランチ」のような一時的な記録は <strong>… に消える</strong> として自動削除され、長く使われていない記録は <strong>… に見直し</strong> としてチェックイン時に担当から「忘れていい？」と尋ねられます。</li>
           </ul>
         </section>
@@ -1082,9 +1083,10 @@
           <h3 id="en-memory-system">Memory architecture and review</h3>
           <p>A persona's memory is structured as follows:</p>
           <ul>
-            <li><strong>Facts by field</strong>: One line per fact known in each field (such as “preferences” or “places”). Whenever a fragment arrives, facts are updated; facts that no longer hold move to <strong>Past facts</strong>.</li>
-            <li><strong>Summary by field</strong>: The persona's own perspective grounded in those facts. The persona rewrites it during check-in based on any changed facts.</li>
-            <li><strong>Fragment records</strong>: For each fragment received, the date and time, original post, summary, and tags are kept grouped by month.</li>
+            <li><strong>Fragment records</strong>: For each fragment received, one line with the date and time, original post, summary, and tags. That is all a conversation adds.</li>
+            <li><strong>Current facts</strong>: One line per fact known. At the daily check-in, new records are folded into facts (added, rewritten, deleted or merged) and the folded records go; facts that no longer hold are deleted.</li>
+            <li><strong>Summary</strong>: The persona's own perspective grounded in its facts and records, rewritten at the same check-in.</li>
+            <li><strong>New persona suggestions</strong>: Memory is not split by subject. When a subject of its own builds up, the persona suggests making a new persona for it.</li>
             <li><strong>Lifespan and review</strong>: Ephemeral notes such as “today's lunch” expire automatically under <strong>Gone on …</strong>, while long-unused notes are scheduled for <strong>Review on …</strong>, where the persona asks “Can I forget this now?” during check-in.</li>
           </ul>
         </section>

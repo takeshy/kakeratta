@@ -169,7 +169,7 @@ func TestAQuietCheckInIsSkippedUnlessAPlanIsNear(t *testing.T) {
 			}
 			if plan {
 				soon := first.AddDate(0, 0, 3).Format("2006-01-02")
-				if err := s.WriteNote("gourmet", "Shop.md", factsText("Shop", fieldFacts{Current: []fact{{ID: "f_a", Text: soon + " にA店を予約", Since: first}}}, time.UTC)); err != nil {
+				if err := s.WriteNote("gourmet", MemoPath, memoText(memo{Facts: []fact{{ID: "f_a", Text: soon + " にA店を予約", Since: first}}}, time.UTC)); err != nil {
 					t.Fatal(err)
 				}
 			}

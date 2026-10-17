@@ -152,16 +152,16 @@ func TestMemoryComesInPages(t *testing.T) {
 	if code, _ := get("/api/personas/gourmet/memory?after=wines%2F1.md"); code != http.StatusBadRequest {
 		t.Fatalf("bad cursor: %d", code)
 	}
-	// A tag finds the months of records that hold a record with it.
-	if err := workspace.WriteNote("gourmet", "records/2026-09.md", "# 2026-09 のかけら\n\n- 2026-09-30 12:00 [e_1](/?entry=e_1) 赤を飲んだ #赤 #ワイン\n"); err != nil {
-		t.Fatal(err)
-	}
-	if err := workspace.WriteNote("gourmet", "records/2026-10.md", "# 2026-10 のかけら\n\n- 2026-10-01 12:00 [e_2](/?entry=e_2) 白を飲んだ #白\n"); err != nil {
+	// A tag finds the memory file when it holds a record with it.
+	if err := workspace.WriteNote("gourmet", "Memo.md", "# Memo\n\n## かけらの記録\n\n- 2026-09-30 12:00 [e_1](/?entry=e_1) 赤を飲んだ #赤 #ワイン\n"); err != nil {
 		t.Fatal(err)
 	}
 	_, red := get("/api/personas/gourmet/memory?tag=" + url.QueryEscape("#赤"))
-	if len(red.Notes) != 1 || red.Notes[0].Path != "records/2026-09.md" || red.Next != "" {
+	if len(red.Notes) != 1 || red.Notes[0].Path != "Memo.md" || red.Next != "" {
 		t.Fatalf("tagged: %+v", red)
+	}
+	if _, white := get("/api/personas/gourmet/memory?tag=" + url.QueryEscape("白")); len(white.Notes) != 0 {
+		t.Fatalf("an unused tag: %+v", white)
 	}
 
 	response := httptest.NewRecorder()
@@ -176,11 +176,11 @@ func TestMemoryComesInPages(t *testing.T) {
 	}
 }
 
-// One fact is put right or forgotten over HTTP; the field comes back as it now
-// reads, and a field left empty is gone.
+// One fact is put right or forgotten over HTTP; the memory file comes back as
+// it now reads, and one left empty is gone.
 func TestAFactIsChangedOverHTTP(t *testing.T) {
 	server, workspace := app(t)
-	if err := workspace.WriteNote("gourmet", "Shop.md", "# Shop\n\n- [f_a] 三田の二郎に行きたい from:e_1 since:2026-09-01\n"); err != nil {
+	if err := workspace.WriteNote("gourmet", "Memo.md", "# Memo\n\n## いまの事実\n\n- [f_a] 三田の二郎に行きたい from:e_1 since:2026-09-01\n"); err != nil {
 		t.Fatal(err)
 	}
 	send := func(method, query, body string) (int, string) {
@@ -190,16 +190,16 @@ func TestAFactIsChangedOverHTTP(t *testing.T) {
 		server.ServeHTTP(response, request)
 		return response.Code, response.Body.String()
 	}
-	if code, body := send(http.MethodPut, "field=Shop&fact=f_a", `{"text":"三田の二郎（本店）に行きたい"}`); code != http.StatusOK || !strings.Contains(body, "[f_a] 三田の二郎（本店）に行きたい from:e_1") {
+	if code, body := send(http.MethodPut, "fact=f_a", `{"text":"三田の二郎（本店）に行きたい"}`); code != http.StatusOK || !strings.Contains(body, "[f_a] 三田の二郎（本店）に行きたい from:e_1") {
 		t.Fatalf("edit: %d %s", code, body)
 	}
-	if code, _ := send(http.MethodPut, "field=Shop&fact=f_none", `{"text":"x"}`); code != http.StatusNotFound {
+	if code, _ := send(http.MethodPut, "fact=f_none", `{"text":"x"}`); code != http.StatusNotFound {
 		t.Fatalf("edit of a missing fact: %d", code)
 	}
-	if code, body := send(http.MethodDelete, "field=Shop&fact=f_a", ""); code != http.StatusOK || !strings.Contains(body, `"gone":true`) {
+	if code, body := send(http.MethodDelete, "fact=f_a", ""); code != http.StatusOK || !strings.Contains(body, `"gone":true`) {
 		t.Fatalf("forget: %d %s", code, body)
 	}
-	if _, ok := workspace.Note("gourmet", "Shop.md"); ok {
-		t.Fatal("an empty field was kept")
+	if _, ok := workspace.Note("gourmet", "Memo.md"); ok {
+		t.Fatal("an empty memory file was kept")
 	}
 }

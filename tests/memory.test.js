@@ -94,18 +94,18 @@ test("reader shows wine preferences, evidence links and raw fallback without exe
   assert.match(createMemoryView([]).all().map(node => node.textContent).join(""), /Nothing remembered yet/);
 });
 
-test("fact section headings follow the display language while stored text stays intact", (ctx) => {
+test("memory section headings follow the display language while stored text stays intact", (ctx) => {
   globalThis.Node = Element;
   globalThis.document = {
     createElement: tag => new Element(tag),
     createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
   };
   ctx.after(() => { delete globalThis.document; delete globalThis.Node; setLanguage("ja"); });
-  const text = "# Preference\n\n## いまの事実\n- [f_a] Likes lighter reds\n\n## 以前のこと\n- [f_b] Likes heavy reds\n\n## 自由な見出し\nCustom content\n";
-  const note = { path: "Preference.md", text };
+  const text = "# Memo\n\n## いまの事実\n- [f_a] Likes lighter reds\n\n## かけらの記録\n- 2026-10-01 12:00 [e_1](/?entry=e_1) Had a red #red\n\n## 自由な見出し\nCustom content\n";
+  const note = { path: "Memo.md", text };
   for (const [language, expected] of [
-    ["en", ["Current facts", "Past facts", "自由な見出し"]],
-    ["ja", ["いまの事実", "以前のこと", "自由な見出し"]],
+    ["en", ["Fragment records", "自由な見出し"]],
+    ["ja", ["かけらの記録", "自由な見出し"]],
   ]) {
     setLanguage(language);
     const view = createMemoryView([note]);
@@ -201,9 +201,10 @@ test("tags are shown as chips and narrow the view", (ctx) => {
   assert.deepEqual(titles(), ["Altura", "Margaux"]);
 });
 
-// The fields come first and the months of records after them, newest first.
-// A record's id opens the entry, and its tags narrow the view.
-test("records list after the fields, with entry links and tag chips", async (ctx) => {
+// The memory file comes first. A record's id opens the entry, its tags narrow
+// the view, and its dates show as chips; a fact hides its id, opens the posts
+// it rests on, and can be put right or forgotten where it is read.
+test("memory file lists its facts and records, with entry links and tag chips", async (ctx) => {
   globalThis.Node = Element;
   globalThis.document = {
     createElement: tag => new Element(tag),
@@ -212,76 +213,49 @@ test("records list after the fields, with entry links and tag chips", async (ctx
   };
   ctx.after(() => { delete globalThis.Node; delete globalThis.document; });
   setLanguage("ja");
-  const september = { path: "records/2026-09.md", text: "# 2026-09 のかけら\n\n- 2026-09-30 12:00 [e_old](/?entry=e_old) 前の話 #ラーメン\n" };
-  const october = { path: "records/2026-10.md", text: "# 2026-10 のかけら\n\n- 2026-10-01 12:34 [e_r1](/?entry=e_r1) 三田の二郎に行きたい #ラーメン #三田\n" };
-  const shop = { path: "Shop.md", text: "三田の二郎に行きたい。\n" };
-  const asked = [];
-  const view = createMemoryView([september, shop, october], { onFilter: (filter) => asked.push(filter) });
+  const memo = { path: "Memo.md", text: "# Memo\n\n## まとめ（2026-10-02 更新）\n\n塩に寄ってきた。\n\n## いまの事実\n\n- [f_ab] 塩に寄る from:e_1,e_9 since:2026-10-02\n- [f_cd] 豚骨も好き from:e_1 since:2026-09-01\n\n## かけらの記録\n\n- 2026-09-30 12:00 [e_old](/?entry=e_old) 前の話 #ラーメン\n- 2026-10-01 12:34 [e_r1](/?entry=e_r1) 三田の二郎に行きたい #ラーメン #三田 expires:2026-10-02/1d review:2026-11-01/31d asked:e_ask\n" };
+  const other = { path: "notes.md", text: "# notes\n\nその他。\n" };
+  const asked = [], opened = [];
+  const view = createMemoryView([other, memo], { onFilter: (filter) => asked.push(filter), onOpenEntry: (id) => opened.push(id) });
   const cards = view.all().filter(node => node.tagName === "ARTICLE").map(node => node.attributes["data-path"]);
-  assert.deepEqual(cards, ["Shop.md", "records/2026-10.md", "records/2026-09.md"]);
-  // The fields and the months are told apart: each run has its heading, and a
-  // month is titled as one.
-  const headings = view.all().filter(node => node.tagName === "H3" || node.tagName === "H4").map(node => node.textContent);
-  assert.deepEqual(headings, ["分野（まとめ文と事実）", "Shop", "かけらの記録（月ごと）", "2026年10月", "2026年9月"]);
-  // The latest months stay open; older ones fold, and still open from a link.
-  const months = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map(m => ({ path: `records/${m}.md`, text: `- ${m}-01 12:00 [e_${m}](/?entry=e_${m}) 話 #t\n` }));
-  const longView = createMemoryView(months);
-  const open = longView.all().filter(node => node.tagName === "ARTICLE").map(node => node.attributes["data-path"]);
-  const folded = longView.all().filter(node => node.tagName === "DETAILS").map(node => node.attributes["data-path"]);
-  assert.deepEqual(open, ["records/2026-10.md", "records/2026-09.md", "records/2026-08.md"]);
-  assert.deepEqual(folded, ["records/2026-07.md", "records/2026-06.md", "records/2026-05.md"]);
-  const link = view.all().find(node => node.tagName === "A" && node.textContent === "元の投稿");
-  assert.equal(link.attributes.href, "/?entry=e_r1");
-  const chips = view.all().filter(node => node.tagName === "BUTTON" && String(node.textContent).startsWith("#"));
-  assert.deepEqual(chips.map(node => node.textContent), ["#ラーメン", "#三田", "#ラーメン"]);
-  chips[1].events.click();
+  assert.deepEqual(cards, ["Memo.md", "notes.md"]);
+  const all = view.all();
+  assert.ok(all.some(node => node.tagName === "H4" && node.textContent === "まとめと記録"));
+  assert.deepEqual(all.filter(node => node.tagName === "H5").map(node => node.textContent || node.all().map(child => child.textContent).join("")), ["まとめ（2026-10-02 更新）", "かけらの記録"]);
+  assert.ok(!all.some(node => String(node.textContent).includes("f_ab")), "a fact id was shown");
+  const links = all.filter(node => node.tagName === "A").map(node => node.textContent);
+  assert.deepEqual(links, ["元の投稿1", "元の投稿2", "元の投稿", "元の投稿", "元の投稿"]);
+  const since = all.filter(node => node.tagName === "SPAN" && /から$/.test(String(node.textContent))).map(node => node.textContent);
+  assert.deepEqual(since, ["2026-10-02から", "2026-09-01から"]);
+  const chips = all.filter(node => node.tagName === "BUTTON" && String(node.textContent).startsWith("#"));
+  assert.deepEqual(chips.map(node => node.textContent), ["#ラーメン", "#ラーメン", "#三田"]);
+  chips[2].events.click();
   assert.deepEqual(asked.at(-1), { tag: "三田", type: "" });
-  // A record's dates show as chips, and the post that asked about it does not.
-  const dated = { path: "records/2026-08.md", text: "- 2026-08-01 12:00 [e_d](/?entry=e_d) 草加の店 #草加 expires:2026-08-02/1d review:2026-09-01/31d asked:e_ask\n" };
-  const datedView = createMemoryView([dated]);
-  const spans = datedView.all().filter(node => node.tagName === "SPAN" && /に(消える|見直し)$/.test(String(node.textContent)));
-  assert.deepEqual(spans.map(node => node.textContent), ["2026-08-02 に消える", "2026-09-01 に見直し"]);
-  assert.ok(!datedView.all().some(node => String(node.textContent).includes("asked:")));
-  // A field's facts hide their ids, open the posts they rest on over the
-  // view, and say since and until when they held, and what replaced them.
-  const facts = { path: "Preference.md", text: "# Preference\n\n## まとめ（2026-10-02 更新）\n\n塩に寄ってきた。\n\n## いまの事実\n\n- [f_ab] 塩に寄る from:e_1,e_9 since:2026-10-02\n\n## 以前のこと\n\n- [f_cd] 豚骨に寄る from:e_1 since:2026-09-01 until:2026-10-02 by:f_ab\n" };
-  const opened = [];
-  const factView = createMemoryView([facts], { onOpenEntry: (id) => opened.push(id) });
-  const all = factView.all();
-  assert.ok(!all.some(node => String(node.textContent).includes("f_ab") || String(node.textContent).includes("f_cd")), "a fact id was shown");
-  assert.ok(all.some(node => node.textContent === "まとめ（2026-10-02 更新）"));
-  const factLinks = all.filter(node => node.tagName === "A");
-  assert.deepEqual(factLinks.map(node => node.textContent), ["元の投稿1", "元の投稿2", "元の投稿"]);
-  factLinks[1].attributes.onclick?.({ preventDefault() {} });
-  factLinks[1].events.click?.({ preventDefault() {} });
-  assert.deepEqual(opened, ["e_9"]);
-  const factChips = all.filter(node => node.tagName === "SPAN" && /から$|まで$|→/.test(String(node.textContent))).map(node => node.textContent);
-  assert.deepEqual(factChips, ["2026-10-02から", "2026-09-01から", "2026-10-02まで", "→「塩に寄る」に置き換え"]);
+  const dates = all.filter(node => node.tagName === "SPAN" && /に(消える|見直し)$/.test(String(node.textContent)));
+  assert.deepEqual(dates.map(node => node.textContent), ["2026-10-02 に消える", "2026-11-01 に見直し"]);
+  assert.ok(!all.some(node => String(node.textContent).includes("asked:")));
   // A fact is put right, or forgotten, from where it is read.
   const edits = [], forgets = [];
   globalThis.confirm = () => true;
-  const editable = createMemoryView([facts], { onEditFact: async (...args) => edits.push(args), onForgetFact: async (...args) => forgets.push(args) });
+  const editable = createMemoryView([memo], { onEditFact: async (...args) => edits.push(args), onForgetFact: async (...args) => forgets.push(args) });
   const pencils = editable.all().filter(node => String(node.className || "").includes("memory-fact-edit"));
   const crosses = editable.all().filter(node => String(node.className || "").includes("memory-fact-forget"));
   assert.equal(pencils.length, 2, "each fact has its own controls");
   await crosses[1].events.click();
-  assert.deepEqual(forgets, [["Preference.md", "Preference", "f_cd"]]);
+  assert.deepEqual(forgets, [["Memo.md", "f_cd"]]);
   pencils[0].events.click({ preventDefault() {} });
   const input = editable.all().find(node => node.tagName === "INPUT");
   assert.equal(input.value, "塩に寄る", "the editor holds the words alone");
   input.value = "塩ラーメンに寄る";
   await editable.all().find(node => node.tagName === "BUTTON" && node.textContent === "保存").events.click();
-  assert.deepEqual(edits, [["Preference.md", "Preference", "f_ab", "塩ラーメンに寄る"]]);
+  assert.deepEqual(edits, [["Memo.md", "f_ab", "塩ラーメンに寄る"]]);
   delete globalThis.confirm;
-  // A record's id opens the post too, named as such.
-  const recordView = createMemoryView([october], { onOpenEntry: (id) => opened.push(id) });
-  const recordLink = recordView.all().find(node => node.tagName === "A");
-  assert.equal(recordLink.textContent, "元の投稿");
+  // A record's id opens the post over the view.
+  const recordLink = all.filter(node => node.tagName === "A").at(-1);
   recordLink.events.click?.({ preventDefault() {} });
   assert.equal(opened.at(-1), "e_r1");
-  assert.equal(parseMemoryNote(facts).facts, true);
-  assert.equal(parseMemoryNote(october).records, true);
-  assert.equal(parseMemoryNote(shop).records, false);
+  assert.equal(parseMemoryNote(memo).facts, true);
+  assert.equal(parseMemoryNote(other).facts, false);
 });
 
 // One page of many: a link to a note on a later page still resolves and asks
@@ -369,8 +343,8 @@ test("summary refresh metadata is hidden in the memory reader", (ctx) => {
     createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
   };
   ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
-  const view = createMemoryView([{ path: "Preference.md", text: "# Preference\n\n<!-- kakeratta:summary-dirty -->\n\n## まとめ（2026-10-01 更新）\n\n好きなもの。\n\n## いまの事実\n- [f_a] 塩が好き since:2026-09-01\n" }]);
-  assert.equal(view.all().some(node => String(node.textContent).includes("summary-dirty")), false);
+  const view = createMemoryView([{ path: "Memo.md", text: "# Memo\n\n<!-- kakeratta:checked 2026-10-01T07:00:00+09:00 -->\n\n<!-- kakeratta:persona-suggested 2026-10-01 -->\n\n<!-- kakeratta:summary-dirty -->\n\n## まとめ（2026-10-01 更新）\n\n好きなもの。\n\n## いまの事実\n- [f_a] 塩が好き since:2026-09-01\n" }]);
+  assert.equal(view.all().some(node => /summary-dirty|kakeratta:checked|persona-suggested/.test(String(node.textContent))), false);
 });
 
 test("a kept past event's review mark is hidden in the memory reader", (ctx) => {
@@ -380,7 +354,7 @@ test("a kept past event's review mark is hidden in the memory reader", (ctx) => 
     createTextNode: text => Object.assign(new Element("text"), { textContent: text }),
   };
   ctx.after(() => { delete globalThis.document; delete globalThis.Node; });
-  const view = createMemoryView([{ path: "Preference.md", text: "# Preference\n\n## いまの事実\n- [f_a] 2026-10-01 にA店で食事した since:2026-10-01 reviewed:0123456789abcdef\n" }]);
+  const view = createMemoryView([{ path: "Memo.md", text: "# Memo\n\n## いまの事実\n- [f_a] 2026-10-01 にA店で食事した since:2026-10-01 reviewed:0123456789abcdef\n" }]);
   const text = view.all().map(node => String(node.textContent)).join("\n");
   assert.equal(text.includes("reviewed"), false);
   assert.equal(text.includes("0123456789abcdef"), false);

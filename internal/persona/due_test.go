@@ -185,7 +185,7 @@ func TestExpiringRecordsReportTheNextDate(t *testing.T) {
 		{At: at, ID: "later", Summary: "まだ", Expires: day("2027-01-01")},
 		{At: at, ID: "kept", Summary: "ずっと", Review: day("2026-09-21")},
 	}
-	if err := s.WriteNote("gourmet", "records/2026-09.md", recordsText("2026-09", records, time.UTC)); err != nil {
+	if err := s.WriteNote("gourmet", MemoPath, memoText(memo{Records: records}, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)

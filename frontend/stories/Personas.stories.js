@@ -101,7 +101,7 @@ export const AICreateDraft = {
     const draft = {
       id: "wine", name: ja ? "ぶどう" : "budou", icon: "🍷", tools: ["web_search"],
       domain: ja ? "ラベルの写真から、ワインの銘柄・産地・ブドウ品種を解説し、お店で買ったり注文したりできるようにする。" : "Identify wines from label photos and explain the producer, region, and grapes so you can buy or order them.",
-      memory: ja ? "分野は Wine（飲んだ銘柄と感想）と Preference（好みの傾向。重なったらまとめる）の2つ。記録のタグには産地・品種・色を付ける。" : "Fields: Wine (wines you tried and what you thought) and Preference (your tastes, merged as they repeat). Tag records with region, grape, and colour.",
+      memory: ja ? "飲んだ銘柄と感想、好みの傾向を覚える。好みが重なったらまとめる。記録のタグには産地・品種・色を付ける。" : "Remember the wines you tried, what you thought, and your tastes, merged as they repeat. Tag records with region, grape, and colour.",
       tone: ja ? "気軽に話せる友達のように、短く親しみやすく。" : "Friendly and relaxed, with short replies.",
       instructions: ja ? "ラベルが届いたら、ワインショップやお店で伝わる名前と、ブドウ品種・味わいを短く解説します。飲んだワインと感想も覚えます。" : "When a label arrives, give the name a shop or restaurant would recognize, with its grapes and style. Remember the wines you try and what you thought.",
     };
@@ -127,15 +127,9 @@ export const WineMemory = {
     const wine = { id: "wine", name: ja ? "ワイン担当" : "Wine", icon: "🍷", active: true,
       domain: ja ? "飲んだワインと、好きだった理由を覚えます。" : "Remembers the wines you tried and why you liked them.", tools: [], wakes: 4 };
     const notes = [
-      { path: "Preference.md", text: ja
-        ? "# Preference\n\n## まとめ（2026-09-14）\n\n果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は「もう一杯」にならない。\n\n## いまの事実\n\n- [f_r5d2kp] 軽めの赤が好き from:sample-pinot,sample-gamay since:2026-09-13\n\n## 以前のこと\n\n- [f_h8j3mn] しっかりした赤が好き from:sample-old since:2026-08-02 until:2026-09-13 by:f_r5d2kp\n"
-        : "# Preference\n\n## まとめ（2026-09-14）\n\nLikes lighter, fruity reds with gentle tannins; a heavy red does not make them want another glass.\n\n## いまの事実\n\n- [f_r5d2kp] Likes lighter reds from:sample-pinot,sample-gamay since:2026-09-13\n\n## 以前のこと\n\n- [f_h8j3mn] Likes full-bodied reds from:sample-old since:2026-08-02 until:2026-09-13 by:f_r5d2kp\n" },
-      { path: "Wine.md", text: ja
-        ? "# Wine\n\n## いまの事実\n\n- [f_t6v9wq] Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」 from:sample-pinot since:2026-09-12\n- [f_y2z4ab] ボージョレのガメイ：「飲みやすい」 from:sample-gamay since:2026-09-13\n"
-        : "# Wine\n\n## いまの事実\n\n- [f_t6v9wq] Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.” from:sample-pinot since:2026-09-12\n- [f_y2z4ab] A Beaujolais Gamay: “easy to drink.” from:sample-gamay since:2026-09-13\n" },
-      { path: "records/2026-09.md", text: ja
-        ? "# 2026-09 のかけら\n\n- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) レストランで飲んだピノ・ノワールを気に入った #赤ワイン #ピノ・ノワール #ブルゴーニュ\n- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) ガメイを飲みやすいと言った #赤ワイン #ガメイ\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n"
-        : "# 2026-09\n\n- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) Liked a Pinot Noir at a restaurant #red #PinotNoir #Burgundy\n- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) Found Gamay easy to drink #red #Gamay\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) Wants to try a wine bar in Ebisu #Ebisu #winebar review:2026-10-11/21d\n" },
+      { path: "Memo.md", text: ja
+        ? "# Memo\n\n## まとめ（2026-09-14 更新）\n\n果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は「もう一杯」にならない。恵比寿のワインバーが気になっている。\n\n## いまの事実\n\n- [f_r5d2kp] 軽めの赤が好き from:sample-pinot,sample-gamay since:2026-09-13\n- [f_t6v9wq] Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」 from:sample-pinot since:2026-09-12\n- [f_y2z4ab] ボージョレのガメイ：「飲みやすい」 from:sample-gamay since:2026-09-13\n\n## かけらの記録\n\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n"
+        : "# Memo\n\n## まとめ（2026-09-14 更新）\n\nLikes lighter, fruity reds with gentle tannins; a heavy red does not make them want another glass. Curious about a wine bar in Ebisu.\n\n## いまの事実\n\n- [f_r5d2kp] Likes lighter reds from:sample-pinot,sample-gamay since:2026-09-13\n- [f_t6v9wq] Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.” from:sample-pinot since:2026-09-12\n- [f_y2z4ab] A Beaujolais Gamay: “easy to drink.” from:sample-gamay since:2026-09-13\n\n## かけらの記録\n\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) Wants to try a wine bar in Ebisu #Ebisu #winebar review:2026-10-11/21d\n" },
     ];
     serve({ personas: [wine], tools, memory: { wine: { notes } } });
     const panel = createPersonas({ onChange: () => {} });

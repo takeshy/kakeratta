@@ -9,28 +9,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/takeshy/kakeratta/internal/store"
 )
 
-// A persona's memory is two things, both kept by the app:
-//
-//   - One body per field (分野) - the kinds its memory layout names - holding
-//     everything learned in that field so far, rewritten whole and kept short.
-//     A field file is "{type}.md"; it is plain text, not OKF.
-//   - A record of every kakera the persona took in: one sentence, its tags,
-//     and the entry to go back to - the persona's reply when it replied, the
-//     kakera itself when it did not. A reply leads to its kakera through
-//     ReplyTo. Records are "records/YYYY-MM.md", one line each:
-//     "- 2026-10-01 12:34 [e_x](/?entry=e_x) sentence #tag #tag", then any
-//     dates (recordDate): a record is what index.md's line was, and like
-//     it, it may be set to go.
-//
-// The persona decides what the bodies say and how a kakera is summed up; the
-// app writes both, so nothing else ever ends up in memory.
-
-// maxFieldRunes is the most a field's body may hold.
-const maxFieldRunes = 2000
+// A record is one kakera the persona took in: one sentence, its tags, and the
+// entry to go back to - the persona's reply when it replied, the kakera itself
+// when it did not. A reply leads to its kakera through ReplyTo. Records are
+// lines of the memory file (facts.go):
+// "- 2026-10-01 12:34 [e_x](/?entry=e_x) sentence #tag #tag", then any dates
+// (recordDate). The persona decides how a kakera is summed up; the app writes
+// it, so nothing else ever ends up in memory.
 
 // maxSummaryRunes and maxTags bound one record.
 const (
@@ -38,48 +25,6 @@ const (
 	maxTags         = 5
 	maxTagRunes     = 20
 )
-
-// recordsDir holds the monthly record files.
-const recordsDir = "records/"
-
-// defaultField is the one field of a persona whose layout names none.
-const defaultField = "Memo"
-
-// memoryFields are the fields a persona keeps, in the order its layout names
-// them.
-func memoryFields(skill Skill) []string {
-	if !skill.Remembers() {
-		return nil
-	}
-	if fields := allowedTypes(skill.forTurn().Memory); len(fields) > 0 {
-		return fields
-	}
-	return []string{defaultField}
-}
-
-// fieldPath is where a field's body is kept.
-func fieldPath(field string) string {
-	return field + ".md"
-}
-
-// fieldNamed finds the field a model meant, whatever case it wrote it in.
-func fieldNamed(fields []string, name string) (string, bool) {
-	name = strings.TrimSuffix(strings.TrimSpace(name), ".md")
-	for _, field := range fields {
-		if strings.EqualFold(field, name) {
-			return field, true
-		}
-	}
-	return "", false
-}
-
-func recordsPath(at time.Time) string {
-	return recordsDir + at.Format("2006-01") + ".md"
-}
-
-func isRecordsPath(path string) bool {
-	return strings.HasPrefix(strings.TrimPrefix(path, "/"), recordsDir)
-}
 
 // record is one kakera, as the persona summed it up.
 type record struct {
@@ -224,16 +169,6 @@ func parseRecords(text string, zone *time.Location) []record {
 	return out
 }
 
-// recordsText is a records file holding these records, oldest first.
-func recordsText(month string, records []record, zone *time.Location) string {
-	sort.SliceStable(records, func(i, j int) bool { return records[i].At.Before(records[j].At) })
-	lines := []string{"# " + month + " のかけら", ""}
-	for _, rec := range records {
-		lines = append(lines, rec.fileLine(zone))
-	}
-	return strings.Join(lines, "\n") + "\n"
-}
-
 // cleanSummary makes a model's sentence fit one record line.
 // A "#" it holds would read back as a tag, so it is made full-width.
 func cleanSummary(text string) string {
@@ -246,17 +181,9 @@ func cleanTag(tag string) string {
 	return strings.Join(strings.Fields(tag), "_")
 }
 
-// recordsPaths are a persona's records files, newest month first.
-func (r *Runner) recordsPaths(personaID string) []string {
-	paths, _ := r.store.NotePaths(personaID)
-	var out []string
-	for _, path := range paths {
-		if isRecordsPath(path) {
-			out = append(out, path)
-		}
-	}
-	sort.Sort(sort.Reverse(sort.StringSlice(out)))
-	return out
+// records are a persona's records, oldest first.
+func (r *Runner) records(personaID string, zone *time.Location) []record {
+	return r.loadMemo(personaID, zone).Records
 }
 
 // findRecords are the records that match, newest first, at most limit: those
@@ -270,29 +197,19 @@ func (r *Runner) findRecords(personaID, tag, query, before string, limit int, zo
 // findRecordsWhere is findRecords with any test of a record's text.
 func (r *Runner) findRecordsWhere(personaID, tag, before string, limit int, zone *time.Location, match func(record) bool) (found []record, more bool) {
 	tag = strings.ToLower(cleanTag(tag))
-	for _, path := range r.recordsPaths(personaID) {
-		month := strings.TrimSuffix(strings.TrimPrefix(path, recordsDir), ".md")
-		if before != "" && month >= before {
+	records := r.records(personaID, zone)
+	for i := len(records) - 1; i >= 0; i-- {
+		rec := records[i]
+		if before != "" && rec.At.In(zone).Format("2006-01") >= before {
 			continue
 		}
-		note, ok := r.store.Note(personaID, path)
-		if !ok {
-			continue
-		}
-		records := parseRecords(note.Text, zone)
-		for i := len(records) - 1; i >= 0; i-- {
-			rec := records[i]
-			if tag != "" && !hasRecordTag(rec, tag) {
-				continue
-			}
-			if !match(rec) {
-				continue
-			}
-			if len(found) == limit {
-				return found, true
-			}
+		if (tag == "" || hasRecordTag(rec, tag)) && match(rec) {
 			found = append(found, rec)
 		}
+	}
+	sort.SliceStable(found, func(i, j int) bool { return found[i].At.After(found[j].At) })
+	if len(found) > limit {
+		return found[:limit], true
 	}
 	return found, false
 }
@@ -341,7 +258,7 @@ func (r *Runner) memoryView(skill Skill, zone *time.Location) string {
 		return ""
 	}
 	recent, more := r.findRecords(skill.ID, "", "", "", recentRecordsLimit, zone)
-	text := "### 分野ごとの事実（いま当てはまるもの。[ ] は事実の id）\n" + renderFacts(r.loadFacts(skill, zone), zone) +
+	text := "### 事実（いま当てはまるもの。[ ] は事実の id）\n" + renderFacts(r.loadMemo(skill.ID, zone), zone) +
 		"\n\n### かけらの記録（新しい順、最新" + fmt.Sprint(recentRecordsLimit) + "件まで。[ ] はたどれる投稿のID）\n" + listRecords(recent, zone)
 	if more {
 		text += "\n（もっと前の記録は read の records で、tag・query・before を指定して探せます）"
@@ -349,69 +266,35 @@ func (r *Runner) memoryView(skill Skill, zone *time.Location) string {
 	return text
 }
 
-// proseFields are the field files a persona kept as prose, before fields
-// were lists of facts: a field-shaped file with text and no fact line.
-func (r *Runner) proseFields(skill Skill) ([]store.Note, error) {
-	paths, err := r.store.NotePaths(skill.ID)
-	if err != nil {
-		return nil, err
-	}
-	var out []store.Note
-	for _, path := range paths {
-		if !fieldFile.MatchString(path) {
-			continue
-		}
-		note, ok := r.store.Note(skill.ID, path)
-		if !ok {
-			continue
-		}
-		if _, prose := proseText(note.Text); prose {
-			out = append(out, note)
-		}
-	}
-	return out, nil
-}
-
-// eachRecord passes every record a persona keeps to change, month by month,
-// and writes back the months it changed. change reports whether to keep the
-// record and whether it changed it. A month left without records is deleted.
-// The caller holds the persona's keeper lock; writes stop if ctx ends.
+// eachRecord passes every record a persona keeps to change, and writes the
+// memory file back if any changed. change reports whether to keep the record
+// and whether it changed it. A record let go of other than by expiry marks
+// the summary to be written again, since it may say what the record did. The
+// caller holds the persona's keeper lock; writes stop if ctx ends.
 func (r *Runner) eachRecord(ctx context.Context, personaID string, zone *time.Location, change func(rec *record) (keep, changed bool)) error {
-	for _, path := range r.recordsPaths(personaID) {
-		note, ok := r.store.Note(personaID, path)
-		if !ok {
-			continue
+	m := r.loadMemo(personaID, zone)
+	var kept []record
+	touched, forgotten := false, false
+	for _, rec := range m.Records {
+		keep, changed := change(&rec)
+		if changed || !keep {
+			touched = true
 		}
-		records := parseRecords(note.Text, zone)
-		kept := records[:0]
-		touched := false
-		for i := range records {
-			rec := records[i]
-			keep, changed := change(&rec)
-			if changed || !keep {
-				touched = true
-			}
-			if keep {
-				kept = append(kept, rec)
-			}
-		}
-		if !touched {
-			continue
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		var err error
-		if len(kept) == 0 {
-			err = r.store.DeleteNote(personaID, path)
-		} else {
-			err = r.store.WriteNote(personaID, path, recordsText(strings.TrimSuffix(strings.TrimPrefix(path, recordsDir), ".md"), kept, zone))
-		}
-		if err != nil {
-			return err
+		if keep {
+			kept = append(kept, rec)
+		} else if !rec.Expires.set() {
+			// A record that expires never reaches the summary.
+			forgotten = true
 		}
 	}
-	return nil
+	if !touched {
+		return nil
+	}
+	m.Records = kept
+	if forgotten {
+		m = dirtySummary(m)
+	}
+	return r.saveMemo(ctx, personaID, m, zone)
 }
 
 // extendRecords gives the records a persona read while answering a post their
@@ -442,17 +325,11 @@ func (r *Runner) recordsByID(personaID string, ids map[string]bool, zone *time.L
 		return nil
 	}
 	var out []record
-	for _, path := range r.recordsPaths(personaID) {
-		note, ok := r.store.Note(personaID, path)
-		if !ok {
-			continue
-		}
-		records := parseRecords(note.Text, zone)
-		for i := len(records) - 1; i >= 0; i-- {
-			if ids[records[i].ID] {
-				out = append(out, records[i])
-			}
+	for _, rec := range r.records(personaID, zone) {
+		if ids[rec.ID] {
+			out = append(out, rec)
 		}
 	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].At.After(out[j].At) })
 	return out
 }

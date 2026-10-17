@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, Alexa skill setup, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
-updated: "2026-10-16"
+updated: "2026-10-17"
 ---
 
 Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion.
@@ -120,16 +120,9 @@ Without all three valid values, the push API reports unavailable and scheduled t
 
 Web Push uses [webpush-go](https://github.com/SherClockHolmes/webpush-go) for payload encryption and VAPID signing. Unit tests stub providers; actual device delivery, browser/OS permissions, and background behavior require a configured deployment and a real-device check. Delivery is best effort without automatic server retries; identity verification also suppresses notifications when login has expired or the API cannot be reached.
 
-## Memory migration
+## Memory consolidation
 
-Persona fields moved from prose rewritten with every kakera to a list of facts with a summary rewritten at the check-in, and the running app reads no facts from prose. Split the prose once after deploying that change with [cmd/migrate-memory](../../cmd/migrate-memory/main.go), which runs `Runner.MigrateMemory` for every persona of a workspace on that workspace's own model settings:
-
-- `go run ./cmd/migrate-memory` - the local workspace (`KAKERATTA_HOME` or the default); `-firestore kakeratta` - every workspace in production Firestore with application default credentials, or one with `-user KEY`; `-persona ID` limits it to one persona.
-- Without `-apply` it prints, per persona, the prose fields, the prose each named field keeps as its summary, and the facts the model splits it into, and saves them to `-plan` (JSON, default `migration-plan.json`); nothing is changed. The plan may be edited by hand.
-- With `-apply` it writes the plan as it is, without calling the model again (`Runner.ApplyMigration`). A persona whose prose changed since the dry run, or whose plan holds an unknown field, an over-long fact or summary, or an overfull field, is refused. Running the dry run again afterwards finds nothing to do.
-- Between the deploy and the run, a prose field reads as its summary, with no facts yet. A dry run whose prose was rewritten meanwhile is refused at `-apply` and must be run again.
-- The production split of 2026-10-02 was done this way: two dry runs (the first showed a submission rejected without its reasons, and bullets carried into facts, both since fixed), a hand edit of the plan for a field the model split short, then `-apply`.
-- The earlier move from one OKF note per thing to prose fields (2026-10-01) was done the same way: three dry runs while tightening the prompt (no researched figures or explanations; the user's actions kept with their dates; the notes' own language), a hand edit of the plan, then `-apply`.
+On 2026-10-17 each persona's memory was folded into one `Memo.md` (see [Memory layout](./personas.md#memory-layout)) directly in production Firestore, with a one-off script kept outside the repository: per persona, the field files' summaries joined as the summary marked for rewrite, their facts that held, and the records from the field files and monthly `records/YYYY-MM.md` files, oldest first; facts under the old `## 以前のこと` section were dropped. A dry run saved the exact plan with each source document's update time; applying created `Memo.md` only where absent and deleted the sources with update-time preconditions. The earlier prose-to-facts tool, `cmd/migrate-memory`, was removed with it.
 
 ## Backfilling post locations
 
@@ -158,7 +151,6 @@ The command does not reroute posts, wake personas, rewrite text or timestamps, o
 - [variables.tf](../../infra/variables.tf): Web Push public key, contact, secret name, and version
 - [mise.toml](../../mise.toml)
 - [README.md](../../infra/README.md)
-- [migrate-memory](../../cmd/migrate-memory/main.go): one-off memory migration
 
 ## Routing and answer verification
 

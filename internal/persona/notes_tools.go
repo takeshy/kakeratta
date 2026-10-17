@@ -111,14 +111,14 @@ func (r *Runner) recordEntry(id string, zone *time.Location) string {
 	return text
 }
 
-// RecordsTagged says whether a memory file is a records file holding a record
-// with tag, for the memory view's tag filter.
+// RecordsTagged says whether a note is the memory file holding a record with
+// tag, for the memory view's tag filter.
 func RecordsTagged(path, text, tag string) bool {
-	if !isRecordsPath(path) {
+	if path != MemoPath {
 		return false
 	}
 	tag = strings.ToLower(cleanTag(tag))
-	for _, rec := range parseRecords(text, time.UTC) {
+	for _, rec := range parseMemo(text, time.UTC).Records {
 		if hasRecordTag(rec, tag) {
 			return true
 		}
