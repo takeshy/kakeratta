@@ -11,8 +11,6 @@ kakeratta uses six models through Nebius Token Factory, chosen by how often each
 
 I arrived at this allocation by testing the actual tasks. A smaller model was not always faster, and a larger model was not always necessary.
 
-When I switched the default from Nemotron 3 Super to Nemotron 3.5 Super VL on October 16, the token prices and prompts stayed the same, but reasoning increased substantially—even on everyday tasks where I was already satisfied with 3 Super's quality. Across production routing calls, median reasoning rose from about 70 to 1,430 tokens, and median cost rose from about 0.12 yen to 0.30 yen per call: roughly 2.5 times as much. Super VL also spent 1,905 reasoning tokens just to write a one-line memory record. These are observations across production calls, not a controlled replay of identical inputs. They made Super VL too expensive as an across-the-board replacement, so I kept 3 Super for frequent everyday work and reserved Super VL for selected tasks. The implementation lessons document records the switch and measurements (https://github.com/takeshy/kakeratta/blob/main/docs/ai-lessons.md#14-a-newer-model-thought-far-more-and-a-smaller-one-never-stopped).
-
 Unless stated otherwise, the Super measurements and production observations below used Nemotron 3 Super (120B, 12B active).
 
 ### How would you rate Nemotron's output quality for your use case?
@@ -20,6 +18,8 @@ Unless stated otherwise, the Super measurements and production observations belo
 7/10
 
 Native tool calling and Japanese-language quality were strong. Super and Ultra reliably returned tool calls when required, and their Japanese answers felt natural, which matters for an app built around casual personal notes.
+
+When I switched the default from Nemotron 3 Super to Nemotron 3.5 Super VL on October 16, the token prices and prompts stayed the same, but reasoning increased substantially—even on everyday tasks where I was already satisfied with 3 Super's quality. Across production routing calls, median reasoning rose from about 70 to 1,430 tokens, and median cost rose from about 0.12 yen to 0.30 yen per call: roughly 2.5 times as much. Super VL also spent 1,905 reasoning tokens just to write a one-line memory record. These are observations across production calls, not a controlled replay of identical inputs. They made Super VL too expensive as an across-the-board replacement, so I kept 3 Super for frequent everyday work and reserved Super VL for selected tasks. The implementation lessons document records the switch and measurements (https://github.com/takeshy/kakeratta/blob/main/docs/ai-lessons.md#14-a-newer-model-thought-far-more-and-a-smaller-one-never-stopped).
 
 The weakness was consistency when several instructions had to be followed together. Three patterns kept appearing across Super and Ultra:
 
