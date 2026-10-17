@@ -47,7 +47,7 @@ const shots = [
   { name: "bluesky-connect", id: "bluesky--connect", clip: "#sheet", ready: ".bluesky-connection" },
   { name: "bluesky-selection", id: "bluesky--selection", clip: ".social-dialog", ready: ".social-selection" },
   { name: "bluesky-answer-only", id: "bluesky--answer-only", clip: ".social-dialog", ready: ".social-preview-post" },
-  { name: "bluesky-preview", id: "bluesky--preview", clip: ".social-dialog", ready: ".social-preview" },
+  { name: "bluesky-preview", id: "bluesky--preview", clip: ".social-dialog", ready: ".social-preview-post img" },
   { name: "bluesky-posted", id: "bluesky--posted", clip: ".social-dialog", ready: ".social-preview" },
   { name: "memory", id: "personas--wine-memory", clip: ".memory-dialog", ready: ".memory-card" },
   { name: "search-keyword", id: "search--keyword", clip: "#sheet" },

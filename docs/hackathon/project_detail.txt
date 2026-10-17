@@ -85,7 +85,7 @@ The hosted architecture separates the Web API from persona workers. Posts and pe
 | Stage | What happens |
 | --- | --- |
 | **1. Accept and save** | Save the post and pending job together in one transaction. |
-| **2. Read the content** | Analyze each image once and share the result across personas. |
+| **2. Read the content** | Analyze each image once and resolve the post’s location before routing, sharing the results across personas. |
 | **3. Choose personas** | Match routing conditions or person keywords. Direct mentions and replies bypass routing. Save the selection and reasons. |
 | **4. Research** | Read the conversation, persona memory, past fragments, and permitted search tools. |
 | **5. Answer** | Compose the answer or choose silence, without changing schedules. |
@@ -93,13 +93,13 @@ The hosted architecture separates the Web API from persona workers. Posts and pe
 | **7. Check and review** | Validate permissions and schedule ownership in code. Nemotron 3.5 Super VL (Super) reviews plans containing schedules; failed checks regenerate the plan. |
 | **8. Execute** | Apply approved changes. Do not publish an answer implying success if execution fails. |
 | **9. Publish** | Save the answer to the timeline and send push notifications when applicable. |
-| **10. Update memory** | Save facts from the user's fragments after publication. Failed updates are retried independently. |
+| **10. Update memory** | Append a record of the user's fragment after publication. Failed updates are retried independently. |
 
 Selected personas run in parallel, while replies within each conversation remain ordered.
 
 **The AI writing an answer is never asked to produce schedules and memory in the same breath.** Super handles research and ordinary answers; deep requests and personas set to always use Ultra use it only for final composition. Planning, validation, execution, and memory remain separate.
 
-For ordinary memory updates, the keeper first picks one memory field, or decides nothing needs keeping, and only then reads that field's contents.
+An ordinary memory update uses one call to decide whether to keep a short record, using the conversation and existing tags without loading facts or summaries. Each persona keeps one memory file; if a distinct topic builds up, it can suggest creating another persona instead of splitting that file.
 
 Personas without scheduling or memory skip those phases. Connected MCP tools are read-only, and schedule changes are validated by kakeratta. When an external agent answers for a persona, it handles only research and answering; the remaining phases stay with kakeratta.
 
@@ -117,7 +117,7 @@ Personal Hermes connections can use their own tools and local documents, extendi
 
 Keyword search and Qwen3-Embedding-8B semantic search help users find fragments they remember enough to look for. Personas can also use permitted tools such as Tavily Web search, WeatherAPI forecasts, and place lookup to connect those fragments with current information.
 
-A Japanese and English Alexa skill confirms spoken input before posting. Web Push delivers scheduled reminders and optional direct-agent replies on a best-effort basis. Markdown infographics with emoji and Mermaid make longer answers easier to follow, and users can preview selected posts and replies before sharing them to Bluesky.
+A Japanese and English Alexa skill confirms spoken input before posting. Web Push delivers scheduled reminders and optional direct-agent replies on a best-effort basis. Users can mark a reminder done, and personas see that mark when reading the conversation. Markdown infographics with emoji and Mermaid make longer answers easier to follow, and users can preview selected posts and replies before sharing them to Bluesky.
 
 Model calls are logged by purpose and retry scope, so I can identify which stages make everyday use expensive and adjust them.
 
@@ -139,7 +139,7 @@ In my early implementation, asking for an answer, notes, and schedules together 
 
 I split each turn into phases: the persona writes the answer, while schedules and memory are planned, checked, and saved separately. Code checks permissions and whether the schedule plan supports the answer's promises. A memory failure can be retried after the answer has reached the user.
 
-I also learned to give each call a smaller job. The memory keeper selects a field before reading its contents. The Hermes worker handles request intake and submission in code, leaving the model to research and answer. Adding review calls was not always helpful: in my direct-request experiments, review-and-retry loops often added cost without improving the result.
+I also learned to give each call a smaller job. The memory keeper appends a short record without rereading facts or summaries; consolidation waits until check-in. The Hermes worker handles request intake and submission in code, leaving the model to research and answer. Adding review calls was not always helpful: in my direct-request experiments, review-and-retry loops often added cost without improving the result.
 
 I now watch real posts, failures, and usage together. I use Ultra for persona drafting and deep final answers, and test whether simpler tasks can stay on Super. Users can inspect routing decisions and correct memories or replies when the system gets them wrong. For this app, ease of use depends on those recovery paths as much as on the first answer.
 

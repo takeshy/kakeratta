@@ -47,7 +47,7 @@ The execution diagram was checked against `docs/system/personas.md` and
 `docs/system/integrations.md`. These are presentation assets and do not change
 application behavior.
 
-Requires Node.js, Python 3, Chromium, and the Lato font. From the repository root:
+Requires Node.js, Python 3 with Pillow, Chromium, Lato, and Noto Sans CJK JP. On Debian/Ubuntu, install `fonts-lato`, `fonts-noto-cjk`, and `python3-pil` before capturing. The application font stack explicitly includes Noto Sans CJK JP so Japanese captures use sans-serif glyphs. Retake the UI sources with `mise exec -- npm --prefix frontend run captures` after installing fonts or changing the UI. From the repository root:
 
 ```sh
 bash docs/hackathon/gallery/render.sh
@@ -56,4 +56,5 @@ bash docs/hackathon/gallery/render.sh
 Set `CHROMIUM` to use a different Chromium binary. Generated HTML and the
 browser profile stay in the ignored `tmp/hackathon-gallery/` directory.
 `build.mjs` controls the layout and copy; `render.sh` exports it;
-`package.py` checks dimensions, upload count and file sizes before packaging.
+`package.py` checks dimensions, upload count and file sizes, builds the contact sheet with Pillow, and packages the upload images.
+The contact sheet uses the rendered slide PNGs, keeping its memory use lower than rendering all fifteen full layouts together.

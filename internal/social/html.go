@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"golang.org/x/net/html"
+
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
@@ -57,4 +59,60 @@ func ImageAnswer(e timeline.Entry) bool {
 		return false
 	}
 	return HTMLDocument(e.Text) != "" || ((e.Speaker == "infographic" || e.Speaker == timeline.Agent) && InfographicMarkdown(e.Text))
+}
+
+// HTMLText keeps readable body text when an HTML answer is shared as text.
+// Non-content elements are skipped, and block boundaries stay readable.
+func HTMLText(source string) string {
+	doc, err := html.Parse(strings.NewReader(source))
+	if err != nil {
+		return ""
+	}
+	var out strings.Builder
+	var visit func(*html.Node)
+	visit = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "head", "script", "style", "noscript", "template", "svg", "iframe", "object", "embed":
+				return
+			case "br", "p", "div", "section", "article", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr", "blockquote", "pre":
+				out.WriteString("\n")
+			case "td", "th":
+				out.WriteString(" ")
+			case "img":
+				for _, a := range n.Attr {
+					if a.Key == "alt" {
+						out.WriteString(a.Val)
+					}
+				}
+			}
+		}
+		if n.Type == html.TextNode {
+			out.WriteString(n.Data)
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			visit(c)
+		}
+		if n.Type == html.ElementNode && n.Data == "a" {
+			for _, a := range n.Attr {
+				if a.Key == "href" && (strings.HasPrefix(a.Val, "https://") || strings.HasPrefix(a.Val, "http://")) {
+					out.WriteString(" (" + a.Val + ")")
+				}
+			}
+		}
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "p", "div", "section", "article", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr", "blockquote", "pre":
+				out.WriteString("\n")
+			}
+		}
+	}
+	visit(doc)
+	var lines []string
+	for _, line := range strings.Split(out.String(), "\n") {
+		if line = strings.Join(strings.Fields(line), " "); line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }

@@ -32,13 +32,14 @@ func (p Post) Key() string {
 }
 
 type Plan struct {
-	Account  string `json:"account"`
-	Handle   string `json:"handle"`
-	Target   string `json:"target"`
-	Root     string `json:"root"`
-	Language string `json:"language,omitempty"`
-	Posts    []Post `json:"posts"`
-	Digest   string `json:"digest"`
+	Account  string            `json:"account"`
+	Handle   string            `json:"handle"`
+	Target   string            `json:"target"`
+	Root     string            `json:"root"`
+	Language string            `json:"language,omitempty"`
+	Posts    []Post            `json:"posts"`
+	Digest   string            `json:"digest"`
+	Formats  map[string]string `json:"formats,omitempty"`
 }
 
 // PlanSelection includes only explicitly selected entries. If a reply's
@@ -78,6 +79,12 @@ func wordsFor(language string) planWords {
 // PlanSelectionIn plans in a display language ("en"; anything else is
 // Japanese). The language is sealed into the plan with everything else.
 func PlanSelectionIn(language, target, root string, entries []timeline.Entry, selected []string, label func(string) string, images map[string]HTMLImages) (Plan, error) {
+	return PlanSelectionFormatsIn(language, target, root, entries, selected, label, images, nil)
+}
+
+// PlanSelectionFormatsIn allows each selected entry to be text or an image.
+// Missing formats retain the legacy default for older clients.
+func PlanSelectionFormatsIn(language, target, root string, entries []timeline.Entry, selected []string, label func(string) string, images map[string]HTMLImages, formats map[string]string) (Plan, error) {
 	if language != "en" {
 		language = ""
 	}
@@ -134,12 +141,26 @@ func PlanSelectionIn(language, target, root string, entries []timeline.Entry, se
 		text := e.Text
 		var links []Link
 		var rendered HTMLImages
-		image := ImageAnswer(e)
+		format := formats[id]
+		if format != "" && format != "text" && format != "image" {
+			return fmt.Errorf("投稿形式はテキストか画像を選んでください")
+		}
+		image := format == "image" || (format == "" && ImageAnswer(e))
+		if format != "" {
+			if p.Formats == nil {
+				p.Formats = map[string]string{}
+			}
+			p.Formats[id] = format
+		}
 		if e.Speaker != timeline.User && !image {
 			// A persona's Markdown answer is posted as the text it reads as,
-			// its labelled links as link facets. HTML answers and laid-out
-			// infographics become images.
-			text, links = FromMarkdown(e.Text)
+			// its labelled links as link facets. HTML text mode extracts
+			// readable body text instead of publishing source markup.
+			if source := HTMLDocument(e.Text); source != "" {
+				text = HTMLText(source)
+			} else {
+				text, links = FromMarkdown(e.Text)
+			}
 		}
 		if image {
 			var ok bool

@@ -25,100 +25,147 @@ class Element {
   close() { this.open = false; void this.fire("close"); }
 }
 
-test("only chosen replies reach preview and publish; changing selection invalidates approval", async (t) => {
+const settle = async () => { for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve)); };
+const entries = [
+  { id: "p", kind: "post", speaker: "user", text: "麻婆豆腐" },
+  { id: "a", root: "p", replyTo: "p", speaker: "tabe", text: "辛そう" },
+  { id: "b", root: "p", replyTo: "p", speaker: "gout", text: "private health" },
+];
+function setup(t, rows = entries) {
   setLanguage("ja");
   globalThis.Node = Element;
-  globalThis.document = { body: new Element("body"), createElement: (tag) => new Element(tag), createTextNode: (text) => Object.assign(new Element("text"), { textContent: text }) };
-  t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  t.mock.method(api, "thread", async () => ({ entries: [
-    { id: "p", kind: "post", speaker: "user", text: "麻婆豆腐" },
-    { id: "a", root: "p", replyTo: "p", speaker: "tabe", text: "辛そう" },
-    { id: "b", root: "p", replyTo: "p", speaker: "gout", text: "private health" },
-  ] }));
+  globalThis.document = { body: new Element("body"), createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }) };
+  t.after(() => {
+    for (const dialog of [...document.body.children]) dialog.close();
+    delete globalThis.Node; delete globalThis.document;
+  });
+  t.mock.method(api, "thread", async () => ({ entries: rows }));
   t.mock.method(api, "blueskyConnection", async () => ({ available: true, connected: true, did: "did:plc:alice", handle: "alice.bsky.social" }));
-  let chosen, posted, finishPublish, publishCalls = 0;
-  t.mock.method(api, "previewSocial", async (body) => {
-    chosen = body;
-    return { digest: "digest", posts: body.entryIds.flatMap((id) => id === "p" ? [{ entryId: id, text: id }, { entryId: id, id: "p:part:2", text: "つづき:\ncontinued", parent: "p" }] : [{ entryId: id, text: id, parent: "p:part:2" }]) };
+}
+function previewPlan(body) {
+  return { digest: JSON.stringify(body), handle: "alice.bsky.social", posts: body.entryIds.flatMap(id => {
+    const rendered = body.htmlImages?.[id];
+    return rendered ? rendered.images.map((image, i) => ({entryId:id, id: i ? `${id}:image:${i+1}` : undefined, text:"［画像］", image})) : [{entryId:id,text:id}];
+  }) };
+}
+
+test("selection previews automatically and publishes only the displayed request once", async t => {
+  setup(t);
+  const previews = [];
+  t.mock.method(api, "previewSocial", async body => { previews.push(body); return previewPlan(body); });
+  let posted, finishPublish, publishCalls = 0;
+  t.mock.method(api, "publishSocial", async body => {
+    posted = body; publishCalls++;
+    await new Promise(resolve => { finishPublish = resolve; });
+    return {posts:[{entryId:"p",publication:{url:"https://bsky.app/profile/example/post/root"}}]};
   });
-  t.mock.method(api, "publishSocial", async (body) => { posted = body; publishCalls++; await new Promise(resolve => { finishPublish = resolve; }); return { error: "", posts: [{entryId:"p", publication:{url:"https://bsky.app/profile/example/post/root"}}, {entryId:"p", publication:{url:"https://bsky.app/profile/example/post/continued"}}, {entryId:"a", publication:{url:"https://bsky.app/profile/example/post/reply"}}] }; });
-  await openSocial("p", (id) => ({ name: id, icon: "🍚" }));
+  await openSocial("p", id => ({name:id})); await settle();
   const dialog = document.body.children[0];
-  const checkboxes = dialog.querySelector(".social-selection").querySelectorAll("input");
-  assert.deepEqual(checkboxes.map((c) => c.checked), [true, false, false]);
-  assert.equal(checkboxes[0].disabled, false, "original post may be deselected");
-  const buttons = dialog.querySelectorAll("button");
-  const preview = buttons.find((b) => b.textContent === "プレビュー");
-  const publish = buttons.find((b) => b.textContent === "選択した会話を投稿");
-  assert.equal(publish.disabled, true);
-  assert.equal(publish.hidden, true, "publish is not offered before preview");
-  checkboxes[1].checked = true; await checkboxes[1].fire("change");
-  await preview.fire("click");
-  assert.deepEqual(chosen.entryIds, ["p", "a"]);
-  assert.equal(publish.disabled, false);
-  assert.equal(publish.hidden, false);
-  assert.deepEqual(dialog.querySelector(".social-preview").querySelectorAll("strong").map(node => node.textContent), ["1 · 元の投稿", "2 · 1への返信", "3 · 2への返信"]);
-  checkboxes[1].checked = false; await checkboxes[1].fire("change");
-  assert.equal(publish.disabled, true);
-  assert.equal(publish.hidden, true, "changing selection removes the publish action until preview");
-  await preview.fire("click");
-  const sending = publish.fire("click");
-  assert.equal(publish.disabled, true);
-  assert.equal(publish.textContent, "投稿しています…");
+  const checks = dialog.querySelectorAll("input");
+  assert.deepEqual(checks.map(c => c.checked), [true,false,false]);
+  assert.equal(dialog.querySelectorAll("button").some(b => b.textContent === "プレビュー"), false);
+  const publish = dialog.querySelector(".social-publish");
+  assert.equal(publish.textContent,"投稿");
+  assert.equal(publish.disabled,false);
+  assert.deepEqual(previews.at(-1).entryIds,["p"]);
+  checks[1].checked=true; await checks[1].fire("change");
+  assert.deepEqual(previews.at(-1).entryIds,["p","a"]);
+  checks[0].checked=false; await checks[0].fire("change");
+  assert.deepEqual(previews.at(-1).entryIds,["a"],"answers may be shared alone");
+  const displayed=previews.at(-1);
+  const sending=publish.fire("click");
+  assert.equal(publish.disabled,true);
+  assert.equal(checks[0].disabled,true);
   await publish.fire("click");
-  assert.equal(publishCalls, 1);
+  assert.equal(publishCalls,1);
   finishPublish(); await sending;
-  assert.equal(publish.textContent, "投稿済み");
-  assert.equal(dialog.querySelectorAll("a").length, 1);
-  assert.equal(dialog.querySelector("a").href, "https://bsky.app/profile/example/post/root");
-  assert.equal(preview.disabled, true);
+  assert.deepEqual(posted,{...displayed,digest:JSON.stringify(displayed)});
+  assert.equal(publish.textContent,"投稿済み");
+  assert.equal(publish.disabled,true);
+  assert.equal(dialog.querySelector(".social-published-link").querySelectorAll("a").length,1);
+  await publish.fire("click"); assert.equal(publishCalls,1);
+  checks[1].checked=false; await checks[1].fire("change");
+  assert.equal(publish.disabled,true,"nothing selected");
+  checks[0].checked=true; await checks[0].fire("change");
+  assert.equal(publish.disabled,false,"a new selection can still be published");
+});
+
+test("format switches show the actual image pages, then send the chosen format", async t => {
+  setup(t);
+  let captures=0,posted;
+  const previews=[];
+  t.mock.method(api,"previewSocial",async body => {previews.push(body);return previewPlan(body);});
+  t.mock.method(api,"publishSocial",async body => {posted=body;return {posts:[]};});
+  await openSocial("p",id=>({name:id}),()=>({}), {capture:async () => {captures++;return {sourceHash:"hash",images:["data:image/jpeg;base64,page1","data:image/jpeg;base64,page2"],alt:"麻婆豆腐"};}});
+  await settle();
+  const dialog=document.body.children[0], card=dialog.querySelector(".social-choice");
+  const buttons=card.querySelector(".social-formats").querySelectorAll("button");
+  await buttons[1].fire("click");
+  assert.equal(previews.at(-1).formats.p,"image");
+  assert.equal(captures,1);
+  assert.equal(card.querySelectorAll("img").length,2);
+  assert.equal(buttons[1]["aria-pressed"],"true");
+  await buttons[0].fire("click");
+  assert.equal(card.querySelectorAll("img").length,0);
+  assert.deepEqual(previews.at(-1).htmlImages,{});
+  await buttons[1].fire("click"); assert.equal(captures,1,"cached snapshot reused");
+  await dialog.querySelector(".social-publish").fire("click");
+  assert.equal(posted.formats.p,"image");
+  assert.equal(posted.htmlImages.p.images.length,2);
+});
+
+test("late preview responses cannot enable publication of an outdated selection", async t => {
+  setup(t);
+  let first;
+  t.mock.method(api,"previewSocial",body => body.entryIds.length===1
+    ? new Promise(resolve=>{first=()=>resolve(previewPlan(body));}) : Promise.resolve(previewPlan(body)));
+  let posted;
+  t.mock.method(api,"publishSocial",async body=>{posted=body;return {posts:[]};});
+  await openSocial("p",id=>({name:id})); await settle();
+  const dialog=document.body.children[0],publish=dialog.querySelector(".social-publish");
+  assert.equal(publish.disabled,true);
+  const check=dialog.querySelectorAll("input")[1];check.checked=true;await check.fire("change");
+  assert.equal(publish.disabled,false);
+  first();await settle();
+  await publish.fire("click");assert.deepEqual(posted.entryIds,["p","a"]);
+});
+
+test("failed image conversion blocks posting and can be retried or changed to text", async t => {
+  setup(t);let draws=0;
+  t.mock.method(api,"previewSocial",async body=>previewPlan(body));
+  await openSocial("p",id=>({name:id}),()=>({}),{capture:async()=>{if(++draws===1)throw Error("conversion failed");return {images:["image"],sourceHash:"hash"};}});await settle();
+  const dialog=document.body.children[0],buttons=dialog.querySelector(".social-formats").querySelectorAll("button");
+  await buttons[1].fire("click");
+  assert.equal(dialog.querySelector(".social-publish").disabled,true);
+  assert.equal(dialog.querySelector(".social-retry").hidden,false);
+  await dialog.querySelector(".social-retry").fire("click");
+  assert.equal(draws,2);assert.equal(dialog.querySelector(".social-publish").disabled,false);
+  await buttons[0].fire("click");assert.equal(dialog.querySelectorAll("img").length,0);
+});
+
+test("posted and uncertain publication histories cannot be resent",async t=>{
+  setup(t);let state="posted";
+  t.mock.method(api,"previewSocial",async body=>({...previewPlan(body),posts:[{entryId:"p",text:"p",publication:{state,url:"https://bsky.app/profile/example/post/a"}}]}));
+  await openSocial("p",id=>({name:id}));await settle();
+  let dialog=document.body.children[0];
+  assert.equal(dialog.querySelector(".social-publish").disabled,true);
+  assert.equal(dialog.querySelector(".social-publish").textContent,"投稿済み");
+  dialog.close();state="pending";
+  await openSocial("p",id=>({name:id}));await settle();dialog=document.body.children[0];
+  assert.equal(dialog.querySelector(".social-publish").disabled,true);
+});
+
+test("a partial failure refreshes publication history before retrying", async t => {
+  setup(t);let partial=false,calls=0;
+  t.mock.method(api,"previewSocial",async body=>({...previewPlan(body),posts:body.entryIds.map(id=>({entryId:id,text:id,publication:partial?{state:id==="p"?"posted":"retryable"}:{}}))}));
+  t.mock.method(api,"publishSocial",async()=>{calls++;if(calls===1){partial=true;return {error:"try again",posts:[{entryId:"p",publication:{url:"https://bsky.app/profile/example/post/p"}}]};}return {posts:[]};});
+  await openSocial("p",id=>({name:id}));await settle();
+  const dialog=document.body.children[0],check=dialog.querySelectorAll("input")[1],publish=dialog.querySelector(".social-publish");
+  check.checked=true;await check.fire("change");
   await publish.fire("click");
-  assert.equal(publishCalls, 1);
-  assert.deepEqual(posted.entryIds, ["p"]);
-  assert.equal(posted.digest, "digest");
-  assert.equal("credentials" in posted, false);
-  assert.equal(publish.disabled, true);
-  assert.equal(dialog.querySelectorAll("input").some((input) => input.value === "private health"), false);
-  // A new reply can still be selected after publishing the root.
-  checkboxes[1].checked = true; await checkboxes[1].fire("change");
-  assert.equal(preview.disabled, false);
-  await openSocial("p", (id) => ({name:id}));
-  assert.equal(document.body.children.length, 1);
-  dialog.close();
-  t.mock.method(api, "previewSocial", async () => ({digest:"same", posts:[{entryId:"p", text:"posted", publication:{state:"posted", url:"https://bsky.app/profile/example/post/a"}}, {entryId:"a", parent:"p", text:"reply", publication:{state:"posted", url:"https://bsky.app/profile/example/post/b"}}]}));
-  await openSocial("p", (id) => ({name:id}));
-  const reopened = document.body.children[0];
-  await reopened.querySelectorAll("button").find(b => b.textContent === "プレビュー").fire("click");
-  const already = reopened.querySelectorAll("button").find(b => b.textContent === "投稿済み");
-  assert.equal(already.disabled, true);
-  assert.equal(reopened.querySelectorAll("a").length, 1);
-  await already.fire("click");
-  assert.equal(publishCalls, 1);
-  reopened.close();
-  t.mock.method(api, "previewSocial", async (body) => {
-    chosen = body;
-    return { digest: "answer", posts: [{ entryId: "a", text: "answer only" }] };
-  });
-  t.mock.method(api, "publishSocial", async (body) => {
-    posted = body;
-    return { error: "", posts: [{ entryId: "a", publication: { url: "https://bsky.app/profile/example/post/answer" } }] };
-  });
-  await openSocial("p", id => ({ name: id }));
-  const only = document.body.children[0];
-  const choices = only.querySelector(".social-selection").querySelectorAll("input");
-  choices[0].checked = false; await choices[0].fire("change");
-  const onlyPreview = only.querySelectorAll("button").find(b => b.textContent === "プレビュー");
-  assert.equal(onlyPreview.disabled, true, "empty selection cannot preview");
-  choices[1].checked = true; await choices[1].fire("change");
-  assert.equal(onlyPreview.disabled, false);
-  await onlyPreview.fire("click");
-  assert.deepEqual(chosen.entryIds, ["a"]);
-  assert.equal(only.querySelector(".social-preview").querySelector("strong").textContent, "1 · 最初の投稿");
-  await only.querySelectorAll("button").find(b => b.textContent === "選択した会話を投稿").fire("click");
-  assert.deepEqual(posted.entryIds, ["a"]);
-  assert.equal(only.querySelector("a").href, "https://bsky.app/profile/example/post/answer");
-  assert.equal(choices[0].disabled, false);
-  only.close();
+  assert.equal(dialog.querySelectorAll(".tag").length,1,"partial success shown inline");
+  assert.equal(publish.disabled,false,"only retryable unposted entries remain");
+  await publish.fire("click");assert.equal(calls,2);assert.equal(publish.disabled,true);
 });
 
 test("the preview shows link facets on their UTF-8 byte ranges", () => {

@@ -1328,13 +1328,13 @@ Then from the repository root:
 
 ```sh
 task setup  # once: install the page's development dependencies
-task dev    # API on :8787 and Vite page on :5173
+task dev    # API on :8787 and Vite page on :15173
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:5173
+http://127.0.0.1:15173
 ```
 
 A new workspace starts with sona, support, and infographic active. Existing

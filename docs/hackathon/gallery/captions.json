@@ -60,7 +60,7 @@
   {
     "file": "images/08-powered-by-nemotron.png",
     "title": "NVIDIA Nemotron on Nebius Token Factory",
-    "caption": "Nemotron 3.5 Super VL handles routing, everyday reasoning and workflow planning. Ultra composes deep answers. Memory is updated after the reply is published.",
+    "caption": "Nemotron 3.5 Super VL handles routing, everyday reasoning and workflow planning. Ultra composes deep answers. A tagged record is added after publication; facts and summaries are tidied at check-in.",
     "sources": []
   },
   {
@@ -90,7 +90,7 @@
   {
     "file": "images/12-share-your-selection.png",
     "title": "Preview exactly what you share to Bluesky",
-    "caption": "Select individual posts and replies, review their order and text, then publish the selected conversation to Bluesky.",
+    "caption": "Choose text or image for each selected message, inspect the result inline, and press Post to publish the conversation to Bluesky.",
     "sources": [
       "../../captures/en/bluesky-preview.png"
     ]

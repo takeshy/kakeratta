@@ -609,3 +609,36 @@ func TestAnswerOnlyPublishAndExtendSavedThread(t *testing.T) {
 		})
 	}
 }
+
+func TestSocialExplicitFormatsAreValidatedAndBoundToPublication(t *testing.T) {
+	s, workspace := socialApp(t)
+	source := "<html><head><style>private CSS</style></head><body><h1>図</h1><p>説明</p></body></html>"
+	if err := workspace.Append(timeline.Entry{ID: "p", Root: "p", Kind: timeline.KindPost, Speaker: "tabe", Text: source, At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	body := socialBody{Root: "p", Target: "bluesky", EntryIDs: []string{"p"}, Formats: map[string]string{"p": "text"}}
+	response := socialRequest(s, "/api/social/preview", body)
+	var text social.Plan
+	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &text) != nil || len(text.Posts) != 1 || !strings.Contains(text.Posts[0].Text, "説明") || strings.Contains(text.Posts[0].Text, "private CSS") {
+		t.Fatal(response.Body.String())
+	}
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 20, 30))); err != nil {
+		t.Fatal(err)
+	}
+	body.Formats["p"] = "image"
+	body.HTMLImages = map[string]social.HTMLImages{"p": {SourceHash: fmt.Sprintf("%x", sha256.Sum256([]byte(source))), Images: []string{"data:image/png;base64," + base64.StdEncoding.EncodeToString(data.Bytes())}, Alt: "図"}}
+	response = socialRequest(s, "/api/social/preview", body)
+	var picture social.Plan
+	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &picture) != nil || picture.Posts[0].Image == "" || picture.Digest == text.Digest {
+		t.Fatal(response.Body.String())
+	}
+	body.Digest = text.Digest
+	if result := socialRequest(s, "/api/social/publish", body); result.Code != 409 {
+		t.Fatal("format switch accepted with old text approval: ", result.Body.String())
+	}
+	body.Formats["p"] = "invalid"
+	if result := socialRequest(s, "/api/social/preview", body); result.Code != 400 {
+		t.Fatal("invalid format accepted: ", result.Body.String())
+	}
+}

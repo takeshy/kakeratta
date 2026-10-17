@@ -6,7 +6,7 @@
 
 ```sh
 task setup      # once: npm ci for the page's dev tools
-task dev        # API (http://127.0.0.1:8787) and page (http://127.0.0.1:5173) together
+task dev        # API (http://127.0.0.1:8787) and page (http://127.0.0.1:15173) together
 task run        # API only
 task build      # API only (bin/kakeratta)
 task stories    # Storybook (http://127.0.0.1:6006)
@@ -133,6 +133,8 @@ requests queued offline. It uses existing material without Web search. The
 infographic persona defaults to memory off and always Ultra on.
 
 ## Timeline
+
+Scheduled reminders offer **Mark done**, which changes to **✓ Done**. Tap again to remove the mark. Personas see it when reading the conversation. This requires an online connection.
 
 Your posts and lines, the personas' remarks, and your replies to them, in the
 order they happened. A post that got a reaction looks exactly like one that did
@@ -295,7 +297,7 @@ A persona with memory enabled keeps its memory in one file, `Memo.md`, and the a
 
 Memory is not split by subject. When a subject outside the persona's domain, or one plainly of its own, builds up, the persona suggests at a check-in that you make a new persona for it (at most once in 30 days).
 
-Every turn reads the summary, the facts that hold now, and the latest records; older records are found by tag, by words, or by meaning. In the memory view **Original post** on a fact or a record opens the post and its conversation in place, and a `#tag` narrows the view to memory holding it. Each fact has ✎ to put its words right and × to forget it, and memory can be edited or deleted whole; the persona is not woken. Forgetting a record in a review, or letting it expire, also takes away the facts that rested on its kakera alone. Deleting a kakera removes its record and every fact that rested on it alone, without asking any model; the summary is rewritten at the next check-in.
+Every turn reads the summary, the facts that hold now, and the latest records; older records are found by tag, by words, or by meaning. In the memory view **Original post** on a fact or a record opens the post and its conversation in place, and a `#tag` narrows the view to memory holding it. Each fact has ✎ to put its words right and × to forget it, and the whole “Summary and records” note can be edited or individually deleted with **Forget this note**; the persona is not woken. There is no separate clear-all-memory button. Forgetting a record in a review, or letting it expire, also takes away the facts that rested on its kakera alone. Deleting a kakera removes its record and every fact that rested on it alone, without asking any model; the summary is rewritten at the next check-in.
 
 A record may carry dates. `expires:2026-09-26/1d` marks a record of a kakera that served its moment - "where for lunch today?", "how do I get to Shibuya?"; the app deletes the record that day. `review:2026-10-15/21d` marks a record of something you said, dated by the persona from what it is. The app never deletes it; once the day has passed, the persona is handed up to three such records in its daily check-in and asks about one. Answer with the buttons under that post: **Yes** removes the record, **Keep it a while longer** moves the date out, **Don't forget it** drops the date so it is not asked again. A reply in words is handled the same way. When the persona reads a record again while answering you, its dates move out by the span it was given, counted from that day. The memory view shows **Gone on** and **Review on** chips.
 
@@ -327,7 +329,7 @@ The browser saves the latest 20 original posts and their replies per user, displ
 
 ## Share a conversation to Bluesky
 
-In Settings, open Bluesky connection, enter your handle, and authorize on Bluesky. Each user connects their own account. Choose Share to Bluesky on a post, select the messages, preview, and publish. Persona replies start unchecked, and selected replies require their parents to be selected too. Published replies preserve their parents and include persona attribution.
+In Settings, open Bluesky connection, enter your handle, and authorize on Bluesky. Each user connects their own account. Choose Share to Bluesky on a post, select the messages and choose **Text / Image** for each. The content updates inline automatically; review it and press **Post**. Persona replies start unchecked. You can omit the original post and share only an answer; replies whose parents are omitted attach to the first selected message. Persona attribution is included.
 
 [Illustrated instructions](https://kakeratta.net/manual/?lang=en#en-bluesky) · [Operator setup and publication recovery](social-sharing.md). Disconnecting or deleting a post in kakeratta does not delete posts on Bluesky.
 
@@ -495,6 +497,8 @@ Integrations, where **Use the external agent** can pause it for a while. See [He
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 
 ![Personas: preferring the external agent for a persona](captures/en/persona-planner.png)
+
+The external agent can also post proactively as an active persona that prefers it, up to five posts per persona per day. These posts do not update persona memory or schedules and do not send push notifications.
 
 ### Direct requests to the external agent
 

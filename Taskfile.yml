@@ -33,7 +33,7 @@ tasks:
       - "{{.BIN_DIR}}/{{.APP_NAME}}"
 
   web:
-    desc: 画面の開発サーバー（http://127.0.0.1:5173、/api は 8787 へ）
+    desc: 画面の開発サーバー（http://127.0.0.1:15173、/api は 8787 へ）
     dir: frontend
     cmds:
       - npm run dev

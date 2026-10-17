@@ -1010,13 +1010,13 @@ go install github.com/go-task/task/v3/cmd/task@latest
 
 ```sh
 task setup  # 初回のみ。画面側の開発依存を入れる
-task dev    # API（:8787）と Vite の画面（:5173）
+task dev    # API（:8787）と Vite の画面（:15173）
 ```
 
 ブラウザで開きます。
 
 ```text
-http://127.0.0.1:5173
+http://127.0.0.1:15173
 ```
 
 新しいワークスペースでは sona・support・infographic が有効です。既存のワークスペースでは、

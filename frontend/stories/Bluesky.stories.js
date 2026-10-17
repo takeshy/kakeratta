@@ -1,6 +1,6 @@
 import { createBlueskyConnection } from "../src/bluesky.js";
 import { openSocial } from "../src/social.js";
-import { getLanguage, t } from "../src/i18n.js";
+import { getLanguage } from "../src/i18n.js";
 import { serve } from "./api.js";
 import { screen, sheet } from "./frame.js";
 
@@ -27,7 +27,7 @@ function sample() {
     { id: "sample-user", root: "sample-post", replyTo: "sample-tabe", kind: "reply", speaker: "user", text: lines[3] },
   ].map((entry, i) => ({ ...entry, at: new Date(Date.now() - (10 - i) * 60000).toISOString() }));
   const posts = entries.map((entry) => ({ entryId: entry.id, parent: entry.replyTo || "", text: entry.speaker === "user"
-    ? entry.text : `${rows.find((row) => row.id === entry.speaker).icon} ${entry.speaker}からの返信:\n${entry.text}` }));
+    ? entry.text : `${ja ? "" : "Reply from "}${rows.find((row) => row.id === entry.speaker).icon} ${entry.speaker}${ja ? "からの返信" : ""}:\n${entry.text}` }));
   return { rows, entries, posts, root: "sample-post" };
 }
 
@@ -40,7 +40,7 @@ export const Connect = {
   },
 };
 
-function conversation(preview, posted = false, html = false, answerOnly = false) {
+function conversation(preview, posted = false, html = false, answerOnly = false, image = false) {
   document.querySelectorAll(".social-dialog").forEach((dialog) => dialog.close());
   const data = sample();
   if (html) {
@@ -65,20 +65,13 @@ function conversation(preview, posted = false, html = false, answerOnly = false)
       checks[index].checked = true;
       checks[index].dispatchEvent(new Event("change", { bubbles: true }));
     }
-    // Let the fixture connection load before using the real preview action.
-    const button = [...dialog.querySelectorAll("button")].find((node) => node.textContent === t("プレビュー"));
-    const ready = () => {
-      if (!button.disabled) { observer.disconnect(); button.click(); }
-    };
-    const observer = new MutationObserver(ready);
-    observer.observe(button, { attributes: true, attributeFilter: ["disabled"] });
-    ready();
+    if (image) dialog.querySelectorAll('.social-formats')[1].querySelectorAll('button')[1].click();
   });
   return host;
 }
 
 export const Selection = { name: "元投稿だけを初期選択", render: () => conversation(false) };
-export const Preview = { name: "公開する会話と返信先を確認", render: () => conversation(true) };
+export const Preview = { name: "公開する会話と返信先を確認", render: () => conversation(true, false, false, false, true) };
 
 export const Posted = { name: "投稿済み・親投稿へのリンク", render: () => conversation(true, true) };
 export const HtmlPreview = { name: "HTML回答を画像に変換・縦長を分割", render: () => conversation(true, false, true) };

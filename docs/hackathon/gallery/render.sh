@@ -30,5 +30,4 @@ for layout in "$scratch_dir"/[0-9][0-9]-*.html; do
   name="$(basename -- "$layout" .html)"
   render "$name" "$gallery_dir/images/$name.png" 1800,1200
 done
-render overview "$gallery_dir/overview.png" 1824,4848
 python3 "$gallery_dir/package.py"

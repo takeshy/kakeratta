@@ -41,7 +41,9 @@ function sitePages() {
 export default defineConfig({
   plugins: [sitePages()],
   server: {
-    port: 5173,
+    host: "0.0.0.0",
+    port: 15173,
+    strictPort: true,
     // dist/ is the Hosting copy that build.mjs writes; rebuilding it is not a
     // change to the page being served here.
     watch: { ignored: ["**/dist/**", "**/storybook-static/**"] },

@@ -44,7 +44,7 @@ const slides = [
     name: '04-memory-you-control', title: 'Inspect, trace and correct what your AI remembers',
     caption: 'Open a persona’s memory, follow facts back to their original posts, edit them or forget them. Original timeline posts stay intact.',
     sources: ['memory'],
-    body: `${header('03 / MEMORY YOU CONTROL', 'See what it remembers.<br><em>Change what it gets wrong.</em>', 'Facts, summaries and source links make memory something you can inspect.')}<div class="memory-notes">${note('Trace', 'Follow “Original post” to the conversation<br>behind a memory.')}${note('Correct', 'Update a fact as your preferences change.')}${note('Forget', 'Remove a memory without deleting<br>the original timeline post.')}</div>${placed(1010, 290, shot('memory', 52, 520, 660, 1148, 450, 'A PERSONA’S MEMORY · PREFERENCE'))}`,
+    body: `${header('03 / MEMORY YOU CONTROL', 'See what it remembers.<br><em>Change what it gets wrong.</em>', 'Facts, summaries and source links make memory something you can inspect.')}<div class="memory-notes">${note('Trace', 'Follow “Original post” to the conversation<br>behind a memory.')}${note('Correct', 'Update a fact as your preferences change.')}${note('Forget', 'Remove a memory without deleting<br>the original timeline post.')}</div>${placed(1010, 290, shot('memory', 52, 430, 660, 1000, 450, 'A PERSONA’S MEMORY · PREFERENCE'))}`,
   },
   {
     name: '05-routing-and-feedback', title: 'Understand who responds and refine the behavior',
@@ -66,9 +66,9 @@ const slides = [
   },
   {
     name: '08-powered-by-nemotron', title: 'NVIDIA Nemotron on Nebius Token Factory',
-    caption: 'Nemotron 3.5 Super VL handles routing, everyday reasoning and workflow planning. Ultra composes deep answers. Memory is updated after the reply is published.',
+    caption: 'Nemotron 3.5 Super VL handles routing, everyday reasoning and workflow planning. Ultra composes deep answers. A tagged record is added after publication; facts and summaries are tidied at check-in.',
     sources: [],
-    body: `${header('07 / UNDER THE HOOD', 'Personal memory.<br><em>Purposeful AI.</em>', 'Powered by NVIDIA Nemotron on Nebius Token Factory.')}<div class="engine"><div class="model"><div class="model-kicker">EVERYDAY REASONING</div><h2>Nemotron 3.5 Super VL</h2><p>Routing · ordinary replies<br>Research · plans · memory</p></div><div class="model ultra"><div class="model-kicker">DEEP ANSWERS</div><h2>Nemotron Ultra</h2><p>Final answers for deep requests<br>and personas set to think deeply</p></div></div><div class="pipeline">${['Save fragment', 'Route & research', 'Compose answer', 'Plan & check', 'Execute & publish', 'Update memory'].map((s,i)=>`<div class="stage"><span>0${i+1}</span>${s}</div>`).join('<b>→</b>')}</div><div class="engine-notes">${note('Durable work', 'Saved jobs and retries keep processing recoverable.')}${note('Separate memories', 'Each persona keeps context for its own domain.')}${note('Reviewed schedules', 'Schedule changes are checked before execution.')}</div>`,
+    body: `${header('07 / UNDER THE HOOD', 'Personal memory.<br><em>Purposeful AI.</em>', 'Powered by NVIDIA Nemotron on Nebius Token Factory.')}<div class="engine"><div class="model"><div class="model-kicker">EVERYDAY REASONING</div><h2>Nemotron 3.5 Super VL</h2><p>Routing · ordinary replies<br>Research · plans · memory</p></div><div class="model ultra"><div class="model-kicker">DEEP ANSWERS</div><h2>Nemotron Ultra</h2><p>Final answers for deep requests<br>and personas set to think deeply</p></div></div><div class="pipeline">${['Save fragment', 'Route & research', 'Compose answer', 'Plan & check', 'Execute & publish', 'Record fragment'].map((s,i)=>`<div class="stage"><span>0${i+1}</span>${s}</div>`).join('<b>→</b>')}</div><div class="engine-notes">${note('Durable work', 'Saved jobs and retries keep processing recoverable.')}${note('Memory at check-in', 'Fold records into facts and refresh the summary.')}${note('Reviewed schedules', 'Schedule changes are checked before execution.')}</div>`,
   },
   {
     name: '09-monthly-reflection', title: 'A month of fragments, connected',
@@ -87,8 +87,8 @@ const slides = [
   },
   {
     name: '12-share-your-selection', title: 'Preview exactly what you share to Bluesky',
-    caption: 'Select individual posts and replies, review their order and text, then publish the selected conversation to Bluesky.', sources: ['bluesky-preview'],
-    body: `${header('SELECTIVE SHARING', 'Choose the pieces.<br><em>Preview the conversation.</em>')}<div class="left-notes">${note('Choose what goes out', 'Include only the parts you want to publish.')}${note('Review before publishing', 'Inspect the selected text and remove personal details.')}</div>${placed(1030, 330, shot('bluesky-preview', 24, 26, 716, 1500, 350, 'SELECT POSTS AND REPLIES'))}`,
+    caption: 'Choose text or image for each selected message, inspect the result inline, and press Post to publish the conversation to Bluesky.', sources: ['bluesky-preview'],
+    body: `${header('SELECTIVE SHARING', 'Choose the pieces.<br><em>Preview the conversation.</em>')}<div class="left-notes">${note('Choose what goes out', 'Include only the parts you want to publish.')}${note('Text or image', 'Choose a format for each message<br>and inspect the result before pressing Post.')}</div>${placed(1030, 330, shot('bluesky-preview', 24, 700, 716, 1050, 450, 'TEXT OR IMAGE · PREVIEW INLINE'))}${placed(1030, 1050, shot('bluesky-preview', 24, readFileSync(join(root, 'docs/captures/en/bluesky-preview.png')).readUInt32BE(20) - 160, 716, 120, 450))}`,
   },
   {
     name: '13-understand-ai-usage', title: 'See what each persona costs and what drives it',
@@ -131,8 +131,6 @@ function slideHTML(slide, i) {
 for (const [i, slide] of slides.entries()) {
   writeFileSync(join(scratch, `${slide.name}.html`), `<!doctype html><html lang="en"><meta charset="utf-8"><title>${slide.title}</title><style>${css}</style>${slideHTML(slide,i)}</html>`);
 }
-const overviewCSS = `body{padding:36px;background:#dddcd2}.grid{display:grid;grid-template-columns:repeat(2,864px);gap:24px}.thumb{width:864px;height:576px;overflow:hidden;border-radius:10px}.thumb .slide{transform:scale(.48);transform-origin:top left}`;
-writeFileSync(join(scratch,'overview.html'), `<!doctype html><html lang="en"><meta charset="utf-8"><title>kakeratta gallery</title><style>${css}${overviewCSS}</style><div class="grid">${slides.map((s,i)=>`<div class="thumb">${slideHTML(s,i)}</div>`).join('')}</div></html>`);
 writeFileSync(join(here, 'captions.json'), JSON.stringify(slides.map(({name,title,caption,sources})=>({file:`images/${name}.png`,title,caption,sources:name.startsWith('14-') ? ['infographic-example.html', 'infographic-example.png', '../../../frontend/src/infographic.js'] : sources.map(s=>`../../captures/en/${s}.png`)})), null, 2)+'\n');
 writeFileSync(join(here, 'preview.html'), `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>kakeratta — Hackathon gallery</title><style>body{font:18px/1.5 system-ui;background:#f6f3ed;color:#282b27;max-width:1200px;margin:auto;padding:32px}img{width:100%;height:auto;border-radius:12px}figure{margin:32px 0 60px}h1{font-size:32px}figcaption{margin-top:16px;color:#55634d}</style><h1>kakeratta — Hackathon gallery</h1><p>${slides.length} images · 1800 × 1200 · PNG · upload in numbered order</p>${slides.map(s=>`<figure><a href="images/${s.name}.png"><img src="images/${s.name}.png" alt="${escape(s.title)}"></a><figcaption><strong>${s.title}</strong><br>${s.caption}</figcaption></figure>`).join('')}</html>`);
 console.log(`Generated ${slides.length} gallery layouts in ${scratch}`);

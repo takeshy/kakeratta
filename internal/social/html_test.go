@@ -66,3 +66,48 @@ func TestHTMLPlanUsesImagesKeepsParentsAndSealsSource(t *testing.T) {
 		t.Fatal("user code was converted")
 	}
 }
+
+func TestChosenFormatsSupportEveryEntryAndSealTheChoice(t *testing.T) {
+	entries := conversation()
+	entries[1].Text = "<html><head><style>secret CSS</style><script>secret JS</script></head><body><h1>Wine</h1><p>Light &amp; fruity</p></body></html>"
+	entries[1].Sources = nil
+	chosen := []string{"p", "a"}
+	label := func(string) string { return "tabe" }
+	formats := map[string]string{"p": "text", "a": "text"}
+	text, err := PlanSelectionFormatsIn("en", "bluesky", "p", entries, chosen, label, nil, formats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := text.Posts[1].Text; !strings.Contains(got, "Wine\nLight & fruity") || strings.Contains(got, "secret") || strings.Contains(got, "<html") {
+		t.Fatalf("HTML text: %q", got)
+	}
+	rendered := map[string]HTMLImages{"p": {SourceHash: fmt.Sprintf("%x", sha256.Sum256([]byte(entries[0].Text))), Images: []string{"page1", "page2"}, Alt: "original"}}
+	formats["p"] = "image"
+	image, err := PlanSelectionFormatsIn("en", "bluesky", "p", entries, chosen, label, rendered, formats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if image.Digest == text.Digest || len(image.Posts) != 3 || image.Posts[0].Image != "page1" || image.Posts[1].Image != "page2" || image.Posts[2].Parent != "p:image:2" {
+		t.Fatalf("chosen user image: %+v", image)
+	}
+	if _, err := PlanSelectionFormatsIn("en", "bluesky", "p", entries, chosen, label, nil, formats); err == nil {
+		t.Fatal("missing selected image accepted")
+	}
+	formats["p"] = "invalid"
+	if _, err := PlanSelectionFormatsIn("en", "bluesky", "p", entries, chosen, label, rendered, formats); err == nil {
+		t.Fatal("invalid format accepted")
+	}
+	formats["p"] = "image"
+	rendered["p"] = HTMLImages{SourceHash: "stale", Images: []string{"page1"}}
+	if _, err := PlanSelectionFormatsIn("en", "bluesky", "p", entries, chosen, label, rendered, formats); err == nil {
+		t.Fatal("stale user image accepted")
+	}
+	// The legacy infographic defaults to an image, but an explicit text choice
+	// uses the same Markdown-to-text path as any other persona.
+	entries[1].Speaker = "infographic"
+	entries[1].Text = "# Title\n\n## Detail\n- A fact"
+	plain, err := PlanSelectionFormatsIn("en", "bluesky", "p", entries, []string{"a"}, label, nil, map[string]string{"a": "text"})
+	if err != nil || !strings.Contains(plain.Posts[0].Text, "A fact") || plain.Posts[0].Image != "" {
+		t.Fatalf("infographic as text: %+v %v", plain, err)
+	}
+}

@@ -106,6 +106,38 @@ try {
   assert.match(result.hash, /^[a-f0-9]{64}$/);
   assert.deepEqual(result.rejected, [true, true]);
   assert.equal(result.framesLeft, 0);
+  const sharing = await evaluate(`(async () => {
+    const { api } = await import('/src/api.js');
+    const { openSocial } = await import('/src/social.js');
+    api.thread = async () => ({entries:[{id:'root',kind:'post',speaker:'user',text:'A simple fragment'}, {id:'answer',root:'root',replyTo:'root',speaker:'tabe',text:'## A useful answer\\n- One detail'}]});
+    api.blueskyConnection = async () => ({available:true,connected:true,did:'did:plc:fixture'});
+    let request, calls=0;
+    api.previewSocial = async body => ({digest:'fixture',account:'did:plc:fixture',posts:body.entryIds.map(id=>({entryId:id,text:body.formats[id]==='image'?'[Image]':'A simple fragment',image:body.htmlImages[id]?.images[0]}))});
+    api.publishSocial = async body => {request=body;calls++;return {posts:[]};};
+    await openSocial('root', id=>({name:id}));
+    const waitFor = async predicate => {for(let i=0;i<200;i++){if(predicate())return;await new Promise(resolve=>setTimeout(resolve,25));}throw Error('Sharing did not settle');};
+    const dialog=document.querySelector('.social-dialog');
+    const publish=dialog.querySelector('.social-publish');
+    await waitFor(()=>!publish.disabled);
+    const formats=dialog.querySelector('.social-formats');
+    const imageButton=[...formats.querySelectorAll('button')][1];
+    imageButton.click();
+    await waitFor(()=>!publish.disabled);
+    const image=dialog.querySelector('.social-entry-preview img');
+    if(!image)throw Error('No inline image preview');
+    await image.decode();
+    const width=image.naturalWidth;
+    publish.click();await waitFor(()=>calls===1 && publish.disabled);
+    const result={width,calls,format:request.formats.root,hash:request.htmlImages.root.sourceHash,previewButton:[...dialog.querySelectorAll('button')].some(button=>button.textContent==='プレビュー')};
+    dialog.close();
+    return result;
+  })()`);
+  assert.equal(sharing.width, 1440);
+  assert.equal(sharing.format, "image");
+  assert.match(sharing.hash, /^[a-f0-9]{64}$/);
+  assert.equal(sharing.calls, 1);
+  assert.equal(sharing.previewButton, false);
+  console.log("PASS: automatic inline social preview, text/image switch, real snapshot capture, one-click publication");
   console.log("PASS: isolated HTML, blocked scripts/resources, two captured pages with visible lower edge, size limits, frame cleanup");
 } finally {
   socket?.close();

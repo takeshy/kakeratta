@@ -61,10 +61,12 @@ tools declared in [mise.toml](mise.toml).
 
 ```sh
 task setup  # install frontend dependencies once
-task dev    # API on :8787 and frontend on :5173
+task dev    # API on :8787 and frontend on :15173
 ```
 
-Open http://127.0.0.1:5173 and enter your API key in Settings. Local runs need
+When running in a container, publish or forward port `15173` (for Docker, `-p 15173:15173`). Vite listens on `0.0.0.0`; open `http://localhost:15173` on the host. If the port is occupied, startup fails instead of choosing another port.
+
+Open http://127.0.0.1:15173 and enter your API key in Settings. Local runs need
 no Firebase account or external database; data is stored on disk and the API
 listens on loopback. See [usage and configuration](docs/usage.md) for commands
 and [self-hosting](docs/technical.md#running-it) for environment variables and

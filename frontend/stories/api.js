@@ -80,13 +80,13 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       const tails = new Map();
       const first = social.posts.find(post => body.entryIds.includes(post.entryId))?.entryId;
       const posts = social.posts.filter(post => body.entryIds.includes(post.entryId)).flatMap(post => {
-        const rendered = body.htmlImages?.[post.entryId];
+        const rendered = body.formats?.[post.entryId] === "text" ? null : body.htmlImages?.[post.entryId];
         const parent = post.entryId === first ? "" : tails.get(post.parent) || tails.get(first) || "";
         if (!rendered) { tails.set(post.entryId, post.id || post.entryId); return [{ ...post, parent }]; }
         let tail = parent;
         const pages = rendered.images.map((image, i) => {
           const id = i ? `${post.entryId}:image:${i+1}` : post.entryId;
-          const page = { entryId: post.entryId, ...(i ? { id } : {}), parent: tail, text: i ? `つづき:\n［画像 ${i+1}/${rendered.images.length}］` : "［画像］", image, imageAlt: rendered.alt };
+          const page = { entryId: post.entryId, ...(i ? { id } : {}), parent: tail, text: body.language === "en" ? (i ? `Continued:\n[Image ${i+1}/${rendered.images.length}]` : "[Image]") : (i ? `つづき:\n［画像 ${i+1}/${rendered.images.length}］` : "［画像］"), image, imageAlt: rendered.alt };
           tail = id; return page;
         });
         tails.set(post.entryId, tail);

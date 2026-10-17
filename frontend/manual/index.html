@@ -150,6 +150,7 @@
           </table>
           <p>投稿を削除すると、その下の担当の発言と自分の返信も消え、検索にも出なくなります。<strong>その投稿だけをもとに書かれた担当のメモも一緒に消えます。</strong> ほかの投稿ももとにしているメモは残り、担当があとで整理します。</p>
           <p>担当の回答や返信は <strong>×</strong> で消せます。それに（間接的にも）返事している発言も一緒に消え、スレッドのほかの発言は残ります。間違った回答を消すと、それを繰り返した返事も含めて、検索やスレッドの文脈として参照されなくなります。回答と一緒に書いたメモは残るので、メモも誤っていれば担当の記憶から直してください。</p>
+          <p>予定から届いた通知には <strong>済みにする</strong> が表示されます。押すと <strong>✓ 済み</strong> になり、もう一度押すと印を外せます。担当も会話を読むときに済みの印を確認できます。操作にはオンライン接続が必要です。</p>
         </section>
 
         <section id="ja-personas">
@@ -182,7 +183,7 @@
           </ol>
           <p>作成・修正時に <strong>記憶する</strong>（オフにすると記憶を持たない回答専門になり、費用削減や不要なメモ防止になります）や、<strong>常に熟考する</strong>（通常の依頼も最終回答をUltraで生成）を選べます。</p>
           <figure>
-            <img src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="382" height="1573" />
+            <img src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="382" height="1593" />
             <figcaption>下書きは、担当すること、話し方、覚え方、覚えること・返事をするタイミングの順に確認できます。</figcaption>
           </figure>
           <h3 id="ja-people">人物の担当</h3>
@@ -194,7 +195,7 @@
             <li>伝えた誕生日・好み・出来事などは、担当の編集画面でいつでも見直し・修正できます。</li>
           </ul>
           <figure>
-            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名、キーワード、基本情報の一覧（サンプル）" loading="lazy" width="382" height="1041" />
+            <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名、キーワード、基本情報の一覧（サンプル）" loading="lazy" width="382" height="1050" />
             <figcaption>人物の担当のカード。呼び名・キーワードと、毎年の誕生日や会う予定の通知が並びます（サンプル）。</figcaption>
           </figure>
           <p>届かなかったかけらがあれば <strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せ、関係のないかけらが届いたら <strong>呼んでほしくなかった</strong> から一致した語を外せます（<a href="/manual/?guide=advanced#ja-people-keywords" data-lang-link>人物の担当のキーワードを直す</a>）。</p>
@@ -202,6 +203,7 @@
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
           <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
           <p>通知予定は担当一覧と発言一覧のカードで確認できます。不要な予定は各予定の <strong>×</strong> で取り消せます。</p>
+          <p>編集画面で変更を保存せずに閉じようとすると、確認が出ます。<strong>保存して閉じる</strong>・<strong>保存せずに閉じる</strong>・<strong>編集に戻る</strong> から選べます。</p>
           <h3 id="ja-avatar">アイコンを変える（絵文字・写真）</h3>
           <p>担当のアイコンは、作るとき（<strong>AIと担当を作る</strong>）や、カードの <strong>修正</strong>・<strong>AIで修正</strong> で変えられます。自分のアイコンは <a href="/manual/?guide=advanced#ja-profile" data-lang-link>設定のプロフィール</a> で同じように変えられます。</p>
           <ul>
@@ -242,11 +244,11 @@
           </figure>
           <h3>できること</h3>
           <ul>
-            <li><strong>読む</strong>: 分野ごとの事実や、受け取ったかけらの記録が月ごとに並びます。</li>
+            <li><strong>読む</strong>: 「まとめと記録」に、まとめ文・いまの事実・かけらの記録が並びます。担当ごとに1つの記憶として持っています。</li>
             <li><strong>たどる</strong>: 各メモの <strong>元の投稿</strong> を押すと、そのメモのもとになった会話や写真がその場で開きます。記録の <strong>#タグ</strong> を押すと、その話題だけに絞り込めます。</li>
             <li><strong>直す</strong>: 誤字や解釈の違いがあれば、横の <strong>✎</strong> でいつでも手で直せます。</li>
-            <li><strong>消す</strong>: 忘れさせたいメモは <strong>×</strong> や <strong>このメモを忘れさせる</strong> で消せます。最初からやり直すときは <strong>このメモを忘れさせる</strong> で記憶をまるごと消します。元のかけらを削除すると、そのかけらだけに基づいていたメモも消えます。</li>
-            <li><strong>見直す・お別れ</strong>: その場限りのメモは自動で消え（<strong>… に消える</strong>）、古いメモはチェックインで「そろそろ忘れていい？」と担当が尋ねてきます（<strong>… に見直し</strong>）。投稿の下の <strong>はい</strong>・<strong>もうちょっと覚えてて</strong>・<strong>忘れないで</strong> で答えられます。</li>
+            <li><strong>消す</strong>: 忘れさせたいメモは <strong>×</strong> や <strong>このメモを忘れさせる</strong> で消せます。削除前に確認が出ます。記憶を一括削除する専用ボタンはありません。元のかけらを削除すると、そのかけらだけに基づいていたメモも消えます。</li>
+            <li><strong>見直す・お別れ</strong>: その場限りのメモは自動で消え（<strong>… に消える</strong>）、古いメモはチェックインで「そろそろ忘れていい？」と担当が尋ねてきます（<strong>… に見直し</strong>）。投稿の下の <strong>はい</strong> で記録を削除、<strong>もうちょっと覚えてて</strong> で見直しを延期、<strong>忘れないで</strong> で以後の見直しを止められます。回答後は選んだ結果が表示されます。言葉で返事をすることもできます。</li>
           </ul>
           <div class="tip"><p>事実とまとめ文の更新ルールや、記録を事実へ取り込む流れなど、記憶システムの詳しい仕組みは <a href="/manual/?guide=advanced#ja-memory-system" data-lang-link>上級編：記憶の仕組みと見直し</a> をご覧ください。</p></div>
           <p>削除は元に戻せません。消したことでも、残っている投稿を担当が検索して、また覚えることがあります。</p>
@@ -351,7 +353,7 @@
             <p><strong>@infographic の対象ルール：</strong> 図解したい投稿や回答に <code>@infographic これをインフォグラフィックにして</code> と返信します。別の担当の回答に返信した場合、その回答を図解します。「元の投稿を」「スレッド全体を」と明示して対象を変えることもできます。URLは展開された記事本文、画像は読み取り済みの説明や文字を材料にします。図解は依頼時の表示言語に翻訳され、絵文字やMermaidを使ったMarkdownで画面内に表示されます。Web検索は行いません。</p>
           </div>
           <figure>
-            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、他の担当が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="760" />
+            <img src="/captures/ja/routing.png" alt="担々麺の投稿に対する担当の判断。tabe が呼ばれ、他の担当が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="764" />
             <figcaption>呼ばれた担当と、呼ばれなかった理由（サンプル）。</figcaption>
           </figure>
           <p>呼ばれた担当には、処理が終わったか、返事をしたか、メモを残したかが出ます。黙っていた担当には <strong>返事がほしかった</strong> から <a href="#ja-reply-fix">返し方を直す</a> 流れに入れます。</p>
@@ -370,7 +372,7 @@
           <h3 id="ja-people-keywords">人物の担当のキーワードを直す</h3>
           <p><a href="/manual/#ja-people" data-lang-link>人物の担当</a>には判定条件がなく、呼び名かキーワードが書かれたかけらだけが届きます。⚖ には、どの語で届いたかが「「佐藤さん」に一致」のように出ます。</p>
           <figure>
-            <img src="/captures/ja/person-routing.png" alt="佐藤さんの担当が「佐藤さん」の一致で呼ばれたことを示す担当の判断（サンプル）" loading="lazy" width="382" height="507" />
+            <img src="/captures/ja/person-routing.png" alt="佐藤さんの担当が「佐藤さん」の一致で呼ばれたことを示す担当の判断（サンプル）" loading="lazy" width="382" height="509" />
             <figcaption>どの語で届いたかが出ます（サンプル）。</figcaption>
           </figure>
           <ol>
@@ -406,7 +408,7 @@
             <li><strong>これでよい</strong> で試し書きの返事とメモ変更を元のスレッドに反映します。<strong>まだ違う</strong> なら、試し書きを見ながらもう一度伝えます。</li>
           </ol>
           <figure>
-            <img src="/captures/ja/reply-trial.png" alt="同じ投稿に tabe がいま返すなら、という試し書き。これでよいか、まだ違うか（サンプル）" loading="lazy" width="382" height="351" />
+            <img src="/captures/ja/reply-trial.png" alt="同じ投稿に tabe がいま返すなら、という試し書き。これでよいか、まだ違うか（サンプル）" loading="lazy" width="382" height="352" />
             <figcaption>試し書き。判断するのはあなたです（サンプル）。</figcaption>
           </figure>
           <p>保存した口調と指示は、試し書きの結果にかかわらずそのまま残ります。</p>
@@ -420,23 +422,23 @@
               <thead><tr><th>きっかけ</th><th>決める人</th><th>内容</th></tr></thead>
               <tbody>
                 <tr><td>かけらが届いたとき</td><td>本体（振り分け）</td><td><code>@名前</code> の指名や有効な担当への返信は宛先1人だけを起こし、指名を優先します。それ以外は担当条件や人物の呼び名・キーワードで選びます。</td></tr>
-                <tr><td><a href="#ja-daily-advanced">毎日のチェックイン</a></td><td>本体</td><td>記憶がオンの有効な担当が、7時〜21時のどこかで1日1回起きます。月1回振り返る人物は、<a href="#ja-summary-advanced">今月のまとめ</a>の日に起きます。</td></tr>
+                <tr><td><a href="#ja-daily-advanced">毎日のチェックイン</a></td><td>本体</td><td>設定したアカウント共通の時刻に、記憶がオンの有効な担当が順番に起きます。月1回振り返る人物は、<a href="#ja-summary-advanced">今月のまとめ</a>の日に起きます。</td></tr>
                 <tr><td>担当が預けた予定</td><td>担当</td><td><code>schedule</code> を持つ担当が、自分の記録から時刻を決めて起きます。</td></tr>
               </tbody>
             </table>
           </div>
           <h3 id="ja-daily-advanced">毎日のチェックイン</h3>
+          <p><strong>設定 → 毎日の振り返り</strong> で時刻を指定できます。「自動」では、アカウント共通で7時〜21時の間に決まり、日ごとに少しずつ動きます。指定した時刻は設定のタイムゾーンに従います。</p>
           <ul>
-            <li>サーバーは毎分確認するので、混み具合によって少し遅れることがあります。</li>
-            <li>その日の時刻を過ぎてから担当を有効にした場合は、その日の分をすぐ実行します。21時を過ぎたら、その日の分は見送ります。サーバーの再起動後も当日分だけを実行し、過ぎた日の分はまとめて実行しません。</li>
-            <li>担当が黙った場合や失敗した場合も、その日の1回に数えます。メモを消しても、同じ日にもう一度は起きません。</li>
-            <li>時刻が夜から朝へ回り込む日（前の日 20時台 → その日 7時台など）は、数時間おきに2回起きないよう、その日を休みにします。</li>
-            <li>最近の記録は、前回のチェックインから今までの分を読みます。休んだ日や見送った日があっても、その間の記録を取りこぼしません。</li>
+            <li>本体が前回からの投稿を内部用に一度まとめ、記憶がオンの有効な担当が順番に、そのまとめと自分の記憶を読みます。新しい投稿、見直す記録、近い予定がなければ発言せずに終わることがあります。</li>
+            <li>混み具合で開始が遅れることがあります。指定時刻を過ぎた分は当日中、自動の場合は21時までが実行対象です。過ぎた日の分をまとめて実行することはありません。</li>
+            <li>自動の時刻が夜から朝へ回り込む日は休みますが、月次まとめの日は実行します。時刻を指定した場合はこの休みはありません。</li>
+            <li>一度実行した担当は、黙った場合や失敗した場合もその日の1回に数えます。最近の記録は前回のチェックインから読みます。</li>
             <li>チェックインでは現在地を使わないので、店舗検索は名前での検索だけになります。</li>
           </ul>
           <p>「外部エージェントを優先する」をONにした担当では、チェックインで何を話すか（聞くことや伝えること）を外部エージェントが書きます。記憶をどう整えるかは、ふだんどおり kakeratta が決めます。時間内に外部エージェントが応じなければ、内蔵モデルが代わりに書きます。</p>
           <h3 id="ja-summary-advanced">今月のまとめと、月1回振り返る人物</h3>
-          <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。話題ごとの箇条書きで、各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
+          <p>月に1回、本体がその月のタイムラインを読み、<strong>今月のまとめ</strong> をタイムラインに投稿します。あなたの発言・行動・決定・変化を話題ごとにまとめます。担当の提案だけでは、あなたが実行したことや予定として扱いません。各項目の <strong>→</strong> から元のかけらを開けます。日付は本体がアカウントごとに決めます（毎月1〜28日のどこか）。まとめはあなたのものとして <strong>✎</strong> で直せます。</p>
           <figure>
             <img src="/captures/ja/month-summary.png" alt="本体が投稿した今月のまとめ。人・食・これからのことの箇条書き（サンプル）" loading="lazy" width="382" height="494" />
             <figcaption>今月のまとめ（サンプル）。</figcaption>
@@ -456,13 +458,13 @@
             <li>担当ごとに20件まで。未来の時刻に日数の上限はありません。道具の予定は1回きりか毎日、誕生日・記念日は毎年繰り返します。</li>
             <li>予定は担当のカードに並びます。<strong>不要な予定は × で消せます。</strong></li>
             <li>起きた回は、担当が黙っても失敗しても消費されます。予定より10分以上遅れた回は実行しません。</li>
-            <li>かけらを消すと、担当がそのかけらのために置いた予定を見直します。担当を停止・削除したとき、メモを全部消したときは、その担当の予定も消えます。</li>
+            <li>かけらを消すと、担当がそのかけらのために置いた予定を見直します。担当を停止・削除したときは、その担当の予定も消えます。</li>
           </ul>
           <h3 id="ja-memory-system">記憶の仕組みと見直し</h3>
           <p>担当の記憶は、以下の構造で管理されます。</p>
           <ul>
             <li><strong>かけらの記録</strong>: 受け取ったかけらごとに、日時・元の投稿・要約・タグを1行残します。会話のたびに行うのはこれだけです。</li>
-            <li><strong>今の事実</strong>: 分かっていることを1件1行で持ちます。1日1回のチェックインで、新しい記録を事実に取り込み（足す・書き換える・消す・まとめる）、取り込んだ記録は消えます。当てはまらなくなった事実も消えます。</li>
+            <li><strong>今の事実</strong>: 分かっていることを1件1行で持ちます。チェックイン（通常は毎日、月1回振り返る人物は月1回）で、新しい記録を事実に取り込み（足す・書き換える・消す・まとめる）、取り込んだ記録は消えます。当てはまらなくなった事実も消えます。</li>
             <li><strong>まとめ文</strong>: 事実と記録をもとにした担当自身の見立てです。同じチェックインで書き直します。</li>
             <li><strong>新しい担当の提案</strong>: 記憶は話題ごとに分けません。別の話題がたまってきたら、担当が「新しく担当を作って分けませんか？」と提案します。</li>
             <li><strong>期限とお別れ</strong>: 「今日のランチ」のような一時的な記録は <strong>… に消える</strong> として自動削除され、長く使われていない記録は <strong>… に見直し</strong> としてチェックイン時に担当から「忘れていい？」と尋ねられます。</li>
@@ -482,14 +484,14 @@
           <ol>
             <li>元の投稿の <strong>Blueskyに投稿</strong> を押します。最初は元の投稿だけが選ばれています。</li>
             <li>元の投稿のチェックを外して、回答だけ公開することもできます。1件以上選んでください。返信先を選ばなかった発言は、選択した最初の発言への返信として公開します。</li>
-            <li><strong>プレビュー</strong> で、チェックされた発言・画像・返信のつながりを確かめます。確認後に表示される <strong>選択した会話を投稿</strong> を押します。</li>
+            <li>発言ごとに <strong>テキスト</strong> か <strong>画像</strong> を選びます。公開内容が同じ画面に自動で表示されるので、確認して <strong>投稿</strong> を押します。切り替え中や画像の変換中は投稿できません。</li>
           </ol>
           <figure>
-            <img src="/captures/ja/bluesky-selection.png" alt="元投稿だけが選択され、担当と自分の追加返信は未選択の公開画面（サンプル）" loading="lazy" width="382" height="992" />
+            <img src="/captures/ja/bluesky-selection.png" alt="元投稿だけが選択され、担当と自分の追加返信は未選択の公開画面（サンプル）" loading="lazy" width="382" height="1143" />
             <figcaption>担当は記憶をもとに個人的なことを話す場合があります。見せたい発言だけ選んでください。</figcaption>
           </figure>
           <figure>
-            <img src="/captures/ja/bluesky-answer-only.png" alt="元の投稿を外し、担当の回答だけを公開するプレビュー（サンプル）。" loading="lazy" width="382" height="1192" />
+            <img src="/captures/ja/bluesky-answer-only.png" alt="元の投稿を外し、担当の回答だけを公開するプレビュー（サンプル）。" loading="lazy" width="382" height="1172" />
             <figcaption>元の投稿を外し、担当の回答だけを公開するプレビュー（サンプル）。</figcaption>
           </figure>
           <h3>公開されるもの・されないもの</h3>
@@ -497,7 +499,7 @@
             <li>公開されるのは、選んだ発言の本文・リンク・出典URL・画像です。位置情報、画像の読み取り結果、担当のメモは公開されません。</li>
             <li>長い発言は、文の切れ目で300文字程度ずつに分け、2つ目以降に「つづき:」を付けます。画像は最初の1つにだけ付きます。</li>
             <li>担当の回答の見出し・箇条書き・表は、Blueskyで読みやすい文章に直して公開します（Blueskyには太字や見出しがないため）。<code>[文字](URL)</code> のリンクは文字がそのままリンクになり、本文中のURLもリンクになります。</li>
-            <li>担当のHTML回答と、インフォグラフィックの担当が作った図解は、画面の表示結果を画像にして公開します。縦長の回答は複数枚に分けるので、プレビューですべて確認してください。変換できない場合は投稿を止めます。元の回答はそのまま残ります。</li>
+            <li>担当のHTML回答とインフォグラフィックの図解は、最初は画像が選ばれています。テキストに切り替えることも、通常の文章を画像にすることもできます。縦長の回答は複数枚に分けるので、プレビューですべて確認してください。変換できない場合は投稿を止めます。元の回答はそのまま残ります。</li>
             <li>2 MB を超える画像は送信用に縮小されます（元の画像はそのまま）。透明部分は白に、GIF は静止画になります。</li>
             <li>一度に選べるのは100発言までです。</li>
           </ul>
@@ -511,8 +513,11 @@
 
         <section id="ja-hermes">
           <h2>5. 担当の考える役を外部エージェントに任せる</h2>
-          <p>接続先を設定し、設定の「外部エージェントを使う」をONにすると、担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。標準で対応しているのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。ほかのエージェントも、MCP Streamable HTTP で接続し、依頼の定期取得・調査・回答の提出を実装すれば使えます。メモ・予定・道具の操作は、回答を受け取ったあと kakeratta が段階ごとに決め、回答の約束と食い違わないか確かめて担当として実行し、それから回答を公開します。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
-          <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携の外部エージェント接続とマニュアルへのヘルプアイコン" loading="lazy" width="366" height="1063" /></figure>
+          <p>接続先を設定し、設定の「外部エージェントを使う」をONにすると、担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。標準で対応しているのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。ほかのエージェントも、MCP Streamable HTTP で接続し、依頼の定期取得・調査・回答の提出を実装すれば使えます。回答を受け取ったあと、kakeratta が記録の追加と予定を扱い、予定変更があれば回答と食い違わないか確認してから公開します。担当が使える外部MCPの道具は読み取り専用です。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
+          <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携の外部エージェント接続とマニュアルへのヘルプアイコン" loading="lazy" width="366" height="1253" /></figure>
+          <h3>外部エージェントに直接頼む</h3>
+          <p><code>@agent</code>・<code>@外部エージェント</code>・<code>@エージェント</code> で、担当を介さず接続先に直接依頼できます。回答への返信はそのまま次の依頼になります。担当の記憶や予定は更新しません。</p>
+          <p>依頼には待機中・作業中の状態が表示され、🔔 で回答のプッシュ通知を切り替えられます。取得まで、取得後の回答まで、それぞれ2時間を過ぎるとお知らせします。遅れて届いた回答も表示されます。作業開始後の編集は届かないため、追加事項は返信してください。利用できる道具や実行できる作業は、接続先の設定に従います。</p>
           <h3>接続先を管理する</h3>
           <p>同時に使える接続先は1つです。外部エージェントを優先する担当は、すべて「使用する接続先」で選んだ接続先を使います。</p>
           <ul>
@@ -552,7 +557,7 @@
           <p>最後の接続から <strong>取得を待つ時間</strong>（既定は3分）が過ぎても接続がなければ、外部エージェントは不在とみなされます。不在のあいだは、以後の依頼を待たずに内蔵モデルが答えます。再び接続されると、次の依頼から外部エージェントに戻ります。依頼に取り組んでいる最中は不在になりません。</p>
           <p>待ち時間は <strong>外部連携</strong> の接続先ごとの <strong>接続情報と待ち時間</strong> で、エージェントごとに変えられます。同じ画面の <strong>外部エージェントを使う</strong> をOFFにすると、外部エージェントからの接続を受け付けず、担当ごとの設定を残したまま内蔵モデルで考えます。<a href="#ja-reply-fix">返し方を直す</a> ときの試し書きは、常に内蔵モデルで行います。</p>
           <h3>外部エージェントが読めるもの</h3>
-          <p>外部エージェントは、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。自分で投稿したりメモを書いたりはできず、外部エージェントが渡すのは回答だけです。書き込みはすべて kakeratta が決めて確認したものだけが実行されます。モデル設定や他の利用者のデータには触れません。接続先を<strong>削除</strong>すると接続キーが無効になります。</p>
+          <p>外部エージェントは、あなたの投稿と <strong>すべての担当のメモ</strong> を読めます。担当への依頼では回答を提出し、記憶と予定は kakeratta が管理します。また、外部エージェントを優先する有効な担当として、自発的にタイムラインへ投稿できます（担当ごとに1日5件まで）。この投稿だけで担当の記憶が更新されたり、通知が送られたりすることはありません。モデル設定や他の利用者のデータには触れません。接続先を<strong>削除</strong>すると接続キーが無効になります。</p>
           <p>外部エージェントが読んだ投稿やメモは、そのエージェントが使うモデルにも渡ります。Hermes や LLM Hub で外部の API のモデルを選んでいれば、その提供元に送られます。端末の外に出したくない場合は、ローカルのモデルを使ってください。ただし LLM Connect Hub で Vault・RAG・スキルを使って答えるには、API のモデルが必要です。</p>
           <h3>つながらないとき</h3>
           <ul>
@@ -566,7 +571,7 @@
         <section id="ja-settings">
           <h2>6. 設定とデータ</h2>
           <figure>
-            <img src="/captures/ja/settings.png" alt="設定パネル" loading="lazy" width="390" height="2648" />
+            <img src="/captures/ja/settings.png" alt="設定パネル" loading="lazy" width="390" height="2692" />
             <figcaption>設定パネル。よく使う項目が上に、ほかは「上級オプション」の中にあります。</figcaption>
           </figure>
           <h3>どこに何があるか</h3>
@@ -576,6 +581,7 @@
               <tbody>
                 <tr><td>プロフィール</td><td>表示名、自分のアイコン（絵文字・写真）</td></tr>
                 <tr><td>モデル</td><td>AI の API キー</td></tr>
+                <tr><td>毎日の振り返り</td><td><a href="#ja-daily-advanced">自動または時刻を指定</a></td></tr>
                 <tr><td>Web検索</td><td>Tavily の API キー（<a href="#ja-tool-web_search">Web検索</a>を使う場合）</td></tr>
                 <tr><td>この端末</td><td>表示言語、<a href="/manual/#ja-push" data-lang-link>リマインダーのPush通知</a>、kakeratta の版</td></tr>
                 <tr><td>上級オプション → モデル</td><td>OpenRouter を使う</td></tr>
@@ -648,7 +654,7 @@
           <p>例：「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
 
           <h3 id="ja-tool-records">かけらの記録を探す — records</h3>
-          <p>担当は毎回、分野ごとのまとめ文と今の事実、最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。記憶の書き換えは返事のあとに本体のメモ係が行い、担当が直接書くことはありません。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
+          <p>担当は毎回、まとめ文と今の事実、最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。返事のあとには本体が記録を追加し、チェックインで新しい記録を事実に取り込み、まとめ文を書き直します。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
           <p>例：「@tabe 前に行きたいって言ってたラーメン屋、どこだっけ」</p>
 
           <h3 id="ja-tool-web_search">Web検索 — web_search</h3>
@@ -772,6 +778,7 @@
           </table>
           <p>Deleting a post removes the remarks and your replies under it, and it no longer appears in search. <strong>Persona notes that rest only on that post are deleted too.</strong> Notes that also rest on other posts stay, and the persona tidies them later.</p>
           <p>A persona's answer or a reply can be deleted with its <strong>×</strong>. It takes the lines answering it, directly or further down, and nothing else in the thread: a wrong answer, and the replies that repeated it, then no longer turn up in searches or as context in the thread. The notes written with it stay; correct them in the persona's memory if they are wrong too.</p>
+          <p>Scheduled reminders offer <strong>Mark done</strong>. Tap it to show <strong>✓ Done</strong>, or tap again to remove the mark. Personas can see the mark when reading the conversation. This requires an online connection.</p>
         </section>
 
         <section id="en-personas">
@@ -792,7 +799,7 @@
           </div>
           <p>Open <strong>Personas</strong> in the header and turn on <strong>Enable</strong> for the ones you want. A persona answers in the language you wrote in.</p>
           <figure>
-            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="2811" />
+            <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="2536" />
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
           </figure>
           <h3>Create a persona with AI</h3>
@@ -804,7 +811,7 @@
           </ol>
           <p>Creation and editing offer <strong>Remember</strong> (turning it off creates an answer-only persona, saving token costs and avoiding unwanted notes) and <strong>Always think deeply</strong> (uses Ultra for final answers to ordinary requests).</p>
           <figure>
-            <img src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="382" height="1731" />
+            <img src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="382" height="1617" />
             <figcaption>The draft: what it helps with, how it talks, how it remembers, what it remembers, and when it replies.</figcaption>
           </figure>
           <h3 id="en-people">People</h3>
@@ -816,7 +823,7 @@
             <li>Supplied details like birthdays and preferences can be reviewed and edited anytime directly in the persona settings.</li>
           </ul>
           <figure>
-            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names, keywords and basic information (sample data)" loading="lazy" width="382" height="1128" />
+            <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names, keywords and basic information (sample data)" loading="lazy" width="382" height="1122" />
             <figcaption>A person's card lists names, keywords, annual birthday notifications and upcoming appointments (sample data).</figcaption>
           </figure>
           <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong>; if an unrelated one did, remove the matched word from <strong>Should not have been called</strong> (<a href="/manual/?guide=advanced#en-people-keywords" data-lang-link>Fix a person's keywords</a>).</p>
@@ -824,6 +831,7 @@
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
           <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
           <p>View notification schedules on the persona card or at the top of its <strong>Remarks</strong> list. Each row shows its date and time zone; press <strong>×</strong> and confirm to cancel that schedule.</p>
+          <p>Closing a persona editor with unsaved changes offers <strong>Save and close</strong>, <strong>Close without saving</strong>, and <strong>Keep editing</strong>.</p>
           <h3 id="en-avatar">Change an icon (emoji or photo)</h3>
           <p>Change a persona's icon when you create it (<strong>Create a persona with AI</strong>) or with <strong>Edit</strong> or <strong>Edit with AI</strong> on its card. Your own icon works the same way in <a href="/manual/?guide=advanced#en-profile" data-lang-link>Profile in Settings</a>.</p>
           <ul>
@@ -859,16 +867,16 @@
           <h2>5. What a persona remembers</h2>
           <p>Open <strong>What I remember</strong> on a persona to read its memory anytime, and edit or forget notes by hand. Nothing is learned or hidden behind your back.</p>
           <figure>
-            <img src="/captures/en/memory.png" alt="A wine persona’s memory: the summary, current facts with original post links and controls to edit or forget, and a fragment record not yet folded in (sample)" loading="lazy" width="382" height="1173" />
+            <img src="/captures/en/memory.png" alt="A wine persona’s memory: the summary, current facts with original post links and controls to edit or forget, and a fragment record not yet folded in (sample)" loading="lazy" width="382" height="1115" />
             <figcaption>What was remembered, tags, the original post, ✎ to edit, and forgetting a single note (sample data).</figcaption>
           </figure>
           <h3>What you can do</h3>
           <ul>
-            <li><strong>Read</strong>: Facts by field and fragment records are listed clearly by month.</li>
+            <li><strong>Read</strong>: Each persona keeps one memory, shown as a summary, current facts, and fragment records under “Summary and records”.</li>
             <li><strong>Trace</strong>: Tap <strong>Original post</strong> on any note to open the conversation or image that produced it. Tap a <strong>#tag</strong> to filter by topic.</li>
             <li><strong>Edit</strong>: If a fact has a typo or misinterprets something, tap <strong>✎</strong> to correct it directly.</li>
-            <li><strong>Forget</strong>: Remove unwanted notes with <strong>×</strong> or <strong>Forget this note</strong>; forgetting the memory note starts completely fresh. Deleting an original fragment also removes notes that rested solely on it.</li>
-            <li><strong>Lifespan and review</strong>: Ephemeral notes expire automatically (<strong>Gone on</strong>), and older notes are surfaced at check-in with “Can I forget this now?” (<strong>Review on</strong>). Answer with <strong>Yes</strong>, <strong>Keep it a while longer</strong> or <strong>Don't forget it</strong> under the post.</li>
+            <li><strong>Forget</strong>: Remove unwanted notes with <strong>×</strong> or <strong>Forget this note</strong>. You are asked to confirm deletion. There is no separate button to clear all memory. Deleting an original fragment also removes notes that rested solely on it.</li>
+            <li><strong>Lifespan and review</strong>: Ephemeral notes expire automatically (<strong>Gone on</strong>), and older notes are surfaced at check-in with “Can I forget this now?” (<strong>Review on</strong>). Choose <strong>Yes</strong> to delete the record, <strong>Keep it a while longer</strong> to postpone review, or <strong>Don't forget it</strong> to stop future reviews. Your choice is shown after answering. You can also reply in words.</li>
           </ul>
           <div class="tip"><p>For details on how records become facts and how the summary is updated, see <a href="/manual/?guide=advanced#en-memory-system" data-lang-link>Advanced Guide: Memory architecture and review</a>.</p></div>
           <p>Deletion cannot be undone. A persona may learn something again by searching the posts that remain.</p>
@@ -888,7 +896,7 @@
           <p>Right-click a persona in the persona bar (long-press on phones) and choose <strong>Remarks</strong> to open its list.</p>
 
           <figure>
-            <img src="/captures/en/speaker-period.png" alt="Filter a speaker’s entries by date range (sample data)." loading="lazy" width="390" height="2083" />
+            <img src="/captures/en/speaker-period.png" alt="Filter a speaker’s entries by date range (sample data)." loading="lazy" width="390" height="2054" />
             <figcaption>Filter a speaker’s entries by date range (sample data).</figcaption>
           </figure>
         </section>
@@ -902,18 +910,18 @@
             <li>Tap a result to open the post and its conversation; you can reply from there.</li>
           </ul>
           <figure>
-            <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" width="390" height="964" />
+            <img src="/captures/en/search-keyword.png" alt="Keyword search for saved posts mentioning Pinot (sample data)" loading="lazy" width="390" height="942" />
             <figcaption>Search by name (sample data).</figcaption>
           </figure>
           <p>Open <strong>Filters</strong> to combine <strong>From</strong> and <strong>To</strong> with search terms or favorites. You can also search by date range alone.</p>
           <figure>
-            <img src="/captures/en/search-period.png" alt="Combine a search term with a date range (sample data)." loading="lazy" width="390" height="998" />
+            <img src="/captures/en/search-period.png" alt="Combine a search term with a date range (sample data)." loading="lazy" width="390" height="976" />
             <figcaption>Combine a search term with a date range (sample data).</figcaption>
           </figure>
           <h3>Search your favorites</h3>
           <p>Enable <strong>Favorites only</strong> to search saved posts and answers by words or meaning. Leave the query blank to list them <strong>newest by post date</strong>.</p>
           <figure>
-            <img src="/captures/en/search-favorites.png" alt="Search results restricted to favorite entries (sample data)" loading="lazy" width="390" height="964" />
+            <img src="/captures/en/search-favorites.png" alt="Search results restricted to favorite entries (sample data)" loading="lazy" width="390" height="942" />
             <figcaption>Find an answer among your saved favorites (sample data).</figcaption>
           </figure>
           <p>Personas search too, when it helps: a wine persona may say “This is close to the Pinot you liked before,” with a link to that post.</p>
@@ -973,7 +981,7 @@
             <p><strong>@infographic targeting rules:</strong> Reply to a post or answer with <code>@infographic Turn this into an infographic</code>. When replying to another persona's answer, it visualizes that answer. You can also specify “the original post” or “the whole thread” to change the target. URLs use expanded article bodies, and images use extracted captions and text. The infographic is translated to your current display language and shown in the timeline as Markdown with emoji and Mermaid diagrams. It does not use Web search.</p>
           </div>
           <figure>
-            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why other personas were not (sample data)" loading="lazy" width="382" height="853" />
+            <img src="/captures/en/routing.png" alt="The router's call on a noodle post: tabe was called, and why other personas were not (sample data)" loading="lazy" width="382" height="828" />
             <figcaption>Who was called, and why the others were not (sample data).</figcaption>
           </figure>
           <p>For each persona that was called you see whether it has finished, replied, or kept a note. For one that stayed silent, <strong>A reply was wanted</strong> leads to <a href="#en-reply-fix">fixing how it replies</a>.</p>
@@ -992,7 +1000,7 @@
           <h3 id="en-people-keywords">Fix a person's keywords</h3>
           <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> has no condition: only fragments with one of its names or keywords reach it. In ⚖ the word it was reached by is shown, as in Matched “Sato”.</p>
           <figure>
-            <img src="/captures/en/person-routing.png" alt="The router's call showing Sato's persona called because the post matched “Sato” (sample data)" loading="lazy" width="382" height="570" />
+            <img src="/captures/en/person-routing.png" alt="The router's call showing Sato's persona called because the post matched “Sato” (sample data)" loading="lazy" width="382" height="573" />
             <figcaption>The word it was reached by is shown (sample data).</figcaption>
           </figure>
           <ol>
@@ -1002,7 +1010,7 @@
             <li><strong>OK</strong> adds them to the saved keywords and checks the same fragment. If one of them is in it, the persona gets the fragment; if not, you are told and can try again.</li>
           </ol>
           <figure>
-            <img src="/captures/en/person-keywords.png" alt="Keywords to add, proposed by the AI from “Apparently going sea fishing this weekend” (sample data)" loading="lazy" width="382" height="504" />
+            <img src="/captures/en/person-keywords.png" alt="Keywords to add, proposed by the AI from “Apparently going sea fishing this weekend” (sample data)" loading="lazy" width="382" height="475" />
             <figcaption>The current keywords and the ones the AI proposes to add (sample data).</figcaption>
           </figure>
           <p>When an unrelated fragment reached a person by a word, tap <strong>Should not have been called</strong> on its row.</p>
@@ -1012,7 +1020,7 @@
             <li>To leave them, tap <strong>Keep</strong>. A fragment that is not about the person already ends with no reply and no note.</li>
           </ol>
           <figure>
-            <img src="/captures/en/person-words.png" alt="The word matched in “The campsite booking site is down again”, with Remove and Keep (sample data)" loading="lazy" width="382" height="455" />
+            <img src="/captures/en/person-words.png" alt="The word matched in “The campsite booking site is down again”, with Remove and Keep (sample data)" loading="lazy" width="382" height="433" />
             <figcaption>Choose which of the matched words to remove (sample data).</figcaption>
           </figure>
           <p>A removed word no longer brings fragments that have only it, and a removed name no longer answers an @. What the persona already said or noted on the fragment stays.</p>
@@ -1028,7 +1036,7 @@
             <li><strong>That's it</strong> applies the trial reply and its memory edits to the original thread. <strong>Still not it</strong> lets you say again, with the trial reply in view.</li>
           </ol>
           <figure>
-            <img src="/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" loading="lazy" width="382" height="446" />
+            <img src="/captures/en/reply-trial.png" alt="The reply tabe would now give to the same post, with That's it or Still not it (sample data)" loading="lazy" width="382" height="425" />
             <figcaption>The trial reply. You are the judge (sample data).</figcaption>
           </figure>
           <p>What you saved stays saved, whatever the trial says.</p>
@@ -1042,25 +1050,25 @@
               <thead><tr><th>Trigger</th><th>Decided by</th><th>What happens</th></tr></thead>
               <tbody>
                 <tr><td>A fragment arrives</td><td>The app (routing)</td><td>A direct <code>@name</code> mention or reply to an active persona selects that persona alone; a mention takes precedence. Other entries use subject conditions and person names/keywords.</td></tr>
-                <tr><td><a href="#en-daily-advanced">Daily check-in</a></td><td>The app</td><td>Each active persona with memory enabled wakes once a day, somewhere between 7:00 and 21:00. A person looked back on monthly wakes on the day of <a href="#en-summary-advanced">this month's summary</a>.</td></tr>
+                <tr><td><a href="#en-daily-advanced">Daily check-in</a></td><td>The app</td><td>Active personas with memory check in in turn at the account’s configured daily time. A person looked back on monthly wakes on the day of <a href="#en-summary-advanced">this month's summary</a>.</td></tr>
                 <tr><td>A persona's own schedule</td><td>The persona</td><td>A persona with <code>schedule</code> picks a time from its own records.</td></tr>
               </tbody>
             </table>
           </div>
           <h3 id="en-daily-advanced">Daily check-in</h3>
+          <p>Choose a time under <strong>Settings → Daily check-in</strong>. <strong>Automatic</strong> picks one account-wide time between 7:00 and 21:00, moving a little each day. A time you set uses your configured time zone.</p>
           <ul>
-            <li>The server checks every minute, so a busy moment can delay a wake a little.</li>
-            <li>Enabling a persona after that day's time runs today's check-in right away. After 21:00 the day's check-in is skipped. After a server restart only today's is run; missed days are not replayed.</li>
-            <li>A silent or failed wake still counts as the day's. Deleting notes does not cause a second wake that day.</li>
-            <li>If the previous day's check-in fell in the 20:00 hour and today's would fall in the 7:00 hour, today's is skipped, so a persona does not wake twice within a few hours.</li>
-            <li>Recent records are read from the previous check-in onward, so a skipped or missed day leaves nothing unread.</li>
+            <li>The app summarizes posts since the previous run once for internal use. Active personas with memory then read it and their own memory in turn. With no new posts, records due for review, or approaching plans, a persona may stay quiet.</li>
+            <li>Busy periods can delay the start. A missed set time can run until midnight; automatic runs close at 21:00. Missed days are not replayed.</li>
+            <li>An automatic time wrapping from evening to morning skips that day, except on the monthly summary day. A time you set does not have this skip.</li>
+            <li>A silent or failed run still counts as that persona's run for the day. Recent records are read from the previous check-in onward.</li>
             <li>Check-ins do not use your location, so place search works by name only.</li>
           </ul>
           <p>For a persona that prefers the external agent, the external agent writes what to say at check-in (what to ask or tell you). How the memory is tidied is still decided by kakeratta, as always. If the agent does not respond in time, the built-in model writes it instead.</p>
           <h3 id="en-summary-advanced">This month's summary, and people looked back on monthly</h3>
-          <p>Once a month, the app reads that month's timeline and posts <strong>This month's summary</strong> to the timeline. It is bulleted by topic, and each bullet's <strong>→</strong> opens the original fragment. The app picks the date per account (somewhere between the 1st and the 28th of each month). The summary is yours to edit with <strong>✎</strong>.</p>
+          <p>Once a month, the app reads that month's timeline and posts <strong>This month's summary</strong> to the timeline. It groups your statements, actions, decisions, and changes by topic. A persona’s suggestion alone is not treated as something you did or planned. Each bullet's <strong>→</strong> opens the original fragment. The app picks the date per account (somewhere between the 1st and the 28th of each month). The summary is yours to edit with <strong>✎</strong>.</p>
           <figure>
-            <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app: bullets for people, food, and upcoming things (sample data)" loading="lazy" width="382" height="551" />
+            <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app: bullets for people, food, and upcoming things (sample data)" loading="lazy" width="382" height="494" />
             <figcaption>This month's summary (sample data).</figcaption>
           </figure>
           <p>On a person's card you can choose <strong>Look back frequently</strong> or <strong>Look back occasionally</strong>. A person set to monthly wakes on the day the summary is posted, reading the summary and the fragments where their name or keywords appeared. Even as you add more people, the timeline is read only once a month. When you create personas with the AI, the frequency is chosen from the relationship: daily for family and close friends, monthly for people you meet once in a while. An interest persona is always daily.</p>
@@ -1078,13 +1086,13 @@
             <li>Up to 20 per persona, at any future date. Tool-created schedules run once or daily; birthdays and anniversaries recur annually.</li>
             <li>Schedules are listed on the persona's card. <strong>Remove one you do not want with ×.</strong></li>
             <li>A wake is used up even if the persona stays silent or fails. One more than 10 minutes late is skipped.</li>
-            <li>Deleting a fragment makes the persona revisit the schedules it set for it. Pausing or deleting the persona, or forgetting all its notes, removes its schedules.</li>
+            <li>Deleting a fragment makes the persona revisit the schedules it set for it. Pausing or deleting the persona removes its schedules.</li>
           </ul>
           <h3 id="en-memory-system">Memory architecture and review</h3>
           <p>A persona's memory is structured as follows:</p>
           <ul>
             <li><strong>Fragment records</strong>: For each fragment received, one line with the date and time, original post, summary, and tags. That is all a conversation adds.</li>
-            <li><strong>Current facts</strong>: One line per fact known. At the daily check-in, new records are folded into facts (added, rewritten, deleted or merged) and the folded records go; facts that no longer hold are deleted.</li>
+            <li><strong>Current facts</strong>: One line per fact known. At check-in (daily, or monthly for people set to monthly), new records are folded into facts (added, rewritten, deleted or merged) and the folded records go; facts that no longer hold are deleted.</li>
             <li><strong>Summary</strong>: The persona's own perspective grounded in its facts and records, rewritten at the same check-in.</li>
             <li><strong>New persona suggestions</strong>: Memory is not split by subject. When a subject of its own builds up, the persona suggests making a new persona for it.</li>
             <li><strong>Lifespan and review</strong>: Ephemeral notes such as “today's lunch” expire automatically under <strong>Gone on …</strong>, while long-unused notes are scheduled for <strong>Review on …</strong>, where the persona asks “Can I forget this now?” during check-in.</li>
@@ -1104,14 +1112,14 @@
           <ol>
             <li>Press <strong>Share to Bluesky</strong> on the original post. At first only that post is selected.</li>
             <li>You can deselect the original post and publish only an answer. Select at least one message. A reply whose parent is omitted will reply to the first selected message.</li>
-            <li>Review the selected messages, images and reply relationships with <strong>Preview</strong>. Then use <strong>Publish selected conversation</strong>, which appears after the preview is ready.</li>
+            <li>Choose <strong>Text</strong> or <strong>Image</strong> for each message. The content updates inline automatically. Review it and press <strong>Post</strong>. Posting is disabled while the preview or images are being prepared.</li>
           </ol>
           <figure>
-            <img src="/captures/en/bluesky-selection.png" alt="The sharing dialog with only the original post checked and all replies unchecked (sample data)" loading="lazy" width="382" height="1112" />
+            <img src="/captures/en/bluesky-selection.png" alt="The sharing dialog with only the original post checked and all replies unchecked (sample data)" loading="lazy" width="382" height="1232" />
             <figcaption>Personas may mention personal things from memory. Select only what you want others to see.</figcaption>
           </figure>
           <figure>
-            <img src="/captures/en/bluesky-answer-only.png" alt="Preview of sharing only a persona answer, with the original post deselected (sample data)." loading="lazy" width="382" height="1385" />
+            <img src="/captures/en/bluesky-answer-only.png" alt="Preview of sharing only a persona answer, with the original post deselected (sample data)." loading="lazy" width="382" height="1261" />
             <figcaption>Preview of sharing only a persona answer, with the original post deselected (sample data).</figcaption>
           </figure>
           <h3>What is and is not published</h3>
@@ -1119,7 +1127,7 @@
             <li>The selected messages' text, links, source URLs and images are published. Location, image reading results and persona notes are not.</li>
             <li>Long messages split at sentence breaks into posts of about 300 characters; later parts start with “つづき:” (continued). Images go on the first part only.</li>
             <li>Headings, lists and tables in persona answers are rewritten as text that reads well on Bluesky, which has no bold or headings. A <code>[text](URL)</code> link keeps its text as the link, and URLs in the text become links too.</li>
-            <li>HTML persona answers and the infographic persona's diagrams are shared as images of what the screen shows. Long answers split into multiple image posts; review every page in the preview. If conversion fails, publishing stops. The original answer stays unchanged.</li>
+            <li>HTML persona answers and infographic diagrams default to images. You can switch them to text, or share ordinary text as an image. Long answers split into multiple image posts; review every page in the preview. If conversion fails, publishing stops. The original answer stays unchanged.</li>
             <li>Images over 2 MB are shrunk for sending (the original stays as it is). Transparency becomes white and GIFs become still.</li>
             <li>Up to 100 messages at a time.</li>
           </ul>
@@ -1133,8 +1141,11 @@
 
         <section id="en-hermes">
           <h2>5. Hand a persona to an external agent</h2>
-          <p>Once a connection is configured and <strong>Use the external agent</strong> is enabled in settings, each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in. Hermes Agent and the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> are supported out of the box; any other agent can connect over MCP Streamable HTTP if it polls for asks, does the research and submits the answer. After receiving the answer, kakeratta decides the notes, schedules and tool actions one phase at a time, checks them against what the answer promises, runs them as the persona, and then publishes the answer. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
-          <figure><img src="/captures/en/hermes-settings.png" alt="External agent connections under Integrations, with the manual help icon" loading="lazy" width="366" height="1083" /></figure>
+          <p>Once a connection is configured and <strong>Use the external agent</strong> is enabled in settings, each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in. Hermes Agent and the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> are supported out of the box; any other agent can connect over MCP Streamable HTTP if it polls for asks, does the research and submits the answer. After receiving the answer, kakeratta handles records and schedules and reviews schedule changes against the answer before publishing. External MCP tools available to personas are read-only. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
+          <figure><img src="/captures/en/hermes-settings.png" alt="External agent connections under Integrations, with the manual help icon" loading="lazy" width="366" height="1274" /></figure>
+          <h3>Ask the external agent directly</h3>
+          <p>Address <code>@agent</code>, <code>@外部エージェント</code>, or <code>@エージェント</code> to ask the connected agent directly. Replying to its answer starts the next request. This does not update persona memory or schedules.</p>
+          <p>The request shows waiting or working status; 🔔 controls push notification for its answer. You are notified if it remains unclaimed for two hours or unanswered for two hours after being claimed. Late answers still appear. Edits after work starts are not delivered, so send additions as replies. Available tools and actions depend on the connected agent’s configuration.</p>
           <h3>Manage connections</h3>
           <p>One connection is in use at a time. Every persona that prefers the external agent uses the one chosen under <strong>Active connection</strong>.</p>
           <ul>
@@ -1155,7 +1166,7 @@
       Authorization: "Bearer CONNECTION_KEY"</code></pre>
           <h3>Connect Obsidian (LLM Connect Hub)</h3>
           <p>With LLM Connect Hub, a persona's answer comes from <a href="https://github.com/takeshy/obsidian-llm-hub" rel="noopener">LLM Hub</a> in your Obsidian. It uses the model you choose in LLM Hub and researches your Vault notes, RAG and skills; the vault files it read are cited as <code>[[file name]]</code>.</p>
-          <figure><img src="/captures/en/llm-connect-hub.png" alt="shiori answering through Obsidian's LLM Connect Hub, marked External agent, citing a file in the vault as its source" loading="lazy" width="382" height="1274" /></figure>
+          <figure><img src="/captures/en/llm-connect-hub.png" alt="shiori answering through Obsidian's LLM Connect Hub, marked External agent, citing a file in the vault as its source" loading="lazy" width="382" height="1188" /></figure>
           <ol>
             <li>Install and enable <strong>LLM Hub</strong> and <strong>LLM Connect Hub</strong> from Obsidian's community plugins (desktop only).</li>
             <li>In kakeratta, under <strong>Settings → Advanced options → Integrations → External agent connections</strong>, name the connection (for example, Obsidian) and press <strong>Add and create key</strong>.</li>
@@ -1165,7 +1176,7 @@
           </ol>
           <p>LLM Connect Hub checks for asks once a minute while Obsidian is open, and uses no model tokens when there are none. Because it checks once a minute, keep <strong>Wait for a claim</strong> (how long kakeratta waits for the agent to pick up an ask) longer than a minute. Once Obsidian has been closed for longer than that wait, the agent is taken to be away (see <em>Hand a persona over</em> below) and later asks go to the built-in model without waiting. An ask that arrives just after Obsidian closes is answered by the built-in model when its wait runs out. For the full settings, see the <a href="https://github.com/takeshy/obsidian-llm-connect-hub#readme" rel="noopener">LLM Connect Hub README</a>.</p>
           <h3>Hand a persona over</h3>
-          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="422" /></figure>
+          <figure><img src="/captures/en/persona-planner.png" alt="A persona card preferring the external agent" loading="lazy" width="382" height="378" /></figure>
           <ol>
             <li>In <strong>Personas</strong>, turn on <strong>Prefer the external agent</strong> for the persona. The checkbox appears only while a connection is configured and <strong>Use the external agent</strong> is enabled in settings.</li>
             <li>Post as usual. For posts that reach that persona, the external agent researches and writes the answer; kakeratta decides memory and schedules. The reply arrives under the persona's name, marked <strong>External agent</strong>.</li>
@@ -1174,7 +1185,7 @@
           <p>If the agent has not connected for longer than <strong>Wait for a claim</strong> (3 minutes by default), it is taken to be away. While it is away, later asks go straight to the built-in model instead of waiting. As soon as it connects again, the next ask goes to it. An agent is never away while it is working on an ask.</p>
           <p>Change the waits per agent under each connection's <strong>Connection details and waits</strong> in <strong>Integrations</strong>. Turning off <strong>Use the external agent</strong> there refuses its connections and plans with the built-in model while keeping each persona's choice. The trial reply when you <a href="#en-reply-fix">fix how a persona replies</a> always uses the built-in model.</p>
           <h3>What an external agent can read</h3>
-          <p>An external agent can read your posts and <strong>the notes of every persona</strong>. It cannot post or write notes itself: it hands in only the answer, and every write is decided and checked by kakeratta. It cannot reach model settings or other users. Deleting the connection invalidates the key.</p>
+          <p>An external agent can read your posts and <strong>the notes of every persona</strong>. For persona asks it submits an answer, while kakeratta manages memory and schedules. It can also post proactively as an active persona that prefers the external agent, up to five posts per persona per day. Those posts do not update persona memory or send notifications. It cannot reach model settings or other users. Deleting the connection invalidates the key.</p>
           <p>What the agent reads also goes to the model it uses. If you chose an API model in Hermes or LLM Hub, your posts and notes are sent to that provider. To keep them on your machine, use a local model; note that LLM Connect Hub needs an API model to answer with Vault notes, RAG or skills.</p>
           <h3>If it cannot connect</h3>
           <ul>
@@ -1198,6 +1209,7 @@
               <tbody>
                 <tr><td>Profile</td><td>Display name, your icon (emoji or photo)</td></tr>
                 <tr><td>Models</td><td>The AI API key</td></tr>
+                <tr><td>Daily check-in</td><td><a href="#en-daily-advanced">Automatic or Set a time</a></td></tr>
                 <tr><td>Web search</td><td>Tavily API key (for <a href="#en-tool-web_search">web search</a>)</td></tr>
                 <tr><td>This device</td><td>Display language, <a href="/manual/#en-push" data-lang-link>Push reminders</a>, kakeratta version</td></tr>
                 <tr><td>Advanced options → Models</td><td>Use OpenRouter</td></tr>
@@ -1211,9 +1223,9 @@
           </div>
           <h3 id="en-usage">Monthly AI usage</h3>
           <p>Open <strong>Settings → AI usage</strong> to see the month's total cost and Web search count. Choose a month and press <strong>Refresh</strong> for the latest records. The breakdown shows <strong>Routing, All personas, and Other</strong>. Other includes shared work such as meaning-search embeddings and daily/monthly summaries.</p>
-          <figure><img src="/captures/en/settings-usage.png" alt="Settings AI usage with total, routing, all personas, and other costs (sample)" loading="lazy" width="366" height="723" /><figcaption>Overall usage. Amounts and counts are sample data.</figcaption></figure>
+          <figure><img src="/captures/en/settings-usage.png" alt="Settings AI usage with total, routing, all personas, and other costs (sample)" loading="lazy" width="366" height="702" /><figcaption>Overall usage. Amounts and counts are sample data.</figcaption></figure>
           <p>For an individual breakdown, open <strong>Personas → AI usage</strong> on a persona's card. It separates <strong>Replies, Scheduled runs, and Other</strong>, including related research, memory updates, and retries. Scheduled runs cover check-ins and reminders. Shared costs such as routing are not allocated to personas.</p>
-          <figure><img src="/captures/en/persona-usage.png" alt="Persona AI usage with reply, scheduled, and other costs and Web search counts (sample)" loading="lazy" width="382" height="975" /><figcaption>One persona's breakdown. Amounts and counts are sample data.</figcaption></figure>
+          <figure><img src="/captures/en/persona-usage.png" alt="Persona AI usage with reply, scheduled, and other costs and Web search counts (sample)" loading="lazy" width="382" height="932" /><figcaption>One persona's breakdown. Amounts and counts are sample data.</figcaption></figure>
           <p>Costs are estimates in USD. OpenRouter uses API-reported costs; Nebius uses public rates at recording time, excluding discounts and free allowances. Calls without known pricing appear as <strong>Unpriced</strong>. Web searches count actual API requests, including failures; search charges and the external agent's own AI costs are excluded. Only usage since recording began is included, without importing historical logs. Months without records display an empty-state message.</p>
           <h3 id="en-profile">Profile (display name and icon)</h3>
           <p><strong>Profile</strong> at the top of Settings changes the <strong>Display name</strong> and <strong>Icon</strong> shown for you on the timeline and elsewhere. Pick an emoji from the groups or choose a photo, the same way as for <a href="/manual/#en-avatar" data-lang-link>persona icons</a>. It is saved with your account, so other devices show the same. An empty name shows as “You” and an empty icon as 🙂. Your sign-in account name does not change.</p>
@@ -1270,7 +1282,7 @@
           <p>Try: “@tabe Find that light red wine I enjoyed before.”</p>
 
           <h3 id="en-tool-records">Finding fragment records — records</h3>
-          <p>Every turn, a persona reads its field summaries, the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The memory itself is rewritten after the reply by the app's note keeper; a persona never writes it directly. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
+          <p>Every turn, a persona reads its summary, the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The app adds a record after a reply, then folds new records into facts and rewrites the summary at check-in. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
           <p>Try: “@tabe Which ramen place did I say I wanted to try?”</p>
 
           <h3 id="en-tool-web_search">Web search — web_search</h3>
