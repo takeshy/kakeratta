@@ -4,9 +4,18 @@ English | [日本語](README_ja.md)
 
 **Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
 
-A personal AI timeline: post fragments of your day as text, photos, URLs or
-speech, and personas for people and interests remember what matters to them
-and bring it back when it is useful.
+**You cannot search for what you forgot exists.** kakeratta is a personal AI
+timeline that brings it back to you. Toss in fragments of your day as text,
+photos, URLs or speech. Personas, one for each person or interest you care
+about, remember what matters to them and speak up when it matters.
+
+- **A separate memory for each persona.** Each person or interest has its
+  own memory. Posts reach person personas through name and keyword matching.
+- **Silence is the default.** A persona replies only when it has something
+  worth saying. A quiet timeline means the app is working.
+- **Memory you can trace and review.** Facts link back to your posts.
+  Temporary records can expire; records marked for review come back with
+  a question: keep, postpone or forget? Your original posts stay intact.
 
 [Try it](https://kakeratta.net/lp/?lang=en) ·
 [Watch the demo](https://youtu.be/fdUYDI6Sd70) ·
@@ -18,18 +27,23 @@ and bring it back when it is useful.
 
 <img src="docs/captures/en/timeline.png" alt="Your fragments and the personas' replies on the timeline" width="390">
 
+From production and testing:
+[AI cost estimate — Oct 2026](docs/production-ai-cost-2026-10-11.md) ·
+[routing model comparison — Sep 2026](docs/routing-model-comparison-2026-09-19.md) ·
+[lessons from what the AI got wrong](docs/ai-lessons.md)
+
 ## What you can do
 
-- **Create personas in plain language.** Describe a person or interest, then
-  adjust its instructions, routing and replies as you use it.
-- **Inspect and correct memory.** Each remembering persona keeps facts with
-  source links, field summaries and monthly kakera records. Edit or forget
-  individual facts; search your timeline by words or meaning.
-- **Save answers as favorites.** Keep posts and persona replies in a list,
-  most recently added first. Filter by persona or search only your favorites.
 - **Get timely follow-ups.** Remembering personas speak when they have something
   worth sharing. For people, choose “Look back often” or “Look back occasionally”. Birthdays, appointments and preparation checks run on
   the server; supported devices can receive reminder push notifications.
+- **Inspect and correct memory.** Each remembering persona keeps facts with
+  source links, field summaries and monthly kakera records. Edit or forget
+  individual facts; search your timeline by words or meaning.
+- **Create personas in plain language.** Describe a person or interest, then
+  adjust its instructions, routing and replies as you use it.
+- **Save answers as favorites.** Keep posts and persona replies in a list,
+  most recently added first. Filter by persona or search only your favorites.
 - **Turn an answer into a diagram.** Reply to it with
   `@infographic turn this answer into an infographic`. The Markdown diagram uses emoji
   and Mermaid in the display language selected when you send the request.
@@ -51,12 +65,12 @@ Five personas ship with the app:
 | **support** | kakeratta questions, answered from the system specification | Yes |
 | **infographic** | Markdown diagrams with emoji and Mermaid for text, expanded articles, interpreted images and answers | Yes |
 
-Creation and editing offer **Remember** and **Always think deeply**. Memory
-is on by default; support and infographic default to off. Turning it off stops
-memory updates and periodic check-ins. Always
-thinking deeply uses Super VL for final answers even on ordinary requests; infographic
-defaults to on. A request that says "in detail" is answered on Ultra, infographics included.
-Reads use Super (Super VL for an "in detail" request or Always think deeply), and schedule planning Super VL.
+Creation and editing offer **Remember** and **Always think deeply**.
+**Remember** is on by default (off for support and infographic); turning it
+off stops memory updates and periodic check-ins. **Always think deeply**
+uses a stronger model for final answers (on by default for infographic).
+A request that says "in detail" uses the strongest answer model in the default configuration.
+See [Design and integrations](#design-and-integrations) for which model does what.
 
 ## Run locally
 
@@ -80,10 +94,9 @@ hosted storage. Use `task test` to run the Go and browser tests.
 ## Architecture
 
 The diagram shows the preferred Cloud Run deployment. Production currently
-runs on a shared Compute Engine VM to reduce the cost of keeping it unchanged
-through the roughly one-month judging wait after the 2026-10-31 submission
-deadline. This temporary arrangement keeps the same Web/worker separation
-and durable queues; see [current operations](infra/shared-vm/README.md).
+runs on a shared Compute Engine VM to reduce cost. It keeps the same
+Web/worker separation and durable queues; see
+[current operations](infra/shared-vm/README.md).
 
 ```mermaid
 flowchart LR
