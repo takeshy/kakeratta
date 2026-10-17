@@ -97,24 +97,6 @@ func TestGatewayRestoresWorkspacesWithoutLogin(t *testing.T) {
 	t.Fatal("workspace did not restore without a login")
 }
 
-// Forgetting a persona's whole memory takes the app's own bookkeeping with it:
-// there is nothing left for the persona to reconcile, so it is not woken.
-func TestForgettingMemoryDropsSchedules(t *testing.T) {
-	app, s := app(t)
-	id := app.catalogue.All(context.Background())[0].ID
-	if _, err := s.SaveSchedule(store.Schedule{Skill: id, At: time.Now().Add(time.Hour).UTC(), Note: "朝の薬"}); err != nil {
-		t.Fatal(err)
-	}
-	response := httptest.NewRecorder()
-	app.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/api/personas/"+id+"/memory", nil))
-	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
-	}
-	if left, err := s.Schedules(""); err != nil || len(left) != 0 {
-		t.Fatalf("left = %+v (%v)", left, err)
-	}
-}
-
 func TestPausingPersonaDropsFutureSchedulesImmediately(t *testing.T) {
 	app, s := app(t)
 	id := app.catalogue.All(context.Background())[0].ID

@@ -71,7 +71,6 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/personas/install", s.guard(s.installPersona))
 	s.mux.HandleFunc("DELETE /api/personas/{id}", s.guard(s.uninstallPersona))
 	s.mux.HandleFunc("GET /api/personas/{id}/memory", s.guard(s.getMemory))
-	s.mux.HandleFunc("DELETE /api/personas/{id}/memory", s.guard(s.forgetMemory))
 	s.mux.HandleFunc("GET /api/personas/{id}/memory/note", s.guard(s.getNote))
 	s.mux.HandleFunc("DELETE /api/personas/{id}/memory/note", s.guard(s.forgetNote))
 	s.mux.HandleFunc("PUT /api/personas/{id}/memory/note", s.guard(s.editNote))

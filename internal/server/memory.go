@@ -108,20 +108,6 @@ func (s *Server) editNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
-func (s *Server) forgetMemory(w http.ResponseWriter, r *http.Request) {
-	if err := s.store.ForgetMemory(r.PathValue("id")); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	// Nothing is left to reconcile, so the persona is not woken. The schedules
-	// are the app's own bookkeeping and go with the memory they served.
-	if err := s.store.DeleteSchedules(r.PathValue("id")); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
 // editFact corrects the words of one fact, as the user typed them. The fact
 // keeps its id, its posts and its day; the persona is not woken. The memory
 // file is returned as it now reads.

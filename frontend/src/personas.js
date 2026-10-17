@@ -519,23 +519,11 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         row.kind === "person"
           ? basicInfoBox(row, () => { close(); showPersonaEditor({ getSettings, persona: row, toolNames, onSave: load, onPosted, focus: "basicInfo" }); }, { open: true })
           : null,
-        el("p", { class: "hint", label: "分野ごとのまとめ文と事実、かけらごとの記録です。「元の投稿」から、もとになった投稿と会話を開けます。" }),
+        el("p", { class: "hint", label: "まとめ文と事実、かけらごとの記録です。「元の投稿」から、もとになった投稿と会話を開けます。" }),
         memoryHost,
         el(
           "div",
           { class: "compose-row" },
-          el("button", {
-            class: "chip ghost",
-            label: "すべてのメモを忘れさせる",
-            onclick: async () => {
-              if (!confirm(t("{0} の記憶を消しますか。元に戻せません。", row.name))) return;
-              try {
-                await api.forget(row.id);
-                close();
-                await load();
-              } catch (error) { toast(String(error.message || error), "error"); }
-            },
-          }),
           el("span", { class: "spacer" }),
           el("button", { class: "button primary", label: "閉じる", onclick: close }),
         ),
