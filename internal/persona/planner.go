@@ -181,7 +181,7 @@ func (r *Runner) askContext(skill Skill, set *tools.Set, rules, turn, wakeNote, 
 		Thread:       entries,
 		Memory:       memoryNote,
 		Schedules:    schedules,
-		Answer:       answerTool.Parameters,
+		Answer:       answerToolFor(set).Parameters,
 		Tools:        askTools(set),
 		Limits:       AskLimits{Reads: turnReadLimit(deep), Searches: turnSearchLimit(deep)},
 	}

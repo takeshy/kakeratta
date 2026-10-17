@@ -54,7 +54,7 @@ The configured Token Factory parent/persona model is `nvidia/Nemotron-3.5-Super-
 
 The user creates an MCP connection, enables external-agent use in settings, and selects `external` as a persona's planner. The preference control is shown only with a configured connection and external-agent use enabled; saved preferences survive disabling use. The server exposes `/api/mcp/users/{workspace}` per workspace and manages connection keys and settings. This is separate from the application's MCP client for calling external tools.
 
-The external agent researches as the persona and submits the final answer with its `schedule` decision. The host plans, reviews and executes needed schedule changes, then publishes the answer. For memory-enabled personas, the note keeper subsequently judges retention for related user turns, including related silence, and corrects earlier memory for edits even when unrelated. `accepted` acknowledges receipt of the answer; it does not mean timeline publication is complete.
+The external agent researches as the persona and submits the final answer with its `schedule` decision when scheduling is permitted. The answer schema handed to the agent uses the same permission-based selection as built-in answers and omits `schedule` for personas without that permission. The host plans, reviews and executes needed schedule changes, then publishes the answer. For memory-enabled personas, the note keeper subsequently judges retention for related user turns, including related silence, and corrects earlier memory for edits even when unrelated. `accepted` acknowledges receipt of the answer; it does not mean timeline publication is complete.
 
 ## Ask lifecycle
 
