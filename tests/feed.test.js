@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { t as translate } from "../frontend/src/i18n.js";
+import { getLanguage, setLanguage, t as translate } from "../frontend/src/i18n.js";
 
 // The feed now imports the shared dictation transport, which subscribes to SSE.
 globalThis.EventSource = class { close() {} };
@@ -129,6 +129,21 @@ test("search reveals a folded reply and polling preserves a later manual fold", 
   feed.element.querySelectorAll(".thread-toggle")[0].fire("click");
   feed.set([...entries]);
   assert.equal(feed.element.querySelectorAll(".said-row").length, 0);
+});
+
+test("the thread toggle counts one reply in the singular", (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  const previous = getLanguage();
+  setLanguage("en");
+  t.after(() => { delete globalThis.Node; delete globalThis.document; setLanguage(previous); });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  const post = { id: "p", kind: "post", text: "wine", at: "2026-09-13T00:00:00Z" };
+  const reply = (id, minute) => ({ id, kind: "reply", root: "p", text: "Pinot", at: `2026-09-13T00:0${minute}:00Z` });
+  feed.set([post, reply("r1", 1)]);
+  assert.equal(feed.element.querySelectorAll(".thread-toggle")[0].textContent, "▸ 1 reply");
+  feed.set([post, reply("r1", 1), reply("r2", 2)]);
+  assert.equal(feed.element.querySelectorAll(".thread-toggle")[0].textContent, "▸ 2 replies");
 });
 
 // A URL dropped into a reply is read the same way as one in a post: it must

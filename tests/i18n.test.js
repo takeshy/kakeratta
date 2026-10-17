@@ -8,6 +8,7 @@ test("Japanese and English can be selected", () => {
   assert.equal(getLanguage(), "en");
   assert.equal(t("設定"), "Settings");
   assert.equal(t("起きた回数 {0}", 3), "Woken 3 times");
+  assert.equal(t("起きた回数 1"), "Woken once");
 
   setLanguage("ja");
   assert.equal(getLanguage(), "ja");

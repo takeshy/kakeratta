@@ -72,7 +72,7 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
       node.append(el("p", { class: "tools" }, `${t("道具")}: `,
         uniqueTools(row.tools).flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));
     }
-    node.append(el("p", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }));
+    node.append(el("p", { class: "hint", text: (row.wakes === 1 ? t("起きた回数 1") : t("起きた回数 {0}", row.wakes || 0)) }));
     const links = [
       onOpenPersona ? el("button", { type: "button", class: "chip ghost", label: "担当の設定", onclick: () => onOpenPersona(row) }) : null,
       onEditPersona ? el("button", { type: "button", class: "chip ghost", label: "修正", onclick: () => onEditPersona(row) }) : null,

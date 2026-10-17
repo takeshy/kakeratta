@@ -106,6 +106,9 @@ test("over the list is the persona as its card shows it, with the same ways to o
  assert.equal(nodes(host).filter(n => n.className === "chip ghost schedule").length, 0, "removed schedules disappear on refresh");
  assert.ok(nodes(host).some(n => n.textContent === translate("停止中")));
  assert.ok(nodes(host).some(n => n.textContent === translate("起きた回数 {0}", 8)));
+ father.wakes = 1;
+ view.redrawCard();
+ assert.ok(nodes(host).some(n => n.textContent === translate("起きた回数 1")), "a single wake is counted in the singular");
 
  // The user has no card.
  await view.show("user", "");

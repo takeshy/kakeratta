@@ -358,7 +358,7 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
         uniqueTools(row.tools).flatMap((name, index) => index ? [" / ", toolLink(name)] : [toolLink(name)])));
     }
     box.append(
-      el("p", { class: "hint", text: t("起きた回数 {0}", row.wakes || 0) }),
+      el("p", { class: "hint", text: (row.wakes === 1 ? t("起きた回数 1") : t("起きた回数 {0}", row.wakes || 0)) }),
       el(
         "div",
         { class: "persona-actions" },

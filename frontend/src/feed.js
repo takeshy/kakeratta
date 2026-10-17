@@ -288,7 +288,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     return el("button", {
       class: "chip ghost thread-toggle",
       "aria-expanded": String(open),
-      text: `${open ? "▾" : "▸"} ${t("返信 {0}件", count)}`,
+      text: `${open ? "▾" : "▸"} ${count === 1 ? t("返信 1件") : t("返信 {0}件", count)}`,
       onclick: () => {
         if (open) {
           expanded.delete(post.id);
