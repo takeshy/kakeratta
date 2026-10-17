@@ -2,7 +2,7 @@
 
 [README](../README.md) · [日本語](technical_ja.md)
 
-Implementation reference: 2026-10-04. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
+Implementation reference: 2026-10-17. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
 
 The English and Japanese editions cover the same implementation, in the same section order. Update both when changing a behavior, limit, example, or source reference.
 

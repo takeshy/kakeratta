@@ -21,12 +21,12 @@ post / reply
  ↓ the image is read once                  (GLM-5.3-Flash)
  ↓ routing           Nemotron Super (or optional Jev) matches it against each persona's routing condition
  ↓ every recipient, in parallel, one turn   (depth from explicit phrases; Super reads, Ultra answers deep requests or AlwaysUltra)
-     read     → field summaries and facts, latest records, older records, timeline search, web search, places, routes
-     answer   → final text and sources, plus whether to remember the post and whether a schedule is needed
+     read     → current facts and latest records, older records, timeline search, web search, places, routes
+     answer   → final text and sources, plus whether a schedule is needed when permitted
      plan     → propose schedule changes; validate structure, ownership, and times in code
      review   → Nemotron Super checks the plan only when it contains schedules
      execute  → stop at the first failed change; publish the answer after successful execution
-     memory   → the note keeper runs separately after publication when the answer asked to remember
+     memory   → the note keeper decides what to retain after publication for related user turns, including silence
  ↓ once a day: the app summarises the day's posts, then every remembering persona checks in reading that summary
  ↓ one structured log line per routing decision and per persona turn; the routing decision is kept per post
 ```
@@ -181,7 +181,7 @@ what code cannot.
   is said outright. The next live run switched to web search after two
   failures.
 
-## 10. Model tiers gave way to research planning and final-answer depth
+## 10. Model tiers gave way to explicit final-answer depth
 
 Personas used to carry a tier. Low ran on Nemotron 3.5 Lightning with notes,
 web search and a remark called directly, because the read-then-workflow
@@ -191,13 +191,13 @@ rule refusing tools on a low persona, and the person writing a persona having
 to guess how hard its posts would be.
 
 Built-in personas normally answer on Super, with recipients running in parallel.
-**Always think deeply** selects Ultra for final answers to ordinary requests too. All built-in research and schedule planning use Super. Research reports its live Web-search allowance each round and removes exhausted or unavailable reads from the schema; Web exhaustion still permits other reads or `finish_read`. Plans with
-schedules or actions pass through model review; plans without either skip it.
-The first Super research call now decides deep and a short research plan from the user's request and required answer quality, alongside the first read. A short "詳しく" reply requests detail about its parent answer; comparison, synthesis or careful verification can also select deep without explicit depth words. Thanks and simple follow-ups stay ordinary. Only final-answer composition uses Ultra for deep or AlwaysUltra. Expanding the normal 10-read/2-search allowance to 20/4 preserves spent counts; later research receives the plan and actual remaining allowance.
+**Always think deeply** selects Ultra for final answers to ordinary requests too. Depth is fixed before the first model call by explicit phrases in the current post, such as "詳しく" or "in detail", or by AlwaysUltra. Models no longer choose depth or write a preliminary research plan. Ordinary turns have 10 reads and 2 Web searches; deep and AlwaysUltra turns have 20 and 4 from the start.
+
+Ordinary turns combine reading and answering on Super. Deep turns with lookup tools use Super for reads and Ultra for the final answer; personas without lookup tools of their own, such as the infographic, keep the combined loop on Ultra. Research reports the remaining Web-search allowance each round and removes exhausted or unavailable reads from the schema. Web exhaustion still permits other reads or a final answer (`finish_read` during split research). Schedule planning stays on Super; only plans containing schedules receive model review.
 
 The former standalone Lightning check judged 15 synthetic replies correctly in 0.67 seconds on average on 2026-09-22; Super also got 15/15 but took 1.30 seconds at about five times the cost. Real use later exposed a false result for a short "詳しく" reply. The separate check has been removed. Each remark still records the final-answer model slot, and the timeline marks Ultra answers.
 
-**Lesson:** depth selection depends on context and required answer quality. Combining it with the first Super research plan removes a classification-only call.
+**Lesson:** depth selection needs a clear contract. Explicit request phrases and AlwaysUltra make the model choice predictable without an extra classification call.
 
 ## 11. Small things that broke real data
 
@@ -256,12 +256,12 @@ over when notes were merged. It still drifted: notes split one thing across
 paths, the index grew into a second memory, and a persona read the index and
 a few notes and missed the rest.
 
-It is now two things, both written by the app. One summary per field the
-skill names, at most 2,000 characters, rewritten whole when a fragment
-changes it; and one line per fragment - a sentence, its tags, and the post to
+The next version had two things, both written by the app. One summary per field the
+skill named, at most 2,000 characters, rewritten whole when a fragment
+changed it; and one line per fragment - a sentence, its tags, and the post to
 go back to: the persona's reply when it replied, the fragment when it did
-not. The keeper is a single call that hands in the sentence, the tags and the
-summaries that change; it cannot read more and cannot choose a path. A
+not. The keeper used a single call to hand in the sentence, the tags and the
+summaries that changed; it could not read more or choose a path. A
 record is what a line of the index was, and the lifetimes of lesson 12
 moved onto it: `expires` for a fragment that served its moment ("where for
 lunch today?"), `review` for something the user said whose lifetime is
@@ -275,13 +275,14 @@ fold its own old notes keeps what it wrote; a person has to look.
 
 That form did not last either. A summary rewritten whole with every
 fragment loses a detail at a time, unnoticed, and a deleted fragment had to be
-taken out of prose by a model. Fields are now facts: one line each, with the
+taken out of prose by a model. The next version represented fields as facts: one line each, with the
 fragment it rests on, changed by `add`, `update`, `invalidate` and `merge`, so
-nothing goes except when the keeper says so, and the past keeps what was
-replaced. Deleting a fragment takes out the facts resting on it alone, by
-code. The prose stayed - the user wanted the persona's own reading of a field
-- but it is rewritten once a day, at the persona's check-in, from what
+nothing goes except when the keeper says so, with later versions deleting invalidated facts rather than keeping them as history. Deleting a fragment takes out the facts resting on it alone, by
+code. The prose initially stayed - the user wanted the persona's own reading of a field
+- but it was rewritten at the persona's check-in, from what
 changed among the facts, rather than with every fragment.
+
+On October 17, the separate prose summary was removed. Each persona now keeps one `Memo.md` containing current facts and kakera records. Facts have a 4,000-character total budget (200 per fact), including grounded tendencies, conditions, exceptions and useful changes over time. Ordinary turns append a short tagged record; at check-in, the daily pass folds new records into facts and deletes folded records. Edits and record reviews keep the fuller correction path. This avoids repeatedly condensing the same prose while preserving the posts behind each fact.
 
 ## 14. What made any of this findable
 

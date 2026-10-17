@@ -95,7 +95,7 @@ Kakeratta's MCP server exposes the following tools for external agents. In Herme
 | `get_thread` | Retrieve conversation threads |
 | `search_timeline` | Search the whole timeline by words and meaning and/or by period |
 | `list_schedules` | List every persona's schedules (read-only) |
-| `list_notes` / `read_note` | List and read a persona's memory files (per field a summary and facts, and monthly kakera records) |
+| `list_notes` / `read_note` | List and read a persona's memory files (one Memo.md per persona containing current facts and kakera records) |
 | `list_asks` | Check pending and claimed asks, and direct requests when enabled (includes distributed version metadata) |
 | `claim_ask` | Claim an ask exclusively and retrieve context (persona, instructions, capabilities, answer schema, read-only tools) |
 | `read_for_ask` | Look up additional context while answering (`records`, and read-only tools such as `timeline_search`) |
@@ -133,9 +133,9 @@ The `context` from `claim_ask` holds what the built-in model reads when it answe
 | `wake` / `wakeInstructions` | Why it woke (`post`, `daily`, `schedule`, `review-reply`, …) and that wake's brief (such as the check-in brief) |
 | `trigger` | The entry to respond to |
 | `thread` | The whole thread containing it, oldest first |
-| `memory` | The persona's memory: per field, its summary and the facts that hold now (`- [f_id] fact`), then its latest kakera records (`- time [entry id] one sentence #tag`) |
+| `memory` | The persona's memory: the facts that hold now (`- [f_id] fact`), then its latest kakera records (`- time [entry id] one sentence #tag`) |
 | `schedules` | The schedules the persona has placed |
-| `answerSchema` | The JSON Schema of the answer (`{text, sources}`) |
+| `answerSchema` | JSON Schema for the answer, including `text`, `sources`, and `unrelated`; `schedule` is included only when scheduling is permitted |
 | `tools` | The persona's read-only lookups through `read_for_ask` (including `records` and `timeline_search`) |
 | `limits` | Read and web-search limits |
 | `rules` | How the persona answers this turn; the agent is not asked to keep an answer short |

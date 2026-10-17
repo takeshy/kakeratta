@@ -99,7 +99,6 @@ Verification: [sona_test.go](../../internal/persona/sona_test.go) exercises a sc
 - [people.go](../../internal/persona/people.go)
 - [personas.go](../../internal/server/personas.go)
 - [persona_builder.go](../../internal/server/persona_builder.go)
-- [types.go](../../internal/persona/types.go)
 - [skill_test.go](../../internal/persona/skill_test.go)
 - [persona_builder_test.go](../../internal/server/persona_builder_test.go): basic-information persistence and editing without posts or notes
 - [people_test.go](../../internal/persona/people_test.go): basic information in turn instructions, and a person's persona not introduced as the person

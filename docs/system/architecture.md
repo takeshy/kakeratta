@@ -3,7 +3,7 @@ type: "Architecture"
 title: "Architecture and runtime"
 description: "System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown."
 tags: ["architecture", "workspace", "runtime", "queue", "claim", "instances"]
-updated: "2026-10-16"
+updated: "2026-10-17"
 ---
 
 System boundaries, dependency assembly, background workers, Pub/Sub push dispatch, multiple instances, and shutdown.
@@ -101,7 +101,7 @@ Persona work and background enrichment are kept in the workspace as `store.React
 
 Routing waits for an initial location lookup for posts with coordinates and no label before preparing recipients or direct external-agent requests. Successful enrichment is saved before these paths reload the post. A failed lookup queues an idempotent location job and lets routing proceed with coordinates. Location jobs use the same claim renewal and shutdown handling, but preserve their attempt counter when deferred; failed lookups wait 30 seconds and stop after three background attempts. Completed location writes emit an entry event and request reindexing.
 
-Personas receiving the same post run concurrently. A persona's note keeper, a person persona's calendar reconciliation, and an external agent's reads of one ask take named locks from `Workspace.Lock`: in-process for files, and documents under `users/{key}/locks` with a 30-second renewable lease for Firestore. `Lock` returns a context to work under, which ends if the lock is lost - another process holds it, or renewing has failed for most of the lease - so the keeper, the calendar writes, and the ask read stop rather than run beside the new holder. Writes to field summaries and records (`writeFacts`, `appendRecord`, `eachRecord`, `dropRecords`, `MigrateMemory`) check that context first. The lock has a watchdog of its own too: it ends the context if no renewal has succeeded for two thirds of the lease, whether renewals fail or hang, and each renewal is limited to a third of it. Routing records change through `UpdateRouting` transactions.
+Personas receiving the same post run concurrently. A persona's note keeper, a person persona's calendar reconciliation, and an external agent's reads of one ask take named locks from `Workspace.Lock`: in-process for files, and documents under `users/{key}/locks` with a 30-second renewable lease for Firestore. `Lock` returns a context to work under, which ends if the lock is lost - another process holds it, or renewing has failed for most of the lease - so the keeper, the calendar writes, and the ask read stop rather than run beside the new holder. Writes to current facts and records (`saveMemo`, `appendRecord`, `eachRecord`, `dropRecords`) check that context first. The lock has a watchdog of its own too: it ends the context if no renewal has succeeded for two thirds of the lease, whether renewals fail or hang, and each renewal is limited to a third of it. Routing records change through `UpdateRouting` transactions.
 
 ## Times and wakes
 

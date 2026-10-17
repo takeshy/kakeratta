@@ -528,7 +528,7 @@ The agent must support the new MCP tools. For Hermes, see [Hermes Agent setup](h
 <workspace>/timeline/YYYY/MM/DD.json posts and remarks by date
 <workspace>/favorites/<entry-id>.json saved entry IDs and favorite timestamps
 <workspace>/blobs/<id>.png         captures
-<workspace>/memory/<id>/           each persona's memory (summary, facts and kakera records, Memo.md)
+<workspace>/memory/<id>/           each persona's memory (current facts and kakera records, Memo.md)
 <workspace>/memory/<id>.meta.json  how many times it woke, and so on
 <workspace>/routing.json           the router's call per post: who was chosen, who was passed over and why
 <workspace>/skills/<id>/skill.json added personas
