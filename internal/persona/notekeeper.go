@@ -326,6 +326,13 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 		if _, err := r.dropFactSourcesHeld(ctx, k.skill.ID, forgotten, k.here); err != nil {
 			return written, err
 		}
+		// The post that asked offers the user its answers as buttons; an
+		// answer in words settles it as well.
+		if asked != "" {
+			r.markReview(asked, "", timeline.ReviewAsked)
+		} else if strings.Contains(k.wake, reviewReplyInstructions) {
+			r.markReview(k.trigger.ReplyTo, timeline.ReviewAsked, timeline.ReviewReplied)
+		}
 	}
 	return written, nil
 }

@@ -316,6 +316,30 @@ func (s *Server) markDone(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, entry)
 }
 
+// answerReview settles what a persona's check-in post asked about records, as
+// the user chose with the buttons under it: forget, later or keep. The app
+// applies it without waking the persona.
+func (s *Server) answerReview(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Choice string `json:"choice"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		fail(w, http.StatusBadRequest, "答えを選んでください")
+		return
+	}
+	entry, err := s.runner.AnswerReview(r.Context(), r.PathValue("id"), body.Choice)
+	if errors.Is(err, persona.ErrNoReview) {
+		fail(w, http.StatusConflict, err.Error())
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	s.publishEvent("entry", entry)
+	writeJSON(w, http.StatusOK, entry)
+}
+
 // deleteEntry removes an entry. A post takes the conversation under it along
 // - the remarks and the user's own lines - since a reply without its post is
 // nothing, and a note that cited such a reply would otherwise keep pointing at

@@ -60,6 +60,13 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       else entry.doneAt ||= new Date().toISOString();
       return json({ ...entry });
     }
+    const review = path.match(/^\/api\/entry\/([^/]+)\/review$/);
+    if (review && method === "POST") {
+      const entry = favoriteEntries().find(entry => entry.id === decodeURIComponent(review[1]));
+      if (entry?.review !== "asked") return json({ error: "この投稿は記録の見直しを聞いていません" }, 409);
+      entry.review = body?.choice;
+      return json({ ...entry });
+    }
     if (path === "/api/social/bluesky/connection" && method === "GET") return json(connection);
     if (path === "/api/social/bluesky/connection" && method === "DELETE") {
       connection = { available: true, connected: false };

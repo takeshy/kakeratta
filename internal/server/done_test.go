@@ -60,3 +60,32 @@ func TestMarkScheduledEntryDone(t *testing.T) {
 		}
 	}
 }
+
+// The buttons under a check-in post that asked about records answer it once;
+// the persona reads the answer with the thread.
+func TestAReviewQuestionIsAnsweredByItsButtons(t *testing.T) {
+	server, workspace := app(t)
+	ask := timeline.Entry{ID: "ask", Kind: timeline.KindPost, Speaker: "gourmet", Root: "ask", Text: "そろそろ忘れていい？", At: time.Now(), Review: timeline.ReviewAsked}
+	if err := workspace.Append(ask); err != nil {
+		t.Fatal(err)
+	}
+	answer := func(body string) (int, timeline.Entry) {
+		out := httptest.NewRecorder()
+		request := httptest.NewRequest("POST", "/api/entry/ask/review", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		server.ServeHTTP(out, request)
+		var entry timeline.Entry
+		_ = json.Unmarshal(out.Body.Bytes(), &entry)
+		return out.Code, entry
+	}
+	if code, _ := answer(`{"choice":"maybe"}`); code != 400 {
+		t.Fatalf("an unknown answer: %d", code)
+	}
+	code, entry := answer(`{"choice":"keep"}`)
+	if code != 200 || entry.Review != timeline.ReviewKeep || !strings.Contains(entry.Render(nil, time.UTC), "忘れないで") {
+		t.Fatalf("keep: %d %+v", code, entry)
+	}
+	if code, _ := answer(`{"choice":"forget"}`); code != 409 {
+		t.Fatalf("a second answer: %d", code)
+	}
+}

@@ -33,6 +33,7 @@ const reviewInstructions = `
 ## Review（見直し時期が来た記録）
 見直しの日が過ぎたかけらの記録があります。どれかは対象発言に入っています（古い順、最大3件）。本体は消しません。
 そのうち1件を選び、ユーザーに短く一言だけ聞いてください（「そろそろ忘れていい？ 草加の店の話」程度）。複数を一度に聞きません。
+投稿の下には本体が「はい」「もうちょっと覚えてて」「忘れないで」のボタンを出すので、選択肢を文で並べる必要はありません。
 メモ係は、返事のあとに、聞いた記録の review を1週間先の日付に書き直してください。書き直さないと毎日同じことを聞くことになります。
 聞くことがない・まだ判断できないなら Answer の text を空にし、review だけ先送りしても構いません。
 発言するならユーザーの記録やメモの言語に合わせてください。システム通知の言語には合わせないでください。
@@ -109,6 +110,78 @@ func (r *Runner) handedRecords(k keeperTurn) []record {
 		return r.reviewsDue(k.skill.ID, time.Now(), k.here)
 	}
 	return nil
+}
+
+// markReview moves a check-in post's review state from one to the next; a
+// post in any other state is left alone. A failure costs only the buttons.
+func (r *Runner) markReview(entryID, from, to string) {
+	entry, ok := r.store.Entry(entryID)
+	if !ok || entry.Deleted || entry.Review != from {
+		return
+	}
+	entry.Review = to
+	if err := r.store.UpdateEntry(entry); err == nil {
+		r.emit("entry", entry)
+	}
+}
+
+// ErrNoReview is a post that is not waiting for an answer about records.
+var ErrNoReview = fmt.Errorf("この投稿は記録の見直しを聞いていません")
+
+// AnswerReview settles what a check-in post asked about, as the user chose
+// with its buttons, without a model: forget deletes the records, and the facts
+// that rested on their kakera alone; later puts the review off by the span it
+// was given, a week at least; keep clears it, so it is not asked again. The
+// post records the answer.
+func (r *Runner) AnswerReview(ctx context.Context, entryID, choice string) (timeline.Entry, error) {
+	entry, ok := r.store.Entry(entryID)
+	if !ok || entry.Deleted || entry.Review != timeline.ReviewAsked {
+		return entry, ErrNoReview
+	}
+	if choice != timeline.ReviewForget && choice != timeline.ReviewLater && choice != timeline.ReviewKeep {
+		return entry, fmt.Errorf("答えは forget・later・keep のどれかです")
+	}
+	held, release, err := r.lockKeeper(ctx, entry.Speaker)
+	if err != nil {
+		return entry, err
+	}
+	defer release()
+	_, settings := r.clientOf()
+	zone := settings.Location()
+	now := time.Now()
+	today := localDay(now, zone)
+	forgotten := map[string]bool{}
+	err = r.eachRecord(held, entry.Speaker, zone, func(rec *record) (bool, bool) {
+		if rec.Asked != entry.ID {
+			return true, false
+		}
+		rec.Asked = ""
+		switch choice {
+		case timeline.ReviewForget:
+			forgotten[r.kakeraOf(*rec)] = true
+			return false, true
+		case timeline.ReviewLater:
+			days := rec.Review.Days
+			if days < 7 {
+				days = 7
+			}
+			rec.Review = recordDate{Day: today.AddDate(0, 0, days), Days: days}
+		default:
+			rec.Review = recordDate{}
+		}
+		return true, true
+	})
+	if err != nil {
+		return entry, err
+	}
+	if _, err := r.dropFactSourcesHeld(held, entry.Speaker, forgotten, zone); err != nil {
+		return entry, err
+	}
+	entry.Review = choice
+	if err := r.store.UpdateEntry(entry); err != nil {
+		return entry, err
+	}
+	return entry, nil
 }
 
 // expireRecords deletes the records whose expires day has come, for every

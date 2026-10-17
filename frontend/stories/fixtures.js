@@ -352,6 +352,18 @@ export function reminders() {
   ];
 }
 
+// tabe's check-ins asking whether records can be forgotten: one waiting for
+// the buttons, one already answered.
+export function reviewQuestions() {
+  const ja = getLanguage() === "ja";
+  return [
+    post("v1", minutes(600), { speaker: "gourmet", root: "v1", review: "keep",
+      text: ja ? "そろそろ忘れていい？ 神保町の担々麺の話" : "Can I forget this now? The tantanmen in Jimbocho." }),
+    post("v2", minutes(20), { speaker: "gourmet", root: "v2", review: "asked",
+      text: ja ? "そろそろ忘れていい？ 草加の喫茶店に行きたいって話" : "Can I forget this now? You wanted to try a café in Soka." }),
+  ];
+}
+
 // The month's summary the app posts, in the reader's language.
 export function monthSummary() {
   const ja = getLanguage() === "ja";

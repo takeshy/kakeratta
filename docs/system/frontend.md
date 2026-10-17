@@ -128,6 +128,10 @@ The search panel combines query, favorites, and dates on every page and when swi
 
 A persona post or remark carrying `scheduled` shows a **済みにする / Mark done** chip in its header, built by `drawDone` in [feed.js](../../frontend/src/feed.js). It shows **✓ 済み / ✓ Done** with `aria-pressed="true"` once `doneAt` is set, and the entry's body is dimmed. Pressing it calls `api.setDone`, which uses PUT or DELETE on `/api/entry/{id}/done`; the returned entry goes through `onEntryChange` (or the feed's own upsert), and other devices receive it as an `entry` event. The chip is disabled offline, for pending entries, and while its own request is in flight; failures appear as a toast and leave the mark unchanged. Storybook [Timeline.stories.js](../../frontend/stories/Timeline.stories.js) **予定の投稿を済みにする** shows an open and a done reminder, and its fixture API toggles the mark. Verification: [feed.test.js](../../tests/feed.test.js).
 
+## Answering a review question
+
+A persona's check-in post marked `review: asked` - it asked whether records can be forgotten - shows **はい / Yes**, **もうちょっと覚えてて / Keep it a while longer** and **忘れないで / Don't forget it** under its text (`drawReview` in [feed.js](../../frontend/src/feed.js)). A press calls `api.answerReview` (`POST /api/entry/{id}/review`), and the returned entry replaces the buttons with what was chosen (**✓ 忘れました**, **✓ もう少し覚えておきます**, **✓ 忘れずに覚えておきます**). A post answered in words (`replied`) shows neither. Storybook: Timeline → 忘れていい？に答える.
+
 ## Mobile entry headers
 
 On screens up to 600px wide, post and reply headers reserve 36px on the right for their delete button. The button stays at the top right when names, timestamps, or other controls wrap, rather than moving to a second row. Both header types have a minimum height of 36px ([styles.css](../../frontend/src/styles.css)).

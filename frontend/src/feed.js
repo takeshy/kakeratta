@@ -388,6 +388,8 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     }
     if (postEditor?.id === entry.id) node.append(postEditor.box);
     else if (entry.text) node.append(drawBody(entry));
+    const review = drawReview(entry);
+    if (review) node.append(review);
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
     }
@@ -543,6 +545,33 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     });
   }
 
+  // A check-in post that asked whether records can be forgotten offers the
+  // three answers as buttons; once answered it says which.
+  const reviewSaving = new Set();
+  const REVIEW_CHOICES = [["forget", "はい"], ["later", "もうちょっと覚えてて"], ["keep", "忘れないで"]];
+  const REVIEW_DONE = { forget: "✓ 忘れました", later: "✓ もう少し覚えておきます", keep: "✓ 忘れずに覚えておきます" };
+  function drawReview(entry) {
+    if (entry.deleted || !entry.review) return null;
+    if (REVIEW_DONE[entry.review]) return el("p", { class: "review-answer", label: REVIEW_DONE[entry.review] });
+    if (entry.review !== "asked") return null;
+    const busy = offline() || reviewSaving.has(entry.id);
+    return el("div", { class: "review-choices", role: "group", "aria-label": t("記録を忘れてよいかの答え") },
+      ...REVIEW_CHOICES.map(([choice, label]) => el("button", {
+        class: "chip review-choice", type: "button", label, disabled: busy,
+        onclick: async () => {
+          if (offline() || reviewSaving.has(entry.id)) return;
+          reviewSaving.add(entry.id);
+          draw();
+          try {
+            const updated = await api.answerReview(entry.id, choice);
+            if (onEntryChange) onEntryChange(updated);
+            else upsert(updated);
+          } catch (error) { toast(t(error.message)); }
+          finally { reviewSaving.delete(entry.id); draw(); }
+        },
+      })));
+  }
+
   function drawModel(entry) {
     if (entry.model === "agent") return el("span", { class: "model-badge", label: "外部エージェント", i18nTitle: entry.kind === "post" ? "外部エージェントが書いた投稿です" : "外部エージェントが書いた回答です" });
     if (entry.model !== "ultra") return null;
@@ -575,6 +604,8 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       ),
       drawBody(entry) || el("p", { class: "said", text: entry.text }),
     );
+    const review = drawReview(entry);
+    if (review) node.append(review);
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
     }

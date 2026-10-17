@@ -7,7 +7,7 @@ import { createSpeaker } from "../src/speaker.js";
 import { getLanguage } from "../src/i18n.js";
 import { serve } from "./api.js";
 import { feed, panel, sheet } from "./frame.js";
-import { conditionDraft, keywordDraft, monthSummary, reminders, person, personRouting, personTimeline, personWords, personas, replyDraft, replyPreview, routing, settings, timeline, words } from "./fixtures.js";
+import { conditionDraft, keywordDraft, monthSummary, reminders, reviewQuestions, person, personRouting, personTimeline, personWords, personas, replyDraft, replyPreview, routing, settings, timeline, words } from "./fixtures.js";
 
 export default { title: "Timeline" };
 
@@ -255,6 +255,7 @@ export const MonthSummary = { name: "今月のまとめ", render: () => show(mon
 
 // A scheduled reminder can be marked done, and the mark taken off again.
 export const ScheduledDone = { name: "予定の投稿を済みにする", render: () => show(reminders()) };
+export const ReviewQuestion = { name: "忘れていい？に答える", render: () => show(reviewQuestions()) };
 
 export const Filters = { name: "お気に入り・期間で絞り込む", render: () => {
   const entries = timeline().answered;

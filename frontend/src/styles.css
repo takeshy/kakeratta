@@ -994,6 +994,8 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 
 .favorite[aria-pressed="true"] { color: var(--accent); }
 .done-mark[aria-pressed="true"] { color: var(--accent); }
+.review-choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; }
+.review-answer { margin: 4px 0 0; color: var(--muted); font-size: 0.875rem; }
 /* A done reminder stays readable but steps back. */
 .post.done > .said, .said-row.done > .said { opacity: .6; }
 .favorite-item { margin-bottom: 18px; }

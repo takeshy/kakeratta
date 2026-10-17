@@ -1396,6 +1396,26 @@ test("scheduled persona posts can be marked done and undone", async (t) => {
   assert.deepEqual(calls, [["reminder", true], ["reminder", false]]);
 });
 
+// A check-in post that asked whether a record can be forgotten offers the
+// three answers as buttons; once answered it says which, and a post answered
+// in words offers nothing.
+test("a review question offers its answers as buttons", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const asking = { id: "ask", kind: "post", speaker: "gourmet", root: "ask", text: "そろそろ忘れていい？ 草加の店の話", at: "2026-10-04T00:00:00Z", review: "asked" };
+  const calls = [];
+  t.mock.method(api, "answerReview", async (id, choice) => { calls.push([id, choice]); return { ...asking, review: choice }; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false });
+  feed.set([asking, { id: "replied", kind: "post", speaker: "gourmet", root: "replied", text: "忘れていい？", at: "2026-10-04T00:01:00Z", review: "replied" }]);
+  const buttons = feed.element.querySelectorAll(".review-choice");
+  assert.deepEqual(buttons.map(node => node.textContent), ["はい", "もうちょっと覚えてて", "忘れないで"].map(translate));
+  await buttons[1].listeners.click[0]();
+  assert.deepEqual(calls, [["ask", "later"]]);
+  assert.equal(feed.element.querySelectorAll(".review-choice").length, 0, "the answered post offers no buttons");
+  assert.deepEqual(feed.element.querySelectorAll(".review-answer").map(node => node.textContent), [translate("✓ もう少し覚えておきます")]);
+});
+
 test("post places show a label without a map link, credits, and coordinate fallback", (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };

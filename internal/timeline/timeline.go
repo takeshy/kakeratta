@@ -86,6 +86,15 @@ func (m *Media) Ready() bool {
 }
 
 // Entry is one line of the timeline.
+// The states of a check-in post that asked about records (Entry.Review).
+const (
+	ReviewAsked   = "asked"
+	ReviewForget  = "forget"
+	ReviewLater   = "later"
+	ReviewKeep    = "keep"
+	ReviewReplied = "replied"
+)
+
 type Entry struct {
 	RequestHash string `json:"requestHash,omitempty"`
 	ID          string `json:"id"`
@@ -132,6 +141,12 @@ type Entry struct {
 	// do, and DoneAt is when the user said it was done.
 	Scheduled bool       `json:"scheduled,omitempty"`
 	DoneAt    *time.Time `json:"doneAt,omitempty"`
+
+	// Review marks a persona's check-in post that asked whether records can
+	// be forgotten: ReviewAsked while the answer is awaited, then the answer -
+	// one of the buttons under it, or ReviewReplied when the user answered in
+	// words.
+	Review string `json:"review,omitempty"`
 
 	// Deleted is a transient browser removal notification; stores remove records.
 	Deleted bool `json:"deleted,omitempty"`
@@ -256,6 +271,14 @@ func (e Entry) Render(names map[string]string, in *time.Location) string {
 	}
 	if e.DoneAt != nil {
 		head += fmt.Sprintf("（ユーザーが %s に済みの印をつけた）", e.DoneAt.In(in).Format("2006-01-02 15:04 MST"))
+	}
+	switch e.Review {
+	case ReviewForget:
+		head += "（ユーザーがボタンで「はい」と答え、聞いた記録は忘れた）"
+	case ReviewLater:
+		head += "（ユーザーがボタンで「もうちょっと覚えてて」と答え、見直しを先に延ばした）"
+	case ReviewKeep:
+		head += "（ユーザーがボタンで「忘れないで」と答え、見直しを外した）"
 	}
 	body := []string{head}
 	if text := strings.TrimSpace(e.Text); text != "" {

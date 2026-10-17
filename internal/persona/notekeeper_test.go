@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -399,6 +400,9 @@ func TestAReviewIsAskedAndSettledByTheReply(t *testing.T) {
 	if len(asked) != 1 || asked[0].Asked != said[0].ID || asked[0].Review.Day.Format("2006-01-02") != week {
 		t.Fatalf("the asked record = %+v", asked)
 	}
+	if post, _ := s.Entry(said[0].ID); post.Review != timeline.ReviewAsked {
+		t.Fatalf("the post that asked does not offer the answers: %+v", post)
+	}
 
 	reply := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindReply, Speaker: timeline.User, Root: said[0].Root, ReplyTo: said[0].ID, Text: "もういいよ", At: time.Now()}
 	if err := s.Append(reply); err != nil {
@@ -407,6 +411,73 @@ func TestAReviewIsAskedAndSettledByTheReply(t *testing.T) {
 	r.react(reply.ID)
 	if left := r.recordsByID("gourmet", map[string]bool{"e_due": true}, zone); len(left) != 0 {
 		t.Fatalf("the record the user let go is still kept: %+v", left)
+	}
+	if post, _ := s.Entry(said[0].ID); post.Review != timeline.ReviewReplied {
+		t.Fatalf("an answer in words did not settle the buttons: %+v", post)
+	}
+}
+
+// The buttons under a post that asked settle its records without a model:
+// forget deletes them and the facts resting on them alone, later puts the
+// review off by its span (a week at least), keep clears it. A post not asking
+// takes no answer.
+func TestAReviewIsSettledByItsButtons(t *testing.T) {
+	for _, choice := range []string{timeline.ReviewForget, timeline.ReviewLater, timeline.ReviewKeep} {
+		t.Run(choice, func(t *testing.T) {
+			r, s, f := setup(t, answering, "gourmet")
+			zone := s.Settings().Location()
+			kakera := post(t, s, "草加の店に行きたい")
+			ask := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: "gourmet", Text: "そろそろ忘れていい？ 草加の店の話", At: time.Now(), Review: timeline.ReviewAsked}
+			ask.Root = ask.ID
+			if err := s.Append(ask); err != nil {
+				t.Fatal(err)
+			}
+			today := localDay(time.Now(), zone)
+			m := memo{
+				Facts: []fact{{ID: "f_shop", Text: "草加の店に行きたい", From: []string{kakera.ID}}},
+				Records: []record{
+					{At: kakera.At, ID: kakera.ID, Summary: "草加の店に行きたい", Review: recordDate{Day: today.AddDate(0, 0, 7), Days: 21}, Asked: ask.ID},
+					{At: kakera.At, ID: "e_other", Summary: "別の話", Review: recordDate{Day: today.AddDate(0, 0, 3), Days: 3}},
+				},
+			}
+			if err := s.WriteNote("gourmet", MemoPath, memoText(m, zone)); err != nil {
+				t.Fatal(err)
+			}
+			got, err := r.AnswerReview(context.Background(), ask.ID, choice)
+			if err != nil || got.Review != choice {
+				t.Fatalf("answer = %+v, %v", got, err)
+			}
+			if stored, _ := s.Entry(ask.ID); stored.Review != choice {
+				t.Fatalf("the post does not keep the answer: %+v", stored)
+			}
+			after := r.loadMemo("gourmet", zone)
+			var asked *record
+			for i := range after.Records {
+				if after.Records[i].ID == kakera.ID {
+					asked = &after.Records[i]
+				}
+			}
+			switch choice {
+			case timeline.ReviewForget:
+				if asked != nil || len(after.Facts) != 0 || len(after.Records) != 1 {
+					t.Fatalf("forget kept %+v", after)
+				}
+			case timeline.ReviewLater:
+				if asked == nil || asked.Asked != "" || !asked.Review.Day.Equal(today.AddDate(0, 0, 21)) || len(after.Facts) != 1 {
+					t.Fatalf("later = %+v", asked)
+				}
+			case timeline.ReviewKeep:
+				if asked == nil || asked.Asked != "" || asked.Review.set() {
+					t.Fatalf("keep = %+v", asked)
+				}
+			}
+			if len(f.keeps) != 0 {
+				t.Fatalf("a model was asked: %d", len(f.keeps))
+			}
+			if _, err := r.AnswerReview(context.Background(), ask.ID, choice); !errors.Is(err, ErrNoReview) {
+				t.Fatalf("a second answer = %v", err)
+			}
+		})
 	}
 }
 
