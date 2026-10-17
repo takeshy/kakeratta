@@ -50,7 +50,8 @@ test("each persona chooses its planner, and Hermes is not a persona", async t =>
   await view.load();
   let nodes = walk(view.element);
   assert.ok(!nodes.some(n => n.textContent === "Hermes"));
-  assert.ok(!nodes.some(n => n.textContent === translate("外部エージェント")), "no badge while planned in-process");
+  // The card carries only the switch: no badge or explanation beside it.
+  assert.ok(!nodes.some(n => n.textContent === translate("外部エージェント")), "no badge on the card");
   const [prefer] = preferBoxes(view.element);
   assert.ok(prefer);
   assert.ok(!prefer.checked);
@@ -62,9 +63,9 @@ test("each persona chooses its planner, and Hermes is not a persona", async t =>
   assert.equal(walk(view.element).find(n => n["data-id"] === "gourmet"), card);
   assert.equal(view.element.scrollTop, 380);
   assert.deepEqual(chosen, [["gourmet", "external"]]);
+  assert.equal(prefer.checked, true, "the switch shows the saved preference");
   nodes = walk(view.element);
-  assert.ok(nodes.some(n => n.textContent === translate("外部エージェント")));
-  assert.ok(nodes.some(n => n.textContent === translate("外部エージェントが文脈を読んで調べ、回答を書きます。記憶・予定はアプリが決めます。時間内に取得・返却されなければ内蔵モデルが代わりに答えます。")));
+  assert.ok(!nodes.some(n => n.textContent === translate("外部エージェント")), "still no badge once preferred");
   document.querySelector = () => new Element("div");
   t.mock.method(globalThis, "setTimeout", () => 0);
   api.setPlanner.mock.mockImplementation(async () => { throw Error("offline"); });
