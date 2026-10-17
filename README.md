@@ -9,8 +9,9 @@ timeline that brings it back to you. Toss in fragments of your day as text,
 photos, URLs or speech. Personas, one for each person or interest you care
 about, remember what matters to them and speak up when it matters.
 
-- **A separate memory for each persona.** Each person or interest has its
-  own memory. Posts reach person personas through name and keyword matching.
+- **A separate memory for each persona.** Each person or interest keeps its
+  own memory, so none is diluted by the others. Person personas are reached
+  by name and keyword matching, not by an LLM's guess.
 - **Silence is the default.** A persona replies only when it has something
   worth saying. A quiet timeline means the app is working.
 - **Memory you can trace and review.** Facts link back to your posts.
