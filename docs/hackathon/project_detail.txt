@@ -54,7 +54,7 @@ A persona that receives a post decides whether to reply, use a tool, schedule a 
 
 ### How memory works
 
-Each persona keeps structured facts, summaries, and chronological records of related fragments. Together, these give it both a long-term understanding of what matters to you and the context of recent activity.
+Each persona keeps grounded facts and chronological records of related fragments. Facts include preferences, conditions, exceptions, unfinished plans, and useful changes over time, with links to the original posts. Together with recent records, they give the persona context for understanding what matters to you.
 
 - **Daily check-in:** Personas review their memories and recent activity, speaking only when something is worth bringing up.
 - **Monthly look-back:** Person personas can notice relationships that have gone quiet.
@@ -99,7 +99,7 @@ Selected personas run in parallel, while replies within each conversation remain
 
 **The AI writing an answer is never asked to produce schedules and memory in the same breath.** Super handles research and ordinary answers; deep requests and personas set to always use Ultra use it only for final composition. Planning, validation, execution, and memory remain separate.
 
-An ordinary memory update uses one call to decide whether to keep a short record, using the conversation and existing tags without loading facts or summaries. Each persona keeps one memory file; if a distinct topic builds up, it can suggest creating another persona instead of splitting that file.
+An ordinary memory update uses one call to decide whether to keep a short record, using the conversation and existing tags without loading existing facts or older records. Each persona keeps one memory file; if a distinct topic builds up, it can suggest creating another persona instead of splitting that file.
 
 Personas without scheduling or memory skip those phases. Connected MCP tools are read-only, and schedule changes are validated by kakeratta. When an external agent answers for a persona, it handles only research and answering; the remaining phases stay with kakeratta.
 
@@ -139,7 +139,7 @@ In my early implementation, asking for an answer, notes, and schedules together 
 
 I split each turn into phases: the persona writes the answer, while schedules and memory are planned, checked, and saved separately. Code checks permissions and whether the schedule plan supports the answer's promises. A memory failure can be retried after the answer has reached the user.
 
-I also learned to give each call a smaller job. The memory keeper appends a short record without rereading facts or summaries; consolidation waits until check-in. The Hermes worker handles request intake and submission in code, leaving the model to research and answer. Adding review calls was not always helpful: in my direct-request experiments, review-and-retry loops often added cost without improving the result.
+I also learned to give each call a smaller job. The memory keeper appends a short record without rereading facts or older records; consolidation waits until check-in. The Hermes worker handles request intake and submission in code, leaving the model to research and answer. Adding review calls was not always helpful: in my direct-request experiments, review-and-retry loops often added cost without improving the result.
 
 I now watch real posts, failures, and usage together. I use Ultra for persona drafting and deep final answers, and test whether simpler tasks can stay on Super. Users can inspect routing decisions and correct memories or replies when the system gets them wrong. For this app, ease of use depends on those recovery paths as much as on the first answer.
 

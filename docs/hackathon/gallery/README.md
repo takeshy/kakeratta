@@ -38,7 +38,8 @@ Image 14 uses a curated English travel example rendered by the application’s a
 `infographic-example.html`. It is illustrative content, not a captured production
 AI response.
 CSS crops and scales those images without changing their UI text. The memory
-section headings follow the English display language.
+section headings follow the English display language and show current facts and
+fragment records, with source links and fact correction controls.
 All added titles and explanatory copy are English. No demo-data label appears
 on the gallery images.
 
