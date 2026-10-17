@@ -60,7 +60,7 @@
   {
     "file": "images/08-powered-by-nemotron.png",
     "title": "NVIDIA Nemotron on Nebius Token Factory",
-    "caption": "Super routes each post and handles everyday answers and notes; Super VL plans schedules and runs the daily check-ins. Ultra composes deep answers. A tagged record is added after publication; records are folded into grounded facts at check-in.",
+    "caption": "Nemotron 3 Super handles routing, ordinary research, replies and memory notes. Nemotron 3.5 Super VL handles deep research, always-think-deeply replies, schedule planning and review, memory tidying, check-ins and daily/monthly summaries. Ultra composes final answers for deep requests. A tagged record is added after publication; records are folded into grounded facts at check-in.",
     "sources": []
   },
   {
@@ -107,7 +107,7 @@
   {
     "file": "images/14-turn-notes-into-infographics.png",
     "title": "Turn notes and conversations into infographics",
-    "caption": "Ask the infographic persona to turn existing notes, articles or conversations into visual cards with emoji and Mermaid diagrams. Powered by Nemotron Ultra.",
+    "caption": "Ask the infographic persona to turn existing notes, articles or conversations into visual cards with emoji and Mermaid diagrams. On Nebius, Nemotron 3.5 Super VL handles the default always-think-deeply mode; Ultra handles explicit deep requests.",
     "sources": [
       "infographic-example.html",
       "infographic-example.png",
