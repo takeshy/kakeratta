@@ -97,7 +97,7 @@ The hosted architecture separates the Web API from persona workers. Posts and pe
 
 Selected personas run in parallel, while replies within each conversation remain ordered.
 
-**The AI writing an answer is never asked to produce schedules and memory in the same breath.** Nemotron 3.5 Lightning handles research and ordinary answers. For deep requests, Super VL researches and Ultra composes the final answer; for personas set to always think deeply, Super VL does both. Planning, validation, execution, and memory remain separate.
+**The AI writing an answer is never asked to produce schedules and memory in the same breath.** Nemotron 3 Super handles research and ordinary answers. For deep requests, Super VL researches and Ultra composes the final answer; for personas set to always think deeply, Super VL does both. Planning, validation, execution, and memory remain separate.
 
 An ordinary memory update uses one call to decide whether to keep a short record, using the conversation and existing tags without loading existing facts or older records. Each persona keeps one memory file; if a distinct topic builds up, it can suggest creating another persona instead of splitting that file.
 
@@ -171,7 +171,7 @@ Super cost about 22% as much as Ultra. All three of its mismatches concerned a s
 
 Reasoning turned out to be the largest remaining cost. These runs used Nemotron 3.5 Super VL, which had just replaced Nemotron 3 Super as my default, and most of its output tokens were reasoning: the memory update spent 1,905 reasoning tokens to write a one-line record, and routing's reasoning grew from 1,080 to 3,105 tokens between the two runs. Routing plus one persona's answer and memory update came to about $0.009 (about 1.4 yen). Across production routing calls, Super VL's median reasoning was about 1,430 tokens, against about 70 for Nemotron 3 Super on the same prompt.
 
-So I gave each job the model that suits it. Routing went back to Nemotron 3 Super. Ordinary answers and memory notes moved to Nemotron 3.5 Lightning: in my use it is fast and cheap on simple turns, and when a turn gets hard it slows down sharply but rarely gets it wrong. Super VL now handles only what carries forward or runs once a day: research for deep requests, research and answers for personas set to always think deeply, schedule planning and review, check-ins, memory tidying, and the day's and month's summaries. I have not yet measured what this allocation costs per post.
+So I gave each job the model that suits it. Routing, ordinary answers, and memory notes went back to Nemotron 3 Super. I also tried Nemotron 3.5 Lightning for answers and notes: it is fast and cheap on simple turns, but on one ordinary reply about a family member it ran into the 26,000-token output limit three times in a row, about 80 seconds each, and never produced an answer. Super VL now handles only what carries forward or runs once a day: research for deep requests, research and answers for personas set to always think deeply, schedule planning and review, check-ins, memory tidying, and the day's and month's summaries. I have not yet measured what this allocation costs per post.
 
 ## Accomplishments that we're proud of
 

@@ -73,8 +73,8 @@ func TestRoutingUsesSuper(t *testing.T) {
 	}
 }
 
-// On Nebius with the shipped middle model, ordinary answers run on Lightning,
-// as do notes; reads for a deep request, schedule planning, review, AlwaysUltra
+// On Nebius with the shipped middle model, ordinary answers and notes stay on
+// Super; reads for a deep request, schedule planning, review, AlwaysUltra
 // answers and the daily run on Super VL. OpenRouter shares Super's model name, so it must not
 // be mistaken for Nebius; there, and on another endpoint or with a chosen
 // middle model, every job keeps its slot.
@@ -87,7 +87,7 @@ func TestNebiusAssignsEachJobItsModel(t *testing.T) {
 		want   want
 	}{
 		{"Nebius", llm.New(store.NebiusBaseURL+"/", ""), store.NemotronSuper,
-			want{store.NemotronLightning, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL}},
+			want{store.NemotronSuper, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL}},
 		{"OpenRouter", llm.NewOpenRouter(store.OpenRouterBaseURL, "key"), store.OpenRouterMiddle,
 			want{store.OpenRouterMiddle, store.OpenRouterMiddle, store.OpenRouterMiddle, store.NemotronUltra, store.OpenRouterMiddle}},
 		{"custom endpoint", llm.New("https://custom.example/v1", ""), store.NemotronSuper,
@@ -96,7 +96,7 @@ func TestNebiusAssignsEachJobItsModel(t *testing.T) {
 			want{"custom-middle", "custom-middle", "custom-middle", store.NemotronUltra, "custom-middle"}},
 	} {
 		settings := store.Settings{MiddleModel: tc.middle, HighModel: store.NemotronUltra, LowModel: store.NemotronLightning}
-		got := want{everydayModel(tc.client, settings), deepReadModel(tc.client, settings), reviewModel(tc.client, settings), consideredModel(tc.client, settings),
+		got := want{personaModel(settings), deepReadModel(tc.client, settings), reviewModel(tc.client, settings), consideredModel(tc.client, settings),
 			personaModel(checkInSettings(tc.client, settings))}
 		if got != tc.want {
 			t.Fatalf("%s: models = %+v, want %+v", tc.name, got, tc.want)

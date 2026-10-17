@@ -166,21 +166,21 @@ A deep or AlwaysUltra turn of a persona with lookup tools of its own (any read-o
 
 | Turn | Reads | Final answer | Schedule phase |
 | --- | --- | --- | --- |
-| Ordinary | everyday | everyday | planning |
+| Ordinary | Super | Super | planning |
 | Deep request, with lookup tools | deep read | Ultra | planning |
 | AlwaysUltra, with lookup tools | deep read | considered (one loop when both are Super VL) | planning |
 | Deep request or AlwaysUltra, without lookup tools (infographic) | as the answer | Ultra / considered | planning |
 
 ## Models on Nebius
 
-A turn's jobs go to the model that pays for itself there ([runner.go](../../internal/persona/runner.go)). On a Nebius client at the standard endpoint whose middle model is Super (`nebiusShipped`), Super VL takes the jobs whose mistakes carry forward or that run once a day, and Lightning the ordinary answer and the note. Super VL reasons far longer than Super - in production routing, a median of about 1,430 reasoning tokens against Super's 70 - which is worth paying there but not on every answer. OpenRouter (which shares Super's model name), other endpoints and a chosen middle model keep their slots.
+A turn's jobs go to the model that pays for itself there ([runner.go](../../internal/persona/runner.go)). On a Nebius client at the standard endpoint whose middle model is Super (`nebiusShipped`), Super VL takes the jobs whose mistakes carry forward or that run once a day; the ordinary answer and the note stay on Super. Lightning answered them briefly but, on an ordinary person turn with about 5,900 input tokens, hit the 26,000-token output ceiling three times running at about 80 seconds each and handed in no answer. Super VL reasons far longer than Super - in production routing, a median of about 1,430 reasoning tokens against Super's 70 - which is worth paying there but not on every answer. OpenRouter (which shares Super's model name), other endpoints and a chosen middle model keep their slots.
 
 | Job | Function | Nebius, shipped middle | Otherwise |
 | --- | --- | --- | --- |
 | Routing | `routingModel` / Router setting | Super | Router slot |
-| Ordinary reads and answers | `everydayModel` | Lightning | middle |
+| Ordinary reads and answers | `personaModel` | Super | middle |
 | Reads of a deep-request or AlwaysUltra turn | `deepReadModel` | Super VL | middle |
-| Note keeper after publication | `everydayModel` | Lightning | middle |
+| Note keeper after publication | `personaModel` | Super | middle |
 | Schedule planning and its review | `planningModel`, `reviewModel` | Super VL | middle |
 | AlwaysUltra final answer | `consideredModel` | Super VL | high |
 | Deep-request final answer | `ultraModel` | Ultra | high |

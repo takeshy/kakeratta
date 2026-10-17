@@ -250,7 +250,7 @@ changed.
 
 ## Who answers, and on which model
 
-**Selected personas run in parallel, normally on Nemotron 3.5 Lightning.** Each takes
+**Selected personas run in parallel, normally on Nemotron 3 Super.** Each takes
 one turn. On the timeline, only the user's own posts and replies wake anyone;
 a persona's remark never wakes another persona, so the timeline cannot fill
 with AI-to-AI conversation. (Check-ins and schedules wake a persona on their
@@ -265,7 +265,7 @@ turn deep; a complex request without such a phrase stays ordinary. There is no
 model-based depth judgment and no research plan. Ordinary turns may read 10
 times with 2 Web searches; deep and AlwaysUltra turns 20 times with 4.
 
-**Ordinary turns read and answer in one loop on the everyday model** (Lightning on Nebius, the middle slot elsewhere). The answer model is
+**Ordinary turns read and answer in one loop on Super.** The answer model is
 offered `submit_answer` from the first request, alongside the available
 `read`. When the thread and memory are enough, a spoken or silent answer is a
 single call; otherwise it reads and then answers in the same loop.
@@ -298,7 +298,7 @@ post / reply
  ↓ direct recipient selection, or ordinary routing
 selected recipients run in parallel
  ↓ depth from explicit phrases in the post (no model call)
- ↓ ordinary: Lightning reads and submits the answer in one loop
+ ↓ ordinary: Super reads and submits the answer in one loop
  ↓ deep: Super VL reads → finish_read → Ultra submits the answer
  ↓ alwaysUltra: Super VL reads and submits the answer in one loop
    (a persona without lookup tools reads and answers on the answer model)
@@ -403,7 +403,7 @@ thread is included in full.
    search or a place lookup. Only read-only tools run here; an MCP tool
    is offered to a persona only when its server marks it `readOnlyHint`. Reading
    writes nothing, so the app just does it and hands the results back.
-2. **Answer.** Ordinary turns read and answer in the same loop on Lightning; a
+2. **Answer.** Ordinary turns read and answer in the same loop on Super; a
    deep turn of a persona with lookup tools reads on Super VL and hands its reads,
    with the whole conversation and tool results, to Ultra, which is offered
    only `submit_answer`. The persona hands in `{text, sources, unrelated,
@@ -458,8 +458,8 @@ in and how many submissions it took.
 ### The note keeper
 
 `internal/persona/notekeeper.go`. After the remark is published, the persona
-keeps what the turn should leave behind, on the everyday model (Lightning on
-Nebius, even when a larger model composes the answer), in its own voice. It runs for a fragment of the user's - a post,
+keeps what the turn should leave behind, on the middle model (Super by default,
+even when a larger model composes the answer), in its own voice. It runs for a fragment of the user's - a post,
 a reply, or an edit, including related silence - when memory is enabled, and for a check-in handed records due
 for review. Schedule wakes, deletion tidy-ups, and out-of-domain silence do not run it. Edits always reach the keeper when memory is enabled, even when unrelated, so earlier facts can be corrected through the durable keeper job. Legacy answer `remember` values are ignored. On deletion, the host removes the records
 and their unsupported facts directly; the persona can revisit its schedules.
@@ -531,10 +531,10 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | Routing |
+| **Nemotron 3 Super**       | Routing, reads and ordinary answers, and the note keeper |
 | **Nemotron 3.5 Super VL**  | Reads of deep and AlwaysUltra turns, the schedule phase and workflow review, AlwaysUltra answers (the infographic included), daily and monthly check-ins, the daily memory pass, and the day's and month's summaries; it reasons far longer than Super, which is worth paying where a mistake carries forward or once a day, but not on every answer |
 | **Nemotron 3 Ultra**       | Answers for deep requests (reads too, for a persona without lookup tools such as the infographic), plus persona drafting |
-| **Nemotron 3.5 Lightning** | Reads and ordinary answers, the note keeper, and optional dictation polishing; fast and cheap on simple turns |
+| **Nemotron 3.5 Lightning** | Optional dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
 | **Qwen3-Embedding-8B**     | Meaning search over past fragments                                    |
 

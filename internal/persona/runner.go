@@ -726,7 +726,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	root := timeline.RootOf(trigger)
 	// Depth is fixed before the read/answer loop. A deep or AlwaysUltra turn
 	// reads on a larger model than the everyday one, and answers on one too.
-	everyday := everydayModel(client, settings)
+	everyday := personaModel(settings)
 	readBase := everyday
 	answerModel := everyday
 	phaseModel := planningModel(client, settings)
@@ -1156,20 +1156,13 @@ func personaModel(settings store.Settings) string {
 // On Nebius with the shipped middle model, a turn's jobs go to the model that
 // pays for itself there. Super VL reasons far longer than Super - worth it for
 // what a mistake would carry forward, or once a day, but not for every
-// answer - and Lightning is enough for an ordinary answer and for noting what
-// was said. Routing and everything else stay on Super.
+// answer. Routing, ordinary answers, notes and everything else stay on Super.
+// (Lightning answered an ordinary person turn with 26,000 tokens three times
+// running, about 80 seconds each, and never handed in an answer.)
 // OpenRouter, another endpoint and a chosen middle model keep their slots.
 func nebiusShipped(client *llm.Client, settings store.Settings) bool {
 	return client != nil && !client.OpenRouter && strings.TrimRight(strings.TrimSpace(client.BaseURL), "/") == store.NebiusBaseURL &&
 		strings.TrimSpace(settings.MiddleModel) == store.NemotronSuper
-}
-
-// everydayModel reads for and writes ordinary answers, and keeps notes.
-func everydayModel(client *llm.Client, settings store.Settings) string {
-	if nebiusShipped(client, settings) {
-		return store.NemotronLightning
-	}
-	return personaModel(settings)
 }
 
 // planningModel plans schedules and reviews the plan.

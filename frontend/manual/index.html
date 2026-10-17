@@ -611,16 +611,16 @@
             <table>
               <thead><tr><th>用途</th><th>モデル</th></tr></thead>
               <tbody>
-                <tr><td>振り分け</td><td>Nemotron 3 Super</td></tr>
-                <tr><td>内蔵の調査（「詳しく」の依頼と常に熟考する担当以外）、ふだんの返事、メモ係、任意の音声入力整形</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>振り分け、内蔵の調査（「詳しく」の依頼と常に熟考する担当以外）、ふだんの返事、メモ係</td><td>Nemotron 3 Super</td></tr>
                 <tr><td>「詳しく」の依頼と常に熟考する担当の調査、予定の計画と確認、常に熟考する担当の最終回答、毎日・毎月のチェックイン、記憶の整理、今日のまとめ・今月のまとめ</td><td>Nemotron 3.5 Super VL</td></tr>
                 <tr><td>深い回答が必要な依頼の最終回答</td><td>Nemotron Ultra</td></tr>
+                <tr><td>任意の音声入力整形</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>画像の読み取り</td><td>GLM-5.3-Flash</td></tr>
               </tbody>
             </table>
           </div>
           <p><strong>常に熟考する</strong> がオンの担当は、通常の依頼でも最終回答を Super VL で生成します。「詳しく」「ちゃんと調べて」などの言葉を含む依頼は、最終回答を Ultra で生成します。お礼やふつうの追加質問は、常に熟考がオフなら通常のモデルのままです。</p>
-          <p>調べものにはふだん Lightning、「詳しく」などの深い依頼と常に熟考する担当では Super VL、予定の計画には Super VL を使います。1 回の回答で調べられる回数（読む・Web検索する）には上限があり、深い回答が必要な依頼や「常に熟考する」の担当では上限が広がります。設定されていない道具や、記憶を持たない担当の記憶検索は使いません。</p>
+          <p>調べものにはふだん Super、「詳しく」などの深い依頼と常に熟考する担当では Super VL、予定の計画には Super VL を使います。1 回の回答で調べられる回数（読む・Web検索する）には上限があり、深い回答が必要な依頼や「常に熟考する」の担当では上限が広がります。設定されていない道具や、記憶を持たない担当の記憶検索は使いません。</p>
           <h3>OpenRouter を使う</h3>
           <p><strong>上級オプション → モデル → OpenRouterを使う</strong> で API キーを入れて接続確認します。</p>
           <ul>
@@ -1239,16 +1239,16 @@
             <table>
               <thead><tr><th>Job</th><th>Model</th></tr></thead>
               <tbody>
-                <tr><td>Routing</td><td>Nemotron 3 Super</td></tr>
-                <tr><td>Built-in research (except for “in detail” requests and Always think deeply), ordinary replies, the note keeper, optional dictation polishing</td><td>Nemotron 3.5 Lightning</td></tr>
+                <tr><td>Routing, built-in research (except for “in detail” requests and Always think deeply), ordinary replies, the note keeper</td><td>Nemotron 3 Super</td></tr>
                 <tr><td>Research for “in detail” requests and Always think deeply, schedule planning and review, final answers for Always think deeply, daily and monthly check-ins, memory tidying, the day's and month's summaries</td><td>Nemotron 3.5 Super VL</td></tr>
                 <tr><td>Final answers for deep requests</td><td>Nemotron Ultra</td></tr>
+                <tr><td>Optional dictation polishing</td><td>Nemotron 3.5 Lightning</td></tr>
                 <tr><td>Reading images</td><td>GLM-5.3-Flash</td></tr>
               </tbody>
             </table>
           </div>
           <p>Personas with <strong>Always think deeply</strong> on use Super VL for final answers to ordinary requests too. A request containing words such as “in detail” or “deep dive” gets an Ultra final answer. Thanks and ordinary follow-ups use the normal model unless Always think deeply is on.</p>
-          <p>Research uses Lightning, or Super VL for deep requests such as “in detail” and for Always think deeply; schedule planning uses Super VL. Each answer can only look things up (read or search the Web) a limited number of times; deep requests and personas with Always think deeply get a higher limit. Tools that are not set up, and memory searches for personas without memory, are not used.</p>
+          <p>Research uses Super, or Super VL for deep requests such as “in detail” and for Always think deeply; schedule planning uses Super VL. Each answer can only look things up (read or search the Web) a limited number of times; deep requests and personas with Always think deeply get a higher limit. Tools that are not set up, and memory searches for personas without memory, are not used.</p>
           <h3>Using OpenRouter</h3>
           <p>Under <strong>Advanced options → Models → Use OpenRouter</strong>, enter an API key and check the connection.</p>
           <ul>

@@ -212,7 +212,7 @@ func (r *Runner) keepNotes(ctx context.Context, client *llm.Client, settings sto
 	if !k.skill.Remembers() {
 		return nil, nil
 	}
-	model := everydayModel(client, settings)
+	model := personaModel(settings)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

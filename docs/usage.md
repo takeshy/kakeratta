@@ -444,8 +444,8 @@ Amounts are estimates in USD: OpenRouter uses API-reported costs, while Nebius u
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron 3.5 Lightning — reads and ordinary answers, the note keeper, and optional dictation polishing
-- Nemotron 3 Super — routing
+- Nemotron 3.5 Lightning — optional dictation polishing
+- Nemotron 3 Super — routing, reads and ordinary answers, and the note keeper
 - Nemotron 3.5 Super VL — reads for deep requests and Always think deeply, schedule planning, workflow review, answers for Always think deeply, daily and monthly check-ins, the daily memory pass, and the day's and month's summaries
 - Nemotron Ultra — answers for deep requests, plus persona drafting
 - Nebius Token Factory — inference backend
@@ -467,9 +467,9 @@ continues to use Qwen3-Embedding-8B on the main backend.
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
 | Optional dictation polishing | low | Nemotron 3.5 Lightning |
-| Reads and the note keeper | middle | Nemotron 3.5 Lightning |
+| Reads and the note keeper | middle | Nemotron 3 Super |
 | Reads for deep requests and Always think deeply | middle | Nemotron 3.5 Super VL |
-| Ordinary final answers | middle | Nemotron 3.5 Lightning |
+| Ordinary final answers | middle | Nemotron 3 Super |
 | Schedule planning | middle | Nemotron 3.5 Super VL |
 | Daily and monthly check-ins, the daily memory pass, the day's and month's summaries | middle | Nemotron 3.5 Super VL |
 | Answers for Always think deeply | high | Nemotron 3.5 Super VL |
@@ -485,7 +485,7 @@ continues to use Qwen3-Embedding-8B on the main backend.
 The page has no direct Token Factory model picker: users enter an API key and
 those slots keep their defaults.
 
-Personas normally read and answer on Lightning; **Always think deeply** selects Super VL for the answer. A post containing a phrase such as "詳しく", "深掘り", "ちゃんと調べて", "in detail" or "deep dive" is a deep request and is answered on Ultra. This is a plain phrase match, with no model judgment, so a request without such a phrase stays ordinary. Answers on the high model carry an Ultra badge.
+Personas normally read and answer on Super; **Always think deeply** selects Super VL for the answer. A post containing a phrase such as "詳しく", "深掘り", "ちゃんと調べて", "in detail" or "deep dive" is a deep request and is answered on Ultra. This is a plain phrase match, with no model judgment, so a request without such a phrase stays ordinary. Answers on the high model carry an Ultra badge.
 An ordinary turn reads and answers in one flow, and answers in a single call when nothing needs reading. For a deep request or Always think deeply, a persona with lookup tools such as Web search reads on Super VL and answers on Ultra for a deep request, or reads and answers on Super VL for Always think deeply; the infographic, which has none, reads and answers on its answer model. Research permits up to 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep requests and Always think deeply. Each round receives the remaining search count. At zero, Web search is removed from the choices, while other available reads and finishing research remain possible. Unconfigured tools and memory reads for memoryless personas are not offered.
 
 Once an external agent's connection key has been issued and **Use the external agent**
@@ -499,7 +499,7 @@ turn's schedules and notes on Super, assembles them
 with the answer into a workflow, reviews it as in the table above when it holds a
 schedule, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
-15 minutes of the claim, the built-in path takes the turn back and answers on Lightning, Ultra for deep requests, or Super VL for Always think deeply. The waits are under Advanced options →
+15 minutes of the claim, the built-in path takes the turn back and answers on Super, Ultra for deep requests, or Super VL for Always think deeply. The waits are under Advanced options →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 
