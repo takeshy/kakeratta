@@ -31,11 +31,11 @@ func TestComposeAnswerRetriesTruncationWithoutAccumulatingDrafts(t *testing.T) {
 				if request.MaxTokens != 26000 {
 					t.Errorf("answer output allowance = %d, want 26000", request.MaxTokens)
 				}
-				if len(request.Messages) < 3 || request.Messages[1].Content != "original research" {
+				if len(request.Messages) < 2 || request.Messages[1].Content != "original research" {
 					t.Error("research context was lost")
 				}
 				if calls > 1 {
-					if len(request.Messages) != 4 || !strings.Contains(request.Messages[3].Content, "出力上限") {
+					if len(request.Messages) != 3 || !strings.Contains(request.Messages[2].Content, "出力上限") {
 						t.Errorf("retry did not start from original context: %+v", request.Messages)
 					}
 					for _, message := range request.Messages {

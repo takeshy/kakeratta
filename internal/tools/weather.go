@@ -25,7 +25,7 @@ var weatherForecast = Tool{
 		"hour":  map[string]any{"type": "integer", "minimum": 0, "maximum": 23, "description": "地域の現地時刻で何時の予報か。指定時だけ、その時間帯の予報も返す"},
 		"lang":  map[string]any{"type": "string", "enum": []string{"ja", "en"}, "description": "天気の説明の言語。既定ja"},
 	}},
-	Usage: `weather_forecast — WeatherAPIで現在の天気と日別予報を調べる。queryは地域名または緯度,経度。省略時は投稿の位置が必要。サーバーの位置を現在地とみなさない。daysは1〜14（既定3）、dateはYYYY-MM-DD、hourは現地時刻の0〜23。hour指定時だけ時間帯の予報も返す。langはjaまたはen（既定ja）。実際に取得できた地域・日付・更新時刻を確認し、取得していない日時の予報を補わない。契約によって取得できる日数が少ない場合がある。予報と現在の観測値を区別し、出典はWeatherAPI.comを示す。`,
+	Usage: `weather_forecast — 現在の天気と予報を調べる。サーバーの位置を現在地とみなさない。取得できた地域・日付・更新時刻を確認し、未取得の日時を補わない。予報と現在値を区別し、出典はWeatherAPI.comを示す。`,
 	run: func(ctx context.Context, r *Registry, args Args, at *timeline.Place) (Result, error) {
 		key := strings.TrimSpace(r.config.Weather.APIKey)
 		if key == "" {

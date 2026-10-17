@@ -18,7 +18,7 @@ var webSearch = Tool{
 		"start_date": map[string]any{"type": "string", "description": "この日より後に公開された情報。YYYY-MM-DD。time_rangeと併用不可"},
 		"end_date":   map[string]any{"type": "string", "description": "この日より前に公開された情報。YYYY-MM-DD。time_rangeと併用不可"},
 	}, "required": []any{"query"}},
-	Usage: `web_search — Webを検索する。「最新のニュース」や毎朝のニュース配信ではtopic:newsとtime_range:dayを使う。ユーザーが期間を指定した場合はその期間を優先し、time_range（day/week/month/year）またはstart_date/end_date（YYYY-MM-DD）で絞る。両方式は併用しない。newsで期間省略時は直近1日。通常の調査はgeneralで期間省略可。直近の結果が不足して期間を広げる場合は、その期間と記事の公開日時を回答で区別する。公開日時が返る場合は確認し、検索順位を新しさの順とみなさない。日付不明の記事を今日のニュースと断定しない。出典リンクを示す。`,
+	Usage: `web_search — Webを検索する。最新ニュースや毎朝のニュース配信ではtopic:newsとtime_range:dayを使い、ユーザー指定の期間があれば優先する。結果不足で期間を広げる場合はその期間と公開日時を回答で区別する。検索順位を新しさ順とみなさず、日付不明の記事を今日のニュースと断定しない。`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		query := args.str("query")
 		if query == "" {

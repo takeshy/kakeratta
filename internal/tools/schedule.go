@@ -178,7 +178,7 @@ var schedulesListTool = Tool{
 		"limit": map[string]any{"type": "number", "description": "件数。1〜30、既定20"},
 		"after": map[string]any{"type": "string", "description": "続きの取得には前の結果の next_after を指定。同じ絞り込みを使う"},
 	}},
-	Usage: `schedules_list — 現在のスケジュールを閲覧する専用ツール。自分の予定は最初に渡されます。他の担当と通知が重複しそうなときは、このツールで確認してから回答してください。skill（担当ID）、query（覚書・担当名の部分一致）、from/to（通知日時）で絞れます。担当名（ID）、予定ID、日時、繰り返し、覚書を返します。1回20件、最大30件。next_after があれば同じ条件と after で続きを確認できます。他の担当の予定は変更・取消できません。`,
+	Usage: `schedules_list — スケジュールを閲覧する（自分の予定は最初に渡される）。他の担当と通知が重複しそうなときに確認する。他の担当の予定は変更・取消できない。`,
 	run: func(ctx context.Context, r *Registry, args Args, _ *timeline.Place) (Result, error) {
 		if r.schedules == nil {
 			return Result{}, errors.New("schedule が設定されていません")

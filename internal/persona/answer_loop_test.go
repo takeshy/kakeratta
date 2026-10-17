@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/takeshy/kakeratta/internal/llm"
+	"github.com/takeshy/kakeratta/internal/timeline"
+	"github.com/takeshy/kakeratta/internal/tools"
 )
 
 func TestAnswerWithoutReadsNeedsOnlyOneCallAndCannotSelectDepth(t *testing.T) {
@@ -48,5 +51,23 @@ func TestAnswerWithoutReadsNeedsOnlyOneCallAndCannotSelectDepth(t *testing.T) {
 				t.Fatalf("answer=%+v calls=%d err=%v", answer, calls, err)
 			}
 		})
+	}
+}
+
+func TestAnswerPromptOmitsUnusedThreadAndScheduleContext(t *testing.T) {
+	noSchedSet := tools.New(tools.Config{}).For(nil)
+	single := []timeline.Entry{{ID: "e_root", Text: "肉じゃが"}}
+	sys := answerSystemFor(Skill{ID: "gourmet"}, single, noSchedSet, briefRule)
+	for _, unwanted := range []string{"渋谷にいきたい", "他の担当の発言がすでに", "schedule=true"} {
+		if strings.Contains(sys, unwanted) {
+			t.Errorf("single-post non-schedule prompt included %q", unwanted)
+		}
+	}
+	props, _ := answerToolFor(noSchedSet).Parameters["properties"].(map[string]any)
+	if props["schedule"] != nil {
+		t.Error("non-schedule persona was asked for schedule in submit_answer")
+	}
+	if strings.Contains(recordsReadSpec, "まとめ") || !strings.Contains(recordsReadSpec, "いまの事実と最近の記録") {
+		t.Errorf("recordsReadSpec = %q", recordsReadSpec)
 	}
 }

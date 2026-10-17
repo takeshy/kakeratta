@@ -198,7 +198,7 @@ func (r *Registry) For(declared []string) *Set {
 }
 
 // Allows reports whether this persona may call one tool by name.
-func (s *Set) Allows(name string) bool { return s.allowed[strings.TrimSpace(name)] }
+func (s *Set) Allows(name string) bool { return s != nil && s.allowed[strings.TrimSpace(name)] }
 
 // IsReadOnly is the execution boundary for research. Schedule is the only
 // declared tool that changes state; MCP tools are registered only when their

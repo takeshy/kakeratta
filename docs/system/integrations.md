@@ -59,7 +59,7 @@ The external agent researches as the persona and submits the final answer with i
 ## Ask lifecycle
 
 1. Use `list_asks` to find pending asks with deadlines.
-2. Send the ask ID and a stable `claimId` to `claim_ask` to receive the persona, trigger, conversation, memory (`memory`: field summaries whole and the latest kakera records), and available read tools.
+2. Send the ask ID and a stable `claimId` to `claim_ask` to receive the persona, trigger, conversation, memory (`memory`: grounded facts and the latest kakera records), and available read tools.
 3. Research through permitted `read_for_ask` calls: `records` steps (`tag`, `query`, `before`, or `ids` - up to 10 - to read the entries records point to, which may then be cited) and read-use tools (in the distributed Hermes worker, `persona-hermes-home` exposes only `read_for_ask` from kakeratta MCP plus `web` when permitted, while `list_asks`, `claim_ask`, `submit_answer`, and `release_ask` run in Python).
 4. Submit text, sources, and an optional boolean `schedule` decision with `submit_answer`; `unrelated` identifies a silence outside the domain. An omitted schedule decision preserves legacy schedule behavior. Legacy `remember` values are accepted and ignored; answers no longer decide retention. Invalid submissions receive correction requests; source IDs not found by this ask's research are dropped rather than refused.
 5. If unable to respond, call `release_ask` to return the turn to the built-in model.

@@ -765,7 +765,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if skill.ID == "infographic" {
 		length += infographicRules(trigger, thread)
 	}
-	system := answerSystem(skill, length) + capabilityLine(set)
+	system := answerSystemFor(skill, thread, set, length) + capabilityLine(set)
 	system += wakeInstructions
 
 	names := r.SpeakerNames(ctx)
@@ -775,7 +775,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// The clock a persona is told is the user's, not the container's.
 	here := settings.Location()
 	scheduleList, scheduleIDs := r.scheduleListFor(skill, set, names)
-	// The memory is handed over every time: the fields whole, being short,
+	// The memory is handed over every time: the current facts, being short,
 	// and the latest records. Older records are read on demand.
 	memoryNote := r.memoryView(skill, here)
 	// A tidy-up is told what it is by its own instructions; the line for a
@@ -784,19 +784,30 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	if tidiesUp(wakeInstructions) {
 		turn = ""
 	}
-	user := strings.Join([]string{
+	userLines := []string{
 		"いまの日時: " + time.Now().In(here).Format("2006-01-02 15:04 MST"),
 		placeLine(post.Place),
 		"",
-		"あなたの記憶（最初に必ず渡します）:",
-		memoryNote,
-		"",
-		"自分の schedule（担当名（ID）付き。他の担当の予定は schedules_list で確認）:",
-		scheduleList,
-		"",
+	}
+	if skill.Remembers() {
+		userLines = append(userLines,
+			"あなたの記憶（最初に必ず渡します）:",
+			memoryNote,
+			"",
+		)
+	}
+	if set.Allows("schedule") {
+		userLines = append(userLines,
+			"自分の schedule（担当名（ID）付き。他の担当の予定は schedules_list で確認）:",
+			scheduleList,
+			"",
+		)
+	}
+	userLines = append(userLines,
 		threadContext(thread, trigger, names, here),
 		turn,
-	}, "\n")
+	)
+	user := strings.Join(userLines, "\n")
 
 	messages := []llm.Message{
 		{Role: "system", Content: system},
@@ -866,7 +877,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		if requestedDeep {
 			agentLength = deepRule
 		}
-		agentRules := fmt.Sprintf(answerRules, agentLength)
+		agentRules := answerRulesFor(thread, set, agentLength)
 		if skill.ID == "infographic" {
 			agentRules += infographicRules(trigger, thread)
 		}
