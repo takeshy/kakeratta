@@ -9,8 +9,12 @@ speech, and personas for people and interests remember what matters to them
 and bring it back when it is useful.
 
 [Try it](https://kakeratta.net/lp/?lang=en) ·
+[Watch the demo](https://youtu.be/fdUYDI6Sd70) ·
+[Devpost](https://devpost.com/software/kakeratta) ·
 [Manual](https://kakeratta.net/manual/?lang=en) ·
 [Design](docs/technical.md)
+
+[![Watch the kakeratta demo on YouTube](https://img.youtube.com/vi/fdUYDI6Sd70/hqdefault.jpg)](https://youtu.be/fdUYDI6Sd70)
 
 <img src="docs/captures/en/timeline.png" alt="Your fragments and the personas' replies on the timeline" width="390">
 
@@ -143,6 +147,8 @@ sending an email, for instance - past the personas, and carry on by replying. Th
 the integration report below.
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/).
+Read the [Devpost project page](https://devpost.com/software/kakeratta) for the
+inspiration and project story.
 The [project background](docs/background.md) explains why remembering includes
 bringing something back at the right time.
 

@@ -8,8 +8,12 @@
 自分に関係することを覚え、必要なときに思い出させるパーソナルAIタイムラインです。
 
 [使ってみる](https://kakeratta.net/lp/?lang=ja) ·
+[デモ動画](https://youtu.be/fdUYDI6Sd70) ·
+[Devpost](https://devpost.com/software/kakeratta) ·
 [マニュアル](https://kakeratta.net/manual/?lang=ja) ·
 [技術的な設計](docs/technical_ja.md)
+
+[![YouTubeでkakerattaのデモを見る](https://img.youtube.com/vi/fdUYDI6Sd70/hqdefault.jpg)](https://youtu.be/fdUYDI6Sd70)
 
 <img src="docs/captures/ja/timeline.png" alt="日常のかけらと担当の返信が並ぶタイムライン" width="390">
 
@@ -135,6 +139,7 @@ HermesやObsidianのLLM Connect Hubに、MCP経由で調査と回答を任せら
 NemoClaw/OpenShellのサンドボックスで検証した構成は、下の連携レポートにまとめています。
 
 [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/) に出展した作品です。
+[Devpostの作品紹介](https://devpost.com/software/kakeratta)（英語）にも、着想と開発の経緯をまとめています。
 作った理由と「必要なときに思い出させる」という考え方は[開発の背景](docs/background_ja.md)にまとめました。
 
 ## ドキュメント
