@@ -119,25 +119,62 @@ export const AICreateDraft = {
   }),
 };
 
+// The wine persona's memory, open in its dialog.
+function wineMemory(ja, en) {
+  for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove();
+  const isJa = getLanguage() === "ja";
+  const wine = { id: "wine", name: isJa ? "ワイン担当" : "Wine", icon: "🍷", active: true,
+    domain: isJa ? "飲んだワインと、好きだった理由を覚えます。" : "Remembers the wines you tried and why you liked them.", tools: [], wakes: 4 };
+  serve({ personas: [wine], tools, memory: { wine: { notes: [{ path: "Memo.md", text: isJa ? ja : en }] } } });
+  const panel = createPersonas({ onChange: () => {} });
+  void panel.load().then(() => {
+    [...panel.element.querySelectorAll("button")].find(button => /覚えて|remember/i.test(button.textContent))?.click();
+  });
+  return sheet("担当", panel.element);
+}
+
+// Before the daily pass: each conversation has only added a record. There is
+// no summary and no fact yet.
+export const WineMemoryBeforeTidy = {
+  name: "ワイン担当の記憶：事実に取り込む前",
+  render: () => wineMemory(
+    "# Memo\n\n## かけらの記録\n\n" +
+    "- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) レストランで飲んだピノ・ノワールが、重くなくてもう一杯飲みたくなると言った #赤ワイン #ピノ・ノワール\n" +
+    "- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) ボージョレのガメイを飲みやすいと言った #赤ワイン #ガメイ\n" +
+    "- 2026-09-13 21:40 [sample-heavy](/?entry=sample-heavy) 重いカベルネは一杯でいいと言った #赤ワイン #カベルネ\n" +
+    "- 2026-09-14 12:05 [sample-lunch](/?entry=sample-lunch) 今日のランチに合うワインを聞いた #ランチ expires:2026-09-15/1d\n" +
+    "- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n",
+    "# Memo\n\n## かけらの記録\n\n" +
+    "- 2026-09-12 20:31 [sample-pinot](/?entry=sample-pinot) Said a Pinot Noir at a restaurant was not heavy and made them want another glass #red #PinotNoir\n" +
+    "- 2026-09-13 19:02 [sample-gamay](/?entry=sample-gamay) Found a Beaujolais Gamay easy to drink #red #Gamay\n" +
+    "- 2026-09-13 21:40 [sample-heavy](/?entry=sample-heavy) Said one glass of a heavy Cabernet is enough #red #Cabernet\n" +
+    "- 2026-09-14 12:05 [sample-lunch](/?entry=sample-lunch) Asked which wine suits today's lunch #lunch expires:2026-09-15/1d\n" +
+    "- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) Wants to try a wine bar in Ebisu #Ebisu #winebar review:2026-10-11/21d\n",
+  ),
+};
+
+// After the daily pass: the records about what they liked became facts, each
+// leading back to its posts, and were deleted; a summary was written. The
+// one-off lunch question expired on its own, and the wine bar stays a record
+// until the persona asks whether it is still wanted.
 export const WineMemory = {
-  name: "ワイン担当の記憶（サンプル）",
-  render: () => {
-    for (const stale of document.querySelectorAll(".dialog-backdrop")) stale.remove();
-    const ja = getLanguage() === "ja";
-    const wine = { id: "wine", name: ja ? "ワイン担当" : "Wine", icon: "🍷", active: true,
-      domain: ja ? "飲んだワインと、好きだった理由を覚えます。" : "Remembers the wines you tried and why you liked them.", tools: [], wakes: 4 };
-    const notes = [
-      { path: "Memo.md", text: ja
-        ? "# Memo\n\n## まとめ（2026-09-14 更新）\n\n果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は「もう一杯」にならない。恵比寿のワインバーが気になっている。\n\n## いまの事実\n\n- [f_r5d2kp] 軽めの赤が好き from:sample-pinot,sample-gamay since:2026-09-13\n- [f_t6v9wq] Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」 from:sample-pinot since:2026-09-12\n- [f_y2z4ab] ボージョレのガメイ：「飲みやすい」 from:sample-gamay since:2026-09-13\n\n## かけらの記録\n\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n"
-        : "# Memo\n\n## まとめ（2026-09-14 更新）\n\nLikes lighter, fruity reds with gentle tannins; a heavy red does not make them want another glass. Curious about a wine bar in Ebisu.\n\n## いまの事実\n\n- [f_r5d2kp] Likes lighter reds from:sample-pinot,sample-gamay since:2026-09-13\n- [f_t6v9wq] Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.” from:sample-pinot since:2026-09-12\n- [f_y2z4ab] A Beaujolais Gamay: “easy to drink.” from:sample-gamay since:2026-09-13\n\n## かけらの記録\n\n- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) Wants to try a wine bar in Ebisu #Ebisu #winebar review:2026-10-11/21d\n" },
-    ];
-    serve({ personas: [wine], tools, memory: { wine: { notes } } });
-    const panel = createPersonas({ onChange: () => {} });
-    void panel.load().then(() => {
-      [...panel.element.querySelectorAll("button")].find(button => /覚えて|remember/i.test(button.textContent))?.click();
-    });
-    return sheet("担当", panel.element);
-  },
+  name: "ワイン担当の記憶：事実に取り込んだあと",
+  render: () => wineMemory(
+    "# Memo\n\n## まとめ（2026-09-21 更新）\n\n果実味があり、タンニンが穏やかな軽めの赤が好き。重い赤は一杯で十分で、「もう一杯」にはならない。恵比寿のワインバーが気になっている。\n\n" +
+    "## いまの事実\n\n" +
+    "- [f_r5d2kp] 軽めの赤が好き。重いカベルネは一杯でいい from:sample-pinot,sample-gamay,sample-heavy since:2026-09-21\n" +
+    "- [f_t6v9wq] Domaine X Pinot Noir：レストランで。「重くなくて、もう一杯飲みたくなる」 from:sample-pinot since:2026-09-21\n" +
+    "- [f_y2z4ab] ボージョレのガメイ：「飲みやすい」 from:sample-gamay since:2026-09-21\n\n" +
+    "## かけらの記録\n\n" +
+    "- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) 恵比寿のワインバーに行ってみたいと言った #恵比寿 #ワインバー review:2026-10-11/21d\n",
+    "# Memo\n\n## まとめ（2026-09-21 更新）\n\nLikes lighter, fruity reds with gentle tannins; one glass of a heavy red is enough. Curious about a wine bar in Ebisu.\n\n" +
+    "## いまの事実\n\n" +
+    "- [f_r5d2kp] Likes lighter reds; one glass of a heavy Cabernet is enough from:sample-pinot,sample-gamay,sample-heavy since:2026-09-21\n" +
+    "- [f_t6v9wq] Domaine X Pinot Noir: at a restaurant. “Not heavy; makes me want another glass.” from:sample-pinot since:2026-09-21\n" +
+    "- [f_y2z4ab] A Beaujolais Gamay: “easy to drink.” from:sample-gamay since:2026-09-21\n\n" +
+    "## かけらの記録\n\n" +
+    "- 2026-09-20 18:15 [sample-shop](/?entry=sample-shop) Wants to try a wine bar in Ebisu #Ebisu #winebar review:2026-10-11/21d\n",
+  ),
 };
 
 // ---- a person ---------------------------------------------------------------
@@ -189,6 +226,20 @@ export const PersonEdit = {
   render: () => panelOf(withPerson(), (element) => {
     element.querySelectorAll(".persona-tab")[0]?.click();
     [...personCard(element).querySelectorAll("button")].find((button) => /^(修正|Edit)$/.test(button.textContent))?.click();
+  }),
+};
+
+// An edit left unsaved: closing asks whether to save it first.
+export const PersonEditUnsavedClose = {
+  name: "人物の担当を修正・保存せずに閉じようとした",
+  render: () => panelOf(withPerson(), (element) => {
+    element.querySelectorAll(".persona-tab")[0]?.click();
+    [...personCard(element).querySelectorAll("button")].find((button) => /^(修正|Edit)$/.test(button.textContent))?.click();
+    const editor = document.querySelector(".persona-editor");
+    const name = [...editor.querySelectorAll("input.skill-input")].find((input) => input.value);
+    name.value += "（修正中）";
+    name.dispatchEvent(new Event("input"));
+    editor.querySelector(".dialog-close").click();
   }),
 };
 

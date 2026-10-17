@@ -195,7 +195,6 @@ function markdown(body, context) {
   const result = el("div", { class: "memory-body" });
   const lines = body.split("\n");
   let list = null;
-  let recordsHeadingShown = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim() || /^<!-- (?:\/?kakeratta:note-sources|kakeratta:summary-dirty|kakeratta:(?:checked|persona-suggested) \S+) -->$/.test(line)) { list = null; continue; }
@@ -209,16 +208,11 @@ function markdown(body, context) {
     const heading = line.match(/^#{1,6}\s+(.+)$/);
     const item = line.match(/^\s*(?:[-*+] |\d+[.)] )(.+)$/);
     if (heading) {
-      // Facts keep their dates and source links, but share one heading with
-      // the records. Current understanding belongs in the summary.
-      if (context.facts && ["いまの事実", "かけらの記録"].includes(heading[1])) {
-        if (!recordsHeadingShown) result.append(el("h5", { text: t("かけらの記録") }));
-        recordsHeadingShown = true;
-        list = null;
-        continue;
-      }
       const summary = context.facts && heading[1].match(/^まとめ（(\d{4}-\d{2}-\d{2})(?: 更新)?）$/);
-      const localized = heading[1] === "記憶を更新した投稿";
+      // The facts the daily pass made, and the records it has not folded yet,
+      // are told apart by their own headings.
+      const localized = heading[1] === "記憶を更新した投稿" ||
+        (context.facts && ["いまの事実", "かけらの記録"].includes(heading[1]));
       const label = summary ? t("まとめ（{0} 更新）", summary[1]) : localized ? t(heading[1]) : heading[1];
       result.append(el("h5", {}, inline(label, context)));
       list = null;

@@ -918,13 +918,67 @@ test("a person's names and keywords are edited as lists and saved with the kind"
   // Whether a persona is a person does not change, so there is no switch for it.
   assert.ok(!walk(first).some(node => String(node.textContent).startsWith("人物の担当（")));
   assert.equal(field(first, "話し方").hidden, true);
-  assert.equal(field(first, "メモの分類（型と、それぞれに書くこと）").hidden, true);
+  assert.equal(field(first, "覚え方（何をどう覚えるか）").hidden, true);
   assert.ok(walk(first).some(node => node.textContent === translate("気を配ること（任意。例：健康の話は控えめに）")));
   walk(first).find(node => node.textContent === translate("閉じる")).fire("click");
   assert.equal(saved.tone, "");
   assert.equal(saved.memory, "");
 });
 
+
+// Closing with unsaved changes asks first: save and close, close without
+// saving, or keep editing. With nothing changed it just closes.
+test("persona editor asks before closing with unsaved changes", async (t) => {
+  const { showPersonaEditor } = await import("../frontend/src/persona-editor.js");
+  const persona = { id: "move", name: "michi", icon: "🚃", domain: "移動", tone: "短く", instructions: "場所を覚える", tools: ["place_search"] };
+  t.mock.method(api, "savePersonaDraft", async (skill) => skill);
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  globalThis.cancelAnimationFrame = () => {};
+  t.after(() => { delete globalThis.Node; delete globalThis.document; delete globalThis.cancelAnimationFrame; });
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const open = () => {
+    showPersonaEditor({ persona, toolNames: ["place_search"], onSave: () => {} });
+    return document.body.querySelectorAll(".dialog-backdrop").at(-1);
+  };
+  const button = (root, label) => walk(root).find(node => node.tagName === "BUTTON" && node.textContent === translate(label));
+  const mounted = (backdrop) => document.body.children.includes(backdrop);
+
+  // Unchanged: the corner button closes at once.
+  let backdrop = open();
+  backdrop.querySelectorAll(".dialog-close")[0].fire("click");
+  assert.equal(mounted(backdrop), false);
+
+  // Changed: the corner button asks; keep editing goes back to the form.
+  backdrop = open();
+  const name = backdrop.querySelectorAll(".skill-input").find(node => node.value === "michi");
+  name.value = "みち";
+  name.fire("input");
+  backdrop.querySelectorAll(".dialog-close")[0].fire("click");
+  assert.equal(mounted(backdrop), true);
+  assert.equal(backdrop.querySelectorAll(".leave-confirm").length, 1);
+  button(backdrop, "編集に戻る").fire("click");
+  assert.equal(backdrop.querySelectorAll(".leave-confirm").length, 0);
+  assert.equal(mounted(backdrop), true);
+
+  // Close without saving discards the edit.
+  button(backdrop, "閉じる").fire("click");
+  button(backdrop, "保存せずに閉じる").fire("click");
+  assert.equal(mounted(backdrop), false);
+  assert.equal(api.savePersonaDraft.mock.calls.length, 0);
+
+  // Save and close saves what was typed.
+  backdrop = open();
+  const again = backdrop.querySelectorAll(".skill-input").find(node => node.value === "michi");
+  again.value = "みち";
+  again.fire("input");
+  backdrop.querySelectorAll(".dialog-close")[0].fire("click");
+  button(backdrop, "保存して閉じる").fire("click");
+  for (let i = 0; i < 5; i++) await new Promise(setImmediate);
+  assert.equal(api.savePersonaDraft.mock.calls.length, 1);
+  assert.equal(api.savePersonaDraft.mock.calls[0].arguments[0].name, "みち");
+  assert.equal(mounted(backdrop), false);
+});
 
 test("a name on the timeline opens what that speaker said, when the list is wired", (t) => {
   globalThis.Node = TestNode;

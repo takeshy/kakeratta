@@ -3,6 +3,8 @@
 // Direct editing and asking the AI are separate entrances. In AI mode the
 // saved persona is initially reference-only; once an AI proposal arrives it
 // becomes an editable draft, and nothing is saved until the user saves it.
+// Closing with unsaved changes asks whether to save them first, so a close
+// button is never mistaken for a save.
 import { preserveScroll, switchControl, el, clear, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { createAvatarField, userProfile, personaTextDraft } from "./avatar.js";
 import { createVoiceInput } from "./voice_input.js";
@@ -16,7 +18,7 @@ const fields = [
   { key: "domain", label: "担当条件（振り分けに使います）", kind: "textarea", rows: 4, maxlength: 2000 },
   { key: "basicInfo", label: "基本情報", kind: "textarea", rows: 4, maxlength: 8000 },
   { key: "tone", label: "話し方", kind: "textarea", rows: 2, maxlength: 2000 },
-  { key: "memory", label: "メモの分類（型と、それぞれに書くこと）", kind: "textarea", rows: 3, maxlength: 2000 },
+  { key: "memory", label: "覚え方（何をどう覚えるか）", kind: "textarea", rows: 3, maxlength: 2000 },
   { key: "instructions", label: "覚えること・返事をするタイミング", kind: "textarea", rows: 6, maxlength: 8000 },
 ];
 
@@ -157,6 +159,21 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     }
   }
 
+  // What a save would change: the form against what the dialog opened with.
+  // Before an AI proposal nothing in the form is the user's yet.
+  function dirty() {
+    if (!proposalReady) return false;
+    const now = read();
+    const was = { ...original, memoryEnabled: original.memoryEnabled !== false, alwaysUltra: original.alwaysUltra === true, avatar: original.avatar || "" };
+    if (!person.checked) was.basicInfo = "";
+    else was.tone = was.memory = "";
+    const same = (a, b) => Array.isArray(a) || Array.isArray(b)
+      ? [...(a || [])].map(capability).sort().join(",") === [...(b || [])].map(capability).sort().join(",")
+      : typeof a === "string" || typeof b === "string" ? String(a ?? "").trim() === String(b ?? "").trim() : a === b;
+    const keys = [...fields.map((field) => field.key), "tools", "aliases", "keywords", "memoryEnabled", "alwaysUltra"];
+    return keys.some((key) => !same(now[key], was[key])) || (now.avatar || "") !== was.avatar;
+  }
+
   function updateSave() {
     save.disabled = busy || !proposalReady;
   }
@@ -192,7 +209,7 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     updateSave();
   }
 
-  const save = el("button", { class: "button primary", label: "保存", onclick: async () => {
+  async function saveDraft() {
     if (busy) return;
     setBusy(true);
     error.textContent = "";
@@ -208,7 +225,8 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
     } finally {
       setBusy(false);
     }
-  } });
+  }
+  const save = el("button", { class: "button primary", label: "保存", onclick: () => void saveDraft() });
 
   // --- asking the AI, underneath the form ---------------------------------
   const messages = [];
@@ -278,23 +296,50 @@ export function showPersonaEditor({ persona, toolNames = [], onSave, onPosted, g
   function close() {
     closed = true;
     void voice.discard();
+    leave?.remove();
     unmountOverlay(backdrop);
     opener?.focus?.();
   }
 
+  // Every way out - the corner button, the bottom one, Escape - asks first when
+  // there is something unsaved.
+  let leave = null;
+  function requestClose() {
+    if (closed) return;
+    if (!dirty()) { close(); return; }
+    if (leave) { leave.querySelector?.(".leave-save")?.focus?.(); return; }
+    const back = () => { leave?.remove(); leave = null; dialog.focus?.(); };
+    const saveButton = el("button", { class: "button primary leave-save", label: "保存して閉じる", onclick: async () => {
+      back();
+      await saveDraft();
+    } });
+    leave = el("div", { class: "leave-confirm", role: "alertdialog", "aria-modal": "true", "aria-label": t("変更が保存されていません") },
+      el("div", { class: "dialog leave-dialog" },
+        el("p", { label: "変更が保存されていません。保存してから閉じますか。" }),
+        el("div", { class: "leave-actions" },
+          saveButton,
+          el("button", { class: "button ghost leave-discard", label: "保存せずに閉じる", onclick: close }),
+          el("button", { class: "button ghost leave-back", label: "編集に戻る", onclick: back }))));
+    leave.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation?.(); back(); }
+    });
+    backdrop.append(leave);
+    saveButton.focus?.();
+  }
+
   const title = ai ? t("{0} をAIで修正", persona.name) : t("{0} を修正", persona.name);
   const dialog = el("div", { class: "dialog persona-builder persona-editor", role: "dialog", "aria-modal": "true", "aria-label": title },
-    dialogCloseButton(close),
+    dialogCloseButton(requestClose),
     el("h3", { text: title }),
     form,
     ai ? aiPanel : null,
     error,
     el("div", { class: "compose-row" },
-      el("button", { class: "button ghost", label: "閉じる", onclick: close }),
+      el("button", { class: "button ghost", label: "閉じる", onclick: requestClose }),
       el("span", { class: "spacer" }),
       save));
   dialog.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") { event.preventDefault(); close(); }
+    if (event.key === "Escape") { event.preventDefault(); requestClose(); }
   });
   updateSave();
   backdrop.append(dialog);

@@ -176,7 +176,7 @@ export function showPersonaBuilder({ persona, kind = "subject", onSave, onPosted
         const about = draft.kind === "person"
           ? [["関係性", draft.domain], ...(String(draft.instructions || "").trim() ? [["気を配ること", draft.instructions]] : []),
             ...(persona || !memoryEnabled.checked ? [] : [["振り返り", t(checkIn === "monthly" ? "月1回（月のまとめを読む）" : "毎日")]])]
-          : [["担当条件", draft.domain], ["話し方", draft.tone], ...(memoryEnabled.checked ? [["メモの分類", draft.memory]] : []), ["覚えること・返事をするタイミング", draft.instructions]];
+          : [["担当条件", draft.domain], ["話し方", draft.tone], ...(memoryEnabled.checked ? [["覚え方", draft.memory]] : []), ["覚えること・返事をするタイミング", draft.instructions]];
         for (const [label, value] of [...words, ...about, ["できること", uniqueTools(draft.tools).map(tool => t(toolLabel(tool))).join(" / ") || t("会話と記憶")]]) {
           preview.append(el("strong", { label }), el("p", { class: "builder-detail", text: value }));
         }

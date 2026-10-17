@@ -104,8 +104,8 @@ test("memory section headings follow the display language while stored text stay
   const text = "# Memo\n\n## いまの事実\n- [f_a] Likes lighter reds\n\n## かけらの記録\n- 2026-10-01 12:00 [e_1](/?entry=e_1) Had a red #red\n\n## 自由な見出し\nCustom content\n";
   const note = { path: "Memo.md", text };
   for (const [language, expected] of [
-    ["en", ["Fragment records", "自由な見出し"]],
-    ["ja", ["かけらの記録", "自由な見出し"]],
+    ["en", ["Current facts", "Fragment records", "自由な見出し"]],
+    ["ja", ["いまの事実", "かけらの記録", "自由な見出し"]],
   ]) {
     setLanguage(language);
     const view = createMemoryView([note]);
@@ -221,7 +221,7 @@ test("memory file lists its facts and records, with entry links and tag chips", 
   assert.deepEqual(cards, ["Memo.md", "notes.md"]);
   const all = view.all();
   assert.ok(all.some(node => node.tagName === "H4" && node.textContent === "まとめと記録"));
-  assert.deepEqual(all.filter(node => node.tagName === "H5").map(node => node.textContent || node.all().map(child => child.textContent).join("")), ["まとめ（2026-10-02 更新）", "かけらの記録"]);
+  assert.deepEqual(all.filter(node => node.tagName === "H5").map(node => node.textContent || node.all().map(child => child.textContent).join("")), ["まとめ（2026-10-02 更新）", "いまの事実", "かけらの記録"]);
   assert.ok(!all.some(node => String(node.textContent).includes("f_ab")), "a fact id was shown");
   const links = all.filter(node => node.tagName === "A").map(node => node.textContent);
   assert.deepEqual(links, ["元の投稿1", "元の投稿2", "元の投稿", "元の投稿", "元の投稿"]);

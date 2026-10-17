@@ -246,11 +246,13 @@ names or keywords (the newest 40). It does not read the whole timeline again.
 The persona builder picks the default from the relationship: family and close
 friends daily, people seen now and then monthly. Remembering interests check in daily; memory-off personas do not check in.
 
-How a person's persona speaks, the kinds of note it keeps (Fact and Event)
+How a person's persona speaks, what it remembers (the person, and events with them)
 and how it handles loans, promises, meetings, birthdays and anniversaries are
 the same for every person and held by the app, so an improvement reaches all
 of them. In the editor a person has its relationship, basic information and optional
-**what to pay attention to**; tone and kinds of note are not shown.
+**what to pay attention to**; tone and how it remembers are not shown.
+
+Closing the persona editor - **Close** at the top or bottom, or Escape - with unsaved changes asks whether to **Save and close**, **Close without saving**, or **Keep editing**. With nothing changed it simply closes.
 A person's card also shows the basic information in a collapsed **Basic information** section, with **Edit basic information** opening the editor at that field.
 Saving or editing basic information, and fragments delivered to the person, automatically register birthdays, anniversaries and appointments with known dates. Birthdays and anniversaries notify annually, one week before and on the day at 09:00 in the saved timezone. Appointments use an explicitly requested notification time, otherwise 09:00 on the day (one hour before appointments earlier than 09:00). Notifications arrive as persona posts. Future dates have no scheduling horizon; unknown dates are not guessed. Changes and cancellations are reconciled.
 
