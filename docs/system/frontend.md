@@ -52,7 +52,7 @@ Creation and editing offer **記憶する** (Remember), saved as `memoryEnabled`
 
 The creation and editing forms place **Remember** and **Always think deeply** together in one row, using only switches and labels without explanatory text. The row wraps when space is limited.
 
-The same forms offer **常に熟考する** (Always think deeply), persisted as `alwaysUltra`. The builder preserves a manually selected value across AI drafts and revisions. The infographic persona defaults to memory off and always Ultra on.
+The same forms offer **常に熟考する** (Always think deeply), persisted as `alwaysUltra`. The builder preserves a manually selected value across AI drafts and revisions. The infographic persona defaults to memory off and AlwaysUltra on (Super VL on Nebius; Ultra for a deep request).
 
 The built-in infographic persona displays as **インフォグラフィック** in Japanese and **Infographic** in English across the persona/speaker cards, room badges and menu, timeline speaker names, read-aloud labels, and mention suggestions. English mention insertion uses the stable `@infographic` ID. Customized persona names remain as saved.
 

@@ -116,8 +116,8 @@ is enabled unless explicitly disabled; support and infographic default to off.
 Turning it off stops private memory reads and updates and daily/monthly
 check-ins. Existing notes stay stored for when you enable it again. Memory
 controls disappear, while explicit reminders and external-agent preferences
-remain available. Always thinking deeply uses the high (Ultra) model for answers and the deeper research budget even for ordinary requests. Reads of personas with lookup tools and schedule planning stay on Super; an external-agent preference
-still works, with Ultra used if kakeratta takes the turn back.
+remain available. Always thinking deeply uses Super VL for answers (the high model when OpenRouter is used) and the deeper research budget even for ordinary requests. Reads and schedule planning also use Super VL; an external-agent preference
+still works, with the same answer model used if kakeratta takes the turn back.
 
 ### Turn a post or answer into an infographic
 
@@ -130,7 +130,8 @@ source material can lead to a clarification rather than a diagram.
 The result is Markdown with emoji and Mermaid diagrams, displayed within the timeline. Its labels
 and explanations use the browser display language at submission, including
 requests queued offline. It uses existing material without Web search. The
-infographic persona defaults to memory off and always Ultra on.
+infographic persona defaults to memory off and Always think deeply on, so it answers on Super VL;
+ask "in detail" and that infographic is made on Ultra.
 
 ## Timeline
 
@@ -443,12 +444,13 @@ Amounts are estimates in USD: OpenRouter uses API-reported costs, while Nebius u
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
-- Nemotron 3.5 Lightning — optional dictation polishing
-- Nemotron 3.5 Super VL — routing, reads, ordinary answers, schedule planning, workflow review, the note keeper, and the day's and month's summaries
-- Nemotron Ultra — answers for deep requests and Always think deeply, plus persona drafting
+- Nemotron 3.5 Lightning — reads and ordinary answers, the note keeper, and optional dictation polishing
+- Nemotron 3 Super — routing
+- Nemotron 3.5 Super VL — reads for deep requests and Always think deeply, schedule planning, workflow review, answers for Always think deeply, daily and monthly check-ins, the daily memory pass, and the day's and month's summaries
+- Nemotron Ultra — answers for deep requests, plus persona drafting
 - Nebius Token Factory — inference backend
 
-Routing uses Nemotron 3.5 Super VL by default. Under Advanced options → Models → Use OpenRouter, enter an API key
+Routing uses Nemotron 3 Super by default. Under Advanced options → Models → Use OpenRouter, enter an API key
 and check the connection to fetch available models and pick one for each slot.
 Selecting `~typesafe/jev-latest` in the Router model picker moves only routing to Jev. In the 20-production-item comparison,
 Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026
@@ -465,11 +467,15 @@ continues to use Qwen3-Embedding-8B on the main backend.
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
 | Optional dictation polishing | low | Nemotron 3.5 Lightning |
-| Reads (deep and AlwaysUltra included), schedule planning, the note keeper, the day's and month's summaries | middle | Nemotron 3.5 Super VL |
-| Ordinary final answers | middle | Nemotron 3.5 Super VL |
-| Answers for deep requests / Always think deeply (reads too for the infographic, which has no lookup tools) | high | Nemotron Ultra |
+| Reads and the note keeper | middle | Nemotron 3.5 Lightning |
+| Reads for deep requests and Always think deeply | middle | Nemotron 3.5 Super VL |
+| Ordinary final answers | middle | Nemotron 3.5 Lightning |
+| Schedule planning | middle | Nemotron 3.5 Super VL |
+| Daily and monthly check-ins, the daily memory pass, the day's and month's summaries | middle | Nemotron 3.5 Super VL |
+| Answers for Always think deeply | high | Nemotron 3.5 Super VL |
+| Answers for deep requests (reads too for the infographic, which has no lookup tools) | high | Nemotron Ultra |
 | Reading images / OCR | Image analysis model | GLM-5.3-Flash |
-| Routing | router (or Jev) | Nemotron 3.5 Super VL |
+| Routing | router (or Jev) | Nemotron 3 Super |
 | Workflow review | middle | Nemotron 3.5 Super VL |
 | Persona drafting and editing | high | Nemotron Ultra |
 | Meaning-search embeddings | fixed | Qwen3-Embedding-8B |
@@ -479,8 +485,8 @@ continues to use Qwen3-Embedding-8B on the main backend.
 The page has no direct Token Factory model picker: users enter an API key and
 those slots keep their defaults.
 
-Personas normally read and answer on Super; **Always think deeply** selects Ultra for the answer. A post containing a phrase such as "詳しく", "深掘り", "ちゃんと調べて", "in detail" or "deep dive" is a deep request and is answered on Ultra. This is a plain phrase match, with no model judgment, so a request without such a phrase stays ordinary. Ultra answers carry a badge.
-An ordinary turn reads and answers in one flow, and answers in a single call when nothing needs reading. For a deep request or Always think deeply, a persona with lookup tools such as Web search reads on Super and then answers on Ultra; the infographic, which has none, reads and answers on Ultra. Research permits up to 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep requests and Always think deeply. Each round receives the remaining search count. At zero, Web search is removed from the choices, while other available reads and finishing research remain possible. Unconfigured tools and memory reads for memoryless personas are not offered.
+Personas normally read and answer on Lightning; **Always think deeply** selects Super VL for the answer. A post containing a phrase such as "詳しく", "深掘り", "ちゃんと調べて", "in detail" or "deep dive" is a deep request and is answered on Ultra. This is a plain phrase match, with no model judgment, so a request without such a phrase stays ordinary. Answers on the high model carry an Ultra badge.
+An ordinary turn reads and answers in one flow, and answers in a single call when nothing needs reading. For a deep request or Always think deeply, a persona with lookup tools such as Web search reads on Super VL and answers on Ultra for a deep request, or reads and answers on Super VL for Always think deeply; the infographic, which has none, reads and answers on its answer model. Research permits up to 10 reads and 2 Web searches normally, or 20 reads and 4 Web searches for deep requests and Always think deeply. Each round receives the remaining search count. At zero, Web search is removed from the choices, while other available reads and finishing research remain possible. Unconfigured tools and memory reads for memoryless personas are not offered.
 
 Once an external agent's connection key has been issued and **Use the external agent**
 is enabled in settings, each persona can turn on
@@ -493,7 +499,7 @@ turn's schedules and notes on Super, assembles them
 with the answer into a workflow, reviews it as in the table above when it holds a
 schedule, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
-15 minutes of the claim, the built-in path takes the turn back and answers on Super, or Ultra for deep requests or Always think deeply. The waits are under Advanced options →
+15 minutes of the claim, the built-in path takes the turn back and answers on Lightning, Ultra for deep requests, or Super VL for Always think deeply. The waits are under Advanced options →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 

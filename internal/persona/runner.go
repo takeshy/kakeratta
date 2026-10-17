@@ -724,13 +724,23 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	deep = deep || skill.AlwaysUltra
 
 	root := timeline.RootOf(trigger)
-	// Depth is fixed before the read/answer loop. Reads and state-changing
-	// phases stay on Super; only a deep/AlwaysUltra answer uses Ultra.
-	answerModel := personaModel(settings)
-	phaseModel := personaModel(settings)
+	// Depth is fixed before the read/answer loop. A deep or AlwaysUltra turn
+	// reads on a larger model than the everyday one, and answers on one too.
+	everyday := everydayModel(client, settings)
+	readBase := everyday
+	answerModel := everyday
+	phaseModel := planningModel(client, settings)
 	slot := "super"
-	if deep {
+	switch {
+	case requestedDeep:
+		readBase = deepReadModel(client, settings)
 		answerModel, slot = ultraModel(settings), "ultra"
+	case deep:
+		readBase = deepReadModel(client, settings)
+		answerModel = consideredModel(client, settings)
+		if answerModel == ultraModel(settings) {
+			slot = "ultra"
+		}
 	}
 	if client == nil || client.BaseURL == "" || answerModel == "" || phaseModel == "" {
 		return nil
@@ -817,7 +827,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// referenced are the records read this turn, for their dates to move.
 	referenced := map[string]bool{}
 
-	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: answerModel, Reviewer: reviewModel(settings)}
+	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: answerModel, Reviewer: reviewModel(client, settings)}
 	defer func() { logRun(record) }()
 	failed := func(err error) *timeline.Entry {
 		record.Error = err.Error()
@@ -928,7 +938,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 				return currentReadCapabilities(skill, set, budget, post.Place, readLimit-readsUsed)
 			},
 			lookup: lookup,
-			model:  readModel(settings, answerModel, set, post.Place),
+			model:  readModel(readBase, answerModel, set, post.Place),
 		})
 		if err != nil {
 			return failed(err)
@@ -1143,15 +1153,70 @@ func personaModel(settings store.Settings) string {
 	return firstSet(settings.MiddleModel, settings.LowModel)
 }
 
+// On Nebius with the shipped middle model, a turn's jobs go to the model that
+// pays for itself there. Super VL reasons far longer than Super - worth it for
+// what a mistake would carry forward, or once a day, but not for every
+// answer - and Lightning is enough for an ordinary answer and for noting what
+// was said. Routing and everything else stay on Super.
+// OpenRouter, another endpoint and a chosen middle model keep their slots.
+func nebiusShipped(client *llm.Client, settings store.Settings) bool {
+	return client != nil && !client.OpenRouter && strings.TrimRight(strings.TrimSpace(client.BaseURL), "/") == store.NebiusBaseURL &&
+		strings.TrimSpace(settings.MiddleModel) == store.NemotronSuper
+}
+
+// everydayModel reads for and writes ordinary answers, and keeps notes.
+func everydayModel(client *llm.Client, settings store.Settings) string {
+	if nebiusShipped(client, settings) {
+		return store.NemotronLightning
+	}
+	return personaModel(settings)
+}
+
+// planningModel plans schedules and reviews the plan.
+func planningModel(client *llm.Client, settings store.Settings) string {
+	if nebiusShipped(client, settings) {
+		return store.NemotronSuperVL
+	}
+	return personaModel(settings)
+}
+
+// deepReadModel reads for a deep or AlwaysUltra turn. On Nebius an AlwaysUltra
+// answer is on the same model, so its reads and answer share one loop.
+func deepReadModel(client *llm.Client, settings store.Settings) string {
+	if nebiusShipped(client, settings) {
+		return store.NemotronSuperVL
+	}
+	return personaModel(settings)
+}
+
+// consideredModel answers for a persona set to always think deeply. A post
+// asking for a deeper answer still gets ultraModel.
+func consideredModel(client *llm.Client, settings store.Settings) string {
+	if nebiusShipped(client, settings) {
+		return store.NemotronSuperVL
+	}
+	return ultraModel(settings)
+}
+
+// checkInSettings puts Super VL in the middle slot for the day's and the
+// month's work on Nebius: the day's summary, the month's, the memory pass and
+// every check-in turn, reads and notes included.
+func checkInSettings(client *llm.Client, settings store.Settings) store.Settings {
+	if nebiusShipped(client, settings) {
+		settings.MiddleModel = store.NemotronSuperVL
+	}
+	return settings
+}
+
 // readModel is the model that gathers evidence for an answer on answerModel.
-// A persona with its own lookup tools reads on Super and leaves only the
-// answer to Ultra; one without them (the infographic, working from what the
-// thread already holds) seldom reads, so its Ultra answer reads too rather than
-// paying for a Super call that would only finish reading.
-func readModel(settings store.Settings, answerModel string, set *tools.Set, at *timeline.Place) string {
+// A persona with its own lookup tools reads on reader and leaves only the
+// answer to a larger one; one without them (the infographic, working
+// from what the thread already holds) seldom reads, so its answer model reads
+// too rather than paying for a call that would only finish reading.
+func readModel(reader, answerModel string, set *tools.Set, at *timeline.Place) string {
 	for _, d := range set.Declarations() {
 		if d.Name != "timeline_search" && d.Name != "schedules_list" && set.ReadAvailable(d.Name, at) {
-			return personaModel(settings)
+			return reader
 		}
 	}
 	return answerModel

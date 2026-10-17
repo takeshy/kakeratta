@@ -25,18 +25,21 @@ const (
 
 	// Lightning judges replies, Super answers, Ultra answers a reply asking for
 	// more. These are only where it starts; any OpenAI-compatible name fits.
-	NemotronLightning   = "nvidia/Nemotron-3_5-Lightning"
-	NemotronNano        = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
-	NemotronSuper       = "nvidia/Nemotron-3.5-Super-VL"
-	NemotronUltra       = "nvidia/Nemotron-3-Ultra-550b-a55b"
-	NebiusVision        = "zai-org/GLM-5.3-Flash"
-	OpenRouterRouter    = "nvidia/nemotron-3.5-super-vl"
-	OpenRouterHigh      = "nvidia/nemotron-3-ultra-550b-a55b"
-	OpenRouterMiddle    = "nvidia/nemotron-3.5-super-vl"
-	OpenRouterLow       = "nvidia/nemotron-3.5-lightning"
-	OpenRouterVision    = "z-ai/glm-5.3-flash"
-	legacyNemotronNano  = "nvidia/nemotron-3-nano-30b-a3b"
-	legacyNemotronSuper = "nvidia/nemotron-3-super-120b-a12b"
+	NemotronLightning = "nvidia/Nemotron-3_5-Lightning"
+	NemotronNano      = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+	NemotronSuper     = "nvidia/nemotron-3-super-120b-a12b"
+	// NemotronSuperVL takes Super's place in the day's and the month's work on
+	// Nebius. It reasons far longer than Super, which pays off once a day but
+	// not on every post.
+	NemotronSuperVL    = "nvidia/Nemotron-3.5-Super-VL"
+	NemotronUltra      = "nvidia/Nemotron-3-Ultra-550b-a55b"
+	NebiusVision       = "zai-org/GLM-5.3-Flash"
+	OpenRouterRouter   = "nvidia/nemotron-3-super-120b-a12b"
+	OpenRouterHigh     = "nvidia/nemotron-3-ultra-550b-a55b"
+	OpenRouterMiddle   = "nvidia/nemotron-3-super-120b-a12b"
+	OpenRouterLow      = "nvidia/nemotron-3.5-lightning"
+	OpenRouterVision   = "z-ai/glm-5.3-flash"
+	legacyNemotronNano = "nvidia/nemotron-3-nano-30b-a3b"
 )
 
 // Profile holds display preferences independently of authentication.
@@ -258,12 +261,6 @@ func (s *Store) ConfiguredSettings() Settings {
 }
 
 func normaliseConfiguredSettings(settings Settings) Settings {
-	// OpenRouter has its own model namespace, independent of the main endpoint.
-	for _, model := range []*string{&settings.OpenRouterRouterModel, &settings.OpenRouterHighModel, &settings.OpenRouterMiddleModel, &settings.OpenRouterLowModel} {
-		if strings.TrimSpace(*model) == legacyNemotronSuper {
-			*model = OpenRouterMiddle
-		}
-	}
 	if settings.JevEnabled {
 		settings.OpenRouterMode = true
 		settings.OpenRouterRouterModel = "~typesafe/jev-latest"
@@ -314,11 +311,6 @@ func normaliseConfiguredSettings(settings Settings) Settings {
 	// Repair only the defaults shipped for Nebius. Custom endpoints and model
 	// selections belong to the user, even when their names resemble ours.
 	if usesNebiusEndpoint(settings) {
-		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel, &settings.RouterModel} {
-			if strings.TrimSpace(*model) == legacyNemotronSuper {
-				*model = NemotronSuper
-			}
-		}
 		for _, model := range []*string{&settings.LowModel, &settings.MiddleModel, &settings.HighModel} {
 			if name := strings.TrimSpace(*model); name == legacyNemotronNano || name == "nvidia/nvidia-nemotron-3-nano-30b-a3b" {
 				*model = NemotronNano

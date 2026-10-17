@@ -4,13 +4,13 @@ People say I'm a genius at forgetting things.
 
 Even things I tell myself I must remember slip away. I tried keeping notes, but then I forgot the notebook. When I got a smartphone, I tried one note app after another. (Of course, I sometimes forget the phone itself.)
 
-I even built an app that used AI to organize my notes automatically. It didn't work as I had hoped. It felt like having someone else clean your room: everything was tidier, but I no longer knew where anything was. When I had put things away myself, I kept a rough sense of where they were. But leaving notes scattered doesn't scale either: past a certain volume, things simply get lost.
+I even built an app that used AI to organize my notes automatically. It didn't work as I had hoped. It felt like having someone else clean your room: everything was tidier, but I no longer knew where anything was. When I had put things away myself, I kept a rough sense of where they were. Yet once there is enough information, leaving it scattered means some of it is simply lost.
 
 And nobody writes notes about the things they carry every day. Writing "don't forget your phone" in your phone feels absurd.
 
 In old Japanese family dramas, there was a scene I always envied: as the husband heads out, his wife asks him at the door, "Do you have your handkerchief?" Today's AI is capable enough. Couldn't it do the same thing?
 
-One of my biggest regrets is also a kind of forgetting. I lost touch with someone important who had always looked out for me. I was busy, I lost the note with their contact details, and by the time I thought to thank them, years had passed. If I had noticed sooner, I could have called their workplace and asked for their contact again.
+One of my biggest regrets is also a kind of forgetting. I lost touch with someone important who had always looked out for me. I was busy, I lost the note with their contact details, and I never thanked them before a long time had passed. If I had noticed sooner, I could have called their workplace and asked for their contact again.
 
 If I stopped forgetting things, my life would be a great deal better.
 
@@ -22,7 +22,7 @@ kakeratta is a personal timeline where dedicated AI personas connect fragments o
 
 ### Bringing back what you forgot
 
-On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't have time for. Your travel persona quietly remembers it. Weeks later you post "Going to Shizuoka tomorrow," and the persona connects the two:
+On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't have time for. Your food persona, tabe, quietly remembers it. Weeks later you post "Going to Shizuoka tomorrow," and tabe connects the two:
 
 > "You didn't make it to that restaurant last time. Maybe this trip?"
 
@@ -90,14 +90,14 @@ The hosted architecture separates the Web API from persona workers. Posts and pe
 | **4. Research** | Read the conversation, persona memory, past fragments, and permitted search tools. |
 | **5. Answer** | Compose the answer or choose silence, without changing schedules. |
 | **6. Plan schedules** | Separately draft any reminder or schedule changes. |
-| **7. Check and review** | Validate permissions and schedule ownership in code. Nemotron 3.5 Super VL (Super) reviews plans containing schedules; failed checks regenerate the plan. |
+| **7. Check and review** | Validate permissions and schedule ownership in code. Nemotron 3.5 Super VL reviews plans containing schedules; failed checks regenerate the plan. |
 | **8. Execute** | Apply approved changes. Do not publish an answer implying success if execution fails. |
 | **9. Publish** | Save the answer to the timeline and send push notifications when applicable. |
 | **10. Update memory** | Append a record of the user's fragment after publication. Failed updates are retried independently. |
 
 Selected personas run in parallel, while replies within each conversation remain ordered.
 
-**The AI writing an answer is never asked to produce schedules and memory in the same breath.** Super handles research and ordinary answers; deep requests and personas set to always use Ultra use it only for final composition. Planning, validation, execution, and memory remain separate.
+**The AI writing an answer is never asked to produce schedules and memory in the same breath.** Nemotron 3.5 Lightning handles research and ordinary answers. For deep requests, Super VL researches and Ultra composes the final answer; for personas set to always think deeply, Super VL does both. Planning, validation, execution, and memory remain separate.
 
 An ordinary memory update uses one call to decide whether to keep a short record, using the conversation and existing tags without loading existing facts or older records. Each persona keeps one memory file; if a distinct topic builds up, it can suggest creating another persona instead of splitting that file.
 
@@ -121,13 +121,79 @@ A Japanese and English Alexa skill confirms spoken input before posting. Web Pus
 
 Model calls are logged by purpose and retry scope, so I can identify which stages make everyday use expensive and adjust them.
 
+## Challenges we ran into
+
+### Giving the AI the right context
+
+At first I had each persona keep its memory in OKF (Open Knowledge Format), Google Cloud's open spec for the LLM-wiki pattern: the AI maintains its knowledge as a set of linked Markdown files with YAML frontmatter. I thought that separating personas and managing their memory this way would be enough to give the AI a lean, usable context. Real use quickly showed it wasn't.
+
+OKF works well for organizing information that already exists. But new records kept arriving, and many of them were fragments without much meaning on their own. Fitting each one into the wiki became impractical, and thin information ended up scattered everywhere. It could no longer be called management.
+
+Recording the AI's answers made it worse. Answers far outnumbered what I had said, so my own information, the part that actually mattered, got diluted.
+
+So I gave up on OKF. What matters is what the user says, because that is information you can't find online. Each fragment is now recorded one by one as history. When the user wants to keep an AI answer, they save it themselves as a Favorite. This keeps the two from mixing.
+
+Context size was the next problem. Passing everything the user ever said uses too many tokens, which raises the cost and lowers accuracy. Passing only recent fragments means the AI knows only recent things and loses the larger context. So each persona keeps one memory file with two parts: facts that hold now, each linked to the posts it rests on, and short records of recent fragments. A daily check-in folds new records into the facts and clears them away. The AI receives the current facts and the latest records, and can search older ones when it needs them. That gives it the user's overall thinking together with what is on their mind right now.
+
+### Making each post cheap enough to post freely
+
+A single post does more than get a reply. It is routed, read, answered, checked for schedule changes, and recorded in memory, and most of those steps are model calls. Early on, one fragment cost more than 1 yen. For business use that is cheap. For a consumer app where you're meant to jot down small thoughts, it is enough to make you hesitate before posting. So I went through every step a post triggers.
+
+**Routing.** The router is the heart of the app. Every fragment passes through it, and it has to deliver each one only to the personas the user intends. Because it runs on every post, it has to be fast and cheap as well as accurate.
+
+I started with Nemotron 3.5 Lightning, which NVIDIA promotes for routing. But posts sometimes missed the persona I meant, or reached one I didn't. Switching to Nemotron 3 Ultra and tuning the prompt fixed the routing, but Token Factory's per-model costs showed that routing on Ultra accounted for about half of all AI spend.
+
+I concluded that if Ultra succeeds where smaller models fail, the task itself is too ambiguous. The router had been given each persona's role along with its trigger conditions, which was too much information. I made two changes:
+
+1. **Routing conditions only.** Each persona now has a short routing condition, separate from its role and instructions, and the router reads only that.
+2. **Reasons for exclusion, not inclusion.** A post should be excluded if even one condition fails, which is a simpler judgement than arguing for inclusion. The router must now give an `excluded_reasons` entry for every persona it does not select.
+
+With these changes, smaller models routed almost without problems. The exclusion reasons also became a product feature: users can see why a persona wasn't called, and correct its routing condition.
+
+Then I compared the models on speed, accuracy, and cost together. In a September 19 replay of 20 real posts, with thinking enabled for all three:
+
+| Model | Cost / routing call | Mean latency | Matches vs. post-hoc reference |
+| --- | --- | --- | --- |
+| Super | ~0.098 yen | 1.91 s | 17/20 |
+| Ultra | ~0.449 yen | 2.28 s | 19/20 |
+| Lightning | ~0.070 yen | 6.55 s | 17/20 |
+
+Super cost about 22% as much as Ultra. All three of its mismatches concerned a single persona, plana (now sona). Lightning was cheaper still, but much slower with thinking enabled. With thinking disabled, it made many more mistakes. Super became the default router. This was a small replay without pre-established ground truth, not an accuracy benchmark.
+
+**Everything after routing.** With model calls logged by purpose, I could see where the rest of the cost went, and most of it was work nobody needed:
+
+- **Read the post once.** Images are analyzed and the post's location resolved once, before routing, and every selected persona shares the result.
+- **Skip phases that aren't needed.** The answer states whether a schedule change is needed; if not, schedule planning and review never run. Personas without schedule permission or memory skip those phases entirely, and their prompts leave out rules and fields they cannot use. When the same post was submitted again on October 17 after the answer prompt was trimmed, the answer call's input fell from 4,778 to 3,550 tokens (26% less) and its cost fell about a third, though the reasoning length also differed between the two runs.
+- **Use Ultra only for the final answer.** A smaller model does the research. Only an explicit deep request, recognized by phrases such as "詳しく" ("in detail") without an extra model call, has Ultra compose the final answer. In production, a deep reply before this split used 17 calls for about $0.274; one after it used six calls for about $0.027. The questions differed, but the model split alone accounts for a 48% difference.
+- **Keep memory updates small.** After each post, one call appends a short record without loading existing facts or older records. Folding records into facts waits for the daily check-in. Its production cost impact has not yet been measured.
+- **Read the day once.** The daily check-in summarizes the day's posts once for all personas, and a persona with nothing new skips the conversation.
+- **Stop loops early.** Research ends after three malformed requests. Hermes persona requests are now claimed and submitted in code, so the model only researches and answers: in two recorded runs, two calls instead of four, about 70% cheaper.
+
+Reasoning turned out to be the largest remaining cost. These runs used Nemotron 3.5 Super VL, which had just replaced Nemotron 3 Super as my default, and most of its output tokens were reasoning: the memory update spent 1,905 reasoning tokens to write a one-line record, and routing's reasoning grew from 1,080 to 3,105 tokens between the two runs. Routing plus one persona's answer and memory update came to about $0.009 (about 1.4 yen). Across production routing calls, Super VL's median reasoning was about 1,430 tokens, against about 70 for Nemotron 3 Super on the same prompt.
+
+So I gave each job the model that suits it. Routing went back to Nemotron 3 Super. Ordinary answers and memory notes moved to Nemotron 3.5 Lightning: in my use it is fast and cheap on simple turns, and when a turn gets hard it slows down sharply but rarely gets it wrong. Super VL now handles only what carries forward or runs once a day: research for deep requests, research and answers for personas set to always think deeply, schedule planning and review, check-ins, memory tidying, and the day's and month's summaries. I have not yet measured what this allocation costs per post.
+
 ## Accomplishments that we're proud of
 
-What I'm proudest of is building the notebook I've always wanted: a place where I can jot down fragments without organizing them, and have them brought back when they matter. Nemotron 3.5 Super VL does most of the work, making this practical enough for me to use every day.
+What I'm proudest of is that I was able to build the notebook I've always wanted using AI, at a cost that could make it accessible to everyone. A place where I can jot down fragments without organizing them, and have them brought back when they matter. By giving most of the work to smaller Nemotron models, I demonstrated that even an affordable AI model can be capable enough to support everyday life.
+
+### What notes need to do
 
 With paper, I relied on three things: a notebook to write anywhere, a planner to know when to act, and sticky notes to find what mattered. kakeratta brings all three together.
 
-I can capture a thought offline, find a useful answer again, and receive a reminder about a plan. A persona can remember what someone likes, notice an unfinished promise, or remind me when it's been too long since we last spoke. I can also inspect where a memory came from and correct it. That combination makes me more willing to rely on it.
+- **Capture anywhere.** Write from a PC or phone, even offline, or speak through Alexa.
+- **Find and follow through.** Search by keyword or meaning, receive scheduled reminders, and mark tasks done so personas know what you've completed.
+- **Keep important things visible.** Mark posts or AI answers as Favorites and find them again by persona.
+
+### Beyond ordinary notes
+
+Some fragments become useful in ways a conventional notebook cannot offer.
+
+Each post records a rough location, so I can ask "When did I last go to Tokyo?" I can photograph a page from a book, add my thoughts, and later ask what I was reading and how I felt about it.
+
+And fragments about people don't just sit in a notebook. A persona can remember what someone likes, notice an unfinished promise, or remind me when it's been too long since we last spoke.
+
+The achievement isn't any single feature. It's making these everyday uses work together through simple posts and personas, at a cost low enough that I don't have to hesitate before writing something down.
 
 ## What we learned
 
@@ -135,13 +201,15 @@ I can capture a thought offline, find a useful answer again, and receive a remin
 
 With coding agents, I can describe what I want and get a working implementation of a complex feature without explaining how to build it. So it seems like an LLM should easily be able to answer a question and take a note of it at the same time.
 
-In my early implementation, asking for an answer, notes, and schedules together produced shorter answers and missed operations. A persona could promise a reminder without creating it. More instructions did not reliably fix that.
+In practice, when I asked an LLM to reply and write a note in one call, even a capable model often did only one of the two. And even when the reply and the note say nearly the same thing, each costs its own tokens, so the reply gets shallower. The model might say it doesn't know something a quick search would answer, hallucinate, or answer correctly, and which of these happens changes from call to call.
 
-I split each turn into phases: the persona writes the answer, while schedules and memory are planned, checked, and saved separately. Code checks permissions and whether the schedule plan supports the answer's promises. A memory failure can be retried after the answer has reached the user.
+Coding agents don't have this problem because they don't pass the request straight to the LLM. They analyze the request internally, split it into separate LLM calls, and add review phases. This framework, called a harness, manages the process so the desired result comes out.
 
-I also learned to give each call a smaller job. The memory keeper appends a short record without rereading facts or older records; consolidation waits until check-in. The Hermes worker handles request intake and submission in code, leaving the model to research and answer. Adding review calls was not always helpful: in my direct-request experiments, review-and-retry loops often added cost without improving the result.
+The obvious answer is to bring a harness into kakeratta, but it isn't that simple. Coding agents assume a capable model. Point a coding agent at a weaker model and the results are terrible. kakeratta is meant to be cheap enough to use casually, so it can't rely on capable models everywhere.
 
-I now watch real posts, failures, and usage together. I use Ultra for persona drafting and deep final answers, and test whether simpler tasks can stay on Super. Users can inspect routing decisions and correct memories or replies when the system gets them wrong. For this app, ease of use depends on those recovery paths as much as on the first answer.
+So I split each turn into phases: the persona writes only the answer, while schedules and memory are planned, checked, and saved separately. Beyond that, I run the app, watch the results and the cost, and work on whatever fails most often. Sometimes I cover it with logic, sometimes with adjusted prompts or context. I use a capable model only for parts that are rarely called but important. Where the system can't fix something, the user adjusts it.
+
+As models and coding agents improve, features alone no longer set an app apart. What will, I think, is ease of use through UI/UX, and a harness built to balance quality against cost.
 
 ## What's next for kakeratta
 
@@ -149,3 +217,4 @@ I now watch real posts, failures, and usage together. I use Ultra for persona dr
 * A community persona repository. A persona is more than a prompt: routing conditions or keywords, behavior, memory structure, and tools. Packaged together, personas could be shared like apps, for example one that researches AI news every morning and explains the background that makes it matter.
 
 The goal is simple: whatever catches people's attention, or whatever they don't want to forget, they can toss into kakeratta and stop worrying about forgetting it.
+

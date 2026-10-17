@@ -348,7 +348,7 @@ highがなければpass。submit_reviewで提出する。`
 func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.Settings, skill Skill, thread []timeline.Entry, trigger timeline.Entry,
 	answer Answer, plan Workflow, known string, names map[string]string, here *time.Location) (*Review, error) {
 
-	model := reviewModel(settings)
+	model := reviewModel(client, settings)
 	encoded, _ := json.MarshalIndent(struct {
 		Schedules []ScheduleOperation `json:"schedules"`
 	}{plan.Schedules}, "", "  ")
@@ -409,11 +409,10 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 	return nil, fmt.Errorf("確認結果を3回読めませんでした")
 }
 
-// reviewModel checks plans for inconsistent schedules. It uses the
-// middle slot - Super by default, or the Middle model chosen for OpenRouter -
-// and stays there even when a persona answers on Ultra.
-func reviewModel(settings store.Settings) string {
-	return personaModel(settings)
+// reviewModel checks plans for inconsistent schedules, on the model that
+// planned them, even when a persona answers on Ultra.
+func reviewModel(client *llm.Client, settings store.Settings) string {
+	return planningModel(client, settings)
 }
 
 // routingModel evaluates all persona conditions in one request.

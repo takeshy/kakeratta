@@ -66,17 +66,44 @@ func TestRoutingKeepsExclusionReasonsByID(t *testing.T) {
 	}
 }
 
-// Routing defaults to Super unless a Router model is selected. Workflow review uses the middle
-// slot, so it is Super by default and follows the Middle model on OpenRouter.
-func TestRoutingAndReviewUseSuper(t *testing.T) {
+// Routing defaults to Super unless a Router model is selected.
+func TestRoutingUsesSuper(t *testing.T) {
 	if got := routingModel(); got != store.NemotronSuper {
 		t.Fatalf("routing model = %q", got)
 	}
-	if got := reviewModel(store.Settings{MiddleModel: store.NemotronSuper, LowModel: store.NemotronLightning}); got != store.NemotronSuper {
-		t.Fatalf("review model = %q", got)
-	}
-	if got := reviewModel(store.Settings{MiddleModel: "openai/gpt-oss-120b", LowModel: store.OpenRouterLow}); got != "openai/gpt-oss-120b" {
-		t.Fatalf("OpenRouter review model = %q", got)
+}
+
+// On Nebius with the shipped middle model, ordinary answers run on Lightning,
+// as do notes; reads for a deep request, schedule planning, review, AlwaysUltra
+// answers and the daily run on Super VL. OpenRouter shares Super's model name, so it must not
+// be mistaken for Nebius; there, and on another endpoint or with a chosen
+// middle model, every job keeps its slot.
+func TestNebiusAssignsEachJobItsModel(t *testing.T) {
+	type want struct{ everyday, deepRead, planning, considered, checkIn string }
+	for _, tc := range []struct {
+		name   string
+		client *llm.Client
+		middle string
+		want   want
+	}{
+		{"Nebius", llm.New(store.NebiusBaseURL+"/", ""), store.NemotronSuper,
+			want{store.NemotronLightning, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL}},
+		{"OpenRouter", llm.NewOpenRouter(store.OpenRouterBaseURL, "key"), store.OpenRouterMiddle,
+			want{store.OpenRouterMiddle, store.OpenRouterMiddle, store.OpenRouterMiddle, store.NemotronUltra, store.OpenRouterMiddle}},
+		{"custom endpoint", llm.New("https://custom.example/v1", ""), store.NemotronSuper,
+			want{store.NemotronSuper, store.NemotronSuper, store.NemotronSuper, store.NemotronUltra, store.NemotronSuper}},
+		{"chosen middle", llm.New(store.NebiusBaseURL, ""), "custom-middle",
+			want{"custom-middle", "custom-middle", "custom-middle", store.NemotronUltra, "custom-middle"}},
+	} {
+		settings := store.Settings{MiddleModel: tc.middle, HighModel: store.NemotronUltra, LowModel: store.NemotronLightning}
+		got := want{everydayModel(tc.client, settings), deepReadModel(tc.client, settings), reviewModel(tc.client, settings), consideredModel(tc.client, settings),
+			personaModel(checkInSettings(tc.client, settings))}
+		if got != tc.want {
+			t.Fatalf("%s: models = %+v, want %+v", tc.name, got, tc.want)
+		}
+		if planningModel(tc.client, settings) != got.planning {
+			t.Fatalf("%s: review and planning differ", tc.name)
+		}
 	}
 }
 

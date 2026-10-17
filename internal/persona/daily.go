@@ -81,6 +81,7 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 	if client == nil || client.BaseURL == "" || personaModel(settings) == "" {
 		return
 	}
+	settings = checkInSettings(client, settings)
 	loc := settings.Location()
 	local := now.In(loc)
 	workspace := r.store.ID()

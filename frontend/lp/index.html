@@ -245,8 +245,8 @@
             <p class="ja">kakerattaの使い方・設定・困りごと。同梱の仕様を読んで答えます。新規利用時は有効です。</p>
             <p class="en">Questions about kakeratta, its settings and problems using it. Answers from the shipped specification. Active by default in new workspaces.</p></div>
           <div class="card"><span class="who">infographic</span><span class="tag"><span class="ja">図解</span><span class="en">infographic</span></span>
-            <p class="ja">「インフォグラフィックにして」で文章・URL記事・画像の読み取り内容を絵文字・Mermaidを使ったMarkdownで図解。Web検索なし。表示言語へ翻訳。記憶なし、常にUltraです。</p>
-            <p class="en">Markdown infographics with emoji and Mermaid for text, expanded articles and interpreted images, without Web search, in your display language. No memory; always Ultra.</p></div>
+            <p class="ja">「インフォグラフィックにして」で文章・URL記事・画像の読み取り内容を絵文字・Mermaidを使ったMarkdownで図解。Web検索なし。表示言語へ翻訳。記憶なし。ふだんは Super VL、「詳しく」を付けると Ultra で作ります。</p>
+            <p class="en">Markdown infographics with emoji and Mermaid for text, expanded articles and interpreted images, without Web search, in your display language. No memory; Super VL by default, Ultra when you ask “in detail”.</p></div>
           <div class="card"><span class="who">shiori</span><span class="tag"><span class="ja">読書</span><span class="en">reading</span></span>
             <p class="ja">電子書籍のキャプチャ、引用、書名と著者、読んだ感想。</p>
             <p class="en">E-book captures, quoted passages, titles and authors, thoughts on a read.</p></div>
@@ -258,12 +258,13 @@
 
       <section class="section" id="models">
         <h2><span class="ja">動かしているモデル</span><span class="en">The models behind it</span></h2>
-        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。ふだんは Super、常に熟考する担当は Ultra で答え、「もっと詳しく」「違う」と返すとその返信には Ultra が答えます。</p>
-        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Personas normally answer on Super, or Ultra with Always think deeply on; reply "tell me more" or "that's wrong" and that reply is answered on Ultra.</p>
+        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。ふだんは Lightning、常に熟考する担当は Super VL で答え、「詳しく」などと頼むとその返信には Ultra が答えます。</p>
+        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Personas normally answer on Lightning, or Super VL with Always think deeply on; ask "in detail" and that reply is answered on Ultra.</p>
         <ul class="models">
-          <li><span class="ja">Nemotron 3.5 Lightning — 任意の音声入力整形</span><span class="en">Nemotron 3.5 Lightning — optional dictation polishing</span></li>
-          <li><span class="ja">Nemotron 3.5 Super VL — 振り分け、調査方針・深さの判断、全調査と通常の回答</span><span class="en">Nemotron 3.5 Super VL — routing, research planning and depth selection, all research and ordinary answers</span></li>
-          <li><span class="ja">Nemotron Ultra — 深い回答が必要な依頼と、常に熟考する担当の最終回答</span><span class="en">Nemotron Ultra — final answers for deep requests and Always think deeply</span></li>
+          <li><span class="ja">Nemotron 3.5 Lightning — 調査と通常の回答、メモ、任意の音声入力整形</span><span class="en">Nemotron 3.5 Lightning — research and ordinary answers, notes, optional dictation polishing</span></li>
+          <li><span class="ja">Nemotron 3 Super — 振り分け</span><span class="en">Nemotron 3 Super — routing</span></li>
+          <li><span class="ja">Nemotron 3.5 Super VL — 深い依頼と常に熟考する担当の調査、予定の計画と確認、常に熟考する担当の回答、毎日・毎月のチェックインと記憶の整理</span><span class="en">Nemotron 3.5 Super VL — research for deep requests and Always think deeply, schedule planning and review, Always think deeply answers, daily and monthly check-ins and memory tidying</span></li>
+          <li><span class="ja">Nemotron Ultra — 深い回答が必要な依頼の最終回答</span><span class="en">Nemotron Ultra — final answers for deep requests</span></li>
           <li><span class="ja">GLM-5.3-Flash — 画像の読み取り（同じ基盤）</span><span class="en">GLM-5.3-Flash — image reading, on the same backend</span></li>
         </ul>
       </section>

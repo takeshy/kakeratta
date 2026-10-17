@@ -180,7 +180,7 @@ When a reply says “summarize this” or “diagram this answer”, the replied
 entry is its subject, including when `@` selects a different persona; an
 explicitly chosen original post or whole thread takes precedence.
 
-The current default router is **Nemotron 3.5 Super VL through Nebius Token Factory**.
+The current default router is **Nemotron 3 Super through Nebius Token Factory**.
 
 Advanced settings offer **Use OpenRouter**, with separate Router, High, Middle,
 and Low model choices. Selecting **Jev** (`~typesafe/jev-latest`) in the Router
@@ -250,7 +250,7 @@ changed.
 
 ## Who answers, and on which model
 
-**Selected personas run in parallel, normally on Nemotron 3.5 Super VL.** Each takes
+**Selected personas run in parallel, normally on Nemotron 3.5 Lightning.** Each takes
 one turn. On the timeline, only the user's own posts and replies wake anyone;
 a persona's remark never wakes another persona, so the timeline cannot fill
 with AI-to-AI conversation. (Check-ins and schedules wake a persona on their
@@ -265,28 +265,31 @@ turn deep; a complex request without such a phrase stays ordinary. There is no
 model-based depth judgment and no research plan. Ordinary turns may read 10
 times with 2 Web searches; deep and AlwaysUltra turns 20 times with 4.
 
-**Ordinary turns read and answer in one loop on Super.** The answer model is
+**Ordinary turns read and answer in one loop on the everyday model** (Lightning on Nebius, the middle slot elsewhere). The answer model is
 offered `submit_answer` from the first request, alongside the available
 `read`. When the thread and memory are enough, a spoken or silent answer is a
 single call; otherwise it reads and then answers in the same loop.
 
-**Deep and AlwaysUltra turns read on Super and answer on Ultra** - for a
-persona with lookup tools of its own (Web search, weather, the bundled
-specification and the like). Super is offered only `read` and `finish_read`;
-after it finishes, or reaches the read ceiling, Ultra is offered only
-`submit_answer`. A persona without lookup tools - the infographic, which works
-from what the thread already holds - keeps the single loop on Ultra, so a turn
-that needs no reads is one Ultra call rather than a Super call that would only
-finish reading. The schedule phase always uses Super.
+**Deep and AlwaysUltra turns read on one model and answer on a larger one** -
+on Nebius, a deep request reads on Super VL and answers on Ultra, and
+AlwaysUltra reads and answers on Super VL in one loop -
+for a persona with lookup tools of its own (Web search, weather, the bundled
+specification and the like). The read model is offered only `read` and
+`finish_read`; after it finishes, or reaches the read ceiling, the answer model
+is offered only `submit_answer`. A persona without lookup tools - the
+infographic, which works from what the thread already holds - keeps the single
+loop on the answer model, so a turn that needs no reads is one call rather than
+a call that would only finish reading. The schedule phase and its review use
+Super VL on Nebius.
 
 **Always think deeply** (`alwaysUltra`) makes every turn deep: the deeper read
-budget and an Ultra answer. It does not change external delegation; Ultra is
+budget and a considered answer - Super VL on Nebius, Ultra elsewhere. It does not change external delegation; Ultra is
 used when the built-in planner takes over. Infographic ships with this on.
 Other personas default to off.
 
 **Each remark records its model slot** (`model: "super"`, `"ultra"`, or `"agent"`
 for an external answer; nothing for a turn that failed). These are role labels,
-not provider model IDs. The timeline marks an Ultra answer with a badge beside
+not provider model IDs. The timeline marks an answer on the high model with an Ultra badge beside
 the time.
 
 ```text
@@ -295,10 +298,11 @@ post / reply
  ↓ direct recipient selection, or ordinary routing
 selected recipients run in parallel
  ↓ depth from explicit phrases in the post (no model call)
- ↓ ordinary: Super reads and submits the answer in one loop
- ↓ deep/alwaysUltra: Super reads → finish_read → Ultra submits the answer
-   (a persona without lookup tools reads and answers on Ultra)
- ↓ schedule phase on Super only when the answer asks for one
+ ↓ ordinary: Lightning reads and submits the answer in one loop
+ ↓ deep: Super VL reads → finish_read → Ultra submits the answer
+ ↓ alwaysUltra: Super VL reads and submits the answer in one loop
+   (a persona without lookup tools reads and answers on the answer model)
+ ↓ schedule phase on Super VL only when the answer asks for one
  ↓ note keeper for memory-enabled related user turns
 ```
 
@@ -399,8 +403,8 @@ thread is included in full.
    search or a place lookup. Only read-only tools run here; an MCP tool
    is offered to a persona only when its server marks it `readOnlyHint`. Reading
    writes nothing, so the app just does it and hands the results back.
-2. **Answer.** Ordinary turns read and answer in the same loop on Super; a
-   deep or AlwaysUltra turn of a persona with lookup tools hands its reads,
+2. **Answer.** Ordinary turns read and answer in the same loop on Lightning; a
+   deep turn of a persona with lookup tools reads on Super VL and hands its reads,
    with the whole conversation and tool results, to Ultra, which is offered
    only `submit_answer`. The persona hands in `{text, sources, unrelated,
    schedule}`: `schedule` says whether a schedule must be created, changed or cancelled. Its prompt holds no note format, memory layout or
@@ -411,7 +415,7 @@ thread is included in full.
    no later phase can change it.
 3. **Schedule phase.** Only when the persona may schedule and the answer
    said `schedule: true` (or said nothing, as older external clients do), a
-   separate call on Super sees the finished
+   separate call on Super VL sees the finished
    answer and the schedules already placed, and hands in `submit_schedule`:
    create, update, and cancel operations. Updates change time or Push preference;
    purpose and recurrence changes use cancel/create. Each
@@ -454,8 +458,8 @@ in and how many submissions it took.
 ### The note keeper
 
 `internal/persona/notekeeper.go`. After the remark is published, the persona
-keeps what the turn should leave behind, on the middle model (Super by default,
-even when Ultra composes the answer), in its own voice. It runs for a fragment of the user's - a post,
+keeps what the turn should leave behind, on the everyday model (Lightning on
+Nebius, even when a larger model composes the answer), in its own voice. It runs for a fragment of the user's - a post,
 a reply, or an edit, including related silence - when memory is enabled, and for a check-in handed records due
 for review. Schedule wakes, deletion tidy-ups, and out-of-domain silence do not run it. Edits always reach the keeper when memory is enabled, even when unrelated, so earlier facts can be corrected through the durable keeper job. Legacy answer `remember` values are ignored. On deletion, the host removes the records
 and their unsupported facts directly; the persona can revisit its schedules.
@@ -527,9 +531,10 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3.5 Super VL**       | Reads and ordinary answers, reads of deep turns, the schedule phase, routing, workflow review, the note keeper, and the day's and month's summaries |
-| **Nemotron 3 Ultra**       | Answers for deep requests and AlwaysUltra (reads too, for a persona without lookup tools such as the infographic), plus persona drafting |
-| **Nemotron 3.5 Lightning** | Optional dictation polishing |
+| **Nemotron 3 Super**       | Routing |
+| **Nemotron 3.5 Super VL**  | Reads of deep and AlwaysUltra turns, the schedule phase and workflow review, AlwaysUltra answers (the infographic included), daily and monthly check-ins, the daily memory pass, and the day's and month's summaries; it reasons far longer than Super, which is worth paying where a mistake carries forward or once a day, but not on every answer |
+| **Nemotron 3 Ultra**       | Answers for deep requests (reads too, for a persona without lookup tools such as the infographic), plus persona drafting |
+| **Nemotron 3.5 Lightning** | Reads and ordinary answers, the note keeper, and optional dictation polishing; fast and cheap on simple turns |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |
 | **Qwen3-Embedding-8B**     | Meaning search over past fragments                                    |
 
@@ -838,7 +843,8 @@ and external-agent planning remain available. The UI hides memory and check-in
 controls. Read-only memoryless turns also skip post-answer schedule planning
 and review calls. See [optional persona memory](system/personas.md#optional-persona-memory).
 
-Infographic defaults to `alwaysUltra: true` and submits Markdown with emoji,
+Infographic defaults to `alwaysUltra: true` - Super VL on Nebius, or Ultra when the
+post asks "in detail" - and submits Markdown with emoji,
 headings, lists, tables and Mermaid flowcharts or sequence diagrams. It declares
 no Web search tool and does not generate HTML, CSS or SVG. It uses expanded URL articles, interpreted image contents
 and the selected reply target as material. `Entry.Language`, captured at

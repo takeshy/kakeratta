@@ -2,47 +2,6 @@ package store
 
 import "testing"
 
-func TestSuperVLMigration(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		provider Provider
-		endpoint string
-		want     string
-	}{
-		{"Nebius", ProviderNebius, NebiusBaseURL + "/", NemotronSuper},
-		{"custom endpoint", ProviderNebius, "https://custom.example/v1", legacyNemotronSuper},
-		{"custom provider", ProviderOpenAI, NebiusBaseURL, legacyNemotronSuper},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			s := open(t)
-			settings := defaultSettings()
-			settings.Provider, settings.BaseURL = tc.provider, tc.endpoint
-			settings.LowModel, settings.MiddleModel, settings.HighModel, settings.RouterModel = legacyNemotronSuper, legacyNemotronSuper, legacyNemotronSuper, legacyNemotronSuper
-			settings.OpenRouterRouterModel, settings.OpenRouterMiddleModel = legacyNemotronSuper, legacyNemotronSuper
-			settings.OpenRouterHighModel, settings.OpenRouterLowModel = "custom-high", OpenRouterLow
-			if err := s.SaveSettings(settings); err != nil {
-				t.Fatal(err)
-			}
-			for _, got := range []Settings{s.ConfiguredSettings(), s.Settings()} {
-				for _, model := range []string{got.LowModel, got.MiddleModel, got.HighModel, got.RouterModel} {
-					if model != tc.want {
-						t.Fatalf("model = %q, want %q", model, tc.want)
-					}
-				}
-				if got.OpenRouterRouterModel != OpenRouterRouter || got.OpenRouterMiddleModel != OpenRouterMiddle || got.OpenRouterHighModel != "custom-high" || got.OpenRouterLowModel != OpenRouterLow || got.VisionModel != NebiusVision {
-					t.Fatal("incorrect OpenRouter migration or unrelated selection changed")
-				}
-			}
-		})
-	}
-	settings := defaultSettings()
-	settings.MiddleModel, settings.RouterModel = "custom-middle", "custom-router"
-	got := normaliseConfiguredSettings(settings)
-	if got.MiddleModel != settings.MiddleModel || got.RouterModel != settings.RouterModel || got.HighModel != NemotronUltra || got.LowModel != NemotronLightning {
-		t.Fatal("unrelated model selections changed")
-	}
-}
-
 func TestDefaultPersonasAreActiveAndSavedChoicesArePreserved(t *testing.T) {
 	s := open(t)
 	if got := s.Settings().Active; len(got) != 3 || got[0] != "routine" || got[1] != "support" || got[2] != "infographic" {
