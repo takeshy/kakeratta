@@ -63,7 +63,7 @@ func phaseTool(phase string) llm.Tool {
 // across its phases and a log keyed by the opening line stays whole.
 func phasePrompt(phase string, skill Skill, set *tools.Set, wake string) string {
 	s := fmt.Sprintf("%s%s\n担当領域: %s\n担当の指示: %s\n", skill.intro(), skill.Tone, skill.Domain, skill.Instructions)
-	s += "現在は " + phase + " phase。完成済みAnswerを変更せず、このフェーズのoperationsだけを提案する。他フェーズの操作を生成しない。必要な変更がなければ空配列。起きていないことを完了扱いしない。提案は本体の検証後に実行される。\n"
+	s += "現在は " + phase + " phase。完成済みAnswerを変更せず、このフェーズのoperationsだけを提案する。必要な変更がなければ空配列。起きていないことを完了扱いしない。提案は本体の検証後に実行される。\n"
 	switch phase {
 	case "schedule":
 		s += `今回のターンで未来の予定を変える必要があるかを判断する。Answerにある作成・取消・変更の約束、日時を確認し、すべてoperationsまたは既存予定で裏付ける。約束があるのにoperationsが空で既存予定にも根拠がなければconsistent:false。取り消したという回答は実際のcancel操作を必要とする。

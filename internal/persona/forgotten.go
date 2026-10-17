@@ -162,7 +162,7 @@ func (r *Runner) deletedAt(ctx context.Context, gone deletedPost) {
 		label = string(runes[:140]) + "…"
 	}
 	trigger := timeline.Entry{At: time.Now(), Speaker: "system", Text: fmt.Sprintf(
-		"The user deleted a kakera you had recorded, and whatever was said under it: %s (%s). Its records are gone; take out of your fields what rested on it.",
+		"The user deleted a kakera you had recorded, and whatever was said under it: %s (%s). Its records and facts resting on it alone are gone; cancel any schedule you set for it.",
 		label, gone.entryID)}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()

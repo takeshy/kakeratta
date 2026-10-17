@@ -367,7 +367,7 @@ func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.
 		"今回の対象発言:",
 		trigger.Render(names, here),
 		"",
-		"完成した Answer（調査の出典は本文中のリンクも参照。これはメモへの保存指示ではありません）:",
+		"完成した Answer:",
 		answer.Text,
 		"担当が提出した状態変更計画（schedules）:",
 		string(encoded),
