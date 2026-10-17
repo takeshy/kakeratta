@@ -11,6 +11,8 @@ kakeratta uses six models through Nebius Token Factory, chosen by how often each
 
 I arrived at this allocation by testing the actual tasks. A smaller model was not always faster, and a larger model was not always necessary.
 
+When I switched the default from Nemotron 3 Super to Nemotron 3.5 Super VL on October 16, the token prices and prompts stayed the same, but reasoning increased substantially—even on everyday tasks where I was already satisfied with 3 Super's quality. Across production routing calls, median reasoning rose from about 70 to 1,430 tokens, and median cost rose from about 0.12 yen to 0.30 yen per call: roughly 2.5 times as much. Super VL also spent 1,905 reasoning tokens just to write a one-line memory record. These are observations across production calls, not a controlled replay of identical inputs. They made Super VL too expensive as an across-the-board replacement, so I kept 3 Super for frequent everyday work and reserved Super VL for selected tasks. The implementation lessons document records the switch and measurements (https://github.com/takeshy/kakeratta/blob/main/docs/ai-lessons.md#14-a-newer-model-thought-far-more-and-a-smaller-one-never-stopped).
+
 Unless stated otherwise, the Super measurements and production observations below used Nemotron 3 Super (120B, 12B active).
 
 ### How would you rate Nemotron's output quality for your use case?
@@ -120,6 +122,8 @@ First, I would like a model specialized for fast, structured decisions. kakeratt
 Routing requires checking many conditions at once. Lightning and Nano took a long time with thinking enabled and made more routing errors without it. Super is the practical default, but it is a large model for a classification task.
 
 Jev showed what a specialized model could offer. On the same 20 posts, it averaged 0.37 seconds and about $0.00017 per post, roughly one quarter of Super's estimated cost. Manual review favored its decisions in all five cases where the original models disagreed. kakeratta now offers Jev through OpenRouter, but Super remains the default because Jev does not provide the exclusion reasons that the routing-inspection and refinement features rely on. I would like a Nemotron model with Jev's speed and cost profile that also gives useful decision reasons without a long reasoning trace. Routing, validation, and workflow review could all benefit from it.
+
+The move from 3 Super to 3.5 Super VL also made me want finer control over reasoning effort. For tasks where 3 Super's quality was already sufficient, longer reasoning raised costs without solving a problem I needed solved. I would like the newer model to use less reasoning on those tasks, with a configurable reasoning budget that preserves reliable tool calling and instruction following.
 
 Second, I would like managed retrieval that connects directly to inference. I would like to create a persistent store, add documents or memories to it, and pass its ID with a Nemotron request. The platform would handle embedding, retrieval, reranking, and adding the relevant context. The application could then focus on what to remember instead of maintaining the retrieval pipeline.
 
