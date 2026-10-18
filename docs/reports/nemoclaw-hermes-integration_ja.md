@@ -4,14 +4,76 @@
 
 [README](../../README_ja.md) · [English](nemoclaw-hermes-integration.md) · [Hermes の設定](../guides/hermes_ja.md) · [直接依頼ワーカー実装仕様](../design/direct-request-worker-spec_ja.md) · [Hermes-4-405B 図解生成の実測](hermes-4-405b-visual-evaluation_ja.md) · [モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) · [暴走ループ事故の分析 (英語)](nemoclaw-hermes-runaway-incident.md)
 
+## まとめ
+
+Hermesからkakerattaへ回答を返す一連の動作を本番で確認した。2026-10-16の記録では、askの取得・提出をPythonワーカーへ移すことで、親Cronのモデルセッションを起こさずに処理が完了している。
+
+| 確認したこと | 根拠と範囲 |
+| --- | --- |
+| 外部回答の保存 | 2026-09-27〜2026-10-02 JSTに30ターンを確認。一部をHermesのセッションDBと照合 |
+| ワーカーによる入出力制御 | 2026-10-16に `claim_ask` / `submit_answer` をPythonで実行する経路を確認 |
+| 入力トークン削減 | 記録された旧・新の2セッションで62,847 → 15,774（約75%削減）。同一条件で反復した平均値ではない |
+| モデルの役割 | 2026-10-16時点ではpersona askにSuper-VL、直接依頼にUltraを使用 |
+
+本書は構成の変遷を含む検証記録であり、以下の手順・設定は各検証時点のもの。最新の接続手順は[Hermes連携ガイド](../guides/hermes_ja.md)を参照してください。自動テストのモデル応答はモックであり、実機観測とは区別する。
+
+読む順序: [エンドツーエンド検証](#エンドツーエンド検証) → [構成と責務](#構成と責務) → [MCP運用](#mcp-と自律プランニング)。移行・復旧が必要な場合は[Provider v2移行](#openshell-provider-v2への移行2026-10-13)と[運用課題](#運用で解決した重要課題)へ。
+
+## エンドツーエンド検証
+
+本番環境（`https://kakeratta.net`）にて、プランナーを外部エージェントに設定したペルソナへの投稿を行い、自律プランニングサイクルを検証しました。
+
+```text
+ユーザー投稿 → 1分周期 Cron (Wake Gate) → list_asks (Python で未処理 ask 検知)
+            → direct_request_worker.py: claim_ask (Python でコンテキスト取得)
+            → Nemotron-3.5-Super-VL 単発セッション実行 (persona-hermes-home: read_for_ask + web のみ)
+            → direct_request_worker.py: submit_answer (Python で回答提出)
+            → kakeratta 側での予定フェーズ・レビュー・ペルソナとしての発言投稿
+```
+
+Hermes の CLI や管理画面を人が直接操作することなく、また Cron 親セッションを起動することなく（`{"wakeAgent": false}`）、未処理依頼の検知から会話スレッドへの自然な発言投稿、記憶ノートの更新までが完全に自律して完了することを確認しました。
+
+### コード主導の Persona Ask 最適化と実機ベンチマーク（2026-10-16 検証）
+
+従来の Cron 親セッション起動方式では、毎ターン kakeratta の全 17 MCP ツールと Hermes の全標準ツールセット（`terminal`, `cronjob`, `memory`, `session_search`, `skills`, `delegation` 等）のスキーマが入力に乗るうえ、LLM 自身が `list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer` と 4〜6 回モデル呼び出しを重ねていました。
+
+`direct_request_worker.py`（`WORKER_VERSION = "9"`）で `list_asks`・`claim_ask`・`submit_answer`・`release_ask` を Python コード側へ移し、ペルソナ実行用の `persona-hermes-home` に読み込むツールを `tools.include: ["read_for_ask"]` と `-t kakeratta,web` だけに絞ったことで、本番環境での入力トークン数が **約 75% 削減**されました：
+
+| 指標 | 旧 Cron 親セッション方式 (`20261016_052950_f3fc2b`) | 新コード主導ワーカー方式 (`20261016_085734_838364`) |
+| --- | --- | --- |
+| **使用モデル** | `nvidia/Nemotron-3.5-Super-VL` | `nvidia/Nemotron-3.5-Super-VL` |
+| **読み込まれるツール定義** | 全 17 MCP ツール＋Hermes 全標準ツールセット | **`read_for_ask` のみ＋`web`** |
+| **取得・提出 (`claim_ask`, `submit_answer`)** | LLM のツール呼び出し | **Python コード (`direct_request_worker.py`)** |
+| **LLM API 呼び出し回数（Web 検索あり）** | 4回 | **2回**（検索1ターン＋回答1ターン） |
+| **累積入力トークン数** | 62,847 tokens | **15,774 tokens（約75%削減）** |
+| **出力トークン数** | 1,663 tokens | **1,435 tokens**（うち推論 761） |
+| **処理時間（取得〜提出完了）** | 約 45〜60 秒 | **約 23 秒** |
+| **1回あたり推定コスト（Web 検索あり）** | 約 \$0.0205（約 3.2円） | **約 \$0.0062（約 0.96円）** |
+
+この表は旧・新の記録された2セッションを比較したもの。同一入力を反復した統制試験ではなく、約75%削減や処理時間を一般的な性能保証として扱わない。
+
+また、`read_for_ask` や `web_search` を使わずにスレッドと初期記憶だけで答えられるターンでは **LLM API 呼び出し 1 回**（入力約 6,000〜7,000 tokens、**約 \$0.0025 / 約 0.4円**）で完結します。
+
+### モデル選定と安定性（Direct Disclosure）
+
+モデル選定にあたっては、複数のモデルを検証しました：
+- **`NousResearch/Hermes-4-405B`**: 推論精度は高いものの、単純なプロンプトでも応答に約 45 秒を要し、毎分の自律プランニング運用には応答遅延が大きすぎる課題がありました。
+- **`nvidia/Nemotron-3_5-Lightning`**: 応答は約 2〜3 秒と極めて高速でしたが、多段 MCP 操作での引数誤りや JSON 構造破損が発生しやすく、ツールエラーや一時的なネットワーク不達時に不要な設定変更・シェル調査ループに陥って実行が長引くケースが確認されました。
+- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: 応答速度とツール判断のバランスがよく、persona ask 用のプランナーモデルとして使用しています（当初検証は旧 `nvidia/nemotron-3-super-120b-a12b` で実施し、現在は後継の `nvidia/Nemotron-3.5-Super-VL` で本番稼働・実機検証済み）。旧モデルではユーザーに誤りを指摘されても前の主張を維持したセッションや、回答を書いたのに提出しなかったセッション（Skill v13 で改善、さらに Worker v9 のコード主導提出により構造的に解消）がありました。
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Provider v2 経由で直接依頼（`@agent`）ワーカーから使用しています（本番実機検証 `q_1792128562756350474a4600c8c`：API 呼び出し 1 回、入力 8,125 / 出力 2,762 tokens、約 \$0.018）。以前に親 Cron のプランナーとして思考設定付きで試した際は、ツール呼び出しをプレーンテキストで出力して Repetition Guard に達する問題がありました。[モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) を参照してください。
+
+さらに Hermes 側で `tools.tool_search.enabled: "off"`（Direct disclosure）を適用することで、モデルは引数をネイティブ JSON オブジェクトとして渡すことができ、文字列エスケープ破損による失敗を構造的に防いでいます。
+
+## 構成と責務
+
 本書は、NVIDIA NemoClaw / OpenShell のサンドボックス内で動作する Hermes Agent を、kakeratta の担当ペルソナにおける「外部プランナー（思考エンジン）」として連携させ、Nebius Token Factory で推論し、kakeratta の MCP を介して安全かつ自律的にプランニング（ワークフロー策定）と自己更新を行う構成の実装・検証レポートです。目的は、単に LLM をサンドボックス内で実行することではなく、本番稼働中のパーソナル AI アプリケーションから自律エージェントへ安全に思考を委譲し、結果を元の会話へ返すところまで自動化することです。認証情報、ワークスペース ID、アクセストークン、内部 ID は掲載しません。
 
 > [!NOTE]
-> **現在のプロトコルと本番検証（2026-10-02）。** 以下の当初の検証は `submit_workflow`（スキル v11）で行いました。現在の Hermes は `submit_answer` で回答だけを提出し、kakeratta が予定・操作の計画、レビュー、実行、回答の公開、記憶の更新を行います。詳しくは [Hermes 連携ガイド](../guides/hermes_ja.md) を参照してください。
+> **プロトコル変更と本番検証（2026-10-02時点）。** 当初の検証は `submit_workflow`（スキル v11）で行いました。この時点の Hermes は `submit_answer` で回答だけを提出し、kakeratta が予定・操作の計画、レビュー、実行、回答の公開、記憶の更新を行います。詳しくは [Hermes 連携ガイド](../guides/hermes_ja.md) を参照してください。
 >
 > 2026-09-27〜2026-10-02 JST の本番記録で、**外部回答がスレッド返信として保存された30ターン**を確認しました。予定のレビュー・実行・永続化に成功した例も含みます。この単一ユーザーのデプロイで設定された外部プランナーは、NemoClaw 内の Hermes 1つだけです。複数の返信をユーザー提供の Hermes セッションDB調査と照合し、回答本文と時刻の一致から、それらの回答元が Hermes であることを確認しました。自動テストは、モデル応答をモックして回答・予定・メモの各フェーズを検証しています。
 
-## 構成と責務
+以下の図・責務表は統合の概念と旧プランナー構成を示す。ワークフロー提出から回答提出への変更は直前の注記、2026-10-16のワーカーによる実行経路は前節を参照。
 
 ```mermaid
 flowchart TD
@@ -38,6 +100,20 @@ flowchart TD
 | Nebius Token Factory | 親のSuperと子のUltraを、Hermesが指定したモデル名のままOpenAI互換APIで提供する |
 
 kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP（Model Context Protocol）です。推論はProvider v2が許可したToken FactoryのAPIへHermesから直接送信され、OpenShellが資格情報とEgressを管理します。毎分の Wake Gate は、Hermes が正常に接続していることを kakeratta に伝えるハートビートも兼ねており、取得待ち時間（既定3分）の間に MCP 呼び出しがなければ、次回接続まで kakeratta の内蔵モデルが自動で代替します。
+
+## MCP と自律プランニング
+
+kakeratta の現在の MCP ツール群（`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer` 等）、回答の流れ、および Wake Gate によるゼロトークン待機と自律アップデートの詳細仕様については、[**Hermes Agent 連携ガイド**](../guides/hermes_ja.md#mcp-と自律プランニング) を参照してください。
+
+NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点は以下の通りです：
+
+- **L7 プロキシと認証情報の隔離**: kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP（Model Context Protocol）です。クレデンシャルは OpenShell のキーストアで安全に秘匿され、世代付きプレースホルダー（`openshell:resolve:env:...`）を介して L7 プロキシで動的注入されます。
+- **Egress 制限下の自律更新**: サンドボックスの初期状態では外部 Web への自由なアクセスが遮断されていますが、Wake Gate スクリプトは管理対象 MCP プロバイダーとして許可された `kakeratta.net` 経路上の `get_integration` ツールを利用して Skill とスクリプト自身を自己更新します。これにより、追加の Egress を開けずに最新の連携ロジックを維持できます。
+- **ハートビートとフォールスルー**: 毎分の Wake Gate による `list_asks` 呼び出しはハートビートを兼ねており、取得待ち時間（既定3分）の間に MCP 呼び出しが途絶えると、サンドボックスの異常時にも kakeratta の内蔵モデルが自動で代替（フォールスルー）します。
+
+以下の節は、検証と長期運用で実際に遭遇した問題の記録です。通常のインストールに必須の手順ではありません。対応する症状が出たときのトラブルシューティング資料として参照してください。通常の接続手順は[Hermes Agentを担当の「考える役」にする](../guides/hermes_ja.md)を参照してください。
+
+**付録：移行・復旧の記録。** ここからは、各時点の設定変更と障害対応の詳細を記す。通常の接続手順は連携ガイドを参照してください。
 
 ## OpenShell Provider v2への移行（2026-10-13）
 
@@ -131,19 +207,10 @@ OpenShell 0.0.116では `provider update` 後も、既に動いているサン�
 
 ローカルデモ終了後は、MCP URL、Providerのトークン、`mcp_bridge_kakeratta` のhost・port・path・`allowed_ips`を本番へ戻し、`list_asks`、`tools/list`、Token Factory推論、サンドボックス `Ready`、ホストのAPI/ダッシュボード転送を再確認します。
 
-## MCP と自律プランニング
-
-kakeratta の現在の MCP ツール群（`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer` 等）、回答の流れ、および Wake Gate によるゼロトークン待機と自律アップデートの詳細仕様については、[**Hermes Agent 連携ガイド**](../guides/hermes_ja.md#mcp-と自律プランニング) を参照してください。
-
-NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点は以下の通りです：
-
-- **L7 プロキシと認証情報の隔離**: kakeratta は Hermes のプロセスを直接起動せず、Hermes も kakeratta のデータベースへ直接アクセスしません。両者の境界は MCP（Model Context Protocol）です。クレデンシャルは OpenShell のキーストアで安全に秘匿され、世代付きプレースホルダー（`openshell:resolve:env:...`）を介して L7 プロキシで動的注入されます。
-- **Egress 制限下の自律更新**: サンドボックスの初期状態では外部 Web への自由なアクセスが遮断されていますが、Wake Gate スクリプトは管理対象 MCP プロバイダーとして許可された `kakeratta.net` 経路上の `get_integration` ツールを利用して Skill とスクリプト自身を自己更新します。これにより、追加の Egress を開けずに最新の連携ロジックを維持できます。
-- **ハートビートとフォールスルー**: 毎分の Wake Gate による `list_asks` 呼び出しはハートビートを兼ねており、取得待ち時間（既定3分）の間に MCP 呼び出しが途絶えると、サンドボックスの異常時にも kakeratta の内蔵モデルが自動で代替（フォールスルー）します。
-
-以下の節は、検証と長期運用で実際に遭遇した問題の記録です。通常のインストールに必須の手順ではありません。対応する症状が出たときのトラブルシューティング資料として参照してください。通常の接続手順は[Hermes Agentを担当の「考える役」にする](../guides/hermes_ja.md)を参照してください。
-
 ## 運用で解決した重要課題
+
+<details>
+<summary>観測した問題と対応の一覧を開く</summary>
 
 | 観測した問題 | 原因と対応 |
 | --- | --- |
@@ -164,6 +231,8 @@ NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点
 | Hermes が回答を書いたのに提出しない | Hermes は ask を取得し、Web 検索と `read_for_ask` で約50秒調べて質の高い回答を書いたが、`submit_answer` を呼ばずに Cron のコンソールへテキストとして出力して終了したため、ask は `planBy` まで待ち続けた。Cron ジョブの共通プロンプトに「最終回答を出力すればシステムが残りを処理する（Just produce your report/output as your final response and the system handles the rest）」とあり、提出物が入れ子の JSON だった `submit_workflow` では呼び忘れなかったが、提出物が回答テキストになった `submit_answer` では Nemotron Super がこれを文字どおりに受け取った。Skill v13 で「出力したテキストは kakeratta に届かない。必ず `submit_answer` で提出し、`accepted` を確認してから `[SILENT]` で終える」と明記し、取得したのに未提出の ask が残っていないかの最終確認を加えた。`claim_ask` の `next` と MCP サーバーの instructions にも同じ注意を入れた。 |
 | Wake Gate の Fail-Open 欠陥によるトークン爆食ループ | 未処理タスクがない時にゼロトークン待機（0.1秒）するはずの Wake Gate（`check_kakeratta_gate.py`）が、設定未完了や通信エラー時に「タスク取りこぼし防止」のため安易に `wakeAgent: true`（Fail-Open）を出力していた。原因の究明により、OpenShell に `personal_open_internet` を追加した際にベースの合成ポリシーが脱落し、`mcp_bridge_kakeratta` のクレデンシャルバインディングが消失して L7 プロキシが `HTTP 500 credential_unavailable` を返していたことが判明。このエラーで毎分起床した Hermes Agent は、MCP ツール（`mcp__kakeratta__*`）が使えないため自律的に「なぜツールが動かないのか」を Web 検索やコマンドで上限 60 ターンまで調査し尽くし、1 回で 110 万〜342 万トークンを消費。この 60 ターン暴走セッションは監査時点で【計 20 回】発生しており、モデルを止めるまで続いた結果、最終的に Hermes-4-405B の入力 34.54M トークン（合計 34.98 ドル）の課金障害を引き起こしていた。スクリプトを **Fail-Closed（未処理タスクの存在が確実に確認できた時のみ起床し、エラー・例外時は一切 LLM を起こさず `wakeAgent: false` で即時終了）** に全面改修し、`config.yaml` の `agent.max_turns: 15` 安全上限を設定（直接依頼は親を起こさず専用の直接依頼ワーカーが独自の呼び出し・トークン上限付きで処理）、さらに脱落したポリシーを `openshell policy set` で復元して完全解決した。 |
 | モデル変更時の思考設定競合によるツール呼び出し不発と Repetition Loop | Ultraを親プランナーとして使っていた旧構成では、`nvidia/Nemotron-3-Ultra-550b-a55b` に `reasoning_effort` や `extra_body: {'think': ...}` を付与すると、OpenAI形式のFunction Callingを発行せず、擬似ツール呼び出しをテキストへ出してRepetition Guardで終了することがあった。当時はSuperへのロールバックとreasoning解除で復旧した。現在は親SuperがMCPとツール操作を担当し、reasoning付きUltraは委譲先の子として生成・推論を担当するため、この旧障害は現在の役割分担を直接妨げない。 |
+
+</details>
 
 ### Web 検索・Web 抽出の Egress 開放（ハルシネーション防止）
 
@@ -320,6 +389,9 @@ PC シャットダウン時の強制終了（SIGTERM / コード 143）、Docker
 #### 2. 緊急時の手動復旧手順（Gateway DB の直接修復）
 検証中にサンドボックスが `Phase: Error` で操作不能になった際、OpenShell Gateway の内部 SQLite DB（`openshell.db`）を直接修復する、以下の緊急復旧手順を用いました。
 
+<details>
+<summary>当時の手動復旧スクリプトを開く</summary>
+
 ```bash
 # 1. サービスの停止
 systemctl --user stop nemoclaw-hermes-start.service
@@ -428,6 +500,8 @@ openshell sandbox list
 systemctl --user start nemoclaw-hermes-start.service
 ```
 
+</details>
+
 この手順は、サンドボックスを再作成せずに Gateway DB の状態を `Ready` に戻す緊急復旧として用いました。この事例では、CLI 操作の応答性とバックグラウンドでの自動再起動が回復しました。
 
 #### 3. 恒久対策：自己修復型自動起動システムの導入
@@ -448,50 +522,3 @@ PC シャットダウン時の Docker 停止順序競合や強制終了などに
 > **リポジトリ内でのソースコード管理**:
 > これらの一連のスクリプト群および systemd ユニットファイルは、リポジトリ内の [`scripts/nemoclaw/`](../../scripts/nemoclaw) ディレクトリに集約・バージョン管理されています。
 > 新しい環境へのセットアップやリンク作成は [`scripts/nemoclaw/install.sh`](../../scripts/nemoclaw/install.sh) を実行することで、`~/.local/bin` および `~/.config/systemd/user` へシンボリックリンクとして一括配備できます。
-
-## エンドツーエンド検証
-
-本番環境（`https://kakeratta.net`）にて、プランナーを外部エージェントに設定したペルソナへの投稿を行い、自律プランニングサイクルを検証しました。
-
-```text
-ユーザー投稿 → 1分周期 Cron (Wake Gate) → list_asks (Python で未処理 ask 検知)
-            → direct_request_worker.py: claim_ask (Python でコンテキスト取得)
-            → Nemotron-3.5-Super-VL 単発セッション実行 (persona-hermes-home: read_for_ask + web のみ)
-            → direct_request_worker.py: submit_answer (Python で回答提出)
-            → kakeratta 側での予定フェーズ・レビュー・ペルソナとしての発言投稿
-```
-
-Hermes の CLI や管理画面を人が直接操作することなく、また Cron 親セッションを起動することなく（`{"wakeAgent": false}`）、未処理依頼の検知から会話スレッドへの自然な発言投稿、記憶ノートの更新までが完全に自律して完了することを確認しました。
-
-### コード主導の Persona Ask 最適化と実機ベンチマーク（2026-10-16 検証）
-
-従来の Cron 親セッション起動方式では、毎ターン kakeratta の全 17 MCP ツールと Hermes の全標準ツールセット（`terminal`, `cronjob`, `memory`, `session_search`, `skills`, `delegation` 等）のスキーマが入力に乗るうえ、LLM 自身が `list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer` と 4〜6 回モデル呼び出しを重ねていました。
-
-`direct_request_worker.py`（`WORKER_VERSION = "9"`）で `list_asks`・`claim_ask`・`submit_answer`・`release_ask` を Python コード側へ移し、ペルソナ実行用の `persona-hermes-home` に読み込むツールを `tools.include: ["read_for_ask"]` と `-t kakeratta,web` だけに絞ったことで、本番環境での入力トークン数が **約 75% 削減**されました：
-
-| 指標 | 旧 Cron 親セッション方式 (`20261016_052950_f3fc2b`) | 新コード主導ワーカー方式 (`20261016_085734_838364`) |
-| --- | --- | --- |
-| **使用モデル** | `nvidia/Nemotron-3.5-Super-VL` | `nvidia/Nemotron-3.5-Super-VL` |
-| **読み込まれるツール定義** | 全 17 MCP ツール＋Hermes 全標準ツールセット | **`read_for_ask` のみ＋`web`** |
-| **取得・提出 (`claim_ask`, `submit_answer`)** | LLM のツール呼び出し | **Python コード (`direct_request_worker.py`)** |
-| **LLM API 呼び出し回数（Web 検索あり）** | 4回 | **2回**（検索1ターン＋回答1ターン） |
-| **累積入力トークン数** | 62,847 tokens | **15,774 tokens（約75%削減）** |
-| **出力トークン数** | 1,663 tokens | **1,435 tokens**（うち推論 761） |
-| **処理時間（取得〜提出完了）** | 約 45〜60 秒 | **約 23 秒** |
-| **1回あたり推定コスト（Web 検索あり）** | 約 \$0.0205（約 3.2円） | **約 \$0.0062（約 0.96円）** |
-
-また、`read_for_ask` や `web_search` を使わずにスレッドと初期記憶だけで答えられるターンでは **LLM API 呼び出し 1 回**（入力約 6,000〜7,000 tokens、**約 \$0.0025 / 約 0.4円**）で完結します。
-
-### モデル選定と安定性（Direct Disclosure）
-
-モデル選定にあたっては、複数のモデルを検証しました：
-- **`NousResearch/Hermes-4-405B`**: 推論精度は高いものの、単純なプロンプトでも応答に約 45 秒を要し、毎分の自律プランニング運用には応答遅延が大きすぎる課題がありました。
-- **`nvidia/Nemotron-3_5-Lightning`**: 応答は約 2〜3 秒と極めて高速でしたが、多段 MCP 操作での引数誤りや JSON 構造破損が発生しやすく、ツールエラーや一時的なネットワーク不達時に不要な設定変更・シェル調査ループに陥って実行が長引くケースが確認されました。
-- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: 応答速度とツール判断のバランスがよく、persona ask 用のプランナーモデルとして使用しています（当初検証は旧 `nvidia/nemotron-3-super-120b-a12b` で実施し、現在は後継の `nvidia/Nemotron-3.5-Super-VL` で本番稼働・実機検証済み）。旧モデルではユーザーに誤りを指摘されても前の主張を維持したセッションや、回答を書いたのに提出しなかったセッション（Skill v13 で改善、さらに Worker v9 のコード主導提出により構造的に解消）がありました。
-- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Provider v2 経由で直接依頼（`@agent`）ワーカーから使用しています（本番実機検証 `q_1792128562756350474a4600c8c`：API 呼び出し 1 回、入力 8,125 / 出力 2,762 tokens、約 \$0.018）。以前に親 Cron のプランナーとして思考設定付きで試した際は、ツール呼び出しをプレーンテキストで出力して Repetition Guard に達する問題がありました。[モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) を参照してください。
-
-さらに Hermes 側で `tools.tool_search.enabled: "off"`（Direct disclosure）を適用することで、モデルは引数をネイティブ JSON オブジェクトとして渡すことができ、文字列エスケープ破損による失敗を構造的に防いでいます。
-
-## まとめ
-
-本構成により、kakeratta が提供する境界は **MCP Server + Hermes Skill + Wake Gate スクリプト** のみとなり、Hermes が自律的に思考し、NemoClaw / OpenShell がセキュアな隔離境界を制御し、Nebius Token Factory が高速・高精度な推論を提供する、堅牢な自律型 AI エージェント運用基盤が確立されました。

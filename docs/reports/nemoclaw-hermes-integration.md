@@ -4,14 +4,74 @@
 
 [README](../../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](../guides/hermes.md) · [Hermes-4-405B visual evaluation](hermes-4-405b-visual-evaluation.md) · [Model Comparison](nemoclaw-hermes-model-comparison.md) · [Runaway loop incident](nemoclaw-hermes-runaway-incident.md)
 
+## Summary
+
+The production runs confirmed that Hermes could return answers to kakeratta. In the 2026-10-16 record, a Python worker handled ask acquisition and submission without waking the Cron parent model session.
+
+| Finding | Evidence and scope |
+| --- | --- |
+| External answers persisted | 30 turns recorded during 2026-09-27–2026-10-02 JST; several cross-checked against the Hermes session database |
+| Worker-controlled input and submission | Python `claim_ask` / `submit_answer` path verified on 2026-10-16 |
+| Lower input-token usage | 62,847 → 15,774 (~75% reduction) in the two recorded old/new sessions; not an average from repeated controlled trials |
+| Model roles | Super-VL for persona asks and Ultra for direct requests as of 2026-10-16 |
+
+This report records an evolving integration. Procedures and settings below describe their verification dates; use the [Hermes setup guide](../guides/hermes.md) for current connection instructions. Automated tests use mocked model responses and are separate from the live observations.
+
+Reading order: [End-to-end verification](#end-to-end-verification) → [Architecture](#architecture-and-responsibilities) → [MCP operations](#mcp-and-autonomous-planning). For migration or recovery, use the [Provider v2 migration](#migration-to-openshell-provider-v2-2026-10-13) and [operational issues](#key-operational-issues-resolved).
+
+## End-to-end verification
+
+Verified in production on `https://kakeratta.net` with personas configured for external planning:
+
+```text
+User post → Cron (every 1m with Wake Gate) → list_asks (detects pending ask in Python)
+          → direct_request_worker.py: claim_ask (fetches context in Python)
+          → Nemotron-3.5-Super-VL single session in persona-hermes-home (only read_for_ask + web tools)
+          → direct_request_worker.py: submit_answer (submits structured answer in Python)
+          → kakeratta schedule phase / review and thread posting
+```
+
+The entire cycle completed autonomously with zero human intervention and without waking the Cron parent session (`{"wakeAgent": false}`).
+
+### Code-driven persona ask optimization (verified 2026-10-16)
+
+Previously, waking the Cron parent session for a persona ask loaded all 17 kakeratta MCP tools plus Hermes's full platform toolsets (`terminal`, `cronjob`, `memory`, `session_search`, `skills`, `delegation`, etc.) on every turn, and required 4–6 model calls (`list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer`). Moving `list_asks`, `claim_ask`, `submit_answer`, and `release_ask` into Python in `direct_request_worker.py` (`WORKER_VERSION = "9"`) and isolating the model in `persona-hermes-home` with `tools.include: ["read_for_ask"]` and `-t kakeratta,web` reduced input tokens by **~75%** in production:
+
+| Metric | Old Cron Parent Flow (`20261016_052950_f3fc2b`) | New Code-Driven Worker Flow (`20261016_085734_838364`) |
+| --- | --- | --- |
+| **Model** | `nvidia/Nemotron-3.5-Super-VL` | `nvidia/Nemotron-3.5-Super-VL` |
+| **Loaded MCP tools** | All 17 kakeratta tools + all Hermes toolsets | Only `read_for_ask` + `web` |
+| **Lifecycle calls (`claim_ask`, `submit_answer`)** | LLM tool calls | Python (`direct_request_worker.py`) |
+| **LLM API calls (with Web search)** | 4 calls | **2 calls** (1 search turn + 1 answer turn) |
+| **Cumulative input tokens** | 62,847 tokens | **15,774 tokens (~75% reduction)** |
+| **Output tokens** | 1,663 tokens | **1,435 tokens** (761 reasoning) |
+| **End-to-end wall time** | ~45–60s | **~23s** |
+| **Estimated cost per ask (with Web search)** | ~\$0.0205 (~¥3.2) | **~\$0.0062 (~¥0.96)** |
+
+This table compares two recorded old/new sessions. It is not a controlled trial with repeated identical inputs; the ~75% reduction and elapsed times are observations, not general performance guarantees.
+
+When a persona ask does not require `read_for_ask` or `web_search`, it completes in a **single LLM API call** (~6,000–7,000 input tokens, ~\$0.0025 / ~¥0.4).
+
+### Model selection and reliability (Direct Disclosure)
+
+Multiple models were evaluated during development:
+- **`NousResearch/Hermes-4-405B`**: Highly capable, but simple prompts took ~45 seconds, adding unacceptable latency to a 1-minute scheduling cadence.
+- **`nvidia/Nemotron-3_5-Lightning`**: Extremely fast (2–3 seconds), but prone to argument omission, JSON structure syntax errors during multi-step MCP operations, and getting caught in troubleshooting loops (attempting unwanted configuration changes and shell commands) upon transient network or tool hiccups.
+- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: Balanced response speed and tool judgment for persona-ask planning (initial verification used `nvidia/nemotron-3-super-120b-a12b`, and production now runs and is verified on `nvidia/Nemotron-3.5-Super-VL`). In earlier runs on 120B, one session held on to an earlier error when the user corrected it, and another wrote an answer without submitting it (resolved in Skill v13 and eliminated structurally by code-driven submission in Worker v9).
+- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Used for direct `@agent` requests through the isolated direct-request worker over Provider v2 (verified in production on `q_1792128562756350474a4600c8c`: 1 API call, 8,125 input / 2,762 output tokens, ~\$0.018). When tested earlier as the parent cron planner with reasoning parameters enabled, it emitted tool calls as plain text and hit the repetition guard; see the [model comparison](nemoclaw-hermes-model-comparison.md).
+
+Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex arguments as native JSON objects without double-escaping.
+
+## Architecture and responsibilities
+
 This report documents an integration in which Hermes Agent runs inside NVIDIA NemoClaw / OpenShell, acts as an external **planner** (thinking engine) for designated kakeratta personas, uses Nebius Token Factory for inference, and safely plans turns, formulates workflows, and keeps itself updated via kakeratta's MCP server. Credentials, workspace IDs, access tokens, and internal task IDs are intentionally omitted.
 
 > [!NOTE]
-> **Current protocol and production verification (2026-10-02).** The original run below used `submit_workflow` (skill v11). Hermes now submits only an answer through `submit_answer`; kakeratta plans, reviews, and executes schedules and actions, publishes the answer, and updates memory. See the [Hermes setup guide](../guides/hermes.md).
+> **Protocol change and production verification as of 2026-10-02.** The original run used `submit_workflow` (skill v11). At that point Hermes submitted only an answer through `submit_answer`; kakeratta plans, reviews, and executes schedules and actions, publishes the answer, and updates memory. See the [Hermes setup guide](../guides/hermes.md).
 >
 > Production records from 2026-09-27–2026-10-02 JST confirmed **30 external-answer turns saved as thread replies**, including successful schedule review, execution, and persistence. In this single-user deployment, the only configured external planner is Hermes inside NemoClaw. Cross-checks of several replies against a user-provided Hermes session-database investigation matched answer text and timing, confirming Hermes as their source. Automated tests cover the answer, schedule, and note phases with mocked model responses.
 
-## Architecture and responsibilities
+The diagram and responsibility table describe the integration boundary and earlier planner configuration. The preceding note explains the change from workflow to answer submission; the previous section shows the worker-controlled execution path verified on 2026-10-16.
 
 ```mermaid
 flowchart TD
@@ -38,6 +98,20 @@ flowchart TD
 | Nebius Token Factory | Serves the Super parent and Ultra child through an OpenAI-compatible endpoint while preserving Hermes's model choice |
 
 kakeratta does not start the Hermes process, and Hermes does not access kakeratta's database directly. MCP (Model Context Protocol) is the boundary between them. Hermes sends inference directly to the Token Factory endpoint allowed by Provider v2, while OpenShell manages credentials and egress. The recurring Wake Gate also serves as a heartbeat: if no MCP calls arrive within the claim wait window (3 minutes by default), kakeratta's built-in model answers instead.
+
+## MCP and autonomous planning
+
+For the full specification of Kakeratta's current MCP tools (`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer`, etc.), the answering loop, and Wake Gate's zero-token standby and self-updating mechanisms, refer to the [**Hermes Agent Setup Guide**](../guides/hermes.md#mcp-and-autonomous-planning).
+
+Key aspects of operating MCP under NemoClaw / OpenShell include:
+
+- **L7 Proxy and Credential Isolation**: Kakeratta does not run the Hermes process, and Hermes cannot access Kakeratta's database directly. MCP (Model Context Protocol) is the sole boundary. Tokens are kept in OpenShell's credential vault and dynamically injected by the L7 proxy using generation-scoped placeholders (`openshell:resolve:env:...`).
+- **Autonomous Updates under Egress Restrictions**: Initial sandbox policies block arbitrary outbound HTTP requests. However, the Wake Gate script leverages the `get_integration` MCP tool across the already-authorized `kakeratta.net` route to self-update the Skill and itself without requiring external web access.
+- **Heartbeat and Fall-through**: Every 1-minute `list_asks` call by Wake Gate acts as a liveness heartbeat. If MCP calls cease during the claim wait window (3 minutes by default), Kakeratta's built-in model answers automatically (fall-through), preventing turns from hanging even during sandbox outages.
+
+The following sections document issues encountered during verification and long-running operation. They are not required for a normal installation; use them as troubleshooting references if the corresponding symptoms occur. For the normal connection procedure, see [Using Hermes Agent as a persona's planner](../guides/hermes.md).
+
+**Appendix: migration and recovery record.** The remaining sections preserve configuration changes and troubleshooting procedures from their respective dates. Use the setup guide for a normal connection.
 
 ## Migration to OpenShell Provider v2 (2026-10-13)
 
@@ -123,19 +197,10 @@ On OpenShell 0.0.116, `provider update` may leave an already-running sandbox pro
 
 After the demo, restore the production MCP URL, provider token, and `mcp_bridge_kakeratta` host, port, path, and `allowed_ips`; then recheck `list_asks`, `tools/list`, Token Factory inference, sandbox `Ready`, and the API/dashboard host forwards.
 
-## MCP and autonomous planning
-
-For the full specification of Kakeratta's current MCP tools (`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer`, etc.), the answering loop, and Wake Gate's zero-token standby and self-updating mechanisms, refer to the [**Hermes Agent Setup Guide**](../guides/hermes.md#mcp-and-autonomous-planning).
-
-Key aspects of operating MCP under NemoClaw / OpenShell include:
-
-- **L7 Proxy and Credential Isolation**: Kakeratta does not run the Hermes process, and Hermes cannot access Kakeratta's database directly. MCP (Model Context Protocol) is the sole boundary. Tokens are kept in OpenShell's credential vault and dynamically injected by the L7 proxy using generation-scoped placeholders (`openshell:resolve:env:...`).
-- **Autonomous Updates under Egress Restrictions**: Initial sandbox policies block arbitrary outbound HTTP requests. However, the Wake Gate script leverages the `get_integration` MCP tool across the already-authorized `kakeratta.net` route to self-update the Skill and itself without requiring external web access.
-- **Heartbeat and Fall-through**: Every 1-minute `list_asks` call by Wake Gate acts as a liveness heartbeat. If MCP calls cease during the claim wait window (3 minutes by default), Kakeratta's built-in model answers automatically (fall-through), preventing turns from hanging even during sandbox outages.
-
-The following sections document issues encountered during verification and long-running operation. They are not required for a normal installation; use them as troubleshooting references if the corresponding symptoms occur. For the normal connection procedure, see [Using Hermes Agent as a persona's planner](../guides/hermes.md).
-
 ## Key operational issues resolved
+
+<details>
+<summary>Expand the observed issues and resolutions</summary>
 
 | Observed issue | Root cause and resolution |
 | --- | --- |
@@ -156,6 +221,8 @@ The following sections document issues encountered during verification and long-
 | Hermes wrote the answer but never submitted it | Hermes claimed an ask, researched for about 50 seconds with web search and `read_for_ask`, and wrote a good answer, then printed it to the cron console and stopped instead of calling `submit_answer`, so the ask waited until `planBy`. The cron job's common prompt tells the model that its final response is delivered for it ("Just produce your report/output as your final response and the system handles the rest"); with `submit_workflow` the deliverable was a nested JSON object and the call was never skipped, but with `submit_answer` the deliverable is plain text, and Nemotron Super took the prompt at its word. Skill v13 states that printed text never reaches kakeratta, that the answer must be submitted with `submit_answer` and confirmed `accepted` before ending with `[SILENT]`, and adds a final check for claimed asks left unsubmitted; `claim_ask`'s `next` and the MCP server instructions say the same. |
 | Wake Gate Fail-Open flaw triggers multi-million token runaway loops | The Wake Gate pre-check script (`check_kakeratta_gate.py`), designed to yield 0-token idle exits (0.1s) when no asks are pending, previously fell open (`wakeAgent: true`) on network timeout, unconfigured URL, or HTTP 401/403/500 errors to prevent dropped asks. Forensic investigation revealed that adding `personal_open_internet` had evicted the base composed policy, stripping `mcp_bridge_kakeratta`'s credential binding and causing the L7 proxy to return `HTTP 500 credential_unavailable`. Woken by this HTTP 500 without usable MCP tools, Hermes Agent entered 60-turn autonomous self-debugging loops (searching GitHub and technical docs to diagnose the missing tools), consuming 1.1M to 3.4M tokens per run. Audit revealed 20 such runaway sessions by the time it was taken, and the loops continued until the model was switched off, for a final bill of 34.54M input tokens on Hermes-4-405B ($34.98 in total). Permanently resolved by converting the Wake Gate to **Fail-Closed (outputs `wakeAgent: false` on any error or missing config, ensuring 0 token expenditure)**, imposing an `agent.max_turns: 15` safety boundary in `config.yaml` (direct requests now run in the dedicated direct-request worker with their own per-request call and token limits rather than waking the parent), and restoring the composed policy with its credential binding via `openshell policy set`. |
 | Function calling suppressed by reasoning parameter conflict causing repetition loops | After switching to `nvidia/Nemotron-3-Ultra-550b-a55b`, Hermes passed `reasoning_effort` or `extra_body: {'think': ...}` parameters to Nebius Token Factory. This caused the model to emit raw pseudo-tool-call text in the message body instead of structured OpenAI `tool_calls`. The agent loop failed to recognize tools, leading the model to loop degenerate thinking text until hitting the 8,192 token limit and crashing via Hermes's repetition guard (`RuntimeError: Model output entered a repetition loop...`). Consequently, asks went unanswered and fell through to kakeratta's built-in model after the 3-minute timeout, while periodic `list_asks` heartbeats by the pre-check script continued normally. Resolved permanently by rolling back to the battle-tested `nvidia/nemotron-3-super-120b-a12b` (which issues clean `tool_calls` reliably) and unsetting reasoning configuration. |
+
+</details>
 
 ### Opening egress for web search and page extraction (preventing hallucinations)
 
@@ -312,6 +379,9 @@ When abrupt container termination (such as host shutdown SIGTERM / exit code 143
 #### 2. Emergency manual recovery (Gateway DB Byte-Level Repair)
 During verification, the following emergency procedure was used to repair Gateway's internal SQLite database (`openshell.db`) when the sandbox was locked in `Phase: Error`:
 
+<details>
+<summary>Expand the historical manual recovery script</summary>
+
 ```bash
 # 1. Stop the start service
 systemctl --user stop nemoclaw-hermes-start.service
@@ -419,6 +489,8 @@ openshell sandbox list
 systemctl --user start nemoclaw-hermes-start.service
 ```
 
+</details>
+
 This was used as an emergency recovery procedure to reconcile the Gateway database back to `Ready` without recreating the sandbox. In that instance, CLI responsiveness and background automatic restarts were restored.
 
 #### 3. Permanent Resolution: Self-Healing Autostart System
@@ -439,48 +511,3 @@ To permanently resolve Phase: Error deadlocks caused by Docker shutdown race con
 > **Source Code Management in Repository**:
 > All scripts and systemd unit files are tracked in the repository under [`scripts/nemoclaw/`](../../scripts/nemoclaw).
 > Running [`scripts/nemoclaw/install.sh`](../../scripts/nemoclaw/install.sh) symlinks them directly into `~/.local/bin` and `~/.config/systemd/user`, maintaining immediate alignment between git versioning and the running host environment.
-
-## End-to-end verification
-
-Verified in production on `https://kakeratta.net` with personas configured for external planning:
-
-```text
-User post → Cron (every 1m with Wake Gate) → list_asks (detects pending ask in Python)
-          → direct_request_worker.py: claim_ask (fetches context in Python)
-          → Nemotron-3.5-Super-VL single session in persona-hermes-home (only read_for_ask + web tools)
-          → direct_request_worker.py: submit_answer (submits structured answer in Python)
-          → kakeratta schedule phase / review and thread posting
-```
-
-The entire cycle completed autonomously with zero human intervention and without waking the Cron parent session (`{"wakeAgent": false}`).
-
-### Code-driven persona ask optimization (verified 2026-10-16)
-
-Previously, waking the Cron parent session for a persona ask loaded all 17 kakeratta MCP tools plus Hermes's full platform toolsets (`terminal`, `cronjob`, `memory`, `session_search`, `skills`, `delegation`, etc.) on every turn, and required 4–6 model calls (`list_asks` → `claim_ask` → `web_search` / `read_for_ask` → `submit_answer`). Moving `list_asks`, `claim_ask`, `submit_answer`, and `release_ask` into Python in `direct_request_worker.py` (`WORKER_VERSION = "9"`) and isolating the model in `persona-hermes-home` with `tools.include: ["read_for_ask"]` and `-t kakeratta,web` reduced input tokens by **~75%** in production:
-
-| Metric | Old Cron Parent Flow (`20261016_052950_f3fc2b`) | New Code-Driven Worker Flow (`20261016_085734_838364`) |
-| --- | --- | --- |
-| **Model** | `nvidia/Nemotron-3.5-Super-VL` | `nvidia/Nemotron-3.5-Super-VL` |
-| **Loaded MCP tools** | All 17 kakeratta tools + all Hermes toolsets | Only `read_for_ask` + `web` |
-| **Lifecycle calls (`claim_ask`, `submit_answer`)** | LLM tool calls | Python (`direct_request_worker.py`) |
-| **LLM API calls (with Web search)** | 4 calls | **2 calls** (1 search turn + 1 answer turn) |
-| **Cumulative input tokens** | 62,847 tokens | **15,774 tokens (~75% reduction)** |
-| **Output tokens** | 1,663 tokens | **1,435 tokens** (761 reasoning) |
-| **End-to-end wall time** | ~45–60s | **~23s** |
-| **Estimated cost per ask (with Web search)** | ~\$0.0205 (~¥3.2) | **~\$0.0062 (~¥0.96)** |
-
-When a persona ask does not require `read_for_ask` or `web_search`, it completes in a **single LLM API call** (~6,000–7,000 input tokens, ~\$0.0025 / ~¥0.4).
-
-### Model selection and reliability (Direct Disclosure)
-
-Multiple models were evaluated during development:
-- **`NousResearch/Hermes-4-405B`**: Highly capable, but simple prompts took ~45 seconds, adding unacceptable latency to a 1-minute scheduling cadence.
-- **`nvidia/Nemotron-3_5-Lightning`**: Extremely fast (2–3 seconds), but prone to argument omission, JSON structure syntax errors during multi-step MCP operations, and getting caught in troubleshooting loops (attempting unwanted configuration changes and shell commands) upon transient network or tool hiccups.
-- **`nvidia/nemotron-3-super-120b-a12b` / `nvidia/Nemotron-3.5-Super-VL`**: Balanced response speed and tool judgment for persona-ask planning (initial verification used `nvidia/nemotron-3-super-120b-a12b`, and production now runs and is verified on `nvidia/Nemotron-3.5-Super-VL`). In earlier runs on 120B, one session held on to an earlier error when the user corrected it, and another wrote an answer without submitting it (resolved in Skill v13 and eliminated structurally by code-driven submission in Worker v9).
-- **`nvidia/Nemotron-3-Ultra-550b-a55b`**: Used for direct `@agent` requests through the isolated direct-request worker over Provider v2 (verified in production on `q_1792128562756350474a4600c8c`: 1 API call, 8,125 input / 2,762 output tokens, ~\$0.018). When tested earlier as the parent cron planner with reasoning parameters enabled, it emitted tool calls as plain text and hit the repetition guard; see the [model comparison](nemoclaw-hermes-model-comparison.md).
-
-Furthermore, applying `tools.tool_search.enabled: "off"` (Direct disclosure) in Hermes allows the model to pass complex arguments as native JSON objects without double-escaping.
-
-## Summary
-
-The boundary between kakeratta and Hermes is minimal: **MCP Server + Hermes Skill + Wake Gate script**. NemoClaw / OpenShell guarantees isolation and network governance, while Nebius Token Factory delivers fast inference for high-quality persona planning.

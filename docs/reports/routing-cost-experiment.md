@@ -5,6 +5,29 @@ This is a dated experiment, so references to the "current" prompt or settings
 below describe the code at the time of measurement. For the implemented router
 and default model, see [Under the hood](../design/technical.md#routing-is-condition-matching-not-open-ended-judgement).
 
+## Conclusion and evidence limits
+
+Lightning substantially reduced routing cost in these samples, but missed recipients and malformed responses prevent this report from establishing a safe production replacement. Routing savings alone also did not meet the target for the cost of a complete post.
+
+The strongest distinction is between the **12 synthetic cases with predefined expected recipients** and the **20 saved production cases compared against a prior Ultra run**. Agreement with Ultra is not accuracy. Later prompt and condition changes reused the same development cases and need held-out validation.
+
+## Experiment overview
+
+| Experiment | Main result | Interpretation |
+| --- | --- | --- |
+| [Synthetic baseline](#synthetic-baseline) | Both models matched 12/12 expected recipient sets; Lightning routing cost was 86.2% lower | One run per case; routing only |
+| [Production-data replay](#production-data-replay) | 17/20 agreement; 84.9% lower paired routing cost | Missed deliveries and malformed output; failed extra request excluded from paired cost |
+| [Exclusion reasons](#exclusion-reason-experiment) | 13/20 agreement | Useful diagnostics, but known omissions remained |
+| [Condition matching](#condition-matching-experiment) | 15/20 with classifier wording; 16/20 with rewritten conditions | Condition semantics changed as well as wording |
+| [Revised routing text](#revised-routing-text-and-persona-creation) | 17/20 agreement | Named-destination omission remained |
+| [Thread ablation](#user-only-thread-ablation) and [short move condition](#short-michi-condition-full-thread) | Removing persona text restored `move` in 2/3 trials; shortening its condition restored it in 3/3 | Exploratory repetitions; neither establishes reliability |
+| [Compact conditions](#compact-conditions-for-all-personas) | 15/20 in each of three runs; run 3 became 16/20 after an ID-resolver fix | Re-scoring is not a fresh call; dropped deliveries and run-to-run variance remained |
+| [Author-reported final run](#final-run) | 18/20 agreement; both disagreements judged acceptable by hand | Not reproduced here; run artifacts were not retained |
+
+The detailed sections below preserve the experiment sequence, conditions, costs, and private artifact paths. [Reproduction instructions](#reproduce) are at the end; individual sections list additional flags.
+
+## Synthetic baseline
+
 The test calls the production Route function with the existing prompt, tool schema,
 four built-in persona domains, and 12 synthetic Japanese cases. Cases cover single
 domains, no matching domain, misleading keywords, multiple domains, thread
@@ -40,19 +63,6 @@ isolated workspace, separating routing, persona execution, review, and listening
 Twelve synthetic cases passing once is evidence for a pilot, not a production
 accuracy guarantee. Custom domains, longer threads, and repeated trials remain
 unmeasured.
-
-## Reproduce
-
-From the repository root, with a raw API key in a file:
-
-```sh
-KAKERATTA_ROUTE_LIVE=1 KAKERATTA_ROUTE_KEY_FILE="$PWD/temp/token_factory.key" go test ./internal/persona -run '^TestRouteLiveComparison$' -count=1 -v -timeout=10m
-```
-
-This explicitly makes 24 paid API calls. Ordinary tests skip this experiment.
-NEBIUS_API_KEY or KAKERATTA_ROUTE_SETTINGS (a Nebius settings JSON file) can also
-supply credentials. Never commit the key. The run log for this experiment is
-/tmp/kakeratta-route-comparison.log.
 
 ## Production-data replay
 
@@ -367,3 +377,16 @@ two remaining disagreements were immediate-action posts of the case 7 kind
 nobody. Both were reviewed by hand and judged acceptable either way. This result
 is recorded as reported; it was not reproduced in this document's replays, and
 the artifacts of the run were not kept.
+
+## Reproduce
+
+From the repository root, with a raw API key in a file:
+
+```sh
+KAKERATTA_ROUTE_LIVE=1 KAKERATTA_ROUTE_KEY_FILE="$PWD/temp/token_factory.key" go test ./internal/persona -run '^TestRouteLiveComparison$' -count=1 -v -timeout=10m
+```
+
+This explicitly makes 24 paid API calls. Ordinary tests skip this experiment.
+NEBIUS_API_KEY or KAKERATTA_ROUTE_SETTINGS (a Nebius settings JSON file) can also
+supply credentials. Never commit the key. The run log for this experiment is
+/tmp/kakeratta-route-comparison.log.
