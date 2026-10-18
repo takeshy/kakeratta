@@ -57,7 +57,7 @@ Hermes以外も、MCP Streamable HTTPのエンドポイントと `Authorization:
 
    # https://kakeratta.net/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py
    # を ~/.hermes/scripts/check_kakeratta_gate.py に配置してから
-   hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
+   hermes cron create "* * * * *" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
    ```
 
    Wake Gate が未取得の ask なしと判定した場合、Agent を起動せず、待機時の LLM 呼び出しを省きます。ask の取得期限は数分なので、間隔は1分のままにしてください。

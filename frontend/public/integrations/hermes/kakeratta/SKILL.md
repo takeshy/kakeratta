@@ -4,7 +4,7 @@ description: >
   Research and answer turns for kakeratta personas whose planner is this external agent,
   carry out requests the user addresses to this agent directly, and post as those personas when asked.
 metadata:
-  version: "31"
+  version: "32"
 ---
 
 # kakeratta
@@ -94,7 +94,7 @@ Schedule this skill with a Wake Gate. A cron job that only names the skill wakes
 3. Create the recurring job with the gate attached:
 
    ```bash
-   hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
+   hermes cron create "* * * * *" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
    ```
 
    For an existing job, use `hermes cron edit <job_id> --script check_kakeratta_gate.py`. Check `hermes cron list` and remove any duplicate ungated kakeratta job.

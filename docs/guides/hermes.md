@@ -57,7 +57,7 @@ Other agents can use the same MCP Streamable HTTP endpoint and `Authorization: B
 
     # Place https://kakeratta.net/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py
     # at ~/.hermes/scripts/check_kakeratta_gate.py first
-    hermes cron create "every 1m" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
+    hermes cron create "* * * * *" --name kakeratta --skill kakeratta --script check_kakeratta_gate.py --deliver local
     ```
 
    When the Wake Gate finds no pending ask, it skips the agent and the idle LLM call. An ask waits only minutes to be claimed, so keep the interval at one minute.
