@@ -40,8 +40,8 @@ steps:
   args:
   - -ceu
   - |
-    for fp in $$(gcloud compute os-login ssh-keys list --format='value(fingerprint)' 2>/dev/null); do
-      gcloud compute os-login ssh-keys remove --key "$$fp" --quiet || true
+    for fp in $(gcloud compute os-login ssh-keys list --format='value(key)' 2>/dev/null); do
+      gcloud compute os-login ssh-keys remove --key "$fp" --quiet || true
     done
     gcloud compute ssh shared-apps \
       --project=geminihub-486523 \
