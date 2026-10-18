@@ -540,6 +540,8 @@ export function createPersonas({ onChange, onSearch, onPosted, getSettings }) {
     load,
     rows: () => rows,
     updateRows,
+    // Whether a post can be addressed to the external agent right now.
+    agentAvailable: () => mcpConfigured && !agentPaused,
     // The banner on the main screen can put someone in the room without
     // opening this panel at all.
     activate: (id) => setActive(id, true),

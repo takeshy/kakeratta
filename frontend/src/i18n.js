@@ -527,6 +527,7 @@ const EN = {
   "{0} を呼ぶ": "Call in {0}", "担当をえらぶ": "Choose personas",
   "溜まった反応を順に読み上げます": "Reads the collected reactions aloud, in order",
   "ドラッグで並べ替えできます": "Drag to reorder", "押すと @{0} を入力します": "Tap to write @{0}",
+  "担当を通さず外部エージェントに直接依頼します": "Ask the external agent directly, without the personas",
   "🔈 読み上げ": "🔈 Read aloud", "■ 停止": "■ Stop",
   "担当": "Personas", "設定": "Settings", "閉じる": "Close",
   "ヘルプ": "Help", "使い方（別タブで開く）": "Manual (opens in a new tab)",

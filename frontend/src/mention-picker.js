@@ -1,7 +1,7 @@
 import { avatarNode } from "./avatar.js";
 import { el, clear } from "./dom.js";
 import { named, gloss } from "./builtins.js";
-import { t } from "./i18n.js";
+import { getLanguage, t } from "./i18n.js";
 
 let sequence = 0;
 
@@ -15,6 +15,14 @@ export function mentionQuery(value, start, end = start) {
 export function mentionTag(row) {
   if (gloss(row).name !== row.name) return `@${row.id}`;
   return `@${/^[^\s@＠、。]+$/u.test(row.name) && !/[さん!?！？]$/u.test(row.name) ? row.name : row.id}`;
+}
+
+// The external agent is offered beside the personas while one is connected and
+// in use. It is addressed by a name the server reserves for it, never by its
+// connection's name, which the user may have written any way at all.
+export function agentMention() {
+  return { id: "agent", name: getLanguage() === "ja" ? "外部エージェント" : "agent", icon: "🤖", active: true,
+    domain: t("担当を通さず外部エージェントに直接依頼します") };
 }
 
 const MENTION = /(^|[\s、。])[@＠][^\s@＠、。]+/gu;

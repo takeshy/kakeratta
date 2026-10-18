@@ -26,7 +26,7 @@ import { refreshFavorites, watchFavorites } from "./favorite-state.js";
 import { createSearch } from "./search.js";
 import { createSpeaker } from "./speaker.js";
 import { getLanguage, t } from "./i18n.js";
-import { mentionTag } from "./mention-picker.js";
+import { agentMention, mentionTag } from "./mention-picker.js";
 import { applyTextSize } from "./text-size.js";
 import { authenticationEnabled, logout, reconnectAuthentication } from "./auth.js";
 
@@ -36,6 +36,8 @@ applyTextSize();
 const root = $("#app");
 let settings = null;
 let personaRows = [];
+// The @ picker offers the external agent beside the personas while it can be asked.
+const mentionable = () => (personas.agentAvailable() ? [...personaRows, agentMention()] : personaRows);
 let panel = null;
 let settingsRequired = false;
 
@@ -44,7 +46,7 @@ let speakingThread = null;
 const feed = createFeed({
   getSettings: () => settings,
   onSpeak: speakThread,
-  getPersonas: () => personaRows,
+  getPersonas: mentionable,
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onReply: () => {
     void reload();
@@ -69,7 +71,7 @@ function posted(entry) {
 }
 const compose = createCompose({
   getSettings: () => settings,
-  getPersonas: () => personaRows,
+  getPersonas: mentionable,
   onPosted: (entry) => {
     posted(entry);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -122,7 +124,7 @@ const settingsPanel = createSettings({
 const searchPanel = createSearch({
   getSettings: () => settings,
   onSpeak: speakThread,
-  getPersonas: () => personaRows,
+  getPersonas: mentionable,
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onEntryChange: (entry) => pages.upsert(entry),
   onReply: () => { void reload(); pollAfterSending(); },
@@ -133,7 +135,7 @@ const speakerPanel = createSpeaker({
   onPersonasChange: (rows) => personas.updateRows(rows),
   getSettings: () => settings,
   onSpeak: speakThread,
-  getPersonas: () => personaRows,
+  getPersonas: mentionable,
   getPersona: (id) => personaRows.find((row) => row.id === id),
   onEntryChange: (entry) => pages.upsert(entry),
   onReply: () => { void reload(); pollAfterSending(); },

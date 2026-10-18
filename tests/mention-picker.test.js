@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMentionPicker, mentionQuery, mentionTag, replaceMention } from "../frontend/src/mention-picker.js";
+import { agentMention, createMentionPicker, mentionQuery, mentionTag, replaceMention } from "../frontend/src/mention-picker.js";
 
 class TestNode {
   children = [];
@@ -100,4 +100,20 @@ test("picker selects active personas, preserves surrounding text, and respects I
   assert.equal(picker.element.children.length, 1);
   picker.element.children[0].fire("click");
   assert.equal(input.value, "@ワイン係 ");
+});
+
+test("picker offers the external agent by a reserved name", t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const agent = agentMention();
+  assert.equal(mentionTag(agent), "@agent");
+  const input = new TestNode();
+  const picker = createMentionPicker({ input, getPersonas: () => [{ id: "wine", name: "ワイン係", active: true }, agent] });
+  input.value = "@age";
+  input.setSelectionRange(4, 4);
+  input.fire("input");
+  assert.equal(picker.element.children.length, 1);
+  picker.element.children[0].fire("click");
+  assert.equal(input.value, "@agent ");
 });
