@@ -36,19 +36,20 @@ steps:
   - frontend
 - id: deploy-vm
   name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  entrypoint: gcloud
+  entrypoint: bash
   args:
-  - compute
-  - ssh
-  - shared-apps
-  - --project=geminihub-486523
-  - --zone=asia-northeast1-b
-  - --tunnel-through-iap
-  - --ssh-key-file=/tmp/build-ssh
-  - --quiet
-  - --command
-  - sudo python3 /opt/shared-apps/deploy.py --app kakeratta --image ${_IMAGE} --frontend
-    gs://geminihub-486523-shared-apps/frontend/${BUILD_ID}.tar.gz
+  - -ceu
+  - |
+    for fp in $$(gcloud compute os-login ssh-keys list --format='value(fingerprint)' 2>/dev/null); do
+      gcloud compute os-login ssh-keys remove --key "$$fp" --quiet || true
+    done
+    gcloud compute ssh shared-apps \
+      --project=geminihub-486523 \
+      --zone=asia-northeast1-b \
+      --tunnel-through-iap \
+      --ssh-key-file=/tmp/build-ssh \
+      --quiet \
+      --command "sudo python3 /opt/shared-apps/deploy.py --app kakeratta --image ${_IMAGE} --frontend gs://geminihub-486523-shared-apps/frontend/${BUILD_ID}.tar.gz"
   waitFor:
   - push
   - frontend-upload
