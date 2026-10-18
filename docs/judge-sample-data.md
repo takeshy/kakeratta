@@ -2,7 +2,7 @@
 
 This document describes the English starting workspace prepared for new hackathon judge registrations. It is adapted from the owner's October 2026 production timeline with permission. Posts, replies and memories are edited English examples, not fresh AI responses for the judge. Mei is a fictional demo friend. The welcome post makes this distinction visible in the app.
 
-The content is defined in [judge_seed.json](../internal/server/judge_seed.json), with one selected production photo in [judge_seed_assets/wine.jpg](../internal/server/judge_seed_assets/wine.jpg). Registration uses the bundled data, not a live connection to the owner's account. This feature requires deployment of the corresponding server build.
+The content is defined in [judge_seed.json](../internal/server/judge_seed.json), with one selected production photo in [judge_seed_assets/wine.jpg](../internal/server/judge_seed_assets/wine.jpg). Registration uses the bundled data, not a live connection to the owner's account. This feature requires deployment of the corresponding server build. A fresh browser opening the invitation starts in English, even with a Japanese browser locale, and retains English after registration. An explicit `?lang=ja` or a saved display-language choice takes precedence.
 
 ## Personas
 
@@ -25,21 +25,21 @@ Only **Wine** initially prefers the external agent. Shared Hermes registration e
 
 ## Timeline
 
-The workspace contains twelve entries: eight user sample posts, three edited sample replies and one welcome post. Times are relative to the first initialization, rather than fixed to the production dates.
+The workspace contains thirteen entries: eight user sample posts, four edited sample replies and one welcome post. Times are relative to the first initialization, rather than fixed to the production dates.
 
 | Age at initialization | Content | What it demonstrates |
 | --- | --- | --- |
 | 7 days | Wanted to try Sawayaka's Genkotsu hamburger in Shizuoka, but ran out of time | An unfinished interest that can resurface on a return trip |
 | 6 days | Mei likes light, fruity reds and avoids heavy, oaky reds | A friend's preferences belong in her own memory |
 | 5 days | The user likes full-bodied, dry reds | Different tastes can coexist without being merged |
-| 4 days, 14 hours | Photo of Réserve Mouton Cadet Margaux 2022, saved for a friend's birthday | A real photo post with English interpretation and visible-label OCR |
+| 4 days, 14 hours | Photo of Réserve Mouton Cadet Margaux 2022, saved for a friend's birthday, followed by an English Wine reply | A real photo post with English interpretation, visible-label OCR and a reply grounded in that label |
 | 4 days | Bought running shoes; nothing to plan | An ordinary update without an unnecessary sample reply |
 | 3 days | Asked how to turn leftover nikujaga into curry | A cooking question with a short sample reply |
 | 2 days | Asked for turnip recipes | A follow-up cooking topic with three sample options |
 | 1 day | Sent Dad cured ham and soup last month; considering whisky this month | Gift history separated from an unconfirmed plan, with a sample reply |
 | 1 hour | Welcome, sample-data disclosure and suggested prompts | A starting point for the judge's own exploration |
 
-The three replies belong to the curry, turnip and Dad posts. Thread roots and reply targets are preserved inside the sample workspace. The photo is copied into each judge's own blob storage, with a new blob ID; it does not link to the owner's private image URL. Its interpretation is prepared English sample data, so registration does not run image inference.
+The four replies belong to the wine-photo, curry, turnip and Dad posts. The Wine reply identifies the visible label and invites tasting feedback without inventing a flavor or rating. Thread roots and reply targets are preserved inside the sample workspace. The photo is copied into each judge's own blob storage, with a new blob ID; it does not link to the owner's private image URL. Its interpretation is prepared English sample data, so registration does not run image inference.
 
 ## Memories
 
@@ -66,6 +66,8 @@ Facts and records link to original posts inside the judge workspace, so the judg
 | Post “@agent Research three gift ideas for someone who enjoys whisky.” | A direct external request, independently of persona engine preferences |
 
 Responses to these new requests are generated live; the table describes the supplied context and intended route, not guaranteed wording. Scheduled reminders and actual device notifications can be tested by explicitly requesting a future reminder and enabling notifications on the judge's device.
+
+Daily/monthly check-ins and scheduled reminders explicitly use the display language saved with the latest user post that has a supported language. The seed posts specify English, so background turns start in English. A later user post submitted with Japanese selected changes that preference to Japanese. Historical AI replies and Japanese internal instructions do not select the background language. Daily and monthly summaries likewise carry an explicit language instruction based on the latest user post in their input.
 
 ## Initialization and preservation
 

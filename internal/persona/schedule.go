@@ -113,6 +113,7 @@ func (r *Runner) schedulesAt(ctx context.Context, now time.Time) {
 		active[skill.ID] = true
 	}
 	cleared := map[string]bool{}
+	language, languageLoaded := "", false
 	for _, schedule := range schedules {
 		if schedule.At.After(now) {
 			continue
@@ -137,13 +138,16 @@ func (r *Runner) schedulesAt(ctx context.Context, now time.Time) {
 			continue
 		}
 		when := fired.At
+		if !languageLoaded {
+			language, languageLoaded = r.backgroundLanguage(ctx), true
+		}
 		zone := fired.TimeZone
 		if loc, err := time.LoadLocation(zone); err == nil {
 			when = fired.At.In(loc)
 		} else {
 			zone = "UTC"
 		}
-		trigger := timeline.Entry{At: now, Speaker: "system", Text: fmt.Sprintf(
+		trigger := timeline.Entry{At: now, Speaker: "system", Language: language, Text: fmt.Sprintf(
 			"Schedule: %s. Set for %s (%s). Check whether it is already done before saying anything.",
 			fired.Note, when.Format(time.RFC3339), zone)}
 		if fired.UserRequested {

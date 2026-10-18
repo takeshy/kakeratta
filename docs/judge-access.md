@@ -18,6 +18,8 @@ The invitation is intentionally reusable during judging; the URL is the shared g
 
 ## English starting workspace
 
+A fresh browser opening the judge invitation defaults to English even if its browser locale is Japanese. The selection is saved before registration and retained after entering the app. Existing display-language choices are preserved; `?lang=en` or `?lang=ja` on the invitation explicitly selects either supported language. Registration and existing-account sign-in share a pending state through workspace and session creation, preventing duplicate submission and keeping progress visible until navigation.
+
 New invitation registrations start with English examples adapted from the owner's October 2026 production timeline. The welcome post identifies them as sample history, not the judge's own activity or fresh AI results. The examples cover an unvisited restaurant in Shizuoka, separate wine preferences for the user and fictional friend Mei, cooking with leftovers and turnips, and gifts for Dad. Original personal names and production entry IDs are not needed in the sample.
 
 Eight English personas are active: **tabe** (dining), **Wine**, **Kitchen**, **Mei**, **Dad**, **sona** (preparation and follow-ups), **support**, and **infographic**. **shiori** (reading) and **Goldfish** are available to activate. Five personas have example memories linked to their source posts. Try “Going to Shizuoka tomorrow,” “What wine would suit Mei?” or “@Kitchen What can I make with turnips and eggs?” To test a direct external request, post “@agent Research three gift ideas for someone who enjoys whisky.”

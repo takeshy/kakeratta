@@ -777,6 +777,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	}
 	system := answerSystemFor(skill, thread, set, length) + capabilityLine(set)
 	system += wakeInstructions
+	if trigger.Speaker == "system" {
+		system += backgroundLanguageRule(trigger.Language)
+	}
 
 	names := r.SpeakerNames(ctx)
 	registry = registry.WithPersonaNames(names)
@@ -888,6 +891,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			agentLength = deepRule
 		}
 		agentRules := answerRulesFor(thread, set, agentLength)
+		if trigger.Speaker == "system" {
+			agentRules += backgroundLanguageRule(trigger.Language)
+		}
 		if skill.ID == "infographic" {
 			agentRules += infographicRules(trigger, thread)
 		}

@@ -1,6 +1,11 @@
 const STORAGE_KEY = "kakeratta.language";
 
 const EN = {
+  "登録して使う": "Register and start",
+  "登録済みのアカウントでログイン": "Sign in to an existing account",
+  "任意のメールアドレスと6文字以上のパスワードで登録すると、すぐに試せます。": "Register with any email address and a password of at least six characters to start exploring.",
+  "ログインしています…": "Signing in…",
+  "ワークスペースを準備しています…": "Preparing your workspace…",
   "Alexaと連携する": "Link with Alexa",
   "Alexaと連携": "Link with Alexa",
   "このアカウントに声でかけらを投稿し、担当の返事と予定をAlexaで読み上げます。": "Use Alexa to add notes to this account and hear your personas' replies and upcoming schedule.",

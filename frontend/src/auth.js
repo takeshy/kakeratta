@@ -1,10 +1,11 @@
 import { revokeDevicePush } from "./push-client.js";
 import { IDENTITY_KEY, localIdentity, clearLocalUser, localList, localRecord } from "./local-store.js";
-import { clear, el } from "./dom.js";
+import { el } from "./dom.js";
 import { t } from "./i18n.js";
 import { createGoogleLogin, guestLandingPage, showLogin } from "./login.js";
 
 import { reviewLoginURL, showReviewLogin } from "./review-login.js";
+import { initializeJudgeLanguage, judgeInviteToken, showJudgeLogin } from "./judge-login.js";
 
 let firebaseAuth = null;
 let firebaseSignOut = null;
@@ -38,29 +39,6 @@ function loginScreen(onLogin, error = "") {
   showLogin({ onLogin, error });
 }
 
-function judgeInviteToken() {
-  const match = location.pathname.match(/^\/judge\/([^/]+)\/?$/);
-  return match ? decodeURIComponent(match[1]) : "";
-}
-
-function judgeScreen(onRegister, onLogin, error = "") {
-  const root = document.querySelector("#app");
-  clear(root);
-  const email = el("input", { type: "email", autocomplete: "email", required: true, placeholder: "Email" });
-  const password = el("input", { type: "password", autocomplete: "new-password", required: true, minlength: 6, placeholder: "Password" });
-  const form = el("form", { class: "login" },
-    el("h1", { text: "kakeratta" }),
-    el("p", { text: "Judge access" }),
-    el("p", { text: "任意のメールアドレスと6文字以上のパスワードで登録すると、すぐに試せます。" }),
-    error ? el("p", { class: "error", text: error }) : null,
-    email, password,
-    el("button", { type: "submit", class: "button primary", text: "登録して使う" }),
-    el("button", { type: "button", class: "button", text: "登録済みのアカウントでログイン", onclick: () => onLogin(email.value, password.value) }),
-  );
-  form.addEventListener("submit", event => { event.preventDefault(); void onRegister(email.value, password.value); });
-  root.append(form);
-}
-
 async function authenticate() {
   let authConfig;
   try {
@@ -90,11 +68,11 @@ async function authenticate() {
       if (result?.user) localStorage.removeItem("kakeratta.signedOut");
     }
     const user = await waitForUser(firebaseAuth, authModule.onAuthStateChanged);
-    if (user && new URLSearchParams(location.search).get("review") !== "1" && !judgeInviteToken() && localStorage.getItem("kakeratta.signedOut") !== "1") {
+    if (user && new URLSearchParams(location.search).get("review") !== "1" && !judgeInviteToken(location.pathname) && localStorage.getItem("kakeratta.signedOut") !== "1") {
       await establishSession(user);
       return true;
     }
-    const invite = judgeInviteToken();
+    const invite = judgeInviteToken(location.pathname);
     if (invite) {
       const finish = async user => {
         const firstToken = await user.getIdToken();
@@ -105,17 +83,15 @@ async function authenticate() {
         if (!claimed.ok) throw new Error("Judge registration is unavailable.");
         await user.getIdToken(true);
         await establishSession(user);
+        await verifyIdentity(true, { reloadOnChange: false });
         localStorage.removeItem("kakeratta.signedOut");
         location.replace("/");
       };
-      const show = error => judgeScreen(async (email, password) => {
-        try { await finish((await authModule.createUserWithEmailAndPassword(firebaseAuth, email, password)).user); }
-        catch (problem) { show(String(problem.message || problem)); }
-      }, async (email, password) => {
-        try { await finish((await authModule.signInWithEmailAndPassword(firebaseAuth, email, password)).user); }
-        catch (problem) { show(String(problem.message || problem)); }
-      }, error);
-      show("");
+      showJudgeLogin({
+        register: (email, password) => authModule.createUserWithEmailAndPassword(firebaseAuth, email, password),
+        signIn: (email, password) => authModule.signInWithEmailAndPassword(firebaseAuth, email, password),
+        finish,
+      });
       return false;
     }
     if (new URLSearchParams(location.search).get("review") === "1") {
@@ -188,7 +164,7 @@ export function authenticationEnabled() { return enabled; }
 
 let verification = null;
 let verifiedAt = 0;
-export function verifyIdentity(force = false) {
+export function verifyIdentity(force = false, { reloadOnChange = true } = {}) {
   if (!force && verifiedAt > Date.now() - 30000) return Promise.resolve(localIdentity());
   if (verification) return verification;
   verification = (async () => {
@@ -199,10 +175,12 @@ export function verifyIdentity(force = false) {
     const previous = localIdentity();
     if (previous && previous.key !== next.key) {
       await revokeDevicePush(previous.key).catch(() => {});
-      await localRecord("identity", next, "device");
-      localStorage.setItem(IDENTITY_KEY, JSON.stringify(next));
-      location.reload();
-      throw Error("Account changed");
+      if (reloadOnChange) {
+        await localRecord("identity", next, "device");
+        localStorage.setItem(IDENTITY_KEY, JSON.stringify(next));
+        location.reload();
+        throw Error("Account changed");
+      }
     }
     localStorage.setItem(IDENTITY_KEY, JSON.stringify(next));
     await localRecord("identity", next, "device").catch(() => {});
@@ -213,8 +191,9 @@ export function verifyIdentity(force = false) {
   return verification;
 }
 export async function ensureAuthentication() {
+  initializeJudgeLanguage(location.pathname, location.search);
   const cached = localIdentity();
-  if (cached && new URLSearchParams(location.search).get("review") !== "1") {
+  if (cached && new URLSearchParams(location.search).get("review") !== "1" && !judgeInviteToken(location.pathname)) {
     enabled = cached.enabled;
     return true;
   }

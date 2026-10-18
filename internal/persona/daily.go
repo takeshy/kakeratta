@@ -107,6 +107,7 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 	}
 	// Each persona still claims its own check-in, so one interrupted part way
 	// through the list is taken up again, and none runs twice.
+	language := r.backgroundLanguage(ctx)
 	for _, skill := range r.skills(ctx).Active(settings.Active) {
 		if !skill.Remembers() {
 			continue
@@ -165,7 +166,7 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 			text += "\n\nSuggested new persona: " + suggestion
 			instructions += personaSuggestInstructions
 		}
-		trigger := timeline.Entry{At: local, Speaker: "system", Text: text}
+		trigger := timeline.Entry{At: local, Speaker: "system", Text: text, Language: language}
 		turn, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		r.run(turn, skill, []timeline.Entry{trigger}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
 		cancel()

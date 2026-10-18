@@ -166,7 +166,7 @@ func (r *Runner) summarizeDay(ctx context.Context, client *llm.Client, settings 
 		record = string(runes[len(runes)-summaryInputLimit:])
 	}
 	reply, err := client.Complete(ctx, llm.Request{Purpose: "daily_summary", Model: personaModel(settings), Temperature: 0.3, MaxTokens: dailySummaryOutputTokens, Messages: []llm.Message{
-		{Role: "system", Content: dailySummaryPrompt},
+		{Role: "system", Content: dailySummaryPrompt + backgroundLanguageRule(recordedLanguage(clipped))},
 		{Role: "user", Content: "記録（古い順）:\n" + record},
 	}})
 	text := strings.TrimSpace(reply.Content)

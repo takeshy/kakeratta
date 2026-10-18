@@ -124,7 +124,7 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	reply, err := client.Complete(ctx, llm.Request{Purpose: "monthly_summary", Model: personaModel(settings), Temperature: 0.3, MaxTokens: summaryOutputTokens, Messages: []llm.Message{
-		{Role: "system", Content: summaryPrompt},
+		{Role: "system", Content: summaryPrompt + backgroundLanguageRule(recordedLanguage(month))},
 		{Role: "user", Content: user},
 	}})
 	text := strings.TrimSpace(reply.Content)
