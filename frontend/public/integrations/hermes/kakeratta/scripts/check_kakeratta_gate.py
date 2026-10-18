@@ -31,7 +31,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "9"
+GATE_VERSION = "10"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -61,7 +61,34 @@ def get_hermes_home() -> Path:
     env_home = os.environ.get("HERMES_HOME")
     if env_home:
         return Path(env_home).expanduser()
+    sandbox_home = Path("/sandbox/.hermes")
+    if sandbox_home.exists():
+        return sandbox_home
     return Path.home() / ".hermes"
+
+
+def _load_env_file():
+    env_file = get_hermes_home() / ".env"
+    if env_file.exists():
+        try:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip("'\"")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+        except Exception:
+            pass
+    extra_no_proxy = "kakeratta.net,api.keenable.ai,mcp.exa.ai,search.parallel.ai"
+    for np in ("no_proxy", "NO_PROXY"):
+        val = os.environ.get(np, "")
+        for host in extra_no_proxy.split(","):
+            if host not in val:
+                val = (val + "," + host).strip(",")
+        os.environ[np] = val
 
 
 def installed_skill() -> Path:
@@ -276,6 +303,7 @@ def judge_tick():
 
 def main():
     try:
+        _load_env_file()
         if os.environ.get("JUDGE_WORKSPACES_URL"):
             judge_tick()
             print(json.dumps({"wakeAgent": False}))

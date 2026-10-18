@@ -48,9 +48,11 @@ While the CLI is running, Python polls the isolated home's Hermes `state.db` onc
 
 A normally completed, usable answer is submitted even if its final counters exceed the budget or cannot be read. The worker records that usage and retains the answer for transport retries without regenerating it, avoiding a second built-in generation solely because the completed run reached its limit. Interrupted output is never submitted as a completed answer. Verification: [persona budget and process cleanup tests](../../tests/test_hermes_judges.py).
 
-## Hermes parent model
+## Hermes parent model and sandbox networking
 
 The configured Token Factory parent/persona model is `nvidia/Nemotron-3.5-Super-VL`; direct requests and delegation retain `nvidia/Nemotron-3-Ultra-550b-a55b`. A generated persona home upgrades the legacy Super 120B model only when the parent explicitly uses the custom Token Factory endpoint. Other model/provider choices are preserved, and the parent file is not changed by the worker. When configuring or updating a Hermes parent, pin the kakeratta Cron job as well as `model.default` (and `cron.model` when set), because a pinned Cron model takes precedence over global defaults. See [Hermes configuration](../../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml).
+
+Worker version 11 and gate version 10 adapt automatically to containerized and OpenShell sandbox environments (`/sandbox/.hermes`). In environments where an upstream L7 forward proxy intercepts traffic, `no_proxy`/`NO_PROXY` automatically exempts kakeratta and web search domains (`kakeratta.net`, `api.keenable.ai`, `mcp.exa.ai`, `search.parallel.ai`), allowing search tool failovers and direct API calls to bypass HTTP proxy restrictions. Furthermore, external Nebius Token Factory endpoints (`tokenfactory.nebius.com`) in worker and persona configurations are dynamically rewritten to the local sandbox gateway (`https://inference.local/v1` or `NEMOCLAW_INFERENCE_BASE_URL`) to satisfy sandbox security boundaries, and internal Hermes tool search is disabled (`tools.tool_search.enabled: "off"`) in worker sessions.
 
 ## Connection and role
 

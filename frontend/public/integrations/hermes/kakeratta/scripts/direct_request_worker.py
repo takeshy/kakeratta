@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "10"
+WORKER_VERSION = "11"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -73,7 +73,37 @@ def get_hermes_home() -> Path:
     env_home = os.environ.get("HERMES_HOME")
     if env_home:
         return Path(env_home).expanduser()
+    sandbox_home = Path("/sandbox/.hermes")
+    if sandbox_home.exists():
+        return sandbox_home
     return Path.home() / ".hermes"
+
+
+def _load_env_file():
+    env_file = get_hermes_home() / ".env"
+    if env_file.exists():
+        try:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip("'\"")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+        except Exception:
+            pass
+    extra_no_proxy = "kakeratta.net,api.keenable.ai,mcp.exa.ai,search.parallel.ai"
+    for np in ("no_proxy", "NO_PROXY"):
+        val = os.environ.get(np, "")
+        for host in extra_no_proxy.split(","):
+            if host not in val:
+                val = (val + "," + host).strip(",")
+        os.environ[np] = val
+
+
+_load_env_file()
 
 
 def read_config(home: Path):
@@ -122,10 +152,15 @@ def model_config(cfg):
     if section is None:
         section = {}
     reasoning = section.get("reasoning_effort", section.get("reasoning", DEFAULT_REASONING))
+    base_url = section.get("base_url")
+    if os.environ.get("NEMOCLAW_INFERENCE_BASE_URL"):
+        base_url = os.environ["NEMOCLAW_INFERENCE_BASE_URL"]
+    elif not base_url or "tokenfactory.nebius.com" in str(base_url):
+        base_url = "https://inference.local/v1"
     return {
         "model": section.get("model") or DEFAULT_MODEL,
         "provider": section.get("provider") or "custom",
-        "base_url": section.get("base_url"),
+        "base_url": base_url,
         "api_key_ref": section.get("api_key"),
         "api_key": resolve_env(section.get("api_key") or "${TOKENFACTORY_API_KEY}"),
         "reasoning": "" if reasoning in (None, "none", "off") else reasoning,
@@ -191,9 +226,24 @@ def prepare_worker_home(home: Path, main_cfg, cfg, url, headers, parent: Path = 
     for name in cfg["mcp_servers"]:
         if isinstance(servers.get(name), dict):
             worker_servers[name] = servers[name]
-    worker_cfg = {"model": model, "agent": {"max_turns": cfg["max_turns"]}, "mcp_servers": worker_servers}
+    worker_cfg = {
+        "model": model,
+        "agent": {"max_turns": cfg["max_turns"]},
+        "tools": {"tool_search": {"enabled": "off"}},
+        "mcp_servers": worker_servers,
+    }
     if isinstance(main_cfg.get("providers"), dict):
-        worker_cfg["providers"] = main_cfg["providers"]
+        provs = copy.deepcopy(main_cfg["providers"])
+        for p in provs.values():
+            if isinstance(p, dict) and "tokenfactory.nebius.com" in str(p.get("api", "")):
+                p["api"] = "https://inference.local/v1"
+        worker_cfg["providers"] = provs
+    if isinstance(main_cfg.get("custom_providers"), list):
+        cps = copy.deepcopy(main_cfg["custom_providers"])
+        for cp in cps:
+            if isinstance(cp, dict) and "tokenfactory.nebius.com" in str(cp.get("base_url", "")):
+                cp["base_url"] = "https://inference.local/v1"
+        worker_cfg["custom_providers"] = cps
     _atomic_write(whome / "config.yaml", yaml.safe_dump(worker_cfg, allow_unicode=True), mode=0o600)
 
     # Credentials Hermes loads from .env stay in the parent's file.
@@ -1010,7 +1060,17 @@ def prepare_persona_home(home: Path, main_cfg, cfg, url, headers, parent: Path =
         "mcp_servers": {"kakeratta": mcp},
     }
     if isinstance(main_cfg.get("providers"), dict):
-        persona_cfg["providers"] = copy.deepcopy(main_cfg["providers"])
+        provs = copy.deepcopy(main_cfg["providers"])
+        for p in provs.values():
+            if isinstance(p, dict) and "tokenfactory.nebius.com" in str(p.get("api", "")):
+                p["api"] = "https://inference.local/v1"
+        persona_cfg["providers"] = provs
+    if isinstance(main_cfg.get("custom_providers"), list):
+        cps = copy.deepcopy(main_cfg["custom_providers"])
+        for cp in cps:
+            if isinstance(cp, dict) and "tokenfactory.nebius.com" in str(cp.get("base_url", "")):
+                cp["base_url"] = "https://inference.local/v1"
+        persona_cfg["custom_providers"] = cps
     _atomic_write(run_home / "config.yaml", yaml.safe_dump(persona_cfg, allow_unicode=True), mode=0o600)
 
     skills_link = run_home / "skills"
