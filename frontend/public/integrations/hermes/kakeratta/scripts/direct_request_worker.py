@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "13"
+WORKER_VERSION = "14"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -672,6 +672,23 @@ def side_effects_possible(cfg):
     return bool(cfg["mcp_servers"]) or not toolsets <= READ_ONLY_TOOLSETS
 
 
+def _is_english(context):
+    """Detect whether the user's request appears to be in English (non-Japanese)."""
+    trigger = (context or {}).get("trigger") or {}
+    text = (trigger.get("rendered") or trigger.get("text") or "").strip()
+    if not text:
+        thread = (context or {}).get("thread") or []
+        for entry in reversed(thread):
+            t = (entry.get("rendered") or entry.get("text") or "").strip()
+            if t:
+                text = t
+                break
+    # If Japanese characters (Hiragana, Katakana, CJK ideographs) are present, treat as Japanese.
+    if re.search(r'[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff]', text):
+        return False
+    return True
+
+
 def run_agent(cfg, context, request_id, home):
     """Run Ultra once as a Hermes agent; returns the reply text."""
     text, session = hermes_run(cfg, _agent_prompt(context), cfg["toolsets"], cfg["max_turns"], "agent")
@@ -680,6 +697,9 @@ def run_agent(cfg, context, request_id, home):
     if not reply or (_TURN_LIMIT.search(reply) and len(reply) < 300):
         audit(home, request_id, "agent_unfinished", {"session": session,
                                                      "response_tail": redact(text[-RESPONSE_TAIL:], cfg["secrets"])})
+        if _is_english(context):
+            return ("Could not complete your request. "
+                    f"Did not finish formulating a response within the limit of tool calls ({cfg['max_turns']}).")
         return ("依頼を完了できませんでした。"
                 f"ツール呼び出しの上限（{cfg['max_turns']}回）までに回答をまとめられませんでした。")
     return reply
@@ -719,6 +739,7 @@ def process_one(url, headers, request, cfg, home):
         return
     save_state(home, request_id, {"stage": "claimed", "resumes": resumes})
     context = claimed.get("context") or {}
+    is_en = _is_english(context)
     audit(home, request_id, "resumed" if resuming else "claimed", {
         "claim_id": claim_id, "model": cfg["model"], "provider": "hermes-cli/" + cfg["provider"],
         "reasoning": cfg["reasoning"] or None, "resume": resumes,
@@ -728,15 +749,18 @@ def process_one(url, headers, request, cfg, home):
     # it instead of running again.
     if state.get("ran") and side_effects_possible(cfg):
         audit(home, request_id, "rerun_skipped", {"reason": "an interrupted run may have acted"})
-        _send_reply(cfg, url, headers, request_id, claim_id,
-                    "前回の処理が途中で中断されました。操作が実行済みの可能性があるため、再実行していません。"
-                    "必要であれば、結果を確認してからもう一度依頼してください。", home)
+        msg = ("The previous run was interrupted. To avoid repeating actions that may have already been executed, it was not re-run. "
+               "Please check the results and submit the request again if needed." if is_en else
+               "前回の処理が途中で中断されました。操作が実行済みの可能性があるため、再実行していません。"
+               "必要であれば、結果を確認してからもう一度依頼してください。")
+        _send_reply(cfg, url, headers, request_id, claim_id, msg, home)
         return
 
     if resumes > MAX_RESUMES:
         audit(home, request_id, "resume_limit", {"resume": resumes})
-        _send_reply(cfg, url, headers, request_id, claim_id,
-                    "処理が繰り返し中断されたため、依頼を完了できませんでした。", home)
+        msg = ("Could not complete your request because execution was repeatedly interrupted." if is_en else
+               "処理が繰り返し中断されたため、依頼を完了できませんでした。")
+        _send_reply(cfg, url, headers, request_id, claim_id, msg, home)
         return
 
     cfg["meter"] = Meter(cfg, home, request_id)
@@ -749,11 +773,14 @@ def process_one(url, headers, request, cfg, home):
         audit(home, request_id, "budget_exceeded", {
             "reason": str(e), "request_api_calls": t["api_call_count"], "request_tokens": t["tokens"],
         })
-        _send_reply(cfg, url, headers, request_id, claim_id,
-                    "1件の依頼で使えるモデル呼び出しの上限"
-                    f"（{cfg['max_api_calls']}回・{cfg['max_request_tokens']:,}トークン）に達したか、"
-                    "使用量を確認できなかったため、処理を止めました。\n\n"
-                    f"理由: {e}", home)
+        msg = (f"Execution was stopped because the model call limit per request "
+               f"({cfg['max_api_calls']} calls, {cfg['max_request_tokens']:,} tokens) was reached "
+               f"or token usage could not be verified.\n\nReason: {e}" if is_en else
+               "1件の依頼で使えるモデル呼び出しの上限"
+               f"（{cfg['max_api_calls']}回・{cfg['max_request_tokens']:,}トークン）に達したか、"
+               "使用量を確認できなかったため、処理を止めました。\n\n"
+               f"理由: {e}")
+        _send_reply(cfg, url, headers, request_id, claim_id, msg, home)
     except Exception as e:
         # A Hermes, provider or network failure. With read-only tools the
         # request stays claimed and a later tick runs it again, until the
@@ -761,8 +788,8 @@ def process_one(url, headers, request, cfg, home):
         error = redact(e, secrets)
         audit(home, request_id, "failed", {"error": error, "resume": resumes})
         if resumes >= MAX_RESUMES or side_effects_possible(cfg):
-            _send_reply(cfg, url, headers, request_id, claim_id,
-                        "依頼を処理できませんでした。\n\n" + error, home)
+            prefix = "Could not process your request.\n\n" if is_en else "依頼を処理できませんでした。\n\n"
+            _send_reply(cfg, url, headers, request_id, claim_id, prefix + error, home)
         else:
             save_state(home, request_id, {"stage": "claimed", "resumes": resumes})
     else:
