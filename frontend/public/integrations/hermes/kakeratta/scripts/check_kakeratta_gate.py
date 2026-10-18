@@ -31,7 +31,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "10"
+GATE_VERSION = "11"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -82,6 +82,31 @@ def _load_env_file():
                     os.environ[k] = v
         except Exception:
             pass
+
+    proxy_env = Path("/tmp/nemoclaw-proxy-env.sh")
+    if proxy_env.exists():
+        try:
+            for line in proxy_env.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line.startswith("export "):
+                    line = line[len("export "):].strip()
+                if "=" in line and not line.startswith("#"):
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("'\"")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+        except Exception:
+            pass
+
+    if Path("/etc/openshell-tls/ca-bundle.pem").exists():
+        for ca_var in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"):
+            if ca_var not in os.environ:
+                os.environ[ca_var] = "/etc/openshell-tls/ca-bundle.pem"
+        for p_var in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
+            if p_var not in os.environ:
+                os.environ[p_var] = "http://10.200.0.1:3128"
+
     extra_no_proxy = "kakeratta.net,api.keenable.ai,mcp.exa.ai,search.parallel.ai"
     for np in ("no_proxy", "NO_PROXY"):
         val = os.environ.get(np, "")
