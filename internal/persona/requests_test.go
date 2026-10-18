@@ -135,6 +135,14 @@ func TestAPersonaNamedInADirectConversationAnswers(t *testing.T) {
 	if remark := remarkBy(s, "gourmet"); remark == nil {
 		t.Fatal("the named persona did not answer")
 	}
+	// The routing sheet tells a request to the agent from a post not yet routed.
+	settings := s.Settings()
+	if !runner.AddressedToAgent(context.Background(), entry, settings) {
+		t.Fatal("the request was not seen as addressed to the agent")
+	}
+	if runner.AddressedToAgent(context.Background(), named, settings) || runner.AddressedToAgent(context.Background(), byConnection, settings) {
+		t.Fatal("a post for the personas was seen as addressed to the agent")
+	}
 }
 
 // With the agent paused, or no connection, naming the agent is answered with

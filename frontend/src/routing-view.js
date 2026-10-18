@@ -51,6 +51,10 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
     while (body.firstChild) body.firstChild.remove();
     const delivered = decision?.delivered || [];
     const excluded = decision?.excluded || [];
+    if (decision?.recorded === false && decision.agent) {
+      body.append(el("p", { class: "hint", label: "外部エージェントへの直接の依頼なので、担当には振り分けていません。" }));
+      return;
+    }
     if (decision?.recorded === false) {
       body.append(el("p", { class: "hint", label: "判断の記録がありません。振り分けの途中なら、終わるとここに出ます。" }));
       return;

@@ -67,7 +67,8 @@ func (s *Server) getRouting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if record == nil || (record.EntryText != nil && *record.EntryText != entry.Text) {
-		writeJSON(w, http.StatusOK, map[string]any{"recorded": false})
+		// A request to the external agent is not routed at all.
+		writeJSON(w, http.StatusOK, map[string]any{"recorded": false, "agent": s.runner.AddressedToAgent(r.Context(), entry, s.store.Settings())})
 		return
 	}
 	// A record from before turns were noted reads as finished. An empty list on

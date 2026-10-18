@@ -172,21 +172,37 @@ func (r *Runner) directRequest(entry timeline.Entry, settings store.Settings, sk
 	if namesAgent(entry.Text) {
 		return true, unavailable
 	}
-	if unavailable != "" || entry.Kind != timeline.KindReply || len(Named(skills, entry.Text)) > 0 {
-		return false, ""
+	return unavailable == "" && r.continuesAgent(entry, skills), ""
+}
+
+// continuesAgent reports whether a user's reply carries on a conversation with
+// the external agent without naming a persona.
+func (r *Runner) continuesAgent(entry timeline.Entry, skills []Skill) bool {
+	if entry.Kind != timeline.KindReply || len(Named(skills, entry.Text)) > 0 {
+		return false
 	}
 	parent, ok := r.store.Entry(entry.ReplyTo)
 	if !ok || parent.Deleted {
-		return false, ""
+		return false
 	}
 	switch parent.Speaker {
 	case timeline.Agent:
-		return true, ""
+		return true
 	case timeline.User, timeline.App:
 		root, ok := r.store.Entry(timeline.RootOf(entry))
-		return ok && !root.Deleted && root.Speaker == timeline.User && namesAgent(root.Text), ""
+		return ok && !root.Deleted && root.Speaker == timeline.User && namesAgent(root.Text)
 	}
-	return false, ""
+	return false
+}
+
+// AddressedToAgent reports whether a user's entry was meant for the external
+// agent itself rather than for the router, whether or not the agent could
+// take it: such an entry never has a routing record.
+func (r *Runner) AddressedToAgent(ctx context.Context, entry timeline.Entry, settings store.Settings) bool {
+	if entry.Speaker != timeline.User {
+		return false
+	}
+	return namesAgent(entry.Text) || r.continuesAgent(entry, r.skills(ctx).Active(settings.Active))
 }
 
 func (r *Runner) readRequests(ctx context.Context) ([]requestRecord, error) {
