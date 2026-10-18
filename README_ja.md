@@ -18,12 +18,12 @@
   確認します。元の投稿はそのまま残ります。
 
 [使ってみる](https://kakeratta.net/lp/?lang=ja) ·
-[デモ動画](https://youtu.be/fdUYDI6Sd70) ·
+[デモ動画](https://youtu.be/Z5zML-lSXc0) ·
 [Devpost](https://devpost.com/software/kakeratta) ·
 [マニュアル](https://kakeratta.net/manual/?lang=ja) ·
 [技術的な設計](docs/technical_ja.md)
 
-[![YouTubeでkakerattaのデモを見る](https://img.youtube.com/vi/fdUYDI6Sd70/hqdefault.jpg)](https://youtu.be/fdUYDI6Sd70)
+[![YouTubeでkakerattaの日本語デモを見る](https://img.youtube.com/vi/Z5zML-lSXc0/hqdefault.jpg)](https://youtu.be/Z5zML-lSXc0)
 
 <img src="docs/captures/ja/timeline.png" alt="日常のかけらと担当の返信が並ぶタイムライン" width="390">
 

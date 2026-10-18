@@ -215,6 +215,7 @@ As models and coding agents improve, features alone no longer set an app apart. 
 
 ## What's next for kakeratta
 
+* A smartphone app to make reminders and persona notifications easier to use. Adding a web app to the home screen is still a hurdle for many people; a smartphone app would offer a more familiar way to install kakeratta and enable notifications.
 * User-registered MCP servers and tools that can be attached to any persona.
 * A community persona repository. A persona is more than a prompt: routing conditions or keywords, behavior, memory structure, and tools. Packaged together, personas could be shared like apps, for example one that researches AI news every morning and explains the background that makes it matter.
 
