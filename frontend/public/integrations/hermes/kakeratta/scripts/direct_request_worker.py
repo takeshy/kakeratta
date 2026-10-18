@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "14"
+WORKER_VERSION = "15"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -119,13 +119,14 @@ def _load_env_file():
             if p_var not in os.environ:
                 os.environ[p_var] = "http://10.200.0.1:3128"
 
-    extra_no_proxy = "kakeratta.net,api.keenable.ai,mcp.exa.ai,search.parallel.ai"
+    extra_no_proxy = "api.keenable.ai,mcp.exa.ai,search.parallel.ai"
     for np in ("no_proxy", "NO_PROXY"):
         val = os.environ.get(np, "")
+        cleaned = [h.strip() for h in val.split(",") if h.strip() and h.strip() != "kakeratta.net"]
         for host in extra_no_proxy.split(","):
-            if host not in val:
-                val = (val + "," + host).strip(",")
-        os.environ[np] = val
+            if host not in cleaned:
+                cleaned.append(host)
+        os.environ[np] = ",".join(cleaned)
 
 
 _load_env_file()
