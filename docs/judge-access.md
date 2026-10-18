@@ -16,6 +16,14 @@ Put this in Devpost testing instructions:
 
 The invitation is intentionally reusable during judging; the URL is the shared gate, while accounts, workspaces, custom claims, and usage counters remain separate. Rotate the Terraform `random_id.judge_invite` resource or remove the judge environment settings to revoke it early.
 
+## English starting workspace
+
+New invitation registrations start with English examples adapted from the owner's October 2026 production timeline. The welcome post identifies them as sample history, not the judge's own activity or fresh AI results. The examples cover an unvisited restaurant in Shizuoka, separate wine preferences for the user and fictional friend Mei, cooking with leftovers and turnips, and gifts for Dad. Original personal names and production entry IDs are not needed in the sample.
+
+Eight English personas are active: **tabe** (dining), **Wine**, **Kitchen**, **Mei**, **Dad**, **sona** (preparation and follow-ups), **support**, and **infographic**. **shiori** (reading) and **Goldfish** are available to activate. Five personas have example memories linked to their source posts. Try “Going to Shizuoka tomorrow,” “What wine would suit Mei?” or “@Kitchen What can I make with turnips and eggs?” To test a direct external request, post “@agent Research three gift ideas for someone who enjoys whisky.”
+
+Only **Wine** initially prefers the external agent when shared Hermes is configured; the other personas use built-in answers. Re-registering preserves per-persona engine choices. The seed includes a selected production wine photo, copied into each judge's own blob storage with a prepared English interpretation. It makes no model calls and copies no production API keys, connections, Push devices, jobs or live schedules. Judges can edit or delete the examples. Existing workspaces with posts or installed personas are left alone; repeat registration does not reset the sample. Interrupted initialization resumes with stable IDs and dates. The [embedded sample](../internal/server/judge_seed.json) is fixed at build time; registration never reads the owner's production workspace. See [sample personas, posts, memories and suggested checks](judge-sample-data.md) for the complete inventory.
+
 ## Alexa certification
 
 The existing judge configuration (invitation, Token Factory key, future expiry and positive usage limit) must remain active throughout certification. Alexa review access also requires the Firestore usage counter. No Google account is needed by the reviewer; provision an email/password account beforehand:
@@ -59,7 +67,7 @@ The production judge expiry is `2026-12-15T20:00:00Z` and the per-account cap is
 
 ## Shared Hermes for judges
 
-The server's `KAKERATTA_JUDGE_MCP_KEY` is a separate 64-character random secret from the invitation and model API keys. Use the existing Secret Manager reference (`judge_mcp_key_secret_id` / `judge_mcp_key_secret_version`); never put its value in browser configuration, testing instructions, or committed files. New invitation registrations automatically install its hash into the isolated workspace, prefer the external agent for initially active personas, and record the workspace for discovery. Repeating registration repairs the same connection and preserves an existing user-selected connection. Accounts registered before the UID-bearing marker change must register through the invitation again to bind their identity. This preserves their existing workspace data.
+The server's `KAKERATTA_JUDGE_MCP_KEY` is a separate 64-character random secret from the invitation and model API keys. Use the existing Secret Manager reference (`judge_mcp_key_secret_id` / `judge_mcp_key_secret_version`); never put its value in browser configuration, testing instructions, or committed files. New invitation registrations automatically install its hash into the isolated workspace and record the workspace for discovery. The English sample selects only Wine for external answers when the shared connection is configured. Repeating registration repairs the same connection and preserves an existing user-selected connection and per-persona engine choices. Accounts registered before the UID-bearing marker change must register through the invitation again to bind their identity. This preserves their existing workspace data.
 
 On the shared Hermes host, install the current `check_kakeratta_gate.py`, `direct_request_worker.py`, and kakeratta `SKILL.md`. Keep the existing parent model/provider and dedicated `kakeratta_worker` (or `delegation`) settings. Provide these variables to the actual Cron service environment using a private environment file or secret injection:
 

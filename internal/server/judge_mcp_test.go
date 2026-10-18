@@ -67,9 +67,25 @@ func TestJudgeRegistrationConfiguresSharedMCPIdempotently(t *testing.T) {
 		t.Fatalf("shared MCP = %d", code)
 	}
 	for _, id := range tenant.store.Settings().Active {
-		if tenant.store.ConfiguredSettings().Planners[id] != "external" {
-			t.Fatalf("planner %s not external", id)
+		want := ""
+		if id == "wine-assistant" {
+			want = "external"
 		}
+		if got := tenant.store.ConfiguredSettings().Planners[id]; got != want {
+			t.Fatalf("planner %s = %q, want %q", id, got, want)
+		}
+	}
+	settings := tenant.store.ConfiguredSettings()
+	delete(settings.Planners, "wine-assistant")
+	settings.Planners["recipe"] = "external"
+	if err := tenant.store.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	if err := tenant.configureJudge(context.Background(), key, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if got := tenant.store.ConfiguredSettings().Planners; got["wine-assistant"] != "" || got["recipe"] != "external" {
+		t.Fatalf("registration reset planner choices: %v", got)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/internal/judge-workspaces", nil)

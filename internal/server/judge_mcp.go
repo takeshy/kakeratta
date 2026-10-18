@@ -85,12 +85,6 @@ func (s *Server) configureJudge(ctx context.Context, key, uid string) error {
 		}
 	}
 	settings := s.store.ConfiguredSettings()
-	if settings.Planners == nil {
-		settings.Planners = make(map[string]string)
-	}
-	for _, id := range s.store.Settings().Active {
-		settings.Planners[id] = store.PlannerExternal
-	}
 	settings.ExternalAgent.Paused = false
 	if err := s.store.SaveSettings(settings); err != nil {
 		return err

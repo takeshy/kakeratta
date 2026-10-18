@@ -329,6 +329,15 @@ func (g *Gateway) registerJudge(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnauthorized, "password account required")
 		return
 	}
+	tenant, err := g.tenant(verified.UID)
+	if err == nil {
+		err = tenant.seedJudgeWorkspace(r.Context())
+	}
+	if err != nil {
+		log.Printf("judge seed %s: %v", workspaceKey(verified.UID), err)
+		fail(w, http.StatusInternalServerError, "judge workspace initialization failed")
+		return
+	}
 	// The shared connection is set up before the claim, so a failure leaves
 	// nothing granted and the judge simply registers again. Without an
 	// operator key, registration works as it did before the shared Hermes.
