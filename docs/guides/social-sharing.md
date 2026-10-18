@@ -1,6 +1,6 @@
 # Publish a conversation to Bluesky
 
-[README](../README.md) · [日本語](social-sharing_ja.md)
+[README](../../README.md) · [日本語](social-sharing_ja.md)
 
 Each user connects their own Bluesky account. Open **Bluesky connection** in Settings or **Share to Bluesky** on a timeline post, enter your handle, and authorize on Bluesky. Kakeratta does not ask for your Bluesky password or an app password. See the [illustrated manual](https://kakeratta.net/manual/?lang=en#en-bluesky).
 

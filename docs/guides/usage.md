@@ -1,6 +1,6 @@
 # Usage and configuration
 
-[README](../README.md) · [日本語](usage_ja.md)
+[README](../../README.md) · [日本語](usage_ja.md)
 
 ## Running it
 
@@ -211,9 +211,9 @@ without a reply or a note.
 
 Birthdays, preferences and other details supplied when creating a person or using **Edit with AI** are saved as editable **Basic information** in the persona definition. Saving does not post a fragment or copy them into notes. You can also change them in the regular editor.
 
-![Basic information editor](captures/en/person-edit.png)
+![Basic information editor](../captures/en/person-edit.png)
 
-![Calendar notifications](captures/en/person-card.png)
+![Calendar notifications](../captures/en/person-card.png)
 
 In place of a condition, a person's persona has a **relationship** (partner,
 mother, a friend from university). The persona is told it keeps the person
@@ -319,7 +319,7 @@ with an ellipsis when shortened; opening one takes you to the relevant post.
 Lock-screen visibility follows your device notification settings. HTTPS and browser push support are required. On
 iPhone/iPad, add the app to the Home Screen and open it there. Without push,
 reminders still appear in the timeline. Self-hosted servers need VAPID
-configuration; see [operator setup](system/operations.md#web-push-configuration).
+configuration; see [operator setup](../system/operations.md#web-push-configuration).
 
 ## Fast startup and offline posts
 
@@ -353,9 +353,9 @@ Every **★** removal asks for confirmation. Cancel keeps the entry saved and
 visible. Removing a favorite does not delete the post. Favorites remain available
 on other devices and are included in backups.
 
-![Favorites shown within the timeline (sample data)](captures/en/favorites.png)
+![Favorites shown within the timeline (sample data)](../captures/en/favorites.png)
 
-![Speaker entries filtered by date (sample data)](captures/en/speaker-period.png)
+![Speaker entries filtered by date (sample data)](../captures/en/speaker-period.png)
 
 ## Search
 
@@ -363,9 +363,9 @@ Enable **Favorites only** to search saved posts and answers by words or meaning.
 Combine **From** and **To** with the query or favorites. A blank query with
 a date range or Favorites only lists matching entries newest by post date. Open a result to reply or change its favorite state.
 
-![Search filtered by date (sample data)](captures/en/search-period.png)
+![Search filtered by date (sample data)](../captures/en/search-period.png)
 
-![Search restricted to favorite entries (sample data)](captures/en/search-favorites.png)
+![Search restricted to favorite entries (sample data)](../captures/en/search-favorites.png)
 
 **Search** in the header and the personas' `timeline_search` tool share one
 implementation. It covers text, URLs, image readings, place labels, and replies;
@@ -421,7 +421,7 @@ Where vectors live:
 - `KAKERATTA_STORE=firestore`: in each user's `searchPassages` collection.
   Firestore vector search (`FindNearest`, cosine distance) returns the nearest
   100 passages, grouped by post. Requires the vector index in
-  `firestore.indexes.json` ([deployment](../infra/README.md#firestore-indexes)).
+  `firestore.indexes.json` ([deployment](../../infra/README.md#firestore-indexes)).
 - `KAKERATTA_STORE=file`: in `<workspace>/search-embeddings/`, with similarity computed in Go.
 
 ## Voice input
@@ -432,11 +432,11 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 
 Open **Settings → AI usage** for the total monthly cost and Web search count. Choose a month and press **Refresh** for current records. The breakdown is **Routing, All personas, and Other**. Other includes embeddings and shared daily/monthly summaries.
 
-![Settings AI usage (sample amounts)](captures/en/settings-usage.png)
+![Settings AI usage (sample amounts)](../captures/en/settings-usage.png)
 
 For an individual breakdown, open **AI usage** on a card in **Personas**. **Replies, Scheduled runs, and Other** include related research, memory updates, and retries. Scheduled runs cover check-ins and reminders. Shared costs are not allocated to personas.
 
-![Persona AI usage (sample amounts)](captures/en/persona-usage.png)
+![Persona AI usage (sample amounts)](../captures/en/persona-usage.png)
 
 Amounts are estimates in USD: OpenRouter uses API-reported costs, while Nebius uses public rates at recording time without discounts or free allowances. Calls without known pricing appear as **Unpriced**. Web searches count actual API requests, including failures. Search charges and the external agent's own AI costs are excluded. Only usage since recording began is included; historical logs are not imported. Months without records show an empty-state message. Screenshot amounts and counts are sample data.
 
@@ -462,7 +462,7 @@ An unset selection retains the GLM-5.3-Flash default. This choice is independent
 the main provider's image model and survives turning OpenRouter off. Meaning search
 continues to use Qwen3-Embedding-8B on the main backend.
 
-![Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky](captures/en/settings.png)
+![Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky](../captures/en/settings.png)
 
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
@@ -503,7 +503,7 @@ agent does not claim the turn within 3 minutes, or no answer is accepted within
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 
-![Personas: preferring the external agent for a persona](captures/en/persona-planner.png)
+![Personas: preferring the external agent for a persona](../captures/en/persona-planner.png)
 
 The external agent can also post proactively as an active persona that prefers it, up to five posts per persona per day. These posts do not update persona memory or schedules and do not send push notifications.
 

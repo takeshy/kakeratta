@@ -34,7 +34,7 @@ gcloud logging read \
 
 質問別の集計には `trigger` を用いた。振り分け、deep判定、調査、最終回答、phaseのうち同じ `trigger` を持つ呼び出しを含める。`trigger` のないembeddingは特定の質問に推測で割り当てず、別枠とした。
 
-使用量ログの仕様は [Model usage logging](./system/backend.md#model-usage-logging)、運用手順は [Inspecting model usage](./system/operations.md#inspecting-model-usage) を参照。
+使用量ログの仕様は [Model usage logging](../system/backend.md#model-usage-logging)、運用手順は [Inspecting model usage](../system/operations.md#inspecting-model-usage) を参照。
 
 ## 費用計算の前提
 

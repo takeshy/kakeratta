@@ -3,7 +3,7 @@
 Local experiment only. Production model selection and deployments were unchanged.
 This is a dated experiment, so references to the "current" prompt or settings
 below describe the code at the time of measurement. For the implemented router
-and default model, see [Under the hood](technical.md#routing-is-condition-matching-not-open-ended-judgement).
+and default model, see [Under the hood](../design/technical.md#routing-is-condition-matching-not-open-ended-judgement).
 
 The test calls the production Route function with the existing prompt, tool schema,
 four built-in persona domains, and 12 synthetic Japanese cases. Cases cover single
@@ -315,14 +315,14 @@ the test), kept the revised router prompt and full thread. Lightning, same saved
 Compact conditions cut input tokens by about 30% compared with the 35,153 of the
 short-michi run, so the cost per route was the lowest measured so far in runs 1–2.
 
-**Run 2 format failure.** The prompt said "全idをどちらか一方に含めます". Thread
+**Run 2 format failure.** The prompt said "全idをどちらか一方に含めます" ("Include every ID in one of the two groups"). Thread
 entries are rendered with their post IDs, and in 5/20 responses the model keyed
 excluded_reasons by the trigger's post ID instead of persona IDs. In cases 2
 (a shochu photo) and 5 (a book-page image) it also returned an empty delivery,
 dropping gourmet and book respectively. Run 1 made the same cases correctly, so
 this is run-to-run instability triggered by an ambiguous word.
 
-**Fix 1 (prompt).** The instruction now says 担当id and explicitly states that it
+**Fix 1 (prompt).** The instruction now says 担当id ("persona ID") and explicitly states that it
 is the ID at the start of each condition line, not a post ID. Run 3 had no post-ID
 keys and cases 2 and 5's topics were recognised.
 
@@ -337,7 +337,7 @@ Remaining differences from Ultra in run 3 (after the resolver fix):
 - Case 7 (did I bathe today / maybe bathe again) → routine; Ultra chose nobody.
   Plausibly matches the new routine condition.
 - Case 11 (vague intention to study/implement LLMs today) → routine. Recurring
-  across runs; the "今から/週末 etc. count" wording may be too broad.
+  across runs; the wording that includes 今から ("from now") and 週末 ("the weekend") may be too broad.
 - Case 12 (weekend hair salon) → move+routine, and case 13 (named salon on
   Saturday morning) → move+routine. Both follow the new move condition, which
   intentionally accepts a type of place; the michi instructions ask for the shop

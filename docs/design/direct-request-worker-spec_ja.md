@@ -103,7 +103,7 @@ Wake Gate (check_kakeratta_gate.py)
 
 ## 関連資料
 
-- [Hermes連携ガイド](hermes_ja.md)（[English](hermes.md)）
-- [NemoClaw統合・検証レポート](nemoclaw-hermes-integration_ja.md)（[English](nemoclaw-hermes-integration.md)）
-- [Hermes-4-405B実測レポート](hermes-4-405b-visual-evaluation_ja.md)
-- [実装済みの外部エージェント仕様](system/integrations.md)
+- [Hermes連携ガイド](../guides/hermes_ja.md)（[English](../guides/hermes.md)）
+- [NemoClaw統合・検証レポート](../reports/nemoclaw-hermes-integration_ja.md)（[English](../reports/nemoclaw-hermes-integration.md)）
+- [Hermes-4-405B実測レポート](../reports/hermes-4-405b-visual-evaluation_ja.md)
+- [実装済みの外部エージェント仕様](../system/integrations.md)

@@ -1,8 +1,8 @@
 # Under the hood
 
-[README](../README.md) · [日本語](technical_ja.md)
+[README](../../README.md) · [日本語](technical_ja.md)
 
-Implementation reference: 2026-10-17. The [system bundle](system/index.md) documents subsystem behavior with source and test references.
+Implementation reference: 2026-10-17. The [system bundle](../system/index.md) documents subsystem behavior with source and test references.
 
 The English and Japanese editions cover the same implementation, in the same section order. Update both when changing a behavior, limit, example, or source reference.
 
@@ -223,7 +223,7 @@ routing call averaged about **0.0465 yen with Lightning** and **0.3385 yen with
 Ultra**. Lightning was cheaper but slower in that run.
 
 See
-[Routing model comparison — 2026-09-17](routing-cost-experiment.md)
+[Routing model comparison — 2026-09-17](../reports/routing-cost-experiment.md)
 for the full method, token counts, latency, cost assumptions, and reproduction
 command.
 
@@ -241,7 +241,7 @@ That replay did **not** have a pre-established human ground-truth label for all
 20 posts, so those figures should not be read as an accuracy leaderboard.
 
 See
-[Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md)
+[Routing model comparison — 2026-09-19](../reports/routing-model-comparison-2026-09-19.md)
 for the complete measurements and limitations.
 
 The architecture described in this document remains the source of truth for the
@@ -369,7 +369,7 @@ Different recipients can run concurrently, while delivery order within the same 
 
 Memoryless personas with only read tools skip schedule planning and review, as well as memory updates. Review is needed only when a plan contains schedules. External agents provide research and an answer; kakeratta retains control of all subsequent stages. A memory-update failure after publication leaves the answer available and is retried separately through a persisted note job.
 
-See [persona execution](./system/personas.md#from-research-to-answer-publication) and [background work](./system/architecture.md) for the implementation details.
+See [persona execution](../system/personas.md#from-research-to-answer-publication) and [background work](../system/architecture.md) for the implementation details.
 
 ### Research budgets and available reads
 
@@ -377,7 +377,7 @@ Built-in research uses up to 10 read calls and 2 Web searches normally, or 20 re
 
 Zero Web searches does not stop research: available timeline, memory, and other reads can continue, and `submit_answer` (or, while a deep turn reads on Super, `finish_read`) remains offered. At the read ceiling the host withdraws `read` and asks for the answer. Unknown, undeclared, unconfigured, and otherwise unavailable reads are filtered out. Memoryless personas receive no `records` branch or instructions; `entries` preserves direct post reads by known IDs. The host replaces the live instruction each round and keeps all tool results for the answer. External-agent interfaces and phase budgets remain separate.
 
-See [Research budgets and available reads](./system/personas.md#research-budgets-and-available-reads) for execution details and tests. The [production usage report](./production-model-usage-2026-10-05.md) records an earlier Ultra research loop; it describes that implementation, not the current one.
+See [Research budgets and available reads](../system/personas.md#research-budgets-and-available-reads) for execution details and tests. The [production usage report](../reports/production-model-usage-2026-10-05.md) records an earlier Ultra research loop; it describes that implementation, not the current one.
 
 ### A turn, phase by phase
 
@@ -463,7 +463,7 @@ even when a larger model composes the answer), in its own voice. It runs for a f
 a reply, or an edit, including related silence - when memory is enabled, and for a check-in handed records due
 for review. Schedule wakes, deletion tidy-ups, and out-of-domain silence do not run it. Edits always reach the keeper when memory is enabled, even when unrelated, so earlier facts can be corrected through the durable keeper job. Legacy answer `remember` values are ignored. On deletion, the host removes the records
 and their unsupported facts directly; the persona can revisit its schedules.
-See [keepsNotes](../internal/persona/runner.go) and [the note keeper](../internal/persona/notekeeper.go).
+See [keepsNotes](../../internal/persona/runner.go) and [the note keeper](../../internal/persona/notekeeper.go).
 
 For an ordinary post it uses `keep_record`, with the thread and the tags its
 records already use in front of it - no facts, no older records,
@@ -514,7 +514,7 @@ because their dates have passed. Edits make them eligible again; a new source
 on the same fact does not. Ambiguous decisions are not cached, and conflicting
 retain/invalidate IDs are rejected. The host stores this decision as a hidden
 `reviewed:` trailer on the fact's line. See
-[The daily pass](system/personas.md#the-daily-pass).
+[The daily pass](../system/personas.md#the-daily-pass).
 
 If the keeper cannot finish, the answer is already out. Its input is saved as a
 note job before it runs, and failed memory work is retried after one minute,
@@ -573,7 +573,7 @@ to OpenRouter enabled with `~typesafe/jev-latest` selected as Router. Token
 Factory remains the default provider.
 
 OpenRouter tool calls use Exacto routing. See
-[Settings and model requests](system/backend.md#settings-and-model-requests).
+[Settings and model requests](../system/backend.md#settings-and-model-requests).
 
 ## Image understanding happens once per post
 
@@ -723,7 +723,7 @@ threshold for when to compress; it only holds the sizes.
 Earlier memory formats - individual OKF notes with an `index.md`, prose field
 files, then several field files with monthly record files - were folded into
 the one memory file. See
-[Memory consolidation](system/operations.md#memory-consolidation).
+[Memory consolidation](../system/operations.md#memory-consolidation).
 
 ### Favorites
 
@@ -739,7 +739,7 @@ IDs before ranking and pagination. A blank filtered query lists favorites by
 post date. Favorite records persist in `favorites/{entry-id}.json` locally and
 in `users/{key}/favorites` in Firestore, and travel with workspace exports.
 Deleting an entry removes its favorite; merely removing a favorite keeps the
-entry. See [API and persistent state](system/backend.md#favorites).
+entry. See [API and persistent state](../system/backend.md#favorites).
 
 ### Timeline, speaker, and search filters
 
@@ -761,8 +761,8 @@ an empty query, listing entries newest first.
 
 Changing conditions resets paging and ignores stale responses. Only unfiltered
 timeline data is written to the offline cache; offline filtering uses cached
-entries and known favorite IDs. See [listing filters](system/backend.md#listing-filters)
-and [browser behavior](system/frontend.md#favorites-and-saved-entry-search).
+entries and known favorite IDs. See [listing filters](../system/backend.md#listing-filters)
+and [browser behavior](../system/frontend.md#favorites-and-saved-entry-search).
 
 ### Meaning search
 
@@ -803,9 +803,9 @@ a label. The UI adds no map link; GeoNames attribution appears in the feed foote
 
 Existing Firestore posts can be enriched with `cmd/backfill-places -metadata-only`,
 preserving existing display labels. It uses a reviewable plan and separate apply
-and verify steps; see [backfilling locations](system/operations.md#backfilling-post-locations).
-Implementation: [location jobs](../internal/server/place.go),
-[location formatting](../internal/geocode/place.go), and [search text](../internal/search/search.go).
+and verify steps; see [backfilling locations](../system/operations.md#backfilling-post-locations).
+Implementation: [location jobs](../../internal/server/place.go),
+[location formatting](../../internal/geocode/place.go), and [search text](../../internal/search/search.go).
 
 ## Skills
 
@@ -853,7 +853,7 @@ host skips note keeping, memory tidying and daily/monthly
 check-ins. Existing notes remain stored, and explicit notification schedules
 and external-agent planning remain available. The UI hides memory and check-in
 controls. Read-only memoryless turns also skip post-answer schedule planning
-and review calls. See [optional persona memory](system/personas.md#optional-persona-memory).
+and review calls. See [optional persona memory](../system/personas.md#optional-persona-memory).
 
 Infographic defaults to `alwaysUltra: true` - Super VL on Nebius, or Ultra when the
 post asks "in detail" - and submits Markdown with emoji,
@@ -866,8 +866,8 @@ the diagram; older entries fall back to the latest user language in the thread.
 The host stores Markdown unchanged. The frontend renders Markdown and supported
 Mermaid fences using the existing timeline renderer. Older complete HTML answers
 retain their sandboxed display and image export support.
-See [Markdown and legacy HTML rendering](system/frontend.md#merging-data) and
-[infographic verification](../internal/persona/infographic_test.go).
+See [Markdown and legacy HTML rendering](../system/frontend.md#merging-data) and
+[infographic verification](../../internal/persona/infographic_test.go).
 
 ### A person's persona
 
@@ -935,7 +935,7 @@ coordinates, defaulting to the post's coordinates when omitted. It distinguishes
 current conditions from forecasts and supports 1–14 days (default 3), a date,
 and an optional local hour; provider plans may limit the available days. Results
 include the actual location, dates, update time, and WeatherAPI attribution.
-Unavailable forecasts are not invented. See [weather forecasts](system/integrations.md#weather-forecasts).
+Unavailable forecasts are not invented. See [weather forecasts](../system/integrations.md#weather-forecasts).
 
 ### Place search
 
@@ -1128,7 +1128,7 @@ set for it.
 Forgetting all of a persona's memory, pausing it, or removing it drops its
 pending schedules.
 
-Schedules have a `notify` preference, defaulting to ON for existing data. A persona can update its own schedule's time or Push preference without replacing its ID or recurrence. Users can make the same changes from persona/speaker cards or **Schedules** in the header, which lists all owners' schedules in time order. Turning notifications off preserves task execution and timeline posts. The preference is captured when claimed and survives external-agent waits and fallback. Daily and annual repeats preserve edited clock times in the schedule timezone; an annual date edit affects only the next occurrence. See [Schedule editing](system/backend.md#schedule-editing).
+Schedules have a `notify` preference, defaulting to ON for existing data. A persona can update its own schedule's time or Push preference without replacing its ID or recurrence. Users can make the same changes from persona/speaker cards or **Schedules** in the header, which lists all owners' schedules in time order. Turning notifications off preserves task execution and timeline posts. The preference is captured when claimed and survives external-agent waits and fallback. Daily and annual repeats preserve edited clock times in the schedule timezone; an annual date edit affects only the next occurrence. See [Schedule editing](../system/backend.md#schedule-editing).
 
 ### Reminder delivery via Web Push
 
@@ -1142,8 +1142,8 @@ Users enable notifications per device; browser permission alone is not a
 subscription. The operator must configure VAPID keys, and the device needs
 HTTPS and browser support. Delivery is best effort, with no durable push queue
 or automatic retry. A failed notification does not remove the saved timeline
-post. See [Reminder push delivery](system/backend.md#reminder-push-delivery)
-and [Web Push configuration](system/operations.md#web-push-configuration).
+post. See [Reminder push delivery](../system/backend.md#reminder-push-delivery)
+and [Web Push configuration](../system/operations.md#web-push-configuration).
 
 ### The browser does not need to stay open
 
@@ -1162,7 +1162,7 @@ checks, schedules and reactions are taken by whichever instance claims them
 in Firestore first; interrupted queued work can be recovered after its lease
 expires. A local deployment, or one without Cloud Tasks, relies on in-process
 timers and needs the server running to wake on time. See
-[Times and wakes](system/architecture.md#times-and-wakes).
+[Times and wakes](../system/architecture.md#times-and-wakes).
 
 Combined mode restores configured workspaces after a restart, including
 Firestore-backed users. Split Web/worker mode opens workspaces on demand for
@@ -1183,14 +1183,14 @@ rejects acceptance. A process stopped between file writes can leave an orphan
 or stale request, which routing discards. After acceptance, routing can start
 immediately, and queued work remains recoverable if the process stops first.
 This is at-least-once processing, not an exactly-once guarantee. See
-[The reaction queue](system/architecture.md#the-reaction-queue).
+[The reaction queue](../system/architecture.md#the-reaction-queue).
 
 Search-index work retains and renews its claim until the pass completes.
 Changes arriving during a pass persist an `IndexAgain` marker so completion
 releases the same record for another pass. Failures defer the retained work
 for 30 seconds. This keeps another queue worker from indexing through a live
 claim and preserves updates received while indexing. See
-[API and persistent state](system/backend.md#timeline-search-and-indexing).
+[API and persistent state](../system/backend.md#timeline-search-and-indexing).
 
 ## Offline posting
 
@@ -1313,7 +1313,7 @@ production has temporarily used the shared Compute Engine VM since 2026-10-06.
 The HTTPS load balancer and Nginx serve the static frontend and proxy separate Go Web API
 and Pub/Sub worker containers. Firestore and GCS remain in the original project.
 The host has fixed capacity and no automatic failover. Firebase Hosting and
-Cloud Run remain as fallback resources. See [shared VM deployment](../infra/shared-vm/README.md).
+Cloud Run remain as fallback resources. See [shared VM deployment](../../infra/shared-vm/README.md).
 
 The Go binary itself is only the API and can also run on a user's own machine.
 
@@ -1409,7 +1409,7 @@ afterward to include the refreshed images.
 | `KAKERATTA_TASKS_ACCOUNT` | empty | Service account for task identity tokens |
 
 For Bluesky operator setup, see
-[social-sharing.md](social-sharing.md).
+[social-sharing.md](../guides/social-sharing.md).
 
 ## External agents through MCP
 
@@ -1444,7 +1444,7 @@ Waiting on an agent must not stall everything else, so an externally planned
 turn releases its reaction while the ask waits in storage. Closing the ask
 queues a continuation in the conversation lane; completion then updates the
 routing sheet. Waiting does not occupy a queue worker. See
-[the ask lifecycle](system/integrations.md#ask-lifecycle).
+[the ask lifecycle](../system/integrations.md#ask-lifecycle).
 
 ### Fall-through
 
@@ -1585,11 +1585,11 @@ an ask.
 * **When unavailable**: naming the agent while it is switched off or not
   connected is answered with the reason and not routed.
 
-See [Direct requests (system specification)](system/integrations.md#direct-requests-to-the-external-agent).
+See [Direct requests (system specification)](../system/integrations.md#direct-requests-to-the-external-agent).
 
 Detailed semantics are in
-[Hermes Agent setup](hermes.md)
-([日本語](hermes_ja.md)).
+[Hermes Agent setup](../guides/hermes.md)
+([日本語](../guides/hermes_ja.md)).
 
 ## NemoClaw and OpenShell
 
@@ -1644,7 +1644,7 @@ September 27 and October 2 JST, including successful schedule review, execution,
 and persistence. Hermes inside NemoClaw was the only external planner configured
 in that single-user deployment. Several replies were cross-checked against a
 user-provided Hermes session-database investigation by answer text and timing.
-The [integration report](nemoclaw-hermes-integration.md) distinguishes these
+The [integration report](../reports/nemoclaw-hermes-integration.md) distinguishes these
 results from the earlier protocols. kakeratta itself does not depend on NemoClaw.
 
 A Hermes installation can connect directly to the same MCP interface, while
@@ -1729,12 +1729,12 @@ the agent can read and do on its own side.
 
 | Document                                                                                     | Contents                                                                                                                          |
 | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| [README](../README.md)                                                                       | Overview, built-in personas, local setup, and documentation links |
-| [Routing model comparison — 2026-09-17](routing-cost-experiment.md)                          | Controlled Lightning vs Ultra routing experiment with expected recipients, token counts, cost, and latency                        |
-| [Routing model comparison — 2026-09-19](routing-model-comparison-2026-09-19.md) | Read-only replay of 20 production posts across Nemotron models, Jev, and GPT Luna                                                 |
-| [Usage and configuration](usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |
+| [README](../../README.md)                                                                       | Overview, built-in personas, local setup, and documentation links |
+| [Routing model comparison — 2026-09-17](../reports/routing-cost-experiment.md)                          | Controlled Lightning vs Ultra routing experiment with expected recipients, token counts, cost, and latency                        |
+| [Routing model comparison — 2026-09-19](../reports/routing-model-comparison-2026-09-19.md) | Read-only replay of 20 production posts across Nemotron models, Jev, and GPT Luna                                                 |
+| [Usage and configuration](../guides/usage.md)                                                          | Android and iOS sharing, location, speech, model settings, and stored data                                                        |
 | [What was hard about the AI](ai-lessons.md)                                                  | Failures seen with Nemotron personas and what changed to make them dependable                                                     |
-| [Hermes Agent](hermes.md) ([日本語](hermes_ja.md))                                              | MCP authentication, the ask lifecycle, the planning context, and fall-through                                                     |
-| [Google Cloud deployment](../infra/README.md)                                                | Cloud Run configuration and temporary shared VM operations                                      |
+| [Hermes Agent](../guides/hermes.md) ([日本語](../guides/hermes_ja.md))                                              | MCP authentication, the ask lifecycle, the planning context, and fall-through                                                     |
+| [Google Cloud deployment](../../infra/README.md)                                                | Cloud Run configuration and temporary shared VM operations                                      |
 
-[MIT licensed](../LICENSE).
+[MIT licensed](../../LICENSE).

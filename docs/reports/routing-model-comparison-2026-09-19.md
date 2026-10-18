@@ -8,7 +8,7 @@ Dataset: The 20 most recent posts in the production timeline
 
 Models compared: Nemotron 3.5 Lightning / Nemotron 3 Nano / Nemotron 3 Super / Nemotron 3 Ultra / OpenRouter Jev Latest / OpenRouter GPT Luna Latest
 
-This is a record of the experiment at the time it was conducted. References to “current” conditions or a “leading candidate” concern the persona conditions and settings used then. For the current implementation and defaults, see the [technical documentation](technical.md).
+This is a record of the experiment at the time it was conducted. References to “current” conditions or a “leading candidate” concern the persona conditions and settings used then. For the current implementation and defaults, see the [technical documentation](../design/technical.md).
 
 ## Findings
 

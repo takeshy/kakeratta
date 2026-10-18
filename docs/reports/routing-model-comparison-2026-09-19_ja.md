@@ -7,7 +7,7 @@
 比較モデル: Nemotron 3.5 Lightning / Nemotron 3 Nano / Nemotron 3 Super / Nemotron 3 Ultra / OpenRouter Jev Latest / OpenRouter GPT Luna Latest
 
 これは実施日時点の記録です。本文の「現行」「第一候補」は当時の担当条件と設定についての判断で、
-現在の実装と既定値は[技術文書](technical_ja.md)を参照してください。
+現在の実装と既定値は[技術文書](../design/technical_ja.md)を参照してください。
 
 ## 結論
 

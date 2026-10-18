@@ -1,8 +1,8 @@
 # Hermes Agentを担当の「考える役」にする
 
-[README](../README_ja.md) · [English](hermes.md)
+[README](../../README_ja.md) · [English](hermes.md)
 
-NemoClaw / OpenShell での構成と検証結果は[統合・検証レポート](nemoclaw-hermes-integration_ja.md)を参照してください。
+NemoClaw / OpenShell での構成と検証結果は[統合・検証レポート](../reports/nemoclaw-hermes-integration_ja.md)を参照してください。
 
 担当の1ターンのうち「文脈を読んで調べ、回答を書く」部分を、外部エージェント（Hermes）に任せられます。担当ごとに「考える役」を「内蔵モデル」か「外部エージェント」から選びます。
 
@@ -10,7 +10,7 @@ NemoClaw / OpenShell での構成と検証結果は[統合・検証レポート]
 
 Hermes が時間内に取得しない（既定3分）、または取得後に回答が受理されない（既定15分）場合は、内蔵モデルがそのターンを引き取ります（フォールスルー）。待ち時間は「設定 → 上級オプション → 外部連携」の接続先ごとの「接続情報と待ち時間」で、エージェントごとに変えられます。同じ画面の「外部エージェントを使う」をOFFにすると、外部エージェントからのMCP接続を拒否し（403）、担当ごとの設定を残したまま全員が内蔵モデルで考えます。一方、取得待ち時間のあいだ接続がなく自動で応答なしになった場合は、接続を受け付け続け、次の接続で元に戻ります。Hermes 自体のインストールと設定は別途必要です。
 
-内蔵モデルへのフォールバックでは、調査は常にSuper、最終回答は通常Super、deep返信・AlwaysUltraならUltraです。内蔵調査のread schemaは各roundの検索残数と利用可能な道具に合わせて更新します。Hermes自身の調査loopと既存の `read_for_ask` インターフェースは維持し、内蔵schemaの変更はHermes自身の道具を制限しません。詳しくは[調査budgetの仕様](./system/personas.md#research-budgets-and-available-reads)を参照してください。
+内蔵モデルへのフォールバックでは、調査は常にSuper、最終回答は通常Super、deep返信・AlwaysUltraならUltraです。内蔵調査のread schemaは各roundの検索残数と利用可能な道具に合わせて更新します。Hermes自身の調査loopと既存の `read_for_ask` インターフェースは維持し、内蔵schemaの変更はHermes自身の道具を制限しません。詳しくは[調査budgetの仕様](../system/personas.md#research-budgets-and-available-reads)を参照してください。
 
 ## 複数のエージェントを切り替える
 
@@ -74,7 +74,7 @@ URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサー�
 
 NVIDIA NemoClaw / OpenShell のサンドボックス配下で Hermes を運用する場合、設定管理・ポリシー合成・プロセス監視や自動起動など、サンドボックス環境特有の要件が存在します。親をNemotron 3.5 Super VL、委譲した子をNemotron 3 Ultraに分ける場合、OpenShell 0.0.116の共有 `inference.local` ではなく、モデル名を維持するProvider v2経由でToken Factoryへ接続します。親は依頼の受付と振り分けを担い、高難度の処理を子へ委譲します。
 
-具体的なセットアップ手順（[Provider v2への移行](nemoclaw-hermes-integration_ja.md#openshell-provider-v2への移行2026-10-13)、管理対象 MCP プロバイダーの登録、コンテナ内への Skill/スクリプト配置、Web 検索 Egress の開放、`Phase: Error` デッドロック回避など）については、[**NemoClaw / OpenShell 統合・検証レポート**](nemoclaw-hermes-integration_ja.md) を参照してください。
+具体的なセットアップ手順（[Provider v2への移行](../reports/nemoclaw-hermes-integration_ja.md#openshell-provider-v2への移行2026-10-13)、管理対象 MCP プロバイダーの登録、コンテナ内への Skill/スクリプト配置、Web 検索 Egress の開放、`Phase: Error` デッドロック回避など）については、[**NemoClaw / OpenShell 統合・検証レポート**](../reports/nemoclaw-hermes-integration_ja.md) を参照してください。
 
 ## キーとアクセス範囲
 
@@ -200,11 +200,11 @@ ask を出す前に、外部エージェントの接続状態を確認します�
 ### ゼロトークン待機（Wake Gate）
 
 1分周期の Cron で毎回エージェント（LLM）を起動すると、アイドル時にも毎分トークン消費と推論コストが発生します。
-これを防ぐため、Cron の事前実行スクリプトである **Wake Gate**（[check_kakeratta_gate.py](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)）を Cron ジョブに指定します。
+これを防ぐため、Cron の事前実行スクリプトである **Wake Gate**（[check_kakeratta_gate.py](../../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)）を Cron ジョブに指定します。
 
 - **未処理 ask がない場合**: `{"wakeAgent": false}` を返し、LLM を一切起動せずに即時終了します（アイドル tick 約 0.06 秒、LLM 呼び出し 0 回）。また、`agent.max_turns` は安全な 15 に維持されます。
-- **通常の未処理 ask（persona ask）がある場合**: 同じ tick で配布済みのワーカー（[direct_request_worker.py](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py)）がコードで処理します（`claim_ask` → `read_for_ask` と `web` ツールセットのみ（`claim_ask` や `submit_answer` 等のライフサイクル MCP ツールは除外）で `nvidia/Nemotron-3.5-Super-VL` を1回実行 → `submit_answer`、失敗時は即座に `release_ask`）。Cron 親セッションは起動せず `{"wakeAgent": false}` で終了します。
-- **直接依頼（direct request）がある場合**: 同じ tick で配布済みの [直接依頼ワーカー](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) が処理します（取得 → ワーカーの道具を持つ Ultra を1回実行 → 最終応答を返信）。親モデルは起動せず `{"wakeAgent": false}` で終了します。
+- **通常の未処理 ask（persona ask）がある場合**: 同じ tick で配布済みのワーカー（[direct_request_worker.py](../../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py)）がコードで処理します（`claim_ask` → `read_for_ask` と `web` ツールセットのみ（`claim_ask` や `submit_answer` 等のライフサイクル MCP ツールは除外）で `nvidia/Nemotron-3.5-Super-VL` を1回実行 → `submit_answer`、失敗時は即座に `release_ask`）。Cron 親セッションは起動せず `{"wakeAgent": false}` で終了します。
+- **直接依頼（direct request）がある場合**: 同じ tick で配布済みの [直接依頼ワーカー](../../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) が処理します（取得 → ワーカーの道具を持つ Ultra を1回実行 → 最終応答を返信）。親モデルは起動せず `{"wakeAgent": false}` で終了します。
 
 既存ジョブへ追加・変更する場合は `hermes cron edit <job_id> --script check_kakeratta_gate.py` を使います。
 

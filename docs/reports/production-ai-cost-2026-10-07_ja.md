@@ -81,9 +81,9 @@
 - 112件は全てNebius・success。入力・出力欠損なし、retryCountは全て0。monthly_summaryはfinishReason=length（Super、8,192出力）であり、図解の上限到達とは別。
 - 単価（100万tokensあたり入力/出力）：Super $0.30/$0.90、Ultra $1/$3、Embedding $0.01/$0。前回レポートと同じ基準で、[Nebius Nemotron料金](https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference)と[公式Ultraモデル説明](https://github.com/nebius/token-factory-cookbook/blob/main/models/nemotron/nemotron3-ultra-550b-a55b.md)をこのセッションで再確認。
 - CSVは `/tmp/kakeratta-ai-cost-after0630-2026-10-07.csv`。各呼び出しの日時、担当、用途、モデル、投稿ID、入力・出力tokens、概算USDを記録。本文や認証情報は含めない。生ログはコミットしない。
-- [cost_test.go](../internal/persona/cost_test.go)は、無発言でも予定を保存すること、読取専用担当の回答と記憶が残ること、不正なsilentの拒否、不正な期間読み取りの上限と正常検索への復帰を検証する。
+- [cost_test.go](../../internal/persona/cost_test.go)は、無発言でも予定を保存すること、読取専用担当の回答と記憶が残ること、不正なsilentの拒否、不正な期間読み取りの上限と正常検索への復帰を検証する。
 - ローカルの偽モデルによるテストで、実モデルの品質・本番での節約額は未測定。有料推論や本番設定変更は行っていない。
 
 検証結果：変更後の `go test ./...` は全パッケージで成功し、`git diff --check` も成功。無発言での予定作成、due reviewの質問維持、不正なreadの制限と復帰を含む。
 
-構造化引数の追補：[structured_reads_test.go](../internal/persona/structured_reads_test.go)で、実際のモデル要求にあるtool別Schema、期間検索とID読み取りの実行、旧形式の復元、MCPのローカル参照と共有Schemaの非変更を検証。
+構造化引数の追補：[structured_reads_test.go](../../internal/persona/structured_reads_test.go)で、実際のモデル要求にあるtool別Schema、期間検索とID読み取りの実行、旧形式の復元、MCPのローカル参照と共有Schemaの非変更を検証。

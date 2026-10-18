@@ -8,12 +8,12 @@
 
 | 言語・地域 | 発話定義 | 呼び出し名 |
 | --- | --- | --- |
-| 日本語・日本 | [ja-JP.json](../integrations/alexa/ja-JP.json) | かけらったメモ |
-| 英語・米国 | [en-US.json](../integrations/alexa/en-US.json) | kakeratta notes |
-| 英語・英国 | [en-GB.json](../integrations/alexa/en-GB.json) | kakeratta notes |
-| 英語・カナダ | [en-CA.json](../integrations/alexa/en-CA.json) | kakeratta notes |
-| 英語・豪州 | [en-AU.json](../integrations/alexa/en-AU.json) | kakeratta notes |
-| 英語・インド | [en-IN.json](../integrations/alexa/en-IN.json) | kakeratta notes |
+| 日本語・日本 | [ja-JP.json](../../integrations/alexa/ja-JP.json) | かけらったメモ |
+| 英語・米国 | [en-US.json](../../integrations/alexa/en-US.json) | kakeratta notes |
+| 英語・英国 | [en-GB.json](../../integrations/alexa/en-GB.json) | kakeratta notes |
+| 英語・カナダ | [en-CA.json](../../integrations/alexa/en-CA.json) | kakeratta notes |
+| 英語・豪州 | [en-AU.json](../../integrations/alexa/en-AU.json) | kakeratta notes |
+| 英語・インド | [en-IN.json](../../integrations/alexa/en-IN.json) | kakeratta notes |
 
 日本語版・英語版とも、2語以上の呼び出し名を使用します。各地域での認識精度とモデルビルドはConsole・実機で確認してください。公開時はDistributionの対象地域と各ロケールのスキル説明も設定します。端末の言語とアカウントのマーケットプレイスに対応する言語版が必要で、全地域に配信する設定だけでは言語対応になりません。[Amazonの多言語対応仕様](https://developer.amazon.com/en-US/docs/alexa/custom-skills/develop-skills-in-multiple-languages.html)
 
@@ -105,4 +105,4 @@ mise exec -- npm --prefix frontend run build
 
 ## 審査提出用のテスト手順
 
-[日本語](../integrations/alexa/testing-instructions-ja.txt)・[英語](../integrations/alexa/testing-instructions-en.txt)を用意しています。メールアドレスとパスワードのプレースホルダーを審査用の値に置き換え、非公開のテスト手順欄に入力してください。ヘルプ・確認前のキャンセル・自動リマインダーを使用しない説明を含みます。[提出チェックと確認記録](judge-access.md#submission-instructions-and-final-checks)も参照してください。
+[日本語](../../integrations/alexa/testing-instructions-ja.txt)・[英語](../../integrations/alexa/testing-instructions-en.txt)を用意しています。メールアドレスとパスワードのプレースホルダーを審査用の値に置き換え、非公開のテスト手順欄に入力してください。ヘルプ・確認前のキャンセル・自動リマインダーを使用しない説明を含みます。[提出チェックと確認記録](judge-access.md#submission-instructions-and-final-checks)も参照してください。

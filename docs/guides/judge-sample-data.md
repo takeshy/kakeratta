@@ -2,7 +2,7 @@
 
 This document describes the English starting workspace prepared for new hackathon judge registrations. It is adapted from the owner's October 2026 production timeline with permission. Posts, replies and memories are edited English examples, not fresh AI responses for the judge. Mei is a fictional demo friend. The welcome post makes this distinction visible in the app.
 
-The content is defined in [judge_seed.json](../internal/server/judge_seed.json), with one selected production photo in [judge_seed_assets/wine.jpg](../internal/server/judge_seed_assets/wine.jpg). Registration uses the bundled data, not a live connection to the owner's account. This feature requires deployment of the corresponding server build. A fresh browser opening the invitation starts in English, even with a Japanese browser locale, and retains English after registration. An explicit `?lang=ja` or a saved display-language choice takes precedence.
+The content is defined in [judge_seed.json](../../internal/server/judge_seed.json), with one selected production photo in [judge_seed_assets/wine.jpg](../../internal/server/judge_seed_assets/wine.jpg). Registration uses the bundled data, not a live connection to the owner's account. This feature requires deployment of the corresponding server build. A fresh browser opening the invitation starts in English, even with a Japanese browser locale, and retains English after registration. An explicit `?lang=ja` or a saved display-language choice takes precedence.
 
 ## Personas
 
@@ -73,4 +73,4 @@ Daily/monthly check-ins and scheduled reminders explicitly use the display langu
 
 Only untouched invitation workspaces are seeded. Existing posts or installed personas cause initialization to be skipped. A durable marker, stable entry IDs and recorded image blob IDs let interrupted initialization resume without duplicate posts or moving timestamps. Completed initialization never restores examples the judge deleted or resets persona activation or engine choices.
 
-The seed makes no AI calls, consumes no judge AI-action quota and queues no reactions. It copies no API keys, external connection credentials, Push devices, production jobs or live schedules. Shared Hermes is configured separately through the existing registration flow. See [judge access](judge-access.md) for connection requirements and live acceptance checks, and [the backend specification](system/backend.md#http-api-and-authentication) for implementation and tests.
+The seed makes no AI calls, consumes no judge AI-action quota and queues no reactions. It copies no API keys, external connection credentials, Push devices, production jobs or live schedules. Shared Hermes is configured separately through the existing registration flow. See [judge access](judge-access.md) for connection requirements and live acceptance checks, and [the backend specification](../system/backend.md#http-api-and-authentication) for implementation and tests.

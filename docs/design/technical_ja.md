@@ -1,8 +1,8 @@
 # 中で起きていること
 
-[README](../README_ja.md) · [English](technical.md)
+[README](../../README_ja.md) · [English](technical.md)
 
-実装の照合日：2026-10-17。[システム仕様](system/index.md)には、サブシステムごとの動作とソース・テスト参照をまとめています。
+実装の照合日：2026-10-17。[システム仕様](../system/index.md)には、サブシステムごとの動作とソース・テスト参照をまとめています。
 
 英語版と日本語版は、同じ実装を同じ章順で説明します。動作・制限・例・ソース参照を変更するときは、両方を更新してください。
 
@@ -175,7 +175,7 @@ Lightning と Ultra はどちらも12件すべてで一致しました。その�
 その回では、Lightning のほうが安く、遅いという結果でした。
 
 方法、トークン数、レイテンシ、費用の前提、再現コマンドは
-[Routing model comparison — 2026-09-17](routing-cost-experiment.md)
+[Routing model comparison — 2026-09-17](../reports/routing-cost-experiment.md)
 にあります。
 
 のちに行った読み取り専用のリプレイでは、直近20件の本番投稿と、そのときの本番で有効だった担当6人の条件を使いました。
@@ -189,7 +189,7 @@ Lightning が6.55秒 / 0.070円、Ultra が2.28秒 / 0.449円でした。
 そのため、これらの数字を精度のランキングとして読まないでください。
 
 測定の全体と限界は
-[振り分けモデル比較 — 2026-09-19](routing-model-comparison-2026-09-19_ja.md)
+[振り分けモデル比較 — 2026-09-19](../reports/routing-model-comparison-2026-09-19_ja.md)
 にあります。
 
 現在の構成について正しいのは、この文書に書かれたアーキテクチャです。
@@ -280,7 +280,7 @@ flowchart TD
 
 記憶しない担当で読み取り専用の道具しか持たない場合は、予定の計画とレビュー、記憶更新を省略します。レビューが必要なのは、実際に予定を含む計画です。外部エージェントに任せるのは調査と回答までで、その後はかけらったが担当します。回答公開後の記憶更新に失敗しても、回答は取り消さず、保存した記憶更新の作業記録を使って別に再試行します。
 
-実装の詳細は[担当の実行](./system/personas.md#from-research-to-answer-publication)と[バックグラウンド処理](./system/architecture.md)を参照してください。
+実装の詳細は[担当の実行](../system/personas.md#from-research-to-answer-publication)と[バックグラウンド処理](../system/architecture.md)を参照してください。
 
 ### 1ターンの流れ
 
@@ -292,7 +292,7 @@ flowchart TD
 
 Web検索が0回でも、利用可能なタイムライン・記憶・その他のreadと `submit_answer`（deepのターンでSuperが読んでいる間は `finish_read`）は使えます。readの上限に達したら、本体は `read` を外して回答を求めます。未設定・権限なしなどの利用不能なreadは提示しません。記憶無効担当には `records` のschemaと説明を出さず、投稿IDで本文を読む `entries` を残します。現在の説明は各roundで置き換え、取得済みtool結果は回答へ渡します。外部エージェントのインターフェースとphaseのbudgetは別管理です。
 
-実装とテストは[Research budgets and available reads](./system/personas.md#research-budgets-and-available-reads)を参照してください。[本番使用量レポート](./production-model-usage-2026-10-05_ja.md)は以前のUltra調査ループを記録したもので、今の実装を表すものではありません。
+実装とテストは[Research budgets and available reads](../system/personas.md#research-budgets-and-available-reads)を参照してください。[本番使用量レポート](../reports/production-model-usage-2026-10-05_ja.md)は以前のUltra調査ループを記録したもので、今の実装を表すものではありません。
 
 振り分け・本体の回答・メモ係には、返信関係や解釈済みの添付資料を含む会話全体を渡します。
 `threadContext` は今回の対象発言をIDで示し、本文を二重に掲載しません。IDのないシステム起床はスレッド内の位置で示します。
@@ -333,7 +333,7 @@ Web検索が0回でも、利用可能なタイムライン・記憶・その他�
 モデルは middle（既定は Super。最終回答が大きいモデルの場合も同じ）で、声は担当自身です。
 記憶する担当では、関係のあるユーザーのかけら（投稿・返信・編集。関係はあるけれど黙ったときも）と、見直しの日が来た記録を渡されたチェックインでメモ係が動きます。回答本体は記憶の要否を判定しません。旧形式の `remember` は受け付けますが値は無視します。
 予定による起床、削除後の整理、自分の担当ではないとして黙ったターンでは動きません。ただし編集は、領域外になっても以前の記憶を訂正するため永続ジョブ経由でメモ係に渡します。削除時は本体が記録と根拠を失った事実を直接取り除き、担当は予定を見直せます。
-[keepsNotes](../internal/persona/runner.go)と[メモ係](../internal/persona/notekeeper.go)を参照してください。
+[keepsNotes](../../internal/persona/runner.go)と[メモ係](../../internal/persona/notekeeper.go)を参照してください。
 
 ふつうの投稿では `keep_record` を使い、スレッドと、記録で使っているタグだけを見せます（事実・前の記録・公開した回答は見せません）。出すのは次のものです。
 
@@ -367,7 +367,7 @@ ID は、担当が返事をしたならその返事（返事から元のかけ�
 過去の出来事として保持すると明示的に判断した事実（`retain`）は、本文と開始日の指紋を記録し、変わらない限り日付による再審査を省きます。
 本文や開始日が変われば再び審査対象になります（出典が増えても再審査はしません）。判断保留は記録せず、同じIDへの保持と無効化の矛盾は差し戻します。
 判定は事実の行末の内部用の印 `reviewed:` に保存し、記憶の画面には表示しません。
-詳しくは[1日1回の整理](system/personas.md#the-daily-pass)を参照してください。
+詳しくは[1日1回の整理](../system/personas.md#the-daily-pass)を参照してください。
 
 メモ係が終えられなくても、回答はすでに出ています。メモ係への入力は実行前に保存され、失敗した処理は1分後から最大1時間の間隔で、
 その時刻に起こされたときに再試行します。削除・編集された投稿の古い入力は再生しません。
@@ -413,7 +413,7 @@ Jev は独立したスイッチではなく、Router の選択肢です。旧 `j
 Router に `~typesafe/jev-latest` を選んだ状態へ移行します。既定の提供元は引き続き Token Factory です。
 
 OpenRouter のツール呼び出しは Exacto を経由します。
-詳しくは[設定とモデルへの要求](system/backend.md#settings-and-model-requests)を参照してください。
+詳しくは[設定とモデルへの要求](../system/backend.md#settings-and-model-requests)を参照してください。
 
 ## 画像の読み取りは投稿ごとに一度
 
@@ -524,7 +524,7 @@ kakeratta の現在の選択はこうです。
 各スキルの `memory` に普通の言葉で書きます。本体はいつ圧縮するかの閾値を持たず、大きさの上限だけを持ちます。
 
 以前の記憶の形式（個別の OKF メモと `index.md`、散文の分野ファイル、複数の分野ファイルと月ごとの記録ファイル）は、
-1つの記憶ファイルに統合しました。詳しくは[記憶の統合](system/operations.md#memory-consolidation)を参照してください。
+1つの記憶ファイルに統合しました。詳しくは[記憶の統合](../system/operations.md#memory-consolidation)を参照してください。
 
 ### お気に入り
 
@@ -537,7 +537,7 @@ kakeratta の現在の選択はこうです。
 検索語が空なら投稿日時の新しい順です。ローカルは `favorites/{entry-id}.json`、
 Firestore は `users/{key}/favorites` に保存し、エクスポートにも含めます。
 投稿を削除するとそのお気に入りも外れますが、お気に入りを外すだけでは投稿は消えません。
-[APIと永続化の仕様（英語）](system/backend.md#favorites)も参照してください。
+[APIと永続化の仕様（英語）](../system/backend.md#favorites)も参照してください。
 
 ### タイムライン・発言一覧・検索の絞り込み
 
@@ -553,7 +553,7 @@ Firestore は `users/{key}/favorites` に保存し、エクスポートにも含
 
 条件を変更するとページをリセットし、古い要求の応答は無視します。オフライン用キャッシュへ保存するのは絞り込みのないタイムラインだけで、
 オフライン時の絞り込みは保存済みの発言と既知のお気に入りIDを使います。
-[一覧の絞り込み](system/backend.md#listing-filters)と[画面の動作](system/frontend.md#favorites-and-saved-entry-search)を参照してください。
+[一覧の絞り込み](../system/backend.md#listing-filters)と[画面の動作](../system/frontend.md#favorites-and-saved-entry-search)を参照してください。
 
 ### 意味検索
 
@@ -585,8 +585,8 @@ Firestore は `users/{key}/favorites` に保存し、エクスポートにも含
 地名を取得できなければ座標表示を残します。地図リンクは付けず、GeoNamesの出典はフィードのフッターに表示します。
 
 既存のFirestore投稿は `cmd/backfill-places -metadata-only` で表示ラベルを保ったまま補完できます。
-確認用の計画を作り、適用と検証を別々に行います。[過去の位置情報の補完](system/operations.md#backfilling-post-locations)を参照してください。
-実装は[位置情報の処理](../internal/server/place.go)、[地名の組み立て](../internal/geocode/place.go)、[検索対象テキスト](../internal/search/search.go)にあります。
+確認用の計画を作り、適用と検証を別々に行います。[過去の位置情報の補完](../system/operations.md#backfilling-post-locations)を参照してください。
+実装は[位置情報の処理](../../internal/server/place.go)、[地名の組み立て](../../internal/geocode/place.go)、[検索対象テキスト](../../internal/search/search.go)にあります。
 
 ## スキル
 
@@ -626,7 +626,7 @@ Firestore は `users/{key}/favorites` に保存し、エクスポートにも含
 メモ係・記憶の整理・毎日と毎月のチェックインを省きます。既存の記憶は残し、
 明示的な通知予定と外部エージェントの選択は維持します。画面は記憶とチェックインの操作を非表示にします。
 読み取りだけの記憶なし担当は、回答後の予定の計画と確認も省きます。
-詳しくは[記憶の選択](system/personas.md#optional-persona-memory)を参照してください。
+詳しくは[記憶の選択](../system/personas.md#optional-persona-memory)を参照してください。
 
 図解担当は `alwaysUltra: true` で（Nebius ではふだん Super VL、「詳しく」を付けると Ultra）、絵文字・見出し・箇条書き・表とMermaidのフローチャートやシーケンス図を使ったMarkdownを回答として出します。
 Web検索ツールは持たず、HTML・CSS・SVGは生成しません。
@@ -636,7 +636,7 @@ Web検索ツールは持たず、HTML・CSS・SVGは生成しません。
 
 本体はMarkdownをそのまま保存し、画面は既存のMarkdown表示と対応するMermaidのコードフェンスで図解を表示します。
 過去の完全なHTML回答は引き続きsandbox付きiframeで表示でき、画像への変換にも対応します。
-[表示の仕様](system/frontend.md#merging-data)と[図解の検証](../internal/persona/infographic_test.go)も参照してください。
+[表示の仕様](../system/frontend.md#merging-data)と[図解の検証](../../internal/persona/infographic_test.go)も参照してください。
 
 ### 人物の担当
 
@@ -692,7 +692,7 @@ Tavily の API キーはアプリに埋め込まず、ユーザーが設定画�
 `weather_forecast` は運用者のWeatherAPIキーを使い、地域名か座標を受け取ります。省略時は投稿の座標を使います。
 現在の観測値と予報を区別し、1〜14日（既定3日）、日付、任意の現地時刻の時を指定できます。契約により取得可能な日数が制限される場合があります。
 結果には実際の地域・日付・更新時刻とWeatherAPIの出典が付き、取得できない予報は作りません。
-[天気予報](system/integrations.md#weather-forecasts)を参照してください。
+[天気予報](../system/integrations.md#weather-forecasts)を参照してください。
 
 ### 場所の検索
 
@@ -827,7 +827,7 @@ Firestore の実行権は、複数のサーバーインスタンスをまたい�
 ユーザーも担当・発言一覧のカードや、全担当の予定を日時順に並べるヘッダーの **予定** から編集できます。通知OFFでも実行と投稿は続きます。
 通知設定は実行権を取った時点で決まり、外部エージェントの待機や内蔵モデルへの引き継ぎでも維持します。
 毎日・毎年の繰り返しは予定のタイムゾーンで編集後の時刻を引き継ぎます。年次予定の日付変更は次回だけに適用します。
-詳しくは[予定の編集](system/backend.md#schedule-editing)を参照してください。
+詳しくは[予定の編集](../system/backend.md#schedule-editing)を参照してください。
 
 ### Web Push によるリマインダーの配信
 
@@ -838,7 +838,7 @@ Firestore の実行権は、複数のサーバーインスタンスをまたい�
 ユーザーは端末ごとに通知を有効にします。ブラウザの許可だけでは通知先の登録になりません。
 運用者による VAPID キーの設定と、HTTPS・対応ブラウザが必要です。配信はベストエフォートで、永続的な Push キューや自動再試行はありません。
 通知に失敗しても、保存済みのタイムライン投稿は残ります。
-詳しくは[リマインダーの配信](system/backend.md#reminder-push-delivery)と[Web Push の設定](system/operations.md#web-push-configuration)を参照してください。
+詳しくは[リマインダーの配信](../system/backend.md#reminder-push-delivery)と[Web Push の設定](../system/operations.md#web-push-configuration)を参照してください。
 
 ### ブラウザは開いたままでなくてよい
 
@@ -854,7 +854,7 @@ Cloud Tasks が次の起動時刻に認証付きの due エンドポイントを
 稼働中のインスタンスには、リクエスト処理の外でもCPUを割り当てます。複数台ある場合は、確認・予定・反応の実行権を
 Firestore で先に取得したインスタンスが処理します。中断されたキュー内の仕事は、リース失効後に回復できます。
 ローカル環境や Cloud Tasks のない構成はプロセス内のタイマーを使うため、予定時刻に起こすにはサーバーが動いている必要があります。
-詳しくは[時刻と起動](system/architecture.md#times-and-wakes)を参照してください。
+詳しくは[時刻と起動](../system/architecture.md#times-and-wakes)を参照してください。
 
 combined方式では、Firestoreを使うユーザーも含め、設定済みのワークスペースを再起動後に復元します。
 Web/worker分離方式では起動時の復元走査を行わず、APIリクエストと認証付きpushに応じて開きます。
@@ -868,12 +868,12 @@ Web/worker分離方式では起動時の復元走査を行わず、APIリクエ�
 ファイルの書き込み途中でプロセスが止まると、対応する投稿のない要求や古い本文への要求が残ることがありますが、振り分け時に破棄します。
 受付後はすぐに振り分けを開始でき、その前にプロセスが止まってもキューから回復できます。
 処理は at-least-once で、厳密な1回限りの実行を保証するものではありません。
-詳しくは[反応キュー](system/architecture.md#the-reaction-queue)を参照してください。
+詳しくは[反応キュー](../system/architecture.md#the-reaction-queue)を参照してください。
 
 検索索引の処理は、1回の更新が終わるまで実行権を保持・更新します。更新中に変更が届くと `IndexAgain` の印を永続化し、
 完了時に同じ処理レコードを次の更新へ回します。失敗した場合は要求を残して30秒後へ延期します。
 これにより、実行権が有効な間に別のキューワーカーが索引を更新することを防ぎ、更新中に届いた変更も引き継ぎます。
-詳しくは[タイムライン検索と索引](system/backend.md#timeline-search-and-indexing)を参照してください。
+詳しくは[タイムライン検索と索引](../system/backend.md#timeline-search-and-indexing)を参照してください。
 
 ## オフライン投稿
 
@@ -986,7 +986,7 @@ kakeratta は、2つに分かれたブラウザ用のアプリです。
 維持する費用を抑えるため、2026-10-06以降は暫定的に共有Compute Engine VMで動かしています。HTTPSロードバランサーとNginxが
 静的な画面を配信し、別々のGo Web API・Pub/Sub workerコンテナへ転送します。FirestoreとGCSは
 元のプロジェクトに残ります。VMは固定容量で、自動フェイルオーバーはありません。Firebase Hostingと
-Cloud Runはフォールバック用に保持しています。[共有VMの運用手順](../infra/shared-vm/README.md)（英語）を参照してください。
+Cloud Runはフォールバック用に保持しています。[共有VMの運用手順](../../infra/shared-vm/README.md)（英語）を参照してください。
 
 Go のバイナリ自体は API だけで、ユーザー自身のマシンでも動きます。
 
@@ -1077,7 +1077,7 @@ Storybook から `docs/captures/` に保存されます。表示サイズが変�
 | `KAKERATTA_TASKS_URL` | 空 | 認証付きdueコールバックのURL |
 | `KAKERATTA_TASKS_ACCOUNT` | 空 | タスクのIDトークンに使うサービスアカウント |
 
-Bluesky の運営側の設定は [social-sharing_ja.md](social-sharing_ja.md) を参照してください。
+Bluesky の運営側の設定は [social-sharing_ja.md](../guides/social-sharing_ja.md) を参照してください。
 
 ## MCP による外部エージェント
 
@@ -1102,7 +1102,7 @@ kakeratta は回答の形とターンの規則を確かめたあと、担当の�
 
 エージェントを待つ間に他の処理を止めないよう、ask の待機中はターンの反応を解放し、ask を保存しておきます。
 ask が閉じると会話のレーンに継続処理を登録し、完了した時点で振り分けシートに知らせます。待機中はキューワーカーを占有しません。
-[ask のライフサイクル](system/integrations.md#ask-lifecycle)を参照してください。
+[ask のライフサイクル](../system/integrations.md#ask-lifecycle)を参照してください。
 
 ### フォールスルー
 
@@ -1182,8 +1182,8 @@ list_tasks
 `list_tasks` は、依頼（task）が ask に置き換わる前に配置された Wake Gate スクリプトのため、未取得の ask だけを返す互換用の道具として残しています。
 
 詳しい意味は
-[Hermes Agent の設定](hermes_ja.md)
-（[English](hermes.md)）にあります。
+[Hermes Agent の設定](../guides/hermes_ja.md)
+（[English](../guides/hermes.md)）にあります。
 
 ### 直接依頼
 
@@ -1207,7 +1207,7 @@ list_tasks
 * **呼び名**: 呼び名は固定で、接続名では呼び出しません。予約語として担当には付けられません。
 * **使えないとき**: エージェントがOFF・未接続のときの呼びかけは、理由を返信して担当にも回しません。
 
-詳しくは [直接依頼（システム仕様）](system/integrations.md#direct-requests-to-the-external-agent) を参照してください。
+詳しくは [直接依頼（システム仕様）](../system/integrations.md#direct-requests-to-the-external-agent) を参照してください。
 
 ## NemoClaw と OpenShell
 
@@ -1256,7 +1256,7 @@ Streamable HTTP の MCP で接続し、Hermes が独立した担当だった以�
 外部エージェントの回答30件がスレッド返信として保存され、予定のレビュー・実行・保存の成功も確認できました。
 この単一ユーザー環境で設定されていた外部プランナーは NemoClaw 内の Hermes だけです。
 複数の返信について、ユーザー提供の Hermes セッションデータベースの調査結果と回答本文・時刻も照合しました。
-[連携レポート](nemoclaw-hermes-integration_ja.md)では、これらの結果と以前の方式を区別しています。
+[連携レポート](../reports/nemoclaw-hermes-integration_ja.md)では、これらの結果と以前の方式を区別しています。
 kakeratta 自体は NemoClaw に依存しません。
 
 Hermes のインストールは同じ MCP インターフェースに直接つなげます。
@@ -1329,12 +1329,12 @@ embedding はかけらを取り出す助けにはなりますが、
 
 | 文書 | 内容 |
 | --- | --- |
-| [README](../README_ja.md) | 概要・内蔵の担当・ローカルでの起動・ドキュメントの案内 |
-| [Routing model comparison — 2026-09-17](routing-cost-experiment.md) | 想定される受け取り手・トークン数・費用・レイテンシを揃えた Lightning と Ultra の統制比較 |
-| [振り分けモデル比較 — 2026-09-19](routing-model-comparison-2026-09-19_ja.md) | 本番20投稿を Nemotron 各モデル・Jev・GPT Luna で読み取り専用に再実行した比較 |
-| [使い方と設定](usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
+| [README](../../README_ja.md) | 概要・内蔵の担当・ローカルでの起動・ドキュメントの案内 |
+| [Routing model comparison — 2026-09-17](../reports/routing-cost-experiment.md) | 想定される受け取り手・トークン数・費用・レイテンシを揃えた Lightning と Ultra の統制比較 |
+| [振り分けモデル比較 — 2026-09-19](../reports/routing-model-comparison-2026-09-19_ja.md) | 本番20投稿を Nemotron 各モデル・Jev・GPT Luna で読み取り専用に再実行した比較 |
+| [使い方と設定](../guides/usage_ja.md) | Android・iOSからの共有、位置情報、音声、モデル設定、保存データ |
 | [AIまわりで苦労したこと](ai-lessons_ja.md) | Nemotron の担当で起きた失敗と、頼れるようにするために変えたこと |
-| [Hermes Agent](hermes_ja.md)（[English](hermes.md)） | MCPの認証、ask のライフサイクル、計画に渡す文脈、フォールスルー |
-| [Google Cloudへのデプロイ](../infra/README_ja.md) | Cloud Run構成と暫定運用の共有VM |
+| [Hermes Agent](../guides/hermes_ja.md)（[English](../guides/hermes.md)） | MCPの認証、ask のライフサイクル、計画に渡す文脈、フォールスルー |
+| [Google Cloudへのデプロイ](../../infra/README_ja.md) | Cloud Run構成と暫定運用の共有VM |
 
-[MITライセンス](../LICENSE)。
+[MITライセンス](../../LICENSE)。

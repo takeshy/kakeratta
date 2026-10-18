@@ -1,6 +1,6 @@
 # kakeratta を作った理由
 
-[README](../README_ja.md) · [English](background.md)
+[README](../../README_ja.md) · [English](background.md)
 
 ## なぜ作ったか
 

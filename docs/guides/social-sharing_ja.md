@@ -1,6 +1,6 @@
 # 会話をBlueskyに公開する
 
-[README](../README_ja.md) · [English](social-sharing.md) · [画面付きの手順](https://kakeratta.net/manual/?lang=ja#ja-bluesky)
+[README](../../README_ja.md) · [English](social-sharing.md) · [画面付きの手順](https://kakeratta.net/manual/?lang=ja#ja-bluesky)
 
 各ユーザーが自分のBlueskyアカウントを接続して利用します。設定の「Bluesky連携」、またはタイムラインの「Blueskyに投稿」からハンドルを入力し、Blueskyの画面で接続を許可してください。kakerattaにBlueskyのパスワードやアプリパスワードを入力する必要はありません。
 

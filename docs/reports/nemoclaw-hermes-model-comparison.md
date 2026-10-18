@@ -61,6 +61,8 @@ The same model, woken without usable tools, later ran 60-turn self-debugging loo
 
 ### Nemotron-3-Ultra: connectivity check only
 
+The original Japanese command and response are preserved below. The prompt means: “Hello! Tell me your model name and characteristics in one line.”
+
 ```bash
 nemoclaw hermes-sandbox exec -- hermes -z "こんにちは！モデル名と特徴を1行で教えてください"
 ```
@@ -68,6 +70,8 @@ nemoclaw hermes-sandbox exec -- hermes -z "こんにちは！モデル名と特�
 ```text
 nvidia/Nemotron-3-Ultra-550b-a55b（NVIDIA製・550BパラメータのNemotron 3 Ultra）をHermes Agent経由で実行中、プロバイダはcustom（NemoClaw経由のcompatible-endpoint）
 ```
+
+English translation of the response: “Running nvidia/Nemotron-3-Ultra-550b-a55b (NVIDIA’s 550B-parameter Nemotron 3 Ultra) through Hermes Agent; the provider is custom (compatible-endpoint through NemoClaw).”
 
 This confirms only that the route to Ultra works.
 

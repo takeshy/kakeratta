@@ -1,6 +1,6 @@
 # Why kakeratta exists
 
-[README](../README.md) · [日本語](background_ja.md)
+[README](../../README.md) · [日本語](background_ja.md)
 
 ## Why it exists
 

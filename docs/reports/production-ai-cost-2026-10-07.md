@@ -8,15 +8,15 @@ These are estimates, not provider bills. Cache/contract discounts, credits, sear
 
 ## Persona and stage costs
 
-The Japanese display labels below refer to the same personas. 記憶更新・まとめ combines memory updates and summaries; 共通処理 denotes shared work.
+Persona display labels are translated for this edition; the original labels are available in the Japanese edition. Memory updates / summaries combines both stages; shared costs are listed separately below.
 
-| 担当 | 呼び出し | 調査 | 回答 | 予定計画 | 記憶更新・まとめ | review | 合計USD |
+| Persona | Calls | Research | Answers | Schedule planning | Memory updates / summaries | Review | Total USD |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| インフォグラフィック | 6 | 0.007865 | 0.055859 | 0.000000 | 0.000000 | 0.000000 | 0.063724 |
+| Infographic | 6 | 0.007865 | 0.055859 | 0.000000 | 0.000000 | 0.000000 | 0.063724 |
 | tabe | 26 | 0.034288 | 0.003887 | 0.003533 | 0.000000 | 0.000000 | 0.041708 |
 | sona | 15 | 0.011751 | 0.006295 | 0.006738 | 0.001571 | 0.001047 | 0.027402 |
 | ai-qa | 7 | 0.004843 | 0.012923 | 0.003888 | 0.000000 | 0.000000 | 0.021653 |
-| 父・森田三夫 | 12 | 0.006051 | 0.003367 | 0.003656 | 0.003575 | 0.000000 | 0.016650 |
+| Father | 12 | 0.006051 | 0.003367 | 0.003656 | 0.003575 | 0.000000 | 0.016650 |
 | shiori | 11 | 0.004926 | 0.002808 | 0.005282 | 0.000000 | 0.000000 | 0.013016 |
 | goldfish-care | 3 | 0.001887 | 0.001056 | 0.001147 | 0.000000 | 0.000000 | 0.004090 |
 | wine-assistant | 3 | 0.001798 | 0.001063 | 0.001174 | 0.000000 | 0.000000 | 0.004035 |
@@ -25,7 +25,7 @@ The Japanese display labels below refer to the same personas. 記憶更新・ま
 
 Shared costs outside the persona table: monthly summary $0.022409 (one call), routing $0.001679 (two), embedding $0.000153 (20).
 
-| 処理 | 呼び出し | 入力tokens | 出力tokens | 概算USD |
+| Stage | Calls | Input tokens | Output tokens | Estimated USD |
 |---|---:|---:|---:|---:|
 | research | 41 | 241979 | 4727 | 0.076848 |
 | answer | 22 | 87918 | 17415 | 0.089242 |
@@ -41,15 +41,15 @@ Shared costs outside the persona table: monthly summary $0.022409 (one call), ro
 
 Calls are grouped by persona and trigger ID. Start time is the first call observed in this window. Routing/embedding are excluded here; periodic wakes without trigger IDs are included in the persona table.
 
-| 開始時刻JST | 担当 | 対象投稿ID | 呼び出し | 概算USD |
+| Start time (JST) | Persona | Trigger post ID | Calls | Estimated USD |
 |---|---|---|---:|---:|
-| 06:38:38 | インフォグラフィック | local-a98eb263-b3f5-4ffe-b85a-bce785a320d7 | 2 | 0.022370 |
-| 07:03:42 | インフォグラフィック | local-507c0890-b138-4507-9f12-5e668c4cd47e | 2 | 0.021533 |
+| 06:38:38 | Infographic | local-a98eb263-b3f5-4ffe-b85a-bce785a320d7 | 2 | 0.022370 |
+| 07:03:42 | Infographic | local-507c0890-b138-4507-9f12-5e668c4cd47e | 2 | 0.021533 |
 | 11:03:38 | ai-qa | local-424826dc-560b-4408-be8f-b1b2b91c7284 | 4 | 0.005526 |
-| 11:25:27 | 父・森田三夫 | local-64283fd3-408e-4a30-a31c-ea27d14d8aba | 4 | 0.005443 |
-| 11:26:19 | 父・森田三夫 | local-93380b7f-53d3-4343-a6fb-3901bf8e39b4 | 4 | 0.005870 |
+| 11:25:27 | Father | local-64283fd3-408e-4a30-a31c-ea27d14d8aba | 4 | 0.005443 |
+| 11:26:19 | Father | local-93380b7f-53d3-4343-a6fb-3901bf8e39b4 | 4 | 0.005870 |
 | 12:06:45 | ai-qa | local-b9166968-cb49-463b-88eb-437dde3e5d95 | 3 | 0.016127 |
-| 13:39:21 | インフォグラフィック | local-b2fa1013-a8ba-4daf-b9ca-8596c3240589 | 2 | 0.019822 |
+| 13:39:21 | Infographic | local-b2fa1013-a8ba-4daf-b9ca-8596c3240589 | 2 | 0.019822 |
 | 13:58:55 | sona | local-2ebbc8a3-1829-4a53-be50-18a5d959e3ba | 6 | 0.009350 |
 
 ## Findings and implemented changes
@@ -81,8 +81,8 @@ The existing 210-record VM snapshot yielded 112 calls after the cutoff. Another 
 
 Prices per million input/output tokens: Super $0.30/$0.90, Ultra $1/$3, embedding $0.01/$0, matching the earlier report. [Nebius pricing](https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference) and the [official Ultra description](https://github.com/nebius/token-factory-cookbook/blob/main/models/nemotron/nemotron3-ultra-550b-a55b.md) were rechecked this session.
 
-[cost_test.go](../internal/persona/cost_test.go) verifies silent scheduling, retained read-only answers/memory, invalid silence rejection, bounded malformed period reads and recovery to a valid search. Local tests use fake completions; real-model quality and savings remain unmeasured. No paid inference or production changes were performed.
+[cost_test.go](../../internal/persona/cost_test.go) verifies silent scheduling, retained read-only answers/memory, invalid silence rejection, bounded malformed period reads and recovery to a valid search. Local tests use fake completions; real-model quality and savings remain unmeasured. No paid inference or production changes were performed.
 
 Validation result: `go test ./...` passed across all packages and `git diff --check` passed after the final changes, including silent scheduling, retained due-review questions, bounded malformed reads and recovery.
 
-Structured-argument follow-up: [structured_reads_test.go](../internal/persona/structured_reads_test.go) verifies the actual inference schema, period/ID execution, legacy restoration and preserved MCP local references without mutating declarations.
+Structured-argument follow-up: [structured_reads_test.go](../../internal/persona/structured_reads_test.go) verifies the actual inference schema, period/ID execution, legacy restoration and preserved MCP local references without mutating declarations.

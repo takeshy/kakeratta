@@ -1,6 +1,6 @@
 # What was hard about the AI
 
-[README](../README.md) · [日本語](ai-lessons_ja.md) · [Under the hood](technical.md)
+[README](../../README.md) · [日本語](ai-lessons_ja.md) · [Under the hood](technical.md)
 
 Kakeratta hands each post to small AI personas that remember things in their
 own notes and, now and then, say something. The models are NVIDIA Nemotron on
@@ -83,7 +83,7 @@ what posts it should get, not what it is meant to achieve - and the examples
 that pulled the model toward particular cases were removed. After that, a
 replay of 20 production posts put Super at 1.91 seconds and about 0.098 yen a
 route against Ultra's 2.28 seconds and 0.449 yen, and Super became the default
-again ([2026-09-19](routing-model-comparison-2026-09-19.md)).
+again ([2026-09-19](../reports/routing-model-comparison-2026-09-19.md)).
 
 **Lesson:** if a large model gets a routing task right and a smaller one gets
 it wrong, the task may be too ambiguous. Change the task before paying for the
@@ -165,7 +165,7 @@ persona has scheduling permission. It checks that changes match the user's
 request and promises in the answer, and that operations do not conflict or
 leave dependencies unmet. It does not review answer quality, length, research
 results, or memory updates. The note keeper runs separately after publication.
-See [the current turn sequence](system/personas.md#from-research-to-answer-publication).
+See [the current turn sequence](../system/personas.md#from-research-to-answer-publication).
 
 **Lesson:** anything code can check, code checks first. The model reviews only
 what code cannot.

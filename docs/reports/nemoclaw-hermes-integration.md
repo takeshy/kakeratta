@@ -2,12 +2,12 @@
 
 ## Autonomous External Planner Integration and Verification Report
 
-[README](../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](hermes.md) · [Model Comparison](nemoclaw-hermes-model-comparison.md) · [Runaway loop incident](nemoclaw-hermes-runaway-incident.md)
+[README](../../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](../guides/hermes.md) · [Hermes-4-405B visual evaluation](hermes-4-405b-visual-evaluation.md) · [Model Comparison](nemoclaw-hermes-model-comparison.md) · [Runaway loop incident](nemoclaw-hermes-runaway-incident.md)
 
 This report documents an integration in which Hermes Agent runs inside NVIDIA NemoClaw / OpenShell, acts as an external **planner** (thinking engine) for designated kakeratta personas, uses Nebius Token Factory for inference, and safely plans turns, formulates workflows, and keeps itself updated via kakeratta's MCP server. Credentials, workspace IDs, access tokens, and internal task IDs are intentionally omitted.
 
 > [!NOTE]
-> **Current protocol and production verification (2026-10-02).** The original run below used `submit_workflow` (skill v11). Hermes now submits only an answer through `submit_answer`; kakeratta plans, reviews, and executes schedules and actions, publishes the answer, and updates memory. See the [Hermes setup guide](hermes.md).
+> **Current protocol and production verification (2026-10-02).** The original run below used `submit_workflow` (skill v11). Hermes now submits only an answer through `submit_answer`; kakeratta plans, reviews, and executes schedules and actions, publishes the answer, and updates memory. See the [Hermes setup guide](../guides/hermes.md).
 >
 > Production records from 2026-09-27–2026-10-02 JST confirmed **30 external-answer turns saved as thread replies**, including successful schedule review, execution, and persistence. In this single-user deployment, the only configured external planner is Hermes inside NemoClaw. Cross-checks of several replies against a user-provided Hermes session-database investigation matched answer text and timing, confirming Hermes as their source. Automated tests cover the answer, schedule, and note phases with mocked model responses.
 
@@ -91,13 +91,13 @@ hermes cron edit <job-id> \
 hermes cron list
 ```
 
-Following the [recommended Hermes configuration](../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml), align both the parent model and the kakeratta cron job to `nvidia/Nemotron-3.5-Super-VL` while preserving `nvidia/Nemotron-3-Ultra-550b-a55b` for the direct-request worker and delegation (both live inference and MCP submission were verified in production on 2026-10-16).
+Following the [recommended Hermes configuration](../../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml), align both the parent model and the kakeratta cron job to `nvidia/Nemotron-3.5-Super-VL` while preserving `nvidia/Nemotron-3-Ultra-550b-a55b` for the direct-request worker and delegation (both live inference and MCP submission were verified in production on 2026-10-16).
 
 ### Verification
 
 The paths were verified during the initial migration and again after switching the parent/cron pin to `nvidia/Nemotron-3.5-Super-VL` on 2026-10-16: a persona-ask turn on `nvidia/Nemotron-3.5-Super-VL`; a `delegate_task` child and the direct-request worker (`direct_request_worker.py`) on `nvidia/Nemotron-3-Ultra-550b-a55b` (`reasoning_effort: high`); an OpenShell audit entry allowing Token Factory `/v1/chat/completions` through `_provider_tokenfactory_v2`; and a real kakeratta direct request completing `list_asks` → `claim_request` → Ultra inference → `reply_request` without waking the parent. The following idle tick returned `wakeAgent=false`. After switching, confirm Super in the worker/parent log and Ultra in the direct-request worker or `platform=subagent` log, and explicitly pin the kakeratta cron job to Super.
 
-> **Since 2026-10-14 (direct requests) and 2026-10-16 (persona asks)**, neither direct requests nor persona asks wake the Cron parent: the Wake Gate runs `direct_request_worker.py` in code and returns `{"wakeAgent": false}`. For direct requests, it runs Ultra once in `hermes-home`; for persona asks, it calls `claim_ask` in Python, runs `nvidia/Nemotron-3.5-Super-VL` once in `persona-hermes-home` with only `read_for_ask` and `web` tools (all lifecycle MCP tools excluded), and calls `submit_answer` in Python. See [Direct requests](hermes.md#direct-requests) and [End-to-end verification](#end-to-end-verification).
+> **Since 2026-10-14 (direct requests) and 2026-10-16 (persona asks)**, neither direct requests nor persona asks wake the Cron parent: the Wake Gate runs `direct_request_worker.py` in code and returns `{"wakeAgent": false}`. For direct requests, it runs Ultra once in `hermes-home`; for persona asks, it calls `claim_ask` in Python, runs `nvidia/Nemotron-3.5-Super-VL` once in `persona-hermes-home` with only `read_for_ask` and `web` tools (all lifecycle MCP tools excluded), and calls `submit_answer` in Python. See [Direct requests](../guides/hermes.md#direct-requests) and [End-to-end verification](#end-to-end-verification).
 
 ### Temporarily connecting to a local demo server
 
@@ -125,7 +125,7 @@ After the demo, restore the production MCP URL, provider token, and `mcp_bridge_
 
 ## MCP and autonomous planning
 
-For the full specification of Kakeratta's current MCP tools (`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer`, etc.), the answering loop, and Wake Gate's zero-token standby and self-updating mechanisms, refer to the [**Hermes Agent Setup Guide**](hermes.md#mcp-and-autonomous-planning).
+For the full specification of Kakeratta's current MCP tools (`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer`, etc.), the answering loop, and Wake Gate's zero-token standby and self-updating mechanisms, refer to the [**Hermes Agent Setup Guide**](../guides/hermes.md#mcp-and-autonomous-planning).
 
 Key aspects of operating MCP under NemoClaw / OpenShell include:
 
@@ -133,7 +133,7 @@ Key aspects of operating MCP under NemoClaw / OpenShell include:
 - **Autonomous Updates under Egress Restrictions**: Initial sandbox policies block arbitrary outbound HTTP requests. However, the Wake Gate script leverages the `get_integration` MCP tool across the already-authorized `kakeratta.net` route to self-update the Skill and itself without requiring external web access.
 - **Heartbeat and Fall-through**: Every 1-minute `list_asks` call by Wake Gate acts as a liveness heartbeat. If MCP calls cease during the claim wait window (3 minutes by default), Kakeratta's built-in model answers automatically (fall-through), preventing turns from hanging even during sandbox outages.
 
-The following sections document issues encountered during verification and long-running operation. They are not required for a normal installation; use them as troubleshooting references if the corresponding symptoms occur. For the normal connection procedure, see [Using Hermes Agent as a persona's planner](hermes.md).
+The following sections document issues encountered during verification and long-running operation. They are not required for a normal installation; use them as troubleshooting references if the corresponding symptoms occur. For the normal connection procedure, see [Using Hermes Agent as a persona's planner](../guides/hermes.md).
 
 ## Key operational issues resolved
 
@@ -437,8 +437,8 @@ To permanently resolve Phase: Error deadlocks caused by Docker shutdown race con
 
 > [!TIP]
 > **Source Code Management in Repository**:
-> All scripts and systemd unit files are tracked in the repository under [`scripts/nemoclaw/`](../scripts/nemoclaw/).
-> Running [`scripts/nemoclaw/install.sh`](../scripts/nemoclaw/install.sh) symlinks them directly into `~/.local/bin` and `~/.config/systemd/user`, maintaining immediate alignment between git versioning and the running host environment.
+> All scripts and systemd unit files are tracked in the repository under [`scripts/nemoclaw/`](../../scripts/nemoclaw).
+> Running [`scripts/nemoclaw/install.sh`](../../scripts/nemoclaw/install.sh) symlinks them directly into `~/.local/bin` and `~/.config/systemd/user`, maintaining immediate alignment between git versioning and the running host environment.
 
 ## End-to-end verification
 

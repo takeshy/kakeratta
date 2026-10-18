@@ -2,12 +2,12 @@
 
 ## 自律型外部プランナー統合・検証レポート
 
-[README](../README_ja.md) · [English](nemoclaw-hermes-integration.md) · [Hermes の設定](hermes_ja.md) · [直接依頼ワーカー実装仕様](direct-request-worker-spec_ja.md) · [Hermes-4-405B 図解生成の実測](hermes-4-405b-visual-evaluation_ja.md) · [モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) · [暴走ループ事故の分析 (英語)](nemoclaw-hermes-runaway-incident.md)
+[README](../../README_ja.md) · [English](nemoclaw-hermes-integration.md) · [Hermes の設定](../guides/hermes_ja.md) · [直接依頼ワーカー実装仕様](../design/direct-request-worker-spec_ja.md) · [Hermes-4-405B 図解生成の実測](hermes-4-405b-visual-evaluation_ja.md) · [モデル比較レポート (英語)](nemoclaw-hermes-model-comparison.md) · [暴走ループ事故の分析 (英語)](nemoclaw-hermes-runaway-incident.md)
 
 本書は、NVIDIA NemoClaw / OpenShell のサンドボックス内で動作する Hermes Agent を、kakeratta の担当ペルソナにおける「外部プランナー（思考エンジン）」として連携させ、Nebius Token Factory で推論し、kakeratta の MCP を介して安全かつ自律的にプランニング（ワークフロー策定）と自己更新を行う構成の実装・検証レポートです。目的は、単に LLM をサンドボックス内で実行することではなく、本番稼働中のパーソナル AI アプリケーションから自律エージェントへ安全に思考を委譲し、結果を元の会話へ返すところまで自動化することです。認証情報、ワークスペース ID、アクセストークン、内部 ID は掲載しません。
 
 > [!NOTE]
-> **現在のプロトコルと本番検証（2026-10-02）。** 以下の当初の検証は `submit_workflow`（スキル v11）で行いました。現在の Hermes は `submit_answer` で回答だけを提出し、kakeratta が予定・操作の計画、レビュー、実行、回答の公開、記憶の更新を行います。詳しくは [Hermes 連携ガイド](hermes_ja.md) を参照してください。
+> **現在のプロトコルと本番検証（2026-10-02）。** 以下の当初の検証は `submit_workflow`（スキル v11）で行いました。現在の Hermes は `submit_answer` で回答だけを提出し、kakeratta が予定・操作の計画、レビュー、実行、回答の公開、記憶の更新を行います。詳しくは [Hermes 連携ガイド](../guides/hermes_ja.md) を参照してください。
 >
 > 2026-09-27〜2026-10-02 JST の本番記録で、**外部回答がスレッド返信として保存された30ターン**を確認しました。予定のレビュー・実行・永続化に成功した例も含みます。この単一ユーザーのデプロイで設定された外部プランナーは、NemoClaw 内の Hermes 1つだけです。複数の返信をユーザー提供の Hermes セッションDB調査と照合し、回答本文と時刻の一致から、それらの回答元が Hermes であることを確認しました。自動テストは、モデル応答をモックして回答・予定・メモの各フェーズを検証しています。
 
@@ -91,7 +91,7 @@ hermes cron edit <job-id> \
 hermes cron list
 ```
 
-[Hermes 推奨設定](../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml)のとおり、親モデルとkakeratta cronジョブを `nvidia/Nemotron-3.5-Super-VL` に揃え、直接依頼ワーカー・delegation設定には `nvidia/Nemotron-3-Ultra-550b-a55b` を維持します（2026-10-16に本番環境で両モデルの実動作とMCP提出を検証済み）。
+[Hermes 推奨設定](../../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml)のとおり、親モデルとkakeratta cronジョブを `nvidia/Nemotron-3.5-Super-VL` に揃え、直接依頼ワーカー・delegation設定には `nvidia/Nemotron-3-Ultra-550b-a55b` を維持します（2026-10-16に本番環境で両モデルの実動作とMCP提出を検証済み）。
 
 ### 検証
 
@@ -105,7 +105,7 @@ hermes cron list
 
 切り替え後は、persona ask ワーカーおよび親ログにSuper、直接依頼ワーカーおよび `platform=subagent` の子ログにUltraが記録されることを確認します。kakeratta cronの明示モデルもSuperへ更新します。
 
-> **2026-10-14（直接依頼）および 2026-10-16（persona ask）以降**、直接依頼も persona ask も親 Cron セッションを起こしません。Wake Gate が配布済みの `direct_request_worker.py` をコードで実行して `{"wakeAgent": false}` を返します。直接依頼は `hermes-home` で Ultra を1回実行して返信し、persona ask は Python で `claim_ask` を呼んだあと、`persona-hermes-home`（MCP ツールは `read_for_ask` のみ＋`web`）で `nvidia/Nemotron-3.5-Super-VL` を1回実行して Python で `submit_answer` を提出します。詳しくは [直接依頼](hermes_ja.md#直接依頼) および [エンドツーエンド検証](#エンドツーエンド検証) を参照してください。
+> **2026-10-14（直接依頼）および 2026-10-16（persona ask）以降**、直接依頼も persona ask も親 Cron セッションを起こしません。Wake Gate が配布済みの `direct_request_worker.py` をコードで実行して `{"wakeAgent": false}` を返します。直接依頼は `hermes-home` で Ultra を1回実行して返信し、persona ask は Python で `claim_ask` を呼んだあと、`persona-hermes-home`（MCP ツールは `read_for_ask` のみ＋`web`）で `nvidia/Nemotron-3.5-Super-VL` を1回実行して Python で `submit_answer` を提出します。詳しくは [直接依頼](../guides/hermes_ja.md#直接依頼) および [エンドツーエンド検証](#エンドツーエンド検証) を参照してください。
 
 ### ローカルデモ環境へ一時接続する場合
 
@@ -133,7 +133,7 @@ OpenShell 0.0.116では `provider update` 後も、既に動いているサン�
 
 ## MCP と自律プランニング
 
-kakeratta の現在の MCP ツール群（`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer` 等）、回答の流れ、および Wake Gate によるゼロトークン待機と自律アップデートの詳細仕様については、[**Hermes Agent 連携ガイド**](hermes_ja.md#mcp-と自律プランニング) を参照してください。
+kakeratta の現在の MCP ツール群（`list_asks`, `claim_ask`, `read_for_ask`, `submit_answer` 等）、回答の流れ、および Wake Gate によるゼロトークン待機と自律アップデートの詳細仕様については、[**Hermes Agent 連携ガイド**](../guides/hermes_ja.md#mcp-と自律プランニング) を参照してください。
 
 NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点は以下の通りです：
 
@@ -141,7 +141,7 @@ NemoClaw / OpenShell サンドボックス環境における MCP 運用の要点
 - **Egress 制限下の自律更新**: サンドボックスの初期状態では外部 Web への自由なアクセスが遮断されていますが、Wake Gate スクリプトは管理対象 MCP プロバイダーとして許可された `kakeratta.net` 経路上の `get_integration` ツールを利用して Skill とスクリプト自身を自己更新します。これにより、追加の Egress を開けずに最新の連携ロジックを維持できます。
 - **ハートビートとフォールスルー**: 毎分の Wake Gate による `list_asks` 呼び出しはハートビートを兼ねており、取得待ち時間（既定3分）の間に MCP 呼び出しが途絶えると、サンドボックスの異常時にも kakeratta の内蔵モデルが自動で代替（フォールスルー）します。
 
-以下の節は、検証と長期運用で実際に遭遇した問題の記録です。通常のインストールに必須の手順ではありません。対応する症状が出たときのトラブルシューティング資料として参照してください。通常の接続手順は[Hermes Agentを担当の「考える役」にする](hermes_ja.md)を参照してください。
+以下の節は、検証と長期運用で実際に遭遇した問題の記録です。通常のインストールに必須の手順ではありません。対応する症状が出たときのトラブルシューティング資料として参照してください。通常の接続手順は[Hermes Agentを担当の「考える役」にする](../guides/hermes_ja.md)を参照してください。
 
 ## 運用で解決した重要課題
 
@@ -446,8 +446,8 @@ PC シャットダウン時の Docker 停止順序競合や強制終了などに
 
 > [!TIP]
 > **リポジトリ内でのソースコード管理**:
-> これらの一連のスクリプト群および systemd ユニットファイルは、リポジトリ内の [`scripts/nemoclaw/`](../scripts/nemoclaw/) ディレクトリに集約・バージョン管理されています。
-> 新しい環境へのセットアップやリンク作成は [`scripts/nemoclaw/install.sh`](../scripts/nemoclaw/install.sh) を実行することで、`~/.local/bin` および `~/.config/systemd/user` へシンボリックリンクとして一括配備できます。
+> これらの一連のスクリプト群および systemd ユニットファイルは、リポジトリ内の [`scripts/nemoclaw/`](../../scripts/nemoclaw) ディレクトリに集約・バージョン管理されています。
+> 新しい環境へのセットアップやリンク作成は [`scripts/nemoclaw/install.sh`](../../scripts/nemoclaw/install.sh) を実行することで、`~/.local/bin` および `~/.config/systemd/user` へシンボリックリンクとして一括配備できます。
 
 ## エンドツーエンド検証
 

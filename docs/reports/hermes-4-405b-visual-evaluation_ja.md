@@ -4,7 +4,7 @@
 環境: OpenShell 0.0.116 / `hermes-sandbox` / Nebius Token Factory Provider v2  
 構成: 親 `nvidia/nemotron-3-super-120b-a12b`、子 `NousResearch/Hermes-4-405B`
 
-[NemoClaw統合レポート](nemoclaw-hermes-integration_ja.md) · [モデル比較レポート（英語）](nemoclaw-hermes-model-comparison.md)
+[English](hermes-4-405b-visual-evaluation.md) · [NemoClaw統合レポート](nemoclaw-hermes-integration_ja.md) · [モデル比較レポート（英語）](nemoclaw-hermes-model-comparison.md)
 
 ## 目的
 

@@ -21,16 +21,16 @@
 [デモ動画](https://youtu.be/Z5zML-lSXc0) ·
 [Devpost](https://devpost.com/software/kakeratta) ·
 [マニュアル](https://kakeratta.net/manual/?lang=ja) ·
-[技術的な設計](docs/technical_ja.md)
+[技術的な設計](docs/design/technical_ja.md)
 
 [![YouTubeでkakerattaの日本語デモを見る](https://img.youtube.com/vi/Z5zML-lSXc0/hqdefault.jpg)](https://youtu.be/Z5zML-lSXc0)
 
 <img src="docs/captures/ja/timeline.png" alt="日常のかけらと担当の返信が並ぶタイムライン" width="390">
 
 運用と検証の記録：
-[AIコストの推計 — 2026年10月](docs/production-ai-cost-2026-10-11.md)（英語） ·
-[振り分けモデルの比較 — 2026年9月](docs/routing-model-comparison-2026-09-19_ja.md) ·
-[AIの失敗から学んだこと](docs/ai-lessons_ja.md)
+[AIコストの推計 — 2026年10月](docs/reports/production-ai-cost-2026-10-11.md)（英語） ·
+[振り分けモデルの比較 — 2026年9月](docs/reports/routing-model-comparison-2026-09-19_ja.md) ·
+[AIの失敗から学んだこと](docs/design/ai-lessons_ja.md)
 
 ## できること
 
@@ -85,8 +85,8 @@ task dev    # APIは :8787、画面は :15173
 
 http://127.0.0.1:15173 を開き、設定でAPIキーを入力します。ローカルでは
 Firebaseアカウントも外部データベースも不要で、データはディスクに保存し、APIは
-このPC内からのみ接続できます。コマンドは[使い方と設定](docs/usage_ja.md)、
-環境変数や公開環境の保存先は[自分で動かす](docs/technical_ja.md#動かす)を参照してください。
+このPC内からのみ接続できます。コマンドは[使い方と設定](docs/guides/usage_ja.md)、
+環境変数や公開環境の保存先は[自分で動かす](docs/design/technical_ja.md#動かす)を参照してください。
 `task test` でGoとブラウザ側のテストを実行できます。
 
 ## システム構成
@@ -145,7 +145,7 @@ OpenRouterも選べます。
 処理ごとにモデルを選び、小さいモデルの低コストと回答の速さを活かしながら、
 深い推論が必要な場面では上位モデルを使います。
 記憶と使える道具は担当ごとに分かれます。設定から投稿・画像・設定・担当・記憶を
-エクスポートできます。詳しくは[データの持ち出し](docs/usage_ja.md#持ち出す)を参照してください。
+エクスポートできます。詳しくは[データの持ち出し](docs/guides/usage_ja.md#持ち出す)を参照してください。
 
 HermesやObsidianのLLM Connect Hubに、MCP経由で調査と回答を任せられます。
 タイムライン・予定・記憶の更新はkakerattaが管理します。
@@ -154,19 +154,21 @@ NemoClaw/OpenShellのサンドボックスで検証した構成は、下の連�
 
 [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/) に出展した作品です。
 [Devpostの作品紹介](https://devpost.com/software/kakeratta)（英語）にも、着想と開発の経緯をまとめています。
-作った理由と「必要なときに思い出させる」という考え方は[開発の背景](docs/background_ja.md)にまとめました。
+作った理由と「必要なときに思い出させる」という考え方は[開発の背景](docs/design/background_ja.md)にまとめました。
 
 ## ドキュメント
+
+ガイド・設計解説・検証レポートの全体は[ドキュメント一覧](docs/README.md)から参照できます。
 
 | 文書 | 内容 |
 | --- | --- |
 | [マニュアル](https://kakeratta.net/manual/?lang=ja) | 日常の操作を画面付きで説明 |
-| [使い方と設定](docs/usage_ja.md) | 起動コマンド・設定・データと持ち出し |
-| [中で起きていること](docs/technical_ja.md) | 設計・振り分け・モデル・記憶・道具・サーバー運用 |
+| [使い方と設定](docs/guides/usage_ja.md) | 起動コマンド・設定・データと持ち出し |
+| [中で起きていること](docs/design/technical_ja.md) | 設計・振り分け・モデル・記憶・道具・サーバー運用 |
 | [システム実装仕様](docs/system/index.md)（英語） | ソース参照付きのサブシステム仕様。supportも参照 |
-| [AIで難しかったこと](docs/ai-lessons_ja.md) | 開発や運用で起きた失敗と対処 |
-| [外部エージェント](docs/hermes_ja.md) | Hermes・LLM Connect Hubの接続、MCP権限、代替実行、`@agent` での直接依頼 |
-| [NemoClaw連携レポート](docs/nemoclaw-hermes-integration_ja.md) | サンドボックス構成と検証。当時のプロトコルも明記 |
+| [AIで難しかったこと](docs/design/ai-lessons_ja.md) | 開発や運用で起きた失敗と対処 |
+| [外部エージェント](docs/guides/hermes_ja.md) | Hermes・LLM Connect Hubの接続、MCP権限、代替実行、`@agent` での直接依頼 |
+| [NemoClaw連携レポート](docs/reports/nemoclaw-hermes-integration_ja.md) | サンドボックス構成と検証。当時のプロトコルも明記 |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Cloud Run構成と暫定運用の共有VM |
 
 [MITライセンス](LICENSE)です。

@@ -22,7 +22,7 @@ Confirmed posts use the same `acceptEntry` transaction and routing path as brows
 
 `ReadRepliesIntent` reads the most recent 100 conversation roots and their replies, selecting only the newest persona entry or external-agent reply (read as from the active connection's name, or the external agent without one), excluding user/app entries. Markdown becomes plain speech, capped at 700 characters per answer; complete HTML answers direct the user to the app. Same-session `postId` narrows retrieval to the conversation just posted to. The returned entry ID becomes the target for “返信して” / “reply”. This is recent-conversation retrieval, not unread tracking or an exhaustive latest-reply query over historical threads. `ReadSchedulesIntent` reads up to five future saved schedules in time order using the account timezone (missing, invalid or `Local` zones fall back to Asia/Tokyo in Japanese and UTC in English), including autonomous and user-requested schedules. It does not fetch external calendars. The signed request locale selects Japanese or English prompts, reprompts, errors and read-aloud notices. `en-US`, `en-GB`, `en-CA`, `en-AU` and `en-IN` have separate shipped models with the shared invocation name `kakeratta notes`; `ja-JP` has its own Japanese model with the two-noun invocation name `かけらったメモ` (Amazon rejects single-noun Japanese invocation names). Missing or unsupported locales retain the legacy Japanese fallback. English dates include a year and AM/PM; US English uses month/day order, other English locales day/month. Locale does not imply a timezone. Stored reply bodies, persona names and schedule notes are read as saved, without a translation call; persona generation already follows the language of the user post. Output uses Alexa `PlainText`, preventing saved text from injecting SSML. Proactive announcements are not implemented.
 
-Implementation: [verification](../../internal/alexa/alexa.go), [intents](../../internal/server/alexa.go), [speech localization](../../internal/server/alexa_language.go), [OAuth](../../internal/server/alexa_auth.go), [Japanese model](../../integrations/alexa/ja-JP.json), [locale models](../../integrations/alexa/), [setup guide](../alexa.md). Verification: [signature tests](../../internal/alexa/alexa_test.go) and [OAuth, idempotency and speech tests](../../internal/server/alexa_test.go), [conversation tests](../../internal/server/alexa_conversation_test.go), and [English locale tests](../../internal/server/alexa_language_test.go). Console model validation, Google/Firebase linking and device invocation require deployment testing.
+Implementation: [verification](../../internal/alexa/alexa.go), [intents](../../internal/server/alexa.go), [speech localization](../../internal/server/alexa_language.go), [OAuth](../../internal/server/alexa_auth.go), [Japanese model](../../integrations/alexa/ja-JP.json), [locale models](../../integrations/alexa/), [setup guide](../guides/alexa.md). Verification: [signature tests](../../internal/alexa/alexa_test.go) and [OAuth, idempotency and speech tests](../../internal/server/alexa_test.go), [conversation tests](../../internal/server/alexa_conversation_test.go), and [English locale tests](../../internal/server/alexa_language_test.go). Console model validation, Google/Firebase linking and device invocation require deployment testing.
 
 # External-agent answers
 
@@ -80,7 +80,7 @@ An ask is an `asks` runtime record, not a waiting goroutine: opening it ends the
 - [mcp_tools.go](../../internal/server/mcp_tools.go)
 - [mcp_connections.go](../../internal/server/mcp_connections.go)
 - [planner_test.go](../../internal/persona/planner_test.go)
-- [hermes.md](../hermes.md)
+- [hermes.md](../guides/hermes.md)
 
 # Direct requests to the external agent
 
@@ -264,7 +264,7 @@ Publication history is keyed by target, account, and post, and each publication 
 - [plan_test.go](../../internal/social/plan_test.go), [social.test.js](../../tests/social.test.js): answer-only selection, optional parents, selected-only publication, and preview-gated publishing
 - [html-image.js](../../frontend/src/html-image.js): isolated browser rendering and pagination
 - [social_test.go](../../internal/server/social_test.go)
-- [social-sharing.md](../social-sharing.md)
+- [social-sharing.md](../guides/social-sharing.md)
 
 # Related chapters
 

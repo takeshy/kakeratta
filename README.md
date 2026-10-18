@@ -22,16 +22,16 @@ about, remember what matters to them and speak up when it matters.
 [Watch the demo](https://youtu.be/fdUYDI6Sd70) ·
 [Devpost](https://devpost.com/software/kakeratta) ·
 [Manual](https://kakeratta.net/manual/?lang=en) ·
-[Design](docs/technical.md)
+[Design](docs/design/technical.md)
 
 [![Watch the kakeratta demo on YouTube](https://img.youtube.com/vi/fdUYDI6Sd70/hqdefault.jpg)](https://youtu.be/fdUYDI6Sd70)
 
 <img src="docs/captures/en/timeline.png" alt="Your fragments and the personas' replies on the timeline" width="390">
 
 From production and testing:
-[AI cost estimate — Oct 2026](docs/production-ai-cost-2026-10-11.md) ·
-[routing model comparison — Sep 2026](docs/routing-model-comparison-2026-09-19.md) ·
-[lessons from what the AI got wrong](docs/ai-lessons.md)
+[AI cost estimate — Oct 2026](docs/reports/production-ai-cost-2026-10-11.md) ·
+[routing model comparison — Sep 2026](docs/reports/routing-model-comparison-2026-09-19.md) ·
+[lessons from what the AI got wrong](docs/design/ai-lessons.md)
 
 ## What you can do
 
@@ -88,8 +88,8 @@ When running in a container, publish or forward port `15173` (for Docker, `-p 15
 
 Open http://127.0.0.1:15173 and enter your API key in Settings. Local runs need
 no Firebase account or external database; data is stored on disk and the API
-listens on loopback. See [usage and configuration](docs/usage.md) for commands
-and [self-hosting](docs/technical.md#running-it) for environment variables and
+listens on loopback. See [usage and configuration](docs/guides/usage.md) for commands
+and [self-hosting](docs/design/technical.md#running-it) for environment variables and
 hosted storage. Use `task test` to run the Go and browser tests.
 
 ## Architecture
@@ -152,7 +152,7 @@ OpenRouter is an optional alternative. Models are chosen by task to benefit
 from smaller models' lower cost and faster responses, using stronger models
 where deeper reasoning is needed. Each persona has its own memory and
 permitted tools. Export your timeline, images, settings, personas and memory
-from Settings; see [data portability](docs/usage.md#taking-it-with-you).
+from Settings; see [data portability](docs/guides/usage.md#taking-it-with-you).
 
 External agents such as Hermes or Obsidian's LLM Connect Hub can research and
 submit answers over MCP. kakeratta owns the timeline, schedules and
@@ -163,20 +163,22 @@ the integration report below.
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/).
 Read the [Devpost project page](https://devpost.com/software/kakeratta) for the
 inspiration and project story.
-The [project background](docs/background.md) explains why remembering includes
+The [project background](docs/design/background.md) explains why remembering includes
 bringing something back at the right time.
 
 ## Documentation
 
+Browse the [documentation index](docs/README.md) for all guides, design notes, and reports.
+
 | Document | Use it for |
 | --- | --- |
 | [Manual](https://kakeratta.net/manual/?lang=en) | Illustrated instructions for everyday use |
-| [Usage and configuration](docs/usage.md) | Local commands, settings, data and portability |
-| [Under the hood](docs/technical.md) | Design, routing, models, memory, tools and self-hosting |
+| [Usage and configuration](docs/guides/usage.md) | Local commands, settings, data and portability |
+| [Under the hood](docs/design/technical.md) | Design, routing, models, memory, tools and self-hosting |
 | [System implementation](docs/system/index.md) | Source-linked subsystem specifications, also used by support |
-| [AI lessons](docs/ai-lessons.md) | Failures observed in development and how they were addressed |
-| [External agents](docs/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions, fallback and direct `@agent` requests |
-| [NemoClaw integration report](docs/nemoclaw-hermes-integration.md) | Sandbox setup and verification, with protocol-version context |
+| [AI lessons](docs/design/ai-lessons.md) | Failures observed in development and how they were addressed |
+| [External agents](docs/guides/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions, fallback and direct `@agent` requests |
+| [NemoClaw integration report](docs/reports/nemoclaw-hermes-integration.md) | Sandbox setup and verification, with protocol-version context |
 | [Google Cloud deployment](infra/README.md) | Cloud Run configuration and temporary shared VM operations |
 
 [MIT licensed](LICENSE).

@@ -16,7 +16,7 @@ gcloud logging read 'resource.type="gce_instance" AND labels.service_name:"kaker
 
 ## Rates and limitations
 
-Rates match [internal/usage/usage.go](../internal/usage/usage.go), checked against the official [Nemotron](https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference) and [Qwen](https://nebius.com/services/token-factory/models/qwen-models-inference) pages on October 11: Super US$0.30/0.90 and Ultra US$1.00/3.00 per million input/output tokens; Embedding US$0.01 per million input tokens.
+Rates match [internal/usage/usage.go](../../internal/usage/usage.go), checked against the official [Nemotron](https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference) and [Qwen](https://nebius.com/services/token-factory/models/qwen-models-inference) pages on October 11: Super US$0.30/0.90 and Ultra US$1.00/3.00 per million input/output tokens; Embedding US$0.01 per million input tokens.
 
 Costs are public-rate estimates from reported token counts, not reconciled invoices. Reasoning and cache counts are breakdowns and are not added again. Discounts, credits, search, infrastructure, development calls outside these services, and direct external-agent charges are excluded. The observation window and workload differ from October 1–4; this is a new usage example, not a controlled measurement of a saving percentage. The two most recent days alone cost US$0.06113692, which extrapolates to only US$0.92 over 30 days. Including October 7–8 captures heavier use and produces the broader four-day reference. October 7 includes work before some of the recent optimizations; this is a recent production example spanning those changes, not an exclusively post-change benchmark.
 

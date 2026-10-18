@@ -1,8 +1,8 @@
 # Using Hermes Agent as a persona's planner
 
-For the NemoClaw / OpenShell architecture and verification results, see the [integration report](nemoclaw-hermes-integration.md).
+For the NemoClaw / OpenShell architecture and verification results, see the [integration report](../reports/nemoclaw-hermes-integration.md).
 
-[README](../README.md) · [日本語](hermes_ja.md)
+[README](../../README.md) · [日本語](hermes_ja.md)
 
 Of a persona's turn, the research and the answer — reading the context, looking things up, and writing what the persona says — can be handed to an external agent (Hermes). Each persona chooses its **planner**: the built-in model or the external agent.
 
@@ -10,7 +10,7 @@ When a persona whose planner is the external agent wakes, Kakeratta opens an **a
 
 If Hermes does not claim the ask in time (3 minutes by default), or no answer is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits are set per agent, under each connection's **Connection details and waits** in **Settings → Advanced options → Integrations**. There, turning off **Use the external agent** refuses its MCP connections (403) and every persona plans with the built-in model, while each persona's choice is kept. An agent that is only away (quiet for the claim wait) is still let in and comes back on its next call. Installing and configuring Hermes itself is a separate step.
 
-Built-in fallback always researches on Super and composes the final answer on Super, or Ultra for deep replies and AlwaysUltra. Its per-round read schema follows live search budgets and available capabilities. Hermes retains its own research loop and the existing `read_for_ask` interface; the built-in schema changes do not restrict Hermes's own tools. See [research budgets](./system/personas.md#research-budgets-and-available-reads).
+Built-in fallback always researches on Super and composes the final answer on Super, or Ultra for deep replies and AlwaysUltra. Its per-round read schema follows live search budgets and available capabilities. Hermes retains its own research loop and the existing `read_for_ask` interface; the built-in schema changes do not restrict Hermes's own tools. See [research budgets](../system/personas.md#research-budgets-and-available-reads).
 
 ## Multiple agents
 
@@ -74,7 +74,7 @@ For the configuration format, see the [official Hermes MCP guide](https://hermes
 
 When running Hermes under the governance of an NVIDIA NemoClaw / OpenShell sandbox, configuration management, policy composition, and process lifecycles involve container-specific requirements. To use Nemotron 3.5 Super VL for the parent and Nemotron 3 Ultra for delegated children, connect to Token Factory through Provider v2, which preserves model names, rather than OpenShell 0.0.116's shared `inference.local` route. The parent handles intake and routing, delegating high-complexity work to the child.
 
-For the dedicated setup procedure ([Provider v2 migration](nemoclaw-hermes-integration.md#migration-to-openshell-provider-v2-2026-10-13), managed MCP provider registration, container script provisioning, search egress policies, and `Phase: Error` deadlock prevention), refer to the [**NemoClaw / OpenShell Integration and Verification Report**](nemoclaw-hermes-integration.md).
+For the dedicated setup procedure ([Provider v2 migration](../reports/nemoclaw-hermes-integration.md#migration-to-openshell-provider-v2-2026-10-13), managed MCP provider registration, container script provisioning, search egress policies, and `Phase: Error` deadlock prevention), refer to the [**NemoClaw / OpenShell Integration and Verification Report**](../reports/nemoclaw-hermes-integration.md).
 
 ## The key and its scope
 
@@ -200,11 +200,11 @@ The state, with the time of the last call, is shown under **Settings → Advance
 ### Zero-token standby (Wake Gate)
 
 Running an agent (LLM invocation) on a 1-minute cron check wastes tokens and inference budget when no asks are pending.
-To avoid idle spend, attach the **Wake Gate** pre-check script ([check_kakeratta_gate.py](../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)) to the cron job.
+To avoid idle spend, attach the **Wake Gate** pre-check script ([check_kakeratta_gate.py](../../frontend/public/integrations/hermes/kakeratta/scripts/check_kakeratta_gate.py)) to the cron job.
 
 - **No pending ask**: Returns `{"wakeAgent": false}` and exits immediately without invoking the LLM (~0.06s tick, 0 LLM calls). In addition, `agent.max_turns` is preserved at the safe boundary of 15.
-- **Pending persona ask**: Handled in the same tick by the distributed worker ([direct_request_worker.py](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py)) in code - `claim_ask`, one `nvidia/Nemotron-3.5-Super-VL` run with only `read_for_ask` and `web` tools (all lifecycle MCP tools excluded), then `submit_answer` (or `release_ask` on failure) - returning `{"wakeAgent": false}` without waking the cron parent.
-- **Pending direct request**: Handled in the same tick by the distributed [direct-request worker](../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) - claim, one Ultra agent run with the worker's tools, then a reply with its final response - without waking the parent model (`{"wakeAgent": false}`).
+- **Pending persona ask**: Handled in the same tick by the distributed worker ([direct_request_worker.py](../../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py)) in code - `claim_ask`, one `nvidia/Nemotron-3.5-Super-VL` run with only `read_for_ask` and `web` tools (all lifecycle MCP tools excluded), then `submit_answer` (or `release_ask` on failure) - returning `{"wakeAgent": false}` without waking the cron parent.
+- **Pending direct request**: Handled in the same tick by the distributed [direct-request worker](../../frontend/public/integrations/hermes/kakeratta/scripts/direct_request_worker.py) - claim, one Ultra agent run with the worker's tools, then a reply with its final response - without waking the parent model (`{"wakeAgent": false}`).
 
 To update an existing cron job, run `hermes cron edit <job_id> --script check_kakeratta_gate.py`.
 

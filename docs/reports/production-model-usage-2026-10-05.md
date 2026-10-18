@@ -34,7 +34,7 @@ Each log record was counted as one API call, and `usage.prompt_tokens` and `usag
 
 Calls were grouped by `trigger` for per-question totals. These include routing, deep classification, research, final answers, and phases sharing the same `trigger`. Embedding calls without a `trigger` were kept separate rather than assigned to a question by inference.
 
-See [Model usage logging](./system/backend.md#model-usage-logging) for the log specification and [Inspecting model usage](./system/operations.md#inspecting-model-usage) for the operational procedure.
+See [Model usage logging](../system/backend.md#model-usage-logging) for the log specification and [Inspecting model usage](../system/operations.md#inspecting-model-usage) for the operational procedure.
 
 ## Cost assumptions
 

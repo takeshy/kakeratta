@@ -43,7 +43,7 @@ A useful next experiment is to compare the current configuration with classifier
 
 ## Original answer outputs
 
-The following outputs retain their original language and wording; they have not been translated. The replay mode name `lightning` identifies the baseline method, not necessarily the model that answered.
+English translations accompany the Japanese outputs below. Each Japanese original is preserved in a collapsible block so the recorded language and wording can be checked. Translations reproduce the model’s claims without verifying them. The replay mode name `lightning` identifies the baseline method, not necessarily the model that answered.
 
 ### simple / lightning
 
@@ -58,6 +58,29 @@ The following outputs retain their original language and wording; they have not 
 ```
 
 ### deeper-reply / switchyard
+
+**English translation:**
+
+```text
+The advice to budget 10 minutes for a train transfer is a guideline for people without disabilities who have no major difficulty moving around. It is not sufficient for wheelchair users or people who need more time to move, for the following reasons.
+
+**Constraints and assumptions to consider**
+1. **Availability of accessible facilities**: whether the station has elevators or escalators, or the waiting time when there are only stairs.
+2. **Distance between vehicles**: platforms at a transfer station may be far enough apart that moving between them takes more than 10 minutes.
+3. **Handling wheelchairs or mobility aids**: time needed to fold a wheelchair, load and unload luggage, or reach the boarding point.
+4. **Crowding**: rush-hour or event crowds can increase waiting time at ticket gates and platforms.
+5. **Individual stamina and health**: fatigue or pain can make the same distance take longer.
+
+**Suggested adjustments**
+- Allow at least **15–20 minutes**.
+- Check the station's accessibility map in advance, including elevator locations and operating status.
+- Consider assistance from station staff or accessibility services as needed.
+
+For these reasons, 10 minutes is insufficient for people who need more time to move, and a schedule with additional time is recommended.
+```
+
+<details>
+<summary>Original Japanese output</summary>
 
 ```text
 電車の乗り換えに10分を予算するというアドバイスは、健常者で移動に大きな支障がない場合の目安です。車椅子利用者や移動に時間がかかる人にとっては、以下の理由で十分とは言えません。
@@ -76,6 +99,8 @@ The following outputs retain their original language and wording; they have not 
 
 以上の点を踏まえ、移動に時間がかかる人に対しては10分では不十分であり、余裕を持ったスケジュール組みが推奨されます。
 ```
+
+</details>
 
 ### deeper-reply / lightning
 
@@ -140,17 +165,53 @@ The 10-minute rule assumes:
 
 ### thanks-only / lightning
 
+**English translation:**
+
+```text
+You're welcome!
+```
+
+<details>
+<summary>Original Japanese output</summary>
+
 ```text
 どういたしまして！
 ```
+
+</details>
 
 ### thanks-only / switchyard
 
+**English translation:**
+
+```text
+You're welcome!
+```
+
+<details>
+<summary>Original Japanese output</summary>
+
 ```text
 どういたしまして！
 ```
 
+</details>
+
 ### thanks-with-question / switchyard
+
+**English translation:**
+
+```text
+Here are some points to consider when choosing a ramen restaurant near a station.
+1. Use a map app to check the distance, aiming for a walk of no more than five minutes from the station exit.
+2. Check signs around the ticket gates or station dining-floor guides to find nearby restaurants.
+3. Filter review sites using terms such as “near the station” or “a ○-minute walk,” and check actual visiting times and crowding.
+4. A restaurant reached by a covered walkway or directly connected to an underground shopping area is convenient on rainy days.
+Use these points to find a well-reviewed ramen restaurant near your destination station.
+```
+
+<details>
+<summary>Original Japanese output</summary>
 
 ```text
 駅から近いラーメン店を選ぶポイントは以下の通りです。
@@ -160,9 +221,25 @@ The 10-minute rule assumes:
 4. 雨の日でも濡れにくい屋根がある通路や地下街直結の店だと便利です。
 これらを参考に、目的の駅周辺で評判の良いラーメン店を見つけてみてください。
 ```
+
+</details>
 
 ### thanks-with-question / lightning
 
+**English translation:**
+
+```text
+Here are some points to consider when choosing a ramen restaurant near a station.
+1. Use a map app to check the distance, aiming for a walk of no more than five minutes from the station exit.
+2. Check signs around the ticket gates or station dining-floor guides to find nearby restaurants.
+3. Filter review sites using terms such as “near the station” or “a ○-minute walk,” and check actual visiting times and crowding.
+4. A restaurant reached by a covered walkway or directly connected to an underground shopping area is convenient on rainy days.
+Use these points to find a well-reviewed ramen restaurant near your destination station.
+```
+
+<details>
+<summary>Original Japanese output</summary>
+
 ```text
 駅から近いラーメン店を選ぶポイントは以下の通りです。
 1. 駅出口から徒歩5分以内を目安に地図アプリで距離を確認。
@@ -172,7 +249,40 @@ The 10-minute rule assumes:
 これらを参考に、目的の駅周辺で評判の良いラーメン店を見つけてみてください。
 ```
 
+</details>
+
 ### thanks-with-correction / lightning
+
+**English translation:**
+
+```text
+Ten minutes is a **general guideline** and is **often insufficient for people with mobility difficulties**. Here are the reasons and additional considerations.
+
+**Why “10 minutes” is suggested**
+- Official guidance from operators such as JR East and journey-planning apps gives “2–3 minutes within the same station and platform, or 5–10 minutes when stairs or ticket gates are involved.”
+- **Accessible routes** using elevators and ramps often follow a **different path from the standard route**, increasing the distance.
+
+**What people with mobility difficulties should check**
+1. **Elevator locations and numbers** → It can take much longer if elevators are only at the end of a platform, outside the ticket gates, or if there is only one.
+2. **Length of the accessible route** → At some stations, it can be 1.5–3 times the standard distance, such as certain transfers between the Tokyo Metro Marunouchi Line and the JR Yamanote Line.
+3. **Waiting during busy periods** → Waiting for one elevator can take several minutes, with potentially more waiting because of wheelchair priority.
+4. **Arranging station-staff assistance** → Without advance notice, calling staff and receiving guidance after arrival can add 5–10 minutes.
+
+**Practical estimates (wheelchair, cane, or difficulty walking)**
+- Direct connection within the same station and on the same floor: **15–20 minutes**
+- Changes of ticket gates or floors: **25–35 minutes**
+- Major terminals such as Tokyo, Shinjuku, or Osaka: **30–45 minutes**
+
+**How to check**
+- Use **station accessibility information**, such as JR's station maps and accessibility information or the metro's station accessibility information, to check elevator locations and route maps in advance.
+- In **journey-planning apps**, such as the JR East app, Yahoo! Transit, or Google Maps, enable a “wheelchair/stroller priority” mode to calculate the time.
+- **Contact station staff in advance**, from the previous day to the morning of travel, to confirm the assisted route and time required; this is the most reliable option.
+
+Conclusion: **“10 minutes” is the fastest estimate for people without disabilities. People with mobility difficulties should allow at least 20 minutes, or 30 minutes or more at major stations**, and check their specific route using official station maps and accessibility modes in apps.
+```
+
+<details>
+<summary>Original Japanese output</summary>
 
 ```text
 10分は**一般的な目安**であり、足が不自由な方には**不十分なことが多い**です。根拠と補足を整理します。
@@ -199,9 +309,42 @@ The 10-minute rule assumes:
 
 結論：**「10分」は健常者向けの最速値。足が不自由な方は**最低20分、主要駅なら30分以上**を見込み、駅公式図面・アプリのバリアフリーモードで個別検証してください。
 ```
+
+</details>
 
 ### thanks-with-correction / switchyard
 
+**English translation:**
+
+```text
+Ten minutes is a **general guideline** and is **often insufficient for people with mobility difficulties**. Here are the reasons and additional considerations.
+
+**Why “10 minutes” is suggested**
+- Official guidance from operators such as JR East and journey-planning apps gives “2–3 minutes within the same station and platform, or 5–10 minutes when stairs or ticket gates are involved.”
+- **Accessible routes** using elevators and ramps often follow a **different path from the standard route**, increasing the distance.
+
+**What people with mobility difficulties should check**
+1. **Elevator locations and numbers** → It can take much longer if elevators are only at the end of a platform, outside the ticket gates, or if there is only one.
+2. **Length of the accessible route** → At some stations, it can be 1.5–3 times the standard distance, such as certain transfers between the Tokyo Metro Marunouchi Line and the JR Yamanote Line.
+3. **Waiting during busy periods** → Waiting for one elevator can take several minutes, with potentially more waiting because of wheelchair priority.
+4. **Arranging station-staff assistance** → Without advance notice, calling staff and receiving guidance after arrival can add 5–10 minutes.
+
+**Practical estimates (wheelchair, cane, or difficulty walking)**
+- Direct connection within the same station and on the same floor: **15–20 minutes**
+- Changes of ticket gates or floors: **25–35 minutes**
+- Major terminals such as Tokyo, Shinjuku, or Osaka: **30–45 minutes**
+
+**How to check**
+- Use **station accessibility information**, such as JR's station maps and accessibility information or the metro's station accessibility information, to check elevator locations and route maps in advance.
+- In **journey-planning apps**, such as the JR East app, Yahoo! Transit, or Google Maps, enable a “wheelchair/stroller priority” mode to calculate the time.
+- **Contact station staff in advance**, from the previous day to the morning of travel, to confirm the assisted route and time required; this is the most reliable option.
+
+Conclusion: **“10 minutes” is the fastest estimate for people without disabilities. People with mobility difficulties should allow at least 20 minutes, or 30 minutes or more at major stations**, and check their specific route using official station maps and accessibility modes in apps.
+```
+
+<details>
+<summary>Original Japanese output</summary>
+
 ```text
 10分は**一般的な目安**であり、足が不自由な方には**不十分なことが多い**です。根拠と補足を整理します。
 
@@ -227,3 +370,5 @@ The 10-minute rule assumes:
 
 結論：**「10分」は健常者向けの最速値。足が不自由な方は**最低20分、主要駅なら30分以上**を見込み、駅公式図面・アプリのバリアフリーモードで個別検証してください。
 ```
+
+</details>
