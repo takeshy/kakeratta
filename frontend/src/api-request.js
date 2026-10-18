@@ -1,3 +1,5 @@
+import { translateError } from "./i18n.js";
+
 // Shared request handling for JSON endpoints and raw persona definitions.
 export function createAPIRequest({ identity, verify, fetch = (...args) => globalThis.fetch(...args) }) {
   return async function call(method, path, body, { raw = false } = {}) {
@@ -26,7 +28,7 @@ export function createAPIRequest({ identity, verify, fetch = (...args) => global
       /* Empty or non-JSON responses have no payload. */
     }
     if (!response.ok) {
-      const error = new Error(payload?.error || `${response.status} ${response.statusText}`);
+      const error = new Error(translateError(payload?.error || `${response.status} ${response.statusText}`));
       error.status = response.status;
       throw error;
     }

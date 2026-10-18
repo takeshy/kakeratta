@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 // Browser subscription lifecycle; permission is requested only by a user click.
 export function pushSupported() {
   return globalThis.isSecureContext === true && !!globalThis.navigator?.serviceWorker &&
@@ -11,14 +12,14 @@ export async function pushRegistration() {
 
 export async function enablePush(api, publicKey) {
   const permission = await Notification.requestPermission();
-  if (permission !== "granted") throw Error("通知の許可をブラウザの設定で確認してください。");
+  if (permission !== "granted") throw Error(t("通知の許可をブラウザの設定で確認してください。"));
   const registration = await pushRegistration();
   let subscription = await registration.pushManager.getSubscription();
   const key = Uint8Array.from(atob(publicKey.replace(/-/g, "+").replace(/_/g, "/")), ch => ch.charCodeAt(0));
   const previousKey = subscription?.options?.applicationServerKey;
   if (subscription && previousKey && !sameKey(new Uint8Array(previousKey), key)) {
     await api.deletePush({ endpoint: subscription.endpoint });
-    if (!await subscription.unsubscribe()) throw Error("通知を解除できませんでした。もう一度お試しください。");
+    if (!await subscription.unsubscribe()) throw Error(t("通知を解除できませんでした。もう一度お試しください。"));
     subscription = null;
   }
   const created = !subscription;
@@ -35,7 +36,7 @@ export async function disablePush(api) {
   const subscription = await registration?.pushManager?.getSubscription();
   if (!subscription) return;
   await api.deletePush({ endpoint: subscription.endpoint });
-  if (!await subscription.unsubscribe()) throw Error("通知を解除できませんでした。もう一度お試しください。");
+  if (!await subscription.unsubscribe()) throw Error(t("通知を解除できませんでした。もう一度お試しください。"));
 }
 
 // Always revoke the browser subscription on logout, including offline logout.

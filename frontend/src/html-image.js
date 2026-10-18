@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 import { htmlDocument } from "./html-document.js";
 
 const WIDTH = 720;
@@ -31,7 +32,7 @@ function loadImage(src) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(Error("HTMLを画像に変換できませんでした。もう一度プレビューしてください。"));
+    image.onerror = () => reject(Error(t("HTMLを画像に変換できませんでした。もう一度プレビューしてください。")));
     image.src = src;
   });
 }
@@ -39,7 +40,7 @@ function loadImage(src) {
 // text is the saved answer, which the capture is bound to by hash; source
 // is the document to draw, the answer itself unless it was laid out first.
 export async function renderHtmlImages(text, source = htmlDocument(text)) {
-  if (!source) throw Error("HTMLの回答が見つかりません");
+  if (!source) throw Error(t("HTMLの回答が見つかりません"));
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   const sourceHash = [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, "0")).join("");
   const safe = imageDocument(source);
@@ -52,7 +53,7 @@ export async function renderHtmlImages(text, source = htmlDocument(text)) {
   const host = document.querySelector("dialog[open]") || document.body;
   try {
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(Error("HTMLを画像に変換できませんでした。もう一度プレビューしてください。")), 10000);
+      const timeout = setTimeout(() => reject(Error(t("HTMLを画像に変換できませんでした。もう一度プレビューしてください。"))), 10000);
       frame.onload = () => { clearTimeout(timeout); resolve(); };
       frame.srcdoc = "<!doctype html>" + safe.documentElement.outerHTML;
       host.append(frame);
@@ -62,7 +63,7 @@ export async function renderHtmlImages(text, source = htmlDocument(text)) {
     await Promise.all([...doc.images].map(image => image.complete ? null : new Promise(resolve => { image.onload = image.onerror = resolve; })));
     const width = Math.max(WIDTH, doc.documentElement.scrollWidth, doc.body.scrollWidth);
     const height = Math.max(1, doc.documentElement.scrollHeight, doc.body.scrollHeight);
-    if (height > MAX_HEIGHT || width > 2400) throw Error("HTMLが大きすぎます。内容を短くしてからプレビューしてください。");
+    if (height > MAX_HEIGHT || width > 2400) throw Error(t("HTMLが大きすぎます。内容を短くしてからプレビューしてください。"));
     const alt = doc.body.innerText.replace(/\s+/g, " ").trim().slice(0, 1000);
     doc.querySelectorAll("meta").forEach(node => node.remove());
     const xml = new XMLSerializer().serializeToString(doc.documentElement);
@@ -74,7 +75,7 @@ export async function renderHtmlImages(text, source = htmlDocument(text)) {
       const canvas = document.createElement("canvas");
       canvas.width = width * 2; canvas.height = pageHeight * 2;
       const context = canvas.getContext("2d");
-      if (!context) throw Error("HTMLを画像に変換できませんでした。もう一度プレビューしてください。");
+      if (!context) throw Error(t("HTMLを画像に変換できませんでした。もう一度プレビューしてください。"));
       context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(image, 0, top, width, pageHeight, 0, 0, canvas.width, canvas.height);
       images.push(canvas.toDataURL("image/jpeg", .9));

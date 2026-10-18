@@ -130,7 +130,7 @@ async function authenticate() {
     if (location.pathname === "/alexa") {
       document.querySelector("#app").append(el("a", {
         href: reviewLoginURL(location.pathname, location.search),
-        text: "Review access / 審査用ログイン",
+        label: "審査用ログイン",
       }));
     }
     return false;

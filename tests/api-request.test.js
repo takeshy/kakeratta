@@ -2,6 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createAPIRequest } from "../frontend/src/api-request.js";
 import { api } from "../frontend/src/api.js";
+import { setLanguage } from "../frontend/src/i18n.js";
+
+test("API errors follow the display language without translating successful content", async () => {
+  for (const [language, expected] of [["en", "The post to reply to could not be found."], ["ja", "返事の宛先が見つかりません"]]) {
+    setLanguage(language);
+    const call = createAPIRequest({ identity: () => null, verify: async () => {},
+      fetch: async () => Response.json({ error: "返事の宛先が見つかりません" }, { status: 404 }) });
+    await assert.rejects(call("POST", "/api/reply", {}), error => error.message === expected && error.status === 404);
+    const read = createAPIRequest({ identity: () => null, verify: async () => {},
+      fetch: async () => Response.json({ text: "日本語の投稿", name: "佐藤" }) });
+    assert.deepEqual(await read("GET", "/api/thread/example"), { text: "日本語の投稿", name: "佐藤" });
+  }
+  setLanguage("en");
+});
 
 test("raw persona installation preserves the definition and uses the shared timeout", async (t) => {
   const definition = "---\nname: sample\n---\nInstructions";

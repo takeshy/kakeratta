@@ -8,7 +8,7 @@ import { avatarNode, userProfile } from "./avatar.js";
 import { favoriteButton } from "./favorite-state.js";
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
-import { t } from "./i18n.js";
+import { t, translateError } from "./i18n.js";
 import { gloss } from "./builtins.js";
 import { renderMarkdown, spokenText } from "./markdown.js";
 import { htmlDocument, renderHtmlDocument } from "./html-document.js";
@@ -278,7 +278,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       openReply === post.id ? null : drawReplyOpen(post)));
     if (open) for (const entry of rest) {
       box.append(drawSaid(entry, post));
-      if (entry.pending) box.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", entry.syncError) : t("端末に保存済み・送信待ち") }));
+      if (entry.pending) box.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", translateError(entry.syncError)) : t("端末に保存済み・送信待ち") }));
     }
     if (openReply === post.id) box.append(drawReplyBox(post.id));
     return box;
@@ -378,7 +378,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
         el("span", { text: `📍 ${label}` }),
       ));
     }
-    if (entry.pending) node.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", entry.syncError) : t("端末に保存済み・送信待ち") }));
+    if (entry.pending) node.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", translateError(entry.syncError)) : t("端末に保存済み・送信待ち") }));
     if (entry.localImage) node.append(el("img", { class: "local-shot", src: entry.localImage, alt: t("キャプチャ") }));
     if (media?.blobId) {
       node.append(
@@ -459,7 +459,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
   // What the app read out of the capture, folded away. It is what every persona
   // was given, so it is worth being able to check - but it is not the post.
   function drawRead(media) {
-    if (media.error) return el("p", { class: "read error", text: t("読み取れませんでした: {0}", media.error) });
+    if (media.error) return el("p", { class: "read error", text: t("読み取れませんでした: {0}", translateError(media.error)) });
     if (!media.readAt) return el("p", { class: "read pending", label: "読み取り中…" });
     const summary = media.describe || (media.text ? t("{0}文字", [...media.text].length) : t("読み取り結果"));
     const body = el("div", { class: "read-body" });

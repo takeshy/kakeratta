@@ -129,13 +129,13 @@ func (s *Server) deletePush(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) sendReminder(data any) {
-	s.pushEntry(data, "Reminder / リマインダー", "kakeratta")
+	s.pushEntry(data, "kakeratta", "kakeratta")
 }
 
 // sendAgentReply pushes what ended a direct request - the agent's reply or the
 // app's notice. A request the user muted emits nothing to push.
 func (s *Server) sendAgentReply(data any) {
-	s.pushEntry(data, "外部エージェント / External agent", "外部エージェント / External agent · kakeratta")
+	s.pushEntry(data, "kakeratta", "kakeratta")
 }
 
 // pushEntry sends one entry to every subscribed device: its words as the

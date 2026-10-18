@@ -2,7 +2,7 @@ import { verifyIdentity } from "./auth.js";
 import { localIdentity, localRecord, localList } from "./local-store.js";
 import { createAPIRequest } from "./api-request.js";
 import { createOutbox } from "./outbox.js";
-import { getLanguage } from "./i18n.js";
+import { getLanguage, t } from "./i18n.js";
 // The only place that knows how to reach the relay.
 //
 // Everything goes through the relay: the keys are there, the reactions are
@@ -85,7 +85,7 @@ export const api = {
     if (!localIdentity()) return call("POST", "/api/reply", body);
     const local = [...(await localRecord("timeline").catch(() => [] ) || []), ...await localList("ack:"), ...(await outbox.entries()).map(item => item.entry)];
     const parent = local.find(e => e.id === replyTo) || (await call("GET", `/api/thread/${encodeURIComponent(replyTo)}`)).entries?.find(e => e.id === replyTo);
-    if (!parent) throw Error("返事の宛先が見つかりません");
+    if (!parent) throw Error(t("返事の宛先が見つかりません"));
     return outbox.enqueue("/api/reply", body, parent);
   },
   remove: (id) => call("DELETE", `/api/entry/${encodeURIComponent(id)}`),
