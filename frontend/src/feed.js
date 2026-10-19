@@ -4,6 +4,7 @@
 // to looks exactly like one that started a conversation - there is no unread
 // count and no "3 AIs are thinking", because most posts are meant to pass
 // without anyone saying anything.
+import { gmailImportCard } from "./gmail-import.js";
 import { avatarNode, userProfile } from "./avatar.js";
 import { favoriteButton } from "./favorite-state.js";
 import { el, clear, toast, when } from "./dom.js";
@@ -220,7 +221,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       );
       return;
     }
-    if (showIntro && showsSilenceNote(threads.length)) {
+    if (showIntro && showsSilenceNote(threads.filter(thread => !thread.some(e => e.kind === "post" && e.import?.status === "pending")).length)) {
       view.append(el("p", { class: "note", label: "反応が付かないことがあります。付くときも、遅れて届きます。" }));
     }
     for (const thread of threads) view.append(drawThread(thread));
@@ -261,6 +262,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     const rest = thread.filter((entry) => entry !== post);
     const box = el("article", { class: "thread", "data-id": post.id });
     box.append(drawPost(post));
+    if (post.import?.status === "pending") return box;
     // A conversation stays folded under its post until asked for, so the
     // timeline reads as the things you dropped in. Replying opens it: you
     // should see what you are answering.
@@ -313,7 +315,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     const mine = entry.speaker === "user";
     const html = !mine && htmlDocument(entryText(entry));
     if (html) return el("div", { class: "said said-html" }, renderHtmlDocument(html));
-    if (mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
+    if (entry.import || mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
     if (laidOutAsInfographic(entry.speaker, entryText(entry))) {
       return el("div", { class: "said said-markdown said-infographic" }, renderInfographic(entryText(entry)));
     }
@@ -331,7 +333,14 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     ));
   }
 
+  function drawImportReview(entry) {
+    return gmailImportCard(entry, result => {
+      if(result.entry){upsert(result.entry);onEntryChange?.(result.entry);}
+      else{const gone={...entry,text:"",deleted:true};upsert(gone);onEntryChange?.(gone);}
+    });
+  }
   function drawPost(entry) {
+    if (entry.import?.status === "pending") return drawImportReview(entry);
     const media = entry.media;
     const mine = entry.speaker === "user";
     // The month's summary is the app's, but the user's to set right.
@@ -347,7 +356,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
         avatarNode(mine ? userProfile(getSettings()) : summary ? { icon: "🗓" } : persona || {}),
         who(entry, mine ? userProfile(getSettings()).name : summary ? t("今月のまとめ") : persona ? gloss(persona).name : entry.speaker, !summary),
         el("span", { class: "at", text: when(entry.at) }),
-        drawModel(entry),
+        entry.import ? el("span", { class: "model-badge", label: entry.import.type === "calendar" ? "Calendarから取り込み" : "Gmailから取り込み" }) : drawModel(entry),
         favoriteButton(entry),
         drawDone(entry),
         el("span", { class: "spacer" }),

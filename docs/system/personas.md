@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory as grounded facts and records, schedules, background output language, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-18"
+updated: "2026-10-19"
 ---
 
 Persona definitions, built-in support and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory as grounded facts and records, schedules, and corrections.
@@ -450,3 +450,11 @@ Trials are `trials` runtime records kept for 15 minutes, so a check and its appl
 - [API and persistent state](./backend.md)
 - [Browser application and device state](./frontend.md)
 - [External agents, tools, and sharing](./integrations.md)
+
+## Accepted external email as context
+
+A pending Gmail or Calendar card never creates a persona reaction. After the owner chooses Import it follows the existing `acceptEntry` routing and persona workflow, including ordinary silence, answers, memory judgment, corrections and deletion. There is no mail-specific router or memory system. [ImportSource](../../internal/timeline/timeline.go) remains on the post, and `Entry.Render` / [thread_context.go](../../internal/persona/thread_context.go) identify the content as external mail/event material, not the owner's direct statements or instructions. Requests and facts must retain their attribution; embedded commands, links and forwarding requests do not become owner instructions.
+
+[requests.go](../../internal/persona/requests.go) rejects imported email as a direct-agent request even if it contains `@agent`, and a root email cannot make ordinary replies continue an agent-request conversation solely by that text. [runner.go](../../internal/persona/runner.go) and [queue.go](../../internal/persona/queue.go) do not treat email mentions as forced persona calls. Ordinary domain routing still applies. A later genuine owner reply is handled normally. Google send/event writes remain separately gated by the companion's owner approval, irrespective of what an email says.
+
+Verification: [direct-request and provenance checks](../../internal/persona/requests_test.go) and [review intake tests](../../internal/server/gmail_import_test.go). These controls isolate pending content and block direct-request escalation; they do not claim that model prompt injection has been eliminated.

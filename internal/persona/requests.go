@@ -165,7 +165,7 @@ func (r *Runner) agentUnavailable(settings store.Settings) string {
 // to the personas either, but answered with the reason. A conversation merely
 // carried on while the agent is unavailable goes to the personas as usual.
 func (r *Runner) directRequest(entry timeline.Entry, settings store.Settings, skills []Skill) (direct bool, refused string) {
-	if entry.Speaker != timeline.User {
+	if entry.Speaker != timeline.User || entry.Import != nil {
 		return false, ""
 	}
 	unavailable := r.agentUnavailable(settings)
@@ -190,7 +190,7 @@ func (r *Runner) continuesAgent(entry timeline.Entry, skills []Skill) bool {
 		return true
 	case timeline.User, timeline.App:
 		root, ok := r.store.Entry(timeline.RootOf(entry))
-		return ok && !root.Deleted && root.Speaker == timeline.User && namesAgent(root.Text)
+		return ok && !root.Deleted && root.Speaker == timeline.User && root.Import == nil && namesAgent(root.Text)
 	}
 	return false
 }
@@ -199,7 +199,7 @@ func (r *Runner) continuesAgent(entry timeline.Entry, skills []Skill) bool {
 // agent itself rather than for the router, whether or not the agent could
 // take it: such an entry never has a routing record.
 func (r *Runner) AddressedToAgent(ctx context.Context, entry timeline.Entry, settings store.Settings) bool {
-	if entry.Speaker != timeline.User {
+	if entry.Speaker != timeline.User || entry.Import != nil {
 		return false
 	}
 	return namesAgent(entry.Text) || r.continuesAgent(entry, r.skills(ctx).Active(settings.Active))

@@ -56,6 +56,22 @@ func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
 		fail(w, status, err.Error())
 		return
 	}
+	if q.Get("before") == "" && ids == nil && from.IsZero() && to.IsZero() {
+		pending, e := s.pendingGmail(r.Context())
+		if e != nil {
+			fail(w, 503, "Could not read Gmail import review")
+			return
+		}
+		present := map[string]bool{}
+		for _, entry := range page.Entries {
+			present[entry.ID] = true
+		}
+		for _, entry := range pending {
+			if !present[entry.ID] {
+				page.Entries = append(page.Entries, entry)
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, page)
 }
 

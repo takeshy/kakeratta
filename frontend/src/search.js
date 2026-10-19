@@ -149,6 +149,7 @@ export function createSearch({ getSettings, getPersona, getPersonas, onEntryChan
   }
 
   function changed(entry) {
+    if (entry.import?.status === "pending") return;
     if (entry.deleted) {
       const previousCount = hits.length;
       hits = hits.filter((hit) => hit.entry.id !== entry.id && hit.entry.root !== entry.id);

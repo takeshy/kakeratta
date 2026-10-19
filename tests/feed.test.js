@@ -1491,3 +1491,66 @@ test("persona editor keeps the photo field's emoji input mounted when DOM append
   assert.equal(inputs[0].value, "🍷");
   assert.equal(inputs[0].isConnected, true);
 });
+
+test("Gmail card opens a separate modal and learns a type only on discard", async t => {
+  globalThis.Node = TestNode;
+  const body = new TestNode("body");
+  globalThis.document = { body, querySelector: () => null, createElement: tag => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const pending = { id: "gmail-review", root: "gmail-review", kind: "post", speaker: "user", text: "<script>external-mail</script>", at: "2026-10-19T10:00:00Z", import: { type: "gmail", trustLevel: "external", status: "pending", subject: "予約確認", from: "sender@example.com", sender: "sender@example.com", categoryId: "booking_confirmation", categoryLabel: "予約確認メール" } };
+  const changed = []; const calls = [];
+  const feed = createFeed({ getPersona: () => null, showIntro: false, onEntryChange: e => changed.push(e) });
+  const all = n => [n, ...n.children.flatMap(all)];
+  const button = (root,label) => all(root).find(n => n.tagName === "BUTTON" && n.textContent === translate(label));
+  t.mock.method(api, "decideGmailImport", async (id, accept, excludeSimilar, excludeSender) => {
+    calls.push([id, accept, excludeSimilar, excludeSender]);
+    return accept ? { status: "accepted", entry: { ...pending, import: { ...pending.import, status: "accepted" } } } : { status: "rejected" };
+  });
+  feed.set([pending]);
+  assert.ok(all(feed.element).some(n => n.textContent === translate("Gmailからの取り込み待ち")));
+  assert.equal(all(feed.element).some(n => n.textContent === pending.text),false);
+  assert.equal(feed.element.querySelectorAll(".edit-post").length, 0);
+  assert.equal(button(feed.element,"Blueskyに投稿"),undefined);
+  button(feed.element,"メールを確認する").fire("click", {});
+  assert.ok(all(body).some(n => n.textContent === pending.text));
+  button(body,"取り込む").fire("click", {});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.deepEqual(calls, [[pending.id, true, false, false]]);
+  assert.equal(changed[0].import.status, "accepted");
+  assert.ok(all(feed.element).some(n => n.textContent === translate("Gmailから取り込み")));
+  assert.equal(body.children.length,0);
+  feed.set([{ ...pending, id: "gmail-discard", root: "gmail-discard" }]);
+  button(feed.element,"メールを確認する").fire("click", {});
+  const checkboxes=all(body).filter(n=>n.tagName==="INPUT"&&n.type==="checkbox");
+  assert.equal(checkboxes.length,2);
+  for(const checkbox of checkboxes)checkbox.checked=true;
+  button(body,"取り込まない").fire("click", {});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.deepEqual(calls.at(-1), ["gmail-discard", false, true, true]);
+  assert.equal(changed.at(-1).deleted, true);
+  assert.equal(all(feed.element).some(n => n.textContent === pending.text), false);
+  assert.equal(body.children.length,0);
+});
+
+test("Calendar review exposes one series exclusion checkbox and imports only after choice", async t => {
+  globalThis.Node = TestNode;
+  const body = new TestNode("body");
+  globalThis.document = { body, querySelector: () => null, createElement: tag => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const pending = { id: "calendar-review", root: "calendar-review", kind: "post", speaker: "user", text: "予定: 定例\n外部説明 <script>not executed</script>", at: "2026-10-19T10:00:00Z", import: { type: "calendar", trustLevel: "external", status: "pending", subject: "定例", calendarId: "primary", eventId: "instance", seriesId: "master" } };
+  const all = node => [node, ...node.children.flatMap(all)];
+  const button = (root, label) => all(root).find(n => n.tagName === "BUTTON" && n.textContent === translate(label));
+  const calls = [];
+  t.mock.method(api, "decideGmailImport", async (...args) => { calls.push(args); return { status: "rejected" }; });
+  const feed = createFeed({ getPersona: () => null, showIntro: false }); feed.set([pending]);
+  assert.ok(all(feed.element).some(n => n.textContent === translate("Calendarからの取り込み待ち")));
+  button(feed.element, "予定を確認する").fire("click", {});
+  assert.ok(all(body).some(n => n.textContent === translate("今後この定期予定は取り込まない")));
+  const checks = all(body).filter(n => n.tagName === "INPUT" && n.type === "checkbox");
+  assert.equal(checks.length, 1); checks[0].checked = true;
+  button(body, "取り込まない").fire("click", {});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.deepEqual(calls, [[pending.id, false, false, false, true]]);
+  assert.equal(body.children.length, 0);
+  assert.equal(all(feed.element).some(n => n.textContent === pending.text), false);
+});

@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, English judge registration and progress, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud."
-tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-18"
+description: "Frontend composition, English judge registration and progress, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards."
+tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar", "google-import"]
+updated: "2026-10-19"
 ---
 
-Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, and read-aloud.
+Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards.
 
 The application font stack includes `Noto Sans CJK JP` after `Noto Sans JP`, so Linux Chromium with the Noto CJK package uses Japanese sans-serif glyphs for both the app and its documentation captures.
 
@@ -326,3 +326,13 @@ Read-aloud uses browser speechSynthesis. It selects a voice matching the interfa
 
 - [API and persistent state](./backend.md)
 - [Development and workspace operations](./operations.md)
+
+## Gmail review cards on the Timeline
+
+[feed.js](../../frontend/src/feed.js) and [gmail-import.js](../../frontend/src/gmail-import.js) display pending imports as **Gmail: awaiting your decision** cards. A separate modal shows sender/subject/body/time/reference literally and offers **Import / Discard**. Independent checkboxes learn an excluded mail type or an exact canonical From only on Discard. Closing the modal leaves the review pending; Import never saves exclusion preferences. Until accepted they have no normal reply, sharing, favorite, edit or routing actions. Import replaces the card with the normal user post and an **Imported from Gmail** badge. Discard removes it. Accepted mail retains the ordinary post controls and external provenance; text is rendered literally even when Markdown input is enabled.
+
+Pending cards are not persisted in device Timeline snapshots ([local-store.js](../../frontend/src/local-store.js)), and live pending events are ignored by the search and speaker panels. They cannot appear in search before acceptance or survive discard as cached body text. The existing generation/live-event handling keeps decisions from being undone by late page responses. Offline import decisions are not queued; failed requests leave the card for retry.
+
+Verification: [feed interactions](../../tests/feed.test.js), [snapshot exclusion](../../tests/outbox.test.js), and [English labels](../../frontend/src/i18n.js). The standalone companion's setup, rule settings, cache and kakeratta credential form are embedded under [tools/google-bridge/internal/server/web](../../tools/google-bridge/internal/server/web/).
+
+The review card/modal also handles source `calendar`, with **Calendar: awaiting your decision**, **Review event** and a single occurrence/series exclusion checkbox. It sends `excludeEvent` only on Discard; Import retains Calendar provenance on a normal user post. [calendar-inbox.js](../../tools/google-bridge/internal/server/web/calendar-inbox.js) in the companion shows the timezone/calendar selection, editable LLM instruction, excluded event/series IDs and explicit remove/save controls. Removing an exclusion takes effect only after saving. Google event writes are not part of this flow.

@@ -128,6 +128,7 @@ export function createSpeaker({ getSettings, getPersona, getPersonas, onEntryCha
   }
 
   function changed(entry) {
+    if (entry.import?.status === "pending") return;
     if (!speaker) return;
     if (Object.keys(filters).length && element.isConnected) { void refresh(); return; }
     if (!entries.has(entry.id)) return;

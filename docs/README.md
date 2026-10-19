@@ -23,6 +23,7 @@ English and Japanese editions stay together, with `_ja.md` identifying the Japan
 | --- | --- | --- |
 | Usage and configuration | [Guide](./guides/usage.md) | [使い方と設定](./guides/usage_ja.md) |
 | External agents and Hermes | [Guide](./guides/hermes.md) | [外部エージェント連携](./guides/hermes_ja.md) |
+| Personal Google reads through Hermes | [接続と運用手順（日本語）](./guides/google_ja.md) | — |
 | Bluesky sharing | [Guide](./guides/social-sharing.md) | [会話をBlueskyに公開](./guides/social-sharing_ja.md) |
 | Alexa setup | [接続手順（日本語）](./guides/alexa.md) | — |
 | Judge and Alexa reviewer access | [Account setup](./guides/judge-access.md) | — |
@@ -38,6 +39,7 @@ For deployment, see the infrastructure guide: [English](../infra/README.md) / [�
 | Technical design | [Under the hood](./design/technical.md) | [中で起きていること](./design/technical_ja.md) |
 | AI implementation lessons | [What was hard about the AI](./design/ai-lessons.md) | [AIまわりで苦労したこと](./design/ai-lessons_ja.md) |
 | Direct-request worker | [経緯と仕様（日本語）](./design/direct-request-worker-spec_ja.md) | — |
+| Personal Google Bridge | [独立Webアプリの調査と実装設計（日本語）](./design/google-hermes-integration-spec_ja.md) | — |
 
 The [system bundle index](./system/index.md) links to architecture, backend APIs and persistence, persona execution and memory, frontend behavior, integrations, and development operations.
 

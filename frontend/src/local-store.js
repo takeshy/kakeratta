@@ -46,7 +46,7 @@ export async function clearLocalUser(user = localIdentity()?.key) {
   });
 }
 export function recentEntries(entries, limit = 20) {
-  const roots = new Set(entries.filter(e => e.kind === "post" && !e.deleted && !e.pending)
+  const roots = new Set(entries.filter(e => e.kind === "post" && !e.deleted && !e.pending && e.import?.status !== "pending")
     .sort((a,b) => new Date(b.at)-new Date(a.at)).slice(0,limit).map(e => e.id));
-  return entries.filter(e => !e.pending && roots.has(e.root || e.id));
+  return entries.filter(e => !e.pending && e.import?.status !== "pending" && roots.has(e.root || e.id));
 }

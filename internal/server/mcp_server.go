@@ -326,7 +326,7 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 			mcpError(w, message.ID, -32602, "arguments must be an object")
 			return
 		}
-		value, err := s.callMCPTool(r.Context(), params.Name, params.Arguments)
+		value, err := s.callMCPTool(context.WithValue(r.Context(), gmailImportPrincipal{}, connectionID != judgeConnectionID), params.Name, params.Arguments)
 		if err != nil {
 			result = map[string]any{"isError": true, "content": []any{map[string]string{"type": "text", "text": err.Error()}}}
 		} else {

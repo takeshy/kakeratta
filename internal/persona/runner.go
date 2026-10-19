@@ -496,6 +496,9 @@ func (r *Runner) prepareEntry(outer context.Context, entryID string, transientPl
 
 	// Who gets it is the app's one decision about a post.
 	named := Named(skills, entry.Text)
+	if entry.Import != nil {
+		named = nil
+	}
 	called := map[string]string{}
 	targets := map[string]bool{}
 	for _, skill := range skills {

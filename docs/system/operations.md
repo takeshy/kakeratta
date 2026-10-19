@@ -1,12 +1,12 @@
 ---
 type: "Process"
 title: "Development and workspace operations"
-description: "Development, validation, Alexa skill setup, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion."
-tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy"]
-updated: "2026-10-18"
+description: "Development, validation, Alexa skill setup, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, workspace deletion, and personal Google Bridge startup, approval journals and key handling."
+tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy", "google-bridge"]
+updated: "2026-10-19"
 ---
 
-Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, and workspace deletion.
+Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, workspace deletion, and personal Google Bridge startup, approval journals and key handling.
 
 # Development, validation, and deployment
 
@@ -199,3 +199,23 @@ For hosted workspace deletion, Gateway accepts a confirmed request, takes the us
 
 
 The 2026-10-11 Alexa certification deployment used Cloud Build `18e7682e-8894-4aa3-92b6-7d7a8f44aea5` and revision `8b605c1`. Production checks covered the public legal pages, review login/session, example reply, authorization code single use, refresh and revocation, and unsigned-request rejection. [Submission instructions and the verification record](../guides/judge-access.md#submission-instructions-and-final-checks) distinguish these checks from operator-reported Console settings and still-required device tests. Credential-free Japanese/English test instructions live in `integrations/alexa/testing-instructions-{ja,en}.txt`; filled credentials remain outside version control.
+
+# Running personal Google Bridge
+
+This companion is started independently with `mise exec -- go run ./tools/google-bridge/cmd/google-bridge -init` once, then the same command without `-init`. It embeds its own Web assets and needs no frontend build. Default origin/listener is `http://127.0.0.1:8094`. The owner-only config under the OS user configuration directory contains randomly generated management/encryption keys and the dedicated data-directory path; `-config` selects another file. Initialization refuses to overwrite existing keys. Loading rejects group/world-readable configuration and placement inside the data directory. A process lock prevents concurrent instances using that directory. Companion social-state writes use owner-only modes and fsync file/directory checkpoints before acknowledging approval consumption. The CLI supports Linux/macOS; Windows users need WSL.
+
+Keep keys outside database backups, source control and chat. Google credentials are entered only in the dedicated form, encrypted through Workspace SocialValue storage, and excluded by the existing workspace export boundary; this companion exposes no export API. Only the owner operates the instance. A remote installation needs its own HTTPS reverse proxy preserving the configured Host and a protected backend port. Non-loopback listeners require a configured HTTPS public origin. Do not retain OAuth callback query parameters in proxy or upstream access logs. The companion itself does not log access URLs or provider responses.
+
+Management login, session cookies and MCP keys are separate. Generate/rotate the MCP key from the authenticated UI and copy its one-time configuration into the user's Hermes settings. Changing the management key and restarting invalidates management sessions through their stored key fingerprint. MCP revocation is independent. For encryption-key rotation, retain old key versions, choose the new write version, restart, and rewrite each connection through a connection test or reconnection, then refresh the action list to rewrap both service journals before retiring old keys. Already delivered data and historical backup ciphertext are governed by the owner's downstream/backup retention policies.
+
+See [personal setup and recovery](../guides/google_ja.md), [implementation design](../design/google-hermes-integration-spec_ja.md), and [integration boundaries](./integrations.md#personal-google-bridge-companion). Validate with `go test ./tools/google-bridge/...` and `node tools/google-bridge/tests/google.test.js`. Tests do not require or mutate a real Google account. Production deployment and real-account OAuth/API verification are separate owner actions.
+
+Approved writes use encrypted journals in this companion's dedicated data directory. Review proposals in the authenticated Web UI; MCP keys cannot approve. An unknown write result must be checked manually in Google before a new proposal is created. Do not delete journal metadata to retry: it contains consumed approvals and idempotency digests. Up to eight live proposals per service are allowed. Terminal content is scrubbed; expiry/reconnection cleanup runs on journal access. Stop and remove the dedicated data directory only for explicit full data deletion, which also removes audit/replay history; do not reuse old operation keys afterward. Real-account sends or Calendar mutations require the owner's separate explicit permission.
+
+For important mail, enable both import settings and the owner's kakeratta target in the companion UI. Target secrets are stored under a separate encrypted namespace. To rotate encryption keys, also read the inbox and resave the target with its existing URL and blank key before retiring old versions. Pending data already transferred to kakeratta remains there until the owner chooses Import/Discard; cache cleanup does not recall it. Discarded receipt metadata must remain for replay prevention. Backups use the operator's separate retention policy.
+
+The existing Hermes cron can run `check_google_bridge.py` every 30 minutes in no-agent mode when optional LLM triage is off. With triage enabled, use a normal cron job restricted to sync/context/submit tools; the script wakes the agent only when classification is pending. Place its mode-0600 `google_bridge.json` beside the script. The adapter prints no email data; it leaves review delivery to the companion. Install/register the job only in the owner's chosen Hermes profile. Configuration and recovery are in the [guide](../guides/google_ja.md). Verify Python with `python3 -m unittest discover -s tools/google-bridge/tests -p 'test_*.py'`.
+
+The companion's setup guide generates commands for explicitly selected projects/APIs, plus Console fallback links. Operators run these commands themselves after checking the active gcloud account. It neither executes Cloud commands nor reports generated steps as completed. The existing API connection test remains the actual readiness check. Local Web-client JSON import and fixed recovery hints are verified in [browser flow tests](../../tools/google-bridge/tests/google.test.js); no live project creation, API enablement or OAuth client creation is covered by those tests.
+
+Calendar intake is separately enabled in companion section 05. Install [check_calendar_bridge.py](../../tools/google-bridge/hermes/check_calendar_bridge.py) beside the existing mail gate and private JSON config. Register one daily Hermes job in the owner's chosen timezone; no-agent is suitable when Calendar model triage is disabled. Otherwise restrict the agent to Calendar sync/context/submit. No Google write scope is needed. Cached event rules, body limits and current sync status are visible in the companion. Review decisions are received on the next sync; removing a rule affects new occurrences. Include `calendar-inbox` in key rotation by opening its owner view before retiring the old key. Real scheduling and account tests are owner setup actions described in the [guide](../guides/google_ja.md).

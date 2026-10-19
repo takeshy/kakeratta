@@ -76,3 +76,9 @@ test('two tabs flushing one outbox send each queued post once',async()=>{
  await Promise.all([tabA.flush(),tabB.flush()]);
  assert.equal(sent.length,2);assert.equal(new Set(sent).size,2);
 });
+
+test('unreviewed Gmail is excluded from persistent device timeline snapshots',()=>{
+ const pending={id:'pending-mail',kind:'post',text:'private pending mail',import:{type:'gmail',status:'pending'},at:'2026-10-19'};
+ const accepted={id:'accepted-mail',kind:'post',import:{type:'gmail',status:'accepted'},at:'2026-10-18'};
+ assert.deepEqual(recentEntries([pending,accepted]).map(e=>e.id),['accepted-mail']);
+});

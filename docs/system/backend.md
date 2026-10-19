@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication including Alexa account linking and English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search."
-tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar"]
-updated: "2026-10-18"
+description: "Authentication including Alexa account linking and English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake."
+tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar", "google-import"]
+updated: "2026-10-19"
 ---
 
-Authentication, English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, and search.
+Authentication, English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake.
 
 # HTTP API and authentication
 
@@ -308,3 +308,17 @@ Verification: [push_test.go](../../internal/server/push_test.go) checks registra
 
 Verification: [list_filters_test.go](../../internal/server/list_filters_test.go) checks combined conditions, saved replies with older parents, date-only results, search without a query, and invalid dates.
 
+
+## Owner-reviewed Gmail imports
+
+The personal companion's `propose_gmail_import` MCP tool creates a **review card**, not a Timeline post. [gmail_import.go](../../internal/server/gmail_import.go) accepts only a credential bound to this workspace; shared judge credentials cannot propose imports. Pending body and provenance use workspace SocialValue/CAS under a renewable lock, outside Timeline, text/vector search, exports and persona reactions. The first unfiltered browser Timeline page overlays up to 20 pending cards (700 KiB maximum queue); SSE publishes their display updates without scheduling search indexing. MCP Timeline/thread reads and search do not include the queue.
+
+Only authenticated Web `POST /api/imports/{id}/decision` can accept or discard. Accept persists the owner's choice, calls the existing `acceptEntry` / `CreateEntry` with its atomic initial routing reaction, then clears the pending body. Stable connection/message-derived IDs and receipts prevent duplicate routing. A failure after acceptance leaves cleanup retryable by the owner; MCP redelivery never grants approval. Accepted posts are normal user posts with [ImportSource](../../internal/timeline/timeline.go) provenance. Pending cards have no reply, share, edit or routing actions.
+
+Discard deletes the pending body and sends a content-free removal event; no search document or memory needs to be deleted because none was created. A separate compact receipt retains only the identity hash, content digest, status and entry ID, preventing redelivery even after an accepted post is subsequently deleted. Receipts contain no subject or body; they may retain the owner-selected canonical From and/or mail type as explicit exclusion preferences. The companion consumes each preference once on a later sync, so replay does not restore a cancelled rule. Already accepted posts use the existing edit/delete/search/memory flows. Pending reviews are retained until the owner decides; backup erasure follows the deployment's backup retention. Google Bridge's shorter cache retention does not recall data already transferred here.
+
+[calendar_import.go](../../internal/server/calendar_import.go) adds owner-bound `propose_calendar_import` to the same queue, lock, owner decision API and durable receipts. Calendar identity includes the connection, calendar and occurrence IDs. Imported entries retain source type `calendar` and recurrence master ID. The owner-only `excludeEvent` checkbox on Discard records the calendar/occurrence and optional series ID as an explicit preference. Accept ignores exclusion checkboxes. Calendar imports never mutate Google Calendar. The companion applies series/occurrence exclusion before model disclosure; titles are labels, not matching keys. Pending cards already delivered for other occurrences remain for an explicit owner decision.
+
+Verification: [review isolation, choices, replay, search and deletion tests](../../internal/server/gmail_import_test.go), [Bridge-to-MCP integration](../../tools/google-bridge/internal/google/timeline_test.go), and [index event filtering](../../internal/server/index.go).
+
+Calendar verification: [review isolation and series choices](../../internal/server/calendar_import_test.go) and [real intake feedback with fake Calendar](../../tools/google-bridge/internal/google/calendar_timeline_test.go).

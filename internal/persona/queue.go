@@ -456,7 +456,7 @@ func (r *Runner) deliver(ctx context.Context, entryID, personaID string) {
 	}
 	thread := timeline.Thread(entries, timeline.RootOf(entry))
 	pending := r.detaches(ctx, skill, settings)
-	remark := r.run(ctx, skill, thread, entry, contains(Named(skills, entry.Text), skill.ID), false, "", false, client, settings, r.registry(settings))
+	remark := r.run(ctx, skill, thread, entry, entry.Import == nil && contains(Named(skills, entry.Text), skill.ID), false, "", false, client, settings, r.registry(settings))
 	// A turn whose answer was asked of the external agent is marked done
 	// when it is carried on.
 	if !pending {

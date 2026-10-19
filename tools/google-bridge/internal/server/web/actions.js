@@ -1,0 +1,51 @@
+import { api } from "./api.js";
+import { el, clear, toast } from "./dom.js";
+
+const statusNames = { pending: "確認待ち", approved: "承認済み・未実行", succeeded: "実行済み", rejected: "却下", expired: "期限切れ・接続変更", failed: "失敗", conflict: "予定が変更されました", unknown: "結果不明・Googleで確認してください", executing: "実行中" };
+const typeNames = { gmail_send: "メールを送信", gmail_draft: "Gmailに下書きを保存", calendar_create: "予定を作成", calendar_update: "予定を変更", calendar_delete: "予定を削除" };
+
+export function createActions() {
+  const view = el("div");
+  let disposed = false;
+  const field = (name, value) => el("div", { class: "review-field" }, el("strong", { text: name }), el("pre", { text: value || "（なし）" }));
+  async function load() {
+    try {
+      const { actions } = await api.googleActions();
+      if (disposed) return;
+      clear(view);
+      view.append(el("button", { class: "ghost", text: "操作案を更新", onclick: load }));
+      if (!actions.length) view.append(el("p", { class: "hint", text: "Hermesが作成した操作案がここに表示されます。内容を確認して承認し、実行してください。" }));
+      for (const action of [...actions].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+        const card = el("article", { class: "settings-block action-review" }, el("h3", { text: typeNames[action.type] || action.type }), el("p", { text: statusNames[action.status] || action.status }));
+        card.append(el("p", { class: "hint", text: `作成: ${new Date(action.createdAt).toLocaleString()} · 承認・実行期限: ${new Date(action.expiresAt).toLocaleString()}` }));
+        const p = action.payload;
+        if (p?.mail) {
+          card.append(field("送信元", p.from), field("宛先", p.mail.to.join("\n")), field("CC", (p.mail.cc || []).join("\n")), field("件名", p.mail.subject), field("本文", p.mail.body));
+          if (p.threadId) card.append(field("返信先のメッセージ / スレッド", `${p.mail.replyToMessageId} / ${p.threadId}`), field("In-Reply-To", p.inReplyTo));
+          card.append(el("p", { class: "hint", text: action.type === "gmail_draft" ? "承認後、Googleに下書きを保存します。送信は別の操作案と承認が必要です。" : "承認後、上記の宛先へメールを送信します。取り消しはできません。" }));
+        } else if (p) {
+          card.append(field("対象カレンダー", `${p.calendarName} / ${p.calendarId}`), field("カレンダーのタイムゾーン", p.calendarTimeZone));
+          if (p.eventId) card.append(field("対象の予定", p.eventId));
+          if (p.before) card.append(field("変更前", JSON.stringify(p.before, null, 2)));
+          if (p.event) card.append(field("作成・変更後", JSON.stringify(p.event, null, 2)));
+          const impact = { none: "招待の更新通知は要求しません。Googleの仕様により一部の通知が届く場合があります。", all: "全参加者への招待・変更・取消通知を要求します。", externalOnly: "Google Calendarを使わない参加者への通知を要求します。" }[p.sendUpdates];
+          card.append(el("p", { class: "hint", text: `通知: ${impact} 終日予定の終了日は、その日を含みません。${p.createMeet ? " 新しいGoogle Meetリンクを作成します。" : " 会議リンクを新規生成しません。既存リンクは維持します。"}` }));
+          if (p.before?.recurringEventId) card.append(el("p", { class: "hint", text: "繰り返し予定のこの1回だけを操作します。" }));
+        }
+        card.append(el("details", {}, el("summary", { text: "操作ID・監査情報" }), el("pre", { text: JSON.stringify({ id: action.id, payloadHash: action.payloadHash, connectionId: action.connectionId, proposedBy: action.proposedBy, decidedBy: action.decidedBy, executedBy: action.executedBy, consumedAt: action.consumedAt, providerId: action.providerId }, null, 2) })));
+        const run = async (button, operation) => { button.disabled = true; try { await operation(); await load(); } catch (error) { toast(error.message); button.disabled = false; } };
+        if (action.status === "pending") {
+          card.append(el("div", { class: "actions" },
+            el("button", { text: "この内容を承認", onclick: e => run(e.currentTarget, () => api.decideGoogleAction(action.id, action.payloadHash, true)) }),
+            el("button", { class: "ghost", text: "却下", onclick: e => run(e.currentTarget, () => api.decideGoogleAction(action.id, action.payloadHash, false)) })));
+        } else if (action.status === "approved") {
+          card.append(el("button", { text: "承認済みの内容を実行", onclick: e => run(e.currentTarget, () => api.executeGoogleAction(action.id, action.payloadHash)) }));
+        }
+        if (action.status === "unknown") card.append(el("p", { class: "secret-note", text: "自動再送は停止しています。Googleで送信済みメール・下書き・予定を確認してください。同じ操作案の再実行は新たな書き込みを行いません。" }));
+        view.append(card);
+      }
+    } catch (error) { if (!disposed) toast(error.message); }
+  }
+  void load();
+  return { element: view, load, dispose() { disposed = true; clear(view); } };
+}

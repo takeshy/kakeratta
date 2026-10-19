@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/takeshy/kakeratta/internal/persona"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
 func (s *Server) publishEvent(name string, data any) {
@@ -17,7 +18,10 @@ func (s *Server) publishEvent(name string, data any) {
 		return
 	}
 	if name == "entry" {
-		s.scheduleIndex()
+		entry, pending := data.(timeline.Entry)
+		if !pending || entry.Import == nil || entry.Import.Status != "pending" {
+			s.scheduleIndex()
+		}
 	}
 	if s.bus == nil {
 		s.events.send(name, data)

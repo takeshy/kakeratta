@@ -51,6 +51,7 @@ function emit(name, data) {
 }
 
 export const api = {
+ decideGmailImport: (id, accept, excludeSimilar = false, excludeSender = false, excludeEvent = false) => call("POST", `/api/imports/${encodeURIComponent(id)}/decision`, { accept, excludeSimilar, excludeSender, excludeEvent }),
  usage: (month = "", persona = "") => call("GET", `/api/usage?${new URLSearchParams({ month, persona })}`),
   favorites: ({ speaker = "", limit = 20, offset = 0 } = {}) => call("GET", `/api/favorites?${new URLSearchParams({ speaker, limit, offset })}`),
   setDone: (id, done) => call(done ? "PUT" : "DELETE", `/api/entry/${encodeURIComponent(id)}/done`),
