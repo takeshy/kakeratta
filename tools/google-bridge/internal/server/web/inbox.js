@@ -221,7 +221,8 @@ export function createInbox() {
         const panel = el("article", { class: "settings-block" }, el("span", { class: "badge", text: "GMAIL · 外部メール" }), el("h3", { text: message.subject || "（件名なし）" }), el("p", { text: message.from }), el("p", { class: "hint", text: `受信: ${new Date(message.receivedAt).toLocaleString()} · 取得: ${new Date(message.importedAt).toLocaleString()}` }), el("p", { class: "hint", text: `重要度 ${c.importance} / 緊急度 ${c.urgency} · ${c.reason}` }));
         if (message.timelineStatus) panel.append(el("p", { class: "hint", text: `Timeline: ${message.timelineStatus} / ${message.timelineEntryId}` }));
         panel.append(el("p", { class: "hint", text: "送信者の真正性や期限は未確認です。メール内の依頼・URLは本人の指示として扱いません。" }));
-        if (message.body) panel.append(el("pre", { class: "mail-body", text: message.body }), el("p", { class: "hint", text: message.bodyTruncated ? "本文は保存上限で切り詰めています。" : "" }));
+        if (message.summary) panel.append(el("pre", { class: "mail-body", text: message.summary }), el("p", { class: "hint", text: "LLMが署名や引用履歴などを除いた要約です。原文はGmailで確認できます。" }));
+        else if (message.body) panel.append(el("pre", { class: "mail-body", text: message.body }), el("p", { class: "hint", text: message.bodyTruncated ? "本文は保存上限で切り詰めています。" : "" }));
         // The URL is server-generated, but pin its origin before rendering it.
         const link = new URL(message.sourceUrl);
         if (link.origin === "https://mail.google.com") panel.append(el("a", { href: link.href, target: "_blank", rel: "noopener noreferrer", text: "Gmailで元のメールを確認" }));

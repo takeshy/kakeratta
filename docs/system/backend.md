@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication including Alexa account linking and English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar", "google-import"]
-updated: "2026-10-19"
+updated: "2026-10-20"
 ---
 
 Authentication, English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake.
@@ -311,7 +311,7 @@ Verification: [list_filters_test.go](../../internal/server/list_filters_test.go)
 
 ## Owner-reviewed Gmail imports
 
-The personal companion's `propose_gmail_import` MCP tool creates a **review card**, not a Timeline post. [gmail_import.go](../../internal/server/gmail_import.go) accepts only a credential bound to this workspace; shared judge credentials cannot propose imports. Pending body and provenance use workspace SocialValue/CAS under a renewable lock, outside Timeline, text/vector search, exports and persona reactions. The first unfiltered browser Timeline page overlays up to 20 pending cards (700 KiB maximum queue); SSE publishes their display updates without scheduling search indexing. MCP Timeline/thread reads and search do not include the queue.
+The personal companion's `propose_gmail_import` MCP tool creates a **review card**, not a Timeline post. [gmail_import.go](../../internal/server/gmail_import.go) accepts only a credential bound to this workspace; shared judge credentials cannot propose imports. For LLM-triaged mail, Google Bridge sends the bounded factual summary as the body instead of the original email text. Pending body and provenance use workspace SocialValue/CAS under a renewable lock, outside Timeline, text/vector search, exports and persona reactions. The first unfiltered browser Timeline page overlays up to 20 pending cards (700 KiB maximum queue); SSE publishes their display updates without scheduling search indexing. MCP Timeline/thread reads and search do not include the queue.
 
 Only authenticated Web `POST /api/imports/{id}/decision` can accept or discard. Accept persists the owner's choice, calls the existing `acceptEntry` / `CreateEntry` with its atomic initial routing reaction, then clears the pending body. Stable connection/message-derived IDs and receipts prevent duplicate routing. A failure after acceptance leaves cleanup retryable by the owner; MCP redelivery never grants approval. Accepted posts are normal user posts with [ImportSource](../../internal/timeline/timeline.go) provenance. Pending cards have no reply, share, edit or routing actions.
 

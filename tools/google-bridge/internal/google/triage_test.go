@@ -3,12 +3,13 @@ package google
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
 func keepValue(v bool) *bool { return &v }
 func triageChoice(item TriageItem, keep bool, kind string) TriageDecision {
-	return TriageDecision{MessageID: item.Message.MessageID, Token: item.Token, Keep: keepValue(keep), Importance: 90, Reason: "Owner-relevant booking", Type: MailType{ID: kind, Label: "予約の確認"}}
+	return TriageDecision{MessageID: item.Message.MessageID, Token: item.Token, Keep: keepValue(keep), Importance: 90, Reason: "Owner-relevant booking", Summary: "10月20日の予約が確定しました。", Type: MailType{ID: kind, Label: "予約の確認"}}
 }
 func TestEditablePromptTriageAndLearnedTypeExclusion(t *testing.T) {
 	s, p := importSetup(t)
@@ -48,7 +49,7 @@ func TestEditablePromptTriageAndLearnedTypeExclusion(t *testing.T) {
 		t.Fatal(e)
 	}
 	view, _ = s.Inbox(ctx)
-	if len(view.Messages) != 1 || view.Messages[0].CategoryID != "booking_confirmation" {
+	if len(view.Messages) != 1 || view.Messages[0].CategoryID != "booking_confirmation" || view.Messages[0].Summary != first.Summary {
 		t.Fatal(view)
 	}
 	settings.ExcludedTypes = []MailType{{ID: "booking_confirmation", Label: "予約の確認"}}
@@ -69,6 +70,32 @@ func TestEditablePromptTriageAndLearnedTypeExclusion(t *testing.T) {
 	view, _ = s.Inbox(ctx)
 	if len(view.Messages) != 1 {
 		t.Fatal("excluded type was forwarded", view)
+	}
+}
+
+func TestKeptTriageRequiresBoundedSummary(t *testing.T) {
+	s, _ := importSetup(t)
+	ctx := context.Background()
+	in := defaultInboxSettings()
+	in.Enabled, in.LLMEnabled = true, true
+	if _, e := s.SetInboxSettings(ctx, in); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := s.SyncGmail(ctx); e != nil {
+		t.Fatal(e)
+	}
+	tc, e := s.Triage(ctx)
+	if e != nil || len(tc.Items) == 0 {
+		t.Fatal(tc, e)
+	}
+	decision := triageChoice(tc.Items[0], true, "booking_confirmation")
+	decision.Summary = ""
+	if _, e = s.SubmitTriage(ctx, decision); !errors.Is(e, ErrInput) {
+		t.Fatal("kept mail without a summary was accepted", e)
+	}
+	decision.Summary = strings.Repeat("あ", 2001)
+	if _, e = s.SubmitTriage(ctx, decision); !errors.Is(e, ErrInput) {
+		t.Fatal("oversized summary was accepted", e)
 	}
 }
 func TestPromptAndBodyPolicyChangesInvalidatePendingModelResult(t *testing.T) {

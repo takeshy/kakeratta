@@ -59,6 +59,7 @@ type InboxMessage struct {
 	Sender          string             `json:"sender"`
 	Subject         string             `json:"subject"`
 	Body            string             `json:"body"`
+	Summary         string             `json:"summary,omitempty"`
 	BodyTruncated   bool               `json:"bodyTruncated"`
 	ReceivedAt      time.Time          `json:"receivedAt"`
 	ImportedAt      time.Time          `json:"importedAt"`

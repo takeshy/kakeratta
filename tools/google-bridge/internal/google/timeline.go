@@ -135,7 +135,8 @@ func (s *Service) publishInbox(ctx context.Context, st *gmailSyncState) error {
 			rows = append(rows, m)
 			continue
 		}
-		payload := map[string]any{"categoryId": m.CategoryID, "categoryLabel": m.CategoryLabel, "connectionId": m.ConnectionID, "messageId": m.MessageID, "threadId": m.ThreadID, "from": m.From, "subject": m.Subject, "body": m.Body, "receivedAt": m.ReceivedAt, "importedAt": m.ImportedAt, "sourceUrl": m.SourceURL}
+		body := timelineMailBody(m)
+		payload := map[string]any{"categoryId": m.CategoryID, "categoryLabel": m.CategoryLabel, "connectionId": m.ConnectionID, "messageId": m.MessageID, "threadId": m.ThreadID, "from": m.From, "subject": m.Subject, "body": body, "receivedAt": m.ReceivedAt, "importedAt": m.ImportedAt, "sourceUrl": m.SourceURL}
 		receipt, e := s.deliverImport(ctx, t, "propose_gmail_import", map[string]any{"mail": payload})
 		if e != nil {
 			return e
@@ -185,6 +186,13 @@ func (s *Service) publishInbox(ctx context.Context, st *gmailSyncState) error {
 	}
 	st.Messages = rows
 	return nil
+}
+
+func timelineMailBody(m InboxMessage) string {
+	if m.Summary != "" {
+		return m.Summary
+	}
+	return m.Body
 }
 
 type importDeliveryReceipt struct {

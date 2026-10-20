@@ -146,3 +146,14 @@ func TestTargetRequiresOwnerConfiguredHTTPSAndValidKey(t *testing.T) {
 		}
 	}
 }
+
+func TestTimelineDeliveryPrefersTriageSummary(t *testing.T) {
+	m := InboxMessage{Body: "message\n\n-- \nsignature", Summary: "Reservation confirmed for October 20."}
+	if got := timelineMailBody(m); got != m.Summary || strings.Contains(got, "signature") {
+		t.Fatal(got)
+	}
+	m.Summary = ""
+	if got := timelineMailBody(m); got != m.Body {
+		t.Fatal("local classification lost its body", got)
+	}
+}
