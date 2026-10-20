@@ -73,6 +73,55 @@ uses a stronger model for final answers (on by default for infographic).
 A request that says "in detail" uses the strongest answer model in the default configuration.
 See [Design and integrations](#design-and-integrations) for which model does what.
 
+## Gmail and Google Calendar
+
+[Google Bridge](tools/google-bridge/README.md) is a separate personal Web app and
+MCP server you run on your device or server. It uses your Google Cloud project
+and OAuth client, encrypts Google credentials in its own data directory, and
+can run without the kakeratta server.
+
+| Feature | How it works |
+| --- | --- |
+| Important Gmail | Incremental sync selects mail by labels and senders, with optional Hermes model triage; Hermes delivers the selected candidates. Model-selected mail is summarized without signatures or quoted history. |
+| Today and tomorrow's events | Daily Calendar intake uses your chosen timezone, including all-day and recurring occurrences. Intake never changes Google Calendar. |
+| Review before importing | Hermes sends selected mail and events to pending Timeline cards. Choose Import or Discard; only Import starts normal posting, persona routing and memory processing. Pending cards stay out of timeline search and persona processing. |
+| Adjustable exclusions | Discard can also exclude a mail type or exact sender, or a single event or recurring series. Remove rules in Bridge; sender and event exclusions run before model triage. |
+| Ask Hermes directly | Search Gmail, read messages and threads, or look up events over MCP. With extra Google scopes, an explicit owner request can send/reply/save a draft or create/change/delete an event. Direct-request writes run without a second Web approval and are separate from intake. |
+
+```mermaid
+flowchart LR
+  Google[Gmail / Google Calendar] -->|OAuth: read| Bridge[Your Google Bridge]
+  Cron[Your Hermes cron] --> Worker[Hermes worker: code]
+  Worker <-->|Sync / candidates / decisions| Bridge
+  Worker <-->|Select and summarize only| Model[Hermes model]
+  Worker -->|Candidates over kakeratta MCP| Pending[Timeline: pending review]
+  Pending -->|Actual receipts via worker code| Worker
+  Owner[You] -->|Import / Discard| Pending
+  Pending -->|Import| Posts[Posts → personas → memory]
+  Owner -->|Explicit direct request| Direct[Your Hermes agent]
+  Direct -->|Write tool with extra scopes| Bridge
+  Bridge -->|Requested send / event change| Google
+```
+
+The Hermes worker owns both MCP connections. Like persona-answer submission,
+Python code fetches candidates, submits classification results, delivers cards,
+and polls and returns actual review receipts. The LLM only selects and summarizes;
+its isolated session has no MCP connections or delivery tools. Bridge never stores
+a kakeratta URL/key or contacts kakeratta. Existing Hermes cron runs the gate with
+`--no-agent`; delivery-only and idle runs use no model tokens.
+Content passed to Hermes also reaches its configured model. Imported events
+are snapshots: later Google edits do not update existing cards or posts.
+Direct-request writes rely on Hermes following the owner's instructions; the
+server cannot verify the request's origin, so triage jobs should exclude write tools.
+
+<img src="docs/captures/google-bridge/gmail.png" alt="Google Bridge showing a selected reservation email waiting for Hermes to relay" width="620">
+<img src="docs/captures/google-bridge/calendar.png" alt="Google Bridge showing events waiting for Hermes to relay" width="620">
+
+Screenshots show the shipped Japanese UI after sync with sample API responses,
+not a live Google account. See the [advanced setup guide](https://kakeratta.net/manual/?guide=advanced&lang=en#en-google)
+and [detailed setup and recovery (Japanese)](docs/guides/google_ja.md).
+Real Google OAuth and Hermes integration remain unverified; the captures demonstrate the UI flow.
+
 ## Run locally
 
 Requires Go 1.26+, Node.js and [Task](https://taskfile.dev), plus a Nebius Token
@@ -178,6 +227,7 @@ Browse the [documentation index](docs/README.md) for all guides, design notes, a
 | [System implementation](docs/system/index.md) | Source-linked subsystem specifications, also used by support |
 | [AI lessons](docs/design/ai-lessons.md) | Failures observed in development and how they were addressed |
 | [External agents](docs/guides/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions, fallback and direct `@agent` requests |
+| [Gmail and Calendar setup](docs/guides/google_ja.md) (Japanese) | Personal Google Bridge, OAuth, reviewed imports and Hermes cron |
 | [NemoClaw integration report](docs/reports/nemoclaw-hermes-integration.md) | Sandbox setup and verification, with protocol-version context |
 | [Google Cloud deployment](infra/README.md) | Cloud Run configuration and temporary shared VM operations |
 

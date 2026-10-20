@@ -1,6 +1,6 @@
 # 個人用Google Bridge: 調査・実装設計
 
-- 調査・実装レビュー日: 2026-10-19
+- 調査・実装レビュー日: 2026-10-20
 - 元仕様: kakeratta × Hermes Google連携 v1.1
 - 調査基準コミット: `338c539e0b6fe715f6129befd1dde32db945700f`
 - 利用形態: 各ユーザーが自分の端末・サーバーで起動する1ユーザー専用Webアプリ
@@ -16,6 +16,7 @@
 flowchart TD
   Browser[本人のブラウザー] --> Web[Google Bridge: 管理セッション]
   Hermes[本人のHermes] --> MCP[Google Bridge: 個人用MCPキー]
+  Hermes -->|候補を配送・レシートを取得| Kakeratta[kakeratta MCP: 本人確認待ち]
   Web --> Service[Googleサービス層]
   MCP --> Service
   Config[DB外の保護された鍵設定] --> Service
@@ -24,7 +25,7 @@ flowchart TD
   Project[本人所有のGoogle Cloud / Web OAuth client] --> Google
 ```
 
-Hermesは意図解釈・ツール選択を行い、Google API・refresh・入力検証・暗号化はGoのサービス層が行う。Google tokenやclient secretをMCP応答・resource・会話へ渡さない。Google Bridgeは明示設定された重要メール本文だけを期限付きで暗号化保存する。既存Hermes cronの単発scriptから同期し、本人のkakerattaへ取り込み待ちとして送る。独自の常駐同期ループは設けない。
+Hermesは意図解釈・ツール選択を行い、Google API・refresh・入力検証・暗号化はGoのサービス層が行う。Google tokenやclient secretをMCP応答・resource・会話へ渡さない。Google Bridgeは明示設定された重要メール本文だけを期限付きで暗号化保存する。既存Hermes cronの単発scriptから同期し、Hermes側workerが取得し、モデルに選別・要約だけを依頼する。判定の提出・自分のkakeratta MCP接続での候補配送・実際のレシートと除外ルールの返却はコードで行う。Bridgeはkakerattaへ直接通信せず、URL・接続キーを保存しない。旧投稿先の資格情報は更新後の起動時に削除する。独自の常駐同期ループは設けない。
 
 [操作と設定の手順](../guides/google_ja.md)を参照。
 
@@ -161,13 +162,13 @@ Phase 2の承認をHermesが自己発行できないこと、送信先・本文�
 
 ユーザーの追加指定により、重要メールを自動で本人の発言に変換せず、Timelineに「取り込み待ち」として表示する。「取り込む」で既存の通常投稿パイプラインへ一度だけ渡し、「取り込まない」で削除して検索からも除外する。Google APIや分類・保管・配信は専用ディレクトリ内に残し、kakeratta側のGoogle OAuth実装や専用ルーターを追加しない。
 
-- Bridge: [inbox.go](../../tools/google-bridge/internal/google/inbox.go) / [timeline.go](../../tools/google-bridge/internal/google/timeline.go)。明示opt-in、履歴差分と404復旧、ページ/処理済みID、ローカル重要度ルール、最大20メッセージ/同期と5配信/同期、本文保持、所有者だけが投稿先と鍵を設定。
+- Bridge: [inbox.go](../../tools/google-bridge/internal/google/inbox.go) / [timeline.go](../../tools/google-bridge/internal/google/timeline.go)。明示opt-in、履歴差分と404復旧、ページ/処理済みID、ローカル重要度ルール、最大20メッセージ/同期、本文保持。google_review_contextは最大5件のtool・arguments・tokenを返し、Hermes側Python workerが自分のkakeratta MCPで配送する。google_review_receiptで実際のレシートをコードで戻す。Bridgeに投稿先や鍵を設定する機能は廃止。
 - kakeratta受付: [gmail_import.go](../../internal/server/gmail_import.go) / [MCP宣言](../../internal/server/mcp_tools.go)。認証済み所有者のMCPだけが`propose_gmail_import`を呼べる。共有judgeは除外。owner指定引数は存在しない。既存workspace lock/CAS、social-stateを再利用する。
 - 待機保管: 通常Timeline・検索索引・memory・personaジョブとは別。通常Timeline APIの最初の既定ページとSSEへ表示用に重ねる。検索やMCPのTimeline読取へは流さない。保留は最大20件/700KiB。本人選択まで保持し、exportには含めない。
 - 取り込み: Web認証限定APIで本人選択を保存し、既存`acceptEntry`を使って本文・出自と初期routing reactionを原子的に受け付ける。重複選択は既存投稿を返す。投稿受付後の後処理が失敗した場合は本人の再試行で清掃し、MCPの再送では自動承認/再実行しない。
 - 破棄: 待機本文を消し、別の単位のreceiptにhash/状態/IDと、本人が選んだ場合だけ種類/Fromの除外設定を残す。再試行・投稿削除後も同じconnection+messageを再提示しない。既に転送・保存されたバックアップの消去は運用保持方針に従う。
 - 出自: [timeline.go](../../internal/timeline/timeline.go)の`ImportSource`、[feed.js](../../frontend/src/feed.js)の待機/取り込み表示。受理後も外部メールとしてモデルへ表示し、メール内の@agent/@personaを強制指名として実行しない。本人が普通に返信して依頼する場合は既存の扱い。
-- スケジュール: [check_google_bridge.py](../../tools/google-bridge/hermes/check_google_bridge.py)を既存Hermes cronのscript gateとして実行する。LLM無効時はno-agent、有効時は通常cronを使う。本文・資格情報をstdoutへ返さず、判定待ちがある回だけwakeAgent=true。ジョブの実環境登録は本人が行う。独自の定期ループや第二ルーターはない。
+- スケジュール: [check_google_bridge.py](../../tools/google-bridge/hermes/check_google_bridge.py)を既存Hermes cronのscript gateとして実行する。cronは--no-agentでgateを動かす。判定待ち・未配送・待機レシート照会がある回にgoogle_bridge_worker.pyを起動し、常にwakeAgent=falseを返す。選別用モデルにはMCP・外部ツールを渡さず、配送・レシート返却はPythonコードが行う。ジョブの実環境登録は本人が行う。独自の定期ループや第二ルーターはない。
 
 元仕様の「重要メールを直ちに通常投稿へ投入」は今回の本人確認方式に置き換える。高い緊急度の自動判定・即時Pushは今回実装しない。予定変更・送信に対する別の人間承認は維持する。取り込みはメール本文中の任意の命令を本人の指示へ格上げする承認ではない。
 
@@ -190,7 +191,7 @@ Phase 2の承認をHermesが自己発行できないこと、送信先・本文�
 
 Timelineの待機カードから独立モーダルを開いて取り込む/取り込まないを決定する。破棄時だけ「この種のメールは取り込まない」「このFromからのメールは取り込まない」を個別に保存できる。前者は種類ルールとしてHermesへ渡し、同じ種類IDをツール層でも拒否する。後者は表示名を除いた正規化アドレス完全一致で、LLMへ渡す前に機械的に除外する。
 
-個人用WebアプリではLLM判定の依頼文と種類・From除外を同じ設定欄に表示し、編集・行削除による解除ができる。通常の同期再試行で解除済みルールが復活しないよう適用済みのフィードバックを記録する。任意のLLM判定は既存Hermesモデルを使用し、独自の推論ループ・モデル用認証経路は追加しない。判定待ちは最大50件、コンテキストは最大10件、本文は設定上限に制限する。正式な取り込みは引き続き本人だけが確定する。
+個人用WebアプリではLLM判定の依頼文と種類・From除外を同じ設定欄に表示し、編集・行削除による解除ができる。Hermes側workerのコードが認証済みkakerattaの実際のレシートをBridgeへ戻す。Bridgeはレシート発行元を独立に検証せず、認証済みHermesの忠実な中継を信頼する。中継の再試行で解除済みルールが復活しないよう適用済みのフィードバックを記録する。任意のLLM判定は既存Hermesモデルを使用し、独自の推論ループ・モデル用認証経路は追加しない。判定待ちは最大50件、コンテキストは最大10件、本文は設定上限に制限する。正式な取り込みは引き続き本人だけが確定する。
 
 ### Phase 4: セットアップ支援
 
@@ -200,7 +201,7 @@ OAuth同意画面とWebクライアントの作成は手動フォールバック
 
 ## 追加指定: Calendarは日次の今日・明日取り込みを優先
 
-空き時間APIと繰り返し予定の新規作成は今回の対象から外す。既存の書き込み経路と独立し、日次に今日・明日の予定を読み取り、各予定をメールと同じ本人確認カードへ届ける。初期設定はprimary / Asia/Tokyo / 説明文2,000文字、停止状態。指定TZの暦日で区切り、定期予定はsingleEventsで各回へ展開する。同じ接続・カレンダー・予定IDは翌日も重複しない。
+空き時間APIと繰り返し予定の新規作成は今回の対象から外す。既存の書き込み経路と独立し、日次に今日・明日の予定を読み取り、Hermesが各予定を選別・要約し、メールと同じ本人確認カードへ自分のkakeratta MCPで届ける。初期設定はprimary / Asia/Tokyo / 説明文2,000文字、停止状態。指定TZの暦日で区切り、定期予定はsingleEventsで各回へ展開する。同じ接続・カレンダー・予定IDは翌日も重複しない。
 
 単なる破棄はその回だけ。チェック付き破棄では、単発はカレンダー＋予定ID、定期予定はカレンダー＋recurringEventIdで機械的に除外する。除外はLLMより前に適用し、専用Webの編集可能なCalendar判定文と並べて表示・解除できる。解除済みルールを古いレシートで復活させない。既に転送した別の回の確認カードは自動削除しない。メールと同じ既存のTimeline受付・ルーター・記憶フローを共用する。
 

@@ -5,10 +5,22 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from contextlib import redirect_stdout
 
-spec = importlib.util.spec_from_file_location("gate", Path(__file__).parents[1] / "hermes" / "check_google_bridge.py")
+spec = importlib.util.spec_from_file_location("gate", Path(__file__).parents[1] / "hermes/check_google_bridge.py")
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
+
+
+class Opener:
+    def __init__(self, responses):
+        self.responses = iter(responses)
+        self.calls = []
+
+    def open(self, request, timeout):
+        self.calls.append(json.loads(request.data)["params"])
+        return io.BytesIO(json.dumps({"result": {"structuredContent": next(self.responses)}}).encode())
 
 
 class GateTests(unittest.TestCase):
@@ -27,50 +39,64 @@ class GateTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     gate.config(path)
 
-    def test_tick_calls_only_sync_and_never_outputs_email(self):
-        class Opener:
-            def open(self, request, timeout):
-                self.body = json.loads(request.data)
-                return io.BytesIO(json.dumps({"result": {"structuredContent": {"importedIds": ["PRIVATE-ID"]}}}).encode())
-        opener = Opener()
-        out = gate.tick({"url": "http://127.0.0.1:8094/mcp", "key": "a" * 64}, opener)
+    def test_idle_tick_calls_only_sync_and_skips_all_models(self):
+        opener = Opener([{"triagePending": 0, "deliveryPending": 0, "messages": ["PRIVATE-BODY"]}])
+        dispatched = []
+        out = gate.tick({"url": "https://bridge.example/mcp", "key": "a"*64}, opener, dispatch=lambda *args: dispatched.append(args))
         self.assertEqual(out, {"wakeAgent": False})
-        self.assertEqual(opener.body["params"], {"name": "gmail_sync", "arguments": {}})
+        self.assertEqual(opener.calls, [{"name": "gmail_sync", "arguments": {}}])
+        self.assertEqual(dispatched, [])
 
-    def test_provider_error_is_not_forwarded(self):
-        class Opener:
+    def test_only_worker_starts_for_classification_or_delivery(self):
+        for tool, service in (("gmail_sync", "gmail"), ("calendar_sync", "calendar")):
+            for counts in ({"triagePending": 2}, {"deliveryPending": 2}):
+                dispatched = []
+                cfg = {"url": "https://bridge.example/mcp", "key": "a"*64}
+                out = gate.tick(cfg, Opener([dict(counts, messages=["PRIVATE-BODY"])]), tool, dispatch=lambda *args: dispatched.append(args))
+                self.assertEqual(out, {"wakeAgent": False})
+                self.assertEqual(dispatched, [(cfg, service)])
+                self.assertNotIn("PRIVATE", json.dumps(out))
+
+    def test_calendar_and_mail_backlogs_are_bounded(self):
+        for tool in ("gmail_sync", "calendar_sync"):
+            opener = Opener([{"hasMore": True}] * 10)
+            dispatched = []
+            out = gate.tick({"url": "https://bridge.example/mcp", "key": "a"*64}, opener, tool, dispatch=lambda *args: dispatched.append(args))
+            self.assertEqual(len(opener.calls), 10)
+            self.assertEqual(len(dispatched), 1)
+            self.assertEqual(out, {"wakeAgent": False})
+            self.assertTrue(all(call["name"] == tool for call in opener.calls))
+
+    def test_invalid_counts_or_provider_error_never_spawn_worker(self):
+        for field, count in (("triagePending", 51), ("deliveryPending", -1), ("deliveryPending", True), ("deliveryPending", 201), ("deliveryPending", "2")):
+            with self.assertRaises(ValueError):
+                gate.tick({"url": "https://x/mcp", "key": "a"*64}, Opener([{field: count}]), dispatch=lambda *args: self.fail("invalid work dispatched"))
+        class ErrorOpener:
             def open(self, request, timeout):
                 return io.BytesIO(b'{"result":{"isError":true,"content":[{"text":"PRIVATE-BODY"}]}}')
         with self.assertRaisesRegex(ValueError, "^Sync failed$"):
-            gate.tick({"url": "https://x/mcp", "key": "a" * 64}, Opener())
+            gate.tick({"url": "https://x/mcp", "key": "a"*64}, ErrorOpener())
 
-class TriageWakeTests(unittest.TestCase):
-    def test_only_pending_classification_wakes_the_agent(self):
-        class Opener:
-            def open(self, request, timeout):
-                return io.BytesIO(b'{"result":{"structuredContent":{"triagePending":2,"messages":["PRIVATE-BODY"]}}}')
-        out = gate.tick({"url": "https://x/mcp", "key": "a" * 64}, Opener())
-        self.assertTrue(out["wakeAgent"])
-        self.assertEqual(out["context"]["triagePending"], 2)
-        self.assertNotIn("PRIVATE-BODY", json.dumps(out))
+    def test_daily_entry_point_uses_calendar_and_never_parent_agent(self):
+        with patch.object(gate, "config", return_value={"url": "https://x/mcp", "key": "a"*64}), patch.object(gate, "tick", return_value={"wakeAgent": False}) as tick, redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(gate.main("calendar_sync"), 0)
+            tick.assert_called_once_with({"url": "https://x/mcp", "key": "a"*64}, tool="calendar_sync")
+            self.assertEqual(json.loads(output.getvalue()), {"wakeAgent": False})
 
+    def test_spawn_passes_keys_only_on_stdin_and_uses_private_log(self):
+        class Proc:
+            class Input(io.StringIO):
+                def close(self): self.saved = self.getvalue()
+            stdin = Input()
+        proc = Proc()
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"HERMES_HOME": tmp}), patch.object(gate.subprocess, "Popen", return_value=proc) as spawn:
+            gate.spawn_worker({"url": "https://bridge.example/mcp", "key": "SECRET-KEY"}, "gmail")
+            args, kwargs = spawn.call_args
+            self.assertNotIn("SECRET-KEY", repr(args))
+            self.assertEqual(kwargs["stdout"], gate.subprocess.DEVNULL)
+            self.assertEqual(json.loads(proc.stdin.saved)["bridge"]["key"], "SECRET-KEY")
+            self.assertEqual((Path(tmp)/"google-bridge/gmail-worker.log").stat().st_mode & 0o777, 0o600)
 
-class CalendarGateTests(unittest.TestCase):
-    def test_calendar_gate_drains_pages_and_only_wakes_for_classification(self):
-        class Opener:
-            count = 0
-            def open(self, request, timeout):
-                self.count += 1
-                args = json.loads(request.data)
-                assert args["params"]["name"] == "calendar_sync"
-                payload = {"hasMore": self.count == 1, "triagePending": 0 if self.count == 1 else 2, "events": ["PRIVATE EVENT"]}
-                return io.BytesIO(json.dumps({"result": {"structuredContent": payload}}).encode())
-        opener = Opener()
-        out = gate.tick({"url": "https://x/mcp", "key": "a" * 64}, opener, "calendar_sync")
-        self.assertEqual(opener.count, 2)
-        self.assertTrue(out["wakeAgent"])
-        self.assertIn("calendar_triage_context", out["context"]["instruction"])
-        self.assertNotIn("PRIVATE EVENT", json.dumps(out))
 
 if __name__ == "__main__":
     unittest.main()

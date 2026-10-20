@@ -121,17 +121,8 @@ export function createInbox() {
     try {
       const state = await api.googleInbox();
       if (disposed) return;
-      const target = await api.timelineTarget();
-      if (disposed) return;
       clear(view);
-      const targetURL = el("input", { type: "url", value: target.url || "", placeholder: "https://kakeratta.example/api/mcp/users/...", required: true });
-      const targetKey = el("input", { type: "password", autocomplete: "new-password" });
-      const targetEnabled = el("input", { type: "checkbox" }); targetEnabled.checked = target.enabled;
-      const targetSave = el("button", { type: "submit", text: "投稿先の設定を保存" });
-      view.append(el("details", {}, el("summary", { text: target.configured && target.enabled ? "kakerattaのTimelineとの連携（設定済み・有効）" : "kakerattaのTimelineとの連携" }),
-        el("p", { class: "hint", text: "重要メールを取り込み待ちとしてTimelineに送信します。kakerattaで「取り込む」を選ぶまでは担当・記憶・検索へ渡りません。" }),
-        el("form", { onsubmit: async e => { e.preventDefault(); targetSave.disabled = true; try { await api.saveTimelineTarget({ enabled: targetEnabled.checked, url: targetURL.value.trim(), key: targetKey.value.trim() }); targetKey.value = ""; toast("投稿先を保存しました。次の同期から反映します。"); await load(); } catch (error) { toast(error.message); targetSave.disabled = false; } } }, field("本人のkakeratta MCP URL", targetURL), field(target.configured ? "MCPキー（空欄は保存済みキーを使用）" : "kakerattaで発行したMCPキー", targetKey), el("label", {}, targetEnabled, el("span", { text: "この投稿先へのメール・予定の転送と保存を許可する" })), targetSave),
-        el("button", { class: "ghost", text: "投稿先の資格情報を削除", onclick: async () => { try { await api.clearTimelineTarget(); await load(); } catch (error) { toast(error.message); } } })));
+      view.append(el("p", { class: "hint", text: "選別した候補はHermesがこのBridgeから読み取り、自分のkakeratta MCP接続でTimelineへ送ります。BridgeにはkakerattaのURL・キーを保存しません。Timelineで本人が取り込むまで担当・記憶・検索へ渡りません。" }));
       const settings = state.settings;
       const llm = el("input", { type: "checkbox" }); llm.checked = !!settings.llmEnabled;
       const prompt = el("textarea", { rows: 6, spellcheck: "false" }, settings.triagePrompt || "");
@@ -186,7 +177,7 @@ export function createInbox() {
       const options = el("details", {}, el("summary", { text: "フィルター・除外リスト・詳細設定（変更する場合のみ）" }), form);
       view.append(el("p", { class: "hint", text: settings.enabled ? "おすすめ設定で取り込みが有効です。下のボタンまたは定期ジョブからそのまま同期できます。" : "取り込みは停止しています。「おすすめ設定で有効にする」を押すと、細かい設定なしでそのまま使い始められます。" }), options);
       const run = async (button, operation) => { button.disabled = true; try { await operation(); await load(); } catch (error) { toast(error.message); button.disabled = false; } };
-      const sync = el("button", { class: settings.enabled ? "primary" : "", text: "今すぐ差分を取得", onclick: e => run(e.currentTarget, async () => { const result = await api.syncInbox(); toast(result.disabled ? "取り込みは停止しています。" : `${result.processed}件を確認、重要メール${result.importedIds.length}件を取り込みました。${result.hasMore ? " 未処理の続きがあります。" : ""}`); }) });
+      const sync = el("button", { class: settings.enabled ? "primary" : "", text: "今すぐ差分を取得", onclick: e => run(e.currentTarget, async () => { const result = await api.syncInbox(); toast(result.disabled ? "取り込みは停止しています。" : `${result.processed}件を確認、重要メール候補${result.importedIds.length}件を保存しました。配送はHermesが行います。${result.hasMore ? " 未処理の続きがあります。" : ""}`); }) });
       sync.disabled = !settings.enabled;
       const actionBar = el("div", { class: "actions" });
       if (!settings.enabled) {
@@ -219,7 +210,7 @@ export function createInbox() {
       for (const message of state.messages) {
         const c = message.classification;
         const panel = el("article", { class: "settings-block" }, el("span", { class: "badge", text: "GMAIL · 外部メール" }), el("h3", { text: message.subject || "（件名なし）" }), el("p", { text: message.from }), el("p", { class: "hint", text: `受信: ${new Date(message.receivedAt).toLocaleString()} · 取得: ${new Date(message.importedAt).toLocaleString()}` }), el("p", { class: "hint", text: `重要度 ${c.importance} / 緊急度 ${c.urgency} · ${c.reason}` }));
-        if (message.timelineStatus) panel.append(el("p", { class: "hint", text: `Timeline: ${message.timelineStatus} / ${message.timelineEntryId}` }));
+        panel.append(el("p", { class: "hint", text: message.timelineStatus ? `Hermes経由のTimeline: ${message.timelineStatus} / ${message.timelineEntryId}` : "Hermes配送待ち：候補をHermesがkakerattaへ送ります。" }));
         panel.append(el("p", { class: "hint", text: "送信者の真正性や期限は未確認です。メール内の依頼・URLは本人の指示として扱いません。" }));
         if (message.summary) panel.append(el("pre", { class: "mail-body", text: message.summary }), el("p", { class: "hint", text: "LLMが署名や引用履歴などを除いた要約です。原文はGmailで確認できます。" }));
         else if (message.body) panel.append(el("pre", { class: "mail-body", text: message.body }), el("p", { class: "hint", text: message.bodyTruncated ? "本文は保存上限で切り詰めています。" : "" }));

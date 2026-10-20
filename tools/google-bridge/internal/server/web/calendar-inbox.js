@@ -43,7 +43,7 @@ export function createCalendarInbox() {
           await api.saveCalendarInboxSettings({ enabled: enabled.checked, llmEnabled: llm.checked, calendarId: calendar.value.trim(), timeZone: zone.value.trim(), triagePrompt: prompt.value, bodyChars: Number(chars.value), excludedEvents: exclusions });
           toast("予定の取り込み設定を保存しました。解除は今後の新しい予定に適用します。"); await load();
         } catch (error) { toast(error.message); save.disabled = false; }
-      } }, check(enabled, "今日・明日の予定を読み取り、暗号化保存し、設定したkakerattaへ取り込み候補として送ることを許可する"),
+      } }, check(enabled, "今日・明日の予定を読み取り、暗号化保存し、Hermesへ取り込み候補として渡すことを許可する"),
       check(llm, "HermesのLLMで予定の取り込み候補を選ぶ（おすすめ）"),
       el("h3", { text: "機械的に除外する予定・定期予定" }), rules,
       el("p", { class: "hint", text: "Timelineでチェック付き破棄を選んだ予定・定期予定がここに追加されます。" }),
@@ -69,7 +69,7 @@ export function createCalendarInbox() {
       if (state.lastError) view.append(el("p", { role: "status", text: state.lastError }));
       if (state.nextAttemptAt) view.append(el("p", { class: "hint", text: `再試行可能: ${new Date(state.nextAttemptAt).toLocaleString()}` }));
       for (const item of state.events) {
-        const panel = el("article", { class: "settings-block" }, el("h3", { text: item.summary || "（タイトルなし）" }), el("p", { class: "hint", text: `Timeline: ${item.timelineStatus || "未配信"}` }));
+        const panel = el("article", { class: "settings-block" }, el("h3", { text: item.summary || "（タイトルなし）" }), el("p", { class: "hint", text: `Hermes経由のTimeline: ${item.timelineStatus || "Hermes配送待ち"}` }));
         if (item.sourceUrl) {
           try {
             const link = new URL(item.sourceUrl);

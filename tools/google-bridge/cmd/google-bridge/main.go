@@ -165,7 +165,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	app.BootstrapLocalDefaults(context.Background(), "", "")
+	app.BootstrapLocalDefaults(context.Background())
 	server := &http.Server{Handler: app, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	addrs := strings.Split(cfg.Listen, ",")
 	listeners := make([]net.Listener, 0, len(addrs))

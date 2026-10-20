@@ -39,9 +39,7 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 	if len(v.Data) == 32 {
 		authorized = digestMatches(token, v.Data)
 	} else if !digestMatches(token, s.adminDigest[:]) {
-		if token != "" && s.google.MatchTimelineKey(r.Context(), token) {
-			authorized = true
-		} else if (s.loopback || isLocalOrLoopback(r.RemoteAddr)) && len(v.Data) == 0 && header == "" && r.Header.Get("Origin") == "" && r.Header.Get("Sec-Fetch-Site") == "" {
+		if (s.loopback || isLocalOrLoopback(r.RemoteAddr)) && len(v.Data) == 0 && header == "" && r.Header.Get("Origin") == "" && r.Header.Get("Sec-Fetch-Site") == "" {
 			authorized = true
 		}
 	}

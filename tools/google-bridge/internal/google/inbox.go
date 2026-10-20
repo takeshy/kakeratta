@@ -49,7 +49,6 @@ type InboxMessage struct {
 	CategoryLabel   string             `json:"categoryLabel,omitempty"`
 	TimelineStatus  string             `json:"timelineStatus,omitempty"`
 	TimelineEntryID string             `json:"timelineEntryId,omitempty"`
-	TimelineTarget  string             `json:"timelineTarget,omitempty"`
 	SourceType      string             `json:"sourceType"`
 	TrustLevel      string             `json:"trustLevel"`
 	ConnectionID    string             `json:"connectionId"`
@@ -81,6 +80,7 @@ type gmailSyncState struct {
 	Messages           []InboxMessage
 	Candidates         []InboxMessage
 	TriageReceipts     map[string]triageReceipt
+	DeliveryCursor     int
 	FeedbackSeen       map[string]bool
 	LastSyncedAt       *time.Time
 	LastError          string
@@ -98,11 +98,12 @@ type InboxView struct {
 	Instructions  string         `json:"instructions"`
 }
 type SyncResult struct {
-	Processed     int      `json:"processed"`
-	ImportedIDs   []string `json:"importedIds"`
-	HasMore       bool     `json:"hasMore"`
-	Disabled      bool     `json:"disabled"`
-	TriagePending int      `json:"triagePending"`
+	DeliveryPending int      `json:"deliveryPending"`
+	Processed       int      `json:"processed"`
+	ImportedIDs     []string `json:"importedIds"`
+	HasMore         bool     `json:"hasMore"`
+	Disabled        bool     `json:"disabled"`
+	TriagePending   int      `json:"triagePending"`
 }
 
 func defaultInboxSettings() InboxSettings {
@@ -644,16 +645,11 @@ func (s *Service) SyncGmail(ctx context.Context) (result SyncResult, err error) 
 	if e = s.save(ctx, "gmail-inbox", r); e != nil {
 		return result, e
 	}
-	if e = s.publishInbox(ctx, st); e != nil {
-		return result, e
-	}
-	if e = s.save(ctx, "gmail-inbox", r); e != nil {
-		return result, e
-	}
+	result.DeliveryPending = mailDeliveryCount(st)
 	return result, nil
 }
 
-func (s *Service) BootstrapLocalDefaults(ctx context.Context, timelineURL, timelineKey string) {
+func (s *Service) BootstrapLocalDefaults(ctx context.Context) {
 	ctx, unlock, e := s.lock(ctx)
 	if e != nil {
 		return
@@ -669,11 +665,5 @@ func (s *Service) BootstrapLocalDefaults(ctx context.Context, timelineURL, timel
 	if r, e := s.read(ctx, "calendar-inbox"); e == nil && r.CalendarInbox == nil {
 		r.CalendarInbox = &calendarSyncState{Settings: CalendarInboxSettings{Enabled: true, LLMEnabled: true, CalendarID: "primary", TimeZone: "Asia/Tokyo", TriagePrompt: defaultCalendarPrompt, ExcludedEvents: []CalendarExclusion{}, BodyChars: 2000}}
 		_ = s.save(ctx, "calendar-inbox", r)
-	}
-	if timelineURL != "" && len(timelineKey) == 64 {
-		if r, e := s.read(ctx, "timeline-target"); e == nil && r.Target == nil {
-			r.Target = &timelineTarget{Enabled: true, URL: timelineURL, Key: timelineKey}
-			_ = s.save(ctx, "timeline-target", r)
-		}
 	}
 }

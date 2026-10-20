@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 )
@@ -27,6 +26,7 @@ type CalendarInboxSettings struct {
 	BodyChars      int                 `json:"bodyChars"`
 }
 type CalendarInboxEvent struct {
+	ReviewSummary   string    `json:"reviewSummary,omitempty"`
 	ConnectionID    string    `json:"connectionId"`
 	CalendarID      string    `json:"calendarId"`
 	EventID         string    `json:"eventId"`
@@ -41,7 +41,6 @@ type CalendarInboxEvent struct {
 	TrustLevel      string    `json:"trustLevel"`
 	TimelineStatus  string    `json:"timelineStatus,omitempty"`
 	TimelineEntryID string    `json:"timelineEntryId,omitempty"`
-	TimelineTarget  string    `json:"timelineTarget,omitempty"`
 }
 type calendarSyncState struct {
 	ConnectionID                                      string
@@ -51,6 +50,7 @@ type calendarSyncState struct {
 	Pending                                           []event
 	Processed                                         map[string]bool
 	Events, Candidates                                []CalendarInboxEvent
+	DeliveryCursor                                    int
 	FeedbackSeen                                      map[string]bool
 	TriageReceipts                                    map[string]triageReceipt
 	LastSyncedAt                                      *time.Time
@@ -145,7 +145,12 @@ func pruneCalendar(st *calendarSyncState) {
 				continue
 			}
 			e.Description, _ = inboxBody(e.Description, st.Settings.BodyChars)
-			e.Body = formatCalendarBody(e.Context, e.Description)
+			e.ReviewSummary, _ = inboxBody(e.ReviewSummary, st.Settings.BodyChars)
+			description := e.Description
+			if e.ReviewSummary != "" {
+				description = e.ReviewSummary
+			}
+			e.Body = formatCalendarBody(e.Context, description)
 			out = append(out, e)
 		}
 		return out
@@ -395,82 +400,13 @@ func (s *Service) SyncCalendar(ctx context.Context, force bool) (SyncResult, err
 	st.LastSyncedAt = &now
 	st.NextAttemptAt = nil
 	st.LastError = ""
-	// Checkpoint the read batch before any review delivery. Delivery is safe to
-	// replay by connection/calendar/occurrence identity after a lost response.
+	// Persist fetched candidates locally. Hermes relays them over its own
+	// authenticated kakeratta MCP connection; Bridge never contacts kakeratta.
 	if e = s.save(ctx, "calendar-inbox", r); e != nil {
 		return result, e
 	}
-	if e = s.publishCalendar(ctx, st); e != nil {
-		st.LastError = e.Error()
-	}
-	if se := s.save(ctx, "calendar-inbox", r); se != nil {
-		return result, se
-	}
 	result.TriagePending = len(st.Candidates)
+	result.DeliveryPending = calendarDeliveryCount(st)
 	result.HasMore = calendarView(st).HasMore
-	return result, e
-}
-func (s *Service) publishCalendar(ctx context.Context, st *calendarSyncState) error {
-	r, e := s.read(ctx, "timeline-target")
-	if e != nil {
-		return e
-	}
-	t := r.Target
-	if t == nil || !t.Enabled || !st.Settings.Enabled {
-		return nil
-	}
-	target := digest(t.URL)
-	sort.SliceStable(st.Events, func(i, j int) bool {
-		return st.Events[i].TimelineTarget != target && st.Events[j].TimelineTarget == target
-	})
-	sent := 0
-	for i := 0; i < len(st.Events); i++ {
-		if sent >= 5 {
-			break
-		}
-		item := &st.Events[i]
-		if item.TimelineTarget == target && item.TimelineStatus == "accepted" {
-			continue
-		}
-		if excludedCalendar(st, *item) {
-			continue
-		}
-		payload := map[string]any{"connectionId": item.ConnectionID, "calendarId": item.CalendarID, "eventId": item.EventID, "seriesId": item.SeriesID, "summary": item.Summary, "body": item.Body, "importedAt": item.ImportedAt, "sourceUrl": item.SourceURL}
-		receipt, e := s.deliverImport(ctx, t, "propose_calendar_import", map[string]any{"event": payload})
-		if e != nil {
-			return e
-		}
-		sent++
-		feedback := digest(struct{ Target, Entry string }{target, receipt.EntryID})
-		if receipt.Status == "rejected" && !st.FeedbackSeen[feedback] {
-			if x := receipt.ExcludedCalendar; x != nil {
-				if !validCalendarExclusion(*x) || x.CalendarID != item.CalendarID || x.EventID != item.EventID || x.SeriesID != item.SeriesID {
-					return ErrTimeline
-				}
-				if !excludedCalendar(st, *item) {
-					if len(st.Settings.ExcludedEvents) >= 200 {
-						return ErrInput
-					}
-					st.Settings.ExcludedEvents = append(st.Settings.ExcludedEvents, *x)
-				}
-			}
-			st.FeedbackSeen[feedback] = true
-		}
-		item.TimelineStatus = receipt.Status
-		item.TimelineEntryID = receipt.EntryID
-		item.TimelineTarget = target
-		if receipt.Status == "rejected" {
-			item.Body = ""
-			item.Summary = ""
-		}
-	}
-	rows := []CalendarInboxEvent{}
-	for _, item := range st.Events {
-		if item.TimelineStatus != "rejected" && !excludedCalendar(st, item) {
-			rows = append(rows, item)
-		}
-	}
-	st.Events = rows
-	pruneCalendar(st)
-	return nil
+	return result, nil
 }

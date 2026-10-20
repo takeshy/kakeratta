@@ -70,6 +70,53 @@
 図解担当では初期状態でオンです。「詳しく」と頼むと、標準構成では最上位の回答モデルを使います。
 モデルごとの役割は[設計と連携](#設計と連携)を参照してください。
 
+## Gmail・Google Calendar連携
+
+[Google Bridge](tools/google-bridge/README.md)は、自分の端末・サーバーで動かす、
+個人用の独立Webアプリ兼MCPサーバーです。自分のGoogle Cloudプロジェクトと
+OAuthクライアントで接続し、Googleの資格情報はBridge専用の保存先へ暗号化して保存します。
+Bridge単体の起動にkakeratta本体は不要です。
+
+| 機能 | 動作 |
+| --- | --- |
+| 重要なGmailを拾う | 差分同期し、ラベル・送信元のルールと任意のHermesによるLLM判定で候補を選びます。LLM判定では署名や引用履歴などを除いた要約を届けます。 |
+| 今日・明日の予定を確認する | 指定したタイムゾーンで日次に取得します。終日・定期予定の各回に対応し、この取り込みでGoogle Calendarは変更しません。 |
+| 確認してから取り込む | Hermesが届けたTimelineの待機カードで「取り込む／取り込まない」を選びます。「取り込む」で初めて通常投稿・担当への振り分け・記憶の処理へ進み、待機中は検索や担当の処理へ入りません。 |
+| 不要なものを次回から除外する | 破棄時にメールの種類・完全一致の送信元、単発予定・定期予定全体を除外できます。Bridgeで解除でき、送信元と予定の除外はLLM判定より前に適用します。 |
+| Hermesへ直接頼む | MCPでメール検索・本文・スレッドや予定を読めます。追加権限があれば、本人の明示的な依頼で送信・返信・下書き保存・予定の作成／変更／削除もできます。取り込みとは別の操作で、直接依頼用ツールはWebでの再承認なしに実行します。 |
+
+```mermaid
+flowchart LR
+  Google[Gmail / Google Calendar] -->|OAuthで読み取り| Bridge[自分のGoogle Bridge]
+  Cron[自分のHermes cron] --> Worker[Hermes側worker: コード]
+  Worker <-->|同期・候補取得・判定結果| Bridge
+  Worker <-->|選別・要約のみ| Model[Hermesのモデル]
+  Worker -->|kakeratta MCPで候補を送る| Pending[Timeline: 取り込み待ち]
+  Pending -->|実際のレシートをコードで返す| Worker
+  Owner[本人] -->|取り込む / 取り込まない| Pending
+  Pending -->|取り込む| Posts[通常投稿 → 担当 → 記憶]
+  Owner -->|明示的な直接依頼| Direct[自分のHermesエージェント]
+  Direct -->|追加権限付きの書き込みツール| Bridge
+  Bridge -->|依頼された送信・予定変更| Google
+```
+
+Hermes側workerがBridgeから候補を取得し、LLMには選別・要約だけを任せます。
+担当の回答提出と同じく、判定結果の提出・候補配送・レシート確認・除外ルールの返却はコードで行います。
+選別用の隔離セッションにはMCP接続や配送ツールを渡しません。BridgeはkakerattaのURL・キーを保存せず、直接通信もしません。
+既存Hermes cronは`--no-agent`付きでgateを実行し、配送だけの回と仕事がない回はモデルのトークンを使いません。
+Hermesへ渡すメール・予定は、設定したモデルにも
+送られます。取り込んだ予定はその時点の内容で、Google側の変更は既存カードや投稿へ自動反映しません。
+直接依頼による書き込みはHermesが本人の指示に従うことが前提で、サーバーは依頼の真正性を
+検証できません。判定用ジョブでは書き込みツールを除外してください。
+
+<img src="docs/captures/google-bridge/gmail.png" alt="Google Bridgeで予約メールを同期し、Hermesの配送を待つ候補の画面" width="620">
+<img src="docs/captures/google-bridge/calendar.png" alt="Google Bridgeで今日・明日の予定を同期し、Hermesの配送を待つ候補の画面" width="620">
+
+スクリーンショットは実際の画面コードとサンプルAPI応答で同期操作を撮影したものです。
+実Googleアカウントの画面ではありません。[上級マニュアルのセットアップ](https://kakeratta.net/manual/?guide=advanced&lang=ja#ja-google)と
+[詳しい設定・運用・復旧手順](docs/guides/google_ja.md)を参照してください。
+実Google OAuthと実Hermesの接続は未検証で、画像は画面の操作例です。
+
 ## ローカルで動かす
 
 Go 1.26以降・Node.js・[Task](https://taskfile.dev) と、Nebius Token Factoryの
@@ -169,6 +216,7 @@ NemoClaw/OpenShellのサンドボックスで検証した構成は、下の連�
 | [AIで難しかったこと](docs/design/ai-lessons_ja.md) | 開発や運用で起きた失敗と対処 |
 | [外部エージェント](docs/guides/hermes_ja.md) | Hermes・LLM Connect Hubの接続、MCP権限、代替実行、`@agent` での直接依頼 |
 | [NemoClaw連携レポート](docs/reports/nemoclaw-hermes-integration_ja.md) | サンドボックス構成と検証。当時のプロトコルも明記 |
+| [Gmail・Calendar連携](docs/guides/google_ja.md) | Google Bridge、OAuth、本人選択式の取り込み、Hermes cron |
 | [Google Cloudへのデプロイ](infra/README_ja.md) | Cloud Run構成と暫定運用の共有VM |
 
 [MITライセンス](LICENSE)です。

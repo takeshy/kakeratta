@@ -323,7 +323,7 @@ func TestDirectRequestRunsOnceWithoutWebApproval(t *testing.T) {
 	}
 }
 
-func TestLoopbackKeylessAndKakerattaKeyMCP(t *testing.T) {
+func TestLoopbackKeylessDoesNotAcceptKakerattaKey(t *testing.T) {
 	w, err := store.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -341,16 +341,43 @@ func TestLoopbackKeylessAndKakerattaKeyMCP(t *testing.T) {
 		t.Fatal("loopback keyless MCP rejected", out.Code, out.Body.String())
 	}
 	kakerattaKey := strings.Repeat("c", 64)
-	if _, err := s.google.SetTimelineTarget(context.Background(), googletools.TimelineTargetInput{Enabled: true, URL: "https://kakeratta.example/api/mcp/users/me", Key: kakerattaKey}); err != nil {
-		t.Fatal(err)
-	}
 	r = httptest.NewRequest("POST", "http://127.0.0.1:8132/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
 	r.Header.Set("Authorization", "Bearer "+kakerattaKey)
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Accept", "application/json, text/event-stream")
 	out = httptest.NewRecorder()
 	s.ServeHTTP(out, r)
-	if out.Code != 200 {
-		t.Fatal("kakeratta timeline key rejected on MCP", out.Code, out.Body.String())
+	if out.Code != 401 {
+		t.Fatal("unrelated kakeratta key accepted on Bridge MCP", out.Code, out.Body.String())
+	}
+}
+
+func TestReviewRelayToolsUsePersonalMCPAndAcceptFullKakerattaReceipts(t *testing.T) {
+	s, c := app(t)
+	credential := key(t, s, c)
+	list := mcp(s, credential, "tools/list", "", "")
+	for _, name := range []string{"google_review_context", "google_review_receipt"} {
+		if !strings.Contains(list.Body.String(), name) {
+			t.Fatal("relay tool missing", name)
+		}
+	}
+	// The real receiver includes hash. This must pass strict decoding; an
+	// unconnected owner then fails consent, rather than rejecting the receipt schema.
+	args := `{"service":"gmail","token":"` + strings.Repeat("a", 64) + `","receipt":{"status":"pending","entryId":"gmail_example","hash":"receiver-content-hash"}}`
+	out := mcp(s, credential, "tools/call", "google_review_receipt", args)
+	if !strings.Contains(out.Body.String(), googletools.ErrConsent.Error()) {
+		t.Fatal(out.Body.String())
+	}
+	other, _ := app(t)
+	if out = mcp(other, credential, "tools/call", "google_review_context", `{"service":"gmail"}`); out.Code != 401 {
+		t.Fatal("relay credential crossed instance", out.Code)
+	}
+	if out = mcp(s, credential, "tools/call", "google_review_context", `{"service":"gmail","owner":"other"}`); !strings.Contains(out.Body.String(), googletools.ErrInput.Error()) {
+		t.Fatal("owner override accepted", out.Body.String())
+	}
+	for _, method := range []string{"GET", "PUT", "DELETE"} {
+		if out = web(s, c, method, "/api/timeline-target", `{}`); out.Code != 404 {
+			t.Fatal("legacy destination endpoint still exposed", method, out.Code)
+		}
 	}
 }

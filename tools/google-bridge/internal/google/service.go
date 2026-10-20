@@ -79,7 +79,24 @@ func New(w store.Workspace, cfg Config) (*Service, error) {
 	}
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	client.Timeout = 20 * time.Second
-	return &Service{w: w, cfg: cfg, http: client}, nil
+	s := &Service{w: w, cfg: cfg, http: client}
+	// Remove credentials from the former direct-to-kakeratta transport, even
+	// when its old encryption key is no longer configured. No decrypt needed.
+	ctx, unlock, err := s.lock(context.Background())
+	if err != nil {
+		return nil, ErrStorage
+	}
+	defer unlock()
+	legacy, err := w.SocialValue(ctx, s.storageKey("timeline-target"))
+	if err != nil {
+		return nil, ErrStorage
+	}
+	if len(legacy.Data) != 0 {
+		if err = s.save(ctx, "timeline-target", record{}); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
 }
 
 type clientConfig struct {
@@ -111,7 +128,6 @@ type record struct {
 	Pending       *pending
 	Ledger        *actionLedger
 	Sync          *gmailSyncState
-	Target        *timelineTarget
 }
 type envelope struct {
 	KeyVersion        string
@@ -171,7 +187,7 @@ func (s *Service) save(ctx context.Context, name string, r record) error {
 		return ErrStorage
 	}
 	var data []byte
-	if r.Connection != nil || r.Pending != nil || r.Ledger != nil || r.Sync != nil || r.Target != nil || r.CalendarInbox != nil {
+	if r.Connection != nil || r.Pending != nil || r.Ledger != nil || r.Sync != nil || r.CalendarInbox != nil {
 		plain, err := json.Marshal(r)
 		if err != nil {
 			return ErrStorage

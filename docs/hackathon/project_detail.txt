@@ -70,6 +70,8 @@ You can inspect, trace, correct, or forget any memory without deleting the origi
 
 For longer research, local files, or work requiring your own tools, write `@agent` to send a post directly to an external agent such as Hermes. Its answer appears in the same conversation, where you can continue the request. You can see whether the agent is waiting or working, and choose whether its reply triggers a phone notification.
 
+Google Bridge connects your own Gmail and Google Calendar through a personal Web app and MCP server, using your Google Cloud project and OAuth client. A worker in your Hermes environment retrieves important mail and today's and tomorrow's events through Bridge, asks the model only to select and summarize, and submits pending Timeline cards in code through its own kakeratta MCP connection; only items you choose to import enter persona and memory processing. Separately, an explicit request to your Hermes agent can send or reply to mail and create, change, or delete events with the additional Google permissions.
+
 ## How we built it
 
 ### Data management and architecture

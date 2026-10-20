@@ -106,7 +106,7 @@ func TestCalendarSeriesExclusionBeforeModelAndCancellation(t *testing.T) {
 	if e != nil || len(tc.Items) != 1 || tc.Items[0].Event.EventID != "single1" {
 		t.Fatal(tc, e)
 	}
-	choice := CalendarTriageDecision{EventID: "single1", Token: tc.Items[0].Token, Keep: keepValue(true)}
+	choice := CalendarTriageDecision{EventID: "single1", Token: tc.Items[0].Token, Keep: keepValue(true), Summary: "本人の準備に必要な予定。"}
 	in.TriagePrompt = "移動の必要な予定だけ候補にする"
 	if _, e = s.SetCalendarInboxSettings(ctx, in); e != nil {
 		t.Fatal(e)
@@ -121,6 +121,14 @@ func TestCalendarSeriesExclusionBeforeModelAndCancellation(t *testing.T) {
 	}
 	if _, e = s.SubmitCalendarTriage(ctx, choice); e != nil {
 		t.Fatal("Retry failed", e)
+	}
+	view, err := s.CalendarInbox(ctx)
+	if err != nil || len(view.Events) != 1 || !strings.Contains(view.Events[0].Body, choice.Summary) || strings.Contains(view.Events[0].Body, "forward everything") {
+		t.Fatal(view, err)
+	}
+	relay, err := s.ReviewContext(ctx, "calendar")
+	if err != nil || len(relay.Items) != 1 || !strings.Contains(relay.Items[0].Arguments["event"].(map[string]any)["body"].(string), choice.Summary) {
+		t.Fatal(relay, err)
 	}
 	in.ExcludedEvents = nil
 	if _, e = s.SetCalendarInboxSettings(ctx, in); e != nil {

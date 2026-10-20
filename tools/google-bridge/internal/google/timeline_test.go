@@ -3,7 +3,6 @@ package google
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,145 +14,214 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 )
 
-func TestBridgeDeliversRealKakerattaReviewAndRespectsDiscard(t *testing.T) {
+func reviewApp(t *testing.T) (*kserver.Server, *store.Store, string, string) {
+	t.Helper()
 	w, e := store.Open(t.TempDir())
 	if e != nil {
 		t.Fatal(e)
 	}
 	app := kserver.New(kserver.Options{Store: w, Catalogue: persona.NewCatalogue(w), Alarm: func(time.Time) error { return nil }})
 	t.Cleanup(app.Close)
-	request := httptest.NewRequest("POST", "https://timeline.example/api/mcp/connection", strings.NewReader(`{}`))
-	rec := httptest.NewRecorder()
-	app.ServeHTTP(rec, request)
-	if rec.Code != 200 {
-		t.Fatal(rec.Body.String())
-	}
-	var credential struct {
+	out := httptest.NewRecorder()
+	app.ServeHTTP(out, httptest.NewRequest("POST", "https://timeline.example/api/mcp/connection", strings.NewReader(`{}`)))
+	var key struct {
 		Key  string `json:"key"`
 		Path string `json:"path"`
 	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &credential)
+	if json.Unmarshal(out.Body.Bytes(), &key) != nil || key.Key == "" {
+		t.Fatal(out.Body.String())
+	}
+	return app, w, key.Path, key.Key
+}
+
+// This test helper is Hermes: only it holds the kakeratta credential. Bridge's
+// HTTP transport is never given that destination or credential.
+func relayReview(t *testing.T, app *kserver.Server, path, key string, item ReviewItem) ImportReceipt {
+	t.Helper()
+	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": item.Tool, "arguments": item.Arguments}})
+	req := httptest.NewRequest("POST", "https://timeline.example"+path, strings.NewReader(string(b)))
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	out := httptest.NewRecorder()
+	app.ServeHTTP(out, req)
+	var rpc struct {
+		Result struct {
+			Structured ImportReceipt `json:"structuredContent"`
+			IsError    bool          `json:"isError"`
+		} `json:"result"`
+	}
+	if json.Unmarshal(out.Body.Bytes(), &rpc) != nil || rpc.Result.IsError || rpc.Result.Structured.EntryID == "" {
+		t.Fatal(out.Code, out.Body.String())
+	}
+	return rpc.Result.Structured
+}
+func TestHermesRelaysRealKakerattaReviewWithLostReceiptAndDiscard(t *testing.T) {
+	app, w, path, key := reviewApp(t)
 	s, p := importSetup(t)
 	ctx := context.Background()
 	enableInbox(t, s)
 	p.history = `[]`
 	base := s.http.Transport
-	deliveries := 0
-	loseResponse := true
+	calls := 0
 	s.http.Transport = transport(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "timeline.example" {
-			deliveries++
-			out := httptest.NewRecorder()
-			app.ServeHTTP(out, r)
-			if loseResponse {
-				loseResponse = false
-				return nil, io.ErrUnexpectedEOF
-			}
-			return out.Result(), nil
+			t.Fatal("Bridge contacted kakeratta directly")
 		}
+		calls++
 		return base.RoundTrip(r)
 	})
-	target := TimelineTargetInput{Enabled: true, URL: "https://timeline.example" + credential.Path, Key: credential.Key}
-	if _, e = s.SetTimelineTarget(ctx, target); e != nil {
+	if _, e := s.SyncGmail(ctx); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = s.SyncGmail(ctx); e != ErrTimeline {
+	view, _ := s.Inbox(ctx)
+	if len(view.Messages) != 1 || view.Messages[0].TimelineStatus != "" {
+		t.Fatal(view)
+	}
+	page := httptest.NewRecorder()
+	app.ServeHTTP(page, httptest.NewRequest("GET", "/api/timeline", nil))
+	var timeline store.TimelinePage
+	_ = json.Unmarshal(page.Body.Bytes(), &timeline)
+	if len(timeline.Entries) != 0 {
+		t.Fatal("sync published without Hermes")
+	}
+	batch, e := s.ReviewContext(ctx, "gmail")
+	if e != nil || len(batch.Items) != 1 {
+		t.Fatal(batch, e)
+	}
+	before := calls
+	first := relayReview(t, app, path, key, batch.Items[0]) // Simulate a lost response to Hermes.
+	again := relayReview(t, app, path, key, batch.Items[0])
+	if first.EntryID != again.EntryID || again.Status != "pending" {
+		t.Fatal(first, again)
+	}
+	input := ReviewReceiptInput{Service: "gmail", Token: batch.Items[0].Token, Receipt: again}
+	if _, e = s.ReviewReceipt(ctx, input); e != nil {
 		t.Fatal(e)
-	} // Delivery succeeded, receipt was lost.
+	}
 	entries, _ := w.Timeline()
 	if len(entries) != 0 {
-		t.Fatal("pending mail reached real timeline store")
+		t.Fatal("pending candidate reached normal posts")
 	}
-	if _, e = s.SyncGmail(ctx); e != nil {
-		t.Fatal(e)
-	}
-	view, e := s.Inbox(ctx)
-	if e != nil || len(view.Messages) != 1 || view.Messages[0].TimelineStatus != "pending" {
-		t.Fatal(view, e)
-	}
-	pageReq := httptest.NewRequest("GET", "/api/timeline", nil)
 	out := httptest.NewRecorder()
-	app.ServeHTTP(out, pageReq)
-	var page store.TimelinePage
-	_ = json.Unmarshal(out.Body.Bytes(), &page)
-	if len(page.Entries) != 1 || page.Entries[0].Import.Status != "pending" {
-		t.Fatal(out.Body.String())
-	}
-	id := view.Messages[0].TimelineEntryID
-	delivered := view.Messages[0]
-	decision := httptest.NewRequest("POST", "/api/imports/"+id+"/decision", strings.NewReader(`{"accept":false,"excludeSimilar":true,"excludeSender":true}`))
-	out = httptest.NewRecorder()
-	app.ServeHTTP(out, decision)
+	app.ServeHTTP(out, httptest.NewRequest("POST", "/api/imports/"+again.EntryID+"/decision", strings.NewReader(`{"accept":false,"excludeSimilar":true,"excludeSender":true}`)))
 	if out.Code != 200 {
 		t.Fatal(out.Body.String())
 	}
-	if _, e = s.SyncGmail(ctx); e != nil {
+	batch, e = s.ReviewContext(ctx, "gmail")
+	if e != nil || len(batch.Items) != 1 {
+		t.Fatal(batch, e)
+	}
+	input.Token = batch.Items[0].Token
+	input.Receipt = relayReview(t, app, path, key, batch.Items[0])
+	if _, e = s.ReviewReceipt(ctx, input); e != nil {
 		t.Fatal(e)
 	}
 	view, e = s.Inbox(ctx)
-	if e != nil || len(view.Messages) != 0 {
-		t.Fatal("rejected mail retained", view, e)
+	if e != nil || len(view.Messages) != 0 || len(view.Settings.ExcludedTypes) != 1 || !has(view.Settings.ExcludedSenders, "sender@example.com") {
+		t.Fatal(view, e)
 	}
-	if len(view.Settings.ExcludedTypes) != 1 {
-		t.Fatal("discard did not learn a mail type", view.Settings)
+	if calls != before {
+		t.Fatal("relay or receipts made outbound calls")
 	}
-	if !has(view.Settings.ExcludedSenders, "sender@example.com") {
-		t.Fatal("discard did not learn the canonical From", view.Settings)
-	}
-	if deliveries != 3 {
-		t.Fatal("delivery retries", deliveries)
-	}
-	// Cancelling rules must survive a replay of the receiver's old receipt.
-	settings := view.Settings
-	settings.ExcludedSenders = nil
-	settings.ExcludedTypes = nil
-	if _, e = s.SetInboxSettings(ctx, settings); e != nil {
+	cfg := view.Settings
+	cfg.ExcludedSenders = nil
+	cfg.ExcludedTypes = nil
+	if _, e = s.SetInboxSettings(ctx, cfg); e != nil {
 		t.Fatal(e)
 	}
-	r, e := s.read(ctx, "gmail-inbox")
-	if e != nil {
+	if _, e = s.ReviewReceipt(ctx, input); e != nil {
+		t.Fatal("lost acknowledgement not retryable", e)
+	}
+	view, _ = s.Inbox(ctx)
+	if len(view.Settings.ExcludedTypes) != 0 || len(view.Settings.ExcludedSenders) != 0 {
+		t.Fatal("replay restored cancelled exclusion")
+	}
+	// A stale pending response cannot revive a discarded candidate.
+	input.Receipt = again
+	if _, e = s.ReviewReceipt(ctx, input); e != nil {
 		t.Fatal(e)
 	}
-	r.Sync.Messages = []InboxMessage{delivered}
-	if e = s.publishInbox(ctx, r.Sync); e != nil {
-		t.Fatal(e)
-	}
-	if len(r.Sync.Settings.ExcludedSenders) != 0 || len(r.Sync.Settings.ExcludedTypes) != 0 {
-		t.Fatal("replayed receipt restored cancelled rules", r.Sync.Settings)
-	}
-	status, e := s.TimelineTarget(ctx)
-	raw, _ := json.Marshal(status)
-	if e != nil || strings.Contains(string(raw), credential.Key) {
-		t.Fatal("target secret escaped", e)
-	}
-	saved, _ := s.w.SocialValue(ctx, s.storageKey("timeline-target"))
-	if strings.Contains(string(saved.Data), credential.Key) {
-		t.Fatal("unencrypted target key")
-	}
-	if e = s.ClearTimelineTarget(ctx); e != nil {
-		t.Fatal(e)
-	}
-	status, e = s.TimelineTarget(ctx)
-	if e != nil || status.Configured || status.Enabled {
-		t.Fatal(status, e)
-	}
-}
-func TestTargetRequiresOwnerConfiguredHTTPSAndValidKey(t *testing.T) {
-	s, _ := importSetup(t)
-	for _, u := range []string{"http://remote.example/api/mcp/users/u", "https://user:pass@x/api/mcp/users/u", "https://x/other", "https://x/api/mcp/users/u?secret=1"} {
-		if _, e := s.SetTimelineTarget(context.Background(), TimelineTargetInput{Enabled: true, URL: u, Key: strings.Repeat("a", 64)}); e != ErrInput {
-			t.Fatal(u, e)
-		}
+	batch, _ = s.ReviewContext(ctx, "gmail")
+	if len(batch.Items) != 0 {
+		t.Fatal("pending receipt resurrected mail")
 	}
 }
 
+func TestRelayRejectsStaleTokensAndUnrelatedFeedback(t *testing.T) {
+	s, _ := importSetup(t)
+	enableInbox(t, s)
+	ctx := context.Background()
+	_, _ = s.SyncGmail(ctx)
+	batch, e := s.ReviewContext(ctx, "gmail")
+	if e != nil || len(batch.Items) != 1 {
+		t.Fatal(batch, e)
+	}
+	in := ReviewReceiptInput{Service: "gmail", Token: strings.Repeat("x", 64), Receipt: ImportReceipt{Status: "pending", EntryID: "sample-entry"}}
+	if _, e = s.ReviewReceipt(ctx, in); e != ErrReviewChanged {
+		t.Fatal(e)
+	}
+	in.Token = batch.Items[0].Token
+	mail := batch.Items[0].Arguments["mail"].(map[string]any)
+	in.Receipt = ImportReceipt{Status: "rejected", EntryID: reviewEntryID("gmail", mail["connectionId"].(string), mail["messageId"].(string), ""), ExcludedSender: "other@example.com"}
+	if _, e = s.ReviewReceipt(ctx, in); e != ErrInput {
+		t.Fatal(e)
+	}
+	view, _ := s.Inbox(ctx)
+	if len(view.Settings.ExcludedSenders) != 0 || len(view.Messages) != 1 {
+		t.Fatal(view)
+	}
+	if e = s.ClearInbox(ctx); e != nil {
+		t.Fatal(e)
+	}
+	in.Receipt = ImportReceipt{Status: "pending", EntryID: "sample-entry"}
+	if _, e = s.ReviewReceipt(ctx, in); e == nil {
+		t.Fatal("cleared cache accepted stale receipt")
+	}
+}
+func TestRelayPollsAllPendingCardsAndPrioritizesNew(t *testing.T) {
+	newItems := []ReviewItem{{Token: "new"}}
+	pending := []ReviewItem{}
+	for _, x := range []string{"a", "b", "c", "d", "e", "f", "g"} {
+		pending = append(pending, ReviewItem{Token: x})
+	}
+	cursor := 0
+	seen := map[string]bool{}
+	for n := 0; n < 2; n++ {
+		for _, x := range relayBatch(newItems, pending, &cursor) {
+			seen[x.Token] = true
+		}
+	}
+	if len(seen) != 8 {
+		t.Fatal("pending cards starved", seen)
+	}
+	if got := relayBatch(newItems, pending, &cursor)[0].Token; got != "new" {
+		t.Fatal("new candidates not prioritized", got)
+	}
+}
+func TestLegacyTimelineCredentialIsDeletedAtStartup(t *testing.T) {
+	s, _ := importSetup(t)
+	ctx := context.Background()
+	// Opaque legacy ciphertext, intentionally not decryptable with current keys.
+	v, _ := s.w.SocialValue(ctx, s.storageKey("timeline-target"))
+	if _, e := s.w.SwapSocialValue(ctx, s.storageKey("timeline-target"), v.Version, store.SocialValue{Data: []byte("old encrypted kakeratta credential")}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := New(s.w, s.cfg); e != nil {
+		t.Fatal(e)
+	}
+	v, e := s.w.SocialValue(ctx, s.storageKey("timeline-target"))
+	if e != nil || len(v.Data) != 0 {
+		t.Fatal("legacy credential retained", e)
+	}
+}
 func TestTimelineDeliveryPrefersTriageSummary(t *testing.T) {
-	m := InboxMessage{Body: "message\n\n-- \nsignature", Summary: "Reservation confirmed for October 20."}
+	m := InboxMessage{Body: "message\n-- signature", Summary: "Reservation confirmed."}
 	if got := timelineMailBody(m); got != m.Summary || strings.Contains(got, "signature") {
 		t.Fatal(got)
 	}
 	m.Summary = ""
 	if got := timelineMailBody(m); got != m.Body {
-		t.Fatal("local classification lost its body", got)
+		t.Fatal(got)
 	}
 }

@@ -76,9 +76,6 @@ func New(w store.Workspace, cfg Config) (*Server, error) {
 	s.mux.HandleFunc("GET /api/mcp/credential", s.guard(s.mcpStatus))
 	s.mux.HandleFunc("POST /api/mcp/credential", s.guard(s.issueMCP))
 	s.mux.HandleFunc("DELETE /api/mcp/credential", s.guard(s.revokeMCP))
-	s.mux.HandleFunc("GET /api/timeline-target", s.guard(s.timelineTargetStatus))
-	s.mux.HandleFunc("PUT /api/timeline-target", s.guard(s.saveTimelineTarget))
-	s.mux.HandleFunc("DELETE /api/timeline-target", s.guard(s.clearTimelineTarget))
 	s.mux.HandleFunc("GET /api/google/calendar-inbox", s.guard(s.calendarInbox))
 	s.mux.HandleFunc("PUT /api/google/calendar-inbox/settings", s.guard(s.calendarInboxSettings))
 	s.mux.HandleFunc("POST /api/google/calendar-inbox/sync", s.guard(s.calendarInboxSync))
@@ -264,8 +261,8 @@ func (s *Server) revokeMCP(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, map[string]bool{"configured": false})
 }
-func (s *Server) BootstrapLocalDefaults(ctx context.Context, timelineURL, timelineKey string) {
+func (s *Server) BootstrapLocalDefaults(ctx context.Context) {
 	if s.loopback {
-		s.google.BootstrapLocalDefaults(ctx, timelineURL, timelineKey)
+		s.google.BootstrapLocalDefaults(ctx)
 	}
 }

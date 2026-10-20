@@ -46,13 +46,13 @@ async function mcp() {
     el("button", { class: "ghost", text: status.loopback && status.configured ? "個別キーを解除（ローカル設定なしに戻す）" : "MCPキーを無効化", onclick: async () => { try { await api.revokeMCP(); await mcp(); toast(status.loopback ? "個別MCPキーを解除し、ローカル接続モードに戻しました。" : "Hermesのアクセスを停止しました。"); } catch (error) { toast(error.message); } } }));
   if (status.loopback && !status.configured) {
     view.append(
-      el("p", { text: "ローカル接続モード（設定不要）：同じ端末のHermesからは、MCPキーを発行しなくてもそのまま接続できます（kakerattaと同じMCPキーでも認証できます）。" }),
+      el("p", { text: "ローカル接続モード（設定不要）：同じ端末のHermesからは、MCPキーを発行しなくてもそのまま接続できます。" }),
       el("p", {}, el("code", { text: status.url })),
       el("details", {},
         el("summary", { text: "Hermes設定例・個別のMCPキーを発行する場合（任意）" }),
         el("pre", { text: `mcp_servers:\n  google_bridge:\n    url: ${JSON.stringify(status.url)}\n    tools:\n      prompts: false\n      resources: false` }),
         buttons, output,
-        el("p", { class: "hint", text: "Hermesが別の端末・コンテナにある場合は、個別MCPキーを発行するかkakerattaと同じMCPキーを設定してください。" })
+        el("p", { class: "hint", text: "Hermesが別の端末・コンテナにある場合は、個別MCPキーを発行して設定してください。kakerattaの接続キーとは別です。" })
       )
     );
     return;

@@ -165,16 +165,17 @@ test("Review shows exact content as text and only sends the stored hash to appro
   widget.dispose(); assert.equal(widget.element.children.length, 0);
 });
 
-test("Inbox is explicit opt-in, shows external text and does not prefill the Timeline secret", async t => {
+test("Inbox is explicit opt-in and hands selected candidates to Hermes without Timeline credentials", async t => {
   browser(t);
   let removed = 0;
-  t.mock.method(api, "timelineTarget", async () => ({ configured: true, enabled: true, url: "https://example.com/api/mcp/users/owner" }));
   t.mock.method(api, "googleInbox", async () => ({ settings: { enabled: false, threshold: 50, includeLabels: ["INBOX"], priorityLabels: ["IMPORTANT"], prioritySenders: [], excludedSenders: [], bodyChars: 2000, retentionDays: 7, lookbackDays: 1 }, messages: [{ messageId: "m1", connectionId: "c1", threadId: "t1", subject: "<script>untrusted</script>", from: "sender@example.com", body: "external body", sourceUrl: "https://mail.google.com/mail/u/0/#all/t1", receivedAt: "2026-10-19T10:00:00Z", importedAt: "2026-10-19T10:01:00Z", classification: { importance: 80, urgency: 20, reason: "selected label" } }] }));
   t.mock.method(api, "clearInbox", async () => { removed++; });
   const widget = createInbox(); await Promise.resolve(); await Promise.resolve();
   const nodes = walk(widget.element);
   assert.ok(nodes.some(n => n.textContent === "<script>untrusted</script>"));
-  assert.equal(nodes.find(n => n.tag === "input" && n.type === "password").value, "");
+  assert.equal(nodes.some(n => n.tag === "input" && n.type === "password"), false);
+  assert.ok(nodes.some(n => n.textContent.includes("Hermes配送待ち")));
+  assert.equal(api.timelineTarget, undefined);
   assert.equal(nodes.find(n => n.textContent === "今すぐ差分を取得").disabled, true);
   const remove = nodes.find(n => n.textContent === "保存データを削除して停止");
   await remove.listeners.click({ currentTarget: remove }); assert.equal(removed, 0);
