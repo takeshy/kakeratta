@@ -315,6 +315,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     const mine = entry.speaker === "user";
     const html = !mine && htmlDocument(entryText(entry));
     if (html) return el("div", { class: "said said-html" }, renderHtmlDocument(html));
+    if (entry.import?.type === "calendar") return el("div", { class: "said said-markdown" }, renderMarkdown(entryText(entry)));
     if (entry.import || mine && !getSettings()?.markdownInput) return el("p", { class: "said", text: entry.text });
     if (laidOutAsInfographic(entry.speaker, entryText(entry))) {
       return el("div", { class: "said said-markdown said-infographic" }, renderInfographic(entryText(entry)));
@@ -399,6 +400,16 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     else if (entry.text) node.append(drawBody(entry));
     const review = drawReview(entry);
     if (review) node.append(review);
+    const importSourceUrl = entry.import?.url || entry.import?.sourceUrl;
+    if (importSourceUrl) {
+      node.append(el("a", {
+        class: "source",
+        href: importSourceUrl,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        text: entry.import.type === "calendar" ? t("元の予定（Google カレンダー）を開く ↗") : t("元のメール（Gmail）を開く ↗"),
+      }));
+    }
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
     }

@@ -68,7 +68,19 @@ export function createCalendarInbox() {
       if (state.hasMore) view.append(el("p", { class: "hint", text: "取得の続きがあります。次のジョブまたは確認ボタンで継続します。" }));
       if (state.lastError) view.append(el("p", { role: "status", text: state.lastError }));
       if (state.nextAttemptAt) view.append(el("p", { class: "hint", text: `再試行可能: ${new Date(state.nextAttemptAt).toLocaleString()}` }));
-      for (const item of state.events) view.append(el("article", { class: "settings-block" }, el("h3", { text: item.summary || "（タイトルなし）" }), el("p", { class: "hint", text: `Timeline: ${item.timelineStatus || "未配信"}` }), el("pre", { class: "mail-body", text: item.body })));
+      for (const item of state.events) {
+        const panel = el("article", { class: "settings-block" }, el("h3", { text: item.summary || "（タイトルなし）" }), el("p", { class: "hint", text: `Timeline: ${item.timelineStatus || "未配信"}` }));
+        if (item.sourceUrl) {
+          try {
+            const link = new URL(item.sourceUrl);
+            if (link.origin === "https://calendar.google.com") {
+              panel.append(el("p", { class: "hint" }, el("a", { href: link.href, target: "_blank", rel: "noopener noreferrer", text: "元の予定（Google カレンダー）を開く ↗" })));
+            }
+          } catch {}
+        }
+        panel.append(el("pre", { class: "mail-body", text: item.body }));
+        view.append(panel);
+      }
       const confirm = el("input", { type: "checkbox" });
       view.append(el("details", {}, el("summary", { text: "予定の取り込みデータを削除" }), el("p", { class: "hint", text: "予定の保存内容・ルール・重複排除履歴を削除して停止します。Google接続とGoogle上の予定、既に届けたTimelineカードは維持します。再び有効にすると同じ予定が再提示される場合があります。" }), check(confirm, "予定の保存データ削除を確認しました"), el("button", { class: "ghost", text: "予定の保存データを削除して停止", onclick: async () => { if (!confirm.checked) { toast("削除する内容を確認してください。"); return; } try { await api.clearCalendarInbox(); await load(); } catch (error) { toast(error.message); } } })));
     } catch (error) { if (!disposed) toast(error.message); }

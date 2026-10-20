@@ -19,6 +19,7 @@ type CalendarTriageDecision struct {
 	Keep       *bool  `json:"keep"`
 	Importance *int   `json:"importance,omitempty"`
 	Reason     string `json:"reason,omitempty"`
+	Summary    string `json:"summary,omitempty"`
 	Type       any    `json:"type,omitempty"`
 }
 
