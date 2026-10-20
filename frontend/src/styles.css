@@ -753,6 +753,7 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
   top: 0;
   z-index: 2;
   justify-self: end;
+  align-self: start;
   grid-column: 1;
   grid-row: 1;
   min-width: 36px;
@@ -1038,4 +1039,4 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .usage-table th, .usage-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
 .usage-table td { font-variant-numeric: tabular-nums; }
 
-.import-card{border:1px solid var(--line,#cbd8cf);border-radius:16px;padding:18px;background:var(--panel,#f2f7f3)}.import-card h3{margin:12px 0 6px}.gmail-import-dialog{max-width:680px;width:calc(100vw - 32px);box-sizing:border-box}.gmail-import-body{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-height:48vh;overflow:auto;padding:14px;background:var(--bg,#f5f5f2);border-radius:10px}.import-learning{display:flex;align-items:flex-start;gap:8px;margin:16px 0;line-height:1.6}
+.import-card{border:1px solid var(--line,#cbd8cf);border-radius:16px;padding:18px;background:var(--panel,#f2f7f3)}.import-card h3{margin:12px 0 6px}.gmail-import-dialog{max-width:680px;width:calc(100vw - 32px);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}.gmail-import-body{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-height:48vh;overflow:auto;padding:14px;background:var(--bg,#f5f5f2);border-radius:10px}.import-learning{display:flex;align-items:flex-start;gap:8px;margin:16px 0;line-height:1.6}
