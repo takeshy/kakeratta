@@ -30,12 +30,14 @@ type Config struct {
 	AdminToken string
 }
 type Server struct {
-	google       *googletools.Service
-	store        store.Workspace
-	origin, host string
-	adminDigest  [32]byte
-	secure       bool
-	mux          *http.ServeMux
+	google          *googletools.Service
+	store           store.Workspace
+	origin, host    string
+	altLoopbackHost string
+	loopback        bool
+	adminDigest     [32]byte
+	secure          bool
+	mux             *http.ServeMux
 }
 
 func New(w store.Workspace, cfg Config) (*Server, error) {
@@ -48,11 +50,24 @@ func New(w store.Workspace, cfg Config) (*Server, error) {
 		return nil, err
 	}
 	u, _ := url.Parse(cfg.Google.Origin)
-	s := &Server{google: g, store: w, origin: cfg.Google.Origin, host: u.Host, secure: u.Scheme == "https", adminDigest: sha256.Sum256([]byte(cfg.AdminToken)), mux: http.NewServeMux()}
+	var altHost string
+	loopback := u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1")
+	if loopback && u.Port() != "" {
+		switch u.Hostname() {
+		case "localhost":
+			altHost = "127.0.0.1:" + u.Port()
+		case "127.0.0.1":
+			altHost = "localhost:" + u.Port()
+		}
+	}
+	s := &Server{google: g, store: w, origin: cfg.Google.Origin, host: u.Host, altLoopbackHost: altHost, loopback: loopback, secure: u.Scheme == "https", adminDigest: sha256.Sum256([]byte(cfg.AdminToken)), mux: http.NewServeMux()}
 	s.mux.HandleFunc("POST /api/session", s.login)
 	s.mux.HandleFunc("GET /api/session", s.guard(s.session))
 	s.mux.HandleFunc("DELETE /api/session", s.guard(s.logout))
 	s.mux.HandleFunc("GET /api/google/callback", googleCallback)
+	if g.CallbackPath() != "/api/google/callback" {
+		s.mux.HandleFunc("GET "+g.CallbackPath(), googleCallback)
+	}
 	s.mux.HandleFunc("GET /api/google/connection", s.guard(s.googleStatus))
 	s.mux.HandleFunc("POST /api/google/connect", s.guard(s.googleStart))
 	s.mux.HandleFunc("POST /api/google/finish", s.guard(s.googleFinish))
@@ -90,8 +105,21 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Ignore forwarded host/origin claims. A reverse proxy must preserve the
 	// explicitly configured public Host. This also prevents DNS rebinding.
 	if !strings.EqualFold(r.Host, s.host) {
-		fail(w, 421, "Unexpected host")
-		return
+		if s.altLoopbackHost != "" && strings.EqualFold(r.Host, s.altLoopbackHost) {
+			if r.Method == "GET" || r.Method == "HEAD" {
+				http.Redirect(w, r, s.origin+r.URL.RequestURI(), http.StatusSeeOther)
+				return
+			}
+			if r.URL.Path != "/mcp" {
+				fail(w, 421, "Unexpected host")
+				return
+			}
+		} else if r.URL.Path == "/mcp" && isLocalOrLoopback(r.RemoteAddr) {
+			// Local or container loopback MCP access permitted
+		} else {
+			fail(w, 421, "Unexpected host")
+			return
+		}
 	}
 	if origin := r.Header.Get("Origin"); origin != "" && origin != s.origin {
 		fail(w, 403, "Cross-site request refused")
@@ -214,7 +242,7 @@ func (s *Server) mcpStatus(w http.ResponseWriter, r *http.Request) {
 		fail(w, 503, "Credential store unavailable")
 		return
 	}
-	writeJSON(w, 200, map[string]any{"configured": len(v.Data) == 32, "url": s.origin + "/mcp"})
+	writeJSON(w, 200, map[string]any{"configured": len(v.Data) == 32, "loopback": s.loopback, "url": s.origin + "/mcp"})
 }
 func (s *Server) issueMCP(w http.ResponseWriter, r *http.Request) {
 	token := secret()
@@ -235,4 +263,9 @@ func (s *Server) revokeMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]bool{"configured": false})
+}
+func (s *Server) BootstrapLocalDefaults(ctx context.Context, timelineURL, timelineKey string) {
+	if s.loopback {
+		s.google.BootstrapLocalDefaults(ctx, timelineURL, timelineKey)
+	}
 }

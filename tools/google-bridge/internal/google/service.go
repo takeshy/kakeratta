@@ -39,10 +39,11 @@ var (
 )
 
 type Config struct {
-	Origin     string
-	CurrentKey string
-	Keys       map[string][]byte
-	Client     *http.Client
+	Origin       string
+	CallbackPath string
+	CurrentKey   string
+	Keys         map[string][]byte
+	Client       *http.Client
 }
 
 type Service struct {
@@ -51,7 +52,15 @@ type Service struct {
 	http *http.Client
 }
 
+func (s *Service) CallbackPath() string { return s.cfg.CallbackPath }
+
 func New(w store.Workspace, cfg Config) (*Service, error) {
+	if cfg.CallbackPath == "" {
+		cfg.CallbackPath = CallbackPath
+	}
+	if !strings.HasPrefix(cfg.CallbackPath, "/") || strings.ContainsAny(cfg.CallbackPath, "?#\r\n\x00") {
+		return nil, ErrStorage
+	}
 	u, err := url.Parse(cfg.Origin)
 	if err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "localhost"))) {
 		return nil, ErrStorage
@@ -269,7 +278,7 @@ func requiredScope(name string) string {
 	return scopeBase + "calendar.events.readonly"
 }
 func (s *Service) oauth(c clientConfig, scopes []string) *oauth2.Config {
-	return &oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, RedirectURL: s.cfg.Origin + CallbackPath, Scopes: scopes, Endpoint: oauth2.Endpoint{AuthURL: "https://accounts.google.com/o/oauth2/v2/auth", TokenURL: "https://oauth2.googleapis.com/token", AuthStyle: oauth2.AuthStyleInParams}}
+	return &oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, RedirectURL: s.cfg.Origin + s.CallbackPath(), Scopes: scopes, Endpoint: oauth2.Endpoint{AuthURL: "https://accounts.google.com/o/oauth2/v2/auth", TokenURL: "https://oauth2.googleapis.com/token", AuthStyle: oauth2.AuthStyleInParams}}
 }
 func random() string {
 	v := make([]byte, 32)
@@ -278,8 +287,21 @@ func random() string {
 	}
 	return hex.EncodeToString(v)
 }
+func targetServices(name string) ([]string, bool) {
+	switch name {
+	case "gmail":
+		return []string{"gmail"}, true
+	case "calendar":
+		return []string{"calendar"}, true
+	case "both":
+		return []string{"gmail", "calendar"}, true
+	default:
+		return nil, false
+	}
+}
 func (s *Service) Start(ctx context.Context, in StartInput) (StartResult, error) {
-	if !validService(in.Service) || in.RedirectURI != s.cfg.Origin+CallbackPath {
+	services, ok := targetServices(in.Service)
+	if !ok || in.RedirectURI != s.cfg.Origin+s.CallbackPath() {
 		return StartResult{}, ErrInput
 	}
 	if !in.ModelConsent {
@@ -290,28 +312,35 @@ func (s *Service) Start(ctx context.Context, in StartInput) (StartResult, error)
 		return StartResult{}, ErrStorage
 	}
 	defer release()
-	r, err := s.read(ctx, in.Service)
+	r, err := s.read(ctx, services[0])
 	if err != nil {
 		return StartResult{}, err
 	}
 	c := clientConfig{strings.TrimSpace(in.ProjectID), strings.TrimSpace(in.ClientID), strings.TrimSpace(in.ClientSecret)}
-	if c.ProjectID == "" && c.ClientID == "" && c.ClientSecret == "" && r.Connection != nil {
-		c = r.Connection.Client
+	if c.ProjectID == "" && c.ClientID == "" && c.ClientSecret == "" {
+		if r.Connection != nil {
+			c = r.Connection.Client
+		} else if other, err := s.read(ctx, otherService(services[0])); err == nil && other.Connection != nil {
+			c = other.Connection.Client
+		}
 	}
 	if !projectPattern.MatchString(c.ProjectID) || len(c.ClientID) > 256 || !clientPattern.MatchString(c.ClientID) || len(c.ClientSecret) < 8 || len(c.ClientSecret) > 1024 || strings.ContainsAny(c.ClientSecret, "\r\n\x00") {
 		return StartResult{}, ErrInput
 	}
-	scopes := []string{"openid", "email", requiredScope(in.Service)}
-	if in.Service == "calendar" && (in.CalendarList || in.CalendarWrite) {
+	scopes := []string{"openid", "email"}
+	for _, svc := range services {
+		scopes = append(scopes, requiredScope(svc))
+	}
+	if has(services, "calendar") && (in.CalendarList || in.CalendarWrite) {
 		scopes = append(scopes, scopeBase+"calendar.calendarlist.readonly")
 	}
-	if in.Service == "gmail" && in.GmailSend {
+	if has(services, "gmail") && in.GmailSend {
 		scopes = append(scopes, scopeBase+"gmail.send")
 	}
-	if in.Service == "gmail" && in.GmailDrafts {
+	if has(services, "gmail") && in.GmailDrafts {
 		scopes = append(scopes, scopeBase+"gmail.compose")
 	}
-	if in.Service == "calendar" && in.CalendarWrite {
+	if has(services, "calendar") && in.CalendarWrite {
 		scopes = append(scopes, scopeBase+"calendar.events")
 	}
 	p := &pending{Client: c, State: random(), BrowserSecret: random(), Verifier: oauth2.GenerateVerifier(), Scopes: scopes, Expires: time.Now().Add(10 * time.Minute)}
@@ -319,7 +348,7 @@ func (s *Service) Start(ctx context.Context, in StartInput) (StartResult, error)
 		return StartResult{}, ErrStorage
 	}
 	r.Pending = p
-	if err = s.save(ctx, in.Service, r); err != nil {
+	if err = s.save(ctx, services[0], r); err != nil {
 		return StartResult{}, err
 	}
 	return StartResult{s.oauth(c, scopes).AuthCodeURL(p.State, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent"), oauth2.S256ChallengeOption(p.Verifier)), p.BrowserSecret}, nil
@@ -350,7 +379,8 @@ func tokenSafe(t *oauth2.Token) bool {
 	return t != nil && t.AccessToken != "" && len(t.AccessToken) <= 8192 && len(t.RefreshToken) <= 8192 && strings.EqualFold(t.TokenType, "Bearer") && !strings.ContainsAny(t.AccessToken+t.RefreshToken, "\r\n\x00")
 }
 func (s *Service) Finish(ctx context.Context, in FinishInput) (Status, error) {
-	if !validService(in.Service) || len(in.Code) == 0 || len(in.Code) > 4096 {
+	services, ok := targetServices(in.Service)
+	if !ok || len(in.Code) == 0 || len(in.Code) > 4096 {
 		return Status{}, ErrFlow
 	}
 	ctx, release, err := s.lock(ctx)
@@ -358,7 +388,7 @@ func (s *Service) Finish(ctx context.Context, in FinishInput) (Status, error) {
 		return Status{}, ErrStorage
 	}
 	defer release()
-	r, err := s.read(ctx, in.Service)
+	r, err := s.read(ctx, services[0])
 	if err != nil {
 		return Status{}, err
 	}
@@ -367,7 +397,7 @@ func (s *Service) Finish(ctx context.Context, in FinishInput) (Status, error) {
 		return Status{}, ErrFlow
 	}
 	r.Pending = nil
-	if err = s.save(ctx, in.Service, r); err != nil {
+	if err = s.save(ctx, services[0], r); err != nil {
 		return Status{}, err
 	}
 	tok, err := s.oauth(p.Client, p.Scopes).Exchange(s.oauthContext(ctx), in.Code, oauth2.VerifierOption(p.Verifier))
@@ -376,8 +406,13 @@ func (s *Service) Finish(ctx context.Context, in FinishInput) (Status, error) {
 	}
 	scope, _ := tok.Extra("scope").(string)
 	scopes := strings.Fields(scope)
-	if !has(scopes, "openid") || !has(scopes, requiredScope(in.Service)) {
+	if !has(scopes, "openid") {
 		return Status{}, ErrScope
+	}
+	for _, svc := range services {
+		if !has(scopes, requiredScope(svc)) {
+			return Status{}, ErrScope
+		}
 	}
 	var identity struct {
 		Sub   string `json:"sub"`
@@ -389,34 +424,55 @@ func (s *Service) Finish(ctx context.Context, in FinishInput) (Status, error) {
 	if identity.Sub == "" || len(identity.Sub) > 256 || len(identity.Email) > 320 {
 		return Status{}, ErrProvider
 	}
-	other, err := s.read(ctx, otherService(in.Service))
-	if err != nil {
-		return Status{}, err
+	if len(services) == 1 {
+		other, err := s.read(ctx, otherService(services[0]))
+		if err != nil {
+			return Status{}, err
+		}
+		if other.Connection != nil && other.Connection.Subject != identity.Sub {
+			return Status{}, ErrAccount
+		}
 	}
-	if other.Connection != nil && other.Connection.Subject != identity.Sub {
-		return Status{}, ErrAccount
-	}
-	if tok.RefreshToken == "" {
-		if r.Connection == nil || r.Connection.Token == nil || r.Connection.Subject != identity.Sub || r.Connection.Client != p.Client {
+	var first Status
+	for i, svc := range services {
+		rec := r
+		if i > 0 {
+			rec, err = s.read(ctx, svc)
+			if err != nil {
+				return Status{}, err
+			}
+			rec.Pending = nil
+		}
+		tokCopy := *tok
+		if tokCopy.RefreshToken == "" {
+			if rec.Connection != nil && rec.Connection.Token != nil && rec.Connection.Subject == identity.Sub && rec.Connection.Client == p.Client {
+				tokCopy.RefreshToken = rec.Connection.Token.RefreshToken
+			} else if r.Connection != nil && r.Connection.Token != nil && r.Connection.Subject == identity.Sub && r.Connection.Client == p.Client {
+				tokCopy.RefreshToken = r.Connection.Token.RefreshToken
+			} else {
+				return Status{}, ErrReauth
+			}
+		}
+		if tokCopy.RefreshToken == "" {
 			return Status{}, ErrReauth
 		}
-		tok.RefreshToken = r.Connection.Token.RefreshToken
+		id := random()
+		if rec.Connection != nil && rec.Connection.Subject == identity.Sub {
+			id = rec.Connection.ID
+		}
+		if id == "" {
+			return Status{}, ErrStorage
+		}
+		rec.Connection = &connection{ID: id, Generation: random(), Client: p.Client, Token: &tokCopy, Scopes: scopes, Subject: identity.Sub, Email: identity.Email, Status: "connected", ModelConsent: true}
+		if err = s.save(ctx, svc, rec); err != nil {
+			return Status{}, err
+		}
+		if i == 0 {
+			r = rec
+			first = public(svc, rec)
+		}
 	}
-	if tok.RefreshToken == "" {
-		return Status{}, ErrReauth
-	}
-	id := random()
-	if r.Connection != nil && r.Connection.Subject == identity.Sub {
-		id = r.Connection.ID
-	}
-	if id == "" {
-		return Status{}, ErrStorage
-	}
-	r.Connection = &connection{ID: id, Generation: random(), Client: p.Client, Token: tok, Scopes: scopes, Subject: identity.Sub, Email: identity.Email, Status: "connected", ModelConsent: true}
-	if err = s.save(ctx, in.Service, r); err != nil {
-		return Status{}, err
-	}
-	return public(in.Service, r), nil
+	return first, nil
 }
 
 func (s *Service) access(ctx context.Context, name string, r *record, force bool) error {

@@ -91,16 +91,18 @@ test("OAuth JSON import checks Web client and exact redirect, never adopts endpo
   assert.equal(read, false);
 });
 
-test("Import stays in password fields until explicit consent; disposal clears it", async t => {
+test("Import stays in the unified password field until explicit consent; disposal clears it", async t => {
   const { storage } = browser(t);
-  t.mock.method(api, "googleConnection", async () => ({ available: true, redirectUri, services: [{ service: "gmail", status: "disconnected", scopes: [] }] }));
+  t.mock.method(api, "googleConnection", async () => ({ available: true, redirectUri, services: [{ service: "gmail", status: "disconnected", scopes: [] }, { service: "calendar", status: "disconnected", scopes: [] }] }));
   t.mock.method(api, "connectGoogle", async () => assert.fail("JSON import cannot initiate OAuth"));
   const widget = createGoogleConnection(); await Promise.resolve();
   const nodes = walk(widget.element);
   const file = nodes.find(n => n.tag === "input" && n.type === "file");
   file.files = [{ size: 300, text: async () => JSON.stringify(clientConfig()) }];
   await file.listeners.change();
-  assert.equal(nodes.find(n => n.tag === "input" && n.type === "password").value, "private-client-secret");
+  const secrets = nodes.filter(n => n.tag === "input" && n.type === "password");
+  assert.equal(secrets.length, 1);
+  assert.equal(secrets[0].value, "private-client-secret");
   assert.equal(file.value, "");
   assert.equal(storage.size, 0);
   assert.equal(nodes.some(n => n.textContent.includes("private-client-secret")), false);

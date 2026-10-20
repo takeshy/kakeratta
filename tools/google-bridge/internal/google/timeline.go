@@ -3,6 +3,8 @@ package google
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -79,6 +81,23 @@ func (s *Service) ClearTimelineTarget(ctx context.Context) error {
 	}
 	defer unlock()
 	return s.save(ctx, "timeline-target", record{})
+}
+func (s *Service) MatchTimelineKey(ctx context.Context, token string) bool {
+	if len(token) != 64 {
+		return false
+	}
+	ctx, unlock, e := s.lock(ctx)
+	if e != nil {
+		return false
+	}
+	defer unlock()
+	r, e := s.read(ctx, "timeline-target")
+	if e != nil || r.Target == nil || len(r.Target.Key) != 64 {
+		return false
+	}
+	a := sha256.Sum256([]byte(token))
+	b := sha256.Sum256([]byte(r.Target.Key))
+	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
 func (s *Service) publishInbox(ctx context.Context, st *gmailSyncState) error {
 	r, e := s.read(ctx, "timeline-target")

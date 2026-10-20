@@ -70,24 +70,25 @@ type actionPayload struct {
 // This encrypted journal is also the audit log. Terminal entries retain only
 // identifiers, digests, actors, timestamps and outcomes, never bodies or tokens.
 type Action struct {
-	ID           string         `json:"id"`
-	Type         string         `json:"type"`
-	ConnectionID string         `json:"connectionId"`
-	Generation   string         `json:"generation"`
-	KeyHash      string         `json:"keyHash"`
-	InputHash    string         `json:"inputHash"`
-	PayloadHash  string         `json:"payloadHash"`
-	Status       string         `json:"status"`
-	ProposedBy   string         `json:"proposedBy"`
-	DecidedBy    string         `json:"decidedBy,omitempty"`
-	ExecutedBy   string         `json:"executedBy,omitempty"`
-	CreatedAt    time.Time      `json:"createdAt"`
-	ExpiresAt    time.Time      `json:"expiresAt"`
-	DecidedAt    *time.Time     `json:"decidedAt,omitempty"`
-	ConsumedAt   *time.Time     `json:"consumedAt,omitempty"`
-	FinishedAt   *time.Time     `json:"finishedAt,omitempty"`
-	ProviderID   string         `json:"providerId,omitempty"`
-	Payload      *actionPayload `json:"payload,omitempty"`
+	ID            string         `json:"id"`
+	Type          string         `json:"type"`
+	ConnectionID  string         `json:"connectionId"`
+	Generation    string         `json:"generation"`
+	KeyHash       string         `json:"keyHash"`
+	InputHash     string         `json:"inputHash"`
+	PayloadHash   string         `json:"payloadHash"`
+	Status        string         `json:"status"`
+	ProposedBy    string         `json:"proposedBy"`
+	DecidedBy     string         `json:"decidedBy,omitempty"`
+	DirectRequest string         `json:"directRequest,omitempty"`
+	ExecutedBy    string         `json:"executedBy,omitempty"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	ExpiresAt     time.Time      `json:"expiresAt"`
+	DecidedAt     *time.Time     `json:"decidedAt,omitempty"`
+	ConsumedAt    *time.Time     `json:"consumedAt,omitempty"`
+	FinishedAt    *time.Time     `json:"finishedAt,omitempty"`
+	ProviderID    string         `json:"providerId,omitempty"`
+	Payload       *actionPayload `json:"payload,omitempty"`
 }
 type actionLedger struct{ Actions []Action }
 
@@ -443,6 +444,38 @@ func (s *Service) Decide(ctx context.Context, id, hash string, approve bool) (Ac
 		return nil
 	})
 }
+
+// Run executes an owner's direct request to Hermes without a Web approval
+// step. The verbatim request is retained in the audit journal so the owner can
+// review what Hermes acted on. It reuses the immutable proposal, idempotency
+// and unknown-outcome handling of the approval path.
+func (s *Service) Run(ctx context.Context, in ProposalInput, userRequest string) (Action, error) {
+	userRequest = strings.TrimSpace(userRequest)
+	if userRequest == "" || !validText(userRequest, 1000) {
+		return Action{}, ErrInput
+	}
+	a, e := s.Propose(ctx, in, "mcp")
+	if e != nil {
+		return Action{}, e
+	}
+	if a.Status == "pending" {
+		a, e = s.changeAction(ctx, a.ID, func(x *Action) error {
+			if x.Status != "pending" {
+				return nil
+			}
+			now := time.Now().UTC()
+			x.DecidedBy = "direct"
+			x.DecidedAt = &now
+			x.DirectRequest = userRequest
+			x.Status = "approved"
+			return nil
+		})
+		if e != nil {
+			return Action{}, e
+		}
+	}
+	return s.Execute(ctx, a.ID, a.PayloadHash, in.IdempotencyKey, "mcp")
+}
 func (s *Service) changeAction(ctx context.Context, id string, fn func(*Action) error) (Action, error) {
 	ctx, unlock, e := s.lock(ctx)
 	if e != nil {
@@ -516,7 +549,7 @@ func (s *Service) Execute(ctx context.Context, id, hash, key, actor string) (Act
 		if a.ConsumedAt != nil {
 			return nil
 		}
-		if a.Status != "approved" || a.Payload == nil || a.DecidedBy != "owner" {
+		if a.Status != "approved" || a.Payload == nil || a.DecidedBy != "owner" && a.DecidedBy != "direct" {
 			return ErrApproval
 		}
 		name := serviceForAction(a.Type)

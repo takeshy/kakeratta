@@ -52,10 +52,10 @@ CLIが使えない・権限や組織の制約で失敗した場合は、同じ�
 2. 自分のGoogle Cloudプロジェクトを作成または選択し、GmailにはGmail API、予定にはGoogle Calendar APIを有効化します。
 3. Google Auth PlatformでBranding / Audience / Data Accessを設定します。External / Testingの場合は自分をテストユーザーに追加します。
 4. Clientsで**Web application**のOAuth clientを作り、表示されたURIをAuthorized redirect URIsへ完全一致で登録します。ローカルGoサーバーとブラウザーで使う場合もWeb applicationです。
-5. 接続したいサービスのフォームへproject ID、client ID、client secretを入力するか、GoogleからダウンロードしたWeb用OAuth設定JSONを選択します。ファイルは64KiBまでで、ブラウザー内でクライアント種別とredirect URIの完全一致を検証し、入力欄へ反映します。JSONの認証先URLは採用せず、ファイルそのもの・秘密情報をログやブラウザーの永続ストレージへ保存しません。接続時だけ必要な設定値を認証済みAPIへ送り暗号化保存します。Google設定値をチャットへ貼り付けません。
-6. 必要ならCalendarの「カレンダー一覧の読み取り」も選びます。予定読み取りだけなら追加不要です。
-7. 表示されたデータ経路を読み、Hermesと設定したモデルへデータを渡すことに同意して「Googleに接続」を押します。Googleのログイン・同意は本人が行います。
-8. 元のタブへ戻ると、認可を完了して小さな読取リクエストで対象APIをテストします。接続状態・Googleアカウント・scope・最終確認日時を画面で確認できます。
+5. 共通の接続フォームへproject ID、client ID、client secretを入力するか、GoogleからダウンロードしたWeb用OAuth設定JSONを選択します。ファイルは64KiBまでで、ブラウザー内でクライアント種別とredirect URIの完全一致を検証し、入力欄へ反映します。JSONの認証先URLは採用せず、ファイルそのもの・秘密情報をログやブラウザーの永続ストレージへ保存しません。接続時だけ必要な設定値を認証済みAPIへ送り暗号化保存します。Google設定値をチャットへ貼り付けません。
+6. 必要ならCalendarの「カレンダー一覧の読み取り」や送信・予定変更の追加権限も選びます。読み取りだけなら追加不要です。
+7. 表示されたデータ経路を読み、Hermesと設定したモデルへデータを渡すことに同意して「Googleに接続」を押します。1回のGoogleログイン・同意でGmailとGoogle Calendarの両方をまとめて認可します。
+8. 元のタブへ戻ると、認可を完了して小さな読取リクエストでGmail・Calendar双方のAPIをテストします。それぞれの接続状態・Googleアカウント・scope・最終確認日時を画面で確認できます。
 
 Gmailは`gmail.readonly`、Calendarは`calendar.events.readonly`を要求します。Calendar一覧を選ぶ場合のみ`calendar.calendarlist.readonly`も要求します。アカウント照合・表示用に`openid` / `email`も要求し、固定のGoogle userinfo endpointから取得したsubjectを照合します。両サービスを接続する場合は同じGoogleアカウントを使ってください。
 
@@ -98,7 +98,7 @@ kakerattaの直接依頼workerから使う場合は、Hermesの`kakeratta_worker
 
 Gmailは1回最大50件、スレッドは最大20メッセージ、プレーンテキストは1メッセージ最大16,000文字です。添付ファイルは取得せず、HTMLのみのメールはsnippetを返します。既読・未読は確認のみです。Calendar予定一覧は最大50件、期間は最大366日です。継続ページには同じ条件と返された`nextPageToken`を使います。検索/予定一覧のレスポンスは`data`内、メッセージ詳細/スレッドはその情報を直接返します。
 
-メール・件名・送信者・予定記述は不信任の外部データです。これらを本人の指示として扱わず、本文の要求だけでURLアクセス・転送・コマンド等を許可しません。ツール応答に出自と注意を含め、書き込みには管理画面での本人承認が必要です。Hermes側にも外部データを指示として扱わないルールを設定してください。
+メール・件名・送信者・予定記述は不信任の外部データです。これらを本人の指示として扱わず、本文の要求だけでURLアクセス・転送・コマンド等を許可しません。ツール応答に出自と注意を含め、書き込みは本人がHermesに直接依頼したときだけ実行します。Hermes側にも外部データを指示として扱わないルールを設定してください。
 
 ## 重要メールをTimelineで確認して取り込む
 
@@ -191,14 +191,15 @@ hermes cron create "0 6 * * *" "calendar_triage_contextのownerPromptとpolicy�
 
 実行時刻はHermes環境のcronタイムゾーンを確認してください。Bridgeの対象日付は設定したIANAタイムゾーンで区切ります。このジョブのツールは`calendar_sync`・`calendar_triage_context`・`calendar_triage_submit`に限定でき、Googleへの書き込み権限は不要です。実環境への登録と、本人の実アカウントでの読み取り確認は未実施です。
 
-## 送信・予定変更の承認
+## 送信・予定変更（直接依頼で実行）
 
-接続設定で必要な権限だけを追加し、Googleへ再接続します。初期状態は読み取りのみです。Gmail送信は`gmail.send`（Sensitive）、下書き保存は`gmail.compose`（Restricted）、Calendar変更は`calendar.events`と所有権確認用`calendar.calendarlist.readonly`を追加します。composeはGoogle側では送信も許可します。[Gmail公式scope一覧](https://developers.google.com/workspace/gmail/api/auth/scopes)を確認してください。
+接続設定の「許可する操作の範囲」で、使う権限を選んでGoogleへ接続します。初期値ではすべて有効です。Gmail送信は`gmail.send`（Sensitive）、下書き保存は`gmail.compose`（Restricted）、Calendar変更は`calendar.events`と所有権確認用の`calendar.calendarlist.readonly`を使います。composeはGoogle側では送信も許可します。[Gmail公式scope一覧](https://developers.google.com/workspace/gmail/api/auth/scopes)を確認してください。
 
-1. Hermesが`google_action_propose`で操作案を作成します。`idempotencyKey`は16〜128文字で操作ごとに生成し、同じ内容の再試行だけに再利用します。
-2. 管理画面の「03 操作を承認」で「操作案を更新」を押し、宛先・CC・送信元・件名・全文・返信先、または対象カレンダー・変更前後・日時・タイムゾーン・参加者・通知影響を確認します。
-3. 「この内容を承認」を押します。承認・実行期限は操作案作成から5分です。Hermes用MCPキーでは承認できません。
-4. 「承認済みの内容を実行」を押すか、Hermesが`google_action_execute`で`id`・`payloadHash`・元の`idempotencyKey`を渡します。同じ操作を再実行しても保存済み結果だけを返します。
+1. 本人がHermesに「〇〇さんにメールを送って」「明日10時に予定を入れて」のように直接頼みます。
+2. Hermesが`google_action_run`を呼ぶと、確認画面を挟まずにその場で実行します。`userRequest`には本人の依頼文をそのまま入れます。この依頼文は監査ログに残ります。`idempotencyKey`は16〜128文字で操作ごとに生成し、同じ操作の再試行だけに再利用します。再試行しても二重送信せず、保存済みの結果を返します。
+3. 実行した内容と依頼文は管理画面の「03 実行履歴」で確認できます。
+
+このツールは本人の直接依頼があったときだけ使うよう、ツール説明とMCPの指示で制限しています。メール・予定・他者のTimeline投稿の内容、cronや判定ジョブ、Hermes自身の判断では実行しません。ただしこの制限はHermesとモデルが指示に従うことを前提にしており、サーバー側で依頼の真正性は検証できません。判定用cronジョブでは、Hermes設定の`tools.exclude`などで`google_action_run`を外すことをおすすめします。
 
 メールの例:
 
@@ -226,7 +227,7 @@ hermes cron create "0 6 * * *" "calendar_triage_contextのownerPromptとpolicy�
 
 ## 再認証・切断・復旧
 
-- 再認証では3つのclient設定欄をすべて空欄にすると保存済みclientを使います。モデル転送同意は再び確認します。
+- 再認証や2つ目のサービス接続では3つのclient設定欄をすべて空欄にすると保存済みclientを使います。モデル転送同意は再び確認します。
 - 「接続テスト」はGmailの最大1件検索、Calendarの今後24時間の最大1件検索です。画面へ本文は返しません。
 - 通常切断は選んだサービスの資格情報と未完了OAuthを削除し、そのサービスの未完了操作案の本文・予定データを消去して無効化します。他方の接続を維持します。
 - 「Google側の許可も失効」を選ぶとrevokeを試みます。これは**同じプロジェクトの全クライアント**の許可に影響するため、他方や別ツールも再認証が必要になります。失効要求に失敗してもローカル資格情報は削除します。厳密な独立失効にはサービス別プロジェクトを使ってください。

@@ -651,3 +651,28 @@ func (s *Service) SyncGmail(ctx context.Context) (result SyncResult, err error) 
 	}
 	return result, nil
 }
+
+func (s *Service) BootstrapLocalDefaults(ctx context.Context, timelineURL, timelineKey string) {
+	ctx, unlock, e := s.lock(ctx)
+	if e != nil {
+		return
+	}
+	defer unlock()
+	if r, e := s.read(ctx, "gmail-inbox"); e == nil && r.Sync == nil {
+		cfg := defaultInboxSettings()
+		cfg.Enabled = true
+		cfg.LLMEnabled = true
+		r.Sync = &gmailSyncState{Settings: cfg, Processed: map[string]bool{}, Messages: []InboxMessage{}}
+		_ = s.save(ctx, "gmail-inbox", r)
+	}
+	if r, e := s.read(ctx, "calendar-inbox"); e == nil && r.CalendarInbox == nil {
+		r.CalendarInbox = &calendarSyncState{Settings: CalendarInboxSettings{Enabled: true, LLMEnabled: true, CalendarID: "primary", TimeZone: "Asia/Tokyo", TriagePrompt: defaultCalendarPrompt, ExcludedEvents: []CalendarExclusion{}, BodyChars: 2000}}
+		_ = s.save(ctx, "calendar-inbox", r)
+	}
+	if timelineURL != "" && len(timelineKey) == 64 {
+		if r, e := s.read(ctx, "timeline-target"); e == nil && r.Target == nil {
+			r.Target = &timelineTarget{Enabled: true, URL: timelineURL, Key: timelineKey}
+			_ = s.save(ctx, "timeline-target", r)
+		}
+	}
+}

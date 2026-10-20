@@ -13,11 +13,12 @@ export function createActions() {
       const { actions } = await api.googleActions();
       if (disposed) return;
       clear(view);
-      view.append(el("button", { class: "ghost", text: "操作案を更新", onclick: load }));
-      if (!actions.length) view.append(el("p", { class: "hint", text: "Hermesが作成した操作案がここに表示されます。内容を確認して承認し、実行してください。" }));
+      view.append(el("button", { class: "ghost", text: "履歴を更新", onclick: load }));
+      if (!actions.length) view.append(el("p", { class: "hint", text: "Hermesに直接頼んで実行したメール送信・予定変更がここに記録されます。" }));
       for (const action of [...actions].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
         const card = el("article", { class: "settings-block action-review" }, el("h3", { text: typeNames[action.type] || action.type }), el("p", { text: statusNames[action.status] || action.status }));
-        card.append(el("p", { class: "hint", text: `作成: ${new Date(action.createdAt).toLocaleString()} · 承認・実行期限: ${new Date(action.expiresAt).toLocaleString()}` }));
+        if (action.directRequest) card.append(field("あなたの依頼", action.directRequest));
+        card.append(el("p", { class: "hint", text: `実行: ${new Date(action.createdAt).toLocaleString()}` }));
         const p = action.payload;
         if (p?.mail) {
           card.append(field("送信元", p.from), field("宛先", p.mail.to.join("\n")), field("CC", (p.mail.cc || []).join("\n")), field("件名", p.mail.subject), field("本文", p.mail.body));

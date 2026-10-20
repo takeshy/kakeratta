@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -26,12 +27,13 @@ import (
 )
 
 type configuration struct {
-	Listen     string            `json:"listen"`
-	PublicURL  string            `json:"publicUrl"`
-	DataDir    string            `json:"dataDir"`
-	AdminToken string            `json:"adminToken"`
-	KeyVersion string            `json:"keyVersion"`
-	Keys       map[string]string `json:"keys"`
+	Listen       string            `json:"listen"`
+	PublicURL    string            `json:"publicUrl"`
+	CallbackPath string            `json:"callbackPath,omitempty"`
+	DataDir      string            `json:"dataDir"`
+	AdminToken   string            `json:"adminToken"`
+	KeyVersion   string            `json:"keyVersion"`
+	Keys         map[string]string `json:"keys"`
 }
 
 func randomHex() (string, error) {
@@ -104,13 +106,19 @@ func load(path string) (configuration, error) {
 	if relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return cfg, errors.New("Store the encryption configuration outside dataDir")
 	}
-	host, _, err := net.SplitHostPort(cfg.Listen)
-	if err != nil {
-		return cfg, errors.New("Invalid listen address")
-	}
-	ip := net.ParseIP(host)
-	if host != "localhost" && (ip == nil || !ip.IsLoopback()) && !strings.HasPrefix(cfg.PublicURL, "https://") {
-		return cfg, errors.New("Non-loopback listeners require a public HTTPS origin and TLS reverse proxy")
+	for _, a := range strings.Split(cfg.Listen, ",") {
+		a = strings.TrimSpace(a)
+		if a == "" {
+			continue
+		}
+		host, _, err := net.SplitHostPort(a)
+		if err != nil {
+			return cfg, errors.New("Invalid listen address")
+		}
+		ip := net.ParseIP(host)
+		if host != "localhost" && (ip == nil || (!ip.IsLoopback() && !ip.IsPrivate())) && !strings.HasPrefix(cfg.PublicURL, "https://") {
+			return cfg, errors.New("Non-loopback listeners require a public HTTPS origin and TLS reverse proxy")
+		}
 	}
 	return cfg, nil
 }
@@ -153,11 +161,28 @@ func run() error {
 	if err != nil {
 		return errors.New("Could not open credential workspace")
 	}
-	app, err := googlebridge.New(persistence.New(w), googlebridge.Config{AdminToken: cfg.AdminToken, Google: googletools.Config{Origin: cfg.PublicURL, CurrentKey: cfg.KeyVersion, Keys: keys}})
+	app, err := googlebridge.New(persistence.New(w), googlebridge.Config{AdminToken: cfg.AdminToken, Google: googletools.Config{Origin: cfg.PublicURL, CallbackPath: cfg.CallbackPath, CurrentKey: cfg.KeyVersion, Keys: keys}})
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: cfg.Listen, Handler: app, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	app.BootstrapLocalDefaults(context.Background(), "", "")
+	server := &http.Server{Handler: app, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	addrs := strings.Split(cfg.Listen, ",")
+	listeners := make([]net.Listener, 0, len(addrs))
+	for _, a := range addrs {
+		a = strings.TrimSpace(a)
+		if a == "" {
+			continue
+		}
+		l, err := net.Listen("tcp", a)
+		if err != nil {
+			for _, prev := range listeners {
+				_ = prev.Close()
+			}
+			return errors.New("Could not start HTTP server on " + a)
+		}
+		listeners = append(listeners, l)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {
@@ -167,9 +192,17 @@ func run() error {
 		_ = server.Shutdown(shutdown)
 	}()
 	fmt.Printf("Personal Google Bridge: %s\n", cfg.PublicURL)
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return errors.New("Could not start HTTP server")
+	var wg sync.WaitGroup
+	for _, l := range listeners {
+		wg.Add(1)
+		go func(lis net.Listener) {
+			defer wg.Done()
+			if err := server.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				fmt.Fprintf(os.Stderr, "Server error on %s: %v\n", lis.Addr(), err)
+			}
+		}(l)
 	}
+	wg.Wait()
 	return nil
 }
 func main() {

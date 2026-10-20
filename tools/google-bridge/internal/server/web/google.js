@@ -18,15 +18,95 @@ export function createGoogleConnection() {
         view.append(el("p", { class: "hint", label: "Google連携は未設定です。サーバー管理者による暗号鍵と公開URLの設定が必要です。" }));
         return;
       }
-      const projectInputs = [];
+      const project = el("input", { type: "text", autocomplete: "off", spellcheck: "false" });
+      const hasSavedClient = result.services.some(item => item.connectionId);
+      const allConnected = result.services.length > 0 && result.services.every(item => item.connected);
+      const allScopes = new Set(result.services.flatMap(item => item.scopes || []));
+      const targetService = result.services.length > 1 ? "both" : (result.services[0]?.service || "both");
       view.append(createSetupGuide(result.redirectUri, id => {
-        for (const input of projectInputs) if (!input.value) input.value = id;
+        if (!project.value) project.value = id;
       }));
       view.append(el("p", { class: "hint", label: "自分のGoogle CloudプロジェクトとWebアプリ用OAuthクライアントを使います。まず対象APIを有効にし、Google Auth Platformで同意画面とテストユーザーを設定してください。" }),
         el("a", { href: "https://console.cloud.google.com/auth/clients", label: "Google Auth Platformを開く" }),
         el("p", { label: "登録するリダイレクトURI" }), el("code", { text: result.redirectUri }),
         el("p", { class: "hint", label: "Testingでは通常7日で再認証が必要です。個人利用の審査例外がありますが、ユーザー所有プロジェクトでも審査免除は保証されません。" }),
         el("p", { class: "hint", label: "資格情報はこのアプリのサーバーに暗号化保存します。読み取ったデータはHermesと設定したモデルへ送られ、Hermes側の会話履歴にも残り得ます。秘密情報をチャットに貼り付けないでください。" }));
+      const message = el("p", { role: "status", "aria-live": "polite", class: "hint" });
+      const recovery = el("p", { class: "hint" });
+      const report = error => {
+        const text = t(error.message);
+        message.textContent = text;
+        recovery.textContent = recoveryHint(error.message);
+        toast(text);
+      };
+      const client = el("input", { type: "text", autocomplete: "off", spellcheck: "false" });
+      const secret = el("input", { type: "password", autocomplete: "new-password", spellcheck: "false" });
+      const send = el("input", { type: "checkbox" });
+      send.checked = allScopes.size === 0 || allScopes.has("https://www.googleapis.com/auth/gmail.send");
+      const drafts = el("input", { type: "checkbox" });
+      drafts.checked = allScopes.size === 0 || allScopes.has("https://www.googleapis.com/auth/gmail.compose");
+      const list = el("input", { type: "checkbox" });
+      list.checked = allScopes.size === 0 || allScopes.has("https://www.googleapis.com/auth/calendar.calendarlist.readonly");
+      const write = el("input", { type: "checkbox" });
+      write.checked = allScopes.size === 0 || allScopes.has("https://www.googleapis.com/auth/calendar.events");
+      const consent = el("input", { type: "checkbox" });
+      const upload = el("input", { type: "file", accept: ".json,application/json", onchange: async () => {
+        const file = upload.files?.[0];
+        if (!file) return;
+        try {
+          const config = await readOAuthClient(file, result.redirectUri);
+          if (disposed) return;
+          project.value = config.projectId;
+          client.value = config.clientId;
+          secret.value = config.clientSecret;
+          message.textContent = "JSONを確認しました。内容はブラウザーの入力欄だけに保持し、接続時に暗号化保存します。";
+          recovery.textContent = "";
+          toast("JSONを確認し、入力欄に反映しました。");
+        } catch (error) { if (!disposed) report(error); }
+        finally { upload.value = ""; }
+      } });
+      const field = (label, input) => el("label", { class: "field" }, el("span", { label }), input);
+      const form = el("form", { onsubmit: async (event) => {
+        event.preventDefault();
+        if (!consent.checked) { message.textContent = t("GoogleデータをHermesとモデルへ渡すことに同意してください。"); return; }
+        connect.disabled = true;
+        try {
+          sessionStorage.setItem(FLOW_KEY, "");
+          const started = await api.connectGoogle({ service: targetService, projectId: project.value.trim(), clientId: client.value.trim(), clientSecret: secret.value, redirectUri: result.redirectUri, modelConsent: true, calendarList: list.checked, gmailSend: send.checked, gmailDrafts: drafts.checked, calendarWrite: write.checked });
+          secret.value = "";
+          sessionStorage.setItem(FLOW_KEY, JSON.stringify({ service: targetService, browserSecret: started.browserSecret }));
+          const redirect = new URL(started.url);
+          if (redirect.origin !== "https://accounts.google.com" || redirect.pathname !== "/o/oauth2/v2/auth") throw new Error(t("接続先のURLが不正です"));
+          location.assign(redirect.href);
+        } catch (error) { report(error); connect.disabled = false; }
+      } });
+      const connect = el("button", { type: "submit", class: "button secondary", label: hasSavedClient ? "Googleに再接続（Gmail・Calendar一括）" : "Googleに接続" });
+      const manualInputs = el("details", {},
+        el("summary", { text: "クライアントID・シークレットの手入力欄（JSON選択時は自動で入ります）" }),
+        field("Google CloudプロジェクトID", project),
+        field("OAuthクライアントID", client),
+        field("OAuthクライアントシークレット", secret)
+      );
+      const scopeOptions = el("details", {},
+        el("summary", { text: "許可する操作の範囲（既定：すべて有効・変更する場合のみ）" }),
+        el("label", {}, send, el("span", { text: "Gmail: メール送信を追加で許可する（操作ごとの承認が必要）" })),
+        el("label", {}, drafts, el("span", { text: "Gmail: 下書き保存・送信を追加で許可する（composeはRestricted権限）" })),
+        el("label", {}, list, el("span", { label: "Calendar: カレンダー一覧の読み取りも許可する" })),
+        el("label", {}, write, el("span", { text: "Calendar: 所有カレンダーの予定変更を許可する（一覧権限も追加・操作ごとの承認が必要）" }))
+      );
+      form.append(
+        manualInputs,
+        field("GoogleからダウンロードしたWeb用OAuth設定JSONを選択", upload),
+        el("p", { class: "hint", text: "JSONファイルを選択すると自動でセットされます（再認証時は保存済みクライアントをそのまま使えます）。" }),
+        message,
+        recovery,
+        scopeOptions,
+        el("label", {}, consent, el("span", { label: "GmailとGoogle CalendarのデータをHermesと設定したモデルへ渡すことに同意する" })),
+        connect,
+      );
+      const setup = el("details", { class: "settings-block" }, el("summary", { label: "Gmail・Google Calendar 一括接続・再認証の設定" }), form);
+      setup.open = !allConnected;
+      view.append(setup);
       for (const connection of result.services) {
         const name = connection.service === "gmail" ? "Gmail" : "Google Calendar";
         const panel = el("section", { class: "settings-block" }, el("h4", { text: name }));
@@ -34,65 +114,6 @@ export function createGoogleConnection() {
         panel.append(el("p", { text: `${t("接続状態")}: ${t(state)}${connection.email ? ` · ${connection.email}` : ""}` }));
         if (connection.lastVerifiedAt) panel.append(el("p", { class: "hint", text: `${t("最終接続確認")}: ${new Date(connection.lastVerifiedAt).toLocaleString()}` }));
         if (connection.scopes.length) panel.append(el("p", { class: "hint", text: `${t("許可済み権限")}: ${connection.scopes.join(", ")}` }));
-        const project = el("input", { type: "text", autocomplete: "off", spellcheck: "false" });
-        projectInputs.push(project);
-        const client = el("input", { type: "text", autocomplete: "off", spellcheck: "false" });
-        const secret = el("input", { type: "password", autocomplete: "new-password", spellcheck: "false" });
-        const list = el("input", { type: "checkbox" });
-        const send = el("input", { type: "checkbox" });
-        const drafts = el("input", { type: "checkbox" });
-        const write = el("input", { type: "checkbox" });
-        const consent = el("input", { type: "checkbox" });
-        const message = el("p", { role: "status", "aria-live": "polite", class: "hint" });
-        const recovery = el("p", { class: "hint" });
-        const report = error => { message.textContent = t(error.message); recovery.textContent = recoveryHint(error.message); };
-        const upload = el("input", { type: "file", accept: ".json,application/json", onchange: async () => {
-          const file = upload.files?.[0];
-          if (!file) return;
-          try {
-            const config = await readOAuthClient(file, result.redirectUri);
-            if (disposed) return;
-            project.value = config.projectId; client.value = config.clientId; secret.value = config.clientSecret;
-            message.textContent = "JSONを確認しました。内容はブラウザーの入力欄だけに保持し、接続時に暗号化保存します。";
-            recovery.textContent = "";
-          } catch (error) { if (!disposed) report(error); }
-          finally { upload.value = ""; }
-        } });
-        const field = (label, input) => el("label", { class: "field" }, el("span", { label }), input);
-        const form = el("form", { onsubmit: async (event) => {
-          event.preventDefault();
-          if (!consent.checked) { message.textContent = t("GoogleデータをHermesとモデルへ渡すことに同意してください。"); return; }
-          connect.disabled = true;
-          try {
-            sessionStorage.setItem(FLOW_KEY, "");
-            const started = await api.connectGoogle({ service: connection.service, projectId: project.value.trim(), clientId: client.value.trim(), clientSecret: secret.value, redirectUri: result.redirectUri, modelConsent: true, calendarList: list.checked, gmailSend: send.checked, gmailDrafts: drafts.checked, calendarWrite: write.checked });
-            secret.value = "";
-            sessionStorage.setItem(FLOW_KEY, JSON.stringify({ service: connection.service, browserSecret: started.browserSecret }));
-            const redirect = new URL(started.url);
-            if (redirect.origin !== "https://accounts.google.com" || redirect.pathname !== "/o/oauth2/v2/auth") throw new Error(t("接続先のURLが不正です"));
-            location.assign(redirect.href);
-          } catch (error) { report(error); connect.disabled = false; }
-        } });
-        const connect = el("button", { type: "submit", class: "button secondary", label: connection.connectionId ? "Googleに再接続" : "Googleに接続" });
-        form.append(field("Google CloudプロジェクトID", project), field("OAuthクライアントID", client), field("OAuthクライアントシークレット", secret));
-        form.append(field("GoogleからダウンロードしたWeb用OAuth設定JSON（任意）", upload), el("p", { class: "hint", text: "ファイルはこのブラウザーで読み取り、クライアント種別とリダイレクトURIを検証します。ファイルそのものは送信しません。" }));
-        if (connection.connectionId) form.append(el("p", { class: "hint", label: "再認証では3項目を空欄にすると保存済みクライアントを使います。" }));
-        if (connection.service === "calendar") {
-          list.checked = connection.scopes.includes("https://www.googleapis.com/auth/calendar.calendarlist.readonly");
-          form.append(el("label", {}, list, el("span", { label: "カレンダー一覧の読み取りも許可する" })));
-        }
-        if (connection.service === "gmail") {
-          send.checked = connection.scopes.includes("https://www.googleapis.com/auth/gmail.send");
-          drafts.checked = connection.scopes.includes("https://www.googleapis.com/auth/gmail.compose");
-          form.append(el("label", {}, send, el("span", { text: "メール送信を追加で許可する（操作ごとの承認が必要）" })), el("label", {}, drafts, el("span", { text: "下書き保存・送信を追加で許可する（composeはRestricted権限）" })));
-        } else {
-          write.checked = connection.scopes.includes("https://www.googleapis.com/auth/calendar.events");
-          form.append(el("label", {}, write, el("span", { text: "所有カレンダーの予定変更を許可する（一覧権限も追加・操作ごとの承認が必要）" })));
-        }
-        form.append(el("label", {}, consent, el("span", { label: "このサービスのデータをHermesと設定したモデルへ渡すことに同意する" })), connect);
-        const setup = el("details", {}, el("summary", { label: "接続・再認証の設定" }), form);
-        setup.open = !connection.connected;
-        panel.append(setup);
         if (connection.connectionId) {
           const revoke = el("input", { type: "checkbox" });
           panel.append(el("button", { class: "chip", label: "接続テスト", onclick: async (event) => {
@@ -110,7 +131,6 @@ export function createGoogleConnection() {
             } catch (error) { report(error); button.disabled = false; }
           } }));
         }
-        panel.append(message, recovery);
         view.append(panel);
       }
     } catch (error) {

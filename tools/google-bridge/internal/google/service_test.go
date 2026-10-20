@@ -101,7 +101,11 @@ func finishInput(t *testing.T, s *Service, name string) FinishInput {
 	if strings.Contains(flow.URL, "client-secret") || u.Query().Get("code_challenge_method") != "S256" {
 		t.Fatal("unsafe authorization URL")
 	}
-	r, err := s.read(context.Background(), name)
+	key := name
+	if key == "both" {
+		key = "gmail"
+	}
+	r, err := s.read(context.Background(), key)
 	if err != nil || r.Pending == nil || u.Query().Get("code_challenge") != oauth2.S256ChallengeFromVerifier(r.Pending.Verifier) {
 		t.Fatal("incorrect PKCE challenge")
 	}
@@ -280,8 +284,7 @@ func TestScopesConsentAccountsAndReadValidation(t *testing.T) {
 	if _, err := s.Start(ctx, StartInput{Service: "gmail", RedirectURI: "https://app.example" + CallbackPath}); err != ErrConsent {
 		t.Fatal(err)
 	}
-	connect(t, s, "gmail")
-	connect(t, s, "calendar")
+	connect(t, s, "both")
 	if _, err := s.Read(ctx, "calendar_list", ReadArgs{}); err != ErrScope {
 		t.Fatal("list permission not checked")
 	}

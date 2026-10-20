@@ -10,8 +10,9 @@ import { createCalendarInbox } from "./calendar-inbox.js";
 
 let google, actions, inbox, calendarInbox;
 function signedOut() {
- calendarInbox?.dispose();calendarInbox=null;
- clear(document.querySelector("#calendar-inbox-list"));
+  calendarInbox?.dispose();
+  calendarInbox = null;
+  clear(document.querySelector("#calendar-inbox-list"));
   inbox?.dispose();
   inbox = null;
   actions?.dispose();
@@ -20,7 +21,6 @@ function signedOut() {
   google = null;
   clear(document.querySelector("#google"));
   clear(document.querySelector("#mcp"));
-  clear(document.querySelector("#action-list"));
   clear(document.querySelector("#inbox-list"));
   document.querySelector("#login").hidden = false;
   document.querySelector("#dashboard").hidden = true;
@@ -29,10 +29,8 @@ function signedOut() {
 async function mcp() {
   const status = await api.mcpStatus();
   const view = clear(document.querySelector("#mcp"));
-  view.append(el("p", { text: status.configured ? "MCPキーは発行済みです。再発行すると以前のキーは使えなくなります。" : "MCPキーを発行してHermesに登録してください。" }));
-  view.append(el("p", {}, el("code", { text: status.url })));
   const output = el("div");
-  view.append(el("div", { class: "actions" },
+  const buttons = el("div", { class: "actions" },
     el("button", { text: status.configured ? "MCPキーを再発行" : "MCPキーを発行", onclick: async event => {
       const button = event.currentTarget;
       button.disabled = true;
@@ -45,7 +43,23 @@ async function mcp() {
       } catch (error) { toast(error.message); }
       finally { button.disabled = false; }
     } }),
-    el("button", { class: "ghost", text: "MCPキーを無効化", onclick: async () => { try { await api.revokeMCP(); await mcp(); toast("Hermesのアクセスを停止しました。"); } catch (error) { toast(error.message); } } })), output,
+    el("button", { class: "ghost", text: status.loopback && status.configured ? "個別キーを解除（ローカル設定なしに戻す）" : "MCPキーを無効化", onclick: async () => { try { await api.revokeMCP(); await mcp(); toast(status.loopback ? "個別MCPキーを解除し、ローカル接続モードに戻しました。" : "Hermesのアクセスを停止しました。"); } catch (error) { toast(error.message); } } }));
+  if (status.loopback && !status.configured) {
+    view.append(
+      el("p", { text: "ローカル接続モード（設定不要）：同じ端末のHermesからは、MCPキーを発行しなくてもそのまま接続できます（kakerattaと同じMCPキーでも認証できます）。" }),
+      el("p", {}, el("code", { text: status.url })),
+      el("details", {},
+        el("summary", { text: "Hermes設定例・個別のMCPキーを発行する場合（任意）" }),
+        el("pre", { text: `mcp_servers:\n  google_bridge:\n    url: ${JSON.stringify(status.url)}\n    tools:\n      prompts: false\n      resources: false` }),
+        buttons, output,
+        el("p", { class: "hint", text: "Hermesが別の端末・コンテナにある場合は、個別MCPキーを発行するかkakerattaと同じMCPキーを設定してください。" })
+      )
+    );
+    return;
+  }
+  view.append(el("p", { text: status.configured ? "個別MCPキーは発行済みです。再発行すると以前のキーは使えなくなります。" : "MCPキーを発行してHermesに登録してください。" }),
+    el("p", {}, el("code", { text: status.url })),
+    buttons, output,
     el("p", { class: "hint", text: "Hermesが別の端末・コンテナにある場合、127.0.0.1はHermes自身を指します。SSH転送や自分のHTTPSサーバーを使い、Hermesから到達できるURLを設定してください。" }));
 }
 async function dashboard() {
@@ -58,13 +72,12 @@ async function dashboard() {
   google = createGoogleConnection();
   clear(document.querySelector("#google")).append(google.element);
   await mcp();
-  actions?.dispose();
-  actions = createActions();
-  clear(document.querySelector("#action-list")).append(actions.element);
   inbox?.dispose();
   inbox = createInbox();
   clear(document.querySelector("#inbox-list")).append(inbox.element);
- calendarInbox?.dispose(); calendarInbox=createCalendarInbox();clear(document.querySelector("#calendar-inbox-list")).append(calendarInbox.element);
+  calendarInbox?.dispose();
+  calendarInbox = createCalendarInbox();
+  clear(document.querySelector("#calendar-inbox-list")).append(calendarInbox.element);
 }
 document.querySelector("#login-form").addEventListener("submit", async event => {
   event.preventDefault();

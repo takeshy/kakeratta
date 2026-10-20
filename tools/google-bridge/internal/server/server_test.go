@@ -256,7 +256,7 @@ func TestManagementKeyChangeInvalidatesExistingSession(t *testing.T) {
 	}
 }
 
-func TestBrowserApprovalCannotBeGrantedByMCP(t *testing.T) {
+func TestDirectRequestRunsOnceWithoutWebApproval(t *testing.T) {
 	s, cookie := app(t)
 	// Use the same workspace and keys, with a fake provider that grants send.
 	var writes int
@@ -285,47 +285,18 @@ func TestBrowserApprovalCannotBeGrantedByMCP(t *testing.T) {
 		t.Fatal(err)
 	}
 	credential := key(t, s, cookie)
-	proposal := `{"type":"gmail_send","idempotencyKey":"browser-test-operation","mail":{"to":["actual@example.com"],"subject":"hi","body":"outgoing"}}`
-	out := mcp(s, credential, "tools/call", "google_action_propose", proposal)
-	var rpc struct {
-		Result struct {
-			Structured googletools.Action `json:"structuredContent"`
-		} `json:"result"`
-	}
-	if err = json.Unmarshal(out.Body.Bytes(), &rpc); err != nil || rpc.Result.Structured.ID == "" {
-		t.Fatal(out.Body.String())
-	}
-	a := rpc.Result.Structured
-	if out = mcp(s, credential, "tools/call", "google_action_approve", `{}`); !strings.Contains(out.Body.String(), "Unknown tool") {
-		t.Fatal(out.Body.String())
-	}
-	args := `{"id":"` + a.ID + `","payloadHash":"` + a.PayloadHash + `","idempotencyKey":"browser-test-operation"}`
-	if out = mcp(s, credential, "tools/call", "google_action_execute", args); !strings.Contains(out.Body.String(), `"isError":true`) {
-		t.Fatal(out.Body.String())
-	}
-	decision := `{"payloadHash":"` + a.PayloadHash + `","approve":true}`
-	if out = web(s, nil, "POST", "/api/google/actions/"+a.ID+"/decision", decision); out.Code != 401 {
-		t.Fatal(out.Code)
-	}
-	req := httptest.NewRequest("POST", s.origin+"/api/google/actions/"+a.ID+"/decision", strings.NewReader(decision))
-	req.Header.Set("Origin", s.origin)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+credential)
-	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, req)
-	if rr.Code != 401 {
-		t.Fatal("MCP approved", rr.Code)
-	}
-	for _, body := range []string{`{"payloadHash":"tampered","approve":true}`, `{"payloadHash":"` + a.PayloadHash + `","approve":true,"body":"changed"}`} {
-		if out = web(s, cookie, "POST", "/api/google/actions/"+a.ID+"/decision", body); out.Code != 400 {
-			t.Fatal(out.Body.String())
+	for _, name := range []string{"google_action_propose", "google_action_execute", "google_action_approve"} {
+		if out := mcp(s, credential, "tools/call", name, `{}`); !strings.Contains(out.Body.String(), "Unknown tool") {
+			t.Fatal("legacy approval tool exposed", name, out.Body.String())
 		}
 	}
-	if out = web(s, cookie, "POST", "/api/google/actions/"+a.ID+"/decision", decision); out.Code != 200 {
-		t.Fatal(out.Body.String())
+	mail := `"type":"gmail_send","idempotencyKey":"direct-test-operation","mail":{"to":["actual@example.com"],"subject":"hi","body":"outgoing"}`
+	if out := mcp(s, credential, "tools/call", "google_action_run", `{`+mail+`}`); !strings.Contains(out.Body.String(), `"isError":true`) || writes != 0 {
+		t.Fatal("run without the owner's request", out.Body.String())
 	}
+	args := `{` + mail + `,"userRequest":"actual@example.comにhiと送って"}`
 	for range 2 {
-		out = mcp(s, credential, "tools/call", "google_action_execute", args)
+		out := mcp(s, credential, "tools/call", "google_action_run", args)
 		if !strings.Contains(out.Body.String(), `"status":"succeeded"`) {
 			t.Fatal(out.Body.String())
 		}
@@ -333,19 +304,53 @@ func TestBrowserApprovalCannotBeGrantedByMCP(t *testing.T) {
 	if writes != 1 {
 		t.Fatal("duplicate writes", writes)
 	}
-	out = web(s, cookie, "GET", "/api/google/actions", "")
-	if strings.Contains(out.Body.String(), "outgoing") || !strings.Contains(out.Body.String(), `"executedBy":"mcp"`) {
+	out := web(s, cookie, "GET", "/api/google/actions", "")
+	if strings.Contains(out.Body.String(), "outgoing") || !strings.Contains(out.Body.String(), `"decidedBy":"direct"`) || !strings.Contains(out.Body.String(), "actual@example.comにhiと送って") {
 		t.Fatal(out.Body.String())
 	}
 	other, _ := app(t)
-	out = mcp(other, credential, "tools/call", "google_action_execute", args)
-	if out.Code != 401 {
+	if out = mcp(other, credential, "tools/call", "google_action_run", args); out.Code != 401 {
 		t.Fatal("cross instance execution", out.Code)
 	}
-	for _, bad := range []string{`{"type":"gmail_send","idempotencyKey":"browser-test-other-key","approved":true,"mail":{"to":["a@example.com"],"subject":"hi","body":"x"}}`, `{"type":"gmail_send","idempotencyKey":"browser-test-other-key","mail":{"to":["a@example.com"],"subject":"hi","body":"x","bcc":["evil@example.com"]}}`} {
-		out = mcp(s, credential, "tools/call", "google_action_propose", bad)
+	for _, bad := range []string{`{"type":"gmail_send","idempotencyKey":"direct-test-other-key","userRequest":"x","approved":true,"mail":{"to":["a@example.com"],"subject":"hi","body":"x"}}`, `{"type":"gmail_send","idempotencyKey":"direct-test-other-key","userRequest":"x","mail":{"to":["a@example.com"],"subject":"hi","body":"x","bcc":["evil@example.com"]}}`} {
+		out = mcp(s, credential, "tools/call", "google_action_run", bad)
 		if !strings.Contains(out.Body.String(), `"isError":true`) {
 			t.Fatal(out.Body.String())
 		}
+	}
+	if writes != 1 {
+		t.Fatal("invalid arguments wrote", writes)
+	}
+}
+
+func TestLoopbackKeylessAndKakerattaKeyMCP(t *testing.T) {
+	w, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(w, Config{AdminToken: adminKey, Google: googletools.Config{Origin: "http://localhost:8132", CurrentKey: "v1", Keys: map[string][]byte{"v1": []byte(strings.Repeat("k", 32))}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("POST", "http://localhost:8132/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json, text/event-stream")
+	out := httptest.NewRecorder()
+	s.ServeHTTP(out, r)
+	if out.Code != 200 {
+		t.Fatal("loopback keyless MCP rejected", out.Code, out.Body.String())
+	}
+	kakerattaKey := strings.Repeat("c", 64)
+	if _, err := s.google.SetTimelineTarget(context.Background(), googletools.TimelineTargetInput{Enabled: true, URL: "https://kakeratta.example/api/mcp/users/me", Key: kakerattaKey}); err != nil {
+		t.Fatal(err)
+	}
+	r = httptest.NewRequest("POST", "http://127.0.0.1:8132/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+	r.Header.Set("Authorization", "Bearer "+kakerattaKey)
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json, text/event-stream")
+	out = httptest.NewRecorder()
+	s.ServeHTTP(out, r)
+	if out.Code != 200 {
+		t.Fatal("kakeratta timeline key rejected on MCP", out.Code, out.Body.String())
 	}
 }

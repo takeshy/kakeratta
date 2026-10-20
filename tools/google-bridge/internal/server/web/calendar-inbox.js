@@ -14,10 +14,10 @@ export function createCalendarInbox() {
       const settings = state.settings;
       const enabled = el("input", { type: "checkbox" }); enabled.checked = settings.enabled;
       const llm = el("input", { type: "checkbox" }); llm.checked = settings.llmEnabled;
-      const calendar = el("input", { value: settings.calendarId, required: true, maxlength: 320 });
-      const zone = el("input", { value: settings.timeZone, required: true });
-      const chars = el("input", { type: "number", min: 0, max: 5000, value: settings.bodyChars, required: true });
-      const prompt = el("textarea", { rows: 7 }, settings.triagePrompt);
+      const calendar = el("input", { value: settings.calendarId || "primary", required: true, maxlength: 320 });
+      const zone = el("input", { value: settings.timeZone || "Asia/Tokyo", required: true });
+      const chars = el("input", { type: "number", min: 0, max: 5000, value: settings.bodyChars ?? 2000, required: true });
+      const prompt = el("textarea", { rows: 6 }, settings.triagePrompt || "");
       let exclusions = [...(settings.excludedEvents || [])];
       const rules = el("div");
       function drawRules() {
@@ -29,7 +29,14 @@ export function createCalendarInbox() {
           el("button", { type: "button", class: "ghost", text: "この除外を解除", onclick: () => { exclusions = exclusions.filter((_, i) => i !== index); drawRules(); } }))));
       }
       drawRules();
-      const save = el("button", { type: "submit", text: "予定の取り込み設定を保存" });
+      const save = el("button", { type: "submit", class: "primary", text: "予定の取り込み設定を保存" });
+      const advanced = el("details", {},
+        el("summary", { text: "詳細パラメータ・LLM依頼文（通常は変更不要）" }),
+        field("対象カレンダーID（既定: primary）", calendar),
+        field("今日・明日を区切るタイムゾーン（既定: Asia/Tokyo）", zone),
+        field("説明文の保存上限（文字数・既定2000）", chars),
+        field("LLMへの予定取り込み判定の依頼文（編集できます）", prompt)
+      );
       const form = el("form", { onsubmit: async event => {
         event.preventDefault(); save.disabled = true;
         try {
@@ -37,16 +44,25 @@ export function createCalendarInbox() {
           toast("予定の取り込み設定を保存しました。解除は今後の新しい予定に適用します。"); await load();
         } catch (error) { toast(error.message); save.disabled = false; }
       } }, check(enabled, "今日・明日の予定を読み取り、暗号化保存し、設定したkakerattaへ取り込み候補として送ることを許可する"),
-      field("対象カレンダーID（通常はprimary）", calendar), field("今日・明日を区切るタイムゾーン（例: Asia/Tokyo）", zone),
-      field("説明文の保存上限（文字数・0でも日時とタイトルは保持）", chars),
-      check(llm, "HermesのLLMで予定の取り込み候補を選ぶ（有効時は内容が設定したモデルへ送られます）"),
-      field("LLMへの予定取り込み判定の依頼文（編集できます）", prompt),
+      check(llm, "HermesのLLMで予定の取り込み候補を選ぶ（おすすめ）"),
       el("h3", { text: "機械的に除外する予定・定期予定" }), rules,
-      el("p", { class: "hint", text: "Timelineのチェック付き破棄を次の同期で反映します。予定IDまたは定期予定の元IDで、LLMより先に除外します。解除ボタンを押した後、この設定を保存してください。既に処理済みの回は再表示しません。" }), save);
-      const settingsPanel = el("details", {}, el("summary", { text: "予定の取り込みとLLMルール" }), form); settingsPanel.open = !settings.enabled;
-      view.append(el("p", { class: "hint", text: "今日0時から明後日0時までを対象に、定期予定は各回へ展開します。同じ予定は翌日も重複表示しません。投稿先は「04 重要メール」のTimeline連携設定を共用します。Googleへの予定登録・更新・削除は行いません。" }), settingsPanel);
-      const sync = el("button", { text: "今日・明日の予定を今すぐ確認", onclick: async () => { sync.disabled = true; try { await api.syncCalendarInbox(); await load(); } catch (error) { toast(error.message); sync.disabled = false; } } }); sync.disabled = !settings.enabled;
-      view.append(el("div", { class: "actions" }, sync, el("button", { class: "ghost", text: "予定の状態を更新", onclick: load })));
+      el("p", { class: "hint", text: "Timelineでチェック付き破棄を選んだ予定・定期予定がここに追加されます。" }),
+      advanced, save);
+      const settingsPanel = el("details", {}, el("summary", { text: "予定の除外リスト・詳細設定（変更する場合のみ）" }), form);
+      view.append(el("p", { class: "hint", text: settings.enabled ? `おすすめ設定（${settings.calendarId || "primary"} / ${settings.timeZone || "Asia/Tokyo"}）で予定取り込みが有効です。` : "予定の取り込みは停止しています。「おすすめ設定で有効にする」を押すとそのまま使い始められます。" }), settingsPanel);
+      const sync = el("button", { class: settings.enabled ? "primary" : "", text: "今日・明日の予定を今すぐ確認", onclick: async () => { sync.disabled = true; try { await api.syncCalendarInbox(); await load(); } catch (error) { toast(error.message); sync.disabled = false; } } }); sync.disabled = !settings.enabled;
+      const actionBar = el("div", { class: "actions" });
+      if (!settings.enabled) {
+        actionBar.append(el("button", { class: "primary", text: "おすすめ設定で有効にする（設定不要）", onclick: async event => {
+          const btn = event.currentTarget; btn.disabled = true;
+          try {
+            await api.saveCalendarInboxSettings({ enabled: true, llmEnabled: true, calendarId: settings.calendarId || "primary", timeZone: settings.timeZone || "Asia/Tokyo", triagePrompt: settings.triagePrompt || "", bodyChars: settings.bodyChars ?? 2000, excludedEvents: exclusions });
+            toast("おすすめ設定で予定の取り込みを有効にしました。"); await load();
+          } catch (error) { toast(error.message); btn.disabled = false; }
+        } }));
+      }
+      actionBar.append(sync, el("button", { class: "ghost", text: "予定の状態を更新", onclick: load }));
+      view.append(actionBar);
       if (state.lastSyncedAt) view.append(el("p", { class: "hint", text: `最終確認: ${new Date(state.lastSyncedAt).toLocaleString()}` }));
       if (state.triagePending) view.append(el("p", { class: "hint", text: `予定のLLM判定待ち: ${state.triagePending}件` }));
       if (state.hasMore) view.append(el("p", { class: "hint", text: "取得の続きがあります。次のジョブまたは確認ボタンで継続します。" }));
@@ -60,3 +76,4 @@ export function createCalendarInbox() {
   void load();
   return { element: view, load, dispose() { disposed = true; clear(view); } };
 }
+

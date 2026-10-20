@@ -13,9 +13,13 @@ type CalendarTriageContext struct {
 	Items       []CalendarTriageItem `json:"items"`
 }
 type CalendarTriageDecision struct {
-	EventID string `json:"eventId"`
-	Token   string `json:"token"`
-	Keep    *bool  `json:"keep"`
+	CalendarID string `json:"calendarId,omitempty"`
+	EventID    string `json:"eventId"`
+	Token      string `json:"token"`
+	Keep       *bool  `json:"keep"`
+	Importance *int   `json:"importance,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+	Type       any    `json:"type,omitempty"`
 }
 
 func calendarTriageToken(st *calendarSyncState, e CalendarInboxEvent) string {
