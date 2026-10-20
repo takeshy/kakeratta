@@ -145,7 +145,7 @@ func pruneCalendar(st *calendarSyncState) {
 				continue
 			}
 			e.Description, _ = inboxBody(e.Description, st.Settings.BodyChars)
-			e.Body = formatCalendarBody(e.Context, e.Description, e.SourceURL)
+			e.Body = formatCalendarBody(e.Context, e.Description)
 			out = append(out, e)
 		}
 		return out
@@ -233,13 +233,10 @@ func (s *Service) ClearCalendarInbox(ctx context.Context) error {
 	return s.save(ctx, "calendar-inbox", record{})
 }
 
-func formatCalendarBody(context, description, sourceURL string) string {
+func formatCalendarBody(context, description string) string {
 	body := context
 	if description != "" {
 		body += "\n\n" + description
-	}
-	if sourceURL != "" {
-		body += "\n\n[元の予定](" + sourceURL + ")"
 	}
 	return body
 }
@@ -291,7 +288,7 @@ func calendarPublic(c *connection, st *calendarSyncState, ev event, now time.Tim
 	if location != "" {
 		context += "\n場所: " + location
 	}
-	body := formatCalendarBody(context, description, ref)
+	body := formatCalendarBody(context, description)
 	return CalendarInboxEvent{Context: context, Description: description, ConnectionID: c.ID, CalendarID: st.Settings.CalendarID, EventID: ev.ID, SeriesID: ev.RecurringEventID, Summary: summary, Body: body, SourceURL: ref, ImportedAt: now, EndAt: end, TrustLevel: "external"}, true
 }
 func (s *Service) SyncCalendar(ctx context.Context, force bool) (SyncResult, error) {
