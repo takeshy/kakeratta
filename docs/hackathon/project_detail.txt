@@ -26,6 +26,7 @@ Just post a thought, photo, link, or voice note. Personas can remember details, 
 - **Silence is the default.** Most posts get no reply. If every AI commented on every post, the timeline would drown.
 - **Memories have an ending.** Temporary memories can expire, while others come back for review: keep, postpone, or forget?
 - **Memory you can inspect.** Facts link back to your posts. You can see and correct what each persona remembers.
+- **Personas grow with your interests.** When a new topic builds up in a persona's memory, it suggests a dedicated persona at check-in. One tap on **Create it** drafts the new persona, moves the related memories to it, and narrows the original persona's routing so those posts reach only the new one.
 
 The demo video shows the core loop. The [README](https://github.com/takeshy/kakeratta) covers built-in personas, routing, models, `@agent` hand-off, and setup.
 

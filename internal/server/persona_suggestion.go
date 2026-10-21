@@ -48,7 +48,8 @@ type suggestedDraft struct {
 // persona, installs and activates it, and moves the facts and records the
 // draft picked from the suggesting persona's memory into its own. The
 // suggesting persona's condition is rewritten to leave the subject out, so a
-// post on it is routed to the new persona and not to both.
+// post on it is routed to the new persona and not to both. A step that fails
+// undoes those before it (undoSuggested).
 func (s *Server) answerSuggestion(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Choice   string `json:"choice"`
@@ -92,25 +93,35 @@ func (s *Server) answerSuggestion(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
+	// Making it is three writes - the new persona, the suggesting persona's
+	// narrowed condition, the memory moved between them - and the user sees
+	// all of them or none: a step that fails undoes the ones before it, the
+	// post still waits for an answer, and the button can be pressed again.
 	raw, _ := json.Marshal(drafted.Draft)
 	saved, err := s.catalogue.Install(raw, s.knownTool)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	made := added{Skill: saved, Active: s.activatePersona(saved.ID) == nil}
-	// The persona is made; memory that cannot be moved costs the memory,
-	// never the persona or the answer.
-	facts, records, err := s.runner.MoveMemory(held, source.ID, saved.ID, drafted.Facts, drafted.Records)
-	if err != nil {
-		log.Printf("suggested persona %s memory from %s: %v", saved.ID, source.ID, err)
-	}
 	narrowed, err := s.excludeSubject(held, source, drafted.SourceDomain, entry.Suggestion.Topic)
 	if err != nil {
-		log.Printf("suggested persona %s condition of %s: %v", saved.ID, source.ID, err)
+		s.undoSuggested(held, saved.ID, nil)
+		fail(w, http.StatusInternalServerError, "新しい担当を作れませんでした。もう一度押してください。")
+		return
 	}
+	facts, records, err := s.runner.MoveMemory(held, source.ID, saved.ID, drafted.Facts, drafted.Records)
+	if err != nil {
+		s.undoSuggested(held, saved.ID, &source)
+		fail(w, http.StatusInternalServerError, "新しい担当を作れませんでした。もう一度押してください。")
+		return
+	}
+	made := added{Skill: saved, Active: s.activatePersona(saved.ID) == nil}
 	entry, err = s.runner.AnswerSuggestion(id, timeline.SuggestionCreated, saved.ID)
-	if s.suggestionFailed(w, err) {
+	if err != nil {
+		// Everything is made; only the answer on the post is missing, and
+		// undoing would move the memory back for a mark.
+		log.Printf("suggested persona %s answer on %s: %v", saved.ID, id, err)
+		fail(w, http.StatusInternalServerError, "担当は作りましたが、投稿に答えを残せませんでした")
 		return
 	}
 	s.publishEvent("entry", entry)
@@ -165,17 +176,39 @@ func (s *Server) draftSuggested(ctx context.Context, suggestion timeline.Persona
 	return result, nil
 }
 
+// undoSuggested takes back a persona made from a suggestion when a later
+// step failed: the persona and any memory written for it go, and the
+// suggesting persona's condition is put back when it was changed. What cannot
+// be undone is logged; the user is told the persona was not made.
+func (s *Server) undoSuggested(ctx context.Context, made string, source *persona.Skill) {
+	if source != nil {
+		if err := s.catalogue.Restore(ctx, *source, s.knownTool); err != nil {
+			log.Printf("suggested persona %s: restoring %s: %v", made, source.ID, err)
+		}
+	}
+	if err := s.store.ForgetMemory(made); err != nil {
+		log.Printf("suggested persona %s: forgetting its memory: %v", made, err)
+	}
+	if err := s.catalogue.Uninstall(made); err != nil {
+		log.Printf("suggested persona %s: removing it: %v", made, err)
+	}
+}
+
 // excludeSubject saves the suggesting persona with its condition narrowed:
-// the drafted one, or when none came back, its own with the subject left out.
+// the drafted one, or when none usable came back, its own with the subject
+// left out.
 func (s *Server) excludeSubject(ctx context.Context, source persona.Skill, domain, topic string) (persona.Skill, error) {
 	domain = strings.TrimSpace(domain)
-	if domain == "" || domain == strings.TrimSpace(source.Domain) {
+	if domain == "" || domain == strings.TrimSpace(source.Domain) || len([]rune(domain)) > maxDomainRunes {
 		domain = strings.TrimSpace(source.Domain) + excludedLine(source.Domain, topic)
 	}
 	source.Domain = domain
 	raw, _ := json.Marshal(source)
 	return s.catalogue.Update(ctx, source.ID, raw, s.knownTool)
 }
+
+// maxDomainRunes is the longest condition a persona can be saved with.
+const maxDomainRunes = 2000
 
 var japaneseText = regexp.MustCompile(`[\p{Hiragana}\p{Katakana}\p{Han}]`)
 

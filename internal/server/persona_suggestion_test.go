@@ -105,3 +105,80 @@ func TestExcludedLineFollowsTheCondition(t *testing.T) {
 		t.Fatalf("en = %q", got)
 	}
 }
+
+// A step that fails after the persona is installed takes everything back: no
+// new persona, the suggesting persona's condition and memory as they were,
+// and the post still waiting, so the button can be pressed again.
+func TestASuggestedPersonaIsTakenBackWhenAStepFails(t *testing.T) {
+	server, workspace := app(t)
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		draft, _ := json.Marshal(map[string]any{"message": "作りました", "draft": persona.Skill{ID: "ferment", Name: "ぬか床", Icon: "🥒", Domain: "発酵食づくりの話。"},
+			"facts": []string{"f_nuka"}, "records": []string{"e_a"}, "sourceDomain": strings.Repeat("長", 2100)})
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": string(draft)}}}})
+	}))
+	defer model.Close()
+	settings := workspace.ConfiguredSettings()
+	settings.BaseURL = model.URL
+	if err := workspace.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	memo := "# Memo\n\n## いまの事実\n\n- [f_nuka] ぬか床を毎朝かき混ぜている from:e_a\n\n## かけらの記録\n\n- 2026-10-01 09:00 [e_a](/?entry=e_a) ぬか床を仕込んだ #発酵\n"
+	if err := workspace.WriteNote("gourmet", persona.MemoPath, memo); err != nil {
+		t.Fatal(err)
+	}
+	// A condition with no room left for the exclusion cannot be saved.
+	long, _ := server.catalogue.Find(context.Background(), "gourmet")
+	long.Domain = strings.Repeat("長", 1995)
+	raw, _ := json.Marshal(long)
+	if _, err := server.catalogue.Update(context.Background(), "gourmet", raw, server.knownTool); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := server.catalogue.Find(context.Background(), "gourmet")
+	ask := timeline.Entry{ID: "ask", Kind: timeline.KindPost, Speaker: "gourmet", Root: "ask", Text: "作りませんか？", At: time.Now(),
+		Suggestion: &timeline.PersonaSuggestion{Topic: "発酵食づくり", Reason: "続いている", Status: timeline.SuggestionAsked}}
+	if err := workspace.Append(ask); err != nil {
+		t.Fatal(err)
+	}
+	out := httptest.NewRecorder()
+	request := httptest.NewRequest("POST", "/api/entry/ask/suggestion", strings.NewReader(`{"choice":"create"}`))
+	request.Header.Set("Content-Type", "application/json")
+	server.ServeHTTP(out, request)
+	if out.Code != http.StatusInternalServerError {
+		t.Fatalf("create: %d %s", out.Code, out.Body.String())
+	}
+	if _, ok := server.catalogue.Find(context.Background(), "ferment"); ok {
+		t.Fatal("the new persona was left behind")
+	}
+	if after, _ := server.catalogue.Find(context.Background(), "gourmet"); after.Domain != before.Domain {
+		t.Fatalf("the suggesting persona changed: %+v", after)
+	}
+	if kept, _ := workspace.Note("gourmet", persona.MemoPath); !strings.Contains(kept.Text, "ぬか床を仕込んだ") {
+		t.Fatalf("the suggesting persona lost its memory:\n%s", kept.Text)
+	}
+	if note, _ := workspace.Note("ferment", persona.MemoPath); note.Text != "" {
+		t.Fatalf("memory was left for the persona taken back:\n%s", note.Text)
+	}
+	if entry, _ := workspace.Entry("ask"); entry.Suggestion.Status != timeline.SuggestionAsked {
+		t.Fatalf("the post = %+v", entry.Suggestion)
+	}
+}
+
+// Restoring a built-in that had not been customized makes it follow the
+// shipped definition again.
+func TestRestoreReturnsABuiltinToTheShippedOne(t *testing.T) {
+	server, _ := app(t)
+	ctx := context.Background()
+	shipped, _ := server.catalogue.Find(ctx, "gourmet")
+	changed := shipped
+	changed.Domain += "ただし、発酵食の話は除く。"
+	raw, _ := json.Marshal(changed)
+	if _, err := server.catalogue.Update(ctx, "gourmet", raw, server.knownTool); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.catalogue.Restore(ctx, shipped, server.knownTool); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := server.catalogue.Find(ctx, "gourmet"); got.Domain != shipped.Domain || got.Customized {
+		t.Fatalf("restored = %+v", got)
+	}
+}

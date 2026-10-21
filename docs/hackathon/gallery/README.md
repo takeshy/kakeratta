@@ -58,7 +58,10 @@ No screenshot text is repainted or replaced. Presentation copy is English; sourc
   suggestion, completed-reminder, voice-composer, persona-creation-input and
   Shizuoka share-dialog examples using the real feed, compose and social modules. The weather statement is fictional, not a live forecast.
   Preparation depends on a known plan; it does not detect departure. A persona
-  suggestion does not automatically create a persona or move existing memory.
+  suggestion changes nothing by itself. Only when the user presses **Create it**
+  does the app add the drafted persona, move the related facts and records to
+  it, and narrow the original persona's routing condition; **Not now** leaves
+  everything as it is.
 - `frontend/stories/Imports.stories.js` uses the shipped `gmail-import.js`
   cards/dialogs. Actual Google intake requires the separate personal Google Bridge
   and Hermes. Pending cards are outside persona processing, memory and search.

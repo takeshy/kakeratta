@@ -390,6 +390,21 @@ func (c *Catalogue) save(raw []byte, known func(tool string) bool, update bool) 
 	return skill, nil
 }
 
+// Restore puts a definition back as it was saved before a change the caller
+// is undoing: a built-in that had not been customized goes back to following
+// the shipped one, anything else is written as it was.
+func (c *Catalogue) Restore(ctx context.Context, previous Skill, known func(string) bool) error {
+	if previous.Builtin && !previous.Customized {
+		return c.source.DeleteSkill(previous.ID)
+	}
+	raw, err := json.Marshal(previous)
+	if err != nil {
+		return err
+	}
+	_, err = c.Update(ctx, previous.ID, raw, known)
+	return err
+}
+
 // Uninstall removes an installed skill. Its notes are left alone: the user may
 // put it back, and it should come back as the one that was there.
 func (c *Catalogue) Uninstall(id string) error {

@@ -495,6 +495,8 @@ const EN = {
   "提案した担当が見つかりません": "The persona that made the suggestion was not found.",
   "答えは create か decline です": "The answer must be create or decline.", "AIの応答を読めませんでした。もう一度押してください。": "Could not read the AI response. Please press it again.",
   "ほかの操作が終わってからもう一度押してください": "Another action is in progress. Try again once it finishes.",
+  "新しい担当を作れませんでした。もう一度押してください。": "Could not create the new persona. Please press it again.",
+  "担当は作りましたが、投稿に答えを残せませんでした": "The persona was created, but the answer could not be saved on the post.",
   "保存して閉じる": "Save and close", "保存せずに閉じる": "Close without saving", "編集に戻る": "Keep editing",
   "メモの本文": "Note text", "メモを保存": "Save note", "メモを保存しました": "Note saved.",
   "この発言と一緒に書いたメモを開く": "Open the note written with this remark",
