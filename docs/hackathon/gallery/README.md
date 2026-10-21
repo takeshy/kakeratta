@@ -55,7 +55,8 @@ No screenshot text is repainted or replaced. Presentation copy is English; sourc
   Related records become facts at check-in, not immediately after posting.
   Slide 3 shows matching excerpts of the three wine records and derived facts.
 - `frontend/stories/Gallery.stories.js` supplies curated preparation, persona
-  suggestion, completed-reminder, voice-composer, persona-creation-input and
+  suggestion with the persona it creates (card, drafted profile and moved
+  memory), completed-reminder, voice-composer, persona-creation-input and
   Shizuoka share-dialog examples using the real feed, compose and social modules. The weather statement is fictional, not a live forecast.
   Preparation depends on a known plan; it does not detect departure. A persona
   suggestion changes nothing by itself. Only when the user presses **Create it**
@@ -105,7 +106,7 @@ and `python3-pil`. The existing frontend dependencies must be installed.
 From the repository root, retake the new and combined UI sources with:
 
 ```sh
-CAPTURE_ONLY=memory-before,memory-after,preparation-plan,preparation-check,persona-suggestion,reminder-done,voice-compose,wine-intent,recipe-intent,review-question,gmail-card,gmail-review,calendar-card,calendar-review,schedules,person-card,gallery-hero,gallery-trip-missed,gallery-trip-return,gallery-trip-daily,gallery-search-form,gallery-search-results,gallery-month-summary,gallery-routing,gallery-reply-trial,gallery-vault,gallery-share,gallery-usage npm --prefix frontend run captures
+CAPTURE_ONLY=memory-before,memory-after,preparation-plan,preparation-check,persona-suggestion,suggested-persona,suggested-definition,suggested-memory,reminder-done,voice-compose,wine-intent,review-question,gmail-card,gmail-review,calendar-card,calendar-review,schedules,person-card,gallery-hero,gallery-trip-missed,gallery-trip-return,gallery-trip-daily,gallery-search-form,gallery-search-results,gallery-month-summary,gallery-routing,gallery-reply-trial,gallery-vault,gallery-share,gallery-usage npm --prefix frontend run captures
 bash docs/hackathon/gallery/render.sh
 ```
 

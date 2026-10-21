@@ -43,7 +43,9 @@ day, at its check-in, the persona folds the records kept since into the facts
 that hold - adding, rewriting, deleting or merging them - deletes the records
 it folded. Memory is one file per persona; when a
 subject of its own builds up, the persona suggests making a new persona rather
-than splitting it.
+than splitting it. One tap on **Create it** drafts that persona, moves the
+related facts and records to it, and narrows the original persona's routing
+condition to leave the subject out; a step that fails undoes the others.
 
 A persona therefore does not receive one ever-growing personal-history prompt.
 Its facts stay under 4,000 characters in total; the details live in
@@ -504,7 +506,7 @@ each naming the records it rests on; the records it folded away, which the app
 deletes only once a remaining fact rests on them; up to five stale records to
 ask the user about; past-dated plans to delete and past events to keep;
 and, rarely, a subject that could be a persona of its own, which
-the check-in then suggests to the user. A fact that no longer holds is deleted,
+the check-in then suggests to the user with **Create it** / **Not now** buttons. A fact that no longer holds is deleted,
 not kept as history. A failed pass is retried at the next check-in; with
 nothing new, no model is called.
 
@@ -645,7 +647,10 @@ over time, up to 200 characters each and 4,000 together. There is no separate
 prose summary.
 
 Memory is not split by subject: when a subject of its own builds up, the
-persona suggests a new persona for it instead.
+persona suggests a new persona for it instead. **Create it** has Ultra draft
+the persona and pick the facts and records that belong to it; they move word
+for word, and the original persona's condition gains one sentence leaving the
+subject out, so such posts are routed to the new persona alone.
 
 ```text
 === Memo.md ===

@@ -43,6 +43,10 @@ From production and testing:
   individual facts; search your timeline by words or meaning.
 - **Create personas in plain language.** Describe a person or interest, then
   adjust its instructions, routing and replies as you use it.
+- **Let personas grow with your interests.** When a new topic builds up in a
+  persona's memory, it suggests a dedicated persona at check-in. One tap on
+  **Create it** drafts the persona, moves the related memories to it, and
+  narrows the original persona's routing so those posts reach only the new one.
 - **Save answers as favorites.** Keep posts and persona replies in a list,
   most recently added first. Filter by persona or search only your favorites.
 - **Turn an answer into a diagram.** Reply to it with
