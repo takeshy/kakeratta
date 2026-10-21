@@ -76,6 +76,27 @@ for file in "$BIN_SRC_DIR"/*; do
     fi
 done
 
+# Optional: Build and install google-bridge binary if source is present
+GOOGLE_BRIDGE_SRC="$SCRIPT_DIR/../../tools/google-bridge/cmd/google-bridge"
+if [ -d "$GOOGLE_BRIDGE_SRC" ]; then
+    echo ""
+    echo "--- Building google-bridge companion binary ---"
+    GO_CMD=""
+    if command -v mise >/dev/null 2>&1; then
+        GO_CMD="mise exec -- go"
+    elif command -v go >/dev/null 2>&1; then
+        GO_CMD="go"
+    fi
+
+    if [ -n "$GO_CMD" ]; then
+        $GO_CMD build -o "$BIN_DEST_DIR/google-bridge" "$GOOGLE_BRIDGE_SRC"
+        chmod +x "$BIN_DEST_DIR/google-bridge"
+        echo "  [BUILD] $BIN_DEST_DIR/google-bridge"
+    else
+        echo "  [SKIP] Go or mise not found in PATH; skipping google-bridge build"
+    fi
+fi
+
 echo ""
 echo "--- Installing systemd User Services to $SYSTEMD_DEST_DIR ---"
 for file in "$SYSTEMD_SRC_DIR"/*.service; do
@@ -90,6 +111,13 @@ echo "--- Reloading systemd user daemon ---"
 systemctl --user daemon-reload
 echo "Daemon reloaded successfully."
 
+# Enable and start google-bridge.service if configured
+if [ -f "$HOME/.config/google-bridge/config.json" ]; then
+    echo ""
+    echo "--- Activating google-bridge.service (found ~/.config/google-bridge/config.json) ---"
+    systemctl --user enable --now google-bridge.service || true
+fi
+
 echo ""
 echo "=========================================================="
 echo " Installation completed successfully!"
@@ -97,4 +125,7 @@ echo " Services can be checked with:"
 echo "   systemctl --user status nemoclaw-openshell-gateway.service"
 echo "   systemctl --user status nemoclaw-hermes-start.service"
 echo "   systemctl --user status nemoclaw-hermes-shutdown-watch.service"
+if [ -f "$HOME/.config/google-bridge/config.json" ]; then
+    echo "   systemctl --user status google-bridge.service"
+fi
 echo "=========================================================="

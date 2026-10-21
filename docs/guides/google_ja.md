@@ -21,11 +21,17 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge
 
 管理セッションはHttpOnly / SameSite=Strictのcookieで8時間有効です。HTTPS構成ではSecureも付けます。新たにログインすると前の管理セッションが失効します。管理キーはブラウザーのlocalStorageやURLへ保存しません。
 
-配布用バイナリを作る場合は次を使用します。
+配布用バイナリの配備や常駐化（PC再起動時の自動起動）には systemd ユーザーサービスを使用します。
 
 ```sh
-mise exec -- go build -o /tmp/google-bridge ./tools/google-bridge/cmd/google-bridge
+# バイナリを ~/.local/bin へビルド配備
+mise exec -- go build -o ~/.local/bin/google-bridge ./tools/google-bridge/cmd/google-bridge
+
+# systemd ユーザーサービスの有効化・起動 (scripts/nemoclaw/install.sh 実行でも自動配備されます)
+systemctl --user enable --now google-bridge.service
 ```
+
+サービスは `ConditionPathExists=%h/.config/google-bridge/config.json` を含んでいるため、設定ファイルが存在する場合にのみ自動起動します。
 
 ## 初回設定ファイル
 

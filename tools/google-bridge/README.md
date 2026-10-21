@@ -9,6 +9,14 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge -init
 mise exec -- go run ./tools/google-bridge/cmd/google-bridge
 ```
 
+常駐化・PC再起動時の自動起動には systemd ユーザーサービスを使用できます（NemoClaw環境では `scripts/nemoclaw/install.sh` により自動リンク・有効化されます）：
+
+```sh
+# バイナリ配備とサービス登録
+mise exec -- go build -o ~/.local/bin/google-bridge ./tools/google-bridge/cmd/google-bridge
+systemctl --user enable --now google-bridge.service
+```
+
 既定URLは `http://127.0.0.1:8094`。初回に表示された設定ファイルの管理キーでログインし、Google接続とHermes用MCPキーを設定します。
 
 - `cmd/google-bridge/`: 起動・設定初期化・プロセスロック

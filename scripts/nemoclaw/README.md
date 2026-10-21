@@ -19,7 +19,8 @@ scripts/nemoclaw/
 └── systemd/                               # systemd ユーザーサービス定義
     ├── nemoclaw-openshell-gateway.service # Gateway デーモンサービス
     ├── nemoclaw-hermes-start.service      # Hermes サンドボックス自動起動・安全停止サービス
-    └── nemoclaw-hermes-shutdown-watch.service # 事前シャットダウン遅延監視サービス
+    ├── nemoclaw-hermes-shutdown-watch.service # 事前シャットダウン遅延監視サービス
+    └── google-bridge.service              # (任意) Google Bridge コンパニオン自動起動サービス
 ```
 
 ---
@@ -43,6 +44,7 @@ scripts/nemoclaw/
 | `nemoclaw-openshell-gateway.service` | `Type=simple` | OpenShell Gateway デーモンを常駐実行します。 |
 | `nemoclaw-hermes-start.service` | `Type=oneshot`<br>`RemainAfterExit=yes` | ホスト起動時に `nemoclaw-hermes-autostart.sh` を実行し、サービス停止時に `nemoclaw-hermes-autostop.sh` を実行します。 |
 | `nemoclaw-hermes-shutdown-watch.service` | `Type=simple` | `nemoclaw-hermes-shutdown-monitor.sh` を常駐させ、OS シャットダウン時に Docker 停止順序競合によるエラー終了を防止します。 |
+| `google-bridge.service` | `Type=simple` | Google Bridge コンパニオンを常駐実行します。`ConditionPathExists=%h/.config/google-bridge/config.json` により、Google Bridge を初期化・設定済みの環境でのみ安全に自動起動します（未設定環境ではエラーなくスキップ）。 |
 
 ---
 
@@ -72,10 +74,15 @@ systemctl --user enable --now nemoclaw-openshell-gateway.service
 systemctl --user enable --now nemoclaw-hermes-shutdown-watch.service
 systemctl --user enable --now nemoclaw-hermes-start.service
 
+# (Google Bridge を利用する場合のみ)
+systemctl --user enable --now google-bridge.service
+
 # 3. 稼働状態の確認
 systemctl --user status nemoclaw-openshell-gateway.service
 systemctl --user status nemoclaw-hermes-start.service
 systemctl --user status nemoclaw-hermes-shutdown-watch.service
+# (Google Bridge 利用時)
+systemctl --user status google-bridge.service
 ```
 
 ---

@@ -1,0 +1,13 @@
+[Unit]
+Description=Google Bridge personal companion for kakeratta / Hermes
+After=network.target
+ConditionPathExists=%h/.config/google-bridge/config.json
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/google-bridge -config %h/.config/google-bridge/config.json
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
