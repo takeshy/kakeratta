@@ -144,6 +144,7 @@ mcp_hostport="${KAKERATTA_MCP_URL#*://}"; mcp_hostport="${mcp_hostport%%/*}"
 mcp_host="${mcp_hostport%%:*}"
 if [ "$mcp_scheme" = "https" ]; then
     # 公開 HTTPS は NemoClaw の管理 MCP。トークンは OpenShell が通信時に差し込む。
+    # 登録済みならキーは替えない（再発行時は mcp remove kakeratta してから再実行）。
     mcp_mode=managed
     if ! nemohermes "$SANDBOX" mcp list 2>/dev/null | strip_ansi | grep -E "^\s+kakeratta\s" | grep -q "env: KAKERATTA_MCP_TOKEN"; then
         nemohermes "$SANDBOX" mcp add kakeratta --url "$KAKERATTA_MCP_URL" --env KAKERATTA_MCP_TOKEN
