@@ -129,18 +129,18 @@ func (s *Server) deletePush(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) sendReminder(data any) {
-	s.pushEntry(data, "kakeratta", "kakeratta")
+	s.pushEntry(data)
 }
 
 // sendAgentReply pushes what ended a direct request - the agent's reply or the
 // app's notice. A request the user muted emits nothing to push.
 func (s *Server) sendAgentReply(data any) {
-	s.pushEntry(data, "kakeratta", "kakeratta")
+	s.pushEntry(data)
 }
 
-// pushEntry sends one entry to every subscribed device: its words as the
-// title, or fallback when it has none.
-func (s *Server) pushEntry(data any, fallback, body string) {
+// pushEntry sends one entry to every subscribed device: who said it as the
+// title and its words as the body, which the OS can show at more length.
+func (s *Server) pushEntry(data any) {
 	entry, ok := data.(timeline.Entry)
 	if !ok || entry.Deleted || entry.Speaker == timeline.User || entry.ID == "" {
 		return
@@ -158,14 +158,7 @@ func (s *Server) pushEntry(data any, fallback, body string) {
 		log.Printf("push: could not read subscriptions: %v", err)
 		return
 	}
-	title := []rune(strings.Join(strings.Fields(entry.Text), " "))
-	if len(title) > 120 {
-		title = append(title[:120], '…')
-	}
-	if len(title) == 0 {
-		title = []rune(fallback)
-	}
-	payload, _ := json.Marshal(map[string]string{"title": string(title), "body": body, "entry": entry.ID, "workspace": s.mcpWorkspace()})
+	payload, _ := json.Marshal(pushPayload(entry, s.runner.SpeakerNames(ctx)[entry.Speaker], s.mcpWorkspace()))
 	options.Topic = pushID(entry.ID)[:32]
 	var deliveries sync.WaitGroup
 	for id, raw := range records {
@@ -195,4 +188,19 @@ func (s *Server) pushEntry(data any, fallback, body string) {
 		})
 	}
 	deliveries.Wait()
+}
+
+// pushPayload is what a device receives for entry: the speaker's name as the
+// title (kakeratta when it has none) and the collapsed text, up to 300
+// characters, as the body.
+func pushPayload(entry timeline.Entry, speaker, workspace string) map[string]string {
+	title := strings.TrimSpace(speaker)
+	if title == "" {
+		title = "kakeratta"
+	}
+	body := []rune(strings.Join(strings.Fields(entry.Text), " "))
+	if len(body) > 300 {
+		body = append(body[:300], '…')
+	}
+	return map[string]string{"title": title, "body": string(body), "entry": entry.ID, "workspace": workspace}
 }

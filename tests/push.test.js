@@ -63,10 +63,10 @@ test("service worker displays only the active account's reminders and opens the 
   const w = worker();
   await w.dispatch("push", { data: { json: () => ({ entry: "e_private", workspace: "bob" }) } });
   assert.equal(w.notices.length, 0);
-  await w.dispatch("push", { data: { json: () => ({ entry: "e_1", workspace: "alice", title: "餌やりの時間です。金魚に餌をあげてください。", body: "kakeratta" }) } });
+  await w.dispatch("push", { data: { json: () => ({ entry: "e_1", workspace: "alice", title: "めい", body: "餌やりの時間です。金魚に餌をあげてください。" }) } });
   assert.equal(w.notices.length, 1);
-  assert.equal(w.notices[0].title, "餌やりの時間です。金魚に餌をあげてください。");
-  assert.equal(w.notices[0].body, "kakeratta");
+  assert.equal(w.notices[0].title, "めい");
+  assert.equal(w.notices[0].body, "餌やりの時間です。金魚に餌をあげてください。");
   assert.equal(w.notices[0].tag,"reminder:e_1");
   await w.dispatch("notificationclick", { notification: { data: w.notices[0].data, close() {} } });
   assert.deepEqual(w.opened, ["https://app.example/?entry=e_1"]);

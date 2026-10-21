@@ -206,3 +206,18 @@ func TestAgentRepliesArePushed(t *testing.T) {
 		t.Fatalf("sends = %d", count())
 	}
 }
+
+// A push names who spoke in its title and carries the words in its body.
+func TestPushPayload(t *testing.T) {
+	entry := timeline.Entry{ID: "e_1", Text: "餌やりの\n時間です。  " + strings.Repeat("あ", 310)}
+	got := pushPayload(entry, "めい", "alice")
+	if got["title"] != "めい" || got["entry"] != "e_1" || got["workspace"] != "alice" {
+		t.Fatalf("payload: %v", got)
+	}
+	if body := []rune(got["body"]); len(body) != 301 || !strings.HasPrefix(got["body"], "餌やりの 時間です。 あ") || body[300] != '…' {
+		t.Fatalf("body: %q", got["body"])
+	}
+	if got := pushPayload(entry, " ", "alice"); got["title"] != "kakeratta" {
+		t.Fatalf("unnamed speaker: %v", got)
+	}
+}

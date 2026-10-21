@@ -41,7 +41,7 @@ self.addEventListener("push", event => {
     try { data = event.data?.json(); } catch { return; }
     if (!data?.entry || !data.workspace || !await reminderAccount(data.workspace)) return;
     await self.registration.showNotification(data.title || "kakeratta", {
-      body: data.body || "kakeratta", icon: "/icon.png", badge: "/icon.png",
+      ...(data.body ? { body: data.body } : {}), icon: "/icon.png", badge: "/icon.png",
       tag: `reminder:${data.entry}`, data: { entry: data.entry, workspace: data.workspace },
     });
   })());
