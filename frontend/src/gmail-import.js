@@ -7,13 +7,25 @@ export function gmailImportCard(entry, onResult) {
   const source = entry.import || {};
   const calendar = source.type === "calendar";
   const sourceUrl = source.url || source.sourceUrl;
+  const review = el("button", { class: "button", label: calendar ? "予定を確認する" : "メールを確認する", onclick: () => showGmailImport(entry, onResult) });
+  const discard = el("button", { class: "button ghost", label: "取り込まない", onclick: async () => {
+    if (discard.disabled) return;
+    review.disabled = discard.disabled = true;
+    try {
+      const result = await api.decideGmailImport(entry.id, false);
+      onResult(result);
+    } catch (error) {
+      review.disabled = discard.disabled = false;
+      toast(error.message);
+    }
+  } });
   return el("section", { class: "gmail-import-review import-card" },
     el("span", { class: "model-badge", label: calendar ? "Calendarからの取り込み待ち" : "Gmailからの取り込み待ち" }),
     el("h3", { text: source.subject || t(calendar ? "予定の確認" : "メールの確認") }),
     el("p", { class: "hint", text: `${source.from || (calendar ? "Google Calendar" : "Gmail")} · ${when(entry.at)}` }),
     sourceUrl ? el("p", { class: "hint" }, el("a", { href: sourceUrl, target: "_blank", rel: "noopener noreferrer", text: calendar ? t("元の予定（Google カレンダー）を開く ↗") : t("元のメール（Gmail）を開く ↗") })) : null,
     el("p", { class: "hint", label: "取り込むまで担当の処理・記憶・検索の対象になりません。" }),
-    el("button", { class: "button", label: calendar ? "予定を確認する" : "メールを確認する", onclick: () => showGmailImport(entry, onResult) }));
+    el("div", { class: "compose-row" }, review, discard));
 }
 
 export function showGmailImport(entry, onResult) {
