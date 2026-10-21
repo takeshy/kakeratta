@@ -14,6 +14,7 @@ Hermesからkakerattaへ回答を返す一連の動作を本番で確認した�
 | ワーカーによる入出力制御 | 2026-10-16に `claim_ask` / `submit_answer` をPythonで実行する経路を確認 |
 | 入力トークン削減 | 記録された旧・新の2セッションで62,847 → 15,774（約75%削減）。同一条件で反復した平均値ではない |
 | モデルの役割 | 2026-10-16時点ではpersona askにSuper-VL、直接依頼にUltraを使用 |
+| 直接依頼のUltra | ワーカー11（2026-10-18）からワーカー16（2026-10-21）までは、記録上はUltraでも `inference.local` に送られ、Superが答えていた。ワーカー16でProvider v2経由のUltraに戻した。[NemoClaw v0.0.135での再構築](#nemoclaw-v00135での再構築2026-10-21)を参照 |
 
 本書は構成の変遷を含む検証記録であり、以下の手順・設定は各検証時点のもの。最新の接続手順は[Hermes連携ガイド](../guides/hermes_ja.md)を参照してください。自動テストのモデル応答はモックであり、実機観測とは区別する。
 
@@ -167,7 +168,7 @@ hermes cron edit <job-id> \
 hermes cron list
 ```
 
-[Hermes 推奨設定](../../scripts/nemoclaw/README.md#7-hermes-推奨設定-sandboxhermesconfigyaml)のとおり、親モデルとkakeratta cronジョブを `nvidia/Nemotron-3.5-Super-VL` に揃え、直接依頼ワーカー・delegation設定には `nvidia/Nemotron-3-Ultra-550b-a55b` を維持します（2026-10-16に本番環境で両モデルの実動作とMCP提出を検証済み）。
+[Hermes 推奨設定](../../scripts/nemoclaw/README_ja.md#7-hermes-推奨設定-sandboxhermesconfigyaml)のとおり、親モデルとkakeratta cronジョブを `nvidia/Nemotron-3.5-Super-VL` に揃え、直接依頼ワーカー・delegation設定には `nvidia/Nemotron-3-Ultra-550b-a55b` を維持します（2026-10-16に本番環境で両モデルの実動作とMCP提出を検証済み）。
 
 ### 検証
 
@@ -206,6 +207,21 @@ OpenShell 0.0.116では `provider update` 後も、既に動いているサン�
 - Wake Gateは認証・通信・設定エラーで必ずfail-closedします。`wakeAgent=false` は「依頼なし」だけでなくエラー時にも出るため、pendingが見えているのに起動しない場合は、同じスクリプトをOpenShellの属性付きexecで実行して標準エラーを確認します。`docker exec` で開始した通信はOpenShellに帰属されず、許可済み接続でも403になり得るため疎通判定には使いません。
 
 ローカルデモ終了後は、MCP URL、Providerのトークン、`mcp_bridge_kakeratta` のhost・port・path・`allowed_ips`を本番へ戻し、`list_asks`、`tools/list`、Token Factory推論、サンドボックス `Ready`、ホストのAPI/ダッシュボード転送を再確認します。
+
+## NemoClaw v0.0.135での再構築（2026-10-21）
+
+WSL2（ARM64）とDocker Desktopのマシンに、NemoClaw v0.0.135 / OpenShell 0.0.116で2つ目のHermesを新しく構築し、ローカルのkakerattaにつないだ。手順は [`scripts/nemoclaw/setup-hermes.sh`](../../scripts/nemoclaw/README_ja.md#2-hermes-の構築setup-hermessh) にまとめた。構築で分かったことは次のとおり。
+
+| 起きたこと | 原因と対処 |
+| --- | --- |
+| サンドボックス作成が `Cannot allocate dashboard port: The OpenShell forward operation timed out` で止まる | WSLのmirroredネットワークでは、`127.0.0.1` の未使用ポートへのTCP接続が拒否されずに固まる。NemoClawはダッシュボード用の18789〜18799番を15秒以内に確かめるため失敗する。`wsl --update`（WSL 3.0.3）でも `.wslconfig` の `firewall=false` でも変わらず、`networkingMode=nat` で解消した。セットアップスクリプトはこの状態では開始しない。 |
+| Providerをつないでも `_provider_tokenfactory_v2` がポリシーに入らない | `providers_v2_enabled` をサンドボックス単位で設定しても、Providerの通信許可がポリシーに組み込まれず、Token Factoryへの呼び出しが403になった。ゲートウェイ全体（`openshell settings set --global`）で有効にすると、すぐに組み込まれた。このOpenShellには組み込みの `tokenfactory` プロファイルがないため、[`profiles/tokenfactory.yaml`](../../scripts/nemoclaw/profiles/tokenfactory.yaml) をリポジトリに置いた。 |
+| `@agent` が記録上はUltraなのにSuperで答える | ワーカー11（コミット `6ac6f45`、2026-10-18）はToken Factoryの `base_url` を `inference.local` に書き換えていた。`inference.local` はゲートウェイのモデルに置き換える。さらにNemoClawはサンドボックスのイメージに `NEMOCLAW_INFERENCE_BASE_URL=https://inference.local/v1` を組み込んでおり、ワーカーはこれを設定より優先していた。この書き換えは、別のNemoClawのマシンでUltraの呼び出しが失敗したときに入ったもの。ワーカー16は `delegation` / `kakeratta_worker` の `base_url` をそのまま使い、未設定のときだけこの変数を使う。確認: `/v1/chat/completions` は `inference.local` を通らず、`_provider_tokenfactory_v2` の許可で `api.tokenfactory.nebius.com` へ送られた。 |
+| 検索サービスを `no_proxy` に入れていたためWeb検索が失敗する | ワーカー11とゲート10は、プロキシを迂回するため `api.keenable.ai`、`mcp.exa.ai`、`search.parallel.ai` を `no_proxy` に入れていた。v0.0.135のサンドボックスにはプロキシを迂回する経路も名前解決もなく（`Temporary failure in name resolution`）、これらに届かなくなる。ゲート13とワーカー16は `no_proxy` から外し、Hermesが鍵なしで使う検索（`mcp.exa.ai`、`search.parallel.ai`、`api.firecrawl.dev`、`api.keenable.ai`）をポリシーで許可する。確認: `@agent` の依頼中にExaとParallelの検索がプロキシ経由で通った。 |
+| ローカルのkakerattaを `mcp add` で登録できない | NemoClawの管理MCPはHTTPS必須で、プライベートアドレスにはそのIP入りの証明書と、オンボーディング時に渡すCAも要る。ローカル開発では、kakerattaの宛先をポリシーで許可し（`allowed_ips` を固定）、トークンを `config.yaml` に書く。`https://` のURLは引き続き `mcp add` を使う。 |
+| `install.sh` がNemoClawのGatewayユニットを置き換える | v0.0.135はTLS証明書の生成を含む自分の `nemoclaw-openshell-gateway.service` を入れる。`install.sh` はそれを残すようにし、起動ユニットから決め打ちのNodeのパスを外した。 |
+
+ワーカー16とゲート13のデプロイ前に、本番でゲートウェイ全体の `providers_v2_enabled`、`hermes` とPythonを許可する `_provider_tokenfactory_v2`、検索サービス4つの許可を確認し、すべてそろっていた。
 
 ## 運用で解決した重要課題
 

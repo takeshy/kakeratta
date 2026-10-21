@@ -74,7 +74,7 @@ For the configuration format, see the [official Hermes MCP guide](https://hermes
 
 When running Hermes under the governance of an NVIDIA NemoClaw / OpenShell sandbox, configuration management, policy composition, and process lifecycles involve container-specific requirements. To use Nemotron 3.5 Super VL for the parent and Nemotron 3 Ultra for delegated children, connect to Token Factory through Provider v2, which preserves model names, rather than OpenShell 0.0.116's shared `inference.local` route. The parent handles intake and routing, delegating high-complexity work to the child.
 
-For a new setup, [`scripts/nemoclaw/setup-hermes.sh`](../../scripts/nemoclaw/README.md#2-hermes-の構築setup-hermessh) installs NemoClaw and configures Provider v2, web search egress, Hermes settings, and the skill, wake gate and cron in one run.
+For a new setup, [`scripts/nemoclaw/setup-hermes.sh`](../../scripts/nemoclaw/README.md#2-building-hermes-setup-hermessh) installs NemoClaw and configures Provider v2, web search egress, Hermes settings, and the skill, wake gate and cron in one run.
 
 For the dedicated setup procedure ([Provider v2 migration](../reports/nemoclaw-hermes-integration.md#migration-to-openshell-provider-v2-2026-10-13), managed MCP provider registration, container script provisioning, search egress policies, and `Phase: Error` deadlock prevention), refer to the [**NemoClaw / OpenShell Integration and Verification Report**](../reports/nemoclaw-hermes-integration.md).
 
@@ -170,7 +170,7 @@ A post naming the agent itself - `@外部エージェント`, `@エージェン�
 
 #### Direct-request worker settings
 
-The worker runs Ultra in its own Hermes home (`~/.hermes/kakeratta/hermes-home`), which it rewrites from your `config.yaml` before each batch. The model, provider, endpoint and key reference come from a `kakeratta_worker` section if present, otherwise from `delegation`; the parent's `model` (Super) is never used. Without any extra settings the agent has read-only tools: web search/extract, Kakeratta's read-only MCP reads and read-only local file reads under your home (dotfiles and secret-looking names refused).
+The worker runs Ultra in its own Hermes home (`~/.hermes/kakeratta/hermes-home`), which it rewrites from your `config.yaml` before each batch. The model, provider, endpoint and key reference come from a `kakeratta_worker` section if present, otherwise from `delegation`; the parent's `model` (Super) is never used. The endpoint (`base_url`) is used as written. Under NemoClaw / OpenShell, point it at Token Factory directly over Provider v2: with `https://inference.local/v1`, OpenShell replaces the model with the gateway's (Super). Without any extra settings the agent has read-only tools: web search/extract, Kakeratta's read-only MCP reads and read-only local file reads under your home (dotfiles and secret-looking names refused).
 
 ```yaml
 kakeratta_worker:            # optional; falls back to delegation

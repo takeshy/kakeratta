@@ -14,6 +14,7 @@ The production runs confirmed that Hermes could return answers to kakeratta. In 
 | Worker-controlled input and submission | Python `claim_ask` / `submit_answer` path verified on 2026-10-16 |
 | Lower input-token usage | 62,847 → 15,774 (~75% reduction) in the two recorded old/new sessions; not an average from repeated controlled trials |
 | Model roles | Super-VL for persona asks and Ultra for direct requests as of 2026-10-16 |
+| Direct requests on Ultra | Between worker 11 (2026-10-18) and worker 16 (2026-10-21) direct requests were sent to `inference.local` and served by Super although logged as Ultra; worker 16 restores Ultra over Provider v2. See [Rebuilding on NemoClaw v0.0.135](#rebuilding-on-nemoclaw-v00135-2026-10-21) |
 
 This report records an evolving integration. Procedures and settings below describe their verification dates; use the [Hermes setup guide](../guides/hermes.md) for current connection instructions. Automated tests use mocked model responses and are separate from the live observations.
 
@@ -165,7 +166,7 @@ hermes cron edit <job-id> \
 hermes cron list
 ```
 
-Following the [recommended Hermes configuration](../../scripts/nemoclaw/README.md#7-hermes-推奨設定-sandboxhermesconfigyaml), align both the parent model and the kakeratta cron job to `nvidia/Nemotron-3.5-Super-VL` while preserving `nvidia/Nemotron-3-Ultra-550b-a55b` for the direct-request worker and delegation (both live inference and MCP submission were verified in production on 2026-10-16).
+Following the [recommended Hermes configuration](../../scripts/nemoclaw/README.md#7-recommended-hermes-settings-sandboxhermesconfigyaml), align both the parent model and the kakeratta cron job to `nvidia/Nemotron-3.5-Super-VL` while preserving `nvidia/Nemotron-3-Ultra-550b-a55b` for the direct-request worker and delegation (both live inference and MCP submission were verified in production on 2026-10-16).
 
 ### Verification
 
@@ -196,6 +197,21 @@ On OpenShell 0.0.116, `provider update` may leave an already-running sandbox pro
 - Wake Gate fails closed on authentication, transport, and configuration errors. Therefore `wakeAgent=false` can mean either idle or failure. When kakeratta shows a pending request, run the same gate through an OpenShell-attributed exec path and inspect stderr. Network calls started by `docker exec` are unattributed and can receive 403 even for an allowed destination, so they are not a valid egress test.
 
 After the demo, restore the production MCP URL, provider token, and `mcp_bridge_kakeratta` host, port, path, and `allowed_ips`; then recheck `list_asks`, `tools/list`, Token Factory inference, sandbox `Ready`, and the API/dashboard host forwards.
+
+## Rebuilding on NemoClaw v0.0.135 (2026-10-21)
+
+A second Hermes was built from scratch on a WSL2 (ARM64) machine with Docker Desktop, NemoClaw v0.0.135 and OpenShell 0.0.116, connected to a local kakeratta. The procedure is now [`scripts/nemoclaw/setup-hermes.sh`](../../scripts/nemoclaw/README.md#2-building-hermes-setup-hermessh). The build exposed the following.
+
+| Finding | Cause and resolution |
+| --- | --- |
+| Sandbox creation stopped at `Cannot allocate dashboard port: The OpenShell forward operation timed out` | Under WSL mirrored networking a TCP connect to an unused `127.0.0.1` port hangs instead of being refused, and NemoClaw probes the dashboard ports 18789–18799 within 15 seconds. Neither `wsl --update` (WSL 3.0.3) nor `.wslconfig` `firewall=false` changed this; `networkingMode=nat` did. The setup script now refuses to start in that condition. |
+| `_provider_tokenfactory_v2` missing after attaching the provider | `providers_v2_enabled` set at sandbox scope did not compose the provider's egress into the policy, and Token Factory calls returned 403. Setting it at gateway-global scope (`openshell settings set --global`) composed it at once. No built-in `tokenfactory` profile exists in this OpenShell, so the repository ships [`profiles/tokenfactory.yaml`](../../scripts/nemoclaw/profiles/tokenfactory.yaml). |
+| `@agent` recorded as Ultra but answered by Super | Worker 11 (commit `6ac6f45`, 2026-10-18) rewrote a Token Factory `base_url` to `inference.local`, which substitutes the gateway's model, and NemoClaw also bakes `NEMOCLAW_INFERENCE_BASE_URL=https://inference.local/v1` into the sandbox image, which the worker let override the configured endpoint. The rewrite had been added when Ultra calls failed on another NemoClaw host. Worker 16 keeps the configured `delegation` / `kakeratta_worker` `base_url` and falls back to the variable only when none is set. Verified: `/v1/chat/completions` went to `api.tokenfactory.nebius.com` under `_provider_tokenfactory_v2`, not through `inference.local`. |
+| Web search failed with the search hosts in `no_proxy` | Worker 11 and gate 10 put `api.keenable.ai`, `mcp.exa.ai` and `search.parallel.ai` in `no_proxy` to bypass the proxy. The v0.0.135 sandbox has no route or name resolution around the proxy (`Temporary failure in name resolution`), so those hosts became unreachable. Gate 13 and worker 16 remove them from `no_proxy`, and the policy allows the keyless backends Hermes uses (`mcp.exa.ai`, `search.parallel.ai`, `api.firecrawl.dev`, `api.keenable.ai`). Verified: Exa and Parallel searches passed through the proxy during an `@agent` request. |
+| `mcp add` refused the local kakeratta | NemoClaw managed MCP requires HTTPS, and a private address also needs a certificate for that IP and a CA supplied at onboarding. For local development the kakeratta address is allowed by policy (`allowed_ips` pinned) and the token is written to `config.yaml`; `https://` URLs still use `mcp add`. |
+| `install.sh` replaced NemoClaw's gateway unit | v0.0.135 installs its own `nemoclaw-openshell-gateway.service` with TLS certificate generation. `install.sh` now keeps it and drops the hard-coded Node path from the start unit. |
+
+Before the worker 16 and gate 13 deploy, the production host was checked for gateway-global `providers_v2_enabled`, `_provider_tokenfactory_v2` allowing `hermes` and Python, and the four search hosts; all were present.
 
 ## Key operational issues resolved
 

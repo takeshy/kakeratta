@@ -1,49 +1,51 @@
-# NemoClaw / OpenShell / Hermes Agent 運用・管理スクリプト群
+# NemoClaw / OpenShell / Hermes Agent operations scripts
 
-kakeratta の自律エージェント運用基盤（NVIDIA NemoClaw + OpenShell + Hermes Agent）をホストマシン上で安定稼働させるためのスクリプトおよび systemd サービス定義集です。
+[日本語](README_ja.md)
+
+Scripts and systemd user units that build and keep kakeratta's external agent (NVIDIA NemoClaw + OpenShell + Hermes Agent) running on a host machine.
 
 ---
 
-## 1. ディレクトリ構成
+## 1. Layout
 
 ```text
 scripts/nemoclaw/
-├── README.md                              # 本ドキュメント
-├── setup-hermes.sh                        # NemoClaw の導入から kakeratta 接続までを一括構築（再実行可）
-├── install.sh                             # ~/.local/bin および ~/.config/systemd/user への配備/シンボリックリンク作成
+├── README.md / README_ja.md               # This document (English / Japanese)
+├── setup-hermes.sh                        # Builds everything from NemoClaw install to the kakeratta connection (rerunnable)
+├── install.sh                             # Links scripts and units into ~/.local/bin and ~/.config/systemd/user
 ├── profiles/
-│   └── tokenfactory.yaml                  # Provider v2 用の Nebius Token Factory プロファイル
-├── bin/                                   # 実行スクリプト群
-│   ├── nemoclaw-wait-docker.sh            # Docker デーモン起動待機
-│   ├── nemoclaw-reconcile-sandbox.py      # Phase: Error デッドロックの自律修復・強制解除
-│   ├── nemoclaw-hermes-autostart.sh       # 自己修復型自動起動ラッパー
-│   ├── nemoclaw-hermes-autostop.sh        # 排他ロック付き先行安全停止ラッパー
-│   └── nemoclaw-hermes-shutdown-monitor.sh # systemd-inhibit 事前シャットダウン監視
-└── systemd/                               # systemd ユーザーサービス定義
-    ├── nemoclaw-openshell-gateway.service # Gateway デーモンサービス
-    ├── nemoclaw-hermes-start.service      # Hermes サンドボックス自動起動・安全停止サービス
-    ├── nemoclaw-hermes-shutdown-watch.service # 事前シャットダウン遅延監視サービス
-    └── google-bridge.service              # (任意) Google Bridge コンパニオン自動起動サービス
+│   └── tokenfactory.yaml                  # Nebius Token Factory provider profile for Provider v2
+├── bin/                                   # Scripts
+│   ├── nemoclaw-wait-docker.sh            # Waits for the Docker daemon
+│   ├── nemoclaw-reconcile-sandbox.py      # Repairs a sandbox stuck in Phase: Error
+│   ├── nemoclaw-hermes-autostart.sh       # Self-healing start wrapper
+│   ├── nemoclaw-hermes-autostop.sh        # Locked, early clean stop wrapper
+│   └── nemoclaw-hermes-shutdown-monitor.sh # systemd-inhibit pre-shutdown watcher
+└── systemd/                               # systemd user units
+    ├── nemoclaw-openshell-gateway.service # Gateway daemon (only for NemoClaw versions that do not install their own)
+    ├── nemoclaw-hermes-start.service      # Starts and cleanly stops the Hermes sandbox
+    ├── nemoclaw-hermes-shutdown-watch.service # Delays shutdown until Hermes has stopped
+    └── google-bridge.service              # (optional) Google Bridge companion
 ```
 
 ---
 
-## 2. Hermes の構築（`setup-hermes.sh`）
+## 2. Building Hermes (`setup-hermes.sh`)
 
-NemoClaw の導入、サンドボックス作成、Provider v2、通信許可、Hermes の設定、kakeratta の Skill・Wake Gate・cron までを一度に行います。途中で止まっても、同じコマンドをもう一度実行すれば続きから同じ状態に揃います。
+One run installs NemoClaw, creates the sandbox, and sets up Provider v2, egress, the Hermes settings, and kakeratta's skill, wake gate and cron. If it stops partway, running the same command again converges on the same state.
 
-| 実行主体 | モデル | 経路 |
+| Runs as | Model | Route |
 | :--- | :--- | :--- |
-| 親（担当の回答、persona ask） | `nvidia/Nemotron-3.5-Super-VL` | オンボーディングが作る `inference.local` |
-| 子（`@agent` の直接依頼、delegation） | `nvidia/Nemotron-3-Ultra-550b-a55b` | Provider v2 で Token Factory へ直接（モデル名を維持） |
+| Parent (persona answers, persona asks) | `nvidia/Nemotron-3.5-Super-VL` | `inference.local`, created by onboarding |
+| Child (`@agent` direct requests, delegation) | `nvidia/Nemotron-3-Ultra-550b-a55b` | Token Factory directly over Provider v2 (the model name is kept) |
 
-事前に次の 2 ファイルを作ります（どちらも `chmod 600`。値はシェル履歴に残さない）。
+Create these two files first (both `chmod 600`; keep the values out of shell history):
 
 ```bash
 # ~/.config/nemoclaw/tokenfactory.env
 TOKENFACTORY_API_KEY=...
 
-# ~/.config/nemoclaw/kakeratta-mcp.env（kakeratta の「設定 → 上級オプション → 外部連携」で発行）
+# ~/.config/nemoclaw/kakeratta-mcp.env (issued in kakeratta under Settings → Advanced options → Integrations)
 KAKERATTA_MCP_URL=https://kakeratta.net/api/mcp/users/<workspace>
 KAKERATTA_MCP_TOKEN=...
 ```
@@ -52,121 +54,120 @@ KAKERATTA_MCP_TOKEN=...
 scripts/nemoclaw/setup-hermes.sh
 ```
 
-スクリプトが行うこと:
+What the script does:
 
-1. **前提の確認**: Docker への接続と、`127.0.0.1` の未使用ポートが接続を拒否すること。WSL の mirrored ネットワークでは拒否されずに固まり、NemoClaw のポート確認が `Cannot allocate dashboard port: The OpenShell forward operation timed out` で止まるため、`.wslconfig` を `networkingMode=nat` にします（`wsl --update` や `firewall=false` では直りませんでした）。
-2. **NemoClaw の導入とサンドボックス作成**: `NEMOCLAW_INSTALL_TAG`（既定 `v0.0.135`）の公式インストーラーを非対話で実行します。推論は `custom`（Token Factory）で、親モデルは Super-VL です。
-3. **Provider v2**: `profiles/tokenfactory.yaml` を取り込み、Provider `tokenfactory-v2` を作ってサンドボックスにつなぎます。**`providers_v2_enabled` はゲートウェイ全体（`--global`）で有効にします**。サンドボックス単位の設定では `_provider_tokenfactory_v2` がポリシーに入りません。資格情報はサンドボックスの起動時に入るので、必要なら再起動します。
-4. **通信許可**: Hermes が鍵なしで使う Web 検索（`mcp.exa.ai`、`search.parallel.ai`、`api.firecrawl.dev`、`api.keenable.ai`）を `hermes` と Python にだけ許可します。サンドボックスにはプロキシを迂回する経路も名前解決もないため、`no_proxy` では通りません。kakeratta は、`https://` なら NemoClaw の管理 MCP（`mcp add`、トークンは OpenShell が差し込む）、`http://`（ローカル開発）なら管理 MCP が HTTPS 必須のため宛先だけをポリシーで許可し、トークンを `config.yaml` に書きます。
-5. **Hermes の設定**: `/sandbox/.hermes/config.yaml` を直接編集します（ハッシュファイルには触れません）。`tool_search: "off"`、`agent.max_turns: 15`、cron のツールセット、`delegation`（Ultra、Token Factory 直、`reasoning_effort: high`）を設定します。
-6. **Skill・Wake Gate・ワーカー**: リポジトリの `frontend/public/integrations/hermes/kakeratta/` から配置し、1 分ごとの cron `kakeratta` を作ります。
-7. **確認**: サンドボックス内から Ultra を名前どおりに呼べること、Wake Gate の `list_asks` が通ることを確かめます。
+1. **Prerequisites**: Docker is reachable, and an unused `127.0.0.1` port refuses connections. Under WSL mirrored networking such a connection hangs instead, and NemoClaw's port probe fails with `Cannot allocate dashboard port: The OpenShell forward operation timed out`; set `networkingMode=nat` in `.wslconfig` (neither `wsl --update` nor `firewall=false` fixed it).
+2. **NemoClaw and the sandbox**: runs the official installer at `NEMOCLAW_INSTALL_TAG` (default `v0.0.135`) non-interactively, with `custom` inference (Token Factory) and Super-VL as the parent model.
+3. **Provider v2**: imports `profiles/tokenfactory.yaml`, creates the `tokenfactory-v2` provider and attaches it to the sandbox. **`providers_v2_enabled` is enabled at gateway-global scope (`--global`)**; the sandbox-scoped setting does not compose `_provider_tokenfactory_v2` into the policy. Provider credentials enter the sandbox when it starts, so it restarts the sandbox when needed.
+4. **Egress**: allows the keyless web search backends Hermes uses (`mcp.exa.ai`, `search.parallel.ai`, `api.firecrawl.dev`, `api.keenable.ai`) for `hermes` and Python only. The sandbox has no route or name resolution around the proxy, so `no_proxy` cannot reach them. For kakeratta, an `https://` URL becomes NemoClaw managed MCP (`mcp add`; OpenShell injects the token), while an `http://` URL (local development) cannot, as managed MCP requires HTTPS: the destination is allowed by policy and the token is written to `config.yaml`.
+5. **Hermes settings**: edits `/sandbox/.hermes/config.yaml` in place (never the hash files): `tool_search: "off"`, `agent.max_turns: 15`, the cron toolsets, and `delegation` (Ultra, Token Factory directly, `reasoning_effort: high`).
+6. **Skill, wake gate and worker**: uploads them from `frontend/public/integrations/hermes/kakeratta/` in this repository and creates the one-minute cron job `kakeratta`.
+7. **Checks**: that Ultra can be called by name from inside the sandbox, and that the wake gate's `list_asks` succeeds.
 
-ローカル開発の kakeratta に接続する場合は、`KAKERATTA_ADDR=:8787 task dev` で起動し、URL にはサンドボックスから届くホストの IP（WSL なら `ip -4 addr show eth0` のアドレス）を書きます。WSL の IP が変わったら、URL を直してもう一度実行します。kakeratta の「使用する接続先」がこのキーの接続になっていないと `list_asks` は 401 になります。
+To connect to a local development kakeratta, start it with `KAKERATTA_ADDR=:8787 task dev` and use a host address the sandbox can reach (under WSL, the address from `ip -4 addr show eth0`). If the WSL address changes, update the URL and run the script again. `list_asks` returns 401 unless kakeratta's selected connection is the one this key belongs to.
 
-`https://` の管理 MCP は、`config.yaml` に `Authorization: Bearer openshell:resolve:env:v<世代>_KAKERATTA_MCP_TOKEN` を書き、OpenShell が通信時に実際のキーへ差し替えます。`mcp update` ではキーを替えられないので、kakeratta でキーを再発行したら `kakeratta-mcp.env` を書き換え、`nemohermes <sandbox> mcp remove kakeratta` のあとでスクリプトをもう一度実行します。
+Managed MCP over `https://` writes `Authorization: Bearer openshell:resolve:env:v<revision>_KAKERATTA_MCP_TOKEN` into `config.yaml`, and OpenShell replaces it with the real key in transit. `mcp update` cannot change the key, so after reissuing it in kakeratta, update `kakeratta-mcp.env`, run `nemohermes <sandbox> mcp remove kakeratta`, and run the script again.
 
-スクリプトは 2026-10-21 に、NemoClaw v0.0.135 / OpenShell 0.0.116、WSL2（ARM64、NAT）と Docker Desktop の環境で、ローカルの kakeratta（`http://`）に対して確認しました。`https://` の管理 MCP の経路はこの日の確認に含まれていません。
+The script was verified on 2026-10-21 with NemoClaw v0.0.135 / OpenShell 0.0.116 on WSL2 (ARM64, NAT) and Docker Desktop, against a local kakeratta over `http://`. The managed MCP path for `https://` was not part of that verification.
 
 ---
 
-## 3. 各コンポーネントの役割
+## 3. Components
 
-### 実行スクリプト (`bin/`)
+### Scripts (`bin/`)
 
-| ファイル名 | 種別 | 役割・概要 |
+| File | Type | Role |
 | :--- | :--- | :--- |
-| `nemoclaw-wait-docker.sh` | Bash | Docker デーモンが応答可能になるまで最大 60 秒待機します。Gateway サービス起動前の健全性担保に使用します。 |
-| `nemoclaw-reconcile-sandbox.py` | Python 3 | OpenShell Gateway の内部 SQLite DB（`openshell.db`）を監査します。万一の強制終了や停電等で `Phase: Error` (3) や異常終了コードが残存してデッドロックした場合、Protobuf ペイロードを自動で `Phase: Ready` (2) に書き換え、Gateway を再起動して強制解除します。 |
-| `nemoclaw-hermes-autostart.sh` | Bash | ホスト起動時のメイン自動起動スクリプト。Docker 待機、古い stale ロック除去、各試行ごとの `reconcile` 実行、コンテナ起動、Web Dashboard（ポート 18789）疎通確認を自律実行します。 |
-| `nemoclaw-hermes-autostop.sh` | Bash | サンドボックスの安全停止ラッパー。多重実行防止ロック（`flock`）を内包し、コンテナが既に停止していれば即座にスキップ。Docker が生存している間に安全に `nemoclaw hermes-sandbox stop` を行います。 |
-| `nemoclaw-hermes-shutdown-monitor.sh` | Bash | `systemd-inhibit --what=shutdown --mode=delay` を取得して常駐し、D-Bus のシャットダウン予告シグナル（`PrepareForShutdown(true)`）を監視します。シャットダウン要求時に電源断を最大 15 秒遅延させ、**Docker が落ちる前に Hermes を先行クリーン停止（Phase: Stopped / exit 0）** させます。 |
+| `nemoclaw-wait-docker.sh` | Bash | Waits up to 60 seconds for the Docker daemon to respond, before the gateway service starts. |
+| `nemoclaw-reconcile-sandbox.py` | Python 3 | Audits the OpenShell gateway's SQLite database (`openshell.db`). When a forced stop or power loss leaves the sandbox deadlocked in `Phase: Error` (3) or with an abnormal exit code, it rewrites the protobuf payload to `Phase: Ready` (2) and restarts the gateway. |
+| `nemoclaw-hermes-autostart.sh` | Bash | The main start script at host startup: waits for Docker, removes stale locks, runs the reconciler before each attempt, starts the sandbox, and checks the web dashboard (port 18789). |
+| `nemoclaw-hermes-autostop.sh` | Bash | Stops the sandbox safely. It holds a `flock` against concurrent runs, skips at once when the container is already stopped, and runs `nemoclaw hermes-sandbox stop` while Docker is still alive. |
+| `nemoclaw-hermes-shutdown-monitor.sh` | Bash | Holds `systemd-inhibit --what=shutdown --mode=delay` and watches D-Bus for `PrepareForShutdown(true)`. On shutdown it delays power-off by up to 15 seconds so that **Hermes stops cleanly (Phase: Stopped / exit 0) before Docker goes down**. |
 
-### systemd サービスユニット (`systemd/`)
+### systemd units (`systemd/`)
 
-| ユニット名 | 動作モード | 役割・概要 |
+| Unit | Mode | Role |
 | :--- | :--- | :--- |
-| `nemoclaw-openshell-gateway.service` | `Type=simple` | OpenShell Gateway デーモンを常駐実行します。 |
-| `nemoclaw-hermes-start.service` | `Type=oneshot`<br>`RemainAfterExit=yes` | ホスト起動時に `nemoclaw-hermes-autostart.sh` を実行し、サービス停止時に `nemoclaw-hermes-autostop.sh` を実行します。 |
-| `nemoclaw-hermes-shutdown-watch.service` | `Type=simple` | `nemoclaw-hermes-shutdown-monitor.sh` を常駐させ、OS シャットダウン時に Docker 停止順序競合によるエラー終了を防止します。 |
-| `google-bridge.service` | `Type=simple` | Google Bridge コンパニオンを常駐実行します。`ConditionPathExists=%h/.config/google-bridge/config.json` により、Google Bridge を初期化・設定済みの環境でのみ安全に自動起動します（未設定環境ではエラーなくスキップ）。 |
+| `nemoclaw-openshell-gateway.service` | `Type=simple` | Runs the OpenShell gateway daemon. |
+| `nemoclaw-hermes-start.service` | `Type=oneshot`<br>`RemainAfterExit=yes` | Runs `nemoclaw-hermes-autostart.sh` at startup and `nemoclaw-hermes-autostop.sh` when stopped. |
+| `nemoclaw-hermes-shutdown-watch.service` | `Type=simple` | Keeps `nemoclaw-hermes-shutdown-monitor.sh` running to avoid error exits from Docker stopping first at OS shutdown. |
+| `google-bridge.service` | `Type=simple` | Runs the Google Bridge companion. `ConditionPathExists=%h/.config/google-bridge/config.json` starts it only where Google Bridge has been initialized; elsewhere it is skipped without an error. |
 
 ---
 
-## 4. 多重防御アーキテクチャ (sudo 完全不要)
+## 4. Defense in depth (no sudo)
 
-1. **平時（通常の再起動・シャットダウン）**:
-   * `nemoclaw-hermes-shutdown-watch.service` が OS のシャットダウン予告を受信。
-   * logind に電源断を最大 15 秒遅延させ、Docker デーモンが停止処理に入る前に Hermes を先行クリーン停止。
-   * エラー終了（exit 143）そのものを根本防止します。
-2. **非常時（突発的な電源断・クラッシュ）**:
-   * 万一 `Phase: Error` で停止した場合でも、次回起動時に `nemoclaw-hermes-autostart.sh` 経由で `nemoclaw-reconcile-sandbox.py` が自動検知。
-   * DB 内部のステータスを即座に `Phase: Ready` に強制解除・同期し、100% 確実に自動復旧します。
+1. **Normal restart or shutdown**:
+   * `nemoclaw-hermes-shutdown-watch.service` receives the OS shutdown notice.
+   * It has logind delay power-off by up to 15 seconds and stops Hermes before the Docker daemon begins stopping.
+   * This prevents the error exit (exit 143) itself.
+2. **Sudden power loss or crash**:
+   * If the sandbox is left in `Phase: Error`, `nemoclaw-reconcile-sandbox.py`, run through `nemoclaw-hermes-autostart.sh` at the next start, detects it.
+   * It resets the status in the database to `Phase: Ready` and the sandbox starts again.
 
 ---
 
-## 5. 自動起動のインストール・セットアップ手順
+## 5. Installing the autostart units
 
-本リポジトリのルートまたは本ディレクトリから以下を実行します：
+Run from the repository root or this directory:
 
 ```bash
-# 1. ユーザー環境 (~/.local/bin, ~/.config/systemd/user) へシンボリックリンク配備
-#    （NemoClaw が入れた Gateway ユニットは置き換えない）
+# 1. Link into the user environment (~/.local/bin, ~/.config/systemd/user)
+#    (a gateway unit installed by NemoClaw is kept)
 cd scripts/nemoclaw
 ./install.sh
 
-# 2. systemd ユーザーサービスの有効化・起動
-systemctl --user enable --now nemoclaw-openshell-gateway.service   # NemoClaw が入れた場合は有効化済み
+# 2. Enable and start the systemd user services
+systemctl --user enable --now nemoclaw-openshell-gateway.service   # already enabled when NemoClaw installed it
 systemctl --user enable --now nemoclaw-hermes-shutdown-watch.service
 systemctl --user enable --now nemoclaw-hermes-start.service
 
-# (Google Bridge を利用する場合のみ)
+# (Only with Google Bridge)
 systemctl --user enable --now google-bridge.service
 
-# 3. 稼働状態の確認
+# 3. Check them
 systemctl --user status nemoclaw-openshell-gateway.service
 systemctl --user status nemoclaw-hermes-start.service
 systemctl --user status nemoclaw-hermes-shutdown-watch.service
-# (Google Bridge 利用時)
+# (With Google Bridge)
 systemctl --user status google-bridge.service
 
-# 4. ログインしていなくてもユーザーサービスを動かす
+# 4. Keep user services running without a login session
 loginctl enable-linger "$USER"
 ```
 
-NemoClaw v0.0.135 以降は、インストーラーが自分の `nemoclaw-openshell-gateway.service`（TLS 証明書の生成を含む）を入れます。`install.sh` はそれを置き換えずに残し（`[KEEP]` と表示）、本リポジトリの同名ユニットは、それを入れない古い NemoClaw の場合だけ配備します。`nemoclaw-hermes-start.service` は `~/.local/bin/nemoclaw` を使い、Node の場所はこのラッパーが固定するので、ユニットでは指定しません。
+From NemoClaw v0.0.135 the installer places its own `nemoclaw-openshell-gateway.service`, which also generates TLS certificates. `install.sh` keeps it (printing `[KEEP]`) and places this repository's unit of the same name only for older NemoClaw versions that do not install one. `nemoclaw-hermes-start.service` uses `~/.local/bin/nemoclaw`, a wrapper that selects its own Node, so the unit does not name one.
 
-WSL では、Windows にサインインしただけでは WSL も Docker Desktop も起動しません。Docker Desktop の「Start Docker Desktop when you sign in」を ON にし、WSL のディストリビューションを起動する手段（Windows のタスク スケジューラなど）を別に用意します。2026-10-21 に WSL2（ARM64、NAT）と Docker Desktop の環境で、サービスの有効化と起動まで確認しました。PC の再起動を通した確認は含みません。
+Under WSL, signing in to Windows starts neither the WSL distribution nor Docker Desktop. To start Hermes at sign-in, turn on Docker Desktop's "Start Docker Desktop when you sign in" and start the distribution separately, for example with a Windows Task Scheduler task. Otherwise, start Docker Desktop and open the distribution by hand; the enabled units then start the sandbox. On 2026-10-21 enabling and starting the services was verified on WSL2 (ARM64, NAT) with Docker Desktop; a full machine restart was not.
 
 ---
 
-## 6. 運用確認コマンド
+## 6. Operating commands
 
 ```bash
-# サンドボックス状態の確認
+# Sandbox status
 nemoclaw hermes-sandbox status
 
-# OpenShell 側からのステータス確認
+# Status from OpenShell
 openshell sandbox list
 
-# Web Dashboard (ポート 18789) への疎通確認
+# Web dashboard (port 18789)
 curl -I http://127.0.0.1:18789/
 
-# 手動での自律修復・強制解除テスト
+# Run the repair by hand
 python3 ~/.local/bin/nemoclaw-reconcile-sandbox.py
 ```
 
 ---
 
-## 7. Hermes 推奨設定 (`/sandbox/.hermes/config.yaml`)
+## 7. Recommended Hermes settings (`/sandbox/.hermes/config.yaml`)
 
-直接依頼（Direct Request）でファイル操作や自律タスクを安定遂行させるための推奨設定です。`setup-hermes.sh` がこの内容を適用します（親の `model` はオンボーディングが `inference.local` 経由で設定します）：
+Settings for running direct requests with file operations and autonomous work reliably. Onboarding sets `model`; `setup-hermes.sh` sets the rest. `delegation` points `base_url` at Token Factory directly over Provider v2; with `inference.local` the model would be replaced by the gateway's Super:
 
 ```yaml
-model:
+model: # set by onboarding (OpenShell relays it to Token Factory)
   provider: custom
-  base_url: https://api.tokenfactory.nebius.com/v1
-  api_key: ${TOKENFACTORY_API_KEY}
+  base_url: https://inference.local/v1
   default: nvidia/Nemotron-3.5-Super-VL
 
 delegation:
@@ -178,13 +179,13 @@ delegation:
 
 tools:
   tool_search:
-    enabled: "off" # Direct disclosure（JSONエスケープ破損防止）
+    enabled: "off" # direct disclosure (avoids broken JSON escaping)
 
 agent:
-  max_turns: 15 # persona ask用。直接依頼は別WorkerがUltraで実行
+  max_turns: 15 # for persona asks; direct requests run Ultra in a separate worker
 
 platform_toolsets:
-  cron: # 直接依頼でファイル操作や自律作業、委譲をさせる場合に許可
+  cron: # lets direct requests use files, autonomous work and delegation
     - web
     - file
     - terminal

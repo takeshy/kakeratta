@@ -48,6 +48,7 @@ The [system bundle index](./system/index.md) links to architecture, backend APIs
 | Topic | Report | Japanese edition |
 | --- | --- | --- |
 | NemoClaw / Hermes integration and verification | [Integration report](./reports/nemoclaw-hermes-integration.md) | [統合・検証レポート](./reports/nemoclaw-hermes-integration_ja.md) |
+| NemoClaw setup and autostart scripts | [Scripts README](../scripts/nemoclaw/README.md) | [スクリプトのREADME](../scripts/nemoclaw/README_ja.md) |
 | NemoClaw / Hermes model comparison | [Comparison](./reports/nemoclaw-hermes-model-comparison.md) | — |
 | Hermes runaway-loop incident | [Incident report](./reports/nemoclaw-hermes-runaway-incident.md) | — |
 | Hermes-4-405B visual evaluation, 2026-10-14 | [Evaluation report](./reports/hermes-4-405b-visual-evaluation.md) | [実測レポート](./reports/hermes-4-405b-visual-evaluation_ja.md) |
