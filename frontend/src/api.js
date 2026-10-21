@@ -55,6 +55,7 @@ export const api = {
  usage: (month = "", persona = "") => call("GET", `/api/usage?${new URLSearchParams({ month, persona })}`),
   favorites: ({ speaker = "", limit = 20, offset = 0 } = {}) => call("GET", `/api/favorites?${new URLSearchParams({ speaker, limit, offset })}`),
   setDone: (id, done) => call(done ? "PUT" : "DELETE", `/api/entry/${encodeURIComponent(id)}/done`),
+  answerSuggestion: (id, choice, language) => call("POST", `/api/entry/${encodeURIComponent(id)}/suggestion`, { choice, language }),
   answerReview: (id, choice) => call("POST", `/api/entry/${encodeURIComponent(id)}/review`, { choice }),
   setFavorite: (id, saved) => call(saved ? "PUT" : "DELETE", `/api/entry/${encodeURIComponent(id)}/favorite`),
   pushConfig: endpoint => call("GET", "/api/push" + (endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : "")),

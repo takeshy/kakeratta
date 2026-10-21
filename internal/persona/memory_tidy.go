@@ -233,22 +233,22 @@ tidy_memory で1回で出す。
 // tidyMemory is the daily pass over one persona's memory, under its
 // keeper lock, in one call. It runs when records were kept since the last
 // pass, facts were changed since, or a fact names only days that have gone.
-// It returns what the pass suggests could be a persona of its own, or "".
-func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) (string, error) {
+// It returns what the pass suggests could be a persona of its own, or nil.
+func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model string, skill Skill, now time.Time, zone *time.Location) (*personaSuggestion, error) {
 	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Wake: "daily"})
 	if !skill.Remembers() {
-		return "", nil
+		return nil, nil
 	}
 	held, release, err := r.lockKeeper(ctx, skill.ID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer release()
 	today := localDay(now, zone)
 	m := r.loadMemo(skill.ID, zone)
 	passed := pastDated(m, today)
 	if !tidyDue(m) && len(passed) == 0 {
-		return "", nil
+		return nil, nil
 	}
 	suggest := !skill.IsPerson() && (m.SuggestedAt.IsZero() || now.Sub(m.SuggestedAt) >= suggestEvery)
 
@@ -308,7 +308,7 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 	for attempt := 1; ; attempt++ {
 		reply, err := client.Complete(held, llm.Request{Purpose: "memory_tidy", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		sub = submission{}
 		var problems []string
@@ -385,7 +385,7 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 			break
 		}
 		if attempt == maxKeeperAttempts {
-			return "", fmt.Errorf("memory tidy rejected %d times: %s", attempt, strings.Join(problems, "; "))
+			return nil, fmt.Errorf("memory tidy rejected %d times: %s", attempt, strings.Join(problems, "; "))
 		}
 		messages = append(messages[:2], llm.Message{Role: "user", Content: "前の提出は本体が差し戻しました。直して " + tool.Name + " でもう一度提出してください。\n- " + strings.Join(problems, "\n- ") + "\n前の提出:\n" + clip(raw, 12000)})
 	}
@@ -408,15 +408,17 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 	}
 	next.TidyDirty = false
 	next.CheckedAt = now
-	suggestion := ""
+	var suggestion *personaSuggestion
+	logged := ""
 	if suggest && sub.Suggest != nil {
-		suggestion = strings.TrimSpace(sub.Suggest.Topic) + "（" + strings.TrimSpace(sub.Suggest.Reason) + "）"
+		suggestion = &personaSuggestion{Topic: strings.TrimSpace(sub.Suggest.Topic), Reason: strings.TrimSpace(sub.Suggest.Reason)}
+		logged = suggestion.Topic + "（" + suggestion.Reason + "）"
 		next.SuggestedAt = today
 	}
 	err = r.saveMemo(held, skill.ID, next, zone)
-	logKeeper(keeperRecord{Persona: skill.ID, Model: model, Retired: sub.Invalidate, Dropped: sub.Drop, Reviewed: sub.Review, Suggested: suggestion, Error: errorText(err)})
+	logKeeper(keeperRecord{Persona: skill.ID, Model: model, Retired: sub.Invalidate, Dropped: sub.Drop, Reviewed: sub.Review, Suggested: logged, Error: errorText(err)})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return suggestion, nil
 }

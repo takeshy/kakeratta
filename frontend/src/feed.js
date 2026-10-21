@@ -9,7 +9,7 @@ import { avatarNode, userProfile } from "./avatar.js";
 import { favoriteButton } from "./favorite-state.js";
 import { el, clear, toast, when } from "./dom.js";
 import { api, blobURL } from "./api.js";
-import { t, translateError } from "./i18n.js";
+import { getLanguage, t, translateError } from "./i18n.js";
 import { gloss } from "./builtins.js";
 import { renderMarkdown, spokenText } from "./markdown.js";
 import { htmlDocument, renderHtmlDocument } from "./html-document.js";
@@ -34,7 +34,7 @@ const entryText = (entry) => entry.model === "agent" ? (entry.text || "").replac
 // name when the server has said it.
 const agentRow = (name) => ({ id: "agent", name: name || t("外部エージェント"), icon: "🤖" });
 
-export function createFeed({ getPersona: findPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false }) {
+export function createFeed({ getPersona: findPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onPersonaAdded, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false }) {
   const view = el("div", { class: "feed" });
   let agentName = "";
   const getPersona = (id) => findPersona(id) || (id === "agent" ? agentRow(agentName) : undefined);
@@ -400,6 +400,8 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     else if (entry.text) node.append(drawBody(entry));
     const review = drawReview(entry);
     if (review) node.append(review);
+    const suggestion = drawSuggestion(entry);
+    if (suggestion) node.append(suggestion);
     const importSourceUrl = entry.import?.url || entry.import?.sourceUrl;
     if (importSourceUrl) {
       node.append(el("a", {
@@ -592,6 +594,40 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       })));
   }
 
+  // A check-in post that suggested a new persona offers to make it. Making it
+  // takes a model call, so the post says so while it runs.
+  const suggestionSaving = new Set();
+  function drawSuggestion(entry) {
+    const suggestion = entry.suggestion;
+    if (entry.deleted || !suggestion) return null;
+    if (suggestion.status === "created") {
+      const made = getPersona(suggestion.persona);
+      return el("p", { class: "review-answer", text: t("✓ {0} を作りました", made ? gloss(made).name : suggestion.persona) });
+    }
+    if (suggestion.status === "declined") return el("p", { class: "review-answer", label: "✓ 作らないことにしました" });
+    if (suggestion.status !== "asked") return null;
+    const saving = suggestionSaving.has(entry.id);
+    const busy = offline() || saving;
+    const answer = async (choice) => {
+      if (offline() || suggestionSaving.has(entry.id)) return;
+      suggestionSaving.add(entry.id);
+      draw();
+      try {
+        const result = await api.answerSuggestion(entry.id, choice, getLanguage());
+        if (result.persona) {
+          toast(t("{0} を作りました", result.persona.name));
+          await onPersonaAdded?.(result.persona);
+        }
+        if (onEntryChange) onEntryChange(result.entry);
+        else upsert(result.entry);
+      } catch (error) { toast(t(error.message)); }
+      finally { suggestionSaving.delete(entry.id); draw(); }
+    };
+    return el("div", { class: "review-choices", role: "group", "aria-label": t("新しい担当を作るかの答え") },
+      el("button", { class: "chip review-choice suggestion-create", type: "button", label: saving ? "作っています…" : "作る", disabled: busy, onclick: () => answer("create") }),
+      el("button", { class: "chip review-choice suggestion-decline", type: "button", label: "作らない", disabled: busy, onclick: () => answer("decline") }));
+  }
+
   function drawModel(entry) {
     if (entry.model === "agent") return el("span", { class: "model-badge", label: "外部エージェント", i18nTitle: entry.kind === "post" ? "外部エージェントが書いた投稿です" : "外部エージェントが書いた回答です" });
     if (entry.model !== "ultra") return null;
@@ -626,6 +662,8 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     );
     const review = drawReview(entry);
     if (review) node.append(review);
+    const suggestion = drawSuggestion(entry);
+    if (suggestion) node.append(suggestion);
     if (entry.link) {
       node.append(el("a", { class: "link", href: entry.link, target: "_blank", rel: "noreferrer", text: entry.link }));
     }

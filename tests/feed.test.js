@@ -1431,6 +1431,28 @@ test("a review question offers its answers as buttons", async (t) => {
   assert.deepEqual(feed.element.querySelectorAll(".review-answer").map(node => node.textContent), [translate("✓ もう少し覚えておきます")]);
 });
 
+test("a suggested persona is made or declined from the buttons under the post", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null, querySelector: () => null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const asking = { id: "ask", kind: "post", speaker: "gourmet", root: "ask", text: "発酵食の担当を作りませんか？", at: "2026-10-04T00:00:00Z", suggestion: { topic: "発酵食づくり", reason: "ぬか床", status: "asked" } };
+  const calls = [];
+  const added = [];
+  t.mock.method(api, "answerSuggestion", async (id, choice) => {
+    calls.push([id, choice]);
+    return { entry: { ...asking, suggestion: { ...asking.suggestion, status: "created", persona: "ferment" } }, persona: { id: "ferment", name: "ぬか床" } };
+  });
+  const feed = createFeed({ getPersona: (id) => id === "ferment" ? { id, name: "ぬか床" } : null, showIntro: false, onPersonaAdded: (made) => added.push(made.id) });
+  feed.set([asking, { id: "no", kind: "post", speaker: "gourmet", root: "no", text: "作る？", at: "2026-10-04T00:01:00Z", suggestion: { topic: "x", reason: "y", status: "declined" } }]);
+  const buttons = feed.element.querySelectorAll(".review-choice");
+  assert.deepEqual(buttons.map(node => node.textContent), ["作る", "作らない"].map(translate));
+  await buttons[0].listeners.click[0]();
+  assert.deepEqual(calls, [["ask", "create"]]);
+  assert.deepEqual(added, ["ferment"]);
+  assert.equal(feed.element.querySelectorAll(".review-choice").length, 0, "the answered post offers no buttons");
+  assert.deepEqual(feed.element.querySelectorAll(".review-answer").map(node => node.textContent).sort(), [translate("✓ 作らないことにしました"), translate("✓ {0} を作りました", "ぬか床")].sort());
+});
+
 test("post places show a label without a map link, credits, and coordinate fallback", (t) => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), activeElement: null };

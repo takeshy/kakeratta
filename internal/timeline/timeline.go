@@ -95,6 +95,24 @@ const (
 	ReviewReplied = "replied"
 )
 
+// The states of a check-in post that suggested a new persona
+// (Entry.Suggestion.Status).
+const (
+	SuggestionAsked    = "asked"
+	SuggestionCreated  = "created"
+	SuggestionDeclined = "declined"
+)
+
+// PersonaSuggestion is a subject the daily pass found could be a persona of
+// its own, as the check-in post that asked about it carries it: the user
+// answers with the buttons under the post, and creating it sets Persona.
+type PersonaSuggestion struct {
+	Topic   string `json:"topic"`
+	Reason  string `json:"reason"`
+	Status  string `json:"status"`
+	Persona string `json:"persona,omitempty"`
+}
+
 type ImportSource struct {
 	CalendarID    string    `json:"calendarId,omitempty"`
 	EventID       string    `json:"eventId,omitempty"`
@@ -169,6 +187,10 @@ type Entry struct {
 	// one of the buttons under it, or ReviewReplied when the user answered in
 	// words.
 	Review string `json:"review,omitempty"`
+
+	// Suggestion marks a persona's check-in post that suggested a new
+	// persona, with the user's answer once given.
+	Suggestion *PersonaSuggestion `json:"suggestion,omitempty"`
 
 	// Deleted is a transient browser removal notification; stores remove records.
 	Deleted bool `json:"deleted,omitempty"`
@@ -304,6 +326,14 @@ func (e Entry) Render(names map[string]string, in *time.Location) string {
 		head += "（ユーザーがボタンで「もうちょっと覚えてて」と答え、見直しを先に延ばした）"
 	case ReviewKeep:
 		head += "（ユーザーがボタンで「忘れないで」と答え、見直しを外した）"
+	}
+	if e.Suggestion != nil {
+		switch e.Suggestion.Status {
+		case SuggestionCreated:
+			head += "（ユーザーがボタンで新しい担当を作った: " + e.Suggestion.Persona + "）"
+		case SuggestionDeclined:
+			head += "（ユーザーがボタンで新しい担当を作らないと答えた）"
+		}
 	}
 	body := []string{head}
 	if text := strings.TrimSpace(e.Text); text != "" {

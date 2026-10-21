@@ -987,6 +987,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		return failed(fmt.Errorf("stopped at %s: %s", steps[len(steps)-1].Type, steps[len(steps)-1].Error))
 	}
 	spoken := strings.TrimSpace(answer.Text)
+	// A check-in that suggests a new persona always says so: the post is
+	// where the user answers it.
+	suggested := suggestionOf(trigger, wakeInstructions)
+	if suggested != nil && spoken == "" && !listening {
+		spoken = suggested.fallback(trigger.Language)
+	}
 	record.Spoke = spoken
 	sources := citedSources(answer.Sources, rules.cited)
 	var remark *timeline.Entry
@@ -1003,6 +1009,9 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		if remark != nil && record.Wake == "schedule" && scheduleNotify(ctx) {
 			r.emit("reminder", *remark)
 		}
+	}
+	if suggested != nil && remark != nil {
+		r.attachSuggestion(remark, *suggested)
 	}
 	// The remark is out. Notes come after it, so a note that cannot be written
 	// costs the note and never the answer.

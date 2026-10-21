@@ -53,6 +53,8 @@ const feed = createFeed({
     pollAfterSending();
   },
   onEntryChange: (entry) => pages.upsert(entry),
+  // A persona made from a check-in's suggestion joins the list at once.
+  onPersonaAdded: () => personas.load({ quiet: true }),
   // The router's call about a post is where a persona's conditions get
   // corrected; personas is wired below and is only reached on a click.
   onFixCondition: (args) => showConditionFix({ ...args, onSaved: () => personas.load({ quiet: true }) }),

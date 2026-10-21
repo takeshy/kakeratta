@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -187,8 +188,20 @@ func TestTidyingKeepsUnfoldedRecordsAndSuggestsAPersona(t *testing.T) {
 	if len(got.Records) != 1 || !got.SuggestedAt.Equal(day) {
 		t.Fatalf("Memo = %+v", got)
 	}
-	if !strings.Contains(checkIn, "Suggested new persona: 発酵食づくり（ぬか床の記録が続いている）") || !strings.Contains(instructions, "新しく作って分けませんか") {
+	if !strings.Contains(checkIn, "Suggested new persona: 発酵食づくり\nWhy: ぬか床の記録が続いている") || !strings.Contains(instructions, "新しく作って分けませんか") {
 		t.Fatalf("the check-in was not asked to suggest it:\n%s", checkIn)
+	}
+	// The persona stayed silent, yet the post that carries the buttons is out.
+	said, _ := s.SpeakerEntries(context.Background(), "gourmet")
+	if len(said) != 1 || said[0].Suggestion == nil || said[0].Suggestion.Status != timeline.SuggestionAsked ||
+		said[0].Suggestion.Topic != "発酵食づくり" || !strings.Contains(said[0].Text, "発酵食づくり") {
+		t.Fatalf("suggesting post = %+v", said)
+	}
+	if answered, err := r.AnswerSuggestion(said[0].ID, timeline.SuggestionDeclined, ""); err != nil || answered.Suggestion.Status != timeline.SuggestionDeclined {
+		t.Fatalf("declined = %+v, %v", answered.Suggestion, err)
+	}
+	if _, err := r.AnswerSuggestion(said[0].ID, timeline.SuggestionCreated, "ferment"); !errors.Is(err, ErrNoSuggestion) {
+		t.Fatalf("answered twice: %v", err)
 	}
 	got.Records = append(got.Records, record{At: got.CheckedAt.Add(time.Minute), ID: "e_s", Summary: "ぬか床をかき混ぜた"})
 	if err := s.WriteNote("gourmet", MemoPath, memoText(got, time.UTC)); err != nil {

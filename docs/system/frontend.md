@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, English judge registration and progress, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar", "google-import"]
-updated: "2026-10-20"
+updated: "2026-10-21"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards.
@@ -143,6 +143,8 @@ A persona post or remark carrying `scheduled` shows a **済みにする / Mark d
 ## Answering a review question
 
 A persona's check-in post marked `review: asked` - it asked whether records can be forgotten - shows **はい / Yes**, **もうちょっと覚えてて / Keep it a while longer** and **忘れないで / Don't forget it** under its text (`drawReview` in [feed.js](../../frontend/src/feed.js)). A press calls `api.answerReview` (`POST /api/entry/{id}/review`), and the returned entry replaces the buttons with what was chosen (**✓ 忘れました**, **✓ もう少し覚えておきます**, **✓ 忘れずに覚えておきます**). A post answered in words (`replied`) shows neither. Storybook: Timeline → 忘れていい？に答える.
+
+A check-in post carrying `suggestion.status: asked` - it suggested a new persona - shows **作る / Create it** and **作らない / Not now** (`drawSuggestion` in [feed.js](../../frontend/src/feed.js)). A press calls `api.answerSuggestion` (`POST /api/entry/{id}/suggestion` with the display language). While the persona is drafted, both buttons are disabled and the first one reads **作っています… / Creating…**. A created persona is announced with a toast. `onPersonaAdded` reloads the persona list. The returned entry then shows **✓ {name} を作りました** or **✓ 作らないことにしました**. Verification: the suggested-persona test in [feed.test.js](../../tests/feed.test.js).
 
 ## Mobile entry headers
 

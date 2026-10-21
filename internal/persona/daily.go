@@ -33,12 +33,14 @@ const dailyShareInstructions = dailyHeader + `前回のチェックインから�
 
 // personaSuggestInstructions ride a check-in when tidying memory found a
 // subject that could be a persona of its own: memory is not split into
-// fields, so the user is asked whether to make one.
+// fields, so the user is asked whether to make one. The post carries the
+// suggestion, and its buttons make the persona (suggestion.go).
 const personaSuggestInstructions = `
 
 ## 新しい担当の提案
-記憶の整理で、あなたの記憶のなかに別の担当に任せたほうがよさそうな主題がたまっていると分かりました（対象発言の Suggested new persona）。
-今回の発言で、ユーザーに一言だけ「〇〇の担当を新しく作って分けませんか？」と提案してください。理由は短く添えます。作るかどうかはユーザーが決めます。担当はユーザーが担当の画面から作ります。
+記憶の整理で、あなたの記憶のなかに別の担当に任せたほうがよさそうな主題がたまっていると分かりました（対象発言の Suggested new persona と Why）。
+今回の発言で、ユーザーに一言だけ「〇〇の担当を新しく作って分けませんか？」と提案してください。理由は短く添えます。作るかどうかはユーザーが決めます。
+投稿の下には本体が「作る」「作らない」のボタンを出し、「作る」で本体が名前・担当条件と、関係する記憶を引き継いだ担当を作るので、作り方や選択肢を文で説明する必要はありません。
 ほかに共有することがあれば同じ発言にまとめます。発言するならユーザーの記録やメモの言語に合わせてください。
 `
 
@@ -151,7 +153,7 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 			// a round reading the span; with nothing new from the user, no
 			// record due and no dated plan coming up, the check-in costs no call.
 			window, fresh := r.checkInDigest(ctx, since, now, loc)
-			if !previous.IsZero() && fresh == 0 && len(due) == 0 && suggestion == "" && !upcomingDated(r.loadMemo(skill.ID, loc), localDay(now, loc), checkInHorizon) {
+			if !previous.IsZero() && fresh == 0 && len(due) == 0 && suggestion == nil && !upcomingDated(r.loadMemo(skill.ID, loc), localDay(now, loc), checkInHorizon) {
 				logCheckInSkipped(skill.ID, since, now)
 				continue
 			}
@@ -162,8 +164,8 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 			text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
 			instructions += reviewInstructions
 		}
-		if suggestion != "" {
-			text += "\n\nSuggested new persona: " + suggestion
+		if suggestion != nil {
+			text += suggestion.line()
 			instructions += personaSuggestInstructions
 		}
 		trigger := timeline.Entry{At: local, Speaker: "system", Text: text, Language: language}
