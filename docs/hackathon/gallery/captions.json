@@ -1,125 +1,150 @@
 [
   {
-    "file": "images/01-remember-what-matters.png",
-    "title": "A personal AI timeline that remembers what matters",
-    "caption": "Post fragments of your day as text, photos, URLs or speech. Dedicated personas connect them with what you shared before.",
+    "file": "images/01-a-life-in-fragments.png",
+    "title": "Small fragments. A memory that helps you live.",
+    "caption": "Post text, photos, URLs or speech. Dedicated personas keep personal context and can bring it back when it matters.",
     "sources": [
-      "../../captures/en/timeline.png"
+      "../../captures/en/gallery-hero.png"
     ]
   },
   {
-    "file": "images/02-the-right-moment.png",
-    "title": "Bring back a forgotten plan at the right moment",
-    "caption": "A missed restaurant visit becomes useful again when you mention another trip. Personas can surface relevant memories during check-ins.",
+    "file": "images/02-people-and-interests.png",
+    "title": "Your people and interests, with their own context.",
+    "caption": "Create a persona in plain language for an interest or a person. Each can have its own instructions and optional memory; people also have basic information and important dates.",
     "sources": [
-      "../../captures/en/travel-memory.png"
+      "../../captures/en/wine-intent.png",
+      "../../captures/en/person-card.png"
     ]
   },
   {
-    "file": "images/03-personas-for-your-life.png",
-    "title": "Create personas for the people and interests in your life",
-    "caption": "Describe a persona in plain language. Each person or interest can have its own memory, instructions and tools.",
+    "file": "images/03-fragments-become-facts.png",
+    "title": "Separate wine notes become a grounded preference.",
+    "caption": "A conversation appends a fragment record. At check-in, memory tidying folds related records into facts with source links. This before/after example shows wine preferences; it is not an immediate conversion after a post.",
     "sources": [
-      "../../captures/en/persona-create.png",
-      "../../captures/en/people.png"
+      "../../captures/en/memory-before.png",
+      "../../captures/en/memory-after.png"
     ]
   },
   {
-    "file": "images/04-memory-you-control.png",
-    "title": "Inspect, trace and correct what your AI remembers",
-    "caption": "Open a persona’s memory, follow facts back to their original posts, edit them or forget them. Original timeline posts stay intact.",
+    "file": "images/04-you-decide-what-stays.png",
+    "title": "Inspect the memory. Correct it. Decide what stays.",
+    "caption": "Trace a fact to its original post, correct or forget it. A check-in can also ask whether an old record still matters, with choices to forget it, keep it longer or retain it. Forgetting a memory preserves the original timeline post.",
     "sources": [
-      "../../captures/en/memory.png"
+      "../../captures/en/memory-after.png",
+      "../../captures/en/review-question.png"
     ]
   },
   {
-    "file": "images/05-routing-and-feedback.png",
-    "title": "Understand who responds and refine the behavior",
-    "caption": "Inspect which personas received a post and why others did not. Adjust routing conditions or preview a revised reply before applying it.",
+    "file": "images/05-remember-at-the-right-time.png",
+    "title": "A forgotten restaurant comes back before the next trip.",
+    "caption": "A missed restaurant visit and a later trip can connect at a persona check-in. The persona can bring back the earlier plan even when the new post never names the restaurant.",
     "sources": [
-      "../../captures/en/routing.png",
-      "../../captures/en/reply-trial.png"
+      "../../captures/en/gallery-trip-missed.png",
+      "../../captures/en/gallery-trip-return.png",
+      "../../captures/en/gallery-trip-daily.png"
     ]
   },
   {
-    "file": "images/06-find-the-fragment.png",
-    "title": "Find saved fragments by words or meaning",
-    "caption": "Search your timeline by keyword, meaning, date or persona, and keep useful posts and replies in favorites.",
+    "file": "images/06-ready-before-you-leave.png",
+    "title": "Your plans, past omissions and fresh weather, together.",
+    "caption": "With a known departure time, sona can schedule a preparation check, combine grounded belongings and past omissions with a fresh weather forecast, and post before departure. This curated UI example does not represent a live forecast or departure detection.",
     "sources": [
-      "../../captures/en/search-semantic.png"
+      "../../captures/en/preparation-plan.png",
+      "../../captures/en/preparation-check.png"
     ]
   },
   {
-    "file": "images/07-connected-agents.png",
-    "title": "Connect external agents to your personal timeline",
-    "caption": "Hermes or Obsidian’s LLM Connect Hub can research and answer through MCP. kakeratta keeps the timeline, schedules and memory updates.",
+    "file": "images/07-review-mail-and-calendar.png",
+    "title": "Mail and Calendar cards wait for your decision.",
+    "caption": "The separate personal Google Bridge and Hermes deliver Gmail and Calendar review cards. Inspect the summary or event, open its source, then import or discard. Pending cards stay outside persona processing, memory and search. Discard can exclude a sender, mail type, event or series.",
     "sources": [
-      "../../captures/en/llm-connect-hub.png"
+      "../../captures/en/gmail-card.png",
+      "../../captures/en/calendar-card.png",
+      "../../captures/en/gmail-review.png"
     ]
   },
   {
-    "file": "images/08-powered-by-nemotron.png",
-    "title": "NVIDIA Nemotron on Nebius Token Factory",
-    "caption": "Nemotron 3 Super handles routing, ordinary research, replies and memory notes. Nemotron 3.5 Super VL handles deep research, always-think-deeply replies, schedule planning and review, memory tidying, check-ins and daily/monthly summaries. Ultra composes final answers for deep requests. A tagged record is added after publication; records are folded into grounded facts at check-in.",
-    "sources": []
-  },
-  {
-    "file": "images/09-monthly-reflection.png",
-    "title": "A month of fragments, connected",
-    "caption": "Monthly summaries bring people, food and unfinished plans together with links back to the original posts.",
+    "file": "images/08-plans-you-can-manage.png",
+    "title": "One schedule view. A reminder you can mark done.",
+    "caption": "See tasks across personas in time order, search, edit or cancel them, and control notifications per task. Scheduled reminders can be marked done. Web Push requires device setup and supported browsers; these are kakeratta schedules, separate from Calendar intake.",
     "sources": [
-      "../../captures/en/month-summary.png"
+      "../../captures/en/schedules.png",
+      "../../captures/en/reminder-done.png"
     ]
   },
   {
-    "file": "images/10-save-useful-answers.png",
-    "title": "Keep useful posts and answers in favorites",
-    "caption": "Favorite both your own posts and persona replies, then return to them from the saved-entry view.",
+    "file": "images/09-room-for-a-new-interest.png",
+    "title": "When a topic grows, one tap makes a new persona.",
+    "caption": "During memory tidying, a subject persona can notice a growing topic or one outside its domain and suggest a new persona at check-in. One tap on Create it adds the persona with its icon, name, routing condition, tone and memory rules drafted for that topic, moves the related facts and records into its memory, and leaves the topic out of the routing condition of the persona that suggested it. This is a curated example of the supported suggestion flow.",
     "sources": [
-      "../../captures/en/favorites.png"
+      "../../captures/en/persona-suggestion.png",
+      "../../captures/en/suggested-persona.png",
+      "../../captures/en/suggested-definition.png",
+      "../../captures/en/suggested-memory.png"
     ]
   },
   {
-    "file": "images/11-offline-fragments.png",
-    "title": "Capture a thought even while offline",
-    "caption": "Write while disconnected. Posts stay in this browser’s outbox until the connection returns and delivery can resume.",
+    "file": "images/10-find-and-reflect.png",
+    "title": "Find a fragment, or see the bigger picture.",
+    "caption": "Search saved fragments by words or meaning, date and persona. Monthly summaries connect recurring themes and open plans with links back to the original posts.",
     "sources": [
-      "../../captures/en/offline.png"
+      "../../captures/en/gallery-search-form.png",
+      "../../captures/en/gallery-search-results.png",
+      "../../captures/en/gallery-month-summary.png"
     ]
   },
   {
-    "file": "images/12-share-your-selection.png",
-    "title": "Preview exactly what you share to Bluesky",
-    "caption": "Choose text or image for each selected message, inspect the result inline, and press Post to publish the conversation to Bluesky.",
+    "file": "images/11-teach-the-response.png",
+    "title": "See who was called. Teach a better response.",
+    "caption": "Inspect routing decisions, explain why a persona should respond and review a revised condition. For a reply, preview a revised answer before applying it. These existing UI captures show separate routing and reply-refinement controls.",
     "sources": [
-      "../../captures/en/bluesky-preview.png"
+      "../../captures/en/gallery-routing.png",
+      "../../captures/en/gallery-reply-trial.png"
     ]
   },
   {
-    "file": "images/13-understand-ai-usage.png",
-    "title": "See what each persona costs and what drives it",
-    "caption": "Inspect each persona’s monthly AI costs and web search counts, split into replies, scheduled runs and other work. Compare them with the overall total, including shared processing.",
+    "file": "images/12-bring-your-agents.png",
+    "title": "External agents, in the same personal timeline.",
+    "caption": "Connect Hermes or Obsidian LLM Connect Hub through MCP. A persona can use an external planner, and explicit @agent or @hermes posts can address the connected agent directly. The captured response is an Obsidian Vault example.",
     "sources": [
-      "../../captures/en/persona-usage.png",
-      "../../captures/en/settings-usage.png"
+      "../../captures/en/gallery-vault.png",
+      "../../system/integrations.md"
     ]
   },
   {
-    "file": "images/14-turn-notes-into-infographics.png",
-    "title": "Turn notes and conversations into infographics",
-    "caption": "Ask the infographic persona to turn existing notes, articles or conversations into visual cards with emoji and Mermaid diagrams. On Nebius, Nemotron 3.5 Super VL handles the default always-think-deeply mode; Ultra handles explicit deep requests.",
+    "file": "images/13-speak-and-listen.png",
+    "title": "Use your voice to save notes, hear replies and check plans.",
+    "caption": "In a supported browser with the English default send phrase, tap Speak to dictate and finish with over. A final trailing over stops recognition, removes the command from the note and automatically posts the remaining text. The send phrase is configurable; the Send button remains available for manual posting. Tap Read aloud on a timeline conversation to hear its post and replies. The English Alexa skill offers three illustrated commands: ask kakeratta notes to take a note, read my replies, or read my schedule. Note-taking asks for the text and reads it back before Yes posts it. Schedule reading covers saved kakeratta schedules. Alexa requires separate configuration and account linking. These examples follow the shipped en-US model; they are not a device recording. Optional AI formatting applies only to configured speech auto-send.",
     "sources": [
+      "../../captures/en/voice-compose.png",
+      "../../guides/alexa.md",
+      "../../../frontend/src/browser_speech.js",
+      "../../../frontend/src/send_phrases.js",
+      "../../../integrations/alexa/en-US.json",
+      "../../../frontend/src/compose.js",
+      "../../../frontend/src/feed.js",
+      "../../../internal/server/alexa.go",
+      "../../../internal/server/alexa_language.go"
+    ]
+  },
+  {
+    "file": "images/14-make-and-share-a-visual.png",
+    "title": "Turn the conversation into a visual, then choose what to share.",
+    "caption": "The infographic persona renders Markdown, emoji and Mermaid as visual cards. Choose messages from the same Shizuoka conversation, inspect the preview, then publish to Bluesky. The infographic here is an illustrative travel example rendered with the shipped renderer; it is not a live model response.",
+    "sources": [
+      "../../captures/en/gallery-share.png",
       "infographic-example.html",
       "infographic-example.png",
       "../../../frontend/src/infographic.js"
     ]
   },
   {
-    "file": "images/15-remember-your-people.png",
-    "title": "Keep the small details about your people",
-    "caption": "A person’s timeline connects shared meals, preferences and upcoming occasions, helping small details stay useful.",
+    "file": "images/15-purposeful-models-visible-usage.png",
+    "title": "Purposeful model choices. Usage you can inspect.",
+    "caption": "On the shipped Nebius configuration, Nemotron 3 Super handles routing and ordinary reads, answers and memory notes; 3.5 Super VL handles deep reads, always-deep answers, schedule planning/review and daily work; Ultra composes explicit deep-request final answers. Persona usage exposes monthly cost and search counts. Displayed usage is synthetic sample data, not production billing.",
     "sources": [
-      "../../captures/en/timeline-speaker.png"
+      "../../captures/en/gallery-usage.png",
+      "../../system/personas.md"
     ]
   }
 ]

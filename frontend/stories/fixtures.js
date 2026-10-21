@@ -73,7 +73,7 @@ const WORDS = {
   },
   en: {
     noodles: "That dan dan noodle place from the other day - too much sesame, I think",
-    sesame: "You said the same about heavy sesame once before. It may be places where the sesame lands before the heat that don't suit you.",
+    sesame: "You said the same about heavy sesame once before. Maybe places where the sesame comes through before the heat just aren't for you.",
     heat: "True. The heat itself is fine.",
     shibuya: "@michi Find a cafe near Shibuya Station where we can meet",
     station: "Shinjuku Station",
@@ -369,6 +369,6 @@ export function monthSummary() {
   const ja = getLanguage() === "ja";
   const text = ja
     ? "### 人\n- 佐藤さんが週末に海釣りへ。キャンプも始めたらしい [→](/?entry=q2)\n- 青木先生の発表会は11月3日 [→](/?entry=q4)\n\n### 食\n- 担々麺の店を2軒。辛さ控えめの方が好み [→](/?entry=q5)\n\n### これからのこと\n- 母の誕生日（11月20日）の贈り物をまだ決めていない [→](/?entry=q6)"
-    : "### People\n- Sato went sea fishing at the weekend, and has taken up camping [→](/?entry=q2)\n- Ms Aoki's recital is on 3 November [→](/?entry=q4)\n\n### Food\n- Two dandan noodle places; the milder one was the favourite [→](/?entry=q5)\n\n### Still open\n- No present chosen yet for Mum's birthday (20 November) [→](/?entry=q6)";
+    : "### People\n- Sato went sea fishing at the weekend, and has taken up camping [→](/?entry=q2)\n- Ms Aoki's recital is on 3 November [→](/?entry=q4)\n\n### Food\n- Two dan dan noodle places; the milder one was the favourite [→](/?entry=q5)\n\n### Still open\n- No present chosen yet for Mum's birthday (20 November) [→](/?entry=q6)";
   return [{ id: "m1", kind: "post", speaker: "kakeratta", summary: "month", root: "m1", at: minutes(30), text }];
 }

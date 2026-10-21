@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,14 +20,15 @@ import (
 // suggestedPrompt follows builderPrompt when the persona is drafted from a
 // check-in's suggestion: nobody is there to answer a question, and what of the
 // suggesting persona's memory belongs to the new one is picked by id, so it is
-// copied word for word rather than rewritten.
+// moved word for word rather than rewritten.
 const suggestedPrompt = `
 
 ## 記憶の整理から提案された新しい担当
 この依頼は、既存の担当（元の担当）の記憶の整理で「新しい担当に分けるとよい主題」が見つかり、ユーザーがその提案の「作る」ボタンを押したものです。質問せず、必ず完成案を返してください。人物の担当にはせず、checkIn と basicInfo は付けません。memoryEnabled は true です。
 主題・理由・元の担当の定義と記憶はユーザーの発言にあります。主題に沿って id・name・icon・domain・tone・memory・instructions を補います。domain は元の担当の担当条件と重ならないように、主題の話題そのものを書きます。tone は元の担当に近い親しみやすさにします。
-あわせて、元の担当の記憶から新しい担当に引き継ぐものを選びます。"facts" に事実のID（f_ で始まる）、"records" に記録のID（行の [ ] の中）を並べます。主題に関係するものだけを選び、なければ空の配列にします。渡されていないIDを作らないでください。
-返すJSON: {"message":"完成案の短い説明","placeholder":"","draft":skillオブジェクト,"facts":[],"records":[]}`
+あわせて、元の担当の記憶から新しい担当に移すものを選びます。選んだ事実と記録は元の担当の記憶から消え、新しい担当だけが持ちます。"facts" に事実のID（f_ で始まる）、"records" に記録のID（行の [ ] の中）を並べます。主題に関係するものだけを選び、元の担当の領域にも関わるものは移しません。なければ空の配列にします。渡されていないIDを作らないでください。
+主題の投稿が元の担当にも届き続けないよう、"sourceDomain" に元の担当の担当条件を書き直して返します。元の条件の対象はそのまま残し、新しい担当の主題を除くことを1文だけ加えます（例：「料理・食事の写真や話。ただし、レシピや料理の作り方の話は除く。」）。元の担当条件と同じ言語で書きます。
+返すJSON: {"message":"完成案の短い説明","placeholder":"","draft":skillオブジェクト,"facts":[],"records":[],"sourceDomain":"元の担当の新しい担当条件"}`
 
 // suggestedDraft is a persona drafted from a suggestion, with what of the
 // suggesting persona's memory it takes over.
@@ -35,13 +37,18 @@ type suggestedDraft struct {
 	Draft   *persona.Skill `json:"draft"`
 	Facts   []string       `json:"facts"`
 	Records []string       `json:"records"`
+	// SourceDomain is the suggesting persona's condition with the new
+	// persona's subject excluded, so a post on it reaches the new one alone.
+	SourceDomain string `json:"sourceDomain"`
 }
 
 // answerSuggestion answers a check-in post that suggested a new persona, as
 // the user chose with the buttons under it. "decline" only records the answer.
 // "create" drafts the persona from the subject, the reason and the suggesting
-// persona, installs and activates it, and copies the facts and records the
-// draft picked into its memory; the suggesting persona keeps its own.
+// persona, installs and activates it, and moves the facts and records the
+// draft picked from the suggesting persona's memory into its own. The
+// suggesting persona's condition is rewritten to leave the subject out, so a
+// post on it is routed to the new persona and not to both.
 func (s *Server) answerSuggestion(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Choice   string `json:"choice"`
@@ -92,18 +99,22 @@ func (s *Server) answerSuggestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	made := added{Skill: saved, Active: s.activatePersona(saved.ID) == nil}
-	// The persona is made; memory that cannot be copied costs the memory,
+	// The persona is made; memory that cannot be moved costs the memory,
 	// never the persona or the answer.
-	facts, records, err := s.runner.SeedMemory(held, source.ID, saved.ID, drafted.Facts, drafted.Records)
+	facts, records, err := s.runner.MoveMemory(held, source.ID, saved.ID, drafted.Facts, drafted.Records)
 	if err != nil {
 		log.Printf("suggested persona %s memory from %s: %v", saved.ID, source.ID, err)
+	}
+	narrowed, err := s.excludeSubject(held, source, drafted.SourceDomain, entry.Suggestion.Topic)
+	if err != nil {
+		log.Printf("suggested persona %s condition of %s: %v", saved.ID, source.ID, err)
 	}
 	entry, err = s.runner.AnswerSuggestion(id, timeline.SuggestionCreated, saved.ID)
 	if s.suggestionFailed(w, err) {
 		return
 	}
 	s.publishEvent("entry", entry)
-	writeJSON(w, http.StatusOK, map[string]any{"entry": entry, "persona": made, "facts": facts, "records": records})
+	writeJSON(w, http.StatusOK, map[string]any{"entry": entry, "persona": made, "facts": facts, "records": records, "source": narrowed})
 }
 
 func (s *Server) suggestionFailed(w http.ResponseWriter, err error) bool {
@@ -152,6 +163,29 @@ func (s *Server) draftSuggested(ctx context.Context, suggestion timeline.Persona
 		return suggestedDraft{}, err
 	}
 	return result, nil
+}
+
+// excludeSubject saves the suggesting persona with its condition narrowed:
+// the drafted one, or when none came back, its own with the subject left out.
+func (s *Server) excludeSubject(ctx context.Context, source persona.Skill, domain, topic string) (persona.Skill, error) {
+	domain = strings.TrimSpace(domain)
+	if domain == "" || domain == strings.TrimSpace(source.Domain) {
+		domain = strings.TrimSpace(source.Domain) + excludedLine(source.Domain, topic)
+	}
+	source.Domain = domain
+	raw, _ := json.Marshal(source)
+	return s.catalogue.Update(ctx, source.ID, raw, s.knownTool)
+}
+
+var japaneseText = regexp.MustCompile(`[\p{Hiragana}\p{Katakana}\p{Han}]`)
+
+// excludedLine is the sentence that leaves topic out of a condition written in
+// the language of domain.
+func excludedLine(domain, topic string) string {
+	if japaneseText.MatchString(domain) {
+		return "ただし、" + topic + "の話は除く。"
+	}
+	return " Excludes " + topic + "."
 }
 
 // freeID is id, or id with a number after it when another persona has it.

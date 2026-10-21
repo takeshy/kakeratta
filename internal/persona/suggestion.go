@@ -14,8 +14,8 @@ import (
 // check-in as two lines of its text, so a turn carried on later - an ask the
 // external agent answers - still knows what it suggested. The check-in post
 // carries the suggestion (Entry.Suggestion), and the buttons under it answer:
-// "make it" has the server draft the persona and copy what of the suggesting
-// persona's memory belongs to it (SeedMemory); "don't" only records the answer.
+// "make it" has the server draft the persona and move what of the suggesting
+// persona's memory belongs to it (MoveMemory); "don't" only records the answer.
 
 func (s personaSuggestion) line() string {
 	return "\n\nSuggested new persona: " + s.Topic + "\nWhy: " + s.Reason
@@ -100,36 +100,58 @@ func (r *Runner) SuggestionMemory(personaID string) string {
 	return "事実:\n" + renderFacts(m, zone) + "\n\n記録:\n" + listRecords(m.Records, zone)
 }
 
-// SeedMemory copies the facts and records picked by id from one persona's
+// MoveMemory moves the facts and records picked by id from one persona's
 // memory into another's, word for word: nothing is written that the source did
-// not hold, and the source keeps them. The new persona's daily pass then reads
-// the records as new. It returns how many facts and records were copied.
-func (r *Runner) SeedMemory(ctx context.Context, from, to string, factIDs, recordIDs []string) (int, int, error) {
+// not hold, and what moved is gone from the source, so the subject lives with
+// the new persona alone. The new memory is written first, so a source that
+// cannot be rewritten leaves both holding it, never neither. The new persona's
+// daily pass then reads the records as new. It returns how many facts and
+// records moved.
+func (r *Runner) MoveMemory(ctx context.Context, from, to string, factIDs, recordIDs []string) (int, int, error) {
 	_, settings := r.clientOf()
 	zone := settings.Location()
-	source := r.loadMemo(from, zone)
-	held, release, err := r.lockKeeper(ctx, to)
+	heldFrom, releaseFrom, err := r.lockKeeper(ctx, from)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer releaseFrom()
+	held, release, err := r.lockKeeper(heldFrom, to)
 	if err != nil {
 		return 0, 0, err
 	}
 	defer release()
+	source := r.loadMemo(from, zone)
 	target := r.loadMemo(to, zone)
+	var keptFacts []fact
+	var keptRecords []record
 	facts, records := 0, 0
 	for _, f := range source.Facts {
-		if slices.Contains(factIDs, f.ID) && !slices.ContainsFunc(target.Facts, func(g fact) bool { return g.ID == f.ID }) {
-			target.Facts = append(target.Facts, f)
-			facts++
+		if !slices.Contains(factIDs, f.ID) {
+			keptFacts = append(keptFacts, f)
+			continue
 		}
+		if !slices.ContainsFunc(target.Facts, func(g fact) bool { return g.ID == f.ID }) {
+			target.Facts = append(target.Facts, f)
+		}
+		facts++
 	}
 	for _, rec := range source.Records {
-		if slices.Contains(recordIDs, rec.ID) && !slices.ContainsFunc(target.Records, func(g record) bool { return g.ID == rec.ID }) {
+		if !slices.Contains(recordIDs, rec.ID) {
+			keptRecords = append(keptRecords, rec)
+			continue
+		}
+		if !slices.ContainsFunc(target.Records, func(g record) bool { return g.ID == rec.ID }) {
 			rec.Asked = ""
 			target.Records = append(target.Records, rec)
-			records++
 		}
+		records++
 	}
 	if facts+records == 0 {
 		return 0, 0, nil
 	}
-	return facts, records, r.saveMemo(held, to, target, zone)
+	if err := r.saveMemo(held, to, target, zone); err != nil {
+		return 0, 0, err
+	}
+	source.Facts, source.Records = keptFacts, keptRecords
+	return facts, records, r.saveMemo(heldFrom, from, source, zone)
 }

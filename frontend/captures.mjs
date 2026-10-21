@@ -6,11 +6,12 @@
 // any change with `npm run captures`. One set per display language, because
 // the README is in two.
 //
-// They are taken as a phone sees the app: a 390px-wide viewport at 2x, so the
+// Most are taken as a phone sees the app: a 390px-wide viewport at 2x, so the
 // text stays crisp when the image is shown at phone size. A screen is captured
 // to the bottom of its content; a sheet or a dialog is captured as just that
 // element, so the picture is the thing and not the space around it. Chromium is
 // driven over its DevTools protocol, which is what makes both possible.
+// Gallery examples use 500px or 560px so the slides can show them at one scale.
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -40,6 +41,37 @@ const MARGIN = 12;
 // clip: the element that is the picture; without it, the whole screen. ready:
 // something that appears once the story has finished arriving.
 const shots = [
+  { name: "wine-intent", width: 500, id: "gallery--wine-intent", clip: ".persona-builder form" },
+  { name: "recipe-intent", width: 500, id: "gallery--recipe-intent", clip: ".persona-builder form" },
+  { name: "memory-before", width: 560, id: "personas--wine-memory-before-tidy", clip: ".memory-dialog", ready: ".memory-card" },
+  { name: "memory-after", width: 560, id: "personas--wine-memory", clip: ".memory-dialog", ready: ".memory-card" },
+  { name: "preparation-plan", width: 500, id: "gallery--preparation", clip: '.thread[data-id="prep-plan"]' },
+  { name: "preparation-check", width: 500, id: "gallery--preparation", clip: '.thread[data-id="prep-check"]' },
+  { name: "persona-suggestion", width: 500, id: "gallery--persona-suggestion", clip: '.thread[data-id="suggest-recipe"]' },
+  { name: "suggested-persona", width: 500, id: "gallery--suggested-recipe-persona", clip: '.persona[data-id="recipe"]', ready: '.persona[data-id="recipe"]' },
+  { name: "suggested-definition", width: 560, id: "gallery--suggested-recipe-definition", clip: ".persona-editor", ready: ".persona-editor" },
+  { name: "suggested-memory", width: 560, id: "gallery--suggested-recipe-memory", clip: ".memory-dialog", ready: ".memory-card" },
+  { name: "reminder-done", width: 500, id: "gallery--reminder-done", clip: '.thread[data-id="gallery-reminder"]' },
+  { name: "voice-compose", width: 500, id: "gallery--voice-compose", clip: ".compose" },
+  { name: "review-question", id: "timeline--review-question", width: 560, clip: '[data-id="v2"].thread', ready: ".review-choices" },
+  { name: "gmail-card", width: 560, id: "imports--gmail-card", clip: ".import-card" },
+  { name: "gmail-review", width: 560, id: "imports--gmail-review", clip: ".gmail-import-dialog" },
+  { name: "calendar-card", width: 560, id: "imports--calendar-card", clip: ".import-card" },
+  { name: "calendar-review", width: 560, id: "imports--calendar-review", clip: ".gmail-import-dialog" },
+  { name: "schedules", width: 560, id: "schedules--overview", clip: "#sheet", ready: ".schedule-edit-button" },
+  // Gallery excerpts: one element each at 500px, so every slide shows the app at one scale.
+  { name: "gallery-hero", width: 500, id: "screen--hero", clip: ".thread", ready: '.thread-toggle[aria-expanded="true"]' },
+  { name: "gallery-trip-missed", width: 500, id: "screen--travel-memory", clip: '.thread[data-id="trip-missed"]' },
+  { name: "gallery-trip-return", width: 500, id: "screen--travel-memory", clip: '.thread[data-id="trip-return"]' },
+  { name: "gallery-trip-daily", width: 500, id: "screen--travel-memory", clip: '.thread[data-id="trip-daily"]' },
+  { name: "gallery-search-form", width: 500, id: "search--semantic", clip: "#sheet form", ready: ".search-hit" },
+  { name: "gallery-search-results", width: 500, id: "search--semantic", clip: ".search-results", ready: ".search-hit" },
+  { name: "gallery-month-summary", width: 500, id: "timeline--month-summary", clip: ".thread", ready: ".post.summary" },
+  { name: "gallery-routing", width: 500, id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },
+  { name: "gallery-reply-trial", width: 500, id: "timeline--reply-fix-trial", clip: ".dialog.reply-fix", ready: ".reply-accept" },
+  { name: "gallery-vault", width: 500, id: "timeline--external-agent-vault", clip: ".thread", ready: ".model-badge" },
+  { name: "gallery-share", width: 500, id: "gallery--share-trip", clip: ".social-dialog", ready: ".social-preview-post" },
+  { name: "gallery-usage", width: 500, id: "personas--with-usage", clip: '.persona[data-id="book"] .settings-usage', ready: ".usage-table" },
   { name: "search-period", id: "search--date-range", clip: "#sheet", ready: ".search-hit" },
   { name: "speaker-period", id: "timeline--speaker-filters", clip: "#sheet", ready: ".speaker-view .thread" },
   { name: "favorites", id: "timeline--favorites-only", clip: "#app", ready: ".entry-filters" },
@@ -170,6 +202,7 @@ async function main() {
     for (const lang of ["ja", "en"]) {
       mkdirSync(join(out, lang), { recursive: true });
       for (const shot of shots.filter((shot) => !wanted || wanted.includes(shot.name))) {
+        const width = shot.width || WIDTH;
         // A fresh tab avoids stale lifecycle state between stories and languages.
         const { targetId } = await devtools.send("Target.createTarget", { url: "about:blank" });
         const { sessionId } = await devtools.send("Target.attachToTarget", { targetId, flatten: true });
@@ -180,7 +213,7 @@ async function main() {
         await page("Page.bringToFront");
         try {
           await page("Emulation.setDeviceMetricsOverride", {
-            width: WIDTH, height: shot.clip ? TALL : 844, deviceScaleFactor: SCALE, mobile: true,
+            width, height: shot.clip ? TALL : 844, deviceScaleFactor: SCALE, mobile: true,
           });
           await page("Page.navigate", { url: `http://127.0.0.1:${port}/iframe.html?id=${shot.id}&viewMode=story&globals=lang:${lang}` });
           const ready = shot.ready || shot.clip || "#app";
@@ -216,19 +249,19 @@ async function main() {
             const x = Math.max(0, Math.floor(rect.x - MARGIN));
             const y = Math.max(0, Math.floor(rect.y - MARGIN));
             clip = {
-              x, y, width: Math.min(WIDTH - x, Math.ceil(rect.width + 2 * MARGIN)),
+              x, y, width: Math.min(width - x, Math.ceil(rect.width + 2 * MARGIN)),
               height: Math.min(TALL - y, Math.ceil(rect.height + 2 * MARGIN)), scale: 1,
             };
           } else {
             // The screen ends where #app ends - its own bottom padding included -
             // rather than at the bottom of a viewport it did not fill.
             const height = await evaluate("Math.ceil(Math.max(document.querySelector('#app')?.getBoundingClientRect().bottom || 0, ...[...document.querySelectorAll('#app > *')].map((n) => n.getBoundingClientRect().bottom)) + 24)");
-            clip = { x: 0, y: 0, width: WIDTH, height: Math.min(height, MAX_PAGE), scale: 1 };
+            clip = { x: 0, y: 0, width, height: Math.min(height, MAX_PAGE), scale: 1 };
           }
           let data;
           if (!shot.clip) {
             await page("Emulation.setDeviceMetricsOverride", {
-              width: WIDTH, height: clip.height, deviceScaleFactor: SCALE, mobile: true,
+              width, height: clip.height, deviceScaleFactor: SCALE, mobile: true,
             });
             await sleep(150);
           }

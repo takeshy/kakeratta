@@ -313,6 +313,8 @@ const EN = {
  "有効にしてOpenRouter APIキーを設定すると、投稿の振り分けだけをJevで行います。担当の応答には引き続きNemotronを使います。": "When enabled with an OpenRouter API key, only post routing uses Jev. Persona responses continue to use Nemotron.",
   "今後このFromからのメールは取り込まない: {0}": "Exclude this From address in future: {0}",
   "Calendarからの取り込み待ち": "Calendar: awaiting your decision",
+  "元の予定（Google カレンダー）を開く ↗": "Open original event in Google Calendar ↗",
+  "元のメール（Gmail）を開く ↗": "Open original email in Gmail ↗",
   "Calendarから取り込み": "Imported from Calendar",
   "予定の確認": "Review event",
   "予定を確認する": "Review event",

@@ -2,6 +2,7 @@ import { createSchedules } from "../src/schedules.js";
 import { serve } from "./api.js";
 import { sheet } from "./frame.js";
 import { personas, person, tools } from "./fixtures.js";
+import { getLanguage, t } from "../src/i18n.js";
 
 export default { title: "Schedules", parameters: { layout: "fullscreen" } };
 
@@ -10,19 +11,20 @@ function panelOf(rows, after) {
   serve({ personas: rows, tools });
   const panel = createSchedules();
   void panel.load().then(() => after?.(panel.element));
-  return sheet("予定一覧", panel.element);
+  return sheet(t("予定一覧"), panel.element);
 }
 
 // Interleaved owners make the chronological ordering visible; edits stay in the fixture API.
 function scheduleRows() {
+  const ja = getLanguage() === "ja";
   const at = hours => new Date(Date.now() + hours * 3600000).toISOString();
   return [
-    { ...personas[0], schedules: [
-      { id: "dinner", at: at(30), timeZone: "Asia/Tokyo", note: "週末の夕食のお店を探す", notify: false },
-      { id: "lunch", at: at(2), timeZone: "Asia/Tokyo", note: "ランチの予約を確認する", notify: true },
+    { ...personas.find(row => row.id === "gourmet"), schedules: [
+      { id: "dinner", at: at(30), timeZone: "Asia/Tokyo", note: ja ? "週末の夕食のお店を探す" : "Find a restaurant for the weekend", notify: false },
+      { id: "lunch", at: at(2), timeZone: "Asia/Tokyo", note: ja ? "ランチの予約を確認する" : "Check the lunch reservation", notify: true },
     ] },
     { ...person(), schedules: [
-      { id: "present", at: at(5), timeZone: "Asia/Tokyo", note: "誕生日のプレゼントを選ぶ", notify: true },
+      { id: "present", at: at(5), timeZone: "Asia/Tokyo", note: ja ? "誕生日のプレゼントを選ぶ" : "Choose a birthday present", notify: true },
     ] },
   ];
 }

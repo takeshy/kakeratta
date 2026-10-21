@@ -7,8 +7,8 @@ import (
 )
 
 // A suggested persona starts with the facts and records picked for it, word
-// for word, and the persona that suggested it keeps its own.
-func TestSeedMemoryCopiesWhatWasPicked(t *testing.T) {
+// for word, and they are gone from the persona that suggested it.
+func TestMoveMemoryMovesWhatWasPicked(t *testing.T) {
 	r, s, _ := setup(t, answering, "gourmet")
 	settings := s.Settings()
 	settings.TimeZone = "UTC"
@@ -23,7 +23,7 @@ func TestSeedMemoryCopiesWhatWasPicked(t *testing.T) {
 	if err := s.WriteNote("gourmet", MemoPath, memoText(source, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
-	facts, records, err := r.SeedMemory(context.Background(), "gourmet", "ferment", []string{"f_nuka", "f_made_up"}, []string{"e_a"})
+	facts, records, err := r.MoveMemory(context.Background(), "gourmet", "ferment", []string{"f_nuka", "f_made_up"}, []string{"e_a"})
 	if err != nil || facts != 1 || records != 1 {
 		t.Fatalf("seeded %d facts, %d records: %v", facts, records, err)
 	}
@@ -32,7 +32,7 @@ func TestSeedMemoryCopiesWhatWasPicked(t *testing.T) {
 		len(got.Records) != 1 || got.Records[0].Summary != "ぬか床を仕込んだ" || got.Records[0].Asked != "" {
 		t.Fatalf("new memory = %+v", got)
 	}
-	if kept := r.loadMemo("gourmet", time.UTC); len(kept.Facts) != 2 || len(kept.Records) != 2 {
+	if kept := r.loadMemo("gourmet", time.UTC); len(kept.Facts) != 1 || kept.Facts[0].ID != "f_ramen" || len(kept.Records) != 1 || kept.Records[0].ID != "e_b" {
 		t.Fatalf("source memory = %+v", kept)
 	}
 }

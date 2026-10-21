@@ -18,208 +18,119 @@ That is why I built kakeratta.
 
 ## What it does
 
-kakeratta is a personal timeline where dedicated AI personas connect fragments of your day and bring them back when they matter.
+kakeratta is a personal timeline where dedicated AI personas connect fragments of your day and bring them back when they matter. Search can't find what you've forgotten exists. kakeratta brings it back.
 
-### Bringing back what you forgot
+Just post a thought, photo, link, or voice note. Personas can remember details, answer questions, suggest plans, and remind you of something you never thought to set a reminder for.
 
-On a trip to Shizuoka, you mention a restaurant you wanted to try but didn't have time for. Your food persona, tabe, quietly remembers it. Weeks later you post "Going to Shizuoka tomorrow," and tabe connects the two:
+- **Dedicated memory for each person or interest.** Separating memories isn't about hiding things. It keeps each persona focused, so the right fragment comes back and the context stays small as the timeline grows.
+- **Silence is the default.** Most posts get no reply. If every AI commented on every post, the timeline would drown.
+- **Memories have an ending.** Temporary memories can expire, while others come back for review: keep, postpone, or forget?
+- **Memory you can inspect.** Facts link back to your posts. You can see and correct what each persona remembers.
 
-> "You didn't make it to that restaurant last time. Maybe this trip?"
-
-You would never have searched for it, because you had forgotten it existed. Search can't find what you've forgotten exists. kakeratta brings it back.
-
-### Why dedicated personas
-
-A friend's tastes, your own preferences, and an unfinished plan all need different context. kakeratta assigns a dedicated persona to each person or interest that matters to you. Each persona keeps its own memory, so it can focus on the relevant fragments when deciding what to remember or bring up. This also keeps the context each persona needs to read smaller as the timeline grows.
-
-### Personas are created in plain language
-
-> "Remember the wines I drink and help me choose one next time."
-
-That one sentence is a complete wine persona. You can refine it later: "Keep replies shorter." "Remember why I liked it, not just the label."
-
-Person personas work the same way:
-
-> "My partner Aki's birthday is November 10. She loves K-pop and cosmetics, plays piano, and likes spicy Thai food."
-
-From then on, Aki's persona collects related fragments. It can remind you before her birthday, remember past gifts, or bring up something she once mentioned when it becomes relevant again.
-
-Built-in personas include **tabe** (food), **shiori** (books), **sona** (belongings, outings, weather, and follow-ups), **support** (app help), and **infographic** (Markdown diagrams).
-
-### Silence is the normal case
-
-Each interest persona has a readable routing condition, and a post goes only to the personas it concerns. Person personas receive a post when it contains that person's name, nickname, or a registered keyword.
-
-A persona that receives a post decides whether to reply, use a tool, schedule a follow-up, or do nothing. Memory is handled separately. Most of the time it does nothing. If every AI commented on every post, the timeline would drown. You can always call a persona directly with @.
-
-### How memory works
-
-Each persona keeps grounded facts and chronological records of related fragments. Facts include preferences, conditions, exceptions, unfinished plans, and useful changes over time, with links to the original posts. Together with recent records, they give the persona context for understanding what matters to you.
-
-- **Daily check-in:** Personas review their memories and recent activity, speaking only when something is worth bringing up.
-- **Monthly look-back:** Person personas can notice relationships that have gone quiet.
-- **Memories have an ending:** Temporary information can expire, while uncertain records are brought back for review. You decide whether to keep, postpone, or forget them. Original timeline posts remain intact.
-
-Memories come from what you said, not from AI recommendations. Personas that only answer questions can work without memory.
-
-### Nothing is learned behind your back
-
-You can inspect, trace, correct, or forget any memory without deleting the original post. For any post, you can see which personas were called and why the others weren't. If you say "This persona should have received it," the AI proposes a revised routing condition. When you save it, the app checks the same post again and calls the persona if it now matches. Separately, correcting a persona's reply lets you preview a revised answer before applying it to the timeline.
-
-### Hand bigger jobs to your own agent
-
-For longer research, local files, or work requiring your own tools, write `@agent` to send a post directly to an external agent such as Hermes. Its answer appears in the same conversation, where you can continue the request. You can see whether the agent is waiting or working, and choose whether its reply triggers a phone notification.
-
-Google Bridge connects your own Gmail and Google Calendar through a personal Web app and MCP server, using your Google Cloud project and OAuth client. A worker in your Hermes environment retrieves important mail and today's and tomorrow's events through Bridge, asks the model only to select and summarize, and submits pending Timeline cards in code through its own kakeratta MCP connection; only items you choose to import enter persona and memory processing. Separately, an explicit request to your Hermes agent can send or reply to mail and create, change, or delete events with the additional Google permissions.
+The demo video shows the core loop. The [README](https://github.com/takeshy/kakeratta) covers built-in personas, routing, models, `@agent` hand-off, and setup.
 
 ## How we built it
 
-### Data management and architecture
+kakeratta uses a Go API and JavaScript PWA. The hosted version uses Firebase Authentication, Firestore, and private Cloud Storage, with Pub/Sub and Cloud Tasks for asynchronous processing. Posts and jobs are saved in one transaction, preserving processing order within each conversation.
 
-In the hosted app, timelines, persona memories, favorites, settings, and search vectors are stored in Firestore, and images in a private Cloud Storage bucket. Firebase Authentication identifies users, and the Go API scopes every request to the user's workspace.
+The local version runs on plain files without Firebase. Both versions use the same data layout, so users can export their hosted data and continue locally, keeping their data under their own control.
 
-kakeratta also runs locally as a single-user app, storing everything as plain files. The hosted service exports the same file layout, so users can download their data and continue locally.
+### Replies, schedules, and memory are kept separate
 
-The hosted architecture separates the Web API from persona workers. Posts and pending jobs are saved in one Firestore transaction, then dispatched through Pub/Sub. Scheduled wakes use Cloud Tasks. Workers process independent accounts and conversations in parallel while preserving order within each conversation. The architecture lets Web and worker instances scale independently, including to zero on Cloud Run. During judging, both processes run on a shared Compute Engine VM to reduce costs, while Firestore, Pub/Sub, and Cloud Tasks remain managed services.
+Each post passes through separate stages:
 
-### From post to reply
+1. **Analyze and route.** Images and locations are analyzed once and shared across personas. Personas are selected by conditions or keywords, with routing reasons saved.
+2. **Reply or stay silent.** Nemotron 3 Super (Super) handles everyday posts. Deep requests use Nemotron 3.5 Super VL (Super VL) for research and Nemotron 3 Ultra (Ultra) for the final answer.
+3. **Plan and validate.** Scheduling is handled separately, with code-enforced permissions and Super VL review. Failed actions never produce false success claims.
+4. **Remember.** After publishing, a separate call decides whether to keep a short record of what the user said. Failed updates retry independently.
 
-| Stage | What happens |
-| --- | --- |
-| **1. Accept and save** | Save the post and pending job together in one transaction. |
-| **2. Read the content** | Analyze each image once and resolve the post’s location before routing, sharing the results across personas. |
-| **3. Choose personas** | Match routing conditions or person keywords. Direct mentions and replies bypass routing. Save the selection and reasons. |
-| **4. Research** | Read the conversation, persona memory, past fragments, and permitted search tools. |
-| **5. Answer** | Compose the answer or choose silence, without changing schedules. |
-| **6. Plan schedules** | Separately draft any reminder or schedule changes. |
-| **7. Check and review** | Validate permissions and schedule ownership in code. Nemotron 3.5 Super VL reviews plans containing schedules; failed checks regenerate the plan. |
-| **8. Execute** | Apply approved changes. Do not publish an answer implying success if execution fails. |
-| **9. Publish** | Save the answer to the timeline and send push notifications when applicable. |
-| **10. Update memory** | Append a record of the user's fragment after publication. Failed updates are retried independently. |
+This separation prevents replies from silently changing schedules or rewriting memory.
 
-Selected personas run in parallel, while replies within each conversation remain ordered.
+### Your own agent, through MCP
 
-**The AI writing an answer is never asked to produce schedules and memory in the same breath.** Nemotron 3 Super handles research and ordinary answers. For deep requests, Super VL researches and Ultra composes the final answer; for personas set to always think deeply, Super VL does both. Planning, validation, execution, and memory remain separate.
+For advanced users who want to connect personal resources or execute external actions, kakeratta exposes an MCP server. The project includes an optional self-hosted Hermes integration running inside NVIDIA NemoClaw / OpenShell, using Nemotron via Nebius Token Factory.
 
-An ordinary memory update uses one call to decide whether to keep a short record, using the conversation and existing tags without loading existing facts or older records. Each persona keeps one memory file; if a distinct topic builds up, it can suggest creating another persona instead of splitting that file.
+The included Google integration can periodically check Gmail and Google Calendar. User-defined rules and optional Hermes triage select relevant items. Gmail messages can be summarized, while Calendar events are formatted compactly. Candidates appear as review cards on the timeline, with links to their original sources. Only items explicitly approved by the user become normal posts available to personas and their memory.
 
-Personas without scheduling or memory skip those phases. Connected MCP tools are read-only, and schedule changes are validated by kakeratta. When an external agent answers for a persona, it handles only research and answering; the remaining phases stay with kakeratta.
+Credentials and external access stay in the user's environment. kakeratta retains control of scheduling, validation, and memory updates. Built-in models handle normal interactions and take over if Hermes doesn't respond in time.
 
-### External agents over MCP: NemoClaw and Hermes
+### Every model call is measured
 
-kakeratta also acts as an MCP server. Hermes Agent runs inside NVIDIA NemoClaw / OpenShell using Nemotron through Nebius Token Factory, and can interact with kakeratta in three ways:
+Every model call is logged by purpose and retry scope, making it possible to identify expensive stages and measure the impact of optimizations.
 
-- **Answering as a persona.** A worker claims the request and submits the result in code. Hermes receives the persona's context and permitted research tools, then returns its answer. kakeratta handles scheduling and memory. If Hermes is unavailable or misses its deadline, the built-in model takes over.
-- **Direct requests.** `@agent` bypasses persona routing and hands the request to Hermes. A worker runs a Hermes session and returns its final response. Tools are read-only by default. Each run has iteration, time, and usage limits.
-- **Posting as a persona.** Hermes can share findings as a persona, up to five posts per persona per day, without triggering other personas or changing memory.
-
-Personal Hermes connections can use their own tools and local documents, extending the built-in personas' capabilities.
-
-### Supporting everyday use
-
-Keyword search and Qwen3-Embedding-8B semantic search help users find fragments they remember enough to look for. Personas can also use permitted tools such as Tavily Web search, WeatherAPI forecasts, and place lookup to connect those fragments with current information.
-
-A Japanese and English Alexa skill confirms spoken input before posting. Web Push delivers scheduled reminders and optional direct-agent replies on a best-effort basis. Users can mark a reminder done, and personas see that mark when reading the conversation. Markdown infographics with emoji and Mermaid make longer answers easier to follow, and users can preview selected posts and replies before sharing them to Bluesky.
-
-Model calls are logged by purpose and retry scope, so I can identify which stages make everyday use expensive and adjust them.
+See the [README](https://github.com/takeshy/kakeratta) and [Under the hood](https://github.com/takeshy/kakeratta/blob/main/docs/design/technical.md) for architecture, models, and integrations.
 
 ## Challenges we ran into
 
 ### Giving the AI the right context
 
-At first I had each persona keep its memory in OKF (Open Knowledge Format), Google Cloud's open spec for the LLM-wiki pattern: the AI maintains its knowledge as a set of linked Markdown files with YAML frontmatter. I thought that separating personas and managing their memory this way would be enough to give the AI a lean, usable context. Real use quickly showed it wasn't.
+Initially, each persona used OKF (Open Knowledge Format), a wiki of linked Markdown files maintained by AI. But everyday fragments scattered thin information across the wiki. Recording AI answers made it worse: they overwhelmed what the user actually said.
 
-OKF works well for organizing information that already exists. But new records kept arriving, and many of them were fragments without much meaning on their own. Fitting each one into the wiki became impractical, and thin information ended up scattered everywhere. It could no longer be called management.
-
-Recording the AI's answers made it worse. Answers far outnumbered what I had said, so my own information, the part that actually mattered, got diluted.
-
-So I gave up on OKF. What matters is what the user says, because that is information you can't find online. Each fragment is now recorded one by one as history. When the user wants to keep an AI answer, they save it themselves as a Favorite. This keeps the two from mixing.
-
-Context size was the next problem. Passing everything the user ever said uses too many tokens, which raises the cost and lowers accuracy. Passing only recent fragments means the AI knows only recent things and loses the larger context. So each persona keeps one memory file with two parts: facts that hold now, each linked to the posts it rests on, and short records of recent fragments. A daily check-in folds new records into the facts and clears them away. The AI receives the current facts and the latest records, and can search older ones when it needs them. That gives it the user's overall thinking together with what is on their mind right now.
+So I dropped OKF. What matters is what the user says, because you can't find it anywhere else. User fragments became chronological records, and AI answers are kept only when saved as Favorites. Each persona now combines current facts linked to source posts with recent records. Daily check-ins consolidate records into facts, while older history remains searchable. This gives the AI both the bigger picture and what's on the user's mind now, without passing everything into context.
 
 ### Making each post cheap enough to post freely
 
-A single post does more than get a reply. It is routed, read, answered, checked for schedule changes, and recorded in memory, and most of those steps are model calls. Early on, one fragment cost more than 1 yen. For business use that is cheap. For a consumer app where you're meant to jot down small thoughts, it is enough to make you hesitate before posting. So I went through every step a post triggers.
+After moving more tasks to Super VL, a single-persona post cost about $0.009 (1.4 yen), including routing, answering, and memory. That's enough to make you hesitate before jotting down a thought.
 
-**Routing.** The router is the heart of the app. Every fragment passes through it, and it has to deliver each one only to the personas the user intends. Because it runs on every post, it has to be fast and cheap as well as accurate.
+**Reasoning overhead.** Logging model calls revealed where the cost came from. Super VL's median routing reasoning was about 1,430 tokens versus about 70 for Super, and it once spent 1,905 tokens writing a one-line memory record. Using a more capable model for every task wasn't the answer. I needed to match each task to the smallest model that could handle it reliably.
 
-I started with Nemotron 3.5 Lightning, which NVIDIA promotes for routing. But posts sometimes missed the persona I meant, or reached one I didn't. Switching to Nemotron 3 Ultra and tuning the prompt fixed the routing, but Token Factory's per-model costs showed that routing on Ultra accounted for about half of all AI spend.
+**Routing.** With full persona instructions, Nemotron 3.5 Lightning (Lightning) missed personas. Ultra was more accurate, but in an earlier configuration, routing on Ultra accounted for about half of all AI spend. Instead of relying on a bigger model, I simplified the task: route using short conditions rather than full persona instructions, and require a reason for every excluded persona. Users can inspect and correct those reasons.
 
-I concluded that if Ultra succeeds where smaller models fail, the task itself is too ambiguous. The router had been given each persona's role along with its trigger conditions, which was too much information. I made two changes:
+A replay of 20 real posts with this simpler routing showed:
 
-1. **Routing conditions only.** Each persona now has a short routing condition, separate from its role and instructions, and the router reads only that.
-2. **Reasons for exclusion, not inclusion.** A post should be excluded if even one condition fails, which is a simpler judgement than arguing for inclusion. The router must now give an `excluded_reasons` entry for every persona it does not select.
-
-With these changes, smaller models routed almost without problems. The exclusion reasons also became a product feature: users can see why a persona wasn't called, and correct its routing condition.
-
-Then I compared the models on speed, accuracy, and cost together. In a September 19 replay of 20 real posts, with thinking enabled for all three:
-
-| Model | Cost / routing call | Mean latency | Matches vs. post-hoc reference |
+| Model | Cost / call | Mean latency | Matches vs. reference |
 | --- | --- | --- | --- |
-| Super | ~0.098 yen | 1.91 s | 17/20 |
-| Ultra | ~0.449 yen | 2.28 s | 19/20 |
-| Lightning | ~0.070 yen | 6.55 s | 17/20 |
+| Super | ~0.063¢ | 1.91 s | 17/20 |
+| Ultra | ~0.29¢ | 2.28 s | 19/20 |
+| Lightning | ~0.045¢ | 6.55 s | 17/20 |
 
-Super cost about 22% as much as Ultra. All three of its mismatches concerned a single persona, plana (now sona). Lightning was cheaper still, but much slower with thinking enabled. With thinking disabled, it made many more mistakes. Super became the default router. This was a small replay without pre-established ground truth, not an accuracy benchmark.
+Super became the default router at 22% of Ultra's cost. Lightning was cheaper but far slower. All three Super mismatches involved one persona. This was a small replay, not a benchmark.
 
-**Everything after routing.** With model calls logged by purpose, I could see where the rest of the cost went, and most of it was work nobody needed:
+**Unnecessary work.** Logging every model call also revealed avoidable costs. Images and locations are analyzed once and shared. Schedule processing runs only when needed. Limiting Ultra to the final deep answer reduced one deep reply's cost by 48%. Moving the mechanics of claiming Hermes jobs from the model into code reduced its model calls from four to two, cutting cost by about 70%.
 
-- **Read the post once.** Images are analyzed and the post's location resolved once, before routing, and every selected persona shares the result.
-- **Skip phases that aren't needed.** The answer states whether a schedule change is needed; if not, schedule planning and review never run. Personas without schedule permission or memory skip those phases entirely, and their prompts leave out rules and fields they cannot use. When the same post was submitted again on October 17 after the answer prompt was trimmed, the answer call's input fell from 4,778 to 3,550 tokens (26% less) and its cost fell about a third, though the reasoning length also differed between the two runs.
-- **Use Ultra only for the final answer.** A smaller model does the research. Only an explicit deep request, recognized by phrases such as "詳しく" ("in detail") without an extra model call, has Ultra compose the final answer. In production, a deep reply before this split used 17 calls for about $0.274; one after it used six calls for about $0.027. The questions differed, but the model split alone accounts for a 48% difference.
-- **Keep memory updates small.** After each post, one call appends a short record without loading existing facts or older records. Folding records into facts waits for the daily check-in.
-- **Read the day once.** The daily check-in summarizes the day's posts once for all personas, and a persona with nothing new skips the conversation.
-- **Stop loops early.** Research ends after three malformed requests. Hermes persona requests are now claimed and submitted in code, so the model only researches and answers: in two recorded runs, two calls instead of four, about 70% cheaper.
+**Model assignment.** Super now handles routing, everyday answers, and memory. Super VL handles more demanding or less frequent tasks such as deep research, schedule review, check-ins, and summaries. Ultra is reserved for final deep answers. This keeps routine posts cheap without giving up stronger reasoning where it matters.
 
-Reasoning turned out to be the largest remaining cost. These runs used Nemotron 3.5 Super VL, which had just replaced Nemotron 3 Super as my default, and most of its output tokens were reasoning: the memory update spent 1,905 reasoning tokens to write a one-line record, and routing's reasoning grew from 1,080 to 3,105 tokens between the two runs. Routing plus one persona's answer and memory update came to about $0.009 (about 1.4 yen). Across production routing calls, Super VL's median reasoning was about 1,430 tokens, against about 70 for Nemotron 3 Super on the same prompt.
+**The result:** The first two single-persona production posts after these changes cost $0.0028 (about 0.44 yen) and $0.0037 (about 0.58 yen), including routing, answering, and memory. Both finished in six to seven seconds. Compared with the earlier $0.009 per post, that's a cost reduction of roughly 60–70%, bringing these everyday posts well below the 1 yen threshold that made me hesitate.
 
-So I gave each job the model that suits it. Routing, ordinary answers, and memory notes went back to Nemotron 3 Super. I also tried Nemotron 3.5 Lightning for answers and notes: it is fast and cheap on simple turns, but on one ordinary reply about a family member it ran into the 26,000-token output limit three times in a row, about 80 seconds each, and never produced an answer. Super VL now handles only what carries forward or runs once a day: research for deep requests, research and answers for personas set to always think deeply, schedule planning and review, check-ins, memory tidying, and the day's and month's summaries.
-
-The first two production posts after this change cost about $0.0028 (about 0.4 yen) for a book post and $0.0037 (about 0.55 yen) for a post about a family member, whose persona reads a larger context. Each covered routing, the answer, and the memory note, and finished in six to seven seconds. That is about a third of the $0.009 (about 1.4 yen) per single-persona post on Super VL, and below the 1 yen that made me hesitate.
+*Costs converted at approximately ¥156/USD.*
 
 ## Accomplishments that we're proud of
 
-What I'm proudest of is that I was able to build the notebook I've always wanted using AI, at a cost that could make it accessible to everyone. A place where I can jot down fragments without organizing them, and have them brought back when they matter. By giving most of the work to smaller Nemotron models, I demonstrated that even an affordable AI model can be capable enough to support everyday life.
+On paper, I needed three things: a notebook to write anywhere, a planner to know when to act, and sticky notes to keep what mattered visible. kakeratta brings all three together. I can post from a PC or phone, even offline, or by voice through an Alexa skill (working in my environment; certification submitted).
 
-### What notes need to do
+It also does what a paper notebook can't. Each post records a rough location, so I can ask "When did I last go to Tokyo?" I can photograph a page of a book with my thoughts, and later ask what I was reading and how I felt about it.
 
-With paper, I relied on three things: a notebook to write anywhere, a planner to know when to act, and sticky notes to find what mattered. kakeratta brings all three together.
+But the uses I rely on most are the everyday ones.
 
-- **Capture anywhere.** Write from a PC or phone, even offline, or speak through Alexa.
-- **Find and follow through.** Search by keyword or meaning, receive scheduled reminders, and mark tasks done so personas know what you've completed.
-- **Keep important things visible.** Mark posts or AI answers as Favorites and find them again by persona.
+I have gout, and I take medication every morning.
 
-### Beyond ordinary notes
+Before kakeratta, I'd sometimes wonder whether I'd taken my pill that morning. I would count the empty pockets in the blister pack to figure it out, but I still wasn't sure. A daily alarm wouldn't solve that. It would remind me even when I'd already taken it. With kakeratta, I simply post that I've taken my medicine. My persona uses that record to know when a reminder isn't needed. If I haven't recorded it, it can check in with me.
 
-Some fragments become useful in ways a conventional notebook cannot offer.
+My father cares for my mother, and they live far away from me. Every month, I send him a gift of food or something to drink. Sometimes I realized too late, and the gift arrived after the start of the month. Now, if I haven't posted that I've chosen a gift, his persona can remind me while there's still time. Once I've chosen one and posted about it, there's no need to remind me again. When he tells me what he thought of a gift, I post it, and his persona remembers. The next time I choose, it can bring back what he enjoyed. Instead of just repeating a monthly routine, I can put more thought into choosing something he'll love.
 
-Each post records a rough location, so I can ask "When did I last go to Tokyo?" I can photograph a page from a book, add my thoughts, and later ask what I was reading and how I felt about it.
+These may seem like small things, but they're exactly the things I wanted AI to help me with. Not another app that asks me to organize my life, but one that fits into it. A notebook, a planner, and little reminders, all connected through simple fragments of everyday life.
 
-And fragments about people don't just sit in a notebook. A persona can remember what someone likes, notice an unfinished promise, or remind me when it's been too long since we last spoke.
-
-The achievement isn't any single feature. It's making these everyday uses work together through simple posts and personas, at a cost low enough that I don't have to hesitate before writing something down.
+I'm proud that I built something I actually rely on, running mostly on Nemotron 3 Super rather than Ultra, and affordable enough to use every day.
 
 ## What we learned
 
 ### Building AI into an app is harder than it looks
 
-With coding agents, I can describe what I want and get a working implementation of a complex feature without explaining how to build it. So it seems like an LLM should easily be able to answer a question and take a note of it at the same time.
+With coding agents, I can describe a complex feature and get a working implementation. So it seemed obvious that an LLM could answer a question and take a note at the same time.
 
-In practice, when I asked an LLM to reply and write a note in one call, even a capable model often did only one of the two. And even when the reply and the note say nearly the same thing, each costs its own tokens, so the reply gets shallower. The model might say it doesn't know something a quick search would answer, hallucinate, or answer correctly, and which of these happens changes from call to call.
+Not reliably. Asked to do both in one call, even a capable model often did only one. The note also competes with the reply for tokens, so the reply gets shallower. Sometimes the model claims not to know something a quick search would answer. Sometimes it hallucinates. And sometimes it answers perfectly. The same request can produce very different results.
 
-Coding agents don't have this problem because they don't pass the request straight to the LLM. They analyze the request internally, split it into separate LLM calls, and add review phases. This framework, called a harness, manages the process so the desired result comes out.
+Coding agents avoid much of this because they don't hand the request straight to the model. They wrap it in a harness: breaking the work into steps, calling tools, and checking results. But a harness designed around a powerful model doesn't necessarily work well with a smaller one. kakeratta has to be cheap enough to use casually, so it can't rely on the most capable models for everything.
 
-The obvious answer is to bring a harness into kakeratta, but it isn't that simple. Coding agents assume a capable model. Point a coding agent at a weaker model and the results are terrible. kakeratta is meant to be cheap enough to use casually, so it can't rely on capable models everywhere.
+So I built a harness for smaller, affordable models. Each turn is split into separate stages, so the persona can focus on answering without also having to manage memory updates. Then I run the app, watch results and cost, and fix whatever fails most often, sometimes with logic, sometimes with prompts or context. Stronger models handle the less frequent tasks that need deeper reasoning. Where automation falls short, users can inspect and correct the AI's behavior.
 
-So I split each turn into phases: the persona writes only the answer, while schedules and memory are planned, checked, and saved separately. Beyond that, I run the app, watch the results and the cost, and work on whatever fails most often. Sometimes I cover it with logic, sometimes with adjusted prompts or context. I use a capable model only for parts that are rarely called but important. Where the system can't fix something, the user adjusts it.
-
-As models and coding agents improve, features alone no longer set an app apart. What will, I think, is ease of use through UI/UX, and a harness built to balance quality against cost.
+As models and coding agents improve, features alone won't set an app apart. What will, I think, is ease of use, and a harness that balances quality against cost.
 
 ## What's next for kakeratta
 
-* A smartphone app to make reminders and persona notifications easier to use. Adding a web app to the home screen is still a hurdle for many people; a smartphone app would offer a more familiar way to install kakeratta and enable notifications.
-* User-registered MCP servers and tools that can be attached to any persona.
-* A community persona repository. A persona is more than a prompt: routing conditions or keywords, behavior, memory structure, and tools. Packaged together, personas could be shared like apps, for example one that researches AI news every morning and explains the background that makes it matter.
+- **No API key required.** Today, using kakeratta requires your own Nebius Token Factory API key. I'd like to work with Nebius on per-user keys, usage tracking, and prepaid credits, so anyone can get started without managing API credentials.
+- **A smartphone app.** Adding a web app to the home screen is still a hurdle for many people. A native app would make installing kakeratta and enabling notifications more familiar.
+- **Your own tools for any persona.** Users will be able to register MCP servers and tools and attach them to any persona.
+- **A community persona repository.** A persona is more than a prompt: it has routing conditions or keywords, behavior, memory structure, and tools. Packaged together, personas could be shared like apps. One example is a persona that researches AI news every morning and explains the background that makes it matter.
 
-The goal is simple: whatever catches people's attention, or whatever they don't want to forget, they can toss into kakeratta and stop worrying about forgetting it.
-
+The goal is simple: whatever catches your attention, or whatever you don't want to forget, you toss into kakeratta and stop worrying about forgetting it.

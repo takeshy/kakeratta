@@ -16,7 +16,8 @@ import (
 
 // "Make it" under a suggestion drafts the persona with no questions, installs
 // and activates it, and starts its memory with what of the suggesting
-// persona's memory was picked for it; a second press is refused.
+// persona's memory was picked for it, moved out of the suggesting persona's; a
+// second press is refused.
 func TestASuggestedPersonaIsMadeByItsButton(t *testing.T) {
 	server, workspace := app(t)
 	var prompt string
@@ -29,7 +30,7 @@ func TestASuggestedPersonaIsMadeByItsButton(t *testing.T) {
 		if len(request.Messages) == 2 && strings.Contains(request.Messages[0].Content, "記憶の整理から提案された新しい担当") {
 			prompt = request.Messages[1].Content
 			draft, _ := json.Marshal(map[string]any{"message": "作りました", "draft": persona.Skill{ID: "gourmet", Name: "ぬか床", Icon: "🥒", Domain: "発酵食づくりの話。", Memory: "仕込みと味の変化を覚える。"},
-				"facts": []string{"f_nuka"}, "records": []string{"e_a"}})
+				"facts": []string{"f_nuka"}, "records": []string{"e_a"}, "sourceDomain": "料理・食事の写真や話。ただし、発酵食づくりの話は除く。"})
 			content = string(draft)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": content}}}})
@@ -79,14 +80,28 @@ func TestASuggestedPersonaIsMadeByItsButton(t *testing.T) {
 	if !ok || made.Name != "ぬか床" || !made.Remembers() || !slices.Contains(workspace.ConfiguredSettings().Active, "gourmet-2") {
 		t.Fatalf("made = %+v, %v", made, ok)
 	}
+	if narrowed, _ := server.catalogue.Find(context.Background(), "gourmet"); narrowed.Domain != "料理・食事の写真や話。ただし、発酵食づくりの話は除く。" {
+		t.Fatalf("the suggesting persona's condition = %q", narrowed.Domain)
+	}
 	note, _ := workspace.Note("gourmet-2", persona.MemoPath)
 	if !strings.Contains(note.Text, "ぬか床を毎朝かき混ぜている") || !strings.Contains(note.Text, "ぬか床を仕込んだ") || strings.Contains(note.Text, "ラーメン") {
 		t.Fatalf("new memory:\n%s", note.Text)
 	}
-	if kept, _ := workspace.Note("gourmet", persona.MemoPath); !strings.Contains(kept.Text, "ぬか床を仕込んだ") {
-		t.Fatalf("the suggesting persona lost its memory:\n%s", kept.Text)
+	if kept, _ := workspace.Note("gourmet", persona.MemoPath); strings.Contains(kept.Text, "ぬか床") || !strings.Contains(kept.Text, "豚骨ラーメンが好き") || !strings.Contains(kept.Text, "二郎に行った") {
+		t.Fatalf("the suggesting persona's memory after the move:\n%s", kept.Text)
 	}
 	if code, _ := answer(`{"choice":"decline"}`); code != 409 {
 		t.Fatalf("a second answer: %d", code)
+	}
+}
+
+// With no rewritten condition from the model, the subject is still left out
+// of the suggesting persona's own, in the language it was written in.
+func TestExcludedLineFollowsTheCondition(t *testing.T) {
+	if got := excludedLine("料理・食事の写真。", "発酵食"); got != "ただし、発酵食の話は除く。" {
+		t.Fatalf("ja = %q", got)
+	}
+	if got := excludedLine("Food photos.", "Recipes"); got != " Excludes Recipes." {
+		t.Fatalf("en = %q", got)
 	}
 }

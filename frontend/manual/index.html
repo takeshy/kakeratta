@@ -466,7 +466,7 @@
           <ul>
             <li><strong>かけらの記録</strong>: 受け取ったかけらごとに、日時・元の投稿・要約・タグを1行残します。会話のたびに行うのはこれだけです。</li>
             <li><strong>今の事実</strong>: 分かっていることを1件1行で持ちます。チェックイン（通常は毎日、月1回振り返る人物は月1回）で、新しい記録を事実に取り込み（足す・書き換える・消す・まとめる）、取り込んだ記録は消えます。当てはまらなくなった事実も消えます。</li>
-            <li><strong>新しい担当の提案</strong>: 記憶は話題ごとに分けません。別の話題がたまってきたら、担当が「新しく担当を作って分けませんか？」と提案します。</li>
+            <li><strong>新しい担当の提案</strong>: 記憶は話題ごとに分けません。別の話題がたまってきたら、担当が「新しく担当を作って分けませんか？」と提案します。投稿の下の <strong>作る</strong> を押すと、名前や担当条件を整え、関係する事実と記録を移した新しい担当がすぐに追加されます。元の担当の担当条件からその話題は外れるので、以後はその話題が新しい担当にだけ届きます。<strong>作らない</strong> で見送れます。</li>
             <li><strong>期限とお別れ</strong>: 「今日のランチ」のような一時的な記録は <strong>… に消える</strong> として自動削除され、長く使われていない記録は <strong>… に見直し</strong> としてチェックイン時に担当から「忘れていい？」と尋ねられます。</li>
           </ul>
         </section>
@@ -1109,7 +1109,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <h3 id="en-summary-advanced">This month's summary, and people looked back on monthly</h3>
           <p>Once a month, the app reads that month's timeline and posts <strong>This month's summary</strong> to the timeline. It groups your statements, actions, decisions, and changes by topic. A persona’s suggestion alone is not treated as something you did or planned. Each bullet's <strong>→</strong> opens the original fragment. The app picks the date per account (somewhere between the 1st and the 28th of each month). The summary is yours to edit with <strong>✎</strong>.</p>
           <figure>
-            <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app: bullets for people, food, and upcoming things (sample data)" loading="lazy" width="382" height="494" />
+            <img src="/captures/en/month-summary.png" alt="This month's summary posted by the app: bullets for people, food, and upcoming things (sample data)" loading="lazy" width="382" height="551" />
             <figcaption>This month's summary (sample data).</figcaption>
           </figure>
           <p>On a person's card you can choose <strong>Look back frequently</strong> or <strong>Look back occasionally</strong>. A person set to monthly wakes on the day the summary is posted, reading the summary and the fragments where their name or keywords appeared. Even as you add more people, the timeline is read only once a month. When you create personas with the AI, the frequency is chosen from the relationship: daily for family and close friends, monthly for people you meet once in a while. An interest persona is always daily.</p>
@@ -1134,7 +1134,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <ul>
             <li><strong>Fragment records</strong>: For each fragment received, one line with the date and time, original post, summary, and tags. That is all a conversation adds.</li>
             <li><strong>Current facts</strong>: One line per fact known, including grounded tendencies, conditions, exceptions and changes over time. At check-in (daily, or monthly for people set to monthly), new records are folded into facts (added, rewritten, deleted or merged) and the folded records go; facts that no longer hold are deleted.</li>
-            <li><strong>New persona suggestions</strong>: Memory is not split by subject. When a subject of its own builds up, the persona suggests making a new persona for it.</li>
+            <li><strong>New persona suggestions</strong>: Memory is not split by subject. When a subject of its own builds up, the persona suggests making a new persona for it. Press <strong>Create it</strong> under the post to add one right away, with its name and scope drafted and the related facts and records moved over; the subject is left out of the original persona's condition, so such posts reach the new persona alone. Press <strong>Not now</strong> to pass.</li>
             <li><strong>Lifespan and review</strong>: Ephemeral notes such as “today's lunch” expire automatically under <strong>Gone on …</strong>, while long-unused notes are scheduled for <strong>Review on …</strong>, where the persona asks “Can I forget this now?” during check-in.</li>
           </ul>
         </section>
@@ -1206,7 +1206,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
       Authorization: "Bearer CONNECTION_KEY"</code></pre>
           <h3>Connect Obsidian (LLM Connect Hub)</h3>
           <p>With LLM Connect Hub, a persona's answer comes from <a href="https://github.com/takeshy/obsidian-llm-hub" rel="noopener">LLM Hub</a> in your Obsidian. It uses the model you choose in LLM Hub and researches your Vault notes, RAG and skills; the vault files it read are cited as <code>[[file name]]</code>.</p>
-          <figure><img src="/captures/en/llm-connect-hub.png" alt="shiori answering through Obsidian's LLM Connect Hub, marked External agent, citing a file in the vault as its source" loading="lazy" width="382" height="1188" /></figure>
+          <figure><img src="/captures/en/llm-connect-hub.png" alt="shiori answering through Obsidian's LLM Connect Hub, marked External agent, citing a file in the vault as its source" loading="lazy" width="382" height="1274" /></figure>
           <ol>
             <li>Install and enable <strong>LLM Hub</strong> and <strong>LLM Connect Hub</strong> from Obsidian's community plugins (desktop only).</li>
             <li>In kakeratta, under <strong>Settings → Advanced options → Integrations → External agent connections</strong>, name the connection (for example, Obsidian) and press <strong>Add and create key</strong>.</li>
