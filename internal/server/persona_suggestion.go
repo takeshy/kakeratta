@@ -48,8 +48,8 @@ type suggestedDraft struct {
 // persona, installs and activates it, and moves the facts and records the
 // draft picked from the suggesting persona's memory into its own. The
 // suggesting persona's condition is rewritten to leave the subject out, so a
-// post on it is routed to the new persona and not to both. A step that fails
-// undoes those before it (undoSuggested).
+// post on it is routed to the new persona and not to both. A step that fails,
+// up to answering the post, undoes those before it (undoSuggested).
 func (s *Server) answerSuggestion(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Choice   string `json:"choice"`
@@ -93,37 +93,46 @@ func (s *Server) answerSuggestion(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	// Making it is three writes - the new persona, the suggesting persona's
-	// narrowed condition, the memory moved between them - and the user sees
-	// all of them or none: a step that fails undoes the ones before it, the
-	// post still waits for an answer, and the button can be pressed again.
+	// Making it is five writes - the new persona, the suggesting persona's
+	// narrowed condition, the memory moved between them, the new persona
+	// switched on, the answer on the post - and the user sees all of them or
+	// none: a step that fails undoes the ones before it, the post still waits
+	// for an answer, and the button can be pressed again. Answering the post
+	// comes last, so a post marked created always has its persona whole.
 	raw, _ := json.Marshal(drafted.Draft)
 	saved, err := s.catalogue.Install(raw, s.knownTool)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	steps := suggestedSteps{made: saved.ID, source: source, facts: drafted.Facts, records: drafted.Records}
+	undo := func() {
+		s.undoSuggested(held, steps)
+		fail(w, http.StatusInternalServerError, "新しい担当を作れませんでした。もう一度押してください。")
+	}
 	narrowed, err := s.excludeSubject(held, source, drafted.SourceDomain, entry.Suggestion.Topic)
 	if err != nil {
-		s.undoSuggested(held, saved.ID, nil)
-		fail(w, http.StatusInternalServerError, "新しい担当を作れませんでした。もう一度押してください。")
+		undo()
 		return
 	}
+	steps.narrowed = true
 	facts, records, err := s.runner.MoveMemory(held, source.ID, saved.ID, drafted.Facts, drafted.Records)
 	if err != nil {
-		s.undoSuggested(held, saved.ID, &source)
-		fail(w, http.StatusInternalServerError, "新しい担当を作れませんでした。もう一度押してください。")
+		undo()
 		return
 	}
-	made := added{Skill: saved, Active: s.activatePersona(saved.ID) == nil}
+	steps.moved = true
+	if err := s.activatePersona(saved.ID); err != nil {
+		undo()
+		return
+	}
+	steps.activated = true
 	entry, err = s.runner.AnswerSuggestion(id, timeline.SuggestionCreated, saved.ID)
 	if err != nil {
-		// Everything is made; only the answer on the post is missing, and
-		// undoing would move the memory back for a mark.
-		log.Printf("suggested persona %s answer on %s: %v", saved.ID, id, err)
-		fail(w, http.StatusInternalServerError, "担当は作りましたが、投稿に答えを残せませんでした")
+		undo()
 		return
 	}
+	made := added{Skill: saved, Active: true}
 	s.publishEvent("entry", entry)
 	writeJSON(w, http.StatusOK, map[string]any{"entry": entry, "persona": made, "facts": facts, "records": records, "source": narrowed})
 }
@@ -176,22 +185,55 @@ func (s *Server) draftSuggested(ctx context.Context, suggestion timeline.Persona
 	return result, nil
 }
 
-// undoSuggested takes back a persona made from a suggestion when a later
-// step failed: the persona and any memory written for it go, and the
-// suggesting persona's condition is put back when it was changed. What cannot
+// suggestedSteps is how far making a suggested persona got, so a failure
+// undoes exactly what was done.
+type suggestedSteps struct {
+	made            string
+	source          persona.Skill
+	facts, records  []string
+	narrowed, moved bool
+	activated       bool
+}
+
+// undoSuggested takes back a persona made from a suggestion when a later step
+// failed, newest step first: the persona is switched off, the memory moved to
+// it goes back to the suggesting persona, the suggesting persona's condition is
+// put back, and the persona goes with anything left of its memory. What cannot
 // be undone is logged; the user is told the persona was not made.
-func (s *Server) undoSuggested(ctx context.Context, made string, source *persona.Skill) {
-	if source != nil {
-		if err := s.catalogue.Restore(ctx, *source, s.knownTool); err != nil {
-			log.Printf("suggested persona %s: restoring %s: %v", made, source.ID, err)
+func (s *Server) undoSuggested(ctx context.Context, steps suggestedSteps) {
+	if steps.activated {
+		if err := s.deactivatePersona(steps.made); err != nil {
+			log.Printf("suggested persona %s: switching it off: %v", steps.made, err)
 		}
 	}
-	if err := s.store.ForgetMemory(made); err != nil {
-		log.Printf("suggested persona %s: forgetting its memory: %v", made, err)
+	if steps.moved {
+		if _, _, err := s.runner.MoveMemory(ctx, steps.made, steps.source.ID, steps.facts, steps.records); err != nil {
+			log.Printf("suggested persona %s: moving memory back to %s: %v", steps.made, steps.source.ID, err)
+		}
 	}
-	if err := s.catalogue.Uninstall(made); err != nil {
-		log.Printf("suggested persona %s: removing it: %v", made, err)
+	if steps.narrowed {
+		if err := s.catalogue.Restore(ctx, steps.source, s.knownTool); err != nil {
+			log.Printf("suggested persona %s: restoring %s: %v", steps.made, steps.source.ID, err)
+		}
 	}
+	if err := s.store.ForgetMemory(steps.made); err != nil {
+		log.Printf("suggested persona %s: forgetting its memory: %v", steps.made, err)
+	}
+	if err := s.catalogue.Uninstall(steps.made); err != nil {
+		log.Printf("suggested persona %s: removing it: %v", steps.made, err)
+	}
+}
+
+// deactivatePersona takes a persona out of the room again.
+func (s *Server) deactivatePersona(id string) error {
+	settings := s.store.ConfiguredSettings()
+	if !slices.Contains(settings.Active, id) {
+		return nil
+	}
+	settings.Active = slices.DeleteFunc(slices.Clone(settings.Active), func(active string) bool { return active == id })
+	err := s.store.SaveSettings(settings)
+	s.runner.Rearm()
+	return err
 }
 
 // excludeSubject saves the suggesting persona with its condition narrowed:

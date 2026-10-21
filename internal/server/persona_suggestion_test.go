@@ -182,3 +182,50 @@ func TestRestoreReturnsABuiltinToTheShippedOne(t *testing.T) {
 		t.Fatalf("restored = %+v", got)
 	}
 }
+
+// A failure at the last steps - switching the persona on, answering the post -
+// undoes everything before it too: the persona switched off and gone, its
+// memory back with the persona that suggested it, that persona's condition as
+// it was. A second press then makes one persona, not two.
+func TestUndoingASuggestedPersonaTakesBackEveryStep(t *testing.T) {
+	server, workspace := app(t)
+	ctx := context.Background()
+	memo := "# Memo\n\n## いまの事実\n\n- [f_nuka] ぬか床を毎朝かき混ぜている from:e_a\n- [f_ramen] 豚骨ラーメンが好き from:e_b\n\n## かけらの記録\n\n" +
+		"- 2026-10-01 09:00 [e_a](/?entry=e_a) ぬか床を仕込んだ #発酵\n"
+	if err := workspace.WriteNote("gourmet", persona.MemoPath, memo); err != nil {
+		t.Fatal(err)
+	}
+	source, _ := server.catalogue.Find(ctx, "gourmet")
+	raw, _ := json.Marshal(persona.Skill{ID: "ferment", Name: "ぬか床", Icon: "🥒", Domain: "発酵食づくりの話。"})
+	if _, err := server.catalogue.Install(raw, server.knownTool); err != nil {
+		t.Fatal(err)
+	}
+	steps := suggestedSteps{made: "ferment", source: source, facts: []string{"f_nuka"}, records: []string{"e_a"}}
+	if _, err := server.excludeSubject(ctx, source, "", "発酵食づくり"); err != nil {
+		t.Fatal(err)
+	}
+	steps.narrowed = true
+	if _, _, err := server.runner.MoveMemory(ctx, "gourmet", "ferment", steps.facts, steps.records); err != nil {
+		t.Fatal(err)
+	}
+	steps.moved = true
+	if err := server.activatePersona("ferment"); err != nil {
+		t.Fatal(err)
+	}
+	steps.activated = true
+
+	server.undoSuggested(ctx, steps)
+	if _, ok := server.catalogue.Find(ctx, "ferment"); ok || slices.Contains(workspace.ConfiguredSettings().Active, "ferment") {
+		t.Fatal("the new persona was left behind")
+	}
+	if after, _ := server.catalogue.Find(ctx, "gourmet"); after.Domain != source.Domain || after.Customized {
+		t.Fatalf("the suggesting persona's condition = %q", after.Domain)
+	}
+	kept, _ := workspace.Note("gourmet", persona.MemoPath)
+	if !strings.Contains(kept.Text, "ぬか床を毎朝かき混ぜている") || !strings.Contains(kept.Text, "ぬか床を仕込んだ") || !strings.Contains(kept.Text, "豚骨ラーメンが好き") {
+		t.Fatalf("the memory did not come back:\n%s", kept.Text)
+	}
+	if note, _ := workspace.Note("ferment", persona.MemoPath); note.Text != "" {
+		t.Fatalf("memory was left for the persona taken back:\n%s", note.Text)
+	}
+}
