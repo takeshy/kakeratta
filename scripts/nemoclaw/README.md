@@ -64,6 +64,8 @@ scripts/nemoclaw/setup-hermes.sh
 
 ローカル開発の kakeratta に接続する場合は、`KAKERATTA_ADDR=:8787 task dev` で起動し、URL にはサンドボックスから届くホストの IP（WSL なら `ip -4 addr show eth0` のアドレス）を書きます。WSL の IP が変わったら、URL を直してもう一度実行します。kakeratta の「使用する接続先」がこのキーの接続になっていないと `list_asks` は 401 になります。
 
+`https://` の管理 MCP は、`config.yaml` に `Authorization: Bearer openshell:resolve:env:v<世代>_KAKERATTA_MCP_TOKEN` を書き、OpenShell が通信時に実際のキーへ差し替えます。`mcp update` ではキーを替えられないので、kakeratta でキーを再発行したら `kakeratta-mcp.env` を書き換え、`nemohermes <sandbox> mcp remove kakeratta` のあとでスクリプトをもう一度実行します。
+
 スクリプトは 2026-10-21 に、NemoClaw v0.0.135 / OpenShell 0.0.116、WSL2（ARM64、NAT）と Docker Desktop の環境で、ローカルの kakeratta（`http://`）に対して確認しました。`https://` の管理 MCP の経路はこの日の確認に含まれていません。
 
 ---
@@ -109,11 +111,12 @@ scripts/nemoclaw/setup-hermes.sh
 
 ```bash
 # 1. ユーザー環境 (~/.local/bin, ~/.config/systemd/user) へシンボリックリンク配備
+#    （NemoClaw が入れた Gateway ユニットは置き換えない）
 cd scripts/nemoclaw
 ./install.sh
 
 # 2. systemd ユーザーサービスの有効化・起動
-systemctl --user enable --now nemoclaw-openshell-gateway.service
+systemctl --user enable --now nemoclaw-openshell-gateway.service   # NemoClaw が入れた場合は有効化済み
 systemctl --user enable --now nemoclaw-hermes-shutdown-watch.service
 systemctl --user enable --now nemoclaw-hermes-start.service
 
@@ -126,7 +129,14 @@ systemctl --user status nemoclaw-hermes-start.service
 systemctl --user status nemoclaw-hermes-shutdown-watch.service
 # (Google Bridge 利用時)
 systemctl --user status google-bridge.service
+
+# 4. ログインしていなくてもユーザーサービスを動かす
+loginctl enable-linger "$USER"
 ```
+
+NemoClaw v0.0.135 以降は、インストーラーが自分の `nemoclaw-openshell-gateway.service`（TLS 証明書の生成を含む）を入れます。`install.sh` はそれを置き換えずに残し（`[KEEP]` と表示）、本リポジトリの同名ユニットは、それを入れない古い NemoClaw の場合だけ配備します。`nemoclaw-hermes-start.service` は `~/.local/bin/nemoclaw` を使い、Node の場所はこのラッパーが固定するので、ユニットでは指定しません。
+
+WSL では、Windows にサインインしただけでは WSL も Docker Desktop も起動しません。Docker Desktop の「Start Docker Desktop when you sign in」を ON にし、WSL のディストリビューションを起動する手段（Windows のタスク スケジューラなど）を別に用意します。2026-10-21 に WSL2（ARM64、NAT）と Docker Desktop の環境で、サービスの有効化と起動まで確認しました。PC の再起動を通した確認は含みません。
 
 ---
 

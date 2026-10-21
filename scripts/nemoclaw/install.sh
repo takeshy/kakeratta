@@ -102,7 +102,15 @@ echo "--- Installing systemd User Services to $SYSTEMD_DEST_DIR ---"
 for file in "$SYSTEMD_SRC_DIR"/*.service; do
     if [ -f "$file" ]; then
         fname="$(basename "$file")"
-        install_file "$file" "$SYSTEMD_DEST_DIR/$fname" false
+        dest="$SYSTEMD_DEST_DIR/$fname"
+        # Newer NemoClaw installs and manages its own gateway unit (with TLS
+        # certificate generation). Replacing it with ours breaks the gateway.
+        if [ "$fname" = "nemoclaw-openshell-gateway.service" ] && [ -f "$dest" ] && [ ! -L "$dest" ] \
+            && grep -q "NVIDIA CORPORATION" "$dest"; then
+            echo "  [KEEP] NemoClaw-managed gateway unit: $dest"
+            continue
+        fi
+        install_file "$file" "$dest" false
     fi
 done
 
