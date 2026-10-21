@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "15"
+WORKER_VERSION = "16"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -119,14 +119,14 @@ def _load_env_file():
             if p_var not in os.environ:
                 os.environ[p_var] = "http://10.200.0.1:3128"
 
-    extra_no_proxy = "api.keenable.ai,mcp.exa.ai,search.parallel.ai"
+    # The sandbox has no route around the OpenShell proxy, so kakeratta and the
+    # web search backends must go through it and be allowed by policy. Drop
+    # them from no_proxy, including entries an older script left behind.
+    proxied = {"kakeratta.net", "api.keenable.ai", "mcp.exa.ai", "search.parallel.ai"}
     for np in ("no_proxy", "NO_PROXY"):
         val = os.environ.get(np, "")
-        cleaned = [h.strip() for h in val.split(",") if h.strip() and h.strip() != "kakeratta.net"]
-        for host in extra_no_proxy.split(","):
-            if host not in cleaned:
-                cleaned.append(host)
-        os.environ[np] = ",".join(cleaned)
+        if val:
+            os.environ[np] = ",".join(h.strip() for h in val.split(",") if h.strip() and h.strip() not in proxied)
 
 
 _load_env_file()
@@ -178,11 +178,14 @@ def model_config(cfg):
     if section is None:
         section = {}
     reasoning = section.get("reasoning_effort", section.get("reasoning", DEFAULT_REASONING))
-    base_url = section.get("base_url")
-    if os.environ.get("NEMOCLAW_INFERENCE_BASE_URL"):
-        base_url = os.environ["NEMOCLAW_INFERENCE_BASE_URL"]
-    elif not base_url or "tokenfactory.nebius.com" in str(base_url):
-        base_url = "https://inference.local/v1"
+    # A configured endpoint is kept as is: Token Factory over Provider v2 is
+    # how Ultra is reached by name. OpenShell's inference.local substitutes the
+    # gateway's model (Super), so it is only the fallback when none is set.
+    # NemoClaw bakes NEMOCLAW_INFERENCE_BASE_URL into the sandbox image for the
+    # parent, so it must not override the section either.
+    base_url = (section.get("base_url")
+                or os.environ.get("NEMOCLAW_INFERENCE_BASE_URL")
+                or "https://inference.local/v1")
     return {
         "model": section.get("model") or DEFAULT_MODEL,
         "provider": section.get("provider") or "custom",

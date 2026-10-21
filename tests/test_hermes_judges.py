@@ -150,6 +150,26 @@ class JudgeIsolationTest(unittest.TestCase):
                                 [{"id": "ask-fail", "status": "pending"}], home=self.home)
         self.assertEqual([c[0] for c in calls], ["claim_ask", "release_ask"])
 
+    def test_direct_worker_keeps_configured_token_factory_endpoint(self):
+        # inference.local would replace Ultra with the gateway's Super, and
+        # NemoClaw sets NEMOCLAW_INFERENCE_BASE_URL to it in every sandbox.
+        cfg = {"delegation": {"model": "nvidia/Nemotron-3-Ultra-550b-a55b", "base_url": "https://api.tokenfactory.nebius.com/v1"}}
+        with patch.dict(os.environ, {"NEMOCLAW_INFERENCE_BASE_URL": "https://inference.local/v1"}):
+            self.assertEqual(worker.model_config(cfg)["base_url"], "https://api.tokenfactory.nebius.com/v1")
+            self.assertEqual(worker.model_config({"delegation": {"model": "m"}})["base_url"], "https://inference.local/v1")
+        with patch.dict(os.environ, {}):
+            os.environ.pop("NEMOCLAW_INFERENCE_BASE_URL", None)
+            self.assertEqual(worker.model_config({"delegation": {"model": "m"}})["base_url"], "https://inference.local/v1")
+
+    def test_proxy_setup_routes_kakeratta_and_search_through_the_proxy(self):
+        # The OpenShell sandbox resolves names only through its proxy.
+        stale = "localhost,kakeratta.net,api.keenable.ai,mcp.exa.ai,search.parallel.ai"
+        for module in (gate, worker):
+            with patch.dict(os.environ, {"HERMES_HOME": str(self.home), "no_proxy": stale, "NO_PROXY": stale}):
+                module._load_env_file()
+                self.assertEqual(os.environ["no_proxy"], "localhost")
+                self.assertEqual(os.environ["NO_PROXY"], "localhost")
+
     def test_legacy_super_persona_uses_super_vl_and_keeps_ultra_separate(self):
         self.cfg["model"] = {"default": worker.LEGACY_PARENT_SUPER,
                              "provider": "custom", "base_url": "https://api.tokenfactory.nebius.com/v1",
