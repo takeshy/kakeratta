@@ -1,0 +1,27 @@
+id: tokenfactory
+display_name: Nebius Token Factory
+description: Nebius Token Factory OpenAI-compatible inference, reached directly so Hermes keeps the model name it asks for
+category: inference
+credentials:
+- name: api_key
+  description: Nebius Token Factory API key
+  env_vars:
+  - TOKENFACTORY_API_KEY
+  required: true
+  auth_style: bearer
+  header_name: authorization
+  query_param: ''
+endpoints:
+- host: api.tokenfactory.nebius.com
+  port: 443
+  protocol: rest
+  access: read-write
+  enforcement: enforce
+binaries:
+- /usr/local/bin/hermes
+- /usr/bin/python3*
+- /opt/hermes/.venv/bin/python*
+inference_capable: true
+discovery:
+  credentials:
+  - api_key

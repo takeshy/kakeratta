@@ -165,7 +165,7 @@ hermes cron edit <job-id> \
 hermes cron list
 ```
 
-Following the [recommended Hermes configuration](../../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml), align both the parent model and the kakeratta cron job to `nvidia/Nemotron-3.5-Super-VL` while preserving `nvidia/Nemotron-3-Ultra-550b-a55b` for the direct-request worker and delegation (both live inference and MCP submission were verified in production on 2026-10-16).
+Following the [recommended Hermes configuration](../../scripts/nemoclaw/README.md#7-hermes-推奨設定-sandboxhermesconfigyaml), align both the parent model and the kakeratta cron job to `nvidia/Nemotron-3.5-Super-VL` while preserving `nvidia/Nemotron-3-Ultra-550b-a55b` for the direct-request worker and delegation (both live inference and MCP submission were verified in production on 2026-10-16).
 
 ### Verification
 

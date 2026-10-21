@@ -74,6 +74,8 @@ URLは**Hermesから到達できるkakerattaのURL**です。HermesのAPIサー�
 
 NVIDIA NemoClaw / OpenShell のサンドボックス配下で Hermes を運用する場合、設定管理・ポリシー合成・プロセス監視や自動起動など、サンドボックス環境特有の要件が存在します。親をNemotron 3.5 Super VL、委譲した子をNemotron 3 Ultraに分ける場合、OpenShell 0.0.116の共有 `inference.local` ではなく、モデル名を維持するProvider v2経由でToken Factoryへ接続します。親は依頼の受付と振り分けを担い、高難度の処理を子へ委譲します。
 
+新しく構築する場合は、[`scripts/nemoclaw/setup-hermes.sh`](../../scripts/nemoclaw/README.md#2-hermes-の構築setup-hermessh) がNemoClawの導入から、Provider v2、Web検索の通信許可、Hermesの設定、Skill・Wake Gate・cronまでを一度に行います。
+
 具体的なセットアップ手順（[Provider v2への移行](../reports/nemoclaw-hermes-integration_ja.md#openshell-provider-v2への移行2026-10-13)、管理対象 MCP プロバイダーの登録、コンテナ内への Skill/スクリプト配置、Web 検索 Egress の開放、`Phase: Error` デッドロック回避など）については、[**NemoClaw / OpenShell 統合・検証レポート**](../reports/nemoclaw-hermes-integration_ja.md) を参照してください。
 
 ## キーとアクセス範囲

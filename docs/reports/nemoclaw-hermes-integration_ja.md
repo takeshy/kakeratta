@@ -167,7 +167,7 @@ hermes cron edit <job-id> \
 hermes cron list
 ```
 
-[Hermes 推奨設定](../../scripts/nemoclaw/README.md#6-hermes-推奨設定-sandboxhermesconfigyaml)のとおり、親モデルとkakeratta cronジョブを `nvidia/Nemotron-3.5-Super-VL` に揃え、直接依頼ワーカー・delegation設定には `nvidia/Nemotron-3-Ultra-550b-a55b` を維持します（2026-10-16に本番環境で両モデルの実動作とMCP提出を検証済み）。
+[Hermes 推奨設定](../../scripts/nemoclaw/README.md#7-hermes-推奨設定-sandboxhermesconfigyaml)のとおり、親モデルとkakeratta cronジョブを `nvidia/Nemotron-3.5-Super-VL` に揃え、直接依頼ワーカー・delegation設定には `nvidia/Nemotron-3-Ultra-550b-a55b` を維持します（2026-10-16に本番環境で両モデルの実動作とMCP提出を検証済み）。
 
 ### 検証
 
