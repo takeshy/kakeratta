@@ -494,6 +494,10 @@ body.sheet-open .topbar { z-index: 21; }
   padding: 14px 16px 8px;
   position: sticky;
   top: 0;
+  /* Without its own layer, what scrolls under the head paints and takes taps
+     above it: a dimmed persona card (opacity makes its own layer) or a
+     switch's invisible input (z-index 1). */
+  z-index: 3;
   background: var(--card);
 }
 .sheet-close { flex-shrink: 0; white-space: nowrap; }
