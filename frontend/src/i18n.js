@@ -154,7 +154,7 @@ const EN = {
   "Alexa連携": "Alexa connection",
   "Alexa連携を解除": "Unlink Alexa",
   "Alexaと連携しています。『返事を聞いて』『予定を教えて』と話しかけられます。": "Alexa is linked. Say, read my replies, or what's on my schedule.",
-  "Alexaアプリで「かけらったメモ」スキルのアカウント連携を開始してください。": "Start account linking for the Kakeratta skill in the Alexa app.",
+  "Alexaアプリで「かけらノート」スキルのアカウント連携を開始してください。": "Start account linking for the Bits Notes skill in the Alexa app.",
   "Alexaアプリから連携を開始してください": "Please start account linking from the Alexa app.",
   "Alexa連携は設定されていません": "Alexa linking is not configured.",
   "Alexa連携を保存できませんでした": "Could not save the Alexa connection.",
