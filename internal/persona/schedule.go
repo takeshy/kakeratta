@@ -153,6 +153,11 @@ func (r *Runner) schedulesAt(ctx context.Context, now time.Time) {
 		if fired.UserRequested {
 			trigger.Text = fmt.Sprintf("Schedule: %s. Set for %s (%s). Execute the user-requested task for this occurrence.", fired.Note, when.Format(time.RFC3339), zone)
 		}
+		if fired.TimeEdited {
+			// The user moved it by hand: a time the note still names is not
+			// a reason to wait, and the move is not a cancellation.
+			trigger.Text += " The user moved this reminder to this time themselves; a different time named in the note no longer applies, so do it now."
+		}
 		if fired.PersonEvent != nil && fired.PersonEvent.Annual {
 			trigger.Text += fmt.Sprintf("\n対象の誕生日・記念日は毎年%02d月%02d日です（2月29日は平年には2月28日に通知）。この通知は%d日前の通知です。", fired.PersonEvent.Month, fired.PersonEvent.Day, fired.PersonEvent.LeadDays)
 		}

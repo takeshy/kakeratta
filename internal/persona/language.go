@@ -42,3 +42,37 @@ func backgroundLanguageRule(language string) string {
 	}
 	return ""
 }
+
+// factLanguageRule tells the memory tidy which language the facts it writes
+// are read in: the user's own, as the memory view shows them. Without it a
+// persona written in Japanese folded English records into Japanese facts.
+func factLanguageRule(language string) string {
+	switch language {
+	case "en":
+		return "\n事実（facts の text）は英語 (en) で書いてください。ユーザーは英語で投稿し、記憶も英語で読みます。担当の指示や既存の事実が日本語でも英語で書き、固有名詞は無理に訳さないでください。\n"
+	case "ja":
+		return "\n事実（facts の text）は日本語 (ja) で書いてください。ユーザーは日本語で投稿し、記憶も日本語で読みます。担当の指示や既存の事実が英語でも日本語で書き、固有名詞は無理に訳さないでください。\n"
+	}
+	return ""
+}
+
+// couldNotAnswer is what a persona called by name says when its turn failed,
+// in the language the post was written in.
+func couldNotAnswer(language string) string {
+	if language == "en" {
+		return "I could not answer this just now."
+	}
+	return "今はうまく答えられませんでした。"
+}
+
+// scheduleNoteLanguageRule tells the schedule phase which language a new
+// schedule's note is read in: the schedule list shows it to the user.
+func scheduleNoteLanguageRule(language string) string {
+	switch language {
+	case "en":
+		return "\n予定の note は英語 (en) で書いてください。ユーザーは英語で投稿し、予定一覧も英語で読みます。固有名詞は無理に訳さないでください。\n"
+	case "ja":
+		return "\n予定の note は日本語 (ja) で書いてください。ユーザーは日本語で投稿し、予定一覧も日本語で読みます。固有名詞は無理に訳さないでください。\n"
+	}
+	return ""
+}

@@ -126,6 +126,14 @@ func contentParts(text string, files []Attachment) []map[string]any {
 }
 
 // Chat sends one completion request and returns the assistant's text.
+// transportAttempts is how many times a chat completion is sent when the
+// connection fails before a response; transportBackoff is the wait before the
+// second try, and twice it before the third. Variables so tests can shorten them.
+var (
+	transportAttempts = 3
+	transportBackoff  = time.Second
+)
+
 func (c *Client) Chat(ctx context.Context, request Request) (string, error) {
 	reply, err := c.Complete(ctx, request)
 	return reply.Content, err
@@ -213,14 +221,6 @@ func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 	if err != nil {
 		return Reply{}, err
 	}
-	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/chat/completions", bytes.NewReader(raw))
-	if err != nil {
-		return Reply{}, err
-	}
-	httpRequest.Header.Set("Content-Type", "application/json")
-	if c.APIKey != "" {
-		httpRequest.Header.Set("Authorization", "Bearer "+c.APIKey)
-	}
 	record := NewCallRecord(ctx, c.BaseURL, request.Model, request.Purpose, request.Attempt, request.Round)
 	defer func() {
 		if c.Observe != nil {
@@ -230,10 +230,34 @@ func (c *Client) Complete(ctx context.Context, request Request) (Reply, error) {
 			record.Log()
 		}
 	}()
-	response, err := c.HTTP.Do(httpRequest)
-	if err != nil {
-		record.Outcome = "transport_error"
-		return Reply{}, err
+	var response *http.Response
+	for attempt := 1; ; attempt++ {
+		httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/chat/completions", bytes.NewReader(raw))
+		if err != nil {
+			return Reply{}, err
+		}
+		httpRequest.Header.Set("Content-Type", "application/json")
+		if c.APIKey != "" {
+			httpRequest.Header.Set("Authorization", "Bearer "+c.APIKey)
+		}
+		response, err = c.HTTP.Do(httpRequest)
+		if err == nil {
+			break
+		}
+		// A connection that was reset or refused before any answer came back
+		// is tried again a couple of times; the provider has not seen a
+		// finished request, so nothing is answered twice. A context that
+		// ended is not retried.
+		if attempt >= transportAttempts || ctx.Err() != nil {
+			record.Outcome = "transport_error"
+			return Reply{}, err
+		}
+		select {
+		case <-ctx.Done():
+			record.Outcome = "transport_error"
+			return Reply{}, err
+		case <-time.After(transportBackoff * time.Duration(attempt)):
+		}
 	}
 	record.Status = response.StatusCode
 	defer response.Body.Close()

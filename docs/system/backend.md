@@ -3,7 +3,7 @@ type: "Component"
 title: "API and persistent state"
 description: "Authentication including Alexa account linking and English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar", "google-import"]
-updated: "2026-10-21"
+updated: "2026-10-23"
 ---
 
 Authentication, English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake.
@@ -215,7 +215,7 @@ Map endpoints and external MCP server lists come from operator environment varia
 
 ## Model usage logging
 
-Every outbound chat completion emits one structured stdout record with `path: "model-usage"` and `message: "model usage"`, including transport, HTTP, decoding, provider, and empty-choice failures. Calls rejected before sending (for example an unconfigured model) do not produce an API-call record. `llm.Reply.Usage` retains provider-reported `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional reasoning/cache token details. Missing usage or individual counts remain null rather than estimated from text length or silently treated as zero. Usage is recorded before caller validation, so a subsequently rejected tool response remains accounted for.
+A chat completion whose connection fails before any response (reset, refused, dropped) is sent again, up to three attempts with a one-second then two-second wait (`transportAttempts`, `transportBackoff` in [llm.go](../../internal/llm/llm.go)); the provider never saw a finished request, so nothing is answered twice, and a context that ended is not retried. Only the final outcome is recorded. Verification: [retry_test.go](../../internal/llm/retry_test.go). Every outbound chat completion emits one structured stdout record with `path: "model-usage"` and `message: "model usage"`, including transport, HTTP, decoding, provider, and empty-choice failures. Calls rejected before sending (for example an unconfigured model) do not produce an API-call record. `llm.Reply.Usage` retains provider-reported `prompt_tokens`, `completion_tokens`, `total_tokens`, and optional reasoning/cache token details. Missing usage or individual counts remain null rather than estimated from text length or silently treated as zero. Usage is recorded before caller validation, so a subsequently rejected tool response remains accounted for.
 
 The provider's first-choice `finish_reason` is retained as `llm.Reply.FinishReason` and logged as optional `finishReason`. A value of `length` identifies provider output truncation; API `outcome: "success"` still describes the successful response, not acceptance of the answer. Missing finish reasons remain omitted.
 

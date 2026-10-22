@@ -839,7 +839,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		record.Error = err.Error()
 		r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
 		if named && !listening {
-			return r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil, "", false)
+			return r.speak(skill, root, couldNotAnswer(trigger.Language), nil, memory, trigger.ID, nil, "", false)
 		}
 		return r.hush(skill, memory)
 	}
@@ -959,7 +959,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	phaseContext := user + "\n\nこのターンに読んだ内容:\n" + strings.Join(read, "\n\n") + "\n\n完成した Answer:\n" + string(encodedAnswer)
 	// Schedule planning stays on Super, including regeneration.
 	log := turnLog{}
-	plan, err := r.planPhases(ctx, client, phaseModel, skill, *answer, phaseContext, wakeInstructions, rules, phaseLookup,
+	plan, err := r.planPhases(ctx, client, phaseModel, skill, *answer, phaseContext, wakeInstructions+scheduleNoteLanguageRule(threadLanguage(thread)), rules, phaseLookup,
 		func(plan Workflow) (*Review, error) {
 			return r.review(ctx, client, settings, skill, thread, trigger, *answer, plan,
 				"既存の予定:\n"+scheduleList+"\n読んだ内容:\n"+clip(strings.Join(read, "\n\n"), 20000), names, here)
@@ -999,7 +999,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	switch {
 	case listening || spoken == "":
 		if named && !listening {
-			remark = r.speak(skill, root, "今はうまく答えられませんでした。", nil, memory, trigger.ID, nil, "", false)
+			remark = r.speak(skill, root, couldNotAnswer(trigger.Language), nil, memory, trigger.ID, nil, "", false)
 		} else {
 			// It had its turn; its notes are kept below either way.
 			remark = r.hush(skill, memory)

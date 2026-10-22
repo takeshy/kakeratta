@@ -293,7 +293,8 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 		lines = append(lines, line)
 	}
 	tool := tidyTool(recordIDs, passedIDs, suggest)
-	messages := []llm.Message{{Role: "system", Content: tidyPrompt(skill, suggest)}, {Role: "user", Content: strings.Join(lines, "\n")}}
+	// Facts are shown to the user, in the language they write in.
+	messages := []llm.Message{{Role: "system", Content: tidyPrompt(skill, suggest) + factLanguageRule(r.backgroundLanguage(ctx))}, {Role: "user", Content: strings.Join(lines, "\n")}}
 
 	type submission struct {
 		Facts      []tidyOp           `json:"facts"`
