@@ -268,16 +268,17 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     // should see what you are answering.
     const open = expanded.has(post.id) || thread.some((entry) => entry.id === openReply);
     box.append(el("div", { class: "thread-actions" },
-      onSpeak ? el("button", {
-        class: "chip ghost thread-speak", "data-thread": post.id,
-        text: t(speakingThread === post.id ? "■ 停止" : "🔈 読み上げ"),
-        "aria-pressed": String(speakingThread === post.id),
-        i18nTitle: "このスレッドを読み上げます",
-        onclick: () => onSpeak(post.id, spoken(post.id)),
-      }) : null,
-      rest.length ? drawToggle(thread, post, rest.length, open) : null,
-      el("button", { class: "chip ghost", label: "Blueskyに投稿", disabled: !!post.pending, onclick: () => void openSocial(post.id, getPersona, getSettings) }),
-      openReply === post.id ? null : drawReplyOpen(post)));
+      el("div", { class: "thread-tools" },
+        onSpeak ? el("button", {
+          class: "chip ghost thread-speak", "data-thread": post.id,
+          text: t(speakingThread === post.id ? "■ 停止" : "🔈 読み上げ"),
+          "aria-pressed": String(speakingThread === post.id),
+          i18nTitle: "このスレッドを読み上げます",
+          onclick: () => onSpeak(post.id, spoken(post.id)),
+        }) : null,
+        openReply === post.id ? null : drawReplyOpen(post),
+        el("button", { class: "chip ghost thread-share", label: "Blueskyに投稿", disabled: !!post.pending, onclick: () => void openSocial(post.id, getPersona, getSettings) })),
+      rest.length ? drawToggle(thread, post, rest.length, open) : null));
     if (open) for (const entry of rest) {
       box.append(drawSaid(entry, post));
       if (entry.pending) box.append(el("p", { class: "hint", text: entry.syncError ? t("送信できませんでした: {0}", translateError(entry.syncError)) : t("端末に保存済み・送信待ち") }));
@@ -687,7 +688,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
       node.append(
         el("div", { class: "said-actions" },
           el("button", {
-            class: "chip ghost",
+            class: "chip ghost reply-action",
             label: "返す",
             onclick: () => {
               openReply = entry.id;

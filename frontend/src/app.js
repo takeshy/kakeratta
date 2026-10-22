@@ -384,7 +384,7 @@ api.on((name, data) => {
 
 clear(root).append(
   ...screenNodes({
-    compose: compose.element, room, feed: el("div", {}, syncBar, timelineFilters.element, feed.element, pagingFooter), onOpen: open,
+    compose: compose.element, room, filters: timelineFilters.element, feed: el("div", {}, syncBar, feed.element, pagingFooter), onOpen: open,
     onLogout: authenticationEnabled() ? () => void logout() : null,
   }),
 );

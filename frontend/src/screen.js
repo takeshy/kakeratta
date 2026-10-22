@@ -88,7 +88,7 @@ function moreNavigation(onLogout, onOpen, compact, showSettings, narrow) {
   return { menu, close };
 }
 
-export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
+export function screenNodes({ compose, room, feed, filters, onOpen, onLogout }) {
   let compact = (globalThis.innerWidth ?? 1024) <= 600;
   // 22px brand + 44px per action + 4px gaps; reserve Personas before Settings.
   let narrow = (globalThis.innerWidth ?? 1024) - 32 < 214;
@@ -150,7 +150,7 @@ export function screenNodes({ compose, room, feed, onOpen, onLogout }) {
     });
     observer.observe(header);
   }
-  return [header, room.banner, compose, room.bar, feed];
+  return [header, room.banner, compose, filters ? el("div", { class: "timeline-toolbar" }, room.bar, filters) : room.bar, feed];
 }
 
 // A panel over the screen. The sheet is the same whichever panel is in it, so

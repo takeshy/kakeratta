@@ -2,7 +2,7 @@
   --bg: #faf8f4;
   --card: #fffdfa;
   --ink: #23201c;
-  --muted: #857c70;
+  --muted: #71695f;
   --line: #e6e0d6;
   --accent: #a4622f;
   --accent-soft: #f4e7dc;
@@ -84,6 +84,18 @@ body {
 .button:hover, .chip:hover { border-color: var(--accent); color: var(--accent); }
 .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .button.primary:hover { color: #fff; filter: brightness(1.05); }
+.button.send {
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--card);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: .9375rem;
+  font-weight: 600;
+}
+.button.send:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.button.send:disabled { opacity: .5; cursor: default; }
+.button:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .close-button { min-height: 44px; padding: 8px 14px; border-color: var(--muted); background: var(--accent-soft); color: var(--ink); font-size: 0.9375rem; font-weight: 600; }
 .chip.ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .chip.danger { border-color: var(--danger, #a33); color: var(--danger, #a33); }
@@ -160,6 +172,9 @@ body {
   border-radius: 16px;
   padding: 12px;
 }
+.compose:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.compose-text::placeholder { color: var(--muted); opacity: 1; }
+.reply-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .compose-text, .reply-input, .skill-input {
   font: inherit;
   width: 100%;
@@ -207,6 +222,14 @@ body {
   border-radius: 10px;
   border: 1px solid var(--line);
 }
+
+.timeline-toolbar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; margin: 6px 0 10px; }
+.timeline-toolbar > .who-bar { flex: 1; padding: 0; min-width: 0; }
+.timeline-toolbar > .who-bar.expanded { flex-basis: 100%; }
+.timeline-toolbar > .entry-filters.entry-filters { flex: 0 1 auto; margin: 0; padding: 0 10px; container-type: normal; border-color: transparent; background: transparent; }
+.timeline-toolbar > .entry-filters[open] { flex-basis: 100%; border-color: var(--line); background: var(--card); }
+.timeline-toolbar .persona-more { min-height: 44px; }
+.feed > .note { font-size: .8125rem; line-height: 1.5; }
 
 .who-bar { display: flex; align-items: center; gap: 8px 14px; padding: 12px 2px; flex-wrap: wrap; }
 .who-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
@@ -452,11 +475,13 @@ button.who-link:hover, button.who-link:focus-visible { text-decoration: underlin
   overflow-wrap: anywhere;
 }
 .reply { display: grid; gap: 8px; }
-/* Replying is one of the two things you do here, so it is not the faintest text
-   in the thread. It looks like somewhere to type, not like a footnote. */
+/* Keep writing actions quiet; make the conversation disclosure recognizable. */
 .reply-open { justify-self: start; background: var(--bg); color: var(--muted); }
-.thread-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.thread-toggle { padding-left: 2px; }
+.chip.reply-action { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.thread-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; }
+.thread-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.thread-share { font-size: .8125rem; }
+.chip.thread-toggle { margin-left: auto; background: var(--accent-soft); color: var(--accent); font-weight: 600; padding: 4px 11px; }
 .reply-open:hover { color: var(--accent); }
 
 /* Panels */

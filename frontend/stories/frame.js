@@ -81,11 +81,12 @@ export function screen({ rows = [], entries = [], text = "", speaking = false, s
   if (pending) content.append(el("div", { class: "sync-status" },
     el("span", { class: "hint", role: "status", text: t("端末に保存済み・送信待ち {0}件", pending) }),
     el("button", { class: "chip", type: "button", label: "接続して再送" })));
-  content.append(controls.element, timeline.element);
+  content.append(timeline.element);
   watchFavorites(() => { if (host.isConnected) timeline.set(filterConversations(entries, filters)); });
   host.append(...screenNodes({
     compose: compose({ text }).element,
     room: room(rows, { speaking }),
+    filters: controls.element,
     feed: content,
     onOpen: () => {},
     onLogout: signedIn ? () => {} : null,
