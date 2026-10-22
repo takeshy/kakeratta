@@ -3,7 +3,7 @@ type: "Integration"
 title: "External agents, tools, and sharing"
 description: "Japanese and English Alexa voice posts and read-aloud, external-agent answers, direct requests, posts as a persona and the connected Timeline import over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, selected publication to Bluesky, and the separate personal Google Bridge application with owner-direct-request writes and code-driven Hermes review delivery."
 tags: ["alexa", "mcp", "agent", "direct-request", "persona-post", "timeline-import", "tools", "support", "bluesky", "sharing", "weather", "google-bridge"]
-updated: "2026-10-21"
+updated: "2026-10-22"
 ---
 
 Alexa voice posts and read-aloud, external-agent answers, direct requests, posts as a persona and the connected Timeline import over MCP, permitted tools and Geo MCP availability, the shipped specification, weather forecasts, selected publication to Bluesky, and the separate personal Google Bridge application with owner-direct-request writes and code-driven Hermes review delivery.
