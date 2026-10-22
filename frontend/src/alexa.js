@@ -50,7 +50,7 @@ export function createAlexaConnection() {
       if (!state.enabled && !state.connected) return;
       node.append(el("h3", { label: "Alexa連携" }), el("p", { label: state.connected
         ? "Alexaと連携しています。『返事を聞いて』『予定を教えて』と話しかけられます。"
-        : "Alexaアプリで「かけらったメモ」スキルのアカウント連携を開始してください。" }));
+        : "Alexaアプリで「かけらノート」スキルのアカウント連携を開始してください。" }));
       if (state.connected) node.append(el("button", { class: "button", label: "Alexa連携を解除", onclick: async event => {
         const button = event.currentTarget;
         button.disabled = true;

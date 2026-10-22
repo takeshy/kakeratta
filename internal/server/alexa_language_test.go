@@ -56,7 +56,7 @@ func TestAlexaEnglishLocales(t *testing.T) {
 				return body.Response.OutputSpeech.Text
 			}
 			for _, intent := range []string{"AMAZON.HelpIntent"} {
-				if got := invoke(intent); !strings.Contains(got, "Welcome to Kakeratta") {
+				if got := invoke(intent); !strings.Contains(got, "Welcome to Bits Notes") {
 					t.Fatal(got)
 				}
 			}

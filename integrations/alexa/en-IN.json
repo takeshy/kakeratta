@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "kakeratta notes",
+      "invocationName": "bits notes",
       "intents": [
         {
           "name": "ThrowKakeraIntent",
