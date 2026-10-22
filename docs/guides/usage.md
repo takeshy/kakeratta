@@ -314,8 +314,10 @@ Turning Push off keeps execution and timeline posts enabled. You can also ask a 
 In Settings → **This device**, enable notifications on each device you want to
 receive scheduled reminders. Permission is requested only when you enable them.
 Push is for scheduled persona reminders, not ordinary replies, check-ins or
-monthly summaries. Notifications show the reminder text, up to 120 characters
-with an ellipsis when shortened; opening one takes you to the relevant post.
+monthly summaries. Direct requests to an external agent can also notify when their
+reply notification is enabled. Notifications use the speaker’s name as the title
+and show the text in the body, up to 300 characters with an ellipsis when shortened;
+opening one takes you to the relevant post.
 Lock-screen visibility follows your device notification settings. HTTPS and browser push support are required. On
 iPhone/iPad, add the app to the Home Screen and open it there. Without push,
 reminders still appear in the timeline. Self-hosted servers need VAPID

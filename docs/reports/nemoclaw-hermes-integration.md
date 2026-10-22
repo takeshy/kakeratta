@@ -2,7 +2,7 @@
 
 ## Autonomous External Planner Integration and Verification Report
 
-[README](../../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](../guides/hermes.md) · [Hermes-4-405B visual evaluation](hermes-4-405b-visual-evaluation.md) · [Model Comparison](nemoclaw-hermes-model-comparison.md) · [Runaway loop incident](nemoclaw-hermes-runaway-incident.md)
+[README](../../README.md) · [日本語](nemoclaw-hermes-integration_ja.md) · [Hermes setup](../guides/hermes.md) · [Direct-request worker specification](../design/direct-request-worker-spec.md) · [Hermes-4-405B visual evaluation](hermes-4-405b-visual-evaluation.md) · [Model Comparison](nemoclaw-hermes-model-comparison.md) · [Runaway loop incident](nemoclaw-hermes-runaway-incident.md)
 
 ## Summary
 

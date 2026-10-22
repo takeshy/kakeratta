@@ -1,5 +1,7 @@
 # kakeratta直接依頼ワーカー（`direct_request_worker.py`）の経緯と仕様
 
+[English](./direct-request-worker-spec.md)
+
 状態: **実装済み**（`direct_request_worker.py`・`check_kakeratta_gate.py`・integration bundle）  
 作成日: 2026-10-14  
 対象: OpenShell 0.0.116 / Hermes Agent / Nebius Token Factory Provider v2

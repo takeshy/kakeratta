@@ -1,10 +1,21 @@
 # 個人用Google Bridge: 調査・実装設計
 
-- 調査・実装レビュー日: 2026-10-20
+[English](./google-hermes-integration-spec.md)
+
+- 初回調査・実装レビュー日: 2026-10-20
+- 現行実装との照合日: 2026-10-22
 - 元仕様: kakeratta × Hermes Google連携 v1.1
 - 調査基準コミット: `338c539e0b6fe715f6129befd1dde32db945700f`
 - 利用形態: 各ユーザーが自分の端末・サーバーで起動する1ユーザー専用Webアプリ
-- 状態: Phase 0調査・Phase 1読取MVP・Phase 2承認付き書込、Phase 3の差分同期と本人選択式Timeline取り込みを実装。実Googleアカウント・実Hermes接続は未検証。Phase 4の設定案内・CLI手順生成・OAuth JSON検証・復旧案内も実装。Cloudの実操作自動実行と、意味解析による緊急判定・即時Pushは未実装
+- 状態: Phase 0調査・Phase 1読取MVP・Phase 2承認付き書込、Phase 3の差分同期と本人選択式Timeline取り込みを実装。実Googleアカウント・実Hermes接続は2026-10-22に所有者から確認済み（全書込操作の実検証を意味しない）。Phase 4の設定案内・CLI手順生成・OAuth JSON検証・復旧案内も実装。Cloudの実操作自動実行と、意味解析による緊急判定・即時Pushは未実装
+
+## 現行仕様への更新（2026-10-22）
+
+以下の番号付き章とPhase別追記は当初の調査・実装経緯を残したもの。現在の操作手順は[Google連携ガイド](../guides/google_ja.md)、実装仕様は[systemの連携章](../system/integrations.md#personal-google-bridge-companion)を参照する。特に次の点は当初の記述から変更されている。
+
+- **Googleへの書込**: 現在のMCP書込ツールは`google_action_run`。本人がHermesへ直接依頼すると、原文`userRequest`を監査記録へ保存し、Webでの再承認なしで実行する。不変payload、冪等キー、実行前の永続化、結果不明時の自動再送停止は維持する。管理cookieによる承認APIは旧操作案向けに残る。本人の直接依頼だけに限定するのはツール指示であり、サーバーが依頼元を検証できるわけではない。メール・予定本文やcronの判定結果を本人の依頼として扱わない。
+- **Hermesによる取り込み**: `google_bridge_worker.py`のコードが同期・候補転送・実レシートの返送を担当する。LLMはツールなしの分離セッションで選別・要約だけを行い、ゲートは`wakeAgent:false`を返す。Bridgeはkakerattaへ直接送信せず、その接続先やキーも保持しない。
+- **実接続の確認**: 既存の[検証記録](../system/integrations.md#personal-google-bridge-companion)では、所有者が2026-10-22に実Google OAuth、Hermes接続、Gmail・Calendar取り込みを確認済み。後述の「未検証」「実Google通信は行っていない」は当時のテスト範囲であり、現在の接続状況ではない。全書込操作の実検証まで確認されたものではない。
 
 ## 1. 確定した構成
 

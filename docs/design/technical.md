@@ -667,6 +667,8 @@ subject out, so such posts are routed to the new persona alone.
 - 2026-09-15 19:40 [e_d](/?entry=e_d) Wants to try the new ramen place in Jimbocho #ramen #Jimbocho review:2026-10-06/21d
 ```
 
+The stored section labels `いまの事実` and `かけらの記録` mean “Current facts” and “Fragment records,” respectively.
+
 The user can read all of it directly from the interface. A fact's source and a
 record's id open the post, and a tag narrows the view to memory holding it.
 Memory can be edited or deleted without deleting any post; nothing is woken

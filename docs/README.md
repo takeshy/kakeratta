@@ -4,7 +4,7 @@
 
 Start with the guides for setup and everyday use. The system bundle documents the current implementation; design notes explain the background and decisions. Reports preserve dated experiments and production observations, so their settings and conclusions may describe an earlier version.
 
-English and Japanese editions stay together, with `_ja.md` identifying the Japanese counterpart when both are available.
+Every document must have an English edition at its unsuffixed path. Japanese editions are optional and use `_ja.md`; keep language pairs together. English documents should link to English editions when available. Japanese UI labels and original research quotations may remain when accompanied by English explanations or translations.
 
 ## Directory map
 
@@ -25,7 +25,7 @@ English and Japanese editions stay together, with `_ja.md` identifying the Japan
 | External agents and Hermes | [Guide](./guides/hermes.md) | [外部エージェント連携](./guides/hermes_ja.md) |
 | Gmail and Calendar: reviewed imports and direct-request writes | [Setup and operations](./guides/google.md) | [接続と運用手順](./guides/google_ja.md) |
 | Bluesky sharing | [Guide](./guides/social-sharing.md) | [会話をBlueskyに公開](./guides/social-sharing_ja.md) |
-| Alexa setup | [接続手順（日本語）](./guides/alexa.md) | — |
+| Alexa setup | [Setup guide](./guides/alexa.md) | [接続手順](./guides/alexa_ja.md) |
 | Judge and Alexa reviewer access | [Account setup](./guides/judge-access.md) | — |
 | Judge sample workspace | [Sample personas and data](./guides/judge-sample-data.md) | — |
 
@@ -38,8 +38,8 @@ For deployment, see the infrastructure guide: [English](../infra/README.md) / [�
 | Project background | [Why kakeratta exists](./design/background.md) | [作った理由](./design/background_ja.md) |
 | Technical design | [Under the hood](./design/technical.md) | [中で起きていること](./design/technical_ja.md) |
 | AI implementation lessons | [What was hard about the AI](./design/ai-lessons.md) | [AIまわりで苦労したこと](./design/ai-lessons_ja.md) |
-| Direct-request worker | [経緯と仕様（日本語）](./design/direct-request-worker-spec_ja.md) | — |
-| Personal Google Bridge | [独立Webアプリの調査と実装設計（日本語）](./design/google-hermes-integration-spec_ja.md) | — |
+| Direct-request worker | [Background and specification](./design/direct-request-worker-spec.md) | [経緯と仕様](./design/direct-request-worker-spec_ja.md) |
+| Personal Google Bridge | [Research and implementation design](./design/google-hermes-integration-spec.md) | [調査と実装設計](./design/google-hermes-integration-spec_ja.md) |
 
 The [system bundle index](./system/index.md) links to architecture, backend APIs and persistence, persona execution and memory, frontend behavior, integrations, and development operations.
 
