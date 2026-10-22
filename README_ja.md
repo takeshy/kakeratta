@@ -118,7 +118,7 @@ Hermesへ渡すメール・予定は、設定したモデルにも
 スクリーンショットは実際の画面コードとサンプルAPI応答で同期操作を撮影したものです。
 実Googleアカウントの画面ではありません。[上級マニュアルのセットアップ](https://kakeratta.net/manual/?guide=advanced&lang=ja#ja-google)と
 [詳しい設定・運用・復旧手順](docs/guides/google_ja.md)を参照してください。
-実Google OAuthと実Hermesの接続は未検証で、画像は画面の操作例です。
+Google OAuthと実Hermes接続を含むGmail・Calendarの実環境連携は検証済みで、hackathonギャラリーもその検証時のキャプチャで更新済みです。
 
 ## ローカルで動かす
 

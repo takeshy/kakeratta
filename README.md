@@ -123,8 +123,8 @@ server cannot verify the request's origin, so triage jobs should exclude write t
 
 Screenshots show the shipped Japanese UI after sync with sample API responses,
 not a live Google account. See the [advanced setup guide](https://kakeratta.net/manual/?guide=advanced&lang=en#en-google)
-and [detailed setup and recovery (Japanese)](docs/guides/google_ja.md).
-Real Google OAuth and Hermes integration remain unverified; the captures demonstrate the UI flow.
+and [detailed setup and recovery](docs/guides/google.md).
+The project owner has verified live Gmail and Calendar integration, including Google OAuth and Hermes connectivity; the hackathon gallery has been updated with captures from that verification.
 
 ## Run locally
 
@@ -231,7 +231,7 @@ Browse the [documentation index](docs/README.md) for all guides, design notes, a
 | [System implementation](docs/system/index.md) | Source-linked subsystem specifications, also used by support |
 | [AI lessons](docs/design/ai-lessons.md) | Failures observed in development and how they were addressed |
 | [External agents](docs/guides/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions, fallback and direct `@agent` requests |
-| [Gmail and Calendar setup](docs/guides/google_ja.md) (Japanese) | Personal Google Bridge, OAuth, reviewed imports and Hermes cron |
+| [Gmail and Calendar setup](docs/guides/google.md) | Personal Google Bridge, OAuth, reviewed imports and Hermes cron |
 | [NemoClaw integration report](docs/reports/nemoclaw-hermes-integration.md) | Sandbox setup and verification, with protocol-version context |
 | [Google Cloud deployment](infra/README.md) | Cloud Run configuration and temporary shared VM operations |
 

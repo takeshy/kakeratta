@@ -1,5 +1,7 @@
 # Google Bridge: 自分のHermesでGoogleを使う
 
+[README](../../README_ja.md) · [English](google.md)
+
 Google Bridgeは**各ユーザーが自分の端末・サーバーで起動する独立Webアプリ**です。kakeratta本体は起動せず、Googleの設定・資格情報保存・MCPをこのアプリだけで提供します。1インスタンスは1人の所有者専用です。
 
 読み取りに加え、本人の直接依頼によるメール送信・返信・下書き保存、Calendar作成・変更・削除を実装しています。コードとテストは`tools/google-bridge/`にまとめています。差分同期とルールによる重要度判定、Hermesによる選別・要約・kakeratta Timelineへの候補配送にも対応しています。本人がTimelineで「取り込む」を選ぶまで、通常投稿・検索・担当の処理には入りません。
@@ -25,13 +27,16 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge
 
 ```sh
 # バイナリを ~/.local/bin へビルド配備
+mkdir -p ~/.local/bin ~/.config/systemd/user
 mise exec -- go build -o ~/.local/bin/google-bridge ./tools/google-bridge/cmd/google-bridge
 
-# systemd ユーザーサービスの有効化・起動 (scripts/nemoclaw/install.sh 実行でも自動配備されます)
+# systemd ユーザーサービスの配備・有効化・起動 (scripts/nemoclaw/install.sh 実行でも自動配備されます)
+cp scripts/nemoclaw/systemd/google-bridge.service ~/.config/systemd/user/
+systemctl --user daemon-reload
 systemctl --user enable --now google-bridge.service
 ```
 
-サービスは `ConditionPathExists=%h/.config/google-bridge/config.json` を含んでいるため、設定ファイルが存在する場合にのみ自動起動します。
+サービスは `ConditionPathExists=%h/.config/google-bridge/config.json` を含んでいるため、既定の設定ファイルが存在する場合にのみ自動起動します。独自の設定パスを使う場合はユニットの条件と起動コマンドも変更してください。ログインしていない間も動かす場合は `loginctl enable-linger "$USER"` を実行します。WSLではDocker Desktopとディストリビューションの起動も必要です。[NemoClaw運用手順](../../scripts/nemoclaw/README_ja.md)を参照してください。
 
 ## 初回設定ファイル
 
@@ -86,7 +91,7 @@ mcp_servers:
 
 実際のキーは画面で発行したものに置き換えます。チャットや公開リポジトリへ貼り付けないでください。キー再発行・無効化は以前のキーによる次回以降の要求を拒否します。既に認証済みで実行中の短い読取が完了する場合はあります。
 
-Hermesが別の端末やコンテナにある場合、127.0.0.1はHermes自身を指します。同じoriginになるSSHポート転送を用意するか、自分のHTTPSサーバーで起動してください。publicUrlと異なるHostはDNS rebinding対策で拒否します。
+Hermesが別の端末やコンテナにある場合、127.0.0.1はHermes自身を指します。同じoriginになるSSHポート転送を用意するか、自分のHTTPSサーバーで起動してください。publicUrlと異なるHostはDNS rebinding対策で拒否します。NemoClawではサンドボックスからの接続経路と通信ポリシーも設定してください。kakeratta用の構築スクリプトは別のBridge接続まで自動設定しません。
 
 kakerattaの直接依頼workerから使う場合は、Hermesの`kakeratta_worker.mcp_servers`に`google_bridge`を追加する既存の拡張設定を利用できます。追加MCPを指定したworkerは既存ルール上、失敗した推論を自動再実行しません。共有judge workerとpersona-ask homeには追加MCPを渡さない既存の分離を維持します。kakeratta配布workerやkakeratta本体への実装変更は不要です。
 
@@ -190,7 +195,7 @@ Calendarの通常同期は完了した同じ暦日にGoogleで再取得せず、
 hermes cron create "0 6 * * *" --no-agent --script check_calendar_bridge.py --deliver local --name google-bridge-calendar
 ```
 
-Googleの送信・予定変更ツール、Timelineの本人確認APIはこのworkerから呼びません。Calendarでも配送・レシート確認だけならモデルを使わず、選別が有効な場合だけ隔離セッションを起動します。実環境へのジョブ登録と本人の実Google/Hermes接続は未検証です。
+Googleの送信・予定変更ツール、Timelineの本人確認APIはこのworkerから呼びません。Calendarでも配送・レシート確認だけならモデルを使わず、選別が有効な場合だけ隔離セッションを起動します。Gmail・Calendarともに、実Googleアカウントと実Hermesを使った連携をプロジェクト所有者が検証済みです。
 
 ## 送信・予定変更（直接依頼で実行）
 
@@ -244,4 +249,6 @@ Googleの送信・予定変更ツール、Timelineの本人確認APIはこのwor
 
 ## 検証範囲
 
-fake Google HTTPでOAuth、scope、インスタンス分離、暗号化、refresh競合、失効、切断、MCPに加え、本人承認境界、改変・期限切れの拒否、並列実行、未知の結果の再送停止、予定ETag、返信MIME、Calendar作成・更新・削除に加え、差分同期・履歴失効・中断再開・保持期限・Hermes役の中継によるTimelineレビュー受付・破棄・再提示防止・検索隔離、Bridgeからの直接配送がないこと、旧投稿先資格情報の起動時削除を検証しています。実ブラウザーでログイン・キー発行・MCP初期化・キー失効・同意必須・モバイル表示・ログアウトを確認しています。実Googleアカウントの接続・API読取と、実Hermesプロセスからの接続は未検証です。自分の設定と同意後、Gmail検索/詳細とCalendar期間検索を各1回確認してください。送信・予定変更テストは含めません。
+プロジェクト所有者が、Google OAuthとHermes接続を含むGmail・Calendarの一連の実環境連携を検証済みです。hackathonギャラリーも、その検証時のキャプチャで更新済みです。この確認はGmail・Calendarの取り込みを対象とし、送信・下書き・予定変更の全操作についての実環境検証を示すものではありません。
+
+fake Google HTTPでOAuth、scope、インスタンス分離、暗号化、refresh競合、失効、切断、MCPに加え、本人承認境界、改変・期限切れの拒否、並列実行、未知の結果の再送停止、予定ETag、返信MIME、Calendar作成・更新・削除に加え、差分同期・履歴失効・中断再開・保持期限・Hermes役の中継によるTimelineレビュー受付・破棄・再提示防止・検索隔離、Bridgeからの直接配送がないこと、旧投稿先資格情報の起動時削除を検証しています。実ブラウザーでログイン・キー発行・MCP初期化・キー失効・同意必須・モバイル表示・ログアウトを確認しています。自動テストは実Googleアカウントを必要とせず、変更もしません。自分の設定と同意後、Gmail検索/詳細とCalendar期間検索を各1回確認してください。送信・予定変更テストは含めません。

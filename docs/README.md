@@ -23,7 +23,7 @@ English and Japanese editions stay together, with `_ja.md` identifying the Japan
 | --- | --- | --- |
 | Usage and configuration | [Guide](./guides/usage.md) | [使い方と設定](./guides/usage_ja.md) |
 | External agents and Hermes | [Guide](./guides/hermes.md) | [外部エージェント連携](./guides/hermes_ja.md) |
-| Gmail and Calendar: reviewed imports and direct-request writes | [接続と運用手順（日本語）](./guides/google_ja.md) | — |
+| Gmail and Calendar: reviewed imports and direct-request writes | [Setup and operations](./guides/google.md) | [接続と運用手順](./guides/google_ja.md) |
 | Bluesky sharing | [Guide](./guides/social-sharing.md) | [会話をBlueskyに公開](./guides/social-sharing_ja.md) |
 | Alexa setup | [接続手順（日本語）](./guides/alexa.md) | — |
 | Judge and Alexa reviewer access | [Account setup](./guides/judge-access.md) | — |
