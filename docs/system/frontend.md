@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Frontend composition, English judge registration and progress, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar", "google-import"]
-updated: "2026-10-22"
+updated: "2026-10-23"
 ---
 
 Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards.
@@ -72,7 +72,7 @@ The creation and editing forms place **Remember** and **Always think deeply** to
 
 The same forms offer **常に熟考する** (Always think deeply), persisted as `alwaysUltra`. The builder preserves a manually selected value across AI drafts and revisions. The infographic persona defaults to memory off and AlwaysUltra on (Super VL on Nebius; Ultra for a deep request).
 
-The built-in infographic persona displays as **インフォグラフィック** in Japanese and **Infographic** in English across the persona/speaker cards, room badges and menu, timeline speaker names, read-aloud labels, and mention suggestions. English mention insertion uses the stable `@infographic` ID. Customized persona names remain as saved.
+The built-in infographic persona displays as **インフォグラフィック** in Japanese and **Infographic** in English across the persona/speaker cards, room badges and menu, timeline speaker names, the router's call rows ([routing-view.js](../../frontend/src/routing-view.js)), read-aloud labels, and mention suggestions. English mention insertion uses the stable `@infographic` ID. Customized persona names remain as saved. Verification: `the router's call names a built-in persona in the display language` in [feed.test.js](../../tests/feed.test.js).
 
 ## Memory viewer and check-ins
 

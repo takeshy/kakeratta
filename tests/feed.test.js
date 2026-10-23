@@ -1148,6 +1148,26 @@ test("the router's call opens from the user's posts and replies and can be dispu
   assert.equal(document.body.children.length, 0);
 });
 
+// A built-in persona is named in the display language in the router's call,
+// as it is in the feed.
+test("the router's call names a built-in persona in the display language", async (t) => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: (tag) => new TestNode(tag), createTextNode: value => Object.assign(new TestNode(), { textContent: value }), body: new TestNode(), activeElement: null, querySelector: () => new TestNode() };
+  const previous = getLanguage();
+  setLanguage("en");
+  t.after(() => { delete globalThis.Node; delete globalThis.document; setLanguage(previous); });
+  const rows = [{ id: "infographic", name: "インフォグラフィック", icon: "📊", builtin: true }];
+  t.mock.method(api, "routing", async () => ({ recorded: true, delivered: [], excluded: [{ id: "infographic", name: "インフォグラフィック", icon: "📊", reason: "No request for an infographic." }] }));
+  const feed = createFeed({ getPersona: (id) => rows.find((row) => row.id === id) || null, onFixCondition: () => {}, showIntro: false });
+  feed.set([{ id: "p", kind: "post", speaker: "user", text: "The printer is out of toner again.", at: "2026-10-22T00:00:00Z" }]);
+  feed.element.querySelectorAll(".routing-open")[0].fire("click", {});
+  for (let i = 0; i < 3; i++) await new Promise(setImmediate);
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const texts = walk(document.body).map((node) => node.textContent);
+  assert.ok(texts.includes("Infographic"), "the built-in persona has its English name");
+  assert.ok(!texts.includes("インフォグラフィック"), "its Japanese name is not shown");
+});
+
 // What a persona said is where its tone and instructions show, so a remark
 // carries the way to dispute them. The user's own lines do not.
 test("a persona's remark can be disputed", (t) => {

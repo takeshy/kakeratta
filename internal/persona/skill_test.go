@@ -209,6 +209,11 @@ func TestSonaShipsWithPreparationAndWeather(t *testing.T) {
 			t.Fatalf("sona's domain lacks %q", kind)
 		}
 	}
+	// The general check for unknown belongings is an example, said in the
+	// reply's language: an English post once got the Japanese line verbatim.
+	if !strings.Contains(sona.Instructions, "返事の言語で言い") || !strings.Contains(sona.Instructions, "Keys and the usual things") {
+		t.Fatal("sona's general belongings check is not tied to the reply's language")
+	}
 	for _, rule := range []string{"schedule", "時刻は聞かない", "催促しない", "飲み忘れと判断しない", "やる前に急かさない"} {
 		if !strings.Contains(sona.Instructions, rule) {
 			t.Fatalf("sona's instructions lack %q", rule)

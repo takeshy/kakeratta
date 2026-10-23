@@ -12,6 +12,7 @@ import { avatarNode } from "./avatar.js";
 import { el, toast, dialogCloseButton, mountOverlay, unmountOverlay } from "./dom.js";
 import { api } from "./api.js";
 import { t } from "./i18n.js";
+import { gloss } from "./builtins.js";
 
 export async function showRouting({ entry, getPersona, onFixCondition, onFixReply, onSelectPersona, onOpenNote }) {
   let record;
@@ -67,11 +68,13 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
     // only be read about.
     const row = (item, verdict, fix) => {
       const persona = getPersona?.(item.id);
+      // A built-in persona is named in the display language, as in the feed.
+      const name = (persona && gloss(persona).name) || item.name || item.id;
       return el("div", { class: "routing-row" },
         persona && onSelectPersona ? el("button", {
           class: "routing-persona",
           onclick: () => { close(); onSelectPersona(persona); },
-        }, avatarNode(persona, { className: "avatar avatar-inline" }), " ", persona.name || item.name || item.id) : el("span", { class: "who" }, avatarNode(persona || item, { className: "avatar avatar-inline" }), " ", persona?.name || item.name || item.id),
+        }, avatarNode(persona, { className: "avatar avatar-inline" }), " ", name) : el("span", { class: "who" }, avatarNode(persona || item, { className: "avatar avatar-inline" }), " ", name),
         el("span", { class: "routing-verdict", label: verdict }),
         item.reason ? el("span", { class: "routing-reason", text: item.reason }) : null,
         item.heard ? el("span", { class: "routing-reason", text: t("「{0}」に一致", item.heard) }) : null,
