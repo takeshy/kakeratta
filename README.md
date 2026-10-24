@@ -2,7 +2,7 @@
 
 English | [日本語](README_ja.md)
 
-**Ka-ke-ratta.** Japanese for the act of tossing in a *kakera* — a fragment.
+**Ka-ke-ratta.** The name we gave to tossing in a *kakera* — a fragment.
 
 **You cannot search for what you forgot exists.** kakeratta is a personal AI
 timeline that brings it back to you. Toss in fragments of your day as text,
