@@ -1,7 +1,9 @@
+import { t } from "./i18n.js";
+
 async function call(method, path, body) {
   const response = await fetch(path, { method, credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "接続に失敗しました。");
+  if (!response.ok) throw new Error(result.error || t("接続に失敗しました。"));
   return result;
 }
 export const api = {

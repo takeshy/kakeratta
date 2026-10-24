@@ -119,8 +119,8 @@ are snapshots: later Google edits do not update existing cards or posts.
 Direct-request writes rely on Hermes following the owner's instructions; the
 server cannot verify the request's origin, so triage jobs should exclude write tools.
 
-<img src="docs/captures/google-bridge/gmail.png" alt="Google Bridge showing a selected reservation email waiting for Hermes to relay" width="620">
-<img src="docs/captures/google-bridge/calendar.png" alt="Google Bridge showing events waiting for Hermes to relay" width="620">
+<img src="docs/captures/google-bridge/en/gmail.png" alt="Google Bridge showing a selected reservation email waiting for Hermes to relay" width="620">
+<img src="docs/captures/google-bridge/en/calendar.png" alt="Google Bridge showing events waiting for Hermes to relay" width="620">
 
 Screenshots show the shipped Japanese UI after sync with sample API responses,
 not a live Google account. See the [advanced setup guide](https://kakeratta.net/manual/?guide=advanced&lang=en#en-google)

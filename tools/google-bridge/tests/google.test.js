@@ -7,6 +7,9 @@ import { createGoogleConnection, finishGoogleConnection } from "../internal/serv
 import { createCalendarInbox } from "../internal/server/web/calendar-inbox.js";
 import { setupPlan, parseOAuthClient, readOAuthClient, recoveryHint } from "../internal/server/web/setup.js";
 
+// The UI follows the browser language; these tests read its Japanese text.
+Object.defineProperty(globalThis, "navigator", { value: { language: "ja-JP" }, configurable: true });
+
 class Element {
   children = []; listeners = {}; textContent = ""; value = ""; checked = false;
   constructor(tag) { this.tag = tag; }
@@ -17,12 +20,12 @@ class Element {
   addEventListener(key, fn) { this.listeners[key] = fn; }
 }
 const walk = node => [node, ...node.children.flatMap(walk)];
-function browser(t, hash = "") {
+function browser(t, hash = "", search = "") {
   const old = new Map(["Node", "document", "location", "history", "sessionStorage", "setTimeout"].map(key => [key, globalThis[key]]));
   const storage = new Map(); const navigations = [];
   globalThis.Node = Element;
   globalThis.document = { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element("text"), { textContent: text }), querySelector: () => new Element("toast") };
-  globalThis.location = { hash, pathname: "/", search: "", assign: href => navigations.push(href) };
+  globalThis.location = { hash, pathname: "/", search, assign: href => navigations.push(href) };
   globalThis.history = { replaceState() { globalThis.location.hash = ""; } };
   globalThis.sessionStorage = { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
   globalThis.setTimeout = () => 0;
@@ -182,4 +185,18 @@ test("Inbox is explicit opt-in and hands selected candidates to Hermes without T
   const confirm = nodes.filter(n => n.tag === "input" && n.type === "checkbox").at(-1); confirm.checked = true;
   await remove.listeners.click({ currentTarget: remove }); assert.equal(removed, 1);
   widget.dispose(); assert.equal(widget.element.children.length, 0);
+});
+
+test("English is shown for ?lang=en, with values filled into translated text", async t => {
+  browser(t, "", "?lang=en");
+  t.mock.method(api, "calendarInbox", async () => ({ settings: { enabled: true, llmEnabled: true, calendarId: "primary", timeZone: "Asia/Tokyo", bodyChars: 2000, excludedEvents: [] }, events: [{ summary: "Prepare for the trip", body: "08:30-09:00" }], triagePending: 2 }));
+  const widget = createCalendarInbox(); await Promise.resolve(); await Promise.resolve();
+  const nodes = walk(widget.element);
+  assert.ok(nodes.some(n => n.textContent === "Check today's and tomorrow's events now"));
+  assert.ok(nodes.some(n => n.textContent === "Event import is on with the recommended settings (primary / Asia/Tokyo)."));
+  assert.ok(nodes.some(n => n.textContent === "Events awaiting LLM triage: 2"));
+  assert.ok(nodes.some(n => n.textContent === "Timeline via Hermes: Awaiting Hermes delivery"));
+  assert.equal(nodes.some(n => /[ぁ-んァ-ヶ一-龥]/.test(n.textContent)), false);
+  assert.match(recoveryHint("redirect_uri_mismatch"), /Authorized redirect URIs/);
+  widget.dispose();
 });

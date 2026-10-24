@@ -38,9 +38,9 @@ Hermes側の`google_bridge_worker.py`がBridgeから候補を取得し、LLMに�
 
 実際の画面コードにサンプルAPI応答を返し、メール・予定それぞれの同期ボタンを操作して撮影しています。実Googleアカウント・実Hermesへの接続結果ではありません。画面の「Hermes配送待ち」は取得・選別済みで、Hermesによる配送を待っている状態です。
 
-![重要メールの同期後](../../docs/captures/google-bridge/gmail.png)
+![重要メールの同期後](../../docs/captures/google-bridge/ja/gmail.png)
 
-![今日・明日の予定の同期後](../../docs/captures/google-bridge/calendar.png)
+![今日・明日の予定の同期後](../../docs/captures/google-bridge/ja/calendar.png)
 
 Node.jsとChromiumがあれば、リポジトリのルートで次を実行して再撮影できます。Googleの資格情報は不要です。日英の上級マニュアルのGoogle節への直接リンク・画像読み込み・390px幅の表示も確認します。
 
@@ -48,7 +48,7 @@ Node.jsとChromiumがあれば、リポジトリのルートで次を実行し�
 node tools/google-bridge/captures.mjs
 ```
 
-`CHROMIUM`でブラウザー実行ファイル、`CAPTURE_SCRATCH`で一時プロファイルの作成先を変更できます。画像は`docs/captures/google-bridge/`へ保存します。
+`CHROMIUM`でブラウザー実行ファイル、`CAPTURE_SCRATCH`で一時プロファイルの作成先を変更できます。日本語と英語の画面を、それぞれの言語のサンプルで撮影し、`docs/captures/google-bridge/ja/`と`docs/captures/google-bridge/en/`へ保存します。
 
 ## テスト
 

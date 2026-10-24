@@ -113,8 +113,8 @@ Hermesへ渡すメール・予定は、設定したモデルにも
 直接依頼による書き込みはHermesが本人の指示に従うことが前提で、サーバーは依頼の真正性を
 検証できません。判定用ジョブでは書き込みツールを除外してください。
 
-<img src="docs/captures/google-bridge/gmail.png" alt="Google Bridgeで予約メールを同期し、Hermesの配送を待つ候補の画面" width="620">
-<img src="docs/captures/google-bridge/calendar.png" alt="Google Bridgeで今日・明日の予定を同期し、Hermesの配送を待つ候補の画面" width="620">
+<img src="docs/captures/google-bridge/ja/gmail.png" alt="Google Bridgeで予約メールを同期し、Hermesの配送を待つ候補の画面" width="620">
+<img src="docs/captures/google-bridge/ja/calendar.png" alt="Google Bridgeで今日・明日の予定を同期し、Hermesの配送を待つ候補の画面" width="620">
 
 スクリーンショットは実際の画面コードとサンプルAPI応答で同期操作を撮影したものです。
 実Googleアカウントの画面ではありません。[上級マニュアルのセットアップ](https://kakeratta.net/manual/?guide=advanced&lang=ja#ja-google)と

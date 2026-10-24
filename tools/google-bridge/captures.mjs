@@ -13,18 +13,28 @@ const web = join(root, 'tools/google-bridge/internal/server/web');
 const out = join(root, 'docs/captures/google-bridge');
 const stamp = '2026-10-20T09:00:00+09:00';
 let mailSynced = false, calendarSynced = false;
-const mail = {
-  messageId: 'sample-reservation', subject: 'ご予約の確認：10月21日 19:00',
-  from: 'レストラン はな <booking@example.com>', receivedAt: stamp, importedAt: stamp,
-  classification: { importance: 90, urgency: 20, reason: '明日の予約日時と人数を確認できるメール' },
-  summary: '10月21日（水）19:00、レストラン はなを2名で予約。\n予約の変更は前日までに連絡してください。',
-  sourceUrl: 'https://mail.google.com/mail/u/0/#inbox/sample-reservation',
+// Each language is shot from the same UI with sample data in that language.
+const samples = {
+  ja: {
+    locale: 'ja-JP', waiting: 'Hermes配送待ち',
+    mail: { subject: 'ご予約の確認：10月21日 19:00', from: 'レストラン はな <booking@example.com>', reason: '明日の予約日時と人数を確認できるメール', summary: '10月21日（水）19:00、レストラン はなを2名で予約。\n予約の変更は前日までに連絡してください。' },
+    event: { summary: '明日の出張の準備', body: '10月21日 08:30〜09:00\n場所: 自宅\n持ち物：充電器、社員証、予約の控え。' },
+  },
+  en: {
+    locale: 'en-US', waiting: 'Awaiting Hermes delivery',
+    mail: { subject: 'Reservation confirmed: Oct 21, 7:00 PM', from: 'Hana Restaurant <booking@example.com>', reason: "Confirms tomorrow's reservation time and party size", summary: 'Table for 2 at Hana Restaurant on Wed, Oct 21 at 7:00 PM.\nPlease let us know by the day before if you need to change it.' },
+    event: { summary: "Prepare for tomorrow's business trip", body: 'Oct 21, 8:30–9:00 AM\nLocation: Home\nBring: charger, staff ID, reservation slip.' },
+  },
 };
-const event = {
-  summary: '明日の出張の準備',
-  body: '10月21日 08:30〜09:00\n場所: 自宅\n持ち物：充電器、社員証、予約の控え。',
-  sourceUrl: 'https://calendar.google.com/calendar/event?eid=sample-preparation',
-};
+let mail, event;
+function useSample(lang) {
+  const sample = samples[lang];
+  mail = { messageId: 'sample-reservation', subject: sample.mail.subject, from: sample.mail.from, receivedAt: stamp, importedAt: stamp,
+    classification: { importance: 90, urgency: 20, reason: sample.mail.reason }, summary: sample.mail.summary,
+    sourceUrl: 'https://mail.google.com/mail/u/0/#inbox/sample-reservation' };
+  event = { summary: sample.event.summary, body: sample.event.body, sourceUrl: 'https://calendar.google.com/calendar/event?eid=sample-preparation' };
+  mailSynced = calendarSynced = false;
+}
 const mailState = () => ({ settings: { enabled: true, llmEnabled: true, threshold: 50, bodyChars: 2000, retentionDays: 7, lookbackDays: 1, includeLabels: ['INBOX'], priorityLabels: ['IMPORTANT', 'STARRED'], prioritySenders: [], excludedSenders: [], excludedTypes: [] }, messages: mailSynced ? [mail] : [], lastSyncedAt: mailSynced ? stamp : null });
 const calendarState = () => ({ settings: { enabled: true, llmEnabled: true, calendarId: 'primary', timeZone: 'Asia/Tokyo', bodyChars: 2000, excludedEvents: [] }, events: calendarSynced ? [event] : [], lastSyncedAt: calendarSynced ? stamp : null });
 const unexpected = [];
@@ -57,7 +67,6 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const scratch = process.env.CAPTURE_SCRATCH || join(root, 'tmp/google-bridge-captures');
 await mkdir(scratch, { recursive: true });
-await mkdir(out, { recursive: true });
 const profile = await mkdtemp(join(scratch, 'profile-'));
 const browser = spawn(process.env.CHROMIUM || 'chromium', ['--headless', '--no-sandbox', '--disable-gpu', '--no-proxy-server', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
 let launchError;
@@ -100,20 +109,27 @@ try {
   };
   await cdp('Page.enable');
   await cdp('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
-  await cdp('Emulation.setLocaleOverride', { locale: 'ja-JP' });
-  await cdp('Emulation.setDeviceMetricsOverride', { width: 1000, height: 1400, deviceScaleFactor: 2, mobile: false });
-  await cdp('Page.navigate', { url: origin });
-  await waitFor(`document.querySelector('#inbox button.primary') && document.querySelector('#calendar-inbox button.primary')`);
-  await evaluate(`[...document.querySelectorAll('#inbox button')].find(b => b.textContent === '今すぐ差分を取得').click()`);
-  await waitFor(`document.querySelector('#inbox .mail-body') && document.querySelector('#inbox').textContent.includes('Hermes配送待ち')`);
-  await evaluate(`[...document.querySelectorAll('#calendar-inbox button')].find(b => b.textContent === '今日・明日の予定を今すぐ確認').click()`);
-  await waitFor(`document.querySelector('#calendar-inbox .mail-body') && document.querySelector('#calendar-inbox').textContent.includes('Hermes配送待ち')`);
-  await evaluate('document.fonts.ready');
-  for (const [name, selector] of [['gmail', '#inbox'], ['calendar', '#calendar-inbox']]) {
-    const clip = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x + scrollX, y: r.y + scrollY, width: Math.ceil(r.width), height: Math.ceil(r.height), scale: 1 }; })()`);
-    const capture = await cdp('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip });
-    await writeFile(join(out, name + '.png'), Buffer.from(capture.data, 'base64'));
-    console.log(`${name}.png: ${clip.width} × ${clip.height} CSS pixels`);
+  for (const lang of ['ja', 'en']) {
+    useSample(lang);
+    const { locale, waiting } = samples[lang];
+    await cdp('Emulation.setLocaleOverride', { locale: '' });
+    await cdp('Emulation.setLocaleOverride', { locale });
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 1000, height: 1400, deviceScaleFactor: 2, mobile: false });
+    await cdp('Page.navigate', { url: `${origin}/?lang=${lang}` });
+    await waitFor(`document.querySelector('#inbox button.primary') && document.querySelector('#calendar-inbox button.primary')`);
+    // Each section's primary button is its sync button once importing is on.
+    await evaluate(`document.querySelector('#inbox .actions button.primary').click()`);
+    await waitFor(`document.querySelector('#inbox .mail-body') && document.querySelector('#inbox').textContent.includes(${JSON.stringify(waiting)})`);
+    await evaluate(`document.querySelector('#calendar-inbox .actions button.primary').click()`);
+    await waitFor(`document.querySelector('#calendar-inbox .mail-body') && document.querySelector('#calendar-inbox').textContent.includes(${JSON.stringify(waiting)})`);
+    await evaluate('document.fonts.ready');
+    await mkdir(join(out, lang), { recursive: true });
+    for (const [name, selector] of [['gmail', '#inbox'], ['calendar', '#calendar-inbox']]) {
+      const clip = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x + scrollX, y: r.y + scrollY, width: Math.ceil(r.width), height: Math.ceil(r.height), scale: 1 }; })()`);
+      const capture = await cdp('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip });
+      await writeFile(join(out, lang, name + '.png'), Buffer.from(capture.data, 'base64'));
+      console.log(`${lang}/${name}.png: ${clip.width} × ${clip.height} CSS pixels`);
+    }
   }
   // Verify that bare Google anchors select the advanced guide and images load,
   // including the narrow viewport used by the manual's phone readers.

@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { createGoogleConnection, finishGoogleConnection } from "./google.js";
 import { el, clear, toast } from "./dom.js";
+import { localizePage, t } from "./i18n.js";
 
 import { createActions } from "./actions.js";
 
@@ -8,6 +9,7 @@ import { createInbox } from "./inbox.js";
 
 import { createCalendarInbox } from "./calendar-inbox.js";
 
+localizePage();
 let google, actions, inbox, calendarInbox;
 function signedOut() {
   calendarInbox?.dispose();
@@ -31,36 +33,36 @@ async function mcp() {
   const view = clear(document.querySelector("#mcp"));
   const output = el("div");
   const buttons = el("div", { class: "actions" },
-    el("button", { text: status.configured ? "MCPキーを再発行" : "MCPキーを発行", onclick: async event => {
+    el("button", { text: status.configured ? t("MCPキーを再発行") : t("MCPキーを発行"), onclick: async event => {
       const button = event.currentTarget;
       button.disabled = true;
       try {
         const result = await api.issueMCP();
-        clear(output).append(el("p", { class: "secret-note", text: "このキーは一度だけ表示します。自分のHermes設定へ保存してください。チャットや公開リポジトリへ貼り付けないでください。" }),
+        clear(output).append(el("p", { class: "secret-note", text: t("このキーは一度だけ表示します。自分のHermes設定へ保存してください。チャットや公開リポジトリへ貼り付けないでください。") }),
           el("pre", { text: `mcp_servers:\n  google_bridge:\n    url: ${JSON.stringify(result.url)}\n    headers:\n      Authorization: ${JSON.stringify(`Bearer ${result.key}`)}\n    tools:\n      prompts: false\n      resources: false` }),
-          el("p", {text:"定期同期にHermes cronを使う場合は、下のJSONをcheck_google_bridge.pyと同じディレクトリのgoogle_bridge.jsonへ保存し、権限を0600にしてください。"}),
+          el("p", {text:t("定期同期にHermes cronを使う場合は、下のJSONをcheck_google_bridge.pyと同じディレクトリのgoogle_bridge.jsonへ保存し、権限を0600にしてください。")}),
           el("pre", {text:JSON.stringify({url:result.url,key:result.key},null,2)}));
       } catch (error) { toast(error.message); }
       finally { button.disabled = false; }
     } }),
-    el("button", { class: "ghost", text: status.loopback && status.configured ? "個別キーを解除（ローカル設定なしに戻す）" : "MCPキーを無効化", onclick: async () => { try { await api.revokeMCP(); await mcp(); toast(status.loopback ? "個別MCPキーを解除し、ローカル接続モードに戻しました。" : "Hermesのアクセスを停止しました。"); } catch (error) { toast(error.message); } } }));
+    el("button", { class: "ghost", text: status.loopback && status.configured ? t("個別キーを解除（ローカル設定なしに戻す）") : t("MCPキーを無効化"), onclick: async () => { try { await api.revokeMCP(); await mcp(); toast(status.loopback ? t("個別MCPキーを解除し、ローカル接続モードに戻しました。") : t("Hermesのアクセスを停止しました。")); } catch (error) { toast(error.message); } } }));
   if (status.loopback && !status.configured) {
     view.append(
-      el("p", { text: "ローカル接続モード（設定不要）：同じ端末のHermesからは、MCPキーを発行しなくてもそのまま接続できます。" }),
+      el("p", { text: t("ローカル接続モード（設定不要）：同じ端末のHermesからは、MCPキーを発行しなくてもそのまま接続できます。") }),
       el("p", {}, el("code", { text: status.url })),
       el("details", {},
-        el("summary", { text: "Hermes設定例・個別のMCPキーを発行する場合（任意）" }),
+        el("summary", { text: t("Hermes設定例・個別のMCPキーを発行する場合（任意）") }),
         el("pre", { text: `mcp_servers:\n  google_bridge:\n    url: ${JSON.stringify(status.url)}\n    tools:\n      prompts: false\n      resources: false` }),
         buttons, output,
-        el("p", { class: "hint", text: "Hermesが別の端末・コンテナにある場合は、個別MCPキーを発行して設定してください。kakerattaの接続キーとは別です。" })
+        el("p", { class: "hint", text: t("Hermesが別の端末・コンテナにある場合は、個別MCPキーを発行して設定してください。kakerattaの接続キーとは別です。") })
       )
     );
     return;
   }
-  view.append(el("p", { text: status.configured ? "個別MCPキーは発行済みです。再発行すると以前のキーは使えなくなります。" : "MCPキーを発行してHermesに登録してください。" }),
+  view.append(el("p", { text: status.configured ? t("個別MCPキーは発行済みです。再発行すると以前のキーは使えなくなります。") : t("MCPキーを発行してHermesに登録してください。") }),
     el("p", {}, el("code", { text: status.url })),
     buttons, output,
-    el("p", { class: "hint", text: "Hermesが別の端末・コンテナにある場合、127.0.0.1はHermes自身を指します。SSH転送や自分のHTTPSサーバーを使い、Hermesから到達できるURLを設定してください。" }));
+    el("p", { class: "hint", text: t("Hermesが別の端末・コンテナにある場合、127.0.0.1はHermes自身を指します。SSH転送や自分のHTTPSサーバーを使い、Hermesから到達できるURLを設定してください。") }));
 }
 async function dashboard() {
   await api.session();

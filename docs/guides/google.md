@@ -52,17 +52,17 @@ For remote access, set `publicUrl` to your HTTPS reverse proxy's origin and pres
 
 ## Set up your Google project and OAuth
 
-The Web UI currently uses Japanese labels; their English meanings are provided here. Under **Google Cloudのセットアップを案内する** (Guide me through Google Cloud setup), specify a project ID and the services to use. Choosing a new project displays steps including `gcloud projects create`. API enablement and verification commands explicitly target that project. Bridge displays commands for you to run on your own machine; it does not execute them or store Google Cloud CLI login credentials. Check the displayed account and project before running them.
+The Web UI follows the browser language, Japanese or English; add `?lang=en` or `?lang=ja` to the URL to choose one. Under **Guide me through Google Cloud setup**, specify a project ID and the services to use. Choosing a new project displays steps including `gcloud projects create`. API enablement and verification commands explicitly target that project. Bridge displays commands for you to run on your own machine; it does not execute them or store Google Cloud CLI login credentials. Check the displayed account and project before running them.
 
 If the CLI is unavailable or permissions or organization restrictions block it, use the Console links in the same panel. Compare the displayed API names with `gcloud services list --enabled`. Displaying instructions does not mean those steps have run. Consent-screen, test-user and OAuth-client creation are covered by manual instructions. See Google's references for [creating projects](https://docs.cloud.google.com/sdk/gcloud/reference/projects/create), [enabling APIs](https://docs.cloud.google.com/sdk/gcloud/reference/services/enable), and [listing enabled APIs](https://docs.cloud.google.com/sdk/gcloud/reference/services/list).
 
-1. In Bridge, find **登録するリダイレクトURI** (Redirect URI to register). The default is `http://127.0.0.1:8094/api/google/callback`.
+1. In Bridge, find **Redirect URI to register**. The default is `http://127.0.0.1:8094/api/google/callback`.
 2. Create or select your Google Cloud project. Enable **Gmail API** for mail and **Google Calendar API** for events.
 3. In **Google Auth Platform**, configure **Branding**, **Audience**, and **Data Access**. For an **External / Testing** app, add yourself as a test user.
 4. Under **Clients**, create an OAuth client of type **Web application**. Add Bridge's exact redirect URI to **Authorized redirect URIs**. Use Web application even when running the Go server and browser locally.
 5. Enter the project ID, client ID and client secret in Bridge's shared connection form, or select the Web OAuth configuration JSON downloaded from Google. Files are limited to 64 KiB. The browser checks the client type and exact redirect URI before filling the fields. It does not adopt authentication URLs from the JSON or persist the file or secrets in logs or browser storage. Only the required settings are sent to the authenticated API when connecting, then encrypted. Keep Google settings out of chat.
-6. If needed, select **カレンダー一覧の読み取り** (Read the calendar list) or the extra permissions for sending mail and changing events. Basic read access needs no extra selection.
-7. Read the displayed data flow, consent to sharing Google data with Hermes and its configured model, then press **Googleに接続** (Connect Google). One Google login and consent flow authorizes both Gmail and Calendar.
+6. If needed, select **Calendar: also allow reading the calendar list** or the extra permissions for sending mail and changing events. Basic read access needs no extra selection.
+7. Read the displayed data flow, consent to sharing Google data with Hermes and its configured model, then press **Connect to Google**. One Google login and consent flow authorizes both Gmail and Calendar.
 8. When you return to the original tab, Bridge completes authorization and tests both APIs with small read requests. Check each service's status, Google account, scopes and last verification time in the UI.
 
 Gmail requests `gmail.readonly`; Calendar requests `calendar.events.readonly`, with `calendar.calendarlist.readonly` only when calendar-list access is selected. `openid` and `email` support account matching and display; Bridge compares the subject returned by Google's fixed userinfo endpoint. Use the same Google account for both services.
@@ -73,7 +73,7 @@ The UI provides recovery guidance when connection, reauthorization or testing fa
 
 ## Add Bridge to Hermes
 
-Save the example under **Hermesとつなぐ** (Connect Hermes) in your Hermes configuration. Same-machine local mode can connect without Authorization. If you issue an individual key, use the value shown once in the UI. This keyed example contains no Google credentials. The Bridge MCP key, management key and kakeratta MCP key are separate; MCP keys cannot change Web settings.
+Save the example under **Connect to Hermes** in your Hermes configuration. Same-machine local mode can connect without Authorization. If you issue an individual key, use the value shown once in the UI. This keyed example contains no Google credentials. The Bridge MCP key, management key and kakeratta MCP key are separate; MCP keys cannot change Web settings.
 
 ```yaml
 mcp_servers:
@@ -142,8 +142,8 @@ At startup, updated Bridge versions remove destination credentials saved by the 
 
 ## Review and import important mail
 
-1. Under **03 重要メールの確認** (Review important mail), check whether intake is enabled. If stopped, press **おすすめ設定で有効にする** (Enable recommended settings). A fresh local setup enables intake and model selection; stop them if unwanted. Filters control target labels, priority labels/senders, exclusions, stored body length and retention. Defaults are INBOX, IMPORTANT/STARRED priority, threshold 50, 2,000 body characters, seven-day retention and a one-day initial lookback.
-2. Press **今すぐ差分を取得** (Fetch changes now) to inspect up to 20 messages per batch. Spam and trash are excluded; From exclusions apply before model access. This action alone does not deliver anything to kakeratta.
+1. Under **03 / Important mail**, check whether intake is enabled. If stopped, press **Turn on with recommended settings**. A fresh local setup enables intake and model selection; stop them if unwanted. Filters control target labels, priority labels/senders, exclusions, stored body length and retention. Defaults are INBOX, IMPORTANT/STARRED priority, threshold 50, 2,000 body characters, seven-day retention and a one-day initial lookback.
+2. Press **Fetch new mail now** to inspect up to 20 messages per batch. Spam and trash are excluded; From exclusions apply before model access. This action alone does not deliver anything to kakeratta.
 3. With model selection enabled, the worker fetches up to ten candidates and the owner's instructions through `gmail_triage_context`. An isolated Hermes model session only selects and summarizes. It returns indexed JSON; code binds the results to original IDs/tokens and submits `gmail_triage_submit`. Kept summaries omit signatures, boilerplate, disclaimers, unsubscribe notices, advertising and quoted history. Settings changes invalidate stale decisions. Selection alone neither imports nor delivers a message.
 4. Worker code calls `google_review_context` with `{"service":"gmail"}`, receiving up to five tool/arguments/token payloads. It passes each candidate's **unchanged arguments** to `propose_gmail_import` through its own kakeratta MCP connection. This creates only a pending owner-review card.
 5. The worker returns kakeratta's actual `structuredContent` to Bridge's `google_review_receipt` as service/token/receipt. A missing success response leaves the candidate retryable. Connection ID plus message ID prevents duplicate cards after lost responses.
@@ -177,8 +177,8 @@ After validating model results, the worker saves them to mode-0600 `HERMES_HOME/
 ## Select and import today's and tomorrow's Calendar events
 
 1. Connect Calendar with read permissions. The `primary` calendar does not require calendar-list permission.
-2. Under **04 今日・明日の予定を取り込む** (Import today's and tomorrow's events), check intake status and press **おすすめ設定で有効にする** (Enable recommended settings) if needed. Advanced settings choose calendar ID, timezone (default `Asia/Tokyo`) and description length (default 2,000 characters). Event fetching needs neither Gmail intake nor a destination configured in Bridge.
-3. Press **今日・明日の予定を今すぐ確認** (Check today's and tomorrow's events now). Bridge fetches events overlapping midnight today through midnight the day after tomorrow in the configured timezone. Recurring events expand into instances; all-day end dates are exclusive.
+2. Under **04 / Bring in today's and tomorrow's events**, check intake status and press **Turn on with recommended settings** if needed. Advanced settings choose calendar ID, timezone (default `Asia/Tokyo`) and description length (default 2,000 characters). Event fetching needs neither Gmail intake nor a destination configured in Bridge.
+3. Press **Check today's and tomorrow's events now**. Bridge fetches events overlapping midnight today through midnight the day after tomorrow in the configured timezone. Recurring events expand into instances; all-day end dates are exclusive.
 4. The worker fetches `calendar_triage_context`, validates model selection/summaries and submits `calendar_triage_submit` in code. It then requests `google_review_context` with `{"service":"calendar"}` and forwards the returned arguments to its kakeratta MCP `propose_calendar_import`. Actual receipts return through `google_review_receipt`.
 5. Choose Import or Discard in the Timeline. Discard with an exclusion checkbox matches calendar ID plus event ID for one occurrence, or calendar ID plus master ID for a recurring series. Exclusions apply in Bridge before model access once the worker returns the actual receipt. Remove an exclusion in Bridge and save to allow future new occurrences; processed occurrences are not presented again.
 
@@ -196,11 +196,11 @@ This worker never calls Google write tools or the owner-review decision API. Cal
 
 ## Send mail and change events on direct request
 
-Under **許可する操作の範囲** (Allowed operations), choose the permissions to grant when connecting Google. All options are initially selected. Sending uses `gmail.send` (Sensitive); drafts use `gmail.compose` (Restricted); Calendar changes use `calendar.events` and `calendar.calendarlist.readonly` for ownership checks. Google's compose scope also permits sending. See the [Gmail scope reference](https://developers.google.com/workspace/gmail/api/auth/scopes).
+Under **Allowed actions**, choose the permissions to grant when connecting Google. All options are initially selected. Sending uses `gmail.send` (Sensitive); drafts use `gmail.compose` (Restricted); Calendar changes use `calendar.events` and `calendar.calendarlist.readonly` for ownership checks. Google's compose scope also permits sending. See the [Gmail scope reference](https://developers.google.com/workspace/gmail/api/auth/scopes).
 
 1. Ask your own Hermes directly, for example to send someone an email or add an event tomorrow at 10:00.
 2. Hermes calls `google_action_run`, which executes without another Web confirmation. `userRequest` contains your verbatim request and is retained in the audit log. Use a unique 16–128-character `idempotencyKey` for each operation, reusing it only for retries of that same operation. Retries return the saved result rather than sending twice.
-3. Review the operation and request under **03 実行履歴** (Execution history).
+3. Review the operation and request under the execution history.
 
 Tool descriptions and MCP instructions reserve this tool for direct owner requests. Mail, event descriptions, other people's Timeline posts, cron/selection jobs and agent initiative must not trigger writes. This relies on Hermes and its model following instructions; the server cannot verify the request's origin. Exclude `google_action_run` from selection cron jobs using Hermes settings such as `tools.exclude`.
 
@@ -231,9 +231,9 @@ Each service holds at most eight unfinished operations. Proposals are encrypted;
 ## Reauthorize, disconnect and recover
 
 - To reuse a saved OAuth client during reauthorization or connection of the second service, leave all three client fields empty. Model-sharing consent is requested again.
-- **接続テスト** (Connection test) searches at most one Gmail message and one Calendar event in the next 24 hours. It does not return bodies to the UI.
+- **Test connection** searches at most one Gmail message and one Calendar event in the next 24 hours. It does not return bodies to the UI.
 - A normal disconnect removes the selected service's credentials and pending OAuth, erases unfinished operation payloads and invalidates those operations. The other service remains connected.
-- Selecting **Google側の許可も失効** (Also revoke Google authorization) attempts revocation. This affects **all clients in the same project**, so the other service or other tools may need reauthorization. Local credentials are removed even if revocation fails. Use separate projects if independent revocation is essential.
+- Selecting **Also revoke access on Google** attempts revocation. This affects **all clients in the same project**, so the other service or other tools may need reauthorization. Local credentials are removed even if revocation fails. Use separate projects if independent revocation is essential.
 - Resolve `redirect_uri_mismatch` by matching the registered URI exactly to Bridge's displayed value.
 - When reauthorization is requested, check Testing expiry, user revocation and Gmail password changes, then reconnect.
 - Add calendar-list permission if only that scope is missing. Disabled APIs and organization policies can also block access.
