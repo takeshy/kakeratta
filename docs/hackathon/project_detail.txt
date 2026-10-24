@@ -46,6 +46,8 @@ Each persona response passes through separate stages:
 
 This separation prevents replies from silently changing schedules or rewriting memory.
 
+Tavily powers the Web search tool used by personas and direct `@ai` research requests, with news and date filters for timely searches and source links that users can follow.
+
 ### Your own agent, through MCP
 
 For advanced users who want to connect personal resources or execute external actions, kakeratta exposes an MCP server. The project includes an optional self-hosted Hermes integration running inside NVIDIA NemoClaw / OpenShell, using Nemotron via Nebius Token Factory.
