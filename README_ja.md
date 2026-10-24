@@ -76,50 +76,9 @@
 
 ## Gmail・Google Calendar連携
 
-[Google Bridge](tools/google-bridge/README.md)は、自分の端末・サーバーで動かす、
-個人用の独立Webアプリ兼MCPサーバーです。自分のGoogle Cloudプロジェクトと
-OAuthクライアントで接続し、Googleの資格情報はBridge専用の保存先へ暗号化して保存します。
-Bridge単体の起動にkakeratta本体は不要です。
-
-| 機能 | 動作 |
-| --- | --- |
-| 重要なGmailを拾う | 差分同期し、ラベル・送信元のルールと任意のHermesによるLLM判定で候補を選びます。LLM判定では署名や引用履歴などを除いた要約を届けます。 |
-| 今日・明日の予定を確認する | 指定したタイムゾーンで日次に取得します。終日・定期予定の各回に対応し、この取り込みでGoogle Calendarは変更しません。 |
-| 確認してから取り込む | Hermesが届けたTimelineの待機カードで「取り込む／取り込まない」を選びます。「取り込む」で初めて通常投稿・担当への振り分け・記憶の処理へ進み、待機中は検索や担当の処理へ入りません。 |
-| 不要なものを次回から除外する | 破棄時にメールの種類・完全一致の送信元、単発予定・定期予定全体を除外できます。Bridgeで解除でき、送信元と予定の除外はLLM判定より前に適用します。 |
-| Hermesへ直接頼む | MCPでメール検索・本文・スレッドや予定を読めます。追加権限があれば、本人の明示的な依頼で送信・返信・下書き保存・予定の作成／変更／削除もできます。取り込みとは別の操作で、直接依頼用ツールはWebでの再承認なしに実行します。 |
-
-```mermaid
-flowchart LR
-  Google[Gmail / Google Calendar] -->|OAuthで読み取り| Bridge[自分のGoogle Bridge]
-  Cron[自分のHermes cron] --> Worker[Hermes側worker: コード]
-  Worker <-->|同期・候補取得・判定結果| Bridge
-  Worker <-->|選別・要約のみ| Model[Hermesのモデル]
-  Worker -->|kakeratta MCPで候補を送る| Pending[Timeline: 取り込み待ち]
-  Pending -->|実際のレシートをコードで返す| Worker
-  Owner[本人] -->|取り込む / 取り込まない| Pending
-  Pending -->|取り込む| Posts[通常投稿 → 担当 → 記憶]
-  Owner -->|明示的な直接依頼| Direct[自分のHermesエージェント]
-  Direct -->|追加権限付きの書き込みツール| Bridge
-  Bridge -->|依頼された送信・予定変更| Google
-```
-
-Hermes側workerがBridgeから候補を取得し、LLMには選別・要約だけを任せます。
-担当の回答提出と同じく、判定結果の提出・候補配送・レシート確認・除外ルールの返却はコードで行います。
-選別用の隔離セッションにはMCP接続や配送ツールを渡しません。BridgeはkakerattaのURL・キーを保存せず、直接通信もしません。
-既存Hermes cronは`--no-agent`付きでgateを実行し、配送だけの回と仕事がない回はモデルのトークンを使いません。
-Hermesへ渡すメール・予定は、設定したモデルにも
-送られます。取り込んだ予定はその時点の内容で、Google側の変更は既存カードや投稿へ自動反映しません。
-直接依頼による書き込みはHermesが本人の指示に従うことが前提で、サーバーは依頼の真正性を
-検証できません。判定用ジョブでは書き込みツールを除外してください。
-
-<img src="docs/captures/google-bridge/ja/gmail.png" alt="Google Bridgeで予約メールを同期し、Hermesの配送を待つ候補の画面" width="620">
-<img src="docs/captures/google-bridge/ja/calendar.png" alt="Google Bridgeで今日・明日の予定を同期し、Hermesの配送を待つ候補の画面" width="620">
-
-スクリーンショットは実際の画面コードとサンプルAPI応答で同期操作を撮影したものです。
-実Googleアカウントの画面ではありません。[上級マニュアルのセットアップ](https://kakeratta.net/manual/?guide=advanced&lang=ja#ja-google)と
-[詳しい設定・運用・復旧手順](docs/guides/google_ja.md)を参照してください。
-Google OAuthと実Hermes接続を含むGmail・Calendarの実環境連携は検証済みで、hackathonギャラリーもその検証時のキャプチャで更新済みです。
+[Google Bridge](tools/google-bridge/README.md)は、自分のGoogle CloudのOAuthクライアントを使って自分で動かす、任意の連携アプリです。
+Hermesが重要なメールと今日・明日の予定を選び、Timelineへ取り込み待ちのカードとして届けます。「取り込む」を選ぶまで担当や記憶には渡りません。
+画面例・仕組みは[Google BridgeのREADME](tools/google-bridge/README.md)、設定手順は[設定ガイド](docs/guides/google_ja.md)を参照してください。
 
 ## ローカルで動かす
 
@@ -183,7 +142,7 @@ Cloud Run構成では仕事がないときはworkerをゼロ台にできます�
 ## 設計と連携
 
 バックエンドはGo、ブラウザ側はJavaScriptです。Nebius Token Factory経由の
-NVIDIA Nemotronで振り分け・回答・workflowの確認を行います。標準のモデル構成は次のとおりです。
+NVIDIA Nemotronで振り分け・回答・workflowの確認を行い、同じ基盤のGLMとQwenで画像の読み取りと意味検索を行います。標準のモデル構成は次のとおりです。
 
 | モデル | 用途 |
 | --- | --- |
@@ -191,6 +150,12 @@ NVIDIA Nemotronで振り分け・回答・workflowの確認を行います。標
 | **Nemotron 3 Super 120B A12B** | 担当への振り分け、読み取りと通常の回答、メモ係 |
 | **Nemotron 3.5 Super VL 120B A12B** | 深い依頼と常に熟考する担当の調査、予定の計画とworkflowの確認、「常に熟考する」担当の回答、毎日・毎月のチェックイン、毎日の記憶の整理、今日のまとめ・今月のまとめ |
 | **Nemotron 3 Ultra 550B A55B** | 「詳しく」などの深い依頼の回答 |
+| **GLM-5.3-Flash** | 添付したスクリーンショット・写真の読み取り（1投稿につき1回） |
+| **Qwen3-Embedding-8B** | 過去のかけらを意味で探すための埋め込み |
+
+本番での実測では、この割り当てにした後の担当1人への投稿2件が、振り分け・回答・記憶を含めて
+1件あたり **$0.0028と$0.0037**（約0.44円・0.58円）、6〜7秒で完了しました。
+以前の1投稿あたり$0.009から約60〜70%の削減です。
 
 OpenRouterも選べます。
 処理ごとにモデルを選び、小さいモデルの低コストと回答の速さを活かしながら、

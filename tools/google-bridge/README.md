@@ -26,9 +26,24 @@ systemctl --user enable --now google-bridge.service
 - `hermes/`: 既存cron用gateと、選別・配送をコードで制御するgoogle_bridge_worker.py
 - `tests/`: ブラウザー側のフローと承認画面のテスト
 
-Gmail検索・本文・スレッド、Calendar一覧・予定取得、本人の直接依頼によるGmail送信/返信/下書き保存・Calendar作成/変更/削除に対応します。追加権限を使う`google_action_run`はWebでの再承認なしに実行するため、判定用cronからは除外してください。実Google/Hermes接続は未検証です。重要メールの差分同期と、kakeratta Timelineへの取り込み待ち表示にも対応します。本人がTimelineで「取り込む」を選んで初めて通常投稿として処理し、「取り込まない」で削除します。定期実行は既存Hermes cronから行います。
+## できること
 
-Hermes側の`google_bridge_worker.py`がBridgeから候補を取得し、LLMには選別・要約だけを任せます。担当の回答提出と同じように、判定の提出・kakeratta MCPへの候補配送・レシート確認・除外ルールの返却はPythonコードが行います。選別用セッションにMCP接続はありません。BridgeにはkakerattaのURL・キーを保存せず、直接通信しません。配送・確認だけの回と仕事がない回はLLMを使いません。cronは`--no-agent`付きでgateを動かし、gateが必要なときだけworkerを起動します。
+| 機能 | 動作 |
+| --- | --- |
+| 重要なGmailを拾う | 差分同期し、ラベル・送信元のルールと任意のHermesによるLLM判定で候補を選びます。LLM判定では署名や引用履歴などを除いた要約を届けます。 |
+| 今日・明日の予定を確認する | 指定したタイムゾーンで日次に取得します。終日・定期予定の各回に対応し、この取り込みでGoogle Calendarは変更しません。 |
+| 確認してから取り込む | Hermesが届けたTimelineの待機カードで「取り込む／取り込まない」を選びます。「取り込む」で初めて通常投稿・担当への振り分け・記憶の処理へ進み、待機中は検索や担当の処理へ入りません。 |
+| 不要なものを次回から除外する | 破棄時にメールの種類・完全一致の送信元、単発予定・定期予定全体を除外できます。Bridgeで解除でき、送信元と予定の除外はLLM判定より前に適用します。 |
+| Hermesへ直接頼む | MCPでメール検索・本文・スレッドや予定を読めます。追加権限があれば、本人の明示的な依頼で送信・返信・下書き保存・予定の作成／変更／削除もできます。取り込みとは別の操作で、直接依頼用ツールはWebでの再承認なしに実行します。 |
+
+```mermaid
+flowchart LR
+  Google[Gmail / Google Calendar] -->|OAuthで読み取り| Bridge[自分のGoogle Bridge]
+  Cron[自分のHermes cron] --> Worker[
+
+Gmail検索・本文・スレッド、Calendar一覧・予定取得、本人の直接依頼によるGmail送信/返信/下書き保存・Calendar作成/変更/削除に対応します。追加権限を使う`google_action_run`はWebでの再承認なしに実行するため、判定用cronからは除外してください。直接依頼による書き込みはHermesが本人の指示に従うことが前提で、サーバーは依頼の真正性を検証できません。Google OAuthと実Hermes接続を含むGmail・Calendarの取り込みは実環境で検証済みですが、送信・下書き・予定変更の各操作をすべて実環境で検証したわけではありません。重要メールの差分同期と、kakeratta Timelineへの取り込み待ち表示にも対応します。本人がTimelineで「取り込む」を選んで初めて通常投稿として処理し、「取り込まない」で削除します。定期実行は既存Hermes cronから行います。
+
+Hermes側の`google_bridge_worker.py`がBridgeから候補を取得し、LLMには選別・要約だけを任せます。担当の回答提出と同じように、判定の提出・kakeratta MCPへの候補配送・レシート確認・除外ルールの返却はPythonコードが行います。選別用セッションにMCP接続はありません。BridgeにはkakerattaのURL・キーを保存せず、直接通信しません。Hermesへ渡すメール・予定は、Hermesに設定したモデルにも送られます。取り込んだ予定はその時点の内容で、Google側の変更は既存カードや投稿へ自動反映しません。配送・確認だけの回と仕事がない回はLLMを使いません。cronは`--no-agent`付きでgateを動かし、gateが必要なときだけworkerを起動します。
 
 本人のHermesのscriptsへ`check_google_bridge.py`・`check_calendar_bridge.py`・`google_bridge_worker.py`を置きます。選別モデルの起動には、既存のkakeratta連携が配布する`direct_request_worker.py`のruntimeを使います。Google用workerは親Hermesのモデル設定を使い、資格情報は親の設定へ置いたまま、MCP・スキルなしの隔離セッションで1バッチ最大10件を判定します。判定結果を一時的なmode-0600ファイルへ保存してから提出し、通信失敗ではLLMを呼び直さず再提出します。
 

@@ -80,52 +80,9 @@ See [Design and integrations](#design-and-integrations) for which model does wha
 
 ## Gmail and Google Calendar
 
-[Google Bridge](tools/google-bridge/README.md) is a separate personal Web app and
-MCP server you run on your device or server. It uses your Google Cloud project
-and OAuth client, encrypts Google credentials in its own data directory, and
-can run without the kakeratta server.
-
-| Feature | How it works |
-| --- | --- |
-| Important Gmail | Incremental sync selects mail by labels and senders, with optional Hermes model triage; Hermes delivers the selected candidates. Model-selected mail is summarized without signatures or quoted history. |
-| Today and tomorrow's events | Daily Calendar intake uses your chosen timezone, including all-day and recurring occurrences. Intake never changes Google Calendar. |
-| Review before importing | Hermes sends selected mail and events to pending Timeline cards. Choose Import or Discard; only Import starts normal posting, persona routing and memory processing. Pending cards stay out of timeline search and persona processing. |
-| Adjustable exclusions | Discard can also exclude a mail type or exact sender, or a single event or recurring series. Remove rules in Bridge; sender and event exclusions run before model triage. |
-| Ask Hermes directly | Search Gmail, read messages and threads, or look up events over MCP. With extra Google scopes, an explicit owner request can send/reply/save a draft or create/change/delete an event. Direct-request writes run without a second Web approval and are separate from intake. |
-
-```mermaid
-flowchart LR
-  Google[Gmail / Google Calendar] -->|OAuth: read| Bridge[Your Google Bridge]
-  Cron[Your Hermes cron] --> Worker[Hermes worker: code]
-  Worker <-->|Sync / candidates / decisions| Bridge
-  Worker <-->|Select and summarize only| Model[Hermes model]
-  Worker -->|Candidates over kakeratta MCP| Pending[Timeline: pending review]
-  Pending -->|Actual receipts via worker code| Worker
-  Owner[You] -->|Import / Discard| Pending
-  Pending -->|Import| Posts[Posts → personas → memory]
-  Owner -->|Explicit direct request| Direct[Your Hermes agent]
-  Direct -->|Write tool with extra scopes| Bridge
-  Bridge -->|Requested send / event change| Google
-```
-
-The Hermes worker owns both MCP connections. Like persona-answer submission,
-Python code fetches candidates, submits classification results, delivers cards,
-and polls and returns actual review receipts. The LLM only selects and summarizes;
-its isolated session has no MCP connections or delivery tools. Bridge never stores
-a kakeratta URL/key or contacts kakeratta. Existing Hermes cron runs the gate with
-`--no-agent`; delivery-only and idle runs use no model tokens.
-Content passed to Hermes also reaches its configured model. Imported events
-are snapshots: later Google edits do not update existing cards or posts.
-Direct-request writes rely on Hermes following the owner's instructions; the
-server cannot verify the request's origin, so triage jobs should exclude write tools.
-
-<img src="docs/captures/google-bridge/en/gmail.png" alt="Google Bridge showing a selected reservation email waiting for Hermes to relay" width="620">
-<img src="docs/captures/google-bridge/en/calendar.png" alt="Google Bridge showing events waiting for Hermes to relay" width="620">
-
-Screenshots show the shipped Japanese UI after sync with sample API responses,
-not a live Google account. See the [advanced setup guide](https://kakeratta.net/manual/?guide=advanced&lang=en#en-google)
-and [detailed setup and recovery](docs/guides/google.md).
-The project owner has verified live Gmail and Calendar integration, including Google OAuth and Hermes connectivity; the hackathon gallery has been updated with captures from that verification.
+[Google Bridge](tools/google-bridge/README.md) is an optional companion app you run yourself with your own Google Cloud OAuth client.
+Hermes picks out important mail and today's and tomorrow's events and delivers them to the Timeline as cards awaiting review; nothing reaches personas or memory until you choose **Import**.
+See the [setup guide](docs/guides/google.md) for screenshots, the data flow and setup.
 
 ## Run locally
 
@@ -192,7 +149,8 @@ execution model and [deployment](infra/README.md) for infrastructure settings.
 ## Design and integrations
 
 The backend is Go and the browser app is JavaScript. NVIDIA Nemotron models
-through Nebius Token Factory provide routing, answers and workflow checks.
+through Nebius Token Factory provide routing, answers and workflow checks;
+GLM and Qwen models on the same platform read images and power meaning search.
 The default model configuration is:
 
 | Model | Role |
@@ -201,6 +159,13 @@ The default model configuration is:
 | **Nemotron 3 Super 120B A12B** | Persona routing, reads and ordinary answers, and the note keeper |
 | **Nemotron 3.5 Super VL 120B A12B** | Research for deep requests and Always think deeply, schedule planning and workflow checks, answers for personas with Always think deeply enabled, daily and monthly check-ins, the daily memory pass, and the day's and month's summaries |
 | **Nemotron 3 Ultra 550B A55B** | Answers for deep requests (such as "in detail") |
+| **GLM-5.3-Flash** | Reading attached screenshots and photos, once per post |
+| **Qwen3-Embedding-8B** | Embeddings for meaning search over past fragments |
+
+Measured in production, the first two single-persona posts after this assignment
+cost **$0.0028 and $0.0037** each (about ¥0.44–0.58), including routing, answering
+and memory, and finished in six to seven seconds: roughly 60–70% less than the
+earlier $0.009 per post.
 
 OpenRouter is an optional alternative. Models are chosen by task to benefit
 from smaller models' lower cost and faster responses, using stronger models

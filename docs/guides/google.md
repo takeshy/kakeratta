@@ -6,6 +6,23 @@ Google Bridge is a **separate Web app that each user runs on their own device or
 
 It supports reads and, on the owner's direct request, sending/replying to email, saving drafts, and creating/updating/deleting Calendar events. Source and tests are in `tools/google-bridge/`. Incremental sync, rule-based importance filtering, Hermes selection and summarization, and candidate delivery to the kakeratta Timeline are also supported. Items enter normal posting, search, persona and memory processing only after the owner chooses **Import** in the Timeline.
 
+## What it does
+
+| Feature | How it works |
+| --- | --- |
+| Important Gmail | Incremental sync selects mail by labels and senders, with optional Hermes model triage; Hermes delivers the selected candidates. Model-selected mail is summarized without signatures or quoted history. |
+| Today and tomorrow's events | Daily Calendar intake uses your chosen timezone, including all-day and recurring occurrences. Intake never changes Google Calendar. |
+| Review before importing | Hermes sends selected mail and events to pending Timeline cards. Choose Import or Discard; only Import starts normal posting, persona routing and memory processing. Pending cards stay out of timeline search and persona processing. |
+| Adjustable exclusions | Discard can also exclude a mail type or exact sender, or a single event or recurring series. Remove rules in Bridge; sender and event exclusions run before model triage. |
+| Ask Hermes directly | Search Gmail, read messages and threads, or look up events over MCP. With extra Google scopes, an explicit owner request can send/reply/save a draft or create/change/delete an event. Direct-request writes run without a second Web approval and are separate from intake. |
+
+Content passed to Hermes also reaches its configured model. Imported events are snapshots: later Google edits do not update existing cards or posts. Direct-request writes rely on Hermes following the owner's instructions; the server cannot verify the request's origin, so triage jobs should exclude write tools.
+
+<img src="../captures/google-bridge/en/gmail.png" alt="Google Bridge showing a selected reservation email waiting for Hermes to relay" width="620">
+<img src="../captures/google-bridge/en/calendar.png" alt="Google Bridge showing events waiting for Hermes to relay" width="620">
+
+The screenshots show the shipped UI after sync with sample API responses, not a live Google account. Retake them with `node tools/google-bridge/captures.mjs`. The [advanced manual](https://kakeratta.net/manual/?guide=advanced&lang=en#en-google) walks through the same setup with illustrations.
+
 ## Start Bridge
 
 Use Go 1.26 and this repository. The frontend is embedded in the Go binary, so npm and a separate Web server are unnecessary. The CLI supports Linux/macOS; use WSL on Windows. Run these commands from the repository root, with [mise](https://mise.jdx.dev) and the repository's Go toolchain installed:
