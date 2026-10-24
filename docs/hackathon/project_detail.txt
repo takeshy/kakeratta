@@ -1,20 +1,18 @@
 ## Inspiration
 
-People say I'm a genius at forgetting things.
+My mother calls me a genius at forgetting things.
 
-Even things I tell myself I must remember slip away. I tried keeping notes, but then I forgot the notebook. When I got a smartphone, I tried one note app after another. (Of course, I sometimes forget the phone itself.)
+Even things I tell myself I absolutely must remember somehow slip away.
 
-I even built an app that used AI to organize my notes automatically. It didn't work as I had hoped. It felt like having someone else clean your room: everything was tidier, but I no longer knew where anything was. When I had put things away myself, I kept a rough sense of where they were. Yet once there is enough information, leaving it scattered means some of it is simply lost.
+And nobody writes notes about the things they carry every day. Writing "don't forget your phone" on your phone feels absurd.
 
-And nobody writes notes about the things they carry every day. Writing "don't forget your phone" in your phone feels absurd.
+In old Japanese family dramas, there was a scene I always envied: as the husband heads out, his wife asks him at the door, "Do you have your handkerchief?" Today's AI is smart enough. Couldn't it do the same thing?
 
-In old Japanese family dramas, there was a scene I always envied: as the husband heads out, his wife asks him at the door, "Do you have your handkerchief?" Today's AI is capable enough. Couldn't it do the same thing?
+One of my biggest regrets is also a kind of forgetting. I lost touch with someone important who had always looked out for me. I was busy, lost the note with their contact information, and by the time I thought to thank them, many years had passed. If I had realized sooner, I could have called their workplace and asked how to reach them again.
 
-One of my biggest regrets is also a kind of forgetting. I lost touch with someone important who had always looked out for me. I was busy, I lost the note with their contact details, and I never thanked them before a long time had passed. If I had noticed sooner, I could have called their workplace and asked for their contact again.
+If I could remember the important things I've forgotten, when I need them, my life would be so much better.
 
-If I stopped forgetting things, my life would be a great deal better.
-
-That is why I built kakeratta.
+That's why I built kakeratta.
 
 ## What it does
 
@@ -93,6 +91,8 @@ Super became the default router at 22% of Ultra's cost. Lightning was cheaper bu
 **Model assignment.** Super now handles routing, everyday answers, and memory. Super VL handles direct built-in `@ai` questions, plus more demanding or less frequent tasks such as deep research, schedule review, check-ins, and summaries. Ultra is reserved for final deep answers. This keeps routine posts cheap without giving up stronger reasoning where it matters.
 
 **The result:** The first two single-persona production posts after these changes cost $0.0028 (about 0.44 yen) and $0.0037 (about 0.58 yen), including routing, answering, and memory. Both finished in six to seven seconds. Compared with the earlier $0.009 per post, that's a cost reduction of roughly 60–70%, bringing these everyday posts well below the 1 yen threshold that made me hesitate.
+
+Heavier requests cost more by design. A direct @ai question is a research request, so it runs on Super VL to support thorough research, at about $0.005–0.020. A post that also creates a schedule costs about $0.010–0.020, because planning and review run as separate stages only when needed.
 
 *Costs converted at approximately ¥156/USD.*
 
