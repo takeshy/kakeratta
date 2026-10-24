@@ -24,7 +24,7 @@ about, remember what matters to them and speak up when it matters.
 [Manual](https://kakeratta.net/manual/?lang=en) ·
 [Design](docs/design/technical.md)
 
-[![Watch the kakeratta demo on YouTube](https://img.youtube.com/vi/fdUYDI6Sd70/hqdefault.jpg)](https://youtu.be/fdUYDI6Sd70)
+[![Watch the kakeratta demo on YouTube](https://img.youtube.com/vi/fdUYDI6Sd70/hqdefault.jpg)](https://youtu.be/7BB3MnY8uBI)
 
 <img src="docs/captures/en/timeline.png" alt="Your fragments and the personas' replies on the timeline" width="390">
 
