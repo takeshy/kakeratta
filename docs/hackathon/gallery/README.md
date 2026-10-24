@@ -25,7 +25,7 @@ The ZIP contains only the fifteen upload images.
 | 9 | `09-room-for-a-new-interest.png` | A growing subject prompts a suggestion; one tap adds a persona with its profile and memory |
 | 10 | `10-find-and-reflect.png` | Search finds details; monthly summaries connect themes |
 | 11 | `11-teach-the-response.png` | Inspect routing and preview a revised reply |
-| 12 | `12-bring-your-agents.png` | Bring Obsidian knowledge and Hermes into the timeline |
+| 12 | `12-bring-your-agents.png` | Choose built-in @ai or external @agent; bring Obsidian knowledge into replies |
 | 13 | `13-speak-and-listen.png` | Browser: Speak → say over → automatic post → Read aloud; Alexa: save notes, hear replies, check schedules |
 | 14 | `14-make-and-share-a-visual.png` | Turn a conversation into a visual and preview selected sharing |
 | 15 | `15-purposeful-models-visible-usage.png` | Understand model roles and inspect monthly persona usage |
@@ -45,6 +45,8 @@ Crops end on element or line boundaries; the one deliberately cut answer
 (slide 12) fades out.
 
 ## Sources and limits
+
+Slide 12 introduces built-in `@ai` questions and external `@agent` requests. The built-in entry also handles app-help questions through the shipped specification; it only reads and answers. Slide 15 includes ordinary direct `@ai` questions in the Super VL role. Presentation copy describes these capabilities; the Vault screenshot remains a local fictional external-planner example, not a live test of direct requests.
 
 The screenshots use shipped application components over local fictional data.
 They are reproducible UI examples, not proof of production model output or

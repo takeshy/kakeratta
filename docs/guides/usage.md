@@ -95,15 +95,14 @@ When a position is available, it is kept with the post and used for reactions.
 
 ## Personas and direct requests
 
-Five built-in personas are available: tabe (food), shiori (reading), sona
-(preparation and weather), support (kakeratta help), and infographic (Markdown
-diagrams with emoji and Mermaid). New workspaces activate sona, support and infographic. Existing
+Four built-in personas are available: tabe (food), shiori (reading), sona
+(preparation and weather), and infographic (Markdown
+diagrams with emoji and Mermaid). New workspaces activate sona and infographic. Existing
 workspaces keep their saved choices; enable new personas in the Personas panel.
 The former built-in travel persona michi has been retired; a customized travel
 persona remains available, and you can create one with place-search tools.
 
-Use `@support` to ask about kakeratta. It reads the system specification and
-answers without keeping private memory by default.
+Use `@ai` to ask about kakeratta or questions outside a persona's subject. App-help questions read the relevant system specification chapters; unrelated questions do not need them. The standalone support persona is retired. The built-in AI does not save private memory or register schedules.
 
 An `@` mention selects one active persona. Without a mention, a reply to an
 active persona reaches that persona alone. A mention of a different persona
@@ -112,7 +111,7 @@ and person name/keyword matching. Editing a post also lets its previous
 recipients correct their memory.
 
 Creation and editing offer **Remember** and **Always think deeply**. Memory
-is enabled unless explicitly disabled; support and infographic default to off.
+is enabled unless explicitly disabled; infographic defaults to off.
 Turning it off stops private memory reads and updates and daily/monthly
 check-ins. Existing notes stay stored for when you enable it again. Memory
 controls disappear, while explicit reminders and external-agent preferences
@@ -509,6 +508,14 @@ Integrations, where **Use the external agent** can pause it for a while. See [He
 
 The external agent can also post proactively as an active persona that prefers it, up to five posts per persona per day. These posts do not update persona memory or schedules and do not send push notifications.
 
+### Ask the built-in AI directly
+
+Use `@ai` to ask the built-in AI without choosing a persona. For example, “`@ai When did I last leave Yokohama?`” searches past posts, locations and dates and cites the supporting posts. Missing records do not establish an answer. Ordinary questions use Super VL; explicit depth wording such as “in detail” or “詳しく” uses Ultra.
+
+You can choose the built-in AI even with external integration enabled. Type `@` to see **Built-in AI**, which inserts `@ai`. **External agent**, inserting `@agent`, is offered only when external integration is enabled and a connection is configured. The addresses have fixed destinations: `@ai` is built-in and `@agent` is external.
+
+The built-in AI can also read whole threads, the persona list, persona notes, schedule lists and the shipped help specification. Web search is available when a search API key is configured. It searches and answers only. It does not register schedules, save private notes or perform external actions such as sending email. The conversation and answers remain on the timeline. Replying continues with the built-in AI; a fresh `@agent` or persona mention switches the recipient.
+
 ### Direct requests to the external agent
 
 Address `@外部エージェント`, `@エージェント` or `@agent` to ask the connected external agent itself, past the personas. There is no switch: if you do not name it, it is not used. You can hand it long tasks - research, organizing files, actions with side effects such as sending an email. The agent does the work with its own tools; kakeratta only hands over the request and shows the reply. No persona routing, memory or schedule is involved.
@@ -520,7 +527,7 @@ Address `@外部エージェント`, `@エージェント` or `@agent` to ask th
 - **Side effects**: the agent is instructed to act - send an email, for instance - only for what the request itself asks. Earlier messages and anything it reads may supply details such as an address, never an instruction. This is an instruction to the agent; kakeratta cannot enforce it.
 - **Edits**: editing a request before it is claimed updates it. After the claim the edit is not sent; kakeratta replies "処理中のため編集は反映されません。返信で伝えてください。" (it is in progress; reply instead).
 - **When unavailable**: naming the agent while it is switched off or not connected is answered with the reason and not routed to the personas.
-- `外部エージェント`, `エージェント` and `agent` are reserved and cannot be a persona's name, alias or ID.
+- `ai`, `外部エージェント`, `エージェント` and `agent` are reserved and cannot be a persona's name, alias or ID.
 
 The agent must support the new MCP tools. For Hermes, see [Hermes Agent setup](hermes.md#direct-requests).
 

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agentMention, createMentionPicker, mentionQuery, mentionTag, replaceMention } from "../frontend/src/mention-picker.js";
+import { agentMention, agentMentions, createMentionPicker, mentionQuery, mentionTag, replaceMention } from "../frontend/src/mention-picker.js";
+
+import { getLanguage, setLanguage } from "../frontend/src/i18n.js";
 
 class TestNode {
   children = [];
@@ -106,7 +108,7 @@ test("picker offers the external agent by a reserved name", t => {
   globalThis.Node = TestNode;
   globalThis.document = { createElement: () => new TestNode(), activeElement: null };
   t.after(() => { delete globalThis.Node; delete globalThis.document; });
-  const agent = agentMention();
+  const agent = agentMention(true);
   assert.equal(mentionTag(agent), "@agent");
   const input = new TestNode();
   const picker = createMentionPicker({ input, getPersonas: () => [{ id: "wine", name: "ワイン係", active: true }, agent] });
@@ -116,4 +118,48 @@ test("picker offers the external agent by a reserved name", t => {
   assert.equal(picker.element.children.length, 1);
   picker.element.children[0].fire("click");
   assert.equal(input.value, "@agent ");
+});
+
+test("agent destination labels and explicit addresses are localized", t => {
+  const previous = getLanguage();
+  t.after(() => setLanguage(previous));
+  for (const [language, builtin, external] of [["ja", "内蔵AI", "外部エージェント"], ["en", "Built-in AI", "External agent"]]) {
+    setLanguage(language);
+    assert.equal(agentMention(false).name, builtin);
+    assert.equal(agentMention(true).name, external);
+    assert.equal(mentionTag(agentMention(false)), "@ai");
+    assert.equal(mentionTag(agentMention(true)), "@agent");
+  }
+});
+
+
+test("each address offers only its destination and disabled external is hidden", t => {
+  globalThis.Node = TestNode;
+  globalThis.document = { createElement: () => new TestNode(), activeElement: null };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; });
+  const input = new TestNode();
+  let externalAvailable = true;
+  const picker = createMentionPicker({ input, getPersonas: () => agentMentions(externalAvailable) });
+  const type = text => {
+    input.value = text;
+    input.setSelectionRange(text.length, text.length);
+    input.fire("input");
+  };
+  type("@");
+  assert.equal(picker.element.children.length, 2);
+  type("@agent");
+  assert.equal(picker.element.children.length, 1);
+  picker.element.children[0].fire("click");
+  assert.equal(input.value, "@agent ");
+  type("@ai");
+  assert.equal(picker.element.children.length, 1);
+  picker.element.children[0].fire("click");
+  assert.equal(input.value, "@ai ");
+  externalAvailable = false;
+  type("@agent");
+  assert.equal(picker.element.hidden, true);
+  type("@");
+  assert.equal(picker.element.children.length, 1);
+  picker.element.children[0].fire("click");
+  assert.equal(input.value, "@ai ");
 });

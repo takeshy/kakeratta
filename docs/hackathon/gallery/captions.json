@@ -104,8 +104,8 @@
   },
   {
     "file": "images/12-bring-your-agents.png",
-    "title": "External agents, in the same personal timeline.",
-    "caption": "Connect Hermes or Obsidian LLM Connect Hub through MCP. A persona can use an external planner, and explicit @agent or @hermes posts can address the connected agent directly. The captured response is an Obsidian Vault example.",
+    "title": "Choose your AI, in the same personal timeline.",
+    "caption": "Ask @ai for built-in answers across posts, persona notes and schedules, with configured Web search and app help from the shipped specification. It does not save notes, change schedules or perform external actions. @agent addresses a configured, enabled external connection such as Hermes or Obsidian LLM Connect Hub; it is hidden from suggestions when disabled. Personas can still prefer an external planner. The captured response is an Obsidian Vault example.",
     "sources": [
       "../../captures/en/gallery-vault.png",
       "../../system/integrations.md"
@@ -141,7 +141,7 @@
   {
     "file": "images/15-purposeful-models-visible-usage.png",
     "title": "Purposeful model choices. Usage you can inspect.",
-    "caption": "On the shipped Nebius configuration, Nemotron 3 Super handles routing and ordinary reads, answers and memory notes; 3.5 Super VL handles deep reads, always-deep answers, schedule planning/review and daily work; Ultra composes explicit deep-request final answers. Persona usage exposes monthly cost and search counts. Displayed usage is synthetic sample data, not production billing.",
+    "caption": "On the shipped Nebius configuration, Nemotron 3 Super handles routing and ordinary reads, answers and memory notes; 3.5 Super VL handles ordinary direct @ai questions, deep reads, always-deep answers, schedule planning/review and daily work; Ultra composes explicit deep-request final answers. Persona usage exposes monthly cost and search counts. Displayed usage is synthetic sample data, not production billing.",
     "sources": [
       "../../captures/en/gallery-usage.png",
       "../../system/personas.md"

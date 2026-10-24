@@ -158,7 +158,7 @@ func (s *Server) pushEntry(data any) {
 		log.Printf("push: could not read subscriptions: %v", err)
 		return
 	}
-	payload, _ := json.Marshal(pushPayload(entry, s.runner.SpeakerNames(ctx)[entry.Speaker], s.mcpWorkspace()))
+	payload, _ := json.Marshal(pushPayload(entry, authorOf(entry, s.runner.SpeakerNames(ctx)), s.mcpWorkspace()))
 	options.Topic = pushID(entry.ID)[:32]
 	var deliveries sync.WaitGroup
 	for id, raw := range records {

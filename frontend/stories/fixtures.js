@@ -6,8 +6,6 @@ const minutes = (n) => new Date(Date.now() - n * 60000).toISOString();
 
 // michi is a sample user-created travel persona; it no longer ships with the app.
 export const personas = [
-  { id: "support", name: "support", icon: "🛟", builtin: true, active: true, wakes: 0, planner: "builtin",
-    domain: "kakerattaの使い方・仕様・設定・困りごと。", tools: ["kakeratta_help"] },
   { id: "gourmet", name: "tabe", icon: "🍜", builtin: true, active: true, wakes: 12, planner: "builtin",
     domain: "食事。店、味の好み、食べた記録。", tools: ["place_search", "web_search"],
     tone: "丁寧で、少し長め。おすすめを添える。", instructions: "食べた店と味の感想を覚える。似た店を三つまで勧める。" },

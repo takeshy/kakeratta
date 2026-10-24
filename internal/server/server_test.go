@@ -205,7 +205,7 @@ func TestAFragmentCanMentionOnlyOnePerson(t *testing.T) {
 	}
 
 	postRecorder := httptest.NewRecorder()
-	server.ServeHTTP(postRecorder, posted(t, "@tabe @support どっちに聞こう"))
+	server.ServeHTTP(postRecorder, posted(t, "@tabe @shiori どっちに聞こう"))
 	if postRecorder.Code != http.StatusBadRequest || !strings.Contains(postRecorder.Body.String(), "1人だけ") {
 		t.Fatalf("post status = %d: %s", postRecorder.Code, postRecorder.Body.String())
 	}
@@ -214,7 +214,7 @@ func TestAFragmentCanMentionOnlyOnePerson(t *testing.T) {
 	server.ServeHTTP(valid, posted(t, "@tabe 質問"))
 	var post timeline.Entry
 	_ = json.Unmarshal(valid.Body.Bytes(), &post)
-	body, _ := json.Marshal(map[string]string{"replyTo": post.ID, "text": "@tabe @support どっちも"})
+	body, _ := json.Marshal(map[string]string{"replyTo": post.ID, "text": "@tabe @shiori どっちも"})
 	replyRecorder := httptest.NewRecorder()
 	server.ServeHTTP(replyRecorder, httptest.NewRequest(http.MethodPost, "/api/reply", bytes.NewReader(body)))
 	if replyRecorder.Code != http.StatusBadRequest || !strings.Contains(replyRecorder.Body.String(), "1人だけ") {

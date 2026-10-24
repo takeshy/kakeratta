@@ -221,3 +221,17 @@ func TestPushPayload(t *testing.T) {
 		t.Fatalf("unnamed speaker: %v", got)
 	}
 }
+
+// The built-in AI's answer is titled with its own name, not the agent's.
+func TestAuthorOfTellsTheBuiltinAIFromTheAgent(t *testing.T) {
+	names := map[string]string{timeline.Agent: "Hermes"}
+	if got := authorOf(timeline.Entry{Speaker: timeline.Agent, Model: "super", Language: "en"}, names); got != "Built-in AI" {
+		t.Fatalf("built-in = %q", got)
+	}
+	if got := authorOf(timeline.Entry{Speaker: timeline.Agent}, names); got != "Hermes" {
+		t.Fatalf("agent = %q", got)
+	}
+	if got := authorOf(timeline.Entry{Speaker: "gone"}, names); got != "gone" {
+		t.Fatalf("unknown = %q", got)
+	}
+}

@@ -162,9 +162,9 @@ func TestAlexaPostsRepliesSchedulesAndIsolation(t *testing.T) {
 	}
 	root := entries[0].ID
 	for _, entry := range []timeline.Entry{
-		{ID: "reply-1", Root: root, Kind: timeline.KindRemark, Speaker: "support", Text: "**散歩**を楽しんでください。", At: time.Now()},
+		{ID: "reply-1", Root: root, Kind: timeline.KindRemark, Speaker: "routine", Text: "**散歩**を楽しんでください。", At: time.Now()},
 		{ID: "other-root", Root: "other-root", Kind: timeline.KindPost, Speaker: timeline.User, Text: "別の話", At: time.Now()},
-		{ID: "reply-2", Root: "other-root", Kind: timeline.KindRemark, Speaker: "support", Text: "別の返事です", At: time.Now()},
+		{ID: "reply-2", Root: "other-root", Kind: timeline.KindRemark, Speaker: "routine", Text: "別の返事です", At: time.Now()},
 	} {
 		if err := st.Append(entry); err != nil {
 			t.Fatal(err)
@@ -176,13 +176,20 @@ func TestAlexaPostsRepliesSchedulesAndIsolation(t *testing.T) {
 	if !strings.Contains(w.Body.String(), "散歩を楽しんで") || strings.Contains(w.Body.String(), "別の返事") || strings.Contains(w.Body.String(), "**") {
 		t.Fatalf("replies: %s", w.Body)
 	}
+	// The built-in AI's answer is said under its own name, not the agent's.
+	if err := st.Append(timeline.Entry{ID: "reply-3", Root: root, Kind: timeline.KindReply, Speaker: timeline.Agent, Model: "super", Text: "答えです", At: time.Now().Add(time.Second)}); err != nil {
+		t.Fatal(err)
+	}
+	if w = invoke(); !strings.Contains(w.Body.String(), "内蔵AIから。答えです") {
+		t.Fatalf("built-in reply: %s", w.Body)
+	}
 	settings := st.Settings()
 	settings.TimeZone = "Asia/Tokyo"
 	if err := st.SaveSettings(settings); err != nil {
 		t.Fatal(err)
 	}
 	at := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Minute)
-	if _, err := st.SaveSchedule(store.Schedule{Skill: "support", At: at, Note: "散歩に行く"}); err != nil {
+	if _, err := st.SaveSchedule(store.Schedule{Skill: "routine", At: at, Note: "散歩に行く"}); err != nil {
 		t.Fatal(err)
 	}
 	e.Request.Intent.Name = "ReadSchedulesIntent"

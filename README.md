@@ -60,18 +60,19 @@ A direct `@` mention or reply to an active persona reaches that persona alone;
 otherwise, interests receive posts by routing conditions and people by names
 and keywords. A mention takes precedence over the persona being replied to.
 
-Five personas ship with the app:
+Four personas ship with the app:
 
 | Persona | Role | Active in new workspaces |
 | --- | --- | --- |
 | **tabe** | Food and dining | No |
 | **shiori** | Reading and books | No |
 | **sona** | Preparation, belongings, weather and small follow-ups | Yes |
-| **support** | kakeratta questions, answered from the system specification | Yes |
 | **infographic** | Markdown diagrams with emoji and Mermaid for text, expanded articles, interpreted images and answers | Yes |
 
+Ask `@ai` for kakeratta help or questions across subjects. It reads the relevant specification chapters for app questions and does not save notes or register schedules. `@agent` asks your connected external agent.
+
 Creation and editing offer **Remember** and **Always think deeply**.
-**Remember** is on by default (off for support and infographic); turning it
+**Remember** is on by default (off for infographic); turning it
 off stops memory updates and periodic check-ins. **Always think deeply**
 uses a stronger model for final answers (on by default for infographic).
 A request that says "in detail" uses the strongest answer model in the default configuration.
@@ -228,7 +229,7 @@ Browse the [documentation index](docs/README.md) for all guides, design notes, a
 | [Manual](https://kakeratta.net/manual/?lang=en) | Illustrated instructions for everyday use |
 | [Usage and configuration](docs/guides/usage.md) | Local commands, settings, data and portability |
 | [Under the hood](docs/design/technical.md) | Design, routing, models, memory, tools and self-hosting |
-| [System implementation](docs/system/index.md) | Source-linked subsystem specifications, also used by support |
+| [System implementation](docs/system/index.md) | Source-linked subsystem specifications, also read by the built-in AI |
 | [AI lessons](docs/design/ai-lessons.md) | Failures observed in development and how they were addressed |
 | [External agents](docs/guides/hermes.md) | Hermes and LLM Connect Hub setup, MCP permissions, fallback and direct `@agent` requests |
 | [Gmail and Calendar setup](docs/guides/google.md) | Personal Google Bridge, OAuth, reviewed imports and Hermes cron |

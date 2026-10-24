@@ -14,10 +14,11 @@ The content is defined in [judge_seed.json](../../internal/server/judge_seed.jso
 | Mei 👩 | `mei` | Yes | Built-in | Remember the fictional friend's preferences and plans, without impersonating her | Mei's light, fruity red preference |
 | Dad 👨 | `dad` | Yes | Built-in | Gift history, interests and unfinished plans concerning Dad | Previous gifts and a proposed whisky gift |
 | sona 🎒 | `routine` | Yes | Built-in | Outing preparation and requested follow-ups; checks forecasts only when relevant | None |
-| support 🛟 | `support` | Yes | Built-in | App help grounded in the shipped system specification | Memory disabled |
 | infographic 📊 | `infographic` | Yes | Built-in | Explicit requests to visualize existing material with Markdown, emoji and Mermaid | Memory disabled |
 | shiori 📚 | `book` | No | Built-in | Books, reading impressions and literary questions | None |
 | Goldfish 🐟 | `goldfish-care` | No | Built-in | Tank observations, feeding, water quality and care questions | None |
+
+App help is available through `@ai`, which reads the relevant shipped specification chapters. The standalone support persona is retired.
 
 All names, descriptions, instructions and memory content are English. The internal memory file retains the parser's fixed headings; the English memory view localizes those headings.
 

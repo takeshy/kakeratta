@@ -132,7 +132,7 @@ func TestRoutingCheckTriesThePostAgain(t *testing.T) {
 	if code, out := check("p", `{"persona":"book"}`); code != http.StatusOK || out["answered"] != false || out["error"] == "" {
 		t.Fatalf("no answer: %d %v", code, out)
 	}
-	if code, _ := check("p", `{"persona":"support"}`); code != http.StatusBadRequest {
+	if code, _ := check("p", `{"persona":"infographic"}`); code != http.StatusBadRequest {
 		t.Fatalf("inactive persona: %d", code)
 	}
 	if code, _ := check("p", `{}`); code != http.StatusBadRequest {

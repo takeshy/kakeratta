@@ -109,14 +109,14 @@ func run() error {
 	now := time.Now().UTC()
 	for _, entry := range []timeline.Entry{
 		{ID: "review-example", Root: "review-example", Kind: timeline.KindPost, Speaker: timeline.User, Text: "Example note: I would like to take a walk.", Language: "en", At: now.Add(-time.Minute)},
-		{ID: "review-example-reply", Root: "review-example", Kind: timeline.KindRemark, Speaker: "support", Text: "Example reply for testing: A short walk sounds like a good break. Enjoy some fresh air.", Language: "en", At: now},
+		{ID: "review-example-reply", Root: "review-example", Kind: timeline.KindRemark, Speaker: "routine", Text: "Example reply for testing: A short walk sounds like a good break. Enjoy some fresh air.", Language: "en", At: now},
 	} {
 		if err = workspace.Append(entry); err != nil {
 			return err
 		}
 	}
 	notify := false
-	if _, err = workspace.SaveSchedule(store.Schedule{Skill: "support", At: at, Note: "Review example: go for a walk", Notify: &notify, UserRequested: true}); err != nil {
+	if _, err = workspace.SaveSchedule(store.Schedule{Skill: "routine", At: at, Note: "Review example: go for a walk", Notify: &notify, UserRequested: true}); err != nil {
 		return err
 	}
 	fmt.Println("Review account and sample data created. Credentials are in the private output file.")

@@ -34,8 +34,23 @@ const User = "user"
 const App = "kakeratta"
 
 // Agent is the speaker of the external agent's replies to a request made to it
-// directly, outside the personas.
+// directly, outside the personas. The built-in AI's answers share it; their
+// Model is a slot rather than "agent" (see Entry.BuiltinAI).
 const Agent = "agent"
+
+// BuiltinAI reports whether the entry is the built-in AI's answer rather than
+// the external agent's reply.
+func (e Entry) BuiltinAI() bool {
+	return e.Speaker == Agent && e.Model != "" && e.Model != "agent"
+}
+
+// BuiltinAIName is the built-in AI's display name in a language.
+func BuiltinAIName(language string) string {
+	if language == "en" {
+		return "Built-in AI"
+	}
+	return "内蔵AI"
+}
 
 // SummaryMonth marks the app's summary of a month.
 const SummaryMonth = "month"

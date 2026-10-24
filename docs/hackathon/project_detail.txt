@@ -27,8 +27,9 @@ Just post a thought, photo, link, or voice note. Personas can remember details, 
 - **Memories have an ending.** Temporary memories can expire, while others come back for review: keep, postpone, or forget?
 - **Memory you can inspect.** Facts link back to your posts. You can see and correct what each persona remembers.
 - **Personas grow with your interests.** When a new topic builds up in a persona's memory, it suggests a dedicated persona at check-in. One tap on **Create it** drafts the new persona, moves the related memories to it, and narrows the original persona's routing so those posts reach only the new one.
+- **Ask your timeline.** Use `@ai` to recall past events, explore your notes and plans, search the Web, or get help with kakeratta.
 
-The demo video shows the core loop. The [README](https://github.com/takeshy/kakeratta) covers built-in personas, routing, models, `@agent` hand-off, and setup.
+The demo video shows the core loop. The [README](https://github.com/takeshy/kakeratta) covers built-in personas, routing, models, built-in `@ai` questions, external `@agent` requests, and setup.
 
 ## How we built it
 
@@ -38,7 +39,7 @@ The local version runs on plain files without Firebase. Both versions use the sa
 
 ### Replies, schedules, and memory are kept separate
 
-Each post passes through separate stages:
+Each persona response passes through separate stages:
 
 1. **Analyze and route.** Images and locations are analyzed once and shared across personas. Personas are selected by conditions or keywords, with routing reasons saved.
 2. **Reply or stay silent.** Nemotron 3 Super (Super) handles everyday posts. Deep requests use Nemotron 3.5 Super VL (Super VL) for research and Nemotron 3 Ultra (Ultra) for the final answer.
@@ -53,7 +54,7 @@ For advanced users who want to connect personal resources or execute external ac
 
 The included Google integration can periodically check Gmail and Google Calendar. User-defined rules and optional Hermes triage select relevant items. Gmail messages can be summarized, while Calendar events are formatted compactly. Candidates appear as review cards on the timeline, with links to their original sources. Only items explicitly approved by the user become normal posts available to personas and their memory.
 
-Credentials and external access stay in the user's environment. kakeratta retains control of scheduling, validation, and memory updates. Built-in models handle normal interactions and take over if Hermes doesn't respond in time.
+Credentials and external access stay in the user's environment. kakeratta retains control of scheduling, validation, and memory updates. Built-in models handle normal interactions and take over persona asks if Hermes does not respond in time.
 
 ### Every model call is measured
 
@@ -89,7 +90,7 @@ Super became the default router at 22% of Ultra's cost. Lightning was cheaper bu
 
 **Unnecessary work.** Logging every model call also revealed avoidable costs. Images and locations are analyzed once and shared. Schedule processing runs only when needed. Limiting Ultra to the final deep answer reduced one deep reply's cost by 48%. Moving the mechanics of claiming Hermes jobs from the model into code reduced its model calls from four to two, cutting cost by about 70%.
 
-**Model assignment.** Super now handles routing, everyday answers, and memory. Super VL handles more demanding or less frequent tasks such as deep research, schedule review, check-ins, and summaries. Ultra is reserved for final deep answers. This keeps routine posts cheap without giving up stronger reasoning where it matters.
+**Model assignment.** Super now handles routing, everyday answers, and memory. Super VL handles direct built-in `@ai` questions, plus more demanding or less frequent tasks such as deep research, schedule review, check-ins, and summaries. Ultra is reserved for final deep answers. This keeps routine posts cheap without giving up stronger reasoning where it matters.
 
 **The result:** The first two single-persona production posts after these changes cost $0.0028 (about 0.44 yen) and $0.0037 (about 0.58 yen), including routing, answering, and memory. Both finished in six to seven seconds. Compared with the earlier $0.009 per post, that's a cost reduction of roughly 60–70%, bringing these everyday posts well below the 1 yen threshold that made me hesitate.
 

@@ -4,8 +4,16 @@ import { getLanguage, setLanguage, t as translate } from "../frontend/src/i18n.j
 
 // The feed now imports the shared dictation transport, which subscribes to SSE.
 globalThis.EventSource = class { close() {} };
-const { SILENCE_NOTE_UNTIL, showsSilenceNote, createFeed } = await import("../frontend/src/feed.js");
+const { SILENCE_NOTE_UNTIL, showsSilenceNote, createFeed, isBuiltinAI } = await import("../frontend/src/feed.js");
 const { api } = await import("../frontend/src/api.js");
+
+// The built-in AI shares the agent's speaker; only its model slot tells them apart.
+test("built-in AI answers are told from the external agent's replies", () => {
+  assert.equal(isBuiltinAI({ speaker: "agent", model: "super" }), true);
+  assert.equal(isBuiltinAI({ speaker: "agent", model: "agent" }), false);
+  assert.equal(isBuiltinAI({ speaker: "agent" }), false);
+  assert.equal(isBuiltinAI({ speaker: "gourmet", model: "super" }), false);
+});
 
 // Silence is the design. A timeline with nothing in it yet cannot show that,
 // so the note is said while the timeline is new and stops once it is not.
@@ -221,6 +229,12 @@ test("the external agent's direct reply is drawn under its own name", (t) => {
   feed.setRequests([], "Hermes");
   const named = walk(walk(feed.element).find((node) => node["data-id"] === "a" || node.dataset?.id === "a"));
   assert.ok(named.some((node) => node.textContent === "Hermes"), "named by its connection");
+  feed.upsert({ id: "b", kind: "remark", root: "p", replyTo: "p", speaker: "agent", model: "super", text: "記録を確認しました", at });
+  feed.reveal("b");
+  const builtin = walk(walk(feed.element).find(node => node["data-id"] === "b" || node.dataset?.id === "b"));
+  assert.ok(builtin.some(node => node.textContent === translate("内蔵AI")), "built-in answer keeps its own label with an external connection configured");
+  assert.ok(!builtin.some(node => node.textContent === "Hermes"));
+
 });
 
 // A post asked of the external agent says whether it waits or is being worked

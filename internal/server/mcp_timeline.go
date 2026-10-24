@@ -25,6 +25,24 @@ func (s *Server) speakerNames(ctx context.Context) map[string]string {
 	return names
 }
 
+// authorOf is the display name of who said an entry: the built-in AI by its
+// own name, anyone else by their speaker's name, or the speaker id.
+func authorOf(entry timeline.Entry, names map[string]string) string {
+	if entry.BuiltinAI() {
+		return timeline.BuiltinAIName(entry.Language)
+	}
+	if name := names[entry.Speaker]; name != "" {
+		return name
+	}
+	return entry.Speaker
+}
+
+// mcpEntry is a timeline entry with its speaker's display name.
+type mcpEntry struct {
+	timeline.Entry
+	Author string `json:"author"`
+}
+
 // validEntryID is an ID a workspace could have given an entry. Anything else
 // names no entry, and is not passed on to the store as a document path.
 func validEntryID(id string) bool {
@@ -97,16 +115,17 @@ func (s *Server) mcpTimeline(ctx context.Context, a mcpArgs) (any, error) {
 	}
 	names := s.speakerNames(ctx)
 	authors := map[string]string{}
-	for _, entry := range entries {
-		if _, ok := authors[entry.Speaker]; !ok {
-			name := names[entry.Speaker]
-			if name == "" {
-				name = entry.Speaker
-			}
+	described := make([]mcpEntry, len(entries))
+	for i, entry := range entries {
+		name := authorOf(entry, names)
+		// The built-in AI shares the external agent's speaker id; it is named
+		// on its entries so a connected agent does not take them for its own.
+		if !entry.BuiltinAI() {
 			authors[entry.Speaker] = name
 		}
+		described[i] = mcpEntry{Entry: entry, Author: name}
 	}
-	result := map[string]any{"entries": entries, "authors": authors}
+	result := map[string]any{"entries": described, "authors": authors}
 	if page.Next != "" {
 		result["next"] = page.Next
 	}

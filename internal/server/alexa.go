@@ -266,7 +266,9 @@ func (s *Server) alexaReplies(w http.ResponseWriter, r *http.Request, attrs map[
 	}
 	entry := entries[0]
 	name := s.runner.SpeakerNames(r.Context())[entry.Speaker]
-	if entry.Speaker == timeline.Agent && s.activeMCPName() == "" {
+	if entry.BuiltinAI() {
+		name = voice.text(timeline.BuiltinAIName("ja"))
+	} else if entry.Speaker == timeline.Agent && s.activeMCPName() == "" {
 		// Without a connection the agent's generic name is said in the voice's language.
 		name = voice.text("外部エージェント")
 	}

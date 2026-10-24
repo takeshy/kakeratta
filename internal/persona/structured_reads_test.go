@@ -38,8 +38,9 @@ func readArgsSchema(t *testing.T, raw json.RawMessage, kind, name string) map[st
 }
 
 func TestStructuredReadArgumentsReachTimeline(t *testing.T) {
-	r, s, _ := setup(t, nil, "support")
-	skill, _ := r.catalogue.Find(context.Background(), "support")
+	r, s, _ := setup(t, nil, "book")
+	skill, _ := r.catalogue.Find(context.Background(), "book")
+	skill.MemoryEnabled = memoryDisabled()
 	skill.Tools = []string{"web_search"}
 	trigger := post(t, s, "期間検索で確かめる投稿")
 	researchCalls, answerCalls := 0, 0

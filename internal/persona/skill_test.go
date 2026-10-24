@@ -10,18 +10,33 @@ import (
 	"github.com/takeshy/kakeratta/internal/tools"
 )
 
-func TestSupportCanReadSpecificationsAndAnswerDirectMentions(t *testing.T) {
-	skill, ok := NewCatalogue(nil).Find(context.Background(), "support")
-	if !ok || !skill.Builtin || skill.IsPerson() || !skill.Answers("support") {
-		t.Fatalf("support persona = %+v, found = %t", skill, ok)
+func TestBuiltinAgentInheritsSupportAndSupportIsRetired(t *testing.T) {
+	ctx := context.Background()
+	workspace := skillStore(t, t.TempDir())
+	catalogue := NewCatalogue(workspace)
+	if _, ok := catalogue.Find(ctx, "support"); ok {
+		t.Fatal("support still ships separately")
+	}
+	if err := workspace.PersistSkill("support", []byte(`{"id":"support","name":"support","domain":"legacy help"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if active := catalogue.Active(ctx, []string{"support", "routine"}); len(active) != 1 || active[0].ID != "routine" {
+		t.Fatalf("legacy support active: %+v", active)
+	}
+	skill := builtinAgent()
+	if skill.Remembers() || !strings.Contains(skill.Instructions, "その場合だけ") || !strings.Contains(skill.Instructions, "index.md") || !strings.Contains(skill.Instructions, "秘密のキー") {
+		t.Fatal("support instructions were not transferred")
 	}
 	set := tools.New(tools.Config{}).For(skill.Tools).As(skill.ID)
-	if !set.IsReadOnly("kakeratta_help") || set.Allows("schedule") || set.Allows("web_search") {
-		t.Fatalf("support capabilities = %v", set.Declarations())
+	if !set.IsReadOnly("kakeratta_help") || set.Allows("schedule") {
+		t.Fatal("support read permission missing or writes enabled")
 	}
-	result, err := set.Run(context.Background(), "kakeratta_help", tools.Args{}, nil)
+	result, err := set.Run(ctx, "kakeratta_help", tools.Args{}, nil)
 	if err != nil || !strings.Contains(result.Text, `okf_version: "0.2"`) {
-		t.Fatalf("support cannot read its specification: %+v, %v", result, err)
+		t.Fatalf("specification read: %+v, %v", result, err)
+	}
+	if err := Validate(Skill{ID: "support", Name: "support", Domain: "help"}, nil); err == nil {
+		t.Fatal("retired ID was accepted")
 	}
 }
 
@@ -31,7 +46,7 @@ func TestMichiIsRetiredAndUserTravelDefinitionsRemainAvailable(t *testing.T) {
 	if _, ok := catalogue.Find(ctx, "move"); ok {
 		t.Fatal("michi still ships as a built-in persona")
 	}
-	if active := catalogue.Active(ctx, []string{"move", "support"}); len(active) != 1 || active[0].ID != "support" {
+	if active := catalogue.Active(ctx, []string{"move", "book"}); len(active) != 1 || active[0].ID != "book" {
 		t.Fatalf("saved retired activation = %+v", active)
 	}
 	raw, err := json.Marshal(testTravelSkill)
@@ -95,6 +110,8 @@ func TestInstallRefusesWhatItCannotTrust(t *testing.T) {
 		"内蔵と同じID":    `{"id":"gourmet","name":"x","domain":"y","model":"low"}`,
 		"知らない道具":     `{"id":"ok","name":"x","domain":"y","model":"low","tools":["nuke"]}`,
 		// The names the external agent answers to are reserved.
+		"内蔵AIの予約ID":        `{"id":"ai","name":"x","domain":"y","model":"low"}`,
+		"内蔵AIの予約名":         `{"id":"ok","name":"AI","domain":"y","model":"low"}`,
 		"予約されたID":          `{"id":"agent","name":"x","domain":"y","model":"low"}`,
 		"予約された名前 agent":    `{"id":"ok","name":"Agent","domain":"y","model":"low"}`,
 		"予約された名前 エージェント":   `{"id":"ok","name":"エージェント","domain":"y","model":"low"}`,
@@ -295,5 +312,23 @@ func TestReservedNamesAreCheckedOnlyWhenWritten(t *testing.T) {
 	}
 	if err := Validate(Skill{ID: "ok", Name: "AGENT", Domain: "y"}, nil); err == nil || !strings.Contains(err.Error(), "予約") {
 		t.Fatalf("a draft took a reserved name: %v", err)
+	}
+}
+
+func TestDirectAgentNamesCannotBePersonaNamesOrAliases(t *testing.T) {
+	for _, name := range []string{"ai", "AI", "ａｉ", "ＡＩさん", "agent", "AGENT", "ａｇｅｎｔ", "Agentさん"} {
+		for _, field := range []string{"name", "alias"} {
+			t.Run(field+"/"+name, func(t *testing.T) {
+				skill := Skill{ID: "example", Name: "Example", Domain: "test", Kind: "person"}
+				if field == "name" {
+					skill.Name = name
+				} else {
+					skill.Aliases = []string{name}
+				}
+				if err := Validate(skill, nil); err == nil || !strings.Contains(err.Error(), "予約") {
+					t.Fatalf("reserved %s accepted: %v", field, err)
+				}
+			})
+		}
 	}
 }

@@ -26,7 +26,7 @@ import { refreshFavorites, watchFavorites } from "./favorite-state.js";
 import { createSearch } from "./search.js";
 import { createSpeaker } from "./speaker.js";
 import { getLanguage, t } from "./i18n.js";
-import { agentMention, mentionTag } from "./mention-picker.js";
+import { agentMentions, mentionTag } from "./mention-picker.js";
 import { applyTextSize } from "./text-size.js";
 import { authenticationEnabled, logout, reconnectAuthentication } from "./auth.js";
 
@@ -36,8 +36,8 @@ applyTextSize();
 const root = $("#app");
 let settings = null;
 let personaRows = [];
-// The @ picker offers the external agent beside the personas while it can be asked.
-const mentionable = () => (personas.agentAvailable() ? [...personaRows, agentMention()] : personaRows);
+// Built-in AI remains selectable even while the external agent is enabled.
+const mentionable = () => [...personaRows, ...agentMentions(personas.agentAvailable())];
 let panel = null;
 let settingsRequired = false;
 

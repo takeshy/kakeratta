@@ -36,8 +36,9 @@ func TestResearchSearchCapabilitiesFollowExecutedBudget(t *testing.T) {
 	} {
 		for _, batch := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/batch=%t", tc.name, batch), func(t *testing.T) {
-				r, s, _ := setup(t, nil, "support")
-				skill, _ := r.catalogue.Find(context.Background(), "support")
+				r, s, _ := setup(t, nil, "book")
+				skill, _ := r.catalogue.Find(context.Background(), "book")
+				skill.MemoryEnabled = memoryDisabled()
 				skill.AlwaysUltra = tc.always
 				skill.Tools = []string{"web_search", "weather_forecast", "unknown_tool"}
 				trigger := post(t, s, "調査対象の投稿本文")

@@ -454,12 +454,27 @@ func (r *Runner) prepareEntry(outer context.Context, entryID string, transientPl
 	}
 
 	skills := r.skills(outer).Active(settings.Active)
-	// A request to the external agent itself passes every persona by, and
-	// so does one it cannot take now: it is answered with the reason.
-	if direct, refused := r.directRequest(entry, settings, skills); refused != "" {
-		r.requestNotice(entry, refused)
-		return nil, nil, nil
+	direct, builtin := r.directRequest(entry, settings, skills)
+	if edited && (!direct || builtin) {
+		// An edit that no longer asks the external agent takes back what the
+		// earlier text asked of it.
+		if held, err := r.withdrawRequest(outer, entry); err != nil || held {
+			return nil, nil, err
+		}
+	}
+	// Direct requests bypass persona routing. Persist built-in work for the
+	// ordered delivery lane, just like ordinary answer work.
+	if builtin {
+		definitions, err := json.Marshal(r.skills(outer).All())
+		if err != nil {
+			return nil, nil, err
+		}
+		return &store.EntryDelivery{Text: entry.Text, Targets: []string{timeline.Agent}, Named: []string{timeline.Agent}, SkillsJSON: string(definitions)}, nil, nil
 	} else if direct {
+		if reason := r.agentUnavailable(settings); reason != "" {
+			r.requestNotice(entry, reason)
+			return nil, nil, nil
+		}
 		return nil, nil, r.openRequest(outer, entry, edited)
 	}
 	if len(skills) == 0 {
@@ -553,6 +568,9 @@ func (r *Runner) deliverEntry(outer context.Context, entryID string, transientPl
 		return nil
 	}
 	client, settings := r.clientOf()
+	if contains(plan.Targets, timeline.Agent) {
+		return r.deliverBuiltinAgent(outer, entry, transientPlace, client, settings)
+	}
 	skills := r.skills(outer).All()
 	if plan.Active != nil {
 		skills = r.skills(outer).Active(plan.Active)
@@ -1118,6 +1136,9 @@ func (r *Runner) hush(skill Skill, memory store.Memory) *timeline.Entry {
 // scheduled marks a remark a schedule woke the persona for, which the user can
 // then mark done.
 func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source, memory store.Memory, replyTo string, notes []string, slot string, scheduled bool) *timeline.Entry {
+	if skill.ID == timeline.Agent && slot == "" {
+		slot = "super"
+	}
 	memory.Wakes++
 	_ = r.store.SaveMemory(memory)
 	if replyTo == "" {
@@ -1127,6 +1148,11 @@ func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source
 		ID: store.NewID("e"), Kind: timeline.KindRemark, Speaker: skill.ID,
 		Text: text, At: time.Now(), Root: root, ReplyTo: replyTo, Sources: dedupe(sources), Notes: notes, Model: slot,
 		Scheduled: scheduled,
+	}
+	if skill.ID == timeline.Agent {
+		if trigger, ok := r.store.Entry(replyTo); ok {
+			remark.Language = trigger.Language
+		}
 	}
 	if root == "" {
 		remark.Kind = timeline.KindPost

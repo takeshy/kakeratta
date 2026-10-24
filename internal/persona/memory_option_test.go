@@ -10,7 +10,7 @@ import (
 )
 
 func TestMemoryDisabledTurnsAnswerWithoutNotesOrCheckIns(t *testing.T) {
-	for _, id := range []string{"support", "gourmet", "infographic"} {
+	for _, id := range []string{"book", "gourmet", "infographic"} {
 		t.Run(id, func(t *testing.T) {
 			ctx := context.Background()
 			r, s, f := setup(t, func(string, string) string { return `{"deliver":["` + id + `"]}` }, id)

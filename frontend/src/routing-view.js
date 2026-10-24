@@ -53,7 +53,7 @@ export async function showRouting({ entry, getPersona, onFixCondition, onFixRepl
     const delivered = decision?.delivered || [];
     const excluded = decision?.excluded || [];
     if (decision?.recorded === false && decision.agent) {
-      body.append(el("p", { class: "hint", label: "外部エージェントへの直接の依頼なので、担当には振り分けていません。" }));
+      body.append(el("p", { class: "hint", label: "AIへの直接の依頼なので、担当には振り分けていません。" }));
       return;
     }
     if (decision?.recorded === false) {

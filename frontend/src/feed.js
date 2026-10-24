@@ -34,10 +34,15 @@ const entryText = (entry) => entry.model === "agent" ? (entry.text || "").replac
 // name when the server has said it.
 const agentRow = (name) => ({ id: "agent", name: name || t("外部エージェント"), icon: "🤖" });
 
+// The built-in AI's answers share the external agent's speaker; their model
+// is a slot rather than "agent".
+export const isBuiltinAI = (entry) => entry.speaker === "agent" && Boolean(entry.model) && entry.model !== "agent";
+
 export function createFeed({ getPersona: findPersona, getPersonas, getSettings = () => ({}), onReply, onEntryChange, onPersonaAdded, onSpeak, onFixCondition, onFixReply, onOpenNote, onSelectPersona, onSpeaker, showIntro = true, standalone = false }) {
   const view = el("div", { class: "feed" });
   let agentName = "";
   const getPersona = (id) => findPersona(id) || (id === "agent" ? agentRow(agentName) : undefined);
+  const entryPersona = (entry) => isBuiltinAI(entry) ? agentRow(t("内蔵AI")) : getPersona(entry.speaker);
 
   // A name on the timeline opens what that speaker said. It is text where
   // nothing is wired to open the list.
@@ -347,7 +352,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
     const mine = entry.speaker === "user";
     // The month's summary is the app's, but the user's to set right.
     const summary = entry.speaker === "kakeratta" && !!entry.summary;
-    const persona = getPersona(entry.speaker);
+    const persona = entryPersona(entry);
     const node = el("div", { class: `post${summary ? " summary" : ""}${entry.doneAt ? " done" : ""}` });
     const requestState = drawRequest(entry);
     if (requestState) node.append(requestState);
@@ -636,7 +641,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
   }
 
   function drawSaid(entry, post) {
-    const persona = getPersona(entry.speaker);
+    const persona = entryPersona(entry);
     const mine = entry.speaker === "user";
     const node = el("div", { class: `said-row ${mine ? "mine" : ""}${entry.doneAt ? " done" : ""}`, "data-id": entry.id });
     const requestState = drawRequest(entry);
@@ -847,7 +852,7 @@ export function createFeed({ getPersona: findPersona, getPersonas, getSettings =
         : post.media?.describe || t("投稿");
       lines.push({ id: post.id, text: heading });
       for (const entry of said) {
-        const persona = getPersona(entry.speaker);
+        const persona = entryPersona(entry);
         const body = spokenText(entryText(entry)) || entryText(entry);
         lines.push({ id: entry.id, text: `${entry.speaker === "user" ? userProfile(getSettings()).name : persona ? gloss(persona).name : entry.speaker}。${body}` });
       }

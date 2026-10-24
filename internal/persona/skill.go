@@ -156,19 +156,6 @@ var Builtins = []Skill{
 		Tools: []string{"schedule", "weather_forecast"}, Builtin: true,
 	},
 	{
-		MemoryEnabled: memoryDisabled(),
-		ID:            "support", Name: "support", Icon: "🛟",
-		Domain: "kakeratta（カケラッタ）の使い方・仕様・設定・担当・記憶・通知・検索・連携についての疑問や、操作で困ったこと。アプリの機能がどう動くかの質問と不具合の相談に答える。一般の技術相談や、kakerattaへの言及だけで質問や困りごとがない投稿は対象にしない。",
-		Tone:   "親切なサポート担当。ユーザーの言語で、結論と具体的な操作手順を短く分かりやすく伝える。",
-		Instructions: "kakerattaへの質問や困りごとには必ず答える。" +
-			"回答前に必ず kakeratta_help で index.md を読み、質問に関連する章を読んで、このバージョンに同梱されたOKF仕様を根拠にする。" +
-			"仕様の英語をそのまま貼らず、ユーザーの言語で要点を説明する。使い方の質問には画面の項目名と操作手順を示し、内部実装は質問に必要な場合だけ説明する。" +
-			"仕様で確認できた動作と、本人の環境に依存する状況や推測を区別する。道具は仕様を読むだけで、本人のAPIキー・接続・端末・稼働状況を確認したことにはならない。" +
-			"仕様にないことは分からないと伝え、原因を断定しない。必要なら表示されたエラーや操作を短く尋ねる。秘密のキーやパスワードは求めない。" +
-			"設定変更や修復を実行したと偽らず、ユーザーが実行できる手順を案内する。会話の文脈と同梱の仕様を使う。質問も困りごともない投稿では話さない。",
-		Tools: []string{"kakeratta_help"}, Builtin: true,
-	},
-	{
 		ID: "infographic", Name: "インフォグラフィック", Icon: "📊", MemoryEnabled: memoryDisabled(), AlwaysUltra: true,
 		Domain: "投稿、記事、説明、会話の内容をインフォグラフィックにしてほしいという明示的な依頼。図解、比較図、流れ図として視覚的にまとめる依頼に答える。単なるデータや画像の投稿、一般の質問には反応しない。",
 		Tone:   "情報を正確に整理するデザイナー。見出しと短い説明で、関係や違いを読みやすく伝える。",
@@ -419,9 +406,8 @@ func (c *Catalogue) Uninstall(id string) error {
 	return c.source.DeleteSkill(id)
 }
 
-// reservedNames refuses a persona that could be called by a name the external
-// agent answers to, or whose id is the agent's speaker: @agent must always mean
-// the agent. It is checked when a definition is written, not when one already
+// reservedNames refuses names reserved for the built-in AI or external
+// agent, including the shared agent speaker ID. It is checked when a definition is written, not when one already
 // saved is read, so a persona named that before stays in the room.
 func reservedNames(skill Skill) error {
 	for _, term := range append([]string{skill.ID, skill.Name}, skill.Aliases...) {
@@ -430,11 +416,19 @@ func reservedNames(skill Skill) error {
 				return errors.New("「" + strings.TrimSpace(term) + "」は外部エージェントの呼び名として予約されているため、担当のID・名前・呼び名には使えません")
 			}
 		}
+		for _, name := range builtinAgentAliases {
+			if foldTerm(term) == foldTerm(name) {
+				return errors.New("「" + strings.TrimSpace(term) + "」は内蔵AIの呼び名として予約されているため、担当のID・名前・呼び名には使えません")
+			}
+		}
 	}
 	return nil
 }
 
 func validate(skill Skill) error {
+	if skill.ID == "support" {
+		return errors.New("support担当は@aiに統合されました。@aiで質問してください。")
+	}
 	if err := avatar.Validate(skill.Avatar); err != nil {
 		return err
 	}

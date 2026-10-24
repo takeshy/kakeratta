@@ -4,7 +4,7 @@ import "testing"
 
 func TestDefaultPersonasAreActiveAndSavedChoicesArePreserved(t *testing.T) {
 	s := open(t)
-	if got := s.Settings().Active; len(got) != 3 || got[0] != "routine" || got[1] != "support" || got[2] != "infographic" {
+	if got := s.Settings().Active; len(got) != 2 || got[0] != "routine" || got[1] != "infographic" {
 		t.Fatalf("default active personas = %v", got)
 	}
 	for _, active := range [][]string{nil, {}, {"gourmet"}} {

@@ -154,14 +154,16 @@ func TestInfographicLanguageFallsBackToOriginalRequest(t *testing.T) {
 func TestAlwaysUltraIsOptionalForOrdinaryPersonas(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "normal", true: "always-ultra"}[enabled], func(t *testing.T) {
-			r, s, f := setup(t, nil, "support")
-			skill, _ := r.catalogue.Find(context.Background(), "support")
+			r, s, f := setup(t, nil, "book")
+			skill, _ := r.catalogue.Find(context.Background(), "book")
+			skill.MemoryEnabled = memoryDisabled()
+			skill.Tools = []string{"kakeratta_help"}
 			skill.AlwaysUltra = enabled
 			raw, _ := json.Marshal(skill)
 			if _, err := r.catalogue.Update(context.Background(), skill.ID, raw, nil); err != nil {
 				t.Fatal(err)
 			}
-			skill, _ = r.catalogue.Find(context.Background(), "support")
+			skill, _ = r.catalogue.Find(context.Background(), "book")
 			trigger := post(t, s, "設定について質問")
 			f.phaseReply = func(system, user string, offered map[string]bool) string {
 				if enabled && strings.Contains(system, "今回ユーザーは、前の回答より") {
@@ -186,7 +188,7 @@ func TestAlwaysUltraIsOptionalForOrdinaryPersonas(t *testing.T) {
 			if entry == nil || entry.Model != wantSlot {
 				t.Fatalf("entry = %+v", entry)
 			}
-			if model := f.lastModelFor("support"); model != wantModel {
+			if model := f.lastModelFor("shiori"); model != wantModel {
 				t.Fatalf("answer model = %s, want %s", model, wantModel)
 			}
 		})

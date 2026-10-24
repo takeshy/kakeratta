@@ -73,6 +73,7 @@ var alexaEnglish = map[string]string{
 	"ほかの返事はアプリで確認できます。":                            "You can read more replies in the app.",
 	"担当":       "your persona",
 	"外部エージェント": "the external agent",
+	"内蔵AI":     "the built-in AI",
 	"%sから。%s":  "From %s. %s",
 	"予定を読み込めませんでした。少し待ってからお試しください。": "I couldn't load your schedule. Please try again shortly.",
 	"ほかの予定はアプリで確認できます。":             "You can find more scheduled items in the app.",

@@ -102,7 +102,7 @@
           <ol>
             <li><a href="/?login=1" data-lang-link>アプリを開きます</a>。Google アカウントでログインします。認証後は「ログインを完了しています…」を表示し、完了すると自動で画面が切り替わります。データはあなたのアカウントにだけ結びつき、ほかの人からは見えません。</li>
             <li>右上の <strong>設定</strong> を開き、<a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a> で発行した <strong>API キー</strong> を入力します。「接続できました」と出れば準備完了です。</li>
-            <li>新しいアカウントでは、sona・support・インフォグラフィックの 3 人が最初から有効です。</li>
+            <li>新しいアカウントでは、sona・インフォグラフィックの 2 人が最初から有効です。</li>
             <li>欄に一言書いて <strong>流す</strong>。これが最初のかけらです。</li>
           </ol>
           <p>API キーはサーバー側にだけ保存され、設定した接続先以外へは送られません。</p>
@@ -137,6 +137,8 @@
             <li><strong>必ず答えてほしいときは <code>@名前</code> で指名します</strong>（例：<code>@tabe</code>）。指名された担当は必ず返事をします。担当の名前が並んだバーを押すと、<code>@名前</code> が書き込まれます。</li>
             <li>担当の発言や自分の返信は <strong>返信 N件</strong> の下にたたまれます。表示中に届いた発言は、そのスレッドが自動で開きます。</li>
           </ul>
+          <p><strong>担当を選ばずに聞く：</strong><code>@ai 最近いつ横浜から離れたっけ？</code> のように内蔵AIへ質問できます。過去の投稿・位置情報・日時を検索し、根拠の投稿を添えて答えます。担当メモ・予定・会話全体も参照でき、検索用APIキーがあればWeb検索も使えます。kakerattaの使い方や困りごとも <code>@ai</code> に聞けます。アプリの質問のときだけ関連する仕様を読みます。通常は Super VL、「詳しく」と頼むと Ultra を使います。スケジュール登録・メモ保存・メール送信などの外部操作はせず、会話はタイムラインに残ります。回答への返信で会話を続けられます。</p>
+          <p><code>@ai</code> は内蔵、<code>@agent</code> は外部です。入力欄の <code>@</code> 候補では「内蔵AI」をいつでも選べ、外部連携が有効で接続先がある場合は「外部エージェント」も選べます。外部が無効・未接続なら <code>@agent</code> の候補は出ません。<code>ai</code>・<code>agent</code> は予約名で、担当のID・名前・呼び名には使えません。</p>
           <h3>返す・直す・消す</h3>
           <table>
             <thead><tr><th>ボタン</th><th>できること</th></tr></thead>
@@ -157,13 +159,12 @@
         <section id="ja-personas">
           <h2>4. 担当を選ぶ・作る</h2>
           <p>担当は、一人の人物か一つの関心ごとについて、別々の記憶を持つ AI です。人物の担当にはその人の名前が出たかけらが、関心ごとの担当には本体が振り分けたかけらが届き、そのうえで覚えるか、喋るかを各担当が決めます。担当同士でメモは共有しません。</p>
-          <h3>最初からいる 5 人</h3>
+          <h3>最初からいる 4 人</h3>
           <div class="table-scroll">
             <table>
               <thead><tr><th>名前</th><th>分野</th><th>受け取るもの</th></tr></thead>
               <tbody>
                 <tr><td><code>@tabe</code></td><td>食事</td><td>店、料理、飲み物、食事やメニューの写真、「何食べよう」</td></tr>
-                <tr><td><code>@support</code></td><td>サポート</td><td>kakerattaの使い方・仕様・設定・困りごと（新規利用時は有効）</td></tr>
                 <tr><td><code>@infographic</code></td><td>図解</td><td>投稿・記事・画像・会話を図解にしてほしいという依頼。表示言語の図解（見出し・表・Mermaid の図）で返します。Web検索なし・記憶なし・最終回答はふだん Super VL、「詳しく」を付けると Ultra（新規利用時は有効）</td></tr>
                 <tr><td><code>@shiori</code></td><td>読書</td><td>電子書籍のキャプチャ、引用、書名と著者、読んだ感想</td></tr>
                 <tr><td><code>@sona</code></td><td>備え</td><td>外出前の持ち物、忘れ物、予定と天気を合わせた声かけ。繰り返す用事や一度きりの用の確認。新規利用時は有効</td></tr>
@@ -770,7 +771,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <ol>
             <li><a href="/?login=1" data-lang-link>Open the app</a>. Sign in with your Google account. After approval, “Completing sign-in…” stays visible until the app opens automatically. Your data is tied to your account and nobody else can see it.</li>
             <li>Open <strong>Settings</strong> at the top right and enter an <strong>API key</strong> from <a href="https://tokenfactory.nebius.com/" rel="noopener">Nebius Token Factory</a>. “Connected” means you are ready.</li>
-            <li>New accounts start with three personas active: sona, support and the infographic persona.</li>
+            <li>New accounts start with two personas active: sona and the infographic persona.</li>
             <li>Write a line in the box and press <strong>Post</strong>. That is your first fragment.</li>
           </ol>
           <p>The API key is stored only on the server and sent only to the configured endpoint.</p>
@@ -805,6 +806,8 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <li><strong>For a guaranteed answer, mention a persona with <code>@name</code></strong> (for example <code>@tabe</code>). A persona you mention always replies. Tapping a name in the persona bar (the personas listed below the text box) writes the mention for you.</li>
             <li>Persona remarks and your replies fold under <strong>N replies</strong>. A remark that arrives while you are looking opens its thread by itself.</li>
           </ul>
+          <p><strong>Ask without choosing a persona:</strong> try <code>@ai When did I last leave Yokohama?</code>. The built-in AI searches posts, locations and dates and cites supporting posts. It can also read persona notes, schedule lists and whole threads, and search the Web when a search API key is configured. Ask <code>@ai</code> about kakeratta too; it reads the relevant specification chapters only for app-help questions. It uses Super VL normally and Ultra when you ask “in detail.” It does not register schedules, save private notes or perform external actions such as sending email. The conversation stays on the timeline; reply to continue it.</p>
+          <p><code>@ai</code> is built-in; <code>@agent</code> is external. Type <code>@</code> to choose <strong>Built-in AI</strong> at any time. <strong>External agent</strong> is also offered when external integration is enabled and a connection is configured. Otherwise <code>@agent</code> has no suggestion. <code>ai</code> and <code>agent</code> are reserved and cannot be persona IDs, names or aliases.</p>
           <h3>Reply, fix, delete</h3>
           <table>
             <thead><tr><th>Button</th><th>What it does</th></tr></thead>
@@ -825,13 +828,12 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
         <section id="en-personas">
           <h2>4. Choosing and creating personas</h2>
           <p>A persona is an AI with its own memory for one person or one interest. A person's persona gets the fragments that mention them; an interest's gets the ones the app routes to it. Each then decides whether to remember and whether to speak. Personas do not share notes with one another.</p>
-          <h3>The five that ship with the app</h3>
+          <h3>The four that ship with the app</h3>
           <div class="table-scroll">
             <table>
               <thead><tr><th>Name</th><th>Subject</th><th>What it receives</th></tr></thead>
               <tbody>
                 <tr><td><code>@tabe</code></td><td>food</td><td>Places, dishes, drinks, photos of meals and menus, “what should I eat”</td></tr>
-                <tr><td><code>@support</code></td><td>support</td><td>Questions about kakeratta, its specification, settings and problems (active by default for new accounts)</td></tr>
                 <tr><td><code>@infographic</code></td><td>infographic</td><td>Requests to turn a post, article, image or conversation into a diagram. It answers with a diagram in the display language (headings, tables and Mermaid charts). No Web search, no memory; final answers use Super VL, or Ultra when the request says “in detail”. Active by default for new accounts</td></tr>
                 <tr><td><code>@shiori</code></td><td>reading</td><td>E-book captures, quoted passages, titles and authors, thoughts on a read</td></tr>
                 <tr><td><code>@sona</code></td><td>preparation</td><td>Belongings before leaving, past omissions, upcoming plans and forecasts. Gentle follow-ups on small chores. Active by default for new accounts</td></tr>

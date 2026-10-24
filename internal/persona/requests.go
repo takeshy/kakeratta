@@ -13,7 +13,7 @@ import (
 )
 
 // A direct request is a post or reply the user addressed to the external agent
-// itself - "@外部エージェント …", or a reply to what the agent said - while the
+// itself - "@agent …", or a reply to what the agent said - while the
 // agent is in use. There is no switch for it: not naming the agent is the
 // choice. It goes past the personas: no routing, no
 // planning, no memory. The agent claims it over MCP, does what was asked with
@@ -103,6 +103,7 @@ const directInstructions = "The user addressed you directly, outside kakeratta's
 // the connection's name, which the user may have written any way at all; the
 // request goes to the connection in use.
 var agentAliases = []string{"外部エージェント", "エージェント", "agent"}
+var builtinAgentAliases = []string{"ai"}
 
 // SetAgentName gives the name of the connection in use, "" when there is
 // none: an agent with no connection cannot be asked anything directly.
@@ -132,10 +133,14 @@ func (r *Runner) SpeakerNames(ctx context.Context) map[string]string {
 	return names
 }
 
-// namesAgent reports whether text mentions the external agent.
+// namesAgent reports whether text mentions either direct destination.
 func namesAgent(text string) bool {
+	return namesAgentAlias(text, append(append([]string{}, agentAliases...), builtinAgentAliases...))
+}
+
+func namesAgentAlias(text string, aliases []string) bool {
 	for _, mention := range timeline.Mentions(text) {
-		for _, name := range agentAliases {
+		for _, name := range aliases {
 			if foldTerm(mention) == foldTerm(name) {
 				return true
 			}
@@ -161,18 +166,48 @@ func (r *Runner) agentUnavailable(settings store.Settings) string {
 // words or the app's notice - in a conversation begun by naming the agent. A
 // persona named overrides the conversation, not the agent named.
 //
-// refused is why an entry naming the agent cannot reach it: it is not routed
-// to the personas either, but answered with the reason. A conversation merely
-// carried on while the agent is unavailable goes to the personas as usual.
-func (r *Runner) directRequest(entry timeline.Entry, settings store.Settings, skills []Skill) (direct bool, refused string) {
+// builtin selects the in-process answer lane. The two addresses keep fixed
+// destinations, and replies retain the destination of the conversation.
+func (r *Runner) directRequest(entry timeline.Entry, settings store.Settings, skills []Skill) (direct bool, builtin bool) {
 	if entry.Speaker != timeline.User || entry.Import != nil {
-		return false, ""
+		return false, false
 	}
-	unavailable := r.agentUnavailable(settings)
-	if namesAgent(entry.Text) {
-		return true, unavailable
+	if namesAgentAlias(entry.Text, builtinAgentAliases) {
+		return true, true
 	}
-	return unavailable == "" && r.continuesAgent(entry, skills), ""
+	if namesAgentAlias(entry.Text, agentAliases) {
+		return true, false
+	}
+	if r.continuesAgent(entry, skills) {
+		return true, r.continuesBuiltinAgent(entry)
+	}
+	return false, false
+}
+
+// Find the nearest selected destination, including owner follow-ups sent
+// before an answer. A fresh @agent mention overrides this in directRequest.
+func (r *Runner) continuesBuiltinAgent(entry timeline.Entry) bool {
+	seen := map[string]bool{}
+	for id := entry.ReplyTo; id != "" && !seen[id]; {
+		seen[id] = true
+		parent, ok := r.store.Entry(id)
+		if !ok || parent.Deleted {
+			return false
+		}
+		if parent.Speaker == timeline.Agent {
+			return parent.BuiltinAI()
+		}
+		if parent.Speaker == timeline.User && parent.Import == nil {
+			if namesAgentAlias(parent.Text, builtinAgentAliases) {
+				return true
+			}
+			if namesAgentAlias(parent.Text, agentAliases) {
+				return false
+			}
+		}
+		id = parent.ReplyTo
+	}
+	return false
 }
 
 // continuesAgent reports whether a user's reply carries on a conversation with
@@ -189,6 +224,9 @@ func (r *Runner) continuesAgent(entry timeline.Entry, skills []Skill) bool {
 	case timeline.Agent:
 		return true
 	case timeline.User, timeline.App:
+		if parent.Speaker == timeline.User && parent.Import == nil && namesAgent(parent.Text) {
+			return true
+		}
 		root, ok := r.store.Entry(timeline.RootOf(entry))
 		return ok && !root.Deleted && root.Speaker == timeline.User && root.Import == nil && namesAgent(root.Text)
 	}
@@ -280,6 +318,45 @@ func (r *Runner) changeRequest(ctx context.Context, id string, change func(recor
 // editedWhileClaimed is said under an entry edited while the agent works on it:
 // the agent has the old words, and may already have acted on them.
 const editedWhileClaimed = "処理中のため編集は反映されません。返信で伝えてください。"
+
+// withdrawRequest drops the waiting request of an entry edited so that it no
+// longer asks the external agent, so the agent cannot claim it later and act
+// on the new text. One the agent already works on cannot be called back:
+// held is true, the edit is not taken anywhere else, and the user is told.
+func (r *Runner) withdrawRequest(ctx context.Context, entry timeline.Entry) (held bool, err error) {
+	records, err := r.readRequests(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, record := range records {
+		if record.Request.Entry != entry.ID {
+			continue
+		}
+		withdrawn := false
+		if _, err := r.changeRequest(ctx, record.Request.ID, func(current **requestRecord) (bool, error) {
+			withdrawn, held = false, false
+			if *current == nil {
+				return false, nil
+			}
+			if (*current).Request.State != "pending" {
+				held = true
+				return false, nil
+			}
+			*current, withdrawn = nil, true
+			return true, nil
+		}); err != nil {
+			return false, err
+		}
+		if held {
+			r.requestNotice(entry, editedWhileClaimed)
+			return true, nil
+		}
+		if withdrawn {
+			r.emit("request", map[string]any{"id": record.Request.ID, "entryId": entry.ID, "state": "closed"})
+		}
+	}
+	return false, nil
+}
 
 // openRequest keeps a request for the agent. An edit of an entry whose request
 // is still waiting to be claimed changes that one instead of asking twice; an

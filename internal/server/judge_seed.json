@@ -53,13 +53,6 @@
       "memoryEnabled": true, "tools": ["schedule", "weather_forecast"]
     },
     {
-      "id": "support", "name": "support", "icon": "🛟", "builtin": true, "customized": true,
-      "domain": "Questions and difficulties about kakeratta's features, settings, personas, memory, notifications, search or integrations. Exclude general technology questions and mentions of the app without a question.",
-      "tone": "Helpful English support: answer first, then concrete steps.",
-      "instructions": "Answer in English using the current system specification through kakeratta_help. Read the relevant sections before explaining behavior. Do not invent features or claim to change settings you cannot change. If information is missing, ask a short clarifying question. Stay quiet when no app help is requested.",
-      "memoryEnabled": false, "tools": ["kakeratta_help"]
-    },
-    {
       "id": "infographic", "name": "infographic", "icon": "📊", "builtin": true, "customized": true,
       "domain": "Explicit requests to turn a post, article, explanation or answer into an infographic, comparison or flow diagram. Exclude ordinary questions and images without such a request.",
       "tone": "A clear visual explainer. Short English headings and precise labels.",
@@ -83,7 +76,7 @@
       "memoryEnabled": true, "tools": ["schedule", "web_search"]
     }
   ],
-  "active": ["gourmet", "wine-assistant", "recipe", "mei", "dad", "routine", "support", "infographic"],
+  "active": ["gourmet", "wine-assistant", "recipe", "mei", "dad", "routine", "infographic"],
   "externalPersonas": ["wine-assistant"],
   "entries": [
     {"id":"judge-example-shizuoka", "speaker":"user", "hoursAgo":168, "text":"On my last trip to Shizuoka, I wanted to try Sawayaka's Genkotsu hamburger, but ran out of time. Please remember this for my next visit."},
@@ -98,7 +91,7 @@
     {"id":"judge-example-turnips-reply", "speaker":"recipe", "hoursAgo":47, "root":"judge-example-turnips", "replyTo":"judge-example-turnips", "text":"Three ideas: simmer turnips in a light broth (about 15 minutes), make quick pickles (about 5 minutes of preparation plus resting), or blend a turnip and onion soup (about 20 minutes). You can use the greens too. What other ingredients do you have?"},
     {"id":"judge-example-dad", "speaker":"user", "hoursAgo":24, "text":"I sent Dad cured ham and soup last month. What would be a good gift this month? He likes whisky, so perhaps a bottle."},
     {"id":"judge-example-dad-reply", "speaker":"dad", "hoursAgo":23, "root":"judge-example-dad", "replyTo":"judge-example-dad", "text":"Whisky sounds like a good option. Choose one that suits Dad's tastes."},
-    {"id":"judge-example-welcome", "speaker":"kakeratta", "hoursAgo":1, "text":"Welcome! These English examples are adapted from the owner's production timeline; Mei is a fictional demo friend. They are sample history, not posts you wrote or live responses generated for this account.\n\nTry posting:\n- Going to Shizuoka tomorrow.\n- What wine would suit Mei?\n- @Kitchen What can I make with turnips and eggs?\n- @agent Research three gift ideas for someone who enjoys whisky.\n\nOpen Personas to inspect or edit each persona's memory and its original posts. tabe, Wine, Kitchen, Mei, Dad, sona, support and infographic are active. shiori and Goldfish are ready to activate if you want to explore them. You can edit or delete these examples."}
+    {"id":"judge-example-welcome", "speaker":"kakeratta", "hoursAgo":1, "text":"Welcome! These English examples are adapted from the owner's production timeline; Mei is a fictional demo friend. They are sample history, not posts you wrote or live responses generated for this account.\n\nTry posting:\n- Going to Shizuoka tomorrow.\n- What wine would suit Mei?\n- @Kitchen What can I make with turnips and eggs?\n- @ai How do I search my past posts?\n- @agent Research three gift ideas for someone who enjoys whisky.\n\nOpen Personas to inspect or edit each persona's memory and its original posts. tabe, Wine, Kitchen, Mei, Dad, sona and infographic are active. shiori and Goldfish are ready to activate if you want to explore them. You can edit or delete these examples."}
   ],
   "memories": [
     {"persona":"gourmet", "facts":[{"id":"f_judgesawayaka", "text":"Wanted to try Sawayaka's Genkotsu hamburger in Shizuoka but ran out of time; still interested in a future visit.", "from":"judge-example-shizuoka"}], "records":[]},
