@@ -1,5 +1,5 @@
 // English gallery: shipped UI over fictional local examples, with source provenance.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
@@ -9,15 +9,21 @@ mkdirSync(scratch, { recursive: true });
 mkdirSync(join(here, 'images'), { recursive: true });
 const escape = s => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
 const data = path => `data:image/png;base64,${readFileSync(path).toString('base64')}`;
-const source = name => join(root, 'docs/captures/en', `${name}.png`);
-// Captures are 2x screenshots; a crop is in CSS pixels of the app. Every slide
+// Slides are written at 2x, so the app is captured at 3x for them (see
+// README); without those, the documentation's 2x captures are used.
+const sharp = join(scratch, 'captures/en');
+const SHARP = existsSync(sharp);
+if (!SHARP) console.warn(`No 3x captures in ${sharp}; using the 2x documentation captures`);
+const source = name => join(SHARP ? sharp : join(root, 'docs/captures/en'), `${name}.png`);
+const CAPTURE_SCALE = SHARP ? 3 : 2;
+// A crop is in CSS pixels of the app. Every slide
 // shows the app at one zoom (slide pixels per app pixel) unless it says otherwise,
 // so text reads at the same size from slide to slide. The default crop drops the
 // capture's 12px margin, leaving just the captured element.
 const ZOOM = 1.35;
 function shot(name, label, { x = 12, y = 12, w, h } = {}, { zoom = ZOOM, fade = false } = {}) {
   const bytes = readFileSync(source(name));
-  const iw = bytes.readUInt32BE(16) / 2, ih = bytes.readUInt32BE(20) / 2;
+  const iw = bytes.readUInt32BE(16) / CAPTURE_SCALE, ih = bytes.readUInt32BE(20) / CAPTURE_SCALE;
   w ??= iw - 2 * x; h ??= ih - 2 * y;
   if (x < 0 || y < 0 || x + w > iw || y + h > ih) throw Error(`Invalid crop: ${name}`);
   const caption = label ? `<figcaption>${label}</figcaption>` : '';
@@ -122,6 +128,6 @@ for (const [i, slide] of slides.entries()) {
 }
 const captions = slides.map(s => ({ file: `images/${s.name}.png`, title: s.title, caption: s.caption, sources: [...s.sources.map(n => `../../captures/en/${n}.png`), ...s.references || []] }));
 writeFileSync(join(here, 'captions.json'), JSON.stringify(captions, null, 2) + '\n');
-writeFileSync(join(here, 'preview.html'), `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>kakeratta — Gallery</title><style>body{font:18px/1.5 system-ui;background:#f5f3ed;color:#24372e;max-width:1200px;margin:auto;padding:32px}img{width:100%;height:auto;border-radius:12px}figure{margin:32px 0 60px}h1{font-size:32px}figcaption{margin-top:16px;color:#55634d}nav{display:flex;gap:12px;flex-wrap:wrap}nav a{color:inherit}</style><h1>kakeratta — Your life, remembered.</h1><p>${slides.length} English images · 1800 × 1200 · upload in numbered order</p><nav>${slides.map((s,i) => `<a href="#slide-${i+1}">${i+1}. ${s.group}</a>`).join('')}</nav>${slides.map((s,i) => `<figure id="slide-${i+1}"><a href="images/${s.name}.png"><img loading="lazy" src="images/${s.name}.png" alt="${escape(s.title)}"></a><figcaption><strong>${i+1}. ${escape(s.title)}</strong><br>${escape(s.caption)}</figcaption></figure>`).join('')}</html>`);
+writeFileSync(join(here, 'preview.html'), `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>kakeratta — Gallery</title><style>body{font:18px/1.5 system-ui;background:#f5f3ed;color:#24372e;max-width:1200px;margin:auto;padding:32px}img{width:100%;height:auto;border-radius:12px}figure{margin:32px 0 60px}h1{font-size:32px}figcaption{margin-top:16px;color:#55634d}nav{display:flex;gap:12px;flex-wrap:wrap}nav a{color:inherit}</style><h1>kakeratta — Your life, remembered.</h1><p>${slides.length} English images · 3600 × 2400 · upload in numbered order</p><nav>${slides.map((s,i) => `<a href="#slide-${i+1}">${i+1}. ${s.group}</a>`).join('')}</nav>${slides.map((s,i) => `<figure id="slide-${i+1}"><a href="images/${s.name}.png"><img loading="lazy" src="images/${s.name}.png" alt="${escape(s.title)}"></a><figcaption><strong>${i+1}. ${escape(s.title)}</strong><br>${escape(s.caption)}</figcaption></figure>`).join('')}</html>`);
 writeFileSync(join(scratch, 'layouts.txt'), slides.map(s => s.name).join('\n') + '\n');
 console.log(`Generated ${slides.length} gallery layouts in ${scratch}`);

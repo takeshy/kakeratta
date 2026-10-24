@@ -2,7 +2,7 @@
 
 Fifteen English presentation images, rebuilt as one product story:
 **capture → remember → reconnect → act → refine → extend**.
-Each upload is a 1800 × 1200 PNG (3:2), under 5 MB.
+Each upload is a 3600 × 2400 PNG (3:2; laid out at 1800 × 1200 and written at 2×), under 5 MB.
 
 Upload the numbered PNGs in [`images/`](images/) in order, or extract
 [`kakeratta-hackathon-gallery.zip`](kakeratta-hackathon-gallery.zip).
@@ -39,7 +39,7 @@ memory consolidation, preparation, persona suggestions and voice access.
 Routing/reply feedback returns as its own slide because it explains how users
 can improve the system's behavior. Each slide has one main point; screenshots
 are cropped around that point rather than used as full-screen filler.
-Every excerpt is shown at one zoom (1.35 slide pixels per app pixel; the denser
+Every excerpt is shown at one zoom (1.35 layout pixels per app pixel; the denser
 slides 7 and 8 use 1.15), so UI text reads at a consistent size across slides.
 Crops end on element or line boundaries; the one deliberately cut answer
 (slide 12) fades out.
@@ -105,19 +105,25 @@ No application behavior changes are introduced by the gallery stories.
 Requires Node.js, Python 3 with Pillow, Chromium, Lato, and Noto Sans CJK JP.
 On Debian/Ubuntu the fonts/Pillow packages are `fonts-lato`, `fonts-noto-cjk`,
 and `python3-pil`. The existing frontend dependencies must be installed.
-From the repository root, retake the new and combined UI sources with:
+From the repository root, take the gallery's English UI sources at 3×, apart
+from the 2× documentation captures, then render:
 
 ```sh
-CAPTURE_ONLY=memory-before,memory-after,preparation-plan,preparation-check,persona-suggestion,suggested-persona,suggested-definition,suggested-memory,reminder-done,voice-compose,wine-intent,review-question,gmail-card,gmail-review,calendar-card,calendar-review,schedules,person-card,gallery-hero,gallery-trip-missed,gallery-trip-return,gallery-trip-daily,gallery-search-form,gallery-search-results,gallery-month-summary,gallery-routing,gallery-reply-trial,gallery-vault,gallery-share,gallery-usage npm --prefix frontend run captures
+CAPTURE_OUT="$PWD/tmp/hackathon-gallery/captures" CAPTURE_SCALE=3 CAPTURE_LANGS=en \
+CAPTURE_ONLY=calendar-card,gallery-hero,gallery-month-summary,gallery-reply-trial,gallery-routing,gallery-search-form,gallery-search-results,gallery-share,gallery-trip-daily,gallery-trip-missed,gallery-trip-return,gallery-usage,gallery-vault,gmail-card,gmail-review,memory-after,memory-before,person-card,persona-suggestion,preparation-check,preparation-plan,reminder-done,review-question,schedules,suggested-definition,suggested-memory,suggested-persona,voice-compose,wine-intent \
+npm --prefix frontend run captures
 bash docs/hackathon/gallery/render.sh
 ```
+
+`build.mjs` warns and falls back to `docs/captures/en` (2×) when the 3× set is
+missing; the slides are then softer.
 
 Use `CHROMIUM` for a different browser binary. `CAPTURE_SCRATCH` selects the
 Storybook capture profile. Generated gallery HTML and temporary browser profiles
 stay in the ignored `tmp/hackathon-gallery/` directory.
 
 `build.mjs` defines the story, copy, source references and layouts. Crops are
-given in app (CSS) pixels of each 2× capture; by default a crop drops the
+given in app (CSS) pixels of each capture; by default a crop drops the
 capture's 12px margin and keeps just the captured element. `render.mjs`
 reuses a single headless browser, waits for fonts and images, rejects content
 outside the slide or overlapping layout blocks, then writes each PNG. `render.sh`

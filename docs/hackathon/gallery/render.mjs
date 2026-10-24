@@ -11,6 +11,9 @@ const browser = spawn(process.env.CHROMIUM || 'chromium', ['--headless', '--no-s
 let launchError;
 browser.on('error', error => { launchError = error; });
 const ended = new Promise(resolve => browser.once('exit', resolve));
+// Slides are laid out at 1800 × 1200 and written at twice that, so small UI
+// text stays sharp when the image is viewed full screen.
+const SCALE = 2;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let socket;
 try {
@@ -43,7 +46,7 @@ try {
     return result.result.value;
   };
   await cdp('Page.enable');
-  await cdp('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1200, deviceScaleFactor: 1, mobile: false });
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1200, deviceScaleFactor: SCALE, mobile: false });
   const names = (await readFile(join(scratch, 'layouts.txt'), 'utf8')).trim().split('\n');
   const selected = process.env.GALLERY_ONLY?.split(',');
   for (const name of names) {

@@ -10,7 +10,7 @@ mkdir -p "$scratch_dir"
 if [[ -z "${GALLERY_ONLY:-}" ]]; then
   "$browser" --headless --no-sandbox --disable-gpu --hide-scrollbars \
   --allow-file-access-from-files --no-first-run --no-default-browser-check \
-  --user-data-dir="$scratch_dir/chrome-profile" --window-size=1000,880 \
+  --user-data-dir="$scratch_dir/chrome-profile" --window-size=1000,880 --force-device-scale-factor=2 \
   --virtual-time-budget=1000 --screenshot="$gallery_dir/infographic-example.png" \
   "file://$gallery_dir/infographic-example.html" > "$scratch_dir/chromium.log" 2>&1
 fi

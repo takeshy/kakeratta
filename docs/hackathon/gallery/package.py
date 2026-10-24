@@ -17,7 +17,7 @@ for item in captions:
     data = path.read_bytes()
     assert data[:8] == b"\x89PNG\r\n\x1a\n", f"Not a PNG: {path}"
     width, height = struct.unpack(">II", data[16:24])
-    assert (width, height) == (1800, 1200), f"Unexpected dimensions: {path}"
+    assert (width, height) == (3600, 2400), f"Unexpected dimensions: {path}"
     assert len(data) < 5_000_000, f"Too large: {path}"
     print(f"{path.name}: {width} x {height}, {len(data):,} bytes")
 

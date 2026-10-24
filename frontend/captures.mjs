@@ -21,7 +21,9 @@ import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const out = join(here, "..", "docs", "captures");
+// CAPTURE_OUT, CAPTURE_SCALE and CAPTURE_LANGS let the hackathon gallery take
+// its sources sharper, apart from the documentation set.
+const out = process.env.CAPTURE_OUT ? resolve(process.env.CAPTURE_OUT) : join(here, "..", "docs", "captures");
 const port = Number(process.env.CAPTURE_PORT || 6018);
 const debugPort = Number(process.env.CAPTURE_DEBUG_PORT || 9333);
 const browser = process.env.CHROMIUM || "chromium";
@@ -30,7 +32,7 @@ const browser = process.env.CHROMIUM || "chromium";
 const profile = process.env.CAPTURE_SCRATCH || join(homedir(), ".cache", "kakeratta-captures", "profile");
 
 export const WIDTH = 390;
-const SCALE = 2;
+const SCALE = Number(process.env.CAPTURE_SCALE || 2);
 // A screen is captured to the bottom of its content, but not without end.
 const MAX_PAGE = 2400;
 // A sheet or dialog is measured in a viewport tall enough that it never has to
@@ -199,7 +201,7 @@ async function main() {
     let version;
     await waitFor(async () => { version = await (await fetch(`http://127.0.0.1:${debugPort}/json/version`)).json(); return true; }, "Chromium");
     devtools = await Devtools.connect(version.webSocketDebuggerUrl);
-    for (const lang of ["ja", "en"]) {
+    for (const lang of process.env.CAPTURE_LANGS ? process.env.CAPTURE_LANGS.split(",") : ["ja", "en"]) {
       mkdirSync(join(out, lang), { recursive: true });
       for (const shot of shots.filter((shot) => !wanted || wanted.includes(shot.name))) {
         const width = shot.width || WIDTH;
