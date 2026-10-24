@@ -1061,7 +1061,11 @@ input[type="text"], input[type="search"], input[type="email"], input[type="passw
 .usage-body { margin-top: 12px; }
 .usage-controls { display: grid; grid-template-columns: minmax(0, 12rem) max-content; align-items: end; gap: 8px; margin-bottom: 12px; }
 .usage-controls .field { min-width: 0; grid-template-columns: minmax(0, 1fr); }
-.usage-controls input[type="month"] { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: inherit; width: 100%; max-width: 100%; min-width: 0; min-height: 36px; box-sizing: border-box; }
+/* iOS Safari sizes a native month field to its own picker and ignores the
+   width, so it ran under the Refresh button; without its native look it keeps
+   to its grid column. */
+.usage-controls input[type="month"] { -webkit-appearance: none; appearance: none; display: block; font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: inherit; width: 100%; max-width: 100%; min-width: 0; min-height: 36px; box-sizing: border-box; }
+.usage-controls input[type="month"]::-webkit-date-and-time-value { text-align: left; }
 .usage-controls .chip { min-height: 36px; white-space: nowrap; }
 .usage-table-scroll { overflow-x: auto; }
 .usage-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
