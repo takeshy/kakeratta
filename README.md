@@ -19,7 +19,7 @@ about, remember what matters to them and speak up when it matters.
   a question: keep, postpone or forget? Your original posts stay intact.
 
 [Try it](https://kakeratta.net/lp/?lang=en) ·
-[Watch the demo](https://youtu.be/fdUYDI6Sd70) ·
+[Watch the demo](https://youtu.be/7BB3MnY8uBI) ·
 [Devpost](https://devpost.com/software/kakeratta) ·
 [Manual](https://kakeratta.net/manual/?lang=en) ·
 [Design](docs/design/technical.md)
