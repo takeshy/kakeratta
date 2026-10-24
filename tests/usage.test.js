@@ -35,6 +35,8 @@ test("persona cards request only that persona and overall Other includes embeddi
       return { usage: { month: "2026-10", rows: persona ? [{ category: "scheduled", component: "persona", calls: 1, reportedUsd: 0.02, searches: 2 }] : [
         { component: "embedding", calls: 1, estimatedUsd: 0.01 },
         { component: "other", calls: 1, estimatedUsd: 0.03 },
+        { component: "persona", persona: "gourmet", category: "reply", calls: 1, estimatedUsd: 0.05 },
+        { component: "persona", persona: "agent", category: "reply", calls: 1, estimatedUsd: 0.07 },
       ] } };
     };
     const persona = createUsage({ persona: "gourmet" });
@@ -50,5 +52,9 @@ test("persona cards request only that persona and overall Other includes embeddi
     assert.ok(text(table).includes("US$0.0400"));
     assert.ok(!text(table).includes("Embedding"), "embedding is grouped into Other");
     assert.ok(text(overall.element).includes(t("担当合計")));
+    // Questions to @ai have no persona card; they get their own row, apart from the personas.
+    const cells = (label) => walk(table).find(node => node.children[0]?.textContent === t(label));
+    assert.ok(text(cells("担当合計")).includes("US$0.0500"));
+    assert.ok(text(cells("@ai")).includes("US$0.0700"));
   } finally { Object.assign(globalThis, { Node: saved.Node, document: saved.document }); api.usage = saved.usage; }
 });

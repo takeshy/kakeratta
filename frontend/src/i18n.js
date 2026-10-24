@@ -184,7 +184,7 @@ const EN = {
   "この月の利用記録はありません": "No usage recorded for this month",
   "失敗したリクエスト：AI {0}件、Web検索 {1}件": "Failed requests: AI {0}, Web search {1}",
   "この月の記録開始：{0}": "Recording for this month began: {0}",
-  "全体の合計は振り分け・各担当の利用分・その他の処理を含みます。その他にはEmbeddingや日まとめ・月まとめなどを含みます。担当ごとの内訳は担当画面をご覧ください。": "The overall total includes routing, all personas, and other processing. Other includes embeddings and daily/monthly summaries. See each persona's card for its breakdown.",
+  "全体の合計は振り分け・各担当の利用分・@ai・その他の処理を含みます。@aiの行は、@aiに直接した質問の分です。その他にはEmbeddingや日まとめ・月まとめなどを含みます。担当ごとの内訳は担当画面をご覧ください。": "The overall total includes routing, all personas, @ai, and other processing. The @ai row covers questions asked directly to @ai. Other includes embeddings and daily/monthly summaries. See each persona's card for its breakdown.",
   "AI料金は米ドルの概算です。OpenRouterはAPIが返した料金、Nebiusは記録時の公開単価で集計します。Nebiusの割引・無料枠は反映しません。Web検索料金・外部エージェント側のAI料金は含みません。": "AI costs are estimates in USD. OpenRouter uses API-reported costs; Nebius uses public rates at recording time. Nebius discounts and free allowances are not reflected. Web search charges and AI costs incurred by external agents are excluded.",
   "返答・定期実行には調査、記憶更新、再試行も含みます。定期実行はチェックインとリマインダーです。Web検索は実際のAPIリクエスト数（失敗を含む）です。過去のログは集計対象に含みません。": "Replies and scheduled runs include research, memory updates, and retries. Scheduled runs include check-ins and reminders. Web searches count actual API requests, including failures. Historical logs are excluded.",
   "プロフィール": "Profile", "表示名": "Display name", "写真を選ぶ": "Choose photo", "写真を外す": "Remove photo",

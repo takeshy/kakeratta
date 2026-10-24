@@ -431,7 +431,7 @@ Dictation uses browser speech recognition. “Polish text with AI before auto-se
 
 ## Monthly AI usage
 
-Open **Settings → AI usage** for the total monthly cost and Web search count. Choose a month and press **Refresh** for current records. The breakdown is **Routing, All personas, and Other**. Other includes embeddings and shared daily/monthly summaries.
+Open **Settings → AI usage** for the total monthly cost and Web search count. Choose a month and press **Refresh** for current records. The breakdown is **Routing, All personas, @ai, and Other**. The @ai row covers questions asked directly to `@ai`; personas that answer on the built-in model are counted under All personas. Other includes embeddings and shared daily/monthly summaries.
 
 ![Settings AI usage (sample amounts)](../captures/en/settings-usage.png)
 

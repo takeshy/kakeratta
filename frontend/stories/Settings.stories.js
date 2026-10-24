@@ -23,6 +23,7 @@ export const WithUsage = {
       { component: "persona", persona: "book", category: "reply", calls: 42, estimatedUsd: 0.3248, reportedUsd: 0.12, searches: 18 },
       { component: "persona", persona: "book", category: "scheduled", calls: 16, estimatedUsd: 0.0862, searches: 3 },
       { component: "persona", persona: "book", category: "other", calls: 4, estimatedUsd: 0.0126, searches: 0 },
+      { component: "persona", persona: "agent", category: "reply", calls: 6, estimatedUsd: 0.0418, searches: 4 },
       { component: "other", category: "other", calls: 8, estimatedUsd: 0.024, searches: 0 },
       { component: "embedding", category: "other", calls: 60, estimatedUsd: 0.0012, searches: 0 },
     ],

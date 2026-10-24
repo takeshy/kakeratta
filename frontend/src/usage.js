@@ -28,7 +28,7 @@ export function createUsage({ persona = "" } = {}) {
   body.append(el("div", { class: "usage-controls" }, el("label", { class: "field" }, el("span", { label: "集計月" }), month), refresh), results,
     el("p", { class: "hint", label: "AI料金は米ドルの概算です。OpenRouterはAPIが返した料金、Nebiusは記録時の公開単価で集計します。Nebiusの割引・無料枠は反映しません。Web検索料金・外部エージェント側のAI料金は含みません。" }),
     el("p", { class: "hint", label: "返答・定期実行には調査、記憶更新、再試行も含みます。定期実行はチェックインとリマインダーです。Web検索は実際のAPIリクエスト数（失敗を含む）です。過去のログは集計対象に含みません。" }));
-  if (!persona) body.append(el("p", { class: "hint", label: "全体の合計は振り分け・各担当の利用分・その他の処理を含みます。その他にはEmbeddingや日まとめ・月まとめなどを含みます。担当ごとの内訳は担当画面をご覧ください。" }));
+  if (!persona) body.append(el("p", { class: "hint", label: "全体の合計は振り分け・各担当の利用分・@ai・その他の処理を含みます。@aiの行は、@aiに直接した質問の分です。その他にはEmbeddingや日まとめ・月まとめなどを含みます。担当ごとの内訳は担当画面をご覧ください。" }));
   let request = 0;
   let loaded = false;
   async function load() {
@@ -47,9 +47,15 @@ export function createUsage({ persona = "" } = {}) {
       const total = usageTotals(usage.rows);
       results.append(el("p", { text: t("合計：{0} · Web検索 {1}回", costText(total), total.searches) }));
       const labels = { reply: "返答", scheduled: "定期実行", other: "その他" };
+      // Questions to @ai are recorded under the persona id "agent"; they have
+      // no persona card, so the overall table shows them on their own row.
+      const direct = (row) => row.component === "persona" && row.persona === "agent";
       const displayRows = persona ? usage.rows : [
-        ["routing", "振り分け"], ["persona", "担当合計"], ["other", "その他"],
-      ].map(([component, label]) => ({ ...usageTotals(usage.rows.filter(row => (row.component === component || (component === "other" && row.component === "embedding")))), label }));
+        ["振り分け", row => row.component === "routing"],
+        ["担当合計", row => row.component === "persona" && !direct(row)],
+        ["@ai", direct],
+        ["その他", row => row.component === "other" || row.component === "embedding"],
+      ].map(([label, matches]) => ({ ...usageTotals(usage.rows.filter(matches)), label }));
       const table = el("table", { class: "usage-table" },
         el("thead", {}, el("tr", {}, ...["用途", "AI料金", "Web検索"].map(label => el("th", { scope: "col", label })))),
         el("tbody", {}, ...displayRows.map(row => el("tr", {},
