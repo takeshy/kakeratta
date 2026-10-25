@@ -449,7 +449,7 @@ Where vectors live:
 
 ## Voice input
 
-Dictation uses browser speech recognition. “Polish text with AI before auto-send”, under Advanced options, is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron 3.5 Lightning by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
+Dictation uses browser speech recognition. “Polish text with AI before auto-send”, under Voice in Settings, is OFF by default. When enabled, only a spoken send phrase triggers polishing by the low model (Nemotron 3.5 Lightning by default), before posting or replying. Manual sends and silence stops do not trigger polishing. If polishing fails, the draft remains without being posted.
 
 ## Monthly AI usage
 
@@ -494,7 +494,7 @@ Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 - Nemotron Ultra — answers for deep requests, plus persona drafting
 - Nebius Token Factory — inference backend
 
-Routing uses Nemotron 3 Super by default. Under Advanced options → Models → Use OpenRouter, enter an API key
+Routing uses Nemotron 3 Super by default. Under Settings → Models → Use OpenRouter, enter an API key
 and check the connection to fetch available models and pick one for each slot.
 Selecting `~typesafe/jev-latest` in the Router model picker moves only routing to Jev. In the 20-production-item comparison,
 Jev scored 5/5 on disputed cases, averaged 0.37 seconds, and cost about ¥0.026
@@ -506,7 +506,7 @@ An unset selection retains the GLM-5.3-Flash default. This choice is independent
 the main provider's image model and survives turning OpenRouter off. Meaning search
 continues to use Qwen3-Embedding-8B on the main backend.
 
-![Settings: models, web search, backup, this device, and advanced options holding OpenRouter, voice input, read-aloud, MCP and Bluesky](../captures/en/settings.png)
+![Settings: models with OpenRouter, web search, AI usage, this device, then Input, Voice, Integrations, Backup and Close account](../captures/en/settings.png)
 
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
@@ -543,7 +543,7 @@ turn's schedules and notes on Super, assembles them
 with the answer into a workflow, reviews it as in the table above when it holds a
 schedule, runs it, and publishes the answer. If the
 agent does not claim the turn within 3 minutes, or no answer is accepted within
-15 minutes of the claim, the built-in path takes the turn back and answers on Super, Ultra for deep requests, or Super VL for Always think deeply. The waits are under Advanced options →
+15 minutes of the claim, the built-in path takes the turn back and answers on Super, Ultra for deep requests, or Super VL for Always think deeply. The waits are under Settings →
 Integrations, where **Use the external agent** can pause it for a while. See [Hermes Agent setup](hermes.md), or the
 [manual](https://kakeratta.net/manual/?lang=en#en-hermes) for LLM Connect Hub.
 
@@ -628,7 +628,7 @@ an hour; on a laptop it comes straight down the response.
 
 ### Closing the account
 
-Settings → Advanced options → Close account deletes everything the account
+Settings → Close account deletes everything the account
 holds and the account with it. The button asks you to type the word "delete";
 after that there is no way back, so export a backup first if there is anything
 you want to keep.

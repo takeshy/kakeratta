@@ -154,9 +154,9 @@ func namesAgentAlias(text string, aliases []string) bool {
 func (r *Runner) agentUnavailable(settings store.Settings) string {
 	switch {
 	case settings.ExternalAgent.Paused:
-		return "外部エージェントを使わない設定になっているため、この依頼は届けられませんでした。設定 → 上級オプション → 外部連携 で「外部エージェントを使う」をONにしてから、もう一度依頼してください。"
+		return "外部エージェントを使わない設定になっているため、この依頼は届けられませんでした。設定 → 外部連携 で「外部エージェントを使う」をONにしてから、もう一度依頼してください。"
 	case r.agentConnection == nil || strings.TrimSpace(r.agentConnection()) == "":
-		return "外部エージェントが接続されていないため、この依頼は届けられませんでした。設定 → 上級オプション → 外部連携 で接続してから、もう一度依頼してください。"
+		return "外部エージェントが接続されていないため、この依頼は届けられませんでした。設定 → 外部連携 で接続してから、もう一度依頼してください。"
 	}
 	return ""
 }

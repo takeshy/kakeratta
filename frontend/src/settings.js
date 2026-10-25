@@ -27,7 +27,6 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
   let settings = null;
   let revealOpenRouter = () => {};
   let setupHint = null;
-  let about = null;
   let bluesky = null;
   let openRouterModels = [];
   let openRouterVerified = false;
@@ -39,7 +38,6 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
 
   async function load() {
     settings = await api.settings();
-    about = about || (await api.about().catch(() => null));
     onSettings?.(settings);
     draw();
   }
@@ -144,6 +142,27 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     return el("div", { class: "compose-row" }, check);
   }
 
+  // A group most people leave as it is: shut, and built the first time it is
+  // opened - which is also when the external agent and Bluesky are asked about.
+  function category(label, build, { danger = false } = {}) {
+    const content = el("div", { class: "settings-category-body" });
+    const group = el("details", { class: danger ? "settings-category danger" : "settings-category", "data-category": label },
+      el("summary", { label }), content);
+    let built = false;
+    const open = () => {
+      if (!group.open || built) return;
+      built = true;
+      build(content);
+    };
+    group.addEventListener("toggle", open);
+    group.reveal = () => {
+      group.open = true;
+      open();
+    };
+    view.append(group);
+    return group;
+  }
+
   function drawAI() {
     const apiKey = field("APIキー", settings.apiKey, (value) => patch({ apiKey: value }), {
       type: "password",
@@ -168,6 +187,16 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       apiKey,
       connectionCheck(() => patch({ apiKey: apiKey.querySelector("input").value.trim() })),
     );
+    let routerSection = null;
+    const openRouter = category("OpenRouterを使う", (into) => {
+      routerSection = openRouterSection();
+      into.append(routerSection);
+    });
+    revealOpenRouter = () => {
+      openRouter.reveal();
+      routerSection.scrollIntoView({ block: "start", behavior: "smooth" });
+      routerSection.querySelector("input").focus({ preventScroll: true });
+    };
   }
 
   function openRouterSection() {
@@ -221,7 +250,6 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       } },
     );
     return el("div", { class: "settings-block", id: "openrouter-settings" },
-      el("h3", { label: "OpenRouterを使う" }),
       jevKey,
       openRouterCheck,
       modelSelectionHint,
@@ -560,7 +588,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     );
   }
 
-  // Show the deployed version alongside device preferences.
+  // Preferences kept on this device rather than with the account.
   function drawDevice() {
     view.append(
       el("h3", { label: "この端末" }),
@@ -574,40 +602,17 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     const push = createPushSettings();
     view.append(push.element);
     void push.load();
-    if (!about) return;
-    view.append(el("p", { class: "hint", text: `kakeratta ${about.version}` }));
   }
 
-  // Everything below the line is something most people never open: another
-  // provider for the models, how dictation and reading aloud behave, an
-  // external agent, and posting to Bluesky. The defaults are the answer for
-  // all of them, so the section stays shut and is built the first time it is
-  // opened - which is also when the external agent and Bluesky are asked about.
-  function drawAdvanced() {
-    const body = el("div", { class: "advanced-body" });
-    const section = el("details", { class: "settings-advanced" },
-      el("summary", { label: "上級オプション" }), body);
-    let built = false;
-    let routerSection = null;
-    let modelCategory = null;
-    const category = (label) => {
-      const content = el("div", { class: "advanced-category-body" });
-      const group = el("details", { class: "advanced-category", "data-category": label },
-        el("summary", { label }), content);
-      body.append(group);
-      return { group, content };
-    };
-    const build = () => {
-      if (!section.open || built) return;
-      built = true;
-      routerSection = openRouterSection();
-      modelCategory = category("モデル");
-      modelCategory.content.append(routerSection);
-      drawInput(category("入力").content);
-      const voice = category("音声");
-      drawSpeech(voice.content);
-      drawReadAloud(voice.content);
-      const integrations = category("外部連携");
+  // What the defaults already answer, one group each. Closing the account
+  // comes last and looks it.
+  function drawGroups() {
+    category("入力", drawInput);
+    category("音声", (into) => {
+      drawSpeech(into);
+      drawReadAloud(into);
+    });
+    category("外部連携", (into) => {
       // The switch only matters once an agent is connected; until then it
       // stays out of sight, like the planner choice on the persona cards.
       const controls = el("div", { class: "settings-block external-agent", hidden: true });
@@ -616,29 +621,19 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       const mcp = createMCPConnection({ controls, onChange: onMCPChange, onState: (connection) => {
         controls.hidden = !connection?.configured;
       } });
-      integrations.content.append(mcp.element);
+      into.append(mcp.element);
       void mcp.load();
       bluesky?.dispose();
       bluesky = createBlueskyConnection();
-      integrations.content.append(el("h3", { label: "Bluesky連携" }), bluesky.element);
-      integrations.content.append(createAlexaConnection());
-      drawBackup(category("バックアップ").content);
-      if (closeAccount) drawClosing(category("利用停止").content);
-    };
-    section.addEventListener("toggle", build);
-    revealOpenRouter = () => {
-      section.open = true;
-      build();
-      modelCategory.group.open = true;
-      routerSection.scrollIntoView({ block: "start", behavior: "smooth" });
-      routerSection.querySelector("input").focus({ preventScroll: true });
-    };
-    view.append(section, el("p", { class: "hint", label: "入力の書式、モデルの切り替え、音声入力・読み上げ、外部エージェント・Bluesky連携、バックアップができます。" }));
+      into.append(el("h3", { label: "Bluesky連携" }), bluesky.element, createAlexaConnection());
+    });
+    category("バックアップ", drawBackup);
+    if (closeAccount) category("利用停止", drawClosing, { danger: true });
   }
 
   // The screen leads with the two keys that decide whether anything works at
-  // all, then what you came to do with your own data. The rest is behind the
-  // line.
+  // all, then what you came to do with your own data. The rest waits in
+  // groups that open when asked for.
   function draw() {
     if (!settings) return;
     stopMicCheck();
@@ -651,7 +646,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     drawTools();
     view.append(createUsage().element);
     drawDevice();
-    drawAdvanced();
+    drawGroups();
   }
 
   return { element: view, load, draw, settings: () => settings, stopMicCheck: () => stopMicCheck() };

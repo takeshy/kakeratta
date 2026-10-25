@@ -542,20 +542,12 @@ body.sheet-open .topbar { z-index: 21; }
 .daily-time-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .daily-time-auto { margin: 0; color: var(--ink); font-size: 1.0625rem; }
 .daily-time .hint { margin: 4px 0 0; line-height: 1.7; }
-/* One line across the panel: above it what you set up, below it what almost
-   nobody changes. The section stays shut until it is asked for. */
-.settings-advanced { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
-.settings-advanced > summary { cursor: pointer; color: var(--accent); font-size: 1.0625rem; list-style: none; }
-.settings-advanced > summary::-webkit-details-marker { display: none; }
-.settings-advanced > summary::before { content: "▸ "; }
-.settings-advanced[open] > summary::before { content: "▾ "; }
-.advanced-body { display: grid; gap: 14px; }
-.advanced-category { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
-.advanced-category > summary { cursor: pointer; font-size: 1.0625rem; font-weight: 600; }
-.advanced-category-body { display: grid; gap: 14px; padding-top: 12px; }
-.advanced-category-body > .settings-block { display: grid; gap: 14px; }
-.advanced-body > [hidden] { display: none; }
-.advanced-category-body > [hidden] { display: none; }
+/* Groups most people leave as they are: each a row that opens on demand. */
+.settings-category { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.settings-category > summary { cursor: pointer; font-size: 1.0625rem; font-weight: 600; }
+.settings-category-body { display: grid; gap: 14px; padding-top: 12px; }
+.settings-category-body > .settings-block { display: grid; gap: 14px; }
+.settings-category-body > [hidden] { display: none; }
 .external-agent, .external-agent .settings-block { display: grid; gap: 14px; }
 .external-agent[hidden], .external-agent [hidden] { display: none; }
 .external-agent .hint { margin: 0; }
@@ -602,7 +594,7 @@ body.sheet-open .topbar { z-index: 21; }
 }
 /* Native controls and nested grids can otherwise impose their content width,
    especially with enlarged text or long device-specific voice names. */
-.settings-panel :is(.field, .settings-block, .advanced-body, .advanced-category-body, .openrouter-models, .mcp-connection, .mcp-connection-row, .bluesky-connection) {
+.settings-panel :is(.field, .settings-block, .settings-category-body, .openrouter-models, .mcp-connection, .mcp-connection-row, .bluesky-connection) {
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
 }
@@ -635,19 +627,21 @@ body.sheet-open .topbar { z-index: 21; }
 .settings-panel .hint.warn { padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); }
 .settings-panel input:focus-visible, .settings-panel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
 .settings-panel .chip { justify-self: start; padding: 7px 14px; }
-.settings-panel .settings-advanced { margin-top: 18px; padding-top: 18px; }
-.settings-panel .settings-advanced > summary { font-weight: 700; letter-spacing: 0.06em; font-size: 0.875rem; }
-.settings-panel .advanced-category { padding: 0; background: var(--bg); overflow: hidden; }
-.settings-panel .advanced-category > summary {
+.settings-panel .settings-category { padding: 0; background: var(--bg); overflow: hidden; }
+.settings-panel .settings-category > summary {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 14px; list-style: none;
 }
-.settings-panel .advanced-category > summary::-webkit-details-marker { display: none; }
-.settings-panel .advanced-category > summary::after { content: "›"; color: var(--muted); font-size: 1.375rem; transition: transform 0.15s; }
-.settings-panel .advanced-category[open] > summary::after { transform: rotate(90deg); }
-.settings-panel .advanced-category > summary:hover { color: var(--accent); }
-.settings-panel .advanced-category[open] > summary { border-bottom: 1px solid var(--line); }
-.settings-panel .advanced-category-body { padding: 14px; background: var(--card); }
+.settings-panel .settings-category > summary::-webkit-details-marker { display: none; }
+.settings-panel .settings-category > summary::after { content: "›"; color: var(--muted); font-size: 1.375rem; transition: transform 0.15s; }
+.settings-panel .settings-category[open] > summary::after { transform: rotate(90deg); }
+.settings-panel .settings-category > summary:hover { color: var(--accent); }
+.settings-panel .settings-category[open] > summary { border-bottom: 1px solid var(--line); }
+.settings-panel .settings-category-body { padding: 14px; background: var(--card); }
+/* Each group is its own row; closing the account sits apart, in the danger color. */
+.settings-panel > .settings-category { margin-top: 10px; }
+.settings-panel > .settings-category.danger { margin-top: 28px; border-color: var(--danger, #a33); }
+.settings-panel > .settings-category.danger > summary { color: var(--danger, #a33); }
 .field.check-field { display: flex; flex-direction: row; align-items: center; gap: 8px; }
 .field.check-field input { width: auto; }
 .field.check-field > span:first-child { color: inherit; font-size: inherit; }

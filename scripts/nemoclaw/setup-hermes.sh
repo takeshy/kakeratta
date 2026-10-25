@@ -10,7 +10,7 @@
 #   - Docker（Linux の dockerd、または WSL から使える Docker Desktop）
 #   - ~/.config/nemoclaw/tokenfactory.env   TOKENFACTORY_API_KEY=...
 #   - ~/.config/nemoclaw/kakeratta-mcp.env  KAKERATTA_MCP_URL=... / KAKERATTA_MCP_TOKEN=...
-#     （kakeratta の「設定 → 上級オプション → 外部連携」で発行。URL はサンドボックス
+#     （kakeratta の「設定 → 外部連携」で発行。URL はサンドボックス
 #       から届く宛先。https はそのまま、http（ローカル開発）はホストの IP を書く）
 #
 # 使用法:

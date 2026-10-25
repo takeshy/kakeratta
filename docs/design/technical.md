@@ -1466,7 +1466,7 @@ The built-in model takes the turn back when:
   claimed ask (away). No ask is opened then, and the agent comes back on its
   next call. A claimed ask uses its own answer deadline instead.
 
-Both waits are set under Settings → Advanced options → Integrations. An ask
+Both waits are set under Settings → Integrations. An ask
 is kept in the workspace and survives a restart; the turn that opened it ends
 and is carried on once the ask closes, and a late answer is refused. An accepted answer is not taken back: if the later phases
 cannot back up what it promised, or a change fails, it is withheld. A preview a person is waiting on is always planned

@@ -70,9 +70,9 @@ export function createMCPConnection({ onChange, onState, controls = null } = {})
       node.value = value;
       return node;
     };
-    return el("details", { class: "advanced-category", open },
+    return el("details", { class: "settings-category", open },
       el("summary", { label: "Hermesでの設定方法" }),
-      el("div", { class: "advanced-category-body" },
+      el("div", { class: "settings-category-body" },
         el("p", { label: "1. 通常のHermesをお使いの場合: 以下の指示をHermesにそのまま渡してください（SkillとMCPが自動設定され、毎分の定期実行が提案されます）。" }),
         area(promptText, 5, "Hermesへの指示プロンプト"),
         el("p", { label: "2. NemoClawをお使いの場合: 以下のコマンドでManaged MCPを追加してください。" }),
@@ -87,10 +87,10 @@ export function createMCPConnection({ onChange, onState, controls = null } = {})
   function connectionDetails(row) {
     const key = keys.get(row.id) || "";
     const waits = (change) => act(() => api.setMCPConnectionWaits(row.id, change));
-    const details = el("details", { class: "advanced-category mcp-connection-details", open: opened.has(row.id),
+    const details = el("details", { class: "settings-category mcp-connection-details", open: opened.has(row.id),
       ontoggle: (event) => { if (event.currentTarget.open) opened.add(row.id); else opened.delete(row.id); },
     }, el("summary", { label: "接続情報と待ち時間" }));
-    details.append(el("div", { class: "advanced-category-body" },
+    details.append(el("div", { class: "settings-category-body" },
       el("dl", { class: "mcp-connection-values" },
         el("dt", { label: "MCPエンドポイント" }), el("dd", {}, el("code", { text: endpoint() })),
         el("dt", { label: "認証ヘッダー" }), el("dd", {}, el("code", { text: `Authorization: Bearer ${key || "<TOKEN>"}` }))),

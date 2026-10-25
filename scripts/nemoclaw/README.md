@@ -45,7 +45,7 @@ Create these two files first (both `chmod 600`; keep the values out of shell his
 # ~/.config/nemoclaw/tokenfactory.env
 TOKENFACTORY_API_KEY=...
 
-# ~/.config/nemoclaw/kakeratta-mcp.env (issued in kakeratta under Settings → Advanced options → Integrations)
+# ~/.config/nemoclaw/kakeratta-mcp.env (issued in kakeratta under Settings → Integrations)
 KAKERATTA_MCP_URL=https://kakeratta.net/api/mcp/users/<workspace>
 KAKERATTA_MCP_TOKEN=...
 ```

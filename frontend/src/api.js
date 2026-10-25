@@ -132,7 +132,6 @@ export const api = {
   saveSettings: (settings) => call("PUT", "/api/settings", settings),
   models: () => call("GET", "/api/models"),
   openRouterModels: () => call("GET", "/api/openrouter/models"),
-  about: () => call("GET", "/api/about"),
 
   on(listener) {
     listeners.add(listener);

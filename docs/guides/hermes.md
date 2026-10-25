@@ -8,7 +8,7 @@ Of a persona's turn, the research and the answer — reading the context, lookin
 
 When a persona whose planner is the external agent wakes, Kakeratta opens an **ask** over MCP. Hermes claims the ask, receives the context, and submits an **answer** (`{text, sources}`) and nothing else. Kakeratta uses Super to plan schedules, assembles them with the answer into a **workflow**, validates and reviews them, executes them **as the persona**, and publishes the answer. Its note keeper updates memory after publication. Hermes never posts, writes notes or changes state itself, and its answer is not reviewed for quality: a reviewer on Kakeratta's model cannot see what Hermes researched with its own tools.
 
-If Hermes does not claim the ask in time (3 minutes by default), or no answer is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits are set per agent, under each connection's **Connection details and waits** in **Settings → Advanced options → Integrations**. There, turning off **Use the external agent** refuses its MCP connections (403) and every persona plans with the built-in model, while each persona's choice is kept. An agent that is only away (quiet for the claim wait) is still let in and comes back on its next call. Installing and configuring Hermes itself is a separate step.
+If Hermes does not claim the ask in time (3 minutes by default), or no answer is accepted after the claim in time (15 minutes by default), the built-in model takes the turn back (fall-through). The waits are set per agent, under each connection's **Connection details and waits** in **Settings → Integrations**. There, turning off **Use the external agent** refuses its MCP connections (403) and every persona plans with the built-in model, while each persona's choice is kept. An agent that is only away (quiet for the claim wait) is still let in and comes back on its next call. Installing and configuring Hermes itself is a separate step.
 
 Built-in fallback always researches on Super and composes the final answer on Super, or Ultra for deep replies and AlwaysUltra. Its per-round read schema follows live search budgets and available capabilities. Hermes retains its own research loop and the existing `read_for_ask` interface; the built-in schema changes do not restrict Hermes's own tools. See [research budgets](../system/personas.md#research-budgets-and-available-reads).
 
@@ -20,7 +20,7 @@ Other agents can use the same MCP Streamable HTTP endpoint and `Authorization: B
 
 ## Connecting
 
-1. In Kakeratta, open **Settings → Advanced options → Integrations** and under **External agent connections**, check the connection name ("Hermes" is filled in the first time) and press **Add and create key**. Open **Setting up Hermes** in the setup that appears.
+1. In Kakeratta, open **Settings → Integrations** and under **External agent connections**, check the connection name ("Hermes" is filled in the first time) and press **Add and create key**. Open **Setting up Hermes** in the setup that appears.
 2. Add the configuration shown there to your Hermes `~/.hermes/config.yaml`. If a `mcp_servers` section already exists, add `kakeratta` under it. To prevent argument quotation and double-escaping syntax errors (`Expecting ',' delimiter...`) on nested arguments such as the answer object, also configure Direct disclosure (`tools.tool_search.enabled: "off"`).
 
    ```yaml
@@ -199,7 +199,7 @@ Every authenticated MCP call records the agent's last-seen time; Hermes's Wake G
 
 While it holds a claimed ask it has not finished, it is never taken to be away, since its Wake Gate does not run while it plans; the ask has its own plan wait. Right after a server restart it counts as away until its first call.
 
-The state, with the time of the last call, is shown under **Settings → Advanced options → Integrations**. Keep the Hermes cron interval shorter than the claim wait: with a longer one, Hermes counts as away between its calls and is hardly ever handed a turn.
+The state, with the time of the last call, is shown under **Settings → Integrations**. Keep the Hermes cron interval shorter than the claim wait: with a longer one, Hermes counts as away between its calls and is hardly ever handed a turn.
 
 ### Zero-token standby (Wake Gate)
 

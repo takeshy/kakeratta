@@ -67,6 +67,8 @@ export function serve({ personas = [], tools = [], settings = {}, about = null, 
       entry.review = body?.choice;
       return json({ ...entry });
     }
+    // Alexa is not offered in the stories, as on a server without its skill.
+    if (path === "/api/alexa/connection" && method === "GET") return json({ enabled: false, connected: false });
     if (path === "/api/social/bluesky/connection" && method === "GET") return json(connection);
     if (path === "/api/social/bluesky/connection" && method === "DELETE") {
       connection = { available: true, connected: false };

@@ -118,17 +118,29 @@ I'm proud that I built something I actually rely on, running mostly on Nemotron 
 
 ## What we learned
 
-### Building AI into an app is harder than it looks
+### A smarter AI doesn't necessarily make a better app
 
-With coding agents, I can describe a complex feature and get a working implementation. So it seemed obvious that an LLM could answer a question and take a note at the same time.
+With coding agents, I can describe a complex feature and get a working implementation. So I thought that with the right harness, an LLM should be able to answer questions and take notes at the same time.
 
-Not reliably. Asked to do both in one call, even a capable model often did only one. The note also competes with the reply for tokens, so the reply gets shallower. Sometimes the model claims not to know something a quick search would answer. Sometimes it hallucinates. And sometimes it answers perfectly. The same request can produce very different results.
+But it wasn't that simple. Even capable models would neglect one task or give shallow answers. Pointing out a problem and asking the model to reconsider sometimes produced the same answer again. Switching to more powerful models sent costs soaring.
 
-Coding agents avoid much of this because they don't hand the request straight to the model. They wrap it in a harness: breaking the work into steps, calling tools, and checking results. But a harness designed around a powerful model doesn't necessarily work well with a smaller one. kakeratta has to be cheap enough to use casually, so it can't rely on the most capable models for everything.
+So I split each turn into separate stages: routing, answering, planning and validation, and memory updates. Everyday notes don't need long, elaborate reasoning. By narrowing each model's job, the results became more consistent, and even the relatively inexpensive Nemotron 3 Super could handle its tasks reliably.
 
-So I built a harness for smaller, affordable models. Each turn is split into separate stages, so the persona can focus on answering without also having to manage memory updates. Then I run the app, watch results and cost, and fix whatever fails most often, sometimes with logic, sometimes with prompts or context. Stronger models handle the less frequent tasks that need deeper reasoning. Where automation falls short, users can inspect and correct the AI's behavior.
+But that didn't mean kakeratta could give the same thoughtful answers as general-purpose AI assistants.
 
-As models and coding agents improve, features alone won't set an app apart. What will, I think, is ease of use, and a harness that balances quality against cost.
+Looking at Muse, Dots, Grok bot, and other Personal AI services, I saw capable models, rich information sources, and the ability to handle complex questions and research. Some can even operate a browser to make reservations. Trying to match all of that with kakeratta wouldn't be realistic, either technically or financially.
+
+I originally wanted to build a Personal AI for people around me who aren't particularly tech-savvy. But I came to think they'd be better off starting with those general-purpose AI services.
+
+Meanwhile, I use kakeratta every day.
+
+I turn to other AI tools for questions and research, and toss everyday events and passing thoughts into kakeratta. The AI doesn't reply to every post, and that's a good thing. When I'm just leaving a note, I don't want follow-up questions or speculative answers. I want it to remember what matters and bring it back when I need it.
+
+For example, if I tell kakeratta I've already taken my medication, it can skip the unnecessary reminder. If the reminder does arrive, I can simply tap "Done." These small everyday conveniences aren't always easy to achieve with today's general-purpose AI agents.
+
+I also realized that the more personal memories we entrust to an AI service, the harder it becomes to leave that service. That's why kakeratta lets users export their data and continue using it with the local version.
+
+As I explored other Personal AI services and kept experimenting with kakeratta in my own daily life, I realized that its value isn't in replacing general-purpose AI. It's in the small conveniences those tools don't quite cover, and in letting people keep their own data, regardless of which AI they choose to use.
 
 ## What's next for kakeratta
 

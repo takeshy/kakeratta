@@ -45,7 +45,7 @@ NemoClaw の導入、サンドボックス作成、Provider v2、通信許可、
 # ~/.config/nemoclaw/tokenfactory.env
 TOKENFACTORY_API_KEY=...
 
-# ~/.config/nemoclaw/kakeratta-mcp.env（kakeratta の「設定 → 上級オプション → 外部連携」で発行）
+# ~/.config/nemoclaw/kakeratta-mcp.env（kakeratta の「設定 → 外部連携」で発行）
 KAKERATTA_MCP_URL=https://kakeratta.net/api/mcp/users/<workspace>
 KAKERATTA_MCP_TOKEN=...
 ```
