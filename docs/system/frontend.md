@@ -1,12 +1,12 @@
 ---
 type: "Component"
 title: "Browser application and device state"
-description: "Frontend composition, English judge registration and progress, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards."
+description: "Localized landing page, frontend composition, English judge registration and progress, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar", "google-import"]
-updated: "2026-10-24"
+updated: "2026-10-25"
 ---
 
-Frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards.
+Localized landing page, frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards.
 
 The application font stack includes `Noto Sans CJK JP` after `Noto Sans JP`, so Linux Chromium with the Noto CJK package uses Japanese sans-serif glyphs for both the app and its documentation captures.
 
@@ -203,6 +203,8 @@ The bilingual [advanced manual](../../frontend/manual/index.html) includes perso
 The `screen--hero` story in [Screen.stories.js](../../frontend/stories/Screen.stories.js) supplies the shared `timeline` capture for the README and manual. It shows only current built-in personas and a complete conversation with tabe, opening the reply toggle so the persona's answer and the user's reply are visible.
 
 The landing page uses the separate `screen--travel-memory` story and `travel-memory` capture in Japanese and English. Its sample timeline shows a restaurant missed during a Shizuoka trip, a return-trip post three weeks later, and tabe's daily suggestion. The daily suggestion is an independent persona post, matching the check-in delivery shape.
+
+[The localized landing page](../../frontend/lp/index.html) retains that hero and orders its sections as using existing AI apps alongside kakeratta, core features, persona growth, integrations, technology and cost, everyday conveniences, the development story, and setup. Its six-item overview precedes existing screenshot explanations of separate memories, person personas, recall, search and corrections. Persona growth includes the `persona-suggestion` capture; Google intake uses `gmail-review` and `calendar-card`. ChatGPT, Muse and Dots are mentioned as apps used alongside kakeratta, separately from direct MCP/Hermes connections. Gmail/Calendar require the self-hosted Bridge, Hermes, Google project and OAuth setup, with import approval before normal posting. Alexa is described as verified in the developer environment and submitted for certification. Model roles follow the shipped settings, including Qwen embeddings; cost examples present approximate observed ranges, link to the dated measurement report, and identify public-rate estimates and excluded search/external inference charges. The long development story follows everyday conveniences, preserving the forgotten-information quotation and person examples. Layout additions are scoped to `.lp` in [site.css](../../frontend/site/site.css); the manual keeps its existing layout. App CTAs retain `/?login=1`, and the shared language switch retains language and guide query parameters.
 
 The landing page's separate-memory feature uses the `memory` capture from `personas--wine-memory`, cropped from the top to show the persona name, preference facts, original-post links and correction controls. Its screenshot-input feature uses `book-capture` and `book-response` captures in Japanese and English. These are excerpts of the actual local application's book-image post and generated infographic response, rather than search results or prepared Storybook replies. Switching browser language changes the UI labels; the saved book content and response keep their original language. The page labels this pair as an actual local run.
 

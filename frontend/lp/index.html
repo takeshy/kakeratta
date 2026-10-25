@@ -31,9 +31,9 @@
         </a>
         <span class="spacer"></span>
         <nav class="site-nav" aria-label="Site">
-          <a href="#why"><span class="ja">なぜ作ったか</span><span class="en">Why</span></a>
-          <a href="#how"><span class="ja">仕組み</span><span class="en">How it works</span></a>
-          <a href="#features"><span class="ja">できること</span><span class="en">Features</span></a>
+          <a href="#features"><span class="ja">コア機能</span><span class="en">Core features</span></a>
+          <a href="#connections"><span class="ja">外部連携</span><span class="en">Connect</span></a>
+          <a href="#models"><span class="ja">技術とコスト</span><span class="en">Tech &amp; cost</span></a>
           <a href="/manual/" data-lang-link><span class="ja">使い方</span><span class="en">Manual</span></a>
         </nav>
         <div class="lang-switch" role="group" aria-label="Language / 言語">
@@ -62,97 +62,64 @@
         </figure>
       </section>
 
-      <section class="section why" id="why">
-        <h2><span class="ja">大切な人のことほど、細かなことは忘れる。</span><span class="en">The people who matter most are the ones whose details slip away.</span></h2>
-        <p class="ja">大切に思っていることと、その人との細かなことを全部覚えていられることは、別のことです。いつも気にかけてくれていた人がいました。忙しさにかまけてお礼の連絡を後回しにしているうちに、連絡するきっかけを失い、そのまま疎遠になってしまいました。</p>
-        <p class="en">Caring about someone and remembering all the small things about them are not the same. There was someone who always looked out for me. Busy, I kept putting off thanking them, until there was no longer an occasion to get in touch, and we drifted apart.</p>
-        <p class="ja">贈り物、葉書、旅先のお土産、貸し借り、前に会ったときに話したこと。メモや写真に残しても、量が増えるほど見返さなくなり、残したこと自体を忘れてしまいます。AIにきれいに分類させても、誰かに片づけてもらった部屋のように、かえってどこにあるか分からなくなりました。</p>
-        <p class="en">Presents, postcards, souvenirs, things lent and borrowed, what we talked about last time. Notes and photos pile up until I no longer look back, and forget I ever kept them. An AI that filed them neatly only made it worse, like a room someone else has tidied.</p>
-        <blockquote class="pull"><span class="ja">存在を忘れたものは、検索できない。</span><span class="en">You cannot search for what you forgot exists.</span></blockquote>
-        <p class="ja">だから、人ごと・関心ごとに、自分とは別の記憶を持つ「担当」を置くことにしました。その人の名前が出たときに話を受け取り、済んでいない約束は覚えていて、会う日の朝や誕生日の前には自分から声をかけてくれる。何を覚えるかと同じくらい、いつ思い出させるかを大事にしています。kakerattaは、そこから始まりました。</p>
-        <p class="en">So I gave each person, and each interest, a persona with a memory separate from mine. It hears about someone when their name comes up, keeps promises that are still open, and speaks up on the morning of a meeting or before a birthday. When to remind matters as much as what to remember. That is where kakeratta began.</p>
-      </section>
-
-      <section class="section" id="people">
-        <h2><span class="ja">人物：その人との記憶</span><span class="en">People: your memories with someone</span></h2>
-        <p class="section-intro ja">家族、恋人、友人、お世話になった人。一人ひとりに担当を置けます。「恋人の nagomi。11/10生まれで、辛いタイ料理が好き」と頼めば、呼び名とキーワード、関係性を持つ担当ができ、伝えたことがその担当の最初の記憶になります。</p>
-        <p class="section-intro en">Family, a partner, friends, someone who helped you. Each can have a persona. Ask for “my partner nagomi, born on 10 November, loves spicy Thai food” and you get a persona with her names, keywords and relationship, and what you told it becomes its first memory.</p>
-        <div class="feature">
-          <div class="feature-text">
-            <p class="ja">その人の名前やキーワードが出たかけらだけを受け取り、会ったこと、話したこと、贈った物ともらった物、約束や貸し借りを覚えます。済んでいないことは、済むまで忘れません。</p>
-            <p class="en">It takes only the fragments that mention them, and remembers meetings, conversations, presents given and received, promises and loans. What is unsettled stays until it is settled.</p>
-            <p class="ja">会う予定を書けば、その日の朝に前回の出来事を添えて。誕生日や記念日の1週間前と当日には、これまでの贈り物や好みから思いつくことと一緒に。担当のほうから知らせます。</p>
-            <p class="en">Mention a meeting and it tells you that morning, with what happened last time. A week before and on a birthday or an anniversary, it tells you, with an idea drawn from past presents and what they like.</p>
-            <p class="ja">人物の情報は編集できる基本情報として保存します。基本情報やかけらで日付が分かれば、先の予定もその場で登録します。</p>
-            <p class="en">Details about a person are saved as editable basic information. Known dates in basic information or fragments register notifications immediately, even for distant plans.</p>
-            <p class="ja">人との記憶から始まりましたが、それだけではありません。食事、移動、読書、やることのような関心ごとにも、同じように担当を置けます。</p>
-            <p class="en">It started with people, but it does not stop there. Interests like food, travel, reading and follow-ups get personas the same way.</p>
-          </div>
-          <figure class="shot">
-            <img class="ja" src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。関係性、呼び名、キーワード、基本情報（サンプル）" loading="lazy" width="382" height="1050" />
-            <img class="en" src="/captures/en/person-card.png" alt="The card of a person's persona, Sato: relationship, names, keywords and basic information (sample data)" loading="lazy" width="382" height="1122" />
-          </figure>
-        </div>
-      </section>
-
-      <section class="section" id="daily">
-        <h2><span class="ja">ときどき、担当から話しかける。</span><span class="en">Hear from your personas now and then.</span></h2>
-        <p class="section-intro ja">記憶を持つ担当（「記憶する」がオンの担当）は、過去のかけらや記憶を振り返り、伝えたいことがあるときに、ときどき話しかけます。話す量や口調は、それぞれのキャラクターに合わせます。何もなければ、タイムラインも静かなまま。「記憶する」をオフにすると、この振り返りによる声かけも止まります。</p>
-        <p class="section-intro en">Personas with <strong>Remember</strong> enabled keep memories, look back over past fragments, and speak now and then when they have something worth sharing. How much they say and their tone follow their character. Otherwise, the timeline stays quiet. Turning off <strong>Remember</strong> also stops these follow-ups.</p>
-        <p class="ja">人物の担当は「頻繁に振り返る」「ときどき振り返る」の2種類から選べます。</p>
-        <p class="en">For people, choose “Look back often” or “Look back occasionally”.</p>
-        <a class="button ja" href="/manual/?lang=ja#ja-daily">担当からの声かけについて</a>
-        <a class="button en" href="/manual/?lang=en#en-daily">Hearing from your personas</a>
-      </section>
-
-      <section class="section" id="how">
-        <h2><span class="ja">仕組み</span><span class="en">How it works</span></h2>
-        <p class="section-intro ja">入り口はひとつ。受け取り手は、人や関心ごとの担当です。</p>
-        <p class="section-intro en">One way in. On the receiving side, a persona for each person and interest.</p>
-        <div class="steps">
-          <div class="step">
-            <h3><span class="ja">放り込む</span><span class="en">Toss it in</span></h3>
-            <p class="ja">書く、スクリーンショットを貼る、URLを送る、話す。どれも同じ欄から入ります。</p>
-            <p class="en">Write a thought, paste a screenshot, send a URL, or speak. Everything goes through the same box.</p>
-          </div>
-          <div class="step">
-            <h3><span class="ja">担当が受け取る</span><span class="en">Personas receive it</span></h3>
-            <p class="ja">人物の担当にはその人の名前が出たかけらが、関心ごとの担当には関係するかけらだけが届きます。何を覚えるか、返事をするかは担当が自分で決めます。</p>
-            <p class="en">A person's persona gets the fragments that name them; an interest's gets only those that concern it. Each decides what to remember and whether to reply.</p>
-          </div>
-          <div class="step">
-            <h3><span class="ja">反応があとから届く</span><span class="en">Reactions arrive later</span></h3>
-            <p class="ja">反応はタイムラインの投稿の下に遅れて並びます。答えがほしいときは @名前 で指名します。</p>
-            <p class="en">Reactions land under your post a little later. Mention a persona with @name when you want an answer.</p>
-          </div>
-        </div>
-        <p class="ja how-note">雑多なタイムラインが、人や関心ごとの担当を経て、担当ごとの整った記憶になる。自分で分類しなくても、内部ではこの三段に分かれます。担当が覚えなかったものも含めて、タイムライン全体はそのまま残り、あとから探せます。この構造を、使う人が理解する必要はありません。</p>
-        <p class="en how-note">A mixed timeline, sorted by personas into a memory kept in order for each person and interest. You never file anything, and inside it still falls into these three layers. Whatever the personas did not keep stays in the timeline as it was, and can be searched later. None of this structure needs to be understood to use it.</p>
-        <p class="ja how-note">関係する担当が、それぞれ並行してかけらを読み、必要なときだけ返事をします。記憶は担当ごとに分かれ、人や関心ごとの文脈を保ちます。返事がなくても、覚えておく価値があれば記憶に残すことがあります。</p>
-        <p class="en how-note">Relevant personas read each fragment in parallel and reply when they have something useful to say. Each keeps its own memory for its person or interest. A persona may remember something worth keeping even when it does not reply.</p>
+      <section class="section coexist" id="alongside">
+        <p class="kicker">Your AI doesn't have to do everything.</p>
+        <h2><span class="ja">AIは、ひとつに絞らなくていい。</span><span class="en">Keep the AI you already like.</span></h2>
+        <p class="ja">ChatGPT、Muse、Dots。普段使っているAIを、そのまま使い続けてください。</p>
+        <p class="en">ChatGPT, Muse, Dots: keep using the AI you already turn to.</p>
+        <p class="ja">kakerattaは、別の役割を持つPersonal AIです。</p>
+        <p class="en">kakeratta is a personal AI with a different role.</p>
+        <p class="ja">日々の小さな出来事、気になったこと、人との約束。そんな断片をひとつのタイムラインに残し、担当ごとに記憶します。そして、必要になったときに自分から思い出させてくれます。</p>
+        <p class="en">Small moments, passing interests, promises to people: save them in one timeline, let personas keep their own memories, and hear about them again when they matter.</p>
+        <p class="ja">担当が何を覚え、なぜ反応したのかを確認し、間違っていれば修正できます。MCPを通じて外部エージェントと組み合わせることもできます。</p>
+        <p class="en">Inspect what each persona remembers and why it responded, and correct it when it gets something wrong. Connect external agents through MCP when you want to extend it.</p>
+        <p class="ja"><strong>お気に入りのAIを置き換えるのではなく、AIの道具箱にもうひとつ。</strong></p>
+        <p class="en"><strong>Another tool in your AI toolbox, alongside your favorites.</strong></p>
+        <p class="ja how-note">ここでいう併用は、それぞれのアプリを使い分けることです。外部エージェントを直接つなぐ方法は、<a href="#connections">外部連携</a>で紹介します。</p>
+        <p class="en how-note">Using these apps alongside each other is separate from connecting an agent directly; see <a href="#connections">integrations</a> for the latter.</p>
       </section>
 
       <section class="section" id="features">
-        <h2><span class="ja">できること</span><span class="en">What it does</span></h2>
-        <p class="ja">直近20件の会話を端末に保存して、次回はすぐ表示。オフラインでも投稿を保存し、アプリを開いて接続が戻ると送信します。<a href="/manual/?lang=ja#ja-offline">オフライン投稿の使い方</a></p>
-        <p class="en">The latest 20 conversations stay on your device for a quick start. Save posts offline and send them when the app is open and connected again. <a href="/manual/?lang=en#en-offline">Using offline posts</a></p>
-
-        <div class="feature" id="bluesky">
-          <div class="feature-text">
-            <h3><span class="ja">公開したい会話だけ、Blueskyへ</span><span class="en">Share the conversation you choose to Bluesky</span></h3>
-            <p class="ja">自分の投稿とAI担当とのやりとりから、見せたい発言だけを選んで公開できます。食事の感想にtabeが返した一言、そのあと自分が足した返事。返信のつながりを保ったまま、自分のBlueskyアカウントのスレッドになります。</p>
-            <p class="en">Choose the messages you want to share from a conversation with your AI personas. Your note about a meal, tabe's response, and your follow-up become a thread on your own Bluesky account, with each reply attached to its parent.</p>
-            <p class="ja">担当の返信は初期状態では未選択。本文・返信先・投稿アカウントをプレビューしてから公開します。担当の発言には「🍚 tabeからの返信:」のような署名が付きます。</p>
-            <p class="en">Persona replies start unchecked. Preview the messages, reply structure, and account before publishing. Persona messages carry an attribution such as “🍚 tabeからの返信:” (reply from tabe).</p>
-            <a class="button ja" href="/manual/?lang=ja#ja-bluesky">接続と公開の手順</a>
-            <a class="button en" href="/manual/?lang=en#en-bluesky">Connect and share a conversation</a>
+        <p class="kicker">More than a chatbot.</p>
+        <h2><span class="ja">会話するだけではない、育てられるAI。</span><span class="en">An AI whose memory and behavior you can shape.</span></h2>
+        <div class="cards core-overview">
+          <div class="card">
+            <p class="kicker">Separate memories</p>
+            <h3><span class="ja">担当ごとに記憶を分ける</span><span class="en">Separate memories for each persona</span></h3>
+            <p class="ja">人や関心ごとに専用の記憶を持たせます。関係ない情報を混ぜず、必要な文脈を保ちます。</p>
+            <p class="en">Give each person or interest its own memory, keeping the relevant context together.</p>
           </div>
-          <figure class="shot">
-            <img class="ja" src="/captures/ja/bluesky-preview.png" alt="tabeの返信と自分の追加返信を選び、goutの返信を除いたBluesky投稿プレビュー（サンプル）" loading="lazy" width="382" height="1342" />
-            <img class="en" src="/captures/en/bluesky-preview.png" alt="Bluesky preview with tabe and your follow-up selected, leaving out gout's reply (sample data)" loading="lazy" width="382" height="1402" />
-          </figure>
+          <div class="card">
+            <p class="kicker">Proactive recall</p>
+            <h3><span class="ja">忘れていたことを思い出す</span><span class="en">Remember what you forgot to look for</span></h3>
+            <p class="ja">検索することさえ忘れた情報を、関連する出来事や予定に合わせて担当が知らせます。</p>
+            <p class="en">Personas bring back forgotten details when related events and plans make them relevant.</p>
+          </div>
+          <div class="card">
+            <p class="kicker">Transparent decisions</p>
+            <h3><span class="ja">AIの判断を見て直す</span><span class="en">Inspect and correct decisions</span></h3>
+            <p class="ja">どの担当が呼ばれたか、呼ばれなかったか、その理由を確認。振り分けや返事がずれたら、その場で修正して試せます。</p>
+            <p class="en">See which personas were called, which were passed over, and why; correct routing or replies and try them again.</p>
+          </div>
+          <div class="card">
+            <p class="kicker">Grow your personas</p>
+            <h3><span class="ja">担当を育てる</span><span class="en">Grow your personas</span></h3>
+            <p class="ja">自然言語で担当を作成・編集。蓄積した記憶から新しい担当を提案し、関連する記憶を移すこともできます。</p>
+            <p class="en">Create and edit personas in your own words, or start from a suggestion based on accumulated memories and move the relevant ones across.</p>
+          </div>
+          <div class="card">
+            <p class="kicker">Search and ask</p>
+            <h3><span class="ja">記憶を横断して探す</span><span class="en">Search across your timeline</span></h3>
+            <p class="ja">言葉が一致しなくても意味で検索。@aiへの質問では、担当の枠を超えて蓄積した情報を活用できます。</p>
+            <p class="en">Search by meaning, even when the words differ, and ask @ai to look across your saved timeline beyond one persona.</p>
+          </div>
+          <div class="card">
+            <p class="kicker">Connect your tools</p>
+            <h3><span class="ja">外部の世界とつなぐ</span><span class="en">Connect your tools</span></h3>
+            <p class="ja">Gmail、Google Calendar、Alexa、MCP、Hermes。既存のサービスやエージェントと組み合わせて使えます。</p>
+            <p class="en">Bring in Gmail and Google Calendar, use Alexa, or connect agents through MCP and Hermes.</p>
+          </div>
         </div>
-
         <div class="feature">
           <div class="feature-text">
             <h3><span class="ja">人や関心ごとに分かれた記憶</span><span class="en">Memory kept separate for each person and interest</span></h3>
@@ -166,39 +133,36 @@
             <img class="en" src="/captures/en/memory.png" alt="A wine persona’s memory: current facts with original post links and controls to edit or forget, and a fragment record not yet folded in (sample)" loading="lazy" width="382" height="950" />
           </figure>
         </div>
-
-        <div class="feature flip">
-          <div class="feature-text">
-            <h3><span class="ja">AIと担当を作る</span><span class="en">Create your own personas with AI</span></h3>
-            <p class="ja">ほしい担当を自分の言葉で書くだけ。AIが名前、話し方、記憶のルールを下書きします。</p>
-            <p class="en">Describe the persona you want in your own words. AI drafts its name, tone, and memory rules.</p>
-            <blockquote class="ja">美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</blockquote>
-            <blockquote class="en">When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</blockquote>
-            <p class="ja">使い始めたら「AIで修正」で、話し方や覚えることを会話で育てます。組み込みの担当も同じように変えられます。</p>
-            <p class="en">Start using it, then refine its tone and what it remembers through conversation with “Edit with AI”. Built-in personas can be edited the same way.</p>
+        <div class="lp-detail" id="people">
+          <h3><span class="ja">人物：その人との記憶</span><span class="en">People: your memories with someone</span></h3>
+          <p class="section-intro ja">家族、恋人、友人、お世話になった人。一人ひとりに担当を置けます。「恋人の nagomi。11/10生まれで、辛いタイ料理が好き」と頼めば、呼び名とキーワード、関係性を持つ担当ができ、伝えたことがその担当の最初の記憶になります。</p>
+          <p class="section-intro en">Family, a partner, friends, someone who helped you. Each can have a persona. Ask for “my partner nagomi, born on 10 November, loves spicy Thai food” and you get a persona with her names, keywords and relationship, and what you told it becomes its first memory.</p>
+          <div class="feature">
+            <div class="feature-text">
+              <p class="ja">その人の名前やキーワードが出たかけらだけを受け取り、会ったこと、話したこと、贈った物ともらった物、約束や貸し借りを覚えます。済んでいないことは、済むまで忘れません。</p>
+              <p class="en">It takes only the fragments that mention them, and remembers meetings, conversations, presents given and received, promises and loans. What is unsettled stays until it is settled.</p>
+              <p class="ja">会う予定を書けば、その日の朝に前回の出来事を添えて。誕生日や記念日の1週間前と当日には、これまでの贈り物や好みから思いつくことと一緒に。担当のほうから知らせます。</p>
+              <p class="en">Mention a meeting and it tells you that morning, with what happened last time. A week before and on a birthday or an anniversary, it tells you, with an idea drawn from past presents and what they like.</p>
+              <p class="ja">人物の情報は編集できる基本情報として保存します。基本情報やかけらで日付が分かれば、先の予定もその場で登録します。</p>
+              <p class="en">Details about a person are saved as editable basic information. Known dates in basic information or fragments register notifications immediately, even for distant plans.</p>
+              <p class="ja">人との記憶から始まりましたが、それだけではありません。食事、移動、読書、やることのような関心ごとにも、同じように担当を置けます。</p>
+              <p class="en">It started with people, but it does not stop there. Interests like food, travel, reading and follow-ups get personas the same way.</p>
+            </div>
+            <figure class="shot">
+              <img class="ja" src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。関係性、呼び名、キーワード、基本情報（サンプル）" loading="lazy" width="382" height="1050" />
+              <img class="en" src="/captures/en/person-card.png" alt="The card of a person's persona, Sato: relationship, names, keywords and basic information (sample data)" loading="lazy" width="382" height="1122" />
+            </figure>
           </div>
-          <figure class="shot crop-bottom">
-            <img class="ja" src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="382" height="1593" />
-            <img class="en" src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="382" height="1617" />
-          </figure>
         </div>
-
-        <div class="feature">
-          <div class="feature-text">
-            <h3><span class="ja">間違ったところだけ、教える</span><span class="en">Correct only what went wrong</span></h3>
-            <p class="ja">誰にかけらを渡したか、渡さなかったか。その理由は投稿ごとに見られます。違っていれば「呼んでほしかった」から理由を一言書くだけで、AIが担当条件を書き直し、同じ投稿で振り分けを試して確かめます。</p>
-            <p class="en">Who a fragment went to, who it did not, and why - it is there on every post. When the router got it wrong, say why in a line and the AI rewrites the persona's condition, then tries the same post again to make sure.</p>
-            <p class="ja">人物の担当は条件ではなく呼び名とキーワードで届き、どの語で届いたかが出ます。届かなかったかけらからはAIがキーワードを足し、関係のないかけらが届いたら一致した語を選んで外せます。</p>
-            <p class="en">A persona that keeps a person is reached by its names and keywords, and the word it was reached by is shown. From a fragment it missed, the AI adds keywords; when an unrelated one reached it, choose which of the matched words to remove.</p>
-            <p class="ja">返事がずれたときも同じです。発言の「返事を直す」で期待とどう違うかを伝えると、口調と指示だけが直り、同じ投稿への返事を試し書きして見せます。裏で勝手に学習することはありません。</p>
-            <p class="en">A reply that missed works the same way: say how, and only the tone and instructions change, with a trial reply to the same post to judge by. Nothing is learned behind your back.</p>
-          </div>
-          <figure class="shot">
-            <img class="ja" src="/captures/ja/routing.png" alt="担当の判断。tabe が呼ばれ、他の担当が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="764" />
-            <img class="en" src="/captures/en/routing.png" alt="The router's call: tabe was called, and why other personas were not (sample data)" loading="lazy" width="382" height="828" />
-          </figure>
+        <div class="lp-detail" id="daily">
+          <h3><span class="ja">ときどき、担当から話しかける。</span><span class="en">Hear from your personas now and then.</span></h3>
+          <p class="section-intro ja">記憶を持つ担当（「記憶する」がオンの担当）は、過去のかけらや記憶を振り返り、伝えたいことがあるときに、ときどき話しかけます。話す量や口調は、それぞれのキャラクターに合わせます。何もなければ、タイムラインも静かなまま。「記憶する」をオフにすると、この振り返りによる声かけも止まります。</p>
+          <p class="section-intro en">Personas with <strong>Remember</strong> enabled keep memories, look back over past fragments, and speak now and then when they have something worth sharing. How much they say and their tone follow their character. Otherwise, the timeline stays quiet. Turning off <strong>Remember</strong> also stops these follow-ups.</p>
+          <p class="ja">人物の担当は「頻繁に振り返る」「ときどき振り返る」の2種類から選べます。</p>
+          <p class="en">For people, choose “Look back often” or “Look back occasionally”.</p>
+          <a class="button ja" href="/manual/?lang=ja#ja-daily">担当からの声かけについて</a>
+          <a class="button en" href="/manual/?lang=en#en-daily">Hearing from your personas</a>
         </div>
-
         <div class="feature">
           <div class="feature-text">
             <h3><span class="ja">前に放り込んだかけらを探す</span><span class="en">Find what you tossed in before</span></h3>
@@ -214,7 +178,184 @@
             <img class="en" src="/captures/en/search-semantic.png" alt="Semantic search for a light red wine you enjoyed (sample data)" loading="lazy" width="390" height="1136" />
           </figure>
         </div>
+        <p class="ja"><code>@ai</code> に直接聞けば、過去のかけらを横断して調べたり、Webで調査したりできます。kakerattaの使い方・設定・困りごとも、同梱の仕様を読んで答えます。Web検索にはTavilyを使い、ニュースや期間で絞り込めます。</p>
+        <p class="en">Ask <code>@ai</code> directly to search your saved fragments or research the Web. It also answers questions about kakeratta, its settings and problems using it from the shipped specification. Tavily powers Web search, including news and date filters.</p>
+        <div class="feature">
+          <div class="feature-text">
+            <h3><span class="ja">間違ったところだけ、教える</span><span class="en">Correct only what went wrong</span></h3>
+            <p class="ja">誰にかけらを渡したか、渡さなかったか。その理由は投稿ごとに見られます。違っていれば「呼んでほしかった」から理由を一言書くだけで、AIが担当条件を書き直し、同じ投稿で振り分けを試して確かめます。</p>
+            <p class="en">Who a fragment went to, who it did not, and why - it is there on every post. When the router got it wrong, say why in a line and the AI rewrites the persona's condition, then tries the same post again to make sure.</p>
+            <p class="ja">人物の担当は条件ではなく呼び名とキーワードで届き、どの語で届いたかが出ます。届かなかったかけらからはAIがキーワードを足し、関係のないかけらが届いたら一致した語を選んで外せます。</p>
+            <p class="en">A persona that keeps a person is reached by its names and keywords, and the word it was reached by is shown. From a fragment it missed, the AI adds keywords; when an unrelated one reached it, choose which of the matched words to remove.</p>
+            <p class="ja">返事がずれたときも同じです。発言の「返事を直す」で期待とどう違うかを伝えると、口調と指示だけが直り、同じ投稿への返事を試し書きして見せます。裏で勝手に学習することはありません。</p>
+            <p class="en">A reply that missed works the same way: say how, and only the tone and instructions change, with a trial reply to the same post to judge by. Nothing is learned behind your back.</p>
+          </div>
+          <figure class="shot">
+            <img class="ja" src="/captures/ja/routing.png" alt="担当の判断。tabe が呼ばれ、他の担当が呼ばれなかった理由（サンプル）" loading="lazy" width="382" height="764" />
+            <img class="en" src="/captures/en/routing.png" alt="The router's call: tabe was called, and why other personas were not (sample data)" loading="lazy" width="382" height="828" />
+          </figure>
+        </div>
+        <div class="lp-detail" id="how">
+          <h3><span class="ja">仕組み</span><span class="en">How it works</span></h3>
+          <p class="section-intro ja">入り口はひとつ。受け取り手は、人や関心ごとの担当です。</p>
+          <p class="section-intro en">One way in. On the receiving side, a persona for each person and interest.</p>
+          <div class="steps">
+            <div class="step">
+              <h4><span class="ja">放り込む</span><span class="en">Toss it in</span></h4>
+              <p class="ja">書く、スクリーンショットを貼る、URLを送る、話す。どれも同じ欄から入ります。</p>
+              <p class="en">Write a thought, paste a screenshot, send a URL, or speak. Everything goes through the same box.</p>
+            </div>
+            <div class="step">
+              <h4><span class="ja">担当が受け取る</span><span class="en">Personas receive it</span></h4>
+              <p class="ja">人物の担当にはその人の名前が出たかけらが、関心ごとの担当には関係するかけらだけが届きます。何を覚えるか、返事をするかは担当が自分で決めます。</p>
+              <p class="en">A person's persona gets the fragments that name them; an interest's gets only those that concern it. Each decides what to remember and whether to reply.</p>
+            </div>
+            <div class="step">
+              <h4><span class="ja">反応があとから届く</span><span class="en">Reactions arrive later</span></h4>
+              <p class="ja">反応はタイムラインの投稿の下に遅れて並びます。答えがほしいときは @名前 で指名します。</p>
+              <p class="en">Reactions land under your post a little later. Mention a persona with @name when you want an answer.</p>
+            </div>
+          </div>
+          <p class="ja how-note">雑多なタイムラインが、人や関心ごとの担当を経て、担当ごとの整った記憶になる。自分で分類しなくても、内部ではこの三段に分かれます。担当が覚えなかったものも含めて、タイムライン全体はそのまま残り、あとから探せます。担当ごとの記憶と元のタイムラインを、いつでも確かめられます。</p>
+          <p class="en how-note">A mixed timeline, sorted by personas into a memory kept in order for each person and interest. You never file anything, and inside it still falls into these three layers. Whatever the personas did not keep stays in the timeline as it was, and can be searched later. Both each persona’s memory and the original timeline stay available to inspect.</p>
+          <p class="ja how-note">関係する担当が、それぞれ並行してかけらを読み、必要なときだけ返事をします。記憶は担当ごとに分かれ、人や関心ごとの文脈を保ちます。返事がなくても、覚えておく価値があれば記憶に残すことがあります。</p>
+          <p class="en how-note">Relevant personas read each fragment in parallel and reply when they have something useful to say. Each keeps its own memory for its person or interest. A persona may remember something worth keeping even when it does not reply.</p>
+        </div>
+      </section>
 
+      <section class="section" id="grow">
+        <p class="kicker">Grow your own AI.</p>
+        <h2><span class="ja">自分のAIを育てる。</span><span class="en">Let your personas grow with you.</span></h2>
+        <div class="feature flip">
+          <div class="feature-text">
+            <h3><span class="ja">AIと担当を作る</span><span class="en">Create your own personas with AI</span></h3>
+            <p class="ja">ほしい担当を自分の言葉で書くだけ。AIが名前、話し方、記憶のルールを下書きします。</p>
+            <p class="en">Describe the persona you want in your own words. AI drafts its name, tone, and memory rules.</p>
+            <blockquote class="ja">美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</blockquote>
+            <blockquote class="en">When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</blockquote>
+            <p class="ja">使い始めたら「AIで修正」で、話し方や覚えることを会話で育てます。組み込みの担当も同じように変えられます。</p>
+            <p class="en">Start using it, then refine its tone and what it remembers through conversation with “Edit with AI”. Built-in personas can be edited the same way.</p>
+          </div>
+          <figure class="shot crop-bottom">
+            <img class="ja" src="/captures/ja/persona-draft.png" alt="AIが下書きしたワイン担当を確認して保存する" loading="lazy" width="382" height="1593" />
+            <img class="en" src="/captures/en/persona-draft.png" alt="Review and save a sample wine persona drafted by AI" loading="lazy" width="382" height="1617" />
+          </figure>
+        </div>
+        <div class="feature">
+          <div class="feature-text">
+            <h3><span class="ja">記憶から、新しい担当が生まれる</span><span class="en">A new persona, suggested by memory</span></h3>
+            <p class="ja">担当の記憶に新しい関心ごとが育つと、チェックインで専用の担当を提案します。<strong>作成</strong>をワンタップすると下書きができ、関連する事実とかけらの記録を新しい担当へ移します。元の担当の振り分け条件も、その話題を外す形に調整します。</p>
+            <p class="en">When a new interest builds up in a persona’s memory, it can suggest a dedicated persona at check-in. Tap <strong>Create it</strong> to draft the new persona and move the related facts and fragment records to it; the original persona’s routing condition is narrowed to leave that topic to the new one.</p>
+          </div>
+          <figure class="shot">
+            <img class="ja" src="/captures/ja/persona-suggestion.png" alt="チェックインで提案された新しい担当と作成ボタン（サンプル）" loading="lazy" width="492" height="253" />
+            <img class="en" src="/captures/en/persona-suggestion.png" alt="A new persona suggested at check-in, with a Create it button (sample)" loading="lazy" width="492" height="282" />
+          </figure>
+        </div>
+        <div class="lp-detail" id="personas">
+          <h3><span class="ja">最初からいる、関心ごとの担当</span><span class="en">Interest personas that ship with the app</span></h3>
+          <p class="section-intro ja">名前はどのキーボードでも打てるローマ字です。<code>@tabe</code> のように指名できます。投稿した言語で答えます。</p>
+          <p class="section-intro en">Their names are Japanese words in Latin letters, so <code>@tabe</code> can be typed on any keyboard. A persona answers in the language the post was written in.</p>
+          <div class="cards">
+            <div class="card"><span class="who">tabe</span><span class="tag"><span class="ja">食事</span><span class="en">food</span></span>
+              <p class="ja">店、料理、飲み物、食事やメニューの写真。「何食べよう」。</p>
+              <p class="en">Places, dishes, drinks, photos of meals and menus. “What should I eat?”</p></div>
+            <div class="card"><span class="who">infographic</span><span class="tag"><span class="ja">図解</span><span class="en">infographic</span></span>
+              <p class="ja">「インフォグラフィックにして」で文章・URL記事・画像の読み取り内容を絵文字・Mermaidを使ったMarkdownで図解。Web検索なし。表示言語へ翻訳。記憶なし。ふだんは Super VL、「詳しく」を付けると Ultra で作ります。</p>
+              <p class="en">Markdown infographics with emoji and Mermaid for text, expanded articles and interpreted images, without Web search, in your display language. No memory; Super VL by default, Ultra when you ask “in detail”.</p></div>
+            <div class="card"><span class="who">shiori</span><span class="tag"><span class="ja">読書</span><span class="en">reading</span></span>
+              <p class="ja">電子書籍のキャプチャ、引用、書名と著者、読んだ感想。</p>
+              <p class="en">E-book captures, quoted passages, titles and authors, thoughts on a read.</p></div>
+            <div class="card"><span class="who">sona</span><span class="tag"><span class="ja">備え</span><span class="en">preparation</span></span>
+              <p class="ja">出かける前の鍵と財布。今晴れていても帰りは雨なら傘。予定と、いつもの持ち物や忘れた経験を合わせて、必要な瞬間に一言添えます。新規利用時は有効です。</p>
+              <p class="en">Keys and wallet before leaving. An umbrella when sunshine now will turn to rain on the way home. It brings plans, belongings and past omissions together for a timely word. Active by default in new workspaces.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="connections">
+        <p class="kicker">Connect your tools.</p>
+        <h2><span class="ja">外の情報も、自分で選んでつなぐ。</span><span class="en">Connect the services and agents you choose.</span></h2>
+        <div class="feature">
+          <div class="feature-text">
+            <h3><span class="ja">Gmail・Calendarを、確認して取り込む</span><span class="en">Review Gmail and Calendar before importing</span></h3>
+            <p class="ja">自分で動かすGoogle BridgeとHermesが、ルールに沿ってメールや予定の候補をタイムラインへ届けます。内容を確認して<strong>取り込む</strong>と通常の投稿になり、担当や記憶の対象になります。不要なら破棄できます。自分のGoogle CloudプロジェクトとOAuth設定が必要です。<br /><a href="/manual/?lang=ja&amp;guide=advanced#ja-google">Gmail・Calendarのセットアップ</a></p>
+            <p class="en">A self-hosted Google Bridge and Hermes deliver mail and event candidates to your timeline according to your rules. Review each one and choose <strong>Import</strong> to make it a normal post that personas can use and remember, or discard it. Setup uses your own Google Cloud project and OAuth credentials.<br /><a href="/manual/?lang=en&amp;guide=advanced#en-google">Set up Gmail and Calendar</a></p>
+          </div>
+          <figure class="shot">
+            <img class="ja" src="/captures/ja/gmail-review.png" alt="Gmailの候補を確認し、取り込みか破棄を選ぶ画面（サンプル）" loading="lazy" width="552" height="667" />
+            <img class="en" src="/captures/en/gmail-review.png" alt="Review a Gmail candidate and choose Import or Discard (sample)" loading="lazy" width="552" height="723" />
+          </figure>
+        </div>
+        <div class="feature">
+          <div class="feature-text">
+            <h3><span class="ja">予定も、取り込む前に選べる</span><span class="en">Choose which events enter your timeline</span></h3>
+            <p class="ja">Google Calendarの予定も同じ確認フローで扱います。元のカレンダーへのリンクから内容を確かめ、取り込まない予定やシリーズは今後の対象から外せます。</p>
+            <p class="en">Google Calendar events follow the same review flow. Open the source calendar to check an event, and exclude events or series you do not want to import.</p>
+          </div>
+          <figure class="shot">
+            <img class="ja" src="/captures/ja/calendar-card.png" alt="Google Calendarから届いた確認待ちの予定カード（サンプル）" loading="lazy" width="552" height="253" />
+            <img class="en" src="/captures/en/calendar-card.png" alt="A Google Calendar event awaiting your decision (sample)" loading="lazy" width="552" height="253" />
+          </figure>
+        </div>
+        <div class="cards integration-overview">
+          <div class="card">
+            <h3>Alexa</h3>
+            <p class="ja">声でメモを残し、返信や保存済みの予定を読み上げます。投稿は読み返しを聞いてから確認して保存。開発者環境で動作確認済みで、スキルの公開審査に提出済みです。</p>
+            <p class="en">Dictate notes and hear replies or saved plans, confirming a read-back before a note is saved. Working in the developer’s environment; the skill has been submitted for certification.</p>
+          </div>
+          <div class="card" id="mcp">
+            <h3>MCP</h3>
+            <p class="ja">kakerattaのMCPサーバーを通じて、外部エージェントからタイムラインを読んだり投稿したりできます。接続するエージェントは自分で設定します。</p>
+            <p class="en">Use kakeratta’s MCP server to let an external agent read and post to your timeline. You configure which agents connect.</p>
+          </div>
+          <div class="card" id="hermes">
+            <h3>Hermes</h3>
+            <p class="ja">任意のセルフホスト連携です。担当の応答や <code>@agent</code> への直接依頼を、自分の環境で動くエージェントに任せられます。<br /><a href="/manual/?lang=ja&amp;guide=advanced#ja-hermes">外部エージェントの接続方法</a></p>
+            <p class="en">An optional, self-hosted integration: delegate persona responses or direct <code>@agent</code> requests to an agent running in your environment.<br /><a href="/manual/?lang=en&amp;guide=advanced#en-hermes">Connect an external agent</a></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="models">
+        <p class="kicker">Built for control, not just conversation.</p>
+        <h2><span class="ja">自分で制御できるPersonal AI。</span><span class="en">A personal AI you can control.</span></h2>
+        <div class="cards technical-overview">
+          <div class="card">
+            <h3><span class="ja">複数モデルを役割ごとに</span><span class="en">A model for each job</span></h3>
+            <p class="ja">Nebius Token Factory上のNemotron 3 Superが振り分け・通常の調査と回答・記憶の記録を担当。Super VLは直接の @ai、深い調査、常に熟考する担当、予定の計画とレビュー、定期処理に。Ultraは「詳しく」などと頼んだときの最終回答に使います。</p>
+            <p class="en">On Nebius Token Factory, Nemotron 3 Super handles routing, ordinary research and answers, and memory notes. Super VL handles direct @ai questions, deep reads, Always think deeply personas, schedule planning and review, and periodic work. Ultra composes the final answer when you ask “in detail”.</p>
+          </div>
+          <div class="card">
+            <h3><span class="ja">必要な処理にだけ計算を使う</span><span class="en">Spend compute where it helps</span></h3>
+            <p class="ja">振り分け、回答、計画と検証、記憶を分離。予定を扱う必要があるときだけ計画・レビューを実行し、日常の処理は小さなモデルで支えます。</p>
+            <p class="en">Routing, answers, planning and validation, and memory run in separate stages. Schedule planning and review run when needed, while smaller models handle everyday work.</p>
+          </div>
+          <div class="card">
+            <h3><span class="ja">AIの返信がある通常投稿で$0.003〜0.005程度</span><span class="en">Around $0.003–0.005 for an ordinary post with an AI reply</span></h3>
+            <p class="ja">返信のない通常投稿は、振り分けなどの費用が中心で、ごくわずかです。1担当からAIの返信がある場合は、振り分け・回答・記憶の記録などを含め、1件あたり$0.003〜0.005程度。公開単価と使用トークン数による概算で、投稿内容や担当数、必要な処理によって変わります。調査の @ai は約$0.005〜0.020、予定作成付きは約$0.010〜0.020の例があります。</p>
+            <p class="en">Ordinary posts without a reply cost very little, mainly for routing and similar processing. When one persona replies, an ordinary post costs around $0.003–0.005, including routing, answering and recording memories. These estimates use public rates and reported tokens; costs vary with the post, persona count and work needed. Observed @ai research requests were about $0.005–0.020, and posts with schedule creation about $0.010–0.020.</p>
+          </div>
+          <div class="card">
+            <h3><span class="ja">自分のキーで、利用量を確認</span><span class="en">Your API key, visible usage</span></h3>
+            <p class="ja">自分のAPIキーで利用し、月ごとのAI概算費用とWeb検索回数を設定画面や担当カードで確認できます。検索と外部エージェントの推論料金はAI概算費用に含まれません。</p>
+            <p class="en">Use your own API key and inspect monthly AI cost estimates and Web search counts in Settings and persona cards. Search charges and inference billed to external agents are outside the AI estimate.</p>
+          </div>
+        </div>
+        <ul class="models">
+          <li>GLM-5.3-Flash — <span class="ja">画像の読み取り。同じ画像を担当ごとに読み直さず共有します。</span><span class="en">reads images once and shares the description across personas.</span></li>
+          <li>Qwen3-Embedding-8B — <span class="ja">過去のかけらを意味で探すための埋め込み。</span><span class="en">embeddings for searching past fragments by meaning.</span></li>
+          <li>Nemotron 3.5 Lightning — <span class="ja">任意の音声入力整形。</span><span class="en">optional dictation polishing.</span></li>
+        </ul>
+        <p class="ja">オープンソース / MITライセンス / <a href="https://github.com/takeshy/kakeratta">GitHubで公開</a> · <a href="https://github.com/takeshy/kakeratta/blob/main/docs/reports/production-ai-cost-2026-10-25_ja.md">実績と集計条件</a></p>
+        <p class="en">Open source / MIT licensed / <a href="https://github.com/takeshy/kakeratta">View on GitHub</a> · <a href="https://github.com/takeshy/kakeratta/blob/main/docs/reports/production-ai-cost-2026-10-25_ja.md">Cost evidence and scope (Japanese)</a></p>
+      </section>
+
+      <section class="section" id="extras">
+        <p class="kicker">More ways to keep a fragment.</p>
+        <h2><span class="ja">日々の使いやすさも。</span><span class="en">Everyday conveniences, too.</span></h2>
+        <p class="ja">直近20件の会話を端末に保存して、次回はすぐ表示。オフラインでも投稿を保存し、アプリを開いて接続が戻ると送信します。<a href="/manual/?lang=ja#ja-offline">オフライン投稿の使い方</a></p>
+        <p class="en">The latest 20 conversations stay on your device for a quick start. Save posts offline and send them when the app is open and connected again. <a href="/manual/?lang=en#en-offline">Using offline posts</a></p>
         <div class="feature flip">
           <div class="feature-text">
             <h3><span class="ja">画面に出ていれば、撮れる</span><span class="en">If it is on screen, you can shoot it</span></h3>
@@ -231,51 +372,45 @@
             <figcaption><span class="ja">書籍の画面を投稿し、読み取った内容を図解。ローカルでの実行例です。</span><span class="en">A book screenshot, read and turned into an infographic. An actual local run.</span></figcaption>
           </figure>
         </div>
-      </section>
-
-      <section class="section" id="personas">
-        <h2><span class="ja">最初からいる、関心ごとの担当</span><span class="en">Interest personas that ship with the app</span></h2>
-        <p class="section-intro ja">名前はどのキーボードでも打てるローマ字です。<code>@tabe</code> のように指名できます。投稿した言語で答えます。</p>
-        <p class="section-intro en">Their names are Japanese words in Latin letters, so <code>@tabe</code> can be typed on any keyboard. A persona answers in the language the post was written in.</p>
-        <div class="cards">
-          <div class="card"><span class="who">tabe</span><span class="tag"><span class="ja">食事</span><span class="en">food</span></span>
-            <p class="ja">店、料理、飲み物、食事やメニューの写真。「何食べよう」。</p>
-            <p class="en">Places, dishes, drinks, photos of meals and menus. “What should I eat?”</p></div>
-          <div class="card"><span class="who">support</span><span class="tag"><span class="ja">サポート</span><span class="en">support</span></span>
-            <p class="ja">kakerattaの使い方・設定・困りごと。同梱の仕様を読んで答えます。新規利用時は有効です。</p>
-            <p class="en">Questions about kakeratta, its settings and problems using it. Answers from the shipped specification. Active by default in new workspaces.</p></div>
-          <div class="card"><span class="who">infographic</span><span class="tag"><span class="ja">図解</span><span class="en">infographic</span></span>
-            <p class="ja">「インフォグラフィックにして」で文章・URL記事・画像の読み取り内容を絵文字・Mermaidを使ったMarkdownで図解。Web検索なし。表示言語へ翻訳。記憶なし。ふだんは Super VL、「詳しく」を付けると Ultra で作ります。</p>
-            <p class="en">Markdown infographics with emoji and Mermaid for text, expanded articles and interpreted images, without Web search, in your display language. No memory; Super VL by default, Ultra when you ask “in detail”.</p></div>
-          <div class="card"><span class="who">shiori</span><span class="tag"><span class="ja">読書</span><span class="en">reading</span></span>
-            <p class="ja">電子書籍のキャプチャ、引用、書名と著者、読んだ感想。</p>
-            <p class="en">E-book captures, quoted passages, titles and authors, thoughts on a read.</p></div>
-          <div class="card"><span class="who">sona</span><span class="tag"><span class="ja">備え</span><span class="en">preparation</span></span>
-            <p class="ja">出かける前の鍵と財布。今晴れていても帰りは雨なら傘。予定と、いつもの持ち物や忘れた経験を合わせて、必要な瞬間に一言添えます。新規利用時は有効です。</p>
-            <p class="en">Keys and wallet before leaving. An umbrella when sunshine now will turn to rain on the way home. It brings plans, belongings and past omissions together for a timely word. Active by default in new workspaces.</p></div>
+        <div class="feature" id="bluesky">
+          <div class="feature-text">
+            <h3><span class="ja">公開したい会話だけ、Blueskyへ</span><span class="en">Share the conversation you choose to Bluesky</span></h3>
+            <p class="ja">自分の投稿とAI担当とのやりとりから、見せたい発言だけを選んで公開できます。食事の感想にtabeが返した一言、そのあと自分が足した返事。返信のつながりを保ったまま、自分のBlueskyアカウントのスレッドになります。</p>
+            <p class="en">Choose the messages you want to share from a conversation with your AI personas. Your note about a meal, tabe's response, and your follow-up become a thread on your own Bluesky account, with each reply attached to its parent.</p>
+            <p class="ja">担当の返信は初期状態では未選択。本文・返信先・投稿アカウントをプレビューしてから公開します。担当の発言には「🍚 tabeからの返信:」のような署名が付きます。</p>
+            <p class="en">Persona replies start unchecked. Preview the messages, reply structure, and account before publishing. Persona messages carry an attribution such as “🍚 tabeからの返信:” (reply from tabe).</p>
+            <a class="button ja" href="/manual/?lang=ja#ja-bluesky">接続と公開の手順</a>
+            <a class="button en" href="/manual/?lang=en#en-bluesky">Connect and share a conversation</a>
+          </div>
+          <figure class="shot">
+            <img class="ja" src="/captures/ja/bluesky-preview.png" alt="tabeの返信と自分の追加返信を選び、goutの返信を除いたBluesky投稿プレビュー（サンプル）" loading="lazy" width="382" height="1342" />
+            <img class="en" src="/captures/en/bluesky-preview.png" alt="Bluesky preview with tabe and your follow-up selected, leaving out gout's reply (sample data)" loading="lazy" width="382" height="1402" />
+          </figure>
         </div>
       </section>
 
-      <section class="section" id="models">
-        <h2><span class="ja">動かしているモデル</span><span class="en">The models behind it</span></h2>
-        <p class="section-intro ja">Kakeratta は Nebius Token Factory を通じて NVIDIA Nemotron モデルを使います。ふだんは Super、常に熟考する担当は Super VL で答え、「詳しく」などと頼むとその返信には Ultra が答えます。</p>
-        <p class="section-intro en">Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory. Personas normally answer on Super, or Super VL with Always think deeply on; ask "in detail" and that reply is answered on Ultra.</p>
-        <ul class="models">
-          <li><span class="ja">Nemotron 3.5 Lightning — 任意の音声入力整形</span><span class="en">Nemotron 3.5 Lightning — optional dictation polishing</span></li>
-          <li><span class="ja">Nemotron 3 Super — 振り分け、調査と通常の回答、メモ</span><span class="en">Nemotron 3 Super — routing, research and ordinary answers, notes</span></li>
-          <li><span class="ja">Nemotron 3.5 Super VL — 深い依頼と常に熟考する担当の調査、予定の計画と確認、常に熟考する担当の回答、毎日・毎月のチェックインと記憶の整理</span><span class="en">Nemotron 3.5 Super VL — research for deep requests and Always think deeply, schedule planning and review, Always think deeply answers, daily and monthly check-ins and memory tidying</span></li>
-          <li><span class="ja">Nemotron Ultra — 深い回答が必要な依頼の最終回答</span><span class="en">Nemotron Ultra — final answers for deep requests</span></li>
-          <li><span class="ja">GLM-5.3-Flash — 画像の読み取り（同じ基盤）</span><span class="en">GLM-5.3-Flash — image reading, on the same backend</span></li>
-        </ul>
+      <section class="section why" id="why">
+        <h2><span class="ja">大切な人のことほど、細かなことは忘れる。</span><span class="en">The people who matter most are the ones whose details slip away.</span></h2>
+        <p class="ja">大切に思っていることと、その人との細かなことを全部覚えていられることは、別のことです。いつも気にかけてくれていた人がいました。忙しさにかまけてお礼の連絡を後回しにしているうちに、連絡するきっかけを失い、そのまま疎遠になってしまいました。</p>
+        <p class="en">Caring about someone and remembering all the small things about them are not the same. There was someone who always looked out for me. Busy, I kept putting off thanking them, until there was no longer an occasion to get in touch, and we drifted apart.</p>
+        <p class="ja">贈り物、葉書、旅先のお土産、貸し借り、前に会ったときに話したこと。メモや写真に残しても、量が増えるほど見返さなくなり、残したこと自体を忘れてしまいます。AIにきれいに分類させても、誰かに片づけてもらった部屋のように、かえってどこにあるか分からなくなりました。</p>
+        <p class="en">Presents, postcards, souvenirs, things lent and borrowed, what we talked about last time. Notes and photos pile up until I no longer look back, and forget I ever kept them. An AI that filed them neatly only made it worse, like a room someone else has tidied.</p>
+        <blockquote class="pull"><span class="ja">存在を忘れたものは、検索できない。</span><span class="en">You cannot search for what you forgot exists.</span></blockquote>
+        <p class="ja">だから、人ごと・関心ごとに、自分とは別の記憶を持つ「担当」を置くことにしました。その人の名前が出たときに話を受け取り、済んでいない約束は覚えていて、会う日の朝や誕生日の前には自分から声をかけてくれる。何を覚えるかと同じくらい、いつ思い出させるかを大事にしています。kakerattaは、そこから始まりました。</p>
+        <p class="en">So I gave each person, and each interest, a persona with a memory separate from mine. It hears about someone when their name comes up, keeps promises that are still open, and speaks up on the morning of a meeting or before a birthday. When to remind matters as much as what to remember. That is where kakeratta began.</p>
       </section>
 
-      <section class="cta">
-        <h2><span class="ja">今日のかけらを、放り込んでみる</span><span class="en">Start with today’s fragment</span></h2>
-        <p class="ja">利用には Nebius Token Factory の API キーが必要です。設定の手順は使い方ページにあります。</p>
-        <p class="en">You need a Nebius Token Factory API key. The manual walks through the setup.</p>
+      <section class="cta" id="start">
+        <p class="kicker">Get started.</p>
+        <h2><span class="ja">今日のかけらを、放り込んでみる。</span><span class="en">Start with today’s fragment.</span></h2>
+        <p class="ja">Nebius Token FactoryのAPIキーを用意し、設定画面へ入力します。OpenRouterも選べます。Web検索を使う場合はTavilyのAPIキーも必要です。</p>
+        <p class="en">Bring a Nebius Token Factory API key and enter it in Settings; OpenRouter is also available. Web search additionally needs a Tavily API key.</p>
+        <p class="ja">API費用は利用量に応じて各サービスから発生します。通常投稿の実測例と追加処理の費用は<a href="#models">技術とコスト</a>へ。Gmail・Calendarや外部エージェントは、必要に応じて別途設定します。</p>
+        <p class="en">Provider API charges depend on usage. See <a href="#models">technology and cost</a> for ordinary-post examples and additional work. Set up Gmail, Calendar, or external agents when you need them.</p>
         <div class="actions">
           <a class="button primary" href="/?login=1" data-lang-link><span class="ja">アプリを開く</span><span class="en">Open the app</span></a>
-          <a class="button" href="/manual/" data-lang-link><span class="ja">使い方（マニュアル）</span><span class="en">Manual</span></a>
+          <a class="button" href="/manual/" data-lang-link><span class="ja">セットアップと使い方</span><span class="en">Setup and manual</span></a>
+          <a class="button" href="https://tokenfactory.nebius.com/"><span class="ja">APIキーを用意する</span><span class="en">Get an API key</span></a>
         </div>
       </section>
     </main>

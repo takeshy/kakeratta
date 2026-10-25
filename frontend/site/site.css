@@ -165,6 +165,25 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .book-capture-example figcaption { padding: 14px 18px; font-size: 0.85rem; color: var(--muted); }
 .section { padding: 40px 0; border-top: 1px solid var(--line); }
 .section-intro { color: var(--muted); max-width: 640px; }
+.lp .coexist p { max-width: 720px; }
+.lp .core-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 32px; }
+.lp .integration-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lp .technical-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lp .card h3 { margin: 0 0 10px; }
+.lp .card .kicker { font-size: 0.72rem; margin-bottom: 8px; }
+.lp .lp-detail { padding: 28px 0; }
+.lp .lp-detail > h3 { font-size: 1.3rem; margin: 0 0 12px; }
+.lp :is(section, div)[id] { scroll-margin-top: 100px; }
+@media (max-width: 760px) {
+  .lp .core-overview, .lp .integration-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 540px) {
+  .lp .core-overview, .lp .integration-overview, .lp .technical-overview { grid-template-columns: minmax(0, 1fr); }
+  .lp :is(section, div)[id] { scroll-margin-top: 160px; }
+}
+@media (max-width: 360px) {
+  .lp :is(section, div)[id] { scroll-margin-top: 190px; }
+}
 /* Why it was made: a short story, read at column width, with one line held up. */
 .why p { max-width: 640px; }
 .pull {
@@ -196,7 +215,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
   font-weight: 700;
   margin-bottom: 8px;
 }
-.step h3 { margin: 0 0 4px; }
+.step :is(h3, h4) { font-size: 1.05rem; line-height: 1.35; margin: 0 0 4px; }
 .step p { margin: 0; color: var(--muted); font-size: 0.94rem; }
 .feature {
   display: grid;
@@ -278,7 +297,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .doc .lede { color: var(--muted); font-size: 1.05rem; margin-bottom: 24px; }
 .doc section { padding: 24px 0; border-top: 1px solid var(--line); }
 .doc section:first-of-type { border-top: none; padding-top: 8px; }
-.doc h2, .doc h3[id], .lp section[id] { scroll-margin-top: 72px; }
+.doc h2, .doc h3[id] { scroll-margin-top: 72px; }
 .doc figure { margin: 16px 0; }
 /* The captures are phone screens; blown up to the column they go soft. */
 .doc figure img { display: block; width: 100%; max-width: 390px; margin: 0 auto; border-radius: 12px; border: 1px solid var(--line); }
