@@ -68,7 +68,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const scratch = process.env.CAPTURE_SCRATCH || join(root, 'tmp/google-bridge-captures');
 await mkdir(scratch, { recursive: true });
 const profile = await mkdtemp(join(scratch, 'profile-'));
-const browser = spawn(process.env.CHROMIUM || 'chromium', ['--headless', '--no-sandbox', '--disable-gpu', '--no-proxy-server', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
+const browser = spawn(process.env.CHROMIUM || 'chromium', ['--headless', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--no-proxy-server', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
 let launchError;
 browser.on('error', error => { launchError = error; });
 const exited = new Promise(resolve => browser.once('exit', resolve));
@@ -114,7 +114,9 @@ try {
     const { locale, waiting } = samples[lang];
     await cdp('Emulation.setLocaleOverride', { locale: '' });
     await cdp('Emulation.setLocaleOverride', { locale });
-    await cdp('Emulation.setDeviceMetricsOverride', { width: 1000, height: 1400, deviceScaleFactor: 2, mobile: false });
+    // Match the manual's 390px image width: 426px viewport minus 36px page padding.
+    // Reflow the real UI so text remains readable instead of shrinking a desktop capture.
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 426, height: 1400, deviceScaleFactor: 2, mobile: false });
     await cdp('Page.navigate', { url: `${origin}/?lang=${lang}` });
     await waitFor(`document.querySelector('#inbox button.primary') && document.querySelector('#calendar-inbox button.primary')`);
     // Each section's primary button is its sync button once importing is on.
@@ -125,26 +127,41 @@ try {
     await evaluate('document.fonts.ready');
     await mkdir(join(out, lang), { recursive: true });
     for (const [name, selector] of [['gmail', '#inbox'], ['calendar', '#calendar-inbox']]) {
-      const clip = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x + scrollX, y: r.y + scrollY, width: Math.ceil(r.width), height: Math.ceil(r.height), scale: 1 }; })()`);
+      const clip = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: Math.floor(r.x + scrollX), y: Math.floor(r.y + scrollY), width: Math.ceil(r.right + scrollX) - Math.floor(r.x + scrollX), height: Math.ceil(r.bottom + scrollY) - Math.floor(r.y + scrollY), scale: 1 }; })()`);
       const capture = await cdp('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip });
       await writeFile(join(out, lang, name + '.png'), Buffer.from(capture.data, 'base64'));
+      const manualPath = join(root, 'frontend/manual/index.html');
+      let manual = await readFile(manualPath, 'utf8');
+      manual = manual.replace(new RegExp('(<img src="/captures/google-bridge/' + lang + '/' + name + '\\.png"[^>]*width=")[0-9]+(" height=")[0-9]+(" />)'), (_, before, middle, after) => before + clip.width + middle + clip.height + after);
+      await writeFile(manualPath, manual);
       console.log(`${lang}/${name}.png: ${clip.width} × ${clip.height} CSS pixels`);
     }
   }
   // Verify that bare Google anchors select the advanced guide and images load,
   // including the narrow viewport used by the manual's phone readers.
-  for (const lang of ['ja', 'en']) {
-    await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  for (const width of [1280, 390]) for (const lang of ['ja', 'en']) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 600 });
     await cdp('Page.navigate', { url: `${origin}/manual/?lang=${lang}#${lang}-google` });
     await waitFor(`document.readyState === 'complete' && document.documentElement.dataset.guide === 'advanced' && document.querySelector('#${lang}-google')`);
     const result = await evaluate(`(async () => {
       const heading = document.querySelector('#${lang}-google');
       const images = [...heading.parentElement.querySelectorAll('img[src*="google-bridge"]')];
       await Promise.all(images.map(image => { image.loading = 'eager'; return image.decode(); }));
-      return { visible: heading.getBoundingClientRect().height > 0, images: images.length, overflow: document.documentElement.scrollWidth > innerWidth };
+      const googleText = [];
+      for (let node = heading.nextElementSibling; node; node = node.nextElementSibling) googleText.push(node.textContent);
+      return {
+        visible: heading.getBoundingClientRect().height > 0, images: images.length,
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        japaneseInEnglish: '${lang}' === 'en' && /[\u3040-\u30ff\u4e00-\u9fff]/u.test(googleText.join(' ')),
+        nativeWidth: images.every(image => image.naturalWidth / 2 === 390),
+        readableScale: images.every(image => image.getBoundingClientRect().width / (image.naturalWidth / 2) >= 0.9),
+        fullSizeLinks: images.every(image => image.parentElement.tagName === 'A' && image.parentElement.href === image.src),
+      };
     })()`);
     assert.equal(result.visible, true); assert.equal(result.images, 2); assert.equal(result.overflow, false);
-    console.log(`Manual ${lang}: Google anchor, 2 screenshots, no horizontal overflow at 390px`);
+    assert.equal(result.japaneseInEnglish, false); assert.equal(result.nativeWidth, true);
+    assert.equal(result.readableScale, true); assert.equal(result.fullSizeLinks, true);
+    console.log(`Manual ${lang} at ${width}px: localized Google steps, 2 readable screenshots with full-size links, no overflow`);
   }
   assert.deepEqual(unexpected, []);
 } finally {

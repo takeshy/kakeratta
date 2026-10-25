@@ -569,6 +569,7 @@
           </ul>
 
           <h3 id="ja-google">Gmail・Google Calendarをつなぐ</h3>
+          <div class="tip"><p>この手順をHermesに渡して「Google連携の設定を手伝って」と頼めます。必要な情報を質問してもらいながら、自分の環境に合った設定を進められるので、すべてをひとりで調べる必要はありません。</p></div>
           <p>Google Bridgeは、自分の端末・サーバーで動かす個人用Webアプリ兼MCPサーバーです。Googleの資格情報はBridgeへ暗号化保存し、HermesはMCPで読み取ります。Hermes側workerが候補を取得し、LLMで選別・要約した結果をコードでTimelineの取り込み待ちへ届け、本人が「取り込む」を選んだ内容だけを通常投稿・担当・記憶の処理へ渡します。</p>
           <h4>1. Google Bridgeを起動する</h4>
           <p>Go 1.26以降と、このリポジトリが必要です。Hermesは上の手順でkakerattaへ接続しておきます。リポジトリのルートで次を実行します。Bridgeの画面はGoに埋め込まれているのでnpmは不要です。</p>
@@ -600,8 +601,8 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <li><strong>今日・明日の予定を取り込む</strong>も有効か確認し、詳細設定で対象カレンダーとタイムゾーンを確認して、<strong>今日・明日の予定を今すぐ確認</strong>を押します。既定は<code>primary</code>・<code>Asia/Tokyo</code>です。</li>
             <li>LLM判定が有効な場合はHermesによる判定完了を待ちます。Timelineの待機カードから内容を開き、<strong>取り込む／取り込まない</strong>を選びます。破棄時にはメールの種類・From、単発予定・定期予定全体の除外も選べ、Hermes側workerのコードが実際のレシートを取得しBridgeへ戻すと反映されます。</li>
           </ol>
-          <figure><img src="/captures/google-bridge/ja/gmail.png" alt="Google Bridgeの重要メール同期後の画面。予約メールがHermesの配送を待っている" loading="lazy" width="852" height="998" /><figcaption>実際の画面コードにサンプルAPI応答を返し、同期ボタンを操作した例です。実Googleアカウントの接続結果ではありません。</figcaption></figure>
-          <figure><img src="/captures/google-bridge/ja/calendar.png" alt="今日・明日の予定を同期したGoogle Bridgeの画面" loading="lazy" width="852" height="649" /><figcaption>Bridgeの取得後はHermesが候補を届け、正式な取り込みはTimelineで本人が選びます。</figcaption></figure>
+          <figure><a href="/captures/google-bridge/ja/gmail.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/ja/gmail.png" alt="Google Bridgeの重要メール同期後の画面。予約メールがHermesの配送を待っている" loading="lazy" width="390" height="1231" /></a><figcaption>実際の画面コードにサンプルAPI応答を返し、同期ボタンを操作した例です。実Googleアカウントの接続結果ではありません。 <span>画像をクリックすると原寸で開きます。</span></figcaption></figure>
+          <figure><a href="/captures/google-bridge/ja/calendar.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/ja/calendar.png" alt="今日・明日の予定を同期したGoogle Bridgeの画面" loading="lazy" width="390" height="753" /></a><figcaption>Bridgeの取得後はHermesが候補を届け、正式な取り込みはTimelineで本人が選びます。 <span>画像をクリックすると原寸で開きます。</span></figcaption></figure>
           <h4>5. 定期実行と直接依頼</h4>
           <p>定期同期は既存のHermes cronを使います。リポジトリの<code>tools/google-bridge/hermes/</code>にある<code>check_google_bridge.py</code>・<code>check_calendar_bridge.py</code>・<code>google_bridge_worker.py</code>を自分のHermesのscriptsへ置きます。先にkakeratta連携を導入し、既存の<code>direct_request_worker.py</code>も配置されていることを確認します。BridgeのMCPキー発行時に表示されるJSONを同じ場所の<code>google_bridge.json</code>へ保存して権限を0600にします。メールは30分ごと、予定は日次などで登録します。cronは<code>--no-agent</code>付きでgateを実行します。gateは必要なときだけworkerを起動します。配送・レシート返却はコードで行い、LLMは選別・要約が必要なときだけ隔離セッションで動きます。具体的な登録コマンドは<a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/google_ja.md" rel="noopener">設定・運用・復旧ガイド</a>を参照してください。</p>
           <p>送信・返信・下書き保存・予定の作成／変更／削除は、追加権限を付け、<code>@agent</code>で自分のHermesへ明示的に直接依頼する別の機能です。<code>google_action_run</code>はWebでの再確認なしに実行します。本人の依頼であることはサーバーで検証できないため、判定ジョブから書き込みツールを除外してください。結果が不明なら再送せずGoogle上で確認します。</p>
@@ -1238,6 +1239,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           </ul>
 
           <h3 id="en-google">Connect Gmail and Google Calendar</h3>
+          <div class="tip"><p>Give these instructions to Hermes and ask it to help set up the Google integration. It can ask for the information it needs and guide you through setup for your environment, so you do not have to work everything out on your own.</p></div>
           <p>Google Bridge is a personal Web app and MCP server you run on your device or server. It encrypts Google credentials in Bridge's own storage and gives Hermes access over MCP. A worker in Hermes fetches candidates and asks the model only to select and summarize; Python code submits them to pending Timeline cards through its own kakeratta MCP connection; only items you choose to import enter normal posting, persona and memory processing.</p>
           <h4>1. Start Google Bridge</h4>
           <p>You need Go 1.26 or later and this repository. Connect Hermes to kakeratta using the steps above. From the repository root, run the commands below. The UI is embedded in Go, so npm is unnecessary.</p>
@@ -1246,13 +1248,13 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <p>Open <code>http://127.0.0.1:8094</code>. Open the configuration file at the path printed during initialization in your own editor, and enter its <code>adminToken</code> in the login form. Keep this management key out of Hermes and chat.</p>
           <h4>2. Connect your Google account</h4>
           <ol>
-            <li>In Bridge's <strong>Googleを接続</strong> (Connect Google), open the setup guide and specify your Google Cloud project. Use the generated CLI steps or Console links to enable Gmail API and Google Calendar API. Bridge does not execute these commands.</li>
+            <li>In Bridge's <strong>Connect Google</strong>, open the setup guide and specify your Google Cloud project. Use the generated CLI steps or Console links to enable Gmail API and Google Calendar API. Bridge does not execute these commands.</li>
             <li>Configure consent in Google Auth Platform; add yourself as a test user if using Testing. Create a <strong>Web application</strong> OAuth client and register the exact redirect URI shown in Bridge, normally <code>http://127.0.0.1:8094/api/google/callback</code>.</li>
             <li>Load your Web OAuth JSON in Bridge's dedicated form, or enter the project ID, client ID and client secret. For read-only use, uncheck the extra send, draft and event-write permissions.</li>
-            <li>Review and consent to sharing Google data with Hermes and its configured model, then press <strong>Googleに接続</strong> (Connect Google). Finish authorization in the same tab and check both services' status and connection tests.</li>
+            <li>Review and consent to sharing Google data with Hermes and its configured model, then press <strong>Connect to Google</strong>. Finish authorization in the same tab and check both services' status and connection tests.</li>
           </ol>
           <h4>3. Connect Hermes and your Timeline</h4>
-          <p>Under <strong>Hermesとつなぐ</strong> (Connect your agent), add the example to <code>mcp_servers</code> in <code>~/.hermes/config.yaml</code>, then restart Hermes. Local connection mode on the same machine offers the keyless example below. If you issue an individual MCP key, also copy its Authorization header. The management key is separate.</p>
+          <p>Under <strong>Connect to Hermes</strong>, add the example to <code>mcp_servers</code> in <code>~/.hermes/config.yaml</code>, then restart Hermes. Local connection mode on the same machine offers the keyless example below. If you issue an individual MCP key, also copy its Authorization header. The management key is separate.</p>
           <pre><code>mcp_servers:
   google_bridge:
     url: http://127.0.0.1:8094/mcp
@@ -1265,12 +1267,12 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
   mcp_servers: [google_bridge]</code></pre>
           <h4>4. Sync and choose what to import</h4>
           <ol>
-            <li>Check that important-mail intake is enabled. If stopped, press <strong>おすすめ設定で有効にする</strong> (Enable recommended settings), then <strong>今すぐ差分を取得</strong> (Sync now). Filters let you adjust labels, priority senders, exclusions and optional model triage.</li>
-            <li>Check that event intake is enabled under <strong>今日・明日の予定を取り込む</strong> (Today's and tomorrow's events). Review the calendar and timezone in detailed settings, then press <strong>今日・明日の予定を今すぐ確認</strong> (Check now). Defaults are <code>primary</code> and <code>Asia/Tokyo</code>.</li>
+            <li>Check that important-mail intake is enabled. If stopped, press <strong>Turn on with recommended settings (no setup)</strong>, then <strong>Fetch new mail now</strong>. Filters let you adjust labels, priority senders, exclusions and optional model triage.</li>
+            <li>Check that event intake is enabled under <strong>Bring in today's and tomorrow's events</strong>. Review the calendar and timezone in detailed settings, then press <strong>Check today's and tomorrow's events now</strong>. Defaults are <code>primary</code> and <code>Asia/Tokyo</code>.</li>
             <li>If model triage is enabled, wait for Hermes to classify candidates. Open each pending Timeline card and choose Import or Discard. Discard can also exclude a mail type or sender, or a single event or recurring series; the Hermes worker retrieves and returns the actual kakeratta receipts in code.</li>
           </ol>
-          <figure><img src="/captures/google-bridge/en/gmail.png" alt="Google Bridge after mail sync, showing a reservation email waiting for Hermes delivery" loading="lazy" width="852" height="1065" /><figcaption>The shipped UI after clicking sync with sample API responses. This is not a live Google-account connection.</figcaption></figure>
-          <figure><img src="/captures/google-bridge/en/calendar.png" alt="Google Bridge after syncing today's and tomorrow's events" loading="lazy" width="852" height="649" /><figcaption>After Bridge fetches events, Hermes relays the candidates; you make the final import decision in the Timeline.</figcaption></figure>
+          <figure><a href="/captures/google-bridge/en/gmail.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/en/gmail.png" alt="Google Bridge after mail sync, showing a reservation email waiting for Hermes delivery" loading="lazy" width="390" height="1436" /></a><figcaption>The shipped UI after clicking sync with sample API responses. This is not a live Google-account connection. <span>Click the image to open it at full size.</span></figcaption></figure>
+          <figure><a href="/captures/google-bridge/en/calendar.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/en/calendar.png" alt="Google Bridge after syncing today's and tomorrow's events" loading="lazy" width="390" height="868" /></a><figcaption>After Bridge fetches events, Hermes relays the candidates; you make the final import decision in the Timeline. <span>Click the image to open it at full size.</span></figcaption></figure>
           <h4>5. Schedule sync and make direct requests</h4>
           <p>Use existing Hermes cron for scheduling. Copy <code>check_google_bridge.py</code>, <code>check_calendar_bridge.py</code> and <code>google_bridge_worker.py</code> from <code>tools/google-bridge/hermes/</code> into your Hermes scripts directory. Install the existing kakeratta integration first, including its <code>direct_request_worker.py</code> runtime. Save the JSON shown when issuing a Bridge MCP key beside them as <code>google_bridge.json</code>, with mode 0600. Schedule mail, for example, every 30 minutes and Calendar daily. Run the gate with <code>--no-agent</code>. It starts the code worker when work is queued. Only selection and summarization use an isolated model session; delivery, retries and receipt handling are Python code and require no model tokens. The <a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/google.md" rel="noopener">detailed setup and recovery guide</a> has the registration commands.</p>
           <p>Sending, replying, saving drafts and creating/changing/deleting events are separate features. Grant the extra scopes and explicitly ask your own Hermes via <code>@agent</code>. The <code>google_action_run</code> tool executes without another Web confirmation. The server cannot verify that an instruction came from the owner, so exclude write tools from triage jobs. If the outcome is unknown, check Google before any new attempt.</p>

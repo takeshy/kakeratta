@@ -63,7 +63,7 @@ Node.jsとChromiumがあれば、リポジトリのルートで次を実行し�
 node tools/google-bridge/captures.mjs
 ```
 
-`CHROMIUM`でブラウザー実行ファイル、`CAPTURE_SCRATCH`で一時プロファイルの作成先を変更できます。日本語と英語の画面を、それぞれの言語のサンプルで撮影し、`docs/captures/google-bridge/ja/`と`docs/captures/google-bridge/en/`へ保存します。
+`CHROMIUM`でブラウザー実行ファイル、`CAPTURE_SCRATCH`で一時プロファイルの作成先を変更できます。日本語と英語の画面を、それぞれの言語のサンプルで撮影し、`docs/captures/google-bridge/ja/`と`docs/captures/google-bridge/en/`へ保存します。マニュアルの掲載幅に合わせ、幅426pxの画面内で幅390pxに折り返した実際のUIを2倍解像度で撮影し、マニュアルの画像寸法も更新します。マニュアルから画像をクリックすると原寸で開けます。
 
 ## テスト
 
