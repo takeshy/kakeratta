@@ -2,6 +2,19 @@
 
 [README](../../README.md) · [日本語](usage_ja.md)
 
+kakeratta is a notebook with a personal AI that remembers, and reminds you when it matters. This page is a reference for people who run it themselves or want to know how it works: operation, settings and deployment. Illustrated steps for the screens are in the [manual](https://kakeratta.net/manual/?lang=en) (basics and advanced guide).
+
+| What you want to do | On this page | In the manual |
+| --- | --- | --- |
+| Ask the AI (`@persona`, `@ai` and `@agent`) | [Personas and direct requests](#personas-and-direct-requests) | [Choosing who you address](https://kakeratta.net/manual/?lang=en#en-ask) |
+| Check or fix memory | [A persona's memory](#a-personas-memory-facts-and-kakera-records) | [What a persona remembers](https://kakeratta.net/manual/?lang=en#en-memory) |
+| Add personas from memory | [A persona's memory](#a-personas-memory-facts-and-kakera-records) | [Memory upkeep and persona suggestions](https://kakeratta.net/manual/?lang=en#en-suggest-advanced) |
+| Fix wrong routing | [Timeline](#timeline) | [Fix who gets a post](https://kakeratta.net/manual/?lang=en#en-routing) |
+| Manage schedules and notifications | [View and edit all schedules](#view-and-edit-all-schedules) | [Schedules and reminders](https://kakeratta.net/manual/?lang=en#en-reminders) |
+| Find past posts | [Search](#search) | [Search](https://kakeratta.net/manual/?lang=en#en-search) |
+| Connect other AI and services | [Integrations at a glance](#integrations-at-a-glance) | [External agents](https://kakeratta.net/manual/?lang=en#en-integrations) |
+| Check models and cost | [Models and deployment](#models-and-deployment), [Cost per post, measured](#cost-per-post-measured) | [Models and AI usage](https://kakeratta.net/manual/?lang=en#en-models) |
+
 ## Running it
 
 ```sh
@@ -56,6 +69,8 @@ Phone navigation uses labelled icons on one row. Settings stays in the header
 as a gear when there is room; otherwise it moves into the three-dot menu.
 At still narrower widths, Personas moves into that menu too.
 
+The manual has a basics guide (daily use) and an advanced guide (routing, memory upkeep, integrations, models and cost, and other details). The basics open with “Find what you want to do”, which leads from a goal to its section. The contents list subheadings on wide screens and chapters only on phones. A `#ja-…` or `#en-…` link opens the half that holds the heading: before the page is read a list of anchor names decides, and afterwards the heading's place does, so a link inside the page can move to the other half. Headings reached from a link clear the header even where it wraps on a narrow screen.
+
 The pages are plain HTML in `frontend/lp/`, `frontend/manual/` and
 `frontend/site/` (shared stylesheet and language switch). `node build.mjs`
 copies them to `frontend/dist` along with `docs/captures` as `/captures/`;
@@ -103,6 +118,13 @@ The former built-in travel persona michi has been retired; a customized travel
 persona remains available, and you can create one with place-search tools.
 
 Use `@ai` to ask about kakeratta or questions outside a persona's subject. App-help questions read the relevant system specification chapters; unrelated questions do not need them. The standalone support persona is retired. The built-in AI does not save private memory or register schedules.
+
+| How you write | Who gets it | Memory and schedules |
+| --- | --- | --- |
+| A plain post | Personas whose condition, or a person's name or keyword, matches. Some posts get no reaction | Recipients record it |
+| `@persona` | The persona you name (it always replies) | That persona records it and handles schedules |
+| `@ai` | The built-in AI, reading across posts, persona notes and schedules | Saves and registers nothing |
+| `@agent` | The connected external agent (only with integration enabled) | No persona routing, memory or schedules |
 
 An `@` mention selects one active persona. Without a mention, a reply to an
 active persona reaches that persona alone. A mention of a different persona
@@ -441,6 +463,27 @@ For an individual breakdown, open **AI usage** on a card in **Personas**. **Repl
 
 Amounts are estimates in USD: OpenRouter uses API-reported costs, while Nebius uses public rates at recording time without discounts or free allowances. Calls without known pricing appear as **Unpriced**. Web searches count actual API requests, including failures. Search charges and the external agent's own AI costs are excluded. Only usage since recording began is included; historical logs are not imported. Months without records show an empty-state message. Screenshot amounts and counts are sample data.
 
+### What raises the cost
+
+- **Deep answers**: requests like “in detail” research several times on Super VL and answer on Ultra. Personas with Always think deeply research and answer on Super VL even without “in detail”. Either costs several times an ordinary reply.
+- **Several personas**: a post that reaches several personas runs an answer and a record for each. More active personas also lengthen the routing input.
+- **Web search**: results are added to the model input. Tavily's search fee is separate and not in the AI usage amount.
+- **Memory and history**: each turn reads the current facts and recent records, so input grows as memory does.
+- **Scheduled work**: daily check-ins, the day's and month's summaries and scheduled wakes run apart from your posts.
+
+### Cost per post, measured
+
+Measured by posting and totaling the cost the same way AI usage does. These are not a fixed price or a guarantee; they vary with the number of personas, the amount of memory and history, text length and model prices.
+
+| Post | What ran | Cost (USD) |
+| --- | --- | --- |
+| A plain post a persona replied to (`静岡で食べた桜えびのかき揚げ丼がサクサクでおいしかった。また行きたい`) | Routing, tabe's answer, the record (all Super), embeddings | about 0.0027 |
+| A plain post nobody replied to (`午後の会議資料を印刷した`) | Routing, sona's decision (no reply), embeddings | about 0.0022 |
+| `@ai 最近、静岡について何を書いた？` | Search and answer (Super VL, 2 calls), embeddings | about 0.0051 |
+| `@tabe 静岡で桜えびを食べるならどこがいいか詳しく調べて` | Research (Super VL, 3 calls), answer (Ultra), record (Super), embeddings | about 0.0155 |
+
+Conditions: 25 October 2026, local build (commit f38ff35, file storage), Nebius Token Factory, four active personas (tabe, shiori, sona, infographic), no Web search key, Japanese posts made in the order above in a new workspace with almost no posts or memory. Amounts are estimates at Nebius public prices (checked 16 October 2026) without discounts or free tiers. Embeddings for all four came to under US$0.0001. Scheduled work such as check-ins is not included. When updating the figures, post again under the same conditions and update the date and commit.
+
 ## Models and deployment
 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
@@ -535,6 +578,21 @@ The agent must support the new MCP tools. For Hermes, see [Hermes Agent setup](h
 - The browser sends requests to the Go API, which holds the keys and runs reactions asynchronously.
 - In production, Cloud Run hosts the API, Firebase Hosting serves the page, and Firestore and Cloud Storage persist user data. Local mode stores data on disk.
 - Tavily is the web search provider; each user enters their own key.
+
+## Integrations at a glance
+
+kakeratta is made to be used alongside other AI and services. Using ChatGPT or another app side by side needs no setup. These integrations actually read or write data over MCP or OAuth:
+
+| Service | What it does | Guide |
+| --- | --- | --- |
+| Hermes Agent | Answers for personas; direct `@agent` requests | [Hermes Agent setup](hermes.md) |
+| Hermes (NemoClaw / OpenShell) | Runs Hermes in a sandbox whose reachable sites and runnable programs are set by policy | [Using with NemoClaw / OpenShell](hermes.md#using-with-nemoclaw--openshell), [setup scripts](../../scripts/nemoclaw/README.md) |
+| Obsidian (LLM Connect Hub) | Personas answer from Vault notes, RAG and skills | [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub) |
+| Gmail and Google Calendar | Offers important mail and today's and tomorrow's events for import (through Google Bridge and Hermes) | [Gmail and Google Calendar](google.md) |
+| Bluesky | Publishes conversations you choose from your own account | [Share a conversation to Bluesky](#share-a-conversation-to-bluesky) |
+| Alexa | Post by voice and hear replies and schedules. **In Amazon certification**; until published, only a skill you create yourself works | [Connecting the Alexa skill](alexa.md) |
+
+The manual's advanced guide has instructions you can hand to an AI agent on your machine to set up Hermes, NemoClaw and the Google integration ([Connect Hermes](https://kakeratta.net/manual/?lang=en#en-hermes-connect), [Gmail and Google Calendar](https://kakeratta.net/manual/?lang=en#en-google)).
 
 ## Data
 

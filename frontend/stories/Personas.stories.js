@@ -27,7 +27,14 @@ function panelOf(rows, after, { mcp, tab, usage } = {}) {
   return sheet("担当", panel.element);
 }
 
-export const AllPresent = { name: "4体とも有効", render: () => panelOf(personas) };
+// The four that ship with the app, as the manual lists them; michi in the
+// fixtures stands for a persona the user made, so it is left out here.
+const infographic = { id: "infographic", name: "インフォグラフィック", icon: "📊", builtin: true, active: true, wakes: 4, planner: "builtin",
+  memoryEnabled: false, alwaysUltra: true, tools: [],
+  domain: "投稿、記事、説明、会話の内容をインフォグラフィックにしてほしいという明示的な依頼。図解、比較図、流れ図として視覚的にまとめる依頼に答える。単なるデータや画像の投稿、一般の質問には反応しない。" };
+const shipped = () => [personas[0], infographic, ...personas.filter(row => row.builtin && row.id !== "gourmet")];
+
+export const AllPresent = { name: "4体とも有効", render: () => panelOf(shipped()) };
 
 export const WithUsage = {
   name: "API利用・金額あり（サンプル）",

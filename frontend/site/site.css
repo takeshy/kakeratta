@@ -286,6 +286,8 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .toc {
   position: sticky;
   top: 64px;
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
   font-size: 0.9rem;
 }
 .toc ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
@@ -297,12 +299,22 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .doc .lede { color: var(--muted); font-size: 1.05rem; margin-bottom: 24px; }
 .doc section { padding: 24px 0; border-top: 1px solid var(--line); }
 .doc section:first-of-type { border-top: none; padding-top: 8px; }
-.doc h2, .doc h3[id] { scroll-margin-top: 72px; }
+.doc :is(section, h2, h3, h4)[id] { scroll-margin-top: 72px; }
+/* Headings under a chapter, listed in the contents on a wide screen. */
+.toc .toc-sub { margin: 2px 0 6px 12px; font-size: 0.84rem; }
+.toc .toc-sub a { padding: 2px 10px; }
+/* "Find what you want to do": a plain list of goals, each with where it leads. */
+.find-list { list-style: none; padding: 0 !important; margin: 8px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 20px; }
+.find-list li { margin: 0; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.find-list a { font-weight: 600; }
+.find-list span { display: block; color: var(--muted); font-size: 0.8rem; }
 .doc figure { margin: 16px 0; }
 /* The captures are phone screens; blown up to the column they go soft. */
 .doc figure img { display: block; width: 100%; max-width: 390px; margin: 0 auto; border-radius: 12px; border: 1px solid var(--line); }
 .doc figcaption { color: var(--muted); font-size: 0.84rem; margin-top: 6px; }
 .doc ul, .doc ol { padding-left: 1.3em; }
+/* A long URL or path in running text wraps instead of widening a phone page. */
+.doc :not(pre) > code { overflow-wrap: anywhere; }
 .doc li { margin: 2px 0; }
 .tip {
   background: var(--accent-soft);
@@ -332,12 +344,22 @@ kbd {
   .feature.flip .feature-text { order: 0; }
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manual main { grid-template-columns: 1fr; gap: 20px; }
-  .toc { position: static; }
+  .toc { position: static; max-height: none; overflow-y: visible; }
   .toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
   .toc a { border-left: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+  .toc .toc-sub { display: none; }
+}
+/* The header wraps to two rows, and to three on the narrowest phones; a
+   heading reached from the contents must clear it. */
+@media (max-width: 660px) {
+  .doc :is(section, h2, h3, h4)[id] { scroll-margin-top: 116px; }
+}
+@media (max-width: 360px) {
+  .doc :is(section, h2, h3, h4)[id] { scroll-margin-top: 150px; }
 }
 @media (max-width: 480px) {
   .cards { grid-template-columns: 1fr; }
+  .find-list { grid-template-columns: 1fr; }
   .site-nav a { padding: 4px 7px; font-size: 0.86rem; }
 }
 

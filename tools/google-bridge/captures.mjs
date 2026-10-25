@@ -144,15 +144,14 @@ try {
     await cdp('Page.navigate', { url: `${origin}/manual/?lang=${lang}#${lang}-google` });
     await waitFor(`document.readyState === 'complete' && document.documentElement.dataset.guide === 'advanced' && document.querySelector('#${lang}-google')`);
     const result = await evaluate(`(async () => {
-      const heading = document.querySelector('#${lang}-google');
-      const images = [...heading.parentElement.querySelectorAll('img[src*="google-bridge"]')];
+      // The anchor is the Gmail and Google Calendar chapter itself.
+      const chapter = document.querySelector('#${lang}-google');
+      const images = [...chapter.querySelectorAll('img[src*="google-bridge"]')];
       await Promise.all(images.map(image => { image.loading = 'eager'; return image.decode(); }));
-      const googleText = [];
-      for (let node = heading.nextElementSibling; node; node = node.nextElementSibling) googleText.push(node.textContent);
       return {
-        visible: heading.getBoundingClientRect().height > 0, images: images.length,
+        visible: chapter.getBoundingClientRect().height > 0, images: images.length,
         overflow: document.documentElement.scrollWidth > innerWidth,
-        japaneseInEnglish: '${lang}' === 'en' && /[\u3040-\u30ff\u4e00-\u9fff]/u.test(googleText.join(' ')),
+        japaneseInEnglish: '${lang}' === 'en' && /[\u3040-\u30ff\u4e00-\u9fff]/u.test(chapter.textContent),
         nativeWidth: images.every(image => image.naturalWidth / 2 === 390),
         readableScale: images.every(image => image.getBoundingClientRect().width / (image.naturalWidth / 2) >= 0.9),
         fullSizeLinks: images.every(image => image.parentElement.tagName === 'A' && image.parentElement.href === image.src),
