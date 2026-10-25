@@ -46,6 +46,19 @@ func TestThreadContextHandlesSystemWakeWithoutID(t *testing.T) {
 	}
 }
 
+func TestThreadContextMarksTheTargetAsAIWhenNamedAfterARealPerson(t *testing.T) {
+	post := timeline.Entry{ID: "gift", Speaker: timeline.User, Text: "父にウイスキーを送った。"}
+	reply := timeline.Entry{ID: "question", Speaker: "father", ReplyTo: post.ID, Text: "届いたかな？"}
+	got := threadContext([]timeline.Entry{post, reply}, reply, map[string]string{"father": "父"}, time.UTC)
+	label := "父のAI担当者の発言（実在の本人からの連絡ではない）"
+	if strings.Count(got, label) != 2 || !strings.Contains(got, label+"「届いたかな？」") {
+		t.Fatalf("the AI's question was not identified in both history and target: %s", got)
+	}
+	if !strings.Contains(got, "あなた（ユーザー）\n"+post.Text) {
+		t.Fatalf("the user's gift report lost its attribution: %s", got)
+	}
+}
+
 func TestThreadContextTargetIsAnExcerptOfALongEntry(t *testing.T) {
 	trigger := timeline.Entry{ID: "trigger", Speaker: timeline.User, Text: strings.Repeat("長い本文", 100)}
 	got := threadContext([]timeline.Entry{trigger}, trigger, nil, time.UTC)

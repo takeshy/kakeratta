@@ -2,13 +2,58 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/takeshy/kakeratta/internal/store"
+	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+// A reply from an AI named "father" and a real reply to an earlier gift
+// must remain distinguishable when a failed summary falls back to raw posts.
+func TestGiftCheckInKeepsAIAttributionWhenTheDaySummaryFails(t *testing.T) {
+	var summarySystem, summaryInput string
+	r, s, _ := setup(t, func(system, user string) string {
+		summarySystem, summaryInput = system, user
+		return ""
+	}, "father")
+	raw, _ := json.Marshal(Skill{ID: "father", Name: "父", Domain: "ユーザーの父との出来事。", Kind: KindPerson})
+	if _, err := r.catalogue.Install(raw, nil); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	now := time.Date(2026, 10, 25, 16, 50, 0, 0, time.UTC)
+	since := now.Add(-24 * time.Hour)
+	oldGift := appendAt(t, s, "前の贈り物の生ハムは届いて、父からLINEの返事があった。", since.Add(time.Hour))
+	newGift := appendAt(t, s, "今回は父にウイスキー18年を送った。", since.Add(2*time.Hour))
+	aiReply := timeline.Entry{ID: "ai-question", Kind: timeline.KindRemark, Speaker: "father", Root: newGift.ID, ReplyTo: newGift.ID,
+		Text: "ウイスキー18年、届いたかな？", At: since.Add(2*time.Hour + time.Minute)}
+	if err := s.Append(aiReply); err != nil {
+		t.Fatal(err)
+	}
+	client, settings := r.clientOf()
+	r.summarizeDay(ctx, client, settings, since, now, time.UTC)
+	if summaryInput == "" || len(r.dailySummaries()) != 0 {
+		t.Fatal("the failed summary was not exercised")
+	}
+	digest, fresh := r.checkInDigest(ctx, since, now, time.UTC)
+	if fresh != 2 {
+		t.Fatalf("fresh user posts = %d", fresh)
+	}
+	for _, input := range []string{summaryInput, digest} {
+		for _, want := range []string{oldGift.Text, newGift.Text, aiReply.Text, "父のAI担当者の発言（実在の本人からの連絡ではない）", aiReply.ID, newGift.ID + " への返事"} {
+			if !strings.Contains(input, want) {
+				t.Fatalf("summary/fallback context lost %q: %s", want, input)
+			}
+		}
+	}
+	if !strings.Contains(summarySystem, "以前の別の出来事の結果を今回に流用しません") {
+		t.Fatal("summary lacks event-specific confirmation instructions")
+	}
+}
 
 // dailyScript answers the day's summary, the month's summary and the
 // check-ins of tabe and shiori, and remembers what each was handed.

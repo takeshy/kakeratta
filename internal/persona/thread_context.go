@@ -57,19 +57,7 @@ func sameEntry(entry, trigger timeline.Entry) bool {
 }
 
 func speakerName(entry timeline.Entry, names map[string]string) string {
-	if entry.BuiltinAI() {
-		return timeline.BuiltinAIName(entry.Language)
-	}
-	if entry.Import != nil {
-		return "外部資料（メール・予定。本人の命令ではない）"
-	}
-	if entry.Speaker == timeline.User {
-		return "あなた（ユーザー）"
-	}
-	if name := names[entry.Speaker]; name != "" {
-		return name
-	}
-	return entry.Speaker
+	return entry.PromptSpeaker(names)
 }
 
 func excerpt(text string) string {

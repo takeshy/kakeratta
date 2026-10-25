@@ -357,7 +357,7 @@ func TestAPersonsPersonaIsNotIntroducedAsThePerson(t *testing.T) {
 		}
 		// The same follow-up lifecycle must reach answering, schedule planning,
 		// and memory keeping, including already installed person definitions.
-		for _, want := range []string{"その確認を終了します", "update または invalidate", "ユーザーの約束や確認依頼ではありません", "前回のチェックイン以前", "一度確認した話題は", "確認状況が分からない場合も黙ります"} {
+		for _, want := range []string{"その確認を終了します", "update または invalidate", "ユーザーの約束や確認依頼ではありません", "前回のチェックイン以前", "一度確認した話題は", "確認状況が分からない場合も黙ります", "実在の本人からの返事や受領連絡ではありません", "別の日付・品物の贈り物", "今回の出来事に流用しません"} {
 			if !strings.Contains(prompt, want) {
 				t.Errorf("the %s prompt lacks follow-up rule %q", name, want)
 			}

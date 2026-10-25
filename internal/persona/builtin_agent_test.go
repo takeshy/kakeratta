@@ -66,7 +66,7 @@ func TestBuiltinDirectDeliverySearchesTimelineAfterSettingsChange(t *testing.T) 
 	if calls != 2 || len(answers) != 1 || answers[0].Language != "en" || answers[0].Model != "super" || len(answers[0].Sources) == 0 {
 		t.Fatalf("calls=%d answers=%+v", calls, answers)
 	}
-	if speakerName(answers[0], map[string]string{timeline.Agent: "Hermes"}) != "Built-in AI" {
+	if label := speakerName(answers[0], map[string]string{timeline.Agent: "Hermes"}); !strings.HasPrefix(label, "Built-in AI（AIの発言") {
 		t.Fatal("built-in answer was named as the external connection")
 	}
 	if len(r.Requests()) != 0 {

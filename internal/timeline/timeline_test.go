@@ -10,6 +10,39 @@ func at(minute int) time.Time {
 	return time.Date(2026, 9, 12, 17, minute, 0, 0, time.UTC)
 }
 
+func TestPromptSpeakersDoNotTurnAIRepliesIntoHumanMessages(t *testing.T) {
+	names := map[string]string{"father": "父", Agent: "Hermes"}
+	for _, tc := range []struct {
+		name  string
+		entry Entry
+		label string
+		ai    bool
+	}{
+		{"user", Entry{Speaker: User}, "あなた（ユーザー）", false},
+		{"person persona", Entry{Speaker: "father"}, "父", true},
+		{"removed persona", Entry{Speaker: "former-persona"}, "former-persona", true},
+		{"external agent", Entry{Speaker: Agent, Model: "agent"}, "Hermes", true},
+		{"built-in AI", Entry{Speaker: Agent, Model: "super", Language: "en"}, "Built-in AI", true},
+		{"app", Entry{Speaker: App}, App, false},
+		{"system wake", Entry{Speaker: "system"}, "system", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := tc.entry
+			entry.ID, entry.Text = "entry", "本文"
+			label := entry.PromptSpeaker(names)
+			if !strings.HasPrefix(label, tc.label) || (strings.Contains(label, "AIの発言") || strings.Contains(label, "AI担当者の発言")) != tc.ai {
+				t.Fatalf("speaker attribution: %q", label)
+			}
+			if tc.ai && !strings.Contains(label, "連絡ではない") {
+				t.Fatalf("AI could be mistaken for a real person's contact: %q", label)
+			}
+			if got := entry.Render(names, time.UTC); !strings.Contains(got, label+"\n本文") {
+				t.Fatalf("render lost attribution: %s", got)
+			}
+		})
+	}
+}
+
 func TestMentionsFindTheOneBeingAsked(t *testing.T) {
 	cases := map[string][]string{
 		"@tabe これ美味しそう":      {"tabe"},
