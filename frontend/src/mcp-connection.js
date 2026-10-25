@@ -138,7 +138,7 @@ export function createMCPConnection({ onChange, onState, controls = null } = {})
   }
 
   const errorView = el("p", { role: "alert" });
-  const body = el("div");
+  const body = el("div", { class: "mcp-connection-body" });
   view.append(
     el("div", { class: "compose-row" },
       el("h3", { label: "外部エージェント接続" }),

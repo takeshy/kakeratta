@@ -8,7 +8,9 @@ export default { title: "Settings", parameters: { layout: "fullscreen" } };
 
 function panelOf(current, info = about, extra = {}, after) {
   serve({ settings: current, about: info, models: [settings.lowModel, settings.middleModel, settings.highModel, settings.visionModel], ...extra });
-  const panel = createSettings({ speaker, onSettings: () => {} });
+  // As on the hosted app, where an account can be closed; closing it here
+  // only says so.
+  const panel = createSettings({ speaker, onSettings: () => {}, closeAccount: async () => { console.info("closeAccount (story)"); } });
   void panel.load().then(() => after?.(panel.element));
   return sheet("設定", panel.element);
 }

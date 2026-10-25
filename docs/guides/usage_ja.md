@@ -379,7 +379,7 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 
 振り分けは既定でNemotron 3 Superを使います。設定の「モデル → OpenRouterを使う」でAPIキーを入力し、接続確認すると利用可能なモデルを取得してRouter・High・Middle・Low・画像解析ごとに選べます。「Routerモデル」で `~typesafe/jev-latest` を選ぶと振り分けだけをJevへ切り替えます。Jevは本番20件の比較で条件差分5/5、平均0.37秒、1件約0.026円でしたが、判定理由は表示しません。「OpenRouterを使う」をONにすると、Router・High・Middle・Low・画像解析に選択したOpenRouterモデルを使います。OFFにしてもAPIキーとモデル選択は残ります。
 
-![設定。モデル（OpenRouterを含む）、Web検索、AI利用状況、この端末、入力・音声・外部連携・バックアップ・利用停止](../captures/ja/settings.png)
+![設定。プロフィール、モデル（OpenRouterは開いて使う）、Web検索、AI利用状況、この端末、入力、毎日の振り返り、バックアップ、開いて使う音声と外部連携](../captures/ja/settings.png)
 
 | 用途 | OpenRouter 使用時に選ぶ枠 | 既定 |
 | --- | --- | --- |

@@ -108,21 +108,26 @@ function panel(t) {
 
 const heading = (view, label) => walk(view.element).some(node => ["h3", "summary"].includes(node.tag) && node.textContent === translate(label));
 
-// What the defaults already answer waits in groups, each shut and not even
-// built - so a panel that opens does not ask Hermes or Bluesky anything, and
-// there is no "advanced" section to look behind.
-test("speech, OpenRouter, Hermes and Bluesky wait in shut groups", async t => {
+// Single controls are in plain sight; only voice, with many controls, and
+// the integrations, which ask their connections, wait in shut groups - so a
+// panel that opens does not ask Hermes or Bluesky anything, and there is no
+// "advanced" section to look behind.
+test("only OpenRouter, voice and integrations wait in shut groups, in order", async t => {
   const view = panel(t);
   await view.load();
-  for (const label of ["モデル", "Web検索", "この端末", "OpenRouterを使う", "入力", "音声", "外部連携", "バックアップ"]) {
-    assert.ok(heading(view, label), `${label} should be in plain sight`);
-  }
+  const order = ["プロフィール", "モデル", "OpenRouterを使う", "Web検索", "この端末", "入力", "毎日の振り返り", "バックアップ", "音声", "外部連携"];
+  const nodes = walk(view.element);
+  const at = label => nodes.findIndex(node => ["h3", "summary"].includes(node.tag) && node.textContent === translate(label));
+  for (const label of order) assert.ok(at(label) >= 0, `${label} should be in plain sight`);
+  for (let i = 1; i < order.length; i++) assert.ok(at(order[i - 1]) < at(order[i]), `${order[i - 1]} should come before ${order[i]}`);
+  const groups = nodes.filter(node => node.tag === "details" && node["data-category"]).map(node => node["data-category"]);
+  assert.deepEqual(groups, ["OpenRouterを使う", "音声", "外部連携"]);
+  assert.ok(nodes.some(node => node.tag === "button" && node.textContent === translate("zipに書き出す")), "the backup button is in plain sight");
   for (const label of ["音声入力", "読み上げ", "Bluesky連携"]) {
     assert.equal(heading(view, label), false, `${label} should wait in its group`);
   }
-  assert.equal(walk(view.element).some(node => node.tag === "button" && node.textContent === translate("zipに書き出す")), false);
-  assert.equal(walk(view.element).some(node => String(node.textContent).includes("上級オプション")), false);
-  assert.equal(walk(view.element).some(node => String(node.textContent).startsWith("kakeratta ")), false, "no version line");
+  assert.equal(nodes.some(node => String(node.textContent).includes("上級オプション")), false);
+  assert.equal(nodes.some(node => String(node.textContent).startsWith("kakeratta ")), false, "no version line");
   assert.equal(api.mcpConnection.mock.callCount(), 0, "a shut group should ask nothing");
   assert.equal(api.blueskyConnection.mock.callCount(), 0, "a shut group should ask nothing");
 

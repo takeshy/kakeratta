@@ -604,7 +604,7 @@
           </div>
           <h3 id="ja-agent-role">外部エージェントでできること</h3>
           <p>接続先を設定し、設定の「外部エージェントを使う」をONにすると、担当ごとに「外部エージェントを優先する」を選べます。ONにした担当は、投稿やチェックインで起きたとき、文脈を読んで調べ、回答を書く部分を、自分で動かしている外部エージェントに任せます。標準で対応しているのは Hermes Agent と、Obsidian のプラグイン <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> です。ほかのエージェントも、MCP Streamable HTTP で接続し、依頼の定期取得・調査・回答の提出を実装すれば使えます。回答を受け取ったあと、kakeratta が記録の追加と予定を扱い、予定変更があれば回答と食い違わないか確認してから公開します。担当が使える外部MCPの道具は読み取り専用です。Hermes をまだ入れていない場合は、先に <a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/hermes_ja.md" rel="noopener">Hermes連携の手引き</a> を見てください。</p>
-          <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携の外部エージェント接続とマニュアルへのヘルプアイコン" loading="lazy" width="366" height="1198" /></figure>
+          <figure><img src="/captures/ja/hermes-settings.png" alt="外部連携の外部エージェント接続とマニュアルへのヘルプアイコン" loading="lazy" width="366" height="1212" /></figure>
           <h3>外部エージェントに直接頼む</h3>
           <p><code>@agent</code>・<code>@外部エージェント</code>・<code>@エージェント</code> で、担当を介さず接続先に直接依頼できます。回答への返信はそのまま次の依頼になります。担当の記憶や予定は更新しません。</p>
           <p>依頼には待機中・作業中の状態が表示され、🔔 で回答のプッシュ通知を切り替えられます。取得まで、取得後の回答まで、それぞれ2時間を過ぎるとお知らせします。遅れて届いた回答も表示されます。作業開始後の編集は届かないため、追加事項は返信してください。利用できる道具や実行できる作業は、接続先の設定に従います。</p>
@@ -875,8 +875,8 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
         <section id="ja-settings">
           <h2>11. 設定・データを管理する</h2>
           <figure>
-            <img src="/captures/ja/settings.png" alt="設定パネル" loading="lazy" width="390" height="2528" />
-            <figcaption>設定パネル。よく使う項目が上に、入力・音声・外部連携・バックアップ・利用停止は開いて使う項目として下に並びます。</figcaption>
+            <img src="/captures/ja/settings.png" alt="設定パネル" loading="lazy" width="390" height="3008" />
+            <figcaption>設定パネル。上から順に並び、OpenRouter・音声・外部連携は押して開く行になっています。利用停止はいちばん下です。</figcaption>
           </figure>
           <h3>どこに何があるか</h3>
           <div class="table-scroll">
@@ -884,15 +884,15 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
               <thead><tr><th>場所</th><th>項目</th></tr></thead>
               <tbody>
                 <tr><td>プロフィール</td><td>表示名、自分のアイコン（絵文字・写真）</td></tr>
-                <tr><td>毎日の振り返り</td><td><a href="#ja-daily-check-in">自動または時刻を指定</a></td></tr>
-                <tr><td>モデル</td><td>AI の API キー、<a href="#ja-openrouter">OpenRouter を使う</a></td></tr>
+                <tr><td>モデル</td><td>AI の API キー、<a href="#ja-openrouter">OpenRouter を使う</a>（開いて使う）</td></tr>
                 <tr><td>Web検索</td><td>Tavily の API キー（<a href="#ja-tool-web_search">Web検索</a>を使う場合）</td></tr>
                 <tr><td>AI利用状況</td><td><a href="#ja-usage">月ごとの金額と内訳</a></td></tr>
                 <tr><td>この端末</td><td>表示言語、文字サイズ、<a href="/manual/#ja-push" data-lang-link>リマインダーのPush通知</a></td></tr>
                 <tr><td>入力</td><td>入力をマークダウンとして扱う</td></tr>
-                <tr><td>音声</td><td>音声入力（送信の合図、無音で停止など）、読み上げの声と速さ</td></tr>
-                <tr><td>外部連携</td><td><a href="#ja-hermes">外部エージェント</a>、<a href="#ja-bluesky">Bluesky</a>、<a href="#ja-alexa">Alexa</a></td></tr>
+                <tr><td>毎日の振り返り</td><td><a href="#ja-daily-check-in">自動または時刻を指定</a></td></tr>
                 <tr><td>バックアップ</td><td>zip に書き出す</td></tr>
+                <tr><td>音声</td><td>音声入力（送信の合図、無音で停止など）、読み上げの声と速さ（開いて使う）</td></tr>
+                <tr><td>外部連携</td><td><a href="#ja-hermes">外部エージェント</a>、<a href="#ja-bluesky">Bluesky</a>、<a href="#ja-alexa">Alexa</a>（開いて使う）</td></tr>
                 <tr><td>利用停止</td><td>すべて削除して利用を停止する</td></tr>
               </tbody>
             </table>
@@ -1506,7 +1506,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           </div>
           <h3 id="en-agent-role">What an external agent does</h3>
           <p>Once a connection is configured and <strong>Use the external agent</strong> is enabled in settings, each persona can prefer the external agent. A persona with <strong>Prefer the external agent</strong> on hands the research and the answer of its turn to an external agent you run yourself, whether it woke for a post or a check-in. Hermes Agent and the Obsidian plugin <a href="https://github.com/takeshy/obsidian-llm-connect-hub" rel="noopener">LLM Connect Hub</a> are supported out of the box; any other agent can connect over MCP Streamable HTTP if it polls for asks, does the research and submits the answer. After receiving the answer, kakeratta handles records and schedules and reviews schedule changes against the answer before publishing. External MCP tools available to personas are read-only. If you have not installed Hermes yet, start with the <a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/hermes.md" rel="noopener">Hermes integration guide</a>.</p>
-          <figure><img src="/captures/en/hermes-settings.png" alt="External agent connections under Integrations, with the manual help icon" loading="lazy" width="366" height="1220" /></figure>
+          <figure><img src="/captures/en/hermes-settings.png" alt="External agent connections under Integrations, with the manual help icon" loading="lazy" width="366" height="1234" /></figure>
           <h3>Ask the external agent directly</h3>
           <p>Address <code>@agent</code>, <code>@外部エージェント</code>, or <code>@エージェント</code> to ask the connected agent directly. Replying to its answer starts the next request. This does not update persona memory or schedules.</p>
           <p>The request shows waiting or working status; 🔔 controls push notification for its answer. You are notified if it remains unclaimed for two hours or unanswered for two hours after being claimed. Late answers still appear. Edits after work starts are not delivered, so send additions as replies. Available tools and actions depend on the connected agent’s configuration.</p>
@@ -1777,8 +1777,8 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
         <section id="en-settings">
           <h2>11. Manage settings and data</h2>
           <figure>
-            <img src="/captures/en/settings.png" alt="The Settings panel" loading="lazy" width="390" height="2599" />
-            <figcaption>The Settings panel. Common items are at the top; Input, Voice, Integrations, Backup and Close account are rows below that open when tapped.</figcaption>
+            <img src="/captures/en/settings.png" alt="The Settings panel" loading="lazy" width="390" height="3082" />
+            <figcaption>The Settings panel, top to bottom. OpenRouter, Voice and Integrations are rows that open when tapped; Close account is at the very bottom.</figcaption>
           </figure>
           <h3>Where things are</h3>
           <div class="table-scroll">
@@ -1786,15 +1786,15 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
               <thead><tr><th>Place</th><th>Items</th></tr></thead>
               <tbody>
                 <tr><td>Profile</td><td>Display name, your icon (emoji or photo)</td></tr>
-                <tr><td>Daily check-in</td><td><a href="#en-daily-check-in">Automatic or Set a time</a></td></tr>
-                <tr><td>Models</td><td>The AI API key, <a href="#en-openrouter">Use OpenRouter</a></td></tr>
+                <tr><td>Models</td><td>The AI API key, <a href="#en-openrouter">Use OpenRouter</a> (opens when tapped)</td></tr>
                 <tr><td>Web search</td><td>Tavily API key (for <a href="#en-tool-web_search">web search</a>)</td></tr>
                 <tr><td>AI usage</td><td><a href="#en-usage">Monthly cost and breakdown</a></td></tr>
                 <tr><td>This device</td><td>Display language, text size, <a href="/manual/#en-push" data-lang-link>Push reminders</a></td></tr>
                 <tr><td>Input</td><td>Treat what I write as Markdown</td></tr>
-                <tr><td>Voice</td><td>Voice input (send phrase, silence stop, …), read-aloud voice and speed</td></tr>
-                <tr><td>Integrations</td><td><a href="#en-hermes">External agents</a>, <a href="#en-bluesky">Bluesky</a>, <a href="#en-alexa">Alexa</a></td></tr>
+                <tr><td>Daily check-in</td><td><a href="#en-daily-check-in">Automatic or Set a time</a></td></tr>
                 <tr><td>Backup</td><td>Export as zip</td></tr>
+                <tr><td>Voice</td><td>Voice input (send phrase, silence stop, …), read-aloud voice and speed (opens when tapped)</td></tr>
+                <tr><td>Integrations</td><td><a href="#en-hermes">External agents</a>, <a href="#en-bluesky">Bluesky</a>, <a href="#en-alexa">Alexa</a> (opens when tapped)</td></tr>
                 <tr><td>Close account</td><td>Delete everything and close the account</td></tr>
               </tbody>
             </table>

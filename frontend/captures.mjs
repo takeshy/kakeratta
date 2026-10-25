@@ -101,7 +101,7 @@ const shots = [
   { name: "settings-usage", id: "settings--with-usage", clip: ".settings-usage", ready: ".usage-table" },
   { name: "profile-emoji", id: "settings--default", clip: ".avatar-field", ready: ".avatar-emoji-grid .avatar-emoji", open: ".avatar-emoji-picker" },
   { name: "profile-photo", id: "settings--profile-photo", clip: ".avatar-field", ready: ".avatar-preview .avatar-photo img" },
-  { name: "hermes-settings", id: "settings--external-agent", clip: '[data-category="外部連携"]', ready: "#sheet", open: '[data-category="外部連携"]' },
+  { name: "hermes-settings", id: "settings--external-agent", clip: '[data-category="外部連携"]', ready: "#sheet", open: '[data-category="外部連携"]', scroll: true },
   { name: "routing", id: "timeline--routing-opened", clip: ".routing-dialog", ready: ".routing-row" },
   { name: "condition-fix", id: "timeline--condition-proposal", clip: ".condition-fix", ready: ".condition-new" },
   { name: "reply-fix", id: "timeline--reply-fix-proposal", clip: ".dialog.reply-fix", ready: ".reply-instructions" },
@@ -247,6 +247,12 @@ async function main() {
               return true;
             })()`);
             await sleep(150);
+            // A group low in a scrolling sheet is out of the sheet's view, and
+            // what is out of view is not painted: bring it to the top first.
+            if (shot.scroll) {
+              await evaluate(`document.querySelector(${JSON.stringify(shot.clip)}).scrollIntoView({ block: "start" })`);
+              await sleep(150);
+            }
             const rect = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(shot.clip)}).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })()`);
             const x = Math.max(0, Math.floor(rect.x - MARGIN));
             const y = Math.max(0, Math.floor(rect.y - MARGIN));

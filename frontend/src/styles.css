@@ -558,6 +558,8 @@ body.sheet-open .topbar { z-index: 21; }
 .mcp-connection { display: grid; gap: 12px; }
 .mcp-connection .hint { margin: 0; }
 .mcp-connection [role="alert"]:empty { display: none; }
+/* The list of connections and the button that adds one sit apart. */
+.mcp-connection-body { display: grid; gap: 14px; }
 .mcp-add-connection { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
 .mcp-add-connection .field { flex: 1 1 14rem; min-width: 0; }
 .mcp-connections { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
@@ -594,7 +596,7 @@ body.sheet-open .topbar { z-index: 21; }
 }
 /* Native controls and nested grids can otherwise impose their content width,
    especially with enlarged text or long device-specific voice names. */
-.settings-panel :is(.field, .settings-block, .settings-category-body, .openrouter-models, .mcp-connection, .mcp-connection-row, .bluesky-connection) {
+.settings-panel :is(.field, .settings-block, .settings-category-body, .mcp-connection-body, .openrouter-models, .mcp-connection, .mcp-connection-row, .bluesky-connection) {
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
 }
@@ -638,10 +640,9 @@ body.sheet-open .topbar { z-index: 21; }
 .settings-panel .settings-category > summary:hover { color: var(--accent); }
 .settings-panel .settings-category[open] > summary { border-bottom: 1px solid var(--line); }
 .settings-panel .settings-category-body { padding: 14px; background: var(--card); }
-/* Each group is its own row; closing the account sits apart, in the danger color. */
+/* Each group is its own row; closing the account comes last, in the danger color. */
 .settings-panel > .settings-category { margin-top: 10px; }
-.settings-panel > .settings-category.danger { margin-top: 28px; border-color: var(--danger, #a33); }
-.settings-panel > .settings-category.danger > summary { color: var(--danger, #a33); }
+.settings-panel h3.danger { margin-top: 28px; color: var(--danger, #a33); }
 .field.check-field { display: flex; flex-direction: row; align-items: center; gap: 8px; }
 .field.check-field input { width: auto; }
 .field.check-field > span:first-child { color: inherit; font-size: inherit; }

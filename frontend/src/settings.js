@@ -142,11 +142,12 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     return el("div", { class: "compose-row" }, check);
   }
 
-  // A group most people leave as it is: shut, and built the first time it is
-  // opened - which is also when the external agent and Bluesky are asked about.
-  function category(label, build, { danger = false } = {}) {
+  // A group with many controls, or one that asks a connection about itself:
+  // shut, and built the first time it is opened - which is also when the
+  // external agent and Bluesky are asked about.
+  function category(label, build) {
     const content = el("div", { class: "settings-category-body" });
-    const group = el("details", { class: danger ? "settings-category danger" : "settings-category", "data-category": label },
+    const group = el("details", { class: "settings-category", "data-category": label },
       el("summary", { label }), content);
     let built = false;
     const open = () => {
@@ -305,6 +306,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     const markdown = el("input", { type: "checkbox", checked: !!settings.markdownInput });
     markdown.addEventListener("change", () => void patch({ markdownInput: markdown.checked }));
     into.append(
+      el("h3", { label: "入力" }),
       el("label", { class: "field check-field" }, switchControl(markdown), el("span", { label: "入力内容をマークダウンとして扱う" })),
       el("p", {
         class: "hint",
@@ -498,6 +500,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
   function drawBackup(into) {
     exportRow = el("div", { class: "compose-row" });
     into.append(
+      el("h3", { label: "バックアップ" }),
       el("p", {
         class: "hint",
         label: "投稿・担当・メモ・画像を、開発環境でそのまま動く構成のままzipに書き出します。APIキーやBlueskyなどの接続は入らないので、復元先では入れ直してください。",
@@ -546,6 +549,7 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
   function drawClosing(into) {
     closingRow = el("div", { class: "compose-row" });
     into.append(
+      el("h3", { class: "danger", label: "利用停止" }),
       el("p", { class: "hint", label: "このアカウントのデータをすべて消して、利用を停止します。必要なものは先に上のバックアップで書き出してください。" }),
       closingRow,
     );
@@ -604,10 +608,9 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     void push.load();
   }
 
-  // What the defaults already answer, one group each. Closing the account
-  // comes last and looks it.
+  // Voice has many controls and the integrations ask their connections about
+  // themselves, so each waits in a group of its own.
   function drawGroups() {
-    category("入力", drawInput);
     category("音声", (into) => {
       drawSpeech(into);
       drawReadAloud(into);
@@ -627,13 +630,11 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
       bluesky = createBlueskyConnection();
       into.append(el("h3", { label: "Bluesky連携" }), bluesky.element, createAlexaConnection());
     });
-    category("バックアップ", drawBackup);
-    if (closeAccount) category("利用停止", drawClosing, { danger: true });
   }
 
-  // The screen leads with the two keys that decide whether anything works at
-  // all, then what you came to do with your own data. The rest waits in
-  // groups that open when asked for.
+  // Who you are, then the keys that decide whether anything works at all and
+  // what they cost; then this device, how you write, when personas look back
+  // and your data. The groups follow, and closing the account comes last.
   function draw() {
     if (!settings) return;
     stopMicCheck();
@@ -641,12 +642,15 @@ export function createSettings({ speaker, onSettings, onMCPChange, closeAccount 
     bluesky = null;
     clear(view);
     drawProfile();
-    drawDaily();
     drawAI();
     drawTools();
     view.append(createUsage().element);
     drawDevice();
+    drawInput(view);
+    drawDaily();
+    drawBackup(view);
     drawGroups();
+    if (closeAccount) drawClosing(view);
   }
 
   return { element: view, load, draw, settings: () => settings, stopMicCheck: () => stopMicCheck() };

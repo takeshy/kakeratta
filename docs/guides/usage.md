@@ -506,7 +506,7 @@ An unset selection retains the GLM-5.3-Flash default. This choice is independent
 the main provider's image model and survives turning OpenRouter off. Meaning search
 continues to use Qwen3-Embedding-8B on the main backend.
 
-![Settings: models with OpenRouter, web search, AI usage, this device, then Input, Voice, Integrations, Backup and Close account](../captures/en/settings.png)
+![Settings: profile, models with OpenRouter to open, web search, AI usage, this device, input, daily check-in, backup, then Voice and Integrations to open](../captures/en/settings.png)
 
 | For | Slot chosen with OpenRouter | Default |
 | --- | --- | --- |
