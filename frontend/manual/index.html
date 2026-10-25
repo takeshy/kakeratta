@@ -570,6 +570,28 @@
 
           <h3 id="ja-google">Gmail・Google Calendarをつなぐ</h3>
           <div class="tip"><p>この手順をHermesに渡して「Google連携の設定を手伝って」と頼めます。必要な情報を質問してもらいながら、自分の環境に合った設定を進められるので、すべてをひとりで調べる必要はありません。</p></div>
+          <details>
+            <summary>Hermesに渡す指示文を開く</summary>
+            <p>以下をコピーして、自分のHermesに渡してください。</p>
+            <pre><code>kakerattaのGoogle連携（Gmail・Google Calendar）の設定を手伝ってください。
+
+リポジトリ: https://github.com/takeshy/kakeratta
+Google連携ガイド: https://github.com/takeshy/kakeratta/blob/main/docs/guides/google_ja.md
+Hermes連携ガイド: https://github.com/takeshy/kakeratta/blob/main/docs/guides/hermes_ja.md
+Google Bridgeの実装と起動方法: https://github.com/takeshy/kakeratta/tree/main/tools/google-bridge
+
+まず上の資料の最新の手順を読み、必要な情報を質問しながら、私の環境に合わせて設定を進めてください。
+OS、Hermesの実行場所（同じ端末・別サーバー・コンテナなど）、kakerattaとの接続状況、既存のリポジトリやGo環境を確認してください。
+GmailとCalendarで使いたい機能、Google CloudプロジェクトとOAuthクライアントの有無、対象カレンダー・タイムゾーン・同期頻度も確認してください。
+
+既存の設定を残して、Google Bridgeの起動、Google APIとOAuthの設定、HermesのMCP接続、取り込みworkerと定期同期の順に案内してください。
+Googleのログイン・同意操作は私が行えるよう、開く画面と操作を教えてください。秘密情報はチャットに貼らせず、Bridgeの専用フォームやローカルの設定ファイルへ入力するよう案内してください。
+Bridgeの管理キー・MCPキーとkakerattaのMCPキーを区別し、それぞれ正しい設定先へ保存してください。別端末やコンテナでは接続先とネットワーク設定も確認してください。
+メール送信や予定変更は使うと決めた場合だけ設定し、読み取り・取り込みだけなら追加の書き込み権限は付けないでください。
+
+最後に、接続状態、メール検索、予定の読み取り、Timelineの取り込み待ちカードまで順に確認してください。正式な取り込みは私が選びます。
+完了した設定と、まだ私の操作が必要な項目を分けて教えてください。</code></pre>
+          </details>
           <p>Google Bridgeは、自分の端末・サーバーで動かす個人用Webアプリ兼MCPサーバーです。Googleの資格情報はBridgeへ暗号化保存し、HermesはMCPで読み取ります。Hermes側workerが候補を取得し、LLMで選別・要約した結果をコードでTimelineの取り込み待ちへ届け、本人が「取り込む」を選んだ内容だけを通常投稿・担当・記憶の処理へ渡します。</p>
           <h4>1. Google Bridgeを起動する</h4>
           <p>Go 1.26以降と、このリポジトリが必要です。Hermesは上の手順でkakerattaへ接続しておきます。リポジトリのルートで次を実行します。Bridgeの画面はGoに埋め込まれているのでnpmは不要です。</p>
@@ -1240,6 +1262,28 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
 
           <h3 id="en-google">Connect Gmail and Google Calendar</h3>
           <div class="tip"><p>Give these instructions to Hermes and ask it to help set up the Google integration. It can ask for the information it needs and guide you through setup for your environment, so you do not have to work everything out on your own.</p></div>
+          <details>
+            <summary>Show the instructions to give Hermes</summary>
+            <p>Copy the following into your own Hermes.</p>
+            <pre><code>Help me set up kakeratta's Google integration for Gmail and Google Calendar.
+
+Repository: https://github.com/takeshy/kakeratta
+Google integration guide: https://github.com/takeshy/kakeratta/blob/main/docs/guides/google.md
+Hermes integration guide: https://github.com/takeshy/kakeratta/blob/main/docs/guides/hermes.md
+Google Bridge source and startup instructions: https://github.com/takeshy/kakeratta/tree/main/tools/google-bridge
+
+Read the current instructions above first, then ask for the information you need and adapt setup to my environment.
+Check my OS, where Hermes runs (same device, another server or a container), its existing kakeratta connection, and any existing repository checkout and Go installation.
+Ask which Gmail and Calendar features I want, whether I have a Google Cloud project and OAuth client, and which calendar, timezone and sync frequency to use.
+
+Preserve existing settings. Guide me through starting Google Bridge, configuring Google APIs and OAuth, connecting Hermes over MCP, and setting up the intake worker and scheduled sync, in that order.
+Tell me which screens to open and what to do so I can complete Google sign-in and consent myself. Do not ask me to paste secrets into chat; guide me to enter them in Bridge's dedicated forms or local configuration files.
+Keep Bridge's admin and MCP keys separate from kakeratta's MCP key, and save each in the correct configuration. Check addresses and network access when using another device or container.
+Configure mail sending or event changes only if I choose to use them; do not add write scopes for reading and intake alone.
+
+Finally, verify connection status, mail search, event reads and pending Timeline cards, in that order. I will choose which items to import.
+Tell me which setup steps are complete and which still need my input.</code></pre>
+          </details>
           <p>Google Bridge is a personal Web app and MCP server you run on your device or server. It encrypts Google credentials in Bridge's own storage and gives Hermes access over MCP. A worker in Hermes fetches candidates and asks the model only to select and summarize; Python code submits them to pending Timeline cards through its own kakeratta MCP connection; only items you choose to import enter normal posting, persona and memory processing.</p>
           <h4>1. Start Google Bridge</h4>
           <p>You need Go 1.26 or later and this repository. Connect Hermes to kakeratta using the steps above. From the repository root, run the commands below. The UI is embedded in Go, so npm is unnecessary.</p>
