@@ -279,10 +279,6 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
   align-items: start;
 }
 
-[data-guide="beginner"] .advanced-guide,
-[data-guide="advanced"] .beginner-guide {
-  display: none;
-}
 .toc {
   position: sticky;
   top: 64px;
@@ -299,6 +295,15 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .doc .lede { color: var(--muted); font-size: 1.05rem; margin-bottom: 24px; }
 .doc section { padding: 24px 0; border-top: 1px solid var(--line); }
 .doc section:first-of-type { border-top: none; padding-top: 8px; }
+/* A section inside a chapter reads as part of it: no rule above, whether or
+   not it is the chapter's first. */
+.doc section section, .doc section section:first-of-type { margin-top: 24px; padding: 0; border-top: none; }
+/* Each level of heading has to stand apart from bold running text, which is
+   the body size: a step in size for h3, and a rule beside h4. */
+.doc h3 { font-size: 1.2rem; margin: 32px 0 10px; }
+.doc h4 { font-size: 1.08rem; line-height: 1.4; margin: 26px 0 8px; padding-left: 10px; border-left: 3px solid var(--accent); }
+.doc .detail-label { color: var(--accent); font-size: 0.78rem; font-weight: 600; }
+.doc h3 .detail-label { background: var(--accent-soft); border-radius: 5px; padding: 2px 6px; vertical-align: middle; }
 .doc :is(section, h2, h3, h4)[id] { scroll-margin-top: 72px; }
 /* Headings under a chapter, listed in the contents on a wide screen. */
 .toc .toc-sub { margin: 2px 0 6px 12px; font-size: 0.84rem; }
@@ -307,7 +312,6 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .find-list { list-style: none; padding: 0 !important; margin: 8px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 20px; }
 .find-list li { margin: 0; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .find-list a { font-weight: 600; }
-.find-list span { display: block; color: var(--muted); font-size: 0.8rem; }
 .doc figure { margin: 16px 0; }
 /* The captures are phone screens; blown up to the column they go soft. */
 .doc figure img { display: block; width: 100%; max-width: 390px; margin: 0 auto; border-radius: 12px; border: 1px solid var(--line); }
@@ -315,6 +319,20 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
 .doc ul, .doc ol { padding-left: 1.3em; }
 /* A long URL or path in running text wraps instead of widening a phone page. */
 .doc :not(pre) > code { overflow-wrap: anywhere; }
+/* In a table that would let a column shrink to one character, so code there
+   breaks only where it must, headings stay on one line and the first column
+   keeps room for a label; a wide table scrolls in .table-scroll instead. */
+.doc :is(td, th) code { overflow-wrap: break-word; }
+.doc th { white-space: nowrap; }
+.doc td { min-width: 4em; }
+.doc td:first-child { min-width: 5.5em; }
+/* A disclosure reads as something to open. */
+.doc details { margin: 12px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.doc details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; color: var(--accent); }
+.doc details[open] > summary { border-bottom: 1px solid var(--line); }
+.doc details > :not(summary) { margin-left: 14px; margin-right: 14px; }
+/* A prompt to copy wraps, so all of it can be read before it is copied. */
+.doc details pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .doc li { margin: 2px 0; }
 .tip {
   background: var(--accent-soft);
@@ -325,8 +343,9 @@ th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
   font-size: 0.95rem;
 }
 .tip p:last-child { margin-bottom: 0; }
-.faq dt { font-weight: 600; margin-top: 14px; }
-.faq dd { margin: 4px 0 0; color: var(--muted); }
+.faq dt { font-weight: 600; margin-top: 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.faq dt:first-child { border-top: none; padding-top: 0; }
+.faq dd { margin: 4px 0 14px; }
 kbd {
   font-family: inherit;
   font-size: 0.86em;
@@ -344,10 +363,9 @@ kbd {
   .feature.flip .feature-text { order: 0; }
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manual main { grid-template-columns: 1fr; gap: 20px; }
-  .toc { position: static; max-height: none; overflow-y: visible; }
-  .toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
-  .toc a { border-left: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
-  .toc .toc-sub { display: none; }
+  /* "Find what you want to do" follows the introduction with the same
+     chapters, so a phone does not list them twice. */
+  .toc { display: none; }
 }
 /* The header wraps to two rows, and to three on the narrowest phones; a
    heading reached from the contents must clear it. */

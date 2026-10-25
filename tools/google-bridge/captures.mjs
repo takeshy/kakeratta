@@ -137,12 +137,12 @@ try {
       console.log(`${lang}/${name}.png: ${clip.width} × ${clip.height} CSS pixels`);
     }
   }
-  // Verify that bare Google anchors select the advanced guide and images load,
+  // Verify that Google anchors reach the unified manual and images load,
   // including the narrow viewport used by the manual's phone readers.
   for (const width of [1280, 390]) for (const lang of ['ja', 'en']) {
     await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 600 });
     await cdp('Page.navigate', { url: `${origin}/manual/?lang=${lang}#${lang}-google` });
-    await waitFor(`document.readyState === 'complete' && document.documentElement.dataset.guide === 'advanced' && document.querySelector('#${lang}-google')`);
+    await waitFor(`document.readyState === 'complete' && document.documentElement.lang === '${lang}' && document.querySelector('#${lang}-google')`);
     const result = await evaluate(`(async () => {
       // The anchor is the Gmail and Google Calendar chapter itself.
       const chapter = document.querySelector('#${lang}-google');

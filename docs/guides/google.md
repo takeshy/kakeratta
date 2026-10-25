@@ -21,7 +21,7 @@ Content passed to Hermes also reaches its configured model. Imported events are 
 <img src="../captures/google-bridge/en/gmail.png" alt="Google Bridge showing a selected reservation email waiting for Hermes to relay" width="620">
 <img src="../captures/google-bridge/en/calendar.png" alt="Google Bridge showing events waiting for Hermes to relay" width="620">
 
-The screenshots show the shipped UI after sync with sample API responses, not a live Google account. Retake them with `node tools/google-bridge/captures.mjs`. The [advanced manual](https://kakeratta.net/manual/?guide=advanced&lang=en#en-google) walks through the same setup with illustrations.
+The screenshots show the shipped UI after sync with sample API responses, not a live Google account. Retake them with `node tools/google-bridge/captures.mjs`. The [manual](https://kakeratta.net/manual/?lang=en#en-google) walks through the same setup with illustrations.
 
 ## Start Bridge
 

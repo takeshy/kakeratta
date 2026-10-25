@@ -2,13 +2,13 @@
 
 [README](../../README.md) · [日本語](usage_ja.md)
 
-kakeratta is a notebook with a personal AI that remembers, and reminds you when it matters. This page is a reference for people who run it themselves or want to know how it works: operation, settings and deployment. Illustrated steps for the screens are in the [manual](https://kakeratta.net/manual/?lang=en) (basics and advanced guide).
+kakeratta is a notebook with a personal AI that remembers, and reminds you when it matters. This page is a reference for people who run it themselves or want to know how it works: operation, settings and deployment. Illustrated steps for the screens are in the [manual](https://kakeratta.net/manual/?lang=en).
 
 | What you want to do | On this page | In the manual |
 | --- | --- | --- |
 | Ask the AI (`@persona`, `@ai` and `@agent`) | [Personas and direct requests](#personas-and-direct-requests) | [Choosing who you address](https://kakeratta.net/manual/?lang=en#en-ask) |
 | Check or fix memory | [A persona's memory](#a-personas-memory-facts-and-kakera-records) | [What a persona remembers](https://kakeratta.net/manual/?lang=en#en-memory) |
-| Add personas from memory | [A persona's memory](#a-personas-memory-facts-and-kakera-records) | [Memory upkeep and persona suggestions](https://kakeratta.net/manual/?lang=en#en-suggest-advanced) |
+| Add personas from memory | [A persona's memory](#a-personas-memory-facts-and-kakera-records) | [Memory upkeep and persona suggestions](https://kakeratta.net/manual/?lang=en#en-persona-suggestions) |
 | Fix wrong routing | [Timeline](#timeline) | [Fix who gets a post](https://kakeratta.net/manual/?lang=en#en-routing) |
 | Manage schedules and notifications | [View and edit all schedules](#view-and-edit-all-schedules) | [Schedules and reminders](https://kakeratta.net/manual/?lang=en#en-reminders) |
 | Find past posts | [Search](#search) | [Search](https://kakeratta.net/manual/?lang=en#en-search) |
@@ -69,7 +69,7 @@ Phone navigation uses labelled icons on one row. Settings stays in the header
 as a gear when there is room; otherwise it moves into the three-dot menu.
 At still narrower widths, Personas moves into that menu too.
 
-The manual has a basics guide (daily use) and an advanced guide (routing, memory upkeep, integrations, models and cost, and other details). The basics open with “Find what you want to do”, which leads from a goal to its section. The contents list subheadings on wide screens and chapters only on phones. A `#ja-…` or `#en-…` link opens the half that holds the heading: before the page is read a list of anchor names decides, and afterwards the heading's place does, so a link inside the page can move to the other half. Headings reached from a link clear the header even where it wraps on a narrow screen.
+The manual is one task-oriented document, with “Find what you want to do” as its contents. Related operations and deeper explanations sit in the same chapter: memory controls with memory rules, schedules with wake details, and so on. Deeper explanations are marked “Details.” Wide screens show a sidebar of chapters and subheadings; phones hide it, since “Find what you want to do” lists the same chapters right after the introduction. Links address the task sections directly through their localized anchors. Switching language follows the same section in the other language. Headings reached from a link clear the header even where it wraps on a narrow screen.
 
 The pages are plain HTML in `frontend/lp/`, `frontend/manual/` and
 `frontend/site/` (shared stylesheet and language switch). `node build.mjs`
@@ -592,7 +592,7 @@ kakeratta is made to be used alongside other AI and services. Using ChatGPT or a
 | Bluesky | Publishes conversations you choose from your own account | [Share a conversation to Bluesky](#share-a-conversation-to-bluesky) |
 | Alexa | Post by voice and hear replies and schedules. **In Amazon certification**; until published, only a skill you create yourself works | [Connecting the Alexa skill](alexa.md) |
 
-The manual's advanced guide has instructions you can hand to an AI agent on your machine to set up Hermes, NemoClaw and the Google integration ([Connect Hermes](https://kakeratta.net/manual/?lang=en#en-hermes-connect), [Gmail and Google Calendar](https://kakeratta.net/manual/?lang=en#en-google)).
+The manual has instructions you can hand to an AI agent on your machine to set up Hermes, NemoClaw and the Google integration ([Connect Hermes](https://kakeratta.net/manual/?lang=en#en-hermes-connect), [Gmail and Google Calendar](https://kakeratta.net/manual/?lang=en#en-google)).
 
 ## Data
 

@@ -2,13 +2,13 @@
 
 [README](../../README_ja.md) · [English](usage.md)
 
-kakeratta は、記憶して、必要なときに思い出させてくれる Personal AI 付きのメモ帳です。このページは、自分で動かす人や仕組みを知りたい人向けに、操作・設定・構成をまとめたリファレンスです。画面の操作手順は、スクリーンショット付きの[マニュアル](https://kakeratta.net/manual/?lang=ja)（基本編・上級編）にあります。
+kakeratta は、記憶して、必要なときに思い出させてくれる Personal AI 付きのメモ帳です。このページは、自分で動かす人や仕組みを知りたい人向けに、操作・設定・構成をまとめたリファレンスです。画面の操作手順は、スクリーンショット付きの[マニュアル](https://kakeratta.net/manual/?lang=ja)にあります。
 
 | やりたいこと | このページ | マニュアル |
 | --- | --- | --- |
 | AIに質問する（`@担当`・`@ai`・`@agent` の違い） | [担当と名指しの依頼](#担当と名指しの依頼) | [宛先の使い分け](https://kakeratta.net/manual/?lang=ja#ja-ask) |
 | 記憶を確認・修正する | [担当の記憶](#担当の記憶事実とかけらの記録) | [覚えていることを確かめる](https://kakeratta.net/manual/?lang=ja#ja-memory) |
-| 記憶から担当を増やす | [担当の記憶](#担当の記憶事実とかけらの記録) | [記憶の整理と担当の提案](https://kakeratta.net/manual/?lang=ja#ja-suggest-advanced) |
+| 記憶から担当を増やす | [担当の記憶](#担当の記憶事実とかけらの記録) | [記憶の整理と担当の提案](https://kakeratta.net/manual/?lang=ja#ja-persona-suggestions) |
 | 振り分けの間違いを直す | [Timeline](#timeline) | [振り分けを直す](https://kakeratta.net/manual/?lang=ja#ja-routing) |
 | 予定・通知を管理する | [予定をまとめて確認・編集する](#予定をまとめて確認編集する) | [予定・リマインダー](https://kakeratta.net/manual/?lang=ja#ja-reminders) |
 | 過去の投稿を探す | [検索](#検索) | [検索する](https://kakeratta.net/manual/?lang=ja#ja-search) |
@@ -59,7 +59,7 @@ Firebase IDトークンを署名付きHttpOnlyセッションCookieへ交換し�
 **使い方** を押すと、いまの表示言語でマニュアルが別タブに開きます。広い画面ではヘッダーに、スマホでは三点メニュー内に、使い方とログアウトを表示します。
 スマホの設定は、幅に余裕があれば歯車アイコンで表示し、狭い場合は三点メニューに入ります。さらに狭い場合は担当も同じメニューに入ります。
 
-マニュアルは基本編（日常の操作）と上級編（振り分け・記憶の整理・外部連携・モデルと費用などの詳細）に分かれ、基本編の冒頭に、目的から各節へ移る「やりたいことから探す」を置きます。目次は広い画面では小見出しまで、スマホでは章だけを表示します。`#ja-…`・`#en-…` のリンクは、その見出しがある側（基本編か上級編）を開きます。読み込み前はアンカー名の一覧で、読み込み後は見出しの位置で判定するので、ページ内のリンクで反対側の見出しへ移ることもできます。ヘッダーが折り返す狭い画面でも、移動先の見出しがヘッダーに隠れないようにしています。
+マニュアルは「やりたいことから探す」を目次にした一冊です。記憶の操作と記憶ルール、予定の操作と起床の詳細など、関連する説明を同じ章にまとめ、詳しい仕組みには「詳細」を付けています。広い画面では章と小見出しの目次を横に表示し、スマホでは「やりたいことから探す」が冒頭に同じ章を並べるので目次を隠します。リンク先はタスク別の節アンカーで指定します。言語を切り替えると同じ節の別言語へ移ります。ヘッダーが折り返す狭い画面でも、移動先の見出しがヘッダーに隠れないようにしています。
 
 ページは `frontend/lp/`、`frontend/manual/`、`frontend/site/`（共通スタイルと言語切替）の素の HTML です。
 `node build.mjs` が `frontend/dist` へコピーし、`docs/captures` も `/captures/` として一緒に置きます。
@@ -454,7 +454,7 @@ kakeratta は、ほかのAIやサービスと一緒に使う前提で作られ�
 | Bluesky | 選んだ会話を自分のアカウントで公開する | [会話をBlueskyに公開する](#会話をblueskyに公開する) |
 | Alexa | 声で投稿し、担当の返事と予定を聞く。**Amazon の公開審査中**で、公開までは自分でスキルを作る場合だけ使えます | [Alexaスキルの接続](alexa_ja.md) |
 
-Hermes・NemoClaw・Google 連携の設定は、手元の AI エージェントに頼める指示文をマニュアルの上級編に用意しています（[Hermes とつなぐ](https://kakeratta.net/manual/?lang=ja#ja-hermes-connect)、[Gmail・Google Calendar](https://kakeratta.net/manual/?lang=ja#ja-google)）。
+Hermes・NemoClaw・Google 連携の設定は、手元の AI エージェントに頼める指示文をマニュアルに用意しています（[Hermes とつなぐ](https://kakeratta.net/manual/?lang=ja#ja-hermes-connect)、[Gmail・Google Calendar](https://kakeratta.net/manual/?lang=ja#ja-google)）。
 
 ## データ
 
