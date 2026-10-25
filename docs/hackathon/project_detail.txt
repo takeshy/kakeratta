@@ -94,7 +94,7 @@ Super became the default router at 22% of Ultra's cost. Lightning was cheaper bu
 
 **The result:** The first two single-persona production posts after these changes cost $0.0028 (about 0.44 yen) and $0.0037 (about 0.58 yen), including routing, answering, and memory. Both finished in six to seven seconds. Compared with the earlier $0.009 per post, that's a cost reduction of roughly 60–70%, bringing these everyday posts well below the 1 yen threshold that made me hesitate.
 
-Heavier requests cost more by design. A direct @ai question is a research request, so it runs on Super VL to support thorough research, at about $0.005–0.020. A post that also creates a schedule costs about $0.010–0.020, because planning and review run as separate stages only when needed.
+Heavier requests cost more by design. A direct @ai question is a research request, so it runs on Super VL to support thorough research, at about $0.005–0.020. A post that also creates a schedule costs about $0.010–0.020, because planning and review run as separate stages only when needed. Asking a persona to look into something "in detail" is the heaviest everyday case: it researches on Super VL and composes the final answer on Ultra. In one measured example, three research calls, the Ultra answer, and the memory update came to about $0.016 (about 2.4 yen).
 
 *Costs converted at approximately ¥156/USD.*
 
