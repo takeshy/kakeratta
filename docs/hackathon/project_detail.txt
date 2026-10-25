@@ -145,6 +145,7 @@ As I explored other Personal AI services and kept experimenting with kakeratta i
 ## What's next for kakeratta
 
 - **No API key required.** Today, using kakeratta requires your own Nebius Token Factory API key. I'd like to work with Nebius on per-user keys, usage tracking, and prepaid credits, so anyone can get started without managing API credentials.
+- **OAuth for the MCP server.** Let people grant other AI agents read access to a persona's memory — scoped per persona, read-only and revocable — so the assistant they already use can answer with what kakeratta remembers.
 - **A smartphone app.** Adding a web app to the home screen is still a hurdle for many people. A native app would make installing kakeratta and enabling notifications more familiar.
 - **Your own tools for any persona.** Users will be able to register MCP servers and tools and attach them to any persona.
 - **A community persona repository.** A persona is more than a prompt: it has routing conditions or keywords, behavior, memory structure, and tools. Packaged together, personas could be shared like apps. One example is a persona that researches AI news every morning and explains the background that makes it matter.
