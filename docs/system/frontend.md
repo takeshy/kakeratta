@@ -3,7 +3,7 @@ type: "Component"
 title: "Browser application and device state"
 description: "Localized landing page, frontend composition, English judge registration and progress, Alexa linking consent, requests, live updates, the schedule overview and editing, reminder push notifications, smartphone installation prompts, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards."
 tags: ["frontend", "ui", "api", "identity", "offline", "outbox", "speech", "browser", "push", "favorites", "profile", "avatar", "google-import"]
-updated: "2026-10-25"
+updated: "2026-10-26"
 ---
 
 Localized landing page, frontend composition, requests, live updates, the schedule overview and editing, reminder push notifications, profile names and photo avatars, monthly persona AI costs and Web search counts, offline delivery, favorites, saved-entry search, speech input, read-aloud, and Gmail/Calendar review cards.
@@ -357,7 +357,7 @@ Read-aloud uses browser speechSynthesis. It selects a voice matching the interfa
 
 ## Gmail review cards on the Timeline
 
-Both Gmail and Calendar pending cards offer **Discard** beside the review button, so the owner can reject an item without opening the modal. This action discards only that item and saves no sender, type, or event exclusion preferences. Both card buttons are disabled while the decision is being saved; a failed request shows an error toast and re-enables them for retry. Future exclusion preferences remain available in the review modal.
+Both Gmail and Calendar pending cards offer **Discard** beside the review button, so the owner can reject an item without opening the modal. This action discards only that item and saves no sender, type, or event exclusion preferences. Both card buttons are disabled while the decision is being saved; a failed request shows an error toast and re-enables them for retry. Future exclusion preferences remain available in the review modal. Both Gmail and Calendar pending cards use the shared `--card` background and `--ink` foreground from [styles.css](../../frontend/src/styles.css), keeping subjects readable in light and dark themes.
 
 [feed.js](../../frontend/src/feed.js) and [gmail-import.js](../../frontend/src/gmail-import.js) display pending imports as **Gmail: awaiting your decision** cards. A separate modal shows sender, subject, time and the Bridge-provided text and offers **Import / Discard**. With LLM triage enabled, that text is the bounded factual summary rather than the original email body; signatures, boilerplate, disclaimers, unsubscribe text, advertising and quoted history are omitted before delivery. Independent checkboxes learn an excluded mail type or an exact canonical From only on Discard. Closing the modal leaves the review pending; Import never saves exclusion preferences. Until accepted they have no normal reply, sharing, favorite, edit or routing actions. Import replaces the card with the normal user post and an **Imported from Gmail** badge. Discard removes it. Accepted mail retains the ordinary post controls and external provenance; text is rendered literally even when Markdown input is enabled.
 
