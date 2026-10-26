@@ -161,7 +161,7 @@ Bridgeの選別済み保存本文は最大200件・設定日数までです。�
 
 担当の回答提出と同じく、取得・モデル結果の検証/提出・配送・確認結果の返却は**Hermes側のPythonコード**で行います。LLMは選別・要約だけを担当し、MCPツールは使いません。cron親モデルも起こさないため、gateのジョブに`--no-agent`を付けます。
 
-1. [check_google_bridge.py](../../tools/google-bridge/hermes/check_google_bridge.py)・[check_calendar_bridge.py](../../tools/google-bridge/hermes/check_calendar_bridge.py)・[google_bridge_worker.py](../../tools/google-bridge/hermes/google_bridge_worker.py)を、自分の`HERMES_HOME/scripts/`（通常`~/.hermes/scripts/`）へコピーします。
+1. [check_google_bridge.py](../../tools/google-bridge/hermes/check_google_bridge.py)・[check_calendar_bridge.py](../../tools/google-bridge/hermes/check_calendar_bridge.py)・[google_bridge_worker.py](../../tools/google-bridge/hermes/google_bridge_worker.py)を、自分の`HERMES_HOME/scripts/`（通常`~/.hermes/scripts/`）へコピーし、実行権限（`chmod +x`）を付与します。NemoClaw / OpenShell サンドボックス環境（`/sandbox/.hermes/scripts/`）では、ホスト側から `openshell sandbox upload --name <sandbox> tools/google-bridge/hermes/<script> /sandbox/.hermes/scripts/<script>` で転送します。
 2. 先に[Hermes連携](hermes_ja.md)を導入し、既存の`direct_request_worker.py`が同じscriptsにあることを確認します。Google workerはこのruntimeのモデル設定・Hermes CLI起動・利用量/時間制限を再利用します。モデルは親Hermesの設定から選び、選別用に1ターン、1回のworkerで最大5モデルバッチ・5 API呼び出し・250,000トークンとし、モデル処理の時間枠は300秒までに制限します。1バッチは最大10候補です。実行中のモデル呼び出しはトークン上限を超える場合があります。
 3. BridgeのMCPキー発行時に表示されたJSONを、同じディレクトリの`google_bridge.json`へ保存し`chmod 600`を適用します。JSONに入れるのは**BridgeのURL・キーだけ**です。同一端末のキーなしモードでは`{"url":"http://127.0.0.1:8094/mcp","key":""}`も使えます。
 4. 親Hermesの`config.yaml`には本人の`mcp_servers.kakeratta`を設定します。workerはそのURL・ヘッダーをコードで読みます。選別モデルの隔離homeにはMCP・スキル・外部ツールを追加しません。
@@ -242,6 +242,7 @@ Googleの送信・予定変更ツール、Timelineの本人確認APIはこのwor
 - Calendar一覧だけのscope不足は一覧権限を追加します。API未有効・組織のポリシー等でも拒否される場合があります。
 - OAuthは同じタブで10分以内に完了します。コードは単回使用です。失敗したら接続を開始し直してください。
 - 管理キーを紛失したらプロセスを停止して、保護された設定ファイルのadminTokenを新しいランダム値へ変更します。管理セッションは管理キーの指紋にも束縛されるため、キー変更後の再起動で既存ブラウザーセッションも無効になります。MCPキーは独立しているため、必要なら画面から失効させます。
+- リポジトリの更新後にworker実行時 `Unknown tool (google_review_context)` などのエラーが発生する場合は、ホスト側で稼働中の `google-bridge` バイナリが古い可能性があります。`mise exec -- go build -o ~/.local/bin/google-bridge ./tools/google-bridge/cmd/google-bridge` で再ビルドし、`systemctl --user restart google-bridge.service` で再起動してください。あわせてサンドボックス内のスクリプト群も最新のものを再アップロードしてください。
 
 資格情報とrefresh・切断・同期・転送は同じWorkspaceロックで直列化します。既にHermesへ渡ったデータを回収することや、Google Cloudプロジェクトの削除は行いません。
 

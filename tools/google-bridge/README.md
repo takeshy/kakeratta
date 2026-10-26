@@ -39,7 +39,17 @@ systemctl --user enable --now google-bridge.service
 ```mermaid
 flowchart LR
   Google[Gmail / Google Calendar] -->|OAuthで読み取り| Bridge[自分のGoogle Bridge]
-  Cron[自分のHermes cron] --> Worker[
+  Cron[自分のHermes cron] --> Worker[Hermes worker: コード]
+  Worker <-->|同期 / 候補 / 判定提出| Bridge
+  Worker <-->|選別・要約のみ| Model[Hermes モデル]
+  Worker -->|kakeratta MCP経由で候補配送| Pending[Timeline: 取り込み待ち]
+  Pending -->|Workerコードによるレシート返却| Worker
+  Owner[本人] -->|取り込む / 取り込まない| Pending
+  Pending -->|取り込む| Posts[通常投稿 → 担当AI → 記憶]
+  Owner -->|直接の明示依頼| Direct[自分のHermesエージェント]
+  Direct -->|追加権限付き書き込みツール| Bridge
+  Bridge -->|依頼された送信 / 予定変更| Google
+```
 
 Gmail検索・本文・スレッド、Calendar一覧・予定取得、本人の直接依頼によるGmail送信/返信/下書き保存・Calendar作成/変更/削除に対応します。追加権限を使う`google_action_run`はWebでの再承認なしに実行するため、判定用cronからは除外してください。直接依頼による書き込みはHermesが本人の指示に従うことが前提で、サーバーは依頼の真正性を検証できません。Google OAuthと実Hermes接続を含むGmail・Calendarの取り込みは実環境で検証済みですが、送信・下書き・予定変更の各操作をすべて実環境で検証したわけではありません。重要メールの差分同期と、kakeratta Timelineへの取り込み待ち表示にも対応します。本人がTimelineで「取り込む」を選んで初めて通常投稿として処理し、「取り込まない」で削除します。定期実行は既存Hermes cronから行います。
 
