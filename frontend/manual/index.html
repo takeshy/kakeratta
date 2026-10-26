@@ -659,10 +659,10 @@ Hermes連携ガイド: https://github.com/takeshy/kakeratta/blob/main/docs/guide
 統合・検証レポート: https://github.com/takeshy/kakeratta/blob/main/docs/reports/nemoclaw-hermes-integration_ja.md
 
 まず上の資料の最新の手順を読み、必要な情報を質問しながら、私の環境に合わせて設定を進めてください。
-OS（WSLならネットワーク設定も）、Dockerの有無、リポジトリの取得状況、既存のNemoClaw・Hermesの有無を確認してください。
+OS、Dockerの有無、リポジトリの取得状況、既存のNemoClaw・Hermesの有無を確認してください。WSL環境なら .wslconfig で networkingMode=nat が設定されているか確認してください（mirroredモードではポート確認がタイムアウトします）。
 
 APIキーと接続キーはチャットに貼らせず、~/.config/nemoclaw/tokenfactory.env と ~/.config/nemoclaw/kakeratta-mcp.env に私が直接書き、権限を600にするよう案内してください。
-kakerattaの接続URLとキーは、私が「設定 → 外部連携 → 外部エージェント接続」で発行します。
+kakerattaの接続URLとキーは、私が「設定 → 外部連携 → 外部エージェント接続」で発行します。キーを再発行した場合は、kakeratta-mcp.env を更新したうえで、サンドボックスの既存MCPを一度削除（nemohermes <sandbox> mcp remove kakeratta）してから setup-hermes.sh を再実行するよう案内してください。
 そのうえで scripts/nemoclaw/setup-hermes.sh を実行し、途中で止まったら原因を確かめてから同じコマンドで再実行してください。
 サンドボックスが通信できるサイトや実行できるプログラムは資料のポリシーの範囲にとどめ、必要以上に広げないでください。
 常時動かす場合は install.sh と systemd ユーザーサービスで自動起動を設定してください。
@@ -697,7 +697,8 @@ kakerattaの接続URLとキーは、私が「設定 → 外部連携 → 外部�
           <ul>
             <li>設定を変えたあと Hermes を再起動したか確認してください。</li>
             <li>Hermes から接続URLに届くか確認してください。</li>
-            <li>キーを再発行したら、config.yaml も置き換えてください。</li>
+            <li>キーを再発行したら、config.yaml も置き換えてください。NemoClaw の管理 MCP では、<code>kakeratta-mcp.env</code> を更新したうえで <code>nemohermes &lt;sandbox&gt; mcp remove kakeratta</code> で古い登録を削除し、<code>setup-hermes.sh</code> を再実行してください。</li>
+            <li>WSL2 でサンドボックス作成やポート確保が止まる場合は、<code>.wslconfig</code> で <code>networkingMode=nat</code> に設定して <code>wsl --shutdown</code> してからやり直してください。</li>
             <li>LLM Connect Hub では、設定画面の接続状態（例: <code>Kakeratta: connected; 1 ask failed</code>）を見てください。回答が失敗した依頼は内蔵モデルが答えます。</li>
           </ul>
 
@@ -719,7 +720,7 @@ Hermes連携ガイド: https://github.com/takeshy/kakeratta/blob/main/docs/guide
 Google Bridgeの実装と起動方法: https://github.com/takeshy/kakeratta/tree/main/tools/google-bridge
 
 まず上の資料の最新の手順を読み、必要な情報を質問しながら、私の環境に合わせて設定を進めてください。
-OS、Hermesの実行場所（同じ端末・別サーバー・コンテナなど）、kakerattaとの接続状況、既存のリポジトリやGo環境を確認してください。
+OS、Hermesの実行場所（同じ端末・別サーバー・コンテナなど）、kakerattaとの接続状況、既存のリポジトリやGo環境を確認してください。コンテナやサンドボックス（NemoClawなど）では 127.0.0.1 がコンテナ自身を指すため、Bridgeへの到達経路（ホストIPやポート転送）も確認してください。
 GmailとCalendarで使いたい機能、Google CloudプロジェクトとOAuthクライアントの有無、対象カレンダー・タイムゾーン・同期頻度も確認してください。
 
 既存の設定を残して、Google Bridgeの起動、Google APIとOAuthの設定、HermesのMCP接続、取り込みworkerと定期同期の順に案内してください。
@@ -1561,10 +1562,10 @@ Hermes integration guide: https://github.com/takeshy/kakeratta/blob/main/docs/gu
 Integration and verification report: https://github.com/takeshy/kakeratta/blob/main/docs/reports/nemoclaw-hermes-integration.md
 
 First read the latest steps in these documents, then work through the setup for my environment, asking me for what you need.
-Check my OS (and its network settings under WSL), whether Docker is available, whether I have the repository, and whether NemoClaw or Hermes is already installed.
+Check my OS, whether Docker is available, whether I have the repository, and whether NemoClaw or Hermes is already installed. If running under WSL, check that .wslconfig sets networkingMode=nat (mirrored mode causes port probes to time out).
 
 Do not have me paste API keys or connection keys into the chat; guide me to write them myself into ~/.config/nemoclaw/tokenfactory.env and ~/.config/nemoclaw/kakeratta-mcp.env with permissions 600.
-I will create kakeratta's connection URL and key under Settings → Integrations → External agent connections.
+I will create kakeratta's connection URL and key under Settings → Integrations → External agent connections. If reissuing the key, guide me to update kakeratta-mcp.env, remove the existing MCP registration in the sandbox with `nemohermes <sandbox> mcp remove kakeratta`, and then re-run setup-hermes.sh.
 Then run scripts/nemoclaw/setup-hermes.sh. If it stops, find the cause before running the same command again.
 Keep the sites the sandbox may reach and the programs it may run within the policy in the documents; do not widen them more than needed.
 If it should run all the time, set up autostart with install.sh and the systemd user services.
@@ -1599,7 +1600,8 @@ Tell me separately what is done and what still needs my action.</code></pre>
           <ul>
             <li>Restart Hermes after changing its configuration.</li>
             <li>Check that Hermes can reach the connection URL.</li>
-            <li>If you replaced the key, replace it in config.yaml too.</li>
+            <li>If you replaced the key, replace it in config.yaml too. For NemoClaw managed MCP, update <code>kakeratta-mcp.env</code>, remove the old registration with <code>nemohermes &lt;sandbox&gt; mcp remove kakeratta</code>, and re-run <code>setup-hermes.sh</code>.</li>
+            <li>If sandbox creation or port allocation hangs under WSL2, set <code>networkingMode=nat</code> in <code>.wslconfig</code>, run <code>wsl --shutdown</code>, and retry.</li>
             <li>In LLM Connect Hub, look at the connection status in its settings (for example, <code>Kakeratta: connected; 1 ask failed</code>). An ask it failed to answer is answered by the built-in model.</li>
           </ul>
 
@@ -1621,7 +1623,7 @@ Hermes integration guide: https://github.com/takeshy/kakeratta/blob/main/docs/gu
 Google Bridge source and startup instructions: https://github.com/takeshy/kakeratta/tree/main/tools/google-bridge
 
 Read the current instructions above first, then ask for the information you need and adapt setup to my environment.
-Check my OS, where Hermes runs (same device, another server or a container), its existing kakeratta connection, and any existing repository checkout and Go installation.
+Check my OS, where Hermes runs (same device, another server or a container), its existing kakeratta connection, and any existing repository checkout and Go installation. In containers or sandboxes (such as NemoClaw), 127.0.0.1 refers to the container itself; verify network reachability (host IP or port forwarding) to Bridge as well.
 Ask which Gmail and Calendar features I want, whether I have a Google Cloud project and OAuth client, and which calendar, timezone and sync frequency to use.
 
 Preserve existing settings. Guide me through starting Google Bridge, configuring Google APIs and OAuth, connecting Hermes over MCP, and setting up the intake worker and scheduled sync, in that order.
