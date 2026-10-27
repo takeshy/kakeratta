@@ -26,9 +26,10 @@ export function scheduleWhen(schedule, nextOccurrence = false) {
 }
 
 export function toolLink(name, label = t(toolLabel(name))) {
-  const known = ["web_search", "place_search", "timeline_search", "notes", "schedule", "weather_forecast"];
+  const known = ["web_search", "place_search", "timeline_search", "records", "schedule", "weather_forecast"];
   const lang = getLanguage();
-  const base = capability(name);
+  const raw = capability(name);
+  const base = raw === "notes" ? "records" : raw;
   const anchor = known.includes(base) ? `${lang}-tool-${base}` : `${lang}-tools`;
   return el("a", { href: `/manual/?lang=${lang}#${anchor}`, target: "_blank", rel: "noopener noreferrer",
     text: label, title: t("{0} の説明を開く（新しいタブ）", label) });

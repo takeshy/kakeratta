@@ -136,3 +136,34 @@ test("every screenshot is sized to the capture it shows", () => {
     }
   }
 });
+
+test("every internal anchor and toolLink target exists in the manual in both languages", async (t) => {
+  globalThis.Node = Stub;
+  globalThis.document = {
+    createElement: (tag) => Object.assign(new Stub(), { tag }),
+    createTextNode: (text) => Object.assign(new Stub(), { textContent: text }),
+  };
+  t.after(() => { delete globalThis.Node; delete globalThis.document; setLanguage("ja"); });
+  const { toolLink } = await import("../frontend/src/persona-display.js");
+
+  const manual = read("manual/index.html");
+  const ids = new Set([...manual.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+  const jaIds = [...ids].filter((id) => id.startsWith("ja-")).map((id) => id.slice(3)).sort();
+  const enIds = [...ids].filter((id) => id.startsWith("en-")).map((id) => id.slice(3)).sort();
+  assert.deepEqual(jaIds, enIds, "Japanese and English sections carry matching anchor IDs");
+
+  assert.doesNotMatch(manual, /href="\/manual\/#/, "same-document links inside the manual use #... directly");
+  for (const [, target] of manual.matchAll(/href="#([^"]+)"/g)) {
+    assert.ok(ids.has(target), `manual/index.html href="#${target}" resolves to an id`);
+  }
+
+  for (const lang of ["ja", "en"]) {
+    setLanguage(lang);
+    for (const tool of ["web_search", "place_search", "timeline_search", "notes", "records", "schedule", "weather_forecast", "unknown_tool"]) {
+      const href = toolLink(tool).attributes.href;
+      const hash = href.split("#")[1];
+      assert.ok(ids.has(hash), `toolLink(${tool}) in ${lang} → #${hash} exists in manual/index.html`);
+    }
+  }
+});
+

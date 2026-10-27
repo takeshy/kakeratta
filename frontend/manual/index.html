@@ -53,7 +53,7 @@
           <li><a href="#ja-timeline">AIに質問する</a>
             <ol class="toc-sub"><li><a href="#ja-ask">宛先の使い分け</a></li><li><a href="#ja-ai">@ai に質問する</a></li><li><a href="#ja-tools">担当が使う道具</a></li></ol></li>
           <li><a href="#ja-personas">担当を作る・育てる</a>
-            <ol class="toc-sub"><li><a href="#ja-create">AI と担当を作る</a></li><li><a href="#ja-people">人物担当を作る</a></li><li><a href="#ja-suggest">記憶から担当を増やす</a></li></ol></li>
+            <ol class="toc-sub"><li><a href="#ja-create">AI と担当を作る</a></li><li><a href="#ja-people">人物担当を作る</a></li><li><a href="#ja-suggest">記憶から担当を増やす</a></li><li><a href="#ja-avatar">アイコンを変える</a></li></ol></li>
           <li><a href="#ja-memory">記憶を確認・修正する</a>
             <ol class="toc-sub"><li><a href="#ja-fix-which">直したいことと操作</a></li><li><a href="#ja-memory-rule">覚え方（記憶ルール）を直す</a></li><li><a href="#ja-memory-system">記憶の整理と担当の提案</a></li></ol></li>
           <li><a href="#ja-routing">振り分け・返し方を直す</a>
@@ -63,9 +63,9 @@
           <li><a href="#ja-search">過去の投稿・お気に入りを探す</a>
             <ol class="toc-sub"><li><a href="#ja-favorites">お気に入りに残す</a></li></ol></li>
           <li><a href="#ja-hermes">外部AIやサービスとつなぐ</a>
-            <ol class="toc-sub"><li><a href="#ja-hermes-connect">Hermes とつなぐ</a></li><li><a href="#ja-google">Gmail・Google Calendar</a></li><li><a href="#ja-bluesky">Blueskyに公開する</a></li></ol></li>
+            <ol class="toc-sub"><li><a href="#ja-hermes-connect">Hermes とつなぐ</a></li><li><a href="#ja-obsidian">Obsidian とつなぐ</a></li><li><a href="#ja-google">Gmail・Google Calendar</a></li><li><a href="#ja-bluesky">Blueskyに公開する</a></li><li><a href="#ja-alexa">Alexa</a></li></ol></li>
           <li><a href="#ja-models">モデルや料金を確認する</a>
-            <ol class="toc-sub"><li><a href="#ja-model-list">AI のモデル</a></li><li><a href="#ja-usage">月ごとのAI利用状況</a></li><li><a href="#ja-cost">投稿1件あたりの費用の例</a></li></ol></li>
+            <ol class="toc-sub"><li><a href="#ja-model-list">AI のモデル</a></li><li><a href="#ja-openrouter">OpenRouter を使う</a></li><li><a href="#ja-usage">月ごとのAI利用状況</a></li><li><a href="#ja-cost">投稿1件あたりの費用の例</a></li></ol></li>
           <li><a href="#ja-settings">設定・データを管理する</a>
             <ol class="toc-sub"><li><a href="#ja-profile">プロフィール（表示名とアイコン）</a></li></ol></li>
           <li><a href="#ja-faq">困ったとき・もっと詳しく</a>
@@ -82,18 +82,18 @@
         <section id="ja-find" class="find">
           <h2>やりたいことから探す</h2>
           <ul class="find-list">
-            <li><a href="#ja-start">はじめる</a></li>
-            <li><a href="#ja-toss">メモ・写真・音声を残す</a></li>
-            <li><a href="#ja-timeline">AIに質問する</a></li>
-            <li><a href="#ja-personas">担当を作る・育てる</a></li>
-            <li><a href="#ja-memory">記憶を確認・修正する</a></li>
-            <li><a href="#ja-routing">振り分け・返し方を直す</a></li>
-            <li><a href="#ja-reminders">予定・通知を管理する</a></li>
-            <li><a href="#ja-search">過去の投稿・お気に入りを探す</a></li>
-            <li><a href="#ja-hermes">外部AIやサービスとつなぐ</a></li>
-            <li><a href="#ja-models">モデルや料金を確認する</a></li>
-            <li><a href="#ja-settings">設定・データを管理する</a></li>
-            <li><a href="#ja-faq">困ったとき・もっと詳しく</a></li>
+            <li><a href="#ja-start">1. はじめる</a></li>
+            <li><a href="#ja-toss">2. メモ・写真・音声を残す</a></li>
+            <li><a href="#ja-timeline">3. AIに質問する</a></li>
+            <li><a href="#ja-personas">4. 担当を作る・育てる</a></li>
+            <li><a href="#ja-memory">5. 記憶を確認・修正する</a></li>
+            <li><a href="#ja-routing">6. 振り分け・返し方を直す</a></li>
+            <li><a href="#ja-reminders">7. 予定・通知を管理する</a></li>
+            <li><a href="#ja-search">8. 過去の投稿・お気に入りを探す</a></li>
+            <li><a href="#ja-hermes">9. 外部AIやサービスとつなぐ</a></li>
+            <li><a href="#ja-models">10. モデルや料金を確認する</a></li>
+            <li><a href="#ja-settings">11. 設定・データを管理する</a></li>
+            <li><a href="#ja-faq">12. 困ったとき・もっと詳しく</a></li>
           </ul>
         </section>
 
@@ -159,7 +159,7 @@
           <h3>反応の届き方</h3>
           <ul>
             <li>担当の反応は少し遅れて届きます。<strong>反応が付かないこともあります。</strong> 担当は喋らずに覚えるだけのこともあるからです。</li>
-            <li><strong>必ず答えてほしいときは <code>@名前</code> で指名します</strong>（例：<code>@tabe</code>）。指名された担当は必ず返事をします。担当の名前が並んだバーを押すと、<code>@名前</code> が書き込まれます。</li>
+            <li><strong>必ず答えてほしいときは <code>@名前</code> で指名します</strong>（例：<code>@tabe</code>）。指名された担当は必ず返事をします。入力欄の下の <strong>担当を表示</strong> を開いて担当の名前を押すか、入力欄で <code>@</code> を打つと、<code>@名前</code> が書き込まれます。</li>
             <li>担当の発言や自分の返信は <strong>返信 N件</strong> の下にたたまれます。表示中に届いた発言は、そのスレッドが自動で開きます。</li>
           </ul>
           <h3 id="ja-ask">宛先の使い分け</h3>
@@ -171,7 +171,7 @@
                 <tr><td>普通の投稿</td><td>担当条件や人物の呼び名に合う担当が、必要なときだけ反応します。<strong>無反応も正常</strong>で、投稿はそのまま残ります。</td><td><code>静岡で気になっていた店</code></td></tr>
                 <tr><td><code>@担当名</code></td><td>指名した担当から必ず返事が届きます。その担当の記憶と道具を使います。</td><td><code>@tabe 静岡で前に話した店は？</code></td></tr>
                 <tr><td><code>@ai</code></td><td>担当を選ばずに内蔵AIへ質問します。過去の投稿・担当の記憶・予定を横断して調べます。記憶の保存や予定の登録はしません。</td><td><code>@ai 最近、静岡について何を書いた？</code></td></tr>
-                <tr><td><code>@agent</code></td><td>自分でつないだ外部エージェント（Hermes など）に直接依頼します。外部連携を設定したときだけ使えます（<a href="/manual/#ja-hermes" data-lang-link>外部エージェントとの連携</a>）。</td><td><code>@agent この記事を要約して</code></td></tr>
+                <tr><td><code>@agent</code></td><td>自分でつないだ外部エージェント（Hermes など）に直接依頼します。外部連携を設定したときだけ使えます（<a href="#ja-hermes">外部エージェントとの連携</a>）。</td><td><code>@agent この記事を要約して</code></td></tr>
               </tbody>
             </table>
           </div>
@@ -179,17 +179,19 @@
           <p><code>@ai 最近いつ横浜から離れたっけ？</code> のように内蔵AIへ質問できます。過去の投稿・位置情報・日時を検索し、根拠の投稿を添えて答えます。担当メモ・予定・会話全体も参照でき、検索用APIキーがあればWeb検索も使えます。kakerattaの使い方や困りごとも <code>@ai</code> に聞けます。アプリの質問のときだけ関連する仕様を読みます。通常は Super VL、「詳しく」と頼むと Ultra を使います。スケジュール登録・メモ保存・メール送信などの外部操作はせず、会話はタイムラインに残ります。回答への返信で会話を続けられます。</p>
           <p><code>@ai</code> は内蔵、<code>@agent</code> は外部です。入力欄の <code>@</code> 候補では「内蔵AI」をいつでも選べ、外部連携が有効で接続先がある場合は「外部エージェント」も選べます。外部が無効・未接続なら <code>@agent</code> の候補は出ません。<code>ai</code>・<code>agent</code> は予約名で、担当のID・名前・呼び名には使えません。</p>
           <h3>返す・直す・消す</h3>
-          <table>
-            <thead><tr><th>ボタン</th><th>できること</th></tr></thead>
-            <tbody>
-              <tr><td><strong>一言足す</strong></td><td>自分の投稿に続けて書く</td></tr>
-              <tr><td><strong>返す</strong></td><td>担当の発言に返事をする</td></tr>
-              <tr><td><strong>✎</strong> / <strong>×</strong></td><td>投稿を編集する / 削除する</td></tr>
-              <tr><td><strong>⚖</strong></td><td>誰に届き、誰になぜ届かなかったかを見る（<a href="/manual/#ja-routing" data-lang-link>振り分けを直す</a>）</td></tr>
-              <tr><td><strong>返し方を直す</strong></td><td>担当の口調や指示を直す（<a href="/manual/#ja-reply-fix" data-lang-link>返し方を直す</a>）</td></tr>
-              <tr><td><strong>🔈 読み上げ</strong></td><td>溜まった反応を順に読み上げる</td></tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ボタン</th><th>できること</th></tr></thead>
+              <tbody>
+                <tr><td><strong>一言足す</strong></td><td>自分の投稿に続けて書く</td></tr>
+                <tr><td><strong>返す</strong></td><td>担当の発言に返事をする</td></tr>
+                <tr><td><strong>✎</strong> / <strong>×</strong></td><td>投稿を編集する / 削除する</td></tr>
+                <tr><td><strong>⚖</strong></td><td>誰に届き、誰になぜ届かなかったかを見る（<a href="#ja-routing">振り分けを直す</a>）</td></tr>
+                <tr><td><strong>返し方を直す</strong></td><td>担当の口調や指示を直す（<a href="#ja-reply-fix">返し方を直す</a>）</td></tr>
+                <tr><td><strong>🔈 読み上げ</strong></td><td>溜まった反応を順に読み上げる</td></tr>
+              </tbody>
+            </table>
+          </div>
           <p>投稿を削除すると、その下の担当の発言と自分の返信も消え、検索にも出なくなります。<strong>その投稿だけをもとに書かれた担当のメモも一緒に消えます。</strong> ほかの投稿ももとにしているメモは残り、担当があとで整理します。</p>
           <p>担当の回答や返信は <strong>×</strong> で消せます。それに（間接的にも）返事している発言も一緒に消え、スレッドのほかの発言は残ります。間違った回答を消すと、それを繰り返した返事も含めて、検索やスレッドの文脈として参照されなくなります。回答と一緒に書いたメモは残るので、メモも誤っていれば担当の記憶から直してください。</p>
 
@@ -217,7 +219,7 @@
             <p>例：「@tabe 前に飲んで気に入った、軽い赤ワインを探して」</p>
 
             <h4 id="ja-tool-records">かけらの記録を探す — records</h4>
-            <p>担当は毎回、今の事実と最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。返事のあとには本体が記録を追加し、チェックインで新しい記録を事実に取り込みます。中身の確認や削除は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から行います。</p>
+            <p>担当は毎回、今の事実と最近の記録を読んでから考えます。それより前のかけらの記録は、タグ・語句・意味で探し、記録の投稿そのもの（返事なら元のかけらも）を読めます。返事のあとには本体が記録を追加し、チェックインで新しい記録を事実に取り込みます。中身の確認や削除は <a href="#ja-memory">覚えていること</a> から行います。</p>
             <p>例：「@tabe 前に行きたいって言ってたラーメン屋、どこだっけ」</p>
 
             <h4 id="ja-tool-web_search">Web検索 — web_search</h4>
@@ -250,7 +252,7 @@
               </tbody>
             </table>
           </div>
-          <p>ヘッダーの <strong>担当</strong> で一覧を開き、<strong>有効にする</strong> で受け取る担当を選びます。担当は投稿された言語で答えます。</p>
+          <p>ヘッダーの <strong>担当</strong> で一覧を開き、各カードのスイッチ（<strong>有効</strong>／<strong>無効</strong>）で受け取る担当を選びます。担当は投稿された言語で答えます。</p>
           <figure>
             <img src="/captures/ja/personas.png" alt="担当の一覧。分野、道具、メモ" loading="lazy" width="390" height="1946" />
             <figcaption>担当パネル。分野、使える道具、メモの数。</figcaption>
@@ -259,8 +261,8 @@
           <ol>
             <li><strong>担当</strong> を開き、<strong>関心ごと</strong> タブで <strong>AIと担当を作る</strong> を選びます。人物を覚える担当は、<a href="#ja-people">人物タブから作ります</a>。</li>
             <li>「どんなことの担当を作りたい？」に自分の言葉で答えます。「ワイン」だけでも始められます。<br />例：<em>美味しかったワインのラベルを送るので、銘柄やブドウ品種を教えてほしい。</em></li>
-            <li>AI が名前、話し方、覚えることの下書きを作ります。確認して <strong>この内容で保存</strong>。</li>
-            <li><strong>有効にする</strong> と、以後のかけらを受け取り始めます。</li>
+            <li>AI が名前、話し方、覚え方、覚えること・返事をするタイミングの下書きを作ります。確認して <strong>この担当を追加</strong> を押します（既存の担当を直したときは <strong>この内容で保存</strong>）。</li>
+            <li>追加するとすぐに <strong>有効</strong> になり、以後のかけらを受け取り始めます。</li>
           </ol>
           <p>作成・修正時に <strong>記憶する</strong>（オフにすると記憶を持たない回答専門になり、費用削減や不要なメモ防止になります）や、<strong>常に熟考する</strong>（通常の依頼も最終回答を Super VL で生成）を選べます。</p>
           <figure>
@@ -272,17 +274,17 @@
           <ul>
             <li><strong>人物の担当は、本体の振り分けを通りません。</strong> かけらに <strong>呼び名</strong> か <strong>キーワード</strong> が書かれているときだけ届きます。写真から読み取った文字も対象です。<code>@呼び名</code> で指名することもできます。</li>
             <li>「サトウ」を登録すれば「サトウくん」「さとうさん」にも届きます。全角・半角、大文字・小文字、ひらがな・カタカナ、末尾の敬称（さん・くん など）の違いは区別しません。漢字の「佐藤」とかな書きは別の語として扱うので、両方使うなら両方を呼び名に入れてください。名前を出さない話も拾えるよう、キーワードには言い換えや似た言葉（例：釣り、つり、釣行、海釣り）を並べます。</li>
-            <li>人物の担当はその人との出来事（会話、贈り物、約束、貸し借り）を覚えます。誕生日や会う予定が近づくと声かけしてくれます（詳しい通知時刻のルールは <a href="/manual/#ja-person-events" data-lang-link>詳しい説明</a> を参照）。</li>
+            <li>人物の担当はその人との出来事（会話、贈り物、約束、貸し借り）を覚えます。誕生日や会う予定が近づくと声かけしてくれます（詳しい通知時刻のルールは <a href="#ja-person-events">詳しい説明</a> を参照）。</li>
             <li>伝えた誕生日・好み・出来事などは、担当の編集画面でいつでも見直し・修正できます。</li>
           </ul>
           <figure>
             <img src="/captures/ja/person-card.png" alt="人物の担当「佐藤さん」のカード。呼び名、キーワード、基本情報の一覧（サンプル）" loading="lazy" width="382" height="1050" />
             <figcaption>人物の担当のカード。呼び名・キーワードと、毎年の誕生日や会う予定の通知が並びます（サンプル）。</figcaption>
           </figure>
-          <p>届かなかったかけらがあれば <strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せ、関係のないかけらが届いたら <strong>呼んでほしくなかった</strong> から一致した語を外せます（<a href="/manual/#ja-people-keywords" data-lang-link>人物の担当のキーワードを直す</a>）。キーワードは多ければよいわけではありません。曖昧な語を増やすと関係のないかけらが届きやすくなるので、実際の振り分けを見ながら調整してください。</p>
+          <p>届かなかったかけらがあれば <strong>⚖</strong> の <strong>呼んでほしかった</strong> からキーワードを足せ、関係のないかけらが届いたら <strong>呼んでほしくなかった</strong> から一致した語を外せます（<a href="#ja-people-keywords">人物の担当のキーワードを直す</a>）。キーワードは多ければよいわけではありません。曖昧な語を増やすと関係のないかけらが届きやすくなるので、実際の振り分けを見ながら調整してください。</p>
           <h3 id="ja-edit">担当を編集する</h3>
           <p>担当の <strong>AIで修正</strong> から「もっと短く返事してほしい」「なぜ気に入ったかも覚えてほしい」のように頼めます。組み込みの担当も同じように変えられ、それまでのメモはそのまま残ります。</p>
-          <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、<strong>有効にする</strong> をOFFにしてください。</p>
+          <p>担当の <strong>削除</strong> は、その担当のメモも一緒に消します。元に戻せません。受け取りを止めたいだけなら、カードのスイッチを <strong>無効</strong> にしてください。</p>
           <p>編集画面で変更を保存せずに閉じようとすると、確認が出ます。<strong>保存して閉じる</strong>・<strong>保存せずに閉じる</strong>・<strong>編集に戻る</strong> から選べます。</p>
           <h3 id="ja-suggest">記憶から担当を増やす</h3>
           <p>使い続けるうちに担当の記憶に別の話題が増えてくると、毎日のチェックインで担当が「〇〇の担当を新しく作って分けませんか？」と提案することがあります。</p>
@@ -291,9 +293,9 @@
             <li><strong>作らない</strong> で見送れます。担当も記憶もそのままです。</li>
             <li>途中で失敗したときは元の状態に戻り、もう一度 <strong>作る</strong> を押せます。</li>
           </ul>
-          <p>提案するのは記憶がオンの関心ごとの担当だけで、同じ担当からは30日に1回までです。作られた担当は、ほかの担当と同じように <a href="#ja-edit">編集</a> できます。詳しくは <a href="/manual/#ja-persona-suggestions" data-lang-link>詳細：記憶の整理と担当の提案</a> を見てください。</p>
+          <p>提案するのは記憶がオンの関心ごとの担当だけで、同じ担当からは30日に1回までです。作られた担当は、ほかの担当と同じように <a href="#ja-edit">編集</a> できます。詳しくは <a href="#ja-persona-suggestions">詳細：記憶の整理と担当の提案</a> を見てください。</p>
           <h3 id="ja-avatar">アイコンを変える（絵文字・写真）</h3>
-          <p>担当のアイコンは、作るとき（<strong>AIと担当を作る</strong>）や、カードの <strong>修正</strong>・<strong>AIで修正</strong> で変えられます。自分のアイコンは <a href="/manual/#ja-profile" data-lang-link>設定のプロフィール</a> で同じように変えられます。</p>
+          <p>担当のアイコンは、作るとき（<strong>AIと担当を作る</strong>）や、カードの <strong>修正</strong>・<strong>AIで修正</strong> で変えられます。自分のアイコンは <a href="#ja-profile">設定のプロフィール</a> で同じように変えられます。</p>
           <ul>
             <li><strong>絵文字を選ぶ</strong> を開くと、顔・人・手・体・動物・自然・食べ物・趣味・乗り物・場所・もの・記号・旗のグループごとに絵文字が並びます。押すだけで決まります。一覧にない絵文字は <strong>その他の絵文字を入力</strong> から入力できます。</li>
             <li><strong>写真を選ぶ</strong> で、手元の画像をアイコンにできます。写真は端末の中で正方形に切り抜き、小さく圧縮してから保存します。元の画像はアップロードしません。</li>
@@ -330,24 +332,23 @@
               <thead><tr><th>直したいこと</th><th>操作</th></tr></thead>
               <tbody>
                 <tr><td>担当が覚えた内容が間違っている</td><td><strong>覚えていること</strong> の ✎ / ×（この章）</td></tr>
-                <tr><td>何をどう覚えるかを変えたい</td><td>担当の <strong>AIで修正</strong>（<a href="/manual/#ja-memory-rule" data-lang-link>覚え方を直す</a>）</td></tr>
-                <tr><td>届くべき担当に届かない・関係ない担当に届く</td><td>投稿の <strong>⚖</strong>（<a href="/manual/#ja-routing" data-lang-link>振り分けを直す</a>）</td></tr>
-                <tr><td>返事の口調や指示を変えたい</td><td>発言の <strong>返し方を直す</strong>（<a href="/manual/#ja-reply-fix" data-lang-link>返し方を直す</a>）</td></tr>
+                <tr><td>何をどう覚えるかを変えたい</td><td>担当の <strong>AIで修正</strong>（<a href="#ja-memory-rule">覚え方を直す</a>）</td></tr>
+                <tr><td>届くべき担当に届かない・関係ない担当に届く</td><td>投稿の <strong>⚖</strong>（<a href="#ja-routing">振り分けを直す</a>）</td></tr>
+                <tr><td>返事の口調や指示を変えたい</td><td>発言の <strong>返し方を直す</strong>（<a href="#ja-reply-fix">返し方を直す</a>）</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="tip"><p>事実の更新ルールや、記録を事実へ取り込む流れなど、記憶システムの詳しい仕組みは <a href="/manual/#ja-memory-system" data-lang-link>詳細：記憶の整理と担当の提案</a> をご覧ください。</p></div>
+          <div class="tip"><p>事実の更新ルールや、記録を事実へ取り込む流れなど、記憶システムの詳しい仕組みは <a href="#ja-memory-system">詳細：記憶の整理と担当の提案</a> をご覧ください。</p></div>
           <p>削除は元に戻せません。消したことでも、残っている投稿を担当が検索して、また覚えることがあります。</p>
           <div class="tip"><p>たとえば「このワインが好き」という誤ったメモは個別に消し、「一度飲んだだけで好みと決めない」というルールは <strong>AIで修正</strong> で伝えます。AIで修正しても、すでにあるメモは書き換わりません。</p></div>
 
-          <p class="detail-label">詳細</p>
-          <h3 id="ja-memory-rule">覚え方（記憶ルール）を直す</h3>
+          <h3 id="ja-memory-rule"><span class="detail-label">詳細</span> 覚え方（記憶ルール）を直す</h3>
           <p>担当が何をどう覚えるか（覚え方）は、担当の <strong>AIで修正</strong> で頼んで変えます。例：「一度飲んだだけで好みと決めないで」「なぜ気に入ったかも覚えて」。下書きの <strong>覚え方</strong> を確かめて保存します。</p>
-          <p>変わるのはこれから覚える内容です。すでにある記憶は書き換わらないので、誤ったメモは <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> から直すか消してください。</p>
+          <p>変わるのはこれから覚える内容です。すでにある記憶は書き換わらないので、誤ったメモは <a href="#ja-memory">覚えていること</a> から直すか消してください。</p>
 
           <section id="ja-memory-system">
             <h3><span class="detail-label">詳細</span> 記憶の整理と担当の提案</h3>
-            <p>担当の記憶は会話のたびに少しずつ足され、チェックインでまとめ直されます。画面で確かめたり直したりする方法は <a href="/manual/#ja-memory" data-lang-link>覚えていること</a> にあります。この章では、記憶がどう整理されるかと、記憶から新しい担当が提案される仕組みを説明します。</p>
+            <p>担当の記憶は会話のたびに少しずつ足され、チェックインでまとめ直されます。画面で確かめたり直したりする方法は <a href="#ja-memory">覚えていること</a> にあります。この章では、記憶がどう整理されるかと、記憶から新しい担当が提案される仕組みを説明します。</p>
             <h4 id="ja-memory-records">かけらの記録と今の事実</h4>
             <ul>
               <li><strong>かけらの記録</strong>：受け取ったかけらごとに、日時・元の投稿・要約・タグを1行残します。挨拶や一般的な質問だけのかけらは記録しません。会話のたびに行うのはこれだけです。</li>
@@ -376,7 +377,7 @@
               <li>担当の追加、担当条件の変更、記憶の移動、有効化は、すべて成功したときだけ確定します。途中で失敗すると、それまでの手順を取り消して元に戻し、提案の投稿は <strong>作る</strong> を押せる状態のままです。記憶の移動中に失敗しても、記憶がどちらの担当からも消えることはありません。</li>
               <li>続けて押しても、担当が2人できることはありません。</li>
             </ul>
-            <p>作られた担当や元の担当の条件は、ほかの担当と同じく <a href="/manual/#ja-edit" data-lang-link>編集</a> や <a href="#ja-condition">担当の条件を直す</a> で調整できます。</p>
+            <p>作られた担当や元の担当の条件は、ほかの担当と同じく <a href="#ja-edit">編集</a> や <a href="#ja-condition">担当の条件を直す</a> で調整できます。</p>
           </section>
         </section>
 
@@ -417,7 +418,7 @@
           </figure>
           <p>変わるのは判定条件だけで、口調や覚え方は変わりません。振り分けに Jev を使っている場合（<a href="#ja-openrouter">OpenRouter を使う</a>）は理由が表示されませんが、条件は同じ手順で直せます。</p>
           <h3 id="ja-people-keywords">人物の担当のキーワードを直す</h3>
-          <p><a href="/manual/#ja-people" data-lang-link>人物の担当</a>には判定条件がなく、呼び名かキーワードが書かれたかけらだけが届きます。⚖ には、どの語で届いたかが「「佐藤さん」に一致」のように出ます。</p>
+          <p><a href="#ja-people">人物の担当</a>には判定条件がなく、呼び名かキーワードが書かれたかけらだけが届きます。⚖ には、どの語で届いたかが「「佐藤さん」に一致」のように出ます。</p>
           <div class="tip"><p><strong>キーワードは多ければよいわけではありません。</strong> 短い語や意味の広い語を増やすと、「母」で「母校」が届くように、関係のないかけらまで届きやすくなります。足したあとは ⚖ で実際の振り分けを確かめ、余計に届くなら下の <strong>呼んでほしくなかった</strong> で外してください。</p></div>
           <figure>
             <img src="/captures/ja/person-routing.png" alt="佐藤さんの担当が「佐藤さん」の一致で呼ばれたことを示す担当の判断（サンプル）" loading="lazy" width="382" height="509" />
@@ -475,22 +476,22 @@
             <li>予定は担当ごとに20件までです。担当を停止・削除すると、その担当の予定も消えます。</li>
           </ul>
           <h3 id="ja-daily">担当からの声かけ</h3>
-          <p>記憶を持つ担当は、伝えたいことがあるときや、出かける前の持ち物点検・雨予報の傘の助言（sona）など、必要なタイミングで話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると定期的なチェックインは止まりますが、明示的な通知予定は引き続き実行します。毎日の起床時刻や月次まとめの仕組みは <a href="/manual/#ja-daily-check-in" data-lang-link>詳しい説明</a> にあります。</p>
+          <p>記憶を持つ担当は、伝えたいことがあるときや、出かける前の持ち物点検・雨予報の傘の助言（sona）など、必要なタイミングで話しかけます。話す量や口調は担当のキャラクターに合わせます。「記憶する」をオフにすると定期的なチェックインは止まりますが、明示的な通知予定は引き続き実行します。毎日の起床時刻や月次まとめの仕組みは <a href="#ja-daily-check-in">詳しい説明</a> にあります。</p>
           <h3 id="ja-schedules">予定だけをまとめて見る・編集する</h3>
           <p><strong>ヘッダーの「予定」（スマホではカレンダーアイコン）</strong> で、すべての担当の予定を次の実行日時順に確認できます。担当名や予定の内容で検索できます。各予定の鉛筆マークから <strong>日時・通知を編集</strong> モーダルを開き、次の実行日時と <strong>Push通知</strong> を変更して保存してください。入力欄の日時は、表示されたこの端末のタイムゾーンです。</p>
           <p>担当ごとのカードや発言一覧でも編集できます。通知OFFでも予定の実行とタイムラインへの投稿は続きます。「この予定は通知しないで」のように担当に頼むこともできます。予定自体を止める場合は <strong>×</strong> で取り消してください。</p>
           <p>毎日の予定は、予定のタイムゾーンで変更後の時刻を引き継ぎます。年次予定も時刻は引き継ぎますが、日付変更は次回だけです。実行を始めた回には変更が間に合わないことがあります。保存に失敗した場合は入力を残して再試行できます。</p>
           <h3 id="ja-push">リマインダーのPush通知</h3>
           <ol>
-            <li>iPhone・iPadでは、kakerattaをホーム画面に追加し、そこから開きます。</li>
-            <li><strong>設定 → この端末 → リマインダーのpush通知</strong> を開き、<strong>通知を有効にする</strong> を押してブラウザの通知を許可します。受け取りたい端末ごとに設定してください。</li>
-            <li>誕生日や予定のリマインダーを、ブラウザを閉じていても受け取れます。通知を開くと該当の投稿に移動します。同じ場所の <strong>通知を無効にする</strong> で、その端末への配信を止められます。</li>
+            <li>iPhone・iPadでは、kakerattaをホーム画面に追加し、そこから開きます。スマホで上部の案内を「あとで」で閉じた場合も、<strong>設定 → この端末</strong> から手順をいつでも確認できます。</li>
+            <li><strong>設定 → この端末 → リマインダーのpush通知</strong> を開き、<strong>Push通知</strong> のスイッチをONにしてブラウザの通知を許可します。受け取りたい端末ごとに設定してください。</li>
+            <li>誕生日や予定のリマインダー、および <code>@agent</code> への直接依頼の回答（依頼の 🔔 がONのとき）を、ブラウザを閉じていても受け取れます。通知を開くと該当の投稿に移動します。同じ場所の <strong>Push通知</strong> のスイッチをOFFにすると、その端末への配信を止められます。</li>
           </ol>
-          <p>通知にはリマインダー本文が最大120文字で表示されます（省略時は末尾に「…」）。ロック画面での表示は端末の設定に従います。通常の返事・チェックイン・今月のまとめは通知しません。HTTPSと対応ブラウザが必要です。配信に失敗しても投稿はタイムラインに残ります。</p>
+          <p>通知には本文が最大300文字で表示されます（省略時は末尾に「…」）。ロック画面での表示は端末の設定に従います。通常の返事・チェックイン・今月のまとめは通知しません。HTTPSと対応ブラウザが必要です。配信に失敗しても投稿はタイムラインに残ります。</p>
           <p>通知が届かないときは、この端末での有効化、ブラウザの通知許可、ログイン状態、予定ごとの通知設定を確認してください。「サーバーで設定されていません」と表示される場合は運用者の設定が必要です。</p>
           <h3 id="ja-done">済みにする</h3>
           <p>予定から届いた通知には <strong>済みにする</strong> が表示されます。押すと <strong>✓ 済み</strong> になり、もう一度押すと印を外せます。担当も会話を読むときに済みの印を確認できます。操作にはオンライン接続が必要です。</p>
-          <p>通知の時刻や予定が実行される条件は詳しい説明の <a href="/manual/#ja-person-events" data-lang-link>人物担当の予定通知ルール</a>、<a href="/manual/#ja-tool-schedule" data-lang-link>担当が預けた予定</a>、<a href="/manual/#ja-daily-check-in" data-lang-link>毎日のチェックイン</a> にあります。</p>
+          <p>通知の時刻や予定が実行される条件は詳しい説明の <a href="#ja-person-events">人物担当の予定通知ルール</a>、<a href="#ja-tool-schedule">担当が預けた予定</a>、<a href="#ja-daily-check-in">毎日のチェックイン</a> にあります。</p>
 
           <section id="ja-wakes">
             <h3><span class="detail-label">詳細</span> 担当が起きるタイミング</h3>
@@ -576,7 +577,7 @@
               <figcaption>タイムラインでお気に入りの回答を会話と一緒に表示（サンプル）。</figcaption>
             </figure>
             <p><strong>★</strong> で解除するときは、どの画面でも確認します。キャンセルするとお気に入りも表示も残ります。解除しても投稿は消えません。</p>
-            <p>入力欄の下の担当を右クリック（スマホは長押し）し、<strong>発言一覧</strong> を選ぶと、その担当の発言を開けます。</p>
+            <p>タイムラインで担当（または自分）の名前を押すか、入力欄の下の <strong>担当を表示</strong> で担当を右クリック（スマホは長押し）して <strong>発言一覧</strong> を選ぶと、その発言一覧を開けます。</p>
 
             <figure>
               <img src="/captures/ja/speaker-period.png" alt="発言一覧も開始日・終了日で絞り込めます（サンプル）。" loading="lazy" width="390" height="1853" />
@@ -760,7 +761,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <ol>
               <li><strong>重要メールの確認</strong>で取り込みが有効か確認します。停止中なら<strong>おすすめ設定で有効にする</strong>を押し、<strong>今すぐ差分を取得</strong>します。フィルターでは対象・優先ラベル、送信元、除外、任意のLLM判定を調整できます。</li>
               <li><strong>今日・明日の予定を取り込む</strong>も有効か確認し、詳細設定で対象カレンダーとタイムゾーンを確認して、<strong>今日・明日の予定を今すぐ確認</strong>を押します。既定は<code>primary</code>・<code>Asia/Tokyo</code>です。</li>
-              <li>LLM判定が有効な場合はHermesによる判定完了を待ちます。Timelineの待機カードから内容を開き、<strong>取り込む／取り込まない</strong>を選びます。破棄時にはメールの種類・From、単発予定・定期予定全体の除外も選べ、Hermes側workerのコードが実際のレシートを取得しBridgeへ戻すと反映されます。</li>
+              <li>LLM判定が有効な場合はHermesによる判定完了を待ちます。Timelineの待機カードで<strong>内容を確認</strong>（予定は<strong>予定を確認</strong>）を開いて<strong>取り込む／取り込まない</strong>を選ぶか、カードの<strong>取り込まない</strong>でその場で破棄します。確認画面での破棄時にはメールの種類・From、単発予定・定期予定全体の除外も選べ、Hermes側workerのコードが実際のレシートを取得しBridgeへ戻すと反映されます。</li>
             </ol>
             <figure><a href="/captures/google-bridge/ja/gmail.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/ja/gmail.png" alt="Google Bridgeの重要メール同期後の画面。予約メールがHermesの配送を待っている" loading="lazy" width="390" height="1231" /></a><figcaption>実際の画面コードにサンプルAPI応答を返し、同期ボタンを操作した例です。実Googleアカウントの接続結果ではありません。 <span>画像をクリックすると原寸で開きます。</span></figcaption></figure>
             <figure><a href="/captures/google-bridge/ja/calendar.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/ja/calendar.png" alt="今日・明日の予定を同期したGoogle Bridgeの画面" loading="lazy" width="390" height="753" /></a><figcaption>Bridgeの取得後はHermesが候補を届け、正式な取り込みはTimelineで本人が選びます。 <span>画像をクリックすると原寸で開きます。</span></figcaption></figure>
@@ -888,7 +889,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
                 <tr><td>モデル</td><td>AI の API キー、<a href="#ja-openrouter">OpenRouter を使う</a>（開いて使う）</td></tr>
                 <tr><td>Web検索</td><td>Tavily の API キー（<a href="#ja-tool-web_search">Web検索</a>を使う場合）</td></tr>
                 <tr><td>AI利用状況</td><td><a href="#ja-usage">月ごとの金額と内訳</a></td></tr>
-                <tr><td>この端末</td><td>表示言語、文字サイズ、<a href="/manual/#ja-push" data-lang-link>リマインダーのPush通知</a></td></tr>
+                <tr><td>この端末</td><td>表示言語、文字サイズ、<a href="#ja-push">リマインダーのPush通知</a>、ホーム画面への追加手順（スマホ）</td></tr>
                 <tr><td>入力</td><td>入力をマークダウンとして扱う</td></tr>
                 <tr><td>毎日の振り返り</td><td><a href="#ja-daily-check-in">自動または時刻を指定</a></td></tr>
                 <tr><td>バックアップ</td><td>zip に書き出す</td></tr>
@@ -899,7 +900,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             </table>
           </div>
           <h3 id="ja-profile">プロフィール（表示名とアイコン）</h3>
-          <p>設定のいちばん上の <strong>プロフィール</strong> で、タイムラインなどに出る自分の <strong>表示名</strong> と <strong>アイコン</strong> を変えられます。アイコンは絵文字をグループから選ぶか、写真を選びます（選び方は <a href="/manual/#ja-avatar" data-lang-link>アイコンを変える</a> と同じです）。設定はアカウントに保存されるので、ほかの端末でも同じ表示になります。表示名が空なら「あなた」、アイコンが空なら 🙂 になります。ログインするアカウントの名前は変わりません。</p>
+          <p>設定のいちばん上の <strong>プロフィール</strong> で、タイムラインなどに出る自分の <strong>表示名</strong> と <strong>アイコン</strong> を変えられます。アイコンは絵文字をグループから選ぶか、写真を選びます（選び方は <a href="#ja-avatar">アイコンを変える</a> と同じです）。設定はアカウントに保存されるので、ほかの端末でも同じ表示になります。表示名が空なら「あなた」、アイコンが空なら 🙂 になります。ログインするアカウントの名前は変わりません。</p>
           <h3>バックアップ</h3>
           <p><strong>zipに書き出す</strong> で、投稿、担当とメモ、担当の並び、画像をひとつの zip にまとめます。準備ができるとダウンロードが始まり、<strong>ダウンロード</strong> のリンクも表示されます。リンクは1時間有効です。個人的な内容を含むので、他人に渡さないでください。</p>
           <p>API キーや Bluesky・外部エージェントの接続は入りません。</p>
@@ -919,7 +920,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <dt>画像の文字が読めていません。</dt>
             <dd>読み取りには少し時間がかかります。しばらくして投稿の「読み取り結果」を開いてください。画像は1投稿あたり 20 MiB までです。</dd>
             <dt>Push通知が届きません。</dt>
-            <dd>受け取りたい端末ごとに <strong>設定 → この端末 → リマインダーのpush通知</strong> で有効にします。iPhone・iPad はホーム画面に追加して、そこから開いてください。ブラウザの通知許可、ログイン状態、予定ごとの通知設定も確かめてください（<a href="#ja-push">リマインダーのPush通知</a>）。</dd>
+            <dd>受け取りたい端末ごとに <strong>設定 → この端末 → リマインダーのpush通知</strong> で <strong>Push通知</strong> のスイッチをONにします。iPhone・iPad はホーム画面に追加して、そこから開いてください。ブラウザの通知許可、ログイン状態、予定ごとの通知設定も確かめてください（<a href="#ja-push">リマインダーのPush通知</a>）。</dd>
             <dt>通知をOFFにしたのに、予定の投稿が届きます。</dt>
             <dd>OFFで止まるのはPush通知だけで、予定は実行されタイムラインに投稿されます。予定そのものを止めるには <strong>×</strong> で取り消してください（<a href="#ja-reminders">予定・通知を管理する</a>）。</dd>
             <dt>入力欄の <code>@</code> 候補に「外部エージェント」が出ません。</dt>
@@ -933,7 +934,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <dt>AIの料金が思ったより高くなっています。</dt>
             <dd><strong>設定 → AI利用状況</strong> と担当ごとの <strong>AI利用状況</strong> で内訳を確かめられます。「詳しく」の依頼、常に熟考する担当、Web検索、有効な担当の多さで増えます（<a href="#ja-usage">月ごとのAI利用状況</a>、<a href="#ja-cost-drivers">費用が増える処理</a>）。</dd>
             <dt>データはどこに保存されますか。</dt>
-            <dd>アカウントごとに分かれたサーバー上に保存され、ほかの人からは見えません。手元に保存したいときは <a href="/manual/#ja-settings" data-lang-link>設定とデータ</a> を見てください。</dd>
+            <dd>アカウントごとに分かれたサーバー上に保存され、ほかの人からは見えません。手元に保存したいときは <a href="#ja-settings">設定とデータ</a> を見てください。</dd>
           </dl>
 
           <section id="ja-more">
@@ -956,7 +957,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <li><a href="#en-timeline">Ask the AI</a>
             <ol class="toc-sub"><li><a href="#en-ask">Choosing who you address</a></li><li><a href="#en-ai">Ask @ai</a></li><li><a href="#en-tools">Tools personas use</a></li></ol></li>
           <li><a href="#en-personas">Create and grow personas</a>
-            <ol class="toc-sub"><li><a href="#en-create">Create a persona with AI</a></li><li><a href="#en-people">Create a person persona</a></li><li><a href="#en-suggest">New personas from memory</a></li></ol></li>
+            <ol class="toc-sub"><li><a href="#en-create">Create a persona with AI</a></li><li><a href="#en-people">Create a person persona</a></li><li><a href="#en-suggest">New personas from memory</a></li><li><a href="#en-avatar">Change an icon</a></li></ol></li>
           <li><a href="#en-memory">Inspect and correct memory</a>
             <ol class="toc-sub"><li><a href="#en-fix-which">What to fix, and where</a></li><li><a href="#en-memory-rule">Fix what a persona remembers</a></li><li><a href="#en-memory-system">Memory upkeep and persona suggestions</a></li></ol></li>
           <li><a href="#en-routing">Fix routing and replies</a>
@@ -966,9 +967,9 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <li><a href="#en-search">Find past posts and favorites</a>
             <ol class="toc-sub"><li><a href="#en-favorites">Saving favorites</a></li></ol></li>
           <li><a href="#en-hermes">Connect AI and services</a>
-            <ol class="toc-sub"><li><a href="#en-hermes-connect">Connect Hermes</a></li><li><a href="#en-google">Gmail and Google Calendar</a></li><li><a href="#en-bluesky">Share to Bluesky</a></li></ol></li>
+            <ol class="toc-sub"><li><a href="#en-hermes-connect">Connect Hermes</a></li><li><a href="#en-obsidian">Connect Obsidian</a></li><li><a href="#en-google">Gmail and Google Calendar</a></li><li><a href="#en-bluesky">Share to Bluesky</a></li><li><a href="#en-alexa">Alexa</a></li></ol></li>
           <li><a href="#en-models">Check models and cost</a>
-            <ol class="toc-sub"><li><a href="#en-model-list">AI models</a></li><li><a href="#en-usage">Monthly AI usage</a></li><li><a href="#en-cost">Cost per post, measured</a></li></ol></li>
+            <ol class="toc-sub"><li><a href="#en-model-list">AI models</a></li><li><a href="#en-openrouter">Using OpenRouter</a></li><li><a href="#en-usage">Monthly AI usage</a></li><li><a href="#en-cost">Cost per post, measured</a></li></ol></li>
           <li><a href="#en-settings">Manage settings and data</a>
             <ol class="toc-sub"><li><a href="#en-profile">Profile (display name and icon)</a></li></ol></li>
           <li><a href="#en-faq">Troubleshooting and further reading</a>
@@ -985,18 +986,18 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
         <section id="en-find" class="find">
           <h2>Find what you want to do</h2>
           <ul class="find-list">
-            <li><a href="#en-start">Get started</a></li>
-            <li><a href="#en-toss">Save notes, photos and voice</a></li>
-            <li><a href="#en-timeline">Ask the AI</a></li>
-            <li><a href="#en-personas">Create and grow personas</a></li>
-            <li><a href="#en-memory">Inspect and correct memory</a></li>
-            <li><a href="#en-routing">Fix routing and replies</a></li>
-            <li><a href="#en-reminders">Manage schedules and notifications</a></li>
-            <li><a href="#en-search">Find past posts and favorites</a></li>
-            <li><a href="#en-hermes">Connect AI and services</a></li>
-            <li><a href="#en-models">Check models and cost</a></li>
-            <li><a href="#en-settings">Manage settings and data</a></li>
-            <li><a href="#en-faq">Troubleshooting and further reading</a></li>
+            <li><a href="#en-start">1. Get started</a></li>
+            <li><a href="#en-toss">2. Save notes, photos and voice</a></li>
+            <li><a href="#en-timeline">3. Ask the AI</a></li>
+            <li><a href="#en-personas">4. Create and grow personas</a></li>
+            <li><a href="#en-memory">5. Inspect and correct memory</a></li>
+            <li><a href="#en-routing">6. Fix routing and replies</a></li>
+            <li><a href="#en-reminders">7. Manage schedules and notifications</a></li>
+            <li><a href="#en-search">8. Find past posts and favorites</a></li>
+            <li><a href="#en-hermes">9. Connect AI and services</a></li>
+            <li><a href="#en-models">10. Check models and cost</a></li>
+            <li><a href="#en-settings">11. Manage settings and data</a></li>
+            <li><a href="#en-faq">12. Troubleshooting and further reading</a></li>
           </ul>
         </section>
 
@@ -1062,7 +1063,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <h3>How reactions arrive</h3>
           <ul>
             <li>Reactions arrive a little later. <strong>Some posts get no reaction</strong>: a persona can remember something without speaking.</li>
-            <li><strong>For a guaranteed answer, mention a persona with <code>@name</code></strong> (for example <code>@tabe</code>). A persona you mention always replies. Tapping a name in the persona bar (the personas listed below the text box) writes the mention for you.</li>
+            <li><strong>For a guaranteed answer, mention a persona with <code>@name</code></strong> (for example <code>@tabe</code>). A persona you mention always replies. Open <strong>Show personas</strong> below the text box and tap a name, or type <code>@</code> in the text box, to write the mention.</li>
             <li>Persona remarks and your replies fold under <strong>N replies</strong>. A remark that arrives while you are looking opens its thread by itself.</li>
           </ul>
           <h3 id="en-ask">Choosing who you address</h3>
@@ -1074,7 +1075,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
                 <tr><td>A plain post</td><td>Personas whose condition or name matches react only when they have something to say. <strong>No reaction is normal</strong>, and the post stays.</td><td><code>That shop in Shizuoka I wanted to try</code></td></tr>
                 <tr><td><code>@persona</code></td><td>The persona you name always replies, using its own memory and tools.</td><td><code>@tabe Which shop in Shizuoka did we talk about?</code></td></tr>
                 <tr><td><code>@ai</code></td><td>Asks the built-in AI without choosing a persona. It looks across past posts, persona memory and schedules. It saves no memory and sets no schedules.</td><td><code>@ai What have I written about Shizuoka lately?</code></td></tr>
-                <tr><td><code>@agent</code></td><td>Sends a request straight to an external agent you connected (such as Hermes). Available only once an integration is set up (<a href="/manual/#en-hermes" data-lang-link>External agents</a>).</td><td><code>@agent Summarize this article</code></td></tr>
+                <tr><td><code>@agent</code></td><td>Sends a request straight to an external agent you connected (such as Hermes). Available only once an integration is set up (<a href="#en-hermes">External agents</a>).</td><td><code>@agent Summarize this article</code></td></tr>
               </tbody>
             </table>
           </div>
@@ -1082,17 +1083,19 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <p>Try <code>@ai When did I last leave Yokohama?</code>. The built-in AI searches posts, locations and dates and cites supporting posts. It can also read persona notes, schedule lists and whole threads, and search the Web when a search API key is configured. Ask <code>@ai</code> about kakeratta too; it reads the relevant specification chapters only for app-help questions. It uses Super VL normally and Ultra when you ask “in detail.” It does not register schedules, save private notes or perform external actions such as sending email. The conversation stays on the timeline; reply to continue it.</p>
           <p><code>@ai</code> is built-in; <code>@agent</code> is external. Type <code>@</code> to choose <strong>Built-in AI</strong> at any time. <strong>External agent</strong> is also offered when external integration is enabled and a connection is configured. Otherwise <code>@agent</code> has no suggestion. <code>ai</code> and <code>agent</code> are reserved and cannot be persona IDs, names or aliases.</p>
           <h3>Reply, fix, delete</h3>
-          <table>
-            <thead><tr><th>Button</th><th>What it does</th></tr></thead>
-            <tbody>
-              <tr><td><strong>Add a comment</strong></td><td>Continue your own post</td></tr>
-              <tr><td><strong>Reply</strong></td><td>Answer a persona</td></tr>
-              <tr><td><strong>✎</strong> / <strong>×</strong></td><td>Edit / delete a post</td></tr>
-              <tr><td><strong>⚖</strong></td><td>See who got the post and why the others did not (<a href="/manual/#en-routing" data-lang-link>Fix who gets a post</a>)</td></tr>
-              <tr><td><strong>Change how it replies</strong></td><td>Correct a persona's tone and instructions (<a href="/manual/#en-reply-fix" data-lang-link>Fix how a persona replies</a>)</td></tr>
-              <tr><td><strong>🔈 Read aloud</strong></td><td>Read the collected reactions in order</td></tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Add a comment</strong></td><td>Continue your own post</td></tr>
+                <tr><td><strong>Reply</strong></td><td>Answer a persona</td></tr>
+                <tr><td><strong>✎</strong> / <strong>×</strong></td><td>Edit / delete a post</td></tr>
+                <tr><td><strong>⚖</strong></td><td>See who got the post and why the others did not (<a href="#en-routing">Fix who gets a post</a>)</td></tr>
+                <tr><td><strong>Change how it replies</strong></td><td>Correct a persona's tone and instructions (<a href="#en-reply-fix">Fix how a persona replies</a>)</td></tr>
+                <tr><td><strong>🔈 Read aloud</strong></td><td>Read the collected reactions in order</td></tr>
+              </tbody>
+            </table>
+          </div>
           <p>Deleting a post removes the remarks and your replies under it, and it no longer appears in search. <strong>Persona notes that rest only on that post are deleted too.</strong> Notes that also rest on other posts stay, and the persona tidies them later.</p>
           <p>A persona's answer or a reply can be deleted with its <strong>×</strong>. It takes the lines answering it, directly or further down, and nothing else in the thread: a wrong answer, and the replies that repeated it, then no longer turn up in searches or as context in the thread. The notes written with it stay; correct them in the persona's memory if they are wrong too.</p>
 
@@ -1120,7 +1123,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <p>Try: “@tabe Find that light red wine I enjoyed before.”</p>
 
             <h4 id="en-tool-records">Finding fragment records — records</h4>
-            <p>Every turn, a persona reads the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The app adds a record after a reply, then folds new records into facts at check-in. To inspect or delete memory, use <a href="/manual/#en-memory" data-lang-link>What I remember</a>.</p>
+            <p>Every turn, a persona reads the facts that hold now, and its latest records before it thinks. Older records it finds by tag, words, or meaning, and it can read the post a record points to (with the fragment it answered, for a reply). The app adds a record after a reply, then folds new records into facts at check-in. To inspect or delete memory, use <a href="#en-memory">What I remember</a>.</p>
             <p>Try: “@tabe Which ramen place did I say I wanted to try?”</p>
 
             <h4 id="en-tool-web_search">Web search — web_search</h4>
@@ -1153,7 +1156,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
               </tbody>
             </table>
           </div>
-          <p>Open <strong>Personas</strong> in the header and turn on <strong>Enable</strong> for the ones you want. A persona answers in the language you wrote in.</p>
+          <p>Open <strong>Personas</strong> in the header and use each card's switch (<strong>Active</strong> / <strong>Inactive</strong>) to choose the ones you want. A persona answers in the language you wrote in.</p>
           <figure>
             <img src="/captures/en/personas.png" alt="The Personas panel: each one's subject, tools, and notes" loading="lazy" width="390" height="2244" />
             <figcaption>The Personas panel: subject, available tools, and how many notes each has.</figcaption>
@@ -1162,8 +1165,8 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <ol>
             <li>Open <strong>Personas</strong>, select the <strong>Interests</strong> tab, and choose <strong>Create a persona with AI</strong>. To remember a person, <a href="#en-people">start from the People tab</a>.</li>
             <li>Answer “What would you like your persona to help with?” in your own words. Even “wine” is enough.<br />Example: <em>When I send a photo of a wine label I liked, tell me the wine and its grape varieties.</em></li>
-            <li>The AI drafts a name, a way of talking, and what to remember. Review it and select <strong>Save this persona</strong>.</li>
-            <li><strong>Enable</strong> it and it starts receiving fragments.</li>
+            <li>The AI drafts a name, how it talks, how it remembers, what it remembers, and when it replies. Review it and select <strong>Add this persona</strong> (or <strong>Save this persona</strong> when editing an existing one).</li>
+            <li>It is <strong>Active</strong> right away and starts receiving fragments.</li>
           </ol>
           <p>Creation and editing offer <strong>Remember</strong> (turning it off creates an answer-only persona, saving token costs and avoiding unwanted notes) and <strong>Always think deeply</strong> (uses Super VL for final answers to ordinary requests).</p>
           <figure>
@@ -1175,17 +1178,17 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           <ul>
             <li><strong>A person is never routed by the app.</strong> A fragment reaches it only when one of its <strong>names</strong> or <strong>keywords</strong> is written in it, text read from a photo included. You can also call it with <code>@name</code>.</li>
             <li>Registering “サトウ” also reaches “サトウくん” and “さとうさん”: full-width/half-width characters, upper and lower case, hiragana/katakana and a trailing honorific (-san, -kun) do not matter. Kanji (佐藤) and kana spellings are different words, so list both if you use both. To catch posts that do not name them directly, list rewordings and similar words as keywords (fishing, angling, sea fishing).</li>
-            <li>A person's persona remembers what happens with them (talks, gifts, promises, loans) and nudges you when meetings or birthdays approach (see notification schedule rules in the <a href="/manual/#en-person-events" data-lang-link>detailed explanation</a>).</li>
+            <li>A person's persona remembers what happens with them (talks, gifts, promises, loans) and nudges you when meetings or birthdays approach (see notification schedule rules in the <a href="#en-person-events">detailed explanation</a>).</li>
             <li>Supplied details like birthdays and preferences can be reviewed and edited anytime directly in the persona settings.</li>
           </ul>
           <figure>
             <img src="/captures/en/person-card.png" alt="The card of a person's persona, Sato, listing its names, keywords and basic information (sample data)" loading="lazy" width="382" height="1122" />
             <figcaption>A person's card lists names, keywords, annual birthday notifications and upcoming appointments (sample data).</figcaption>
           </figure>
-          <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong>; if an unrelated one did, remove the matched word from <strong>Should not have been called</strong> (<a href="/manual/#en-people-keywords" data-lang-link>Fix a person's keywords</a>). More keywords are not always better: vague words bring in unrelated fragments, so adjust while watching the actual routing.</p>
+          <p>If a fragment did not reach them, add keywords from <strong>Should have been called</strong> in <strong>⚖</strong>; if an unrelated one did, remove the matched word from <strong>Should not have been called</strong> (<a href="#en-people-keywords">Fix a person's keywords</a>). More keywords are not always better: vague words bring in unrelated fragments, so adjust while watching the actual routing.</p>
           <h3 id="en-edit">Edit a persona</h3>
           <p>Use <strong>Edit with AI</strong> on a persona to say “Give shorter replies” or “Remember why I liked a wine, too.” Built-in personas can be edited the same way, and their notes carry over.</p>
-          <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, just turn off <strong>Enable</strong>.</p>
+          <p><strong>Delete</strong> removes the persona together with its notes, and cannot be undone. To stop it receiving posts, switch its card to <strong>Inactive</strong>.</p>
           <p>Closing a persona editor with unsaved changes offers <strong>Save and close</strong>, <strong>Close without saving</strong>, and <strong>Keep editing</strong>.</p>
           <h3 id="en-suggest">New personas from memory</h3>
           <p>As you keep posting, a persona's memory may fill up with a different subject. The persona may then suggest at a daily check-in: “Shall we make a new persona for …?”</p>
@@ -1194,9 +1197,9 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <li>Press <strong>Not now</strong> to pass. The persona and its memory stay as they are.</li>
             <li>If something fails along the way, everything is put back and you can press <strong>Create it</strong> again.</li>
           </ul>
-          <p>Only subject personas with memory on make suggestions, at most once every 30 days each. A persona created this way can be <a href="#en-edit">edited</a> like any other. For details, see <a href="/manual/#en-persona-suggestions" data-lang-link>Details: Memory upkeep and persona suggestions</a>.</p>
+          <p>Only subject personas with memory on make suggestions, at most once every 30 days each. A persona created this way can be <a href="#en-edit">edited</a> like any other. For details, see <a href="#en-persona-suggestions">Details: Memory upkeep and persona suggestions</a>.</p>
           <h3 id="en-avatar">Change an icon (emoji or photo)</h3>
-          <p>Change a persona's icon when you create it (<strong>Create a persona with AI</strong>) or with <strong>Edit</strong> or <strong>Edit with AI</strong> on its card. Your own icon works the same way in <a href="/manual/#en-profile" data-lang-link>Profile in Settings</a>.</p>
+          <p>Change a persona's icon when you create it (<strong>Create a persona with AI</strong>) or with <strong>Edit</strong> or <strong>Edit with AI</strong> on its card. Your own icon works the same way in <a href="#en-profile">Profile in Settings</a>.</p>
           <ul>
             <li>Open <strong>Choose emoji</strong> to see emoji grouped as faces, people, hands and body, animals, nature, food, hobbies, travel and places, objects, symbols, and flags. One tap picks it. For an emoji not listed, use <strong>Type another emoji</strong>.</li>
             <li><strong>Choose photo</strong> uses one of your images. It is cropped square and compressed on your device before saving; the original is never uploaded.</li>
@@ -1233,24 +1236,23 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
               <thead><tr><th>What you want to fix</th><th>Where</th></tr></thead>
               <tbody>
                 <tr><td>Something a persona remembered is wrong</td><td><strong>✎</strong> / <strong>×</strong> in its memory (this section)</td></tr>
-                <tr><td>What and how it remembers</td><td><strong>Edit with AI</strong> on the persona (<a href="/manual/#en-memory-rule" data-lang-link>Fix what a persona remembers</a>)</td></tr>
-                <tr><td>The right persona did not get a post, or the wrong one did</td><td><strong>⚖</strong> on the post (<a href="/manual/#en-routing" data-lang-link>Fix who gets a post</a>)</td></tr>
-                <tr><td>The tone or instructions of its replies</td><td><strong>Change how it replies</strong> on a remark (<a href="/manual/#en-reply-fix" data-lang-link>Fix how a persona replies</a>)</td></tr>
+                <tr><td>What and how it remembers</td><td><strong>Edit with AI</strong> on the persona (<a href="#en-memory-rule">Fix what a persona remembers</a>)</td></tr>
+                <tr><td>The right persona did not get a post, or the wrong one did</td><td><strong>⚖</strong> on the post (<a href="#en-routing">Fix who gets a post</a>)</td></tr>
+                <tr><td>The tone or instructions of its replies</td><td><strong>Change how it replies</strong> on a remark (<a href="#en-reply-fix">Fix how a persona replies</a>)</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="tip"><p>For details on how records become facts, see <a href="/manual/#en-memory-system" data-lang-link>Details: Memory upkeep and persona suggestions</a>.</p></div>
+          <div class="tip"><p>For details on how records become facts, see <a href="#en-memory-system">Details: Memory upkeep and persona suggestions</a>.</p></div>
           <p>Deletion cannot be undone. A persona may learn something again by searching the posts that remain.</p>
           <div class="tip"><p>For example, forget a wrong “Likes this wine” note on its own, then use <strong>Edit with AI</strong> to say “Do not infer a preference from trying a wine once.” Editing a persona does not rewrite notes it already has.</p></div>
 
-          <p class="detail-label">Details</p>
-          <h3 id="en-memory-rule">Fix what a persona remembers</h3>
+          <h3 id="en-memory-rule"><span class="detail-label">Details</span> Fix what a persona remembers</h3>
           <p>What a persona remembers and how (its memory rule) is changed by asking with <strong>Edit with AI</strong> on the persona, for example “Do not infer a preference from trying a wine once” or “Remember why I liked it, too.” Check the draft's memory section and save.</p>
-          <p>Only what it remembers from now on changes. Existing memory is not rewritten, so correct or delete wrong notes in <a href="/manual/#en-memory" data-lang-link>What a persona remembers</a>.</p>
+          <p>Only what it remembers from now on changes. Existing memory is not rewritten, so correct or delete wrong notes in <a href="#en-memory">What a persona remembers</a>.</p>
 
           <section id="en-memory-system">
             <h3><span class="detail-label">Details</span> Memory upkeep and persona suggestions</h3>
-            <p>A persona's memory grows a little with each conversation and is reorganized at check-ins. How to check and correct it on screen is in <a href="/manual/#en-memory" data-lang-link>What a persona remembers</a>; this section explains how memory is tidied and how a new persona is suggested from it.</p>
+            <p>A persona's memory grows a little with each conversation and is reorganized at check-ins. How to check and correct it on screen is in <a href="#en-memory">What a persona remembers</a>; this section explains how memory is tidied and how a new persona is suggested from it.</p>
             <h4 id="en-memory-records">Fragment records and current facts</h4>
             <ul>
               <li><strong>Fragment records</strong>: for each fragment received, one line with the date and time, original post, summary and tags. Greetings and general questions alone are not recorded. That is all a conversation adds.</li>
@@ -1279,7 +1281,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
               <li>Adding the persona, narrowing the condition, moving memory and enabling it are committed only when all succeed. If a step fails, the steps already done are undone and the post keeps its <strong>Create it</strong> button. A failure while moving memory never leaves it in neither persona.</li>
               <li>Pressing twice never creates two personas.</li>
             </ul>
-            <p>The new persona and the original's condition can be adjusted like any other, with <a href="/manual/#en-edit" data-lang-link>Edit</a> or <a href="#en-condition">Fix a persona's condition</a>.</p>
+            <p>The new persona and the original's condition can be adjusted like any other, with <a href="#en-edit">Edit</a> or <a href="#en-condition">Fix a persona's condition</a>.</p>
           </section>
         </section>
 
@@ -1320,7 +1322,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
           </figure>
           <p>Only the condition changes; tone and memory rules stay. When routing uses Jev (<a href="#en-openrouter">Using OpenRouter</a>), no reasons are shown, but conditions are fixed the same way.</p>
           <h3 id="en-people-keywords">Fix a person's keywords</h3>
-          <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> has no condition: only fragments with one of its names or keywords reach it. In ⚖ the word it was reached by is shown, as in Matched “Sato”.</p>
+          <p>A <a href="#en-people">person's persona</a> has no condition: only fragments with one of its names or keywords reach it. In ⚖ the word it was reached by is shown, as in Matched “Sato”.</p>
           <div class="tip"><p><strong>More keywords are not always better.</strong> Short or broad words bring in unrelated fragments, the way “Mom” would match “Mombasa”. After adding words, check the actual routing with ⚖, and remove extras with <strong>Should not have been called</strong> below.</p></div>
           <figure>
             <img src="/captures/en/person-routing.png" alt="The router's call showing Sato's persona called because the post matched “Sato” (sample data)" loading="lazy" width="382" height="573" />
@@ -1378,22 +1380,22 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <li>Each persona holds up to 20 schedules. Pausing or deleting a persona removes its schedules.</li>
           </ul>
           <h3 id="en-daily">Hearing from your personas</h3>
-          <p>Personas with <strong>Remember</strong> enabled keep memories and speak now and then when they have something useful or timely to share, such as sona's doorstep reminder before heading out. How much they say and their tone follow their character. Turning off <strong>Remember</strong> stops periodic check-ins; explicit schedules still run. Check-in timings and monthly summary mechanics are in the <a href="/manual/#en-daily-check-in" data-lang-link>detailed explanation</a>.</p>
+          <p>Personas with <strong>Remember</strong> enabled keep memories and speak now and then when they have something useful or timely to share, such as sona's doorstep reminder before heading out. How much they say and their tone follow their character. Turning off <strong>Remember</strong> stops periodic check-ins; explicit schedules still run. Check-in timings and monthly summary mechanics are in the <a href="#en-daily-check-in">detailed explanation</a>.</p>
           <h3 id="en-schedules">View and edit all schedules</h3>
           <p>Open <strong>Schedules in the header (the calendar icon on phones)</strong> to see all personas' schedules ordered by next run. Search by persona name or schedule text. Use the pencil button to open the <strong>Edit time and notifications</strong> dialog, change the next run and/or <strong>Push notifications</strong>, then save. The date/time input uses the device timezone shown below it.</p>
           <p>The same controls are available on each persona card and at the top of its <strong>Remarks</strong> list. Turning Push off keeps the task and its timeline post. You can also ask a persona to turn notifications off for a schedule. Use <strong>×</strong> to cancel the schedule itself.</p>
           <p>Daily repeats keep the edited time in the schedule's timezone. Annual reminders keep the time too, but date changes apply only to the next occurrence. Edits may be too late for an occurrence already running. A failed save retains your input for retry.</p>
           <h3 id="en-push">Push reminders</h3>
           <ol>
-            <li>On iPhone/iPad, add kakeratta to the Home Screen and open it there.</li>
-            <li>Open <strong>Settings → This device → Push reminders</strong>, press <strong>Enable notifications</strong>, and allow browser notifications. Enable them on each device where you want reminders.</li>
-            <li>Birthday and scheduled reminders can arrive while the browser is closed. Open a notification to view its post. Use <strong>Disable notifications</strong> in the same place to stop delivery to that device.</li>
+            <li>On iPhone/iPad, add kakeratta to the Home Screen and open it there. If you dismissed the top banner on a phone with <strong>Later</strong>, you can also review the steps anytime under <strong>Settings → This device</strong>.</li>
+            <li>Open <strong>Settings → This device → Push reminders</strong>, turn on the <strong>Push notifications</strong> switch, and allow browser notifications. Enable them on each device where you want reminders.</li>
+            <li>Birthday and scheduled reminders, as well as replies to direct <code>@agent</code> requests when 🔔 is on, can arrive while the browser is closed. Open a notification to view its post. Turn off the <strong>Push notifications</strong> switch in the same place to stop delivery to that device.</li>
           </ol>
-          <p>Notifications show up to 120 characters of reminder text, with an ellipsis when shortened. Lock-screen visibility follows your device settings. Ordinary replies, check-ins and monthly summaries do not trigger Push. HTTPS and a supported browser are required. The timeline post remains available if delivery fails.</p>
+          <p>Notifications show up to 300 characters of text, with an ellipsis when shortened. Lock-screen visibility follows your device settings. Ordinary replies, check-ins and monthly summaries do not trigger Push. HTTPS and a supported browser are required. The timeline post remains available if delivery fails.</p>
           <p>If notifications do not arrive, check device enablement, browser permission, login status, and the schedule's notification setting. A message saying Push is not configured on the server requires operator setup.</p>
           <h3 id="en-done">Mark done</h3>
           <p>Scheduled reminders offer <strong>Mark done</strong>. Tap it to show <strong>✓ Done</strong>, or tap again to remove the mark. Personas can see the mark when reading the conversation. This requires an online connection.</p>
-          <p>Notification times and when a schedule runs are covered in the details: <a href="/manual/#en-person-events" data-lang-link>Person persona notification rules</a>, <a href="/manual/#en-tool-schedule" data-lang-link>A persona's own schedule</a> and <a href="/manual/#en-daily-check-in" data-lang-link>Daily check-in</a>.</p>
+          <p>Notification times and when a schedule runs are covered in the details: <a href="#en-person-events">Person persona notification rules</a>, <a href="#en-tool-schedule">A persona's own schedule</a> and <a href="#en-daily-check-in">Daily check-in</a>.</p>
 
           <section id="en-wakes">
             <h3><span class="detail-label">Details</span> When personas wake</h3>
@@ -1434,7 +1436,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             </ul>
             <h4 id="en-tool-schedule">A persona's own schedule (schedule)</h4>
             <p>A persona can wake shortly before an outing whose timing is grounded in your posts or habits, checking belongings and past omissions. When the region and date are known, it reads a fresh forecast: sunshine now can still mean taking an umbrella for rain on the way home. Unknown locations, times and unavailable forecasts are not invented. Chore follow-ups happen shortly afterwards; completed or already-mentioned items stay quiet. It does not nag or recite a generic checklist every day.</p>
-            <p>A <a href="/manual/#en-people" data-lang-link>person's persona</a> sets one for the morning of a meeting you mention, such as “drinks with Sato next Saturday.” On waking it brings up what happened last time and anything still open, like a loan or a promise.</p>
+            <p>A <a href="#en-people">person's persona</a> sets one for the morning of a meeting you mention, such as “drinks with Sato next Saturday.” On waking it brings up what happened last time and anything still open, like a loan or a promise.</p>
             <ul>
               <li>Up to 20 per persona, at any future date. Tool-created schedules run once or daily; birthdays and anniversaries recur annually.</li>
               <li>Schedules are listed on the persona's card. <strong>Remove one you do not want with ×.</strong></li>
@@ -1479,7 +1481,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
               <figcaption>Favorite answers shown with their conversations on the timeline (sample data).</figcaption>
             </figure>
             <p>Removing a favorite with <strong>★</strong> always asks for confirmation. Cancel keeps it saved and visible. Removing a favorite does not delete the entry.</p>
-            <p>Right-click a persona in the persona bar (long-press on phones) and choose <strong>Remarks</strong> to open its list.</p>
+            <p>Tap a persona's (or your own) name on the timeline, or right-click a persona under <strong>Show personas</strong> below the text box (long-press on phones) and choose <strong>Remarks</strong>, to open that speaker's list.</p>
 
             <figure>
               <img src="/captures/en/speaker-period.png" alt="Filter a speaker’s entries by date range (sample data)." loading="lazy" width="390" height="2031" />
@@ -1663,7 +1665,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <ol>
               <li>Check that important-mail intake is enabled. If stopped, press <strong>Turn on with recommended settings (no setup)</strong>, then <strong>Fetch new mail now</strong>. Filters let you adjust labels, priority senders, exclusions and optional model triage.</li>
               <li>Check that event intake is enabled under <strong>Bring in today's and tomorrow's events</strong>. Review the calendar and timezone in detailed settings, then press <strong>Check today's and tomorrow's events now</strong>. Defaults are <code>primary</code> and <code>Asia/Tokyo</code>.</li>
-              <li>If model triage is enabled, wait for Hermes to classify candidates. Open each pending Timeline card and choose Import or Discard. Discard can also exclude a mail type or sender, or a single event or recurring series; the Hermes worker retrieves and returns the actual kakeratta receipts in code.</li>
+              <li>If model triage is enabled, wait for Hermes to classify candidates. Open each pending Timeline card with <strong>Review</strong> (or <strong>Review event</strong>) to choose Import or Discard, or press <strong>Discard</strong> directly on the card. When discarding from the review dialog, you can also exclude a mail type or sender, or a single event or recurring series; the Hermes worker retrieves and returns the actual kakeratta receipts in code.</li>
             </ol>
             <figure><a href="/captures/google-bridge/en/gmail.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/en/gmail.png" alt="Google Bridge after mail sync, showing a reservation email waiting for Hermes delivery" loading="lazy" width="390" height="1436" /></a><figcaption>The shipped UI after clicking sync with sample API responses. This is not a live Google-account connection. <span>Click the image to open it at full size.</span></figcaption></figure>
             <figure><a href="/captures/google-bridge/en/calendar.png" target="_blank" rel="noopener"><img src="/captures/google-bridge/en/calendar.png" alt="Google Bridge after syncing today's and tomorrow's events" loading="lazy" width="390" height="868" /></a><figcaption>After Bridge fetches events, Hermes relays the candidates; you make the final import decision in the Timeline. <span>Click the image to open it at full size.</span></figcaption></figure>
@@ -1791,7 +1793,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
                 <tr><td>Models</td><td>The AI API key, <a href="#en-openrouter">Use OpenRouter</a> (opens when tapped)</td></tr>
                 <tr><td>Web search</td><td>Tavily API key (for <a href="#en-tool-web_search">web search</a>)</td></tr>
                 <tr><td>AI usage</td><td><a href="#en-usage">Monthly cost and breakdown</a></td></tr>
-                <tr><td>This device</td><td>Display language, text size, <a href="/manual/#en-push" data-lang-link>Push reminders</a></td></tr>
+                <tr><td>This device</td><td>Display language, text size, <a href="#en-push">Push reminders</a>, Home Screen steps (phones)</td></tr>
                 <tr><td>Input</td><td>Treat what I write as Markdown</td></tr>
                 <tr><td>Daily check-in</td><td><a href="#en-daily-check-in">Automatic or Set a time</a></td></tr>
                 <tr><td>Backup</td><td>Export as zip</td></tr>
@@ -1802,7 +1804,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             </table>
           </div>
           <h3 id="en-profile">Profile (display name and icon)</h3>
-          <p><strong>Profile</strong> at the top of Settings changes the <strong>Display name</strong> and <strong>Icon</strong> shown for you on the timeline and elsewhere. Pick an emoji from the groups or choose a photo, the same way as for <a href="/manual/#en-avatar" data-lang-link>persona icons</a>. It is saved with your account, so other devices show the same. An empty name shows as “You” and an empty icon as 🙂. Your sign-in account name does not change.</p>
+          <p><strong>Profile</strong> at the top of Settings changes the <strong>Display name</strong> and <strong>Icon</strong> shown for you on the timeline and elsewhere. Pick an emoji from the groups or choose a photo, the same way as for <a href="#en-avatar">persona icons</a>. It is saved with your account, so other devices show the same. An empty name shows as “You” and an empty icon as 🙂. Your sign-in account name does not change.</p>
           <h3>Backup</h3>
           <p><strong>Export as zip</strong> puts your posts, personas and their notes, persona order, and images into one zip. The download starts when it is ready, and a <strong>Download</strong> link also appears. The link is valid for an hour. The zip holds personal content, so keep it to yourself.</p>
           <p>API keys and the Bluesky and external agent connections are not included.</p>
@@ -1822,7 +1824,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <dt>The text in my image has not been read.</dt>
             <dd>Reading takes a moment. Open “Reading result” under the post a little later. Images are limited to 20 MiB per post.</dd>
             <dt>Push notifications do not arrive.</dt>
-            <dd>Enable them on each device under <strong>Settings → This device → Push reminders</strong>. On iPhone and iPad, add kakeratta to the Home Screen and open it from there. Also check browser permission, that you are signed in, and the schedule's notification setting (<a href="#en-push">Push reminders</a>).</dd>
+            <dd>Turn on the <strong>Push notifications</strong> switch on each device under <strong>Settings → This device → Push reminders</strong>. On iPhone and iPad, add kakeratta to the Home Screen and open it from there. Also check browser permission, that you are signed in, and the schedule's notification setting (<a href="#en-push">Push reminders</a>).</dd>
             <dt>I turned notifications off, but scheduled posts still arrive.</dt>
             <dd>Off stops only the Push notification; the schedule still runs and posts to the timeline. To stop the schedule itself, cancel it with <strong>×</strong> (<a href="#en-reminders">Manage schedules and notifications</a>).</dd>
             <dt>The <code>@</code> suggestions do not offer External agent.</dt>
@@ -1836,7 +1838,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
             <dt>AI costs are higher than I expected.</dt>
             <dd><strong>Settings → AI usage</strong> and each persona's <strong>AI usage</strong> show the breakdown. “In detail” requests, Always think deeply, Web search and many active personas raise it (<a href="#en-usage">Monthly AI usage</a>, <a href="#en-cost-drivers">What raises the cost</a>).</dd>
             <dt>Where is my data stored?</dt>
-            <dd>On the server, separated per account; nobody else can see it. To keep a copy yourself, see <a href="/manual/#en-settings" data-lang-link>Settings and data</a>.</dd>
+            <dd>On the server, separated per account; nobody else can see it. To keep a copy yourself, see <a href="#en-settings">Settings and data</a>.</dd>
           </dl>
 
           <section id="en-more">
