@@ -97,7 +97,7 @@ func TestMemoryTidyWritesFactsInTheRecordedLanguage(t *testing.T) {
 		if strings.Contains(system, "メモ係として") {
 			tidy = system
 		}
-		return `{"facts":[],"drop_records":[],"review_records":[]}`
+		return `{"facts":[],"review_records":[]}`
 	}
 	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
 	if tidy == "" {

@@ -12,7 +12,21 @@ import (
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
 
-func TestFoldingRecordsDoesNotRequireADuplicateDropInstruction(t *testing.T) {
+func TestMemoryTidyDoesNotAskForSeparateRecordDeletion(t *testing.T) {
+	skill := Skill{ID: "test", Name: "test"}
+	for _, ids := range [][]string{nil, {"record"}} {
+		tool := tidyTool(ids, nil, false)
+		schema, err := json.Marshal(tool.Parameters)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(schema), "drop_records") || strings.Contains(tidyPrompt(skill, false), "drop_records") {
+			t.Fatal("memory tidying still requests a separate deletion list")
+		}
+	}
+}
+
+func TestFoldingRecordsDeletesAbsorbedRecords(t *testing.T) {
 	for _, kind := range []string{"add", "update", "merge"} {
 		t.Run(kind, func(t *testing.T) {
 			r, s, f := setup(t, nil, "gourmet")
@@ -37,7 +51,7 @@ func TestFoldingRecordsDoesNotRequireADuplicateDropInstruction(t *testing.T) {
 				op.IDs = []string{"f_a", "f_b"}
 			}
 			f.summarize = func(system, user string) string {
-				body, _ := json.Marshal(map[string]any{"facts": []tidyOp{op}, "drop_records": []string{}, "review_records": []string{}})
+				body, _ := json.Marshal(map[string]any{"facts": []tidyOp{op}, "review_records": []string{}})
 				return string(body)
 			}
 			skill, _ := r.catalogue.Find(context.Background(), "gourmet")
@@ -180,7 +194,7 @@ func TestMemoryIsTidiedAtTheCheckIn(t *testing.T) {
 			t.Errorf("no new persona could be suggested:\n%s", system)
 		}
 		return `{"facts":[{"op":"update","id":"f_a","ids":[],"text":"以前は豚骨に寄っていたが、最近は塩に寄る","records":["e_r"]}],` +
-			`"drop_records":["e_r"],"review_records":["e_old"],"suggest_persona":null}`
+			`"review_records":["e_old"],"suggest_persona":null}`
 	}
 	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
 	if len(f.summaries) != 1 {
@@ -228,12 +242,12 @@ func TestTidyingKeepsUnfoldedRecordsAndSuggestsAPersona(t *testing.T) {
 	}
 	f.summarize = func(system, user string) string {
 		if len(f.summaries) == 1 {
-			return `{"facts":[],"drop_records":["e_r"],"review_records":[],"suggest_persona":null}`
+			return `{"facts":[{"op":"add","text":"発酵食づくりに関心がある","records":["e_missing"]}],"review_records":[],"suggest_persona":null}`
 		}
-		if !strings.Contains(user, "記録 e_r はどの事実の根拠") {
-			t.Errorf("the drop was not sent back:\n%s", user)
+		if !strings.Contains(user, "記録 e_missing は渡していません") {
+			t.Errorf("the unknown source record was not sent back:\n%s", user)
 		}
-		return `{"facts":[],"drop_records":[],"review_records":[],"suggest_persona":{"topic":"発酵食づくり","reason":"ぬか床の記録が続いている"}}`
+		return `{"facts":[],"review_records":[],"suggest_persona":{"topic":"発酵食づくり","reason":"ぬか床の記録が続いている"}}`
 	}
 	r.dailyAt(context.Background(), store.CheckInCloses(day).Add(-time.Minute))
 	got := r.loadMemo("gourmet", time.UTC)
@@ -263,7 +277,7 @@ func TestTidyingKeepsUnfoldedRecordsAndSuggestsAPersona(t *testing.T) {
 		if strings.Contains(system, "suggest_persona") {
 			t.Errorf("a new persona was offered again within a month")
 		}
-		return `{"facts":[],"drop_records":[],"review_records":[]}`
+		return `{"facts":[],"review_records":[]}`
 	}
 	client, current := r.clientOf()
 	if _, err := r.tidyMemory(context.Background(), client, personaModel(current), Builtins[0].forTurn(), got.CheckedAt.Add(time.Hour), time.UTC); err != nil || len(f.summaries) != 3 {
@@ -438,7 +452,7 @@ func TestTidyRejectsUnsupportedFactAndKeepsRecordUntilGrounded(t *testing.T) {
 			t.Fatal("daily pass still uses a prose summary")
 		}
 		if calls == 1 {
-			return `{"facts":[{"op":"add","text":"夜はカフェインを避ける","records":[]}],"drop_records":["e_reply"]}`
+			return `{"facts":[{"op":"add","text":"夜はカフェインを避ける","records":[]}]}`
 		}
 		if !strings.Contains(user, "add には根拠の記録") {
 			t.Error("missing explanation for unsupported fact")
@@ -447,7 +461,7 @@ func TestTidyRejectsUnsupportedFactAndKeepsRecordUntilGrounded(t *testing.T) {
 		if note.Text != before {
 			t.Error("rejected submission changed stored memory")
 		}
-		return `{"facts":[{"op":"add","text":"夜はカフェインを避ける","records":["e_reply"]}],"drop_records":["e_reply"]}`
+		return `{"facts":[{"op":"add","text":"夜はカフェインを避ける","records":["e_reply"]}]}`
 	}
 	client, settings := r.clientOf()
 	if _, err := r.tidyMemory(context.Background(), client, personaModel(settings), Builtins[0].forTurn(), day, time.UTC); err != nil {

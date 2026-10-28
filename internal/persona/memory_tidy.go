@@ -175,9 +175,8 @@ func tidyTool(recordIDs, passed []string, suggest bool) llm.Tool {
 	}
 	required := []string{"facts"}
 	if len(recordIDs) > 0 {
-		props["drop_records"] = map[string]any{"type": "array", "items": ids, "description": "事実に取り込んだので要らなくなった記録の id。なければ []"}
 		props["review_records"] = map[string]any{"type": "array", "maxItems": maxReviewRecords, "items": ids, "description": "事実にはしないが、もう要らなさそうな記録の id。ユーザーに聞く。なければ []"}
-		required = append(required, "drop_records", "review_records")
+		required = append(required, "review_records")
 	}
 	if len(passed) > 0 {
 		props["invalidate"] = map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": passed},
@@ -206,7 +205,7 @@ func tidyPrompt(skill Skill, suggest bool) string {
 	}
 	s += `記憶は「いまの事実」「かけらの記録」。記録は会話のたびに本体が1行ずつ足したもの。事実はいま当てはまることだけを持ち、当てはまらなくなった事実は消す（前の文は残らない。元の投稿はタイムラインに残る）。
 tidy_memory で1回で出す。
-- facts: 記録から分かった・変わった事実の変更。内容を取り込んだ記録の id を records に書く。残る事実の根拠になった記録は、本体が drop_records の指定がなくても自動で削除する。記録にまだ事実へ取り込んでいない内容があれば、必要な内容を取り込んでから records に含める。元の投稿はタイムラインに残る。
+- facts: 記録から分かった・変わった事実の変更。内容を取り込んだ記録の id を records に書く。残る事実の根拠になった記録は、本体が自動で削除する。削除する記録を別に指定する必要はない。記録にまだ事実へ取り込んでいない内容があれば、必要な内容を取り込んでから records に含める。元の投稿はタイムラインに残る。
   - add: 新しい事実を1件（text）。
   - update: 事実が変わった・詳しくなった（id と新しい text）。
   - invalidate: もう当てはまらない事実の id（「もう行った」「やめた」など）。
@@ -219,7 +218,6 @@ tidy_memory で1回で出す。
   - 傾向は反復した記録や既存の事実を根拠にする。1回の出来事から習慣を断定しない。訂正・削除された内容を変化の履歴として復活させない。
   - add には根拠の記録の id が必須。既存の事実を詳しくするなら update、複数の事実を結び付けるなら merge を使い、元の投稿への根拠を引き継ぐ。
   - 記録の内容がすでに既存の事実に含まれている場合も、update の records に含めて元投稿の出典を追加し、重複した記録を取り込み済みにする。同じ事実を add で増やさない。
-- drop_records: 事実に取り込んだので要らなくなった記録の id。本体は、残る事実の根拠（records）になった記録だけを消す。
 - review_records: 事実にはしないが、もう要らなさそうな古い記録の id（最大` + fmt.Sprint(maxReviewRecords) + `件）。本体は消さず、ユーザーに「忘れていい？」と聞く対象にする。迷うものは入れない。
 - invalidate: 「日付の審査対象」の事実のうち、予定・予約・約束・期限のように、その日が過ぎてもう先のことではなくなったものの id。贈った・行った・言ったなどの過去の出来事は入れない。
 - retain: 「日付の審査対象」のうち、過去の出来事として今後も保持すると確認できた id。迷うものはどちらにも入れない。
@@ -299,7 +297,6 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 
 	type submission struct {
 		Facts      []tidyOp           `json:"facts"`
-		Drop       []string           `json:"drop_records"`
 		Review     []string           `json:"review_records"`
 		Invalidate []string           `json:"invalidate"`
 		Retain     []string           `json:"retain"`
@@ -307,12 +304,14 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 	}
 	var sub submission
 	var next memo
+	var dropped []string
 	for attempt := 1; ; attempt++ {
 		reply, err := client.Complete(held, llm.Request{Purpose: "memory_tidy", Attempt: attempt, Model: model, Messages: messages, Tools: []llm.Tool{tool}, ToolChoice: "required"})
 		if err != nil {
 			return nil, err
 		}
 		sub = submission{}
+		dropped = nil
 		var problems []string
 		raw := ""
 		for _, call := range reply.Calls {
@@ -363,24 +362,14 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 				resting[id] = true
 			}
 		}
-		for _, id := range sub.Drop {
-			rec, ok := records[id]
-			switch {
-			case !ok:
-				problems = append(problems, "記録 "+id+" は渡していません")
-			case !resting[r.kakeraOf(rec)]:
-				problems = append(problems, "記録 "+id+" はどの事実の根拠（records）にもなっていません。事実に取り込むか、drop_records から外してください")
-			}
-		}
-		// Folding is one operation: a surviving fact's newly absorbed records
-		// are removed even when the model omits the redundant drop list.
+		// The host derives record removal from validated fact absorption.
 		for _, op := range sub.Facts {
 			if op.Op != "add" && op.Op != "update" && op.Op != "merge" {
 				continue
 			}
 			for _, id := range op.Records {
-				if rec, ok := records[id]; ok && resting[r.kakeraOf(rec)] && !contains(sub.Drop, id) {
-					sub.Drop = append(sub.Drop, id)
+				if rec, ok := records[id]; ok && resting[r.kakeraOf(rec)] && !contains(dropped, id) {
+					dropped = append(dropped, id)
 				}
 			}
 		}
@@ -388,7 +377,7 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 			problems = append(problems, fmt.Sprintf("review_records は%d件までにしてください", maxReviewRecords))
 		}
 		for _, id := range sub.Review {
-			if _, ok := records[id]; !ok || contains(sub.Drop, id) {
+			if _, ok := records[id]; !ok || contains(dropped, id) {
 				problems = append(problems, "記録 "+id+" は見直しに回せません")
 			}
 		}
@@ -406,7 +395,7 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 
 	var kept []record
 	for _, rec := range next.Records {
-		if contains(sub.Drop, rec.ID) {
+		if contains(dropped, rec.ID) {
 			continue
 		}
 		if contains(sub.Review, rec.ID) {
@@ -430,7 +419,7 @@ func (r *Runner) tidyMemory(ctx context.Context, client *llm.Client, model strin
 		next.SuggestedAt = today
 	}
 	err = r.saveMemo(held, skill.ID, next, zone)
-	logKeeper(keeperRecord{Persona: skill.ID, Model: model, Retired: sub.Invalidate, Dropped: sub.Drop, Reviewed: sub.Review, Suggested: logged, Error: errorText(err)})
+	logKeeper(keeperRecord{Persona: skill.ID, Model: model, Retired: sub.Invalidate, Dropped: dropped, Reviewed: sub.Review, Suggested: logged, Error: errorText(err)})
 	if err != nil {
 		return nil, err
 	}
