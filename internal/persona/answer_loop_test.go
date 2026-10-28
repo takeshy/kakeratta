@@ -71,3 +71,28 @@ func TestAnswerPromptOmitsUnusedThreadAndScheduleContext(t *testing.T) {
 		t.Errorf("recordsReadSpec = %q", recordsReadSpec)
 	}
 }
+
+func TestRecallChronologyRulesReachBuiltInAndExternalAnswers(t *testing.T) {
+	skill := (Skill{ID: "dad", Name: "父", Kind: KindPerson}).forTurn()
+	post := timeline.Entry{ID: "question", Speaker: timeline.User, Text: "父に何送ったか言ったっけ？"}
+	for _, thread := range [][]timeline.Entry{{post}, {post, {ID: "followup", Speaker: timeline.User, Text: "最近のほう"}}} {
+		for path, prompt := range map[string]string{
+			"built-in": answerSystemFor(skill, thread, nil, briefRule),
+			"external": answerRulesFor(thread, nil, agentRule),
+		} {
+			for _, rule := range []string{
+				"対象発言までの直近の該当する出来事を優先",
+				"特定の時期や以前の出来事を指定",
+				"より新しい該当記録がないか確認",
+				"検索結果の関連度順やメモの並び順",
+				"投稿日時・記憶の更新日",
+				"昔の出来事を最近の投稿で振り返っていても",
+				"確認できた範囲を示し",
+			} {
+				if !strings.Contains(prompt, rule) {
+					t.Errorf("%s answer (%d entries) missing chronology rule %q", path, len(thread), rule)
+				}
+			}
+		}
+	}
+}

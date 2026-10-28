@@ -3,7 +3,7 @@ type: "Component"
 title: "Persona execution and memory"
 description: "Persona definitions, support through the direct built-in AI and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory as grounded facts and records, schedules, background output language, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-25"
+updated: "2026-10-28"
 ---
 
 Persona definitions, support through the direct built-in AI and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory as grounded facts and records, schedules, and corrections.
@@ -253,6 +253,8 @@ Research reads include `entries` steps for direct timeline posts by ID, `records
 - [model_selection_test.go](../../internal/persona/model_selection_test.go): stage models, preserved research context and budgets, and fallback selection
 
 # Memory: facts and kakera records
+
+Recall answers compare matching memory with topic-specific timeline history by event time. Without an explicit period, they prioritize the latest matching event up to the target post; an explicit historical period takes precedence. Finding one old fact is insufficient: the instructions require checking for newer matching records, distinguishing event dates from posting dates and fact update dates, and avoiding relevance order or memory order as evidence of chronology. Answers briefly state the confirmed event period and qualify the available evidence when recency or dates cannot be established. These are shared model instructions for built-in and external-agent answers, rather than a deterministic event-selection filter. See [answer.go](../../internal/persona/answer.go) and the prompt regression checks in [answer_loop_test.go](../../internal/persona/answer_loop_test.go).
 
 ## Memory layout
 
