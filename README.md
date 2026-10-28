@@ -78,6 +78,12 @@ uses a stronger model for final answers (on by default for infographic).
 A request that says "in detail" uses the strongest answer model in the default configuration.
 See [Design and integrations](#design-and-integrations) for which model does what.
 
+## Alexa
+
+The Alexa skill **Memory Timeline** (Japanese: **かけらノート**, registered invocation name `欠片ノート`) lets you save a note after spoken confirmation, hear the latest persona reply and respond to it, or listen to upcoming saved schedules. Say “Alexa, open Memory Timeline” in English or “アレクサ、かけらノートを開いて” in Japanese.
+
+Device invocation has been verified by the developer. The skill has been submitted to Amazon and is currently in certification; it is not yet publicly available. Operator setup and account linking are required. See the [Alexa setup guide](docs/guides/alexa.md).
+
 ## Gmail and Google Calendar
 
 [Google Bridge](tools/google-bridge/README.md) is an optional companion app you run yourself with your own Google Cloud OAuth client.

@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "bits notes",
+      "invocationName": "memory timeline",
       "intents": [
         {
           "name": "ThrowKakeraIntent",

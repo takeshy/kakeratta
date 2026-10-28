@@ -9,7 +9,7 @@ Select “Review access / 審査用ログイン” on the Kakeratta login screen
 Sign in with the supplied credentials and approve linking.
 
 LAUNCH AND HELP
-Say “Alexa, open Bits Notes” for a short greeting.
+Say “Alexa, open Memory Timeline” for a short greeting.
 Say “Help” for instructions about notes, replies and schedules.
 
 READ AND RESPOND TO A REPLY

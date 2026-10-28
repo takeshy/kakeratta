@@ -10,18 +10,18 @@ One skill and HTTPS endpoint support six locales. Add each language in the conso
 
 | Language / region | Interaction model | Invocation name |
 | --- | --- | --- |
-| Japanese / Japan | [ja-JP.json](../../integrations/alexa/ja-JP.json) | かけらノート |
-| English / US | [en-US.json](../../integrations/alexa/en-US.json) | bits notes |
-| English / UK | [en-GB.json](../../integrations/alexa/en-GB.json) | bits notes |
-| English / Canada | [en-CA.json](../../integrations/alexa/en-CA.json) | bits notes |
-| English / Australia | [en-AU.json](../../integrations/alexa/en-AU.json) | bits notes |
-| English / India | [en-IN.json](../../integrations/alexa/en-IN.json) | bits notes |
+| Japanese / Japan | [ja-JP.json](../../integrations/alexa/ja-JP.json) | 欠片ノート (spoken: かけらノート) |
+| English / US | [en-US.json](../../integrations/alexa/en-US.json) | memory timeline |
+| English / UK | [en-GB.json](../../integrations/alexa/en-GB.json) | memory timeline |
+| English / Canada | [en-CA.json](../../integrations/alexa/en-CA.json) | memory timeline |
+| English / Australia | [en-AU.json](../../integrations/alexa/en-AU.json) | memory timeline |
+| English / India | [en-IN.json](../../integrations/alexa/en-IN.json) | memory timeline |
 
 Both languages use invocation names containing at least two words. Verify recognition and model builds in the console and on devices for each locale. Publication also requires distribution regions and localized skill descriptions. A language edition must match the device language and account marketplace; selecting worldwide distribution does not add language support. See [Amazon's multilingual skill documentation](https://developer.amazon.com/en-US/docs/alexa/custom-skills/develop-skills-in-multiple-languages.html).
 
 ## Speaking to the skill
 
-Say “Alexa, open Bits Notes,” then:
+Say “Alexa, open Memory Timeline,” then:
 
 - “Take a note, I want to go for a walk tomorrow.”
 - “Read my replies.”
@@ -29,6 +29,8 @@ Say “Alexa, open Bits Notes,” then:
 - “Stop.”
 
 Japanese equivalents include “アレクサ、かけらノートを開いて” (open the skill), “メモして、明日は散歩に行きたい” (take a note), “返事を聞いて” (read replies), “予定を教えて” (read schedules) and “ストップ” (stop).
+
+The Japanese note intent also includes both `かけらを投げて` and `欠片を投げて` sample utterances, with and without note text.
 
 Prompts, errors and reprompts follow the Alexa request locale. English posts save `language: en`, and existing persona processing answers in the post's language. Saved replies, persona names and schedule text are not translated during read-aloud. Linking screens and settings follow the app or browser display language.
 
@@ -100,6 +102,8 @@ Use **Review access** on the linking screen with a pre-provisioned review email/
 ## Updating interaction models
 
 For post confirmation, corrections and replies, paste the updated JSON into each target locale's JSON Editor and run Save Model / Build Model. Updating the server alone does not add Yes/No and reply intents or slot-elicitation dialogs.
+
+The Japanese model registers the invocation name as `欠片ノート`, matching the transcription observed when saying “かけらノート”. The display name and spoken instructions can remain “かけらノート”; users do not need to enter kanji. Import the updated [ja-JP.json](../../integrations/alexa/ja-JP.json) in the Japanese locale and run Save Model / Build Model. In the Console's Japanese simulator, verify both `欠片ノートを開いて` and `かけらノートを開いて`, then repeat the spoken invocation on a device before resubmitting. This repository change alone does not update Amazon's model, and the user has confirmed Japanese invocation on a device. The user has also confirmed English device invocation with `memory timeline`. This confirms the tested device setup, not all five English locales; rebuild and test any additional target locales separately.
 
 ## Certification testing instructions
 

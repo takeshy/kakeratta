@@ -77,7 +77,7 @@ No screenshot text is repainted or replaced. Presentation copy is English; sourc
   Saved custom or disabled send phrases are preserved. Manual Send remains
   available. The timeline's Read aloud control speaks
   the root post plus its conversation replies (`compose.js`, `feed.js` and
-  `app.js`). The Alexa examples use the English invocation name with the take-a-note,
+  `app.js`). The Alexa examples use the English invocation name `memory timeline` with the take-a-note,
   read-my-replies and read-my-schedule samples from `integrations/alexa/en-US.json`.
   Schedule reading covers saved kakeratta tasks, not a direct Google Calendar
   query. Opening the skill is shown as an optional entry point; the Yes intent reaches
@@ -87,6 +87,9 @@ No screenshot text is repainted or replaced. Presentation copy is English; sourc
   (`internal/server/dictation.go`); manual Send does not invoke that formatting.
   Browser speech support varies. Alexa requires its own operator configuration,
   account linking and device setup; proactive Alexa announcements are not shipped.
+  The skill has been submitted to Amazon and is currently in certification;
+  it is not yet publicly available. The developer has confirmed device invocation
+  with the updated Japanese and English names.
 - Slide 14's travel infographic is illustrative content from
   `infographic-example.html`, rendered with the real `renderInfographic` and
   Markdown/Mermaid renderer. It is not a captured live AI answer. The share

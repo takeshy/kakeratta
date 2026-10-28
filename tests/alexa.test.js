@@ -112,7 +112,7 @@ test("the Japanese interaction model exposes all three supported actions", () =>
 test("all English locales ship compatible voice actions and free-form note slots", () => {
   for (const locale of ["en-US", "en-GB", "en-CA", "en-AU", "en-IN"]) {
     const { interactionModel: { languageModel: model } } = JSON.parse(readFileSync(new URL(`../integrations/alexa/${locale}.json`, import.meta.url)));
-    assert.equal(model.invocationName, "bits notes");
+    assert.equal(model.invocationName, "memory timeline");
     for (const name of ["ThrowKakeraIntent", "ReadRepliesIntent", "ReadSchedulesIntent"]) {
       const intent = model.intents.find(intent => intent.name === name);
       assert.ok(intent.samples.length > 0, `${locale}: ${name}`);

@@ -10,12 +10,12 @@
 
 | 言語・地域 | 発話定義 | 呼び出し名 |
 | --- | --- | --- |
-| 日本語・日本 | [ja-JP.json](../../integrations/alexa/ja-JP.json) | かけらノート |
-| 英語・米国 | [en-US.json](../../integrations/alexa/en-US.json) | bits notes |
-| 英語・英国 | [en-GB.json](../../integrations/alexa/en-GB.json) | bits notes |
-| 英語・カナダ | [en-CA.json](../../integrations/alexa/en-CA.json) | bits notes |
-| 英語・豪州 | [en-AU.json](../../integrations/alexa/en-AU.json) | bits notes |
-| 英語・インド | [en-IN.json](../../integrations/alexa/en-IN.json) | bits notes |
+| 日本語・日本 | [ja-JP.json](../../integrations/alexa/ja-JP.json) | 欠片ノート（読み：かけらノート） |
+| 英語・米国 | [en-US.json](../../integrations/alexa/en-US.json) | memory timeline |
+| 英語・英国 | [en-GB.json](../../integrations/alexa/en-GB.json) | memory timeline |
+| 英語・カナダ | [en-CA.json](../../integrations/alexa/en-CA.json) | memory timeline |
+| 英語・豪州 | [en-AU.json](../../integrations/alexa/en-AU.json) | memory timeline |
+| 英語・インド | [en-IN.json](../../integrations/alexa/en-IN.json) | memory timeline |
 
 日本語版・英語版とも、2語以上の呼び出し名を使用します。各地域での認識精度とモデルビルドはConsole・実機で確認してください。公開時はDistributionの対象地域と各ロケールのスキル説明も設定します。端末の言語とアカウントのマーケットプレイスに対応する言語版が必要で、全地域に配信する設定だけでは言語対応になりません。[Amazonの多言語対応仕様](https://developer.amazon.com/en-US/docs/alexa/custom-skills/develop-skills-in-multiple-languages.html)
 
@@ -27,7 +27,9 @@
 - 「予定を教えて」
 - 「ストップ」
 
-英語では「Alexa, open Bits Notes」で起動後、次のように話します。
+「かけらを投げて」の投稿コマンドは、ひらがなと漢字（「欠片を投げて」）の両方を発話例に登録しています。
+
+英語では「Alexa, open Memory Timeline」で起動後、次のように話します。
 
 - “Take a note, I want to go for a walk tomorrow.”
 - “Read my replies.”
@@ -104,6 +106,8 @@ mise exec -- npm --prefix frontend run build
 ## 対話モデルの更新
 
 投稿確認・言い直し・返信には、新しいJSONを対象ロケールのJSON Editorへ貼り付け、Save Model / Build Modelを実行してください。サーバーの更新だけではYes/No・返信インテントとスロット聞き取り用ダイアログは追加されません。
+
+日本語モデルの呼び出し名は、実際の発話で観測された文字起こしに合わせて `欠片ノート` と登録します。表示名や音声での案内は「かけらノート」のままで、ユーザーが漢字を入力する必要はありません。日本語ロケールのJSON Editorへ更新後の [ja-JP.json](../../integrations/alexa/ja-JP.json) を読み込み、Save Model / Build Modelを実行してください。Consoleの日本語テストで `欠片ノートを開いて` と `かけらノートを開いて` の両方を確認し、実機でも音声で繰り返し起動できることを確認してから再申請します。このリポジトリの変更だけではAmazon側のモデルは更新されません。日本語は変更後に実機で起動できたとのユーザー確認があります。英語の新しい呼び出し名 `memory timeline` も実機で起動できたとのユーザー確認があります。これは確認した端末設定での結果で、英語5ロケールすべてを確認したものではありません。追加の対象ロケールは個別に再ビルド・実機確認してください。
 
 ## 審査提出用のテスト手順
 

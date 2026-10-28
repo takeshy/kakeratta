@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "かけらノート",
+      "invocationName": "欠片ノート",
       "intents": [
         {
           "name": "ThrowKakeraIntent",
@@ -14,9 +14,11 @@
           "samples": [
             "メモして {text}",
             "かけらを投げて {text}",
+            "欠片を投げて {text}",
             "記録して {text}",
             "メモして",
             "かけらを投げて",
+            "欠片を投げて",
             "記録して"
           ]
         },
