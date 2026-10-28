@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -10,6 +11,57 @@ import (
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+func TestFoldingRecordsDoesNotRequireADuplicateDropInstruction(t *testing.T) {
+	for _, kind := range []string{"add", "update", "merge"} {
+		t.Run(kind, func(t *testing.T) {
+			r, s, f := setup(t, nil, "gourmet")
+			now := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+			entry := appendAt(t, s, "最近は塩味を選ぶ", now.Add(-time.Hour))
+			unfolded := appendAt(t, s, "週末の店はまだ検討中", now.Add(-2*time.Hour))
+			m := memo{Facts: []fact{
+				{ID: "f_a", Text: "塩味が好き", From: []string{"old-a"}},
+				{ID: "f_b", Text: "あっさりした味が好き", From: []string{"old-b"}},
+			}, Records: []record{
+				{ID: "e_pending", Of: unfolded.ID, At: unfolded.At, Summary: unfolded.Text},
+				{ID: "e_folded", Of: entry.ID, At: entry.At, Summary: entry.Text},
+			}}
+			if err := s.WriteNote("gourmet", MemoPath, memoText(m, time.UTC)); err != nil {
+				t.Fatal(err)
+			}
+			op := tidyOp{factOp: factOp{Op: kind, Text: "あっさりした塩味を好む"}, Records: []string{"e_folded"}}
+			if kind == "update" {
+				op.ID = "f_a"
+			}
+			if kind == "merge" {
+				op.IDs = []string{"f_a", "f_b"}
+			}
+			f.summarize = func(system, user string) string {
+				body, _ := json.Marshal(map[string]any{"facts": []tidyOp{op}, "drop_records": []string{}, "review_records": []string{}})
+				return string(body)
+			}
+			skill, _ := r.catalogue.Find(context.Background(), "gourmet")
+			client, _ := r.clientOf()
+			if _, err := r.tidyMemory(context.Background(), client, "test", skill, now, time.UTC); err != nil {
+				t.Fatal(err)
+			}
+			got := r.loadMemo("gourmet", time.UTC)
+			if len(got.Records) != 1 || got.Records[0].ID != "e_pending" {
+				t.Fatalf("folded record retained or unprocessed record lost: %+v", got.Records)
+			}
+			grounded := false
+			for _, fact := range got.Facts {
+				grounded = grounded || contains(fact.From, entry.ID)
+			}
+			if !grounded {
+				t.Fatal("the folded record lost its fact's source link")
+			}
+			if _, ok := s.Entry(entry.ID); !ok {
+				t.Fatal("the original timeline post was deleted")
+			}
+		})
+	}
+}
 
 // Facts change only as asked. An update rewrites a fact in place and keeps its
 // id; an invalidated fact is gone; a merge carries every kakera its facts
