@@ -3,12 +3,14 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, Alexa skill setup, model usage inspection, Hermes on NemoClaw setup, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, workspace deletion, and personal Google Bridge startup, approval journals and key handling."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy", "google-bridge"]
-updated: "2026-10-24"
+updated: "2026-10-28"
 ---
 
 Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, workspace deletion, and personal Google Bridge startup, approval journals and key handling.
 
 # Development, validation, and deployment
+
+As of 2026-10-28, `kakeratta-main-deploy` reads the repository's [cloudbuild.yaml](../../cloudbuild.yaml) instead of an inline build definition. The VM deployment step removes the build identity's old OS Login SSH keys before generating a new one; the previous inline step failed when its login profile exceeded 32 KiB. Image and frontend deployment still use the shared VM path described below.
 
 ## Firebase redirect authentication
 

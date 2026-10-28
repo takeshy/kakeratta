@@ -116,10 +116,9 @@ The script builds a versioned image, applies the Terraform configuration, runs
 response at `https://PROJECT_ID.web.app`.
 
 The current `kakeratta-main-deploy` trigger targets the shared VM rather than
-these Cloud Run/Firebase Hosting resources. During migration it uses an inline
-configuration matching `cloudbuild.yaml`; changing the repository build file
-also requires updating the inline trigger, or switching it to the published
-file. See [shared VM deployment](shared-vm/README.md#deployment-and-recovery).
+these Cloud Run/Firebase Hosting resources. It reads `cloudbuild.yaml` from the
+repository, including the build identity's SSH-key cleanup before VM login.
+See [shared VM deployment](shared-vm/README.md#deployment-and-recovery).
 
 ### Reminder Web Push
 
