@@ -370,8 +370,8 @@ HTTPSとブラウザのプッシュ対応が必要です。iPhone・iPadはホ�
 KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用します。
 
 - Nemotron 3.5 Lightning — 任意の音声入力整形
-- Nemotron 3 Super — 振り分け、内蔵の調査と通常の回答、メモ係
-- Nemotron 3.5 Super VL — deepな依頼・常に熟考する場合の読み取り、予定の計画、workflow の確認、常に熟考する担当の回答、毎日・毎月のチェックイン、毎日の記憶の整理、今日のまとめ・今月のまとめ
+- Nemotron 3 Super — 振り分け、内蔵の調査と通常の回答、メモ係、毎日・毎月のチェックイン、毎日の記憶の整理、今日のまとめ・今月のまとめ
+- Nemotron 3.5 Super VL — deepな依頼・常に熟考する場合の読み取り、予定の計画、workflow の確認、チェックイン以外での常に熟考する担当の回答
 - Nemotron Ultra — 深い回答が必要な依頼の最終回答、担当案の作成
 - Nebius Token Factory — 推論基盤
 
@@ -388,8 +388,8 @@ KakerattaはNebius Token Factoryを通じてNVIDIA Nemotronモデルを使用し
 | deepな依頼・常に熟考する場合の読み取り | middle | Nemotron 3.5 Super VL |
 | 通常の最終回答 | middle | Nemotron 3 Super |
 | 予定の計画 | middle | Nemotron 3.5 Super VL |
-| 毎日・毎月のチェックイン、毎日の記憶の整理、今日のまとめ・今月のまとめ | middle | Nemotron 3.5 Super VL |
-| 常に熟考する担当の回答 | high | Nemotron 3.5 Super VL |
+| 毎日・毎月のチェックイン（常に熟考する担当を含む）、毎日の記憶の整理、今日のまとめ・今月のまとめ | middle | Nemotron 3 Super |
+| チェックイン以外での常に熟考する担当の回答 | high | Nemotron 3.5 Super VL |
 | 深い回答が必要な依頼の回答（調べる道具を持たない図解担当は読み取りも） | high | Nemotron Ultra |
 | 画像解析・OCR | 画像解析モデル | GLM-5.3-Flash |
 | 振り分け | router（Jevへの切り替えも可） | Nemotron 3 Super |

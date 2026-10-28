@@ -533,8 +533,8 @@ sending all work to one large model.
 
 | Model                      | Role                                                                  |
 | -------------------------- | --------------------------------------------------------------------- |
-| **Nemotron 3 Super**       | Routing, reads and ordinary answers, and the note keeper |
-| **Nemotron 3.5 Super VL**  | Reads of deep and AlwaysUltra turns, the schedule phase and workflow review, AlwaysUltra answers (the infographic included), daily and monthly check-ins, the daily memory pass, and the day's and month's summaries; it reasons far longer than Super, which is worth paying where a mistake carries forward or once a day, but not on every answer |
+| **Nemotron 3 Super**       | Routing, reads and ordinary answers, the note keeper, and the daily run (daily and monthly check-ins, including Always think deeply personas, the daily memory pass, and the day's and month's summaries) |
+| **Nemotron 3.5 Super VL**  | Reads of deep and AlwaysUltra turns, the schedule phase and workflow review, and AlwaysUltra answers (the infographic included) outside check-ins; it reasons far longer than Super, which is worth paying where a mistake carries forward, but not on every answer or on the daily run |
 | **Nemotron 3 Ultra**       | Answers for deep requests (reads too, for a persona without lookup tools such as the infographic), plus persona drafting |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
 | **GLM-5.3-Flash**          | Reading screenshots and photos, once per post                         |

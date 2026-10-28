@@ -489,8 +489,8 @@ Conditions: 25 October 2026, local build (commit f38ff35, file storage), Nebius 
 Kakeratta uses NVIDIA Nemotron models through Nebius Token Factory.
 
 - Nemotron 3.5 Lightning — optional dictation polishing
-- Nemotron 3 Super — routing, reads and ordinary answers, and the note keeper
-- Nemotron 3.5 Super VL — reads for deep requests and Always think deeply, schedule planning, workflow review, answers for Always think deeply, daily and monthly check-ins, the daily memory pass, and the day's and month's summaries
+- Nemotron 3 Super — routing, reads and ordinary answers, the note keeper, daily and monthly check-ins, the daily memory pass, and the day's and month's summaries
+- Nemotron 3.5 Super VL — reads for deep requests and Always think deeply, schedule planning, workflow review, and answers for Always think deeply outside check-ins
 - Nemotron Ultra — answers for deep requests, plus persona drafting
 - Nebius Token Factory — inference backend
 
@@ -515,8 +515,8 @@ continues to use Qwen3-Embedding-8B on the main backend.
 | Reads for deep requests and Always think deeply | middle | Nemotron 3.5 Super VL |
 | Ordinary final answers | middle | Nemotron 3 Super |
 | Schedule planning | middle | Nemotron 3.5 Super VL |
-| Daily and monthly check-ins, the daily memory pass, the day's and month's summaries | middle | Nemotron 3.5 Super VL |
-| Answers for Always think deeply | high | Nemotron 3.5 Super VL |
+| Daily and monthly check-ins (including Always think deeply personas), the daily memory pass, the day's and month's summaries | middle | Nemotron 3 Super |
+| Answers for Always think deeply, outside check-ins | high | Nemotron 3.5 Super VL |
 | Answers for deep requests (reads too for the infographic, which has no lookup tools) | high | Nemotron Ultra |
 | Reading images / OCR | Image analysis model | GLM-5.3-Flash |
 | Routing | router (or Jev) | Nemotron 3 Super |

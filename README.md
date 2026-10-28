@@ -156,8 +156,8 @@ The default model configuration is:
 | Model | Role |
 | --- | --- |
 | **Nemotron 3.5 Lightning** | Optional dictation polishing |
-| **Nemotron 3 Super 120B A12B** | Persona routing, reads and ordinary answers, and the note keeper |
-| **Nemotron 3.5 Super VL 120B A12B** | Research for deep requests and Always think deeply, schedule planning and workflow checks, answers for personas with Always think deeply enabled, daily and monthly check-ins, the daily memory pass, and the day's and month's summaries |
+| **Nemotron 3 Super 120B A12B** | Persona routing, reads and ordinary answers, the note keeper, daily and monthly check-ins, the daily memory pass, and the day's and month's summaries |
+| **Nemotron 3.5 Super VL 120B A12B** | Research for deep requests and Always think deeply, schedule planning and workflow checks, and answers for personas with Always think deeply enabled outside check-ins |
 | **Nemotron 3 Ultra 550B A55B** | Answers for deep requests (such as "in detail") |
 | **GLM-5.3-Flash** | Reading attached screenshots and photos, once per post |
 | **Qwen3-Embedding-8B** | Embeddings for meaning search over past fragments |

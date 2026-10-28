@@ -141,7 +141,7 @@
   {
     "file": "images/15-purposeful-models-visible-usage.png",
     "title": "Purposeful model choices. Usage you can inspect.",
-    "caption": "On the shipped Nebius configuration, Nemotron 3 Super handles routing and ordinary reads, answers and memory notes; 3.5 Super VL handles ordinary direct @ai questions, deep reads, always-deep answers, schedule planning/review and daily work; Ultra composes explicit deep-request final answers. Persona usage exposes monthly cost and search counts. Displayed usage is synthetic sample data, not production billing.",
+    "caption": "On the shipped Nebius configuration, Nemotron 3 Super handles routing, ordinary reads, answers, memory notes and daily work; 3.5 Super VL handles ordinary direct @ai questions, deep reads, always-deep answers and schedule planning/review; Ultra composes explicit deep-request final answers. Persona usage exposes monthly cost and search counts. Displayed usage is synthetic sample data, not production billing.",
     "sources": [
       "../../captures/en/gallery-usage.png",
       "../../system/personas.md"

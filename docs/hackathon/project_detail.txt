@@ -90,7 +90,7 @@ Super became the default router at 22% of Ultra's cost. Lightning was cheaper bu
 
 **Unnecessary work.** Logging every model call also revealed avoidable costs. Images and locations are analyzed once and shared. Schedule processing runs only when needed. Limiting Ultra to the final deep answer reduced one deep reply's cost by 48%. Moving the mechanics of claiming Hermes jobs from the model into code reduced its model calls from four to two, cutting cost by about 70%.
 
-**Model assignment.** Super now handles routing, everyday answers, and memory. Super VL handles direct built-in `@ai` questions, plus more demanding or less frequent tasks such as deep research, schedule review, check-ins, and summaries. Ultra is reserved for final deep answers. This keeps routine posts cheap without giving up stronger reasoning where it matters.
+**Model assignment.** Super now handles routing, everyday answers, memory, and the daily check-ins and summaries. Super VL handles direct built-in `@ai` questions, plus more demanding tasks such as deep research and schedule review. Ultra is reserved for final deep answers. This keeps routine posts cheap without giving up stronger reasoning where it matters.
 
 **The result:** The first two single-persona production posts after these changes cost $0.0028 (about 0.44 yen) and $0.0037 (about 0.58 yen), including routing, answering, and memory. Both finished in six to seven seconds. Compared with the earlier $0.009 per post, that's a cost reduction of roughly 60–70%, bringing these everyday posts well below the 1 yen threshold that made me hesitate.
 
