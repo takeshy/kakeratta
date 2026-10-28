@@ -79,7 +79,7 @@ func TestRoutingUsesSuper(t *testing.T) {
 // be mistaken for Nebius; there, and on another endpoint or with a chosen
 // middle model, every job keeps its slot.
 func TestNebiusAssignsEachJobItsModel(t *testing.T) {
-	type want struct{ everyday, deepRead, planning, considered, checkIn string }
+	type want struct{ everyday, deepRead, planning, considered string }
 	for _, tc := range []struct {
 		name   string
 		client *llm.Client
@@ -87,17 +87,16 @@ func TestNebiusAssignsEachJobItsModel(t *testing.T) {
 		want   want
 	}{
 		{"Nebius", llm.New(store.NebiusBaseURL+"/", ""), store.NemotronSuper,
-			want{store.NemotronSuper, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL}},
+			want{store.NemotronSuper, store.NemotronSuperVL, store.NemotronSuperVL, store.NemotronSuperVL}},
 		{"OpenRouter", llm.NewOpenRouter(store.OpenRouterBaseURL, "key"), store.OpenRouterMiddle,
-			want{store.OpenRouterMiddle, store.OpenRouterMiddle, store.OpenRouterMiddle, store.NemotronUltra, store.OpenRouterMiddle}},
+			want{store.OpenRouterMiddle, store.OpenRouterMiddle, store.OpenRouterMiddle, store.NemotronUltra}},
 		{"custom endpoint", llm.New("https://custom.example/v1", ""), store.NemotronSuper,
-			want{store.NemotronSuper, store.NemotronSuper, store.NemotronSuper, store.NemotronUltra, store.NemotronSuper}},
+			want{store.NemotronSuper, store.NemotronSuper, store.NemotronSuper, store.NemotronUltra}},
 		{"chosen middle", llm.New(store.NebiusBaseURL, ""), "custom-middle",
-			want{"custom-middle", "custom-middle", "custom-middle", store.NemotronUltra, "custom-middle"}},
+			want{"custom-middle", "custom-middle", "custom-middle", store.NemotronUltra}},
 	} {
 		settings := store.Settings{MiddleModel: tc.middle, HighModel: store.NemotronUltra, LowModel: store.NemotronLightning}
-		got := want{personaModel(settings), deepReadModel(tc.client, settings), reviewModel(tc.client, settings), consideredModel(tc.client, settings),
-			personaModel(checkInSettings(tc.client, settings))}
+		got := want{personaModel(settings), deepReadModel(tc.client, settings), reviewModel(tc.client, settings), consideredModel(tc.client, settings)}
 		if got != tc.want {
 			t.Fatalf("%s: models = %+v, want %+v", tc.name, got, tc.want)
 		}

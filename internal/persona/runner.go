@@ -735,9 +735,14 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	wakeInstructions string, deep bool, client *llm.Client, settings store.Settings, registry *tools.Registry) *timeline.Entry {
 	ctx = llm.WithTrace(ctx, llm.Trace{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions)})
 	resumed := resumedFrom(ctx)
+	checkIn := strings.HasPrefix(wakeInstructions, dailyHeader) || strings.HasPrefix(wakeInstructions, monthlyHeader)
+	if checkIn && nebiusShipped(client, settings) {
+		ctx = context.WithValue(ctx, checkInModelKey{}, personaModel(settings))
+	}
 	skill = skill.forTurn()
 	// Check-in text contains summaries and historical posts, not a new
-	// request to think deeply. AlwaysUltra remains an independent setting.
+	// request to think deeply. AlwaysUltra still selects the research budget;
+	// the shipped Nebius check-in model override below keeps that work on Super.
 	if !strings.HasPrefix(wakeInstructions, dailyHeader) && !strings.HasPrefix(wakeInstructions, monthlyHeader) {
 		deep = deep || wantsDeep(trigger.Text)
 	}
@@ -762,6 +767,12 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		if answerModel == ultraModel(settings) {
 			slot = "ultra"
 		}
+	}
+	readBase = checkInModel(ctx, readBase)
+	answerModel = checkInModel(ctx, answerModel)
+	phaseModel = checkInModel(ctx, phaseModel)
+	if checkInModel(ctx, "") != "" {
+		slot = "super"
 	}
 	if client == nil || client.BaseURL == "" || answerModel == "" || phaseModel == "" {
 		return nil
@@ -851,7 +862,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	// referenced are the records read this turn, for their dates to move.
 	referenced := map[string]bool{}
 
-	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: answerModel, Reviewer: reviewModel(client, settings)}
+	record := runRecord{Persona: skill.ID, Trigger: trigger.ID, Wake: wakeKind(trigger, listening, wakeInstructions), Path: "workflow", Model: answerModel, Reviewer: checkInModel(ctx, reviewModel(client, settings))}
 	defer func() { logRun(record) }()
 	failed := func(err error) *timeline.Entry {
 		record.Error = err.Error()
@@ -1199,7 +1210,7 @@ func personaModel(settings store.Settings) string {
 
 // On Nebius with the shipped middle model, a turn's jobs go to the model that
 // pays for itself there. Super VL reasons far longer than Super - worth it for
-// what a mistake would carry forward, or once a day, but not for every
+// what a mistake would carry forward, but not for every
 // answer. Routing, ordinary answers, notes and everything else stay on Super.
 // (Lightning answered an ordinary person turn with 26,000 tokens three times
 // running, about 80 seconds each, and never handed in an answer.)
@@ -1235,14 +1246,15 @@ func consideredModel(client *llm.Client, settings store.Settings) string {
 	return ultraModel(settings)
 }
 
-// checkInSettings puts Super VL in the middle slot for the day's and the
-// month's work on Nebius: the day's summary, the month's, the memory pass and
-// every check-in turn, reads and notes included.
-func checkInSettings(client *llm.Client, settings store.Settings) store.Settings {
-	if nebiusShipped(client, settings) {
-		settings.MiddleModel = store.NemotronSuperVL
+type checkInModelKey struct{}
+
+// Daily/monthly work keeps Super, including planning, review and AlwaysUltra
+// personas. run restores the override on external-answer resume as well.
+func checkInModel(ctx context.Context, fallback string) string {
+	if model, _ := ctx.Value(checkInModelKey{}).(string); model != "" {
+		return model
 	}
-	return settings
+	return fallback
 }
 
 // readModel is the model that gathers evidence for an answer on answerModel.

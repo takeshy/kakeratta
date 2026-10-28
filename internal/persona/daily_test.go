@@ -2,14 +2,73 @@ package persona
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/takeshy/kakeratta/internal/llm"
 	"github.com/takeshy/kakeratta/internal/store"
 	"github.com/takeshy/kakeratta/internal/timeline"
 )
+
+func TestNebiusDailyWorkUsesSuper(t *testing.T) {
+	r, s, f := setup(t, func(system, user string) string {
+		if strings.Contains(system, "定期チェックインで読む内部向けのまとめ") {
+			return "- 散歩した [walk]"
+		}
+		return fmt.Sprintf(`{"steps":[{"type":"speak","text":"明日も散歩の準備を確認します。"},{"type":"write_schedule","at":%q,"note":"散歩の準備"}]}`, time.Now().Add(24*time.Hour).UTC().Format(time.RFC3339))
+	}, "routine")
+	settings := s.Settings()
+	settings.MiddleModel = store.NemotronSuper
+	settings.HighModel = store.NemotronUltra
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	// Keep the production endpoint/model-selection path, but send every
+	// request to the local fake so this test never calls a real provider.
+	localClient, _ := r.clientOf()
+	endpoint, _ := url.Parse(localClient.BaseURL)
+	client := llm.New(store.NebiusBaseURL, "test")
+	client.HTTP.Transport = researchTransport(func(req *http.Request) (*http.Response, error) {
+		copy := req.Clone(req.Context())
+		u := *req.URL
+		u.Scheme, u.Host = endpoint.Scheme, endpoint.Host
+		copy.URL = &u
+		return http.DefaultTransport.RoundTrip(copy)
+	})
+	seen := map[string]int{}
+	client.Observe = func(call llm.CallRecord) {
+		seen[call.Purpose]++
+		if call.Model != store.NemotronSuper {
+			t.Errorf("daily %s used %s, want Super", call.Purpose, call.Model)
+		}
+	}
+	r.clientOf = func() (*llm.Client, store.Settings) { return client, s.Settings() }
+	day := checkInDay(s, time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC), "routine")
+	now := store.CheckInAt(s.Root(), store.DailyID, day)
+	entry := appendAt(t, s, "散歩した", now.Add(-time.Hour))
+	m := memo{Records: []record{{ID: entry.ID, At: entry.At, Summary: entry.Text, Tags: []string{"散歩"}}}}
+	if err := s.WriteNote("routine", MemoPath, memoText(m, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	// AlwaysUltra must not reintroduce VL into the daily run.
+	skill, _ := r.catalogue.Find(context.Background(), "routine")
+	skill.AlwaysUltra = true
+	raw, _ := json.Marshal(skill)
+	if _, err := r.catalogue.Update(context.Background(), skill.ID, raw, nil); err != nil {
+		t.Fatal(err)
+	}
+	r.dailyAt(context.Background(), now)
+	for _, purpose := range []string{"daily_summary", "memory_tidy", "answer", "plan_schedule", "review"} {
+		if seen[purpose] == 0 {
+			t.Errorf("daily run did not exercise %s; calls=%v, phases=%v", purpose, seen, f.phases)
+		}
+	}
+}
 
 func TestDailyCheckInSilenceAndSpeech(t *testing.T) {
 	for _, action := range []string{"silent", "speak"} {

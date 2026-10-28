@@ -348,7 +348,7 @@ highがなければpass。submit_reviewで提出する。`
 func (r *Runner) review(ctx context.Context, client *llm.Client, settings store.Settings, skill Skill, thread []timeline.Entry, trigger timeline.Entry,
 	answer Answer, plan Workflow, known string, names map[string]string, here *time.Location) (*Review, error) {
 
-	model := reviewModel(client, settings)
+	model := checkInModel(ctx, reviewModel(client, settings))
 	encoded, _ := json.MarshalIndent(struct {
 		Schedules []ScheduleOperation `json:"schedules"`
 	}{plan.Schedules}, "", "  ")
