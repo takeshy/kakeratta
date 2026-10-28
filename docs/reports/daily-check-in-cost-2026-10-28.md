@@ -1,4 +1,4 @@
-# Daily check-in cost: Super VL and Super — October 28, 2026
+# Daily check-in cost and memory-folding findings — October 28, 2026
 
 The daily run was changed from **Super VL to Super** in commit `a4b4485` and deployed by Cloud Build `b6566fbe-7738-4bad-957a-488ebd2245a0`. A requested production rerun completed successfully for all nine active remembering personas. The estimated cost fell from **US$0.06143940 to US$0.02488740** in these two observations, about **59.5% lower**. At an illustrative US$1 = JPY150, these amounts are **JPY9.22 and JPY3.73**.
 
@@ -34,6 +34,31 @@ The original output was about 97.3% reasoning tokens. Both models have the same 
 | **Total** | **12** | **0.06143940** | **0.02488740** |
 
 For one person persona, its own daily answer and memory work totalled US$0.02182560 before and US$0.00671580 after, approximately JPY3.27 and JPY1.01 at the same illustrative exchange rate. These are that persona's totals; they exclude the shared summary and the other eight personas.
+
+## Case study: both models left an absorbed record behind
+
+The owner reported that a fragment record remained after its contents had been moved into Current facts, across the Super VL daily run and the Super rerun. A subsequent production-memory inspection found six remaining records for the affected person persona. One record duplicated an existing fact's content and pointed to the same original post through its `of:` field and the fact's `from:` source. That record was already absorbed and should have been removed. The other five records were retained for separate assessment; this investigation did not establish that they had all been absorbed.
+
+Both models deleted some records during tidying, but neither reliably completed the move-into-facts-and-remove-record lifecycle for all absorbed records in this case. Keeper logs show:
+
+| Run | Model | Records explicitly deleted during tidying |
+| --- | --- | ---: |
+| Original, 08:47:34 UTC | Super VL | 2 |
+| Rerun, 09:16:45 UTC | Super | 1 |
+
+This was an observed deletion omission with both models, rather than evidence that either model can never perform both actions. Switching from Super VL to Super reduced cost but did not resolve the retained duplicate.
+
+The original interface asked the model for two related outputs: fact operations with their absorbed `records`, and a separate `drop_records` list. The host removed only the latter. A successful fact update therefore did not guarantee removal of its record. This left completion of a dependent storage operation to a second model decision.
+
+The repair moved that invariant into the host in [memory_tidy.go](../../internal/persona/memory_tidy.go):
+
+1. Commit `10a8227` derives removal automatically from the record IDs absorbed by validated `add`, `update`, and `merge` operations, provided a surviving fact retains the original-post source. It no longer depends on a separate deletion instruction.
+2. That first repair still exposed the redundant `drop_records` instruction and required schema field. The owner's follow-up identified the remaining duplicate request. Commit `4d6a3e0` removes it from the prompt, tool schema, required fields and response handling. `facts[].records` is now the single declaration of absorption.
+3. The existing duplicate was separately removed after backing up memory and checking the current text, fact source and original post under the persona's keeper lock. The five other records, all facts and the original timeline post were preserved. This cleanup used no new inference call.
+
+For a record whose content is already present in a fact, instructions now request an `update` that attaches the record's original-post source; the host then removes the absorbed record in the same memory save. Unabsorbed records and original timeline posts remain. Regression checks in [facts_test.go](../../internal/persona/facts_test.go) cover automatic removal for add/update/merge, preservation of unprocessed records and original posts, and absence of a separate deletion request in the prompt and schema.
+
+The engineering lesson is to let the model decide what a record means and which fact absorbs it, while the host enforces the dependent save-and-remove operation. More reasoning tokens or changing models did not make a redundant, multi-step output contract reliable in this observation. No general model failure rate was measured.
 
 ## Reproducing the accounting
 
