@@ -282,7 +282,7 @@ code. The prose initially stayed - the user wanted the persona's own reading of 
 - but it was rewritten at the persona's check-in, from what
 changed among the facts, rather than with every fragment.
 
-On October 17, the separate prose summary was removed. Each persona now keeps one `Memo.md` containing current facts and kakera records. Facts have a 4,000-character total budget (200 per fact), including grounded tendencies, conditions, exceptions and useful changes over time. Ordinary turns append a short tagged record; at check-in, the daily pass folds new records into facts and deletes folded records. Edits and record reviews keep the fuller correction path. This avoids repeatedly condensing the same prose while preserving the posts behind each fact.
+On October 17, the separate prose summary was removed. Each persona now keeps one `Memo.md` containing current facts and kakera records. Facts have a 4,000-character total budget (200 per fact), including grounded tendencies, conditions, exceptions and useful changes over time. Ordinary turns append a short tagged record; at check-in, the daily pass folds new records into facts and removes every record cited by a validated fact operation automatically, after both Super VL and Super folded a record into a fact while omitting it from a separate deletion list. Edits and record reviews keep the fuller correction path. This avoids repeatedly condensing the same prose while preserving the posts behind each fact.
 
 ## 14. A newer model thought far more, and a smaller one never stopped
 
@@ -301,11 +301,12 @@ ordinary reply from a person persona (about 5,900 input tokens) it ran into the
 handed in no answer, so an edited post sat unanswered for four minutes. A book
 persona's answer did the same, and another turn timed out after 240 seconds.
 
-Routing, ordinary answers and notes went back to Super. Super VL keeps the work
-that is rare or carries forward: reads for deep and AlwaysUltra turns,
-AlwaysUltra answers, schedule planning and review, and the daily run. The first
-posts after the change cost about 0.4 to 0.55 yen each, routing included, and
-finished in six to seven seconds.
+Routing, ordinary answers and notes went back to Super, and on October 28 the
+daily run moved back to Super as well after a nine-persona run fell from about
+$0.061 on Super VL to $0.025 on Super. Super VL keeps the work that is rare or
+carries forward: reads for deep and AlwaysUltra turns, AlwaysUltra answers, and
+schedule planning and review. The first posts after the change cost about 0.4
+to 0.55 yen each, routing included, and finished in six to seven seconds.
 
 **Lesson:** the same price per token is not the same price per answer. A model
 change needs its reasoning tokens and latency watched on real posts, per
