@@ -173,6 +173,47 @@ cost **$0.0028 and $0.0037** each (about ¥0.44–0.58), including routing, answ
 and memory, and finished in six to seven seconds: roughly 60–70% less than the
 earlier $0.009 per post.
 
+**Why Nebius Token Factory**
+
+Nebius Token Factory made model selection much easier. With a consistent API,
+I could send the same prompts to different models and compare routing
+agreement, response time, token usage, and cost. Its dashboard also made it
+easy to track spending by model.
+
+One surprising result came from choosing the routing model. Nemotron 3.5
+Lightning was the cheapest per token and matched Super's agreement with a
+reference model (17 of 20 real posts). However, Lightning generated far more
+tokens and averaged 6.55 seconds per post, compared with 1.91 seconds for Super.
+
+Because Super used far fewer tokens, the real cost gap was small (about
+$0.00065 for Super vs. $0.00047 for Lightning per post), which easily justified
+responses more than three times faster. I chose Super for routing.
+
+Token Factory was also reliable throughout development. I experienced no
+HTTP 429 rate-limit errors, and response times were consistently stable. This
+made both model benchmarking and day-to-day development predictable, without
+having to account for rate limits or unpredictable latency.
+
+This is where Token Factory accelerated development: I could compare models
+under the same conditions, understand their real-world trade-offs, and make
+decisions based on measured results rather than model specifications or
+pricing alone.
+
+**Why Tavily**
+
+Tavily was easy to integrate as a `web_search` tool for AI personas. By
+controlling tool calls in the application, I could set a limit on the number of
+searches per request and prevent runaway search loops, keeping API usage
+predictable. An ordinary turn may make at most 2 searches, and a deep request at
+most 4, each returning source links the user can open.
+
+Tavily's generous free tier was also a big help during development. I could
+repeatedly test how personas searched for and used external information without
+worrying too much about search costs.
+
+Together, these made Tavily a practical choice for giving AI personas access to
+up-to-date information while keeping usage under control.
+
 OpenRouter is an optional alternative. Models are chosen by task to benefit
 from smaller models' lower cost and faster responses, using stronger models
 where deeper reasoning is needed. Each persona has its own memory and
