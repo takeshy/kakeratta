@@ -128,9 +128,9 @@ So I split each turn into separate stages: routing, answering, planning and vali
 
 But that didn't mean kakeratta could give the same thoughtful answers as general-purpose AI assistants.
 
-Looking at Muse, Dots, Grok bot, and other Personal AI services, I saw capable models, rich information sources, and the ability to handle complex questions and research. Some can even operate a browser to make reservations. Trying to match all of that with kakeratta wouldn't be realistic, either technically or financially.
+After trying Muse, Dots, and Grok bot, I saw capable models, rich information sources, and the ability to handle complex questions and research. All three can even operate a browser to make reservations. Trying to match all of that with kakeratta wouldn't be realistic, either technically or financially.
 
-I originally wanted to build a Personal AI for people around me who aren't particularly tech-savvy. But I came to think they'd be better off starting with those general-purpose AI services.
+I originally wanted to build a Personal AI for people around me who aren't particularly tech-savvy. But I came to think they'd be better off starting with those general-purpose AI services, and adding kakeratta alongside them for what those tools don't cover.
 
 Meanwhile, I use kakeratta every day.
 
@@ -140,7 +140,7 @@ For example, if I tell kakeratta I've already taken my medication, it can skip t
 
 I also realized that the more personal memories we entrust to an AI service, the harder it becomes to leave that service. That's why kakeratta lets users export their data and continue using it with the local version.
 
-As I explored other Personal AI services and kept experimenting with kakeratta in my own daily life, I realized that its value isn't in replacing general-purpose AI. It's in the small conveniences those tools don't quite cover, and in letting people keep their own data, regardless of which AI they choose to use.
+As I used those Personal AI services and kept experimenting with kakeratta in my own daily life, I realized that its value isn't in replacing general-purpose AI. It's in the small everyday conveniences they leave out, and in letting people keep their own data, regardless of which AI they choose to use.
 
 ## What's next for kakeratta
 
