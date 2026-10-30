@@ -222,6 +222,28 @@ class JudgeIsolationTest(unittest.TestCase):
             self.assertEqual([c.args[2] for c in asks.call_args_list], self.wids)
             self.assertEqual([c.args[2] for c in requests.call_args_list], self.wids)
 
+    def test_main_polls_both_judge_workspaces_and_configured_owner_workspace(self):
+        self.cfg["mcp_servers"]["kakeratta"]["headers"] = {"Authorization": "Bearer openshell:resolve:env:v1_KAKERATTA_MCP_TOKEN"}
+        self.cfg["agent"] = {"max_turns": 15}
+        (self.home / "config.yaml").write_text(yaml.safe_dump(self.cfg))
+        with patch.dict(os.environ, {"HERMES_HOME": str(self.home), "JUDGE_MCP_KEY": "j" * 64, "JUDGE_WORKSPACES_URL": "https://host.example/internal/judge-workspaces"}), \
+             patch.object(gate, "judge_tick") as jtick, \
+             patch.object(gate, "judge_workspaces") as jdisc, \
+             patch.object(gate, "call_tool", return_value={"asks": [], "requests": [{"id": "owner-req", "status": "pending"}]}) as poll, \
+             patch.object(worker, "process") as proc_owner, \
+             patch("sys.stdout", new_callable=io.StringIO) as out:
+            gate.main()
+            jtick.assert_called_once()
+            jdisc.assert_not_called()
+            poll.assert_called_once_with(
+                "https://host.example/api/mcp/users/parent",
+                {"Authorization": "Bearer openshell:resolve:env:v1_KAKERATTA_MCP_TOKEN",
+                 "Content-Type": "application/json", "Accept": "application/json, text/event-stream"},
+                "list_asks",
+            )
+            proc_owner.assert_called_once()
+            self.assertEqual(json.loads(out.getvalue().strip()), {"wakeAgent": False})
+
     def test_discovery_refuses_cross_origin_and_redirects(self):
         response = io.BytesIO(json.dumps({"workspaces": [{"workspaceId": self.wids[0], "mcpUrl": "https://evil.example/mcp"}]}).encode())
         with patch.object(gate.urllib.request, "build_opener") as opener:

@@ -31,7 +31,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "13"
+GATE_VERSION = "14"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -330,13 +330,17 @@ def judge_tick():
 def main():
     try:
         _load_env_file()
+        ran_judge_tick = False
         if os.environ.get("JUDGE_WORKSPACES_URL"):
-            judge_tick()
-            print(json.dumps({"wakeAgent": False}))
-            return
+            ran_judge_tick = True
+            try:
+                judge_tick()
+            except Exception as e:
+                print(f"kakeratta judge tick failed: {e}", file=sys.stderr)
         config_path = get_hermes_home() / "config.yaml"
         if not config_path.exists():
-            print("Pre-check warning: config.yaml not found; skipping wake", file=sys.stderr)
+            if not ran_judge_tick:
+                print("Pre-check warning: config.yaml not found; skipping wake", file=sys.stderr)
             print(json.dumps({"wakeAgent": False}))
             return
 
@@ -347,7 +351,8 @@ def main():
         mcp_cfg = cfg.get("mcp_servers", {}).get("kakeratta", {})
         url = mcp_cfg.get("url")
         if not url:
-            print("Pre-check warning: kakeratta MCP url not configured in config.yaml; skipping wake", file=sys.stderr)
+            if not ran_judge_tick:
+                print("Pre-check warning: kakeratta MCP url not configured in config.yaml; skipping wake", file=sys.stderr)
             print(json.dumps({"wakeAgent": False}))
             return
 
@@ -355,14 +360,21 @@ def main():
         headers["Content-Type"] = "application/json"
         headers["Accept"] = "application/json, text/event-stream"
 
+        auth_header = str(headers.get("Authorization") or "")
+        judge_key = os.environ.get("JUDGE_MCP_KEY", "")
+        if ran_judge_tick and judge_key and auth_header == "Bearer " + judge_key:
+            print(json.dumps({"wakeAgent": False}))
+            return
+
         targets = [{"workspaceId": "configured", "mcpUrl": url}]
-        try:
-            discovered = judge_workspaces(url, headers)
-            targets = discovered
-        except Exception as e:
-            # A normal per-user key cannot call the judge endpoint. Preserve
-            # the existing single-workspace behavior in that case.
-            print(f"kakeratta judge discovery unavailable: {e}", file=sys.stderr)
+        if not ran_judge_tick and not auth_header.startswith("Bearer openshell:resolve:"):
+            try:
+                discovered = judge_workspaces(url, headers)
+                targets = discovered
+            except Exception as e:
+                # A normal per-user key cannot call the judge endpoint. Preserve
+                # the existing single-workspace behavior in that case.
+                print(f"kakeratta judge discovery unavailable: {e}", file=sys.stderr)
 
         # Each workspace is read on its own: one that fails (being deleted,
         # say) is skipped this tick and never holds up the others.

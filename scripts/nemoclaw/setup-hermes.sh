@@ -149,6 +149,37 @@ if [ "$mcp_scheme" = "https" ]; then
     if ! nemohermes "$SANDBOX" mcp list 2>/dev/null | strip_ansi | grep -E "^\s+kakeratta\s" | grep -q "env: KAKERATTA_MCP_TOKEN"; then
         nemohermes "$SANDBOX" mcp add kakeratta --url "$KAKERATTA_MCP_URL" --env KAKERATTA_MCP_TOKEN
     fi
+    # 共用の審査員ワークスペース（/internal/judge-workspaces と動的な /api/mcp/users/**）も
+    # 同じ kakeratta ホスト上で JUDGE_MCP_KEY を使って通信できるよう許可を揃える。
+    base_policy_tmp="$(mktemp)"
+    if openshell policy get -g "$GATEWAY" "$SANDBOX" --base 2>/dev/null | strip_ansi | sx "$HERMES_PY" -I -c '
+import sys, yaml
+lines = sys.stdin.read().splitlines()
+start = next(i for i, l in enumerate(lines) if l.startswith("version:") or l.startswith("network_policies:"))
+doc = yaml.safe_load("\n".join(lines[start:]))
+rule = (doc.get("network_policies") or {}).get("mcp_bridge_kakeratta")
+if not isinstance(rule, dict):
+    sys.exit(1)
+host = sys.argv[1]
+eps = rule.get("endpoints") or []
+allowed_ips = next((ep.get("allowed_ips") for ep in eps if isinstance(ep, dict) and ep.get("allowed_ips")), None)
+rest_rules = [
+    {"allow": {"method": "GET", "path": "/internal/judge-workspaces"}},
+    {"allow": {"method": "POST", "path": "/api/mcp/users/**"}},
+    {"allow": {"method": "GET", "path": "/api/mcp/users/**"}},
+]
+rest_ep = {"host": host, "port": 443, "protocol": "rest", "enforcement": "enforce", "rules": rest_rules}
+if allowed_ips:
+    rest_ep["allowed_ips"] = allowed_ips
+kept = [ep for ep in eps if isinstance(ep, dict) and ep.get("protocol") != "rest"]
+if kept + [rest_ep] == eps:
+    sys.exit(2)
+rule["endpoints"] = kept + [rest_ep]
+yaml.safe_dump(doc, sys.stdout, sort_keys=False, allow_unicode=True)
+' "$mcp_host" >"$base_policy_tmp"; then
+        openshell policy set -g "$GATEWAY" "$SANDBOX" --policy "$base_policy_tmp" --wait >/dev/null
+    fi
+    rm -f "$base_policy_tmp"
 else
     # http（ローカル開発）は管理 MCP に登録できない（HTTPS 必須）ので、宛先だけを
     # 許可してトークンは config.yaml に書く。
@@ -162,9 +193,10 @@ fi
 # --- 5. Hermes の設定 ---------------------------------------------------------
 log "Hermes の設定を更新"
 # config.yaml はサンドボックス内で直接編集してよい（ハッシュファイルには触れない）。
-printf '%s\n%s\n%s\n' "$mcp_mode" "$KAKERATTA_MCP_URL" "$KAKERATTA_MCP_TOKEN" | sx "$HERMES_PY" -I -c '
+printf '%s\n%s\n%s\n%s\n%s\n' "$mcp_mode" "$KAKERATTA_MCP_URL" "$KAKERATTA_MCP_TOKEN" "${JUDGE_WORKSPACES_URL:-}" "${JUDGE_MCP_KEY:-}" | sx "$HERMES_PY" -I -c '
 import os, sys, tempfile, yaml
-mode, url, token = sys.stdin.read().split("\n")[:3]
+from pathlib import Path
+mode, url, token, judge_url, judge_key = sys.stdin.read().split("\n")[:5]
 path = "/sandbox/.hermes/config.yaml"
 cfg = yaml.safe_load(open(path)) or {}
 cfg.setdefault("tools", {}).setdefault("tool_search", {})["enabled"] = "off"
@@ -180,6 +212,19 @@ with os.fdopen(fd, "w") as f:
     yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
 os.chmod(tmp, st.st_mode & 0o777)
 os.replace(tmp, path)
+if judge_key:
+    if not judge_url and "/api/mcp/users/" in url:
+        judge_url = url.split("/api/mcp/users/", 1)[0] + "/internal/judge-workspaces"
+    env_path = Path("/sandbox/.hermes/.env")
+    lines = [l for l in (env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else [])
+             if not l.startswith("JUDGE_MCP_KEY=") and not l.startswith("JUDGE_WORKSPACES_URL=")]
+    if judge_url:
+        lines.append("JUDGE_WORKSPACES_URL=" + judge_url)
+    lines.append("JUDGE_MCP_KEY=" + judge_key)
+    env_tmp = env_path.with_name(".env.tmp")
+    env_tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.chmod(env_tmp, 0o600)
+    os.replace(env_tmp, env_path)
 ' "$TOKENFACTORY_URL" "$ULTRA_MODEL"
 
 # --- 6. Skill・Wake Gate・ワーカーと cron -------------------------------------

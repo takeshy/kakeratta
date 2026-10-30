@@ -3,7 +3,7 @@ type: "Process"
 title: "Development and workspace operations"
 description: "Development, validation, Alexa skill setup, model usage inspection, Hermes on NemoClaw setup, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, workspace deletion, and personal Google Bridge startup, approval journals and key handling."
 tags: ["development", "usage", "deployment", "migration", "location", "export", "destroy", "google-bridge"]
-updated: "2026-10-28"
+updated: "2026-10-30"
 ---
 
 Development, validation, model usage inspection, remote Terraform state and variables, deployment, memory migration, location backfill, portable exports, workspace deletion, and personal Google Bridge startup, approval journals and key handling.
@@ -84,7 +84,7 @@ The [2026-10-28 daily-check-in measurement](../reports/daily-check-in-cost-2026-
 
 ## Hermes on NemoClaw
 
-[setup-hermes.sh](../../scripts/nemoclaw/setup-hermes.sh) builds a Hermes sandbox for kakeratta and converges on rerun. It installs NemoClaw at a pinned tag and onboards the parent on `inference.local` with Super-VL, imports the [Token Factory profile](../../scripts/nemoclaw/profiles/tokenfactory.yaml), enables `providers_v2_enabled` at gateway-global scope (the sandbox scope does not compose `_provider_tokenfactory_v2`), attaches the provider so `delegation` reaches Ultra by name, and allows the keyless web search hosts for `hermes` and Python. An `https` kakeratta MCP URL is registered as NemoClaw managed MCP; an `http` local URL is allowed by policy with the token in `config.yaml`, since managed MCP requires HTTPS. It edits `config.yaml` in place, uploads the skill, gate and worker from this repository, creates the one-minute cron, and checks an Ultra call and `list_asks`. It refuses to start when an unused `127.0.0.1` port does not refuse connections, as under WSL mirrored networking, where NemoClaw's port probe times out. See [the NemoClaw scripts README](../../scripts/nemoclaw/README.md).
+[setup-hermes.sh](../../scripts/nemoclaw/setup-hermes.sh) builds a Hermes sandbox for kakeratta and converges on rerun. It installs NemoClaw at a pinned tag and onboards the parent on `inference.local` with Super-VL, imports the [Token Factory profile](../../scripts/nemoclaw/profiles/tokenfactory.yaml), enables `providers_v2_enabled` at gateway-global scope (the sandbox scope does not compose `_provider_tokenfactory_v2`), attaches the provider so `delegation` reaches Ultra by name, and allows the keyless web search hosts for `hermes` and Python. An `https` kakeratta MCP URL is registered as NemoClaw managed MCP and additionally allows `GET /internal/judge-workspaces` and `GET`/`POST /api/mcp/users/**` in `mcp_bridge_kakeratta` so shared judge workspaces can use `JUDGE_MCP_KEY`; an `http` local URL is allowed by policy with the token in `config.yaml`, since managed MCP requires HTTPS. It edits `config.yaml` in place (and writes `JUDGE_WORKSPACES_URL` and `JUDGE_MCP_KEY` to `/sandbox/.hermes/.env` when supplied), uploads the skill, gate and worker from this repository, creates the one-minute cron, and checks an Ultra call and `list_asks`. It refuses to start when an unused `127.0.0.1` port does not refuse connections, as under WSL mirrored networking, where NemoClaw's port probe times out. See [the NemoClaw scripts README](../../scripts/nemoclaw/README.md).
 
 ## Terraform state and variables
 
