@@ -590,7 +590,7 @@ kakeratta is made to be used alongside other AI and services. Using ChatGPT or a
 | Obsidian (LLM Connect Hub) | Personas answer from Vault notes, RAG and skills | [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub) |
 | Gmail and Google Calendar | Offers important mail and today's and tomorrow's events for import (through Google Bridge and Hermes) | [Gmail and Google Calendar](google.md) |
 | Bluesky | Publishes conversations you choose from your own account | [Share a conversation to Bluesky](#share-a-conversation-to-bluesky) |
-| Alexa | Post by voice and hear replies and schedules. **In Amazon certification**; until published, only a skill you create yourself works | [Connecting the Alexa skill](alexa.md) |
+| Alexa | Post by voice and hear replies and schedules. Published in the Alexa skill store (search "kakeratta") | [Connecting the Alexa skill](alexa.md) |
 
 The manual has instructions you can hand to an AI agent on your machine to set up Hermes, NemoClaw and the Google integration ([Connect Hermes](https://kakeratta.net/manual/?lang=en#en-hermes-connect), [Gmail and Google Calendar](https://kakeratta.net/manual/?lang=en#en-google)).
 
