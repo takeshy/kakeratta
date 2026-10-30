@@ -452,7 +452,7 @@ kakeratta は、ほかのAIやサービスと一緒に使う前提で作られ�
 | Obsidian（LLM Connect Hub） | Vault のノート・RAG・スキルを使って担当が答える | [LLM Connect Hub](https://github.com/takeshy/obsidian-llm-connect-hub/blob/main/README_ja.md) |
 | Gmail・Google Calendar | 重要メールと今日・明日の予定を取り込み候補にする（Google Bridge と Hermes 経由） | [Gmail・Google Calendar](google_ja.md) |
 | Bluesky | 選んだ会話を自分のアカウントで公開する | [会話をBlueskyに公開する](#会話をblueskyに公開する) |
-| Alexa | 声で投稿し、担当の返事と予定を聞く。**Amazon の公開審査中**で、公開までは自分でスキルを作る場合だけ使えます | [Alexaスキルの接続](alexa_ja.md) |
+| Alexa | 声で投稿し、担当の返事と予定を聞く。スキルストアで公開中（ストアで「kakeratta」と検索） | [Alexaスキルの接続](alexa_ja.md) |
 
 Hermes・NemoClaw・Google 連携の設定は、手元の AI エージェントに頼める指示文をマニュアルに用意しています（[Hermes とつなぐ](https://kakeratta.net/manual/?lang=ja#ja-hermes-connect)、[Gmail・Google Calendar](https://kakeratta.net/manual/?lang=ja#ja-google)）。
 
