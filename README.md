@@ -183,10 +183,11 @@ easy to track spending by model.
 One surprising result came from choosing the routing model. Nemotron 3.5
 Lightning was the cheapest per token and matched Super's agreement with a
 reference model (17 of 20 real posts). However, Lightning generated far more
-tokens and averaged 6.55 seconds per post, compared with 1.91 seconds for Super.
+tokens and averaged 6.55 seconds per routing call, compared with 1.91 seconds for Super.
 
 Because Super used far fewer tokens, the real cost gap was small (about
-$0.00065 for Super vs. $0.00047 for Lightning per post), which easily justified
+$0.00065 for Super vs. $0.00047 for Lightning per routing call; these cover the
+routing step alone, not the whole post measured above), which easily justified
 responses more than three times faster. I chose Super for routing.
 
 Token Factory was also reliable throughout development. I experienced no
