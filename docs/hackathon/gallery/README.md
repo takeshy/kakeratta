@@ -87,8 +87,7 @@ No screenshot text is repainted or replaced. Presentation copy is English; sourc
   (`internal/server/dictation.go`); manual Send does not invoke that formatting.
   Browser speech support varies. Alexa requires its own operator configuration,
   account linking and device setup; proactive Alexa announcements are not shipped.
-  The skill has passed Amazon certification and will be published to the
-  Alexa skill store shortly; it is not yet publicly available. The developer has confirmed device invocation
+  The skill has passed Amazon certification. The developer has confirmed device invocation
   with the updated Japanese and English names.
 - Slide 14's travel infographic is illustrative content from
   `infographic-example.html`, rendered with the real `renderInfographic` and
