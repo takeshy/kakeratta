@@ -100,7 +100,7 @@ Heavier requests cost more by design. A direct @ai question is a research reques
 
 ## Accomplishments that we're proud of
 
-On paper, I needed three things: a notebook to write anywhere, a planner to know when to act, and sticky notes to keep what mattered visible. kakeratta brings all three together. I can post from a PC or phone, even offline, or by voice through the Memory Timeline Alexa skill. Device invocation works in my environment. The skill has been submitted to Amazon and is currently in certification; it is not yet publicly available.
+On paper, I needed three things: a notebook to write anywhere, a planner to know when to act, and sticky notes to keep what mattered visible. kakeratta brings all three together. I can post from a PC or phone, even offline, or by voice through the Memory Timeline Alexa skill. Device invocation works in my environment. The skill has passed Amazon certification and will be published to the Alexa skill store shortly.
 
 It also does what a paper notebook can't. Each post records a rough location, so I can ask "When did I last go to Tokyo?" I can photograph a page of a book with my thoughts, and later ask what I was reading and how I felt about it.
 

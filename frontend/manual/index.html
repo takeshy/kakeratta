@@ -599,7 +599,7 @@
                 <tr><td>Gmail</td><td>重要メールを確認し、タイムラインの取り込み候補にする（Hermes 経由）</td><td><a href="#ja-google">Gmail・Google Calendar</a></td></tr>
                 <tr><td>Google Calendar</td><td>今日・明日の予定を取り込み候補にする（Hermes 経由）</td><td><a href="#ja-google">Gmail・Google Calendar</a></td></tr>
                 <tr><td>Bluesky</td><td>選んだ会話を自分のアカウントで公開する</td><td><a href="#ja-bluesky">Bluesky</a></td></tr>
-                <tr><td>Alexa</td><td>声でかけらを投稿し、担当の返事や予定を聞く（Amazon の公開審査中）</td><td><a href="#ja-alexa">Alexa</a></td></tr>
+                <tr><td>Alexa</td><td>声でかけらを投稿し、担当の返事や予定を聞く（Amazon の認定審査に合格、まもなく公開）</td><td><a href="#ja-alexa">Alexa</a></td></tr>
               </tbody>
             </table>
           </div>
@@ -703,8 +703,8 @@ kakerattaの接続URLとキーは、私が「設定 → 外部連携 → 外部�
             <li>LLM Connect Hub では、設定画面の接続状態（例: <code>Kakeratta: connected; 1 ask failed</code>）を見てください。回答が失敗した依頼は内蔵モデルが答えます。</li>
           </ul>
 
-          <h3 id="ja-alexa">Alexa（公開審査中）</h3>
-          <p>Alexa スキル「かけらノート」（英語は “Memory Timeline”）は、Amazon の公開審査中です。公開されるまでは、Alexa アプリから一般に有効化することはできません。自分で Amazon Developer Console にスキルを作る場合の手順は <a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/alexa_ja.md" rel="noopener">Alexa スキルの接続</a> にあります。</p>
+          <h3 id="ja-alexa">Alexa（まもなく公開）</h3>
+          <p>Alexa スキル「かけらノート」（英語は “Memory Timeline”）は、Amazon の認定審査に合格し、まもなくスキルストアで公開されます。公開されるまでは、Alexa アプリから一般に有効化することはできません。自分で Amazon Developer Console にスキルを作る場合の手順は <a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/alexa_ja.md" rel="noopener">Alexa スキルの接続</a> にあります。</p>
           <p>連携すると、「メモして、…」で内容の読み上げ確認のあとにかけらを投稿し、「返事を聞いて」で担当の最新の返事を、「予定を教えて」で今後の予定を最大5件聞けます。同じ Alexa を使う人にも返事や予定が聞こえます。連携は <strong>設定 → 外部連携</strong> の <strong>Alexa連携を解除</strong> で解除できます。</p>
 
           <section id="ja-google">
@@ -1503,7 +1503,7 @@ mise exec -- go run ./tools/google-bridge/cmd/google-bridge</code></pre>
                 <tr><td>Gmail</td><td>Checks important mail and offers it for timeline import (through Hermes)</td><td><a href="#en-google">Gmail and Google Calendar</a></td></tr>
                 <tr><td>Google Calendar</td><td>Offers today's and tomorrow's events for import (through Hermes)</td><td><a href="#en-google">Gmail and Google Calendar</a></td></tr>
                 <tr><td>Bluesky</td><td>Publishes conversations you choose from your own account</td><td><a href="#en-bluesky">Bluesky</a></td></tr>
-                <tr><td>Alexa</td><td>Post by voice and hear persona replies and schedules (in Amazon certification)</td><td><a href="#en-alexa">Alexa</a></td></tr>
+                <tr><td>Alexa</td><td>Post by voice and hear persona replies and schedules (certified by Amazon; publishing shortly)</td><td><a href="#en-alexa">Alexa</a></td></tr>
               </tbody>
             </table>
           </div>
@@ -1607,8 +1607,8 @@ Tell me separately what is done and what still needs my action.</code></pre>
             <li>In LLM Connect Hub, look at the connection status in its settings (for example, <code>Kakeratta: connected; 1 ask failed</code>). An ask it failed to answer is answered by the built-in model.</li>
           </ul>
 
-          <h3 id="en-alexa">Alexa (in certification)</h3>
-          <p>The Alexa skill “Memory Timeline” (かけらノート in Japanese) is in Amazon certification. Until it is published, it cannot be enabled from the Alexa app. To create the skill yourself in the Amazon Developer Console, follow <a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/alexa.md" rel="noopener">Connecting the Alexa skill</a>.</p>
+          <h3 id="en-alexa">Alexa (publishing shortly)</h3>
+          <p>The Alexa skill “Memory Timeline” (かけらノート in Japanese) has passed Amazon certification and will be published to the skill store shortly. Until it is published, it cannot be enabled from the Alexa app. To create the skill yourself in the Amazon Developer Console, follow <a href="https://github.com/takeshy/kakeratta/blob/main/docs/guides/alexa.md" rel="noopener">Connecting the Alexa skill</a>.</p>
           <p>Once linked, “Take a note, …” posts a fragment after reading it back for confirmation, “Read my replies” reads a persona's latest reply, and “What's on my schedule?” reads up to five upcoming schedules. Other people using the same Alexa can hear your replies and schedule. Unlink with <strong>Unlink Alexa</strong> under <strong>Settings → Integrations</strong>.</p>
 
           <section id="en-google">
