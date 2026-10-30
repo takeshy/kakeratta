@@ -74,50 +74,90 @@ const checkInLookback = 7 * 24 * time.Hour
 // A check-in follows the persona's character and may bring back something
 // worth saying, including a record due for review.
 func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
+	r.checkInAt(ctx, now, "", time.Time{})
+}
+
+// checkInAt runs scheduled checks with their persistent claims, or an explicit
+// manual run without reading or updating automatic execution records. Manual
+// stages checkpoint completion separately from their renewable execution locks.
+func (r *Runner) checkInAt(ctx context.Context, now time.Time, manual string, run time.Time) (err error) {
 	defer func() {
 		if problem := recover(); problem != nil {
-			r.emit("error", map[string]any{"where": "daily", "message": fmt.Sprint(problem)})
+			err = fmt.Errorf("check-in panic: %v", problem)
+			r.emit("error", map[string]any{"where": "daily", "message": err.Error()})
 		}
 	}()
 	client, settings := r.clientOf()
 	if client == nil || client.BaseURL == "" || personaModel(settings) == "" {
-		return
+		if manual != "" {
+			return fmt.Errorf("AI is not configured")
+		}
+		return nil
 	}
 	loc := settings.Location()
 	local := now.In(loc)
 	workspace := r.store.ID()
 	day := local.Format("2006-01-02")
 	summaryDay := local.Day() == store.SummaryDay(workspace)
+	if manual != "" {
+		summaryDay = manual == "monthly"
+	}
 	// At the time the user set, or the app's own minute (store.DailyAt).
 	at, closes, ok := settings.DailyAt(workspace, local)
-	if !ok || local.Before(at) || !local.Before(closes) {
-		return
+	if manual == "" && (!ok || local.Before(at) || !local.Before(closes)) {
+		return nil
 	}
-	claimed, previous, err := r.store.ClaimDailyCheckInAt(store.DailyID, day, now)
-	if err != nil {
-		r.emit("error", map[string]any{"where": "daily", "message": err.Error()})
-		return
+	// claim takes one stage. Automatic stages claim their day or month and
+	// return the previous run; manual ones never move the automatic span.
+	claim := func(id, period string) (bool, time.Time, error) {
+		if manual == "" {
+			return r.store.ClaimDailyCheckInAt(id, period, now)
+		}
+		return true, time.Time{}, nil
 	}
-	if claimed {
-		r.summarizeDay(ctx, client, settings, checkInSince(previous, now, checkInLookback, 24*time.Hour), now, loc)
+	if manual == "" {
+		claimed, previous, err := claim(store.DailyID, day)
+		if err != nil {
+			r.emit("error", map[string]any{"where": "daily", "message": err.Error()})
+			return err
+		}
+		if claimed {
+			r.summarizeDay(ctx, client, settings, checkInSince(previous, now, checkInLookback, 24*time.Hour), now, loc)
+		}
 	}
 	// The month's summary comes next, read from the day's: a person checking
 	// in monthly reads it. Its own claim writes it once.
 	if summaryDay {
-		r.summarizeAt(ctx, now, client, settings)
+		writeSummary := func(ctx context.Context) error {
+			return r.summarizeMonth(ctx, now, client, settings, func() (bool, time.Time, error) {
+				return claim(store.SummaryID, local.Format("2006-01"))
+			})
+		}
+		if manual == "" {
+			_ = writeSummary(ctx)
+		} else if err := r.manualStage(ctx, manual, store.SummaryID, run, writeSummary); err != nil {
+			return err
+		}
 	}
-	// Each persona still claims its own check-in, so one interrupted part way
-	// through the list is taken up again, and none runs twice.
+	// Automatic runs claim each persona separately; manual runs always review
+	// the explicit lookback window, independently of automatic progress.
 	language := r.backgroundLanguage(ctx)
 	for _, skill := range r.skills(ctx).Active(settings.Active) {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if !skill.Remembers() {
 			continue
 		}
 		monthly := settings.CheckInFor(skill.ID).Every == store.CheckInMonthly && skill.IsPerson()
-		if monthly && !summaryDay {
+		if (monthly && !summaryDay) || (manual == "monthly" && !monthly) {
 			continue
 		}
-		claimed, previous, err := r.store.ClaimDailyCheckInAt(skill.ID, day, now)
+		id, period := skill.ID, day
+		if monthly {
+			id, period = monthlyClaimID(skill.ID), local.Format("2006-01")
+		}
+		claimed, previous, err := claim(id, period)
 		if err != nil {
 			r.emit("error", map[string]any{"where": "daily", "message": err.Error()})
 			continue
@@ -125,54 +165,85 @@ func (r *Runner) dailyAt(ctx context.Context, now time.Time) {
 		if !claimed {
 			continue
 		}
-		// Memory is tidied at the check-in, before it reads it.
-		suggestion, err := r.tidyMemory(ctx, client, personaModel(settings), skill.forTurn(), now, loc)
-		if err != nil {
-			r.emit("error", map[string]any{"where": "memory tidy", "persona": skill.ID, "message": err.Error()})
-		}
-		// What happened since the previous check-in actually ran, read as one
-		// span. With no previous run on record, or one long ago, it reads a
-		// day, or a week at most - or, heard from monthly, the month.
-		since := checkInSince(previous, now, checkInLookback, 24*time.Hour)
-		if monthly {
-			since = checkInSince(previous, now, summaryLookback, summaryLookback)
-		}
-		text := "Daily check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + "). Decide whether there is anything worth sharing today." +
-			"\nSince the previous check-in: from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\""
-		instructions := dailyShareInstructions
-		if monthly {
-			text = "Monthly check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + ")." +
-				"\nSince the previous check-in: from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\"" +
-				r.monthlyCheckIn(ctx, skill, since, now, loc)
-			instructions = monthlyShareInstructions
-		}
-		due := r.reviewsDue(skill.ID, now, loc)
-		if !monthly {
-			// The day's summary is handed over, so the persona does not spend
-			// a round reading the span; with nothing new from the user, no
-			// record due and no dated plan coming up, the check-in costs no call.
-			window, fresh := r.checkInDigest(ctx, since, now, loc)
-			if !previous.IsZero() && fresh == 0 && len(due) == 0 && suggestion == nil && !upcomingDated(r.loadMemo(skill.ID, loc), localDay(now, loc), checkInHorizon) {
-				logCheckInSkipped(skill.ID, since, now)
-				continue
+		work := func(ctx context.Context) error {
+			// Memory is tidied at the check-in, before it reads it.
+			suggestion, err := r.tidyMemory(ctx, client, personaModel(settings), skill.forTurn(), now, loc)
+			if err != nil {
+				r.emit("error", map[string]any{"where": "memory tidy", "persona": skill.ID, "message": err.Error()})
+				if manual != "" {
+					return err
+				}
 			}
-			text += window
+			// What happened since the previous check-in actually ran, read as one
+			// span. With no previous run on record, or one long ago, it reads a
+			// day, or a week at most - or, heard from monthly, the month.
+			since := checkInSince(previous, now, checkInLookback, 24*time.Hour)
+			if monthly {
+				since = checkInSince(previous, now, summaryLookback, summaryLookback)
+			}
+			spanLabel := "Since the previous check-in"
+			if manual != "" {
+				spanLabel = "Manual review window"
+			}
+			text := "Daily check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + "). Decide whether there is anything worth sharing today." +
+				"\n" + spanLabel + ": from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\""
+			instructions := dailyShareInstructions
+			if monthly {
+				text = "Monthly check-in: " + local.Format(time.RFC3339) + " (" + loc.String() + ")." +
+					"\n" + spanLabel + ": from \"" + since.In(loc).Format("2006-01-02 15:04") + "\" to \"" + local.Format("2006-01-02 15:04") + "\"" +
+					r.monthlyCheckIn(ctx, skill, since, now, loc)
+				instructions = monthlyShareInstructions
+			}
+			due := r.reviewsDue(skill.ID, now, loc)
+			if !monthly {
+				// The day's summary is handed over, so the persona does not spend
+				// a round reading the span; with nothing new from the user, no
+				// record due and no dated plan coming up, the check-in costs no call.
+				limit := checkInWindowLimit
+				if manual != "" {
+					limit = 0
+				}
+				window, fresh := r.checkInDigestLimit(ctx, since, now, loc, limit)
+				if !previous.IsZero() && fresh == 0 && len(due) == 0 && suggestion == nil && !upcomingDated(r.loadMemo(skill.ID, loc), localDay(now, loc), checkInHorizon) {
+					logCheckInSkipped(skill.ID, since, now)
+					return nil
+				}
+				text += window
+			}
+			// Reviews ride inside the check-in, so the persona posts once.
+			if len(due) > 0 {
+				text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
+				instructions += reviewInstructions
+			}
+			if suggestion != nil {
+				text += suggestion.line()
+				instructions += personaSuggestInstructions
+			}
+			trigger := timeline.Entry{At: local, Speaker: "system", Text: text, Language: language}
+			turn, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			turn, outcome := observeManualTurn(turn)
+			r.run(turn, skill, []timeline.Entry{trigger}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
+			err = outcome.err
+			if err == nil {
+				err = turn.Err()
+			}
+			cancel()
+			return err
 		}
-		// Reviews ride inside the check-in, so the persona posts once.
-		if len(due) > 0 {
-			text += "\n\nReview due, oldest first:\n" + reviewList(due, loc)
-			instructions += reviewInstructions
+		if manual == "" {
+			_ = work(ctx)
+		} else if err := r.manualStage(ctx, manual, id, run, work); err != nil {
+			return err
 		}
-		if suggestion != nil {
-			text += suggestion.line()
-			instructions += personaSuggestInstructions
-		}
-		trigger := timeline.Entry{At: local, Speaker: "system", Text: text, Language: language}
-		turn, cancel := context.WithTimeout(ctx, 10*time.Minute)
-		r.run(turn, skill, []timeline.Entry{trigger}, trigger, false, false, instructions, false, client, settings, r.registry(settings))
-		cancel()
 	}
+	return nil
 }
+
+// monthlyClaimID is where a person heard from monthly claims its month. It is
+// kept apart from its daily claim: a month's "2006-01" sorts before any of
+// that month's days, so after switching from daily the month could not be
+// claimed.
+func monthlyClaimID(id string) string { return id + "@monthly" }
 
 // checkInSince is where a span read since the previous run starts: there, or
 // first back when there was none, and never further back than lookback.

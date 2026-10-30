@@ -55,7 +55,8 @@ class Stub {
   textContent = "";
   innerHTML = "";
   setAttribute(name, value) { this.attributes[name] = value; }
-  addEventListener() {}
+  events = {};
+  addEventListener(name, callback) { this.events[name] = callback; }
   append(...nodes) { this.children.push(...nodes); }
   find(predicate) {
     for (const child of this.children) {
@@ -80,7 +81,24 @@ test("the header links to the manual in a new tab, in the reader's language", as
   setLanguage("en");
   assert.equal(manualLink(), "/manual/?lang=en");
   const room = { banner: new Stub(), bar: new Stub() };
-  const [header] = screenNodes({ compose: new Stub(), room, feed: new Stub(), onOpen: () => {}, onLogout: null });
+  const requested = [];
+  let finishRequest;
+  const [header] = screenNodes({ compose: new Stub(), room, feed: new Stub(), onOpen: () => {}, onLogout: () => {},
+    onCheckIn: period => { requested.push(period); return new Promise(resolve => { finishRequest = resolve; }); },
+  });
+  const daily = header.find(node => node.className === "check-in-action" && node.find(child => child.textContent === "Run daily check-in now"));
+  const monthly = header.find(node => node.className === "check-in-action" && node.find(child => child.textContent === "Run monthly check-in"));
+  assert.ok(daily);
+  assert.ok(monthly);
+  assert.ok(header.find(node => node.tag === "button" && node.textContent === "Sign out"));
+  for (const [button, period] of [[daily, "daily"], [monthly, "monthly"]]) {
+    const pending = button.events.click();
+    assert.equal(button.disabled, true, "pending request disables its button");
+    assert.equal(requested.at(-1), period);
+    finishRequest();
+    await pending;
+    assert.equal(button.disabled, false);
+  }
   const ownStyles = header.find(node => node.tag === "style");
   assert.ok(ownStyles.textContent.includes(".nav-more-items { position: absolute;"), "popup layout ships with the component");
   const help = header.find((node) => node.className.includes("help"));
@@ -90,7 +108,7 @@ test("the header links to the manual in a new tab, in the reader's language", as
   assert.equal(help.attributes.target, "_blank");
   assert.equal(help.attributes.rel, "noopener");
   assert.equal(help.textContent, "User guide");
-  assert.equal(header.find(node => node.className === "nav-more"), null, "desktop has no overflow menu");
+  assert.ok(header.find(node => node.className === "nav-more"), "desktop offers the judging menu");
   assert.ok(header.find(node => node.className === "nav-secondary").find(node => node === help));
   assert.ok(header.find(node => node.attributes["aria-label"] === "Schedules"));
 
@@ -114,7 +132,7 @@ test("the header links to the manual in a new tab, in the reader's language", as
   const toggle = mobileMore.find(node => node.className.includes("more-toggle"));
   assert.equal(toggle.tag, "button");
   assert.equal(toggle.attributes["aria-expanded"], "false");
-  assert.equal(toggle.attributes["aria-label"], "More options");
+  assert.equal(toggle.attributes["aria-label"], "Judging menu");
   assert.equal((toggle.innerHTML.match(/<circle/g) || []).length, 3);
   assert.ok(mobileMore.find(node => node.className === "nav-more-settings"));
   assert.ok(mobileMore.find(node => node.className === "nav-more-personas"));

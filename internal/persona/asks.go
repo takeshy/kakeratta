@@ -44,6 +44,7 @@ type askRecord struct {
 
 // askTurn is what the turn was started with, to start it again from.
 type askTurn struct {
+	ManualOutput         string          `json:"manualOutput,omitempty"`
 	Persona              string          `json:"persona"`
 	Trigger              timeline.Entry  `json:"trigger"`
 	Place                *timeline.Place `json:"place,omitempty"`
@@ -165,7 +166,10 @@ func (r *Runner) openAsk(ctx context.Context, settings store.Settings, ask Ask, 
 	now := time.Now().UTC()
 	ask.State, ask.At, ask.ClaimBy = "pending", now, now.Add(claimWait)
 	record := askRecord{Ask: ask, Context: brief, PlanWait: planWait, Turn: turn}
-	if _, err := r.changeAsk(ctx, ask.ID, record.expiry(), func(current *askRecord, _ bool) (bool, error) {
+	if _, err := r.changeAsk(ctx, ask.ID, record.expiry(), func(current *askRecord, exists bool) (bool, error) {
+		if exists && turn.ManualOutput != "" {
+			return false, nil
+		}
 		*current = record
 		return true, nil
 	}); err != nil {
@@ -435,6 +439,9 @@ func (r *Runner) resumeAsk(ctx context.Context, id string) {
 		return
 	}
 	client, settings := r.clientOf()
+	if record.Turn.ManualOutput != "" {
+		ctx = context.WithValue(ctx, manualOutputKey{}, record.Turn.ManualOutput)
+	}
 	ctx = context.WithValue(ctx, scheduleNotifyKey{}, !record.Turn.SuppressNotification)
 	remark := r.run(context.WithValue(ctx, resumeKey{}, &record), turn.skill, turn.thread, turn.trigger,
 		record.Turn.Named, record.Turn.Listening, record.Turn.Instructions, record.Turn.Deep, client, settings, r.registry(settings))

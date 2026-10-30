@@ -71,7 +71,7 @@ export const Mentioning = {
 };
 
 export const SignedIn = {
-  name: "Googleでログイン中（サインアウトあり）",
+  name: "Googleでログイン中（審査メニューあり）",
   render: () => screen({ rows: personas, entries: timeline().answered, signedIn: true }),
 };
 
@@ -81,7 +81,7 @@ export const ReadingAloud = {
 };
 
 export const MoreOptions = {
-  name: "スマホのその他メニュー",
+  name: "スマホの審査メニュー",
   globals: { viewport: { value: "mobile1", isRotated: false } },
   render: () => {
     const host = screen({ rows: personas, entries: timeline().answered, signedIn: true });

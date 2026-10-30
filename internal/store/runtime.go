@@ -33,12 +33,13 @@ const (
 	RecordPush      = "push-subscriptions"
 	RecordFavorites = "favorites"
 	RecordUsage     = "usage"
+	RecordCheckIns  = "check-ins"
 	// RecordAgentPosts counts, per day, the posts the external agent made
 	// as each persona.
 	RecordAgentPosts = "agent-posts"
 )
 
-var recordCollections = map[string]bool{RecordAsks: true, RecordRequests: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true, RecordUsage: true, RecordAgentPosts: true}
+var recordCollections = map[string]bool{RecordAsks: true, RecordRequests: true, RecordTrials: true, RecordPresence: true, RecordPush: true, RecordFavorites: true, RecordUsage: true, RecordAgentPosts: true, RecordCheckIns: true}
 
 // ErrUnknownRecords is a collection name that is not a runtime record kind.
 var ErrUnknownRecords = errors.New("unknown runtime record collection")

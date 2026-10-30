@@ -102,6 +102,7 @@ export const api = {
   buildPersona: (body) => call("POST", "/api/personas/build", body),
   savePersonaDraft: (skill, id) => call(id ? "PUT" : "POST", id ? `/api/personas/${encodeURIComponent(id)}` : "/api/personas/draft", skill),
   personas: () => call("GET", "/api/personas"),
+  runCheckIn: period => call("POST", `/api/check-ins/${encodeURIComponent(period)}`),
   setDailyCheckIn: (id, schedule) => call("PUT", `/api/personas/${encodeURIComponent(id)}/daily`, schedule),
   setPlanner: (id, planner) => call("PUT", `/api/personas/${encodeURIComponent(id)}/planner`, { planner }),
   setActive: (active) => call("PUT", "/api/personas", { active }),

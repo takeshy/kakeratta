@@ -385,6 +385,12 @@ api.on((name, data) => {
 clear(root).append(
   ...screenNodes({
     compose: compose.element, room, filters: timelineFilters.element, feed: el("div", {}, syncBar, feed.element, pagingFooter), onOpen: open,
+    onCheckIn: async period => {
+      try {
+        await api.runCheckIn(period);
+        toast(t("手動チェックインを受け付けました。自動の実行済み記録は変更しません。結果はタイムラインに届きます。"));
+      } catch (error) { toast(error.message); }
+    },
     onLogout: authenticationEnabled() ? () => void logout() : null,
   }),
 );

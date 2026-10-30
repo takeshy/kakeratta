@@ -55,9 +55,11 @@ type Reaction struct {
 	// Due runs whatever has come due - asks past their waits, note retries,
 	// expired records, check-ins, schedules - and arms the next time something
 	// will; Index brings the search index up to date.
-	Due    bool `json:"due,omitempty" firestore:"due,omitempty"`
-	Index  bool `json:"index,omitempty" firestore:"index,omitempty"`
-	Locate bool `json:"locate,omitempty" firestore:"locate,omitempty"`
+	// CheckIn runs a manually requested daily or monthly check-in.
+	CheckIn string `json:"checkIn,omitempty" firestore:"checkIn,omitempty"`
+	Due     bool   `json:"due,omitempty" firestore:"due,omitempty"`
+	Index   bool   `json:"index,omitempty" firestore:"index,omitempty"`
+	Locate  bool   `json:"locate,omitempty" firestore:"locate,omitempty"`
 	// IndexAgain records changes received while this pass holds its claim.
 	IndexAgain bool `json:"indexAgain,omitempty" firestore:"indexAgain,omitempty"`
 
@@ -335,7 +337,7 @@ func (s *Store) DeferReaction(_ context.Context, id, worker string, notBefore ti
 		return false, nil
 	}
 	item.ClaimedBy, item.ClaimUntil, item.NotBefore = "", time.Time{}, notBefore
-	if !item.Locate {
+	if !item.Locate && item.CheckIn == "" {
 		item.Attempts = 0
 	}
 	return true, writeJSON(path, item)
@@ -612,7 +614,7 @@ func (w *FirestoreWorkspace) DeferReaction(ctx context.Context, id, worker strin
 		}
 		deferred = true
 		attempts := 0
-		if item.Locate {
+		if item.Locate || item.CheckIn != "" {
 			attempts = item.Attempts
 		}
 		item.ClaimedBy, item.ClaimUntil, item.Attempts, item.NotBefore = "", time.Time{}, attempts, notBefore
@@ -743,7 +745,7 @@ func validateInitialReaction(entry timeline.Entry, initial []Reaction) error {
 		return errors.New("entry accepts one initial reaction")
 	}
 	r := initial[0]
-	if !safeName(r.ID) || r.ID == DueReaction || r.ID == IndexReaction || !r.Route || r.Entry != entry.ID || r.Lane != "thread:"+timeline.RootOf(entry) || r.EntryText == nil || *r.EntryText != entry.Text || r.ClaimedBy != "" || r.Delivery != nil || r.Index || r.Due || r.Ask != "" || r.Deliver != "" || r.Deleted != nil || r.Forgotten != nil {
+	if !safeName(r.ID) || r.ID == DueReaction || r.ID == IndexReaction || !r.Route || r.Entry != entry.ID || r.Lane != "thread:"+timeline.RootOf(entry) || r.EntryText == nil || *r.EntryText != entry.Text || r.ClaimedBy != "" || r.Delivery != nil || r.Index || r.Due || r.CheckIn != "" || r.Ask != "" || r.Deliver != "" || r.Deleted != nil || r.Forgotten != nil {
 		return errors.New("invalid initial entry reaction")
 	}
 	return nil

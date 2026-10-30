@@ -40,15 +40,7 @@ export function manualLink() {
   return `/manual/?lang=${getLanguage()}`;
 }
 
-function moreNavigation(onLogout, onOpen, compact, showSettings, narrow) {
-  if (!compact) {
-    return {
-      menu: el("div", { class: "nav-secondary" },
-        el("a", { class: "chip ghost nav help", href: manualLink(), target: "_blank", rel: "noopener", label: "使い方" }),
-        onLogout ? el("button", { type: "button", class: "chip ghost nav", label: "ログアウト", onclick: onLogout }) : null),
-      close: () => {},
-    };
-  }
+function moreNavigation(onLogout, onOpen, compact, showSettings, narrow, onCheckIn) {
   let open = false;
   const close = () => {
     open = false;
@@ -60,8 +52,8 @@ function moreNavigation(onLogout, onOpen, compact, showSettings, narrow) {
   };
   const outside = event => { if (!menu.contains(event.target)) close(); };
   const toggle = el("button", {
-    type: "button", class: "chip ghost nav more-toggle", html: MORE_ICON,
-    "aria-label": t("その他のメニュー"), "aria-expanded": "false",
+    type: "button", class: "chip ghost nav more-toggle", ...(compact ? { html: MORE_ICON } : { label: "審査" }),
+    "aria-label": t("審査メニュー"), "aria-expanded": "false",
     onclick: () => {
       if (open) { close(); return; }
       open = true;
@@ -72,10 +64,21 @@ function moreNavigation(onLogout, onOpen, compact, showSettings, narrow) {
       document.addEventListener("pointerdown", outside);
     },
   });
+  const checkInButton = (period, label, description) => {
+    const button = el("button", { type: "button", class: "check-in-action", onclick: async () => {
+      button.disabled = true;
+      try { await onCheckIn(period); } finally { button.disabled = false; }
+    } }, el("span", { label }), el("small", { label: description }));
+    return button;
+  };
   const items = el("div", { class: "nav-more-items", hidden: true, style: "display: none" },
     narrow ? el("button", { class: "nav-more-personas", type: "button", label: "担当", onclick: () => { close(); onOpen?.("personas"); } }) : null,
     !showSettings ? el("button", { class: "nav-more-settings", type: "button", label: "設定", onclick: () => { close(); onOpen?.("settings"); } }) : null,
-    el("a", { class: "help", href: manualLink(), target: "_blank", rel: "noopener", label: "使い方", onclick: close }),
+    compact ? el("a", { class: "help", href: manualLink(), target: "_blank", rel: "noopener", label: "使い方", onclick: close }) : null,
+    ...(onCheckIn ? [
+      checkInButton("daily", "日次チェックインを今すぐ実行", "記憶を整理し、未参加の話題にも過去の記憶から役立つ提案があれば伝えます。自動実行済みでも実行でき、自動の実行済み記録は変更しません。"),
+      checkInButton("monthly", "月次チェックインを実行", "ひと月の投稿をまとめ、ときどき振り返る人の担当が提案します。自動実行済みでも実行でき、自動の実行済み記録は変更しません。"),
+    ] : []),
     onLogout ? el("button", { type: "button", label: "ログアウト", onclick: () => { close(); onLogout(); } }) : null,
   );
   const menu = el("div", {
@@ -85,10 +88,11 @@ function moreNavigation(onLogout, onOpen, compact, showSettings, narrow) {
     },
     onfocusout: event => { if (event.relatedTarget && !menu.contains(event.relatedTarget)) close(); },
   }, toggle, items);
-  return { menu, close };
+  return { menu: compact ? menu : el("div", { class: "nav-secondary" },
+    el("a", { class: "chip ghost nav help", href: manualLink(), target: "_blank", rel: "noopener", label: "使い方" }), menu), close };
 }
 
-export function screenNodes({ compose, room, feed, filters, onOpen, onLogout }) {
+export function screenNodes({ compose, room, feed, filters, onOpen, onLogout, onCheckIn }) {
   let compact = (globalThis.innerWidth ?? 1024) <= 600;
   // 22px brand + 44px per action + 4px gaps; reserve Personas before Settings.
   let narrow = (globalThis.innerWidth ?? 1024) - 32 < 214;
@@ -101,7 +105,7 @@ export function screenNodes({ compose, room, feed, filters, onOpen, onLogout }) 
   const needs = LABELLED.map(() => 0);
   let step = 0;
   const navigation = () => {
-    more = moreNavigation(onLogout, onOpen, compact, showSettings, narrow);
+    more = moreNavigation(onLogout, onOpen, compact, showSettings, narrow, onCheckIn);
     const { brandName, labelIcons } = LABELLED[step];
     return [
       el("style", { text: navigationStyles, "data-navigation-styles": "" }),

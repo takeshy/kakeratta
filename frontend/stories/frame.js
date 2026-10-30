@@ -84,6 +84,7 @@ export function screen({ rows = [], entries = [], text = "", speaking = false, s
   content.append(timeline.element);
   watchFavorites(() => { if (host.isConnected) timeline.set(filterConversations(entries, filters)); });
   host.append(...screenNodes({
+    onCheckIn: async () => {},
     compose: compose({ text }).element,
     room: room(rows, { speaking }),
     filters: controls.element,

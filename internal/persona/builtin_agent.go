@@ -60,7 +60,7 @@ func (r *Runner) deliverBuiltinAgent(outer context.Context, entry timeline.Entry
 	}
 	registry := r.registry(settings).WithAgentReads(r.store, names)
 	if r.run(ctx, skill, thread, entry, true, false, "", false, client, settings, registry) == nil && ctx.Err() == nil {
-		r.speak(skill, timeline.RootOf(entry), couldNotAnswer(entry.Language), nil, r.store.MemoryMeta(skill.ID), entry.ID, nil, "super", false)
+		r.speak(ctx, skill, timeline.RootOf(entry), couldNotAnswer(entry.Language), nil, r.store.MemoryMeta(skill.ID), entry.ID, nil, "super", false)
 	}
 	return ctx.Err()
 }

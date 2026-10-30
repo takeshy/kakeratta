@@ -35,11 +35,15 @@ export const navigationStyles = `
 .nav-secondary .nav { color: var(--ink); }
 .nav-more { position: relative; flex: 0 0 auto; }
 .topbar .more-toggle { color: var(--ink); display: grid; place-items: center; list-style: none; width: 44px; height: 44px; padding: 0; }
+.topbar:not(.compact) .more-toggle { width: auto; height: auto; padding: 4px 6px; }
 .nav-more .more-toggle[aria-expanded="true"] { background: var(--accent-soft); color: var(--ink); }
-.nav-more-items { position: absolute; top: calc(100% + 6px); right: 0; min-width: 11rem; max-width: calc(100vw - 32px); padding: 6px; z-index: 1; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 8px 28px #0002; animation: nav-menu-appear 120ms ease-out; transform-origin: top right; }
+.nav-more-items { position: absolute; top: calc(100% + 6px); right: 0; min-width: 11rem; max-width: calc(100vw - 32px); padding: 6px; max-height: calc(100dvh - 100px); overflow-y: auto; z-index: 1; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 8px 28px #0002; animation: nav-menu-appear 120ms ease-out; transform-origin: top right; }
 @keyframes nav-menu-appear { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .nav-more-items { animation: none; } }
 .nav-more-items a, .nav-more-items button { display: block; width: 100%; padding: 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.nav-more-items:has(.check-in-action) { width: 22rem; }
+.nav-more-items .check-in-action small { display: block; margin-top: 4px; color: var(--muted); line-height: 1.5; }
+.nav-more-items button:disabled { opacity: .6; cursor: wait; }
 .nav-more-items :is(a, button):hover { background: var(--accent-soft); }
 .nav-more :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .topbar.nav-menu-open { z-index: 21; }

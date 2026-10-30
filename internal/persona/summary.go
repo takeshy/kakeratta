@@ -2,6 +2,7 @@ package persona
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -82,13 +83,23 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 	if local.Day() != store.SummaryDay(r.store.ID()) {
 		return
 	}
-	claimed, previous, err := r.store.ClaimDailyCheckInAt(store.SummaryID, local.Format("2006-01-02"), now)
+	r.summarizeMonth(ctx, now, client, settings, func() (bool, time.Time, error) {
+		return r.store.ClaimDailyCheckInAt(store.SummaryID, local.Format("2006-01"), now)
+	})
+}
+
+// summarizeMonth writes the month's summary once claim takes it, reading from
+// the previous summary claim returns, or the lookback without one.
+func (r *Runner) summarizeMonth(ctx context.Context, now time.Time, client *llm.Client, settings store.Settings, claim func() (bool, time.Time, error)) error {
+	loc := settings.Location()
+	local := now.In(loc)
+	claimed, previous, err := claim()
 	if err != nil {
 		r.emit("error", map[string]any{"where": "summary", "message": err.Error()})
-		return
+		return err
 	}
 	if !claimed {
-		return
+		return nil
 	}
 	since := previous
 	if since.IsZero() || now.Sub(since) > summaryLookback {
@@ -97,7 +108,7 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 	entries, err := store.SearchTimelineWindow(ctx, r.store, since, now)
 	if err != nil {
 		r.emit("error", map[string]any{"where": "summary", "message": err.Error()})
-		return
+		return err
 	}
 	var month []timeline.Entry
 	for _, entry := range entries {
@@ -107,7 +118,7 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 		month = append(month, summaryEntry(entry))
 	}
 	if len(month) == 0 {
-		return
+		return nil
 	}
 	// The month is read from the day's summaries, with only the posts none of
 	// them holds read in full.
@@ -138,15 +149,22 @@ func (r *Runner) summarizeAt(ctx context.Context, now time.Time, client *llm.Cli
 			message = err.Error()
 		}
 		r.emit("error", map[string]any{"where": "summary", "message": message})
-		return
+		return fmt.Errorf("monthly summary: %s", message)
 	}
 	post := timeline.Entry{ID: store.NewID("e"), Kind: timeline.KindPost, Speaker: timeline.App, Text: text, At: now, Summary: timeline.SummaryMonth}
+	if id := manualOutputID(ctx); id != "" {
+		post.ID = id
+	}
 	post.Root = post.ID
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := r.store.Append(post); err != nil {
 		r.emit("error", map[string]any{"where": "summary", "message": err.Error()})
-		return
+		return err
 	}
 	r.emit("entry", post)
+	return nil
 }
 
 // monthlyCheckIn is what a person heard from monthly is woken with: the

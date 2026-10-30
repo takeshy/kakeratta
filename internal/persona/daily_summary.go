@@ -82,6 +82,11 @@ func (r *Runner) dailySummaries() []dailySummary {
 // previous run: the day's summaries covering it, and in full only the posts
 // none of them holds. It also says how many posts since then are the user's.
 func (r *Runner) checkInDigest(ctx context.Context, since, now time.Time, loc *time.Location) (string, int) {
+	return r.checkInDigestLimit(ctx, since, now, loc, checkInWindowLimit)
+}
+
+// A zero limit includes every uncovered post for explicit manual review.
+func (r *Runner) checkInDigestLimit(ctx context.Context, since, now time.Time, loc *time.Location, limit int) (string, int) {
 	entries, err := store.SearchTimelineWindow(ctx, r.store, since, now)
 	if err != nil {
 		// Unread is not "nothing new": the persona reads the span itself.
@@ -117,9 +122,9 @@ func (r *Runner) checkInDigest(ctx context.Context, since, now time.Time, loc *t
 	switch {
 	case len(unsummarised) > 0:
 		head := "\n\nRecords since the previous check-in not in the summary, oldest first:\n"
-		if len(unsummarised) > checkInWindowLimit {
-			head = fmt.Sprintf("\n\nRecords since the previous check-in not in the summary, oldest first (only the newest %d of %d; search for earlier ones):\n", checkInWindowLimit, len(unsummarised))
-			unsummarised = unsummarised[len(unsummarised)-checkInWindowLimit:]
+		if limit > 0 && len(unsummarised) > limit {
+			head = fmt.Sprintf("\n\nRecords since the previous check-in not in the summary, oldest first (only the newest %d of %d; search for earlier ones):\n", limit, len(unsummarised))
+			unsummarised = unsummarised[len(unsummarised)-limit:]
 		}
 		b.WriteString(head + strings.TrimSpace(timeline.Render(unsummarised, r.personaNames(ctx), loc)))
 	case len(handed) == 0:

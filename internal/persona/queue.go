@@ -293,6 +293,18 @@ fold:
 		defer r.arm(time.Now().Add(soonDue))
 	}
 	switch {
+	case item.CheckIn != "":
+		if err := r.checkInAt(ctx, now, item.CheckIn, item.At); err != nil {
+			r.emit("error", map[string]any{"where": "manual check-in", "message": err.Error()})
+			if ctx.Err() == nil && item.Attempts < maxReactionAttempts {
+				if _, err := r.store.DeferReaction(context.Background(), item.ID, worker, time.Now().Add(interruptedDelay)); err != nil {
+					cancel()
+				} else {
+					keep = true
+					r.arm(time.Now().Add(interruptedDelay))
+				}
+			}
+		}
 	case item.Due:
 		if err := r.due(ctx, now); err != nil {
 			// The next wake could not be set. Not finished: the claim lapses
@@ -394,7 +406,7 @@ func (r *Runner) accept(item store.Reaction) error {
 	}
 	var err error
 	for attempt := 1; ; attempt++ {
-		if item.ID == store.DueReaction || item.ID == store.IndexReaction || item.Ask != "" || item.Locate {
+		if item.ID == store.DueReaction || item.ID == store.IndexReaction || item.Ask != "" || item.Locate || item.CheckIn != "" {
 			// At most one waits at a time; one already waiting covers this.
 			if err = r.store.CreateReaction(item); errors.Is(err, store.ErrReactionExists) {
 				err = nil

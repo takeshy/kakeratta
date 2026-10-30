@@ -1,14 +1,18 @@
 ---
 type: "Component"
 title: "API and persistent state"
-description: "Authentication including Alexa account linking and English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake."
+description: "Authentication including Alexa account linking and English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, guarded manual check-in requests, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake."
 tags: ["http", "auth", "entry", "capture", "timeline", "pagination", "store", "firestore", "settings", "llm", "usage", "search", "index", "push", "favorites", "profile", "avatar", "google-import"]
-updated: "2026-10-24"
+updated: "2026-10-30"
 ---
 
-Authentication, English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake.
+Authentication, English judge sample workspaces, entry handling, timeline data, persistence, settings, profile and avatar validation, model usage logging and monthly cost accounting, schedule editing, guarded manual check-in requests, reminder push delivery, favorites, search, and owner-reviewed Gmail and Calendar intake.
 
 # HTTP API and authentication
+
+Guarded `POST /api/check-ins/{period}` accepts `daily` or `monthly` and returns 202 after persisting a manual reaction. Invalid periods or missing AI credentials/model configuration return 400; queue failures return 500. Acceptance does not imply a new post: manual work runs independently of automatic execution records and personas may stay silent. See [checkin.go](../../internal/server/checkin.go), [endpoint tests](../../internal/server/checkin_test.go), and [manual check-ins](./personas.md#manual-check-ins).
+
+Manual check-in progress uses the `check-ins` runtime record collection ([runtime.go](../../internal/store/runtime.go)): files under `runtime/check-ins/{stageHash}.json` or Firestore documents under `users/{key}/check-ins/{stageHash}`. Each record stores the latest request stamp and completion flag for one mode/stage, separately from automatic `dailyCheckIns`. Renewable workspace locks serialize stage execution; atomic record updates checkpoint success. These internal records have no expiry and are excluded from exports; workspace deletion removes them. See [manual stage recovery](./personas.md#manual-check-ins) and [recovery tests](../../internal/persona/manual_stage_test.go).
 
 ## Resolving the user
 

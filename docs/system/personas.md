@@ -1,9 +1,9 @@
 ---
 type: "Component"
 title: "Persona execution and memory"
-description: "Persona definitions, support through the direct built-in AI and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory as grounded facts and records, schedules, background output language, and corrections."
+description: "Persona definitions, support through the direct built-in AI and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory as grounded facts and records, schedules, manual daily/monthly check-ins independent of automatic execution records, background output language, and corrections."
 tags: ["persona", "skill", "support", "infographic", "markdown", "mermaid", "ultra", "routing", "answer", "budget", "workflow", "memory", "records", "schedule", "daily", "preview", "trial"]
-updated: "2026-10-28"
+updated: "2026-10-30"
 ---
 
 Persona definitions, support through the direct built-in AI and infographics, routing, research budgets and capabilities, reviewed schedule changes, optional memory as grounded facts and records, schedules, and corrections.
@@ -363,7 +363,7 @@ Deletion identifies user kakera by their speaker and ID, even when their text is
 
 # Schedules, check-ins, and monthly summaries
 
-Account check-in times, the monthly summary day, the next check-in alarm and the monthly day shown on persona cards all use the stable `Workspace.ID()`: the persisted user document ID for Firestore, or the workspace root for file storage. Firestore's temporary materialisation directory is never used as the scheduling identity, so reopening a workspace or restarting a process does not move its summary to another day of the month. The existing transactional daily claims prevent repeated execution on that fixed day; there is no additional month-level guard or migration. Verification: [workspace_id_test.go](../../internal/store/workspace_id_test.go) checks IDs across independent Firestore materialisations without an emulator, and [summary_test.go](../../internal/persona/summary_test.go) checks stable alarms, one summary after replacing scratch directories, and execution the following month.
+Account check-in times, the monthly summary day, the next check-in alarm and the monthly day shown on persona cards all use the stable `Workspace.ID()`: the persisted user document ID for Firestore, or the workspace root for file storage. Firestore's temporary materialisation directory is never used as the scheduling identity, so reopening a workspace or restarting a process does not move its summary to another day of the month. Transactional execution claims prevent repeats: daily work claims the local date, while month summaries and monthly person check-ins claim the local month. A monthly person check-in claims under its own ID (`monthlyClaimID`, `<persona>@monthly`), apart from the persona's daily claim: a month key such as `2026-11` sorts before that month's dates, so a persona switched from daily to monthly could otherwise not claim the month. Manual runs bypass these automatic claims and leave existing claim records intact. Verification: [workspace_id_test.go](../../internal/store/workspace_id_test.go) checks IDs across independent Firestore materialisations without an emulator, and [summary_test.go](../../internal/persona/summary_test.go) checks stable alarms, one summary after replacing scratch directories, and execution the following month.
 
 ## Scheduled wakes
 
@@ -399,6 +399,20 @@ The app itself builds monthly summaries from the timeline as topic-based posts w
 
 Built-in check-ins use the same combined read/answer loop as ordinary posts. After any necessary reads, `submit_answer` with empty text ends the turn without another composition call. This retains due-review instructions and the normal answer validation; silence does not override an explicit question obligation. Silent turns still run schedule planning when requested by the answer, execution, wake bookkeeping and opted-in memory work; for example, sona can arrange a later preparation wake without publishing now. External-agent answers retain their existing protocol. Daily instructions request older tag records only for a concrete connection to relevant new activity; with no relevant change, approaching plan or due review, they stop exploring unchanged history. Retrieval failure is not evidence of no change. Read/search ceilings and infographic Markdown instructions remain unchanged. Verification: [cost_test.go](../../internal/persona/cost_test.go) and [answer_loop_test.go](../../internal/persona/answer_loop_test.go).
 
+
+## Manual check-ins
+
+The **Judging** menu queues daily or monthly work through [RequestCheckIn](../../internal/persona/manual_checkin.go). Daily runs bypass the scheduled time window and review the last 24 hours using available internal summaries and all uncovered posts (without the automatic fallback's 30-post cap), tidy memory, review due records, and look for useful connections with older memories and conversations the persona did not join. They exclude monthly person personas. Monthly runs bypass the scheduled summary day, write a fresh summary of up to the last 32 days and wake only active remembering person personas configured for monthly check-ins.
+
+Manual work neither reads nor updates the automatic account, summary, or persona execution claims. It can run before or after automatic checks; existing execution dates and timestamps remain intact, and the next automatic check runs on its ordinary schedule. A manual run never advances the automatic lookback window. The actual memory tidy and any resulting timeline posts are saved normally.
+
+Each mode uses a fixed pending reaction ID (`manual-daily` or `manual-monthly`) in the `due` lane. Requests received while that mode is queued or running coalesce without overwriting the live claim; after completion removes the reaction, another explicit request can run again. The execution window and post times use the time the worker runs, while the request time (`manualStamp`) identifies a retry independently of automatic check-ins.
+
+[manual_stage.go](../../internal/persona/manual_stage.go) takes a renewable workspace lock per mode/stage and stores a `check-ins` runtime checkpoint containing the request stamp and a separate `done` flag. Starting work does not complete it. Only a successful turn (including silence), saved summary, or durable external-agent handoff completes the stage. An error or lost context leaves it incomplete. Ordinary failures retain the manual reaction with a 30-second backoff, preserving its attempt count, with at most three attempts; interrupted claims use the queue's normal recovery path. A retry skips completed stages, and a new request stamp starts them again. Automatic execution claims are never read, updated or deleted by this mechanism.
+
+Manual summary and persona output IDs are deterministic from the mode, stage and request stamp (`e_manual_…`). If publication succeeded but its response or the completion checkpoint was lost, the saved output is recovery evidence: the retry completes the checkpoint without regenerating the post. External-agent asks similarly use a deterministic ID, preserve an existing claim, and carry `ManualOutput` in the durable `askTurn`; resumed answers retain the output ID. Checkpoints retain one latest request per mode/stage, use no expiry, are excluded from exports and are removed with the workspace. Existing older `manual-…` claims are left untouched. Results arrive through normal entry events, and a silent run need not create a post.
+
+Verification: [manual_checkin_test.go](../../internal/persona/manual_checkin_test.go) checks automatic/manual isolation, completed retries, switching a person from daily to monthly, and click coalescing. [manual_stage_test.go](../../internal/persona/manual_stage_test.go) interrupts both daily and monthly work at stage start, before publication, after publication with a lost response, and during completion writes; it also checks failed-provider recovery, queued retries, external handoff and resumed output identity, and inclusion of 45 uncovered posts while automatic fallback retains its 30-post limit.
 
 ## The day's summary
 

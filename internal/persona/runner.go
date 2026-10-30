@@ -775,6 +775,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		slot = "super"
 	}
 	if client == nil || client.BaseURL == "" || answerModel == "" || phaseModel == "" {
+		manualTurnFailed(ctx, errors.New("AI is not configured"))
 		return nil
 	}
 	if resumed == nil {
@@ -866,9 +867,10 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	defer func() { logRun(record) }()
 	failed := func(err error) *timeline.Entry {
 		record.Error = err.Error()
+		manualTurnFailed(ctx, err)
 		r.emit("error", map[string]any{"persona": skill.ID, "message": err.Error()})
 		if named && !listening {
-			return r.speak(skill, root, couldNotAnswer(trigger.Language), nil, memory, trigger.ID, nil, "", false)
+			return r.speak(ctx, skill, root, couldNotAnswer(trigger.Language), nil, memory, trigger.ID, nil, "", false)
 		}
 		return r.hush(skill, memory)
 	}
@@ -916,7 +918,11 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 		// The answer is asked of the external agent. This turn ends here;
 		// once the ask is over, resumeAsk takes it up again from the top.
 		record.Planner = "external"
-		ask := Ask{ID: store.NewID("ask"), Persona: skill.ID, Name: skill.Name, Wake: record.Wake, Trigger: trigger.ID}
+		askID := store.NewID("ask")
+		if output := manualOutputID(ctx); output != "" {
+			askID = "ask_" + output
+		}
+		ask := Ask{ID: askID, Persona: skill.ID, Name: skill.Name, Wake: record.Wake, Trigger: trigger.ID}
 		// The agent is told the same as the built-in model, but not to be brief.
 		agentLength := agentRule
 		if requestedDeep {
@@ -930,7 +936,7 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 			agentRules += infographicRules(trigger, thread)
 		}
 		brief := r.askContext(skill, set, agentRules, turnLine(named, listening), wakeInstructions, record.Wake, thread, trigger, memoryNote, scheduleList, names, here, deep)
-		turn := askTurn{Persona: skill.ID, Trigger: trigger, Place: post.Place, Named: named, Listening: listening, Instructions: wakeInstructions, Deep: deep, SuppressNotification: !scheduleNotify(ctx)}
+		turn := askTurn{Persona: skill.ID, Trigger: trigger, Place: post.Place, Named: named, Listening: listening, Instructions: wakeInstructions, Deep: deep, SuppressNotification: !scheduleNotify(ctx), ManualOutput: manualOutputID(ctx)}
 		if err := r.openAsk(ctx, settings, ask, brief, turn); err != nil {
 			return failed(err)
 		}
@@ -1028,13 +1034,13 @@ func (r *Runner) run(ctx context.Context, skill Skill, thread []timeline.Entry, 
 	switch {
 	case listening || spoken == "":
 		if named && !listening {
-			remark = r.speak(skill, root, couldNotAnswer(trigger.Language), nil, memory, trigger.ID, nil, "", false)
+			remark = r.speak(ctx, skill, root, couldNotAnswer(trigger.Language), nil, memory, trigger.ID, nil, "", false)
 		} else {
 			// It had its turn; its notes are kept below either way.
 			remark = r.hush(skill, memory)
 		}
 	default:
-		remark = r.speak(skill, root, spoken, append(readSources, sources...), memory, trigger.ID, nil, slot, record.Wake == "schedule")
+		remark = r.speak(ctx, skill, root, spoken, append(readSources, sources...), memory, trigger.ID, nil, slot, record.Wake == "schedule")
 		if remark != nil && record.Wake == "schedule" && scheduleNotify(ctx) {
 			r.emit("reminder", *remark)
 		}
@@ -1146,7 +1152,13 @@ func (r *Runner) hush(skill Skill, memory store.Memory) *timeline.Entry {
 
 // scheduled marks a remark a schedule woke the persona for, which the user can
 // then mark done.
-func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source, memory store.Memory, replyTo string, notes []string, slot string, scheduled bool) *timeline.Entry {
+func (r *Runner) speak(ctx context.Context, skill Skill, root, text string, sources []timeline.Source, memory store.Memory, replyTo string, notes []string, slot string, scheduled bool) *timeline.Entry {
+	output := manualOutputID(ctx)
+	if output != "" {
+		if existing, ok := r.store.Entry(output); ok {
+			return &existing
+		}
+	}
 	if skill.ID == timeline.Agent && slot == "" {
 		slot = "super"
 	}
@@ -1165,12 +1177,20 @@ func (r *Runner) speak(skill Skill, root, text string, sources []timeline.Source
 			remark.Language = trigger.Language
 		}
 	}
+	if output != "" {
+		remark.ID = output
+	}
 	if root == "" {
 		remark.Kind = timeline.KindPost
 		remark.Root = remark.ID
 		remark.ReplyTo = ""
 	}
+	if err := ctx.Err(); err != nil {
+		manualTurnFailed(ctx, err)
+		return nil
+	}
 	if err := r.store.Append(remark); err != nil {
+		manualTurnFailed(ctx, err)
 		return nil
 	}
 	r.emit("entry", remark)
