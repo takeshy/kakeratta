@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 import urllib.request
 import urllib.error
 
-WORKER_VERSION = "16"
+WORKER_VERSION = "17"
 
 # --- defaults -------------------------------------------------------------
 DEFAULT_MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
@@ -982,11 +982,11 @@ def _judge_root(parent: Path, workspace_id: str) -> Path:
 
 
 def spawn_persona_asks(url, headers, workspace_id, asks=None, home=None):
-    """Start process_persona_asks for one judge workspace in a detached
+    """Start process_persona_asks for one configured or judge workspace in a detached
     process and return at once, so the Wake Gate is never held by a Hermes
     run. The MCP credential goes over stdin, never on the command line."""
     parent = home or get_hermes_home()
-    root = _judge_root(parent, workspace_id)
+    root = _work_root(parent) if workspace_id == "configured" else _judge_root(parent, workspace_id)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(root, 0o700)
     log = open(root / "persona.log", "a", encoding="utf-8")
@@ -1004,9 +1004,10 @@ def spawn_persona_asks(url, headers, workspace_id, asks=None, home=None):
         log.close()
 
 
-def spawn_judge_requests(url, headers, workspace_id, requests, home=None):
+def spawn_requests(url, headers, workspace_id, requests, home=None):
+    """Detach direct requests while preserving the workspace's tools and locks."""
     parent = home or get_hermes_home()
-    root = _judge_root(parent, workspace_id)
+    root = _work_root(parent) if workspace_id == "configured" else _judge_root(parent, workspace_id)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(root, 0o700)
     fd = os.open(root / "requests.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
@@ -1017,6 +1018,11 @@ def spawn_judge_requests(url, headers, workspace_id, requests, home=None):
             env=dict(os.environ, HERMES_HOME=str(parent)), start_new_session=True)
         proc.stdin.write(json.dumps({"url": url, "headers": headers, "workspaceId": workspace_id, "requests": requests}))
         proc.stdin.close()
+
+
+def spawn_judge_requests(url, headers, workspace_id, requests, home=None):
+    # Retain the entry point used by older installed gates during self-update.
+    spawn_requests(url, headers, workspace_id, requests, home=home)
 
 
 def judge_requests_main():

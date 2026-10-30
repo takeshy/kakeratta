@@ -229,8 +229,11 @@ class JudgeIsolationTest(unittest.TestCase):
         with patch.dict(os.environ, {"HERMES_HOME": str(self.home), "JUDGE_MCP_KEY": "j" * 64, "JUDGE_WORKSPACES_URL": "https://host.example/internal/judge-workspaces"}), \
              patch.object(gate, "judge_tick") as jtick, \
              patch.object(gate, "judge_workspaces") as jdisc, \
-             patch.object(gate, "call_tool", return_value={"asks": [], "requests": [{"id": "owner-req", "status": "pending"}]}) as poll, \
-             patch.object(worker, "process") as proc_owner, \
+             patch.object(gate, "call_tool", return_value={"asks": [{"id": "owner-ask", "status": "pending"}], "requests": [{"id": "owner-req", "status": "pending"}]}) as poll, \
+             patch.object(worker, "spawn_requests") as requests, \
+             patch.object(worker, "spawn_persona_asks") as asks, \
+             patch.object(worker, "process") as inline_requests, \
+             patch.object(worker, "process_asks") as inline_asks, \
              patch("sys.stdout", new_callable=io.StringIO) as out:
             gate.main()
             jtick.assert_called_once()
@@ -241,8 +244,67 @@ class JudgeIsolationTest(unittest.TestCase):
                  "Content-Type": "application/json", "Accept": "application/json, text/event-stream"},
                 "list_asks",
             )
-            proc_owner.assert_called_once()
+            requests.assert_called_once_with(poll.call_args.args[0], poll.call_args.args[1], "configured", [{"id": "owner-req", "status": "pending"}])
+            asks.assert_called_once_with(poll.call_args.args[0], poll.call_args.args[1], "configured", [{"id": "owner-ask", "status": "pending"}])
+            inline_requests.assert_not_called()
+            inline_asks.assert_not_called()
             self.assertEqual(json.loads(out.getvalue().strip()), {"wakeAgent": False})
+            # A following tick can poll judges again without executing either
+            # owner's inference handler in the gate process.
+            gate.main()
+            self.assertEqual(jtick.call_count, 2)
+            self.assertEqual(poll.call_count, 2)
+            self.assertEqual(requests.call_count, 2)
+            self.assertEqual(asks.call_count, 2)
+            inline_requests.assert_not_called()
+            inline_asks.assert_not_called()
+
+    def test_detached_owner_workers_keep_configured_scope_and_pass_credentials_over_stdin(self):
+        for persona in (False, True):
+            with self.subTest(persona=persona):
+                items = [{"id": "owner-work", "status": "claimed"}]
+                with patch.object(worker.subprocess, "Popen") as popen:
+                    if persona:
+                        worker.spawn_persona_asks(self.url(self.wids[0]), self.headers, "configured", items, home=self.home)
+                    else:
+                        worker.spawn_requests(self.url(self.wids[0]), self.headers, "configured", items, home=self.home)
+                    command = popen.call_args.args[0]
+                    self.assertTrue(popen.call_args.kwargs["start_new_session"])
+                    self.assertEqual(popen.call_args.kwargs["env"]["HERMES_HOME"], str(self.home))
+                    self.assertNotIn(self.headers["Authorization"], " ".join(command))
+                    payload = popen.return_value.stdin.write.call_args.args[0]
+                    popen.return_value.stdin.close.assert_called_once()
+                    popen.return_value.wait.assert_not_called()
+                    popen.return_value.communicate.assert_not_called()
+                    handler = worker.persona_asks_main if persona else worker.judge_requests_main
+                    with patch("sys.stdin", io.StringIO(payload)), \
+                         patch.dict(os.environ, {"HERMES_HOME": str(self.home)}), \
+                         patch.object(worker, "process_one") as direct, \
+                         patch.object(worker, "process_one_ask") as ask:
+                        self.assertEqual(handler(), 0)
+                        invoked = ask if persona else direct
+                        invoked.assert_called_once()
+                        self.assertEqual(invoked.call_args.args[4], self.home)
+                        cfg = invoked.call_args.args[3]
+                        if not persona:
+                            self.assertEqual(cfg["toolsets"], "terminal,web,kakeratta,files")
+                            self.assertEqual(cfg["model"], "worker-model")
+                    # Existing configured-workspace locks must still prevent
+                    # an overlapping detached tick from starting inference.
+                    lock = worker.acquire_persona_lock(self.home) if persona else worker.acquire_lock(self.home)
+                    self.assertIsNotNone(lock)
+                    try:
+                        with patch("sys.stdin", io.StringIO(payload)), \
+                             patch.dict(os.environ, {"HERMES_HOME": str(self.home)}), \
+                             patch.object(worker, "process_one") as direct, \
+                             patch.object(worker, "process_one_ask") as ask:
+                            self.assertEqual(handler(), 0)
+                            direct.assert_not_called()
+                            ask.assert_not_called()
+                    finally:
+                        lock.close()
+        self.assertFalse((self.home / "kakeratta-judge-workspaces").exists())
+        self.assertEqual((self.home / "config.yaml").read_bytes(), self.before)
 
     def test_discovery_refuses_cross_origin_and_redirects(self):
         response = io.BytesIO(json.dumps({"workspaces": [{"workspaceId": self.wids[0], "mcpUrl": "https://evil.example/mcp"}]}).encode())

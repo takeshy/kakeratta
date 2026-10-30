@@ -31,7 +31,7 @@ import urllib.request
 import urllib.error
 
 # GATE_VERSION is this script's version, compared with the one list_asks reports.
-GATE_VERSION = "14"
+GATE_VERSION = "15"
 
 
 def adjust_max_turns(config_path: Path, target_turns: int) -> bool:
@@ -435,7 +435,7 @@ def main():
                 continue
             try:
                 if target["workspaceId"] == "configured":
-                    worker.process(target["mcpUrl"], headers, open_requests)
+                    worker.spawn_requests(target["mcpUrl"], headers, "configured", open_requests)
                 else:
                     worker.spawn_judge_requests(target["mcpUrl"], headers, target["workspaceId"], open_requests)
             except Exception as e:
@@ -451,10 +451,7 @@ def main():
                 if not open_asks:
                     continue
                 try:
-                    if target["workspaceId"] == "configured":
-                        worker.process_asks(target["mcpUrl"], headers, open_asks)
-                    else:
-                        worker.spawn_persona_asks(target["mcpUrl"], headers, target["workspaceId"], open_asks)
+                    worker.spawn_persona_asks(target["mcpUrl"], headers, target["workspaceId"], open_asks)
                 except Exception as e:
                     print(f"kakeratta persona worker failed for {target['workspaceId']}: {e}", file=sys.stderr)
             # Persona asks are handled by the worker above (or fall back on
